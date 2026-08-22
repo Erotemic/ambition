@@ -1,46 +1,10 @@
-//! **Character select: where a match is DECIDED before it is seated.**
+//! Pure character-select state for up to four match seats.
 //!
-//! and then start the battle when up to 4 players are locked in."*
-//!
-//! selectable characters on the top 65% of the screen. The bottom 35% of the
-//! screen should be 4 participant slot cards… Each participant slot will have a
-//! button to toggle it between a controller player (which must have a
-//! corresponding attached controller), a CPU player, or not participating."*
-//!
-//! ## Why this is a value and not a pile of widgets
-//!
-//! A menu picks one thing for one person. This decides, per slot, two
-//! independent facts — **who is there** and **what they chose** — and the match
-//! cannot begin until every slot that is there has answered the second. That is
-//! a small state machine per slot and a quorum rule over the set, which is
-//! exactly the thing that goes wrong when it is written as UI callbacks:
-//! "everyone is ready" gets computed from whichever widget last fired.
-//!
-//! So the whole decision is a pure value with no Bevy in it beyond `Resource`.
-//! [`crate::select_screen`] draws it and drives it; this decides.
-//!
-//! ## The rule, stated once
-//!
-//! **The battle starts when every PARTICIPATING slot has picked a character and
-//! at least two slots participate.** Both were found the hard way:
-//!
-//! * without "every participating slot has picked", a player who joined and is
-//!   still browsing gets dropped into a fight as whoever the cursor was over;
-//! * without "at least two", the first slot to decide starts a match against
-//!   nobody — and a stocks match with one side never ends, because
-//!   `last_side_standing` correctly refuses to call a sole survivor a winner;
-//! * without "at least one person", the second CPU somebody adds starts a match
-//!   they are not in, before they have chosen a character.
-//!
-//! ## Who is at a slot
-//!
-//! A slot is [`SlotOccupant:Absent`], a [`SlotOccupant:Controller`], or a [`SlotOccupant:Cpu`]
-//! — and the third exists because the screen used to offer one seat per PAD, so a player alone
-//! at a keyboard could never reach the two decided slots a match needs.
-//!
-//! The select model therefore exposes an explicit source→slot claim: a cursor may claim a card
-//! by selecting a fighter, while a role-button press may deliberately seat another connected
-//! source.
+//! Each slot independently records its occupant (absent/controller/CPU) and selected
+//! character. A match may start only when at least two slots participate and every
+//! participating slot has selected a character. Input sources may claim a slot by
+//! selecting a fighter or by explicitly changing a slot role; rendering/input handling
+//! lives in `select_screen`.
 
 #[cfg(test)]
 use crate::STARTING_STOCKS;
@@ -50,7 +14,7 @@ use crate::{MatchParticipant, MatchParticipantRoster};
 /// same one `SlotControls` holds.
 pub const MAX_SMASH_SEATS: usize = 4;
 
-/// **THE GRID. Edit this list.**
+/// THE GRID. Edit this list.
 ///
 /// game in the future, so make it easy to have the exact number of characters
 /// configurable. We may go more than 8."* This is that list, and it is the only
@@ -58,13 +22,13 @@ pub const MAX_SMASH_SEATS: usize = 4;
 /// the layout balances the rows around it, and nothing else has an opinion about
 /// how many there are.
 ///
-/// **it is a WISH LIST, not a guarantee.** Ids the composition around this
+/// it is a WISH LIST, not a guarantee. Ids the composition around this
 /// demo does not carry are dropped by [`SmashRoster::assemble`] — Mary-O, Sanic
 /// and Solid Snake are declared by the demos they belong to, so the standalone
 /// smash app offers only the fighters it declares itself, and the multi-game
 /// host offers the whole crossover cast. Order is preserved.
 ///
-/// **do not add a fighter by declaring a COPY of it here.** The first draft
+/// do not add a fighter by declaring a COPY of it here. The first draft
 /// did exactly that — its own `smash_mary_o`, `smash_sanic`, `smash_solid_snake`
 /// and `smash_super_sanic` on the sheets those characters already use — and the
 /// assembled catalog refused all four:
@@ -88,7 +52,7 @@ pub const SMASH_ROSTER: &[&str] = &[
     // This demo's own, on a sheet nobody else claims.
     crate::SMASH_GEORGE_BOOUL,
     // Nothing goes red either way: both ids are real characters with identical kits, so every test
-    // passes and only the sheet changes. ⇒ a stale working copy is a REVERT WITH NO DIFF TO REVIEW.
+    // passes and only the sheet changes.  a stale working copy is a REVERT WITH NO DIFF TO REVIEW.
     "mary_o_tall",
     "sanic",
     // Ambition's own cast.
@@ -109,7 +73,7 @@ pub const SMASH_ROSTER: &[&str] = &[
     // stand-ins below, this is a real character owned by Ambition content.
     "pointed_polygon",
     "pugnacious_polygon",
-    // **THE STAND-INS, and they are LAST for a reason.** See [`STAND_INS`].
+    // THE STAND-INS, and they are LAST for a reason. See [`STAND_INS`].
     crate::SMASH_CHARACTER_ID,
     crate::SMASH_OPPONENT_ID,
 ];
@@ -130,14 +94,14 @@ const STAND_INS: &[(&str, &str)] = &[
     (crate::SMASH_OPPONENT_ID, "player_robot_v2"),
 ];
 
-/// **The characters a slot can choose between, in this composition.**
+/// The characters a slot can choose between, in this composition.
 ///
 /// [`SMASH_ROSTER`] filtered to the ids the assembled catalog actually carries,
 /// in the order it names them. Resolved once at `Startup`, because which cast is
 /// present is a fact about the COMPOSITION and a multi-game host is what
 /// assembles one.
 ///
-/// **the default is this demo's own fighters**, not an empty list. A fixture
+/// the default is this demo's own fighters, not an empty list. A fixture
 /// with no catalog is testing the SCREEN, and a roster that collapsed to nothing
 /// there would make every one of those tests pass over an empty grid.
 #[derive(bevy::prelude::Resource, Clone, Debug, PartialEq, Eq)]
@@ -173,7 +137,7 @@ impl SmashRoster {
         self.0.iter().map(String::as_str)
     }
 
-    /// **[`SMASH_ROSTER`] ∩ what this composition can SEAT**, in roster order.
+    /// [`SMASH_ROSTER`] ∩ what this composition can SEAT, in roster order.
     ///
     /// an id this host cannot seat is DROPPED rather than kept as a hole:
     /// a grid cell for a character that cannot be built is a portrait a player
@@ -204,7 +168,7 @@ impl SmashRoster {
     }
 }
 
-/// **Who is at one slot.**
+/// Who is at one slot.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SlotOccupant {
     /// Not participating. A slot that never fills is not a fighter and is not
@@ -238,9 +202,9 @@ impl SlotOccupant {
     }
 }
 
-/// **What a slot has chosen.**
+/// What a slot has chosen.
 ///
-/// **not a `usize`, because one of the choices is not a character.** The grid
+/// not a `usize`, because one of the choices is not a character. The grid
 /// offers a RANDOM cell, and spelling that as a reserved index
 /// into the fighter list would put arithmetic between "what somebody clicked"
 /// and "who they are playing" — the shape this file already refuses for the
@@ -250,7 +214,7 @@ impl SlotOccupant {
 pub enum SlotPick {
     /// This exact fighter, by roster index.
     Fighter(usize),
-    /// **Surprise me.** The character is chosen when the match starts, not when
+    /// Surprise me. The character is chosen when the match starts, not when
     /// the square is clicked — so a person who takes random and then waits is
     /// not sitting there already knowing.
     Random,
@@ -277,7 +241,7 @@ impl From<usize> for SlotPick {
     }
 }
 
-/// **One deterministic stream for a match's random squares.**
+/// One deterministic stream for a match's random squares.
 ///
 /// ADR 0023 forbids ambient RNG, so this is a value seeded by its caller rather
 /// than anything reaching for the clock. The mixer is the same 64-bit LCG the
@@ -308,7 +272,7 @@ impl RandomPick {
     }
 }
 
-/// **What one slot card says.**
+/// What one slot card says.
 ///
 /// Human <-> CPU preserves the current pick because the chair is still active;
 /// becoming [`SlotOccupant::Absent`] clears it. Reactivating an undecided card
@@ -320,7 +284,7 @@ pub struct SlotCard {
     pub pick: Option<SlotPick>,
 }
 
-/// **The grid's cells, which are the fighters PLUS the random square.**
+/// The grid's cells, which are the fighters PLUS the random square.
 ///
 /// The random square is LAST, deliberately: every fighter keeps the cell index
 /// it already had, so a screen, a walkthrough or a test that names a portrait by
@@ -442,10 +406,10 @@ impl SmashSelect {
         }
     }
 
-    /// **The roster slot this local input SOURCE drives, if any.**
+    /// The roster slot this local input SOURCE drives, if any.
     ///
-    /// **a match slot is not an input seat, and this is the translation
-    /// nobody wrote.** The select screen keys its cursors by input seat —
+    /// a match slot is not an input seat, and this is the translation
+    /// nobody wrote. The select screen keys its cursors by input seat —
     /// correctly, a hand belongs to a person — and then used that same index as
     /// the card to write a pick into. That holds only while the roster is dense
     /// and in source order; a CPU hole deliberately breaks both:
@@ -490,7 +454,7 @@ impl SmashSelect {
         }
     }
 
-    /// **Set the fighter choice owned by one match slot.**
+    /// Set the fighter choice owned by one match slot.
     ///
     /// the index is not bounds-checked here, and the reason is that the only
     /// thing that produces one is a portrait the LAYOUT drew — which the layout
@@ -546,7 +510,7 @@ impl SmashSelect {
             .count()
     }
 
-    /// **Can the battle start?**
+    /// Can the battle start?
     ///
     /// Every participating slot has picked, and at least two participate.
     ///
@@ -557,7 +521,7 @@ impl SmashSelect {
         self.decided() >= 2 && self.participating() == self.decided()
     }
 
-    /// **Why the match cannot start**, in the words the screen puts under the
+    /// Why the match cannot start, in the words the screen puts under the
     /// cards.
     pub fn blocker(&self) -> Option<&'static str> {
         if self.participating() < 2 {
@@ -577,7 +541,7 @@ impl SmashSelect {
         fighters: &SmashRoster,
         policy: ambition_platformer2d::input::sources::InputAssignmentPolicy,
     ) -> Option<MatchParticipantRoster> {
-        // **DECLARES NO FLOOR and knows no repertoires** — this is the
+        // DECLARES NO FLOOR and knows no repertoires — this is the
         // convenience wrapper, so a kit-less character seated through it reaches
         // the stage unarmed. That is the honest answer for a caller that has not
         // said what its experience grants; production goes through
@@ -585,16 +549,16 @@ impl SmashSelect {
         self.roster_seeded(fighters, 0, policy, &Default::default(), None)
     }
 
-    /// **The match this screen decided, with the random squares resolved.**
+    /// The match this screen decided, with the random squares resolved.
     ///
-    /// **`seed` is required, not ambient** (ADR 0023: no ambient RNG). The
+    /// `seed` is required, not ambient (ADR 0023: no ambient RNG). The
     /// caller supplies something that varies per match; this rolls a
     /// deterministic stream off it, the same shape the boss patterns use. A
     /// seeded stream is also what lets a test ask for a specific draw instead of
     /// asserting "some fighter".
     ///
-    /// **the POLICY is a parameter for the same reason
-    /// [`source_name_under`] takes one**: a slot's occupant number is an index
+    /// the POLICY is a parameter for the same reason
+    /// [`source_name_under`] takes one: a slot's occupant number is an index
     /// into the sources this screen offered, and what index zero MEANS —
     /// the keyboard, or the first pad — is the policy's answer. Turning that
     /// index into a roster binding without it would encode one policy's
@@ -604,11 +568,11 @@ impl SmashSelect {
         fighters: &SmashRoster,
         seed: u64,
         policy: ambition_platformer2d::input::sources::InputAssignmentPolicy,
-        // **WHO ALREADY HAS A REPERTOIRE**, by id. See the kit block below: a
+        // WHO ALREADY HAS A REPERTOIRE, by id. See the kit block below: a
         // seat whose character authors its own moves keeps them, and only the
         // ones that authored nothing take this stage's generic kit.
         //
-        // **a set of ids rather than the registry**, deliberately. The
+        // a set of ids rather than the registry, deliberately. The
         // registry can only be populated through the preparation barrier, which
         // needs an `App` — so taking it here would mean this screen's regressions
         // could not state the case they are about without standing a whole app
@@ -616,7 +580,7 @@ impl SmashSelect {
         //
         // Empty = nobody authors anything, which is what every seat got before.
         repertoires: &std::collections::BTreeSet<String>,
-        // **The floor this EXPERIENCE declares** for a seat whose character
+        // The floor this EXPERIENCE declares for a seat whose character
         // states no kit — `DeclaredCombatRules::unarmed_melee`. `None` means the
         // stage says nothing, and a kit-less seat gets whatever the engine's own
         // default is wherever it is built.
@@ -660,7 +624,7 @@ impl SmashSelect {
                             brain_profile: Some(crate::SMASH_DUELIST_BRAIN.to_string()),
                         },
                     })
-                    // **THE KIT THIS MATCH GIVES THE ONES WITH NONE.**
+                    // THE KIT THIS MATCH GIVES THE ONES WITH NONE.
                     .on_team(format!("seat {}", slot + 1));
                 Some(match (authors_its_own, unarmed_melee.clone()) {
                     // Its own repertoire outranks any floor.
@@ -689,7 +653,7 @@ impl SmashSelect {
     }
 }
 
-/// **How many local input SOURCES this screen can hand out**, from the devices
+/// How many local input SOURCES this screen can hand out, from the devices
 /// that are actually plugged in.
 ///
 /// because a keyboard is player one on every other route in this game and a
@@ -709,7 +673,7 @@ pub fn seats_offered(devices: &ambition_platformer2d::input::LocalDeviceOrder) -
     )
 }
 
-/// **How many sources present can claim a slot, under a stated policy.**
+/// How many sources present can claim a slot, under a stated policy.
 ///
 /// A gamepad joins a second participant."* With one keyboard and one pad it offers ONE source, so
 /// both drive player one and the pad player has nowhere to sit. The keyboard was never a row in
@@ -733,14 +697,14 @@ pub fn seats_offered_under(
     seats.clamp(1, MAX_SMASH_SEATS)
 }
 
-/// **WHICH INPUT DEVICE a slot's person is holding, in words.**
+/// WHICH INPUT DEVICE a slot's person is holding, in words.
 ///
 /// which input device, so idk if that is the problem or not"* — asked while
 /// debugging a couch match, and answered with text rather than a glyph because
 /// *"text saying which input device it is is fine for the prototype. gives more
 /// info for debugging."*
 ///
-/// **derived from the SAME two authorities that decided the index**, not from
+/// derived from the SAME two authorities that decided the index, not from
 /// a second table: [`seats_offered_under`] turns `LocalDeviceOrder` + the policy
 /// into how many sources exist, and this turns one of those indices back into
 /// the source it names. A separate mapping would be a second answer to "what is
@@ -770,7 +734,7 @@ pub fn source_name_under(
     }
 }
 
-/// **WHICH SOURCE a slot's occupant number names**, under a stated policy.
+/// WHICH SOURCE a slot's occupant number names, under a stated policy.
 ///
 /// That is exactly the pair that drifts: the label said `KEYBOARD` while the roster said pad
 /// zero, and the match then bound the keyboard player to a controller.
@@ -794,7 +758,7 @@ pub fn local_source_under(
     }
 }
 
-/// **What every fighter on this stage swings.**
+/// What every fighter on this stage swings.
 ///
 /// The demo's `duelist` preset, in Rust rather than by catalog reference,
 /// because the roster hands the kit to characters whose OWN rows this demo does

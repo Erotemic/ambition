@@ -121,7 +121,7 @@ mod tests {
         );
     }
 
-    /// ⛔ the artifact that six spurious findings came from, pinned.
+    ///  the artifact that six spurious findings came from, pinned.
     #[test]
     fn a_tick_that_does_not_advance_drops_the_carried_velocity() {
         let mut detector = UnclaimedStepDetector::new();

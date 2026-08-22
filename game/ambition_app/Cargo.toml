@@ -82,7 +82,7 @@ visible_web_base = [
     "portal",
     "portal_render",
     "bevy_ui_menu",
-    # **A SHELL HOST ROUTES; IT DOES NOT PAINT.** `MinimalShellPlugins` adds
+    # A SHELL HOST ROUTES; IT DOES NOT PAINT. `MinimalShellPlugins` adds
     # `BasicShellPresentationPlugin` only under this feature, so without it the browser composes a
     # perfectly correct host, boots to the launcher route, and renders NOTHING — a blank canvas with
     # a live simulation behind it.
@@ -184,7 +184,7 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 mimalloc = { version = "0.1", default-features = false, optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
-# **The app died before a line of Rust ran, and the allocator was why.**
+# The app died before a line of Rust ran, and the allocator was why.
 #
 # `libmimalloc-sys` compiles mimalloc with `-ftls-model=initial-exec` unless
 # `local_dynamic_tls` is set (its build.rs picks one or the other). That is the

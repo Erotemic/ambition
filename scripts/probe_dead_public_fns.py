@@ -1,56 +1,9 @@
 #!/usr/bin/env python3
-"""**Which public functions in these files have NO call site?** — asked of the
-compiler, never of a grep (ledger D105).
+"""Probe selected Rust files for public functions with no call site.
 
-Marks every public `fn` in the given files with
-`#[deprecated(note = "PROBE_<name>")]`, builds the workspace, and reports the
-probe names that never appear in a warning. Those have no caller the compiler can
-see — through re-exports, macros, trait impls and cfgs alike. The files are
-ALWAYS restored, including when the build fails.
-
-⛔⛔ **THIS EXISTS BECAUSE GREP-BASED CENSUSES HAVE BEEN WRONG SEVEN TIMES IN ONE
-RUN**, and every failure had the same shape: reporting an absence that had never
-been looked for. Three of them were in earlier hand-rolled versions of THIS
-probe, and each is designed out below:
-
-* **`-p <crate>` compiles a crate's DEPENDENCIES, never its DEPENDENTS.** A
-  single-package check named five dead functions in `features/enemies`;
-  `--workspace` named three. `from_prepared_specs` — called from
-  `ambition_content` — was one it would have deleted. ⇒ this always builds the
-  whole workspace, and refuses a `-p` shortcut.
-* **A `#[cfg(test)]` skip that LATCHES marks nothing after the first one.** A
-  flag set and never cleared meant zero functions were marked in a 1,500-line
-  file, and the run then reported 21 as dead — including `spec_for_brain`, which
-  has callers in three crates. ⇒ the skip is brace-depth scoped, and…
-* **…a probe that marked NOTHING reported everything as dead.** ⇒ marking zero
-  items is a hard failure. A count of zero is never a clean bill.
-* **`--workspace` CANNOT SEE A CONSUMER THE WORKSPACE EXCLUDES**, and this tool
-  walked into that on 2026-08-12 — its own eighth trap. Run over
-  `features/enemies/mod.rs` it reported exactly one dead function,
-  `CharacterRosterFragment::from_ron_at`, whose only caller is
-  `fixtures/external_consumer`: `exclude`d in the root manifest, and the only
-  in-repo consumer that links the engine from OUTSIDE a shared workspace, which
-  is the entire population a public-API census is about. That function had
-  already been deleted once for this reason and restored the same morning;
-  trusting the output would have deleted it again. ⇒ every excluded consumer is
-  built too, with the same markings, and the warnings are UNIONED. It now reports
-  25 of 25 on that file, and the case that produced the false positive is the
-  case that validates the fix.
-
-⚠ **"no call site" is not "delete it".** Test-only API that pins an
-architectural invariant is not dead code, it is the invariant's only witness —
-`CharacterRoster::fallback_for_provider` looked dead and is the observation seam
-for a cross-provider isolation test. Read every hit before removing it.
-
-⚠ **struct FIELDS are outside this instrument.** `#[deprecated]` does not
-usefully cover them; a dead field surfaces as `cargo check`'s "never read", but
-only once every reader is gone — which is why fields tend to fall out one
-deletion AFTER their accessor.
-
-Usage::
-
-    python3 scripts/probe_dead_public_fns.py crates/foo/src/bar.rs [more.rs ...]
-"""
+This is a static cleanup aid, not a liveness proof: generated calls, macros, external
+consumers, or dynamic registration may make an apparently unreferenced function
+intentional. Results are candidates for review rather than automatic deletion."""
 
 from __future__ import annotations
 
@@ -64,7 +17,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PUBLIC_FN = re.compile(r"^(\s*)(pub(?:\([a-z:\s]+\))?\s+)fn (\w+)")
 
 
-# **Consumers the root `Cargo.toml` EXCLUDES**, which a `--workspace` build
+# Consumers the root `Cargo.toml` EXCLUDES, which a `--workspace` build
 # therefore cannot see. They are the point of a public-API census, not an
 # afterthought: each one links the engine the way a stranger does, with its own
 # workspace, lockfile and feature resolution.
@@ -123,7 +76,7 @@ def main() -> int:
 
         # --workspace, never -p: `-p` cannot see a crate's dependents.
         #
-        # ⇒ every sub-workspace consumer is built too, with the same markings,
+        #  every sub-workspace consumer is built too, with the same markings,
         # and the warnings are UNIONED. A crate that has to be asked separately
         # is exactly the crate a census forgets.
         builds = [(REPO, ["cargo", "check", "--workspace", "--all-targets"])]

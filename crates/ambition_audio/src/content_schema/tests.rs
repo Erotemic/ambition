@@ -104,7 +104,7 @@ fn a_compiled_pack_carries_the_sfx_registry_the_runtime_will_load() {
     assert_eq!(sfx.sample_rate, 44100);
 }
 
-/// **The rules are `validate()`'s, reached without building an App.** A
+/// The rules are `validate()`'s, reached without building an App. A
 /// `default_track` naming no track means startup has nothing to play, and
 /// before this the only thing that said so was `AudioCatalogFragment::new`.
 #[test]
@@ -134,7 +134,7 @@ fn an_unknown_authored_field_is_an_error_and_not_a_shrug() {
     );
 }
 
-/// **The asset half nothing checked before.** `AudioCatalogFragment` validates
+/// The asset half nothing checked before. `AudioCatalogFragment` validates
 /// the registry's shape and never asks whether the OGG it points at exists.
 #[test]
 fn a_track_whose_audio_file_is_missing_is_reported() {
@@ -240,7 +240,7 @@ fn reformatting_the_registry_does_not_move_the_fingerprint() {
     );
 }
 
-/// **A delimiter is not a serialization.** Track ids need only be non-empty
+/// A delimiter is not a serialization. Track ids need only be non-empty
 /// and unique, so commas are legal; `join(",")` let two different orders encode
 /// identically while the per-track entries stayed the same, holding the whole
 /// fingerprint still.

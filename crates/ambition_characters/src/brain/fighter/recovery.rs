@@ -1,105 +1,43 @@
-//! **Can THIS body still get back — asked of the real movement kernel.**
+//! Lower fighter perception and body capabilities into the shared movement-kernel
+//! recovery probe.
 //!
-//! `ambition_platformer2d_core::movement::recovery` answers *"is this position
-//! recoverable by this body under its own capabilities"* by cloning the body,
-//! handing it to `step_motion` and watching. It states no rule about bodies at
-//! all, which is exactly why it can answer for a flyer, a wall-clinger, a
-//! ledge-grabber and a fighter with one unspent air jump without a list here to
-//! fall out of date.
-//!
-//! This module is the LOWERING that lets the fighter brain ask it: a
-//! [`Perceived`](crate::perception::Perceived) view becomes an
-//! [`ae::World`], the body's own kit becomes an [`ae::BodyClusterScratch`], and
-//! the answer comes back as an [`ae::movement::recovery::RecoveryOutlook`].
-//!
-//! **and it stops there.** The query reports what physically happened; what a
-//! `NoSupportFoundBy` MEANS is the brain's business, and the brain spends it in
-//! exactly one place ([`super::rollout::refine_by_rollout`]) as a veto on
-//! movement lines. There is no fighting-game rule in here and no capability list
-//! in the rollout — the split `FrameEvents` already draws for contacts.
-//!
-//! A body that recovers by dash, blink, flight, wall verb or ledge grab is **not** explored, so a
-//! negative here means *"this steering policy found nothing within this horizon"* — never *"this
-//! body cannot get back."*
-//!
-//! Without it the rollout condemned exactly the lines a real recovery saves. Read the bound off
-//! the value with `RecoveryOutlook::bounded_by()` rather than assuming it; a positive returns
-//! `None`, because finding a route proves one exists while failing to find one is only ever a
-//! claim about the searcher.
-//!
-//! **AND THE ROUTES ARE SEARCHED, NOT RANKED — this is the module's
-//! architectural claim.** The first version took ONE route: whichever authored
-//! move advertised the largest against-gravity speed, picked before anything
-//! knew where the body was. That is a static property standing in for a question
-//! about the current state, and it fails in exactly the way a static property
-//! fails — a fighter whose way home is a grapple that trades its energy for
-//! lateral distance advertises a small rise, so a tiny rising aerial outranks it
-//! and becomes "the recovery" for every layer downstream. [`RecoveryLens::best_route`]
-//! runs the buttons-only baseline and then each route the body owns, and reports
-//! the FIRST that gets home. The kernel decides which action is useful; the
-//! repertoire only proposes.
-//!
-//! ## What the lowering claims, and what it therefore cannot see
-//!
-//! * **the terrain is the PERCEIVED terrain**, viewport-clipped like everything
-//!   else a brain knows. A platform the body cannot see is a platform it cannot
-//!   plan to land on, which is the honest answer rather than a cheat.
-//! * **the envelope is the stage box, with every blast margin at zero.** That is
-//!   the SAME death line [`crate::perception::StageView::offstage`] draws and the
-//!   same one `shadow_step`'s KO fires on — one model of dying, not two. A stage
-//!   that authors a generous margin is therefore judged conservatively (the probe
-//!   believes it dies sooner than it does), which is the safe direction: a
-//!   rollout that overestimates recovery certifies dives that will not come back.
-//! * **nothing that moves the body from OUTSIDE the kernel is modelled** —
-//!   portals, grapples, a launch that has not happened yet. `probe_recovery`'s
-//!   own header says so; it is a gap of the kernel, not an assumption of this
-//!   lowering. (A recovery move used to be on that list. It came off it: an
-//!   authored move STATES the speed it commands, so it is expressible as a
-//!   `RecoveryBurst` and no longer has to be invisible.)
-
+//! The probe searches the buttons-only baseline and each authored recovery route,
+//! returning whether this steering policy found a route within its bounded horizon.
+//! A negative result is not proof that the body cannot recover; movement external to
+//! the kernel is outside this model. Terrain is limited to perceived geometry and the
+//! stage envelope uses zero blast margins, so the probe does not plan with information
+//! the fighter cannot observe.
 use ambition_platformer2d_core as ae;
 
 use crate::perception::{SolidKind, WorldView};
 
-/// **How long the probe watches.**
+/// How long the probe watches.
 pub const RECOVERY_PROBE_SECONDS: f32 = 2.0;
 
-/// **The body's own kit, in the movement kernel's vocabulary.**
-///
-/// Both halves are body-derived truth arriving through the world-in port, beside
-/// each other because the kernel needs both: the [`ae::AbilitySet`] says which
-/// verbs exist and the [`ae::MovementTuning`] says what they are worth. A
-/// heavier fighter's gravity and a lighter one's extra jump are the same kind of
-/// fact and neither is guessed here.
-///
-/// Nothing here interprets the set; it is handed straight to the kernel, which is the authority on
-/// what a body owning these verbs can do.
-///
-/// **the ROUTES a body could press are NOT in here, and that split is the
-/// point.** A kit is what a body IS; a route is one thing it could DO from a
-/// particular place. Keeping them apart is what stopped the lens from having to
-/// pick a body's recovery move before it knew where the body was.
+/// Body capabilities passed directly to the movement recovery kernel.
+/// Routes are kept separate: the kit states what the body can do, while a route
+/// states one authored action to probe from the current position.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BodyKit {
     pub abilities: ae::AbilitySet,
     pub movement: ae::MovementTuning,
 }
 
-/// **One displacement a body's repertoire can command, in the terms a
-/// [`RecoveryProbe`](ae::movement::recovery::RecoveryProbe) needs.**
+/// One displacement a body's repertoire can command, in the terms a
+/// [`RecoveryProbe`](ae::movement::recovery::RecoveryProbe) needs.
 ///
 /// Derived from a move's frame data by
 /// [`lifting_candidates`](super::options::lifting_candidates); nothing here
 /// names a move, a verb or a character.
 ///
-/// **a route is a PROPOSAL, never a claim.** Holding one says the body can
+/// a route is a PROPOSAL, never a claim. Holding one says the body can
 /// throw this displacement, and says nothing about whether throwing it helps —
 /// that question belongs to [`RecoveryLens::best_route`], which asks the kernel.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RecoveryLift {
     /// Engine units per second, against gravity.
     pub speed: f32,
-    /// **Engine units per second along the body's FACING**, the other half of
+    /// Engine units per second along the body's FACING, the other half of
     /// the same commanded velocity (`MoveFrameData::lift_side`). Negative for a
     /// move that hauls its owner backwards — the recoil of firing forwards is a
     /// real authored shape.
@@ -126,7 +64,7 @@ pub struct RecoveryQuery {
     pub air_jumps_left: u8,
 }
 
-/// **How many authored routes one lens will spend kernel time on.**
+/// How many authored routes one lens will spend kernel time on.
 ///
 /// a bound, not a taste. Each route is a whole `probe_recovery` — three
 /// efforts of up to [`RECOVERY_PROBE_SECONDS`] — and the lens is queried once
@@ -140,7 +78,7 @@ pub struct RecoveryQuery {
 /// iteration luck (ADR 0023).
 pub const MAX_PROBED_ROUTES: usize = 3;
 
-/// **Which route got the body home, and what the search saw.**
+/// Which route got the body home, and what the search saw.
 ///
 /// `route` is the whole product: `None` with a positive outlook means *"you
 /// are getting back without throwing anything"*, `Some(i)` names the route that
@@ -181,7 +119,7 @@ pub struct RecoveryLens {
     /// The buttons-only search. Every armed search is this one plus a burst, so
     /// the horizon and timestep can never differ between routes.
     probe: ae::movement::recovery::RecoveryProbe,
-    /// **the displacements this body could throw, in probe order.** Capped at
+    /// the displacements this body could throw, in probe order. Capped at
     /// [`MAX_PROBED_ROUTES`].
     routes: Vec<RecoveryLift>,
 }
@@ -194,7 +132,7 @@ impl RecoveryLens {
     /// when the stage is degenerate, or when the body's gravity is zero — a
     /// free-mover has no fall to recover from and the frame cannot be built.
     ///
-    /// **`routes` may be empty**, and for every seat that is not a platform
+    /// `routes` may be empty, and for every seat that is not a platform
     /// fighter it is. An empty set leaves the lens exactly as it was before any
     /// of this existed: one buttons-only search, bounded by
     /// [`ae::movement::recovery::RecoveryPolicy::DRIFT_AND_JUMP`].
@@ -291,7 +229,7 @@ impl RecoveryLens {
         )
     }
 
-    /// **ASK THE KERNEL WHICH OF THIS BODY'S ACTIONS IS USEFUL FROM HERE.**
+    /// ASK THE KERNEL WHICH OF THIS BODY'S ACTIONS IS USEFUL FROM HERE.
     ///
     /// The buttons-only search first, then each route in order, stopping at the
     /// first one that regains support.
@@ -301,13 +239,13 @@ impl RecoveryLens {
     /// route that would actually have worked is never explored. Usefulness is a question about the
     /// CURRENT STATE and the only authority on it is the movement kernel, so the kernel is asked.
     ///
-    /// **the buttons-only baseline goes first on purpose.** A body that is
+    /// the buttons-only baseline goes first on purpose. A body that is
     /// already getting home does not need to throw anything, and a caller told
     /// so can save the move — which is a real fighting-game fact (spending your
     /// recovery early is how you die to an edgeguard) that fell out of the
     /// ordering rather than being encoded.
     ///
-    /// **the negative belongs to the LAST search run.** When nothing regains,
+    /// the negative belongs to the LAST search run. When nothing regains,
     /// the outlook returned is the widest search's, and its
     /// `NoSupportFoundBy { search, .. }` names that policy — so a consumer
     /// reading `bounded_by()` learns what the final attempt spent, not what
@@ -343,7 +281,7 @@ impl RecoveryLens {
         }
     }
 
-    /// **Drive the real kernel from `at` and report what it found**, over every
+    /// Drive the real kernel from `at` and report what it found, over every
     /// route this body owns.
     pub fn outlook(&self, at: RecoveryQuery) -> ae::movement::recovery::RecoveryOutlook {
         self.best_route(at).outlook

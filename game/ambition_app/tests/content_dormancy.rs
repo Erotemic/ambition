@@ -1,14 +1,14 @@
-//! **Every actor `ambition_content` stages declares whether it sleeps.**
+//! Every actor `ambition_content` stages declares whether it sleeps.
 //!
 //! This is the assembled proof that it is now a decision: `ambition_content::dormancy` states a
 //! stance for each, and every actor the real rooms stage carries one.
 //!
-//! **it deliberately does NOT pin WHICH stance** — the property is that the
+//! it deliberately does NOT pin WHICH stance — the property is that the
 //! choice is stated and findable, not that today's answers are frozen. Mary-O's
 //! equivalent test learned that the hard way: it asserted that only the slop
 //! declared dormancy, and so spent a day defending the snake's absence.
 //!
-//! **and it also proves the pass is REGISTERED**, which a compile cannot
+//! and it also proves the pass is REGISTERED, which a compile cannot
 //! catch: `declare_ambition_dormancy` could be perfectly written and never added
 //! to a schedule, and everything would still build.
 

@@ -75,7 +75,7 @@ pub const STAR_WAND_ID: &str = "star_wand";
 /// Row id of the cinder beacon (flower-analog).
 pub const CINDER_BEACON_ID: &str = "cinder_beacon";
 
-/// The star wand: **one-hit armor**, the classic first powerup's take-a-hit half.
+/// The star wand: one-hit armor, the classic first powerup's take-a-hit half.
 ///
 /// It is pure A3 [`OnHit::ConsumeAsArmor`] with `downgrade_to: None`: worn, it
 /// absorbs one hit and is spent (removed); the very next read finds no wand and the
@@ -96,7 +96,7 @@ pub fn star_wand() -> EquipmentRow {
     }
 }
 
-/// The cinder beacon: **a ranged verb AND the outer layer of armor**.
+/// The cinder beacon: a ranged verb AND the outer layer of armor.
 ///
 /// It grants a bouncing spark ([`EquipmentGrant::Ranged`]) and scales that shot's
 /// damage 1.5x at fire (a `Verb("ranged")`-scoped [`ranged_param::DAMAGE`]
@@ -144,7 +144,7 @@ fn spark_shot() -> RangedActionSpec {
         .with_visual(SPARK_VISUAL)
 }
 
-/// Half-extent of a spark, in px — so the shot is **20 px across a 32 px tile**.
+/// Half-extent of a spark, in px — so the shot is 20 px across a 32 px tile.
 ///
 /// This is a FEEL number and the obvious one to tune; what matters structurally is that it is the
 /// ONE place the size is written. The render art asks for `ProjectileRenderSize::Body`, so the
@@ -215,7 +215,7 @@ pub fn tag_mary_o_sparks(
 /// (re)load so a cyclic replay re-arms the blocks. Only `insert`/`contains`/`clear`
 /// touch it — never iteration — so the banned std-hash-iteration order never bites.
 ///
-/// **`Clone` and a private set, both for the same reason.** This is rollback
+/// `Clone` and a private set, both for the same reason. This is rollback
 /// state — a block struck on a mispredicted frame must un-spend when that frame
 /// is thrown away — and the registration needs the clone. The set is private so
 /// the paragraph above stays TRUE rather than remaining a promise: `insert`,
@@ -223,8 +223,8 @@ pub fn tag_mary_o_sparks(
 /// iteration whose order std does not define. ( of 5cc4337..47d7de3,
 /// iterating at all is the stronger answer.)
 ///
-/// **its Sanic twin is a `Vec` and that asymmetry is CORRECT — do not
-/// "fix" it.** `ambition_demo_sanic::monitors::SpentMonitors` answers the same
+/// its Sanic twin is a `Vec` and that asymmetry is CORRECT — do not
+/// "fix" it. `ambition_demo_sanic::monitors::SpentMonitors` answers the same
 /// question about the same kind of thing, and its own doc says why it is a Vec:
 /// the overlay contribution ITERATES it every frame, and the determinism contract
 /// bans std-hash iteration order. Nothing iterates this one. Two access patterns,
@@ -234,12 +234,12 @@ pub fn tag_mary_o_sparks(
 #[derive(Resource, Default, Clone)]
 pub struct SpentPowerBlocks {
     spent: std::collections::BTreeSet<ae::GeoId>,
-    /// **Hits taken by a multi-coin block that is not exhausted yet.**
+    /// Hits taken by a multi-coin block that is not exhausted yet.
     ///
     /// An ordered container makes the question unaskable. a `Vec` would still be wrong — two peers'
     /// hashes would depend on strike ORDER.
     ///
-    /// **absent means untouched, not exhausted.** The authority for "this
+    /// absent means untouched, not exhausted. The authority for "this
     /// block is done" stays `spent`: a partial entry is a block mid-payout, and
     /// the caller promotes it to `spent` when the count runs out. Two facts, one
     /// owner, and the older half keeps its exact meaning.
@@ -247,7 +247,7 @@ pub struct SpentPowerBlocks {
 }
 
 impl SpentPowerBlocks {
-    /// **A checksum over WHICH blocks are spent, order-independent.**
+    /// A checksum over WHICH blocks are spent, order-independent.
     ///
     /// XOR of per-id hashes is commutative, so the answer does not depend on
     /// the traversal — which was load-bearing while these were hash containers
@@ -255,7 +255,7 @@ impl SpentPowerBlocks {
     /// lets a future reader change the container without re-deriving safety.
     pub fn checksum(&self) -> u64 {
         use std::hash::{Hash, Hasher};
-        // **both halves, and the partial one folds its COUNT too** — a block
+        // both halves, and the partial one folds its COUNT too — a block
         // that has paid two of five differs from one that has paid three, and a
         // checksum blind to that lets two peers disagree about how much a block
         // still owes while agreeing on the hash.
@@ -311,82 +311,24 @@ impl SpentPowerBlocks {
     }
 }
 
-// ── Her forms' geometry, which the SHEETS author ───────────────────────────
-//
-// Shouldn't the sprite sheet generator be authoring the collision boxes for the
-// characters?"*
-//
-// It should, and it does — the engine has offered `BodySource::SpriteAuthored { world_per_pixel }`
-// since §4.11 and Mary-O simply did not use it. What stood here instead was a small box (the
-// engine's default 30×48) and a grown box hand-authored as `1.5 ×` it. The sheets publish
-// `body_pixel_bbox` 43×63 (small) and 47×88 (tall) — a real ratio of 1.397 — so the multiplier was
-// never what the art said, and the render had to reconcile the two authorities with a scale factor.
-//
-// Now her three registered definitions each author this ONE scale (see
-// `register_character` in `lib.rs`) and everything follows from the art:
-//
-//   small  43×63 px → 32.8×48.0 world
-//   tall   47×88 px → 35.8×67.0 world
-//   fire   50×88 px → 38.1×67.0 world
-//
-// the fire form is ~2 px wider than the grown one (50 px of art vs 47). Their
-// HEIGHTS match, which is the fact that transition needs — a height change would
-// move her feet or clip a ceiling on a swap that is supposed to change only her
-// loadout.
-//
-// she is WIDER than the old constant-width box, because `body_pixel_bbox` is
-// the raw alpha silhouette — hat and arms included. The builder has the seam for
-// carving a gameplay body in from that (`CharacterGenerator.body_inset`, which
-// seven other characters already override and whose own docs note it is
-// fractional so it "survives art changes"); Mary-O's generator authors none. The
-// fix belongs THERE and not in a second box authority here — see
-// `docs/planning/JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`.
+// Mary-O uses sprite-authored body geometry. Each form supplies one world scale,
+// and per-animation sheet body rectangles determine its collision and render
+// footprint. Any desired gameplay inset belongs in the character generator,
+// rather than in a second hand-authored collision box.
 
-/// Her standing height in world units — the ONE number the level is tuned
-/// around (tile gaps, pipe clearances, jump arcs).
-///
-/// This is the authored quantity. The pixel-to-world scale is DERIVED from it,
-/// not the other way round, and that direction is the whole point: the sheets
-/// are regenerated regularly, every regeneration re-measures the alpha bbox, and
-/// a scale pinned to today's pixel count (it was `48.0 / 63.0`) silently changes
-/// her height the first time a crop moves by one pixel.
+/// Standing height in world units. Pixel-to-world scale is derived from this
+/// authored gameplay size so sprite regeneration cannot change level-scale body
+/// dimensions.
 pub(crate) const MARY_O_STANDING_HEIGHT: f32 = SMALL_FORM_HEIGHT;
 
-/// **One tile tall — the small form, and the ruler for this whole demo.**
-///
-/// units tall (height of one block). Big should be 32 units."* Small Mary-O
-/// stands exactly one block and grown stands two — the classic proportion this
-/// demo is an homage to.
-///
-/// ```text
-/// read as 16   small 16, grown 32   a 3x reduction   vault clearance 76 vs 32 -> mouth floats 44 above her
-/// read as T    small 32, grown 64   a 1.5x reduction vault clearance 76 vs 64 -> fits, 12 inside the 16 slack
-/// ```
-///
-/// What was actually owed was one unit conversion — and 48 was never "three blocks" either, it was
-/// 1.5 tiles.
-///
-/// **the ART had to move first, and it has.** Her authored boxes were 120 px short and 168 px tall
-/// — a 1.40:1 that no single scale can turn into 1:2, so reaching a two-tile grown form also
-/// widened her 1.43x, which `her_forms_are_all_the_same_width` refuses for a gameplay reason
-/// (*"growing must not change her width"*, or a grow wedges her in a gap she fit).
-///
-/// ⇒ the three still have to agree — art, this constant, and the level — and
-/// with the art at 1:2 and the constant in tiles, the level already does.
+/// Small-form standing height in the demo's world units.
 pub const SMALL_FORM_HEIGHT: f32 = T;
 
-/// **Two blocks tall — the grown and fire forms.**
-///
-/// the consequence to know: grown Mary-O's art is now drawn at a LARGER
-/// world-per-pixel than the small form's, because her sheet is only 1.4x taller
-/// in pixels while she must stand 2x taller in the world.
+/// Standing height shared by the grown and fire forms.
 pub(crate) const GROWN_FORM_HEIGHT: f32 = 32.0;
 
-/// The authored standing height of one of her three forms, in world units.
-///
-/// the fire form matches the GROWN one deliberately — a spark is a loadout
-/// change, and a height change on that swap would move her feet or clip a
-/// ceiling. `powerups`' own tests pin that equality.
+/// Authored standing height for a Mary-O form. Fire shares the grown height so
+/// changing loadout does not move the body or alter ceiling clearance.
 pub(crate) fn form_height(target: &str) -> f32 {
     if target == SMALL_SHEET_TARGET {
         SMALL_FORM_HEIGHT
@@ -395,7 +337,7 @@ pub(crate) fn form_height(target: &str) -> f32 {
     }
 }
 
-/// **World units per sheet pixel** — ONE scale, shared by all three forms.
+/// World units per sheet pixel — ONE scale, shared by all three forms.
 ///
 /// So a per-form scale reaching 32 has to draw the grown art 1.43x larger per pixel — and since the
 /// sheets author ONE body width for all three forms, that widens her by the same 1.43x on the way
@@ -403,7 +345,7 @@ pub(crate) fn form_height(target: &str) -> f32 {
 /// rather than a tidiness one: *"growing must not change her width"*, or a grow wedges her in a gap
 /// she fit.
 ///
-/// ⇒ **the 1:2 proportion is an ART question, not an arithmetic one.** Reaching
+///  the 1:2 proportion is an ART question, not an arithmetic one. Reaching
 /// grown = 32 at an unchanged width needs the grown sheet REDRAWN to twice the
 /// small form's pixel height; scaling to it distorts her or fattens her. Until
 /// then one shared scale keeps her proportions honest and grown lands where the
@@ -412,7 +354,7 @@ pub(crate) fn form_world_per_pixel(_target: &str) -> f32 {
     mary_o_world_per_pixel()
 }
 
-/// **World units per sheet pixel**, asked of the art rather than remembered.
+/// World units per sheet pixel, asked of the art rather than remembered.
 ///
 /// Everything else — the grown form's height, all three widths, the sprite quad — follows from this
 /// one number, so none of them can drift from each other either.
@@ -431,14 +373,14 @@ pub(crate) fn mary_o_world_per_pixel() -> f32 {
     }
 }
 
-/// **How WIDE Mary-O's small form stands, in world units** — the ruler every
+/// How WIDE Mary-O's small form stands, in world units — the ruler every
 /// other body in this demo is sized against.
 ///
 /// Her HEIGHT is the authored number ([`MARY_O_STANDING_HEIGHT`]); her width
 /// follows from the sheet, so this is a measurement rather than a second claim
 /// and the two cannot drift apart.
 ///
-/// **it exists because "too big" is a comparison and needed a denominator.**
+/// it exists because "too big" is a comparison and needed a denominator.
 /// attempt before this expressed the answer as a pixel scale — a unit in which
 /// the comparison cannot be stated at all.
 pub(crate) fn mary_o_body_width() -> Option<f32> {
@@ -471,7 +413,7 @@ pub(crate) const SMALL_SHEET_TARGET: &str = "mary_o_v2";
 pub(crate) const TALL_SHEET_TARGET: &str = "mary_o_v2_tall";
 pub(crate) const FIRE_SHEET_TARGET: &str = "mary_o_v2_fire";
 
-/// **The standing box one of her sheets authors**, in world units.
+/// The standing box one of her sheets authors, in world units.
 ///
 /// The level asks this to size the clearances she has to fit through (pipe
 /// mouths, vault exits). It is the same query the engine's per-tick sync makes,
@@ -498,12 +440,12 @@ pub(crate) fn tall_body_size() -> ae::Vec2 {
     form_body_size(TALL_SHEET_TARGET)
 }
 
-/// **A weaker form on the FLOOR is refused too, not just one from a block.**
+/// A weaker form on the FLOOR is refused too, not just one from a block.
 ///
 /// Correct, and the overreach was in my prose rather than in the engine.)
 ///
-/// **so the rule moves to the COLLECTION, which is the one thing every road
-/// passes through.** This runs before the engine's collector and consumes a
+/// so the rule moves to the COLLECTION, which is the one thing every road
+/// passes through. This runs before the engine's collector and consumes a
 /// redundant form item itself: she keeps the stronger form, the pickup still
 /// disappears, and the coins are the acknowledgement — the same trade the block
 /// payout makes, for the same reason.
@@ -553,39 +495,12 @@ pub fn refuse_a_weaker_form_pickup(
     }
 }
 
-/// **The ?-block bonk.** A head contact (`ContactKind::Head`) against a ?-block —
-/// identified by the durable `GeoId` the engine now carries on
-/// `ContactSource::Block`, NOT by point-matching — pops a `WorldItem` out on top
-/// of that block, once per block per level.
+/// Project discovered hidden blocks into the collision overlay.
 ///
-/// WHICH item is a function of her current power state, read from the one
-/// authority that state lives in (her worn equipment): small gets the wand that
-/// grows her, grown gets the beacon, and a Mary-O who already has the beacon
-/// gets nothing rather than a duplicate form row. There is no separate progress
-/// flag to keep in sync — the equipment IS the progress.
-/// **A DISCOVERED hidden block becomes a real solid.**
-///
-/// **struck was VISIBLE and still intangible, which is half a mechanic.** `BlockKind::BonkOnly` is
-/// the right answer before discovery — air to feet, air sideways, solid only against a rising head
-/// — and the wrong one after it. The renderer swapped in the spent tile, so the room showed a block
-/// Mary-O falls through, enemies walk through, and nothing can stand on. In SMB discovery turns an
-/// invisible block into an ordinary solid; that is the point of finding one.
-///
-/// **no engine change was needed, and that is worth noticing.**
-/// `FeatureEcsWorldOverlay` already carries `removed_block_names` AND `blocks`,
-/// so "stop being the authored BonkOnly, start being a Solid at the same box" is
-/// two pushes into a seam `contribute_broken_bricks_to_overlay` has used for
-/// removal alone. The reviewer's own narrow endpoint — *"a rollback-owned
-/// dynamic solid placed at the authored block AABB"* — turned out to already
-/// exist.
-///
-/// **`SpentPowerBlocks` is the authority for BOTH art and collision**, which
-/// is the property the review asked for: it is rollback-registered with an
-/// order-independent checksum, so a rewind that un-spends a block takes its
-/// solidity with its tile rather than leaving one behind.
-///
-/// **HIDDEN blocks only.** A spent Question or Brick was always solid and
-/// stays authored; re-adding it here would double it.
+/// `SpentPowerBlocks` is the shared authority for presentation and collision.
+/// A spent `BonkOnly` block replaces its authored intangible form with a solid at
+/// the same AABB; spent Question and Brick blocks remain authored because they
+/// were already solid.
 pub fn contribute_discovered_hidden_blocks_to_overlay(
     spent: Res<SpentPowerBlocks>,
     geometry: Option<
@@ -604,15 +519,8 @@ pub fn contribute_discovered_hidden_blocks_to_overlay(
     }
 }
 
-/// **The whole decision, as a function**: what a discovered block becomes.
-///
-/// `Some(solid)` means *remove the authored block by name and add this in its
-/// place*; `None` means leave it alone.
-///
-/// **extracted so the test can call THIS.** A test that re-derived the same
-/// answer beside the system would be green against a system that did nothing —
-/// a guard passing through its own arithmetic rather than through the code, and
-/// this file's sibling made exactly that mistake earlier today.
+/// Return the solid replacement for a discovered hidden block, or `None` when
+/// the authored block should remain unchanged.
 pub fn discovered_solid(spent: &SpentPowerBlocks, block: &ae::Block) -> Option<ae::Block> {
     // HIDDEN only. A spent Question or Brick was always authored solid, and
     // re-adding it would put two blocks in one place.
@@ -634,7 +542,7 @@ pub fn bonk_power_blocks(
     // The coin a struck coin block visibly pays. Presentation only — the purse
     // is credited below whether or not anything is drawing.
     mut vfx: bevy::prelude::MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
-    // **the WALLET rides the same query**, because a coin block credits the body that struck it
+    // the WALLET rides the same query, because a coin block credits the body that struck it
     // rather than a global counter — the same component the vault's loose coins credit and the
     // same one the HUD's COINS readout is rebuilt from.
     mut players: Query<
@@ -664,7 +572,7 @@ pub fn bonk_power_blocks(
         let Some(block) = crate::authored_block_by_id(&geometry.0, id) else {
             continue;
         };
-        // **WHAT IT HOLDS, not what it looks like.** This matched the block's
+        // WHAT IT HOLDS, not what it looks like. This matched the block's
         // KIND — `Power` meant the ladder, `Quasar` meant a quasar — which made
         // unsayable, because appearance was the only thing carrying the answer.
         //
@@ -681,12 +589,12 @@ pub fn bonk_power_blocks(
         if spent.is_spent(id) {
             continue;
         }
-        // **A VALID BONK IS ALWAYS ACKNOWLEDGED.** This used to read `let Some(reward) = … else
+        // A VALID BONK IS ALWAYS ACKNOWLEDGED. This used to read `let Some(reward) = … else
         // { continue }`, and `next_power_reward` answered `None` at the top of the ladder — so
         // a FIRE-form Mary-O hit a ?-block and got nothing at all: no flinch, no spent state,
         // no art change, no sound.
         let reward = reward_for(authored.contents, worn);
-        // **a multi-coin block is spent by its COUNTER, not by being hit.**
+        // a multi-coin block is spent by its COUNTER, not by being hit.
         // Every other block owes one payout and retires on the strike; this one
         // owes N, so `take_one_coin` promotes it to spent on the last of them.
         // reset."* `rearm_all` clears both halves, so "until reset" is the
@@ -700,7 +608,7 @@ pub fn bonk_power_blocks(
         // Used blocks flinch in presentation only; moving collision geometry would lift bodies
         // standing on the block. This records which block was struck.
         struck.write(ambition_platformer2d::platformer::block_nudge::BlockStruck::new(id.clone()));
-        // **from the block's OWN centre**, so a block the author dragged pops its reward where
+        // from the block's OWN centre, so a block the author dragged pops its reward where
         // it now sits.
         let pos = (block_aabb.min + block_aabb.max) * 0.5;
         let reward = match reward {
@@ -714,14 +622,14 @@ pub fn bonk_power_blocks(
                 vfx.write(ambition_platformer2d::vfx::VfxMessage::CoinPop {
                     pos: ae::Vec2::new(pos.x, block_aabb.min.y),
                 });
-                // **this was the `Hit` cue — the MASONRY THUNK — and the
-                // comment justifying it went stale.** It read *"there is no
+                // this was the `Hit` cue — the MASONRY THUNK — and the
+                // comment justifying it went stale. It read *"there is no
                 // `Pickup` cue in the shared vocabulary yet"*, which was true
                 // when written and is not now: the engine emits
                 // `ids::WORLD_COIN_PICKUP` for every currency pickup, and
                 // Mary-O's provider declares it (`COIN_PICKUP_SFX`).
                 //
-                // **so a coin sounds like a coin whichever way she gets it.**
+                // so a coin sounds like a coin whichever way she gets it.
                 // Her loose coins are `currency:1` pickups voiced by the engine's
                 // `collect_ecs_pickups`; a coin BLOCK never builds a pickup at
                 // all (it credits the purse directly, three lines up), so it has
@@ -743,11 +651,11 @@ pub fn bonk_power_blocks(
         };
         let popped = spawn_moving_world_item(
             &mut commands,
-            // **it starts INSIDE the block and climbs out.** Spawned at the block's own centre
+            // it starts INSIDE the block and climbs out. Spawned at the block's own centre
             // rather than above it, so the first frame shows nothing and the pickup rises into view
             // through the block's top edge.
             //
-            // **being drawn BEHIND the world is not set here.** It is derived from the motion's own
+            // being drawn BEHIND the world is not set here. It is derived from the motion's own
             // emergence window, so it ends exactly when the rise does.
             WorldItem::equipping(reward.row, pos, reward.half).with_sprite(reward.sprite),
             reward.motion,
@@ -768,7 +676,7 @@ pub fn bonk_power_blocks(
     }
 }
 
-/// **What a block owes, given what it holds and what she wears.**
+/// What a block owes, given what it holds and what she wears.
 ///
 /// Contents is an authored field now, and this is the one place that turns it into an item.
 ///
@@ -789,9 +697,9 @@ enum BlockPayout {
 /// `currency:1` in the level file.
 const COINS_PER_BLOCK: i32 = 1;
 
-/// **How strong a form this equipment row is.** Small is 0 and wears nothing.
+/// How strong a form this equipment row is. Small is 0 and wears nothing.
 ///
-/// **the ladder is a Mary-O rule and lives in Mary-O.** The engine's exclusive-slot replacement
+/// the ladder is a Mary-O rule and lives in Mary-O. The engine's exclusive-slot replacement
 /// is correct and general — a new row in a slot replaces the old one — and "a weaker form may
 /// not replace a stronger one" is a statement about THIS game's progression, not about
 /// equipment.
@@ -817,20 +725,20 @@ fn worn_form_rank(worn: Option<&WornEquipment>) -> u8 {
     }
 }
 
-/// **Is she SMALL?** — the bottom rung, wearing no form row at all.
+/// Is she SMALL? — the bottom rung, wearing no form row at all.
 ///
 /// Only tall or fire should be able to."* That is a statement about her FORM, and the ladder that
 /// knows what a form IS lives here — so [`crate::bricks`] asks this question rather than
 /// re-deriving it from two equipment ids it would then have to keep in step with [`worn_form_rank`]
 /// by hand.
 ///
-/// **"not small" means TALL OR FIRE, which is not the same as "wears the
-/// wand".** The beacon is worn ALONE at the top of the ladder — it downgrades
+/// "not small" means TALL OR FIRE, which is not the same as "wears the
+/// wand". The beacon is worn ALONE at the top of the ladder — it downgrades
 /// INTO the wand on a hit rather than stacking on top of it — so a caller that
 /// asked `wears(STAR_WAND_ID)` would answer "small" for the strongest form in
 /// the game. Reading the rank is what makes that mistake unsayable.
 ///
-/// **the quasar is not a form and does not count.** `pocket_quasar` wears no
+/// the quasar is not a form and does not count. `pocket_quasar` wears no
 /// [`FORM_SLOT`], so a small Mary-O carrying one is still small here. That is
 /// the classic behaviour and it falls out of the slot rather than out of a list
 /// of ids this function would otherwise have to exclude.
@@ -838,10 +746,10 @@ pub(crate) fn is_small(worn: Option<&WornEquipment>) -> bool {
     worn_form_rank(worn) == 0
 }
 
-/// **A pickup never makes her weaker.**
+/// A pickup never makes her weaker.
 ///
-/// **1-2 authors a `Brick` holding `AlwaysWand`, and fire Mary-O bonking it
-/// became TALL.** The wand and the beacon share one exclusive slot, so generic
+/// 1-2 authors a `Brick` holding `AlwaysWand`, and fire Mary-O bonking it
+/// became TALL. The wand and the beacon share one exclusive slot, so generic
 /// replacement did exactly what it says on the tin and the form went down a
 /// rung.
 ///
@@ -853,12 +761,12 @@ pub(crate) fn is_small(worn: Option<&WornEquipment>) -> bool {
 /// fire  + wand    -> fire      fire  + lantern -> fire
 /// ```
 ///
-/// **a redundant pickup is still CONSUMED and still pays.** The block spends,
+/// a redundant pickup is still CONSUMED and still pays. The block spends,
 /// flinches, wears its used art and hands over coins — it does not go
 /// unresponsive, which is the failure the always-acknowledge rule above exists
 /// to prevent.
 ///
-/// **this function guards the BLOCK PAYOUT only**, and for a day its comment
+/// this function guards the BLOCK PAYOUT only, and for a day its comment
 /// claimed the whole rule. The floor is guarded by
 /// [`refuse_a_weaker_form_pickup`], which runs before the engine's collector;
 /// between them the invariant is true of every road a form item can arrive on.
@@ -883,7 +791,7 @@ fn reward_for(contents: MaryOBlockContents, worn: Option<&WornEquipment>) -> Opt
         // here means a caller that forgets gets no reward instead of the best one.
         MaryOBlockContents::Empty => return None,
         // Now the reward builders say `None` for a coin and this is the single place that turns
-        // that into coins. **levelling TOWARD a coin is still just a coin**: a coin is not on the
+        // that into coins. levelling TOWARD a coin is still just a coin: a coin is not on the
         // ladder for the same reason the quasar is not — it is not a form.
         MaryOBlockContents::Always(pickup) => match pickup_reward(pickup) {
             Some(reward) => without_downgrading(reward, worn),
@@ -893,7 +801,7 @@ fn reward_for(contents: MaryOBlockContents, worn: Option<&WornEquipment>) -> Opt
             Some(reward) => without_downgrading(reward, worn),
             None => BlockPayout::Coins(COINS_PER_BLOCK),
         },
-        // **one coin per HIT, whatever the authored count.** The count says
+        // one coin per HIT, whatever the authored count. The count says
         // how many hits the block has left, not how much a single hit is worth
         // the caller's, because only it knows which block was struck.
         MaryOBlockContents::Coins(_) => BlockPayout::Coins(COINS_PER_BLOCK),
@@ -914,7 +822,7 @@ fn pickup_reward(pickup: MaryOPickup) -> Option<PowerReward> {
     }
 }
 
-/// **The next rung on the way to `target`, given the form she is in.**
+/// The next rung on the way to `target`, given the form she is in.
 ///
 /// the ladder is small and explicit rather than a table, because the rungs are
 /// not interchangeable: the quasar is not on it at all (any form takes one), and
@@ -926,7 +834,7 @@ fn next_rung_toward(target: MaryOPickup, worn: Option<&WornEquipment>) -> Option
         // Levelling toward the quasar is levelling toward something off the
         // ladder, so it is just the quasar.
         MaryOPickup::Quasar => Some(quasar_reward()),
-        // **`None`, not a quasar.** Same fix as `pickup_reward`: a coin is off
+        // `None`, not a quasar. Same fix as `pickup_reward`: a coin is off
         // the ladder and has no rung to answer with, and answering the strongest
         // reward in the game for an impossible branch hides the caller's bug
         // instead of surfacing it.
@@ -960,7 +868,7 @@ struct PowerReward {
     row: EquipmentRow,
     half: ae::Vec2,
     sprite: &'static str,
-    /// **How it behaves once it is out of the block** — the engine steps this
+    /// How it behaves once it is out of the block — the engine steps this
     /// plan, so the demo only says which one it wants.
     motion: ItemMotionPlan,
 }
@@ -997,7 +905,7 @@ fn wand_reward() -> PowerReward {
 
 /// The cinder beacon.
 ///
-/// **the top rung REPEATS; it does not answer NOTHING.** Answering `None`
+/// the top rung REPEATS; it does not answer NOTHING. Answering `None`
 /// meant a fully-powered Mary-O bonked a block and the whole hit was swallowed —
 /// no flinch, no spend, no art change. A player
 /// cannot tell "you are already maxed" from "a block that does not work", and
@@ -1017,7 +925,7 @@ fn beacon_reward() -> PowerReward {
     }
 }
 
-/// **Grown = wearing the wand.** The tall sheet and the taller collider are a pure
+/// Grown = wearing the wand. The tall sheet and the taller collider are a pure
 /// VIEW of possessing [`star_wand`]: collecting the wand equips the wand (the engine's
 /// `collect_world_items`) and she grows; a hit spends the wand (the engine's shared
 /// armor pass) and she shrinks — no manual "revert" wiring, the equipment state
@@ -1058,7 +966,7 @@ pub fn sync_grown_form(
     if worn_char.id() == target_id {
         return;
     }
-    // **No size is written here, and that is the fix.**
+    // No size is written here, and that is the fix.
     //
     // Her forms now author `SpriteAuthored` bodies (see [`MARY_O_WORLD_PER_PIXEL`]), so swapping
     // the identity below is the WHOLE change: the engine's per-tick sync reads the arriving sheet
@@ -1090,7 +998,7 @@ pub fn sync_grown_form(
         .try_insert(ambition_platformer2d::characters::actor::RecharacterizeBody);
 }
 
-/// **The transformation numbers for ONE tier change**, authored per transition
+/// The transformation numbers for ONE tier change, authored per transition
 /// rather than once per body, because which clip plays and how long the moment
 /// lasts are facts about the CHANGE, not about Mary-O. The exact shape
 /// [`power_transition_sfx`] already uses for her voice.
@@ -1134,7 +1042,7 @@ const STEP_UP_CLOCK_SCALE: f32 = 0.6;
 /// Fallback beat length for a form whose sheet cannot be read at all.
 const UNREADABLE_CLIP_SECS: f32 = 0.45;
 
-/// **Which clip shows this tier change.** A transition clip is authored on the
+/// Which clip shows this tier change. A transition clip is authored on the
 /// sheet of the form ARRIVED AT, so this is always resolved against the target.
 fn transition_anim(from_tier: u8, to_tier: u8) -> CharacterAnim {
     if to_tier > from_tier {
@@ -1212,13 +1120,13 @@ fn power_transition_sfx(from: &str, to: &str) -> Option<&'static str> {
 /// Re-arm every ?-block when level 1-1 (re)loads, so a cyclic replay pops fresh
 /// wand. Mirrors the snake restage; the wand items themselves are room-scoped and
 /// despawn with the room.
-/// **Dress her bonus blocks so a player can see which ones still hold something.**
+/// Dress her bonus blocks so a player can see which ones still hold something.
 ///
 /// `BlockArt` is that seam: this attaches it to a LIVE block and removes it from a spent one, which
 /// falls back to the kind's plain tile — exactly the block a used one becomes, so the used state
 /// needs no art of its own.
 ///
-/// **it reads `SpentPowerBlocks` every frame rather than reacting to the bonk.**
+/// it reads `SpentPowerBlocks` every frame rather than reacting to the bonk.
 /// That set is ROLLBACK STATE: a block struck on a mispredicted frame un-spends
 /// when the frame is thrown away, and art driven by the EVENT would keep the used
 /// look through a rewind that undid the strike. Deriving from the state cannot
@@ -1236,13 +1144,13 @@ pub fn dress_power_blocks(
     use ambition_platformer2d::actors::assets::game_assets::EntitySprite;
     use ambition_platformer2d::render::rendering::BlockArt;
     for (entity, visual, art) in &blocks {
-        // **the block's own NAME says what it is.** This asked two index tables whether the id
+        // the block's own NAME says what it is. This asked two index tables whether the id
         // matched a constant column; a block the author dragged answered neither, so it drew as
         // plain masonry however clearly it was marked a ?-block.
         use crate::ldtk_vocabulary::MaryOBlockLook;
         let look = crate::ldtk_vocabulary::block_look_of(&visual.block_name);
         let is_spent = spent.is_spent(&visual.geo_id);
-        // **a HIDDEN block wears nothing until it has paid.** It is drawn
+        // a HIDDEN block wears nothing until it has paid. It is drawn
         // transparent at room build (`dress_authored_blocks`), and the only art
         // it ever gets is the spent tile — so striking one reveals it, which is
         // exactly the beat. A `Brick` is still not dressed at all: its look is
@@ -1261,8 +1169,8 @@ pub fn dress_power_blocks(
             // already draw the same tile. The override said nothing the kind was not already
             // saying.
             //
-            // **and once `apply_block_art` could reach a painted block the redundant override
-            // stopped being harmless.** Naming art for a block clears the level's authored colour —
+            // and once `apply_block_art` could reach a painted block the redundant override
+            // stopped being harmless. Naming art for a block clears the level's authored colour —
             // it must, or a hidden block's reveal stays transparent — so in a level that paints its
             // own stone this would have stripped the paint off exactly the brick that is supposed
             // to be indistinguishable from the wall. Saying nothing is what keeps it hidden.
@@ -1284,7 +1192,7 @@ pub fn dress_power_blocks(
         let Some(want) = want else {
             continue;
         };
-        // **a spent block gets its OWN texture, it does not fall back to the kind's.** The first
+        // a spent block gets its OWN texture, it does not fall back to the kind's. The first
         // version removed the override and let the block become plain masonry, which hides its own
         // history — a player cannot tell a used block from a wall.
         if art != Some(&want) {
@@ -1293,7 +1201,7 @@ pub fn dress_power_blocks(
     }
 }
 
-/// Re-arm every ?-block when the room (re)loads **or replays**. The twin of
+/// Re-arm every ?-block when the room (re)loads or replays. The twin of
 /// [`crate::bricks::rearm_bricks_for_a_fresh_attempt`], and it had both of the
 /// same defects: a death left every block spent, and the `LEVEL_1_1_ROOM_ID` gate
 /// meant 1-2's blocks never came back at all. See that function for the reasoning.
@@ -1416,7 +1324,7 @@ mod tests {
         );
     }
 
-    /// **The progression, as equipment.** small -> wand -> grown -> beacon ->
+    /// The progression, as equipment. small -> wand -> grown -> beacon ->
     /// spark-powered, with no rung repeatable and no parallel flag.
     #[test]
     fn the_power_block_reward_climbs_the_ladder_and_never_duplicates() {
@@ -1503,7 +1411,7 @@ mod tests {
         }
     }
 
-    /// **Damage walks the ladder back down**, one rung per hit, through the
+    /// Damage walks the ladder back down, one rung per hit, through the
     /// ordinary armor spend. Spark-powered -> grown (loses the spark, stays tall)
     /// -> small.
     #[test]
@@ -1530,7 +1438,7 @@ mod tests {
         assert_ne!(star_wand().id, cinder_beacon().id);
     }
 
-    /// **Her forms are as big as their ART says**, and this is the whole of the
+    /// Her forms are as big as their ART says, and this is the whole of the
     /// content claim now that the sheets author her boxes.
     ///
     /// It reads the real baked manifests, so it fails if the generator re-crops
@@ -1560,7 +1468,7 @@ mod tests {
         );
     }
 
-    /// **Her scale is derived from art that actually resolved.**
+    /// Her scale is derived from art that actually resolved.
     ///
     /// [`mary_o_world_per_pixel`] falls back to `1.0` when no sheet is baked, and a fallback that
     /// returns a real number cannot report its own absence — every size downstream would be
@@ -1577,7 +1485,7 @@ mod tests {
         );
     }
 
-    /// **Every form is exactly as WIDE as every other.**
+    /// Every form is exactly as WIDE as every other.
     ///
     /// Growing and catching fire change her height and her look, never how wide a gap she fits. The
     /// sheets now author one body width for all three, and this is the check that they still agree
@@ -1599,7 +1507,7 @@ mod tests {
         );
     }
 
-    /// **HER GROWN CROUCH FITS WHERE HER SMALL FORM FITS.**
+    /// HER GROWN CROUCH FITS WHERE HER SMALL FORM FITS.
     ///
     /// collision as her small form, but currently its a bit too tall, so she
     /// can't clear places she used to be able to)."*
@@ -1688,16 +1596,16 @@ mod tests {
         );
     }
 
-    /// **A SMALL Mary-O who takes a lantern goes straight to fire.**
+    /// A SMALL Mary-O who takes a lantern goes straight to fire.
     ///
-    /// **this became reachable the day blocks got authored CONTENTS.** While
+    /// this became reachable the day blocks got authored CONTENTS. While
     /// every ?-block levelled toward the lantern, the ladder guaranteed she held
     /// the wand before a beacon could ever reach her — so "what happens if a
     /// small Mary-O collects a lantern" was a question about a state the game
     /// could not produce. `AlwaysLantern` produces it: an author puts a beacon
     /// in a block and the first player to bonk it is small.
     ///
-    /// **no intermediate tall step, and that is the claim.** She does not grow
+    /// no intermediate tall step, and that is the claim. She does not grow
     /// and then ignite over two ticks; `sync_grown_form` reads the beacon FIRST,
     /// so one swap carries her from small to fire. A two-step version would show
     /// as a one-frame flicker of the wrong sheet.
@@ -1740,7 +1648,7 @@ mod tests {
              and not tall-then-fire"
         );
 
-        // **and wearing BOTH is still fire**, which is the case the check's
+        // and wearing BOTH is still fire, which is the case the check's
         // ORDER protects and the ordinary route to this form: the ladder gives
         // the wand first and the beacon second, so she holds both from then on.
         // A first probe at this test reordered the check and it stayed green —
@@ -1758,8 +1666,8 @@ mod tests {
         );
     }
 
-    /// **Both power states are tall, and the downgrade between them does not
-    /// resize her.** Losing the spark must change what she can DO, not how big
+    /// Both power states are tall, and the downgrade between them does not
+    /// resize her. Losing the spark must change what she can DO, not how big
     /// she is; only the second hit shrinks her.
     ///
     /// "Tall" is now an IDENTITY fact checked against the sheets' own sizes
@@ -1828,7 +1736,7 @@ mod tests {
         );
     }
 
-    /// **Every form change voices its OWN cue**. Not one generic
+    /// Every form change voices its OWN cue. Not one generic
     /// chime with a direction test: five authored edges, because gaining fire and
     /// losing it are different events with different sound design, and the pair
     /// that share a direction (`small→big` and `big→fire`) are not the same
@@ -1984,7 +1892,7 @@ mod tests {
         assert_eq!(wand(&mut app), 1, "a spent ?-block yields no more wand");
     }
 
-    /// **A block that LOOKS like a brick but HOLDS a powerup pops it.**
+    /// A block that LOOKS like a brick but HOLDS a powerup pops it.
     ///
     /// like a brick but really has a powerup. We should also allow for bricks to
     /// have explicit items. E.g. always a wand, always a lantern, or a
@@ -1992,7 +1900,7 @@ mod tests {
     /// forced appearance and contents apart — with one enum answering both, a
     /// brick could only ever hold nothing.
     ///
-    /// **and it must NOT break.** A brick that shattered would take the
+    /// and it must NOT break. A brick that shattered would take the
     /// powerup with it, which is why `MaryOBlockContents::breaks_when_empty`
     /// derives breakability from the contents rather than making the author keep
     /// two fields consistent.
@@ -2083,7 +1991,7 @@ mod tests {
         );
     }
 
-    /// **A coin block PAYS instead of POPPING.**
+    /// A coin block PAYS instead of POPPING.
     ///
     /// spawn as items, they just play an animation and your coin count goes
     /// up)."* Both halves are asserted, and the second is the one that matters:
@@ -2255,14 +2163,14 @@ mod tests {
         assert_eq!(count, 0, "a plain block is not a ?-block");
     }
 
-    /// **The whole downgrade table, both authoring moods.**
+    /// The whole downgrade table, both authoring moods.
     ///
     /// 1-2 authors `MaryOBlock { kind: Brick, contents: AlwaysWand }`, and a
     /// FIRE Mary-O who bonked it came out TALL. The wand and the beacon share
     /// one exclusive slot, so the engine's replacement rule did exactly what it
     /// promises and the form went down a rung.
     ///
-    /// **the redundant case still PAYS.** `Coins` here is not "nothing" — the caller has
+    /// the redundant case still PAYS. `Coins` here is not "nothing" — the caller has
     /// already spent the block, flinched it and changed its art by the time it reads this, and
     /// coins are what it hands over instead.
     #[test]
@@ -2344,7 +2252,7 @@ mod loose_form_tests {
     use ambition_platformer2d::actors::items::WorldItem;
     use ambition_platformer2d::characters::equipment::WornEquipment;
 
-    /// **A wand lying on the floor cannot demote fire Mary-O.**
+    /// A wand lying on the floor cannot demote fire Mary-O.
     #[test]
     fn a_loose_wand_is_consumed_rather_than_demoting_her() {
         let mut app = App::new();
@@ -2413,10 +2321,10 @@ mod discovery_tests {
         }
     }
 
-    /// **Discovery turns an invisible block into a real solid — both halves.**
+    /// Discovery turns an invisible block into a real solid — both halves.
     ///
-    /// **the BEFORE case is asserted too, and it is the half a careless guard
-    /// would drop.** Solidifying every hidden block on sight passes "it is solid
+    /// the BEFORE case is asserted too, and it is the half a careless guard
+    /// would drop. Solidifying every hidden block on sight passes "it is solid
     /// after" while deleting the mechanic: you would stand on blocks you have
     /// never found.
     #[test]
@@ -2503,7 +2411,7 @@ mod multi_coin_counter_tests {
         assert_eq!(spent.coins_taken(&block), 0);
     }
 
-    /// **POISON: a one-coin block behaves exactly as every block did before.**
+    /// POISON: a one-coin block behaves exactly as every block did before.
     /// `Coins(1)` is the default instance, so if it took two hits the whole
     /// existing cast of ?-blocks would have changed behaviour.
     #[test]
@@ -2528,7 +2436,7 @@ mod multi_coin_counter_tests {
         assert!(!spent.is_spent(&block));
     }
 
-    /// **the checksum sees the COUNT.** Two peers whose blocks have paid a
+    /// the checksum sees the COUNT. Two peers whose blocks have paid a
     /// different number of coins must not agree on the hash — otherwise the
     /// divergence rides silently until one of them runs out first.
     #[test]
@@ -2551,12 +2459,12 @@ mod multi_coin_counter_tests {
 
 #[cfg(test)]
 mod block_dressing_tests {
-    //! **WHAT EACH LOOK WEARS, BEFORE AND AFTER IT HAS PAID.**
+    //! WHAT EACH LOOK WEARS, BEFORE AND AFTER IT HAS PAID.
     //!
     //! blocks (or question mark blocks which currently work correctly) need to change their tile
     //! sprite to spent blocks.
     //!
-    //! **the unspent BRICK row is the load-bearing one.** It is the reason the
+    //! the unspent BRICK row is the load-bearing one. It is the reason the
     //! fix is guarded on `is_spent` rather than unconditional: a brick that has
     //! not paid must still name NO art, because naming art strips the level's
     //! authored paint and a camouflaged block that announces itself before it

@@ -1,127 +1,9 @@
-//! **Does a rollout buy anything?** (FB6e — `l3_earns_its_depth`)
+//! Quick fighter-depth smoke probe.
 //!
-//! `cargo run -p ambition_demo_smash_app --bin ladder_probe`
-//!
-//! Read every table below with that in mind — a row's level chooses its depth, so comparing
-//! ACROSS levels varies two things at once.
-//!
-//! The reason the depth was withheld is still written down: it cannot be authored until something
-//! proves it buys something.
-//!
-//! This is that measurement, at the crudest honest scale: run the same match at
-//! each level and time how long the CPU keeps itself alive. Its opponent is a
-//! human seat with no controller and cannot attack, so **every stock lost is a
-//! self-KO** — the brain walking or jumping off the stage. That makes the number
-//! unusually clean: it is not "did it win", it is "did it kill itself", which is
-//! the one thing a difficulty curve cannot survive.
-//!
-//! Ticks-until-first-self-KO has resolution across the whole range between "walks off
-//! immediately" and "never dies".
-//!
-//! ```text 9/ 5.0s to first self-KO 9/ 9.8s to first self-KO
-//! ```
-//!
-//! That was read as the first evidence in this repository that L3 buys
-//! anything, and it took three fixes to get a signal at all: the rollout had to
-//! roll MOVEMENT lines (it only ever refined attacks), the shadow floor had to
-//! have an EDGE, and the veto's horizon had to be long enough to reach one.
-//! Before those, this table read `3 3 3 3 3` — a saturated metric over a blind
-//! model.
-//!
-//! **and the same evening, over THREE SEEDS, it says the opposite:**
-//!
-//! ```text 9/ 5.2s to first self-KO (identical on every seed) 9/ 2.7s to first self-KO (identical on every seed)
-//! ```
-//!
-//! The rollout makes this fighter die SOONER, reproducibly. Two things follow,
-//! and the second is the one that matters:
-//!
-//! * the morning's numbers are not comparable to the evening's — the same
-//!   caution the ladder rows carry, and it applies to a table written six hours
-//!   apart in the same file;
-//! * **at level 9 the outcome does not move with the noise seed at all**, while
-//!   levels 1/3/5/6 do. So this A/B is not a sampling accident: within one
-//!   build, turning the rollout on costs this fighter half its survival, and
-//!   `l3_earns_its_depth` cannot be authored off it.
-//!
-//! it is not a fix either way. Every rung still loses all three stocks inside
-//! ~10 s: the brain kills itself, and depth changes only how fast.
-//!
-//! ## What the two new columns say, and what they rule OUT
-//!
-//! ```text 1 died at x≈-119 (3L/0R), vmax 400 3 died at x≈-117 (3L/0R), vmax 586 5 died at x≈-116 (3L/0R), vmax 658 6 died at x≈756 (0L/3R), vmax 609 9 died at x≈758 (0L/3R), vmax 752 9/ died at x≈752 (0L/3R), vmax 773 9/ died at x≈758 (0L/3R), vmax 752
-//! ```
-//!
-//! What matters diagnostically is which SIDE the fighter left from, not the old absolute
-//! blast-line coordinate. Two facts fall straight out, and both narrow the search:
-//!
-//! * **the direction is a property of the LEVEL, not of the rollout.** Levels
-//!   1–5 leave to the left, 6–9 to the right, and level 9 leaves right at BOTH
-//!   depths. Whatever the rollout is doing, it is not steering.
-//! * **`vmax` is dash speed at both depths** (`dash_speed` is 760; a run tops
-//!   out at `MAX_RUN_SPEED` 270). So the fighter DASHES off the stage with the
-//!   rollout on and with it off. The rollout does not introduce the dash; it
-//!   changes when it happens — 2.7 s instead of 5.2 s.
-//!
-//! ▢ **so the open question is narrow**: why does the movement veto let a dash that leaves the
-//! stage through? The shadow models a dash as `dash_speed` held for `dash_time` and then coasts
-//! under `ShadowIntent::Hold`, which zeroes lateral velocity instantly WHEN GROUNDED — while
-//! the real body that dashes off a lip becomes airborne, where `AIR_FRICTION` (650) lets 760
-//! px/s carry it several hundred px further.
-//!
-//!   * **`ShadowTuning` has no friction field at all** — `gravity`,
-//!     `ground_speed`, `dash_speed`, `dash_time`, `jump_speed`, and nothing
-//!     else. So the divergence is a MISSING PARAMETER, not a mistuned one, and
-//!     the seam where it would go is that struct.
-//!   * on the ground the shadow stops **instantly**; the real kernel coasts at
-//!     `GROUND_FRICTION` 7600 px/s², so a body leaving a dash at 760 px/s
-//!     travels ~38px the shadow does not predict. That is an UNDER-prediction of
-//!     travel, which is the direction that lets a veto approve a dash it should
-//!     refuse.
-//!   * in the air the shadow keeps everything; the real kernel bleeds at
-//!     `AIR_FRICTION` 650 px/s². That is an OVER-prediction, which makes the
-//!     veto more cautious, not less — so it cannot be the mechanism, and the
-//!     stale paragraph above had the sign backwards.
-//!
-//! `ShadowTuning` gained `ground_coast_decel` (7600) and `air_coast_decel`
-//! (650), and the grounded `Hold` arm stopped zeroing lateral velocity outright.
-//! Nothing about the veto changed. **Over 7 seeds:**
-//!
-//! ```text 1 2.5s to first self-KO 3 stocks lost 3 4.3s 3 5 >60s no self-KO 0 6 >60s no self-KO 0 9 >60s no self-KO 0 9/ 6.2s 1 9/ >60s no self-KO 0
-//! ```
-//!
-//! Against the evening-of-07-31 table above — every rung losing all three stocks inside ~10 s,
-//! and `9/` dying at 2.7 s against `9/`'s 5.2 s — three things changed at once and all of them
-//! are the same fact:
-//!
-//! * **levels 5, 6 and 9 stop killing themselves entirely.** The self-KO was the fighter dashing off a lip the rollout had scored as safe, because a shadow that stopped dead under-predicted where the dash ended.
-//! * **the A/B REVERSES.** `9/` now survives the whole minute while `9/` loses a stock at 6.2 s. That is the first honest evidence in this repository that the rollout buys something, and it arrived by making the model it rolls over less wrong rather than by touching the veto.
-//! * **the level-1/3 deaths are unchanged**, which is the control: those rungs carry `rollout_depth: 0`, so a fix to what the rollout SEES cannot help them and did not.
-//!
-//! **AND IT STILL ENGAGES** — checked, because this repository has been fooled
-//! by exactly this reading once. A movement veto with too long a commitment
-//! window once condemned every direction, the fighter reasoned itself into never
-//! moving, and survival more than doubled: standing still is an excellent
-//! strategy against an opponent that cannot attack.
-//! `the_fighter_brain_engages_rather_than_standing_still` passes, and the probe's
-//! own `vmax 760` column says the fighter is still reaching DASH speed at every
-//! level — it is moving as hard as it ever did and no longer leaving the stage.
-//!
-//! **this is still a probe.** One scenario, one opponent that cannot attack.
-//! `l3_earns_its_depth` wants §8's suite and survival/damage ratios; what this
-//! establishes is that the gate is now worth authoring, which it demonstrably
-//! was not while the number said the rollout made things worse.
-//!
-//! **and the earlier reading was still not a licence to change the veto** —
-//! the numbers in the paragraph above it came from reading two models rather
-//! than running them, and what confirmed the mechanism was making the shadow
-//! faithful and watching the deaths stop, not the argument.
-//!
-//! this is a PROBE, not the ladder rig. It runs one scenario, one opponent,
-//! no repeats — enough to say whether depth changes behaviour at all, and not
-//! enough to author a row from. §8's scenario suite and the survival/damage
-//! ratios are the real thing, and this exists because a first measurement that
-//! can be read in one line beats a suite nobody has run.
+//! Runs one fixed match across fighter levels and execution-noise seeds, then prints survival
+//! and engagement measurements. The opponent cannot attack, so stock loss measures self-KOs.
+//! This is a diagnostic probe, not the multi-scenario ladder calibration rig; do not author
+//! difficulty rows from it.
 
 use ambition_demo_smash_app::build_demo_app;
 use ambition_platformer2d::actor::{FighterStocks, MatchSeat};
@@ -135,10 +17,10 @@ const TICKS: usize = 3_600; // one minute at 60Hz
 /// Overridable: `cargo run --bin ladder_probe -- --seeds 7`.
 const DEFAULT_SEEDS: usize = 3;
 
-/// **Say WHICH ladder these numbers describe, before printing any.**
+/// Say WHICH ladder these numbers describe, before printing any.
 ///
-/// **a calibration table that does not name its ladder is worse than no
-/// table**, and this one could not name it. The rungs here resolve through
+/// a calibration table that does not name its ladder is worse than no
+/// table, and this one could not name it. The rungs here resolve through
 /// `FighterBrainProfile::for_level` — the ENGINE FLOOR — because this demo ships
 /// no ladder of its own, which `fighter-brain.md` §4 says is exactly what a game
 /// that has authored none should get: *"Games/demos ship their own rows — it's
@@ -146,7 +28,7 @@ const DEFAULT_SEEDS: usize = 3;
 ///
 /// That is the demo gate."* Loading it here would be one game reading another game's difficulty.
 ///
-/// **the numbers differ where this probe's own A/B lives**, which is why the
+/// the numbers differ where this probe's own A/B lives, which is why the
 /// line matters: the floor turns `rollout_depth: 12` on at level ≥ 6, so the
 /// ladder column below confounds depth with four other changes — while an
 /// authored ladder may set 0 on every rung (Ambition's does, deliberately), in
@@ -188,8 +70,8 @@ fn main() {
 /// Print the joined explanation for every subject that acted this tick, then
 /// clear the log.
 ///
-/// **`[fighter …]` lines on this same stream carry NO TICK, and must not be
-/// aligned with `[seam] t=N` by adjacency.** That is deliberate and correct —
+/// `[fighter …]` lines on this same stream carry NO TICK, and must not be
+/// aligned with `[seam] t=N` by adjacency. That is deliberate and correct —
 /// `trace_decision`'s own doc explains it: a brain five hops below the ECS does
 /// not know the world's clock, and a counter guessed there would be a second
 /// clock no other domain could join against. The fact it publishes IS stamped;
@@ -198,15 +80,15 @@ fn main() {
 /// They may or may not; adjacent lines here are not evidence either way. Compare only `t=`-stamped
 /// lines with each other.
 ///
-/// **cleared every tick on purpose.** A ladder run is thousands of ticks with
+/// cleared every tick on purpose. A ladder run is thousands of ticks with
 /// several bodies each; a log that accumulated all of it would be a memory
 /// profile of the probe rather than a trace. The question here is always "what
 /// happened on THIS tick", so the tick is the natural scope.
 /// Per-subject `vel_x` as of the previous tick, so an UNCLAIMED velocity step can
 /// be detected instead of eyeballed.
 ///
-/// **the seam line samples 1-in-5 between decisions, so a three-tick ramp is
-/// invisible to it** — which is how S51's `-99`/tick ramp survived six reading
+/// the seam line samples 1-in-5 between decisions, so a three-tick ramp is
+/// invisible to it — which is how S51's `-99`/tick ramp survived six reading
 /// cycles. The data was there every tick; only the printing was sampled.
 #[cfg(feature = "causal")]
 thread_local! {
@@ -258,8 +140,8 @@ fn trace_seam(app: &mut App, tick: usize) {
         if received.is_none() && decided.is_none() {
             continue;
         }
-        // **UNCLAIMED VELOCITY STEPS — checked on EVERY tick, before the
-        // sampling filter below.** This is the detector S51 needed and did not
+        // UNCLAIMED VELOCITY STEPS — checked on EVERY tick, before the
+        // sampling filter below. This is the detector S51 needed and did not
         // have: a step larger than the integrator can produce, with no kernel
         // operation naming a writer.
         //
@@ -301,7 +183,7 @@ fn trace_seam(app: &mut App, tick: usize) {
                 );
             }
         }
-        // **every DECISION prints, and the frames between them are sampled.**
+        // every DECISION prints, and the frames between them are sampled.
         // The first version sampled both at 1-in-5 and every decision row came
         // back `asked=- chose=-`, which reads as "the brain decided nothing" and
         // is instead "you looked on the wrong tick". A decision fires on its own
@@ -326,8 +208,8 @@ fn trace_seam(app: &mut App, tick: usize) {
             field(received, "on_ground"),
             field(received, "dash_charges"),
             field(decided, "chose"),
-            // **THE KERNEL'S OWN OPERATION, and the field that finally
-            // answered this thread**. The seam line reported
+            // THE KERNEL'S OWN OPERATION, and the field that finally
+            // answered this thread. The seam line reported
             // what the brain asked and what the body held and was silent about
             // what the ENGINE did — so three ticks of `Slash` were invisible,
             // and `Slash` subtracts `side * facing * slash_recoil` from velocity
@@ -344,11 +226,11 @@ fn trace_seam(app: &mut App, tick: usize) {
 /// Whether the brain/seam trace is on. Same switch the brain reads, so the two
 /// halves of the trace are never half-enabled.
 ///
-/// **the `[seam]` half needs `--features causal`** — it reads the causal log
+/// the `[seam]` half needs `--features causal` — it reads the causal log
 /// now instead of hand-querying components, and the log is a default-off
 /// dependency. [`warn_if_seam_trace_is_unavailable`] says so out loud rather
 /// than letting the trace come back missing half its lines.
-/// **Say it, rather than printing nothing.**
+/// Say it, rather than printing nothing.
 fn warn_if_seam_trace_is_unavailable() {
     #[cfg(not(feature = "causal"))]
     if trace_enabled() {
@@ -383,8 +265,8 @@ fn seed_count() -> usize {
 
 /// One configuration, run under `seeds` different execution-noise streams.
 ///
-/// **this rig SUPPLIES its streams and does not model how a real fighter gets
-/// one.** A live CPU's stream is `participant ⊕ level`
+/// this rig SUPPLIES its streams and does not model how a real fighter gets
+/// one. A live CPU's stream is `participant ⊕ level`
 /// (`brain_builders::fighter_cognition_seed`); sweeping `i` here is the point of
 /// the probe — it is measuring the SPREAD across streams — so it deliberately
 /// does not go through that seam. do not "fix" this to match the builder, and
@@ -544,7 +426,7 @@ fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
         if !seed_applied {
             seed_applied = force_noise_seed(&mut app, noise_seed);
         }
-        // **the APPLIED control, beside the body it is supposed to move.**
+        // the APPLIED control, beside the body it is supposed to move.
         // `AMBITION_FIGHTER_TRACE=1` prints what the BRAIN emitted; this prints what reached
         // `ActorControl`, which is the seam between the brain phase and the movement phase.
         //

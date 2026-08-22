@@ -1,11 +1,11 @@
-//! **EMMY ETHEREAL'S BODY, now that she has answers.**
+//! EMMY ETHEREAL'S BODY, now that she has answers.
 //!
 //! she leaves [`super::hall_humanoids`] under that file's own rule: *"one file
 //! for four... If one of them grows a moveset or a distinct build, it earns its
 //! own file that day."* This is that day, and it is the second time that rule has
 //! fired this week — Oiler went first.
 //!
-//! **the MOVESET is what is new**, and it reaches the fighter through
+//! the MOVESET is what is new, and it reaches the fighter through
 //! `with_moveset` — see [`crate::emmy_noether_moveset`] for the table and why it is
 //! shaped the way it is. Her `default_action_set` also stops being `peaceful` in
 //! the same change; the two halves answer different questions (*may this body
@@ -25,7 +25,7 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             ..Default::default()
         })
         .with_moveset(crate::emmy_noether_moveset::emmy_noether_moveset())
-        // **EMMY'S ONE MECHANICAL JOKE, AND IT IS HER WHOLE SUBJECT.**
+        // EMMY'S ONE MECHANICAL JOKE, AND IT IS HER WHOLE SUBJECT.
         //
         // Two Emmys driven by CPUs think on the SAME deterministic cognitive
         // stream, so an Emmy-vs-Emmy mirror match on a symmetric stage plays as a
@@ -33,11 +33,11 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
         // and *"spin the rules and the laws don't change"*, and this is that
         // sentence made playable rather than spoken.
         //
-        // **NOT a synchronised animation, and it must never become one.** The
+        // NOT a synchronised animation, and it must never become one. The
         // property is *identical cognition + symmetric information → symmetric
         // behaviour*. Nothing compares the two bodies and nothing copies one's
         // action to the other; they agree because they are drawing from one
-        // stream and reading a stage that happens to be symmetric. ⇒ the mirror
+        // stream and reading a stage that happens to be symmetric.  the mirror
         // BREAKS the moment their observations diverge — one takes a hit, one
         // gets launched further, one is nearer a ledge — and that is correct.
         // A mirror that survived asymmetric information would be a puppet show,
@@ -54,8 +54,8 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
 
 #[cfg(test)]
 mod tests {
-    /// **Emmy's mirror symmetry is AUTHORED and reachable through the one cast
-    /// table** — not a special case wired into the brain.
+    /// Emmy's mirror symmetry is AUTHORED and reachable through the one cast
+    /// table — not a special case wired into the brain.
     ///
     /// it goes through [`super::super::author_for`] rather than calling
     /// [`super::author`] directly, so the test also proves she is IN

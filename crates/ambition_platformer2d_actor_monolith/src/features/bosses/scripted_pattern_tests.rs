@@ -193,7 +193,7 @@ fn gnu_ton_hand_slam_anchors_to_drawn_hands() {
 // `boss_body_contact_attributes_the_attacking_boss_entity` deleted with fable
 // AD2: boss body-contact damage flows through the shared `apply_actor_contact_damage`
 // now (the boss's contact tuning is driven from `behavior.body_damage` at spawn),
-// not the deleted `boss_attack_damage` poll. The "body_damage = 0 ⇒ no contact"
+// not the deleted `boss_attack_damage` poll. The "body_damage = 0  no contact"
 // gate is the spawn tuning (`body_contact_damage: body_damage > 0`); the attacker
 // stamp is the shared contact path's, exercised by `app/tests/boss_contact_iframes`.
 

@@ -1,55 +1,11 @@
-//! **The sprite is the authority for an actor's body geometry.**
+//! Derive body and sprite geometry from per-pose sprite-sheet metrics.
 //!
-//! A sheet publishes, per animation row, the pixel rectangle its art actually
-//! occupies inside the frame (`body_metrics.animations[row].hurtbox`, emitted by
-//! the generator's `animation_key_map` opt-in). That rectangle answers two
-//! questions at once — *how big* the body is and *where in the frame* it sits —
-//! so it can drive BOTH halves of the visual/gameplay correspondence instead of
-//! either half being hand-guessed against the other:
-//!
-//! * the collision + hurt box is the rectangle, scaled to world units;
-//! * the sprite quad is the whole FRAME, scaled the same way and shifted so the
-//!   art's rectangle lands exactly on the collision box.
-//!
-//! One scalar — [`SpritePosedBody::world_per_pixel`] — is the entire authored
-//! input, and it means the obvious thing: how many world units one sheet pixel
-//! covers. The declaration itself is `ambition_sprite_sheet`'s (it is two facts
-//! about a sheet target); what lives here is the per-tick derivation, which is
-//! the half that needs an ECS and none of which the actor crate names.
-//! Everything else is read off the sheet. That is what makes a body
-//! whose silhouette CHANGES SHAPE between poses expressible without bespoke
-//! per-state boxes: a snake that withdraws into a cardboard box is a long low
-//! serpent in `walk` and a small cube in `boxed_idle` because its art is, and
-//! the box follows the art by construction.
-//!
-//! ## What the runtime does with it
-//!
-//! [`sync_sprite_posed_bodies`] resolves the pose once per tick and writes three
-//! facts that must never disagree:
-//!
-//! * `BodyKinematics::size` — the collision box (feet-anchored, see below),
-//! * [`ActorRenderSize`] — the sprite quad,
-//! * [`ActorSpriteOffset`] — the quad's offset from the body centre.
-//!
-//! The resize is **feet-anchored**: the +gravity face of the box stays put, so a
-//! body that shrinks does not sink into the floor and a body that grows does not
-//! embed in it. That is the same rule the player's compact-stance path uses, and
-//! it is what keeps this free of pushout.
-//!
-//! ## Which pose
-//!
-//! The sim reads the CONTENT pose pin ([`ActorAnimOverride`]) — the fact a shell
-//! state machine already publishes — and falls back to `Idle` when nothing is
-//! pinned. The presentation-side locomotion picker (`pick_actor_anim`) is
-//! deliberately NOT consulted: it lives in the render plugin, so a headless or
-//! RL build would resolve a different box than the drawn one, and a collision
-//! box that depends on whether anyone is watching is not a collision box.
-//!
-//! ## When
-//!
-//! Before the movement phase, so the box a body sweeps with is the one it is showing. That puts it
-//! BEFORE the content rule that pins the pose (which has to run after movement, since it classifies
-//! contacts against resolved positions), so the box trails the pin by exactly one tick.
+//! A sheet row supplies the occupied hurtbox rectangle in pixels.
+//! [`SpritePosedBody::world_per_pixel`] scales that rectangle and the full frame into
+//! world units so collision size, render size, and sprite offset stay coherent. Resizes
+//! keep the gravity-side foot face fixed. The simulation uses authored
+//! [`ActorAnimOverride`] rather than presentation locomotion selection, and resolves
+//! geometry before movement.
 
 use bevy::prelude::*;
 
@@ -100,8 +56,8 @@ pub fn posed_body_geometry(
     })
 }
 
-/// **The sheet's AUTHORED gameplay body, in sheet pixels — `None` when it only
-/// measured one.**
+/// The sheet's AUTHORED gameplay body, in sheet pixels — `None` when it only
+/// measured one.
 ///
 /// So this refuses rather than returning a number that looks usable (`BodyMetrics::authored_body`
 /// is the sheet's own claim, emitted only when a target authored the box).
@@ -138,8 +94,8 @@ pub fn sync_sprite_posed_bodies(
         Option<&mut ae::BodyBaseSize>,
         Option<&ActorRenderSize>,
         Option<&ActorSpriteOffset>,
-        // **The STANCE, which composes with the pose rather than competing with
-        // it.** Absent ⇒ a body that never body-modes, and the pose IS the box.
+        // The STANCE, which composes with the pose rather than competing with
+        // it. Absent  a body that never body-modes, and the pose IS the box.
         Option<&ae::BodyModeState>,
     )>,
     // The body's LOCAL gravity, resolved the same way movement and contact do.
@@ -152,7 +108,7 @@ pub fn sync_sprite_posed_bodies(
         let Some(geometry) = posed_body_geometry(&posed.target, anim, posed.world_per_pixel) else {
             continue;
         };
-        // **The STANDING box is this sheet's `Idle` rectangle**, and it is a
+        // The STANDING box is this sheet's `Idle` rectangle, and it is a
         // different fact from the box above: `size` is the pose showing NOW, and
         // `base_size` is what the body returns to — the denominator of every
         // stance ratio, and what a reset restores `size` to. Leaving it at the
@@ -172,8 +128,8 @@ pub fn sync_sprite_posed_bodies(
                 }
             }
         }
-        // **The pose says how big the body IS; the MODE says what it is doing
-        // with it, and the box is the composition of the two.**
+        // The pose says how big the body IS; the MODE says what it is doing
+        // with it, and the box is the composition of the two.
         //
         // writing `geometry.collision` straight into `kin.size` silently undid every stance.
         // The crouch is applied ONCE, on the tick the mode changes — `body_mode::mechanics`

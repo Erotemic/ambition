@@ -1,4 +1,4 @@
-//! **World 1-2** — the underground level, and the demo's first SECOND ROOM.
+//! World 1-2 — the underground level, and the demo's first SECOND ROOM.
 //!
 //! `RoomTransitionRequested` had exactly one consumer and only `ambition_app` registered it, so a
 //! demo host could not change rooms at all — which is why 1-1's coin vault had to be dug into the
@@ -6,21 +6,21 @@
 //!
 //! The grammar, left to right:
 //!
-//! 1. **The drop** — you arrive at the room's own spawn, in a low stone
+//! 1. The drop — you arrive at the room's own spawn, in a low stone
 //!    corridor. The ceiling is solid the whole way, which is what makes it read
 //!    as underground rather than as a pit.
-//! 2. **The coin shelf** — a short raised run with coins on it, so the first
+//! 2. The coin shelf — a short raised run with coins on it, so the first
 //!    thing the room teaches is that its ceiling is low enough to matter.
-//! 3. **The chasm** — a five-tile gap with no stepping stone. The only way over
+//! 3. The chasm — a five-tile gap with no stepping stone. The only way over
 //!    is the moving platform, so the room's one new verb is load-bearing exactly
 //!    once, the same rule 1-1's stepping stone follows.
-//! 4. **The goal** — a pole at the far wall. Where finishing LEADS is
+//! 4. The goal — a pole at the far wall. Where finishing LEADS is
 //!    [`crate::exit_for_room`]'s answer rather than this room's.
 //!
 //! What is deleted is the shaft (`mary_o_1_1_descent`), its pad (`mary_o_1_2_arrival`), the alcove
 //! (`mary_o_1_2_exit`) and ITS pad (`mary_o_1_1_surface_return`).
 //!
-//! **the vault stays, and it is not the same thing.** 1-1's coin vault is
+//! the vault stays, and it is not the same thing. 1-1's coin vault is
 //! inside 1-1 and its two pipes move her within that room; only the exit to
 //! ANOTHER LEVEL went.
 
@@ -34,12 +34,12 @@ use ambition_platformer2d::world::rooms::RoomSpec;
 /// The authored area id, and the room id the runtime knows it by.
 pub const LEVEL_1_2_ROOM_ID: &str = "mary_o_1_2";
 
-// **`DESCENT_ZONE_ID` / `ARRIVAL_ZONE_ID` / `EXIT_ZONE_ID` / `SURFACE_RETURN_ZONE_ID` ARE GONE** —
+// `DESCENT_ZONE_ID` / `ARRIVAL_ZONE_ID` / `EXIT_ZONE_ID` / `SURFACE_RETURN_ZONE_ID` ARE GONE —
 // see the module header. Deleted rather than left pointing at nothing: `authored_zone` PANICS on a
 // missing id, so a constant that survives its zone is a landmine for the next reader who uses it as
 // one.
 
-/// **The ferry's authored ID.**
+/// The ferry's authored ID.
 ///
 /// Renaming the platform in the editor would have silently broken every lookup, which is the same
 /// defect the snake paid for twice.
@@ -57,7 +57,7 @@ pub const FERRY_ID: &str = "mary_o_1_2_ferry";
 /// room builder and this stays the datum it is.
 pub(crate) const UNDERGROUND_STONE: [f32; 4] = [0.20, 0.17, 0.28, 1.0];
 
-/// **1-2's goal.**
+/// 1-2's goal.
 pub fn goal_pole() -> crate::flag::FlagPole {
     crate::authored_pole(&level_1_2())
 }
@@ -77,7 +77,7 @@ mod tests {
 
     /// The IntGrid cell — half a tile, and the smallest hole an author can make.
     ///
-    /// **the sweeps below step by CELL, not by tile, and that is not fussiness.**
+    /// the sweeps below step by CELL, not by tile, and that is not fussiness.
     /// The first draft walked in whole tiles and probed with a quarter-tile box,
     /// which leaves 16px of every tile unexamined: a probe that erased one roof
     /// cell left the test GREEN, because the box straddled the cell next to the
@@ -173,21 +173,21 @@ mod tests {
         );
     }
 
-    /// **The coin shelf has coins on it, and they rest ON it.**
+    /// The coin shelf has coins on it, and they rest ON it.
     ///
-    /// **it was bare, and only the module doc said otherwise.** This level's
+    /// it was bare, and only the module doc said otherwise. This level's
     /// own grammar calls the shelf *"a short raised run with coins on it, so the
     /// first thing the room teaches is that its ceiling is low enough to
     /// matter"* — and the Rust version never authored a single one, so the beat
     /// it describes did not exist. A doc comment claiming content is the easiest
     /// kind of claim to leave untrue, because nothing reads it.
     ///
-    /// **the rest position is the assertion that matters.** A coin floating
+    /// the rest position is the assertion that matters. A coin floating
     /// above the shelf or sunk into it still "exists" and still collects; what
     /// it stops being is the thing the shelf teaches, which is that this run is
     /// worth the jump. So this checks they sit on its top edge, not merely that
     /// some placements are present.
-    /// **Nothing authored into 1-2 is buried in the rock.**
+    /// Nothing authored into 1-2 is buried in the rock.
     ///
     /// Blind placement needs an oracle that is not a screenshot.
     ///
@@ -252,8 +252,8 @@ mod tests {
         // the only SOLID that touches no edge of the world: the roof, the floor
         // runs and both walls each meet one.
         //
-        // **and "the only solid that touches no edge" EXPIRED the moment 1-2
-        // got reactive blocks.** A `MaryOBlock` is a `BlockKind::Solid` floating
+        // and "the only solid that touches no edge" EXPIRED the moment 1-2
+        // got reactive blocks. A `MaryOBlock` is a `BlockKind::Solid` floating
         // in mid-air too, so `find` started returning whichever came first and
         // this test failed claiming a coin hung off a shelf 300px away. The
         // structural idea is still right; it just has to say TERRAIN, and
@@ -264,7 +264,7 @@ mod tests {
         // ambiguous predicate answers confidently and wrongly — which is
         // precisely what happened.
         //
-        // **and "the only terrain shelf clear of every wall" EXPIRED TOO**,
+        // and "the only terrain shelf clear of every wall" EXPIRED TOO,
         // the moment 1-2 stopped being one shelf in an empty box (,
         // plain"*). Ceiling teeth, a second shelf and a staircase are all terrain
         // clear of every wall, and the count went to eight. Its own failure
@@ -360,7 +360,7 @@ mod tests {
         }
     }
 
-    /// **She arrives standing on something.**
+    /// She arrives standing on something.
     ///
     /// It probed the two `LoadingZone`s; there are none, so the old body could only panic in
     /// `authored_zone`.

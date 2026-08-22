@@ -197,52 +197,37 @@ pub struct NpcDialogueRequest {
     pub dialogue_id: String,
 }
 
-/// **What KIND of thing hit this body.** A cause, and nothing else.
-///
-/// * a "player's" slash meant *a slash filed under the player-side spelling*,
-///   so a possessed enemy's swing was the player's and an empowered ally's was
-///   not, and the outgoing damage slider reached the wrong strikes both ways;
-/// * `BossAttack` selected a heavier launch, so a heavy anything that was not a
-///   boss was unrepresentable;
-/// * which consumer owned an event was decided by the source's direction rather
-///   than by which population the named victim was in.
-///
-/// ⇒ **identity questions are asked of the ATTACKER**, whose entity
-/// [`HitEvent::attacker`] carries, and the vocabulary is left with the job it is
-/// actually good at: telling the HUD, the trace and the victim's reaction what
-/// kind of event this was. A hit that names its victim reaches its consumer on
-/// that name; only an unresolved broadcast still asks a question of the cause,
-/// and [`Self::seeks_victims`] is the whole of it.
-///
-/// New attack sources should add a variant here rather than building a parallel
-/// `apply_*_attack` path. The canonical channel is [`HitEvent`].
+/// Semantic cause of a [`HitEvent`]. Attacker identity comes from
+/// [`HitEvent::attacker`], victim routing from the named target, and launch
+/// strength from authored hit data. Add new attack causes here rather than
+/// creating parallel hit channels.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HitSource {
-    /// **A body-owned strike** — a swing, a slash, a lunge corridor. Whose swing
+    /// A body-owned strike — a swing, a slash, a lunge corridor. Whose swing
     /// it is comes from [`HitEvent::attacker`]; how hard it lands comes from the
     /// attacker's own weight and the strike's authored [`HitKnockback`].
     Melee,
-    /// **A fired shot.** Kept distinct from [`Self::Melee`] because a victim
+    /// A fired shot. Kept distinct from [`Self::Melee`] because a victim
     /// genuinely wants to know whether it took a contact swing or a ranged shot
     /// — that is a real difference in the world, unlike who fired it.
     Projectile,
-    /// **A body's own footprint harmed what it touched** — walking into an
+    /// A body's own footprint harmed what it touched — walking into an
     /// enemy, a star-powered runner flattening what it passes through, a charger
     /// that rams a wall and bursts. Contact harm runs in both directions and
     /// always has; the striker is whoever's footprint it was.
     Contact,
-    /// **Environmental hazard** (spike, lava, falling debris). Victim reaction
+    /// Environmental hazard (spike, lava, falling debris). Victim reaction
     /// depends on [`HitEvent::mode`] — `SafeRespawn` returns the body to the
     /// last safe platform; `Knockback` applies hitstun + knockback.
     Hazard,
-    /// **The body left the world** past the stage's blast margin — the pit, the
+    /// The body left the world past the stage's blast margin — the pit, the
     /// void, the blast zone. Distinct from [`Self::Hazard`] because nothing
     /// touched this body: the stage simply ended, and whoever knocked it out
     /// there is credited by [`HitEvent::attacker`], not by geometry. A platform
     /// fighter scores on exactly this source, so collapsing it into `Hazard` (as
     /// the kernel's reset gate once did) makes the genre unbuildable.
     LeftTheWorld,
-    /// **A pogo rebound**, resolved by orb-exact match rather than broadcast
+    /// A pogo rebound, resolved by orb-exact match rather than broadcast
     /// overlap: the carrying [`HitEvent::volume`] is the orb's authoritative
     /// AABB and the consumer matches it with `approximately_same_aabb`. Bodies
     /// are skipped under this source — body pogo consumes a resolved
@@ -251,9 +236,9 @@ pub enum HitSource {
 }
 
 impl HitSource {
-    /// **Is this an unresolved strike still hunting for whom it hit?**
+    /// Is this an unresolved strike still hunting for whom it hit?
     ///
-    /// **only ask this of an event whose target is NOT resolved.** Every
+    /// only ask this of an event whose target is NOT resolved. Every
     /// victim-side producer in the tree stamps [`HitTarget::Body`] now, and a
     /// named victim is the whole answer — the three sites that consult this all
     /// reach it only on a `Volume` / `UnresolvedFeatures` / `OrbMatch` event,
@@ -283,7 +268,7 @@ pub enum HitTarget {
     /// authoring zones).
     #[default]
     Volume,
-    /// **One pre-resolved body victim, named by entity.** A producer that
+    /// One pre-resolved body victim, named by entity. A producer that
     /// already did the work — overlap, relationship, self-exclusion, dedup —
     /// stamps who it picked, and every consumer applies the hit to exactly that
     /// body. Explicit victim identity outranks
@@ -297,7 +282,7 @@ pub enum HitTarget {
     /// approximately equals `volume` is hit; actors / bosses are
     /// skipped.
     OrbMatch,
-    /// **The part of a strike the body resolver could not resolve.**
+    /// The part of a strike the body resolver could not resolve.
     ///
     /// A body-owned melee strike resolves every real combat body itself, by
     /// identity, in [`crate::hitbox::apply_hitbox_damage`] — and publishes one
@@ -307,7 +292,7 @@ pub enum HitTarget {
     /// entity the resolver can name, so they stay UNRESOLVED and the geometry
     /// has to be broadcast for them.
     ///
-    /// **This is not [`Self::Volume`], and the difference is load-bearing.**
+    /// This is not [`Self::Volume`], and the difference is load-bearing.
     /// `Volume` means "nothing here is resolved — scan everything", and the
     /// wielded world-AOE primitive still means exactly that. This variant means
     /// "the bodies are ALREADY resolved; scan only what a body resolver cannot
@@ -382,8 +367,8 @@ pub struct HitEvent {
     /// Reaction mode for player victims (`Knockback` / `SafeRespawn`).
     /// Ignored for non-player targets.
     pub mode: HitMode,
-    /// Knockback impulse to apply to the victim, and **the only channel that
-    /// carries one**. `None` means this hit genuinely does not push its target
+    /// Knockback impulse to apply to the victim, and the only channel that
+    /// carries one. `None` means this hit genuinely does not push its target
     /// (pogo, player projectile). a source-specific impulse field is not an
     /// alternative spelling — see [`HitSource::Melee`] for the one that
     /// existed and what it cost.

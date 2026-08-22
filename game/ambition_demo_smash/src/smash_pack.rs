@@ -1,6 +1,6 @@
-//! **THIS DEMO'S CHARACTER PACKAGE — George's values, as content.**
+//! THIS DEMO'S CHARACTER PACKAGE — George's values, as content.
 //!
-//! ** first facet, from the consuming side.** The queue's row draws three layers and says the
+//!  first facet, from the consuming side. The queue's row draws three layers and says the
 //! middle one does not exist yet:
 //!
 //! ```text
@@ -38,7 +38,7 @@ const PACK_MANIFEST_RON: &str = include_str!("../assets/pack.ron");
 /// silently absent fighter.
 const GEORGE_FACET_PATH: &str =
     "../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/characters/george_booul/smash_fighter.ron";
-/// **embedded from the CHARACTER-AUTHORING SUBMODULE, not from this demo.**
+/// embedded from the CHARACTER-AUTHORING SUBMODULE, not from this demo.
 /// The: *"Smash should select George; it should not own
 /// George's values."* The values moved to
 /// `tools/ambition_sprite2d_renderer/.../characters/george_booul/smash_fighter.ron`,
@@ -92,7 +92,7 @@ pub fn fighter_facet(character: &str) -> Option<&'static SmashFighterFacet> {
     lowered_smash_fighters(prepared())?.get(character)
 }
 
-/// **The prepared capture kit for a character this pack authors.**
+/// The prepared capture kit for a character this pack authors.
 ///
 /// # Panics
 pub fn capture_kit(character: &str) -> SmashCaptureRepertoire {

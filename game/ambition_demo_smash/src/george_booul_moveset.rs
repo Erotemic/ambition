@@ -1,41 +1,10 @@
-//! **George Booul's repertoire** — the excluded middle, as a fighter.
+//! George Booul's authored fighter repertoire.
 //!
-//! **this demo's own character finally swings like itself.** All three
-//! registered fighters took [`crate::moveset::fighter_moveset`] verbatim, and
-//! that file says so in its own doc: *"Shared by this demo's three fighters
-//! today. That is a content decision, not an architectural one: the moveset
-//! rides the CHARACTER, so giving George a heavier one is editing his definition
-//! and nothing else."* This is that edit, and nothing else changed.
-//!
-//! **the other two keep the shared table on purpose.** `smash_duelist_a/b` are
-//! STAND-INS for `player_robot_v3`/`v2` — characters whose canonical repertoire
-//! lives on the real Robot provider (redirect §15) and reaches them the moment a
-//! host composes it. Authoring a third robot table here would be the copy that
-//! redirect exists to forbid. George is the one fighter this demo actually owns.
-//!
-//! ## The character, from his own row
-//!
-//! > *"Either you are on the stage or you are not."*
-//!
-//! A logician, and the heaviest body on the grid (`knockback_weight: 1.35`). The
-//! line is the law of the excluded middle, and it is the whole table:
-//!
-//! ```text
-//!                    startup      damage
-//!   jab, n-air, u-air   0.05–0.07    3–4      the pokes
-//!            ↑ nothing at all lives in here ↑
-//!   everything else     0.16–0.40   11–21     the commitments
-//! ```
-//!
-//! George has three fast options and eight slow ones and **no middle** — not
-//! even his tilts, which for every other fighter in the genre are the safe
-//! in-between. A fighter with no medium answer has to decide, every exchange,
-//! which of the two things he is doing; that is what a body built out of a
-//! disjunction plays like.
-//!
-//! **not the shared table renumbered**, and the tests below are comparative
-//! for exactly that reason: heavier than it on every smash, faster nowhere, and
-//! carrying a startup GAP the shared table does not have.
+//! George is a heavy commitment fighter with three fast pokes and otherwise
+//! slow, high-damage attacks; the startup gap between those groups is part of
+//! his character contract and is guarded by comparative tests. The demo owns
+//! George's table; stand-in robot fighters continue to use their provider-owned
+//! repertoires.
 
 use ambition_platformer2d::characters::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire,
@@ -44,7 +13,7 @@ use ambition_platformer2d::entity_catalog::{CancelCondition, ImpulseMode, Movese
 
 use crate::moveset::{cancelable, committed_tail, feel, impulse, on_hit, strike, Feel};
 
-/// **The rise George's Up-B commands**, engine units per second against gravity.
+/// The rise George's Up-B commands, engine units per second against gravity.
 ///
 /// authored as a SPEED and applied with `ImpulseMode::Set`, which is what
 /// makes it a recovery: a body pressing this while falling at terminal velocity
@@ -90,7 +59,7 @@ pub fn george_booul_moveset() -> MovesetContract {
         1.05,
         None,
     );
-    // **THE ONE ROUTE ACROSS THE GAP, AND IT ONLY OPENS ON CONTACT.**
+    // THE ONE ROUTE ACROSS THE GAP, AND IT ONLY OPENS ON CONTACT.
     //
     // George's whole problem is that he has three fast options worth nothing and
     // eight slow ones he can never start safely. This is the answer his own
@@ -322,14 +291,14 @@ pub fn george_booul_moveset() -> MovesetContract {
 
     // ── THE SPECIALS ─────────────────────────────────────────────────────────
     //
-    // **this table had none, and that was the hole.** Four verbs the engine
+    // this table had none, and that was the hole. Four verbs the engine
     // has always resolved (`special` / `special_forward` / `special_up` /
     // `special_down` through the same directional chain as every attack) and
     // that no fighter in this demo had ever bound. None of what follows is a new
     // engine path; three of the four are ordinary strikes with authored numbers,
     // and the fourth needed one primitive that did not exist.
 
-    // **NEUTRAL — `bivalence`.** Two active windows on one timeline: an early
+    // NEUTRAL — `bivalence`. Two active windows on one timeline: an early
     // weak pop and a late strong throw. Standing next to George while this
     // charges is a coin flip about which half you eat, and the answer is when you
     // chose to be there. The lingering second window is what a "commitment" is
@@ -378,7 +347,7 @@ pub fn george_booul_moveset() -> MovesetContract {
     }
     let bivalence = feel(bivalence, Feel::Special);
 
-    // **SIDE — `modus_ponens`.** *If you are there, then you are here.* A
+    // SIDE — `modus_ponens`. *If you are there, then you are here.* A
     // travelling body-check: the burst is `Set`, so it erases whatever George was
     // doing and replaces it with one committed direction, and the tail cannot be
     // steered out of. Thrown offstage it is a real horizontal recovery — and a
@@ -397,13 +366,13 @@ pub fn george_booul_moveset() -> MovesetContract {
         3.20,
         Some((1.0, -0.30)),
     );
-    // **so the zero stays as a CONTENT decision, not an engine one.** George's
+    // so the zero stays as a CONTENT decision, not an engine one. George's
     // side special is a horizontal body-check and George's way home is his Up-B;
     // giving this move an arbitrary hop would be tuning it to please a reader.
     //
-    // **and the honest consequence is that this move is INVISIBLE to the
+    // and the honest consequence is that this move is INVISIBLE to the
     // search, even though its own doc above calls it "a real horizontal
-    // recovery".** `lifting_candidates` filters on `lift_speed > 0`, and a purely
+    // recovery". `lifting_candidates` filters on `lift_speed > 0`, and a purely
     // horizontal `Set` has none — so a George who could get home by charging
     // sideways is never offered the option. That gap is NAMED and left open on
     // purpose: closing it means the search proposing every displacing move, not
@@ -417,7 +386,7 @@ pub fn george_booul_moveset() -> MovesetContract {
     let side_b = committed_tail(side_b, 0.74, 0.0);
     let side_b = feel(side_b, Feel::Special);
 
-    // **UP — `excluded_middle`. THE RECOVERY.**
+    // UP — `excluded_middle`. THE RECOVERY.
     //
     // *"Either you are on the stage or you are not"* — and this is the move
     // that decides which. It is the reason `MoveEventKind::Impulse` exists: the
@@ -426,8 +395,8 @@ pub fn george_booul_moveset() -> MovesetContract {
     // `start_impulse` could express neither half — it fires at the press and it
     // ADDS, which makes a recovery weakest precisely when it is needed.
     //
-    // **it is not flight, and the arithmetic is the reason rather than a
-    // cooldown.** No `Cancelable` window means the body cannot re-press until the
+    // it is not flight, and the arithmetic is the reason rather than a
+    // cooldown. No `Cancelable` window means the body cannot re-press until the
     // move ends, and the move outlasts its own arc (see `ASCENT_ENDS_S`), so
     // repeated use LOSES height. One press is a save; four presses is a slow
     // descent. That is a property of the authored numbers, held by a test, and
@@ -458,7 +427,7 @@ pub fn george_booul_moveset() -> MovesetContract {
     let up_b = committed_tail(up_b, ASCENT_ENDS_S, 0.15);
     let up_b = feel(up_b, Feel::Recovery);
 
-    // **DOWN — `reductio`.** Assume you are above me; derive a contradiction.
+    // DOWN — `reductio`. Assume you are above me; derive a contradiction.
     // A commanded plunge with the pogo technique on contact: connect and George
     // is thrown back up by his own landing, which is the one thing in this table
     // that can happen twice in a row. Offstage it is a stock — for whoever is
@@ -484,12 +453,12 @@ pub fn george_booul_moveset() -> MovesetContract {
     );
     let down_b = feel(down_b, Feel::Dive);
 
-    // **it also made a census lie.** The kit report probed specials standing
+    // it also made a census lie. The kit report probed specials standing
     // on the ground, found `dspecial` resolving to the neutral-B, and recorded
     // George as missing a down-B he has had all along. The census asks both
     // postures now; this is the move it was asking for.
     //
-    // **DOWN, ON THE GROUND — `reductio_ad_absurdum`.** Assume you are above me.
+    // DOWN, ON THE GROUND — `reductio_ad_absurdum`. Assume you are above me.
     // With his feet on the stage that assumption is false, so he MAKES it true
     // first: a short arc up, and then the same contradiction, derived on the way
     // down. the plunge impulse and the active window are `reductio`'s numbers
@@ -507,7 +476,7 @@ pub fn george_booul_moveset() -> MovesetContract {
         3.00,
         Some((0.0, 1.0)),
     );
-    // **THE ARC IS AN `Add`, AND THE UP-B'S POISON IS WHY.** `strike`'s
+    // THE ARC IS AN `Add`, AND THE UP-B'S POISON IS WHY. `strike`'s
     // frame data derives `lift_speed` from `Set` impulses only — *"an `Add`
     // states no speed, so no static reader may claim one for it"* — and
     // `excluded_middle` is the one move in this table allowed to advertise a way
@@ -529,7 +498,7 @@ pub fn george_booul_moveset() -> MovesetContract {
 
     // ── The hold ────────────────────────────────────────────────────────────
     //
-    // **the sixteen slots above stayed in Rust on purpose.** They are built by
+    // the sixteen slots above stayed in Rust on purpose. They are built by
     // COMPOSING `strike` / `impulse` / `on_hit` / `committed_tail` / `feel`, and
     // the `debug_assert` below states a law about the shape of this whole table.
     // That composition is the design; flattening it into RON would trade authored
@@ -542,8 +511,8 @@ pub fn george_booul_moveset() -> MovesetContract {
             0.9,
         ),
 
-        // **GEORGE'S DASH ATTACK IS A COMMITMENT, and his own law decided
-        // that.** `no_move_lives_between_the_pokes_and_the_commitments` splits
+        // GEORGE'S DASH ATTACK IS A COMMITMENT, and his own law decided
+        // that. `no_move_lives_between_the_pokes_and_the_commitments` splits
         // his kit at `POKE_MAX_STARTUP_S`, and `the fast half must be the weak
         // half` — his pokes top out at 5 damage where his softest commitment is
         // 6. A 14-damage move cannot be fast HERE, so the genre's 0.05 startup
@@ -582,7 +551,7 @@ pub fn george_booul_moveset() -> MovesetContract {
     }
     .into_contract();
 
-    // **the disjunction is checked WHERE IT IS AUTHORED**, not only in the
+    // the disjunction is checked WHERE IT IS AUTHORED, not only in the
     // test module. These two numbers are the character; a move edited into the
     // band between them stops being George's before anything else notices, and
     // this is the last place that still knows both halves at once.
@@ -622,8 +591,8 @@ mod tests {
     /// The tell before a move becomes dangerous — `None` for a move that has no
     /// dangerous moment to lead into.
     ///
-    /// **it was an `.expect("a strike has an active window")` and the capture
-    /// beats broke it**, correctly. A pummel and a throw have NO Active window
+    /// it was an `.expect("a strike has an active window")` and the capture
+    /// beats broke it, correctly. A pummel and a throw have NO Active window
     /// by design: they reach for nobody, because the target was selected when
     /// the capture was established. The law below is about the tell, and a move
     /// that cannot miss has none.
@@ -653,7 +622,7 @@ mod tests {
     // `ambition_characters::smash_repertoire`, and by the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
-    /// **THE EXCLUDED MIDDLE, AS AN ASSERTION.**
+    /// THE EXCLUDED MIDDLE, AS AN ASSERTION.
     ///
     /// the claim the module doc makes and the one thing that cannot survive a
     /// careless retune: every move is a poke or a commitment, and the band
@@ -663,7 +632,7 @@ mod tests {
     fn no_move_lives_between_the_pokes_and_the_commitments() {
         let george = george_booul_moveset();
 
-        // **WHO IS EXEMPT, BY NAME.** Six moves have no tell, and none of
+        // WHO IS EXEMPT, BY NAME. Six moves have no tell, and none of
         // them reaches for anybody: a pummel and FOUR throws, whose target was
         // already selected, and the TAUNT, whose whole content is that it buys
         // nothing. Pinning the list means a STRIKE that lost its Active window
@@ -739,7 +708,7 @@ mod tests {
             "the fast half must be the weak half ({hardest_poke} vs {softest_commit})"
         );
 
-        // **the poison.** The shared table has a real middle — its tilts sit
+        // the poison. The shared table has a real middle — its tilts sit
         // at 0.06–0.07 and its aerials climb through 0.09, 0.10, 0.12 — so if
         // this assertion ever passed for BOTH tables, the band would be
         // describing nothing.
@@ -808,10 +777,10 @@ mod tests {
     }
     // ── the specials ─────────────────────────────────────────────────────────
 
-    /// **THE ASCENT IS A SAVE, NOT A FLIGHT — and the arithmetic is the reason.**
+    /// THE ASCENT IS A SAVE, NOT A FLIGHT — and the arithmetic is the reason.
     ///
-    /// this is the guard that lets the Up-B exist with **no cooldown, no
-    /// per-airtime counter and no new rollback state**. The body cannot re-press
+    /// this is the guard that lets the Up-B exist with no cooldown, no
+    /// per-airtime counter and no new rollback state. The body cannot re-press
     /// while the move is playing (no `Cancelable` window), so the only question
     /// is whether one full cycle gains height. It cannot: the move outlasts its
     /// own arc, so by the time George may press again he has fallen back through
@@ -835,7 +804,7 @@ mod tests {
         assert!(up_b.landing_lag_s.unwrap_or(0.0) > 0.0);
     }
 
-    /// **THE RISE IS COMMANDED, NOT CONTRIBUTED.**
+    /// THE RISE IS COMMANDED, NOT CONTRIBUTED.
     ///
     /// the whole difference between a recovery and a hop. Under
     /// `ImpulseMode::Add` a George falling at terminal velocity would climb at
@@ -869,7 +838,7 @@ mod tests {
         assert_eq!(frames.lift_speed, ASCENT_SPEED);
         assert_eq!(frames.lift_at_s, ASCENT_AT_S);
 
-        // **the poison: nothing ELSE in the table advertises a lift.** A table
+        // the poison: nothing ELSE in the table advertises a lift. A table
         // where every move looked like a recovery would satisfy the assertion
         // above and tell a policy layer nothing.
         let table = george_booul_moveset();
@@ -885,7 +854,7 @@ mod tests {
         );
     }
 
-    /// **FOUR SPECIALS, FOUR MECHANISMS.**
+    /// FOUR SPECIALS, FOUR MECHANISMS.
     ///
     /// the brief this table exists to answer forbids *"rotated or mirrored
     /// clones of one base melee"*, and four specials built out of the same strike
@@ -941,7 +910,7 @@ mod tests {
         );
     }
 
-    /// **EVERY PRESS A BODY CAN MAKE REACHES A MOVE, IN BOTH POSTURES.**
+    /// EVERY PRESS A BODY CAN MAKE REACHES A MOVE, IN BOTH POSTURES.
     #[test]
     fn both_postures_reach_at_least_eight_distinct_moves() {
         use ambition_platformer2d::entity_catalog::AttackDir;
@@ -987,7 +956,7 @@ mod tests {
         );
     }
 
-    /// **THE FEEDBACK IS DIFFERENTIATED, AND IT IS RESOLVABLE.**
+    /// THE FEEDBACK IS DIFFERENTIATED, AND IT IS RESOLVABLE.
     ///
     /// Two claims in one test because they fail together: a table where every move sounds the
     /// same has no feedback, and a table naming an effect no shipped spritesheet carries has
@@ -1042,7 +1011,7 @@ mod tests {
         assert!(heavy_hit("jab").is_none(), "a jab does not clang");
     }
 
-    /// **THE JAB'S CANCEL IS A REWARD FOR CONNECTING.** George's only route from
+    /// THE JAB'S CANCEL IS A REWARD FOR CONNECTING. George's only route from
     /// his fast half to his slow half, and it is `OnHit` so a whiff buys nothing.
     #[test]
     fn the_jab_opens_the_commitments_only_when_it_lands() {

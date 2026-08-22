@@ -111,7 +111,7 @@ pub fn install_pocket_content(app: &mut App) {
         )
         .expect("Pocket character catalog should be valid"),
     );
-    // **REGISTER THE CHARACTER, not only its catalog row.**
+    // REGISTER THE CHARACTER, not only its catalog row.
     //
     // A catalog fragment declares what a character IS; `register_character` is what makes the
     // art pipeline know it exists — `declare_registered_characters` reads the PREPARED
@@ -180,7 +180,7 @@ impl Plugin for PocketExperiencePlugin {
         .with_loading_activity(
             ambition_platformer2d::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID,
         )
-        // **its own description says what it is: an architecture proof.**
+        // its own description says what it is: an architecture proof.
         // is a fixture that exists so a FOURTH provider proves the seam composes,
         // and every test that drives it activates its route directly — so it
         // loses nothing by not being offered.

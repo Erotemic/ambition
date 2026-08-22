@@ -311,7 +311,7 @@ pub fn shared_host_startup_ticks() -> u32 {
     (seconds * SHARED_HOST_HEADLESS_TICK_HZ).ceil() as u32 + SHARED_HOST_HEADLESS_TICK_HZ as u32
 }
 
-/// **How many room preparations the neighbour prefetch has performed.**
+/// How many room preparations the neighbour prefetch has performed.
 ///
 /// an instrument, exposed because the cost of FILLING the cache is the one thing its own
 /// counters never described — `hits`/`misses`/`stale_misses` all answer "what did a transition
@@ -618,8 +618,8 @@ pub enum VisibleRenderMode {
 /// Assemble the visible Ambition app — the ONE composition the desktop binary
 /// runs and the rendered ownership tests drive.
 ///
-/// **`shell_hosted` no longer means what its name says, and the name is kept
-/// on purpose.** Since K2b both arms ARE shell-hosted; the flag only chooses the
+/// `shell_hosted` no longer means what its name says, and the name is kept
+/// on purpose. Since K2b both arms ARE shell-hosted; the flag only chooses the
 /// INITIAL ROUTE — `true` boots the multi-game launcher, `false` boots straight
 /// to gameplay, which is what `--direct` and every `--start-room` alias mean.
 /// Renaming it would touch 33 call sites to restate a boolean whose two values
@@ -637,14 +637,14 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
 /// [`build_visible_app`], plus the ONE moment a caller can reach: after the App
 /// exists, before the simulation plugin builds.
 ///
-/// **this exists because the alternative was a second app builder, and that fork cost five
-/// bugs.** `StartRoomOverride`, `StartRoomMustResolve`, `StartingCharacterOverride` and
+/// this exists because the alternative was a second app builder, and that fork cost five
+/// bugs. `StartRoomOverride`, `StartRoomMustResolve`, `StartingCharacterOverride` and
 /// `SeatsAMatchInsteadOfAHomeBody` are COMPOSITION INPUTS: `init_sandbox_resources` removes
 /// them while the simulation plugin builds, so a caller who wants to set one has to write it
 /// into a world that already exists and has not yet built that plugin. There was no such
 /// moment.
 ///
-/// **a closure rather than a struct of known inputs.** A struct would have to
+/// a closure rather than a struct of known inputs. A struct would have to
 /// enumerate the composition inputs, and the fifth one added elsewhere would not
 /// be reachable here — which is the same "a caller cannot say this" hole, one
 /// release later. The hook says *when*, and the resources say *what*.
@@ -690,7 +690,7 @@ pub fn build_visible_app_with(
         // `dev/journals/code_smells.md` already states the lesson, and stating a lesson is what
         // a rule does instead of enforcing it.
         //
-        // **the same shape as the two above**: a non-session App must not have
+        // the same shape as the two above: a non-session App must not have
         // the side effect, so the HOST removes it once rather than 42 call sites
         // remembering to. A test that wants a different dt still inserts its own
         // — this is a default, not a lock.
@@ -798,7 +798,7 @@ pub fn build_visible_app_with(
             ));
         }
     }
-    // **AND NOW THE PART THAT IS NOT DESKTOP BUSINESS.** Everything above
+    // AND NOW THE PART THAT IS NOT DESKTOP BUSINESS. Everything above
     // chose a render surface; everything below is the game, and it is the SAME
     // game the browser runs. See `visible_composition` for why that is one
     // function and not a passage repeated per host.
@@ -848,7 +848,7 @@ fn cli_direct_entry() -> bool {
 
 /// Build + run the visible Bevy app for a browser (wasm32) target.
 ///
-/// **This function is a PLATFORM FOUNDATION and nothing else.** It answers the
+/// This function is a PLATFORM FOUNDATION and nothing else. It answers the
 /// three questions a browser host uniquely owns — which surface (the page's
 /// `<canvas>`), which asset profile (the one its Cargo feature set was built
 /// for), and how the app runs — and then hands off to
@@ -873,14 +873,14 @@ fn cli_direct_entry() -> bool {
 #[cfg(all(target_arch = "wasm32", feature = "web_platform"))]
 pub fn run_web() {
     let mut app = App::new();
-    // **THE `game://` SOURCE WAS NEVER REGISTERED HERE.** The world manifest
+    // THE `game://` SOURCE WAS NEVER REGISTERED HERE. The world manifest
     // addresses every `.ldtk` file as `game://worlds/<file>` (and the vanity card
     // its own art the same way), so on the browser those loads resolved through
     // a source that did not exist. `static_map` hid it for the worlds — the
     // embedded fallback answered instead — and nothing hid it for anything else.
     //
-    // **the two roots are ONE root here, and this is the platform default the
-    // engine's layering rule already reduces to.** `layered_asset_source`
+    // the two roots are ONE root here, and this is the platform default the
+    // engine's layering rule already reduces to. `layered_asset_source`
     // documents that equal roots return `AssetSourceBuilder::platform_default`
     // UNCHANGED, and that the equality is load-bearing rather than an
     // optimisation: a packaged build — an APK, a Steam Deck install, a served
@@ -903,10 +903,10 @@ pub fn run_web() {
     app.add_plugins(
         DefaultPlugins
             .set(bevy::asset::AssetPlugin {
-                // **NEVER PROBE FOR `.meta`, AND THIS IS NOT LOG HYGIENE.**
+                // NEVER PROBE FOR `.meta`, AND THIS IS NOT LOG HYGIENE.
                 //
                 // Bevy's default `AssetMetaCheck::Always` asks for `<path>.meta`
-                // before every asset. **This repo contains ZERO `.meta` files** under
+                // before every asset. This repo contains ZERO `.meta` files under
                 // either asset root and generates none, so every one of those probes
                 // is a request that cannot succeed — on the desktop a cheap failed
                 // stat, in a browser a full HTTP round trip that 404s.

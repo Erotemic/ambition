@@ -1,4 +1,4 @@
-//! **Behavioral restore proof for Mary-O's demo sim state (Phase 5b).**
+//! Behavioral restore proof for Mary-O's demo sim state (Phase 5b).
 //!
 //! The pin test (`rollback_registration.rs`) proves the NAMES reach the
 //! registry; this proves the machinery: the demo boots under the ROLLBACK

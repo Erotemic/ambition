@@ -1,4 +1,4 @@
-//! **Sequential-session isolation gate (session-root exclusivity).**
+//! Sequential-session isolation gate (session-root exclusivity).
 //!
 //! This drives the REAL Sanic host (`build_demo_app`: foundation + engine + host
 //! + shell + the Sanic provider) headlessly. The player body is

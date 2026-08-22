@@ -1,4 +1,4 @@
-//! **THE GIANT'S HANDS.** Two bodies of one character: the rig spawns a
+//! THE GIANT'S HANDS. Two bodies of one character: the rig spawns a
 //! left and a right from this single definition, which is a reusable
 //! authored template doing exactly what the campaign is about.
 //!

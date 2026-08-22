@@ -1,43 +1,15 @@
-//! **Class-B transit authority** — the per-frame remap ledger.
+//! Per-frame ledger for discontinuous Class-B body remaps.
 //!
-//! `docs/concepts/movement-collision.md` splits every consumer of a
-//! frame's motion path into three classes. Class A is the movement kernel (one
-//! per body, resolves solid contacts at TOI). Class C are observers that read
-//! the path and never move the body. **Class B is the transit authority**: the
-//! small set of writers allowed to *remap* a body's position discontinuously —
-//! portal transit, loading-zone room transitions, death/respawn, and scripted
-//! teleports.
-//!
-//! Class B carries a contract the other two do not:
-//!
-//! Nothing proved it. This module is what makes it provable: every Class-B writer records its
-//! remap here, the ledger is cleared at the head of each sim frame, and the CC3 fuzz oracle
-//! asserts invariant 5 — **no body carries two Class-B remaps in one frame**.
-//!
-//! ## This is a ledger, not an arbiter
-//!
-//! [`record`](ClassBRemapLog::record) does not reject the second remap. That is
-//! deliberate, and it is what §3.2 asks for: the "one action" rule is supposed
-//! to hold *structurally* — every Class-B application resets the frame's sweep
-//! sample (§3.1 rule 2), which is what makes a second Class-B reader a no-op the
-//! same frame. An arbiter here would paper over a broken sample reset and the
-//! oracle would go quiet. The ledger's job is to notice, loudly, when the
-//! structure fails.
-//!
-//! ## Recording is cheap and unconditional
-//!
-//! A remap is a rare event (a portal crossing, a door, a death). The ledger is a
-//! `Vec` push on those frames and a `clear()` on all the others. Every writer
-//! takes it as `Option<ResMut<ClassBRemapLog>>`, so a minimal test app that
-//! never added [`Platformer2dSimulationFoundationPlugin`] still runs its systems.
-//!
-//! [`Platformer2dSimulationFoundationPlugin`]: https://docs.rs/ambition_platformer2d_runtime
+//! Portal transit, room transitions, death/reset, and scripted teleports record
+//! remaps here. The ledger observes rather than arbitrates: every Class-B writer
+//! must reset the movement-frame sample so a second remap cannot apply, while
+//! tests use the log to detect violations. The log is cleared each sim frame.
 
 use bevy::prelude::*;
 
 /// Which Class-B authority remapped a body.
 ///
-/// **Declaration order is priority order** — `DeathOrReset` is strongest. §3.2
+/// Declaration order is priority order — `DeathOrReset` is strongest. §3.2
 /// ranks the first three (`death/reset > room-transition > portal-transit`);
 /// `ScriptedTeleport` (blink, dive, mark-recall — the traversal abilities that
 /// jump a body rather than accelerate it) is not ranked by the doctrine, so it

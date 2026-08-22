@@ -1,6 +1,6 @@
-//! **Snakes on a plane: the flying-swarm enemy archetypes.**
+//! Snakes on a plane: the flying-swarm enemy archetypes.
 //!
-//! **the engine already flies, and it is DATA.** The ledger row claimed a
+//! the engine already flies, and it is DATA. The ledger row claimed a
 //! flying swarm needed a motion authority that is neither the body sweep nor a
 //! projectile. It needed neither: `CharacterBrainTemplate::Aerial` and
 //! `MoveStyleSpec::Float` have existed the whole time (the comment beside
@@ -9,14 +9,14 @@
 //! `Floating -> is_aerial -> gravity_scale: 0.0` plus the fly ability from
 //! spawn.
 //!
-//! **but "so this file is a table, not a system" was too strong, and placing
-//! one is what showed it.** That claim is true of BEHAVIOUR and false of the
+//! but "so this file is a table, not a system" was too strong, and placing
+//! one is what showed it. That claim is true of BEHAVIOUR and false of the
 //! ENEMY: a plane snake in 1-2 drew a red placeholder rectangle until
 //! [`register_snakes_on_a_plane_sheets`] existed, because sheet publishing is
 //! the provider's own job in this demo (`snake.rs` and `ai_slop.rs` each carry
 //! their own). A new enemy SHAPE is an archetype row plus its art.
 
-/// **Register both swarms as CHARACTERS** — the same shape `snake.rs` uses,
+/// Register both swarms as CHARACTERS — the same shape `snake.rs` uses,
 /// one creature over, twice.
 ///
 /// It reads both: `aerial_brain_for_enemy` passes `aggro_radius` straight into `AerialCfg` and
@@ -29,12 +29,12 @@
 /// is an obstacle with a rhythm, not a pursuer — and a flyer that chases is a
 /// different design question than "1-2 has no enemies".
 ///
-/// **the two differ in SPEED and HEALTH, not in kind.** A paper plane is
+/// the two differ in SPEED and HEALTH, not in kind. A paper plane is
 /// light and quick and dies to anything; a Cartesian plane is a grid and moves
 /// like one — slower, steadier, and it takes two hits. That is the whole
 /// difference a player feels.
 ///
-/// **`patrol_effort: 1.0` is the deleted rows' own pace** (the same catch
+/// `patrol_effort: 1.0` is the deleted rows' own pace (the same catch
 /// `snake.rs` documents): a swarm PACES its patch of air at full speed, and
 /// `BrainProfile`'s default is the half-speed amble. the row-vs-character
 /// fork had hidden exactly this — the hosted build's character authored no
@@ -108,7 +108,7 @@ pub const PAPER_PLANE_CHARACTER_ID: &str = "npc_snakes_on_a_paper_plane";
 /// See [`PAPER_PLANE_CHARACTER_ID`].
 pub const CARTESIAN_PLANE_CHARACTER_ID: &str = "npc_snakes_on_a_cartesian_plane";
 
-/// **The sheet TARGETS, and they are not the catalog ids.**
+/// The sheet TARGETS, and they are not the catalog ids.
 ///
 /// `solid_snake` and `ai_slop` are both at once, which is why neither of those
 /// modules needs a pair of constants — and why copying their shape without
@@ -125,7 +125,7 @@ pub const PAPER_PLANE_DISPLAY_NAME: &str = "Snakes on a Paper Plane";
 /// See [`PAPER_PLANE_DISPLAY_NAME`].
 pub const CARTESIAN_PLANE_DISPLAY_NAME: &str = "Snakes on a Cartesian Plane";
 
-/// **Ensure both plane sheets are drawable**, for the reason
+/// Ensure both plane sheets are drawable, for the reason
 /// [`crate::snake::register_solid_snake_sheet`] gives at length: the catalog
 /// defers a non-eager character's sheet to a room-staging barrier that lives in
 /// the app host, and a demo-staged enemy does not reliably drive it. An enemy

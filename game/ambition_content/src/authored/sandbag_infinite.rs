@@ -1,4 +1,4 @@
-//! **THE IMMORTAL TRAINING DUMMY**, and the arm above says why it is a
+//! THE IMMORTAL TRAINING DUMMY, and the arm above says why it is a
 //! separate creature rather than a flag on the sandbag: `never_dies` is a
 //! character trait, so "the same dummy, invincible in this room" is not a
 //! thing the model can say. The combat-feel lab's two spawns are this.

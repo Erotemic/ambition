@@ -218,14 +218,14 @@ impl AudioCatalogRegistry {
     }
 }
 
-/// Provider-contributed SFX **bank** ids, App-local, indexed by provider.
+/// Provider-contributed SFX bank ids, App-local, indexed by provider.
 ///
 /// A provider's procedural cues live in its [`SfxRegistry`]; the arbitrary
 /// [`SfxId`]s carried by the open-ended `SfxMessage::Play { id }` path live in a
 /// packed bank instead. This registry records which provider *contributes* each
 /// bank id (paired with a content fingerprint) so the session bridge can build
 /// that provider's authorized id set. It is the SFX analogue of the music
-/// track-id index: **storage is App-local, authority is provider-relative.**
+/// track-id index: storage is App-local, authority is provider-relative.
 ///
 /// Combined indexing is deterministic (`BTreeMap` order). Two providers naming
 /// the SAME id for the SAME underlying entry (matching fingerprint) is a benign

@@ -1,6 +1,6 @@
 //! Headless brain-vs-brain arena simulation + non-degeneracy analytics.
 //!
-//! This is the **fighter-AI safety net**. It runs two brains against each other
+//! This is the fighter-AI safety net. It runs two brains against each other
 //! in a small bounded stage (floor, ceiling, side walls, a couple of platforms),
 //! with a faithful-*enough* kinematic model: locomotion throttle, gravity + jump
 //! arcs for grounded bodies, free 2D `velocity_target` steering for flyers, wall/
@@ -9,14 +9,14 @@
 //!
 //! It then analyses the recorded trace for the degeneracy signatures the design
 //! forbids:
-//!   - **frozen / cornered** — a fighter pinned in one spot or a wall corner for
+//!   - frozen / cornered — a fighter pinned in one spot or a wall corner for
 //!     too long,
-//!   - **looping** — the path collapses to a tiny repeating cycle,
-//!   - **dead stage space** — columns of the arena a human would use that the
+//!   - looping — the path collapses to a tiny repeating cycle,
+//!   - dead stage space — columns of the arena a human would use that the
 //!     fighter never visits,
-//!   - **one-note play** — fewer than a handful of distinct verbs over the bout.
+//!   - one-note play — fewer than a handful of distinct verbs over the bout.
 //!
-//! The assertions are **structural / statistical**, never byte-for-byte: the game
+//! The assertions are structural / statistical, never byte-for-byte: the game
 //! logic will change over time, so the test must survive a different-but-still-good
 //! fight. It is the guard the user asked for against degenerate hand-authored (or,
 //! later, learned) policies — not a frame-perfect replay.
@@ -103,7 +103,7 @@ impl Stage {
         }
     }
 
-    /// The **Noether Chamber** (C4 symmetry room) shape: a square room with a
+    /// The Noether Chamber (C4 symmetry room) shape: a square room with a
     /// central "kernel" platform and four symmetric ledges, default down-gravity
     /// orientation. The arena hybrids fly/ground here to inspect flight health.
     pub fn symmetry_chamber() -> Self {
@@ -333,8 +333,8 @@ impl Arena {
             // Free-mover: steer the commanded 2D velocity directly (the aerial
             // brain writes velocity_target; a stray grounded throttle maps to
             // horizontal motion as a fallback).
-            // **`locomotion.x` is a body-LOCAL side throttle and `f.vel` is
-            // world** — the same conflation S48 found in two shipped brains. It is
+            // `locomotion.x` is a body-LOCAL side throttle and `f.vel` is
+            // world — the same conflation S48 found in two shipped brains. It is
             // safe HERE and only here: this arena's gravity is a SCALAR magnitude
             // with "engine `+y` is down" hardcoded (see `GRAVITY`), never a
             // direction, and grounded motion below writes `f.vel.x` directly. So

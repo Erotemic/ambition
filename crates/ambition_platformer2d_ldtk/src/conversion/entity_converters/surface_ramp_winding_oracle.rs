@@ -139,7 +139,7 @@ fn ride_into_the_corner(o: RampOrientation) -> ae::Vec2 {
     scratch.kinematics.vel
 }
 
-/// **The oracle.** A body that runs into the fillet at speed leaves along the
+/// The oracle. A body that runs into the fillet at speed leaves along the
 /// WALL, in the direction the room opens — up, for a floor; down, for a
 /// ceiling. A winding sign error turns this into a launch or a clip, and no
 /// amount of reading the arc table would show it.

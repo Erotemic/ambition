@@ -1,4 +1,4 @@
-//! **X1 — rendered (no-window) ownership across the host lifecycle.**
+//! X1 — rendered (no-window) ownership across the host lifecycle.
 //!
 //! Drives the REAL visible composition (`build_visible_app` — the exact App
 //! the desktop binary runs, minus the window/wgpu backend) through
@@ -375,7 +375,7 @@ fn rendered_ownership_across_the_title_and_two_games() {
     assert!(count::<RoomVisual>(&mut app) > 0, "relaunch draws again");
 }
 
-/// **Provider-relative music at the PLAYBACK layer** (Issues 1–3).
+/// Provider-relative music at the PLAYBACK layer (Issues 1–3).
 ///
 /// Drives the real visible composition — which runs the actual music director,
 /// `MusicIntent`, and `MusicPlaybackState` — and asserts what the base channel
@@ -458,7 +458,7 @@ fn provider_relative_music_drives_the_base_channel() {
     );
 }
 
-/// **A provider's own frontend screen plays the score written for it.**
+/// A provider's own frontend screen plays the score written for it.
 ///
 /// unacceptable. … This current design is not elegant if games cant share
 /// assets."*
@@ -470,7 +470,7 @@ fn provider_relative_music_drives_the_base_channel() {
 /// seven providers, six of them had no way to say what their own screens sound
 /// like.
 ///
-/// **the assertion is the PLAYBACK, not the declaration.** Reading a profile
+/// the assertion is the PLAYBACK, not the declaration. Reading a profile
 /// back out of a registry passes on a singleton too; what distinguishes the two
 /// designs is which song reaches the base channel on a route the host does not
 /// own.
@@ -733,7 +733,7 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
     );
 }
 
-/// **What a stranger reads on the first screen.**
+/// What a stranger reads on the first screen.
 ///
 /// The real composed launcher must expose the intended game-selection wording and relative
 /// text/control sizing; a page-model unit test cannot verify the rendered composition.
@@ -743,7 +743,7 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
 /// still passing if somebody made the rows tiny too; what matters is that the
 /// footer is legible next to the thing it sits under.
 ///
-/// **and it may never identify a text node by its STRING alone.**
+/// and it may never identify a text node by its STRING alone.
 /// `"Ambition"` is on this screen TWICE and always was: it is the title of the
 /// launcher AND the label of the first game in the roster, which is the game
 /// called Ambition. The title is a `MenuNode::Text` (60.5px, carries
@@ -751,7 +751,7 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
 /// Bevy's `TextFont` default, no fraction — `spawn_control` sets the font HANDLE
 /// and nothing else). A global `find(label == "Ambition")` therefore returns
 /// whichever of the two the query's archetype order reaches first, which is not
-/// a property of the launcher at all — **display text is not identity.**
+/// a property of the launcher at all — display text is not identity.
 ///
 /// [`MenuTextHeightFraction`]: ambition_platformer2d::menu::MenuTextHeightFraction
 #[test]
@@ -863,7 +863,7 @@ fn the_title_screen_says_choose_game_and_is_readable() {
     );
 }
 
-/// **The title screen must not advertise verbs nobody can press.**
+/// The title screen must not advertise verbs nobody can press.
 ///
 /// The prompt read-model was not wrong; it was answering a different question.
 /// It describes what the CONTROLLED SUBJECT can do, and it keeps describing that
@@ -897,8 +897,8 @@ fn the_title_screen_does_not_show_gameplay_touch_buttons() {
     // Start and Reset are deliberately exempt: shell-shaped verbs, and a phone
     // with no keyboard needs its way out of a game.
     //
-    // **Jump and Interact are exempt too now, and that is a CHANGE
-    // rather than a loosening.** This screen publishes
+    // Jump and Interact are exempt too now, and that is a CHANGE
+    // rather than a loosening. This screen publishes
     // `ControlPrompt { context: Menu, menu_confirm: Some("Play") }` — measured —
     // and `touch_action_available`'s Menu branch has always admitted exactly the
     // menu-confirm buttons plus the menu row. So on the game-select screen those
@@ -906,8 +906,8 @@ fn the_title_screen_does_not_show_gameplay_touch_buttons() {
     // game. The test's original premise, "gameplay verbs that do nothing there",
     // was true of Attack and Dash and never of these.
     //
-    // The invariant kept here is the one that was always meant: **nothing is advertised that does
-    // nothing.**
+    // The invariant kept here is the one that was always meant: nothing is advertised that does
+    // nothing.
     let menu_functional = |action: &TouchActionButton| {
         matches!(
             action,
@@ -950,7 +950,7 @@ fn the_title_screen_does_not_show_gameplay_touch_buttons() {
     );
 }
 
-/// **The title screen's Menu button does something now.**
+/// The title screen's Menu button does something now.
 ///
 /// *"Some form of the 'Menu' probably should be available here, so you can
 /// change global engine properties like audio mute. Currently the touch menu

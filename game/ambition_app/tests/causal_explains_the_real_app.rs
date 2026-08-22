@@ -1,4 +1,4 @@
-//! **The causal instrument, against the REAL app composition.** (queue P1d)
+//! The causal instrument, against the REAL app composition. (queue P1d)
 //!
 //! Everything else that exercises the causal log builds an `App`, adds
 //! `CausalPlugin`, publishes a fact from a test system and reads it back. That
@@ -10,8 +10,8 @@
 //! green the whole time, which is exactly why it looked fine: they exercise the substrate and never
 //! the app.
 //!
-//! So this asks the one question those cannot: **step the real sim, and does an
-//! `explain(tick, subject)` come back carrying facts a GAME published?**
+//! So this asks the one question those cannot: step the real sim, and does an
+//! `explain(tick, subject)` come back carrying facts a GAME published?
 //!
 //! it deliberately does not assert WHICH domains appear. Which systems publish
 //! is a design question that moves; that a real tick explains at all is the
@@ -35,7 +35,7 @@ fn recording_sim() -> Platformer2dSimHarness {
         Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz()),
     )
     .expect("the Ambition sim harness builds");
-    // **the FEATURE and the PLUGIN are two switches, deliberately.** The
+    // the FEATURE and the PLUGIN are two switches, deliberately. The
     // `causal` feature compiles the publishers in; only `CausalPlugin` creates
     // the `CausalRecording` they write to, so a host can carry the publishers
     // without an inspector. `stamp_causal_frame` takes the log as `Option`

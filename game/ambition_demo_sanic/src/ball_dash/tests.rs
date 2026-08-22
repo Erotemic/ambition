@@ -126,7 +126,7 @@ fn brief_contact_loss_still_releases_the_armed_dash() {
     );
 }
 
-/// **You cannot bank a dash across a jump.** Staying airborne past the short
+/// You cannot bank a dash across a jump. Staying airborne past the short
 /// contact grace wipes the charge, so the cost of building one is still paid at
 /// the surface where it was armed.
 #[test]
@@ -429,7 +429,7 @@ fn facing_decides_the_launch_direction() {
     assert_eq!(v_t(&app, e), -BallDashTuning::default().launch_speed);
 }
 
-/// **The hurtbox-resize seam.** Rolling shrinks the live body box (the kernel's
+/// The hurtbox-resize seam. Rolling shrinks the live body box (the kernel's
 /// circle proxy is `size.min_element() * 0.5`, so the ball is physically
 /// smaller); standing up restores exactly what he was, from the flag itself.
 #[test]
@@ -510,7 +510,7 @@ fn a_ball_launched_off_a_ramp_stays_balled_while_airborne_and_fast() {
     assert!(app.world().get::<Rolling>(e).is_none());
 }
 
-/// **A restarted body is not still holding last round's charge.**
+/// A restarted body is not still holding last round's charge.
 ///
 /// The generic reset an outer ruleset can perform clears the ENGINE's clusters,
 /// and every one of Sanic's verbs lives outside them: a stored charge fires on

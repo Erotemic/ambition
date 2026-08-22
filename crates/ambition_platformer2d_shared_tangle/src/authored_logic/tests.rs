@@ -1,5 +1,5 @@
-//! **these tests build their own `App`, which is exactly the shape that can
-//! pass with the production wiring absent.** They are about the CONTRACT — its
+//! these tests build their own `App`, which is exactly the shape that can
+//! pass with the production wiring absent. They are about the CONTRACT — its
 //! arity checking, its refusals, its ordering — and the contract is what they
 //! supply. The claim that real domains publish real conditions is proved by the
 //! integration fixture that drives the composed app, not here.
@@ -39,10 +39,10 @@ fn descriptor(domain: &str, question: &str) -> ConditionDescriptor {
     }
 }
 
-/// **A CRATE THAT IS NOT THE ENGINE CAN PUBLISH A CONDITION.**
+/// A CRATE THAT IS NOT THE ENGINE CAN PUBLISH A CONDITION.
 ///
-/// **this is the milestone's behavioral acceptance, and it is a real test
-/// rather than a review opinion.** This file lives in the library's own test
+/// this is the milestone's behavioral acceptance, and it is a real test
+/// rather than a review opinion. This file lives in the library's own test
 /// module, but it names no other domain, edits no enum, and touches no
 /// registration table — it calls `publish_condition` and nothing else. If a
 /// central list of condition kinds existed, this could not compile.
@@ -76,7 +76,7 @@ fn a_provider_that_names_no_other_domain_can_publish_and_be_asked() {
     );
 }
 
-/// **TWO domains coexist and each is discoverable on its own.**
+/// TWO domains coexist and each is discoverable on its own.
 #[test]
 fn the_catalog_composes_domains_without_either_naming_the_other() {
     let mut app = App::new();
@@ -96,7 +96,7 @@ fn the_catalog_composes_domains_without_either_naming_the_other() {
     assert_eq!(catalog.describe_domain("weather").count(), 1);
 }
 
-/// **AN UNANSWERABLE CONDITION IS NOT A FALSE ONE.**
+/// AN UNANSWERABLE CONDITION IS NOT A FALSE ONE.
 ///
 /// the failure this pins is folding the third answer into `false`: a gate that
 /// opens on the negation of *"is the key held?"* would swing open in a world that
@@ -110,8 +110,8 @@ fn asking_an_unpublished_condition_is_unanswerable_rather_than_false() {
     assert!(!outcome.is_satisfied());
 }
 
-/// **ARITY AND KIND ARE CHECKED ONCE, CENTRALLY, AND THE REASON NAMES THE
-/// PARAMETER.**
+/// ARITY AND KIND ARE CHECKED ONCE, CENTRALLY, AND THE REASON NAMES THE
+/// PARAMETER.
 ///
 /// a diagnostic that said only "bad arguments" would make every authoring
 /// mistake a debugging session; the schema is right there, so the message uses it.
@@ -137,7 +137,7 @@ fn a_mistyped_argument_is_refused_with_a_reason_an_author_can_act_on() {
     assert!(wrong_kind.contains("occurrence"), "{wrong_kind}");
 }
 
-/// **TWO DOMAINS CANNOT OWN ONE ID, AND IT FAILS AT STARTUP.**
+/// TWO DOMAINS CANNOT OWN ONE ID, AND IT FAILS AT STARTUP.
 ///
 /// the alternative is that the winner is whichever plugin built last — a bug
 /// that appears only when a host changes its plugin order, which is the worst
@@ -150,15 +150,15 @@ fn publishing_one_id_twice_panics_rather_than_letting_the_last_plugin_win() {
     app.publish_condition(descriptor("custody", "is_carried"), is_carried);
 }
 
-/// **AN ID CANNOT BE SPELLED TWO WAYS.**
+/// AN ID CANNOT BE SPELLED TWO WAYS.
 #[test]
 #[should_panic(expected = "may not appear inside one")]
 fn a_dot_inside_a_segment_is_refused() {
     let _ = ConditionId::new("custody", "is.carried");
 }
 
-/// **AUTHORED CONTENT NAMES A CONDITION BY STRING, AND A TYPO IS A DIAGNOSTIC
-/// RATHER THAN A PANIC.**
+/// AUTHORED CONTENT NAMES A CONDITION BY STRING, AND A TYPO IS A DIAGNOSTIC
+/// RATHER THAN A PANIC.
 #[test]
 fn an_id_read_back_from_authored_text_refuses_instead_of_panicking() {
     assert_eq!(

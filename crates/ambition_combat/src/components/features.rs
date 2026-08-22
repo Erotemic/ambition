@@ -142,14 +142,14 @@ pub struct StandTimer(pub f32);
 /// sprite-authored hurtboxes, and breakables can publish authored trigger
 /// volumes. Systems that care about "what can the player hit?" should consume
 /// this component instead of rediscovering family-specific geometry.
-/// Since damage resolution reads this component, it must distinguish **three**
+/// Since damage resolution reads this component, it must distinguish three
 /// states, not two:
 ///
 /// * *never published* (`published == false`) — nobody has spoken for this body
 ///   yet, so a consumer falls back to the body's coarse box. A body spawned this
 ///   tick, or a bare test fixture that does not run the publisher, lives here.
 /// * *published, non-empty* — these volumes ARE the body's silhouette.
-/// * *published, empty* — the body is deliberately **intangible**: an authored
+/// * *published, empty* — the body is deliberately intangible: an authored
 ///   invulnerable window, or a corpse the publisher cleared.
 ///
 /// Collapsing the first and third is how an authored invulnerability silently
@@ -179,7 +179,7 @@ impl DamageableVolumes {
         self.published
     }
 
-    /// **Published, and published NOTHING: this body can be hit nowhere.**
+    /// Published, and published NOTHING: this body can be hit nowhere.
     ///
     /// The third state above, named — an authored invulnerable window, or a
     /// corpse the publisher cleared. It is the half of the victim-geometry rule
@@ -251,7 +251,7 @@ pub enum PogoPolicy {
 ///
 /// Bodies publish this alongside their damageable silhouette so proximity/UI and
 /// `PogoPolicy::Custom` can describe the pogoable part without losing body
-/// identity. These volumes are **not** collision-world blocks by default. An ECS
+/// identity. These volumes are not collision-world blocks by default. An ECS
 /// feature becomes world rebound geometry only when it also carries
 /// [`PogoTargetContributor`].
 #[derive(Component, Clone, Debug, Default, PartialEq)]

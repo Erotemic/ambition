@@ -26,7 +26,7 @@ snapshot_unit_enum!(crate::actor::ai::CharacterAiMode {
     Dead = 7,
 });
 
-// **The platform-fighter half of a capture.** Split off
+// The platform-fighter half of a capture. Split off
 // `ambition_combat:capture:CapturedBy`: the relation is generic
 // and these four are the ruleset's, so they rewind under this crate's ownership
 // rather than widening a row somebody else owns.
@@ -233,7 +233,7 @@ impl SnapshotState for crate::brain::boss_pattern::BossMacroState {
     }
 }
 
-/// One beat of a **resolved** boss timeline.
+/// One beat of a resolved boss timeline.
 ///
 /// `resolve_timeline` rolls every `Select` away before the first tick of the fight runs
 /// — *"Select rolled away, Stance markers left in place as jumps"* — so a resolved
@@ -281,7 +281,7 @@ impl SnapshotState for crate::brain::boss_pattern::BossPatternStep {
             }
             // Unreachable in a resolved timeline. Tag 4 decodes to `None`.
             //
-            // **and if it IS reached, the release build loses state silently.** Tag 4 round-trips
+            // and if it IS reached, the release build loses state silently. Tag 4 round-trips
             // to `None`, so a rewind restores a timeline missing this step and the divergence
             // surfaces later as a checksum mismatch with no name attached — the hardest kind to
             // trace.
@@ -461,7 +461,7 @@ impl SnapshotCursor for crate::brain::Brain {
     }
 }
 
-/// **The explicit brain SELECTION** for a catalog-backed NPC: its character
+/// The explicit brain SELECTION for a catalog-backed NPC: its character
 /// default preset plus whether it is on the default or an override. Self-contained
 /// (preset-id strings only — no `Entity`, no runtime brain), so it is a plain
 /// `register_component` and restores its own presence.
@@ -512,7 +512,7 @@ impl SnapshotState for crate::actor::character_catalog::BrainBinding {
                 put_u8(out, 4);
                 put_str(out, profile.as_str());
             }
-            // **A TAG AND NOTHING ELSE.** The character's own authored policy
+            // A TAG AND NOTHING ELSE. The character's own authored policy
             // is the default; the character is reachable from the body's
             // identity, so there is no id to carry — and carrying the
             // `BrainProfile` itself would put a dozen tuned floats in the
@@ -577,7 +577,7 @@ impl SnapshotState for crate::actor::character_catalog::AuthoredBrainContext {
     }
 }
 
-/// **The brain's last-tick intent**, which the sim reads on the NEXT tick — the
+/// The brain's last-tick intent, which the sim reads on the NEXT tick — the
 /// `brain/README.md` calls it exactly that. So it is state, not a per-frame scratchpad,
 /// and a rewind that leaves it stale hands the body an input it never chose.
 ///
@@ -930,7 +930,7 @@ mod body_health_wire_tests {
             .expect("the encoding decodes")
     }
 
-    /// **A fighter above 100% under `Unbounded` comes back as itself.**
+    /// A fighter above 100% under `Unbounded` comes back as itself.
     ///
     /// The encoding carried the pool only, and `decode` rebuilt the component
     /// with `BodyHealth::new` — a zero meter and the default policy. This is the

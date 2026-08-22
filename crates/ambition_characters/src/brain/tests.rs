@@ -284,7 +284,7 @@ fn brain_npc_patrol_ctor_inherits_spawn_and_radius() {
     assert!(!b.is_hostile());
 }
 
-/// **A `Brain` cannot say who drives a body, and that is the point.**
+/// A `Brain` cannot say who drives a body, and that is the point.
 ///
 /// The answer lives on the body as [`DrivingParticipant`], so a driven body keeps its own policy
 /// and gets it back by never having lost it.

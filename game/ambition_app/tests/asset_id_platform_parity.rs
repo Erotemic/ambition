@@ -1,4 +1,4 @@
-//! **ONE LOGICAL ASSET, ONE LOGICAL PATH, EVERY PLATFORM.**
+//! ONE LOGICAL ASSET, ONE LOGICAL PATH, EVERY PLATFORM.
 //!
 //! An `AssetId` names a thing the game needs. A profile decides how the bytes
 //! get there — a loose dev tree, an APK, an embedded blob, an HTTP fetch from
@@ -12,7 +12,7 @@
 //! `/assets/` — including every `.ldtk` world — and nothing measured the gap because nothing
 //! compared the two platforms' views.
 //!
-//! **the property is about the LOGICAL path, not the string.** A desktop dev
+//! the property is about the LOGICAL path, not the string. A desktop dev
 //! checkout may hand back an absolute `LocalPath` so the file watcher can see
 //! it, and a browser may hand back `embedded://…` for the same entry; those are
 //! two mechanisms carrying one name, which is the intended design. What must
@@ -54,7 +54,7 @@ fn logical_target(location: &AssetLocation) -> Option<String> {
 /// Do two resolutions name the same file? A logical path is a relative path, so
 /// one side may carry a longer prefix (an absolute dev root, a package
 /// namespace) than the other; agreement means one tail is a suffix of the other
-/// **at a path boundary**, never a bare substring.
+/// at a path boundary, never a bare substring.
 fn names_the_same_file(left: &str, right: &str) -> bool {
     let ends_at_boundary = |long: &str, short: &str| {
         long == short || (long.ends_with(short) && long[..long.len() - short.len()].ends_with('/'))
@@ -196,7 +196,7 @@ fn every_manifest_entry_names_the_same_file_on_both_platforms() {
     );
 }
 
-/// **THE POISON.** Every assertion above passes when two resolutions agree,
+/// THE POISON. Every assertion above passes when two resolutions agree,
 /// so a comparison that cannot tell two different files apart would pass
 /// vacuously — which is exactly the failure mode of a suffix match written
 /// without a boundary check (`".../boss.png"` "matching" `".../miniboss.png"`).

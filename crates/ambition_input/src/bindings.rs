@@ -1,4 +1,4 @@
-//! **One authority for "which physical control is this action on".**
+//! One authority for "which physical control is this action on".
 //!
 //! Routing, remapping, controller glyphs, touch affordances, action prompts and help displays
 //! are five readers of one fact.
@@ -49,13 +49,13 @@ pub enum BindingBase {
 /// about ONE seat: the settings menu changes the primary's recipe and the
 /// primary's map follows; a couch seat's gamepad-only recipe does not care
 /// what preset the keyboard player picked.
-/// **`Clone`, not `Copy`** — [`Self::overrides`] is a `Vec`. The two spawn
+/// `Clone`, not `Copy` — [`Self::overrides`] is a `Vec`. The two spawn
 /// sites and the settings-sync system each take one `.clone()`; nothing else
 /// held it by value.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct BindingRecipe {
     pub base: BindingBase,
-    /// **Which GAME's pad this seat is playing on** — the middle term of
+    /// Which GAME's pad this seat is playing on — the middle term of
     /// `device -> profile -> semantic action -> rules`.
     ///
     /// A fact about the mode, not the person: every seat in a smash match wants
@@ -103,7 +103,7 @@ impl BindingRecipe {
     /// The map this recipe declares. Pure, so a spawn site and the rebuild
     /// system cannot drift: both call this.
     ///
-    /// **THREE layers, and the ORDER is the precedence rule.** Base, then the
+    /// THREE layers, and the ORDER is the precedence rule. Base, then the
     /// GAME's layout, then the USER's overrides — so a player who remapped a
     /// button still gets their remap inside a mode that ships its own pad. A
     /// mode's layout is a better default; it is not an override of the person
@@ -123,14 +123,14 @@ impl BindingRecipe {
 
 /// Layer one override onto a built map.
 ///
-/// **not `clear_action`**, which drops an action's keyboard AND gamepad
+/// not `clear_action`, which drops an action's keyboard AND gamepad
 /// bindings together — so remapping Jump to `J` on a keyboard would silently
 /// unbind the controller, and the player would find out mid-jump. The removal
 /// is restricted to the override's own device class, enumerated through
 /// [`ActionBindings`] — the same projection a prompt reads, so "what this
 /// override replaces" is by construction what the screen was showing.
 ///
-/// **the override lands IN THE DISPLACED BINDING'S PLACE, not on the end.**
+/// the override lands IN THE DISPLACED BINDING'S PLACE, not on the end.
 /// [`ActionBindings::label`] is the first binding, so an appended override left a remapped Jump
 /// still printing the gamepad button it did not touch: the player remaps to `J` and the prompt
 /// keeps saying `A`.
@@ -193,7 +193,7 @@ fn device_class_of(control: &PhysicalControl) -> Option<OverrideDeviceClass> {
 /// The action a settings-file name refers to, or `None` if this build has no
 /// such action.
 ///
-/// **Derived, like everything else here.** The name is the enum's own variant spelling — the
+/// Derived, like everything else here. The name is the enum's own variant spelling — the
 /// string [`action_name`] publishes and a settings file stores — and the resolution runs
 /// through `Reflect`, which the action enum already derives.
 pub fn action_named(name: &str) -> Option<Platformer2dInputActionMonolith> {
@@ -217,12 +217,12 @@ pub fn action_named(name: &str) -> Option<Platformer2dInputActionMonolith> {
 /// own app, so no demo composition had a rebuild path at all.
 ///
 /// Two properties the replacement preserves on purpose:
-/// * **the seat's controller survives.** The seat-device pass owns WHICH pad
+/// * the seat's controller survives. The seat-device pass owns WHICH pad
 ///   this map answers; a recipe change re-decides the bindings, never the
 ///   seat's controller — so the current gamepad association is carried into
 ///   the rebuilt map rather than dropping to leafwing's any-pad fallback for
 ///   a frame.
-/// * **edges do not leak across bindings.** `ActionState` is reset when the
+/// * edges do not leak across bindings. `ActionState` is reset when the
 ///   map actually changes: a press latched under the old bindings is not a
 ///   press under the new ones.
 ///
@@ -262,7 +262,7 @@ pub enum PhysicalControl {
     Button(GamepadButton),
     /// Something the projection could not name.
     ///
-    /// **it carries the debug form rather than being dropped.** A prompt that
+    /// it carries the debug form rather than being dropped. A prompt that
     /// silently omits an unrecognised binding tells a player the action has no
     /// control at all, which is a worse lie than an ugly label — and it hides
     /// the fact that this projection needs a new arm.
@@ -329,8 +329,8 @@ impl ActionBindings {
             .unwrap_or_default()
     }
 
-    /// **THE selection primitive: which bound control this seat should be SHOWN,
-    /// given the device in its hands.**
+    /// THE selection primitive: which bound control this seat should be SHOWN,
+    /// given the device in its hands.
     ///
     /// A caller that then re-spelled it in a controller vocabulary got `Z`, not `Cross`: picking a
     /// vocabulary cannot turn a `KeyCode` into a button.
@@ -359,8 +359,8 @@ impl ActionBindings {
     /// The label a prompt should show — the FIRST binding, which is the one a
     /// preset lists first and therefore the one the author considered primary.
     ///
-    /// **device-blind, so gamepad buttons come out Xbox-style and a mixed map
-    /// answers with its keyboard half.** That is only right for a caller with no
+    /// device-blind, so gamepad buttons come out Xbox-style and a mixed map
+    /// answers with its keyboard half. That is only right for a caller with no
     /// seat to ask about (a docs generator, a rebind list). Anything drawing a
     /// prompt for a SEAT wants [`Self::label_for`].
     pub fn label(&self, action: &Platformer2dInputActionMonolith) -> Option<String> {
@@ -397,9 +397,9 @@ impl ActionBindings {
     }
 }
 
-/// **Which action drives an ability slot.**
+/// Which action drives an ability slot.
 ///
-/// **this did not exist, and two hand-maintained maps stood in for it.**
+/// this did not exist, and two hand-maintained maps stood in for it.
 /// `ambition_touch_input` carried `TouchActionButton → ControlSlot` and
 /// `TouchActionButton → Platformer2dInputActionMonolith` fifteen lines apart, agreeing only
 /// because somebody kept them agreeing — the same shape as the gamepad glyph
@@ -456,7 +456,7 @@ impl SeatBindings {
     /// The label for an ability SLOT — what a prompt actually wants to ask.
     /// Composes [`action_for_slot`] rather than carrying its own table.
     ///
-    /// **`devices` is a PARAMETER, not a second call.** The seat's device
+    /// `devices` is a PARAMETER, not a second call. The seat's device
     /// decides both WHICH binding to name and how to spell it, so a caller that
     /// asked for the label and then re-spelled it from the device fact would be
     /// two steps where one is correct — and the second step is the one a new
@@ -530,7 +530,7 @@ pub(crate) fn physical_control_of(
     PhysicalControl::Other(format!("{input:?}"))
 }
 
-/// **`presets::key_name` returns `"?"` for a key it does not list**, which on
+/// `presets::key_name` returns `"?"` for a key it does not list, which on
 /// a prompt tells a player nothing at all — and after a rebind to any unlisted
 /// key, that is what they would see. So an unnamed key falls through to the
 /// `KeyCode`'s own debug form (`F13`, `NumpadAdd`), which is ugly and TRUE.
@@ -654,9 +654,9 @@ mod tests {
         );
     }
 
-    /// **A prompt names the device that is actually in the seat's hands.**
+    /// A prompt names the device that is actually in the seat's hands.
     ///
-    /// **the fixture above cannot catch this and that is the point.** It uses
+    /// the fixture above cannot catch this and that is the point. It uses
     /// `gamepad_only_map()`, where the first bound control IS a button, so
     /// `.first()` looks correct. The PRIMARY seat's map is the mixed one —
     /// `input_map()` inserts the keyboard half at `presets.rs:257` and the
@@ -664,11 +664,11 @@ mod tests {
     /// both halves bind. Picking a controller vocabulary and then re-spelling a
     /// `KeyCode` with it cannot turn `Z` into `Cross`.
     ///
-    /// **it is the primary seat specifically**, because secondary seats get
+    /// it is the primary seat specifically, because secondary seats get
     /// `gamepad_only_map()`. The seat that shows the wrong prompt is the one
     /// most likely to be sitting at a docked machine holding a pad.
     ///
-    /// **both directions, or this is not a test.** An implementation that
+    /// both directions, or this is not a test. An implementation that
     /// always preferred the gamepad binding would satisfy the first assertion
     /// and be exactly as wrong; the keyboard case is the poison.
     #[test]
@@ -790,7 +790,7 @@ mod tests {
         );
     }
 
-    /// **PRECEDENCE, proven rather than asserted about the field order.**
+    /// PRECEDENCE, proven rather than asserted about the field order.
     ///
     /// The three layers are base → the GAME's layout → the USER's overrides, and
     /// that order is a product decision: a mode's shipped pad is a better

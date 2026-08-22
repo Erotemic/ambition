@@ -1,5 +1,5 @@
 #![cfg(feature = "rl_sim")]
-//! **WHAT ACTUALLY SURVIVES A ROLLBACK FOR A PROVOKED BODY** — through the real
+//! WHAT ACTUALLY SURVIVES A ROLLBACK FOR A PROVOKED BODY — through the real
 //! GGRS machinery, with nothing called by hand.
 //!
 //! Every test of that function calls it directly, which proves the function works and says
@@ -11,10 +11,10 @@
 //! (The helper it used, `fresh_health_pool`, is itself gone as of: the LIVE provoke flip was
 //! its last caller, and provocation no longer writes health either.)
 //!
-//! **it drives a SYNC-TEST session at prediction distance 4**, so `SaveWorld` and `LoadWorld`
+//! it drives a SYNC-TEST session at prediction distance 4, so `SaveWorld` and `LoadWorld`
 //! genuinely run every frame and every frame is resimulated.
 //!
-//! **the provoked state is folded into the BASELINE, not written mid-window.**
+//! the provoked state is folded into the BASELINE, not written mid-window.
 //! A direct world write inside a live prediction window is not reproduced during
 //! resimulation, so it would be erased by the first rollback and the test would
 //! be measuring its own fixture rather than the codecs.
@@ -37,7 +37,7 @@ fn hall_sim() -> Platformer2dSimHarness {
     .expect("the GGRS sync-test harness builds in the Hall")
 }
 
-/// **DID A ROLLBACK ACTUALLY HAPPEN?** — asked of the runtime, not assumed.
+/// DID A ROLLBACK ACTUALLY HAPPEN? — asked of the runtime, not assumed.
 ///
 /// If the sync-test session had silently stopped rolling back — a changed harness default, a
 /// feature flag, a prediction distance that quietly became 0 — every assertion would still have
@@ -49,7 +49,7 @@ fn hall_sim() -> Platformer2dSimHarness {
 /// absent reconciler would have been installed in. There is no need to infer
 /// rollback from timing or from a cost probe; the runtime counts it.
 ///
-/// **`lifetime_load_runs`, NOT `load_runs`**, and the type's own doc is why: a
+/// `lifetime_load_runs`, NOT `load_runs`, and the type's own doc is why: a
 /// rebase installs a NEW session and zeroes the per-session counters. These
 /// tests rebase, so the unprefixed field would report a number reset underneath
 /// them — which is the exact misreading that made the exit oracle look like a
@@ -87,7 +87,7 @@ fn a_bound_body(world: &mut World) -> Entity {
         .expect("the Hall stages catalog NPCs, which carry brain bindings")
 }
 
-/// **A PROVOKED, DAMAGED BODY, in the rollback baseline.**
+/// A PROVOKED, DAMAGED BODY, in the rollback baseline.
 ///
 /// This is the state a live provocation leaves behind — the binding says
 /// provoked, the mind is the provoked one, and the body has since been hurt —
@@ -118,16 +118,16 @@ fn stage_provoked_and_wounded(sim: &mut Platformer2dSimHarness) -> (Entity, i32)
     (body, wounded)
 }
 
-/// **THE CODECS ALREADY RESTORE A PROVOKED BODY, AND THE MISSING RECONCILER IS
-/// NOT A GAP.**
+/// THE CODECS ALREADY RESTORE A PROVOKED BODY, AND THE MISSING RECONCILER IS
+/// NOT A GAP.
 ///
 /// every component the absent `reconcile_autonomous_actors` would rebuild is
 /// registered rollback state: `Brain` (cursor), `BrainBinding`, `BodyHealth`,
 /// `ActorSurfaceState`, `TemporaryControl` and `CombatCapabilities` (canonical),
 /// and `ActorConfig`, `ActionSet`, `Mounted`, `MountSlot`, `RidingOn` (clone).
 ///
-/// **the HP assertion is the one that matters, and it is the one that would
-/// BREAK if the reconciler were wired in as-is.** Its provoked reconstruction
+/// the HP assertion is the one that matters, and it is the one that would
+/// BREAK if the reconciler were wired in as-is. Its provoked reconstruction
 /// rebuilt a fresh pool from `max_health`, which would replace this body's
 /// restored half-HP with a full pool every single load — a damaged actor healing
 /// itself on every rollback frame, which is precisely the class of divergence
@@ -181,7 +181,7 @@ fn a_provoked_wounded_body_survives_the_real_rollback_window() {
     );
 }
 
-/// **AND POSSESSION SURVIVES ONE TOO** — the other half of the absent
+/// AND POSSESSION SURVIVES ONE TOO — the other half of the absent
 /// reconciler, and the half that could have been a real production bug.
 ///
 /// `reconcile_temporary_control` is the part of `reconcile_autonomous_actors`

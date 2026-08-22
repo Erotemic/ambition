@@ -62,7 +62,7 @@ pub fn default_visual_quality_profile() -> VisualQualityProfile {
     }
 }
 
-/// **`Ord` is declaration order, which is ascending quality** (Potato <
+/// `Ord` is declaration order, which is ascending quality (Potato <
 /// Quarter < Half < Full). Derived so a set of tiers has a deterministic
 /// iteration order for diagnostics; nothing decides policy by comparing two
 /// tiers, and nothing should — "which is better" is not the same question as
@@ -151,7 +151,7 @@ pub struct SpriteTextureBudget {
 }
 
 impl SpriteTextureBudget {
-    /// **The tier a sprite sheet actually loads at under this budget.**
+    /// The tier a sprite sheet actually loads at under this budget.
     ///
     /// Two fields, one answer, and the two are not independent: a budget that
     /// does not `prefer_scaled_variants` loads the authored PNG whatever

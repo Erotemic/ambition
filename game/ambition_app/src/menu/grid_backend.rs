@@ -1078,7 +1078,7 @@ pub fn install_grid_unified_menu(app: &mut App) {
         // also inits it, but init here too so the Grid backend is self-sufficient
         // (`init_resource` is idempotent).
         .init_resource::<ambition_platformer2d::input::SeatActiveDevices>();
-    // **registered HERE, beside the system that publishes it**, not only in the
+    // registered HERE, beside the system that publishes it, not only in the
     // `install_bevy_ui_menu_actions` block below. `grid_menu_nav` now writes this
     // message, so a composition that installs nav without the pointer bridge
     // (every `grid_app()` test fixture) would panic on an uninitialised
@@ -1110,8 +1110,8 @@ pub fn install_grid_unified_menu(app: &mut App) {
                 .in_set(ambition_platformer2d::actors::schedule::MenuNavConsume),
         )
             .chain()
-            // **CONDITIONAL on the host, like the preset-map sync in
-            // `app/plugins.rs`.** `CoreSimulation` lives in `app.sim_schedule()`,
+            // CONDITIONAL on the host, like the preset-map sync in
+            // `app/plugins.rs`. `CoreSimulation` lives in `app.sim_schedule()`,
             // which is this literal `Update` only under `RenderFrame`; the shipped
             // `dev_tools` build is `Ggrs`, where measurement puts 0 systems in
             // `Update`'s CoreSimulation node and 242 in `GgrsSchedule`. Kept
@@ -1158,7 +1158,7 @@ pub fn install_grid_unified_menu(app: &mut App) {
             )
                 .run_if(grid_backend_active)
                 .after(BevyUiMenuInteractionSet)
-                // **AND after nav, which now publishes activations too.** Without
+                // AND after nav, which now publishes activations too. Without
                 // this the two sets are unordered siblings in `Update`, so a
                 // controller submit would be dispatched a frame late — breaking the
                 // `InputSet` contract that an edge produced this frame is consumed

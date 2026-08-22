@@ -218,9 +218,9 @@ fn resolve_side_penetration(
 }
 
 /// Role behavior:
-/// - **Gravity axis**: OneWay landing gate, nested side-graze rejection, feet
+/// - Gravity axis: OneWay landing gate, nested side-graze rejection, feet
 ///   snap + `on_ground` when moving toward the feet, head-face push otherwise.
-/// - **Side axis**: guarded side resolution ([`resolve_side_penetration`]:
+/// - Side axis: guarded side resolution ([`resolve_side_penetration`]:
 ///   defer / world-bounds / no-pushout) with grazing-motion continuation, and
 ///   wall contact armed in the body's LOCAL frame via [`apply_side_contact`]
 ///   (the old X path stored the raw world sign, breaking cling under up
@@ -279,8 +279,8 @@ pub(super) fn sweep_player_axis_clusters(
                 drop_through,
             );
         }
-        // **the MIRROR, and without it a `BonkOnly` block is solid from every
-        // side** — which is the invisible floor it exists to stop being. It
+        // the MIRROR, and without it a `BonkOnly` block is solid from every
+        // side — which is the invisible floor it exists to stop being. It
         // blocks a head coming up into it and nothing else.
         if matches!(block.kind, BlockKind::BonkOnly) {
             return crate::collision_semantics::bonk_strike_from_head(
@@ -301,7 +301,7 @@ pub(super) fn sweep_player_axis_clusters(
         let toi_fraction = sweep_fraction(hit.time_of_impact);
         kinematics.pos += axis_vec(axis, delta_along * toi_fraction);
         let body = kinematics.aabb_oriented(gravity_dir);
-        // **and the arm was never load-bearing.** Its whole stated job was
+        // and the arm was never load-bearing. Its whole stated job was
         // "not the feet-snap arm", which the condition below already refuses on
         // its own terms: a `BonkOnly` hit exists only when a head is RISING into
         // the block (`bonk_strike_from_head` is the sweep filter), so
@@ -426,24 +426,24 @@ struct AxisClaim<'a> {
 ///
 /// - Every intersecting block demands a strictly non-zero correction, so a
 ///   claim toward +axis puts the interval's floor ABOVE the current centre and
-///   a claim toward -axis puts its ceiling BELOW it. **Claims in one direction
-///   are therefore always feasible, and claims in BOTH directions never are** —
+///   a claim toward -axis puts its ceiling BELOW it. Claims in one direction
+///   are therefore always feasible, and claims in BOTH directions never are —
 ///   the interval is `[min, max]` with `max < min`, which is exactly the
 ///   physical statement "the body does not fit".
-/// - Feasible ⇒ move to the interval's binding edge, i.e. obey the DEEPEST
+/// - Feasible  move to the interval's binding edge, i.e. obey the DEEPEST
 ///   claim. Order-independent by construction (a max over a set), and where
 ///   only one block claims the axis — every ride, every ledge, every ordinary
 ///   collision — the applied delta is that block's own delta unchanged, written
 ///   with the same grounding, velocity-zero and contact push as before.
-/// - Infeasible ⇒ return an [`AxisConstraintConflict`] and DO NOT MOVE. The
+/// - Infeasible  return an [`AxisConstraintConflict`] and DO NOT MOVE. The
 ///   kernel refuses to invent a position no surface agrees with; the contacts
 ///   are still reported and the axis velocity is still zeroed, because both are
 ///   true (the body IS touching both, and it CANNOT move along this axis). The
 ///   perpendicular axis is untouched, so a crushed body can still walk out
 ///   sideways under its own power.
 ///
-/// **the no-artificial-pushout refusal is preserved as a filter on ADMISSION,
-/// not routed around**: a block whose own correction exceeds the body's
+/// the no-artificial-pushout refusal is preserved as a filter on ADMISSION,
+/// not routed around: a block whose own correction exceeds the body's
 /// half-extent ([`is_contact_range_snap`]) contributes NO claim at all — it does
 /// not move the body, does not report a contact, and cannot manufacture a
 /// conflict either. Because the binding edge is always some admitted claim's own
@@ -472,7 +472,7 @@ fn resolve_axis_repair(
         {
             continue;
         }
-        // **a hidden block never pushes a body out of itself.** Repair asked
+        // a hidden block never pushes a body out of itself. Repair asked
         // only `is_solid_for_axis`, which says yes on the gravity axis, so a body
         // that ended a tick overlapping a `BonkOnly` block was depenetrated and
         // could be left standing on it — the invisible floor the kind exists to

@@ -46,7 +46,7 @@ where
         "entity-less world-contact fired-state checksum projection",
         |on_hit| if on_hit.world_fired() { 1 } else { 0 },
     );
-    // **the stale ring is COMBAT's, and this is where it says so.** It was
+    // the stale ring is COMBAT's, and this is where it says so. It was
     // registered under the ENGINE domain as `body.stale_moves` while living in
     // the movement core, so a composition with no staling rule still rewound a
     // nine-slot combat history on every body it moved.
@@ -86,7 +86,7 @@ where
         OWNER,
         "actor.ruleset_owns_death",
     );
-    // **The death interlude** (ADR 0033) — the window between a participant's
+    // The death interlude (ADR 0033) — the window between a participant's
     // death and its consequence, and the state that keeps the world's hands off
     // the body while it is open. Both change mid-run, so both rewind: without
     // them a rewound branch resimulates with a body the world has stopped
@@ -99,7 +99,7 @@ where
         OWNER,
         "actor.death_interlude",
     );
-    // **Is this body IN a fight?** Registered beside the death-ownership marker
+    // Is this body IN a fight? Registered beside the death-ownership marker
     // it was standing in for, and for the same reason that one is: elimination
     // REMOVES it, so a rewind past an elimination has to put it back or the
     // replayed branch runs with a fighter that is out of a match it has not lost
@@ -223,7 +223,7 @@ where
         "derived.resolved_combat_tuning",
         "refolded from DeclaredCombatRules over the world baseline every WorldPrep",
     );
-    // **CAPTURE: the relationship is state; the requests are not.**
+    // CAPTURE: the relationship is state; the requests are not.
     //
     // `CapturedBy` is authoritative sim state — a rewind past a grab must undo
     // the grab, and a rewind past a THROW must put the captive back in the hold.

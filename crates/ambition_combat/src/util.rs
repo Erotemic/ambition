@@ -173,7 +173,7 @@ pub fn body_is_corpse(health: Option<&ambition_characters::actor::BodyHealth>) -
     health.is_some_and(|h| !h.alive())
 }
 
-/// **Does a SPENT guard still reach this hit?** — the poke rule.
+/// Does a SPENT guard still reach this hit? — the poke rule.
 ///
 /// A shield sinks as it is spent, and a body behind a small one is exposed at
 /// the head and the feet. `coverage` is the fraction of the body's half-height
@@ -183,7 +183,7 @@ pub fn body_is_corpse(health: Option<&ambition_characters::actor::BodyHealth>) -
 /// measured along the body's own gravity axis, not screen Y, so a wall-walker
 /// is poked at the ends of the axis it actually stands on.
 ///
-/// **separate from [`shield_blocks_hit`] rather than folded into it.** That
+/// separate from [`shield_blocks_hit`] rather than folded into it. That
 /// function answers *which SIDE can this guard face*, which is a different
 /// question from *how much of me does it still cover* — one is about facing and
 /// the other about the resource. A single predicate would make a poke look like
@@ -270,7 +270,7 @@ pub fn emit_melee_slash(
 /// Damage at or above this value reads as a committed/heavy contact for the
 /// canonical robot blade. Ordinary jabs and default slashes remain light.
 ///
-/// **NOT REACHABLE BY ANY SHIPPED ATTACK TODAY.** The robot player's only slash comes from
+/// NOT REACHABLE BY ANY SHIPPED ATTACK TODAY. The robot player's only slash comes from
 /// `default_player_action_set` at `damage: 1` on a prefab whose `smash_charge_mult` is `1.0`,
 /// and no equipment path scales melee damage — so every strike resolves LIGHT and the rendered
 /// `…flesh.deep` / `…metal.gong` samples cannot currently play.
@@ -595,9 +595,9 @@ mod hit_feedback_tests {
     }
 }
 
-/// **THE FOUR REASONS A BODY CANNOT BE HIT, each one alone.**
+/// THE FOUR REASONS A BODY CANNOT BE HIT, each one alone.
 ///
-/// **`body_vulnerable` had SIX production callers and no test.** It is the
+/// `body_vulnerable` had SIX production callers and no test. It is the
 /// single gate every damage boundary consults — hazards, empowerment, the actor
 /// update, the damage resolver, the avatar's body integration — and the one that
 /// decides whether a PARRY works at all, because a parry is not a block: a
@@ -605,7 +605,7 @@ mod hit_feedback_tests {
 /// i-frame. That distinction is the whole of *"does the parry window read"*, and
 /// nothing asserted it.
 ///
-/// **each term is toggled ALONE against an otherwise-vulnerable body**, which
+/// each term is toggled ALONE against an otherwise-vulnerable body, which
 /// is what makes this a test of the GATE rather than of one scenario: a gate
 /// that had lost any single term would still pass a test that raised two.
 ///
@@ -704,7 +704,7 @@ mod poke_tests {
         ae::Vec2::new(-1.0, 0.0),
     ];
 
-    /// **A FULL GUARD COVERS EVERYTHING, A SPENT ONE EXPOSES THE ENDS.**
+    /// A FULL GUARD COVERS EVERYTHING, A SPENT ONE EXPOSES THE ENDS.
     ///
     /// the property that makes chip pressure end in a hit rather than in a
     /// stalemate: hold a shield long enough and the head and the feet come out
@@ -736,7 +736,7 @@ mod poke_tests {
         }
     }
 
-    /// **COVERAGE FALLS WITH INTEGRITY, AND A NON-RESOURCE NEVER SHRINKS.**
+    /// COVERAGE FALLS WITH INTEGRITY, AND A NON-RESOURCE NEVER SHRINKS.
     #[test]
     fn coverage_tracks_integrity_and_an_unlimited_guard_is_whole() {
         let fighter = ae::ShieldTuning::PLATFORM_FIGHTER;

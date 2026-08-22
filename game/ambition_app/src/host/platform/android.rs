@@ -88,8 +88,8 @@ struct AndroidSuspendState {
 /// `PreUpdate` so the gameplay/audio systems in `Update` see the
 /// latest reading.
 ///
-/// We treat the lifecycle / focus / occlusion events with **OR-pause,
-/// AND-resume** semantics: any of the three claiming "backgrounded"
+/// We treat the lifecycle / focus / occlusion events with OR-pause,
+/// AND-resume semantics: any of the three claiming "backgrounded"
 /// flips suspend on; coming back requires the lifecycle event to say
 /// Running OR a focus regain. Without OR-pause we lost wake-ups on
 /// devices that only emit `WindowOccluded` for the lock screen, and
@@ -177,31 +177,13 @@ pub enum SuspendDecision {
     NothingSaved,
 }
 
-/// **The Android suspend/resume decision, with no Android in it.**
+/// Pure suspend/resume state decision, kept outside the Android glue for tests.
 ///
-/// The standing excuse ("this platform cannot be tested here") was true of the GLUE and false of
-/// the DECISION: `AppLifecycle`, `NextState` and `world_log` are how the decision is *delivered*,
-/// not how it is *made*. This function is un-gated, so the desktop test suite executes it.
-///
-/// Peeking and clearing only on the restoring branch IS the fix; it has to live in the unit under
-/// test.
-///
-/// **and the guard refuses more often than it looks, because `NextState` is DEFERRED.** The suspend
-/// edge calls `next_mode.set(GameMode::Paused)` and the transition applies later.
-///
-/// Keeping the value is safe in the other direction: a genuinely navigated-away
-/// user either suspends again (the capture branch overwrites the slot) or
-/// eventually resumes from the forced `Paused`, which is precisely when
-/// restoring is what they want.
-///
-/// **THIS MAKES THE FREEZE RECOVERABLE, NOT IMPOSSIBLE.** The caller
-/// early-returns unless the suspended bit just changed, so a refused restore is
-/// only retried on the NEXT suspend/resume edge — background and foreground
-/// once more and the mode comes back. A player who never backgrounds again is
-/// still stuck. Closing that needs the guard to stop inferring "we forced this
-/// pause" from `observed`, either by consulting the pending `NextState` or by
-/// recording the fact on the capture edge. Both change behaviour on a platform
-/// with no test here, so they wait for a device — see the queue row.
+/// Restore only from the suspend-induced `Paused` state and retain the saved
+/// mode when the guard refuses. Because `NextState` is deferred, a refused
+/// restore is retried only on a later suspend/resume edge.
+/// TODO(android-resume): record the forced-pause edge explicitly so resume does
+/// not depend on observing the deferred `Paused` state.
 pub fn decide_suspend(
     suspended: bool,
     observed: GameMode,
@@ -239,7 +221,7 @@ pub fn decide_suspend(
 /// app was backgrounded. This mirrors the audio channels, which already auto-resume on the same
 /// edge; without it the game stays frozen with no visible affordance to un-pause.
 ///
-/// **GLUE ONLY.** Every branch condition lives in [`decide_suspend`], which is
+/// GLUE ONLY. Every branch condition lives in [`decide_suspend`], which is
 /// un-gated and unit-tested; this reads the world, delivers the decision, and
 /// writes the world log. What is still unverifiable here is whether Android
 /// delivers the lifecycle events in the order the decision assumes — that needs
@@ -360,9 +342,9 @@ mod audio_lifecycle {
     }
 }
 
-/// **The Android suspend decision, executed on a machine with no Android.**
+/// The Android suspend decision, executed on a machine with no Android.
 ///
-/// **this proves nothing about Android and must not be reported as if it did.** No NDK, no `adb`;
+/// this proves nothing about Android and must not be reported as if it did. No NDK, no `adb`;
 /// every `#[cfg(target_os = "android")]` item in this file is still uncompiled here. Whether
 /// Android delivers the lifecycle events in that order is a separate claim and needs hardware.
 #[cfg(test)]

@@ -1,35 +1,10 @@
-//! **BD5 — the fight validator (currently DIAGNOSTIC, non-blocking).** The telegraph
-//! grammar and fairness rules of `docs/planning/engine/boss-design.md` §3, run over
-//! authored data. §3's original aspiration was an install/CI gate, but by maintainer
-//! decision the validator only MEASURES today; it does not gate installation, and a
-//! future install or shipping gate is a separate maintainer decision made after the
-//! engine can express and calibrate the relevant boss-feel properties (§9/§11).
+//! Diagnostic, non-blocking boss-fight validator over authored patterns, seeds, and data-driven
+//! bands. Validation is per telegraph -> strike -> rest [`Beat`], because punish windows belong to
+//! occurrences rather than attack definitions.
 //!
-//! Pure functions over `(BossAttackPattern, SeedLibrary, ValidatorBands)`. The
-//! bands are DATA — one RON per game — so re-calibrating a fight's fairness is an
-//! edit, not a recompile (§3: *"The bands live in ONE RON file per game so
-//! re-calibration is data, not code."*).
-//!
-//! ## The unit of judgement is a BEAT, not a move
-//!
-//! BD4's extraction found that no per-attack `recovery` exists and none can: the
-//! punish window is the `Rest` beat that FOLLOWS a `Strike`, which is a property
-//! of the OCCURRENCE. So this validator walks each phase's timeline and produces
-//! one [`Beat`] per telegraph→strike→rest triple. `floor_slam` can be fair in
-//! phase 1 and unpunishable in enrage, and only a per-beat rule can say so.
-//!
-//! ## Which of §3's five rules are implemented, and why not the other two
-//!
-//! | Rule | Status |
-//! |---|---|
-//! | 1 telegraph proportionality | per beat, against the threat class its seed declares |
-//! | 2 answer coverage | both halves: an empty `fair_counters` is an ERROR; a fight that fails to demand a core verb is a WARNING |
-//! | 3 commitment (punish window) | per beat, from the following `Rest`; `Pressure` is exempt |
-//! | 4 simultaneity budget | **not expressible.** A scripted timeline is sequential, so its body-mounted volumes never overlap. The threats that DO overlap are the `zone_denial` hazards a `Special` spawns, whose lifetime lives in the content technique's private consts (`MINIMA_TRAP_HAZARD_DURATION_S`), not in any authored row. The diagnostic needs authored or runtime-visible threat lifetime + overlap the validator can integrate; a seed-level `persists_s` fed by the spawning technique is ONE candidate representation, not settled architecture. |
-//! | 5 readability floor | **since BD3.** Two distinct attacks may not share a `(pose, cue)` telegraph identity. An attack that authors NO identity is reported once per fight — a warning today, because the shipped roster authors none. Promotion of that warning to a hard error requires successful calibration and a separate maintainer decision (not automatically after BD7). |
-//!
-//! Naming the two gaps here, in the code, rather than shipping a rule that checks
-//! something adjacent and reports green.
+//! Implemented checks cover telegraph proportionality, answer coverage, punish windows, and
+//! telegraph readability. Simultaneity is not checked until overlapping threat lifetime is visible
+//! to the validator. Missing readability metadata remains a warning rather than an install gate.
 
 use std::collections::BTreeSet;
 

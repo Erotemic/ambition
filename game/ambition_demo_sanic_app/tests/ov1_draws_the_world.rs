@@ -1,4 +1,4 @@
-//! **Oracle-violation OV1, closed and gate-enforced.**
+//! Oracle-violation OV1, closed and gate-enforced.
 //!
 //! > *"A demo cannot DRAW its own world."* — `docs/planning/tracks.md`, OV1
 //!
@@ -13,7 +13,7 @@
 //! Bevy recipe). The camera exists, the blocks exist as `RoomVisual` entities, and
 //! the sprite chain is scheduled. A real window changes one enum value.
 //!
-//! **The presentation face needs a renderer foundation**, which is why it is NOT
+//! The presentation face needs a renderer foundation, which is why it is NOT
 //! in `build_demo_app` (that one is `add_headless_foundation` + no rasterizer, for
 //! the sim-only shell and `tests/exit_3.rs`). Discovering that was worth the split:
 //! a demo that wants to draw says `--features visible`, and one that only wants to
@@ -401,7 +401,7 @@ fn rings_render_with_the_animated_sheet_not_static_coins() {
     );
 }
 
-/// **The readout carries a live value, not just a node.** A HUD that spawns the
+/// The readout carries a live value, not just a node. A HUD that spawns the
 /// right number of empty text nodes looks identical to a working one in a node
 /// count, so this reads the text back.
 ///
@@ -444,7 +444,7 @@ fn the_declared_hud_shows_the_games_own_words_and_a_live_value() {
     );
 }
 
-/// **The speedway's BACKDROP moves.** (72h S12)
+/// The speedway's BACKDROP moves. (72h S12)
 ///
 /// OV1's original question was whether a demo can draw its world at all. This is
 /// the same question one frame later: the backdrop spawned, and then
@@ -500,12 +500,12 @@ fn the_speedway_backdrop_follows_the_camera() {
     // Hold right. The body accelerates down the speedway, the camera follows it,
     // and each layer follows the camera at its own factor.
     //
-    // **SAMPLE THE WHOLE RUN, not the endpoints.** This test compared `before`
+    // SAMPLE THE WHOLE RUN, not the endpoints. This test compared `before`
     // against `after` alone and failed for four months' worth of wrong reasons —
     // it was read as a missing `sync_parallax_layers`, then as an unregistered
     // `camera_follow`, then as a broken camera clamp, then as Sanic being slow.
     // He is not slow: he reaches 1216 px/s and x = 1533 by frame 120, and the
-    // layers move ~1000px with him. **The speedway LOOPS.** By frame 240 he is
+    // layers move ~1000px with him. The speedway LOOPS. By frame 240 he is
     // back at x ≈ 260, the camera is back on its left clamp (centre x = 400,
     // exactly `view_width / 2` in a 6400-wide room), and every layer is back
     // where it started — correctly, to the float.

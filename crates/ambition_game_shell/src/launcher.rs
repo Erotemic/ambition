@@ -56,11 +56,11 @@ impl Default for ShellLauncherPresentation {
         Self {
             title: "Ambition".to_owned(),
             empty_message: "No experiences registered".to_owned(),
-            // **Probed**: forcing the default handle back at every menu text spawn and
+            // Probed: forcing the default handle back at every menu text spawn and
             // re-capturing `--route ambition_launcher` puts the hollow box back on this exact
             // string.
             //
-            // **why the default handle fails here is NOT settled.** The obvious story — "the
+            // why the default handle fails here is NOT settled. The obvious story — "the
             // subset has no U+00B7" — is contradicted by `ambition_demo_smash`'s select screen,
             // which spawns `Text` with no `TextFont` AT ALL (so, the same handle) and renders
             // `·`, `—` and `…` correctly. Same codepoint, same font asset, different result;

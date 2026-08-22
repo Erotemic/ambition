@@ -140,7 +140,7 @@ fn kicking_a_boxed_shell_sends_it_sliding_away() {
     assert_eq!(fx.vel_x, Some(-SHELL_SLIDE_SPEED));
 }
 
-/// **Kicking a shell must not hurt the kicker.** The kick comes FROM the side, so
+/// Kicking a shell must not hurt the kicker. The kick comes FROM the side, so
 /// the shell starts moving while it still overlaps the player — the grace window is
 /// what stands between "kick a shell" and "kick a shell and take a hit for it". It
 /// burns down on the shell's own clock and expires.
@@ -217,7 +217,7 @@ fn a_stomp_from_above_stops_a_sliding_shell_and_bounces() {
     );
 }
 
-/// **Landing on a resting shell kicks it, and bounces you.**
+/// Landing on a resting shell kicks it, and bounces you.
 ///
 /// That made a stomped shell stay put — so a shell under a ?-block trapped her in an endless
 /// bounce, which the classic never does, and is `KICK_GRACE_S`, which did not exist then: a
@@ -247,7 +247,7 @@ fn landing_on_a_resting_shell_kicks_it_out_from_under_you() {
     );
 }
 
-/// **A shell that bounces off a wall is armed again**, even mid-grace. The grace
+/// A shell that bounces off a wall is armed again, even mid-grace. The grace
 /// only ever meant "it is still inside the person who kicked it"; one that has
 /// turned around is coming back at them, and that is a hit.
 #[test]
@@ -307,7 +307,7 @@ fn a_stomp_shoves_a_peeking_or_emerging_snake_back_into_its_shell() {
 // (The top/side geometry itself is proven in `crate::stomp`, the ONE authority
 // both enemies read.)
 
-/// **THE WALKING SNAKE AND THE BOXED SNAKE RESCALE TOGETHER.**
+/// THE WALKING SNAKE AND THE BOXED SNAKE RESCALE TOGETHER.
 ///
 /// in-the-box form are consistent if we ever change the scale of the snake."*
 ///

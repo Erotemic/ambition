@@ -119,7 +119,7 @@ pub struct ActorNameplateSet;
 
 /// Render-layer plugin for player-facing actor/door labels.
 ///
-/// It **publishes candidates** into the shared world-label placement pass; it
+/// It publishes candidates into the shared world-label placement pass; it
 /// does not own that pass. The pass is
 /// [`WorldLabelLayoutPlugin`](super::label_layout::WorldLabelLayoutPlugin),
 /// which this plugin composes so a game that wants nameplates gets placement
@@ -193,21 +193,21 @@ impl ActorNameplateSettings {
     }
 }
 
-/// **ONE SET OF PLATES PER VIEW.**
+/// ONE SET OF PLATES PER VIEW.
 ///
-/// **WHICH PLATES ARE ON SCREEN IS A PROPERTY OF THE VIEW, NOT OF THE
-/// ROOM.** The policy ranks every candidate by distance to the camera's focus,
+/// WHICH PLATES ARE ON SCREEN IS A PROPERTY OF THE VIEW, NOT OF THE
+/// ROOM. The policy ranks every candidate by distance to the camera's focus,
 /// draws the nearest few, fades the next and hides the rest — so two views
 /// looking at opposite ends of one room legitimately want two disjoint sets of
 /// plates, at two different opacities, anchored by two different rankings. One
 /// entity per labelled source could not express that; a second view would have
 /// silently re-ranked the first view's plates out from under it.
 ///
-/// **so the plates are keyed by view, and a second view is a COUNT.** A
+/// so the plates are keyed by view, and a second view is a COUNT. A
 /// one-view game builds exactly the plates it built before — same candidates,
 /// same ranking, same anchors, same entity per visible source.
 ///
-/// **what is duplicated is the PLATE, never the thing it names.** The
+/// what is duplicated is the PLATE, never the thing it names. The
 /// `NameplateIndex` row and the `DoorNameplateSource` on a room visual stay
 /// singular — one authoritative source, N projections of it. Two views produce
 /// two pictures of one door, never two doors.
@@ -477,7 +477,7 @@ fn nameplate_font(ui_fonts: Option<&UiFonts>, font_size: f32) -> TextFont {
 
 /// Build one plate, for ONE view.
 ///
-/// **it carries no `Name`, and that is deliberate.** `entity.name` is
+/// it carries no `Name`, and that is deliberate. `entity.name` is
 /// registered for rollback, and the coverage contract derives its swept
 /// population from *"an entity carrying even one type the rollback knows about
 /// participates in rollback"* — so a debug label here would enlist every plate of
@@ -600,9 +600,9 @@ mod tests {
         assert_eq!(anchor, ae::Vec2::new(20.0, 70.0));
     }
 
-    /// **TWO VIEWS, ONE ROOM, ONE SIMULATION — TWO SETS OF PLATES.**
+    /// TWO VIEWS, ONE ROOM, ONE SIMULATION — TWO SETS OF PLATES.
     ///
-    /// **the two-view split below is a FIXTURE, not a policy.** It is the smallest world that
+    /// the two-view split below is a FIXTURE, not a policy. It is the smallest world that
     /// can tell a per-view projection from a shared one.
     mod two_views_one_room_tests {
         use super::*;
@@ -621,7 +621,7 @@ mod tests {
             ))
         }
 
-        /// **ONE door entity per door.** The authoritative object stays
+        /// ONE door entity per door. The authoritative object stays
         /// singular; what the views get is one PROJECTION of it each.
         fn spawn_door(world: &mut World, id: &str, center: ae::Vec2) {
             world.spawn(DoorNameplateSource::new(
@@ -696,17 +696,17 @@ mod tests {
             })
         }
 
-        /// **EACH VIEW RANKS THE ROOM AGAINST ITS OWN FOCUS.**
+        /// EACH VIEW RANKS THE ROOM AGAINST ITS OWN FOCUS.
         ///
         /// The policy draws the nearest few plates and fades the rest, ranked by distance to the
         /// camera's focus — so two views at opposite ends of one room want opposite answers.
         ///
-        /// **the assertion is on VALUES, not on inequality.** "the two views
+        /// the assertion is on VALUES, not on inequality. "the two views
         /// differ" would pass for a pair that differ and are both wrong. Each view
         /// is checked against the opacity the rank policy gives the door it is
         /// actually looking at.
         ///
-        /// **and the falsifier is inside the test.** The second run swaps only
+        /// and the falsifier is inside the test. The second run swaps only
         /// the two views' camera targets — same doors, same spawn order, same
         /// settings — and the two answers must swap with them. A sync that keys
         /// off view or door iteration order passes the first run and fails this.
@@ -737,7 +737,7 @@ mod tests {
             );
         }
 
-        /// **A RETIRED VIEW TAKES ITS PLATES WITH IT — DESPAWNED AS A SET.**
+        /// A RETIRED VIEW TAKES ITS PLATES WITH IT — DESPAWNED AS A SET.
         #[test]
         fn a_retired_view_takes_its_plates_with_it() {
             let mut world = World::new();

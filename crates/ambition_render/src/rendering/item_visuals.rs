@@ -295,7 +295,7 @@ pub struct GroundItemVisual;
 /// SEAM (this resource + [`build_held_item_art`] + the resolve in the sync
 /// systems); each game contributes its own props' images (axe / javelin /
 /// gun-sword / wielded-gauntlet icons) without a render dependency, keeping asset
-/// knowledge out of the reusable renderer. Absent / unmatched ⇒ the placeholder
+/// knowledge out of the reusable renderer. Absent / unmatched  the placeholder
 /// quad.
 #[derive(Resource, Default)]
 pub struct HeldItemArt(pub ArtBindings<HeldItemSprite>);
@@ -306,7 +306,7 @@ pub struct HeldItemArt(pub ArtBindings<HeldItemSprite>);
 /// [`HeldItemArt`]. The render half of the contribution seam: games declare their
 /// held-item art without a render dependency; the resolution — and the
 /// `AssetServer` — lives HERE, so a multi-game host's unioned manifest binds every
-/// provider's props at once. Absent manifest ⇒ an empty map (every item draws the
+/// provider's props at once. Absent manifest  an empty map (every item draws the
 /// quad fallback).
 pub fn build_held_item_art(
     mut commands: Commands,
@@ -397,7 +397,7 @@ pub struct WorldItemVisual;
 /// `(image, on-screen display size)`. The engine owns the SEAM (this resource + the
 /// resolve in [`sync_world_item_visuals`]); each game fills it at startup with its
 /// own pickups' images (e.g. Mary-O's star wand), keeping asset knowledge out of
-/// the reusable renderer. Absent / unmatched ⇒ the row-tinted placeholder quad.
+/// the reusable renderer. Absent / unmatched  the row-tinted placeholder quad.
 #[derive(Resource, Default)]
 pub struct WorldItemArt(pub ArtBindings<WorldItemSprite>);
 
@@ -407,7 +407,7 @@ pub struct WorldItemArt(pub ArtBindings<WorldItemSprite>);
 /// image handles, filling [`WorldItemArt`]. This is the render half of the
 /// contribution seam: games declare their pickup art without a render dependency;
 /// the resolution — and the `AssetServer` — lives HERE, so a multi-game host's
-/// unioned manifest binds every provider's pickups at once. Absent manifest ⇒ an
+/// unioned manifest binds every provider's pickups at once. Absent manifest  an
 /// empty map (every item draws the quad fallback).
 pub fn build_world_item_art(
     mut commands: Commands,
@@ -460,7 +460,7 @@ pub fn sync_world_item_visuals(
         reported.clear();
     }
     for item in &items.0 {
-        // **an emerging pickup draws BEHIND the world**, so it reads as coming
+        // an emerging pickup draws BEHIND the world, so it reads as coming
         // out of the block that produced it instead of being pasted whole on top
         // of it. `WORLD_Z_BLOCK` is 0.0, so anything below it
         // is occluded by the geometry; a free item keeps the ordinary 8.0.

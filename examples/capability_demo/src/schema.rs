@@ -84,7 +84,7 @@ impl PulseProfiles {
         self.profiles.get(self.active).cloned().unwrap_or_default()
     }
 
-    /// Choose the active profile by authored name, **at COMPOSITION time**.
+    /// Choose the active profile by authored name, at COMPOSITION time.
     ///
     /// Freezing it is the cheaper of the two honest answers — the other being to
     /// make the selection rollback-owned — and nothing called `select`, so no
@@ -149,8 +149,8 @@ impl ContentSchemaHandler for PulseSchema {
                         .fix("a pulse with no radius pushes nothing; give it one or delete it"),
                 );
             }
-            // **THE INDEX IS PART OF THE CANONICAL FORM, because this file is
-            // POSITIONAL.** `PulseProfiles::from_prepared` pins `active: 0`, so
+            // THE INDEX IS PART OF THE CANONICAL FORM, because this file is
+            // POSITIONAL. `PulseProfiles::from_prepared` pins `active: 0`, so
             // the FIRST profile is the one the mechanic runs — and the pack
             // fingerprint sorts definitions by content id, so a row canonical
             // keyed only by name made SWAPPING two whole profiles a no-op for
@@ -160,7 +160,7 @@ impl ContentSchemaHandler for PulseSchema {
             // fingerprint `e060c5b64b5a0b78`, with `active` reading `gentle`
             // in one and `cannon` in the other.
             //
-            // **the rule, since this is the THIRD time**: if the lowered artifact is a sequence
+            // the rule, since this is the THIRD time: if the lowered artifact is a sequence
             // and the runtime reads it BY POSITION, the position is part of the canonical form.
             out.define(
                 id,

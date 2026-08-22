@@ -4,19 +4,19 @@
 //! carrying a [`MovePlayback`] component; [`advance_move_playback`] is the
 //! ONE system that turns the authored timeline into simulation:
 //!
-//! - **Proper time.** The playback clock advances by
+//! - Proper time. The playback clock advances by
 //!   `WorldTime::entity_dt(ProperTimeScale)` (ADR 0011) — the owning actor's
 //!   own clock. A dilated actor's windows, volumes, events, and picture all
 //!   slow together because they are one timeline (`MovePlayback::phase` is
 //!   what presentation samples the bound clip by).
-//! - **Windows → hitbox entities.** Each `Active` window's volumes become
+//! - Windows → hitbox entities. Each `Active` window's volumes become
 //!   `(Hitbox, HitboxHits)` entities (`FollowOwner`, facing-mirrored,
 //!   entity-local offsets) on window entry and despawn on window exit —
 //!   window-scoped by the move's own clock, so no wall-time lifetime can
 //!   drift from a dilated owner. Damage resolution is the existing
 //!   [`apply_hitbox_damage`](super::hitbox::apply_hitbox_damage) path:
 //!   moves need NO parallel hit plumbing.
-//! - **Events → messages.** Timed events emit [`MoveEventMessage`]s;
+//! - Events → messages. Timed events emit [`MoveEventMessage`]s;
 //!   consumers (audio bridge, techniques/effects) subscribe downstream.
 //!
 //! Re-binding a move onto a different actor is inserting the same
@@ -47,7 +47,7 @@ use ambition_entity_catalog::placements::DamageKind;
 use ambition_sfx::{PresentationSourceId, SfxId, SfxMessage, SfxWriter};
 use ambition_time::WorldTime;
 
-// **The four moveset verb ids now live beside the contract they key into**
+// The four moveset verb ids now live beside the contract they key into
 // (`ambition_entity_catalog`), because a verb name is authoring vocabulary
 // rather than runtime behaviour — and because a character DEFINITION must be
 // able to name the verb its moveset binds without reaching up into this crate.
@@ -66,7 +66,7 @@ pub use ambition_entity_catalog::{
 // owns the text and this one keeps the pin.
 pub use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX, SWING_SFX_CUE};
 
-// **AND THE THREE `PLAYER_ROBOT_*` CUES CAME BACK UP**. They went down with the builders because
+// AND THE THREE `PLAYER_ROBOT_*` CUES CAME BACK UP. They went down with the builders because
 // they were adjacent in the file, not because preparation needed them: the overlay that reads them
 // has exactly one production caller, the protagonist road, and `prepare_character` never reaches
 // it. Text in the low crate and its compile-time proof in this one was the shape that move created;
@@ -93,7 +93,7 @@ const _: () = assert!(
 // D-B split: the MoveSpec builders and actor-moveset construction live in
 // `prefabs.rs`. Re-exported so `moveset::<builder>` paths (and `tests.rs`'s
 // `use super::*`) are unchanged by the relocation.
-// **THE REGISTRY IS ITS OWN MODULE** (P1.7): `prefabs.rs` is the build-time
+// THE REGISTRY IS ITS OWN MODULE (P1.7): `prefabs.rs` is the build-time
 // half of the Smash model and character preparation calls it, so it has to be
 // able to sit at or below `ambition_characters`. Expanding an authored prefab
 // KEY is a different job from building a move from a spec, and it is the one
@@ -115,7 +115,7 @@ pub use prefab_registry::*;
 #[derive(Component, Debug, Clone, Copy, Default)]
 pub struct MovesetMelee;
 
-/// **Keep the routing markers agreeing with the moveset they route into.**
+/// Keep the routing markers agreeing with the moveset they route into.
 ///
 /// `MovesetMelee` and [`MovesetRanged`](ambition_characters::brain::MovesetRanged)
 /// are not independent state — they are a projection of "does this moveset author
@@ -187,14 +187,14 @@ pub struct MoveEventMessage {
     /// bodies; dispatch then uses the active context's primary source.
     pub presentation_source: PresentationSourceId,
     pub kind: MoveEventKind,
-    /// **WHERE this event happens, relative to the owner, in WORLD units.**
+    /// WHERE this event happens, relative to the owner, in WORLD units.
     ///
     /// authored body-local and resolved HERE, because this is where the
     /// facing the move committed to and the owner's gravity frame are both in
     /// hand — the consumer has neither. Zero for every event kind that has no
     /// place of its own, which is all of them but `Vfx`.
     pub world_offset: ae::Vec2,
-    /// **HOW this event is oriented** — the sibling of [`Self::world_offset`],
+    /// HOW this event is oriented — the sibling of [`Self::world_offset`],
     /// resolved from the SAME two authorities in the same expression.
     pub world_pose: ambition_vfx::FxPose,
 }
@@ -208,11 +208,11 @@ pub struct MovePlayback {
     pub spec: MoveSpec,
     /// `+1.0` faces right, `-1.0` left; mirrors every volume's x offset.
     pub facing: f32,
-    /// **Was this body grounded when this move last looked?** Owned by the
+    /// Was this body grounded when this move last looked? Owned by the
     /// playback because the LANDING EDGE is a fact about this move's history,
     /// not about the body.
     ///
-    /// **seeded `true`, which reads backwards and is the point.** It means
+    /// seeded `true`, which reads backwards and is the point. It means
     /// *no airborne observation yet*, so a move begun ON THE GROUND can never
     /// cross the edge on its first tick and be charged an aerial's landing lag
     /// — which is exactly what a `false` seed did, and what
@@ -248,9 +248,9 @@ pub struct MovePlayback {
     /// Which timed events already fired (parallel to `spec.events`).
     fired: Vec<bool>,
     pub hit_targets: Vec<String>,
-    /// **The ranged intent that STARTED this move**, if one did.
+    /// The ranged intent that STARTED this move, if one did.
     ///
-    /// **a move's fire event usually arrives after its own request is gone.**
+    /// a move's fire event usually arrives after its own request is gone.
     /// `ActorControl.fire` is an EDGE — `clear_edges()` nulls it every tick — and
     /// a ranged move has startup, so by the time its authored `Ranged` frame
     /// fires, the intent that triggered it has been cleared. The handler fell
@@ -289,8 +289,8 @@ pub struct PlacedBodyVolume {
     pub shape: Option<ae::VolumeShape>,
 }
 
-/// **Place a body-local authored volume: mirror by facing, then rotate into the
-/// body's gravity frame.**
+/// Place a body-local authored volume: mirror by facing, then rotate into the
+/// body's gravity frame.
 ///
 /// The `+x = committed facing, +y = gravity-down` contract every authored
 /// `HitVolume` states, applied once. Strike volumes and CAPTURE volumes both go
@@ -324,7 +324,7 @@ pub fn place_body_local_volume(
     }
 }
 
-/// **Despawn a playback's live strike volumes.** The half of teardown shared by
+/// Despawn a playback's live strike volumes. The half of teardown shared by
 /// ending a move and by REPLACING one — a move-into-move cancel drops the old
 /// volumes and then overwrites the playback, so it wants this half alone.
 pub fn despawn_live_boxes(commands: &mut bevy::prelude::Commands, playback: &mut MovePlayback) {
@@ -333,16 +333,16 @@ pub fn despawn_live_boxes(commands: &mut bevy::prelude::Commands, playback: &mut
     }
 }
 
-/// **End a move: its volumes stop existing and the body stops playing it.**
+/// End a move: its volumes stop existing and the body stops playing it.
 ///
-/// **there were FOUR hand-copies of this**, and one of them carried the
+/// there were FOUR hand-copies of this, and one of them carried the
 /// comment *"Tear down exactly as natural completion does (the ONE teardown
 /// path)"* — a claim the code made true by duplication, which is the same thing
 /// as not being true. Capture needs a fifth caller (a body that gets grabbed
 /// mid-swing must not keep a live hitbox), and a fifth copy is where a divergence
 /// becomes likely rather than possible.
 ///
-/// **this is a consolidation, not an action-state framework.** It does what
+/// this is a consolidation, not an action-state framework. It does what
 /// the four copies did and nothing else; a body's move ending has no other
 /// meaning today, and inventing one here would be building the abstraction
 /// nobody has asked for.
@@ -441,7 +441,7 @@ impl bevy::ecs::entity::MapEntities for StrikeVolume {
     }
 }
 
-/// **Despawn every strike volume whose owner's clock says it should not exist.**
+/// Despawn every strike volume whose owner's clock says it should not exist.
 ///
 /// N3.1's rule, honoured: *"if restoring something requires a rebuild pass, the rebuild
 /// must be the SAME system that maintains it per-frame (no restore-only code paths)."*
@@ -496,7 +496,7 @@ pub fn advance_move_playback(
         // The owner's DRIVER, so a POSSESSED body's strike carries its EFFECTIVE
         // faction (a driven body fights as `Player`): `effective_faction`'s
         // contract is that every hitbox stamp resolves through it, and this move
-        // strike is one of them. `None` (nobody drives it) ⇒ the authored faction
+        // strike is one of them. `None` (nobody drives it)  the authored faction
         // (identity for every ordinary actor).
         Option<&ambition_characters::brain::DrivingParticipant>,
         // §7.1: actors project their sprite catalog id onto combat tuning;
@@ -587,8 +587,8 @@ pub fn advance_move_playback(
             // that hole.
             if !pb.fired[idx] && ev.at_s <= t {
                 pb.fired[idx] = true;
-                // **AUTHORED SELF-MOTION IS SIMULATION, so it lands HERE and
-                // is not announced as a message.**
+                // AUTHORED SELF-MOTION IS SIMULATION, so it lands HERE and
+                // is not announced as a message.
                 //
                 // Every other `MoveEventKind` names something for a CONSUMER to
                 // resolve — a cue, a cosmetic burst, a content technique, a
@@ -685,15 +685,15 @@ pub fn advance_move_playback(
             }
         }
 
-        // **HITBOX TRACKS.** An attack whose shape moves through its swing is
+        // HITBOX TRACKS. An attack whose shape moves through its swing is
         // authored as several Active windows laid end to end — the platform-
         // fighter "hitbox track", one strike sampled at keyframes. Each window
         // spawns its own box, so without this the arc would hit the same victim
         // once PER SEGMENT: a four-keyframe sword swing dealing quadruple damage.
         //
         // So a window that ends exactly where the next begins hands its hit set
-        // forward. **contiguity is the whole rule, and it is not a guess about
-        // intent** — it is the literal continuity of the volume in time. The box
+        // forward. contiguity is the whole rule, and it is not a guess about
+        // intent — it is the literal continuity of the volume in time. The box
         // never left, so the strike never ended, so the victim is still struck.
         // A GAP means the box went away and came back, which is precisely what a
         // genuine multi-hit move (a drill, a rapid jab) is, and it rehits.
@@ -959,20 +959,20 @@ pub fn advance_move_playback(
     }
 }
 
-/// **An aerial move that touches down before it ended owes its authored landing
-/// lag — unless it auto-cancelled.**
+/// An aerial move that touches down before it ended owes its authored landing
+/// lag — unless it auto-cancelled.
 ///
 /// The platform-fighter commitment rule, and the reason spacing an aerial is a
 /// decision: you throw it knowing that landing mid-move costs you. A move that
 /// authors neither field lands the way it always did, so this is inert for
 /// every move that has not opted in.
 ///
-/// **body-generic by construction.** It reads `MovePlayback` and
+/// body-generic by construction. It reads `MovePlayback` and
 /// `BodyGroundState`, which every body carries — a CPU fighter, a possessed
 /// boss and a human all pay the same lag for the same move. There is no
 /// controller in the query.
 ///
-/// **the landing EDGE, not the grounded state.** A move begun on the ground
+/// the landing EDGE, not the grounded state. A move begun on the ground
 /// (a jab, a down-tilt) is never mid-air, so it can never cross the edge and
 /// never pays. That is why the previous grounded-ness is remembered on the
 /// playback rather than re-derived: "is grounded now" would charge every
@@ -1076,10 +1076,10 @@ pub fn resolve_attack_gestures(
 /// player's directional repertoire (R2.5). A body authoring only `"attack"`
 /// resolves every direction to it — byte-identical to the pre-directional path.
 ///
-/// **A WEAPON IN HAND OWNS THE ATTACK PRESS** — see
+/// A WEAPON IN HAND OWNS THE ATTACK PRESS — see
 /// [`held_weapon_attack_move`]. The wearer's own `attack` verbs keep existing;
 /// they simply stop being what that press reaches.
-/// **Name the writer of a move's self-motion impulse.**
+/// Name the writer of a move's self-motion impulse.
 ///
 /// Two call sites author the same impulse — the plain trigger and the CANCEL path — and they
 /// are byte-identical expressions.
@@ -1119,7 +1119,7 @@ fn record_impulse_authorship(
     );
 }
 
-/// **The swing a held weapon answers a directional Attack with** — `None` when
+/// The swing a held weapon answers a directional Attack with — `None` when
 /// that weapon answers the press somewhere other than the move runtime.
 ///
 /// incorrectly still use my normal jab attack. Holding an item should reroute
@@ -1133,28 +1133,28 @@ fn record_impulse_authorship(
 /// So the press is arbitrated HERE, by identity, from the one authority on what
 /// a body is holding:
 ///
-/// - the weapon authors a melee verb (an axe) → **its** swing answers, built
+/// - the weapon authors a melee verb (an axe) → its swing answers, built
 ///   through the same [`build_actor_moveset`] a spawned body's would be, so the
 ///   whole directional family (tilts, aerials, the pogo down-air) comes with it;
 /// - the weapon authors no melee verb (the gun-sword's bolt, a bomb's throw, a
-///   gauntlet's bespoke system) → **nothing** answers here, and the item's own
+///   gauntlet's bespoke system) → nothing answers here, and the item's own
 ///   subject-generic system consumes the press it already reads.
 ///
-/// **the wearer's `attack` MOVES are not pruned, and must not be.** A
+/// the wearer's `attack` MOVES are not pruned, and must not be. A
 /// timeline nothing presses is inert; deleting it on a reachability argument
 /// throws away authored content and makes unequipping a restore problem. Only
 /// the RESOLUTION moves, and it moves back the instant the hand is empty — so
 /// there is nothing to stash, and a rewind past an equip is correct for free
 /// (`HeldItem` is already rollback state).
 ///
-/// **and the slot must survive, which is why this is not a verb revoke.**
+/// and the slot must survive, which is why this is not a verb revoke.
 /// `touch_action_available` draws — and admits touches for — an on-screen Attack
 /// button only while `ControlPrompt` carries a label for the Attack slot, and
 /// that label comes from the scheme's union of moveset verb and `ActionSet`
 /// melee. A guard that took the wearer's `attack` verbs away would leave the
 /// gun-sword with no Attack slot at all: still fireable on a desktop (the
 /// persona gate's `holds_item` exception keeps `melee_pressed` alive) and
-/// **untappable on a phone**. Resolving the press instead of deleting the verb
+/// untappable on a phone. Resolving the press instead of deleting the verb
 /// keeps the button drawn.
 fn held_weapon_attack_move(
     spec: &ambition_characters::brain::HeldItemSpec,
@@ -1191,10 +1191,10 @@ pub fn trigger_moveset_moves(
         // The playing move, if any — the CM4 cancel seam. `None` = the plain
         // trigger path.
         Option<&mut MovePlayback>,
-        // **What this body is holding.** A weapon in hand OWNS the Attack press
+        // What this body is holding. A weapon in hand OWNS the Attack press
         // ([`held_weapon_attack_move`]); every other verb is untouched.
         Option<&crate::held_items::HeldItem>,
-        // **Is this body RUNNING?** Read for the dash attack, off the PUBLISHED
+        // Is this body RUNNING? Read for the dash attack, off the PUBLISHED
         // fact — ADR 0024's read surface, which is what a consumer outside the
         // movement kernel is owed.
         //
@@ -1205,7 +1205,7 @@ pub fn trigger_moveset_moves(
         // `Option` for bare test bodies, which are treated as standing.
         Option<&ae::BodyMotionFacts>,
     )>,
-    // **WHO IS HOLDING SOMEBODY.** The inverse of `CapturedBy`, and the reason
+    // WHO IS HOLDING SOMEBODY. The inverse of `CapturedBy`, and the reason
     // there is no mirrored `Capturing` component to read instead: one authority,
     // scanned. At most one captive per captor and a handful per stage.
     captives: Query<(Entity, &crate::capture::CapturedBy)>,
@@ -1238,30 +1238,9 @@ pub fn trigger_moveset_moves(
         let frame = &control.0;
         let grounded = ground.map(|g| g.on_ground).unwrap_or(true);
         let running = motion_facts.is_some_and(|facts| facts.running);
-        // Resolve the requested verb + the names the candidate answers to
-        // (verb, class, resolved move id — the ONE cancel namespace).
-        //
-        // OWNED rather than borrowed from the contract, because a held weapon's
-        // swing is not IN the wearer's contract — it belongs to the thing in the
-        // hand, and both answers have to have the same type to be arbitrated.
-        // **CAPTURE CONTEXT COMES FIRST, and it REPLACES the ordinary menu
-        // rather than adding to it.**
-        //
-        // A body holding somebody is not a body with an extra option; it is in a
-        // different action context. Falling through to the ordinary chain would
-        // let a captor throw a projectile or start a smash while a captive hangs
-        // off it, and every one of those would then need its own "unless holding"
-        // clause — the rule spread across a dozen sites instead of stated once.
-        //
-        // **`AttackStrength` is deliberately ignored in here.** Holding
-        // somebody must not turn a forward throw into a "smash throw": the
-        // charge grammar belongs to the strike vocabulary, and a throw's payoff
-        // is authored on its own timeline.
-        //
-        // **an unauthored throw resolves to NOTHING, on purpose.** It does not
-        // fall back to the pummel. A player who presses up+attack and gets a
-        // pummel has been told this fighter has a bad up-throw; a player who gets
-        // nothing has been told it has none, and the second is true.
+        // Capture replaces the ordinary action context. Resolve only pummel or
+        // directional throw verbs while holding a captive; throws ignore strike
+        // charge strength, and an unauthored throw resolves to no move.
         let holding_captive = crate::capture::captive_of(entity, &captives).is_some();
         let (spec, verb_names): (Option<MoveSpec>, &[&str]) = if holding_captive {
             match gesture.pressed.map(|intent| intent.direction) {
@@ -1323,12 +1302,12 @@ pub fn trigger_moveset_moves(
                 } else {
                     (ATTACK_VERB, AttackDir::Down, grounded)
                 };
-            // **A WEAPON IN HAND OWNS THIS PRESS.** With something held, the
+            // A WEAPON IN HAND OWNS THIS PRESS. With something held, the
             // wearer's own repertoire is not consulted at all — the weapon
             // answers with its swing, or it answers elsewhere and nothing runs
             // here (see [`held_weapon_attack_move`] for why this arbitrates
             // instead of revoking the wearer's verbs).
-            // **A RUN PRE-EMPTS THE SMASH GESTURE**, and it has to, because
+            // A RUN PRE-EMPTS THE SMASH GESTURE, and it has to, because
             // the two inputs are the same one. `resolve_attack_gesture` calls a
             // press a SMASH when a direction FLICK preceded it inside the
             // window — and flicking a direction is exactly how a player enters
@@ -1336,13 +1315,13 @@ pub fn trigger_moveset_moves(
             // Attack) was answered with a forward smash and the running attack
             // was unreachable by the way it is actually performed.
             //
-            // **this is the genre's answer, not a preference.** Ultimate,
+            // this is the genre's answer, not a preference. Ultimate,
             // Smash 4, Brawl and Melee all resolve Attack-out-of-a-run as the
             // running attack; none of them lets a forward smash come straight
             // out of one without a cancel first. So there is no knob here —
             // where the games AGREE, we ship what they do.
             //
-            // **conditioned on the move being AUTHORED**, which is what keeps
+            // conditioned on the move being AUTHORED, which is what keeps
             // this from stealing a smash. A fighter with no running attack
             // resolves its press exactly as before, rather than falling through
             // to a tilt.
@@ -1357,7 +1336,7 @@ pub fn trigger_moveset_moves(
             } else {
                 moveset
                     .0
-                    // **the DASH ATTACK.** A running body's press is its own
+                    // the DASH ATTACK. A running body's press is its own
                     // move in this genre, and it was resolving as whatever the
                     // stick happened to name — the forward tilt, or the jab.
                     // The base is forced to ATTACK when the run owns the press,
@@ -1480,8 +1459,8 @@ pub fn trigger_moveset_moves(
             }
             commands
                 .entity(entity)
-                // **capture the aim at START, because it will be gone by the
-                // fire frame.** See `MovePlayback::aim`.
+                // capture the aim at START, because it will be gone by the
+                // fire frame. See `MovePlayback::aim`.
                 .insert(
                     MovePlayback::new(spec, kin.facing)
                         .with_aim(control.0.fire.map(|req| (req.dir, req.dir_policy))),
@@ -1513,8 +1492,8 @@ pub fn trigger_moveset_moves(
                 let _ = before;
             }
             commands.entity(entity).insert(
-                // **the plain trigger path needs the aim just as much as the
-                // cancel path above.** Capturing on one of the two start sites
+                // the plain trigger path needs the aim just as much as the
+                // cancel path above. Capturing on one of the two start sites
                 // would have fixed aimed shots only for moves that interrupted
                 // another one, which is the rarer half.
                 MovePlayback::new(spec, kin.facing)
@@ -1538,7 +1517,7 @@ pub fn mark_move_playback_landed_hits(
         let Ok((mut pb, queue)) = playbacks.get_mut(landed.attacker) else {
             continue;
         };
-        // **THE FALSE→TRUE EDGE IS ONE MOVE USE CONNECTING**, and staling is
+        // THE FALSE→TRUE EDGE IS ONE MOVE USE CONNECTING, and staling is
         // counted on it rather than on the message.
         //
         // A move that connects with three opponents has been used once.
@@ -1681,31 +1660,9 @@ pub fn dispatch_move_events(
                 };
                 let kin = positions.get(ev.owner).ok();
                 let origin = kin.map(|k| k.pos).unwrap_or(ae::Vec2::ZERO);
-                // Sample the owner's live aim at the fire frame, and fall back to
-                // the body's FACING when there is none.
-                //
-                // It is not.** `ControlledBodyLocal` +x is the gravity frame's SIDE axis —
-                // `dir_to_world` applies `AccelerationFrame::to_world` and nothing else — so under
-                // normal gravity the fallback resolved to world +x and every such shot went RIGHT,
-                // whichever way the body was looking.
-                //
-                // and the fallback is the COMMON path, not the rare one. `frame.fire` is an EDGE:
-                // `clear_edges()` nulls it every tick. A ranged move has startup, so by the time
-                // its fire frame arrives the intent that started it is already gone and this branch
-                // is what runs.
-                //
-                // **THREE tiers, and the middle one is the fix.** A live edge
-                // this frame wins (a moveset shot still tracks a strafing target).
-                // Otherwise the aim the move was STARTED with — captured into
-                // `MovePlayback::aim`, because the request that triggered the move
-                // has been cleared by the time its fire frame arrives, which is
-                // the common case this comment already described. Only an
-                // unaimed move falls through to facing.
-                //
-                // **before the middle tier, an UPWARD aim fired sideways.** The
-                // facing fallback repairs left-versus-right and flattens every
-                // non-horizontal shot, and it was reached by essentially every
-                // authored ranged move.
+                // Aim priority: a live fire edge, then the aim captured when the
+                // move started, then body-facing in the controlled-body frame.
+                // Startup usually clears the initiating edge before the fire frame.
                 let started_with = playbacks.get(ev.owner).ok().and_then(|pb| pb.aim);
                 let (dir, dir_policy) = match (control.0.fire, started_with) {
                     (Some(req), _) => (req.dir, req.dir_policy),
@@ -1725,8 +1682,8 @@ pub fn dispatch_move_events(
                     },
                 });
             }
-            // **UNREACHABLE BY CONSTRUCTION, and named rather than swept into
-            // a wildcard.** An `Impulse` is a velocity write on the owner, so
+            // UNREACHABLE BY CONSTRUCTION, and named rather than swept into
+            // a wildcard. An `Impulse` is a velocity write on the owner, so
             // `advance_move_playback` applies it at the authored instant and
             // never publishes it — there is nothing here to resolve. The arm
             // exists so that the NEXT variant somebody adds still has to come

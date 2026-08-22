@@ -7,10 +7,10 @@
 //!
 //! Two questions, deliberately separated:
 //!
-//! * **WHICH control** — read from [`crate::ActionBindings`], projected from
+//! * WHICH control — read from [`crate::ActionBindings`], projected from
 //!   the very `InputMap` the router reads. Nothing to keep in step: a rebind
 //!   moves the glyph because it moved the binding.
-//! * **HOW TO DRAW IT** — [`GamepadStyle`]: the same `GamepadButton::South`
+//! * HOW TO DRAW IT — [`GamepadStyle`]: the same `GamepadButton::South`
 //!   is "A" on an Xbox pad, "Cross" on a DualShock and "B" on a Switch pad,
 //!   because Nintendo mirrors the positions.
 //!
@@ -49,7 +49,7 @@ pub fn glyph_for(
 
 /// The physical control of a kind this seat has bound to `action`.
 ///
-/// **an action bound to nothing of this kind yields nothing**, and the caller
+/// an action bound to nothing of this kind yields nothing, and the caller
 /// renders an empty glyph. That is the honest answer for a GLYPH — a picture of
 /// a button nobody has bound is a lie, where the text label can fall back and be
 /// understood. The two miss policies differ on purpose and are stated at each

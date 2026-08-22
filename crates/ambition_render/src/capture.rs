@@ -28,8 +28,8 @@ pub struct CaptureSettings {
 #[derive(Resource, Debug)]
 pub struct CaptureTarget {
     pub image: Handle<Image>,
-    /// How many cameras have been pointed at it. **Zero means nothing is drawing
-    /// into this texture**, and a caller that shoots anyway writes a transparent
+    /// How many cameras have been pointed at it. Zero means nothing is drawing
+    /// into this texture, and a caller that shoots anyway writes a transparent
     /// PNG and calls it a success.
     pub adopted: u32,
 }
@@ -83,8 +83,8 @@ pub fn setup_capture_target(
 /// The PNG is transparent and the tool reports success. That is exactly what Mary-O's first capture
 /// produced, and it took reading the pixel values to tell it apart from "the scene is white".
 ///
-/// ⭐ **WHEN a camera appears is composition-specific and therefore not knowable
-/// here** — which is the same reason readiness belongs to the caller. So this
+///  WHEN a camera appears is composition-specific and therefore not knowable
+/// here — which is the same reason readiness belongs to the caller. So this
 /// runs every frame and counts what it has adopted; a caller shoots only once
 /// [`CaptureTarget::adopted`] is non-zero.
 pub fn adopt_cameras_into_capture_target(
@@ -114,7 +114,7 @@ pub fn adopt_cameras_into_capture_target(
             .insert((render_target.clone(), Msaa::Off, CaptureAdopted));
         target.adopted += 1;
     }
-    // ⚠ the HUD camera is pointed at the target only when it is WANTED. Leaving
+    //  the HUD camera is pointed at the target only when it is WANTED. Leaving
     // it drawing into the same texture is how a "world only" capture grew a
     // health bar. It is still MARKED either way, so an unwanted HUD camera is
     // not revisited every frame forever.
@@ -154,7 +154,7 @@ pub fn request_capture(
 
 /// Copy the GPU readback into a PNG on disk.
 ///
-/// ⚠ **the row padding is not optional.** wgpu pads every row to a 256-byte boundary, so the
+///  the row padding is not optional. wgpu pads every row to a 256-byte boundary, so the
 /// buffer is wider than the image for any width that is not a multiple of 64 pixels.
 fn save_readback_to_disk(
     event: On<ReadbackComplete>,
@@ -208,7 +208,7 @@ fn save_readback_to_disk(
 
 /// Exit successfully once the file is on disk.
 ///
-/// ⚠ **a FAILED capture must not take this branch.** It has already written its
+///  a FAILED capture must not take this branch. It has already written its
 /// own non-zero exit; announcing success afterwards would report a picture that
 /// does not exist, which is worse than any crash.
 pub fn finish_after_capture(

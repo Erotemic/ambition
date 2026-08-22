@@ -75,7 +75,7 @@ pub fn moving_toward_feet(delta: Vec2, gravity_dir: Vec2) -> bool {
 
 /// Surfaces a body can rest on: full solids, blink walls, and one-ways.
 ///
-/// ⛔ **`BonkOnly` is deliberately absent, and that absence IS the feature.** It
+///  `BonkOnly` is deliberately absent, and that absence IS the feature. It
 /// is solid only against a head coming up into it, so nothing ever rests on one
 /// — a hidden block that supported a body would be an invisible floor, which is
 /// the bug it was added to remove.
@@ -109,16 +109,16 @@ pub fn is_solid_for_axis(kind: BlockKind, axis: Axis, gravity_dir: Vec2) -> bool
     }
 }
 
-/// **Kinds whose ONLY solidity is a rising head strike — air to everything else.**
+/// Kinds whose ONLY solidity is a rising head strike — air to everything else.
 ///
-/// **`is_solid_for_axis` is not enough on its own, and that gap shipped.** `BonkOnly` answers
+/// `is_solid_for_axis` is not enough on its own, and that gap shipped. `BonkOnly` answers
 /// `true` there on the gravity axis, because a head coming up into one must be stopped — so every
 /// OTHER query that filters candidates with that predicate and then forgets to ask
 /// [`bonk_strike_from_head`] treats a hidden block as an ordinary floor. Two did: the controlled
 /// body's penetration REPAIR, and the generic kinematic sweep enemies use.
 ///
-/// ⭐ **so the rule is stated once, here, and every path that is not the swept
-/// head-strike test skips these outright.** A query that genuinely handles the
+///  so the rule is stated once, here, and every path that is not the swept
+/// head-strike test skips these outright. A query that genuinely handles the
 /// strike (`movement::collision`'s sweep) asks `bonk_strike_from_head` instead.
 pub fn blocks_only_a_rising_head(kind: BlockKind) -> bool {
     matches!(kind, BlockKind::BonkOnly)
@@ -179,7 +179,7 @@ pub fn perpendicular_overlap(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> bo
     }
 }
 
-/// **"Does this body still have floor under it?", as one-dimensional spans.**
+/// "Does this body still have floor under it?", as one-dimensional spans.
 ///
 /// The whole of [`perpendicular_overlap`] once the perpendicular axis has been
 /// chosen: two `(min, max)` intervals, overlapping by more than
@@ -187,7 +187,7 @@ pub fn perpendicular_overlap(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> bo
 /// the axis perpendicular to the body's own gravity, so this is as
 /// gravity-generic as its caller's projection.
 ///
-/// ⭐ **exposed so a body that is not an [`Aabb`] can ask the SAME question**, rather than
+///  exposed so a body that is not an [`Aabb`] can ask the SAME question, rather than
 /// re-deriving support from a centre.
 pub fn spans_overlap_for_support(body: (f32, f32), surface: (f32, f32)) -> bool {
     body.1 > surface.0 + EDGE_OVERLAP_SLOP && body.0 < surface.1 - EDGE_OVERLAP_SLOP
@@ -213,14 +213,14 @@ pub fn one_way_landing_from_previous_feet(
         && perpendicular_overlap(body, block, gravity_dir)
 }
 
-/// **The mirror of [`one_way_landing_from_previous_feet`]: does this body's HEAD
-/// come up into the block?**
+/// The mirror of [`one_way_landing_from_previous_feet`]: does this body's HEAD
+/// come up into the block?
 ///
 /// A `BonkOnly` block is solid in exactly this case and in no other, so a body
 /// walks through it, falls through it, and stands where it is as if it were not
 /// there — until it jumps into it from underneath.
 ///
-/// ⚠ **`drop_through` is not consulted**, and the asymmetry is real rather than
+///  `drop_through` is not consulted, and the asymmetry is real rather than
 /// an omission: dropping through is a request to stop being held UP, and nothing
 /// is holding you up here. The one-way rule needs it; this one has nothing to
 /// waive.
@@ -257,10 +257,10 @@ pub fn surface_supports_body_at_rest(
         && support_face_separation(body, surface, gravity_dir).abs() <= CONTACT_SLOP
 }
 
-/// **Are `stomper`'s feet on `victim`'s head?** — the body-vs-body twin of
+/// Are `stomper`'s feet on `victim`'s head? — the body-vs-body twin of
 /// [`surface_supports_body_at_rest`], and the geometric half of a footstool.
 ///
-/// ⭐ **the SAME two primitives a resting body uses**, so a footstool cannot disagree with a
+///  the SAME two primitives a resting body uses, so a footstool cannot disagree with a
 /// landing about where a head is: [`perpendicular_overlap`] for the lateral share (with its
 /// `EDGE_OVERLAP_SLOP`), [`support_face_separation`] for the gravity axis.
 pub fn feet_on_head(stomper: Aabb, victim: Aabb, gravity_dir: Vec2, band: f32) -> bool {
@@ -384,7 +384,7 @@ impl Contact {
     }
 }
 
-/// **NO POSITION ON THIS AXIS SATISFIES EVERY SOLID CLAIMING IT** — the body is
+/// NO POSITION ON THIS AXIS SATISFIES EVERY SOLID CLAIMING IT — the body is
 /// over-constrained (crushed) between two surfaces closing on it.
 ///
 /// Penetration repair treats each intersecting solid as a CONSTRAINT on the
@@ -398,17 +398,17 @@ impl Contact {
 /// deterministic wrong answer that hides a real physical condition. So the
 /// resolver reports this instead, and leaves the body where it is.
 ///
-/// ⭐ **the consequence is deliberately NOT decided here, and this is the
-/// engine's standing split** (the same one [`crate::movement::ResetCause`]
+///  the consequence is deliberately NOT decided here, and this is the
+/// engine's standing split (the same one [`crate::movement::ResetCause`]
 /// states in its own doc): the reusable mechanics layer reports WHAT PHYSICALLY
 /// HAPPENED, game policy decides what it MEANS. Damage, death, a stock, a
 /// respawn, a forced displacement, crush immunity, a rider being squashed by
 /// the platform carrying it, or nothing at all are all Ambition policy
-/// decisions, and none of them belongs in the kernel. **Nothing in this crate
-/// consumes this report** — it rides out on `FrameEvents` for an owner to
+/// decisions, and none of them belongs in the kernel. Nothing in this crate
+/// consumes this report — it rides out on `FrameEvents` for an owner to
 /// interpret, exactly like `ResetCause` does.
 ///
-/// ⚠ **a policy that LATCHES this across frames owns new rollback state.** The
+///  a policy that LATCHES this across frames owns new rollback state. The
 /// report itself is per-step output, rebuilt from world geometry every tick and
 /// never read back by the simulation, so it adds nothing to the rollback
 /// surface. A crush TIMER, a "was crushed" flag, or a death latch derived from

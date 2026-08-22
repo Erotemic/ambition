@@ -99,11 +99,11 @@ def stale_pairs(source_dir: Path, tier_dir: Path) -> list[tuple[Path, float]]:
 
     Two kinds of unit, because the generator publishes two kinds:
 
-    * a **sheet** — `X.ron` plus the pages it names. The unit is compared as a
+    * a sheet — `X.ron` plus the pages it names. The unit is compared as a
       whole against the source `X.ron` and ITS pages, which is the same rule the
       generator's own freshness check uses. Comparing page-to-page cannot work:
       the tier repacks and the page counts differ (see `page_names`).
-    * a **loose PNG** — no manifest, so it is its own unit and compares directly.
+    * a loose PNG — no manifest, so it is its own unit and compares directly.
 
     ⚠ iterates the TIER, not the source. A source with no tier file at all is not
     this check's business — the runtime falls back to full resolution, which is

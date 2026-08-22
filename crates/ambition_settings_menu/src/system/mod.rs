@@ -247,7 +247,7 @@ pub enum SystemMenuEntryId {
     ResetNewGame,
     /// Per-action key/button rebinding.
     ///
-    /// ⚠ **a screen, not a settings category.** It appears only where a
+    ///  a screen, not a settings category. It appears only where a
     /// composition supplies the bindings to rebind
     /// ([`SystemMenuModel::with_rebind`]), which is why it is not in
     /// `curated_options`: a build with no input stack has nothing to list and
@@ -304,7 +304,7 @@ pub enum SystemOptionId {
     /// Arm the rebind capture for the row at this INDEX into the screen's
     /// [`RebindRow`] list.
     ///
-    /// ⚠ an index, not the action name, because this id is `Copy` and an action
+    ///  an index, not the action name, because this id is `Copy` and an action
     /// name is a `String`. That is the same row-identity choice
     /// `ambition_ui_nav::RowPress` documents: within one screen build the order
     /// is canonical (`ActionBindings` sorts), so the index resolves back to the
@@ -350,7 +350,7 @@ pub enum SystemMenuTarget {
 
 /// One rebindable action in the Rebind screen.
 ///
-/// ⚠ **not a [`SettingsOption`], and that is the shape decision.** The settings
+///  not a [`SettingsOption`], and that is the shape decision. The settings
 /// IR is one option per settings FIELD; there are twenty-odd rebindable actions
 /// and they are not fields. They are rows over the seat's LIVE map, which is why
 /// `binding` is a rendered label rather than a value the row owns — a rebind
@@ -526,8 +526,8 @@ impl SystemMenuModel {
     /// ([`DEV_BUILD`]).
     /// Attach the per-action REBIND screen, built from a seat's live bindings.
     ///
-    /// ⭐ **attached rather than a fourth `build` parameter, and the reason is
-    /// not churn.** `build` has forty-odd call sites and every one of them would
+    ///  attached rather than a fourth `build` parameter, and the reason is
+    /// not churn. `build` has forty-odd call sites and every one of them would
     /// have had to name a snapshot it does not have — but more than that, a
     /// composition with no input stack has no bindings to rebind and should show
     /// no row rather than an empty screen. Attaching makes the screen's presence

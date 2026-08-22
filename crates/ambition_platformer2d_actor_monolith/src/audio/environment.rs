@@ -1,41 +1,9 @@
 //! ECS audio-environment layer.
 //!
-//! Gameplay state (water volumes, future caves/tunnels) sets
-//! [`AudioEnvironment::target`]; this module smoothly approaches the
-//! target wetness on a wall-clock timer and feeds the writer that
-//! adjusts the audio mix. Gameplay/water code does not touch Kira
-//! directly — it only mutates `AudioEnvironment` (or relies on the
-//! built-in `detect_audio_environment` system to do so from
-//! `WaterContact`).
-//!
-//! ## Underwater effect — current status (not a "real" low-pass)
-//!
-//! **What you actually hear today:** music drops by ~8 dB and SFX by
-//! ~5 dB on a smooth 350 ms ramp. There is **no high-frequency
-//! damping**; the spectrum is unchanged. This is a placeholder mix
-//! adjustment, *not* an underwater muffle. Do not represent it that
-//! way in UI/docs.
-//!
-//! **Why volume-only:** the brief asks for a Kira `LowPass` filter
-//! tweened from ~20 kHz to ~800 Hz. Kira ships exactly that
-//! (`kira::effect::filter::FilterBuilder` /
-//! `MainTrackBuilder::with_effect`), but the wrapper this sandbox
-//! uses — `bevy_kira_audio` 0.25 — does not expose track-level
-//! effect insertion. Verified by reading the crate source:
-//! `AudioOutput` is `pub(crate)`, `AudioManager` is a private field,
-//! and `AudioSettings` only forwards `sound_capacity` to
-//! `MainTrackBuilder::new()`. There is no extension point.
-//!
-//! **Required next step (not done in this module):** replace the
-//! bevy_kira_audio wrapper with a thin direct-Kira layer that owns
-//! one `kira::AudioManager`, exposes a music sub-track + an SFX
-//! sub-track each pre-built with `FilterBuilder::new().mode(LowPass)
-//! .cutoff(20_000.0)`, and hands `FilterHandle`s back to the ECS
-//! writer. See `docs/systems/audio-underwater.md` for the full migration
-//! plan and surface area.
-//!
-//! **Search markers in the code:** every place that has to change
-//! when the direct-Kira layer lands is tagged
+//! Gameplay publishes an [`AudioEnvironmentMode`]; this module smooths the mix
+//! on wall-clock time. Underwater currently ducks music and SFX volume but does
+//! not filter high frequencies because the current `bevy_kira_audio` backend
+//! does not expose track effects. Direct-Kira migration sites use
 //! `TODO: kira_underwater_filter_backend`.
 
 use bevy::prelude::*;
@@ -54,11 +22,8 @@ pub enum AudioEnvironmentMode {
     /// Open-air mix: no environmental coloration applied.
     #[default]
     Normal,
-    /// Submerged. The *intended* effect is a Kira low-pass tween
-    /// (cutoff ~20 kHz → ~800 Hz over 200–600 ms). The *current*
-    /// effect is a volume duck (~-8 dB music, ~-5 dB SFX) — a
-    /// placeholder until the bevy_kira_audio backend gap is closed.
-    /// See module docs.
+    /// Submerged. Currently volume-ducked; low-pass filtering requires the
+    /// direct-Kira backend described in the module docs.
     Underwater,
 }
 
@@ -193,7 +158,7 @@ pub fn smooth_audio_environment(
 ///   write — we don't spam `set_volume` once steady-state is reached.
 ///
 /// `TODO: kira_underwater_filter_backend` — the volume attenuation
-/// computed here is the **placeholder** until the bevy_kira_audio
+/// computed here is the placeholder until the bevy_kira_audio
 /// wrapper grows track-level effect access (or we swap to a direct-
 /// Kira layer per `docs/systems/audio-underwater.md`). The real underwater
 /// effect should be a Kira `FilterBuilder` (LowPass, cutoff tweened

@@ -1,7 +1,7 @@
-//! Puppy-slug gun — a held item that summons **player-allied** puppy slugs.
+//! Puppy-slug gun — a held item that summons player-allied puppy slugs.
 //!
 //! friendly puppy slugs that harm the player's enemies but never the player.
-//! Decided: the slugs **don't target — they just move** (their normal
+//! Decided: the slugs don't target — they just move (their normal
 //! surface-walker wander); they're simply player-allied now.
 //!
 //! Implementation: the slug spawns through the existing runtime-minion path
@@ -32,7 +32,7 @@ pub const PUPPY_SLUG_GUN_ID: &str = "puppy_slug_gun";
 /// Most player-allied puppy slugs alive at once.
 pub const MAX_ALLIES: usize = 3;
 
-/// **The CHARACTER the gun summons.**
+/// The CHARACTER the gun summons.
 ///
 /// An id that resolves nothing lands on the generic `combatant` fallback, so the ally a player
 /// summoned with their own weapon was not a puppy slug at all: wrong health, wrong speed, no

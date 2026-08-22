@@ -6,7 +6,7 @@
 //! HOST adapter: the plugin, the tick stamp, and the one fact only a host can
 //! publish.
 //!
-//! **the resource itself lives in `ambition_causal`** (behind its `bevy`
+//! the resource itself lives in `ambition_causal` (behind its `bevy`
 //! feature, which is `bevy_ecs` alone), not here. A movement fact published from
 //! `ambition_platformer2d_actor_monolith` must not require the runtime crate, and a `CausalRecording`
 //! owned by a host would have forced exactly that.
@@ -21,8 +21,8 @@
 //!
 //! `ambition_causal::facts_lost_offthread()` counts exactly that, and
 //! [`assert_no_offthread_loss`] is how a host turns the count into a failure
-//! rather than a mystery. **A system publishes through
-//! `ResMut<CausalRecording>`**, which is sound and — because Bevy's schedule
+//! rather than a mystery. A system publishes through
+//! `ResMut<CausalRecording>`, which is sound and — because Bevy's schedule
 //! order is deterministic — also ordered.
 
 use ambition_causal::{
@@ -42,8 +42,8 @@ pub enum RecordingSet {
 
 /// Install causal recording.
 ///
-/// **`RecordingPolicy::Off` is the default and the plugin does not change
-/// it.** Installing the plugin makes recording POSSIBLE; a caller turns it on
+/// `RecordingPolicy::Off` is the default and the plugin does not change
+/// it. Installing the plugin makes recording POSSIBLE; a caller turns it on
 /// for the domains it is investigating. An instrument that is on by default is
 /// an instrument somebody turns off, and then it is not there when needed.
 pub struct CausalPlugin;
@@ -71,7 +71,7 @@ impl Plugin for CausalPlugin {
 /// Stamp the frame every subsequent fact belongs to: its tick, whether the host
 /// is replaying it, and which lifecycle generation it is in.
 ///
-/// **Runs at the HEAD of the sim schedule**, before any publisher. The host is
+/// Runs at the HEAD of the sim schedule, before any publisher. The host is
 /// the only thing that knows any of these: a domain five hops down does not
 /// know the world's clock, and it certainly does not know whether the host is
 /// resimulating — a movement fact that guessed `Original` would make a replayed
@@ -88,7 +88,7 @@ pub fn stamp_causal_frame(
     // `ambition_demo_smash_app` the day that crate gained the feature:
     // "Resource does not exist", from a system nobody asked to run.
     log: Option<ResMut<CausalRecording>>,
-    // **The ROLLBACK EPOCH**, kept here because only the host can see it.
+    // The ROLLBACK EPOCH, kept here because only the host can see it.
     //
     // rollback can execute one tick more than once inside a generation, and
     // two attempts can produce DIFFERENT facts — which is precisely when
@@ -134,7 +134,7 @@ pub struct RollbackEpoch {
     was_replaying: bool,
 }
 
-/// **Was this tick original execution or rollback resimulation?**
+/// Was this tick original execution or rollback resimulation?
 ///
 /// One of the inspector's required questions, and the one no domain below the
 /// host can answer: `SimulationReplayState` and the session generation are
@@ -143,7 +143,7 @@ pub struct RollbackEpoch {
 /// Published with no subject, so it explains every body on that tick —
 /// a resimulated frame is resimulated for all of them.
 ///
-/// **the fact records the generation as well as the flag.** Frames restart at
+/// the fact records the generation as well as the flag. Frames restart at
 /// zero on every session, so a tick number alone cannot tell a restart from a
 /// rewind — the same reason `RollbackHealth` had to start carrying one.
 pub fn record_execution_identity(log: Option<ResMut<CausalRecording>>) {

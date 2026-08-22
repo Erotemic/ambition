@@ -1,4 +1,4 @@
-//! **The ledge trump: one edge, one body.**
+//! The ledge trump: one edge, one body.
 //!
 //! The third body-vs-body interaction beside [`super::capture`] and
 //! [`super::footstool`], and it exists because the kernel's ledge grab cannot
@@ -14,18 +14,18 @@
 //!
 //! ## The later arrival wins, and that is the mechanic
 //!
-//! **the edge belongs to whoever caught it MOST RECENTLY.** That is the
+//! the edge belongs to whoever caught it MOST RECENTLY. That is the
 //! genre's rule and it is the one that makes an edge contested: a fighter
 //! hanging on the ledge to wait out a recovery can be taken off it by the very
 //! body they were waiting for. `LedgeGrabState::elapsed` already counts the
 //! seconds since a grab, so the trumper is simply the smaller number.
 //!
-//! **and the trumped body loses its intangibility with the edge.** It was
+//! and the trumped body loses its intangibility with the edge. It was
 //! bought with airtime it no longer has — see
 //! [`ae::ledge_grab::ledge_grab_invuln_earned`] — and a body that kept the
 //! window while falling would be the safest thing on the stage.
 //!
-//! **PARTIAL against the genre, and named rather than implied**: a trumped
+//! PARTIAL against the genre, and named rather than implied: a trumped
 //! body is dropped, where Ultimate pops it outward into a brief helpless state.
 //! The drop is the half that makes the edge contested; the pop is feel.
 
@@ -39,7 +39,7 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 /// bodies, so this is a float-equality tolerance rather than a reach.
 const SAME_EDGE_EPSILON: f32 = 1.0;
 
-/// **Take the edge away from whoever caught it first.**
+/// Take the edge away from whoever caught it first.
 ///
 /// # Why the order is spelled out
 ///

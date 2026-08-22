@@ -7,7 +7,7 @@
 //! (`AbilitySet`) the leaf crate cannot, and turns "what this body can do"
 //! into "what each control slot does + is called."
 //!
-//! **Derived, not authored.** The scheme is a pure function of already-live
+//! Derived, not authored. The scheme is a pure function of already-live
 //! authorities — the body's `AbilitySet` (movement actions), its moveset
 //! (combat actions), and any content-registered techniques. Because those are
 //! all snapshotted state, a rollback reconstructs the tick-correct scheme by
@@ -15,7 +15,7 @@
 //! invariant 1). A reconcile system re-derives when a source authority changes
 //! (P0 wiring lands with the first consumer in P2).
 //!
-//! **Precedence:** movement + combat actions occupy disjoint slots and form the
+//! Precedence: movement + combat actions occupy disjoint slots and form the
 //! base; a content technique OVERRIDES whatever base action shares its slot
 //! (Sanic's spin claims the Attack slot in place of any moveset attack).
 
@@ -44,7 +44,7 @@ pub struct ActorActionScheme(pub ActionSchemeContract);
 /// stays content code (e.g. `ball_dash`); this only declares "what it is called
 /// and where it lives," so the button can't lie about it.
 ///
-/// **Requires [`ResolvedTechniqueEdges`]**: any body that DECLARES a technique
+/// Requires [`ResolvedTechniqueEdges`]: any body that DECLARES a technique
 /// gets the routed-edge component for free (Bevy required-components), so the
 /// shared resolver always has somewhere to write the technique's edge. Without
 /// this a technique-bearing body could silently drop its input on the tick
@@ -137,11 +137,11 @@ fn clear_projectile(control: &mut ActorControlFrame) {
 /// For every slot that carries a device verb in [`ActorControlFrame`] (Attack,
 /// Special, Projectile, and Shield):
 ///
-/// - **`Technique(id)`** → route the slot's device edge into `edges[id]` and
+/// - `Technique(id)` → route the slot's device edge into `edges[id]` and
 ///   CLEAR the raw verb, so the content system reads the sanctioned edge and a
 ///   bare melee/special/projectile press is no longer the API.
-/// - **`Move`** → keep the verb (the moveset runtime owns it).
-/// - **absent** → strip the verb, so a body without the slot cannot fire it.
+/// - `Move` → keep the verb (the moveset runtime owns it).
+/// - absent → strip the verb, so a body without the slot cannot fire it.
 ///   `holds_item` keeps Attack/Projectile/Shield alive (a held item repurposes
 ///   attack for throw/use, and shield+attack IS the throw gesture); Special has
 ///   no such reuse.
@@ -220,19 +220,19 @@ pub fn resolve_control_slots(
                 None if !holds_item => control.fire = None,
                 _ => {}
             },
-            // **THE GUARD, and it asks the same question every other slot does.**
+            // THE GUARD, and it asks the same question every other slot does.
             //
-            // ⭐ the capability is `AbilitySet::shield`, which `movement_actions`
+            //  the capability is `AbilitySet::shield`, which `movement_actions`
             // already turns into this slot. Absent slot → no guard; present slot →
             // the kernel's `resolve_shield` decides the rest. A held item keeps the
             // verb alive exactly as it does on Attack, because shield+attack is the
             // universal throw gesture.
-            // **Grab is stripped when the slot is absent, and never re-routed.**
+            // Grab is stripped when the slot is absent, and never re-routed.
             // A body whose scheme has no Grab slot must not be able to attempt a
             // capture, which is what makes `AbilitySet::grab` a real permission
             // rather than a label — the same shape as Attack and Shield above.
             //
-            // ⛔ no `ActionGate::Technique` arm, deliberately. Every other combat
+            //  no `ActionGate::Technique` arm, deliberately. Every other combat
             // slot can host a content technique on its press; a capture is not a
             // technique the press invokes, it is an authored MOVE whose active
             // window may establish a relationship. Routing the edge to a
@@ -328,20 +328,20 @@ pub fn resolve_control_slots(
 /// body simply lacks a slot for a capability it doesn't have (no phantom
 /// buttons, no post-hoc stripping).
 fn movement_actions(abilities: &AbilitySet) -> Vec<ActionSpec> {
-    // **The burst button's player-facing word, and it follows the KERNEL'S
-    // PRECEDENCE rather than a preference.**
+    // The burst button's player-facing word, and it follows the KERNEL'S
+    // PRECEDENCE rather than a preference.
     //
     // The slot is `Burst` because dodge and dash are one press — but "Burst" is
     // engine vocabulary and no player has ever pressed one. Naming it after the
     // channel would trade a wrong word (`Dash` on a fighter that cannot dash)
     // for a meaningless one on every body.
     //
-    // ⭐ `resolve_burst_maneuver` asks `available_dodge` FIRST and only reaches
+    //  `resolve_burst_maneuver` asks `available_dodge` FIRST and only reaches
     // `dash_available` when no dodge is on offer, so a body owning both mostly
     // DODGES when this is pressed. The label says the same thing the kernel
     // does, which is why it is derived from that order and not chosen.
     //
-    // ⚠ this is a per-BODY fact, not a per-position one: it depends on which
+    //  this is a per-BODY fact, not a per-position one: it depends on which
     // capabilities the body owns, so it is stable while the player moves. That
     // is the distinction that makes it acceptable under `PromptNaming::ByMove`
     // where naming an attack slot after its currently-resolvable move is not.
@@ -384,41 +384,13 @@ fn upsert(actions: &mut Vec<ActionSpec>, spec: ActionSpec) {
     actions.push(spec);
 }
 
-/// Combat actions unioned from BOTH authorities a body actually fires through:
-/// the moveset (attack + its authored labels) AND the `ActionSet` (ranged /
-/// special capability, which for the canonical player still fires via the
-/// legacy projectile / shield pipeline rather than the moveset). A combat slot
-/// is present if EITHER authority provides it — so the prompt can never
-/// advertise the protagonist as lacking Projectile / Special when those verbs
-/// actually work. Labels come from the moveset move when the verb is authored
-/// there, else the title-cased verb id.
+/// Resolve combat actions from the authorities that currently execute them.
 ///
-/// (The genuine one-authority unification — folding ranged/special into the
-/// moveset and deleting the legacy paths — lands with the shared resolver; this
-/// union is the honest, non-lying interim that matches real behavior.)
-///
-/// She should only have the run and jump in her game."*).
-///
-/// `smash_roster_movesets` states the split this function has to honour and did not: *"an ABILITY
-/// is **may this body attack** and a MOVESET is **what the attack is**"*. Both authorities read
-/// here answer the SECOND question. Mary-O and Sanic each author `abilities: Some([RunJump])` — no
-/// `attack` — and each authors a seventeen-move smash repertoire so a crossover ruleset has
-/// something to consume. Attaching the table made the Attack, Smash and Special slots appear in
-/// their OWN games, `resolve_control_slots` kept the verbs because the slot was present, and every
-/// press answered.
-///
-/// The ability was never consulted here at all.
-///
-/// ⭐ so the melee family is gated by `AbilitySet::attack`, the one flag whose
-/// documented meaning is *generic slash/attack verb*. The table stays attached —
-/// a character authors its fighter self and a ruleset consumes the facets it
-/// speaks — and a body that has not been granted the verb simply has no slot to
-/// fire it from. `SMASH_FIGHTER_KIT` grants `attack`, so the crossover grid is
-/// untouched.
-///
-/// **Projectile is deliberately NOT gated on it.** `AbilitySet` carries no ranged capability at
-/// all, and a ranged verb is not a latent table on the body: it is an explicit authored grant (an
-/// `ActionSet.ranged`, or an equipment row's — Mary-O's cinder beacon).
+/// Melee moves come from the moveset but require `AbilitySet::attack`; ranged and
+/// special slots may still come from `ActionSet`. Labels prefer authored moveset
+/// labels and otherwise use the verb id.
+/// TODO(compat-remove): fold ranged/special execution into the moveset resolver,
+/// then remove the `ActionSet` combat union here.
 fn combat_actions(
     abilities: &AbilitySet,
     moveset: Option<&MovesetContract>,
@@ -469,14 +441,14 @@ fn combat_actions(
         ControlSlot::Special,
         ids::SPECIAL,
     );
-    // **Grab needs BOTH the permission and the authored move.**
+    // Grab needs BOTH the permission and the authored move.
     //
-    // ⭐ the AND is what makes the roster migration incremental. Granting `SMASH_FIGHTER_KIT`
+    //  the AND is what makes the roster migration incremental. Granting `SMASH_FIGHTER_KIT`
     // turns `abilities.grab` on for all fourteen fighters at once; without the second term that
     // would advertise a Grab button on every one of them and every press would find no move to
     // play.
     //
-    // ⛔ **`has_verb`, not `has_directional_verb`.** A grab has no directional
+    //  `has_verb`, not `has_directional_verb`. A grab has no directional
     // family: the four throws are not `grab_forward`/`grab_up`, they are separate
     // capture-context moves selected by the ATTACK press while a captive is held.
     // Accepting a prefix here would let an unrelated `grab_bag` verb light the
@@ -486,7 +458,7 @@ fn combat_actions(
         ControlSlot::Grab,
         ids::GRAB,
     );
-    // **No permission term, deliberately.** A taunt is content and nothing else
+    // No permission term, deliberately. A taunt is content and nothing else
     // — it grants no reach and threatens nobody — so a body gets the button on
     // the day it authors the move, exactly like the ranged slot above.
     push(
@@ -499,13 +471,13 @@ fn combat_actions(
 
 /// Derive a body's action scheme from its live authorities.
 ///
-/// - **Movement** actions from the `AbilitySet` (jump/dash/blink/fly/shield).
-/// - **Interact** when the body's `AbilitySet` grants it. Not universal: a
+/// - Movement actions from the `AbilitySet` (jump/dash/blink/fly/shield).
+/// - Interact when the body's `AbilitySet` grants it. Not universal: a
 ///   restricted kit (`RunJump`) has no talk verb, so no button is drawn for one.
-/// - **Combat** actions unioned from the moveset AND the `ActionSet`, with the
+/// - Combat actions unioned from the moveset AND the `ActionSet`, with the
 ///   melee family (Attack / Special) CEILINGED by `AbilitySet::attack` — see
 ///   [`combat_actions`] for why a table is not a permission.
-/// - **Techniques** (content-declared, already `Technique`-gated `ActionSpec`s)
+/// - Techniques (content-declared, already `Technique`-gated `ActionSpec`s)
 ///   are layered last and OVERRIDE any base action on the same slot.
 ///
 /// The result is canonically ordered (deterministic iteration).
@@ -517,7 +489,7 @@ pub fn derive_action_scheme(
 ) -> ActionSchemeContract {
     let mut actions = movement_actions(abilities);
 
-    // **Interact is a CAPABILITY now, not a universal.** The prompt (Talk / Open / …) still
+    // Interact is a CAPABILITY now, not a universal. The prompt (Talk / Open / …) still
     // resolves against nearby interactables at press time — that was always the world half.
     if abilities.interact {
         upsert(
@@ -624,14 +596,14 @@ mod tests {
         scheme.iter().map(|a| a.slot).collect()
     }
 
-    /// **THE GRAB SLOT NEEDS BOTH HALVES, AND EITHER ONE ALONE IS NOTHING.**
+    /// THE GRAB SLOT NEEDS BOTH HALVES, AND EITHER ONE ALONE IS NOTHING.
     ///
     /// This is the invariant the roster migration rests on. `SMASH_FIGHTER_KIT` turns
     /// `abilities.grab` on for all fourteen fighters in one line; if the permission alone lit the
     /// slot, every one of them would advertise a Grab button and every press would find no move to
     /// play.
     ///
-    /// ⇒ four cases, because a two-term AND has four and only asserting the
+    ///  four cases, because a two-term AND has four and only asserting the
     /// true one would pass with `||` written in the code.
     #[test]
     fn the_grab_slot_needs_the_permission_and_the_authored_move() {
@@ -668,7 +640,7 @@ mod tests {
         );
     }
 
-    /// **A BODY WITH NO GRAB SLOT CANNOT ATTEMPT ONE.**
+    /// A BODY WITH NO GRAB SLOT CANNOT ATTEMPT ONE.
     ///
     /// The permission above is only real if the resolver strips the edge. A
     /// scheme is advisory to a HUD; `resolve_control_slots` is what makes it
@@ -909,7 +881,7 @@ mod tests {
                     kept,
                     "{slot:?} with {gate:?}: kept-after == {kept}"
                 );
-                // ⚠ the Shield slot routes a HELD level, not a press edge — a
+                //  the Shield slot routes a HELD level, not a press edge — a
                 // guard is a sustain, so `pressed` would read `false` on a
                 // correctly routed shield technique.
                 let edge = edges.edge("t");
@@ -1023,7 +995,7 @@ mod tests {
         }
     }
 
-    /// **A technique on the mode-switch slot routes, and EATS the fly toggle.**
+    /// A technique on the mode-switch slot routes, and EATS the fly toggle.
     ///
     /// Both halves matter and they are one mechanism. A body that names its own
     /// Utility action gets the press on its sanctioned edge (so it can stop

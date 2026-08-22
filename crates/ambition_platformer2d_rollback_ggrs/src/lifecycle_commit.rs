@@ -4,7 +4,7 @@
 //! room-lifecycle op on a speculative frame (Piece 1, in `ambition_platformer2d_actor_monolith`).
 //! This module is the host-side other half: once the recording frame is
 //! confirmed, it executes the reconstruction in the EXCLUSIVE world — outside
-//! `GgrsSchedule`, so it is never rolled back — and then **rebases the session**
+//! `GgrsSchedule`, so it is never rolled back — and then rebases the session
 //! so no earlier snapshot can restore the pre-op room.
 //!
 //! Placement: `PreUpdate`, `.after(RunGgrsSystems)` (installed by
@@ -49,19 +49,8 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
         return;
     };
 
-    // Never rebase over an already-diverged session.
-    //
-    // ⛔ **BUT IT MUST NOT BE SILENT**. This is the
-    // veto that decides whether a CONFIRMED room transition happens, so while a
-    // session is unhealthy every door and every loading zone in the game is
-    // inert — detection fired, the intent was recorded, and nothing moves. A bare
-    // `return` here reports that as *the room simply did not change*, which is
-    // indistinguishable from the content being wrong and is what sent an
-    // investigation into the input layer.
-    //
-    // ⚠ `_once`: an unhealthy timeline stays unhealthy, and this runs per frame.
-    // The line names the transition it is holding, because "which one" is the
-    // first thing anybody reading this asks.
+    // Never rebase over an unhealthy session. Log once because this veto holds
+    // confirmed room transitions while the pending intent remains queued.
     if let Err(error) = crate::session_health(world) {
         bevy::log::error_once!(
             "a confirmed lifecycle commit is being HELD because the rollback \
@@ -99,24 +88,9 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
         }
     };
 
-    // Now the fallible work is done. Reconstruct the room (also atomic: it
-    // prepares + preflights before its own infallible `apply_to_world`).
-    //
-    // ⚠ **timed, because this is the expensive half and nothing was measuring
-    // it.** The eager commit records `commit_duration` around its own
-    // application; this route never did, so the one number that describes what a
-    // room change costs on the SHIPPED host did not exist. It is not the same
-    // number as the eager one either: this path flushes and drains the plan's
-    // spawn requests synchronously (see `commit_transition`'s exclusive-world
-    // tail), so the confirmed commit legitimately bills work the eager commit
-    // defers to the frame's flush.
-    //
-    // AMBITION_REVIEW(determinism): wall clock into a write-only diagnostic on
-    // `RoomTransitionLoadState`, which is not rollback-registered and which no
-    // sim decision reads — the same standing exemption `construction_preflight_duration`
-    // carries. ⛔ `bevy::platform::time::Instant` rather than `std`: it is
-    // `web-time` on wasm, and a `#[cfg(not(wasm32))]` clock leaves the one
-    // platform whose numbers would explain a slow transition recording none.
+    // Reconstruct atomically after fallible preparation. Wall-clock duration is
+    // written only to non-rollback diagnostics; `bevy::platform::time::Instant`
+    // keeps the measurement available on wasm as well.
     let commit_started = bevy::platform::time::Instant::now();
     match execute_lifecycle_commit(world, &kind, authorized) {
         // A transient failure (target room not preparable yet) changed nothing —
@@ -138,7 +112,7 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
             // destination matches `same_destination`, returns early against the orphan, and
             // commits under a plan prepared for a crossing that was cancelled.
             //
-            // ⚠ safe from here, `PreUpdate`, unlike the intent: the transaction
+            //  safe from here, `PreUpdate`, unlike the intent: the transaction
             // state is NOT rollback-registered (that is the whole reason
             // readiness moved host-side), so writing it outside the rewound
             // schedule is ordinary. The rollback-registered `PendingLifecycleCommit`
@@ -164,7 +138,7 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     // the op WITHOUT rebasing would leave old ring history restorable — the rebase
     // is the load-bearing half of the confirmed authoritative discontinuity, and
     // the install is infallible so the commit cannot half-complete.
-    // ⭐ **a rebase KEEPS its owner.** This commit rebuilds the session under a
+    //  a rebase KEEPS its owner. This commit rebuilds the session under a
     // new world; it does not change whose session it is, and inferring an owner
     // here would quietly hand a match-activation session to the local
     // maintainer.
@@ -182,32 +156,11 @@ enum AuthorizedPlan {
     Wait,
 }
 
-/// **Does an AUTHORIZED transaction still describe THIS crossing, and what plan
-/// did it authorize?**
+/// Return the exact construction plan authorized for this crossing.
 ///
-/// ⛔⛔ **the transaction is not a permission bit.** Checking only
-/// `phase == CommitAuthorized` and then preparing a fresh plan means readiness
-/// authorized one construction and the world got another — the assets were
-/// accounted for on a plan nobody applied. Every term below is a way that can go
-/// wrong between the frame the transaction authorized and the frame this commits:
-///
-/// * a DIFFERENT intent — the transaction was superseded, or belongs to another
-///   crossing entirely;
-/// * a stale CONTENT EPOCH — the room set or a construction registry changed, so
-///   the prepared plan describes content that no longer exists (a hot reload is
-///   the ordinary way this happens, and `same_destination` already treats the
-///   epoch as identity for exactly this reason);
-/// * a different SESSION SCOPE — the session was torn down and rebuilt under the
-///   transaction;
-/// * a different SOURCE ROOM — something else moved the world since preparation,
-///   so the retirement half of the plan targets the wrong roster.
-///
-/// ⚠ **a mismatch WAITS rather than failing.** The pending intent is untouched
-/// and the readiness transaction is left to its own supersession path in
-/// `Update`: `begin` sees a still-pending intent whose destination no longer
-/// matches the active transaction, opens a fresh one, and this commits that.
-/// Failing here would need a cancellation contract for a crossing that is still
-/// perfectly wanted.
+/// Intent, content epoch, session scope, and source room must still match the
+/// active transaction. A mismatch waits for readiness to supersede the stale
+/// transaction rather than cancelling the still-pending crossing.
 fn authorized_plan(
     world: &mut World,
     intent: &ambition_platformer2d_actor_monolith::session::lifecycle_commit::RoomTransitionIntent,
@@ -278,38 +231,12 @@ fn authorized_plan(
     AuthorizedPlan::Ready(plan)
 }
 
-/// Close out the readiness transaction a just-committed confirmed transition
-/// used, **exactly as the eager commit closes out its own** — which is not the
-/// same thing as dropping it.
+/// Complete a confirmed room-transition readiness transaction. If presentation owns the
+/// cover, publish `Committed` plus `commit_duration` / `committed_at` and let the presentation
+/// adapter retire the transaction after its settle barrier. Otherwise retire it immediately.
 ///
-/// **THIS DROPPED THE TRANSACTION UNCONDITIONALLY, AND THAT SILENCED THE COVER AND THE ONLY LATENCY
-/// INSTRUMENT THE GAME HAS**. `RoomTransitionLoadPhase::Committed` has exactly ONE writer (the
-/// eager `commit_ready_room_transition_system`) and exactly ONE reader
-/// (`drive_room_transition_presentation`'s retirement gate). This route never set it: it nulled
-/// `active` here in `PreUpdate`, so the adapter's next `Update` took its *"no active transition"*
-/// teardown branch instead.
-///
-/// * the `UnclaimedFeatureViews` SETTLE WAIT — the cover comes down when the target room has actually been DRAWN, not one frame after it was built. Its
-/// absence is precisely the rule (*"It flashes squares, which then flash the placeholder sprite, and then it flashes to the characters"*),
-/// whose fix was therefore protecting only the fixed-tick host;
-/// * `minimum_visible`, the floor that stops a loading foreground strobing on a fast transition;
-/// * `RoomTransitionTelemetry:record` — the ONLY site that computes `request_to_ready`, `asset_wait`, `commit_to_first_target_frame`, `prefetch_hit` and the over-budget warning. On the shipped host it produced zero samples, so *"measure what a transition costs"* had no instrument on the route players take. ⭐ this is the same class of silence the unconditional BEGIN log in `loading.rs` was added to break: an instrument that reports nothing exactly when the interesting thing happens reads as *"nothing happened"*.
-///
-/// `cover_required` IS *"a presentation adapter is installed"* — it is set from
-/// `RoomTransitionPresentationAvailable`, the marker that adapter inserts — so handing the
-/// transaction over cannot strand it: the adapter that will retire it is exactly the one whose
-/// presence made a cover required.
-///
-/// ⚠ **not rollback state.** `RoomTransitionLoadState` is deliberately not
-/// rollback-registered (that is why readiness moved host-side), and this runs in
-/// `PreUpdate` outside the rewound schedule — the same standing that let the
-/// unconditional drop live here.
-///
-/// ⚠ **`committed_at` is REQUIRED, not telemetry garnish**, and getting it wrong
-/// hangs the cover: the adapter's give-up deadline is
-/// `now - committed_at >= presentation_settle_deadline`, and a `None` there reads
-/// as *zero elapsed* forever, so a room with a genuinely unclaimable feature view
-/// would hold a black screen instead of revealing with the warning.
+/// This load state is host-side rather than rollback state. `committed_at` is required because the
+/// presentation settle deadline is measured from it.
 fn retire_committed_room_transition(world: &mut World, commit_duration: std::time::Duration) {
     let Some((barrier, cover_required)) = world
         .get_resource::<ambition_platformer2d_runtime::room_transition::RoomTransitionLoadState>()
@@ -332,13 +259,8 @@ fn retire_committed_room_transition(world: &mut World, commit_duration: std::tim
                 active.phase = ambition_platformer2d_runtime::room_transition::RoomTransitionLoadPhase::Committed;
             }
         }
-        // ⚠ **no `GameMode` restore here, and none is owed.** A rollback host is
-        // the only caller (`commit_confirmed_lifecycle` is installed by
-        // `rollback::session`), and it never entered `GameMode::RoomTransition`:
-        // `begin_room_transition_load_system` guards that request on
-        // `!is_rollback_host` because the mode gates SIM systems and desynced the
-        // checksum. The adapter sets `Playing` at its own retirement, which is
-        // where the eager host's mode genuinely comes back.
+        // Rollback hosts never enter `GameMode::RoomTransition`; presentation restores its own
+        // mode when it retires the cover.
         return;
     }
 
@@ -363,14 +285,14 @@ fn retire_committed_room_transition(world: &mut World, commit_duration: std::tim
 
 /// Close out the readiness transaction a CANCELLED crossing opened.
 ///
-/// ⛔ **only the transaction this exact intent opened.** A crossing is cancelled
+///  only the transaction this exact intent opened. A crossing is cancelled
 /// because its body is gone, not because room transitions in general are off;
 /// retiring whatever happens to be active would take out a newer, unrelated
 /// transaction opened by somebody else in the same frame. Matching the intent is
 /// the same key `same_destination` uses to decide the transaction OWNS the
 /// crossing, asked in the other direction.
 ///
-/// ⚠ **no `GameMode` restore, deliberately.** Only a rollback host reaches here,
+///  no `GameMode` restore, deliberately. Only a rollback host reaches here,
 /// and the rollback host never entered `GameMode::RoomTransition` in the first
 /// place — `begin_room_transition_load_system` guards that on
 /// `!pending.is_rollback_host()`, because setting it gates the sim systems and
@@ -486,7 +408,7 @@ fn commit_transition(
         return CommitOutcome::Cancelled;
     };
 
-    // ⛔ **stale spawn requests first.** A speculative frame may have enqueued
+    //  stale spawn requests first. A speculative frame may have enqueued
     // `SpawnActorRequest`s that its rollback never un-enqueued, and this path DRAINS the queue
     // below rather than leaving it to a scheduled system.
     if let Some(mut pending) = world.get_resource_mut::<bevy::ecs::message::Messages<
@@ -513,7 +435,7 @@ fn commit_transition(
             }
         }
     };
-    // ⛔ **unconditionally, before any early return.** `SystemState` holds the
+    //  unconditionally, before any early return. `SystemState` holds the
     // command queue the application wrote into; dropping it without applying
     // would silently discard a half-built room.
     state.apply(world);
@@ -603,7 +525,7 @@ mod tests {
         }
     }
 
-    /// ⛔⛔ **A CANCELLED CROSSING MUST NOT LEAVE ITS TRANSACTION BEHIND.**
+    ///  A CANCELLED CROSSING MUST NOT LEAVE ITS TRANSACTION BEHIND.
     ///
     /// A void crossing — the body that walked through the door died during the confirmation delay —
     /// drops the intent. Nothing would ever come back for it: `begin_room_transition_load_system`
@@ -629,7 +551,7 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ **A COVERED CONFIRMED COMMIT MUST NOT DROP ITS OWN TRANSACTION.**
+    ///  A COVERED CONFIRMED COMMIT MUST NOT DROP ITS OWN TRANSACTION.
     ///
     /// The cover, the settle wait and the ONLY latency instrument the game has
     /// all hang off `drive_room_transition_presentation`'s
@@ -639,7 +561,7 @@ mod tests {
     /// was built rather than the frame it was DRAWN, and
     /// `RoomTransitionTelemetry` recorded zero samples.
     ///
-    /// ⛔ **and the uncovered half is the poison, in the same test.** Without it
+    ///  and the uncovered half is the poison, in the same test. Without it
     /// this passes just as happily on a route that never retires anything, which
     /// would wedge every later crossing on a headless host.
     #[test]
@@ -679,7 +601,7 @@ mod tests {
              flushes and drains spawns synchronously — must reach the telemetry sample"
         );
 
-        // ⛔ THE POISON: no cover means no adapter, so nobody else will ever
+        //  THE POISON: no cover means no adapter, so nobody else will ever
         // retire this and it must retire itself.
         let mut uncovered = World::new();
         uncovered.insert_resource(ambition_load::LoadCoordinator::default());
@@ -703,7 +625,7 @@ mod tests {
         );
     }
 
-    /// ⛔ **and ONLY the one it opened.** A crossing is cancelled because its body
+    ///  and ONLY the one it opened. A crossing is cancelled because its body
     /// is gone, not because room transitions are off. Retiring whatever happens
     /// to be active would take out an unrelated transaction — another
     /// participant's crossing, in the same frame.
@@ -734,7 +656,7 @@ mod tests {
             .id();
         assert_ne!(triggerer, primary);
 
-        // ⚠ `TransitBodies`, not the whole `RoomTransitionApplication`: the
+        //  `TransitBodies`, not the whole `RoomTransitionApplication`: the
         // resolver is the only thing under test and it is pure queries, so a
         // bare `World` can host it. Building the full application here would
         // demand a dozen unrelated resources — a fixture that models nothing.

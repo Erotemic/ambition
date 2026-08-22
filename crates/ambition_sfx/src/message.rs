@@ -93,7 +93,7 @@ impl fmt::Display for PresentationSourceId {
     }
 }
 
-/// **The presentation source a BODY emits under.**
+/// The presentation source a BODY emits under.
 ///
 /// Derived once per tick from the body's worn character and that character's
 /// author, so every emitter can attribute a cue without repeating the lookup — and

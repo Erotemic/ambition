@@ -1,4 +1,4 @@
-//! **The burning flying shark** — the first MOUNT to become a character.
+//! The burning flying shark — the first MOUNT to become a character.
 //!
 //! `mass: 6.0` is the other half — the pair rolls around a centre of gravity near the heavier
 //! body — and it rides on `vitals`, which already carried mass.

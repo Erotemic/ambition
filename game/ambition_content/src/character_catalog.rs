@@ -84,8 +84,8 @@ pub const PLAYABLE_ROSTER: &[&str] = &[
     "sandbag",           // the training dummy, playable for laughs
     // ── The fighters the smash grid offers ───────────────────────────────────
     //
-    // **"a character this game offers as a WORN BODY is one this game can
-    // BUILD", and this list is where that claim is made.** They are here
+    // "a character this game offers as a WORN BODY is one this game can
+    // BUILD", and this list is where that claim is made. They are here
     // because a match seats them, which is the same act as wearing them: a
     // fighter IS a body wearing a character, and eight of the twelve portraits
     // on the grid could be seated only as player one because nothing had ever
@@ -96,7 +96,7 @@ pub const PLAYABLE_ROSTER: &[&str] = &[
     // The catalog row has no mass or health to fold back in — those come from the ARCHETYPE —
     // so the blanket rule cannot be made behaviour-neutral, only narrower.
     //
-    // **AMBITION'S OWN, and `mary_o`/`sanic` were here and should not have been.** They are on
+    // AMBITION'S OWN, and `mary_o`/`sanic` were here and should not have been. They are on
     // the smash grid and they are other providers' characters — no row for either exists in
     // this game's catalog, so `register_declared_cast` skipped them silently (`catalog.get(id)`
     // → `None` → `continue`) and they registered nothing. Their own demos declare them, which
@@ -111,7 +111,7 @@ pub const PLAYABLE_ROSTER: &[&str] = &[
     "npc_emmy_noether",
 ];
 
-/// **Characters this game can BUILD but does not OFFER as a selection.**
+/// Characters this game can BUILD but does not OFFER as a selection.
 ///
 /// It must NOT define which characters the engine is capable of constructing."* Until this
 /// existed the two questions were one list, so making a character buildable also put a portrait
@@ -122,9 +122,9 @@ pub const PLAYABLE_ROSTER: &[&str] = &[
 /// time.
 ///
 /// Author first, register second; that ordering is the whole reason this list is empty rather than
-/// pre-filled with the obvious candidates. **THE BUILD-ONLY CAST IS DERIVED, not listed.**
+/// pre-filled with the obvious candidates. THE BUILD-ONLY CAST IS DERIVED, not listed.
 ///
-/// ⇒ authoring a character MAKES it buildable. `authored/` is one file per
+///  authoring a character MAKES it buildable. `authored/` is one file per
 /// creature and [`crate::authored::AUTHORED_CAST`] is the one table; twenty-two
 /// of the twenty-four ids come from there now and cannot fall out of sync with
 /// their own authoring, because they ARE their own authoring.
@@ -139,20 +139,20 @@ pub fn buildable_only_cast() -> impl Iterator<Item = &'static str> {
         .filter(|id| !PLAYABLE_ROSTER.contains(id))
 }
 
-/// **EMPTY, and that is the point of it.** (AC4)
+/// EMPTY, and that is the point of it. (AC4)
 ///
 /// Do not retain fallback health or incomplete body definitions because we are waiting for balance
 /// decisions."* Carl Stargan sat here for the sibling reason, and the same handoff settled him.
 /// Both now author bodies in `authored/`.
 ///
-/// **keep it empty.** An entry here is a character whose body is somebody
+/// keep it empty. An entry here is a character whose body is somebody
 /// else's to state, and the empty list is what makes "authoring a character makes
 /// it buildable" true without an exception clause. If a future character genuinely
 /// cannot state its body yet, the honest move is to say so on the
 /// maintainer-decision surface rather than to register it bare.
 const REGISTERED_WITHOUT_A_BODY: &[&str] = &[];
 
-/// **Ambition-specific intrinsic facts layered onto a character definition.**
+/// Ambition-specific intrinsic facts layered onto a character definition.
 ///
 /// The catalog supplies catalog-shaped metadata; this function supplies body/kit
 /// facts that Ambition authors in Rust. Preparation combines the registered
@@ -166,8 +166,8 @@ pub fn authored_intrinsics(
     id: &str,
     definition: ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition,
 ) -> ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition {
-    // **this is a RULE rather than nine arms, because the thing it replaces
-    // was a rule too — a worse one.** `hostile_brain_id_for_actor` asks whether
+    // this is a RULE rather than nine arms, because the thing it replaces
+    // was a rule too — a worse one. `hostile_brain_id_for_actor` asks whether
     // an id, a display name or a dialogue node contains `"pirate"`, or one of
     // `"broadside bess"` / `"iron mary"` / `"salt annet"`, and hands the body a
     // whole archetype. Nine characters answer that matcher, and every one of them
@@ -186,9 +186,9 @@ pub fn authored_intrinsics(
     } else {
         definition
     };
-    // **AND THE CREATURE'S OWN FILE STATES THE REST.**
+    // AND THE CREATURE'S OWN FILE STATES THE REST.
     //
-    // ⇒ `authored/` — one file per creature, beside its moveset, and ONE table
+    //  `authored/` — one file per creature, beside its moveset, and ONE table
     // ([`crate::authored::AUTHORED_CAST`]) that the module list already forces
     // anybody to keep true. See its module doc.
     match crate::authored::author_for(id) {
@@ -218,23 +218,9 @@ pub fn next_playable(current: &str) -> &'static str {
 mod tests {
     use super::*;
 
-    /// **A PRACTICE TARGET DOES NOT STRIKE BACK** — asked of the CHARACTERS that
-    /// are practice targets, which is where they live.
-    ///
-    /// **AND MIGRATING THE OLD CLAIM LITERALLY WOULD HAVE BEEN A FALSE RULE.** The roster
-    /// invariant was *"a sandbag row has `melee: None`"*, and asked of the characters it fails
-    /// immediately: both sandbags name the `sandbag_punch` action set, which authors a real
-    /// `PunchWeak`. A character says it with its POLICY, and `sandbag.rs`'s own note records
-    /// exactly that: *"Notices nobody and swings at nobody; the old row's `attack_range: 150.0`
-    /// sat beside `melee: None`"*.
-    ///
-    /// ⇒ so this asserts the MECHANISM that actually holds — a practice target's
-    /// autonomous profile notices nobody and reaches nobody — rather than the
-    /// old rule's proxy. Asserting the proxy would have pushed content to strip
-    /// a fist for a reason that was never the real one.
-    ///
-    /// the count assertion is what stops THIS test going vacuous the same way:
-    /// a cast with no practice targets means they moved again.
+    /// Practice-target characters may own attack actions, but their autonomous
+    /// policy must neither notice nor reach opponents. The count assertion keeps
+    /// the invariant non-vacuous if the cast changes.
     #[test]
     fn practice_target_characters_do_not_strike_back() {
         let mut app = bevy::prelude::App::new();
@@ -278,7 +264,7 @@ mod tests {
     }
     use ambition_platformer2d_actor_monolith::avatar::StartingCharacter;
 
-    /// **THE PUPPY SLUG'S PINS, beside the definition that states them.**
+    /// THE PUPPY SLUG'S PINS, beside the definition that states them.
     ///
     /// Moving the pins rather than deleting them is what keeps the migration honest — the facts
     /// did not stop mattering, they changed owner.
@@ -328,7 +314,7 @@ mod tests {
         );
     }
 
-    /// **THE PARROT'S PINS**, beside the definition that states them.
+    /// THE PARROT'S PINS, beside the definition that states them.
     ///
     /// Its `sky_parrot` row is deleted, and the two facts that did NOT come
     /// across are the interesting ones: `is_aerial` stays a CATALOG answer
@@ -375,7 +361,7 @@ mod tests {
         );
     }
 
-    /// **A migrated character has no archetype row left.**
+    /// A migrated character has no archetype row left.
     ///
     /// the acceptance signal for this campaign is a DELETION, and a test that only checked the
     /// new authority would pass just as well with both standing. This is the other half: the
@@ -384,7 +370,7 @@ mod tests {
     /// The sound instrument is the one production uses: build the definition and ask
     /// `body_blueprint()`, which is the same call the spawn roads make.
     ///
-    /// **this number is the campaign's remaining distance.** A placement naming
+    /// this number is the campaign's remaining distance. A placement naming
     /// a body-complete character is built character-first and never touches the
     /// archetype road; every other one is why `combatant` still has to exist. The
     /// test asserts the count only moves UP, so a migration that quietly stops
@@ -404,7 +390,7 @@ mod tests {
                         crate::AMBITION_CONTENT_PROVIDER,
                     ),
                 );
-                // **"authors its own locomotion" is the CAMPAIGN's criterion**,
+                // "authors its own locomotion" is the CAMPAIGN's criterion,
                 // not a copy of `body_blueprint`'s. The brief says it in those
                 // words — *"a placement naming a COMPLETE character (one that
                 // states its locomotion) is built by `new_character_in`"* — and
@@ -441,7 +427,7 @@ mod tests {
         );
     }
 
-    /// **AND HOW MANY STATE THEIR OWN VERBS** — P3.25's number, measured the same
+    /// AND HOW MANY STATE THEIR OWN VERBS — P3.25's number, measured the same
     /// way and for the same reason.
     ///
     /// `effective_abilities` reads `(authored ∪ granted) ∩ permitted`, and its
@@ -449,7 +435,7 @@ mod tests {
     /// having whatever the mode PERMITS. That default is the scaffold P3.25
     /// deletes, and it disappears when this count reaches the cast.
     ///
-    /// **a FLOOR again, and the control is the same**: it must not yet be
+    /// a FLOOR again, and the control is the same: it must not yet be
     /// everybody, because the day it is, the bridge is dead and this test should
     /// be replaced by the refusal rather than kept as a ratchet.
     #[test]
@@ -483,33 +469,33 @@ mod tests {
         );
     }
 
-    // **`the_cast_that_still_needs_a_body_assist_only_shrinks` DELETED
-    // on its own instruction.** It counted the characters that could
+    // `the_cast_that_still_needs_a_body_assist_only_shrinks` DELETED
+    // on its own instruction. It counted the characters that could
     // not build a body from their own definition — the population
     // the deleted body-assist seam existed to correct — and its second assertion
     // said what to do when the count hit zero: *"every registered character can
     // now build its own body … delete it (checklist item 9) and this ratchet
     // with it."*
 
-    /// **AND HOW MANY STATE THEIR OWN MOVES** — P3.24's number, which had no
+    /// AND HOW MANY STATE THEIR OWN MOVES — P3.24's number, which had no
     /// ratchet while its twin above did.
     ///
     /// But the concept survives the rename, and so does the thing that ends it: a character
     /// that authors its own timelines never reaches that floor.
     ///
-    /// **a floor and a control, exactly like the verbs ratchet.** It must not be
+    /// a floor and a control, exactly like the verbs ratchet. It must not be
     /// empty (or the unarmed declaration is what every fight is made of, and no
     /// content exercises the authored road) and it must not yet be everybody.
     ///
-    /// **but the control does NOT instruct a deletion, and that is a
-    /// correction.** Most of this cast authors `default_action_set: "peaceful"`
+    /// but the control does NOT instruct a deletion, and that is a
+    /// correction. Most of this cast authors `default_action_set: "peaceful"`
     /// — `melee: None, ranged: None, special: None` — deliberately, and Mary-O's
     /// row says so outright: *"Mary-O Classic is deliberately only the run/jump
     /// floor."* `unarmed_melee` is what lets such a character be seated at all,
     /// so whether it is scaffolding or permanent architecture is a PRODUCT
     /// question rather than a migration step.
     ///
-    /// **this asks the PREPARED registry, not the authoring functions.** A
+    /// this asks the PREPARED registry, not the authoring functions. A
     /// moveset reaches a fighter as `PreparedCharacterDefinition::authored_moveset`
     /// — which is the field `ambition_demo_smash` actually filters on when it
     /// decides which seats need the floor — so asking anything else would measure
@@ -550,13 +536,13 @@ mod tests {
         );
     }
 
-    /// **A CHARACTER THAT AUTHORS ITS POLICY MUST NOT ALSO NAME A PRESET.**
+    /// A CHARACTER THAT AUTHORS ITS POLICY MUST NOT ALSO NAME A PRESET.
     ///
     /// A definition's `BrainProfile` outranks the row's `default_brain` everywhere it is read,
     /// so a character holding both states its policy twice and the loser is invisible until
     /// somebody reads three files.
     ///
-    /// **the exemptions are the ones that cannot go YET, each with the reason**,
+    /// the exemptions are the ones that cannot go YET, each with the reason,
     /// and they are not a to-do list somebody may extend casually: a preset that
     /// carries `aggressiveness` also carries a RELATIONSHIP, which belongs to the
     /// placement's disposition, and dropping it first is what took the cove
@@ -582,7 +568,7 @@ mod tests {
                     crate::AMBITION_CONTENT_PROVIDER,
                 ),
             ))
-            // **BOTH shapes count** — this read only `autonomous_profile` at
+            // BOTH shapes count — this read only `autonomous_profile` at
             // first, and the exemption list's own rot-check caught it: the goblin
             // and the lab raider state their policy by NAME
             // (`autonomous_profile_ref` → the shared `medium_striker` entry),
@@ -626,7 +612,7 @@ mod tests {
         );
     }
 
-    /// **The giant carries its own facts now** — every one its archetype row stated, authored
+    /// The giant carries its own facts now — every one its archetype row stated, authored
     /// on the definition, and that row is DELETED ( closed once three layers learned to ask the
     /// character before the archetype: the limbed-host predicate, the activation path's
     /// construction context, and `mount_capabilities_of`).
@@ -673,8 +659,8 @@ mod tests {
         assert_eq!(profile.attack_range, 0.0);
     }
 
-    /// **The two shark riders differ from each other, which is what the pair of
-    /// nearly-identical archetype rows existed to express.** Health, weight,
+    /// The two shark riders differ from each other, which is what the pair of
+    /// nearly-identical archetype rows existed to express. Health, weight,
     /// pace, gait, bolt damage and which gun-sword — six numbers and a row each.
     ///
     /// neither authors `contact_damage`, and that is the migration doing its
@@ -739,7 +725,7 @@ mod tests {
         }
     }
 
-    /// **One character, two bodies** — the giant's left and right hands are the
+    /// One character, two bodies — the giant's left and right hands are the
     /// same definition spawned twice by the rig, which is a reusable authored
     /// template doing the thing the campaign exists to make possible.
     #[test]
@@ -774,7 +760,7 @@ mod tests {
         assert_eq!(profile.attack_range, 0.0);
     }
 
-    /// **The practice target says it is one.** `practice_target` is the fact
+    /// The practice target says it is one. `practice_target` is the fact
     /// with four consumers — the save sync, the path assignment and two sprite
     /// reads — and the one that kept the sandbags on the archetype file.
     ///
@@ -805,7 +791,7 @@ mod tests {
         assert_eq!(profile.aggro_radius, 0.0, "it notices nobody");
     }
 
-    /// **THE FIRST CHARACTER THAT NAMES ITS POLICY INSTEAD OF CARRYING ONE.**
+    /// THE FIRST CHARACTER THAT NAMES ITS POLICY INSTEAD OF CARRYING ONE.
     ///
     /// The goblin's five sandbox placements wore the `medium_striker` ARCHETYPE
     /// — a whole body borrowed for its fighting style. Its controller half is a
@@ -845,8 +831,8 @@ mod tests {
         );
     }
 
-    /// **The shared policy exists in the shipped catalog, and says only
-    /// controller things.** A body fact in here would be the archetype's
+    /// The shared policy exists in the shipped catalog, and says only
+    /// controller things. A body fact in here would be the archetype's
     /// three-authorities muddle arriving by another door.
     #[test]
     fn the_shipped_catalog_authors_a_shared_striker_policy() {
@@ -863,7 +849,7 @@ mod tests {
         assert!(profile.smash_sprint_to_close);
     }
 
-    /// **Every authored brain preset has at least one character using it.**
+    /// Every authored brain preset has at least one character using it.
     ///
     /// this is the guard that stops the NEXT one, and it matters most while
     /// the preset vocabulary is being retired: a key whose last adopter migrates
@@ -896,8 +882,8 @@ mod tests {
         );
     }
 
-    /// **Every character the provocation name-matcher answers states its own
-    /// provoked policy.**
+    /// Every character the provocation name-matcher answers states its own
+    /// provoked policy.
     ///
     /// A single character that did not would fall through to the matcher, find no row, and
     /// become a generic `combatant` with nothing to read.
@@ -958,10 +944,10 @@ mod tests {
     // would have been true. Its control asserted the file still held `combatant`, so it could
     // not pass on an empty file.
     //
-    // ⇒ the file is deleted, so no creature can have two authorities: a body is
+    //  the file is deleted, so no creature can have two authorities: a body is
     // built from its character or construction refuses it.
 
-    /// **The runtime's cast comes OUT of the compiler.**
+    /// The runtime's cast comes OUT of the compiler.
     ///
     /// Not "the compiler also checks it" — out of it.
     #[test]
@@ -988,7 +974,7 @@ mod tests {
         }
     }
 
-    /// **Production registration and the compiler are ONE authority.**
+    /// Production registration and the compiler are ONE authority.
     ///
     /// The app-local fragment must be the compiler's lowered artifact, entry for
     /// entry — not a second parse of the same file. Two readers is how content
@@ -1036,8 +1022,8 @@ mod tests {
         }
     }
 
-    /// **The two lists answer two questions, and the build-only one has to obey the same rules
-    /// as the selection one**.
+    /// The two lists answer two questions, and the build-only one has to obey the same rules
+    /// as the selection one.
     ///
     /// poison: empty an arm of [`authored_intrinsics`] and this reds. That
     /// matters more than it looks — a registered character that authors nothing
@@ -1086,8 +1072,8 @@ mod tests {
             let authored = authored_intrinsics(id, bare.clone());
             let authors_a_body =
                 authored.death_traits.is_some() || authored.vitals.max_health.is_some();
-            // **A POLICY-ONLY REGISTRATION RETRACTS NOTHING, and this guard
-            // could not previously say so**.
+            // A POLICY-ONLY REGISTRATION RETRACTS NOTHING, and this guard
+            // could not previously say so.
             //
             // The rule above is right about BODIES: a definition that states no
             // vitals says *"this character authors none"*, preparation correctly
@@ -1103,8 +1089,8 @@ mod tests {
             // facts into the peaceful-NPC path; only a complete blueprint supplies
             // character-owned vitals/locomotion there.
             let authors_only_policy = !authors_a_body && authored != bare;
-            // **AND A THIRD SAFE CASE: a character that has no archetype body
-            // to lose.** The rule protects ARCHETYPE-built vitals; a character
+            // AND A THIRD SAFE CASE: a character that has no archetype body
+            // to lose. The rule protects ARCHETYPE-built vitals; a character
             // placed only as a peaceful Hall `NpcSpawn` never had any, so a bare
             // registration costs it nothing and buys it a seat. Each entry
             // carries the placement evidence, because that is the whole argument.
@@ -1129,10 +1115,10 @@ mod tests {
         }
     }
 
-    /// **AND THE OTHER DIRECTION, which is the one that loses work silently.**
+    /// AND THE OTHER DIRECTION, which is the one that loses work silently.
     ///
-    /// The dangerous direction is the reverse: **a character somebody wrote an
-    /// `authored_intrinsics` arm for and never added to either list.** It is never registered,
+    /// The dangerous direction is the reverse: a character somebody wrote an
+    /// `authored_intrinsics` arm for and never added to either list. It is never registered,
     /// so the arm runs for nobody, and nothing anywhere fails — the body simply does not exist
     /// and the author's work sits in the file looking done.
     ///
@@ -1208,7 +1194,7 @@ mod tests {
         );
     }
 
-    /// **ALL NINE PIRATES DELIVER THE POLICY THE PREFIX RULE GIVES THEM** — the thing
+    /// ALL NINE PIRATES DELIVER THE POLICY THE PREFIX RULE GIVES THEM — the thing
     /// registration actually buys, asserted at the seam a provoked body reads.
     ///
     /// the rule (`id.starts_with("npc_pirate_")` → one of two published profiles) has always
@@ -1389,8 +1375,8 @@ mod assembled_provider_tests {
         );
     }
 
-    /// **EVERY CHARACTER HAS EXACTLY ONE AUTONOMOUS-POLICY AUTHORITY, and this
-    /// asks whether it is REACHABLE**.
+    /// EVERY CHARACTER HAS EXACTLY ONE AUTONOMOUS-POLICY AUTHORITY, and this
+    /// asks whether it is REACHABLE.
     ///
     /// So a green test here is: the resolver either answers, or refuses in the one way that has
     /// an answer waiting.
@@ -1424,7 +1410,7 @@ mod assembled_provider_tests {
             }
         }
 
-        // **the redirect must have somewhere to go.** Every character the
+        // the redirect must have somewhere to go. Every character the
         // resolver refuses for has to author the profile the NPC road will ask
         // it for; one that authors neither is unauthored, and its body silently
         // becomes a stand-still.

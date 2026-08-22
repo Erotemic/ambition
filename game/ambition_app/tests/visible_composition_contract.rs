@@ -1,10 +1,10 @@
-//! **A LINK IS NOT A BOOT.**
+//! A LINK IS NOT A BOOT.
 //!
 //! The web build gate compiles and links the release wasm. It passed on an app that loaded the
 //! page, initialized wgpu, painted a canvas, and showed nothing at all — no launcher, no room,
 //! no error.
 //!
-//! **these are not "is the plugin list still the plugin list" assertions.**
+//! these are not "is the plugin list still the plugin list" assertions.
 //! Each assertion covers composition state whose absence produces a blank app without a
 //! diagnostic.
 
@@ -25,14 +25,14 @@ struct CompositionContract {
     /// Per-session room presentation. Missing it, the session activates, the
     /// simulation runs, and the world is never made visible.
     room_visuals: bool,
-    /// **SOMETHING THAT DRAWS A ROUTE.** A shell host routes; it does not
+    /// SOMETHING THAT DRAWS A ROUTE. A shell host routes; it does not
     /// paint. `MinimalShellPlugins` adds `BasicShellPresentationPlugin` only
     /// under the `basic_presentation` FEATURE, so a persona whose Cargo features
     /// omit it composes a perfectly correct host that boots to the launcher and
     /// renders nothing at all.
     ///
-    /// **this is a FEATURE fact, which is why the first version of this file
-    /// could not see it.** Every assertion here ran under the default desktop
+    /// this is a FEATURE fact, which is why the first version of this file
+    /// could not see it. Every assertion here ran under the default desktop
     /// features, where the answer is trivially yes. The browser's feature set is
     /// a different build, and it was the one that was blank.
     route_presentation: bool,
@@ -103,7 +103,7 @@ fn assert_contract_holds(persona: &str, app: &App) {
     );
 }
 
-/// **this is the BROWSER's game-side composition, run on a native host.**
+/// this is the BROWSER's game-side composition, run on a native host.
 /// `shell_hosted` is read off `VisibleGameSpec::browser` rather than written as
 /// `true`, so what gets composed here is what `run_web` composes — the browser
 /// and this test cannot drift apart without the shared spec changing under
@@ -121,7 +121,7 @@ fn the_direct_gameplay_persona_composes_a_route_and_room_visuals() {
     assert_contract_holds("direct gameplay persona", &app);
 }
 
-/// **THE POISON.** Every probe above reports "present" by reading a world;
+/// THE POISON. Every probe above reports "present" by reading a world;
 /// a probe that cannot report "absent" proves nothing. This is the pre-repair
 /// browser: Bevy's foundation and no Ambition composition on top of it.
 #[test]

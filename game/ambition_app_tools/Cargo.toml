@@ -6,7 +6,7 @@ license.workspace = true
 authors.workspace = true
 description = "Ambition's non-game binaries: headless/RL drivers, trace replay, scene capture, previews."
 
-# **WHY THIS PACKAGE EXISTS, and it is not "the app crate got big".**
+# WHY THIS PACKAGE EXISTS, and it is not "the app crate got big".
 #
 # Cargo builds every `[[bin]]` of a package before running that package's
 # integration tests, because a test may exec one through `CARGO_BIN_EXE_*`. That
@@ -17,7 +17,7 @@ description = "Ambition's non-game binaries: headless/RL drivers, trace replay, 
 # MEASURED, after an `ambition_app` source edit:
 #   lib alone 9.2s · lib + 7 bins 16.4s · lib + bins + `app_it` 21.7s
 #   lib + `ambition_game_bin` only 10.8s
-# so the six non-game binaries were **5.6s of a 21.7s answer — 26%**, forever, on
+# so the six non-game binaries were 5.6s of a 21.7s answer — 26%, forever, on
 # work nothing consumed.
 #
 # `ambition_game_bin` deliberately STAYS in `ambition_app`. It is 1.6s of the
@@ -32,7 +32,7 @@ description = "Ambition's non-game binaries: headless/RL drivers, trace replay, 
 # live, not a layer.
 
 [features]
-# **`causal` must exist HERE or it silently stops existing.** `rl_random_walker`
+# `causal` must exist HERE or it silently stops existing. `rl_random_walker`
 # has four `#[cfg(feature = "causal")]` arms; a feature the package does not
 # declare is not an error, it is permanently FALSE — so the walker would have gone
 # on building and quietly recorded nothing. Forwarded rather than redefined, so

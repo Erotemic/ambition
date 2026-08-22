@@ -1,4 +1,4 @@
-//! **THE PATENT CLERK, read back off its own row.** Its
+//! THE PATENT CLERK, read back off its own row. Its
 //! `gameplay_description` says *"a high-mastery heavyweight controller …
 //! turns careful observation into unusually strong parries and
 //! finishers"* — heavyweight, controller, finishers — and those three

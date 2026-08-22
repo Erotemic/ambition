@@ -3,14 +3,14 @@
 //! Two arena hooks live here, both driven by the same "is the GNU-ton
 //! boss alive?" check so they stay in lockstep:
 //!
-//! 1. **Ladder reveal.** The arena's retreat ladder is authored as a
+//! 1. Ladder reveal. The arena's retreat ladder is authored as a
 //!    Climbable IntGrid column in `gnu_ton_arena_area.yaml`, so by
 //!    default it's painted into `world.climbable_regions` the moment
 //!    the room loads — which would let the player skip the fight by
 //!    climbing right back out. This module hides the ladder while the
 //!    boss is alive and re-adds it the frame the boss is defeated.
 //!
-//! 2. **Floor-gate above the ladder.** The entry ledge has a 48-px
+//! 2. Floor-gate above the ladder. The entry ledge has a 48-px
 //!    gap punched out above the ladder column; a named Solid
 //!    (`ladder_floor_gate`) authored in LDtk fills that gap while the
 //!    boss is alive and is removed from `world.blocks` on defeat, so
@@ -66,10 +66,10 @@ fn boss_is_gnu_ton(
 /// system derives, each frame, which of them the collision *view* should hide,
 /// from the current boss state — instead of mutating `RoomGeometry`:
 ///
-/// - **Boss alive (or not yet spawned):** carve out the arena's Ladder regions
+/// - Boss alive (or not yet spawned): carve out the arena's Ladder regions
 ///   (so the player can't climb back out and skip the fight) and leave the
 ///   floor-gate solid.
-/// - **Boss defeated:** stop carving the ladders (they reappear from the base)
+/// - Boss defeated: stop carving the ladders (they reappear from the base)
 ///   and add the floor-gate block to `removed_block_names` so the gap opens and
 ///   the player can climb up to the exit.
 ///

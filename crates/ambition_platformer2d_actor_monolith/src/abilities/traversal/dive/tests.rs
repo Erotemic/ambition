@@ -48,12 +48,12 @@ fn dive_lunges_the_player_forward_and_cuts_a_corridor() {
         ),
         "player-side source so it spares the player",
     );
-    // ⭐⭐ **the authored shove must be ON the event, at its authored strength.**
+    //  the authored shove must be ON the event, at its authored strength.
     // It used to ride `HitSource::Melee { knock_x }`, a second physics
     // channel whose consumer read only the SIGN and substituted `FeelScale(1.0)`
     // — so `DIVE_KNOCKBACK` reached no victim for as long as the channel existed,
     // and the hit was indistinguishable from one with no shove authored at all.
-    // ⛔ that is the exact shape the campaign forbids: *a successful authored
+    //  that is the exact shape the campaign forbids: *a successful authored
     // launch strike must not be representable as a hit with silently missing
     // knockback.* Assert the magnitude, not merely that something is attached.
     let knockback = hits[0]

@@ -1,11 +1,11 @@
-//! **Running the scenario suite through the real brain, and reporting what it did.**
+//! Running the scenario suite through the real brain, and reporting what it did.
 //!
 //! `docs/planning/engine/fighter-brain.md` asks for "the smallest headless runner
 //! that executes those scenarios through the real fighter-brain/controller seam
 //! and records useful outcomes". This is that runner's first half: everything
 //! measurable WITHOUT a match.
 //!
-//! **survival and damage are deliberately not here.** They need two bodies
+//! survival and damage are deliberately not here. They need two bodies
 //! actually fighting, which is a match harness (`ambition_demo_smash_app` has
 //! one) rather than a brain rig — and a number labelled "survival %" produced
 //! without anyone dying would be worse than no number at all. What a brain alone
@@ -35,7 +35,7 @@ pub const RIG_TICK_HZ: f32 = 60.0;
 /// Long enough for a rate to be a rate: ten seconds of decisions.
 pub const RIG_TICKS: u32 = (RIG_TICK_HZ as u32) * 10;
 
-/// **A kit shaped like the one production builds.**
+/// A kit shaped like the one production builds.
 ///
 /// the rig ran with `BrainSnapshot::idle()` first and every rung emitted zero
 /// presses, because an empty kit leaves `generate_options` offering movement
@@ -140,7 +140,7 @@ pub fn play(scenario: &Scenario, profile: FighterBrainProfile, seed: u64) -> Sce
     let mut frames: Vec<ActorControlFrame> = Vec::new();
     let mut view = scenario.view.clone();
     for tick in 0..RIG_TICKS {
-        // **THE OPPONENT HAS TO MOVE, or the ladder is invisible.** A rung's
+        // THE OPPONENT HAS TO MOVE, or the ladder is invisible. A rung's
         // headline difference is `reaction_ms`, and a delayed view of a world
         // that never changes IS the live view — so a static scenario makes every
         // level emit identical frames and a rig built on one would report the

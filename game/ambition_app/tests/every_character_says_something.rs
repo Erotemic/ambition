@@ -1,4 +1,4 @@
-//! **Nobody in the shipped cast stands mute.**
+//! Nobody in the shipped cast stands mute.
 //!
 //! nothing. The measurement behind this file: 4 of 144 pedestals staged a
 //! character with no catalog row at all — every one registered by a demo
@@ -35,7 +35,7 @@ use ambition_app::app::{build_visible_app, VisibleRenderMode};
 #[test]
 fn every_composed_character_can_say_at_least_one_line() {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
-    // **THE BARRIER, or the registry is not the cast.** `register_character`
+    // THE BARRIER, or the registry is not the cast. `register_character`
     // queues a definition; the prepared registry is PUBLISHED once, whole, at
     // `Plugin::finish`. Reading it off a freshly built App finds a partial cast
     // — which is how the first version of this test reported three characters

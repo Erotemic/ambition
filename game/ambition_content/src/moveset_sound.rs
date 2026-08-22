@@ -1,9 +1,9 @@
-//! **WHAT A FIGHTER'S TABLE SOUNDS LIKE, ASKED OF THE REAL SEAM.**
+//! WHAT A FIGHTER'S TABLE SOUNDS LIKE, ASKED OF THE REAL SEAM.
 //!
-//! **the one claim here is that an authored burst is heard EXACTLY ONCE**, and it is a claim no
+//! the one claim here is that an authored burst is heard EXACTLY ONCE, and it is a claim no
 //! per-table test could make. Those tests could only ever check for the MISSING half.
 //!
-//! **it is not a data test.** The oracle is the running pair of systems the
+//! it is not a data test. The oracle is the running pair of systems the
 //! game installs: `ambition_combat::moveset::dispatch_move_events` writing onto
 //! the request channel, and `ambition_render::fx::process_fx_requests` fanning
 //! it into the effect plus the cue the effect's own name addresses. Modelling
@@ -56,7 +56,7 @@ fn tables() -> Vec<(&'static str, MovesetContract)> {
     ]
 }
 
-/// **Drive one authored INSTANT of one move through the real seam** and report
+/// Drive one authored INSTANT of one move through the real seam and report
 /// every cue that reached the SFX channel.
 fn cues_at_one_instant(
     spec: &MoveSpec,
@@ -110,7 +110,7 @@ fn cues_at_one_instant(
         .collect()
 }
 
-/// **The name behind a hashed cue**, for a failure message that can be acted on.
+/// The name behind a hashed cue, for a failure message that can be acted on.
 ///
 /// [`SfxId`] is a one-way hash, so the report reverses it against the names this
 /// build could possibly have played: every authored effect's paired cue, plus
@@ -144,7 +144,7 @@ fn name_of(id: SfxId) -> String {
     format!("{id}")
 }
 
-/// **A BURST'S OWN CUE IS NOT ALSO WRITTEN BY HAND — IT IS HEARD ONCE.**
+/// A BURST'S OWN CUE IS NOT ALSO WRITTEN BY HAND — IT IS HEARD ONCE.
 ///
 /// Every jab, tilt and smash in those tables played its sound twice, 412 app tests stayed green,
 /// and the only instrument that could have caught it was a fighter's ears.
@@ -153,7 +153,7 @@ fn name_of(id: SfxId) -> String {
 /// the real fan-out and then INTERSECTED, so what a burst "already says" is
 /// answered by the engine rather than by a table transcribed from it.
 ///
-/// **two mirrored pairs deliberately fall outside this**, Alice's `side_channel` and the
+/// two mirrored pairs deliberately fall outside this, Alice's `side_channel` and the
 /// cellular automaton's `garden_growth` each throw the SAME effect at `±x` on the same frame,
 /// so each is heard twice — two spatialised bursts, two spatialised sounds.
 #[test]
@@ -212,7 +212,7 @@ fn a_paired_burst_is_heard_exactly_once() {
     );
 }
 
-/// **A SUSTAINED BURST STILL PLAYS ITS LOOPING VARIANT, NOT THE PLAIN ROW CUE.**
+/// A SUSTAINED BURST STILL PLAYS ITS LOOPING VARIANT, NOT THE PLAIN ROW CUE.
 ///
 /// ten of the shipped effect rows pack their sound as `vfx.<family>.<row>.loop`
 /// and ship no plain `vfx.<family>.<row>` at all — a stream, an orbit, a held
@@ -264,7 +264,7 @@ fn a_sustained_burst_keeps_its_looping_cue() {
     );
 }
 
-/// **A MOVE'S INDEPENDENT SOUNDS STILL FIRE.**
+/// A MOVE'S INDEPENDENT SOUNDS STILL FIRE.
 ///
 /// 50 of the 145 authored cues were never a restatement of anything — a grunt, a charge whine,
 /// a metal chink. A future sweep that mistakes one for ceremony trips here rather than in a

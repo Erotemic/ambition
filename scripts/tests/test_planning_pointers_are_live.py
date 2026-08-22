@@ -7,9 +7,9 @@ machine-checkable fact, going stale inside the file whose job is to be current:
   2026-08-06 ledger as *"the live run ledger. This is the current work"*, two days
   after that run ended, sending every new reader to a retired file carrying 24
   open marks that were not work;
-* the live ledger's standing-state block said the rollback schema was at **v17**
+* the live ledger's standing-state block said the rollback schema was at v17
   while `registry.rs` had said **18** since that morning;
-* the same block's suite baseline said **318** when the suite was 319;
+* the same block's suite baseline said 318 when the suite was 319;
 * a navigation table was wrong within two hours of being written.
 
 ⭐ **the repo already has the rule and did not apply it to itself.**
@@ -74,8 +74,8 @@ def test_an_archived_ledger_has_no_open_marks():
     archive = REPO / "docs" / "archive"
     # `*-closed-sections.md` are EXCLUDED, and the exclusion is their own
     # contract rather than a convenience: those files archive individual sections
-    # that had zero open rows, and their header states **"Nothing here is
-    # edited"** — verbatim and lossless, so a mark inside one may not be touched.
+    # that had zero open rows, and their header states "Nothing here is
+    # edited" — verbatim and lossless, so a mark inside one may not be touched.
     # two of them nonetheless carry rows that read as open (`AE6`, `S49`,
     # *"milestone 5 is NOT reached"*). That is a question about ORPHANED WORK, not
     # about formatting, and stripping the marks would erase the evidence for it.

@@ -1,36 +1,10 @@
-//! Read-only hit-test predicates for the damage path.
+//! Read-only preflight hit predicates for projectile/attack feedback.
 //!
-//! The `ecs_hit_event_hits_*` functions let the projectile / attack systems
-//! pre-check whether a queued `HitEvent` will land before kicking off cues.
-//! A `true` here TERMINATES the strike — the bolt despawns and the hit trace
-//! fires — so an answer these predicates get wrong that `apply_feature_hit_events`
-//! (in `damage/`) then gets right is a bolt eaten for damage that never lands.
-//!
-//! **What each predicate owes its applier is TANGIBILITY — the question "does
-//! this thing offer a target at all" — and each family spells it its own way:**
-//!
-//! * an ACTOR is intangible when it published an empty
-//!   [`DamageableVolumes`](super::DamageableVolumes) (an authored invulnerable
-//!   window, or a corpse the publisher cleared). `apply_feature_hit_events` asks
-//!   exactly that through
-//!   [`strike_reaches_victim`](crate::combat::hitbox::strike_reaches_victim)'s
-//!   first arm, so this module asks
-//!   [`DamageableVolumes::intangible`](super::DamageableVolumes::intangible)
-//!   rather than restating the rule;
-//! * a BOSS is a special case of the same thing with the answer computed rather
-//!   than stored — `damageable_volumes` resolves the currently-active parts, and
-//!   no active part means nothing to hit;
-//! * a BREAKABLE spells it as `broken()` / `trigger.allows_hit()` /
-//!   `pogo_refresh`, which is byte-for-byte the gate its applier's loop runs.
-//!
-//! **precision is a DIFFERENT question, and these predicates deliberately do
-//! not all share it.** The boss predicate must test the authored part volumes —
-//! a multi-part boss's gross box is mostly not damageable, so the coarse box
-//! would over-trigger projectile termination on the body without ever applying
-//! damage. The actor and breakable predicates test the coarse `CenteredAabb`,
-//! matching what `step_projectiles` and the breakable loop actually apply against.
-//! Retiring that coarse box for projectiles would change how every shot connects,
-//! which is feel, and is deliberately still open.
+//! A positive preflight may terminate a strike, so each predicate must match the
+//! tangibility gate used by the corresponding damage applier. Actors use
+//! `DamageableVolumes`, bosses test active authored part volumes, and breakables
+//! mirror their broken/trigger/pogo gates. Actor and breakable precision remains
+//! coarse-AABB by current gameplay policy; bosses require part-level precision.
 
 use bevy::prelude::{Query, With, Without};
 

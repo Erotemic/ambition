@@ -139,7 +139,7 @@ fn preexisting_route_blocks_a_later_experience_claiming_it() {
     );
 }
 
-/// **The launcher opens the SCREEN, the session stays on its own route.**
+/// The launcher opens the SCREEN, the session stays on its own route.
 ///
 /// A character select is the case: the row says "Smash" and leads to a
 /// question, and the stage route it eventually reaches still owns the

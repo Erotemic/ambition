@@ -1,9 +1,9 @@
 //! Surface-follower solver: momentum locomotion over [`SurfaceChain`]s.
 //!
-//! The ONE new mover. A surface-momentum body is a **circle proxy** that is
+//! The ONE new mover. A surface-momentum body is a circle proxy that is
 //! either ballistic (`Airborne`) or attached to a surface (`Riding { on, s,
-//! v_t }`). While riding, integration is **1-D along the chain's arc
-//! length** — position is slaved to `s`, velocity is the scalar `v_t` along
+//! v_t }`). While riding, integration is 1-D along the chain's arc
+//! length — position is slaved to `s`, velocity is the scalar `v_t` along
 //! the tangent — which is what makes ramps, valleys, and loops deterministic
 //! and headless-testable. The body's `kin.size` AABB stays authoritative for
 //! everything else (hurtboxes, triggers, portals, camera); the circle exists
@@ -13,10 +13,10 @@
 //! Physics rules (v1, deliberately small — the feel pass tunes numbers, the
 //! STRUCTURE is the deliverable):
 //! - Gravity projects onto the tangent (`g·t̂ * slope_factor`) — slopes accelerate downhill, decelerate uphill. Input accelerates along the tangent up to `top_speed`; slope may exceed it.
-//! - **Stick rules.** On a straight run: shed the surface when gravity does not meaningfully press the body on (`L = g·(-n̂) < press threshold`) AND `|v_t| < min_stick_speed` — walls and ceilings hold only a fast body. At a CONVEX joint (surface bends away from the rideable side, `cross(t_i, t_j) > 0`): launch when the centripetal demand `v_t²·θ / r_smooth` exceeds what the pressing load can supply (`stick_factor · max(L, 0)`). Concave joints (loop interiors) always follow — the surface can push.
-//! - **No pushout**: all airborne motion is swept to TOI; landing snaps only by the contact-range discipline; nothing teleports. A deflected body SLIDES its remaining tick along the surviving velocity (bounded sub-sweeps) — dropping the remainder froze bodies against non-attachable contacts while velocity kept integrating.
+//! - Stick rules. On a straight run: shed the surface when gravity does not meaningfully press the body on (`L = g·(-n̂) < press threshold`) AND `|v_t| < min_stick_speed` — walls and ceilings hold only a fast body. At a CONVEX joint (surface bends away from the rideable side, `cross(t_i, t_j) > 0`): launch when the centripetal demand `v_t²·θ / r_smooth` exceeds what the pressing load can supply (`stick_factor · max(L, 0)`). Concave joints (loop interiors) always follow — the surface can push.
+//! - No pushout: all airborne motion is swept to TOI; landing snaps only by the contact-range discipline; nothing teleports. A deflected body SLIDES its remaining tick along the surviving velocity (bounded sub-sweeps) — dropping the remainder froze bodies against non-attachable contacts while velocity kept integrating.
 //! - Chains are one-sided: a body approaching from the back side passes through. A solid [`Block`](crate:world:Block) IS a surface too — its exterior boundary is a closed rectangular chain ([`Block:boundary_chain`](crate:world:Block:boundary_chain)), so the ONE riding model covers authored chains and ordinary room geometry alike: a momentum body lands on, runs along, and jumps from block floors with the same stick/joint rules. Block corners are convex joints whose entered face carries no pressing load, so walking off an edge launches (correct) and a body can never wrap around a block by accident.
-//! - **Landing is load-bearing**: an airborne body ATTACHES only to a surface gravity presses it onto (`g·(-n̂) > 0` — floors and up-slopes in the local gravity frame). Walls and ceilings hit from the air deflect (the into-surface velocity dies, flight continues) — wall/ceiling riding is reached by CONTINUITY (riding through a loop or an authored curve), never by bonking into a corridor roof. Frame-agnostic by construction. One-ways/hazards/pogo/rebound blocks are gameplay-layer concerns, not follower collision (same split as the kinematic sweep).
+//! - Landing is load-bearing: an airborne body ATTACHES only to a surface gravity presses it onto (`g·(-n̂) > 0` — floors and up-slopes in the local gravity frame). Walls and ceilings hit from the air deflect (the into-surface velocity dies, flight continues) — wall/ceiling riding is reached by CONTINUITY (riding through a loop or an authored curve), never by bonking into a corridor roof. Frame-agnostic by construction. One-ways/hazards/pogo/rebound blocks are gameplay-layer concerns, not follower collision (same split as the kinematic sweep).
 //!
 //! Everything here is vector math — no cardinal-axis assumptions — so the C4
 //! rotation rig holds by construction (see tests).
@@ -1841,7 +1841,7 @@ fn first_block_hit(
             // Interior faces of flush composite geometry are NOT surfaces: a
             // floor tiled from several blocks buries each block's side walls
             // inside its neighbors. Probe just outside the face at the
-            // contact point — buried inside another solid ⇒ skip the hit.
+            // contact point — buried inside another solid  skip the hit.
             let center_at_impact = center + delta * toi;
             let ab = b - a;
             let t = if ab.length_squared() > 0.0 {
@@ -1942,7 +1942,7 @@ pub(crate) fn apply_pad_impulse(world: &World, body: &mut SurfaceBody, impulse: 
     }
 }
 
-/// **An external launch, handed to the model instead of written past it.**
+/// An external launch, handed to the model instead of written past it.
 ///
 /// The sibling of [`apply_pad_impulse`], and the difference between them is a
 /// RULE rather than a tuning value. A rebound pad's tangent-dominant case only
@@ -1950,8 +1950,8 @@ pub(crate) fn apply_pad_impulse(world: &World, body: &mut SurfaceBody, impulse: 
 /// you down, which is what a booster is. A hit must not decline: knockback along
 /// the run overrides the run, or being hit while sprinting does nothing.
 ///
-/// Off-surface component ⇒ the ride ends and the body leaves with the full world
-/// impulse, exactly as a spring or a jump does. Purely tangential ⇒ the ride
+/// Off-surface component  the ride ends and the body leaves with the full world
+/// impulse, exactly as a spring or a jump does. Purely tangential  the ride
 /// survives and `v_t` is SET from the tangential component, so a hit along the
 /// ground shoves the body without peeling it off the floor.
 pub(crate) fn apply_external_launch(world: &World, body: &mut SurfaceBody, launch: Vec2, dt: f32) {

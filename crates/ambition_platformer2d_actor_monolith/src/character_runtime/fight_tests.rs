@@ -1,4 +1,4 @@
-//! **§7.10: two characters, two providers, one session, real damage.**
+//! §7.10: two characters, two providers, one session, real damage.
 //!
 //! The acceptance test for the whole character-definition plan. It is deliberately
 //! built out of the pieces the other slices produced, and it needs no host
@@ -555,7 +555,7 @@ fn health(app: &App, body: Entity) -> i32 {
         .current
 }
 
-/// **§7.10, for real.** Two characters from two providers, in one session,
+/// §7.10, for real. Two characters from two providers, in one session,
 /// damaging each other through the production damage path.
 ///
 /// What each assertion below is load-bearing for:
@@ -746,7 +746,7 @@ fn a_strike_that_clears_the_authored_torso_lands_on_nobody() {
     );
 }
 
-/// **G1: a body dies in its OWN voice.**
+/// G1: a body dies in its OWN voice.
 ///
 /// The move timeline was the one emitter that read `BodyPresentationSource`, so
 /// every other body-owned sound — the block clang, the armor loss, the pogo, the

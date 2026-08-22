@@ -350,13 +350,13 @@ fn puppy_slug_seed(id: &str, actor_render: &ambition_sim_view::ActorRenderIndex)
     }
 }
 
-/// **NO `Assets<Image>`.** The image was fetched for one value —
+/// NO `Assets<Image>`. The image was fetched for one value —
 /// `texture_descriptor.size` — and `TextureAtlasLayout::size` already carries
 /// it. Every main-world reader of a loaded sheet is one more thing standing
 /// between the game and dropping `MAIN_WORLD` from the image loader, which is
 /// what keeps 1803 MB of decoded RGBA resident entering Hall of Characters.
 ///
-/// **this is the second of three copies of this computation** — see
+/// this is the second of three copies of this computation — see
 /// `ambition_render::rendering::hit_flash::current_sprite_uv_rect` (byte-identical
 /// intent) and `ambition_portal2d_presentation::clip_material::sprite_frame_basis`
 /// (a superset that also returns the quad size). All three agree; converging them

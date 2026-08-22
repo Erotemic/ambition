@@ -1,10 +1,10 @@
-//! **What has to survive LDtk conversion**, whatever the level says.
+//! What has to survive LDtk conversion, whatever the level says.
 //!
 //! What remains asserts things that stay true across any legitimate edit: every block KIND survives
 //! lowering, the named pieces the runtime addresses still exist, one file reads differently to two
 //! vocabularies, and no lift teleports you somewhere visible.
 //!
-//! **the level's real invariants live in `lib.rs`'s tests, not here** — every
+//! the level's real invariants live in `lib.rs`'s tests, not here — every
 //! enemy has ground under it, the vault ceiling is unbroken, a pipe you enter
 //! has a pipe you come out of, the trench is wide enough to patrol. Those SHOULD
 //! fail on a bad edit; that is the safety net for editing, not friction against
@@ -48,7 +48,7 @@ fn every_named_block_the_runtime_looks_for_survives_conversion() {
         );
     }
 
-    // **and every reactive block has a DISTINCT id.** `Block::solid` leaves the
+    // and every reactive block has a DISTINCT id. `Block::solid` leaves the
     // id anonymous, so a converter that forgets to stamp the placement produces
     // blocks that all answer to one identity — a bonk on any of them resolved to
     // whichever came first. That happened, and this is what would have caught it.
@@ -92,21 +92,21 @@ fn every_named_block_the_runtime_looks_for_survives_conversion() {
     }
 }
 
-/// **A pole with no flag on it is still a pole to every other check.**
+/// A pole with no flag on it is still a pole to every other check.
 ///
 /// right, and the dressing code was not wrong: `scenery_for_authored_room`
 /// matches `goal_pole` → shaft, `goal_pole_knob` → finial, `goal_pole_banner` →
-/// flag, and its `_ => {}` arm means **an unauthored name produces no prop and
-/// no complaint**. 1-1 authored all three; 1-2 authored only the shaft.
+/// flag, and its `_ => {}` arm means an unauthored name produces no prop and
+/// no complaint. 1-1 authored all three; 1-2 authored only the shaft.
 ///
 /// Nothing between the file and the screen had an opinion about the flag.
 ///
-/// **so this pins the CLASS, not the level**: any room that stands a shaft
+/// so this pins the CLASS, not the level: any room that stands a shaft
 /// dresses it completely. A third level authored with a bare pole fails here
 /// rather than shipping, which is the whole point of not spelling `mary_o_1_2`
 /// anywhere below.
 ///
-/// **asserted on the PROPS, not on the block names**, because the prop is what
+/// asserted on the PROPS, not on the block names, because the prop is what
 /// picture again, and a name list would still be green through it.
 ///
 /// `test_course` is deliberately out of scope: it builds its shaft in Rust as
@@ -154,7 +154,7 @@ fn every_authored_pole_wears_its_finial_and_its_flag() {
     );
 }
 
-/// **ONE instrument, `#[ignore]`d so it never runs in the suite** — what the
+/// ONE instrument, `#[ignore]`d so it never runs in the suite — what the
 /// authored file actually contains, when a claim about it needs settling.
 ///
 /// it earned its keep twice on the day it was written. The vault pipe hangs by a clearance
@@ -212,16 +212,16 @@ fn print_what_the_file_authors() {
     }
 }
 
-/// **Two vocabularies, one process, and they disagree — correctly.**
+/// Two vocabularies, one process, and they disagree — correctly.
 ///
-/// **this test could not have been written before.** The converter registry
+/// this test could not have been written before. The converter registry
 /// was a process-global `OnceLock` whose contract was "first install wins,
 /// later calls are ignored": whichever `App`, tool or test touched it first
 /// defined LDtk conversion for everything else in the process, and the only
 /// evidence was an error log. Two games in one binary, a game and a tool, or
 /// two test Apps in one run could not carry different vocabularies at all.
 ///
-/// **the vocabulary is a PARAMETER now**, so both answers below are true at
+/// the vocabulary is a PARAMETER now, so both answers below are true at
 /// the same time in the same process, which is the whole claim:
 ///
 /// The claim that needs proving is that constructing hers does not CHANGE the engine's answer,
@@ -253,7 +253,7 @@ fn the_same_level_reads_differently_to_two_vocabularies_in_one_process() {
         "and it produces the level, not an empty set"
     );
 
-    // **the anti-leak assertion.** Having converted the level once with her
+    // the anti-leak assertion. Having converted the level once with her
     // vocabulary, the ENGINE's answer must be unchanged. Under the old
     // process-global this is the one that failed: her converter would have been
     // installed by the call above and would still be answering for everyone.
@@ -276,25 +276,25 @@ fn the_same_level_reads_differently_to_two_vocabularies_in_one_process() {
     );
 }
 
-/// **A lift must wrap where nobody can see it.**
+/// A lift must wrap where nobody can see it.
 ///
 /// *"When they go OOB (far enough so they are off screen of the player in normal
 /// gameplay) they can teleport to the top / bottom of the screen to make an
 /// infinite elevator effect."*
 ///
-/// **a teleport the player CAN see is not an elevator, it is a glitch** — and
+/// a teleport the player CAN see is not an elevator, it is a glitch — and
 /// no other check catches it. The platform is in bounds, the shaft is well
 /// formed, the ride works, and the effect is simply ruined. 1-2 is 1920x448
 /// against a ~360-tall viewport, so a wrap inside the room lands mid-screen.
 ///
-/// **Why the room's own extent is the right line.** Under
+/// Why the room's own extent is the right line. Under
 /// `CameraClampMode::RoomBounds` the camera target is clamped to
 /// `[-H/2 + half_view, +H/2 - half_view]`, so the visible band is exactly
 /// `[-H/2, +H/2]` — the room and nothing past it. A lift whose whole body is
 /// outside the room at both wrap points therefore cannot be on screen at either,
 /// and this never has to know the viewport size.
 ///
-/// **two escapes, stated rather than guarded**, both visible in
+/// two escapes, stated rather than guarded, both visible in
 /// `clamp_camera_target` and neither reachable from what 1-2 authors: a room
 /// SHORTER than the viewport falls back to centring, which shows past the
 /// bounds, and portal padding can expand them. A room that gains either wants

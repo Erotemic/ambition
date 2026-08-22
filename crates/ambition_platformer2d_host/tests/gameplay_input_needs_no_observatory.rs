@@ -1,22 +1,6 @@
-//! **Removing a developer instrument may not remove gameplay input.**
-//!
-//! Not a keycode problem — the same gamepad failed, and device input plainly reached leafwing,
-//! since the menus responded to it.
-//!
-//! The device→tick latch table, `SlotControlLatches`, was installed by
-//! `ambition_app::dev::rollback_observatory`, which is behind `dev_tools`. The
-//! web persona does not enable `dev_tools`. So the browser composed a live GGRS
-//! session with live device actions and NO latch, and
-//! `capture_latched_local_input` takes it as `Option` — absent means "leave
-//! `PendingLocalInput` alone", and its default is neutral. Seat zero therefore
-//! told the simulation the player was holding nothing, every tick, forever.
-//! Menus were unaffected because menu frames never enter the session.
-//!
-//! **this crate is the enforcement.** `ambition_platformer2d_host` cannot
-//! depend on `ambition_app`, so it cannot have a `dev_tools` feature and cannot
-//! borrow an observatory — a composition assembled here is exactly the shape the
-//! browser ships. If the latch ever migrates back to an instrument, this file
-//! stops compiling a working host and says so.
+//! Gameplay input must not depend on developer instrumentation.
+//! A rollback host owns `SlotControlLatches`; frame-stepped hosts do not need the
+//! device-to-tick bridge.
 
 #![cfg(feature = "input")]
 
@@ -42,9 +26,7 @@ fn host_with_device(sim_host: SimulationHost) -> App {
 fn a_rollback_host_owns_the_primary_device_latch_without_any_developer_tooling() {
     let app = host_with_device(SimulationHost::Rollback);
 
-    // **ONE assertion where there were two.** Seat zero had its own
-    // `ControlFrameLatch` resource beside this table and both had to be checked;
-    // seat zero is row zero now.
+    // Seat zero is row zero in the shared latch table.
     assert!(
         app.world().contains_resource::<SlotControlLatches>(),
         "a GGRS host composed the device input bridge and installed no \
@@ -56,10 +38,7 @@ fn a_rollback_host_owns_the_primary_device_latch_without_any_developer_tooling()
     );
 }
 
-/// The other half, so the assertion above is a claim and not a tautology: a
-/// FRAME-STEPPED host must NOT get a latch. One rendered frame is one tick
-/// there, so there is nothing to bridge, and an unconditional install would make
-/// the test above pass while saying nothing about the rollback arm at all.
+/// Frame-stepped hosts do not need a device-to-tick latch.
 #[test]
 fn a_frame_stepped_host_still_installs_no_latch_because_it_has_nothing_to_bridge() {
     let app = host_with_device(SimulationHost::RenderFrame);

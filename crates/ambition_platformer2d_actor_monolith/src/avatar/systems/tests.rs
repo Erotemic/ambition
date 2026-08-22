@@ -163,7 +163,7 @@ fn player_projectile_release_emits_ranged_bolt_action_message_end_to_end() {
     let mut app = App::new();
     app.init_resource::<SeatRawFrames>();
     app.init_resource::<SlotControls>();
-    // ⚠ **and the table it is committed FROM.** These are one model:
+    //  and the table it is committed FROM. These are one model:
     // `BrainPlugin` installs both, and a hand-built fixture that takes
     // only the destination is describing a composition that cannot exist.
     app.init_resource::<SeatRawFrames>();
@@ -248,7 +248,7 @@ fn player_attack_press_emits_swipe_action_message_end_to_end() {
     let mut app = App::new();
     app.init_resource::<SeatRawFrames>();
     app.init_resource::<SlotControls>();
-    // ⚠ **and the table it is committed FROM.** These are one model:
+    //  and the table it is committed FROM. These are one model:
     // `BrainPlugin` installs both, and a hand-built fixture that takes
     // only the destination is describing a composition that cannot exist.
     app.init_resource::<SeatRawFrames>();
@@ -319,7 +319,7 @@ fn player_brain_seam_translates_control_frame_to_actor_control() {
     let mut app = App::new();
     app.init_resource::<SeatRawFrames>();
     app.init_resource::<SlotControls>();
-    // ⚠ **and the table it is committed FROM.** These are one model:
+    //  and the table it is committed FROM. These are one model:
     // `BrainPlugin` installs both, and a hand-built fixture that takes
     // only the destination is describing a composition that cannot exist.
     app.init_resource::<SeatRawFrames>();
@@ -375,9 +375,9 @@ fn player_brain_seam_translates_control_frame_to_actor_control() {
     assert_eq!(control.0.facing, 1.0);
 }
 
-/// **A possessed actor is controlled by the SAME producer as the home avatar.**
+/// A possessed actor is controlled by the SAME producer as the home avatar.
 ///
-/// ⛔⛔ this is the test that decides whether the cut is safe, and it can only
+///  this is the test that decides whether the cut is safe, and it can only
 /// fail one way: silently. `tick_controlled_brains` dropped its
 /// `With<PlayerEntity>` filter so a possessed body reaches it, and
 /// `tick_actor_brains` now leaves player-brained bodies alone — so if this
@@ -390,7 +390,7 @@ fn player_brain_seam_translates_control_frame_to_actor_control() {
 /// which is exactly what possession does (ONE control seam: possession is brain
 /// transfer, never an input-copy component).
 ///
-/// ⭐ **and the speed proves whose body it is.** `velocity_target` is an absolute world-space
+///  and the speed proves whose body it is. `velocity_target` is an absolute world-space
 /// command, so the translator scales the stick by the body's own
 /// `MotionModel::commanded_top_speed` — 137 here, a number no other body in the test has.
 #[test]
@@ -402,7 +402,7 @@ fn a_possessed_actor_is_driven_by_the_controlled_brain_producer() {
     let mut app = App::new();
     app.init_resource::<SeatRawFrames>();
     app.init_resource::<SlotControls>();
-    // ⚠ **and the table it is committed FROM.** These are one model:
+    //  and the table it is committed FROM. These are one model:
     // `BrainPlugin` installs both, and a hand-built fixture that takes
     // only the destination is describing a composition that cannot exist.
     app.init_resource::<SeatRawFrames>();
@@ -476,7 +476,7 @@ fn a_possessed_actor_is_driven_by_the_controlled_brain_producer() {
     );
 }
 
-/// **A scripted sequence now silences a possessed body too.**
+/// A scripted sequence now silences a possessed body too.
 ///
 /// A death beat or a flagpole slide driving a possessed body would blank nothing.
 ///
@@ -490,7 +490,7 @@ fn a_scripted_sequence_silences_a_possessed_body() {
     let mut app = App::new();
     app.init_resource::<SeatRawFrames>();
     app.init_resource::<SlotControls>();
-    // ⚠ **and the table it is committed FROM.** These are one model:
+    //  and the table it is committed FROM. These are one model:
     // `BrainPlugin` installs both, and a hand-built fixture that takes
     // only the destination is describing a composition that cannot exist.
     app.init_resource::<SeatRawFrames>();

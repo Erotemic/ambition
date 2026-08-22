@@ -18,7 +18,7 @@ use super::{ConstructionDomain, ConstructionExecCtx, RecipeId};
 
 /// Wires one declared relation once both ends exist.
 ///
-/// **A bidirectional relation wires BOTH sides here.** `Limb`/`LimbRig` and
+/// A bidirectional relation wires BOTH sides here. `Limb`/`LimbRig` and
 /// `RidingOn`/`MountSlot` are each two components that must agree, and the way
 /// they have historically disagreed is one site writing one side and forgetting
 /// the other — the old frame-later mount resolver inserted `MountSlot` while the
@@ -181,7 +181,7 @@ impl std::error::Error for ConstructionRegistrationError {}
 
 /// What a registered recipe declares about itself.
 ///
-/// **There is no function here.** Construction dispatches through
+/// There is no function here. Construction dispatches through
 /// [`ConstructionDomain::dispatch`], one exhaustive match yielding both a row's
 /// recipe identity and its constructor, so a recipe cannot be paired with
 /// parameters it cannot build from — that pairing is not representable rather

@@ -19,7 +19,7 @@ pub enum ShopSide {
     Sell,
 }
 
-/// **Somebody asked for a transaction; the simulation runs it.**
+/// Somebody asked for a transaction; the simulation runs it.
 ///
 /// So the command records the REQUEST in the conversation's narrative ledger and
 /// a simulation system applies it on the tick it was stamped for — every replay

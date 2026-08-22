@@ -17,9 +17,9 @@
 #[global_allocator]
 static GLOBAL_ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-/// **The LDtk nouns THIS composition understands.**
+/// The LDtk nouns THIS composition understands.
 ///
-/// **one place, because it is a composition decision.** The sandbox authors only engine vocabulary,
+/// one place, because it is a composition decision. The sandbox authors only engine vocabulary,
 /// so today this is just the engine's.
 pub fn composed_ldtk_vocabulary() -> ambition_platformer2d::ldtk_map::LdtkVocabulary {
     ambition_platformer2d::ldtk_map::LdtkVocabulary::engine()

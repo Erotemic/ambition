@@ -1,10 +1,10 @@
-//! **A CAMERA SAYS WHICH VIEW IT PRESENTS.**
+//! A CAMERA SAYS WHICH VIEW IT PRESENTS.
 //!
 //! That is not a pairing — it is a uniqueness assumption at both ends, and exists because the
 //! second view is coming: a second view turns the `Single` into a panic, and a second camera
 //! turns the pair into two cameras fighting over one snapshot.
 //!
-//! **the fallback is why this test has to exist.** A camera carrying no `PresentsView` takes the
+//! the fallback is why this test has to exist. A camera carrying no `PresentsView` takes the
 //! only view, because every fixture in the tree spawns a bare `MainCamera` and a single-view
 //! composition has exactly one honest answer. So the thing asserted here is that the SHIPPED host
 //! binds it.
@@ -48,7 +48,7 @@ fn the_shipped_hosts_main_camera_names_the_view_it_presents() {
     );
 }
 
-/// **THE VIEW OWNS ITS FRAMING, AND SOMETHING WRITES IT.**
+/// THE VIEW OWNS ITS FRAMING, AND SOMETHING WRITES IT.
 ///
 /// Four readers took it as `Res`: label layout, nameplates, the actor draw's sprite-size
 /// `eprintln`, and the debug overlay. With two views a global cannot answer *whose* framing it
@@ -56,7 +56,7 @@ fn the_shipped_hosts_main_camera_names_the_view_it_presents() {
 /// `rendering/foreground.rs`, was counted by the migration and turned out to be an orphaned
 /// file no `mod` declaration ever compiled.)
 ///
-/// **the non-vacuity half is the point.** Asserting the component EXISTS proves
+/// the non-vacuity half is the point. Asserting the component EXISTS proves
 /// nothing on its own: it is spawned with the view, so it would be present even
 /// if `camera_follow` never wrote it and every overlay drew a default frame
 /// forever. What is asserted is that the presented view's state has been
@@ -64,7 +64,7 @@ fn the_shipped_hosts_main_camera_names_the_view_it_presents() {
 /// freshly spawned view starts with.
 #[test]
 fn the_presented_view_carries_camera_state_that_is_actually_written() {
-    // **the DIRECT-GAMEPLAY persona, not the launcher.** `camera_follow` reads
+    // the DIRECT-GAMEPLAY persona, not the launcher. `camera_follow` reads
     // the session's `RoomGeometry`, so on a launcher route it does not run at all
     // and the view's state stays exactly `Default` — which the assertion below
     // caught on the first run, correctly, by refusing to accept a component that
@@ -114,7 +114,7 @@ fn the_presented_view_carries_camera_state_that_is_actually_written() {
 /// So the interim contract is loudly single-view-only rather than quietly arbitrary: with
 /// several main cameras the resolver REFUSES.
 ///
-/// **this is a poison, and it is built to be one.** The two views carry
+/// this is a poison, and it is built to be one. The two views carry
 /// deliberately different states, so a resolver that picks either one returns a
 /// value that IS one of them and looks entirely healthy. Only the refusal
 /// distinguishes "keyed by view" from "picked one".
@@ -147,8 +147,8 @@ fn the_presented_view_refuses_to_pick_between_two_cameras_that_name_different_vi
          consumers are keyed by view."
     );
 
-    // **and the refusal must be about AMBIGUITY, not about the resolver being
-    // broken.** Drop one camera and the same population resolves cleanly to the
+    // and the refusal must be about AMBIGUITY, not about the resolver being
+    // broken. Drop one camera and the same population resolves cleanly to the
     // view that camera names — so the `None` above is a decision, not a failure.
     let sole_camera = {
         let mut cameras = world.query_filtered::<Entity, With<MainCamera>>();
@@ -183,8 +183,8 @@ fn the_presented_view_refuses_to_pick_between_two_cameras_that_name_different_vi
     );
 }
 
-/// **HOW MANY VIEWS THERE ARE IS A PROPERTY OF THE LIVE SESSION, NOT OF WHAT
-/// THE BINARY LINKS.**
+/// HOW MANY VIEWS THERE ARE IS A PROPERTY OF THE LIVE SESSION, NOT OF WHAT
+/// THE BINARY LINKS.
 ///
 /// TwinTrack seats two participants and splits its screen between them. It is
 /// also one of the experiences `ambition_app` links, beside Mary-O, Smash and
@@ -193,7 +193,7 @@ fn the_presented_view_refuses_to_pick_between_two_cameras_that_name_different_vi
 ///
 /// Nothing in that chain mentions a view.
 ///
-/// **the honest rule is the one this asserts**: the launcher has one observer,
+/// the honest rule is the one this asserts: the launcher has one observer,
 /// so it has one view and no layout at all. A second view appears when a second
 /// participant does, which is also what couch co-op will need.
 #[test]

@@ -1,4 +1,4 @@
-//! **Track B — op 2b (full sandbox reset) under rollback: reproduce-first.**
+//! Track B — op 2b (full sandbox reset) under rollback: reproduce-first.
 //!
 //! Unlike the room TRANSITION (which diverged via its not-rollback-registered
 //! MULTI-TICK load machinery, `RoomTransitionLoadState` et al.), a full sandbox
@@ -79,7 +79,7 @@ fn a_full_sandbox_reset_survives_the_rollback_window() {
     }
 
     // The reset MUST actually have reconstructed — otherwise "clean" is a vacuous
-    // pass over a reset that early-returned. Despawn+respawn ⇒ disjoint ids.
+    // pass over a reset that early-returned. Despawn+respawn  disjoint ids.
     let after = feature_roster(&mut sim);
     assert!(!after.is_empty(), "the reset respawned a roster");
     assert!(

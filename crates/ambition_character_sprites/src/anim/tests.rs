@@ -453,13 +453,13 @@ fn swing_with_intent(intent: ambition_combat::AttackIntent) -> MeleeSwing {
     })
 }
 
-/// **A CPU FIGHTER AT FULL SPRINT DRAWS `run`, NOT `walk`.**
+/// A CPU FIGHTER AT FULL SPRINT DRAWS `run`, NOT `walk`.
 ///
 /// the same shape ruled on — a body semantic must not depend on which control road the body
 /// happens to occupy — so the fix is the published `BodyMotionFacts:running`, which is speed
 /// against THIS body's own top speed rather than an absolute number no heavyweight could reach.
 ///
-/// **the second half is the floor**: a body under the gait line must still be
+/// the second half is the floor: a body under the gait line must still be
 /// `Walk`, or this would have deleted the walk instead of the run.
 #[test]
 fn an_actor_in_the_run_gait_is_not_drawn_walking() {
@@ -707,8 +707,8 @@ fn an_air_dodge_picks_its_own_row_and_falls_back_to_the_ground_roll() {
     );
 }
 
-/// **A knocked-down body draws the knockdown, not the hit flash it is still
-/// inside.** Hitstun outlives the landing, so an ordering that read `hit` first
+/// A knocked-down body draws the knockdown, not the hit flash it is still
+/// inside. Hitstun outlives the landing, so an ordering that read `hit` first
 /// would make the whole floor game invisible.
 #[test]
 fn the_floor_game_outranks_the_hit_row() {
@@ -776,7 +776,7 @@ fn a_grounded_body_walks_in_every_gravity_not_just_the_vertical_ones() {
     }
 }
 
-/// **the poison.** Without it the fix could be "always report Walk when
+/// the poison. Without it the fix could be "always report Walk when
 /// grounded", which would pass the test above and make standing still animate.
 #[test]
 fn a_grounded_body_standing_still_is_idle_in_every_gravity() {
@@ -821,7 +821,7 @@ fn motion_along_the_fall_axis_is_not_walking() {
     }
 }
 
-/// **A HELD BODY DRAWS AS HELD, WHATEVER ITS VELOCITY SAYS.**
+/// A HELD BODY DRAWS AS HELD, WHATEVER ITS VELOCITY SAYS.
 #[test]
 fn a_captive_outranks_every_locomotion_read() {
     let mut v = BodyAnimView {
@@ -853,7 +853,7 @@ fn a_captive_outranks_every_locomotion_read() {
     );
 }
 
-/// **A BROKEN GUARD READS AS REELING, NOT AS STANDING THERE.**
+/// A BROKEN GUARD READS AS REELING, NOT AS STANDING THERE.
 ///
 /// the gap this closes: the shield became a resource that can shatter and
 /// leave a body dizzy and helpless for two seconds, and the picker had no read

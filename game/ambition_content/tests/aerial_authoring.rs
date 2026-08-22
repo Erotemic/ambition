@@ -1,8 +1,8 @@
-//! **An archetype can say GROUNDED, distinctly from saying nothing.**
+//! An archetype can say GROUNDED, distinctly from saying nothing.
 //!
 //! So did a deliberate `false`.
 //!
-//! ⇒ the three-state now lives on `CharacterLocomotion::flies`, which is where the fact belongs,
+//!  the three-state now lives on `CharacterLocomotion::flies`, which is where the fact belongs,
 //! and shipped content authors all three cases.
 
 #[test]
@@ -18,7 +18,7 @@ fn shipped_characters_state_their_flight_answer_explicitly() {
         .and_then(|locomotion| locomotion.baseline_free_flight)
     };
 
-    // **a character that says it FLIES.** Without one, `Some(true)` is
+    // a character that says it FLIES. Without one, `Some(true)` is
     // unreachable from shipped content and the type is decorative.
     assert_eq!(
         authored("stochastic_parrot"),
@@ -27,7 +27,7 @@ fn shipped_characters_state_their_flight_answer_explicitly() {
          `body_kind: Floating` stopped deciding locomotion (D89)"
     );
 
-    // **a character that says it does NOT**, which is the case that could not
+    // a character that says it does NOT, which is the case that could not
     // be expressed at all before: the PCA's row still says `Floating`, and that
     // is now a claim about its SILHOUETTE only.
     assert_eq!(
@@ -37,7 +37,7 @@ fn shipped_characters_state_their_flight_answer_explicitly() {
          or a presentation enum decides its locomotion again"
     );
 
-    // **and SILENCE, distinct from both.** A character that never mentions
+    // and SILENCE, distinct from both. A character that never mentions
     // flight leaves the question open at the source layer; preparation resolves
     // it once, so nothing downstream has to re-ask.
     assert_eq!(
@@ -52,7 +52,7 @@ fn shipped_characters_state_their_flight_answer_explicitly() {
 // It swept every archetype row's `is_aerial: Option<bool>` and asserted that silence still
 // resolved to grounded — that making the question expressible had changed no behaviour.
 
-/// **THE PULSE SURVIVED ITS ARCHETYPE ROW.**
+/// THE PULSE SURVIVED ITS ARCHETYPE ROW.
 ///
 /// the numbers are the row's verbatim — a migration that retuned on the way
 /// would be a retune wearing a migration's commit.

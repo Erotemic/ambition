@@ -128,7 +128,7 @@ fn declare(facet: &FacetSource<'_>, catalog: &CharacterCatalogData, out: &mut Fa
         // ── the two preset references ──────────────────────────────────── Marked LOCAL: both
         // presets are authored in this same catalog, so an unknown one is a typo rather than a
         // missing dependency, and the fix line says "define it here" instead of "install
-        // another pack". ⚠ **an EMPTY `default_brain` refers to nothing, and that is authored**
+        // another pack".  an EMPTY `default_brain` refers to nothing, and that is authored
         // .
         if !entry.default_brain.is_empty() {
             out.refer(
@@ -362,7 +362,7 @@ mod tests {
 
     #[test]
     fn a_refused_pack_hands_out_no_runtime_value() {
-        // ⚠ the direction that matters. A caller must never get a usable
+        //  the direction that matters. A caller must never get a usable
         // catalog out of a pack that failed — that is how invalid content
         // reaches a running game while a validator says it refused.
         let draft = draft(

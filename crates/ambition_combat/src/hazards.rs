@@ -7,7 +7,7 @@ use super::util::hazard_sfx_id;
 use super::*;
 
 /// Tick ECS-authored hazards and publish player damage through Bevy messages.
-/// **The set `update_ecs_hazards` runs in.**
+/// The set `update_ecs_hazards` runs in.
 ///
 /// two `ambition_content` plugins (`bosses`, `intro`) order against this
 /// function by name across a crate boundary. Same shape as

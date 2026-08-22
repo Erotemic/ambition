@@ -202,7 +202,7 @@ pub fn draw_hitbox_volume(
     }
 }
 
-/// **Where a body-anchored strike is DRAWN, as opposed to where it was resolved.**
+/// Where a body-anchored strike is DRAWN, as opposed to where it was resolved.
 ///
 /// A diagnostic that misreports ATTACHMENT is worse than no diagnostic: it invites you to debug the
 /// hitbox when the hitbox is fine.
@@ -229,10 +229,10 @@ pub fn presented_strike_volume(
     strike.volume.translated(owner_delta)
 }
 
-/// **This frame's presentation translation for every body the overlay draws**,
+/// This frame's presentation translation for every body the overlay draws,
 /// keyed by body — the join a caller performs once and hands to the shared draw.
 ///
-/// **one delta per BODY, not one lookup per row.** The previous version of this join answered
+/// one delta per BODY, not one lookup per row. The previous version of this join answered
 /// "where is the owner of a strike drawn", so only strikes were re-placed while the same body's
 /// collision envelope and hurtboxes stayed on the tick clock. Everything rigidly attached to one
 /// body has to take the same translation in the same frame or the diagnostic is lying about
@@ -263,7 +263,7 @@ pub fn presentation_deltas(
 /// carry no controller/primary-player distinction: a fighter is debugged by
 /// the geometry it publishes, not by who is driving it.
 ///
-/// **every row of one body takes the SAME translation** from `deltas` — see
+/// every row of one body takes the SAME translation from `deltas` — see
 /// [`presentation_deltas`]. The collision envelope, the hurtboxes and the
 /// body-anchored strikes are one rigid group; translating a subset relocates the
 /// disagreement instead of removing it, which is exactly what happened when only
@@ -313,26 +313,26 @@ pub fn draw_combat_geometry_view(
     }
 }
 
-/// **The tuning readout: what a designer reads INSTEAD of a log.**
+/// The tuning readout: what a designer reads INSTEAD of a log.
 ///
 /// Drawn per body, in gizmos only, so it needs no font and works in every
 /// composition the overlay already runs in. Four facts, each answering a
 /// question that a box renderer leaves you guessing at:
 ///
-/// * a **phase bar** above the body — the move's whole duration as a track,
+/// * a phase bar above the body — the move's whole duration as a track,
 ///   filled to the clock, coloured by the authored window. *Startup* yellow,
 ///   *Active* red, *Recovery* blue. "Did that connect during active, or did I
 ///   just walk into them during recovery" is unanswerable without it.
-/// * a **launch arrow** while the body is in hitstun: the velocity it was
+/// * a launch arrow while the body is in hitstun: the velocity it was
 ///   thrown with, which is the number knockback tuning is actually about.
-/// * **two facing ticks** — the body's live facing above, the move's committed
+/// * two facing ticks — the body's live facing above, the move's committed
 ///   attack orientation below. They agree almost always; the times they do not
 ///   are the times you need to see it.
-/// * **lock bars** under the body: hitstun, hitlag and landing lag as three
+/// * lock bars under the body: hitstun, hitlag and landing lag as three
 ///   distinct lengths. They look identical on screen as "the fighter is not
 ///   moving", and they are three different reasons.
 ///
-/// **no controller, no faction, no primary-player check.** It draws whatever
+/// no controller, no faction, no primary-player check. It draws whatever
 /// the read model published, which is every combat body.
 fn draw_combat_tuning_readout(
     gizmos: &mut Gizmos,
@@ -456,7 +456,7 @@ pub fn draw_room_bounds(gizmos: &mut Gizmos, world: &ae::World) {
     draw_aabb(gizmos, world, room, white_dim());
 }
 
-/// **Where the world ENDS**, drawn beside where it is bounded.
+/// Where the world ENDS, drawn beside where it is bounded.
 ///
 /// The room bounds and the kill line are the same idea one step apart, so they share
 /// `show_room_bounds`.
@@ -938,7 +938,7 @@ mod blast_zone_overlay_tests {
         assert!(xs.iter().any(|x| (*x + 160.0).abs() < 0.01));
     }
 
-    /// **The lines follow gravity, because the gate does.**
+    /// The lines follow gravity, because the gate does.
     ///
     /// This is the whole reason the overlay takes a direction instead of
     /// assuming `+y`. Rotate gravity a quarter turn and the pit boundary
@@ -1005,7 +1005,7 @@ mod presented_strike_tests {
         assert_eq!(volume.bounds().center(), ae::Vec2::new(100.0, 100.0));
     }
 
-    /// **A zero delta is not a fallback, it is the answer.** A body with no
+    /// A zero delta is not a fallback, it is the answer. A body with no
     /// presented history is drawn at its simulated position, so the
     /// authoritative geometry already IS the drawn geometry.
     #[test]
@@ -1014,7 +1014,7 @@ mod presented_strike_tests {
         assert_eq!(volume.bounds().center(), ae::Vec2::new(100.0, 100.0));
     }
 
-    /// **ONE BODY, ONE TRANSLATION.**
+    /// ONE BODY, ONE TRANSLATION.
     #[test]
     fn every_row_of_one_body_takes_the_same_translation() {
         let delta = ae::Vec2::new(6.0, -2.0);
@@ -1058,7 +1058,7 @@ mod presented_strike_tests {
         );
     }
 
-    /// **The overlay and the unauthored-attack visual use the SAME rule.**
+    /// The overlay and the unauthored-attack visual use the SAME rule.
     ///
     /// `draw_unauthored_attack_volumes` translates the product-facing red
     /// polygon by the owner's `PresentedPose::delta()`; if these two ever

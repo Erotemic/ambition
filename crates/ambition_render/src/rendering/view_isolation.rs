@@ -1,51 +1,10 @@
-//! **TWO VIEWS, ONE ROOM, ONE SIMULATION — AND TWO PICTURES.**
+//! Render-layer isolation for per-view presentation projections.
 //!
-//! `PresentedForView` already says which view a drawn presentation entity was built for, and
-//! `PresentsView` says which view a camera shows. Per-view TRANSFORMS without per-view
-//! VISIBILITY is half a projection.
-//!
-//! # The relationship is the identity; this is only the mechanism
-//!
-//! Nothing here decides which view anything belongs to — it reads the answer off
-//! [`ambition_sim_view::PresentedForView`] and
-//! [`ambition_sim_view::PresentsView`], through the same
-//! [`ambition_sim_view::ViewsOnHand`] rule the follow camera and the viewport
-//! applier use. What this module owns is the render-side ANSWER to "and how is
-//! that kept true on screen", which is a `RenderLayers` band and could be a
-//! camera-per-layer scheme, a render-target split or an extraction filter
-//! tomorrow without a semantic type changing.
-//!
-//! **so `LocalViewId` is still not a `RenderLayers` bit.** The band index is
-//! the view's POSITION among the live views sorted by id, computed here, every
-//! frame. A game may name its views `LocalViewId(0)` and `LocalViewId(9)` and
-//! they occupy layers `BASE + 0` and `BASE + 1`; the ordinal never leaves this
-//! system, and no semantic value is a mask.
-//!
-//! # Why `RenderLayers`, and where it comes from
-//!
-//! It is what this tree already isolates cameras with. The front HUD camera is
-//! pinned to `FRONT_HUD_LAYER` so it cannot re-draw the world over the cube; the
-//! portal view-cone renderer gives each capture rig a PRIVATE parallax layer and
-//! writes `RenderLayers::none().with(private_layer)` onto the copies so they
-//! reach that rig's camera and no other — the identical shape to the one below,
-//! one seam over. Adopting it means a per-view projection is invisible to a
-//! camera exactly when the renderer's own rule says so
-//! (`check_visibility`: `view_mask.intersects(entity_mask)`), rather than when
-//! some second visibility concept agrees with it.
-//!
-//! # A ONE-VIEW COMPOSITION PAYS NOTHING
-//!
-//! With fewer than two views there is nothing to isolate FROM, so this system
-//! writes nothing: no component is inserted on a projection, and no camera's
-//! authored layers are touched. Every shipped composition today is single-view,
-//! and it draws precisely the entities it drew before, on precisely the layers it
-//! drew them on. The mechanism appears when a second view does and disappears
-//! when it goes.
-//!
-//! **and it disappears by RESETTING, never by stripping.** When a composition collapses back to one
-//! view, an entity that was isolated keeps its `RenderLayers` and has it set back to where it RESTS
-//! — the default layer 0 for almost everything, or whatever a family declared with
-//! [`ProjectionRestingLayers`] (the room's backdrop panels rest on the private parallax layer).
+//! [`PresentedForView`](ambition_sim_view::PresentedForView) records projection
+//! ownership and [`PresentsView`](ambition_sim_view::PresentsView) records camera
+//! ownership. With multiple views this module maps their stable sorted order onto a
+//! private render-layer band. Single-view compositions are left unchanged. When views
+//! collapse back to one, projections return to their declared resting layers.
 
 use bevy::camera::visibility::RenderLayers;
 use bevy::prelude::*;
@@ -54,43 +13,30 @@ use ambition_platformer2d_shared_tangle::camera_layers::{
     local_view_render_layer, MainCamera, LOCAL_VIEW_RENDER_LAYER_BASE,
 };
 
-/// **THE LAYERS A PER-VIEW PROJECTION RESTS ON WHEN NOTHING IS BEING ISOLATED.**
+/// Render layers to restore when a per-view projection is no longer isolated.
 ///
-/// Most projections rest on the world layer, which is what an absent
-/// `RenderLayers` already means — so nameplates, label copies and their outline
-/// children declare nothing and nothing changes for them. The exception is a
-/// family whose spawner chose a NON-DEFAULT layer for a reason of its own: the
-/// room's parallax panels sit on `PARALLAX_BACKGROUND_LAYER` precisely so the
-/// portal capture cameras do NOT draw them.
-///
-/// **and it has to be STATED rather than derived, unlike a camera's base.** A
-/// camera keeps its authored layers through isolation — this pass rewrites one
-/// band of them and [`without_view_layers`] recovers the rest. A projection does
-/// not: while isolating, its whole mask becomes `RenderLayers::none().with(band)`,
-/// which retains no trace of what the spawner chose, so there is nothing left to
-/// derive the resting mask from on the way back down to one view. Without this,
-/// a session that split and collapsed would return its backdrop to layer 0 and
-/// every portal capture would start sampling the background from the wrong eye —
-/// silently, one room transition later.
+/// Most projections need no component and return to the default world layer. Families
+/// with a non-default base layer must record it here because isolation temporarily
+/// replaces the projection's full mask.
 #[derive(Component, Clone, Debug)]
 pub struct ProjectionRestingLayers(pub RenderLayers);
 
-/// **Give each camera only its own view's projections.**
+/// Give each camera only its own view's projections.
 ///
-/// **`With<MainCamera>`, not `With<Camera2d>`, for the reason `camera_follow`
-/// gives**: the portal view-cone renderer spawns offscreen capture `Camera2d`s
+/// `With<MainCamera>`, not `With<Camera2d>`, for the reason `camera_follow`
+/// gives: the portal view-cone renderer spawns offscreen capture `Camera2d`s
 /// and the cube menu spawns a `Camera3d`. A capture rig is not an observer of the
 /// simulation, it is a lens inside one, and dragging it into the per-view scheme
 /// would hand it a view it does not present.
 ///
-/// **this system is the SINGLE WRITER of `RenderLayers` on anything keyed by
-/// `PresentedForView`** (and on that entity's descendants — a nameplate's outline
+/// this system is the SINGLE WRITER of `RenderLayers` on anything keyed by
+/// `PresentedForView` (and on that entity's descendants — a nameplate's outline
 /// copies are children with their own `Text2d`, and `RenderLayers` does not
 /// inherit down a hierarchy in Bevy, so an unvisited child would keep drawing
 /// into both cameras while its parent moved).
 ///
-/// **so a projection does not hand-set its own layer, it DECLARES the one it
-/// rests on** ([`ProjectionRestingLayers`]). A spawner that simply wrote a
+/// so a projection does not hand-set its own layer, it DECLARES the one it
+/// rests on ([`ProjectionRestingLayers`]). A spawner that simply wrote a
 /// `RenderLayers` and hoped would be fighting this pass every frame; a spawner
 /// that states its resting mask is telling this pass what to restore, and the two
 /// stop disagreeing. The room's parallax panels are the family that needed it.
@@ -217,7 +163,7 @@ fn view_layer(
 /// A camera's authored layers with the per-view band cleared — what it would
 /// render if no view had claimed it.
 ///
-/// **derived, not remembered.** Stashing the base at spawn would be a second
+/// derived, not remembered. Stashing the base at spawn would be a second
 /// copy of a value the entity already holds, and it would go stale the moment a
 /// host added a layer afterwards (which `PlatformerPresentationPlugin`'s doc
 /// invites it to do).
@@ -251,7 +197,7 @@ mod tests {
             .unwrap_or_default()
     }
 
-    /// **The renderer's own rule, not a proxy for it.** `check_visibility` reads
+    /// The renderer's own rule, not a proxy for it. `check_visibility` reads
     /// each side's mask, defaults a missing one to layer 0, and draws the entity
     /// in that view when the two intersect. Asking the same question here is what
     /// makes these assertions about the picture rather than about a bookkeeping
@@ -314,19 +260,19 @@ mod tests {
         }
     }
 
-    /// **EACH CAMERA DRAWS ITS OWN VIEW'S PROJECTIONS AND NOT THE OTHER'S.**
+    /// EACH CAMERA DRAWS ITS OWN VIEW'S PROJECTIONS AND NOT THE OTHER'S.
     ///
     /// This is the acceptance still owed. Both views' transforms were already per-view correct
     /// and every drawn copy still reached every camera, so a two-view session produced two
     /// frames each carrying both views' text — each label placed for an observer that was not
     /// the one looking at it.
     ///
-    /// **the shared world is asserted too, in the same breath.** "Isolate the
+    /// the shared world is asserted too, in the same breath. "Isolate the
     /// views" is trivially satisfiable by showing each camera nothing; what makes
     /// the pictures right is that both cameras still draw the room. A mechanism
     /// that isolated the WORLD as well would pass every negative assertion here.
     ///
-    /// **the falsifier is inside the test.** The second run swaps only the two
+    /// the falsifier is inside the test. The second run swaps only the two
     /// `PresentsView` links — same spawn order, same entities, same components —
     /// and the two cameras must swap with them. An implementation that keys off
     /// camera iteration order, or off `LocalViewId` as a bit, passes the first run
@@ -378,7 +324,7 @@ mod tests {
         }
     }
 
-    /// **A ONE-VIEW COMPOSITION IS LEFT EXACTLY AS IT WAS.**
+    /// A ONE-VIEW COMPOSITION IS LEFT EXACTLY AS IT WAS.
     ///
     /// Every composition that ships today is single-view, so the mechanism must
     /// cost them nothing: no component appears on a projection that did not have
@@ -416,8 +362,8 @@ mod tests {
         );
     }
 
-    /// **A PROJECTION THAT RESTS ON A PRIVATE LAYER IS RETURNED TO IT, NOT
-    /// TO LAYER 0.**
+    /// A PROJECTION THAT RESTS ON A PRIVATE LAYER IS RETURNED TO IT, NOT
+    /// TO LAYER 0.
     ///
     /// The room's parallax panels are the family this exists for: they sit on
     /// `PARALLAX_BACKGROUND_LAYER` precisely so the portal capture cameras do NOT
@@ -425,7 +371,7 @@ mod tests {
     /// background), and they became per-view projections because a panel's
     /// transform and size are functions of the camera that draws it.
     ///
-    /// **the collapse is the half that cannot be derived.** While isolating, the mask is
+    /// the collapse is the half that cannot be derived. While isolating, the mask is
     /// `none().with(band)` and nothing of the spawner's choice survives in it — so a pass that
     /// "derived" the resting layers would send the backdrop to layer 0 on the way back down to
     /// one view, and every portal capture in the room would start drawing it.
@@ -492,7 +438,7 @@ mod tests {
         );
     }
 
-    /// **A RETIRED VIEW LEAVES THE SURVIVOR RESET, NOT STRIPPED.**
+    /// A RETIRED VIEW LEAVES THE SURVIVOR RESET, NOT STRIPPED.
     ///
     /// The projection that outlives the second view keeps its `RenderLayers` and has it set back to
     /// the default.

@@ -40,82 +40,24 @@ impl ActorIdentity {
     }
 }
 
-/// **This body's death belongs to a RULESET, not to the world.**
+/// Marks a body whose death consequences are owned by a ruleset.
 ///
-/// A body carrying this still takes damage and its health still reaches zero.
-/// What is suppressed is the CONSEQUENCE the world would otherwise impose:
-///
-/// - the player's exploration respawn (teleport to the room spawn, full heal),
-/// - the enemy death economy (a bounty coin, heart drops, death explosions,
-///   split offspring, held-item drops, in-place respawn timers).
-///
-/// Both are correct for an exploration game and wrong for a match. A fighter
-/// knocked out in round one must STAY at zero health long enough for the rules
-/// to see it, count the round, and put it back — and it must not fund the
-/// player's wallet from an arena that has no economy.
-///
-/// The KO'd body is left at zero HP for its owner to deal with, which is the
-/// whole contract: whoever attached this is now responsible for what happens
-/// next, and nothing else will act on the death.
-///
-/// Engine-shaped rather than versus-shaped on purpose. Any ruleset with rounds,
-/// stocks, lives, or a training mode needs exactly this, and none of them wants
-/// to fight the exploration policy to get it.
+/// Damage still reaches zero health, but exploration respawn and enemy death
+/// economy are suppressed so the owning ruleset can resolve the death.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct RulesetOwnsDeath;
 
-/// **This body is IN a fight right now.**
+/// Marks a body that is actively participating in combat.
 ///
-/// **the engine had TWO proxies for this fact and neither one was it.**
-/// [`CombatStanding::of`] asked [`RulesetOwnsDeath`] — which answers *"who owns
-/// the consequence when this body dies"*, a different question that happens to
-/// correlate in today's Smash implementation. The stand-down guard in
-/// `reconcile_autonomous_actors` asked `Has<MatchSeat>` — a SEATING fact, and an
-/// eliminated fighter keeps its seat. So a body could be damageable and standing
-/// down, or standing on the slot board with no stocks left, and no single thing
-/// could be asked whether it was fighting.
-///
-/// **presence is the whole component**, and its lifecycle is the two moments
-/// that already decide this: a ruleset attaches it when it enters a body into a
-/// fight (`prepared_match`'s seating, beside [`RulesetOwnsDeath`]) and removes it
-/// when the body is out (`spend_fighter_stocks`, with
-/// [`FighterEliminated`](crate::stocks::FighterEliminated)). Any other ruleset —
-/// rounds, lives, a training mode, a pre-round freeze — has the same two moments.
-///
-/// **it is not a disposition and must never become one.**
-/// [`ActorDisposition`] is an AI/SOCIAL fact — does this actor chase and attack —
-/// and the state a platform fighter is in for most of a round is the one that was
-/// inexpressible while those were one field:
-///
-/// ```text
-/// active combatant · human controlled · socially non-hostile · damageable · able to attack
-/// ```
+/// Rulesets attach and remove this at combat-entry/exit boundaries. It is
+/// independent of [`ActorDisposition`], which describes AI/social hostility.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ActiveCombatant;
 
-/// **How many times this fighter may still be killed.** (Smash Siblings)
+/// Per-body lives/stocks remaining in a ruleset-owned death model.
 ///
-/// stock you are dead"* — so a death spends one and elimination is running out,
-/// not a health bar reaching zero.
-///
-/// # Why this is not `rounds_won` with a different name
-///
-/// Rounds are SYMMETRIC and reset both fighters; stocks are per-fighter,
-/// asymmetric, and never reset. *"2 stocks versus 3"* is a legal and completely
-/// ordinary mid-match state, and the round model cannot represent it — which is
-/// why this is a component on the body rather than another counter in the match
-/// resource.
-///
-/// # It composes with, and needs, two things that already exist
-///
-/// * [`DeathPolicy::Unbounded`](super::DeathPolicy::Unbounded) — smash percent.
-///   Without it the meter kills at max and stocks are never consulted, because
-///   the body dies of damage before the world throws it out.
-/// * [`RulesetOwnsDeath`] — whose own doc already named this caller: *"any
-///   ruleset with rounds, stocks, lives, or a training mode needs exactly
-///   this."* The KO'd body stays at zero for the ruleset to act on.
-///
-/// Engine-shaped rather than Smash-shaped: a lives counter is the same object.
+/// Stocks are asymmetric per fighter and compose with unbounded damage plus
+/// [`RulesetOwnsDeath`]; reaching zero eliminates the fighter.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct FighterStocks {
     /// Stocks left. `0` means ELIMINATED — out of the match, not respawning.
@@ -133,12 +75,8 @@ impl FighterStocks {
         }
     }
 
-    /// Spend one. Returns `true` when that was the LAST one, i.e. this fighter is
-    /// now eliminated.
-    ///
-    /// Saturating, so a double-report cannot wrap a `u32` into a fighter with
-    /// four billion lives — the kind of arithmetic that turns a duplicated death
-    /// event into an unkillable body.
+    /// Spend one stock and return whether the fighter is now eliminated.
+    /// Saturation makes duplicate reports harmless.
     pub fn spend(&mut self) -> bool {
         self.remaining = self.remaining.saturating_sub(1);
         self.is_eliminated()
@@ -168,28 +106,10 @@ impl ActorDisposition {
     }
 }
 
-/// **Why a body is in a fight**, which is not the same question as how it feels
-/// about anybody.
+/// Combat participation independent of AI/social disposition.
 ///
-/// **[`ActorDisposition`] was answering two questions, and one of them was
-/// not its own.** `apply_actor_hit` reads the
-/// disposition first: a `Peaceful` body takes NO health damage — it accumulates
-/// strikes and barks instead, which is exactly right for a town NPC and exactly
-/// wrong for a fighter somebody entered into a match. So a human-driven match
-/// fighter had to stay `Hostile` merely to be *damageable*, despite using no
-/// hostile-AI targeting at all — and it did not: targeting hunts live foes for a
-/// BRAIN, so two participant-driven fighters hold no target, both stood down to
-/// `Peaceful`, and neither could hurt the other.
-///
-/// **the two facts that answer it, together.** A ruleset owning a body's
-/// death is a stated decision — two people entered this fighter into a match —
-/// and it outranks whatever the AI currently thinks. Social hostility answers
-/// for everybody else. What was inexpressible before, and is the state a
-/// platform fighter is in for most of a round:
-///
-/// ```text
-/// a combatant · driven by a human · hostile toward nobody · still damageable
-/// ```
+/// Active combatants remain damageable regardless of hostility; otherwise
+/// hostile actors use the full damage path and bystanders use provocation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CombatStanding {
     /// A ruleset put this body in a fight and owns its death. Damageable
@@ -204,11 +124,7 @@ pub enum CombatStanding {
 }
 
 impl CombatStanding {
-    /// `active_combatant` is the [`ActiveCombatant`] marker.
-    ///
-    /// A pre-round fighter, an eliminated one, a training dummy and a ruleset-managed body outside
-    /// an active phase each break the correlation, and the eliminated case is reachable today — the
-    /// body stays standing until a ruleset removes it.
+    /// Derive standing from social disposition and the [`ActiveCombatant`] marker.
     pub fn of(disposition: ActorDisposition, active_combatant: bool) -> Self {
         if active_combatant {
             Self::Combatant
@@ -241,7 +157,7 @@ impl CombatStanding {
 /// survives a peaceful→hostile flip: when an NPC turns hostile the NPC-only
 /// cluster is swapped for the enemy cluster, but this component stays attached,
 /// so the actor keeps rendering at its authored size instead of ballooning.
-/// Absent ⇒ the actor uses the legacy `collision_scale` render path.
+/// Absent  the actor uses the legacy `collision_scale` render path.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct ActorRenderSize(pub ae::Vec2);
 
@@ -251,9 +167,9 @@ pub struct ActorRenderSize(pub ae::Vec2);
 /// this one says where it goes. Both exist because a sheet frame is not its
 /// character — the art sits somewhere inside the frame, usually off-centre, and
 /// a quad centred on the body draws the character wherever the padding happens
-/// to put it. Non-zero ⇒ shift the quad so the ART lands on the collision box.
+/// to put it. Non-zero  shift the quad so the ART lands on the collision box.
 ///
-/// Absent (the overwhelming majority) ⇒ the quad is centred on the body, which
+/// Absent (the overwhelming majority)  the quad is centred on the body, which
 /// is right for every sheet whose art is already frame-centred. Written by
 /// `character_sprites::posed_body`, whose whole job is deriving this and
 /// `ActorRenderSize` from the same authored rectangle so they cannot disagree.
@@ -263,8 +179,8 @@ pub struct ActorSpriteOffset(pub ae::Vec2);
 /// The body's GROSS coarse-hurtbox footprint — the full-size box the published
 /// `CenteredAabb` covers, distinct from `kin.size` (the collision box the
 /// movement seam sweeps against walls) and from [`ActorRenderSize`] (the sprite
-/// draw quad). Present ⇒ the shared body integrator publishes `CenteredAabb`
-/// from THIS size; absent ⇒ it publishes from `kin.size` (the ordinary actor,
+/// draw quad). Present  the shared body integrator publishes `CenteredAabb`
+/// from THIS size; absent  it publishes from `kin.size` (the ordinary actor,
 /// whose collision box IS its footprint).
 ///
 /// This is the envelope split: a giant boss has
@@ -296,51 +212,12 @@ pub struct ActorInteraction {
 // `ActorFaction` moved to `ambition_characters::actor::pose` with `ActorPose`.
 pub use ambition_characters::actor::pose::ActorFaction;
 
-/// Per-actor "who am I looking at this frame" pointer. Populated by
-/// [`select_actor_targets`](crate::features::ecs::select_actor_targets)
-/// at the top of the simulation chain to the nearest alive
-/// `ActorFaction::Player` entity.
+/// Per-actor current targeting read-model.
 ///
-/// Today's targeting policy is "single nearest player" (and there's
-/// exactly one player in production, so the choice is trivial); the
-/// component exists so the policy is a per-actor read, not a global
-/// `player_query.single()` hard-coded into every actor update.
-/// Co-op / split-screen builds can later swap in a per-actor policy
-/// (sticky-target, role-based, distance-weighted) without touching
-/// `enemy.update` / `npc.update` / `boss.update` signatures.
-///
-/// `entity` is `None` when no player-faction entities exist (pre-spawn,
-/// post-death-of-all-players, headless probe). `pos` defaults to the
-/// actor's own position in that case so a "no target" frame produces
-/// a self-looking no-op rather than NaN-on-zero-direction crashes
-/// in choreography or AI math.
-///
-/// # Snapshot story
-///
-/// `docs/planning/engine/netcode.md` N3.1: *"sim components are plain data; anything
-/// holding `Entity` references or interior mutability documents its snapshot story at
-/// the definition site."* This is that document.
-///
-/// **`entity` is an `Entity`, which N3.1 decision (2) forbids in sim state.** An
-/// entity index is a slot in an allocator, not an identity: it does not survive a
-/// restore that respawns anything, and it means nothing in a desync report. It is
-/// here because every consumer needs to *query* the target (its health, its body),
-/// and replacing it with a `SimId` needs a `SimId -> Entity` index rebuilt each tick.
-/// **That is the named migration slice**, listed in `tracks.md`.
-///
-/// Until then: `entity` is **derived**, rewritten every tick by
-/// [`select_actor_targets`](crate::targeting::select_actor_targets) whenever any
-/// candidate exists, and a rollback lets that system rebuild it. `pos` is **state** —
-/// on the one frame where no candidates exist, the selector leaves the whole
-/// component untouched on purpose, so `pos` carries the previous frame's aim into the
-/// brain's math. `ambition_platformer2d_runtime::rollback` therefore registers `ActorTarget` as a
-/// `SnapshotCursor` over `pos` alone.
-///
-/// A rollback that spans the frame a target *died* can leave `entity` pointing at a
-/// despawned body for one tick. `Query::get` returns `Err` and every consumer already
-/// treats that as "no target", which is the behaviour they take when the target dies
-/// anyway. That is a survivable one-tick lie, not a correct design, and it is the
-/// third reason the migration is worth doing.
+/// `select_actor_targets` derives `entity` each tick from the targeting policy. `pos` is
+/// retained as rollback state so a no-candidate frame can preserve the previous aim.
+/// The `Entity` handle is therefore a transient query handle rather than durable identity;
+/// consumers must tolerate it becoming invalid after despawn/restore.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct ActorTarget {
     pub entity: Option<Entity>,
@@ -879,7 +756,7 @@ mod combat_kit_tests {
         ActionSet, MeleeActionSpec, MoveStyleSpec, SpecialActionSpec, SwipeSpec,
     };
 
-    /// **The durable baseline must survive a round trip, all of it.**
+    /// The durable baseline must survive a round trip, all of it.
     ///
     /// `CombatKit` is documented as *the durable ECS/gameplay source of
     /// capability*, and three production paths rebuild a live `ActionSet` from
@@ -914,7 +791,7 @@ mod combat_kit_tests {
         );
     }
 
-    /// **The state a platform fighter is in for most of a round.**
+    /// The state a platform fighter is in for most of a round.
     ///
     /// it was inexpressible while one field answered two questions: a fighter
     /// somebody entered into a match had to be socially `Hostile` merely to be
@@ -937,7 +814,7 @@ mod combat_kit_tests {
         );
     }
 
-    /// **A town NPC is unchanged**, which is the half that must not regress:
+    /// A town NPC is unchanged, which is the half that must not regress:
     /// striking one PROVOKES it rather than hurting it.
     #[test]
     fn a_bystander_is_provoked_rather_than_hurt() {
@@ -946,8 +823,8 @@ mod combat_kit_tests {
         assert!(!standing.takes_damage());
     }
 
-    /// **Being in a fight is not the same fact as whose business your death
-    /// is**, and the eliminated fighter is where the two come apart.
+    /// Being in a fight is not the same fact as whose business your death
+    /// is, and the eliminated fighter is where the two come apart.
     ///
     /// An eliminated fighter still carries that marker — the match still owns its KO — and its body
     /// stays standing until a ruleset removes it, so it went on being a damageable combatant with
@@ -965,7 +842,7 @@ mod combat_kit_tests {
         );
     }
 
-    /// **Social hostility still stands on its own**, for every AI body that
+    /// Social hostility still stands on its own, for every AI body that
     /// joins a fight without a ruleset putting it in one.
     #[test]
     fn a_hostile_body_needs_no_ruleset() {

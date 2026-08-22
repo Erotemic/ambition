@@ -1,52 +1,21 @@
-//! **What a death MEANS for the run** (ADR 0033).
+//! Game-scoped consequences of participant death (ADR 0033).
 //!
-//! The engine publishes the FACT that a participant died and then does nothing.
-//! What happens next is stated here, once, by the game.
-//!
-//! # Once by the game, not once by the BINARY
-//!
-//! Three games in the shipped host state death rules, and a bare
-//! `Resource` made that a race the last `Plugin::build` won — Mary-O's
-//! three-second level replay governed every Smash match, whose own doc says an
-//! arena wants [`LevelReset::Never`]. So a declaration names the rooms it
-//! governs ([`DeathRulesScope`]), they all live in one
-//! [`DeclaredDeathRules`], and a room its game did not author reads
-//! [`DeathRules::default`] rather than a stranger's answer.
-//!
-//! **not [`DeathPolicy`](ambition_characters::actor::DeathPolicy)**, which
-//! answers a different question — *does a full damage meter kill this body* —
-//! and lives beside `BodyHealth` because it travels with the health component.
-//! This answers *what happens after it does*.
-//!
-//! # Why the level reset is not a death consequence
-//!
-//! only happen if a player dies and all other players are also dead."*
-//!
-//! Hanging the reset off the individual death is player-centric, and in a
-//! single-player game the mistake is INVISIBLE — with a roster of one, "this
-//! participant died" and "no participant remains" are the same event. So the
-//! reset asks a question about the ROSTER ([`LevelReset`]) and single player
-//! falls out as the one-element case, by the same value co-op uses.
-//!
-//! # What is deliberately not here yet
+//! The engine publishes the death fact; the owning game declares what follows.
+//! [`DeathRulesScope`] selects which rooms a declaration governs, while
+//! [`DeathPolicy`](ambition_characters::actor::DeathPolicy) separately controls
+//! whether a body's full damage meter kills it. Level reset is roster-level
+//! policy through [`LevelReset`], not a consequence attached to one participant.
 
 use bevy::prelude::*;
 
-/// **One game's death rules.** Stated once, beside its other rules.
-///
-/// **not a resource, and that is deliberate.** Three games in this binary
-/// each state their own, so a bare global would be answered by whichever plugin
-/// was built last — which is exactly what happened: the shell composes Sanic
-/// then Mary-O, so every Smash match in the shipped host ran under Mary-O's
-/// three-second level-replay rules. A game declares these into
-/// [`DeclaredDeathRules`] under the [`DeathRulesScope`] it governs, and the
-/// rooms it did not author read [`DeathRules::default`].
+/// One game's death rules, declared in [`DeclaredDeathRules`] under the
+/// [`DeathRulesScope`] it governs. Unclaimed rooms use [`DeathRules::default`].
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DeathRules {
     /// Seconds a participant's death holds before its consequence runs — the
     /// window content may fill with presentation.
     ///
-    /// **this does NOT freeze the world**, and must never grow into that. In
+    /// this does NOT freeze the world, and must never grow into that. In
     /// NSMB the other player is still playing while this one's death animation
     /// runs, so an interlude that held the world would be wrong the moment a
     /// second participant existed. It is strictly THIS participant's window. A
@@ -61,7 +30,7 @@ impl Default for DeathRules {
     /// The conservative answer for a room whose game said nothing: hold for
     /// nothing, reset nothing.
     ///
-    /// **and it is the right answer for a versus arena**, which is why an
+    /// and it is the right answer for a versus arena, which is why an
     /// unclaimed room is safe. A stage that has no level to put back wants
     /// [`LevelReset::Never`], and a match ruleset that owns its own respawn
     /// (Smash's stocks) wants no interlude in front of it.
@@ -73,15 +42,8 @@ impl Default for DeathRules {
     }
 }
 
-/// **Which rooms a game's death rules govern.**
-///
-/// **the third noun of the demo-hosting seam.** That seam
-/// (`ambition_platformer2d_runtime::mode_scope`) already scopes a hosted game's
-/// SYSTEMS (`in_mode` / `in_base_mode`) and its ENTITIES (`ModeScopedEntity`) to
-/// the rooms tagged with its mode. Its RULES had no such word, so each game
-/// inserted a process-global instead and the last plugin built won the whole
-/// binary. These variants are the same three answers `<Demo>RulesPlugin` already
-/// gives when it decides how to gate its systems.
+/// Rooms governed by one game's death rules. The variants mirror the existing
+/// hosted-game mode scopes used for systems and entities.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DeathRulesScope {
     /// Rooms tagged with this game mode — a HOSTED game. The mirror of
@@ -96,9 +58,9 @@ pub enum DeathRulesScope {
     EveryRoom,
 }
 
-/// **Every game's death rules in this binary, and who governs where.**
+/// Every game's death rules in this binary, and who governs where.
 ///
-/// **the collection is the point.** One resource per game is the shape that
+/// the collection is the point. One resource per game is the shape that
 /// cannot be composed: the type is the key, so the second insert silently
 /// overwrites the first and the loser's rooms run under the winner's rules.
 /// Here a second declaration is a different KEY, and a second declaration of the
@@ -115,7 +77,7 @@ pub struct DeclaredDeathRules {
 impl DeclaredDeathRules {
     /// State the rules for one scope.
     ///
-    /// **panics on a second declaration of the same scope.** Two games
+    /// panics on a second declaration of the same scope. Two games
     /// claiming one set of rooms is not a precedence question with a defensible
     /// answer; it is a composition mistake, and the version of this that picked
     /// a winner is the defect this type exists to delete.
@@ -134,8 +96,8 @@ impl DeclaredDeathRules {
         self.declarations.push((scope, rules));
     }
 
-    /// **THE ONE PLACE the question "whose rules govern a death here?" is
-    /// answered.** `mode` is the active room's mode tag.
+    /// THE ONE PLACE the question "whose rules govern a death here?" is
+    /// answered. `mode` is the active room's mode tag.
     ///
     /// Most specific first: the room's own mode, then the untagged-room
     /// declaration for an untagged room, then a standalone game's whole-process
@@ -197,7 +159,7 @@ impl DeathRules {
     }
 }
 
-/// **When does the LEVEL go back?** A question about the roster, never about one
+/// When does the LEVEL go back? A question about the roster, never about one
 /// death.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum LevelReset {
@@ -208,30 +170,30 @@ pub enum LevelReset {
     Never,
     /// When the participant who died was the last one standing.
     ///
-    /// **NSMB and single-player Mary-O are this same value.** Co-op resets
+    /// NSMB and single-player Mary-O are this same value. Co-op resets
     /// when a player dies and every other player is already dead; a roster of one
     /// meets that condition on the first death.
     WhenNoParticipantRemains,
 }
 
-/// **This participant's attempt is over, and the world must not act on the
-/// body.**
+/// This participant's attempt is over, and the world must not act on the
+/// body.
 ///
 /// While it is held: no control frame, no hurtbox, nothing teleports the body,
-/// nothing heals it, nothing resets its anim, and **the world's reset gates skip
-/// it**.
+/// nothing heals it, nothing resets its anim, and the world's reset gates skip
+/// it.
 ///
 /// The ACTOR path has always known this — its gate is written `em.health.alive() && …`, with a
 /// comment saying so — and the PLAYER path never got the same guard.
 ///
-/// **and it makes "she dies where she died" free.** The pose pin, the anim
+/// and it makes "she dies where she died" free. The pose pin, the anim
 /// re-arm, the spent-life latch and the scripted control/immunity grants in
 /// Mary-O's death beat all existed to claw the body back from a respawn that had
 /// already happened. Nothing moves her now, so there is nothing to pin.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct OutOfPlay;
 
-/// **The open window between a participant's death and its consequence.**
+/// The open window between a participant's death and its consequence.
 ///
 /// Rides the BODY rather than the level, because it is that participant's
 /// window: in co-op one player's death beat plays while the other is still
@@ -261,8 +223,8 @@ impl DeathInterlude {
 mod tests {
     use super::*;
 
-    /// **A room reads its own game's rules, and an unclaimed room reads the
-    /// engine default — never a stranger's.**
+    /// A room reads its own game's rules, and an unclaimed room reads the
+    /// engine default — never a stranger's.
     ///
     /// The table is the shipped host's shape: one untagged-room claim and two
     /// mode claims, with a third mode (the Smash arena) that claims nothing.
@@ -292,8 +254,8 @@ mod tests {
         );
     }
 
-    /// **A standalone game's claim is the whole process, including its own
-    /// mode-tagged rooms and any untagged fixture.**
+    /// A standalone game's claim is the whole process, including its own
+    /// mode-tagged rooms and any untagged fixture.
     ///
     /// This is what `<Demo>RulesPlugin::global()` means, and it is why a
     /// rules-only harness need not tag its rooms.
@@ -306,7 +268,7 @@ mod tests {
         assert_eq!(declared.governing(Some("mary_o")).interlude, 3.2);
     }
 
-    /// **A mode's own claim outranks a whole-process one**, so a composition
+    /// A mode's own claim outranks a whole-process one, so a composition
     /// that somehow held both still gives the narrower answer.
     #[test]
     fn the_narrower_claim_wins() {
@@ -320,8 +282,8 @@ mod tests {
         assert_eq!(declared.governing(Some("mary_o")).interlude, 3.2);
     }
 
-    /// **two games claiming one set of rooms is a build-time contradiction,
-    /// not a precedence question.**
+    /// two games claiming one set of rooms is a build-time contradiction,
+    /// not a precedence question.
     #[test]
     #[should_panic(expected = "already has death rules")]
     fn a_second_claim_on_the_same_rooms_is_refused() {

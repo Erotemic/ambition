@@ -1,4 +1,4 @@
-//! **Startup sequence** — the optional "Powered by Ambition" vanity card that
+//! Startup sequence — the optional "Powered by Ambition" vanity card that
 //! opens the production windowed host and hands off to the launcher.
 //!
 //! Drives the real composition (`build_visible_app(NoWindow)` + the opt-in
@@ -335,7 +335,7 @@ fn the_startup_run_in_plays_the_engine_card_then_the_authorship_card() {
     );
 }
 
-/// **The title music plays THROUGH the handoff instead of restarting on it.**
+/// The title music plays THROUGH the handoff instead of restarting on it.
 ///
 /// I want the music to play uninterrupted in the title sequence."*
 ///

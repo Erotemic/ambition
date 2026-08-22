@@ -1,14 +1,14 @@
-//! **THE AUTHORED SCHEMAS OF ENGINE TECHNIQUES** — the params an `on_hit`
+//! THE AUTHORED SCHEMAS OF ENGINE TECHNIQUES — the params an `on_hit`
 //! effect carries, and nothing that executes one.
 //!
-//! **this lived in `ambition_combat:on_hit` beside the Bevy system that runs it**, and the
+//! this lived in `ambition_combat:on_hit` beside the Bevy system that runs it, and the
 //! split matters because of who else needs it: the moveset PREFABS name `POGO_BOUNCE_KEY` and
 //! call `set_pogo_sfx` while building a contract, and character PREPARATION calls the prefabs.
 //!
 //! Here the lower fact is *what a `pogo_bounce` effect SAYS*; the rebound itself — the queries,
 //! the policies, the message — stays in `ambition_combat` where the bodies are.
 //!
-//! **the cue comes back as a `String`, not an `SfxId`.** Wrapping it would
+//! the cue comes back as a `String`, not an `SfxId`. Wrapping it would
 //! mean a new `ambition_characters → ambition_sfx` edge for one newtype, and the
 //! layering is better without it: this crate owns the authored TEXT, and
 //! deciding that the text names a cue is the consumer's job. `ambition_combat`

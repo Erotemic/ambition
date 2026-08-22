@@ -72,7 +72,7 @@ fn picking_up_the_portal_gun_activates_it() {
     assert_eq!(remaining, 0, "the pickup is consumed");
 }
 
-/// **Holding it and the catalog saying so are ONE fact, so they move together.**
+/// Holding it and the catalog saying so are ONE fact, so they move together.
 ///
 /// `throw_held_item_system` cleared its slot on the equivalent release; this hand-written copy
 /// of the same operation did not, and nothing could tell them apart because each caller kept

@@ -1,28 +1,7 @@
-//! A3 — equipment→params.
-//!
-//! Worn equipment changes a body in exactly three ways, and **never a fourth**
-//! (`docs/planning/engine/combat-model.md` §8 "A3 design"):
-//!
-//! 1. **Numeric modifiers** ([`ParamModifier`]) fold into a resolved value at the
-//!    moment it is READ — a move's damage as its fire event dispatches, a body's
-//!    size as the render/collision face reads it. The fold is [`resolved_param`],
-//!    a pure `(base, worn, key, scope) -> f32`. Modified values are **never baked
-//!    into stored state**: equip/unequip changes what the next read sees, with no
-//!    write-back to reconcile.
-//! 2. **Behavioral grants** ([`EquipmentGrant`]) are ordinary capabilities applied
-//!    on equip and revoked on unequip — a ranged verb overlaid onto the wearer's
-//!    `ActionSet`, from which the moveset auto-derives its move. Never a bespoke
-//!    third mechanism.
-//! 3. **On-hit armor** ([`OnHit::ConsumeAsArmor`]) intercepts a hit inside the ONE
-//!    victim-side resolver before body damage: the row is spent (removed, or
-//!    downgraded to a lesser row it carries), the victim takes zero HP damage and
-//!    gains the same brief i-frames any hit arms.
-//!
-//! The whole worn set lives on one body component, [`WornEquipment`]. This module
-//! is content-free and ECS-light on purpose: the fold and the armor spend are pure
-//! functions the combat resolver, the moveset dispatch, and the body-size reads all
-//! call, so a CPU/RL policy wearing a mushroom is scaled through the same seam a
-//! human is (the relativity principle).
+//! Content-free equipment rules. [`WornEquipment`] affects a body through three seams:
+//! numeric [`ParamModifier`] folds at read time, capability [`EquipmentGrant`]s, and
+//! [`OnHit::ConsumeAsArmor`] in the victim-side hit resolver. Modified values are not written
+//! back into base state.
 
 use crate::brain::action_set::{ActionSet, MeleeActionSpec, RangedActionSpec};
 use bevy::ecs::component::Component;
@@ -232,8 +211,8 @@ impl WornEquipment {
 
 /// Fold worn-equipment numeric modifiers into `base` at READ time.
 ///
-/// **Ordering (documented, load-bearing): ALL matching Adds first, then ALL
-/// matching Muls.** So a `+10` and a `×2` on the same param yield `(base + 10) × 2`,
+/// Ordering (documented, load-bearing): ALL matching Adds first, then ALL
+/// matching Muls. So a `+10` and a `×2` on the same param yield `(base + 10) × 2`,
 /// and two rows' Muls compose multiplicatively regardless of equip order — the
 /// result is independent of the order rows were worn, which a fold that interleaved
 /// Adds and Muls could not promise.

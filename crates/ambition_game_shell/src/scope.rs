@@ -1,4 +1,4 @@
-//! **State that lives exactly as long as one experience's stay on its routes.**
+//! State that lives exactly as long as one experience's stay on its routes.
 //!
 //! A provider may publish world state that only makes sense while it is the
 //! experience on screen: a decided roster, a lobby's cursor, the seat count a
@@ -13,14 +13,14 @@
 //! catch — the scope is inside whenever the router says so, and leaving is the
 //! edge that releases.
 //!
-//! **release is OWNER-SCOPED, never "remove the resource".** Two experiences
+//! release is OWNER-SCOPED, never "remove the resource". Two experiences
 //! publish into the same global resource (`MatchParticipantRoster` is the one
 //! this was built for), so a scope that removed it unconditionally would be one
 //! game deleting another's match. [`ExperienceScopeBuilder::releasing_owned`]
 //! asks the value who published it and leaves a stranger's alone.
 //!
-//! **a scope covers more than one experience id when a provider has more than
-//! one.** A character select is a frontend experience and the match is a
+//! a scope covers more than one experience id when a provider has more than
+//! one. A character select is a frontend experience and the match is a
 //! gameplay one; moving between them is not leaving, and a scope that named only
 //! the gameplay id would release the roster on the frame the lobby handed it
 //! over. `covering` is how a provider says which ids are still itself.
@@ -37,9 +37,9 @@ use bevy::prelude::{App, Res, Resource, World};
 
 use crate::{ShellExperienceId, ShellRouter};
 
-/// **What OWNERSHIP CLAIM a giveback makes about the state it releases.**
+/// What OWNERSHIP CLAIM a giveback makes about the state it releases.
 ///
-/// **this is a claim about the world, not an implementation detail.**
+/// this is a claim about the world, not an implementation detail.
 /// [`ReleaseKind::SoleRemoval`] asserts *no other experience publishes this
 /// resource* — and two experiences making that claim about one resource is a
 /// contradiction that no amount of reading either declaration in isolation can
@@ -140,7 +140,7 @@ impl ShellExperienceScopes {
     }
 }
 
-/// **Is this experience the one on screen right now?**
+/// Is this experience the one on screen right now?
 ///
 /// A run condition, answered from the router rather than from a cached flag, so
 /// it is correct wherever in `Update` the caller happens to be scheduled. A host
@@ -162,7 +162,7 @@ pub fn shell_experience_is_active(
 
 /// Release the state of every scope the shell has just left.
 ///
-/// **`router.active` is the whole answer, and a pending route adds nothing.**
+/// `router.active` is the whole answer, and a pending route adds nothing.
 /// `ShellRouter::activate` takes the old activation and installs the new one in
 /// one non-yielding call, so nothing ever observes `active` empty in the middle
 /// of a transition: while a route waits on its load barrier, `active` still
@@ -239,7 +239,7 @@ impl ExperienceScopeBuilder<'_> {
 
     /// A resource this provider alone publishes: removed outright on the way out.
     ///
-    /// **only for a resource every reader takes as `Option<Res<R>>`.** A Bevy
+    /// only for a resource every reader takes as `Option<Res<R>>`. A Bevy
     /// system with a plain `Res<R>`/`ResMut<R>` parameter PANICS when the
     /// resource is missing, so releasing one by removal turns a leak into a
     /// crash — measured, on the smash select screen's own `ResMut<SmashSelect>`.
@@ -310,13 +310,13 @@ impl ExperienceScopeBuilder<'_> {
     /// A resource whose OWNER is written on a different resource — the receipt
     /// and the plan it was issued from.
     ///
-    /// **the shape for state that cannot carry its own publisher.** An `ActiveMatch` is
+    /// the shape for state that cannot carry its own publisher. An `ActiveMatch` is
     /// rollback state and deliberately holds nothing but the facts of the activation; stamping
     /// a shell experience id into it would put frontend identity on the rollback wire to answer
     /// a teardown question. So the activation is released by asking the WITNESS.
     ///
-    /// **the witness must outlive the release, so it may not already be
-    /// declared in this scope.** Givebacks run in declaration order, and a
+    /// the witness must outlive the release, so it may not already be
+    /// declared in this scope. Givebacks run in declaration order, and a
     /// witness released first would leave every later release reading a resource
     /// that is gone — silently answering "not mine" forever, which is a release
     /// that stops working rather than one that fails. That ordering is invisible

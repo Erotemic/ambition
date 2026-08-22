@@ -43,7 +43,7 @@ impl RecordingPolicy {
 
 /// A bounded ring of facts.
 ///
-/// ⛔ **write-only from the simulation, read-only from a tool.** Nothing in the
+///  write-only from the simulation, read-only from a tool. Nothing in the
 /// sim may branch on a fact: the ring is lossy, it is not rewound by a rollback
 /// host, and a decision that consulted it would desync the moment history was
 /// replayed.
@@ -310,7 +310,7 @@ impl CausalLog {
 pub struct ExecutionKey {
     pub generation: u32,
     pub execution: Execution,
-    /// **Which attempt at this tick.** Rollback can execute one tick several
+    /// Which attempt at this tick. Rollback can execute one tick several
     /// times inside a generation, and those attempts can produce different
     /// facts — which is exactly when somebody looks. Without this they grouped
     /// into one explanation and the inspector could not say which attempt
@@ -327,7 +327,7 @@ pub struct Explanation {
     pub subject: SubjectKey,
     /// Which execution of `tick` these facts came from.
     pub key: ExecutionKey,
-    /// The ring wrapped, so an earlier link may be missing. **Reported**, so a
+    /// The ring wrapped, so an earlier link may be missing. Reported, so a
     /// gap caused by the buffer is distinguishable from a gap caused by the
     /// simulation.
     pub truncated: bool,

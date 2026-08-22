@@ -1,4 +1,4 @@
-//! **What a PROVOCATION produces**, projected once and applied by the live flip.
+//! What a PROVOCATION produces, projected once and applied by the live flip.
 //!
 //! Its entry point `reconcile_autonomous_actors` had two re-exports, four doc comments and a test
 //! module that called it directly — and zero production call sites. The only system in
@@ -10,7 +10,7 @@
 //! `count_load_run` increments inside the very reconciliation set — because at the SHIPPED
 //! prediction distance of 0, `LoadWorld` runs zero times and the original tests passed anyway.
 //!
-//! ⇒ what remains here is the LIVE half, which always did the work:
+//!  what remains here is the LIVE half, which always did the work:
 //! [`provoked_projection`] (a mind and a kit, never a body) and
 //! [`peaceful_config`] (the generic peaceful NPC seed a catalog switch restores),
 //! both applied by `provoke_actor_in_place` and `brain_command`.
@@ -23,21 +23,21 @@ use ambition_characters::actor::character_catalog::{CharacterBodyKind, Character
 use ambition_characters::brain::{Brain, NPC_PATROL_SPEED};
 use ambition_entity_catalog::placements::CharacterBrain;
 
-/// **What provocation produces: a MIND and a KIT. Never a body.**
+/// What provocation produces: a MIND and a KIT. Never a body.
 ///
 /// The comment three lines above the code that did it already stated the correct invariant:
 /// *"provocation is one body, a different driver, a changed relationship. The body stays exactly as
 /// its character built it."* It was describing the OTHER branch.
 ///
-/// ⇒ what a provocation may change is the POLICY the body is driven by, the KIT
+///  what a provocation may change is the POLICY the body is driven by, the KIT
 /// it swings if it has none of its own, and its relationship to whoever struck
 /// it. Its speed, its locomotion, its capabilities and its silhouette are facts
 /// about the creature, and being hit is not an argument about any of them.
 ///
-/// **do not add a third.** Every field on this struct is now a MIND or a KIT;
+/// do not add a third. Every field on this struct is now a MIND or a KIT;
 /// a body fact reappearing here is the ontology growing back.
 ///
-/// **and the brain is lowered against the BODY's tuning now**, not the
+/// and the brain is lowered against the BODY's tuning now, not the
 /// archetype's — §4.7, a policy states normalized effort and the body states the
 /// speed. A provoked villager chases at a villager's top speed, which is the
 /// same sentence as the paragraph above with the consequence attached.
@@ -53,7 +53,7 @@ pub(crate) struct ProvokedArchetype {
     pub action_set: ambition_characters::brain::ActionSet,
 }
 
-/// **The projection itself, from a POLICY rather than from a row.**
+/// The projection itself, from a POLICY rather than from a row.
 ///
 /// the policy is pinned equal to the `combatant` row while that row survives
 /// (`an_engine_default_provoked_policy_matches_the_combatant_row`); when the row
@@ -74,13 +74,13 @@ pub(crate) fn provoked_projection(
         held_item,
         body,
     );
-    // **that read-model is a SILHOUETTE, and it was being used as a hostility
-    // flag.** `evaluate_enemy_ai_output` branched `Passive => aggro 0.0` and
+    // that read-model is a SILHOUETTE, and it was being used as a hostility
+    // flag. `evaluate_enemy_ai_output` branched `Passive => aggro 0.0` and
     // `patrol_enabled = !Passive`, so a provoked body needed a NON-`Passive`
     // value to read correctly — and the only one to hand was an archetype name.
     // Both branches ask their `BrainProfile` now, so nothing needs the name.
     //
-    // ⇒ derived like every other road derives it (`config_brain_for`), which
+    //  derived like every other road derives it (`config_brain_for`), which
     // answers `Patrol` for a patrol brain and `Passive` otherwise. The live
     // provoke and the reconstruction agreed on `Custom("combatant")` before and
     // agree on the derived value now, which is this module's central claim.
@@ -109,19 +109,19 @@ pub(crate) struct PeacefulConfig {
 
 pub(crate) fn peaceful_config(
     catalog: &CharacterCatalog,
-    // **THE PREPARED CAST, asked FIRST** — see below.
+    // THE PREPARED CAST, asked FIRST — see below.
     prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
     character_id: Option<&str>,
     combat_kit: &CombatKit,
     resolved_brain: &Brain,
 ) -> PeacefulConfig {
-    // **THIS READ `body_kind: Floating` AND NOTHING ELSE**, which is the one rule the invariant
+    // THIS READ `body_kind: Floating` AND NOTHING ELSE, which is the one rule the invariant
     // list forbids by name: *do not reintroduce `body_kind => is_aerial` as authority*.
     //
     // The only Floating row with no prepared definition is `npc_snakes_on_a_cartesian_plane`,
     // for which the catalog IS the right authority.
     //
-    // ⇒ it now mirrors `new_peaceful_npc_in` for real, which is what this
+    //  it now mirrors `new_peaceful_npc_in` for real, which is what this
     // function's own doc has always claimed: the PREPARED character answers, and
     // the catalog is the fallback for a character nobody registered.
     let is_aerial = character_id
@@ -135,8 +135,8 @@ pub(crate) fn peaceful_config(
                 })
         })
         .unwrap_or(false);
-    // **THE SAME TRAP THE `is_aerial` NOTE ABOVE DESCRIBES, IN THE TWO
-    // FIELDS BESIDE IT**.
+    // THE SAME TRAP THE `is_aerial` NOTE ABOVE DESCRIBES, IN THE TWO
+    // FIELDS BESIDE IT.
     //
     // This installed `max_health: DEFAULT_UNAUTHORED_BODY_HEALTH` and `max_run_speed:
     // MAX_RUN_SPEED` flat, with a comment claiming it was *"the same undescribed-body pool the
@@ -150,7 +150,7 @@ pub(crate) fn peaceful_config(
         .and_then(|cid| prepared.and_then(|registry| registry.get(cid)))
         .and_then(|prepared| prepared.body_blueprint().ok());
     let tuning = ActorTuning {
-        // **STILL FLAT, and that is not an oversight.** How fast a body
+        // STILL FLAT, and that is not an oversight. How fast a body
         // AMBLES is the controller's fact, not the body's — `new_peaceful_npc_in`
         // hard-codes these two for the same reason. A character authoring
         // `run_speed: 400.0` must not make its idle stroll a sprint.
@@ -211,8 +211,8 @@ mod tests {
         }
     }
 
-    /// **PROVOCATION PROJECTS NO TUNING AT ALL, so a body keeps everything it
-    /// was.**
+    /// PROVOCATION PROJECTS NO TUNING AT ALL, so a body keeps everything it
+    /// was.
     ///
     /// It existed because the projection assigned an archetype's `tuning()` wholesale and a
     /// provoked NPC silently became `OnRoomReenter` — the kill hook wrote no death flag, save-sync
@@ -260,7 +260,7 @@ mod tests {
             "the provoked POLICY is the engine's default — that is the one thing \
              a generic provocation is for"
         );
-        // ⇒ both of those branches read the `BrainProfile` now, so `Passive` is
+        //  both of those branches read the `BrainProfile` now, so `Passive` is
         // the CORRECT read-model for a provoked wanderer: hostility is
         // `ActorDisposition`'s and the policy is the profile's, and the
         // integrator-facing silhouette is neither. What must hold is that the
@@ -339,7 +339,7 @@ mod peaceful_flight_tests {
         registry
     }
 
-    /// **A SILHOUETTE IS NOT A CLAIM ABOUT FLIGHT** — the one rule the invariant
+    /// A SILHOUETTE IS NOT A CLAIM ABOUT FLIGHT — the one rule the invariant
     /// list forbids reintroducing by name.
     ///
     /// `peaceful_config` read `body_kind: Floating` and nothing else, so a catalog switch back
@@ -383,18 +383,18 @@ mod peaceful_flight_tests {
 mod peaceful_body_authority_tests {
     use super::*;
 
-    /// **A BODY RELEASED BACK TO PEACEFUL KEEPS THE BODY ITS CHARACTER
-    /// AUTHORED.**
+    /// A BODY RELEASED BACK TO PEACEFUL KEEPS THE BODY ITS CHARACTER
+    /// AUTHORED.
     ///
-    /// **the trap this closes had an EMPTY population, and that is the reason to write the test
-    /// rather than a reason not to.** `peaceful_config` hard-coded `max_run_speed:
+    /// the trap this closes had an EMPTY population, and that is the reason to write the test
+    /// rather than a reason not to. `peaceful_config` hard-coded `max_run_speed:
     /// MAX_RUN_SPEED` and the undescribed health pool while claiming to install *"the same
     /// undescribed-body pool the seed this mirrors installs"* — and the seed it mirrors reads
     /// the prepared character's blueprint for both (P1.10). A body without a policy is an
     /// ordinary thing to author, and the day one exists the calm-down would have handed it the
     /// player's top speed.
     ///
-    /// **two terms, both observed.** The character's numbers survive, AND an
+    /// two terms, both observed. The character's numbers survive, AND an
     /// unauthored body still gets the shared defaults — otherwise "reads the
     /// blueprint" could be satisfied by a projection that reads it for
     /// everything and quietly changes what a catalog-only NPC becomes.
@@ -434,7 +434,7 @@ mod peaceful_body_authority_tests {
              the one its character authored — a silent downgrade wearing a \
              controller change, which is what the provoke side was split to stop"
         );
-        // **THE HEALTH HALF OF THIS TEST IS NOW STRUCTURAL** (AC6.2). It
+        // THE HEALTH HALF OF THIS TEST IS NOW STRUCTURAL (AC6.2). It
         // asserted `calmed.tuning.max_health == AUTHORED_HEALTH`: the projection
         // restored a pool onto `ActorConfig`, and `apply_catalog_mode` copied the
         // whole tuning back over the live one. That copy never touched

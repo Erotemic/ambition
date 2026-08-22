@@ -1,11 +1,5 @@
-//! Composable movement-ability functions — the limbs of the shared spine.
-//!
-//! Splitting the movement monolith into these named units is the first move toward the "shared
-//! physics spine + composable ability limbs" architecture (see
-//! `docs/concepts/one-body-one-path.md`): an ability reads + writes ONLY its own cluster
-//! fields, so it can later become an opt-in component+system an actor carries or not — and an
-//! actor (enemy, NPC, boss, player) is then a different *instance* of one system, differing
-//! only in which ability components + tuning it holds.
+//! Composable movement abilities over the shared body-cluster state.
+//! Each ability reads and writes only the cluster fields it owns.
 
 use super::events::FrameEvents;
 use super::input::InputState;
@@ -18,29 +12,10 @@ use crate::body_clusters::{
 };
 use crate::MotionFrame;
 
-/// **What the shared burst button would actually DO right now.**
+/// Maneuver a burst press would resolve to in the body's current state.
 ///
-/// Dodge and dash are one input — the BURST press, which is why the buffer it
-/// fills is [`AxisManeuverState::buffer_burst`] and not either verb's name.
-/// Which maneuver a press produces is decided by the body's current state —
-/// grounded or not, dodge cooldown, air-dodge budget and endlag, dash charges
-/// and cooldown — and not by which abilities the body owns. A body that owns
-/// both and is mid-dodge-cooldown DASHES; a body that owns only ONE of them
-/// still buffers the press, because owning EITHER earns the button.
-///
-/// **the reason this is a named value and not two booleans**: an autonomous
-/// driver was choosing its maneuver from `can_dodge` / `can_dash`, which are
-/// CAPABILITIES. So a brain could decide *I am dodging* while the kernel — whose
-/// dodge declined on cooldown without consuming the buffered press — dashed
-/// instead. The brain's stated intent and the body's action disagreed, and no
-/// test could see it because the tests varied the two capability flags, which
-/// were never the thing that decides.
-///
-/// **availability, not intent** — the buffered press is deliberately NOT an
-/// input here. Perception asks *what would a press mean*, one phase before any
-/// press exists; the `apply_` steps ask the same question and add their own
-/// buffer check. One rule, two callers, in the shape [`resolve_shield`] already
-/// established.
+/// This is availability, not intent: it accounts for ground/air state, cooldowns,
+/// budgets, and charges without consulting the buffered press itself.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum BurstManeuver {
     /// The press produces nothing: no ability, or every route is on cooldown.
@@ -135,7 +110,7 @@ pub(super) fn apply_intent(
     if input.jump_pressed() && abilities.abilities.jump {
         state.buffer_jump = tuning.locomotion.jump_buffer;
     }
-    // **THE BURST PRESS IS GATED ON OWNING A BURST, NOT ON OWNING DASH.**
+    // THE BURST PRESS IS GATED ON OWNING A BURST, NOT ON OWNING DASH.
     // This read `abilities.abilities.dash` alone, so a body authored
     // `dodge: true, dash: false` could never dodge: nothing ever filled the
     // buffer `apply_dodge` spends, and the dodge ability was inert on every body
@@ -174,7 +149,7 @@ pub(super) fn apply_fly_toggle(
     }
 }
 
-/// **The evade, on the ground and in the air.** A buffered burst press spent by
+/// The evade, on the ground and in the air. A buffered burst press spent by
 /// a body that owns the dodge ability becomes a roll when its feet are down and
 /// an air dodge when they are not (the dodge ability claims
 /// [`AxisManeuverState::buffer_burst`] before `apply_dash` would).
@@ -189,7 +164,7 @@ pub(super) fn apply_fly_toggle(
 /// air dodge        airborne, unspent   full 2D stick      this trip through the air
 /// ```
 ///
-/// **an air dodge with `air_dodge_time <= 0.0` is a body that has none.** The
+/// an air dodge with `air_dodge_time <= 0.0` is a body that has none. The
 /// tuning defaults are `#[serde(default)]`, so every authored body baked before
 /// the maneuver existed keeps exactly the movement it had; a body opts in by
 /// authoring a window.
@@ -216,7 +191,7 @@ pub(super) fn apply_dodge(
     };
     let local_stick = input.local_axis();
     if evade == BurstManeuver::GroundDodge {
-        // **SPOT DODGE — down on the stick evades IN PLACE.** The grounded
+        // SPOT DODGE — down on the stick evades IN PLACE. The grounded
         // evade had exactly one shape, so the option a fighter takes when there
         // is nowhere to roll TO — cornered, on a platform, waiting out a
         // committed swing — did not exist. a body that authors no window keeps
@@ -262,7 +237,7 @@ pub(super) fn apply_dodge(
     } else {
         bevy_math::Vec2::ZERO
     };
-    // **local `y` points toward the FEET**, the same convention
+    // local `y` points toward the FEET, the same convention
     // `wants_drop_through` reads — so the stick's y composes with `down()`, not
     // against it. Negating here would have aimed every "dodge down through the
     // stage" upward, which is the exact input a recovering body uses.
@@ -295,7 +270,7 @@ pub fn resolve_shield(
     dash_active: bool,
     shield_held: bool,
     parry_window_time: f32,
-    // **WHICH GAME'S PERFECT SHIELD this body plays with.** See
+    // WHICH GAME'S PERFECT SHIELD this body plays with. See
     // [`crate::ParryTiming`] — Smash 4 opens the window on the press, Ultimate on
     // the release, and both are settings rather than candidates.
     parry_timing: crate::ParryTiming,
@@ -475,7 +450,7 @@ mod burst_maneuver_tests {
         abilities
     }
 
-    /// **A BODY THAT OWNS THE DODGE AND NOT THE DASH ACTUALLY DODGES.**
+    /// A BODY THAT OWNS THE DODGE AND NOT THE DASH ACTUALLY DODGES.
     #[test]
     fn the_burst_press_belongs_to_whichever_burst_the_body_owns() {
         let tuning = AxisSweptParams::default();
@@ -646,7 +621,7 @@ mod burst_maneuver_tests {
         }
     }
 
-    /// **THE RESOLVER AND THE BODY ANSWER THE SAME QUESTION.**
+    /// THE RESOLVER AND THE BODY ANSWER THE SAME QUESTION.
     ///
     /// this is the whole reason [`resolve_burst_maneuver`] exists. An
     /// autonomous driver was choosing its maneuver from the body's
@@ -662,7 +637,7 @@ mod burst_maneuver_tests {
     #[test]
     fn what_the_resolver_says_is_what_the_body_does() {
         let abilities = both_abilities();
-        // **NOT `AxisSweptParams::default()` UNMODIFIED.** Its
+        // NOT `AxisSweptParams::default()` UNMODIFIED. Its
         // `air_dodge_time` is 0.0, so on default tuning the air-dodge branch can
         // never fire and both airborne rows below would agree for the wrong
         // reason — the `AirDodge` variant would go entirely unexercised while
@@ -849,11 +824,11 @@ mod resolve_shield_tests {
         assert_eq!(parry, 0.0, "a press-timed window outlived the guard");
     }
 
-    /// **THE TWO SETTINGS ARE TWO GAMES, AND BOTH ARE REACHABLE.**
+    /// THE TWO SETTINGS ARE TWO GAMES, AND BOTH ARE REACHABLE.
     ///
     /// ultimate, so release style shielding is in scope as an option."*
     ///
-    /// **the pair is the assertion.** A test of `OnRelease` alone would pass
+    /// the pair is the assertion. A test of `OnRelease` alone would pass
     /// on an implementation that had simply MOVED the parry rather than made it
     /// a knob, and that is the change this is deliberately not: `OnRaise` is
     /// Smash 4's and stays the default, so no shipped body's feel moves.

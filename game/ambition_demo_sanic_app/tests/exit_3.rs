@@ -1,4 +1,4 @@
-//! **Playbook exit 3, gate-enforced.**
+//! Playbook exit 3, gate-enforced.
 //!
 //! > *"A demo app builds from runtime+host groups + its content crate with zero
 //! > engine edits (the oracle, executable)."*

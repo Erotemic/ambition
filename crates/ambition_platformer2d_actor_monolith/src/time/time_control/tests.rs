@@ -7,13 +7,13 @@ use ambition_time::time_control::{
 };
 use ambition_time::ClockObserver;
 
-/// **The reaction-timer clock forks on purpose, and each side is pinned.**
+/// The reaction-timer clock forks on purpose, and each side is pinned.
 ///
-/// **i-frames are a promise in REAL seconds** — a bullet-time moment must not
+/// i-frames are a promise in REAL seconds — a bullet-time moment must not
 /// hand out longer invulnerability — the same reason the double-tap gesture
 /// windows are unscaled.
 ///
-/// ⇒ so this pins BOTH sides, because a fork with only one side guarded drifts
+///  so this pins BOTH sides, because a fork with only one side guarded drifts
 /// back. It finds its subjects by walking the crate rather than listing them.
 #[test]
 fn the_reaction_timer_clock_forks_on_purpose() {
@@ -247,13 +247,13 @@ fn gameplay_systems_must_not_read_res_time_directly() {
             "app/input_systems.rs",
             "input buffer decay; ADR 0011 player-clock follow-up",
         ),
-        // **THE OLD JUSTIFICATION WAS FALSE, AND CORRECTING IT NAIVELY COST
-        // SEVEN BOSS TESTS.** It read *"the reaction timers still compute their
+        // THE OLD JUSTIFICATION WAS FALSE, AND CORRECTING IT NAIVELY COST
+        // SEVEN BOSS TESTS. It read *"the reaction timers still compute their
         // own scaled dt manually"*, and the file contains no scaling — so the
         // obvious repair was to move the decay onto `world_time.sim_dt()` like
         // the actor and boss ticks. `boss_contact_iframes`, `boss_lifecycle`
         // and `boss_motion_parity` went red at once, and they were right:
-        // **hitstop is a `sim_clock` requester**, so `hitstop_timer` would be
+        // hitstop is a `sim_clock` requester, so `hitstop_timer` would be
         // slowed by the freeze it exists to end, and the i-frame and hitstun
         // windows would stretch with it.
         //

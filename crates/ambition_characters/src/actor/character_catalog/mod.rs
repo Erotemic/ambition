@@ -7,7 +7,7 @@
 //! preset names are namespaced during assembly, while character IDs remain the
 //! cross-provider identity.
 //!
-//! Architectural posture: **Rust = behavior, RON = content, LDtk = space.**
+//! Architectural posture: Rust = behavior, RON = content, LDtk = space.
 //! Brain and action variants remain typed in Rust for exhaustive behavior, while
 //! provider-authored configurations and character definitions live in RON.
 
@@ -202,7 +202,7 @@ impl CharacterCatalog {
         // it, and a catalog lowered straight from compiled pack bytes carries whatever was
         // serialized — so this degrades rather than assuming.
         //
-        // ⇒ the fallbacks are both "a neighbouring key that is namespaced the same way", which
+        //  the fallbacks are both "a neighbouring key that is namespaced the same way", which
         // is the smell `qualify_preset_like`'s doc names. Each disappears as its authority
         // arrives.
         let namespace_carrier = if !entry.provider.is_empty() {
@@ -279,17 +279,17 @@ impl CharacterCatalog {
             .map(|(id, _)| id.as_str())
     }
 
-    /// The character an AUTHORED PLACEMENT names — **id first, display name
-    /// second.**
+    /// The character an AUTHORED PLACEMENT names — id first, display name
+    /// second.
     ///
-    /// **an authored enemy's art identity is a display-name string.**
+    /// an authored enemy's art identity is a display-name string.
     /// `ActorClusterSeed` resolves an enemy's sprite by scanning for a matching
     /// `display_name`, so RENAMING a character silently un-arts every level that
     /// placed it — and two demos carry the same hand-written workaround (a brain
     /// → display-name map applied after conversion) to feed this lookup the
     /// string it wants.
     ///
-    /// **preferring the id is the seam, and it is purely additive**: a
+    /// preferring the id is the seam, and it is purely additive: a
     /// placement carrying a display name keeps resolving through the fallback,
     /// while one naming a `character_id` — which `NpcSpawn` has always been able
     /// to author — resolves directly and survives a rename. Identity over
@@ -327,7 +327,7 @@ impl CharacterCatalog {
             .and_then(|entry| entry.attack_vfx.as_deref())
     }
 
-    /// **Does this catalog know `character_id`?**
+    /// Does this catalog know `character_id`?
     pub fn knows(&self, character_id: &str) -> bool {
         self.get(character_id).is_some()
     }
@@ -348,7 +348,7 @@ impl CharacterCatalog {
     /// the shared editable tuning. The axis analogue of [`momentum_params`].
     ///
     /// [`momentum_params`]: Self::momentum_params
-    /// **A named autonomous profile**, or `None` for a key nobody authored.
+    /// A named autonomous profile, or `None` for a key nobody authored.
     ///
     /// The reusable-policy half of the three authorities: several characters
     /// name one profile, and the profile says nothing about what any of their
@@ -384,12 +384,12 @@ impl CharacterCatalog {
         self.get(character_id)?.max_health
     }
 
-    /// **THE MOVEMENT MODEL A CHARACTER'S ROW ASKS FOR** — momentum when it
+    /// THE MOVEMENT MODEL A CHARACTER'S ROW ASKS FOR — momentum when it
     /// authors momentum params, axis-swept seeded with its own axis feel
     /// otherwise.
     ///
-    /// **this lived in the actor monolith as
-    /// `avatar::starting_character::motion_model_spec_for_character_id`**, and its only inputs were
+    /// this lived in the actor monolith as
+    /// `avatar::starting_character::motion_model_spec_for_character_id`, and its only inputs were
     /// this catalog and `ambition_platformer2d_core` — both visible from here. Nothing about it was
     /// avatar-domain; it was a projection of a catalog row that happened to be written next to its
     /// first caller.

@@ -1,28 +1,6 @@
-//! **A door, entered the way a player enters one.**
-//!
-//! *"in the last build I can't seem to enter doors anymore?"*
-//!
-//! Every existing room-transition test in this tree synthesises the transition:
-//! it reaches into the room graph, calls `transition_for_player(zone.aabb, ZERO,
-//! true)` with the interact flag already decided, and writes the resulting
-//! `RoomTransitionRequested` by hand. That covers what happens AFTER the door
-//! opens and nothing at all about whether a press opens it — which is the half a
-//! player uses, and the half that broke.
-//!
-//! So this one presses the button. It stands the controlled body inside an
-//! authored `Door` zone, holds the interact action, and asserts the active room
-//! actually changed:
-//!
-//! ```text
-//!   device → ControlFrame.interact_pressed
-//!          → interaction_input_system (hit-stun gate, Down+Interact suppression)
-//!          → SlotInteractionState::primary().buffered()
-//!          → detect_room_transition_system → transition_for_player(.., wants_interact)
-//!          → RoomTransitionRequested → the room actually changes
-//! ```
-//!
-//! Any link in that chain going quiet reads as "doors do not work" and, until
-//! this existed, as nothing else.
+//! End-to-end door-entry test through real player interaction input.
+//! The controlled body enters an authored door zone, presses interact, and must
+//! reach a different active room without synthesizing the transition request.
 
 use ambition_app::{AgentAction, Platformer2dSimHarness};
 use ambition_platformer2d::engine_core::AabbExt;
@@ -66,7 +44,7 @@ fn interact() -> AgentAction {
     }
 }
 
-/// **Pressing interact in a door goes through it.**
+/// Pressing interact in a door goes through it.
 #[test]
 fn standing_in_a_door_and_pressing_interact_changes_the_room() {
     let mut sim = fixed_60hz_sim();
@@ -102,7 +80,7 @@ fn standing_in_a_door_and_pressing_interact_changes_the_room() {
     );
 }
 
-/// **And the same door, in the SHIPPED HOST, pressed as a key.**
+/// And the same door, in the SHIPPED HOST, pressed as a key.
 ///
 /// The key is READ from the live input map rather than hardcoded: the interact
 /// key differs per preset (`F` on the arrow presets, `E` on the WASD ones), and
@@ -176,7 +154,7 @@ fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
                 zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door
             })
             .cloned();
-        // ⚠ LOUD, not a quiet `return`. A test that skips itself when it cannot
+        //  LOUD, not a quiet `return`. A test that skips itself when it cannot
         // find its subject is a test that reports green for the one reason it
         // exists to catch.
         let zone = zone.unwrap_or_else(|| {
@@ -236,7 +214,7 @@ fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
     );
 }
 
-/// **The other way in: double-tap Up.**
+/// The other way in: double-tap Up.
 ///
 /// The binding rule is that a SINGLE press of Up must not open anything — Up is
 /// too useful as a direction — and that a deliberate double-tap stays as the
@@ -327,7 +305,7 @@ fn holding_up_opens_a_door_and_a_short_hold_does_not() {
     );
 }
 
-/// **A DOOR under a ROLLBACK host — the combination nothing covered.**
+/// A DOOR under a ROLLBACK host — the combination nothing covered.
 ///
 /// Covers the rollback-host door path: hold interact on a real door and require the room to change.
 #[cfg(feature = "rl_sim")]
@@ -353,7 +331,7 @@ fn a_door_opens_under_a_rollback_host_and_not_only_a_fixed_tick_one() {
 
     let before = active_room(&mut sim);
 
-    // ⚠ **`teleport_player`, NOT a `world_mut()` write.** The body's position is ROLLBACK
+    //  `teleport_player`, NOT a `world_mut()` write. The body's position is ROLLBACK
     // STATE: a direct write is restored out from under itself on the next resim, so the body
     // never overlaps the zone on a frame the system sees. `teleport_player` rebases the
     // baseline, which is what folds the new position into history.
@@ -401,10 +379,10 @@ fn a_door_opens_under_a_rollback_host_and_not_only_a_fixed_tick_one() {
     );
 }
 
-/// **THE SECOND HOST LEDGER ROW NAMED, ASKED THE SAME WAY** — the registry out of the finished
+/// THE SECOND HOST LEDGER ROW NAMED, ASKED THE SAME WAY — the registry out of the finished
 /// world, not a log line nobody can see.
 ///
-/// ⚠ **a `warn!` cannot settle it**: no `LogPlugin`, no output, and this row has
+///  a `warn!` cannot settle it: no `LogPlugin`, no output, and this row has
 /// already been fooled once by a green run that captured its own probe.
 #[test]
 #[cfg(feature = "rl_sim")]
@@ -435,7 +413,7 @@ fn the_rollback_door_host_publishes_a_prepared_cast() {
          character-named placement in the rooms it loads falls back to a \
          generic — ledger D75, live"
     );
-    // ⭐ THE OTHER TERM: this harness composes AMBITION, so its own protagonist must be there.
+    //  THE OTHER TERM: this harness composes AMBITION, so its own protagonist must be there.
     assert!(
         ids.iter().any(|id| id == "player_robot_v3"),
         "the Ambition sim harness published a cast without Ambition's \

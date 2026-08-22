@@ -33,16 +33,16 @@ pub const AI_SLOP_BRAIN_KEY: &str = "mary_o_ai_slop";
 /// enemy render resolves for an AI Slop.
 pub const AI_SLOP_SHEET_TARGET: &str = "ai_slop";
 
-/// **How close an observer must be for an AI Slop to keep thinking**, in world units.
+/// How close an observer must be for an AI Slop to keep thinking, in world units.
 ///
-/// **DERIVED from the view presets, not chosen by feel.** A wake radius below
+/// DERIVED from the view presets, not chosen by feel. A wake radius below
 /// the half-width of the view a player selected pops an actor into frame already
 /// moving. The five presets are 640/800/960/1120/1600 world units wide, so the
-/// half-widths are 320/400/480/**560**/800. `Cinematic`'s 560 is the widest that
+/// half-widths are 320/400/480/560/800. `Cinematic`'s 560 is the widest that
 /// is a PLAY choice; 720 clears it by 160 — five tiles at this level's `T` — so a
 /// slop has settled onto its column well before it is visible.
 ///
-/// **`Debug`'s 1600 is deliberately not covered.** A developer at twice the
+/// `Debug`'s 1600 is deliberately not covered. A developer at twice the
 /// gameplay view is looking for exactly this kind of thing, and sizing content for
 /// that zoom would leave the policy culling nothing.
 ///
@@ -67,7 +67,7 @@ pub struct AiSlop;
 /// single-enemy test OR fold into the combined Mary-O roster fragment — one fragment
 /// per provider, since assembly rejects a second from the same provider.
 
-/// **Ensure the `ai_slop` sheet is drawable**, keyed by BOTH its catalog id and its
+/// Ensure the `ai_slop` sheet is drawable, keyed by BOTH its catalog id and its
 /// display name, so the enemy render's `npc_asset_for_name` finds it instead of
 /// falling back to the generic goblin sheet.
 ///
@@ -117,10 +117,10 @@ pub fn register_ai_slop_sheet(
 // its SIZE stays here, and the difference is the rule: how big a slop is, is a
 // fact about the character; where it stands is a fact about the level.
 
-/// **How WIDE an AI Slop is, in world units.** The one authored number; its
+/// How WIDE an AI Slop is, in world units. The one authored number; its
 /// height follows from the art.
 ///
-/// **WIDTH is the anchor because width is what the level sees.** A slop
+/// WIDTH is the anchor because width is what the level sees. A slop
 /// patrols a corridor; how much of it it occupies is the fact a room is authored
 /// against, and 28 is what it occupied before — so this change costs no level a
 /// re-author. The height stops being a claim and becomes a measurement.
@@ -132,7 +132,7 @@ pub const AI_SLOP_BODY_WIDTH: f32 = 28.0;
 /// World units per sheet pixel, derived so the body is [`AI_SLOP_BODY_WIDTH`]
 /// wide and the art's own aspect decides the rest.
 ///
-/// **derived per call rather than pinned**, exactly like
+/// derived per call rather than pinned, exactly like
 /// `mary_o_world_per_pixel`: the sheets are regenerated regularly and every
 /// regeneration re-measures the alpha bbox, so a scale pinned to today's pixel
 /// count silently resizes the creature the first time a crop moves by a pixel.
@@ -152,7 +152,7 @@ pub fn ai_slop_half_size() -> ae::Vec2 {
     sheet.collision * world_per_pixel * 0.5
 }
 
-/// **Is this actor an AI Slop?**
+/// Is this actor an AI Slop?
 ///
 /// Both mobs made the same mistake twice, so the reasoning is written once.
 ///
@@ -165,7 +165,7 @@ pub fn is_ai_slop_brain(brain: &CharacterBrain) -> bool {
 /// Tag freshly staged AI Slop with the [`AiSlop`] marker, so the stomp rule finds
 /// its own, and hold it to the size its sheet describes.
 ///
-/// **an enemy's authored rectangle says WHERE, not HOW BIG.** The engine
+/// an enemy's authored rectangle says WHERE, not HOW BIG. The engine
 /// spawns an authored body at the rect the level draws, which is right for
 /// geometry and wrong for a character: how big a slop is, is a fact about the
 /// slop. The snake makes the same statement one step further along — its size
@@ -188,7 +188,7 @@ pub fn tag_mary_o_ai_slop(
     for (entity, config, mut body, mut kin) in &mut fresh {
         if is_ai_slop_brain(&config.brain) {
             let half = ai_slop_half_size();
-            // **WRITE THE AUTHORITY, NOT ONLY THE MIRROR.** `CenteredAabb` is DERIVED from
+            // WRITE THE AUTHORITY, NOT ONLY THE MIRROR. `CenteredAabb` is DERIVED from
             // `BodyKinematics.size` — `reset_to_spawn` and the mount seam both do `aabb.half_size =
             // kin.size * 0.5` — so writing the box alone reached the slop for two ticks and was
             // then overwritten by the size the spawn gave it.
@@ -212,7 +212,7 @@ pub fn tag_mary_o_ai_slop(
     }
 }
 
-/// **The head-stomp.** A player on an AI Slop's head bounces up and squashes it —
+/// The head-stomp. A player on an AI Slop's head bounces up and squashes it —
 /// the classic contact stomp, NOT the engine's attack-hitbox pogo. "On its head" is
 /// the shared [`crate::stomp::PlayerTouch::Top`] rule, so this and the snake's shell
 /// can never disagree about the same contact — and a player standing STILL on a mob
@@ -224,8 +224,8 @@ pub fn tag_mary_o_ai_slop(
 /// skips it; the body is then despawned. A SIDE touch (no head overlap) is left
 /// untouched here and lands as normal contact damage on Mary-O.
 ///
-/// **Why this despawns directly instead of routing through the shared actor-death
-/// path** (`HitEvent` → drops/score/debris): that path is DEFERRED — a hit emitted
+/// Why this despawns directly instead of routing through the shared actor-death
+/// path (`HitEvent` → drops/score/debris): that path is DEFERRED — a hit emitted
 /// here is consumed a stage later, so the mob would still be alive-and-hostile when
 /// the contact pass runs THIS frame and would hurt the stomper. And it has no score
 /// value and no drop table, so there is nothing for the shared path to carry. The

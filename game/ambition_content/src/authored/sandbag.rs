@@ -1,4 +1,4 @@
-//! **THE PRACTICE TARGET.** A body that exists to be hit: no aggro, no
+//! THE PRACTICE TARGET. A body that exists to be hit: no aggro, no
 //! strike back, excluded from the save file, and skipped by the path
 //! assignment — all of which is what `practice_target` says in one word.
 //!

@@ -18,7 +18,7 @@ use ambition_conversation::DialogueDispatch;
 /// Handle interactions with ECS switches and peaceful NPCs. Chests stay in
 /// `open_ecs_chests` because they have their own reward/persistence path.
 ///
-/// The interaction is resolved for the **controlled subject** — the body the
+/// The interaction is resolved for the controlled subject — the body the
 /// local player is driving (the home avatar during normal play, a possessed
 /// actor while possessing). Intent (the buffered `Interact` press) comes from
 /// slot-0's input surface, the primary player's `PlayerInteractionState`, which
@@ -32,7 +32,7 @@ pub fn interact_ecs_actors_and_switches(
     mut next_mode: ResMut<NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
     mut banner: ResMut<GameplayBanner>,
     controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
-    // **the buffered interact belongs to the SEAT DRIVING THE ACTING BODY**,
+    // the buffered interact belongs to the SEAT DRIVING THE ACTING BODY,
     // not to slot 0. Under possession those are different controllers, and
     // reading slot 0 meant a possessed body's interaction spent — and was gated
     // by — the home seat's press.
@@ -140,7 +140,7 @@ pub fn interact_ecs_actors_and_switches(
         let listener_id =
             ambition_conversation::character_id_of(interactable).unwrap_or(&identity.id);
 
-        // **THE DIALOGUE DECISION IS THE DIALOGUE DOMAIN'S.** Whether this pair
+        // THE DIALOGUE DECISION IS THE DIALOGUE DOMAIN'S. Whether this pair
         // has anything to say — a self-conversation needs an authored `__self`
         // branch — and what the conversation IS are both answered there; this
         // system owns the INTERACTION facts (a body, a reach box, a buffered
@@ -148,8 +148,8 @@ pub fn interact_ecs_actors_and_switches(
         //
         // `continue`, not `return`: another body in reach may still be talkable, and the
         // buffered press has not been consumed. An interaction that does not happen must leave
-        // no trace — no banner, no flags, no quest pump, no mode flip. **WHOSE conversation
-        // this is**, decided here because the `ParticipantId` ↔ `PlayerSlot` correspondence
+        // no trace — no banner, no flags, no quest pump, no mode flip. WHOSE conversation
+        // this is, decided here because the `ParticipantId` ↔ `PlayerSlot` correspondence
         // lives in exactly one place (`crate::participant_seat`) and that place is this crate.
         let input_owner = dialogue.driving_slot(subject).map_or(
             ambition_conversation::ConversationInputOwner::Primary,
@@ -231,7 +231,7 @@ pub fn interact_ecs_actors_and_switches(
 #[cfg(test)]
 mod tests;
 
-/// **Play the interact gesture on the body that ACTED.**
+/// Play the interact gesture on the body that ACTED.
 pub(crate) fn pose_interact(
     anims: &mut Query<&mut crate::actor::BodyAnimFacts>,
     body: Entity,

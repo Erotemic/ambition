@@ -1,4 +1,4 @@
-//! **what is asked here is that PREPARATION LOSES NOTHING.** A facet is only
+//! what is asked here is that PREPARATION LOSES NOTHING. A facet is only
 //! worth having if the numbers an author wrote come back out of the runtime
 //! moves unchanged; a lowering that dropped `hold_offset` would compile, pass
 //! every shape assertion, and put every captive in the wrong place.
@@ -67,7 +67,7 @@ fn a_well_formed_facet_has_nothing_to_report() {
     );
 }
 
-/// **THE ONE THAT MATTERS: every authored number survives preparation.**
+/// THE ONE THAT MATTERS: every authored number survives preparation.
 ///
 /// Read back out of the prepared moves rather than compared against the struct
 /// it came from — a test that asserted `kit.grab.reach == kit.grab.reach` would
@@ -151,7 +151,7 @@ fn an_authored_back_throw_arrives_and_the_others_stay_absent() {
     assert!(repertoire.down_throw.is_none());
 }
 
-/// **the grab that plays and catches nobody.** Every field is a plausible
+/// the grab that plays and catches nobody. Every field is a plausible
 /// number and the move is a recovery animation. `author_standing_grab` asserts
 /// on it, so without this the failure would be a panic during preparation
 /// rather than a diagnostic naming the file.
@@ -179,7 +179,7 @@ fn a_reach_with_no_area_is_refused() {
     );
 }
 
-/// **the sharpest one: a throw whose release is past its own end.** The move
+/// the sharpest one: a throw whose release is past its own end. The move
 /// plays, the wind-up reads, and the captive is still held when it finishes —
 /// which in a match looks like the grab being unbreakable rather than like a
 /// number being wrong.
@@ -240,7 +240,7 @@ fn a_throw_with_no_launch_direction_is_refused() {
     );
 }
 
-/// **The authored form round-trips.** A facet that serialises to RON the schema
+/// The authored form round-trips. A facet that serialises to RON the schema
 /// cannot read back is a facet nobody can hand-edit, which is the whole point of
 /// it being content.
 #[test]

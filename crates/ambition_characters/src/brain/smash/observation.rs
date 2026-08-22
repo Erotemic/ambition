@@ -92,7 +92,7 @@ impl ObservationFrame {
         ae::Vec2::new(self.down.y, -self.down.x)
     }
 
-    /// Target offset projected onto [`Self::up_axis`]: `> 0` ⇒ the target is
+    /// Target offset projected onto [`Self::up_axis`]: `> 0`  the target is
     /// *above* me (against gravity). The frame-agnostic replacement for the old
     /// `to_target_y < 0` "above" test. Under screen-down gravity equals
     /// `-to_target_y`.
@@ -107,7 +107,7 @@ impl ObservationFrame {
         ae::Vec2::new(self.to_target_x, self.to_target_y).dot(self.side_axis())
     }
 
-    /// My own velocity projected onto [`Self::up_axis`]: `> 0` ⇒ I am rising
+    /// My own velocity projected onto [`Self::up_axis`]: `> 0`  I am rising
     /// (moving against gravity). Under screen-down gravity equals `-self_vel.y`.
     pub fn self_vel_up(&self) -> f32 {
         self.self_vel.dot(self.up_axis())

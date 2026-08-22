@@ -1,5 +1,5 @@
 #![cfg(feature = "input")]
-//! **No two experiences may claim to be the sole publisher of one resource.**
+//! No two experiences may claim to be the sole publisher of one resource.
 //!
 //! `ExperienceScopeBuilder::releasing` removes a resource outright when its
 //! experience leaves, and the shape of that giveback IS a claim: *nobody else
@@ -9,7 +9,7 @@
 //! that removed it unconditionally would be one game deleting another's
 //! match."*
 //!
-//! **the claim is unfalsifiable from inside one declaration.** Versus says
+//! the claim is unfalsifiable from inside one declaration. Versus says
 //! "the match ends WITH its route" and removes `ActiveMatch` by type; Smash says
 //! "a match that ended with the route it ran on" and removes `ActiveMatch` by
 //! type. Each file reads as correct. Both are registered into the SAME host
@@ -18,7 +18,7 @@
 //! visible at all. That is why this lives in a test over the composed registry
 //! rather than in a reviewer's head.
 //!
-//! **this is the roster's lesson, one resource later — for the fourth time.**
+//! this is the roster's lesson, one resource later — for the fourth time.
 //! `MatchParticipantRoster` learned `published_by` across three separate
 //! incidents, the last one a stage opening with one fighter instead of two. Both
 //! files here carry a comment explaining that very lesson, correctly, on the
@@ -61,7 +61,7 @@ fn compose_the_shipped_host() -> App {
 /// Every REMOVAL in the composed host, keyed by the resource and naming the
 /// owner and the ownership claim it made.
 ///
-/// **removals only — a `Reset` is not evidence of publishing.** Putting a
+/// removals only — a `Reset` is not evidence of publishing. Putting a
 /// resource back to its default is a claim about staleness, not about who owns
 /// it, and counting it here would make two experiences sharing a cursor look
 /// like two experiences owning a match.
@@ -85,10 +85,10 @@ fn removals(app: &App) -> BTreeMap<&'static str, Vec<(String, ReleaseKind)>> {
     removals
 }
 
-/// **A resource more than one experience removes may not be removed BY TYPE.**
+/// A resource more than one experience removes may not be removed BY TYPE.
 ///
-/// The rule that holds: **a second experience declaring a removal is itself the evidence that a
-/// second experience publishes.** Nobody writes a giveback for state they never create.
+/// The rule that holds: a second experience declaring a removal is itself the evidence that a
+/// second experience publishes. Nobody writes a giveback for state they never create.
 #[test]
 fn a_resource_two_experiences_remove_is_never_removed_by_type() {
     let app = compose_the_shipped_host();
@@ -127,7 +127,7 @@ fn a_resource_two_experiences_remove_is_never_removed_by_type() {
     );
 }
 
-/// **the probe for the probe.** An invariant over a registry is worth exactly
+/// the probe for the probe. An invariant over a registry is worth exactly
 /// as much as the registry's contents, and a composition that registered one
 /// experience — or none — would satisfy the assertion above by having nothing to
 /// contest.

@@ -14,7 +14,7 @@ use super::*;
 /// because their lifecycle belongs to encounter state.
 pub fn sync_ecs_actors_with_save(
     mut commands: Commands,
-    // **The prepared cast**, so a provoked body can take its own CHARACTER's
+    // The prepared cast, so a provoked body can take its own CHARACTER's
     // answer instead of one matched out of its display name.
     prepared: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
@@ -36,10 +36,10 @@ pub fn sync_ecs_actors_with_save(
             super::actor_clusters::ActorClusterQueryData,
             // Is this body in a fight? A loaded save restores a body's read
             // model, and a combatant's attack state is part of it.
-            // **WHICH CHARACTER THIS BODY IS** — gameplay identity, not the
+            // WHICH CHARACTER THIS BODY IS — gameplay identity, not the
             // sprite's. See `provoke_actor_in_place`.
             Option<&ambition_characters::actor::WornCharacter>,
-            // **Is this body a practice target** — the authored flag lives on
+            // Is this body a practice target — the authored flag lives on
             // `BodyCombat` and only there (AC6.2); it used to be read off a
             // second copy in `ActorTuning`.
             &ambition_characters::actor::BodyCombat,

@@ -1,4 +1,4 @@
-//! **so this asks the SHEET, at `world_per_pixel = 1.0`**, which answers in
+//! so this asks the SHEET, at `world_per_pixel = 1.0`, which answers in
 //! sheet pixels — the unit the generator works in, and the same choice
 //! `hall_scale_spread` makes for the same reason.
 //!
@@ -8,14 +8,14 @@
 //! cargo test -p ambition_app --test app_it enemy_body_scale -- --ignored --nocapture
 //! ```
 //!
-//! **AND THE REPORT BELOW CANNOT ANSWER THE QUESTION IT WAS POINTED AT
-//! .** `print_enemy_bodies_against_the_player` asks
+//! AND THE REPORT BELOW CANNOT ANSWER THE QUESTION IT WAS POINTED AT
+//! . `print_enemy_bodies_against_the_player` asks
 //! [`posed_body_geometry`] at `world_per_pixel = 1.0`, so its `collision` column
 //! is the sheet's body bbox in sheet pixels and its `render` column is the
 //! sheet's FRAME in sheet pixels. Both are facts about a generated `.ron` file.
 //! Its `x_vs_p` / `y_vs_p` columns divide the COLLISION column by the player's,
-//! across sheets with completely different pixel densities. **No change to any
-//! sizing code can move a single number in it** — only regenerating art can.
+//! across sheets with completely different pixel densities. No change to any
+//! sizing code can move a single number in it — only regenerating art can.
 //! It was cited three times as the falsifier for the bbox-quad route; it is not
 //! one.
 
@@ -33,7 +33,7 @@ fn measured(target: &str) -> Option<(f32, f32, f32, f32)> {
     Some((g.collision.x, g.collision.y, g.render.x, g.render.y))
 }
 
-/// **The instrument.** Prints each subject's body box and drawn quad in sheet
+/// The instrument. Prints each subject's body box and drawn quad in sheet
 /// pixels, and both as a multiple of the player's.
 #[test]
 #[ignore]
@@ -62,7 +62,7 @@ fn print_enemy_bodies_against_the_player() {
     }
 }
 
-/// **The instrument cannot rot silently.**
+/// The instrument cannot rot silently.
 #[test]
 fn the_enemy_body_report_is_actually_measuring_something() {
     // SKIP, not fail, when the baked art is absent: sheets are generated and
@@ -91,7 +91,7 @@ fn the_enemy_body_report_is_actually_measuring_something() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// **What the RENDERER draws, against the box the body actually collides with.**
+// What the RENDERER draws, against the box the body actually collides with.
 // ─────────────────────────────────────────────────────────────────────────────
 
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
@@ -106,7 +106,7 @@ use ambition_platformer2d::sprite_sheet::character::sprite_render_size;
 /// claim about anybody's size.
 const LDTK_PLACEMENT: Vec2 = Vec2::new(28.0, 44.0);
 
-/// **The TWO independent render-size publishers, for one character.**
+/// The TWO independent render-size publishers, for one character.
 ///
 /// So this asks the OTHER publisher the same question about the SAME box:
 /// [`sprite_render_size`], which is what `bind_worn_character_presentation` uses
@@ -125,7 +125,7 @@ struct Publishers {
     /// What the renderer's quad actually DRAWS: the sheet's body rectangle
     /// scaled by the same quad/frame ratio the GPU applies to every pixel.
     render_ink: Vec2,
-    /// `render_quad.x/frame_w` over `render_quad.y/frame_h`. Not 1.0 ⇒ the art
+    /// `render_quad.x/frame_w` over `render_quad.y/frame_h`. Not 1.0  the art
     /// is scaled by different amounts per axis — the stretch this repo has
     /// already paid for once.
     stretch: f32,
@@ -156,7 +156,7 @@ fn publishers(catalog: &CharacterCatalog, id: &str) -> Option<Publishers> {
     })
 }
 
-/// **The instrument for the bbox-quad route.** For every character the shipped
+/// The instrument for the bbox-quad route. For every character the shipped
 /// host registers: the box it collides with, what each of the two publishers
 /// sizes its quad to, and what the renderer's quad actually draws.
 ///
@@ -236,12 +236,12 @@ fn print_the_two_render_size_publishers() {
     );
 }
 
-/// **The picture is the body, and the two publishers say the same thing.**
+/// The picture is the body, and the two publishers say the same thing.
 ///
 /// this asserts the CORRESPONDENCE, not a size. How tall anybody should be is
 /// character's drawing and its hurtbox describe the same creature is not.
 ///
-/// **asserted over the whole population rather than a sample**, because the
+/// asserted over the whole population rather than a sample, because the
 /// defect it pins was never one character: `collision_scale` was a per-sheet
 /// fudge, so a spot check on the one that happened to be tuned right reports the
 /// success condition.

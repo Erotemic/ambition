@@ -1,7 +1,7 @@
 //! Materializing each body's [`ActorActionScheme`] — the OBSERVATION CACHE of its
 //! derived slot→action scheme.
 //!
-//! **This component is NOT the authority.** The authoritative slot→gate
+//! This component is NOT the authority. The authoritative slot→gate
 //! resolution is the shared [`derive_action_scheme`] called DIRECTLY, each tick,
 //! on the body's immediate authorities at BOTH consumers: the gameplay persona
 //! gate (`gate_worn_player_control`) and the `ControlPrompt` read-model. Because

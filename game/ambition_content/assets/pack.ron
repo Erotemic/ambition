@@ -32,11 +32,11 @@
         (path: "data/character_catalog.ron", schema: "character_catalog", version: 1),
         (path: "data/items.ron", schema: "item_catalog", version: 1),
         (path: "data/encounters/goblin_encounter.ron", schema: "encounter_waves", version: 1),
-        // Nine difficulty rungs. ⛔ authored since 2026-07 and read by NOTHING until
+        // Nine difficulty rungs.  authored since 2026-07 and read by NOTHING until
         // this line: the engine floor (`for_level`) was consulted instead, so every
         // rung scored moves with the level-9 weight set.
         (path: "data/fighter_brain_ladder.ron", schema: "fighter_brain_ladder", version: 1),
-        // Nine difficulty rungs. ⛔ authored since 2026-07 and read by NOTHING until
+        // Nine difficulty rungs.  authored since 2026-07 and read by NOTHING until
         // this line: the engine floor (`for_level`) was consulted instead, so every
         // rung scored moves with the level-9 weight set.
         (path: "data/boss_profiles.ron", schema: "boss_profiles", version: 1),

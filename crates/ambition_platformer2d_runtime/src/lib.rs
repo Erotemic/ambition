@@ -1,40 +1,9 @@
-//! The platformer ENGINE face — [the sim assembly] (decomposition E5):
-//! [`PlatformerEnginePlugins`], a Bevy [`PluginGroup`] that assembles the
-//! **content-free simulation plugins** shared by every platformer built on
-//! this engine, plus the shared app-foundation helpers every entry point
-//! (visible, headless, RL, demo) composes with.
+//! Content-free platformer simulation assembly.
 //!
-//! ## Why this crate
-//!
-//! A game — Ambition, or a demo (`demos/…`) — builds its simulation App by
-//! adding this group plus its OWN content crate:
-//!
-//! ```ignore
-//! let mut app = App::new();
-//! ambition_platformer2d_runtime::add_headless_foundation(&mut app); // or DefaultPlugins + init_engine_states
-//! app.add_plugins(ambition_platformer2d_runtime::PlatformerEnginePlugins::default())
-//! .add_plugins(my_content::MyGameContentPlugin);
-//! ```
-//!
-//! This is **the demo gate**: a demo app depends on `ambition_platformer2d_runtime`, never
-//! on `ambition_app`. The group carries only plugins that name no content and
-//! reach for no app-local system — the sim schedule SETS + engine resources
-//! ([`Platformer2dSimulationFoundationPlugin`]), the universal brain, gravity, traversal abilities,
-//! item pickups, encounters/cutscenes, feature collection/interaction/effects/
-//! view-sync, room reset, traces, affordances, and the combat-phase chain
-//! ([`CombatSchedulePlugin`]) with its content extension slots.
-//!
-//! ## What is deliberately NOT here
-//!
-//! The app-LOCAL residue the E5 carve deliberately left behind: the Ambition
-//! reset-INPUT consumer (its button binding is Ambition's), the home-reset
-//! policy + player presentation sync, the room-transition APPLY composer
-//! (`load_room` + render spawns), and the catalog/roster content installs. Each
-//! pins itself into a documented ordering SLOT between engine systems (see
-//! `player_schedule` / `room_schedule` module docs).
-//!
-//! Presentation, audio, windowing, dev tools, and CONTENT are never in this
-//! group — [the windowed host] (`ambition_platformer2d_host`) and the game's app own those.
+//! [`PlatformerEnginePlugins`] installs shared simulation schedules, resources,
+//! gameplay systems, and extension slots used by visible, headless, RL, and
+//! demo hosts. Game content, windowing, presentation, audio, and host-specific
+//! input policy are composed outside this crate.
 
 use bevy::app::{App, FixedUpdate, Plugin, PluginGroup, PluginGroupBuilder, Update};
 use bevy::ecs::resource::Resource;

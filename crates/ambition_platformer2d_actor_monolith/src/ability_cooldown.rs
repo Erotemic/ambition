@@ -1,13 +1,5 @@
-//! Shared cooldown for the movement abilities (Blink, Grapple) so they read as
-//! deliberate verbs instead of spammable teleports.
-//!
-//! Stored as a per-BODY [`AbilityCooldown`] component, lazily inserted on first
-//! use. A single shared timer per body is fine: a body holds one ability at a
-//! time, so only the equipped ability's cooldown is ever in play.
-//!
-//! **Body-generic, not player-only (S5/S6 fold, refactor-chain R6a).** `blink` and `grapple`
-//! already act on the `ControlledSubject` — any body the human is driving — and arm the
-//! cooldown on THAT body.
+//! Shared per-body cooldown for movement abilities such as Blink and Grapple.
+//! The component is inserted lazily on the acting body.
 
 use bevy::prelude::*;
 
@@ -54,13 +46,7 @@ pub fn try_use_ability(
     }
 }
 
-/// Tick EVERY body's ability cooldown down by scaled dt, so bullet-time / pause
-/// slow it the same way they slow everything else.
-///
-/// No `With<PrimaryPlayer>` filter: a body only carries this component once it has
-/// actually used an ability, and `blink`/`grapple` arm it on the
-/// `ControlledSubject` — which may be a possessed actor. Filtering to the home
-/// avatar left a possessed body's cooldown armed forever.
+/// Tick all body ability cooldowns using scaled simulation time.
 pub fn tick_ability_cooldown(
     time: Res<ambition_time::WorldTime>,
     mut bodies: Query<&mut AbilityCooldown>,

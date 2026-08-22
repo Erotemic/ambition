@@ -1,4 +1,4 @@
-//! **Ambition's fighter-brain ladder, validated.** `fighter-brain.md` §4 makes the
+//! Ambition's fighter-brain ladder, validated. `fighter-brain.md` §4 makes the
 //! nine rows content; §3's humanity checks make them checkable.
 //!
 //! Every assertion here would otherwise surface as *"the levels do not order
@@ -19,7 +19,7 @@ fn the_shipped_ladder_is_well_formed() {
     assert_eq!(ladder().rungs().len(), 9);
 }
 
-/// **§1.3, kept.** *"Level 9 = small numbers, never zero."* A shipped difficulty
+/// §1.3, kept. *"Level 9 = small numbers, never zero."* A shipped difficulty
 /// that reacted instantly would be a cheating CPU wearing a level's name — and the
 /// perception seam would let it, because `DelayedPerception::new(0)` is a legal
 /// buffer for RL rigs.
@@ -38,7 +38,7 @@ fn no_shipped_level_reacts_instantly() {
     assert_eq!(ladder().level(1).unwrap().delay(60.0).delay_ticks(), 30);
 }
 
-/// **L3 is an upgrade, never a dependency** (§1). Every shipped row runs with
+/// L3 is an upgrade, never a dependency (§1). Every shipped row runs with
 /// rollouts OFF, because N3.1's `restore` does not exist. The ladder still plays,
 /// on L2's scores alone, and FB6 turns these on without touching a difficulty's
 /// identity.
@@ -49,9 +49,9 @@ fn the_whole_shipped_ladder_plays_without_l3() {
     }
 }
 
-/// **The pack LOWERS the ladder, which is the whole point of migrating it.**
+/// The pack LOWERS the ladder, which is the whole point of migrating it.
 ///
-/// **the tests above this one all passed while the game read none of it.**
+/// the tests above this one all passed while the game read none of it.
 /// Every one of them parses `LADDER_RON` itself, so they were green for as long
 /// as the file was well-formed — including the entire period when
 /// `fighter_brain_ladder.ron` was authored content that nothing in the running
@@ -59,8 +59,8 @@ fn the_whole_shipped_ladder_plays_without_l3() {
 /// itself as the floor a game overrides) was consulted at both production call
 /// sites instead.
 ///
-/// so this test asks the only question the others cannot: **is it in the
-/// pack?** It reads the prepared pack rather than the file, so it fails if the
+/// so this test asks the only question the others cannot: is it in the
+/// pack? It reads the prepared pack rather than the file, so it fails if the
 /// manifest stops declaring the source, if the schema stops being registered, or
 /// if lowering breaks — none of which the parse tests can see.
 #[test]

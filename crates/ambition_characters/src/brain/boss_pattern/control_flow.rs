@@ -1,4 +1,4 @@
-//! **BD1 — the three authored-logic atoms, as pure functions.**
+//! BD1 — the three authored-logic atoms, as pure functions.
 //!
 //! `docs/planning/engine/boss-design.md` §1: *"today's `BossPattern` sequencing
 //! covers timed/scripted beats; add the three authored-logic atoms fights keep
@@ -11,7 +11,7 @@
 //!
 //! ## Resolution, not interpretation
 //!
-//! A `Select` is rolled **when the timeline is resolved**, not when the cursor
+//! A `Select` is rolled when the timeline is resolved, not when the cursor
 //! reaches it. Resolution happens on phase change, on stance enter/leave, and
 //! each time the cursor loops — so for a looping script, "roll once when reached"
 //! and "roll once per pass" are the same thing.

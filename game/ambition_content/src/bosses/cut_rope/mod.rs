@@ -67,7 +67,7 @@ pub fn is_cut_rope_boss(id: &str) -> bool {
 // `session::reset::RoomReplayRequested` — content emits it; no
 // content-named replay message exists.
 
-/// **The player chose "try again".**
+/// The player chose "try again".
 #[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CutRopeRoomReplayRequested;
 
@@ -75,7 +75,7 @@ pub struct CutRopeRoomReplayRequested;
 /// intentionally waits until the conversation is over, so the final NPC line
 /// remains visible until the player dismisses it.
 ///
-/// **rollback state, because it BRIDGES TICKS.** The choice is made while the
+/// rollback state, because it BRIDGES TICKS. The choice is made while the
 /// last line is still on screen and the reset happens whenever the player
 /// dismisses it — an unbounded number of ticks later. A latch that spans ticks
 /// and is written by the simulation is simulation state; leaving it out meant a

@@ -1,11 +1,11 @@
-//! Focus Beam — a player-wielded **directional line attack**: a long, thin,
+//! Focus Beam — a player-wielded directional line attack: a long, thin,
 //! aimed [`Hitbox`] that damages every enemy along its length.
 //!
 //! This is the third wielded boss-style attack, alongside [`crate::abilities::ranged::shockwave`]
 //! (a centered AOE) and [`crate::abilities::ranged::volley`] (a ranged fan). Where the shockwave
 //! slams a compact box at the player's feet, the beam reaches *forward* along
 //! the aim as a long thin box — a single readable lance that skewers a line of
-//! enemies. It is the **smirking_behemoth** (the eye-beam boss) signature
+//! enemies. It is the smirking_behemoth (the eye-beam boss) signature
 //! gauntlet: defeat the boss whose tell is a focused eye beam, wield the beam
 //! yourself ("every boss a failed objective function, learn its attack").
 //!
@@ -76,7 +76,7 @@ fn beam_geometry(aim: ae::Vec2, facing: f32) -> (ae::Vec2, ae::Vec2) {
 }
 
 /// `Attack` while holding the beam gauntlet fires an aimed line [`Hitbox`] of
-/// **Player** faction along the dominant aim axis. Plain Attack only —
+/// Player faction along the dominant aim axis. Plain Attack only —
 /// `Shield + Attack` drops the item (the id is `UseSystem`, excluded from
 /// throw-on-plain-Attack in `throw_held_item_system`).
 pub fn fire_beam_system(

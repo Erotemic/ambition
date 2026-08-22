@@ -971,41 +971,9 @@ fn mirror_x_if_flipped_reflects_about_axis_only_when_facing_left() {
     );
 }
 
-/// **When the sample's PROFILE and its ANIMATION KEY disagree, the profile
-/// wins** — pinned before the boss-animator fold moves the type.
-///
-/// this is the one risk in that fold, and it is stated by the field's own
-/// doc. `BossAnimationFrameSample.profile` is never read as data: it appears
-/// exactly twice, both times as an identity check —
-/// `sample.profile.as_ref() == Some(profile)` — asking "is the row being
-/// rendered the one this profile drives".
-///
-/// The obvious generalisation is to ask that question with `animation_key`
-/// instead, which is what makes the sample character-generic and gets
-/// `BossAttackProfile` out of the gameplay geometry path. But `animation_key`
-/// exists precisely because the two CAN disagree ("prevents future profile↔row
-/// alias drift from silently selecting a fallback box"), so that swap is a
-/// BEHAVIOUR CHANGE on which hitbox a boss swings, not a rename.
-///
-/// This pins today's answer so the change cannot be made silently. It asserts
-/// the FRAME the derivation chose, which is the observable the profile check
-/// controls: with a matching profile the sample's `frame_index` is honoured, and
-/// a mismatched KEY does not stop that.
-///
-/// **it guards the HURTBOX path only** — `damageable_volumes` →
-/// `AnimationSelection::live_frame_index` (`mod.rs`). There are THREE identity
-/// checks, not the two a first survey found:
-///
-/// ```text
-///   mod.rs   AnimationSelection::live_frame_index   hurtboxes   ← this test
-///   frame.rs authored_animation_frame_index         hitboxes    ← NOT covered
-///   mod.rs   the same expression's `None` arm       the idle pose
-/// ```
-///
-/// PROBED at the right site: swapping `mod.rs`'s check to a key comparison
-/// fails this with `Got Vec2(0.0, 25.0)`. Swapping `frame.rs`'s does NOT — which
-/// is how the third site was found, and is why this docstring says which path it
-/// covers instead of claiming the fold is guarded.
+/// The hurtbox frame selection uses `BossAnimationFrameSample.profile` as its identity check.
+/// A mismatched `animation_key` must not override a matching profile; hitbox selection is covered
+/// separately.
 #[test]
 fn a_samples_profile_decides_the_frame_even_when_its_animation_key_does_not_match() {
     use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
@@ -1102,7 +1070,7 @@ fn a_samples_profile_decides_the_frame_even_when_its_animation_key_does_not_matc
     );
 }
 
-/// **The same pin for the HITBOX path**, which the hurtbox test above cannot
+/// The same pin for the HITBOX path, which the hurtbox test above cannot
 /// reach — that is how the third identity check was found.
 ///
 /// `active_attack_volumes` → `sprite_authored_volumes` →
@@ -1201,7 +1169,7 @@ fn the_hitbox_path_also_takes_its_frame_from_the_profile_not_the_key() {
     );
 }
 
-/// **The IDLE arm — and it is the one no `animation_key` can express.**
+/// The IDLE arm — and it is the one no `animation_key` can express.
 ///
 /// `AnimationSelection::live_frame_index`'s `None` arm reads
 /// `sample.profile.is_none().then_some(sample.frame_index)`: "the rendered row
@@ -1209,7 +1177,7 @@ fn the_hitbox_path_also_takes_its_frame_from_the_profile_not_the_key() {
 /// hurtbox bob with the breathing animation instead of locking to frame 0 — the
 /// sample's own doc says so.
 ///
-/// **an absent `animation_key` is a different fact**: it means the renderer could not resolve one.
+/// an absent `animation_key` is a different fact: it means the renderer could not resolve one.
 /// So a key-only sample cannot distinguish "this is the rest pose" from "I don't know what row this
 /// is", and the fold's clean design (`animation_key: Option<String>`) silently loses the idle case.
 ///
@@ -1307,36 +1275,9 @@ fn an_idle_sample_carries_its_frame_and_an_absent_key_cannot_say_that() {
     );
 }
 
-/// **A profile that claims NO rows still gets its hurtbox from the sample — and
-/// nothing tested that until now.**
-///
-/// This is `apple_rain`'s situation, reproduced without needing the app's
-/// catalog: an unregistered `Special` yields an empty key list, exactly as the
-/// shipped one does for `apple_rain`. Its damageable row is found only because
-/// `runtime_animation_keys` pushes the SAMPLE's own key into that list when the
-/// sample's profile matches.
-///
-/// **that push is the circularity blocking the boss-animator fold**, and removing it left all
-/// 21 derivation tests green — which is how this gap was found.
-///
-/// PROBED: with the push deleted, this fails — the empty key list finds no
-/// authored row and the hurtbox falls back to the body box.
-/// **The circularity, asserted as a PROPERTY instead of argued about in a
-/// comment.**
-///
-/// The test below proves the rescue works. This one proves it is a rescue: that
-/// for this profile the sample's key is the ONLY thing naming a row, which is
-/// precisely the condition under which a key-based rule would miss and fall back
-/// to elapsed-time sampling — a different hurtbox on a live boss.
-///
-/// **why this is worth a second test.** The fold's precondition was written down in two doc
-/// comments and one planning row, and nothing evaluated it. Now it is a predicate: when the
-/// content decision lands and `apple_rain` gets its rows in `special_animation_keys()`, this
-/// assertion flips, and the fold's precondition is a test result rather than an argument.
-///
-/// this is the engine-side reproduction (an unregistered `Special`), so it
-/// cannot see the shipped catalog. The content-side pin is
-/// `apple_rain_claims_no_animation_rows_which_is_why_the_fold_is_blocked`.
+/// An unregistered `Special` has no profile rows, so its sample key must name
+/// the authored damageable row. Without that key the hurtbox falls back to the
+/// body box. The content-side counterpart pins `apple_rain` to this condition.
 #[test]
 fn the_row_is_found_only_because_the_sample_names_it() {
     use crate::behavior::BossBehaviorProfile;

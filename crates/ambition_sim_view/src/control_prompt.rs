@@ -48,12 +48,12 @@ pub enum ControlContextKind {
     Empty,
 }
 
-/// **Does a gameplay prompt name the BUTTON, or the MOVE currently on it?**
+/// Does a gameplay prompt name the BUTTON, or the MOVE currently on it?
 ///
 /// plain. E.g. \"Attack\" \"Special\" \"Jump\" \"Grab\", no context sensitive naming
 /// of the move in smash, at least not yet."*
 ///
-/// **`ByMove` stays the DEFAULT**, so every experience that did not ask keeps
+/// `ByMove` stays the DEFAULT, so every experience that did not ask keeps
 /// exactly the prompt it had. This is a knob, not a policy change — "at least
 /// not yet" is a decision that may come back, and the move-naming machinery is
 /// worth keeping working while it is switched off.
@@ -72,14 +72,14 @@ pub enum PromptNaming {
 
 /// The plain, player-facing name of a button.
 ///
-/// **this lives in the PRESENTATION layer on purpose, not on `ControlSlot`.**
+/// this lives in the PRESENTATION layer on purpose, not on `ControlSlot`.
 /// A slot is an engine identity — `Burst` is the right internal name for the
 /// channel dodge and dash share — and the player-facing word is a different
 /// question the engine should not get to answer. It is also why this is not
 /// `title_case_id` over the variant name: `"Projectile"` is what the engine
 /// calls it and `"Shot"` is what the button says.
 ///
-/// **exhaustive on purpose.** A new `ControlSlot` variant must choose its word
+/// exhaustive on purpose. A new `ControlSlot` variant must choose its word
 /// here rather than inherit a wrong one from a catch-all arm.
 fn button_label(slot: ControlSlot) -> &'static str {
     match slot {
@@ -87,7 +87,7 @@ fn button_label(slot: ControlSlot) -> &'static str {
         ControlSlot::Attack => "Attack",
         ControlSlot::Special => "Special",
         ControlSlot::Projectile => "Shot",
-        // **the one GENRE-DEPENDENT word here, flagged rather than settled.**
+        // the one GENRE-DEPENDENT word here, flagged rather than settled.
         // The slot is `Burst` because dodge and dash are one press; "Dodge" is
         // what a platform fighter's player calls that button and "Dash" is what
         // a platformer's does. `ByButton` has exactly one adopter today (smash),
@@ -117,7 +117,7 @@ pub struct PromptEntry {
     /// "Z", "A", "Cross" — or `None` when nothing bound it (or when no
     /// projection is installed, as in a headless sim).
     ///
-    /// **read from `SeatBindings`, never written by hand.** The verb and the
+    /// read from `SeatBindings`, never written by hand. The verb and the
     /// key are two different facts with two different owners: the verb is what
     /// this slot DOES (the action scheme's answer) and the binding is which
     /// control presses it (the input map's). A prompt that hardcoded the second
@@ -187,7 +187,7 @@ pub fn publish_frontend_context_prompt(
     set_prompt(&mut prompt, context, Vec::new(), confirm);
 }
 
-/// **The set [`rebuild_control_prompt`] runs in — the prompt view is rebuilt.**
+/// The set [`rebuild_control_prompt`] runs in — the prompt view is rebuilt.
 ///
 /// Anything contributing a cue for this frame's prompt must land before it, and
 /// three call sites say so: two inside this crate and one in the app's menu.
@@ -387,8 +387,8 @@ pub fn rebuild_control_prompt(
     set_prompt(&mut prompt, ControlContextKind::Gameplay, entries, None);
 }
 
-/// **Is the player working a SURFACE rather than driving a body — and what does
-/// its confirm control say?**
+/// Is the player working a SURFACE rather than driving a body — and what does
+/// its confirm control say?
 ///
 /// `Empty` is what the touch overlay reads to hide the move stick and the confirm buttons, and a
 /// hidden node takes no drags, so such a surface drew perfectly and could not be touched. Every
@@ -455,8 +455,8 @@ mod tests {
         a.blink = false;
         a.fly = false;
         a.shield = false;
-        // **a move table is WHAT the attack is; the ability is WHETHER this body may attack at
-        // all**. So a fixture that hands a body an attack MOVE has to say the body may attack,
+        // a move table is WHAT the attack is; the ability is WHETHER this body may attack at
+        // all. So a fixture that hands a body an attack MOVE has to say the body may attack,
         // or the scheme resolves no Attack slot and every label here reads `None`.
         a.attack = attack_move.is_some();
         let mut m = MovesetContract::default();
@@ -510,7 +510,7 @@ mod tests {
         assert_eq!(prompt.label_for(ControlSlot::Special), None);
     }
 
-    /// **The prompt shows the key, and the key is the one the router reads.**
+    /// The prompt shows the key, and the key is the one the router reads.
     ///
     /// The verb and the binding are two facts with two owners — what the slot
     /// DOES (the action scheme) and which control presses it (the input map).
@@ -586,7 +586,7 @@ mod tests {
         );
     }
 
-    /// **The prompt spells the button the way the seat's own pad does.**
+    /// The prompt spells the button the way the seat's own pad does.
     ///
     /// and picking up a different pad has to reach it. The BINDING does not move when a player
     /// swaps a DualSense for an Xbox pad, so the projection stays quiet and a cache keyed on it
@@ -698,7 +698,7 @@ mod tests {
         );
     }
 
-    /// **A surface that published a cue owns input even with no body to drive.**
+    /// A surface that published a cue owns input even with no body to drive.
     ///
     /// The no-subject exit answered `Empty` unconditionally, twenty lines below
     /// an exit that already folded the cue in — so a cue published by a surface
@@ -735,7 +735,7 @@ mod tests {
         );
     }
 
-    /// **The poison: no body AND no cue is still `Empty`.**
+    /// The poison: no body AND no cue is still `Empty`.
     ///
     /// This is the case the original comment defends and the reason `Empty`
     /// exists at all — a genuine cold start, where nothing has claimed the
@@ -947,8 +947,8 @@ mod tests {
         );
     }
 
-    /// **A removed cue resource must refresh the verb on an otherwise-quiet
-    /// frame.** `is_changed()` on an `Option<Res<T>>` says nothing at all about
+    /// A removed cue resource must refresh the verb on an otherwise-quiet
+    /// frame. `is_changed()` on an `Option<Res<T>>` says nothing at all about
     /// a `Some -> None` transition, so before the presence bits joined the
     /// cache key this frame was skipped and the prompt kept the dead cue's
     /// verb.
@@ -1031,7 +1031,7 @@ mod tests {
         );
     }
 
-    /// **Removing `SeatInputContexts` hands the prompt back to the sim.** While
+    /// Removing `SeatInputContexts` hands the prompt back to the sim. While
     /// a frontend context owns the prompt the rebuild yields; when the resource
     /// is REMOVED (host teardown — a transition no change detection reports),
     /// the next frame must re-derive the gameplay scheme rather than serve the

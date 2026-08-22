@@ -179,7 +179,7 @@ fn raised_full_loop_points(floor_top: f32) -> (Vec<ae::Vec2>, ae::Vec2) {
 pub const SANIC_CHARACTER_ID: &str = "sanic";
 pub const SUPER_SANIC_CHARACTER_ID: &str = "super_sanic";
 
-/// **What the super form IS**, composed from engine traits rather than named as
+/// What the super form IS, composed from engine traits rather than named as
 /// a mode: he cannot be hurt, and what he touches is destroyed.
 ///
 /// The same two traits Mary-O's cosmic quasar composes, which is the point —
@@ -254,14 +254,14 @@ pub const SPEED_MARKER_XS: [f32; 5] = [808.0, 1608.0, 2600.0, 3608.0, 5000.0];
 /// The signage id of the speedway's control legend — the sign at the start
 /// line that tells a player which buttons do what.
 ///
-/// **two layers prefix it**, so a reader matches the SUFFIX rather than the
+/// two layers prefix it, so a reader matches the SUFFIX rather than the
 /// whole string: the room prefixes its authored label ids with `sanic_`, and the
 /// renderer prefixes the spawned entity's `owner_id` with `signage:{index}:`.
 /// No other sign on the speedway ends this way (the others are `loop`, `finish`
 /// and `marker_N`).
 const LEGEND_LABEL_ID: &str = "start";
 
-/// **The legend, written from whatever is actually bound.**
+/// The legend, written from whatever is actually bound.
 ///
 /// a legend written as a literal cannot help but drift from the controls
 /// beside it, and this one did. `bindings` is the seat's LIVE projection when
@@ -292,7 +292,7 @@ fn control_legend(
 
 /// Rewrite the speedway's legend from the seat's live bindings.
 ///
-/// **presentation-time, because generation-time cannot know.** The sign is
+/// presentation-time, because generation-time cannot know. The sign is
 /// baked into the room, and a room is built before any settings are read — so a
 /// player on a non-default preset, or one who has remapped a single key, was
 /// told to press a key that does nothing. That is the same staleness
@@ -362,8 +362,8 @@ pub fn sanic_speedway() -> RoomSpec {
     let loop_center = graft_loop_route(&mut room.world);
     // The converter has read an authored `sprite` field the whole time — the speedway's
     // `PickupSpawn`s simply never carried one, so a Rust pass supplied it after the fact. They
-    // author `sprite: sanic_ring_prop` now. **the DROPPED rings still name their sprite in code,
-    // and correctly so.** `scatter_rings_on_hit` mints them at runtime from a hit event — there is
+    // author `sprite: sanic_ring_prop` now. the DROPPED rings still name their sprite in code,
+    // and correctly so. `scatter_rings_on_hit` mints them at runtime from a hit event — there is
     // no authored entity to carry a field, so `RING_SPRITE_KIND` there is the spawn site stating
     // its own identity rather than a pass repairing one. That is the line between the two: patching
     // what a file already describes is the workaround; naming what only exists at runtime is not.
@@ -526,7 +526,7 @@ const SANIC_CATALOG_RON: &str = r#"(
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["player"],
-            // **WHAT THIS BODY MAY DO, STATED**.
+            // WHAT THIS BODY MAY DO, STATED.
             //
             // A row that authors no grants falls back to the DEV SANDBOX set
             // (`EditableAbilitySet::default()` is `sandbox_all`), so Sanic was quietly carrying
@@ -534,14 +534,14 @@ const SANIC_CATALOG_RON: &str = r#"(
             // glide, dodge and a bubble shield — while his control gate resolved Attack and Utility
             // onto his own techniques and hid it.
             //
-            // **`RunJump`, which is the whole of a classic runner's kit**:
+            // `RunJump`, which is the whole of a classic runner's kit:
             // steer, jump, and let go of the button to jump shorter. Everything
             // that makes this a Sanic demo is somewhere else and stays there —
             // the momentum model below is what rides the loop, and spin dash and
             // the transform are TECHNIQUES (`declare_sanic_techniques`), which
             // are named actions on the body rather than engine verbs.
             //
-            // **and it does not touch him on the SMASH grid.** A catalog grant
+            // and it does not touch him on the SMASH grid. A catalog grant
             // list is read by `session/setup` for a session's own avatar; a match
             // seat takes the stage's own `MatchAbilities`, which GRANTS the
             // platform-fighter kit to every fighter. So Sanic still counts in
@@ -1106,7 +1106,7 @@ pub enum SanicActPhase {
     },
 }
 
-/// Sanic's level rules. **ONE system list; a constructor flag decides its gating** —
+/// Sanic's level rules. ONE system list; a constructor flag decides its gating —
 /// [`SanicRulesPlugin::hosted`] when Ambition hosts the demo alongside its own rooms,
 /// [`SanicRulesPlugin::global`] when the demo IS the game.
 pub struct SanicRulesPlugin {
@@ -1140,11 +1140,11 @@ impl Plugin for SanicRulesPlugin {
         // cycle does. The engine registers this in a full app; a thin
         // rules-only harness may not, and `add_message` is idempotent.
         app.add_message::<ambition_platformer2d::actors::session::reset::RoomReplayRequested>();
-        // **SANIC'S DEATH RULES** (ADR 0033). No interlude — losing a run in a
+        // SANIC'S DEATH RULES (ADR 0033). No interlude — losing a run in a
         // speed game is instant, and he has no death beat authored — and the act
         // goes back when nobody is left in play.
         //
-        // **stating this is not optional.** The engine's default is `Never`, which is correct for a
+        // stating this is not optional. The engine's default is `Never`, which is correct for a
         // versus stage and wrong for anything with a level: a pit that resets nothing leaves the
         // body falling out of the world forever.
         //
@@ -1256,9 +1256,9 @@ impl Plugin for SanicRulesPlugin {
         )
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects);
-        // **The super form states its TRAITS before the engine runs them.**
+        // The super form states its TRAITS before the engine runs them.
         //
-        // **an ORDER, not an installation.** `apply_contact_harm` is still
+        // an ORDER, not an installation. `apply_contact_harm` is still
         // deliberately absent from this game: `defeat_badniks` already owns the
         // destroy-on-touch reaction, including its pop and its bounce, and two
         // authorities killing the same badnik is what that choice exists to
@@ -1473,7 +1473,7 @@ fn transform_technique() -> ambition_platformer2d::entity_catalog::action_scheme
 /// and `WornCharacter` stays the single gameplay + presentation authority. No
 /// timer: a future ring drain can wear the form off the same way this toggle does.
 ///
-/// **and it sheds the speed shoes**, because a wear REPLACES the live `MomentumParams` wholesale: a
+/// and it sheds the speed shoes, because a wear REPLACES the live `MomentumParams` wholesale: a
 /// shoes grant that outlives the swap would later "restore" a baseline saved from the other form's
 /// authored row.
 fn toggle_sanic_form(
@@ -1856,7 +1856,7 @@ const SCATTER_RESTITUTION: f32 = 0.55;
 /// COSTS here: the purse bursts across half a screen and the window is the whole of your chance to
 /// run it back down.
 ///
-/// **it RAISES the running window, never replaces it.** A hazard respawn arms
+/// it RAISES the running window, never replaces it. A hazard respawn arms
 /// a longer one, and dropping rings inside that must not cut it short.
 pub(crate) const RING_LOSS_INVULN_S: f32 = 2.0;
 
@@ -1896,8 +1896,8 @@ pub struct ScatteredRing {
 /// writer in the workspace: this file.
 ///
 /// [`sync_sanic_wallet_shield`] states that instead of relying on it: a body is
-/// Sanic's business when it **wears a Sanic persona** (Sanic's rule speaks for
-/// it) or **already carries a shield** — the second half is the giveback for a
+/// Sanic's business when it wears a Sanic persona (Sanic's rule speaks for
+/// it) or already carries a shield — the second half is the giveback for a
 /// body that stopped wearing Sanic, and it is a CLAIM (*nothing else grants
 /// this*) rather than an accident. A George Booul on a Smash stage is neither,
 /// and the loop skips him before it decides anything.
@@ -1921,7 +1921,7 @@ fn is_sanic_persona(id: &str) -> bool {
     matches!(id, "sanic" | "super_sanic")
 }
 
-/// **The one system that answers "does this body's wallet absorb a hit?"**
+/// The one system that answers "does this body's wallet absorb a hit?"
 ///
 /// The answer is *yes* for a Sanic persona standing in a Sanic room, and *no*
 /// for everything this ruleset speaks for — which is a strictly smaller set than
@@ -1942,7 +1942,7 @@ fn sync_sanic_wallet_shield(
     let in_sanic_rooms = active.is_some_and(|active| active.0.mode.as_deref() == Some(SANIC_MODE));
     for (entity, worn, shielded) in &bodies {
         let sanic_persona = is_sanic_persona(worn.id());
-        // **not this ruleset's body.** See `SanicShieldBodies`: Sanic answers
+        // not this ruleset's body. See `SanicShieldBodies`: Sanic answers
         // for the bodies wearing his personas, plus whatever already carries a
         // shield he is the only writer of. Everything else — every fighter on a
         // Smash stage this demo is composed beside — is somebody else's.
@@ -2101,7 +2101,7 @@ pub fn scatter_rings_on_hit(
     }
 }
 
-/// **The whole life of a lost ring**: burst outward, arc down, bounce off what
+/// The whole life of a lost ring: burst outward, arc down, bounce off what
 /// it lands on, become collectible, and expire.
 ///
 /// Ordered `.after(magnetize_pickups).before(collect_ecs_pickups)`, so a ring is
@@ -2248,7 +2248,7 @@ pub fn act_time_text(seconds: f32) -> String {
     format!("{}:{:02}", whole / 60, whole % 60)
 }
 
-/// **Crossing the goal clears the act.**
+/// Crossing the goal clears the act.
 ///
 /// Captures the time and the rings AT THE CLEAR — the results card reads those,
 /// not the live values, so picking a ring up during the outro cannot rewrite a
@@ -2384,7 +2384,7 @@ pub fn clear_act_at_goal(
     }
 }
 
-/// **The act restarts once the results have been read.**
+/// The act restarts once the results have been read.
 ///
 /// Same shape as Mary-O's cyclic level: the dwell is what makes the tally
 /// legible before the world rebuilds under it, and the restart itself is the
@@ -2409,7 +2409,7 @@ pub fn cycle_act_after_clear(
     }
 }
 
-/// **Value projections for this demo's rollback state.**
+/// Value projections for this demo's rollback state.
 ///
 /// Companion to Mary-O's `rollback_probes`, added in the same pass and for the same reason:
 /// every one of these registrations was PRESENCE-ONLY, and the checker that says so had never
@@ -2426,7 +2426,7 @@ mod rollback_probes {
             ^ ((dash.contact_grace.to_bits() as u64) << 1).rotate_left(11)
     }
 
-    /// **captured INPUT is rollback state, and its edges are the point.** A
+    /// captured INPUT is rollback state, and its edges are the point. A
     /// rewind that restored the charge but not `crouch_released` re-runs the
     /// launch frame with the edge already consumed, so the two timelines
     /// disagree about whether the dash fired at all.

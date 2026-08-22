@@ -68,13 +68,13 @@ pub type CausalLend<'w> = Option<ResMut<'w, ambition_causal::CausalRecording>>;
 #[cfg(not(feature = "causal"))]
 pub type CausalLend<'w> = std::marker::PhantomData<&'w ()>;
 
-/// **Run the brain tick with the log lent to this thread**, when there is one.
+/// Run the brain tick with the log lent to this thread, when there is one.
 ///
 /// A brain publishes through `ambition_causal::record`, which writes to a
 /// THREAD-LOCAL sink, and Bevy runs systems across worker threads — so those
 /// facts were landing in nothing and being counted by `facts_lost_offthread()`.
 ///
-/// **the alternative was threading a recorder into `tick_with_actions`**, and
+/// the alternative was threading a recorder into `tick_with_actions`, and
 /// it is worse: it puts the log on the simulation's own signatures. This crate
 /// already refused that once — `record_player_movement_intent` runs AFTER the
 /// brain tick precisely so "a system that only reads cannot be the thing that
@@ -106,7 +106,7 @@ pub fn tick_actor_brains(
     sim_clock: Res<crate::features::GameplayElapsed>,
     // Peers, projectiles and hostility: what a body can perceive this tick.
     perceived: crate::features::ecs::perception::PerceivedWorld,
-    // **Capture, as a fact this phase reads and hands on.** The brain never
+    // Capture, as a fact this phase reads and hands on. The brain never
     // touches `CapturedBy` — a pure decision reaching into the ECS is what the
     // perception layer exists to prevent — so the relationship is resolved HERE,
     // where the queries live, and travels as three plain values.
@@ -118,7 +118,7 @@ pub fn tick_actor_brains(
         // about is a real thing.
         Option<&ambition_characters::smash_capture::SmashHoldState>,
     )>,
-    // **The log, lent to whichever worker thread this tick lands on.**
+    // The log, lent to whichever worker thread this tick lands on.
     //
     // A brain publishes through `ambition_causal::record`, which writes to a
     // THREAD-LOCAL sink — and Bevy runs systems across worker threads, so
@@ -136,7 +136,7 @@ pub fn tick_actor_brains(
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     // Neighbor index handed to the movement phase (surface-walker steering).
     mut steering: ResMut<ActorSteering>,
-    // **Liveness of the bodies the actor query cannot see.** A fighter's foe is
+    // Liveness of the bodies the actor query cannot see. A fighter's foe is
     // often a controlled body, and a brain must perceive that its foe has died;
     // controlled bodies carry no actor cluster, so they are absent from `actors`
     // below. Keyed per entity, so this is not "the player" — it is every body in
@@ -169,7 +169,7 @@ pub fn tick_actor_brains(
             // both because dynamically-spawned actors (debug tools,
             // scripted spawns) might skip brain attachment.
             Option<&mut ambition_characters::brain::Brain>,
-            // **WHO DRIVES THIS BODY**, if anybody. Two things read it here: the
+            // WHO DRIVES THIS BODY, if anybody. Two things read it here: the
             // skip below (a body a participant is driving does not get decided
             // for) and the EFFECTIVE faction in its own world-out view.
             Option<&ambition_characters::brain::DrivingParticipant>,
@@ -217,7 +217,7 @@ pub fn tick_actor_brains(
                 // `Option` because a body with no moveset (a peaceful NPC, a
                 // prop) has no kit, and an empty kit is the honest answer.
                 Option<&crate::combat::moveset::ActorMoveset>,
-                // **THE MOVE THAT CURRENTLY OWNS THIS BODY**, so the attack kit
+                // THE MOVE THAT CURRENTLY OWNS THIS BODY, so the attack kit
                 // can say which of its candidates could be STARTED this tick —
                 // see `ActionLegality`. Here for exactly the reason the moveset
                 // above is: the brain reads no ECS, so a fact it needs about the
@@ -226,14 +226,14 @@ pub fn tick_actor_brains(
                 // A brain inferring "I look like I am in recovery" would be answering a different
                 // question and would be wrong for every move with a cancel window.
                 Option<&crate::combat::moveset::MovePlayback>,
-                // **WHAT IS TRUE OF THIS BODY'S LOCOMOTION**, published once per
+                // WHAT IS TRUE OF THIS BODY'S LOCOMOTION, published once per
                 // tick by the movement kernel. The brain snapshot's
                 // `turns_at_walls` reads it instead of the spawn-time
                 // `tuning.surface_walker` flag ADR 0024 §8 forbids at runtime.
                 // `Option` because a body without the movement clusters has no
                 // facts, and "not crawling" is the honest default for one.
                 Option<&ambition_platformer2d_core::BodyMotionFacts>,
-                // **THE BODY'S MOTION MODEL**, for the ONE burst-maneuver rule
+                // THE BODY'S MOTION MODEL, for the ONE burst-maneuver rule
                 // (`resolve_burst_maneuver`): dodge-vs-dash availability lives
                 // in the model's `AxisManeuverState` (air-dodge window, endlag)
                 // as well as in the dodge/dash clusters. A driver that decides
@@ -246,14 +246,14 @@ pub fn tick_actor_brains(
                 // locomotion for a brain to reason about.
                 &crate::features::MotionModel,
             ),
-            // **IS THIS BODY IN A FIGHT?** Read for the stand-down rule below,
+            // IS THIS BODY IN A FIGHT? Read for the stand-down rule below,
             // which pacifies a hostile actor that holds no combat target, and
             // for the read-model rebuild that would otherwise drop a
             // combatant's attack windup every frame. A ruleset declares its
             // fighters combatants; that is not a fact AI targeting is allowed to
             // revoke.
             //
-            // **this was `Has<MatchSeat>`, and a seat is not participation.**
+            // this was `Has<MatchSeat>`, and a seat is not participation.
             // An eliminated fighter keeps its seat — the body stays standing
             // until a ruleset removes it — so it went on holding attack state and
             // a place on the anti-clump board with no stocks left. It was also
@@ -274,7 +274,7 @@ pub fn tick_actor_brains(
             With<FeatureSimEntity>,
             Without<crate::actor::PlayerEntity>,
             Without<ambition_boss_encounter::BossConfig>,
-            // **A DORMANT ACTOR DOES NOT DECIDE.** Only the brain sleeps: the
+            // A DORMANT ACTOR DOES NOT DECIDE. Only the brain sleeps: the
             // body still integrates, so a dormant actor mid-fall keeps falling
             // and simply stops choosing. Absent on every actor that declares no
             // `DormancyPolicy`, so this filter changes nothing for content that
@@ -295,7 +295,7 @@ pub fn tick_actor_brains(
     // The live hostility table for every brain's world-out view this frame (§A7),
     // all-peaceful when a fixture registers none.
     let relations = perceived.relations();
-    // **a world with no controlled body is ordinary**, and the shape that proves it is the
+    // a world with no controlled body is ordinary, and the shape that proves it is the
     // absence of an early return here. When the anchor was live this read `let Some(player_pos)
     // = ... else { return; }`, so a session that declared no home avatar ticked NO actor brains
     // at all — every actor everywhere, not merely the ones near a player. Nothing in this
@@ -328,7 +328,7 @@ pub fn tick_actor_brains(
         in_a_fight,
     ) in &actors
     {
-        // **the two arms are the two ways to be in a fight.** Social hostility
+        // the two arms are the two ways to be in a fight. Social hostility
         // is how an AI body joins one; `ActiveCombatant` is how a ruleset puts a
         // body in. A human-driven fighter is the second without ever being the
         // first — it holds no AI target, so asking only the disposition left it
@@ -414,7 +414,7 @@ pub fn tick_actor_brains(
         // never spuriously stands down. Relativity-neutral (any fighter, any
         // faction). This REPLACES the former hard pacify-to-passive, which dead-ended
         // a duel winner (couldn't be talked to or re-provoked, and mislabeled it).
-        // **UNLESS A MATCH SAYS OTHERWISE.** A seated fighter is a combatant
+        // UNLESS A MATCH SAYS OTHERWISE. A seated fighter is a combatant
         // because two people decided it is, and that is not a fact about whether
         // it currently holds a target.
         //
@@ -465,7 +465,7 @@ pub fn tick_actor_brains(
                     continue;
                 };
                 let enemy_gravity_dir = resolved_frame.down();
-                // **A PARTICIPANT'S BODY IS NOT THIS SYSTEM'S TO DECIDE FOR.**
+                // A PARTICIPANT'S BODY IS NOT THIS SYSTEM'S TO DECIDE FOR.
                 // A possessed actor carries `DrivingParticipant(slot)`, and its
                 // `ActorControl` is produced a whole phase earlier by
                 // `tick_controlled_brains` — the one seam that turns participant
@@ -499,7 +499,7 @@ pub fn tick_actor_brains(
                         enemy_gravity_dir,
                         moveset,
                         Some(brain_ref),
-                        // **THE BODY'S RUNNING MOVE**, so the kit can say which
+                        // THE BODY'S RUNNING MOVE, so the kit can say which
                         // of its candidates the body could actually BEGIN this
                         // tick. Threaded rather than re-queried because the
                         // brain layer reads no ECS, exactly like the moveset
@@ -557,7 +557,7 @@ pub fn tick_actor_brains(
                     // snapshot every peer's do — one derivation (`body_phase`), so a
                     // body cannot read itself more precisely than its opponent reads it.
                     let self_peer = perceived.peer(this_actor_entity);
-                    // **WHAT THIS BODY'S BURST BUTTON WOULD DO IF PRESSED NOW.**
+                    // WHAT THIS BODY'S BURST BUTTON WOULD DO IF PRESSED NOW.
                     // The kernel's own rule (`resolve_burst_maneuver`), asked one
                     // phase early — so the brain names the maneuver the body will
                     // actually perform instead of re-deriving the precedence.
@@ -699,7 +699,7 @@ pub(crate) fn integrate_actor_body(
     move_motion_scale: f32,
     dt: f32,
     feel: ambition_combat::feel::Platformer2dFeelTuningMonolith,
-    // **This body's own movement feel, when its character authored one.**
+    // This body's own movement feel, when its character authored one.
     //
     // The actor twin of the player loop's `authored_tuning`. Threaded rather
     // than resolved here because the component lives on the entity and this
@@ -715,7 +715,7 @@ pub(crate) fn integrate_actor_body(
     #[cfg(feature = "causal")] movement_ops: Option<
         &mut MessageWriter<crate::causal::BodyMovementOps>,
     >,
-    // **The other solid bodies this one may not walk through**, resolved from
+    // The other solid bodies this one may not walk through, resolved from
     // the pre-integration snapshot by the caller. Inert for a body whose
     // composition never granted the capability, which is every body outside a
     // ruleset that opted its cast in.
@@ -766,7 +766,7 @@ pub(crate) fn integrate_actor_body(
     // One named predicate, asked on both roads.
     //
     // so if hitlag ever feels too sticky, tune its DURATION or SHAPE.
-    // **Restoring a controlled-body/actor asymmetry here is forbidden**, and a
+    // Restoring a controlled-body/actor asymmetry here is forbidden, and a
     // comment recommending it is how the last one nearly got restored.
     let (frame, move_events) = em.update(
         feature_world,
@@ -892,23 +892,11 @@ pub(crate) fn integrate_actor_body(
     }
 }
 
-/// **SAMPLE EVERY SOLID BODY'S CONTACT BOX BEFORE ANY OF THEM MOVES.**
+/// Snapshot grounded solid-body contact boxes before any body integrates.
 ///
-/// **a separate system, immediately before the integration phase, and that
-/// is the fairness argument.** Body contact is resolved per body inside the
-/// integrator; if each body asked the world for its neighbours' LIVE poses, the
-/// second body to be resolved would see the first one already integrated and the
-/// contest would be decided by query order. Under rollback that is a desync, and
-/// on a couch it is one player being harder to push than the other for no reason
-/// anybody authored. One sample, before anybody moves.
-///
-/// **grounded bodies only, first slice** — see [`BodyContactSnapshot`]. An
-/// airborne body passing over another is not in its way, and standing ON one is
-/// `footstool`, which already exists and means something else.
-///
-/// **it clears unconditionally.** A snapshot that survived a tick in which
-/// nothing ran would be last tick's poses presented as this tick's, which is the
-/// stale-derivation shape rollback cannot rewind out of.
+/// All bodies resolve against the same entry poses, avoiding query-order
+/// dependence. Airborne bodies are excluded; standing on another body is handled
+/// by footstool semantics. The snapshot is cleared every tick before republishing.
 pub fn snapshot_body_contact(
     mut snapshot: ResMut<ambition_platformer2d_shared_tangle::body::BodyContactSnapshot>,
     bodies: Query<(
@@ -1006,7 +994,7 @@ pub fn integrate_sim_bodies(
             // The body's live move, if any — its authored per-window motion
             // lock scales the steering intent inside `integrate_actor_body`.
             Option<&crate::combat::moveset::MovePlayback>,
-            // **The body's own FEEL, if its character authored one.**
+            // The body's own FEEL, if its character authored one.
             //
             // this component was GRANTED to every seated fighter and read by nobody on this path:
             // `presentation.rs` inserts it precisely so a seated fighter and a worn player move
@@ -1039,7 +1027,7 @@ pub fn integrate_sim_bodies(
             Entity,
             ae::BodyClusterQueryData,
             &BodyCombat,
-            // **the body's own reason set, because a hazard TILE is damage.**
+            // the body's own reason set, because a hazard TILE is damage.
             // A player who cannot be hurt — a super form, a transformation beat,
             // a scripted grant — must not be reset to spawn by walking over
             // spikes. `Option` because a home body without health is a valid
@@ -1427,7 +1415,7 @@ pub(crate) fn compute_crowding_by_id(
     crowding_by_id
 }
 
-/// **The attacks this body can actually throw**, as the fighter brain reads them.
+/// The attacks this body can actually throw, as the fighter brain reads them.
 ///
 /// One row per move in the contract, with the frame data a player who read the
 /// tables would know. Declaration order, which `MovesetContract.moves` is a
@@ -1437,14 +1425,14 @@ pub(super) fn attack_kit_of(
     moveset: Option<&crate::combat::moveset::ActorMoveset>,
     // The body's REAL posture this tick. The kit is what it can press NOW.
     grounded: bool,
-    // **only a FIGHTER brain reads the kit**, and building it is a `Vec` of
+    // only a FIGHTER brain reads the kit, and building it is a `Vec` of
     // owned move ids and frame data — per actor, per tick. Every other brain in
     // the game would have paid for a list nothing looks at, which is a cost
     // §13.2 explicitly said to fix by rebuilding on moveset CHANGE. It does not
     // need that yet: the cheaper answer is not to build it for a brain that
     // cannot use it, and this is the one place that knows which brain a body has.
     brain: Option<&ambition_characters::brain::Brain>,
-    // **The move that currently owns the body, if any.** Each candidate carries
+    // The move that currently owns the body, if any. Each candidate carries
     // whether it could be STARTED this tick, answered by the same
     // `cancel_permits` call `trigger_moveset_moves` makes — see
     // `ActionLegality`. `None` means nothing owns the body and everything is
@@ -1466,7 +1454,7 @@ pub(super) fn attack_kit_of(
         AttackBinding, AttackCandidate, AttackVerb,
     };
 
-    // **ENUMERATE THE PRESSES, ASK WHAT EACH ONE REACHES.**
+    // ENUMERATE THE PRESSES, ASK WHAT EACH ONE REACHES.
     //
     // this listed `moveset.moves` — every move the body owns, whether or not
     // any input can invoke it — and the candidate carried no way to invoke the
@@ -1520,7 +1508,7 @@ pub(super) fn attack_kit_of(
             });
         }
     }
-    // **AND THE GRAB**, which the three loops above cannot reach: it answers its
+    // AND THE GRAB, which the three loops above cannot reach: it answers its
     // own button, not a direction on one of theirs.
     if let Some(grab) = capture_candidate(moveset, grounded, playback) {
         kit.push(grab);
@@ -1528,14 +1516,14 @@ pub(super) fn attack_kit_of(
     kit
 }
 
-/// **CAN THE BODY BEGIN THIS MOVE THIS TICK?** — asked of the same function that
+/// CAN THE BODY BEGIN THIS MOVE THIS TICK? — asked of the same function that
 /// actually decides it.
 ///
 /// A brain inferring legality from "I look like I am in recovery" would answer a different question
 /// and be wrong for every move that authors a cancel window — the proxy-instrument failure, one
 /// layer up from where it usually shows up.
 ///
-/// **the name list must match `trigger_moveset_moves` exactly**: the verb the
+/// the name list must match `trigger_moveset_moves` exactly: the verb the
 /// press resolves through, plus the resolved move id. That is the one cancel
 /// namespace, and asking with a different list would make this answer a
 /// question nothing enforces.
@@ -1559,7 +1547,7 @@ fn legality_of(
     }
 }
 
-/// **The authored GRAB, priced as an option like any other technique.**
+/// The authored GRAB, priced as an option like any other technique.
 ///
 /// A CPU that knew "George grabs at 44px" would be a CPU that stops working the day George is
 /// retuned, and a second fighter would need a second constant.
@@ -1577,8 +1565,8 @@ fn legality_of(
 /// generic option scorer has no term for and should not grow one for: "how
 /// valuable is a hold" is platform-fighter policy (the throw it sets up, the
 /// escape risk, the percent, the stage position), and this is a scorer shared by
-/// every actor in every game the engine runs. ⇒ **the honest number here is
-/// zero, and the missing one is the fighter capability's**.
+/// every actor in every game the engine runs.  the honest number here is
+/// zero, and the missing one is the fighter capability's.
 fn capture_candidate(
     moveset: &crate::combat::moveset::ActorMoveset,
     grounded: bool,
@@ -1646,10 +1634,10 @@ fn build_enemy_brain_snapshot(
     // Which brain this body carries, so the kit is built only for one that reads
     // it. See `attack_kit_of`.
     brain: Option<&ambition_characters::brain::Brain>,
-    // **The move that currently owns this body**, so the attack kit can say
+    // The move that currently owns this body, so the attack kit can say
     // which candidates could be STARTED this tick. See `attack_kit_of`.
     playback: Option<&crate::combat::moveset::MovePlayback>,
-    // **What is TRUE of this body's locomotion**, published by the movement
+    // What is TRUE of this body's locomotion, published by the movement
     // kernel — see `turns_at_walls` below for why this replaced a tuning read.
     motion_facts: &ambition_platformer2d_core::BodyMotionFacts,
     // The capture relationship, resolved by the caller — which holds the capture
@@ -1718,7 +1706,7 @@ fn build_enemy_brain_snapshot(
         sim_time,
         dt,
         max_run_speed: em.config.tuning.max_run_speed,
-        // **THE MOVEMENT LAW THIS BODY PLAYS UNDER**, for the brains that
+        // THE MOVEMENT LAW THIS BODY PLAYS UNDER, for the brains that
         // predict rather than steer. The line above takes one number out of the
         // same tuning as a throttle scale; a rollout has to step the body
         // forward, so it needs the law and not one field of it.
@@ -1731,7 +1719,7 @@ fn build_enemy_brain_snapshot(
                 .movement
                 .body_tuning(em.config.tuning.max_run_speed),
         ),
-        // **THE VERBS THAT LAW APPLIES TO**, from the body's own ability
+        // THE VERBS THAT LAW APPLIES TO, from the body's own ability
         // cluster — the same component the movement kernel reads. A rollout that
         // asks whether a fall is recoverable has to drive the kernel, and the
         // kernel gates every air jump, wall grab and glide on this.
@@ -1754,7 +1742,7 @@ fn build_enemy_brain_snapshot(
 
 /// Keep the actor's `ActorIdentity` read-model in step with its cluster.
 ///
-/// ⇒ **that is the change-amplification answer stated as code**: adding a reaction timer to
+///  that is the change-amplification answer stated as code: adding a reaction timer to
 /// `BodyCombat` now requires no edit here, and none in the boss road either.
 ///
 /// identity is rebuilt only when it actually differs. This runs per actor per
@@ -1894,7 +1882,7 @@ pub fn tick_npc_idle_barks(
 
 #[cfg(test)]
 mod body_combat_rebuild_contract {
-    /// **NOTHING IN `BodyCombat` IS WRITTEN BY THE PER-FRAME ACTOR SYNC.**
+    /// NOTHING IN `BodyCombat` IS WRITTEN BY THE PER-FRAME ACTOR SYNC.
     ///
     /// `landing_lag_timer` joined `BodyCombat` later, never joined the list, and was erased one
     /// frame after the moveset runtime set it.

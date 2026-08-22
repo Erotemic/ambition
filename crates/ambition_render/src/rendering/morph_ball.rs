@@ -204,11 +204,11 @@ pub fn sync_morph_ball_visual(
     }
 }
 
-/// **What these tests prove, and what they do not.**
+/// What these tests prove, and what they do not.
 ///
 /// These three tests run `sync_morph_ball_visual` against the rig it actually sees — a
 /// `PlayerEntity + PrimaryPlayer + PlayerVisual` body carrying a `BodyPoseView`, one
-/// `MorphBallVisual` sibling — and the system is **correct**: it shows the ball, hides the
+/// `MorphBallVisual` sibling — and the system is correct: it shows the ball, hides the
 /// body, and restores `Inherited` (never a hard `Visible`) on exit.
 ///
 /// That is what "generalize modal body morphs" means, and it deletes this whole file.
@@ -269,7 +269,7 @@ mod tests {
         *app.world().get::<Visibility>(e).unwrap()
     }
 
-    /// **The reported bug: "morph ball still draws the robot".** In morph the ball
+    /// The reported bug: "morph ball still draws the robot". In morph the ball
     /// shows and the body's sprite must be hidden — otherwise the standing rig
     /// draws through the ball.
     #[test]

@@ -88,19 +88,19 @@ pub struct ActorConfig {
     /// use — without reaching into the presentation registry. See
     /// [`CombatGeometry`].
     ///
-    /// **NOT the body's gameplay character authority, and `WornCharacter` OUTRANKS it** (AC7.1). It
+    /// NOT the body's gameplay character authority, and `WornCharacter` OUTRANKS it (AC7.1). It
     /// is not: every seam that resolves a character asks `WornCharacter` first and falls back to a
     /// sprite id only for a body that wears nothing — see `presentation.rs`'s `worn …
     /// .or_else(tuning .sprite_character_id)`. That precedence is what lets a body SWAP its
     /// character at runtime (Sanic's transformation) and take its new repertoire and volumes with
     /// it while this field stays put.
     pub sprite_character_id: Option<String>,
-    /// **Does this body's autonomous driver share one deterministic cognitive
-    /// stream with its twins?** Resolved from the character at construction — see
+    /// Does this body's autonomous driver share one deterministic cognitive
+    /// stream with its twins? Resolved from the character at construction — see
     /// [`ambition_characters::actor::CharacterDefinition::preserves_mirror_symmetry`].
     ///
-    /// **it lives HERE, on the config, because three roads build this body's
-    /// brain and they must not disagree**: a match seat, a room spawn, and a
+    /// it lives HERE, on the config, because three roads build this body's
+    /// brain and they must not disagree: a match seat, a room spawn, and a
     /// rewind/live restore all go through
     /// [`enemy_default_brain`](crate::features::ecs::enemy_default_brain), and
     /// the note on `PreparedCharacterDefinition::autonomous_profile` says why
@@ -118,12 +118,12 @@ pub struct ActorConfig {
 #[derive(Component, Clone, Debug, Default)]
 pub struct ActorMotionPath(pub Option<PathMotion>);
 
-/// Seed-side **construction helper** for an actor's 18 ancillary movement
+/// Seed-side construction helper for an actor's 18 ancillary movement
 /// clusters (ground/wall/jump/dash/flight/blink/ledge/dodge/shield/…) —
 /// everything in the player cluster set EXCEPT [`BodyKinematics`] (the actor's
 /// shared `kin` is the single source of kinematic truth).
 ///
-/// This is **not** a spawned component: a spawned actor carries the 18 clusters
+/// This is not a spawned component: a spawned actor carries the 18 clusters
 /// as real ECS components (via [`crate::actor::AncillaryMovementBundle`], the
 /// SAME bundle the player nests), so the per-frame integration borrows them as
 /// the non-kinematics half of a `BodyClustersMut` view exactly like the player.
@@ -152,17 +152,17 @@ impl ActorBody {
 
     /// Build the movement body whose ability mask is DERIVED from the actor's
     /// [`CombatCapabilities`] — the verbs the shared movement pipeline owns for
-    /// this body. Locomotion (run + jump) is always on; **dash** turns on with
+    /// this body. Locomotion (run + jump) is always on; dash turns on with
     /// `can_dash` (the pipeline's real dash impulse replaces the actor's old
-    /// speed-cap burst). **fly** turns on for an aerial body (it lives in flight
+    /// speed-cap burst). fly turns on for an aerial body (it lives in flight
     /// mode) OR a body that can toggle flight (`can_fly`); an aerial body also
     /// starts with `flight.fly_enabled` so it runs the shared flight limb from
-    /// spawn. **shield** turns on with `can_shield` (the pipeline's shield limb;
-    /// the damage path reads `shield.active` off that ONE component). **blink**
+    /// spawn. shield turns on with `can_shield` (the pipeline's shield limb;
+    /// the damage path reads `shield.active` off that ONE component). blink
     /// turns on with `can_blink` (the pipeline's blink limb; the driver emits the
     /// blink sfx/vfx from the returned `FrameEvents.blinks`).
-    /// Seed a combat body's movement `AbilitySet` from its authored **movement
-    /// kit** (`ArchetypeSpec::movement_kit`): the shared locomotion base
+    /// Seed a combat body's movement `AbilitySet` from its authored movement
+    /// kit (`ArchetypeSpec::movement_kit`): the shared locomotion base
     /// unioned with the character's authored verbs (blink / fly / shield / dash),
     /// plus the `attack` verb every combat body carries. `is_aerial` forces
     /// flight on regardless of the kit. This is the one place a character's
@@ -302,7 +302,7 @@ pub struct ActorClusterQueryData {
     pub config: &'static mut ActorConfig,
     pub motion: &'static mut ActorMotionPath,
     pub caps: &'static crate::combat::CombatCapabilities,
-    /// **What this body is holding RIGHT NOW**, if anything.
+    /// What this body is holding RIGHT NOW, if anything.
     ///
     /// `Option` because most bodies hold nothing, and because an OPTIONAL query
     /// member cannot silently filter a body out of the cluster the way a
@@ -377,7 +377,7 @@ pub struct ActorClusterSeed {
     /// The body's shared health (drives the spawned `BodyHealth` + the seed-based
     /// test harness's `ActorMut::health`).
     pub health: ambition_characters::actor::BodyHealth,
-    /// **The body's shared combat component**, seeded here for the same reason
+    /// The body's shared combat component, seeded here for the same reason
     /// `health` is: it is a component every body carries, the player included,
     /// and the seed is where a body's components are decided.
     pub combat: ambition_characters::actor::BodyCombat,
@@ -466,12 +466,12 @@ fn actor_hurt_feedback(
 }
 
 impl ActorClusterSeed {
-    /// **Put this un-spawned body somewhere, once.**
+    /// Put this un-spawned body somewhere, once.
     ///
     /// A seed's placement is TWO fields — where the body starts (`kin.pos`) and where a respawn
     /// returns it (`config.spawn.pos`) — and they are the same fact.
     ///
-    /// **this is a SEED, not a body**, which is the whole reason a bare write
+    /// this is a SEED, not a body, which is the whole reason a bare write
     /// is not the answer even though ADR 0024's pose authority is about live
     /// bodies. There is no entity yet, no `MotionModel` to reconcile and no frame
     /// to transit through, so `transit_body` cannot be called here at all — the
@@ -484,7 +484,7 @@ impl ActorClusterSeed {
         self.config.spawn.pos = pos;
     }
 
-    // ⇒ [`Self::new_character_in`] is the only body constructor. A body is what
+    //  [`Self::new_character_in`] is the only body constructor. A body is what
     // its CHARACTER says it is, and an identifier that names no character is a
     // construction refusal rather than a silent downgrade.
 
@@ -502,7 +502,7 @@ impl ActorClusterSeed {
     pub fn new_peaceful_npc_in(
         authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
         catalog: &CharacterCatalog,
-        // **The prepared cast, so this road can ask the CHARACTER** whether it
+        // The prepared cast, so this road can ask the CHARACTER whether it
         // flies before it asks the catalog. `Option` because a composition with
         // no registered characters is the ordinary case, not a degraded one.
         prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
@@ -531,16 +531,16 @@ impl ActorClusterSeed {
             } => Some(cid.as_str()),
             _ => None,
         };
-        // **DOES THIS BODY FLY? ASK THE CHARACTER, THEN THE CATALOG.**
+        // DOES THIS BODY FLY? ASK THE CHARACTER, THEN THE CATALOG.
         //
         // two spawn paths decided aerial-ness and NEITHER asked the character: this one read
         // the catalog's `body_kind: Floating`, the hostile `EnemySpawn` path read
         // `ArchetypeSpec:flies` (see the doc on that field, which names the split).
         //
-        // **A PREPARED CHARACTER ALWAYS ANSWERS**, and getting that precise matters more than
+        // A PREPARED CHARACTER ALWAYS ANSWERS, and getting that precise matters more than
         // it sounds.
         //
-        // ⇒ the catalog rule below is therefore NOT a tiebreak between two
+        //  the catalog rule below is therefore NOT a tiebreak between two
         // authorities. It answers for a character with NO PREPARED ENTRY AT ALL,
         // which is ~150 of the game's 163 NPC placements today and shrinks by one
         // every time a character is migrated. When the registry holds everything,
@@ -588,27 +588,27 @@ impl ActorClusterSeed {
         // NPC_PATROL_SPEED while the SAME body sprints at `max_run_speed` when a player drives
         // it.
         //
-        // **AND THE BODY'S TWO NUMBERS COME FROM THE CHARACTER WHEN IT HAS
-        // ONE**. `max_health: 1` and the shared
+        // AND THE BODY'S TWO NUMBERS COME FROM THE CHARACTER WHEN IT HAS
+        // ONE. `max_health: 1` and the shared
         // `MAX_RUN_SPEED` are what a placement gets when nothing knows who it is
         // — which was every NPC, including an exploding mite and a burning
         // flying shark standing in a room with one hit point and the player's
         // top speed. A character that states its own vitals and locomotion is
         // the authority on both.
         //
-        // **`patrol_speed` / `chase_speed` STAY.** They are AI POLICY, and the
+        // `patrol_speed` / `chase_speed` STAY. They are AI POLICY, and the
         // three authorities do not blur here of all places: how fast a body CAN
         // move is the body's fact, how fast it CHOOSES to amble is the
         // controller's. A character authoring `run_speed: 400.0` must not make
         // its idle stroll a sprint.
         //
-        // **and `respawn` stays `DeadStaysDead`** for the same reason, one
+        // and `respawn` stays `DeadStaysDead` for the same reason, one
         // authority over: an NPC is a unique named placement (ADR 0022), and
         // that is a fact about the PLACEMENT, not about the creature.
         let authored_body = character_id
             .and_then(|cid| prepared.and_then(|prepared| prepared.get(cid)))
             .and_then(|prepared| prepared.body_blueprint().ok());
-        // **The pool this body spawns with**, held as a local because
+        // The pool this body spawns with, held as a local because
         // `BodyHealth` is the only thing that keeps it (AC6.2): `ActorTuning`
         // carried a `max_health` beside it, and the two were written
         // independently.
@@ -640,8 +640,8 @@ impl ActorClusterSeed {
         // `Passive`; `NpcActorSpawnPlan::peaceful` overwrites it to `Patrol` iff the
         // resolved brain is a Patrol brain.
         let config_brain = ambition_entity_catalog::placements::CharacterBrain::Passive;
-        // **ONE CONSTRUCTION PATH: A MIGRATED NPC IS BUILT FROM ITS
-        // CHARACTER, then dressed as a placement** (P1.10).
+        // ONE CONSTRUCTION PATH: A MIGRATED NPC IS BUILT FROM ITS
+        // CHARACTER, then dressed as a placement (P1.10).
         //
         // patching two fields onto the peaceful seed was never the finish
         // line, and the fields it did NOT patch say why: this road hands every
@@ -652,7 +652,7 @@ impl ActorClusterSeed {
         // unadorned — each of them a fact its definition states and this
         // constructor threw away, one field at a time, invisibly.
         //
-        // ⇒ when the character can carry a body, `new_character_in` builds it —
+        //  when the character can carry a body, `new_character_in` builds it —
         // the SAME constructor the authored-enemy road and the match seat use.
         // What stays here is the part that is genuinely about the PLACEMENT.
         if let Some(body) = authored_body {
@@ -665,7 +665,7 @@ impl ActorClusterSeed {
                 config_brain.clone(),
                 paths,
             );
-            // **THE PLACEMENT'S THREE FACTS, and only those.**
+            // THE PLACEMENT'S THREE FACTS, and only those.
             //
             // `new_character_in` defaults it true because every match seat is a combatant; an
             // NPC placement is the other answer, and the aggression component
@@ -703,7 +703,7 @@ impl ActorClusterSeed {
                 respawn_timer: 0.0,
                 ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
             },
-            // **THE POOL HAS ONE OWNER** (AC6.2). This read `tuning.max_health` — itself
+            // THE POOL HAS ONE OWNER (AC6.2). This read `tuning.max_health` — itself
             // introduced (P1.10) to stop a second literal `1` written beside this one from
             // agreeing by coincidence. `BodyHealth` is where a body's health lives, for the
             // player and for every actor, so it is the only thing that holds it now.
@@ -748,7 +748,7 @@ impl ActorClusterSeed {
         (seed, render_size)
     }
 
-    /// **A BODY, BUILT FROM ITS CHARACTER.**
+    /// A BODY, BUILT FROM ITS CHARACTER.
     ///
     /// This is the same shape as [`Self::new_peaceful_npc_in`], which has built
     /// bodies without an archetype since it was written — proof the pattern was
@@ -761,7 +761,7 @@ impl ActorClusterSeed {
     /// controller  the BrainProfile passed in           (policy, not a body)
     /// ```
     ///
-    /// **the tuning is a FIGHTER default, not a character fact — yet.** Run
+    /// the tuning is a FIGHTER default, not a character fact — yet. Run
     /// speed, contact damage and the rest still have no authoring surface on a
     /// definition, so they are stated here, once, where a match
     /// can see them, rather than borrowed from whichever archetype a seat
@@ -770,7 +770,7 @@ impl ActorClusterSeed {
         authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
         catalog: &CharacterCatalog,
         id: impl Into<String>,
-        // **THE PREPARED CHARACTER, AS ONE VALUE**.
+        // THE PREPARED CHARACTER, AS ONE VALUE.
         //
         // this took eleven pre-unpacked arguments — character id, display
         // name, max health, brain profile, locomotion, contact damage, dream
@@ -783,13 +783,13 @@ impl ActorClusterSeed {
         // how `practice_target`, the patrol path and an authored `run_speed: 0.0`
         // each went missing on this road while being correct on the other.
         //
-        // **completeness is the blueprint's EXISTENCE**, so nothing in here
+        // completeness is the blueprint's EXISTENCE, so nothing in here
         // asks whether the character said enough — see
         // `PreparedCharacterDefinition::body_blueprint`.
         body: crate::character_runtime::CharacterBodyBlueprint<'_>,
         aabb: ae::Aabb,
         config_brain: ambition_entity_catalog::placements::CharacterBrain,
-        // **The room's authored kinematic paths**, so a `Patrol { path_id }`
+        // The room's authored kinematic paths, so a `Patrol { path_id }`
         // placement gets its path — see the note at [`Self::motion`] below.
         paths: &[(String, ambition_platformer2d_core::KinematicPath)],
     ) -> Self {
@@ -807,7 +807,7 @@ impl ActorClusterSeed {
             ranged_vfx,
             ..
         } = body;
-        // **a body with no policy still needs one to be paced against.** The
+        // a body with no policy still needs one to be paced against. The
         // default is the shared middling striker, which is what every
         // character-first body got before a definition could name a profile.
         let brain_profile = autonomous_profile.unwrap_or_default();
@@ -822,7 +822,7 @@ impl ActorClusterSeed {
             ldtk_collision,
         );
         let collision_size = sprite_body.map_or(ldtk_collision, |body| body.collision);
-        // **ASKED ONCE, AT PREPARATION.** This read
+        // ASKED ONCE, AT PREPARATION. This read
         // `locomotion.baseline_free_flight || catalog.body_kind(character_id) == Floating` — a
         // constructor rediscovering what the character is.
         // The fold now happens in `finalize_character`, so `flies` on a prepared
@@ -833,10 +833,10 @@ impl ActorClusterSeed {
         // authority said this body flies.
         let is_aerial = locomotion.baseline_free_flight.unwrap_or(false);
         let pos = actor_spawn_center_for_collision(aabb, collision_size);
-        // **THE CHARACTER'S OWN TOP SPEED WHEN IT STATES ONE.** A fighter
+        // THE CHARACTER'S OWN TOP SPEED WHEN IT STATES ONE. A fighter
         // default otherwise: the stage has to give a body that has never said
         // how fast it is SOMETHING, and a match is the one place that may.
-        // **an authored `0.0` is a SPEED, not a silence.** This filtered
+        // an authored `0.0` is a SPEED, not a silence. This filtered
         // zeroes out and fell through to the stage default, which conflates *"I
         // did not say"* with *"I do not move"* — the same conflation P0.1 exists
         // to delete, and `CharacterLocomotion::run_speed`'s own doc says a zero
@@ -845,7 +845,7 @@ impl ActorClusterSeed {
         // top speed. Only an ABSENT locomotion block takes the default.
         let run_speed = locomotion.run_speed;
         let tuning = crate::features::ecs::actor_tuning::ActorTuning {
-            // **the PROFILE's pacing against the BODY's top speed** — §4.7's
+            // the PROFILE's pacing against the BODY's top speed — §4.7's
             // brain→body seam, both halves finally stated by their own
             // authority. These were `run_speed * 0.5` and `run_speed`, hard
             // coded, so every character-first body ambled at exactly half pace
@@ -871,7 +871,7 @@ impl ActorClusterSeed {
             // never a room's respawn policy.
             respawn: ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead,
             is_aerial,
-            // **WHAT THIS CHARACTER'S PROJECTILE LOOKS LIKE.**
+            // WHAT THIS CHARACTER'S PROJECTILE LOOKS LIKE.
             //
             // `brain_effects` reads `tuning.ranged_visual` when it spawns the shot; the
             // archetype road filled that in and this road left it empty.
@@ -892,7 +892,7 @@ impl ActorClusterSeed {
             health: ambition_characters::actor::BodyHealth::new(
                 ambition_characters::actor::Health::new(max_health.max(1)),
             ),
-            // **THE CHARACTER'S OWN `practice_target`, written ONCE** (AC6.2).
+            // THE CHARACTER'S OWN `practice_target`, written ONCE (AC6.2).
             combat: ambition_characters::actor::BodyCombat {
                 training_dummy: practice_target,
                 ..Default::default()
@@ -916,7 +916,7 @@ impl ActorClusterSeed {
                 // the CHARACTER, stated rather than resolved from a display
                 // name. A seat knows exactly which character it is seating.
                 sprite_character_id: Some(character_id.to_string()),
-                // **the character's own answer, carried on the blueprint** —
+                // the character's own answer, carried on the blueprint —
                 // so a seat, a room spawn and a rewind rebuild all give this
                 // body the same cognitive stream.
                 preserves_mirror_symmetry,
@@ -933,7 +933,7 @@ impl ActorClusterSeed {
                 }
                 _ => None,
             }),
-            // **THE CHARACTER'S OWN VERBS, when it authored any.**
+            // THE CHARACTER'S OWN VERBS, when it authored any.
             //
             // this granted `AbilitySet::NONE` unconditionally, on the reading
             // that the MATCH declares what a fighter may do (`seat_abilities`)
@@ -1078,7 +1078,7 @@ impl ActorClusterSeed {
     }
 }
 
-/// **A NEUTRAL fixture body**, for engine unit tests that need an actor and do
+/// A NEUTRAL fixture body, for engine unit tests that need an actor and do
 /// not care which creature it is.
 ///
 /// It states the facts the deleted `combatant` row stated, so the bodies these
@@ -1201,14 +1201,14 @@ mod tests {
         }
     }
 
-    /// **A CHARACTER-FIRST BODY FIRES ITS OWN PROJECTILE, NOT A ROCK.**
+    /// A CHARACTER-FIRST BODY FIRES ITS OWN PROJECTILE, NOT A ROCK.
     ///
     /// `new_character_in` destructured `ranged_vfx` off the blueprint and never used it, so
     /// `ActorTuning:ranged_visual` — the field `brain_effects` reads when it spawns the shot —
     /// stayed EMPTY for every character-first body.
     ///
-    /// **`CharacterDefinition::ranged_vfx` had exactly one reader in the
-    /// repository and it was a TEST** asserting the value is authored. It was:
+    /// `CharacterDefinition::ranged_vfx` had exactly one reader in the
+    /// repository and it was a TEST asserting the value is authored. It was:
     /// authored, carried, and dropped one step from use. An "is it authored"
     /// assertion cannot see that.
     #[test]
@@ -1300,8 +1300,8 @@ mod tests {
         );
     }
 
-    /// **A PROFILE'S PACING REACHES THE BODY, and a mount that never hunts can
-    /// say so.**
+    /// A PROFILE'S PACING REACHES THE BODY, and a mount that never hunts can
+    /// say so.
     ///
     /// these were `run_speed * 0.5` and `run_speed` and `true`, hard coded in
     /// this constructor, so every character-first body ambled at exactly half
@@ -1358,7 +1358,7 @@ mod tests {
              that answered this instead is the thing §6 deleted"
         );
 
-        // **An authored ZERO is a speed.** A stationary mount that says so must
+        // An authored ZERO is a speed. A stationary mount that says so must
         // not be handed the stage's sprinter default.
         let still = ActorClusterSeed::new_character_in(
             &authored,
@@ -1407,7 +1407,7 @@ mod tests {
         );
     }
 
-    /// **A CHARACTER-FIRST BODY STILL WALKS ITS PLACEMENT'S PATROL PATH.**
+    /// A CHARACTER-FIRST BODY STILL WALKS ITS PLACEMENT'S PATROL PATH.
     ///
     /// this constructor wrote `ActorMotionPath(None)` unconditionally while
     /// the archetype road resolved `Patrol { path_id }` into a `PathMotion`, so

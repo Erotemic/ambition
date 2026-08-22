@@ -1,4 +1,4 @@
-//! **The ONE top/side contact authority for Mary-O's enemies.**
+//! The ONE top/side contact authority for Mary-O's enemies.
 //!
 //! Every enemy rule in this demo turns on the same question: is the player ON this
 //! body, or beside it? From the top it is a stomp — the snake shells, the AI Slop

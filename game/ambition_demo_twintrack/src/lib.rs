@@ -73,7 +73,7 @@ pub const TWINTRACK_EXPERIENCE: &str = "twintrack";
 pub const TWINTRACK_GAMEPLAY_ROUTE: &str = "twintrack_gameplay";
 pub const TWINTRACK_LAUNCHER_ROUTE: &str = "twintrack_launcher";
 pub const TWINTRACK_CHARACTER_ID: &str = "twintrack_traveler";
-/// **The SECOND participant's character** — Emmy, at rest in the laboratory
+/// The SECOND participant's character — Emmy, at rest in the laboratory
 /// until somebody on a second controller moves her.
 pub const TWINTRACK_LAB_TWIN_CHARACTER_ID: &str = "twintrack_lab_twin";
 pub const TWINTRACK_ROOM_ID: &str = "twintrack_plaza";
@@ -324,7 +324,7 @@ pub enum TwinTrackViewMode {
     Spacetime,
     /// Two observers side by side, each pane resolved in its own frame.
     ///
-    /// **appended on purpose.** The discriminant is the snapshot byte, so a
+    /// appended on purpose. The discriminant is the snapshot byte, so a
     /// new variant may only be added at the end or every stored view mode
     /// shifts under an old save.
     SplitObservers,
@@ -537,7 +537,7 @@ pub fn install_twintrack_content(app: &mut App) {
                 TWINTRACK_EXPERIENCE,
             )
             .with_sheet("noether")
-            // **a character has to author its own locomotion to be BUILT.**
+            // a character has to author its own locomotion to be BUILT.
             // The traveler never needed this: the starting character is worn by
             // the session's home avatar, which brings its own body. A second
             // participant goes through ordinary actor construction, and that
@@ -1428,7 +1428,7 @@ fn publish_twintrack_hud(
     signals: Res<RelativitySignalView2d>,
     optics: Res<RelativisticOpticalView2d>,
     targeting: Res<RelativisticTargetingView2d>,
-    // **WHOSE eyes this line is written from.** Both resources hold one row
+    // WHOSE eyes this line is written from. Both resources hold one row
     // per observer, and reading them through `Deref` takes the FIRST row in
     // label order — which became the laboratory twin the moment she became an
     // observer, because "laboratory" sorts before "traveler". This teacher line

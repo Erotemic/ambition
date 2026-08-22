@@ -29,9 +29,9 @@ pub struct MotionStepContext<'a> {
     pub frame: MotionFrame,
     pub facing_intent: f32,
     pub dt: f32,
-    /// **THE OTHER BODIES THIS STEP MAY NOT MOVE FREELY THROUGH.**
+    /// THE OTHER BODIES THIS STEP MAY NOT MOVE FREELY THROUGH.
     ///
-    /// **`BodyContactField::NONE` is the default and the identity** — every
+    /// `BodyContactField::NONE` is the default and the identity — every
     /// composition that has not granted the capability resolves exactly as it
     /// did. See [`super::body_contact`] for why an acceleration term cannot do
     /// this job and why the field is a snapshot rather than a query.
@@ -110,7 +110,7 @@ pub fn step_motion(
     clusters: &mut BodyClustersMut<'_>,
     ctx: MotionStepContext<'_>,
 ) -> MotionStepResult {
-    // **THE launch drain, and it is here because here is the only gateway.**
+    // THE launch drain, and it is here because here is the only gateway.
     //
     // An external reaction (knockback, a fling) writes a world-space launch into
     // `BodyFlightState::pending_launch` and cannot apply it itself: it holds a
@@ -245,8 +245,8 @@ fn accept_external_launch(
         // on a second write somewhere else.
         MotionModel::AxisSwept(axis) => {
             clusters.kinematics.vel = launch;
-            // **and the floor game starts HERE, for the same reason the drain
-            // is here.** "Was this launch big enough to send the body tumbling"
+            // and the floor game starts HERE, for the same reason the drain
+            // is here. "Was this launch big enough to send the body tumbling"
             // is a question only the model can answer — the threshold is authored
             // per body, and maneuver state is model-private (ADR 0024) — and the
             // reaction that resolved the knockback holds neither. Asking it at

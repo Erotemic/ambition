@@ -55,16 +55,16 @@ pub fn also_bound_to(
         .collect()
 }
 
-/// **This frame's physical presses, in a stable order, for a capture.**
+/// This frame's physical presses, in a stable order, for a capture.
 ///
-/// ⛔ **the keyboard is read RAW, not through the seat's `InputMap`.** A rebind
+///  the keyboard is read RAW, not through the seat's `InputMap`. A rebind
 /// screen has to see a key the map does not bind — that is the entire point of
 /// rebinding — and the map only reports actions it already knows. Routing a
 /// capture through the map would make the set of rebindable controls exactly the
 /// set already bound, so a player could permute their bindings and never reach a
 /// key the preset never used.
 ///
-/// ⚠ **order is the enum's, not the hardware's.** `ButtonInput` iterates a hash
+///  order is the enum's, not the hardware's. `ButtonInput` iterates a hash
 /// set, so "the first key pressed this frame" is not a fact it can supply; two
 /// keys down on one frame would resolve differently run to run, and a rebind
 /// that lands on a different key each time is worse than one that refuses. The
@@ -109,7 +109,7 @@ mod tests {
 
     #[test]
     fn an_unnameable_press_captures_nothing_rather_than_something_wrong() {
-        // ⛔ `Other` exists so the PROJECTION can be total. Storing one would be
+        //  `Other` exists so the PROJECTION can be total. Storing one would be
         // a settings file that loads into silence, because nothing can rebuild
         // the control from its debug string.
         assert!(capture(
@@ -134,7 +134,7 @@ mod tests {
 
     #[test]
     fn a_collision_is_reported_rather_than_refused() {
-        // ⚠ the game itself ships one: Escape drives Start AND MenuBack, on
+        //  the game itself ships one: Escape drives Start AND MenuBack, on
         // purpose. A capture that refused collisions would forbid that shape.
         let map = KeyboardPreset::arrows_zxc().input_map();
         let bindings = ActionBindings::from_map(&map);
@@ -169,7 +169,7 @@ mod tests {
 
     #[test]
     fn a_multi_key_frame_resolves_the_same_way_every_run() {
-        // ⛔ `ButtonInput` iterates a hash set, so "the first key this frame" is
+        //  `ButtonInput` iterates a hash set, so "the first key this frame" is
         // not a fact it can supply. Two runs picking different keys is a rebind
         // that lands somewhere new each time, which is worse than refusing.
         let mut keys = bevy::input::ButtonInput::<KeyCode>::default();
@@ -183,7 +183,7 @@ mod tests {
 
     #[test]
     fn a_key_no_preset_binds_is_still_capturable() {
-        // ⛔ the reason the keyboard is read RAW. Routing a capture through the
+        //  the reason the keyboard is read RAW. Routing a capture through the
         // seat's `InputMap` would make the rebindable set exactly the bound set,
         // so a player could permute their bindings and never reach a new key.
         let mut keys = bevy::input::ButtonInput::<KeyCode>::default();

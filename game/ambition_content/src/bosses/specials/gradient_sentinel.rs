@@ -441,7 +441,7 @@ pub fn spawn_overfit_volley_from_special_messages(
 
 const MINIMA_TRAP_OWNER_PREFIX: &str = "gradient_sentinel_minima";
 const MINIMA_TRAP_KNOCKBACK: f32 = 1.4;
-/// **The CHARACTER the trap summons** — the pacifist crawler.
+/// The CHARACTER the trap summons — the pacifist crawler.
 ///
 /// A summon whose id resolves nothing lands on the generic `combatant` fallback, so every
 /// minion this boss cast was silently the wrong body — wrong health, wrong speed, no crawl, no
@@ -755,15 +755,15 @@ pub fn spawn_saddle_point_from_special_messages(
     }
 }
 
-/// **THE CASCADE'S MINIONS ARE THE AI SLOP**.
+/// THE CASCADE'S MINIONS ARE THE AI SLOP.
 /// This pointed at `small_lurker`, a name whose archetype row a census had
 /// deleted, left dangling on purpose while "what IS a small lurker?" waited for
-/// this technique's own design note has always read *"spawn N **\"slop\"
-/// minions**"*, `npc_ai_slop` is the registered, body-complete character of that
+/// this technique's own design note has always read *"spawn N \"slop\"
+/// minions"*, `npc_ai_slop` is the registered, body-complete character of that
 /// exact name, and the sibling constant above (`MINIMA_TRAP_MINION_CHARACTER`)
 /// was already cast the same way.
 ///
-/// **provisional means the reversal is THIS ONE STRING** — a casting choice in
+/// provisional means the reversal is THIS ONE STRING — a casting choice in
 /// turns out to be its own creature, author the character and point this at it;
 /// nothing else in the game names one.
 const GRADIENT_CASCADE_MINION_CHARACTER: &str = "npc_ai_slop";

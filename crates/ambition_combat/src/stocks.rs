@@ -1,4 +1,4 @@
-//! **Stocks: the loop a KO'd fighter actually goes round.** (S4 part 1)
+//! Stocks: the loop a KO'd fighter actually goes round. (S4 part 1)
 //!
 //! [`FighterStocks`](crate::components::FighterStocks) has existed as vocabulary
 //! with no consumer — no rule spent one, nothing respawned, nothing was ever
@@ -37,7 +37,7 @@ use bevy::prelude::{
 
 use crate::components::FighterStocks;
 
-/// **A body whose death a RULESET owns was knocked out this tick.**
+/// A body whose death a RULESET owns was knocked out this tick.
 ///
 /// Written from the `RulesetOwnsDeath` arms of both death paths — the player's
 /// in `damage_apply` and the actor's in `actor_hit` — which is where the engine
@@ -49,7 +49,7 @@ pub struct BodyKnockedOut {
     pub cause: crate::HitSource,
 }
 
-/// **Out of the match**, as a fact on the body rather than a number to compare.
+/// Out of the match, as a fact on the body rather than a number to compare.
 ///
 /// A marker rather than `stocks.remaining == 0` at every call site: elimination
 /// is checked by rules, HUDs and the match-end condition, and three readers
@@ -58,7 +58,7 @@ pub struct BodyKnockedOut {
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct FighterEliminated;
 
-/// **A stock was spent** — the ruleset's cue to place a body or end a match.
+/// A stock was spent — the ruleset's cue to place a body or end a match.
 #[derive(Message, Clone, Copy, Debug, PartialEq)]
 pub struct FighterStockSpent {
     pub body: Entity,
@@ -68,7 +68,7 @@ pub struct FighterStockSpent {
     pub eliminated: bool,
 }
 
-/// **The set [`spend_fighter_stocks`] runs in — this tick's stock spend lands.**
+/// The set [`spend_fighter_stocks`] runs in — this tick's stock spend lands.
 ///
 /// ONE member. `decide_stocks_match` is chained after and CONSUMES the spend;
 /// including it would make a game's rules wait on the engine's decision, which
@@ -76,14 +76,14 @@ pub struct FighterStockSpent {
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct FighterStocksSpent;
 
-/// **The set the match-end decision runs in — after this, the outcome for this
-/// tick is settled.**
+/// The set the match-end decision runs in — after this, the outcome for this
+/// tick is settled.
 ///
 /// the twin of [`FighterStocksSpent`], and it exists because "run alongside
 /// the decision" is safe for most of a ruleset and fatal for one kind of rule.
 /// The note above is right that a game's HUD, its respawn placement and its
 /// countdown are meant to run beside the engine's answer rather than behind it.
-/// But a rule that **REMOVES A PARTICIPANT** is not running alongside the
+/// But a rule that REMOVES A PARTICIPANT is not running alongside the
 /// question — it is destroying the question's input.
 ///
 /// Smash's `take_eliminated_fighters_out_of_play` DESPAWNS an eliminated body, and
@@ -95,7 +95,7 @@ pub struct FighterStocksSpent;
 /// happened to break a tie, which differs between the standalone demo and the hosted app:
 /// *"several cases"* is what an ambiguity looks like from the couch.
 ///
-/// so a ruleset orders **only its participant-removing rules** against this.
+/// so a ruleset orders only its participant-removing rules against this.
 /// Ordering a whole rules chain behind it would take away the concurrency the
 /// note above is protecting.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -103,7 +103,7 @@ pub struct MatchOutcomeDecided;
 
 /// Spend one stock per knockout, and clear the meter of anyone coming back.
 ///
-/// **a fighter already eliminated is skipped, not spent again.** Without the
+/// a fighter already eliminated is skipped, not spent again. Without the
 /// `Without<FighterEliminated>` filter a body that is out but still standing —
 /// which it is, until a ruleset removes it — would keep absorbing knockouts, and
 /// `spend()` saturates at zero, so the elimination would be re-announced every
@@ -126,7 +126,7 @@ pub fn spend_fighter_stocks(
         let remaining = stocks.remaining;
         if eliminated {
             commands.entity(knockout.body).try_insert(FighterEliminated);
-            // **and it stops being IN the fight**, which is the other half of
+            // and it stops being IN the fight, which is the other half of
             // being out of it. The body stays standing until a ruleset removes
             // it, so without this it goes on holding attack state and a place on
             // the anti-clump board — a corpse crowding the fighters who are still
@@ -149,7 +149,7 @@ pub fn spend_fighter_stocks(
     }
 }
 
-/// **Which side, if any, is the only one left.**
+/// Which side, if any, is the only one left.
 ///
 /// The predicate a match-end condition is, lifted out of the versus stage so a
 /// stocks match and a rounds match cannot drift apart on it. `in_play` is the
@@ -161,7 +161,7 @@ pub fn spend_fighter_stocks(
 /// side has been wiped out and two are still fighting, which is the case a
 /// `survivors.len() == 1` test written the obvious way gets wrong in the other
 /// direction.
-/// **the caller names the sides.** An earlier draft resolved a teamless seat to
+/// the caller names the sides. An earlier draft resolved a teamless seat to
 /// a label here and immediately baked a display convention into the engine — the
 /// versus stage numbers its seats from ONE, and the engine numbered from zero, so
 /// the two disagreed about who won. What a side is CALLED is the game's business;
@@ -191,7 +191,7 @@ pub fn last_side_standing(rows: impl Iterator<Item = (String, bool)>) -> Option<
     }
 }
 
-/// **The match is over, and this is who took it.**
+/// The match is over, and this is who took it.
 ///
 /// Written once, by the ruleset-facing half of the loop, when
 /// [`last_side_standing`] first answers. `None` is a draw — every side going out
@@ -208,7 +208,7 @@ pub struct StocksMatchDecided {
 // beside it, keyed to the match it is about rather than to the process. See
 // `ambition_platformer2d_actor_monolith::features::stocks_match::StocksMatchSettled`.
 
-/// **WHICH SIDE A SEATED FIGHTER FIGHTS FOR** — its declared team, or its own
+/// WHICH SIDE A SEATED FIGHTER FIGHTS FOR — its declared team, or its own
 /// seat when the match declared none and every fighter is a side of one.
 ///
 /// Naming it here makes "the same side" a call rather than a convention.
@@ -295,7 +295,7 @@ mod tests {
         assert!(app.world().get::<FighterEliminated>(body).is_some());
     }
 
-    /// **A respawning fighter comes back at 0%**, or every stock after the first
+    /// A respawning fighter comes back at 0%, or every stock after the first
     /// is shorter than the one before it.
     #[test]
     fn spending_a_stock_clears_the_meter_that_caused_it() {

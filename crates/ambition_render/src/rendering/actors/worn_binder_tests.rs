@@ -1,4 +1,4 @@
-//! **S2: the reusable selected-character presentation binder.**
+//! S2: the reusable selected-character presentation binder.
 //!
 //! Proves the binder derives presentation from the canonical `WornCharacter`
 //! identity — generically (two character profiles, no per-character branch),
@@ -204,7 +204,7 @@ fn a_fallback_upgrades_when_its_sheet_appears_later() {
     );
 }
 
-/// **A body's sprite baseline is its OWN standing size, not a constant.**
+/// A body's sprite baseline is its OWN standing size, not a constant.
 ///
 /// `standing_collision` is the reference `sync_visuals` scales the art against
 /// (`base_size / standing_collision`), and that ratio exists only for the dev

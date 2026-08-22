@@ -25,12 +25,12 @@ const PLAYER_FILE_ROOT: &str = "player_robot_v3";
 /// The player's catalog character id (drives the render-size spec lookup).
 const PLAYER_CHARACTER_ID: &str = "player_robot_v3";
 
-/// Baked sheets keyed by **file root** (not `record.target`), so the
+/// Baked sheets keyed by file root (not `record.target`), so the
 /// player's `player_robot_v3` stays distinct from the enemy `robot`. Built
 /// once, lazily.
 ///
 /// §5 classification (per the old restructuring blueprint, folded into
-/// `docs/planning/engine/architecture.md`): **immutable asset cache** —
+/// `docs/planning/engine/architecture.md`): immutable asset cache —
 /// derived once from the compile-time `BAKED_SHEET_RONS` table, pure and
 /// override-free. Correctly a process-global `OnceLock`; not a content
 /// registry, so it has no `install_*` seam.
@@ -41,7 +41,7 @@ fn file_root_registry() -> &'static SheetRegistry {
     })
 }
 
-/// **File roots the index REFUSED for naming several records**, exposed so a
+/// File roots the index REFUSED for naming several records, exposed so a
 /// caller that owns a character catalog can decide whether any of them matter.
 ///
 /// same division of labour as `SheetRegistry::shadowed_targets`: this side can

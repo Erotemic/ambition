@@ -15,14 +15,14 @@ use crate::combat::*;
 pub use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
 
 /// Rebuild the transient collision blocks contributed by ECS-owned features.
-/// **The set `rebuild_feature_ecs_world_overlay` runs in, so a consumer can order
-/// against a NAME instead of against this function.**
+/// The set `rebuild_feature_ecs_world_overlay` runs in, so a consumer can order
+/// against a NAME instead of against this function.
 ///
 /// six places order against that function today — four in `ambition_content` (`bosses`,
 /// `falling_sand`, `falling_sand_sim`, `intro`), one in the monolith's own `encounter`, one more on
 /// `update_ecs_hazards` beside it.
 ///
-/// **deliberately a ONE-MEMBER set.** The obvious alternative — a set spanning
+/// deliberately a ONE-MEMBER set. The obvious alternative — a set spanning
 /// this system and `update_ecs_hazards` next to it in the chain — would make
 /// `.after(set)` STRICTER than the `.after(rebuild_feature_ecs_world_overlay)` it
 /// replaces, because consumers would newly wait for hazards too. One member

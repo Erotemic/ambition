@@ -2,14 +2,14 @@
 //! position determinism in the central_hub_complex Startup→tick path will fail
 //! this test with a clear "frame N diverged" message.
 //!
-//! **What it does NOT pin.** The fixture's sixty ticks are entirely NEUTRAL
+//! What it does NOT pin. The fixture's sixty ticks are entirely NEUTRAL
 //! input, so on its own it can only prove that a falling body falls the same
 //! way. The input pipeline — capture, transport, replay — is covered by
 //! `input_stream_replay.rs`, which scripts real movement. Keep both: this one
 //! guards the trajectory of a specific room from a specific recorded moment;
 //! that one guards the artifact.
 //!
-//! **that check is the point, and it is the one to repeat.** A regenerated
+//! that check is the point, and it is the one to repeat. A regenerated
 //! fixture is worthless as evidence unless somebody says what changed about it.
 //! "The trajectory is identical and the window moved" is a different claim from
 //! "the physics changed", and only one of them is a reason to accept a rewrite.

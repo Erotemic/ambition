@@ -1,43 +1,8 @@
 #!/usr/bin/env python3
-"""**How tall does each character actually READ?**
+"""Report rendered character scale from published sprite metadata.
 
-Jon, in `docs/planning/JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`: *"In the hall of
-characters, the humanoid characters are all dramatically out of scale with each
-other. Alice and bob are great, but characters like the vikings, or jeff hinter
-render as tiny little characters."*
-
-⛔ **the obvious fix does not work, which is why this exists.** A character's
-rendered height is `max(collision.x, collision.y) * collision_scale`
-(`ambition_sprite_sheet::character::sheets::geometry::sprite_render_size`). The
-frame's pixel size never enters it — only its ASPECT sets the width. So
-rescaling art at the generator changes `frame_width` and `frame_height`
-together, leaves the aspect alone, and moves nothing on screen.
-
-What a viewer actually sees is the FIGURE, not the frame, so the comparable
-number is
-
-    figure_height = collision_scale * (body_pixel_bbox.h / frame_height)
-
-per unit of collision box. Every sheet carries `body_pixel_bbox`, so this is
-measured rather than eyeballed.
-
-⭐ **Alice and Bob supply the reference, and Jon already endorsed it** — "Alice
-and bob are great". Their figure height is ~1.2, and the compensating formula
-`collision_scale = target / fill` reproduces Alice's authored 1.5 from her 81%
-fill (1.2 / 0.81 = 1.48). A calibration that predicts the values Jon likes is
-not taste; it is arithmetic with his reference in it.
-
-⚠ **`collision_scale` is presentation-only.** The collision box is untouched, so
-nothing here can change how a character plays.
-
-⛔ **edit the YAML, never the RON.** The `.ron` sheets say "Auto-emitted from
-…_spritesheet.yaml" in their first line and a regeneration would discard a RON
-edit. `collision_scale` lives in the YAML too.
-
-Usage:
-    python3 scripts/report_character_scale.py            # the full table
-    python3 scripts/report_character_scale.py --suggest  # + a suggested scale
-"""
+The report compares logical body/visual dimensions across characters so scale
+regressions are visible without opening each sheet manually."""
 
 from __future__ import annotations
 

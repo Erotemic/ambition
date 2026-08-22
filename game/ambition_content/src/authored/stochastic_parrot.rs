@@ -1,4 +1,4 @@
-//! **The aerial dive-bomber.** Its `is_aerial` does NOT come across as a
+//! The aerial dive-bomber. Its `is_aerial` does NOT come across as a
 //! character field: the catalog row already says `body_kind: Floating`,
 //! and construction reads gravity-freedom from there — one authority for
 //! "does this creature fly", which the archetype row was duplicating.
@@ -39,8 +39,8 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             attack_range: 60.0,
             ..Default::default()
         })
-        // **AND ITS CATALOG ROW STILL NAMES `parrot_lively`, WHICH
-        // DISAGREES WITH THIS**. That
+        // AND ITS CATALOG ROW STILL NAMES `parrot_lively`, WHICH
+        // DISAGREES WITH THIS. That
         // preset says `aggro_radius: 120.0` and `attack_range: 0.0`
         // against this profile's 620 and 60 — one bird, two authorities,
         // different answers. THIS one wins (`resolve_npc_brain` ranks a

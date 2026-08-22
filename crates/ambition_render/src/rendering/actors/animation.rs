@@ -19,7 +19,7 @@ pub(crate) fn apply_character_frame(
     animator: &mut CharacterAnimator,
     anchor: Option<&mut bevy::sprite::Anchor>,
     anim: ambition_sprite_sheet::character::CharacterAnim,
-    // **What the body's ACTIVE MOVE asks to be drawn as**, when one is playing.
+    // What the body's ACTIVE MOVE asks to be drawn as, when one is playing.
     //
     // sprite redirect P0: `anim` is the 56-variant semantic vocabulary and
     // the new fighter sheets carry rows it has no variant for — `smash_forward`,
@@ -143,7 +143,7 @@ pub fn animate_player(
             &mut animator,
             anchor.map(|a| a.into_inner()),
             pose.anim,
-            // **and the local player's move names its row too** — the same
+            // and the local player's move names its row too — the same
             // request the actor road carries, so a human-driven fighter and a
             // CPU one on the same character draw the same animation for the same
             // move. That is the property the whole seam exists for.
@@ -382,8 +382,8 @@ mod tests {
         }
     }
 
-    /// **A left-drawn character faces the way they are going, exactly like a
-    /// character whose art was drawn the other way round.**
+    /// A left-drawn character faces the way they are going, exactly like a
+    /// character whose art was drawn the other way round.
     ///
     /// facing WEST (the SVG paperdoll view is `Patent Clerk - Side Left`, and
     /// his rig declares `features.facing: "west"`), while the renderer assumed
@@ -428,8 +428,8 @@ mod tests {
         }
     }
 
-    /// **Every baked sheet points where its body is facing — however it was
-    /// drawn.** The whole-population form of the rule above, so the term can
+    /// Every baked sheet points where its body is facing — however it was
+    /// drawn. The whole-population form of the rule above, so the term can
     /// never be right for the one character it was added for and wrong for the
     /// rest.
     #[test]
@@ -456,8 +456,8 @@ mod tests {
             checked > 100,
             "expected the baked sheet table to hold the whole cast, saw {checked}"
         );
-        // **THE OTHER SHEETS ARE UNMOVED, as a measurement rather than a
-        // hope.** `authored_faces_left` is `#[serde(default)]` and the
+        // THE OTHER SHEETS ARE UNMOVED, as a measurement rather than a
+        // hope. `authored_faces_left` is `#[serde(default)]` and the
         // generator emits it only when true, so a sheet absent from this list
         // resolves `flip_x` to exactly `facing < 0` — byte-identical to what it
         // did before the field existed. This list is the complete set of sheets

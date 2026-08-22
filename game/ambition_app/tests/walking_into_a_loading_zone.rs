@@ -1,9 +1,9 @@
-//! **THE CHARACTER WALKS THROUGH THE DOOR. NOBODY TELEPORTS HER INTO IT.**
+//! THE CHARACTER WALKS THROUGH THE DOOR. NOBODY TELEPORTS HER INTO IT.
 //!
 //! both interact doors and contact doors... These are huge regressions, not sure
 //! how we didn't have a test to catch these."*
 //!
-//! **and the door suite was GREEN while he could not open one.** Every
+//! and the door suite was GREEN while he could not open one. Every
 //! room-transition test in this tree, including `door_entry`'s shipped-host
 //! case, puts the body inside the zone by ASSIGNMENT —
 //! `kin.pos = zone.aabb.center()` — and then presses a key. That covers the
@@ -22,11 +22,11 @@
 //!     → the active room actually changes
 //! ```
 //!
-//! **the contact half needs a HOP, and that is a content defect, not this test being lenient.** A
+//! the contact half needs a HOP, and that is a content defect, not this test being lenient. A
 //! 16px floor lip sits inside the start room's edge exit, so a walking body stalls against its side
 //! forever.
 //!
-//! **the walk is asserted separately from the transition**, and that split is the diagnosis. One
+//! the walk is asserted separately from the transition, and that split is the diagnosis. One
 //! test, two distinguishable verdicts, because "I cannot go through doors" has always had those two
 //! causes and no test could tell them apart.
 
@@ -93,7 +93,7 @@ fn walk_toward(target_x: f32, from_x: f32, extra: AgentAction) -> AgentAction {
     }
 }
 
-/// **Walk until the body overlaps `zone`, holding `extra` the whole way.**
+/// Walk until the body overlaps `zone`, holding `extra` the whole way.
 ///
 /// Returns the room id the moment it changes, or `None` if the walk finished
 /// without a transition. Stops early if the room changes — a `Walk` zone fires
@@ -132,28 +132,9 @@ fn walk_into(
     (arrived, (now != before).then_some(now))
 }
 
-/// **A CONTACT ZONE FIRES BECAUSE SHE GOT THERE UNDER HER OWN POWER.**
-///
-/// **`EdgeExit` IS the contact zone in this game.** A census of every authored
-/// `.ldtk` finds 381 `Door` zones, 72 `EdgeExit`s and not one `Walk` — a test
-/// that asked for `Walk` would sit on its own "no such zone" guard forever.
-///
-/// ✔ **THE HOP IS DELETED, which is what this doc said to do the day the lip
-/// went.** She had to jump in: `central_hub_main`'s edge exits were holes in a
-/// three-cell-thick wall whose bottom two rows were still solid, so the opening
-/// sat 32px above the floor — a window, not a door. A walking body hit the sill
-/// and stalled at x=1841 forever (held direction, 600 frames, no arrival).
-///
-/// It was a standing conflict with `EdgeExit`'s own contract — *"the zone must touch a level edge
-/// so the player physically walks off the screen into it"* — and the fix was content: clear the
-/// sill so the opening reaches the floor at row 61, which is solid all the way across, so no pit
-/// appears.
-///
-/// A zone that stopped one row above the floor could never be touched by a body standing on it.
-/// Only the hub's two exits had a sill above the floor, and only they were changed.
-///
-/// So the input is a plain WALK, and what this pins is the MECHANISM: reaching
-/// a contact zone under your own power fires it.
+/// Reaching an authored `EdgeExit` by ordinary movement must activate the room
+/// transition. The fixture deliberately walks rather than injecting contact so
+/// movement, overlap detection, and transition activation are exercised together.
 #[test]
 fn reaching_a_contact_zone_under_her_own_power_changes_the_room() {
     let mut sim = fixed_60hz_sim();
@@ -197,7 +178,7 @@ fn reaching_a_contact_zone_under_her_own_power_changes_the_room() {
     );
 }
 
-/// **AND A DOOR OPENS FOR A BODY THAT WALKED UP TO IT.**
+/// AND A DOOR OPENS FOR A BODY THAT WALKED UP TO IT.
 ///
 /// interact is held for the WHOLE walk rather than pressed on arrival, and
 /// that is deliberate: a door is buffered-interact, the buffer is what

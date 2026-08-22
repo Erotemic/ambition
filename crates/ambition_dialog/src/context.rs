@@ -1,4 +1,4 @@
-//! **Who is talking to whom** — the identity context of one conversation.
+//! Who is talking to whom — the identity context of one conversation.
 //!
 //! A dialogue is not a property of the NPC alone. The same pedestal in the Hall
 //! of Characters should say something different to a visitor than to the
@@ -18,7 +18,7 @@
 //! ===
 //! ```
 //!
-//! **Ids, never display names.** A display name is a localization artifact and
+//! Ids, never display names. A display name is a localization artifact and
 //! two characters may share one; the id is the identity.
 
 use std::collections::BTreeSet;
@@ -114,7 +114,7 @@ impl DialogueNodeIndex {
     ///
     /// - Not talking to yourself: the dialogue's own node.
     /// - Talking to yourself, and content authored `<id>__self`: that node.
-    /// - Talking to yourself, and it did not: **suppressed**. The engine's
+    /// - Talking to yourself, and it did not: suppressed. The engine's
     ///   default is that a body has nothing to say to itself. Content opts in.
     /// - Index unpopulated (no Yarn project — headless, tests, the frames
     ///   before the runner spawns): the dialogue's own node. Not knowing is not

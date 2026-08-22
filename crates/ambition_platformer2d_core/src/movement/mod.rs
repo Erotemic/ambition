@@ -126,21 +126,8 @@ pub(crate) fn update_body_control_in_frame(
         return events;
     }
 
-    // **The floor game, first.** Tumble / knockdown / tech / getup resolve
-    // before any maneuver, because a helpless or prone body is not choosing
-    // anything.
-    //
-    // **in the CONTROL phase, and that placement was measured.** It first sat
-    // in the simulation phase, one phase too late: the control phase had already
-    // read the same press, so a tech attempt mid-tumble came out as an AIR DASH
-    // that zeroed the launch's velocity and stalled the body in mid-air, and a
-    // buffered dash fired a dodge roll on the very tick the body was knocked
-    // down (`[DodgeRoll, Knockdown]`, measured). A state that takes the
-    // controller away has to take it away where the controller is read.
-    //
-    // it does NOT short-circuit the step: a knocked-down body still
-    // integrates, still resolves contacts, and still falls if the floor under it
-    // is removed. It loses its input, not its physics.
+    // Resolve tumble/knockdown/tech/getup in the control phase before any
+    // maneuver reads input. These states suppress control, not integration.
     let input = knockdown::tick_knockdown(
         clusters.kinematics,
         state,
@@ -297,7 +284,7 @@ fn update_body_simulation_inner(
 
     // Ledge carry on moving geometry, BEFORE anything reads the body's pose.
     //
-    // **the same rule as the grounded ride, one step earlier in the frame.** A body resting on
+    // the same rule as the grounded ride, one step earlier in the frame. A body resting on
     // a moving solid is carried by `Block::velocity` down in `integrate_velocity_clusters`; a
     // body HANGING on one cannot be, because the active-hang tick below short-circuits the
     // whole simulation phase and `integrate_velocity_clusters` never runs.
@@ -395,7 +382,7 @@ fn update_body_simulation_inner(
         if state.wall_clinging || clusters.ground.on_ground {
             state.pre_wall_vel_age += dt;
         }
-        // **Time NOT spent hanging**, which is what the next grab's intangibility is bought
+        // Time NOT spent hanging, which is what the next grab's intangibility is bought
         // with.
         if state.ledge_grab.is_none() {
             state.time_off_ledge =

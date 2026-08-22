@@ -1,7 +1,7 @@
-//! **A block the level PAINTED must still be able to change its picture.**
+//! A block the level PAINTED must still be able to change its picture.
 //!
-//! **one line in `level_1_2()` opted every block in the cavern out of art
-//! updates, permanently.** The level paints its stone —
+//! one line in `level_1_2()` opted every block in the cavern out of art
+//! updates, permanently. The level paints its stone —
 //! `for block in &mut room.world.blocks { block.art_color = Some(UNDERGROUND_STONE) }`
 //! — and `spawn_block` read that authored colour as *"content has said this
 //! shape has no sprite yet"*, dropped the sprite key on the floor and therefore
@@ -9,7 +9,7 @@
 //! changes a block's picture mid-run, queries `&mut BoundEntitySprite`. No
 //! binding, no match, no repaint — ever.
 //!
-//! **`art_color` was saying two things at once**: *"draw me as a flat coloured
+//! `art_color` was saying two things at once: *"draw me as a flat coloured
 //! quad"*, which is what the author meant, and *"never update my picture
 //! again"*, which is an accident of how the first was implemented. These tests
 //! pin the second meaning out of existence: a painted block keeps its flat quad
@@ -46,7 +46,7 @@ fn cavern() -> App {
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
-    // **the ordering lives in ONE place now** — after the participant pipeline's routing stage and
+    // the ordering lives in ONE place now — after the participant pipeline's routing stage and
     // before the frame→tick latch.
     ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
     for _ in 0..90 {
@@ -95,7 +95,7 @@ fn authored(look: MaryOBlockLook) -> ae::world::Block {
 /// keyed by `geo_id`, which is what a bonk arrives with, not by the human
 /// name — the two are kept side by side on `BlockVisual` for this reason.
 ///
-/// **`Option`, not a panic, because "there is no visual" is an ANSWER here.**
+/// `Option`, not a panic, because "there is no visual" is an ANSWER here.
 /// helper that panics on the absent case reports it as a broken probe.
 fn drawn_image_opt(app: &mut App, geo_id: &ae::GeoId) -> Option<Handle<Image>> {
     let mut query = app.world_mut().query::<(&BlockVisual, &Sprite)>();
@@ -147,7 +147,7 @@ fn a_question_block_in_the_painted_cavern_wears_its_own_art() {
     );
 }
 
-/// **the poison.** A block nobody names art for keeps the flat quad the level
+/// the poison. A block nobody names art for keeps the flat quad the level
 /// painted. The fix must not turn "no art yet" into "the kind's texture,
 /// eventually" — that would repaint every honest placeholder in the engine.
 #[test]
@@ -169,18 +169,9 @@ fn a_painted_block_nobody_dresses_keeps_its_flat_quad() {
     );
 }
 
-/// Her head was stopped dead at the block's underside and no contact was reported at all:
-/// `resolve_axis` gave `BlockKind::BonkOnly` an arm of its own in an `if / else if` chain, under a
-/// comment claiming it "falls through to the ordinary face resolution below" — which is where the
-/// head contact is built. Chains do not fall through.
-///
-/// **this asks the game's own record and then the COIN COUNT**, never the
-/// screen — the report came from a block that could not draw itself, so the
-/// picture is exactly the wrong witness.
-///
-/// Discovery promotes the block to a `Solid` through `FeatureEcsWorldOverlay`, whose
-/// `removed_block_names` despawns the block's visual, and the overlay's ADDED blocks have no render
-/// pass at all. The payout lands and the picture is deleted. Separate row; do not fold it in here.
+/// A hidden bonk-only block must report underside contact and pay out when hit
+/// from below. This test observes game state rather than rendering; discovery
+/// rendering is covered separately.
 #[test]
 fn the_invisible_brick_triggers_from_below() {
     let mut app = cavern();
@@ -188,7 +179,7 @@ fn the_invisible_brick_triggers_from_below() {
     let underside = hidden.aabb.max.y;
     let strike = jump_into_from_below(&mut app, &hidden);
 
-    // **the SECOND term: her head actually got there.** Asserted BEFORE the
+    // the SECOND term: her head actually got there. Asserted BEFORE the
     // payout so a probe that could not reach the block says so in its own name
     // instead of convicting the game.
     assert!(
@@ -209,7 +200,7 @@ fn the_invisible_brick_triggers_from_below() {
         strike.apex_head,
     );
 
-    // **the EFFECT a player would see.** A coin block credits the purse
+    // the EFFECT a player would see. A coin block credits the purse
     // directly rather than dropping a pickup, so the coin count IS the payout —
     // and `SpentPowerBlocks` alone would go green on a block that acknowledged
     // the strike and gave nothing.
@@ -221,21 +212,21 @@ fn the_invisible_brick_triggers_from_below() {
     );
 }
 
-/// **the mechanism is a REPLACEMENT read as a DELETION.**
+/// the mechanism is a REPLACEMENT read as a DELETION.
 /// `contribute_discovered_hidden_blocks_to_overlay` promotes the struck
 /// `BonkOnly` to a `Solid` by pushing the block's own name into
 /// `removed_block_names` AND the promoted block into `blocks` — the same name,
 /// the same box, the same `GeoId`. `sync_removed_block_visuals` read only the
 /// first half and despawned the sprite that the second half is asking for.
 ///
-/// **this is a SECOND test rather than more assertions on the trigger test**,
+/// this is a SECOND test rather than more assertions on the trigger test,
 /// because they fail for different reasons and a merged one cannot say which.
 #[test]
 fn a_discovered_hidden_block_reveals_itself() {
     let mut app = cavern();
     let hidden = authored(MaryOBlockLook::Hidden);
 
-    // **the pre-assertion: it IS drawn before it is struck** — as a fully
+    // the pre-assertion: it IS drawn before it is struck — as a fully
     // transparent quad, which is the whole trick. A probe that started from a
     // block nothing was drawing could not tell "the reveal is broken" from
     // "this block was never in the render world".
@@ -260,7 +251,7 @@ fn a_discovered_hidden_block_reveals_itself() {
         step(&mut app, ControlFrame::default());
     }
 
-    // **re-asserted AFTER the wait, not just before it.** `SpentPowerBlocks`
+    // re-asserted AFTER the wait, not just before it. `SpentPowerBlocks`
     // is re-armed by `RoomLoaded` and by a replay; if one of those fired during
     // the wait the block is no longer discovered and the picture assertion below
     // would be asking the wrong question.
@@ -295,12 +286,12 @@ struct Strike {
     spent: bool,
 }
 
-/// **Stand her on the nearest floor under `block` and jump into its underside.**
+/// Stand her on the nearest floor under `block` and jump into its underside.
 ///
 /// Derive the setup from the room so authored block moves remain valid and the jump starts
 /// from footing rather than mid-air.
 ///
-/// **her FOOTING is asserted HERE, inside the setup.** A jump script that
+/// her FOOTING is asserted HERE, inside the setup. A jump script that
 /// never gets her off the ground reports "the block is broken" — a falsifier
 /// watching the wrong thing, and this beat is precisely where that mistake is
 /// cheap to make.

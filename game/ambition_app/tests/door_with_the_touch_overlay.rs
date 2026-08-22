@@ -1,21 +1,21 @@
 #![cfg(all(feature = "input", feature = "visible", feature = "mobile_touch"))]
 
-//! **THE DOOR, WITH THE TOUCH OVERLAY INSTALLED — because the shipped app has one.**
+//! THE DOOR, WITH THE TOUCH OVERLAY INSTALLED — because the shipped app has one.
 //!
 //! the sim harness, in the shell host, and under a rollback host. Every one of
 //! those compositions is missing something the binary he runs has:
 //! `add_presentation_plugins` installs [`TouchControlsPlugin`]
-//! **unconditionally whenever `mobile_touch` is compiled** — and `desktop_dev`,
+//! unconditionally whenever `mobile_touch` is compiled — and `desktop_dev`,
 //! the default persona, compiles it. There is no runtime boolean gating it on a
 //! desktop.
 //!
-//! **and touch is a VIRTUAL DEVICE bound into the same participant map**, not
+//! and touch is a VIRTUAL DEVICE bound into the same participant map, not
 //! a separate `ControlFrame` writer. So it shares the one seam a keyboard
 //! interact press travels, and an overlay that publishes a neutral frame, holds
 //! a stale `Interaction`, or claims a context would take the press without
 //! anything logging a refusal.
 //!
-//! **this test exists to be a NEGATIVE if it passes.** Ruling the overlay out
+//! this test exists to be a NEGATIVE if it passes. Ruling the overlay out
 //! is worth as much as catching it: it is the last structural difference between
 //! the compositions that work and the binary that does not, and after this the
 //! remaining suspects are all machine-local (persisted save, settings, devices).
@@ -53,7 +53,7 @@ fn a_door_still_opens_with_the_touch_overlay_installed() {
     ambition_app::app::init_sandbox_resources(&mut app);
     ambition_app::app::add_simulation_plugins(&mut app);
     app.add_plugins(ambition_platformer2d::host::PlatformerHostPlugins);
-    // **THE DIFFERENCE UNDER TEST.** Its HUD spawn orders after the font
+    // THE DIFFERENCE UNDER TEST. Its HUD spawn orders after the font
     // load, so the Font asset type has to exist and `load_ui_fonts` has to run,
     // exactly as the app arranges them.
     app.init_asset::<bevy::text::Font>();

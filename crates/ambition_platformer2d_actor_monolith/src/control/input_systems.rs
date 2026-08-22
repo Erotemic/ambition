@@ -9,12 +9,12 @@
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-/// **The set [`input_timer_system`] runs in — this tick's input timers advance.**
+/// The set [`input_timer_system`] runs in — this tick's input timers advance.
 ///
 /// A reset that must be seen by the timers (the app's player-reset input) lands
 /// before it.
 ///
-/// ⚠ ONE member, nested inside `PlayerInputSet::Device`. The parent also holds
+///  ONE member, nested inside `PlayerInputSet::Device`. The parent also holds
 /// the slot publish and the frame commit, both of which the reset must NOT
 /// precede — it needs to beat the timer decrement, not the whole device phase.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -24,11 +24,11 @@ pub struct InputTimersAdvanced;
 /// gestures from the local device.
 ///
 /// Two concerns, deliberately separated by ownership:
-/// - **Home-body reaction timers** (`hitstun` / `hitstop` / `damage-invuln` /
+/// - Home-body reaction timers (`hitstun` / `hitstop` / `damage-invuln` /
 ///   `recoil`): the home/player body isn't in the actor tick, so it ticks its OWN
 ///   reaction timers here. This is the home body's own state, NOT authority over the
 ///   controlled subject — a possessed actor ticks its own timers in the actor path.
-/// - **Slot gestures** (double-tap down/up): derived from each seat's row of
+/// - Slot gestures (double-tap down/up): derived from each seat's row of
 ///   `SlotControls` into `SlotInteractionState`, for EVERY slot. Body mode /
 ///   interaction consume that (keyed by the acting body's slot), never a
 ///   per-body component.
@@ -37,21 +37,21 @@ pub struct InputTimersAdvanced;
 /// `GameMode::Playing`. Writes `fast_fall_pressed` back into each seat's row of
 /// `SlotControls`.
 ///
-/// ⛔ **it is NOT in `InputSet::Route` any more, and that is by the set's own
-/// definition**: Route is every system that writes the global `ControlFrame`,
+///  it is NOT in `InputSet::Route` any more, and that is by the set's own
+/// definition: Route is every system that writes the global `ControlFrame`,
 /// and nothing in this file holds that resource now. It runs after the
 /// publication boundary instead, on the table the bodies actually read.
 pub fn input_timer_system(
     time: Res<Time>,
     feel_tuning: Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>,
-    // **WHO IS DRIVING WHAT**, so each seat's gesture resolves against the
+    // WHO IS DRIVING WHAT, so each seat's gesture resolves against the
     // gravity of the body that seat is actually steering.
     drivers: Query<(Entity, &crate::control::DrivingParticipant)>,
     frames: Query<&crate::physics::ResolvedMotionFrame>,
     primary_q: Query<Entity, crate::actor::PrimaryPlayerOnly>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     mut sim_state: ResMut<crate::RoomTransitionCooldown>,
-    // ⭐ **the SLOT TABLE, not the global frame.** The derivation refines the
+    //  the SLOT TABLE, not the global frame. The derivation refines the
     // frame each body is about to read, and every body reads its own slot.
     mut slots: ResMut<ambition_characters::brain::SlotControls>,
     // Writing only the slot loses the second; writing only the raw row loses the first on a latch
@@ -72,14 +72,14 @@ pub fn input_timer_system(
     let frame_dt = time.delta_secs();
     let feel = *feel_tuning;
     sim_state.remaining = (sim_state.remaining - frame_dt).max(0.0);
-    // ⭐ **ONE decay, called — not a fourth spelling of it** (AC3.3). Two lists for one rule,
+    //  ONE decay, called — not a fourth spelling of it (AC3.3). Two lists for one rule,
     // disagreeing in both directions.
     //
-    // ⭐ i-frames are a promise to the PLAYER in real seconds — a bullet-time
+    //  i-frames are a promise to the PLAYER in real seconds — a bullet-time
     // moment must not hand out longer invulnerability — which is the same
     // reason the double-tap windows below are unscaled.
     //
-    // ⚠ **what WAS wrong is the waiver, not the clock.** The `Res<Time>` allowlist entry for
+    //  what WAS wrong is the waiver, not the clock. The `Res<Time>` allowlist entry for
     // this file claimed *"the reaction timers still compute their own scaled dt manually"*, and
     // no such scaling exists or should.
     for mut combat in &mut home_feel_q {
@@ -108,7 +108,7 @@ pub fn input_timer_system(
         // locomotion, so ScreenDirected sideways gravity can map raw-right /
         // raw-left into local down/up without bespoke cases here.
         //
-        // ⚠ **whose down, asked per seat.** A double-tap means *down* relative
+        //  whose down, asked per seat. A double-tap means *down* relative
         // to the body the person is steering; resolving every seat against the
         // primary's gravity would hand player two player one's idea of down the
         // moment either of them stands on a wall.
@@ -187,7 +187,7 @@ pub fn interaction_input_system(
         .map_or(ae::InputFrameMode::DEFAULT_MOVEMENT, |s| {
             s.gameplay.resolved_movement_frame_mode()
         });
-    // ⛔⛔ **EVERY SEAT, and this was `slot_gestures.primary_mut` too.** The interact buffer is
+    //  EVERY SEAT, and this was `slot_gestures.primary_mut` too. The interact buffer is
     // what doors and dialogue read, keyed by the acting body's slot — so a second player
     // standing at a door pressed a button that was buffered for nobody.
     for index in 0..ambition_characters::brain::SlotControls::MAX_SLOTS {
@@ -274,7 +274,7 @@ pub fn cleanup_timers_system(
     let Ok((motion_facts, mut anim, mut blink_cam)) = player_q.single_mut() else {
         return;
     };
-    // ⛔ `hit_flash` is NOT decayed here any more (AC3.3). It is a body-generic
+    //  `hit_flash` is NOT decayed here any more (AC3.3). It is a body-generic
     // reaction timer and it decays with the rest of them in `input_timer_system`,
     // which iterates every `PlayerEntity` rather than the home avatar alone —
     // this system's query could not see a second player body at all.
@@ -297,9 +297,9 @@ mod per_seat_gesture_tests {
     use ambition_combat::feel::Platformer2dFeelTuningMonolith;
     use ambition_platformer2d_core::ControlFrame;
 
-    /// **PLAYER TWO CAN FAST-FALL.**
+    /// PLAYER TWO CAN FAST-FALL.
     ///
-    /// ⛔⛔ **they could not, and one line proved it:**
+    ///  they could not, and one line proved it:
     /// `read_gameplay_control_frame_with_settings` hardcoded `fast_fall_pressed: false`, and
     /// the only system that ever set it read `slot_gestures.primary_mut()`. The table was
     /// per-slot, the accessor was per-slot, and body mode consumed it per-slot — the PRODUCER
@@ -354,7 +354,7 @@ mod per_seat_gesture_tests {
         );
     }
 
-    /// **AND ONE SEAT'S TAPS ARE NOT THE OTHER'S.** The falsifier for a loop that
+    /// AND ONE SEAT'S TAPS ARE NOT THE OTHER'S. The falsifier for a loop that
     /// derives per seat but shares the window state: two people alternating taps
     /// would each hand the other a double-tap they never pressed.
     #[test]
@@ -423,7 +423,7 @@ mod interaction_suppression_tests {
             },
         );
         app.insert_resource(raw);
-        // ⚠ no latch: this is a frame-stepped composition, so the RAW row above
+        //  no latch: this is a frame-stepped composition, so the RAW row above
         // is this tick's input and the slot table is the empty destination it
         // will be published into. Both exist in any real composition —
         // `BrainPlugin` installs the pair.
@@ -438,7 +438,7 @@ mod interaction_suppression_tests {
             .buffered()
     }
 
-    /// **A TAP THAT ONLY EVER EXISTED IN THE LATCH STILL REACHES THE BUFFER.**
+    /// A TAP THAT ONLY EVER EXISTED IN THE LATCH STILL REACHES THE BUFFER.
     ///
     /// On a LATCH host that is the wrong table: `ControlFrameLatch` OR-accumulates edges across
     /// every sub-tick sample, so a press that opens and closes between two ticks lives in the

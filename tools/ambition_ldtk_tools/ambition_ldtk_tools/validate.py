@@ -693,7 +693,7 @@ def validate(
     except Exception as ex:  # noqa: BLE001 - command line validator should print parser details
         return [f"failed to parse JSON: {ex}"], []
 
-    # **THE GAME'S VOCABULARY IS DECLARED, NEVER INFERRED.** A game registers
+    # THE GAME'S VOCABULARY IS DECLARED, NEVER INFERRED. A game registers
     # nouns of its own through `install_ldtk_entity_converters`, and validation
     # has to know about them or every Mary-O level is "unsupported". The first
     # attempt read them out of the project's own `defs.entities` — which is
@@ -859,13 +859,8 @@ def validate(
         field_def.get("identifier"): field_def.get("uid")
         for field_def in defs.get("levelFields") or []
     }
-    # **a WARNING, and it used to be an error.** This asks "can an author place
-    # every engine entity from this file's editor palette", which is ergonomics —
-    # unlike `missing_defs` below, which asks whether an entity this world already
-    # PLACES has a definition, and stays an error because it is a broken file.
-    #
-    # `SurfaceRamp` is exactly that case — a real engine entity since Q27 whose editor defs have
-    # never been rolled out to any of the six worlds.
+    # Missing supported palette definitions are an authoring warning; missing
+    # definitions for entities already placed in this world remain an error.
     missing_known_defs = sorted(KNOWN_ENTITIES - entity_defs)
     if missing_known_defs:
         warnings.append(
@@ -1146,8 +1141,8 @@ def validate(
                             )
                 # That is exactly what kept Mary-O's two 1-1 zones out of `mary_o.ldtk`.
                 #
-                # **and a landing pad that names a target is not merely
-                # redundant, it is a bounce.** The body arrives standing INSIDE
+                # and a landing pad that names a target is not merely
+                # redundant, it is a bounce. The body arrives standing INSIDE
                 # the target zone (`door_arrival` = zone centre, 26px off its
                 # floor), so the moment the 0.16s transition cooldown lapses the
                 # zone it landed on fires and sends it back. Measured, not
@@ -1247,10 +1242,8 @@ def validate(
                 )
                 break
 
-    # **the typo check the blanket rule used to buy, kept.** A zone that names
-    # no target is a landing pad, and a landing pad nothing arrives through is
-    # dead geometry — an exit whose fields were never filled in reads exactly
-    # like one, so this is where that mistake still gets caught.
+    # A targetless zone is valid only when another zone arrives through it;
+    # otherwise it is dead geometry or an incompletely authored exit.
     arrived_through = {(room, zone) for _, _, _, room, zone in requested_links}
     for source_level, area, zone_id in arrival_only_zones:
         if (area, zone_id) not in arrived_through:
@@ -1270,7 +1263,7 @@ def validate(
     if include_authoring_hygiene:
         _check_intro_authoring_hygiene(project, warnings)
 
-    # **the runtime's own refusals, reachable without a compiler.** `repair` and
+    # the runtime's own refusals, reachable without a compiler. `repair` and
     # `roundtrip` call this string-shaped entry point rather than
     # `validate_issues`, and it was the three of them agreeing that made
     # `mary_o_1_3` look finished — so the contract has to land HERE, not only in

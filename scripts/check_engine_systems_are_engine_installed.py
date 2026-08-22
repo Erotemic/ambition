@@ -1,59 +1,8 @@
 #!/usr/bin/env python3
-"""Which ENGINE systems does only the SHIPPED APP install?
+"""Find engine systems that are installed only by the shipped game composition.
 
-That question has cost this repo three defects in four days, each found by
-accident and each invisible in every test that ran:
-
-* **the world-label placement pass** (queue AE1, 2026-07-30) — `spawn_room_visuals`
-  is engine code and spawns `WorldLabel`s; the pass that places, fades and
-  typefaces them was installed by `ActorNameplatePresentationPlugin`, which only
-  `ambition_app` adds. Mary-O, Sanic and the external consumer drew their labels
-  at raw anchors in Bevy's fallback font.
-* **the parallax THEME LOAD** (S12, 2026-07-31) — `ensure_parallax_layers_for_room`
-  was called from `ambition_app`'s room-transition machinery alone, so a room in
-  a second biome had no background anywhere else. Silently:
-  `spawn_parallax_layers` skips a layer whose handle is absent.
-* **the parallax LAYER SYNC** (same day, found by sweeping for the first two) —
-  `sync_parallax_layers` was app-local too, so a backdrop that DID spawn sat at
-  the world origin and never moved with the camera.
-
-The shape is always the same and it is never a crash. The engine owns the code;
-the shipped app owns the *registration*; and every other composition — the
-demos, `fixtures/external_consumer`, anything built through `PlatformerApp` —
-gets an engine that half-runs. The tests stay green because the shipped app is
-what the acceptance tests drive.
-
-# # What this checks
-
-For every `add_systems` call in an APP crate, take the systems whose path names
-an ENGINE crate. If no engine crate registers that same system anywhere, this
-composition is the only one that has it, and the row must either move into an
-engine plugin or be WAIVED here with a reason.
-
-⚠ **A waiver is the normal outcome, not a failure.** Plenty of engine systems
-are a GAME's choice — floating health bars, dev-tool sprite overrides, a portal
-feature only one game has. The point is not that every engine system belongs in
-an engine plugin; it is that the choice is *made* and written down, instead of
-being whatever the app happened to wire in 2024.
-
-# # What it deliberately is not
-
-Not a parser. It matches `add_systems(` call sites by paren balance and reads
-qualified paths out of the text between them — enough to see `foo::bar::baz` and
-take `baz`. A system passed as a bare local identifier, built by a helper, or
-hidden inside a plugin the app adds is invisible here, and that is stated rather
-than papered over: this instrument catches the shape that has actually bitten
-three times, and a cleverer one nobody trusts is worse.
-
-Conventions follow `check_absence_contracts.py`: production source only,
-comments stripped before matching (a doc comment naming a system is not a
-registration), and every waiver carries an id and a reason.
-
-Usage:
-    python3 scripts/check_engine_systems_are_engine_installed.py
-    python3 scripts/check_engine_systems_are_engine_installed.py --list
-    python3 scripts/check_engine_systems_are_engine_installed.py --all --list
-"""
+The check identifies reusable engine systems whose registration has leaked into a
+game host, so headless/demo consumers cannot accidentally omit required behavior."""
 
 from __future__ import annotations
 
@@ -81,8 +30,8 @@ ENGINE_ROOTS = ["crates"]
 RENDER_PATH_PREFIXES = (
     "ambition_render::",
     "ambition_platformer2d::render::",
-    # The finding is about this list rather than about any one system: **the narrowing is by PATH,
-    # and presentation is not only in the render crate.** `dialog_reveal_tick` owns the typewriter
+    # The finding is about this list rather than about any one system: the narrowing is by PATH,
+    # and presentation is not only in the render crate. `dialog_reveal_tick` owns the typewriter
     # timing — its own doc says "this is presentation only" — and lives in `ambition_dialog`, so no
     # prefix here could ever see it. The class this guard exists for was hiding one module outside
     # the paths it looked at.
@@ -216,7 +165,7 @@ WAIVERS: dict[str, str] = {
 
 # ── OPEN rows: the engine SHOULD own these, and a blocker is recorded ──
 #
-# **not the same thing as a waiver, and kept apart on purpose.** A waiver says
+# not the same thing as a waiver, and kept apart on purpose. A waiver says
 # "this belongs to a GAME"; an entry here says "this belongs to the ENGINE, the
 # move is not mechanical, and here is the specific question it waits on". Merging
 # the two would let "we have not done it" hide inside "we decided not to".
@@ -237,7 +186,7 @@ OPEN_ROWS: dict[str, str] = {}
 #
 # Each is a system whose absence draws nothing and says nothing.
 #
-# **The number may not GROW, and it may not silently shrink either.** A budget that is never
+# The number may not GROW, and it may not silently shrink either. A budget that is never
 # tightened is a budget that rots into a permanent allowance — the footprint ratchet in
 # `check_absence_contracts.py` carries the same rule for the same reason.
 #

@@ -129,7 +129,7 @@ impl ContentSchemaHandler for HabitatSchema {
 
 // ── the aggregating family ──────────────────────────────────────────────────
 //
-// ⭐ **the FRAGMENT type and the ARTIFACT type are deliberately different.** A
+//  the FRAGMENT type and the ARTIFACT type are deliberately different. A
 // toy where each file lowers a `Vec<String>` and the merge is a concatenated
 // `Vec<String>` cannot tell a real aggregation from the compiler shortcutting a
 // single source straight through — both downcast. `BurrowFile` in, `BTreeMap`
@@ -199,7 +199,7 @@ struct OrderSchema;
 
 impl ContentSchemaHandler for OrderSchema {
     fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
-        // ⚠ it DEFINES as well as lowering, and it did not at first — the
+        //  it DEFINES as well as lowering, and it did not at first — the
         // lower-must-define rule caught this toy the moment the rule existed,
         // which is the population it is for: a schema whose authored values
         // reach the game without reaching the pack's identity.
@@ -762,7 +762,7 @@ fn an_unchecked_asset_source_says_so_instead_of_looking_verified() {
     );
 }
 
-/// ⛔ **A `Runtime` schema that lowers nothing is refused.**
+///  A `Runtime` schema that lowers nothing is refused.
 ///
 /// Otherwise a pack compiles while carrying authored runtime content with no
 /// runtime representation — "validated and then ignored", which is the one thing
@@ -817,8 +817,8 @@ fn a_runtime_schema_that_lowers_nothing_is_refused() {
     );
 }
 
-/// ⛔ **Two sources lowering one schema is REFUSED, never last-wins — unless
-/// the schema has SAID how they combine.**
+///  Two sources lowering one schema is REFUSED, never last-wins — unless
+/// the schema has SAID how they combine.
 ///
 /// Silently overwriting means the content INDEX knows about both sources while
 /// the runtime artifact holds only the last — validation and the running game
@@ -937,7 +937,7 @@ fn an_aggregation_refuses_what_no_single_facet_could_have_seen() {
     );
 }
 
-/// ⚠ **fragments arrive in DECLARED order**, not map order and not filesystem
+///  fragments arrive in DECLARED order, not map order and not filesystem
 /// order. A merge with override semantics needs a defined order, and the one an
 /// author can see and diff is the manifest, top to bottom. The paths here sort
 /// the other way on purpose, so an accidental `BTreeMap` of sources would fail.
@@ -965,7 +965,7 @@ fn fragments_reach_the_merge_in_the_order_the_manifest_declares() {
     );
 }
 
-/// ⛔ **The same logical pack fingerprints identically from two directories.**
+///  The same logical pack fingerprints identically from two directories.
 ///
 /// The fingerprint is content identity: a cache key, a packaging input, a
 /// session-compatibility check, the thing that says whether two builds carry the

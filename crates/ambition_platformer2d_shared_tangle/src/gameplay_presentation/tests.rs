@@ -225,7 +225,7 @@ fn stick(size: f32) -> ScreenOcclusion {
     .expect("an anchored occluder resolves itself")
 }
 
-/// **An overlay control never lands outside the screen it is anchored to.**
+/// An overlay control never lands outside the screen it is anchored to.
 ///
 /// The overlay rung placed at `footprint.preferred` unconditionally, so a safe
 /// rect smaller than a cluster produced `min = safe.max - size` — a corner
@@ -277,7 +277,7 @@ fn an_overlay_control_stays_inside_the_screen_it_is_anchored_to() {
     );
 }
 
-/// **A dialogue is laid out where it can be READ**, which is not the same
+/// A dialogue is laid out where it can be READ, which is not the same
 /// question as where the subject is framed.
 ///
 /// Text behind a button cannot be read, and a tap meant for the text goes to the button.

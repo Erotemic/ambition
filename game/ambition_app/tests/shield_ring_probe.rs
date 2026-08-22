@@ -1,87 +1,11 @@
-//! **PROBE (print-only): where does the bubble-shield ring actually get put?**
+//! Print-only diagnostic for bubble-shield placement.
 //!
-//! wrong place, just kinda to the upper left."* Reproduced with
+//! The probe compares shield view rows, the player's authoritative and presented pose,
+//! `BubbleShieldVisual` entities, nearby marker-free sprites, and active camera transforms at
+//! multiple player positions. It intentionally makes no gameplay assertion; its purpose is to
+//! distinguish an incorrectly positioned shield visual from unrelated sprite art.
 //!
-//! ```text
-//! cargo run -p ambition_app_tools --bin capture_scene -- \
-//!     hall_of_characters player OUT.png 960x540 \
-//!     --press hold:e --warmup 40 --combat-overlay
-//! ```
-//!
-//! which shows TWO shield-driven artefacts at once: a glow centred on the robot,
-//! and a thin ring up and to the left. Both vanish when the shield is released.
-//! Five candidate mechanisms had already been killed by observation (alpha bbox,
-//! feet anchor, a single "one offset" visual, sim-vs-presented pose,
-//! spawn-at-world-origin), so this file deliberately **asserts nothing and fixes
-//! nothing** — it prints the numbers an explanation has to survive.
-//!
-//! It reports, at two different player positions (standing, then after walking
-//! right) so a reader can tell an anchored thing from an unanchored one:
-//!
-//! 1. `ShieldRingsView.0.len()` and every row's `pos` / `size` / `parrying`
-//! 2. the player's own `kin.pos`, `kin.size` and `PresentedPose::presented()`
-//! 3. every body whose `BodyShieldState.active` is up (so a second shielder
-//!    cannot hide behind a pooled view)
-//! 4. every `With<BubbleShieldVisual>` entity: `Transform.translation`,
-//!    `Sprite.custom_size`, `Sprite.color` and `Visibility`
-//! 5. any OTHER sprite in the world drawing the `BubbleShieldSprite` texture —
-//!    a second consumer of the same image would be invisible to 1–4
-//! 6. the active cameras, the bevy-space translation the player's own pose
-//!    converts to, and the camera's `orthographic_scale` — the divisor between
-//!    the WORLD pixels every size above is in and the SCREEN pixels a
-//!    screenshot is measured in
-//! 7. **every sprite within 150 bevy units of the player, marker-free** —
-//!    with its `Anchor` and the drawn-centre displacement that anchor implies.
-//!    Items 1–5 can only find things already known to be the shield, and the
-//!    capture shows two artefacts; this is the one query that can see a
-//!    drawable nobody told it about. It is what found the answer.
-//!
-//! Run it:
-//!
-//! ```text
-//! cargo test -p ambition_app --test app_it -- shield_ring_probe --ignored --nocapture
-//! ```
-//!
-//! **it lives in `ambition_app`, not `ambition_render`, for a link reason**,
-//! not an ownership one: `cargo test -p ambition_render` cannot link in the
-//! shared target dir. `ShieldRingsView` is `ambition_sim_view` and
-//! `BubbleShieldVisual` is `ambition_render`; the app suite is the narrowest
-//! scope that can see both AND boot the composition the capture photographed.
-//!
-//! **`NoWindow`, where the capture used `OffscreenGpu`.** The only difference
-//! is the wgpu backend — no render app, therefore no pixels — and every quantity
-//! printed here is decided on the main-world side of that line. What this
-//! harness cannot see is anything a rasterizer does with the numbers.
-//!
-//! The engine's ring is innocent, and the numbers say so without appeal:
-//!
-//! * `ShieldRingsView.0.len() == 1` — one shielder, the player, no second body
-//! * that row is `pos = kin.pos` exactly and `size = kin.size` exactly, so the
-//!   quad it asks for is `46.60 x 60.00` — the textbook `(1.55, 1.25)` of a
-//!   `30.07 x 48.00` body, **not** the ~2.5x-oversized thing the ring was
-//!   suspected of being
-//! * exactly ONE `BubbleShieldVisual` entity exists, its
-//!   `Transform.translation` equals `world_to_bevy(kin.pos)` to the last decimal
-//!   at rest, its `Anchor` is dead centre, and no other sprite in the world
-//!   draws the shield texture
-//!
-//! It is the character's own `block` animation frame:
-//! `assets/sprites/player_robot_v3_spritesheet.png` paints a thin cyan bubble INTO the art, beside
-//! the robot instead of around it. The tell is in the sidecar and needs no picture — every other
-//! row of that sheet is a `~71 x 101` frame at `off: (79, 57)`, and `block` is `119..126 x
-//! 144..149` at `off: (22..25, 12..17)`. That is where the sprite's `custom_size` jumps from `37.45
-//! x 53.80` to `63.30 x 75.96` the instant the guard goes up — a `120 x 144` frame at the sheet's
-//! own `0.5275` world-per-pixel, exactly.
-//!
-//! **`player_robot_v3` is the only sheet in the cast shaped like this**: of
-//! the 37 sheets carrying both `idle` and `block`, its block frame is `1.77x`
-//! wider and `1.45x` taller than its idle, and the next worst (alice, bob) are
-//! `1.40x` wider and the SAME height — an arm extending, which is what a guard
-//! pose should cost. Alice and Bob draw their shield arc in front of the body;
-//! v3 draws a detached circle.
-//!
-//! so the fix is in the ART GENERATOR, not in any positioning expression, and this file must not
-//! grow one.
+//! Run with `cargo test -p ambition_app --test app_it -- shield_ring_probe --ignored --nocapture`.
 
 use std::time::Duration;
 
@@ -367,7 +291,7 @@ fn print_snapshot(app: &mut App, label: &str) {
 
     // ── EVERY DRAWABLE STANDING NEAR THE PLAYER ─────────────────────────────
     //
-    // **the query that is not keyed to a marker, and that is the point.**
+    // the query that is not keyed to a marker, and that is the point.
     // Items 1–5 can only find things that are already known to be the shield;
     // a capture taken with the shield up shows TWO ring-shaped artefacts and
     // this crate owns exactly one of them, so the instrument has to be able to
@@ -509,7 +433,7 @@ fn print_snapshot(app: &mut App, label: &str) {
     }
 }
 
-/// **The measurement.** Print-only; it asserts nothing on purpose.
+/// The measurement. Print-only; it asserts nothing on purpose.
 #[test]
 #[ignore = "print-only probe for the misplaced bubble-shield ring (queue D55)"]
 fn print_where_the_bubble_shield_ring_is_put() {

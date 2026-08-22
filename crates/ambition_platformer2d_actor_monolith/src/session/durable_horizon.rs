@@ -1,93 +1,13 @@
-//! **THE DURABLE SAVE HORIZON — what survives closing the program, for the
-//! occurrences the world remembers anything about.**
+//! Durable persistence for occurrence, custody, and minted-item checkpoint state.
 //!
-//! ```text
-//! 1  current world truth     AuthoredOccurrences + ItemCustody          ✔
-//! 2  checkpoint truth        occurrence/custody/minted descriptions +    ✔
-//!                            OwnedItemsBaseline, restored on a death
-//! 3  durable save truth      ← THIS MODULE
-//! ```
+//! The on-disk representation stores domain descriptions, not ECS component snapshots:
+//! authored occurrence whereabouts, custody links, and dynamic-mint identity/provenance/spec ids.
+//! Loading installs those baselines and triggers the ordinary checkpoint-reset path, so the
+//! checkpoint restore remains the single reconstruction authority.
 //!
-//! # THE ON-DISK FORM IS THE CHECKPOINT'S OWN DESCRIPTION, SERIALIZED
-//!
-//! Not a fourth description of the same facts. The occurrence half of a
-//! checkpoint is exactly the three occurrence lists this writes, field for field;
-//! the sibling item leg persists `OwnedItemsBaseline`'s quantity state through
-//! `save.items` rather than pretending a quantity is an occurrence:
-//!
-//! ```text
-//! AuthoredOccurrences   → save.occurrences   SimId + InCustody | Placed{room,at} | Consumed
-//! CustodyBaseline       → save.custody       occurrence SimId → custodian SimId
-//! MintedItemBaseline    → save.minted_items  SimId + SpawnOrigin::Dynamic + spec id
-//! ```
-//!
-//! **and that is a measurement rather than a preference.** The minimal durable
-//! description of a runtime-minted occurrence was settled by the checkpoint slice
-//! as `identity + provenance + definition-REFERENCE` and nothing else; asking the
-//! same question of a file produced the same three fields, because the question is
-//! the same one — *how would you make this again?* A second on-disk vocabulary
-//! would have been a second answer to it.
-//!
-//! **NO COMPONENT SNAPSHOTS.** That is rollback wearing save's clothes: it
-//! welds the file format to ECS layout, so a component split renames a player's
-//! progress. What reaches disk is what an occurrence IS and WHERE it is; what it
-//! is made of comes back from the authored record, or from the item catalog by
-//! reference.
-//!
-//! # A LOAD IS A CHECKPOINT RESUME
-//!
-//! The lifecycle adopter and item-domain restore install their own values. A
-//! final completion system then raises [`SaveRestored`] and writes exactly one
-//! [`ResetToCheckpoint`]. Everything after that is the road a DEATH already
-//! takes, unchanged:
-//!
-//! ```text
-//! restore_occurrence_baseline      puts the ledger back
-//! restore_custody_to_checkpoint    puts the hands back, MATERIALIZING what has no entity
-//! resume_at_checkpoint_on_reset    rebuilds the room from the restored ledger
-//! ```
-//!
-//! **that is why this module is ~two systems rather than a reconstruction
-//! engine.** The hard half — suppress the home room, reinstate where the object
-//! lies, materialize a hand's occurrence from a record or from a description —
-//! was built for horizon 2 and needed nothing added for horizon 3. The durable
-//! horizon's whole job turned out to be *stating the same three values in a form
-//! that outlives the process*.
-//!
-//! **so a load must NOT also restore occurrences by some second road.** There
-//! is exactly one reconstruction authority and it is the ledger; this module
-//! writes the ledger and asks the shipped restore to run.
-//!
-//! # WHY THE LOADED STATE BECOMES THE BASELINE
-//!
-//! A fresh process has no checkpoint history. So the load adopts what it read as the baseline,
-//! which is the same degenerate-case reasoning the sandbox reset uses from the other side: a host
-//! that never commits restores the empty baseline, and a process that never committed *this
-//! session* restores what it was given.
-//!
-//! **stated rather than defended: the body and the objects then resume from different
-//! instants.** `PersistedCheckpoint` is written by a shrine, so the BODY comes back at the last
-//! shrine, while these rows are current truth at the moment the autosave ran.
-//!
-//! # WHAT THIS STILL DOES NOT COVER
-//!
-//! * ✔ **a runtime mint NOT in a hand is COVERED **, and the
-//!   reason this list gave was wrong twice over. It said the mint "remembers no
-//!   position" — it does not need to: an `OccurrenceWhereabouts::Placed { room,
-//!   at }` row records exactly where a resting occurrence lies, written for every
-//!   in-world item. What actually lost it was `live_minted_descriptions`
-//!   refusing anything `InWorld`, so the world knew WHERE and had no way to make
-//!   it again. The describer no longer filters, and the room build settles the
-//!   reinstatement debt from the checkpoint's description.
-//!   **in FLIGHT is still not covered, and that half is by design**: the
-//!   ledger tracks only occurrences it already `remembers` — things somebody
-//!   CARRIED — and `record_placed_ground_items` refuses to become the universal
-//!   instance registry that tracking everything would require;
-//! * ✔ `OwnedItems` remains a QUANTITY table, but its checkpoint baseline is
-//!   now adopted by the same item-domain restore that applies the saved bag,
-//!   before the global restore latch rises;
-//! * `OccurrenceWhereabouts::Consumed` round-trips through the file and has no
-//!   live producer, so nothing yet WRITES a terminal row.
+//! Placed runtime mints can be recreated from their saved description. In-flight mints that were
+//! never admitted to the occurrence ledger are outside this horizon. `OwnedItems` remains a
+//! quantity table; consumed occurrences round-trip but currently have no live producer.
 
 use std::collections::BTreeMap;
 
@@ -103,15 +23,15 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 };
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
-/// **Has the loaded save been applied to this world yet?**
+/// Has the loaded save been applied to this world yet?
 ///
-/// **ONE latch for the whole durable restore, and that is the point of the
-/// name.** It used to be `InventoryRestored` and gate only the catalog + wallet;
+/// ONE latch for the whole durable restore, and that is the point of the
+/// name. It used to be `InventoryRestored` and gate only the catalog + wallet;
 /// the occurrence leg asks the same question — *has the file been applied?* — and
 /// a second flag would be a second answer to it, free to disagree the first time
 /// one leg's precondition was met and the other's was not.
 ///
-/// **ROLLBACK STATE.** This is an "already applied" flag that GATES behaviour, not a cache, and
+/// ROLLBACK STATE. This is an "already applied" flag that GATES behaviour, not a cache, and
 /// everything it coordinates rewinds: `OwnedItems`, `BodyWallet`, `AmbitionGameSave` and the
 /// occurrence ledger are all in the schema.
 #[derive(Resource, Default, Clone)]
@@ -225,50 +145,12 @@ pub fn install_durable_save_horizon(app: &mut App) {
     );
 }
 
-/// **Mirror what the world currently remembers into the save**, for the autosave
-/// to commit.
+/// Mirror the current occurrence horizon into the save after restore completes. Writes are
+/// value-compared so an unchanged horizon does not retrigger autosave.
 ///
-/// **value-compared before it writes, like every other save mirror.** The
-/// autosave's throttle is "does the file still match the value", so a mirror that
-/// marked the save changed every tick would rewrite the file forever.
-///
-/// **gated on the restore**, so it cannot run first and write a world that has
-/// not yet been told what the file said.
-///
-/// **the CURRENT horizon, not the checkpoint one.** An object carried into
-/// another room and put down after the last shrine is where the player left it,
-/// and a save that wrote the shrine's memory instead would move it back while
-/// they watched.
-///
-/// # A RELATIONSHIP MAY ONLY CROSS THIS HORIZON WITH ITS AUTHORITY
-///
-/// `InCustodyOf` is generic vocabulary with two owners. The item domain derives
-/// it from `ItemCustody`, which the save carries and `restore_inventory_from_save`
-/// puts back — so a weapon in your hands is in your hands after a load, and the
-/// room that authored it correctly declines to author a second one.
-///
-/// A possessed BODY answers the same query and nothing about it is durable.
-/// `PossessionState` is rollback state, not save state: a fresh process starts
-/// with nobody driving anything. Mirroring that row would put on disk *"this
-/// enemy is in somebody's hands"* with no hand — a half-persisted relationship
-/// whose only reader is a room build deciding whether to author the enemy at all.
-///
-/// **and it very nearly bit.** The live projection republishes the custody leg
-/// from live state every tick, so the row is retracted on the first tick of a
-/// load and the room build never sees it. That worked; it is one ordering deep,
-/// and `a_save_taken_mid_possession_does_not_delete_the_enemy_in_a_fresh_process`
-/// reproduces the permanent deletion — ZERO bodies behind the identity — from a
-/// single-line change to that retraction. Depending on a retraction to undo a
-/// row that should not have been written is not a design.
-///
-/// ⇒ **only occurrences whose custody the durable road can RESTORE are written.**
-/// That is the item road, and `ItemCustody` is exactly the component that says
-/// so. A body's occurrence is simply absent from the file, and absent is the
-/// right answer: on load its room authors it, which is what a world with nobody
-/// possessing anything should contain. this is deliberately NOT a filter on
-/// "is it a body" — the question is which domain can rebuild the relation, and a
-/// second population that becomes durably restorable joins by carrying its own
-/// durable custody, not by being added to a list here.
+/// Persist a custody relationship only when its owning domain can reconstruct that custody after
+/// process restart. `ItemCustody` qualifies; transient body possession does not. Other occurrence
+/// states cross the durable horizon directly.
 #[allow(clippy::too_many_arguments)]
 pub fn persist_occurrence_horizon_to_save(
     restored: Res<SaveRestored>,

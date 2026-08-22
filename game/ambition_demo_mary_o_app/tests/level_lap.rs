@@ -1,4 +1,4 @@
-//! **THE WHOLE LAP: 1-1 → 1-2 → 1-3 → 1-1, each leg ending at the RIGHT level.**
+//! THE WHOLE LAP: 1-1 → 1-2 → 1-3 → 1-1, each leg ending at the RIGHT level.
 //!
 //! on what the test owes: *"what I want to make sure is that she actually gets
 //! put into the next level and it is the correct next level."*
@@ -17,12 +17,12 @@
 //! to each level's own authored pole, lets the REAL end-of-level sequence run,
 //! and names the destination.
 //!
-//! **one app, three legs, on purpose.** Booting a fresh session per leg would
+//! one app, three legs, on purpose. Booting a fresh session per leg would
 //! test three FIRST levels rather than a lap, and the return leg — 1-3 back to
 //! 1-1 — is historically the broken one precisely because a destination
 //! installed once at Startup is right only for the room the session opened in.
 //!
-//! **the chain is spelled out here rather than read from `exit_for_room`.**
+//! the chain is spelled out here rather than read from `exit_for_room`.
 //! That function IS the subject; asking it what to expect would pass on the day
 //! it answers `Replay` for everything. If the authored `next_room` fields change,
 //! this list is meant to be edited deliberately.
@@ -57,8 +57,8 @@ fn body_pos(app: &mut App) -> Option<ae::Vec2> {
     q.iter(world).next().map(|kin| kin.pos)
 }
 
-/// **Finish `from` by touching its OWN authored pole, and report where she
-/// landed.**
+/// Finish `from` by touching its OWN authored pole, and report where she
+/// landed.
 ///
 /// The pole comes off the level rather than from a constant this test carries:
 /// a destination that lives in the level file cannot be one level behind it.
@@ -112,7 +112,7 @@ fn leg(app: &mut App, from: &str, expected: &str) {
          `exit_for_room` answered `Replay` -- the level's authored `next_room` \
          did not resolve, which is exactly 'finishing 1-1 sends you back to 1-1'.",
     );
-    // **and she is actually IN it.** A transition that swaps the room set
+    // and she is actually IN it. A transition that swaps the room set
     // while leaving no controlled body is still a room change, and it is not
     // arriving anywhere.
     let pos = body_pos(app).unwrap_or_else(|| {
@@ -124,7 +124,7 @@ fn leg(app: &mut App, from: &str, expected: &str) {
     );
 }
 
-/// **The full lap, each leg naming its own destination.**
+/// The full lap, each leg naming its own destination.
 #[test]
 fn finishing_each_level_lands_in_the_next_one_and_the_lap_closes() {
     let mut app = ambition_demo_mary_o_app::build_demo_app();

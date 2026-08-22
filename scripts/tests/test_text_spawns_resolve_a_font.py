@@ -13,7 +13,7 @@ died before the cause was found — each of them checked the fonts the REPOSITOR
 ships (`JetBrainsMono-Regular.ttf`, `InterDisplay-Regular.otf`, both of which
 carry those glyphs) and none asked what `Handle::default()` points at.
 
-**Probed 2026-08-01**: forcing the default handle back at every menu text spawn
+Probed 2026-08-01: forcing the default handle back at every menu text spawn
 and re-capturing `--route ambition_launcher` reproduces the hollow box on that
 exact string; restoring the resolved handle removes it.
 

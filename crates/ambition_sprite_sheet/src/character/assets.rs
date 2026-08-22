@@ -15,7 +15,7 @@ use super::CharacterSpriteAsset;
 
 /// What the sheet table knows about one authored character token.
 ///
-/// **`Declared` is the NONRESIDENT state, in both directions.** It began life
+/// `Declared` is the NONRESIDENT state, in both directions. It began life
 /// as a one-way "not decoded yet" and is now the state a realization returns to
 /// when the active quality tier moves — see
 /// [`CharacterSpriteAssets::demote_stale_realizations`]. That is why the
@@ -68,7 +68,7 @@ impl std::fmt::Debug for CharacterSheetState<'_> {
 
 /// Holds resident spritesheet realizations plus the declarations behind them.
 ///
-/// Both maps are **double-keyed** by catalog id AND authored display name, so
+/// Both maps are double-keyed by catalog id AND authored display name, so
 /// presentation can resolve either a stable id or a legacy display label through
 /// one lookup without depending on the actor roster module.
 ///
@@ -83,7 +83,7 @@ pub struct CharacterSpriteAssets {
     sheets: HashMap<String, CharacterSpriteAsset>,
     /// Per-prop sprite sheets keyed by the LDtk `Prop.kind` field.
     pub props: HashMap<String, CharacterSpriteAsset>,
-    /// **What each token NAMES**: token → catalog id. Permanent.
+    /// What each token NAMES: token → catalog id. Permanent.
     ///
     /// Startup declares the whole roster here and decodes none of it; the engine
     /// materializer realizes the ids a session actually demands. That is what
@@ -155,9 +155,9 @@ impl CharacterSpriteAssets {
         self.declared.get(token).map(String::as_str)
     }
 
-    /// **Is anything resident whose REQUEST is no longer the active one?**
+    /// Is anything resident whose REQUEST is no longer the active one?
     ///
-    /// **`requested_tier`, deliberately** — the question is "has the active
+    /// `requested_tier`, deliberately — the question is "has the active
     /// setting been answered for everybody", not "what is in memory". A sheet
     /// with no baked variant answers `Half` with full-resolution pixels, and
     /// asking [`CharacterSpriteAsset::resolved_tier`] here would call it stale
@@ -173,11 +173,11 @@ impl CharacterSpriteAssets {
         })
     }
 
-    /// **Every tier that is PHYSICALLY resident** — the tiers the decoded bytes
+    /// Every tier that is PHYSICALLY resident — the tiers the decoded bytes
     /// came from, not the tiers that were asked for.
     ///
-    /// **the invariant this exists for: after a quality transition completes
-    /// there is exactly ONE active tier across the live residency set.** More
+    /// the invariant this exists for: after a quality transition completes
+    /// there is exactly ONE active tier across the live residency set. More
     /// than one means some body on screen is being drawn from pixels the user
     /// stopped asking for.
     ///
@@ -194,7 +194,7 @@ impl CharacterSpriteAssets {
     /// Dropping the [`CharacterSpriteAsset`] drops its strong `Handle<Image>`;
     /// Bevy frees the image once the last strong handle goes, which is every
     /// clone here plus whatever a live presentation still holds until it
-    /// rebinds. **there is no evictor and there must not be one** — ownership
+    /// rebinds. there is no evictor and there must not be one — ownership
     /// does the whole job.
     ///
     /// only DECLARED tokens are retired.
@@ -257,9 +257,9 @@ impl CharacterSpriteAssets {
         self.sheets.len()
     }
 
-    /// **Every RESIDENT token and the realization it resolves to.**
+    /// Every RESIDENT token and the realization it resolves to.
     ///
-    /// **added because its absence made a whole class of test unwritable**
+    /// added because its absence made a whole class of test unwritable
     /// . `ready_token_count` gives a number, and
     /// `declared_character_ids` is this set's COMPLEMENT — it filters to tokens
     /// with NO resident sheet, exactly as `is_declared` says. So a test asking

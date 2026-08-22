@@ -5,10 +5,8 @@
 //! application, room-reset policy, rendering/audio/VFX, and content-specific
 //! behavior through adapters around [`PortalPlugin`].
 //!
-//! The current Ambition portal-gun workflow is kept in clearly named
-//! `gun_*` compatibility modules. It is not the conceptual core of this crate:
-//! games should be able to use static portals, scripted emitters, arbitrary
-//! portal openers, and moving portals without adopting a gun.
+//! TODO(compat-remove): move the Ambition portal-gun workflow out of this generic mechanic
+//! crate and delete the `gun_*` compatibility modules.
 //!
 //! Any entity with [`BodyKinematics`](ambition_platformer2d_shared_tangle::body::BodyKinematics),
 //! [`PortalBody`], and a [`PortalPolicy`] can use the generic
@@ -41,8 +39,8 @@ mod types;
 /// capture cameras + cone UVs from it.
 pub mod view;
 
-// Re-export the lower-crate surfaces the portal mechanic builds on, so a host's
-// `crate::portal::…` facade and the portal adapters keep resolving these paths.
+// TODO(compat-remove): migrate host callers to the owning crates, then remove these lower-crate
+// re-exports from the portal API.
 pub use ambition_platformer2d_shared_tangle::orientation::{
     ensure_actor_roll, update_actor_roll, ActorRoll,
 };

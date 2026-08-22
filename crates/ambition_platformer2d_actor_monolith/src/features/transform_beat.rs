@@ -1,4 +1,4 @@
-//! **The transformation moment** — the beat a body plays when it becomes
+//! The transformation moment — the beat a body plays when it becomes
 //! something else.
 //!
 //! animation when she grows or transforms. In single player this might request
@@ -76,7 +76,7 @@ pub struct TransformBeat {
 /// of that — Mary-O's power tiers, Sanic's super form — because only the game
 /// knows which identity changes are a transformation and which are a downgrade.
 ///
-/// **A component, deliberately, and not a message.** The identity change and the
+/// A component, deliberately, and not a message. The identity change and the
 /// decision to celebrate it have to survive a rollback together or the pair is
 /// not a transaction. Every producer necessarily runs LATER in the frame than
 /// [`begin_requested_transform_beats`] consumes — Mary-O's grow must follow the

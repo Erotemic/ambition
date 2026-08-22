@@ -102,7 +102,7 @@ pub fn upgrade_boss_sprites(
     }
 }
 
-/// **The set [`animate_bosses`] runs in.**
+/// The set [`animate_bosses`] runs in.
 ///
 /// Camera shake and follow read the pose it resolves, so they run after it —
 /// "this frame's resolved snapshot, not last frame's", per the host's own note.

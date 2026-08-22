@@ -1,32 +1,10 @@
-//! The authoritative per-body movement frame: resolved once, consumed everywhere.
+//! Per-body movement-frame resolution.
 //!
-//! ADR 0024's frame law says every body-relative operation in a movement tick —
-//! controller interpretation, the active movement policy, jumps/dashes/blinks,
-//! knockback and launch directions, support publication — must consume ONE
-//! environment-resolved reference/acceleration frame for that body and tick. This
-//! module owns the ECS half of that law:
-//!
-//! - [`ResolvedMotionFrame`] is the transient per-body artifact. The frame
-//!   resolution phase ([`FrameResolveSet`]) publishes it exactly once per
-//!   integrated body per sim tick, after the tick's environmental contributions
-//!   (gravity zones, force zones, ambient flips) are snapshotted and before any
-//!   consumer reads it. Consumers NEVER rebuild an equivalent frame from
-//!   `GravityCtx::dir_at`, `GravityField`, or a hardcoded down — they read this
-//!   component.
-//! - [`FrameEnv`] is the resolver's input bundle: the gravity environment plus
-//!   non-gravity acceleration contributions. [`FrameEnv::resolve`] is the ONE
-//!   composition rule — an explicit reference basis from the localized gravity
-//!   direction (selected by body-AABB overlap, the engine's zone-grab rule),
-//!   plus accumulated world-space acceleration contributions where the body's
-//!   authored gravity response scales ONLY the gravity contribution.
-//! - [`ForceZone`] is a non-orienting acceleration contribution (wind, a tractor
-//!   field): it adds world-space acceleration without rotating the reference
-//!   basis, proving basis and acceleration are independently resolved.
-//!
-//! The resolved frame is deliberately NOT authored body state, NOT part of
-//! [`MotionModel`](ambition_platformer2d_core::MotionModel), and NOT snapshot state:
-//! restore rewinds bodies and environment, and the next resolution phase
-//! recomputes the frame from the live restored world.
+//! [`FrameResolveSet`] publishes one [`ResolvedMotionFrame`] per integrated body
+//! after environmental contributions are known and before frame-relative input,
+//! movement, combat, and support consumers run. [`FrameEnv::resolve`] is the
+//! composition rule for localized gravity and non-orienting world acceleration.
+//! The resolved frame is transient derived state and is recomputed after restore.
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
@@ -35,13 +13,9 @@ use ambition_platformer2d_core::{AabbExt, AccelerationFrame, MotionFrame};
 
 use crate::gravity::GravityCtx;
 
-/// The body's environment-resolved reference/acceleration frame for the current
-/// sim tick — THE value every frame-relative consumer of this body reads.
-///
-/// Published only by the frame resolution phase (see [`FrameResolveSet`]); the
-/// field is private so gameplay code cannot casually author it. A body spawned
-/// mid-tick carries the default (screen-down basis, zero acceleration) until the
-/// next resolution phase.
+/// Environment-resolved movement frame for the current simulation tick.
+/// Published only by [`FrameResolveSet`]; newly spawned bodies use the default
+/// until the next resolution pass.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct ResolvedMotionFrame {
     frame: MotionFrame,
@@ -76,16 +50,8 @@ impl ResolvedMotionFrame {
         self.frame.basis()
     }
 
-    /// Publish this tick's resolved frame. ONLY the frame resolution phase may
-    /// call this — `engine.only-the-frame-phase-publishes-the-resolved-frame`.
-    ///
-    /// **it was called `publish`, and that name is why the claim "guarded by
-    /// workspace policy" was FALSE for as long as it stood.** A
-    /// forbidden-source rule can only match text, and `.publish(` collides with
-    /// `sprites.publish`, `damageable.publish`, `sessions.publish` and
-    /// `registry.publish` — so no rule could name this one without firing on four
-    /// unrelated seams. The invariant held on inspection (two callers, both in
-    /// the resolve phase) and nothing was checking it.
+    /// Publish this tick's resolved frame. Only the frame-resolution phase may
+    /// call this; workspace policy guards this named mutation seam.
     pub fn publish_resolved_frame(&mut self, frame: MotionFrame) {
         self.frame = frame;
     }

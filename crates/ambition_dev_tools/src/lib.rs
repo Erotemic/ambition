@@ -43,7 +43,7 @@ use dev_tools::EditableAbilitySet;
 /// inspector stays responsive; the logic is body-state mutation and lives here
 /// beside the dev STATE it reads.
 ///
-/// The editable ability set is a **session MASK**, not a wholesale replacement:
+/// The editable ability set is a session MASK, not a wholesale replacement:
 /// the effective set is the body's intrinsic [`AbilityBase`] intersected with
 /// the editable set. A mask can only ever gate a verb OFF, never conjure one the
 /// character was not authored to have — so a restricted character (a demo

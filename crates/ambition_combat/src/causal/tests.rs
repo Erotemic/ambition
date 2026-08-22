@@ -140,7 +140,7 @@ fn messages_are_drained_even_while_recording_is_off() {
     );
 }
 
-/// **A CPU's stock loss must not appear in a PARTICIPANT's explanation.**
+/// A CPU's stock loss must not appear in a PARTICIPANT's explanation.
 ///
 /// the second half matters as much: a genuinely GLOBAL fact must still
 /// reach every participant. `match_decided` is one — the match ending really

@@ -1,4 +1,4 @@
-//! **THE SHADOW ONI LEADER'S ANSWERS.** The fourth adopter removed from
+//! THE SHADOW ONI LEADER'S ANSWERS. The fourth adopter removed from
 //! the generic floor (P3.24), and the first table authored from a
 //! character's BARKS rather than a design note — his row carries no
 //! `gameplay_description`, and *"the shadow answers"* / *"one breath
@@ -8,7 +8,7 @@
 
 use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
 
-/// **AC5: it authors its LOCOMOTION too**, which is the one fact that stood
+/// AC5: it authors its LOCOMOTION too, which is the one fact that stood
 /// between this character and building its own body. It ships as
 /// `melee_brute_striker` (chase 110), and that preset's speed is absolute, so
 /// stating the body's run speed here changes nothing a player sees today — it

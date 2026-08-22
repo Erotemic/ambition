@@ -1,8 +1,8 @@
 //! Mark / Recall — a held item that drops a teleport mark and recalls to it.
 //!
 //! - Equip it (walk over the ground item, or equip the catalog slot), and while
-//!   it's held a plain `Attack` **drops / moves the mark** at the player's feet.
-//! - The `Blink` button **recalls** the player to the mark (instant teleport).
+//!   it's held a plain `Attack` drops / moves the mark at the player's feet.
+//! - The `Blink` button recalls the player to the mark (instant teleport).
 //! - `Shield + Attack` still throws the item away through the generic
 //!   [`crate::items::pickup::throw_held_item_system`] path.
 //!
@@ -11,7 +11,7 @@
 //! puppy-slug gun, it opts out via that system's `use_on_attack` id check, which
 //! leaves `Attack` free to set the mark.
 //!
-//! One mark per player, stored as a [`PlayerMark`] **component** (not a resource)
+//! One mark per player, stored as a [`PlayerMark`] component (not a resource)
 //! so each player keeps an independent mark once the multiplayer split lands.
 //! A persistent [`MarkBeaconVisual`] glowing-crystal beacon stands at the mark
 //! ([`sync_mark_beacon_visual`]) so the player can see where Blink will recall

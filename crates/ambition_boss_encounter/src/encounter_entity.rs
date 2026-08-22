@@ -42,7 +42,7 @@ pub struct EncounterDef {
     /// reusing a boss archetype elsewhere is not pre-marked cleared.
     pub placement_id: String,
     /// Whether this encounter binds the HUD (a view of its progress). `false`
-    /// / no encounter ⇒ no boss HUD.
+    /// / no encounter  no boss HUD.
     pub hud: bool,
 }
 
@@ -220,7 +220,7 @@ pub fn sync_boss_encounter_entities(
 /// (HP from the body's `BodyHealth` (§A1), phase from the entity-local `ActorPhaseState`
 /// copy). Runs after `sync_boss_encounter_entities` in the Progression set.
 ///
-/// **The wrap PERSISTS for its session.** An encounter whose members have all
+/// The wrap PERSISTS for its session. An encounter whose members have all
 /// left the world (room change) is RESET through the command ingress, never
 /// despawned: the authority keeps its durable member ids (relations, not a
 /// live-list), the caches heal by id on re-entry, and the sync system re-arms
@@ -283,7 +283,7 @@ pub fn update_encounter_progress(
                 max_hp: health.max(),
             });
         }
-        // Every member gone (boss despawned on a room change) ⇒ the FIGHT is
+        // Every member gone (boss despawned on a room change)  the FIGHT is
         // over its world. Reset the in-flight lifecycle through the ingress;
         // the persistent wrap waits, Inactive, for the sync system's re-arm.
         // A terminal wrap (Completed boss) is left alone — its outcome stands.

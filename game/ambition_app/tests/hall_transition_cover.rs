@@ -1,30 +1,9 @@
-//! **The room-transition cover, on the most expensive transition the game has.**
+//! Verify the loading cover on the large `hall_of_characters` transition.
 //!
-//! I thought we had a loading screen to help with these sorts of transitions
-//! where loading was actually necessary."*
-//!
-//! `hall_of_characters` stages 144 distinct characters — every other room in the
-//! game stages a handful — so it is the one transition where the cover has to
-//! work, and the only one where nobody would notice if it stopped.
-//!
-//! What this pins, and what it deliberately cannot:
-//!
-//! * the transition demands the room's WHOLE cast up front, on the frame the
-//!   request lands. Measured: the staged cast goes 10 → 151 on frame 0. So the
-//!   Hall's cost is not a spawn-then-fix trickle; it is one honest bill;
-//! * the load foreground becomes VISIBLE, and does so on the `reveal_after`
-//!   schedule rather than never. Measured: frame 14 ≈ 250 ms, which is
-//!   `RoomTransitionPresentationConfig::loading_reveal_after` exactly;
-//! * the reveal is HELD while assets are outstanding — the cover is still up and
-//!   the room has not committed.
-//!
-//! **it cannot say anything about GPU-side cost**, and that is where the real
-//! stutter lives. `NoWindow` decodes almost nothing (24 images here against 266
-//! in the shipped binary), so the barrier here waits on handles that never
-//! settle. The desktop capture is the instrument for that half: PNG decode
-//! appears on the IO pool BEFORE the frame spikes, and the spikes themselves are
-//! main-thread `memmove`/`malloc`. Readiness is CPU-decode readiness; the upload
-//! that follows it is not covered by anything.
+//! The destination cast must be demanded up front, the foreground must become
+//! visible after its configured reveal delay, and the cover must remain visible
+//! while assets are outstanding. This headless test does not measure GPU upload
+//! cost.
 
 use bevy::prelude::*;
 
@@ -39,9 +18,7 @@ use ambition_platformer2d::load_presentation::{
 /// some other room's cheap transition.
 const HALL_DOOR_ZONE: &str = "hall_of_characters_door";
 
-/// The Hall stages 144 distinct `NpcSpawn` character ids. A transition that
-/// demands far fewer is demanding them somewhere else — after the spawn, in
-/// frame — which is the shape this whole investigation started from.
+/// Minimum staged cast that demonstrates the Hall is demanded up front.
 const MINIMUM_HALL_CAST: usize = 100;
 
 fn staged_cast_len(app: &App) -> usize {
@@ -160,7 +137,7 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
                 },
             ),
         );
-    // **the loop must not be the assertion.** It waits for the cast to grow AT
+    // the loop must not be the assertion. It waits for the cast to grow AT
     // ALL and then measures that same frame, so a Hall that trickled its
     // characters in ten at a time still fails the bill below. A loop that waited
     // for `>= MINIMUM_HALL_CAST` would pass by waiting, which is the shape this
@@ -233,7 +210,7 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
     // total)` — throwing the names away every frame while the player stared at a number that could
     // not move.
     //
-    // **this test is the natural customer** because a `NoWindow` host decodes almost nothing (see
+    // this test is the natural customer because a `NoWindow` host decodes almost nothing (see
     // the header), so the Hall's barrier here genuinely never settles.
     let mut report = None;
     let mut outcome = String::from("ran out of frames while the barrier was still un-Ready");

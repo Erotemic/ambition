@@ -1,4 +1,4 @@
-//! **The real Mary-O lifecycle, gate-enforced.**
+//! The real Mary-O lifecycle, gate-enforced.
 //!
 //! The second customer of the architecture Sanic proved: Mary-O is a real
 //! composable experience with direct standalone entry, host-relative Quit to

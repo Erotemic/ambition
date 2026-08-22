@@ -1,4 +1,4 @@
-//! **Every character in the shipped host stays inside a plain room.**
+//! Every character in the shipped host stays inside a plain room.
 //!
 //! Sanic's surface-momentum policy had no horizontal collision on its riding arm for the whole
 //! life of the project, and nothing noticed, because the only level it was ever played in was a

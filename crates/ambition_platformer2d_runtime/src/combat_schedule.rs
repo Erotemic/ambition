@@ -62,7 +62,7 @@ impl Plugin for CombatSchedulePlugin {
         // instead of independently deciding whether the strike connected.
         app.add_message::<ambition_platformer2d_actor_monolith::combat::hitbox::LandedBodyHit>();
         app.add_message::<ambition_platformer2d_actor_monolith::combat::on_hit::OnHitEffectMessage>();
-        // **A BODY REACHING ZERO SAYS SO, WHETHER OR NOT A RULESET IS LISTENING.**
+        // A BODY REACHING ZERO SAYS SO, WHETHER OR NOT A RULESET IS LISTENING.
         // `apply_player_hit_events` and `apply_actor_hit` both write `BodyKnockedOut`, so the
         // message has to exist wherever they run — not wherever the STOCKS rules happen to be
         // installed. A writer whose message is registered by a different plugin is a composition
@@ -136,7 +136,7 @@ impl Plugin for CombatSchedulePlugin {
                 // stranding the boxes it rewound past.
                 (
                     ambition_platformer2d_actor_monolith::combat::moveset::retire_orphaned_strike_volumes,
-                    // **BEFORE the advance, deliberately.** A move that landed
+                    // BEFORE the advance, deliberately. A move that landed
                     // this frame is over, and running the advance first would
                     // open its next window — spawning a strike volume for a
                     // move that has already been cancelled by the ground.
@@ -193,7 +193,7 @@ impl Plugin for CombatSchedulePlugin {
                 // authoritative spawning through the VFX effect enum.
                 crate::projectile_schedule::materialize_projectiles_for_this_tick
                     .run_if(gameplay_allowed),
-                // **TWICE, and the second one is not redundant.** The first
+                // TWICE, and the second one is not redundant. The first
                 // draft put this here alone, reasoning that a player bolt
                 // materializes after the step below and so first ticks next frame,
                 // when this has already run. That is true about STEPPING and false
@@ -280,8 +280,8 @@ impl Plugin for CombatSchedulePlugin {
                 .in_set(CombatSet::Settle),
         );
 
-        // **it is the one system in this schedule that writes non-rollback
-        // PRESENTATION state**, so it carries its own authoritative-pass guard
+        // it is the one system in this schedule that writes non-rollback
+        // PRESENTATION state, so it carries its own authoritative-pass guard
         // as a parameter rather than a `run_if` here — a replayed frame kicking
         // the live camera is a ghost shake, and the guard must survive anyone
         // else registering it. Do not "fix" that by adding a run condition

@@ -1,13 +1,13 @@
-//! **Draw the stage, including the thing that kills you.**
+//! Draw the stage, including the thing that kills you.
 //!
 //! Pure-Rust pixels — no GPU, no windowing, no asset tree — so it runs anywhere
 //! the crate compiles. It is the geometry half of seeing a room, in the tradition
 //! of `ambition_platformer2d_actor_monolith`' `render_room_geometry` example, and it exists separately
 //! for two reasons that are both findings:
 //!
-//! 1. **that example is bound to `ambition_platformer2d_actor_monolith`' own room list**, so a demo
+//! 1. that example is bound to `ambition_platformer2d_actor_monolith`' own room list, so a demo
 //!    cannot render its own stage with it at all; and
-//! 2. **nothing in the tree draws BLAST MARGINS.** Every existing renderer draws
+//! 2. nothing in the tree draws BLAST MARGINS. Every existing renderer draws
 //!    what a body can stand on. On this stage the interesting geometry is the
 //!    line past which a body stops existing, and it is invisible in every view we
 //!    have — which is exactly the kind of thing that is wrong for a week because

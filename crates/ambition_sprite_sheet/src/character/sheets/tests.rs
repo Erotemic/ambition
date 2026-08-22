@@ -80,8 +80,8 @@ fn spec_from_record_falls_back_to_const_when_manifest_omits_tuning() {
     assert_eq!(spec.frame_sample_inset, 1);
 }
 
-/// **The quad is the sheet's body rectangle scaled onto the collision box, and
-/// `collision_scale` has nothing to do with it.**
+/// The quad is the sheet's body rectangle scaled onto the collision box, and
+/// `collision_scale` has nothing to do with it.
 ///
 /// So this builds the same sheet twice with wildly different `collision_scale` and requires the
 /// two quads to be BYTE-IDENTICAL: the field cannot be doing work, whatever value it holds.
@@ -173,7 +173,7 @@ fn a_sheet_with_no_published_body_still_reads_collision_scale() {
     assert!((big.y - small.y * 2.0).abs() < 1e-4);
 }
 
-/// **A CLIP RESOLVES TO ITS ROW SLOT, AND A MISSING ONE RESOLVES TO NOTHING.**
+/// A CLIP RESOLVES TO ITS ROW SLOT, AND A MISSING ONE RESOLVES TO NOTHING.
 ///
 /// sprite redirect P0. Everything else on this spec is keyed by
 /// `CharacterAnim` — 56 semantic body states — and the new fighter sheets carry
@@ -181,7 +181,7 @@ fn a_sheet_with_no_published_body_still_reads_collision_scale() {
 /// Growing the enum toward the 271-entry fighter-motion catalog is what the
 /// redirect rejects; the authored clip name is the key instead.
 ///
-/// **the `None` term is the important one.** The habit this path replaces is
+/// the `None` term is the important one. The habit this path replaces is
 /// `row_index_of(name).unwrap_or(0)`, which silently draws ROW ZERO — idle — for
 /// a row the sheet does not have, and looks exactly like a character that never
 /// swings. An unresolvable chain must say so, so the caller can fall back to the
@@ -253,7 +253,7 @@ fn a_clip_chain_resolves_to_a_row_slot_or_to_nothing() {
     assert_eq!(spec.flat_index_at(3, 2), spec.flat_index_at(3, 0) + 2);
 }
 
-/// **A trimmed sheet's CLIP must be sized and anchored by the CLIP's row.**
+/// A trimmed sheet's CLIP must be sized and anchored by the CLIP's row.
 ///
 /// Both lookups clamp their row and frame, so the failure was a silently misplaced, mis-sized
 /// sprite rather than an error — and 122 of the 185 shipped sheets are trimmed.
@@ -338,7 +338,7 @@ fn a_clip_on_a_trimmed_sheet_is_measured_by_the_clip_row() {
     );
 }
 
-/// **Repacking a sheet does not redraw it.**
+/// Repacking a sheet does not redraw it.
 ///
 /// The ultrapack synthesizes its own [`SheetRecord`] from atlas frame rects,
 /// which cannot know which way the body in those pixels points — so the base
@@ -392,7 +392,7 @@ fn a_packed_target_keeps_the_facing_its_artwork_was_drawn_in() {
     }
 }
 
-/// **A CHARACTER'S GAMEPLAY BODY MUST NOT DEPEND ON THE GRAPHICS SETTING.**
+/// A CHARACTER'S GAMEPLAY BODY MUST NOT DEPEND ON THE GRAPHICS SETTING.
 ///
 /// Every sheet is published four times — full resolution plus `0_5x`, `0_25x`
 /// and `potato` — and each publication carries its own `body_metrics`. Those
@@ -405,7 +405,7 @@ fn a_packed_target_keeps_the_facing_its_artwork_was_drawn_in() {
 /// Luck is not an invariant, and the gap widened every time one road was regenerated without the
 /// other.
 ///
-/// **this asks the BAKED INDEX, not the files** — the same table every runtime
+/// this asks the BAKED INDEX, not the files — the same table every runtime
 /// lookup reads, so it cannot pass against a tree the build did not compile.
 #[test]
 fn a_sheets_gameplay_body_does_not_depend_on_the_graphics_setting() {

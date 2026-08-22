@@ -556,7 +556,7 @@ mod hot_reload_session_tests {
         assert_eq!(restart.max_prediction_window, 8);
     }
 
-    /// **A reload must not evict player two.**
+    /// A reload must not evict player two.
     ///
     /// The rebase preserved `max_prediction_window` and rebuilt everything else
     /// from `..Default::default()`, whose player count is ONE — so a couch

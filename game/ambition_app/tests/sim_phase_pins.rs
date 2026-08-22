@@ -1,36 +1,9 @@
-//! `Platformer2dSimulationPhaseMonolith::CoreSimulation` is configured in
-//! `app.sim_schedule()`, which is a HOST CHOICE: `Update` for
-//! `SimulationHost::RenderFrame` (the default), `FixedUpdate` for `Fixed60Hz`,
-//! `GgrsSchedule` for `Ggrs`. So `.before(CoreSimulation)` means different things
-//! depending on which schedule the pinning system was added to:
+//! Verify schedule-sensitive pins against the host-selected simulation schedule.
 //!
-//! * added to `app.sim_schedule()` — real in every host, by construction;
-//! * added to a LITERAL schedule — real only in the host whose sim schedule
-//!   happens to be that one. Elsewhere Bevy silently creates an empty node and
-//!   the pin constrains nothing.
-//!
-//! ## Why this is a test and not a lint
-//!
-//! The `.before(CoreSimulation)` pins in literal `Update` are therefore not a hypothetical host's
-//! concern — they are **the web build's**, and sweeping them would break the one composition that
-//! still needs them.
-//!
-//! By schedule:
-//!
-//! | site | schedule | verdict |
-//! |---|---|---|
-//! | `platformer2d_runtime/portal_schedule.rs:39` (`PortalSet::Carves`) | `sim` | real everywhere |
-//! | `platformer2d_runtime/lib.rs:269` (`clear_class_b_remap_log`) | `sim` | real everywhere |
-//! | `platformer2d_runtime/lib.rs:283` (sim-id minting) | `sim` | real everywhere |
-//! | `actor_monolith/gravity/plugin.rs:63` (`GravitySet::ZoneSnapshot`) | `sim` | real everywhere |
-//! | `actor_monolith/gravity/plugin.rs:76` (`FrameResolveSet`) | `sim` | real everywhere |
-//! | `platformer2d_runtime/rollback/session.rs:621` (`publish_ggrs_input`) | `GgrsSchedule` | real — that schedule only runs under the host where it IS the sim schedule |
-//! | `platformer2d_host/lib.rs:371` (device control write) | literal `Update` | conditional, and ALREADY says so in a comment |
-//! | `ambition_app/menu/grid_backend.rs:1141` (grid menu nav) | literal `Update` | conditional — annotated by B7 |
-//!
-//! So six of eight are unconditionally real, one is real by host exclusivity,
-//! and the literal-`Update` pins are the whole of what #11 was pointing at —
-//! none of which should be deleted, because `RenderFrame` is the default host.
+//! `CoreSimulation` lives in `app.sim_schedule()`: `Update`, `FixedUpdate`, or
+//! `GgrsSchedule` depending on the host. A pin installed in that selected
+//! schedule is effective in every composition; a pin installed in a literal
+//! schedule constrains only hosts whose simulation uses that schedule.
 
 use bevy::ecs::schedule::{ScheduleLabel, Schedules, SystemSet};
 use bevy::prelude::*;
@@ -38,11 +11,8 @@ use bevy::prelude::*;
 use ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith as Phase;
 use ambition_platformer2d::rollback::GgrsSchedule;
 
-/// How many systems the set owns in that schedule, or `None` when the set has no
-/// node there at all.
-///
-/// **a schedule that has never RUN reports no sets**, however many systems it holds — Bevy builds
-/// the graph lazily on first run. Hence the explicit `initialize` below.
+/// Number of systems in a set, initializing the schedule first because Bevy
+/// builds its graph lazily.
 fn systems_in(app: &mut App, schedule: impl ScheduleLabel, set: impl SystemSet) -> Option<usize> {
     let label = schedule.intern();
     app.world_mut()
@@ -66,14 +36,9 @@ fn shipped_app() -> App {
     app
 }
 
-/// **The measurement.** In the shipped composition the sim lives in
-/// `GgrsSchedule`, and the `CoreSimulation` node in `Update` is the empty husk
-/// that the literal-`Update` pins created by naming it.
-///
-/// Both halves matter. "`Update` has zero" alone would also be true of an app
-/// where the sim had failed to compose at all, so the sim schedule's count is
-/// what makes the zero mean *the pins are decorative here* rather than *nothing
-/// is running*.
+/// In the shipped GGRS composition, `CoreSimulation` must contain systems in
+/// `GgrsSchedule` while the literal-`Update` references create only an empty set
+/// node there.
 #[test]
 fn the_shipped_apps_core_simulation_is_in_the_ggrs_schedule_and_update_holds_an_empty_husk() {
     let mut app = shipped_app();

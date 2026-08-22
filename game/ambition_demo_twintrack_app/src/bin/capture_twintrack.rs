@@ -1,17 +1,17 @@
-//! **Photograph TwinTrack**, including the observatory panel.
+//! Photograph TwinTrack, including the observatory panel.
 //!
-//! **the THIRD caller of `ambition_render::capture`**, which is what the seam
+//! the THIRD caller of `ambition_render::capture`, which is what the seam
 //! was split for. Target, adoption, readback, PNG and exit are all shared; what
 //! is here is TwinTrack's own: how long to run the course before shooting, and
 //! the one camera the shared adoption cannot know about.
 //!
-//! **the observatory camera is neither `MainCamera` nor `FrontHudCamera`**, so
+//! the observatory camera is neither `MainCamera` nor `FrontHudCamera`, so
 //! the shared adoption leaves it pointed at a window that does not exist in
 //! offscreen mode. A picture missing it would be a picture of the laboratory
 //! chart alone — the half the observatory exists to contrast with — while
 //! reporting success. `adopt_the_observatory` is that one extra edge.
 //!
-//! **the split-observer panes are two MORE such cameras**, and unlike the
+//! the split-observer panes are two MORE such cameras, and unlike the
 //! observatory they split the render target between them. They size their
 //! rectangles from the camera's own target rather than from a window, so
 //! adopting them is all this binary owes them — but `--split` is still needed to
@@ -161,7 +161,7 @@ fn adopt_the_observatory(
 
 /// Point the split-observer pane cameras at the capture texture too.
 ///
-/// **`is_active` is deliberately NOT forced here.** The demo's own sync owns
+/// `is_active` is deliberately NOT forced here. The demo's own sync owns
 /// it — it turns the panes off when the view mode is not the exhibit, and off
 /// again when the target is too small to split. Forcing it on would paint one
 /// observer's half over the whole picture whenever either is true.
@@ -187,8 +187,8 @@ fn adopt_the_split_observer_panes(
 
 /// Select the two-observer exhibit when `--split` asked for it.
 ///
-/// **written straight onto the experiment, not driven through the view
-/// console.** A capture is not a play session: flying to the console and timing
+/// written straight onto the experiment, not driven through the view
+/// console. A capture is not a play session: flying to the console and timing
 /// an Interact edge would make the picture depend on the course script rather
 /// than on the flag.
 fn ask_for_the_split_observer_view(
@@ -207,7 +207,7 @@ fn ask_for_the_split_observer_view(
 
 /// Count the course in, then ask for the picture.
 ///
-/// **waits for an ADOPTED camera, not just for frames.** Shooting before a
+/// waits for an ADOPTED camera, not just for frames. Shooting before a
 /// camera is drawing reads back a texture of `(0,0,0,0)` and reports success.
 fn shoot_when_warm(
     mut commands: Commands,
@@ -237,7 +237,7 @@ fn shoot_when_warm(
 
 /// Hold RIGHT while there are running frames left, and fire the transmitter.
 ///
-/// **written into `ButtonInput` directly** — the demo's binding layer reads the
+/// written into `ButtonInput` directly — the demo's binding layer reads the
 /// same resource a real keyboard fills, so this exercises the real input path.
 /// The interact press is periodic rather than aimed: the transmitter's own
 /// proper-time cooldown decides which attempts become packets, and a capture is

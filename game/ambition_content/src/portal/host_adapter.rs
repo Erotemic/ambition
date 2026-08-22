@@ -5,13 +5,13 @@
 //! `pos`/`vel`/`prev_pos` caches). It never names the concrete composed world.
 //! This adapter owns the two world-seam steps of the §5-P2 frame order:
 //!
-//! 1. **Attach** (lazy, once per placed portal): attribute the portal's
+//! 1. Attach (lazy, once per placed portal): attribute the portal's
 //!    placement point to the identified block face it sits on, in the
 //!    UNCARVED authored + movers view. Attribution runs against
 //!    `RoomGeometry` + moving platforms — never the carved composition: the
 //!    carve replaces the host block with anonymous derived pieces, and a
 //!    portal must anchor to the durable authored face (§3.6 rule 2).
-//! 2. **Refresh** (each frame, §5-P2 step 2, after movers integrate and
+//! 2. Refresh (each frame, §5-P2 step 2, after movers integrate and
 //!    before eviction/carves/transit): re-derive the hosted aperture's
 //!    `pos` from the face anchor, record `prev_pos` (the aperture's own
 //!    sweep sample for the relative transit trigger), and derive `vel`

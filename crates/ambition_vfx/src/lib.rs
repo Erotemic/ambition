@@ -1,7 +1,7 @@
 //! Reusable effect vocabulary + executor.
 //!
 //! A *technique* (a boss special, a wielded ability, an authored hazard) decides
-//! *what and when*; an **effect** is the consequence it spawns. Effects are
+//! *what and when*; an effect is the consequence it spawns. Effects are
 //! faction-tagged and carry their own geometry, so the player, an enemy, and a
 //! boss all drive the same execution path. The message seam ([`EffectRequest`])
 //! is what makes the effect system removable: drop the consumer and techniques
@@ -30,7 +30,7 @@ pub use vfx::{
 // The side an effect is emitted BY.
 // ===================================================================
 //
-// **this is the one piece of combat vocabulary that stayed**, and the reason is the orphan rule
+// this is the one piece of combat vocabulary that stayed, and the reason is the orphan rule
 // rather than taste. `Effect::DamageBox` and `Effect::Summon` both carry a side. Projectile
 // spawning no longer names this enum at all; its request vocabulary is owned by the projectile
 // domain.

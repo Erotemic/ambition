@@ -1,7 +1,7 @@
 //! Headless geometry-debug renderer (TODO #200, geometry slice).
 //!
 //! Renders a room's collision world to a PNG using a pure-Rust pixel
-//! buffer — **no GPU / wgpu / windowing**, so it runs anywhere the
+//! buffer — no GPU / wgpu / windowing, so it runs anywhere the
 //! sandbox compiles (CI, this VM, a remote box). The point is to let an
 //! agent or reviewer *see* a room's spatial layout (solids, one-ways,
 //! hazards, pogo orbs, spawn) and verify authoring / collision bugs
@@ -44,7 +44,7 @@ use image::{Rgba, RgbaImage};
 // CI *does* compile every target in the workspace — but as `cargo clippy --workspace
 // --all-targets … || true`, deliberately non-blocking while ~14 known warnings stand — so the
 // one command that would have caught a hard compile error here is the one that discards its own
-// exit code. ⇒ **an example is a target nothing gates**: whoever removes a re-export should
+// exit code.  an example is a target nothing gates: whoever removes a re-export should
 // grep `examples/` by hand, because no suite will.
 use ambition_persistence::settings::video::{CameraAspectPolicy, CameraFramingPreset};
 

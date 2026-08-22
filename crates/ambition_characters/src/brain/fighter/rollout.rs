@@ -1,4 +1,4 @@
-//! **FB6 — L3, forward rollouts on a shadow model**
+//! FB6 — L3, forward rollouts on a shadow model
 //! (`docs/planning/engine/fighter-brain.md` §12).
 //!
 //! The rollout does NOT run the sim. The sim is authoritative, stateful, and
@@ -7,12 +7,12 @@
 //! [`Perceived`] view, so FB4a's type-level no-cheat enforcement carries over —
 //! the rollout physically cannot contain a fact the brain could not see.
 //!
-//! **Determinism is load-bearing, not aspirational.** Brains run inside the simulation, and
+//! Determinism is load-bearing, not aspirational. Brains run inside the simulation, and
 //! under GGRS a resimulated decision tick must reproduce the original decision bit-for-bit.
 //! Execution noise is FB4's business, in the execution layer, with its own snapshot-registered
 //! stream.
 //!
-//! **The hit response is the real one.** `ae::hit_response` is the SAME kernel `damage_apply`
+//! The hit response is the real one. `ae::hit_response` is the SAME kernel `damage_apply`
 //! resolves authoritative hits with (§12.3 route 1 — carved to the floor precisely so both callers
 //! exist). What the model still approximates is everything else, and §12.3's stated-omissions list
 //! is closed on purpose: future projectile fire, one-way platforms as anything but floor, DI,
@@ -46,7 +46,7 @@ pub struct ShadowTuning {
     pub gravity: f32,
     /// Grounded locomotion speed a driving fighter holds, units/s.
     pub ground_speed: f32,
-    /// **Dash speed, which is not a faster walk.** The engine's dash SETS
+    /// Dash speed, which is not a faster walk. The engine's dash SETS
     /// velocity outright (`abilities.rs`: `kinematics.vel = aim * dash_speed`)
     /// and does it airborne as readily as grounded.
     pub dash_speed: f32,
@@ -56,31 +56,16 @@ pub struct ShadowTuning {
     pub dash_time: f32,
     /// Instant rise speed a predicted jump imparts, units/s.
     pub jump_speed: f32,
-    /// **How fast a GROUNDED body that stopped driving loses its speed**, px/s².
+    /// How fast a GROUNDED body that stopped driving loses its speed, px/s².
     ///
     /// `ae::GROUND_FRICTION`, restated here for the same reason `dash_speed` is:
     /// the constant lives above this crate and is public knowledge rather than
     /// hidden state.
     pub ground_coast_decel: f32,
-    /// **How fast an AIRBORNE body bleeds lateral speed**, px/s².
-    ///
-    /// the shadow's comment said *"an airborne body is ballistic and keeps
-    /// everything"*, which is a real approximation and the SAFE direction — it
-    /// over-predicts travel and makes the veto more cautious. It is still wrong,
-    /// and modelling both sides costs one multiply.
-    ///
-    /// `ae::AIR_FRICTION`.
+    /// Airborne lateral deceleration, matching `ae::AIR_FRICTION`.
     pub air_coast_decel: f32,
-    /// **What a SWING costs the body, backwards.** (`ae::SLASH_RECOIL`)
-    ///
-    /// Every melee press shoves the attacker along `-facing` by this much. It
-    /// reads as a feel detail and it is the single biggest force acting on a
-    /// fighter brain's body: the brain presses an attack on most decisions, so
-    /// the recoils RATCHET — `ladder_probe` traced 200, 310, 420, 530 px/s in
-    /// exact 110 steps while the emitted movement input pointed the other way.
-    /// The fighter swung itself off the stage, backwards, one whiff at a time,
-    /// and the rollout scored those lines as walks because nothing here knew a
-    /// swing moved anything.
+    /// Backward velocity applied by a melee swing (`ae::SLASH_RECOIL`); rollouts must
+    /// include it because repeated attacks materially change trajectory.
     pub slash_recoil: f32,
     /// Reach assumed for the FOE's attacks. The view names their phase and
     /// clock but not their move, so their range is a model assumption —
@@ -93,33 +78,8 @@ pub struct ShadowTuning {
     pub assumed_foe_active_s: f32,
 }
 
-/// `ShadowTuning::default()` is the ONLY construction in the tree
-/// (`FighterCfg::new` calls it and nobody overrides), so every fighter's rollout
-/// predicts a body with these numbers. The duelist archetypes a smash CPU
-/// actually wears author no movement override, so they inherit the engine
-/// baseline — and three of these disagree with it:
-///
-/// | term | this model | the body | direction of the error |
-/// |---|---|---|---|
-/// | `gravity` | 1400 | `ae::GRAVITY` 2250 | longer airtime → OVER-predicts travel (cautious) |
-/// | `ground_speed` | 160 | `MAX_RUN_SPEED` 270 | UNDER-predicts travel (dangerous) |
-/// | `jump_speed` | 420 | `JUMP_SPEED` 630 | shorter arc → UNDER-predicts (dangerous) |
-///
-/// **`ladder_probe` could not see this gap and said so for half a day.** Every
-/// column there is byte-identical with 2250/270/630 substituted, because the only
-/// rungs still dying under it carry `rollout_depth: 0` and never run a rollout.
-///
-/// **`ladder_rig --scenarios` could.** Over §8's suite, 3 seeds, the rollout
-/// rungs INVERTED in three recovery quadrants — a fighter with a rollout
-/// recovering worse than one without. Correcting these three numbers removed two
-/// of the three: `recovery_left 9v6` and `recovery_right 9v6` fall back inside
-/// the seeds' spread, and only `recovery_above` still inverts. **Recovery is
-/// where a wrong gravity has to show, and nothing had ever put a fighter
-/// offstage.**
-///
-/// Re-hardcoding a second set of numbers would leave the same structural hole, and this one is
-/// currently unmeasurable, so a change here would be a guess with no instrument. §8's scenario
-/// suite is what would make it measurable.
+/// Default shadow movement is derived from the engine's canonical [`ae::MovementTuning`];
+/// opponent attack properties remain explicit model assumptions.
 impl Default for ShadowTuning {
     /// The engine's canonical movement defaults, plus the foe assumptions the
     /// perception view genuinely cannot supply.
@@ -129,16 +89,8 @@ impl Default for ShadowTuning {
 }
 
 impl ShadowTuning {
-    /// **Predict THIS body, using the movement law it plays under.**
-    ///
-    /// **and a correct copy would still have been wrong**, because a
-    /// character may author its own [`ae::MovementTuning`]: a heavier fighter's
-    /// gravity or a faster one's run speed changed the body and not the model.
-    /// The predictor reads the same value the integrator does.
-    ///
-    /// The `assumed_foe_*` fields are NOT body-derived and stay assumptions: the
-    /// view names the opponent's phase and its clock, never its move, so their
-    /// range and damage are a stated model premise.
+    /// Predict this body from its [`ae::MovementTuning`]. Opponent range, damage, and
+    /// timing remain assumptions because the observation does not expose the opponent's move.
     pub fn for_body(movement: &ae::MovementTuning) -> Self {
         Self {
             response: HitResponseTuning {
@@ -251,14 +203,14 @@ pub struct ShadowFighter {
     pub facing: f32,
     pub half_extent: ae::Vec2,
     pub on_ground: bool,
-    /// **Mid-air jumps left.** Without it the shadow has no air game at all:
+    /// Mid-air jumps left. Without it the shadow has no air game at all:
     /// every airborne body falls to its death in the imagination, so every verb
     /// comes back fatal, the veto empties the list, and the halt fires on a body
     /// that cannot be helped by standing still. Recovery is the one thing an
     /// airborne fighter can DO, and it was the one thing the model could not
     /// represent.
     pub air_jumps: u8,
-    /// **This body began the rollout outside the stage envelope.**
+    /// This body began the rollout outside the stage envelope.
     ///
     /// It is RECOVERING, so the crossing that would have killed it already
     /// happened before the search began — and pricing it as a fresh KO makes
@@ -439,7 +391,7 @@ impl ShadowState {
         // The one place with the terrain to answer "how far does my floor
         // reach", projected into the gravity frame the shadow integrates in.
         let side = ae::AccelerationFrame::new(gravity_down).side;
-        // **`floor_below`, not `supporting_floor`.** The supporting one answers
+        // `floor_below`, not `supporting_floor`. The supporting one answers
         // only while standing, so a recovering body imagined an infinite plane at
         // exactly the moment the platform's extent decides whether it lives. The
         // floor a body would LAND on is the question a rollout is asking.
@@ -566,46 +518,12 @@ pub fn shadow_step(
         true
     });
 
-    // 5 — KO: **past the point of return**, which is leaving the stage envelope
-    // at all.
-    //
-    // That reading conflates two different situations, and the difference is the whole of
-    // self-preservation:
-    //
-    //   * **offstage and reeling** — airborne past the floor's edge, still inside
-    //     the envelope. Dangerous, recoverable, and NOT a KO. `distance_to_edge`
-    //     is what scores this.
-    //   * **past the point of return** — outside the envelope. In a room that is
-    //     the wall; on a platform stage the envelope IS the blast zone, and the
-    //     match rules delete you there whether you were launched or simply
-    //     strolled off. Requiring hitstun made a shadow body's own walk-off free,
-    //     so no rollout could ever price it.
-    //   * **and a body that STARTS outside is RECOVERING, not dead.** Being
-    //     offstage is a STATE; dying is an EVENT — the crossing. This block
-    //     tested the state, so a fighter knocked above or beside the stage was
-    //     KO'd on the first shadow step of every rollout, every option scored
-    //     identically, and the search could not tell a recovery from a suicide.
-    //     `ladder_rig --scenarios` showed it as an INVERSION: in the recovery
-    //     quadrants the rung WITH a rollout lasted less long than the rung
-    //     without, because its search was returning noise. That is the whole
-    //     premise of §8's four recovery fixtures, and none of them could be
-    // scored. by
-    //     `a_body_recovering_from_offstage_is_not_scored_as_already_dead`.
-    //
-    //     a body that never comes back is priced by `distance_to_edge` and by
-    //     never landing a hit — not by a KO event it cannot earn. Pricing it as
-    //     an immediate KO is what removed the discrimination in the first place.
+    // A KO is crossing the stage envelope. A body that starts outside it is recovering,
+    // not already dead; its recoverability is scored separately.
     for (fighter, of_me) in [(&mut s.me, true), (&mut s.foe, false)] {
         let outside = s.stage.is_known() && s.stage.offstage(fighter.pos);
-        // **THE COMMITTED FALL IS NOT PRICED HERE, AND THAT IS DELIBERATE.**
-        // This block answers a geometric question — did the body cross the
-        // envelope — and nothing else. Whether a fall it has not finished yet is
-        // survivable is a question about the BODY, which the refused *"airborne,
-        // below the floor's top, outside its span ⇒ already dead"* predicate
-        // got wrong by not asking one. It now has an answer:
-        // `refine_by_rollout` takes a [`super::recovery::RecoveryLens`] and runs
-        // the REAL movement kernel over the body's own kit. Keep this block
-        // geometric; the recoverability verdict belongs where the kit is.
+        // Keep this geometric: `refine_by_rollout` evaluates whether the body's kit can
+        // recover from a committed fall.
         if !fighter.koed && outside && !fighter.started_offstage {
             fighter.koed = true;
             events.push(ShadowEvent::Ko { of_me });
@@ -727,7 +645,7 @@ fn apply_intent(
                 f.vel = f.vel - down * (f.vel.dot(down) + tuning.jump_speed);
             }
         }
-        // **RECOVERY IS AN AIRBORNE JUMP PLUS DRIFT, AND IT IS BUDGETED.** A
+        // RECOVERY IS AN AIRBORNE JUMP PLUS DRIFT, AND IT IS BUDGETED. A
         // grounded body recovering is just a jump toward home; an airborne one
         // spends an air jump, and when the budget is gone it has drift and
         // nothing else. Modelling it as an unlimited hover would make the
@@ -805,9 +723,9 @@ fn apply_intent(
     }
 }
 
-/// **THE DUPLICATE INTEGRATOR, AND ITS DELETION GATE IS NOW NAMED.**
+/// THE DUPLICATE INTEGRATOR, AND ITS DELETION GATE IS NOW NAMED.
 ///
-/// **the seam that replaces it exists AND now has a consumer**:
+/// the seam that replaces it exists AND now has a consumer:
 /// `ae::movement::recovery` drives the real kernel over a cloned
 /// [`ae::BodyClusterScratch`] against a real `&ae::World`, so every verb the body
 /// owns is honoured by the code that owns it.
@@ -815,8 +733,8 @@ fn apply_intent(
 /// pair, and [`refine_by_rollout`] asks it once per movement line that leaves the
 /// ground.
 ///
-/// **Delete this function when all three hold:**
-/// 1. ✔ **MET** — the brain can obtain a `&ae::World` for the room it is fighting
+/// Delete this function when all three hold:
+/// 1. ✔ MET — the brain can obtain a `&ae::World` for the room it is fighting
 ///    in. `RecoveryLens::from_view` builds one from the PERCEIVED terrain and the
 ///    stage box, which keeps the no-cheat contract and takes no dependency on
 ///    `ambition_platformer2d_world`;
@@ -846,14 +764,14 @@ fn integrate(f: &mut ShadowFighter, dt: f32, down: ae::Vec2, tuning: &ShadowTuni
     // height it stood at. A body that started airborne has no known floor
     // and keeps falling — which is exactly the doubt an offstage rollout
     // should carry.
-    // **WALKING OFF THE END OF THE FLOOR.** A grounded body whose FOOTPRINT has
+    // WALKING OFF THE END OF THE FLOOR. A grounded body whose FOOTPRINT has
     // left its supporting solid is no longer supported — it falls, and from the
     // next step gravity has it. Without this a shadow body strolled off a
     // platform and kept walking at the same height, which is why a rollout could
     // not see the single commonest way a fighter dies.
     //
-    // **the footprint, and it is the kernel's own predicate, not a copy of
-    // it.** This tested the body's CENTRE against the span, so the shadow let go
+    // the footprint, and it is the kernel's own predicate, not a copy of
+    // it. This tested the body's CENTRE against the span, so the shadow let go
     // of a body a half-extent before `surface_supports_body_at_rest` does. That
     // gap is invisible in the middle of a platform and decisive at its lip:
     // `refine_by_rollout` captures `left_the_ground` from this transition and
@@ -919,8 +837,8 @@ fn my_move_lands(
     if foe.shield_raised && foe.on_ground && !frames.ignores_guard {
         return Some(0);
     }
-    // **and a GRAB is the exception, which is the third leg of the triangle
-    // showing up in the planner.** Attack beats grab, grab beats shield, shield
+    // and a GRAB is the exception, which is the third leg of the triangle
+    // showing up in the planner. Attack beats grab, grab beats shield, shield
     // beats attack. While every option was priced as blocked, a shielding
     // opponent made the whole kit worth zero and the CPU picked by tie-break —
     // so the one answer the genre has to a guard was the one it could not see.
@@ -1077,55 +995,17 @@ pub fn predicted_foe_intent(
 /// much over doing nothing.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RefinedChoice {
-    /// **When EVERY offered verb is fatal, the one that dies latest.**
-    ///
-    /// a veto that can empty the list needs this, and finding out cost a measurement: with
-    /// `Recover` finally modelled the rollout could strike it, and at the time `Recover` was the
-    /// ONLY verb offered in `Situation::Recovery`. Survival at level 9 fell 40.2 s → 9.2 s the
-    /// moment the model got good enough to condemn the verb.
-    ///
-    /// **"the only verb" is no longer true, and the stale sentence is worth
-    /// more corrected than deleted** — it sent one investigation down a path the
-    /// repo had already closed. Measured, `Situation:Recovery` now
-    /// offers:
-    /// | jump left, can blink | `Recover@1.00` `Blink@0.90` `Jump@0.50` |
-    /// | no jump, can blink   | `Recover@1.00` `Blink@0.90` |
-    /// | no jump, no blink    | `Recover@1.00` |
-    /// so the list only empties for a body with neither a jump nor a blink. and
-    /// note `Recover` outranks `Blink` at every budget, while `Jump` correctly
-    /// disappears when the budget is gone — `Recover`'s emit presses jump without
-    /// checking it. That is NOT a live defect: the shadow models the empty-budget
-    /// case honestly (drift only, the fall continues), so L3 can strike a doomed
-    /// `Recover` and leave `Blink` unjudged and therefore still available. See
-    /// [`AIR_DRIFT_FRACTION`] — out-of-jumps drift was measured OFF the path to
-    /// the ladder deaths.
-    ///
-    /// Standing still is only a fallback where standing still is survivable. On
-    /// the ground it is; in the air it never is.
+    /// When every offered movement verb is fatal, the option with the latest
+    /// predicted death. Standing still is only a fallback where it is survivable.
     pub least_bad_movement: Option<crate::brain::fighter::options::MovementVerb>,
-    /// The preferred attack — **`None` when L2 offered none**, which is the
-    /// `Recovery` situation ("a body past the blastzone has exactly one
-    /// problem"). A consumer reads this for the attack and
-    /// [`Self::suicidal_movement`] for the veto; the two are independent, and
-    /// conflating them is what made the veto skip the body that needed it.
-    ///
-    /// **this was a `String` whose EMPTY value meant "no attack", and the
-    /// sentinel cost the demo its difficulty curve**. The
-    /// consumer read `refined.move_id.clone()` into an `Option`, so the moment a
-    /// rollout ran at all the answer was `Some("")` — an attack request naming
-    /// no move — and the fighter armed a press EVERY decision, including in
-    /// `Recovery` where L2 deliberately offers none. Each press lunges the body
-    /// forward, so a level-9 fighter offstage and holding LEFT was carried right
-    /// at 700 px/s by its own attacks while the trace showed it asking to come
-    /// back. Levels 1–5, which run no rollout, took the `or_else` branch and
-    /// were fine — which is exactly the shape of the A/B that said the rollout
-    /// made things worse.
+    /// Preferred attack, or `None` when L2 offered none. This is independent
+    /// from the movement-suicide veto.
     pub move_id: Option<String>,
-    /// **The press that reaches [`Self::move_id`]**, carried beside it so the
+    /// The press that reaches [`Self::move_id`], carried beside it so the
     /// refinement's winner can be EXECUTED as the move it won with. `None`
     /// exactly when `move_id` is.
     pub binding: Option<super::options::AttackBinding>,
-    /// **Movement lines the rollout found SUICIDAL**, by L2 verb.
+    /// Movement lines the rollout found SUICIDAL, by L2 verb.
     ///
     /// Empty when the profile runs no rollouts or nothing self-KO'd. A verb in
     /// here walked or jumped this body out of the world within the horizon, and
@@ -1232,7 +1112,7 @@ fn score_line(
     w.kill_potential * (damage_swing + ko_swing) + w.stage_risk * stage_risk
 }
 
-/// **L3.** Re-rank L2's top `rollout_k` attacks by simulated outcome.
+/// L3. Re-rank L2's top `rollout_k` attacks by simulated outcome.
 ///
 /// Returns `None` — "use L2's order unchanged" — when the profile disables
 /// rollouts (`rollout_depth == 0` or `rollout_k == 0`, the graceful
@@ -1244,7 +1124,7 @@ fn score_line(
 /// `[`MOVEMENT_HORIZON_MULTIPLE`] steps per modelled verb; nothing about the
 /// machine, the load, or the clock can change what this function returns.
 ///
-/// **`lens` is the one place a real kernel step enters this module.** `None`
+/// `lens` is the one place a real kernel step enters this module. `None`
 /// is the shadow's own verdict, unchanged — which is what a body whose kit the
 /// world-in port did not carry, or a view that names no stage, gets. See the
 /// movement block below for what `Some` buys and what it costs.
@@ -1303,7 +1183,7 @@ pub fn refine_by_rollout(
             best = Some((index, value));
         }
     }
-    // **ROLL THE MOVEMENT LINES TOO.** The shadow model already steps a body and
+    // ROLL THE MOVEMENT LINES TOO. The shadow model already steps a body and
     // already reports `ShadowEvent::Ko { of_me: true }`; nothing was ever asked
     // to walk. Each verb L2 offered is rolled as a SUSTAINED intent, and a line
     // that ends with this body out of the world is named — L2 scores where the
@@ -1344,7 +1224,7 @@ pub fn refine_by_rollout(
             let dt = 1.0 / tick_hz.max(1.0);
             let mut died = false;
             let mut survived = horizon;
-            // **WHERE THIS LINE LAST LEFT THE GROUND.** Cleared on every landing,
+            // WHERE THIS LINE LAST LEFT THE GROUND. Cleared on every landing,
             // so when the line ends it holds the start of the airborne stretch
             // the line finished in — which is the state a recovery would have to
             // begin from, and the only state worth paying a kernel probe for.
@@ -1353,8 +1233,8 @@ pub fn refine_by_rollout(
             // a body already past the envelope has nothing left to decide, and
             // probing from there would answer "you are dead" for every line.
             //
-            // **the transition this reads is the KERNEL's, not a second
-            // opinion about it** — `integrate` decides support with the same
+            // the transition this reads is the KERNEL's, not a second
+            // opinion about it — `integrate` decides support with the same
             // `spans_overlap_for_support` the kernel's `perpendicular_overlap`
             // is built from, so a position captured here is one the kernel also
             // calls unsupported. It did not always: a centre-in-span test handed
@@ -1362,8 +1242,8 @@ pub fn refine_by_rollout(
             // stood straight back up. See `integrate`.
             let mut left_the_ground: Option<super::recovery::RecoveryQuery> = None;
             for tick in 0..horizon {
-                // **THE VERB IS SUSTAINED ONLY AS LONG AS THE BODY IS COMMITTED
-                // TO IT**, and then the line coasts. A brain that re-decides
+                // THE VERB IS SUSTAINED ONLY AS LONG AS THE BODY IS COMMITTED
+                // TO IT, and then the line coasts. A brain that re-decides
                 // every `commit_ticks` never actually walks for 3.2 s; asking
                 // "what if I did" answers a question nobody faces, and answers
                 // it fatally for every direction from every position.
@@ -1397,7 +1277,7 @@ pub fn refine_by_rollout(
                     break;
                 }
             }
-            // **ON A FALL, THE REAL KERNEL OVERRULES THE SHADOW — BOTH WAYS.**
+            // ON A FALL, THE REAL KERNEL OVERRULES THE SHADOW — BOTH WAYS.
             //
             // Both errors point the same way — a body that walks off a ledge is scored dead
             // whatever it owns, so near a ledge the veto empties the list and the choice falls
@@ -1414,7 +1294,7 @@ pub fn refine_by_rollout(
             // there is NO capability list here and no stage geometry — the
             // rollout hands over a position and a kit and takes back one bit.
             //
-            // **Cost, stated because it is not free**: at most ONE probe per
+            // Cost, stated because it is not free: at most ONE probe per
             // modelled movement verb per decision, and only for a verb whose line
             // left the ground; a line that never does pays nothing. Each probe is
             // three steering efforts capped at
@@ -1427,7 +1307,7 @@ pub fn refine_by_rollout(
                 _ => died,
             };
             if doomed {
-                // **HOW LONG IT LASTS, not merely that it ends.** When every
+                // HOW LONG IT LASTS, not merely that it ends. When every
                 // option is fatal the caller still has to pick one, and the
                 // longest-lived line is the one that leaves the most room for
                 // the world to change — a foe that stops chasing, a launch that
@@ -1455,8 +1335,8 @@ pub fn refine_by_rollout(
     })
 }
 
-/// **The movement veto rolls further than attack refinement does, and the ratio
-/// is the point.** The two questions live on different timescales:
+/// The movement veto rolls further than attack refinement does, and the ratio
+/// is the point. The two questions live on different timescales:
 ///
 /// * *will this attack connect* is a FRAMES question. A shipped `rollout_depth`
 ///   of 12 is 0.2 s at 60 Hz, which is a startup plus an active span — exactly
@@ -1472,7 +1352,7 @@ pub fn refine_by_rollout(
 /// from the middle of a 640 px stage to its edge, so 12 × 16 = 192 ticks = 3.2 s
 /// covers that crossing with room for the fall that follows it.
 ///
-/// **and the line is NOT the verb sustained for all of it** — see
+/// and the line is NOT the verb sustained for all of it — see
 /// [`commit_ticks`](refine_by_rollout). Sustaining a walk for 3.2 s is 512 px,
 /// which is wider than the stage; every lateral verb would be fatal from every
 /// position, the veto would fire on every decision, and the "fighter" would be a
@@ -1489,8 +1369,8 @@ pub const MOVEMENT_HORIZON_MULTIPLE: u32 = 16;
 /// How much of a body's ground speed it can steer with while airborne, once its
 /// jumps are spent.
 ///
-/// **It is a SAFETY MARGIN, not a physical fact, and the engine's numbers say
-/// so.** `ae::AIR_ACCEL` is 3100 px/s² against a shared `MAX_RUN_SPEED` cap of
+/// It is a SAFETY MARGIN, not a physical fact, and the engine's numbers say
+/// so. `ae::AIR_ACCEL` is 3100 px/s² against a shared `MAX_RUN_SPEED` cap of
 /// 270 — so a real body reaches the SAME top speed in the air as on the ground,
 /// differing only in how long it takes to get there (~0.09 s). The shadow sets
 /// velocity instantly and models no acceleration at all, so a fraction below 1

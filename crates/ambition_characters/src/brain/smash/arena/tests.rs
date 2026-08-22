@@ -72,7 +72,7 @@ fn pca(name: &'static str, x: f32) -> Fighter {
     }
 }
 
-/// The PCA as it's meant to fight in the Noether Chamber: a **flyer** (Floating
+/// The PCA as it's meant to fight in the Noether Chamber: a flyer (Floating
 /// body → `can_fly`) with a glider poke + a dive melee. Steers 2D via
 /// `velocity_target`.
 fn winged_pca(name: &'static str, x: f32) -> Fighter {
@@ -84,7 +84,7 @@ fn winged_pca(name: &'static str, x: f32) -> Fighter {
     }
 }
 
-/// A **hybrid** PCA: capable of both grounded footsies and flight, with the
+/// A hybrid PCA: capable of both grounded footsies and flight, with the
 /// glider poke + dive melee. The brain chooses when to take off (to contest an
 /// elevated foe or mount a proactive aerial foray) and when to land.
 fn hybrid_pca(name: &'static str, x: f32) -> Fighter {
@@ -101,7 +101,7 @@ fn hybrid_pca(name: &'static str, x: f32) -> Fighter {
     }
 }
 
-/// The **player-robot as a full-kit fighter** (roadmap S6a / I7): the
+/// The player-robot as a full-kit fighter (roadmap S6a / I7): the
 /// protagonist's `player_robot` archetype kit expressed at the brain level —
 /// a grounded-base hybrid (footsies + jump on the ground, fly to contest the
 /// air) with blink-evade, reactive shield, dash-to-close, a melee strike, and
@@ -127,7 +127,7 @@ fn player_robot_fighter(name: &'static str, x: f32) -> Fighter {
     }
 }
 
-/// **The spectator-arena mirror match** (invariant I9, the in-engine analogue at
+/// The spectator-arena mirror match (invariant I9, the in-engine analogue at
 /// the brain level): the player-robot and the PCA — both full-kit hybrids under
 /// the ONE Smash brain — fight in the C4 chamber and must be non-degenerate
 /// (roam the stage, vary their verbs, never freeze or camp a corner). This is
@@ -197,7 +197,7 @@ fn player_robot_vs_pca_mirror_match_is_non_degenerate() {
     }
 }
 
-/// The inspection bout the user asked for: **two hybrid PCAs** that can fly OR
+/// The inspection bout the user asked for: two hybrid PCAs that can fly OR
 /// ground, fighting in the C4 symmetry chamber. Beyond the usual non-degeneracy
 /// guard, it asserts FLIGHT HEALTH — each fighter genuinely uses both modes
 /// (doesn't stick airborne or glued to the floor), toggles repeatedly, and uses
@@ -352,13 +352,13 @@ fn flying_pca_vs_grounded_robot_is_non_degenerate() {
     );
 }
 
-/// **A SMASH CPU STILL CLOSES ON ITS OPPONENT, AND CLOSING IS LOCOMOTION.**
+/// A SMASH CPU STILL CLOSES ON ITS OPPONENT, AND CLOSING IS LOCOMOTION.
 ///
 /// The thing that must survive is the BEHAVIOUR — a fighter across the stage comes to meet you.
 ///
-/// ⛔ this asserts the SEPARATION shrank, not that a field was set.
+///  this asserts the SEPARATION shrank, not that a field was set.
 ///
-/// ⭐ and the verb census is the second half: `classify_verb` reads the
+///  and the verb census is the second half: `classify_verb` reads the
 /// LOCOMOTION throttle only, so seeing `SprintLeft`/`SprintRight` in the trace is
 /// direct evidence the approach was full-throttle running rather than a walk
 /// that happened to arrive.
@@ -377,7 +377,7 @@ fn a_smash_cpu_closes_a_large_gap_on_locomotion_alone() {
     let opening = (target.pos.x - chaser.pos.x).abs();
     let mut arena = Arena::new(stage, chaser, target);
 
-    // ⛔ bounded LOOP on the property, never a fixed step count: what a tick is
+    //  bounded LOOP on the property, never a fixed step count: what a tick is
     // worth is the arena's business, and a count would pin the cadence instead
     // of the behaviour.
     let mut closed = false;

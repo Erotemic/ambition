@@ -1,4 +1,4 @@
-//! **The whole loop, on the real systems.**
+//! The whole loop, on the real systems.
 //!
 //! Each unit test elsewhere proves one link. This walks the chain a player walks,
 //! with no step simulated by hand:
@@ -301,7 +301,7 @@ fn clip_secs(sheet_target: &str, anim: CharacterAnim) -> f32 {
         .clip_seconds(anim)
 }
 
-/// **A transformation lasts as long as the art that shows it.**
+/// A transformation lasts as long as the art that shows it.
 ///
 /// Every tier change — up AND down — authors a beat that names the clip the ARRIVING sheet drew for
 /// it and holds long enough for every frame of that clip to be drawn.
@@ -391,7 +391,7 @@ fn every_tier_change_holds_its_arriving_sheets_transition_clip() {
     assert!(small.duration >= clip_secs("mary_o_v2", CharacterAnim::Shrink) - 1e-4);
 }
 
-/// **The transition clips are on the sheets, and they are their OWN rows.**
+/// The transition clips are on the sheets, and they are their OWN rows.
 ///
 /// A sheet publishes the clips for the form it is ARRIVED AT, which is what lets
 /// the runtime swap identity first and still show the change. And none of them
@@ -522,7 +522,7 @@ fn the_whole_power_loop_runs_on_the_real_systems() {
     assert!(!game.is_tall(), "and returned her to small");
 }
 
-/// **The spark's flight, on the shared projectile body.** Her shot is authored
+/// The spark's flight, on the shared projectile body. Her shot is authored
 /// data; this steps the ENGINE's projectile primitive with that data and watches
 /// it arc, skip off a floor, and expire on its authored budget. No Mary-O code is
 /// involved in the stepping — that is the point.
@@ -591,7 +591,7 @@ fn the_authored_spark_arcs_bounces_and_expires() {
     );
 }
 
-/// **The spark kills a snake through the canonical hit path.**
+/// The spark kills a snake through the canonical hit path.
 ///
 /// The composition is the claim worth testing: the engine already proves its
 /// stepper damages actors, and the loop above already proves the beacon grants an
@@ -772,7 +772,7 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     );
 }
 
-/// **A stomp SHELLS a snake — it never kills it.**
+/// A stomp SHELLS a snake — it never kills it.
 #[test]
 fn a_stomp_shells_a_snake_alive_it_never_dies() {
     use ambition_demo_mary_o::snake::{SnakeShell, run_snake_shells};
@@ -914,7 +914,7 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
     );
 }
 
-/// **A moving shell is a kinetic hazard through the SHARED hit pipeline.**
+/// A moving shell is a kinetic hazard through the SHARED hit pipeline.
 ///
 /// A sliding shell that overlaps the player from the SIDE (not a stomp) emits, in
 /// one `run_snake_shells` tick, TWO `HitEvent`s: a broadcast `Volume` kill over its
@@ -1060,7 +1060,7 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
     );
 }
 
-/// **A DEAD snake leaves the shell machine — no invisible hits.**
+/// A DEAD snake leaves the shell machine — no invisible hits.
 #[test]
 fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
     use ambition_demo_mary_o::snake::{SnakeShell, run_snake_shells};
@@ -1209,7 +1209,7 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
 
 // ── Warp tubes ─────────────────────────────────────────────────────────────
 
-/// **A rules-only shell STANDING IN one authored room.**
+/// A rules-only shell STANDING IN one authored room.
 ///
 /// Tubes are keyed by the room that authors them now and the reader asks `RoomSet` where the body
 /// is standing, so the room is a parameter — which is what lets the three tests below be the same
@@ -1268,7 +1268,7 @@ fn press_locomotion(app: &mut App, body: Entity, y: f32) {
         .y = y;
 }
 
-/// **A warp is a MOVE, not a teleport.**
+/// A warp is a MOVE, not a teleport.
 ///
 /// That reads as a teleport rather than as a pipe. This drives the REAL systems on a REAL body and
 /// asserts the trip: the press starts a transit instead of finishing one, the body is still near
@@ -1355,7 +1355,7 @@ fn pressing_down_on_the_pipe_slides_the_body_through_it_over_time() {
     );
 }
 
-/// **And the way BACK — the leg nothing else runs.**
+/// And the way BACK — the leg nothing else runs.
 ///
 /// the two tests that walked 1-1's whole secret route (`scripted_level_run`
 /// and `level_1_acceptance`) are both `#[ignore]`d, tuned to an older
@@ -1403,7 +1403,7 @@ fn pressing_up_under_the_vault_pipe_surfaces_her_on_the_exit_pipe() {
     );
 }
 
-/// **A tube authored OUTSIDE 1-1 warps her too — where it was drawn.**
+/// A tube authored OUTSIDE 1-1 warps her too — where it was drawn.
 ///
 /// A warp pipe drawn in any other level converted, paired, passed the load-time Entrance/Exit
 /// check, drew its prop art — and did nothing at all. The system's own comment promised the
@@ -1411,7 +1411,7 @@ fn pressing_up_under_the_vault_pipe_surfaces_her_on_the_exit_pipe() {
 /// validator or the entity docs mentioned the restriction. `mary_o_1_3` shipped with two correct,
 /// completely inert pairs.
 ///
-/// **the room is DERIVED, not named.** This asks the world for the first
+/// the room is DERIVED, not named. This asks the world for the first
 /// authored area other than 1-1 that draws a tube, so it covers whichever level
 /// learn — which is the same failure, one layer up, that the test would then be.
 #[test]

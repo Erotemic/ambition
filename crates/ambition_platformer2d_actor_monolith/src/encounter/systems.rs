@@ -44,7 +44,7 @@ pub fn populate_encounter_registry(
     mut commands: ambition_platformer2d_shared_tangle::lifecycle::SessionCommands,
     mut registry: ResMut<EncounterRegistry>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
-    // **, and it is done**: encounters come off the ROOM IR now, not off an `LdtkProject`.
+    // , and it is done: encounters come off the ROOM IR now, not off an `LdtkProject`.
     // `EncounterTrigger` and `LockWall` are ordinary emissions like every other authored
     // family, which is what took the LDtk crate out of this file.
     //
@@ -53,7 +53,7 @@ pub fn populate_encounter_registry(
     rooms: Option<
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
     >,
-    // **the App's authored wave book.** Optional for the same reason the project is: a composition
+    // the App's authored wave book. Optional for the same reason the project is: a composition
     // with no authored encounters is an empty set, not an error.
     waves: Option<Res<ambition_encounter::EncounterWaveBook>>,
 ) {
@@ -118,7 +118,7 @@ pub fn populate_encounter_registry(
     );
 }
 
-/// **The set [`drive_wave_encounters`] runs in.**
+/// The set [`drive_wave_encounters`] runs in.
 ///
 /// Lock-wall visuals read `gate_solids` after the encounter has populated it,
 /// which is what "runs late in the frame" meant when a renderer named this
@@ -594,9 +594,9 @@ pub fn apply_wave_encounter_effects(
 /// and the encounter's optional
 /// [`EncounterCleanupPolicy`](ambition_encounter::EncounterCleanupPolicy):
 ///
-/// - **Adopted** participants are NEVER touched — they pre-existed the
+/// - Adopted participants are NEVER touched — they pre-existed the
 ///   orchestration (a boss survives its wrap retiring).
-/// - **Spawned** participants despawn under the default
+/// - Spawned participants despawn under the default
 ///   [`SpawnedCleanup::DespawnOnEnd`](ambition_encounter::SpawnedCleanup)
 ///   (and their relation records leave the list — the entities left the
 ///   world); an authored `Keep` policy hands them to the room instead.

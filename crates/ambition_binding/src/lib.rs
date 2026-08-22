@@ -628,22 +628,8 @@ impl BindingReport {
         self.ambiguous.dedup();
     }
 
-    /// Say what did not bind, at `error` level, tagged with `context` (the room,
-    /// the visual, the provider).
-    ///
-    /// Built on [`log_unresolved`], which is the one place the wording lives, so
-    /// a consumer never invents its own `warn!` — including the per-frame ones
-    /// that report a single failure at a time and never hold a whole report. A
-    /// visible run gets it in the console; a headless run gets it in the captured
-    /// log; a test asserts on the report itself.
-    ///
-    /// It is not the only place the ENGINE reports a missing reference. Audio
-    /// speaks its own vocabulary (a cue is not a slot in a namespace), and
-    /// construction refusals carry an [`UnresolvedRef`] inside a hard error
-    /// rather than a report.
-    ///
-    /// Empty reports say nothing — silence here means every reference bound,
-    /// which is the one time silence is the honest answer.
+    /// Log unresolved references at error level and ambiguous references at warning
+    /// level, tagged with `context`. Empty reports emit nothing.
     pub fn log(&self, context: &str) {
         for unresolved in &self.unresolved {
             log_unresolved(context, unresolved);
@@ -656,12 +642,7 @@ impl BindingReport {
     }
 }
 
-/// Say that one reference did not bind, at `error` level, tagged with `context`.
-///
-/// The single sink [`BindingReport::log`] is built from. A per-frame consumer
-/// that gates on [`ReportedOnce`] reports one failure at a time and must not
-/// invent its own wording, so it calls this rather than collecting a whole
-/// report it would immediately take apart again.
+/// Log one unresolved reference using the same wording as [`BindingReport::log`].
 pub fn log_unresolved(context: &str, unresolved: &UnresolvedRef) {
     tracing::error!("{context}: {unresolved}");
 }

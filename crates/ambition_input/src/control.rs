@@ -53,7 +53,7 @@ pub fn read_gameplay_control_frame_with_settings(
     // RT2 button as the "press level". The settings-defined press / release
     // thresholds collapse trigger jitter into a single edge.
     //
-    // **the device-side names moved to BURST too, and the WIRE did not.** A
+    // the device-side names moved to BURST too, and the WIRE did not. A
     // stored remap is keyed by the action's `Debug` spelling, so `"Dash"` is
     // carried to `"Burst"` by `settings::ControlSettings::migrate_renamed_actions`;
     // the persisted `dash_input_mode` key is PINNED with `#[serde(rename)]`.

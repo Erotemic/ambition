@@ -211,7 +211,7 @@ impl BossCatalogFragment {
 
     /// The same assembly, with the roster and the encounters ALREADY PARSED.
     ///
-    /// **this is what lets the content pack be the load path.**
+    /// this is what lets the content pack be the load path.
     /// [`Self::from_ron`] re-parses bytes the compiler has already read and
     /// judged — two readers of one file, which is the split the content pack
     /// exists to close. A provider whose content came out of a

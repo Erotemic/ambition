@@ -5,10 +5,10 @@
 //!
 //! Four INDEPENDENT axes, deliberately not collapsed into one enum:
 //!
-//! 1. **Viewport** — where the gameplay camera renders ([`GameplayViewportPolicy`]);
-//! 2. **Framing** — where subjects should remain inside it ([`SubjectFramingPolicy`]);
-//! 3. **Screen occupancy** — what controls/HUD reserve ([`ScreenOccluder`]);
-//! 4. **Activation** — which profile applies ([`PresentationEnvironment`]).
+//! 1. Viewport — where the gameplay camera renders ([`GameplayViewportPolicy`]);
+//! 2. Framing — where subjects should remain inside it ([`SubjectFramingPolicy`]);
+//! 3. Screen occupancy — what controls/HUD reserve ([`ScreenOccluder`]);
+//! 4. Activation — which profile applies ([`PresentationEnvironment`]).
 //!
 //! Everything here is pure: no windows, no rendering, no touch input, no game
 //! content, no provider. The host resolves once per frame and every consumer
@@ -244,7 +244,7 @@ impl ScreenInsets {
 
 /// Platform safe-area insets for the primary display.
 ///
-/// **Nothing writes a non-zero value yet** — no supported platform exposes
+/// Nothing writes a non-zero value yet — no supported platform exposes
 /// cutout information to this codebase today. The resource exists so the
 /// policy is already inset-correct (and tested asymmetrically): when an
 /// Android/iOS bridge lands it writes this resource and no presentation code
@@ -713,7 +713,7 @@ pub struct ScreenOcclusion {
 
 /// The stable presentation environment a profile is selected for.
 ///
-/// **Stable is the point.** This must not follow the most recent input device: glyphs may
+/// Stable is the point. This must not follow the most recent input device: glyphs may
 /// change the instant a gamepad is touched, but the gameplay viewport and camera framing hold
 /// for the session (or until the participant changes the preference explicitly).
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -1049,10 +1049,10 @@ impl ResolvedGameplayPresentation {
         !self.surround_rects.is_empty()
     }
 
-    /// **Where a block of text belongs: the safe display, carved back from
-    /// everything a reader must not sit behind.**
+    /// Where a block of text belongs: the safe display, carved back from
+    /// everything a reader must not sit behind.
     ///
-    /// **the floor is load-bearing.** A small screen with a full control
+    /// the floor is load-bearing. A small screen with a full control
     /// overlay can be carved down to nothing, and a dialogue that resolves to a
     /// zero-height box is a game that cannot be played at all — strictly worse
     /// than one that overlaps. [`Self::READING_MIN_FRACTION`] is where the carve

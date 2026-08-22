@@ -6,13 +6,13 @@
 //! [`PortalTransitable`] body component instead of the Ambition [`ControlFrame`]
 //! input type or the [`GroundItem`] body. These adapters own that glue:
 //!
-//! - **Movement intent:** the same-wall held-input warp + emergence guard rotate
+//! - Movement intent: the same-wall held-input warp + emergence guard rotate
 //!   the player's held movement after a crossing so movement continues correctly.
 //!   Portal core applies that to [`PlayerMovementIntent`]; this module mirrors the
 //!   `ControlFrame` movement axes into the intent before the warp/transit runs and
 //!   copies the (possibly warped) intent back to `ControlFrame` afterward, so the
 //!   result is byte-identical to portal core mutating `ControlFrame` directly.
-//! - **Ground-item transit:** thrown [`GroundItem`]s are teleported by portal core
+//! - Ground-item transit: thrown [`GroundItem`]s are teleported by portal core
 //!   through the generic [`PortalTransitable`] body; this module attaches that
 //!   marker to ground items and keeps it in sync with the `GroundItem` body around
 //!   transit.

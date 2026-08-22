@@ -169,7 +169,7 @@ pub struct RoomMetadata {
     ///
     /// Authored as the LDtk level integer field `ceiling_blast_margin`.
     pub ceiling_blast_margin: Option<i32>,
-    /// **Where finishing this room leads** — the id of the room its goal sends
+    /// Where finishing this room leads — the id of the room its goal sends
     /// the player to. `None` means the room has no successor and loops in
     /// place, which is the classic arcade answer and a real destination rather
     /// than the absence of one.
@@ -177,7 +177,7 @@ pub struct RoomMetadata {
     /// Keeping this in room metadata lets authored content define progression
     /// without a room-id dispatch table in Rust.
     ///
-    /// ⚠ **the engine does not check that the named room EXISTS.** It cannot:
+    ///  the engine does not check that the named room EXISTS. It cannot:
     /// a level file states an id and only the loaded `RoomSet` knows which
     /// rooms a session holds, so a room that names a destination it does not
     /// have is a WARNING at the consumer, not a load-time refusal. Keeping it

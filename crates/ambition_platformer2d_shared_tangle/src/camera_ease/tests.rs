@@ -119,10 +119,10 @@ fn hard_fall_saturates_through_kick_cap() {
     assert!(shake.amplitude_px <= 14.0);
 }
 
-/// **A REFERENCE CONNECT SHAKES NOTHING, AND A SMASH SHAKES HARD** — the whole
+/// A REFERENCE CONNECT SHAKES NOTHING, AND A SMASH SHAKES HARD — the whole
 /// of what P4.37 asked for, expressed as a scale rather than a special case.
 ///
-/// ⚠ the three assertions are three different claims and none implies the
+///  the three assertions are three different claims and none implies the
 /// others: a dead zone at the reference, a real jolt at the ceiling, and
 /// MONOTONICITY between them. A function that returned a constant above the
 /// floor would satisfy the first two.
@@ -166,7 +166,7 @@ fn only_a_hit_harder_than_standard_moves_the_camera() {
          as surely as one high enough to exclude everything"
     );
 
-    // ⭐ MONOTONIC, which is the property that makes this a SCALE. Sampled
+    //  MONOTONIC, which is the property that makes this a SCALE. Sampled
     // across the whole band rather than at two points, so a step function cannot
     // pass.
     let mut previous = 0.0;
@@ -187,9 +187,9 @@ fn only_a_hit_harder_than_standard_moves_the_camera() {
     );
 }
 
-/// **The reference is the ROUTE's number, not this crate's.**
+/// The reference is the ROUTE's number, not this crate's.
 ///
-/// ⛔ restating `0.070` here would be a second literal agreeing with
+///  restating `0.070` here would be a second literal agreeing with
 /// `Platformer2dFeelTuningMonolith::hitlag_time` by coincidence — the shape that
 /// has already cost this campaign a health pool. A route that retunes its hitlag
 /// must retune its camera WITH it, in the same direction, and this is what says

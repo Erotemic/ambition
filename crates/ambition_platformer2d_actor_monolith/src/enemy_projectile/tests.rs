@@ -27,7 +27,7 @@ fn insert_projectile_authority(app: &mut App) {
     app.init_resource::<ambition_projectiles::ProjectileVisualCatalog>();
 }
 
-/// The faction-aware routing keystone: a **Player**-faction shot in the
+/// The faction-aware routing keystone: a Player-faction shot in the
 /// single live-projectile road damages the enemy it overlaps and expires on
 /// contact — the substrate for the
 /// wielded ranged boss attack (`crate::abilities::ranged::volley`). The enemy-faction path is
@@ -74,7 +74,7 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
             crate::features::FeatureId::new("test_enemy"),
             crate::features::CenteredAabb::new(enemy_pos, ae::Vec2::new(16.0, 24.0)),
             crate::features::ActorDisposition::Hostile,
-            // ⛔ **a body with no faction is not something production builds.** The
+            //  a body with no faction is not something production builds. The
             // fixture had none, because the branch it was written against broadcast
             // a volume and never asked whose side anyone was on. `damage_lands` is
             // the routing rule for every shot now, so an unfactioned body is not a
@@ -109,7 +109,7 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
     app.update();
 
     let cap = app.world().resource::<CapturedHits>();
-    // ⛔ **this pair used to assert a claim and its negation** — `PlayerProjectile`
+    //  this pair used to assert a claim and its negation — `PlayerProjectile`
     // present, `EnemyProjectile` absent — and the fold into one `Projectile`
     // cause turned that into a contradiction, which is the honest signal that
     // the SOURCE was never what the test cared about.
@@ -343,7 +343,7 @@ fn enemy_glider_damages_a_different_faction_actor_physically() {
 /// `damage_lands` and spared every shot as an ally, so NO projectile from ANY fighter could hit
 /// anybody on a crossover grid.
 ///
-/// ⭐ `StrikeVictim` has carried the victim's `team` the whole time — its own doc says
+///  `StrikeVictim` has carried the victim's `team` the whole time — its own doc says
 /// *"Outranks faction for 'may this land'"* — and this loop was the one caller that never asked
 /// for it.
 #[test]
@@ -371,7 +371,7 @@ fn a_seated_fighters_shot_hits_a_same_faction_body_on_another_team() {
             MatchTeam::new("seat 2"),
         ))
         .id();
-    // ⛔ THE POISON, in the fixture: a body on the FIRER'S OWN team, overlapping
+    //  THE POISON, in the fixture: a body on the FIRER'S OWN team, overlapping
     // the same shot. Without it a predicate that simply stopped consulting
     // anything would pass this test.
     let teammate = app
@@ -407,7 +407,7 @@ fn a_seated_fighters_shot_hits_a_same_faction_body_on_another_team() {
     );
 }
 
-/// **A SHOT IN FLIGHT DOES NOT CHANGE SIDES WHEN ITS FIRER DIES.**
+/// A SHOT IN FLIGHT DOES NOT CHANGE SIDES WHEN ITS FIRER DIES.
 ///
 /// The four-fighter case the queue names: a fighter fires, loses their final
 /// stock, and the ruleset takes the body out of play —
@@ -416,7 +416,7 @@ fn a_seated_fighters_shot_hits_a_same_faction_body_on_another_team() {
 ///
 /// It turned on its own team.
 ///
-/// ⭐ **the presentation half of this shot already knew better.**
+///  the presentation half of this shot already knew better.
 /// `inherit_projectile_presentation_sources` says it outright: *"the bolt is the
 /// emitter … it routinely outlives the body that fired it. So the source is
 /// STAMPED at spawn rather than looked up at impact."* The combat half was the
@@ -474,7 +474,7 @@ fn a_shot_outlives_its_firer_without_changing_sides() {
     // The final stock is spent; the ruleset takes the body out of play.
     app.world_mut().despawn(firer);
 
-    // ⛔ `app.update()` is not a tick of sim time — loop on the property (every
+    //  `app.update()` is not a tick of sim time — loop on the property (every
     // bolt resolved) with a ceiling. 150 px at 200 px/s is ~45 ticks; the
     // 2 s lifetime retires an unspent bolt at 120.
     let mut live_projectiles = app
@@ -506,7 +506,7 @@ fn a_shot_outlives_its_firer_without_changing_sides() {
     );
 }
 
-/// **A SHOT ORPHANED BEFORE ITS FIRST STEP DOES NOT BECOME A HAZARD.**
+/// A SHOT ORPHANED BEFORE ITS FIRST STEP DOES NOT BECOME A HAZARD.
 ///
 /// The sibling of [`a_shot_outlives_its_firer_without_changing_sides`], for the one window that
 /// test cannot reach. A fighter who fires and is eliminated inside that tick leaves a shot with
@@ -515,7 +515,7 @@ fn a_shot_outlives_its_firer_without_changing_sides() {
 ///
 /// This test is the difference between those two sentences.
 ///
-/// ⚠ **it asserts SAFETY only, deliberately.** The shot currently hits nobody,
+///  it asserts SAFETY only, deliberately. The shot currently hits nobody,
 /// which is the safe direction but not the right answer — the right answer is
 /// that attribution is stamped where the entity is BORN, the conclusion
 /// `inherit_projectile_presentation_sources` already reached for the
@@ -576,7 +576,7 @@ fn a_shot_orphaned_before_its_first_step_does_not_turn_on_its_team() {
     );
 }
 
-/// **A SHOT STAMPED AT BIRTH KEEPS ITS AIM THROUGH ITS FIRER'S ELIMINATION.**
+/// A SHOT STAMPED AT BIRTH KEEPS ITS AIM THROUGH ITS FIRER'S ELIMINATION.
 ///
 /// The positive term for
 /// [`a_shot_orphaned_before_its_first_step_does_not_turn_on_its_team`], and the
@@ -584,8 +584,8 @@ fn a_shot_orphaned_before_its_first_step_does_not_turn_on_its_team() {
 /// behaviour when nothing stamped the bolt; this one pins that the production
 /// schedule stamps it, so the safe fallback is never reached.
 ///
-/// ⭐ **the modelled tick is the one that made the second stamp placement
-/// necessary.** A player bolt materializes at the end of `CombatSet::Materialize`
+///  the modelled tick is the one that made the second stamp placement
+/// necessary. A player bolt materializes at the end of `CombatSet::Materialize`
 /// and is stamped there; its firer is eliminated later in the SAME tick, in
 /// `CombatSet::Settle`; the bolt first STEPS next tick, with no firer left. So
 /// the bolt is deliberately never stepped while its owner lives — which is what
@@ -702,7 +702,7 @@ fn spawn_owned_glider(app: &mut App, pos: ae::Vec2, firer: Entity) {
     ));
 }
 
-/// Parry-reflect: an enemy shot overlapping a **parrying** player flips to
+/// Parry-reflect: an enemy shot overlapping a parrying player flips to
 /// the player's faction and reverses (+boosts) its velocity, so the same
 /// faction-aware routing now sends it back at the enemies — deflect the
 /// boss's attack at it.

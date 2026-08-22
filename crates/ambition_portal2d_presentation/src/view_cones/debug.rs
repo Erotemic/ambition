@@ -1,4 +1,4 @@
-//! **Portal view-cone diagnostics** — the debug overlay/inspector and text/PNG
+//! Portal view-cone diagnostics — the debug overlay/inspector and text/PNG
 //! dump machinery for [`super::sync_portal_view_cones`]. None of this runs in a
 //! normal frame's render path; it is the "why does this wedge look like that"
 //! toolbox: `debug_portal_view_zones` (gizmo overlay), the
@@ -946,7 +946,7 @@ fn fmt_uvs(uvs: &[[f32; 2]]) -> String {
 }
 
 /// Debug overlay for portal view cones: when the host's F1 debug overlay is on,
-/// optional F3 toggles can draw the **exit sample zone** (the world rect
+/// optional F3 toggles can draw the exit sample zone (the world rect
 /// `ViewCone::source` in front of the partner, in the portal's channel color),
 /// the entry window, and/or the LOS rays that decide whether the viewer can see
 /// through the aperture. Uses the SAME `compute_cone` as the renderer, so the

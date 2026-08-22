@@ -1,4 +1,4 @@
-//! **A Smash move names effect art the old five-variant enum could not express.**
+//! A Smash move names effect art the old five-variant enum could not express.
 //!
 //! `ExplosionKind` had five variants, and they were the five rows of ONE
 //! spritesheet — so a fighter's whole visual vocabulary was `classic_burst`,

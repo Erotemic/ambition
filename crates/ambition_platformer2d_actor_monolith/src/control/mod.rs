@@ -1,4 +1,4 @@
-//! **The local control seam** — device frame → slot → the body carrying that
+//! The local control seam — device frame → slot → the body carrying that
 //! slot's player brain.
 //!
 //! This is not player-centrism; it is the wire between a human and a body, and
@@ -14,7 +14,7 @@
 //! 4. [`queries`] — slot-explicit player lookups, so a call site says whether it
 //!    means "the primary player" or "every player".
 //!
-//! **Downstream of this module, nothing holds `Res<ControlFrame>`.** Controller
+//! Downstream of this module, nothing holds `Res<ControlFrame>`. Controller
 //! adapters read `SlotControls`; body mechanics read the brain's `ActorControl`
 //! (`ambition_characters::actor::control` — the brain→body contract, the far end
 //! of this same wire). The workspace `ControlFrame` policy enforces it,

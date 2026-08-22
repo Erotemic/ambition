@@ -172,7 +172,7 @@ pub fn portal_input_warp_flips_horizontal(n_in: Vec2, n_out: Vec2) -> bool {
 }
 
 /// Does an actor of `size` fit through `portal`? The opening the actor must
-/// pass through is the portal extent **perpendicular to its normal**: a wall
+/// pass through is the portal extent perpendicular to its normal: a wall
 /// portal (horizontal normal) is a vertical doorway, so the actor's *height*
 /// must fit; a floor / ceiling portal (vertical normal) gates on *width*. This
 /// keeps big bosses out of small portals while staying fully general — make a
@@ -258,7 +258,7 @@ pub(crate) fn capture_box(portal: &PlacedPortal) -> ae::Aabb {
 }
 
 /// Budget: Ambition clamps controlled actor sim steps to 1/30 s, so 1900 px/s terminal fall
-/// (`MAX_FALL_SPEED`) ⇒ ~63px/frame — 96px covers it with slack. A body even faster on a hard
+/// (`MAX_FALL_SPEED`)  ~63px/frame — 96px covers it with slack. A body even faster on a hard
 /// hitch may see the carve closed for ONE frame, but the carve-volume rescue in `transit_step`
 /// recovers the crossing regardless. Opening a few frames early is harmless: the approach carve
 /// is gated on the body MOVING INTO the portal, and a hole only ever opens where a placed,
@@ -366,8 +366,8 @@ fn transfer_step(
         vel: vel_out,
         // The body picks up the on-screen turn it travels through (a tumble for floor/ceiling,
         // nothing for a wall↔wall turn-around); `update_actor_roll` then eases it back to
-        // gravity-upright (feet-in → reorient). **the convention comes from TUNING, not from a
-        // process global.** `PortalTuning::convention` is right here in the argument list, and the
+        // gravity-upright (feet-in → reorient). the convention comes from TUNING, not from a
+        // process global. `PortalTuning::convention` is right here in the argument list, and the
         // pure helpers already expose `*_for_convention` forms that take it.
         roll_delta: somersault_roll_for_convention(
             rotation,

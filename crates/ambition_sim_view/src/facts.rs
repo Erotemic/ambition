@@ -151,7 +151,7 @@ pub struct GroundItemFact {
     pub item_id: String,
 }
 
-/// **only items that are IN THE WORLD.** A picked-up item is no longer
+/// only items that are IN THE WORLD. A picked-up item is no longer
 /// destroyed — it keeps its entity and its identity and records that a body is
 /// carrying it (`ItemCustody`) — so "there is a `GroundItem` component" stopped
 /// meaning "there is an axe lying over there". The in-hand overlay is a separate
@@ -195,7 +195,7 @@ pub struct WorldItemFact {
     pub sprite: Option<String>,
     /// Still emerging from whatever produced it — draw it BEHIND the world.
     ///
-    /// **DERIVED from the motion, never mirrored from the item.** `WorldItem` carried an
+    /// DERIVED from the motion, never mirrored from the item. `WorldItem` carried an
     /// `emerging: bool` that Mary-O set `true` at spawn and NOTHING ever set back to `false`,
     /// so a wand finished rising, began its ordinary arc, and stayed drawn behind the world for
     /// the rest of its life.
@@ -338,7 +338,7 @@ pub struct HostileWieldedItemFact {
     pub wielder_height: f32,
 }
 
-/// **A WIELDER AIMS AT WHAT IT IS FIGHTING, not at "the player".**
+/// A WIELDER AIMS AT WHAT IT IS FIGHTING, not at "the player".
 ///
 /// This took `Query<&BodyKinematics, PrimaryPlayerOnly>`, `single()`d it, and
 /// `return`ed without one — so in a match, where no session home avatar exists,
@@ -473,7 +473,7 @@ pub struct DynamicFeatureFact {
     pub sprite_key: Option<ambition_sprite_sheet::game_assets::EntitySprite>,
     /// An ANIMATED prop-sheet id to draw instead of the placeholder (a spinning
     /// ring, a pulsing gem) — the same `GameAssets.characters.props` key the
-    /// room-load pass resolves for an authored pickup. `None` ⇒ the placeholder.
+    /// room-load pass resolves for an authored pickup. `None`  the placeholder.
     pub prop_sheet: Option<String>,
 }
 
@@ -664,8 +664,8 @@ pub struct BlinkPreviewFact {
 #[allow(clippy::type_complexity)]
 pub fn rebuild_blink_preview_fact(
     mut fact: ResMut<BlinkPreviewFact>,
-    // **THE ONE COLLISION READ-API, because the preview was resolving
-    // against a DIFFERENT WORLD than the blink.** This took the room plus
+    // THE ONE COLLISION READ-API, because the preview was resolving
+    // against a DIFFERENT WORLD than the blink. This took the room plus
     // `MovingPlatformSet` and composed `world_with_moving_platforms` itself,
     // under a comment claiming *"the moving-platform-aware temporary world is
     // what the actual blink resolves against"*. That was true when written and
@@ -673,7 +673,7 @@ pub fn rebuild_blink_preview_fact(
     // ALSO carries the ECS overlay (gate lock-walls, falling-sand pools,
     // broken-brick subtractions) and the portal carves.
     //
-    // ⇒ the reticle could show a destination through a lock wall the blink
+    //  the reticle could show a destination through a lock wall the blink
     // stops at, or stop at a portal aperture the blink passes through. A
     // preview that disagrees with the action is worse than none.
     collision: ambition_platformer2d_world::collision::CollisionWorld,

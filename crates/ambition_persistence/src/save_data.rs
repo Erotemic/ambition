@@ -161,27 +161,27 @@ impl PersistedItem {
     }
 }
 
-/// **Where one runtime occurrence is**, as a save file can say it.
+/// Where one runtime occurrence is, as a save file can say it.
 ///
 /// It is deliberately the same vocabulary rather than a second one, because the durable horizon
 /// is a serialization of the value the checkpoint horizon already copies — not a third
 /// description of the same fact.
 ///
-/// ⛔ **no components, no velocity, no archetype.** A row says WHERE an
+///  no components, no velocity, no archetype. A row says WHERE an
 /// occurrence is and nothing about what it is made of; what it IS comes back
 /// from the authored record (or, for a runtime mint, from
 /// [`PersistedMintedItem`]). Snapshotting components here would weld the save
 /// format to ECS layout, which is rollback's job and not this one's.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PersistedWhereabouts {
-    /// In somebody's hands. ⚠ **this does not say WHOSE** — that is
+    /// In somebody's hands.  this does not say WHOSE — that is
     /// [`PersistedCustody`], for the same reason the live ledger keeps the
     /// custodian in a separate domain projection: "somebody has it" is enough to
     /// stop a room minting a second one and not enough to put it back.
     InCustody,
     /// Lying in `room`, at integer world pixels.
     ///
-    /// ⭐ **INTEGER pixels, for [`PersistedCheckpoint`]'s reasons exactly.** A
+    ///  INTEGER pixels, for [`PersistedCheckpoint`]'s reasons exactly. A
     /// float here would cost `AmbitionGameSaveData`'s `Eq` derive, and a NaN —
     /// which compares unequal to itself — would make the value-comparing
     /// autosave rewrite the file every frame forever. A resting object has no
@@ -190,7 +190,7 @@ pub enum PersistedWhereabouts {
     Placed { room: String, x: i32, y: i32 },
     /// Gone for good, and the world is supposed to remember that.
     ///
-    /// ⚠ **the live variant has no producer yet** and this one therefore has no
+    ///  the live variant has no producer yet and this one therefore has no
     /// live writer either — but the format spells it, because a terminal
     /// disposition that the file cannot express is a terminal disposition a save
     /// silently undoes. `a_consumed_occurrence_is_not_resurrected_by_a_load`
@@ -200,7 +200,7 @@ pub enum PersistedWhereabouts {
 
 /// One occurrence's whereabouts, keyed by its `SimId` as a string.
 ///
-/// ⚠ **absence is the common case and is the DEFAULT answer.** A save carries a
+///  absence is the common case and is the DEFAULT answer. A save carries a
 /// row only for an occurrence some system had a reason to write one for; a record
 /// nobody has touched has no row, and no row means "author it from the record".
 /// A save that listed every occurrence in the world would be the universal
@@ -220,7 +220,7 @@ impl PersistedOccurrence {
     }
 }
 
-/// **Which body was carrying which occurrence**, both sides by `SimId` string.
+/// Which body was carrying which occurrence, both sides by `SimId` string.
 ///
 /// The disk form of
 /// `ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline`. Kept
@@ -243,7 +243,7 @@ impl PersistedCustody {
     }
 }
 
-/// **How to rebuild one instance the SIMULATION minted**, which no authored
+/// How to rebuild one instance the SIMULATION minted, which no authored
 /// record anywhere can describe.
 ///
 /// ```text
@@ -252,15 +252,15 @@ impl PersistedCustody {
 /// definition   held_item       the item spec's authored id — a REFERENCE, not a copy
 /// ```
 ///
-/// ⛔ **the provenance is not decoration.** An instance rebuilt without it cannot
+///  the provenance is not decoration. An instance rebuilt without it cannot
 /// say which spawner it descends from, so it would be invisible to the NEXT
 /// capture — it would survive exactly one load and then become unrecoverable.
 ///
-/// ⛔ **and `held_item` is a REFERENCE.** Copying the resolved spec in would put a
+///  and `held_item` is a REFERENCE. Copying the resolved spec in would put a
 /// second authority for *what a javelin is* inside a save file, and a content edit
 /// would then be silently overridden by every save written before it.
 ///
-/// ⚠ **no position**, because the rows that reach here are the ones a hand was
+///  no position, because the rows that reach here are the ones a hand was
 /// holding: the hand supplies the place.
 ///
 /// See the module note on `session::durable_horizon`.
@@ -337,19 +337,19 @@ pub struct AmbitionGameSaveData {
     /// The last checkpoint the player touched, if any. `None` is a fresh run.
     #[serde(default)]
     pub checkpoint: Option<PersistedCheckpoint>,
-    /// **What became of each runtime occurrence the world remembers anything
-    /// about** — the durable half of the whereabouts ledger.
+    /// What became of each runtime occurrence the world remembers anything
+    /// about — the durable half of the whereabouts ledger.
     ///
-    /// ⚠ **sparse by construction.** Only occurrences somebody moved, carried or
+    ///  sparse by construction. Only occurrences somebody moved, carried or
     /// ended appear; everything else reconstructs from its authored record,
     /// which is what keeps a load from resurrecting the world's entire history.
     #[serde(default)]
     pub occurrences: Vec<PersistedOccurrence>,
-    /// **Which body was holding which occurrence** when this save was written.
+    /// Which body was holding which occurrence when this save was written.
     /// Empty hands is a real answer and writes an empty list.
     #[serde(default)]
     pub custody: Vec<PersistedCustody>,
-    /// **How to remake the runtime-minted instances that were in a hand.** Never
+    /// How to remake the runtime-minted instances that were in a hand. Never
     /// a registry of every mint the session ever made — see
     /// [`PersistedMintedItem`].
     #[serde(default)]
@@ -358,8 +358,8 @@ pub struct AmbitionGameSaveData {
 
 /// v4 adds `occurrences`, `custody` and `minted_items` — the durable horizon.
 ///
-/// ⚠ **the bump is deliberate on an ADDITIVE change, and the reason is not
-/// ceremony.** `#[serde(default)]` already makes a v3 file load with three empty
+///  the bump is deliberate on an ADDITIVE change, and the reason is not
+/// ceremony. `#[serde(default)]` already makes a v3 file load with three empty
 /// lists, and empty is the correct reading: a build that did not remember
 /// occurrences had nothing to say about them, so every authored record
 /// reconstructs from itself, which is exactly the pre-v4 behaviour. What the tag
@@ -735,10 +735,10 @@ mod tests {
         assert_eq!(s, restored);
     }
 
-    /// **EVERY whereabouts variant survives the wire, including the terminal
-    /// one.**
+    /// EVERY whereabouts variant survives the wire, including the terminal
+    /// one.
     ///
-    /// ⛔ **the `Consumed` arm is the one worth writing down.** It has no live
+    ///  the `Consumed` arm is the one worth writing down. It has no live
     /// producer yet, so no behavioural fixture drives it from the world side —
     /// which is exactly the condition under which a variant quietly stops being
     /// serialized correctly and nobody notices until the producer lands. A

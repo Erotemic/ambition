@@ -1,10 +1,10 @@
-//! **OILER'S BODY, now that he has answers.**
+//! OILER'S BODY, now that he has answers.
 //!
 //! he leaves [`super::hall_humanoids`] under that file's own rule: *"one file for four... If
 //! one of them grows a moveset or a distinct build, it earns its own file that day."* This is
 //! that day.
 //!
-//! **the MOVESET is what is new**, and it reaches the fighter through
+//! the MOVESET is what is new, and it reaches the fighter through
 //! `with_moveset` — see [`crate::oiler_moveset`] for the table and why it is
 //! shaped the way it is. His `default_action_set` also stops being `peaceful` in
 //! the same change; the two halves answer different questions (*may this body

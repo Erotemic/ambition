@@ -208,7 +208,7 @@ fn unknown_start_room_does_not_panic_or_error() {
     assert!(!sim.observation().active_room.is_empty());
 }
 
-/// **A CALLER THAT SAYS THE ROOM MUST BE THERE GETS TOLD WHEN IT IS NOT.**
+/// A CALLER THAT SAYS THE ROOM MUST BE THERE GETS TOLD WHEN IT IS NOT.
 ///
 /// the sibling above (`unknown_start_room_does_not_panic_or_error`) pins the
 /// TOLERANT promise, and it stays — a library caller may legitimately name a
@@ -219,8 +219,8 @@ fn unknown_start_room_does_not_panic_or_error() {
 /// The likeliest mistake is naming an LDtk LEVEL (`central_hub_main`) where a runtime room id
 /// (`central_hub_complex`) belongs — which a silent fallback hides and this does not.
 ///
-/// **it PANICS rather than returning `Err`, and that is the existing strict
-/// path's choice, not a new one** — `capture_scene` has relied on it since the
+/// it PANICS rather than returning `Err`, and that is the existing strict
+/// path's choice, not a new one — `capture_scene` has relied on it since the
 /// row that asked for *"FAIL LOUDLY on an unknown room"*. Asserting the panic is
 /// honest about what happens; turning it into an `Err` would be a separate
 /// decision about what a library constructor owes, and this slice does not take
@@ -235,7 +235,7 @@ fn a_required_start_room_that_does_not_exist_refuses_to_boot() {
     );
 }
 
-/// **the non-vacuity half of the guard above**: without this, that test could
+/// the non-vacuity half of the guard above: without this, that test could
 /// pass because the REQUIRED form never boots anything at all.
 #[test]
 fn a_required_start_room_that_exists_still_boots() {

@@ -271,10 +271,10 @@ pub trait AmbitionRollbackApp {
     where
         T: Resource + Clone;
 
-    /// The same, **plus the fields the entity set cannot see**.
+    /// The same, plus the fields the entity set cannot see.
     ///
-    /// **an entity-set probe is silent about everything that is not an
-    /// entity**, and for a resource that holds both it reports two divergent
+    /// an entity-set probe is silent about everything that is not an
+    /// entity, and for a resource that holds both it reports two divergent
     /// values as identical. `ActiveConversation` is the case that found it: the
     /// probe localized the two bodies faithfully while `input_owner` — which
     /// decides whose controls the conversation captures — could differ between

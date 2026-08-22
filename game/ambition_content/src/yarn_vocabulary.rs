@@ -65,7 +65,7 @@ pub fn refresh_yarn_state_mirror(
 ) {
     let mut snap = mirror.0.write().expect("YarnStateMirror poisoned");
     snap.wallet_balance = wallet.iter().next().map(|w| w.balance).unwrap_or(0);
-    // ⛔ **the inventory slice is GONE** — a whole second copy of `OwnedItems`,
+    //  the inventory slice is GONE — a whole second copy of `OwnedItems`,
     // rebuilt every frame under both a catalog id and a legacy alias, so that a
     // synchronous `<<if>>` could read it. `inventory.holds` is published, so the
     // `<<if>>` asks the bag.
@@ -73,9 +73,9 @@ pub fn refresh_yarn_state_mirror(
         return;
     };
     let data = save.data();
-    // ⛔ **the flag slice is GONE.** It existed so `flag(id)` could read a save
+    //  the flag slice is GONE. It existed so `flag(id)` could read a save
     // flag synchronously; that question is the condition catalog's
-    // `world.flag_set`, asked live. ⚠ what is left in this function is the
+    // `world.flag_set`, asked live.  what is left in this function is the
     // remainder the catalog cannot answer yet — see this module's header on why
     // the mirror is now a projection rather than a peer.
     snap.bosses_cleared.clear();
@@ -109,8 +109,8 @@ pub fn refresh_yarn_state_mirror(
 // at runner-build time. Each takes ownership of its args and writes
 // to a typed message channel.
 
-// ⛔⛔ **`cmd_set_flag` AND `cmd_clear_flag` USED TO BE HERE, and their deletion
-// is what the COMMAND half of the authored-logic contract cost.** Two
+//  `cmd_set_flag` AND `cmd_clear_flag` USED TO BE HERE, and their deletion
+// is what the COMMAND half of the authored-logic contract cost. Two
 // hand-written Bevy systems differing by one bool, each registered by name below,
 // each with its own conversion from Yarn's untyped text — for a verb the
 // world-fact domain is perfectly able to describe itself.
@@ -132,7 +132,7 @@ pub fn refresh_yarn_state_mirror(
 /// arms a boss/duel by authoring this one command on a choice; no Rust per-NPC
 /// branch. Logs and no-ops if there's no in-world speaker (scripted dialogue).
 pub fn cmd_challenge(
-    // ⛔ **the AUTHORITY, not `DialogState`.** This command provokes a fight, so
+    //  the AUTHORITY, not `DialogState`. This command provokes a fight, so
     // it is a simulation effect; keying it off the UI read-model meant a
     // gameplay consequence read a resource that rollback does not rewind.
     conversation: Res<ambition_conversation::ActiveConversation>,
@@ -288,7 +288,7 @@ pub fn cmd_sell_item(
 /// `f32` count into the grant the simulation should apply, or `None` when the
 /// kind is unknown or the count is non-positive.
 ///
-/// ⚠ **the flooring lives here, not at the applier.** Yarn arithmetic is
+///  the flooring lives here, not at the applier. Yarn arithmetic is
 /// `f32`-typed, so "1.9 potions" is a parsing question and belongs on the side
 /// that speaks Yarn. An applier that re-decided it would be a second place for
 /// the rule to live and drift.
@@ -430,7 +430,7 @@ pub fn register_functions(runner: &mut DialogueRunner, mirror: &YarnStateMirror)
     });
 }
 
-// ⛔ **`mirror_inventory_has` and `normalize_item_id` lived here** and are gone
+//  `mirror_inventory_has` and `normalize_item_id` lived here and are gone
 // with the function they served. `normalize_item_id` was a second copy of the
 // normalisation inside `Item::from_dialog_id` — the two agreed, which is the
 // only reason nobody noticed there were two.
@@ -470,7 +470,7 @@ mod tests {
     use super::*;
     use ambition_platformer2d_actor_monolith::items::Item;
 
-    // ⛔ **two tests died with the functions they pinned**
+    //  two tests died with the functions they pinned
     // (`normalize_item_id_collapses_spelling_variants`,
     // `mirror_inventory_has_reads_counts_with_loose_spelling`). Their subject —
     // loose item spelling — is now pinned once, in the item domain's own
@@ -507,7 +507,7 @@ mod tests {
         assert_eq!(item_grant("DataChip", -3.0), None);
     }
 
-    // ⛔ **`refresh_mirrors_player_inventory_into_the_snapshot` died too**, and
+    //  `refresh_mirrors_player_inventory_into_the_snapshot` died too, and
     // its most interesting assertion — that inventory survives a save-less
     // sandbox, because the slice was filled before the save early-return — is
     // now structural rather than tested: there is no slice, and

@@ -48,7 +48,7 @@ pub struct AnimRow {
 /// tuning keeps bosses rendered at the right scale relative to playable
 /// characters.
 ///
-/// **Owned + serde-authorable (C6):** `rows` is an owned `Vec` and the whole
+/// Owned + serde-authorable (C6): `rows` is an owned `Vec` and the whole
 /// spec is `serde`-round-trippable, so a provider can author its sheet layout
 /// as data. App-local provider composition lives above this crate; this module
 /// supplies only the generic schema and built-in fallback sheets.
@@ -85,7 +85,7 @@ pub struct BossSheetSpec {
     /// the AABB instead of hanging below it.
     pub body_centered: bool,
     /// True when the generator drew this sheet's neutral pose facing
-    /// **left**, the opposite of the renderer's default assumption
+    /// left, the opposite of the renderer's default assumption
     /// (art faces +x / right). The flip is computed as
     /// `flip_x = (facing < 0) XOR authored_faces_left`, so a
     /// left-authored sheet renders correctly facing the player instead

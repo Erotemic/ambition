@@ -303,7 +303,7 @@ pub struct SlotControlLatches {
 }
 
 impl SlotControlLatches {
-    /// **Does a device feed `slot` at all**, so its latch speaks for the frame?
+    /// Does a device feed `slot` at all, so its latch speaks for the frame?
     ///
     /// A consumer that would OVERWRITE another writer's frame must ask first: an
     /// untouched latch means *no device is wired to this seat*, not *the device
@@ -354,11 +354,11 @@ impl SlotControlLatches {
     }
 }
 
-/// **The participant slot driving this body**, this tick.
+/// The participant slot driving this body, this tick.
 ///
 /// `Brain` is AI policy only now, and this is the driver.
 ///
-/// ⛔ **it is REGISTERED rollback state, not a derive.** It was declared derived
+///  it is REGISTERED rollback state, not a derive. It was declared derived
 /// while it was reprojected from `Brain::Player`, which IS in the snapshot; with
 /// the variant gone there is no upstream to reproject from — the seat assignment
 /// lives here and nowhere else, so a rewind that did not carry it would restore a
@@ -371,7 +371,7 @@ impl SlotControlLatches {
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DrivingParticipant(pub PlayerSlot);
 
-/// Identifies which **autonomous policy** drives an actor when no participant is.
+/// Identifies which autonomous policy drives an actor when no participant is.
 ///
 /// Who drives a body is [`DrivingParticipant`]; a driven body KEEPS whatever policy it has, and
 /// gets it back by never having lost it.
@@ -446,7 +446,7 @@ impl Brain {
     /// actor a threat right now" queries use this. State-machine
     /// brains delegate to their cfg.
     ///
-    /// ⚠ **this answers a question about a POLICY.** Whether a body a person is
+    ///  this answers a question about a POLICY. Whether a body a person is
     /// driving is a threat is a question about the person, and the honest place
     /// to ask it is [`DrivingParticipant`] on the body — a driven body's
     /// autonomous policy has no opinion about what its driver is about to do.
@@ -560,7 +560,7 @@ impl Brain {
 )]
 pub struct ActorControl(pub crate::actor::control::ActorControlFrame);
 
-/// **The game is driving this body, not whoever normally controls it.**
+/// The game is driving this body, not whoever normally controls it.
 ///
 /// A death beat, a flagpole slide, an act-clear brake: the sequence owns the
 /// body until it retires, and ordinary gameplay must stop acting on it. ADR 0024
@@ -586,20 +586,20 @@ pub struct ActorControl(pub crate::actor::control::ActorControlFrame);
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct ScriptedControl;
 
-/// **How often a CPU captive presses**, in struggles per second.
+/// How often a CPU captive presses, in struggles per second.
 ///
-/// ⭐ ONE cadence for every brain family. A captive's struggle is a fact about
+///  ONE cadence for every brain family. A captive's struggle is a fact about
 /// being held, not about which decision maker the body carries, and two brains
 /// with two rates would make a fighter's escape depend on its AI template.
 ///
-/// ⚠ a person's cadence, deliberately — a body that pressed on every single
+///  a person's cadence, deliberately — a body that pressed on every single
 /// tick would escape in a fraction of the time any human could, which is not a
 /// difficulty setting, it is a different mechanic.
 const STRUGGLE_PRESSES_PER_SECOND: f32 = 6.0;
 
 /// Does this tick carry a struggle press?
 ///
-/// ⭐ **stateless, and that is the point.** The cadence is a function of how
+///  stateless, and that is the point. The cadence is a function of how
 /// long the hold has lasted — a fact the relationship already keeps and rollback
 /// already restores — so a captive's mash needs no timer inside the brain, and a
 /// rewind cannot leave one out of step with the hold it belongs to.
@@ -611,16 +611,16 @@ pub fn struggling_this_tick(captured_for: f32, dt: f32) -> bool {
     beat(captured_for) != beat(captured_for - dt)
 }
 
-/// **Why a body's ordinary control is suppressed — one bit per authority.**
+/// Why a body's ordinary control is suppressed — one bit per authority.
 ///
-/// ⭐ **the reasons are GENRE-NEUTRAL on purpose.** A hold is a fact about
+///  the reasons are GENRE-NEUTRAL on purpose. A hold is a fact about
 /// bodies, not about a fighting game: a captured body, a body mid-cutscene and a
 /// body waiting out a countdown are the same fact to everything downstream, and
 /// naming the bits after their KIND of authority rather than after the feature
 /// that claims them is what keeps a platform fighter's vocabulary out of the
 /// generic character crate.
 ///
-/// ⛔ **two authorities that can overlap need two bits.** Sharing one is the
+///  two authorities that can overlap need two bits. Sharing one is the
 /// exact bug this type exists to prevent, rewritten one layer down: whoever
 /// released first would free a body the other still holds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -643,13 +643,13 @@ pub enum ControlHold {
 
 /// The set of authorities currently suppressing this body's ordinary control.
 ///
-/// ⭐ **the invariant, and the whole reason the type exists: a subsystem
-/// releases only the hold it owns.** [`release`](Self::release) clears one bit
+///  the invariant, and the whole reason the type exists: a subsystem
+/// releases only the hold it owns. [`release`](Self::release) clears one bit
 /// and cannot clear another, so the question *"is anybody else still holding
 /// this body"* is answered by the data rather than by each caller's memory of
 /// which features exist.
 ///
-/// ⚠ **rollback state.** It decides [`ScriptedControl`], which is rewound, so a
+///  rollback state. It decides [`ScriptedControl`], which is rewound, so a
 /// rewind that restored one and not the other would leave a body free by one
 /// account and held by the other — the half-state the conversation hold already
 /// documents. A `u8` is registered rather than a list of owner names so the
@@ -685,7 +685,7 @@ impl ControlHolds {
 
     /// The claim set as a value, for a rollback checksum projection.
     ///
-    /// ⚠ **a presence-only probe would not do here.** Two peers can agree that
+    ///  a presence-only probe would not do here. Two peers can agree that
     /// a body is held and disagree about BY WHOM, and the next release would
     /// then free it on one machine and not the other — a desync that starts as
     /// one fighter moving a frame earlier than the other.
@@ -694,7 +694,7 @@ impl ControlHolds {
     }
 }
 
-/// **Claim a control hold, whatever else already holds this body.**
+/// Claim a control hold, whatever else already holds this body.
 pub fn claim_control_hold(commands: &mut Commands, body: Entity, hold: ControlHold) {
     commands
         .entity(body)
@@ -704,7 +704,7 @@ pub fn claim_control_hold(commands: &mut Commands, body: Entity, hold: ControlHo
     commands.entity(body).try_insert(ScriptedControl);
 }
 
-/// **Release a control hold, and ONLY that hold.**
+/// Release a control hold, and ONLY that hold.
 ///
 /// Ordinary control comes back when the LAST authority lets go, so a body a
 /// conversation and a capture both held stays held until both release.
@@ -725,9 +725,9 @@ pub fn release_control_hold(
     }
 }
 
-/// **Every hold on this body ends: it is back in play.**
+/// Every hold on this body ends: it is back in play.
 ///
-/// ⛔ **for a RESET, never for a release.** A body that respawned or restarted
+///  for a RESET, never for a release. A body that respawned or restarted
 /// is a body no authority can still be mid-sequence on, so clearing the whole
 /// set is the honest statement. Anything short of a restart releases its own
 /// hold through [`release_control_hold`] instead.
@@ -759,7 +759,7 @@ impl bevy::app::Plugin for BrainPlugin {
         // The slot-based controller input model. One entry per participant
         // slot; the body carrying `DrivingParticipant(slot)` reads its frame.
         app.init_resource::<SlotControls>();
-        // ⭐ **and the table it is committed FROM.** Beside its destination
+        //  and the table it is committed FROM. Beside its destination
         // rather than in the host, because a composition that has slots has
         // somewhere for their raw frames to be shaped — the two are one model,
         // and installing them apart is how seat zero ended up with a shaping bus
@@ -978,7 +978,7 @@ mod tests;
 /// (provoke-to-hostile, dismount) must reconstruct a brain from projected data without naming the
 /// content archetype enum. Authored per archetype in `character_archetypes.ron` and projected onto
 /// [`BrainProfile`] at spawn.
-// ⚠ `Serialize` because a `BrainProfile` carrying one is now authorable in the
+//  `Serialize` because a `BrainProfile` carrying one is now authorable in the
 // character catalog, and `CharacterCatalogData` round-trips through serde for
 // the content pack. Deserialize alone would have made the new map write-only.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
@@ -1006,7 +1006,7 @@ pub enum CharacterBrainTemplate {
     /// recover). Shares its code with the peaceful catalog `Aerial` bird via
     /// `StateMachineCfg::Aerial` — hostility is just `aggressiveness > 0`.
     Aerial,
-    /// **The FB4b fighter brain**: L1 classify → L2 options → L3 rollout, on a
+    /// The FB4b fighter brain: L1 classify → L2 options → L3 rollout, on a
     /// human cadence with an APM ceiling and execution noise.
     ///
     /// A match seat travels the archetype path, so a rig reachable only from the catalog was

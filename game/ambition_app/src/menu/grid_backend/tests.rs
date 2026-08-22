@@ -244,7 +244,7 @@ fn selecting_an_item_dispatches_equip() {
     );
 }
 
-/// **A controller submit and a tap are ONE event, not two code paths.**
+/// A controller submit and a tap are ONE event, not two code paths.
 ///
 /// What it cannot see is WHICH spelling ran. This asserts the event itself: a keyboard select
 /// publishes the same `MenuActionActivated` the renderer's pointer bridge publishes, so the

@@ -1,19 +1,8 @@
-//! **The orphan check's MIRROR: art that declares a character nobody registers.**
+//! Verify that rendered character identities are registered in the catalog.
 //!
-//! `scripts/tests/test_every_character_regenerates.py` asks one direction — a
-//! catalog character whose sheet no regen batch publishes, which is a character
-//! with no body on a fresh clone. That check has now caught 34 characters across
-//! three separate discoveries.
-//!
-//! Nothing asked the other way.
-//!
-//! A guard that cries wolf about four real characters is one nobody reads, and the fix is to
-//! stop modelling the catalog and ask it (see `hall_scale_spread`, which asks the same object
-//! for the same reason).
-//!
-//! **the renderer is a nested checkout.** When it is absent the test SKIPS
-//! rather than passing, because "found no targets" and "every target is
-//! registered" must not look alike.
+//! This is the reverse of the regeneration check: renderer targets must resolve
+//! to known characters. The nested renderer checkout is optional, so absence
+//! skips the test rather than treating an empty target set as success.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -28,57 +17,14 @@ fn target_dir() -> PathBuf {
     )
 }
 
-/// Targets that carry a `character_id` key whose value this scan cannot read.
-///
-/// **the check's population is "targets that SPELL an id out", not
-/// "targets"** — and that distinction hid two characters. The snakes-on-planes
-/// family was read as declaring only `spec.character_id`, so no literal seemed
-/// to exist; both sheets were drawn, published and named by nothing for however
-/// long, and this guard could not have said so.
-///
-/// **a ratchet rather than a fix.** Teaching the scan to evaluate spec
-/// constructors means teaching it every new spec SHAPE, which is a maintenance
-/// tail nobody asked for. Pinning the count instead means the next family built
-/// this way fails here and somebody LOOKS — at which point they can decide
-/// whether that family needs rows, which is the actual question.
-///
-/// So the paragraph above was true of the scanner and not of the targets: the snakes were readable
-/// the whole time, and the ratchet was pinning the reader's blind spot rather than the authors'
-/// cleverness. `carl_runga` and `martin_cutta` left for the same reason.
-///
-/// Its character IS `mary_o_v2`, which has a row — so it needs no row of its own, and it is in this
-/// count rather than in `WAIVED` only because the scan cannot read an id it never spells.
-///
-/// It is in this count rather than in `WAIVED` for the same reason as the eighth: the scan cannot
-/// read an id the target never spells as a literal.
-///
-/// the number and the submodule pointer move TOGETHER. It is in this count rather than in `WAIVED`
-/// for the same reason as the eighth and ninth: the scan cannot read an id the target never spells
-/// as a literal.
-///
-/// **10 → 11, hand-checked the same way.** The eleventh is
-/// `projectile_polygon`, the ranged beast-biped reference fighter.
-/// **It HAS a catalog row** (`character_catalog.ron:2729`, naming
-/// `sprites/projectile_polygon_spritesheet.png` and its manifest), it was added
-/// to `regen_sprites.sh`'s explicit publish batch — which it arrived WITHOUT,
-/// exactly the orphaning that script's own comment predicts for *"every
-/// character added since the last audit"* — and its sheet, portraits and actor
-/// sidecar are rendered, so `every_catalog_character_names_a_spritesheet_that_exists`
-/// is green rather than waived.
+/// Number of renderer targets whose character identity is computed rather than
+/// expressed as a literal this scanner can resolve. The count is a ratchet: new
+/// computed-id target shapes require explicit review instead of being silently
+/// excluded from registration coverage.
 const COMPUTED_ID_TARGETS: usize = 11;
 
-/// Every `character_id` VALUE spelled out in one target's source, in file order.
-///
-/// Both are the same mistake — reading the next string in the file rather than this key's
-/// VALUE.
-///
-/// **and so is the QUOTE, which is how this check went blind for a week.**
-/// The first version matched `"character_id"` literally, and Python does not
-/// care which quote you write: `robot_heavy`, `bear_mauler`, `carl_stargan` and
-/// `patent_clerk` all spell theirs with apostrophes because they were emitted by
-/// a formatter rather than typed. So four targets declared ids this scan could
-/// not see — and one of them, `npc_robot_heavy`, is a genuine unregistered
-/// identity that the guard existed to find and reported nothing about.
+/// Every literal `character_id` value in one target source, accepting dict keys
+/// with either quote style and keyword-argument syntax.
 fn character_id_literals(text: &str) -> std::vec::IntoIter<String> {
     const KEY: &str = "character_id";
     let bytes = text.as_bytes();
@@ -139,7 +85,7 @@ fn character_id_literals(text: &str) -> std::vec::IntoIter<String> {
 
 /// Returns `(stem -> every id it declares, stems whose id is computed)`.
 ///
-/// **every id, not the first one.** A target file can name a whole family —
+/// every id, not the first one. A target file can name a whole family —
 /// `_genghis_pair_common` declares `npc_genghis_can` AND `npc_genghis_cant`,
 /// `_snakes_on_planes_common` both planes — and taking only the first would
 /// check one of each pair while the other stayed exactly as unwatched as it was
@@ -156,7 +102,7 @@ fn declared_identities(dir: &Path) -> (BTreeMap<String, Vec<String>>, Vec<String
         if path.extension().and_then(|ext| ext.to_str()) != Some("py") {
             continue;
         }
-        // **A LEADING UNDERSCORE IS PYTHON FOR "NOT A TARGET".**
+        // A LEADING UNDERSCORE IS PYTHON FOR "NOT A TARGET".
         // `_runge_kutta_duo.py` is the SHARED module `carl_runga.py` and
         // `martin_cutta.py` both import their rig from — it draws nobody by
         // itself, and counting it as a render target made this scan report a
@@ -208,8 +154,8 @@ const WAIVED: &[(&str, &str)] = &[
         "npc_sanic",
         "provider-owned; the demo registers this body under a different id",
     ),
-    // **the SECOND id in `sanic.py`, and it took reading past the first to
-    // find it.** `ambition_demo_sanic` registers the super form as `super_sanic`
+    // the SECOND id in `sanic.py`, and it took reading past the first to
+    // find it. `ambition_demo_sanic` registers the super form as `super_sanic`
     // (`SUPER_SANIC_CHARACTER_ID`), so it is in the game and only its renderer
     // metadata disagrees — the same story as the row above, invisible until the
     // scan stopped stopping at one id per file.
@@ -308,7 +254,7 @@ fn every_rendered_identity_is_a_character_the_game_can_show() {
         stale_waivers.join("\n  ")
     );
 
-    // **and a waiver whose target is GONE is just as stale.** Without this the
+    // and a waiver whose target is GONE is just as stale. Without this the
     // table only answers questions it is asked, and an entry for a renamed or
     // deleted target would never be asked again.
     let declared_ids: std::collections::BTreeSet<&str> =
@@ -337,7 +283,7 @@ fn every_rendered_identity_is_a_character_the_game_can_show() {
     );
 }
 
-/// **The poison.** A guard whose scan silently stops finding targets reports the
+/// The poison. A guard whose scan silently stops finding targets reports the
 /// success condition, which is how the first direction of this check stayed
 /// invisible while a portrait checker sat beside it.
 #[test]
@@ -350,7 +296,7 @@ fn the_identity_scan_would_notice_an_unregistered_id() {
         waived("a_character_nobody_ever_drew").is_none(),
         "the waiver table answers ids it was never given, so nothing can fail"
     );
-    // **name a waiver that is a DECISION, not a pending one.** This asserted
+    // name a waiver that is a DECISION, not a pending one. This asserted
     // `special_patent_clerk` until his row landed, at which point the poison failed for the one
     // reason a poison must never fail: the thing it watches got FIXED.
     assert!(

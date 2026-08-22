@@ -1,4 +1,4 @@
-//! **The demo's mutable sim state is in the rollback contract (Phase 5b).**
+//! The demo's mutable sim state is in the rollback contract (Phase 5b).
 //!
 //! `MaryOLevelState` and `FlagSequence` are gameplay truth that lives in a
 //! `game/` crate, where the engine's own registration sweep cannot name them.

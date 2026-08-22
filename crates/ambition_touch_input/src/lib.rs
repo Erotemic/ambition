@@ -1,53 +1,9 @@
-//! Mobile / touch presentation-input adapter for the Android demo path.
+//! Touch input adapter and on-screen controls.
 //!
-//! Goal: a sideloadable Pixel-class APK where the sandbox is playable
-//! with on-screen joysticks + controller-like touch buttons. This crate owns
-//! both the rendered touch HUD and the virtual-device adapter that publishes
-//! joystick/button state into the persistent participant's Leafwing action
-//! state. Touch, keyboard, and gamepad therefore share the same bindings,
-//! contexts, and semantic routing.
-//!
-//! Extracted from `ambition_app::host::mobile_input` (app-thinness, ADR 0019):
-//! reusable touch presentation/input infrastructure any platformer host would
-//! want, so it lives beside the input/render seams rather than inside the app
-//! binary. Track 7 split: the raw touch-state vocabulary ([`mod@state`]) is
-//! pure data on the `ambition_input` seam alone — no Bevy, no render stack;
-//! every PRESENTATION / virtual-device dependency (`bevy`, `ambition_render`,
-//! `ambition_platformer2d_actor_monolith`, `ambition_ui_nav`, `ambition_cutscene`,
-//! `ambition_persistence`, `virtual_joystick`) is optional and enabled only by
-//! the `mobile_touch` overlay feature, whose direct `ambition_render` edge is
-//! intentional: the overlay draws its own quads and text.
-//!
-//! Two layers:
-//!
-//! 1. **Pure state (always built)** — [`TouchInputState`]/[`TouchButton`]
-//!    plus [`apply_deadzone`]: the raw virtual-device state. Pure data,
-//!    unit-tested, no Bevy / `virtual_joystick` dep. See [`mod@state`].
-//! 2. **Bevy plugin (gated behind `mobile_touch`)** — collects
-//!    `virtual_joystick` stick + button UI state into [`mod@state`], then
-//!    exposes it to leafwing as VIRTUAL-DEVICE input kinds
-//!    ([`mod@virtual_device`]) bound in the persistent participant's
-//!    `InputMap` — touch resolves through bindings and the active input
-//!    context exactly like a keyboard or gamepad. Lives in
-//!    [`mod@bevy_plugin`].
-//!
-//! ## Submodule layout
-//!
-//! - [`state`] — pure types ([`TouchInputState`], [`TouchButton`],
-//!   [`apply_deadzone`]); always built.
-//! - [`exclusion`] — ECS marker + pure hit-test helpers for touch UI
-//!   regions that should not become menu drag-scroll gestures;
-//!   `mobile_touch`-gated.
-//! - [`layout`] — touch HUD positions + visible-circle hit testing;
-//!   `mobile_touch`-gated.
-//! - [`virtual_device`] — the leafwing input kinds over the touch state +
-//!   the participant binding table; `mobile_touch`-gated.
-//! - [`menu_bridge`] — the pointer-GESTURE lane (drag-scroll) and the
-//!   touch active-input marker; `mobile_touch`-gated.
-//! - [`bevy_plugin`] — system registration, spawning, visuals,
-//!   resource/component definitions; `mobile_touch`-gated.
-//!
-//! Tests live in `tests.rs`.
+//! The always-built [`state`] module contains pure touch state and deadzone logic. The
+//! `mobile_touch` feature adds layout, menu gestures, virtual-device bindings, and the
+//! Bevy presentation plugin. Touch is lowered through the same participant bindings and
+//! active input contexts as keyboard/gamepad input.
 
 // The pure touch STATE vocabulary. Its consumers (`bevy_plugin`,
 // `virtual_device`, `menu_bridge`) are `mobile_touch`-gated, but the module

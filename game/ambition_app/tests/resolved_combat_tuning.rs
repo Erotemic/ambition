@@ -1,5 +1,5 @@
-//! **The combat rules a match plays under are RESOLVED by the shipped app, not
-//! borrowed from it.** (AE6)
+//! The combat rules a match plays under are RESOLVED by the shipped app, not
+//! borrowed from it. (AE6)
 //!
 //! The inline tests beside `track_versus_roster` prove the fold and prove the
 //! route declares rather than writes. They cannot prove the thing that actually
@@ -45,14 +45,14 @@ fn composed_app() -> App {
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
     app.insert_resource(StartRoomOverride("portal_lab".to_string()));
-    // **K2b edit 2: the shell host, booted to gameplay.** This added the
+    // K2b edit 2: the shell host, booted to gameplay. This added the
     // simulation plugin alone and inherited the `SessionRoot` it published at
     // plugin-build time; that publisher is gone, so the composition is the one
     // a player runs. `StartRoomOverride` survives it — it is consumed while the
     // prepared content is assembled, before any activation.
     ambition_app::app::shell_host::compose_ambition_gameplay_host(&mut app);
     app.finish();
-    // **one update is no longer enough**: activation is asynchronous, behind a
+    // one update is no longer enough: activation is asynchronous, behind a
     // load barrier and eight preparation work items.
     ambition_platformer2d::platformer::lifecycle::settle_until_session_world(
         &mut app,
@@ -68,7 +68,7 @@ fn resolved(app: &App) -> ResolvedCombatTuning {
     *app.world().resource::<ResolvedCombatTuning>()
 }
 
-/// **The shipped composition publishes the resolved rules at all.**
+/// The shipped composition publishes the resolved rules at all.
 ///
 /// Absent, every combat reader silently falls back to the engine default and
 /// nothing anywhere reports it — which is what makes this the assertion worth
@@ -84,7 +84,7 @@ fn the_shipped_composition_installs_the_resolution() {
     );
 }
 
-/// **An undeclared world resolves to its OWN authored tuning**, not to the
+/// An undeclared world resolves to its OWN authored tuning, not to the
 /// engine default. The distinction is the one AE3's restore kept getting wrong.
 #[test]
 fn an_undeclared_world_resolves_to_the_tuning_it_authored() {
@@ -108,8 +108,8 @@ fn an_undeclared_world_resolves_to_the_tuning_it_authored() {
     );
 }
 
-/// **A declaration reaches the resolution through the real schedule, and the
-/// baseline it plays over is never written.**
+/// A declaration reaches the resolution through the real schedule, and the
+/// baseline it plays over is never written.
 ///
 /// The second half is the property that replaces AE3's save/restore: there is
 /// no borrow, so there is no restore that can be skipped by a crash, no window

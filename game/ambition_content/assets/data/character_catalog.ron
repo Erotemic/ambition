@@ -15,14 +15,14 @@
 // `CharacterDefinition` through the current Ambition content seam.
 
 (
-    // **Reusable autonomous-controller profiles, by name** — the second of the
+    // Reusable autonomous-controller profiles, by name — the second of the
     // three authorities (D73 / the overnight campaign). Several characters name
     // one of these and keep their own bodies, which is what an enemy ARCHETYPE
     // could never express: `medium_striker` is a whole BODY worn by five
     // goblins, a lab raider and a skitter, so sharing their decision-making
     // meant sharing their health, reach and top speed too.
     //
-    // ⚠ these author normalized EFFORT (a fraction of each body's own
+    //  these author normalized EFFORT (a fraction of each body's own
     // `run_speed`), never px/s — §4.7's brain→body seam. A policy that authored
     // absolute speeds could not be shared by a mite and a giant.
     autonomous_profiles: {
@@ -40,22 +40,22 @@
             smash_hit_band: 32.0,
             smash_sprint_to_close: true,
         ),
-        // ⭐ **A WANDERING SENTRY that notices late and never hurries.** Not a
+        //  A WANDERING SENTRY that notices late and never hurries. Not a
         // creature — a WAY OF PLAYING one, which is the whole point of a shared
         // policy: the same body on a patrol route and the same body holding a
         // doorway are two placements of one character, and the level decides.
         //
-        // ⚠ effort is a FRACTION of whatever body wears it, so a fast creature
+        //  effort is a FRACTION of whatever body wears it, so a fast creature
         // patrolling at 0.35 is still faster than a slow one at 1.0. That is why
         // a policy can be shared across bodies at all.
-        // ⭐⭐ **THE CELLULAR AUTOMATON'S FIGHTING STYLE**, published so the
+        //  THE CELLULAR AUTOMATON'S FIGHTING STYLE, published so the
         // creature can name it when PROVOKED (ledger D89). Lifted off the
         // `cellular_automaton_fighter` archetype's controller half: notice from
         // across the arena, commit the swing at 150, dash to shut a gap, and play
         // the duelist neutral game — footsies and spacing rather than
         // close-and-camp.
         //
-        // ⛔ **a provoked creature rebuilds its MIND, and this is the mind.** The
+        //  a provoked creature rebuilds its MIND, and this is the mind. The
         // PCA reached this policy through `hostile_brain_id_for_actor`, a matcher
         // that read its display name; a character that publishes its own policy
         // needs no matcher to recognise it.
@@ -75,12 +75,12 @@
             patrol_effort: 0.35,
             chase_effort: 0.8,
         ),
-        // ⭐ **THE ROBOT'S OWN FIGHTING STYLE**, lifted off the `player_robot`
+        //  THE ROBOT'S OWN FIGHTING STYLE, lifted off the `player_robot`
         // archetype's controller half: notices across the room, commits the
         // swing close in, dashes to shut a gap, and plays the duelist neutral
         // game (footsies and spacing) rather than closing and camping.
         //
-        // ⚠ nothing here says how much punishment the body takes or how fast it
+        //  nothing here says how much punishment the body takes or how fast it
         // can move — that is the character's half, and the whole reason the
         // eighty-line archetype row could not simply become a definition.
         "robot_duelist": (
@@ -92,10 +92,10 @@
             smash_sprint_to_close: true,
             smash_duelist: true,
         ),
-        // ⭐ **WHAT A COVE RAIDER BECOMES WHEN YOU HIT IT**, lifted off the
+        //  WHAT A COVE RAIDER BECOMES WHEN YOU HIT IT, lifted off the
         // `pirate_raider` archetype's controller half (2026-08-11, ledger D84).
         //
-        // ⚠ **a PROVOKED policy is still just a policy.** Provocation used to
+        //  a PROVOKED policy is still just a policy. Provocation used to
         // hand the body a different ARCHETYPE — new tuning, new HP pool, new
         // capabilities — because the archetype WAS the creature. A raider that
         // takes a swing is the same raider; only its mind changes.
@@ -106,7 +106,7 @@
             patrol_effort: 0.6842,
             chase_effort: 1.0,
         ),
-        // ⭐ **THE HEAVY'S VERSION.** A brute rather than a duelist, and it
+        //  THE HEAVY'S VERSION. A brute rather than a duelist, and it
         // notices only what comes to it — `aggro_radius: 0.0` is the row's own
         // number, with `provoke_forced_brute_min_aggro` doing the noticing on the
         // legacy path.
@@ -117,7 +117,7 @@
             patrol_effort: 0.5769,
             chase_effort: 1.0,
         ),
-        // ⭐ **KEEPS ITS DISTANCE AND SHOOTS**, lifted off the
+        //  KEEPS ITS DISTANCE AND SHOOTS, lifted off the
         // `ranged_skirmisher` archetype's controller half (2026-08-11): notices
         // across the room, opens fire from almost as far, and ambles rather than
         // charges. What it fires is the BODY's business — a raider's gun-sword
@@ -129,7 +129,7 @@
             patrol_effort: 0.6,
             chase_effort: 1.0,
         ),
-        // ⭐ **HOLDS ITS GROUND.** Notices a long way off and commits hard, but
+        //  HOLDS ITS GROUND. Notices a long way off and commits hard, but
         // barely drifts from where it was placed — a door guard rather than a
         // hunter. The counterpart to `patroller` on the one axis a level cares
         // about: does this one come looking for you, or wait.
@@ -214,7 +214,7 @@
             ranged: None,
             special: None,
         ),
-        // ⭐ **THE ROBOT'S OWN KIT**, lifted off the `player_robot` archetype
+        //  THE ROBOT'S OWN KIT, lifted off the `player_robot` archetype
         // row's combat half (2026-08-11, ledger D83): the snappy player-like
         // strike and the signature projectile. The row's numbers verbatim — a
         // migration that retuned on the way would be two changes wearing one
@@ -344,7 +344,7 @@
         ),
         hall_dialogue_id: Some("hall_npc_niels_boar"),
         ),
-        // ⭐ the two SNAKE-PLANE swarms left this catalog on 2026-08-13: Mary-O
+        //  the two SNAKE-PLANE swarms left this catalog on 2026-08-13: Mary-O
         // is their one provider now (definition AND catalog rows, in
         // `ambition_demo_mary_o`), which is what retired the standalone demo's
         // archetype-row fallback. The Hall still stages them by id from the
@@ -386,7 +386,7 @@
             // pedestal / NPC face, NOT what the worn home box can do. Being the
             // content default is now unrelated to keeping the code kit — a demo
             // whose default authors its own kit (Sanic) gets that kit.
-            // ⭐ **AUTHORED since 2026-08-11** (GPT 5.6 §5). v3 states its own
+            //  AUTHORED since 2026-08-11 (GPT 5.6 §5). v3 states its own
             // repertoire -- a swipe, a bolt and a bubble shield -- on its
             // definition, and `ranged_execution: ChargedProjectile` keeps the
             // Hadouken charging now that the charge is a character fact rather
@@ -469,10 +469,10 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors an
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors an
             // autonomous `BrainProfile`, which outranks this field everywhere it
             // is read — so naming `stand_still` was the same policy stated twice.
-            // ⚠ safe for THIS preset specifically: `stand_still` holds no speeds
+            //  safe for THIS preset specifically: `stand_still` holds no speeds
             // and no `aggressiveness`, so nothing came across with it. A preset
             // that carries a RELATIONSHIP (the `aggressiveness: 0.0` on
             // `parrot_lively`, which cost four attempts to understand) has to
@@ -485,7 +485,7 @@
         ),
         hall_dialogue_id: Some("hall_sandbag"),
         ),
-        // ⭐ **THE IMMORTAL DUMMY IS A DIFFERENT CREATURE** (D77). It shares the
+        //  THE IMMORTAL DUMMY IS A DIFFERENT CREATURE (D77). It shares the
         // sandbag's sheet and its stance and differs in the one fact that
         // matters to a combat-feel lab: it cannot be destroyed. `never_dies` is
         // a CHARACTER trait (`CharacterDeathTraits`), not a placement one, so
@@ -499,10 +499,10 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors an
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors an
             // autonomous `BrainProfile`, which outranks this field everywhere it
             // is read — so naming `stand_still` was the same policy stated twice.
-            // ⚠ safe for THIS preset specifically: `stand_still` holds no speeds
+            //  safe for THIS preset specifically: `stand_still` holds no speeds
             // and no `aggressiveness`, so nothing came across with it. A preset
             // that carries a RELATIONSHIP (the `aggressiveness: 0.0` on
             // `parrot_lively`, which cost four attempts to understand) has to
@@ -536,12 +536,12 @@
         ),
         hall_dialogue_id: Some("hall_npc_general"),
         ),
-        // ⭐⭐ **THE GOBLIN BRUTE** — Jon's 2026-08-13 casting of `large_brute`,
+        //  THE GOBLIN BRUTE — Jon's 2026-08-13 casting of `large_brute`,
         // the goblin lab's heavy: "author a distinct Goblin Brute character …
         // a separate reusable character identity rather than a generic archetype
         // row or an alias for an existing named goblin."
         //
-        // ⭐ **its sprite generator already existed and was never wired in.**
+        //  its sprite generator already existed and was never wired in.
         // `configs/review/goblin_brute_hammer.yaml` has `target: goblin` with its
         // own name, seed, `archetype: brute` and `variant: bruiser_heavy` — which
         // is exactly the shape he asked for: "it may initially use the same broad
@@ -551,7 +551,7 @@
         // with the ordinary goblin." The sheet is generated and on disk; all that
         // was missing was this row.
         //
-        // ⚠ `body_kind: Wide` and the heavier collision scale come from the
+        //  `body_kind: Wide` and the heavier collision scale come from the
         // generator config's own `body_kind: Wide` / `mass_class: Heavy`, so the
         // body the game builds and the body the artist drew agree by derivation
         // rather than by two people typing the same word.
@@ -637,7 +637,7 @@
             body_kind: Standard,
             composition: None,
             default_brain: "stand_still",
-            // ⭐ 2026-08-16: she authors a sixteen-move smash repertoire
+            //  2026-08-16: she authors a sixteen-move smash repertoire
             // (`emmy_noether_moveset`) across the 123 rows her rig already published,
             // and an ability and a repertoire are different questions — *may this
             // body attack* versus *what the attack is*. A `peaceful` row answered
@@ -691,10 +691,10 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors a
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors a
             // policy, and the preset it used to name carried `aggressiveness:
             // 1.0` — which is HOSTILITY, and hostility is what an `EnemySpawn`
-            // placement already means. ⚠ the parrot's case was the opposite and
+            // placement already means.  the parrot's case was the opposite and
             // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
             // it changed a body; `1.0` restates a default, so dropping it does
             // not. Probed on the goblin first, whole suite green, then applied.
@@ -776,7 +776,7 @@
             // Floating = gravity-free, so the lively Aerial brain flies it.
             body_kind: Floating,
             composition: None,
-            // ⭐⭐ **THE FIRST CHARACTER TO NAME NO BRAIN PRESET** (2026-08-12,
+            //  THE FIRST CHARACTER TO NAME NO BRAIN PRESET (2026-08-12,
             // D81), on the fifth attempt. Four blockers, each a different fact
             // hiding behind one field:
             //
@@ -791,7 +791,7 @@
             //      looked exactly like a half-assembled catalog until a test
             //      asked the assembled entry directly and found it perfectly fine.
             //
-            // ⇒ this bird's policy is its definition's and its hostility is its
+            //  this bird's policy is its definition's and its hostility is its
             // placement's. `parrot_lively` was a third copy of both, with
             // different numbers, deciding neither.
             default_action_set: "peaceful",
@@ -824,7 +824,7 @@
             tier: MainHall,
             body_kind: Floating,
             composition: None,
-            // ⭐ **NAMES NO PRESET** (2026-08-12, D81 — the parrot's path, second
+            //  NAMES NO PRESET (2026-08-12, D81 — the parrot's path, second
             // and third travellers). Both automatons share one `authored_intrinsics`
             // arm authoring `BrainProfile { Smash, aggro 540, attack_range 150,
             // patrol 0.5714, dash-to-close, duelist }`, which outranks this field
@@ -848,7 +848,7 @@
             tier: MainHall,
             body_kind: Floating,
             composition: None,
-            // ⭐ **NAMES NO PRESET** (2026-08-12, D81 — the parrot's path, second
+            //  NAMES NO PRESET (2026-08-12, D81 — the parrot's path, second
             // and third travellers). Both automatons share one `authored_intrinsics`
             // arm authoring `BrainProfile { Smash, aggro 540, attack_range 150,
             // patrol 0.5714, dash-to-close, duelist }`, which outranks this field
@@ -902,10 +902,10 @@
             // is that changing the size is now one number.
             standing_height: Some(56.2),
             composition: None,
-            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors a
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors a
             // policy, and the preset it used to name carried `aggressiveness:
             // 1.0` — which is HOSTILITY, and hostility is what an `EnemySpawn`
-            // placement already means. ⚠ the parrot's case was the opposite and
+            // placement already means.  the parrot's case was the opposite and
             // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
             // it changed a body; `1.0` restates a default, so dropping it does
             // not. Probed on the goblin first, whole suite green, then applied.
@@ -951,7 +951,7 @@
             tier: MainHall,
             body_kind: Floating,
             composition: None,
-            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors
             // `BrainProfile { ChargeCrash, .. }`, which is nothing like the
             // `wanderer_puppy_slug` preset it used to point at — a flying shark
             // filed under a slug's wander because that row happened to exist. Two
@@ -983,10 +983,10 @@
             tier: MainHall,
             body_kind: Wide,
             composition: None,
-            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors an
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors an
             // autonomous `BrainProfile`, which outranks this field everywhere it
             // is read — so naming `stand_still` was the same policy stated twice.
-            // ⚠ safe for THIS preset specifically: `stand_still` holds no speeds
+            //  safe for THIS preset specifically: `stand_still` holds no speeds
             // and no `aggressiveness`, so nothing came across with it. A preset
             // that carries a RELATIONSHIP (the `aggressiveness: 0.0` on
             // `parrot_lively`, which cost four attempts to understand) has to
@@ -1013,10 +1013,10 @@
             tier: MainHall,
             body_kind: Wide,
             composition: None,
-            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors an
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors an
             // autonomous `BrainProfile`, which outranks this field everywhere it
             // is read — so naming `stand_still` was the same policy stated twice.
-            // ⚠ safe for THIS preset specifically: `stand_still` holds no speeds
+            //  safe for THIS preset specifically: `stand_still` holds no speeds
             // and no `aggressiveness`, so nothing came across with it. A preset
             // that carries a RELATIONSHIP (the `aggressiveness: 0.0` on
             // `parrot_lively`, which cost four attempts to understand) has to
@@ -1038,13 +1038,13 @@
             tier: MainHall,
             body_kind: Crawler,
             composition: None,
-            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors
             // `BrainProfile { Wanderer, aggro 0, attack_range 0 }` — the same
             // policy `wanderer_puppy_slug` states in absolute px/s — and its ten
             // placements author `disposition: Peaceful` themselves. The preset was
             // a third copy of facts this character and its placements already own.
             //
-            // ⚠ the PRESET still exists, for `npc_puppy_slug_variant2`: a
+            //  the PRESET still exists, for `npc_puppy_slug_variant2`: a
             // Hall-only character with no authored arm, which cannot take a
             // profile until the Hall cast is registered with real bodies. A
             // preset dies with its LAST namer; this removes a namer, not the row.
@@ -1240,7 +1240,7 @@
             body_kind: Standard,
             composition: None,
             default_brain: "patrol_peaceful",
-            // ⭐ 2026-08-16: he authors a sixteen-move smash repertoire
+            //  2026-08-16: he authors a sixteen-move smash repertoire
             // (`oiler_moveset`), and an ability and a repertoire are different
             // questions — *may this body attack* versus *what the attack is*. A
             // `peaceful` row answered the first one NO, so the table could never
@@ -1333,10 +1333,10 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors a
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors a
             // policy, and the preset it used to name carried `aggressiveness:
             // 1.0` — which is HOSTILITY, and hostility is what an `EnemySpawn`
-            // placement already means. ⚠ the parrot's case was the opposite and
+            // placement already means.  the parrot's case was the opposite and
             // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
             // it changed a body; `1.0` restates a default, so dropping it does
             // not. Probed on the goblin first, whole suite green, then applied.
@@ -1356,10 +1356,10 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors a
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors a
             // policy, and the preset it used to name carried `aggressiveness:
             // 1.0` — which is HOSTILITY, and hostility is what an `EnemySpawn`
-            // placement already means. ⚠ the parrot's case was the opposite and
+            // placement already means.  the parrot's case was the opposite and
             // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
             // it changed a body; `1.0` restates a default, so dropping it does
             // not. Probed on the goblin first, whole suite green, then applied.
@@ -1398,10 +1398,10 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors a
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors a
             // policy, and the preset it used to name carried `aggressiveness:
             // 1.0` — which is HOSTILITY, and hostility is what an `EnemySpawn`
-            // placement already means. ⚠ the parrot's case was the opposite and
+            // placement already means.  the parrot's case was the opposite and
             // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
             // it changed a body; `1.0` restates a default, so dropping it does
             // not. Probed on the goblin first, whole suite green, then applied.
@@ -1653,10 +1653,10 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors a
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors a
             // policy, and the preset it used to name carried `aggressiveness:
             // 1.0` — which is HOSTILITY, and hostility is what an `EnemySpawn`
-            // placement already means. ⚠ the parrot's case was the opposite and
+            // placement already means.  the parrot's case was the opposite and
             // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
             // it changed a body; `1.0` restates a default, so dropping it does
             // not. Probed on the goblin first, whole suite green, then applied.
@@ -1677,10 +1677,10 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors a
+            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors a
             // policy, and the preset it used to name carried `aggressiveness:
             // 1.0` — which is HOSTILITY, and hostility is what an `EnemySpawn`
-            // placement already means. ⚠ the parrot's case was the opposite and
+            // placement already means.  the parrot's case was the opposite and
             // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
             // it changed a body; `1.0` restates a default, so dropping it does
             // not. Probed on the goblin first, whole suite green, then applied.
@@ -2566,7 +2566,7 @@
                 "Mind the angle.",
                 "The serpent agrees.",
                 "You stand at the wrong vertex.",
-                // ⭐ **restored 2026-08-06**, not written today: these four are
+                //  restored 2026-08-06, not written today: these four are
                 // `python_goras.py`'s `FALLBACK_DIALOGUE_LINES`, which the
                 // splice read as nothing because it spells the key
                 // `fallback_lines` and `character_notes.fallback_pool` knew
@@ -2686,7 +2686,7 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            // ⚠ this said `"combatant"`, which is not a brain preset and never
+            //  this said `"combatant"`, which is not a brain preset and never
             // was — it is a TRAIT name (see the `traits:` list in any
             // `*_actor.ron`), and the pack validator refuses it by name:
             // "names brain preset `combatant`, which this pack does not define".
@@ -2694,7 +2694,7 @@
             // takes (both vikings, both ninjas, the pirate admiral, Carl Runga,
             // Martin Cutta — twelve rows), which is the conventional answer for a
             // sword fighter's autonomous policy when nobody is driving it.
-            // ⛔ RESTORED 2026-08-20, third time: a working copy of this file cut
+            //  RESTORED 2026-08-20, third time: a working copy of this file cut
             // before the fix reverts it, and `cargo check` cannot see a value
             // parsed out of RON — only the pack validator says so, and when it
             // does it takes 44 tests down with it.
@@ -2805,7 +2805,7 @@
             body_kind: Standard,
             composition: None,
             default_brain: "",
-            // ⭐ 2026-08-16: he authors a sixteen-move repertoire
+            //  2026-08-16: he authors a sixteen-move repertoire
             // (`carl_stargan_moveset`). An ability and a repertoire are
             // different questions — *may this body attack* versus *what the
             // attack is* — and a `peaceful` row answered the first one NO, so

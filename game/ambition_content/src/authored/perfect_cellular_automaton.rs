@@ -13,8 +13,8 @@
 //! placement   respawn, which the placement carries
 //! ```
 //!
-//! **GROUNDED HYBRID, and the row said so in two fields that read as a
-//! contradiction**: `is_aerial: Some(false)` beside `can_fly: true`. It
+//! GROUNDED HYBRID, and the row said so in two fields that read as a
+//! contradiction: `is_aerial: Some(false)` beside `can_fly: true`. It
 //! prefers to fight on the ground and takes to the air only to cover a
 //! long gap. Reading `can_fly` as "aerial" would perch it permanently.
 
@@ -51,7 +51,7 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             fly_toggle: true,
             shield: true,
             dash: true,
-            // **AND NOTHING ABOUT A PLATFORM FIGHTER.** This kit is a duel
+            // AND NOTHING ABOUT A PLATFORM FIGHTER. This kit is a duel
             // arena's and describes the CREATURE: what it may do wherever it
             // stands. It has no double jump, no fast fall, no dodge and no ledge
             // grab, and on the smash grid it had none of them either — because
@@ -75,7 +75,7 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             smash_duelist: true,
             ..Default::default()
         })
-        // **the glider** — a cellular-automaton spaceship as the
+        // the glider — a cellular-automaton spaceship as the
         // zoning tool. The projectile is a functional `Rock`; the Conway
         // glider is chosen by the authored visual id below, which the
         // render layer resolves through the content-owned projectile
@@ -94,7 +94,7 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
                 300.0,
                 1,
             )),
-            // **NOT the pulse.** The MOVESET's verb map already binds
+            // NOT the pulse. The MOVESET's verb map already binds
             // `special → cellular_pulse`; putting it in this slot too
             // takes the slot the SHIELD uses, and the PCA's reactive
             // block silently stops happening. The archetype row kept

@@ -10,11 +10,11 @@
 //!
 //! Two rules keep this crate a pure-data leaf (serde only, no engine, no Bevy):
 //!
-//! - **The gate is string-keyed.** `ActionGate::Movement("jump")` names a
+//! - The gate is string-keyed. `ActionGate::Movement("jump")` names a
 //!   movement-action id; the TYPED resolution to the engine's `MovementAction`
 //!   (and the kernel dispatch) lives in the character/runtime crate that has
 //!   the engine dep. This crate never references the kernel.
-//! - **Slots are device-free.** [`ControlSlot`] is the abstract button
+//! - Slots are device-free. [`ControlSlot`] is the abstract button
 //!   position (Jump / Attack / …), not a physical key or a leafwing
 //!   `Platformer2dInputActionMonolith`. The physical-input → slot binding is owned by the input
 //!   layer; this crate only says which slot an action lives on.
@@ -46,7 +46,7 @@ pub enum ControlSlot {
     /// slot maps 1:1 to the `"ranged"` moveset verb, so the three combat slots
     /// Attack/Special/Projectile line up with the three moveset verbs.)
     Projectile,
-    /// **The BURST slot — one press, several meanings.** Dodge and dash are the
+    /// The BURST slot — one press, several meanings. Dodge and dash are the
     /// same input; which one a press buys is the BODY's answer, not the slot's,
     /// so the slot is named for the channel rather than for whichever outcome a
     /// given body happens to own.
@@ -55,7 +55,7 @@ pub enum ControlSlot {
     Interact,
     /// Utility slot — fly toggle / form toggle and similar mode switches.
     Utility,
-    /// **this was `QuickAction`, and the generic name was the lie.** Every other
+    /// this was `QuickAction`, and the generic name was the lie. Every other
     /// slot here is named for its DEFAULT action — Jump, Attack, Special,
     /// Projectile, Burst, Blink, Interact — and each of them still hosts a content
     /// technique without the name misleading anybody. `QuickAction` was the one
@@ -71,19 +71,19 @@ pub enum ControlSlot {
     /// Sanic's transformation), so naming either for one occupant would be the
     /// same mistake pointing the other way.
     Shield,
-    /// **Grab slot — the capture verb.** Pressing it starts an authored grab
+    /// Grab slot — the capture verb. Pressing it starts an authored grab
     /// move; if that move's active window acquires a body, the two enter a
     /// CAPTURE RELATIONSHIP that outlives the move which made it.
     ///
-    /// **it is not a flavour of [`Self::Attack`], and the difference is
-    /// structural rather than cosmetic.** An attack resolves as spatial overlap →
+    /// it is not a flavour of [`Self::Attack`], and the difference is
+    /// structural rather than cosmetic. An attack resolves as spatial overlap →
     /// damage → knockback → done; the relationship ends inside the same move. A
     /// grab establishes a relationship that PERSISTS: later authored moves
     /// (pummel, throw) target the already-captured counterpart instead of
     /// reacquiring anybody through collision, and only a throw's authored release
     /// frame ends it. A shield stops the first and does not stop the second.
     ///
-    /// ⇒ that is why capture cannot ride the hit path, and why this is its own
+    ///  that is why capture cannot ride the hit path, and why this is its own
     /// slot rather than a directional variant of the melee one.
     Grab,
     /// Modifier slot — a slot whose SUSTAIN is the point. Content binds a
@@ -93,7 +93,7 @@ pub enum ControlSlot {
     /// a scheme may label it `"Run"` on one body and `"Run / Spark"` on the same
     /// body once its kit grows.
     Modifier,
-    /// **Taunt slot — expression, at the cost of standing still.** A taunt is an
+    /// Taunt slot — expression, at the cost of standing still. A taunt is an
     /// ordinary authored move with no hitbox and a committed tail, so what makes
     /// it a taunt is only that it buys nothing; the slot exists so a body that
     /// authors one gets a button for it without the melee slot growing a mood.

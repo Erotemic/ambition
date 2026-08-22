@@ -4,7 +4,7 @@
 //! genuinely custom profile, but a preset is the expected answer — the engine
 //! owes authors a working default, not a policy construction exercise.
 //!
-//! **These are not game-name branches.** Each preset is a plain configuration
+//! These are not game-name branches. Each preset is a plain configuration
 //! of the four axes; the "intended initial consumer" notes record who asked for
 //! it, not who is allowed to use it.
 

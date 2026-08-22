@@ -1,6 +1,6 @@
-//! **WHERE A SESSION'S LOCAL SEATS COME FROM, and whose answer that is.**
+//! WHERE A SESSION'S LOCAL SEATS COME FROM, and whose answer that is.
 //!
-//! **HOW MANY PEOPLE ARE PLAYING IS A FACT ABOUT INPUT**, decided by a
+//! HOW MANY PEOPLE ARE PLAYING IS A FACT ABOUT INPUT, decided by a
 //! lobby, a roster, or an experience that simply is two-player — never by a
 //! backend. This declaration lived inside `ambition_platformer2d_rollback_ggrs`,
 //! so only a rollback host could hear one and every other surface was silently
@@ -9,15 +9,15 @@
 //! the second body, because the session had opened one handle from the device
 //! count and is never resized.
 //!
-//! **a ROSTER is one decider among several**, which is why the variants are
+//! a ROSTER is one decider among several, which is why the variants are
 //! not named for one: a plaza with no roster can still be two-player by
 //! construction. What this type means is *somebody has claimed local seating,
 //! and here is their answer*.
 
 use bevy::prelude::Resource;
 
-/// **Where this session's seats come from, whether they are decided yet, and
-/// whose answer it is.**
+/// Where this session's seats come from, whether they are decided yet, and
+/// whose answer it is.
 ///
 /// One value for the whole chain: an experience CLAIMS local seating, its answer
 /// becomes DECIDED, the participant topology is frozen from that answer, the
@@ -25,7 +25,7 @@ use bevy::prelude::Resource;
 /// experience ends. A roster is the usual decider and not the only one — a
 /// two-observer plaza declares its two channels with no lobby at all.
 ///
-/// **[`Self::Devices`] is a real answer, not a missing one.** A single-player
+/// [`Self::Devices`] is a real answer, not a missing one. A single-player
 /// game, a headless oracle, a demo with no match — none of them declares seating
 /// and all of them are correct to seat from what is plugged in. Declared seating
 /// is opt-IN, which is what keeps the gate from stalling every composition that
@@ -35,8 +35,8 @@ pub enum SessionSeatingSource {
     /// Nobody claimed local seating: freeze from connected devices.
     #[default]
     Devices,
-    /// `owner` will publish its answer and has not yet. **The session does not
-    /// start yet** — a topology frozen from devices here is one the answer is
+    /// `owner` will publish its answer and has not yet. The session does not
+    /// start yet — a topology frozen from devices here is one the answer is
     /// about to contradict, and the session is never resized afterwards.
     Pending { owner: String },
     /// `owner` decided `channels`. `frozen_topology` is stamped by
@@ -44,8 +44,8 @@ pub enum SessionSeatingSource {
     /// the handle count and the per-seat latches cite one number rather than
     /// agreeing by coincidence.
     ///
-    /// **`seat_count: usize` was not enough, and this is the same lesson one layer up from
-    /// [`crate:LocalSeatTopology`].** A count opens the right number of GGRS handles and says
+    /// `seat_count: usize` was not enough, and this is the same lesson one layer up from
+    /// [`crate:LocalSeatTopology`]. A count opens the right number of GGRS handles and says
     /// nothing about whose controller feeds each one, so every consumer re-derived the missing
     /// half from the roster's SPARSE source numbers — and a lobby that seats a CPU before a
     /// human produced a fighter on a channel the session never opened.
@@ -109,7 +109,7 @@ impl SessionSeatingSource {
         }
     }
 
-    /// **Give the claim back, if it is this owner's to give.**
+    /// Give the claim back, if it is this owner's to give.
     ///
     /// Returns whether anything was released.
     pub fn release(&mut self, owner: &str) -> bool {
@@ -121,28 +121,11 @@ impl SessionSeatingSource {
     }
 }
 
-/// **WHAT A LIVE SURFACE IS OFFERING ABOUT LOCAL INPUT, AND WHOSE OFFER IT IS.**
+/// Owner-scoped local-seat offer from the currently active surface.
 ///
-/// **this replaces `DeclaredInputSeats` and the `InputAssignmentPolicy`
-/// RESOURCE, and it replaces them because releasing them was written as VALUE
-/// EQUALITY.** TwinTrack claimed two seats and a couch policy, and gave them
-/// back like this:
-///
-/// ```text
-/// if seats == 2      { seats = 0 }
-/// if policy == couch { policy = default }
-/// ```
-///
-/// the shape was already correct one type away: [`SessionSeatingSource::release`] asks *is this
-/// claim mine* and leaves a stranger's alone. Two resources that were always claimed together
-/// and released together are now one that carries an owner.
-///
-/// **why this is NOT folded into [`SessionSeatingSource`]:** they answer at
-/// two different horizons. An offer is what a live SURFACE is showing — a lobby
-/// with its panels up, an experience that is two-player by construction — and it
-/// comes and goes with that surface. Seating source is what a SESSION was built
-/// from, and it freezes. `frozen_topology` is meaningless for an offer, and a
-/// surface that raises and drops an offer four times must not be four sessions.
+/// Unlike [`SessionSeatingSource`], an offer follows surface lifetime and never
+/// freezes session topology. Ownership prevents one surface from releasing
+/// another surface's offer.
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct LocalSeatOffer {
     owner: Option<String>,
@@ -165,10 +148,10 @@ impl LocalSeatOffer {
         }
     }
 
-    /// **How many local seats are on offer.** `0` — the default — means nothing
+    /// How many local seats are on offer. `0` — the default — means nothing
     /// is offering any, which is every single-participant route.
     ///
-    /// **it is a COUNT, and a count can only say "seats 0..n, densely".** A
+    /// it is a COUNT, and a count can only say "seats 0..n, densely". A
     /// session whose people are not on the first n sources — somebody on the
     /// keyboard below somebody on a pad — needs a [`crate::LocalChannelPlan`],
     /// which this cannot express and must not be stretched to.
@@ -191,12 +174,12 @@ impl LocalSeatOffer {
         self.owner() == Some(owner)
     }
 
-    /// **Take the offer over**, whatever it currently says and whoever holds it.
+    /// Take the offer over, whatever it currently says and whoever holds it.
     pub fn claim(&mut self, owner: &str, seats: u8, policy: crate::sources::InputAssignmentPolicy) {
         *self = Self::offered(owner, seats, policy);
     }
 
-    /// **Withdraw the offer, if it is this owner's to withdraw.**
+    /// Withdraw the offer, if it is this owner's to withdraw.
     ///
     /// Returns whether anything was withdrawn.
     pub fn release(&mut self, owner: &str) -> bool {

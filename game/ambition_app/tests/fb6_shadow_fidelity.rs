@@ -1,4 +1,4 @@
-//! **FB6e — the fidelity instrument** (`docs/planning/engine/fighter-brain.md`
+//! FB6e — the fidelity instrument (`docs/planning/engine/fighter-brain.md`
 //! §12.6): does the fighter brain's shadow model agree with the REAL sim about
 //! whether a swing lands?
 //!
@@ -159,7 +159,7 @@ fn walk_to_gap(
     ((v.pos.x - a.pos.x).abs() - target_gap).abs() <= 8.0
 }
 
-/// **Stage the gap by PLACING the attacker, not by walking it there.**
+/// Stage the gap by PLACING the attacker, not by walking it there.
 ///
 /// Walking could not reach the far gaps and never will: opening distance means
 /// retreating from an opponent whose brain is chasing, so the retreat and the
@@ -169,7 +169,7 @@ fn walk_to_gap(
 fn place_at_gap(app: &mut App, attacker: Entity, victim: Entity, target_gap: f32) -> bool {
     let victim_pos = kin(app, victim).pos;
     let attacker_pos = kin(app, attacker).pos;
-    // **THE SIDE IT FACES, not the side it stands on**, and the difference is
+    // THE SIDE IT FACES, not the side it stands on, and the difference is
     // the whole question this fixture asks. The intent was always "nothing has
     // to turn around" — but that only holds if the attacker is placed where its
     // CURRENT facing points at the victim. Reading its x instead worked only
@@ -394,7 +394,7 @@ fn the_shadow_model_agrees_with_the_real_sim_about_what_lands() {
         let predicted = shadow_predicts_a_hit(&view, &frames);
         let landed = real_swing_lands(&mut app, pad_one, victim, &frames);
         let agree = predicted == landed;
-        // **a case the fixture could not stage is NOT evidence about the model**, in either
+        // a case the fixture could not stage is NOT evidence about the model, in either
         // direction.
         if established {
             scored += 1;

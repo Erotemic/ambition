@@ -10,7 +10,7 @@ use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::vfx::VfxMessage;
 use bevy::prelude::*;
 
-/// **The attack direction is facing-relative, not screen-relative.** The aim axis arrives
+/// The attack direction is facing-relative, not screen-relative. The aim axis arrives
 /// screen-local (`+x` = screen-right), but a forward press must read `Forward` no matter which way
 /// you face — and a press toward your BACK must read `Back`.
 #[test]
@@ -59,9 +59,9 @@ fn attack_dir_is_relative_to_facing() {
     );
 }
 
-/// **What this test suite pretends a renderer can draw.**
+/// What this test suite pretends a renderer can draw.
 ///
-/// ⚠ a STUB, and deliberately so: the real answer is the rows of the shipped FX
+///  a STUB, and deliberately so: the real answer is the rows of the shipped FX
 /// spritesheets (`ambition_sprite_sheet::fx::is_authored_effect`), and this
 /// crate must not link a presentation-asset crate to expand a prefab — a
 /// headless RL build expands prefabs and has no image decoder. What is under
@@ -205,7 +205,7 @@ fn a_typod_cosmetic_vfx_id_is_rejected_at_expansion() {
 /// tables; 74 of 145 authored `sfx(…)` calls existed only to restate a sound this request
 /// derives.
 ///
-/// ⚠ **the sound is deliberately NOT asserted here**, and the reason is a crate
+///  the sound is deliberately NOT asserted here, and the reason is a crate
 /// boundary worth stating: `process_fx_requests` — which fans a request into the
 /// effect plus its cue — lives in `ambition_render` and is installed by the
 /// host, not by this crate. So the honest claim at THIS seam is *"the dispatcher
@@ -275,7 +275,7 @@ fn move_event_dispatch_asks_for_a_paired_cosmetic_effect() {
          its own sound instead of taking the one its art already addresses"
     );
 
-    // ⭐ and the OTHER arm, because it is the one the corpus needs: ten shipped
+    //  and the OTHER arm, because it is the one the corpus needs: ten shipped
     // effect rows pack their sound only as `<cue>.loop`, so a sustained burst
     // says which cue on the burst itself rather than pairing itself with a
     // second event. `sfx: None` above is "say what the art says"; this is "say
@@ -452,13 +452,13 @@ fn player_robot_slash_overlay_preserves_authored_sfx() {
 
 /// The seed move: SwipeSpec-as-data (0.28 windup / 0.08 active with one
 /// forward rect volume / recovery), one timed Sfx event on the swing.
-/// **ONE MOVE USE STALES ONCE, WHATEVER IT CATCHES.**
+/// ONE MOVE USE STALES ONCE, WHATEVER IT CATCHES.
 ///
-/// ⭐ **the false→true edge of `MovePlayback::landed_hit` already meant exactly
-/// "this use connected"** — it had to, for the OnHit/OnWhiff cancel windows — so
+///  the false→true edge of `MovePlayback::landed_hit` already meant exactly
+/// "this use connected" — it had to, for the OnHit/OnWhiff cancel windows — so
 /// counting there needs no new state and no second system.
 ///
-/// ⚠ **the second half is the poison.** A recorder that simply refused to
+///  the second half is the poison. A recorder that simply refused to
 /// record twice ever would satisfy the first assertion and break the mechanic:
 /// staling is per USE, so throwing the same move again has to count again.
 #[test]
@@ -509,7 +509,7 @@ fn a_swing_that_catches_two_bodies_stales_the_move_once() {
          move USES, and one swing is one use however many it reaches"
     );
 
-    // ⛔ a SECOND use of the same move, and it must count again.
+    //  a SECOND use of the same move, and it must count again.
     app.world_mut()
         .entity_mut(attacker)
         .insert(MovePlayback::new(swat(), 1.0));
@@ -537,7 +537,7 @@ fn a_moveset_brings_its_own_stale_ring() {
         "inserting a moveset did not bring the stale ring, so staling is silently \
          off for every body whose spawn road does not name it"
     );
-    // ⚠ and the floor: a body with no moveset does not pay for one.
+    //  and the floor: a body with no moveset does not pay for one.
     let bare = app.world_mut().spawn_empty().id();
     assert!(
         app.world().get::<crate::stale::BodyStaleMoves>(bare).is_none(),
@@ -611,7 +611,7 @@ fn capture(
     mut evs: MessageReader<MoveEventMessage>,
     mut vfx: MessageReader<VfxMessage>,
 ) {
-    // ⚠ **victims only.** A body-owned melee also publishes the unresolved half
+    //  victims only. A body-owned melee also publishes the unresolved half
     // of the same strike — the geometry broadcast for breakables and bosses,
     // which name no body. Every assertion in this module counts hits ON a body,
     // so folding the two together would make a one-victim swing look like
@@ -727,9 +727,9 @@ fn run_seconds(app: &mut App, seconds: f32) {
     }
 }
 
-/// ⛔ A move event authored AT the start of the move must still fire.
+///  A move event authored AT the start of the move must still fire.
 ///
-/// ⚠ nothing caught it because every fixture in this file authors a NON-ZERO
+///  nothing caught it because every fixture in this file authors a NON-ZERO
 /// event time — `one_tick_sfx_move` below uses `0.01`. The boundary was the one
 /// value the production config actually uses.
 #[test]
@@ -870,7 +870,7 @@ fn bladed_swing_resolves_the_authored_blade_and_draws_its_slash() {
             dir.x > 0.0,
             "the slash points along the strike (facing +x), got {dir:?}",
         );
-        // ⚠ BODY-LOCAL. The cue carries the swing in the attacker's frame so
+        //  BODY-LOCAL. The cue carries the swing in the attacker's frame so
         // presentation can re-place it on a moving body every frame; a
         // world-space origin here would mean the effect is nailed to the ground
         // while the hitbox that drew it follows the owner.
@@ -1228,7 +1228,7 @@ fn a_charged_release_scales_the_spawned_hitbox() {
     );
 }
 
-/// ⭐⭐ **A LIVE STRIKE KEEPS THE ORIENTATION ITS MOVE STARTED WITH.**
+///  A LIVE STRIKE KEEPS THE ORIENTATION ITS MOVE STARTED WITH.
 ///
 /// Locomotion facing is mutable and changes for reasons that have nothing to do
 /// with the swing in flight — a stick nudge, a wall contact, a brain retarget.
@@ -1241,7 +1241,7 @@ fn a_charged_release_scales_the_spawned_hitbox() {
 /// already existed; nothing pinned it, which is how it would have been
 /// refactored away by a well-meaning "use the body's facing, it's right there".
 ///
-/// ⛔ **the vacuity guard is the second half**: the body's facing must actually
+///  the vacuity guard is the second half: the body's facing must actually
 /// have flipped, or this asserts nothing.
 #[test]
 fn a_live_strike_keeps_the_facing_its_move_started_with() {
@@ -1271,7 +1271,7 @@ fn a_live_strike_keeps_the_facing_its_move_started_with() {
             .unwrap();
         kin.facing = -1.0;
     }
-    // ⛔ the vacuity half: the turn really happened, and the move did NOT adopt it.
+    //  the vacuity half: the turn really happened, and the move did NOT adopt it.
     assert_eq!(
         app.world()
             .get::<ae::BodyKinematics>(attacker)
@@ -1875,16 +1875,16 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
     );
 }
 
-/// **A move started with an UPWARD aim fires upward, not sideways.**
+/// A move started with an UPWARD aim fires upward, not sideways.
 ///
-/// ⛔ **the aimed case was the broken one, and the fallback hid it.**
+///  the aimed case was the broken one, and the fallback hid it.
 /// `ActorControl.fire` is an EDGE cleared every tick, and a ranged move has
 /// startup — so by the time its authored fire frame arrives the request that
 /// triggered it is gone, and the handler fell through to the body's horizontal
 /// FACING. That repairs left-versus-right and flattens every aim that
 /// was up, down or diagonal.
 ///
-/// ⚠ **the sibling test above cannot see this**: it supplies a live `fire` on
+///  the sibling test above cannot see this: it supplies a live `fire` on
 /// the event frame, which is the tier that always worked. The distinguishing
 /// input is a playback whose aim was captured at START with NO live edge now —
 /// so that is what this drives.
@@ -2045,7 +2045,7 @@ fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
     }
 }
 
-/// **A body with no live aim fires the way it is FACING, not world-right.**
+/// A body with no live aim fires the way it is FACING, not world-right.
 ///
 /// `frame.fire` is an edge — `clear_edges()` nulls it every tick — and a ranged move has startup,
 /// so by the time its fire frame arrives the intent that started it is usually gone. Reported from
@@ -2642,8 +2642,8 @@ fn the_moveset_projection_carries_the_hit_dedup_accumulator() {
     );
 }
 
-/// ⭐⭐ **An aerial is a COMMITMENT: land mid-move and pay for it, land after
-/// the auto-cancel point and land clean.**
+///  An aerial is a COMMITMENT: land mid-move and pay for it, land after
+/// the auto-cancel point and land clean.
 ///
 /// The platform-fighter rule that makes spacing an aerial a decision rather
 /// than a free action. Three cases, and the third is the poison — a move that
@@ -2692,13 +2692,13 @@ fn landing_out_of_an_aerial_costs_its_authored_lag_unless_it_autocancelled() {
     assert_eq!(paid(Some(0.25), Some(0.50), 0.60), 0.0);
     // No auto-cancel authored: the lag applies whenever the move is running.
     assert!((paid(Some(0.25), None, 0.60) - 0.25).abs() < 1e-6);
-    // ⛔ **the poison.** A move that authors no landing lag lands the way every
+    //  the poison. A move that authors no landing lag lands the way every
     // move in the game lands today. Opt-in means opt-in.
     assert_eq!(paid(None, None, 0.10), 0.0);
     assert_eq!(paid(None, Some(0.50), 0.10), 0.0);
 }
 
-/// ⛔ **A move begun ON THE GROUND never "lands".**
+///  A move begun ON THE GROUND never "lands".
 ///
 /// The landing EDGE is what costs, not the grounded state — otherwise a jab, a
 /// down-tilt and every other grounded move would pay an aerial's lag on the
@@ -2765,7 +2765,7 @@ fn swept_track(reaches: [f32; 3], segment_s: f32) -> MoveSpec {
         knockback_growth: 0.0,
         launch_dir: None,
         on_hit: None,
-        // ⚠ no `vfx` tag: a bladed volume would resolve the fixture manifest
+        //  no `vfx` tag: a bladed volume would resolve the fixture manifest
         // blade and every keyframe would swing the SAME authored hull, which is
         // exactly the geometry this test varies.
         vfx: None,
@@ -2803,7 +2803,7 @@ fn swept_track(reaches: [f32; 3], segment_s: f32) -> MoveSpec {
     spec
 }
 
-/// ⭐⭐ **one swing is one hit, however many keyframes it was sampled at.**
+///  one swing is one hit, however many keyframes it was sampled at.
 ///
 /// The victim sits inside every segment of the track, so each of the three
 /// windows spawns a box that overlaps it. Without the contiguity handoff each
@@ -2838,7 +2838,7 @@ fn a_contiguous_hitbox_track_lands_one_hit_per_victim() {
     );
 }
 
-/// ⛔ **POISON: a GAP still rehits.** A genuine multi-hit move — a drill, a rapid jab — is
+///  POISON: a GAP still rehits. A genuine multi-hit move — a drill, a rapid jab — is
 /// authored as Active windows with space between them, because that is physically what it is:
 /// the box goes away and comes back.
 #[test]
@@ -2874,9 +2874,9 @@ fn a_gap_between_active_windows_is_a_fresh_strike() {
     );
 }
 
-/// **AN AUTHORED EFFECT FACES THE WAY THE FIGHTER DOES.**
+/// AN AUTHORED EFFECT FACES THE WAY THE FIGHTER DOES.
 ///
-/// ⭐ **this asserts the pose travels WITH the offset, from one derivation.** A
+///  this asserts the pose travels WITH the offset, from one derivation. A
 /// pose computed anywhere else could disagree with the position it decorates,
 /// which is why both come out of the same expression.
 #[test]
@@ -2895,7 +2895,7 @@ fn an_authored_effect_is_mirrored_by_the_facing_its_offset_already_used() {
          offset is mirrored and the picture is not"
     );
 
-    // ⛔ non-vacuity: the identity must really be identity, or the assertions
+    //  non-vacuity: the identity must really be identity, or the assertions
     // above are comparing a pose against a pose that means nothing.
     assert!(
         !ambition_vfx::FxPose::UPRIGHT.mirror && ambition_vfx::FxPose::UPRIGHT.angle == 0.0,
@@ -2903,7 +2903,7 @@ fn an_authored_effect_is_mirrored_by_the_facing_its_offset_already_used() {
          opinion just acquired one"
     );
 
-    // ⭐ and the angle is carried, not dropped — a body under sideways gravity
+    //  and the angle is carried, not dropped — a body under sideways gravity
     // stands its effects up the same way it stands itself up.
     let rolled = ambition_vfx::FxPose::of(1.0, std::f32::consts::FRAC_PI_2);
     assert!(
@@ -2981,7 +2981,7 @@ fn played(app: &App, body: Entity) -> Option<String> {
         .map(|pb| pb.spec.id.clone())
 }
 
-/// **A FREE BODY'S GRAB PRESS STARTS ITS GRAB.**
+/// A FREE BODY'S GRAB PRESS STARTS ITS GRAB.
 #[test]
 fn a_free_body_pressing_grab_plays_its_grab_move() {
     let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
@@ -2990,7 +2990,7 @@ fn a_free_body_pressing_grab_plays_its_grab_move() {
     assert_eq!(played(&app, captor).as_deref(), Some("grab"));
 }
 
-/// **HOLDING SOMEBODY, NEUTRAL ATTACK IS A PUMMEL AND NOT A JAB.**
+/// HOLDING SOMEBODY, NEUTRAL ATTACK IS A PUMMEL AND NOT A JAB.
 ///
 /// The same press that swings a jab when free must reach the pummel when a
 /// captive is held — that is the whole content of "capture is a context".
@@ -3010,7 +3010,7 @@ fn a_captor_pressing_attack_pummels_rather_than_jabbing() {
     );
 }
 
-/// **FORWARD + ATTACK IS THE THROW.**
+/// FORWARD + ATTACK IS THE THROW.
 #[test]
 fn a_captor_pressing_forward_attack_throws() {
     let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
@@ -3020,7 +3020,7 @@ fn a_captor_pressing_forward_attack_throws() {
     assert_eq!(played(&app, captor).as_deref(), Some("fthrow"));
 }
 
-/// **AN UNAUTHORED THROW DOES NOTHING — IT DOES NOT BECOME A PUMMEL.**
+/// AN UNAUTHORED THROW DOES NOTHING — IT DOES NOT BECOME A PUMMEL.
 ///
 /// This fighter has no up-throw. A player who presses up+attack and gets a
 /// pummel has been told the fighter has a bad up-throw; getting nothing tells
@@ -3039,7 +3039,7 @@ fn an_unauthored_throw_direction_plays_nothing_at_all() {
     );
 }
 
-/// **CAPTURE CONTEXT REPLACES THE MENU — a special press finds nothing.**
+/// CAPTURE CONTEXT REPLACES THE MENU — a special press finds nothing.
 ///
 /// If it fell through, every ordinary verb would need its own "unless holding"
 /// clause and a captor could fire a projectile with somebody in its hands.

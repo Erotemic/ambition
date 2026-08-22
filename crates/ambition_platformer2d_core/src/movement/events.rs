@@ -86,7 +86,7 @@ pub struct FrameEvents {
     /// step — the body is over-constrained (crushed) between two surfaces. At
     /// most one per world axis.
     ///
-    /// **the kernel reports it and decides nothing about it**, the same split
+    /// the kernel reports it and decides nothing about it, the same split
     /// [`ResetCause`] states: damage, death, a stock, a respawn, a forced
     /// displacement or crush immunity are the owner's policy. Nothing in the
     /// engine consumes this yet, deliberately.

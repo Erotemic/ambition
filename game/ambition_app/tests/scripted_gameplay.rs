@@ -44,7 +44,7 @@ fn build_minimal_sim_app() -> App {
     app
 }
 
-/// **through the SEAM, not at the resource.** `ControlFrame` is seat zero's OUTPUT mirror
+/// through the SEAM, not at the resource. `ControlFrame` is seat zero's OUTPUT mirror
 /// since; assigning it delivers a press to nobody, and a fixture that does so asserts against a
 /// simulation that never received an input.
 fn write_control_frame(app: &mut App, frame: ControlFrame) {

@@ -2,21 +2,21 @@
 //!
 //! [`GravityField`] is the world's gravity state (a redirectable down). The
 //! goal of this module is that adding a new *global* force later — wind, a
-//! tractor field, a gravity well — is a one-place change that reaches **every**
+//! tractor field, a gravity well — is a one-place change that reaches every
 //! actor automatically:
 //!
-//! - **Free bodies** (thrown / ground items, projectiles) integrate through
+//! - Free bodies (thrown / ground items, projectiles) integrate through
 //!   [`apply_world_forces`] — the single per-frame "apply global forces to a
 //!   velocity" call. Add a force to `GravityField` + one line here and they all
 //!   pick it up.
-//! - **Collision-bound controllers** (the player, enemies) own bespoke swept-AABB
+//! - Collision-bound controllers (the player, enemies) own bespoke swept-AABB
 //!   integrators whose ground / jump logic is axis-based, so they consume
 //!   [`GravityField::vertical_sign`] (which way is "down" along Y). They read the
 //!   same `GravityField`, so a gravity flip moves them too.
 //!
 //! We deliberately keep this lightweight rather than reaching for a full
 //! rigid-body engine: the platformer controllers are custom (parry2d swept
-//! AABBs) for feel. **Avian2D remains available (ADR 0007)** for the day real
+//! AABBs) for feel. Avian2D remains available (ADR 0007) for the day real
 //! rigid-body physics — debris, ragdoll, stacked/complex collisions — is
 //! genuinely needed; that's the escape hatch, not this seam.
 
@@ -68,7 +68,7 @@ impl GravityField {
     }
 }
 
-/// The room's **ambient** gravity — the default an actor falls under when it's
+/// The room's ambient gravity — the default an actor falls under when it's
 /// not inside any [`GravityZone`]. Flipped by the `GravityFlipSwitch` and
 /// (later) authored per room. [`resolve_active_gravity`] copies this (or an
 /// overlapping zone's direction) into the live [`GravityField`] each frame, so
@@ -114,7 +114,7 @@ impl BaseGravity {
 }
 
 /// An authored region with its own gravity direction — the building block of a
-/// "gravity room". Gravity is resolved **per body, by position**: any actor whose
+/// "gravity room". Gravity is resolved per body, by position: any actor whose
 /// center is inside the zone's `aabb` feels gravity along `dir` (and reorients via
 /// the shared `ActorRoll`); outside every zone it falls under [`BaseGravity`]. So
 /// an NPC standing in a gravity column feels the column even when the player is
@@ -129,7 +129,7 @@ pub struct GravityZone {
 
 /// Per-frame snapshot of every [`GravityZone`] in the world, so the many actor
 /// integrators (enemies, NPCs, projectiles, items, the orient-to-gravity roll)
-/// can resolve their **own** local gravity by position cheaply — reading one
+/// can resolve their own local gravity by position cheaply — reading one
 /// resource instead of each taking a `Query<&GravityZone>`. Rebuilt by
 /// [`collect_gravity_zones`].
 #[derive(Resource, Default, Clone, Debug)]
@@ -138,7 +138,7 @@ pub struct GravityZones {
     pub zones: Vec<(ambition_platformer2d_core::Aabb, Vec2)>,
 }
 
-/// **The set [`collect_gravity_zones`] runs in — this tick's zone snapshot exists.**
+/// The set [`collect_gravity_zones`] runs in — this tick's zone snapshot exists.
 ///
 /// ONE member, nested inside `GravitySet::ZoneSnapshot`, and the distinction
 /// matters: the parent also holds `collect_force_zones`, chained AFTER this.
@@ -212,11 +212,11 @@ pub fn oscillate_gravity_zones(
     }
 }
 
-/// The **localized** gravity direction for a body whose center is at `pos`: the
+/// The localized gravity direction for a body whose center is at `pos`: the
 /// first [`GravityZone`] containing `pos`, else `base_dir` (the room ambient).
 ///
 /// This is the heart of "gravity is local in space" — every non-player actor
-/// resolves gravity from its **own** position through this, so a body inside a
+/// resolves gravity from its own position through this, so a body inside a
 /// gravity column feels the column independently of where the player is. (The
 /// player resolves the same way via [`resolve_active_gravity`] into its
 /// [`GravityField`].)
@@ -282,7 +282,7 @@ pub fn gravity_dir_or_default(field: Option<&GravityField>) -> Vec2 {
 
 /// One bundled system param for the world's gravity, so the many actor
 /// integrators read gravity through a single argument (Bevy caps systems at 16
-/// params) and resolve it **by position** — `sign_at`/`dir_at` give a body its
+/// params) and resolve it by position — `sign_at`/`dir_at` give a body its
 /// own localized gravity. All three resources are `Option` so headless/test apps
 /// that don't insert them still get a sensible default (down).
 #[derive(SystemParam)]

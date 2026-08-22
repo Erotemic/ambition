@@ -59,7 +59,7 @@ fn two_idle_bodies_mid_stage_are_in_neutral() {
     );
 }
 
-/// **Precedence 1.** Self offstage is `Recovery`, whatever else is true — even
+/// Precedence 1. Self offstage is `Recovery`, whatever else is true — even
 /// if the opponent is offstage too, even if you are in hitstun. A stock lost to
 /// the blastzone is not repaid by a punish.
 #[test]
@@ -71,7 +71,7 @@ fn self_offstage_is_recovery_and_outranks_everything() {
     assert_eq!(classify(seen(&view(me, vec![foe]))), Situation::Recovery);
 }
 
-/// **Precedence 2, the one worth arguing about.** A player who chases an
+/// Precedence 2, the one worth arguing about. A player who chases an
 /// offstage opponent while himself in hitstun is not edge-guarding; he is being
 /// carried.
 #[test]
@@ -160,7 +160,7 @@ fn a_committed_landing_is_an_advantage() {
     );
 }
 
-/// **Gravity-relative.** A fight under rotated gravity is the same fight. The
+/// Gravity-relative. A fight under rotated gravity is the same fight. The
 /// landing test reads `gravity_down`, not screen `+y`, so a body falling
 /// sideways under sideways gravity is still landing.
 #[test]
@@ -210,7 +210,7 @@ fn the_variant_order_is_the_precedence() {
     assert!(Situation::Advantage > Situation::Neutral);
 }
 
-/// **Airborne past the lip of a platform is RECOVERY, even inside the room.**
+/// Airborne past the lip of a platform is RECOVERY, even inside the room.
 #[test]
 fn airborne_with_nothing_underneath_is_recovering_even_inside_the_room() {
     let platform = crate::perception::PerceivedSolid {
@@ -245,7 +245,7 @@ fn airborne_with_nothing_underneath_is_recovering_even_inside_the_room() {
          whatever the room says"
     );
 
-    // ⚠ and a view that publishes NO terrain is not a body over an abyss — it is
+    //  and a view that publishes NO terrain is not a body over an abyss — it is
     // a composition that does not build terrain, and reading that as recovery
     // would put every brain in such a composition into permanent recovery.
     let mut terrainless = airborne_at(600.0);

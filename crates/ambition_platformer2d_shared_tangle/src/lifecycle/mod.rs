@@ -1,36 +1,10 @@
-//! Lifecycle vocabulary for entities spawned by reusable platformer systems.
+//! Lifecycle vocabulary for reusable platformer entities.
 //!
-//! The public API is the helper verb (`spawn_room_scoped`, `spawn_mode_scoped`,
-//! and `SessionSpawnScope`/`RoundSpawnScope`'s `apply_to`) rather than the marker
-//! component convention. Marker components remain public because existing
-//! cleanup queries and tests need to name them, but new spawn sites should
-//! prefer [`SpawnScopedExt`].
-//!
-//! **The scopes nest: round ⊂ session, and room and mode cut across both.** Each
-//! one names a boundary and owns the sweep that culls at it —
-//! [`RoomScopedEntity`] (room unload / sandbox reset), [`ModeScopedEntity`]
-//! (`despawn_departed_mode_entities`), [`RoundScopedEntity`]
-//! (`despawn_departed_round_entities`), [`SessionScopedEntity`]
-//! (`despawn_retired_session_entities`).
-//!
-//! **a scope is a LIFETIME; where an entity lives right now is RESIDENCY, and
-//! they are not the same question.** An object in a body's custody is scoped to
-//! a room and resident in nobody's room — see [`InCustodyOf`] and the
-//! [`RoomResident`] roster a room CHANGE retires.
-//!
-//! **and there is a THIRD question, which is what a rebuild asks: WHERE is
-//! the occurrence this authored record minted last time?** That is a
-//! WHEREABOUTS, it is durable room state rather than a component on anything,
-//! and it lives in [`AuthoredOccurrences`]. A scope says when an occurrence
-//! dies, residency says whose sweep sees it, and a whereabouts says whether
-//! reconstruction owes the world a new one — and, if it does, WHERE.
-//!
-//! **there is no marker for "persistent", and that is the design.** Every
-//! sweep culls on the PRESENCE of its own marker, so an entity carrying none
-//! already survives all four boundaries; a `PersistentEntity` tag beside a
-//! `RoomScopedEntity` would have been a claim the room sweep silently overrules.
-//! Spelling it was not free — the `markers` module records what the two
-//! unenforced spellings cost.
+//! Scope markers define teardown boundaries (room, mode, round, session);
+//! residency describes which room currently owns an entity;
+//! [`AuthoredOccurrences`] records durable whereabouts needed for reconstruction.
+//! New spawn sites should prefer the scoped spawn helpers over inserting marker
+//! components directly. Entities with no scope marker survive all scope sweeps.
 
 mod cleanup;
 mod continuity;

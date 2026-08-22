@@ -1,4 +1,4 @@
-//! **Boot the WEB persona's composition on a native host.**
+//! Boot the WEB persona's composition on a native host.
 //!
 //! This is the cheapest thing that is not a browser: compile `ambition_app` with
 //! the web persona's Cargo features, compose the same
@@ -80,7 +80,7 @@ fn main() {
         .map(|active| active.route_id.to_string());
     println!("web-persona-boot: active route = {active:?}");
 
-    // **AND A COMPOSITION THAT DRAWS IS NOT A COMPOSITION THAT PLAYS.**
+    // AND A COMPOSITION THAT DRAWS IS NOT A COMPOSITION THAT PLAYS.
     //
     // The browser reached this point — it booted, routed, and painted a menu the
     // arrow keys navigated — and the controlled body still never moved, because
@@ -112,7 +112,7 @@ fn main() {
         );
         std::process::exit(1);
     };
-    // **AND INSTALLED IS NOT WIRED.** `capture_latched_local_input` publishes the latch only
+    // AND INSTALLED IS NOT WIRED. `capture_latched_local_input` publishes the latch only
     // while `is_device_authority()` — an untouched latch means "nothing feeds me", not "the
     // device said nothing", and it declines. Startup ran hundreds of frames above; if
     // `accumulate_control_frame_latch` were scheduled, it has run.

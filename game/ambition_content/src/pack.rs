@@ -43,7 +43,7 @@ pub const ITEMS_RON: &str = include_str!("../assets/data/items.ron");
 
 /// The authored fighter difficulty ladder.
 ///
-/// **this file existed and nothing read it.** A content test parsed it; the
+/// this file existed and nothing read it. A content test parsed it; the
 /// game did not, and `FighterBrainProfile::for_level` — which documents itself as
 /// the floor a game overrides — was consulted at both production call sites
 /// instead. Declaring it here is what makes it content rather than a document.
@@ -51,7 +51,7 @@ pub const FIGHTER_BRAIN_LADDER_RON: &str = include_str!("../assets/data/fighter_
 
 /// Every source `pack.ron` declares, paired with its embedded text.
 fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
-    // **the boss encounters are appended from ONE table**, not written out
+    // the boss encounters are appended from ONE table, not written out
     // here beside `BOSS_ENCOUNTER_RONS[n]`. Path and bytes travel together in
     // `bosses::BOSS_ENCOUNTERS`, so reordering that list cannot attach a file's
     // contents to another file's diagnostic path — which the index form allowed,
@@ -118,7 +118,7 @@ pub fn pack_schemas() -> ambition_content_pack::SchemaRegistry {
 /// sheet would make this compiler the thing that stops the game rather than the
 /// thing that explains it. The CLI's strict mode is where art is a gate.
 pub fn compile_pack() -> Result<PreparedContentPack, CompileFailure> {
-    // **the manifest is a DIAGNOSTIC, not a panic**, since gave the compiler its own
+    // the manifest is a DIAGNOSTIC, not a panic, since gave the compiler its own
     // embedded-pack road.
     let draft = ambition_content_pack::ContentPackDraft::from_manifest_ron(
         PACK_MANIFEST_RON,

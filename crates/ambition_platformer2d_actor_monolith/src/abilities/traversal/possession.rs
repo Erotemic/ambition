@@ -4,7 +4,7 @@
 //! mapping over `BossCapability`.
 //!
 //! Possession is NOT input-copying, and it is no longer brain transfer either.
-//! It is a **seat redirect**: while a possession is live, the primary
+//! It is a seat redirect: while a possession is live, the primary
 //! participant's [`DrivingParticipant`] sits on the target instead of on the home
 //! avatar. The target then reads slot-0 input through the SAME universal-control
 //! path every driven body uses: `DrivingParticipant` → [`SlotControls`] → its own
@@ -47,8 +47,8 @@ use crate::features::{CenteredAabb, FeatureSimEntity};
 /// resource is possession-INTERNAL: no gameplay/presentation system branches on
 /// it. Ask [`ControlledSubject`] instead.
 ///
-/// ⛔⛔ **`restore_brain` and `restore_scope` are GONE, and they were the whole cost of saying
-/// "who drives this" with a brain variant.** `restore_brain` stashed the policy the transferred
+///  `restore_brain` and `restore_scope` are GONE, and they were the whole cost of saying
+/// "who drives this" with a brain variant. `restore_brain` stashed the policy the transferred
 /// `Brain::Player` displaced; nothing is displaced any more, so there is nothing to put back.
 /// This change IS that schema change.
 #[derive(Resource, Clone, Default)]
@@ -58,7 +58,7 @@ pub struct PossessionState {
     pub possessed: Option<Entity>,
     /// The home avatar whose seat was redirected away.
     ///
-    /// ⚠ **it outlives `possessed` by design, and only just.** The seat has to
+    ///  it outlives `possessed` by design, and only just. The seat has to
     /// go somewhere on release, and this is the record of where; the ONE writer
     /// of [`DrivingParticipant`] (`crate::control::project_driving_participant`)
     /// consumes it and clears it in the same tick it hands the seat back. A
@@ -91,7 +91,7 @@ pub fn resolve_controlled_subject(
     // HARD INVARIANT: exactly one entity holds the PRIMARY seat during normal play (zero only
     // during a load/transition frame).
     //
-    // ⭐ **the counting and the shouting live in `body_driving_seat` now**, which
+    //  the counting and the shouting live in `body_driving_seat` now, which
     // is the same question for every seat rather than this one's private
     // spelling of it. Three callers had written it out and disagreed about the
     // error case: this one counted and logged, a camera resolve took the first
@@ -108,18 +108,18 @@ pub fn resolve_controlled_subject(
 /// Possession reach (px): Down+Interact possesses the nearest candidate within this.
 const POSSESS_RADIUS: f32 = 150.0;
 
-/// Seconds the player must **hold** Down+Interact (with a candidate in range) to
+/// Seconds the player must hold Down+Interact (with a candidate in range) to
 /// commit a possession. A deliberate gesture so you don't possess by brushing
 /// the button mid-fight; releasing fully is instant (a single press).
 const POSSESS_HOLD_S: f32 = 2.0;
 
 /// Stick deflection (gravity-resolved "down") past which the player counts as
-/// holding **Down** for the possession gesture — the same threshold drop-through
+/// holding Down for the possession gesture — the same threshold drop-through
 /// uses.
 pub const POSSESS_DOWN_THRESHOLD: f32 = 0.35;
 
 /// True iff the player's stick is held "down" in the GRAVITY-resolved frame past
-/// [`POSSESS_DOWN_THRESHOLD`]. The possession gesture is **Down + Interact**;
+/// [`POSSESS_DOWN_THRESHOLD`]. The possession gesture is Down + Interact;
 /// exposed so the interaction system can SUPPRESS a normal interact while Down is
 /// held — i.e. Down+Interact is *claimed* by possession and never opens a door /
 /// NPC. Sharing it keeps both systems agreeing on what "down" means under any
@@ -268,7 +268,7 @@ pub fn possession_trigger_system(
         return;
     };
 
-    // **THE SEAT MOVES; NOTHING ELSE DOES.** Record the decision — who is
+    // THE SEAT MOVES; NOTHING ELSE DOES. Record the decision — who is
     // driving and where the seat goes back to — and let
     // `crate::control::project_driving_participant` be the one system that acts
     // on it. Both bodies get a fresh neutral `ActorControl` so no stale
@@ -298,7 +298,7 @@ pub fn possession_trigger_system(
     // an NPC"* — and the retirement half needs no promotion at all, because `RoomResident` is
     // `(With<RoomScopedEntity>, Without<InCustodyOf>)`.
     //
-    // ⛔⛔ **AND THE MARKER IS NOT WRITTEN HERE, BECAUSE IT IS DERIVED.**
+    //  AND THE MARKER IS NOT WRITTEN HERE, BECAUSE IT IS DERIVED.
     // `InCustodyOf` is declared to rollback as *"room residency reprojected from
     // `ItemCustody` every tick"* — a justification for not snapshotting it that is
     // only true while something reprojects it. A possessed body has no
@@ -310,7 +310,7 @@ pub fn possession_trigger_system(
     // which IS rollback state — so the declaration's justification stays true for
     // both populations.
     //
-    // ⭐ **and `restore_scope` is GONE with the promotion it served.** It recorded
+    //  and `restore_scope` is GONE with the promotion it served. It recorded
     // the exact pre-possession lifetime scope so release could put it back, and
     // this comment had already recorded that it was a no-op read nowhere — kept
     // only because retiring a field of a rollback-registered resource is a schema
@@ -325,7 +325,7 @@ pub fn possession_trigger_system(
 /// `crate::control::project_driving_participant`), clear the stale control edges, and put the body
 /// where the player expects it.
 ///
-/// ⚠ **`state.home` is deliberately NOT cleared here.** The seat still has to go
+///  `state.home` is deliberately NOT cleared here. The seat still has to go
 /// somewhere, and the writer that hands it back is the one that consumes the
 /// record — see [`PossessionState::home`].
 fn release_possession(
@@ -348,7 +348,7 @@ fn release_possession(
     // Clear the stale edges on the body being let go and hand its temporary-control record back to
     // `Autonomous`.
     //
-    // ⭐⭐ **RELEASE TOUCHES NO SCOPE, because possession touched none.** Residency resumes in
+    //  RELEASE TOUCHES NO SCOPE, because possession touched none. Residency resumes in
     // whatever room is active NOW — `RoomScopedEntity` carries no room id, so a body released
     // two rooms later is resident THERE and the next transition out retires it correctly.
     if let Ok(mut ec) = commands.get_entity(target) {

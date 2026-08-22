@@ -1,4 +1,4 @@
-//! **Outlander** — the Phase-6 external-architecture proof.
+//! Outlander — the Phase-6 external-architecture proof.
 //!
 //! A complete (tiny) game authored from OUTSIDE the engine workspace, through
 //! the `ambition_platformer2d` umbrella alone: one room, one playable character, one
@@ -97,7 +97,7 @@ const OUTLANDER_CATALOG_RON: &str = r#"(
     },
 )"#;
 
-/// **The sheet Outlander authors for its own character.**
+/// The sheet Outlander authors for its own character.
 ///
 /// A catalog row says a character exists and names a sheet TARGET; this says what that sheet looks
 /// like — frame size, rows, where the body sits. A consumer could address its own PNG and had no
@@ -211,7 +211,7 @@ pub fn install_outlander_content(app: &mut App) {
         use ambition_platformer2d::character::AuthoredSheetAppExt;
         app.register_character_sheet_ron("outlander", OUTLANDER_SHEET_RON);
     }
-    // **The character-DEFINITION seam, exercised from outside the workspace.**
+    // The character-DEFINITION seam, exercised from outside the workspace.
     //
     // Outlander authors an EMPTY action set, deliberately, and it is the harder
     // half of the claim rather than the lazy one. `Some(empty)` means "this
@@ -450,12 +450,8 @@ impl Plugin for OutlanderExperiencePlugin {
                     .in_set(Platformer2dSimulationPhaseMonolith::PlayerSimulation),
             );
         }
-        // The consumer's own authoritative state joins the rollback contract
-        // through the public vocabulary. No engine file lists `BeaconCharge`;
-        // nothing in `ambition_platformer2d` could, because nothing in `ambition_platformer2d` has heard
-        // of it. `rollback_component_canonical` is a no-op on a fixed-tick host
-        // by design (the registration vocabulary gates installation on host
-        // kind), so this one line is correct for BOTH Outlander hosts.
+        // Consumer-owned authoritative state joins rollback through the public
+        // registrar; fixed-tick hosts intentionally treat this as a no-op.
         {
             use ambition_platformer2d::rollback::AmbitionRollbackApp;
             app.rollback_component_canonical::<BeaconCharge>(
@@ -463,42 +459,20 @@ impl Plugin for OutlanderExperiencePlugin {
                 "outlander.beacon_charge",
             );
         }
-        // `ModuleDraft::playable` took ownership of that in slice B; Outlander is migrated onto it
-        // in slice C. See §host.
     }
 }
 
 // ── §host ───────────────────────────────────────────────────────────────────
-/// **Outlander, declared.** Everything the engine needs to stand this game up.
-///
-/// What stood here was three hand-ordered compositions totalling ~110 lines: `build_outlander_app`,
-/// `build_outlander_rollback_app` and `build_windowed_app`, plus `compose_outlander_shell` and
-/// `register_outlander_asset_source` for them to share. Between them they encoded EIGHT engine
-/// ordering rules, of which four failed silently:
-///
-/// > the consumer's asset source registers before `DefaultPlugins` (Bevy seals
-/// > its sources when `AssetPlugin` builds); `AssetPlugin.file_path` is the
-/// > engine's own root; a GPU-less window needs five specific disables;
-/// > `init_engine_states` before the engine groups; engine before host before
-/// > shell; `PlatformerAssetsPlugin` after the content that registers the
-/// > catalogs it reads and before the presentation that draws them; a host that
-/// > names no initial route prepares nothing; manual stepping pins the frame dt
-/// > to the tick dt read back out of the world.
-///
-/// A third party had to get all eight right by reading two in-repo demos. They
-/// are the engine's rules and the engine states them once now, in
-/// `ambition_platformer2d::app`. What is left here is what a consumer should still be
-/// DECIDING: its id, its asset tree, its routes, its room, its content.
+/// Outlander declares only consumer-owned policy: identity, assets, routes,
+/// room, and content. Engine composition and ordering stay in
+/// `ambition_platformer2d::app`.
 #[derive(Default)]
 pub struct OutlanderModule;
 
 impl ambition_platformer2d::app::GameModule for OutlanderModule {
     fn manifest(&self) -> ambition_platformer2d::app::ModuleManifest {
         ambition_platformer2d::app::ModuleManifest::new(OUTLANDER_EXPERIENCE).asset_source(
-            // This fixture's OWN art first, the engine's tree for everything it
-            // did not author. Recorded SDK leak #3 said "consumer-owned art has
-            // no home"; a fixture whose whole job is to be a third party has to
-            // exercise the answer.
+            // Prefer consumer-owned art, then fall back to the engine asset tree.
             ambition_platformer2d::app::AssetSource::at("game", outlander_asset_root()),
         )
     }
@@ -552,7 +526,7 @@ pub fn build_outlander_app() -> App {
 ///
 /// `Time::<Fixed>::from_hz(60.0)` rounds to `16_666_667`ns. GGRS wants the
 /// truncated `16_666_666`. Composing this host with the obvious value — the
-/// one the fixed-tick face correctly uses — cost **12 frames**: the parity walk
+/// one the fixed-tick face correctly uses — cost 12 frames: the parity walk
 /// below took 192 `update()` calls to reach a world state the fixed-tick host
 /// reached in 180, while every GGRS checksum still agreed.
 ///
@@ -592,7 +566,7 @@ pub fn build_outlander_rollback_app() -> Result<App, String> {
 /// The window title the visible binary and the render test share.
 pub const OUTLANDER_WINDOW_TITLE: &str = "Outlander — external consumer proof";
 
-/// **Outlander, drawn.** The composition `src/bin/visible.rs` runs and the
+/// Outlander, drawn. The composition `src/bin/visible.rs` runs and the
 /// render test observes — one function, so they cannot drift.
 ///
 /// `gpu: false` builds the full render graph against no wgpu backend, which is

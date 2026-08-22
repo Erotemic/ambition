@@ -19,12 +19,12 @@ use bevy::prelude::*;
 //
 // Two complementary surfaces drive narrative text in the sandbox:
 //
-// - **Cutscene overlay** (this module): a screen-space Bevy UI panel
+// - Cutscene overlay (this module): a screen-space Bevy UI panel
 //   that draws CutsceneBeat::Dialogue (acknowledge — waits for player
 //   input) and CutsceneBeat::Banner (timed — auto-advances). The skip-
 //   hold progress bar lives here too. Owned by [`sync_cutscene_ui`].
 //
-// - **Speech bubbles** (`crate::fx::update_speech_bubbles`): world-
+// - Speech bubbles (`crate::fx::update_speech_bubbles`): world-
 //   space transient quote bubbles that anyone can fire via
 //   `VfxMessage::SpeechBubble { pos, text }`. Already used by the
 //   combat / damage path so enemies can shout when they get hit. The

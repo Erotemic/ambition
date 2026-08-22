@@ -403,7 +403,7 @@ fn sync_ambition_dialog_ui(
     declared_characters: Option<Res<ambition_platformer2d::character::PreparedCharacterRegistry>>,
     mut portrait_playback: ResMut<AmbitionDialogPortraitPlayback>,
     asset_server: Option<Res<AssetServer>>,
-    // **Where the choice window is scrolled to**, remembered across rebuilds.
+    // Where the choice window is scrolled to, remembered across rebuilds.
     //
     // A `Local` because it is a PRESENTATION fact: it is a function of the
     // selection AND of how many rows fit on this screen, and only this pass
@@ -441,7 +441,7 @@ fn sync_ambition_dialog_ui(
     }
 
     let profile = DialogLayoutProfile::for_viewport(viewport);
-    // **the window used to RECENTER on every selection change**, which on a phone is a moving
+    // the window used to RECENTER on every selection change, which on a phone is a moving
     // target: touching a row selects it, the list rebuilds around it, and the row you touched
     // is now somewhere else — so the second press Android's tap-mode needs lands on a
     // NEIGHBOUR.
@@ -960,7 +960,7 @@ fn resolve_portrait_visual(
             });
     }
 
-    // **through the engine's resolver rather than straight to the catalog.**
+    // through the engine's resolver rather than straight to the catalog.
     // The precedence above and below is untouched — Ambition's own per-character
     // override still wins, and the placeholder monogram still catches a miss —
     // and in between, a character that REGISTERED a portrait target now gets it.

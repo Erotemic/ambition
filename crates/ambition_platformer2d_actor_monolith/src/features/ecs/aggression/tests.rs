@@ -330,10 +330,10 @@ fn spawn_flying_npc(app: &mut App) -> bevy::prelude::Entity {
     spawn_character_npc(app, &npc_cast(Some(true), None))
 }
 
-/// **A FLYING BODY STAYS FLYING WHEN IT IS PROVOKED.**
+/// A FLYING BODY STAYS FLYING WHEN IT IS PROVOKED.
 ///
 /// But the engine's default provoked policy is `CharacterBrainTemplate::Smash`, and the Smash brain
-/// branches on `obs.self_aerial` with **no `can_fly` gate** (`smash/mod.rs`: *"Flyer: the grounded
+/// branches on `obs.self_aerial` with no `can_fly` gate (`smash/mod.rs`: *"Flyer: the grounded
 /// motor outputs don't apply — discard them and steer a 2D velocity"*). `cfg.can_fly` gates only
 /// the hybrid TAKE-OFF/LANDING toggle, which is exactly right: a baseline flyer never toggles, it
 /// simply flies. And `can_fly` itself is read off the body's own `AbilitySet`
@@ -352,7 +352,7 @@ fn a_flying_npc_stays_flying_when_it_is_provoked() {
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_flying_npc(&mut app);
 
-    // ⭐ THE REALISM GUARD. A body that does not actually fly would satisfy
+    //  THE REALISM GUARD. A body that does not actually fly would satisfy
     // "still flying afterwards" trivially.
     assert_eq!(
         app.world()
@@ -408,7 +408,7 @@ fn a_flying_npc_stays_flying_when_it_is_provoked() {
          disagree about what it is"
     );
 
-    // ⭐ THE POISON: "it changed nothing" satisfies every assertion above while
+    //  THE POISON: "it changed nothing" satisfies every assertion above while
     // describing a provocation that does not provoke. The driver it was handed
     // must be a real hostile mind that KNOWS this body flies.
     let brain = app
@@ -425,8 +425,8 @@ fn a_flying_npc_stays_flying_when_it_is_provoked() {
     );
 }
 
-/// **A PROVOKED BODY KEEPS THE HEALTH POOL ITS CHARACTER AUTHORED — AND THE
-/// DAMAGE IT HAD ALREADY TAKEN.**
+/// A PROVOKED BODY KEEPS THE HEALTH POOL ITS CHARACTER AUTHORED — AND THE
+/// DAMAGE IT HAD ALREADY TAKEN.
 ///
 /// It existed because a peaceful placement spawned at `max_health: 1` and a provoked one that kept
 /// its own pool died to the next hit.
@@ -434,7 +434,7 @@ fn a_flying_npc_stays_flying_when_it_is_provoked() {
 /// The value did not change, so nothing about how tough a provoked NPC is changed either —
 /// which is what makes this a repair of the authority rather than a rebalance.
 ///
-/// ⚠ the DAMAGE half is the sharper assertion: a pool the right SIZE would satisfy a max-only
+///  the DAMAGE half is the sharper assertion: a pool the right SIZE would satisfy a max-only
 /// check while still having healed a wounded creature mid- fight, which is the same divergence
 /// class the reconciler would have shipped.
 #[test]
@@ -446,7 +446,7 @@ fn a_provoked_body_keeps_the_health_pool_its_character_authored() {
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_character_npc(&mut app, &npc_cast(Some(false), Some(9)));
 
-    // ⭐ THE REALISM GUARD: 9 is nothing the engine would pick, so this pool can
+    //  THE REALISM GUARD: 9 is nothing the engine would pick, so this pool can
     // only have come from the character.
     assert_eq!(
         app.world().get::<BodyHealth>(npc).unwrap().max(),
@@ -490,14 +490,14 @@ fn a_provoked_body_keeps_the_health_pool_its_character_authored() {
     );
 }
 
-/// **PROVOKING A BODY SOMEBODY IS DRIVING DOES NOT TAKE IT AWAY FROM THEM.**
+/// PROVOKING A BODY SOMEBODY IS DRIVING DOES NOT TAKE IT AWAY FROM THEM.
 ///
 /// the flip inserted the provoked `Brain` unconditionally, and for a body under player control that
 /// is a silent seizure: the first hit a SEATED FIGHTER took replaced its own policy with the Smash
 /// state machine, in place and permanently — activation is one-shot and never rebinds — so a
 /// human's fighter became a CPU mid-fight and the couch test read it as input crosstalk.
 ///
-/// ⇒ what a provocation may do to a driven body: change its RELATIONSHIP, land
+///  what a provocation may do to a driven body: change its RELATIONSHIP, land
 /// its action set (what a body fights with is part of what it is), and record
 /// the autonomous source that will resume when control is released
 /// (`a_released_character_returns_to_its_own_policy_not_the_provoked_one` is the
@@ -536,7 +536,7 @@ fn provoking_a_player_driven_body_changes_its_mood_and_not_its_driver() {
     }
     app.update();
 
-    // ⭐ THE POISON, and it runs first because it is what proves the assertion
+    //  THE POISON, and it runs first because it is what proves the assertion
     // below is about the DRIVER rather than about provocation doing nothing. The
     // same stimulus on the same body with nobody at the controls installs a
     // hostile mind.
@@ -582,10 +582,10 @@ fn provoking_a_player_driven_body_changes_its_mood_and_not_its_driver() {
     );
 }
 
-/// **The poison for the pool above: a character that authors NOTHING gets the
-/// undescribed-body default, and provocation leaves that alone too.**
+/// The poison for the pool above: a character that authors NOTHING gets the
+/// undescribed-body default, and provocation leaves that alone too.
 ///
-/// ⛔ without this, moving the constant could have gone wrong in the quiet
+///  without this, moving the constant could have gone wrong in the quiet
 /// direction — an unauthored body left at `1` would still satisfy every
 /// assertion in the test above, and the first villager to turn hostile would die
 /// to one hit. That is the gameplay change this refactor exists NOT to make.

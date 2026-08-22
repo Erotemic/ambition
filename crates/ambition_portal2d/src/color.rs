@@ -198,7 +198,7 @@ impl PortalChannelColor {
 /// The unifying pair-linking identity the shared transit/pairing core operates
 /// on. Portals are linked into PAIRS by complementary channel (one of each), so
 /// several independent pairs can exist at once: the gun fires the
-/// **Blue↔Orange** pair, and authored test rooms place other pairs.
+/// Blue↔Orange pair, and authored test rooms place other pairs.
 /// [`partner`](Self::partner) gives the linked channel.
 ///
 /// Two portals pair iff their channels are partners. `Copy`/`PartialEq`/`Hash`

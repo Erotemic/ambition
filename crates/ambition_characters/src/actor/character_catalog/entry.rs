@@ -35,12 +35,12 @@ impl CharacterBodyKind {
     /// The height a character of this kind stands, in world px, when its row
     /// does not say.
     ///
-    /// **only `Standard` answers, and that narrowness is the design.** The complaint was about
+    /// only `Standard` answers, and that narrowness is the design. The complaint was about
     /// HUMANOIDS being mutually out of scale; a crawler, a floating drone and a wide body have
     /// no shared height to be consistent about, and inventing one for them would be changing
     /// sizes to satisfy a pattern rather than a report.
     ///
-    /// **48.0 is not invented: it is the protagonist.** `player_robot_v3`
+    /// 48.0 is not invented: it is the protagonist. `player_robot_v3`
     /// resolves to a 30x48 body through the sprite-authored seam, so a Standard
     /// character now stands exactly as tall as the character the player looks at
     /// most. A reference the game already contains beats a plausible number.
@@ -89,7 +89,7 @@ pub struct SpriteTuningSpec {
 }
 
 /// Surface-momentum motion feel, authored on the catalog row (Q21). The
-/// gameplay-side **mirror** of the serde-free kernel struct
+/// gameplay-side mirror of the serde-free kernel struct
 /// [`ae::MomentumParams`](ambition_platformer2d_core::MomentumParams):
 /// the kernel stays serde-free (its doc's contract), so this Deserialize twin
 /// lives here and hydrates via [`to_kernel`](MomentumParamsSpec::to_kernel).
@@ -387,7 +387,7 @@ impl AxisTuningSpec {
 
 /// The composable grant vocabulary a catalog row lists to define its kit.
 ///
-/// A character is not one blessed preset; it is the **composition** of the grant
+/// A character is not one blessed preset; it is the composition of the grant
 /// bundles it carries. The kernel owns the algebra ([`ae::AbilitySet::compose`]);
 /// this is the same [`ae::AbilityGrant`] enum, re-exported so a RON row reads
 /// `abilities: Some([RunJump])` — a list that unions, not a single word that
@@ -424,7 +424,7 @@ pub enum BarkSituation {
     /// On display in the Hall of Characters: the character's fun, often
     /// self-aware gallery line. Timer-driven; rotates.
     Hall,
-    /// **A conversation with this character was left rather than finished** —
+    /// A conversation with this character was left rather than finished —
     /// the other party walked, fell, or was carried out of talking range.
     ///
     /// deliberately NOT "the conversation was interrupted". A conversation
@@ -519,12 +519,12 @@ pub struct CharacterPortraitRef {
 // simply never fires and the author sees content that looks correct.
 #[serde(deny_unknown_fields)]
 pub struct CharacterCatalogEntry {
-    /// **Which provider authored this row**, filled in by ASSEMBLY.
+    /// Which provider authored this row, filled in by ASSEMBLY.
     ///
     /// The cost showed up when a migrated character tried to stop naming a preset: the Hall's
     /// override validation lost the namespace and the full-host check failed.
     ///
-    /// **EMPTY in an unassembled fragment**, which is honest rather than a gap:
+    /// EMPTY in an unassembled fragment, which is honest rather than a gap:
     /// a fragment does not know its own provider until it is registered under
     /// one, and `#[serde(default)]` means no authored row writes this.
     #[serde(default)]
@@ -545,12 +545,12 @@ pub struct CharacterCatalogEntry {
     pub tier: CharacterTier,
     /// Footprint hint. Drives slot sizing.
     pub body_kind: CharacterBodyKind,
-    /// **How TALL this character stands, in world px, feet to the top of the
-    /// visible body.** `None` falls back to
+    /// How TALL this character stands, in world px, feet to the top of the
+    /// visible body. `None` falls back to
     /// [`CharacterBodyKind::default_standing_height`].
     ///
-    /// **the one quantity a viewer actually compares, and it was authored
-    /// NOWHERE.** A catalog character's on-screen size was
+    /// the one quantity a viewer actually compares, and it was authored
+    /// NOWHERE. A catalog character's on-screen size was
     /// `authored LDtk spawn box × collision_scale × (body / frame)` — two
     /// per-character guesses and a room's spawn rectangle. Nothing in that
     /// product is a statement about height, so nothing could be consistent about
@@ -565,10 +565,10 @@ pub struct CharacterCatalogEntry {
     pub composition: Option<Vec<CompositionLayer>>,
     /// Name of the preset in `brain_presets` to apply by default.
     ///
-    /// ⇒ omit it and the preset dies with its last namer, which is what retirement is: one
+    ///  omit it and the preset dies with its last namer, which is what retirement is: one
     /// vocabulary, reached by subtraction.
     ///
-    /// **`#[serde(default)]` rather than `Option`, and the reason is churn**:
+    /// `#[serde(default)]` rather than `Option`, and the reason is churn:
     /// 144 shipped rows write this field as a bare string, and RON does not
     /// accept those for an `Option` without `implicit_some`. Empty had no prior
     /// meaning here, so this is the FIRST meaning on that emptiness rather than a
@@ -597,7 +597,7 @@ pub struct CharacterCatalogEntry {
     /// dialogue. These are authoring defaults rather than immutable canon.
     #[serde(default)]
     pub fallback_dialogue: Vec<String>,
-    /// **The sheet this character's melee draws its swing from.** `None` means
+    /// The sheet this character's melee draws its swing from. `None` means
     /// UNAUTHORED, which is a real authored answer and not a gap to paper over.
     ///
     /// Several characters MAY name the same sheet; that is sharing, and it is
@@ -765,7 +765,7 @@ pub enum BrainPreset {
     /// encounter swaps this in when the player picks "challenge". The
     /// `difficulty` floats are the fairness knobs (reaction lag, commit
     /// probability, aim accuracy).
-    /// **The FB4b fighter brain** — L1 classify, L2 options, L3 rollout, on a
+    /// The FB4b fighter brain — L1 classify, L2 options, L3 rollout, on a
     /// human cadence with an APM ceiling.
     ///
     /// It existed, was tested, and no content could select it: `BrainPreset` is the only vocabulary

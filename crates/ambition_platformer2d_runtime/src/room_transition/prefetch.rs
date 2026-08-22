@@ -71,7 +71,7 @@ impl RoomConstructionPlanPrefetch {
     /// was prepared under identity that still holds AND still describes the
     /// target spec. A same-id hot reload or a session change is a miss.
     ///
-    /// **and so is a plan prepared against different DISPOSITIONS.** A room
+    /// and so is a plan prepared against different DISPOSITIONS. A room
     /// build asks where the occurrences it minted before actually are, and a
     /// plan froze that answer: one prepared while an authored object was being
     /// carried deliberately OMITS it, and committing that plan after the object

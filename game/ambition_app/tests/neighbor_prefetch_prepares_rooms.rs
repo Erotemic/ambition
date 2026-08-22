@@ -1,4 +1,4 @@
-//! **THE NEIGHBOUR PREFETCH PREPARES ROOMS THE PLAYER CAN ACTUALLY WALK INTO.**
+//! THE NEIGHBOUR PREFETCH PREPARES ROOMS THE PLAYER CAN ACTUALLY WALK INTO.
 //!
 //! ```text
 //! WARN could not prefetch construction for neighbor room 'basement_enemies':
@@ -89,7 +89,7 @@ fn every_neighbour_of_the_starting_room_gets_a_prepared_plan() {
     );
 }
 
-/// **A WARM PREFETCH MUST COST NOTHING TO KEEP WARM.**
+/// A WARM PREFETCH MUST COST NOTHING TO KEEP WARM.
 ///
 /// The point of preparing a neighbour is to pay once and hold the result. A
 /// cache that re-derives its whole neighbourhood every frame is not a cache: it

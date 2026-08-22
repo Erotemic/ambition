@@ -203,7 +203,7 @@ impl Platformer2dAssetCatalog {
     /// Bevy's `AssetServer::load`; `None` when the loader should fall
     /// back (colored rectangle, silent SFX, Bevy default font, etc.).
     ///
-    /// This is the **only** function loaders need to call — it combines:
+    /// This is the only function loaders need to call — it combines:
     /// - `path_for(id)` (resolver),
     /// - the per-profile "is this asset actually available?" gate
     ///   ([`Self::should_attempt_resolved_load`]).
@@ -251,7 +251,7 @@ impl Platformer2dAssetCatalog {
     /// - Android / iOS bundle: trust the packager; let Bevy's platform
     ///   `AssetReader` try the load.
     /// - Web / BundledStatic: attempt the load when the entry has an
-    ///   **authored** embedded candidate (the bytes are packaged via
+    ///   authored embedded candidate (the bytes are packaged via
     ///   `embedded_asset!`); skip otherwise to preserve colored-rectangle
     ///   fallback.
     /// - WebHttp: attempt only when the entry has an authored
@@ -314,7 +314,7 @@ impl Platformer2dAssetCatalog {
         }
     }
 
-    /// Same gate, but for **required** assets. Required entries with
+    /// Same gate, but for required assets. Required entries with
     /// no host-filesystem precheck always attempt the load; the
     /// resolver's `Disabled` path is what consults
     /// [`MissingAssetPolicy::Error`].
@@ -338,7 +338,7 @@ impl Platformer2dAssetCatalog {
     /// 5. `$CARGO_MANIFEST_DIR/../ambition_platformer2d_actor_monolith/assets/<rel>`
     ///    (current dev fallback while runtime assets still live there)
     ///
-    /// This is the **only** host-filesystem probe in the sandbox. The
+    /// This is the only host-filesystem probe in the sandbox. The
     /// LDtk hot-reload watcher and the SFX bank byte loader both call
     /// through here — there is no duplicate candidate walk anywhere
     /// else in `crates/ambition_platformer2d_actor_monolith/src/`.
@@ -495,7 +495,7 @@ pub fn build_sandbox_catalog_with(
 mod authored_path_tests {
     use super::*;
 
-    /// **The rule, stated once.** A path that names its own source belongs to
+    /// The rule, stated once. A path that names its own source belongs to
     /// whoever authored it; everything else follows the folder convention.
     #[test]
     fn a_source_qualified_path_is_never_rebuilt_under_a_folder() {
@@ -529,7 +529,7 @@ mod authored_path_tests {
         );
     }
 
-    /// **The guard against a fourth layer.** Every FAMILY that joins a folder to
+    /// The guard against a fourth layer. Every FAMILY that joins a folder to
     /// an authored filename is exercised here with a source-qualified path, and
     /// the manifest must carry it verbatim.
     ///

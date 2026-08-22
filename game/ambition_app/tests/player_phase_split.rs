@@ -20,7 +20,7 @@ fn primary_player(world: &mut World) -> Entity {
 /// jump press) — the exact data the separate PRESENTATION phase consumes. Proves
 /// the two player phases are joined by an explicit seam, not fused.
 ///
-/// **This is half of netcode N0.1's exit check** — see `actor_phase_split.rs`.
+/// This is half of netcode N0.1's exit check — see `actor_phase_split.rs`.
 fn player_handoff_seam_holds(fixed_tick: bool) {
     let mut sim = Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()

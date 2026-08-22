@@ -88,7 +88,7 @@ fn strike_hitting_for(id: &str, reach_offset: f32, damage: i32) -> MoveSpec {
 
 /// A body with a stubby jab and a long up-tilt.
 ///
-/// **the two moves must differ in REACH, not in name.** A fixture whose moves
+/// the two moves must differ in REACH, not in name. A fixture whose moves
 /// were interchangeable would pass with the direction still discarded, because
 /// whichever move the neutral press resolved to would be as good an answer as
 /// the scored one.
@@ -142,7 +142,7 @@ fn scene(gap: f32) -> WorldView {
 /// same helpers a character's own file uses, so the kit reads the same shape a
 /// fighter really publishes.
 ///
-/// **the jab out-damages the throw** (14 against 11), which is the genre's own arrangement and the
+/// the jab out-damages the throw (14 against 11), which is the genre's own arrangement and the
 /// only one that asks a real question.
 fn jab_and_grab() -> MovesetContract {
     use ambition_characters::smash_capture::{
@@ -150,7 +150,7 @@ fn jab_and_grab() -> MovesetContract {
         CaptureThrowParams,
     };
     let grab = author_standing_grab(
-        // **George's real numbers.** A grab is SLOW and its whiff is long; a
+        // George's real numbers. A grab is SLOW and its whiff is long; a
         // fixture that gave it a jab's startup would be asking whether the
         // scorer prefers a strictly better move, which is not a question.
         grab_shell("grab", "grab", 0.16, 0.06, 0.30),
@@ -272,7 +272,7 @@ fn move_played_for_moveset(
         .expect("an attack or grab edge on a body with a moveset starts a move")
 }
 
-/// **The kit is what the body can press, and every entry can be pressed.**
+/// The kit is what the body can press, and every entry can be pressed.
 ///
 /// The guard on the row above it: if the kit ever went back to listing
 /// `moveset.moves`, a move no input reaches could be scored and the acceptance
@@ -310,7 +310,7 @@ fn every_candidate_in_the_kit_carries_the_press_that_invokes_it() {
     );
 }
 
-/// **The move the body plays is the move the brain scored.**
+/// The move the body plays is the move the brain scored.
 ///
 /// this asserts `MovePlayback.spec.id` and NOT `melee_pressed`.
 ///
@@ -356,14 +356,14 @@ fn a_close_foe_gets_the_jab_the_scoring_actually_picked() {
     );
 }
 
-/// **THE GRAB ENTERS THE KIT FROM ITS OWN AUTHORED DATA.**
+/// THE GRAB ENTERS THE KIT FROM ITS OWN AUTHORED DATA.
 ///
 /// A CPU could not choose a grab at all: the kit enumerated the three attack
 /// buttons, and a grab answers its own. Everything the scorer needs about one
 /// has to come from the authored capture itself, because `frame_data` derives
 /// reach, coverage and power from HIT VOLUMES and a grab lands none.
 ///
-/// **no character id, no role, no hand-written distance.** A CPU that knew
+/// no character id, no role, no hand-written distance. A CPU that knew
 /// "George grabs at 44px" would stop working the day George is retuned, and a
 /// second fighter would need a second constant.
 #[test]
@@ -400,7 +400,7 @@ fn the_kit_prices_a_grab_from_the_capture_its_own_move_authors() {
     );
 }
 
-/// **A GUARD-IGNORING MOVE BEATS A BLOCKABLE ONE AGAINST A RAISED SHIELD.**
+/// A GUARD-IGNORING MOVE BEATS A BLOCKABLE ONE AGAINST A RAISED SHIELD.
 ///
 /// The generic half of the triangle, at the layer that owns it: the ROLLOUT is
 /// where a shield zeroes a swing, so it is where `ignores_guard` has to be

@@ -54,7 +54,7 @@ const VOICEPRINTS: &[VoiceprintDef] = &[
     },
     VoiceprintDef {
         cue: CREATOR,
-        // **the tests here cannot tell**: a probe that deleted the `creator`
+        // the tests here cannot tell: a probe that deleted the `creator`
         // EXACT key as well left all three voiceprint tests green, because the
         // `creator` alias matches any key CONTAINING it. So for this cast the
         // exact keys are largely redundant with the alias, and nothing would
@@ -223,10 +223,10 @@ mod tests {
         }
     }
 
-    /// **No exact key is hiding an alias that would steal it.**
+    /// No exact key is hiding an alias that would steal it.
     ///
-    /// **`exact` is consulted BEFORE `aliases`, so an exact key silently masks
-    /// a collision.** If one cue's alias is a substring of another cue's
+    /// `exact` is consulted BEFORE `aliases`, so an exact key silently masks
+    /// a collision. If one cue's alias is a substring of another cue's
     /// authored name, the authored name still resolves correctly — through the
     /// exact map — while every *undeclared* speaker label shaped like it goes to
     /// the wrong voice. `every_authored_key_resolves_to_its_declared_cue` cannot
@@ -235,7 +235,7 @@ mod tests {
     /// So this asks the same question with the exact map REMOVED. Every key must
     /// still land on its own cue through aliases alone.
     ///
-    /// **a failure here does not mean "add an exact key"** — that is what
+    /// a failure here does not mean "add an exact key" — that is what
     /// hides it. It means two cues have overlapping alias vocabulary, and one of
     /// them needs a longer alias.
     #[test]

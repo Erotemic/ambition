@@ -1,4 +1,4 @@
-//! **How a puppy slug's crawl READS**, measured — the adhesive crawler judged by
+//! How a puppy slug's crawl READS, measured — the adhesive crawler judged by
 //! the shape of its trajectory rather than only by where it ends up.
 //!
 //! # The situations are the level's, not invented
@@ -170,7 +170,7 @@ fn check(label: &str, track: &[Vec2], budget: MotionBudget) -> MotionQuality {
     quality
 }
 
-/// **Baseline.** A slug crawling the middle of a ledge, touching nothing else.
+/// Baseline. A slug crawling the middle of a ledge, touching nothing else.
 /// Any jerk here is the crawl integrator's own, with no corner to blame.
 #[test]
 fn a_slug_crawling_a_flat_ledge_moves_perfectly_evenly() {
@@ -189,8 +189,8 @@ fn a_slug_crawling_a_flat_ledge_moves_perfectly_evenly() {
     );
 }
 
-/// **A CONVEX 90° transit is discontinuous by construction, and this budget
-/// admits it rather than hiding it.**
+/// A CONVEX 90° transit is discontinuous by construction, and this budget
+/// admits it rather than hiding it.
 ///
 /// The crawler's AABB does not rotate with its attachment, so a 48 x 22 body lying along a ledge's
 /// top cannot also lie along the ledge's END: the two placements share no position.
@@ -208,7 +208,7 @@ const WRAPPING_A_CORNER: MotionBudget = MotionBudget {
     min_straightness: 0.0,
 };
 
-/// **Convex corner.** The slug crawls off a ledge's free end and wraps under it.
+/// Convex corner. The slug crawls off a ledge's free end and wraps under it.
 /// Twelve of these exist in the shaft; every ledge is free at both ends.
 ///
 /// What this pins is that the wrap COMPLETES and costs exactly one pivot: no
@@ -237,7 +237,7 @@ fn a_slug_wrapping_a_ledge_end_pivots_once_and_keeps_going() {
     );
 }
 
-/// **Concave corner, side wall.** The shaft's floor meets its 48 px side wall;
+/// Concave corner, side wall. The shaft's floor meets its 48 px side wall;
 /// the slug at `px(272, 2336)` in the real level crawls straight into it.
 #[test]
 fn a_slug_turning_the_floor_into_the_side_wall_does_not_stick() {
@@ -266,7 +266,7 @@ fn a_slug_turning_the_floor_into_the_side_wall_does_not_stick() {
     );
 }
 
-/// **Concave corner, central pillar.** The same turn against the shaft's
+/// Concave corner, central pillar. The same turn against the shaft's
 /// full-height interior pillar — a wall the slug meets from the OTHER side, so a
 /// rule that only works against the world's edge fails here.
 #[test]
@@ -281,7 +281,7 @@ fn a_slug_turning_the_floor_into_the_central_pillar_does_not_stick() {
     );
 }
 
-/// **One-way platform.** `cling_pred` accepts a one-way surface and `wall_pred`
+/// One-way platform. `cling_pred` accepts a one-way surface and `wall_pred`
 /// rejects it, deliberately — a crawler would never collide with a one-way
 /// platform's side, so it must not read as a concave corner. This is the crawl
 /// that proves the two predicates disagree in the intended direction.
@@ -302,7 +302,7 @@ fn a_slug_crawling_a_one_way_platform_treats_it_as_ground_not_wall() {
     );
 }
 
-/// **Moving platform.** The shaft's two `MovingPlatform`s sweep 240 px at
+/// Moving platform. The shaft's two `MovingPlatform`s sweep 240 px at
 /// 130 px/s. A crawler is GLUED to its surface, so it is carried by the platform's
 /// FULL delta (both axes, unlike a gravity-resting body) — and that carry must not
 /// read as a lurch on top of the crawl.

@@ -1,6 +1,6 @@
 //! Preparation's own tests, in preparation's own crate.
 //!
-//! ⛔ these test PREPARATION — what a definition resolves to, what it reports,
+//!  these test PREPARATION — what a definition resolves to, what it reports,
 //! what it refuses. The tests that drive an `App` through
 //! `try_register_character` and `finalize` test COMPOSITION and stay in the
 //! monolith beside the plugin that does it; splitting by what a test tests is
@@ -186,8 +186,8 @@ fn a_definition_carries_no_controller_binding() {
         // is dangerous to touch whoever is steering it.
         locomotion: _,
         contact_damage: _,
-        // ⚠ **a DEFAULT policy, which §4.7 permits and the rule authorised, and the reason this
-        // test survives rather than being deleted.** What it guards is that the CURRENT
+        //  a DEFAULT policy, which §4.7 permits and the rule authorised, and the reason this
+        // test survives rather than being deleted. What it guards is that the CURRENT
         // controller is nowhere on this type: a character may say what it does when nobody is
         // driving it, and may not say who is driving it now.
         autonomous_profile: _,
@@ -213,7 +213,7 @@ fn a_definition_carries_no_controller_binding() {
         // capability of the creature, and one no controller changes: a possessed
         // shark is still a shark somebody can sit on.
         mount: _,
-        // ⚠ **the field that reads most like a controller fact and is not one**,
+        //  the field that reads most like a controller fact and is not one,
         // so it is justified here rather than ignored. It says that two
         // AUTONOMOUS twins of this character begin on one deterministic
         // cognitive stream — which is a fact about the creature, in the same
@@ -221,7 +221,7 @@ fn a_definition_carries_no_controller_binding() {
         // a driver is not a person. It names no driver, and a HUMAN wearing this
         // character is wholly unaffected by it, which is the §4.7 test.
         //
-        // ⛔ it is deliberately NOT on `BrainProfile`. A profile is *reusable
+        //  it is deliberately NOT on `BrainProfile`. A profile is *reusable
         // across characters* by construction, so authoring it there would hand
         // the trait to whichever other characters happen to share the policy —
         // and this is Emmy's identity, not a difficulty rung's.
@@ -229,7 +229,7 @@ fn a_definition_carries_no_controller_binding() {
     } = def;
 }
 
-/// **A12.** Sheets, portraits and the DERIVED vfx inventory are resolved too.
+/// A12. Sheets, portraits and the DERIVED vfx inventory are resolved too.
 ///
 /// `CharacterBindings` carried only a cue resolver, so `was_checked` reported
 /// honestly about four namespaces nobody checked. A misspelled sheet target was
@@ -344,7 +344,7 @@ fn a_verb_the_runtime_never_presses_is_named_at_preparation() {
     }
 }
 
-/// **A ranged move needs something to throw, and the two halves live apart.**
+/// A ranged move needs something to throw, and the two halves live apart.
 ///
 /// The projectile specification is on the ACTION SET; the move that fires it is
 /// on the MOVESET. Once a definition can author both (C3 precedence), it can
@@ -438,7 +438,7 @@ fn a_ranged_move_without_an_authored_action_set_is_left_to_the_catalog() {
     );
 }
 
-/// **A body cannot end up with two owners of one press.**
+/// A body cannot end up with two owners of one press.
 ///
 /// The whole verb FAMILY, not the base alone: `directional_verb_chain` resolves
 /// a press through `ranged_air_forward` → `ranged_forward` → `ranged_air` →
@@ -477,7 +477,7 @@ fn a_host_code_kit_cannot_also_carry_an_authored_ranged_verb() {
     assert_eq!(verbs.get("attack").map(String::as_str), Some("swing"));
 }
 
-/// **A cast has a version, so a derivation can know it went stale.** (X4)
+/// A cast has a version, so a derivation can know it went stale. (X4)
 ///
 /// Since the finalization barrier it is published once, whole, and a late registration panics. The
 /// generation is per PUBLICATION now; the hatch this test uses stamps each insert as its own
@@ -555,7 +555,7 @@ fn gravity_freedom_is_resolved_at_preparation_rather_than_at_construction() {
             .expect("it states its locomotion")
             .locomotion
             .baseline_free_flight
-            // ⚠ `Some(false)`, not `None`: preparation RESOLVES the question
+            //  `Some(false)`, not `None`: preparation RESOLVES the question
             // even when the answer is "no". A `None` reaching a body would mean
             // the barrier left it open for a constructor to rediscover, which is
             // exactly what §14 deletes.
@@ -566,7 +566,7 @@ fn gravity_freedom_is_resolved_at_preparation_rather_than_at_construction() {
          carry that one concrete answer"
     );
 
-    // ⭐ **and a character that DOES say it flies keeps that**, which is the
+    //  and a character that DOES say it flies keeps that, which is the
     // other half: cutting the catalog's fold must not also stop a bird flying.
     let stated = prepare_and_finalize_against_for_test(
         CharacterDefinition::new("floater", "Floater", "test").with_locomotion(
@@ -604,7 +604,7 @@ fn gravity_freedom_is_resolved_at_preparation_rather_than_at_construction() {
             .expect("it states its locomotion")
             .locomotion
             .baseline_free_flight,
-        // ⚠ **`Some(false)`, and the difference is the whole three-state.** An
+        //  `Some(false)`, and the difference is the whole three-state. An
         // unknown id has no catalog answer to fold, so preparation resolves the
         // silence to "does not fly" — and a reader must not have to tell that
         // apart from "nobody said".
@@ -612,7 +612,7 @@ fn gravity_freedom_is_resolved_at_preparation_rather_than_at_construction() {
     );
 }
 
-/// **Completeness is a NAMED contract, not an inferred bool.**
+/// Completeness is a NAMED contract, not an inferred bool.
 ///
 /// Two terms, both observed: an incomplete character NAMES what it is missing,
 /// and a complete one hands over a blueprint carrying the facts construction
@@ -661,7 +661,7 @@ fn an_incomplete_character_names_the_fact_it_is_missing() {
 /// namespaced `provider::local_name` by `CharacterCatalogRegistry`.
 const SHARED_POLICY_CATALOG: &str = r#"(
     autonomous_profiles: {
-        // ⚠ NAMESPACED, because assembly namespaces every fragment key
+        //  NAMESPACED, because assembly namespaces every fragment key
         // (`registry.rs`: `namespaced(provider_id, local_name)`). A fixture
         // keying the bare local name models a catalog that cannot exist, and
         // it would hide exactly the mismatch `BrainProfileRef` was introduced
@@ -747,7 +747,7 @@ fn authoring_a_policy_twice_is_refused_rather_than_ranked() {
     );
 }
 
-/// **A named policy nobody authored is a preparation failure.**
+/// A named policy nobody authored is a preparation failure.
 #[test]
 #[should_panic(expected = "is not published")]
 fn a_named_policy_that_does_not_exist_is_a_failure_rather_than_silence() {
@@ -764,14 +764,14 @@ fn a_named_policy_that_does_not_exist_is_a_failure_rather_than_silence() {
     );
 }
 
-/// **A HOST THAT PUBLISHED NO POLICY AUTHORITY IS FINE — UNTIL A CHARACTER
-/// NAMES ONE.**
+/// A HOST THAT PUBLISHED NO POLICY AUTHORITY IS FINE — UNTIL A CHARACTER
+/// NAMES ONE.
 ///
 /// The same authoring error produced a content error or a silent absence depending on a composition
 /// detail the author cannot see.
 ///
-/// ⚠ **the first half is what stops this becoming "headless hosts must publish a
-/// registry".** They must not — a composition with no shared policies at all is
+///  the first half is what stops this becoming "headless hosts must publish a
+/// registry". They must not — a composition with no shared policies at all is
 /// ordinary, and this asserts it still prepares. What is refused is an explicit
 /// reference with nothing to resolve it, which is a different claim about a
 /// different character.
@@ -801,13 +801,13 @@ fn naming_a_policy_in_a_composition_with_no_registry_is_a_composition_error() {
     );
 }
 
-/// **THE AUTHORED MIRROR-SYMMETRY TRAIT SURVIVES THE WHOLE FOLD.**
+/// THE AUTHORED MIRROR-SYMMETRY TRAIT SURVIVES THE WHOLE FOLD.
 ///
 /// Every link is a hand-written field assignment, so a trait that is authored and never arrives
 /// looks exactly like a trait nobody authored — the shape this repo calls *a hand-listed chain
 /// pins the FUNCTION, not the WIRING*.
 ///
-/// ⚠ **both directions**, because a fold that hard-coded `true` would pass a
+///  both directions, because a fold that hard-coded `true` would pass a
 /// one-sided test while giving every character in the game Emmy's trait.
 #[test]
 fn mirror_symmetry_survives_preparation_and_reaches_the_body_blueprint() {

@@ -1,15 +1,15 @@
 #![cfg(feature = "input")]
-//! **A game's death rules govern its own rooms and nobody else's.**
+//! A game's death rules govern its own rooms and nobody else's.
 //!
 //! Three games in the shipped host state what a death means — Ambition
 //! (`replay_level_after(0.0)`), Sanic (the same), and Mary-O (a 3.2s hold sized
 //! by her death music). While `DeathRules` was a bare `Resource`, the type was
 //! the key: three `insert_resource` calls in three `Plugin::build`s, and the one
 //! the shell composed LAST governed the whole binary. `shell_host.rs` lists
-//! Mary-O after Sanic, so **every Smash match in the shipped host ran under
-//! Mary-O's rules** — in an arena whose own rules want [`LevelReset::Never`].
+//! Mary-O after Sanic, so every Smash match in the shipped host ran under
+//! Mary-O's rules — in an arena whose own rules want [`LevelReset::Never`].
 //!
-//! **the shape is the scope registry's, one authority over** (see
+//! the shape is the scope registry's, one authority over (see
 //! `experience_scope_ownership.rs`): a claim that is unfalsifiable from inside
 //! one plugin's `build`, checked over the composed host where all of them are
 //! visible at once.
@@ -49,7 +49,7 @@ fn declared(app: &App) -> &DeclaredDeathRules {
         .expect("the shipped host's games declare death rules")
 }
 
-/// **Mary-O's three-second level replay reaches a Smash stage, or it does not.**
+/// Mary-O's three-second level replay reaches a Smash stage, or it does not.
 ///
 /// The two terms are asserted separately and BOTH have to be observed: that she
 /// really declares the long hold (otherwise "smash reads the default" is true
@@ -86,7 +86,7 @@ fn a_smash_stage_does_not_inherit_mary_os_level_replay() {
     );
 }
 
-/// **Every game in the host declares for the rooms it authored, and only those.**
+/// Every game in the host declares for the rooms it authored, and only those.
 ///
 /// The general form: whatever each game states, resolving a mode tag must return
 /// that game's statement, and resolving an unclaimed tag must return the
@@ -119,11 +119,11 @@ fn each_declared_mode_resolves_to_its_own_games_rules() {
     );
 }
 
-/// **the probe for the probe.** The assertions above are worth exactly as much
+/// the probe for the probe. The assertions above are worth exactly as much
 /// as the composition behind them: a host that registered one game — or none —
 /// would satisfy every one of them by having nothing to contest.
 ///
-/// **the floor is not "somebody claims every room"**. It is that the three
+/// the floor is not "somebody claims every room". It is that the three
 /// games that MEASURABLY collided are all present with their own scopes, and
 /// that Ambition's own claim is the untagged rooms rather than the binary. If
 /// `MaryOExperiencePlugin` ever stops being listed in `shell_host.rs`, the test

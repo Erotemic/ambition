@@ -1,20 +1,20 @@
-//! **What the interact button would do right now.**
+//! What the interact button would do right now.
 //!
 //! One question, answered once per tick and read by the HUD and the portal
 //! input adapter: is there something in reach, and what kind of thing is it?
 //! [`NearestInteractable`] carries the answer as an [`InteractVariant`].
 //!
-//! **it was a whole affordance TABLE — *"what would each input do right now?"* for jump, attack,
-//! shield, dash, special and interact — and 1,200 of its 1,725 lines had no reader at all.** Its
+//! it was a whole affordance TABLE — *"what would each input do right now?"* for jump, attack,
+//! shield, dash, special and interact — and 1,200 of its 1,725 lines had no reader at all. Its
 //! own module doc said the HUD read the table and that gameplay would follow; the HUD had since
 //! stopped, and gameplay never started.
 //!
-//! **and it had just been CARVED out of the monolith into this crate**, which
+//! and it had just been CARVED out of the monolith into this crate, which
 //! is how a dead subsystem earns a second life: a move is easy to justify and
 //! says nothing about whether anything wants the thing. Counting consumers is
 //! what "does this belong here" actually means, and it should have come first.
 //!
-//! ⇒ what survives is what somebody calls: the interactable proximity scan and
+//!  what survives is what somebody calls: the interactable proximity scan and
 //! its classification. The rest is deleted rather than relocated again.
 
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;

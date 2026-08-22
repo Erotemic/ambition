@@ -430,15 +430,15 @@ fn an_original_tick_and_its_resimulation_do_not_share_an_explanation() {
     assert_eq!(latest.facts().len(), 1);
 }
 
-/// **Two resimulations of the same tick are two explanations, not one.**
+/// Two resimulations of the same tick are two explanations, not one.
 ///
-/// ⛔ the key was `(generation, execution)`, so every replay of tick 120 inside
+///  the key was `(generation, execution)`, so every replay of tick 120 inside
 /// one session generation collapsed together. Rollback executes a tick more than
 /// once routinely, those attempts can produce DIFFERENT facts, and that
 /// disagreement is exactly when somebody opens an inspector — at which point it
 /// could not say which attempt produced a result
 ///
-/// ⚠ an ORIGINAL execution is always attempt 0. Numbering it by how many
+///  an ORIGINAL execution is always attempt 0. Numbering it by how many
 /// rollbacks happened to precede it would make one unchanged original tick
 /// answer to a different key depending on unrelated history.
 #[test]

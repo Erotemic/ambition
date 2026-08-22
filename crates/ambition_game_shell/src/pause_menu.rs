@@ -6,7 +6,7 @@
 //! offers ONE — opened with Escape / Start, drawn with the same `ambition_menu`
 //! Bevy-UI renderer the launcher uses, and dispatched to the same host-relative
 //! [`ShellCommand`]s (`QuitToHome`, `ExitProcess`) the launcher and F10 already
-//! fire. A live gameplay session additionally contributes **Resume**. Because it
+//! fire. A live gameplay session additionally contributes Resume. Because it
 //! rides [`MinimalShellPlugins`](crate::MinimalShellPlugins), the standalone demo
 //! apps AND the multi-game host get it for free.
 //!
@@ -249,9 +249,9 @@ impl Plugin for ShellPauseMenuPlugin {
     }
 }
 
-/// **Claim input while the pause menu is open.**
+/// Claim input while the pause menu is open.
 ///
-/// ⛔ the gap this closes was visible: with the pause menu open over the
+///  the gap this closes was visible: with the pause menu open over the
 /// character-select screen, the arrows drove BOTH — the menu's cursor and the
 /// CPU count. Neither could consume the other's edge, because they read
 /// different channels (`MenuControlFrame` here, `SeatMenuFrames` there).
@@ -322,7 +322,7 @@ fn drive_shell_pause_menu(
     let in_session = context.in_session();
     let rows = context.rows();
 
-    // **Whose presses is this menu reading?**
+    // Whose presses is this menu reading?
     //
     // Open: the seat that opened it, and only that seat — you pressed the
     // button, so the cursor answers to you. Closed: EVERY seat is a candidate,
@@ -330,7 +330,7 @@ fn drive_shell_pause_menu(
     // Start wins the frame, which makes a simultaneous press deterministic
     // rather than dependent on iteration luck.
     //
-    // ⚠ `seat_frames` is optional and the global frame is the fallback, for the
+    //  `seat_frames` is optional and the global frame is the fallback, for the
     // same reason it is optional everywhere else in this crate: a standalone
     // demo composes the shell without the participant pipeline, and there the
     // one global frame IS the only seat.
@@ -717,9 +717,9 @@ mod tests {
         frames.set(slot, MenuControlFrame::default());
     }
 
-    /// **Player two can pause, and the menu answers to player two.**
+    /// Player two can pause, and the menu answers to player two.
     ///
-    /// ⛔ neither half was true. `drive_shell_pause_menu` read
+    ///  neither half was true. `drive_shell_pause_menu` read
     /// `MenuControlFrame`, which `populate_menu_control_frame_from_actions`
     /// fills from the PRIMARY seat ALONE — so a second player's Start went
     /// nowhere and their D-pad moved nothing. From the couch that reads as a
@@ -870,7 +870,7 @@ mod tests {
         }
     }
 
-    /// **Left / right edit the focused setting**, through the shared IR rather
+    /// Left / right edit the focused setting, through the shared IR rather
     /// than through a shell-local opinion about what a volume step is.
     #[test]
     fn adjusting_a_volume_row_writes_the_persisted_setting() {

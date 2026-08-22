@@ -1,4 +1,4 @@
-//! **Netcode N0.2's exit check**: the input stream is the artifact, and it is
+//! Netcode N0.2's exit check: the input stream is the artifact, and it is
 //! sufficient.
 //!
 //! Record a real session's per-tick input through the engine's own recorder,
@@ -7,10 +7,10 @@
 //!
 //! Every link in that chain is one of the four jobs the stream exists for:
 //!
-//! - the recorder is what an **RL trajectory** captures;
-//! - the JSON round-trip is what a **replay fixture** stores and a **wire
-//!   format** will carry;
-//! - the fresh-sim replay with zero divergence is what a **desync canary**
+//! - the recorder is what an RL trajectory captures;
+//! - the JSON round-trip is what a replay fixture stores and a wire
+//!   format will carry;
+//! - the fresh-sim replay with zero divergence is what a desync canary
 //!   (N0.4) compares against.
 //!
 //! This is a stronger determinism canary than the legacy

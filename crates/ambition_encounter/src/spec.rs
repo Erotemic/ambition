@@ -49,13 +49,13 @@ pub fn authored_encounter_waves(
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EncounterMobSpec {
-    /// `CharacterBrain::Custom(kind)` payload — **what this mob DOES**, i.e.
+    /// `CharacterBrain::Custom(kind)` payload — what this mob DOES, i.e.
     /// which controller its body is driven by.
     ///
     /// This selects the controller only. The body comes from
     /// [`Self::character`].
     pub kind: String,
-    /// **WHICH CHARACTER THIS MOB IS** — a catalog character id, and the thing
+    /// WHICH CHARACTER THIS MOB IS — a catalog character id, and the thing
     /// its body is built from.
     ///
     /// `spawn_encounter_mob` resolves this id against the prepared cast and

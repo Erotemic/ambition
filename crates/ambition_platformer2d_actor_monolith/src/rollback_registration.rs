@@ -13,16 +13,8 @@ pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
 {
-    // **THE INSTRUMENT'S OWN CHANNELS REWIND TOO** — and they were invisible until the whole
-    // workspace was compiled with every feature at once. The union graph (Front 1 of the
-    // test-cost campaign) is what surfaced them, which is the argument for that job in one
-    // example.
-    //
-    // Clearing is the right answer rather than a waiver: a reader's cursor is
-    // `Local` state GGRS never rewinds, so a recorder resuming after a load
-    // would consume rows written in an abandoned future and print them as fact.
-    // An instrument that reports a future that did not happen is worse than one
-    // that reports nothing.
+    // Causal readers keep non-rollback `Local` cursors, so their message
+    // channels must be cleared rather than replay rows from an abandoned future.
     #[cfg(feature = "causal")]
     {
         registrar.clear_message_on_rollback::<crate::causal::BodyMovementOps>(
@@ -46,16 +38,12 @@ where
     );
     registrar.require_rollback::<crate::rooms::RoomSet>(OWNER, "root:room_set");
     registrar.require_rollback::<crate::items::pickup::GroundItem>(OWNER, "entity:ground_item");
-    // **a MOVING world item is the same kind of thing as a ground item, and
-    // was not registered.** `spawn_moving_world_item` uses `spawn_room_scoped`,
-    // and `RoomScopedEntity` is a LIFETIME marker — it says when the entity
-    // dies with its room, and nothing about whether a rewind can reproduce it.
-    // A block bonked on a mispredicted frame therefore left an item standing in
-    // a future that was abandoned.
+    // `RoomScopedEntity` governs lifetime, not rewindability; moving world
+    // items therefore require their own rollback registration.
     registrar.require_rollback::<crate::items::world_item::WorldItem>(OWNER, "entity:world_item");
     registrar
         .require_rollback::<crate::gravity::GravityFlipSwitch>(OWNER, "entity:gravity_flip_switch");
-    // **the heal shrine, for the same reason as the portal gun pickup**
+    // the heal shrine, for the same reason as the portal gun pickup
     // . It carries `SimId`, `SpawnOrigin` and
     // `TransactionId`, had no anchor, and so those registrations were inert on
     // it. Its own component is waived as authored geometry — the heal reads it
@@ -186,10 +174,10 @@ where
         |riding| riding.mount,
     );
     registrar.rollback_map_entities::<crate::features::RidingOn>(OWNER, "map.riding_on");
-    // **An ARMED challenge, counting down to a fight.**
+    // An ARMED challenge, counting down to a fight.
     //
-    // **it was not rollback state, and it is the `SaveRestored` failure
-    // in another domain.** `tick_pending_challenges` REMOVES it in the sim
+    // it was not rollback state, and it is the `SaveRestored` failure
+    // in another domain. `tick_pending_challenges` REMOVES it in the sim
     // schedule; a rewind past that removal restored everything the removal
     // implied and left the removal itself standing, so the fight the narrative
     // armed was quietly disarmed by a rollback. The insert is a simulation
@@ -264,7 +252,7 @@ where
     registrar.rollback_component_clone::<crate::features::PickupArt>(OWNER, "feature.pickup_art");
     registrar
         .rollback_component_clone::<crate::items::pickup::GroundItem>(OWNER, "item.ground_item");
-    // **CUSTODY IS SIMULATION STATE, not a cache.** It decides on every later
+    // CUSTODY IS SIMULATION STATE, not a cache. It decides on every later
     // frame whether the item is drawn, stepped by `ground_item_physics`, and
     // grabbable — so a rewind that restored the wrong value leaves the same axe
     // both in a hand and on the floor, or makes a carried axe fall out of it.
@@ -308,32 +296,14 @@ where
             hasher.finish()
         },
     );
-    // PROBED, not merely cloned. The sentence read as a justification for stopping at position,
-    // which is exactly how a probe ends up narrower than the value it certifies.
-    // (`rollback_exit_oracle` refuses a bare presence probe by name, which is how these three were
-    // caught the hour they were added.) WHO SPAWNED IT — a marker, so presence IS the value. A
-    // rewind that recreates a dropped coin must recreate the fact that the attempt produced it, or
-    // a later reset leaves loot standing that should have gone with the attempt.
-    //
-    // So a rewind across the moment an actor fell asleep restored a body that was already
-    // marked dormant, the transition did not re-fire, the retraction never happened, and the
-    // resimulated timeline drove an actor the original had stopped.
-    //
-    // the general rule this is an instance of: **a derived marker stops being
-    // derived the moment something EDGE-TRIGGERS off it.** "Recomputed every tick"
-    // is only safe while nothing remembers the previous tick's answer.
+    // Presence is authoritative because gameplay edge-triggers on this marker;
+    // rollback must restore whether the actor was dormant, not merely re-derive it.
     registrar.rollback_component_clone::<crate::features::ecs::dormancy::Dormant>(
         OWNER,
         "actor.dormant",
     );
-    // The moment `ambition_content` declared stances for its bosses and cast, seven sweep
-    // populations went red at once and named it.
-    //
-    // it is content's DECLARATION, written once at spawn and never mutated by simulation — so a
-    // waiver could be argued. That is exactly right here — the value IS a radius, and a rewind that
-    // restored the component's presence while losing its distance would put a different world to
-    // sleep. Two guards, one shallower than the other, and the deeper one caught a registration
-    // that looked complete.
+    // The radius is part of authoritative dormancy policy, so probe the value
+    // rather than only the component's presence.
     registrar.rollback_component_clone_probed::<crate::features::ecs::dormancy::DormancyPolicy>(
         OWNER,
         "actor.dormancy_policy",
@@ -388,7 +358,7 @@ where
             hasher.finish()
         },
     );
-    // **AN ENGINE COMPONENT IS REGISTERED ONCE, BY THE ENGINE.** `Empowered`
+    // AN ENGINE COMPONENT IS REGISTERED ONCE, BY THE ENGINE. `Empowered`
     // lives in `features::empowerment`, and Mary-O and Sanic each registered it
     // from their own plugin — which is fine in a composition holding one demo
     // and a PANIC in the app, which holds both: bevy_ggrs refuses a second
@@ -492,7 +462,7 @@ where
     );
     registrar
         .clear_message_on_rollback::<crate::features::BrainCommand>(OWNER, "message.brain_command");
-    // **What a conversation asked the simulation for**, released by the
+    // What a conversation asked the simulation for, released by the
     // narrative ledger at the head of the tick it was stamped for. Cleared on
     // load for the same reason as every other released fact: the resimulated
     // tick is handed it again from the ledger rather than remembering it from

@@ -1,13 +1,13 @@
-//! Meteor — a player-wielded **overhead area-strike**: call down a short volley
+//! Meteor — a player-wielded overhead area-strike: call down a short volley
 //! of falling player-faction projectiles onto a zone ahead of the player. It
 //! fills a real gap in the wielded kit — every other ability strikes *forward*
 //! or *centered* (gun_sword, shockwave, beam, volley, vortex, dive); the meteor
-//! is the only one that hits a **zone from above**, so it answers a different
+//! is the only one that hits a zone from above, so it answers a different
 //! question: not "what's in front of me" but "clear that patch of ground over
 //! there" (chip a cluster, zone a doorway, rain on a grounded mob you don't want
 //! to walk into).
 //!
-//! It is **GNU-ton's** signature gauntlet — the giant whose phase-2 tell is a
+//! It is GNU-ton's signature gauntlet — the giant whose phase-2 tell is a
 //! rain of apples from its descending head. Defeat it, wield its apple-rain
 //! yourself ("every boss a failed objective function, learn its attack").
 //!

@@ -3,7 +3,7 @@
 //! This module owns everything about the falling-sand room that belongs to the
 //! sim tick: the room/switch/spout state, the sand grid CA ([`sand_grid`]),
 //! the FS3 settled-sand ledger, and the persistent collision projection. It is
-//! deliberately **not** behind the `falling_sand` cargo feature and has no
+//! deliberately not behind the `falling_sand` cargo feature and has no
 //! `bevy_falling_sand` dependency, so:
 //!
 //! Registration: [`FallingSandSimPlugin`] is added by `AmbitionContentPlugin` under the
@@ -127,7 +127,7 @@ impl FallingSandSpoutState {
     }
 }
 
-/// One spout mouth: what it emits, where, and how wide. A **table**, because
+/// One spout mouth: what it emits, where, and how wide. A table, because
 /// `falling-sand.md` §1 rules that a spout is an authored PLACEMENT
 /// (`PlacementSchema::Spout { material, rate, direction }`) lowered by content
 /// — not a hardcoded runtime spawn. Until [W-a]/[W-b] land, this is the same
@@ -404,7 +404,7 @@ pub fn emit_sand_into_grid(
     }
 }
 
-/// **One solver step + the FS3 transfer, once per authoritative sim tick.**
+/// One solver step + the FS3 transfer, once per authoritative sim tick.
 pub fn step_sand_grid(state: Res<FallingSandRoomState>, mut sand: ResMut<FallingSandWorld>) {
     if !state.active_room {
         return;

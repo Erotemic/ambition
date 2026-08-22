@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# **WHERE THIS REPO KEEPS ITS GENERATED ASSETS — declared once.**
+# WHERE THIS REPO KEEPS ITS GENERATED ASSETS — declared once.
 #
 # That name is not stable and never was: it has been `ambition_actors`, it is
 # `ambition_platformer2d_actor_monolith`, and it moves again when the monolith is decomposed. Both

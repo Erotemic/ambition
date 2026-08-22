@@ -159,7 +159,7 @@ pub fn emit_movement_fx(
                     kind: ParticleKind::Dust,
                 });
             }
-            // **the spot dodge is quieter and lower.** It covers no ground, so
+            // the spot dodge is quieter and lower. It covers no ground, so
             // the roll's wide kick-up would read as travel that did not happen;
             // a small puff at the feet is the tell that the body stood still and
             // meant to.
@@ -176,7 +176,7 @@ pub fn emit_movement_fx(
             // The aerial evade reads COOLER and thinner than the roll's dust —
             // no ground to kick up, and the colour is the tell a player uses to
             // recognize the maneuver mid-air.
-            // **The floor game's beats.** A knockdown thumps and kicks up dust;
+            // The floor game's beats. A knockdown thumps and kicks up dust;
             // a tech is the crisp recovery that refused it; a getup roll reads
             // like the ground roll it is. `Tumble` and `Getup` are deliberately
             // silent — the first is a state the launch already announced with

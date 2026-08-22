@@ -112,7 +112,7 @@ fn parse_pickup_kind_dispatches_each_prefix() {
 
 #[test]
 fn parse_enemy_brain_dispatches_prefixes_and_falls_back_to_custom() {
-    // ⛔ **`Patrol:` is NOT a brain spelling any more** — the patrol path is a
+    //  `Patrol:` is NOT a brain spelling any more — the patrol path is a
     // native `EnemySpawn.path_ref` EntityRef, and `convert_enemy_spawn` refuses
     // the retired prefix out loud. Nothing here may quietly parse it: a second
     // road that still understands the string is the string surviving.
@@ -175,9 +175,9 @@ fn level_with_collision(w: i32, h: i32, solid: &[(i32, i32)]) -> LdtkLevel {
     serde_json::from_value(json).expect("the probe level parses")
 }
 
-/// **THE REACHABILITY RULE ASKS ABOUT A STEP, NOT ABOUT SOLIDITY.**
+/// THE REACHABILITY RULE ASKS ABOUT A STEP, NOT ABOUT SOLIDITY.
 ///
-/// ⛔⛔ two proxies preceded it. The first scanned entities named `Solid` while
+///  two proxies preceded it. The first scanned entities named `Solid` while
 /// these levels paint their floors into the Collision IntGrid, so it read an
 /// empty set on every world. The second counted solid CELLS inside the zone and
 /// flagged five of twenty-four exits — three of them correct authoring.
@@ -209,8 +209,8 @@ fn an_exit_whose_ground_is_higher_than_the_approach_reports_the_step() {
     assert_eq!(edge_exit_step_up_px(&level, (96, 64, 32, 64)), 16);
 }
 
-/// **⛔ AND A ZONE STANDING ON THE ROOM'S OWN FLOOR REPORTS NOTHING — which is
-/// the half the previous rule got WRONG.**
+///  AND A ZONE STANDING ON THE ROOM'S OWN FLOOR REPORTS NOTHING — which is
+/// the half the previous rule got WRONG.
 ///
 /// `scroll_lab`, `square_arena` and `tiny_chamber` all have solid cells in their
 /// zone's bottom row, and all three are fine: that row is the floor, running
@@ -240,7 +240,7 @@ fn a_zone_standing_on_the_rooms_own_floor_is_not_a_step() {
     assert_eq!(edge_exit_step_up_px(&empty, (0, 0, 128, 128)), 0);
 }
 
-/// **⚠ THE APPROACH COLUMN IS ON THE ROOM'S SIDE, NOT ALWAYS THE LEFT.**
+///  THE APPROACH COLUMN IS ON THE ROOM'S SIDE, NOT ALWAYS THE LEFT.
 ///
 /// An `EdgeExit` touches a level edge, so the room is on whichever side is not the edge.
 #[test]

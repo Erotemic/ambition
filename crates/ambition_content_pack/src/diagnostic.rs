@@ -81,7 +81,7 @@ impl fmt::Display for CompileStage {
 
 /// What went wrong, as a code a tool can branch on.
 ///
-/// **`UnknownField` is an ERROR, not a warning.** Silently ignoring an
+/// `UnknownField` is an ERROR, not a warning. Silently ignoring an
 /// unconsumed authored field is how a typo becomes a mechanic that never fires,
 /// which is the single most expensive class of content bug: everything looks
 /// authored and nothing happens.
@@ -162,7 +162,7 @@ pub struct Diagnostic {
     /// The authored field, when the finding is about one.
     pub field: Option<String>,
     pub message: String,
-    /// Concrete next actions. **Every fix the compiler can see goes here**, not
+    /// Concrete next actions. Every fix the compiler can see goes here, not
     /// just the first — a refusal that names one of three fixes is a funnel a
     /// consumer walks one rebuild at a time.
     pub fixes: Vec<String>,
@@ -256,7 +256,7 @@ impl CompileFailure {
         codes
     }
 
-    /// The checks that did not run. **Say this out loud.** A consumer who fixes
+    /// The checks that did not run. Say this out loud. A consumer who fixes
     /// everything listed and hits a second wall on the next run was not told
     /// the first list was partial.
     pub fn stopped_before(&self) -> Vec<CompileStage> {

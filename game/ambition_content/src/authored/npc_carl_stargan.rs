@@ -1,4 +1,4 @@
-//! **CARL STARGAN.**
+//! CARL STARGAN.
 //!
 //! > *"There is no separate 'can fight' character property. A character can
 //! > fight exactly to the extent that its body has abilities/capabilities that
@@ -10,7 +10,7 @@
 //! ability simply has nothing useful to execute when asked to attack, and no
 //! `can_fight` / `combatant` / peaceful-vs-fighter taxonomy is needed to say so.
 //!
-//! **The two content facts he owns**, both verbatim from that handoff:
+//! The two content facts he owns, both verbatim from that handoff:
 //!
 //! - *"Carl does not have the fly ability."* and not by omission — by an
 //!   authored locomotion that says he walks. *"Do not infer flight from his art,
@@ -19,7 +19,7 @@
 //!   not something granted by being controlled or by entering a particular
 //!   mode."*
 //!
-//! **friendly is CONTEXT, and it stays out of this file.** *"Do not make him
+//! friendly is CONTEXT, and it stays out of this file. *"Do not make him
 //! permanently peaceful/passive merely because he may normally appear as a
 //! friendly NPC. His placement/disposition can be friendly while his body still
 //! possesses combat capabilities and his autonomous policy can defend allies."*
@@ -38,7 +38,7 @@ use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition
 /// what makes this character buildable — there is no second list to remember.
 pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDefinition {
     let mut definition = definition
-        // **HE WALKS.** Authored rather than defaulted, because the question
+        // HE WALKS. Authored rather than defaulted, because the question
         // this file closes was whether he flies, and a default is not an answer
         // to a question somebody asked.
         .with_locomotion(CharacterLocomotion {

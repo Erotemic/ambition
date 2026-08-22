@@ -43,14 +43,14 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 def load_spec_file(path: Path) -> dict:
     """Read an area spec, whatever it is written in.
 
-    ⛔⛔ **THIS ONLY READ YAML, AND EVERY AREA SPEC IS RON — so the CI-friendly
-    drift check compared NOTHING.** `--all` globbed `*.yaml`, found 22 files,
+     THIS ONLY READ YAML, AND EVERY AREA SPEC IS RON — so the CI-friendly
+    drift check compared NOTHING. `--all` globbed `*.yaml`, found 22 files,
     and skipped every one of them as *"not an area spec"*: 0 of 22 declare a
-    `world_x`, while **53 of 59 `.ron` specs do**. Handing it a `.ron`
+    `world_x`, while 53 of 59 `.ron` specs do. Handing it a `.ron`
     explicitly did not report that either — it crashed inside the YAML scanner
     on the RON comment syntax.
 
-    ⇒ a check that reports success because it found nothing to check is worse
+     a check that reports success because it found nothing to check is worse
     than a missing one; this is the whole reason the command exists.
     """
 

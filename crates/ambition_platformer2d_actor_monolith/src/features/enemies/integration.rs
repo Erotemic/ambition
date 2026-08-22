@@ -61,17 +61,12 @@ fn evaluate_enemy_ai_output(
     pos: ae::Vec2,
     target_pos: ae::Vec2,
     brain: &ambition_entity_catalog::placements::CharacterBrain,
-    // **`tuning: &ActorTuning` STOOD HERE AND IS GONE** (AC6.2). By the end it
-    // was read for exactly one field, `is_sandbag` — a second copy of the
-    // character's `practice_target` — so a whole resolved-body-scalars bag was
-    // threaded into a function that wanted one bool. Every other number this
-    // decision needs is the PROFILE's, which is the split P2.19 was for.
+    // Decision tuning comes from the brain profile; practice-target state is
+    // passed separately from the body's combat authority.
     profile: &crate::features::ecs::actor_tuning::BrainProfile,
     attack: &crate::features::BodyMelee,
     alive: bool,
-    // **Is this body a practice target** — read from the body's own
-    // `BodyCombat`, which is the one thing that carries it (AC6.2). It was
-    // `tuning.is_sandbag`, a second copy of the same authored fact.
+    // Read from the body's `BodyCombat` authority.
     practice_target: bool,
 ) -> ambition_characters::actor::ai::CharacterAiOutput {
     let recover_remaining =
@@ -80,43 +75,10 @@ fn evaluate_enemy_ai_output(
         } else {
             0.0
         };
-    // **A `Passive => 0.0` ARM STOOD HERE, AND IT WAS A SECOND ANSWER TO A
-    // QUESTION THE PROFILE ALREADY OWNS**.
-    //
-    // How far a body notices from is `BrainProfile::aggro_radius`. The arm made
-    // the integrator-facing `CharacterBrain` read-model a co-authority over the
-    // same fact — and that read-model is a SILHOUETTE, written as `Passive` for
-    // anything that is not a patrol brain, including a boss whose real mind is a
-    // `BossPattern`. Two authorities over one number is what this campaign
-    // exists to end.
-    //
-    // **inert by measurement, not by argument**: every production site that
-    // writes `Passive` writes `BrainProfile::default()` beside it, and that
-    // default's `aggro_radius` is `0.0` — the peaceful NPC seed
-    // (`actor_clusters`), the boss config (`spawn_actors`) and the reconcile
-    // projection all do. So the arm was restating what the profile already said.
-    //
-    // **AND THIS WHOLE FUNCTION IS A READ-MODEL, which is worth stating because the first
-    // version of this note got the consequence wrong.** Its output goes to
-    // `ActorStatus::ai_mode` and nowhere else, and `ai_mode` now has exactly ONE reader left:
-    // the rollback snapshot. Its danger predicate went with it, never having had a gameplay
-    // caller. What a body actually chases is decided by its BRAIN from the same `BrainProfile`,
-    // not here.
-    //
-    // ⇒ **so `ai_mode` itself is now a candidate for the same treatment**: a
-    // field computed every frame and snapshotted for rollback, with no consumer
-    // that reads it back. Left standing because it is `ActorStatus`'s to remove
-    // and this campaign takes that up at AC3/AC6, not because it is justified.
-    //
-    // ⇒ so the arm did not make a provoked body fail to notice anybody; it made the HUD say
-    // `Idle` about a body its brain was chasing with.
-    //
-    // **and that is the good news for P2.20**: the read-model provocation
-    // writes (`CharacterBrain::Custom("combatant")`) is not load-bearing for
-    // gameplay either, so replacing it costs no creature its behaviour.
-    //
-    // `Guard` stays, and is not the same shape: `leash_radius` is a PLACEMENT
-    // fact — this guard, at this post — not a property of the policy driving it.
+    // `BrainProfile` owns aggro radius. Guard leash is a placement-specific
+    // override rather than another copy of profile policy.
+    // TODO(compat-remove): remove the `ActorStatus::ai_mode` projection once its
+    // rollback-only read-model field is retired.
     let effective_aggro_radius = match brain {
         ambition_entity_catalog::placements::CharacterBrain::Guard { leash_radius } => {
             *leash_radius
@@ -134,7 +96,7 @@ fn evaluate_enemy_ai_output(
             attack_recover_remaining: recover_remaining,
             stun_remaining: 0.0,
             alive,
-            // **Does this driver wander when it has nothing to chase?** The
+            // Does this driver wander when it has nothing to chase? The
             // field's own doc names the fact — "has a path or a NON-ZERO PATROL
             // SPEED" — and `BrainProfile::patrol_effort` is that speed, as a
             // fraction of the body's top speed (§4.7).
@@ -143,7 +105,7 @@ fn evaluate_enemy_ai_output(
             // integrator read-model said `Passive`, which is every peaceful NPC in the Hall — they
             // wander, and the HUD said they were standing still.
             //
-            // **safe to change because the mode is a READ-MODEL** (see the
+            // safe to change because the mode is a READ-MODEL (see the
             // block above): no gameplay branches on it, so this corrects what the
             // presentation layer reports rather than what any creature does.
             // The practice-target term stays and is not the same shape — a
@@ -175,7 +137,7 @@ impl<'a> ActorMut<'a> {
         // Post-hit stagger (§A2 step 7): the body's own `BodyCombat`, applied to
         // the FINAL InputState by the SAME gate the player's input bridge uses.
         feel: ambition_combat::feel::Platformer2dFeelTuningMonolith,
-        // **The body's OWN feel, when its character authored one.**
+        // The body's OWN feel, when its character authored one.
         //
         // without this the line below overwrote the axis params from the
         // SHARED dev tuning every tick, so a seated fighter's authored feel was
@@ -268,16 +230,16 @@ impl<'a> ActorMut<'a> {
         (frame, move_events)
     }
 
-    /// Integration through the **shared movement kernel**
+    /// Integration through the shared movement kernel
     /// (`ae::step_motion`) — the unification's core seam, for EVERY actor body.
     /// The actor's `kin` supplies the kinematics; its persistent [`ActorBody`]
     /// supplies the ancillary movement clusters. The brain's `ActorControlFrame`
     /// becomes the body's typed `InputState`, so an actor runs / jumps /
-    /// coyote-grace-jumps / dashes / **flies** / crawls and collides through the
+    /// coyote-grace-jumps / dashes / flies / crawls and collides through the
     /// EXACT code the human player uses — no parallel enemy integrator.
     ///
-    /// **Grounded** bodies map `locomotion → run` + `jump_pressed → buffered jump`.
-    /// **Flying** bodies (`flight.fly_enabled`) are steered by the brain's exact
+    /// Grounded bodies map `locomotion → run` + `jump_pressed → buffered jump`.
+    /// Flying bodies (`flight.fly_enabled`) are steered by the brain's exact
     /// `velocity_target` (the free-mover command): it is projected into the body
     /// frame and normalised by the flight terminal so the shared flight limb steers
     /// toward it at the body's own flight speed — the `velocity_target`→intent
@@ -296,7 +258,7 @@ impl<'a> ActorMut<'a> {
         dt: f32,
         motion_frame: ae::MotionFrame,
         feel: ambition_combat::feel::Platformer2dFeelTuningMonolith,
-        // **The body's OWN feel, when its character authored one.**
+        // The body's OWN feel, when its character authored one.
         //
         // without this the line below overwrote the axis params from the
         // SHARED dev tuning every tick, so a seated fighter's authored feel was
@@ -365,7 +327,7 @@ impl<'a> ActorMut<'a> {
             &mut clusters,
             combat,
             resolved_tuning,
-            // **never, and this is a fact rather than an exemption**:
+            // never, and this is a fact rather than an exemption:
             // `open_death_interlude` queries `With<PlayerEntity>`, so `OutOfPlay`
             // is only ever granted to a participant's body. An enemy dies by
             // despawning or by its own encounter rules, not by this window.
@@ -419,7 +381,7 @@ impl<'a> ActorMut<'a> {
         ae::Aabb::new(self.kin.pos, size * 0.5)
     }
 
-    // **`rotation_rad()` WAS HERE and nothing ever asked for it**
+    // `rotation_rad()` WAS HERE and nothing ever asked for it
     // . A body's presented
     // rotation is derived by the RENDER family from the same surface normal;
     // this was a second way to compute it, on the sim read-model, with no
@@ -434,7 +396,7 @@ impl<'a> ActorMut<'a> {
         self.attack_aabb_dir(ae::Vec2::new(self.kin.facing, 0.0))
     }
 
-    // **`attack_telegraph_aabb()` WAS HERE, AND IT WAS WORSE THAN DEAD.** It
+    // `attack_telegraph_aabb()` WAS HERE, AND IT WAS WORSE THAN DEAD. It
     // returned `self.attack_aabb()` verbatim — a differently-NAMED accessor for
     // the identical box. A reader reaching for a "telegraph" box is looking for
     // the windup's warning volume, which is normally LARGER and earlier than the
@@ -503,8 +465,8 @@ impl<'a> ActorMut<'a> {
 
     /// Restore this actor to its authored spawn state.
     ///
-    /// **Liveness is decided by the actor's own [`RespawnPolicy`], not by the
-    /// reset.** A room reset is a room-scoped return, so it revives a dead actor
+    /// Liveness is decided by the actor's own [`RespawnPolicy`], not by the
+    /// reset. A room reset is a room-scoped return, so it revives a dead actor
     /// only when its policy says a room-scoped return is what it does
     /// (`OnRoomReenter`, or `InPlace` which revives on its own timer anyway).
     /// A `DeadStaysDead` / `OnRest` corpse stays dead and only has its spatial
@@ -549,7 +511,7 @@ impl<'a> ActorMut<'a> {
         // Skipped entirely for a corpse whose policy forbids a room-scoped
         // return, so it is never briefly alive (see the doc comment).
         if !stays_dead {
-            // **ITS OWN POOL, UNDER ITS OWN POLICY** (AC6.2). This read
+            // ITS OWN POOL, UNDER ITS OWN POLICY (AC6.2). This read
             // `tuning.max_health` and dropped the result into a plain
             // `BodyHealth::new`, which also resets the DEATH POLICY to the
             // default — so a body playing under `Unbounded` came back under
@@ -659,7 +621,7 @@ mod aggro_authority_tests {
         .mode
     }
 
-    /// **HOW FAR A BODY NOTICES FROM IS ITS PROFILE'S, AND ONLY ITS PROFILE'S.**
+    /// HOW FAR A BODY NOTICES FROM IS ITS PROFILE'S, AND ONLY ITS PROFILE'S.
     ///
     /// the first two rows are the deleted `Passive => 0.0` arm's whole
     /// subject: a body whose read-model says `Passive` now notices exactly what
@@ -674,7 +636,7 @@ mod aggro_authority_tests {
     /// was standing in for "this body is hostile now".
     #[test]
     fn the_notice_radius_comes_from_the_policy_not_from_the_read_model() {
-        // **`!= Chase`, not a named idle mode.** What the body does INSTEAD of
+        // `!= Chase`, not a named idle mode. What the body does INSTEAD of
         // chasing is `patrol_enabled`'s answer, and that flag is still read off
         // the read-model — a second co-authority, and the next step of this row.
         // Asserting `Patrol` here would quietly pin the coupling this test is

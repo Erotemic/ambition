@@ -8,7 +8,7 @@ pub mod dispatch;
 pub mod effects;
 #[cfg(feature = "bevy_ui_menu")]
 pub mod grid_backend;
-// **Always compiled, despite the name.** (repair_wasm §1)
+// Always compiled, despite the name. (repair_wasm §1)
 //
 // Everything else is the backend-neutral menu host — the cursor, the system-menu navigation,
 // item actions, page building — which `dispatch.rs` and the bevy_ui `grid_backend.rs` import

@@ -40,7 +40,7 @@ fn seismic_offsets(per_side: i32, spacing: f32) -> Vec<f32> {
 
 /// Pure world-space arena geometry for the seismic stomp.
 ///
-/// This is intentionally **not** a support-relative / acceleration-frame
+/// This is intentionally not a support-relative / acceleration-frame
 /// mechanic. The T-Rex stomp is authored as a boss-room hazard that runs along
 /// the arena's world floor line, so the geometry names that frame explicitly
 /// instead of smuggling a gameplay "floor" label into block content.

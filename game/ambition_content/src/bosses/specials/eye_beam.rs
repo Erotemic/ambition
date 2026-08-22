@@ -40,7 +40,7 @@ const LIFETIME_S: f32 = 0.58;
 /// During the `Special("eye_beam")` telegraph the boss locks the currently
 /// tracked player position. On the first strike tick it emits a short line of
 /// fast bubble-laser projectile boxes from the eye toward that locked point.
-/// This deliberately does **not** reuse overfit-volley's sample barrage,
+/// This deliberately does not reuse overfit-volley's sample barrage,
 /// because the cut-rope boss needs one readable beam rather than a cloud of
 /// slow memorized shots. Params are content-owned consts (above).
 pub fn spawn_eye_beam_from_special_messages(

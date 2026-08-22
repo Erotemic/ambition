@@ -1,18 +1,5 @@
-//! **One authored placement, one actor, wearing its own mechanics.**
-//!
-//! - the engine's `authored_actor_requests()`, which builds one row for every
-//!   `room.enemy_spawns` entry, unconditionally;
-//! - two `RoomContentStagingRegistry` closures in the Mary-O crate, which walked
-//!   the same entries and minted a second actor under a prefixed id.
-//!
-//! **the duplicate-id check could not see it**, because the whole point of the
-//! prefix was that the two paths called the same authored thing different names:
-//! `EnemySpawn-106877` and `mary_o_snake_EnemySpawn-106877`.
-//!
-//! **and only the prefixed half was tagged.** `is_snake_id` matched an id
-//! PREFIX, so the engine-built copy was a custom-brain enemy with no
-//! `SnakeShell`, no `AiSlop`, no stomp and no dormancy — half of 1-1's enemies
-//! were un-stompable lookalikes standing in the same places as the real ones.
+//! Each authored Mary-O enemy placement must build exactly one actor and receive
+//! the mechanics implied by its authored brain archetype.
 
 use bevy::prelude::*;
 
@@ -44,7 +31,7 @@ fn mary_o_enemies(app: &mut App) -> Vec<(String, bool)> {
         .collect()
 }
 
-/// **The count matches the file.**
+/// The count matches the file.
 ///
 /// Compare against authored placements rather than a literal count so level edits remain valid.
 #[test]
@@ -82,7 +69,7 @@ fn each_authored_enemy_placement_builds_exactly_one_actor() {
     );
 }
 
-/// **Every one of them wears its Mary-O mechanics.**
+/// Every one of them wears its Mary-O mechanics.
 ///
 /// This is the half that actually bit: the count being right is worth nothing if
 /// the surviving actors are the untagged copies. `SnakeShell` and `AiSlop` are
@@ -115,12 +102,12 @@ fn no_enemy_is_left_without_the_mechanics_its_brain_promises() {
     );
 }
 
-/// **An AI Slop learns it may sleep, and nobody else does.**
+/// An AI Slop learns it may sleep, and nobody else does.
 ///
 /// This one asserts it for every slop the real construction path builds from the real authored
 /// level.
 ///
-/// **the negative half is the point.** Dormancy is a per-character decision,
+/// the negative half is the point. Dormancy is a per-character decision,
 /// so handing it to everything in the room would be the same mistake as the
 /// engine assuming a distance.
 #[test]

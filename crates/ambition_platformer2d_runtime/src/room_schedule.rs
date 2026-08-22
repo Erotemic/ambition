@@ -1,12 +1,5 @@
-//! The engine half of the room-transition phase (E5 step 5): detection emits
-//! `RoomTransitionRequested`; the feature-side `reset_ecs_room_features`
-//! system tears down per-room ECS state.
-//!
-//! The PREPARE + COMMIT steps — consuming the request, proving target
-//! readiness, loading room geometry, and spawning presentation — live in
-//! [`RoomTransitionSet::Apply`], the phase between detection and reset. The
-//! engine fills it today (`crate::room_transition`); a game replacing the
-//! transition policy replaces what is in that set.
+//! Room-transition schedule anchors. Detection emits the request, apply prepares
+//! and commits it, and reset tears down per-room ECS state afterward.
 
 use bevy::prelude::*;
 
@@ -31,10 +24,8 @@ impl Plugin for RoomTransitionSchedulePlugin {
                 ambition_platformer2d_actor_monolith::features::reset_ecs_room_features.in_set(RoomTransitionSet::Reset),
             ),
         );
-        // Anchor the content room-reset slot AFTER the engine's feature reset.
-        // Content plugins register their reset systems in the slot; generic
-        // plugins (gravity, portal RoomReset) order after the SET — nobody
-        // names a content system (E5-finish de-weave).
+        // Content-specific room resets run after the engine feature reset;
+        // generic plugins order against this set rather than naming content systems.
         app.configure_sets(
             sim,
             ambition_platformer2d_actor_monolith::session::reset::ContentRoomResetSet

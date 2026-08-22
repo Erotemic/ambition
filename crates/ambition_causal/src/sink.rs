@@ -81,7 +81,7 @@ pub fn recording() -> bool {
 
 /// Publish a fact.
 ///
-/// Returns nothing, on purpose: **there is no read path**, so a simulation
+/// Returns nothing, on purpose: there is no read path, so a simulation
 /// cannot branch on what it published and the log can never become authority.
 pub fn record(fact: CausalFact) {
     let recorded = SINK.with(|sink| match sink.borrow_mut().as_mut() {

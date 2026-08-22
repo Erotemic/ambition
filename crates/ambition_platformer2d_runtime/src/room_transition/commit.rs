@@ -112,7 +112,7 @@ fn ground_gap_below_feet(
     }
 }
 
-/// **THE room-transition application, and there is only one.**
+/// THE room-transition application, and there is only one.
 ///
 /// Applying a prepared transition is *"put this RECORDED subject in this
 /// PREPARED room"* — one operation, whatever host asks for it. Two hosts ask:
@@ -124,7 +124,7 @@ fn ground_gap_below_feet(
 /// The same copy never recorded the Class-B transit either. Nobody wrote those omissions; they are
 /// simply what a second implementation becomes.
 ///
-/// **`Query`, not `Single`, for the session world.** `SystemState::get_mut`
+/// `Query`, not `Single`, for the session world. `SystemState::get_mut`
 /// PANICS when a `Single` matches nothing, and the confirmed host reaches this
 /// through a `SystemState` on `&mut World` — a missing session root there must
 /// be a refusal it can report, not a crash inside an exclusive system.
@@ -146,7 +146,7 @@ pub struct RoomTransitionApplication<'w, 's> {
     moving_platforms: ResMut<'w, ambition_platformer2d_world::collision::MovingPlatformSet>,
     dialogue: ResMut<'w, ambition_dialog::DialogState>,
     conversation: ResMut<'w, ambition_conversation::ActiveConversation>,
-    // **RESIDENTS, not merely room-scoped.** An object a body is carrying is
+    // RESIDENTS, not merely room-scoped. An object a body is carrying is
     // scoped to a room and resident in none — it crosses with whoever holds it —
     // so it is not part of what the room being left retires. The distinction is
     // spelled once, on `RoomResident`; this operation still knows nothing about
@@ -225,7 +225,7 @@ impl RoomTransitionApplication<'_, '_> {
     /// Apply a prepared transition to a resolved subject.
     ///
     /// The order is load-bearing and is the same order both hosts always needed:
-    /// **resolve and preflight everything that can fail, then mutate.** Past the
+    /// resolve and preflight everything that can fail, then mutate. Past the
     /// preflight block nothing here returns `Err`, so the source room is never
     /// retired for a crossing that then cannot complete.
     pub fn apply(
@@ -263,13 +263,13 @@ impl RoomTransitionApplication<'_, '_> {
             .unwrap_or(ae::Vec2::new(0.0, 1.0));
         let tuning = self.tuning.0;
         let feel = *self.feel;
-        // **THE BODY GOING THROUGH THE DOOR IS NOT RETIRED WITH THE ROOM IT IS
-        // LEAVING.** Stated about the SUBJECT, which is the only thing that
+        // THE BODY GOING THROUGH THE DOOR IS NOT RETIRED WITH THE ROOM IT IS
+        // LEAVING. Stated about the SUBJECT, which is the only thing that
         // matters here, rather than about what kind of body it is.
         //
         // The proxy bought nothing and could only ever lose: when it answered correctly the
         // exemption was a no-op, and the one way it could answer WRONG is by calling a room-scoped
-        // body a home body, which despawns the thing mid-transition. ⇒ an unconditional exemption
+        // body a home body, which despawns the thing mid-transition.  an unconditional exemption
         // is strictly safer, because `retire_outgoing` skips an entity that is not in its roster
         // and exempting an absent entity is already a no-op.
         //
@@ -302,7 +302,7 @@ impl RoomTransitionApplication<'_, '_> {
         };
         let mut clusters = cluster_item.as_clusters_mut();
 
-        // **The door makes a sound**, at the body's position BEFORE the transit.
+        // The door makes a sound, at the body's position BEFORE the transit.
         if let Some(cue) = zone_sfx {
             self.effects.sfx.write(SfxMessage::Play {
                 id: ambition_sfx::SfxId::new(cue),
@@ -383,7 +383,7 @@ impl RoomTransitionApplication<'_, '_> {
             safety.last_safe_pos = arrival_pos;
         }
         self.dialogue.close();
-        // **the AUTHORITY too, and it is not the same close.** `DialogState` going quiet only
+        // the AUTHORITY too, and it is not the same close. `DialogState` going quiet only
         // takes the text box away; the simulation's conversation names two BODIES, and this
         // transition just despawned the room they were standing in.
         self.conversation.close();
@@ -571,7 +571,7 @@ pub fn commit_ready_room_transition_system(
         MessageWriter<ambition_load::LoadEvent>,
         ResMut<bevy::prelude::NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
         Option<Res<bevy::prelude::Time<bevy::prelude::Real>>>,
-        // **Whose commit this is.** The STABLE simulation host, not the
+        // Whose commit this is. The STABLE simulation host, not the
         // optional boundary of its current session. A rollback session teardown
         // removes `ConfirmedFrameBoundary` but does not turn the app into an
         // eager host. Rollback-host room changes must always go through
@@ -597,7 +597,7 @@ pub fn commit_ready_room_transition_system(
         simulation_host,
         mut pending_lifecycle,
     ) = load_resources;
-    // **the EAGER commit, and only the eager one.** A rollback host reaches an
+    // the EAGER commit, and only the eager one. A rollback host reaches an
     // identical room change through `commit_confirmed_lifecycle`, which runs
     // outside the rewound schedule and rebases the session afterwards. Both read
     // the same authorized transaction; they differ in what they must do to be
@@ -731,7 +731,7 @@ pub fn commit_ready_room_transition_system(
 
     // Moving the intent out first would partially move the value those arms still need to describe.
     let intent = active.intent.clone();
-    // **The body that CROSSED is the body that ARRIVES** — resolved from the
+    // The body that CROSSED is the body that ARRIVES — resolved from the
     // `SimId` the DETECTION recorded, never re-derived here.
     //
     // this asked `ControlledSubject`, falling back to the primary player, under a comment claiming
@@ -742,7 +742,7 @@ pub fn commit_ready_room_transition_system(
     // A subject that no longer resolves is a VOID crossing: the crossing body is
     // gone, so the transition FAILS rather than substituting whoever is driving
     // now. Same rule, same words, as `commit_transition`'s confirmed side.
-    // **The body that CROSSED is the body that ARRIVES** — resolved from the
+    // The body that CROSSED is the body that ARRIVES — resolved from the
     // `SimId` the DETECTION recorded, never re-derived here.
     //
     // this asked `ControlledSubject`, falling back to the primary player, under a comment claiming
@@ -860,22 +860,8 @@ pub fn commit_ready_room_transition_system(
     }
 }
 
-/// One-line diagnostic emitted on every room transition. Goal: when
-/// "player fell through the floor in <room>" reports come in we have
-/// the signals on disk / in the browser console to tell apart the
-/// usual suspects:
-///
-/// - `world_blocks` == 0 → `to_room_set()` didn't populate this room's
-///   `world.blocks` (LDtk load / merge issue).
-/// - `overlay_blocks` == 0 in a room whose floor is breakable / actor
-///   / boss → ECS feature spawn raced the post-transition sim tick.
-/// - `gap_below_feet` large or `none` → `validated_spawn` placed the
-///   player above the floor (`world.0`-only collision check missed the
-///   overlay floor) and gravity is about to pull them through.
-///
-/// Cheap: runs once per committed room transition, iterates blocks once
-/// to find the highest top-below-feet, no per-frame cost. Filter the
-/// browser console / log file with target `ambition_platformer2d::room_transition`.
+/// Emit one landing diagnostic for each committed room transition, including
+/// world/overlay collision coverage and the support gap below the arriving body.
 fn log_room_transition_landing(
     target_room: usize,
     room_set: &rooms::RoomSet,

@@ -53,7 +53,7 @@ pub struct RelativisticTargetObservation2d {
 pub struct ObserverTargetingView2d {
     pub model_id: Option<&'static str>,
     pub coordinate_time: f64,
-    /// ⚠ an `Option` even though a published row always has one: this is also
+    ///  an `Option` even though a published row always has one: this is also
     /// the shape a consumer reads through [`RelativisticTargetingView2d`]'s
     /// `Deref`, where "there is no observer at all" must still have an answer.
     pub observer_entity: Option<Entity>,
@@ -123,9 +123,9 @@ impl RelativisticTargetingView2d {
     }
 }
 
-/// **Field access reads the FIRST observer's aim.**
+/// Field access reads the FIRST observer's aim.
 ///
-/// ⚠ this is what keeps the one-observer world byte-identical to the version of
+///  this is what keeps the one-observer world byte-identical to the version of
 /// this module that had exactly one set: `view.targets` and `view.observer_position`
 /// mean today what they meant then. With two observers they read the first
 /// one's — but a consumer that reaches through this with two observers on the
@@ -186,7 +186,7 @@ fn publish_targeting_view(
     let mut rows: Vec<_> = targets.iter().collect();
     rows.sort_by(|(_, lhs, _), (_, rhs, _)| lhs.0.cmp(&rhs.0));
 
-    // ⚠ **the SAME ordering rule the optical view publishes under** — authored
+    //  the SAME ordering rule the optical view publishes under — authored
     // label, entity bits only to break a duplicate-label tie — so the two
     // resources iterate in the same order and a per-pane consumer can pair them
     // without a second sort that could disagree.
@@ -224,7 +224,7 @@ fn solve_for_observer(
         seconds: coordinate_time,
         ..Default::default()
     };
-    // ⭐ **name whose sky this joins.** The optical view holds one image per
+    //  name whose sky this joins. The optical view holds one image per
     // observer; joining "the" sources would pair this observer's intercept
     // solutions with a different observer's light-delayed images.
     let optical_sources = optical
@@ -329,7 +329,7 @@ mod tests {
 
     use super::*;
 
-    /// **The smallest world that can tell a per-observer aim from a shared one.**
+    /// The smallest world that can tell a per-observer aim from a shared one.
     ///
     /// One target standing still at x=100, an invariant speed of 10, and two
     /// observers on OPPOSITE sides of it. A null intercept is solved from the
@@ -448,7 +448,7 @@ mod tests {
         );
     }
 
-    /// ⚠ the falsifier for the sort: the SAME world spawned in the OPPOSITE
+    ///  the falsifier for the sort: the SAME world spawned in the OPPOSITE
     /// order must publish the same rows in the same order, and in the SAME order
     /// the optical view publishes — a per-pane consumer pairs the two.
     #[test]

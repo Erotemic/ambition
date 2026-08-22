@@ -1,43 +1,9 @@
-//! Every participant's [`InputMap`] shipped with no associated gamepad, which
-//! in leafwing means "whichever pad this finds first":
+//! Local gamepad ownership for participant seats.
 //!
-//! ```ignore
-//! let gamepad = self.associated_gamepad.unwrap_or(find_gamepad(gamepads));
-//! // find_gamepad: gamepads.iter().next().unwrap_or(Entity::PLACEHOLDER)
-//! ```
-//!
-//! `Query::iter().next()` is not a promise about which controller a person is holding. With one
-//! pad connected it is harmless and has been correct for the whole life of the project.
-//!
-//! ## The rule
-//!
-//! One seat: no association at all. That is deliberately today's behaviour,
-//! byte for byte — a single player with a spare controller plugged in must not
-//! discover that only one of their two pads works because a rule they never
-//! asked for partitioned them. Solo play does not need device ownership and
-//! should not pay for it.
-//!
-//! Two or more seats: partition. Seat `n` owns the `n`-th connected pad, in a
-//! deterministic order, and a seat with no pad left over gets its association
-//! CLEARED rather than left stale — an association pointing at an unplugged
-//! controller is a seat that has silently stopped responding.
-//!
-//! ## Connection order is REMEMBERED, not derived
-//!
-//! The obvious key is the gamepad entity's index — Bevy spawns the entity on connection, so it
-//! looks like it ascends with connection order. It does not: entity indices are RECYCLED, so a
-//! controller plugged in second can be handed the index a despawned entity gave back, and sort
-//! to the front.
-//!
-//! So arrival order is recorded when it happens, in [`LocalDeviceOrder`], and
-//! survives whatever the allocator does with indices afterwards. Player one
-//! keeps the controller in their hands when player two joins, which is the whole
-//! reason the order matters.
-//!
-//! (Within a single frame, several pads can appear at once — a fresh launch sees
-//! every already-connected controller on the same tick. Those are ordered by
-//! index, which is arbitrary but DETERMINISTIC, and no human distinction exists
-//! to respect anyway.)
+//! A single seat remains unassociated so any connected pad can drive it. With
+//! multiple seats, seat `n` owns the `n`-th controller in remembered connection
+//! order; unmatched seats clear stale associations. [`LocalDeviceOrder`] records
+//! arrival order because Bevy entity indices may be recycled.
 
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::InputMap;
@@ -144,7 +110,7 @@ impl LocalSeatTopology {
         self.declared.as_ref().map(|plan| plan.channels())
     }
 
-    /// **The controller a CHANNEL drives**, if that channel drives one.
+    /// The controller a CHANNEL drives, if that channel drives one.
     ///
     /// `None` is a channel with no pad: one playing on the KEYBOARD, or one
     /// whose controller is unplugged. Neither is an error.
@@ -158,7 +124,7 @@ impl LocalSeatTopology {
 
     /// The controller at this index of the frozen device order.
     ///
-    /// ⚠ **a DEVICE index, not a channel** — for a caller that is asking about
+    ///  a DEVICE index, not a channel — for a caller that is asking about
     /// the hardware order itself. Anything asking "which pad does this seat
     /// drive" wants [`Self::device_for_channel`].
     pub fn device_at(&self, index: usize) -> Option<Entity> {
@@ -202,7 +168,7 @@ pub fn track_local_device_order(
     }
 }
 
-/// **Which pad each seat is HOLDING**, remembered across disconnects.
+/// Which pad each seat is HOLDING, remembered across disconnects.
 ///
 /// Positional assignment (seat `n` → the `n`-th connected pad) transfers ownership the moment a pad
 /// leaves, because [`LocalDeviceOrder`] forgets disconnections and every later seat shifts down
@@ -216,7 +182,7 @@ pub fn track_local_device_order(
 /// (milestone 7) rather than reshuffling everybody.
 /// What a controller IS, across disconnects.
 ///
-/// ⚠ an `Entity` cannot answer this: a reconnecting pad is a new entity and Bevy
+///  an `Entity` cannot answer this: a reconnecting pad is a new entity and Bevy
 /// moves the generation, so a remembered id never matches again. The OS-provided
 /// name and USB vendor/product are what survive being unplugged.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -283,9 +249,9 @@ impl SeatDeviceOwnership {
     }
 }
 
-/// **Which pad the frozen session decided this seat holds.**
+/// Which pad the frozen session decided this seat holds.
 ///
-/// ⭐ **the declared plan is the answer when there is one.** It says which
+///  the declared plan is the answer when there is one. It says which
 /// SOURCE each dense channel listens to, which is exactly this question, and it
 /// needs no positional correction: a lobby that seated the human holding pad 1
 /// against a CPU declares `channel 0 → pad 1`, and reading the device order at
@@ -316,7 +282,7 @@ fn frozen_pad_for_seat(
 /// Runs in `PreUpdate` before leafwing resolves actions, so an association made
 /// this frame is honoured by this frame's `ActionState` — a seat that joins is
 /// playable on the tick it joins, not the one after.
-/// ⚠ **The mapping comes from the frozen topology while a session owns one.**
+///  The mapping comes from the frozen topology while a session owns one.
 /// `LocalDeviceOrder` is live, and a session that froze
 /// `handle 0 → keyboard, 1 → pad A, 2 → pad B` and then let a disconnect reorder
 /// the live list would keep its GGRS handle COUNT while quietly changing which
@@ -360,20 +326,20 @@ pub fn assign_local_seat_devices(
         return;
     }
 
-    // **A seat that already holds the keyboard does not also take a pad.**
+    // A seat that already holds the keyboard does not also take a pad.
     //
     // Positional assignment (seat `n` → pad `n`) is right when every seat is a pad seat, and wrong
     // the moment one of them is playing on the keyboard: with one keyboard player and one pad
     // player it hands the ONLY pad to the person already typing and leaves the pad player with
     // nothing.
     //
-    // ⚠ under the default `UnifiedPrimary` this is `None` and the arithmetic
+    //  under the default `UnifiedPrimary` this is `None` and the arithmetic
     // below is `pad_index == slot` — today's behaviour, byte for byte. Couch
     // partitioning is something a session opts into, not something a second
     // controller imposes on a solo player.
     //
-    // ⛔ **A DECLARED PLAN OUTRANKS THE POLICY, because the policy is a guess and
-    // the plan is what somebody chose.** `keyboard_owner_for` answers
+    //  A DECLARED PLAN OUTRANKS THE POLICY, because the policy is a guess and
+    // the plan is what somebody chose. `keyboard_owner_for` answers
     // `Some(PRIMARY)` for every `JoinToClaim` session — "nobody has claimed the
     // keyboard, so it stays with the seat that has been playing" — and that seat
     // is then bound to `Entity::PLACEHOLDER`, deaf to every controller in the
@@ -393,7 +359,7 @@ pub fn assign_local_seat_devices(
     let live: Vec<Entity> = order.devices().to_vec();
     ownership.retire_missing(&live);
 
-    // **CLAIMED IN SLOT ORDER**, not in query order. A free pad goes to the
+    // CLAIMED IN SLOT ORDER, not in query order. A free pad goes to the
     // lowest seat that needs one, and archetype iteration is not an order — two
     // runs of the same world could hand the same controller to different people
     // (ADR 0023).
@@ -404,7 +370,7 @@ pub fn assign_local_seat_devices(
         .collect();
     order_of_seats.sort_by_key(|(slot, _)| *slot);
     let seat_slots: Vec<u8> = order_of_seats.into_iter().map(|(slot, _)| slot).collect();
-    // **A RETURNING CONTROLLER GOES BACK TO ITS OWN SEAT FIRST.**
+    // A RETURNING CONTROLLER GOES BACK TO ITS OWN SEAT FIRST.
     {
         for pad in &live {
             if ownership.is_held(*pad) {
@@ -434,7 +400,7 @@ pub fn assign_local_seat_devices(
             continue;
         }
         if let Some(topology) = frozen.as_ref() {
-            // **A FROZEN SESSION DECIDES WHICH PAD; OWNERSHIP STILL HAS TO LEARN WHICH ONE.** This
+            // A FROZEN SESSION DECIDES WHICH PAD; OWNERSHIP STILL HAS TO LEARN WHICH ONE. This
             // was a bare `continue`, so in a frozen session no seat ever claimed anything and
             // `remembered` stayed EMPTY — which silently disabled the identity pass above for
             // exactly the sessions that have one. Not a swap — that player is simply deaf for the
@@ -486,7 +452,7 @@ pub fn assign_local_seat_devices(
                 _ => ownership
                     .pad_for(slot)
                     .filter(|pad| live.contains(pad))
-                    // ⚠ otherwise stay DEAF, never `None`. A dead entity matches
+                    //  otherwise stay DEAF, never `None`. A dead entity matches
                     // no live gamepad and `None` matches EVERY one, so falling
                     // through to `None` here would promote whatever pad is left
                     // into a seat the session froze — the exact swap the freeze
@@ -496,7 +462,7 @@ pub fn assign_local_seat_devices(
                     .or(Some(Entity::PLACEHOLDER)),
             }
         } else {
-            // **THE PAD IN THEIR HANDS**, decided above. A seat keeps its
+            // THE PAD IN THEIR HANDS, decided above. A seat keeps its
             // controller while that controller exists, so somebody else
             // unplugging theirs cannot reshuffle this one — which is what
             // positional assignment did, because `LocalDeviceOrder` forgets the
@@ -521,7 +487,7 @@ pub fn assign_local_seat_devices(
     }
 }
 
-/// ⚠ **`cargo test -p ambition_input` does not run any of this.** The module is
+///  `cargo test -p ambition_input` does not run any of this. The module is
 /// `#[cfg(feature = "input")]`, so a bare per-crate invocation reports 55 tests
 /// passing while every device-ownership test here — the couch-multiplayer ones —
 /// is compiled out. Ask for them explicitly:
@@ -588,7 +554,7 @@ mod tests {
         );
     }
 
-    /// **A keyboard player beside one pad player, FROZEN, through a reconnect.**
+    /// A keyboard player beside one pad player, FROZEN, through a reconnect.
     ///
     /// The frozen path shifts the handle index for every seat below the keyboard
     /// owner (`slot - 1`), because the keyboard is not a device row: two players
@@ -596,7 +562,7 @@ mod tests {
     /// added along with the identity recording and nothing exercised it — the
     /// frozen tests had no keyboard owner and the keyboard test was not frozen.
     ///
-    /// ⛔ getting the shift wrong is silent: seat one would claim
+    ///  getting the shift wrong is silent: seat one would claim
     /// `device_for_handle(1)`, which is `None` in a one-device topology, so the
     /// pad player simply never gets a pad and the keyboard player is unaffected.
     /// Nothing crashes and nothing logs — the second player is just inert, which
@@ -669,7 +635,7 @@ mod tests {
         );
     }
 
-    /// ⛔ **the shipped Smash couch, and it did not work.** That demo claims
+    ///  the shipped Smash couch, and it did not work. That demo claims
     /// `JoinToClaim` on its own routes, and `keyboard_owner_for` answers
     /// `Some(PRIMARY)` for every `JoinToClaim` session — "nobody has claimed the
     /// keyboard, so it stays with the seat that has been playing". So player
@@ -677,7 +643,7 @@ mod tests {
     /// it, while player two's pad worked fine. Two people, one of whom cannot
     /// move.
     ///
-    /// ⭐ **a declared plan is a stated fact and outranks the policy's guess.**
+    ///  a declared plan is a stated fact and outranks the policy's guess.
     /// It says who is on the keyboard, including *nobody*.
     #[test]
     fn a_declared_couch_with_nobody_on_the_keyboard_gives_both_seats_their_pads() {
@@ -719,7 +685,7 @@ mod tests {
         assert_eq!(assigned(&app, two), Some(pad_b));
     }
 
-    /// **A CHANNEL LISTENS TO THE SOURCE IT WAS GIVEN, not to its own number.**
+    /// A CHANNEL LISTENS TO THE SOURCE IT WAS GIVEN, not to its own number.
     ///
     /// Two people picked up the second and third controllers — the first is on
     /// the desk, plugged in and unclaimed. Positionally, channel 0 would take
@@ -762,7 +728,7 @@ mod tests {
         assert_eq!(assigned(&app, two), Some(pad_c));
     }
 
-    /// **The default policy leaves solo behaviour exactly where it was.**
+    /// The default policy leaves solo behaviour exactly where it was.
     ///
     /// Same world as the couch test above and no policy resource at all. Seat
     /// one keeps the pad, because a session that never asked for couch
@@ -809,7 +775,7 @@ mod tests {
         );
     }
 
-    /// ⚠ it cannot be by ENTITY — a reconnecting pad is a new one, and Bevy moves
+    ///  it cannot be by ENTITY — a reconnecting pad is a new one, and Bevy moves
     /// the generation so a despawned id is never handed back. What restores the
     /// participant is that the seat which lost its pad is the seat still holding
     /// NONE, so the free pad finds it rather than displacing somebody.
@@ -845,9 +811,9 @@ mod tests {
         );
     }
 
-    /// **Two pads reconnecting in the OTHER order must not swap the players.**
+    /// Two pads reconnecting in the OTHER order must not swap the players.
     ///
-    /// ⛔ the first reconnect test left exactly ONE seat vacant, so any returning
+    ///  the first reconnect test left exactly ONE seat vacant, so any returning
     /// pad necessarily filled the "correct" one. It proved vacancy filling and
     /// was written up as proving RESTORATION. With both seats vacant the
     /// difference is the whole thing: pad B coming back first took seat 0, and
@@ -904,9 +870,9 @@ mod tests {
         assert_eq!(assigned(&app, two), Some(pad_b_again));
     }
 
-    /// **A frozen session must still survive a reconnection.**
+    /// A frozen session must still survive a reconnection.
     ///
-    /// ⛔ freezing records ENTITIES, and an entity dies when its pad is unplugged.
+    ///  freezing records ENTITIES, and an entity dies when its pad is unplugged.
     /// The frozen branch skipped the ownership pass entirely, so a seat whose pad
     /// came back kept pointing at a dead id forever: the freeze protected the
     /// mapping from being REORDERED and also from being REPAIRED.
@@ -940,7 +906,7 @@ mod tests {
         // Player one's controller drops and comes back.
         app.world_mut().entity_mut(pad_a).despawn();
         app.update();
-        // ⚠ NOT `None` — that means "any pad" and would promote pad B into this
+        //  NOT `None` — that means "any pad" and would promote pad B into this
         // seat, which is the swap the freeze exists to prevent. A dead id is
         // DEAF, which is the truthful state for a seat whose controller is gone.
         assert_ne!(
@@ -970,7 +936,7 @@ mod tests {
         );
     }
 
-    /// **A frozen session's device mapping does not follow live discovery.**
+    /// A frozen session's device mapping does not follow live discovery.
     ///
     /// Freezing the count and not the mapping is freezing the half that is easy
     /// to test.
@@ -1089,8 +1055,8 @@ mod tests {
         let _ = pad_b;
     }
 
-    /// ⛔ **A frozen session's seats must still REMEMBER which controller they
-    /// hold**, or reconnecting one is unrepairable.
+    ///  A frozen session's seats must still REMEMBER which controller they
+    /// hold, or reconnecting one is unrepairable.
     ///
     /// Measured end-to-end in `game/ambition_app/tests/rollback_seat_devices.rs`: unplug seat
     /// two's pad and plug it back in, and its map still pointed at the DEAD entity — that
@@ -1259,7 +1225,7 @@ mod tests {
 mod local_seat_topology_tests {
     use super::*;
 
-    /// **S34: the roster's declaration beats the device count.**
+    /// S34: the roster's declaration beats the device count.
     ///
     /// A keyboard player and one pad player is TWO people. The device list has
     /// one row, because the keyboard is not a device row, so the old
@@ -1275,7 +1241,7 @@ mod local_seat_topology_tests {
         );
         assert_eq!(topology.players(), 2);
         assert_eq!(topology.declared_seats(), Some(2));
-        // ⭐ and the declaration says WHICH source each channel listens to, which
+        //  and the declaration says WHICH source each channel listens to, which
         // is the half a count could not carry: the pad belongs to channel ONE,
         // and channel zero is the person on keys rather than a second claimant
         // on the only controller in the room.
@@ -1283,7 +1249,7 @@ mod local_seat_topology_tests {
         assert_eq!(topology.device_for_channel(ParticipantId(0)), None);
     }
 
-    /// **A spare controller does not add a player.**
+    /// A spare controller does not add a player.
     ///
     /// The failure `seat_input_participants_for_roster` names in its own doc —
     /// "a controller left plugged into a machine silently becomes a second
@@ -1311,7 +1277,7 @@ mod local_seat_topology_tests {
         assert_eq!(topology.declared_seats(), None);
     }
 
-    /// ⚠ a recapture is a NEW decision and must not inherit the old declaration.
+    ///  a recapture is a NEW decision and must not inherit the old declaration.
     #[test]
     fn recapturing_without_a_roster_drops_the_previous_declaration() {
         let mut topology = LocalSeatTopology::default();
@@ -1340,7 +1306,7 @@ mod local_seat_topology_tests {
         )
     }
 
-    /// **A session's seating is decided once, and every consumer reads that.**
+    /// A session's seating is decided once, and every consumer reads that.
     ///
     /// The roster and the rollback session both need to know how many people
     /// are playing. Sampling the LIVE device order independently means a
@@ -1426,12 +1392,12 @@ mod local_seat_topology_tests {
 mod generation_tests {
     use super::*;
 
-    /// **A rebuild advances the generation, whoever rebuilds.**
+    /// A rebuild advances the generation, whoever rebuilds.
     ///
     /// `generation` exists so a consumer can notice a rebuild *"rather than compare vectors"*,
     /// and two independent rebuilds sharing a number is exactly what it cannot notice.
     ///
-    /// ⚠ that collision was LOAD-BEARING while `declared_seats` counted CPUs:
+    ///  that collision was LOAD-BEARING while `declared_seats` counted CPUs:
     /// `reconcile_roster_with_frozen_topology` early-returns on a matching
     /// generation, and the match was the only thing stopping it rebuilding
     /// versus' roster as two HUMAN seats against a one-handle session. It counts

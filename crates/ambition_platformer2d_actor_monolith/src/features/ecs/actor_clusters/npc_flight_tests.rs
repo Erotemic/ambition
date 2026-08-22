@@ -1,4 +1,4 @@
-//! **Does an NPC body fly? The CHARACTER answers, then the catalog.**
+//! Does an NPC body fly? The CHARACTER answers, then the catalog.
 //!
 //! two spawn paths decided aerial-ness and neither asked the character: the
 //! peaceful-NPC seed read the catalog's `body_kind: Floating`, the hostile
@@ -81,8 +81,8 @@ fn seed_for(
 // fills one, because there is no `ArchetypeSpec`. Every body is built from a character, which
 // is the state this test was watching the migration approach.
 
-/// **An NPC that names a migrated character gets ITS vitals and ITS top speed,
-/// and the pool matches the maximum.**
+/// An NPC that names a migrated character gets ITS vitals and ITS top speed,
+/// and the pool matches the maximum.
 ///
 /// and the POOL was a second literal `1`, written independently of the
 /// tuning's. The two agreed by coincidence; teaching only the tuning to ask the
@@ -112,7 +112,7 @@ fn a_named_character_supplies_the_npc_body_it_authored() {
     // AI POLICY IS NOT THE BODY'S TO STATE — and this assertion had to be
     // rewritten when the road changed under it, which is the interesting part.
     //
-    // ⇒ the invariant, stated so it cannot be satisfied by a coincidence: the
+    //  the invariant, stated so it cannot be satisfied by a coincidence: the
     // amble is the PROFILE's fraction of the body's top speed, and it is strictly
     // slower than the body can move.
     let effort = crate::features::ecs::actor_tuning::BrainProfile::default().patrol_effort;
@@ -135,11 +135,11 @@ fn a_named_character_supplies_the_npc_body_it_authored() {
     );
 }
 
-/// **A character that authors nothing leaves the road's defaults exactly where
-/// they were** — the poison for the test above.
+/// A character that authors nothing leaves the road's defaults exactly where
+/// they were — the poison for the test above.
 #[test]
 fn an_incomplete_character_uses_peaceful_npc_defaults() {
-    // No locomotion at all ⇒ not body-complete ⇒ the blueprint refuses, which is
+    // No locomotion at all  not body-complete  the blueprint refuses, which is
     // the state ~150 NPC placements are in.
     let bare = {
         let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
@@ -191,8 +191,8 @@ fn is_aerial(
     seed.config.tuning.is_aerial
 }
 
-/// **A character that says it flies, flies — and one that says it does NOT stays
-/// on the ground even though nothing else changed.**
+/// A character that says it flies, flies — and one that says it does NOT stays
+/// on the ground even though nothing else changed.
 ///
 /// the second half is the whole point and it is the half a `body_kind` could
 /// never state. An empty catalog means the old rule answers "not floating" for
@@ -210,8 +210,8 @@ fn the_character_decides_whether_an_npc_body_flies() {
     );
 }
 
-/// **The catalog rule is a fallback for characters NOBODY REGISTERED, not a
-/// second opinion on registered ones.**
+/// The catalog rule is a fallback for characters NOBODY REGISTERED, not a
+/// second opinion on registered ones.
 ///
 /// this is the poison for the pair above, and writing it corrected the pair's
 /// own premise. The ~150 unmigrated NPC placements name characters with no

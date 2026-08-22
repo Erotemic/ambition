@@ -1,5 +1,5 @@
-//! **THE DURABLE HORIZON, DRIVEN — a save file that remembers where the player
-//! left things, and a load that puts them there.**
+//! THE DURABLE HORIZON, DRIVEN — a save file that remembers where the player
+//! left things, and a load that puts them there.
 //!
 //! ```text
 //! current world truth    AuthoredOccurrences + ItemCustody
@@ -12,7 +12,7 @@
 //!
 //! # What is driven, and what is constructed
 //!
-//! **the one manufactured beat is the BOOT.** A load is two facts inside one
+//! the one manufactured beat is the BOOT. A load is two facts inside one
 //! process: `AmbitionGameSave` holds the file's bytes, and `SaveRestored` is
 //! `false` because nothing has applied them yet. `load_save_at_startup` produces
 //! exactly that pair before the first frame, and a second process is not
@@ -53,7 +53,7 @@ const UNTOUCHED: &str = "ground_grapple";
 
 /// Every live occurrence of one identity, with where it is and who has it.
 ///
-/// **a COUNT, never a lookup.** Two live things behind one `SimId` and zero
+/// a COUNT, never a lookup. Two live things behind one `SimId` and zero
 /// live things behind one `SimId` are both failures this file exists to catch,
 /// and a `find` sees neither.
 fn occurrences(sim: &mut Platformer2dSimHarness, id: &SimId) -> Vec<(Entity, Custody)> {
@@ -212,7 +212,7 @@ fn walk_through_the_door_to(sim: &mut Platformer2dSimHarness, target: &str) -> S
 // The save and the load.
 // ───────────────────────────────────────────────────────────────────────────
 
-/// **THE FILE.** What `persist_occurrence_horizon_to_save` has mirrored into
+/// THE FILE. What `persist_occurrence_horizon_to_save` has mirrored into
 /// `AmbitionGameSave` — the exact value the autosave would commit to disk.
 ///
 /// read out of the save rather than out of the live ledger, because the
@@ -223,7 +223,7 @@ fn the_file(sim: &Platformer2dSimHarness) -> AmbitionGameSaveData {
     sim.world().resource::<AmbitionGameSave>().data().clone()
 }
 
-/// **THE BOOT.** A fresh world, handed a file, told nothing has been applied yet.
+/// THE BOOT. A fresh world, handed a file, told nothing has been applied yet.
 ///
 /// Everything after it is shipped: the durable domain adopters install the three values and
 /// asks for a checkpoint resume, and the resume is the road a death already takes.
@@ -245,26 +245,26 @@ fn boot_with(room: &str, file: &AmbitionGameSaveData) -> Platformer2dSimHarness 
 // FALSIFIER Z — A SAVE TAKEN MID-POSSESSION, THROUGH A REAL FRESH BOOT.
 // ───────────────────────────────────────────────────────────────────────────
 
-/// **Save while driving an enemy, quit, come back — and the enemy is still
-/// there, standing in its own room.**
+/// Save while driving an enemy, quit, come back — and the enemy is still
+/// there, standing in its own room.
 ///
 /// `persist_occurrence_horizon_to_save` then mirrored the ledger and every live custody row to
 /// disk, because it queries the generic component and a possessed body now answers it.
 ///
-/// **but `PossessionState` is NOT durable save state.** The file said *"this
+/// but `PossessionState` is NOT durable save state. The file said *"this
 /// enemy is in somebody's hands"* with no hand on the other side of the boot, and
 /// the only reader of that claim is a room build deciding whether to author the
 /// enemy at all.
 ///
 /// The other three falsifiers in this file stayed green.
 ///
-/// ⇒ the mirror now writes an `InCustody` claim only for occurrences whose
+///  the mirror now writes an `InCustody` claim only for occurrences whose
 /// custody the durable road can RESTORE, which is the item road. A body's
 /// occurrence is simply absent from the file, and absent is right: on load its
 /// room authors it, which is what a world with nobody possessing anything should
 /// contain.
 ///
-/// **AND THIS IS THE TEST THAT WAS CLAIMED AND NOT WRITTEN.**
+/// AND THIS IS THE TEST THAT WAS CLAIMED AND NOT WRITTEN.
 /// `a_custody_row_with_nobody_holding_it_is_retracted_before_a_room_can_act_on_it`
 /// asserts something real and narrower — the LIVE projection retracts a row once
 /// possession disappears — but it does it by assigning `PossessionState::default()`
@@ -284,7 +284,7 @@ fn a_save_taken_mid_possession_does_not_delete_the_enemy_in_a_fresh_process() {
     // it reaches the save on the first tick after custody settles.
     sim.step_n(base(), 4);
 
-    // **TERM ONE, and without it the rest is about nothing**: the LIVE ledger
+    // TERM ONE, and without it the rest is about nothing: the LIVE ledger
     // does say the body is in custody. That is the state whose durability is in
     // question, and a fixture that skipped this would be asserting the file is
     // clean of a row nothing ever produced.
@@ -301,7 +301,7 @@ fn a_save_taken_mid_possession_does_not_delete_the_enemy_in_a_fresh_process() {
          nothing below is about a relationship reaching the file. Ledger was {live:?}"
     );
 
-    // **TERM TWO**: and the file does NOT carry it, in either leg.
+    // TERM TWO: and the file does NOT carry it, in either leg.
     let file = the_file(&sim);
     assert!(
         !file.occurrences.iter().any(|row| row.id == id.as_str()),
@@ -318,7 +318,7 @@ fn a_save_taken_mid_possession_does_not_delete_the_enemy_in_a_fresh_process() {
         file.custody
     );
 
-    // **TERM THREE**: the fresh process — a new world, handed that file, with
+    // TERM THREE: the fresh process — a new world, handed that file, with
     // nobody driving anything. This is the boot every other falsifier here uses.
     let mut fresh = boot_with("vertical_shaft", &file);
     assert_eq!(
@@ -352,10 +352,10 @@ fn live_bodies_named(sim: &mut Platformer2dSimHarness, id: &SimId) -> usize {
 // FALSIFIER A — AUTHORED OCCURRENCE CONTINUITY SURVIVES A LOAD.
 // ───────────────────────────────────────────────────────────────────────────
 
-/// **Carry an authored object into the next room, put it down, save, quit, come
-/// back — and it is lying where you left it, with its pedestal still empty.**
+/// Carry an authored object into the next room, put it down, save, quit, come
+/// back — and it is lying where you left it, with its pedestal still empty.
 ///
-/// **BOTH HALVES ARE ONE FACT AND BOTH ARE ASSERTED, from ONE file.** The
+/// BOTH HALVES ARE ONE FACT AND BOTH ARE ASSERTED, from ONE file. The
 /// room the object lies in owes the world that occurrence; the room whose record
 /// minted it owes nothing, and authoring it again would put two live things
 /// behind one `SimId`. A load that reinstates and forgets to suppress fails at
@@ -363,7 +363,7 @@ fn live_bodies_named(sim: &mut Platformer2dSimHarness, id: &SimId) -> usize {
 /// `TARGET_ROOM` — and that failure is a permanent DELETION traded for a
 /// duplication, which is the worse of the two.
 ///
-/// **and the control run is what makes the emptiness mean anything.** The same
+/// and the control run is what makes the emptiness mean anything. The same
 /// fresh world booted with a DEFAULT file has the object on its pedestal, so
 /// "zero at `SOURCE_ROOM`" cannot be satisfied by a room that stopped authoring
 /// it, a harness that failed to build, or a query that matches nothing.
@@ -457,21 +457,9 @@ fn an_object_left_in_another_room_is_lying_there_after_a_load() {
 // FALSIFIER B — CUSTODY SURVIVES A LOAD.
 // ───────────────────────────────────────────────────────────────────────────
 
-/// **Save while holding a weapon, load, and you are still holding it — the same
-/// occurrence, in the same hand.**
-///
-/// The object was therefore LOST across save/load (it used to be duplicated, which is worse),
-/// and that trade was recorded as explicitly not a resting state.
-///
-/// **the object has no live entity at load time and that is the point.** The
-/// room that authors it has been told to suppress it, so nothing rebuilds it into
-/// a room; what puts it back is `restore_custody_to_checkpoint`'s materialization
-/// arm, reaching the record BY IDENTITY from the file's custody row. A load that
-/// merely restored the ledger would leave the player holding nothing and the
-/// pedestal empty — the object in no place at all.
-///
-/// **the control run pins that**: a default file leaves the weapon on its
-/// pedestal and the hand empty, so neither claim below can pass by accident.
+/// Save while holding a weapon and restore the same occurrence to the same hand.
+/// The source room suppresses its authored copy; checkpoint reconstruction
+/// materializes the held occurrence from the saved custody identity.
 #[test]
 fn a_weapon_in_your_hands_is_still_in_your_hands_after_a_load() {
     let reward = SimId::placement(ENDED);
@@ -546,30 +534,30 @@ fn a_weapon_in_your_hands_is_still_in_your_hands_after_a_load() {
 // FALSIFIER C — THE POISON.
 // ───────────────────────────────────────────────────────────────────────────
 
-/// **A TERMINAL DISPOSITION IS NOT UNDONE BY A LOAD, AND AN UNTOUCHED RECORD IS
-/// NOT TOUCHED BY ONE.**
+/// A TERMINAL DISPOSITION IS NOT UNDONE BY A LOAD, AND AN UNTOUCHED RECORD IS
+/// NOT TOUCHED BY ONE.
 ///
 /// ```text
 /// Consumed before the save  → the object must NOT come back
 /// never picked up at all    → the object must still be on its pedestal
 /// ```
 ///
-/// **the two halves fail different implementations, which is why they are in
-/// one test.** A load that restores "everything the ledger ever mentioned" —
+/// the two halves fail different implementations, which is why they are in
+/// one test. A load that restores "everything the ledger ever mentioned" —
 /// materializing a row rather than reading its disposition — resurrects the
 /// consumed object and passes the second half perfectly. A load that drops rows
 /// it does not understand, or writes the whole world into the file and reinstates
 /// all of it, fails the second half and passes the first.
 ///
-/// **THE STATE ONLY THE WRONG IMPLEMENTATION CAN ACT ON.** The consumed
+/// THE STATE ONLY THE WRONG IMPLEMENTATION CAN ACT ON. The consumed
 /// occurrence has no live entity anywhere: it is not in a hand, not lying in a
 /// room, not held by anything the reset can reconcile against. Every ordinary arm
 /// of the restore is a no-op for it, so the only thing that decides whether it
 /// comes back is how `outlook_for` reads the row the file carried. The control
 /// run below proves the room really does author it otherwise.
 ///
-/// **the file is written by hand, and that is the honest way to reach this
-/// state.** `OccurrenceWhereabouts::Consumed` has no live producer — deliberately,
+/// the file is written by hand, and that is the honest way to reach this
+/// state. `OccurrenceWhereabouts::Consumed` has no live producer — deliberately,
 /// so that ephemeral/resettable stays the default — so no world can be driven
 /// into producing one. What a load consumes IS a file, so a file is what this
 /// drives it with; the systems that read it are the shipped ones.

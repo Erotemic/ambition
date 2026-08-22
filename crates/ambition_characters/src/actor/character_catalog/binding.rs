@@ -63,11 +63,11 @@ impl std::fmt::Display for BrainPresetId {
     }
 }
 
-/// **An AUTHORED, provider-relative reference to a brain profile** — what
+/// An AUTHORED, provider-relative reference to a brain profile — what
 /// content writes, before anything has resolved it.
 ///
-/// ⭐ **the distinction from [`BrainPresetId`] is the whole reason this type
-/// exists.** `"combatant"` and `"hall::combatant"` are different statements, and
+///  the distinction from [`BrainPresetId`] is the whole reason this type
+/// exists. `"combatant"` and `"hall::combatant"` are different statements, and
 /// for a while both travelled as a `BrainPresetId` — which meant the newtype
 /// stopped distinguishing anything it was introduced to distinguish. A
 /// reference is provider-RELATIVE and may be ambiguous until a character's own
@@ -79,12 +79,12 @@ impl std::fmt::Display for BrainPresetId {
 /// resolved identity                 BrainPresetId        "hall::combatant"
 /// ```
 ///
-/// ⚠ **resolution happens at SPAWN today, in [`resolve_initial_brain`], not at preparation.**
+///  resolution happens at SPAWN today, in [`resolve_initial_brain`], not at preparation.
 /// So a `PreparedCharacterDefinition` still carries a reference rather than an id — which is
 /// honest about where the work happens, and is itself a thing to fix: a prepared definition
 /// should hold resolved identities.
 ///
-/// ⚠ not to be confused with `content_schema::BrainPresetRef`, which is a
+///  not to be confused with `content_schema::BrainPresetRef`, which is a
 /// zero-sized CONTENT-KIND tag for the cross-content validator, not a value.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct BrainPresetRef(pub String);
@@ -174,15 +174,15 @@ pub enum AutonomousSource {
     /// An explicit catalog preset override (authored `brain_override`, or a
     /// runtime `UsePreset` switch).
     CatalogPreset(BrainPresetId),
-    /// **PROVOKED, WITH NOTHING TO LOOK UP** — the body is driven by the
+    /// PROVOKED, WITH NOTHING TO LOOK UP — the body is driven by the
     /// engine's default provoked policy.
     ///
-    /// ⭐ payloadless for the same reason [`Self::CharacterProfile`] is: the
+    ///  payloadless for the same reason [`Self::CharacterProfile`] is: the
     /// answer is not somewhere to look up, it is a thing the engine states.
     /// `brain_builders::default_provoked_policy()`, whose home is the session
     /// ruleset when a second experience wants a different one.
     ///
-    /// ⚠ a creature that states its OWN provoked policy records
+    ///  a creature that states its OWN provoked policy records
     /// [`Self::ProvokedProfile`] instead and never reaches this — which is the
     /// distinction the two variants exist to keep, and the reason this one can
     /// be payloadless without losing anything.
@@ -216,7 +216,7 @@ pub enum AutonomousDefault {
     /// The character's catalog `default_brain`, captured at spawn. Restoring
     /// rebuilds a fresh brain from THIS preset.
     Preset(BrainPresetId),
-    /// **The character's own authored [`BrainProfile`] is the default.** Nothing
+    /// The character's own authored [`BrainProfile`] is the default. Nothing
     /// to look up — the body carries the policy its character stated, and
     /// lowering it needs the body anyway.
     ///
@@ -253,7 +253,7 @@ impl BrainBinding {
         }
     }
 
-    /// **A binding whose default is the character's own authored policy.**
+    /// A binding whose default is the character's own authored policy.
     pub fn from_character_profile() -> Self {
         Self {
             default_preset: AutonomousDefault::CharacterProfile,
@@ -316,7 +316,7 @@ impl BrainBinding {
 
     /// Return to the character default. (The caller rebuilds the live `Brain`.)
     pub fn restore_default(&mut self) {
-        // ⛔⛔ **THE SOURCE HAS TO MATCH THE DEFAULT.** This wrote `CatalogDefault`
+        //  THE SOURCE HAS TO MATCH THE DEFAULT. This wrote `CatalogDefault`
         // unconditionally, which was harmless only while every default WAS a catalog preset.
         self.source = match self.default_preset {
             AutonomousDefault::CharacterProfile => AutonomousSource::CharacterProfile,
@@ -444,9 +444,9 @@ pub enum BrainBuildError {
         resolved: String,
         source: PresetSource,
     },
-    /// **NOBODY NAMES A PRESET, and no placement override was given.**
+    /// NOBODY NAMES A PRESET, and no placement override was given.
     ///
-    /// ⚠ it is NOT necessarily an error. A character that states a
+    ///  it is NOT necessarily an error. A character that states a
     /// [`BrainProfile`] instead is fully authored — this is the signal to ask
     /// THAT authority, which only a caller holding the body can do.
     ///
@@ -515,8 +515,8 @@ pub fn qualify_preset_like(reference: &str, local: &str) -> String {
 
 /// Qualify a local brain-profile reference into a PROVIDER's namespace.
 ///
-/// ⭐ **the same rule as [`qualify_preset_like`], stated against the authority
-/// that actually owns the namespace.** That function infers the namespace from
+///  the same rule as [`qualify_preset_like`], stated against the authority
+/// that actually owns the namespace. That function infers the namespace from
 /// a neighbouring key (`entry.default_brain`), which works only where a catalog
 /// row is in hand — so a character's own prepared default needed a parallel
 /// catalog row merely to learn its own provider. A `CharacterDefinition` states
@@ -558,7 +558,7 @@ pub fn resolve_initial_brain(
     let entry = catalog
         .get(character_id)
         .ok_or_else(|| BrainBuildError::UnknownCharacter(character_id.to_string()))?;
-    // ⛔⛔ **AN ABSENT DEFAULT IS `None`, NEVER `BrainPresetId::new("")`.**
+    //  AN ABSENT DEFAULT IS `None`, NEVER `BrainPresetId::new("")`.
     //
     // The field is already `Option`, and its own doc already said what `None` means; the
     // constructor was the one place that could not say it.
@@ -575,12 +575,12 @@ pub fn resolve_initial_brain(
             // keys. The binding stores the QUALIFIED name so the runtime switch
             // path and snapshot reconcile resolve it identically.
             //
-            // ⭐ **THE ENTRY'S OWN PROVIDER FIRST** — and this site is why the fourth attempt to
+            //  THE ENTRY'S OWN PROVIDER FIRST — and this site is why the fourth attempt to
             // empty a `default_brain` still failed. `CharacterCatalog::validate_brain_override`
             // had been taught to ask the provider; THIS one had not, and it is the one the NPC
             // road reaches.
             //
-            // ⚠ the fallbacks are ORDERED so the field that may be absent is
+            //  the fallbacks are ORDERED so the field that may be absent is
             // last: `default_action_set` is still required of every row,
             // `default_brain` is not.
             let namespace_carrier = if !entry.provider.is_empty() {
@@ -597,8 +597,8 @@ pub fn resolve_initial_brain(
                 key,
             )
         }
-        // ⭐ **NO OVERRIDE AND NO PRESET IS NOT AN ERROR HERE — it is a
-        // REDIRECTION.** The character may state its policy as a `BrainProfile`,
+        //  NO OVERRIDE AND NO PRESET IS NOT AN ERROR HERE — it is a
+        // REDIRECTION. The character may state its policy as a `BrainProfile`,
         // which this function cannot lower (the lowering needs the body). Say so
         // precisely and let the caller, which has one, ask that authority.
         None => {
@@ -844,7 +844,7 @@ mod tests {
         binding.provoke();
         assert!(binding.is_provoked());
         assert_eq!(binding.active_preset(), None);
-        // ⭐ the poison: a body provoked into its OWN authored policy is a
+        //  the poison: a body provoked into its OWN authored policy is a
         // different source, and `is_provoked` must not answer for it — the two
         // rebuild differently, which is the whole reason there are two.
         binding.source = AutonomousSource::ProvokedProfile {
@@ -872,11 +872,11 @@ mod tests {
     // They pinned a real ruling — *"a character definition may state its normal
     // autonomous behaviour, and it outranks the catalog row"* — through the
     // `definition_default` parameter, a `BrainPresetRef` a definition could
-    // author. That parameter is deleted: **no character in the repo ever
-    // authored one**, and its absence is what made the resolver manufacture an
+    // author. That parameter is deleted: no character in the repo ever
+    // authored one, and its absence is what made the resolver manufacture an
     // empty preset id and crash two shipped rooms.
     //
-    // ⚠ the RULING survives; only its vocabulary changed. A character states its
+    //  the RULING survives; only its vocabulary changed. A character states its
     // policy as a `BrainProfile` now, and the same three claims — the character
     // outranks the row, an authored placement override outranks both, and a
     // silent character leaves the row standing — are asserted in

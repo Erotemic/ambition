@@ -1,26 +1,6 @@
-//! Smash-brawl brain template — SSBB Subspace-Emissary feel.
-//!
-//! Each tick the brain runs a 5-stage pipeline:
-//!
-//! 1. **Observe**: snapshot the world into an [`ObservationFrame`]
-//!    (self + target + stage + crowding + hazards).
-//! 2. **Choose broad mode**: pick a [`BroadMode`] (Approach / Retreat
-//!    / Engage / Reposition / Recover / Idle) with hysteresis so the
-//!    actor doesn't oscillate.
-//! 3. **Choose specific action**: pick a [`SpecificAction`] from the
-//!    mode's allowed vocabulary, gated by the actor's [`ActionSet`]
-//!    capability mask.
-//! 4. **Apply difficulty filter**: reaction delay, commit
-//!    probability, aim accuracy. Easier enemies "see late" and drop
-//!    actions; harder enemies commit + aim cleanly.
-//! 5. **Emit inputs**: translate the action into an
-//!    [`crate::actor::control::ActorControlFrame`] the integration pipeline consumes.
-//!
-//! Every stage is a pure function of the previous one's output plus
-//! [`SmashCfg`] / [`SmashState`]. This makes the pipeline trivially
-//! unit-testable and keeps the brain backend swappable — a future
-//! RL policy can replace any single stage without touching the
-//! others.
+//! Smash-brawl brain pipeline: observe, choose a broad mode, choose a capability-gated
+//! action, apply difficulty policy, then emit an [`crate::actor::control::ActorControlFrame`].
+//! Each stage is pure over its input plus [`SmashCfg`] / [`SmashState`].
 
 use super::action_set::ActionSet;
 use super::snapshot::BrainSnapshot;
@@ -66,7 +46,7 @@ pub struct SmashCfg {
     pub too_close_distance: f32,
     /// Minimum *upward* gap (px) to the target before the actor jumps to
     /// pursue it vertically. The grunt default (`60`) chases any target a
-    /// short hop above; a duelist sets this **above a hop's apex** so it
+    /// short hop above; a duelist sets this above a hop's apex so it
     /// only climbs after a target genuinely standing on a platform, instead
     /// of leapfrogging an opponent that is merely mid-hop (the flat-ground
     /// air-juggle cascade). Replaces the former hardcoded threshold.
@@ -101,7 +81,7 @@ pub struct SmashCfg {
     /// mixes into its approach to vary its attack vector and use vertical
     /// space. `0.0` (the grunt default) disables neutral hops.
     pub neutral_jump_cadence_s: f32,
-    /// **Regroup** trigger: accumulated recent damage (as a fraction of max HP,
+    /// Regroup trigger: accumulated recent damage (as a fraction of max HP,
     /// decaying over a couple seconds) that makes the fighter break off and reset
     /// after taking a beating — instead of trading hits forever at one spacing. It
     /// retreats a real distance (sprinting to cover ground, taking to the air for high
@@ -115,14 +95,14 @@ pub struct SmashCfg {
     /// retreat — and the re-approach — cross a real gap (so the sprint/fly traversal
     /// actually fires). Ignored when regroup is disabled.
     pub regroup_distance: f32,
-    /// **Poke-and-reset discipline** (whiff-punish footsies). `0.0` (the grunt default)
+    /// Poke-and-reset discipline (whiff-punish footsies). `0.0` (the grunt default)
     /// disables it: the actor stays in range and re-swings the instant its cooldown clears
     /// (point-blank mashing). A positive value makes a real neutral game — poke, reset,
     /// re-approach — instead of two bodies glued together trading hits. Frame-agnostic (uses
     /// only target-relative spacing); the in/out weave, not a forced retreat, does the spacing
     /// so a cornered fighter never pins itself against a wall.
     pub poke_reset_s: f32,
-    /// When true, the fighter may **blink-evade** a fast-closing opponent (a
+    /// When true, the fighter may blink-evade a fast-closing opponent (a
     /// perceivable lunge, read from the lagged target history — never from a
     /// privileged attack flag). Capability gate only: the body still needs the
     /// blink ability for the emitted intent to resolve, exactly like the player.
@@ -139,34 +119,34 @@ pub struct SmashCfg {
     /// (which already makes it perceive the lunge late).
     pub defense_reactivity: f32,
     /// Perceived closing speed (px/s, toward the fighter) at or above which a
-    /// threat is met with a **blink** (the mobile evade for a committed lunge /
+    /// threat is met with a blink (the mobile evade for a committed lunge /
     /// sprint-in). Below it — but above [`Self::shield_closing_speed`] — the fighter
-    /// **blocks** instead (the stand-ground option for ordinary approach pressure).
+    /// blocks instead (the stand-ground option for ordinary approach pressure).
     /// Splitting the two is what gives the layered, readable defensive game.
     pub blink_closing_speed: f32,
     /// Minimum perceived closing speed (px/s) that counts as a threat worth
     /// reacting to at all. Above a slow drift, below a walk-in so the fighter
     /// guards an opponent stepping into poke range.
     pub shield_closing_speed: f32,
-    /// When true, the fighter may **reactive-block** a perceived lunge it can't
+    /// When true, the fighter may reactive-block a perceived lunge it can't
     /// or won't blink away from — it raises `shield_held` and stands its ground
     /// for a short window. Layered defense: blink is the mobile option, block the
     /// stand-ground one. `false` for grunts.
     pub can_shield: bool,
-    /// **Whether blocking requires the ground — the GAME's rule, not this
-    /// brain's.**
+    /// Whether blocking requires the ground — the GAME's rule, not this
+    /// brain's.
     ///
     /// Smash Siblings wants that rule; another game on this engine may not, and answering it
     /// meant editing the brain.
     ///
-    /// **defaults to `true` everywhere, so nothing changes by accident** — the
+    /// defaults to `true` everywhere, so nothing changes by accident — the
     /// lift is deliberately behaviour-preserving. Whether AMBITION wants airborne
     /// blocking is a separate product question and stays open
     /// (`awaiting-maintainer-decision.md` #9, "Can a flying fighter shield?").
     /// a game answers it by AUTHORING now, and a duel fixture can state which
     /// rule it is testing under instead of inheriting one silently.
     pub shield_requires_ground: bool,
-    /// When true, this is a **hybrid flyer**: a body that can both fight grounded
+    /// When true, this is a hybrid flyer: a body that can both fight grounded
     /// (footsies + jump) and take flight (`fly_toggle_pressed`). The brain decides
     /// when to be airborne — to contest an elevated target, or to mount a proactive
     /// aerial foray — and lands again to footsie. `false` = the body never toggles
@@ -180,14 +160,14 @@ pub struct SmashCfg {
     /// Hybrid flyer: seconds an aerial foray lasts before landing again.
     /// Ignored unless [`Self::can_fly`].
     pub aerial_foray_duration_s: f32,
-    /// **Relentless** engagement: when true, the fighter never disengages while its
+    /// Relentless engagement: when true, the fighter never disengages while its
     /// foe lives — beyond [`Self::aggro_radius`] it CHASES (Approach) instead of
     /// idling out. This is the committed-duelist property: a platform-fighter
     /// opponent pursues across the whole stage and re-acquires after the player
     /// flings it away with gravity, rather than going inert at distance. `false`
     /// (the grunt default) keeps ambient enemies idling once the player leaves.
     pub relentless: bool,
-    /// **Stale-fight re-aggression**: seconds of the fighter's own offense-drought
+    /// Stale-fight re-aggression: seconds of the fighter's own offense-drought
     /// (no swing / shot committed) after which it forces an offensive push —
     /// suppressing its reactive defense and neutral-game patience to close and
     /// attack, the way two platform-fighter players break a passive standoff. Resets
@@ -270,7 +250,7 @@ impl SmashCfg {
         stale_fight_s: 0.0,
         difficulty: DifficultyProfile::MEDIUM,
     };
-    /// **Duelist** tuning — a 1v1 fighter with a real neutral game: it weaves
+    /// Duelist tuning — a 1v1 fighter with a real neutral game: it weaves
     /// in and out of poke range (footsies), mixes in neutral hops, and sprints
     /// to close large gaps. Aware of the whole arena (large aggro). This is the
     /// base the Perfect Cell-ular Automaton and other "platform fighter"
@@ -463,7 +443,7 @@ pub struct SmashState {
     /// off over a couple seconds). Arms a regroup when it crosses the threshold.
     pub damage_accum: f32,
     /// Seconds since this fighter last committed an attack (swing or shot). Drives
-    /// the **stale-fight re-aggression** ([`SmashCfg::stale_fight_s`]): once it
+    /// the stale-fight re-aggression ([`SmashCfg::stale_fight_s`]): once it
     /// exceeds the threshold the fighter forces an offensive push instead of waiting
     /// out a passive standoff. Reset to `0` on every attack, so it only grows during
     /// a genuine lull. Pure tick-stream bookkeeping → replay-safe.
@@ -507,12 +487,12 @@ pub fn tick_smash(
     }
     // ── Capture context ─────────────────────────────────────────────────────
     //
-    // **BEFORE everything, and it RETURNS.** A fighter in a capture — at
+    // BEFORE everything, and it RETURNS. A fighter in a capture — at
     // either end — is not a fighter with extra options; the ordinary decision
     // does not apply and running it would ask "should I approach?" of a body
     // that cannot walk.
     //
-    // **and the whole point is what these arms emit: nothing capture-shaped.**
+    // and the whole point is what these arms emit: nothing capture-shaped.
     // `SpecificAction::CaptureAttack` writes the ordinary `melee_pressed` and an
     // attack direction — the same two fields a person's Attack button writes —
     // and `trigger_moveset_moves` turns them into a pummel or a throw by reading
@@ -783,7 +763,7 @@ pub fn tick_smash(
 
 /// Hybrid-flight decision: should the fighter be airborne right now?
 ///
-/// **The body PREFERS grounded.** It takes to the air only to cover a long
+/// The body PREFERS grounded. It takes to the air only to cover a long
 /// traversal gap — closing on a distant target faster than it could on foot — or
 /// to reach a target far overhead that a jump can't contest; once it has closed
 /// in, it lands and fights on the ground. Distance hysteresis (a higher take-off
@@ -853,7 +833,7 @@ fn perceived_threat(
 }
 
 /// 2D steering for an aerial (free-mover) Smash fighter. Instead of grounded
-/// footsies, it runs a **dive / perch** oscillation: it perches diagonally above-
+/// footsies, it runs a dive / perch oscillation: it perches diagonally above-
 /// and-beside the target to bait + reset, then dives onto it to land a strike,
 /// using the vertical stage space a grounded brawler can't. Reuses the spacing
 /// phase (no extra state). Fully frame-agnostic (I10): "above" and "beside" are
@@ -1096,7 +1076,7 @@ fn maybe_substitute_sprint(
 /// melee finish once the shot lands.
 ///
 /// The brain does NOT rate-limit here: it attempts a ranged shot on every
-/// in-band tick and the **body** enforces the fire rate (invariant I3,
+/// in-band tick and the body enforces the fire rate (invariant I3,
 /// `BodyMelee::try_fire_ranged`). A blocked attempt simply spawns
 /// nothing; the controller never beats the weapon's rate by attempting faster.
 fn maybe_substitute_ranged(

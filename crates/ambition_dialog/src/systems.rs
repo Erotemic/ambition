@@ -110,7 +110,7 @@ pub fn dialog_pointer_input(
     };
     let tap_mode = effective_dialog_tap_mode(configured_tap_mode, pointer_input);
 
-    // ⚠ **a touch device never writes the window cursor**, so `RowPress`'s drag
+    //  a touch device never writes the window cursor, so `RowPress`'s drag
     // test — the thing that makes one-tap activation safe — was being fed `None`
     // on the only platform it was built for, and every phone drag passed it. The
     // finger's own position is the drag evidence. Read the JUST-RELEASED finger
@@ -166,7 +166,7 @@ pub fn dialog_pointer_input(
                 dialogue.last_pointer_position = update.last_pointer_position;
                 // A mouse button released over the row it pressed reports
                 // `Hovered`, not `None` — so this is where an ordinary click
-                // completes. ⚠ but `Hovered` is also raised by mere motion, and a
+                // completes.  but `Hovered` is also raised by mere motion, and a
                 // press that survives a stray hover must not be spent by it: ask
                 // whether a pointer actually came up this frame first.
                 if pointer_up.came_up()
@@ -178,7 +178,7 @@ pub fn dialog_pointer_input(
                 }
             }
             Interaction::Pressed => {
-                // ⭐ **press SELECTS and ARMS; it no longer confirms.** Activating
+                //  press SELECTS and ARMS; it no longer confirms. Activating
                 // on press is what forced touch into two-tap mode: a finger that
                 // lands on a row and then slides has already fired it. Now the
                 // row highlights, the press is remembered, and a drag can still
@@ -196,8 +196,8 @@ pub fn dialog_pointer_input(
                 dialogue.pointer_armed = update.pointer_armed;
                 dialogue.focus = update.focus;
                 dialogue.last_pointer_position = cursor_position;
-                // ⭐ **the tap mode decides WHETHER this tap activates; the release
-                // decides WHEN.** `SingleTapWithDestructiveGuard` — the default on
+                //  the tap mode decides WHETHER this tap activates; the release
+                // decides WHEN. `SingleTapWithDestructiveGuard` — the default on
                 // every platform — returns `Confirmed` from the press itself, so
                 // acting on it here would activate on press for every ordinary
                 // dialogue row and leave the whole release path governing nothing
@@ -206,7 +206,7 @@ pub fn dialog_pointer_input(
                 // for a guarded one) while making that tap a real tap: down, then
                 // up, on the same row.
                 //
-                // ⚠ this is the split `MenuTapMode::default()` already argues for
+                //  this is the split `MenuTapMode::default()` already argues for
                 // in its own comment — a confirmation policy answers "how many
                 // taps", and drag-cancellation belongs to the gesture layer.
                 if update.outcome != RowPointerOutcome::Confirmed {
@@ -216,7 +216,7 @@ pub fn dialog_pointer_input(
                     return;
                 }
                 dialogue.row_press.press(index, pointer_position);
-                // ⚠ a whole tap can fit inside one frame. `ui_focus_system` sets
+                //  a whole tap can fit inside one frame. `ui_focus_system` sets
                 // `Pressed` on the just-pressed frame and defers the reset to
                 // `None` to the NEXT frame (its `entities_to_reset` list), by which
                 // time the release edge is gone from `Touches`/`ButtonInput`. A
@@ -228,14 +228,14 @@ pub fn dialog_pointer_input(
                 }
                 return;
             }
-            // ⛔ **`Interaction::None` is NOT a release.** Bevy raises it for two
+            //  `Interaction::None` is NOT a release. Bevy raises it for two
             // events this arm cannot tell apart on its own: the pointer came UP
             // over this row, or the pointer LEFT the row while still held. A
             // finger that presses near a short row's edge and slides a few pixels
             // off it is the second one, and activating there fires a choice under
             // a finger that never lifted.
             //
-            // ⭐ the live input state is the discriminator, and it is the same one
+            //  the live input state is the discriminator, and it is the same one
             // `ui_focus_system` uses to force `Pressed` → `None`: a finger came up
             // this frame. A MOUSE release over the row it pressed reports
             // `Hovered` (see above), so a mouse `None` is always the pointer
@@ -281,10 +281,10 @@ enum PointerUp {
 impl PointerUp {
     /// Did a pointer come up — treating "cannot say" as yes.
     ///
-    /// ⚠ this is the direction [`ambition_ui_nav::RowPress::origin`] already argues for: *no
+    ///  this is the direction [`ambition_ui_nav::RowPress::origin`] already argues for: *no
     /// position is not evidence of a drag*.
     ///
-    /// ⛔ the `Interaction::None` arm deliberately does NOT use this. There,
+    ///  the `Interaction::None` arm deliberately does NOT use this. There,
     /// "cannot say" resolves the other way, and for a reason rather than a
     /// convention: no `Touches` means no touch backend, so no finger can have
     /// lifted, so the only pointer that could have produced `None` is a mouse
@@ -303,7 +303,7 @@ fn resolve_pointer_up(
     touches: Option<&Touches>,
     mouse_buttons: Option<&ButtonInput<MouseButton>>,
 ) -> PointerUp {
-    // ⚠ **the lift must be the LAST finger up.** Bevy's own focus system forces
+    //  the lift must be the LAST finger up. Bevy's own focus system forces
     // every pressed node to `None` on any `any_just_released()` frame, so with a
     // second finger still down that `None` says nothing about the row's own
     // finger. Requiring the screen to be empty keeps a multi-touch frame from
@@ -441,8 +441,8 @@ mod tests {
 
     /// The real system, driven through Bevy's real input plugin.
     ///
-    /// ⚠ **`Touches` and `ButtonInput` are populated by `InputPlugin`, not by
-    /// hand.** The whole rule under test turns on what those resources report on
+    ///  `Touches` and `ButtonInput` are populated by `InputPlugin`, not by
+    /// hand. The whole rule under test turns on what those resources report on
     /// the frame a pointer comes up, and a fixture that set the flags itself
     /// would be asserting this test's model of Bevy rather than Bevy. What the
     /// plugin actually reports on a release frame, observed: the finger is gone
@@ -531,7 +531,7 @@ mod tests {
         }
     }
 
-    /// **A tap is down THEN up, and it is still one tap.**
+    /// A tap is down THEN up, and it is still one tap.
     ///
     /// The guarantee the release rule is not allowed to cost: a finger that
     /// presses a row and lifts on it chooses that row, without a second tap.
@@ -557,7 +557,7 @@ mod tests {
         );
     }
 
-    /// **A whole tap can land inside one frame**, and `ui_focus_system` defers the
+    /// A whole tap can land inside one frame, and `ui_focus_system` defers the
     /// `Pressed` → `None` reset for exactly that case, so the release edge is gone
     /// by the time `None` arrives. The press frame has to complete it.
     #[test]
@@ -570,7 +570,7 @@ mod tests {
         assert_eq!(rows.chosen(), Some(2));
     }
 
-    /// ⛔ **the defect: `Interaction::None` under a finger that never lifted.**
+    ///  the defect: `Interaction::None` under a finger that never lifted.
     ///
     /// Dialogue rows are short, so a press near an edge leaves the row after a
     /// slide far smaller than the tap slop — which means the drag threshold
@@ -603,7 +603,7 @@ mod tests {
         );
     }
 
-    /// **A second finger lifting says nothing about this row's finger.**
+    /// A second finger lifting says nothing about this row's finger.
     ///
     /// `ui_focus_system` forces EVERY pressed node to `None` on any frame where
     /// `Touches::any_just_released()` is true, so an unrelated finger coming up
@@ -627,7 +627,7 @@ mod tests {
         );
     }
 
-    /// **A drag that never leaves the row is still a drag.**
+    /// A drag that never leaves the row is still a drag.
     ///
     /// Scrolling a list starts on whatever row the thumb landed on, and on a tall
     /// row the gesture can run its whole length without the row ever reporting
@@ -649,7 +649,7 @@ mod tests {
         assert_eq!(rows.chosen(), None);
     }
 
-    /// **A mouse release over the row it pressed arrives as `Hovered`** — so
+    /// A mouse release over the row it pressed arrives as `Hovered` — so
     /// `Hovered` is where a click completes, and a `Hovered` with no release
     /// behind it is just the cursor moving and must not spend the press.
     #[test]
@@ -676,7 +676,7 @@ mod tests {
         );
     }
 
-    /// **A mouse `Interaction::None` is never a release.** A release over the row
+    /// A mouse `Interaction::None` is never a release. A release over the row
     /// reports `Hovered`, so `None` on a mouse-release frame means the button came
     /// up somewhere else — the classic "drag off the button to cancel".
     #[test]
@@ -705,13 +705,13 @@ mod tests {
         dialogue
     }
 
-    /// **Touch keeps the configured policy — and drag safety comes from RELEASE.**
+    /// Touch keeps the configured policy — and drag safety comes from RELEASE.
     ///
     /// That promotion existed only because activation happened on PRESS, so a finger that
     /// landed and slid had already chosen.
     ///
-    /// ⚠ **rewritten rather than deleted, because the guarantee it protected is
-    /// still owed** — a drag must not activate. That is now `RowPress`'s job, and
+    ///  rewritten rather than deleted, because the guarantee it protected is
+    /// still owed — a drag must not activate. That is now `RowPress`'s job, and
     /// the second half of this test is where it is asserted, so removing the
     /// promotion cannot quietly remove the safety with it.
     #[test]

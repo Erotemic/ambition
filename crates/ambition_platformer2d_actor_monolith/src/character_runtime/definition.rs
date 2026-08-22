@@ -1,27 +1,11 @@
-//! **THE BEVY `App` LAYER OVER CHARACTER PREPARATION** — registration, the
-//! finalization barrier, and the plugin that closes it.
+//! Bevy `App` integration for character registration and finalization.
 //!
-//! **the authored MODEL and the preparation PIPELINE are not here any more** . What stays is the
-//! part that is genuinely an App's — `try_register_character`, `StagedCharacterOverrides`,
-//! `CharacterPreparationPlugin`, and the barrier it closes.
-//!
-//! **and the thing that made it hard was not the imports — it was the
-//! PRIVACY.** `prepare_character` and `finalize_character` were private module
-//! functions, and that privacy IS the finalization barrier: it is what made an
-//! early fold unreachable. Splitting the module would have meant publishing
-//! them, putting the ordering hazard `CharacterPreparationPlugin::finish` exists
-//! to remove back on the production surface. So the barrier became a TYPE
-//! instead — `prepared::StagedCharacter` can only be minted by
-//! `prepare_for_registration` and only consumed by `finalize_cast`, the
-//! `Bound<N>` pattern this repository already runs. Folding early is not
-//! prevented now; it is unspellable, and that survives a crate boundary where
-//! privacy does not.
-//!
-//! [`super::CharacterLoadStates`] is where the art half reports.
+//! Preparation lives in `ambition_characters::prepared`; this module owns the
+//! application registration seam and the typed finalization barrier.
+//! [`super::CharacterLoadStates`] reports the asset-loading side.
 
-// **every moved name is re-exported**, so `character_runtime::{..}` paths
-// across the workspace are unchanged by the relocation. The module a reader
-// should EDIT is `ambition_characters::prepared`; this list is the door.
+// TODO(compat-remove): migrate `character_runtime::{..}` callers to
+// `ambition_characters::{binding_namespaces, prepared}` and remove these re-exports.
 pub use ambition_characters::binding_namespaces::{
     MoveId, PortraitTarget, RangedPayload, SfxCueId, SheetTarget, VerbId, VfxTag,
 };
@@ -33,53 +17,18 @@ pub use ambition_characters::prepared::{
 
 use ambition_characters::actor::definition::CharacterDefinition;
 
-// The barrier-bypassing fixture seams, re-exported so `definition_tests.rs` —
-// which is `#[path]`-included as a CHILD of this module and reaches them through
-// `use super::*` — is unchanged by the relocation. Behind `ambition_characters`'s
-// `test-support` feature, which this crate enables as a DEV-dependency only.
+// Test-only preparation seams used by the child `definition_tests` module.
 #[cfg(test)]
 #[allow(unused_imports)]
 pub(crate) use ambition_characters::prepared::{
     prepare_and_finalize_against_for_test, prepare_and_finalize_for_test, FinalizedCharacter,
 };
 
-/// **The single registration seam.** (§4.1)
+/// Fill missing engine sheet and portrait vocabularies at the registration seam.
 ///
-/// Prepares the definition and publishes it into the prepared authority. A
-/// provider makes ONE call and does not have to know that sheets, cues, and
-/// gameplay numbers are consumed by different subsystems.
-///
-/// # Registration is DECLARATIVE — it does not load anything
-///
-/// Loading is driven by a PROJECTION of what a session actually stages: a room
-/// plan, a match roster, a startup spec, or a body putting on an identity
-/// (`StagesCharacters`). Registration says *what exists*; staging says *what is
-/// needed now*. A game with fifty registered fighters and two on screen decodes
-/// two sheets.
-///
-/// The binding report is logged rather than returned as an error: see
-/// [`prepare_character`] for why an unresolved reference degrades loudly instead
-/// of refusing.
-/// **Fill in the engine's baked sheet + portrait vocabularies unless the caller
-/// supplied them** — the registration seam's job, and it is a FREE FUNCTION for
-/// a reason.
-///
-/// these were inherent methods on `CharacterBindings`
-/// (`with_engine_{sheet,portrait}_vocabulary`). The type is moving down into
-/// `ambition_characters`, and the vocabularies come from
-/// `ambition_sprite_sheet`, which DEPENDS ON `ambition_characters` — so keeping
-/// them inherent would be a cycle the compiler finds at the worst moment. The
-/// orphan rule adjudicating placement (P1.7 sub-case (a)).
-///
-/// **and it belongs here anyway**, which is what makes this a repair rather
-/// than a workaround. The original doc said so: *"kept OUT of
-/// `prepare_character`, which stays a pure function of its arguments — reaching
-/// into a baked global from inside preparation would make the same definition
-/// prepare differently depending on the build. This is the registration seam's
-/// job, because registration is where the engine is."*
-///
-/// Both halves apply at the ONE seam every registration passes through, rather than at the three
-/// call sites, so the next provider cannot forget one.
+/// Preparation remains a pure function of its inputs. This function lives above
+/// `ambition_characters` because the concrete vocabularies come from
+/// `ambition_sprite_sheet`, which already depends on `ambition_characters`.
 pub fn with_engine_vocabularies(mut bindings: CharacterBindings) -> CharacterBindings {
     if !bindings.has_sheet_vocabulary() {
         bindings = bindings
@@ -116,8 +65,8 @@ impl CharacterDefinitionAppExt for bevy::prelude::App {
         // reference checked with a did-you-mean whether or not the provider thought to pass a
         // resolver.
         //
-        // **and enriching the BINDINGS is the whole of what this layer does
-        // now.** Staging, the barrier and the fold went down to
+        // and enriching the BINDINGS is the whole of what this layer does
+        // now. Staging, the barrier and the fold went down to
         // `ambition_characters:prepared`: while they were up here,
         // the low crate had to publish a public mint and a public consumer for
         // this function to call, and two public ends make a public fold no matter

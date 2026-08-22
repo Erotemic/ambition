@@ -28,7 +28,7 @@
         // by id, like the host cues below, because it is not one of the typed
         // engine cues.
         //
-        // ⛔ it was silent from 2026-07-26 to 2026-08-02. `apply_player_robot_slash_sfx`
+        //  it was silent from 2026-07-26 to 2026-08-02. `apply_player_robot_slash_sfx`
         // swaps the generic `player.slash` for this id on every attack move, and
         // `player.slash` is authored here (typed `Slash`) while this id was not.
         // A source's authorized set is `registry cue ids ∪ bank ids`, so the swap

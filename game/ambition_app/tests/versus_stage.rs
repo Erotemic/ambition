@@ -160,7 +160,7 @@ fn choosing_versus_seats_two_fighters_in_the_arena() {
     );
 }
 
-/// **Leaving versus takes the roster with it.**
+/// Leaving versus takes the roster with it.
 #[test]
 fn leaving_versus_does_not_seat_fighters_into_the_next_game() {
     use ambition_platformer2d::actors::character_runtime::MatchParticipantRoster;
@@ -310,7 +310,7 @@ fn two_controllers_make_versus_a_two_player_game() {
     );
 }
 
-/// **A seated fighter wears its character all the way down.**
+/// A seated fighter wears its character all the way down.
 ///
 /// Wearing a character is not a label: `apply_worn_character_gameplay` is the one writer that
 /// turns `WornCharacter` into a persona — the body's name, its action set, its moveset and its
@@ -376,7 +376,7 @@ fn a_seated_fighter_derives_its_character_and_not_just_its_name() {
     let _ = action_set;
 }
 
-/// **The whole point: one fighter presses attack and the other loses health.**
+/// The whole point: one fighter presses attack and the other loses health.
 ///
 /// Couch versus worked and was two people walking into each other, because
 /// neither demo cast authors a move list. This is the assertion that the
@@ -476,7 +476,7 @@ fn both_fighters_can_actually_hit_each_other() {
     );
 }
 
-/// **A round can be lost, and a match can be won.** (L8)
+/// A round can be lost, and a match can be won. (L8)
 ///
 /// Drives the rules through the resource rather than by landing a hundred real
 /// swings: the swing path is proven by
@@ -615,7 +615,7 @@ fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
     );
 }
 
-/// **The CPU opponent actually fights.** (L11)
+/// The CPU opponent actually fights. (L11)
 ///
 /// Player-vs-CPU is the mode anybody with ONE controller gets, which makes it
 /// the default versus experience and the one a stranger sees first. It shipped
@@ -667,7 +667,7 @@ fn the_cpu_opponent_is_not_a_statue() {
          ActorControl and it cannot move whatever else is right"
     );
 
-    // **PATH LENGTH, not displacement.** Comparing the position before and after
+    // PATH LENGTH, not displacement. Comparing the position before and after
     // measures nothing if a whole ROUND happened in between: this fighter walks
     // at its opponent, falls into the arena, dies, and `begin_round` puts it back
     // on its seat — so both samples read "at the seat" and the test reported
@@ -696,7 +696,7 @@ fn the_cpu_opponent_is_not_a_statue() {
     );
 }
 
-/// **Seat 0 can lose a round.**
+/// Seat 0 can lose a round.
 ///
 /// Seat 0 is the adopted PRIMARY PLAYER, and the primary player's death runs
 /// `death_respawn_player`: teleport to the room spawn, full heal, banner. That
@@ -759,8 +759,8 @@ fn seat_zero_can_lose_a_round_and_is_not_respawned_out_from_under_the_rules() {
             damage: hp + 10,
             source: ambition_platformer2d::combat::events::HitSource::Melee,
             attacker: None,
-            // **the two consumers are a surviving fork and this test is not
-            // the place to remove it.** `HitTarget::Body` / `HitTarget::Body`
+            // the two consumers are a surviving fork and this test is not
+            // the place to remove it. `HitTarget::Body` / `HitTarget::Body`
             // are documented as a deliberate split — the relational
             // actor-vs-actor path exists so an Enemy-faction body can damage a
             // Boss-faction one without the bipartite assumption — but "which
@@ -797,7 +797,7 @@ fn seat_zero_can_lose_a_round_and_is_not_respawned_out_from_under_the_rules() {
     );
 }
 
-/// **Coming back to Versus starts a new match.**
+/// Coming back to Versus starts a new match.
 ///
 /// `VersusMatch` is a long-lived resource and `run_versus_rules` simply returns
 /// when no roster exists, so leaving mid-match froze the score rather than
@@ -916,7 +916,7 @@ fn returning_to_versus_starts_a_fresh_match() {
     );
 }
 
-/// **A KO stops the fight.**
+/// A KO stops the fight.
 ///
 /// Only the rules and the HUD ever read `MatchPhase`.
 ///
@@ -1019,7 +1019,7 @@ fn a_knockout_freezes_the_fight_until_the_next_round() {
     );
 }
 
-/// **A decided round stops being fought.**
+/// A decided round stops being fought.
 ///
 /// `a_knockout_freezes_the_fight_until_the_next_round` asserts the clock, and the clock is a
 /// RAMP: the KO asks for scale zero and the smoother slides down to it over the following
@@ -1139,7 +1139,7 @@ fn a_decided_round_takes_the_controls_away() {
     );
 }
 
-/// **A round boundary tells the fighter's PROVIDER to reset its own state.**
+/// A round boundary tells the fighter's PROVIDER to reset its own state.
 ///
 /// `begin_round` restores health, position, facing and every engine-owned body
 /// cluster, and its comment claimed that as a clean start. It is not one for a
@@ -1232,7 +1232,7 @@ fn a_round_boundary_tells_the_provider_to_reset_its_own_state() {
     );
 }
 
-/// **The health readout is a GAUGE, and it tracks damage.**
+/// The health readout is a GAUGE, and it tracks damage.
 ///
 /// The declared HUD published strings and nothing else, so a health readout
 /// could only ever be "47/60". A number is precise; a bar is readable, and in a
@@ -1304,7 +1304,7 @@ fn the_versus_health_readout_is_a_gauge_that_follows_damage() {
     );
 }
 
-/// **Every seated fighter is actually DRAWN.**
+/// Every seated fighter is actually DRAWN.
 ///
 /// view, a hurtbox, a moveset, health and a team — and no picture, and not even
 /// the placeholder rectangle a body with unresolvable art is supposed to fall
@@ -1369,7 +1369,7 @@ fn every_seated_fighter_has_something_on_screen() {
     }
 }
 
-/// **Four controllers make it a 2v2.**
+/// Four controllers make it a 2v2.
 ///
 /// L17 proved a 2v2 works through seating; nothing a player could PICK offered
 /// one, and `SlotControls` slots 2 and 3 had never carried a real device.
@@ -1461,7 +1461,7 @@ fn four_controllers_make_versus_a_two_versus_two() {
     }
 }
 
-/// **Four pads, four bodies, each moving only its own.**
+/// Four pads, four bodies, each moving only its own.
 ///
 /// The 1v1 has this end to end; the 2v2 asserted seating and the damage
 /// relation and stopped short of four live devices. Slots 2 and 3 of
@@ -1555,8 +1555,8 @@ fn four_pads_each_move_their_own_fighter_and_nobody_else_s() {
     }
 }
 
-/// **A 2v2 scoreboard shows four fighters, and the round goes to the other
-/// TEAM.**
+/// A 2v2 scoreboard shows four fighters, and the round goes to the other
+/// TEAM.
 ///
 /// Two defects met here, and neither is visible in a 1v1.
 ///
@@ -1649,7 +1649,7 @@ fn a_two_versus_two_shows_four_gauges_and_scores_by_team() {
     );
 }
 
-/// **The last round's attacks do not follow the fighters into the next one.**
+/// The last round's attacks do not follow the fighters into the next one.
 ///
 /// A KO hold FREEZES the world; it does not empty it.
 #[test]
@@ -1797,8 +1797,8 @@ fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
     );
 }
 
-/// **The SHIPPED host has render-only frames too, and nothing writes sim state
-/// on them.**
+/// The SHIPPED host has render-only frames too, and nothing writes sim state
+/// on them.
 ///
 /// The engine-side sweep in `rollback_coverage` watches the RL-sim composition and says so in
 /// its own docs — it cannot see `VersusMatch`, which the shell app registers. Reasoned once,
@@ -2030,8 +2030,8 @@ fn the_round_counter_counts_rounds_and_not_wins() {
     );
 }
 
-/// **A fighter is hittable through what its AUTHOR said, and a committed smash
-/// changes it.**
+/// A fighter is hittable through what its AUTHOR said, and a committed smash
+/// changes it.
 ///
 /// That is a reasonable default and says nothing about what a fighter is doing: a smash that costs
 /// nothing to whiff is a game where you always smash.
@@ -2137,7 +2137,7 @@ fn a_seated_fighter_is_damageable_through_its_authored_hurtbox() {
     );
 }
 
-/// **The round-start countdown is a simulation phase, not a card.**
+/// The round-start countdown is a simulation phase, not a card.
 ///
 /// That is a defensible presentation choice and it has one property no fighting game accepts: the
 /// two players do not start equal, because one of them is reading the banner.
@@ -2234,7 +2234,7 @@ fn a_round_opens_on_a_countdown_that_nobody_can_act_through() {
     );
 }
 
-/// **A fighter knocked off the stage loses the round.**
+/// A fighter knocked off the stage loses the round.
 ///
 /// The verb the whole genre is built on, and until now it could not happen at all.
 ///
@@ -2322,7 +2322,7 @@ fn a_fighter_knocked_off_the_stage_loses_the_round() {
     );
 }
 
-/// **Thrown off the SIDE is a loss, not a suggestion.**
+/// Thrown off the SIDE is a loss, not a suggestion.
 ///
 /// The out-of-bounds gate measured distance past the world along the fall
 /// direction only, so a fighter launched horizontally off the stage died only
@@ -2413,7 +2413,7 @@ fn a_fighter_thrown_off_the_side_loses_the_round() {
     );
 }
 
-/// **A KO makes a sound.**
+/// A KO makes a sound.
 ///
 /// Every fighter in a versus round carries `RulesetOwnsDeath`, which means EVERY versus KO was
 /// silent, and a KO is the whole payoff of the genre.
@@ -2493,7 +2493,7 @@ fn a_knockout_is_announced_in_the_losers_own_voice() {
          ends with no sound is a round nobody notices."
     );
 
-    // **SEAT 0 TOO, ON ITS OWN STAGE.**
+    // SEAT 0 TOO, ON ITS OWN STAGE.
     //
     // Settling into the NEXT round does not rescue it either (probed: phase `Fighting`, not
     // scripted, still no damage), so the confound is the round transition itself and the fix is
@@ -2543,8 +2543,8 @@ fn a_knockout_is_announced_in_the_losers_own_voice() {
             damage: hp + 10,
             source: ambition_platformer2d::combat::events::HitSource::Melee,
             attacker: None,
-            // **the two consumers are a surviving fork and this test is not
-            // the place to remove it.** `HitTarget::Body` / `HitTarget::Body`
+            // the two consumers are a surviving fork and this test is not
+            // the place to remove it. `HitTarget::Body` / `HitTarget::Body`
             // are documented as a deliberate split — the relational
             // actor-vs-actor path exists so an Enemy-faction body can damage a
             // Boss-faction one without the bipartite assumption — but "which
@@ -2590,7 +2590,7 @@ fn a_knockout_is_announced_in_the_losers_own_voice() {
     );
 }
 
-/// **A round boundary culls what the round created, without naming it.** (3A)
+/// A round boundary culls what the round created, without naming it. (3A)
 ///
 /// Every transient family added afterwards — a strike volume, a summon, a lingering hitbox — needed
 /// another query in that function, and forgetting one fails silently: the entity is simply still
@@ -2650,7 +2650,7 @@ fn a_round_boundary_culls_round_scoped_entities_the_rules_never_name() {
     );
 }
 
-/// **The disagreement path is REAL, and nothing exercised it.**
+/// The disagreement path is REAL, and nothing exercised it.
 ///
 /// `reconcile_roster_with_frozen_topology` has two arms once a match is seated: correct the
 /// paperwork when the frozen topology would build the SAME fighters, and refuse to touch
@@ -2662,7 +2662,7 @@ fn a_round_boundary_culls_round_scoped_entities_the_rules_never_name() {
 /// participants and the stale stamp alone. A repair here would be a silent
 /// reseat of bodies already fighting.
 ///
-/// **it asserts the stamp stays STALE on purpose.** That is the visible
+/// it asserts the stamp stays STALE on purpose. That is the visible
 /// difference between the two arms: agreement updates it, disagreement must not,
 /// because updating it would claim the session and the roster agree.
 #[test]
@@ -2695,7 +2695,7 @@ fn a_roster_that_disagrees_with_the_frozen_topology_is_left_alone() {
         for participant in &mut roster.participants {
             participant.character = format!("{}_impostor", participant.character).into();
         }
-        // **`activate(None)`, not `Proposed`.** The match is LIVE — these
+        // `activate(None)`, not `Proposed`. The match is LIVE — these
         // bodies are on the stage — so the roster stays activated and only the
         // record of which topology decided it is cleared. Making it `Proposed`
         // would describe a match nobody has agreed to while its fighters are

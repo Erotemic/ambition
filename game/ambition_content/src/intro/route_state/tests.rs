@@ -192,10 +192,10 @@ fn emit_chains_promotes_p5_to_route_memory() {
 }
 
 
-/// **THE INTRO WORLD SAYS WHICH FLAG OPENS WHICH WALL — in the level, not in
-/// Rust.**
+/// THE INTRO WORLD SAYS WHICH FLAG OPENS WHICH WALL — in the level, not in
+/// Rust.
 ///
-/// **the engine tests pin the FUNCTION; this pins the WIRING**, and that
+/// the engine tests pin the FUNCTION; this pins the WIRING, and that
 /// distinction has cost this project a session before: enemy facing was plumbed,
 /// tested and green the entire time enemies walked the wrong way, because
 /// nothing asserted the authored world ever *said* which way.

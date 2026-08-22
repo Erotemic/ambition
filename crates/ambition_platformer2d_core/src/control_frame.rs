@@ -19,7 +19,7 @@ use crate::RawDirectionEdges;
 /// `ambition_input`; headless tests, replay, and future netcode can populate it
 /// directly.
 ///
-/// **Local-primary adapter:** the host still keeps one global `ControlFrame` resource at the
+/// Local-primary adapter: the host still keeps one global `ControlFrame` resource at the
 /// device edge for the local primary input, then publishes that finalized value into
 /// `ambition_characters::brain::SlotControls`. The type itself is slot-neutral; no copy is
 /// stored on the controlled body. This is why adding a `ControlFrame` field does not bump
@@ -99,7 +99,7 @@ pub struct ControlFrame {
     /// verb. While held with the `shield` ability active, the engine deploys the
     /// bubble and tracks the parry window.
     pub shield_held: bool,
-    /// **Grab button rising edge.** One press = one capture attempt.
+    /// Grab button rising edge. One press = one capture attempt.
     ///
     /// an EDGE and not a level, unlike [`Self::shield_held`] beside it, and
     /// the asymmetry is the mechanic: a shield is a state you sustain, a grab is
@@ -107,7 +107,7 @@ pub struct ControlFrame {
     /// — the authored grab move owns how long the attempt stays active, and its
     /// recovery is what a whiffed grab costs.
     pub grab_pressed: bool,
-    /// **Rising edge: this body wants to TAUNT this tick.** A taunt costs the
+    /// Rising edge: this body wants to TAUNT this tick. A taunt costs the
     /// body its footing and buys it nothing, which is the whole point.
     pub taunt_pressed: bool,
     /// Modifier slot currently HELD (sustain). The device layer reports the raw
@@ -139,8 +139,8 @@ impl ControlFrame {
     /// Merge a newer device sample into `self`, the frame accumulated so far
     /// within one sim tick.
     ///
-    /// **Levels** (axes, aim, every `*_held`) take the LATEST sample: a stick
-    /// released mid-tick is released. **Edges** (every `*_pressed` /
+    /// Levels (axes, aim, every `*_held`) take the LATEST sample: a stick
+    /// released mid-tick is released. Edges (every `*_pressed` /
     /// `*_released`) OR together, so a tap that begins and ends between two sim
     /// ticks is never swallowed.
     #[must_use]
@@ -210,17 +210,17 @@ impl ControlFrame {
     }
 }
 
-/// **The frame→tick input latch** (netcode N0.1).
+/// The frame→tick input latch (netcode N0.1).
 ///
 /// Devices sample on the FEEL clock (once per rendered frame); the simulation consumes on the
 /// TICK clock. When the two are the same clock (frame-stepped mode) no latch is needed and none
 /// is installed.
 ///
-/// - **Several frames per tick** (render faster than the sim): each device
+/// - Several frames per tick (render faster than the sim): each device
 ///   sample is [`accumulate_control_frame_latch`]d into the latch, so a press
 ///   and release that both happen between two ticks still reach the sim as a
 ///   press. Without this, sub-tick taps vanish.
-/// - **Several ticks per frame** (sim catching up after a hitch): the first
+/// - Several ticks per frame (sim catching up after a hitch): the first
 ///   tick takes the edges; later ticks in the same frame see levels only. A
 ///   single tap can never fire twice.
 ///
@@ -233,8 +233,8 @@ impl ControlFrame {
 /// enforced and delete this. It is not; this is the mechanism. (The rollback
 /// host solves the same problem differently — the SESSION publishes the frame
 /// GGRS confirmed, on the `ReadInputs` edge.)
-/// **NOT a `Resource` — it is one ROW of
-/// `ambition_characters::brain::SlotControlLatches`, seat zero's included.** It
+/// NOT a `Resource` — it is one ROW of
+/// `ambition_characters::brain::SlotControlLatches`, seat zero's included. It
 /// was a standalone resource beside that array, which covered slots 1.. and said
 /// so in its own doc; every consumer then handled the pair. See
 /// `SlotControlLatches`.
@@ -383,7 +383,7 @@ mod latch_tests {
 mod latch_authority_tests {
     use super::*;
 
-    /// **An untouched latch is not a request for a neutral frame.**
+    /// An untouched latch is not a request for a neutral frame.
     ///
     /// The latch only becomes an authority over the tick's input once a device has fed it.
     #[test]

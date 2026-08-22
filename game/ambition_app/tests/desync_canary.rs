@@ -271,7 +271,7 @@ fn ordinary_room_local_motion_does_not_invalidate_the_session_contract() {
     );
 }
 
-/// **The mutable-state rewind canary.** Persistent, sim-mutated state that
+/// The mutable-state rewind canary. Persistent, sim-mutated state that
 /// CHANGES during the run must survive rewind + resimulation identically.
 ///
 /// `SyncTestSession` is what makes this sharp: every harness step saves,
@@ -338,7 +338,7 @@ fn sim_mutated_state_that_changes_survives_rewind_identically() {
     );
 }
 
-/// **TWO input streams through a real rewind.**
+/// TWO input streams through a real rewind.
 ///
 /// A resimulated frame replayed seat zero faithfully and gave every other seat whatever the
 /// device happened to be doing at replay time.

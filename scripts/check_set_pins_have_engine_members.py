@@ -1,67 +1,9 @@
 #!/usr/bin/env python3
-"""Which engine ordering edges point at a set only a GAME ever fills?
+"""Report engine ordering edges that target sets with no engine-owned members.
 
-⚠ **the name used to be `check_set_pins_are_not_vacuous`, and it promised more
-than it delivers.** A pin is vacuous for more than one reason, and this checks
-exactly ONE of them: that the set's members are all registered by game crates.
-A pin whose member is registered in a DIFFERENT SCHEDULE is equally vacuous —
-`Update`'s `.before(CoreSimulation)` orders nothing against a member registered
-in `GgrsSchedule` — and this checker cannot see that, because it does not model
-schedules and modelling them textually is a checker that would lie in a new way.
-That hazard is real and was found independently (07-31 ledger, S39). It is
-addressed where it belongs: `check_rollback_mutators_run_in_sim.py` for the
-schedule question, and the compiler-side sets themselves.
-
-A guard named for a property it does not have is worse than a narrower one, so
-this one is named for the question it actually asks. (GPT review of
-5cc4337..47d7de3, finding 10, whose own remedy — teach this checker schedule
-identity — is refused: its closing paragraph forbids another general-purpose
-checker, and that applies to itself.)
-
-
-`.before(SomeSet)` against a set with no members is **vacuously satisfied**.
-Bevy does not warn, no test fails, and the edge reads in the source exactly like
-one that works. So when an ENGINE crate orders against a set whose members are
-all registered by an APP, every composition that is not that app silently loses
-the ordering — the same failure shape as
-`check_engine_systems_are_engine_installed.py`, one level up: there the SYSTEM is
-app-only, here the SET's membership is.
-
-This became worth checking on 2026-08-02. A campaign converted 51 cross-crate
-leaf pins into 32 named sets, which is a strict improvement — a set can be
-widened behind its name, a function cannot — but it also multiplied the number of
-places this hazard can hide. A leaf pin at least names something that exists.
-
-## What it checks
-
-For every `.before(X)` / `.after(X)` in an ENGINE crate where `X` is a SystemSet
-DEFINED in this workspace: find every `.in_set(X)`. If all of them are in game
-crates, the pin is vacuous outside those games, and the row must be fixed or
-WAIVED here with a reason.
-
-⚠ **a waiver is the normal outcome.** An extension point that a game fills is a
-legitimate design — `ContentRoomResetSet` exists precisely so content can join
-it, and "no content installed, so nothing to order around" is correct behaviour,
-not a bug. The point is that the choice is *made* and written down, rather than
-being whichever composition happened to wire it.
-
-## What it deliberately is not
-
-⚠ **it cannot see Bevy's own sets, and does not try.** `UiSystem::Layout`,
-`TransformSystem::Propagate`, `InputSystem::Unify` and friends have no `.in_set`
-anywhere in this workspace because Bevy registers their members. Eight such
-names showed up in the first run as false findings; restricting to sets DEFINED
-here removes all eight. A set defined in a third-party crate is out of scope for
-the same reason.
-
-⚠ and it is textual, like its siblings: comments stripped, production source
-only, `.in_set(Path::To::Set)` matched by its LAST segment. A membership added
-through a helper or a macro is invisible.
-
-Usage:
-    python3 scripts/check_set_pins_have_engine_members.py
-    python3 scripts/check_set_pins_have_engine_members.py --list
-"""
+A Bevy ordering edge against an empty set is vacuous in that schedule. This check
+compares engine set pins with engine-installed systems so host/game-only extension
+sets are not mistaken for active ordering constraints."""
 
 from __future__ import annotations
 

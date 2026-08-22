@@ -1,4 +1,4 @@
-//! **Ambient wildlife: a wall-and-ceiling crawler that hurts on touch.**
+//! Ambient wildlife: a wall-and-ceiling crawler that hurts on touch.
 //!
 //! The row this replaces carried a `default_size` of 48x22 and it is
 //! deliberately NOT here: a named catalog character sizes its body to its
@@ -29,13 +29,13 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             strength: 0.55,
             amount: 1,
         })
-        // **IT CRAWLS. THAT IS THE WHOLE VERB LIST.**
+        // IT CRAWLS. THAT IS THE WHOLE VERB LIST.
         //
         // should not be able to double jump. The point of a slug is that it
         // shows that it is spawned happily even though it basically has no
         // moves."*
         //
-        // **`attack: false` is not an oversight.** Its damage is CONTACT
+        // `attack: false` is not an oversight. Its damage is CONTACT
         // damage, authored above — it hurts you by being touched, not by
         // swinging. Granting `attack` would give it a swipe nothing describes,
         // which is the "generic swipe" half of the same acceptance test.

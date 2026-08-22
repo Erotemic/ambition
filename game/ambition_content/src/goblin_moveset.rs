@@ -1,4 +1,4 @@
-//! **The goblin's repertoire** — the third character in the game to state its own
+//! The goblin's repertoire — the third character in the game to state its own
 //! moves, and the first ENEMY to.
 //!
 //! That floor is one `simple_melee` swipe handed to every seated fighter whose character says
@@ -7,7 +7,7 @@
 //! its body (170 px/s, 5 HP, 0.70 contact) and its controller policy (the shared
 //! `medium_striker`).
 //!
-//! **it is NOT the robot's table with different numbers.** A goblin is small,
+//! it is NOT the robot's table with different numbers. A goblin is small,
 //! fast and scrappy: it gets in, it pokes, and its punish window is short because
 //! it cannot afford a long one. Against the robot that reads as
 //!
@@ -21,8 +21,8 @@
 //! differences are the authored ones; the SHAPE is `strike`'s, which is the whole
 //! reason that helper was pulled out of the robot's file.
 //!
-//! **the clip names are the standard vocabulary and the fallback chain does the
-//! rest.** The goblin sheet does not have 132 rows; `strike` names `smash_forward`
+//! the clip names are the standard vocabulary and the fallback chain does the
+//! rest. The goblin sheet does not have 132 rows; `strike` names `smash_forward`
 //! and settles for `attack_side`, then `attack`, then `slash`, then `idle`. A
 //! missing clip costs the move its picture, never its gameplay.
 
@@ -233,8 +233,8 @@ pub fn goblin_moveset() -> MovesetContract {
     );
 
 
-    // **a forward tilt, because without one the commonest press in the genre
-    // falls down the directional chain to the jab.** A goblin's is a scrappy
+    // a forward tilt, because without one the commonest press in the genre
+    // falls down the directional chain to the jab. A goblin's is a scrappy
     // shove — shorter and faster than anybody else's, like the rest of its kit.
     let f_tilt = strike(
         "tilt_forward",
@@ -254,7 +254,7 @@ pub fn goblin_moveset() -> MovesetContract {
     let f_tilt = sfx(f_tilt, 0.06, "enemy.goblin.attack");
     let f_tilt = on_contact(f_tilt, "enemy.goblin.hit");
 
-    // **NEUTRAL — `scrap_flail`.** No technique at all: it turns its whole body
+    // NEUTRAL — `scrap_flail`. No technique at all: it turns its whole body
     // into the swing and hopes. Wide, slow for a goblin, and the only move in
     // its kit that covers both sides of it.
     let n_b = strike(
@@ -276,7 +276,7 @@ pub fn goblin_moveset() -> MovesetContract {
     let n_b = sfx(n_b, 0.10, "enemy.goblin.attack");
     let n_b = on_contact(n_b, "enemy.goblin.hit");
 
-    // **SIDE — `headlong_charge`.** It runs at you. `ImpulseMode::Set`, so a
+    // SIDE — `headlong_charge`. It runs at you. `ImpulseMode::Set`, so a
     // goblin already falling gets the same charge as a standing one — the
     // difference between a committed move and a suggestion — and the tail damps
     // steering to 0.1 rather than 0.0, because a scrappy fighter that could not
@@ -301,7 +301,7 @@ pub fn goblin_moveset() -> MovesetContract {
     let side_b = sfx(side_b, 0.14, "enemy.goblin.attack");
     let side_b = on_contact(side_b, "enemy.goblin.hit");
 
-    // **UP — `scramble_leap`. THE RECOVERY**, and the reason this batch is not
+    // UP — `scramble_leap`. THE RECOVERY, and the reason this batch is not
     // cosmetic: with no special at all, a goblin knocked off the stage had a
     // double jump and nothing else. It claws upward — weaker than a heavyweight's
     // lift and cheaper to land, which is the small fighter's bargain.
@@ -326,7 +326,7 @@ pub fn goblin_moveset() -> MovesetContract {
     let up_b = sfx(up_b, 0.08, "enemy.goblin.jump");
     let up_b = on_contact(up_b, "enemy.goblin.hit");
 
-    // **DOWN — `dirt_kick`.** It kicks the ground at you. Wide, low and flat,
+    // DOWN — `dirt_kick`. It kicks the ground at you. Wide, low and flat,
     // and grounded-only because the whole move is that there is ground.
     let down_b = strike(
         "dirt_kick",
@@ -358,7 +358,7 @@ pub fn goblin_moveset() -> MovesetContract {
     // player pressing down-B in the air got the neutral-B. `special_air_down`
     // sits ahead of `special_down` in that chain and has the whole time; this is
     // the two-form move it exists for.
-    // **DOWN, IN THE AIR — `dive_stomp`.** It cannot kick the ground from up
+    // DOWN, IN THE AIR — `dive_stomp`. It cannot kick the ground from up
     // there, so it becomes the ground: knees up, straight down, and whoever is
     // under it is the floor.
     let mut air_down_b = strike(
@@ -381,7 +381,7 @@ pub fn goblin_moveset() -> MovesetContract {
     let air_down_b = sfx(air_down_b, 0.08, "enemy.goblin.attack");
     let air_down_b = on_contact(air_down_b, "enemy.goblin.hit");
 
-    // **GOBLIN'S CAPTURE KIT.** Short reach, fast everything, weak throw: it wins the
+    // GOBLIN'S CAPTURE KIT. Short reach, fast everything, weak throw: it wins the
     // grab and cannot finish with it. The flattest launch on the roster.
     // the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
     // and each table's own `every_clip_names_a_row_..._sheet_carries` guard says
@@ -466,7 +466,7 @@ pub fn goblin_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: up_b,
-        // **AUTHORED, at the rule that every fighter in the smash roster have a grab.** The
+        // AUTHORED, at the rule that every fighter in the smash roster have a grab. The
         // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
         // the whole point of proving it was to stop being the only two.
         //
@@ -503,7 +503,7 @@ mod tests {
     // `ambition_characters::smash_repertoire`, and by the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
-    /// **The goblin is not the robot with different numbers.**
+    /// The goblin is not the robot with different numbers.
     ///
     /// the point of a per-character table is that the characters differ, and a
     /// table copied wholesale would pass every other test in this file. This pins

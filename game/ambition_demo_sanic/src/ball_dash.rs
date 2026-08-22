@@ -1,53 +1,9 @@
-//! **The ball dash (spin dash)** — Track S's one new verb.
+//! Sanic ball-dash technique implemented entirely in content code.
 //!
-//! `docs/planning/demos/sanic.md` §Design: *"a charge technique that on release
-//! sets `v_t` (grounded) or velocity (airborne) along facing to
-//! `dash_speed × charge`, with a rolling state flag that narrows the hurtbox
-//! (BodyBaseSize seam). This is the S-track's one new technique; registered
-//! content-side."*
-//!
-//! Content-side means content-side: this file adds **zero engine code**. It reads
-//! `ActorControl` (the brain output every controlled body carries), writes
-//! `MotionModel::SurfaceMomentum`'s `v_t`, and resizes `BodyKinematics::size`
-//! against the `BodyBaseSize` reference the crouch seam already established. The
-//! E9 oracle — *"could another platformer be built by ADDING a content crate
-//! without editing core?"* — holds for a brand-new movement verb.
-//!
-//! ## The input, and why it needed no new binding
-//!
-//! The demo's keyboard contract is *hold down, tap attack (X in the default
-//! arrows + Z/X/C preset) to rev, release down to launch*. Every one of those
-//! already exists on `ActorControlFrame`:
-//!
-//! - **crouch** = `locomotion.y ≥ threshold`. `locomotion` is in the body's LOCAL
-//!   frame, `+y` toward the feet — so this is gravity-relative for free, and a
-//!   Sanic running the ceiling of a loop revs the same way he does on the floor.
-//! - **rev** = the raw `melee_pressed` edge while crouched. The Sanic rules
-//!   capture it before the persona gate removes generic combat, so X becomes a
-//!   Sanic technique without leaking a melee attack.
-//! - **launch** = the crouch releasing while charge is above the launch floor.
-//!
-//! No new device binding and no engine field: [`capture_ball_dash_input`] samples
-//! the ordinary actor-control seam between the player brain and the generic worn-kit
-//! gate. `locomotion.y` being local rather than screen-space is what makes the loop
-//! case fall out.
-//!
-//! ## The sign of `v_t`
-//!
-//! The surface kernel integrates `v_t += run * accel * dt`, where `run` is the
-//! same `locomotion.x` — so **`v_t`'s sign convention IS facing's**, and the
-//! launch is `facing × speed × charge` with nothing to convert. Airborne, world
-//! velocity has no such convention, so the launch resolves the local side axis
-//! from gravity exactly as the kernel's airborne branch does.
-//!
-//! ## The ball is not a costume
-//!
-//! Rolling shrinks `BodyKinematics::size`. The momentum kernel derives its circle
-//! proxy as `size.min_element() * 0.5`, so a balled-up Sanic is *physically*
-//! smaller: he fits gaps he cannot walk through, and the hurtbox narrows because
-//! the body did, not because a flag said so. `BodyBaseSize` is untouched — it is
-//! the standing reference `pose_view` divides by for the stance ratio, the same
-//! seam crouch uses.
+//! While crouched, melee-press edges add charge; releasing crouch launches along the
+//! body's gravity-relative facing direction. Grounded launch writes surface `v_t`;
+//! airborne launch resolves the local side axis from gravity. Rolling shrinks
+//! `BodyKinematics::size` while leaving `BodyBaseSize` as the standing reference.
 
 use ambition_platformer2d::engine_core as ae;
 use bevy::prelude::*;
@@ -387,7 +343,7 @@ pub fn tick_rolling(
     }
 }
 
-/// **Sanic's answer to "this body starts again".**
+/// Sanic's answer to "this body starts again".
 ///
 /// The engine's own reset clears the engine's own clusters, which is everything
 /// it can honestly clear: a charge stored in [`BallDash`], the crouch edge in

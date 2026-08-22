@@ -228,8 +228,8 @@ pub fn steer_mount_from_rider(
         }
         // Total grant → the mount executes the rider's locomotion intent.
         //
-        // **`locomotion` is CONTROLLED-BODY-LOCAL, so copying it between two
-        // bodies is only sound while both resolve the SAME frame.** They do
+        // `locomotion` is CONTROLLED-BODY-LOCAL, so copying it between two
+        // bodies is only sound while both resolve the SAME frame. They do
         // today, and not by accident: `sync_riders_to_mounts` zeroes the rider's
         // gravity SCALE and not its direction, so the rider keeps the room's
         // gravity — the same direction the mount resolves `control_down` from.
@@ -251,7 +251,7 @@ pub fn steer_mount_from_rider(
         mount_frame.locomotion = rider_frame.locomotion;
         mount_frame.velocity_target = rider_frame.velocity_target;
         mount_frame.facing = rider_frame.facing;
-        // **drop-through is NOT hand-copied here, and does not need to be** (.2): the rider's
+        // drop-through is NOT hand-copied here, and does not need to be (.2): the rider's
         // descend intent already rides across in `locomotion`, and the jump edge is the mount's
         // own to decide.
     }
@@ -354,7 +354,7 @@ pub fn sync_riders_to_mounts(
     }
 }
 
-/// **The set [`enforce_mount_rider_link`] runs in.**
+/// The set [`enforce_mount_rider_link`] runs in.
 ///
 /// The mount/rider link is re-established here, and the frame's staged victim
 /// hits must be handed over BEFORE that happens.
@@ -391,7 +391,7 @@ pub struct MountRiderLinkEnforced;
 /// re-applying the dissolve.
 pub fn enforce_mount_rider_link(
     mut commands: Commands,
-    // **The prepared cast**, so a dismounted rider swings its own weapon rather
+    // The prepared cast, so a dismounted rider swings its own weapon rather
     // than borrowing an archetype's.
     prepared: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
     mut mount_died: MessageWriter<MountDied>,

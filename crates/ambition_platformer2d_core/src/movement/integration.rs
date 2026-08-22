@@ -164,14 +164,14 @@ pub(super) fn integrate_velocity_clusters(
             } * dt;
             // Nothing is separated afterwards.
             //
-            // **SIDE AXIS AND GROUNDED ONLY, first slice.** Standing ON another
+            // SIDE AXIS AND GROUNDED ONLY, first slice. Standing ON another
             // body is `footstool`, which already exists and means something else;
             // and an airborne fighter passing another one is Smash-correct. The
             // ground flag read here is the body's ENTRY state — the side sweep
             // runs before support is re-established — which is the right answer
             // to *is this body standing* for this step.
             //
-            // **AND IT IS NOT A FORCE.** A term summed into `vel` is erased:
+            // AND IT IS NOT A FORCE. A term summed into `vel` is erased:
             // `approach()` overwrites `vel` toward the input target every tick,
             // which is why the acceleration version of this had eight green tests
             // and moved nothing in a real match (`bbbc5e46c`).
@@ -180,7 +180,7 @@ pub(super) fn integrate_velocity_clusters(
                     clusters.kinematics.aabb_oriented(frame.down()),
                     delta_along,
                     matches!(axis, crate::collision_semantics::Axis::X),
-                    // **ONE WALK'S WORTH, and no more.** A body standing in
+                    // ONE WALK'S WORTH, and no more. A body standing in
                     // the way pushes back with the force of standing there; a
                     // launched body ploughs through it. Without this the
                     // constraint ate knockback and two `smash_it` guards about
@@ -336,7 +336,7 @@ pub(super) fn integrate_velocity_clusters(
         state.pre_wall_vel_age = 0.0;
     }
 
-    // **THE GAIT.** Written HERE, at the end of the one step every axis-swept
+    // THE GAIT. Written HERE, at the end of the one step every axis-swept
     // body takes, so the fact reaches actors, players and bosses alike — the
     // three places that republish `BodyMotionFacts` are a carry list, and a
     // locomotion fact maintained at one of them would be a running attack the
@@ -444,7 +444,7 @@ pub fn integrate_normal_spine(
     fast_falling: &mut bool,
     gliding: &mut bool,
     carried_run: &mut f32,
-    // **How long the carry is still owed.** Counted down here rather than by a
+    // How long the carry is still owed. Counted down here rather than by a
     // watcher on the reaction timers, because this is the one function that
     // already runs every tick with `dt` for every body — a release condition
     // living anywhere else would need the flight cluster plumbed to a second

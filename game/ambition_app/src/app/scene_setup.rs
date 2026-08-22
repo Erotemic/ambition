@@ -131,8 +131,8 @@ fn try_load_static_sfx_bank() -> Option<BankProvider> {
 /// 4. `None` + a single info log → the [`AudioLibrary`] uses a short
 ///    silent stub for any missing cue (procedural fallback retired).
 ///
-/// **All host-filesystem probing for the SFX bank happens through the
-/// catalog.** This function owns no candidate-roots walk.
+/// All host-filesystem probing for the SFX bank happens through the
+/// catalog. This function owns no candidate-roots walk.
 #[cfg(feature = "audio")]
 fn try_load_sfx_bank_via_catalog(catalog: &Platformer2dAssetCatalog) -> Option<BankProvider> {
     #[cfg(feature = "static_sfx_bank")]
@@ -252,7 +252,7 @@ pub fn host_presentation_scaffold(commands: &mut Commands) {
     // deferred, because this helper takes only `Commands` — the view is spawned
     // at plugin BUILD time so it is already in the world when this runs.
     //
-    // **and it is resolved by `ViewsOnHand`, not by `iter().next()`.** The
+    // and it is resolved by `ViewsOnHand`, not by `iter().next()`. The
     // first cut took the first view the archetype yielded, which is right for one
     // view and a coin flip for two — this scaffold spawns exactly ONE main
     // camera, so with several views there is no view it can honestly claim to
@@ -276,8 +276,8 @@ pub fn host_presentation_scaffold(commands: &mut Commands) {
         }
     });
 
-    // **a single-camera SPAWN RECORD, published through the shared writer that
-    // complains about a second rig instead of letting the last one win.** Nothing
+    // a single-camera SPAWN RECORD, published through the shared writer that
+    // complains about a second rig instead of letting the last one win. Nothing
     // in production reads it: `camera_follow` and the viewport applier each
     // resolve through the camera's own `PresentsView` link, and the cube's
     // full-screen dim-scrim now targets its own display-scoped UI camera rather
@@ -306,7 +306,7 @@ pub fn session_gameplay_dressing(
     params: SessionDressingSetup<'_>,
 ) {
     let ui_fonts = params.ui_fonts;
-    // **the moving platforms' visuals are no longer spawned here.** They are
+    // the moving platforms' visuals are no longer spawned here. They are
     // reconciled by a render family from the authoritative `MovingPlatformSet`,
     // like every other room feature — see
     // `ambition_render::rendering::moving_platforms`.

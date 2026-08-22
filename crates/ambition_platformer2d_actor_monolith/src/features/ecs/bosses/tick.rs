@@ -140,15 +140,15 @@ pub fn sync_boss_encounter_phase(
 /// `sync_boss_strike_hitboxes` per-tick geometry poll AND the boss-only
 /// `dispatch_boss_special`:
 ///
-/// - A **geometry** profile's move carries the strike's static hit volumes on its
+/// - A geometry profile's move carries the strike's static hit volumes on its
 ///   Active window; `advance_move_playback` spawns/despawns the Boss-faction strike
 ///   hitbox through the shared `apply_hitbox_damage` path.
-/// - A **special** profile's move SUSTAINS `Effect{key}` every strike frame; the
+/// - A special profile's move SUSTAINS `Effect{key}` every strike frame; the
 ///   `Effect{key}`→`Special{key}` bridge fires the content technique.
 ///
 /// `Without<MovePlayback>` gates re-trigger; the move duration equals the authored
 /// strike window (both on the boss's proper time = sim time undilated), so the strike
-/// lasts exactly the window. A **possessed** boss (its `active_profile` set from
+/// lasts exactly the window. A possessed boss (its `active_profile` set from
 /// controller input in `tick_boss_brains_system`) fires SPECIALS *and* GEOMETRY
 /// strikes here — possession grants the full kit (R1.4); the strike hitbox carries
 /// the possessor's effective faction (stamped in `advance_move_playback`).
@@ -450,8 +450,8 @@ pub fn tick_boss_brains_system(
         // through a deterministic input→special mapping over `BossCapability` — the
         // boss body's full kit, nothing special-cased (unified-actors I2/I7).
         //
-        // **the scripted pattern is not stashed any more; it is simply not
-        // asked.** Its `Brain` sits on the body untouched for the whole
+        // the scripted pattern is not stashed any more; it is simply not
+        // asked. Its `Brain` sits on the body untouched for the whole
         // possession — the human is the policy choosing from the same repertoire
         // the pattern would, and the moment the seat leaves, the pattern resumes
         // from the state it was in.
@@ -787,7 +787,7 @@ pub fn integrate_boss_bodies(
             &mut hit_events,
             #[cfg(feature = "causal")]
             None,
-            // **a boss is not in the contact snapshot.** Body contact is
+            // a boss is not in the contact snapshot. Body contact is
             // granted per body by a composition; nothing grants it to a boss,
             // and an inert field resolves this body exactly as it did.
             ae::BodyContactField::NONE,

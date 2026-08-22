@@ -7,9 +7,9 @@
 
 use crate::participant::ParticipantId;
 
-/// **What a person is playing ON**, in a form that survives being written down.
+/// What a person is playing ON, in a form that survives being written down.
 ///
-/// ⚠ **not [`crate::sources::InputSourceId`], and the difference is lifetime.**
+///  not [`crate::sources::InputSourceId`], and the difference is lifetime.
 /// That type names a LIVE source — a gamepad is an `Entity`, meaningful only
 /// while it stays plugged in. This one is what a lobby chose and a session
 /// froze, so it has to outlive a disconnect: the Nth pad in arrival order, or
@@ -42,7 +42,7 @@ impl LocalInputSource {
     }
 }
 
-/// **Which source drives which channel**, decided once for a session.
+/// Which source drives which channel, decided once for a session.
 ///
 /// Position IS the channel: `sources[0]` is what channel 0 listens to. That is
 /// what keeps channels dense without discarding which controller a person is
@@ -55,7 +55,7 @@ pub struct LocalChannelPlan {
 impl LocalChannelPlan {
     /// Build a plan from the sources that will be driven, in channel order.
     ///
-    /// ⚠ the caller decides the ORDER, and it is part of the decision: seat
+    ///  the caller decides the ORDER, and it is part of the decision: seat
     /// order is what every existing roster means, and re-sorting by source
     /// number would silently swap two people's fighters.
     pub fn from_sources(sources: impl IntoIterator<Item = LocalInputSource>) -> Self {
@@ -86,7 +86,7 @@ impl LocalChannelPlan {
 
     /// Which channel this source drives, if it drives one.
     ///
-    /// ⚠ answers the FIRST channel holding it. A plan with a repeated source is
+    ///  answers the FIRST channel holding it. A plan with a repeated source is
     /// a composition error — see [`Self::repeated_sources`] — and this cannot
     /// invent an answer for it.
     pub fn channel_for_source(&self, source: LocalInputSource) -> Option<ParticipantId> {
@@ -96,9 +96,9 @@ impl LocalChannelPlan {
             .map(|channel| ParticipantId(channel as u8))
     }
 
-    /// **The channel playing on the keyboard, if anybody is.**
+    /// The channel playing on the keyboard, if anybody is.
     ///
-    /// ⭐ the plan is the authority on this once one exists, and
+    ///  the plan is the authority on this once one exists, and
     /// `keyboard_owner_for`'s policy answer is the fallback for a session that
     /// declared none. The difference is visible in the shipped Smash couch:
     /// under `JoinToClaim` the policy hands the keyboard to the PRIMARY
@@ -119,7 +119,7 @@ impl LocalChannelPlan {
             .map(|(channel, source)| (ParticipantId(channel as u8), source))
     }
 
-    /// **Sources claimed by more than one channel.**
+    /// Sources claimed by more than one channel.
     ///
     /// One controller cannot drive two fighters, and a plan that says it does
     /// leaves one of them permanently still. Reported rather than silently

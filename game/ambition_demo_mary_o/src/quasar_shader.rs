@@ -90,8 +90,8 @@ pub fn install(app: &mut App) {
 
     app.insert_resource(QuasarShaderInstalled);
     embedded_asset!(app, "shaders/invincible_rainbow_quasar.wgsl");
-    // **the MATERIAL plugin asks whether this app RENDERS, which the asset
-    // guard above does not.** `Material2dPlugin` installs render-world state —
+    // the MATERIAL plugin asks whether this app RENDERS, which the asset
+    // guard above does not. `Material2dPlugin` installs render-world state —
     // `PreparedMaterial2d`, `EntitiesNeedingSpecialization` — into any app that
     // merely has an `AssetPlugin`, which every headless composition has. That is
     // the same "a proxy answers the question next door" mistake this module's
@@ -117,8 +117,8 @@ pub fn install(app: &mut App) {
             .run_if(resource_exists::<Assets<Mesh>>)
             .run_if(resource_exists::<Assets<Image>>)
             .run_if(resource_exists::<Assets<TextureAtlasLayout>>)
-            // **the MATERIAL collection too, and leaving it out was a real
-            // panic.** `Material2dPlugin` is what creates
+            // the MATERIAL collection too, and leaving it out was a real
+            // panic. `Material2dPlugin` is what creates
             // `Assets<MaryOQuasarMaterial>`, and gating that plugin on a render
             // app made the collection genuinely absent in headless
             // compositions — where `attach_quasar_overlays` then failed
@@ -158,14 +158,14 @@ impl Material2d for MaryOQuasarMaterial {
     }
 }
 
-/// **How long a Mary-O overlay may be "not yet" before it is a report.**
+/// How long a Mary-O overlay may be "not yet" before it is a report.
 ///
 /// The two blocking conditions — no `custom_size`, no resolvable sprite frame —
 /// are both ordinary while the texture decodes, and a boot prints them for a
 /// frame or two. One second at 60fps is far past any decode, so a candidate
 /// still waiting here is one whose overlay is never going to appear.
 ///
-/// **counted per candidate and reported ONCE**, not re-warned every frame
+/// counted per candidate and reported ONCE, not re-warned every frame
 /// after the threshold: a diagnostic that fires sixty times a second for a
 /// standing condition is the same noise problem one frame earlier.
 const QUASAR_ATTACH_GRACE_FRAMES: u32 = 60;
@@ -500,7 +500,7 @@ mod tests {
 
     use super::*;
 
-    /// **A dead overlay must release its source**, or the effect is dark forever.
+    /// A dead overlay must release its source, or the effect is dark forever.
     ///
     /// `attach_quasar_overlays` filters `Without<MaryOQuasarSource>`, so a source still holding a
     /// back-reference to a despawned overlay is never rebuilt.

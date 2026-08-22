@@ -26,11 +26,11 @@ pub fn build_demo_app() -> App {
     compose_smash_shell(&mut app);
     // This shell was the third and never joined.
     //
-    // **AFTER `compose_smash_shell`, because the plugin READS the catalogs it
-    // registers** — the plugin's own doc says so, and it panics naming the
+    // AFTER `compose_smash_shell`, because the plugin READS the catalogs it
+    // registers — the plugin's own doc says so, and it panics naming the
     // composition-order mistake rather than booting art-less.
     //
-    // **`visible` only, deliberately.** `build_demo_app` is also the harness
+    // `visible` only, deliberately. `build_demo_app` is also the harness
     // for this crate's regression tests, and they assert on a stepping
     // simulation rather than on pixels; sanic draws the same line by keeping its
     // asset install in `build_windowed_demo_app`.

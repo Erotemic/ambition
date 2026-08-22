@@ -16,7 +16,7 @@ use super::{
 use ambition_platformer2d_core as ae;
 use ambition_time::WorldTime;
 
-/// **The set [`sync_active_room_metadata`] runs in — the active room is current.**
+/// The set [`sync_active_room_metadata`] runs in — the active room is current.
 ///
 /// Mode teardown waits for it: a transition into a different mode tears the old
 /// mode down on the same frame it becomes stale, which requires the room
@@ -68,7 +68,7 @@ pub fn sync_room_music_request(
 /// On, so the traversal check (only `On` allows it) remains stable
 /// even when the switch flickers.
 ///
-/// **this runs in the SIM schedule** — `GgrsSchedule` under the shipped
+/// this runs in the SIM schedule — `GgrsSchedule` under the shipped
 /// rollback host — so every line below executes on speculative frames and is
 /// re-executed on resimulation. The switch it integrates lives in the
 /// rollback-registered `AmbitionGameSave`; the integral it produces lives in the
@@ -123,28 +123,10 @@ pub fn detect_room_transition_system(
     // "is this the home avatar". Falls back to the primary player at startup.
     controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
     mut slot_gestures: ResMut<ambition_characters::brain::SlotInteractionState>,
-    // The collision solver advances a body to time-of-impact and then ZEROES that
-    // axis (`zero_axis_vel`). An edge exit sits at a room boundary, which is
-    // exactly where that happens — so on the frame the body arrives, the truth is:
-    //
-    // ```text
-    // actually travelled:  prev ─────────────────► curr, inside the zone
-    // SweepSample.delta(): that segment, correct
-    // kin.vel after collision: 0
-    // vel · dt:            ZERO — the segment that proves entry, discarded
-    // ```
-    //
-    // and a body that ended TOUCHING the boundary rather than strictly inside it
-    // then fails the overlap test forever. `SweepSample` exists precisely to
-    // record `prev → curr` inside the movement kernel; the hazard reader and the
-    // portal sweep already consume it and the collision doctrine forbids
-    // reconstructing a path from velocity when a sample exists. Room transitions
-    // simply missed that migration.
-    //
-    // `Option`, and `vel · dt` survives as the FALLBACK — the sample's own contract says bodies
-    // without the component (legacy spawns, scratch fixtures) keep the historical approximation
-    // at the read site. Deleting the fallback is for the day every mover writes a sample, not
-    // for this fix. A body whose attempt has ended cannot start a room crossing.
+    // Use the movement kernel's `SweepSample` for boundary crossings because collision may zero
+    // velocity at time of impact.
+    // TODO(compat-remove): once every mover publishes `SweepSample`, remove the `vel * dt`
+    // fallback for bodies without one.
     bodies: Query<
         (&crate::actor::BodyKinematics, Option<&ae::SweepSample>),
         Without<ambition_combat::death_rules::OutOfPlay>,
@@ -190,7 +172,7 @@ pub fn detect_room_transition_system(
         //
         // Suppressing that silences the instrument in its own founding scenario.
         //
-        // ⇒ WARN when the press HAPPENED and nothing moved (unambiguous), DEBUG
+        //  WARN when the press HAPPENED and nothing moved (unambiguous), DEBUG
         // when it did not (ordinary, and still one log level away). Every fact
         // stays in the message either way. `EdgeExit`/`Walk` need no press, so
         // they are anomalous whenever they are touched without transitioning.
@@ -258,7 +240,7 @@ pub fn detect_room_transition_system(
         );
         return;
     };
-    // **ONE description, recorded the same way on every host**.
+    // ONE description, recorded the same way on every host.
     //
     // Two descriptions of one crossing, and only the message opened the readiness transaction — so
     // the SHIPPED game, which composes the rollback host, changed rooms with no cover, no failure
@@ -281,7 +263,7 @@ pub fn detect_room_transition_system(
     // crossing has been validated.
     slot_gestures.primary_mut().clear();
     pending_lifecycle.record(
-        // **an eager host has no frames to be ahead of.** `0` is not a
+        // an eager host has no frames to be ahead of. `0` is not a
         // placeholder: with no `ConfirmedFrameBoundary` there is no speculation,
         // so the intent is confirmed the instant it is recorded, which is what
         // `ConfirmedRoomTransitionIntent` reads it as.

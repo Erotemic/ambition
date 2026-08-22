@@ -1,4 +1,4 @@
-//! **The room construction transaction boundary.**
+//! The room construction transaction boundary.
 //!
 //! One room load is one transaction. This module owns its two ends — the
 //! baseline captured before anything is built, and the verification that decides
@@ -24,8 +24,8 @@
 //! The same two closures serve the deferred path and the exclusive-world `apply_to_world` path,
 //! so there is ONE publication route rather than two that can drift.
 //!
-//! **This is detection, not rollback, and withholding publication is not
-//! rollback either.** By the time [`close`] runs, every construction command has
+//! This is detection, not rollback, and withholding publication is not
+//! rollback either. By the time [`close`] runs, every construction command has
 //! applied and Bevy commands cannot be undone. A failed verification means the
 //! room never announces itself and the world keeps whatever the offending recipe
 //! produced. That is better than publishing a room nobody can describe, and it

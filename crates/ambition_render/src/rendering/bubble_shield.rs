@@ -134,7 +134,7 @@ fn shield_ring_color(parrying: bool, integrity: f32) -> Color {
     Color::srgba(0.50 + 0.50 * spent, 0.80 - 0.55 * spent, 1.0 - 0.75 * spent, 0.55)
 }
 
-/// **How much of the body the guard still covers.** A spent shield shrinks
+/// How much of the body the guard still covers. A spent shield shrinks
 /// toward the body, which is the read a platform fighter expects and the shape a
 /// later poke rule measures against.
 fn shield_ring_coverage(integrity: f32) -> f32 {

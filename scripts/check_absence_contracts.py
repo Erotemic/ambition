@@ -1,67 +1,11 @@
 #!/usr/bin/env python3
-"""Check the architectural absences this repo depends on — claims that nothing exists.
+"""Verify architectural absence and dependency contracts.
 
-This checker covers the kind of architectural claim whose whole content is that
-a thing does *not* exist. Ordinary documentation links and behavioral tests can
-point at positive evidence; an important absence needs a structural/dependency
-predicate instead:
-
-* "`register_character` no longer demands art" (queue A1),
-* "the String-keyed sheet-row lookup is deleted" (binding-resolution boundary),
-* "the rollback exit oracle is not quarantined" (queue A6),
-* "the fight test drives the real damage path" (queue A2).
-
-An absence has no citation to rot, so nothing re-reads it. The queue found this
-the expensive way: a row said `with_moveset` had NO production caller, C4 gave it
-two, and the row went on saying it for as long as it took somebody to notice
-(queue W1). Being right when written is not a property a document keeps.
-
-**The mechanism is a predicate, not a prose parser.** Do not build machinery that
-tries to infer current architecture from phrases such as "used to", "no longer"
-or "not yet". An absence that materially protects an architectural boundary
-belongs in the table below, where it reddens the day somebody reintroduces the
-thing.
-
-⚠ **Why this is not a bare `git grep`, which is what the queue first proposed.**
-Three times a goal-guard check grepped for the absence of an identifier and three
-times it went red on PROSE — the phrase appeared in a doc comment *explaining the
-removal*. Documenting a removal must never break the guard that verified it. So
-every contract here:
-
-* searches **production source only** — the paths are explicit, and this file,
-  the planning tree and the test-support scaffolding are outside them;
-* **strips comments before matching**, which is the fix for the recurrence above:
-  ``//``, ``///``, ``//!``, ``#`` and block-comment bodies are not code, and a
-  paragraph explaining why a symbol is gone is the opposite of evidence that it
-  is back;
-* uses an **exact symbol or a narrowly scoped pattern**. A broad negative grep
-  generates noise, and a noisy guard gets waived, which is worse than no guard;
-* carries an **id and a reason**, so a red line says what architectural property
-  broke rather than just which regex matched.
-
-A contract is meant to be DELETED or INVERTED when the architecture deliberately
-changes. That is not a failure of the guard — a red line here is a conversation
-about whether the absence is still wanted, and answering "no, we want the thing
-now" is a legitimate answer that ends with this row removed in the same commit.
-
-# # The second table: dependency edges
-
-``DEPENDENCY_CONTRACTS`` guards the half a grep CANNOT express. "Crate A must not
-depend on crate B" is a fact about the manifest graph, not about any line of
-text: a grep can find the ``use`` that proves an edge exists and miss the one
-added through a re-export tomorrow, and it cannot see an edge introduced through
-an intermediary at all. So that table is checked against ``cargo metadata``, and
-checked TRANSITIVELY — the claim is that a foundation cannot REACH gameplay, and
-a layering inversion almost never arrives as a direct dependency line.
-
-Both tables are RED-PROBED in ``scripts/tests/test_absence_contracts.py``. Every
-contract here is green against the live tree, which is the whole point of it and
-also the reason running it proves nothing about whether it works.
-
-Usage:
-    python3 scripts/check_absence_contracts.py            # report every contract
-    python3 scripts/check_absence_contracts.py --check    # exit 1 on a violation
-"""
+Source contracts search production code after stripping comments, so prose about a
+removed symbol cannot violate the guard. Dependency contracts inspect `cargo
+metadata` transitively. Each contract has a narrow predicate and reason; remove or
+invert the contract when the architecture intentionally changes. Tests red-probe
+the checker so a broken measurement cannot report success."""
 
 from __future__ import annotations
 
@@ -123,7 +67,7 @@ ABSENCE_CONTRACTS: list[dict] = [
             #    the generic side stops enumerating names it does not own.
             ":(exclude)crates/ambition_characters/src/brain/mod.rs",
         ],
-        # **TWO PATTERNS, because ONE MISSED AN EDGE.** The
+        # TWO PATTERNS, because ONE MISSED AN EDGE. The
         # first version watched `fighter::` under `brain/` only, and the fourth
         # edge is `Brain`'s rollback CURSOR CODEC in `snapshot_impls.rs`: it
         # hand-writes a per-variant tag and encodes `state.ticks_until_decision`,
@@ -132,7 +76,7 @@ ABSENCE_CONTRACTS: list[dict] = [
         # invisible on BOTH axes, since the file is outside `brain/` and it
         # spells `StateMachineCfg::Fighter`, never `fighter::`.
         #
-        # ⇒ the second pattern watches the VARIANT, which is what a capability
+        #  the second pattern watches the VARIANT, which is what a capability
         # arm actually looks like from the generic side.
         "patterns": [r"\bfighter::", r"StateMachineCfg::Fighter"],
         "reason": (
@@ -363,7 +307,7 @@ ABSENCE_CONTRACTS: list[dict] = [
     },
     {
         "id": "registration-does-not-demand-art",
-        # **BOTH halves of registration, since the P1.7 split**. A guard scoped to the file that
+        # BOTH halves of registration, since the P1.7 split. A guard scoped to the file that
         # kept the seam would have watched the wrong half of its own subject, which is the
         # "instrument that measures nothing" shape this file's header names.
         "paths": [
@@ -840,38 +784,15 @@ DEPENDENCY_CONTRACTS: list[dict] = [
     },
 ]
 
-# The third table: what a CONSUMER is allowed to name through the facade.
-#
-# The other two tables forbid specific things. This one permits specific things
-# and forbids the rest, and the difference is not stylistic — it is the whole
-# reason the row exists. ADR 0031: `ambition_platformer2d` is a namespace mirror today, so
-# **a denylist always lags it.** The first draft of the campaign forbade six
-# modules. Outlander names eighteen. That contract would have gone green with
-# twelve leaks still open, which is worse than no contract, because a green
-# contract is believed.
-#
-# TWO invariants, and the second is what makes this a RATCHET rather than a
-# count. the archived API campaign method: *"a ratchet on a COUNT is not one, because a
-# count permits deleting one entry and adding another. Freeze the SET."*
-#
-#   1. `named ⊆ allowed ∪ baseline` — the consumer may not name a NEW module.
-#   2. `baseline ⊆ named`           — the baseline may not keep an entry the
-#                                     consumer has stopped naming.
-#
-# Invariant 2 is the one people leave out. Without it the baseline is a budget: migrate `time`
-# away, leave `time` in the list, and the eighteenth slot is now free for something else to
-# occupy silently. That is the ratchet: monotone, per-member, and it closes at zero.
-#
-# `allowed` is EMPTY on purpose.
+# Consumer-module ratchets freeze the exact named set rather than a count:
+#   1. `named ⊆ allowed ∪ baseline` forbids new internal-module dependencies.
+#   2. `baseline ⊆ named` removes baseline entries as consumers migrate away.
+# An empty allowlist therefore converges monotonically toward the public SDK.
 MODULE_ALLOWLISTS: list[dict] = [
     {
         "id": "outlander-names-only-the-public-sdk",
-        # Slice A is BOUNDED to the external fixture.
-        # `game/ambition_content` also depends on the facade, and ADR 0031's
-        # dependency contract deliberately records that as a MEASUREMENT
-        # question the campaign defers rather than a rule. Widening these paths
-        # would answer it by accident, in a row whose subject is host
-        # composition.
+        # This contract measures the external consumer only; other facade users
+        # have separate ownership/dependency contracts.
         "paths": ["fixtures/external_consumer/"],
         # The fixture's `tests/` ARE the consumer. Elsewhere a test calling a
         # resolver is not a second authority, so `is_test_path` excludes it; here

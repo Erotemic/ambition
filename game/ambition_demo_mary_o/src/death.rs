@@ -1,4 +1,4 @@
-//! **The death beat.** She is hit with nothing left to lose, and the level stops
+//! The death beat. She is hit with nothing left to lose, and the level stops
 //! to say so before it starts again.
 //!
 //! death animation, then restart the level."*
@@ -15,7 +15,7 @@
 //!
 //! ## The beat is ENGINE vocabulary now (ADR 0033)
 //!
-//! **all six are gone, and Mary-O states a rule instead.** The engine holds
+//! all six are gone, and Mary-O states a rule instead. The engine holds
 //! the body out of play for the interlude, plays the death row, refuses hits,
 //! blanks control, and asks the ROSTER whether the level goes back. She dies
 //! where she died because nothing moves her — there is nothing left to pin.
@@ -27,7 +27,7 @@ use bevy::prelude::*;
 
 /// How long the level holds on her death before it starts again.
 ///
-/// **Sized by the music, not by taste.** `mary_o_you_died` is four bars of 2/4 at 150bpm — eight
+/// Sized by the music, not by taste. `mary_o_you_died` is four bars of 2/4 at 150bpm — eight
 /// beats, 3.2 seconds — and the last chord is the comic low thud the whole cue exists to land. If
 /// the score's tempo or bar count changes, this number changes with it.
 ///
@@ -35,7 +35,7 @@ use bevy::prelude::*;
 /// ([`ambition_platformer2d::combat::death_rules::DeathRules`]).
 pub const DEATH_DWELL: f32 = 3.2;
 
-/// **Her death has its own music.**
+/// Her death has its own music.
 ///
 /// Written into the encounter layer's PRIORITY tier — the same slot a focused
 /// fight claims — because that is the one tier that outranks the room's own
@@ -47,7 +47,7 @@ pub const DEATH_DWELL: f32 = 3.2;
 /// ([`crate::provider::MARY_O_DEATH_MUSIC_TRACK`]); under provider-relative
 /// playback an undeclared id is gated to silence however loudly it is requested.
 ///
-/// **it reads the BODY's window, not a level-owned flag.** In co-op the
+/// it reads the BODY's window, not a level-owned flag. In co-op the
 /// interlude belongs to the participant who died, and a level-owned beat could
 /// not say which of two players is dying.
 pub fn play_death_music(
@@ -84,7 +84,7 @@ pub fn voice_her_death(
     >,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
 ) {
-    // **filter by VICTIM, not "the last death".** This used to take whatever died most recently
+    // filter by VICTIM, not "the last death". This used to take whatever died most recently
     // and apply it to the controlled subject, which is right only while one body can die at
     // all.
     let mine = subject.as_deref().and_then(|subject| subject.0);

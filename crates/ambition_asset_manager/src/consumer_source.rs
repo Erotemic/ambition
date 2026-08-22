@@ -1,43 +1,9 @@
-//! **A game gets to own its own art.** (Phase 6, recorded SDK leak #3)
+//! Layered asset source for consumer-owned game art with shared engine fallback.
 //!
-//! The external-consumer fixture records the gap in its own doc comment: "the
-//! AssetServer file root must be pointed at the ENGINE's asset tree via
-//! `actors_desktop_asset_root()` — consumer-owned art still has no home, and a
-//! consumer that forgets this line gets bare boxes."
-//!
-//! A third party could therefore load the ENGINE's sprites or nothing. Its own
-//! art had nowhere to live, because the mechanism that lets Ambition's content
-//! crate own a world tree — a `game://` asset source whose reader falls back to
-//! the shared engine tree — lived in `ambition_app`'s CLI module where nothing
-//! outside the shell could reach it.
-//!
-//! That mechanism was never Ambition-specific. It is the answer to "my art
-//! first, the engine's art if I did not author it", which is what every game
-//! built on this engine wants and is exactly what the demos' generated sprite
-//! trees rely on. It lives here now, where this crate's module docs already
-//! promise "Bevy `AssetSource` wiring recommendations".
-//!
-//! ## Usage
-//!
-//! Registered BEFORE `AssetPlugin` is built — Bevy seals its sources when the
-//! plugin builds, so this cannot be a plugin added later:
-//!
-//! ```
-//! use bevy::app::App;
-//! use bevy::asset::AssetApp;
-//!
-//! let mut app = App::new();
-//! app.register_asset_source(
-//!     "game",
-//!     ambition_asset_manager::consumer_source::layered_asset_source(
-//!         "assets/my_game",                                    // authored HERE
-//!         ambition_asset_manager::actors_desktop_asset_root(), // engine's tree
-//!     ),
-//! );
-//! ```
-//!
-//! Then a `game://sprites/whatever.png` path resolves out of the consumer's own
-//! tree when it exists and the engine's when it does not.
+//! Register [`layered_asset_source`] before Bevy's `AssetPlugin`: reads first resolve
+//! against the game's authored root, then the shared engine root. Metadata follows the
+//! same layer that supplied the asset bytes. This lets external games own their asset tree
+//! without copying generated engine assets into it.
 
 use std::path::{Path, PathBuf};
 
@@ -225,7 +191,7 @@ mod tests {
         assert_eq!(listed, vec!["engine.png", "mine.png"], "sorted union");
     }
 
-    /// **Metadata cannot come from a layer that did not supply the bytes.** A
+    /// Metadata cannot come from a layer that did not supply the bytes. A
     /// consumer overriding an engine sprite and authoring no `.meta` used to
     /// receive the ENGINE's meta — sampler, atlas and loader settings for a
     /// different image.
@@ -263,7 +229,7 @@ mod tests {
         });
     }
 
-    /// **`is_directory` cannot contradict `read`.** An authored FILE shadowed by
+    /// `is_directory` cannot contradict `read`. An authored FILE shadowed by
     /// a shared DIRECTORY of the same name used to report "directory" while
     /// `read` returned the file's bytes.
     #[test]

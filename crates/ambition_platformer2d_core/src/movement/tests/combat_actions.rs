@@ -281,7 +281,7 @@ fn airborne_scratch(world: &crate::World) -> BodyClusterScratch {
     scratch
 }
 
-/// **A body that AUTHORS an air dodge.** The default tuning does not have one
+/// A body that AUTHORS an air dodge. The default tuning does not have one
 /// (an airborne dash press is the air dash for every exploration body), so
 /// every fixture below states the window it is testing — which is also the
 /// production shape: a fighter authors it, a wanderer does not.
@@ -305,7 +305,7 @@ fn step_air_dodger(
     )
 }
 
-/// **An air dodge is not a roll fired off the ground.** It publishes its own
+/// An air dodge is not a roll fired off the ground. It publishes its own
 /// op, sets its own timer, leaves the roll's timer alone, and travels where the
 /// STICK points — here down-and-forward, which a roll (side-only, and gated on
 /// `on_ground`) cannot produce at all.
@@ -338,7 +338,7 @@ fn an_air_dodge_travels_along_the_stick_and_is_its_own_maneuver() {
     );
 }
 
-/// **A neutral stick still dodges** — in place. The invulnerability is the
+/// A neutral stick still dodges — in place. The invulnerability is the
 /// option; refusing the input on a centred stick would make the maneuver
 /// unusable for exactly the defensive situation it exists for.
 #[test]
@@ -354,7 +354,7 @@ fn a_neutral_stick_air_dodges_in_place() {
     );
 }
 
-/// **One per trip through the air, and landing is what gives it back.** The
+/// One per trip through the air, and landing is what gives it back. The
 /// budget lives on the dodge cluster, and the refresh rides the same authority
 /// that restores air jumps — so this test fails both if the budget is missing
 /// and if the refresh was written as a separate call somebody forgot.
@@ -394,7 +394,7 @@ fn the_air_dodge_is_spent_for_the_airtime_and_returns_on_landing() {
     );
 }
 
-/// **The i-frames are real, and they END before the maneuver does.** The window
+/// The i-frames are real, and they END before the maneuver does. The window
 /// grants invulnerability through the ONE `evading()` term the damage rule
 /// reads; the endlag that follows is the punish window, and it must NOT be
 /// invulnerable or the option has no cost.
@@ -425,7 +425,7 @@ fn the_air_dodge_window_grants_i_frames_and_its_endlag_does_not() {
     assert!(endlag_seen, "the endlag state was reached at all");
 }
 
-/// **A body that authors NO window does not air dodge** — its airborne dash press stays the air
+/// A body that authors NO window does not air dodge — its airborne dash press stays the air
 /// dash it always was.
 #[test]
 fn a_body_without_an_authored_window_has_no_air_dodge() {
@@ -491,7 +491,7 @@ fn launch(world: &crate::World, scratch: &mut BodyClusterScratch, speed: f32) ->
     step_fighter(world, scratch, InputState::default())
 }
 
-/// **A small hit is not a tumble.** The threshold is the whole reason a heavy
+/// A small hit is not a tumble. The threshold is the whole reason a heavy
 /// hit reads as heavy, so a launch under it must leave the body in ordinary
 /// control — and a body that authors no threshold never tumbles at all.
 #[test]
@@ -579,7 +579,7 @@ fn a_launch_that_tumbles_a_standing_body_throws_it_instead_of_knocking_it_down()
     );
 }
 
-/// **Landing while tumbling is a knockdown, and the prone body has no control.**
+/// Landing while tumbling is a knockdown, and the prone body has no control.
 /// Without this a launch is just a shove: nothing to punish, nothing to escape.
 #[test]
 fn a_tumbling_body_that_lands_is_knocked_down_and_stands_up_on_its_own() {
@@ -627,7 +627,7 @@ fn a_tumbling_body_that_lands_is_knocked_down_and_stands_up_on_its_own() {
     );
 }
 
-/// **A tech refuses the knockdown**, and the i-frames it grants are the SAME
+/// A tech refuses the knockdown, and the i-frames it grants are the SAME
 /// `evading()` term every other evade uses.
 #[test]
 fn a_tech_on_the_landing_skips_the_knockdown_entirely() {
@@ -676,7 +676,7 @@ fn a_tech_on_the_landing_skips_the_knockdown_entirely() {
     );
 }
 
-/// **DOWN ON THE STICK EVADES IN PLACE.**
+/// DOWN ON THE STICK EVADES IN PLACE.
 ///
 /// the pair is the assertion: the same press with a SIDEWAYS stick must still
 /// roll, or this is not a second option — it is the first one renamed. And the
@@ -726,7 +726,7 @@ fn down_on_the_stick_spot_dodges_instead_of_rolling() {
     );
 }
 
-/// **A WALL IS SOMETHING YOU CAN CATCH YOURSELF ON TOO.**
+/// A WALL IS SOMETHING YOU CAN CATCH YOURSELF ON TOO.
 ///
 /// both halves — the tech FIRES while the body is still airborne, and the velocity it leaves
 /// with points AWAY from the wall. A version that only cleared the tumble would leave the body
@@ -796,7 +796,7 @@ fn a_tumbling_body_can_tech_off_a_wall() {
     );
 }
 
-/// **A tech guessed too early costs the option.** Mashing has to be worse than
+/// A tech guessed too early costs the option. Mashing has to be worse than
 /// reading, or the knockdown is decorative.
 #[test]
 fn a_mistimed_tech_locks_the_option_out() {
@@ -833,7 +833,7 @@ fn a_mistimed_tech_locks_the_option_out() {
     );
 }
 
-/// **A getup is a CHOICE**: hold a direction and you roll out of the knockdown
+/// A getup is a CHOICE: hold a direction and you roll out of the knockdown
 /// instead of standing in place, with the same invulnerability.
 #[test]
 fn a_held_direction_rolls_out_of_the_knockdown() {

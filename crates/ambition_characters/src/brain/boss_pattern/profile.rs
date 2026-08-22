@@ -4,8 +4,8 @@
 //! ## Why this is here and not in the actor crate
 //!
 //! A schema must be registered by the crate that owns its type, and the validator has to link that
-//! crate to install the schema — so a boss-profile schema meant the CLI linking the monolith: **708
-//! crates against the validator's 239, and a renderer**. That would have destroyed the one property
+//! crate to install the schema — so a boss-profile schema meant the CLI linking the monolith: 708
+//! crates against the validator's 239, and a renderer. That would have destroyed the one property
 //! justifying the compiler (build in seconds, validate in milliseconds).
 //!
 //! Nothing here ever needed the actor crate. Every field resolves against
@@ -16,7 +16,7 @@
 //! `BossBehaviorProfileExt` because the orphan rule does not let an inherent
 //! `impl` follow a type across a crate boundary.
 //!
-//! ⚠ `PickupKind` moved DOWN to `ambition_entity_catalog` in the same change:
+//!  `PickupKind` moved DOWN to `ambition_entity_catalog` in the same change:
 //! `BossRewardProfile` names it, and `ambition_interaction` (its old home)
 //! depends on THIS crate, so naming it from here was a dependency cycle.
 
@@ -194,7 +194,7 @@ pub struct BossBehaviorProfile {
     /// `#[serde(default)]`) = use the built-in per-profile geometry, unchanged. The
     /// "second game adds a boss without editing core" oracle, for strike shapes.
     #[serde(default)]
-    /// ⛔ **`BTreeMap`, and the ordering is load-bearing.** This is part of the
+    ///  `BTreeMap`, and the ordering is load-bearing. This is part of the
     /// profile's CANONICAL form, and canonicalization is derived `Debug`, which
     /// follows iteration order. A `HashMap` randomises that per instance — six
     /// constructions of the same four-key map gave six different orders in one
@@ -207,7 +207,7 @@ pub struct BossBehaviorProfile {
     /// boss that rides a mount (GNU-ton the scholar aboard the `giant_gnu` mount)
     /// authors e.g. `["giant"]`; `spawn_boss` then attaches a [`CanPilot`] tag —
     /// the SAME mount-role the enemy path attaches in `attach_mount_role`, so the
-    /// boss and enemy spawn paths stay symmetric. Empty (the default) ⇒ the boss
+    /// boss and enemy spawn paths stay symmetric. Empty (the default)  the boss
     /// pilots nothing (every boss today). The `RidingOn`/`MountSlot` link itself is
     /// installed later from the room's authored `mounted_on` refs.
     ///
@@ -222,7 +222,7 @@ pub struct BossBehaviorProfile {
     /// `velocity_target` arcs + a `melee_pressed` edge, written onto the mount's
     /// `LimbIntents`. A strike move id NOT present here stays a
     /// host-body strike (no limb intent) — exactly as today. Empty (the
-    /// `#[serde(default)]`) ⇒ no strike drives limbs (every boss but the gnu-ton
+    /// `#[serde(default)]`)  no strike drives limbs (every boss but the gnu-ton
     /// rider). Authored in `boss_profiles.ron`, so a second game's mounted boss
     /// wires its own limbs with no edit to core.
     #[serde(default)]
@@ -235,7 +235,7 @@ pub struct BossBehaviorProfile {
     /// `attack`), then looks the winning verb up HERE; `"special"` maps the
     /// special button. Combined with [`Self::limb_routing`], this is the
     /// controller→limb map: possess GNU-ton, aim down + attack → `hand_slam` →
-    /// both giant hands slam. Empty (the `#[serde(default)]`) ⇒ the legacy
+    /// both giant hands slam. Empty (the `#[serde(default)]`)  the legacy
     /// possession mapping (primary strike / signature special) — every boss
     /// today except the gnu-ton rider. Authored in `boss_profiles.ron`; verbs
     /// are data, so a second game's possessable boss maps its own controls with

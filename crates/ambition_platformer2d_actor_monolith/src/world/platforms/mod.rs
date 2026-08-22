@@ -1,4 +1,4 @@
-//! **Moving-platform presentation lived here, and no longer exists.**
+//! Moving-platform presentation lived here, and no longer exists.
 //!
 //! See `docs/planning/engine/kinematic-world-objects.md` K3.
 //!

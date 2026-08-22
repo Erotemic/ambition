@@ -8,14 +8,14 @@
 
 use super::*;
 
-/// Publish the damageable volumes of **every live body**, in one rule.
+/// Publish the damageable volumes of every live body, in one rule.
 ///
 /// Peaceful NPCs and hostile enemies intentionally share this path: both are
 /// valid strike targets, and by default both become pogo targets through
 /// [`derive_pogo_target_volumes`]. Hostility should affect AI and damage dealt,
 /// not whether a body can be hit.
 ///
-/// **So does the player.** This system was gated `With<FeatureSimEntity>` — a marker the primary
+/// So does the player. This system was gated `With<FeatureSimEntity>` — a marker the primary
 /// player does not carry — which meant a player could author hurtboxes and never publish them, and
 /// made "hittable" a property of which spawn path built the body.
 ///
@@ -27,7 +27,7 @@ use super::*;
 /// * in `WorldPrep`, so [`derive_pogo_target_volumes`] and the feature-world
 ///   collision overlay (rebuilt in the same set) see this frame's targets;
 /// * again after `PlayerSimulation`, before `Platformer2dSimulationPhaseMonolith::Combat`, so damage
-///   resolves against **post-movement** positions. A body's `CenteredAabb` is
+///   resolves against post-movement positions. A body's `CenteredAabb` is
 ///   written by its integrator — the player's in `PlayerSimulation`, an actor's
 ///   in `WorldPrep` — so publishing only in `WorldPrep` would hand the damage
 ///   path a player box one frame stale. That is the same defect class as the

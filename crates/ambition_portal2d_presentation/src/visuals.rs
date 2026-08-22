@@ -96,7 +96,7 @@ pub fn sync_portal_disorientation_indicator(
 /// decomposition frames come from the tested Core-invariant
 /// [`pp::compute_body_pieces`], so they can never drift from collision.
 ///
-/// **Fallback:** without a loaded texture / atlas layout (or on a headless
+/// Fallback: without a loaded texture / atlas layout (or on a headless
 /// host that never registered the material — the asset params are `Option`al),
 /// the pre-clipping behavior is kept: the real sprite stays visible and an
 /// unclipped whole-sprite copy is drawn at the exit just below the view window
@@ -325,7 +325,7 @@ pub fn sync_portal_visuals(
         // always whole — while the far portal's frame drops back UNDER the
         // window band, so the open pane hides it exactly like the rest of the
         // far side (a frame punching through the glass reads as a second
-        // portal). No viewer / no partner ⇒ dominant (nothing overlaps).
+        // portal). No viewer / no partner  dominant (nothing overlaps).
         let dominant = rigs
             .iter()
             .find(|rig| rig.channel() == portal.channel)

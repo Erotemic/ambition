@@ -143,7 +143,7 @@ pub fn update_body_mode(
 
         // Consume the double-tap-down edge (from the controller's slot) regardless of
         // branch so we don't latch a stale signal across frames or gameplay states.
-        // **a slot that does not exist has pressed nothing.** `get_mut` fails
+        // a slot that does not exist has pressed nothing. `get_mut` fails
         // closed rather than clamping onto the last valid participant, so this
         // reads `false` instead of silently consuming somebody else's edge.
         let double_tap_down = slot_gestures

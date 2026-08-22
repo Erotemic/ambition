@@ -22,7 +22,7 @@ input = ["ambition_sim_view/input"]
 portal_render = ["dep:ambition_portal2d_presentation"]
 
 [dependencies]
-# **OPTIONAL, and the ratchets are why.** `image` is a PNG ENCODER and it is
+# OPTIONAL, and the ratchets are why. `image` is a PNG ENCODER and it is
 # only ever used by the offscreen `capture` module — a development tool. Landing
 # it unconditionally widened the linked closure of every consumer of this crate,
 # including `fixtures/minimal_game` and `fixtures/external_consumer`, whose whole

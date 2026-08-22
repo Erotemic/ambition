@@ -1,4 +1,4 @@
-//! **The `ControlFrame` allowlist lint** — custom scanner (unified-actors step 5,
+//! The `ControlFrame` allowlist lint — custom scanner (unified-actors step 5,
 //! the R6c player-fold guardrail).
 //!
 //! Invariant: the global `ControlFrame` is ONE player's device frame; only the

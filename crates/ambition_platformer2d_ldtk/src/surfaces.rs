@@ -48,7 +48,7 @@ pub enum SurfaceBreakability {
 pub enum SurfaceContact {
     #[default]
     None,
-    /// **Return the toucher to spawn** — the pit floor (`HazardBlock`).
+    /// Return the toucher to spawn — the pit floor (`HazardBlock`).
     ///
     /// Three places downstream repeated the claim (the IntGrid lowering's *"damages the player on
     /// contact"*, the authoring tool's *"use HazardBlock for static damage surfaces"*, and the
@@ -57,7 +57,7 @@ pub enum SurfaceContact {
     /// the start line instead of costing him the rings. It should hurt him and knock out his
     /// rings."*
     ///
-    /// ⇒ **a surface that HURTS is a `DamageVolume`**, which lowers to a hazard placement,
+    ///  a surface that HURTS is a `DamageVolume`, which lowers to a hazard placement,
     /// ticks in `ambition_combat::hazards`, and publishes an ordinary `HitEvent` — so i-frames,
     /// a wallet shield, knockback, and death all apply exactly as they do for any other hit.
     /// Static or moving, either works; the motion path is optional.
@@ -142,8 +142,8 @@ pub struct SurfaceCompiled {
 /// has a single conversion path. There is intentionally no canonical
 /// generic `Surface` authoring entity; the editor stays differentiated.
 ///
-/// **`HazardBlock` is the RESET volume — the pit floor — and it is the one name here that reads
-/// like something it is not.** Every authored use in the tree calls it what it does (`gap`,
+/// `HazardBlock` is the RESET volume — the pit floor — and it is the one name here that reads
+/// like something it is not. Every authored use in the tree calls it what it does (`gap`,
 /// `the_gap`, `death_floor`, `pit_floor`, `live_floor_hazard`); it damages nothing, and a surface
 /// meant to HURT is a `DamageVolume`, which is not surface-like and never reaches this pipeline.
 pub(super) const SURFACE_LIKE_IDENTIFIERS: &[&str] = &[
@@ -207,7 +207,7 @@ pub(super) fn parse_surface_spec(
         }
         "HazardBlock" => {
             spec.collision = SurfaceCollision::None;
-            // **no `damage` field is read, and none ever mattered.** This
+            // no `damage` field is read, and none ever mattered. This
             // parsed `field_i32(entity, "damage")` into an amount the compile
             // step then threw away, and `HazardBlock` carries no such field in
             // the shared defs anyway — so the read was a promise made to an

@@ -38,7 +38,7 @@ fn run(mut transit: PipeTransit) -> (Vec<ae::Vec2>, Option<usize>) {
     panic!("the transit never finished");
 }
 
-/// **A warp is a MOVE, not a teleport.** It takes the authored time, it passes
+/// A warp is a MOVE, not a teleport. It takes the authored time, it passes
 /// through the pipe on the way, and it ends exactly where the warp promised.
 #[test]
 fn a_transit_slides_for_its_authored_duration_and_lands_on_the_arrival() {
@@ -83,7 +83,7 @@ fn the_body_is_swallowed_before_it_crosses_and_emerges_from_inside_the_far_pipe(
     );
 }
 
-/// **The exit continues the journey; it never reverses it.**
+/// The exit continues the journey; it never reverses it.
 ///
 /// down and then bounce up, and when going up you push up and then fall down."
 /// That was the emergence running BACKWARDS — the throat sat on the far side of

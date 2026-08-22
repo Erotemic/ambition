@@ -1,4 +1,4 @@
-//! **Bob's repertoire** — the engineer, and the one who RECEIVES.
+//! Bob's repertoire — the engineer, and the one who RECEIVES.
 //!
 //! ## The character, from his own name
 //!
@@ -34,7 +34,7 @@ const RIG_FX: f32 = 1.2;
 
 /// See the module doc. Sixteen presses.
 pub fn bob_moveset() -> MovesetContract {
-    // **JAB — `tap_test`.** He taps it to hear whether it is sound. Slower than
+    // JAB — `tap_test`. He taps it to hear whether it is sound. Slower than
     // anybody else's jab, which is the whole character in the first press.
     let jab = strike(
         "tap_test",
@@ -54,7 +54,7 @@ pub fn bob_moveset() -> MovesetContract {
     let jab = vfx_at(jab, 0.07, "hit_metal", (22.0, 0.0), SHOP_FX);
     let jab = on_contact(jab, "player.hit");
 
-    // **FORWARD TILT — `wrench_swing`.** The tool, used as one.
+    // FORWARD TILT — `wrench_swing`. The tool, used as one.
     let f_tilt = strike(
         "wrench_swing",
         "attack_side",
@@ -72,7 +72,7 @@ pub fn bob_moveset() -> MovesetContract {
     let f_tilt = vfx_at(f_tilt, 0.10, "hit_metal", (28.0, -2.0), SHOP_FX);
     let f_tilt = on_contact(f_tilt, "player.hit");
 
-    // **UP TILT — `pressure_release`.** He opens a valve and it goes up.
+    // UP TILT — `pressure_release`. He opens a valve and it goes up.
     let u_tilt = strike(
         "pressure_release",
         "attack_up",
@@ -90,7 +90,7 @@ pub fn bob_moveset() -> MovesetContract {
     let u_tilt = vfx_at(u_tilt, 0.09, "steam_vent", (6.0, -26.0), SHOP_FX);
     let u_tilt = on_contact(u_tilt, "player.hit");
 
-    // **DOWN TILT — `shim`.** A wedge, driven in at floor level.
+    // DOWN TILT — `shim`. A wedge, driven in at floor level.
     let d_tilt = strike(
         "shim",
         "attack_down",
@@ -108,7 +108,7 @@ pub fn bob_moveset() -> MovesetContract {
     let d_tilt = vfx_at(d_tilt, 0.09, "gear_scatter", (24.0, 14.0), SHOP_FX);
     let d_tilt = on_contact(d_tilt, "player.hit");
 
-    // **FORWARD SMASH — `rivet_smash`.** The hardest single hit among the Hall's
+    // FORWARD SMASH — `rivet_smash`. The hardest single hit among the Hall's
     // people, and the longest wind-up to go with it.
     let f_smash = strike(
         "rivet_smash",
@@ -128,7 +128,7 @@ pub fn bob_moveset() -> MovesetContract {
     let f_smash = sfx(f_smash, 0.21, "player.attack.charge");
     let f_smash = on_contact(f_smash, "player.hit");
 
-    // **UP SMASH — `derrick_lift`.** He raises the frame overhead and lets it
+    // UP SMASH — `derrick_lift`. He raises the frame overhead and lets it
     // settle.
     let u_smash = strike(
         "derrick_lift",
@@ -147,7 +147,7 @@ pub fn bob_moveset() -> MovesetContract {
     let u_smash = vfx_at(u_smash, 0.19, "gear_scatter", (2.0, -32.0), RIG_FX);
     let u_smash = on_contact(u_smash, "player.hit");
 
-    // **DOWN SMASH — `ground_anchor`.** Two bolts, one either side, into the
+    // DOWN SMASH — `ground_anchor`. Two bolts, one either side, into the
     // floor.
     let d_smash = strike(
         "ground_anchor",
@@ -166,7 +166,7 @@ pub fn bob_moveset() -> MovesetContract {
     let d_smash = vfx_at(d_smash, 0.20, "shockwave", (0.0, 19.0), RIG_FX);
     let d_smash = on_contact(d_smash, "player.hit");
 
-    // **NEUTRAL AIR — `loose_bearing`.** Something comes off and goes round him.
+    // NEUTRAL AIR — `loose_bearing`. Something comes off and goes round him.
     let n_air = strike(
         "loose_bearing",
         "air_neutral",
@@ -184,7 +184,7 @@ pub fn bob_moveset() -> MovesetContract {
     let n_air = vfx_at(n_air, 0.08, "gear_scatter", (0.0, 0.0), SHOP_FX);
     let n_air = on_contact(n_air, "player.hit");
 
-    // **FORWARD AIR — `swing_arm`.** A long arc from the shoulder.
+    // FORWARD AIR — `swing_arm`. A long arc from the shoulder.
     let f_air = strike(
         "swing_arm",
         "air_forward",
@@ -202,7 +202,7 @@ pub fn bob_moveset() -> MovesetContract {
     let f_air = vfx_at(f_air, 0.10, "hit_metal", (28.0, -4.0), SHOP_FX);
     let f_air = on_contact(f_air, "player.hit");
 
-    // **BACK AIR — `counterweight`.** He swings the mass the other way and it
+    // BACK AIR — `counterweight`. He swings the mass the other way and it
     // takes whoever was there.
     let b_air = strike(
         "counterweight",
@@ -221,7 +221,7 @@ pub fn bob_moveset() -> MovesetContract {
     let b_air = vfx_at(b_air, 0.11, "hit_metal", (-28.0, -2.0), SHOP_FX);
     let b_air = on_contact(b_air, "player.hit");
 
-    // **UP AIR — `jack_stand`.** Straight up, on the hard part.
+    // UP AIR — `jack_stand`. Straight up, on the hard part.
     let u_air = strike(
         "jack_stand",
         "air_up",
@@ -239,7 +239,7 @@ pub fn bob_moveset() -> MovesetContract {
     let u_air = vfx_at(u_air, 0.09, "electric_arc", (2.0, -26.0), SHOP_FX);
     let u_air = on_contact(u_air, "player.hit");
 
-    // **DOWN AIR — `pile_driver`.** He puts his whole weight through it.
+    // DOWN AIR — `pile_driver`. He puts his whole weight through it.
     let d_air = strike(
         "pile_driver",
         "air_down",
@@ -257,7 +257,7 @@ pub fn bob_moveset() -> MovesetContract {
     let d_air = vfx_at(d_air, 0.13, "shockwave", (2.0, 25.0), SHOP_FX);
     let d_air = on_contact(d_air, "player.hit");
 
-    // **NEUTRAL — `rivet_gun`.** Held down and driven home. His longest active
+    // NEUTRAL — `rivet_gun`. Held down and driven home. His longest active
     // window: it is not one hit, it is the tool running.
     let n_b = strike(
         "rivet_gun",
@@ -278,7 +278,7 @@ pub fn bob_moveset() -> MovesetContract {
     let n_b = sfx(n_b, 0.20, "player.directional_special");
     let n_b = on_contact(n_b, "player.hit");
 
-    // **SIDE — `piston_charge`.** He is committed the instant it fires, and the
+    // SIDE — `piston_charge`. He is committed the instant it fires, and the
     // tail damps to nothing: an engineer's dash has no take-backs.
     let side_b = strike(
         "piston_charge",
@@ -300,7 +300,7 @@ pub fn bob_moveset() -> MovesetContract {
     let side_b = sfx(side_b, 0.16, "player.dash");
     let side_b = on_contact(side_b, "player.hit");
 
-    // **UP — `steam_lift`. THE RECOVERY.** Boiler pressure, spent all at once.
+    // UP — `steam_lift`. THE RECOVERY. Boiler pressure, spent all at once.
     // It goes higher than Alice's curve and costs more to land, which is the
     // same bargain his whole kit makes.
     let mut up_b = strike(
@@ -324,7 +324,7 @@ pub fn bob_moveset() -> MovesetContract {
     let up_b = sfx(up_b, 0.09, "player.fly.start");
     let up_b = on_contact(up_b, "player.hit");
 
-    // **DOWN — `bulkhead_drop`.** He drops a plate. Grounded-only, because the
+    // DOWN — `bulkhead_drop`. He drops a plate. Grounded-only, because the
     // move is that there is a floor to drop it onto.
     let down_b = strike(
         "bulkhead_drop",
@@ -356,7 +356,7 @@ pub fn bob_moveset() -> MovesetContract {
     // player pressing down-B in the air got the neutral-B. `special_air_down`
     // sits ahead of `special_down` in that chain and has the whole time; this is
     // the two-form move it exists for.
-    // **DOWN, IN THE AIR — `bulkhead_dive`.** He does not drop the plate; he
+    // DOWN, IN THE AIR — `bulkhead_dive`. He does not drop the plate; he
     // rides it down.
     let mut air_down_b = strike(
         "bulkhead_dive",
@@ -376,7 +376,7 @@ pub fn bob_moveset() -> MovesetContract {
     let air_down_b = impulse(air_down_b, 0.12, (0.0, 1300.0), ImpulseMode::Set);
     let air_down_b = vfx_at(air_down_b, 0.12, "shockwave", (0.0, 22.0), SHOP_FX);
     let air_down_b = on_contact(air_down_b, "player.hit");
-    // **BOB'S CAPTURE KIT.** Heavy and slow: the longest reach and the hardest single
+    // BOB'S CAPTURE KIT. Heavy and slow: the longest reach and the hardest single
     // pummel, paid for with the worst startup and recovery. One beat, and it hurts.
     // the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
     // and each table's own `every_clip_names_a_row_..._sheet_carries` guard says
@@ -462,7 +462,7 @@ pub fn bob_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: up_b,
-        // **AUTHORED, at the rule that every fighter in the smash roster have a grab.** The
+        // AUTHORED, at the rule that every fighter in the smash roster have a grab. The
         // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
         // the whole point of proving it was to stop being the only two.
         //
@@ -499,7 +499,7 @@ mod tests {
     // `ambition_characters::smash_repertoire`, and by the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
-    /// **He commits for longer than she does**, on every press they both have.
+    /// He commits for longer than she does, on every press they both have.
     /// The pair's other half is asserted in `alice_moveset`; this is the axis
     /// that is his.
     #[test]

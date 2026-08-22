@@ -1,11 +1,11 @@
-//! **Deciding that a conversation happens, and opening it.**
+//! Deciding that a conversation happens, and opening it.
 //!
 //! The half of "somebody pressed Interact next to an NPC" that is about
 //! DIALOGUE rather than about interaction: who is speaking, who is being spoken
 //! to, whether the pair has anything to say, and which seat owns the box.
 //!
-//! **this lived in `features/ecs/interact.rs`, and that placement was the
-//! last thing pinning `ambition_dialog` into `features`.** The decomposition
+//! this lived in `features/ecs/interact.rs`, and that placement was the
+//! last thing pinning `ambition_dialog` into `features`. The decomposition
 //! plan's step 5 is *put integration above the domains it joins*: pressing
 //! Interact is an INTERACTION fact (a body, a reach box, a buffered press) and
 //! entering a Yarn node is a DIALOGUE fact. `interact` owns the first and asks
@@ -13,7 +13,7 @@
 //! (`docs/planning/engine/actor-monolith-decomposition.md`,
 //! the whole coupling was TWO production lines.)
 //!
-//! **the port takes `&str` and `Entity` and nothing else.** It would have been
+//! the port takes `&str` and `Entity` and nothing else. It would have been
 //! easy to hand it the monolith's `NpcDialogueRequest` and add a third inward
 //! edge to this module; it takes the two strings out of that request instead, so
 //! the carve accounting in [`super`] does not grow.
@@ -84,13 +84,13 @@ impl DialogueDispatch<'_, '_> {
             .or_else(|| self.worn.get(body).ok().map(|worn| worn.id().to_string()))
     }
 
-    /// **Decide whether this pair has a conversation, and open it if they do.**
+    /// Decide whether this pair has a conversation, and open it if they do.
     ///
     /// Returns `false` when there is nothing to say — a self-conversation with
     /// no authored `__self` branch — so the caller can leave the interaction
     /// with no trace: no banner, no flags, no quest pump, no mode flip.
     ///
-    /// **AND THE TEXT BOX IS NOT OPENED FROM HERE.** The caller runs in the
+    /// AND THE TEXT BOX IS NOT OPENED FROM HERE. The caller runs in the
     /// SIM schedule, so a rollback across the tick somebody pressed Interact
     /// replays it — and `DialogState::start` is not a harmless setter: it resets
     /// the line, the options and the typewriter and enqueues a
@@ -99,7 +99,7 @@ impl DialogueDispatch<'_, '_> {
     /// The box is a PROJECTION of the authority now, so everything it needs is
     /// stated here, at the tick the decision is made.
     ///
-    /// **the whole value in one call**, and both bodies symmetrically: a
+    /// the whole value in one call, and both bodies symmetrically: a
     /// conversation the world keeps running through has to be able to ask about
     /// both — how far apart they are, whether either can hold station, whether
     /// either was hit — and none of that can be asked of a character id.
@@ -128,7 +128,7 @@ impl DialogueDispatch<'_, '_> {
             // and a narrative record from the original run still finds its own
             // conversation.
             // `SimId`, never these entities: `LoadWorld` remaps handles.
-            // **and the CONTEXT, not just the bodies.** `speaker_id` above
+            // and the CONTEXT, not just the bodies. `speaker_id` above
             // falls back to the initiator's `WornCharacter`, which is
             // rollback-owned: two corrected timelines can agree on the tick, the
             // node and both `SimId`s while entering Yarn as different characters.
@@ -147,7 +147,7 @@ impl DialogueDispatch<'_, '_> {
         true
     }
 
-    /// **Which seat is DRIVING this body**, for the caller to attribute the
+    /// Which seat is DRIVING this body, for the caller to attribute the
     /// conversation with.
     ///
     /// `DrivingParticipant` is what actually answers "whose body is this" —
@@ -158,8 +158,8 @@ impl DialogueDispatch<'_, '_> {
     /// drives" is spelled. The component lives in `ambition_characters::brain`, so this costs no
     /// new crate edge.
     ///
-    /// **it returns the SLOT, and the conversion to a participant is the
-    /// caller's.** `ParticipantId` and `PlayerSlot` are two concepts sharing one
+    /// it returns the SLOT, and the conversion to a participant is the
+    /// caller's. `ParticipantId` and `PlayerSlot` are two concepts sharing one
     /// number, and `crate::participant_seat` is the ONE place that correspondence
     /// lives — precisely because `ambition_input` and `ambition_characters` are
     /// siblings that cannot see each other. Converting here would make this
@@ -206,7 +206,7 @@ mod tests {
     use super::*;
     use ambition_platformer2d_core as ae;
 
-    /// **CHARACTER identity beats PLACEMENT identity**, and `$speaker_is_self`
+    /// CHARACTER identity beats PLACEMENT identity, and `$speaker_is_self`
     /// is why: it must fire when you walk up to the Hall pedestal of the
     /// character you are wearing, not merely when a body interacts with its own
     /// placement.

@@ -85,7 +85,7 @@ fn test_health(hp: i32) -> BodyHealth {
     BodyHealth::new(ambition_characters::actor::Health::new(hp))
 }
 
-/// The body every fixture here wears. ⚠ hits are aimed at its CENTRE, so a
+/// The body every fixture here wears.  hits are aimed at its CENTRE, so a
 /// poke never fires and these keep measuring the facing and resource rules.
 const TEST_BODY: ae::Vec2 = ae::Vec2::new(24.0, 40.0);
 
@@ -394,8 +394,8 @@ fn goblin_melee_knockback_is_an_absolute_launch_speed() {
     );
 }
 
-/// ⭐⭐ **Hitstun scales with the LAUNCH, and never with the launch's bare
-/// number.**
+///  Hitstun scales with the LAUNCH, and never with the launch's bare
+/// number.
 ///
 /// The launch scales against a reference speed. Both claims hold: proportional
 /// to the launch, and never the raw number.
@@ -416,11 +416,11 @@ fn hitstun_scales_with_the_launch_and_never_with_its_bare_number() {
     // A reference-strength launch is the standard reaction, so the shipped feel
     // numbers still mean what they said.
     assert!((at(LaunchSpeed(STANDARD_LAUNCH_SPEED)) - 1.0).abs() < 1e-6);
-    // ⭐ twice the launch, twice the stun — the combo mechanic.
+    //  twice the launch, twice the stun — the combo mechanic.
     assert!((at(LaunchSpeed(STANDARD_LAUNCH_SPEED * 2.0)) - 2.0).abs() < 1e-6);
     // …and a poke stuns less.
     assert!(at(LaunchSpeed(STANDARD_LAUNCH_SPEED * 0.25)) < 1.0);
-    // ⛔ the original poison, still live: the scale is never the bare speed. A
+    //  the original poison, still live: the scale is never the bare speed. A
     // 120 px/s launch must not arm 120x the standard hitstun.
     assert!(
         at(LaunchSpeed(120.0)) < 2.0,
@@ -575,7 +575,7 @@ fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
     );
 
     // The lateral component mirrors to point AWAY from the source: hit
-    // from the left ⇒ positive local x ⇒ world +x.
+    // from the left  positive local x  world +x.
     let diag = crate::combat::HitKnockback {
         dir: 0.0,
         magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(authored_speed),
@@ -596,7 +596,7 @@ fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
         vel.x > 0.0 && vel.y < 0.0,
         "a (1,-1) launcher throws up-and-away from the source: {vel:?}"
     );
-    // Mirrored source ⇒ mirrored lateral, same rise.
+    // Mirrored source  mirrored lateral, same rise.
     let mirrored = crate::combat::HitKnockback {
         source_pos: victim_pos + ae::Vec2::new(40.0, 0.0),
         ..diag
@@ -624,7 +624,7 @@ fn authored_launch_dir_conjugates_under_rotated_gravity() {
     let feel = Platformer2dFeelTuningMonolith::default();
     let victim_pos = ae::Vec2::new(100.0, 200.0);
     let speed = 120.0;
-    // ⭐ the authored vector IS the local launch direction, so the expected local velocity is
+    //  the authored vector IS the local launch direction, so the expected local velocity is
     // just `n * speed` — no negation anywhere.
     let n = ae::Vec2::new(0.6, -0.8); // already unit-length
     let local_expected = n * speed;
@@ -710,7 +710,7 @@ fn death_policy_gates_the_meter_kill() {
     assert!(!DeathPolicy::Unbounded.kills_at_max());
 }
 
-/// **The meter is not the pool, and it does not stop where the pool does.** (S4)
+/// The meter is not the pool, and it does not stop where the pool does. (S4)
 ///
 /// Knockback growth scales off this meter, so a body that reached 100% stopped launching farther,
 /// which is precisely what smash percent needs it to keep doing.
@@ -729,7 +729,7 @@ fn the_damage_meter_accumulates_past_the_pool_it_is_measured_against() {
     );
 }
 
-/// **Percent is not health**, and the difference is expressible.
+/// Percent is not health, and the difference is expressible.
 ///
 /// `Health::ratio` clamps to `0..=1` and is about the POOL. A HUD that needs to
 /// print `188%` cannot get it from there at any amount of damage.
@@ -750,7 +750,7 @@ fn damage_percent_is_unclamped_so_a_hud_can_print_188() {
     );
 }
 
-/// **An `Unbounded` body keeps taking damage forever**, which is the whole
+/// An `Unbounded` body keeps taking damage forever, which is the whole
 /// reason the variant exists — and what it could not do before S4.
 ///
 /// At 100% the old shape had `alive()` go false, `resolve_body_hit` return
@@ -1202,9 +1202,9 @@ fn wallet_shield_spends_currency_before_a_lethal_hit_reaches_health() {
     assert_eq!(wallet.balance, 0, "the whole defensive balance is spent");
 }
 
-/// **Losing your rings gets the same BEAT as losing a powerup.**
+/// Losing your rings gets the same BEAT as losing a powerup.
 ///
-/// ⚠ the hitstop ONLY, exactly as for armor. The recoil lock and the carried
+///  the hitstop ONLY, exactly as for armor. The recoil lock and the carried
 /// launch belong to being thrown, and the outer handler already keeps the
 /// physical reaction (`HitMode::Knockback` still knocks him off the ledge). What
 /// is owed here is the pause that says it happened.
@@ -1286,7 +1286,7 @@ fn empty_wallet_shield_does_not_make_the_body_immortal() {
     assert_eq!(health.current(), 0);
 }
 
-/// **Nothing defends against the edge of the world.**
+/// Nothing defends against the edge of the world.
 ///
 /// Every gate in `resolve_body_hit` is a defence against BEING HIT — i-frames,
 /// the shield, a worn armor row, a wallet balance, and `never_dies`. Nothing
@@ -1396,7 +1396,7 @@ fn an_unstoppable_hit_passes_every_defence_a_body_has() {
     }
 }
 
-/// **A training dummy that has left the stage is not training.**
+/// A training dummy that has left the stage is not training.
 ///
 /// `never_dies` is the sandbag's whole point and it must survive any amount of
 /// damage — but a `never_dies` body outside the world is worse than immortal,
@@ -1497,7 +1497,7 @@ fn even_an_unstoppable_hit_refuses_a_body_that_is_already_dead() {
 
 // ── The launch CHANNEL ────────────────────────────────────────────────
 
-/// **The reaction publishes the launch, and not only the velocity.**
+/// The reaction publishes the launch, and not only the velocity.
 ///
 /// Writing `BodyKinematics::vel` is authoritative for an axis-swept body and a MIRROR for a
 /// riding surface-momentum one, whose velocity is derived from `v_t` and republished every
@@ -1580,7 +1580,7 @@ fn a_hit_with_no_knockback_publishes_no_launch() {
     );
 }
 
-/// ⛔⛔ **the pure rule was tested and the RESOLVER's `Blocked` branch was not.**
+///  the pure rule was tested and the RESOLVER's `Blocked` branch was not.
 /// `shield_blocks_hit` has six unit tests above and `resolve_body_hit` had none
 /// at all — so "the bubble blocks" was proven as geometry (*is this hit on the
 /// faced side?*) and never as CONSEQUENCE (*does the body keep its health?*).
@@ -1588,7 +1588,7 @@ fn a_hit_with_no_knockback_publishes_no_launch() {
 /// resolver that computed the geometry and then fell through to the damage path
 /// would pass every test in this file.
 ///
-/// ⭐ four clauses, and each is a different OUTCOME of the same hit rather than
+///  four clauses, and each is a different OUTCOME of the same hit rather than
 /// a different input:
 ///
 /// ```text
@@ -1598,7 +1598,7 @@ fn a_hit_with_no_knockback_publishes_no_launch() {
 ///   parrying                        -> Ignored   HP unchanged (a different gate)
 /// ```
 ///
-/// ⚠ the third clause is what stops this passing on a resolver that blocks
+///  the third clause is what stops this passing on a resolver that blocks
 /// EVERYTHING while a shield is held, and the fourth separates the two defences:
 /// a parry is `body_vulnerable`'s business and the hit never registers, while a
 /// block registers and arms a guard i-frame.
@@ -1658,7 +1658,7 @@ fn a_raised_shield_blocks_the_hit_and_a_lowered_one_does_not() {
          resolver computed the geometry and fell through to the damage path"
     );
 
-    // ⛔ THE POISON: the same hit with the shield down must hurt, or the clause
+    //  THE POISON: the same hit with the shield down must hurt, or the clause
     // above is satisfied by a body nothing can damage.
     let (unguarded, hp) = hit(false, from_front);
     assert_ne!(unguarded, BodyHitResolution::Blocked);
@@ -1668,7 +1668,7 @@ fn a_raised_shield_blocks_the_hit_and_a_lowered_one_does_not() {
          nothing about the shield"
     );
 
-    // ⛔ and a shield is a SIDE, not a bubble: the back is open.
+    //  and a shield is a SIDE, not a bubble: the back is open.
     let (from_the_back, hp) = hit(true, from_behind);
     assert_ne!(
         from_the_back,
@@ -1679,9 +1679,9 @@ fn a_raised_shield_blocks_the_hit_and_a_lowered_one_does_not() {
     assert!(hp < START_HP);
 }
 
-/// **A BLOCK COSTS THE BLOCKER GROUND, AWAY FROM THE HIT AND ALONG IT ONLY.**
+/// A BLOCK COSTS THE BLOCKER GROUND, AWAY FROM THE HIT AND ALONG IT ONLY.
 ///
-/// ⛔ the third cost of shield pressure, after integrity and shieldstun. Without
+///  the third cost of shield pressure, after integrity and shieldstun. Without
 /// it a guard near a ledge is a safe place to stand forever; with it the hits
 /// themselves walk you toward the edge, which is what makes chip pressure a
 /// thing a player has to answer.
@@ -1730,7 +1730,7 @@ fn a_blocked_hit_shoves_the_blocker_laterally_away_from_it() {
     assert_eq!(vel.x, -(tuning.pushback_per_damage * 10.0));
 }
 
-/// **AND A GUARD THAT IS NOT A RESOURCE STILL BLOCKS FOR FREE.**
+/// AND A GUARD THAT IS NOT A RESOURCE STILL BLOCKS FOR FREE.
 #[test]
 fn an_unlimited_guard_is_not_pushed() {
     let mut combat = BodyCombat::default();
@@ -1800,9 +1800,9 @@ fn meteor_reaction(
     combat.recoil_lock_timer
 }
 
-/// **CROUCHING TAKES LESS OF THE LAUNCH, AND ONLY WHEN THE GAME SAYS SO.**
+/// CROUCHING TAKES LESS OF THE LAUNCH, AND ONLY WHEN THE GAME SAYS SO.
 ///
-/// ⛔ three assertions, and the first two are the pair: a standing body takes the
+///  three assertions, and the first two are the pair: a standing body takes the
 /// whole launch and a crouching one takes the declared fraction, so a version
 /// that scaled EVERYBODY would fail the first and one that scaled nobody the
 /// second. The third is the floor — an undeclared world's `1.0` must leave
@@ -1859,9 +1859,9 @@ fn crouching_takes_less_of_the_launch_when_the_rules_declare_it() {
     );
 }
 
-/// **A SPIKE ON AN AIRBORNE BODY BUYS A LONGER SILENCE.**
+/// A SPIKE ON AN AIRBORNE BODY BUYS A LONGER SILENCE.
 ///
-/// ⛔ the mechanic, and what it is FOR: a launch that merely points down is a big
+///  the mechanic, and what it is FOR: a launch that merely points down is a big
 /// hit; one you cannot answer on the way down is a kill. The genre's "meteor
 /// cancel" is this window ENDING, so there is no second verb to press and
 /// nothing here to trigger.
@@ -1878,7 +1878,7 @@ fn a_downward_launch_on_an_airborne_body_locks_it_longer() {
         "an airborne spike took the ordinary recoil, so it is just a big hit"
     );
 
-    // ⛔ **the floor, three ways.**
+    //  the floor, three ways.
     assert_eq!(
         meteor_reaction(ae::Vec2::new(0.0, 1.0), true, feel),
         0.10,

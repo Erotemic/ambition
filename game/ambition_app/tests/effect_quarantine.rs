@@ -1,30 +1,8 @@
-//! **The external-effect quarantine, against the real simulation.**
+//! End-to-end rollback quarantine test on the real GGRS host.
 //!
-//! `ambition_platformer2d_runtime::external_effects`' own tests drive the four systems
-//! directly and prove the *rule*: a re-simulated frame replaces what the
-//! abandoned pass produced, confirmed frames release in order, each intent
-//! exactly once. What they cannot prove is that the plugin's schedule placement
-//! carries that rule through a real host — that the outbox clear really runs
-//! before gameplay, the journal really runs after it, and the release really
-//! lands ahead of presentation.
-//!
-//! So this boots the actual Ambition sim on the actual GGRS host and asks the
-//! sharpest question available without a network:
-//!
-//! > **Does rolling back change what presentation observes?**
-//!
-//! It must not. The same input script is played twice through the same host — once with
-//! `check_distance = 0` (GGRS never rewinds, so every effect is ground truth) and once with
-//! `check_distance = 4` (GGRS rewinds and resimulates every single step). The two runs must produce
-//! the *same effects in the same order*.
-//!
-//! Deliberately NOT claimed here: a mispredicted remote input. A sync test
-//! resimulates with the *same* inputs, so its correction always equals its
-//! prediction and A-versus-B cannot arise. That case is proven against the real
-//! systems in `external_effects/tests.rs`
-//! (`a_corrected_frame_replaces_what_the_prediction_produced` and the
-//! produces-nothing variant); proving it against a live two-peer session is owed
-//! when a Matchbox transport lands, and is tracked in `tracks.md` §1.
+//! The same input script runs with and without forced rewinds; presentation must
+//! observe the same released effects in the same order. This sync-test fixture
+//! does not model remote-input misprediction.
 
 #![cfg(feature = "rl_sim")]
 
@@ -196,7 +174,7 @@ fn the_journal_drains_once_every_frame_confirms() {
     );
 }
 
-/// **The classification, as an executable claim.**
+/// The classification, as an executable claim.
 ///
 /// The quarantine work-list named `EffectRequest` as VFX exposure. It is not:
 /// its remaining readers are simulation-side (`apply_effects` spawns hitboxes

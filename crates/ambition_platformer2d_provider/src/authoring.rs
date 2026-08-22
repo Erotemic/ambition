@@ -287,7 +287,7 @@ mod tests {
         assert_eq!(active.0, Some(next));
     }
 
-    /// **: two games in one host can ease and shake differently.**
+    /// : two games in one host can ease and shake differently.
     ///
     /// The zoom rates and the snap epsilon were one global resource and the
     /// shake ceiling was a `const` inside `kick`, so a multi-game host had one
@@ -403,7 +403,7 @@ pub struct PlatformerExperienceAuthoring {
     pub presentation: Option<GameplayPresentationProfiles>,
     /// What this experience's HUD reads out.
     pub hud: Option<ambition_platformer2d_shared_tangle::gameplay_presentation::HudDeclaration>,
-    /// **Whether the launcher offers this experience to a player.**
+    /// Whether the launcher offers this experience to a player.
     ///
     /// `true` by default — a provider that goes to the trouble of authoring an
     /// experience usually means it to be playable. See
@@ -435,15 +435,15 @@ impl PlatformerExperienceAuthoring {
         }
     }
 
-    /// **Compose and route this experience, but keep it out of the launcher.**
+    /// Compose and route this experience, but keep it out of the launcher.
     ///
-    /// **for a stage that exists to be TESTED or DEVELOPED against**, not
+    /// for a stage that exists to be TESTED or DEVELOPED against, not
     /// chosen: a fixture, a scratch arena, a crossover that only one composition
     /// can host. Everything else is unchanged — the route is registered, the
     /// characters join the roster, the catalogs are installed, and a test that
     /// activates the route by id works exactly as before.
     ///
-    /// **not the same as declaring it unavailable.** An unavailable
+    /// not the same as declaring it unavailable. An unavailable
     /// experience is SHOWN, greyed, with a reason, because the player is meant
     /// to know it exists. This one is simply not offered.
     pub fn unlisted(mut self) -> Self {
@@ -451,8 +451,8 @@ impl PlatformerExperienceAuthoring {
         self
     }
 
-    /// **The launcher opens this route; the session still lives on the
-    /// gameplay one.**
+    /// The launcher opens this route; the session still lives on the
+    /// gameplay one.
     ///
     /// For an experience that asks a question before it starts — a character
     /// select, a stage select — and therefore cannot be entered by activating

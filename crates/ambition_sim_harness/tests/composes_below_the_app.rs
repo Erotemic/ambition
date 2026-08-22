@@ -1,4 +1,4 @@
-//! Track 4 exit gate: a test drives a real sim **through the harness** while
+//! Track 4 exit gate: a test drives a real sim through the harness while
 //! linking only the reusable engine surface (the `ambition_platformer2d` facade) — never
 //! `ambition_app`, the product shell. If this compiles and runs, the harness is
 //! genuinely below the app: any demo/provider can compose its own sim into it.

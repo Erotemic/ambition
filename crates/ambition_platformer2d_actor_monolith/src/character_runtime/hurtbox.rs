@@ -1,4 +1,4 @@
-//! **Hurtboxes resolved from simulation clocks, never from what was drawn.** (§4.11)
+//! Hurtboxes resolved from simulation clocks, never from what was drawn. (§4.11)
 //!
 //! Hitboxes belong to the move — that was already true, `MoveWindow.volumes`.
 //! Hurtboxes do not, and the prohibition is the whole design:
@@ -72,7 +72,7 @@ impl Default for BodyPoseClock {
 /// Body-state pose ids the engine writes. Content may author a profile for any of
 /// them; an unauthored one falls through to the default shapes.
 ///
-/// **this list is a CONTRACT, not a wish list.** An id documented here that
+/// this list is a CONTRACT, not a wish list. An id documented here that
 /// [`body_pose`] can never produce is worse than a missing feature: content
 /// authors a profile for it, the profile validates, and it is silently never
 /// selected. [`BODY_POSES`] and `body_pose`'s reachable set are pinned equal by

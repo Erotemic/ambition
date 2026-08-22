@@ -1,9 +1,9 @@
-// **Ambition's fighter-brain difficulty ladder** — `docs/planning/engine/fighter-brain.md` §4.
+// Ambition's fighter-brain difficulty ladder — `docs/planning/engine/fighter-brain.md` §4.
 //
 // Nine rows, one per level. §4: *"Games/demos ship their own rows — it's content."*
 // Parsed by `ambition_characters::brain::fighter::profile::FighterBrainLadder::from_ron`,
 // whose `problems()` is asserted empty by a content test: monotone in reaction,
-// APM, and execution noise, and **never zero reaction on any row** (§1.3: "Level 9
+// APM, and execution noise, and never zero reaction on any row (§1.3: "Level 9
 // = small numbers, never zero").
 //
 // `reaction_ms` is the ONLY thing that decides how late the brain sees the world:
@@ -18,7 +18,7 @@
 // whole ladder plays on L2's scores alone until the instruments say otherwise, and
 // turning L3 on never touches a difficulty's identity.
 //
-// `utility_weights` are **v1 starting values, not tuned.** §FB6: "scoring weights
+// `utility_weights` are v1 starting values, not tuned. §FB6: "scoring weights
 // are NOT divined up front … FB4's ladder self-play monotonicity gate is the
 // calibration instrument." `expected_payoff` is FB6a's fifth feature — it prices a
 // move's POWER on a plausible landing, closing the hole FB2 recorded (a jab

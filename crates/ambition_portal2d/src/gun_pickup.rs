@@ -24,7 +24,7 @@ pub struct PortalGunPickup {
 // standalone portal crate should expose generic portal-openers and leave pickup
 // / inventory policy entirely host-side.
 
-/// **The set [`arm_portal_pickups`] runs in.**
+/// The set [`arm_portal_pickups`] runs in.
 ///
 /// The arming pass and the Ambition inventory GRANT live in different crates by design — this one
 /// is generic portal code, the grant knows about Ambition items — but they must run in that order

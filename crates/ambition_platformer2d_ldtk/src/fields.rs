@@ -95,7 +95,7 @@ pub fn field_bool(entity: &LdtkEntityInstance, name: &str) -> Option<bool> {
     })
 }
 
-/// Read an LDtk **EntityRef** field, returning the referenced entity's
+/// Read an LDtk EntityRef field, returning the referenced entity's
 /// `iid`. LDtk stores an entity-reference field's `__value` as an object
 /// `{ "entityIid": "...", "layerIid": "...", "levelIid": "...",
 /// "worldIid": "..." }` (or `null` when unset). This returns the
@@ -173,7 +173,7 @@ pub(super) fn parse_pickup_kind(value: &str) -> ambition_platformer2d_world::roo
     }
 }
 
-/// **there is no `Patrol:` prefix here, and its absence is the point.** A
+/// there is no `Patrol:` prefix here, and its absence is the point. A
 /// patrol's path was authored as a reference hidden inside this string field —
 /// nothing about the field's name or its `String` type said a reference was in
 /// there, so no tool could see it, three resolvers grew private spellings of it,
@@ -229,7 +229,7 @@ pub(super) fn parse_debug_label_kind(
 #[cfg(test)]
 mod tests;
 
-/// **HOW FAR A BODY MUST STEP UP TO WALK INTO THIS RECT**, in px. `0` when the
+/// HOW FAR A BODY MUST STEP UP TO WALK INTO THIS RECT, in px. `0` when the
 /// ground inside it is level with the ground just outside.
 ///
 /// ```text
@@ -247,8 +247,8 @@ mod tests;
 /// row IS THE FLOOR, running unbroken across the level, and a zone stopping one row above the
 /// floor could never be touched by a body standing on it.
 ///
-/// ⇒ **the question is not "is there anything solid in here", it is "is the ground in here HIGHER
-/// than the ground out there".** Only `central_hub_main`'s two exits were: their openings are holes
+///  the question is not "is there anything solid in here", it is "is the ground in here HIGHER
+/// than the ground out there". Only `central_hub_main`'s two exits were: their openings are holes
 /// in a three-cell-thick wall whose bottom rows were still solid, so the opening sat 32px above the
 /// floor — a window, not a door, and a walking body stalled against the sill at x=1841 .
 ///

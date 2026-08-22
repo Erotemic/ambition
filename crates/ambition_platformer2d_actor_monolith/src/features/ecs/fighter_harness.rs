@@ -3,15 +3,15 @@
 //! The unified-control architecture
 //! (`docs/concepts/one-body-one-path.md`) hangs on a
 //! contract: *any controller drives any body through one input seam, and the
-//! **body** enforces all physics.* That contract has to be proven against the
-//! **real** simulation systems, not a proxy with its own kinematics. This module
+//! body enforces all physics.* That contract has to be proven against the
+//! real simulation systems, not a proxy with its own kinematics. This module
 //! is the seed of that harness: it builds a minimal but real headless `App` —
 //! real messages, the real `emit_brain_action_messages` resolver and the real
 //! `spawn_projectiles_from_brain_actions` body-enforcement system — drops a
 //! body, lets a chosen controller drive the one input seam (`ActorControlFrame`),
 //! and ticks.
 //!
-//! It deliberately drives the body through the **same** `ActorControlFrame` seam a
+//! It deliberately drives the body through the same `ActorControlFrame` seam a
 //! brain, a possessing human, or a future RL policy use, so a test controller is
 //! substitutable for any of them (invariant I1). As later slices land (unified
 //! motor, full capability parity, headless perception), this harness grows to

@@ -1,4 +1,4 @@
-//! **Mary-O at home has RUN and JUMP, and nothing else.**
+//! Mary-O at home has RUN and JUMP, and nothing else.
 //!
 //! from smash in her game, and its messing things up there. She should only have
 //! the run and jump in her game. And the run should double as the fireball
@@ -34,7 +34,7 @@ fn boot() -> App {
     app.insert_resource(ambition_demo_mary_o::provider::MaryOEntryRoom(
         TEST_COURSE_ROOM_ID.to_string(),
     ));
-    // **the ordering lives in ONE place now** — after the participant pipeline's routing stage and
+    // the ordering lives in ONE place now — after the participant pipeline's routing stage and
     // before the frame→tick latch.
     ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
     for _ in 0..LIVENESS_CAP {
@@ -162,7 +162,7 @@ fn top_speed(app: &mut App, body: Entity, running: bool) -> f32 {
     best
 }
 
-/// **THE GUARD.** Nothing from the smash table answers a press at home, and the
+/// THE GUARD. Nothing from the smash table answers a press at home, and the
 /// two verbs she is supposed to have still do.
 #[test]
 fn mary_o_at_home_can_only_run_and_jump() {
@@ -222,7 +222,7 @@ fn mary_o_at_home_can_only_run_and_jump() {
     assert!(left_the_floor, "the jump must still leave the ground");
 }
 
-/// **The run button doubles as the fireball button, and ONLY with the lantern.**
+/// The run button doubles as the fireball button, and ONLY with the lantern.
 ///
 /// lantern."* The classic grammar — one button, two roles, the sustain still
 /// meaning run. What arms it is the WORN cinder beacon, not an ability: the

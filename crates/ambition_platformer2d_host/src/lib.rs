@@ -1,40 +1,10 @@
-//! The windowed-HOST face — [the windowed host] (decomposition E5 step 5):
-//! [`PlatformerHostPlugins`], a Bevy [`PluginGroup`] that assembles the wiring
-//! only a VISIBLE platformer host needs on top of
-//! [`ambition_platformer2d_runtime::PlatformerEnginePlugins`]:
+//! Windowed host composition for the platformer runtime.
 //!
-//! - [`HostInputBindingsPlugin`] (feature `input`) — the leafwing input map +
-//!   the device → `ControlFrame`/`MenuControlFrame` bridge;
-//! - [`HostCameraPlugin`] — the camera follow/shake cluster consuming the
-//!   sim's resolved camera observation, plus (feature `portal_render`) the
-//!   portal camera-continuity wiring;
-//! - [`gameplay_presentation::HostGameplayPresentationPlugin`] — where the
-//!   gameplay camera renders on the physical display and where subjects should
-//!   stay inside it, resolved once per frame from the active provider's
-//!   declared profile.
-//!
-//! ## Why this crate
-//!
-//! A VISIBLE game (Ambition, or a demo) builds its host App by adding the
-//! engine group + this host group + its own content crate:
-//!
-//! ```ignore
-//! let mut app = App::new();
-//! ambition_platformer2d_runtime::add_headless_foundation(&mut app); // or DefaultPlugins
-//! app.add_plugins(ambition_platformer2d_runtime::PlatformerEnginePlugins::default())
-//!    .add_plugins(ambition_platformer2d_host::PlatformerHostPlugins)   // <- this group
-//!    .add_plugins(my_content::MyGameContentPlugin);
-//! ```
-//!
-//! A headless / RL entry point adds only the engine group — the shared
-//! per-frame SIM wiring (player input chain, brains, room transitions, portal
-//! schedule) lives in `ambition_platformer2d_runtime`, NOT here, precisely because
-//! headless runs it too (the E5 step-5 ruling; see decomposition.md).
-//!
-//! The host MAY dep `ambition_render` / `ambition_input` / `leafwing-input-
-//! manager` / `ambition_platformer2d_runtime`; it must NEVER dep `ambition_platformer2d_actor_monolith` or
-//! `ambition_content`
-//! (enforced by `tests/host_names_no_content.rs`).
+//! [`PlatformerHostPlugins`] adds device input, camera/presentation wiring, and
+//! optional portal presentation on top of the content-free simulation runtime.
+//! Headless/RL entry points omit this group. This crate may depend on rendering,
+//! input, and runtime infrastructure but must not depend on game content or the
+//! actor monolith.
 
 use bevy::app::{App, Plugin, PluginGroup, PluginGroupBuilder};
 use bevy::prelude::*;
@@ -168,13 +138,13 @@ impl Plugin for HostInputBindingsPlugin {
         // every tick, forever, in silence. Arrow keys navigated menus (those never enter the
         // session) and moved nothing.
         //
-        // ⭐ **A DEVELOPER INSTRUMENT MAY NEVER BE LOAD-BEARING FOR GAMEPLAY.**
+        //  A DEVELOPER INSTRUMENT MAY NEVER BE LOAD-BEARING FOR GAMEPLAY.
         // The device host owns the frame→tick bridge because the device host is
         // what HAS a device; removing an observatory from a visible composition
         // must not be able to remove input. The observatory's copy is deleted,
         // so this is the only registration and there is nothing to double.
         if app.sim_is_fixed_tick() || rollback_host {
-            // ⭐ ONE table, seat zero included. There were two `init_resource`
+            //  ONE table, seat zero included. There were two `init_resource`
             // calls here and two systems below, because seat zero had its own
             // spelling of the latch — see `SlotControlLatches`.
             app.init_resource::<ambition_platformer2d_runtime::host_input::SlotControlLatches>();
@@ -192,7 +162,7 @@ impl Plugin for HostInputBindingsPlugin {
         // instead, which is where a rollback host asks.
         if app.sim_is_fixed_tick() {
             let sim = app.sim_schedule();
-            // ⭐ **ONE drain for every seat.** This was two systems because
+            //  ONE drain for every seat. This was two systems because
             // their destinations differed — seat zero's latched frame went to the
             // global `ControlFrame`, which the shapers only it had still read.
             // `SlotControls` is every seat's destination now, and the
@@ -356,7 +326,7 @@ impl Plugin for HostInputBindingsPlugin {
                     populate_seat_menu_frames
                         .in_set(ambition_input::InputSet::Route)
                         .in_set(MenuFramePopulate),
-                    // ⭐ **ONE registration.** There were two adjacent entries
+                    //  ONE registration. There were two adjacent entries
                     // here, and the comment on the second said *"same phase as
                     // the primary bridge: both are device→control translation,
                     // and neither reads the other's output"* — which is the
@@ -369,11 +339,11 @@ impl Plugin for HostInputBindingsPlugin {
                     dialog_pointer_input,
                 )
                     .chain()
-                    // ⚠ LOAD-BEARING ONLY under the `RenderFrame` host, where the
+                    //  LOAD-BEARING ONLY under the `RenderFrame` host, where the
                     // sim schedule IS `Update`. `CoreSimulation` is a sim-schedule
                     // set, and a Bevy set node belongs to one schedule — under
                     // `Fixed60Hz`/`Ggrs` this creates an empty node here and
-                    // constrains nothing. ⛔ and the frame order does not rescue a
+                    // constrains nothing.  and the frame order does not rescue a
                     // `.before` the way it rescues an `.after`: the sim has
                     // already run by the time `Update` starts.
                     //
@@ -423,7 +393,7 @@ fn tune_clash_strategy_to_bindings(
     }
 }
 
-/// **Projectiles that were fired are projectiles that are drawn.**
+/// Projectiles that were fired are projectiles that are drawn.
 ///
 /// Found by `scripts/check_engine_systems_are_engine_installed.py`, built after the same shape cost
 /// three defects in four days (the world-label pass, the parallax theme load, the parallax layer
@@ -472,7 +442,7 @@ impl Plugin for HostProjectileVisualsPlugin {
     }
 }
 
-/// **A `VfxMessage` that is written is a `VfxMessage` that is drawn.**
+/// A `VfxMessage` that is written is a `VfxMessage` that is drawn.
 ///
 /// `VfxMessage` has TWO presentation consumers and only ONE of them was engine-installed:
 /// `ambition_render::rendering::slash_visuals::spawn_slash_effects` is registered by
@@ -486,7 +456,7 @@ impl Plugin for HostProjectileVisualsPlugin {
 /// names `Platformer2dSimulationPhaseMonolith::CoreSimulation`, and
 /// `ambition_render` depends on neither the schedule nor the runtime.
 ///
-/// ⚠ **`update_blink_preview` is deliberately NOT here.** It reads leafwing
+///  `update_blink_preview` is deliberately NOT here. It reads leafwing
 /// action state to know the blink button is held, so it stays behind the app's
 /// `input` persona with the rest of the input-driven presentation.
 pub struct HostVfxPresentationPlugin;
@@ -496,8 +466,8 @@ impl Plugin for HostVfxPresentationPlugin {
         use ambition_platformer2d_shared_tangle::lifecycle::session_world_exists;
         use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
 
-        // **spelled out on purpose — a short path is INVISIBLE to
-        // `scripts/check_engine_systems_are_engine_installed.py`.** That checker only recognises a
+        // spelled out on purpose — a short path is INVISIBLE to
+        // `scripts/check_engine_systems_are_engine_installed.py`. That checker only recognises a
         // registration whose FIRST path segment is an engine crate name, and the app registered
         // these as `fx::update_particles` / bare `vfx_spawn_messages`. The blind spot is already
         // written down for `setup_capture_target` in that file's own waiver list; do not re-shorten
@@ -532,7 +502,7 @@ impl Plugin for HostVfxPresentationPlugin {
             // sprite that never moves and never leaves — so moving the spawner
             // alone would have been the worse half of the fix.
             //
-            // ⚠ the app chained these `.after(debug_overlay::draw_debug_overlay)`.
+            //  the app chained these `.after(debug_overlay::draw_debug_overlay)`.
             // That edge did not survive the move and could not: the overlay is
             // `ambition_app`'s own dev system. Nothing here reads what it writes.
             (
@@ -673,15 +643,15 @@ mod clash_strategy_tests {
     }
 }
 
-/// **Hand the menu crate the font the render side resolved.**
+/// Hand the menu crate the font the render side resolved.
 ///
-/// ⛔ `ambition_menu` set a font SIZE and no handle, so Bevy resolved
+///  `ambition_menu` set a font SIZE and no handle, so Bevy resolved
 /// `Handle::<Font>::default()` — its built-in `FiraMono-subset.ttf`. Forcing the default handle
 /// back reproduces the box; see `MenuFont`, which also records what about this is still
 /// UNEXPLAINED (the same handle renders those glyphs elsewhere).
 ///
-/// ⚠ **this is the composition root because it is the only place the two crates
-/// can meet.** `ambition_render` must not depend on `ambition_menu`
+///  this is the composition root because it is the only place the two crates
+/// can meet. `ambition_render` must not depend on `ambition_menu`
 /// (presentation does not own the menu IR) and `ambition_menu` must not know an
 /// asset path (it is renderer-agnostic). A host is exactly the thing that knows
 /// both.

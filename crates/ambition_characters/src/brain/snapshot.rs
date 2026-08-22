@@ -8,16 +8,16 @@
 //!
 //! Fields are organized by who fills them:
 //!
-//! - **Actor self**: position, velocity, facing, ground contact —
+//! - Actor self: position, velocity, facing, ground contact —
 //!   read off the actor's own ECS components by the brain-driver
 //!   system.
-//! - **Combat timers**: cooldown / windup / active / recover / stun.
+//! - Combat timers: cooldown / windup / active / recover / stun.
 //!   Mirror of [`crate::actor::ai::CharacterAiSnapshot`] fields so existing pure
 //!   evaluators slot in unchanged.
-//! - **Target**: the actor's current "look at" target (player for
+//! - Target: the actor's current "look at" target (player for
 //!   most NPCs/enemies; some bosses target a specific anchor). Filled
 //!   from `ActorTarget` per the player-singleton audit.
-//! - **Per-template inputs**: surfaced as `Option`s. The `Wanderer`
+//! - Per-template inputs: surfaced as `Option`s. The `Wanderer`
 //!   brain needs wall-contact info; nobody else does. Construct the
 //!   snapshot with these set only when the relevant brain wants them.
 //!
@@ -28,7 +28,7 @@ use ambition_platformer2d_core as ae;
 
 /// What a brain sees this tick. Read-only; brains never mutate the
 /// snapshot (they write to `&mut ActorControlFrame` instead).
-/// **not `Copy` since FB4b.** `attack_kit` is a `Vec`, and the alternatives
+/// not `Copy` since FB4b. `attack_kit` is a `Vec`, and the alternatives
 /// were worse: a lifetime on `BrainSnapshot` would infect every brain signature
 /// in the crate, and passing the kit beside the snapshot would put body-derived
 /// truth on a second channel — which is the split the world-in port exists to
@@ -36,11 +36,11 @@ use ambition_platformer2d_core as ae;
 /// remained were test fixtures.
 #[derive(Clone, Debug)]
 pub struct BrainSnapshot {
-    /// **The capture relationship, as three plain facts.** Resolved by the phase
+    /// The capture relationship, as three plain facts. Resolved by the phase
     /// that holds the queries and handed down; a brain never reaches for
     /// `CapturedBy` itself. `pummels_landed` is `0` unless `holding_captive`.
     pub captured: bool,
-    /// **How long this body has been held**, in scaled seconds; `0.0` when
+    /// How long this body has been held, in scaled seconds; `0.0` when
     /// free. A brain's only handle on the hold's progress — and the reason a
     /// captive's struggle can have a CADENCE without the brain keeping a timer
     /// of its own, which would be one more thing a rewind has to restore.
@@ -72,14 +72,14 @@ pub struct BrainSnapshot {
     /// Autonomous steering preference authored for simple walkers. Consumed by
     /// Patrol/Wanderer brains, never by movement integration or human control.
     pub turns_at_walls: bool,
-    /// Whether this body is a gravity-free **free-mover** (a flyer: enemy
+    /// Whether this body is a gravity-free free-mover (a flyer: enemy
     /// `is_aerial` / `gravity_scale == 0`, or a `Floating` NPC). When true the
     /// brain steers in 2D via `velocity_target` instead of grounded
     /// `locomotion` + jump. Body-derived truth, populated by the snapshot
     /// builder from the body's gravity scale. Defaults `false` so grounded
     /// brains and inert test snapshots are unaffected.
     pub actor_aerial: bool,
-    /// **The attacks this body can actually throw** (FB4b §13.2).
+    /// The attacks this body can actually throw (FB4b §13.2).
     ///
     /// L2 scores real moves with real frame data, and the brain cannot reach a
     /// moveset: `ambition_combat` depends on `ambition_characters`, not the
@@ -91,7 +91,7 @@ pub struct BrainSnapshot {
     /// and for an inert test snapshot: `generate_options` then produces no
     /// attacks and the fighter plays movement only.
     pub attack_kit: Vec<crate::brain::fighter::options::AttackCandidate>,
-    /// **Which body this is**, as the integration layer names it.
+    /// Which body this is, as the integration layer names it.
     ///
     /// The brain genuinely cannot know: a snapshot is pure body state, and a
     /// body's identity is the host's to assign. So it arrives through the
@@ -102,7 +102,7 @@ pub struct BrainSnapshot {
     /// "why did this fighter walk off the stage" is worthless with two fighters
     /// on the stage and no way to tell whose decision is whose.
     ///
-    /// **read by the instrument, never by a decision.** A brain that branched
+    /// read by the instrument, never by a decision. A brain that branched
     /// on its own id would be a brain that behaves differently depending on
     /// which body it woke up in, and every no-cheat property this crate argues
     /// for would be void. `None` — the default, and the honest answer for a
@@ -143,13 +143,13 @@ pub struct BrainSnapshot {
     /// write an already-normalized stick and ignore this.
     pub max_run_speed: f32,
 
-    /// **The movement law this body actually plays under**, for brains that
+    /// The movement law this body actually plays under, for brains that
     /// PREDICT rather than steer.
     ///
     /// Body-derived truth arriving through the world-in port, exactly like
     /// [`Self::actor_aerial`] and [`Self::attack_kit`].
     ///
-    /// **this is NOT a second [`Self::max_run_speed`]**, and the two answer
+    /// this is NOT a second [`Self::max_run_speed`], and the two answer
     /// different questions. `max_run_speed` is the throttle scale the caller
     /// wants this body's locomotion intent expressed against — deliberately `0`
     /// for a body whose integrator ignores it, and a boss's flight speed for a
@@ -160,7 +160,7 @@ pub struct BrainSnapshot {
     /// a predictor falls back to the engine's canonical defaults.
     pub movement_tuning: Option<ae::MovementTuning>,
 
-    /// **Which movement VERBS this body owns**, beside the law that says what
+    /// Which movement VERBS this body owns, beside the law that says what
     /// they are worth.
     ///
     /// The pair is what the movement kernel needs to be driven at all, and a
@@ -171,7 +171,7 @@ pub struct BrainSnapshot {
     /// answer from the same position, and no list in the brain has to be kept in
     /// step for that to be true.
     ///
-    /// **not a capability list for the brain to interpret.** [`Self::actor_aerial`]
+    /// not a capability list for the brain to interpret. [`Self::actor_aerial`]
     /// and `SelfView`'s `burst` exist precisely because a driver re-deriving the
     /// kernel's precedence rules is the failure mode; this field is never read to
     /// decide what to press, only handed to the kernel that owns the question.

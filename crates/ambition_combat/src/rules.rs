@@ -1,4 +1,4 @@
-//! **The combat rules a match plays under — resolved, not borrowed.** (AE6)
+//! The combat rules a match plays under — resolved, not borrowed. (AE6)
 //!
 //! A route mutating global tuning and undoing it afterwards is a lifecycle borrowing an authority
 //! it does not own. So the match DECLARES its rules ([`DeclaredCombatRules`]), a projection folds
@@ -17,7 +17,7 @@
 
 use bevy::prelude::Resource;
 
-/// **What a match asks for.** Present means a match (or any other owner of a
+/// What a match asks for. Present means a match (or any other owner of a
 /// combat lifecycle) has declared rules; absent means the world's baseline
 /// stands on its own.
 ///
@@ -28,7 +28,7 @@ use bevy::prelude::Resource;
 /// omits the whole resource, or reads it and re-declares deliberately.
 #[derive(Resource, Clone, Debug, PartialEq)]
 pub struct DeclaredCombatRules {
-    /// **Which shell experience declared these rules.**
+    /// Which shell experience declared these rules.
     ///
     /// required, not optional, and it is a LIFECYCLE field rather than a label. Two stages
     /// declare combat rules — the versus route and the smash demo — and each gives its
@@ -38,7 +38,7 @@ pub struct DeclaredCombatRules {
     /// How far a launched body may steer its own trajectory (CM2). `0.0`
     /// disables directional influence entirely, which is Ambition's PvE answer.
     pub di_max_angle: f32,
-    /// **How much a launch GROWS with the victim's accumulated damage**, as a
+    /// How much a launch GROWS with the victim's accumulated damage, as a
     /// fraction of the move's own base launch speed per point of damage.
     ///
     /// `0.01` means *a hit doubles its launch at 100 damage* — the platform
@@ -46,7 +46,7 @@ pub struct DeclaredCombatRules {
     /// hundred-percent one dies to the same jab. `0.0` is flat knockback, which
     /// is Ambition's PvE answer and the engine baseline.
     ///
-    /// **a RULESET fact, not a per-move one, and that is the point.** A move may still author its
+    /// a RULESET fact, not a per-move one, and that is the point. A move may still author its
     /// own `knockback_growth` on a hit volume and that wins outright; this is what a stage says
     /// when its moves author none.
     ///
@@ -55,16 +55,16 @@ pub struct DeclaredCombatRules {
     /// is the property a per-move table would otherwise have to restate for
     /// every move.
     pub knockback_growth: f32,
-    /// **What a DOWNWARD hit does to the attacker.**
+    /// What a DOWNWARD hit does to the attacker.
     ///
-    /// **one move, two games**. The robot's
+    /// one move, two games. The robot's
     /// down-air is one authored swing with one hitbox and one launch direction —
     /// and Ambition reads it as a POGO that bounces the attacker up off whatever
     /// it hit, while a platform fighter reads it as a SPIKE that drives the
     /// victim down and ends a stock offstage. Both readings are correct for
     /// their game, and neither belongs on the move.
     ///
-    /// **this is what stopped the protagonist carrying its own repertoire.**
+    /// this is what stopped the protagonist carrying its own repertoire.
     /// Attaching the canonical moveset to `player_robot_v3` turned
     /// `gravity_symmetry::pogo_bounces_away_from_gravity` red, and the wrong fix
     /// — authoring the robot a second, Ambition-only down-air — is the
@@ -74,12 +74,12 @@ pub struct DeclaredCombatRules {
     /// behaviour: the effect is authored on the volume, so an undeclared world
     /// keeps firing it. A stage that wants spikes says so.
     pub downward_hit: DownwardHitStyle,
-    /// **How long a body spiked out of the AIR cannot recover** (seconds).
+    /// How long a body spiked out of the AIR cannot recover (seconds).
     /// `0.0` — the baseline — is no meteor rule at all, which is what an
     /// exploration game wants: a downward hit there is a pogo or a shove, not a
     /// sentence.
     ///
-    /// **it belongs beside [`Self::downward_hit`] and nowhere else.** That
+    /// it belongs beside [`Self::downward_hit`] and nowhere else. That
     /// field already decides whether this game reads a downward hit as a rebound
     /// or a SPIKE; how long the spiked body is silent is the same question one
     /// step further, and a game that declares `Spike` is exactly the game that
@@ -89,8 +89,8 @@ pub struct DeclaredCombatRules {
     /// what the genre calls "meteor cancel" is this window ENDING. There is no
     /// second verb to press.
     pub meteor_lock_time: f32,
-    /// **RAGE — how much a body's OWN accumulated damage raises the knockback it
-    /// DEALS**, per point. `0.0` (the baseline) is no rage at all.
+    /// RAGE — how much a body's OWN accumulated damage raises the knockback it
+    /// DEALS, per point. `0.0` (the baseline) is no rage at all.
     ///
     /// the mirror of the percent mechanic and the reason a losing fighter is
     /// dangerous: a body already scales the knockback it TAKES by its own
@@ -104,8 +104,8 @@ pub struct DeclaredCombatRules {
     /// The ceiling on [`Self::rage_per_damage`], as a multiplier. `1.0` = rage
     /// can never help, whatever the per-point rate says.
     pub rage_max_scale: f32,
-    /// **STALING — how much of its strength a move loses per recent landing of
-    /// the same move.** `0.0` (the baseline) is no staling.
+    /// STALING — how much of its strength a move loses per recent landing of
+    /// the same move. `0.0` (the baseline) is no staling.
     ///
     /// it exists to stop one good answer being the ONLY answer. A fighter
     /// with a reliable kill move should have to vary, and a fighter who has
@@ -114,8 +114,8 @@ pub struct DeclaredCombatRules {
     /// The floor [`Self::stale_step`] cannot take a move below, as a multiplier.
     /// `1.0` = staling can never weaken anything.
     pub stale_floor: f32,
-    /// **CROUCH CANCEL — what a CROUCHING victim multiplies an incoming launch
-    /// by.** `1.0` (the baseline) = crouching buys nothing but a shorter
+    /// CROUCH CANCEL — what a CROUCHING victim multiplies an incoming launch
+    /// by. `1.0` (the baseline) = crouching buys nothing but a shorter
     /// hurtbox.
     ///
     /// it makes ducking a defensive READ rather than only a shape. flat,
@@ -123,9 +123,9 @@ pub struct DeclaredCombatRules {
     /// kill move is still a kill, so the option stops mattering by itself
     /// exactly where the genre stops using it.
     pub crouch_cancel_scale: f32,
-    /// **How long a grab holds a body at 0%**, in seconds. Ultimate's 90 frames.
+    /// How long a grab holds a body at 0%, in seconds. Ultimate's 90 frames.
     pub grab_hold_base_seconds: f32,
-    /// **How much longer per point of the CAPTIVE's damage.** Ultimate's 1.7
+    /// How much longer per point of the CAPTIVE's damage. Ultimate's 1.7
     /// frames per percent, so a fighter at 100% is held roughly twice as long.
     ///
     /// it makes the grab a percent mechanic like everything else here: the
@@ -139,40 +139,22 @@ pub struct DeclaredCombatRules {
     /// *"what ends a hold nobody ends"*: a captor who grabs and then does
     /// nothing must not hold a body for the rest of the match.
     pub grab_hold_max_seconds: f32,
-    /// **What one mash press buys the captive**, in seconds off the hold.
+    /// What one mash press buys the captive, in seconds off the hold.
     /// Ultimate's 14.4 frames.
     pub grab_mash_seconds: f32,
     /// Whether same-faction bodies damage each other.
     ///
     /// a match with declared TEAMS should leave this `false`.
     pub friendly_fire: bool,
-    /// **What a body that authored NO melee swings, in this experience.**
+    /// Ruleset fallback for a body that authors no melee repertoire. `None` leaves the engine's
+    /// exploration default unchanged.
     ///
-    /// **the third authority finally owning a scaffold that had been spelled
-    /// twice**. Two places answered this question independently:
-    /// Smash's `smash_fighter_kit()` granted a seated fighter one swipe, and the
-    /// PROVOCATION path handed a peaceful body a whole enemy archetype to get a
-    /// melee out of it. Putting their numbers side by side is what settled it —
-    /// `0.22/0.08/0.26`, 4 damage, 34 reach on the stage against
-    /// `0.28/0.08/0.32`, 1 damage, 28 reach in exploration. Faster, harder,
-    /// longer: a platform fighter's floor is not an exploration provoke, and the
-    /// difference is a RULESET's to state.
-    ///
-    /// ⇒ same shape as `knockback_growth` one field up, and for the same reason:
-    /// *what a stage says when the move authors nothing*. A character that
-    /// states its own repertoire never reaches this.
-    ///
-    /// `None` means *this experience does not say*, and the engine's own
-    /// exploration default stands — which is every room in Ambition, and is why
-    /// this is an `Option` rather than a value every declaration must invent.
-    ///
-    /// its goal is DELETION, per character rather than per mode: when every
-    /// body in an experience authors its own kit, that experience's declaration
-    /// goes back to `None` and the scaffold has no adopters left.
+    /// TODO(compat-remove): remove this fallback once all fighter bodies author their own melee
+    /// kits.
     pub unarmed_melee: Option<ambition_characters::brain::MeleeActionSpec>,
 }
 
-/// **The rules combat actually reads this tick.**
+/// The rules combat actually reads this tick.
 ///
 /// Derived every tick from [`DeclaredCombatRules`] folded over the world's
 /// baseline. A reader must never consult the baseline resources directly: that
@@ -207,7 +189,7 @@ pub struct ResolvedCombatTuning {
     pub friendly_fire: bool,
 }
 
-/// **How this game reads a downward attack.** See
+/// How this game reads a downward attack. See
 /// [`DeclaredCombatRules::downward_hit`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum DownwardHitStyle {
@@ -231,13 +213,13 @@ impl DeclaredCombatRules {
 }
 
 pub const FLAT_GRAB_HOLD_SECONDS: f32 = 4.0;
-/// **What one mash press buys in an undeclared world**, in seconds. Twenty
+/// What one mash press buys in an undeclared world, in seconds. Twenty
 /// presses cleared the old fractional accumulator, and twenty of these clear
 /// [`FLAT_GRAB_HOLD_SECONDS`].
 pub const FLAT_GRAB_MASH_SECONDS: f32 = FLAT_GRAB_HOLD_SECONDS / 20.0;
 
 impl ResolvedCombatTuning {
-    /// **What a move is worth after `occurrences` recent landings of it**, as a
+    /// What a move is worth after `occurrences` recent landings of it, as a
     /// multiplier, floored. `1.0` for a game that declares no staling and for a
     /// move nobody has thrown lately.
     pub fn stale_scale(self, occurrences: u32) -> f32 {
@@ -247,7 +229,7 @@ impl ResolvedCombatTuning {
         (1.0 - self.stale_step * occurrences as f32).max(self.stale_floor.clamp(0.0, 1.0))
     }
 
-    /// **What an attacker's own damage multiplies its knockback by**, capped.
+    /// What an attacker's own damage multiplies its knockback by, capped.
     /// `1.0` for a game that declares no rage, and for a fresh fighter in one
     /// that does.
     pub fn rage_scale(self, attacker_damage_taken: i32) -> f32 {
@@ -258,7 +240,7 @@ impl ResolvedCombatTuning {
             .min(self.rage_max_scale.max(1.0))
     }
 
-    /// **How long a grab holds a body at this damage**, in seconds, capped.
+    /// How long a grab holds a body at this damage, in seconds, capped.
     ///
     /// the caller asks ONCE, as the hold begins, and stores the answer: this
     /// is the captive's percent AT THE GRAB, so damage dealt during the hold
@@ -354,7 +336,7 @@ impl Default for ResolvedCombatTuning {
 mod tests {
     use super::*;
 
-    /// **A GRAB HOLDS THE HURT FIGHTER LONGER, AND STILL LETS GO.**
+    /// A GRAB HOLDS THE HURT FIGHTER LONGER, AND STILL LETS GO.
     ///
     /// three points and not one: the base alone would pass with the rate at
     /// zero, and the rate alone would pass with no ceiling — which is the shape
@@ -484,7 +466,7 @@ mod rage_tests {
         }
     }
 
-    /// **A LOSING FIGHTER HITS HARDER, UP TO A CEILING.**
+    /// A LOSING FIGHTER HITS HARDER, UP TO A CEILING.
     ///
     /// the reason rage exists at all: a body already scales the knockback it
     /// TAKES by its own damage, so without this the fighter behind is punished
@@ -504,7 +486,7 @@ mod rage_tests {
         assert_eq!(rules.rage_scale(-7), 1.0, "healed below zero paid a bonus");
     }
 
-    /// **AND A GAME THAT DECLARES NO RAGE NEVER GETS ANY.**
+    /// AND A GAME THAT DECLARES NO RAGE NEVER GETS ANY.
     ///
     /// the floor that keeps Ambition's PvE unchanged: the baseline declares
     /// `0.0`, and a rate of zero must be exactly `1.0` however hurt the attacker
@@ -534,7 +516,7 @@ mod stale_tests {
         }
     }
 
-    /// **A MOVE THROWN AGAIN AND AGAIN IS WORTH LESS, DOWN TO A FLOOR.**
+    /// A MOVE THROWN AGAIN AND AGAIN IS WORTH LESS, DOWN TO A FLOOR.
     #[test]
     fn staling_falls_with_repetition_and_stops_at_the_floor() {
         let rules = staling(0.1, 0.5);
@@ -548,7 +530,7 @@ mod stale_tests {
         );
     }
 
-    /// **AND AN UNDECLARED WORLD NEVER STALES ANYTHING.**
+    /// AND AN UNDECLARED WORLD NEVER STALES ANYTHING.
     #[test]
     fn an_undeclared_world_has_no_staling() {
         let plain = ResolvedCombatTuning::default();

@@ -63,40 +63,12 @@ pub struct BodyReset {
     pub origin: ae::Vec2,
 }
 
-/// The per-body home movement core — control phase **and** simulation phase in ONE
-/// combined kernel call, `ae::step_motion`: the literal same
-/// engine entry a brain-driven actor uses (`ActorMut::integrate_body`). Called by
-/// the unified `integrate_sim_bodies` phase for every `PlayerEntity`, so the home
-/// body and every actor integrate through one function inside one scheduled system.
+/// Integrate a player-owned body through the shared body kernel.
 ///
-/// THE TWO-CLOCK SPLIT IS AN INPUT AFFORDANCE, NOT A SIMULATION STRUCTURE.
-/// Precision-blink bullet-time keeps the player's aim responsive while the world
-/// slows. It is carried entirely by `InputState::control_dt`: the human sets
-/// `control_dt = real frame_dt` (so the engine runs the control phase at real time
-/// and the simulation phase at `sim_dt`), while a brain leaves `control_dt = 0`.
-///
-/// `ActorControl` is the single source of truth for input — the brain translates
-/// every verb the simulation consumes. The hitstun gate applies inside
-/// `engine_input_from_actor_control`.
-///
-/// On a flagged reset (drown / hazard / out-of-bounds) the body teleports to
-/// spawn (engine-level body reset, the same on every body) and `frame_out.reset`
-/// is set.
-///
-/// **but only while the participant is still IN PLAY** (ADR 0033). A body whose attempt has already
-/// ended is not teleported, not reset, and not re-flagged — the world stops acting on it and the
-/// ruleset owns what happens next.
-///
-/// **except a hazard a body that cannot be hurt walked into**, which is where
-/// this function decides. [`ae::ResetCause`]'s own contract is *"the kernel
-/// reports WHAT the world did to the body; the owner decides what it MEANS"*, and
-/// this is the owner. The reasoning is at the filter below.
-///
-/// `invulnerable` and `evading` are the two halves of
-/// [`crate::combat::util::body_vulnerable`] the clusters do not already carry.
-/// they are passed as INPUTS rather than as a resolved `bool` on purpose: the
-/// predicate is applied in ONE place — here — so a second caller cannot invent a
-/// slightly different rule for "can this body be hurt".
+/// Human control may use wall-clock `control_dt` while simulation uses `sim_dt`;
+/// this is an input affordance, not a separate movement model. Reset causes from
+/// the kernel are interpreted here by participant policy: out-of-play bodies are
+/// left alone, and hazard resets respect the body's vulnerability state.
 #[allow(clippy::too_many_arguments)]
 pub fn integrate_home_body(
     actor_control: ambition_characters::actor::control::ActorControlFrame,
@@ -105,10 +77,7 @@ pub fn integrate_home_body(
     combat: &BodyCombat,
     invulnerable: ambition_characters::actor::Invulnerability,
     evading: bool,
-    // Has this participant's attempt already ended (`OutOfPlay`, ADR 0033)? An
-    // input for the same reason `invulnerable` is one: the predicate for "may
-    // the world act on this body" is applied HERE, in one place, so a second
-    // caller cannot invent a slightly different rule.
+    // Whether participant rules have removed this body from play.
     out_of_play: bool,
     hurtbox: &mut ae::CenteredAabb,
     frame_out: &mut PlayerBodyFrameOutput,
@@ -122,22 +91,9 @@ pub fn integrate_home_body(
     // is every body in Ambition today.
     contact_field: ae::BodyContactField<'_>,
 ) -> Option<ae::Vec2> {
-    // the BODY, so both roads read the same authority.
     let input =
         engine_input_from_actor_control(actor_control, feel, combat, clusters.shield, frame_dt);
-    // They are one call now — `ambition_characters::actor::step_body` — so a rule about how a body
-    // integrates cannot reach this road and miss the actor one.
-
-    // **the ledge-platform carry is GONE from here, and that is the point.** It
-    // was the last thing in this function that only a home body could get: a
-    // `&[MovingPlatformState]` scan that matched the hang against each platform
-    // by position and carried it by `last_delta`. `integrate_actor_body` was
-    // never handed the platform set, so an enemy or NPC hanging on a moving
-    // platform — kernel state, no player marker — was left behind by it.
-    //
-    // It now runs inside `update_body_simulation_inner` for EVERY body, reading
-    // the carrying solid's own `Block::velocity` straight off the collision world
-    // this function already composites. See `ledge_grab::ledge_carry_for_frame`.
+    // Ledge/platform carry is handled inside the shared simulation kernel.
     let result = ambition_characters::actor::step_body(
         motion_model,
         clusters,
@@ -154,7 +110,7 @@ pub fn integrate_home_body(
         },
     );
 
-    // **`LeftTheWorld` and `Drowned` are NOT exempted, deliberately.**
+    // `LeftTheWorld` and `Drowned` are NOT exempted, deliberately.
     // `resolve_body_hit` already states the rule for damage — *"you cannot be
     // invulnerable to the edge of the world"* — and this seam has to agree or
     // the two disagree about the same body. Falling out is not something that
@@ -168,7 +124,7 @@ pub fn integrate_home_body(
                 clusters.shield,
                 combat,
             );
-        // **AND A BODY THAT IS ALREADY OUT OF PLAY IS NOT KILLED AGAIN** (ADR 0033). The gate above
+        // AND A BODY THAT IS ALREADY OUT OF PLAY IS NOT KILLED AGAIN (ADR 0033). The gate above
         // is a POSITION TEST and re-fires every tick a body is past the margin — the ACTOR path has
         // always known this and writes `em.health.alive() && …` for exactly this reason, and this
         // path never got the same guard. That is not correct."*
@@ -239,7 +195,7 @@ pub fn surface_skidding(motion_model: &crate::features::MotionModel, run: f32) -
 /// `InitialBodyPolicy::NoInitialBody` makes zero primary players an ordinary steady state, so in
 /// every match — and in any session that lowers no home avatar — not one moving platform advanced.
 ///
-/// **the hitstop read was a DUPLICATE AUTHORITY, not a lost feature.** The
+/// the hitstop read was a DUPLICATE AUTHORITY, not a lost feature. The
 /// primary body's hitstop already drives the global clock to zero — hitstop is
 /// the top rung of `emit_player_time_intent_system`'s ladder — so
 /// `WorldTime::sim_dt` carries the freeze that this system was re-deriving from

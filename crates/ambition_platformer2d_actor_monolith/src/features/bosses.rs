@@ -4,9 +4,8 @@
 //! starts the corresponding move, and `MovePlayback` is the sole attack timeline
 //! for geometry and content-technique specials alike.
 
-// Re-exported here because `BossBehaviorProfile` and the volumes / construction code below
-// still reference them by their old `content::features::bosses` path — those references stay
-// legal via the re-export while call sites migrate to the brain-module path at their leisure.
+// TODO(compat-remove): migrate remaining boss-pattern callers to
+// `ambition_characters::brain::boss_pattern`, then remove these re-exports.
 #[cfg(test)]
 use ambition_characters::brain::boss_pattern::BossAttackPattern;
 pub use ambition_characters::brain::boss_pattern::{BossAttackProfile, BossMovementProfile};
@@ -19,11 +18,8 @@ pub use ambition_characters::brain::boss_pattern::{BossAttackProfile, BossMoveme
 // The engine retains only the generic boss machinery (profile/spec/resolver) below.
 
 
-// `BossBehaviorProfile` / `BossRewardProfile` / `ActorSpriteMetrics` /
-// `canonical_boss_id_from` / `boss_animation_keys_for_profile` moved to
-// `ambition_boss_encounter::behavior` (Stage 20 / A2 stretch): the boss
-// PROFILE vocabulary is machinery (data-driven via boss_profiles.ron);
-// this module keeps generic moveset construction and strike tuning.
+// TODO(compat-remove): migrate remaining behavior-profile callers to
+// `ambition_boss_encounter::behavior`, then remove these re-exports.
 #[cfg(test)]
 use ambition_boss_encounter::behavior::canonical_boss_id_from;
 pub use ambition_boss_encounter::behavior::{
@@ -45,11 +41,11 @@ pub const TELEGRAPH_EDGE_S: f32 = 0.001;
 /// the SAME moveset runtime an actor's swing does (fable review §A1: the moveset is
 /// the boss's melee system too, retiring the bespoke `sync_boss_strike_hitboxes`):
 ///
-/// - A content-technique **`Special(key)`** profile → a move whose single window
+/// - A content-technique `Special(key)` profile → a move whose single window
 ///   SUSTAINS `Effect{key}` for the strike duration, so the technique fires every
 ///   frame the strike is live (the `apple_rain`-style per-frame signal) through the
 ///   `Effect{key}`→`Special{key}` bridge — no body-mounted hit volume.
-/// - A **geometry** profile (FloorSlam / SideSweep / HazardColumn / …) → a move
+/// - A geometry profile (FloorSlam / SideSweep / HazardColumn / …) → a move
 ///   whose Active window carries the profile's static hit volumes as BODY-LOCAL
 ///   [`HitVolume`]s, derived from `volumes_for_profile` at a body-local origin (the
 ///   world-space math cancels the boss position, leaving a constant local offset).

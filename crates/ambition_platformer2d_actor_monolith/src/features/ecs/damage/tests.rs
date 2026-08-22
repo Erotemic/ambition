@@ -262,7 +262,7 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
         2,
         "the OUTGOING player slider never touches enemy melee"
     );
-    // **the poison, and the one the source word could never catch.** An
+    // the poison, and the one the source word could never catch. An
     // uncontrolled body swinging the very same melee cause must not be scaled by
     // a HUMAN's difficulty slider. While the gate read `matches!(source,
     // PlayerSlash)` this was unassertable — the spelling WAS the claim — and it
@@ -653,7 +653,7 @@ fn a_peaceful_body_in_a_fight_takes_damage_instead_of_barking() {
         "and it does not bark a provocation line at somebody it is fighting"
     );
 
-    // **THE POISON, and it is the eliminated fighter.** Death ownership without participation: the
+    // THE POISON, and it is the eliminated fighter. Death ownership without participation: the
     // match still owns this body's KO and the body is out of the fight.
     let (eliminated_hp, eliminated_bubbles) = strike(false, true);
     assert_eq!(
@@ -1322,8 +1322,8 @@ fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
     );
 }
 
-/// **A heavy attacker hits heavy because of WHAT IT IS, not what its hit is
-/// called.** `boss_hit` used to be `matches!(source, BossBody | BossAttack)` — a
+/// A heavy attacker hits heavy because of WHAT IT IS, not what its hit is
+/// called. `boss_hit` used to be `matches!(source, BossBody | BossAttack)` — a
 /// source-specific formula for a fact about the striker, and one that could only
 /// ever be true for a body the cause vocabulary happened to have a word for.
 ///
@@ -1707,7 +1707,7 @@ fn a_peaceful_actor_owns_one_victim_side_hit_sound() {
     assert_eq!(plays, 1, "the peaceful victim emits exactly one hit sound");
 }
 
-/// **A body that left the world does not come back where it fell.**
+/// A body that left the world does not come back where it fell.
 ///
 /// `RespawnPolicy::InPlace` respawns a body AT ITS CURRENT POSITION. That
 /// position is the whole precondition of the policy, and leaving the world is
@@ -1754,7 +1754,7 @@ fn leaving_the_world_outranks_an_authored_in_place_respawn() {
     );
 }
 
-/// **A projectile hit does not flash its thrower.**
+/// A projectile hit does not flash its thrower.
 #[test]
 fn a_projectile_hit_flashes_its_victim_but_never_its_thrower() {
     fn thrower_flash_after(source: HitSource) -> f32 {

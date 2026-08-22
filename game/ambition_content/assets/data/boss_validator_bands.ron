@@ -1,4 +1,4 @@
-// **BD5's per-game calibration** — `docs/planning/engine/boss-design.md` §3.
+// BD5's per-game calibration — `docs/planning/engine/boss-design.md` §3.
 //
 // The bands live in ONE RON file per game "so re-calibration is data, not code."
 // A different game ships a different file; nothing in the engine names these

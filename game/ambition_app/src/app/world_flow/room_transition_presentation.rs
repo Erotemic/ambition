@@ -35,7 +35,7 @@ use ambition_platformer2d::runtime::room_transition::{
 
 const ROOM_TRANSITION_EXPERIENCE: &str = "ambition.room-transition";
 
-/// **Where the cover decides whether the destination room is presentable.**
+/// Where the cover decides whether the destination room is presentable.
 ///
 /// One member ([`drive_room_transition_presentation`]), and it exists so the
 /// ordering against the presentation floor's census is a NAMED, testable edge
@@ -236,7 +236,7 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
             (
                 contribute_room_transition_assets_system,
                 poll_room_transition_asset_readiness_system,
-                // **the census must be THIS frame's.** The presentation floor
+                // the census must be THIS frame's. The presentation floor
                 // republishes `UnclaimedFeatureViews` at the tail of the visual
                 // chain; the cover retires on it being empty. Both ends are in
                 // `Update` — checked, not assumed, because an `.after` across
@@ -284,7 +284,7 @@ fn drive_room_transition_presentation(
     // Features the sim published that no render family has drawn yet. The cover
     // waits on these: see the retirement block below.
     //
-    // **NOT the magenta placeholders.** That marker is a diagnostic with a
+    // NOT the magenta placeholders. That marker is a diagnostic with a
     // grace period, so its population is deliberately EMPTY during the first
     // frames of a room draw — precisely the frames the cover must not retire in.
     // See `UnclaimedFeatureViews`, and `RoomTransitionCoverSet` for the ordering
@@ -411,7 +411,7 @@ fn drive_room_transition_presentation(
         return;
     }
 
-    // **PRESENTABLE, not merely committed.**
+    // PRESENTABLE, not merely committed.
     //
     // It is not a general condition: render families spawn through `Commands`, and a room with
     // many actors takes several flushes to draw. `draw_unclaimed_feature_views` fills the gap
@@ -423,8 +423,8 @@ fn drive_room_transition_presentation(
     // have a loading screen if the load is going to take a hot second."* And on
     // the way out too, because leaving is another transition.
     //
-    // **it counts UNDRAWN VIEWS, not magenta boxes, and that distinction is
-    // the fix.** Counting boxes meant the cover could not tell "the
+    // it counts UNDRAWN VIEWS, not magenta boxes, and that distinction is
+    // the fix. Counting boxes meant the cover could not tell "the
     // art has not arrived yet" from "the art will never arrive", because the box
     // is a diagnosis of the second and was being read as evidence of the first.
     // give-ups — the two facts were both true because the thing it waited on was
@@ -554,7 +554,7 @@ fn handle_room_transition_presentation_events(
                 // extra confirmation after readiness.
             }
             LoadPresentationEvent::RetryRequested { .. } => {
-                // **RETRY RE-ISSUES NOTHING, and that is the whole change.**
+                // RETRY RE-ISSUES NOTHING, and that is the whole change.
                 //
                 // It re-minted a `RoomTransitionRequested` from the failed transaction — a
                 // description that could not name a body, so a retry after a possession change

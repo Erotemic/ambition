@@ -342,7 +342,7 @@ fn two_different_bosses_are_both_fightable() {
     assert_eq!(boss_alive(sim.world_mut(), "sentinel"), Some(true));
     assert!(has_encounter_for(sim.world_mut(), "mock"));
     assert!(has_encounter_for(sim.world_mut(), "sentinel"));
-    // Different archetypes ⇒ different authored HP pools (independent profiles).
+    // Different archetypes  different authored HP pools (independent profiles).
     let mock_hp = boss_max_hp(sim.world_mut(), "mock").expect("mock seeded");
     let sentinel_hp = boss_max_hp(sim.world_mut(), "sentinel").expect("sentinel seeded");
     assert_ne!(
@@ -412,7 +412,7 @@ fn boss_with_empty_phase_triggers_never_phases_up() {
         sim.step(AgentAction::default());
     }
 
-    // No triggers ⇒ no intro tell, so it wakes straight into Phase1 and stays.
+    // No triggers  no intro tell, so it wakes straight into Phase1 and stays.
     assert_eq!(
         boss_phase(sim.world_mut(), "no_phases"),
         Some(BossEncounterPhase::Phase1),
@@ -495,7 +495,7 @@ fn encounter_script_gate_force_kills_through_the_real_schedule() {
     );
 }
 
-/// **THE ACCEPTANCE TEST for the same-room replay** — and it deliberately
+/// THE ACCEPTANCE TEST for the same-room replay — and it deliberately
 /// compares BEHAVIOUR rather than components.
 ///
 /// comes back and stands inert; *leaving the room and re-entering restores its

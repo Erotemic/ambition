@@ -1,4 +1,4 @@
-//! **Provenance-driven reconstruction: the identity pair, end to end.**
+//! Provenance-driven reconstruction: the identity pair, end to end.
 //!
 //! Nothing tested that seam before this file, which is why the swap could look
 //! green against 3400 other tests while proving nothing about the mechanism it

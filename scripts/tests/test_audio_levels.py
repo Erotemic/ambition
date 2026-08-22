@@ -49,7 +49,7 @@ def test_the_shipped_bank_agrees_with_the_metadata_it_carries():
     entries = al.read_bank(bank)
     assert len(entries) > 100, 'the shipped bank is not nearly empty'
 
-    # **THE LEVEL COMPARISON ONLY MEANS ANYTHING FOR A LOSSLESS PAYLOAD.** The bank carries both
+    # THE LEVEL COMPARISON ONLY MEANS ANYTHING FOR A LOSSLESS PAYLOAD. The bank carries both
     # WAV/PCM_16 and OGG/VORBIS clips, and Vorbis is not sample-exact: re-decoding it returns a
     # *similar* waveform, not the one the packer measured.
     #

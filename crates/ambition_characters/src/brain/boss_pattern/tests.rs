@@ -1006,7 +1006,7 @@ fn bd1_pattern(phase1: BossPattern) -> BossAttackPattern {
     }
 }
 
-/// **`Select`, through the ticker.** The player is NEAR, so only the near arm is eligible, and
+/// `Select`, through the ticker. The player is NEAR, so only the near arm is eligible, and
 /// the boss plays it — whatever the roll.
 #[test]
 fn bd1_a_select_plays_the_only_eligible_arm_and_the_cursor_never_sees_the_select() {
@@ -1087,7 +1087,7 @@ fn bd1_moving_the_player_out_of_range_changes_the_arm_on_the_next_pass() {
     );
 }
 
-/// **`Stance`, through the ticker.** A zero-duration jump is consumed as control
+/// `Stance`, through the ticker. A zero-duration jump is consumed as control
 /// flow, not advanced-past by time — and the stance returns to the step AFTER the
 /// marker rather than replaying it.
 #[test]
@@ -1131,7 +1131,7 @@ fn bd1_a_stance_step_jumps_and_returns_to_the_beat_after_it() {
     assert_eq!(seen[3], "opener");
 }
 
-/// **An interrupt, through the ticker.** Hitting the boss hard enough yanks it
+/// An interrupt, through the ticker. Hitting the boss hard enough yanks it
 /// into its panic stance mid-telegraph, and the telegraph resumes where it was —
 /// so the punish window the player was already reading survives.
 #[test]
@@ -1226,7 +1226,7 @@ fn bd1_a_phase_change_unwinds_every_stance_and_resolves_afresh() {
     assert!(state.stance_stack.is_empty());
 }
 
-/// **Byte-parity.** `stances` and `interrupts` are `#[serde(default)]`, so every
+/// Byte-parity. `stances` and `interrupts` are `#[serde(default)]`, so every
 /// row that `boss_profiles.ron` already carries parses unchanged. This is BD1's
 /// stated requirement, not a nice-to-have: a vocabulary extension that forces a
 /// content migration is a different, larger slice.
@@ -1329,7 +1329,7 @@ fn contact_chase_cfg() -> BossPatternCfg {
     cfg
 }
 
-/// **A WIDE BODY'S CONTACT IS NOT ITS CENTRE'S.**
+/// A WIDE BODY'S CONTACT IS NOT ITS CENTRE'S.
 ///
 /// The contact-chase closure test compared a CENTRE-TO-CENTRE distance against
 /// a 4px epsilon. A 208px-wide boss can only satisfy that by standing with its

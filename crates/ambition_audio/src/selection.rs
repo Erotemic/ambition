@@ -169,9 +169,9 @@ impl FrontendAudioProfile {
 ///
 /// Two kinds of entry, because there are two honest claims:
 ///
-/// * a **route declaration** — "this screen sounds like this", made by whoever
+/// * a route declaration — "this screen sounds like this", made by whoever
 ///   authored the screen, and it travels with the provider into any host;
-/// * the **host default** — "screens I own sound like this", made once by the
+/// * the host default — "screens I own sound like this", made once by the
 ///   host for its own launcher/startup/loading routes.
 ///
 /// A route with no declaration of its own falls back to the host default. A host
@@ -184,7 +184,7 @@ pub struct FrontendAudioRegistry {
     /// The resolved profile of the most recent frontend route — what frontend
     /// playback is acting on.
     ///
-    /// **Not cleared when that route deactivates.** The reason is narrower than
+    /// Not cleared when that route deactivates. The reason is narrower than
     /// it first looks, and the difference is worth stating because the obvious
     /// justification is wrong.
     ///
@@ -849,7 +849,7 @@ mod tests {
         assert_eq!(selection.provider_id(), Some("ambition"));
     }
 
-    /// **§4.5, and §3.5's single point of loss.**
+    /// §4.5, and §3.5's single point of loss.
     ///
     /// `ProviderSfxHandleCache` was already keyed `(provider_id, SfxId)`, so the resolution table
     /// was source-qualified the whole time and only the emission had lost the emitter.
@@ -958,7 +958,7 @@ mod source_claim_tests {
         selection
     }
 
-    /// **The routine case that used to be a panic.**
+    /// The routine case that used to be a panic.
     ///
     /// Bank ids load asynchronously, so two callers on two ticks hold two honest views of one
     /// source.
@@ -1040,7 +1040,7 @@ mod source_claim_tests {
         );
     }
 
-    /// **The genuine conflict, which is NOT a merge.**
+    /// The genuine conflict, which is NOT a merge.
     ///
     /// Two providers under one source identity means every cue resolves to
     /// whichever won. Recorded and deterministic — first claim holds — rather

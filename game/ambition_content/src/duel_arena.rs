@@ -1,8 +1,8 @@
 //! Spectator-duel CONTENT — the PCA-vs-robot exhibition fight (R3.3: room
 //! mechanics split by kind; this one is a `RoomLoaded` consumer).
 //!
-//! The two fighters are **normal `Npc`s** — not a hostile faction — holding
-//! a mutual **grudge**: relational targeting hunts a grudge entity, and the
+//! The two fighters are normal `Npc`s — not a hostile faction — holding
+//! a mutual grudge: relational targeting hunts a grudge entity, and the
 //! per-entity `damage_lands` override lets a same-faction hit land, so the
 //! pair duels WITHOUT either being tagged Enemy/Boss. They never aim at the
 //! observing player — yet damage stays physical, so a stray still catches a
@@ -76,7 +76,7 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
                 // `duel_fighters_actually_enact_their_abilities_on_the_body` fail on *"PCA: shield
                 // must actually go up on the body (got 0 frames)"*.
                 //
-                // **two hypotheses are already RULED OUT**, so the next session
+                // two hypotheses are already RULED OUT, so the next session
                 // does not repeat them: it is not the placement brain (`Passive`
                 // and `Custom("cellular_automaton_fighter")` fail identically),
                 // and it is not the special slot contending with the pulse
@@ -104,7 +104,7 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
                 brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                     "player_robot".to_string(),
                 ),
-                // **THE CHARACTER, so the exhibition robot is the robot.** It
+                // THE CHARACTER, so the exhibition robot is the robot. It
                 // was `None`, which sent this body down the archetype road and
                 // built it from `player_robot`'s eighty-line row — the row whose
                 // body half now lives on the lineage. The brain key
@@ -146,7 +146,7 @@ fn cmd_duel(
         &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
         ambition_platformer2d_actor_monolith::actor::PrimaryPlayerOnly,
     >,
-    // **not `MessageWriter`.** Spawning two fighters is a simulation act, and
+    // not `MessageWriter`. Spawning two fighters is a simulation act, and
     // `SpawnActorRequest` is cleared on rollback by a host that will not re-run
     // this presentation-side command — so a rewind past the duel deleted the
     // request and the duellists never appeared.

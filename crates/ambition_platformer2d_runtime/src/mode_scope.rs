@@ -1,4 +1,4 @@
-//! The demo-hosting seam (decomposition D-C, vision §5): **scoped game modes**.
+//! The demo-hosting seam (decomposition D-C, vision §5): scoped game modes.
 //!
 //! Ambition hosts its own demos. A demo's rules crate exposes a
 //! `<Demo>RulesPlugin` whose systems are gated on the ACTIVE ROOM's mode tag —
@@ -59,7 +59,7 @@ pub fn in_mode(
 /// The mirror of [`in_mode`]: where `in_mode("sanic")` wakes a hosted demo's rules
 /// only inside that demo's rooms, `in_base_mode` wakes the host's OWN chrome only
 /// when the live session is Ambition's, not a hosted Sanic/Mary-O/Pocket session.
-/// The absent-resource case is `false` (no active room ⇒ no session ⇒ frontend /
+/// The absent-resource case is `false` (no active room  no session  frontend /
 /// title), so gating a host-only menu on this keeps it dormant on the title screen
 /// AND inside a hosted demo — exactly "a live session exists AND it is Ambition's
 /// mode". Pair it with the canonical session gate

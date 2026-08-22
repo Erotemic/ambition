@@ -1,11 +1,11 @@
-//! **A moving platform's picture, drawn the way every other room feature's is.**
+//! A moving platform's picture, drawn the way every other room feature's is.
 //!
-//! **this replaces a spawn inside the room-construction transaction, and that is the whole
-//! point of the slice.** `spawn_moving_platforms` ran between `transaction::open` and
+//! this replaces a spawn inside the room-construction transaction, and that is the whole
+//! point of the slice. `spawn_moving_platforms` ran between `transaction::open` and
 //! `transaction::close`, so the platform's VISUAL was installed by the commit that produced its
 //! STATE.
 //!
-//! **the seam already existed.** Every other room feature is drawn reactively:
+//! the seam already existed. Every other room feature is drawn reactively:
 //! *"every render family discovers its own population"*, and
 //! [`super::features`] draws a marked rectangle for any published id no family
 //! claims, so an unclaimed feature is LOUD. The moving platform was simply the
@@ -146,8 +146,8 @@ mod tests {
         rows
     }
 
-    /// **THE CARVE'S CLAIM: a platform gets its picture without the room
-    /// construction transaction spawning one.**
+    /// THE CARVE'S CLAIM: a platform gets its picture without the room
+    /// construction transaction spawning one.
     ///
     /// Here nothing constructs anything — the authoritative set simply exists, and the family draws
     /// it.
@@ -161,7 +161,7 @@ mod tests {
         assert_eq!(drawn[1].0, 1);
     }
 
-    /// **It follows the authoritative set rather than remembering.**
+    /// It follows the authoritative set rather than remembering.
     ///
     /// this is the property the deleted `sync_moving_platform` LOST once:
     /// it carried a room-change reset of its own, and that hidden second
@@ -189,7 +189,7 @@ mod tests {
         assert_eq!(visuals(&mut app).len(), 1, "and it must not double-spawn");
     }
 
-    /// **A shorter roster retires the visuals it no longer has.** A room change
+    /// A shorter roster retires the visuals it no longer has. A room change
     /// replaces the whole set; nothing may be left drawing the old room's
     /// platforms.
     #[test]

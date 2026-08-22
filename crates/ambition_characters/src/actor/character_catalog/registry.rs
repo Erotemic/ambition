@@ -70,8 +70,8 @@ impl CharacterCatalogFragment {
 
     /// Build a fragment from a catalog the CONTENT COMPILER already prepared.
     ///
-    /// **this exists so production registration and the compiler are not two
-    /// authorities.** `from_ron` reparses and re-validates the same bytes
+    /// this exists so production registration and the compiler are not two
+    /// authorities. `from_ron` reparses and re-validates the same bytes
     /// through the legacy path, so a pack could pass `compile()` and still be
     /// assembled by a different reader with different defaults — the exact
     /// "validated but the game loaded something else" split the compiler was
@@ -301,7 +301,7 @@ impl CharacterCatalogRegistry {
                     });
                 }
                 let mut entry = entry.clone();
-                // **the provider, stated rather than inferred later.** See
+                // the provider, stated rather than inferred later. See
                 // `CharacterCatalogEntry::provider`: this is the one moment the
                 // pairing is known for certain, so it is written down here
                 // instead of being recovered from a neighbouring key.
@@ -378,11 +378,11 @@ pub struct AssembledCharacterCatalog {
     pub catalog: CharacterCatalog,
     pub defaults: CharacterCatalogDefaults,
     pub owners: CharacterCatalogOwners,
-    /// **Controller policy, as its own authority.** See [`BrainProfileRegistry`].
+    /// Controller policy, as its own authority. See [`BrainProfileRegistry`].
     pub brain_profiles: BrainProfileRegistry,
 }
 
-/// **The reusable autonomous-controller policies a composition published**,
+/// The reusable autonomous-controller policies a composition published,
 /// keyed by canonical [`BrainProfileId`](crate::brain::BrainProfileId).
 ///
 /// The profiles arrive in the same RON document during the migration — a provider ships one
@@ -422,12 +422,12 @@ impl BrainProfileRegistry {
     /// The registry a catalog implies, for fixtures that build a catalog
     /// directly instead of going through assembly.
     ///
-    /// **not a production seam.** Assembly publishes both from one pass; this
+    /// not a production seam. Assembly publishes both from one pass; this
     /// exists so a test that hands preparation a hand-written catalog is still
     /// modelling a composition where the two agree, rather than one where the
     /// policy authority is silently absent.
     ///
-    /// **IT TAKES A PROVIDER BECAUSE ASSEMBLY DOES.** This copied the catalog's map VERBATIM, so
+    /// IT TAKES A PROVIDER BECAUSE ASSEMBLY DOES. This copied the catalog's map VERBATIM, so
     /// fixture registries were keyed by BARE name and production ones by `provider::name` — and a
     /// lookup that works on one shape silently misses on the other. A fixture that cannot reproduce
     /// the production key is not a fixture.

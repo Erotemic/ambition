@@ -1,4 +1,4 @@
-//! Volley — a player-wielded **ranged** boss attack: a fan of bolts that damage
+//! Volley — a player-wielded ranged boss attack: a fan of bolts that damage
 //! enemies, fired through the shared projectile request/materialization road.
 //!
 //! This is the ranged counterpart to `crate::abilities::ranged::shockwave` (the wielded AOE). Now
@@ -51,7 +51,7 @@ fn volley_origin_world(
     player_pos + frame.to_world(volley_origin_local_offset(aim_local, body_size))
 }
 
-/// `Attack` while holding the volley gauntlet fires a fan of **player-faction**
+/// `Attack` while holding the volley gauntlet fires a fan of player-faction
 /// bolts along the body-semantic aim direction (`ActorControl` aim / locomotion /
 /// facing). Plain Attack only — `Shield + Attack` drops the item
 /// (the id is excluded from throw-on-plain-Attack in `throw_held_item_system`).

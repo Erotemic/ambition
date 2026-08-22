@@ -35,7 +35,7 @@ pub fn visible_window_start(selected: usize, total: usize, capacity: usize) -> u
     start.min(total - capacity)
 }
 
-/// **Scroll the window only as far as it must to show `selected`** — the
+/// Scroll the window only as far as it must to show `selected` — the
 /// alternative to recentering, and the one a finger can use.
 ///
 /// Re-centering on every selection change moves a touched row between presses.
@@ -371,7 +371,7 @@ pub fn decorate_windowed_label(
 #[cfg(test)]
 mod tests {
 
-    /// **A row holds its screen position while the selection stays visible** —
+    /// A row holds its screen position while the selection stays visible —
     /// the property that makes a direct touch mean what it looked like it meant.
     #[test]
     fn the_window_does_not_move_while_the_selection_is_already_visible() {

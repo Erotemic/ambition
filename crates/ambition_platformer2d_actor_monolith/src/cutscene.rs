@@ -79,12 +79,12 @@ pub fn drain_cutscene_triggers(
 
 /// Advance the playing cutscene by one SIMULATION step.
 ///
-/// **this read `Res<Time>`, which is the wrong clock in two ways.** This system runs in the sim
+/// this read `Res<Time>`, which is the wrong clock in two ways. This system runs in the sim
 /// schedule, and `sim_schedule()` IS `Update` under the `RenderFrame` host — so a cutscene's
 /// beat timings depended on how fast the machine drew frames, and two replays of the same input
 /// stream could enter different beats.
 ///
-/// **and `WorldTime::sim_dt` is SCALED**, which the frame clock is not. A
+/// and `WorldTime::sim_dt` is SCALED, which the frame clock is not. A
 /// cutscene playing under slow motion now slows with the scene it accompanies
 /// instead of running at wall speed over a world in treacle.
 ///
@@ -145,7 +145,7 @@ pub fn tick_active_cutscene(
         return;
     }
 
-    // **THE WHOLE PICTURE, REPLACED, from the state the snapshot carries.**
+    // THE WHOLE PICTURE, REPLACED, from the state the snapshot carries.
     // A pure function of `(script, beat_index, elapsed)` — so restoring mid-beat
     // restores the picture with it, and no beat can leave another's fields
     // standing because there are no individual fields to leave.

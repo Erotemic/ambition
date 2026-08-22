@@ -1,10 +1,10 @@
 //! Tests for the publish boundary.
 //!
 //! Three groups, matching the plan's first-pass test list:
-//! - **manifest** shape validation (covered inline in `manifest.rs`);
-//! - **publisher fixture** — a tiny staging tree installs correctly and records
+//! - manifest shape validation (covered inline in `manifest.rs`);
+//! - publisher fixture — a tiny staging tree installs correctly and records
 //!   the diagnostic as not-installed;
-//! - **runtime-root hygiene** — the real shipped sprite roots contain no
+//! - runtime-root hygiene — the real shipped sprite roots contain no
 //!   leaked diagnostics.
 
 use std::fs;

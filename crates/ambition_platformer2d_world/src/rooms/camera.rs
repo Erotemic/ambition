@@ -223,8 +223,8 @@ mod kinematic_path_lookup_tests {
         )
     }
 
-    /// **THE INVARIANT: the runtime lookup table accepts exactly what
-    /// `matches_id` accepts.** Validation resolves through `matches_id`, the
+    /// THE INVARIANT: the runtime lookup table accepts exactly what
+    /// `matches_id` accepts. Validation resolves through `matches_id`, the
     /// body rides through this table, and any spelling only one of them knows
     /// is a reference reported healthy that does not move anything.
     ///

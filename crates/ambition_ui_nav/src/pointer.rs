@@ -52,7 +52,7 @@ impl MenuFocusState {
     }
 }
 
-/// **What a pointer went DOWN on, and where.**
+/// What a pointer went DOWN on, and where.
 ///
 /// Arm on press, cancel past the drag threshold, and activate on release. This
 /// permits one-tap selection without turning a drag gesture into activation.
@@ -135,8 +135,8 @@ impl<T: Clone + PartialEq> PressArm<T> {
 
     /// The pointer came up SOMEWHERE, and the surface cannot say where.
     ///
-    /// ⚠ **weaker than [`Self::release`] on purpose, and only correct for a
-    /// surface that rebuilds under the finger.** A perspective cube respawns
+    ///  weaker than [`Self::release`] on purpose, and only correct for a
+    /// surface that rebuilds under the finger. A perspective cube respawns
     /// its cells continuously, so "which control is under the pointer now" is
     /// not evidence about which one the press began on — the press already
     /// captured that. A flat list HAS that evidence and must use it, or
@@ -150,7 +150,7 @@ impl<T: Clone + PartialEq> PressArm<T> {
 
     /// The pointer LEFT this target without coming up.
     ///
-    /// ⛔ **a leave is not a release, and the two are the same Bevy signal.**
+    ///  a leave is not a release, and the two are the same Bevy signal.
     /// `Interaction::None` is raised both when a finger lifts and when a held
     /// pointer stops covering the row, and [`Self::release`] cannot tell them
     /// apart — its only guards are the drag threshold and the target, so a

@@ -41,15 +41,15 @@ pub(crate) fn publish_authored_commands(app: &mut App) {
     );
 }
 
-/// **Tell one live encounter that a fact it is waiting for has happened.**
+/// Tell one live encounter that a fact it is waiting for has happened.
 ///
-/// ⚠ **it writes [`EncounterCommand`] rather than touching a lifecycle**, which
+///  it writes [`EncounterCommand`] rather than touching a lifecycle, which
 /// is the shape the command contract asks a runner for: ask the domain through
 /// the bus the domain already owns, so the request is consumed on the same tick
 /// by the same reducer that has always consumed it, and the rollback question is
 /// answered by construction. Nothing new joins the wire.
 ///
-/// ⛔ **it does not depend on query iteration order.** A [`SimId`] names at most
+///  it does not depend on query iteration order. A [`SimId`] names at most
 /// one occurrence, so the search below has one answer or none regardless of the
 /// order the archetypes happen to be walked.
 fn signal(world: &mut World, args: &[AuthoredArg]) -> CommandOutcome {

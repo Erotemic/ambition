@@ -36,7 +36,7 @@ content_pack = [
 # I ask for"; each optional crate edge is an implicit feature named after the
 # crate (`ambition_render`, `ambition_menu`, …), listed in `all_capabilities`.
 #
-# ⚠ Two unwanted edges deliberately did NOT become optional, and the reasons
+#  Two unwanted edges deliberately did NOT become optional, and the reasons
 # are results, not oversights (slice-g-selection.json, slice_h_result):
 #   - `ambition_audio`: declaring SILENCE is an audio-catalog registration
 #     (`ModuleDraft::no_audio` → `AudioCatalogFragment`), so the composition
@@ -179,7 +179,7 @@ ambition_sfx_bank = { path = "../ambition_sfx_bank", optional = true }
 ambition_sim_view = { path = "../ambition_sim_view", features = ["input"] }
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 # The sheet DERIVATIONS (`posed_body_geometry`, `authored_body_pixel_size`, the animation
-# pickers), re-exported as `ambition_platformer2d::character_sprites`. ⚠ a game may NOT name
+# pickers), re-exported as `ambition_platformer2d::character_sprites`.  a game may NOT name
 # this crate directly — `game.demo-*-umbrella-only` and `game.app-reaches-lower-through-facade`
 # say so — which is exactly why the facade alias exists.
 ambition_character_sprites = { path = "../ambition_character_sprites" }

@@ -1,36 +1,9 @@
-//! **The engine owns turning a declared character into loaded art.**
+//! Engine-owned character loading and materialization.
 //!
-//! ## Why this module exists
-//!
-//! The step that decodes a declared character's sheet lived in `ambition_app`'s room-transition
-//! asset code — an APPLICATION crate. So:
-//!
-//! * `ambition_demo_mary_o_app` never ran it, and Mary-O rendered as a coloured
-//!   rectangle in her own standalone game while rendering correctly in the
-//!   multi-game host;
-//! * `ambition_demo_sanic_app` hand-rolled a duplicate to work around it;
-//! * only the PRIMARY PLAYER's worn sheet was covered, so any second worn body —
-//!   exactly what a versus mode is made of — fell through.
-//!
-//! The fix is not "remember to add the system": it is that no application can add it, because
-//! the engine always does.
-//!
-//! ## The shape
-//!
-//! Applications **declare** characters and **submit demand**. They never decode.
-//!
-//! ```text
-//! room staging      ─┐
-//! match roster      ─┼─→ CharacterLoadDemand ─→ [engine materializer] ─→ CharacterLoadStates
-//! direct startup    ─┤                                                    Ready | Failed(named)
-//! a worn identity   ─┘
-//! ```
-//!
-//! Demand is a projection, not a rich object: several semantically different
-//! sources (a room plan, a match roster, a startup spec, a body putting on a new
-//! identity) share exactly one thing — a set of character tokens that now need
-//! art. Transformations, summons, assists, alternate forms, and post-reveal
-//! bosses all arrive through the same door.
+//! Applications declare characters and submit `CharacterLoadDemand`; the engine
+//! resolves those demands into `CharacterLoadStates`. Demand carries only the
+//! character tokens that require art, so room staging, match rosters, startup,
+//! and worn-identity changes share the same materialization path.
 
 pub mod audit;
 pub mod definition;
@@ -42,9 +15,7 @@ pub mod seating;
 pub mod staging;
 
 #[cfg(test)]
-// The barrier-bypassing fixture seams, from the crate that owns preparation
-// now. Behind `ambition_characters`'s `test-support` feature, which this crate
-// enables as a DEV-dependency only — see its Cargo.toml note.
+// Test-only preparation seams supplied by `ambition_characters::test-support`.
 #[cfg(test)]
 pub(crate) use ambition_characters::prepared::{
     prepare_and_finalize_against_for_test, prepare_and_finalize_for_test,
@@ -80,13 +51,8 @@ pub use presentation::{
 };
 pub use seating::{match_participants, ActiveMatch, MatchInstance, MatchSeat};
 
-/// **A body-complete fixture CAST**, for engine tests that need actors and do
+/// Body-complete fixture cast for tests that need registered characters but do
 /// not care which creatures they are.
-///
-/// Those handed a test a body by BRAIN KEY, from a table that answered every key, so a spawn test
-/// could name `medium_striker` and receive a plausible body without anything registering a
-/// creature. Every spawn road resolves a CHARACTER now and refuses what it cannot find, so a test
-/// that needs an actor registers one — the same two steps production does.
 #[cfg(test)]
 pub(crate) fn fixture_cast(ids: &[&str]) -> PreparedCharacterRegistry {
     let mut registry = PreparedCharacterRegistry::default();
@@ -232,39 +198,9 @@ pub enum CharacterLoadOutcome {
     Failed(CharacterLoadFailure),
 }
 
-/// **THIS session's cast, by canonical character id.**
-///
-/// Using it as the cast produced two bugs at once —
-///
-/// * after three rooms it holds every character the process ever loaded, so a
-///   later session authorized the cues of characters who left the building; and
-/// * a room that stages `"Mary-O"` (rooms legitimately author display names)
-///   recorded `"Mary-O"`, which matches nothing in either provider map, so the
-///   character loaded fine and her provider was never authorized.
-///
-/// This resource holds ids, resolved through the declaration authorities, and it
-/// belongs to one [`SessionScopeId`].
-///
-/// ## What it is, exactly: a session CAPABILITY set, not a live roster
-///
-/// Within one session it only grows. Stage A and B, walk three rooms, stage C and
-/// D, and all four are in it — it is not "the characters standing on the field right
-/// now", and comments that read that way were imprecise.
-///
-/// That is the right shape for its one consumer, and deliberately so rather than by
-/// omission. Its consumer is
-/// [`authorize_staged_character_presentation_sources`](presentation::authorize_staged_character_presentation_sources),
-/// and `ActiveAudioSelection` has no REVOKE: `authorize_sfx_source` adds a source
-/// and only `select_gameplay` — a new session — clears the map. So a shrinking cast
-/// could not un-authorize anybody, and modelling it as a live roster would produce a
-/// resource whose contents implied a revocation the audio layer never performs. The
-/// two facts are kept the same size on purpose.
-///
-/// If a per-match live roster is ever wanted — a versus mode that reports who is on
-/// stage, or an audio layer that gains revocation — it is a different resource with
-/// a match generation, not a narrowing of this one. Adding a generation here without
-/// giving `ActiveAudioSelection` a revoke would only make the authorization drift
-/// out of sync with the thing that names it.
+/// Canonical character ids staged during this [`SessionScopeId`]. This is a cumulative
+/// session-capability set, not a live roster: presentation-source authorization only adds sources
+/// and clears them when a new session begins, so this set follows the same lifetime.
 #[derive(Default, Debug, Clone)]
 pub struct StagedCast {
     scope: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
@@ -403,7 +339,7 @@ impl CharacterLoadStates {
     }
 }
 
-/// **The canonical character id a demand token names.**
+/// The canonical character id a demand token names.
 ///
 /// Rooms, LDtk entities and roster entries all legitimately submit display names (`"Mary-O"`),
 /// while every provider map — the prepared registry, the assembled catalog's owners — is keyed
@@ -429,34 +365,14 @@ pub fn canonical_character_id<'a>(
         .unwrap_or(token)
 }
 
-/// Proof that the engine materialization service is installed.
-///
-/// §4.9's backstop: an unusual composition that somehow reaches staging without
-/// this resource is one whose characters would silently draw placeholders
-/// forever, so the audit in [`super::character_runtime::audit`] names it instead.
+/// Marker that the engine character-materialization service is installed.
 #[derive(Resource, Debug, Default, Clone, Copy)]
 pub struct CharacterMaterializationService;
 
-/// **A registered character declares itself, rather than hoping it was declared.**
+/// Ensure a registered character is declared in the sprite table before a
+/// synchronous materialization demand can classify its token as unknown.
 ///
-/// [`declare_registered_characters`] teaches the sheet table about the registry once
-/// per registry change — but it is an `Update` system, and the synchronous callers of
-/// [`materialize_character_demand`] (direct startup, room transitions) can run in the
-/// same frame BEFORE it. Nothing in the schedule expresses that order; they merely
-/// touch the same resources, so Bevy serializes them in an unspecified sequence.
-///
-/// The consequence of losing that race is not a delay, it is a WRONG TERMINAL
-/// VERDICT: `UnknownCharacter` means "no loaded content declares this, waiting will
-/// never help", and it would have been reported about a character the caller had
-/// just registered. The correctness of synchronous loading must not depend on which
-/// system happened to run first, so the decode path establishes the declaration it
-/// needs.
-///
-/// Declaring is not decoding — it teaches the table that the id exists and which
-/// display name aliases it. Idempotent, and cheap.
-/// `token` is the spelling that was demanded and `character_id` its canonical form
-/// ([`canonical_character_id`]); the table is consulted for the TOKEN, because that
-/// is the lookup whose `Unknown` answer would become the verdict.
+/// Declaration is idempotent metadata registration, not sprite decoding.
 pub fn declare_registered_character_into(
     sprites: &mut CharacterSpriteAssets,
     registry: &PreparedCharacterRegistry,
@@ -575,7 +491,7 @@ pub fn registered_portrait_target<'a>(
     registry.get(id).and_then(|p| p.portrait.as_deref())
 }
 
-/// **Declare every registered character into the sprite read model.**
+/// Declare every registered character into the sprite read model.
 ///
 /// The prepared registry is a source of declarations, and this is where it becomes one.
 ///
@@ -610,7 +526,7 @@ pub fn declare_registered_characters(
     }
 }
 
-/// **An ACTOR that resolved a character identity needs that art too.**
+/// An ACTOR that resolved a character identity needs that art too.
 ///
 /// That system watches `WornCharacter` — the identity a body PUTS ON. An `EnemySpawn` wears
 /// nothing: it resolves its character through the display-name join (`ActorClusterSeed` →
@@ -620,7 +536,7 @@ pub fn declare_registered_characters(
 ///
 /// Four of them stand in `intro_escape_shaft`, in the sequence a stranger plays first .
 ///
-/// **`Added` rather than `Changed`.** An actor's config is rebuilt every tick
+/// `Added` rather than `Changed`. An actor's config is rebuilt every tick
 /// as a read-model (`sync_actor_read_models` restores its reaction timers over a
 /// fresh value), so `Changed` here would re-request the whole room's cast every
 /// frame. The identity is decided at construction and does not drift, so asking
@@ -665,7 +581,7 @@ pub fn demand_worn_character_sheets(
     }
 }
 
-/// **A quality Apply converges the art a session is already showing.**
+/// A quality Apply converges the art a session is already showing.
 ///
 /// The transition is three moves and no new machinery:
 ///
@@ -681,7 +597,7 @@ pub fn demand_worn_character_sheets(
 /// the same body entity, the same gameplay authority. Only the physical
 /// realization is replaced.
 ///
-/// **`UserSettings`, the same source the materializer reads.** Comparing
+/// `UserSettings`, the same source the materializer reads. Comparing
 /// against one authority and stamping from another is how a transition becomes a
 /// loop: every frame retires a realization that is immediately remade with the
 /// tier it just failed.
@@ -713,7 +629,7 @@ pub fn converge_character_residency_to_active_quality(
     demand.request_all(stale);
 }
 
-/// **A new session gets a new cast.**
+/// A new session gets a new cast.
 ///
 /// `ActiveAudioSelection` resets on session select; the cast has to reset with it or the reset
 /// means nothing.
@@ -817,8 +733,8 @@ pub fn materialize_demanded_character_sheets(
 
 /// Installs the engine's character load pipeline.
 ///
-/// Added unconditionally by the host simulation plugin so **no application can compose the
-/// engine without it**.
+/// Added unconditionally by the host simulation plugin so no application can compose the
+/// engine without it.
 pub struct CharacterRuntimePlugin;
 
 impl Plugin for CharacterRuntimePlugin {
@@ -836,7 +752,7 @@ impl Plugin for CharacterRuntimePlugin {
             .init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>()
             .init_resource::<CharacterMaterializationService>()
             .add_systems(
-                // **The SIM schedule, not `Update`.** (§4.11)
+                // The SIM schedule, not `Update`. (§4.11)
                 //
                 // These two read and write simulation state — a pose clock and the volumes
                 // damage resolves against — so under rollback they must recompute on every
@@ -892,7 +808,7 @@ impl Plugin for CharacterRuntimePlugin {
                 // Before the character projection in the same phase, so a fighter seated this tick
                 // wears its moveset and silhouette on the tick it appears rather than the one after
                 // — the difference between a fighter that can be hit on frame one and one that is
-                // briefly a bare rectangle. **PREPARE, then ACTIVATE, chained on one tick.** Two
+                // briefly a bare rectangle. PREPARE, then ACTIVATE, chained on one tick. Two
                 // systems rather than one because they answer different questions and only one of
                 // them may fail: preparation resolves every permanent question against the
                 // character authorities, and activation builds the cast from the answer without
@@ -920,7 +836,7 @@ impl Plugin for CharacterRuntimePlugin {
                     // right to. "Not part of this composition" and "optional
                     // here" are different claims, and only the first is true.
                     //
-                    // **it gates on what preparation actually REQUIRES** — the
+                    // it gates on what preparation actually REQUIRES — the
                     // catalog its `Res<CharacterCatalog>` would panic without.
                     // Until AC6 it gated on the enemy archetype roster instead: a
                     // table about hostile bodies, standing in for "content was

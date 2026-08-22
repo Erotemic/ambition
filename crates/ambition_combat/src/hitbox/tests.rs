@@ -263,7 +263,7 @@ fn a_dead_victim_is_intangible_to_a_swing() {
     );
 }
 
-/// The unification keystone: a **Player-faction** hitbox (a wielded boss
+/// The unification keystone: a Player-faction hitbox (a wielded boss
 /// AOE) emits exactly one attacker-side Volume `HitEvent` that
 /// `apply_feature_hit_events` then resolves against enemies/bosses — the
 /// same primitive a Boss-faction hitbox uses to hit the player.
@@ -1128,7 +1128,7 @@ mod ruleset_knockback_growth {
         }
     }
 
-    /// **PARITY FIRST.** An undeclared world is every Ambition room, and
+    /// PARITY FIRST. An undeclared world is every Ambition room, and
     /// nothing there may start launching further because this seam exists.
     #[test]
     fn a_world_that_declares_no_growth_is_still_flat() {
@@ -1151,7 +1151,7 @@ mod ruleset_knockback_growth {
         assert_eq!(launch(0.0, 0.01, 200), 360.0);
     }
 
-    /// **an authored move still wins.** The ruleset speaks for the swings that
+    /// an authored move still wins. The ruleset speaks for the swings that
     /// author nothing; a move with its own growth is a deliberate statement and
     /// must not be scaled twice.
     #[test]

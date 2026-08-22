@@ -1,15 +1,15 @@
-//! **Move authoring** — the build-time half of the Smash model: the functions that
+//! Move authoring — the build-time half of the Smash model: the functions that
 //! turn authored specs (`MeleeActionSpec`/`RangedActionSpec`), tunable params
 //! (`Simple{Melee,Ranged,Charge}Params`), and the `MovePrefabRegistry` into
 //! `MoveSpec`s, plus `build_actor_moveset` which assembles an
 //! actor's full `MovesetContract` from its catalog + worn equipment.
-// ⭐ **EXPLICIT, and the point is the MEASUREMENT**.
+//  EXPLICIT, and the point is the MEASUREMENT.
 // This was `use super::*`, which is how a module's real coupling stays unknown:
 // the bulk move this row needs cannot be planned against a glob. Made explicit,
 // what `prefabs.rs` actually needs is three groups, and only one of them is a
 // problem.
 //
-// ⚠ **the six SFX/VFX constants are the whole remaining coupling to this crate**
+//  the six SFX/VFX constants are the whole remaining coupling to this crate
 // — plain `&str` presentation ids, the same class as `POGO_BOUNCE_KEY` before it
 // was lowered, so they travel with the builders whenever the builders move.
 // Everything else is `ambition_entity_catalog` and `ambition_characters`, both
@@ -30,13 +30,13 @@ pub const SLASH_POKE_VFX: &str = "slash_poke";
 /// (`ambition_sfx::ids::PLAYER_SLASH` = `"player.slash"`) so the audio runtime
 /// resolves it to the guaranteed procedural sound.
 pub const SWING_SFX_CUE: &str = "player.slash";
-// The test is **does character PREPARATION call it**, not *was it next to something preparation
+// The test is does character PREPARATION call it, not *was it next to something preparation
 // calls*: `prepare_character` never reaches the overlay, whose only production caller is
 // `avatar/starting_character.rs`, the protagonist road. One character's private sound policy is not
-// the character DOMAIN. ⇒ they are back in `ambition_combat::moveset`, beside the compile-time hash
+// the character DOMAIN.  they are back in `ambition_combat::moveset`, beside the compile-time hash
 // pins that correctly never left it.
 
-/// ⚠ **THE COMPILE-TIME PINS STAYED IN `ambition_combat`, deliberately.** Three
+///  THE COMPILE-TIME PINS STAYED IN `ambition_combat`, deliberately. Three
 /// of these cues are asserted equal to `ambition_sfx::ids` entries at compile
 /// time, because a cue authored here that no longer hashes to its id would
 /// silently stop resolving to a material variant and play the selector itself.
@@ -343,7 +343,7 @@ pub fn simple_ranged(p: &SimpleRangedParams) -> MoveSpec {
                 sustain_effect: None,
                 motion_scale: 1.0,
             },
-            // **THE POKE MUST BE CANCELLABLE INTO THE MELEE FINISH.**
+            // THE POKE MUST BE CANCELLABLE INTO THE MELEE FINISH.
             //
             // The fighter brain's own comment states the intent: *"Fire WHILE
             // closing, not instead of closing: a ranged poke advances toward the
@@ -802,13 +802,13 @@ pub fn build_actor_moveset(
 /// This is the A3 equip contract, and the split it encodes is the point: an
 /// equipment row is either
 ///
-/// - **read-time only** (no [`crate::equipment::EquipmentGrant`]s — a grow-cap, an armor plate, a
+/// - read-time only (no [`crate::equipment::EquipmentGrant`]s — a grow-cap, an armor plate, a
 ///   damage-scaling flower): it lands in [`crate::equipment::WornEquipment`] and nothing else moves.
 ///   Its effect is folded at the moment it matters, by
 ///   [`resolved_ranged`](crate::equipment::resolved_ranged) and
 ///   friends. Rebuilding a moveset for it would be pure churn, so this returns
 ///   `None` and the caller keeps the contract it already has; or
-/// - **grant-bearing** (a spark blossom that confers a ranged verb): the whole
+/// - grant-bearing (a spark blossom that confers a ranged verb): the whole
 ///   worn set's grants are re-applied to `actions` and the moveset is rebuilt
 ///   from the result over `signature`, so the body gains the granted verb while
 ///   keeping every verb its own authored signature declared.

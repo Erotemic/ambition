@@ -4,7 +4,7 @@
 //! snapshot implementation with either the trait or the type, so moving a type
 //! forces its codec to move with it.
 //!
-//! ⚠ A field added to an encoded type is a WIRE FORMAT change. Encode and
+//!  A field added to an encoded type is a WIRE FORMAT change. Encode and
 //! decode must stay in the same order, and `snapshot_unit_enum!` codes are
 //! authored per variant so inserting one never renumbers the rest.
 
@@ -13,7 +13,7 @@ use ambition_platformer2d_core::snapshot::{
     Reader, SnapshotState,
 };
 
-/// **The active room's live moving platforms.** Each platform's `pos` and motion
+/// The active room's live moving platforms. Each platform's `pos` and motion
 /// cursor are advanced every tick by `advance_moving_platforms`, and the state
 /// lives only in this resource (the visual entities carry an index into it), so
 /// a within-room rollback must restore it or the platforms resume from the tick

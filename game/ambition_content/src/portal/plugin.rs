@@ -96,7 +96,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .in_set(PortalSet::Transit)
                 .before(ambition_portal2d::PortalLinkResolution),
         );
-        // **The attribution latch is rollback state.**
+        // The attribution latch is rollback state.
         //
         // `attach_portal_hosts` is one-shot: a portal that failed to attach stays a
         // static aperture rather than re-scanning every frame. Losing that latch on a

@@ -1,12 +1,12 @@
-//! Explicit portal **linking by id**, plus the min-aperture equalizer.
+//! Explicit portal linking by id, plus the min-aperture equalizer.
 //!
 //! Authoring portals by complementary color (purple↔yellow) is implicit. The
-//! preferred model is an explicit shared **link id**: two portals carrying the
+//! preferred model is an explicit shared link id: two portals carrying the
 //! same [`PortalLink`] are partners. [`resolve_portal_links`] turns that into
 //! the channel-based pairing the rest of the mechanic already uses — it assigns
 //! each valid link group a pair of [`Indexed`](crate::PortalChannelColor::Indexed)
 //! channels (partner = `^1`), distinguishing the two ends by position. A group
-//! that is NOT exactly two members is **closed**: every member gets a slot-0
+//! that is NOT exactly two members is closed: every member gets a slot-0
 //! channel whose partner is absent, so it never carves and never transits — the
 //! mis-linkage just reads as a dead portal.
 //!
@@ -54,7 +54,7 @@ const MAX_LINK_GROUPS: usize = 62;
 /// assigned, so a dead portal never carves and never transits.
 const DEAD_LINK_CHANNEL: u8 = 255;
 
-/// **The set [`resolve_portal_links`] runs in.**
+/// The set [`resolve_portal_links`] runs in.
 ///
 /// Link resolution is the FIRST thing in `PortalSet::Transit`: it turns authored
 /// link ids into channel pairs, and everything downstream in that set —
@@ -102,8 +102,8 @@ pub fn resolve_portal_links(mut portals: Query<(&PortalLink, &mut PlacedPortal)>
             PortalChannel::Authored(PortalChannelColor::Indexed(DEAD_LINK_CHANNEL))
         } else {
             let base = (LINK_GROUP_BASE + gi as u8).wrapping_mul(2);
-            // Exactly two members ⇒ slot by position; otherwise everyone slot
-            // 0, which has no partner (slot 1 absent) ⇒ closed.
+            // Exactly two members  slot by position; otherwise everyone slot
+            // 0, which has no partner (slot 1 absent)  closed.
             let slot = if members.len() == 2 {
                 members.iter().position(|m| *m == p.pos).unwrap_or(0) as u8
             } else {

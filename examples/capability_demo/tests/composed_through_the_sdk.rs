@@ -1,4 +1,4 @@
-//! **The capability, mounted by a real composition through the public SDK.**
+//! The capability, mounted by a real composition through the public SDK.
 //!
 //! The unit tests prove each contribution in isolation: a schema the compiler
 //! accepts, an action the registry holds, rollback state a host can install,
@@ -6,7 +6,7 @@
 //! actually does — write ONE module that mounts the capability and declares
 //! what it brings, and have the composition install all of it.
 //!
-//! **`ambition_platformer2d` is a DEV-dependency.** A mechanic must not depend on the
+//! `ambition_platformer2d` is a DEV-dependency. A mechanic must not depend on the
 //! facade that mounts it; the capability's real closure is still EIGHT
 //! foundation crates. This file is the consumer, not the capability.
 
@@ -115,8 +115,8 @@ impl GameModule for GameWithPulse {
     }
 }
 
-/// **All FOUR contributions arrive from one declaration, and the composition
-/// SUCCEEDS.**
+/// All FOUR contributions arrive from one declaration, and the composition
+/// SUCCEEDS.
 ///
 /// It could not do better, because there was no supported way for a module to
 /// PROVIDE the registration it declared as required. `provides_rollback` is that
@@ -174,7 +174,7 @@ fn one_module_mounts_the_capability_and_the_composition_installs_everything() {
     );
 }
 
-/// **And the refusal still works** — the useful half of the old test, kept as
+/// And the refusal still works — the useful half of the old test, kept as
 /// its own negative case rather than doing duty as the positive one.
 ///
 /// A module that declares what must rewind and does NOT provide it is refused
@@ -228,7 +228,7 @@ fn declaring_required_rollback_without_providing_it_is_refused() {
     );
 }
 
-/// **The content half, through the facade a game actually uses.**
+/// The content half, through the facade a game actually uses.
 ///
 /// The capability offers a schema; the game adds it to the engine's registry and
 /// validates its own authored file. No `ambition_content_pack` import here —

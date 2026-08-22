@@ -1,5 +1,5 @@
 #![cfg(feature = "rl_sim")]
-//! **nothing here is injected.** The hits are the duel's own, at the strength
+//! nothing here is injected. The hits are the duel's own, at the strength
 //! the authored movesets produce; the only edit is the removal, and the test
 //! asserts the removal took before it believes anything else.
 
@@ -41,7 +41,7 @@ fn watch_a_duel_with_no_home_avatar() -> (Bout, f32) {
         sim.step(AgentAction::default());
     }
 
-    // **make it a fight nobody is watching from a home body.** Removing the
+    // make it a fight nobody is watching from a home body. Removing the
     // marker is the whole edit: the bodies, the brains, the grudge and the
     // movesets are the room's own.
     let world = sim.world_mut();
@@ -89,7 +89,7 @@ fn watch_a_duel_with_no_home_avatar() -> (Bout, f32) {
     (bout, reference)
 }
 
-/// **Two fighters nobody is playing shake the screen when they connect.**
+/// Two fighters nobody is playing shake the screen when they connect.
 #[test]
 fn a_fight_between_two_bodies_nobody_is_playing_shakes_the_camera() {
     let (bout, reference) = watch_a_duel_with_no_home_avatar();

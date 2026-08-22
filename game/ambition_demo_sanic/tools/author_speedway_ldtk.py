@@ -97,7 +97,7 @@ def rect(etype: str, px: tuple[int, int], size: tuple[int, int], **fields) -> di
 RING_SIZE = (30, 30)
 # : The sheet each ring wears, authored on the placement.
 # :
-# : **`PickupSpawn` does not carry a `sprite` field in the shared defs**, so
+# : `PickupSpawn` does not carry a `sprite` field in the shared defs, so
 # : `main()` mints one with `def update-entity` before the area is built. That
 # : field reached the committed world file out-of-band once (an `entity`/`def`
 # : edit run by hand), which left THIS script unable to reproduce it: a
@@ -207,12 +207,12 @@ def area_spec() -> dict:
         rect("ReboundPad", (1640, 650), (72, 22), impulseX=1120, impulseY=-260),
         rect("ReboundPad", (4680, 648), (48, 24), impulseX=0, impulseY=-1000),
         rect("ReboundPad", (5152, 648), (48, 24), impulseX=700, impulseY=-700),
-        # **`HazardBlock` has exactly one outcome: return the body to spawn.** It lowers to IntGrid
+        # `HazardBlock` has exactly one outcome: return the body to spawn. It lowers to IntGrid
         # value 5 → `BlockKind::Hazard` → `ResetCause::Hazard`, and no health, currency, or i-frame
         # is ever consulted. The ring shield was never broken; it was waiting for a damage event
         # that the reset road does not emit.
         #
-        # ⇒ the strip is a `DamageVolume`: the engine's damage hazard, which
+        #  the strip is a `DamageVolume`: the engine's damage hazard, which
         # publishes an ordinary `HitEvent` and therefore reaches everything a hit
         # already means here — the wallet shield spends the rings, they burst
         # outward as real pickups, i-frames arm, and a super Sanic is untouched

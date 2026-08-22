@@ -38,7 +38,7 @@ pub struct OverflowState {
 }
 
 /// Pure: the world-x columns of the flood — evenly spaced across the playable
-/// width at `spacing`, **skipping** any column within `gap_half` of `gap_x` (the
+/// width at `spacing`, skipping any column within `gap_half` of `gap_x` (the
 /// one un-overflowed lane the player must hold). Deterministic — the testable
 /// core of the Technique.
 fn overflow_columns(world_width: f32, spacing: f32, gap_x: f32, gap_half: f32) -> Vec<f32> {

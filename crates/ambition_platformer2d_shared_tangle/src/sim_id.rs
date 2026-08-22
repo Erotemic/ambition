@@ -1,4 +1,4 @@
-//! **`SimId` — the one identity vocabulary for snapshot, replay, and netcode.**
+//! `SimId` — the one identity vocabulary for snapshot, replay, and netcode.
 //!
 //! > *"One identity vocabulary, shared with SimView. Every snapshot-registered
 //! > entity carries a `SimId` — the EXISTING stable ids, not a new system: actors
@@ -44,12 +44,12 @@ use bevy::prelude::Component;
 /// condition, and the pairing is structural rather than remembered at each mint
 /// site.
 ///
-/// **it was remembered at two of the six sites that mint an id.** `ensure_sim_id` and Sanic's
+/// it was remembered at two of the six sites that mint an id. `ensure_sim_id` and Sanic's
 /// scattered rings inserted the pair; the construction executor — which is how every authored
 /// actor, including every boss, reaches the world — inserted the `SimId` alone. Because
 /// `ensure_sim_id` is filtered `Without<SimId>` it then skipped those bodies entirely, so they were
-/// never backfilled. `apply_summon_effects` requires both, so **the gradient sentinel's Minima Trap
-/// warned and summoned nothing** — a shipped boss with a dead special.
+/// never backfilled. `apply_summon_effects` requires both, so the gradient sentinel's Minima Trap
+/// warned and summoned nothing — a shipped boss with a dead special.
 ///
 /// `#[require]` rather than an insert in the executor: the executor is one site
 /// of six, and repairing it alone leaves the same hole at the rest — the
@@ -57,7 +57,7 @@ use bevy::prelude::Component;
 /// A required component makes the invariant a property of the TYPE, so a future
 /// mint site cannot omit it.
 ///
-/// **it never overwrites.** A required component is supplied only when absent,
+/// it never overwrites. A required component is supplied only when absent,
 /// so a snapshot restore that puts back `SimIdCounter(7)` keeps 7, and nothing
 /// double-mints on rollback. `Default` is `0`, which is what a freshly built body
 /// has anyway.
@@ -169,7 +169,7 @@ impl SimId {
 
     /// The raw string: sorted, compared, and printed.
     ///
-    /// **Not parsed.** The spelling is a legibility convenience — it exists so a desync report
+    /// Not parsed. The spelling is a legibility convenience — it exists so a desync report
     /// reads as a sentence — and nothing may recover a fact from it. Provenance in particular is
     /// [`SpawnOrigin`](crate::construction::SpawnOrigin), a component the entity carries, precisely
     /// so that changing this format cannot silently change what reconstruction believes.
@@ -187,7 +187,7 @@ impl std::fmt::Display for SimId {
 /// A spawner's per-spawner sequence counter. Lives on the spawner ENTITY, so it is
 /// snapshot state like everything else, and so two spawners never share a stream.
 ///
-/// **Required by [`SimId`]** — every identified entity is a potential spawner, and
+/// Required by [`SimId`] — every identified entity is a potential spawner, and
 /// an id whose descendants have nowhere to draw a sequence from is only half an
 /// identity. No mint site inserts this by hand; see `SimId`'s docs for the shipped
 /// boss whose summon died of exactly that omission.
@@ -221,7 +221,7 @@ mod tests {
         assert_ne!(SimId::encounter("boss_1"), SimId::placement("boss_1"));
     }
 
-    /// **The encoding is INJECTIVE: distinct constructions, distinct strings.**
+    /// The encoding is INJECTIVE: distinct constructions, distinct strings.
     ///
     /// So this enumerates a cross-product of adversarial segments — every one
     /// containing a separator this format uses — and asserts the whole set maps to
@@ -305,7 +305,7 @@ mod tests {
         assert_eq!(shot.as_str(), "placement:b/0/7");
     }
 
-    /// **Per-spawner, never global.** A global counter couples unrelated spawners:
+    /// Per-spawner, never global. A global counter couples unrelated spawners:
     /// a projectile fired on tick 5 would take a different id depending on whether
     /// some boss summoned an add on tick 4. Two counters, two streams.
     #[test]

@@ -12,10 +12,10 @@
 //!
 //! Source-of-truth for the flash timer:
 //!
-//! - **Actor (NPC / enemy)**: `ActorStatus::hit_flash` on the unified
+//! - Actor (NPC / enemy): `ActorStatus::hit_flash` on the unified
 //!   `hit_flash: f32` (seconds remaining).
-//! - **Boss**: the boss encounter hit-flash field exposed through the read-model seam.
-//! - **Player**: [`ambition_characters::actor::BodyCombat::hit_flash`].
+//! - Boss: the boss encounter hit-flash field exposed through the read-model seam.
+//! - Player: [`ambition_characters::actor::BodyCombat::hit_flash`].
 
 use bevy::{
     image::TextureAtlasLayout,
@@ -378,7 +378,7 @@ fn hit_flash_secs_for_source(
 
 /// The overlay's shader intensity for one source this frame.
 ///
-/// **A hidden body flashes nothing.** The overlay is a separate ROOT entity that
+/// A hidden body flashes nothing. The overlay is a separate ROOT entity that
 /// stays `Visibility::Visible` permanently — a deliberate workaround for the
 /// `InheritedVisibility`-propagation gotcha documented at its spawn site — and it
 /// is textured with the SOURCE sprite's own image. So it does not inherit a hidden
@@ -413,8 +413,8 @@ fn normalize_hit_flash(seconds: f32) -> f32 {
     }
 }
 
-/// **NO `Assets<Image>`, and the plain-image branch shows why it was never
-/// needed.** This fetched the image for one value — `texture_descriptor.size`,
+/// NO `Assets<Image>`, and the plain-image branch shows why it was never
+/// needed. This fetched the image for one value — `texture_descriptor.size`,
 /// to normalise the frame rect — which `TextureAtlasLayout::size` already
 /// carries; and in the whole-image branch it computed that size and then
 /// returned the constant `(0, 0, 1, 1)` without using it. There, the lookup was
@@ -427,7 +427,7 @@ fn normalize_hit_flash(seconds: f32) -> f32 {
 /// of a loaded sheet is one more thing standing between the game and dropping
 /// `MAIN_WORLD`, and this one wanted two integers.
 ///
-/// **there are THREE implementations of this computation** — here,
+/// there are THREE implementations of this computation — here,
 /// `ambition_content::presentation::deep_dream`, and
 /// `ambition_portal2d_presentation::clip_material::sprite_frame_basis` (whose
 /// doc says it "mirrors the hit-flash overlay's UV resolution", which is a
@@ -518,7 +518,7 @@ mod tests {
         assert_eq!(normalize_hit_flash(between), 1.0);
     }
 
-    /// **A hidden body flashes nothing.** The overlay is a separate root entity,
+    /// A hidden body flashes nothing. The overlay is a separate root entity,
     /// permanently `Visible`, textured with the SOURCE's own sprite image. Nothing
     /// made it follow the source's visibility, so taking a hit while balled up
     /// (body `Hidden`, morph-ball sprite drawn) painted the robot's silhouette

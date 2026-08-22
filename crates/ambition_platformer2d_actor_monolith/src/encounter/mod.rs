@@ -53,14 +53,14 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
             (
                 // Platform pictures are reconciled by a render family from `MovingPlatformSet`
                 // now, in `Update`, not by a sim-schedule system in the actor monolith — see
-                // `world::platforms`. **IT RUNS ONLY WHERE THERE ARE ENCOUNTERS** (, ). A
+                // `world::platforms`. IT RUNS ONLY WHERE THERE ARE ENCOUNTERS (, ). A
                 // composition with no encounter content therefore PANICKED on boot: every test
                 // in `ambition_platformer2d_host`'s `demo_shell_smoke` was red, and had been,
                 // because the run's gate is `-p ambition_app` and never built that crate's
                 // tests.
                 //
-                // **the alternative was `Option<Res<..>>` on six params, and it
-                // is worse**: an absent resource would then read as "skip this
+                // the alternative was `Option<Res<..>>` on six params, and it
+                // is worse: an absent resource would then read as "skip this
                 // encounter" INSIDE a game that has encounters, which is the
                 // silent-disable this repo has a standing rule against. A run
                 // condition says the honest thing — *no encounters, no encounter
@@ -100,7 +100,7 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
                 .before(crate::features::update_ecs_hazards)
                 .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );
-        // **ITS SIBLING: the walls an AUTHORED CONDITION opens** rather than an
+        // ITS SIBLING: the walls an AUTHORED CONDITION opens rather than an
         // encounter phase. Same slot, same reasons, and registered beside it so
         // the two roads into `gate_solids` are visible in one place — this one
         // arrived from `ambition_content`, where being invisible next to its

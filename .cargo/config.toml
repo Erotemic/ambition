@@ -24,7 +24,7 @@
 #     scripts/setup_target_bindmount.sh            # opt in (idempotent)
 #     scripts/setup_target_bindmount.sh --status   # is this worktree bound?
 
-# **INCREMENTAL ON for the edit loop. The suite still turns it OFF for itself.**
+# INCREMENTAL ON for the edit loop. The suite still turns it OFF for itself.
 #
 #     incremental off   104.9s
 #     incremental on     21.3s      4.9x
@@ -34,7 +34,7 @@
 # build it). Incremental is the only lever that touches codegen without giving
 # up `opt-level`.
 #
-# **IF LINKS START FAILING, DELETE THE CACHE FIRST — that is the whole cure.**
+# IF LINKS START FAILING, DELETE THE CACHE FIRST — that is the whole cure.
 #
 #     rm -rf target/debug/incremental        # `target/` is this worktree's, bound or not
 #
@@ -48,7 +48,7 @@
 # compiles a feature set nothing else shares, or is already fresh. The dev loop is the opposite
 # case, which is why the two differ.
 #
-# **switching between the two costs a full rebuild** (~100s, measured): the
+# switching between the two costs a full rebuild (~100s, measured): the
 # incremental flag is part of every unit's fingerprint, so `cargo check` here and
 # a `./run_tests.sh` run do not share artifacts. That is the price of the 4.9x,
 # it is paid on entering and leaving the suite rather than per edit, and it is

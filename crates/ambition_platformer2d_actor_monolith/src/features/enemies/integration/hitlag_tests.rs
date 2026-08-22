@@ -90,9 +90,9 @@ fn walk_distance_with_hitstop(hitstop: f32, ticks: u32) -> f32 {
     em.kin.pos.x - start_x
 }
 
-/// **A struck actor stops, and an unstruck one does not.**
+/// A struck actor stops, and an unstruck one does not.
 ///
-/// **both terms are asserted, and that is deliberate.** A gate that froze
+/// both terms are asserted, and that is deliberate. A gate that froze
 /// every body — or a fixture whose actor could not walk in the first place —
 /// would satisfy "the frozen one did not move" on its own. The moving arm is
 /// what makes the frozen arm mean something.
@@ -116,7 +116,7 @@ fn a_hit_between_two_actors_freezes_them_both() {
     );
 }
 
-/// **The freeze ENDS.** A body that never resumes is a different bug wearing the
+/// The freeze ENDS. A body that never resumes is a different bug wearing the
 /// same symptom, and `frozen.abs() < 0.001` above cannot tell them apart.
 #[test]
 fn hitlag_stops_the_body_without_stranding_it() {

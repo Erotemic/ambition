@@ -493,7 +493,7 @@ def build_spec(
     # No capacity cap: `main_floors` was sized to hold every entry, so the hall
     # grows to fit the roster rather than dropping trailing characters.
     for slot_index, cid in enumerate(main_ids):
-        # **shifted past the door's reserved column**, so the first character
+        # shifted past the door's reserved column, so the first character
         # in the catalog stands beside the doorway rather than in it.
         x, y, w, h = main_slot_world_xy(slot_index + DOOR_RESERVED_SLOTS)
         center_x = x + w // 2

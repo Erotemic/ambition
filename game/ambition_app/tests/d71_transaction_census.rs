@@ -1,40 +1,10 @@
-//! **PROBE: does a room change on the PLAYER's route open a transition transaction?**
+//! Census the two room-transition routes over an authored door crossing.
 //!
-//! Counts, over one authored `Door` crossing driven by a held interact press:
-//! * how many times the ACTIVE ROOM changed,
-//! * how many times a `RoomTransitionLoadState` transaction was open, and
-//! * how many times a deferred `PendingLifecycleCommit` intent was recorded.
-//!
-//! **1:1 both times, and never the same one.** Every room change is accounted
-//! for by exactly one route, and which route it is turns entirely on whether a
-//! rollback host is composed. The shipped desktop binary composes one.
-//!
-//! **The bypass has a name.**
-//! [`detect_room_transition_system`](ambition_platformer2d::actors::rooms::detect_room_transition_system)
-//! forks on `Option<Res<ConfirmedFrameBoundary>>`: with a rollback host present
-//! it records a `PendingLifecycleCommit` and **returns before writing
-//! `RoomTransitionRequested`**. So `begin_room_transition_load_system` never
-//! runs, no `ambition_load` barrier opens, `GameMode::RoomTransition` is never
-//! requested, and no cover is ever presented. The room is instead rebuilt by
-//! the rollback backend's `lifecycle_commit::commit_confirmed_lifecycle` in `PreUpdate`,
-//! outside `GgrsSchedule` — a second, transaction-free room-change route.
-//!
-//! Two independent signals agree, neither of them the sampled resource above:
-//! * the unconditional `[world-event] room-transition begin seq=N` line prints
-//!   11 times under the fixed-tick host and **0 times** under the rollback host,
-//!   while `room-loaded` prints on both;
-//! * temporary markers at all five room-construction call sites showed the
-//!   rollback host's 24 loads came from **none** of the four transactional
-//!   sites — they came through `RoomConstructionPlan::apply_to_world`, which
-//!   only `commit_confirmed_lifecycle` calls.
-//!
-//! the `transactions=0` figure alone would have been weak evidence: this probe
-//! samples `RoomTransitionLoadState` once per `sim.step()`, so a transaction that
-//! opened and closed inside one advance would read as zero. The two signals above
-//! are what make it a bypass rather than a sampling artifact.
-//!
-//! The deferral is deliberate (`session::lifecycle_commit` module docs: the load machine is not
-//! rollback-registered, so it must not run on a speculative frame).
+//! Without rollback, a room change opens `RoomTransitionLoadState`. With a
+//! confirmed-frame boundary, detection records `PendingLifecycleCommit` instead
+//! and the rollback backend commits the room change outside speculative
+//! simulation. The test counts room changes, transactions, and deferred intents
+//! to ensure exactly one route owns each transition.
 
 #![cfg(feature = "rl_sim")]
 
@@ -68,12 +38,8 @@ fn boundary_present(sim: &Platformer2dSimHarness) -> bool {
         .is_some()
 }
 
-/// The OTHER route's signal, and the reason this census is evidence rather than
-/// a sampling artifact: the deferred intent `detect_room_transition_system`
-/// records instead of writing `RoomTransitionRequested` when a rollback host is
-/// present. A host that opens no transaction and records no intent has simply
-/// not changed rooms; a host that records intents while opening no transaction
-/// is changing rooms by the bypass.
+/// Signal for the confirmed-frame transition route used instead of the load
+/// transaction while rollback is active.
 fn deferred_intent_pending(sim: &Platformer2dSimHarness) -> bool {
     sim.world()
         .get_resource::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
@@ -217,8 +183,8 @@ fn d71_probe_counts_room_changes_against_transactions() {
     );
 }
 
-/// **THE ACCEPTANCE TARGET for readiness convergence, and it is RED by construction until that
-/// lands.**
+/// THE ACCEPTANCE TARGET for readiness convergence, and it is RED by construction until that
+/// lands.
 ///
 /// Unlike the two probes above this asserts rather than reports, and it asserts
 /// what a PLAYER gets: a room change on the host the shipped binary composes
@@ -229,7 +195,7 @@ fn d71_probe_counts_room_changes_against_transactions() {
 /// nothing about assets, so the destination theme's parallax is still loading when the room
 /// appears.
 ///
-/// **`#[ignore]`d deliberately, and this is the one shape that earns it.** The
+/// `#[ignore]`d deliberately, and this is the one shape that earns it. The
 /// convergence is a real slice in rollback-adjacent code; a target that fails the
 /// gate for the days that takes would be removed by whoever it inconveniences,
 /// which is how a known gap becomes an unknown one. Run it with `--ignored`; when
@@ -257,8 +223,8 @@ fn a_room_change_on_the_shipped_host_opens_a_readiness_transaction() {
     );
 }
 
-/// **The body that CROSSED is the body that ARRIVES — whoever is driving when
-/// the transaction finally commits.**
+/// The body that CROSSED is the body that ARRIVES — whoever is driving when
+/// the transaction finally commits.
 ///
 /// A room transition is not instantaneous: detection opens a readiness transaction and the
 /// authorized commit lands several frames later. It is the same subject only while nothing changes

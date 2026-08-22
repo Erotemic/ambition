@@ -1,47 +1,9 @@
-//! **THE FIRST CHARACTER-OWNED `smash.fighter` FACET — values authored as
-//! content, prepared into runtime fighter data.**
+//! Character-owned authored `smash_fighter` facet.
 //!
-//! **this is restitch point, and it is deliberately ONE SECTION wide.**
-//! [`smash_repertoire`](crate:smash_repertoire) and [`smash_capture`](crate:smash_capture) both
-//! carry the same standing note — *"do not move it for purity; the restitch point is the first
-//! real character-owned `smash.fighter` facet"* — and this module is that facet arriving.
-//!
-//! **the sixteen-slot repertoire is NOT here and must not be dragged in to
-//! make the facet look complete.** A fighter's ordinary moves are authored
-//! through composed Rust helpers (`strike`, `impulse`, `on_hit`,
-//! `committed_tail`, `feel`) whose composition IS the design, and George's own
-//! file carries a `debug_assert` stating a law about the shape of his table.
-//! Flattening that into RON would turn authored reasoning into a wall of
-//! numbers and buy nothing this row asked for. The capture kit came out clean;
-//! the rest has not yet been shown to.
-//!
-//! ```text
-//! Smash capability   defines the facet's SEMANTICS      this module
-//!         ^
-//! character package  authors George/Alice/... VALUES    a pack's .ron
-//!         v
-//! Smash preparation  produces runtime MoveSpecs         into_repertoire()
-//! ```
-//!
-//! The generic engine below is unchanged and learns nothing: preparation hands
-//! it the same [`MoveSpec`](ambition_entity_catalog::MoveSpec)s the Rust
-//! literals produced, through the same
-//! [`smash_capture`](crate::smash_capture) helpers, so the taxonomy stops here
-//! exactly as it did before.
-//!
-//! ## The capability is named before it is a crate
-//!
-//! [`SMASH_FIGHTER_CAPABILITY`] declares an owner for this schema today, inside
-//! the crate the types transitionally live in. That is the point: a schema
-//! registration must name a capability, so registering one WRITES DOWN the
-//! ownership the eventual carve will make structural. it is not a licence to
-//! start the carve — see the same refusal on both sibling modules.
-//!
-//! Capture params are authorable now — and they are not LOOSE. They arrive as typed serde structs
-//! with `deny_unknown_fields`, checked by the content compiler before a pack is allowed to reach a
-//! runtime, so a typo is a diagnostic naming the file and the field at compile time rather than a
-//! param that silently never fires. That is the check the precondition asked for, taken by a
-//! stronger road than the one it named.
+//! This module owns typed/serde platform-fighter values that prepare into the same
+//! runtime `MoveSpec`/capture structures used by Rust-authored fighters. It intentionally
+//! does not absorb the ordinary authored repertoire until that representation has a
+//! clear benefit. Content-pack validation rejects unknown fields before runtime.
 
 use std::collections::BTreeMap;
 
@@ -57,7 +19,7 @@ use crate::smash_capture::{
 #[cfg(feature = "content_pack")]
 pub mod content_schema;
 
-/// **The capability that owns platform-fighter authoring.**
+/// The capability that owns platform-fighter authoring.
 ///
 /// A composition that installs the schema installs this capability, so "who owns a fighter's
 /// authored values" has one answer that a tool can print.
@@ -66,7 +28,7 @@ pub const SMASH_FIGHTER_CAPABILITY: &str = "smash_fighter";
 /// The authored FILE kind: one character's platform-fighter facet.
 pub const SMASH_FIGHTER_SCHEMA: &str = "smash_fighter";
 
-/// **One character's platform-fighter values.**
+/// One character's platform-fighter values.
 ///
 /// One file, one character — not a book keyed by id. A character package owns
 /// its own file, so adding a fighter never edits another fighter's, and a merge
@@ -81,7 +43,7 @@ pub struct SmashFighterFacet {
     pub capture: CaptureKitAuthoring,
 }
 
-/// **A fighter's capture kit, as VALUES.**
+/// A fighter's capture kit, as VALUES.
 ///
 /// The authored mirror of [`SmashCaptureRepertoire`], which is the same kit as
 /// runtime [`MoveSpec`](ambition_entity_catalog::MoveSpec)s.
@@ -160,7 +122,7 @@ impl ThrowAuthoring {
 }
 
 impl CaptureKitAuthoring {
-    /// **Preparation: authored values become the runtime kit.**
+    /// Preparation: authored values become the runtime kit.
     ///
     /// Through the same [`smash_capture`](crate::smash_capture) helpers a Rust
     /// literal uses, deliberately — a second lowering road would be a second
@@ -209,7 +171,7 @@ impl CaptureKitAuthoring {
 }
 
 impl SmashFighterFacet {
-    /// **Everything this facet can SAY that the runtime cannot USE.**
+    /// Everything this facet can SAY that the runtime cannot USE.
     ///
     /// The list is deliberately not a taste filter. Every entry names a value
     /// whose consequence is that some authored thing never happens at all —
@@ -294,8 +256,8 @@ impl CaptureKitAuthoring {
             }
         }
 
-        // **two capture moves sharing an id is a COLLISION, not a duplicate
-        // row.** A `MovesetContract` resolves a move by its id, so the second
+        // two capture moves sharing an id is a COLLISION, not a duplicate
+        // row. A `MovesetContract` resolves a move by its id, so the second
         // one would be reachable through its verb and unreachable through
         // everything else that names a move — cancel windows, hitlag
         // bookkeeping, and the fighter's own frame-data assertions.

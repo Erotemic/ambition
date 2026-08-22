@@ -78,7 +78,7 @@ impl SnapshotState for OpticalSource2d {
 
 /// Mark a body as an optical observer without changing simulation authority.
 ///
-/// ⚠ **any number of bodies may carry this**, and each one gets its own image
+///  any number of bodies may carry this, and each one gets its own image
 /// in [`RelativisticOpticalView2d`]. The string is the authored label — it is
 /// what the published rows are ORDERED by, so it is worth keeping unique, but
 /// nothing keys on it: [`RelativisticOpticalView2d::for_observer`] takes the
@@ -140,7 +140,7 @@ pub struct OpticalSourceObservation2d {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ObserverOpticalView2d {
     pub model_id: Option<&'static str>,
-    /// ⚠ an `Option` even though a published row always has one: this is also
+    ///  an `Option` even though a published row always has one: this is also
     /// the shape a consumer reads through [`RelativisticOpticalView2d`]'s
     /// `Deref`, where "there is no observer at all" must still have an answer.
     pub observer: Option<OpticalObserverObservation2d>,
@@ -201,7 +201,7 @@ impl RelativisticOpticalView2d {
 
     /// The image belonging to the observer with this authored label.
     ///
-    /// ⚠ a label is authored text, and two observers may carry the same one;
+    ///  a label is authored text, and two observers may carry the same one;
     /// this returns the first in published order. [`Self::for_observer`] is the
     /// unambiguous lookup.
     pub fn for_label(&self, label: &str) -> Option<&ObserverOpticalView2d> {
@@ -217,7 +217,7 @@ impl RelativisticOpticalView2d {
 
     /// The first observer's image in published order.
     ///
-    /// ⚠ **this is a single-observer answer, and it says so.** It exists for
+    ///  this is a single-observer answer, and it says so. It exists for
     /// consumers that genuinely have one observer (and for the `Deref` below);
     /// a consumer that must survive a second observer has to choose one, which
     /// is [`Self::for_observer`].
@@ -234,9 +234,9 @@ impl RelativisticOpticalView2d {
     }
 }
 
-/// **Field access reads the FIRST observer's image.**
+/// Field access reads the FIRST observer's image.
 ///
-/// ⚠ this is what keeps the one-observer world byte-identical to the version of
+///  this is what keeps the one-observer world byte-identical to the version of
 /// this module that had exactly one image: `view.observer` and `view.sources`
 /// mean today what they meant then, and with no observer at all they still read
 /// `None` and empty. With two observers they read the first one's image instead
@@ -310,7 +310,7 @@ fn publish_optical_view(
     let mut source_rows: Vec<_> = sources.iter().collect();
     source_rows.sort_by(|(_, lhs, _), (_, rhs, _)| lhs.label.cmp(&rhs.label));
 
-    // ⚠ **the published order is sorted, never Bevy query order.** Two peers
+    //  the published order is sorted, never Bevy query order. Two peers
     // spawn the same observers in the same authored order but need not hand
     // them to this query in the same order, and a rewind need not either; a
     // consumer that draws `views.iter()` in sequence would then differ between
@@ -339,7 +339,7 @@ fn publish_optical_view(
 
 /// Build one observer's image of every optical source.
 ///
-/// ⭐ **the per-observer math was already per-observer.** Every quantity below
+///  the per-observer math was already per-observer. Every quantity below
 /// is a function of THIS observer's event and velocity; nothing here reads a
 /// "the observer" singleton. Lifting it out of the system is what lets N
 /// observers each get their own image — and lets a test call it twice.
@@ -643,16 +643,16 @@ mod tests {
         assert!((light_distance - f64::from(event.position.length())).abs() < 2.0e-2);
     }
 
-    /// **The smallest world that can tell a per-observer image from a shared one.**
+    /// The smallest world that can tell a per-observer image from a shared one.
     ///
-    /// ⚠ a FIXTURE, not a claim about how many observers a session should have.
+    ///  a FIXTURE, not a claim about how many observers a session should have.
     /// One beacon drifting from x=100 toward x=60 at 2 units/s, an invariant
     /// speed of 10, and reception at t=20 — chosen so the two observers' answers
     /// are separable by hand:
     ///
-    /// - an observer at the origin: `10·(20−t) = 100−2t` ⇒ emission at t=12.5,
+    /// - an observer at the origin: `10·(20−t) = 100−2t`  emission at t=12.5,
     ///   x=75, light age 7.5;
-    /// - an observer at x=160: `10·(20−t) = 60+2t` ⇒ emission at t≈11.667,
+    /// - an observer at x=160: `10·(20−t) = 60+2t`  emission at t≈11.667,
     ///   x≈76.667, light age ≈8.333.
     ///
     /// The beacon is on OPPOSITE sides of the two, so even the sign of the

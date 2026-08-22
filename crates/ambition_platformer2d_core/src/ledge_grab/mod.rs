@@ -54,11 +54,11 @@ pub const LEDGE_MIN_CLIMB_DELAY: f32 = 0.06;
 /// pipeline single-source.
 pub const LEDGE_GRAB_INVULN_TIME: f32 = 0.50;
 
-/// **How long a body must spend OFF a ledge to earn the full window.**
+/// How long a body must spend OFF a ledge to earn the full window.
 ///
 /// A counter would punish the recovery as hard as the stall; the clock only punishes the stall.
 ///
-/// **the CURVE is rough and the numbers are placeholders.** What is confirmed
+/// the CURVE is rough and the numbers are placeholders. What is confirmed
 /// about the genre is the shape — airtime buys the window — not the constants.
 pub const LEDGE_INVULN_FULL_AIRTIME: f32 = 1.20;
 
@@ -68,7 +68,7 @@ pub const LEDGE_INVULN_FULL_AIRTIME: f32 = 1.20;
 /// instant stall.
 pub const LEDGE_INVULN_MIN_TIME: f32 = 0.10;
 
-/// **What this grab's intangibility is worth**, given how long the body has been
+/// What this grab's intangibility is worth, given how long the body has been
 /// off a ledge. Linear between [`LEDGE_INVULN_MIN_TIME`] and
 /// [`LEDGE_GRAB_INVULN_TIME`].
 pub fn ledge_grab_invuln_earned(time_off_ledge: f32) -> f32 {

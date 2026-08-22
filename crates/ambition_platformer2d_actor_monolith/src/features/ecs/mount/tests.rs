@@ -716,8 +716,8 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     };
     use ambition_characters::brain::Brain;
 
-    // (1) **The giant's "I am a rideable giant-class mount, and touching me does not hurt"
-    // assertion lives with the CHARACTER now**, in `ambition_content`'s
+    // (1) The giant's "I am a rideable giant-class mount, and touching me does not hurt"
+    // assertion lives with the CHARACTER now, in `ambition_content`'s
     // `the_giant_gnu_authors_the_mount_its_archetype_row_used_to`. What this test is for is the
     // mount/rider BRIDGE below, which needs no shipped content at all.
 

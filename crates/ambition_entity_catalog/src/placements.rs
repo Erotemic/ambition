@@ -90,15 +90,10 @@ pub enum BossBrain {
     Custom(String),
 }
 
-/// The authored hazard schema — what a `DamageVolume`-style placement SAYS,
-/// in plain pairs (the `HitVolume` idiom: `[f32; 2]`, never kernel types).
-/// The lowering interpreter (W-queue step 3) converts to `Vec2`/components
-/// once at room load; the legacy `DamageVolume` runtime type dissolves when
-/// that interpreter lands ([W-a] verdict 3).
+/// Authored hazard data, kept independent of runtime component types.
 ///
-/// NOTE for step 3: legacy hazards may still carry an INLINE motion path
-/// (`DamageVolume.motion`). The schema deliberately has `path_id` only —
-/// dissolution lifts inline paths into room-level `KinematicPath` entries.
+/// Moving hazards reference room-level `KinematicPath` entries by `path_id`;
+/// inline runtime motion paths are not part of the authored schema.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct HazardSpec {
     pub damage: i32,
@@ -111,13 +106,8 @@ pub struct HazardSpec {
     pub path_id: Option<String>,
 }
 
-/// The authored interaction schema — what an interactable placement SAYS
-/// (an NPC to talk to, a door, a chest/pickup/breakable prompt, or a
-/// game-specific `Custom` payload). Fully plain data (no `Vec2`, no runtime
-/// components) so it lives in the Tier-0 catalog; the interaction runtime
-/// lowers it into live components at room load.
-///
-/// Moved down from `ambition_platformer2d_world::rooms` (fable audit F9.2 IR consolidation):
+/// Authored interaction data for NPCs, doors, pickups, breakables, and custom
+/// interactions. Runtime components are materialized when the room loads.
 /// interactables now flow through the single `PlacementRecord` channel, so the
 /// schema payload and the world IR share ONE pure type instead of a mirror.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -397,9 +387,9 @@ pub struct PortalSchema {
     pub color: PortalChannelColorSpec,
     /// Outward axis-aligned surface normal, pointing into the room.
     pub normal: [f32; 2],
-    /// Explicit link id (`None` ⇒ legacy color pairing).
+    /// Explicit link id (`None`  legacy color pairing).
     pub link: Option<String>,
-    /// Authored along-surface half-length (opening size); `None` ⇒ default.
+    /// Authored along-surface half-length (opening size); `None`  default.
     pub half_length: Option<f32>,
 }
 
@@ -464,7 +454,7 @@ impl PlacementSchema {
 /// (`respawn:` in `character_archetypes.ron`); a future EnemySpawn LDtk
 /// field can override a single placement.
 ///
-/// **The default is `DeadStaysDead`** — the intuitively-correct rule for
+/// The default is `DeadStaysDead` — the intuitively-correct rule for
 /// a unique actor in a persistent world ("Morrowind rules"). Respawning
 /// is an AUTHOR'S choice: trash mobs opt into `OnRoomReenter`,
 /// mini-boss-tier presences into `OnRest`, training dummies into
@@ -476,10 +466,10 @@ impl PlacementSchema {
 /// respawn horizon implies; `OnRoomReenter` writes nothing. The
 /// room-load `save_sync` reads the flags back into `alive = false`. A
 /// "rest" event clears just the `_dead_until_rest` flags.
-/// **How this placement's body FEELS about the player** — the disposition it
+/// How this placement's body FEELS about the player — the disposition it
 /// spawns with.
 ///
-/// **a spawn-context fact, and the last one an enemy archetype owned.** A row
+/// a spawn-context fact, and the last one an enemy archetype owned. A row
 /// could say `hostile_by_default: false` — the puppy slug is ambient wildlife
 /// that never aggros — which made peacefulness a property of the CREATURE. It is
 /// not:
@@ -500,7 +490,7 @@ pub enum SpawnDisposition {
 impl SpawnDisposition {
     /// Whether a body with this disposition attacks on sight.
     ///
-    /// **it was `attacks_player`**. Who a
+    /// it was `attacks_player`. Who a
     /// hostile body attacks is a TARGETING question with its own authority
     /// (`ActorFaction`, `MatchTeam`, `damage_lands_between`), and naming a player
     /// here made the engine's hostility model read as if a player were the only

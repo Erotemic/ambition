@@ -172,7 +172,7 @@ def test_retiring_a_field_the_level_still_uses_is_reported_not_done():
         "MaryOBlock.contents",
     ]
     assert losses[0].count == len(kind_values(project))
-    # **derived from the level, not spelled out.** The literal set here has
+    # derived from the level, not spelled out. The literal set here has
     # gone stale twice — `Question`/`Hidden` joined when 1-2 got its own block
     # row, and `Quasar` LEFT when it became a `contents` value on a Brick. What
     # the tool owes is that it reports every distinct authored value, quoted;

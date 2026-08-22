@@ -1,13 +1,13 @@
-//! Overflow Crash — a player-wielded **lunge strike**: dash forward along the
+//! Overflow Crash — a player-wielded lunge strike: dash forward along the
 //! aim and skewer everything in the dash corridor. The wielded kit's only
 //! *offensive mobility* attack — [`crate::abilities::ranged::shockwave`] / [`crate::abilities::ranged::beam`] /
 //! [`crate::abilities::ranged::volley`] are all stationary, and while [`crate::abilities::traversal::blink`] also
 //! teleports, blink is a *defensive* reposition (a tiny poof at the arrival
 //! point); the dive is an *offensive* gap-closer whose damage is the whole
-//! **path** from start to landing. Close the distance and cut a line through
+//! path from start to landing. Close the distance and cut a line through
 //! the mob in one commit.
 //!
-//! It is the **overflow** boss signature gauntlet — an aerial dive-bomber that
+//! It is the overflow boss signature gauntlet — an aerial dive-bomber that
 //! bursts past its bounds and crashes into you. Defeat it, wield its crash
 //! yourself ("every boss a failed objective function, learn its attack").
 //!
@@ -182,7 +182,7 @@ pub fn fire_dive_system(
     // The dash corridor cuts everything between start and landing — a one-shot
     // PlayerSlash volume (spares the player, shoves enemies along the dash).
     //
-    // **so the shove is 1.4× what shipped**: that is the authored number finally being used,
+    // so the shove is 1.4× what shipped: that is the authored number finally being used,
     // not a new one, and it is a constant above if it wants tuning.
     let corridor: ambition_platformer2d_core::CombatVolume = dive_corridor(from, target).into();
     let corridor_center = corridor.center();

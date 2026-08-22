@@ -10,10 +10,10 @@ use bevy::app::{App, FixedUpdate, Update};
 use bevy::ecs::schedule::{InternedScheduleLabel, ScheduleLabel};
 use bevy::prelude::*;
 
-/// **Which Bevy schedule the SIMULATION runs in** (netcode N0.1, the two clocks).
+/// Which Bevy schedule the SIMULATION runs in (netcode N0.1, the two clocks).
 ///
-/// The engine has two clocks: the **sim tick** (the canonical timeline — N0.2
-/// input streams and N0.4 state hashes key on its count) and the **frame/feel**
+/// The engine has two clocks: the sim tick (the canonical timeline — N0.2
+/// input streams and N0.4 state hashes key on its count) and the frame/feel
 /// clock (raw render dt, driving presentation, device sampling, and per-player
 /// feel-time effects). This resource names the schedule the *tick* clock lives
 /// in. The construction-time `SimulationHost` selected by the runtime selects
@@ -41,7 +41,7 @@ use bevy::prelude::*;
 ///
 /// # The seal
 ///
-/// The value is **sealed on first read**: once any plugin has asked for the label, changing it
+/// The value is sealed on first read: once any plugin has asked for the label, changing it
 /// panics rather than silently splitting the schedule graph in half (some sim systems in
 /// `Update`, the rest in `FixedUpdate` — a split-brain whose symptom is systems mysteriously
 /// never ordering against one another).
@@ -198,29 +198,29 @@ pub struct SimulationSetupSet;
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct BossSteerSlot;
 
-/// **The phases inside [`Platformer2dSimulationPhaseMonolith::Combat`], and the content slots between
-/// them.**
+/// The phases inside [`Platformer2dSimulationPhaseMonolith::Combat`], and the content slots between
+/// them.
 ///
 /// The engine owns the combat spine — trigger, playback, materialize, resolve,
 /// settle — and named content hangs on [`Self::ContentSpecials`] /
 /// [`Self::ContentFlavor`] instead of being registered inline by the app.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum CombatSet {
-    /// **Intent becomes a started move.** Cooldowns decay, an attack gesture
+    /// Intent becomes a started move. Cooldowns decay, an attack gesture
     /// resolves to a verb, and a moveset move begins — for a player body and for
     /// a boss alike.
     Trigger,
-    /// **The move clock advances and its volumes open and close.** Strike volumes
+    /// The move clock advances and its volumes open and close. Strike volumes
     /// are spawned and retired here, timed events fire, and the `BodyMelee`
     /// read-model is projected back for every consumer that still reads it.
     Playback,
-    /// **Declarations become entities.** Effects execute, projectiles spawn and
+    /// Declarations become entities. Effects execute, projectiles spawn and
     /// step, summons and programmatic actor spawns materialize. The phase that
     /// exists because a thing must EXIST before it can hit anything — the reason
     /// projectile presentation is stamped here rather than inherited later.
     Materialize,
     Resolve,
-    /// **Post-damage bookkeeping.** Victim staging and mount/rider link
+    /// Post-damage bookkeeping. Victim staging and mount/rider link
     /// enforcement — everything that reads this tick's damage outcome rather than
     /// producing it.
     Settle,
@@ -318,7 +318,7 @@ pub enum Platformer2dSimulationPhaseMonolith {
     Trace,
 }
 
-/// **The phases inside [`Platformer2dSimulationPhaseMonolith::PlayerInput`], as an orderable vocabulary.**
+/// The phases inside [`Platformer2dSimulationPhaseMonolith::PlayerInput`], as an orderable vocabulary.
 ///
 /// `PlayerInput` is one set containing a single long `.chain()`, and for a while
 /// that meant anything needing to run at a particular point in it had to name a
@@ -364,12 +364,12 @@ pub enum PlayerInputSet {
     BodyMode,
 }
 
-/// **The phases inside [`Platformer2dSimulationPhaseMonolith::Progression`], as
-/// an orderable vocabulary.**
+/// The phases inside [`Platformer2dSimulationPhaseMonolith::Progression`], as
+/// an orderable vocabulary.
 ///
 /// Same shape and same reason as [`PlayerInputSet`], one phase later.
 ///
-/// **the boundaries are not arbitrary: they are where the pins already were.**
+/// the boundaries are not arbitrary: they are where the pins already were.
 /// Two slots (`ContentEncounterScriptSet`, `ambition_encounter::EncounterLifecycleSet`)
 /// anchored INSIDE the boss group, both against `update_encounter_progress` —
 /// which is why the boss work is two phases rather than one. A vocabulary that
@@ -402,7 +402,7 @@ pub enum ProgressionSet {
     Map,
 }
 
-/// **The phases inside [`Platformer2dSimulationPhaseMonolith::RoomTransition`].**
+/// The phases inside [`Platformer2dSimulationPhaseMonolith::RoomTransition`].
 ///
 /// Same shape, and same reason, as [`PlayerSimulationSet`]: this set carried an
 /// ordering slot described in prose — *"the host's transition APPLY slots in
@@ -412,18 +412,18 @@ pub enum ProgressionSet {
 /// game replacing the transition policy needs somewhere to put it.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum RoomTransitionSet {
-    /// **Has a transition been requested?** Edge/door/walk detection publishes the
+    /// Has a transition been requested? Edge/door/walk detection publishes the
     /// intent; nothing has moved yet.
     Detect,
     Apply,
-    /// **Per-room feature reset** over the unified actor cluster, once the
+    /// Per-room feature reset over the unified actor cluster, once the
     /// transition has committed. `ContentRoomResetSet` follows it, and generic
     /// plugins (gravity, portal) order against that SET rather than against any
     /// content system.
     Reset,
 }
 
-/// **The movement anchor inside [`Platformer2dSimulationPhaseMonolith::WorldPrep`].**
+/// The movement anchor inside [`Platformer2dSimulationPhaseMonolith::WorldPrep`].
 ///
 /// Unlike [`PlayerInputSet`] and [`CombatSet`], this is deliberately NOT a full decomposition
 /// of its set.
@@ -439,11 +439,11 @@ pub enum RoomTransitionSet {
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum WorldPrepSet {
     BeforeIntegrate,
-    /// **The ONE movement phase** for every non-boss sim body: actor bodies and
+    /// The ONE movement phase for every non-boss sim body: actor bodies and
     /// the home/player body integrate through the same engine entry.
     Integrate,
     AfterIntegrate,
-    /// **The shared body-contact damage pass**, as a boundary a consumer can order
+    /// The shared body-contact damage pass, as a boundary a consumer can order
     /// against.
     ///
     /// Deliberately NOT chained after [`Self::AfterIntegrate`]. Chaining it would
@@ -459,7 +459,7 @@ pub enum WorldPrepSet {
     ContactDamage,
 }
 
-/// **The phases inside [`Platformer2dSimulationPhaseMonolith::PlayerSimulation`].**
+/// The phases inside [`Platformer2dSimulationPhaseMonolith::PlayerSimulation`].
 ///
 /// Third of the six `Platformer2dSimulationPhaseMonolith` phases to get named sub-sets (after
 /// [`PlayerInputSet`] and [`CombatSet`]), for the same reason and with the same
@@ -470,10 +470,10 @@ pub enum WorldPrepSet {
 /// joins it by name.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum PlayerSimulationSet {
-    /// **Who is driving which body.** Possession triggers and releases; a target
+    /// Who is driving which body. Possession triggers and releases; a target
     /// that stopped existing hands control back.
     Possession,
-    /// **The host's slot between control settling and damage landing.** Home
+    /// The host's slot between control settling and damage landing. Home
     /// reset policy and player presentation live here in Ambition: they read the
     /// movement phase's hand-off and move no body, so they must run once
     /// possession is settled and before the frame's damage is applied.
@@ -481,72 +481,50 @@ pub enum PlayerSimulationSet {
     /// Empty in a host that registers nothing, which is what makes it a slot
     /// rather than a phase the engine owes systems to.
     PostPossession,
-    /// **This frame's damage and death facts applied to the player body.**
+    /// This frame's damage and death facts applied to the player body.
     /// Includes the kernel's own death path (pit, drown, tile hazard), which
     /// never reaches the hit resolver and publishes here instead.
     Outcome,
 }
 
-/// **The phases inside [`Platformer2dSimulationPhaseMonolith::FeatureInteraction`].**
-///
-/// Same shape and same reason as [`ProgressionSet`] and [`PlayerInputSet`], with
-/// one difference that is the point of the whole vocabulary: this phase held ONE
-/// anonymous `.chain()` of ten systems spanning **four domains** —
-/// `conversation`, the interaction feature systems, the NPC cast, and
-/// `encounter` — and every cross-domain interleave in it was load-bearing and
-/// recorded ONLY as adjacency in a tuple plus prose at the call site.
-///
-/// An import graph cannot see a `.chain()`.
-///
-/// **naming these changed no order.** The variants are the boundaries the
-/// prose comments already drew; each one carries the sentence that justified it.
-/// The chain is declared once (`FeatureInteractionSchedulePlugin`) and every
-/// domain plugin only says which phase it belongs to — so `conversation` states
-/// its own placement against a vocabulary that lives BELOW the monolith and
-/// survives the carve.
-///
-/// **`.chain()` on the set list, not `(a, b).before(c)`.** `(A, B).before(C)`
-/// orders both A and B before C and says nothing about A vs C's siblings; only a
-/// chain states a total order. And because Bevy inserts sync points on
-/// dependency edges after flattening sets to systems, the `ApplyDeferred`
-/// boundaries the original per-system chain provided are preserved — which
-/// matters at [`Self::SwitchIndex`], whose whole job is to see what the systems
-/// before it just spawned or despawned.
+/// Ordered phases inside [`Platformer2dSimulationPhaseMonolith::FeatureInteraction`]. The host
+/// chains these sets to encode a total cross-domain order and preserve Bevy's deferred-command
+/// sync points; [`Self::SwitchIndex`] therefore observes all preceding switch mutations.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum FeatureInteractionSet {
-    /// **The narrative running out of lines is an INPUT to the simulation**, and
+    /// The narrative running out of lines is an INPUT to the simulation, and
     /// it lands before anything judges the conversation for separation —
     /// otherwise a conversation that ended this frame gets barked about on its
     /// way out.
     NarrativeIntake,
-    /// **Somebody pressed Interact**: actors and switches. The phase that OPENS
+    /// Somebody pressed Interact: actors and switches. The phase that OPENS
     /// a conversation, which is why [`Self::Continuity`] may not precede it.
     Actuate,
-    /// **The break rule.** AFTER [`Self::Actuate`]: a dialogue opened this
+    /// The break rule. AFTER [`Self::Actuate`]: a dialogue opened this
     /// frame must not be judged for separation before the bodies that opened it
     /// have been read. Both use the same `strict_intersects` reach, so a
     /// conversation cannot begin and immediately break.
     Continuity,
-    /// **The CAST half of the break**: continuity said who should speak, this
+    /// The CAST half of the break: continuity said who should speak, this
     /// says what they say. Immediately after [`Self::Continuity`], so the bubble
     /// lands on the same tick the conversation ended.
     ///
-    /// **a slot `conversation` names and the cast fills.** The set is declared
+    /// a slot `conversation` names and the cast fills. The set is declared
     /// by the ordering vocabulary and its member lives in `features::npcs`,
     /// which is the temporal twin of the `ConversationCutBark` message port:
     /// continuity owns WHEN, the cast owns WHAT.
     CutBarkCast,
-    /// **The hold, PROJECTED** — whatever [`Self::Continuity`] decided (a break,
+    /// The hold, PROJECTED — whatever [`Self::Continuity`] decided (a break,
     /// a body that stopped existing, or nothing at all), the world is made to
     /// match the authority on the same frame. it is not a "release": it both
     /// takes and releases the hold, because a projection that only let go would
     /// be a second rule about when to hold.
     HoldProjection,
-    /// **Interactable world objects**: chests opening, breakables breaking,
+    /// Interactable world objects: chests opening, breakables breaking,
     /// falling chests falling, and the save → switch mirror. Downstream of
     /// [`Self::Actuate`] because that is what opens a chest.
     WorldObjects,
-    /// **The encounter switch index, rebuilt last.** It is a cache of
+    /// The encounter switch index, rebuilt last. It is a cache of
     /// `SwitchFeature + SwitchOn` over the whole world, so it must observe every
     /// switch mutation this phase makes — the Interact toggle in
     /// [`Self::Actuate`] and the save mirror in [`Self::WorldObjects`] — or the
@@ -605,7 +583,7 @@ pub enum GameMode {
     Cutscene,
 }
 
-/// **Does a conversation stop the world?**
+/// Does a conversation stop the world?
 ///
 /// Nothing else has to change, because the world-stop and the input claim were already two
 /// different mechanisms wearing one switch.

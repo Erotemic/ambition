@@ -38,13 +38,13 @@ fn default_chase_effort() -> f32 {
     1.0
 }
 
-/// **How an autonomous participant driving this body decides what to do.**
+/// How an autonomous participant driving this body decides what to do.
 ///
 /// Reusable across characters by design: several distinct bodies may name the
 /// same profile, and the same body may be driven by a different one in a
 /// different context. Nothing here says what the body can physically do.
 ///
-/// ⛔⛔ **AND NOTHING HERE SAYS WHO THIS BODY'S ENEMIES ARE.** This answers *how
+///  AND NOTHING HERE SAYS WHO THIS BODY'S ENEMIES ARE. This answers *how
 /// aggressively do I close, how far away do I notice, which attack do I prefer,
 /// how do I patrol* — never *is that a target*. Hostility is a relationship, and
 /// a relationship belongs to the PLACEMENT and the session: `SpawnDisposition`,
@@ -66,7 +66,7 @@ pub struct BrainProfile {
     /// Distance (px) at which this driver commits to an attack.
     #[serde(default)]
     pub attack_range: f32,
-    /// **Simple walkers turn away from a semantic side contact.**
+    /// Simple walkers turn away from a semantic side contact.
     ///
     /// Control policy, consumed by the Patrol/Wanderer templates through
     /// `BrainSnapshot` — the movement kernel only publishes the wall-contact
@@ -76,11 +76,11 @@ pub struct BrainProfile {
     /// inhabiting the same body.
     #[serde(default = "default_turns_at_walls")]
     pub turns_at_walls: bool,
-    /// **How hard this driver walks while patrolling**, as a fraction of the
+    /// How hard this driver walks while patrolling, as a fraction of the
     /// body's own top speed — §4.7's normalized effort, and the reason a
     /// profile never authors px/s.
     ///
-    /// ⛔ **the runtime hard-coded `0.5` and `1.0`** in `new_character_in`, so a
+    ///  the runtime hard-coded `0.5` and `1.0` in `new_character_in`, so a
     /// character-first body could not be an ambler or a sprinter: every
     /// migrated creature patrolled at exactly half pace whatever its archetype
     /// row had said. `pirate_shark_rider` authors 0.4783 and `medium_striker`
@@ -108,7 +108,7 @@ pub struct BrainProfile {
     /// large gap.
     #[serde(default)]
     pub smash_sprint_to_close: bool,
-    /// Smash-template **duelist neutral game** (`SmashCfg::DUELIST_DEFAULT`
+    /// Smash-template duelist neutral game (`SmashCfg::DUELIST_DEFAULT`
     /// base): footsies, neutral hops and a real spacing/retreat rhythm instead
     /// of the grunt's close-and-camp.
     #[serde(default)]
@@ -118,7 +118,7 @@ pub struct BrainProfile {
     /// aggressive brain.
     #[serde(default)]
     pub provoke_forced_brute_min_aggro: Option<f32>,
-    /// **How often this driver commits to a swing** — `ENEMY_ATTACK_COOLDOWN *
+    /// How often this driver commits to a swing — `ENEMY_ATTACK_COOLDOWN *
     /// attack_cooldown_mult` paces the brain's next attack.
     ///
     /// It reads as a body number and is not one, by exactly the argument already made for
@@ -174,7 +174,7 @@ impl BrainProfile {
 mod tests {
     use super::*;
 
-    /// **A profile authored with only a template is complete**, and its
+    /// A profile authored with only a template is complete, and its
     /// defaults are the ones the runtime used to hard-code.
     #[test]
     fn a_template_only_profile_keeps_the_runtime_defaults() {
@@ -191,7 +191,7 @@ mod tests {
         assert_eq!(profile.chase_effort, 1.0);
     }
 
-    /// **An authored value beats the default**, so the test above is not
+    /// An authored value beats the default, so the test above is not
     /// measuring a struct that ignores its input.
     #[test]
     fn authored_policy_wins_over_the_default() {
@@ -210,7 +210,7 @@ mod tests {
         assert_eq!(profile.chase_effort, 0.8);
     }
 
-    /// **A misspelled knob is a REFUSAL, not a silent no-op.**
+    /// A misspelled knob is a REFUSAL, not a silent no-op.
     ///
     /// The same contract `ArchetypeSpec` learned the hard way: without
     /// `deny_unknown_fields` an authored `agro_radius` compiles clean and the

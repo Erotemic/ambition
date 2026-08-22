@@ -126,8 +126,8 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
     );
 }
 
-/// **THE ROOM IS ALREADY REBUILT WHEN THIS SYSTEM RUNS, SO IT MAY NOT SWEEP THE
-/// ROOM.**
+/// THE ROOM IS ALREADY REBUILT WHEN THIS SYSTEM RUNS, SO IT MAY NOT SWEEP THE
+/// ROOM.
 ///
 /// `process_new_game_reset_request` retires every `RoomScopedEntity` and commits
 /// a fresh start-room plan in the same call, and the `.chain()` between the two
@@ -465,7 +465,7 @@ fn processor_restores_authored_start_room_platform() {
     assert_eq!(platform_set.0[0].size, authored.size);
 }
 
-/// **A DECLINED reset leaves the session exactly as it was.**
+/// A DECLINED reset leaves the session exactly as it was.
 ///
 /// Its completion criterion in as many words: *"a failed preparation leaves the
 /// current session byte-for-byte semantically unchanged except for

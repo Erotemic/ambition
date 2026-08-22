@@ -316,7 +316,7 @@ impl KeyboardPreset {
         // would fire TWO actions at once), gamepad-Special is intentionally left
         // to the remap UX (P5) and to a game's `BindingLayout`. Keyboard (this
         // key) and the touch overlay's dedicated Special button cover it in
-        // Ambition. **that is a claim about THIS DEFAULT, not about pads** — a
+        // Ambition. that is a claim about THIS DEFAULT, not about pads — a
         // layout permutes an already-full pad and so can free a button for
         // Special, which is what the smash profile does (X).
         // `special_is_a_dedicated_slot_...` and
@@ -613,7 +613,7 @@ fn insert_optional(
 
 /// The label a HUD should print for a key.
 ///
-/// **public so a GAME's on-screen legend can read the same table the BINDINGS do.** Sanic's
+/// public so a GAME's on-screen legend can read the same table the BINDINGS do. Sanic's
 /// speedway printed a hardcoded `"START Z: JUMP DOWN+X: REV RELEASE DOWN: DASH D: SUPER"` — and
 /// the preset binds no `D` at all.
 pub fn key_name(key: KeyCode) -> &'static str {
@@ -678,8 +678,8 @@ mod tests {
 
     /// Gate 5 — the dynamic-slot policy for Special, pinned.
     ///
-    /// **the gamepad half of this policy is a claim about the DEFAULT preset, and made that
-    /// distinction load-bearing.** The reason there is no gamepad Special here has never been
+    /// the gamepad half of this policy is a claim about the DEFAULT preset, and made that
+    /// distinction load-bearing. The reason there is no gamepad Special here has never been
     /// "Special does not deserve a button" — it is that THIS pad is fully assigned, so adding
     /// one would double-bind a button and fire two actions at once.
     ///
@@ -724,12 +724,12 @@ mod tests {
         );
     }
 
-    /// **EVERY SLOT A BODY CAN CARRY IS ON THE KEYBOARD, ON EVERY PRESET.**
+    /// EVERY SLOT A BODY CAN CARRY IS ON THE KEYBOARD, ON EVERY PRESET.
     ///
     /// The existing tests pin the first two ONE CASE AT A TIME, which is a list that grows only
     /// after each new verb has already shipped broken.
     ///
-    /// **the keyboard is the right subject** and the pad is not: a pad may
+    /// the keyboard is the right subject and the pad is not: a pad may
     /// legitimately decline a slot (the default pad is fully assigned and leaves
     /// `Special` to a game's layout — the test above pins exactly that), while
     /// the keyboard is the device every composition always has. A slot with no

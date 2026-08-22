@@ -27,9 +27,9 @@ const AIRBORNE: MoveGates = MoveGates {
 /// The specials: a move that answers its button from the ground OR the air.
 const EITHER: MoveGates = MoveGates { grounded: None };
 
-/// **The neutral special, or a stated reason there is no authored one.**
+/// The neutral special, or a stated reason there is no authored one.
 ///
-/// ⚠ exactly one fighter abstains today — the player robot, whose Hadouken comes
+///  exactly one fighter abstains today — the player robot, whose Hadouken comes
 /// from the CHARGED-PROJECTILE kit its body already derives. Authoring a
 /// `special` binding here would overlay and replace it. The abstention is a
 /// slot value rather than an omission so that it is impossible to do by
@@ -45,17 +45,17 @@ pub enum NeutralSpecial {
     },
 }
 
-/// **The down special — one move, or the Bowser pair.**
+/// The down special — one move, or the Bowser pair.
 pub enum DownSpecial {
     /// One move that answers the press in both postures. The ordinary case for a
     /// down-B that means the same thing wherever you are standing.
     OneForm(MoveSpec),
-    /// **Two forms, one slot.** `grounded` answers `special_down`, `airborne`
+    /// Two forms, one slot. `grounded` answers `special_down`, `airborne`
     /// answers `special_air_down` — which sits AHEAD of it in
     /// `directional_verb_chain`, so an airborne press reaches the air form and a
     /// grounded one falls past it to the ground form.
     ///
-    /// ⛔ this is why the pair is a single slot and not two: a special gated to
+    ///  this is why the pair is a single slot and not two: a special gated to
     /// ONE posture and left unanswered in the other is not "a move with a
     /// restriction" — the chain walks past it to the NEUTRAL special, and the
     /// player pressed down-B and got something else.
@@ -67,7 +67,7 @@ pub enum DownSpecial {
     },
 }
 
-/// **The standard smash repertoire, as sixteen presses of bespoke moves.**
+/// The standard smash repertoire, as sixteen presses of bespoke moves.
 ///
 /// See the module doc. Fill every field; the compiler enforces that.
 pub struct SmashRepertoire {
@@ -103,22 +103,22 @@ pub struct SmashRepertoire {
     pub up_special: MoveSpec,
     /// `special_down`, and possibly `special_air_down`. See [`DownSpecial`].
     pub down_special: DownSpecial,
-    /// **The capture kit — grab, pummel, throws.** See
+    /// The capture kit — grab, pummel, throws. See
     /// [`SmashCaptureRepertoire`](crate::smash_capture::SmashCaptureRepertoire).
     ///
     /// All fourteen author one now, so the compiler resumes doing here what it does for the other
     /// sixteen slots.
     ///
-    /// ⭐ **this replaces a grep.** A goal check read the movesets looking for
+    ///  this replaces a grep. A goal check read the movesets looking for
     /// `capture: Some`, which is the kind of guard that answers a question the
     /// compiler can answer better: a new fighter that forgets a grab no longer
     /// ships and gets noticed, it does not build.
     pub capture: crate::smash_capture::SmashCaptureRepertoire,
-    /// **`taunt` — the move that buys nothing.** Required like every other slot,
+    /// `taunt` — the move that buys nothing. Required like every other slot,
     /// so a fighter with nothing to say has to say so; `moveset_authoring::taunt`
     /// is the one-liner for a fighter whose taunt is not yet designed.
     pub taunt: MoveSpec,
-    /// **`attack_dash` — the move a body already moving forward throws.**
+    /// `attack_dash` — the move a body already moving forward throws.
     /// Required like every other slot: the engine has selected
     /// `AttackIntent::DashForward` for a dashing swing since long before any
     /// fighter could answer it, and an unauthored dash attack does not read as
@@ -127,23 +127,23 @@ pub struct SmashRepertoire {
     pub dash_attack: MoveSpec,
 }
 
-/// **Every verb a [`SmashRepertoire`] can bind.**
+/// Every verb a [`SmashRepertoire`] can bind.
 ///
-/// ⭐⭐ **this exists because [`SmashRepertoire::into_contract`]'s own doc was FALSE.** It says
+///  this exists because [`SmashRepertoire::into_contract`]'s own doc was FALSE. It says
 /// it is *"the ONE place the verb strings exist"* — and it was not.
 ///
-/// ⛔⛔ **both halves of that pair have now been missed, in three days.** `taunt` reached the
+///  both halves of that pair have now been missed, in three days. `taunt` reached the
 /// device table, the human brain's press list, `ENGINE_ACTIONS` and its rollback codec, and
 /// every fighter authored one — while the vocabulary did not know the word, and nineteen
 /// characters shipped reporting *"unknown input verb `taunt`"*. The lesson is not "remember the
 /// fifth list"; it is that a list nobody can derive gets remembered four times out of five.
 ///
-/// ⛔ **not a registry and not a new authority.** The table in `into_contract`
+///  not a registry and not a new authority. The table in `into_contract`
 /// is still the only thing that BINDS a verb to a move. This is that table's
 /// verb SET, held to it by `the_bound_table_binds_exactly_the_declared_vocabulary`,
 /// so a downstream census can ASK instead of remember.
 ///
-/// ⚠ **the whole set, including the conditional slots.** `special` is bound
+///  the whole set, including the conditional slots. `special` is bound
 /// only by an authored neutral special and `special_air_down` only by a
 /// `ByPosture` down special — but a verb a repertoire CAN bind is authoring
 /// vocabulary whether or not one fighter uses it, and a vocabulary that shrank
@@ -183,7 +183,7 @@ pub const REPERTOIRE_VERBS: &[&str] = &[
 ];
 
 impl SmashRepertoire {
-    /// **Lower the repertoire into the generic move contract the engine speaks.**
+    /// Lower the repertoire into the generic move contract the engine speaks.
     ///
     /// This is the ONE place the verb strings exist, the ONE place the posture
     /// gates are applied, and the ONE place the table is checked — which is the
@@ -229,7 +229,7 @@ impl SmashRepertoire {
             ("attack_air_up", up_air, AIRBORNE),
             ("attack_air_down", down_air, AIRBORNE),
             ("taunt", taunt, GROUNDED),
-            // ⚠ GROUNDED: a dash is a ground stance, and `move_for_attack` only
+            //  GROUNDED: a dash is a ground stance, and `move_for_attack` only
             // asks for this verb when the body is on the floor.
             ("attack_dash", dash_attack, GROUNDED),
         ];
@@ -327,7 +327,7 @@ mod tests {
                 9,
                 320.0,
             ),
-            // ⚠ a real kit, because the slot is required now. The fixture's
+            //  a real kit, because the slot is required now. The fixture's
             // job is to exercise the VERB TABLE, so the smallest catchable grab
             // that reaches `bound()` is the honest fixture — not a placeholder
             // that would make the capture verbs untested here.
@@ -364,17 +364,17 @@ mod tests {
         }
     }
 
-    /// **The declared vocabulary is exactly what the table binds** — both
+    /// The declared vocabulary is exactly what the table binds — both
     /// directions, so neither list can grow without the other.
     ///
-    /// ⭐ **it runs a MAXIMAL repertoire**, every conditional slot taking the
+    ///  it runs a MAXIMAL repertoire, every conditional slot taking the
     /// branch that binds the most verbs: an authored neutral special, a
     /// `ByPosture` down special, and all three optional throws present. A
     /// fixture that left one `None` would prove the const has no EXTRA words and
     /// say nothing about the ones it is missing — which is the direction that
     /// has failed twice.
     ///
-    /// ⚠ the floor is not decoration. `into_contract` returning an empty
+    ///  the floor is not decoration. `into_contract` returning an empty
     /// contract would make the two sets equal to each other and to nothing, and
     /// this test would pass while every fighter lost every move.
     #[test]
@@ -424,8 +424,8 @@ mod tests {
         );
     }
 
-    /// **Every press this vocabulary names is answered, in every posture it is
-    /// asked in** — resolved the way a BODY resolves it, through the directional
+    /// Every press this vocabulary names is answered, in every posture it is
+    /// asked in — resolved the way a BODY resolves it, through the directional
     /// chain, rather than by asking whether a verb key exists.
     #[test]
     fn every_press_is_answered_in_every_posture_it_is_asked_in() {
@@ -501,7 +501,7 @@ mod tests {
         assert_eq!(reached(false).as_deref(), Some("plunge"));
     }
 
-    /// **The posture comes from the SLOT, not from what the fighter set.**
+    /// The posture comes from the SLOT, not from what the fighter set.
     ///
     /// the fixture hands every slot a `grounded: Some(true)` spec — the gate that would be wrong
     /// for eleven of the sixteen.
@@ -521,7 +521,7 @@ mod tests {
         assert_eq!(gate("dspecial"), None);
     }
 
-    /// **An abstaining neutral-B binds nothing**, so the body's derived move
+    /// An abstaining neutral-B binds nothing, so the body's derived move
     /// keeps the press instead of being overlaid by an authored one.
     #[test]
     fn abstaining_from_the_neutral_special_binds_nothing() {
@@ -536,7 +536,7 @@ mod tests {
         assert_eq!(set.verbs.len(), 20);
     }
 
-    /// **Two slots cannot share a move id.** The one integrity defect this shape
+    /// Two slots cannot share a move id. The one integrity defect this shape
     /// cannot rule out by construction, so it is named at preparation time.
     #[test]
     #[should_panic(expected = "were both given the move id")]
@@ -562,9 +562,9 @@ mod taunt_slot_tests {
         )
     }
 
-    /// **THE TAUNT REACHES THE CONTRACT, GROUNDED, UNDER ITS OWN VERB.**
+    /// THE TAUNT REACHES THE CONTRACT, GROUNDED, UNDER ITS OWN VERB.
     ///
-    /// ⛔ the two halves that matter: a taunt bound to no verb is a button that
+    ///  the two halves that matter: a taunt bound to no verb is a button that
     /// does nothing, and a taunt left ungated answers an AIRBORNE press, which
     /// would make a fighter stop dead in mid-air.
     #[test]
@@ -582,7 +582,7 @@ mod taunt_slot_tests {
         assert_eq!(spec.gates.grounded, Some(true));
     }
 
-    /// **A TAUNT THREATENS NOBODY, AND IT COSTS YOU THE FLOOR.**
+    /// A TAUNT THREATENS NOBODY, AND IT COSTS YOU THE FLOOR.
     #[test]
     fn an_authored_taunt_has_no_volume_and_roots_the_body() {
         let spec = crate::moveset_authoring::taunt("t", 0.9);

@@ -14,7 +14,7 @@
 // the first, so every mob here wore its own instance id as a costume, no sheet
 // resolved, and the whole encounter drew unclaimed-body placeholders.
 //
-// ⚠ `character` is checked at COMPILE time against the pack's cast — a
+//  `character` is checked at COMPILE time against the pack's cast — a
 // misspelling is an unresolved reference, not a magenta box discovered by
 // walking into the room.
 {
@@ -31,7 +31,7 @@
             mobs: [
                 (kind: "medium_striker", character: Some("goblin"), spawn: (1180.0, 580.0), size: (22.0, 38.0), delay: 0.0),
                 (kind: "medium_striker", character: Some("goblin"), spawn: (1500.0, 580.0), size: (22.0, 38.0), delay: 0.70),
-                // ⚠ `character: None` — deliberate, not an oversight. No catalog
+                //  `character: None` — deliberate, not an oversight. No catalog
                 // row is the goblin lab's heavy: `npc_hand_saint` and
                 // `npc_ninja_heavy` carry the matching `melee_brute_brute` brain
                 // but neither belongs in a goblin cave. Casting one is a content

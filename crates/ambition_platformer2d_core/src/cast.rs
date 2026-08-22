@@ -4,24 +4,24 @@
 //! the continuous swept path `pos → pos + vel·dt`, never sampled endpoints.
 //!
 //! What lives here / is surfaced here:
-//! - **Swept AABB vs AABB** — [`AabbExt::sweep_hit`] (Parry-backed), the base
+//! - Swept AABB vs AABB — [`AabbExt::sweep_hit`] (Parry-backed), the base
 //!   solid-contact primitive both movement kernels share.
-//! - **Swept AABB vs the composed world** — [`body_sweep`], the earliest
+//! - Swept AABB vs the composed world — [`body_sweep`], the earliest
 //!   predicate-filtered block hit for a body moving by `delta`. THE body-vs-world
 //!   entry (player movement solids, blink blockers, one-way landing tests, spawn
 //!   blockers, enemy collision all ask it their own question via the predicate).
 //!
-//! - **Segment ray vs the solid world** — [`raycast_solids`] over the narrow
+//! - Segment ray vs the solid world — [`raycast_solids`] over the narrow
 //!   [`SolidWorldQuery`] seam, and the underlying [`ray_aabb`] slab query
 //!   (moved down from `ambition_platformer2d_shared_tangle` per the CC1 ruling —
 //!   docs/concepts/movement-collision.md).
 //!
 //! Deliberately NOT absorbed (ruled, docs/concepts/movement-collision.md): the
-//! **swept-circle** primitive (`first_circle_hit`) is load-bearing interior of
+//! swept-circle primitive (`first_circle_hit`) is load-bearing interior of
 //! the momentum kernel (`SurfaceChain` / `resolve_surface` intimacy, on the
 //! no-pushout/OOB path) and stays kernel-private in [`crate::movement::surface_momentum`]; a
 //! public swept-circle query is minted here only when a consumer outside the
-//! kernel lands. The **portal-aware** cast rides CC5's aperture vocabulary
+//! kernel lands. The portal-aware cast rides CC5's aperture vocabulary
 //! ([`crate::frame`]).
 //!
 //! CC2 (the trigger-sweep audit) converts discrete path-dependent readers to

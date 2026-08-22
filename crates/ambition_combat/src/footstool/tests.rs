@@ -106,7 +106,7 @@ fn claimed(app: &App, entity: Entity) -> bool {
         .footstool_claimed
 }
 
-/// **A PRESSED JUMP ON A HEAD CLAIMS THE PRESS AND BURIES THE STOMPED.**
+/// A PRESSED JUMP ON A HEAD CLAIMS THE PRESS AND BURIES THE STOMPED.
 ///
 /// both halves, because either alone is a different mechanic: a claim with no
 /// shove is a free extra jump, and a shove with no claim is a spike you deliver
@@ -156,17 +156,17 @@ fn a_footstool_claims_the_press_and_drives_the_stomped_down() {
     );
 }
 
-/// **A CLAIM THE KERNEL NEVER SPENT IS GONE BY THE NEXT TICK.**
+/// A CLAIM THE KERNEL NEVER SPENT IS GONE BY THE NEXT TICK.
 ///
-/// **`footstool_claimed` means "THIS tick's jump edge was claimed", and
-/// nothing but this clear makes that true.** The kernel spends the claim inside
+/// `footstool_claimed` means "THIS tick's jump edge was claimed", and
+/// nothing but this clear makes that true. The kernel spends the claim inside
 /// its footstool branch — and that branch is not first. A wall jump, a ground
 /// jump, a coyote jump, a ladder jump and the one-way drop-through all resolve
 /// the same press ahead of it, so a body that qualified for a footstool and
 /// whose press went to a wall jump instead KEPT the claim, and the next airborne
 /// press spent it over empty air: a free jump nobody stood on.
 ///
-/// **the second half is the poison and the test is worthless without it.** A
+/// the second half is the poison and the test is worthless without it. A
 /// clear that ran unconditionally after arbitration — or one that erased the
 /// claim it had just granted — would satisfy the first assertion perfectly while
 /// deleting the mechanic. The same tick has to do both.
@@ -213,7 +213,7 @@ fn a_claim_the_kernel_never_spent_is_gone_by_the_next_tick() {
     );
 }
 
-/// **A GROUNDED VICTIM FLINCHES; IT IS NOT SHOVED AND IT DOES NOT TUMBLE.**
+/// A GROUNDED VICTIM FLINCHES; IT IS NOT SHOVED AND IT DOES NOT TUMBLE.
 ///
 /// A body standing on a floor has nowhere to be driven, and Ultimate's grounded footstool is a
 /// brief beat you follow up on, which is a different mechanic from the airborne tumble above
@@ -255,7 +255,7 @@ fn a_grounded_victim_flinches_instead_of_tumbling() {
     );
 }
 
-/// **A BODY THAT NEVER TUMBLES STILL OWES THE SHOVE A BEAT.**
+/// A BODY THAT NEVER TUMBLES STILL OWES THE SHOVE A BEAT.
 ///
 /// `tumble_speed` is `0.0` for every body in Ambition, so without this
 /// fallback an airborne victim there would be shoved with no lock at all — the
@@ -293,7 +293,7 @@ fn an_airborne_victim_that_cannot_tumble_takes_the_flinch() {
     );
 }
 
-/// **WITHOUT THE PRESS IT IS JUST TWO BODIES IN THE SAME PLACE.**
+/// WITHOUT THE PRESS IT IS JUST TWO BODIES IN THE SAME PLACE.
 #[test]
 fn standing_over_somebody_without_pressing_jump_does_nothing() {
     let mut app = app();
@@ -316,7 +316,7 @@ fn standing_over_somebody_without_pressing_jump_does_nothing() {
     assert_eq!(fall_of(&app, victim), 120.0, "an unpressed frame shoved");
 }
 
-/// **A BODY WHOSE RULES ARE `OFF` IS NOT A PLATFORM, AT EITHER END.**
+/// A BODY WHOSE RULES ARE `OFF` IS NOT A PLATFORM, AT EITHER END.
 ///
 /// this is the floor that keeps the exploration game unchanged: every body in
 /// it carries the default tuning, and a footstool that ignored it would make
@@ -345,7 +345,7 @@ fn a_body_with_no_footstool_rules_cannot_be_stood_on() {
     assert_eq!(fall_of(&app, victim), 120.0, "an OFF head was shoved");
 }
 
-/// **ONE HEAD, ONE FOOTSTOOL PER TICK.**
+/// ONE HEAD, ONE FOOTSTOOL PER TICK.
 ///
 /// Two bodies over one victim must not both claim a press off it, and the one
 /// that gets it must be the same one on a resimulation — which is why the pairs
@@ -381,7 +381,7 @@ fn a_head_is_spent_by_the_first_body_to_stand_on_it() {
     );
 }
 
-/// **ONE PRESS, ONE FOOTSTOOL — even standing over two heads.**
+/// ONE PRESS, ONE FOOTSTOOL — even standing over two heads.
 ///
 /// An accepted pair spends both ends.
 #[test]
@@ -412,7 +412,7 @@ fn a_stomper_over_two_heads_takes_exactly_one_of_them() {
     );
 }
 
-/// **THE PHANTOM FOOTSTOOL: A COMMITTED VICTIM FOLLOWS THROUGH.**
+/// THE PHANTOM FOOTSTOOL: A COMMITTED VICTIM FOLLOWS THROUGH.
 ///
 /// both halves, and the pair of them is the whole rule: the stomper still
 /// gets the bounce (that is what the technique is FOR — farming height off a
@@ -467,7 +467,7 @@ fn swing() -> crate::AttackSpec {
     }
 }
 
-/// **A TEAMMATE IS NOT A PLATFORM UNTIL THE MATCH SAYS SO.**
+/// A TEAMMATE IS NOT A PLATFORM UNTIL THE MATCH SAYS SO.
 #[test]
 fn a_teammate_cannot_be_stood_on_while_team_attack_is_off() {
     let mut app = app();
@@ -488,7 +488,7 @@ fn a_teammate_cannot_be_stood_on_while_team_attack_is_off() {
     assert_eq!(fall_of(&app, victim), 120.0, "a teammate was shoved");
 }
 
-/// **AND TEAM ATTACK FREES IT**, so the test above measures the POLICY rather
+/// AND TEAM ATTACK FREES IT, so the test above measures the POLICY rather
 /// than the absence of one.
 #[test]
 fn team_attack_lets_a_teammate_be_stood_on() {
@@ -518,7 +518,7 @@ fn team_attack_lets_a_teammate_be_stood_on() {
     assert_eq!(fall_of(&app, victim), rules.press_speed);
 }
 
-/// **TWO BODIES UNDER DIFFERENT GRAVITY HAVE NO SHARED "HEAD".**
+/// TWO BODIES UNDER DIFFERENT GRAVITY HAVE NO SHARED "HEAD".
 ///
 /// the first version read the VICTIM's box in the STOMPER's frame, so under
 /// mixed gravity it judged a head that the victim does not have. Refused, rather

@@ -41,7 +41,7 @@ impl SnapshotState for crate::components::ActiveCombatant {
     }
 }
 
-// **The death interlude and its state** (ADR 0033). Both are authoritative sim
+// The death interlude and its state (ADR 0033). Both are authoritative sim
 // state and both CHANGE during a run, so a rewind that restored neither would
 // resimulate with a body that has died in a branch it has not died in yet — or
 // worse, put a live body back into a level reset that no longer has a cause.
@@ -123,7 +123,7 @@ impl SnapshotState for crate::components::BodyEnvelope {
 /// `retire_orphaned_strike_volumes` re-checks that against the live world every
 /// frame, so a restored slot naming a dead entity is dropped and respawned.
 ///
-/// **and `hit_targets` is in the CHECKSUM now.** The restore always carried it;
+/// and `hit_targets` is in the CHECKSUM now. The restore always carried it;
 /// the projection did not, so two peers could disagree about which target a
 /// multi-tick strike had already hit and still agree on the hash — a divergence
 /// that surfaces later as different damage and SFX. Sorted before hashing because
@@ -145,7 +145,7 @@ impl SnapshotResolve for crate::moveset::MovePlayback {
         for target in targets {
             put_str(out, target);
         }
-        // **the AIM is state, so it is checksummed** — added in the same change
+        // the AIM is state, so it is checksummed — added in the same change
         // that started carrying it. Two peers whose in-flight move disagrees
         // about the direction it will fire have diverged, and the shot it
         // produces later is the visible consequence. The POLICY is part of the
@@ -357,7 +357,7 @@ fn read_attack_spec(r: &mut Reader<'_>) -> Option<crate::AttackSpec> {
     })
 }
 
-/// **The stale ring, by hand, because `snapshot_pod!` cannot spell an array.**
+/// The stale ring, by hand, because `snapshot_pod!` cannot spell an array.
 ///
 /// That macro maps a field to a READER METHOD, and there is none for `[u32; 9]`.
 /// Written out rather than flattened into nine named fields so the ring stays a

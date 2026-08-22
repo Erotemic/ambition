@@ -5,7 +5,7 @@
 use super::*;
 use ambition_platformer2d::combat::death_rules::DeathInterlude;
 
-/// **The death track is DECLARED, not just requested.**
+/// The death track is DECLARED, not just requested.
 ///
 /// Under provider-relative playback a session plays only the tracks its own
 /// audio fragment names, so asking for an undeclared id is gated to silence —
@@ -32,7 +32,7 @@ fn the_death_track_is_authorized_by_the_provider_fragment() {
     );
 }
 
-/// **She states the dwell the music was written for.**
+/// She states the dwell the music was written for.
 ///
 /// The number itself is sized by the score (see [`DEATH_DWELL`]), and the
 /// declaration is how the engine learns it. A demo that stated no rules would

@@ -38,7 +38,7 @@ const fn slot(button: GamepadButton, action: Platformer2dInputActionMonolith) ->
 /// Which game/mode layout a seat's pad is arranged for.
 ///
 /// A fact about the GAME, not about the player and not about the pad hardware.
-/// ⛔ **it is NOT [`crate::settings::ControllerProfileId`]** — that one is
+///  it is NOT [`crate::settings::ControllerProfileId`] — that one is
 /// HARDWARE CALIBRATION (deadzones, trigger thresholds per pad brand) and is a
 /// different axis entirely. A Steam Controller playing smash needs both.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -49,7 +49,7 @@ pub enum BindingLayout {
     Smash,
 }
 
-/// | DPadUp / DPadDown | **Taunt** | Move | **Movement is stick-only in a fighter**, which is what the genre does and what frees a button for a taunt. |
+/// | DPadUp / DPadDown | Taunt | Move | Movement is stick-only in a fighter, which is what the genre does and what frees a button for a taunt. |
 ///
 /// Everything the table does not name is the base preset's: RightTrigger still
 /// shields and interacts, RightTrigger2 still fires the burst, the sticks,
@@ -66,7 +66,7 @@ const SMASH_PAD: &[PadSlot] = &[
         Platformer2dInputActionMonolith::Special,
     ),
     slot(GamepadButton::North, Platformer2dInputActionMonolith::Grab),
-    // ⭐ **the D-pad taunts, because a fighting game moves on the STICK.** That
+    //  the D-pad taunts, because a fighting game moves on the STICK. That
     // is the genre's own layout; the base preset's `DPad → Move` is what a
     // platform fighter gives up to get a taunt button at all.
     slot(GamepadButton::DPadUp, Platformer2dInputActionMonolith::Taunt),
@@ -119,7 +119,7 @@ impl BindingLayout {
 
 /// Take `button` away from every GAMEPLAY action that binds it.
 ///
-/// ⛔ **not `clear_action`**, which would drop the action's KEYBOARD half too —
+///  not `clear_action`, which would drop the action's KEYBOARD half too —
 /// a layout re-arranges a pad and must not silently unbind somebody's keys.
 /// The removal is by BUTTON, through the same `PhysicalControl` projection a
 /// prompt reads, so "what this layout displaced" is by construction what the
@@ -154,7 +154,7 @@ fn clear_gameplay_bindings_of(
     }
 }
 
-/// **What a game asks its pad to mean.** Present means a mode has declared a
+/// What a game asks its pad to mean. Present means a mode has declared a
 /// layout; absent means [`BindingLayout::Standard`] — the base preset speaking
 /// for itself, which is Ambition's answer.
 ///
@@ -164,7 +164,7 @@ fn clear_gameplay_bindings_of(
 /// just the primary, unlike the keyboard-preset sync beside it: a preset is one
 /// person's taste, a layout is the mode's.
 ///
-/// ⭐ **DECLARE, don't edit.** The alternative — teaching `insert_gamepad_bindings` about smash
+///  DECLARE, don't edit. The alternative — teaching `insert_gamepad_bindings` about smash
 /// — would make one game's taste every game's default, and the rule is the opposite: *"B=jump
 /// is the way I like my smash controller, it's probably non standard."* A=Jump stays right for
 /// Ambition, and it stays right by the smash layout never touching it.
@@ -200,12 +200,12 @@ impl DeclaredBindingLayout {
 /// the glyphs, the touch overlay's `Changed<InputMap>` hook re-binds), and
 /// there is no second path that could disagree with the first.
 ///
-/// ⚠ **must run AFTER the settings→recipe sync and BEFORE the rebuild.** The
+///  must run AFTER the settings→recipe sync and BEFORE the rebuild. The
 /// settings sync rewrites the primary's whole recipe from the persisted preset;
 /// it carries the current layout forward for exactly this reason, and the
 /// ordering is the belt to that suspenders.
 ///
-/// ⚠ **and the absent case is LIVE, not a no-op.** Removing the declaration on
+///  and the absent case is LIVE, not a no-op. Removing the declaration on
 /// the way out of a mode is how the pad goes back to normal — a system that
 /// only acted when a declaration existed would leave B jumping in Ambition
 /// forever after one smash match.
@@ -256,7 +256,7 @@ mod tests {
         map
     }
 
-    /// ⭐ **the permutation, stated as "one button, one verb".**
+    ///  the permutation, stated as "one button, one verb".
     #[test]
     fn every_button_the_smash_layout_claims_drives_exactly_one_verb() {
         let map = smash_pad();
@@ -355,7 +355,7 @@ mod tests {
         }
     }
 
-    /// ⭐ **THE RULING: this is a profile, not a new default.**
+    ///  THE RULING: this is a profile, not a new default.
     ///
     /// Applying the smash layout to one map must not move Ambition's pad. If
     /// this ever goes red, somebody edited the shared preset instead of adding

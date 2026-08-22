@@ -1,70 +1,12 @@
-//! **FB2 — L2, the option generator and utility scorer.**
+//! Pure fighter option generation and utility scoring.
 //!
-//! `docs/planning/engine/fighter-brain.md` §1:
+//! Inputs are the allowed [`Perceived`] view, the body's own moveset/capabilities, and
+//! difficulty-specific [`UtilityWeights`]. Movement options come from body capabilities; attack
+//! options come from frame data. Utility features cover 2-D reach fit, frame advantage, victim
+//! damage/kill potential, stage risk, and normalized expected payoff.
 //!
-//! > *"L2 — Option generator + utility scorer: per state, enumerate legal options
-//! > from DATA — movement verbs from the body's capability mask, and attacks from
-//! > the frame-data table (CM7 …) — the brain knows its moveset the way a player
-//! > who read the frame data does, and automatically understands any NEW character
-//! > it's put in. Score = authored utility features (range vs. option reach, frame
-//! > advantage, kill potential at victim's damage meter, stage position risk) with
-//! > per-difficulty weights."*
-//!
-//! Pure. Every input is the [`Perceived`] view the no-cheat contract allows, plus the
-//! body's own kit and its difficulty's [`UtilityWeights`].
-//!
-//! ## The four features, and why each is a fact about the VIEW
-//!
-//! - **`reach_fit`** — can this attack's hittable REGION cover where the
-//!   opponent actually is? A jab at three body-lengths scores nothing, and
-//!   neither does an up-tilt against someone standing in front of you. This is
-//!   what makes the brain *understand a new character*: the region comes from
-//!   CM7's frame data (`MoveFrameData::coverage`), not from a table someone
-//!   typed. the WEIGHT keeps the name `reach_fit` because ladders author it by
-//!   that name; what changed is that both terms are 2-D — see [`coverage_fit`].
-//! - **`frame_advantage`** — will this attack's `startup_s` beat what the opponent
-//!   is already committed to (`phase_remaining`)? Positive means it lands first.
-//!   A player who read the frame data knows this number; so does the brain.
-//! - **`kill_potential`** — the victim's `damage_frac`. In a smash-percent game a
-//!   move's value is not its damage but who it can end.
-//! - **`stage_risk`** — how little stage is behind ME. Committing to a long
-//!   recovery near a blastzone is how a level-9 CPU dies to a level-3 one.
-//!
-//! ## What is NOT here
-//!
-//! **The weights are not tuned.** §FB6: *"Scoring weights are NOT divined up
-//! front: v1 weights are authored starting values, then FB4's ladder self-play
-//! monotonicity gate is the calibration instrument (adjust until levels order
-//! correctly)."* [`UtilityWeights::v1`] is that starting value, and it is a
-//! starting value, not a claim.
-//!
-//! **The decision cadence is not here.** §5: *"rebuilt per decision tick (not per
-//! frame — decide at ~10–20 Hz gated by reaction latency, hold intents between
-//! decisions)."* The latency lives on `FighterBrainProfile.reaction_ms`, which is
-//! FB4's; L2 is a pure function that a decision tick calls.
-//!
-//! ## The gap in §1's four features — found by FB2, CLOSED by FB6a
-//!
-//! FB2 found that **none of the original four features read a move's POWER**:
-//! `kill_potential` is the *victim's* meter; `reach_fit` and `frame_advantage`
-//! are geometry and timing; `stage_risk` is about me. At any weights, given a
-//! punish window both a jab and a smash fit, the jab won — faster, so more
-//! frame advantage, and nothing priced the smash's payoff. A level-9 CPU that
-//! always jabs its punishes is not a level-9 CPU. It was recorded rather than
-//! patched, because §FB6 makes FB4's ladder the calibration instrument.
-//!
-//! FB6a took the recorded route (1): [`MoveFrameData`] now carries
-//! `max_damage`/`max_knockback` (derived over the Active volumes exactly like
-//! `reach`), and the fifth feature is
-//! **`expected_payoff` = (this move's `max_damage` ÷ the kit's strongest
-//! `max_damage`) × landing chance**, where the landing chance is the positive
-//! part of `frame_advantage`. In neutral (nobody committed) every payoff is
-//! zero and the original four decide; in a punish window the smash finally
-//! outbids the jab it out-damages — which is the exact scenario FB2 recorded.
-//! Power is normalized within the KIT so the feature is scale-free across
-//! characters, per the same reasoning that lets the brain understand a
-//! character nobody wrote a table for. The WEIGHT remains a v1 starting value;
-//! the ladder still calibrates it.
+//! Decision cadence and calibration live outside this module. The weights here are starting
+//! values; ladder evaluation owns tuning.
 
 use ambition_entity_catalog::MoveFrameData;
 use ambition_platformer2d_core as ae;
@@ -85,7 +27,7 @@ pub enum MovementVerb {
     Retreat,
     Jump,
     Dash,
-    /// **The evade** — a ground roll when the feet are down, an air dodge when
+    /// The evade — a ground roll when the feet are down, an air dodge when
     /// they are not. Shares the dash BUTTON with [`Self::Dash`] and is never
     /// offered beside it: the body resolves one press to one maneuver, and which
     /// one is settled by whether it owns the dodge ability.
@@ -129,7 +71,7 @@ pub struct Features {
     pub frame_advantage: f32,
     /// `0..=1`. The victim's accumulated damage fraction.
     pub kill_potential: f32,
-    /// `0..=1`. 1 when I am against a blastzone. **Costed, not rewarded** — its
+    /// `0..=1`. 1 when I am against a blastzone. Costed, not rewarded — its
     /// weight is negative in [`UtilityWeights::v1`].
     pub stage_risk: f32,
     /// `0..=1`. The move's power (its `max_damage` over the kit's strongest),
@@ -137,7 +79,7 @@ pub struct Features {
     /// when the move plausibly lands. Zero across the board in neutral, so the
     /// original four features decide there (FB6a).
     pub expected_payoff: f32,
-    /// `0..=1`. **What HOLDING this opponent is worth right now** — zero for
+    /// `0..=1`. What HOLDING this opponent is worth right now — zero for
     /// every move that is not a capture. See [`capture_value`].
     ///
     /// A shielding opponent therefore reports zero commitment, every startup is a gamble,
@@ -170,8 +112,8 @@ pub struct UtilityWeights {
     pub expected_payoff: f32,
     /// Prices what a HOLD is worth ( policy half). Positive.
     ///
-    /// **`serde(default)` because the authored profiles are RON-in-Rust
-    /// literals** (`brain_builders.rs`, the fighter content schema's tests) that
+    /// `serde(default)` because the authored profiles are RON-in-Rust
+    /// literals (`brain_builders.rs`, the fighter content schema's tests) that
     /// spell all five of the older weights and cannot spell this one. Without a
     /// default they would fail to parse; with it they keep their meaning and
     /// take the tuned value. that is also the hazard — a literal that MEANT
@@ -187,7 +129,7 @@ fn default_capture_value_weight() -> f32 {
 }
 
 impl UtilityWeights {
-    /// **v1 starting values, not tuned.** FB4's ladder self-play monotonicity gate
+    /// v1 starting values, not tuned. FB4's ladder self-play monotonicity gate
     /// is the calibration instrument (§FB6). Reach dominates because an attack
     /// that cannot touch the opponent has no other virtue.
     pub fn v1() -> Self {
@@ -197,7 +139,7 @@ impl UtilityWeights {
             kill_potential: 0.4,
             stage_risk: -0.8,
             expected_payoff: 0.5,
-            // **a v1 starting value like its neighbours, not a tuned one.**
+            // a v1 starting value like its neighbours, not a tuned one.
             // Sized deliberately BELOW `reach_fit`'s 1.0 so that no amount of
             // hold value can buy a grab thrown from outside its own reach —
             // which is the exact failure the reverted "a grab is worth its
@@ -213,7 +155,7 @@ impl Default for UtilityWeights {
     }
 }
 
-/// **How a chosen attack is actually PRESSED.**
+/// How a chosen attack is actually PRESSED.
 ///
 /// L2 scored every move in the kit, L3 refined the choice, `RefinedChoice::move_id` named a
 /// concrete move — and the emission set `melee_pressed = true` with a neutral axis, so
@@ -244,7 +186,7 @@ pub enum AttackVerb {
     Special,
     /// The GRAB button (`"grab"`).
     ///
-    /// **no directional variants, and a CENTRED stick.** A grab is a button,
+    /// no directional variants, and a CENTRED stick. A grab is a button,
     /// not a stick gesture — a deflection beside it would arm a flick the next
     /// ordinary attack would inherit as an accidental smash.
     Grab,
@@ -262,24 +204,24 @@ pub struct AttackCandidate {
     pub move_id: String,
     pub frames: MoveFrameData,
     pub binding: AttackBinding,
-    /// **Whether the BODY can begin this move on this tick** — see
+    /// Whether the BODY can begin this move on this tick — see
     /// [`ActionLegality`]. Supplied by the caller, which is the only layer that
     /// can see the running `MovePlayback`.
     pub legality: ActionLegality,
 }
 
-/// **CAN this action begin right now?** — a question about the BODY's state,
+/// CAN this action begin right now? — a question about the BODY's state,
 /// kept deliberately separate from *how useful would it be*, which is the
 /// scorer's ([`Features`]) subject.
 ///
-/// **it is a FILTER, never a weight.** A cheap move that cannot be started is
+/// it is a FILTER, never a weight. A cheap move that cannot be started is
 /// not a slightly worse option than one that can — it is not an option. Pricing
 /// it low would leave it winning whenever the kit is bad, which is exactly how
 /// the "an attack that cannot REACH is not an option" filter came to exist one
 /// class over.
 ///
-/// **the third state is deliberately absent and named here so it is not
-/// invented twice.** Once `BodyActionBuffer` is actually fed, a press that
+/// the third state is deliberately absent and named here so it is not
+/// invented twice. Once `BodyActionBuffer` is actually fed, a press that
 /// cannot execute *now* but would be consumed on the first actionable frame
 /// becomes `BufferableSoon`, and the brain may legitimately issue it. Until
 /// then, "legal eventually" must not read as "press now".
@@ -322,49 +264,17 @@ impl OptionSet {
 /// would let a big negative reach_fit be bought back by kill potential.
 const REACH_TOLERANCE: f32 = 2.0;
 
-/// **Which of these moves COMMAND A DISPLACEMENT with an against-gravity
-/// component**, strongest rise first, ties on the move id.
+/// Candidate self-displacement routes with positive against-gravity speed.
 ///
-/// **a list of CANDIDATE ROUTES — proposals — and nothing more.** Each entry
-/// is a move whose authored `Set` impulse would move its owner, in the catalog's
-/// derived terms (`lift_speed` up, `lift_side` along facing). So a route is
-/// recognised by what the move does to the BODY, exactly the way `reach`
-/// recognises a poke and `max_damage` recognises a kill move.
+/// Candidates are sorted by lift speed then move id for deterministic bounded
+/// probing; [`RecoveryLens::best_route`](super::recovery::RecoveryLens::best_route)
+/// decides usefulness from current world state. Legality/posture filtering is
+/// upstream.
 ///
-/// A fighter whose way home is a grapple that trades its energy for lateral distance advertises a
-/// SMALL rise, so any stall-and-juggle aerial in the same kit sorts above it here. Taking
-/// `.first()` as "the recovery" then hands the search a move that goes nowhere and never explores
-/// the one that works. Which route is useful depends on where the body IS, and the only authority
-/// on that is the movement kernel —
-/// [`RecoveryLens::best_route`](super::recovery::RecoveryLens::best_route) asks it, over this whole
-/// list, in this order.
-///
-/// so the sort exists for DETERMINISM (ADR 0023) and for the search's cut at
-/// [`MAX_PROBED_ROUTES`](super::recovery::MAX_PROBED_ROUTES) — a stable prefix,
-/// never a claim.
-///
-/// **A NAMED, OPEN GAP: A PURELY HORIZONTAL DISPLACEMENT IS INVISIBLE HERE.**
-/// The filter is `lift_speed > 0`, and a move that commands `Set (760, 0)` has
-/// none — so a body whose way home is a flat charge is never proposed as having
-/// one. This is not hypothetical: `smash_george_booul`'s `modus_ponens` is
-/// described in its own authoring comment as *"a real horizontal recovery"* and
-/// this function cannot see it.
-///
-/// That is a decision about search cost — it belongs with [`MAX_PROBED_ROUTES`] and wants a
-/// measurement, not another predicate. Recorded rather than half-built.
-///
-/// **no character conditional, and no role taxonomy.** There is no list of
-/// which body's special is the Up-B, and there is deliberately no `MoveRole`
-/// enum: the day a second body authors a displacing move it is understood here
-/// for free, and the day a body authors none this returns empty and the brain
-/// plays exactly as it did before.
-///
-/// **the POSTURE filter is upstream and load-bearing.** The kit is built for
-/// the body's real grounded state, so an airborne body's kit already contains
-/// only airborne-legal moves — which is why nothing here has to ask whether a
-/// grounded-only move could be pressed off the stage.
+/// TODO(recovery-search): measure whether bounded probing should also include
+/// purely horizontal displacement routes.
 pub fn lifting_candidates(kit: &[AttackCandidate]) -> Vec<&AttackCandidate> {
-    // **legality applies here too, and it is the same rule.** A body past the
+    // legality applies here too, and it is the same rule. A body past the
     // blastzone has one problem, but a lifting move it cannot BEGIN does not
     // solve it — offering one would make `Recovery` name a route the press
     // cannot take, which is the failure this filter exists to stop one layer up.
@@ -382,7 +292,7 @@ pub fn lifting_candidates(kit: &[AttackCandidate]) -> Vec<&AttackCandidate> {
     lifts
 }
 
-/// **L2.** Enumerate and score every legal option for this tick.
+/// L2. Enumerate and score every legal option for this tick.
 ///
 /// `situation` is L1's answer, passed in rather than recomputed: the two layers
 /// must agree about the tick, and a second `classify` call on a delayed view could
@@ -404,8 +314,8 @@ pub fn generate_options(
     sort_by_score_then_name(&mut movement, |m| (m.score, verb_order(m.verb)));
 
     if situation == Situation::Recovery {
-        // **THE ONE ATTACK A RECOVERING BODY MAY THROW IS THE ONE THAT LIFTS
-        // IT.**
+        // THE ONE ATTACK A RECOVERING BODY MAY THROW IS THE ONE THAT LIFTS
+        // IT.
         //
         // scored on LIFT ALONE, deliberately. Reach, frame advantage and
         // payoff are questions about an opponent, and a recovering body is not
@@ -413,7 +323,7 @@ pub fn generate_options(
         // wrong instrument here, and borrowing it would price a way home by how
         // hard it hits.
         //
-        // **AND THIS ORDER IS A PROPOSAL, NOT THE ANSWER.** L2 is pure: it
+        // AND THIS ORDER IS A PROPOSAL, NOT THE ANSWER. L2 is pure: it
         // has no world, no kernel and no idea where the body will be, so the
         // most it can say is *"these are the moves that displace me, biggest
         // rise first."* The DECISION overrides this with the route the recovery
@@ -422,7 +332,7 @@ pub fn generate_options(
         // this function cannot ask one. If a caller ever takes `.first()` here
         // as the recovery, the tiny-rising-aerial trap is back.
         //
-        // **the caller that did exactly that is GONE.** `decide`
+        // the caller that did exactly that is GONE. `decide`
         // fell through to `options.attacks.first()` whenever the search endorsed
         // nothing, which on the smash stage was 97 of 100 recovery decisions; it
         // now presses NOTHING on that branch, so the kernel's answer stands in
@@ -430,7 +340,7 @@ pub fn generate_options(
         // prose. the warning above is kept because it is about the NEXT
         // caller, not the last one.
         //
-        // **and it is the ORDER the lens searches**, so the two layers agree
+        // and it is the ORDER the lens searches, so the two layers agree
         // about which route index means which move.
         let mut attacks: Vec<AttackOption> = lifts
             .into_iter()
@@ -459,7 +369,7 @@ pub fn generate_options(
     }
     let foe = foe.expect("checked");
 
-    // **WHERE THE OPPONENT IS, not merely how far away.** This was
+    // WHERE THE OPPONENT IS, not merely how far away. This was
     // `let gap = (foe.pos - me.pos).length()`, and throwing the direction away is
     // the whole of why no kit's vertical game was ever selected — see
     // [`coverage_fit`].
@@ -496,14 +406,14 @@ pub fn generate_options(
     let kit_max_damage = kit.iter().map(|c| c.frames.max_damage).max().unwrap_or(0);
     let mut attacks: Vec<AttackOption> = kit
         .iter()
-        // **AN ATTACK THE BODY CANNOT BEGIN IS NOT AN OPTION.** (measured
+        // AN ATTACK THE BODY CANNOT BEGIN IS NOT AN OPTION. (measured
         // ) Sibling to the "cannot reach" filter below, and the other
         // half of the same sentence: that one refuses a move that cannot touch
         // the opponent, this refuses one the BODY cannot start. `capture_probe`
         // measured 33 of 54 CPU grab presses issued while a smash already owned
         // the body, every one dropped by `trigger_moveset_moves`.
         //
-        // **filtered here rather than scored low**, and rather than filtered
+        // filtered here rather than scored low, and rather than filtered
         // after scoring: `attacks.first()` always answers, so an impossible move
         // priced low still wins whenever the rest of the kit prices worse — and
         // an option that cannot happen should never have become an option.
@@ -544,7 +454,7 @@ pub fn generate_options(
             }
         })
         .collect();
-    // **AN ATTACK THAT CANNOT REACH IS NOT AN OPTION.**
+    // AN ATTACK THAT CANNOT REACH IS NOT AN OPTION.
     //
     // `reach_fit` priced a hopeless swing at zero and left it in the list, and
     // the consumer takes `attacks.first()` whenever L3 names nothing — so a
@@ -552,15 +462,15 @@ pub fn generate_options(
     // Each press costs `SLASH_RECOIL` (110 px/s) BACKWARDS along its facing, and
     // in the air almost nothing bleeds that off, so the presses ratchet: the
     // `ladder_probe` trace reads 200, 310, 420, 530 px/s in exactly 110 steps
-    // while the brain's own emitted input points the other way. **The fighter
-    // swung itself off the stage, backwards, one whiff at a time.**
+    // while the brain's own emitted input points the other way. The fighter
+    // swung itself off the stage, backwards, one whiff at a time.
     //
     // Scoring it low was never going to be enough: the list is never empty, so
     // `first()` always answers. Not offering it is the fix — and it is what the
     // feature's own doc already says, that a miss by a mile and a miss by two are
     // equally useless.
     //
-    // **a move that lands NO volume is NOT filtered.** `coverage_fit` returns 0
+    // a move that lands NO volume is NOT filtered. `coverage_fit` returns 0
     // for a buff or a summon because hitting is not its question; dropping those
     // would delete a whole class of move from every kit that has one. Only a move
     // that HAS a hittable region and cannot cover where the foe is goes.
@@ -579,39 +489,11 @@ pub fn generate_options(
     OptionSet { movement, attacks }
 }
 
-/// **`1` when this move's hittable region already covers the opponent**, falling
-/// to `0` as the miss grows past [`REACH_TOLERANCE`] × the region's own span. A
-/// move that lands no volume (a buff, a summon, a pure-motion recovery) has no
-/// fit anywhere and must be priced by its other features alone.
+/// Score how well a move's authored hittable region covers the opponent.
 ///
-/// **this replaces a 1-D `reach_fit(reach, gap)` and the difference is the
-/// single largest thing measured wrong in the fighter brain** (,
-/// CPU-versus-CPU). `reach` is only the `+x` face of the authored volumes and
-/// `gap` was `(foe.pos - me.pos).length()` — a scalar against a scalar — so:
-///
-/// * an up-tilt whose volume sits above the shoulder projected onto `+x` as a
-///   ~30px poke, scored identically to the jab, and lost the tie on startup.
-///   **Every** anti-air, juggle and spike in **every** kit was therefore unpicked
-///   for the reason it was authored, and the CPU played one plane of a two-plane
-///   game;
-/// * a move BEHIND the body reported `reach = 0` (the fold clamps at zero) and
-///   was exempted from the "cannot reach" filter entirely;
-/// * and the old shape scored a miss the same whether the opponent was that far
-///   AWAY or that far ABOVE.
-///
-/// `foe_local` is the opponent's centre in the body's own facing-relative
-/// frame and `foe_extent` its half-extent, so the question asked is the one the
-/// hitbox will actually answer: *would this volume overlap that hurtbox from
-/// here?* Nothing here reads a move id, a character or a role.
-///
-/// **the CURVE is the old one, unchanged, and that is deliberate.** What
-/// changed is only which `reach` it is asked about: the move's extent along the
-/// line to the opponent rather than along `+x`. So the spacing behaviour a match
-/// already had — different moves winning at different distances, a lunge scoring
-/// badly from touching range — survives intact, and gains the other axis.
-///
-/// George Booul threw `bivalence` 18 times out of 33 and never threw his recovery. A gate that does
-/// not discriminate does not stop being the discriminator; it just delegates to the alphabet.
+/// `foe_local` and `foe_extent` are evaluated in the body's facing-relative 2-D
+/// frame, so vertical, rearward, and forward coverage are distinguished. Moves
+/// with no hittable volume return zero and rely on their other option features.
 pub fn coverage_fit(
     coverage: Option<&ambition_entity_catalog::MoveCoverage>,
     foe_local: (f32, f32),
@@ -631,7 +513,7 @@ pub fn coverage_fit(
 /// asked direction (a buff, a summon, an up-tilt against a foe on the floor
 /// beside you) has no fit and must be priced by its other features alone.
 ///
-/// **1-D on purpose** — it is the shape of the judgement, and
+/// 1-D on purpose — it is the shape of the judgement, and
 /// [`coverage_fit`] owns which direction it is applied along.
 pub fn reach_fit(reach: f32, gap: f32) -> f32 {
     if reach <= 0.0 {
@@ -641,55 +523,18 @@ pub fn reach_fit(reach: f32, gap: f32) -> f32 {
     (1.0 - miss / (reach * REACH_TOLERANCE)).clamp(0.0, 1.0)
 }
 
-/// **WHAT A HOLD IS WORTH — the platform-fighter policy term the damage road
-/// cannot express.**
+/// Context value of acquiring a capture on `foe`, normalized to `[0, 1]`.
 ///
-/// A capture deals NO DAMAGE. `max_damage` is what a move does on contact, so a
-/// grab's power is honestly zero and `expected_payoff` is honestly zero with it.
-/// What a capture actually buys is that the opponent is HELD, and that is worth
-/// a different amount on different ticks — which is why it is a function of the
-/// opponent rather than a constant on the move.
-///
-/// **THE MEASURED MISTAKE THIS REPLACES: pricing the grab at its FOLLOW-UP
-/// THROW's damage.** It reads as obviously right — what is catching somebody
-/// worth, if not the throw? — and `capture_probe` measured what it bought on
-/// the CPU grabbed from **110px with a 42px reach**, nine attempts
-/// in sixty seconds, none of them inside its own range, zero holds. It was
-/// reverted to the honest zero.
-///
-/// ⇒ **the fault was not the size of the number, it was that the number was
-/// UNCONDITIONAL.** A constant payoff makes a grab the best answer to every
-/// situation including the ones it cannot reach. Every term below is zero or
-/// small unless a specific fact about the opponent is true right now.
-///
-/// **the largest term is the guard, and the tree already said so.**
-/// `rollout.rs` writes the triangle down — *"Attack beats grab, grab beats
-/// shield, shield beats attack"* — and the L3 rollout has known it since a
-/// shielding opponent made the whole kit worth zero and the CPU picked by
-/// tie-break. L2 did not know it, and L2 is what `attacks.first()` falls back to
-/// whenever L3 names nothing. This is L2 learning the same fact.
-///
-/// **what is deliberately NOT here: escape risk.** What a hold is worth truly
-/// depends on whether it can be KEPT, and nothing in the view reports how hard
-/// this opponent mashes. Inventing a term for it would be modelling, not
-/// measuring. Stated rather than guessed.
-///
-/// **THE CLAMP IS LOAD-BEARING, and a poison attempt is what showed it.** The return is clamped
-/// to `0..=1`, so no value of [`GRAB_BEATS_GUARD`] or [`THROW_CONVERSION`] can raise a hold's
-/// worth past 1 — raising both tenfold leaves the score unchanged, which is what the first
-/// poison of `a_hold_is_never_worth_a_grab_the_body_cannot_reach` measured when the test stayed
-/// green. ⇒ **the ceiling on how far a hold can buy a grab is the WEIGHT alone**
-/// (`UtilityWeights::capture_value`), and the guard bites when that is raised.
-///
-/// v1 starting values, in the same sense as [`UtilityWeights::v1`] — chosen so
-/// the relationships are right, not tuned. `capture_probe`'s move histogram is
-/// the instrument.
+/// Captures have no damage payoff of their own, so their value comes from current
+/// opponent state. Dead, invulnerable, airborne, or already-hitstunned targets are not
+/// valuable/eligible; guarding and vulnerable commitments increase value. Reach is scored
+/// separately by [`coverage_fit`].
 pub fn capture_value(foe: &PerceivedActor) -> f32 {
     // Nothing to hold, or nothing that can be held.
     if !foe.alive || foe.invulnerable {
         return 0.0;
     }
-    // **a body already reeling is the WRONG grab.** It is in hitstun, so it
+    // a body already reeling is the WRONG grab. It is in hitstun, so it
     // is about to be hit again by anything at all; spending the grab's startup
     // to catch it trades a live combo for a hold. This is also the case where a
     // naive "they cannot answer, so grab" rule would score highest, which is
@@ -697,20 +542,20 @@ pub fn capture_value(foe: &PerceivedActor) -> f32 {
     if matches!(foe.phase, BodyPhase::Hitstun) {
         return 0.0;
     }
-    // **AN AIRBORNE BODY CANNOT BE HELD AT ALL, so a hold on one is worth
-    // exactly nothing.** This is not a preference: `acquire_captures` skips any
+    // AN AIRBORNE BODY CANNOT BE HELD AT ALL, so a hold on one is worth
+    // exactly nothing. This is not a preference: `acquire_captures` skips any
     // victim whose `ground.on_ground` is false, so a grab thrown at a body in
-    // the air plays its animation, costs its recovery and catches nobody. ⇒ the
+    // the air plays its animation, costs its recovery and catches nobody.  the
     // brain was buying an outcome the rules refuse to sell.
     //
-    // **stated here rather than as a filter on the candidate**, because "can
+    // stated here rather than as a filter on the candidate, because "can
     // this land" is already `reach_fit`'s job for geometry and this is not
     // geometry: the body is inside the box and still cannot be caught. It is a
     // fact about what a hold is WORTH, which is this function's whole subject.
     if !foe.on_ground {
         return 0.0;
     }
-    // **THE GUARD.** A raised shield makes every damaging option worth nothing
+    // THE GUARD. A raised shield makes every damaging option worth nothing
     // and a grab worth everything — the one answer the genre has. Grounded,
     // because a shield is a grounded posture and an airborne body's guard is not
     // the thing this beats.
@@ -719,7 +564,7 @@ pub fn capture_value(foe: &PerceivedActor) -> f32 {
     } else {
         0.0
     };
-    // **THE CONVERSION.** A throw off a hold sends them further the higher they
+    // THE CONVERSION. A throw off a hold sends them further the higher they
     // are, so the same hold is worth more at 120% than at 0%. Scales with the
     // percent axis the rest of the scorer already reads.
     let convert = foe.damage_frac() * THROW_CONVERSION;
@@ -749,7 +594,7 @@ pub fn frame_advantage(startup_s: f32, their_commitment_s: f32) -> f32 {
 /// attack scorer and in L3's rollouts; movement's job at L2 is to express the
 /// situation's ONE obligation — get back, get out, get in — so that a brain with
 /// no L3 still plays a recognizable game.
-/// **Would moving `toward` walk this body off the floor it is standing on?**
+/// Would moving `toward` walk this body off the floor it is standing on?
 ///
 /// The brain was not wrong — the world changed. L1 has `Situation::Recovery` for
 /// a body ALREADY offstage, and until the smash stage every room in this engine
@@ -771,7 +616,7 @@ fn walks_off(view: &crate::perception::WorldView, toward: f32) -> bool {
 fn movement_options(
     view: &crate::perception::WorldView,
     situation: Situation,
-    // **Does the body's own kit contain a move that lifts it?** A fact about the
+    // Does the body's own kit contain a move that lifts it? A fact about the
     // repertoire, derived by [`lifting_candidates`] and passed in rather than
     // re-derived, so movement scoring and the attack list cannot disagree about
     // it within one tick.
@@ -792,8 +637,8 @@ fn movement_options(
     let retreat_walks_off = toward_foe != 0.0 && walks_off(view, -toward_foe);
     let mut out = Vec::new();
     let mut push = |verb: MovementVerb, score: f32| {
-        // **The ledge penalty is applied HERE, at the one place every verb is
-        // scored**, rather than at each `push` site. A per-situation penalty is
+        // The ledge penalty is applied HERE, at the one place every verb is
+        // scored, rather than at each `push` site. A per-situation penalty is
         // the kind that gets added to three arms and forgotten in the fourth —
         // and the forgotten arm is always the one a real match spends its time
         // in.
@@ -805,14 +650,14 @@ fn movement_options(
         out.push(MoveOption { verb, score })
     };
 
-    // **JUMP IS A CAPABILITY LIKE THE OTHERS.** Every verb below asks whether
+    // JUMP IS A CAPABILITY LIKE THE OTHERS. Every verb below asks whether
     // the body can do it — `can_blink`, `can_shield`, `can_dash` — and Jump
     // alone was offered unconditionally, so a body airborne with an empty jump
     // budget was handed an option pressing does nothing for. That is worse than
     // a wasted press: L3 rolls the verb, the shadow's `Jump` is gated on the
     // same budget so the line goes nowhere, and "nowhere" scores as safe.
     let can_jump = me.on_ground || me.air_jumps_left > 0;
-    // **ONE BUTTON, AND THE BODY DECIDES WHAT IT MEANS.**
+    // ONE BUTTON, AND THE BODY DECIDES WHAT IT MEANS.
     //
     // this asked `me.can_dash` and named the verb `Dash`, for every body. But
     // `apply_dodge` claims the dash buffer BEFORE `apply_dash` can see it, so a
@@ -823,7 +668,7 @@ fn movement_options(
     // the shadow rollout scored it as a dash. The brain named one maneuver, the
     // model judged a second, the body performed a third.
     //
-    // **AND THE FIRST REPAIR ASKED THE WRONG QUESTION TOO.** It read
+    // AND THE FIRST REPAIR ASKED THE WRONG QUESTION TOO. It read
     // `can_dodge` / `can_dash`, which are CAPABILITIES — what the body owns, not
     // what a press produces *now*. A dodge on cooldown declines without
     // consuming the buffered press and `apply_dash` takes it, so the brain went
@@ -831,7 +676,7 @@ fn movement_options(
     // movement kernel's precedence rules from the outside, which is the thing
     // that keeps going wrong.
     //
-    // ⇒ the body RESOLVES the press and perception carries the answer
+    //  the body RESOLVES the press and perception carries the answer
     // ([`BurstManeuver`]). The brain is handed a fact rather than a rule to
     // re-derive.
     let evade = match me.burst {
@@ -842,7 +687,7 @@ fn movement_options(
     match situation {
         Situation::Recovery => {
             push(MovementVerb::Recover, 1.0);
-            // **A BODY WITH A REAL RECOVERY MOVE DOES NOT BLINK HOME.**
+            // A BODY WITH A REAL RECOVERY MOVE DOES NOT BLINK HOME.
             //
             // Blink is a TRAVERSAL verb — a general-purpose way of being
             // somewhere else — and using it as a recovery is the placeholder a
@@ -850,7 +695,7 @@ fn movement_options(
             // kit contains a move that lifts the body, the answer is that move,
             // pressed on the ordinary attack seam like any other.
             //
-            // **derived, not decided.** `kit_lifts` is a fact about the
+            // derived, not decided. `kit_lifts` is a fact about the
             // body's own authored numbers, so this rule reads "prefer the
             // authored recovery over the general traversal verb" for every body
             // that has one, and changes nothing at all for every body that does
@@ -864,8 +709,8 @@ fn movement_options(
             }
         }
         Situation::Disadvantage => {
-            // **A SHIELD IS A REACTION, NOT A STANCE — and scoring it as a
-            // stance produced a match of two statues.**
+            // A SHIELD IS A REACTION, NOT A STANCE — and scoring it as a
+            // stance produced a match of two statues.
             //
             // `Disadvantage` covers "in hitstun" AND "cornered", and on a small stage two fighters
             // who open near the edges are BOTH cornered on the first tick. Shield outscored
@@ -887,7 +732,7 @@ fn movement_options(
                 push(MovementVerb::Shield, 0.8);
             }
             push(MovementVerb::Retreat, 0.7);
-            // **a roll is a real answer to a swing, and a dash is not.** The
+            // a roll is a real answer to a swing, and a dash is not. The
             // evade carries i-frames and gets the defensive score; a plain dash
             // is only travel, so a body whose button dashes keeps the lower one
             // it always had. Same slot, two bodies, two honest numbers.

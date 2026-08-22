@@ -7,12 +7,12 @@
 //!
 //! ## The two mechanisms, and why they are different
 //!
-//! **Label vs label → DISPLACEMENT, in rank order.** The ranking is [`WorldLabelFamily`]'s
+//! Label vs label → DISPLACEMENT, in rank order. The ranking is [`WorldLabelFamily`]'s
 //! declaration order, and it is chosen so that the family which yields is the one that can yield
 //! *without anything visibly jumping*: an actor plate already moves every frame with its actor, so
 //! nudging it costs nothing.
 //!
-//! **Label vs the CONTROLLED SUBJECT → FADE, never displacement.** A body you are driving walks
+//! Label vs the CONTROLLED SUBJECT → FADE, never displacement. A body you are driving walks
 //! under a static sign constantly; nudging the sign out of its way would make the sign twitch
 //! across the screen every time. Dimming it keeps the sign legible, keeps the body visible, and
 //! is stable.
@@ -29,8 +29,8 @@ use bevy::text::TextLayoutInfo;
 
 use crate::ui_fonts::{UiFontWeight, UiFonts};
 
-/// Which family a world-space label belongs to. **Declaration order IS the
-/// ranking**: an earlier variant is placed first and never yields to a later
+/// Which family a world-space label belongs to. Declaration order IS the
+/// ranking: an earlier variant is placed first and never yields to a later
 /// one.
 ///
 /// The order is not a value judgement about which text matters more. It is
@@ -52,8 +52,8 @@ pub enum WorldLabelFamily {
     Actor,
     /// A line somebody just said — a speech bubble.
     ///
-    /// **LAST, so it yields to the actor plate rather than the other way
-    /// round**, on this module's own test: *which family can move without
+    /// LAST, so it yields to the actor plate rather than the other way
+    /// round, on this module's own test: *which family can move without
     /// anything visibly jumping?* A plate is permanent furniture attached to a
     /// body; displacing it means it hops up and back down once per taunt, on an
     /// element the eye is using to keep track of who is who. A bubble is born
@@ -67,8 +67,8 @@ pub enum WorldLabelFamily {
 /// Marks a `Text2d` entity as a world-space label and carries everything the
 /// placement pass needs.
 ///
-/// **This pass is the single writer of the label's `Transform`, `Visibility`
-/// and `TextColor`.** The owning system writes only into this component — the
+/// This pass is the single writer of the label's `Transform`, `Visibility`
+/// and `TextColor`. The owning system writes only into this component — the
 /// anchor it wants and the opacity it wants — and never touches the transform
 /// itself. Two writers sharing one placement is how a label ends up drifting:
 /// a pass that reads back the transform it moved last frame accumulates its own
@@ -126,7 +126,7 @@ impl WorldLabel {
 /// Marks a world label the ROOM spawned once, whose per-view copies the mirror
 /// below owns.
 ///
-/// **it exists to keep the mirror off the nameplates.** Actor and door plates
+/// it exists to keep the mirror off the nameplates. Actor and door plates
 /// carry [`WorldLabel`] too, and `sync_actor_nameplates` already builds one per
 /// view itself — including an outline-child subtree the mirror has no business
 /// cloning. Static signage and fixture plates are spawned once at room load by
@@ -144,21 +144,21 @@ pub struct MirroredWorldLabel {
     pub root: Entity,
 }
 
-/// **ONE DRAWN COPY OF EVERY STATIC WORLD LABEL PER LIVE VIEW.**
+/// ONE DRAWN COPY OF EVERY STATIC WORLD LABEL PER LIVE VIEW.
 ///
-/// **the reason is that one entity cannot hold two views' transforms.** A sign
+/// the reason is that one entity cannot hold two views' transforms. A sign
 /// is ranked against its view's focus, displaced by whatever else that view is
 /// drawing, and dimmed when that view's controlled body walks under it. Two views
 /// legitimately want the same sign at two positions and two opacities, so naming
 /// which view a single shared entity serves could not have made it correct —
 /// there is no value it could hold that is right for both.
 ///
-/// **a second view is a COUNT, not a special case, and the single-view case stays exactly one
-/// entity.** The label the room spawned is CLAIMED by the lowest-id view rather than being
+/// a second view is a COUNT, not a special case, and the single-view case stays exactly one
+/// entity. The label the room spawned is CLAIMED by the lowest-id view rather than being
 /// demoted to an un-drawn template; a template would have made the one-view game allocate two
 /// entities per sign to draw one. Views past the first get copies.
 ///
-/// **the claim is keyed on `LocalViewId`, not on query order.** Which entity is
+/// the claim is keyed on `LocalViewId`, not on query order. Which entity is
 /// "the root's view" has to be the same answer on every frame and every run;
 /// archetype iteration is neither.
 ///
@@ -254,7 +254,7 @@ pub fn mirror_static_world_labels_per_view(
                     MirroredWorldLabel { root },
                     ambition_sim_view::PresentedForView(*view),
                     super::primitives::RoomVisual,
-                    // **no `Name`.** `entity.name` is registered for rollback
+                    // no `Name`. `entity.name` is registered for rollback
                     // and the coverage contract sweeps any entity carrying a type
                     // the rollback knows about, so labelling these would enlist a
                     // whole view's presentation set in the sim sweep.
@@ -374,7 +374,7 @@ pub(crate) struct LabelPlacement {
     pub size: Vec2,
     pub owner_opacity: f32,
     /// Resolved position — `Some(anchor)` unless the label had to yield, and
-    /// **`None` when there was nowhere to stand at all**.
+    /// `None` when there was nowhere to stand at all.
     ///
     /// an `Option`, not a position plus a "did it fit" flag, and that is the
     /// whole point: a flag sitting next to a stale coordinate is a value the
@@ -424,7 +424,7 @@ pub(crate) fn resolve_label_layout(
             half,
         };
         let mut resolved = None;
-        // **Lift to just clear whatever is actually in the way.** Each pass
+        // Lift to just clear whatever is actually in the way. Each pass
         // rises above the HIGHEST box it currently overlaps, which strictly
         // raises the highest blocker it can still meet — so this settles in at
         // most one pass per already-placed label, and the bound says so rather
@@ -532,8 +532,8 @@ fn controlled_body_boxes(view: Option<&ControlledBodiesView>, world: &ae::World)
 
 /// The typeface a family is drawn in.
 ///
-/// **The rule, stated (queue row AC20): all world text is ONE family, and the
-/// weight carries the role.** Signage is prose a designer wrote — a sentence —
+/// The rule, stated (queue row AC20): all world text is ONE family, and the
+/// weight carries the role. Signage is prose a designer wrote — a sentence —
 /// so it is Regular. A plate is a NAME, read at a glance against busy art, so
 /// it is Semibold.
 ///
@@ -574,13 +574,13 @@ pub fn apply_world_label_fonts(
     }
 }
 
-/// The pass. Places every [`WorldLabel`] and writes the result — **once per
-/// view, over that view's own labels**.
+/// The pass. Places every [`WorldLabel`] and writes the result — once per
+/// view, over that view's own labels.
 ///
 /// Silent-wrong, in a seam whose every other refusal is loud, and it produced a plausible-looking
 /// layout that was ordered by nothing.
 ///
-/// **iterating VIEWS deletes that fallback rather than repairing it.** Each
+/// iterating VIEWS deletes that fallback rather than repairing it. Each
 /// iteration holds a real [`CameraViewState`](ambition_sim_view::CameraViewState)
 /// — the view's own — so there is no branch left in which a focus has to be
 /// invented. A view with no camera draws for nobody and costs a pass; two
@@ -796,7 +796,7 @@ fn paint_outlines(
 #[derive(Resource)]
 struct WorldLabelLayoutInstalled;
 
-/// **The generic world-label capability**: the settings, the placement pass, and
+/// The generic world-label capability: the settings, the placement pass, and
 /// the typeface pass. Anything that spawns a [`WorldLabel`] needs this plugin,
 /// and only this plugin.
 ///
@@ -827,7 +827,7 @@ impl Plugin for WorldLabelLayoutPlugin {
             return;
         }
         app.insert_resource(WorldLabelLayoutInstalled);
-        // **`chain()` is load-bearing here, for its SYNC POINTS.** The mirror
+        // `chain()` is load-bearing here, for its SYNC POINTS. The mirror
         // spawns a view's copies and re-keys the roots through `Commands`; the
         // placement pass immediately after selects labels BY that key. Ordered
         // without the flush between them, every copy would be placed one frame
@@ -844,7 +844,7 @@ impl Plugin for WorldLabelLayoutPlugin {
                 .in_set(WorldLabelLayoutSet)
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
         );
-        // **Which camera may DRAW what the pass above placed.** Registered here
+        // Which camera may DRAW what the pass above placed. Registered here
         // because this plugin is what every composition that spawns a per-view
         // projection already installs — nameplates and room signage both — so the
         // isolation lands wherever the projections do, instead of being true of
@@ -1107,7 +1107,7 @@ mod tests {
         assert_eq!(ease_fraction(0.0, 1.0 / 60.0), 1.0);
     }
 
-    /// **TWO VIEWS, ONE ROOM, ONE SIMULATION — TWO LAYOUTS.**
+    /// TWO VIEWS, ONE ROOM, ONE SIMULATION — TWO LAYOUTS.
     ///
     /// Everything below runs against ONE world holding ONE pair of overlapping labels per view;
     /// the only thing that differs between the two views is where each is looking.
@@ -1221,19 +1221,19 @@ mod tests {
             })
         }
 
-        /// **EACH VIEW'S LABELS ARE PLACED BY ITS OWN FRAMING.**
+        /// EACH VIEW'S LABELS ARE PLACED BY ITS OWN FRAMING.
         ///
         /// So a second view did not produce a second layout; it produced one layout, ordered by
         /// distance to the world origin, written over both views' entities.
         ///
-        /// **the assertion is on VALUES, not on inequality.** "the two views
+        /// the assertion is on VALUES, not on inequality. "the two views
         /// differ" would pass for a pair that differ and are both wrong. Each
         /// number below is derived from the box arithmetic: with 60x15 labels at
         /// y=0 and y=5, the nearer label holds its anchor and the farther one
         /// lifts to exactly clear it — the 15px sum of half-heights above the
         /// nearer label's centre.
         ///
-        /// **and the falsifier is inside the test.** The second run swaps only
+        /// and the falsifier is inside the test. The second run swaps only
         /// the two views' camera targets — same spawn order, same entities, same
         /// anchors — and the two layouts must swap with them. A pass that keys
         /// off label or view iteration order instead of the view's own focus
@@ -1269,8 +1269,8 @@ mod tests {
             );
         }
 
-        /// **THE ONE-VIEW GAME IS UNCHANGED, INCLUDING FOR LABELS THAT NAME NO
-        /// VIEW.**
+        /// THE ONE-VIEW GAME IS UNCHANGED, INCLUDING FOR LABELS THAT NAME NO
+        /// VIEW.
         ///
         /// Authored signage is spawned at room load, which has no view in scope,
         /// and two demo tests spawn bare `WorldLabel` probes by hand. All of them
@@ -1314,8 +1314,8 @@ mod tests {
             );
         }
 
-        /// **A RETIRED VIEW TAKES ITS PROJECTIONS WITH IT — DESPAWNED AS A
-        /// SET.**
+        /// A RETIRED VIEW TAKES ITS PROJECTIONS WITH IT — DESPAWNED AS A
+        /// SET.
         ///
         /// One authored sign is ONE authoritative thing; what is duplicated is
         /// its per-view PROJECTION, and a projection whose view is gone has

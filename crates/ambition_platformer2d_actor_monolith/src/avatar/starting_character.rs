@@ -42,7 +42,7 @@ pub struct StartingCharacter {
     /// sprite falls back to the colored rectangle) — the sim side never depends
     /// on presentation.
     ///
-    /// **typed** (P0.3): this is the RUNTIME seam of the same rule the prepared
+    /// typed (P0.3): this is the RUNTIME seam of the same rule the prepared
     /// registry and the match participant already hold — an id is an id, and a
     /// display name passed here is a mistake the compiler can catch. empty
     /// still means *the content default*; `CharacterId` carries an empty string
@@ -76,18 +76,18 @@ impl StartingCharacter {
     }
 }
 
-/// **Does this session build a home body at all?**
+/// Does this session build a home body at all?
 ///
 /// A MATCH is not that shape — it realizes its own cast from a roster — so the engine handed
 /// one an extra controllable actor it had no use for, and match seating grew a whole adoption
 /// path to reinterpret that body as a fighter.
 ///
-/// **NOT an `Option<StartingCharacter>`, and not an empty id.** An empty
+/// NOT an `Option<StartingCharacter>`, and not an empty id. An empty
 /// [`StartingCharacter::character_id`] already means *"wear the provider-relative
 /// default"* — absence is taken, and a second meaning on the same emptiness is
 /// exactly how a silent default becomes a silent bug.
 ///
-/// **and it is a different question from `starting_character`**, which is why
+/// and it is a different question from `starting_character`, which is why
 /// both exist. That field also names the experience's catalog DEFAULT — the id a
 /// worn body falls back to, which a match experience legitimately still has even
 /// though it builds no body of its own.
@@ -96,7 +96,7 @@ pub enum InitialBodyPolicy {
     /// Spawn the session's home body wearing this character. Every exploration
     /// experience, and the default.
     SpawnCharacter(StartingCharacter),
-    /// **Build no session body.** The experience realizes whatever actors it
+    /// Build no session body. The experience realizes whatever actors it
     /// needs — a match builds its cast from a prepared roster — and there is no
     /// privileged avatar for anything to adopt, re-dress, or follow by accident.
     NoInitialBody,
@@ -249,7 +249,7 @@ fn sync_worn_motion_model_preserving_state(
 /// character that authored its own moveset said something more specific than
 /// anything derivable from presets.
 ///
-/// **`pub` for FIXTURES, and the reason is worth a line.** A body's swing is built HERE, at spawn,
+/// `pub` for FIXTURES, and the reason is worth a line. A body's swing is built HERE, at spawn,
 /// from its action set — so a harness that mutates `ActionSet.melee` afterwards changes nothing the
 /// runtime reads, which is a silent no-op a test cannot see.
 pub fn derive_persona_moveset(
@@ -277,7 +277,7 @@ pub fn derive_persona_moveset(
     let Some(authored) = authored else {
         return derived;
     };
-    // **AUTHORED MOVES OVERLAY THE BODY'S, they do not REPLACE them.**
+    // AUTHORED MOVES OVERLAY THE BODY'S, they do not REPLACE them.
     //
     // this was `authored.unwrap_or(derived)`, and the replacement was silent and total.
     //
@@ -304,7 +304,7 @@ pub fn derive_persona_moveset(
 /// the privileged host-code fallback. The returned [`RangedExecution`] says how
 /// the body fires.
 fn resolve_playable_action_set(
-    // **this was `Option<PlayableKitSource>`** (AC6.3), a one-variant enum
+    // this was `Option<PlayableKitSource>` (AC6.3), a one-variant enum
     // whose `Option` was the whole signal: the arms below are "the catalog has a
     // row" and "it does not", and neither ever read the variant.
     catalog_knows_it: bool,
@@ -321,7 +321,7 @@ fn resolve_playable_action_set(
         )
     } else {
         (
-            // **UNKNOWN IDS**, and only unknown ids, use one explicit
+            // UNKNOWN IDS, and only unknown ids, use one explicit
             // compatibility fallback. Intentionally distinct from a
             // known-but-invalid `Authored` row, which stays peaceful.
             //
@@ -336,7 +336,7 @@ fn resolve_playable_action_set(
     }
 }
 
-/// **The gameplay overlay a body derives from wearing `character_id`.**
+/// The gameplay overlay a body derives from wearing `character_id`.
 ///
 /// This is the single resolver used by both spawn and runtime re-wear. Every
 /// field it writes is a deterministic function of the identity plus the body's
@@ -405,7 +405,7 @@ pub fn apply_worn_character_overlay(
     )
 }
 
-/// **The kit this body's MATCH gave it**, if it is in one.
+/// The kit this body's MATCH gave it, if it is in one.
 ///
 /// A body with no `MatchSeat` is not in a match and keeps its authored persona,
 /// which is every other body in every game. keyed by SEAT rather than by
@@ -437,7 +437,7 @@ fn apply_worn_character_kit(
     combat_kit: Option<&mut crate::combat::components::CombatKit>,
     character_id: &str,
     base_abilities: ambition_platformer2d_core::AbilitySet,
-    // **What the MATCH says this fighter fights with**, if a match said anything.
+    // What the MATCH says this fighter fights with, if a match said anything.
     // See `MatchParticipant::action_set`.
     match_kit: Option<&ActionSet>,
 ) -> RangedExecution {
@@ -446,7 +446,7 @@ fn apply_worn_character_kit(
     // The catalog arm below is not a fallback for a prepared character. It serves
     // ids that are in the catalog and were never registered — most of the legacy
     // cast — which have no prepared value to disagree with.
-    // **A MATCH OUTRANKS THE PERSONA, and only a match.** Checked first rather
+    // A MATCH OUTRANKS THE PERSONA, and only a match. Checked first rather
     // than folded, because the roster is not another opinion about who the
     // character IS — it is a rule of the stage they are standing on, exactly like
     // `fighter_abilities`. A crossover grid borrows Alice, whose row says
@@ -468,7 +468,7 @@ fn apply_worn_character_kit(
             let execution = prepared.map_or(RangedExecution::MovesetVerb, |prepared| {
                 prepared.ranged_execution
             });
-            // **THE GRANT COVERS THE ACTION SET, NOT THE MOVES**, and passing
+            // THE GRANT COVERS THE ACTION SET, NOT THE MOVES, and passing
             // `None` here meant it covered both. A character that authored its
             // own eleven-move repertoire — jab, tilts, three smashes, five
             // aerials — was seated with a moveset DERIVED from the stage's
@@ -492,7 +492,7 @@ fn apply_worn_character_kit(
                     action_set,
                     moveset,
                 }) => (
-                    // **THE CANONICAL REPERTOIRE, NARROWED TO WHAT IS UNLOCKED**
+                    // THE CANONICAL REPERTOIRE, NARROWED TO WHAT IS UNLOCKED
                     // . `default_player_action_set` did this gating
                     // inside the same expression that BUILT the kit, for one
                     // character, in Rust. `gated_by` is that filter's general
@@ -536,7 +536,7 @@ fn apply_worn_character_kit(
                 }
             }
         };
-    // **AND `CombatKit`, WHICH IS THE SAME BASELINE.**
+    // AND `CombatKit`, WHICH IS THE SAME BASELINE.
     //
     // `ActionSet` is the hot per-frame resolver; `CombatKit` is the DURABLE
     // source of the same capability, and its own doc says so — "what the actor
@@ -589,7 +589,7 @@ pub fn sync_charge_projectile_capability(
     }
 }
 
-/// **Derive a body's gameplay from its worn identity and host ability source.**
+/// Derive a body's gameplay from its worn identity and host ability source.
 ///
 /// An identity change refreshes the complete persona: display name, effective
 /// kit, projectile capability, and movement identity. An ability-only change is
@@ -602,7 +602,7 @@ pub fn apply_worn_character_gameplay(
     // Optional, like every other reader of it: a composition with no registered
     // characters is the ordinary case and must not require the resource.
     registry: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
-    // **What the MATCH decided**, when one is running. `Option` because most
+    // What the MATCH decided, when one is running. `Option` because most
     // compositions are not a match, which is the ordinary case rather than a
     // degraded one.
     roster: Option<Res<crate::character_runtime::MatchParticipantRoster>>,
@@ -669,47 +669,22 @@ pub fn apply_worn_character_gameplay(
             .as_deref()
             .map(crate::character_runtime::PreparedCharacterRegistry::generation)
             .unwrap_or_default();
-        // A body needs the whole persona re-derived when its identity changed OR when the cast it
-        // was built from is no longer the cast that exists. This read `baseline.id != id`, which
-        // made writing the worn id the way to rebuild a body — the second meaning `WornCharacter`
-        // was split to stop carrying. A re-wear asks with `RecharacterizeBody`; Mary-O's powerup
-        // already did, and the fixtures that mutated the id and expected a rebuild were encoding
-        // the old contract.
-        //
-        // What is left here is HOT RELOAD: the cast this body was built from no
-        // longer exists, which nothing on the body can express and no writer can
-        // be expected to notice. That is a rollback-state test rather than a
-        // change tick, so it survives a rewind.
-        //
-        // `baseline.is_none()` stays as the net for a body nobody stamped —
-        // and every ordinary construction path stamps now, which is what makes
-        // this net rather than mechanism.
+        // Re-derive automatically only when the prepared cast generation changed
+        // or the body lacks a baseline. Identity changes request recharacterization
+        // explicitly rather than relying on Bevy change ticks.
         let stale_cast = baseline.is_none_or(|baseline| baseline.generation != generation);
-        // **ONE mint per body, whatever path the derivation takes.**
-        //
-        // A body that carries no moveset gets one BUILT rather than being
-        // skipped — the overlay states a repertoire unconditionally, so the only
-        // question absence can answer is where to put the answer.
-        //
-        // **minted HERE rather than inside each branch, and `take`n at the
-        // insert, because `Commands` insertion is DEFERRED.** Two branches each
-        // minting their own would each observe `moveset == None` in the same
-        // update and queue two inserts, the second silently discarding the
-        // first's derivation. Today the identity branch `continue`s so the two
-        // are mutually exclusive — but that makes the safety a property of one
-        // `continue` in a 200-line loop, which is the kind of guarantee that
-        // stops being true without anyone noticing. One binding cannot mint
-        // twice regardless of how the control flow is later rearranged.
+        // Mint at most one missing moveset before deferred branch inserts, then
+        // transfer it with `take()` at the branch that owns the insertion.
         let mut minted = moveset.is_none().then(|| ActorMoveset(Default::default()));
 
-        // **NOT `character.is_changed()`.** A body is re-derived because
+        // NOT `character.is_changed()`. A body is re-derived because
         // somebody ASKED (`RecharacterizeBody`), or because the cast it was
         // built from no longer exists (`stale_cast`, which is a rollback-state
         // test rather than a change tick and therefore survives a rewind).
         //
         // What the edge DID carry was a hidden dependency on a tick that does not rewind.
         if recharacterize {
-            // **CONSUMED**, so a request is one application rather than a
+            // CONSUMED, so a request is one application rather than a
             // state a body gets stuck re-deriving in.
             commands
                 .entity(entity)
@@ -730,7 +705,7 @@ pub fn apply_worn_character_gameplay(
                 combat_kit.as_deref_mut(),
                 id,
                 abilities.abilities,
-                // **The kit this MATCH gave the seat**, when this body is in one.
+                // The kit this MATCH gave the seat, when this body is in one.
                 // A body with no `MatchSeat` is not in a match and keeps its
                 // authored persona, which is every other body in every game.
                 match_kit_for_seat(roster.as_deref(), seat),
@@ -749,25 +724,9 @@ pub fn apply_worn_character_gameplay(
                 has_projectile_state,
             );
 
-            // **WHAT THE BODY PHYSICALLY IS follows the character it wears.**
-            //
-            // A re-wear is character REPLACEMENT — one of the boundaries a body
-            // may legitimately be told its maximum health and mass — so a
-            // possession or a character swap moves those numbers to the new
-            // identity's instead of leaving the previous one's on the body.
-            //
-            // `Replacement`, not `Construction`, and the difference is a real
-            // gameplay rule: the damage a body has taken is the BODY's and
-            // survives the swap, clamped under the new maximum. Refilling here
-            // would make wearing a character mid-round a free heal. Geometry is
-            // deliberately not applied — see [`BaselineBoundary::Replacement`].
-            //
-            // **and what the INCOMING character does not author is retracted, not inherited.**
-            // `standing` is the body's own physical answer, captured the first time any persona
-            // was projected onto it and carried forward since. Without it, absence read as
-            // "keep what is there" — so wearing a 2.0-mass 60-health duelist and then a persona
-            // that authors neither left the body at 2.0 and 60, and every later swap
-            // accumulated instead of replacing.
+            // Character replacement updates authored physical baselines without
+            // healing accumulated damage. Unauthored incoming fields retract to
+            // the body's saved standing baseline rather than inheriting the prior persona.
             let incoming = registry
                 .as_deref()
                 .and_then(|registry| registry.get(id))
@@ -823,7 +782,7 @@ pub fn apply_worn_character_gameplay(
                         .try_remove::<ambition_platformer2d_core::AuthoredMovementTuning>();
                 }
             }
-            // **RETRACT BY RESETTING, NEVER BY REMOVING** — and the first
+            // RETRACT BY RESETTING, NEVER BY REMOVING — and the first
             // version of this removed. `CombatCapabilities` is a REQUIRED member
             // of `ActorClusterQueryData`, so a body without it silently leaves
             // the actor cluster query altogether: it stops being simulated as an
@@ -833,8 +792,8 @@ pub fn apply_worn_character_gameplay(
             // nothing was stepping it. an absent component is not the same
             // statement as a default one, and here only the second is legal.
             //
-            // **and the reset is conditional on the PREVIOUS persona having
-            // claimed these**, because construction owns a body's traits too:
+            // and the reset is conditional on the PREVIOUS persona having
+            // claimed these, because construction owns a body's traits too:
             // `ActorClusterSeed::into_components` spawns every clustered actor
             // with capabilities from its archetype. Resetting unconditionally
             // would strip an exploding mite the moment anything wore a character
@@ -915,7 +874,7 @@ pub fn apply_worn_character_gameplay(
     }
 }
 
-/// **What cast a body's PERSONA was built from.**
+/// What cast a body's PERSONA was built from.
 ///
 /// The record `apply_worn_character_gameplay` keeps of its own work: the id it
 /// last applied and the registry generation it read. Nothing else writes it.
@@ -944,34 +903,17 @@ pub struct PersonaBaseline {
     pub displaced: crate::character_runtime::DisplacedPhysicals,
 }
 
-/// Gate the raw player-control frame by the effective worn kit before any body
-/// or effects system consumes it.
+/// Gate the raw player-control frame by the effective worn kit before direct body/effect
+/// consumers read it. `sustain_bubble_shield` must run after this gate.
 ///
-/// `ActionSet` already gates the generic message resolver, but several legacy
-/// player-body paths still read `ActorControl` directly: the movement engine's
-/// attack recoil/slash limb, bubble shield, and the chargeable projectile input.
-/// Clearing those verbs here makes a peaceful authored persona peaceful in
-/// behavior, not merely in its nominal `ActionSet`.
-/// **The set `gate_worn_player_control` runs in.**
-///
-/// `ambition_demo_sanic` BRACKETS this function by name — one `.before`, one
-/// `.after` — reaching through the facade (`actors::avatar::…`) for an engine
-/// leaf. Bracketing is the shape that makes a leaf pin hardest to remove later:
-/// two edges that only make sense as a pair, expressed against a name neither
-/// side owns.
-///
-/// ONE member, and this one has the subtlest reason of the set family.
-/// `gate_worn_player_control` sits inside `PlayerInputSet::ControlGate` with
-/// `sustain_bubble_shield` chained after it, and that neighbour exists precisely
-/// to run AFTER the gate ("after the gate, which keeps the persona's shield verb
-/// alive"). A set spanning both would let a consumer's `.before(set)` land ahead
-/// of a system the gate is supposed to feed.
+/// TODO(compat-remove): migrate the remaining direct `ActorControl` consumers to the
+/// `ActionSet`-gated semantic path, then remove this raw-frame compatibility gate.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct WornControlGateSet;
 
 pub fn gate_worn_player_control(
     catalog: Res<CharacterCatalog>,
-    // **The prepared cast**, so this gate can ask a CHARACTER how it fires.
+    // The prepared cast, so this gate can ask a CHARACTER how it fires.
     // See the charge gate below for why the catalog alone stopped being enough.
     prepared: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
     mut players: Query<
@@ -1076,12 +1018,12 @@ pub fn gate_worn_player_control(
 /// Two conditions force `shield_held`, and together they eliminate the one-tick
 /// lag the folded special would otherwise have:
 ///
-/// - **The press tick.** The special MOVE is triggered later in the tick
+/// - The press tick. The special MOVE is triggered later in the tick
 ///   (`trigger_moveset_moves` runs in `Combat`, after `PlayerInput`/`WorldPrep`),
 ///   so on the tick Special is pressed there is no `MovePlayback` yet. Reading the
 ///   `special_pressed` edge here — in `PlayerInput`, before the `WorldPrep` kernel
 ///   bridge — raises the guard the SAME tick the button goes down.
-/// - **The move's duration.** Once the move is playing, its `id` equals the body's
+/// - The move's duration. Once the move is playing, its `id` equals the body's
 ///   `ActionSet.special` key (that is how [`build_actor_moveset`] folds the marker
 ///   in), so a `bubble_shield` persona keeps the guard up BY IDENTITY for as long
 ///   as the move plays — no per-body wiring.

@@ -1,4 +1,4 @@
-//! **Every minion a boss summons by NAME must resolve a body somebody authored.**
+//! Every minion a boss summons by NAME must resolve a body somebody authored.
 //!
 //! The Gradient Sentinel summons it — and `puppy_slug`, deleted the same week — from
 //! `gradient_sentinel.rs`, so from that day the boss's minima traps and gradient cascades spawned
@@ -6,7 +6,7 @@
 //! Nothing failed. A fallback is a real body, so the only tell was on screen, and nobody was
 //! looking at that boss.
 //!
-//! **the missing DIRECTION.** `every_archetype_row_is_placed_somewhere_or_
+//! the missing DIRECTION. `every_archetype_row_is_placed_somewhere_or_
 //! deliberately_code_selected` asks *does every row have a placement?* This asks
 //! the other one: *does every name the code SUMMONS still resolve?* A row and a
 //! constant can each be individually defensible while the pair is broken, and
@@ -19,8 +19,8 @@
 /// Every encounter file whose wave `kind`s are read STRAIGHT FROM THE SHIPPED
 /// BYTES rather than transcribed into the list above.
 ///
-/// **a transcribed list is a snapshot, and a snapshot cannot see the wave
-/// somebody adds tomorrow.** The two boss constants are `const &str` in Rust and
+/// a transcribed list is a snapshot, and a snapshot cannot see the wave
+/// somebody adds tomorrow. The two boss constants are `const &str` in Rust and
 /// have to be listed by hand; a `.ron` does not, so it is parsed. Where the guard
 /// can read the source of truth, it reads it.
 const ENCOUNTER_FILES: &[(&str, &str)] = &[(
@@ -29,9 +29,9 @@ const ENCOUNTER_FILES: &[(&str, &str)] = &[(
 )];
 
 /// The `kind: "..."` values an encounter file authors.
-/// **What each mob in a wave file will actually be built as.**
+/// What each mob in a wave file will actually be built as.
 ///
-/// **this read `kind:` only, and that is not the road the runtime takes.**
+/// this read `kind:` only, and that is not the road the runtime takes.
 /// `spawn_encounter_mob` builds the body from the mob's prepared `character`;
 /// `kind` is controller policy and never a body fallback. Reading only `kind`
 /// therefore measures the wrong authority and can report a healthy encounter as
@@ -41,7 +41,7 @@ const ENCOUNTER_FILES: &[(&str, &str)] = &[(
 /// the temptation then is to add the id to `KNOWN_UNRESOLVED` with a story about
 /// a decision that was never waiting.
 ///
-/// **`character:` must be read on the SAME mob**, not anywhere in the file:
+/// `character:` must be read on the SAME mob, not anywhere in the file:
 /// scanning for both fields globally would let one mob's character cover
 /// another's missing row. Each entry is one line in these files, so the line is
 /// the unit.
@@ -63,16 +63,16 @@ fn field<'a>(line: &'a str, prefix: &str) -> Option<&'a str> {
     rest.find('"').map(|end| &rest[..end])
 }
 
-/// **Every `*_ARCHETYPE` constant in the workspace, found by SCANNING rather than
-/// by transcription.**
+/// Every `*_ARCHETYPE` constant in the workspace, found by SCANNING rather than
+/// by transcription.
 ///
-/// **the list above is a snapshot and the class has already outrun it three
-/// times.** `puppy_slug` and `small_lurker` in the Gradient Sentinel, then
+/// the list above is a snapshot and the class has already outrun it three
+/// times. `puppy_slug` and `small_lurker` in the Gradient Sentinel, then
 /// `puppy_slug` again in a PLAYER WEAPON one crate away — each found by a human
 /// asking "who else names an archetype by string?", never by a guard. A list
 /// somebody has to remember to extend is exactly as good as the memory.
 ///
-/// ⇒ this walks the source tree for `const …ARCHETYPE…: &str = "…"` and checks
+///  this walks the source tree for `const …ARCHETYPE…: &str = "…"` and checks
 /// each value the same way. A new constant is covered the moment it is written,
 /// which is the only version of this guard that survives the next person who
 /// adds one.
@@ -125,7 +125,7 @@ fn archetype_constants(root: &std::path::Path) -> Vec<(String, String)> {
     out
 }
 
-/// **Each summoned id names a registered character that can build a body.**
+/// Each summoned id names a registered character that can build a body.
 #[test]
 fn every_summoned_minion_id_resolves_a_body() {
     const KNOWN_UNRESOLVED: &[(&str, &str)] = &[];
@@ -169,7 +169,7 @@ fn every_summoned_minion_id_resolves_a_body() {
 
     let mut unresolved = Vec::new();
     for (id, site) in &named {
-        // **one road** (AC6). This also accepted an archetype ROW under the
+        // one road (AC6). This also accepted an archetype ROW under the
         // id, because a row would build the body too; the rows are deleted and a
         // summon that names no character is refused at construction.
         if !buildable.contains(id) {

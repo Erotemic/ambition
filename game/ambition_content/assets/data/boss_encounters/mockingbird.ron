@@ -9,7 +9,7 @@
 // The profile lives in
 // `crates/ambition_platformer2d_actor_monolith/src/boss_encounter/`.
 //
-// ⚠ this comment used to point at `crates/ambition_engine/`, which no longer
+//  this comment used to point at `crates/ambition_engine/`, which no longer
 // exists — that crate was collapsed years ago — and to claim the spec
 // equivalence was "pinned by
 // `mockingbird_profile_encounter_matches_hardcoded_constructor`", which is not

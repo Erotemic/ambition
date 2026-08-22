@@ -11,7 +11,7 @@ pub mod save;
 /// The directory this App reads and writes its settings, save and developer
 /// files in. Defaults to the platform data dir, so production is unchanged.
 ///
-/// **it exists so that "where my files are" is an APP fact.** As a global it
+/// it exists so that "where my files are" is an APP fact. As a global it
 /// was shared by every test in a binary and by every process on the machine.
 #[derive(bevy::prelude::Resource, Clone, Debug)]
 pub struct PersistenceRoot(pub std::path::PathBuf);
@@ -26,7 +26,7 @@ impl PersistenceRoot {
     /// A private directory nobody else writes — for an App that is not a
     /// player's session.
     ///
-    /// **the symmetry to keep in mind**: a windowless host already redirects
+    /// the symmetry to keep in mind: a windowless host already redirects
     /// AUDIO away from the user's speakers (`AudioOutputMode::Recording`). This
     /// is the same rule for the other side effect a non-session App should not
     /// have — writing the user's settings and save.
@@ -52,15 +52,15 @@ pub mod settings;
 /// Schedules user-settings and sandbox-save persistence.
 ///
 /// Headless / RL drivers omit this plugin so they never read or write user files."* The second
-/// sentence names a real hazard and the first drew the wrong line from it: the hazard is **writing
-/// the PLAYER's files**, not persisting at all, and the two were conflated because whoever
+/// sentence names a real hazard and the first drew the wrong line from it: the hazard is writing
+/// the PLAYER's files, not persisting at all, and the two were conflated because whoever
 /// installed it first (the presentation group) decided who paid for it.
 ///
-/// ⇒ **who installs it: any composition that SIMULATES.** The durable horizon is sim state — the
+///  who installs it: any composition that SIMULATES. The durable horizon is sim state — the
 /// on-disk form is the checkpoint's own description, serialized — so a headless run that reaches a
 /// checkpoint and cannot write one is a capability that exists only when somebody is watching.
 ///
-/// ⇒ **what a non-player App owes: its own [`PersistenceRoot`].** `PersistenceRoot::default()`
+///  what a non-player App owes: its own [`PersistenceRoot`]. `PersistenceRoot::default()`
 /// is the player's platform data dir, so the isolation is the caller's obligation and
 /// `PersistenceRoot::isolated()` is the answer — the same redirection a windowless host already
 /// makes for audio with `AudioOutputMode::Recording`.

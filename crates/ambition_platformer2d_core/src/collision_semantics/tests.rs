@@ -262,7 +262,7 @@ fn nothing_ever_rests_on_a_bonk_only_block() {
     assert!(!is_support_surface(BlockKind::BonkOnly));
 }
 
-/// **And it IS solid to a head coming up into it**, or the reward it hides can
+/// And it IS solid to a head coming up into it, or the reward it hides can
 /// never be struck.
 #[test]
 fn a_bonk_only_block_is_struck_from_below_and_only_from_below() {
@@ -304,14 +304,14 @@ fn a_bonk_only_block_never_blocks_a_side_axis() {
     assert!(!is_solid_for_axis(BlockKind::BonkOnly, Axis::X, down));
 }
 
-/// **the rule, as an assertion: you cannot stand on an invisible block.**
+/// the rule, as an assertion: you cannot stand on an invisible block.
 ///
-/// **the vocabulary is the fix and this is the line that says so.** `BonkOnly` is the MIRROR of
+/// the vocabulary is the fix and this is the line that says so. `BonkOnly` is the MIRROR of
 /// `OneWay`: `OneWay` is *"solid when crossed from above"*, `BonkOnly` is *"solid only against a
 /// head coming up into it"*. Two did: the controlled body's penetration repair and the generic
 /// kinematic sweep.
 ///
-/// ⚠ **not "just make it non-solid"** — the reward IS a `ContactKind::Head`
+///  not "just make it non-solid" — the reward IS a `ContactKind::Head`
 /// contact the collision system produces, so a block with nothing to hit cannot
 /// be struck and the coin disappears with the ledge.
 #[test]
@@ -324,7 +324,7 @@ fn an_invisible_block_is_not_a_floor_but_is_still_strikeable() {
     // special case — the two differ in exactly one direction.
     assert!(is_support_surface(BlockKind::OneWay));
 
-    // ⚠ and it is STILL a gravity-axis collision surface, deliberately: that is
+    //  and it is STILL a gravity-axis collision surface, deliberately: that is
     // what stops a rising head and pays the coin. A caller reading this alone
     // sees a floor, which is why `blocks_only_a_rising_head` exists.
     assert!(is_solid_for_axis(
@@ -345,9 +345,9 @@ fn an_invisible_block_is_not_a_floor_but_is_still_strikeable() {
     ));
 }
 
-/// **FEET ON A HEAD IS THE SAME QUESTION UNDER EVERY GRAVITY.**
+/// FEET ON A HEAD IS THE SAME QUESTION UNDER EVERY GRAVITY.
 ///
-/// ⛔ the poison it pins is a hand-rolled `feet.y >= head.y`: the identical
+///  the poison it pins is a hand-rolled `feet.y >= head.y`: the identical
 /// stack, rotated into each cardinal frame, must give the identical answer, and
 /// a screen-space test passes exactly one of the four.
 #[test]
@@ -375,7 +375,7 @@ fn a_stack_reads_as_feet_on_a_head_in_every_cardinal_frame() {
     assert_eq!(seen_true, 4, "the frame sweep read no subjects at all");
 }
 
-/// **THE BAND IS PENETRATION TOLERANCE, NOT REACH.**
+/// THE BAND IS PENETRATION TOLERANCE, NOT REACH.
 #[test]
 fn hovering_above_a_head_is_not_standing_on_it() {
     const BAND: f32 = 14.0;
@@ -398,7 +398,7 @@ fn hovering_above_a_head_is_not_standing_on_it() {
     assert!(!feet_on_head(through, victim, down, BAND));
 }
 
-/// **AND IT NEEDS A REAL LATERAL SHARE, THROUGH THE SHARED PRIMITIVE.**
+/// AND IT NEEDS A REAL LATERAL SHARE, THROUGH THE SHARED PRIMITIVE.
 #[test]
 fn a_body_beside_a_head_is_not_on_it() {
     const BAND: f32 = 14.0;

@@ -1,8 +1,8 @@
 //! Fixture builders shared by preparation's own tests and the registration
 //! tests one crate up.
 //!
-//! **behind `test-support` for the same reason
-//! [`crate::prepared::prepare_and_finalize_for_test`] is**, and for no other:
+//! behind `test-support` for the same reason
+//! [`crate::prepared::prepare_and_finalize_for_test`] is, and for no other:
 //! the monolith's registration tests need the SAME `mary_o` this crate's
 //! preparation tests use, and a fixture builder copied into two crates drifts
 //! into two different characters that share a name. These build nothing but

@@ -38,10 +38,10 @@ fn buffered_interact_toggles_an_adjacent_switch() {
     let mut app = App::new();
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_dialog::DialogState::default());
-    // ⚠ the AUTHORITY travels with the read-model. `interact_ecs_actors_and_
+    //  the AUTHORITY travels with the read-model. `interact_ecs_actors_and_
     // switches` opens a conversation in the simulation and shows it in the UI,
     // so a fixture with only the second half fails Bevy's param validation.
-    // ⛔ NOT solved by making the param `Option`: that waiver would answer "may
+    //  NOT solved by making the param `Option`: that waiver would answer "may
     // this be absent" when the question is who OWNS registering it, and in
     // production the feature plugin does.
     app.init_resource::<ambition_conversation::ActiveConversation>();
@@ -75,7 +75,7 @@ fn buffered_interact_toggles_an_adjacent_switch() {
         ))
         .id();
 
-    // ⚠ **the box is a PROJECTION now, so the projection has to run.** The
+    //  the box is a PROJECTION now, so the projection has to run. The
     // interaction system decides that a conversation exists; the presentation
     // half opens the runner from that, outside the sim schedule. A fixture that
     // ran only the first would be asserting on a text box nothing was left to
@@ -107,10 +107,10 @@ fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
     let mut app = App::new();
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_dialog::DialogState::default());
-    // ⚠ the AUTHORITY travels with the read-model. `interact_ecs_actors_and_
+    //  the AUTHORITY travels with the read-model. `interact_ecs_actors_and_
     // switches` opens a conversation in the simulation and shows it in the UI,
     // so a fixture with only the second half fails Bevy's param validation.
-    // ⛔ NOT solved by making the param `Option`: that waiver would answer "may
+    //  NOT solved by making the param `Option`: that waiver would answer "may
     // this be absent" when the question is who OWNS registering it, and in
     // production the feature plugin does.
     app.init_resource::<ambition_conversation::ActiveConversation>();
@@ -177,7 +177,7 @@ fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
         ))
         .id();
 
-    // ⚠ **the box is a PROJECTION now, so the projection has to run.** The
+    //  the box is a PROJECTION now, so the projection has to run. The
     // interaction system decides that a conversation exists; the presentation
     // half opens the runner from that, outside the sim schedule. A fixture that
     // ran only the first would be asserting on a text box nothing was left to
@@ -235,10 +235,10 @@ fn dialogue_app(nodes: &[&str]) -> App {
     let mut app = App::new();
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_dialog::DialogState::default());
-    // ⚠ the AUTHORITY travels with the read-model. `interact_ecs_actors_and_
+    //  the AUTHORITY travels with the read-model. `interact_ecs_actors_and_
     // switches` opens a conversation in the simulation and shows it in the UI,
     // so a fixture with only the second half fails Bevy's param validation.
-    // ⛔ NOT solved by making the param `Option`: that waiver would answer "may
+    //  NOT solved by making the param `Option`: that waiver would answer "may
     // this be absent" when the question is who OWNS registering it, and in
     // production the feature plugin does.
     app.init_resource::<ambition_conversation::ActiveConversation>();
@@ -264,7 +264,7 @@ fn a_visitor_gets_the_pedestals_ordinary_node() {
     spawn_interaction_player_wearing(&mut app, center, "goblin");
     spawn_pedestal(&mut app, center, "player_robot_v3", "hall_player");
 
-    // ⚠ **the box is a PROJECTION now, so the projection has to run.** The
+    //  the box is a PROJECTION now, so the projection has to run. The
     // interaction system decides that a conversation exists; the presentation
     // half opens the runner from that, outside the sim schedule. A fixture that
     // ran only the first would be asserting on a text box nothing was left to
@@ -293,7 +293,7 @@ fn wearing_the_pedestals_character_enters_the_self_branch() {
     spawn_interaction_player_wearing(&mut app, center, "player_robot_v3");
     spawn_pedestal(&mut app, center, "player_robot_v3", "hall_player");
 
-    // ⚠ **the box is a PROJECTION now, so the projection has to run.** The
+    //  the box is a PROJECTION now, so the projection has to run. The
     // interaction system decides that a conversation exists; the presentation
     // half opens the runner from that, outside the sim schedule. A fixture that
     // ran only the first would be asserting on a text box nothing was left to
@@ -333,7 +333,7 @@ fn self_talk_without_a_self_branch_is_suppressed_without_a_trace() {
         .resource_mut::<GameplayBanner>()
         .show("sentinel", 9.0);
 
-    // ⚠ **the box is a PROJECTION now, so the projection has to run.** The
+    //  the box is a PROJECTION now, so the projection has to run. The
     // interaction system decides that a conversation exists; the presentation
     // half opens the runner from that, outside the sim schedule. A fixture that
     // ran only the first would be asserting on a text box nothing was left to
@@ -382,7 +382,7 @@ fn an_unpopulated_node_index_never_suppresses() {
     spawn_interaction_player_wearing(&mut app, center, "player_robot_v3");
     spawn_pedestal(&mut app, center, "player_robot_v3", "hall_player");
 
-    // ⚠ **the box is a PROJECTION now, so the projection has to run.** The
+    //  the box is a PROJECTION now, so the projection has to run. The
     // interaction system decides that a conversation exists; the presentation
     // half opens the runner from that, outside the sim schedule. A fixture that
     // ran only the first would be asserting on a text box nothing was left to
@@ -425,12 +425,12 @@ fn interaction_app() -> App {
     app.add_message::<QuestAdvanceRequested>();
     app.add_message::<SwitchActivated>();
     app.add_message::<VfxMessage>();
-    // ⭐⭐ **the SEAT is spawned on the body, because it IS the input road.** `ActingParticipant`
+    //  the SEAT is spawned on the body, because it IS the input road. `ActingParticipant`
     // answers *which seat drives this body* off `DrivingParticipant`, and a fixture whose
     // bodies carried no seat would hand every reader `None` — which `acting_slot` turns into
     // `PRIMARY`.
     //
-    // ⚠ the possession reconcile is deliberately NOT here: it only moves the
+    //  the possession reconcile is deliberately NOT here: it only moves the
     // primary seat between a home avatar and a possessed body, and no possession
     // happens in this fixture.
     app.add_systems(Update, interact_ecs_actors_and_switches);
@@ -490,7 +490,7 @@ fn buffered_secs(app: &App, slot: u8) -> f32 {
         .interact_buffer_timer
 }
 
-/// **The body that acted plays the pose; the body left behind plays nothing.**
+/// The body that acted plays the pose; the body left behind plays nothing.
 #[test]
 fn the_interact_pose_lands_on_the_body_that_acted() {
     use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
@@ -530,9 +530,9 @@ fn the_interact_pose_lands_on_the_body_that_acted() {
     );
 }
 
-/// **A second seat interacts with its OWN press.**
+/// A second seat interacts with its OWN press.
 ///
-/// ⭐ the discriminating half is what is left behind: seat 0's press is still
+///  the discriminating half is what is left behind: seat 0's press is still
 /// buffered afterwards, because seat 1 spent seat 1's.
 #[test]
 fn a_second_seat_spends_its_own_buffered_interact() {
@@ -570,7 +570,7 @@ fn a_second_seat_spends_its_own_buffered_interact() {
     );
 }
 
-/// **The negative direction, with positive evidence that the road is live.**
+/// The negative direction, with positive evidence that the road is live.
 #[test]
 fn a_seat_that_pressed_nothing_does_not_interact_on_another_seats_press() {
     use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
@@ -592,7 +592,7 @@ fn a_seat_that_pressed_nothing_does_not_interact_on_another_seats_press() {
         "seat 0's press worked a switch that only seat 1's body was standing on"
     );
 
-    // ⭐ **the road is live**: the same fixture, with seat 1 pressing, DOES fire.
+    //  the road is live: the same fixture, with seat 1 pressing, DOES fire.
     // Without this the assertion above would also pass on a world where the
     // press could never reach the simulation at all.
     buffer_interact(&mut app, 1, 0.15);

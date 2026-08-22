@@ -34,7 +34,7 @@ const ENGINE: &str = "ambition_platformer2d_runtime";
 pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     use ambition_platformer2d_core::body_clusters as bc;
 
-    // **DOMAIN-OWNED ROLLBACK DECLARATIONS.** The composition supplies one backend-neutral
+    // DOMAIN-OWNED ROLLBACK DECLARATIONS. The composition supplies one backend-neutral
     // registrar; each capability names its own concrete types and projections.
     // This is composition, not a type census: adding state to an existing domain
     // edits only that domain, and the runtime contains no gameplay type paths.
@@ -61,7 +61,7 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     // every simulated body, projectile-only entities, encounter authorities,
     // and any semantic-identity entity that does not fit those families.
     //
-    // ⚠ actor-owned anchors now live in
+    //  actor-owned anchors now live in
     // `ambition_platformer2d_actor_monolith::register_rollback_state`; only
     // foundation/runtime-owned rows remain below. In-flight strike volumes (moveset melee
     // windows, DamageBox effects, world AOEs).
@@ -69,7 +69,7 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     // Canonical live-session root. Authored definitions are immutable and bound
     // by PreparedContentIdentity; only mutable selection/cursor state rewinds.
     //
-    // ⚠ actor-owned members moved to
+    //  actor-owned members moved to
     // `ambition_platformer2d_actor_monolith::register_rollback_state`; the
     // geometry is `ambition_platformer2d_core`'s and stays.
     registrar.rollback_component_clone::<ambition_platformer2d_core::RoomGeometry>(
@@ -79,42 +79,19 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
 
     // Global authoritative resources.
     registrar.rollback_resource_canonical::<ambition_time::SimTick>(ENGINE, "resource.sim_tick")
-        // **The match activation latch.** (AA2 / AC2)
-        //
-        // Published from inside the sim schedule on the tick the last seat is
-        // filled, and it GATES two behaviours: seating returns early while it
-        // exists, and the countdown treats it as proof the match is live. Left
-        // unregistered, a rewind across activation restored the fighters — or
-        // un-spawned them — and left the latch pointing at a future in which
-        // they existed, so seating refused to rebuild the roster it had just
-        // lost while the countdown carried on.
-        //
-        // Correct because `bevy_ggrs` restores ABSENCE as well as value: a
-        // rewind to before activation REMOVES this, seating sees no match, and
-        // the roster is reconstructed from the same authored inputs.
-        //
-        // ⚠ **this registration is load-bearing, and there is now a fixture that
-        // says so.** Remove it and
-        // `rollback_match_activation::a_rewind_across_the_activation_frame_reconstructs_the_same_match`
-        // fails on "the restored world was not pre-activation after all", while
-        // the two older tests in that file stay green — they cannot reach a
-        // pre-activation frame, and their docstring admits it.
-        //
-        // AA2's lifecycle half is CLOSED as of the seating transaction: seats
-        // are resolved and validated before any is built, then constructed in
-        // one command flush with this latch, so there is no "between two seats"
-        // state a rewind can land in.
+        // Match activation is rollback state. Rewinding before activation must restore the
+        // resource's absence so seating can reconstruct the roster from authored inputs.
         .rollback_resource_canonical::<ambition_time::WorldTime>(ENGINE, "resource.world_time")
         .rollback_resource_canonical::<ambition_platformer2d_world::collision::MovingPlatformSet>(
             ENGINE,
             "resource.moving_platform_set",
         )
-        // **The gate portals' live phase** is registered too — but NOT here, and
+        // The gate portals' live phase is registered too — but NOT here, and
         // not by this crate. `ambition_platformer2d_world` owns both halves of it
         // now: `GatePortalPhases` documents why an integrator whose input rewinds
         // must rewind with it, and `register_gate_portal_rollback_state` (called
         // with the domain-owned declarations at the top of this function) performs the
-        // registration through the floor's `RollbackRegistrar` vocabulary. ⛔ it
+        // registration through the floor's `RollbackRegistrar` vocabulary.  it
         // carries a VALUE projection, not a presence probe — see that function.
         .rollback_resource_clone::<crate::InputStreamRecorder>(
             ENGINE,
@@ -200,133 +177,11 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
             "actor.proper_time_scale",
         );
 
-    // Complete rollback entity shapes. The old custom restore engine only patched a narrow
-    // state subset and left the remaining components stale. GGRS recreates entities, so every
-    // marker, authored/config component, and mutable controller that a recreated actor needs is
-    // explicitly stored. The transformation beat's VALUE, not just its participation. The
-    // anchor declaration above only carries the participation marker; without this the beat's
-    // `remaining` and — worse — the `was_invulnerable` it borrowed never restore, so a rewind
-    // into the middle of a transformation can leave a body permanently untouchable. The REQUEST
-    // is state for the same reason. The pose pin the beat and the snake shell both write.
-    // Snapshotting the slot itself is owner-agnostic and therefore correct for both: a restore
-    // reinstates whatever pin was actually in force. Deriving it from beat state instead would
-    // fight the shell for a component it does not own. G2b: a rig IS its slot→limb map, and the
-    // map is remapped on every load. A presence count sees "one rig, still here" while the left
-    // hand hangs off the right shoulder.
-    //
-    // The first repair projected `limbs.values()` into the entity-SET census and
-    // claimed the slot order came with it. It did not: that census folds targets
-    // with a commutative sum, so the two hands trading slots is the same multiset
-    // and the same digest — the probe was blind to the one failure the comment
-    // named. The MAP census folds each slot's discriminant
-    // against its limb's identity, which is what makes an exchange visible.
-    // G2b: which HOST this limb belongs to. Remapped onto the wrong body, the
-    // limb station-keeps around a stranger and strikes where that stranger is.
-    // G2b: who is riding. A remap that seats the wrong rider locks a body to a
-    // mount it never boarded, and the count of occupied slots is unchanged.
-    // The UN-GRANTED baseline the live `ActionSet` / `ActorMoveset` are a pure
-    // function of (`identity + worn equipment`). Registering the two derived
-    // halves and not their base is the `WornEquipment` oversight again: a rewind
-    // restored the live kit but left the baseline at whatever an abandoned future
-    // derived, so the next `reconcile_equipment_grants` — fired by any armor
-    // spend or pickup — recomputed the live kit from the WRONG base and the
-    // resimulation stopped matching. That is precisely what
-    // `combat_equipment_switch_and_breakable_survive_forced_rollback_identically`
-    // caught: it went red when the protagonist's re-rig changed which kit the
-    // overlay derives, and stayed red because nothing rewound the base.
-    // The MEMO that says the identity baseline above is current for this body.
-    //
-    // It looks like a cache and is not safe to treat as one. `apply_worn_character_gameplay`
-    // re-derives a persona when this record disagrees with the body's worn id or
-    // the cast generation — so a rewind that restores an EARLIER `WornCharacter`
-    // while leaving this at the abandoned future's id makes the record say
-    // "already applied" about a kit the body no longer wears. The derive skips,
-    // and the resimulation runs a fighter with somebody else's moves.
-    //
-    // Exactly the `IdentityKit` oversight one entry up, one level further out:
-    // registering a derived value and not the record of what derived it. Found by
-    // `every_component_in_a_boss_arena_is_registered_derived_or_waived` within
-    // minutes of the component existing.
-    // PROBED over both fields, because a desync here is silent by construction:
-    // the wrong baseline does not corrupt a number, it makes the persona derive
-    // SKIP — and a presence-only probe would see the component and nothing about
-    // which cast it claims. The id is hashed rather than counted so two bodies
-    // that swapped identities during a rewound frame do not read as identical.
-    // **THE PROJECTION'S OWN MEMO**, and the third time this exact shape has had
-    // to be registered rather than assumed derived — after `IdentityKit` and
-    // `PersonaBaseline` directly above.
-    //
-    // `project_prepared_character_definitions` early-exits when this record
-    // agrees with the body's worn id and the cast generation, and it also
-    // records what it GRANTED so it can retract exactly that. Leave it out of
-    // rollback and a rewind restores an earlier `WornCharacter` while the memo
-    // still claims the abandoned future's id: the projection skips, and the body
-    // resimulates wearing a kit — hurtboxes, movement tuning, sprite-posed body
-    // — that its identity no longer asks for. `granted` makes it worse than a
-    // stale read, because retraction is driven from it: the wrong record retracts
-    // the wrong facts.
-    //
-    // ⚠ it was ALWAYS unregistered; nothing caught it because no tested room had
-    // a body carrying one. Registering the protagonist's own incarnations as
-    // characters put it on the PLAYER, so it appeared in every room
-    // at once and three coverage gates went red together. The component did not
-    // become dangerous that day — it became visible.
-    //
-    // PROBED over the id, the generation AND the grant set, for the reason
-    // `PersonaBaseline` is: a desync here is silent by construction. It does not
-    // corrupt a number, it makes a derive SKIP, and a presence-only probe would
-    // see the component and nothing about what it claims.
-    // The quad's placement travels with its size: both are re-derived per pose
-    // from the sheet, so restoring one without the other would leave a body
-    // drawn at the right scale in the wrong place until the next pose change.
-    // The pose→geometry binding itself. Constant per body, but a body the
-    // rewind RE-CREATES must come back still bound to its sheet — otherwise it
-    // silently reverts to whatever box it was spawned with and never recovers.
-    // A body's pose clock ACCUMULATES, and its elapsed value selects which hurtbox
-    // keyframe is live -- so a rewind that lost it would resolve a body's damageable
-    // silhouette from a different instant than the confirmed timeline did.
-    // Authored and immutable at runtime, but bevy_ggrs DESTROYS AND RECREATES
-    // rollback entities: unregistered, the doc is simply absent afterwards and the
-    // body silently reverts to its sprite-derived compatibility box forever. Same
-    // reasoning as `SwitchFeature`.
-    // World features that MUTATE during play.
-    // Without these a brick broken in an abandoned future stays broken through
-    // the rewind, and the crumble/respawn countdowns resume from predicted
-    // values instead of confirmed ones.
-    // A chest's PAYLOAD AND STATE, and the marker that says it was opened.
-    //
-    // Found by A19's unswept-population sweep; no room the sweep visited had ever
-    // contained a chest.
-    // Switch liveness. The `SwitchActivated` MESSAGE is cleared on rollback, but
-    // the state that message produced was not rewound — so a switch flipped in an
-    // abandoned future stayed on.
-    // The switch's authored payload. Immutable at runtime, but bevy_ggrs
-    // DESTROYS AND RECREATES rollback entities — anything not registered is
-    // simply absent on the recreated entity, so an unregistered authored
-    // component silently strips the switch of its identity after a rewind.
-    // Same reasoning for the room-visual lifecycle tag: its siblings
-    // (`RoomScopedEntity`, `SessionScopedEntity`) are registered, and losing the
-    // tag on recreation would leak the entity past its room's teardown.
-    //
-    // Same reasoning once more, for the tag on the player's body. The portal host asks
-    // `With<PlayerVisual>, Without<PortalSceneBody>` to decide what to tag as a portal scene
-    // body, so a recreated player that came back without the tag would stop being seen by
-    // portal staging entirely. The explicit world-pogo contributor marker, beside the body
-    // policy and pogo volumes that were already registered. Same reasoning as `PlayerVisual`:
-    // bevy_ggrs recreates the entity, and a stand-to-crumble surface that loses
-    // `PogoTargetContributor` after rewind silently stops being a world rebound surface. Body
-    // pogo eligibility itself is data (`PogoPolicy` + volumes), not a second marker.
-    //
-    // Their registered siblings sat two lines away this whole time. Same recreated-entity
-    // reasoning as `SwitchFeature` above. The collected latch. Unregistered, a rewind past a
-    // collection could not REMOVE it: the resimulated pickup started already-collected, the
-    // magnet skipped it (`Without<Collected>`), and its registered `CenteredAabb` froze while
-    // the first pass had it moving — the exit oracle's first checksum divergence
-    // (combat_calibration_lab, frames 10–12). The mid-toss collection lock (a scattered ring's
-    // uncollectible window), registered for the SAME reason `Collected` is: a rewind past the
-    // lock's removal must restore it, or the resimulated ring would be collectible a frame
-    // early — the magnet/collect guards read it, so it is authoritative. Which sheet a pickup
-    // is drawn with.
+    // Register values a recreated rollback entity cannot safely reconstruct from another
+    // authoritative source. This includes identity/projection memos, rig/custody maps, authored
+    // presentation bindings, mutable world-feature state, and pickup latches. Value-bearing
+    // bookkeeping is probed by value rather than presence/count so swaps and stale derivation
+    // records cannot pass a census unchanged.
     registrar
         .rollback_component_clone::<ambition_platformer2d_core::body_clusters::AbilityBase>(
             ENGINE,
@@ -360,7 +215,7 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     // `sync_transitable_to_ground_items` mirrors the possibly-teleported result
     // straight back. Snapshotting it would give one body two restorable positions.
     //
-    // ⚠ this DECLARED-DERIVED group lost its actor-owned head to
+    //  this DECLARED-DERIVED group lost its actor-owned head to
     // `ambition_platformer2d_actor_monolith::register_rollback_state`; the rest belongs to
     // `ambition_characters`.
     registrar.declare_rollback_derived_component::<bevy::prelude::GlobalTransform>(

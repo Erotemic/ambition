@@ -10,7 +10,7 @@ fn at(world: &ae::World, x: f32, y: f32) -> IVec2 {
     world_to_particle_grid(world, ae::Vec2::new(x, y))
 }
 
-/// **FS1's conservation law.** The projection is a read-model over the grid:
+/// FS1's conservation law. The projection is a read-model over the grid:
 /// it may neither create matter nor lose it. Every particle the pass walks
 /// lands in exactly one ledger column, and every counted particle lands in
 /// exactly one tile bucket. `tally_particles` `debug_assert`s the second half
@@ -68,7 +68,7 @@ fn particles_accumulate_within_a_tile_rather_than_collapsing() {
     assert_eq!(scratch.bucketed(MaterialKind::Sand), 7, "seven particles");
 }
 
-/// **Single owner, per tile.** A tile dense enough to be sand is a solid; it
+/// Single owner, per tile. A tile dense enough to be sand is a solid; it
 /// must not ALSO become a water region, or the player would swim inside a
 /// block. Sand claims first and liquid yields — and the visual agrees with the
 /// collision, so what you see is what you stand on.
@@ -202,7 +202,7 @@ fn banned_definitions() -> Vec<String> {
     ]
 }
 
-/// **Poison test.** The guard must be able to go red; a lint that cannot fail
+/// Poison test. The guard must be able to go red; a lint that cannot fail
 /// is worse than none (ADR 0023's rule, applied here). Feeds it a source that
 /// DOES contain a reintroduced definition and checks it is seen.
 #[test]

@@ -1,4 +1,4 @@
-//! **The primitives a character's move table is written with** — shared, because
+//! The primitives a character's move table is written with — shared, because
 //! the second character to author one must not begin by copying the first.
 //!
 //! Mary-O and Sanic are registered by their own demos, both were 0/16 on the smash grid, and
@@ -7,14 +7,14 @@
 //! `ambition_characters` is where the character model lives and where `moveset_prefabs` already
 //! derives a table from an action set; authoring one by hand belongs beside it.
 //!
-//! ⚠ `ambition_demo_smash` still carries its OWN fork of these (`crate::moveset`
+//!  `ambition_demo_smash` still carries its OWN fork of these (`crate::moveset`
 //! in that crate, with a `Feel` tag this one has no concept of). Unifying it is
 //! its own change and would expose what the fork hides; it is not this one.
 //!
 //! They were never robot-specific — `strike` is *startup, one active window carrying one volume,
 //! recovery*, which is the shape of nearly every move in the genre.
 //!
-//! ⚠ **a move states what it IS, never what a mode does with it.** Startup,
+//!  a move states what it IS, never what a mode does with it. Startup,
 //! active frames, recovery, hitbox geometry, damage, base launch and growth are
 //! properties of the swing; percent, stocks, blast zones and DI are the
 //! RULESET's. That is what lets one table read as Hollow-Knight combat in one
@@ -35,9 +35,9 @@ fn event(mut m: MoveSpec, at_s: f32, kind: MoveEventKind) -> MoveSpec {
     m
 }
 
-/// **A TIMED SELF-DISPLACEMENT.**
+/// A TIMED SELF-DISPLACEMENT.
 ///
-/// ⭐ [`ImpulseMode::Set`] COMMANDS a velocity; [`ImpulseMode::Add`] contributes
+///  [`ImpulseMode::Set`] COMMANDS a velocity; [`ImpulseMode::Add`] contributes
 /// to one. The difference is the difference between a recovery and a hop: a body
 /// falling at terminal velocity gets exactly the same result from a `Set` as a
 /// standing one does, and the worst possible result from an `Add`. It is also
@@ -50,7 +50,7 @@ pub fn impulse(m: MoveSpec, at_s: f32, local: (f32, f32), mode: ImpulseMode) -> 
     event(m, at_s, MoveEventKind::Impulse { local, mode })
 }
 
-/// **A CUE AT A MOMENT.** The move's own timeline is where its sound lives, so a
+/// A CUE AT A MOMENT. The move's own timeline is where its sound lives, so a
 /// windup you can hear and a swing you can hear are two events and not two
 /// systems.
 ///
@@ -67,17 +67,17 @@ pub fn sfx(m: MoveSpec, at_s: f32, cue: &str) -> MoveSpec {
     )
 }
 
-/// **A BURST AT A MOMENT** — picture and sound, because they are one thing.
+/// A BURST AT A MOMENT — picture and sound, because they are one thing.
 ///
-/// ⚠ `effect` is the NAME of a row on one of the shipped FX spritesheets
+///  `effect` is the NAME of a row on one of the shipped FX spritesheets
 /// (`ambition_sprite_sheet::fx` — 189 of them). `MoveSpec::presentation_problems`
 /// refuses a name no sheet carries, and the renderer counts it as a miss rather
 /// than playing nothing quietly.
 ///
-/// ⭐⭐ **it is heard as well as seen, and the author writes nothing for that.**
+///  it is heard as well as seen, and the author writes nothing for that.
 /// The bank ships one `vfx.<family>.<row>` cue per authored row, so the name
 /// that finds the clip finds the sound; `dispatch_move_events` asks for the pair
-/// and presentation resolves it. ⛔ do NOT follow this with an [`sfx`] naming
+/// and presentation resolves it.  do NOT follow this with an [`sfx`] naming
 /// that same cue — the burst would be heard twice. [`vfx_cued`] is for the
 /// exception where the sound is genuinely not the row's default.
 pub fn vfx(m: MoveSpec, at_s: f32, effect: &str) -> MoveSpec {
@@ -93,10 +93,10 @@ pub fn vfx(m: MoveSpec, at_s: f32, effect: &str) -> MoveSpec {
     )
 }
 
-/// **A burst that says WHERE and HOW BIG**, in the same body-local numbers the
+/// A burst that says WHERE and HOW BIG, in the same body-local numbers the
 /// move's strike volumes use.
 ///
-/// ⭐ pass a volume's own `offset` as `at` and the two cannot disagree.
+///  pass a volume's own `offset` as `at` and the two cannot disagree.
 pub fn vfx_at(m: MoveSpec, at_s: f32, effect: &str, at: (f32, f32), scale: f32) -> MoveSpec {
     event(
         m,
@@ -110,9 +110,9 @@ pub fn vfx_at(m: MoveSpec, at_s: f32, effect: &str, at: (f32, f32), scale: f32) 
     )
 }
 
-/// **A PLACED BURST THAT DOES NOT SOUND LIKE ITS OWN ROW.**
+/// A PLACED BURST THAT DOES NOT SOUND LIKE ITS OWN ROW.
 ///
-/// ⛔ **`cue` is a bank cue name, not an effect row name.** An id neither the
+///  `cue` is a bank cue name, not an effect row name. An id neither the
 /// registry nor the packed bank authorizes is counted and dropped, not heard —
 /// so a typo here is silence, exactly as it is for [`sfx`].
 pub fn vfx_cued(
@@ -135,7 +135,7 @@ pub fn vfx_cued(
     )
 }
 
-/// **WHAT LANDING THIS MOVE SOUNDS LIKE**, applied to every volume it throws.
+/// WHAT LANDING THIS MOVE SOUNDS LIKE, applied to every volume it throws.
 /// Contact feedback belongs to the volume because only the volume knows it
 /// connected.
 pub fn on_contact(mut m: MoveSpec, cue: &str) -> MoveSpec {
@@ -145,10 +145,10 @@ pub fn on_contact(mut m: MoveSpec, cue: &str) -> MoveSpec {
     m
 }
 
-/// **HOW THE SWING ITSELF IS DRAWN** — the strike-presentation tag every volume
+/// HOW THE SWING ITSELF IS DRAWN — the strike-presentation tag every volume
 /// this move throws carries.
 ///
-/// ⛔ **this is NOT an FX-sheet row name.** `HitVolume::vfx` is a two-word
+///  this is NOT an FX-sheet row name. `HitVolume::vfx` is a two-word
 /// vocabulary ([`SLASH_ARC_VFX`] /
 /// [`SLASH_POKE_VFX`](ambition_characters::moveset_prefabs::SLASH_POKE_VFX))
 /// that the move runtime
@@ -167,7 +167,7 @@ pub fn strike_tag(mut m: MoveSpec, tag: &str) -> MoveSpec {
     m
 }
 
-/// **A TAIL THE BODY CANNOT STEER OUT OF.** Extends the move to `to_s` with a
+/// A TAIL THE BODY CANNOT STEER OUT OF. Extends the move to `to_s` with a
 /// Recovery window whose `motion_scale` damps the owner's steering — the genre's
 /// "you are committed now", authored rather than hardcoded, and enforced
 /// body-side so it binds a CPU and a human identically.
@@ -188,7 +188,7 @@ pub fn committed_tail(mut m: MoveSpec, to_s: f32, motion_scale: f32) -> MoveSpec
     m
 }
 
-/// **A TAUNT — the one authored move that threatens nobody.**
+/// A TAUNT — the one authored move that threatens nobody.
 ///
 /// No volume, no impulse, one committed recovery window: everything a taunt IS
 /// is that you cannot act for `duration_s`, which is what makes it a statement.
@@ -229,19 +229,19 @@ pub fn taunt(id: &str, duration_s: f32) -> MoveSpec {
 /// MATTER — how long you are committed, how far it reaches, how hard it throws,
 /// and how much of the throw scales with the victim's damage.
 #[allow(clippy::too_many_arguments)]
-/// **THE DASH ATTACK's shape**, with the fighter supplying only what it hits for.
+/// THE DASH ATTACK's shape, with the fighter supplying only what it hits for.
 ///
-/// ⭐ the same split [`taunt`] uses: the helper owns the SHAPE — the genre's fast
+///  the same split [`taunt`] uses: the helper owns the SHAPE — the genre's fast
 /// startup, long recovery and forward carry — and the fighter owns the numbers.
 /// A dash attack that each of fourteen fighters designed from scratch would be
 /// fourteen chances to author something that is not a dash attack.
 ///
-/// ⚠ **the frame shape is the mechanic**: it starts faster than a tilt because
+///  the frame shape is the mechanic: it starts faster than a tilt because
 /// you already committed to the dash, and it recovers longer because that
 /// commitment is what you are paying for. A version with a tilt's recovery would
 /// be a strictly better tilt.
 pub fn dash_attack(id: &str, shape: DashAttackShape, damage: i32, knockback: f32) -> MoveSpec {
-    // ⚠ the impulse is FORWARD and lands at the swing, so the move carries the
+    //  the impulse is FORWARD and lands at the swing, so the move carries the
     // dash's own momentum rather than stopping the body to hit.
     impulse(
         strike(
@@ -250,7 +250,7 @@ pub fn dash_attack(id: &str, shape: DashAttackShape, damage: i32, knockback: f32
             shape.startup_s,
             shape.active_s,
             shape.recover_s,
-            // ⚠ **`reach_px` IS what `reach_of` measures** — offset plus
+            //  `reach_px` IS what `reach_of` measures — offset plus
             // half-extent, not the offset alone. A fighter whose tests pin a
             // reach (Carl's `NEAREST_REACH`) has to be able to say the number
             // its own doc says, and a helper that meant something else by the
@@ -269,10 +269,10 @@ pub fn dash_attack(id: &str, shape: DashAttackShape, damage: i32, knockback: f32
     )
 }
 
-/// **The frames a dash attack occupies**, so a fighter that authored a LAW about
+/// The frames a dash attack occupies, so a fighter that authored a LAW about
 /// its own timings can honour it.
 ///
-/// ⛔ **this is not "the shape became optional".** [`DashAttackShape::GENRE`] is
+///  this is not "the shape became optional". [`DashAttackShape::GENRE`] is
 /// still the one statement of what a dash attack is, and nine of the fourteen
 /// fighters take it unchanged. The five that do not are the five whose own
 /// tests assert a property the genre's numbers break — Oiler's tolerance band,
@@ -280,7 +280,7 @@ pub fn dash_attack(id: &str, shape: DashAttackShape, damage: i32, knockback: f32
 /// gap — and each of those is a fact about that CHARACTER that a shared default
 /// has no standing to overrule.
 ///
-/// ⭐ **the guards found every one of them.** A generic move stamped over
+///  the guards found every one of them. A generic move stamped over
 /// fourteen fighters violated five authored invariants, and five character
 /// censuses said so on the first run.
 #[derive(Clone, Copy, Debug)]
@@ -292,7 +292,7 @@ pub struct DashAttackShape {
 }
 
 impl DashAttackShape {
-    /// **The genre's dash attack.** Faster than a tilt because the dash is
+    /// The genre's dash attack. Faster than a tilt because the dash is
     /// already committed, and recovering longer because that commitment is what
     /// is being paid for — a version with a tilt's recovery is a better tilt.
     pub const GENRE: Self = Self {
@@ -315,7 +315,7 @@ pub fn strike(
     knockback: f32,
     knockback_growth: f32,
     launch_dir: Option<(f32, f32)>,
-    // **What LANDING this hit can do beyond damage.** Today exactly one move
+    // What LANDING this hit can do beyond damage. Today exactly one move
     // uses it: the down-air says it is capable of rebounding its attacker, and
     // the RULESET (`DeclaredCombatRules::downward_hit`) decides whether this
     // game takes it up on that or reads the swing as a spike instead.
@@ -328,19 +328,19 @@ pub fn strike(
         id: id.to_string(),
         clip: ClipBinding {
             clip: clip.to_string(),
-            // ⭐⭐ **THE AUTHORED FALLBACK CHAIN** (sprite redirect P0/P1,
+            //  THE AUTHORED FALLBACK CHAIN (sprite redirect P0/P1,
             // ). A move names the exact row it wants — `smash_forward`,
             // `air_back` — and this is what it settles for when a sheet does not
             // have it. Robot v3's new sheet has 132 rows and draws the exact
             // clip; a lean sheet with `attack` draws that; one with only `slash`
             // and `idle` still plays.
             //
-            // ⛔ **the structural fallbacks are DIRECTIONAL first** — an up-tilt
+            //  the structural fallbacks are DIRECTIONAL first — an up-tilt
             // that cannot find `attack_up` should look like a side swing before
             // it looks like nothing, and `attack_side` is the row every fighter
             // sheet in the repo has had for a year.
             //
-            // ⚠ a missing clip must never cost the move its GAMEPLAY: the
+            //  a missing clip must never cost the move its GAMEPLAY: the
             // timeline runs whatever draws.
             fallbacks: vec![
                 "attack_side".to_string(),
@@ -375,7 +375,7 @@ pub fn strike(
                     on_hit,
                     // The blade tag: the move runtime draws the slash from the
                     // SAME spawned volume, so the hitbox and the arc can never
-                    // point different ways. ⚠ a POKE wants the other tag — see
+                    // point different ways.  a POKE wants the other tag — see
                     // [`strike_tag`].
                     vfx: Some(SLASH_ARC_VFX.to_string()),
                     hit_sfx: None,

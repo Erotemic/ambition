@@ -1,5 +1,5 @@
-//! **A death holds the body by CLAIMING, so nobody else's release can free
-//! it.**
+//! A death holds the body by CLAIMING, so nobody else's release can free
+//! it.
 //!
 //! The two tests below are the invariant and its poison in the same file:
 //! [`a_death_claims_the_sequence_hold`] says the claim happened at all, and
@@ -17,7 +17,7 @@ use bevy::prelude::{App, Commands, Entity, Query, Update};
 
 /// A minimal world with the death beat wired and nothing else.
 ///
-/// **`GoverningDeathRules` is deliberately unfurnished.** Both of its halves
+/// `GoverningDeathRules` is deliberately unfurnished. Both of its halves
 /// are optional and the absent case is the engine default, so this harness
 /// exercises the same code path a composition with no death declarations does.
 fn app_with_the_death_beat() -> App {
@@ -41,7 +41,7 @@ fn kill(app: &mut App, victim: Entity) {
     app.update();
 }
 
-/// **The claim itself.** `ScriptedControl` is DERIVED — its presence means
+/// The claim itself. `ScriptedControl` is DERIVED — its presence means
 /// `ControlHolds` is non-empty — so a death that produced the marker without a
 /// bit would leave the two disagreeing.
 #[test]
@@ -68,8 +68,8 @@ fn a_death_claims_the_sequence_hold() {
     );
 }
 
-/// **THE POINT: a body that died inside a capture stays held when the captor
-/// lets go.**
+/// THE POINT: a body that died inside a capture stays held when the captor
+/// lets go.
 #[test]
 fn a_captor_letting_go_cannot_free_a_body_that_died_in_its_grip() {
     let mut app = app_with_the_death_beat();
@@ -85,7 +85,7 @@ fn a_captor_letting_go_cannot_free_a_body_that_died_in_its_grip() {
 
     kill(&mut app, victim);
 
-    // **both terms OBSERVED before the release.** A version of this test that
+    // both terms OBSERVED before the release. A version of this test that
     // went straight to the release would also pass on a world where the capture
     // hold had silently vanished, or where the death never ran — neither of
     // which is the state whose behaviour is being pinned.

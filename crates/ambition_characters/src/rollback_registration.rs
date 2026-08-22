@@ -81,13 +81,13 @@ where
     // not a reprojection of it: it reads `PossessionState`, which is registered
     // rollback state in the actor domain, and touches nothing else.
     //
-    // **"it is a derive" is not a thing the coverage guard can infer, and I
-    // learned that the expensive way.** `rollback_coverage` offers exactly three
+    // "it is a derive" is not a thing the coverage guard can infer, and I
+    // learned that the expensive way. `rollback_coverage` offers exactly three
     // outcomes — registered, DECLARED derived, or waived — and a component that
     // is genuinely reprojected but says so nowhere fails all three. Eight
     // coverage tests plus `rollback_exit_oracle` went red on main for one missing
     // declaration. This row now takes the FIRST outcome.
-    // **PROBED, not bare-clone: the SLOT NUMBER is the state.**
+    // PROBED, not bare-clone: the SLOT NUMBER is the state.
     // A bare `rollback_component_clone` gives the localizer a PRESENCE-ONLY
     // probe — it satisfies the coverage sweep while seeing nothing of the value.
     // So a rewind that restored `DrivingParticipant(PlayerSlot(1))` where the
@@ -153,7 +153,7 @@ where
         OWNER,
         "message.actor_action",
     );
-    // **the PLATFORM-FIGHTER half of a capture** — pummel count, hold age and
+    // the PLATFORM-FIGHTER half of a capture — pummel count, hold age and
     // escape progress. Authoritative sim state for exactly the reason its
     // relation half is: a rewind past a pummel must undo the pummel, and a
     // rewind past a mash must undo the progress it bought.

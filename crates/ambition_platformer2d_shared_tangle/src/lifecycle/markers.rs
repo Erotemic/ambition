@@ -19,7 +19,7 @@ use bevy::prelude::*;
 #[derive(Component, Default)]
 pub struct RoomScopedEntity;
 
-/// **RESIDENCY, SUSPENDED: this entity is in another entity's CUSTODY.**
+/// RESIDENCY, SUSPENDED: this entity is in another entity's CUSTODY.
 ///
 /// A room-scoped entity is normally *resident* in the active room, and a room
 /// CHANGE retires everything resident in the room it is leaving. An object a
@@ -27,7 +27,7 @@ pub struct RoomScopedEntity;
 /// boundary with whoever carries it. Its residency is therefore its holder's,
 /// which is the whole of what custody means.
 ///
-/// **the LIFETIME is unchanged, and that is deliberate.** The entity keeps
+/// the LIFETIME is unchanged, and that is deliberate. The entity keeps
 /// [`RoomScopedEntity`]; the marker is never taken away, so no query that
 /// requires the scope silently loses sight of it and the sandbox reset — which
 /// destroys the world a resident belongs to *and* empties the hand that holds
@@ -35,19 +35,19 @@ pub struct RoomScopedEntity;
 /// sweep a room CHANGE runs ([`RoomResident`]). Retracting the suspension is a
 /// RESET to the default (resident), never a retraction of the scope itself.
 ///
-/// **and residency resumes in whatever room is active then.** [`RoomScopedEntity`] carries no
+/// and residency resumes in whatever room is active then. [`RoomScopedEntity`] carries no
 /// room id — the sweep is presence-driven against the room being left — so an object released
 /// from custody two rooms later is resident in THAT room, and the next transition out of it
 /// retires the object correctly.
 ///
-/// **body-generic, and item-free vocabulary.** `0` is whatever entity took
+/// body-generic, and item-free vocabulary. `0` is whatever entity took
 /// custody: a couch seat, a possessed actor, an NPC. Nothing that reads this
 /// knows items exist, which is the point — a room transition must not learn
 /// about an inventory entourage in order to stop destroying one.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct InCustodyOf(pub Entity);
 
-/// **THE roster a room CHANGE retires**: scoped to the room, and actually
+/// THE roster a room CHANGE retires: scoped to the room, and actually
 /// resident in it.
 ///
 /// Spelled once, here, because the alternative is each host repeating
@@ -57,29 +57,29 @@ pub struct InCustodyOf(pub Entity);
 /// destroys the world its residents live in, hands included.
 pub type RoomResident = (With<RoomScopedEntity>, Without<InCustodyOf>);
 
-/// **BODY CUSTODY HAS SETTLED FOR THIS TICK** — the boundary every reader of
+/// BODY CUSTODY HAS SETTLED FOR THIS TICK — the boundary every reader of
 /// [`InCustodyOf`] on a BODY must run after.
 ///
-/// **[`InCustodyOf`] has TWO owners and only one of them is items.** The
+/// [`InCustodyOf`] has TWO owners and only one of them is items. The
 /// item domain reprojects the marker onto objects from `ItemCustody`; a separate
 /// derive owns the whole non-item body population — a possessed actor, its
 /// mount, that mount's limbs. Neither knows about the other, which is correct,
 /// and it leaves the ordering between them expressible nowhere but here.
 ///
-/// **AND THE ITEM CHAIN READS WHAT THE BODY DERIVE WRITES.** Object residency asks whether a
+/// AND THE ITEM CHAIN READS WHAT THE BODY DERIVE WRITES. Object residency asks whether a
 /// holder is a [`RoomResident`] — a filter whose whole content is `Without<InCustodyOf>` — so a
 /// possessed body that is carrying something is *exactly* the case where the two populations
 /// meet. Same-tick possess-and-cross is the mirror case. Nothing about that is visible in
 /// either domain's code, because each one is internally ordered and correct.
 ///
-/// **it is a LABEL on the derive, not a phase**, so the edge survives the
+/// it is a LABEL on the derive, not a phase, so the edge survives the
 /// derive moving house. Body custody lives in the possession ability today and
 /// does not belong there — possession is one ROOT REASON a body stops being
 /// resident, not the law governing every attachment — and a reader that had
 /// ordered itself against *possession* would have to be found and re-pointed on
 /// the day that moves. A reader ordered against this set does not.
 ///
-/// **empty in a composition that installs no body-custody derive**, where an
+/// empty in a composition that installs no body-custody derive, where an
 /// `.after` edge against it is correctly a no-op: nothing suspends a body's
 /// residency, so nothing can read the marker late.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]

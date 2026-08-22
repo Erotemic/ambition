@@ -43,7 +43,7 @@ pub struct BodyPoseView {
     /// The picked animation row for this tick (the player picker over the
     /// body's real clusters).
     pub anim: CharacterAnim,
-    /// **What this body's ACTIVE MOVE asks to be drawn as**, when one is
+    /// What this body's ACTIVE MOVE asks to be drawn as, when one is
     /// playing — see `ActorAnimFrame::clip`, which is the same request on the
     /// actor road. `None` means *draw the semantic pose*.
     pub clip: Option<crate::ClipRequest>,
@@ -57,7 +57,7 @@ pub struct BodyPoseView {
     /// Fireball charge tier while the fire button is held (`None` when not
     /// charging): 0 / 1 / 2+ pick the charge-indicator size/alpha.
     pub charge_tier: Option<u8>,
-    /// **The sprite quad this body's SHEET authored**, when its geometry is
+    /// The sprite quad this body's SHEET authored, when its geometry is
     /// sheet-authored (`SpritePosedBody`); `None` when the render must size the
     /// quad itself.
     ///
@@ -73,7 +73,7 @@ pub struct BodyPoseView {
     /// readings of ONE authored scale, so neither is derived from the other and
     /// there is no ratio to be wrong.
     pub authored_render: Option<ambition_platformer2d_core::Vec2>,
-    /// **Where to draw that quad, relative to the body centre** — the companion
+    /// Where to draw that quad, relative to the body centre — the companion
     /// to `authored_render` and gated on the same `SpritePosedBody`.
     pub authored_offset: Option<ambition_platformer2d_core::Vec2>,
 }
@@ -123,8 +123,8 @@ pub fn rebuild_body_pose_views(
                 Option<&BodyCombat>,
                 Option<&ambition_platformer2d_actor_monolith::actor::BodyAnimFacts>,
                 Option<&ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState>,
-                // **This body's own resolved basis**, so the locomotion metric is
-                // measured along ITS run axis. ⛔ deliberately not the global
+                // This body's own resolved basis, so the locomotion metric is
+                // measured along ITS run axis.  deliberately not the global
                 // `GravityField` read below: that one drives the facing flip and
                 // is a mirror of the PRIMARY body's frame.
                 Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
@@ -146,7 +146,7 @@ pub fn rebuild_body_pose_views(
                 >,
                 // The sheet-authored sprite quad, when this body's geometry is its art.
                 //
-                // ⚠ gated on `SpritePosedBody`, NOT on the render size alone.
+                //  gated on `SpritePosedBody`, NOT on the render size alone.
                 // `ActorRenderSize` is the SHARED sprite-quad component — several
                 // spawn paths insert it from sheet metadata for bodies whose
                 // collision box is still hand-authored. Reading it bare here
@@ -162,7 +162,7 @@ pub fn rebuild_body_pose_views(
                 bevy::prelude::Has<
                     ambition_sprite_sheet::character::SpritePosedBody,
                 >,
-                // **The move this body is playing**, so the drawn row can be the
+                // The move this body is playing, so the drawn row can be the
                 // one the move NAMES — the same request the actor path carries
                 // on `ActorAnimFrame::clip` (sprite redirect P0). Fifteen members
                 // in this sub-tuple; Bevy's limit is sixteen.
@@ -264,7 +264,7 @@ pub fn rebuild_body_pose_views(
             stance_ratio_y,
             gravity_dir,
             anim,
-            // ⭐ a MOVE names its row; failing that, a fighter STATE does — the
+            //  a MOVE names its row; failing that, a fighter STATE does — the
             // same two-step the actor road takes, so the two never disagree.
             clip: playback
                 .map(|playback| crate::ClipRequest {
@@ -370,7 +370,7 @@ mod pose_view_tests {
         assert!(!pose.morph_ball);
     }
 
-    /// **A sheet-authored quad is reported only by a body that HAS one.**
+    /// A sheet-authored quad is reported only by a body that HAS one.
     ///
     /// `ActorRenderSize` alone cannot support that claim: it is the shared sprite-quad
     /// component, and several spawn paths set it from sheet metadata for bodies whose collision
@@ -431,7 +431,7 @@ mod pose_view_tests {
         );
     }
 
-    /// **A content pose pin reaches the PLAYER's view, not only an actor's.**
+    /// A content pose pin reaches the PLAYER's view, not only an actor's.
     ///
     /// `ActorAnimOverride` is how content states a pose the locomotion picker cannot infer — a
     /// shell withdrawing, a body mid-transformation.

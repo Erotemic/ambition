@@ -1019,7 +1019,7 @@ fn ledge_grab_arms_intangibility_window() {
     );
 }
 
-/// **A LEDGE YOU JUST LEFT IS WORTH LESS THAN ONE YOU FELL BACK TO.**
+/// A LEDGE YOU JUST LEFT IS WORTH LESS THAN ONE YOU FELL BACK TO.
 ///
 /// the ledge-camping rule, and both ends of it are the assertion: a fresh
 /// body earns the FULL window (the test above), and one that let go a moment ago
@@ -1593,8 +1593,8 @@ fn hang_on_left_lip(block: Aabb, body_size: Vec2) -> LedgeContact {
     }
 }
 
-/// **A ledge hang is carried by the carrying solid's own `Block::velocity`, and
-/// by nothing else.** The rule that replaced a player-only `&[MovingPlatformState]`
+/// A ledge hang is carried by the carrying solid's own `Block::velocity`, and
+/// by nothing else. The rule that replaced a player-only `&[MovingPlatformState]`
 /// scan (K4): the hang rides for the same reason a grounded body rides, so
 /// static geometry is the `velocity == ZERO` degenerate case rather than a
 /// separate road, and the solid doing the carrying is the one solid that cannot

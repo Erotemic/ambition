@@ -1,7 +1,7 @@
 //! Two observer panes side by side, each resolved in its own reference frame.
 //!
 //! The panes exist to make one thing visible at once: the laboratory twin and
-//! the traveler **disagree about the order of the same two events**. Both
+//! the traveler disagree about the order of the same two events. Both
 //! beacons flash together in laboratory coordinate time. The left pane, drawn
 //! for an observer at rest and equidistant, always reports them simultaneous.
 //! The right pane, drawn for the traveler, reports a definite order whose sign
@@ -13,14 +13,14 @@
 //! only reason this module exists separately from that read model is that a
 //! headless composition has no renderer to draw into.
 //!
-//! **the world-space entities are DUPLICATED per pane**, on one private
+//! the world-space entities are DUPLICATED per pane, on one private
 //! render layer each. That is the ruled consequence of an adaptive layout
 //! a view that may split at any moment cannot be served by one
 //! shared set of world-space entities. TwinTrack duplicates its handful of
 //! instrument sprites rather than the plaza, which is why the cost is trivial
 //! here and would not be for the full game.
 //!
-//! **these cameras deliberately do not join the engine's `LocalView` model.**
+//! these cameras deliberately do not join the engine's `LocalView` model.
 //! Production spawns exactly one `LocalView`, and the shared camera→view
 //! binding rule refuses to bind at all once several views exist — so spawning a
 //! second view here would unbind the gameplay camera, and there would still be
@@ -121,7 +121,7 @@ impl SplitObserverPane {
 
     /// Which half of the window this pane draws into.
     ///
-    /// **participant order, not exhibit order.** The traveler is seat zero and
+    /// participant order, not exhibit order. The traveler is seat zero and
     /// takes the left pane, because that is the pane its gameplay camera is
     /// already drawing into (`participants::place_the_two_views`) — an
     /// instrument that reported the traveler's numbers over the laboratory
@@ -230,7 +230,7 @@ impl OrderingRow {
 
 /// What one drawn thing in a pane is.
 ///
-/// **one enum instead of a dozen marker components, deliberately.** Every
+/// one enum instead of a dozen marker components, deliberately. Every
 /// element below is repositioned from the same read model in the same frame, so
 /// a marker per element would need a hand-kept `Without<..>` matrix on each of a
 /// dozen `&mut Transform` queries — a list that goes stale by ADDING an element
@@ -571,7 +571,7 @@ fn pane_viewport(pane: SplitObserverPane, target: UVec2) -> Option<Viewport> {
     })
 }
 
-/// **each pane splits ITS OWN render target, never the primary window.**
+/// each pane splits ITS OWN render target, never the primary window.
 /// TwinTrack's offscreen capture has no window at all, and a rectangle measured
 /// from a window that does not exist would leave the panes stacked on top of
 /// each other while still reporting two active cameras.
@@ -643,7 +643,7 @@ fn verdict_text(row: OrderingRow, report: &ObserverOrderingReport) -> String {
 /// A rough visible-spectrum ramp, so a Doppler factor becomes a COLOUR rather
 /// than one more number to read.
 ///
-/// **the ends are deliberately not clamped to red and violet.** At 0.9c the
+/// the ends are deliberately not clamped to red and violet. At 0.9c the
 /// chased ray falls to about 124 THz and the head-on ray climbs past 2 300 THz,
 /// both far outside anything an eye responds to; a ramp that clamped would show
 /// them as ordinary red and violet and quietly understate the effect.
@@ -682,7 +682,7 @@ fn spectral_color(frequency_thz: f64) -> Color {
 /// Where this pane draws a pulse front, or `None` when the front has aged out
 /// or left the drawn map.
 ///
-/// **anchored on the observer marker, not on the pane origin.** The exact
+/// anchored on the observer marker, not on the pane origin. The exact
 /// boost gives the front's offset FROM THE OBSERVER in the observer's frame,
 /// and the marker is where a viewer's eye already puts that observer. The
 /// anchor is re-derived from the pulse report rather than borrowed from the

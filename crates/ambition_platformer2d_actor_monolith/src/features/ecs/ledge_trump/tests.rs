@@ -58,7 +58,7 @@ fn app() -> App {
     app
 }
 
-/// **THE LATER ARRIVAL KEEPS THE EDGE, AND THE EARLIER ONE KEEPS NOTHING.**
+/// THE LATER ARRIVAL KEEPS THE EDGE, AND THE EARLIER ONE KEEPS NOTHING.
 ///
 /// all three halves: the trumper stays on, the trumped comes off, and the
 /// window it bought with airtime it no longer has comes off with it. A body
@@ -92,7 +92,7 @@ fn the_body_that_caught_the_edge_last_keeps_it() {
     );
 }
 
-/// **A BODY ON ITS OWN EDGE IS LEFT ALONE.**
+/// A BODY ON ITS OWN EDGE IS LEFT ALONE.
 ///
 /// the floor, and without it the test above would also pass on a system that
 /// simply knocked every hanging body off.
@@ -109,7 +109,7 @@ fn two_bodies_on_two_edges_both_keep_them() {
     assert_eq!(invuln(&app, left), ae::LEDGE_GRAB_INVULN_TIME);
 }
 
-/// **THREE ON ONE EDGE LEAVES ONE, AND A TIE IS BROKEN BY IDENTITY.**
+/// THREE ON ONE EDGE LEAVES ONE, AND A TIE IS BROKEN BY IDENTITY.
 ///
 /// two fighters that grabbed on the same tick have the same `elapsed` to the
 /// float. Resolving that by query order would be stable within a run and NOT
@@ -129,7 +129,7 @@ fn a_tie_is_broken_the_same_way_every_time() {
     assert!(!still_hanging(&app, old));
 }
 
-/// **A BODY ALREADY PULLING ITSELF UP IS NOT CONTESTING THE EDGE.**
+/// A BODY ALREADY PULLING ITSELF UP IS NOT CONTESTING THE EDGE.
 ///
 /// trumping it would cancel a getup that has already left the hang, which is
 /// a different mechanic — and a worse one, because the getup is the beat a

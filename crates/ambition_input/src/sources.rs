@@ -1,4 +1,4 @@
-//! **Which physical input SOURCE a participant owns.**
+//! Which physical input SOURCE a participant owns.
 //!
 //! [`crate::local_seats`] already answers this for gamepads: seat `n` owns the
 //! `n`-th connected pad, in remembered arrival order. It cannot answer it for
@@ -6,7 +6,7 @@
 //! keyboard bindings live in every seat's `InputMap`, put there by a
 //! [`crate::presets`] preset, and nothing owns them.
 //!
-//! With two participants it is the couch bug — **both seats answer the keyboard**, so player one's
+//! With two participants it is the couch bug — both seats answer the keyboard, so player one's
 //! WASD also moves player two if player two's preset overlaps, and a keyboard player and a pad
 //! player cannot coexist because the keyboard has no owner to be.
 //!
@@ -58,7 +58,7 @@ impl InputSourceId {
 /// Default is [`Self::UnifiedPrimary`], which is today's behaviour exactly: this
 /// type must be installable without changing what any existing game does, or the
 /// couch work has to be finished before anything can ship.
-/// **not a `Resource` — it is carried by [`crate::LocalSeatOffer`].** A
+/// not a `Resource` — it is carried by [`crate::LocalSeatOffer`]. A
 /// policy with no owner could only be given back by value equality, which is
 /// how one surface's teardown erased a successor's identical claim.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -79,7 +79,7 @@ pub enum InputAssignmentPolicy {
     ExplicitAssignment,
 }
 
-/// **Who owns the keyboard**, when ownership is a question at all.
+/// Who owns the keyboard, when ownership is a question at all.
 ///
 /// `None` means nobody owns it exclusively — under [`InputAssignmentPolicy::UnifiedPrimary`]
 /// that is the correct and only answer.

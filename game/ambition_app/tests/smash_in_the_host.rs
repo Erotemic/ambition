@@ -1,5 +1,5 @@
 #![cfg(feature = "input")]
-//! **Smash, from the title screen — the whole way in and the whole way back.**
+//! Smash, from the title screen — the whole way in and the whole way back.
 //!
 //! Listing it in the multi-game host is what makes the crossover claim its own source comment
 //! makes — *"the crossover claim moves to where it belongs — Ambition HOSTING this experience
@@ -31,7 +31,7 @@ use leafwing_input_manager::prelude::Buttonlike;
 /// The real shell-host composition PLUS the real host input stack, headless —
 /// the same shape `participant_input.rs` uses.
 ///
-/// **the input stack is not optional here, it is the point.** A test that
+/// the input stack is not optional here, it is the point. A test that
 /// wrote `SeatMenuFrames` by hand would be testing a resource the host REBUILDS
 /// from its participants every frame: the select screen's whole complaint list
 /// ("Start does not add a CPU", "there is no start on a keyboard") lived in the
@@ -39,7 +39,7 @@ use leafwing_input_manager::prelude::Buttonlike;
 fn shell_host_app() -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
-    // **PINNED, because `app.update()` is otherwise a unit of WALL CLOCK.**
+    // PINNED, because `app.update()` is otherwise a unit of WALL CLOCK.
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f64(1.0 / 60.0),
     ));
@@ -98,7 +98,7 @@ fn confirm(app: &mut App) {
     tap(app, KeyCode::Enter);
 }
 
-/// **Put the cursor on something and click it.**
+/// Put the cursor on something and click it.
 ///
 /// The position is written the way a MOUSE writes it; the click is a real
 /// keyboard Enter travelling the host's whole participant chain, which is what
@@ -152,7 +152,7 @@ fn placed_token(
     .unwrap_or_else(|| panic!("slot {slot} has no placed token on the current page"))
 }
 
-/// **One person at a keyboard, against one CPU, from the buttons.**
+/// One person at a keyboard, against one CPU, from the buttons.
 ///
 /// Slot 1 takes the only source; slot 2 has none left, so its button skips
 /// straight to CPU. Then a fighter each, then START.
@@ -239,7 +239,7 @@ fn the_title_screen_opens_character_select_and_the_screen_starts_the_match() {
         "the stage route activated no gameplay session"
     );
 
-    // **THE WAY OUT.** Ambition's own rooms have the kaleidoscope pause menu, so
+    // THE WAY OUT. Ambition's own rooms have the kaleidoscope pause menu, so
     // the host suppresses the universal one while they are live; a demo's mode
     // must NOT suppress it, or a player who entered from the title screen has no
     // Quit to Title and no way back to the launcher at all.
@@ -260,7 +260,7 @@ fn the_title_screen_opens_character_select_and_the_screen_starts_the_match() {
     );
 }
 
-/// **A rematch has to be possible.**
+/// A rematch has to be possible.
 ///
 /// The roster the select screen publishes is an ordinary resource that outlives
 /// the session, and every seat stayed locked in — so coming back to the screen
@@ -321,7 +321,7 @@ fn coming_back_to_the_select_screen_offers_a_fresh_match() {
     );
 }
 
-/// **THE TWO-PARTICIPANT FLOW, to its end: select → lock in → match → PAUSE.**
+/// THE TWO-PARTICIPANT FLOW, to its end: select → lock in → match → PAUSE.
 ///
 /// The select half is covered above. Two people could start a match together and then not pause
 /// it.
@@ -384,8 +384,8 @@ fn two_participants_start_a_match_and_can_still_pause_it() {
     );
 }
 
-/// **PROBE: "even when we add a CPU player in smash there is
-/// only ever one player that shows up in game."**
+/// PROBE: "even when we add a CPU player in smash there is
+/// only ever one player that shows up in game."
 ///
 /// every existing test in this file stops at the ROUTE and the SESSION.
 #[test]
@@ -485,15 +485,15 @@ fn a_two_participant_roster_actually_seats_two_bodies() {
         }
     }
 
-    // **THE TWO FIGHTERS ARE BUILT BY DIFFERENT PATHS**, and the census above
+    // THE TWO FIGHTERS ARE BUILT BY DIFFERENT PATHS, and the census above
     // is how you see it: both carry 84 components and the SETS DIFFER. Seat 0 is
     // player-bodied (`PlayerVisual`, `BodyPoseView`, `PresentedPose`,
     // `Transform`, `GlobalTransform`); seat 1 is actor-bodied (`ActorIdentity`,
     // `Perception`, `RoomVisual`, `RuntimeStagedActor`) with no transform and no
     // pose view at all.
     //
-    // **this test deliberately does NOT assert that seat 1 has a
-    // `BodyPoseView`.** That was the first draft and it is the WRONG PORT:
+    // this test deliberately does NOT assert that seat 1 has a
+    // `BodyPoseView`. That was the first draft and it is the WRONG PORT:
     // `BodyPoseView` is the player-bodied read model, and an actor-bodied
     // fighter is drawn through the id-keyed `ActorAnimIndex` instead — a
     // RESOURCE rebuilt in the render presentation plugin, explicitly "NOT the
@@ -511,18 +511,18 @@ fn a_two_participant_roster_actually_seats_two_bodies() {
     );
 }
 
-/// **An ADOPTED seat and a SPAWNED seat must agree on everything the ROSTER
-/// declares.**
+/// An ADOPTED seat and a SPAWNED seat must agree on everything the ROSTER
+/// declares.
 ///
 /// Seating has had to unify this ONE FIELD AT A TIME, four times, each found by
 /// looking at a picture rather than by a test:
 ///
-/// * **health** — a spawned seat took the authored maximum; the adopted player
+/// * health — a spawned seat took the authored maximum; the adopted player
 ///   kept whatever its session established.
-/// * **box** — a mirror match could put two different body shapes on the stage,
+/// * box — a mirror match could put two different body shapes on the stage,
 ///   and the wrong one was always player one.
-/// * **mass** — the same character weighed different amounts by seat.
-/// * **abilities** — player one had fly, blink and
+/// * mass — the same character weighed different amounts by seat.
+/// * abilities — player one had fly, blink and
 ///   blink-through-walls; player two had jump and attack.
 ///
 /// The shape never changes: *an adopted body keeps what the session gave it*. A
@@ -537,7 +537,7 @@ fn a_two_participant_roster_actually_seats_two_bodies() {
 /// assertion. What a match DECLARES applies to every seat in it; what a character
 /// authors does not.
 ///
-/// **and the roster declares exactly three per-body things**, all checked here:
+/// and the roster declares exactly three per-body things, all checked here:
 /// `fighter_abilities`, `fighter_stocks`, and `opens_suspended` (which stamps
 /// `ScriptedControl`). An earlier version of this test named health, body box and
 /// mass in its rationale and compared NONE of them — those
@@ -644,7 +644,7 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
     launch_row(&mut app, "Smash");
     settle(&mut app);
 
-    // **BOTH SOURCES WORK THE SCREEN.** One cursor, two hands — the keyboard
+    // BOTH SOURCES WORK THE SCREEN. One cursor, two hands — the keyboard
     // takes card one and the PAD takes card two, so this test still proves the
     // pad reaches the lobby at all and not only the match.
     //
@@ -677,7 +677,7 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
          keyboard's own source"
     );
 
-    // **AND THE CARD SAYS WHICH DEVICE IT IS.** The button read `CONTROLLER 1` / `CONTROLLER
+    // AND THE CARD SAYS WHICH DEVICE IT IS. The button read `CONTROLLER 1` / `CONTROLLER
     // 2`, which is the slot's own numbering said back to it.
     settle(&mut app);
     {
@@ -734,14 +734,14 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
     let (seat_one, body_one) = bodies[0];
     let (seat_two, body_two) = bodies[1];
 
-    // **Milestone 3: stable session seats.** Two seats, and they are 0 and 1 —
+    // Milestone 3: stable session seats. Two seats, and they are 0 and 1 —
     // not two entities that both think they are player one.
     assert_eq!(
         (seat_one, seat_two),
         (0, 1),
         "two players have to hold two DIFFERENT seats"
     );
-    // **Milestone 4: distinct controlled ACTORS** — two bodies, one per player.
+    // Milestone 4: distinct controlled ACTORS — two bodies, one per player.
     //
     // NOT distinct characters. The first draft asserted that too and failed:
     // both players joined with the cursor at slot 0 and picked
@@ -760,7 +760,7 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
     let x = |app: &App, body: Entity| app.world().get::<BodyKinematics>(body).unwrap().pos.x;
     let (start_one, start_two) = (x(&app, body_one), x(&app, body_two));
 
-    // **BOTH DIRECTIONS, because one proves half of it.**
+    // BOTH DIRECTIONS, because one proves half of it.
     //
     // the first version of this drove ONLY the pad and asserted the other body
     // stayed still. That shows the pad does not leak — and says nothing about
@@ -829,7 +829,7 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
     );
 }
 
-/// **The seating is FROZEN in a build a player runs.**
+/// The seating is FROZEN in a build a player runs.
 ///
 /// Every test passed because tests construct the resource by hand.
 ///
@@ -837,7 +837,7 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
 /// topology behind, sized by the ROSTER rather than by how many pads happen to be
 /// plugged in.
 ///
-/// **and it counts HUMANS, which it did not.** It asserted
+/// and it counts HUMANS, which it did not. It asserted
 /// `declared_seats == roster.participants.len()`, CPUs included — and
 /// `declared_seats` is read for two things that both mean *how many people are
 /// playing on this machine*: it sizes the ggrs session's local handles, and it
@@ -847,7 +847,7 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
 /// solo player on the COUCH branch, which assigns pads positionally — fine while
 /// their pad is at index 0 and nothing at all the moment it is not.
 ///
-/// **what this fixture can no longer distinguish, said plainly.** With one
+/// what this fixture can no longer distinguish, said plainly. With one
 /// human and no pads the roster's human count and the device count are both 1,
 /// so "the roster wins over the devices" is not separable here any more. The
 /// case that separates them is two humans on one keyboard, and
@@ -926,22 +926,22 @@ fn a_decided_match_freezes_the_local_seating() {
     assert_eq!(topology.players(), humans);
 }
 
-/// **Every fighter `SMASH_ROSTER` names actually exists in the shipped host.**
+/// Every fighter `SMASH_ROSTER` names actually exists in the shipped host.
 ///
-/// **THE PUPPY SLUG ON THE ACTUAL STAGE** — P3.27's end-to-end half.
+/// THE PUPPY SLUG ON THE ACTUAL STAGE — P3.27's end-to-end half.
 ///
 /// `a_crawler_seated_as_a_fighter_keeps_its_own_locomotion` pins the SEAM, and
 /// it does it with a synthetic `"crawler"` registered inside a fixture app. This
 /// is the other test: Ambition's real `npc_puppy_slug`, the shipped host, the
 /// real select screen, the real seating road.
 ///
-/// **the two are not redundant, and the difference is the row's whole point.** A fixture proves the
+/// the two are not redundant, and the difference is the row's whole point. A fixture proves the
 /// seating code copies locomotion off whatever definition it is handed.
 ///
 /// Replacing `SmashRoster` is how a crawler gets seated at all, and is not a suggestion that it
 /// should ship as a selectable fighter.
 ///
-/// **the opponent is the control.** Asserting only that the slug crawls at
+/// the opponent is the control. Asserting only that the slug crawls at
 /// 80 px/s would pass if the stage seated EVERYBODY at 80 — the claim has to be
 /// that the two seats DIFFER, in the direction their characters authored.
 #[test]
@@ -1036,7 +1036,7 @@ fn the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored() {
          the stage's and not the characters'"
     );
 
-    // **AND NOW DRIVE IT** — the row asks for the stage to be PLAYED, not
+    // AND NOW DRIVE IT — the row asks for the stage to be PLAYED, not
     // only seated, and the two are different claims. Everything above reads
     // `ActorConfig`, which is what the seating code wrote down; this presses a
     // key and measures where the body actually went. A number that arrives in a
@@ -1056,7 +1056,7 @@ fn the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored() {
             .x
     };
 
-    // **wait out the opening countdown first.** A smash match opens SUSPENDED (`opens_suspended` /
+    // wait out the opening countdown first. A smash match opens SUSPENDED (`opens_suspended` /
     // `opening_countdown_ticks` — the 3-2-1-GO), so input pressed before GO moves nothing.
     for _ in 0..240 {
         app.update();
@@ -1070,11 +1070,11 @@ fn the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored() {
             .unwrap_or(0.0)
     };
 
-    // **THE OPPONENT IS A CONFOUNDER, and it became one the day the CPU got better at its job**.
+    // THE OPPONENT IS A CONFOUNDER, and it became one the day the CPU got better at its job.
     // This pressed once and asserted the distance covered, which is only a reading of TOP SPEED
     // while nobody touches the body.
     //
-    // **it is NOT enough to move the window earlier**: probed at the GO beat
+    // it is NOT enough to move the window earlier: probed at the GO beat
     // itself and the goblin is on top of the slug even sooner (28 of 40 frames
     // in hitstun, 0 -> 10.5%). On a 480px stage there is no quiet moment.
     //
@@ -1158,7 +1158,7 @@ fn the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored() {
     );
 }
 
-/// **TWO SEATED FIGHTERS SWING THEIR OWN JABS, NOT THE STAGE'S** — P3.26's
+/// TWO SEATED FIGHTERS SWING THEIR OWN JABS, NOT THE STAGE'S — P3.26's
 /// central claim, on live bodies in the shipped host.
 ///
 /// The row says Smash must consume *each character's actual moves*. The
@@ -1166,12 +1166,12 @@ fn the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored() {
 /// step later and where it actually matters: does the authored table reach a
 /// seated body, and does it stay that character's?
 ///
-/// **the verb IDS are identical for both fighters and that is by design** —
+/// the verb IDS are identical for both fighters and that is by design —
 /// `jab`, `tilt_up`, `smash_forward` are the genre's standard map, and every
 /// character authors the same names. So an id census proves nothing here; the
 /// FRAME DATA is where a character lives, and it is what this compares.
 ///
-/// **the admiral is BODY-INCOMPLETE**, which is why it is the fighter chosen:
+/// the admiral is BODY-INCOMPLETE, which is why it is the fighter chosen:
 /// its prepared definition cannot build a body on its own
 /// (`the_cast_that_still_needs_a_body_assist_only_shrinks` counts it among the
 /// fourteen), so it is the case where an authored moveset is most likely to be
@@ -1254,19 +1254,19 @@ fn two_seated_fighters_carry_their_own_frame_data_for_the_same_verb() {
     );
 }
 
-/// **OILER RIDES HIS OWN GEYSER, ON A BODY THE SHIPPED HOST SEATED.**
+/// OILER RIDES HIS OWN GEYSER, ON A BODY THE SHIPPED HOST SEATED.
 ///
 /// Everything between the authored function and this assertion — provider registration,
 /// preparation, `authored_moveset`, the seat's kit, the moveset overlay — is a place it could
 /// vanish silently, and the body would go on swinging the stage's generic swipe with nothing in the
 /// log.
 ///
-/// **the RECOVERY specifically, because it is the move a policy layer reads.**
+/// the RECOVERY specifically, because it is the move a policy layer reads.
 /// `lift_speed` is derived from `Set` impulses only, so a geyser that arrived
 /// with the wrong impulse mode would be invisible to `lifting_candidates` and
 /// the CPU would drift at a stage it could reach.
 ///
-/// **the goblin is the CONTROL and it is not decoration.** He is seated beside
+/// the goblin is the CONTROL and it is not decoration. He is seated beside
 /// Oiler and authors a table too — so if the stage were handing both bodies one
 /// kit, the assertions above would still hold for whichever fighter's table won.
 /// The goblin has no way home at all by design (`goblin_moveset`: *"a goblin
@@ -1384,50 +1384,11 @@ fn oiler_seated_in_the_host_rides_his_own_geyser() {
     );
 }
 
-/// **HOW MANY OF THE GRID'S FIGHTERS STATE THEIR OWN MOVES** — P3.26's number.
+/// Check selection-grid fighters against the authored-moveset floor.
 ///
-/// P3.24's ratchet asks this of the whole prepared cast. This asks it of the
-/// SELECTION GRID, which is the population P3.26 is actually about: a fighter a
-/// player can pick and whose attacks are the stage's generic floor is the case
-/// the row names, and a migrated NPC nobody can select is not.
-///
-/// **the shipped host is the only place this is decidable.** `SMASH_ROSTER`
-/// is filtered to what the composition can seat, so in a partial composition an
-/// unauthored fighter and an absent one look identical.
-///
-/// **AND THE SILENT COLUMN IS NOT A BACKLOG.** Every one of the seven authors
-/// `default_action_set: "peaceful"` — `melee: None, ranged: None, special: None` — and Mary-O's
-/// row says why in as many words: *"Mary-O Classic is deliberately only the run/jump floor."*
-/// These peaceful characters can still fight on the grid through
-/// `DeclaredCombatRules::unarmed_melee`.
-///
-/// ⇒ so this ratchet does NOT say "author seven movesets". Authoring one for
-/// Mary-O would contradict an explicit design decision. **Whether the floor is
-/// scaffolding or permanent architecture is a product question, and it is
-///
-/// **a floor and a control**, like its siblings, and the control deliberately
-/// does NOT instruct a deletion: reaching the whole grid would mean the peaceful
-/// cast had been re-authored as fighters, which is a decision to notice rather
-/// than a milestone to celebrate.
-///
-/// ```text
-///   states its own moves        silent, fights with the stage's floor
-///   player_robot_v3             mary_o
-///   smash_george_booul          sanic
-///   npc_pirate_admiral          npc_alice
-///   npc_ninja_shadow_oni_leader npc_bob
-///   perfect_cellular_automaton  npc_emmy_noether
-///   goblin                      npc_carl_stargan
-///   special_patent_clerk
-/// npc_oiler crossed over
-/// ```
-///
-/// `oiler_moveset` is what he swings and `oiler_seated_in_the_host_rides_his_own_geyser` below
-/// is the proof it reaches a live body.
-///
-/// the numbers are NOT asserted, deliberately — a count assertion here would
-/// fail on every authoring commit and teach people to edit the number. The
-/// floor and the control are what must hold; the table is the reader's.
+/// Selectable fighters may intentionally use the stage's unarmed floor, so this
+/// test checks the architectural floor/control rather than asserting a roster
+/// count. Provider-owned movesets must still reach the live prepared cast.
 #[test]
 fn the_grid_fighters_that_state_their_own_moves_only_grow() {
     let mut app = shell_host_app();
@@ -1450,7 +1411,7 @@ fn the_grid_fighters_that_state_their_own_moves_only_grow() {
         "no fighter on the grid states its own move timelines, so every pick \
          fights with the stage's unarmed declaration: {silent:?}"
     );
-    // **THE CONTROL ARM FIRED, AND IT WAS INTENDED**.
+    // THE CONTROL ARM FIRED, AND IT WAS INTENDED.
     assert!(
         silent.is_empty(),
         "these fighters reach the grid with no move timelines of their own: \
@@ -1461,8 +1422,8 @@ fn the_grid_fighters_that_state_their_own_moves_only_grow() {
     );
 }
 
-/// **`SmashRoster::assemble` FILTERS to what the catalog carries, and that is
-/// correct behaviour** — a host that composes only some providers shows only the
+/// `SmashRoster::assemble` FILTERS to what the catalog carries, and that is
+/// correct behaviour — a host that composes only some providers shows only the
 /// fighters it has, which is what lets the bare smash app run at all. It also
 /// means a misspelled id is indistinguishable from an absent provider: the grid
 /// silently comes up one fighter short and the screen still looks fine.
@@ -1471,8 +1432,8 @@ fn the_grid_fighters_that_state_their_own_moves_only_grow() {
 /// the distinction is decidable: it composes every provider, so nothing there is
 /// legitimately absent and anything filtered out is a typo.
 ///
-/// **this is the fifth hand-made PAIRING in the content, and it is checked
-/// against the ASSEMBLED catalog rather than by grepping the RON** — the other
+/// this is the fifth hand-made PAIRING in the content, and it is checked
+/// against the ASSEMBLED catalog rather than by grepping the RON — the other
 /// four are a pedestal's dialogue id to its Yarn node, that node's speaker to
 /// the character's name, a character row to the map it lives in, and a row's
 /// spritesheet to its manifest. Each was written after the pairing had already
@@ -1483,7 +1444,7 @@ fn every_smash_roster_id_resolves_in_the_shipped_host() {
 
     let mut app = shell_host_app();
     settle(&mut app);
-    // **THE REGISTRY, NOT THE CATALOG — and this test asked the wrong one for five days**. Nobody
+    // THE REGISTRY, NOT THE CATALOG — and this test asked the wrong one for five days. Nobody
     // saw the third, because dropping is the SAFE behaviour and safe behaviour is silent.
     let registry = app
         .world()
@@ -1515,7 +1476,7 @@ fn every_smash_roster_id_resolves_in_the_shipped_host() {
     );
 }
 
-/// **A fighter you picked in Smash does not follow you into Ambition.**
+/// A fighter you picked in Smash does not follow you into Ambition.
 ///
 /// match, quit to the title, enter Ambition — and the body you control is still
 /// the Oni Leader, while the Oni Leader NPC standing in the room is a second
@@ -1548,7 +1509,7 @@ fn a_fighter_picked_in_smash_does_not_follow_the_player_into_ambition() {
         Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
         "the decided match never reached the stage, so this is not testing the leak"
     );
-    // **The premise: in Smash the pick IS a fighter on the stage.**
+    // The premise: in Smash the pick IS a fighter on the stage.
     let seated: Vec<String> = {
         let world = app.world_mut();
         let mut q = world.query_filtered::<
@@ -1610,7 +1571,7 @@ fn a_fighter_picked_in_smash_does_not_follow_the_player_into_ambition() {
          with"
     );
 
-    // **AND THE NPC IS STILL SOMEBODY ELSE.** The visible half of the report was
+    // AND THE NPC IS STILL SOMEBODY ELSE. The visible half of the report was
     // a duplicate: a controlled body wearing the same character as the NPC
     // standing in the room. Whatever Ambition staged, exactly one body may be
     // the player's.
@@ -1678,19 +1639,19 @@ fn bodies_wearing(app: &mut App, character_id: &str) -> usize {
 // start the match, only one character spawns in. Additionally it does not let me
 // make a CPU vs CPU match."*
 //
-// **the existing coverage cannot see this, and the reason is a category
-// error.** `a_two_participant_roster_actually_seats_two_bodies` counts seats for
+// the existing coverage cannot see this, and the reason is a category
+// error. `a_two_participant_roster_actually_seats_two_bodies` counts seats for
 // ONE configuration — the one that works — and every other test in this file
 // stops at the route or the session. So four different lobbies that fail in
 // three different ways all present to the suite as "not tested", and the two
 // that deadlock do it by WAITING, which is indistinguishable from "waiting one
 // more tick" to anything that only looks at the end state.
 //
-// **so the assertion is the STAGE REACHED, not a seat count.** A permanent
+// so the assertion is the STAGE REACHED, not a seat count. A permanent
 // refusal and a temporary wait are different answers and must never again share
 // a shape; `MatchStart` is that distinction made observable.
 
-/// **How far a decided lobby got.**
+/// How far a decided lobby got.
 ///
 /// every arm is derived from WORLD STATE — the roster resource, the
 /// `MatchSeat` bodies, `ActiveMatch`, `MatchPreparationProblems`. Deliberately not
@@ -1777,8 +1738,8 @@ fn start_and_report(app: &mut App) -> MatchStart {
             .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
             .is_some()
         {
-            // **COUNT THE ORPHANS TOO, or this oracle goes green over a broken
-            // game.** Seats are not the whole picture: the session also spawns a
+            // COUNT THE ORPHANS TOO, or this oracle goes green over a broken
+            // game. Seats are not the whole picture: the session also spawns a
             // home body from the stage's `StartingCharacter`, and while a human
             // seat ADOPTED that body the two were the same thing. Once every
             // fighter is built by the match, an unclaimed home body is a third
@@ -1810,7 +1771,7 @@ fn start_and_report(app: &mut App) -> MatchStart {
     MatchStart::ActivationStalled
 }
 
-/// **A fighter that just lost a stock comes back UNTOUCHABLE for a moment.**
+/// A fighter that just lost a stock comes back UNTOUCHABLE for a moment.
 ///
 /// vulnerable during the first instant of materialization."* The grant is the
 /// engine's generic `Empowered` — the same timed untouchable a star pickup uses,
@@ -1856,7 +1817,7 @@ fn a_respawning_fighter_is_briefly_untouchable_and_an_eliminated_one_is_not() {
     app.update();
     app.update();
 
-    // ⇒ suspending the other seats isolates the grant from the fight, which is
+    //  suspending the other seats isolates the grant from the fight, which is
     // what a test of the grant should have done from the start. `ScriptedControl`
     // is the engine's own word for "a sequence drives this body" — the same
     // instrument the opening countdown uses.
@@ -1866,7 +1827,7 @@ fn a_respawning_fighter_is_briefly_untouchable_and_an_eliminated_one_is_not() {
             Entity,
             With<ambition_platformer2d::actors::character_runtime::MatchSeat>,
         >();
-        // **the VICTIM too.** Suspending only its opponent was not enough: a
+        // the VICTIM too. Suspending only its opponent was not enough: a
         // CPU-driven body walks itself off a platform-fighter stage, loses the
         // next stock on its own, and takes a fresh grant with it. Nothing here
         // needs anybody to act.
@@ -1900,7 +1861,7 @@ fn a_respawning_fighter_is_briefly_untouchable_and_an_eliminated_one_is_not() {
          fighter is invincible for the rest of the match"
     );
 
-    // **and it wears off.** A grant with no end is worse than none.
+    // and it wears off. A grant with no end is worse than none.
     //
     // the CLAIM is unchanged — the protection ends — and it is now asserted
     // against the protection instead of against a frame count.
@@ -1927,7 +1888,7 @@ fn a_respawning_fighter_is_briefly_untouchable_and_an_eliminated_one_is_not() {
     );
 }
 
-/// **Run out the opening ceremony.**
+/// Run out the opening ceremony.
 ///
 /// The Smash ruleset opens 3 — 2 — 1 — GO: every fighter carries
 /// `ScriptedControl` until the count ends, so a test that presses a button on
@@ -1982,14 +1943,14 @@ const PREPARED_FIGHTER: &str = "player_robot_v3";
 
 /// A SECOND registered fighter, so a case can give two seats different picks.
 ///
-/// **not decoration — the first draft of `a_cpu_ordered_before_the_person`
-/// gave both seats `PREPARED_FIGHTER` and PASSED**, and passed for a reason that
+/// not decoration — the first draft of `a_cpu_ordered_before_the_person`
+/// gave both seats `PREPARED_FIGHTER` and PASSED, and passed for a reason that
 /// had nothing to do with the thing it was testing. A probe that cannot fail
 /// through its own motivating case is not a probe. Measured, not reasoned:
 /// running it is what said so.
 const OTHER_PREPARED_FIGHTER: &str = ambition_demo_smash::SMASH_GEORGE_BOOUL;
 
-/// **The configuration that works.** One person, one CPU, both registered.
+/// The configuration that works. One person, one CPU, both registered.
 ///
 /// Here as the regression guard: everything else in this probe changes, and
 /// this must not.
@@ -2009,7 +1970,7 @@ fn a_person_against_a_cpu_starts_a_two_fighter_match() {
         "the one lobby that has ever worked stopped working"
     );
 
-    // **AND THE CPU FIGHTS.** The discriminator between "seated CPUs never act"
+    // AND THE CPU FIGHTS. The discriminator between "seated CPUs never act"
     // and "a match with NO local input channel never runs its simulation": this
     // lobby has one channel, the two-CPU lobby has none.
     let start = seat_positions(&mut app);
@@ -2024,9 +1985,9 @@ fn a_person_against_a_cpu_starts_a_two_fighter_match() {
     eprintln!("[one-channel-match] furthest seat travelled {moved:.1}px");
 }
 
-/// **A CPU in an earlier slot than the person.**
+/// A CPU in an earlier slot than the person.
 ///
-/// **The invariant: seat ORDER cannot decide whether a match starts.** Every
+/// The invariant: seat ORDER cannot decide whether a match starts. Every
 /// seat is built the same way from the same prepared plan, so which card holds
 /// the person is a detail of the lobby and nothing else.
 ///
@@ -2034,7 +1995,7 @@ fn a_person_against_a_cpu_starts_a_two_fighter_match() {
 /// already wore the picked fighter; `dress_the_primary_player_as_their_own_pick` dressed it as
 /// `participants.first()` rather than as the participant bound to primary input. A CPU first meant
 /// the body wore the CPU's fighter, the human seat waited for a costume it would never be given,
-/// and **one seat waiting meant no seat was built** — the resolve pass returned from the whole
+/// and one seat waiting meant no seat was built — the resolve pass returned from the whole
 /// system.
 ///
 /// What survives is the requirement, which no longer depends on any of those mechanisms.
@@ -2043,7 +2004,7 @@ fn a_cpu_ordered_before_the_person_still_starts_the_match() {
     let mut app = open_the_lobby();
     cycle_role(&mut app, 0, 2); // Absent → Controller → CPU, freeing the source
     cycle_role(&mut app, 1, 1); // …which the person then takes
-                                // **DIFFERENT fighters, and that is the whole case.** With both seats on
+                                // DIFFERENT fighters, and that is the whole case. With both seats on
                                 // one character the first draft passed while proving nothing — see
                                 // `OTHER_PREPARED_FIGHTER` for the mechanism that made it pass and why two
                                 // picks are still required now that the mechanism is gone.
@@ -2079,7 +2040,7 @@ fn two_cpus_can_fight_each_other() {
          fight itself and no ladder measurement is reachable from the game"
     );
 
-    // **AND THEY MUST ACTUALLY FIGHT.** Asserting the match ACTIVATES is the trap this file was
+    // AND THEY MUST ACTUALLY FIGHT. Asserting the match ACTIVATES is the trap this file was
     // written to avoid one level down: two bodies that seat correctly and then stand still satisfy
     // every count anybody thought to make.
     let start: Vec<f32> = seat_positions(&mut app);
@@ -2092,7 +2053,7 @@ fn two_cpus_can_fight_each_other() {
         .map(|(now, then)| (now - then).abs())
         .fold(0.0, f32::max);
 
-    // **AND SOMETHING MUST BE LOOKING AT THEM.**
+    // AND SOMETHING MUST BE LOOKING AT THEM.
     {
         let world = app.world_mut();
         let local_view = ambition_platformer2d::sim_view::the_only_view(world);
@@ -2119,7 +2080,7 @@ fn two_cpus_can_fight_each_other() {
             "a two-CPU match must have two bodies to frame"
         );
         let centre = ((cast[0].1 + cast[1].1) / 2.0, (cast[0].2 + cast[1].2) / 2.0);
-        // **TIGHT, and the first version of this was not.** It allowed ±200px
+        // TIGHT, and the first version of this was not. It allowed ±200px
         // around the pair's span, and PROBED GREEN with the cast declaration
         // disabled: with nothing to frame the resolver returns and leaves the
         // previous snapshot standing, which in this fixture reads (0, 0) — and
@@ -2151,12 +2112,12 @@ fn two_cpus_can_fight_each_other() {
     );
 }
 
-/// **A refusal the ENGINE produced reaches the PERSON who chose the roster.**
+/// A refusal the ENGINE produced reaches the PERSON who chose the roster.
 ///
 /// Nothing displayed it.
 ///
-/// **the refusal is INSERTED here rather than provoked through the grid, and
-/// that is deliberate.** Provoking it needs an id the composition cannot seat,
+/// the refusal is INSERTED here rather than provoked through the grid, and
+/// that is deliberate. Provoking it needs an id the composition cannot seat,
 /// and the grid now filters to exactly the ids it CAN seat — so the only honest
 /// way to reach this arm through the UI is to break the filter, which would
 /// make the test a test of the filter. What is being pinned is the BINDING: a
@@ -2165,7 +2126,7 @@ fn two_cpus_can_fight_each_other() {
 /// `prepared_match::tests::an_unbuildable_character_is_refused_by_name`, which
 /// names an id no composition will ever register.
 ///
-/// **its host-level twin is DELETED, and the deletion is the point.** That
+/// its host-level twin is DELETED, and the deletion is the point. That
 /// test picked `npc_emmy_noether` — a portrait the grid drew and seating could not
 /// build — and its own doc said it would go vacuous the day the Hall cast was
 /// registered. That day came: Noether is in `PLAYABLE_ROSTER`, the grid filters
@@ -2220,7 +2181,7 @@ fn a_preparation_refusal_is_shown_instead_of_ready() {
     );
 }
 
-/// **THE SECOND MATCH OF A SESSION MUST ALSO BE A MATCH.**
+/// THE SECOND MATCH OF A SESSION MUST ALSO BE A MATCH.
 ///
 /// *"a fresh restart and then player vs cpu works, but the next match does
 /// not work … there is some bad global state, we need to be careful about this,
@@ -2228,8 +2189,8 @@ fn a_preparation_refusal_is_shown_instead_of_ready() {
 /// fighters standing still in the air with the menu still responding — so the
 /// bodies are built and something that should be driving them is not.
 ///
-/// **`coming_back_to_the_select_screen_offers_a_fresh_match` was green over
-/// this the whole time**, and the reason is the exact trap this repo keeps
+/// `coming_back_to_the_select_screen_offers_a_fresh_match` was green over
+/// this the whole time, and the reason is the exact trap this repo keeps
 /// falling into: it asserts the screen is RESET — the roster gone, the slots
 /// empty, START not still asked for — and every one of those is a PRESENCE
 /// check. A second match that opens and then never moves satisfies all of them.
@@ -2315,9 +2276,7 @@ fn a_second_match_in_the_same_session_still_fights() {
          outlived it."
     );
 
-    // A route change inside the experience and a full exit through the launcher retire different
-    // things, and only running both says the match lifecycle is owned rather than that one path
-    // happens to clean up after itself.
+    // Exercise both in-experience retirement and full launcher exit.
     app.world_mut().write_message(ShellCommand::QuitToHome);
     settle(&mut app);
     let third = run_a_match(&mut app, "the third, after quitting to the title");
@@ -2328,40 +2287,10 @@ fn a_second_match_in_the_same_session_still_fights() {
     );
 }
 
-/// **WALKING OUT OF A PAUSED MATCH MUST NOT STOP THE NEXT ONE.**
-///
-/// *"Doing a match, quitting to title in the middle of it, and then starting
-/// a new cpu vs cpu match still causes the freeze. A quit to title should not
-/// leave a dirty global state."*
-///
-/// Every one of those is correct in the frozen match. So is the resource census over the same
-/// sequence, which came back CLEAN — **the leaked state was never a resource anybody had thought to
-/// release**, so every cleanup list was right and all of them were beside the point.
-///
-/// It was **two globals the pause writes and the session does not own**, and it
-/// takes both to freeze:
-///
-/// 1. **`GameMode`**, the Bevy `States` that decides whether the world advances.
-///    Quitting from a paused match left it `Paused` with no session to explain
-///    it. Session retirement resets it now.
-/// 2. **`ClockState` / `RequestedClockScale`.** Pausing forces the sim clock to
-///    **zero** so presentation stops dead, and the system that asks for the
-///    neutral pace back — `emit_player_time_intent_system` — returned early when
-///    there was no `PrimaryPlayer`. A CPU-versus-CPU match has none. So the mode
-///    said `Playing`, `SimTick` counted up, brains decided, and every tick moved
-///    **zero sim seconds**: fighters hanging in the air at their spawn pixel with
-///    a menu that still answered, because menus do not run on sim time.
-///
-/// **the second one only bites the SECOND match**, which is why a fresh binary
-/// looked fine: the clock boots at 1.0 and nothing had zeroed it yet.
-///
-/// Four things have to be true together, and the test does all four:
-/// * the match is **paused** when it is left — that is how you reach "Quit to
-///   Title" at all, and it is what zeroes the clock;
-/// * the quit is the **bare command**, which is what F10 and the in-world system
-///   menu send; only the pause menu used to resume on its way out;
-/// * the next match has **no local player**, so nothing asks for time back;
-/// * it is measured for **motion**, because everything else about it is correct.
+/// Quitting a paused match must restore global mode and clock state before the
+/// next session. The test exits through the bare title command, starts a CPU-only
+/// match with no primary player to repair time state, and requires its fighters
+/// to move.
 #[test]
 fn quitting_a_paused_match_to_the_title_does_not_freeze_the_next_one() {
     let mut app =
@@ -2455,7 +2384,7 @@ fn quitting_a_paused_match_to_the_title_does_not_freeze_the_next_one() {
          fixture is measuring something other than what Jon reported"
     );
 
-    // MID-MATCH, AND **PAUSED** — which is how a person reaches "Quit to Title"
+    // MID-MATCH, AND PAUSED — which is how a person reaches "Quit to Title"
     // at all: the row only exists on the pause menu.
     //
     // The route reached the launcher, the resource census came back CLEAN, and the world was
@@ -2520,7 +2449,7 @@ fn quitting_a_paused_match_to_the_title_does_not_freeze_the_next_one() {
 
 /// Where each seat's sprite is DRAWN, by the body id the match gave it.
 ///
-/// **not `seat_positions`, and the difference is the whole point.** That
+/// not `seat_positions`, and the difference is the whole point. That
 /// reads `BodyKinematics` — the simulation's own answer. This reads the entity
 /// the renderer spawned for the same body, which is the only thing a person
 /// ever sees. A match can pass the first and fail the second.
@@ -2555,7 +2484,7 @@ fn travel(before: &[(String, Vec2)], after: &[(String, Vec2)]) -> f32 {
         .fold(0.0, f32::max)
 }
 
-/// **A MATCH THAT HAS JUST ENDED IN A DRAW MUST NOT RESTART ITSELF.**
+/// A MATCH THAT HAS JUST ENDED IN A DRAW MUST NOT RESTART ITSELF.
 ///
 /// In a platform fighter that is simply false. `take_eliminated_fighters_out_of_play` DESPAWNS
 /// an eliminated fighter, and a simultaneous final-stock ring-out is a supported draw — so a
@@ -2563,7 +2492,7 @@ fn travel(before: &[(String, Vec2)], after: &[(String, Vec2)]) -> f32 {
 /// the whole 4.5 seconds the winner card is up. Activation fell through and rebuilt the entire
 /// prepared cast with fresh stocks, underneath the announcement.
 ///
-/// **the KO is injected, for the reason `stocks.rs` gives at length**: earning
+/// the KO is injected, for the reason `stocks.rs` gives at length: earning
 /// a simultaneous final-stock ring-out from two CPUs is a test of the arena, not
 /// of this seam. Everything else here is real — a real lobby, a real prepared
 /// plan, a real session, real seated bodies, the real elimination and despawn.
@@ -2647,7 +2576,7 @@ fn a_draw_does_not_rebuild_the_cast_it_just_finished() {
          state it is about — zero seats with a live receipt is the whole premise"
     );
 
-    // **AND NOW THE FRAMES THE WINNER CARD IS UP FOR.** Two seconds, well
+    // AND NOW THE FRAMES THE WINNER CARD IS UP FOR. Two seconds, well
     // inside the 4.5 the announcement stands, and every one of them a tick on
     // which activation runs and asks whether it has work to do.
     for _ in 0..120 {
@@ -2673,8 +2602,8 @@ fn a_draw_does_not_rebuild_the_cast_it_just_finished() {
     );
 }
 
-/// **A phone can work this lobby: the prompt says a surface owns the screen,
-/// and it says so in the screen's own words.**
+/// A phone can work this lobby: the prompt says a surface owns the screen,
+/// and it says so in the screen's own words.
 ///
 /// The touch overlay reads exactly this resource to decide what is drawn and
 /// what is tappable. `ControlContextKind::Empty` hides the move stick AND the
@@ -2682,8 +2611,8 @@ fn a_draw_does_not_rebuild_the_cast_it_just_finished() {
 /// live controls are Menu and Back, and a screen steered by a cursor cannot be
 /// worked at all.
 ///
-/// **both halves, because they have different owners and either can regress
-/// alone.** The context comes from smash's capturing `SELECT_CONTEXT` claim
+/// both halves, because they have different owners and either can regress
+/// alone. The context comes from smash's capturing `SELECT_CONTEXT` claim
 /// (`declare_the_select_input_context`); the verb comes from its published
 /// `UiCue` (`publish_the_select_ui_cue`). Dropping the claim gives `Empty`;
 /// dropping the cue leaves the generic "Select" — which is why this asserts the
@@ -2723,7 +2652,7 @@ fn the_smash_lobby_hands_a_touch_screen_a_live_prompt() {
     );
 }
 
-/// **THE COORDINATES `capture_scene` DOCUMENTS STILL SEAT A MATCH.**
+/// THE COORDINATES `capture_scene` DOCUMENTS STILL SEAT A MATCH.
 ///
 /// It is not: [`click`] is `SelectCursors::seat_mut(0).move_to(rect.center())` and THEN
 /// `tap(Enter)`, and the POSITION is the load-bearing half. A key is an edge with no position,
@@ -2731,13 +2660,13 @@ fn the_smash_lobby_hands_a_touch_screen_a_live_prompt() {
 /// PLAYING`, and every `--route smash_gameplay` capture for days photographed an empty stage —
 /// which is why no Smash change had ever been looked at.
 ///
-/// **so the tool grew the one step that carries a position: `touch:XxY`,
-/// two real `TouchInput` messages down the phone road.** This is the guard on
+/// so the tool grew the one step that carries a position: `touch:XxY`,
+/// two real `TouchInput` messages down the phone road. This is the guard on
 /// the literal numbers its doc block prints. They are literals on purpose —
 /// re-deriving them here would pin the LAYOUT, which `layout::tests` already
 /// does, and would agree with a stale doc forever.
 ///
-/// **the whole road, not the arithmetic**: a finger through this host's real
+/// the whole road, not the arithmetic: a finger through this host's real
 /// input stack, ending in a `MatchParticipantRoster` of two CPUs on two
 /// fighters that each AUTHOR A REPERTOIRE — which is the state a watcher has to
 /// be able to photograph to answer "do the two kits behave differently at all".
@@ -2854,8 +2783,8 @@ fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
          photographs a fighter nobody is driving"
     );
 
-    // **AND THE CLAIM THAT SURVIVES A ROSTER REORDER: both seats wear a
-    // fighter that AUTHORS ITS OWN MOVE TIMELINES.**
+    // AND THE CLAIM THAT SURVIVES A ROSTER REORDER: both seats wear a
+    // fighter that AUTHORS ITS OWN MOVE TIMELINES.
     //
     // Every reorder of `SMASH_ROSTER` re-flows the grid under these two literal points, and
     // "different" stays true however far they slide: for months they sat on Sanic, whose repertoire
@@ -2889,7 +2818,7 @@ fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
     // silently become `None` for EVERYBODY would make the assertion below a
     // statement about a field nothing fills.
     //
-    // ⇒ the guard asks the hazard directly instead: is the field FILLED for anybody?
+    //  the guard asks the hazard directly instead: is the field FILLED for anybody?
     assert!(
         app.world()
             .resource::<ambition_demo_smash::select::SmashRoster>()
@@ -2916,46 +2845,17 @@ fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
     );
 }
 
-/// **Every fighter on this stage is read against ONE percent, whatever game it
-/// came from.**
-///
-/// **an authored `max_health` is a statement made under the AUTHORING
-/// GAME's rules, and this stage seats fourteen games' worth of cast.**
-/// `damage_percent()` is `accumulated / max`, so the pool is the scale a percent
-/// is READ against. Mary-O and Sanic are one-hit-kill platformer protagonists
-/// and both author `max_health: 1` — exactly right at home. Seated here, one
-/// seven-second match through this very composition read:
-///
-/// ```text
-/// mary_o             42 damage    4200%
-/// sanic               8 damage     800%
-/// player_robot_v3    11 damage      18%
-/// smash_george_booul  9 damage       9%
-/// ```
-///
-/// Four fighters divided by 1, 1, 60 and 100. It looked exactly like percent
-/// accruing on a clock on half the cast — the meter was honest, the division was
-/// correct, and the denominators were four different games'.
-///
-/// **the fix that failed first was per-CHARACTER**: this demo stamped its
-/// reference onto the three ids it registers, which is three of fourteen. The
-/// pool is a rule of the MATCH now
-/// (`MatchParticipantRoster::fighter_health_pool`), so a character joining from
-/// anywhere is read against the stage's own hundred.
-///
-/// **the hit is written, the SCALE is measured.** The claim is not that a
-/// swing connects — `duel_arena` and `the_repertoire_gets_used` own that — it is
-/// that the same damage is the same percent on two bodies whose home games sized
-/// them a hundred times apart. So the damage arrives down the real channel and
-/// the reading is what is asserted.
+/// Fighters from different home games must use this match's common health pool
+/// when reporting damage percent. The test applies the same damage through the
+/// real channel to fighters with different authored home-game health scales and
+/// requires equal percent readings.
 #[test]
 fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
     use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
 
-    // the grid seats TALL Mary-O; the short form is not on it.
+    // The grid seats Tall Mary-O rather than the short form.
     const CROSSOVER: &str = "mary_o_tall";
-    // George authors no pool at all now — the demo stopped stamping its reference onto the three
-    // ids it registers — which would make "they disagree" true for a duller reason.
+    // Use a native fighter with a different home-game health scale.
     const NATIVE: &str = "player_robot_v3";
 
     let mut app = shell_host_app();
@@ -2963,7 +2863,7 @@ fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
     launch_row(&mut app, "Smash");
     settle(&mut app);
 
-    // **THE POISON, and without it the assertion below is unfalsifiable.**
+    // THE POISON, and without it the assertion below is unfalsifiable.
     // The two characters have to really arrive at this stage carrying different
     // pools, or "both seats agree" would also be true of a build that had
     // stopped reading authored vitals at all.
@@ -3120,7 +3020,7 @@ fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
             app.update();
         }
     }
-    // **WHAT ONE POINT OF DAMAGE READS AS, per fighter.** Compared as a scale
+    // WHAT ONE POINT OF DAMAGE READS AS, per fighter. Compared as a scale
     // rather than as a total, because these two are in a live match and the
     // brains land their own hits — what must agree is the exchange rate, not the
     // running score. Before the match declared its own pool this was 1.0 for
@@ -3151,7 +3051,7 @@ fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
     );
 }
 
-/// **AND WHAT DOES A FIGHTER WITH NO TABLE ACTUALLY SWING?**
+/// AND WHAT DOES A FIGHTER WITH NO TABLE ACTUALLY SWING?
 ///
 /// `smash_roster_movesets`'s kit census reads the CHARACTER, and four of the
 /// fourteen resolve to nothing there — Mary-O, Sanic, Alice and Bob author no
@@ -3159,7 +3059,7 @@ fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
 /// they were authored for. Read at the character, every one of their sixteen
 /// presses is silent.
 ///
-/// **that is not what a player gets, and the difference is the stage.** The
+/// that is not what a player gets, and the difference is the stage. The
 /// unarmed floor lives in `DeclaredCombatRules::unarmed_melee` now — *"a STAGE
 /// states what an unarmed fighter swings for"* — so the seat is armed on the way
 /// in. A report that stopped at the character would say four fighters cannot
@@ -3213,7 +3113,7 @@ fn report_what_an_unarmed_fighter_swings_once_the_stage_has_armed_it() {
         app.update();
     }
 
-    // **THE THIRD ROUTE: what did the STAGE declare?** The seat's kit is
+    // THE THIRD ROUTE: what did the STAGE declare? The seat's kit is
     // built from `DeclaredCombatRules::unarmed_melee` for a character that
     // states none of its own, so an empty seat is either a stage that declared
     // nothing or a declaration that did not reach the publisher.
@@ -3241,7 +3141,7 @@ fn report_what_an_unarmed_fighter_swings_once_the_stage_has_armed_it() {
                     .unwrap_or_else(|| "SILENT".to_string());
                 resolved.push(format!("{label}={id}"));
             }
-            // **THE SECOND ROUTE, and the report is wrong without it.** A
+            // THE SECOND ROUTE, and the report is wrong without it. A
             // moveset is one road to a swing; `CombatKit::innate_melee` is the
             // other — the preset swipe an action set carries — and a body with
             // an empty timeline table can still hit somebody through it. Reading
@@ -3274,7 +3174,7 @@ fn report_what_an_unarmed_fighter_swings_once_the_stage_has_armed_it() {
     assert_eq!(rows.len(), 2, "the stage seated {} fighters", rows.len());
 }
 
-/// **melee and projectiles ask DIFFERENT QUESTIONS about who may be hit**,
+/// melee and projectiles ask DIFFERENT QUESTIONS about who may be hit,
 /// and only one of them knows what a match is:
 ///
 /// ```text
@@ -3329,7 +3229,7 @@ fn report_the_factions_and_teams_a_seated_fighter_carries() {
     assert_eq!(rows.len(), 2, "the stage seated {} fighters", rows.len());
 }
 
-/// **A FIGHTER WITH NO DASH STILL RUNS THE LENGTH OF THE STAGE.**
+/// A FIGHTER WITH NO DASH STILL RUNS THE LENGTH OF THE STAGE.
 ///
 /// also remove everyone's ability to dash in smash. Dash should be an ability for
 /// ambition, it doesn't map into a smash vocabulary."* `AbilitySet::dash` left
@@ -3361,8 +3261,8 @@ fn a_fighter_with_no_dash_still_covers_ground_on_the_stage() {
         rows[0].1
     };
 
-    // **NON-VACUITY, and it is the whole reason the distance below means
-    // anything.** A fighter that still carried the dash would cover this ground
+    // NON-VACUITY, and it is the whole reason the distance below means
+    // anything. A fighter that still carried the dash would cover this ground
     // whatever the kit said, and a fighter that had lost the dodge along with it
     // would also pass a pure distance check while being the actual defect.
     {
@@ -3417,9 +3317,9 @@ fn a_fighter_with_no_dash_still_covers_ground_on_the_stage() {
     eprintln!("[d146] a dash-less fighter covered {covered:.1}px in {updates} updates");
 }
 
-/// **THE RUNNING ATTACK COMES OUT OF THE RUN, ON A FIGHTER THAT CANNOT DASH.**
+/// THE RUNNING ATTACK COMES OUT OF THE RUN, ON A FIGHTER THAT CANNOT DASH.
 ///
-/// **the two phases are the same press.** X with a direction held is a
+/// the two phases are the same press. X with a direction held is a
 /// forward tilt from a standstill and the dash attack out of a run, so the only
 /// thing that differs between them is the gait — which is what makes this a
 /// measurement of the gait rather than of the move table. Both phases assert the
@@ -3616,7 +3516,7 @@ fn hold_until(app: &mut App, mut property: impl FnMut(&App) -> bool) -> Option<u
     None
 }
 
-/// **THE PROBE. A SMASH FIGHTER'S SHIELD BUTTON RAISES THEIR GUARD.**
+/// THE PROBE. A SMASH FIGHTER'S SHIELD BUTTON RAISES THEIR GUARD.
 ///
 /// Every one of the fourteen smash fighters is granted `AbilitySet::shield` by `SMASH_FIGHTER_KIT`,
 /// and thirteen of them throw an ordinary special, so thirteen fighters had their guard erased
@@ -3636,7 +3536,7 @@ fn a_smash_fighters_shield_input_raises_and_lowers_their_guard() {
             .is_some()
     );
 
-    // **NON-VACUITY, both terms.** A fighter without the shield ability could
+    // NON-VACUITY, both terms. A fighter without the shield ability could
     // never raise a guard, and a fighter whose special IS a shield move would
     // pass through the very exception this test exists to delete.
     let abilities = app
@@ -3693,14 +3593,14 @@ fn a_smash_fighters_shield_input_raises_and_lowers_their_guard() {
     );
 }
 
-/// **SPECIAL CANNOT MASQUERADE AS SHIELD.** (, half one)
+/// SPECIAL CANNOT MASQUERADE AS SHIELD. (, half one)
 ///
 /// Pressing Special must not raise a guard on a body whose special is not a
 /// shield move. Without this the fix could have been "keep the guard alive for
 /// everybody", which is not a separation of the two actions — it is the same
 /// conflation pointing the other way.
 ///
-/// **NON-VACUOUS: the press has to reach the body.** A test where Special did
+/// NON-VACUOUS: the press has to reach the body. A test where Special did
 /// nothing at all would pass this perfectly, so it asserts the special MOVE
 /// started as well as that no guard came up.
 #[test]
@@ -3742,7 +3642,7 @@ fn pressing_special_does_not_raise_a_guard_on_a_fighter_whose_special_is_not_one
     );
 }
 
-/// **SHIELD CANNOT MASQUERADE AS SPECIAL.** (, half two)
+/// SHIELD CANNOT MASQUERADE AS SPECIAL. (, half two)
 ///
 /// Holding the shield button raises a guard and starts NO authored move.
 #[test]
@@ -3778,14 +3678,14 @@ fn holding_shield_raises_a_guard_and_fires_no_authored_move() {
     );
 }
 
-/// **A CPU FIGHTER RAISES A GUARD OF ITS OWN, IN A REAL MATCH.**
+/// A CPU FIGHTER RAISES A GUARD OF ITS OWN, IN A REAL MATCH.
 ///
 /// pretending to press a physical controller trigger."* This is the link no unit
 /// test reaches: a CPU seat carries no `PlayerEntity` and no persona gate, so
 /// whether a brain-requested guard survives to `BodyShieldState` is only
 /// answerable in an assembled match.
 ///
-/// **WHICH brain, said plainly, because the obvious reading is wrong.** The
+/// WHICH brain, said plainly, because the obvious reading is wrong. The
 /// shipped smash CPU is `template: Fighter` (`SMASH_CATALOG_RON`'s
 /// `autonomous_profiles`), so the guard this observes is the fighter brain's
 /// `MovementVerb::Shield`, not the smash brain's reactive block. What the two
@@ -3795,7 +3695,7 @@ fn holding_shield_raises_a_guard_and_fires_no_authored_move() {
 /// `brain::smash::tests::defense_blinks_a_lunge_and_blocks_a_walk_in`, which now runs
 /// through `SpecificAction::Shield` rather than writing `shield_held` beside it.
 ///
-/// **the person has to ATTACK, not merely approach.** A guard is offered to a
+/// the person has to ATTACK, not merely approach. A guard is offered to a
 /// fighter that is losing an exchange AND has something incoming — pressing it
 /// against nothing is how you get grabbed, and the day shielding was offered on
 /// "cornered" alone the stage became two statues holding guard forever. So this
@@ -3866,7 +3766,7 @@ fn a_cpu_fighter_raises_a_guard_without_pressing_a_physical_button() {
 //
 // …and the sentence that made it an architecture task rather than a table edit:
 // *"Well, B=jump is the way I like my smash controller, It's probably non
-// standard. **Will need to have control profiles eventually.**"*
+// standard. Will need to have control profiles eventually."*
 
 /// Put a value on a pad button through the raw device seam, the way every other
 /// gamepad probe in this repo does.
@@ -3952,7 +3852,7 @@ fn a_pad_player_fighting_as(fighter: &str) -> (App, Entity, Entity) {
 /// Every move id this body reaches through a `special*` verb, read off its OWN
 /// authored moveset.
 ///
-/// **derived, never a hand-listed id.** Which move George's neutral special
+/// derived, never a hand-listed id. Which move George's neutral special
 /// is, is his sheet's business; what this test is about is whether the PAD
 /// reaches it. A literal `"bivalence"` here would go quiet the day he is
 /// re-authored and would still pass.
@@ -4001,7 +3901,7 @@ fn move_started_while_holding(
     fired
 }
 
-/// **X IS SPECIAL ON A PAD, AND IT REACHES THE FIGHTER'S AUTHORED SPECIAL.**
+/// X IS SPECIAL ON A PAD, AND IT REACHES THE FIGHTER'S AUTHORED SPECIAL.
 ///
 /// The default pad is fully assigned, so `presets.rs` deliberately declined to double-bind one and
 /// left it to a remap pass that never came. A pad player could not throw a special at all.
@@ -4010,7 +3910,7 @@ fn move_started_while_holding(
 /// layout PERMUTES an assigned pad rather than adding to it: X was Attack, Attack
 /// moved to A, and X is free for Special.
 ///
-/// **non-vacuity is the `authored_specials_of` set, not a literal id.** If the
+/// non-vacuity is the `authored_specials_of` set, not a literal id. If the
 /// press reached nothing at all `fired` is `None`; if it reached the wrong verb
 /// the id is outside the set. Both fail with the id printed.
 #[test]
@@ -4036,14 +3936,14 @@ fn on_the_smash_pad_x_fires_the_fighters_authored_special() {
     );
 }
 
-/// **Y ON THE PAD STARTS THE FIGHTER'S AUTHORED GRAB.**
+/// Y ON THE PAD STARTS THE FIGHTER'S AUTHORED GRAB.
 ///
-/// **a passing capture chain is not evidence about this**, which is the
+/// a passing capture chain is not evidence about this, which is the
 /// general form worth keeping: a hand-driven chain pins the FUNCTION and says
 /// nothing about the WIRING.
 ///
-/// **non-vacuity is asserted twice, because either half could make this pass
-/// for the wrong reason.** The fighter has to author a grab at all (otherwise
+/// non-vacuity is asserted twice, because either half could make this pass
+/// for the wrong reason. The fighter has to author a grab at all (otherwise
 /// pressing Y correctly does nothing), and the pad has to bind Y to Grab
 /// (otherwise this measures some other button's verb).
 #[test]
@@ -4106,12 +4006,12 @@ fn on_the_smash_pad_y_starts_the_fighters_authored_grab() {
     );
 }
 
-/// **A HELD PERSON CAN MASH THEIR WAY OUT, WITH A REAL BUTTON.**
+/// A HELD PERSON CAN MASH THEIR WAY OUT, WITH A REAL BUTTON.
 ///
 /// Reading the schedule says that is right; reading is what missed the grab.
 ///
-/// **the hold is MANUFACTURED and the press is not, which is the split that
-/// makes this a measurement.** Who grabbed whom is setup — the CPU's grab
+/// the hold is MANUFACTURED and the press is not, which is the split that
+/// makes this a measurement. Who grabbed whom is setup — the CPU's grab
 /// TIMING is a separate open question and waiting for one would
 /// make this a test of the brain. What is under test is only whether a pad
 /// press survives to `mash_credit`.
@@ -4134,8 +4034,8 @@ fn on_the_smash_pad_a_held_player_can_mash_free() {
             .expect("a two-seat match has a second body")
     };
 
-    // **the hold is re-established each round, because a LIVE match keeps
-    // breaking it and that is the mechanic working.**
+    // the hold is re-established each round, because a LIVE match keeps
+    // breaking it and that is the mechanic working.
     // `release_interrupted_captures` ends a hold the moment either body takes a
     // hit, and these two are fighting — a first attempt asserted across twelve
     // presses and lost the hold to an ordinary exchange. the first version of
@@ -4183,9 +4083,9 @@ fn on_the_smash_pad_a_held_player_can_mash_free() {
     );
 }
 
-/// **A HOLDING PLAYER'S ATTACK PRESS IS A PUMMEL, NOT A JAB.**
+/// A HOLDING PLAYER'S ATTACK PRESS IS A PUMMEL, NOT A JAB.
 ///
-/// **the next thing a person does after the grab they could not throw.**
+/// the next thing a person does after the grab they could not throw.
 /// `988807b99` made the grab reachable; this asks whether the rest of the
 /// capture context is. It is a DIFFERENT road from `grab_pressed`: a pummel and
 /// the four throws are selected inside `trigger_moveset_moves` from
@@ -4266,7 +4166,7 @@ fn on_the_smash_pad_attacking_while_holding_pummels() {
     );
 }
 
-/// **FORWARD + ATTACK WHILE HOLDING IS THE FORWARD THROW, NOT THE BACK ONE.**
+/// FORWARD + ATTACK WHILE HOLDING IS THE FORWARD THROW, NOT THE BACK ONE.
 #[test]
 fn on_the_smash_pad_forward_and_attack_while_holding_throws() {
     use ambition_platformer2d::combat::capture::CapturedBy;
@@ -4348,11 +4248,11 @@ fn on_the_smash_pad_forward_and_attack_while_holding_throws() {
     );
 }
 
-/// **THE LEFT TRIGGER SHIELDS, THROUGH THE SEMANTIC SHIELD ACTION.**
+/// THE LEFT TRIGGER SHIELDS, THROUGH THE SEMANTIC SHIELD ACTION.
 ///
 /// action with its own `BodyShieldState`; this is the pad half of it.
 ///
-/// **BOTH left shoulder buttons, on purpose and asserted separately.** "Left
+/// BOTH left shoulder buttons, on purpose and asserted separately. "Left
 /// trigger" on an Xbox pad names the ANALOG trigger, which Bevy spells
 /// `LeftTrigger2` because it spells the BUMPER `LeftTrigger` — so the layout
 /// gives Shield both rather than guessing, which is also what a fighting game
@@ -4360,7 +4260,7 @@ fn on_the_smash_pad_forward_and_attack_while_holding_throws() {
 /// hazard, and `every_button_the_smash_layout_claims_drives_exactly_one_verb`
 /// is where that is pinned.
 ///
-/// **and it must not be Special doing this.** A guard that came up because the
+/// and it must not be Special doing this. A guard that came up because the
 /// trigger fired a shield-flavoured special would be exactly the masquerade
 /// slice 2 deleted, so the authored-move channel is asserted SILENT.
 #[test]
@@ -4446,7 +4346,7 @@ fn on_the_smash_pad_b_jumps_and_a_attacks() {
         furthest
     }
 
-    // **B — the button that is Blink in Ambition and Jump here.**
+    // B — the button that is Blink in Ambition and Jump here.
     let jumped = excursion_while_holding(&mut app, pad, body, GamepadButton::East, 60);
     assert!(
         jumped > 24.0,
@@ -4455,9 +4355,9 @@ fn on_the_smash_pad_b_jumps_and_a_attacks() {
          did not reach the seat looks like"
     );
 
-    // **A — the button that is Jump in Ambition and the normal attack here.**
+    // A — the button that is Jump in Ambition and the normal attack here.
     //
-    // **both halves, because either alone passes a build where A does both.**
+    // both halves, because either alone passes a build where A does both.
     // The move channel says A reaches an attack; the height says it is not ALSO
     // still jumping. `y` is sampled over a short window on purpose — 30 frames
     // into a jump this body is already ~127px up, and a short window is also the
@@ -4479,7 +4379,7 @@ fn on_the_smash_pad_b_jumps_and_a_attacks() {
     );
 }
 
-/// **THE RULING: THE PROFILE LEAVES WITH THE GAME.**
+/// THE RULING: THE PROFILE LEAVES WITH THE GAME.
 ///
 /// standard."* Non-standard is precisely why it may not become the default —
 /// A=Jump stays right for Ambition, and the ONE regression that would matter
@@ -4559,7 +4459,7 @@ fn quitting_a_smash_match_gives_the_pad_back() {
     );
 }
 
-/// **the fault was ONE inverted sign, and it was in the shared floor.** An
+/// the fault was ONE inverted sign, and it was in the shared floor. An
 /// authored `launch_dir` is a vector in the victim's own acceleration frame,
 /// where `y` points TOWARD THE FEET — that is the authoring contract's own words
 /// (`HitVolume::launch_dir`: *"(+x = facing, +y = gravity-down)"*), it is what
@@ -4570,7 +4470,7 @@ fn quitting_a_smash_match_gives_the_pad_back() {
 /// up-air and up-smash in the game spiked its victim into the floor, and every
 /// down-air lifted them.
 ///
-/// **measured, not read.** In this composition at 1427%, George's authored
+/// measured, not read. In this composition at 1427%, George's authored
 /// up-tilt resolves to `LaunchSpeed(3269.4)` — exactly `130 + 2.20 × 1427 / 1.0`
 /// — reaches the body as `pending_launch`, and the victim's own DI rotates it by
 /// the full `SMASH_DI_MAX_ANGLE` of 0.31 rad while preserving the speed. Every
@@ -4648,7 +4548,7 @@ mod launched {
         (find("george"), find("alice"))
     }
 
-    /// **Strike a PARKED, GROUNDED fighter with one authored volume and watch.**
+    /// Strike a PARKED, GROUNDED fighter with one authored volume and watch.
     ///
     /// The two bodies are parked far apart first, so the only strike inside the
     /// measurement window is this one — a live CPU match otherwise throws its own
@@ -4731,7 +4631,7 @@ mod launched {
         // Both percents sit inside their own hitstun for the whole window, so
         // the brain cannot steer the reading.
         //
-        // **EIGHT TICKS IN WHICH THE BODY CAN MOVE, not eight ticks of wall clock**.
+        // EIGHT TICKS IN WHICH THE BODY CAN MOVE, not eight ticks of wall clock.
         let in_hitlag = |app: &App| {
             app.world()
                 .get::<ambition_platformer2d::characters::actor::BodyCombat>(victim)
@@ -4793,8 +4693,8 @@ mod launched {
         );
     }
 
-    /// **THE OTHER HALF OF THE REPORT, and the guard that would have caught
-    /// it.** *"alice is at 1427% and Booul is hitting her, but she's not going
+    /// THE OTHER HALF OF THE REPORT, and the guard that would have caught
+    /// it. *"alice is at 1427% and Booul is hitting her, but she's not going
     /// anywhere."* The same move on the same fighter has to send them materially
     /// further at 1427% than at 0% — that is the whole percent meter.
     #[test]
@@ -4847,9 +4747,9 @@ fn cues_this_tick(app: &mut App) -> Vec<String> {
         .collect()
 }
 
-/// **NO CUE IS ASKED FOR MORE THAN ONCE IN A SINGLE TICK.**
+/// NO CUE IS ASKED FOR MORE THAN ONCE IN A SINGLE TICK.
 ///
-/// **the claim is deliberately about ONE CUE, not about total loudness.** A
+/// the claim is deliberately about ONE CUE, not about total loudness. A
 /// busy scene legitimately plays many DIFFERENT cues at once — that is a mix
 /// problem, and it is a taste call. The same cue twice in one tick is never
 /// intended by anyone, and it is mechanically ugly rather than merely loud.
@@ -4904,7 +4804,7 @@ fn no_single_cue_is_asked_for_twice_in_one_tick_during_a_grab() {
         worst.0.max(1)
     );
 
-    // **THE ZERO FLOOR, and it is the whole reason this test is trustworthy.**
+    // THE ZERO FLOOR, and it is the whole reason this test is trustworthy.
     // A run that produced NO cues at all would satisfy "no cue played twice"
     // while measuring nothing — which is exactly what a first attempt at this
     // measurement did on a narrower fixture, reporting a confident `0`.

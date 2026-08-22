@@ -1,4 +1,4 @@
-//! **Does this pass survive its target being torn down?**
+//! Does this pass survive its target being torn down?
 //!
 //! A presentation pass queues `commands.entity(body).insert(..)`. Between the
 //! query that produced `body` and the frame's command flush, another system can

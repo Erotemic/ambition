@@ -63,15 +63,8 @@ pub use body_clusters::{
     BodyMana, BodyModeState, BodyOffense, BodyRestarted, BodyShieldState, BodyWallState,
     SweepSample,
 };
-// **The geometry + frames kernel lives in `ambition_geometry` now** (carved
-// ). Re-exported here, module paths included, so every existing
-// `ambition_platformer2d_core::{geometry, reference_frame, ...}` path resolves
-// unchanged — this is a FACADE over a crate this one depends on, not a
-// compatibility shim for a rename.
-//
-// a consumer that wants only shapes or frames should depend on
-// `ambition_geometry` directly. Reaching them through here is what made 19
-// unqualified crates declare a platformer dependency they did not have.
+// TODO(compat-remove): migrate geometry/frame callers to `ambition_geometry`, then remove
+// these extraction-era re-exports from `ambition_platformer2d_core`.
 pub use ambition_geometry::combat_volume::CombatVolume;
 pub use ambition_geometry::geometry::{aabb_from_min_size, Aabb, AabbExt, CenteredAabb};
 pub use ambition_geometry::reference_frame::{

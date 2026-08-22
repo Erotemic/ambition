@@ -1,6 +1,6 @@
 //! Audio runtime for the Ambition game.
 //!
-//! All Ambition-game audio playback is **authored**: pre-rendered OGG music tracks loaded through
+//! All Ambition-game audio playback is authored: pre-rendered OGG music tracks loaded through
 //! the asset manager catalog, and SFX served from the packed `.sfxbank` (also catalog-routed). Kira
 //! owns the backend, channels, fades, and looping.
 //!

@@ -15,22 +15,22 @@ This tool is that wiring, and it takes the art from ONE place — the engine's o
 sprite folder — so an editor cell cannot drift from the block the simulation
 spawns underneath it. Three halves, which is one more than a half allows:
 
-* **Every IntGrid layer gets a sibling AutoLayer that draws it.** Painting
+* Every IntGrid layer gets a sibling AutoLayer that draws it. Painting
   `Solid` shows masonry and keeps showing it as the author edits, because LDtk
-  re-evaluates the rules from the cells whenever they change. ⛔ the art is on
+  re-evaluates the rules from the cells whenever they change.  the art is on
   its OWN layer because the first version put the rules on the collision layer
   itself and thereby hid the collision (see `COLLISION_OPACITY`), and the tiles
   are BAKED because LDtk does not re-evaluate on open (see
   `build_art_layer_instance`) — two ways to ship a level that renders nothing
   but a grey slab.
-* **Entity defs get a `tileRect`.** A `ChestSpawn` looks like the chest, a
+* Entity defs get a `tileRect`. A `ChestSpawn` looks like the chest, a
   `MovingPlatform` like the platform.
-* **A field can decide the picture, per placement.** `field_art` points an enum
+* A field can decide the picture, per placement. `field_art` points an enum
   field's values at art and switches the def to `EntityTile`, so a `?`-block and
   a brick are the same entity def wearing what their `kind` says — see
   `apply_field_art`, which is also where the limits of that live.
 
-⚠ **the art is 32px and the grid is 16px, so one tile takes FOUR cells.** Every
+ the art is 32px and the grid is 16px, so one tile takes FOUR cells. Every
 engine tile texture is authored at 32×32 (or 32×16 / 16×32) and the game repeats
 it at native scale across a block's footprint, while collision is authored on a
 16px grid. So each texture is cut on the 16px grid and re-assembled by cell
@@ -38,7 +38,7 @@ parity: one `Single` rule per quadrant, `xModulo`/`yModulo` = the texture's size
 in cells and `xOffset`/`yOffset` = which quadrant. Four rules reproduce a 32×32
 texture exactly, phased to the level origin.
 
-⭐ **the atlas is generated, never authored.** LDtk needs one image per tileset
+ the atlas is generated, never authored. LDtk needs one image per tileset
 and the engine ships one PNG per sprite, so this composes them onto a 16px grid
 and records where each landed. It is written next to the sprites it is made of
 (and gitignored with them, like `editor_icons.png`), so a fresh clone rebuilds
@@ -113,7 +113,7 @@ ENGINE_INTGRID_ART: dict[str, str] = {
 
 # : Entity def identifier -> the engine sprite the game spawns for it.
 # :
-# : **only where the mapping is 1:1.** `EnemySpawn`/`NpcSpawn`/`BossSpawn` name
+# : only where the mapping is 1:1. `EnemySpawn`/`NpcSpawn`/`BossSpawn` name
 # : a CHARACTER through a field, so one representative sprite would claim a
 # : specific enemy stands there; they get the engine's generic actor art, which
 # : says "a body spawns here" and nothing more. Per-instance art needs the
@@ -170,7 +170,7 @@ FIT_INSIDE = {
 class ArtSource:
     """One image going into the atlas: a whole PNG, or a frame cut from a sheet.
 
-    ⭐ **a character's editor icon is a FRAME, not a file.** Actors ship as one
+     a character's editor icon is a FRAME, not a file. Actors ship as one
     spritesheet with every animation on it, so pointing an entity def at the PNG
     would put the whole contact sheet in the box. `crop` takes the frame out and
     `trim` drops the transparent margin the renderer pads frames with, so the
@@ -263,7 +263,7 @@ def sheet_frame_rect(
 ) -> tuple[int, int, int, int]:
     """Where one animation frame sits on a character sheet.
 
-    ⛔ **`frame_width` × `frame_height` is NOT the packing pitch.** A published
+     `frame_width` × `frame_height` is NOT the packing pitch. A published
     sheet is atlas-packed — frames are trimmed to their own bounds and placed
     wherever they fit, so `idle` frame 0 of the player is a 71×101 rect at
     (1390, 1) on a sheet whose declared frame size is 224×224. Multiplying an
@@ -543,7 +543,7 @@ def art_layer_identifier(source: dict[str, Any]) -> str:
 def build_art_layer(project: dict[str, Any], source: dict[str, Any], tileset_uid: int) -> dict:
     """An AutoLayer that draws another layer's IntGrid.
 
-    ⭐ **`autoSourceLayerDefUid` is the whole point** — this layer owns no cells
+     `autoSourceLayerDefUid` is the whole point — this layer owns no cells
     of its own. It reads the collision the author paints and answers with art,
     which is why the two can be shown, hidden and dimmed independently while
     remaining incapable of disagreeing about where a wall is.
@@ -836,7 +836,7 @@ def close_field_into_enum(
 ) -> tuple[dict[str, Any], int] | str:
     """Turn a String field into a local enum, or say why it must stay open.
 
-    ⛔ **an enum holds only what it spells.** A placement carrying a value the
+     an enum holds only what it spells. A placement carrying a value the
     enum does not list would lose it, so the values already in the level are the
     gate — the same one `def upsert-entity` applies when a vocabulary manifest
     closes a field. Returns the reason as a string when it refuses.
@@ -873,7 +873,7 @@ def close_field_into_enum(
 def apply_field_display(
     project: dict[str, Any], field_display: dict[str, str]
 ) -> list[str]:
-    """**Say a field's VALUE out loud in the editor.**
+    """Say a field's VALUE out loud in the editor.
 
     Jon: *"I can't tell what power up is in the block."* He cannot, and in the
     game he is not meant to — a block's look never announces its contents, which
@@ -916,7 +916,7 @@ def apply_field_art(
     field_art: dict[str, dict[str, str]],
     by_key: dict[str, Placement],
 ) -> list[str]:
-    """**Make an entity's picture follow one of its FIELDS.**
+    """Make an entity's picture follow one of its FIELDS.
 
     Jon: *"is it possible to have the sprite/tile change depending on the
     properties of the LDtk entity?"* Yes, and LDtk has exactly one mechanism for
@@ -925,7 +925,7 @@ def apply_field_art(
     entity def wearing what their `kind` says, per instance, live as it is
     edited — which is also how they differ in the game.
 
-    ⛔ **this closes the field.** An enum can only hold the values it spells, so
+     this closes the field. An enum can only hold the values it spells, so
     it fits a vocabulary the runtime already closes (`kind` is `Question`,
     `Brick` or `Hidden` and anything else is refused at load) and NOT one it
     leaves open. `EnemySpawn.brain` is the counter-example and the reason this
@@ -962,8 +962,8 @@ def apply_field_art(
         enum_identifier = str(field.get("__type") or "").removeprefix("LocalEnum.")
         enum = next((e for e in enums if e.get("identifier") == enum_identifier), None)
         if enum is None and spec.get("enum"):
-            # **a field with no vocabulary manifest can declare its enum
-            # here.** `MaryOBlock.kind` is owned by `mary_o.entities.json`,
+            # a field with no vocabulary manifest can declare its enum
+            # here. `MaryOBlock.kind` is owned by `mary_o.entities.json`,
             # which is where a GAME's own noun belongs; `EnemySpawn.brain` is an
             # ENGINE def that no per-world manifest declares, and its useful
             # values are this world's roster. So the sidecar may say what the
@@ -1038,8 +1038,8 @@ def build_manifest(
 def default_atlas_path(ldtk: Path, sprites_dir: Path) -> Path:
     """Where the atlas goes, addressed the way the world addresses sprites.
 
-    ⭐ **through the world's own `assets/sprites` mount, not the crate that
-    holds the files.** Every world's assets dir carries a `sprites` symlink onto
+     through the world's own `assets/sprites` mount, not the crate that
+    holds the files. Every world's assets dir carries a `sprites` symlink onto
     the shared generated tree, and `rel_to_ldtk` only rewrites a path it sees
     INSIDE that shared tree — so naming the atlas through the mount is what
     turns the tileset's `relPath` into a neighbourly `../sprites/…` instead of a

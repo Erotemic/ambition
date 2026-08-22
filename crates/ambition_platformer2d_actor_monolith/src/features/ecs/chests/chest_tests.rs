@@ -114,9 +114,9 @@ fn distant_chest_is_not_opened() {
     );
 }
 
-/// **AN OPENED CHEST PAYS OUT WHAT IT WAS AUTHORED WITH.**
+/// AN OPENED CHEST PAYS OUT WHAT IT WAS AUTHORED WITH.
 ///
-/// ⛔⛔ **this is the guard for a payload that had ZERO READERS.**
+///  this is the guard for a payload that had ZERO READERS.
 /// `ChestFeature::reward()` is an `Option<PickupKind>` filled by every chest
 /// author in the game — LDtk's `spawn_static`, the mob encounter's reward chest
 /// and the boss's `DropChest` profile — and `open_ecs_chests` asked for
@@ -161,7 +161,7 @@ fn an_opened_chest_pays_out_what_it_was_authored_with() {
     );
 }
 
-/// **AND A CHEST AUTHORED EMPTY PAYS NOTHING** — the other half, without which
+/// AND A CHEST AUTHORED EMPTY PAYS NOTHING — the other half, without which
 /// the grant could be paying out a constant.
 #[test]
 fn an_empty_chest_pays_nothing() {

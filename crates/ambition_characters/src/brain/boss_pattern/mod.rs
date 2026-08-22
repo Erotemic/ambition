@@ -161,7 +161,7 @@ pub enum BossPatternStep {
     Telegraph {
         profile: BossAttackProfile,
         duration: f32,
-        /// **BD3 — the authored anticipation.** `#[serde(default)]`, so every
+        /// BD3 — the authored anticipation. `#[serde(default)]`, so every
         /// pre-BD3 row parses unchanged. `None` means "this attack telegraphs by
         /// duration alone", which §3 rule 5 counts as *no telegraph identity*.
         #[serde(default)]
@@ -174,7 +174,7 @@ pub enum BossPatternStep {
     },
     /// No volume. Pure breathing room so the player can reposition or punish.
     Rest { duration: f32 },
-    /// **BD1 — conditional selection.** Roll ONCE, the moment the timeline is
+    /// BD1 — conditional selection. Roll ONCE, the moment the timeline is
     /// resolved, and splice the winning arm's steps in place of this one. Arms
     /// with a `when` bucket that does not hold this tick are ineligible; among the
     /// rest the roll is weighted. Zero duration: control flow, not a beat.
@@ -184,13 +184,13 @@ pub enum BossPatternStep {
     /// lets BD5's validator integrate a pass's threat, and what keeps the ticker's
     /// cursor arithmetic honest — a zero-duration step at the cursor is a foot-gun.
     Select { table: Vec<WeightedArm> },
-    /// **BD1 — stance entry.** Jump to the named stance's steps, remembering where
+    /// BD1 — stance entry. Jump to the named stance's steps, remembering where
     /// to come back to. Zero duration. Reaching the end of a stance returns to the
     /// step after the `Stance` that entered it.
     Stance { id: String },
 }
 
-/// **BD3 — the telegraph a player READS.** `docs/planning/engine/boss-design.md`
+/// BD3 — the telegraph a player READS. `docs/planning/engine/boss-design.md`
 /// §1: *"a `telegraph` presentation event on pattern/move rows (pose row, flash,
 /// sfx cue — combat-model CM5's event channel) so anticipation is AUTHORED per
 /// attack, and the validator (§3) can SEE it."*
@@ -295,8 +295,8 @@ pub struct InterruptRule {
 
 /// A full attack script for one boss phase. Loops when it reaches the end.
 ///
-/// `stances` and `interrupts` are `#[serde(default)]`, so **every existing
-/// `boss_profiles.ron` row parses unchanged** (byte-parity, as BD1's sketch
+/// `stances` and `interrupts` are `#[serde(default)]`, so every existing
+/// `boss_profiles.ron` row parses unchanged (byte-parity, as BD1's sketch
 /// requires). A pattern with neither behaves exactly as it did before BD1.
 #[derive(Clone, Debug, Default, PartialEq, serde::Deserialize)]
 pub struct BossPattern {
@@ -371,14 +371,14 @@ impl BossAttackPattern {
 /// runtime.
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub enum BossAttackProfile {
-    /// A body-mounted GEOMETRY strike. The `String` is the strike **key** (snake_case, e.g.
+    /// A body-mounted GEOMETRY strike. The `String` is the strike key (snake_case, e.g.
     /// `"floor_slam"`): it selects the move's body-local hitbox rects from the strike-geometry
     /// table — a built-in engine default (`floor_slam`, `side_sweep`, `full_body_pulse`,
     /// `wing_sweep`, `dive_lane`, `broadside`, `hand_slam`, `hand_sweep`, `head_descent`,
     /// `converging_shockwave`, `hazard_column`) OR the boss's RON `strike_geometry` override.
     /// Damage flows through the moveset's `HitVolume`s.
     Strike(String),
-    /// A content-defined SPECIAL. The `String` is the technique **key**
+    /// A content-defined SPECIAL. The `String` is the technique key
     /// (snake_case, e.g. `"overfit_volley"`); a content-owned *Technique*
     /// recognizes it, reads its own params, and emits the effects. Damage
     /// routes through whatever that technique spawns (projectiles /
@@ -585,7 +585,7 @@ impl BossPatternCfg {
         }
     }
 
-    /// The boss body's authored **special repertoire** — the ordered,
+    /// The boss body's authored special repertoire — the ordered,
     /// deduplicated list of `(profile, strike-window seconds)` this boss can
     /// perform, derived from its authored pattern. This is the boss's CAPABILITY
     /// (what its body can do when commanded), independent of the autonomous
@@ -977,7 +977,7 @@ pub struct BossPatternContext {
     /// collision extent — it is what makes *body contact* a fact about two
     /// bodies rather than about two points.
     ///
-    /// **COLLISION, not the coarse footprint, and the two genuinely differ.** The caller must read
+    /// COLLISION, not the coarse footprint, and the two genuinely differ. The caller must read
     /// the size the movement seam sweeps (`BodyKinematics::size`), NOT the published `CenteredAabb`
     /// — that box is the coarse hurtbox footprint, and for a boss it is deliberately the much
     /// larger `BodyEnvelope` render envelope (the AJ5.1 envelope split).
@@ -1097,7 +1097,7 @@ impl BossAttackState {
 }
 
 /// The boss body's authored action repertoire — its CAPABILITY, persisted as a
-/// **component** (not brain state) so it survives a brain swap. When a human
+/// component (not brain state) so it survives a brain swap. When a human
 /// possesses a boss, its `Brain::StateMachine(BossPattern{..})` is transferred
 /// away and stashed for restore; the pattern cfg is no longer reachable from the
 /// boss tick, but this component keeps the boss's special list in scope so the

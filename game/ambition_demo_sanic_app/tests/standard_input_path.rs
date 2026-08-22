@@ -1,4 +1,4 @@
-//! **S0 — the standard host-input path, proven end to end.**
+//! S0 — the standard host-input path, proven end to end.
 //!
 //! This is the SAME production wiring the full app runs (`PlatformerHostPlugins` under the
 //! `input` feature), assembled by the demo's own `build_demo_app`; nothing here inserts a

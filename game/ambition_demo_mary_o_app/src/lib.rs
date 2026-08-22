@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 
 /// Assemble the demo under a standalone shell host: foundation + engine + host +
-/// the Mary-O experience. **Zero engine edits, zero `ambition_app`.**
+/// the Mary-O experience. Zero engine edits, zero `ambition_app`.
 ///
 /// The shell owns entry: `initial_route = mary_o_gameplay` (direct standalone
 /// entry) and `home_route = mary_o_launcher`, so `QuitToHome` returns to a
@@ -62,7 +62,7 @@ fn compose_mary_o_shell(app: &mut App, home_route: &str) {
 /// and it is now true rather than aspirational.
 ///
 /// `render` decides whether a rasterizer is created. `RenderMode::Headless` builds
-/// the full render graph against **no wgpu backend** and opens no window — the
+/// the full render graph against no wgpu backend and opens no window — the
 /// standard Bevy recipe for exercising presentation in CI. The entities, the
 /// camera, and the schedule are identical either way, which is what makes
 /// `tests/ov1_draws_the_world.rs` meaningful without a GPU.
@@ -81,7 +81,7 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
 /// There was no way to look at 1-2 at all, which is why three open observations about it could only
 /// be argued.
 ///
-/// **the entry room is answered ONCE here**, and the asset bind room is read off the same
+/// the entry room is answered ONCE here, and the asset bind room is read off the same
 /// session world rather than off `mary_o_session_world()`.
 #[cfg(all(feature = "visible", not(target_arch = "wasm32")))]
 pub fn build_windowed_demo_app_entering(
@@ -127,7 +127,7 @@ pub fn build_windowed_demo_app_entering(
         // A real renderer with nothing to present to. `winit` is the only thing
         // dropped, because a window is the only thing missing.
         RenderMode::OffscreenGpu => {
-            // **`winit` is also the RUNNER.** Disabling it leaves Bevy's
+            // `winit` is also the RUNNER. Disabling it leaves Bevy's
             // default single-pass runner, so `app.run()` performs exactly ONE
             // update and returns — the app exits 0 having rendered nothing, and
             // a capture reports success with no file written. Found by trying
@@ -263,7 +263,7 @@ pub enum RenderMode {
     Windowed,
     /// The render graph, no backend, no window. What CI wants.
     Headless,
-    /// **No window and a REAL backend** — the mode that can produce pixels
+    /// No window and a REAL backend — the mode that can produce pixels
     /// without a display.
     ///
     /// `Headless` cannot be used for this: it sets `backends: None`, so there is no RenderApp

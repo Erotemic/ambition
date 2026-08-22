@@ -164,7 +164,7 @@ pub trait CombatGeometry {
 /// An actor's collision AABB — its combat-size body box oriented to its
 /// reference frame and shifted by any off-center `combat_offset`. The single
 /// way to ask "where is this actor's body" across player / NPC / enemy / boss.
-/// **THE body-footprint publish** — write a body's oriented collision box into
+/// THE body-footprint publish — write a body's oriented collision box into
 /// the [`ae::CenteredAabb`] every consumer reads (the debug overlay, hurtbox
 /// resolution, target volumes).
 ///

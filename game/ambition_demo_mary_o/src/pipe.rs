@@ -1,8 +1,8 @@
-//! **The pipe transit** — the scripted slide into one tube and out of the other.
+//! The pipe transit — the scripted slide into one tube and out of the other.
 //!
 //! ## How it is composed, with no engine edits
 //!
-//! * **The motion** is [`ambition_platformer2d::engine_core::movement::transit_body`] re-issued
+//! * The motion is [`ambition_platformer2d::engine_core::movement::transit_body`] re-issued
 //!   every tick along an eased path, rather than once at the end. That is the
 //!   engine's authority for discretely relocating a body (ADR 0024) and it
 //!   reconciles the motion model's private attachment/maneuver state each time, so
@@ -10,11 +10,11 @@
 //!   The ECS wrapper is scheduled after ordinary movement, so the transit's
 //!   authored position wins every frame instead of allowing an unordered
 //!   integrator to displace it after the snap.
-//! * **The occlusion** is presentation data, not code: the pipe props are authored
+//! * The occlusion is presentation data, not code: the pipe props are authored
 //!   `PropDraw::Structure`, so their art fills the collider a body stands on
 //!   exactly AND draws in front of the cast — which is what lets a pipe swallow a
 //!   body sliding into it instead of pasting that body on top of it.
-//! * **The lock** is [`BodyCombat::recoil_lock_timer`], the engine's existing
+//! * The lock is [`BodyCombat::recoil_lock_timer`], the engine's existing
 //!   "carried, can't steer" gate, re-held every tick of the transit — the same
 //!   lever the snake's shell uses to be frozen. You cannot jump out of a pipe.
 //!
@@ -117,7 +117,7 @@ impl PipeTransit {
             elapsed: 0.0,
             from: at,
             to: at + travel,
-            // **The emergence continues the journey, it does not reverse it.** The
+            // The emergence continues the journey, it does not reverse it. The
             // throat is a pipe-length BEHIND the arrival along the travel axis, so
             // the body keeps moving the same way it entered: down a descent tube it
             // comes DOWN out of the ceiling pipe, up an ascent tube it comes UP out
@@ -142,7 +142,7 @@ pub struct TransitEffects {
     pub crossed: bool,
 }
 
-/// **The whole transit, as a pure function.** Advance one phase's clock, ease the
+/// The whole transit, as a pure function. Advance one phase's clock, ease the
 /// body along the current slide, and hand over to the next phase (or finish).
 ///
 /// The ease is smoothstep, so the body leaves the lip gently, moves fastest in
@@ -190,7 +190,7 @@ fn smoothstep(t: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
-/// **The transit, as an ECS system.** A thin wrapper over [`step_pipe_transit`]:
+/// The transit, as an ECS system. A thin wrapper over [`step_pipe_transit`]:
 /// hold the body's input lock, relocate it along the eased path through the
 /// engine's transit authority, and drop the component when it surfaces.
 pub fn run_pipe_transits(

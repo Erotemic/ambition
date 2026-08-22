@@ -196,7 +196,7 @@ pub fn chest_state_sprite(opened: bool) -> EntitySprite {
     }
 }
 
-/// **Art for a block that is a POINT, not a surface** — one whose box is its
+/// Art for a block that is a POINT, not a surface — one whose box is its
 /// art's own shape, so drawing the art across the box distorts nothing.
 ///
 /// Stretched across an authored surface — Smash's 420×32 stage — the border stretches too, so the
@@ -205,14 +205,14 @@ pub fn chest_state_sprite(opened: bool) -> EntitySprite {
 /// is the one that repeats, so the renderer asks that first and only lands here for a kind with no
 /// tile texture at all.
 ///
-/// **so a new surface kind must bring a tile texture, not a prop.** The
+/// so a new surface kind must bring a tile texture, not a prop. The
 /// contract is pinned by `every_surface_kind_has_a_tile_texture`; adding a kind
 /// here instead is how the invisible edge comes back.
 pub fn point_block_sprite(kind: ae::BlockKind) -> Option<EntitySprite> {
     match kind {
         ae::BlockKind::PogoOrb => Some(EntitySprite::PogoOrb),
         ae::BlockKind::Rebound { .. } => Some(EntitySprite::ReboundPad),
-        // **`None`, and that is the kind's whole point.** A bonk-only block is
+        // `None`, and that is the kind's whole point. A bonk-only block is
         // hidden until it has been struck; whatever a game wants it to look like
         // once found is that game's own dresser's decision, and a default here
         // would draw the secret.
@@ -226,7 +226,7 @@ pub fn point_block_sprite(kind: ae::BlockKind) -> Option<EntitySprite> {
     }
 }
 
-/// **The seamless texture a SURFACE repeats** — the one the renderer asks for
+/// The seamless texture a SURFACE repeats — the one the renderer asks for
 /// first, whatever the block's provenance, because repeating at native pixel
 /// scale is the only way art of one size honestly covers a box of another.
 /// Returns `None` for the point-shaped kinds, which have no surface to tile
@@ -247,7 +247,7 @@ pub fn block_tile_sprite(kind: ae::BlockKind) -> Option<EntitySprite> {
     }
 }
 
-/// **Is this kind a POINT rather than a surface** — its box IS its art's shape,
+/// Is this kind a POINT rather than a surface — its box IS its art's shape,
 /// so nothing about it can be stretched into a lie?
 ///
 /// The list exists to be short. Everything else is a shape an author drags to
@@ -304,7 +304,7 @@ pub fn entity_sprite_for_kind(kind: FeatureVisualKind) -> Option<EntitySprite> {
 mod tests {
     use super::*;
 
-    /// **Every kind an author can DRAG has art that repeats.**
+    /// Every kind an author can DRAG has art that repeats.
     ///
     /// the invariant a stretched prop broke: art of one size covers a box of
     /// another only by repeating. When it stretches instead, the transparent

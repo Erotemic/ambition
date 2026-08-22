@@ -112,7 +112,7 @@ fn no_heal_without_interact_or_when_not_touching() {
     );
 }
 
-/// **A save point that actually saves, and a session that resumes there.**
+/// A save point that actually saves, and a session that resumes there.
 ///
 /// The shrine claimed both halves and delivered neither: it called
 /// `save.set_changed()` on a value it never modified — which the value-comparing
@@ -299,7 +299,7 @@ fn a_checkpoint_from_another_room_leaves_the_body_where_it_spawned() {
     );
 }
 
-/// **A checkpoint in ANOTHER room of this world routes the session to it.**
+/// A checkpoint in ANOTHER room of this world routes the session to it.
 ///
 /// Distinct from `a_checkpoint_from_another_room_leaves_the_body_where_it_spawned`,
 /// which covers a room this world does NOT contain. Refusing to teleport a body

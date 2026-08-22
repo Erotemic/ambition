@@ -69,7 +69,7 @@ impl Namespace for HeldItemId {
 /// not read like "we looked and it was fine", which is the whole failure this
 /// boundary exists to prevent.
 ///
-/// **THE CHARACTER NAMESPACE LEFT WITH THE ARCHETYPE ROSTER** (AC6). It resolved each
+/// THE CHARACTER NAMESPACE LEFT WITH THE ARCHETYPE ROSTER (AC6). It resolved each
 /// `EnemySpawn`'s BRAIN KEY against the roster's keys, because the lookup behind that key could
 /// not fail: a misspelling became the generic `combatant` body wearing the right name, and this
 /// sweep was the only place that could see it.
@@ -111,7 +111,7 @@ impl RoomBindings {
             }
         }
 
-        // **THE ENEMY BRAIN WAS NEVER THE ONLY REFERENCE THAT SHRUGS.** Three
+        // THE ENEMY BRAIN WAS NEVER THE ONLY REFERENCE THAT SHRUGS. Three
         // roads resolve a path id against this same table by string equality and
         // all three fall through to `None` in silence — an enemy's patrol brain,
         // an NPC placement's `patrol_path_id`, and a hazard's motion `path_id`.

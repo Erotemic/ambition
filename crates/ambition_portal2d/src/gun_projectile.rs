@@ -84,8 +84,8 @@ pub struct PortalShotWorld<'a, W: SolidWorldQuery + ?Sized> {
 
 /// Whether a surface the shot hit accepts a portal. The world seam distinguishes
 /// "blocks the ray" (every [`SolidWorldQuery`] surface) from "accepts a portal":
-/// a surface can stop the shot yet reject a portal. **Default: every solid
-/// surface accepts portals** — so this is a no-op hook today. A future LDtk
+/// a surface can stop the shot yet reject a portal. Default: every solid
+/// surface accepts portals — so this is a no-op hook today. A future LDtk
 /// no-portal tile will refine it (a data change, not an API change); its exact
 /// representation is deferred until a concrete solid-but-no-portal surface
 /// exists. `hit` is the contact point, `normal` the surface outward normal.

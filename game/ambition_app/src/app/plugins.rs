@@ -1,4 +1,4 @@
-// **NOT `#[cfg(feature = "ui")]`.** It was, while its three use sites were not — so
+// NOT `#[cfg(feature = "ui")]`. It was, while its three use sites were not — so
 // `--no-default-features --features web` had the uses without the import and the web build did not
 // compile. `Platformer2dStartupAssets` is an asset collection and has nothing to do with the UI
 // feature; the gate was on the wrong half of the pair.
@@ -171,10 +171,10 @@ fn register_app_local_sim_systems(app: &mut App) {
     // ── Brain-driven player clone (press K) ────────────────────────────────
     //
     // A `PlayerEntity` body driven by a PlayerDemo brain through the SAME shared player systems
-    // as the human player. **Ambition's own death rules** (ADR 0033). Exploration's answer: no
+    // as the human player. Ambition's own death rules (ADR 0033). Exploration's answer: no
     // interlude, and the room goes back when nobody is left in play.
     //
-    // **`UntaggedRooms`, not the whole binary.** This function is composed
+    // `UntaggedRooms`, not the whole binary. This function is composed
     // into the multi-game shell host beside Sanic, Mary-O and Smash, and every
     // one of those tags its rooms with its own mode. Ambition's own rooms carry
     // no tag, so `UntaggedRooms` is exactly the set of rooms these rules are
@@ -270,7 +270,7 @@ pub fn add_ldtk_runtime_plugin(app: &mut App) {
         .add_plugins(ldtk_world::AmbitionLdtkRegistrationPlugin)
         .add_systems(
             Startup,
-            // **K2b edit 3: the direct-entry world-spine spawn is GONE.**
+            // K2b edit 3: the direct-entry world-spine spawn is GONE.
             // It ran only when `AmbitionShellHosted` was absent, and every
             // composition inserts it now — so it was dead code that looked
             // live. The shell spawns SESSION-scoped roots per activation
@@ -405,7 +405,7 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     // It records every target a later manifest took from an earlier one with a different frame
     // grid, and reports the count once; deciding which of those MATTER needs to know which targets
     // something resolves art by, and that is a catalog fact. This is the caller that owns both, so
-    // the filter lives here. **`PostStartup`, and `Startup` was a CHECK THAT COULD NOT FIRE.**
+    // the filter lives here. `PostStartup`, and `Startup` was a CHECK THAT COULD NOT FIRE.
     // `init_sheet_registry` is itself a `Startup` system, and Startup systems are UNORDERED — so
     // this ran with `Res<SheetRegistry>` absent, took the `else { return; }` on its `Option`, and
     // said nothing on every route. Measured: instrumented to print one line per shadowed target, it
@@ -832,10 +832,10 @@ impl Plugin for AmbitionGamePresentationPlugin {
     }
 }
 
-/// **Warn only for a shadowed sheet target that is a CHARACTER, because only
-/// those are resolved by target** —.
+/// Warn only for a shadowed sheet target that is a CHARACTER, because only
+/// those are resolved by target —.
 ///
-/// **the sheet crate cannot make this call and must not learn to.** Its
+/// the sheet crate cannot make this call and must not learn to. Its
 /// collision check fired ~30 times per Android boot because 17 characters share
 /// the rig target `toon`, 18 share `robot` and 9 share `goblin`, all
 /// legitimately and with genuinely different frame sizes — and nothing looks art
@@ -844,7 +844,7 @@ impl Plugin for AmbitionGamePresentationPlugin {
 /// `pirate_heavy_broadside_bess`, so she loaded the right image and cropped it
 /// with a dead grid.
 ///
-/// **`Option` on both, and that is not defensive padding.** A composition may
+/// `Option` on both, and that is not defensive padding. A composition may
 /// legitimately reach here with neither — a headless tool, a demo that mounts no
 /// Ambition cast — and the correct behaviour there is to say nothing rather than
 /// to report every rig target as suspicious.

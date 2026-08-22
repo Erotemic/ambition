@@ -11,7 +11,7 @@
 //! to the [`crate::Item`] discriminant — there is no key in the file tying a row
 //! to the item it re-authors.
 //!
-//! **so deleting one row does not remove one item, it renames twenty-three.**
+//! so deleting one row does not remove one item, it renames twenty-three.
 //! Every row after the gap shifts up a slot and silently re-authors the wrong
 //! item: the axe's description on the javelin, and so on down the grid, with no
 //! parse error and no missing reference. `from_ron` accepted it happily and the
@@ -113,8 +113,8 @@ fn declare(facet: &FacetSource<'_>, rows: &[ItemMeta], out: &mut FacetOutcome) {
         // Refuse the un-normalized spelling rather than silently rewriting it, so the id an
         // author reads in the file is the id scripts use.
         //
-        // **compared against `row.dialog_id`, the RAW value — NOT the trimmed
-        // one.** My first version normalized a trimmed copy and compared it to
+        // compared against `row.dialog_id`, the RAW value — NOT the trimmed
+        // one. My first version normalized a trimmed copy and compared it to
         // that same trimmed copy, so `" portalgun "` passed the check my own
         // comment named, and then lowered with its whitespace intact. A check
         // that pre-applies part of the transform it is testing for cannot see
@@ -162,8 +162,8 @@ fn declare(facet: &FacetSource<'_>, rows: &[ItemMeta], out: &mut FacetOutcome) {
         }
 
         let id = ContentId::new(facet.namespace, &SchemaId::new(ITEM_SCHEMA), dialog_id);
-        // **THE SLOT IS PART OF THE ROW'S IDENTITY, so it must be in the
-        // canonical form.** The pack fingerprint sorts definitions by content
+        // THE SLOT IS PART OF THE ROW'S IDENTITY, so it must be in the
+        // canonical form. The pack fingerprint sorts definitions by content
         // id, so a per-row canonical keyed only by `dialog_id` made SWAPPING two
         // complete rows a no-op for the fingerprint — while swapping exactly
         // which metadata belongs to which `Item` enum variant. This file is

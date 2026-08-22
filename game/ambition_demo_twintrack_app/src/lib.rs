@@ -24,7 +24,7 @@ fn compose_twintrack_shell(app: &mut App) {
 
 /// Whether [`build_windowed_demo_app_with`] opens a window.
 ///
-/// **`OffscreenGpu` is NOT "headless"**: headless sets `backends: None`, so
+/// `OffscreenGpu` is NOT "headless": headless sets `backends: None`, so
 /// there is no RenderApp and no texture to read a picture out of. Sanic's and
 /// Mary-O's binaries each learned that separately; this is the same variant.
 #[cfg(feature = "visible")]
@@ -69,7 +69,7 @@ pub fn build_windowed_demo_app_with(render: RenderMode) -> App {
         });
     match render {
         RenderMode::Windowed => app.add_plugins(plugins),
-        // **`winit` is also the RUNNER.** Without it Bevy's default runner
+        // `winit` is also the RUNNER. Without it Bevy's default runner
         // performs ONE update and returns, so a capture exits 0 having rendered
         // nothing.
         RenderMode::OffscreenGpu => app

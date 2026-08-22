@@ -1,32 +1,9 @@
-//! **WHO DRIVES THIS BODY** — control authority as its own fact.
+//! Live participant-to-body driving authority.
 //!
-//! **`Brain::Player(slot)` was carrying TWO meanings and only one of them
-//! was a brain.** *"A participant drives this body"* is not an AI backend; it sat
-//! in the same enum as `Wanderer` and `BossPattern` because that enum was the
-//! only place to say it. Every exhaustive match over `Brain` therefore had an arm
-//! for a thing that is not a policy, and — the expensive half — **possession had
-//! to MOVE the variant** to change who was driving, which destroyed the target's
-//! own policy and forced `PossessionState` to stash it in `restore_brain`.
-//!
-//! ⇒ [`DrivingParticipant`] is that fact on its own, and the variant is GONE.
-//! `Brain` is AI policy only; a body a participant drives keeps whatever policy
-//! it has, so releasing needs nothing put back — there is nothing to restore
-//! because nothing was taken.
-//!
-//! **AUTHORED at the seat, RECONCILED here, and those are not the same job.** A body a
-//! participant drives is spawned wearing `DrivingParticipant(slot)`: that is the seat
-//! assignment, and it is the only thing a spawn site says. What this module owns is the one
-//! thing that can CHANGE it at runtime — a live possession redirects the PRIMARY seat onto the
-//! possessed body and hands it back on release.
-//!
-//! **NOT `ControlAuthority`, and the near-miss is worth the paragraph.**
-//! `character_runtime::prepared_match::ControlAuthority` already exists in this
-//! crate — and is re-exported from the `ambition_platformer2d` SDK — for a
-//! DIFFERENT fact: what a roster SEAT attaches, `LocalInput { channel, source }`
-//! or `Brain { profile }`. That is a binding SPEC, read once when a match is
-//! prepared. This is a body's live DRIVER. Two types with one name in one crate
-//! would make every future reader of this seam ask which one was meant, so the
-//! new one takes the new name.
+//! [`DrivingParticipant`] states who currently drives a body; [`Brain`] remains
+//! AI policy and is not replaced during possession. This differs from prepared
+//! match `ControlAuthority`, which specifies how a roster seat is initially
+//! bound. This module reconciles runtime possession redirects only.
 
 use bevy::prelude::*;
 
@@ -34,35 +11,15 @@ use ambition_characters::brain::PlayerSlot;
 
 use crate::abilities::traversal::possession::PossessionState;
 
-// **the TYPE lives in `ambition_characters::brain`, beside `Brain` and
-// `PlayerSlot`.** This module owns the RECONCILE — which needs
-// `PossessionState`, an actor-domain resource — but the fact itself is
-// vocabulary two sibling crates ask for, and neither the interaction seam nor
-// the conversation seam can see the other. Re-exported rather than re-declared:
-// two meanings on one word in one crate is the collision this seam already
-// walked into once.
+// Shared control vocabulary lives with `Brain` and `PlayerSlot`; this module
+// owns only possession reconciliation.
 pub use ambition_characters::brain::DrivingParticipant;
 
-/// **Move the PRIMARY seat onto a possessed body, and hand it back on release.**
+/// Redirect the primary seat from the home body to a possessed body and back.
 ///
-/// **possession is a REDIRECT of one seat, not a swap of two policies.** The
-/// primary participant's authority goes to `PossessionState::possessed` while a
-/// possession is live and returns to `PossessionState::home` when it ends.
-/// Nothing is stashed and nothing is restored beyond the seat itself, because
-/// nothing else was ever taken away.
-///
-/// **it does NOTHING outside a possession, and that is load-bearing.** With no
-/// `home` recorded there is no redirect in flight, so every body keeps the seat
-/// its spawn site authored. A version that recomputed the whole `PRIMARY`
-/// population every tick would have to decide who *should* hold it — and in a
-/// versus match seat 0 is a seated fighter while the adventure session's home
-/// avatar may also exist, so such a system would silently unseat one of them.
-/// The narrow statement is the true one: possession takes the seat FROM the home
-/// avatar and gives it back TO the home avatar.
-///
-/// **compared before writing**, like every other component write on this road:
-/// an unconditional insert marks the component changed every tick of a
-/// possession, and change ticks do not rewind.
+/// Outside an active possession this system leaves authored seat assignments
+/// unchanged. Writes are conditional so component change ticks are not generated
+/// every frame.
 pub fn project_driving_participant(
     mut commands: Commands,
     mut state: ResMut<PossessionState>,
@@ -92,15 +49,15 @@ pub fn project_driving_participant(
         // Released (or the driven body is gone): the seat goes home, and the
         // record that said where home was has done its job.
         None => {
-            // **RETRACT BEFORE RESTORING, or the release leaves TWO bodies
-            // holding one seat.** The release site clears `possessed`, so by the
+            // RETRACT BEFORE RESTORING, or the release leaves TWO bodies
+            // holding one seat. The release site clears `possessed`, so by the
             // time this runs there is nothing left naming the body that was
             // driven — and an earlier version of this branch therefore restored
             // `home` without taking the seat off the vacated actor. Both then
             // answered the primary seat's press, which is the exact two-writer
             // state this whole component exists to make impossible.
             //
-            // **the sweep is safe because of the guard at the top.** This
+            // the sweep is safe because of the guard at the top. This
             // system returns early unless `state.home` is set, and `home` is set
             // only between a possession starting and this branch clearing it. In
             // that window the primary seat belongs to `home` or to the body it
@@ -139,7 +96,7 @@ mod tests {
         app.world().get::<DrivingParticipant>(body).map(|d| d.0)
     }
 
-    /// **With nobody possessing anything, the authored seats stand.**
+    /// With nobody possessing anything, the authored seats stand.
     ///
     /// the reconcile may not have an opinion about a body no possession
     /// touched: a seated versus fighter and an adventure session's home avatar
@@ -166,8 +123,8 @@ mod tests {
         );
     }
 
-    /// **THE POINT OF THE TYPE: possession REDIRECTS authority without moving a
-    /// policy.**
+    /// THE POINT OF THE TYPE: possession REDIRECTS authority without moving a
+    /// policy.
     ///
     /// the target keeps its own `Brain::StateMachine` throughout. There is no
     /// longer any other way for it to go — a `Brain` cannot name a driver — and
@@ -209,7 +166,7 @@ mod tests {
         );
     }
 
-    /// **A second seat is untouched by the primary's possession.**
+    /// A second seat is untouched by the primary's possession.
     ///
     /// the redirect takes the seat from the HOME avatar and from nowhere else;
     /// a version that cleared every `PRIMARY` holder — or every holder — would
@@ -243,7 +200,7 @@ mod tests {
         );
     }
 
-    /// **Authority is RETRACTED, not left behind.**
+    /// Authority is RETRACTED, not left behind.
     ///
     /// the release direction, which every latch on this road has got wrong at
     /// least once: a reconcile that only ever inserts leaves the possessed body
@@ -287,7 +244,7 @@ mod tests {
         );
     }
 
-    /// **A driven body that VANISHED still hands the seat back.**
+    /// A driven body that VANISHED still hands the seat back.
     ///
     /// the failure this pins is being stranded driving nothing: the target is
     /// despawned mid-possession, and if the reconcile only reacted to

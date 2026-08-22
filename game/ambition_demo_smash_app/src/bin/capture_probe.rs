@@ -1,55 +1,20 @@
-//! **Does a CPU match ever produce a grab?**
+//! Probe capture behavior in an unarranged CPU match.
 //!
 //! `cargo run -p ambition_demo_smash_app --bin capture_probe [-- SECONDS]`
 //!
-//! Every claim about the capture mechanic so far is a unit test or a hand-built
-//! chain. Those answer *"can this happen"*; the question a mechanic actually has
-//! to pass is *"does it happen in a fight nobody arranged"* — and its opposite,
-//! *"does it happen so much that the fight is only grabs"*. Neither is a
-//! property any fixture can hold an opinion about.
-//!
-//! So this drives the real demo the way `match_diagram` does — select, seat two
-//! CPU fighters, route to the stage, step the sim — and watches the
-//! relationship table:
-//!
-//! ```text
-//! holds        a capture that was established at all
-//! pummels      the deepest a hold got
-//! endings      thrown / escaped / timed out / interrupted
-//! ```
-//!
-//! **an ENDING is classified from the hold's last observed state**, because by
-//! the time a capture is gone the component that knew is gone with it. A hold
-//! whose escape meter had filled escaped; one at its ceiling timed out; anything
-//! else ended because somebody chose to end it — a throw, or a hit that broke
-//! it. That is a coarse classification and it is the honest one available from
-//! outside.
-//!
-//! **it is a PROBE, not a test.** It reports what a match did; it asserts
-//! nothing, because the number a healthy match produces is not known yet and a
-//! threshold invented here would be a fixture pretending to be a design.
+//! Reports capture attempts, established holds, pummels, and coarse ending
+//! classifications. It is observational and intentionally has no pass/fail threshold.
 
 use std::collections::HashMap;
 
 use ambition_platformer2d::characters::smash_capture::SmashHoldState;
 use ambition_platformer2d::combat::capture::{CaptureAttemptRequested, CapturedBy};
 
-/// How many capture attempts the adapter actually asked for.
-///
-/// **the split that matters when a match produces grabs and no holds**: an
-/// attempt that was never REQUESTED is an authoring or adapter problem, and one
-/// that was requested and refused is an eligibility problem. From outside they
-/// look identical.
+/// Capture attempts requested by the adapter, distinguished from accepted holds.
 #[derive(bevy::prelude::Resource, Default)]
 struct AttemptsSeen(u32);
 
-/// **Press Grab FOR them, on the tick a person would.**
-///
-/// **it has to be a SYSTEM in the sim schedule, and writing the frame from
-/// outside `app.update()` measures nothing** — the fighter brain writes
-/// `ActorControl` every tick, so a press stamped after the update is overwritten
-/// before anything reads it. That mistake reported 567 presses and 3 attempts,
-/// which reads exactly like the game refusing a grab.
+/// Inject grab input inside the simulation schedule, before fighter control is consumed.
 #[derive(bevy::prelude::Resource, Default)]
 struct Forced(u32);
 
@@ -102,7 +67,7 @@ fn main() {
         .and_then(|arg| arg.parse().ok())
         .unwrap_or(60.0);
     let ticks = (seconds * 60.0) as u32;
-    // **`--force`: press Grab FOR them, when a person would.** The CPU's own
+    // `--force`: press Grab FOR them, when a person would. The CPU's own
     // timing is a policy question; whether the live game can produce a hold at
     // all is not, and the two are only separable by taking the timing out of the
     // AI's hands. Presses on the tick the two are inside grab range and the
@@ -119,7 +84,7 @@ fn main() {
             ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(&mut app);
         app.add_systems(
             sim,
-            // **AFTER the brain, not merely before combat.** `.before(C)`
+            // AFTER the brain, not merely before combat. `.before(C)`
             // orders nothing against the systems that also run before C, so a
             // press stamped here raced the actor brain's own `*out = frame` and
             // lost — the second time the same clobber ate this experiment.
@@ -133,7 +98,7 @@ fn main() {
     for _ in 0..30 {
         app.update();
     }
-    // **CPU seats, not the select screen's** — `SmashSelect::roster` makes
+    // CPU seats, not the select screen's — `SmashSelect::roster` makes
     // every locked seat a HUMAN, and two humans with no controllers stand still
     // forever. The same note `match_diagram` carries, for the same reason.
     app.world_mut()
@@ -161,7 +126,7 @@ fn main() {
         timed_out: u32,
         held_ticks: u32,
     }
-    // **Does the body even OWN a grab?** The first suspect behind a zero, and
+    // Does the body even OWN a grab? The first suspect behind a zero, and
     // the cheapest to eliminate: a fighter whose contract binds no grab verb can
     // never be offered one however good the scoring is.
     {
@@ -200,7 +165,7 @@ fn main() {
     }
 
     let mut tally = Tally::default();
-    // **WHERE A ZERO COMES FROM.** "No grabs happened" has five possible
+    // WHERE A ZERO COMES FROM. "No grabs happened" has five possible
     // causes and they are indistinguishable from the relationship table alone:
     // the kit offers none, the brain never chooses one, the press never
     // reaches the body, the move never plays, or acquisition declines. Counting
@@ -210,7 +175,7 @@ fn main() {
     // so the press could not start anything. See the block that fills it.
     let mut grab_presses_while_committed = 0u32;
     let mut attempts_reported = 0u32;
-    // **How close these two ever actually get.** A grab that reaches 42px cannot
+    // How close these two ever actually get. A grab that reaches 42px cannot
     // land in a fight held at 100, and that is a fact about SPACING rather than
     // about capture.
     let mut closest = f32::MAX;
@@ -254,7 +219,7 @@ fn main() {
         }
         live = now;
 
-        // **WHY AN ATTEMPT WAS DECLINED, from outside the engine.** An
+        // WHY AN ATTEMPT WAS DECLINED, from outside the engine. An
         // attempt reaches acquisition and a hold does not appear: the reasons
         // are the eligibility predicate's own terms, so print those terms on the
         // ticks it actually ran.
@@ -326,7 +291,7 @@ fn main() {
             .collect();
         grab_presses += pressing.len() as u32;
         if !pressing.is_empty() {
-            // **WAS THE PRESSER FREE TO ACT?** `trigger_moveset_moves` drops a
+            // WAS THE PRESSER FREE TO ACT? `trigger_moveset_moves` drops a
             // requested move outright when a `MovePlayback` is running and its
             // cancel window does not permit the new one — which for a smash into
             // a grab it never does. Counting presses without this cannot tell a

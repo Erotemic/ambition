@@ -1,41 +1,8 @@
-//! **The Sanic demo's shell — playbook exit 3, executable.**
-//!
-//! > *"A demo app builds from runtime+host groups + its content crate with zero
-//! > engine edits."* — `docs/planning/engine/decomposition.md`, exit criterion 3.
-//!
-//! This file is that sentence, compiled. It is the shape
-//! `crates/ambition_platformer2d_host/tests/demo_shell_smoke.rs` prescribes and
-//! `docs/planning/demos/README.md` mandates for every demo:
-//!
-//! ```text
-//!   foundation
-//!   + PlatformerEnginePlugins   (the engine, content-free)
-//!   + PlatformerHostPlugins     (the windowed host's camera + input)
-//!   + SanicDemoContentPlugin    (this demo's roster + world)
-//!   + SanicRulesPlugin::global()(this demo's rules — it IS the game here)
-//! ```
-//!
-//! It names `ambition_platformer2d` and `ambition_demo_sanic`. It does not name `ambition_app`,
-//! and `git log --stat` for this crate touches zero engine crates. If a demo ever
-//! needs an engine change to boot, that is an oracle violation and gets filed in
-//! `docs/planning/tracks.md`, not patched here.
-//!
-//! ## What it does and does not show
-//!
-//! It runs the REAL simulation: the speedway room, its rideable Sonic loop, a player body on
-//! the momentum kernel, and the mode-scoped act timer.
-//!
-//! By default it draws nothing and prints what the sim knows — the sim-only shell,
-//! which pays for no renderer at all. **Built with `--features visible` it opens a
-//! window, draws the speedway and player, and loops the authored “You Are Too
-//! Slow” track.** It adds the generic `PlatformerPresentationPlugin` plus the
-//! demo-owned soundtrack. No HUD, no menus, no dev overlays — those are the
-//! GAME's, and `ambition_app` still assembles them.
-//!
-//! ```console
-//! $ cargo run -p ambition_demo_sanic_app --bin sanic_demo -- --ticks 600
-//! $ cargo run -p ambition_demo_sanic_app --features visible --bin sanic_demo -- --window
-//! ```
+//! Demo executable composed from the reusable platformer runtime, windowed host,
+//! and this demo's content/rules plugins. It intentionally does not depend on
+//! `ambition_app`. Headless mode steps the real simulation and reports state;
+//! the `visible` feature adds generic platformer presentation without the main
+//! game's HUD, menus, or dev overlays.
 
 use bevy::prelude::*;
 

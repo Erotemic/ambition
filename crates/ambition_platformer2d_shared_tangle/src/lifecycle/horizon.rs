@@ -14,14 +14,14 @@ use super::{
     CustodyBaseline, OccurrenceBaseline,
 };
 
-/// **A checkpoint was committed: every contributing domain records its baseline
-/// now.**
+/// A checkpoint was committed: every contributing domain records its baseline
+/// now.
 ///
-/// ⭐ **a world EVENT, not a body position.** The save shrine already writes a
+///  a world EVENT, not a body position. The save shrine already writes a
 /// `PersistedCheckpoint { room, x, y }`, and that value answers *where the body comes back*,
 /// which is the smallest part of the question.
 ///
-/// ⚠ **emitted by whatever a game decides a checkpoint is.** The engine does not
+///  emitted by whatever a game decides a checkpoint is. The engine does not
 /// decide: a shrine, a flag, a room entry and an autosave are all legitimate,
 /// and a game with no checkpoints at all simply never writes this and gets a
 /// death that restores the empty baseline — which is the sandbox reset, and is
@@ -29,20 +29,20 @@ use super::{
 #[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct CheckpointCommitted;
 
-/// **Put the world back to the last committed checkpoint.**
+/// Put the world back to the last committed checkpoint.
 ///
-/// ⛔ **this is the DEATH/RETRY horizon and nothing else.** Not a room unload,
+///  this is the DEATH/RETRY horizon and nothing else. Not a room unload,
 /// not a room transition, not a save load. Each of those preserves or replaces
 /// current truth by its own rule; this one and only this one rewinds the world
 /// to a baseline.
 ///
-/// ⚠ **it is a request, not a report.** Writing it asks the horizon to be
+///  it is a request, not a report. Writing it asks the horizon to be
 /// restored; the restoring happens in [`CheckpointRestore`], and a host that
 /// registers no domain systems there gets a no-op rather than a half-restore.
 #[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ResetToCheckpoint;
 
-/// **Where a domain records its baseline**, reading [`CheckpointCommitted`].
+/// Where a domain records its baseline, reading [`CheckpointCommitted`].
 ///
 /// Every member runs in the same frame and none may read another domain's
 /// baseline: a capture reads LIVE state and writes its own snapshot, so the
@@ -52,7 +52,7 @@ pub struct ResetToCheckpoint;
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct CheckpointCapture;
 
-/// **Where a domain writes its baseline back**, reading [`ResetToCheckpoint`].
+/// Where a domain writes its baseline back, reading [`ResetToCheckpoint`].
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct CheckpointRestore;
 

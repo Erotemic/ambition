@@ -155,7 +155,7 @@ impl PortraitSheetRegistry {
         self.manifests.get(&normalize_manifest_path(manifest_path))
     }
 
-    /// **A portrait TARGET's manifest**, and the path it lives at.
+    /// A portrait TARGET's manifest, and the path it lives at.
     ///
     /// The path comes back with it because a manifest's own `image` field is a
     /// bare filename (`"alice_portraits.png"`) while everything that loads one
@@ -217,7 +217,7 @@ pub fn baked_portrait_registry() -> PortraitSheetRegistry {
     PortraitSheetRegistry::from_baked_table(crate::baked_portrait_rons::BAKED_PORTRAIT_RONS)
 }
 
-/// **Every baked portrait target, sorted** — the vocabulary a character's
+/// Every baked portrait target, sorted — the vocabulary a character's
 /// `portrait` reference resolves against at preparation.
 ///
 /// the exact twin of `character::sheets::available_targets`, and it exists for
@@ -227,7 +227,7 @@ pub fn baked_portrait_registry() -> PortraitSheetRegistry {
 /// note *"so a preparation-time did-you-mean list is the same on every
 /// machine"* — a doc naming the use nothing was connected to.
 ///
-/// **`OnceLock`, because [`baked_portrait_registry`] PARSES.** Preparation
+/// `OnceLock`, because [`baked_portrait_registry`] PARSES. Preparation
 /// runs per character, and calling the registry constructor there would re-parse
 /// every baked portrait manifest once per registered character — the startup
 /// decode storm §7.1 deleted, rebuilt from the other end. The sheet index is a

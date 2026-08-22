@@ -126,7 +126,7 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
     // preparation work items instead, and the ticks a caller asked for are then ticks of
     // GAMEPLAY rather than of activation.
     //
-    // **and it names the barrier when it fails.** The read below is
+    // and it names the barrier when it fails. The read below is
     // `.expect("active session RoomSet")`, three lines later: a session that
     // never activated used to surface as a panic about a missing component,
     // with nothing pointing at the reason.

@@ -1,4 +1,4 @@
-//! **A third party's character is DRAWN, from art the third party owns.**
+//! A third party's character is DRAWN, from art the third party owns.
 //!
 //! Every other link was proved separately and none of them draws anything: the
 //! catalog can name `game://sprites/outlander.png`, the provider can describe

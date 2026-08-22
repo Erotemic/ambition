@@ -1,4 +1,4 @@
-//! **What a character's BODY is**, as authored data — the facts that are true
+//! What a character's BODY is, as authored data — the facts that are true
 //! of the creature however it is spawned and whoever drives it.
 //!
 //! ```text
@@ -6,7 +6,7 @@
 //! ContactDamage         does touching it hurt   strength, amount
 //! ```
 //!
-//! **neither is a controller fact.** How FAST a body can go is a capability;
+//! neither is a controller fact. How FAST a body can go is a capability;
 //! how fast it CHOOSES to go while patrolling is `BrainProfile`'s
 //! `patrol_effort`, expressed as a fraction of this. The archetype vocabulary
 //! already separates them exactly this way (`run_speed` vs `patrol_effort`), and
@@ -14,11 +14,11 @@
 
 use crate::brain::MoveStyleSpec;
 
-/// **How this body moves under its own power.**
+/// How this body moves under its own power.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CharacterLocomotion {
-    /// **Ground-run capability, px/s** — the fastest this body can locomote,
+    /// Ground-run capability, px/s — the fastest this body can locomote,
     /// and the only absolute speed a character authors.
     ///
     /// §4.7: locomotion crosses the brain→body seam as normalized effort. This
@@ -29,7 +29,7 @@ pub struct CharacterLocomotion {
     pub run_speed: f32,
     /// Locomotion STYLE — walk, crawl, hover, the shape of the gait.
     pub move_style: MoveStyleSpec,
-    /// **Walks surfaces hugging the surface normal**: a wall/ceiling crawler
+    /// Walks surfaces hugging the surface normal: a wall/ceiling crawler
     /// with ledge-aware patrol, rather than a body that falls off ceilings.
     #[serde(default)]
     pub surface_walker: bool,
@@ -38,39 +38,10 @@ pub struct CharacterLocomotion {
     /// crawler holding on when struck.
     #[serde(default)]
     pub cling_breaks_on_hit: bool,
-    /// **This body's BASELINE locomotion is free flight** — it ignores gravity as
-    /// its ordinary state: a drifting swarm, a hovering machine, a bird.
-    ///
-    /// **NOT a capability, and the name says so.** This was
-    /// `flies`, one letter from `AbilitySet::fly`, and the two mean genuinely
-    /// different things: `fly` is *this body MAY take to the air*, which a
-    /// grounded fighter can hold and a ruleset can forbid; this is *this body is
-    /// airborne by default*, which changes how it moves before anybody presses
-    /// anything. The PCA is the case that proved they must not be confused — a
-    /// grounded-base hybrid that carries flight for traversal.
-    ///
-    /// **the character says it now, and that is what frees a migrated body
-    /// from needing a catalog row.** Gravity-freedom lived in the catalog's
-    /// `body_kind: Floating` and, redundantly, on the archetype's `is_aerial` —
-    /// and a character that had shed its archetype still had to have a catalog
-    /// row to fly. Mary-O's plane swarms are the case that proved it: their rows
-    /// live in another provider's catalog, so migrating them in the standalone
-    /// demo produced snakes riding paper airplanes with gravity applied.
-    ///
-    /// **`None` IS NOT `Some(false)`, and that distinction is the whole
-    /// point**. This was a bare `bool` whose own doc admitted
-    /// *"`false` does not mean grounded, it means this character did not say"* —
-    /// so a character that baseline_free_flight, one that deliberately does NOT, and one that is
-    /// silent were two values for three facts, and a character had no way to
-    /// disagree with its catalog row.
-    ///
-    /// `Floating` answers *how tall is this* (it supplies no `default_standing_height`, so the
-    /// sheet decides) and stopped being locomotion authority. **Preparation resolves silence to
-    /// `Some(false)`** — grounded — and a body that flies says so here.
-    ///
-    /// **`ArchetypeSpec::is_aerial` already made this distinction, and its doc already named the
-    /// live case**: the Perfect Cellular Automaton, *"`Floating` in its catalog row, played
-    /// grounded by the shipped duel"*.
+    /// Whether ordinary locomotion ignores gravity before any ability input.
+    /// This is baseline body behavior, not the capability to fly. `None` means
+    /// the character is silent; `Some(false)` explicitly authors a grounded
+    /// baseline. Preparation resolves silence before spawning the body.
     #[serde(default)]
     pub baseline_free_flight: Option<bool>,
 }
@@ -78,7 +49,7 @@ pub struct CharacterLocomotion {
 impl Default for CharacterLocomotion {
     fn default() -> Self {
         Self {
-            // **zero, not a guessed default**, and that is deliberate: a
+            // zero, not a guessed default, and that is deliberate: a
             // character that authors a locomotion block and forgets its speed
             // should stand still visibly rather than inherit somebody's idea of
             // a walk. There is no "ordinary" run speed for a body that could be
@@ -93,7 +64,7 @@ impl Default for CharacterLocomotion {
     }
 }
 
-/// **What this body can be RIDDEN as, and what it can ride** (ADR 0020).
+/// What this body can be RIDDEN as, and what it can ride (ADR 0020).
 ///
 /// A shark is rideable because of what a shark IS, and a pirate can board one for the same kind of
 /// reason; neither is a decision the placement or the driver makes.
@@ -116,7 +87,7 @@ pub struct CharacterMount {
     pub death_splash: Option<i32>,
 }
 
-/// **Touching this body hurts.**
+/// Touching this body hurts.
 ///
 /// Absent (`None` on a definition) means it does not, which is the ordinary
 /// case: most characters harm only through their moves.
@@ -142,7 +113,7 @@ impl Default for ContactDamage {
 mod tests {
     use super::*;
 
-    /// **A locomotion block authors its speed or gets nothing**, so a missing
+    /// A locomotion block authors its speed or gets nothing, so a missing
     /// number is visible as a body that does not move rather than as one that
     /// moves like something else.
     #[test]
@@ -156,7 +127,7 @@ mod tests {
         assert!(!crawler.cling_breaks_on_hit, "unauthored, so it holds on");
     }
 
-    /// **A misspelled knob is a refusal**, the same contract `ArchetypeSpec` and
+    /// A misspelled knob is a refusal, the same contract `ArchetypeSpec` and
     /// `BrainProfile` carry: without it, `surfacewalker: true` compiles clean
     /// and the crawler falls off the ceiling with nothing to read.
     #[test]

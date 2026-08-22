@@ -387,7 +387,7 @@ fn interact_buffered_starts_npc_dialogue() {
 
     // No switches in this test — the switch query will be empty and the
     // system will handle the NPC branch.
-    // **the box is a PROJECTION now, so the projection has to run.** The
+    // the box is a PROJECTION now, so the projection has to run. The
     // interaction system decides that a conversation exists; the presentation
     // half opens the runner from that, outside the sim schedule. A fixture that
     // ran only the first would be asserting on a text box nothing was left to

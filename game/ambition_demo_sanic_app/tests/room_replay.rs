@@ -1,4 +1,4 @@
-//! **A replay request actually replays the act** — in the standalone binary.
+//! A replay request actually replays the act — in the standalone binary.
 //!
 //! So the shipped standalone binary asked for a restart that never came: Sanic was not returned to
 //! spawn, the rings were not restored, the badniks did not respawn.
@@ -88,7 +88,7 @@ fn displace(app: &mut App, to: Vec2) {
     );
 }
 
-/// **The seam itself.** One request in, and the body comes home.
+/// The seam itself. One request in, and the body comes home.
 #[test]
 fn a_replay_request_returns_the_body_to_spawn() {
     let mut app = boot();
@@ -118,7 +118,7 @@ fn a_replay_request_returns_the_body_to_spawn() {
     );
 }
 
-/// **The act clear restarts the act** — through the FULL `ACT_CLEAR_DWELL`.
+/// The act clear restarts the act — through the FULL `ACT_CLEAR_DWELL`.
 ///
 /// `cycle_act_after_clear` counts the results card down and then asks for a replay. The
 /// existing completion run (`act_completion.rs`) stops 30 frames into that 4-second dwell, so
@@ -186,7 +186,7 @@ fn the_act_clear_restarts_the_act_after_the_full_dwell() {
     );
 }
 
-/// **One request, one replay.** The consumer moved crates; it must not now be
+/// One request, one replay. The consumer moved crates; it must not now be
 /// registered twice (once by the engine group, once by a host that kept its own
 /// copy). A duplicate is invisible in the body position — the second reset is
 /// idempotent — so this counts the room-feature reset each one requests.

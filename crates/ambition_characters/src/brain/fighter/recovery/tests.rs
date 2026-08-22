@@ -51,8 +51,8 @@ fn with_an_air_jump() -> ae::AbilitySet {
     }
 }
 
-/// **THE FALSIFIER FOR THE WHOLE SLICE: same place, different body, different
-/// verdict.**
+/// THE FALSIFIER FOR THE WHOLE SLICE: same place, different body, different
+/// verdict.
 ///
 /// Position, velocity, geometry, gravity and the unspent air-jump COUNT are
 /// byte-identical between the two probes. The only difference is one boolean in
@@ -60,7 +60,7 @@ fn with_an_air_jump() -> ae::AbilitySet {
 /// movement kernel gates the jump on the verb AND the budget together
 /// (`simulation.rs`: `abilities.double_jump && air_jumps_available > 0`).
 ///
-/// this is what the refused *"airborne, below the lip, outside the span ⇒
+/// this is what the refused *"airborne, below the lip, outside the span
 /// already dead"* rule could not do. That predicate reads only the position, so
 /// both of these bodies would get the same answer and the answer would be wrong
 /// for one of them. If this test ever passes with both verdicts equal, the
@@ -95,7 +95,7 @@ fn the_same_position_gets_opposite_verdicts_from_two_different_kits() {
     );
 }
 
-/// **And the recovery came from the SURFACE, not from a permissive probe.**
+/// And the recovery came from the SURFACE, not from a permissive probe.
 ///
 /// Without this the test above passes for a lens that answered `Regained` to everything.
 #[test]
@@ -118,7 +118,7 @@ fn taking_the_shelf_away_takes_the_recovery_with_it() {
     );
 }
 
-/// **A body standing on the shelf is recovered, and says so immediately.**
+/// A body standing on the shelf is recovered, and says so immediately.
 ///
 /// Cheap on purpose: the probe's first effort is "stand still", so a supported
 /// body costs one kernel step. This is what makes the veto affordable to ask on
@@ -140,7 +140,7 @@ fn a_body_already_on_the_shelf_regains_on_the_first_step() {
     );
 }
 
-/// **No stage, no envelope, no question.** A view that names no room cannot say
+/// No stage, no envelope, no question. A view that names no room cannot say
 /// where dying starts, and inventing one would be the brain deciding a world
 /// fact it was never told.
 #[test]
@@ -173,7 +173,7 @@ fn drifter() -> ae::AbilitySet {
     }
 }
 
-/// **THE VETO NOW CONSIDERS THE MOVE THE BODY WOULD ACTUALLY THROW.**
+/// THE VETO NOW CONSIDERS THE MOVE THE BODY WOULD ACTUALLY THROW.
 ///
 /// this is the header's own standing warning, cashed: *"a body that recovers
 /// by … a recovery attack is not explored"*, which was sound only while no
@@ -222,7 +222,7 @@ fn a_kit_that_commands_a_rise_is_probed_with_it() {
     );
 }
 
-/// **AND A NEGATIVE STILL SAYS WHICH SEARCH PRODUCED IT.** The lens's whole
+/// AND A NEGATIVE STILL SAYS WHICH SEARCH PRODUCED IT. The lens's whole
 /// honesty contract is that the veto is bounded by its policy; arming the search
 /// has to widen the bound as well as the search, or a consumer comparing two
 /// negatives is comparing two different questions and cannot tell.
@@ -251,7 +251,7 @@ fn an_armed_negative_is_bounded_by_the_armed_search() {
     );
 }
 
-/// **A KIT WITH NO LIFT IS PROBED EXACTLY AS BEFORE.** The identity case, pinned
+/// A KIT WITH NO LIFT IS PROBED EXACTLY AS BEFORE. The identity case, pinned
 /// so that every seat which is not a platform fighter keeps the search it has
 /// always had — the change must add routes for bodies that authored one, not
 /// alter the verdict for bodies that did not.
@@ -330,18 +330,18 @@ fn far_from_the_ledge() -> RecoveryQuery {
     }
 }
 
-/// **THE POISON FIXTURE: A TINY UPWARD ATTACK MUST NOT SUPPRESS A VIABLE
-/// RECOVERY MERELY BECAUSE IT LIFTS.**
+/// THE POISON FIXTURE: A TINY UPWARD ATTACK MUST NOT SUPPRESS A VIABLE
+/// RECOVERY MERELY BECAUSE IT LIFTS.
 ///
 /// A fighter whose way home is a grapple line advertises a small rise (its energy went
 /// sideways), so any rising aerial in the same kit outranks it, becomes "the recovery", fails
 /// to get anywhere, and the route that would have worked is never explored.
 ///
-/// **the invariant, stated as behaviour**: adding a lifting move to a kit
+/// the invariant, stated as behaviour: adding a lifting move to a kit
 /// that already has a working route must not change the verdict, and the verdict
 /// must still NAME the route that works.
 ///
-/// **three terms are observed**, so this cannot pass vacuously:
+/// three terms are observed, so this cannot pass vacuously:
 /// 1. the grapple alone gets home (there is a route to suppress);
 /// 2. the rising aerial alone does NOT (it really is the useless one, so the
 ///    assertion is about suppression rather than about two routes that both
@@ -405,8 +405,8 @@ fn a_tiny_lifting_move_does_not_suppress_a_viable_recovery() {
     );
 }
 
-/// **AND THE LATERAL HALF IS WHAT DID THE WORK — not the rise, and not the
-/// probe being generous.**
+/// AND THE LATERAL HALF IS WHAT DID THE WORK — not the rise, and not the
+/// probe being generous.
 ///
 /// the sharpest poison available: take the grapple's own numbers and delete
 /// only `side`. Same speed, same windup, same body, same stage. If that still
@@ -431,7 +431,7 @@ fn the_grapples_lateral_half_is_the_half_that_gets_home() {
     );
 }
 
-/// **A BODY THAT IS ALREADY GETTING HOME IS TOLD IT NEEDS NOTHING.**
+/// A BODY THAT IS ALREADY GETTING HOME IS TOLD IT NEEDS NOTHING.
 ///
 /// the buttons-only baseline runs FIRST, so `route: None` beside a positive
 /// means *"drift and jump is enough"*. That is a real fighting-game fact —
@@ -459,7 +459,7 @@ fn a_body_that_needs_no_route_is_told_so() {
     );
 }
 
-/// **THE COST IS BOUNDED BY A PREFIX, NOT BY THE KIT'S SIZE.**
+/// THE COST IS BOUNDED BY A PREFIX, NOT BY THE KIT'S SIZE.
 ///
 /// every route is a whole `probe_recovery` and the lens is queried per rolled
 /// line, so an unbounded route list would make the veto's cost a function of how

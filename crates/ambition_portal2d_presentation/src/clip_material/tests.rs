@@ -83,13 +83,13 @@ fn frame_basis_resolves_atlas_and_plain() {
     assert_eq!(basis.size, Vec2::new(64.0, 32.0));
 }
 
-/// **AN ATLASED SPRITE RESOLVES WITH NO IMAGE IN THE MAIN WORLD AT ALL.**
+/// AN ATLASED SPRITE RESOLVES WITH NO IMAGE IN THE MAIN WORLD AT ALL.
 ///
 /// this is the claim that matters, not a micro-optimisation. Dropping `MAIN_WORLD` frees
 /// essentially all of it, and this function was the only main-world reader of a loaded sprite sheet
 /// standing in the way. It wanted two integers.
 ///
-/// ⚠ **the sizes deliberately DISAGREE**, because the pre-existing test used a
+///  the sizes deliberately DISAGREE, because the pre-existing test used a
 /// 64x32 image and a 64x32 layout and therefore could not tell which one the UV
 /// normalisation read. Here the layout is authoritative and the image would give
 /// a different, wrong answer — and then the image is not present at all, which

@@ -1,7 +1,7 @@
-//! Vortex — a player-wielded **crowd-control** gauntlet: fire a singularity at a
+//! Vortex — a player-wielded crowd-control gauntlet: fire a singularity at a
 //! point and it drags nearby enemies toward it for a moment. Distinct from
 //! every other wielded attack (which deal damage / teleport): the vortex deals
-//! *no* damage — it **gathers** a scattered group so the player can follow up
+//! *no* damage — it gathers a scattered group so the player can follow up
 //! with an AOE (`crate::abilities::ranged::shockwave` / `crate::abilities::ranged::beam`) or a volley. Pull-then-slam.
 //!
 //! Distinct from the gravity grenade too: that spawns a *directional*

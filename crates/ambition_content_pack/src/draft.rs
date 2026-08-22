@@ -74,10 +74,10 @@ impl ContentPackDraft {
     /// directory, and this repo already ships sprite trees that do exactly
     /// that. The rule:
     ///
-    /// * same canonical file, same schema → **deterministic dedup**, first
+    /// * same canonical file, same schema → deterministic dedup, first
     ///   declaration wins (it is first in a hand-written manifest, so it is
     ///   stable), and the collapse is RECORDED;
-    /// * same canonical file, different schema → **hard error**, because
+    /// * same canonical file, different schema → hard error, because
     ///   deduplication would have to pick a meaning for the file and either
     ///   choice is a guess.
     pub fn read_from_dir(root: impl AsRef<Path>) -> Result<Self, CompileFailure> {

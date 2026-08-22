@@ -82,7 +82,7 @@ fn a_room_reset_restores_a_live_actor_to_full_health_regardless_of_policy() {
     );
 }
 
-/// **A respawn RESTARTS the body, and says so.** (Campaign 3B)
+/// A respawn RESTARTS the body, and says so. (Campaign 3B)
 ///
 /// `reset_to_spawn` moved the body with `transit_body` under the comment
 /// "respawn is a discrete transit (ADR 0024 authority)". That is right about the

@@ -199,8 +199,8 @@ pub enum CharacterAnim {
     // The four clips a body that changes FORM (a power tier, a stage) plays
     // while it changes. All one-shot, all holding the form they arrive at.
     //
-    // **A transition clip is authored on the sheet of the form being ARRIVED
-    // AT**, so a body plays it from the identity it already switched to and
+    // A transition clip is authored on the sheet of the form being ARRIVED
+    // AT, so a body plays it from the identity it already switched to and
     // nothing has to defer the swap: `grow` lives on the grown sheet and
     // flickers small↔grown, `shrink` lives on the small sheet and flickers the
     // other way. The clip that shows you becoming something is owned by the
@@ -323,7 +323,7 @@ impl CharacterAnim {
     ///
     /// This is NOT a list of who-falls-back-to-what authored by hand, and it is
     /// NOT a second source of truth about which poses an actor *has* — that's the
-    /// actor's **anim set**, the rows the sprite generator wrote into the
+    /// actor's anim set, the rows the sprite generator wrote into the
     /// manifest RON ([`CharacterSheetSpec::maps`]). [`CharacterSheetSpec::
     /// resolve_anim`] walks this taxonomy to render the most-specific pose the
     /// actor's set actually contains: an actor whose sheet only drew `slash`

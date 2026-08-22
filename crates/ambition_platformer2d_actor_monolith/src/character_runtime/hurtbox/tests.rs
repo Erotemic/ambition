@@ -48,7 +48,7 @@ fn full_doc() -> HurtboxDoc {
     }
 }
 
-/// **The §4.11 precedence, and which source won.**
+/// The §4.11 precedence, and which source won.
 #[test]
 fn hurtbox_selection_prefers_move_override_then_pose_profile() {
     let doc = full_doc();
@@ -97,7 +97,7 @@ fn a_move_override_is_sampled_on_the_move_clock() {
     );
 }
 
-/// **The prohibition, asserted.** (§4.11)
+/// The prohibition, asserted. (§4.11)
 ///
 /// The resolver is a pure function of an authored doc plus two clocks. There is no
 /// asset, no `AssetServer`, no texture, no animator, and no renderer anywhere in
@@ -201,8 +201,8 @@ fn unauthored_is_not_the_same_as_authored_empty() {
     assert!(authored_empty.volumes.is_empty());
 }
 
-/// **every documented pose must be REACHABLE, and every reachable pose
-/// documented.** The trap this pins is not a crash: a pose id that appears in
+/// every documented pose must be REACHABLE, and every reachable pose
+/// documented. The trap this pins is not a crash: a pose id that appears in
 /// the vocabulary but that no simulation fact can produce lets content author a
 /// profile for it, pass validation, and be silently ignored forever. Four ids
 /// (`tumble`, `shield`, `ledge_hang`, `run`) sat in the module doc in exactly

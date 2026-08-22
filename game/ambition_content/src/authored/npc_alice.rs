@@ -1,4 +1,4 @@
-//! **ALICE'S BODY, now that alice has answers.**
+//! ALICE'S BODY, now that alice has answers.
 //!
 //! alice leaves [`super::hall_humanoids`] under that file's own rule: *"one file for the
 //! rest... If one of them grows a moveset or a distinct build, it earns its own file that

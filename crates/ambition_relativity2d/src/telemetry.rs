@@ -16,7 +16,7 @@ use crate::{ActiveSpacetime2d, ProperTimeElapsed, Relativity2dSet, SpacetimeCoor
 
 pub const DEFAULT_WORLDLINE_HISTORY_SAMPLES: usize = 720;
 
-/// **A track's stable identity — never displayed.**
+/// A track's stable identity — never displayed.
 ///
 /// This is separate from the display label so renaming presentation does not
 /// move telemetry history and two bodies may share the same caption.
@@ -34,7 +34,7 @@ impl WorldlineTrackId {
 
 /// Opt one body into bounded worldline telemetry.
 ///
-/// ⚠ `label` is PRESENTATION and nothing keys on it. See [`WorldlineTrackId`].
+///  `label` is PRESENTATION and nothing keys on it. See [`WorldlineTrackId`].
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct WorldlineTracked2d {
     pub track: WorldlineTrackId,
@@ -97,7 +97,7 @@ impl WorldlineHistoryView2d {
 
 /// A stable hash of a label, for the rollback value probes below.
 ///
-/// ⚠ `DefaultHasher` is not stable ACROSS Rust releases, and that is fine here:
+///  `DefaultHasher` is not stable ACROSS Rust releases, and that is fine here:
 /// a checksum compares two peers running the same binary, which is already the
 /// premise of every other projection in the registry.
 pub(crate) fn hash_label(label: &str) -> u64 {
@@ -210,7 +210,7 @@ fn clear_worldlines_without_live_spacetime(
 mod tests {
     use super::*;
 
-    /// **Renaming what a body is CALLED does not move its history.**
+    /// Renaming what a body is CALLED does not move its history.
     ///
     /// The display label is independent of the stable track id used as the
     /// history address.
@@ -229,7 +229,7 @@ mod tests {
         assert_ne!(renamed.label, before.label);
     }
 
-    /// **Two bodies may share a caption; they may not share an identity.**
+    /// Two bodies may share a caption; they may not share an identity.
     ///
     /// The first was a real limitation of the string-keyed map — one of the two
     /// silently received no telemetry at all — and it is the one that should

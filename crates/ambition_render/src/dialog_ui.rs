@@ -2,7 +2,7 @@
 //!
 //! The reusable engine owns the presentation-neutral [`DialogView`], the shared
 //! [`DialogChoiceSlot`] pointer-navigation marker, and this module's lifecycle /
-//! ordering seam. It does **not** require games to use one visual composition.
+//! ordering seam. It does not require games to use one visual composition.
 //! A visible host installs exactly one presenter by calling
 //! [`claim_dialog_presentation`] from its plugin and adding its renderer to
 //! [`DialogPresentationSet`].

@@ -1,4 +1,4 @@
-//! **Choosing a starting character still starts the game.**
+//! Choosing a starting character still starts the game.
 //!
 //! `AMBITION_START_CHARACTER=<id>` (and `capture_scene --character <id>`) insert a
 //! `StartingCharacterOverride`, which preparation moves onto the session root as

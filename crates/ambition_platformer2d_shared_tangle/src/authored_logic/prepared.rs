@@ -1,75 +1,14 @@
-//! **Preparation: how authored text becomes a call the simulation can make
-//! without ever seeing the text.**
+//! Validated authored calls used by the simulation.
 //!
-//! [The condition contract](super) lets a domain publish a question; [the
-//! command contract](super::commands) lets it publish a verb. Both take
-//! [`AuthoredArg`] values — *prepared* arguments — and neither says where a
-//! prepared argument comes from. Every consumer so far built its own: a lock
-//! wall rebuilt `AuthoredArg::Name(wall.gated_by.clone())` from a `String` on
-//! every tick, and the Yarn command bridge grew its own text conversion.
+//! [`ConditionCatalog::prepare`] and [`CommandCatalog::prepare`] validate the id,
+//! arity, and argument kinds before constructing a [`PreparedCondition`] or
+//! [`PreparedCommand`]. Their fields are private, so unchecked calls cannot be
+//! constructed. Prepared values contain only ids and typed [`AuthoredArg`] values;
+//! runtime code does not retain or parse the authored source text. References are
+//! explicit namespaced [`SimId`] values.
 //!
-//! This is that step, once. Authored source in, a [`PreparedCondition`] or a
-//! [`PreparedCommand`] out, and a refusal with a reason in between.
-//!
-//! # The four properties, and why each is STRUCTURAL rather than promised
-//!
-//! **1. Validation cannot be skipped, because there is no other way in.** Both
-//! prepared types have private fields and no public constructor. The only
-//! functions that produce one are [`ConditionCatalog::prepare`] and
-//! [`CommandCatalog::prepare`], which check the id against the published
-//! catalog, the argument count against the descriptor's arity, and every value
-//! against its declared [`ParamKind`]. ⇒ **a prepared call that was never
-//! validated is not a state this program can be in** — it is unconstructible,
-//! the same way an unpublishable catalog row is.
-//!
-//! **2. The runtime parses nothing, because the runtime holds no text.** The
-//! authored source is consumed by `prepare` and is **not stored** on the
-//! prepared value. What survives is a [`ConditionId`]/[`CommandId`] and a
-//! `Vec<AuthoredArg>`. there is no accessor that returns the source line,
-//! which is what makes *"nothing parses an expression string during
-//! simulation"* a shape rather than a rule somebody has to keep.
-//!
-//! **3. Program data is immutable, because nothing can mutate it.** No `&mut`
-//! accessor, no public field, no interior mutability. A holder may REPLACE a
-//! prepared call with another validated one; nothing can edit one in place. That
-//! is the same argument [`CommandCatalog`]'s private `publish` makes, adapted to
-//! a value rather than a registry: the catalogs are safe because a tick cannot
-//! reach the door, and a prepared call is safe because no door exists.
-//!
-//! **4. A reference is a [`SimId`], minted by `SimId`'s own constructors.** //! never [`SimId::from_snapshot`], which that module reserves for rebuilding an
-//! id from a snapshot blob. The authored text names its namespace —
-//! `encounter:symmetry_attunement` — and preparation dispatches to
-//! [`SimId::encounter`] / [`SimId::placement`], so the escaping that keeps the
-//! id encoding injective happens exactly as it does everywhere else.
-//!
-//! **the author spelling the namespace is a deliberate choice, and the
-//! alternative is written down so widening later is a decision.** The other
-//! design puts the namespace in the [`ParamSpec`], so a `.ldtk` field could say
-//! just `symmetry_attunement`. That needs `ParamKind::Reference` to carry a
-//! payload, which breaks the one-line kind check both catalogs share, for the
-//! benefit of a shorter string. And an authored reference that names its
-//! namespace is *readable in the level*: `placement:kernel` and
-//! `encounter:kernel` are two different things and an agent reading the world
-//! can tell which one it is looking at.
-//!
-//! # What preparation is NOT
-//!
-//! **not an expression language.** The authored form is `<id> <arg>…` —
-//! whitespace-separated, no operators, no nesting, no precedence. An argument
-//! containing a space is not expressible, which is a limit worth having: every
-//! argument any published condition or command takes is an id, a key, a number
-//! or a truth.
-//!
-//! **no program counter, and that is the point.** A prepared call is one call. **the day a
-//! customer genuinely needs a cursor, that is a decision for a human**, not a thing to add here
-//! because it was convenient.
-//!
-//! **not a condition/command pairing either.** A `when … then …` rule form
-//! was written and cut: the one customer that pays for this — a `Switch` that
-//! names a verb — has an EMPTY condition list in all four of its rows, and a
-//! shipped `when` with zero adopters is the wrapper this program's own falsifier
-//! 2 refuses. The two halves prepare separately and the domain that owns a
-//! trigger decides when to ask; see `world::authored_switch_commands`.
+//! Preparation handles one whitespace-delimited call at a time. It is not an
+//! expression language, rule sequencer, or condition/command pairing.
 
 use bevy::prelude::World;
 
@@ -80,9 +19,9 @@ use super::{
     ParamKind, ParamSpec, RunAuthoredCommand,
 };
 
-/// **Why one authored line did not become a prepared call.**
+/// Why one authored line did not become a prepared call.
 ///
-/// **it carries the source**, because the caller that reports this is usually
+/// it carries the source, because the caller that reports this is usually
 /// a loader iterating many authored rows and *"takes 2 arguments, got 1"* with
 /// no line in it is a diagnostic an author cannot act on.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -116,7 +55,7 @@ impl std::fmt::Display for PreparationError {
     }
 }
 
-/// **One validated question, ready to be asked.**
+/// One validated question, ready to be asked.
 ///
 /// private fields and no public constructor — see this module's header on why
 /// that is what makes *"validation happens before runtime"* structural.
@@ -136,7 +75,7 @@ impl PreparedCondition {
     }
 }
 
-/// **One validated verb, ready to be requested.**
+/// One validated verb, ready to be requested.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PreparedCommand {
     id: CommandId,
@@ -154,7 +93,7 @@ impl PreparedCommand {
 }
 
 impl RunAuthoredCommand {
-    /// **Ask for a prepared verb.** The only bridge from preparation to the
+    /// Ask for a prepared verb. The only bridge from preparation to the
     /// request channel, so a requester never assembles arguments by hand.
     pub fn prepared(call: &PreparedCommand) -> Self {
         Self::new(call.id.clone(), call.args.clone())
@@ -162,7 +101,7 @@ impl RunAuthoredCommand {
 }
 
 impl ConditionCatalog {
-    /// **Prepare one question from authored source.**
+    /// Prepare one question from authored source.
     ///
     /// The id is already parsed because a caller that spells its own question in
     /// Rust (a lock wall asking `world.flag_set`) should not have to round-trip
@@ -187,7 +126,7 @@ impl ConditionCatalog {
         Ok(PreparedCondition { id, args })
     }
 
-    /// **Prepare one question from a whole authored line** — `"world.flag_set
+    /// Prepare one question from a whole authored line — `"world.flag_set
     /// bob_field_survey_received"`.
     pub fn prepare_line(&self, source: &str) -> Result<PreparedCondition, PreparationError> {
         let (raw_id, args) = split_line(source)?;
@@ -200,7 +139,7 @@ impl ConditionCatalog {
         self.prepare(id, &args)
     }
 
-    /// **Ask a prepared question.**
+    /// Ask a prepared question.
     ///
     /// the point of the prepared form: the tick evaluates, and everything that
     /// could have been wrong about the call was already wrong at prepare time.
@@ -210,7 +149,7 @@ impl ConditionCatalog {
 }
 
 impl CommandCatalog {
-    /// **Prepare one verb from authored source.**
+    /// Prepare one verb from authored source.
     pub fn prepare(
         &self,
         id: CommandId,
@@ -230,7 +169,7 @@ impl CommandCatalog {
         Ok(PreparedCommand { id, args })
     }
 
-    /// **Prepare one verb from a whole authored line** — `"encounter.signal
+    /// Prepare one verb from a whole authored line — `"encounter.signal
     /// encounter:symmetry_attunement gravity_down"`.
     ///
     /// this is the form an authored FIELD carries, because a level author
@@ -250,7 +189,7 @@ impl CommandCatalog {
 
 /// Split `"<id> <arg>…"` on whitespace.
 ///
-/// **it never repairs and never quotes.** An argument containing a space is
+/// it never repairs and never quotes. An argument containing a space is
 /// not expressible; adding quoting would be the first inch of the expression
 /// language this module's header refuses.
 fn split_line(source: &str) -> Result<(&str, Vec<&str>), PreparationError> {
@@ -274,9 +213,9 @@ fn describe_source(id: &str, args: &[&str]) -> String {
     source
 }
 
-/// **Turn authored text into the arguments the published descriptor declares.**
+/// Turn authored text into the arguments the published descriptor declares.
 ///
-/// **the descriptor decides the kind; the authored text only has to fit.**
+/// the descriptor decides the kind; the authored text only has to fit.
 /// The alternative — guess the kind from the text — is the lossy conversion that
 /// silently turns a flag named `"1"` into a number, and it is the reason this
 /// lives beside the descriptors rather than in each consumer.
@@ -319,7 +258,7 @@ fn prepare_one(id: &str, param: &ParamSpec, text: &str) -> Result<AuthoredArg, S
                 param.name
             )
         }),
-        // **exactly `true` / `false`, with no `1`, `yes` or `on`.** A verb that
+        // exactly `true` / `false`, with no `1`, `yes` or `on`. A verb that
         // accepted four spellings of truth would accept a fifth by accident, and a
         // mistyped one would read as `false` — which is a flag being CLEARED when
         // the author meant to set it.
@@ -336,15 +275,15 @@ fn prepare_one(id: &str, param: &ParamSpec, text: &str) -> Result<AuthoredArg, S
     }
 }
 
-/// **`<namespace>:<id>` → the matching [`SimId`] constructor.**
+/// `<namespace>:<id>` → the matching [`SimId`] constructor.
 ///
-/// **never [`SimId::from_snapshot`]**, which is reserved for rebuilding an id
+/// never [`SimId::from_snapshot`], which is reserved for rebuilding an id
 /// from a snapshot blob. Going through the real constructor is what applies the
 /// escaping that keeps the id encoding injective — so an authored
 /// `encounter:a:b` prepares to `SimId::encounter("a:b")` and cannot collide with
 /// anything else the vocabulary can mint.
 ///
-/// **only the two namespaces an AUTHOR can name.** `slot:`, a spawned id and a
+/// only the two namespaces an AUTHOR can name. `slot:`, a spawned id and a
 /// strike volume are minted by the running simulation from facts no level
 /// knows — a placement and an encounter are the two an authored world actually
 /// contains.

@@ -1,24 +1,8 @@
-//! **What the inventory domain lets authored content ask about the bag.**
+//! Authored inventory conditions.
 //!
-//! **`inventory.holds` is not `custody.is_held`, and the two must not be
-//! folded.** `custody.is_held(<occurrence>)` asks whether one *authored object in
-//! the world* is in somebody's hands; this asks whether the player is *carrying
-//! at least one of a KIND*. A room can contain three health cells and the answers
-//! differ for every one of them. Two questions, two domains, and the day either
-//! changes shape the other is untouched.
-//!
-//! **this is the provider that made an authored Yarn function unnecessary.**
-//! `inventory_has("HealthPotion")` was a closure over a `YarnStateMirror` slice
-//! that `ambition_content` refilled every frame from `OwnedItems` — a whole
-//! second copy of the bag, keyed by a hand-maintained legacy-alias table, so that
-//! a `<<if>>` could read it synchronously. Publishing the question here deleted
-//! the closure, the slice, the refill and the alias table; the authored `.yarn`
-//! asks `condition("inventory.holds", "HealthPotion")` and reads the live bag.
-//!
-//! **loose spelling is [`Item::from_dialog_id`]'s, not a second rule.** It
-//! already normalises case and punctuation and already carries the one legacy
-//! alias; the mirror re-implemented both, which is exactly the drift a second
-//! definition site invites.
+//! `inventory.holds(item)` asks whether the player owns at least one item of a
+//! kind; it is distinct from occurrence-level custody. Item spelling and aliases
+//! are resolved only by [`Item::from_dialog_id`].
 
 use ambition_platformer2d_shared_tangle::authored_logic::{
     AuthoredArg, ConditionDescriptor, ConditionId, ConditionOutcome, ParamKind, ParamSpec,
@@ -45,13 +29,8 @@ pub fn holds_descriptor() -> ConditionDescriptor {
     }
 }
 
-/// `inventory.holds` — see [`holds_descriptor`].
-///
-/// **an unknown item KIND is `Unanswerable`, an owned count of zero is
-/// `NotSatisfied`, and the split matters.** *"Do you have a Grapple"* asked in a
-/// composition whose catalog has no such item is not "no, you have none" — it is
-/// a question about a thing that does not exist, and an author who misspelled an
-/// item deserves to be told rather than quietly told "no" forever.
+/// `inventory.holds` — see [`holds_descriptor`]. Unknown item kinds are
+/// `Unanswerable`; a known item with zero owned copies is `NotSatisfied`.
 pub fn holds(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     let Some(name) = args[0].as_name() else {
         return ConditionOutcome::unanswerable("`item` must be a name");
@@ -93,7 +72,7 @@ mod tests {
         holds(world, &[AuthoredArg::Name(name.to_string())])
     }
 
-    /// **THE BAG ANSWERS, AND IT ANSWERS ABOUT THE LIVE BAG.**
+    /// THE BAG ANSWERS, AND IT ANSWERS ABOUT THE LIVE BAG.
     #[test]
     fn the_inventory_domain_reads_the_live_bag_through_loose_spelling() {
         let mut app = App::new();
@@ -125,7 +104,7 @@ mod tests {
         );
     }
 
-    /// **NO INVENTORY AT ALL IS UNANSWERABLE, NOT EMPTY.**
+    /// NO INVENTORY AT ALL IS UNANSWERABLE, NOT EMPTY.
     #[test]
     fn a_composition_with_no_inventory_cannot_answer() {
         let app = App::new();

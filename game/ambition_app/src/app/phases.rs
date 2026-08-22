@@ -49,7 +49,7 @@ pub(super) fn sync_player_presentation(
     let shake_amplitude = ambition_platformer2d::platformer::camera_ease::hard_fall_shake_amplitude(
         frame_out.events.ground_contact.landing_impact_speed(),
     );
-    // **THE HIT SHAKE IS NOT HERE, AND MUST NOT COME BACK HERE** (P4.37). It lives in the ENGINE
+    // THE HIT SHAKE IS NOT HERE, AND MUST NOT COME BACK HERE (P4.37). It lives in the ENGINE
     // now, reading every body: `features::ecs::hit_camera_shake`, scheduled in `CombatSet::Settle`.
     //
     // The hard-fall thump below stays: a LANDING genuinely is home presentation

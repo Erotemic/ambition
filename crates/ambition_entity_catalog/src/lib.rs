@@ -2,7 +2,7 @@
 //!
 //! Two rules carry the design:
 //!
-//! - **One clock per move: the owner's proper time.** Every duration in a
+//! - One clock per move: the owner's proper time. Every duration in a
 //!   [`MoveSpec`] is seconds of the *owning actor's* clock — its entity dt
 //!   (sim dt × whatever dilation that actor experiences: bullet-time, a time
 //!   bubble, a relativistic zone). The bound clip's playback is slaved to the
@@ -10,7 +10,7 @@
 //!   slow together and can never desync. Dilation is a property of the
 //!   actor's clock, never of this data — the schema stays
 //!   frame-of-reference-free.
-//! - **Entity-local logical space.** Move volumes are authored in the
+//! - Entity-local logical space. Move volumes are authored in the
 //!   entity's local coordinates (+x = facing, y = up, origin = body center),
 //!   never atlas pixels. Quality tiers rescale render textures; they cannot
 //!   touch this data.
@@ -630,7 +630,7 @@ pub enum MoveEventKind {
         /// — the same convention [`Impulse`](Self::Impulse) and every [`HitVolume`] offset use,
         /// and mirrored and rotated by the same two steps.
         ///
-        /// ⭐ **so an effect can sit on the box that throws it.** A move authors
+        ///  so an effect can sit on the box that throws it. A move authors
         /// its strike volume's offset and its burst's offset in the same numbers.
         #[serde(default)]
         at: (f32, f32),
@@ -639,15 +639,15 @@ pub enum MoveEventKind {
         /// super asks for more.
         #[serde(default = "default_vfx_scale")]
         scale: f32,
-        /// **WHAT IT SOUNDS LIKE, when that is not what it looks like.**
+        /// WHAT IT SOUNDS LIKE, when that is not what it looks like.
         ///
-        /// ⭐⭐ `None` — the default and the overwhelming case — means *the cue
+        ///  `None` — the default and the overwhelming case — means *the cue
         /// the effect's own name addresses*. The shipped bank carries one
         /// `vfx.<family>.<row>` cue per authored row, so a burst that wants its
         /// own sound has already said which one by naming the art; presentation
         /// resolves it and the author remembers nothing.
         ///
-        /// ⛔ **this field is why the ceremony could go.** Fourteen fighter
+        ///  this field is why the ceremony could go. Fourteen fighter
         /// tables hand-wrote a `Sfx` event beside every `Vfx` one — 74 of 145
         /// authored cues did nothing but restate the default — because the only
         /// way to say "a looping variant of this row's sound" was a second
@@ -666,11 +666,11 @@ pub enum MoveEventKind {
     /// startup/recovery windows while its projectile still tracks a strafing target
     /// (fable review: ranged subsumption, option A — dynamic aim, not facing-lock).
     Ranged,
-    /// **A TIMED authored self-displacement**, body-local (`+x = facing,
+    /// A TIMED authored self-displacement, body-local (`+x = facing,
     /// `+y = gravity-down`) — the move moving its own owner, at a moment the
     /// timeline chooses.
     ///
-    /// ⭐ **why this exists when [`MoveSpec::start_impulse`] already did.** That
+    ///  why this exists when [`MoveSpec::start_impulse`] already did. That
     /// field is a velocity ADD applied at TRIGGER, and both halves fail the one
     /// move a platform fighter cannot do without. A recovery special has to fire
     /// its burst AFTER its startup — that windup is the tell the whole move is
@@ -681,7 +681,7 @@ pub enum MoveEventKind {
     /// needed and useless when it is most. [`ImpulseMode::Set`] is the whole
     /// difference between an Up-B and a hop.
     ///
-    /// ⛔ **not a character mechanic.** It is authored self-motion on a
+    ///  not a character mechanic. It is authored self-motion on a
     /// timeline, and its second and third customers are already obvious: a dive
     /// that commits downward mid-aerial, a lunge that travels on the active
     /// frame instead of the press.
@@ -750,8 +750,8 @@ impl MoveGates {
 }
 
 /// One ability activation: a clip binding plus the full gameplay meaning of
-/// the ability on one timeline. **The move timeline is authoritative for both
-/// gameplay and presentation** — windows advance on the owner's proper time
+/// the ability on one timeline. The move timeline is authoritative for both
+/// gameplay and presentation — windows advance on the owner's proper time
 /// and the bound clip is sampled by normalized move phase.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MoveSpec {
@@ -786,8 +786,8 @@ pub struct MoveSpec {
     /// `2.0` so a held smash lands twice as hard as a tap.
     #[serde(default = "default_charge_mult")]
     pub smash_charge_mult: f32,
-    /// **Landing lag: the recovery this move owes if the body touches down
-    /// before the move ended.** Seconds of the owner's proper time, spent as a
+    /// Landing lag: the recovery this move owes if the body touches down
+    /// before the move ended. Seconds of the owner's proper time, spent as a
     /// hard control lock.
     ///
     /// The platform-fighter rule this expresses: an aerial is a COMMITMENT. You
@@ -798,8 +798,8 @@ pub struct MoveSpec {
     /// behaviour of every move that has not opted in.
     #[serde(default)]
     pub landing_lag_s: Option<f32>,
-    /// **Auto-cancel: land after this point in the move and pay NO landing
-    /// lag.** Seconds of proper time from the move's start.
+    /// Auto-cancel: land after this point in the move and pay NO landing
+    /// lag. Seconds of proper time from the move's start.
     ///
     /// The other half of the commitment: a move thrown early enough that its
     /// dangerous part is over by touchdown lands clean. Authoring the pair is
@@ -1059,14 +1059,14 @@ impl MoveSpec {
             .flat_map(|w| w.volumes.iter())
             .map(|v| v.knockback)
             .fold(0.0_f32, f32::max);
-        // **LIFT: the against-gravity speed this move COMMANDS of its owner.**
+        // LIFT: the against-gravity speed this move COMMANDS of its owner.
         //
-        // ⭐ the whole point of deriving it here is that a policy layer can then
+        //  the whole point of deriving it here is that a policy layer can then
         // recognise a recovery move by its GEOMETRY instead of by its name. `+y`
         // is gravity-down, so lift is `-y`, and it rotates with gravity for free
         // because it never leaves the body frame.
         //
-        // ⛔ **only [`ImpulseMode::Set`] counts, and that is not a shortcut.** An
+        //  only [`ImpulseMode::Set`] counts, and that is not a shortcut. An
         // additive impulse commands nothing — its outcome is whatever the body
         // was already doing plus a number — so no static reader can say what
         // speed it produces. A `Set` states one. That distinction is exactly why
@@ -1104,7 +1104,7 @@ impl MoveSpec {
             recovery_s,
             cancel_windows,
             reach,
-            // ⚠ **a derivation cannot answer this one.** A capture is recognised
+            //  a derivation cannot answer this one. A capture is recognised
             // by its effect KEY, which belongs to the ruleset that authors it,
             // not to this catalog — so the layer that builds a fighter's option
             // kit sets it and nothing here guesses.
@@ -1131,11 +1131,11 @@ pub struct CancelWindow {
     pub condition: CancelCondition,
 }
 
-/// **The body-local box a move's Active volumes cover**, in the same frame the
+/// The body-local box a move's Active volumes cover, in the same frame the
 /// volumes author themselves in: `+x` toward the owner's facing, `+y` toward its
 /// feet (so an anti-air's box has a NEGATIVE `min.1`).
 ///
-/// ⚠ a union, not a list. A move with three volumes is described by the region
+///  a union, not a list. A move with three volumes is described by the region
 /// they span, which is what a *"can this reach where they are"* question needs;
 /// a consumer that wanted each volume separately would read the windows.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -1145,12 +1145,12 @@ pub struct MoveCoverage {
 }
 
 impl MoveCoverage {
-    /// **HOW FAR THIS MOVE REACHES IN ONE DIRECTION** — the distance from the
+    /// HOW FAR THIS MOVE REACHES IN ONE DIRECTION — the distance from the
     /// owner's origin to the far side of the box along `toward`, or `0.0` when
     /// the box does not lie that way at all.
     ///
-    /// ⭐⭐ **this is [`MoveFrameData::reach`] generalised, and it collapses back
-    /// to it exactly.** For a foe straight ahead of a forward volume the answer
+    ///  this is [`MoveFrameData::reach`] generalised, and it collapses back
+    /// to it exactly. For a foe straight ahead of a forward volume the answer
     /// IS `reach`; for a foe overhead it is how far the move reaches UP, which is
     /// the number an anti-air is authored for and the number no scalar could
     /// carry. A move that covers nothing in the asked direction answers `0.0`,
@@ -1160,7 +1160,7 @@ impl MoveCoverage {
     /// caller passes the target's half-extent rather than pretending the target
     /// is a point.
     ///
-    /// ⚠ a slab intersection from the ORIGIN, so a box that does not span the
+    ///  a slab intersection from the ORIGIN, so a box that does not span the
     /// ray returns `0.0` rather than a nearest-approach consolation prize. Two
     /// moves that both fail to point at the opponent are equally useless, which
     /// is the same judgement `reach` made about a whiff.
@@ -1211,25 +1211,25 @@ pub struct MoveFrameData {
     pub cancel_windows: Vec<CancelWindow>,
     /// Farthest body-local reach of any Active volume (`+x` toward facing).
     pub reach: f32,
-    /// **A guard does not stop this move.**
+    /// A guard does not stop this move.
     ///
-    /// ⭐ derived by nobody and set by the caller that knows: a hit volume is
+    ///  derived by nobody and set by the caller that knows: a hit volume is
     /// blockable and a CAPTURE is not, and only the layer that recognises a
     /// capture effect can say which this is. Default `false`, so every ordinary
     /// move keeps the answer it always had.
     ///
-    /// ⚠ genre-neutral on purpose. Unblockables, command grabs and armour
+    ///  genre-neutral on purpose. Unblockables, command grabs and armour
     /// breaks are the same fact to a planner: *the shield is not the answer to
     /// this one*.
     pub ignores_guard: bool,
-    /// **The region this move can hit**, body-local, `None` when it lands no
+    /// The region this move can hit, body-local, `None` when it lands no
     /// Active volume at all (a buff, a summon, a pure-motion recovery).
     ///
     /// George Booul authors sixteen moves and started five distinct ones per match; the whole
     /// vertical game (anti-air, juggle, spike) was never selected for the reason it exists, because
     /// nothing downstream knew the opponent was ABOVE.
     ///
-    /// ⭐ the same lesson [`Self::lift_side`] records one field down: a 2-D
+    ///  the same lesson [`Self::lift_side`] records one field down: a 2-D
     /// authored shape summarised by a 1-D scalar describes a move that does not
     /// exist. This is the datum — the union of the authored volumes — not another
     /// summary of it.
@@ -1245,11 +1245,11 @@ pub struct MoveFrameData {
     /// The move's authored self-motion at trigger, body-local (`+x` toward facing, `+y` per the
     /// authoring convention), `(0, 0)` when none.
     pub start_impulse: (f32, f32),
-    /// **The against-gravity speed this move COMMANDS**, from its strongest
+    /// The against-gravity speed this move COMMANDS, from its strongest
     /// [`ImpulseMode::Set`] impulse. `0.0` for every move that does not lift its
     /// owner outright, which is almost all of them.
     ///
-    /// ⭐ this is the semantic affordance a recovery policy reads. A move is a
+    ///  this is the semantic affordance a recovery policy reads. A move is a
     /// recovery because of what it DOES to the body, not because of what it is
     /// called — so a brain, an authoring validator and a recovery probe all
     /// recognise one from the same number, and no layer needs a table of which
@@ -1259,42 +1259,12 @@ pub struct MoveFrameData {
     /// the windup a body has to survive before the burst fires. `0.0` when there
     /// is no lift.
     pub lift_at_s: f32,
-    /// **The along-facing half of the SAME commanded velocity**, body-local
-    /// (`+x` toward facing, so a move that hauls its owner backwards is
-    /// negative). `0.0` when there is no lift, and `0.0` for a purely vertical
-    /// one.
-    ///
-    /// ⭐⭐ **this exists because [`Self::lift_speed`] is a PROJECTION, and a
-    /// projection is only lossless for the shape it was derived from.** The
-    /// first fighter to author a recovery authored a vertical one, so a scalar
-    /// described it exactly; the second authored a grapple line that trades
-    /// almost all of its energy for lateral distance, and the scalar described
-    /// it as a small hop. Every consumer — the option scorer, the recovery
-    /// probe, an authoring validator — was then reasoning about a move that
-    /// does not exist.
-    ///
-    /// ⭐⭐ **AND THIS IS WHERE THE SCALARS STOP. There is no third one coming,
-    /// and the reason is structural rather than a resolution.** `lift_side` and
-    /// [`Self::lift_speed`] are not two summaries of a recovery: together they
-    /// are the authored [`MoveEventKind::Impulse`]'s own `local` pair, copied
-    /// into this table with its sign convention flipped on one axis. A 2-D
-    /// impulse has exactly two components, so the pair is LOSSLESS for
-    /// velocity-shaped self-motion — it is the datum, not a description of it —
-    /// and a fourth number could only describe something a velocity is not.
-    ///
-    /// ⛔ **so if the next recovery does not fit, the answer is NOT another
-    /// field here.** A teleport is the case that already does not fit: it
-    /// commands a POSITION, not a velocity, and whether the destination is
-    /// standable is a question about the world that no static table can hold.
-    /// The honest response to that move is a new affordance it exposes for
-    /// itself, and a probe that can spend a validated displacement — never a
-    /// `lift_warp_x` beside these two.
-    ///
-    /// **and this pair is not "the recovery affordance" even for the moves it does describe.** A
-    /// commanded velocity is a STATIC property; whether throwing it from where the body is right
-    /// now gets it home is a question about the current state, and the only thing that can answer
-    /// it is the movement kernel. `RecoveryLens::best_route` uses these numbers to PROPOSE routes
-    /// and lets the kernel dispose of them.
+    /// Along-facing component of the commanded lift velocity, body-local
+    /// (`+x` toward facing). Together with [`Self::lift_speed`] this is the
+    /// complete 2-D velocity-shaped recovery proposal. Position-changing moves
+    /// such as teleports require a different affordance and world validation;
+    /// consumers still ask the movement kernel whether a proposal is useful in
+    /// the current state.
     pub lift_side: f32,
 }
 
@@ -1343,7 +1313,7 @@ pub enum AttackDir {
 /// - aerial, `Down`:   `attack_air_down` → `attack_down` → `attack_air` → `attack`
 /// - grounded, `Down`: `attack_down` → `attack`
 /// - grounded, `Neutral`: `attack`
-/// **The RUNNING-stance verb for an attack base** — the one place the suffix is
+/// The RUNNING-stance verb for an attack base — the one place the suffix is
 /// spelled, so the runtime's verb vocabulary and the selector cannot disagree
 /// about the word. Named for the genre's move ("dash attack"), keyed off the
 /// body's gait and not off `AbilitySet::dash`.
@@ -1375,7 +1345,7 @@ pub fn directional_verb_chain(base: &str, dir: AttackDir, grounded: bool) -> Vec
     chain
 }
 
-/// **Which reusable character template an actor instantiates.**
+/// Which reusable character template an actor instantiates.
 ///
 /// A character is an authored template, not a singleton person: `spawn Goblin`
 /// three times and `spawn Fretjaw` twice are the same engine operation, one
@@ -1421,7 +1391,7 @@ impl std::fmt::Display for CharacterId {
     }
 }
 
-/// ⭐ **so a `BTreeMap<CharacterId, _>` can still be looked up by `&str`.** The
+///  so a `BTreeMap<CharacterId, _>` can still be looked up by `&str`. The
 /// registry key becomes honest without every caller having to mint an id to ask
 /// a question — `Borrow` is the standard way a newtype key stays ergonomic, and
 /// it holds the required invariant: `Ord`/`Eq`/`Hash` on `CharacterId` delegate
@@ -1434,7 +1404,7 @@ impl std::borrow::Borrow<str> for CharacterId {
 
 /// The canonical verb id a body's basic melee swing binds to in its moveset.
 ///
-/// ⭐ **the four verb ids live BESIDE the contract they are keys into**, not in
+///  the four verb ids live BESIDE the contract they are keys into, not in
 /// the runtime that plays it. A verb NAME is part of the moveset contract's
 /// authoring vocabulary — content types one of these strings into a `verbs`
 /// map — while `ambition_combat` is where a bound move is *executed*. They sat
@@ -1459,16 +1429,16 @@ pub const SPECIAL_VERB: &str = "special";
 /// directional chain. Unlike every verb above it, this one is not a threat —
 /// which is why a body needs no permission to carry it.
 pub const TAUNT_VERB: &str = "taunt";
-/// **The capture verbs.** The grab that establishes a hold, and the moves a
+/// The capture verbs. The grab that establishes a hold, and the moves a
 /// captor selects while one exists.
 ///
-/// ⚠ **they sit beside [`SMASH_VERB`] because they are the same kind of thing
-/// and it is worth being honest about what that kind is.** This crate holds the
+///  they sit beside [`SMASH_VERB`] because they are the same kind of thing
+/// and it is worth being honest about what that kind is. This crate holds the
 /// verb NAMES a press can resolve to; content holds what each one DOES. `smash`
 /// was already platform-fighter taxonomy living here, so a throw is not a new
 /// concession — but it does make the pile of it bigger.
 ///
-/// ⇒ **the restitch point is the first character-owned `smash.fighter` facet**
+///  the restitch point is the first character-owned `smash.fighter` facet
 /// . When a Smash capability owns its own schema, these move with
 /// it and the generic catalog stops naming a throw. Until then one definition
 /// here beats the same strings copied into a selector and an authoring module.
@@ -1512,14 +1482,14 @@ impl MovesetContract {
     /// grounded-only `attack_down` is skipped for an airborne body, falling
     /// through to `attack`). A moveset that authors only `base` answers every
     /// direction with the same move.
-    /// **What an ATTACK press produces, stance included.** The dash attack is a
+    /// What an ATTACK press produces, stance included. The dash attack is a
     /// STANCE and not a direction, so it is asked BEFORE the directional chain
     /// rather than added to [`AttackDir`] — a dashing body pressing forward and
     /// a standing one pressing forward want different moves, and `AttackDir` has
     /// no vocabulary for the difference.
     ///
-    /// ⚠ **composes with [`Self::move_for_directional_verb`] rather than
-    /// replacing it**, and that is not a wrapper to unpick later: every OTHER
+    ///  composes with [`Self::move_for_directional_verb`] rather than
+    /// replacing it, and that is not a wrapper to unpick later: every OTHER
     /// verb — special, smash, taunt — has no dash stance to ask about, and
     /// giving them one would be a question with a constant answer. A fighter
     /// that authors no `{base}_dash` resolves exactly what it did before.
@@ -1753,7 +1723,7 @@ impl EntityCatalogDoc {
         ron::ser::to_string_pretty(self, ron::ser::PrettyConfig::default())
     }
 
-    /// Structural validation. Empty ⇒ sound. Filesystem-free: clip bindings
+    /// Structural validation. Empty  sound. Filesystem-free: clip bindings
     /// are checked for shape here; whether a clip resolves in the bound
     /// visual is the publish-time validator's job (it has the visual data).
     pub fn validate(&self) -> Vec<CatalogError> {

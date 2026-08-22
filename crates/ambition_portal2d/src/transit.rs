@@ -63,19 +63,19 @@ pub struct PortalCarves {
 /// that. Pair-gated — a lone portal never carves.
 ///
 /// A portal is carved when ANY of:
-/// * **a [`PortalBody`] currently overlaps its capture opening** — the walk-in /
+/// * a [`PortalBody`] currently overlaps its capture opening — the walk-in /
 ///   resting case: a body in the opening keeps it open, no velocity required.
-/// * **a [`PortalBody`] is inside its [approach box](super::placement::approach_box)
-///   AND moving into the portal** (`vel · normal < 0`). The approach box extends
+/// * a [`PortalBody`] is inside its [approach box](super::placement::approach_box)
+///   AND moving into the portal (`vel · normal < 0`). The approach box extends
 ///   a fixed `APPROACH_CARVE_REACH` outward of the face — deliberately
-///   **dt-independent**. (Two prior schemes failed here: keying the carve off the
+///   dt-independent. (Two prior schemes failed here: keying the carve off the
 ///   transit latch lagged one frame, and sweeping the body by `vel * dt` read a
 ///   STALE dt — this system runs `.before(CoreSimulation)` but the sim clock
 ///   refreshes inside it — and pre-gravity velocity, so a frame hitch at re-entry
 ///   under-swept, left the floor solid for one frame, and the integrator grounded
 ///   the body, killing its entry momentum. A fixed geometric reach sized to the
 ///   worst per-frame travel cannot be cheated by frame-time jitter.)
-/// * **a body is mid-transit straddling it** ([`PortalTransit`]) — keeps the hole
+/// * a body is mid-transit straddling it ([`PortalTransit`]) — keeps the hole
 ///   open through the deep sink/cross even after the body's centroid has dropped
 ///   past the thin capture box.
 ///
@@ -183,7 +183,7 @@ fn portal_sweep_sample(
 /// transit reads only these flags; it never names Player / Boss / Projectile.
 /// Ambition maps its game identities → policy when it tags an entity.
 ///
-/// **Velocity rotation is core/default** (it lives in [`transit_step`]'s `vel`
+/// Velocity rotation is core/default (it lives in [`transit_step`]'s `vel`
 /// output) — this only chooses whether to *write* that rotated velocity and
 /// whether to re-orient the body's facing.
 #[derive(Component, Clone, Copy, Debug)]
@@ -221,8 +221,8 @@ pub struct PortalBodyTransited {
     pub exit_pos: Vec2,
 }
 
-/// The ONE generic transit algorithm: drive **any** [`PortalBody`] through a
-/// portal as an **aperture**, not a trigger, via the shared [`transit_step`]
+/// The ONE generic transit algorithm: drive any [`PortalBody`] through a
+/// portal as an aperture, not a trigger, via the shared [`transit_step`]
 /// machine. The body physically sinks into the carved opening (the movement
 /// integrator does that), transfers when the centroid crosses (carrying the
 /// rotated momentum + a somersault roll per its [`PortalPolicy`]), and clears

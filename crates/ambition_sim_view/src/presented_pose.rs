@@ -1,66 +1,15 @@
-//! **[the frame clock]** — presented poses sampled from tick read-models.
+//! Presentation-time body poses sampled from tick read-models.
 //!
-//! The read-models in this crate are republished once per SIM TICK, so every
-//! position they carry is a step function on a 60 Hz clock. Presentation draws
-//! once per RENDERED FRAME. On a display that is not exactly 60 Hz those two
-//! clocks disagree, and the disagreement is visible.
+//! Simulation poses update on fixed ticks while rendering and camera easing run per
+//! frame. [`PresentedPose`] extrapolates from the two most recent authoritative poses:
 //!
-//! A subject's screen position is `subject_world - camera_world`. The camera
-//! eases every rendered frame (`camera_snapshot::resolve_camera_observation`,
-//! in `Update` — deliberately, see that module). If the subject's world
-//! position only advances on tick boundaries, then between ticks the camera
-//! keeps converging on a target that has stopped moving, and at the tick
-//! boundary the subject jumps a whole tick of travel at once. The result is a
-//! sawtooth in the subject's screen position at the tick rate, with amplitude
-//! equal to one tick of travel — a horizontal shudder that grows with speed and
-//! disappears in slow motion. Static room geometry is immune, because its world
-//! position is constant and its screen position is therefore just `-camera`,
-//! which is smooth by construction. That asymmetry is the tell: the world looks
-//! rock-steady while the character alone appears to vibrate.
+//! `presented = current + phase * ((current - previous) / ticks_spanned)`
 //!
-//! # The rule
-//!
-//! **Everything anchored to a body reads the SAME presented pose**: the sprite,
-//! the camera's focus, and every attached visual. A consumer that reads
-//! `BodyPoseView::pos` directly while its neighbours read the presented pose
-//! will visibly drift from them at speed. That coherence — not smoothness on
-//! its own — is what removes the shake.
-//!
-//! # Extrapolation, not interpolation
-//!
-//! The presented pose leads the last published tick rather than lagging it:
-//!
-//! ```text
-//! presented = current + phase * one_tick_of_travel
-//! ```
-//!
-//! `one_tick_of_travel` is `(current - previous) / ticks_spanned`, and the
-//! divisor is not pedantry: this layer samples once per rendered FRAME, and a
-//! frame can advance the simulation more than once. Treating a two-tick gap as
-//! one tick's travel drew a body nearly two ticks ahead on the next frame that
-//! advanced no tick at all — see [`PresentedPose::tick_delta`].
-//!
-//! Interpolating between the two most recent ticks would also be smooth, but it
-//! draws the body up to a full tick (~16.7 ms) behind the simulation — real
-//! added input latency in a precision platformer, and a visible gap against any
-//! overlay drawn from authoritative sim state.
-//!
-//! Extrapolating from the ACTUAL per-tick displacement (`current - previous`)
-//! rather than from raw velocity matters:
-//!
-//! * it is self-limiting on impact — the simulation's own collision resolution
-//!   already clamped that displacement, so a body that gets stopped extrapolates
-//!   by only the distance it truly moved;
-//! * it inherits bullet time, hitstop, and pause for free, because a scaled sim
-//!   dt shrinks the displacement while leaving `vel` in world units per second;
-//! * it reflects whatever the movement model actually did, including modes that
-//!   move a body without a conventional velocity.
-//!
-//! The residual cost is that a body which was free last tick and is blocked this
-//! tick can be drawn up to one tick of travel into the geometry it is about to
-//! hit, for one frame. If that ever reads worse than the shake it fixes, the
-//! fallback is a two-tick interpolation buffer — the same machinery, sampling
-//! backwards instead of forwards.
+//! Sprite placement, camera focus, and attached visuals must use the same presented
+//! pose or they drift relative to one another. Extrapolating measured displacement
+//! preserves collision clamping, hitstop, pause, and other movement that is not
+//! represented by raw velocity. The discontinuity guard suppresses extrapolation
+//! across teleports and other implausible jumps.
 
 use ambition_platformer2d_core::Vec2;
 use ambition_time::SimTick;
@@ -86,9 +35,9 @@ const TRAVEL_FLOOR_PX: f32 = 32.0;
 /// `0.0` means a tick just completed. Stays `0.0` on hosts where the question
 /// is meaningless or unanswerable, which degrades exactly to today's behaviour:
 ///
-/// * **frame-stepped host** — the sim advances once per rendered frame, so the
+/// * frame-stepped host — the sim advances once per rendered frame, so the
 ///   published pose is already current and there is nothing to extrapolate.
-/// * **rollback (GGRS) host** — answered by reading the driver's own
+/// * rollback (GGRS) host — answered by reading the driver's own
 ///   accumulator, which requires a patched build widening its visibility. See
 ///   [`sample_ggrs_accumulator_phase`].
 #[derive(Resource, Clone, Copy, Debug, Default)]
@@ -138,7 +87,7 @@ pub struct PresentedPose {
     current: Vec2,
     /// How many sim ticks the gap `previous → current` spans.
     ///
-    /// **Not always one, and that is the whole reason this field exists.** A
+    /// Not always one, and that is the whole reason this field exists. A
     /// host banks unspent real time and then spends it in whole ticks, so a
     /// single rendered frame can advance the simulation twice — and this pose is
     /// pushed once per FRAME, not once per tick, because a rendered frame is the
@@ -161,7 +110,7 @@ impl PresentedPose {
         }
     }
 
-    /// **The position to draw this body and everything anchored to it at.**
+    /// The position to draw this body and everything anchored to it at.
     #[inline]
     pub fn presented(self) -> Vec2 {
         self.presented
@@ -188,7 +137,7 @@ impl PresentedPose {
         (self.current - self.previous) / self.spanned.max(1) as f32
     }
 
-    /// **The one translation everything rigidly attached to this body takes.**
+    /// The one translation everything rigidly attached to this body takes.
     ///
     /// `presented − authoritative`: how far this frame's drawn body has been
     /// carried away from the tick position every authoritative geometry row was
@@ -225,7 +174,7 @@ impl PresentedPose {
     }
 }
 
-/// **The one call every body-anchored visual makes** instead of reading
+/// The one call every body-anchored visual makes instead of reading
 /// `BodyPoseView::pos`.
 ///
 /// Falls back to the tick pose when no history exists yet or the host reports
@@ -350,21 +299,11 @@ pub fn advance_presented_feature_poses(
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PresentedPoseSet;
 
-/// The two halves of [`PresentedPoseSet`], ordered — **ask the phase first, then
-/// resample every pose against it.**
+/// Ordered stages for presented-pose resampling.
 ///
-/// This exists because stating that order per-system did not survive contact with a second
-/// resampler. [`advance_presented_feature_poses`] — which positions every actor, enemy, NPC and
-/// duel fighter — was left to race the sampler, so every id-keyed subject was resampled against
-/// whichever phase the executor happened to hand it. On the frame a tick lands the phase drops
-/// by nearly a whole tick, so reading the stale one draws the subject a full tick ahead and
-/// snaps it back: a per-frame stutter on exactly the bodies whose sprites are joined by id,
-/// while the primary player — the one system that HAD the edge — looked fine.
-///
-/// A per-system `.before` is a claim each new author must remember to repeat.
-/// These two sets are a claim the schedule enforces once: join
-/// [`Self::SamplePhase`] to publish a phase, [`Self::Resample`] to consume one,
-/// and the edge cannot be forgotten because no one has to write it again.
+/// Every phase sampler joins [`Self::SamplePhase`]; every pose resampler joins
+/// [`Self::Resample`]. The set order prevents consumers from resampling against a
+/// stale intra-tick phase without requiring per-system ordering edges.
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PresentedPoseStage {
     /// Publish this frame's intra-tick phase into [`PresentationPhase`]. One
@@ -384,9 +323,7 @@ impl bevy::prelude::Plugin for PresentedPosePlugin {
         app.init_resource::<PresentationPhase>();
         app.init_resource::<PresentedFeaturePoses>();
 
-        // THE edge, declared once: ask the phase, then resample against it.
-        // Every sampler and every resampler joins one of these, so no member has
-        // to restate the relationship — and none can omit it.
+        // Publish the phase before any presented pose is resampled from it.
         app.configure_sets(
             Update,
             (
@@ -447,7 +384,7 @@ mod tests {
     /// computes it exactly this way, and `Time<Fixed>` at 60 Hz agrees.
     const TICK_NS: u64 = 1_000_000_000 / 60;
 
-    /// **Replay a display clock against the sim's banked accumulator.**
+    /// Replay a display clock against the sim's banked accumulator.
     ///
     /// This is the arithmetic a real host performs: bank the frame's real delta,
     /// spend it in whole ticks, keep the remainder as the phase. A body moving at
@@ -593,7 +530,7 @@ mod tests {
         );
     }
 
-    /// **Every resampler is ordered after the phase it resamples against.**
+    /// Every resampler is ordered after the phase it resamples against.
     ///
     /// Stated on the SETS, so it holds for the rollback host's sampler too — that one lives in
     /// `ambition_platformer2d_runtime` (this crate must not learn about netcode) and cannot be
@@ -730,7 +667,7 @@ mod tests {
         );
     }
 
-    /// **⭐ THE POPULATION IS EVERY BODY, and it was not.**
+    ///  THE POPULATION IS EVERY BODY, and it was not.
     ///
     /// A boss or an actor carries `BodyKinematics` and no `BodyPoseView` — that
     /// read model is rebuilt only `With<PlayerVisual>`. While this system joined
@@ -779,7 +716,7 @@ mod tests {
         }
     }
 
-    /// **The delta is what a rigidly attached row is translated by**, and it is
+    /// The delta is what a rigidly attached row is translated by, and it is
     /// the same number for every row of one body.
     #[test]
     fn the_delta_is_the_presented_lead_over_the_authoritative_pose() {
@@ -796,7 +733,7 @@ mod tests {
         );
     }
 
-    /// **⛔⛔ WHY THE CAMERA CARRIES ITS FRAMING POSE BY THE DELTA.**
+    ///  WHY THE CAMERA CARRIES ITS FRAMING POSE BY THE DELTA.
     ///
     /// That is correct only when the pose being framed IS the followed body's own — and it silently
     /// is not when the camera frames a CAST, where the pose is the pair's CENTRE and the presented

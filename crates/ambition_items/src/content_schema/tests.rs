@@ -77,7 +77,7 @@ fn a_compiled_pack_carries_the_item_catalog_the_runtime_will_load() {
     );
 }
 
-/// **The motivating case.** `items.ron` is positional, so a deleted row does
+/// The motivating case. `items.ron` is positional, so a deleted row does
 /// not remove one item — it shifts every later row up a slot and silently
 /// re-authors the wrong ones, with the tail falling back to built-in defaults so
 /// the grid still looks full. `ItemCatalog::from_ron` accepted this happily.
@@ -194,8 +194,8 @@ fn a_refused_pack_hands_out_no_runtime_value() {
     assert!(failure.is_err(), "a short grid is refused");
 }
 
-/// **Swapping two rows changes which metadata belongs to which `Item`, so it
-/// must change the fingerprint.**
+/// Swapping two rows changes which metadata belongs to which `Item`, so it
+/// must change the fingerprint.
 ///
 /// The pack fingerprint sorts definitions by content id, so a canonical form
 /// keyed only by `dialog_id` made a full row swap invisible — the same set of
@@ -244,7 +244,7 @@ fn reformatting_the_item_grid_does_not_move_the_fingerprint() {
     assert_eq!(at("reflow_base", &plain), at("reflow_moved", &reflowed));
 }
 
-/// **An id no script can reach is unreachable content.** `Item::from_dialog_id`
+/// An id no script can reach is unreachable content. `Item::from_dialog_id`
 /// normalizes the QUERY (lowercase, alphanumerics only) and compares it to the
 /// stored spelling verbatim, so an un-normalized authored id silently never
 /// resolves.

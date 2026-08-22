@@ -161,8 +161,8 @@ impl Plugin for PlayerSchedulePlugin {
                 // 1. Resolve the CONTROLLED SUBJECT — the body carrying
                 //    `DrivingParticipant(PRIMARY)` this frame (home avatar, or a
                 //    possessed actor).
-                // 2. ⭐ **the publish used to be here and it was seat zero's
-                //    alone** — `populate_slot_controls`, copying the global
+                // 2.  the publish used to be here and it was seat zero's
+                //    alone — `populate_slot_controls`, copying the global
                 //    `ControlFrame` into `SlotControls[PRIMARY]`. Every seat is
                 //    committed together now, by `commit_seat_raw_frames` in the
                 //    host's `PrimarySlotInputCommit`; bodies still read their
@@ -172,7 +172,7 @@ impl Plugin for PlayerSchedulePlugin {
                     ambition_platformer2d_actor_monolith::abilities::traversal::possession::resolve_controlled_subject,
                     ambition_platformer2d_actor_monolith::schedule::publish_seat_controls_when_nobody_else_does
                         .in_set(ambition_platformer2d_actor_monolith::control::PrimarySlotInputCommit),
-                    // ⭐ **and the MIRROR, once, for every host.** `ControlFrame`
+                    //  and the MIRROR, once, for every host. `ControlFrame`
                     // is seat zero's output now; the forensic trace codec and the
                     // harness's action encoder read it, and they must be able to
                     // whatever clock the composition runs on.
@@ -211,7 +211,7 @@ impl Plugin for PlayerSchedulePlugin {
         // Causal recording, in the SIM schedule because that is where its
         // publishers live and where `SimulationReplayState` means anything.
         //
-        // ⚠ the stamp runs FIRST and everything else is `.after` it. A publisher cannot know
+        //  the stamp runs FIRST and everything else is `.after` it. A publisher cannot know
         // either of those; the host is the only thing that does.
         #[cfg(feature = "causal")]
         app.add_systems(
@@ -244,8 +244,8 @@ impl Plugin for PlayerSchedulePlugin {
                 // That position is the only one where blanking is observable,
                 // which is why the sequences that blanked from their own phase
                 // suppressed nothing.
-                // **A CAPTIVE'S STRUGGLE, read while the frame is still the
-                // person's.** Human input is blanked on the line below, so this
+                // A CAPTIVE'S STRUGGLE, read while the frame is still the
+                // person's. Human input is blanked on the line below, so this
                 // is the only position where a held player's mash exists at all.
                 // Its twin sits before the WorldPrep blanking, where an actor
                 // brain's frame is the live one — the same reason the blanking
@@ -321,19 +321,19 @@ impl Plugin for PlayerSchedulePlugin {
                 ambition_platformer2d_actor_monolith::abilities::traversal::possession::possession_trigger_system
                     .run_if(gameplay_allowed),
                 ambition_platformer2d_actor_monolith::abilities::traversal::possession::release_possession_if_target_lost,
-                // ⭐ **THE DRIVEN BODY'S CUSTODY MARKER, reprojected every tick.**
+                //  THE DRIVEN BODY'S CUSTODY MARKER, reprojected every tick.
                 // Last in the chain so it sees the possession this tick settled
                 // on, and deliberately UNGATED for the same reason its item
                 // sibling is: a room transition suspends gameplay between the
                 // crossing and the commit, and that window is exactly when the
                 // room sweep reads residency.
                 ambition_platformer2d_actor_monolith::body_custody::project_body_custody
-                    // ⭐ **the LABEL the item domain orders against**, and it is
+                    //  the LABEL the item domain orders against, and it is
                     // on the system rather than on `Possession` because what the
                     // item chain depends on is body custody being SETTLED, not
                     // possession having happened. See `BodyCustodySettled`.
                     .in_set(ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled),
-                // ⭐⭐ **WHO DRIVES WHICH BODY, reprojected beside WHERE IT IS.**
+                //  WHO DRIVES WHICH BODY, reprojected beside WHERE IT IS.
                 // The same shape as its neighbour above and for the same reason:
                 // a fact derived from state that is already in the snapshot needs
                 // no snapshot entry, and deriving it here — after the possession
@@ -379,8 +379,8 @@ impl Plugin for PlayerSchedulePlugin {
                 .chain()
                 .in_set(PlayerSimulationSet::Outcome),
         );
-        // ⛔ **CLOSING runs NEXT FRAME, immediately before the replay consumer,
-        // and the split is a ROLLBACK requirement rather than taste.**
+        //  CLOSING runs NEXT FRAME, immediately before the replay consumer,
+        // and the split is a ROLLBACK requirement rather than taste.
         //
         // The consequence it requests is `RoomReplayRequested`, and that channel is
         // `clear_message_on_rollback`. Written here in `Outcome` it would be consumed by
@@ -412,7 +412,7 @@ impl Plugin for PlayerSchedulePlugin {
         // Runs unconditionally so paused / dialogue modes still wind down
         // flash and landing-pose timers.
         //
-        // ⭐ **`write_player_ecs_components` is gone** (AC3.1.A/B).
+        //  `write_player_ecs_components` is gone (AC3.1.A/B).
         app.add_systems(
             sim,
             ambition_platformer2d_actor_monolith::control::cleanup_timers_system

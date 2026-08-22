@@ -1,6 +1,6 @@
 //! This crate's causal facts.
 //!
-//! **Why did this body move this tick?** — the inspector's first required
+//! Why did this body move this tick? — the inspector's first required
 //! question, answered for a seated body.
 //!
 //! ## Observer by construction, not by discipline
@@ -93,58 +93,11 @@ pub fn record_player_movement_intent(
     }
 }
 
-/// **What frame did the BODY actually receive?** — the kernel-side half.
+/// Movement operations emitted by the kernel for optional causal instrumentation.
 ///
-/// **this exists because a brain trace could not answer a brain question.**
-/// The fighter's recovery thread reached a state where the decision trace read
-///
-/// ```text
-///   x=549 vx=478 ... chose=Some(Recover) emit_x=-1.0
-///   x=598 vx=588 ... chose=Some(Recover) emit_x=-1.0
-/// ```
-///
-/// — full left for three consecutive decisions while the body accelerated
-/// RIGHT. At that point the question is no longer scoring, vetoes or situation
-/// classification: it is somewhere between the emitted frame and the body, and
-/// every instrument pointed at the brain. Three of the last four fixes on that
-/// thread edited the brain and the number got worse.
-///
-/// So this publishes the frame as it sits ON the body, keyed by the SAME
-/// subject the brain's own fact uses (`SubjectKey::Sim` of the actor id), which
-/// is what makes the two joinable: one `explain(tick, subject)` returns what the
-/// brain asked for and what the body was holding, side by side.
-///
-/// **it covers the bodies `record_player_movement_intent` cannot.** That one
-/// is keyed by SEAT and skips anything without a player slot, which is every AI
-/// fighter — precisely the bodies this thread is about.
-///
-/// **`ladder_probe` still prints its own `[seam]` line from a hand query.**
-/// Same observation, and this is the version to keep — it is a typed fact that
-/// joins with the brain's, where that one is text a human correlates by eye. The
-/// probe cannot read it until `ambition_platformer2d/causal` is enabled on that binary's
-/// crate, which is a default-off feature addition with a `SKIP_FEATURE_JOB`
-/// entry to settle. Until then the two coexist knowingly, and the probe carries
-/// the matching note.
-///
-/// Observer by construction, like its sibling: every component immutable, the
-/// log the only thing held mutably.
-/// **The kernel's own movement operations, for the instrument.**
-///
-/// the causal log could say a body's velocity CHANGED and never which
-/// operation changed it, and the ten velocity writers inside
-/// `ambition_platformer2d_core` cannot publish for themselves: the kernel has no
-/// `ambition_causal` dependency and, under the floor contract, may depend only
-/// on `ambition_geometry`.
-///
-/// It does not need one. `ae::FrameEvents` already carries
-/// `operations: Vec<MovementOp>` — `Dash`, `DodgeRoll`, `WallJump`,
-/// `LedgeClimbStart`, … — named by the kernel and emitted every frame, consumed
-/// until now only by FX and anim overlays. This message carries that list to the
-/// recorder, which has the log.
-///
-/// `Option<MessageWriter>` at the call site, for the reason the damage path
-/// already documents: this is read by an INSTRUMENT and nothing else, so a
-/// composition with no inspector should publish nothing rather than panic.
+/// The core movement crate does not depend on `ambition_causal`, so the host forwards
+/// `FrameEvents::operations` through this message. Compositions without a causal
+/// recorder may omit the writer entirely.
 #[cfg(feature = "causal")]
 #[derive(bevy::prelude::Message, Clone, Debug)]
 pub struct BodyMovementOps {
@@ -212,7 +165,7 @@ pub fn record_body_control_frame(
         Option<&ambition_characters::actor::BodyCombat>,
         // AC3.1.B: the melee AUTHORITY.
         Option<&crate::actor::BodyMelee>,
-        // **THE INTEGRATOR'S OWN INPUTS**, added after six candidates were
+        // THE INTEGRATOR'S OWN INPUTS, added after six candidates were
         // eliminated one at a time and the cause was still not found (S51). The
         // unauthored steps are a near-constant `-99`/tick, which is an
         // ACCELERATION, and `integration.rs` adds exactly two:
@@ -293,7 +246,7 @@ pub fn record_body_control_frame(
     }
 }
 
-/// **The strongest stable subject a body has** — and never `None`.
+/// The strongest stable subject a body has — and never `None`.
 ///
 /// Strongest first: the SEAT (survives death and respawn), then the actor's
 /// stable id, then an explicitly UNSTABLE entity key. the unstable variant is
@@ -313,7 +266,7 @@ fn body_subject(
     (SubjectKey::Unstable(body.to_bits()), None)
 }
 
-/// **Why was this hit accepted or rejected?** — the inspector's damage question.
+/// Why was this hit accepted or rejected? — the inspector's damage question.
 ///
 /// Reads `BodyHitResolved`, which both hit paths announce from the value the
 /// SHARED resolver already produced. The outcome vocabulary is the answer:
@@ -321,7 +274,7 @@ fn body_subject(
 /// and `WalletShielded` are a spent defence, `Damaged` carries the amount and
 /// whether it killed.
 ///
-/// **the raw damage travels beside the outcome**, because "asked for 30 and
+/// the raw damage travels beside the outcome, because "asked for 30 and
 /// dealt 0" and "asked for 0" are different findings and the outcome alone
 /// cannot tell them apart.
 pub fn record_hit_resolutions(
@@ -386,7 +339,7 @@ pub fn record_hit_resolutions(
     }
 }
 
-/// **Why did knockback have this magnitude and direction?**
+/// Why did knockback have this magnitude and direction?
 ///
 /// The last of the inspector's required damage questions, and the one the
 /// velocity alone cannot answer: a short launch is a weak hit, a well-DI'd one,
@@ -560,7 +513,7 @@ mod damage_tests {
         });
     }
 
-    /// **Every outcome the resolver can reach is a distinguishable answer.**
+    /// Every outcome the resolver can reach is a distinguishable answer.
     ///
     /// "Why did nothing happen" is the question people actually bring here, and
     /// an i-frame, a shield, spent armor and a real zero are four different
@@ -608,7 +561,7 @@ mod damage_tests {
         }
     }
 
-    /// **asked for 30 and dealt 0 is not the same finding as asked for 0.**
+    /// asked for 30 and dealt 0 is not the same finding as asked for 0.
     /// The outcome alone cannot tell them apart, which is why the raw damage
     /// travels beside it.
     #[test]
@@ -691,8 +644,8 @@ mod knockback_tests {
         app
     }
 
-    /// **A short launch has three different causes, and the velocity cannot
-    /// tell them apart.** That is the whole reason this fact exists.
+    /// A short launch has three different causes, and the velocity cannot
+    /// tell them apart. That is the whole reason this fact exists.
     #[test]
     fn a_short_launch_distinguishes_a_weak_hit_from_a_well_steered_one() {
         let mut app = reaction_app();

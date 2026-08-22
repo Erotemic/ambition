@@ -1,4 +1,4 @@
-//! **`ContentEpoch` — the app-local activation generation stamp.**
+//! `ContentEpoch` — the app-local activation generation stamp.
 //!
 //! An epoch answers "which committed activation of prepared content does this
 //! belong to". It is deliberately *not* a fingerprint: two activations of a

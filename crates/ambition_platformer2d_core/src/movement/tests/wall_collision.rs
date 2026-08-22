@@ -1037,25 +1037,25 @@ fn deeply_embedded_player_is_not_pushout_teleported_under_sideways_gravity() {
     }
 }
 
-/// **.1 — THE IMPOSSIBLE GAP.** Where a body is claimed by TWO solids on the same axis in one
+/// .1 — THE IMPOSSIBLE GAP. Where a body is claimed by TWO solids on the same axis in one
 /// frame, the outcome must not depend on the order those solids happen to sit in
 /// `world.blocks`.
 ///
-/// **and the honest outcome here is NOT a position.** In this fixture the body physically does
+/// and the honest outcome here is NOT a position. In this fixture the body physically does
 /// not fit: the ceiling demands `centre >= 264` and the platform demands `centre <= 248`, so
 /// the feasible interval is EMPTY and there is no legal place to put the body. The block Vec is
 /// pure construction order (LDtk emission for the authored base, then moving platforms, then
 /// ECS overlay solids, then gate solids), which made the outcome silently different when
 /// authoring order changed.
 ///
-/// **sorting the contacts and resolving deepest-first was proposed and REJECTED, and the reason
-/// is the whole point of this test**: it makes the answer deterministic without making it
+/// sorting the contacts and resolving deepest-first was proposed and REJECTED, and the reason
+/// is the whole point of this test: it makes the answer deterministic without making it
 /// correct. After obeying one side the body is still invalid with respect to the other, so a
 /// green "both orders agree" would have concealed the real physical condition. What a crush
 /// MEANS (damage, death, a stock, displacement, immunity) is game policy and deliberately
 /// unwired in the kernel.
 ///
-/// **this is NOT the no-artificial-pushout refusal.** Both corrections are
+/// this is NOT the no-artificial-pushout refusal. Both corrections are
 /// 8px against a body whose half-extent is ~28px, so `is_contact_range_snap`
 /// accepts both: nothing declines, and the old divergence was iteration order
 /// alone. The existing
@@ -1187,7 +1187,7 @@ fn a_body_between_two_closing_solids_resolves_the_same_in_either_block_order() {
 /// green while breaking every step, ledge and tile seam in the game.
 #[test]
 fn two_solids_with_a_legal_interval_resolve_the_same_in_either_block_order() {
-    // The body (48 tall, centre y 256 ⇒ feet at 280) is penetrating BOTH: the
+    // The body (48 tall, centre y 256  feet at 280) is penetrating BOTH: the
     // wide floor's top face at 276 by 4px, and the step's top face at 268 by
     // 12px. Both are supports, so both demand a MAXIMUM on the body's centre
     // (252 and 244) and the interval `(-inf, 244]` is non-empty: the step is

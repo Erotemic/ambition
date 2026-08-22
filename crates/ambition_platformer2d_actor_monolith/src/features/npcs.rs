@@ -66,7 +66,7 @@ pub(crate) fn resolve_npc_brain(
     prepared: &crate::character_runtime::PreparedCharacterRegistry,
     interactable: &Interactable,
     spawn_world_x: f32,
-    // **The body being built**, so a character whose default policy is a
+    // The body being built, so a character whose default policy is a
     // `BrainProfile` can have it lowered against its OWN top speed rather than
     // against a preset's absolute numbers (§4.7).
     body: &crate::features::ActorConfig,
@@ -126,7 +126,7 @@ pub(crate) fn resolve_npc_brain(
         &authored.build_context(),
     ) {
         Ok((binding, brain)) => (brain, Some((binding, authored))),
-        // **THE CHARACTER'S OWN POLICY IS THE DEFAULT**.
+        // THE CHARACTER'S OWN POLICY IS THE DEFAULT.
         //
         // this is the seam the migration left half-crossed. A migrated character states its normal
         // behaviour as a `BrainProfile` and its catalog `default_brain` was emptied so one
@@ -141,7 +141,7 @@ pub(crate) fn resolve_npc_brain(
                 ..
             },
         ) => {
-            // **reaching here means NOTHING is authored anywhere.** The profile
+            // reaching here means NOTHING is authored anywhere. The profile
             // rank above already answered for every character that states one, and
             // the row is empty or this error would not exist — so this is a
             // genuinely unauthored character, not a vocabulary mismatch. A body
@@ -225,7 +225,7 @@ pub(crate) fn npc_hit_bark_line<'a>(
         if let Some(line) = catalog.bark_line(cid, BarkSituation::OnHit, rotation) {
             return line;
         }
-        // **THE FLOOR** — the same one the ambient ticker uses, which this path
+        // THE FLOOR — the same one the ambient ticker uses, which this path
         // did not consult. `CharacterDefinition::voice`'s doc calls itself the
         // floor so that "the floor is 'says something in character' rather than
         // silence", and for a hit that was not true: a registered-only character
@@ -276,7 +276,7 @@ pub(crate) fn npc_ambient_bark_line<'a>(
     if let Some(line) = catalog.bark_line(cid, situation, rotation) {
         return line.into();
     }
-    // **THE FLOOR.** The catalog had nothing — either no pool for this
+    // THE FLOOR. The catalog had nothing — either no pool for this
     // situation and no `fallback_dialogue`, or no row for this character at all.
     // A definition's own voice answers last, so a character another game
     // registered still speaks in its own words rather than standing silent.
@@ -432,7 +432,7 @@ mod tests {
         registry
     }
 
-    /// **A character with NO catalog row still speaks, if it brought a voice.**
+    /// A character with NO catalog row still speaks, if it brought a voice.
     ///
     /// The Hall's ambient ticker skips whoever `npc_ambient_bark_line` answers
     /// `None` for, so "registered but not in the catalog" and "mute on a
@@ -467,7 +467,7 @@ mod tests {
         );
     }
 
-    /// **The voice is a floor for EVERY situation, not only the ambient one.**
+    /// The voice is a floor for EVERY situation, not only the ambient one.
     /// (AD8)
     ///
     /// `CharacterDefinition::voice` calls itself the floor so that "the floor is 'says something in
@@ -573,9 +573,9 @@ mod tests {
     }
 }
 
-/// **Answer a cut conversation's bark request.** (sim)
+/// Answer a cut conversation's bark request. (sim)
 ///
-/// **the CAST half of the continuity port.** `ambition_conversation::rules` decides a
+/// the CAST half of the continuity port. `ambition_conversation::rules` decides a
 /// conversation broke and says WHO should speak; this decides WHAT they say,
 /// because that needs the character catalog, the prepared registry and the
 /// `Interactable` → character-id resolution — none of which is about continuity.
@@ -646,7 +646,7 @@ mod default_profile_tests {
         },
     )"#;
 
-    /// **The fixture catalog, ASSEMBLED — not parsed.**
+    /// The fixture catalog, ASSEMBLED — not parsed.
     ///
     /// the difference is the whole test. A parsed fragment keeps its authored
     /// keys raw (`patrol_peaceful`); assembly namespaces every preset as
@@ -697,7 +697,7 @@ mod default_profile_tests {
     /// a hand-built `PreparedCharacterDefinition` would prove that this test can
     /// construct a struct.
     ///
-    /// **a `BrainProfile`, which is the only vocabulary a character has.** This took a
+    /// a `BrainProfile`, which is the only vocabulary a character has. This took a
     /// `BrainPresetRef` and wrote `definition.default_brain_profile`, a field no character in
     /// the repo ever authored and which is now deleted.
     fn registry_naming(
@@ -733,12 +733,12 @@ mod default_profile_tests {
         .config
     }
 
-    /// **the character's own policy reaches a spawned NPC, and OUTRANKS its catalog row** — the
+    /// the character's own policy reaches a spawned NPC, and OUTRANKS its catalog row — the
     /// rule, restated in the vocabulary that survived.
     ///
     /// the previous version of this test authored a `BrainPresetRef` on the
-    /// definition, and it passed for months while being about a road **no
-    /// character in the repo ever took**. The row therefore outranked the
+    /// definition, and it passed for months while being about a road no
+    /// character in the repo ever took. The row therefore outranked the
     /// character on every body in the game, and the test said otherwise.
     #[test]
     fn an_npc_takes_its_characters_own_policy_over_the_catalog_rows() {
@@ -772,7 +772,7 @@ mod default_profile_tests {
         );
     }
 
-    /// **the parity case, and it is the one that must not break**: a character that authors nothing
+    /// the parity case, and it is the one that must not break: a character that authors nothing
     /// leaves the catalog row in charge.
     #[test]
     fn a_character_authoring_nothing_leaves_the_catalog_row_in_charge() {

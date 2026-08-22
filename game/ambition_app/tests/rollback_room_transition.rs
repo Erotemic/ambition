@@ -1,31 +1,10 @@
-//! **Track B, T1b — the owed RECONSTRUCTION reproduction.**
+//! Verify room reconstruction across a forced rollback window.
 //!
-//! The in-place reset (`rollback_lifecycle_reset.rs`) mutates SURVIVING entities
-//! and is rollback-safe. A room TRANSITION is different: it despawns the whole
-//! source roster and spawns the target roster via Commands (reconstruction), and
-//! the multi-tick transition transaction machinery
-//! (`RoomTransitionLoadState` / `RoomTransitionContentEpoch` / `LoadCoordinator`,
-//! installed as plain resources in `app/plugins.rs`) is NOT rollback-registered.
-//! The entity/room state it drives (`RoomSet`, `RoomGeometry`, `FeatureSimEntity`,
-//! `remaining`) IS rollback state. So a GGRS rollback that
-//! straddles the transaction's tick span rewinds the world but not the
-//! transaction phase/tick barrier — the commit can then fire at a different tick,
-//! twice, or fail to reproduce, diverging the sync-test checksum. That is the
-//! reconstruction divergence Track B names as still owed.
-//!
-//! This test walks the controlled body through the east `EdgeExit` of the
-//! calibration lab into the adjacent boss room INSIDE a forced sync-test rollback
-//! window. It encodes the invariant: the transition actually occurs (the active
-//! room flips, the source roster is gone, a fresh target roster is present ⇒ new
-//! entity generations) AND the sim stays checksum-clean across and past the
-//! commit.
-//!
-//! It is now GREEN under **Track B**: `detect_room_transition_system` records a
-//! `LifecycleIntent::Transition` under a rollback host instead of engaging the load machine, and
-//! `lifecycle_commit::commit_confirmed_lifecycle` reconstructs the target room in the exclusive
-//! world and rebases the session once the frame is confirmed — so the reconstruction never runs on
-//! a speculative frame and resim cannot diverge. The same room brawled 2400 frames clean
-//! (`rollback_lifecycle_reset`).
+//! Under rollback, transition detection records a confirmed-frame lifecycle
+//! intent rather than running the multi-frame load transaction speculatively.
+//! The test crosses an authored `EdgeExit`, requires the active room and entire
+//! room-scoped roster to be replaced, requires exactly one session rebase, and
+//! keeps the sync-test checksum healthy across the commit.
 
 #![cfg(feature = "rl_sim")]
 
@@ -35,9 +14,7 @@ use ambition_app::rl_sim::{
 use bevy::prelude::{Entity, With};
 use std::collections::HashSet;
 
-/// `combat_calibration_lab` is the harness room the in-place reset tests already prove
-/// builds+runs; its right-edge `EdgeExit` (`combat_lab_to_boss`, LDtk px [1264,560] ×h176)
-/// leads to `first_system_boss`.
+/// Authored adjacent rooms connected by the calibration lab's right `EdgeExit`.
 const SOURCE_ROOM: &str = "combat_calibration_lab";
 const TARGET_ROOM: &str = "first_system_boss";
 
@@ -67,8 +44,7 @@ fn player_y(sim: &mut Platformer2dSimHarness) -> f32 {
     q.single(world).map(|k| k.pos.y).unwrap_or(0.0)
 }
 
-/// The rollback session generation — bumped once per session rebase, so a Track B
-/// confirmed lifecycle commit advances it exactly once.
+/// Rollback session generation, incremented by each session rebase.
 fn session_generation(sim: &Platformer2dSimHarness) -> u64 {
     sim.world()
         .get_resource::<ambition_platformer2d::engine_core::ConfirmedFrameBoundary>()
@@ -122,7 +98,7 @@ fn a_room_transition_survives_the_rollback_window() {
     );
 
     // Prove the reconstruction happened: target room active, source roster gone,
-    // a fresh target roster present (despawn+respawn ⇒ disjoint entity ids).
+    // a fresh target roster present (despawn+respawn  disjoint entity ids).
     let target_roster = feature_roster(&mut sim);
     assert!(
         !target_roster.is_empty(),
@@ -149,7 +125,7 @@ fn a_room_transition_survives_the_rollback_window() {
     }
 }
 
-/// **Track B principal timeline oracle (T6).** The deferred lifecycle intent must
+/// Track B principal timeline oracle (T6). The deferred lifecycle intent must
 /// be RECORDED but NOT EXECUTED while its frame is still predicted, then COMMIT
 /// EXACTLY ONCE on confirmation — bumping the session generation — after which the
 /// slot is empty and no second commit ever fires.
@@ -314,7 +290,7 @@ fn a_confirmed_commit_refuses_to_rebase_over_a_diverged_session() {
     );
 }
 
-/// **the door still makes a sound on the rollback host.**
+/// the door still makes a sound on the rollback host.
 ///
 /// it did not. The eager commit plays the zone's cue from
 /// `RoomTransitionRequested::zone_sfx`; the deferred committer emitted nothing at
@@ -382,13 +358,13 @@ fn open_transaction(sim: &Platformer2dSimHarness) -> Option<(u64, u64, bool)> {
         })
 }
 
-/// **A TRANSACTION AUTHORIZED UNDER EPOCH E MUST NOT BUILD THE WORLD UNDER
-/// EPOCH E+1.**
+/// A TRANSACTION AUTHORIZED UNDER EPOCH E MUST NOT BUILD THE WORLD UNDER
+/// EPOCH E+1.
 ///
 /// `authorized_plan` compares `active.content_epoch` against the live epoch and returns `Wait`;
 /// the eager side discards the transaction outright.
 ///
-/// **the invariant is not "the room never changes".** Bumping the epoch does
+/// the invariant is not "the room never changes". Bumping the epoch does
 /// not cancel the crossing: readiness re-opens a transaction under the NEW epoch
 /// and that one commits, which is the desired behaviour. What must never happen
 /// is the room changing under the transaction that was authorized before the
@@ -461,7 +437,7 @@ fn a_transaction_authorized_under_a_stale_content_epoch_never_commits() {
          under the current epoch, and a test that passed by never transitioning would \
          be pinning a deadlock instead of the invariant."
     );
-    // **BOTH TERMS, OR THIS ASSERTS NOTHING.** `assert_ne!(None, Some(n))`
+    // BOTH TERMS, OR THIS ASSERTS NOTHING. `assert_ne!(None, Some(n))`
     // passes for free, so a run where no transaction was ever authorized after
     // the bump would report success while having observed nothing at all. The
     // room changed, so a REPLACEMENT authorization must exist — name it first,
@@ -486,7 +462,7 @@ fn base_gravity_dir(sim: &Platformer2dSimHarness) -> Option<bevy::prelude::Vec2>
         .map(|gravity| gravity.dir)
 }
 
-/// **A ROOM YOU LEFT MUST NOT KEEP SIMULATING THE ROOM YOU ENTERED.**
+/// A ROOM YOU LEFT MUST NOT KEEP SIMULATING THE ROOM YOU ENTERED.
 ///
 /// The eager commit path calls `RoomTransitionCombatReset::clear_carryover` —
 /// despawn every in-flight enemy projectile, return `BaseGravity` to its default
@@ -498,7 +474,7 @@ fn base_gravity_dir(sim: &Platformer2dSimHarness) -> Option<bevy::prelude::Vec2>
 /// Two hosts, one game, two rules — which is what a "mirrors X" fork buys, and
 /// what the ONE-application-operation convergence exists to end.
 ///
-/// **so do not satisfy it in future by pasting a reset into one host.** What
+/// so do not satisfy it in future by pasting a reset into one host. What
 /// makes it hold is that there is nowhere to paste: one operation, two callers.
 /// A fix that touches only `commit_transition` has re-forked the thing this
 /// test exists to prove is not forked.

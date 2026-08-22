@@ -196,10 +196,10 @@ pub fn spawn_damage_box(
 /// `DamageBox`. Pure executor — every effect carries its own geometry, so this
 /// needs no actor queries. Reads in message order (unsorted) to match the
 /// per-consumer behavior it replaces.
-/// **The set `apply_effects` runs in, so a caller can order against a NAME
-/// rather than against this function.**
+/// The set `apply_effects` runs in, so a caller can order against a NAME
+/// rather than against this function.
 ///
-/// ⚠ this crate has no `Plugin` and deliberately keeps none: it is an effect
+///  this crate has no `Plugin` and deliberately keeps none: it is an effect
 /// VOCABULARY plus one executor, and the host decides when to run it. A set is
 /// the smaller thing that makes the host's decision expressible — it says WHERE
 /// the executor sits without claiming when the host should install it.

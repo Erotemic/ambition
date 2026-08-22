@@ -38,10 +38,10 @@ pub(crate) fn kaleidoscope_pointer_press(
 ///
 /// Two guards (both essential), mirroring the grid's `MenuFocusState`:
 ///
-/// 1. **Semantic dedup.** A moving pointer can emit several events while it stays
+/// 1. Semantic dedup. A moving pointer can emit several events while it stays
 ///    over the same control. We compare the hovered focus against `last_pointer_focus`
 ///    and bail when unchanged, so the cursor only reacts once per logical focus.
-/// 2. **Pointer-vs-keyboard ownership.** The pointer only re-claims the cursor when
+/// 2. Pointer-vs-keyboard ownership. The pointer only re-claims the cursor when
 ///    it moves onto a genuinely different control. This fixes "can't move away from
 ///    the hovered option."
 pub(crate) fn kaleidoscope_pointer_move(

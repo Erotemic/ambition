@@ -606,7 +606,7 @@ mod camera_frame_row_tests {
         assert_eq!(row.label, "Camera Frame");
     }
 
-    /// **the menu TELLS the player the frame rows went inactive.**
+    /// the menu TELLS the player the frame rows went inactive.
     ///
     /// Without this the collapse is invisible: the movement row would keep
     /// displaying "screen-directed" while the game resolved body-relative, which

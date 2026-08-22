@@ -24,7 +24,7 @@ use super::*;
 
 /// The scrim's own UI camera — full-screen, one order behind the cube.
 ///
-/// **it deliberately carries `RenderLayers::none()`.** Node→camera resolution
+/// it deliberately carries `RenderLayers::none()`. Node→camera resolution
 /// in `bevy_ui` is by `IsDefaultUiCamera` / `UiTargetCamera` and is independent
 /// of sprite render layers, so the scrim still renders here while nothing in the
 /// world can. That is the same trick the front HUD camera uses to avoid
@@ -65,7 +65,7 @@ pub(crate) fn spawn_kaleidoscope_scrim(
                 order,
                 // Clearing here would wipe the world the scrim exists to dim.
                 clear_color: ClearColorConfig::None,
-                // **never a viewport.** The absence is the feature: an
+                // never a viewport. The absence is the feature: an
                 // unclipped camera is what makes this the DISPLAY rect rather
                 // than a gameplay pane.
                 ..default()
@@ -135,7 +135,7 @@ pub(crate) fn fade_kaleidoscope_scrim(
 mod tests {
     use super::*;
 
-    /// **THE SCRIM TARGETS THE DISPLAY, NOT A GAMEPLAY PANE.**
+    /// THE SCRIM TARGETS THE DISPLAY, NOT A GAMEPLAY PANE.
     ///
     /// The assertion is on the OUTPUT: whatever camera the scrim ends up
     /// targeting must be unclipped and must not be a gameplay rig.

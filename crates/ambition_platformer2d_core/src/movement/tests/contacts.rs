@@ -69,9 +69,9 @@ fn running_into_a_wall_reports_a_side_contact_with_the_surface_normal() {
     );
 }
 
-/// **A rising head into a hidden block is a CONTACT, not just a stop.**
+/// A rising head into a hidden block is a CONTACT, not just a stop.
 ///
-/// **it was only a stop.** `BlockKind::BonkOnly` exists to be solid against a
+/// it was only a stop. `BlockKind::BonkOnly` exists to be solid against a
 /// rising head and air to everything else, and the swept resolution truncated
 /// the motion correctly — but then took a `BonkOnly`-only arm of an `if / else
 /// if` chain whose comment claimed it "falls through to the ordinary face
@@ -80,7 +80,7 @@ fn running_into_a_wall_reports_a_side_contact_with_the_surface_normal() {
 /// which is indistinguishable from never having touched it. Mary-O's hidden
 /// block in 1-2 could not be bonked at all.
 ///
-/// **both terms are OBSERVED**: her head is asserted to have actually reached
+/// both terms are OBSERVED: her head is asserted to have actually reached
 /// the block's underside before the contact is demanded, so a jump that fell
 /// short accuses the probe rather than the engine.
 #[test]
@@ -183,12 +183,12 @@ fn rising_into_a_bonk_only_block_reports_a_head_contact() {
     );
 }
 
-/// **A BODY HELD AGAINST GEOMETRY MUST NOT RE-LAND EVERY TICK.**
+/// A BODY HELD AGAINST GEOMETRY MUST NOT RE-LAND EVERY TICK.
 ///
 /// an sfx flurry that is loud and off-putting… I think the pirate sky issue is
 /// collision into the ceiling causing the sfx"* — and, on the grab: *"I don't
 /// think it's the grab with the noise, I think it causes the noise via world
-/// interaction."* Two reports, one shape: a body **held against geometry** by
+/// interaction."* Two reports, one shape: a body held against geometry by
 /// something other than its own motion — a flyer pressed into a ceiling, a
 /// captive whose position is forced by its captor.
 ///
@@ -228,7 +228,7 @@ fn a_body_pressed_into_the_ceiling_does_not_re_land_every_tick() {
         }
     }
 
-    // **the zero floor.** A run that never reached the ceiling would report
+    // the zero floor. A run that never reached the ceiling would report
     // zero landings and pass while measuring nothing at all.
     assert!(
         head_contacts > 0,
@@ -242,8 +242,8 @@ fn a_body_pressed_into_the_ceiling_does_not_re_land_every_tick() {
     );
 }
 
-/// **A BODY WHOSE POSITION IS WRITTEN BY ANOTHER BODY MUST NOT RE-LAND EVERY
-/// TICK EITHER.**
+/// A BODY WHOSE POSITION IS WRITTEN BY ANOTHER BODY MUST NOT RE-LAND EVERY
+/// TICK EITHER.
 ///
 /// What the pirate sky and the grab have in common is a body being *carried*:
 /// `pirate_sky_lookout`'s riders are mounted on sharks and a captive's pose is written by its

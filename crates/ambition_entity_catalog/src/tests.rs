@@ -406,9 +406,9 @@ fn directional_verb_chain_orders_most_specific_first() {
     );
 }
 
-/// **THE DASH ATTACK IS A STANCE, AND IT OUTRANKS THE DIRECTION.**
+/// THE DASH ATTACK IS A STANCE, AND IT OUTRANKS THE DIRECTION.
 ///
-/// ⛔ four cases, and each kills a different wrong version: a dashing body gets
+///  four cases, and each kills a different wrong version: a dashing body gets
 /// its dash attack even with a direction held (or the tilt would keep winning),
 /// a STANDING body never does (or every forward tilt is now a dash attack), an
 /// AIRBORNE dashing body never does (a dash is a ground stance), and a fighter
@@ -447,13 +447,13 @@ fn a_running_body_gets_its_dash_attack_before_any_direction() {
         "a dash attack was thrown in the air"
     );
 
-    // ⛔ **the WORD is spelled once.** The selector builds this verb through
+    //  the WORD is spelled once. The selector builds this verb through
     // `dash_stance_verb` and so does the runtime's vocabulary; a table keyed by
     // a hand-typed `"attack_dash"` here would keep passing after a rename that
     // left the runtime unable to resolve the move.
     assert_eq!(super::dash_stance_verb("attack"), "attack_dash");
 
-    // ⛔ the floor: a fighter with no dash attack is untouched.
+    //  the floor: a fighter with no dash attack is untouched.
     let without = MovesetContract {
         verbs: BTreeMap::from([
             ("attack".to_string(), "attack".to_string()),
@@ -941,7 +941,7 @@ fn move_hurtbox_keyframes_must_fit_inside_the_move_clock() {
 
 /// A ZERO-WIDTH window is legal; an INVERTED one is not.
 ///
-/// ⚠ this is only safe because every window predicate is the half-open
+///  this is only safe because every window predicate is the half-open
 /// `start_s <= t < end_s` (`moveset/mod.rs`), so nothing can fire inside a
 /// zero-width window — it is a label on a boundary, not a span. If a predicate
 /// ever becomes inclusive at the end, this stops being free and the validator
@@ -1058,10 +1058,10 @@ fn timed_move(id: &str, duration_s: f32, events: Vec<MoveEvent>) -> MoveSpec {
     }
 }
 
-/// **A move that SETS an against-gravity speed advertises it; one that only ADDS
-/// to the body's own does not.**
+/// A move that SETS an against-gravity speed advertises it; one that only ADDS
+/// to the body's own does not.
 ///
-/// ⛔ the distinction is the whole reason [`ImpulseMode`] has two variants, and
+///  the distinction is the whole reason [`ImpulseMode`] has two variants, and
 /// pinning it here is what stops a lunging jab from reading as a recovery
 /// special to every consumer downstream. An `Add` produces a speed only in
 /// company with whatever the body was already doing, so no static reader can
@@ -1103,7 +1103,7 @@ fn only_a_commanded_impulse_advertises_lift() {
     );
 }
 
-/// **A DOWNWARD commanded impulse is not lift.** A dive is the same primitive
+/// A DOWNWARD commanded impulse is not lift. A dive is the same primitive
 /// pointed the other way, and a consumer looking for a way home must not find
 /// one in it — the sign is the only thing separating the two, so it gets its own
 /// guard rather than riding on the test above.
@@ -1123,7 +1123,7 @@ fn a_commanded_dive_is_not_a_lift() {
     assert_eq!(dive.frame_data().lift_speed, 0.0);
 }
 
-/// **The strongest lift wins, and a tie breaks on the EARLIER moment.** Two
+/// The strongest lift wins, and a tie breaks on the EARLIER moment. Two
 /// bursts on one timeline is a legal thing to author (a hop into a rise), and
 /// which one a policy plans around must not depend on declaration order.
 #[test]
@@ -1174,8 +1174,8 @@ fn the_strongest_lift_wins_and_ties_break_on_the_earlier_moment() {
     assert_eq!(tied.frame_data().lift_at_s, 0.20);
 }
 
-/// **A COMMANDED VELOCITY IS A VECTOR, AND BOTH HALVES COME FROM THE SAME
-/// EVENT.**
+/// A COMMANDED VELOCITY IS A VECTOR, AND BOTH HALVES COME FROM THE SAME
+/// EVENT.
 ///
 /// Every downstream reader then planned around a move nobody wrote.
 #[test]
@@ -1199,7 +1199,7 @@ fn a_diagonal_command_reports_both_of_its_halves() {
         "the half that actually crosses the gap must survive the derivation"
     );
 
-    // ⛔ poison: the side is read off the WINNING event, never off whichever
+    //  poison: the side is read off the WINNING event, never off whichever
     // impulse happens to be first. Here the strong rise carries no side and the
     // weak one carries a huge one; a derivation that mixed them would report a
     // move that does not exist.
@@ -1250,7 +1250,7 @@ fn a_diagonal_command_reports_both_of_its_halves() {
     );
 }
 
-/// **An `Impulse` event round-trips through RON with `mode` omitted**, so an
+/// An `Impulse` event round-trips through RON with `mode` omitted, so an
 /// authored timeline that says only `Impulse(local: (0, -900))` parses as the
 /// additive meaning `start_impulse` always had rather than failing to load.
 #[test]

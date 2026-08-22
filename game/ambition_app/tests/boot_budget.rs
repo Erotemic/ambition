@@ -1,8 +1,8 @@
-//! **Boot budgets: the numbers the always-on censuses print, enforced.**
+//! Boot budgets: the numbers the always-on censuses print, enforced.
 //!
 //! `[schedule-census]`, `[frame-spike]` and `[image]` print on every launch and
 //! nothing has ever failed when one regressed. That is how the boot decode
-//! reached **627 megapixels across 2.5 GB** before anyone looked — the profile
+//! reached 627 megapixels across 2.5 GB before anyone looked — the profile
 //! showed `png::filter::paeth::unfilter` burning seconds and named no asset, so
 //! the cost was visible and unattributable for as long as it existed.
 //!
@@ -73,11 +73,11 @@ fn boot_and_settle() -> bevy::app::App {
 ///
 /// Now it waits in the clock the decoders actually run in.
 ///
-/// **and this was NOT the reason this guard reads low.** Probed before
+/// and this was NOT the reason this guard reads low. Probed before
 /// believing it: with a 5-second real-time settle the count sits at
 /// 19 images and never moves. The gap against the shipped binary's own
-/// `[image-census]` — **11.1 MP / 19 images here versus 82.5 MP / 112 images at
-/// five seconds there** — is a COMPOSITION difference, not a timing one. This
+/// `[image-census]` — 11.1 MP / 19 images here versus 82.5 MP / 112 images at
+/// five seconds there — is a COMPOSITION difference, not a timing one. This
 /// boots to the title screen; the desktop binary has additionally run the startup
 /// room's character demand and `load_game_assets`' eager boss sheets by then. So
 /// the settle is honest now and the budget still measures a smaller world than
@@ -150,7 +150,7 @@ fn the_composition_registers_no_more_systems_than_its_budget() {
     );
     eprintln!("[boot-budget] {total} systems (budget {SYSTEM_COUNT_BUDGET})");
 }
-/// **The precise version of the system-count budget.**
+/// The precise version of the system-count budget.
 ///
 /// The 3400 ceiling catches a doubled plugin only once the double is ~750 systems large, which is
 /// why it is described in its own doc comment as a blunt instrument.
@@ -210,7 +210,7 @@ fn no_system_is_registered_twice_in_one_schedule() {
     );
 }
 
-/// **What entering a gameplay session stages, budgeted.**
+/// What entering a gameplay session stages, budgeted.
 ///
 /// This measures the STAGED CAST rather than megapixels, and that is the whole
 /// design: the cast is a deterministic function of the composition and the room

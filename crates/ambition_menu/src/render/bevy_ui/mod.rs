@@ -9,17 +9,17 @@
 //!
 //! # What this module does (and does NOT do)
 //!
-//! It owns the **model → entity** mapping only. Given a description of the menu
+//! It owns the model → entity mapping only. Given a description of the menu
 //! ([`BevyUiMenuView`]: the tab set, the active tab index, the active page's
 //! [`MenuPageModel`], and the focused control), [`spawn_bevy_ui_menu`] spawns a
 //! `bevy_ui` tree:
 //!
-//! * a **tab bar** row at the top — one [`BevyUiMenuTab`] button per tab, the
+//! * a tab bar row at the top — one [`BevyUiMenuTab`] button per tab, the
 //!   active one flagged + visually highlighted;
-//! * the active page's **body** — panels/backgrounds as [`Node`]s, text/labels as
+//! * the active page's body — panels/backgrounds as [`Node`]s, text/labels as
 //!   [`Text`], interactive controls as focusable rows tagged with their
 //!   [`AmbitionMenuControl`] (carrying `kind` + `action` + [`MenuFocusKey`]), the
-//!   item grid laid out by the model's authored rects, and a **scrollbar** (track
+//!   item grid laid out by the model's authored rects, and a scrollbar (track
 //!   + thumb) for a [`MenuControlKind::Scrollbar`] node whose thumb scrolls.
 //!
 //! The host drives navigation + dispatch in a later phase. The seam it relies on
@@ -27,7 +27,7 @@
 //! [`AmbitionMenuControl<Action>`] (so a picking/nav system can map an entity →
 //! its `Action`) plus a [`MenuVisualState`] with `focused`/`selected` set, and the
 //! focused control is additionally flagged with [`BevyUiMenuFocused`]. This module
-//! puts **no game dispatch** in the engine — it only spawns tagged entities.
+//! puts no game dispatch in the engine — it only spawns tagged entities.
 //!
 //! Generic over `PageId` / `Action` exactly like the cube renderer; no
 //! Ambition-specific types appear here.
@@ -546,46 +546,13 @@ fn bevy_ui_scrollbar_press_drag(
     }
 }
 
-/// Translate Bevy's renderer-owned [`Interaction`] state into the neutral menu
-/// action message already exposed by this crate.
+/// Translate Bevy [`Interaction`] state into semantic menu activation.
 ///
-/// `Button` rows are pickable on mouse and touch, but pickability alone does not
-/// perform a semantic action. This single generic bridge is the ownership seam:
-/// render rows carry [`AmbitionMenuControl<Action>`], Bevy updates
-/// [`Interaction`], and the host consumes [`crate::MenuActionActivated<Action>`].
-///
-/// ## Activation is a RELEASE, and it was a press
-///
-/// ⛔ **this bridge activated on `Interaction::Pressed`**, which made it the
-/// last holdout of the behaviour touch was promoted to two taps to survive: a
-/// finger that lands on a row and slides — to scroll the list it is in — has
-/// already activated that row. Dialogue got release-with-drag-cancel
-/// ([`ambition_ui_nav::RowPress`]) and the kaleidoscope had its own copy of the
-/// idea; everything drawn through THIS renderer — the launcher, the pause menu,
-/// the shell cards, the grid inventory — still fired on the way down. One
-/// bridge, so one edit reaches all four.
-///
-/// The transitions are read off `Interaction` alone, which already distinguishes
-/// the two endings a press can have:
-///
-/// * `Pressed` → `Hovered` on the SAME control = the pointer came up on it. That
-///   is the activation.
-/// * `Pressed` → `None` = the pointer left. A leave is not a release, and
-///   activating on it is the bug the primitive's own docs describe.
-///
-/// ⚠ **the arm survives a rebuild, because it is keyed on the ACTION and not on
-/// the entity.** Menu pages respawn their controls, so a press and its release
-/// routinely land on two different entities for one control — the historical
-/// `Pointer<Click>` failure.
-///
-/// ⛔ **surviving the rebuild takes more than an action key, and the difference
-/// is one frame.** A control respawned during `Update` has `Interaction::None`
-/// until `ui_focus_system` evaluates it in the NEXT frame's `PreUpdate` — so on
-/// the rebuild frame the armed control reads exactly like one the pointer walked
-/// off, and dropping the arm there loses every click that spans a republish.
-/// The two are told apart by the ENTITY: a control whose entity changed under
-/// the arm was rebuilt, and its `None` is "not evaluated yet". A control sitting
-/// at the same entity reading `None` really was left.
+/// Controls activate on release (`Pressed` -> `Hovered`), not on press. A
+/// transition to `None` on the same entity cancels the press. If a page rebuild
+/// replaces the entity for the same action, keep the action armed through the
+/// rebuild frame because the new node remains `Interaction::None` until the next
+/// `PreUpdate` focus pass.
 fn publish_bevy_ui_menu_actions<Action>(
     rows: Query<(Entity, &Interaction, &AmbitionMenuControl<Action>), With<Button>>,
     pointers: Query<&bevy::picking::pointer::PointerLocation>,
@@ -780,14 +747,14 @@ where
         );
 }
 
-/// **Recolour a control when its runtime state changes, WITHOUT respawning it.**
+/// Recolour a control when its runtime state changes, WITHOUT respawning it.
 ///
 /// The colour was baked at spawn by `control_bg`, so the only way to change it
 /// WAS to spawn again. Now [`MenuVisualState`] carries everything that function
 /// needs — including the authored `important`, which is not runtime state and is
 /// there precisely so a restyle never has to reach back into the page data.
 ///
-/// ⚠ `Changed<MenuVisualState>` — a quiet menu costs one empty query. Bevy sets
+///  `Changed<MenuVisualState>` — a quiet menu costs one empty query. Bevy sets
 /// the change tick on any `&mut` deref, so a host that writes the same value
 /// every frame pays for a colour write; write only on change, as the launcher's
 /// own declarer does.

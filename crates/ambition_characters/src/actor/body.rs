@@ -1,4 +1,4 @@
-//! Shared **body vocabulary** components — the health, combat-status, and wallet
+//! Shared body vocabulary components — the health, combat-status, and wallet
 //! every actor carries (the player, enemies, NPCs, and bosses alike).
 //!
 //! These re-homed down from `ambition_platformer2d_actor_monolith:actor` (unified-actors
@@ -12,7 +12,7 @@ use bevy::prelude::Component;
 use super::Health;
 
 /// A body's coin/credits balance — the spendable currency a body carries, used at merchants and
-/// credited by `PickupKind::Currency` collection. **Body vocabulary, not player-only:** the
+/// credited by `PickupKind::Currency` collection. Body vocabulary, not player-only: the
 /// player carries one (per-player in multiplayer), and an NPC/enemy can carry one too (a body
 /// that drops currency on death holds it here). Pay-for-use — most bodies simply never spawn
 /// with a wallet.
@@ -51,13 +51,13 @@ impl BodyWallet {
     }
 }
 
-/// **How a body's accumulated-damage meter relates to death.** (CM1)
+/// How a body's accumulated-damage meter relates to death. (CM1)
 ///
 /// Smash's percent and Ambition's HP are the SAME quantity read through two
 /// policies. The meter itself is [`BodyHealth::damage_taken`]; this decides only
 /// whether filling the pool KILLS.
 ///
-/// **it lives beside `BodyHealth` and travels with it**, which it did not use
+/// it lives beside `BodyHealth` and travels with it, which it did not use
 /// to. It was authored per-archetype on `ActorTuning` and consulted in exactly
 /// one place (`apply_actor_hit`), so the PLAYER's body had no death policy at
 /// all — and a versus fighter is the adopted player. A policy the player cannot
@@ -105,7 +105,7 @@ impl DeathPolicy {
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BodyHealth {
     pub health: Health,
-    /// **Total damage this body has accumulated, uncapped** — the smash-percent
+    /// Total damage this body has accumulated, uncapped — the smash-percent
     /// axis. Not derived from the pool: see the type docs for why it cannot be.
     accumulated: i32,
     /// Whether filling the pool kills this body. Travels WITH the health so
@@ -132,7 +132,7 @@ impl BodyHealth {
         self
     }
 
-    /// **Rebuild a body's health EXACTLY, meter and policy included.**
+    /// Rebuild a body's health EXACTLY, meter and policy included.
     ///
     /// For the rollback decoder, and named for it: every other construction site
     /// authors a fresh body, where a zero meter and the default policy are the
@@ -167,14 +167,14 @@ impl BodyHealth {
         self.health.max
     }
 
-    /// **Accumulated damage this body has taken, uncapped.** Knockback growth
+    /// Accumulated damage this body has taken, uncapped. Knockback growth
     /// scales off this, so a heavily-damaged body launches farther under the
     /// same hit — and keeps launching farther past 100%.
     pub fn damage_taken(self) -> i32 {
         self.accumulated
     }
 
-    /// **The meter as a fraction of the pool, UNCLAMPED.** `1.88` is a legal
+    /// The meter as a fraction of the pool, UNCLAMPED. `1.88` is a legal
     /// answer and is how a HUD prints `188%`; `Health::ratio` cannot express it
     /// because it clamps to `0..=1` and is about the POOL, not the meter.
     pub fn damage_percent(self) -> f32 {
@@ -194,7 +194,7 @@ impl BodyHealth {
         self.health.heal(amount);
     }
 
-    /// **Apply `amount` of damage; returns `true` if this call killed the body.**
+    /// Apply `amount` of damage; returns `true` if this call killed the body.
     ///
     /// THE damage authority for any body.
     pub fn damage(&mut self, amount: i32) -> bool {
@@ -246,8 +246,8 @@ pub struct BodyCombat {
     // ── Player reaction / control-lock timers ──
     /// Hitstop: freezes `time_scale` to 0 while positive.
     pub hitstop_timer: f32,
-    /// **Landing lag: the authored recovery an aerial move owes for touching
-    /// down before it finished.**
+    /// Landing lag: the authored recovery an aerial move owes for touching
+    /// down before it finished.
     ///
     /// A HARD control lock while positive, exactly like [`Self::recoil_lock_timer`] — and
     /// deliberately NOT that field.
@@ -266,10 +266,10 @@ pub struct BodyCombat {
     pub training_dummy: bool,
 }
 
-// **THE `peaceful` / `hostile` CONSTRUCTORS ARE GONE** (AC3.1.A). Neither needs to know which
+// THE `peaceful` / `hostile` CONSTRUCTORS ARE GONE (AC3.1.A). Neither needs to know which
 // side the body is on, because `BodyCombat` no longer records it.
 impl BodyCombat {
-    /// **THE HARD CONTROL LOCK THIS FRAME, whichever fact produced it** — no
+    /// THE HARD CONTROL LOCK THIS FRAME, whichever fact produced it — no
     /// steering authority at all while it is positive.
     ///
     /// The player road already computes `recoil_lock.max(landing_lag)` inline; the ACTOR road
@@ -292,7 +292,7 @@ impl BodyCombat {
     /// Factoring the predicate out first is what made closing it a call rather than a
     /// re-derivation.
     ///
-    /// **a `With<PrimaryPlayer>` clock request is still slot-0 only.** That is
+    /// a `With<PrimaryPlayer>` clock request is still slot-0 only. That is
     /// the PRESENTATION freeze (the whole screen hitching), a different question
     /// from whether a struck body advances, and it remains open.
     pub fn is_in_hitlag(&self) -> bool {
@@ -303,7 +303,7 @@ impl BodyCombat {
         self.damage_invuln_timer <= 0.0
     }
 
-    /// **THE decay for every body's reaction timers** — the post-hit i-frame
+    /// THE decay for every body's reaction timers — the post-hit i-frame
     /// window, the damage-blink the renderer reads, the §A2 stagger set
     /// (hitstun / recoil-lock / hitstop), and the landing lag an aerial owes.
     /// Each clamps at zero.
@@ -312,7 +312,7 @@ impl BodyCombat {
     /// not the `PrimaryPlayer` — kept its damage blink forever, because the system that decayed
     /// the blink queried only the home avatar.
     ///
-    /// **the caller supplies its own `dt` deliberately.** The actor and boss
+    /// the caller supplies its own `dt` deliberately. The actor and boss
     /// ticks pass the SIM delta; the player road passes the frame delta. That
     /// difference is a time-domain question this method does not decide, and
     /// collapsing it here would change feel while pretending to consolidate a
@@ -346,7 +346,7 @@ impl BodyCombat {
 
 /// A body's ECS-owned animation signal timers.
 ///
-/// **Body vocabulary, not player-only** — despite the anim rows it gates being authored on the
+/// Body vocabulary, not player-only — despite the anim rows it gates being authored on the
 /// player's sheet first, every brain-driven body that plays a slash, a landing, or a dash
 /// pre-roll carries one.
 ///
@@ -388,7 +388,7 @@ pub struct BodyAnimFacts {
     /// whatever verb owns the curl re-derives it every frame, and the picker
     /// plays the looping `Roll` row while it holds.
     pub rolling: bool,
-    /// **This body is being HELD by another one.** A state mirror like
+    /// This body is being HELD by another one. A state mirror like
     /// [`Self::rolling`], re-derived every frame from the capture relation, so
     /// it cannot latch on a body that has been released.
     ///
@@ -397,7 +397,7 @@ pub struct BodyAnimFacts {
     /// reaching across for a gameplay component is how the two stop agreeing
     /// about when a hold ended. The sim publishes the fact; the picker reads it.
     pub held: bool,
-    /// **This body is HOLDING somebody** — the captor's half of the same
+    /// This body is HOLDING somebody — the captor's half of the same
     /// relation, and it is a separate fact rather than the inverse of one: two
     /// different bodies read it, and a captor is not a captive.
     pub holding: bool,
@@ -448,10 +448,10 @@ mod tests {
 mod hard_lock_tests {
     use super::*;
 
-    /// **EVERY REACTION TIMER SAYS WHETHER [`BodyCombat::decay_reaction_timers`]
-    /// TICKS IT.**
+    /// EVERY REACTION TIMER SAYS WHETHER [`BodyCombat::decay_reaction_timers`]
+    /// TICKS IT.
     ///
-    /// **this guard did its job, and AC3 collected.** It was added because the
+    /// this guard did its job, and AC3 collected. It was added because the
     /// consolidation that produced `decay_reaction_timers` solved the
     /// DUPLICATION and not the ROT — `landing_lag_timer` joined the struct later
     /// and never joined the list, and a comment cannot fail. A destructure can:
@@ -481,10 +481,10 @@ mod hard_lock_tests {
         } = combat;
     }
 
-    /// **LANDING LAG IS PART OF THE HARD LOCK, NOT ONLY RECOIL** —,
+    /// LANDING LAG IS PART OF THE HARD LOCK, NOT ONLY RECOIL —,
     /// and the assertion the player road's inline expression never had.
     ///
-    /// **AND `reset()` WAS THE FOURTH LIST WITH THE SAME OMISSION.** It cleared
+    /// AND `reset()` WAS THE FOURTH LIST WITH THE SAME OMISSION. It cleared
     /// six fields and not `landing_lag_timer`, so a body reset while
     /// mid-landing-lag kept the lock — for the PLAYER, whose road actually reads
     /// the timer, up to 0.28s of input lock carried through a reset. AC3.3
@@ -508,7 +508,7 @@ mod hard_lock_tests {
         } = combat;
     }
 
-    /// **AND HITLAG IS THE SAME SHAPE ONE LAYER OVER** —.
+    /// AND HITLAG IS THE SAME SHAPE ONE LAYER OVER —.
     #[test]
     fn hitlag_is_a_body_question_and_both_roads_ask_it() {
         let mut combat = BodyCombat::default();
@@ -530,7 +530,7 @@ mod hard_lock_tests {
     /// locking anything and no test would have said so. That was not
     /// hypothetical: the ACTOR road passed exactly that reduced form.
     ///
-    /// **it cannot any more, and the type is why** —
+    /// it cannot any more, and the type is why —
     /// `engine_input_from_actor_control` takes `&BodyCombat` instead of two
     /// loose `f32`s, so there is no parameter a caller can fill with the wrong
     /// field. This test guards the remaining half: that the method itself keeps

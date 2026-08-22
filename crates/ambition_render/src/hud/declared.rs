@@ -1,4 +1,4 @@
-//! The renderer for a game's **declared** HUD readouts.
+//! The renderer for a game's declared HUD readouts.
 //!
 //! This module draws whatever the ACTIVE ROUTE declared instead, and knows nothing about what
 //! any of it means: it spawns one text node per
@@ -51,7 +51,7 @@ const SLOT_GAP: f32 = 6.0;
 
 /// Bevy's default line height, `LineHeight::RelativeToFont(1.2)`.
 ///
-/// ⚠ mirrored rather than read, because the spawned nodes take the default and
+///  mirrored rather than read, because the spawned nodes take the default and
 /// nothing here sets one. If a slot ever declares its own line height, this
 /// derivation has to move to that value.
 const LINE_HEIGHT_FACTOR: f32 = 1.2;
@@ -60,7 +60,7 @@ const LINE_HEIGHT_FACTOR: f32 = 1.2;
 ///
 /// Any game that publishes a `\n` hits it.
 ///
-/// ⚠ a slot with NO published readout still reserves one line: a conditional
+///  a slot with NO published readout still reserves one line: a conditional
 /// card that blinks in and out would otherwise shove everything below it up and
 /// down as it appeared, and a stable HUD that reserves a little too much beats
 /// one that jumps.
@@ -68,7 +68,7 @@ fn slot_extent(spec: &HudSlotSpec, readouts: &HudReadouts, measured: Option<f32>
     // `ComputedNode` carries what the layout actually produced, which is the only thing that
     // knows where the text broke.
     //
-    // ⚠ **last frame's height**, because UI layout runs in `PostUpdate` and this
+    //  last frame's height, because UI layout runs in `PostUpdate` and this
     // is an `Update` system. Moving a node's `top` does not change its height,
     // so there is no oscillation to converge — the lag shows only on the frame a
     // readout changes line count.
@@ -209,8 +209,8 @@ pub fn spawn_declared_hud(
                 Name::new(format!("Declared HUD gauge ({})", spec.id.as_str())),
             ),
         );
-        // **THE FIGHTER PANEL**, spawned for every slot and shown only for one
-        // publishing a `Standing`. ⚠ spawned ONCE with a fixed number of stock
+        // THE FIGHTER PANEL, spawned for every slot and shown only for one
+        // publishing a `Standing`.  spawned ONCE with a fixed number of stock
         // icons and hidden per frame rather than spawned per stock: a family
         // that appears and disappears with a number would churn entities every
         // time somebody lost a life, and `DeclaredHudRoot`'s retire sweep is
@@ -512,7 +512,7 @@ pub fn update_declared_hud(
 // The fighter panel: a portrait, the percent under it, and the stocks as icons
 // ---------------------------------------------------------------------------
 
-/// **How many stocks are drawn one-icon-each before it becomes a count.**
+/// How many stocks are drawn one-icon-each before it becomes a count.
 ///
 /// the genre's own break point, not a guess: a platform fighter draws a row of little heads while
 /// there are few enough to read at a glance, and switches to `xN` once counting them would take
@@ -545,10 +545,10 @@ pub struct DeclaredHudStock(pub HudSlotId, pub u32);
 #[derive(Component, Debug)]
 pub struct DeclaredHudStockCount(pub HudSlotId);
 
-/// **Which slots are drawing a fighter panel this frame, in laid-out order.**
+/// Which slots are drawing a fighter panel this frame, in laid-out order.
 ///
-/// ⭐ **the count is what "horizontally distributed depending on the number of
-/// players" means**, and it is a fact about the READOUTS rather than the
+///  the count is what "horizontally distributed depending on the number of
+/// players" means, and it is a fact about the READOUTS rather than the
 /// declaration: the smash stage declares four slots and a 1v1 publishes two, so
 /// asking the declaration would space a two-player match as if four people were
 /// playing and leave two gaps.
@@ -568,11 +568,11 @@ fn panelled_slots(active: &ActiveHudDeclaration, readouts: &HudReadouts) -> Vec<
         .collect()
 }
 
-/// **How a stock count is DRAWN**: how many icons, and the count beside them.
+/// How a stock count is DRAWN: how many icons, and the count beside them.
 ///
 /// `(icons, count)` — `count` is `Some(n)` only when there are too many to draw
 /// one each, in which case exactly one icon is drawn and the number says the
-/// rest. ⚠ zero stocks draw NOTHING and that is not an error: it is a fighter
+/// rest.  zero stocks draw NOTHING and that is not an error: it is a fighter
 /// who is out, and an empty row is what says so.
 fn drawn_stocks(remaining: u32) -> (u32, Option<u32>) {
     if remaining > MAX_DRAWN_STOCKS {
@@ -607,7 +607,7 @@ fn panel_left(centre_x: f32, available: f32, index: usize, count: usize) -> f32 
 /// Lay the fighter panels out across their region and hang each one's pieces
 /// off its slot's live text node.
 ///
-/// ⚠ **after the placer**, like the gauges: a panel tracks a position that
+///  after the placer, like the gauges: a panel tracks a position that
 /// frame settled on.
 pub fn update_declared_hud_panels(
     readouts: Res<HudReadouts>,
@@ -688,7 +688,7 @@ pub fn update_declared_hud_panels(
             .and_then(|readout| readout.standing_of())
             .and_then(|standing| standing.portrait.clone());
         match path {
-            // ⚠ a fighter with no portrait draws none rather than a blank box:
+            //  a fighter with no portrait draws none rather than a blank box:
             // an empty rectangle reads as art that failed to load.
             None => set_hidden(&mut visibility),
             Some(path) => {
@@ -742,7 +742,7 @@ pub fn update_declared_hud_panels(
     }
 }
 
-/// **How tall a whole panel is** — portrait, the percent under it, the stock
+/// How tall a whole panel is — portrait, the percent under it, the stock
 /// row under that.
 fn panel_height(font_size: f32) -> f32 {
     PORTRAIT_PX + font_size * LINE_HEIGHT_FACTOR + 4.0 + STOCK_ICON_PX + HUD_MARGIN
@@ -823,9 +823,9 @@ mod tests {
         HudDeclaration, HudLayoutPolicy, HudReadout, NamedScreenRect,
     };
 
-    /// **THE PANELS ARE CENTRED AS A GROUP, whatever the player count.**
+    /// THE PANELS ARE CENTRED AS A GROUP, whatever the player count.
     ///
-    /// ⭐ this is what "horizontally distributed depending on the number of
+    ///  this is what "horizontally distributed depending on the number of
     /// players" has to mean: a 1v1 sits two panels either side of the middle
     /// and a four-player match spreads four across it, and in BOTH the row's
     /// own centre is the screen's. A layout that packed from the left would put
@@ -847,7 +847,7 @@ mod tests {
         }
     }
 
-    /// **AND THEY DO NOT OVERLAP.** Two panels sharing pixels is two percents
+    /// AND THEY DO NOT OVERLAP. Two panels sharing pixels is two percents
     /// on top of each other, which is the failure a HUD cannot have.
     #[test]
     fn panels_in_a_row_never_overlap() {
@@ -863,9 +863,9 @@ mod tests {
         }
     }
 
-    /// **FEW STOCKS ARE ICONS; MANY ARE A COUNT.**
+    /// FEW STOCKS ARE ICONS; MANY ARE A COUNT.
     ///
-    /// ⚠ the boundary is asserted from both sides. A rule that only checked the
+    ///  the boundary is asserted from both sides. A rule that only checked the
     /// small case would let the threshold drift by one and nobody would see it
     /// until a HUD tried to draw nine little heads.
     #[test]
@@ -1008,9 +1008,9 @@ mod tests {
         );
     }
 
-    /// **A slot as tall as what it PUBLISHED, not as tall as one line.**
+    /// A slot as tall as what it PUBLISHED, not as tall as one line.
     ///
-    /// ⛔ the stack advanced by `font_size + gap` whatever the readout said, so
+    ///  the stack advanced by `font_size + gap` whatever the readout said, so
     /// a game publishing a three-line card had the next slot drawn across its
     /// second and third lines. TwinTrack does exactly that in four slots at
     /// once, and its top-left corner is unreadable because of it.

@@ -81,7 +81,7 @@ def codec_files() -> list[Path]:
             if '/target/' in str(path) or '/.claude/' in str(path):
                 continue
             text = path.read_text(encoding='utf8', errors='replace')
-            # **a codec marker is required, not just a `put_*` call.**
+            # a codec marker is required, not just a `put_*` call.
             # `put_[a-z0-9_]+(` alone matched `put_pixel` in a room-geometry
             # RENDERER example — an unrelated file whose every edit would have
             # raised a wire-format alarm. A guard with a false positive in its
@@ -114,7 +114,7 @@ def shape_of(path: Path) -> tuple[int, str]:
     for match in re.finditer(r'\bsnapshot_pod!\s*\((.*?)\)\s*;', text, flags=re.S):
         body = re.sub(r'\s+', '', match.group(1))
         tokens.append(f'pod[{body}]')
-    # **AND AN ARRAY-DRIVEN CODEC HIDES THE SAME WAY A POD DID.**
+    # AND AN ARRAY-DRIVEN CODEC HIDES THE SAME WAY A POD DID.
     #
     # this is the same hole `snapshot_pod!` was already patched for, in the
     # comment right above: *"otherwise a POD component could gain a field with no
@@ -131,16 +131,16 @@ def shape_of(path: Path) -> tuple[int, str]:
         tokens.append(f'arr[{len(body.split(",")) }]')
     for match in re.finditer(r'\[\s*(?:false|true|0u8|0u16|0u32|0u64|0i32|0f32|0\.0)\s*;\s*(\d+)\s*\]', text):
         tokens.append(f'fixed[{match.group(1)}]')
-    # **AND `snapshot_unit_enum!` IS THE THIRD CONSTRUCT TO HIDE THE SAME WAY.**
+    # AND `snapshot_unit_enum!` IS THE THIRD CONSTRUCT TO HIDE THE SAME WAY.
     #
-    # **the file already documented the first two holes and this is the same
-    # sentence a third time** — a POD gaining a field with no primitive call, an
+    # the file already documented the first two holes and this is the same
+    # sentence a third time — a POD gaining a field with no primitive call, an
     # array-driven codec widening with no primitive call, and now a wire CODE
-    # arriving with no primitive call. ⇒ when a construct decides bytes without
+    # arriving with no primitive call.  when a construct decides bytes without
     # naming a `put_*`, it has to be folded in by hand; there is no general rule
     # here, only the list.
     #
-    # **the DISCRIMINANTS, SORTED — never the names and never the order.** A
+    # the DISCRIMINANTS, SORTED — never the names and never the order. A
     # rename is not a wire change and neither is reordering the variant list,
     # because each variant keeps its own code; a checker that fires on either is
     # the false positive this file's own docs say gets it turned off. An ADDED,

@@ -194,9 +194,9 @@ opt-level = 0
 #
 # So the app pays 28% of the edit loop back and costs NOTHING to run.
 #
-# **and the actor monolith is deliberately NOT here.** It is the single
+# and the actor monolith is deliberately NOT here. It is the single
 # most-edited crate, so it is the obvious next candidate, and it is the wrong one:
-# at opt-0 the simulation runs **1.6x slower** (4.08s against 2.57s over the same
+# at opt-0 the simulation runs 1.6x slower (4.08s against 2.57s over the same
 # 3000 ticks, tight variance across repeats) while doing nothing at all for an
 # app-source edit. That crate IS the per-tick numeric kernel this comment's first
 # paragraph excludes — the exclusion was written as a judgement and is now a

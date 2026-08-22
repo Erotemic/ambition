@@ -1,4 +1,4 @@
-//! **Generate the art this crate claims to own.**
+//! Generate the art this crate claims to own.
 //!
 //! U1 let a consumer address and describe its own character sheet. The half
 //! left open was that nothing here decodes a PNG, because this repo does not

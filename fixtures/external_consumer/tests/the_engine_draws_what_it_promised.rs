@@ -1,4 +1,4 @@
-//! **The presentation an engine PROMISES, asked of a third party's app.**
+//! The presentation an engine PROMISES, asked of a third party's app.
 //!
 //! None of them crashed. The backdrop was absent, or present and motionless; the quality budget
 //! existed and never moved.
@@ -6,8 +6,8 @@
 //! `scripts/check_engine_systems_are_engine_installed.py` catches the SHAPE —
 //! "no engine crate registers this" — and it is a text search over registration
 //! sites. This file asks the other question, of the only composition that can
-//! answer it honestly: **a third party builds its app the documented way and the
-//! pictures are there.** Outlander is not a fixture of the engine's assumptions;
+//! answer it honestly: a third party builds its app the documented way and the
+//! pictures are there. Outlander is not a fixture of the engine's assumptions;
 //! it is a real out-of-workspace crate whose only dependency is `ambition_platformer2d`.
 
 #![cfg(feature = "visible")]
@@ -37,7 +37,7 @@ fn parallax_layer_positions(app: &mut App) -> Vec<(f32, f32)> {
         .collect()
 }
 
-/// **The backdrop exists, and it MOVES with the camera.** (72h S12)
+/// The backdrop exists, and it MOVES with the camera. (72h S12)
 ///
 /// `sync_parallax_layers` was registered by the shipped app alone, so a
 /// consumer's backdrop spawned at the world origin and stayed there — sliding
@@ -109,8 +109,8 @@ fn the_backdrop_is_drawn_and_follows_the_camera() {
     );
 }
 
-// **The quality-budget half of this file does not belong here, and finding
-// that out was worth the attempt.** `ResolvedVisualQuality` reads
+// The quality-budget half of this file does not belong here, and finding
+// that out was worth the attempt. `ResolvedVisualQuality` reads
 // `UserSettings`, and this consumer is built `default-features = false` — it
 // never asked for the `ambition_persistence` capability, so `ambition_platformer2d::
 // persistence` does not exist for it and there is no settings resource to read.

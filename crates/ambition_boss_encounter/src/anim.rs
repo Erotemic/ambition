@@ -227,13 +227,13 @@ fn boss_animation_key_for_sample(
 
 #[cfg(test)]
 mod sample_key_agrees_with_profile_keys_tests {
-    //! ⛔ the alternative was widening both to `pub` so a foreign crate could keep testing them
+    //!  the alternative was widening both to `pub` so a foreign crate could keep testing them
     //! — which is the carve running backwards. Every symbol this test needs now lives here, so
     //! the test does too, and the functions stay private.
     use super::*;
     use ambition_characters::brain::BossAttackProfile;
 
-    /// **Does the sample's KEY name a row the PROFILE claims?**
+    /// Does the sample's KEY name a row the PROFILE claims?
     ///
     /// This single fact decides whether the `BossAnim`→`CharacterAnim` fold's
     /// first slice is a rename or a redesign, and it is why that slice is
@@ -259,7 +259,7 @@ mod sample_key_agrees_with_profile_keys_tests {
     ///   hand_sweep            → "hand_sweep"  ∈ [gnu_hand_sweep, hand_sweep]
     /// ```
     ///
-    /// ⚠ **a fifth override is NOT covered here and is the open half**:
+    ///  a fifth override is NOT covered here and is the open half:
     /// `("apple_rain", SpikeHalo) => "head_down"`. `apple_rain` is a
     /// `Special`, so its key list comes from the App-local `BossCatalog` at
     /// runtime, and the engine cannot know whether `head_down` is in it. That

@@ -6,8 +6,8 @@
 //! Menu/Back row where there is one, and in a corner where there is
 //! not — see [`position_fps_overlay`].
 //!
-//! **Visible by default on every platform** — desktop, browser,
-//! Android. Toggle via the **Video settings page → "FPS Overlay"** row
+//! Visible by default on every platform — desktop, browser,
+//! Android. Toggle via the Video settings page → "FPS Overlay" row
 //! (persisted across sessions via `ambition_platformer2d::persistence::settings::persistence`), or
 //! press `F6` for an in-session keyboard toggle that mutates the same
 //! setting.

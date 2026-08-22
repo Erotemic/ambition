@@ -26,7 +26,7 @@ use ambition_app::{RandomWalkPolicy, Platformer2dSimHarness, Platformer2dSimHarn
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Kind {
-    /// §6.1 invariant 1 — center inside a Solid/BlinkWall **after carve subtraction**.
+    /// §6.1 invariant 1 — center inside a Solid/BlinkWall after carve subtraction.
     EmbeddedInSolid,
     OutOfBoundsAbove,
     OutOfBoundsBelow,
@@ -139,7 +139,7 @@ struct SolidBlock {
     aabb: ae::Aabb,
 }
 
-/// **The COMPOSED collision world's** embeddable blocks — §6.1 invariant 1's
+/// The COMPOSED collision world's embeddable blocks — §6.1 invariant 1's
 /// "after carve subtraction (the composed world is the truth — a carved hole is
 /// not solid)".
 ///
@@ -234,7 +234,7 @@ fn player_entity(sim: &mut Platformer2dSimHarness) -> Option<ambition_platformer
     q.iter(world).next()
 }
 
-/// **Invariant 2's read-model row.** The carve volume of the portal the player
+/// Invariant 2's read-model row. The carve volume of the portal the player
 /// is currently straddling, if it is straddling one.
 ///
 /// `docs/concepts/movement-collision.md` said this needed "a read-model row" that did not
@@ -604,8 +604,8 @@ fn check_step(
 /// start room) so a transition mid-episode attributes correctly. Returns
 /// `(violations, steps_actually_run, oob_suppressed_at_authored_exits)`.
 ///
-/// **`start_room == ""` is this function's own sentinel for "whatever the LDtk world authors as
-/// the start", not a room id** (`collision_oracle_smoke` passes it). Every NAMED room reaching
+/// `start_room == ""` is this function's own sentinel for "whatever the LDtk world authors as
+/// the start", not a room id (`collision_oracle_smoke` passes it). Every NAMED room reaching
 /// here comes from `room_ids`, so it is required.
 fn run_episode(
     start_room: &str,
@@ -908,7 +908,7 @@ fn trace_oob_under_town_pipes() {
     }
 }
 
-/// **The cheap tier of the CC3 gate, and it ENFORCES.**
+/// The cheap tier of the CC3 gate, and it ENFORCES.
 ///
 /// But the full sweep is `#[ignore]`d because it takes minutes, so
 /// `cargo test --workspace` never runs it and only a guarded run does.
@@ -1238,7 +1238,7 @@ fn a_body_inside_a_carved_hole_is_not_embedded() {
     );
 }
 
-/// §6.1 **invariant 2** — a straddling body's center is only allowed inside the
+/// §6.1 invariant 2 — a straddling body's center is only allowed inside the
 /// host wall where ITS portal carved a hole.
 ///
 /// This is the case invariant 1 structurally cannot see. Invariant 1 tests the
@@ -1330,7 +1330,7 @@ fn a_straddling_body_inside_the_wall_but_outside_its_own_carve_is_invariant_2() 
         .all(|x| !matches!(x.kind, Kind::StraddleOutsideCarve)));
 }
 
-/// §6.1 **invariant 5** — at most one Class-B remap per body per frame (§3.2).
+/// §6.1 invariant 5 — at most one Class-B remap per body per frame (§3.2).
 #[test]
 fn two_class_b_remaps_in_one_frame_is_invariant_5_and_the_order_names_the_bug() {
     use ambition_platformer2d::platformer::class_b::ClassBRemap;
@@ -1441,7 +1441,7 @@ fn a_class_b_remap_exempts_the_frames_position_jump_from_the_teleport_probe() {
     );
 }
 
-/// ** measurement: how blind is invariant 1?**
+///  measurement: how blind is invariant 1?
 ///
 /// §6.1 invariant 1 tests the body's CENTRE against solid material. A body
 /// embedded up to half its height therefore does not register — which is not

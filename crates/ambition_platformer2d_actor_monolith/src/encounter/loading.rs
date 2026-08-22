@@ -110,10 +110,10 @@ pub fn load_encounter_specs_from_rooms(
     out
 }
 
-/// **The mob `kind` string for an authored brain** — the inverse of the map
+/// The mob `kind` string for an authored brain — the inverse of the map
 /// reader's `parse_enemy_brain`.
 ///
-/// **`Passive` has two pre-images and this collapses them.** The map reader turns an EMPTY
+/// `Passive` has two pre-images and this collapses them. The map reader turns an EMPTY
 /// `brain` field into `Passive`, and the literal `"Passive"` into `Passive` too; the old
 /// project-reading fallback distinguished them, defaulting an empty field to
 /// `"medium_striker"`.
@@ -137,7 +137,7 @@ fn fallback_waves_from_enemy_spawns(
         let centre = (spawn.aabb.min + spawn.aabb.max) * 0.5;
         let mut mob =
             EncounterMobSpec::new(wave_mob_kind(&spawn.payload.brain), [centre.x, centre.y]);
-        // **the marker's own art identity.** A marker-derived wave mob is the
+        // the marker's own art identity. A marker-derived wave mob is the
         // same body reached by a different road, so it must not be the one path
         // left wearing its instance id. The IR REQUIRES `character_id`, so
         // unlike the project reader there is no absent case to fall back from.
@@ -190,7 +190,7 @@ mod loading_tests {
 
         // Escalation: wave 1 is light strikers, wave 3 is all heavies.
         //
-        // **the heavy is a CHARACTER now, not a role**. The shape this asserts — the third wave is
+        // the heavy is a CHARACTER now, not a role. The shape this asserts — the third wave is
         // uniformly the heavy — is unchanged; what the heavy IS finally has an answer.
         assert!(waves[0].mobs.iter().all(|m| m.kind == "medium_striker"));
         assert!(waves[2].mobs.iter().all(|m| m.kind == "npc_goblin_brute"));

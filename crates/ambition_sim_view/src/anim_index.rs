@@ -47,7 +47,7 @@ pub struct ActorSpriteData {
     /// the component (a legacy / bespoke path) still animates its base ladder —
     /// it just shows no overlays (fable review §A9).
     pub anim: Option<&'static ambition_platformer2d_actor_monolith::actor::BodyAnimFacts>,
-    /// **The body's own resolved reference basis**, so the locomotion metric is
+    /// The body's own resolved reference basis, so the locomotion metric is
     /// measured along ITS run axis rather than world-x.
     ///
     /// not the global `GravityField`: that is a per-tick mirror of the PRIMARY body's frame, so
@@ -58,7 +58,7 @@ pub struct ActorSpriteData {
     /// show a pose the disposition-agnostic picker can't infer. `Option`, so an
     /// ordinary actor is picked exactly as before.
     pub anim_override: Option<&'static ActorAnimOverride>,
-    /// **The move this body is playing**, so the drawn row can be the one the
+    /// The move this body is playing, so the drawn row can be the one the
     /// move names. `None` for a body that is not mid-move, which is most of them
     /// most of the time. See [`ActorAnimFrame::clip`].
     pub playback: Option<&'static ambition_combat::moveset::MovePlayback>,
@@ -72,7 +72,7 @@ pub struct ActorAnimFrame {
     pub anim: CharacterAnim,
     pub pos: ae::Vec2,
     pub facing: f32,
-    /// **The authored clip the body's ACTIVE MOVE asks to be drawn as**, with
+    /// The authored clip the body's ACTIVE MOVE asks to be drawn as, with
     /// its fallbacks, or `None` when no move is playing.
     ///
     /// sprite redirect P0. `anim` is a [`CharacterAnim`] — 56 semantic body
@@ -83,12 +83,12 @@ pub struct ActorAnimFrame {
     /// the request and the renderer resolves it against the sheet it is about
     /// to draw.
     ///
-    /// **it is a REQUEST, not a row.** Whether `smash_forward` exists is a
+    /// it is a REQUEST, not a row. Whether `smash_forward` exists is a
     /// question about one sheet, so it is answered at the draw
     /// (`CharacterAnimator::request_clip`) and never here — that is the same
     /// rule `AnimRow` binding follows everywhere else.
     ///
-    /// **and `anim` stays populated**, because it is what a sheet with none of
+    /// and `anim` stays populated, because it is what a sheet with none of
     /// the chain draws. A body playing a move is still semantically in a pose.
     pub clip: Option<ClipRequest>,
 }
@@ -144,7 +144,7 @@ pub struct ActorAnimIndex {
 }
 
 impl ActorAnimIndex {
-    /// **borrowed rather than copied** since the frame gained the active
+    /// borrowed rather than copied since the frame gained the active
     /// move's clip chain — the caller draws from it in place and never needs to
     /// own it, so nothing clones the strings per actor per frame.
     pub fn get(&self, id: &str) -> Option<&ActorAnimFrame> {

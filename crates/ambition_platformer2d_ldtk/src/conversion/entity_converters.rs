@@ -30,9 +30,9 @@ pub(super) fn convert_consumed_elsewhere(_ctx: &LdtkEntityCtx<'_>) -> Result<Roo
     Ok(RoomEmission::ignored())
 }
 
-/// **An encounter's trigger volume, into the room IR.**
+/// An encounter's trigger volume, into the room IR.
 ///
-/// **this is the inversion**: the encounter loader read `EncounterTrigger`
+/// this is the inversion: the encounter loader read `EncounterTrigger`
 /// straight off the `LdtkProject`, which is why it — and therefore the actor
 /// monolith — needed the LDtk crate at all. The marker joins the emission stream
 /// like every other authored family now, and the loader reads rooms.
@@ -51,7 +51,7 @@ pub(super) fn convert_encounter_trigger(ctx: &LdtkEntityCtx<'_>) -> Result<RoomE
     })
 }
 
-/// **An encounter's lock wall, into the room IR.** See
+/// An encounter's lock wall, into the room IR. See
 /// [`convert_encounter_trigger`] for why this stopped being read off the project.
 pub(super) fn convert_lock_wall(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, _name, min, size) = ctx.parts();
@@ -73,7 +73,7 @@ pub(super) fn convert_lock_wall(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission,
 
 pub(super) fn convert_loading_zone(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
-    // **an unrecognised spelling is REFUSED, not defaulted.** This was
+    // an unrecognised spelling is REFUSED, not defaulted. This was
     // `_ => Door`, so a typo produced an interact door where the author meant a
     // walk-through and nothing said so. See `LoadingZoneActivation::from_authored`.
     let authored = field_string(entity, "activation").unwrap_or_else(|| "Door".to_string());
@@ -256,7 +256,7 @@ impl RampOrientation {
     }
 }
 
-/// `SurfaceRamp` — the **quarter-circle fillet** that lets a momentum body carry
+/// `SurfaceRamp` — the quarter-circle fillet that lets a momentum body carry
 /// its speed from a floor onto a wall (Q27; pinned math in
 /// `docs/planning/engine/spatial-model.md` §`SurfaceRamp`).
 ///
@@ -265,7 +265,7 @@ impl RampOrientation {
 /// resolution, default 8, min 2).
 ///
 /// AMBITION_REVIEW(spatial): the arc table is the doc's, verbatim, for the base
-/// orientation. **The winding sign is NOT hand-derived per orientation** — the
+/// orientation. The winding sign is NOT hand-derived per orientation — the
 /// doc explicitly forbids that, and it is right to: a floor's outward normal must
 /// point up, a ceiling's down, and mirroring the point list flips the sign of
 /// `normal = (t.y, -t.x)` in a way that is genuinely hard to see. Instead the
@@ -521,7 +521,7 @@ pub(super) fn convert_portal(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, St
         Some("up") | None => ae::Vec2::new(0.0, -1.0),
         Some(other) => return Err(format!("Portal '{name}' has unknown normal '{other}'")),
     };
-    // Explicit link id (preferred pairing); empty/absent ⇒ legacy color pairing.
+    // Explicit link id (preferred pairing); empty/absent  legacy color pairing.
     let link = field_string(entity, "link")
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty());
@@ -632,13 +632,13 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
     let (entity, name, min, size) = ctx.parts();
     let authored_brain = field_string(entity, "brain").unwrap_or_default();
     let authored_brain = authored_brain.trim();
-    // **THE PATROL PATH IS A NATIVE REFERENCE.** `path_ref` is an LDtk
+    // THE PATROL PATH IS A NATIVE REFERENCE. `path_ref` is an LDtk
     // `EntityRef` at a `KinematicPath`, so the editor draws the link, every tool
     // discovers it from the project schema alone, and a target that is not there
     // is caught by LDtk's own referential integrity instead of by a spelling
     // convention three resolvers each implemented differently.
     //
-    // **the `Patrol:<id>` string it replaces is REFUSED, not tolerated.**
+    // the `Patrol:<id>` string it replaces is REFUSED, not tolerated.
     // Falling through to `CharacterBrain::Custom` would leave an un-migrated
     // placement looking exactly like a healthy one — the same silence that let
     // sandbox's basement patroller stand still for months. Delete this arm once
@@ -683,7 +683,7 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
             )
         })?;
     let mut payload = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(brain, character_id);
-    // **WHICH WAY THIS OCCURRENCE STARTS.** Facing is placement context: the
+    // WHICH WAY THIS OCCURRENCE STARTS. Facing is placement context: the
     // character and controller are reusable, while two instances of the same
     // pair may enter a room looking opposite ways. Missing/blank keeps the
     // historical construction default (`Right` / +1); an authored misspelling
@@ -699,7 +699,7 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
             }
         }
     }
-    // **WHEN THIS ONE COMES BACK** — the placement's own answer, when it has one (ADR 0022). A
+    // WHEN THIS ONE COMES BACK — the placement's own answer, when it has one (ADR 0022). A
     // migrated character has no archetype row to inherit a policy from, and the same creature
     // is a permanent casualty in a story room and a repopulating trash mob in a corridor.
     if let Some(respawn) = field_string(entity, "respawn") {
@@ -718,7 +718,7 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
             None => {}
         }
     }
-    // **HOSTILE OR NOT**, authored here rather than inherited from a creature.
+    // HOSTILE OR NOT, authored here rather than inherited from a creature.
     if let Some(disposition) = field_string(entity, "disposition") {
         match disposition.trim() {
             "" => {}
@@ -738,7 +738,7 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
             }
         }
     }
-    // **WHO DRIVES IT**, when this placement wants a policy other than the
+    // WHO DRIVES IT, when this placement wants a policy other than the
     // character's own. See `EnemySpawnSpec::brain_profile`: the same body with
     // two placements is a patroller in one corridor and a door guard in the
     // next, which the creature itself must not have to decide.
@@ -863,7 +863,7 @@ pub(super) fn convert_moving_platform(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmi
     // owns platform defaults or the rule for reading two motions at once.
     //
     // `sweep_dx` and `loop_dy` are DELTAS, so they take no level offset.
-    // **`loop_min_y` is a POSITION, so it does.** `LdtkEntityCtx::offset`
+    // `loop_min_y` is a POSITION, so it does. `LdtkEntityCtx::offset`
     // says it outright — "apply it to any ADDITIONAL points a converter parses
     // out of entity fields; `min` has it applied already" — and an anchor
     // compared against an already-offset `start_pos` is a shaft in a different
@@ -879,8 +879,8 @@ pub(super) fn convert_moving_platform(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmi
     .classify()?;
     Ok(RoomEmission::moving_platform(
         ambition_platformer2d_world::platforms::MovingPlatformSpec::new(
-            // **an author could not name a platform, and every other converter
-            // lets them.** `LoadingZone`, `CameraZone`, `Portal`, `ShrineSpawn`
+            // an author could not name a platform, and every other converter
+            // lets them. `LoadingZone`, `CameraZone`, `Portal`, `ShrineSpawn`
             // and the rest all read `field_string(entity, "id")` and fall back to
             // the iid; this one went straight to the iid, so a moving platform
             // had no stable name a room could address it by. Mary-O's underground
@@ -974,7 +974,7 @@ pub(super) fn convert_switch(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, St
     })
 }
 
-/// **The winding oracle for `SurfaceRamp` (Q27).**
+/// The winding oracle for `SurfaceRamp` (Q27).
 ///
 /// `docs/planning/engine/spatial-model.md`: *"Do NOT hand-derive the winding sign
 /// per orientation … let the WINDING ORACLE decide correctness — a 4-case

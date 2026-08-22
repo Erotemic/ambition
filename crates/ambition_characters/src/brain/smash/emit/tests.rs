@@ -101,9 +101,9 @@ fn idle_zeros_locomotion_but_keeps_facing() {
     assert!(frame.facing < 0.0, "facing should point at target");
 }
 
-/// **A CHOSEN SHIELD REACHES THE BODY'S GUARD BIT.**
+/// A CHOSEN SHIELD REACHES THE BODY'S GUARD BIT.
 ///
-/// ⚠ **nothing chooses `Shield` yet, and that is the point of pinning it here.**
+///  nothing chooses `Shield` yet, and that is the point of pinning it here.
 /// The remaining gap is upstream: `ObservationFrame` carries no channel for what
 /// the TARGET is doing, so the brain cannot see an incoming swing and has no
 /// condition on which to guard. This test is what makes that a one-layer job
@@ -129,7 +129,7 @@ fn a_chosen_shield_presses_the_guard_and_stops_moving() {
     );
 }
 
-/// ⚠ `ActorControlFrame` has no dodge bit.
+///  `ActorControlFrame` has no dodge bit.
 #[test]
 fn a_chosen_dodge_is_still_reserved_and_says_so() {
     let mut frame = crate::actor::control::ActorControlFrame::neutral();

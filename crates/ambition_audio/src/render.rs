@@ -39,7 +39,7 @@ pub const PROCEDURAL_CUE_REFERENCE_RMS_DBFS: f32 = -11.0;
 
 /// Deterministically synthesize one provider-authored procedural cue.
 ///
-/// [`SfxSpec::volume`] is a **loudness** trim, not a peak amplitude: the cue's
+/// [`SfxSpec::volume`] is a loudness trim, not a peak amplitude: the cue's
 /// body is rendered at unit scale, measured, and scaled so its RMS is `volume`
 /// of [`PROCEDURAL_CUE_REFERENCE_RMS_DBFS`]. Two cues authored at the same
 /// `volume` are therefore equally loud whatever waveform and noise mix they

@@ -328,7 +328,7 @@ fn tick_player_brain_no_input_emits_neutral_with_facing() {
     assert_eq!(out.facing, -1.0);
 }
 
-/// ⛔ **`velocity_target` is WORLD-space and this brain wrote a LOCAL vector.**
+///  `velocity_target` is WORLD-space and this brain wrote a LOCAL vector.
 ///
 /// Its doc says *"exact world-space velocity command in px/s"*, and every other
 /// writer agrees: `limbs.rs` sends `(home_world - pos) * gain`, and the smash
@@ -336,7 +336,7 @@ fn tick_player_brain_no_input_emits_neutral_with_facing() {
 /// the body-local stick — the free-mover steering for a POSSESSED FLYER, which
 /// is the body-generic case the comment there promises to serve.
 ///
-/// ⚠ **what "wrong" looks like, measured.** Under gravity pointing world-left,
+///  what "wrong" looks like, measured. Under gravity pointing world-left,
 /// a screen-RIGHT push resolves to the body-local vector `(0, -1)` — local `-y`
 /// is toward the head, and the head points world-right. Written straight into a
 /// world field that commands `(0, -speed)`: the flyer flies world-UP when the

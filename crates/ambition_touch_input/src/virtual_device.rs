@@ -313,7 +313,7 @@ pub fn touch_bindings() -> Vec<(
 /// wholesale) re-binds touch; our own insertion bypasses change detection so
 /// the write does not re-trigger this system into duplicate bindings.
 ///
-/// **Primary only.** The overlay is ONE virtual device on the machine's own
+/// Primary only. The overlay is ONE virtual device on the machine's own
 /// screen, so it belongs to the primary seat — the same attribution the raw
 /// screen devices get everywhere else in this crate ("one device on one
 /// screen: the local primary seat"). Binding it into EVERY seat's map is

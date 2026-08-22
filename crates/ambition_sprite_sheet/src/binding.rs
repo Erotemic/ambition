@@ -51,10 +51,10 @@ impl SheetRecord {
     /// least visible. It costs one short string compare against a slot we are
     /// about to index anyway. Using a bound from another sheet is a programmer
     /// error, not a content typo, so it is loud rather than degradable.
-    /// **The first row of `chain` this sheet actually has.**
+    /// The first row of `chain` this sheet actually has.
     ///
-    /// **the seam that lets an authored CLIP be drawn without an engine enum
-    /// variant**. A `MoveSpec` names its clip
+    /// the seam that lets an authored CLIP be drawn without an engine enum
+    /// variant. A `MoveSpec` names its clip
     /// and its fallbacks — `smash_forward`, then `attack_side`, then `slash` —
     /// and the runtime's typed `CharacterAnim` vocabulary cannot grow one variant
     /// per expressive row without becoming the 271-entry fighter-motion catalog.
@@ -62,7 +62,7 @@ impl SheetRecord {
     /// it does have; a sheet with none of them gets `None` and the caller's
     /// semantic ladder answers instead.
     ///
-    /// **it returns `Option`, never index 0.** The habit this replaces is
+    /// it returns `Option`, never index 0. The habit this replaces is
     /// `row_index_of(name).unwrap_or(0)`, which draws IDLE for a missing attack
     /// row and looks like a character that simply does not swing.
     ///
@@ -185,7 +185,7 @@ mod tests {
         assert_eq!(sheet.row(&bound).animation, "death");
         assert_eq!(sheet.row(&bound).row_index, 2);
     }
-    /// **A clip resolves to its exact row when the sheet has it.**
+    /// A clip resolves to its exact row when the sheet has it.
     #[test]
     fn an_authored_clip_prefers_its_exact_row() {
         let sheet = sheet_with_rows(&["idle", "attack_side", "slash", "smash_forward"]);
@@ -195,7 +195,7 @@ mod tests {
         assert_eq!(bound.id(), "smash_forward");
     }
 
-    /// **A lean sheet falls through the AUTHORED chain, in order.**
+    /// A lean sheet falls through the AUTHORED chain, in order.
     ///
     /// two terms: the chain is tried left to right (so `attack_side` wins over
     /// `slash` when both exist), and a sheet with NONE of them answers `None`

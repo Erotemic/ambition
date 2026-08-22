@@ -1,18 +1,18 @@
-//! **What the boss catalog says about sheets and special telegraphs, pinned
-//! exactly — so moving it out of Rust cannot change it.**
+//! What the boss catalog says about sheets and special telegraphs, pinned
+//! exactly — so moving it out of Rust cannot change it.
 //!
 //! It asserts the VALUES, not the mechanism, so it says nothing about where they live and
 //! everything about what they are.
 //!
-//! **it deliberately pins the exact sets, not just counts.** A count survives
+//! it deliberately pins the exact sets, not just counts. A count survives
 //! a typo'd key — and a typo'd key here is silent by construction: a boss whose
 //! sheet filename is misspelled draws a placeholder, and a special whose name is
 //! misspelled telegraphs nothing, because `special_animation_keys` returns `&[]`
 //! for anything unregistered (`boss_animation_keys_for_profile`: *"Unregistered
 //! → no special row"*).
 //!
-//! **`apple_rain` is absent from the telegraph map ON PURPOSE and this test records that rather
-//! than fixing it.** It is the eleventh declared `Special` in `boss_profiles.ron` and the only one
+//! `apple_rain` is absent from the telegraph map ON PURPOSE and this test records that rather
+//! than fixing it. It is the eleventh declared `Special` in `boss_profiles.ron` and the only one
 //! with no rows, which is the single line of content blocking the `BossAnim`→`CharacterAnim` fold.
 //! A sibling test — `apple_rain_claims_no_animation_rows_which_is_why_the_fold_is_blocked` — fails
 //! on EITHER answer so neither happens quietly; this one would too.
@@ -89,7 +89,7 @@ fn the_ten_telegraphing_specials_ask_for_exactly_these_rows() {
     }
 }
 
-/// **the invariant the schema will inherit**: a telegraph row for a special
+/// the invariant the schema will inherit: a telegraph row for a special
 /// nobody declares is dead content, and the current map has no way to say so.
 #[test]
 fn every_telegraphing_special_is_one_the_profiles_actually_declare() {

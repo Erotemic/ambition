@@ -1,4 +1,4 @@
-//! **Does the CPU actually PLAY the repertoire, or does it own one?**
+//! Does the CPU actually PLAY the repertoire, or does it own one?
 //!
 //! So this is an INSTRUMENT first and an assertion second. It watches which
 //! moves actually start on a body during a real CPU-versus-CPU match — the same
@@ -8,7 +8,7 @@
 //! An instrument reports; the assertions below are a separate, smaller claim laid on top of the
 //! report.
 //!
-//! **the thresholds are floors, not targets.** do not tune content against
+//! the thresholds are floors, not targets. do not tune content against
 //! them: "five distinct move ids" is the difference between a repertoire and a
 //! single swing, and a fighter that hits exactly five is barely passing rather
 //! than correct.
@@ -23,7 +23,7 @@
 //! measures it without an edit. A test carrying a list of George's move ids
 //! would pass forever while a second fighter threw one jab.
 //!
-//! **`excluded_middle` is named in exactly one place** — the mirror-match
+//! `excluded_middle` is named in exactly one place — the mirror-match
 //! recovery test — and deliberately: that one is a claim about GEORGE's
 //! specific way home, and it says so.
 
@@ -121,7 +121,7 @@ fn aerials(table: &MovesetContract) -> BTreeSet<&str> {
         .collect()
 }
 
-/// **Move ids whose authored frame data commands a rise** — the ways home,
+/// Move ids whose authored frame data commands a rise — the ways home,
 /// recognised by geometry exactly the way `lifting_candidates` recognises them
 /// for the brain, so the two layers cannot disagree about what a route is.
 fn routes(table: &MovesetContract) -> BTreeSet<&str> {
@@ -183,14 +183,14 @@ impl MatchReport {
     }
 }
 
-/// **The one seating path in this file.** Two CPUs at the same rung, through the
+/// The one seating path in this file. Two CPUs at the same rung, through the
 /// demo shell, watched for `ticks` frames after the countdown.
 fn run_a_match(characters: [&str; 2], ticks: usize) -> MatchReport {
     let mut app = build_demo_app();
     for _ in 0..30 {
         app.update();
     }
-    // **both seats CPU, same rung.** `smash_roster_at_levels` is the helper
+    // both seats CPU, same rung. `smash_roster_at_levels` is the helper
     // that seats every slot as a CPU; the sibling test in `the_stage_kills` has
     // the scar from using the one that makes seat 0 a human with no controller,
     // which measures one fighter pacing around a statue.
@@ -211,7 +211,7 @@ fn run_a_match(characters: [&str; 2], ticks: usize) -> MatchReport {
                 ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
             ),
         ));
-    // **the warm-up has to outlast the countdown.** The stage opens suspended
+    // the warm-up has to outlast the countdown. The stage opens suspended
     // and every fighter carries scripted control for the whole 3-2-1-GO, so a
     // window inside the hold measures fighters that are correctly forbidden to
     // act. Read from the ruleset rather than restating it.
@@ -253,7 +253,7 @@ fn run_a_match(characters: [&str; 2], ticks: usize) -> MatchReport {
         tables,
         characters: seat_characters,
     };
-    // **every run, not only a failing one.** See the module header.
+    // every run, not only a failing one. See the module header.
     eprintln!(
         "[repertoire] {characters:?} over {ticks} ticks\n{}",
         report.render()
@@ -266,9 +266,9 @@ fn watch_a_match(character: &str, ticks: usize) -> MoveLedger {
     run_a_match([character, character], ticks).ledger
 }
 
-/// **A FIGHTER WITH SIXTEEN MOVES THROWS MORE THAN ONE OF THEM.**
+/// A FIGHTER WITH SIXTEEN MOVES THROWS MORE THAN ONE OF THEM.
 ///
-/// **and the poison is the shared table.** `smash_duelist_a` carries eleven moves with no
+/// and the poison is the shared table. `smash_duelist_a` carries eleven moves with no
 /// specials at all; if THAT fighter also reached this floor, the number would be measuring the
 /// brain's appetite for variety rather than George's repertoire.
 #[test]
@@ -286,17 +286,17 @@ fn the_cpu_reaches_for_more_than_one_move() {
     );
 }
 
-/// **THE RECOVERY IS A MOVE THE CPU THROWS, NOT A MOVE IT OWNS.**
+/// THE RECOVERY IS A MOVE THE CPU THROWS, NOT A MOVE IT OWNS.
 ///
 /// this is the one that could pass vacuously in the most expensive way. Authoring the move fixes
 /// nothing on its own; the brain has to offer it.
 ///
-/// **the measurement is deliberately weak on WHEN and strict on WHETHER.**
+/// the measurement is deliberately weak on WHEN and strict on WHETHER.
 /// Pinning the recovery to a particular offstage position would be pinning the
 /// tuning of a demo. What must never be true is that the move is never thrown in
 /// a match where fighters are being launched off a stage.
 ///
-/// **this is the one test that names a move**, because it is a claim about
+/// this is the one test that names a move, because it is a claim about
 /// GEORGE's own way home rather than about the engine's route affordance. The
 /// generic version of the claim is `every_authored_route_gets_pressed` below.
 #[test]
@@ -313,7 +313,7 @@ fn the_cpu_throws_its_authored_recovery_during_a_match() {
     );
 }
 
-/// **AND IT IS THE REPERTOIRE DOING IT, not the brain's appetite for variety.**
+/// AND IT IS THE REPERTOIRE DOING IT, not the brain's appetite for variety.
 #[test]
 fn a_fighter_that_authored_no_special_throws_none() {
     let ledger = watch_a_match(ambition_demo_smash::SMASH_CHARACTER_ID, 600);
@@ -330,7 +330,7 @@ fn a_fighter_that_authored_no_special_throws_none() {
     );
 }
 
-/// **TWO DIFFERENT TABLES, ON ONE STAGE, PLAYING DIFFERENT GAMES.**
+/// TWO DIFFERENT TABLES, ON ONE STAGE, PLAYING DIFFERENT GAMES.
 ///
 /// That answers *"is the repertoire exercised"* and cannot answer the question a viewer actually
 /// asks, which is whether the two bodies on screen are doing recognisably different things.
@@ -339,7 +339,7 @@ fn a_fighter_that_authored_no_special_throws_none() {
 /// stand-in duelist authors eleven with no special and nothing that lifts. So
 /// the contrast is real content rather than two names.
 ///
-/// **what this asserts is DIFFERENCE, not quality.** It says each fighter
+/// what this asserts is DIFFERENCE, not quality. It says each fighter
 /// threw something the other's table does not even contain — so the difference a
 /// viewer sees is repertoire and not labelling. It says nothing about the SHAPE
 /// of either distribution, which the printed histogram is for.
@@ -356,7 +356,7 @@ fn two_different_tables_produce_two_different_fights() {
     );
     let report = m.render();
 
-    // **THE POISON.** A character id the composition does not carry is seated
+    // THE POISON. A character id the composition does not carry is seated
     // as a stand-in wearing the shared table, and both seats would then be the
     // same fighter twice while every assertion below still passed.
     let tables: Vec<&MovesetContract> = m.tables.values().collect();
@@ -374,8 +374,8 @@ fn two_different_tables_produce_two_different_fights() {
             .flat_map(|(_, t)| t.moves.iter().map(|mv| mv.id.as_str()))
             .collect();
         let started = m.started(*seat);
-        // **NON-VACUITY FIRST, because a guard placed AFTER the assertion it
-        // protects can never run.** This one was written correctly and sat
+        // NON-VACUITY FIRST, because a guard placed AFTER the assertion it
+        // protects can never run. This one was written correctly and sat
         // below, so when the claim failed for exactly the reason the guard
         // names, the claim's message got the blame.
         assert!(
@@ -384,8 +384,8 @@ fn two_different_tables_produce_two_different_fights() {
              anything and the claim below would be about an empty set.\n{report}"
         );
 
-        // **compared against what the OPPONENT THREW, not what it COULD
-        // throw.** Measuring a seat's throws against the other seat's whole
+        // compared against what the OPPONENT THREW, not what it COULD
+        // throw. Measuring a seat's throws against the other seat's whole
         // TABLE is unpassable whenever one table contains the other — George
         // authors 16 moves and the duelist 11, so the duelist could never throw
         // anything "George's table lacks" no matter how differently it played,
@@ -423,7 +423,7 @@ fn two_different_tables_produce_two_different_fights() {
     }
 }
 
-/// **EVERY FIGHTER THAT AUTHORS A WAY HOME PRESSES IT** — the generic form of
+/// EVERY FIGHTER THAT AUTHORS A WAY HOME PRESSES IT — the generic form of
 /// `the_cpu_throws_its_authored_recovery_during_a_match`, with no move id in it.
 ///
 /// the route set is derived by the same `lift_speed > 0` predicate the brain's
@@ -431,7 +431,7 @@ fn two_different_tables_produce_two_different_fights() {
 /// than George. A fighter that authors none is skipped, and the guard below
 /// refuses to let the whole test become a skip.
 ///
-/// **AND HERE IS WHAT IT CANNOT SEE, stated rather than implied.** A throw is
+/// AND HERE IS WHAT IT CANNOT SEE, stated rather than implied. A throw is
 /// not a decision. Any move commanding a rise satisfies this, including one
 /// authored as a JUGGLE rather than a way home — the Pirate Admiral's `air_up`
 /// is exactly that, deliberately. So a green here means *"the fighter pressed
@@ -474,7 +474,7 @@ fn every_authored_route_gets_pressed() {
     );
 }
 
-/// **`Situation::Recovery` → WHICH ACTION WAS SELECTED**, asked of the brain's
+/// `Situation::Recovery` → WHICH ACTION WAS SELECTED, asked of the brain's
 /// own decision facts rather than inferred from what the body did.
 ///
 /// Everything above sees a move being THROWN. None of it can see the decision
@@ -486,7 +486,7 @@ fn every_authored_route_gets_pressed() {
 /// `recovery_move` (what the kernel endorsed), so the histogram is a group-by
 /// rather than a reconstruction.
 ///
-/// **gated on `causal`, which is NOT a default feature** — recording costs
+/// gated on `causal`, which is NOT a default feature — recording costs
 /// work per tick and a shipped demo must not pay it:
 /// `cargo test -p ambition_demo_smash_app --features causal --test smash_it -- the_repertoire_gets_used --nocapture`
 #[cfg(feature = "causal")]
@@ -508,11 +508,11 @@ mod the_decision_log {
         const WINDOW: usize = 1800;
 
         let mut app = build_demo_app();
-        // **the FEATURE and the PLUGIN are two switches, deliberately.** The
+        // the FEATURE and the PLUGIN are two switches, deliberately. The
         // feature compiles the publishers in; only `CausalPlugin` creates the
         // recording they write to.
         app.add_plugins(CausalPlugin);
-        // **BRAIN only, and the ring is why.** `CausalLog` holds 4096 facts and
+        // BRAIN only, and the ring is why. `CausalLog` holds 4096 facts and
         // drops the oldest, so `RecordingPolicy::All` over a thirty-second match
         // would leave the histogram silently describing its last second.
         // `dropped()` is reported below either way.
@@ -568,7 +568,7 @@ mod the_decision_log {
                 .entry((situation.clone(), action))
                 .or_default() += 1;
             if situation == "Recovery" {
-                // **the PROPOSALS ride along with the outcome**, because
+                // the PROPOSALS ride along with the outcome, because
                 // `no-route` means two different things — the repertoire offered
                 // nothing, or the kernel declined everything it was offered — and
                 // only the second is a tuning question. `pressed` is what the

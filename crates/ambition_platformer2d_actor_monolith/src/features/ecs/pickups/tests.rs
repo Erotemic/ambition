@@ -201,7 +201,7 @@ fn a_pickup_that_declares_no_magnet_stays_where_it_landed() {
 
 /// The magnet pulls toward the NEAREST collector, not toward "the player".
 ///
-/// ⚠ the old rule queried `With<PrimaryPlayer>` and `.single()`, so on a couch
+///  the old rule queried `With<PrimaryPlayer>` and `.single()`, so on a couch
 /// every coin in the room flew at seat one — and with two players present it
 /// would not have run at all.
 #[test]

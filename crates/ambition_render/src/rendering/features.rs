@@ -169,7 +169,7 @@ pub fn despawn_dead_dynamic_feature_visuals(
 /// drawing requires world geometry.
 pub fn draw_unclaimed_feature_views(
     mut commands: Commands,
-    // ⚠ **`Option`, and that is load-bearing.** `SessionWorldRef` is a `Single`,
+    //  `Option`, and that is load-bearing. `SessionWorldRef` is a `Single`,
     // so an app with no session world SKIPS the whole system — including the
     // census below, which the cover then reads a frame (or a hundred) stale.
     // Publishing is unconditional; only the DRAWING needs a world to place a
@@ -211,7 +211,7 @@ pub fn draw_unclaimed_feature_views(
 
     // ── The CENSUS: the cover's question, answered every frame this runs ─────
     //
-    // ⚠ **`stand_ins` is deliberately NOT subtracted.** A stand-in is not art; a view wearing
+    //  `stand_ins` is deliberately NOT subtracted. A stand-in is not art; a view wearing
     // one is still a view nothing drew.
     let mut unclaimed_now: Vec<(&str, &ambition_sim_view::FeatureView)> = views
         .iter()
@@ -289,7 +289,7 @@ pub fn draw_unclaimed_feature_views(
     }
 }
 
-/// **Presentation is dormant, so nothing is waiting on it.**
+/// Presentation is dormant, so nothing is waiting on it.
 ///
 /// So the dormant answer is published as explicitly as the live one. Same
 /// statement, inverse condition, registered beside its twin.
@@ -304,23 +304,23 @@ pub fn forget_unclaimed_feature_views_while_dormant(mut unsettled: ResMut<Unclai
 #[derive(Component)]
 pub struct UnclaimedBodyPlaceholder;
 
-/// **Which published feature views nothing has drawn.**
+/// Which published feature views nothing has drawn.
 ///
 /// Republished every frame by [`draw_unclaimed_feature_views`]: every
 /// [`ambition_sim_view::FeatureViewIndex`] row with a body (`size > 0`) that no
 /// render family has claimed with a real [`FeatureVisual`].
 ///
-/// ## ⛔⛔ This is NOT "how many magenta boxes are on screen"
+/// ##  This is NOT "how many magenta boxes are on screen"
 ///
 /// | role | question | wants to fire |
 /// |---|---|---|
-/// | the stand-in ([`UnclaimedBodyPlaceholder`]) | *did somebody forget a family marker?* | **late** — only once a view has stayed unclaimed long enough to be a real orphan |
-/// | this resource | *is the new room finished drawing?* | **immediately** — the instant a view is unclaimed, so the cover keeps waiting |
+/// | the stand-in ([`UnclaimedBodyPlaceholder`]) | *did somebody forget a family marker?* | late — only once a view has stayed unclaimed long enough to be a real orphan |
+/// | this resource | *is the new room finished drawing?* | immediately — the instant a view is unclaimed, so the cover keeps waiting |
 ///
-/// ⚠ **a view wearing a stand-in is still counted here.** A stand-in is not art.
+///  a view wearing a stand-in is still counted here. A stand-in is not art.
 /// That subtraction is the one place the two counts differed.
 ///
-/// **ORDERING.** A reader must be ordered AFTER the publisher in the SAME schedule.
+/// ORDERING. A reader must be ordered AFTER the publisher in the SAME schedule.
 #[derive(Resource, Default, Debug)]
 pub struct UnclaimedFeatureViews {
     /// Sorted, so a report that names them reads the same twice.
@@ -365,7 +365,7 @@ mod tests {
     fn app_with_a_room() -> App {
         let mut app = App::new();
         app.init_resource::<DynamicFeatureViews>();
-        // ⛔ **not optional, and its absence is silent.** `ResMut<..>` of a
+        //  not optional, and its absence is silent. `ResMut<..>` of a
         // missing resource fails param validation, which SKIPS the system — so a
         // fixture that forgot this would exercise nothing and pass.
         app.init_resource::<UnclaimedFeatureViews>();
@@ -422,7 +422,7 @@ mod tests {
         }
     }
 
-    /// **A diagnosis must not outlive the bug it diagnosed.**
+    /// A diagnosis must not outlive the bug it diagnosed.
     ///
     /// The floor spawns a `FeatureVisual`, and the family spawner skips any id that already has
     /// one — so a stand-in drawn on a frame where a family was not yet ready would make that
@@ -463,19 +463,8 @@ mod tests {
         );
     }
 
-    /// **The stand-in for an AUTHORED feature was unreachable by every cleanup
-    /// path, and it held the room-transition cover for eight seconds.**
-    ///
-    /// *"When we transition from world 1-1 to 1-2 or back there
-    /// is a long time where there is just a black screen even though music
-    /// plays."* The black is the transition cover, and it is retired only once
-    /// no `UnclaimedBodyPlaceholder` remains — otherwise it holds to an
-    /// 8-second give-up deadline.
-    ///
-    /// A placeholder is SPAWNED from `FeatureViewIndex`, which holds every feature.
-    ///
-    /// `the_real_visual_replaces_the_unclaimed_stand_in` above asserts exactly
-    /// this property for the DYNAMIC population and passed throughout.
+    /// An authored feature's placeholder must retire when its real visual arrives;
+    /// otherwise the placeholder keeps the room-transition cover active.
     #[test]
     fn the_stand_in_for_an_authored_feature_is_retired_when_its_visual_arrives() {
         let mut app = app_with_a_room();
@@ -517,7 +506,7 @@ mod tests {
         );
     }
 
-    /// **The poison, and it is the whole limit on the grace period.** The floor must still DRAW
+    /// The poison, and it is the whole limit on the grace period. The floor must still DRAW
     /// a stand-in for a view nothing will ever claim.
     #[test]
     fn a_permanently_unclaimed_view_still_gets_its_stand_in() {
@@ -546,7 +535,7 @@ mod tests {
         );
     }
 
-    /// ⭐⭐ **THE SPLIT, stated in one assertion.**
+    ///  THE SPLIT, stated in one assertion.
     ///
     /// On the very first frame a view is unclaimed, the cover must already know
     /// the room is not drawn — and no magenta box may exist yet, because a
@@ -584,8 +573,8 @@ mod tests {
         );
     }
 
-    /// **A view published now and claimed two flushes later leaves the room
-    /// unsettled on the frames in between.**
+    /// A view published now and claimed two flushes later leaves the room
+    /// unsettled on the frames in between.
     ///
     /// The guard the conflation makes impossible: once the stand-in has a grace
     /// period, a placeholder-based count cannot express this at all — it reads
@@ -669,7 +658,7 @@ mod tests {
         );
     }
 
-    /// **Presentation is dormant, so the census must say so.**
+    /// Presentation is dormant, so the census must say so.
     ///
     /// The publisher is session-gated. A `Resource` it stops writing keeps its
     /// last value — unlike the session-scoped entities it replaced, which the

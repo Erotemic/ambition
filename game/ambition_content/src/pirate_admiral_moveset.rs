@@ -1,50 +1,9 @@
-//! **The Pirate Admiral's repertoire** — a cutlass, and the reach that comes with
-//! carrying one.
+//! Pirate Admiral's authored Smash repertoire.
 //!
-//! That floor's goal is DELETION and the count only moves when somebody writes a table.
-//!
-//! **the character was already telling us what its moves are.** Its catalog row
-//! says `default_action_set: "pirate_pistol"` and the roster comment beside its id
-//! reads *"pistol + cutlass"*; its sprite is authored at `collision_scale: 1.6`,
-//! the largest of the three fighters with tables. So: a big body with a long blade
-//! — slower than the goblin, longer than the robot, and hitting harder than either
-//! when it connects.
-//!
-//! ```text
-//!            reach     jab startup   f-smash damage
-//!   goblin    22 px       0.04 s          12
-//!   robot     26 px       0.05 s          15
-//!   admiral   32 px       0.06 s          17
-//! ```
-//!
-//! ## THE SECOND FIGHTER IN THE REPO WITH A RECOVERY, AND IT IS NOT A RISE
-//!
-//! The first (`smash_george_booul`) authors a straight-up Up-B: a `Set` of
-//! `(0, -1020)`, the move IS the height, and one scalar described it exactly.
-//! The admiral's `grapple_line` is a boarding line thrown at the stage and
-//! hauled in — `(980, -300)`, almost all of it lateral — and it exists to press
-//! the abstraction from the other direction:
-//!
-//! ```text
-//!                     across    up      what the move supplies
-//!   excluded_middle        0   1020     the whole recovery
-//!   grapple_line         980    300     the distance; the BODY supplies the height
-//! ```
-//!
-//! **so the two recoveries divide the work differently, which is what makes
-//! this a second mechanism rather than the first one at an angle.** An admiral
-//! knocked below the lip has to spend his double jump FIRST and grapple second;
-//! one knocked out level can grapple immediately. A vertical Up-B collapses that
-//! decision into one press.
-//!
-//! Every policy layer read the biggest number as "the recovery". See `air_up` below, which is
-//! authored as the poison for exactly that.
-//!
-//! **the PISTOL is not in here, and that is the authority split doing its job.**
-//! A ranged verb belongs to the character's `ActionSet` — what this body is
-//! CAPABLE of — while this table is what its swings ARE. Putting a shot in the
-//! move list would give one press two owners, which is the exact double-ownership
-//! `RangedExecution` exists to prevent.
+//! The kit emphasizes cutlass reach and a lateral grapple recovery. The grapple spends
+//! most of its displacement across the stage, so vertical recovery still depends on the
+//! body's other movement resources. The pistol remains an `ActionSet` capability rather
+//! than a move-table entry, keeping ranged execution under one authority.
 
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
@@ -58,7 +17,7 @@ use ambition_characters::moveset_authoring::{
     committed_tail, impulse, on_contact, sfx, strike, vfx, vfx_at,
 };
 
-/// **How far across the grapple hauls him**, engine units per second along
+/// How far across the grapple hauls him, engine units per second along
 /// facing.
 ///
 /// the number that IS the move. A recovery is usually authored as a rise; this
@@ -74,7 +33,7 @@ pub(crate) const GRAPPLE_RISE: f32 = 300.0;
 /// recovery search plans around.
 pub(crate) const GRAPPLE_AT_S: f32 = 0.16;
 
-/// And when the move lets go. **not a feel number.** The rise buys
+/// And when the move lets go. not a feel number. The rise buys
 /// `GRAPPLE_RISE² / 2g ≈ 20px` of climb and takes `GRAPPLE_RISE / g ≈ 0.13s` to
 /// spend it, so any tail longer than twice that hands the admiral back BELOW
 /// where the move found him — which is what stops a re-pressable recovery from
@@ -252,7 +211,7 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         Some((0.0, -1.0)),
         None,
     );
-    // **THE STALL.** A rising cutlass overhead that takes the admiral up with
+    // THE STALL. A rising cutlass overhead that takes the admiral up with
     // it — the genre's juggle aerial, and the reason this table can chain one
     // hit into the next instead of falling out from under its own combo.
     let u_air = impulse(u_air, 0.08, (0.0, -360.0), ImpulseMode::Set);
@@ -281,14 +240,14 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
 
     // ── the four specials ────────────────────────────────────────────────────
     //
-    // **four MECHANISMS, and none of them is another one rotated.** One fires
+    // four MECHANISMS, and none of them is another one rotated. One fires
     // forward and shoves its owner backward; one adds to whatever the body was
     // already doing; one commands a diagonal haul; one commands a full stop. The
     // shared `strike` gives them all the same timeline shape, so what separates
     // them is what they do to the ADMIRAL, which is the only axis a table can
     // differentiate a special on without new engine mechanisms.
 
-    // **NEUTRAL — `grapeshot`.** A pistol at the hip, and the recoil that comes
+    // NEUTRAL — `grapeshot`. A pistol at the hip, and the recoil that comes
     // with firing one from a standing start. The volume is short and wide; the
     // admiral is thrown BACKWARD out of it, which is a real spacing tool and a
     // real way to remove yourself from the stage.
@@ -306,7 +265,7 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         Some((0.85, -0.55)),
         None,
     );
-    // **negative side, and that sign is the whole move.** The catalog reads
+    // negative side, and that sign is the whole move. The catalog reads
     // this as a route with `lift_side < 0` — a displacement that carries its
     // owner AWAY from whatever it is facing. A recovery search will happily
     // propose it and the kernel will decline it every time it is thrown toward
@@ -317,9 +276,9 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     let neutral_b = vfx(neutral_b, 0.14, "smoke_burst");
     let neutral_b = on_contact(neutral_b, "world.rock.hit");
 
-    // **SIDE — `boarding_run`.** A shoulder-first charge across the deck.
+    // SIDE — `boarding_run`. A shoulder-first charge across the deck.
     //
-    // **`Add`, not `Set`, and that is the character.** It CONTRIBUTES to the
+    // `Add`, not `Set`, and that is the character. It CONTRIBUTES to the
     // admiral's own momentum, so it is longest out of a run and nearly nothing
     // from a standstill — the opposite trade from a commanded charge. It
     // therefore states no speed, so it advertises no route: a static reader
@@ -346,14 +305,14 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     let side_b = vfx(side_b, 0.16, "shockwave");
     let side_b = on_contact(side_b, "player.robot.slash.impact.metal.gong");
 
-    // **UP — `grapple_line`. THE RECOVERY, and it is not a rise.**
+    // UP — `grapple_line`. THE RECOVERY, and it is not a rise.
     //
     // a boarding line thrown at the stage and hauled in. The commanded
     // velocity is `(980, -300)`: almost all of the energy goes ACROSS, and the
     // small against-gravity component exists to keep the admiral level while he
     // travels rather than to climb.
     //
-    // **the height is the BODY's job and the distance is the MOVE's**, which
+    // the height is the BODY's job and the distance is the MOVE's, which
     // is the division of labour that makes this mechanically a different
     // recovery from a vertical Up-B rather than the same one at an angle. An
     // admiral knocked below the lip must spend his double jump FIRST and then
@@ -394,7 +353,7 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     let up_b = vfx(up_b, GRAPPLE_AT_S, "classic_burst");
     let up_b = on_contact(up_b, "player.hit");
 
-    // **DOWN — `heave_to`.** The anchor. It commands a FULL STOP: `(0, 0)`, a
+    // DOWN — `heave_to`. The anchor. It commands a FULL STOP: `(0, 0)`, a
     // `Set` of zero.
     //
     // the only move in the repo whose commanded velocity is nothing, and it is
@@ -421,7 +380,7 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     let down_b = vfx(down_b, 0.12, "starburst");
     let down_b = on_contact(down_b, "player.robot.slash.impact.metal.chink");
 
-    // **the forward tilt.** With all four specials authored, this was the only
+    // the forward tilt. With all four specials authored, this was the only
     // press on the admiral that fell down the directional chain — a fighter
     // carrying a cutlass answering "forward" with a jab. A LEVEL CUT at chest
     // height: the longest tilt on the grid, because reach is what the cutlass is
@@ -446,7 +405,7 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
 
     // ── The boarding grapple ────────────────────────────────────────────────
     //
-    // **the deliberate opposite of George's**, and the pair is the point: two
+    // the deliberate opposite of George's, and the pair is the point: two
     // fighters authored through two different providers, sharing no numbers.
     //
     // The admiral carries a cutlass and boards ships. His grab is FAST (`0.07`
@@ -475,7 +434,7 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         0.06,
         CapturePummelParams { damage: 2 },
     );
-    // **an UPWARD throw wearing the forward slot**, and that is a character
+    // an UPWARD throw wearing the forward slot, and that is a character
     // fact rather than a mistake. George throws flat and across for stage
     // control; the admiral heaves a body up and slightly forward (`0.55` lateral
     // against `-1.0` vertical) so it lands in front of him and he keeps swinging.
@@ -548,8 +507,8 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(neutral_b),
         side_special: side_b,
         up_special: up_b,
-        // **the second fighter to author one, and through a DIFFERENT
-        // provider** — this crate, not the smash demo. That is the falsifier:
+        // the second fighter to author one, and through a DIFFERENT
+        // provider — this crate, not the smash demo. That is the falsifier:
         // the capture vocabulary is not quietly tied to one game-owned file.
         capture: SmashCaptureRepertoire {
             cues: CaptureCues::GENERIC,
@@ -631,7 +590,7 @@ mod tests {
         })
     }
 
-    /// **THE RECOVERY IS A CROSSING, AND THE TABLE SAYS SO IN ITS OWN NUMBERS.**
+    /// THE RECOVERY IS A CROSSING, AND THE TABLE SAYS SO IN ITS OWN NUMBERS.
     ///
     /// the one claim this fighter exists to make: its way home spends its
     /// budget on DISTANCE, not on height. Asserting the ratio rather than the
@@ -661,8 +620,8 @@ mod tests {
         );
     }
 
-    /// **THE GRAPPLE IS A CROSSING AND NOT A FLIGHT — and the arithmetic is the
-    /// reason.**
+    /// THE GRAPPLE IS A CROSSING AND NOT A FLIGHT — and the arithmetic is the
+    /// reason.
     ///
     /// this is what lets the recovery exist with no cooldown, no per-airtime
     /// counter and no new rollback state. The body cannot re-press while the move
@@ -691,10 +650,10 @@ mod tests {
         );
     }
 
-    /// **THE POISON, AUTHORED: A TINY UPWARD ATTACK OUTRANKS THE RECOVERY ON
-    /// THE SCALAR, AND MUST NOT BE THE RECOVERY.**
+    /// THE POISON, AUTHORED: A TINY UPWARD ATTACK OUTRANKS THE RECOVERY ON
+    /// THE SCALAR, AND MUST NOT BE THE RECOVERY.
     ///
-    /// **this test asserts the SETUP, not the fix.** The fix lives in
+    /// this test asserts the SETUP, not the fix. The fix lives in
     /// `RecoveryLens::best_route`, which searches every route instead of ranking
     /// them, and it is pinned there
     /// (`a_tiny_lifting_move_does_not_suppress_a_viable_recovery`). What is
@@ -746,7 +705,7 @@ mod tests {
 
     const DT: f32 = 1.0 / 60.0;
 
-    /// **The admiral's kit as an AIRBORNE body sees it** — the posture filter the
+    /// The admiral's kit as an AIRBORNE body sees it — the posture filter the
     /// runtime applies before the brain ever looks, so a grounded-only tilt
     /// cannot be proposed off the side of a stage.
     ///
@@ -794,9 +753,9 @@ mod tests {
         }
     }
 
-    /// **THE ACCEPTANCE MEASUREMENT: the admiral's own table, the brain's own
+    /// THE ACCEPTANCE MEASUREMENT: the admiral's own table, the brain's own
     /// route derivation, and the real movement kernel agree that `grapple_line`
-    /// is the way home — and they do it without anybody naming him.**
+    /// is the way home — and they do it without anybody naming him.
     ///
     /// Every step is the shipped one. The kit is this file's `MovesetContract`
     /// posture-filtered the way the runtime filters it; the routes come from
@@ -805,7 +764,7 @@ mod tests {
     /// drives `step_motion`. There is no character conditional anywhere in that
     /// chain and this test would read identically for any fighter.
     ///
-    /// **and the ORDER is asserted first, because the order is the trap.**
+    /// and the ORDER is asserted first, because the order is the trap.
     /// `air_up` sorts above `grapple_line` on the only number a static reader
     /// has. A layer that took the first candidate would take the juggle aerial.
     #[test]
@@ -838,7 +797,7 @@ mod tests {
             },
             movement: ae::MovementTuning::default(),
         };
-        // **the double jump is SPENT**, which is the situation the module doc
+        // the double jump is SPENT, which is the situation the module doc
         // describes: the admiral buys his height with the body's own verb and
         // then crosses with the move. A fixture that left the jump unspent would
         // be measuring a body that has not got into trouble yet.
@@ -886,7 +845,7 @@ mod tests {
         );
     }
 
-    /// **FOUR SPECIALS, FOUR MECHANISMS.**
+    /// FOUR SPECIALS, FOUR MECHANISMS.
     ///
     /// four rotations of one strike would be a re-skin, so the assertion is
     /// about what each does to the ADMIRAL: one commands a retreat, one
@@ -943,9 +902,9 @@ mod tests {
         );
     }
 
-    /// **EVERY IMPORTANT MOVE IS HEARD AND SEEN.**
+    /// EVERY IMPORTANT MOVE IS HEARD AND SEEN.
     ///
-    /// **the vfx ids are checked against the SHIPPED ART** — the rows of the
+    /// the vfx ids are checked against the SHIPPED ART — the rows of the
     /// published FX spritesheets, which is what the renderer resolves against
     /// and what `MoveSpec::presentation_problems` is handed. A typo here would
     /// be a move that plays nothing. So this asserts membership rather than
@@ -1002,7 +961,7 @@ mod tests {
         );
     }
 
-    /// **Three tables, three fighters, one ORDERING** — and it is checked against
+    /// Three tables, three fighters, one ORDERING — and it is checked against
     /// the other two rather than against literals.
     ///
     /// this is what stops a repertoire being the previous one renumbered. The

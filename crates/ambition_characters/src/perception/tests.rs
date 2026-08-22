@@ -424,7 +424,7 @@ fn phase_classification_names_the_punish_windows() {
     assert!(!BodyPhase::Shielding.is_attacking());
 }
 
-/// **The tie has to break somewhere, and it has to break the same way twice.**
+/// The tie has to break somewhere, and it has to break the same way twice.
 ///
 /// Two hostiles in view are both at confidence `1.0`, so `last_known_hostile`'s
 /// `max_by` is deciding by iteration order. Under a `std::collections::HashMap`
@@ -485,7 +485,7 @@ fn a_tie_between_two_remembered_hostiles_breaks_the_same_way_every_time() {
     );
 }
 
-/// **A body standing ON the lip still sees the lip.**
+/// A body standing ON the lip still sees the lip.
 ///
 /// `supporting_floor` matched a solid against the body's CENTRE, so a fighter
 /// whose centre had crossed the platform's edge — feet still on it, `on_ground`

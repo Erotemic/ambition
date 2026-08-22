@@ -95,7 +95,7 @@ pub struct AmbitionLoadPlugin;
 struct AmbitionLoadInstalled;
 
 impl Plugin for AmbitionLoadPlugin {
-    /// **Adding this twice is a no-op, not a crash.**
+    /// Adding this twice is a no-op, not a crash.
     ///
     /// The room-transition transaction IS a load plan, so the ENGINE group needs
     /// this plugin; a shell host also needs it, and `MinimalLoadShellPlugins`
@@ -148,7 +148,7 @@ fn apply_load_commands(
 mod composition_tests {
     use super::*;
 
-    /// **Adding the load coordinator twice, in either order, must not crash.**
+    /// Adding the load coordinator twice, in either order, must not crash.
     ///
     /// This is the composition hazard the Phase-6 external fixture hit: the engine group needs the
     /// coordinator because a room transition IS a load plan, and a shell host needs it too, and

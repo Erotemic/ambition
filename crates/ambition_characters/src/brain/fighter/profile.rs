@@ -1,4 +1,4 @@
-//! **FB4a — the difficulty ladder, as data; and the humanity checks it can keep.**
+//! FB4a — the difficulty ladder, as data; and the humanity checks it can keep.
 //!
 //! `docs/planning/engine/fighter-brain.md` §4: *"`FighterBrainProfile` (RON):
 //! `reaction_ms` (L9 ≈ 150, L1 ≈ 500), `apm_cap`, `execution_noise` (timing/aim
@@ -14,8 +14,8 @@
 //!
 //! Nothing has to. [`crate::perception::Perceived`] has a private field, and only
 //! [`crate::perception::DelayedPerception::perceive`] mints one. L1's `classify`
-//! and L2's `generate_options` take a `Perceived`, so **a brain layer that wanted
-//! to read the live world would have to edit `perception.rs` to name it.** A test
+//! and L2's `generate_options` take a `Perceived`, so a brain layer that wanted
+//! to read the live world would have to edit `perception.rs` to name it. A test
 //! can be forgotten and a grep lint can be argued with; a type cannot.
 //!
 //! The one door is `Perceived::cheating`, whose name is the documentation. It is
@@ -25,9 +25,9 @@
 //!
 //! ## What FB4 still owes
 //!
-//! - **The APM cap is DATA here, not enforcement.** *"Input-rate histograms within
+//! - The APM cap is DATA here, not enforcement. *"Input-rate histograms within
 //!   the APM cap"* needs a brain that emits inputs, and nothing above L2 does.
-//! - **The ladder self-play rig** (level *n* beats *n−1* in ≥ 60% of headless
+//! - The ladder self-play rig (level *n* beats *n−1* in ≥ 60% of headless
 //!   matches) needs the same. It is also the instrument that calibrates
 //!   [`super::options::UtilityWeights`] — §FB6 is explicit that the weights are not
 //!   divined up front, and FB2 found the hole that will make the ladder say so.
@@ -41,7 +41,7 @@ use super::options::UtilityWeights;
 pub struct FighterBrainProfile {
     /// 1..=9. Only a label; the ordering lives in the numbers below.
     pub level: u8,
-    /// How late the brain sees the world. **Never zero on a shipped row** (§1.3:
+    /// How late the brain sees the world. Never zero on a shipped row (§1.3:
     /// *"Level 9 = small numbers, never zero"*), which is what makes the CPU's
     /// skill prediction rather than reflex.
     pub reaction_ms: f32,
@@ -63,7 +63,7 @@ pub struct FighterBrainProfile {
 impl FighterBrainProfile {
     /// The perception buffer this profile's reaction latency implies.
     ///
-    /// **The only production path to a `Perceived`.** It never calls
+    /// The only production path to a `Perceived`. It never calls
     /// `Perceived::cheating`, so no shipped difficulty can read the live world —
     /// even a profile that authored `reaction_ms: 0` would get a zero-delay
     /// BUFFER, which still shows the previous tick's `observe` and still refuses a
@@ -72,7 +72,7 @@ impl FighterBrainProfile {
         DelayedPerception::from_reaction_ms(self.reaction_ms, tick_hz)
     }
 
-    /// **The engine's default rung for a level**, so a catalog row can say
+    /// The engine's default rung for a level, so a catalog row can say
     /// `Fighter { level: 5 }` and get a brain.
     ///
     /// this is a FLOOR, not the ladder. A game that cares ships its own nine
@@ -82,7 +82,7 @@ impl FighterBrainProfile {
     /// all — which is a worse default than an imperfect one.
     ///
     /// The shape follows §1.3: reaction shrinks and APM grows with level, and
-    /// **level 9 is small numbers, never zero** — a frame-perfect CPU is not a
+    /// level 9 is small numbers, never zero — a frame-perfect CPU is not a
     /// hard opponent, it is a different game.
     pub fn for_level(level: u8) -> Self {
         let level = level.clamp(1, 9);
@@ -115,25 +115,25 @@ impl FighterBrainProfile {
     }
 }
 
-/// **The game's authored ladder, where the sim can reach it.**
+/// The game's authored ladder, where the sim can reach it.
 ///
-/// **a resource rather than an argument, because of where the pack lives.**
+/// a resource rather than an argument, because of where the pack lives.
 /// The prepared content pack is `game/ambition_content`, ABOVE the monolith that
 /// builds most brains — so the monolith cannot fetch the ladder, and the game has
 /// to hand it down. Absent means this game shipped no rows and
 /// [`FighterBrainProfile::for_level`] applies, which is the engine's stated rule.
 ///
-/// **config, not state.** A rewind restores a brain; it never rebuilds the
+/// config, not state. A rewind restores a brain; it never rebuilds the
 /// ladder that brain was constructed from, so this is deliberately not rollback
 /// state — the same argument that puts write-once construction data outside the
 /// snapshot.
 #[derive(bevy::prelude::Resource, Clone, Debug, PartialEq)]
 pub struct AuthoredFighterLadder(pub FighterBrainLadder);
 
-/// **The one place a level becomes a profile.**
+/// The one place a level becomes a profile.
 ///
-/// **the engine's rule was written in a doc comment and consulted nowhere, so
-/// it did not hold.** [`FighterBrainProfile::for_level`] says of itself: *"this
+/// the engine's rule was written in a doc comment and consulted nowhere, so
+/// it did not hold. [`FighterBrainProfile::for_level`] says of itself: *"this
 /// is a FLOOR, not the ladder. A game that cares ships its own nine rows
 /// (`FighterBrainLadder::from_ron`) and this is never consulted."* Ambition ships
 /// the nine rows, and both production call sites called the floor anyway —
@@ -167,7 +167,7 @@ impl FighterBrainLadder {
         self.rungs.iter().find(|r| r.level == level)
     }
 
-    /// **The ladder's own well-formedness**, checkable without a single match.
+    /// The ladder's own well-formedness, checkable without a single match.
     ///
     /// Every one of these is a way a ladder can be nonsense while every individual
     /// row looks fine, and every one of them would show up in a self-play run as

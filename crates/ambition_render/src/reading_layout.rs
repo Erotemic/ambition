@@ -1,4 +1,4 @@
-//! **Where a block of text goes**, for every overlay that shows one.
+//! Where a block of text goes, for every overlay that shows one.
 //!
 //! `ResolvedGameplayPresentation::reading_rect()` answers the geometry: the safe
 //! display carved back from everything a reader must not sit behind — the
@@ -6,7 +6,7 @@
 //! the bevy_ui side of that answer, and it exists because there is more than one
 //! panel.
 //!
-//! **the split of responsibility is the point.** This module sets only the
+//! the split of responsibility is the point. This module sets only the
 //! root's POSITION and SIZE. Padding, flex direction, and how children stack
 //! stay with each panel, because "the dialogue justifies its children to the
 //! start and the cutscene spreads them apart" is a presentation decision and
@@ -18,7 +18,7 @@ use ambition_platformer2d_shared_tangle::gameplay_presentation::ResolvedGameplay
 
 /// Place `node` in the reading rect, leaving everything else about it alone.
 ///
-/// **no resolver means the node is UNTOUCHED, not zeroed.** A composition without the layout
+/// no resolver means the node is UNTOUCHED, not zeroed. A composition without the layout
 /// resolver — every demo that skips `HostGameplayPresentationPlugin`, and one of
 /// `capture_scene`'s two app builders — must still show its dialogue.
 pub fn place_in_reading_rect(node: &mut Node, presentation: Option<&ResolvedGameplayPresentation>) {

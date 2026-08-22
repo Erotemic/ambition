@@ -164,8 +164,8 @@ impl LdtkRuntimeIndex {
     }
 }
 
-/// **Run condition: did an authoring format install an LDtk world into the
-/// live session?**
+/// Run condition: did an authoring format install an LDtk world into the
+/// live session?
 ///
 /// The index is optional session state now, so its ABSENCE is the honest
 /// statement that this game has no LDtk world — and every system below reads it
@@ -212,8 +212,8 @@ pub fn sync_ldtk_level_set(
 /// Position the `LdtkWorldBundle` root entity so the rendered LDtk
 /// Tiles layer aligns with Ambition's centered active-area frame.
 ///
-/// **Coordinate reconciliation, ADR 0015 §Coordinate-frame
-/// reconciliation:** `bevy_ecs_ldtk` renders Tiles in raw LDtk
+/// Coordinate reconciliation, ADR 0015 §Coordinate-frame
+/// reconciliation: `bevy_ecs_ldtk` renders Tiles in raw LDtk
 /// world-pixel space — each level sits at its own world origin and
 /// every tile inside is at level-local px coords. With
 /// `LevelSpawnBehavior::UseZeroTranslation` (the default + our

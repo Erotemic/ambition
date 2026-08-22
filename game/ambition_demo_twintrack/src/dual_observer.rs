@@ -2,23 +2,23 @@
 //!
 //! This is TwinTrack's relativity-of-simultaneity instrument. Two beacons sit
 //! at rest in the laboratory frame, symmetric about the laboratory twin, and
-//! flash **together in laboratory coordinate time**. Every reading below is a
+//! flash together in laboratory coordinate time. Every reading below is a
 //! pure function of that authored schedule and the canonical bodies, so it adds
 //! no simulation authority, no stored state, and nothing that rollback has to
 //! rewind.
 //!
 //! Each observer answers the same two questions about the same flash pair:
 //!
-//! 1. **which flash's light reached me first** — a light-delay fact, decided by
+//! 1. which flash's light reached me first — a light-delay fact, decided by
 //!    the observer's distance from each beacon; and
-//! 2. **which flash happened first in my own frame** — the relativistic fact,
+//! 2. which flash happened first in my own frame — the relativistic fact,
 //!    the flash pair's time separation after an exact Lorentz boost into the
 //!    observer's instantaneous rest frame.
 //!
 //! The laboratory twin is at rest and equidistant, so it answers
 //! `Simultaneous` to both — by construction, not by luck. A traveler moving
-//! along the beacon axis answers with a definite order **whose sign is the sign
-//! of its velocity**: fly toward Omega and Omega flashed first; turn around and
+//! along the beacon axis answers with a definite order whose sign is the sign
+//! of its velocity: fly toward Omega and Omega flashed first; turn around and
 //! Alpha did. That disagreement is the exhibit.
 
 use ambition_platformer2d::engine_core as ae;
@@ -31,7 +31,7 @@ use crate::{LaboratoryTwin, TravelerTwin, INVARIANT_SPEED, LAB_POS};
 
 /// Half the laboratory-frame distance between the two beacons.
 ///
-/// **this length is the size of the lesson.** The observer-frame time split
+/// this length is the size of the lesson. The observer-frame time split
 /// is `gamma * beta * 2 * HALF_SEPARATION / c`; shrink it and the two panes
 /// stop visibly disagreeing at ordinary flight speeds.
 pub const BEACON_HALF_SEPARATION: f32 = 520.0;
@@ -194,7 +194,7 @@ impl ObserverOrderingReport {
 
 /// The dual-observer read model: what each of the two panes is showing.
 ///
-/// **not rollback state and deliberately not registered.** Every field is
+/// not rollback state and deliberately not registered. Every field is
 /// recomputed from `SpacetimeCoordinateTime2d` and canonical `BodyKinematics`
 /// every frame; it stores no accumulator and no memo, so a rewound simulation
 /// republishes the identical value on the next pass.
@@ -251,7 +251,7 @@ fn latest_arrived_flash(now: f64, range: f32, invariant_speed: f64) -> Option<u6
 
 /// One observer's own-frame picture of a laboratory-frame displacement.
 ///
-/// **this is length contraction, not a boosted event.** Boosting the two
+/// this is length contraction, not a boosted event. Boosting the two
 /// laboratory-simultaneous beacon events would give `gamma` times the
 /// separation, because those two events are NOT simultaneous in the observer's
 /// frame — that number is a pair of events, not a length. What a pane draws is

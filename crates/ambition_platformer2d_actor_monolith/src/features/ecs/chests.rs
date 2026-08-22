@@ -9,7 +9,7 @@ pub fn open_ecs_chests(
     mut commands: Commands,
     mut banner: ResMut<GameplayBanner>,
     controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
-    // **the buffered interact belongs to the SEAT DRIVING THE ACTING BODY.**
+    // the buffered interact belongs to the SEAT DRIVING THE ACTING BODY.
     // Slot 0 was the wrong source the moment a body other than the home avatar
     // can be driven: a possessed actor's chest open spent the home seat's press.
     mut acting: crate::control::ActingParticipant,
@@ -24,8 +24,8 @@ pub fn open_ecs_chests(
     // Presentation anim for whichever body opened the chest.
     mut anims: Query<&mut crate::actor::BodyAnimFacts>,
     bodies: Query<&ambition_platformer2d_core::BodyKinematics>,
-    // **`&ChestFeature`, not `With<ChestFeature>` — that one word is the whole of "authored
-    // chest rewards are never granted".** The payload was filled by all three chest authors and
+    // `&ChestFeature`, not `With<ChestFeature>` — that one word is the whole of "authored
+    // chest rewards are never granted". The payload was filled by all three chest authors and
     // read by nobody: this system knew a chest was there and never asked what was IN it.
     chests: Query<
         (
@@ -83,7 +83,7 @@ pub fn open_ecs_chests(
             acting.consume_interact(subject);
             super::interact::pose_interact(&mut anims, subject, INTERACT_ANIM_HOLD_SECS);
             banner.show(format!("opened {}", name.0.as_str()), 2.6);
-            // **THE CHEST DOES NOT KNOW HOW TO GRANT ANYTHING**, and that is
+            // THE CHEST DOES NOT KNOW HOW TO GRANT ANYTHING, and that is
             // the point: its reward is a `PickupKind`, and there is exactly one
             // authority that turns one of those into health, money, an ability
             // or a story flag. Teaching the chest a second copy would be four

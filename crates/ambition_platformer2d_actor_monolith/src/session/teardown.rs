@@ -71,8 +71,8 @@ pub struct SessionScopedResources<'w> {
     /// Retirement between production and consumption must not deliver a
     /// session-A activation into session B.
     switch_activations: ResMut<'w, SwitchActivationQueue>,
-    /// **"the loaded save has been applied to THIS WORLD" — and the world it refers to has just
-    /// been retired.** That sentence is the latch's own doc, and it is the whole argument for
+    /// "the loaded save has been applied to THIS WORLD" — and the world it refers to has just
+    /// been retired. That sentence is the latch's own doc, and it is the whole argument for
     /// resetting it here.
     ///
     /// It is set true ONCE, in `restore_inventory_from_save`, and was set false

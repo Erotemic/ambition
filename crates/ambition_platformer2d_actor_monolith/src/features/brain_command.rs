@@ -1,38 +1,10 @@
-//! Runtime brain-switching authority for catalog-backed NPCs.
+//! Deterministic runtime brain-switching authority for catalog-backed NPCs.
 //!
-//! [`BrainCommand`] is the ONE deterministic path for changing a catalog-backed
-//! NPC's *autonomous* brain at runtime. It follows the established sim-command
-//! pattern (`ambition_encounter::EncounterCommand`): a Bevy `Message` routed by
-//! stable [`SimId`], drained by one reducer ([`apply_brain_commands`]) in the sim
-//! schedule, grouped by target id in canonical order. Applying a command goes
-//! through [`apply_brain_selection`] — the single helper that rebuilds the live
-//! [`Brain`] from a catalog preset (via
-//! [`CharacterCatalog::build_brain_from_preset`], the same seam spawn uses) AND
-//! updates the actor's [`BrainBinding`] so the two agree atomically.
-//!
-//! Two invariants this authority upholds:
-//! - **Authored home.** A rebuild uses the actor's [`AuthoredBrainContext`] (its
-//!   spawn anchor + patrol radius), never its current pose, so a restored patrol
-//!   brain recenters where it was authored, not wherever it wandered.
-//! - **A DISPLACED brain is untouchable.** An actor under mount control
-//!   (`Mounted`) is skipped: the mount cached its policy and put a controller's
-//!   in its place, so switching the live one would corrupt live control.
-//!   **possession is no longer on that list, and that is the point of the
-//!   `Brain::Player` deletion.** A possessed body keeps its own policy the whole
-//!   time — the seat moved, the brain did not — so a switch mid-possession
-//!   applies LIVE, and release resumes it because it was never displaced. This
-//!   used to be a two-step dance: update the SOURCE only, then re-derive
-//!   `PossessionState::restore_brain` so a release would resume the new
-//!   selection. Both halves are gone with the field.
-//!
-//! Provocation/challenge installs a hostile brain through its own authority
-//! (`provoke_actor_in_place`); it records WHICH policy in the binding — the
-//! engine's default, or one the creature authored — which lets snapshot
-//! reconciliation rebuild that mode rather than the catalog default over it.
-//!
-//! Ordinary gameplay never replaces a character-backed NPC's `Brain` directly; it emits a
-//! `BrainCommand` (autonomous catalog change) or routes through the provoke authority
-//! (disposition change).
+//! [`BrainCommand`] routes by stable [`SimId`] and applies through one reducer,
+//! which rebuilds the live [`Brain`] and updates [`BrainBinding`] atomically.
+//! Rebuilds use authored home context. Mounted bodies are skipped because their
+//! live brain is displaced by mount control; possession redirects a seat without
+//! displacing brain policy. Provocation remains a separate disposition authority.
 
 use crate::combat::CombatCapabilities;
 use crate::features::ecs::actor_clusters::ActorConfig;
@@ -86,14 +58,14 @@ impl BrainCommand {
     }
 }
 
-/// A compound **release from provocation** — the "you are free" gameplay
+/// A compound release from provocation — the "you are free" gameplay
 /// operation (the inverse of a `<<challenge>>`). It invokes TWO distinct
 /// authorities together but atomically from the operation's perspective:
 ///
-/// 1. **Disposition authority** — pacify the actor (peaceful disposition, passive
+/// 1. Disposition authority — pacify the actor (peaceful disposition, passive
 ///    aggression, grudge/target cleared) so it stops fighting and does not
 ///    re-aggro on sight.
-/// 2. **Source authority** — restore the catalog-default autonomous source and its
+/// 2. Source authority — restore the catalog-default autonomous source and its
 ///    complete peaceful config, by emitting a [`BrainCommand::restore_default`]
 ///    that [`apply_brain_commands`] (ordered after) applies through the one
 ///    brain-selection seam.
@@ -141,7 +113,7 @@ fn resolve_command_preset(
             ambition_characters::actor::character_catalog::AutonomousDefault::Preset(default) => {
                 Some(default.clone())
             }
-            // **NOT A PRESET AND NOT A FAILURE.** A character whose default is
+            // NOT A PRESET AND NOT A FAILURE. A character whose default is
             // its own authored `BrainProfile` is restored by the profile road in
             // `apply_brain_selection`, which has the body this lowering needs;
             // this function only answers the preset question, so it says *not
@@ -180,17 +152,17 @@ fn apply_brain_selection(
     binding: &mut BrainBinding,
     ctx: &BrainBuildContext,
     kind: &BrainCommandKind,
-    // **The body**, for a default that is the character's own `BrainProfile`:
+    // The body, for a default that is the character's own `BrainProfile`:
     // §4.7 pairs a policy's normalized effort with the body's own top speed, so
     // the lowering cannot happen without one.
     profile_body: Option<&ActorConfig>,
-    // **The character's own policy, resolved by IDENTITY** — see
+    // The character's own policy, resolved by IDENTITY — see
     // [`character_policy`](crate::features::ecs::character_policy). `None` only
     // where no cast can answer, and then the body's current policy stands in.
     character_profile: Option<ambition_characters::brain::BrainProfile>,
     abilities: ambition_platformer2d_core::AbilitySet,
 ) -> bool {
-    // **RESTORING A CHARACTER'S OWN POLICY IS NOT A PRESET LOOKUP.**
+    // RESTORING A CHARACTER'S OWN POLICY IS NOT A PRESET LOOKUP.
     //
     // The lowering is the same one the spawn road and the rewind road use, and
     // it reads the profile off the body's own config, so all three agree by
@@ -209,8 +181,8 @@ fn apply_brain_selection(
             );
             return false;
         };
-        // **THE POLICY COMES FROM THE CHARACTER, NOT FROM THE BODY'S CURRENT
-        // ONE.** This lowered `config.brain_profile` directly, and provocation
+        // THE POLICY COMES FROM THE CHARACTER, NOT FROM THE BODY'S CURRENT
+        // ONE. This lowered `config.brain_profile` directly, and provocation
         // WRITES that field — so "you are free" rebuilt the provoked mind and
         // then labelled the binding `CharacterProfile`. The body kept hunting
         // you while every piece of state agreed it had been released.
@@ -264,7 +236,7 @@ fn apply_brain_selection(
 /// actor is NOT skipped: nothing displaced its policy.
 pub fn apply_brain_commands(
     catalog: Res<CharacterCatalog>,
-    // **The cast**, for a body whose autonomous default is its own character's
+    // The cast, for a body whose autonomous default is its own character's
     // policy: that policy is recovered by identity, never from the mutable
     // `ActorConfig::brain_profile` a provocation has overwritten. `Option`
     // because compositions that register no cast are ordinary.
@@ -282,10 +254,10 @@ pub fn apply_brain_commands(
         Option<&CombatKit>,
         Option<&mut CombatCapabilities>,
         Option<&mut ActionSet>,
-        // **The body's own verbs**, for a default that is the character's
+        // The body's own verbs, for a default that is the character's
         // authored policy — the lowering asks what this body can actually do.
         Option<&ambition_platformer2d_core::BodyAbilities>,
-        // **Which character this body IS** — the gameplay identity its durable
+        // Which character this body IS — the gameplay identity its durable
         // autonomous policy is recovered through.
         Option<&ambition_characters::actor::WornCharacter>,
     )>,
@@ -398,8 +370,8 @@ pub fn apply_brain_commands(
 /// back to keeping only the `config.brain` read-model in sync (the prior behavior).
 fn apply_catalog_mode(
     catalog: &CharacterCatalog,
-    // **The prepared cast, so the peaceful projection asks the CHARACTER whether
-    // it flies before it asks the catalog's silhouette.** See `peaceful_config`.
+    // The prepared cast, so the peaceful projection asks the CHARACTER whether
+    // it flies before it asks the catalog's silhouette. See `peaceful_config`.
     prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
     brain: &Brain,
     config: Option<Mut<ActorConfig>>,
@@ -410,7 +382,7 @@ fn apply_catalog_mode(
     // its own BODY too, and this reconstruction is not for it.
     character_profile: Option<ambition_characters::brain::BrainProfile>,
 ) {
-    // **A CHARACTER-FIRST BODY IS RESTORED IN THE MIND ONLY.**
+    // A CHARACTER-FIRST BODY IS RESTORED IN THE MIND ONLY.
     //
     // the projection below is the peaceful-NPC seed: default capabilities and
     // `brain_profile: BrainProfile::default()`. It is the correct answer for a
@@ -498,8 +470,8 @@ fn update_source_only(
     binding: &mut BrainBinding,
     kind: &BrainCommandKind,
 ) -> bool {
-    // **A CHARACTER-FIRST DEFAULT HAS NO PRESET TO VALIDATE, AND THAT IS NOT
-    // A REJECTION.**
+    // A CHARACTER-FIRST DEFAULT HAS NO PRESET TO VALIDATE, AND THAT IS NOT
+    // A REJECTION.
     //
     // `resolve_command_preset` answers *not mine* for `CharacterProfile`, and
     // this read that `None` as *unresolvable* and left the binding untouched. So

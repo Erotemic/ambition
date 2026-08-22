@@ -14,7 +14,7 @@
 //!    The matching move is the execution authority; [`BossAttackState`]
 //!    is projected from its `MovePlayback` for debug, animation,
 //!    damage, and vulnerable-volume consumers.
-//! 3. [`update_ecs_bosses`] — **integration only**. Reads
+//! 3. [`update_ecs_bosses`] — integration only. Reads
 //!    `ActorControl::0.desired_vel`, integrates the boss body via
 //!    `BossMut::integrate_body` (boss cluster view), syncs presentation mirrors,
 //!    and publishes both strike and body-contact damage by calling

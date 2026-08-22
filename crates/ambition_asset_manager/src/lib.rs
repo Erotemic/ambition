@@ -1,6 +1,6 @@
 //! Ambition asset catalog + source/profile policy.
 //!
-//! This crate owns **Ambition's logical asset layer**: stable [`AssetId`]s,
+//! This crate owns Ambition's logical asset layer: stable [`AssetId`]s,
 //! a [`manifest`] of [`AssetEntry`] records, [`profile::AssetProfile`]
 //! personas, [`policy::MissingAssetPolicy`] / [`policy::CachePolicy`]
 //! rules, [`preload::PreloadGroup`] tagging, and a [`resolver`] that

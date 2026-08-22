@@ -367,11 +367,12 @@ pub fn tick_capture_holds(
         // as zero and releasing everybody on the first tick.
         &mut ambition_characters::smash_capture::SmashHoldState,
         Option<&mut ae::ActorSurfaceState>,
+        Option<&mut ambition_platformer2d_core::BodyGroundState>,
         Option<&mut ambition_characters::control::ControlHolds>,
     )>,
 ) {
     let dt = time.scaled_dt;
-    for (victim, held, mut state, surface, holds) in &mut captives {
+    for (victim, held, mut state, surface, ground, holds) in &mut captives {
         state.held_for += dt;
         if !state.escaped() {
             continue;
@@ -382,6 +383,7 @@ pub fn tick_capture_holds(
             victim,
             &ended,
             surface.map(|surface| surface.into_inner()),
+            ground.map(|ground| ground.into_inner()),
             holds.map(|holds| holds.into_inner()),
         );
     }
@@ -883,6 +885,74 @@ mod tests {
                 .unwrap()
                 .contact_initialized = true;
         }
+    }
+
+    /// ⭐⭐ **A RELEASED BODY RE-ENTERS PLAY AIRBORNE, WITH A BELIEVED BASELINE.**
+    ///
+    /// `apply_capture_throws` says so in writing — *"a thrown body is AIRBORNE by
+    /// construction"* — and until 2026-08-22 that held by ACCIDENT: the hold
+    /// wrote `on_ground = false` and left the baseline standing, so the fact was
+    /// a residue of how the constraint spelled itself.
+    ///
+    /// ⛔⛔ the hold now `invalidate()`s, which it must — otherwise the kernel
+    /// manufactures a landing every tick — and an invalidated baseline is
+    /// RE-SAMPLED at the hold pose, which sits at the captor's own height and is
+    /// therefore usually on the floor. A throw off a grounded captor came out
+    /// GROUNDED, and a ground launch is not a launch:
+    /// `the_stage_kills::a_team_victory_names_the_team_and_not_its_last_survivor`
+    /// went red because two fighters thrown at 4800px/s never left the stage.
+    #[test]
+    fn a_released_body_re_enters_play_airborne() {
+        let mut app = App::new();
+        app.add_systems(
+            Update,
+            (constrain_captive_bodies, release_interrupted_captures).chain(),
+        );
+        let captor = grounded_body(&mut app, "captor", ae::Vec2::new(100.0, 50.0));
+        let victim = grounded_body(&mut app, "victim", ae::Vec2::new(400.0, 400.0));
+        app.world_mut().entity_mut(victim).insert((
+            CapturedBy {
+                captor,
+                hold_offset_local: ae::Vec2::new(20.0, -4.0),
+                prior_gravity_scale: 1.0,
+            },
+            fresh_hold(),
+        ));
+        app.update();
+
+        // Held: the baseline is invalidated, which is the landing-loop fix.
+        let ground = app
+            .world()
+            .get::<ambition_platformer2d_core::BodyGroundState>(victim)
+            .unwrap();
+        assert!(
+            !ground.contact_initialized,
+            "a held body's contact is unknown"
+        );
+
+        // Now end the hold the way a real interruption does — despawn the
+        // captor, which `release_interrupted_captures` treats as captor-gone.
+        app.world_mut().entity_mut(captor).despawn();
+        app.update();
+
+        assert!(
+            app.world().get::<CapturedBy>(victim).is_none(),
+            "the fixture did not actually release the body, so this measured nothing"
+        );
+        let ground = app
+            .world()
+            .get::<ambition_platformer2d_core::BodyGroundState>(victim)
+            .unwrap();
+        assert!(
+            !ground.on_ground,
+            "a released body must re-enter play AIRBORNE — a throw off a grounded \
+             captor is a launch, not a step"
+        );
+        assert!(
+            ground.contact_initialized,
+            "and it must BELIEVE that, or the next kernel step re-samples the \
+             hold pose it was let go from and reads the floor it was held over"
+        );
     }
 
     /// A CAPTOR KEEPS ITS ATTACK PRESS AND LOSES EVERYTHING ELSE.
@@ -1643,6 +1713,7 @@ pub fn release_capture(
     victim: Entity,
     held: &CapturedBy,
     surface: Option<&mut ae::ActorSurfaceState>,
+    ground: Option<&mut ambition_platformer2d_core::BodyGroundState>,
     holds: Option<&mut ambition_characters::control::ControlHolds>,
 ) {
     commands.entity(victim).try_remove::<CapturedBy>();
@@ -1659,6 +1730,26 @@ pub fn release_capture(
         //  what it WAS, not `1.0`. A flying body's scale is not the reference
         // one, and a release that wrote a constant would land it on the floor.
         surface.gravity_scale = held.prior_gravity_scale;
+    }
+    // ⭐⭐ **A RELEASED BODY RE-ENTERS PLAY AIRBORNE**, and `apply_capture_throws`
+    // depends on it in writing: *"a thrown body is AIRBORNE by construction — the
+    // hold suspended its gravity and the release hands it back"*.
+    //
+    // ⛔⛔ that used to hold BY ACCIDENT. The hold wrote `on_ground = false` and
+    // left the contact baseline standing, so a released body inherited "airborne"
+    // as a believed fact. The hold now `invalidate()`s instead — it must, or the
+    // kernel manufactures a landing every tick — and an invalidated baseline is
+    // re-sampled at the hold POSE, which is at the captor's own height and
+    // therefore usually ON THE FLOOR. A throw off a grounded captor came out
+    // GROUNDED, and a ground launch is not a launch.
+    //
+    // So the fact the throw needs is stated where the body re-enters play, rather
+    // than left as a residue of how the hold spelled its constraint. Its landing
+    // is then a REAL one — a single transition when it comes down, which is the
+    // whole difference from the per-tick loop.
+    if let Some(ground) = ground {
+        ground.on_ground = false;
+        ground.contact_initialized = true;
     }
 }
 
@@ -1683,6 +1774,7 @@ pub fn release_interrupted_captures(
     bodies: Query<Entity>,
     combat: Query<&ambition_characters::actor::BodyCombat>,
     mut surfaces: Query<&mut ae::ActorSurfaceState>,
+    mut grounds: Query<&mut ambition_platformer2d_core::BodyGroundState>,
     mut holds: Query<&mut ambition_characters::control::ControlHolds>,
 ) {
     let reacted = |body: Entity| {
@@ -1698,12 +1790,14 @@ pub fn release_interrupted_captures(
             continue;
         }
         let mut surface = surfaces.get_mut(victim).ok();
+        let mut ground = grounds.get_mut(victim).ok();
         let mut held_by = holds.get_mut(victim).ok();
         release_capture(
             &mut commands,
             victim,
             held,
             surface.as_deref_mut(),
+            ground.as_deref_mut(),
             held_by.as_deref_mut(),
         );
     }
@@ -1758,6 +1852,7 @@ pub fn apply_capture_throws(
         &mut ambition_characters::actor::BodyCombat,
         &mut ambition_characters::actor::BodyHealth,
         &mut ae::ActorSurfaceState,
+        &mut ambition_platformer2d_core::BodyGroundState,
         Option<&crate::components::CombatTuning>,
         Option<&mut ambition_characters::control::ControlHolds>,
     )>,
@@ -1774,6 +1869,7 @@ pub fn apply_capture_throws(
             mut combat,
             mut health,
             mut surface,
+            mut ground,
             tuning,
             mut holds,
         )) = captives
@@ -1798,6 +1894,7 @@ pub fn apply_capture_throws(
             victim,
             &held,
             Some(&mut surface),
+            Some(&mut ground),
             holds.as_deref_mut(),
         );
 

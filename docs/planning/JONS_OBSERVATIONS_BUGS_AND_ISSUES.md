@@ -98,6 +98,21 @@
   * ⚠ the numbers confirm they are not comparable: heavies 1.95, other pirates 1.60, `robot` 2.10 — the robot's is the LARGEST, yet he reads chibi, because each scale multiplies its OWN sheet's frame size rather than a shared unit.
   * ⭐ **MEASURED 2026-08-22, and the shared unit ALREADY EXISTS AND WORKS — the gap is that nobody authors it.** `catalog_join` resolves `standing_height` (world px, feet to top of visible body) into `scale = height / body_h`, so a character measures exactly that tall with its art's aspect kept. **Zero of 145 catalog rows author it**, so every `Standard` character falls to `body_kind`'s default — **48.0, which is the player robot's own height**. That is why an adult pirate is exactly as tall as your chibi robot: the engine is making them equal on purpose, and nothing has ever said they should differ.
   * ⭐ **and it explains the paradox in your numbers.** `robot`'s 2.10 is INERT — the robot lineage is one of only two things in the repo on `BodySource::SpriteAuthored`, so it publishes `ActorRenderSize` and `collision_scale` is never consulted for it. The pirates' 1.95/1.60 are live. You were comparing a number that does nothing with two that do.
+  * ⭐ **and the two render-size publishers AGREE today — there is no code defect left to find.** `print_the_two_render_size_publishers` (an ignored report in `enemy_body_scale.rs`) asks the catalog route and the renderer route the same question about the same box: every row reads `drawn/box 1.00`, `stretch 1.000`, and the two quads are identical. D165's *"find both before editing either"* is done.
+  * ⭐ **the measured cast, from that report** — every `Standard` humanoid is exactly 48.0 tall because that is the default, and your robot is 48.0 too:
+
+    ```text
+    npc_pirate_raider/lookout/navigator/quartermaster   25.3 x 48.0
+    npc_pirate_admiral                                  27.0 x 48.0
+    npc_pirate_cutlass_viper                            41.4 x 48.0
+    npc_alice                                           17.5 x 48.0
+    goblin / npc_goblin_brute                      51.6 / 45.2 x 48.0
+    npc_pirate_heavy_broadside_bess                     69.3 x 58.7   ← Wide, legacy road
+    npc_pirate_heavy_iron_mary                          70.7 x 56.2   ← Wide
+    npc_pirate_heavy_salt_annet                         68.1 x 60.4   ← Wide
+    ```
+
+    ⇒ the ordinary pirates are EXACTLY your robot's height, and the heavies are only ~20% taller than them rather than hulking. That is the whole report, in numbers.
   * ▢ **so the fix is authoring, and it needs your heights.** `npc_pirate_admiral/cutlass_viper/lookout/navigator/quartermaster/raider` are `Standard` (48 today; your "2x" = 96). The three heavies — `broadside_bess`, `iron_mary`, `salt_annet` — are `body_kind: Wide`, which deliberately has NO default height, so they still ride the legacy `ldtk_box × collision_scale` road; they need a `standing_height` each rather than a smaller scale. ⚠ 17 rows author no `body_kind` at all, and `Wide`/`Floating`/`Crawler` (27 rows) have no shared unit by design — say whether they should.
 
 

@@ -160,10 +160,16 @@ These cards are capability fronts, not a serial mega-campaign.
   Ambition participants occupying different rooms. Use
   [`engine/room-transition-loading.md`](engine/room-transition-loading.md).
 
-- ▢ **Rollback scope provenance correction.** `RoomScopedEntity` provenance still
-  needs a behavioral proof across possession/release scope changes before its
-  rollback waiver/registration shape is trusted. Do not replace that proof with
-  a source-only policy test.
+- ✔ **Rollback scope provenance correction — the behavioural proof EXISTS,
+  verified 2026-08-22.** Four tests, all green, and none of them source-only:
+  `possession_suspends_residency_without_touching_the_lifetime` (the lifetime is
+  unchanged by possession), `a_possessed_body_is_carried_through_a_room_transition`
+  (against the real transition), `losing_the_target_hands_control_back_to_home`
+  (destruction while driven), and
+  `an_authored_actor_carried_out_of_its_room_and_back_does_not_meet_a_copy`.
+  ⭐ the first one's doc records that it used to assert the OPPOSITE — that
+  possession promoted a body out of room scope — and that the promotion was the
+  defect, which is the provenance question this row was holding open.
 
 - ▢ **Stable identity where lifetimes differ.** Keep participant, seat, input
   channel, simulation slot, placement identity and display labels semantically

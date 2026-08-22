@@ -626,6 +626,7 @@ mod tests {
             .iter()
             .map(|v| MoveSpec {
                 id: (*v).to_string(),
+                display_name: None,
                 clip: ClipBinding {
                     clip: (*v).to_string(),
                     fallbacks: vec![],
@@ -645,6 +646,39 @@ mod tests {
             .map(|v| ((*v).to_string(), (*v).to_string()))
             .collect::<BTreeMap<_, _>>();
         m
+    }
+
+    /// **An authored move label reaches the control prompt.**
+    ///
+    /// `MoveSpec::display()` title-cased the id and nothing could override it,
+    /// so `"attack_air_down"` could only ever read "Attack Air Down" where the
+    /// genre says "Down Air". The consumer was already live — `combat_actions`
+    /// fills each slot's `display_name` from `mv.display()` — so the whole gap
+    /// was the authored field.
+    #[test]
+    fn an_authored_move_label_beats_the_title_cased_id() {
+        let mut m = moveset(&["attack"]);
+        m.moves[0].display_name = Some("Down Air".to_string());
+        let scheme = combat_actions(&abilities(|a| a.attack = true), Some(&m), None);
+        let attack = scheme
+            .iter()
+            .find(|a| a.slot == ControlSlot::Attack)
+            .expect("the attack slot is claimed");
+        assert_eq!(attack.display_name.as_deref(), Some("Down Air"));
+
+        // ...and the fallback is untouched for every move that authors none.
+        let plain = combat_actions(
+            &abilities(|a| a.attack = true),
+            Some(&moveset(&["attack"])),
+            None,
+        );
+        assert_eq!(
+            plain
+                .iter()
+                .find(|a| a.slot == ControlSlot::Attack)
+                .and_then(|a| a.display_name.as_deref()),
+            Some("Attack"),
+        );
     }
 
     fn slots(scheme: &ActionSchemeContract) -> Vec<ControlSlot> {

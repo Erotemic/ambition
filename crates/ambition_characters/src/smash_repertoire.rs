@@ -344,6 +344,7 @@ mod tests {
 
     pub(super) fn spec(id: &str) -> MoveSpec {
         MoveSpec {
+            display_name: None,
             id: id.to_string(),
             clip: ClipBinding {
                 clip: "attack".to_string(),

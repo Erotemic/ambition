@@ -202,6 +202,8 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
         vfx: Some(SLASH_ARC_VFX.to_string()),
     };
     MoveSpec {
+        // These helpers author generic verbs; the title-cased id is the label.
+        display_name: None,
         landing_lag_s: None,
         autocancel_after_s: None,
         id: ATTACK_VERB.to_string(),
@@ -330,6 +332,8 @@ pub fn simple_ranged(p: &SimpleRangedParams) -> MoveSpec {
     let recover = p.recover_s.max(0.0);
     let duration = windup + recover;
     MoveSpec {
+        // These helpers author generic verbs; the title-cased id is the label.
+        display_name: None,
         landing_lag_s: None,
         autocancel_after_s: None,
         id: RANGED_VERB.to_string(),
@@ -502,6 +506,8 @@ pub fn simple_charge(p: &SimpleChargeParams) -> MoveSpec {
         vfx: Some(SLASH_ARC_VFX.to_string()),
     };
     MoveSpec {
+        // These helpers author generic verbs; the title-cased id is the label.
+        display_name: None,
         landing_lag_s: None,
         autocancel_after_s: None,
         id: "charge".to_string(),
@@ -598,42 +604,49 @@ fn directional_attack_variants(base: &MoveSpec) -> Vec<(String, MoveSpec)> {
             Dir::Back => ((-ox, oy), (hx, hy)),
         }
     }
-    let variant = |id: &str, clip: &str, grounded: bool, dir: Dir, pogo: bool| -> MoveSpec {
-        let mut m = base.clone();
-        m.id = id.to_string();
-        m.clip.clip = clip.to_string();
-        m.gates.grounded = Some(grounded);
-        for w in &mut m.windows {
-            if !matches!(w.tag, WindowTag::Active) {
-                continue;
+    // ⭐ `label` is the genre's name for the variant, not a restatement of the
+    // id: this doc calls them "up-/down-tilt + the four aerials" and that IS the
+    // design language, so the control prompt should say so. Without it the
+    // player reads "Attack Air Down" where every platform fighter says "Down
+    // Air". The title-cased fallback stays correct for every other move.
+    let variant =
+        |id: &str, label: &str, clip: &str, grounded: bool, dir: Dir, pogo: bool| -> MoveSpec {
+            let mut m = base.clone();
+            m.id = id.to_string();
+            m.display_name = Some(label.to_string());
+            m.clip.clip = clip.to_string();
+            m.gates.grounded = Some(grounded);
+            for w in &mut m.windows {
+                if !matches!(w.tag, WindowTag::Active) {
+                    continue;
+                }
+                for v in &mut w.volumes {
+                    if let VolumeShape::Rect {
+                        offset,
+                        half_extents,
+                    } = v.shape
+                    {
+                        let (o, h) = xf(dir, offset, half_extents);
+                        v.shape = VolumeShape::Rect {
+                            offset: o,
+                            half_extents: h,
+                        };
+                    }
+                    if pogo {
+                        // The down-air's landing pogo — an engine on-hit technique
+                        // Body contacts consume the resolved victim hit; genuine world pogo surfaces use the separate world-contact path.
+                        v.on_hit = Some(EffectRef::new(crate::technique::POGO_BOUNCE_KEY));
+                    }
+                    // The grounded down-tilt reads as a kneeling forward poke, not a
+                    // sweep (mirrors the bespoke path's `slash_kind`: Down → Poke);
+                    // every other direction keeps the base swing's arc.
+                    if matches!(dir, Dir::Down) && grounded && v.vfx.is_some() {
+                        v.vfx = Some(SLASH_POKE_VFX.to_string());
+                    }
+                }
             }
-            for v in &mut w.volumes {
-                if let VolumeShape::Rect {
-                    offset,
-                    half_extents,
-                } = v.shape
-                {
-                    let (o, h) = xf(dir, offset, half_extents);
-                    v.shape = VolumeShape::Rect {
-                        offset: o,
-                        half_extents: h,
-                    };
-                }
-                if pogo {
-                    // The down-air's landing pogo — an engine on-hit technique
-                    // Body contacts consume the resolved victim hit; genuine world pogo surfaces use the separate world-contact path.
-                    v.on_hit = Some(EffectRef::new(crate::technique::POGO_BOUNCE_KEY));
-                }
-                // The grounded down-tilt reads as a kneeling forward poke, not a
-                // sweep (mirrors the bespoke path's `slash_kind`: Down → Poke);
-                // every other direction keeps the base swing's arc.
-                if matches!(dir, Dir::Down) && grounded && v.vfx.is_some() {
-                    v.vfx = Some(SLASH_POKE_VFX.to_string());
-                }
-            }
-        }
-        m
-    };
+            m
+        };
     // NB: the second `variant(...)` arg is the CLIP the strike resolves its
     // AUTHORED hitbox polygon from the App-local resolver → a plain manifest
     // animation-name lookup). It MUST match a real authored row or the strike
@@ -646,27 +659,55 @@ fn directional_attack_variants(base: &MoveSpec) -> Vec<(String, MoveSpec)> {
     vec![
         (
             "attack_up".to_string(),
-            variant("attack_up", "attack_up", true, Dir::Up, false),
+            variant("attack_up", "Up Tilt", "attack_up", true, Dir::Up, false),
         ),
         (
             "attack_down".to_string(),
-            variant("attack_down", "attack_down", true, Dir::Down, false),
+            variant(
+                "attack_down",
+                "Down Tilt",
+                "attack_down",
+                true,
+                Dir::Down,
+                false,
+            ),
         ),
         (
             "attack_air".to_string(),
-            variant("attack_air", "air_forward", false, Dir::Fwd, false),
+            variant(
+                "attack_air",
+                "Forward Air",
+                "air_forward",
+                false,
+                Dir::Fwd,
+                false,
+            ),
         ),
         (
             "attack_air_up".to_string(),
-            variant("attack_air_up", "air_up", false, Dir::Up, false),
+            variant("attack_air_up", "Up Air", "air_up", false, Dir::Up, false),
         ),
         (
             "attack_air_back".to_string(),
-            variant("attack_air_back", "air_back", false, Dir::Back, false),
+            variant(
+                "attack_air_back",
+                "Back Air",
+                "air_back",
+                false,
+                Dir::Back,
+                false,
+            ),
         ),
         (
             "attack_air_down".to_string(),
-            variant("attack_air_down", "air_down", false, Dir::Down, true),
+            variant(
+                "attack_air_down",
+                "Down Air",
+                "air_down",
+                false,
+                Dir::Down,
+                true,
+            ),
         ),
     ]
 }
@@ -690,6 +731,8 @@ pub fn special_move_from_spec(spec: &SpecialActionSpec) -> MoveSpec {
     let SpecialActionSpec::Special(key) = spec;
     let (windup, active, recover) = (0.08, 0.24, 0.13);
     MoveSpec {
+        // These helpers author generic verbs; the title-cased id is the label.
+        display_name: None,
         landing_lag_s: None,
         autocancel_after_s: None,
         id: key.clone(),

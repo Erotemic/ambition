@@ -224,6 +224,8 @@ pub fn committed_tail(mut m: MoveSpec, to_s: f32, motion_scale: f32) -> MoveSpec
 /// Compose `sfx` / `vfx` onto the result the way every other move does.
 pub fn taunt(id: &str, duration_s: f32) -> MoveSpec {
     MoveSpec {
+        // These helpers author generic verbs; the title-cased id is the label.
+        display_name: None,
         id: id.to_string(),
         clip: ClipBinding {
             clip: "taunt".to_string(),
@@ -352,6 +354,8 @@ pub fn strike(
     let active_start = startup_s;
     let active_end = startup_s + active_s;
     MoveSpec {
+        // These helpers author generic verbs; the title-cased id is the label.
+        display_name: None,
         id: id.to_string(),
         clip: ClipBinding {
             clip: clip.to_string(),

@@ -959,6 +959,7 @@ fn a_match_grant_does_not_overwrite_a_characters_authored_moves() {
             .into_iter()
             .collect(),
         moves: vec![MoveSpec {
+            display_name: None,
             id: "signature_smash".to_string(),
             clip: ClipBinding {
                 clip: "attack".to_string(),

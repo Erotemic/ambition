@@ -710,6 +710,7 @@ pub fn theorem_chain_moveset() -> MovesetContract {
             .into_iter()
             .collect(),
         moves: vec![MoveSpec {
+            display_name: None,
             id: "theorem_chain".to_string(),
             clip: ClipBinding {
                 clip: "special".to_string(),

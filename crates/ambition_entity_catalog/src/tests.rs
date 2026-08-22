@@ -111,6 +111,7 @@ fn seed_catalog_parses_and_validates() {
 /// A bare move (no windows) with the given id and grounded gate.
 fn bare_move(id: &str, grounded: Option<bool>) -> MoveSpec {
     MoveSpec {
+        display_name: None,
         landing_lag_s: None,
         autocancel_after_s: None,
         id: id.to_string(),
@@ -1022,6 +1023,7 @@ fn a_zero_width_window_is_legal_but_an_inverted_one_is_not() {
 /// A minimal move: one Startup window, one Active window carrying one volume.
 fn timed_move(id: &str, duration_s: f32, events: Vec<MoveEvent>) -> MoveSpec {
     MoveSpec {
+        display_name: None,
         id: id.to_string(),
         clip: ClipBinding {
             clip: "attack".into(),

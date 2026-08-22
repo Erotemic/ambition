@@ -979,17 +979,23 @@ These three hold some:
 
 | doc | open | what |
 | --- | --- | --- |
-| [`engine/character-actions.md`](engine/character-actions.md) | 3 | ~~cast-action authoring where a body still relies on defaults~~ **CHECKED 2026-08-20 and LANDED** — `smash_fighter_kit()` was deleted 2026-08-12 and 18 characters author their own moveset · presentation metadata on authored moves (OPEN) · two DECISIONS deferred until a real repertoire forces them |
+| [`engine/character-actions.md`](engine/character-actions.md) | 2 | ~~cast-action authoring where a body still relies on defaults~~ **CHECKED 2026-08-20 and LANDED** — `smash_fighter_kit()` was deleted 2026-08-12 and 18 characters author their own moveset · ~~presentation metadata on authored moves~~ **SHIPPED 2026-08-22** · two DECISIONS deferred until a real repertoire forces them |
 | [`engine/unified-movement-kernel.md`](engine/unified-movement-kernel.md) | 2 | block ↔ chain crawl transfer — ✔ VERIFIED OPEN 2026-08-20: `CrawlAttachment::Chain` returns early into `crawl_chain` and `Block` falls through to the riding path, so the two are separate roads with no shared transfer rule · portal transit inside authored gravity zones (its own text says there is no known bug and no room authors the combination — customer-gated, leave ▢) |
 | [`demos/super-mary-o.md`](demos/super-mary-o.md) | 1 | further authored levels. ⚠ TWO of its rows are now retired: the ?-block-while-grown claim (contradicted by the ✔ two lines above it), and **crossing 1-2 while GROWN — covered** by `she_crosses_wearing_the_form_she_earned`. ⛔ that citation was UNSOUND when written: the test was red from at least `8f3c0e85e` until 2026-08-22, so the row leant on a guard that could not fail for it. It is green now (D182), and the claim holds — but the lesson is that "already covered by X" is a claim about X's COLOUR, not just its existence |
 
-⚠ **THE `MoveSpec` PRICE IS OVERSTATED, re-measured 2026-08-22.** The row prices
-presentation metadata at *"100 exhaustive `MoveSpec` literals, so the enabling
-`Default`/constructor comes first"*. There are indeed 100 `MoveSpec {` literals,
-but they cluster in the AUTHORING HELPERS rather than at per-move sites —
-`moveset_authoring.rs` 14, `smash_capture.rs` 13, `moveset_prefabs.rs` 11,
-`demo_smash/moveset.rs` 8 — and `strike(..)` already constructs the struct for
-most callers. A new field lands in the helpers, not in a hundred tables.
+✔✔ **AND IT SHIPPED 2026-08-22 — the price was overstated by more than 10×.**
+The row priced presentation metadata at *"100 exhaustive `MoveSpec` literals, so
+the enabling `Default`/constructor comes first"*. There are 100 `MoveSpec {`
+literals; adding a REQUIRED `display_name: Option<String>` broke **13 production
+sites and 19 test sites**, because the rest construct through helpers or a
+`..base` spread. ⇒ **counting a TOKEN is not counting the EDIT** — the enabling
+`Default` the row wanted first was never needed, which is fortunate, since an
+exhaustive literal is what forces an author to answer a new gameplay field.
+
+⭐ the consumer needed no plumbing (`combat_actions` already labelled slots from
+`mv.display()`), and the directional prefab now authors the genre's own names —
+Up Tilt, Down Tilt, Forward/Up/Back/Down Air — where the prompt used to read
+"Attack Air Down".
 
 ⛔ **so do NOT add `Default` to `MoveSpec` as an enabler.** An exhaustive literal
 is what forces every author to answer a new gameplay field; defaulting it is how

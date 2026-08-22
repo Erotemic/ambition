@@ -1135,6 +1135,7 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
     use ambition_entity_catalog::{ClipBinding, MoveGates, MoveSpec, MovesetContract};
 
     let swat = MoveSpec {
+        display_name: None,
         landing_lag_s: None,
         autocancel_after_s: None,
         id: "swat".to_string(),

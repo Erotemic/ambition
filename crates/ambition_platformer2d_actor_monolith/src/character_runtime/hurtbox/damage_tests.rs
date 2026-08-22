@@ -505,6 +505,7 @@ fn a_widening_move_silhouette_is_hittable_on_the_tick_it_widens() {
 /// A move long enough to outlive its own widening keyframe.
 fn widening_swing() -> ambition_entity_catalog::MoveSpec {
     ambition_entity_catalog::MoveSpec {
+        display_name: None,
         landing_lag_s: None,
         autocancel_after_s: None,
         id: "swing".to_string(),

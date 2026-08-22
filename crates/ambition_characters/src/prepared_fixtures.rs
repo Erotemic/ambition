@@ -19,6 +19,7 @@ use ambition_entity_catalog::{
 /// A move that emits one cue and carries one strike sound on its hit volume.
 pub fn slash(id: &str, cue: &str, strike: &str) -> MoveSpec {
     MoveSpec {
+        display_name: None,
         landing_lag_s: None,
         autocancel_after_s: None,
         id: id.to_string(),

@@ -195,6 +195,8 @@ pub fn boss_attack_moveset(
                 (volumes, None)
             };
             Some(MoveSpec {
+                // A boss move's label is its title-cased id.
+                display_name: None,
                 id: profile.move_id(),
                 clip: ClipBinding {
                     clip: "attack".to_string(),

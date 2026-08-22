@@ -579,6 +579,7 @@ pub fn emmy_noether_moveset() -> MovesetContract {
     // them. That is a real cost, deliberately paid, and it is why her side
     // special buys distance rather than damage.
     let mut up_b = MoveSpec {
+        display_name: None,
         id: "ethereal_lift".to_string(),
         // The same structural fallback chain every `strike` authors, because a
         // recovery that cannot find its row must still RUN — the timeline is the

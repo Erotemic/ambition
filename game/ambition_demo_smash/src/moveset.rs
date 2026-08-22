@@ -98,6 +98,7 @@ pub(crate) fn strike(
     let active_start = startup_s;
     let active_end = startup_s + active_s;
     MoveSpec {
+        display_name: None,
         id: id.to_string(),
         clip: ClipBinding {
             clip: clip.to_string(),

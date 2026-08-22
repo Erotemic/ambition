@@ -20,35 +20,29 @@ only character/action authoring that still remains.
   — body-owned repertoire, controller supplies intent only, no
   fighter/peaceful taxonomy — is the shipped shape.
 
-- ▢ **Give authored moves useful presentation metadata where still missing.** A
-  stable move/action id remains the machine identity; a display label and
-  optional icon/prompt presentation are authoring metadata, with a deterministic
-  fallback when absent.
+- ✔ **Authored move labels — SHIPPED 2026-08-22.** `MoveSpec` carries
+  `display_name: Option<String>` (`#[serde(default)]`), `MoveSpec::display()`
+  reads it first and falls back to the title-cased id, and the consumer needed
+  no plumbing: `combat_actions` already filled each slot's label from
+  `mv.display()`. Pinned by
+  `action_scheme::tests::an_authored_move_label_beats_the_title_cased_id`.
 
-  ⚠ **VERIFIED OPEN 2026-08-20, and the code says so itself.**
-  `MoveSpec::display()` title-cases the id (`"sandbag_swat"` → `"Sandbag
-  Swat"`), and its own doc comment reads *"P6 adds an authored `display_name:
-  Option<String>` field that this reads first"* — that field does not exist on
-  `MoveSpec`. The deterministic fallback is built; the authored override is not.
-  ⭐ the CONSUMER is live: `action_scheme.rs:295` fills each slot's
-  `display_name` from `mv.display()`, so a label authored on the move would
-  reach the control prompts with no new plumbing. Today there is no production
-  way to author a player-facing move label at all — `"tilt_up"` can only ever
-  read "Tilt Up".
+  ⭐ **and it is authored, not just enabled.** The directional prefab now names
+  its variants the way the genre does — Up Tilt, Down Tilt, Forward/Up/Back/Down
+  Air — through a `label` parameter on `directional_attack_variants`' `variant`
+  helper. That prefab's own doc already called them *"up-/down-tilt + the four
+  aerials"*, so the control prompt now says what the design language says instead
+  of "Attack Air Down".
 
-  ⚠ **PRICED 2026-08-20, and the price is the reason nobody has done it.**
-  `MoveSpec` is built by **100 exhaustive struct literals** and exactly ONE of
-  them uses `..Default::default()`, so a new required field is a 100-site
-  mechanical edit whose entire content is `display_name: None`. That is a
-  carry list with no judgement in it — the opposite of the exhaustive
-  destructures worth keeping, which exist to force an author to think.
-
-  ⇒ **do not add the field first.** The cheap enabling move is a `Default` impl
-  or a constructor helper that the 100 sites can adopt incrementally; then the
-  field costs one line. ⭐ serde is already fine either way (`MoveSpec` derives
-  `Serialize`/`Deserialize`, so `#[serde(default)]` covers the saved shape), and
-  `MoveSpec` is NOT in any rollback registration, so this does not touch the
-  schema baseline.
+  ⛔⛔ **THE PRICE IN THIS ROW WAS WRONG BY MORE THAN 10×, and that is the lesson
+  worth keeping.** It said *"100 exhaustive struct literals, so a new required
+  field is a 100-site mechanical edit"* and concluded *"do not add the field
+  first"*. There are 100 `MoveSpec {` literals, but a new required field broke
+  **13 production sites and 19 test sites** — the rest construct through helpers
+  or a `..base` spread. ⇒ **counting a TOKEN is not counting the EDIT.** The
+  enabling `Default` this row asked for first was never needed, which is
+  fortunate: an exhaustive literal is what forces an author to answer a new
+  gameplay field, and defaulting it is how a field gets silently skipped.
 
 - ▢ **Decide layout behavior only when a real repertoire exceeds prompt capacity.**
   Do not pre-generalize the control surface for hypothetical >8-slot schemes.

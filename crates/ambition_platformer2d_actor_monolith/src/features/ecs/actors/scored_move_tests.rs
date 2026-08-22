@@ -56,6 +56,7 @@ fn strike(id: &str, reach_offset: f32) -> MoveSpec {
 /// somebody would actually rather land than a grab.
 fn strike_hitting_for(id: &str, reach_offset: f32, damage: i32) -> MoveSpec {
     MoveSpec {
+        display_name: None,
         landing_lag_s: None,
         autocancel_after_s: None,
         id: id.to_string(),

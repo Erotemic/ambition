@@ -67,6 +67,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     // numbers came off an archetype row and the migration that brought them here
     // promised not to retune them. Everything after it uses the helper.
     let cellular_pulse = MoveSpec {
+        display_name: None,
         id: "cellular_pulse".to_string(),
         clip: ClipBinding {
             clip: "special".to_string(),

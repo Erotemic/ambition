@@ -1649,6 +1649,7 @@ fn a_forward_special_selects_the_directional_move() {
     );
 
     let make_move = |id: &str| MoveSpec {
+        display_name: None,
         id: id.to_string(),
         clip: ClipBinding {
             clip: id.to_string(),
@@ -1695,6 +1696,7 @@ fn a_forward_special_selects_the_directional_move() {
 
 fn gesture_test_move(id: &str) -> MoveSpec {
     MoveSpec {
+        display_name: None,
         id: id.to_string(),
         clip: ClipBinding {
             clip: id.to_string(),
@@ -1784,6 +1786,7 @@ fn a_move_start_impulse_lunges_the_body_toward_facing() {
         (resolve_attack_gestures, trigger_moveset_moves).chain(),
     );
     let mv = MoveSpec {
+        display_name: None,
         id: ATTACK_VERB.into(),
         clip: ClipBinding {
             clip: "x".into(),

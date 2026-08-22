@@ -786,6 +786,15 @@ impl MoveGates {
 pub struct MoveSpec {
     /// Stable move id (`"jab"`, `"tilt_up"`, `"sandbag_swat"`).
     pub id: String,
+    /// Player-facing label. `None` falls back to a title-cased [`Self::id`]
+    /// via [`MoveSpec::display`] — which is the right answer for almost every
+    /// move, and the reason this is `Option` rather than a required string.
+    ///
+    /// ⚠ authored on the MOVE, so a shared prefab names its move once for
+    /// every character that adopts it. A per-character rename would be a
+    /// different feature and does not belong here.
+    #[serde(default)]
+    pub display_name: Option<String>,
     pub clip: ClipBinding,
     /// Total move time, seconds of the owner's proper time.
     pub duration_s: f32,
@@ -857,12 +866,12 @@ fn default_motion_scale() -> f32 {
 
 impl MoveSpec {
     /// The player-facing label for this move — used by the action scheme to
-    /// name the slot this move occupies. Today a title-cased `id`
-    /// (`"sandbag_swat"` → `"Sandbag Swat"`); P6 adds an authored
-    /// `display_name: Option<String>` field that this reads first, filled in
-    /// the same commit that touches the move construction sites.
+    /// name the slot this move occupies: the authored [`Self::display_name`],
+    /// else a title-cased `id` (`"sandbag_swat"` → `"Sandbag Swat"`).
     pub fn display(&self) -> String {
-        crate::action_scheme::title_case_id(&self.id)
+        self.display_name
+            .clone()
+            .unwrap_or_else(|| crate::action_scheme::title_case_id(&self.id))
     }
 
     /// CM5: validate this move's PRESENTATION event ids so a typo fails loudly

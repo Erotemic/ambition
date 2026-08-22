@@ -19,8 +19,8 @@
 mod color;
 mod eviction;
 mod gun;
-mod gun_lifecycle;
 mod gun_construction;
+mod gun_lifecycle;
 mod gun_pickup;
 mod gun_projectile;
 mod lifecycle;
@@ -51,13 +51,13 @@ pub use ambition_platformer2d_shared_tangle::transit::rotate_velocity_between_no
 pub use color::{PortalChannel, PortalChannelColor, PortalGunColor};
 pub use eviction::{evict_straddlers_on_portal_change, PortalFrameHistory};
 pub use gun::{portal_toggle_system, PortalGun};
-pub use gun_lifecycle::despawn_orphaned_portals;
 pub use gun_construction::{
     install_portal_gun_construction_recipes, portal_gun_construction_registry,
     recipe_authored_portal_gun, PortalGunConstruction, PortalGunConstructionParams,
     PortalGunConstructionPlan, PortalGunConstructionRegistry, PortalGunConstructionRequest,
     PORTAL_GUN_CONSTRUCTION_DOMAIN, RECIPE_AUTHORED_PORTAL_GUN,
 };
+pub use gun_lifecycle::despawn_orphaned_portals;
 pub use gun_pickup::{arm_portal_pickups, PortalGunPickup, PortalPickupArming};
 pub use gun_projectile::{
     is_portal_placeable, portal_fire_system, step_portal_shot, PortalShot, PortalShotStep,
@@ -81,8 +81,8 @@ pub use placement::{
 };
 pub use transit::{
     portal_teleport_ground_items, portal_transit, publish_portal_carves, tick_portal_cooldowns,
-    BodyTeleported, PlayerMovementIntent, PortalBody, PortalBodyTransited, PortalCarves,
-    PortalEmission, PortalInputWarp, PortalPolicy, PortalTransit, PortalTransitable,
+    BodyTeleported, PortalBody, PortalBodyTransited, PortalCarves, PortalEmission, PortalInputWarp,
+    PortalPolicy, PortalTransit, PortalTransitable,
 };
 pub use tuning::{sync_portal_tuning_convention, PortalConvention, PortalTuning};
 pub use types::{

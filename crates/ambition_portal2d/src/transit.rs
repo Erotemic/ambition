@@ -32,18 +32,6 @@ pub struct BodyTeleported {
     pub body: Entity,
 }
 
-/// Content-agnostic movement intent the portal transit reads in place of a
-/// concrete host input frame. The host input layer syncs this from its own
-/// input each frame BEFORE transit runs, so portal core never imports that input
-/// type. Holds the focused actor's current held movement direction (raw,
-/// un-warped): transit uses it as the anchor for same-wall held-input warp.
-#[derive(Resource, Clone, Copy, Debug, Default)]
-pub struct PlayerMovementIntent {
-    /// Raw held movement direction this frame (x = horizontal, y = vertical;
-    /// `ZERO` when no movement direction is held.
-    pub dir: Vec2,
-}
-
 /// Per-body transit state: the aperture latch / centroid-crossing machine
 /// that replaces "touch = teleport". A body is mid-transit while any part of it
 /// straddles a portal plane; the authoritative body transfers to the exit when

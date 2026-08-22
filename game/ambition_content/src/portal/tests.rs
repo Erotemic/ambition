@@ -79,6 +79,11 @@ fn spawn_player(app: &mut App, pos: Vec2, facing: f32) -> Entity {
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
+            // The seat: the portal input adapter shapes the frame of whichever
+            // seat drives the transiting body.
+            ambition_characters::brain::DrivingParticipant(
+                ambition_characters::brain::PlayerSlot::PRIMARY,
+            ),
             BodyKinematics {
                 pos,
                 vel: Vec2::ZERO,
@@ -811,6 +816,9 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
     app.init_resource::<TrailBreakThisFrame>();
     app.insert_resource(ambition_time::WorldTime::default());
     app.init_resource::<ambition_portal2d::PortalTuning>();
+    // The adapter reads the transiting body's SEAT frame for the warp anchor.
+    app.init_resource::<ambition_characters::brain::SeatRawFrames>();
+    app.init_resource::<ambition_characters::brain::SlotControls>();
     // The player-input adapter now emits `BodyTeleported` from the core's
     // `PortalBodyTransited` event (the trace bit moved out of core), so include
     // it in the chain ahead of the recorder.

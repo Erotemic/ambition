@@ -38,10 +38,7 @@ pub use plugin::{register_rollback_state, AmbitionPortalAdaptersPlugin};
 pub use reset_adapter::bridge_room_reset_to_clear_portals;
 pub use sfx_adapter::play_portal_sfx;
 pub use shot_adapter::portal_projectile_step;
-pub use transit_adapter::{
-    apply_movement_intent_to_control, sync_ground_items_to_transitable,
-    sync_movement_intent_from_control, sync_transitable_to_ground_items,
-};
+pub use transit_adapter::{sync_ground_items_to_transitable, sync_transitable_to_ground_items};
 pub use transit_body_adapter::{
     ensure_portal_bodies, ensure_projectile_portal_bodies, portal_player_input_adapter,
 };

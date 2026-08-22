@@ -42,11 +42,6 @@ where
         "derived.portal_transitable",
         "mirrored from the item's authoritative body every frame, before transit reads it",
     );
-    registrar.declare_rollback_derived_resource::<crate::PlayerMovementIntent>(
-        OWNER,
-        "derived.portal_player_movement_intent",
-        "republished from the current controller frame before portal transit",
-    );
     registrar.declare_rollback_derived_resource::<crate::PortalCarves>(
         OWNER,
         "derived.portal_carves",
@@ -66,18 +61,11 @@ where
         OWNER,
         "message.portal_body_entered",
     );
-    registrar.clear_message_on_rollback::<crate::PortalFireIntent>(
-        OWNER,
-        "message.portal_fire_intent",
-    );
-    registrar.clear_message_on_rollback::<crate::PortalShotFired>(
-        OWNER,
-        "message.portal_shot_fired",
-    );
-    registrar.clear_message_on_rollback::<crate::BodyTeleported>(
-        OWNER,
-        "message.body_teleported",
-    );
+    registrar
+        .clear_message_on_rollback::<crate::PortalFireIntent>(OWNER, "message.portal_fire_intent");
+    registrar
+        .clear_message_on_rollback::<crate::PortalShotFired>(OWNER, "message.portal_shot_fired");
+    registrar.clear_message_on_rollback::<crate::BodyTeleported>(OWNER, "message.body_teleported");
     registrar.clear_message_on_rollback::<crate::PortalBodyTransited>(
         OWNER,
         "message.portal_body_transited",
@@ -91,48 +79,25 @@ where
 {
     // The pickup carries SimId, SpawnOrigin and TransactionId, so it must be an
     // entity anchor whenever the gun capability is installed.
-    registrar.require_rollback::<crate::PortalGunPickup>(
-        OWNER,
-        "entity:portal_gun_pickup",
-    );
+    registrar.require_rollback::<crate::PortalGunPickup>(OWNER, "entity:portal_gun_pickup");
     registrar.rollback_component_clone::<crate::PortalGunPickup>(OWNER, "portal.gun_pickup");
     registrar.rollback_component_clone::<crate::PortalGun>(OWNER, "portal.gun");
-    registrar.clear_message_on_rollback::<crate::DropPortalGun>(
-        OWNER,
-        "message.drop_portal_gun",
-    );
-    registrar.clear_message_on_rollback::<crate::DropPortalGun>(
-        OWNER,
-        "message.portal_gun_drop",
-    );
-    registrar.clear_message_on_rollback::<crate::FirePortalGun>(
-        OWNER,
-        "message.fire_portal_gun",
-    );
-    registrar.clear_message_on_rollback::<crate::FirePortalGun>(
-        OWNER,
-        "message.portal_gun_fire",
-    );
-    registrar.clear_message_on_rollback::<crate::PickUpPortalGun>(
-        OWNER,
-        "message.pick_up_portal_gun",
-    );
-    registrar.clear_message_on_rollback::<crate::PickUpPortalGun>(
-        OWNER,
-        "message.portal_gun_pick_up",
-    );
+    registrar.clear_message_on_rollback::<crate::DropPortalGun>(OWNER, "message.drop_portal_gun");
+    registrar.clear_message_on_rollback::<crate::DropPortalGun>(OWNER, "message.portal_gun_drop");
+    registrar.clear_message_on_rollback::<crate::FirePortalGun>(OWNER, "message.fire_portal_gun");
+    registrar.clear_message_on_rollback::<crate::FirePortalGun>(OWNER, "message.portal_gun_fire");
+    registrar
+        .clear_message_on_rollback::<crate::PickUpPortalGun>(OWNER, "message.pick_up_portal_gun");
+    registrar
+        .clear_message_on_rollback::<crate::PickUpPortalGun>(OWNER, "message.portal_gun_pick_up");
     registrar.clear_message_on_rollback::<crate::PortalGunEquipped>(
         OWNER,
         "message.portal_gun_equipped",
     );
-    registrar.clear_message_on_rollback::<crate::TogglePortalGun>(
-        OWNER,
-        "message.toggle_portal_gun",
-    );
-    registrar.clear_message_on_rollback::<crate::TogglePortalGun>(
-        OWNER,
-        "message.portal_gun_toggle",
-    );
+    registrar
+        .clear_message_on_rollback::<crate::TogglePortalGun>(OWNER, "message.toggle_portal_gun");
+    registrar
+        .clear_message_on_rollback::<crate::TogglePortalGun>(OWNER, "message.portal_gun_toggle");
 }
 
 /// Backward-compatible full portal registration used by the existing runtime.

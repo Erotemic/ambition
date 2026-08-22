@@ -167,7 +167,6 @@ derived.placement_continuity	derived	AuthoredOccurrences	authored-occurrence whe
 derived.player_body_frame_output	derived	PlayerBodyFrameOutput	republished by body integration every simulation frame
 derived.portal_carves	derived	PortalCarves	rebuilt from placed portals and transit occupancy each frame
 derived.portal_host_depths	derived	PortalHostDepths	republished from the authoritative collision world each frame
-derived.portal_player_movement_intent	derived	PlayerMovementIntent	republished from the current controller frame before portal transit
 derived.portal_transitable	derived	PortalTransitable	mirrored from the item's authoritative body every frame, before transit reads it
 derived.projectile_view	derived	ProjectileView	SimView projection rebuilt every tick
 derived.resolved_attack_gesture	derived	ResolvedAttackGesture	republished from ActorControl and rollback-backed gesture history before move triggering

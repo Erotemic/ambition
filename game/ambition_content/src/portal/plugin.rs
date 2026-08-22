@@ -25,10 +25,7 @@ use super::inventory_adapter::{drop_portal_gun_system, pickup_portal_gun_system}
 use super::reset_adapter::bridge_room_reset_to_clear_portals;
 use super::sfx_adapter::play_portal_sfx;
 use super::shot_adapter::portal_projectile_step;
-use super::transit_adapter::{
-    apply_movement_intent_to_control, sync_ground_items_to_transitable,
-    sync_movement_intent_from_control, sync_transitable_to_ground_items,
-};
+use super::transit_adapter::{sync_ground_items_to_transitable, sync_transitable_to_ground_items};
 use super::transit_body_adapter::{
     apply_portal_carried_momentum, ensure_portal_bodies, ensure_projectile_portal_bodies,
     portal_player_input_adapter, reconcile_kernel_bodies_after_portal_transit,
@@ -117,7 +114,8 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // This is the same shape as the unregistered `Collected` latch the rollback
         // oracle caught earlier: a marker whose ABSENCE is a decision.
         {
-            let mut registrar = ambition_platformer2d_runtime::rollback::SchemaRollbackRegistrar::new(app);
+            let mut registrar =
+                ambition_platformer2d_runtime::rollback::SchemaRollbackRegistrar::new(app);
             register_rollback_state(&mut registrar);
         }
 
@@ -225,61 +223,6 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // so the result is byte-identical to the old direct-`ControlFrame` mutate.
         // Sync ControlFrame -> intent BEFORE the warp, apply intent -> ControlFrame
         // AFTER it.
-        //
-        // BOTH brackets must sit in the same `[populate ControlFrame ->
-        // primary SlotControls publication]` window that `warp_portal_input`
-        // itself occupies, exactly as the old in-`warp`
-        // direct mutate did. `warp_portal_input` is `.in_set(PlayerInput)` and
-        // `.before(PrimarySlotInputCommit)`; pin the brackets the same way
-        // so:
-        //   * `sync_movement_intent_from_control` reads the FRESH per-frame axis
-        //     (PlayerInput runs after the `.before(CoreSimulation)` populate), and
-        //   * `apply_movement_intent_to_control` writes the (round-tripped or
-        //     warped) axis back BEFORE the player consumes it.
-        // Without these anchors the brackets float (their only constraint is
-        // `.before/.after(warp_portal_input)`), so the scheduler can run the
-        // write-back AFTER the consume and the read BEFORE the populate — the
-        // write-back then stamps a STALE intent over the fresh axis, which reads
-        // as a dead / sticky Move axis.
-        app.add_systems(
-            sim,
-            sync_movement_intent_from_control
-                .run_if(gameplay_allowed)
-                // `PortalSet::InputWarp` is wired `.in_set(PlayerInput)` (and
-                // `.before(PrimarySlotInputCommit)`) in
-                // `wire_portal_schedule`, so the parent placement + consume window
-                // are already implied — a direct `.in_set(PlayerInput)` would be a
-                // redundant hierarchy edge.
-                .in_set(PortalSet::InputWarp)
-                .before(warp_portal_input),
-        );
-        app.add_systems(
-            sim,
-            apply_movement_intent_to_control
-                .run_if(gameplay_allowed)
-                // `PortalSet::InputWarp` already places this in `PlayerInput`
-                // (see `wire_portal_schedule`), so a direct
-                // `.in_set(PlayerInput)` would be a redundant hierarchy edge.
-                // `InputSet::Route` is a SEPARATE set (NOT nested under
-                // `PlayerInput`), so it stays — it pins this write-back inside the
-                // `InputSet::Route.before(PrimarySlotInputCommit)` consume window.
-                .in_set(PortalSet::InputWarp)
-                .in_set(ambition_input::InputSet::Route)
-                .after(warp_portal_input)
-                .before(ambition_platformer2d_actor_monolith::control::PrimarySlotInputCommit),
-        );
-        // The player-input adapter reads `PlayerMovementIntent` as the warp
-        // anchor; re-sync from `ControlFrame` immediately before the generic
-        // transit core (and thus before the input adapter) so the anchor matches
-        // the live held direction (as it did when transit read `ControlFrame`).
-        app.add_systems(
-            sim,
-            sync_movement_intent_from_control
-                .run_if(gameplay_allowed)
-                .in_set(PortalSet::Transit)
-                .before(portal_transit),
-        );
-
         // --- Identity → policy tagging + player-input reproduction ---
         // `ensure_portal_bodies` adds the `PortalBody` marker + the right
         // `PortalPolicy` to the player and every actor BEFORE the generic
@@ -379,118 +322,26 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
 
 #[cfg(test)]
 mod schedule_tests {
-    //! Regression guard for the movement-axis "dead/sticky" input bug.
-    //!
-    //! The portal movement-intent brackets mirror `ControlFrame` axes into
-    //! `PlayerMovementIntent` before `warp_portal_input` and back to
-    //! `ControlFrame` after. They MUST live inside the same
-    //! `[populate ControlFrame -> player consumes ControlFrame]` window the old
-    //! in-`warp` direct mutate occupied. When the brackets only carried
-    //! `.before/.after(warp_portal_input)` (and no Platformer2dSimulationPhaseMonolith / consume anchor)
-    //! they floated: the read could run before the per-frame populate and the
-    //! write-back after the player had already consumed the frame, stamping a
-    //! STALE intent over the fresh axis — the live Move axis read as dead/sticky.
-    //!
-    //! This test reproduces that window with a stand-in populate (before
-    //! `CoreSimulation`) and a stand-in consume (the tail of `PlayerInput`) plus
-    //! the REAL bracket systems + REAL `warp_portal_input`, and asserts the axis
-    //! the consumer sees is the one populate wrote this frame (no active warp =
-    //! pure round-trip).
+    //! The input-ordering contract the portal warp depends on: a system tagged
+    //! `InputSet::Route` runs before the canonical slot publication, so a writer
+    //! that carries no manual ordering still lands before the consume.
+
     use bevy::prelude::*;
 
     use ambition_input::ControlFrame;
     use ambition_platformer2d_actor_monolith::actor::{PlayerEntity, PrimaryPlayer};
     use ambition_platformer2d_actor_monolith::schedule::configure_platformer2d_simulation_phases;
     use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
-    use ambition_portal2d::PlayerMovementIntent;
-
-    use super::super::ability_adapter::warp_portal_input;
-    use super::super::transit_adapter::{
-        apply_movement_intent_to_control, sync_movement_intent_from_control,
-    };
-
-    #[derive(Resource, Default)]
-    struct ConsumedAxis(f32);
-
-    // Stand-in for the device populate (`populate_control_frame_from_actions`),
-    // which runs `.before(Platformer2dSimulationPhaseMonolith::CoreSimulation)`.
-    fn populate_fresh_axis(mut frame: ResMut<ControlFrame>) {
-        frame.axis_x = -1.0;
-    }
-
-    // Stand-in for the primary-slot publication boundary. Records the finalized
-    // global axis the canonical slot adapter is about to publish.
-    fn consume_axis(frame: Res<ControlFrame>, mut consumed: ResMut<ConsumedAxis>) {
-        consumed.0 = frame.axis_x;
-    }
-
-    #[test]
-    fn portal_intent_brackets_do_not_clobber_the_fresh_move_axis() {
-        let mut app = App::new();
-        configure_platformer2d_simulation_phases(&mut app);
-        app.world_mut()
-            .spawn(ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(
-                ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(0),
-            ));
-        app.init_resource::<ControlFrame>();
-        app.init_resource::<PlayerMovementIntent>();
-        app.init_resource::<ambition_portal2d::PortalTuning>();
-        app.init_resource::<ConsumedAxis>();
-        // A primary player so `warp_portal_input` runs its body.
-        app.world_mut().spawn((PlayerEntity, PrimaryPlayer));
-
-        app.add_systems(
-            Update,
-            populate_fresh_axis.before(Platformer2dSimulationPhaseMonolith::CoreSimulation),
-        );
-        // Real brackets + real warp, anchored exactly as the plugin wires them.
-        // Wire the brackets exactly as the plugin does: both inside
-        // `Platformer2dSimulationPhaseMonolith::PlayerInput` (so the read runs after the
-        // `.before(CoreSimulation)` populate) and the write-back
-        // `.before` the consumer (so the fresh/round-tripped axis reaches the
-        // player this frame).
-        app.add_systems(
-            Update,
-            sync_movement_intent_from_control
-                .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
-                .before(warp_portal_input),
-        );
-        app.add_systems(
-            Update,
-            warp_portal_input
-                .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
-                .before(consume_axis),
-        );
-        app.add_systems(
-            Update,
-            apply_movement_intent_to_control
-                .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
-                .after(warp_portal_input)
-                .before(consume_axis),
-        );
-        app.add_systems(
-            Update,
-            consume_axis.in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
-        );
-
-        app.update();
-
-        let consumed = app.world().resource::<ConsumedAxis>().0;
-        assert_eq!(
-            consumed, -1.0,
-            "the player must consume this frame's fresh Move axis (-1.0); got \
-             {consumed}. A 0.0 here means the portal intent write-back stamped a \
-             stale/empty PlayerMovementIntent over the fresh ControlFrame axis \
-             (the dead/sticky Move-axis regression)."
-        );
-    }
 
     // A `ControlFrame` writer whose ONLY scheduling constraint is set
     // membership: `InputSet::Route`. It carries no manual ordering against
     // the consumer, so it can only land before the consume if the structural
     // `InputSet::Route.before(PrimarySlotInputCommit)` contract holds.
-    fn populate_only_via_set(mut frame: ResMut<ControlFrame>) {
+    fn populate_only_via_set(mut raw: ResMut<ambition_characters::brain::SeatRawFrames>) {
+        let slot = ambition_characters::brain::PlayerSlot::PRIMARY;
+        let mut frame = raw.get(slot);
         frame.axis_x = 0.75;
+        raw.set(slot, frame);
     }
 
     /// The general input contract: any system tagged `InputSet::Route` is
@@ -500,10 +351,9 @@ mod schedule_tests {
     /// is deliberately no second slot→body copy to inspect.
     #[test]
     fn input_set_populate_runs_before_primary_slot_publication() {
-        use ambition_characters::brain::{PlayerSlot, SlotControls};
-        use ambition_platformer2d_actor_monolith::control::{
-            populate_slot_controls, PrimarySlotInputCommit,
-        };
+        use ambition_characters::brain::{PlayerSlot, SeatRawFrames, SlotControls};
+        use ambition_platformer2d_actor_monolith::control::PrimarySlotInputCommit;
+        use ambition_platformer2d_actor_monolith::schedule::publish_seat_controls_when_nobody_else_does;
 
         let mut app = App::new();
         configure_platformer2d_simulation_phases(&mut app);
@@ -511,7 +361,7 @@ mod schedule_tests {
             .spawn(ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(
                 ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(0),
             ));
-        app.init_resource::<ControlFrame>();
+        app.init_resource::<SeatRawFrames>();
         app.init_resource::<SlotControls>();
 
         app.add_systems(
@@ -520,7 +370,7 @@ mod schedule_tests {
         );
         app.add_systems(
             Update,
-            populate_slot_controls
+            publish_seat_controls_when_nobody_else_does
                 .in_set(PrimarySlotInputCommit)
                 .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
         );
@@ -534,9 +384,9 @@ mod schedule_tests {
             .axis_x;
         assert_eq!(
             observed, 0.75,
-            "a Route-tagged ControlFrame writer must run before primary-slot \
+            "a Route-tagged seat-frame writer must run before primary-slot \
              publication; SlotControls[PRIMARY] captured axis_x = {observed} \
-             instead of the populated 0.75"
+             instead of the shaped 0.75"
         );
     }
 }

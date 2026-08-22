@@ -22,12 +22,8 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::actor::{PlayerEntity, PrimaryPlayer};
-use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use ambition_portal2d::pieces::portal_map_vec;
-use ambition_portal2d::{
-    PlayerMovementIntent, PortalEmission, PortalInputWarp, PortalTransit, PortalTuning,
-};
+use ambition_portal2d::{PortalEmission, PortalInputWarp, PortalTransit, PortalTuning};
 
 /// Runtime toggle for [`suppress_ledge_grab_during_transit`]. Default ON; flip it
 /// off to play with ledge-grab / wall-movement INTO portals enabled (the
@@ -68,7 +64,10 @@ impl Default for SuppressWallAbilitiesInPortal {
 /// portal crate (Stage 19 Phase 5a); identical-sim.
 pub fn suppress_ledge_grab_during_transit(
     tuning: Res<PortalTuning>,
-    mut bodies: Query<&mut ambition_platformer2d_actor_monolith::actor::BodyAbilities, With<PortalTransit>>,
+    mut bodies: Query<
+        &mut ambition_platformer2d_actor_monolith::actor::BodyAbilities,
+        With<PortalTransit>,
+    >,
 ) {
     if !tuning.suppress_wall_abilities {
         return;
@@ -145,53 +144,74 @@ pub fn restore_wall_abilities_after_transit(
 pub fn warp_portal_input(
     time: Option<Res<ambition_time::WorldTime>>,
     mut commands: Commands,
-    intent: Option<ResMut<PlayerMovementIntent>>,
     tuning: Res<PortalTuning>,
-    controlled: Option<Res<ControlledSubject>>,
-    primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    latches: Option<Res<ambition_characters::brain::SlotControlLatches>>,
+    rollback: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
+    mut slots: ResMut<ambition_characters::brain::SlotControls>,
+    mut raw: ResMut<ambition_characters::brain::SeatRawFrames>,
     mut bodies: Query<(
         Entity,
+        &ambition_characters::brain::DrivingParticipant,
         Option<&PortalInputWarp>,
         Option<&mut PortalEmission>,
     )>,
 ) {
-    let Some(mut intent) = intent else {
-        return;
-    };
-    let subject = controlled
-        .and_then(|subject| subject.0)
-        .or_else(|| primary.single().ok());
-    let Some((entity, warp, emission)) = subject.and_then(|s| bodies.get_mut(s).ok()) else {
-        return;
-    };
-
-    // --- Same-wall held-input warp ---
-    if let Some(warp) = warp {
-        let raw = intent.dir;
-        if raw.length() < tuning.input_held_epsilon {
-            commands.entity(entity).remove::<PortalInputWarp>();
-        } else if warp.anchor.length() > 0.01
-            && raw.normalize_or_zero().dot(warp.anchor.normalize_or_zero())
-                < tuning.input_warp_keep_cos
-        {
-            commands.entity(entity).remove::<PortalInputWarp>();
-        } else {
-            intent.dir = portal_map_vec(raw, warp.n_in, warp.n_out);
+    let sim_dt = time.as_deref().map_or(0.0, |t| t.sim_dt());
+    for (entity, driver, warp, emission) in &mut bodies {
+        if warp.is_none() && emission.is_none() {
+            continue;
         }
-    }
+        let slot = driver.0;
+        let frame = ambition_platformer2d_actor_monolith::control::seat_frame_this_tick(
+            latches.as_deref(),
+            rollback.as_deref(),
+            &slots,
+            &raw,
+            slot,
+        );
+        let mut dir = bevy::prelude::Vec2::new(frame.axis_x, frame.axis_y);
 
-    // --- Emergence guard: strip any held input that pushes back into the wall ---
-    if let Some(mut emission) = emission {
-        emission.timer -= time.as_deref().map_or(0.0, |t| t.sim_dt());
-        if emission.timer <= 0.0 {
-            commands.entity(entity).remove::<PortalEmission>();
-        } else {
-            let raw = intent.dir;
-            let into = raw.dot(emission.exit_normal); // < 0 = pushing into the wall
-            if into < 0.0 {
-                intent.dir = raw - into * emission.exit_normal;
+        // Same-wall held-input warp: a hold that survives the crossing is mapped
+        // through the portal, and one that is released or clearly redirected
+        // drops the guard.
+        if let Some(warp) = warp {
+            if dir.length() < tuning.input_held_epsilon {
+                commands.entity(entity).remove::<PortalInputWarp>();
+            } else if warp.anchor.length() > 0.01
+                && dir.normalize_or_zero().dot(warp.anchor.normalize_or_zero())
+                    < tuning.input_warp_keep_cos
+            {
+                commands.entity(entity).remove::<PortalInputWarp>();
+            } else {
+                dir = portal_map_vec(dir, warp.n_in, warp.n_out);
             }
         }
+
+        // Emergence guard: strip held input that pushes back into the exit wall
+        // while it is fresh.
+        if let Some(mut emission) = emission {
+            emission.timer -= sim_dt;
+            if emission.timer <= 0.0 {
+                commands.entity(entity).remove::<PortalEmission>();
+            } else {
+                let into = dir.dot(emission.exit_normal);
+                if into < 0.0 {
+                    dir -= into * emission.exit_normal;
+                }
+            }
+        }
+
+        ambition_platformer2d_actor_monolith::control::shape_seat_frame(
+            latches.as_deref(),
+            rollback.as_deref(),
+            &mut slots,
+            &mut raw,
+            slot,
+            |frame| {
+                frame.axis_x = dir.x;
+                frame.axis_y = dir.y;
+            },
+        );
     }
 }
 

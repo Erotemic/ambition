@@ -8,7 +8,7 @@ use super::schedule::PortalSet;
 use super::{
     clear_portals_on_reset, portal_fire_system, portal_teleport_ground_items, portal_transit,
     publish_portal_carves, sync_portal_tuning_convention, tick_portal_cooldowns, BodyTeleported,
-    PlayerMovementIntent, PortalBodyTransited, PortalCarves, PortalTuning,
+    PortalBodyTransited, PortalCarves, PortalTuning,
 };
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
@@ -119,10 +119,6 @@ impl Plugin for PortalSimulationPlugin {
         // guard bounding the aperture volume on thin walls). The host syncs
         // it each frame from its collision world; empty = unclipped.
         app.init_resource::<crate::PortalHostDepths>();
-        // Content-agnostic movement intent: portal core's transit + input warp
-        // read/mutate this instead of a concrete host input frame; the host
-        // input adapter mirrors it to/from that input frame each frame.
-        app.init_resource::<PlayerMovementIntent>();
         app.init_resource::<PortalTuning>();
         // NOTE: the held-gun aim hint (`PortalAimHint`) is a render-only resource
         // owned by the HOST presentation layer (it is not part of the headless
@@ -225,7 +221,9 @@ mod tests {
         let mut app = App::new();
         app.add_plugins(PortalSimulationPlugin);
 
-        assert!(app.world().contains_resource::<Messages<PortalFireIntent>>());
+        assert!(app
+            .world()
+            .contains_resource::<Messages<PortalFireIntent>>());
         assert!(
             !app.world().contains_resource::<Messages<TogglePortalGun>>(),
             "static/scripted portal users must not inherit portal-gun control vocabulary",
@@ -238,18 +236,19 @@ mod tests {
         app.add_plugins((PortalSimulationPlugin, PortalGunPlugin));
 
         assert!(app.world().contains_resource::<Messages<TogglePortalGun>>());
-        assert!(
-            app.world()
-                .resource::<ConstructionSchemaCatalog>()
-                .contains_domain(PORTAL_GUN_CONSTRUCTION_DOMAIN),
-        );
+        assert!(app
+            .world()
+            .resource::<ConstructionSchemaCatalog>()
+            .contains_domain(PORTAL_GUN_CONSTRUCTION_DOMAIN),);
     }
 
     #[test]
     fn compatibility_plugin_still_composes_the_full_portal_experience() {
         let mut app = App::new();
         app.add_plugins(PortalPlugin);
-        assert!(app.world().contains_resource::<Messages<PortalFireIntent>>());
+        assert!(app
+            .world()
+            .contains_resource::<Messages<PortalFireIntent>>());
         assert!(app.world().contains_resource::<Messages<TogglePortalGun>>());
     }
 }

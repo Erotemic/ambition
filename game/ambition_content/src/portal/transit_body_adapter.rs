@@ -14,13 +14,13 @@
 
 use bevy::prelude::*;
 
+use ambition_boss_encounter::BossConfig;
 use ambition_platformer2d_actor_monolith::actor::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d_actor_monolith::avatar::trail::TrailContinuityBreak;
-use ambition_boss_encounter::BossConfig;
 use ambition_platformer2d_actor_monolith::features::BodyKinematics;
 use ambition_portal2d::{
-    BodyTeleported, PlayerMovementIntent, PortalBody, PortalBodyTransited, PortalEmission,
-    PortalInputWarp, PortalPolicy, PortalTuning,
+    BodyTeleported, PortalBody, PortalBodyTransited, PortalEmission, PortalInputWarp, PortalPolicy,
+    PortalTuning,
 };
 use ambition_projectiles::ProjectileGameplay;
 
@@ -245,24 +245,31 @@ pub fn reconcile_kernel_bodies_after_portal_transit(
 /// the controller runs (as they did when transit inserted them inline).
 pub fn portal_player_input_adapter(
     mut commands: Commands,
-    intent: Option<Res<PlayerMovementIntent>>,
     tuning: Res<PortalTuning>,
     mut transited: MessageReader<PortalBodyTransited>,
     mut teleported: MessageWriter<BodyTeleported>,
     mut trail_breaks: MessageWriter<TrailContinuityBreak>,
-    controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
-    primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    latches: Option<Res<ambition_characters::brain::SlotControlLatches>>,
+    rollback: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
+    slots: Res<ambition_characters::brain::SlotControls>,
+    raw: Res<ambition_characters::brain::SeatRawFrames>,
+    drivers: Query<&ambition_characters::brain::DrivingParticipant>,
 ) {
-    let held = intent.as_deref().map_or(Vec2::ZERO, |i| i.dir);
-    let subject = controlled
-        .and_then(|subject| subject.0)
-        .or_else(|| primary.single().ok());
     for ev in transited.read() {
-        // Only the DRIVEN body carries input/trace side effects; autonomous
-        // actors don't.
-        if Some(ev.body) != subject {
+        // Only a DRIVEN body carries input/trace side effects; autonomous actors
+        // do not. The seat is read off the body that transited, so any seat's
+        // hold is warped rather than only the primary's.
+        let Ok(driver) = drivers.get(ev.body) else {
             continue;
-        }
+        };
+        let frame = ambition_platformer2d_actor_monolith::control::seat_frame_this_tick(
+            latches.as_deref(),
+            rollback.as_deref(),
+            &slots,
+            &raw,
+            driver.0,
+        );
+        let held = Vec2::new(frame.axis_x, frame.axis_y);
         // Trace: the position snap is intentional.
         teleported.write(BodyTeleported { body: ev.body });
         // Trail: the body remained continuous in the quotient space, but its

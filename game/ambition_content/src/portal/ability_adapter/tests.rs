@@ -9,11 +9,27 @@
 //! drive the REAL adapters + the portal-owned marker components.
 use bevy::prelude::*;
 
+use ambition_characters::brain::{DrivingParticipant, PlayerSlot, SeatRawFrames, SlotControls};
 use ambition_platformer2d_actor_monolith::actor::{PlayerEntity, PrimaryPlayer};
-use ambition_input::ControlFrame;
+
+/// The seat surface the warp reads and writes. It used to be the global
+/// `ControlFrame`, bracketed by two mirror systems; the warp addresses a seat
+/// directly now, so these drive and read the same table the game does.
+fn hold_x(app: &mut App, axis_x: f32) {
+    let mut raw = app.world_mut().resource_mut::<SeatRawFrames>();
+    let mut frame = raw.get(PlayerSlot::PRIMARY);
+    frame.axis_x = axis_x;
+    raw.set(PlayerSlot::PRIMARY, frame);
+}
+
+fn seat_axis_x(app: &App) -> f32 {
+    app.world()
+        .resource::<SeatRawFrames>()
+        .get(PlayerSlot::PRIMARY)
+        .axis_x
+}
 use ambition_portal2d::{
-    PlayerMovementIntent, PortalChannel, PortalEmission, PortalGunColor, PortalInputWarp,
-    PortalTransit, PortalTuning,
+    PortalChannel, PortalEmission, PortalGunColor, PortalInputWarp, PortalTransit, PortalTuning,
 };
 
 use super::{
@@ -24,30 +40,22 @@ const BLUE: PortalChannel = PortalChannel::Gun(PortalGunColor::BLUE);
 
 #[test]
 fn portal_input_warp_transforms_held_input_then_clears() {
-    use crate::portal::{apply_movement_intent_to_control, sync_movement_intent_from_control};
     let mut app = App::new();
-    app.insert_resource(ControlFrame::default());
-    app.init_resource::<PlayerMovementIntent>();
+    app.init_resource::<SeatRawFrames>();
+    app.init_resource::<SlotControls>();
     app.init_resource::<PortalTuning>();
     // The content adapter brackets the core warp: mirror ControlFrame -> intent
     // before the warp, and the warped intent -> ControlFrame after, so this
     // exercises the full content+core chain on the ControlFrame surface exactly
     // as the game does.
-    app.add_systems(
-        Update,
-        (
-            sync_movement_intent_from_control,
-            warp_portal_input,
-            apply_movement_intent_to_control,
-        )
-            .chain(),
-    );
+    app.add_systems(Update, warp_portal_input);
     // A 180° warp (a same-wall pair). Player holds RIGHT (anchor right).
     let player = app
         .world_mut()
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
+            DrivingParticipant(PlayerSlot::PRIMARY),
             PortalInputWarp {
                 n_in: Vec2::new(-1.0, 0.0),
                 n_out: Vec2::new(-1.0, 0.0),
@@ -57,10 +65,10 @@ fn portal_input_warp_transforms_held_input_then_clears() {
         .id();
 
     // Still holding right → input is warped to LEFT (keeps you moving out).
-    app.world_mut().resource_mut::<ControlFrame>().axis_x = 1.0;
+    hold_x(&mut app, 1.0);
     app.update();
     assert!(
-        app.world().resource::<ControlFrame>().axis_x < -0.5,
+        seat_axis_x(&app) < -0.5,
         "held right is warped to left while the warp is active"
     );
     assert!(
@@ -69,7 +77,7 @@ fn portal_input_warp_transforms_held_input_then_clears() {
     );
 
     // Release movement → warp drops, input passes through untouched next frame.
-    app.world_mut().resource_mut::<ControlFrame>().axis_x = 0.0;
+    hold_x(&mut app, 0.0);
     app.update();
     assert!(
         app.world().get::<PortalInputWarp>(player).is_none(),
@@ -82,7 +90,7 @@ fn portal_input_warp_transforms_held_input_then_clears() {
         n_out: Vec2::new(-1.0, 0.0),
         anchor: Vec2::new(1.0, 0.0),
     });
-    app.world_mut().resource_mut::<ControlFrame>().axis_x = -1.0;
+    hold_x(&mut app, -1.0);
     app.update();
     assert!(
         app.world().get::<PortalInputWarp>(player).is_none(),
@@ -219,65 +227,49 @@ fn wall_ability_suppression_is_body_generic_and_restores_from_the_base() {
 /// emergence had no input protection at all.
 #[test]
 fn emission_guard_follows_the_possessed_body() {
-    use crate::portal::{apply_movement_intent_to_control, sync_movement_intent_from_control};
-    use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
     let mut app = App::new();
-    app.insert_resource(ControlFrame::default());
-    app.init_resource::<PlayerMovementIntent>();
+    app.init_resource::<SeatRawFrames>();
+    app.init_resource::<SlotControls>();
     app.init_resource::<PortalTuning>();
-    app.add_systems(
-        Update,
-        (
-            sync_movement_intent_from_control,
-            warp_portal_input,
-            apply_movement_intent_to_control,
-        )
-            .chain(),
-    );
-    // Home avatar has NO emission; the possessed actor is the one emerging
-    // from a right-wall portal (exit normal LEFT, into the room).
+    app.add_systems(Update, warp_portal_input);
+    // Home avatar has NO emission and no seat while possessed; the possessed
+    // actor carries the seat and is the one emerging from a right-wall portal
+    // (exit normal LEFT, into the room).
     app.world_mut().spawn((PlayerEntity, PrimaryPlayer));
-    let possessed = app
+    let _possessed = app
         .world_mut()
-        .spawn(PortalEmission {
-            exit_normal: Vec2::new(-1.0, 0.0),
-            timer: 1.0,
-        })
+        .spawn((
+            DrivingParticipant(PlayerSlot::PRIMARY),
+            PortalEmission {
+                exit_normal: Vec2::new(-1.0, 0.0),
+                timer: 1.0,
+            },
+        ))
         .id();
-    app.world_mut()
-        .insert_resource(ControlledSubject(Some(possessed)));
 
     // Holding RIGHT (back into the wall) is stripped for the DRIVEN body.
-    app.world_mut().resource_mut::<ControlFrame>().axis_x = 1.0;
+    hold_x(&mut app, 1.0);
     app.update();
     assert!(
-        app.world().resource::<ControlFrame>().axis_x.abs() < 0.01,
+        seat_axis_x(&app).abs() < 0.01,
         "the POSSESSED body's emergence guard shapes the input stream"
     );
 }
 
 #[test]
 fn emission_guard_strips_input_pushing_back_into_the_exit_wall() {
-    use crate::portal::{apply_movement_intent_to_control, sync_movement_intent_from_control};
     let mut app = App::new();
-    app.insert_resource(ControlFrame::default());
-    app.init_resource::<PlayerMovementIntent>();
+    app.init_resource::<SeatRawFrames>();
+    app.init_resource::<SlotControls>();
     app.init_resource::<PortalTuning>();
-    app.add_systems(
-        Update,
-        (
-            sync_movement_intent_from_control,
-            warp_portal_input,
-            apply_movement_intent_to_control,
-        )
-            .chain(),
-    );
+    app.add_systems(Update, warp_portal_input);
     // Emerging from a right-wall portal — exit_normal points LEFT (into room).
     let player = app
         .world_mut()
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
+            DrivingParticipant(PlayerSlot::PRIMARY),
             PortalEmission {
                 exit_normal: Vec2::new(-1.0, 0.0),
                 timer: 1.0,
@@ -285,17 +277,17 @@ fn emission_guard_strips_input_pushing_back_into_the_exit_wall() {
         ))
         .id();
     // Holding RIGHT (back into the wall) is stripped so physics carries you out.
-    app.world_mut().resource_mut::<ControlFrame>().axis_x = 1.0;
+    hold_x(&mut app, 1.0);
     app.update();
     assert!(
-        app.world().resource::<ControlFrame>().axis_x.abs() < 0.01,
+        seat_axis_x(&app).abs() < 0.01,
         "input pushing back into the exit wall is stripped during emergence"
     );
     // Holding LEFT (the emergence direction) passes through untouched.
-    app.world_mut().resource_mut::<ControlFrame>().axis_x = -1.0;
+    hold_x(&mut app, -1.0);
     app.update();
     assert!(
-        app.world().resource::<ControlFrame>().axis_x < -0.5,
+        seat_axis_x(&app) < -0.5,
         "input in the emergence direction is preserved"
     );
     let _ = player;

@@ -146,9 +146,34 @@ Stage 3 named portrait presentation has landed:
 - the Ambition presenter plays looping clips and one-shots that hold their last
   frame, with deterministic fallback to the catalog/manifest default.
 
+Stage 4 split the request in two. A portrait sheet answers two questions --
+what PLAYS and what a UI box draws -- and a consumer now names which one it is
+asking:
+
+- `PortraitSheetRegistry::resolve_still` returns exactly one frame;
+  `resolve_animated` returns a clip to play. `resolve_clip`, which returned a
+  record and let each caller improvise, is gone;
+- both degradations are stated by the API rather than left to the call site: a
+  still of an animated clip is its first frame, and an animation of a one-frame
+  clip is a held still;
+- manifests may name a `still_clip`, so a target with a looping default can say
+  which pose a select cell or HUD panel should draw instead of taking wherever
+  the loop starts. It is optional; omitting it falls through to the default
+  clip's first frame;
+- `HudStanding` carries a source rect beside its image path, because a path
+  alone cannot say which frame it means -- the HUD had been drawing whole
+  portrait pages into 56px panels.
+
+Twelve rig-backed characters publish a looping default and a named still.
+Whether a character SHOULD is a content decision, not a gate: there is
+deliberately no check that every target animates its portrait.
+
 Native portrait production must continue to use family-specific or bespoke
-rerendering, never crops enlarged from gameplay sheets. Remaining portrait work
-is polish and additional per-character expression art rather than architecture.
+rerendering, never crops enlarged from gameplay sheets. A character whose
+gameplay frames compose effects owes those effects to its portrait too -- Emmy's
+ethereal hum is what she looks like, and her close-up was the one place in the
+game it was missing. Remaining portrait work is polish and additional
+per-character expression art rather than architecture.
 
 ## Pointers
 

@@ -1277,6 +1277,15 @@ times**, mostly for OTHER variants, and every one would have to name a policy.
 ⚠ and the open sub-problem: what a composition with NO platform fighter passes,
 given Rust has no default type parameter on functions.
 
+⛔⛔ **and the obvious answer to THAT has the review's own failure mode in a new
+shape.** Providing a no-op `NoPlatformFighter` implementor in `ambition_characters`
+plus a convenience wrapper solves the 44 tests and the fighterless composition in
+one move — and it means a composition that FORGETS to name the real policy gets a
+silently inert fighter instead of a compile error. That is the property the
+refusal of the service locator was protecting, lost to a default rather than to
+an id. ⇒ if this is taken, the fighterless case has to be a type the composition
+NAMES, not one it falls back to.
+
 ⚠ **the paragraph below is the ORIGINAL design statement, kept because it is
 still the right shape — but read it as HISTORY: it describes work that landed.**
 Two typed components, neither erased: control authority (the participant slot a

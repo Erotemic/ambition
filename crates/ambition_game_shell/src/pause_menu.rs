@@ -1,14 +1,14 @@
-//! The universal in-session pause menu the host offers every experience.
+//! The universal shell/system menu the host offers every experience.
 //!
-//! A hosted experience that brings no pause chrome of its own (Sanic, Mary-O,
-//! the pocket demo) still needs the three-verb minimum: **Resume**, **Quit to
-//! Title**, **Quit to Desktop**. Rather than each demo hand-rolling a menu, the
-//! shell offers ONE — opened with Escape / Start while a gameplay session is
-//! live, drawn with the same `ambition_menu` Bevy-UI renderer the launcher uses,
-//! and dispatched to the same host-relative [`ShellCommand`]s (`QuitToHome`,
-//! `ExitProcess`) the launcher and F10 already fire. Because it rides
-//! [`MinimalShellPlugins`](crate::MinimalShellPlugins), the standalone demo apps
-//! AND the multi-game host get it for free.
+//! A hosted experience that brings no system chrome of its own (Sanic, Mary-O,
+//! the pocket demo, Smash's character select) still needs the same global exit
+//! and audio controls. Rather than each route hand-rolling a menu, the shell
+//! offers ONE — opened with Escape / Start, drawn with the same `ambition_menu`
+//! Bevy-UI renderer the launcher uses, and dispatched to the same host-relative
+//! [`ShellCommand`]s (`QuitToHome`, `ExitProcess`) the launcher and F10 already
+//! fire. A live gameplay session additionally contributes **Resume**. Because it
+//! rides [`MinimalShellPlugins`](crate::MinimalShellPlugins), the standalone demo
+//! apps AND the multi-game host get it for free.
 //!
 //! ## Coexistence with a game's own pause menu
 //!
@@ -28,11 +28,14 @@ use ambition_menu::{
 };
 use ambition_platformer2d_shared_tangle::schedule::GameMode;
 use ambition_sfx::{ids, OwnedSfxMessage, SfxMessage, SfxWriter};
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
-use crate::{shell_action_edges, ActiveGameplaySession, ShellCommand};
+use crate::{
+    shell_action_edges, ActiveGameplaySession, ShellCommand, ShellHostConfiguration, ShellRouter,
+};
 
-/// The three universal entries, in display order.
+/// The universal menu entries, in display order.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum PauseEntry {
     Resume,
@@ -65,22 +68,23 @@ const SHELL_AUDIO_OPTIONS: [ambition_settings_menu::settings::SettingsOptionId; 
 ];
 
 impl PauseEntry {
-    /// The rows for this menu, which depend on whether a session is live.
+    /// Build rows from the two independent facts the menu actually cares about.
     ///
-    /// One menu, two row sets, rather than two menus. The Start intent means
-    /// the same thing on the title screen and in a game — "show me the things
-    /// that are not the game" — and the only honest difference is that there is
-    /// nothing to resume or quit BACK to.
-    fn rows(in_session: bool) -> Vec<PauseEntry> {
-        let mut rows = Vec::with_capacity(7);
+    /// `Resume` is session-relative. `Quit to Title` is route-relative: a
+    /// frontend subroute such as Smash's character select has no gameplay
+    /// session, but it still has somewhere meaningful to quit *to*. Only the
+    /// host's home route should omit that row.
+    fn rows(in_session: bool, can_quit_to_title: bool) -> Vec<PauseEntry> {
+        let mut rows = Vec::with_capacity(8);
         if in_session {
             rows.push(PauseEntry::Resume);
         }
         rows.extend(SHELL_AUDIO_OPTIONS.map(PauseEntry::Audio));
-        if in_session {
-            rows.push(PauseEntry::QuitToTitle);
-        } else {
+        if !in_session {
             rows.push(PauseEntry::Close);
+        }
+        if can_quit_to_title {
+            rows.push(PauseEntry::QuitToTitle);
         }
         rows.push(PauseEntry::QuitToDesktop);
         rows
@@ -103,11 +107,9 @@ impl PauseEntry {
             // invisible is a switch with no indicator: you can only discover
             // what it does by changing it.
             PauseEntry::Audio(id) => audio_value(id, settings),
-            PauseEntry::QuitToTitle => {
-                "Leave this session and return to the title screen.".to_owned()
-            }
+            PauseEntry::QuitToTitle => "Return to the title screen.".to_owned(),
             PauseEntry::QuitToDesktop => "Exit the game.".to_owned(),
-            PauseEntry::Close => "Back to the title screen.".to_owned(),
+            PauseEntry::Close => "Close this menu.".to_owned(),
         }
     }
 }
@@ -190,6 +192,39 @@ impl ShellPauseMenu {
 #[derive(Resource, Default)]
 pub struct ShellPauseMenuSuppressed(pub bool);
 
+/// Route/session facts needed to decide which universal menu rows make sense.
+///
+/// These resources form one coherent question: *where did the system menu open?*
+/// Keeping that question here avoids growing three menu systems with parallel
+/// route/session parameter lists.
+#[derive(SystemParam)]
+struct PauseMenuContext<'w> {
+    session: Res<'w, ActiveGameplaySession>,
+    router: Res<'w, ShellRouter>,
+    host: Res<'w, ShellHostConfiguration>,
+}
+
+impl PauseMenuContext<'_> {
+    fn in_session(&self) -> bool {
+        self.session.0.is_some()
+    }
+
+    fn can_quit_to_title(&self) -> bool {
+        if self.in_session() {
+            return true;
+        }
+        let (Some(active), Some(host)) = (self.router.active.as_ref(), self.host.spec.as_ref())
+        else {
+            return false;
+        };
+        active.route_id != host.home_route
+    }
+
+    fn rows(&self) -> Vec<PauseEntry> {
+        PauseEntry::rows(self.in_session(), self.can_quit_to_title())
+    }
+}
+
 /// Page id for the single-page pause menu model.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 enum PausePage {
@@ -201,7 +236,7 @@ enum PausePage {
 #[derive(Component)]
 struct ShellPauseMenuRoot;
 
-/// Adds the universal in-session pause menu. Rides [`MinimalShellPlugins`], so
+/// Adds the universal shell/system menu. Rides [`MinimalShellPlugins`], so
 /// every host and standalone demo app gets it.
 pub struct ShellPauseMenuPlugin;
 
@@ -289,7 +324,7 @@ fn drive_shell_pause_menu(
     // the menu. Optional: a standalone demo composes this shell without the
     // participant pipeline, and there the global frame above is the only seat.
     seat_frames: Option<Res<ambition_input::SeatMenuFrames>>,
-    session: Res<ActiveGameplaySession>,
+    context: PauseMenuContext,
     suppressed: Res<ShellPauseMenuSuppressed>,
     mut menu: ResMut<ShellPauseMenu>,
     mut shell: MessageWriter<ShellCommand>,
@@ -315,8 +350,8 @@ fn drive_shell_pause_menu(
         }
         return;
     }
-    let in_session = session.0.is_some();
-    let rows = PauseEntry::rows(in_session);
+    let in_session = context.in_session();
+    let rows = context.rows();
 
     // **Whose presses is this menu reading?**
     //
@@ -412,7 +447,7 @@ fn drive_shell_pause_menu(
 /// adapter calls the same activation function as keyboard/controller confirm.
 #[allow(clippy::too_many_arguments)]
 fn shell_pause_menu_pointer(
-    session: Res<ActiveGameplaySession>,
+    context: PauseMenuContext,
     suppressed: Res<ShellPauseMenuSuppressed>,
     mut activated: MessageReader<MenuActionActivated<PauseEntry>>,
     mut menu: ResMut<ShellPauseMenu>,
@@ -422,7 +457,7 @@ fn shell_pause_menu_pointer(
     mut settings: Option<ResMut<ambition_persistence::settings::UserSettings>>,
     mut sfx: SfxWriter,
 ) {
-    let rows = PauseEntry::rows(session.0.is_some());
+    let rows = context.rows();
     for activation in activated.read() {
         // Session-independent, like the keyboard path: the title screen's menu
         // is real, so its rows are pointer- and touch-activatable too.
@@ -508,16 +543,17 @@ fn activate_pause_entry(
 fn render_shell_pause_menu(
     mut commands: Commands,
     menu: Res<ShellPauseMenu>,
-    session: Res<ActiveGameplaySession>,
+    context: PauseMenuContext,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     asset_server: Option<Res<AssetServer>>,
     // The font menus draw with. `None` keeps Bevy's default, which is an
     // ASCII-only subset — see `ambition_menu::render::bevy_ui::MenuFont`.
     menu_font: Option<Res<ambition_menu::render::bevy_ui::MenuFont>>,
     roots: Query<Entity, (With<BevyUiMenuRoot>, With<ShellPauseMenuRoot>)>,
-    mut prior: Local<Option<(bool, usize, bool, u64)>>,
+    mut prior: Local<Option<(bool, usize, bool, bool, u64)>>,
 ) {
-    let in_session = session.0.is_some();
+    let in_session = context.in_session();
+    let can_quit_to_title = context.can_quit_to_title();
     let settings = settings.map(|s| s.clone()).unwrap_or_default();
     // The rebuild key has to include the VALUES, or a volume that changed
     // without moving the cursor would keep drawing its old percentage — a
@@ -539,7 +575,13 @@ fn render_shell_pause_menu(
         };
         acc.wrapping_mul(1_000_003).wrapping_add(value)
     });
-    let key = (menu.open, menu.cursor, in_session, audio_key);
+    let key = (
+        menu.open,
+        menu.cursor,
+        in_session,
+        can_quit_to_title,
+        audio_key,
+    );
     if *prior == Some(key) {
         return;
     }
@@ -569,7 +611,7 @@ fn render_shell_pause_menu(
         MenuTextAlign::Center,
         MenuColor::WHITE,
     );
-    let rows = PauseEntry::rows(in_session);
+    let rows = context.rows();
     // Seven rows do not fit the three-row spacing this menu was built for.
     let row_height = (52.0 / rows.len().max(1) as f32).min(10.0);
     for (index, entry) in rows.iter().enumerate() {
@@ -660,6 +702,8 @@ mod tests {
         let mut app = App::new();
         app.init_resource::<MenuControlFrame>()
             .insert_resource(ActiveGameplaySession(None))
+            .init_resource::<ShellRouter>()
+            .init_resource::<ShellHostConfiguration>()
             .add_plugins(ShellPauseMenuPlugin)
             .add_message::<ShellCommand>();
         app
@@ -790,8 +834,13 @@ mod tests {
     /// Derived from the row list rather than a hand-counted number of presses:
     /// the row set grew audio rows and every hardcoded count in these tests went
     /// stale at once, which is a test suite pinning a layout instead of a claim.
-    fn navigate_to(app: &mut App, in_session: bool, wanted: PauseEntry) {
-        let index = PauseEntry::rows(in_session)
+    fn navigate_to(
+        app: &mut App,
+        in_session: bool,
+        can_quit_to_title: bool,
+        wanted: PauseEntry,
+    ) {
+        let index = PauseEntry::rows(in_session, can_quit_to_title)
             .iter()
             .position(|entry| *entry == wanted)
             .expect("the row is in this menu");
@@ -829,31 +878,39 @@ mod tests {
         );
     }
 
-    /// Without a session there is nothing to resume and nowhere to quit BACK
-    /// to, so those rows are absent rather than present-and-broken.
+    /// Session presence and route position answer different questions. A
+    /// frontend subroute has nothing to Resume but still needs Quit to Title.
     #[test]
-    fn the_title_screen_menu_offers_no_resume_and_no_quit_to_title() {
-        let rows = PauseEntry::rows(false);
-        assert!(!rows.contains(&PauseEntry::Resume));
-        assert!(!rows.contains(&PauseEntry::QuitToTitle));
-        assert!(rows.contains(&PauseEntry::Close));
-        assert!(rows.contains(&PauseEntry::QuitToDesktop));
+    fn row_sets_distinguish_home_frontend_and_gameplay() {
+        let home = PauseEntry::rows(false, false);
+        assert!(!home.contains(&PauseEntry::Resume));
+        assert!(!home.contains(&PauseEntry::QuitToTitle));
+        assert!(home.contains(&PauseEntry::Close));
+        assert!(home.contains(&PauseEntry::QuitToDesktop));
 
-        let in_game = PauseEntry::rows(true);
+        let frontend = PauseEntry::rows(false, true);
+        assert!(!frontend.contains(&PauseEntry::Resume));
+        assert!(frontend.contains(&PauseEntry::Close));
+        assert!(frontend.contains(&PauseEntry::QuitToTitle));
+        assert!(frontend.contains(&PauseEntry::QuitToDesktop));
+
+        let in_game = PauseEntry::rows(true, true);
         assert!(in_game.contains(&PauseEntry::Resume));
         assert!(in_game.contains(&PauseEntry::QuitToTitle));
         assert!(!in_game.contains(&PauseEntry::Close));
 
-        // The audio rows are on BOTH. That is the point of them being global.
+        // Audio is global and therefore present on all three surfaces.
         for id in SHELL_AUDIO_OPTIONS {
-            assert!(
-                rows.contains(&PauseEntry::Audio(id)),
-                "{id:?} off the title menu"
-            );
-            assert!(
-                in_game.contains(&PauseEntry::Audio(id)),
-                "{id:?} off the pause menu"
-            );
+            for (name, rows) in [
+                ("title", &home),
+                ("frontend", &frontend),
+                ("gameplay", &in_game),
+            ] {
+                assert!(
+                    rows.contains(&PauseEntry::Audio(id)),
+                    "{id:?} missing from {name} menu"
+                );
+            }
         }
     }
 
@@ -869,6 +926,7 @@ mod tests {
         press_start(&mut app);
         navigate_to(
             &mut app,
+            false,
             false,
             PauseEntry::Audio(SettingsOptionId::MasterVolume),
         );
@@ -898,7 +956,12 @@ mod tests {
         let mut app = app();
         app.init_resource::<UserSettings>();
         press_start(&mut app);
-        navigate_to(&mut app, false, PauseEntry::Audio(SettingsOptionId::Mute));
+        navigate_to(
+            &mut app,
+            false,
+            false,
+            PauseEntry::Audio(SettingsOptionId::Mute),
+        );
 
         assert!(!app.world().resource::<UserSettings>().audio.muted);
         intent(&mut app, |f| f.select = true);
@@ -929,12 +992,47 @@ mod tests {
         );
     }
 
+    fn put_on_frontend_route(app: &mut App, route: &str, home: &str) {
+        app.world_mut().resource_mut::<ShellHostConfiguration>().spec =
+            Some(crate::ShellHostSpec::new(home, home));
+        app.world_mut().resource_mut::<ShellRouter>().active = Some(crate::ActiveShellExperience {
+            activation_id: crate::ShellActivationId(1),
+            route_id: crate::ShellRouteId::new(route),
+            experience_id: crate::ShellExperienceId::new("test-frontend"),
+            parameters: Default::default(),
+            load_authorization: None,
+            prepared_session: None,
+        });
+    }
+
+    /// Regression for the Smash character-select gap: frontend routes have no
+    /// gameplay session, but that must not erase the system menu's route home.
+    #[test]
+    fn frontend_subroute_can_quit_to_title_without_a_session() {
+        let mut app = app();
+        put_on_frontend_route(&mut app, "smash-character-select", "title");
+        press_start(&mut app);
+        navigate_to(&mut app, false, true, PauseEntry::QuitToTitle);
+        intent(&mut app, |f| f.select = true);
+
+        let sent: Vec<ShellCommand> = app
+            .world_mut()
+            .resource_mut::<Messages<ShellCommand>>()
+            .drain()
+            .collect();
+        assert!(
+            sent.iter().any(|c| matches!(c, ShellCommand::QuitToHome)),
+            "a frontend subroute's Quit to Title uses the host-relative home command"
+        );
+        assert!(!app.world().resource::<ShellPauseMenu>().open);
+    }
+
     #[test]
     fn quit_to_title_fires_quit_to_home_and_closes() {
         let mut app = app();
         with_live_session(&mut app);
         press_start(&mut app); // open
-        navigate_to(&mut app, true, PauseEntry::QuitToTitle);
+        navigate_to(&mut app, true, true, PauseEntry::QuitToTitle);
         intent(&mut app, |f| f.select = true); // confirm
 
         let sent: Vec<ShellCommand> = app
@@ -1006,7 +1104,7 @@ mod tests {
         let mut app = app();
         with_live_session(&mut app);
         press_start(&mut app);
-        navigate_to(&mut app, true, PauseEntry::QuitToDesktop);
+        navigate_to(&mut app, true, true, PauseEntry::QuitToDesktop);
         intent(&mut app, |f| f.select = true);
 
         let sent: Vec<ShellCommand> = app

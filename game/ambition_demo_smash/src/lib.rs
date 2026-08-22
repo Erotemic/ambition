@@ -1911,7 +1911,7 @@ fn reset_select_frontend_on_arrival(
 /// lifetime only; seat policy and frontend-state initialization live in the two
 /// systems above.
 fn present_select_screen_ui(
-    commands: bevy::prelude::Commands,
+    mut commands: bevy::prelude::Commands,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
     fighters: bevy::prelude::Res<select::SmashRoster>,
     art: select_screen::ScreenArt,
@@ -2207,21 +2207,21 @@ fn start_the_battle_when_asked(
     ));
 }
 
-/// **Leave the lobby for the title.**
+/// **Leave the lobby through the character-select screen's own Back affordance.**
 ///
 /// ⭐ Jon, 2026-08-16: *"in the smash character select, there is no way to quit
-/// to title, you can only do this if you start a match."* Exactly right, and the
-/// reason was structural rather than an oversight: the universal pause menu
-/// offers "Quit to Title" only when there is an `ActiveGameplaySession` to quit
-/// FROM (`PauseEntry::rows`), and the select screen is a frontend route with no
-/// session. So the only door out of the lobby was through a match.
+/// to title, you can only do this if you start a match."* There are TWO useful
+/// roads now, and they should stay distinct: Esc/Start opens the universal
+/// system menu, whose `Quit to Title` row is available on frontend subroutes as
+/// well as live sessions; this handler is the CSS-native Back / held-B route.
+/// Both emit the same host-relative `QuitToHome` command.
 ///
-/// ⭐ **`QuitToHome`, the SAME command the pause menu's own row writes.** Home is
-/// the host's declared `home_route` — the Ambition launcher in the multi-game
-/// host — so this reaches the title by the one road that already knows where it
-/// is, clears the route history, and lets every experience scope release what it
-/// claimed. Spelling a `GoTo(some_title_route)` here would be this demo naming
-/// a route it does not own, and it would be wrong in the next composition.
+/// Home is the host's declared `home_route` — the Ambition launcher in the
+/// multi-game host — so this reaches the title by the one road that already
+/// knows where it is, clears route history, and lets every experience scope
+/// release what it claimed. Spelling a `GoTo(some_title_route)` here would be
+/// this demo naming a route it does not own, and it would be wrong in the next
+/// composition.
 ///
 /// ⚠ **nothing to unwind by hand, and that is a claim worth stating.** What this
 /// route CLAIMED on arrival is released by the systems that claimed it, because

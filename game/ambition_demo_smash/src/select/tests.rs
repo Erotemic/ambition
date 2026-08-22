@@ -108,14 +108,14 @@ fn two_decided() -> SmashSelect {
 #[test]
 fn the_slot_button_cycles_absent_controller_cpu() {
     let mut select = SmashSelect::default();
-    select.cycle_occupant(0, 4);
+    select.cycle_occupant(0, 0);
     assert_eq!(
         select.slot(0).occupant,
         SlotOccupant::Controller { device: 0 }
     );
-    select.cycle_occupant(0, 4);
+    select.cycle_occupant(0, 0);
     assert_eq!(select.slot(0).occupant, SlotOccupant::Cpu);
-    select.cycle_occupant(0, 4);
+    select.cycle_occupant(0, 0);
     assert_eq!(select.slot(0).occupant, SlotOccupant::Absent);
 }
 
@@ -129,7 +129,7 @@ fn the_slot_button_cycles_absent_controller_cpu() {
 fn two_controller_slots_never_share_one_device() {
     let mut select = SmashSelect::default();
     for slot in 0..MAX_SMASH_SEATS {
-        select.cycle_occupant(slot, MAX_SMASH_SEATS);
+        select.cycle_occupant(slot, slot);
     }
     let devices: Vec<usize> = (0..MAX_SMASH_SEATS)
         .filter_map(|slot| select.slot(slot).occupant.device())
@@ -141,36 +141,36 @@ fn two_controller_slots_never_share_one_device() {
     );
 }
 
-/// **Jon: a controller player "must have a corresponding attached
-/// controller".** With one source in the room, the second card cannot be a
-/// controller — so its button skips that rung and offers the only honest thing
-/// left.
+/// A participant already seated elsewhere cannot become a second human slot.
+/// Pressing an empty card while already seated promotes that card directly to
+/// CPU instead of guessing at some other free input source.
 #[test]
-fn a_slot_with_no_free_source_skips_straight_to_cpu() {
+fn an_already_seated_participant_turns_an_empty_card_into_cpu() {
     let mut select = SmashSelect::default();
-    select.cycle_occupant(0, 1);
+    select.cycle_occupant(0, 0);
     assert_eq!(
         select.slot(0).occupant,
         SlotOccupant::Controller { device: 0 }
     );
 
-    select.cycle_occupant(1, 1);
+    select.cycle_occupant(1, 0);
     assert_eq!(
         select.slot(1).occupant,
         SlotOccupant::Cpu,
-        "the only source was taken and the second card became a controller anyway"
+        "a participant already seated in slot 0 was duplicated into slot 1"
     );
 }
 
-/// Freeing a source hands it back. A slot that becomes absent releases its
-/// device, or unplugging-by-toggling would leak chairs.
+/// Once a participant's old slot becomes absent, that participant may join a
+/// different slot. The requester is explicit; no global free-device search is
+/// involved.
 #[test]
-fn emptying_a_slot_returns_its_source_to_the_pool() {
+fn an_absent_slot_releases_its_participant_for_another_card() {
     let mut select = SmashSelect::default();
-    select.cycle_occupant(0, 1); // controller on the one source
-    select.cycle_occupant(0, 1); // cpu
-    select.cycle_occupant(0, 1); // absent — source released
-    select.cycle_occupant(1, 1);
+    select.cycle_occupant(0, 0); // controller
+    select.cycle_occupant(0, 0); // cpu
+    select.cycle_occupant(0, 0); // absent
+    select.cycle_occupant(1, 0);
     assert_eq!(
         select.slot(1).occupant,
         SlotOccupant::Controller { device: 0 }
@@ -288,22 +288,23 @@ fn two_cpus_are_a_match_and_a_person_can_join_them() {
     );
 }
 
-/// **A pick outlives its occupant.** Toggling a slot from controller to CPU and
-/// back is how a player hands their fighter to the machine; clearing the
-/// portrait on the way through would make that a re-pick every time.
+/// Human↔CPU keeps the current character, but `Absent` is a lifecycle
+/// boundary. Rejoining starts from Random rather than reviving stale selection.
 #[test]
-fn the_chosen_character_survives_the_button() {
+fn absent_clears_the_pick_and_rejoin_starts_on_random() {
     let mut select = SmashSelect::default();
-    select.cycle_occupant(0, 2);
+    select.cycle_occupant(0, 0);
     select.set_pick(0, 5);
-    select.cycle_occupant(0, 2); // → CPU
+    select.cycle_occupant(0, 0); // → CPU
     assert_eq!(select.slot(0).pick, Some(SlotPick::Fighter(5)));
-    select.cycle_occupant(0, 2); // → absent
-    assert_eq!(select.slot(0).pick, Some(SlotPick::Fighter(5)));
+    select.cycle_occupant(0, 0); // → absent
+    assert_eq!(select.slot(0).pick, None);
+
+    select.cycle_occupant(0, 0); // → controller again
     assert_eq!(
-        select.slot(0).locked_pick(),
-        None,
-        "an absent slot's remembered pick counted toward the match"
+        select.slot(0).pick,
+        Some(SlotPick::Random),
+        "rejoining an absent slot revived an old character instead of Random"
     );
 }
 
@@ -430,7 +431,7 @@ fn an_untouched_screen_is_not_a_match() {
 #[test]
 fn a_slot_past_the_ceiling_is_ignored_rather_than_a_crash() {
     let mut select = SmashSelect::default();
-    select.cycle_occupant(MAX_SMASH_SEATS, 4);
+    select.cycle_occupant(MAX_SMASH_SEATS, 0);
     select.set_pick(MAX_SMASH_SEATS, 0);
     select.seed_pick(MAX_SMASH_SEATS, &fighters());
     assert_eq!(select.participating(), 0);

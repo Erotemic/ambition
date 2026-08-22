@@ -39,31 +39,41 @@ fn main() {
     let layout = SelectLayout::for_viewport(None, fighters.cell_count());
     show(&mut app, "the screen as three people find it");
 
-    click(&mut app, layout.role_button(0), "P1 takes a controller");
-    click(&mut app, layout.role_button(1), "P2 takes a controller");
-    click(&mut app, layout.role_button(2), "P3's card is toggled…");
-    click(&mut app, layout.role_button(2), "…and again, to a CPU");
+    click(&mut app, 0, layout.role_button(0), "P1 takes a controller");
+    click(&mut app, 1, layout.role_button(1), "P2 takes a controller");
+    click(&mut app, 2, layout.role_button(2), "P3 takes a controller");
+    click(&mut app, 2, layout.role_button(2), "…and hands that card to a CPU");
 
-    // Each participating card's token starts in the pool; pick it up and drop
-    // it on a portrait. Two clicks, exactly as a pad does it.
-    for (slot, character) in [(0usize, 4usize), (1, 0), (2, 6)] {
+    // Human hands can select portraits directly. The CPU has no hand, so P1
+    // borrows its token to choose that card's fighter.
+    for (owner_slot, driving_seat, character) in
+        [(0usize, 0u8, 4usize), (1, 1, 0), (2, 0, 6)]
+    {
+        if matches!(
+            app.world().resource::<SmashSelect>().slot(owner_slot).occupant,
+            ambition_demo_smash::select::SlotOccupant::Cpu
+        ) {
+            let token = placed_token(&app, &layout, owner_slot);
+            click(
+                &mut app,
+                driving_seat,
+                token,
+                &format!("P{} picks the CPU token up", driving_seat + 1),
+            );
+        }
         click(
             &mut app,
-            layout.token_home(slot),
-            &format!("P{} picks their token up", slot + 1),
-        );
-        click(
-            &mut app,
+            driving_seat,
             layout.portrait(character).expect("an authored portrait"),
             &format!(
-                "P{} drops it on {}",
-                slot + 1,
+                "slot {} chooses {}",
+                owner_slot + 1,
                 fighters.get(character).unwrap_or("?")
             ),
         );
     }
 
-    click(&mut app, layout.start_button(), "somebody clicks START");
+    click(&mut app, 0, layout.start_button(), "somebody clicks START");
 
     let started = app
         .world()
@@ -72,16 +82,35 @@ fn main() {
     println!("\nmatch published: {started}");
 }
 
-/// Put the cursor on a rectangle and press confirm, from seat 0.
-fn click(app: &mut App, rect: ambition_demo_smash::select_screen::cursor::HitRect, what: &str) {
+fn placed_token(
+    app: &App,
+    layout: &SelectLayout,
+    slot: usize,
+) -> ambition_demo_smash::select_screen::cursor::HitRect {
+    ambition_demo_smash::select_screen::token_rect(
+        layout,
+        app.world().resource::<SmashSelect>(),
+        app.world().resource::<SmashRoster>(),
+        slot,
+    )
+    .unwrap_or_else(|| panic!("slot {slot} has no placed token on this page"))
+}
+
+/// Put one participant's cursor on a rectangle and press confirm.
+fn click(
+    app: &mut App,
+    seat: u8,
+    rect: ambition_demo_smash::select_screen::cursor::HitRect,
+    what: &str,
+) {
     app.world_mut()
         .resource_mut::<SelectCursors>()
-        .seat_mut(0)
+        .seat_mut(seat as usize)
         .move_to(rect.center());
     let mut frames = app.world_mut().resource_mut::<SeatMenuFrames>();
     frames.clear();
     frames.set(
-        0,
+        seat,
         MenuControlFrame {
             select: true,
             ..Default::default()

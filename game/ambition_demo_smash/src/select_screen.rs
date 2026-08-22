@@ -58,19 +58,18 @@ use layout::SelectLayout;
 #[derive(Component)]
 pub struct SmashSelectUiRoot;
 
-/// **Everything the cursor can act on.**
+/// **Everything the cursor can act on through the static layout.**
 ///
-/// One type over four kinds rather than four marker components, because the
-/// cursor's central question — *what am I over* — has to be answered once. Four
-/// answers in some order is the shape that lets a press land on two things.
+/// Tokens are deliberately not variants here: their rectangles come from
+/// selection state (or from a carrier's hand), while these targets are pure
+/// layout. `drive_the_cursor` arbitrates token hits before the portrait beneath
+/// them.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SelectTarget {
     /// A portrait in the grid. Indexes [`SmashRoster`].
     Portrait(usize),
     /// The button that cycles one card between controller / CPU / absent.
     RoleButton(usize),
-    /// A slot's draggable token, at rest in the pool.
-    Token(usize),
     /// Begin the match.
     Start,
     /// Leave the lobby — see [`LeaveRequested`].
@@ -98,8 +97,8 @@ pub enum Anchored {
     Back,
 }
 
-/// A slot's token. Positioned from the DECISION rather than from an anchor — it
-/// is over a portrait, in the cursor's hand, or resting in the pool.
+/// A slot's token. Its resting position is derived from the slot's selection;
+/// while carried, it follows the carrier's hand.
 #[derive(Component, Clone, Copy)]
 pub struct SlotToken(pub usize);
 
@@ -169,11 +168,10 @@ pub struct BackButton;
 /// opinion about routing, and the one place that decides where BACK goes
 /// (`leave_the_select_screen_when_asked`) would no longer be the only one.
 ///
-/// ⚠ **and it has to be one flag rather than two systems reading the same
-/// edge.** BACK already means "put the token down" while the cursor is
-/// carrying one, and that undo is decided in [`drive_the_cursor`] — a separate
-/// system reading `SeatMenuFrames` for the quit would see the same frame and
-/// leave the lobby on the press that was meant to drop a fighter.
+/// Tap-B belongs to the select interaction state machine (it recalls the
+/// owner's token); navigation out is an explicit Back control or a held-B
+/// gesture. Keeping the request here lets one system arbitrate those meanings
+/// before the shell sees a route change.
 #[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct LeaveRequested(pub bool);
 
@@ -302,12 +300,12 @@ fn monogram(label: &str) -> String {
     }
 }
 
-/// **Everything needed to draw a character**, as one parameter.
+/// **The read-only art context needed to present a character.**
 ///
-/// ⚠ four separate `Res` arguments pushed `present_the_select_screen` past
-/// Bevy's system-parameter tuple ceiling. Grouping them is not only a workaround:
-/// a portrait is *catalog + manifest + asset server*, and the three arriving
-/// together is what stops one of them being forgotten at a second call site.
+/// This is a coherent `SystemParam`, not parameter packing: portrait resolution
+/// is defined by the catalog, prepared declarations, loaded sheets/assets and
+/// menu font together. Spawn and projection systems consume the same context so
+/// they cannot grow separate portrait-resolution rules.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct ScreenArt<'w> {
     pub catalog: Res<'w, CharacterCatalog>,
@@ -427,70 +425,23 @@ pub fn exit_leads_somewhere(
 /// a second on a 16:9 screen, which is about where Smash's own cursor sits.
 const CURSOR_SPEED_PER_SECOND: f32 = 1.15;
 
-/// **Which idiom this screen offers**, because the two Smashes differ.
+/// Character-select interaction policy.
 ///
-/// ⭐ **Melee drags a token onto a face; Ultimate roams a cursor and confirms
-/// on one.** Jon's 2026-08-05 spec describes Melee's, and that is the default
-/// here — it is also the one that maps cleanly onto a finger, since a tap has
-/// no hover to preview with. Where the GAMES differ, ship the knob.
-///
-/// ⚠ **demo-local on purpose.** A global setting owes ~7 touchpoints including
-/// the curated-options list, and this has one consumer on one screen. It moves
-/// to `settings::gameplay` the day it needs to appear in the options menu, and
-/// not before.
-#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum SelectStyle {
-    /// **Both.** Grab your token and carry it to a fighter, or just press the
-    /// fighter — Melee's idiom and Ultimate's, on one screen, because a person
-    /// who reaches for either is asking the same question.
-    ///
-    /// ⚠ **this variant used to be drag-ONLY**, and Jon's answer to that was
-    /// *"shouldn't I be able to just click on a character or press choose on a
-    /// character to select?"* — yes, and refusing it taught nobody anything.
-    /// The knob is still here because the games genuinely differ; what changed
-    /// is that the default no longer refuses half of them.
-    #[default]
-    DragOrTap,
-    /// Ultimate's, strictly: the token is not draggable and a press on a
-    /// fighter is the only way to choose. Kept for the screen that wants to
-    /// teach one idiom rather than offer two.
-    TapOnly,
+/// Token ownership and selection stay one state machine; policy only answers
+/// which otherwise-valid token grabs this build permits. During development we
+/// intentionally allow one human to move another human's token because it makes
+/// controller and CPU setup much faster to test. Setting this to `false` gives
+/// Ultimate's protected-human-token behavior without changing any state shape.
+#[derive(Resource, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SelectInteractionPolicy {
+    pub allow_other_human_token_grab: bool,
 }
 
-/// **WHERE EACH TOKEN WAS PUT DOWN**, as a fraction of the viewport.
-///
-/// ⭐ **because a dropped token should stay where you dropped it.** Jon,
-/// 2026-08-21: *"when I drop a token, it still snaps into a location, it
-/// doesn't just stay where it was."* It did: the resting place was DERIVED from
-/// the pick — on the chosen portrait, or home — so letting go anywhere teleported
-/// the piece. Direct manipulation that moves the thing out from under your
-/// finger is not direct manipulation.
-///
-/// ⚠ **a FRACTION, not pixels.** The window resizes, the grid re-pages, and a
-/// token remembered in pixels would end up off-screen or on a different
-/// fighter. A fraction keeps it where it looked like it was.
-///
-/// `None` means nobody has put this token down yet, and it rests wherever the
-/// pick says — which is the behaviour every token has until it is first moved.
-#[derive(Resource, Clone, Copy, Debug, Default, PartialEq)]
-pub struct TokenRest(pub [Option<Vec2>; MAX_SMASH_SEATS]);
-
-impl TokenRest {
-    fn put_down(&mut self, slot: usize, at: Vec2, viewport: Vec2) {
-        let viewport = viewport.max(Vec2::splat(1.0));
-        self.0[slot] = Some(at / viewport);
-    }
-
-    /// Forget where a token was put down, so it goes back to resting on
-    /// whatever the pick says. ⚠ what a TAP does: a press on a face is not a
-    /// placement, so the token travels to the face rather than staying in the
-    /// pool where the taps happened.
-    fn forget(&mut self, slot: usize) {
-        self.0[slot] = None;
-    }
-
-    fn of(&self, slot: usize, viewport: Vec2) -> Option<Vec2> {
-        self.0[slot].map(|fraction| fraction * viewport)
+impl Default for SelectInteractionPolicy {
+    fn default() -> Self {
+        Self {
+            allow_other_human_token_grab: true,
+        }
     }
 }
 
@@ -779,7 +730,7 @@ pub fn spawn_select_screen(
                 });
             }
 
-            // ── THE POOL STRIP: prompt, resting tokens, START ────────────
+            // ── THE CONTROL STRIP: prompt, page controls, START ─────────
             let mut prompt = anchored(Anchored::Prompt);
             prompt.1.align_items = AlignItems::Center;
             root.spawn(prompt).with_children(|node| {
@@ -944,6 +895,32 @@ pub fn despawn_select_screen(
     }
 }
 
+/// Raw sources that can drive this one frontend.
+///
+/// This is a coherent `SystemParam`: it groups input/environment readers, not
+/// unrelated UI projections. The state machine below still names its own model
+/// resources explicitly.
+#[derive(bevy::ecs::system::SystemParam)]
+pub(crate) struct SelectScreenInputs<'w, 's> {
+    windows: Query<'w, 's, &'static Window>,
+    mouse: Option<Res<'w, ButtonInput<MouseButton>>>,
+    touches: Option<Res<'w, Touches>>,
+    seat_frames: Option<Res<'w, ambition_platformer2d::input::SeatMenuFrames>>,
+    global_frame: Option<Res<'w, ambition_platformer2d::input::MenuControlFrame>>,
+    host: Option<Res<'w, ambition_platformer2d::game_shell::ShellHostConfiguration>>,
+    time: Res<'w, Time>,
+}
+
+#[derive(Default)]
+pub(crate) struct SelectDriverLocal {
+    last_mouse: Option<Vec2>,
+    fingers: std::collections::HashMap<u64, usize>,
+    back_hold_seconds: [f32; MAX_SMASH_SEATS],
+}
+
+/// Holding Back is navigation; tapping Back is token manipulation.
+const BACK_HOLD_TO_LEAVE_SECONDS: f32 = 0.55;
+
 /// **Move every seat's cursor, and act on what each one is over.**
 ///
 /// ⚠ **FOUR cursors since 2026-08-21.** It was one, shared like a mouse; Smash
@@ -953,41 +930,19 @@ pub fn despawn_select_screen(
 /// A mouse or a finger writes a position; a held stick roams; the arrows and
 /// d-pad snap between targets. All of them write the same field — see [`cursor`]
 /// for why there is one position per seat and no separate focus.
-#[allow(clippy::too_many_arguments)]
-pub fn drive_the_cursor(
+pub(crate) fn drive_the_cursor(
     mut select: ResMut<SmashSelect>,
     mut cursors: ResMut<SelectCursors>,
     mut start: ResMut<StartRequested>,
     mut leave: ResMut<LeaveRequested>,
     fighters: Res<SmashRoster>,
-    windows: Query<&Window>,
-    mouse: Option<Res<ButtonInput<MouseButton>>>,
-    touches: Option<Res<Touches>>,
-    seat_frames: Option<Res<ambition_platformer2d::input::SeatMenuFrames>>,
-    global_frame: Option<Res<ambition_platformer2d::input::MenuControlFrame>>,
-    devices: Option<Res<ambition_platformer2d::input::LocalDeviceOrder>>,
-    // **IS THERE ANYWHERE TO GO?** See [`exit_leads_somewhere`] — a composition
-    // whose HOME is this very screen has no "out", and a cursor that snapped to
-    // an exit nobody drew would be a stop on empty air.
-    host: Option<Res<ambition_platformer2d::game_shell::ShellHostConfiguration>>,
-    // ⚠ paired for the same reason `update_the_select_screen`'s are: this
-    // system is at Bevy's parameter ceiling and a free cursor needs a clock.
-    paging: (ResMut<SelectPage>, Res<Time>, ResMut<TokenRest>),
-    style: Res<SelectStyle>,
-    mut last_mouse: Local<Option<Vec2>>,
-    // **WHICH SEAT EACH FINGER IS DRIVING**, for as long as it stays down.
-    //
-    // ⚠ **it was ONE finger and one cursor.** With four cursors a second finger
-    // is allowed to be a second player — but only by landing on that player's
-    // token, and only while that seat has no finger already. Everything the old
-    // single-driver rule protected is still protected by that: a stray thumb
-    // during somebody's drag lands on no free token, claims nothing and is
-    // ignored.
-    mut fingers: Local<std::collections::HashMap<u64, usize>>,
+    mut page: ResMut<SelectPage>,
+    policy: Res<SelectInteractionPolicy>,
+    inputs: SelectScreenInputs,
+    mut local: Local<SelectDriverLocal>,
 ) {
-    let (mut page, time, mut rest) = paging;
-    let layout = current_layout(&windows, &fighters, &page);
-    let exit = exit_leads_somewhere(host.as_deref());
+    let layout = current_layout(&inputs.windows, &fighters, &page);
+    let exit = exit_leads_somewhere(inputs.host.as_deref());
     // ⭐ **the LAYOUT says where things are; the SCREEN says what is
     // REACHABLE.** Same split `token_rect` already makes for an absent slot's
     // token: the rectangle exists, and nobody may press it.
@@ -1009,6 +964,27 @@ pub fn drive_the_cursor(
             })
         })
         .collect();
+    // D-pad/keyboard navigation must be able to LAND on a token even though a
+    // token is not a static layout target. Keep those dynamic rectangles out of
+    // `rects`: hover semantics still belong to the underlying portrait, and an
+    // ineligible human token must be transparent to an A press. `snap_rects`
+    // exists only to give directional navigation the token's current centre.
+    let mut snap_rects = rects.clone();
+    for slot in 0..MAX_SMASH_SEATS {
+        if cursors.carrier_of(slot).is_some() {
+            continue;
+        }
+        let Some(rect) = token_rect(&layout, &select, &fighters, slot) else {
+            continue;
+        };
+        let Some(entity) = Entity::from_raw_u32(snap_rects.len() as u32) else {
+            continue;
+        };
+        snap_rects.push(CursorTarget {
+            entity,
+            rect: SelectLayout::touchable(rect),
+        });
+    }
     let kind_of = |entity: Entity| {
         rects
             .iter()
@@ -1028,7 +1004,7 @@ pub fn drive_the_cursor(
         pressed: bool,
         released: bool,
         back: bool,
-        back_out: bool,
+        back_held: bool,
         page_back: bool,
         page_forward: bool,
     }
@@ -1041,7 +1017,7 @@ pub fn drive_the_cursor(
     const DESKTOP_SEAT: usize = 0;
 
     // ── the pads ─────────────────────────────────────────────────────────
-    if let Some(seat_frames) = seat_frames.as_deref() {
+    if let Some(seat_frames) = inputs.seat_frames.as_deref() {
         for seat in 0..MAX_SMASH_SEATS {
             let frame = seat_frames.for_seat(seat as u8);
             let drive = &mut drives[seat];
@@ -1059,7 +1035,8 @@ pub fn drive_the_cursor(
             }
             drive.nav = frame.nav;
             drive.pressed |= frame.select;
-            drive.back |= frame.back;
+            drive.back |= frame.back && !frame.start;
+            drive.back_held |= frame.back_held && !frame.start;
             drive.page_back |= frame.page_left;
             drive.page_forward |= frame.page_right;
             // ⛔⛔ **ESCAPE IS BOTH `Start` AND `MenuBack`** — one key, two
@@ -1074,10 +1051,9 @@ pub fn drive_the_cursor(
             // seat's press — the seat holding a pad sends East with `start`
             // clear and still leaves, on the same tick somebody else opens the
             // menu.
-            drive.back_out |= frame.back && !frame.start;
         }
     }
-    if let Some(global) = global_frame.as_deref() {
+    if let Some(global) = inputs.global_frame.as_deref() {
         let drive = &mut drives[DESKTOP_SEAT];
         if global.left {
             drive.direction.x -= 1.0;
@@ -1095,10 +1071,10 @@ pub fn drive_the_cursor(
             drive.nav = global.nav;
         }
         drive.pressed |= global.select;
-        drive.back |= global.back;
+        drive.back |= global.back && !global.start;
+        drive.back_held |= global.back_held && !global.start;
         drive.page_back |= global.page_left;
         drive.page_forward |= global.page_right;
-        drive.back_out |= global.back && !global.start;
     }
 
     // ── the mouse ────────────────────────────────────────────────────────
@@ -1107,13 +1083,13 @@ pub fn drive_the_cursor(
     // snap-back bug `SeatActiveDevices` exists for. Local rather than read
     // from that resource because this screen needs the POSITION of the move,
     // not just the fact of it.
-    if let Some(position) = windows.iter().next().and_then(Window::cursor_position) {
-        if last_mouse.is_none_or(|previous| previous.distance_squared(position) > 0.01) {
+    if let Some(position) = inputs.windows.iter().next().and_then(Window::cursor_position) {
+        if local.last_mouse.is_none_or(|previous| previous.distance_squared(position) > 0.01) {
             drives[DESKTOP_SEAT].moved_to = Some(position);
         }
-        *last_mouse = Some(position);
+        local.last_mouse = Some(position);
     }
-    if let Some(mouse) = mouse.as_deref() {
+    if let Some(mouse) = inputs.mouse.as_deref() {
         drives[DESKTOP_SEAT].pressed |= mouse.just_pressed(MouseButton::Left);
         drives[DESKTOP_SEAT].released |= mouse.just_released(MouseButton::Left);
     }
@@ -1130,24 +1106,34 @@ pub fn drive_the_cursor(
     // stale report to suppress — and gating on travel would skip the frame a
     // tap ARRIVES on (a fresh touch's delta is zero), arbitrating the press at
     // wherever the cursor used to be.
-    if let Some(touches) = touches.as_deref() {
+    if let Some(touches) = inputs.touches.as_deref() {
         // A finger that has lifted stops driving — but only AFTER this frame,
         // because the release edge that ends a drag has to land where the
         // finger actually left.
         for touch in touches.iter_just_pressed() {
-            if fingers.contains_key(&touch.id()) {
+            if local.fingers.contains_key(&touch.id()) {
                 continue;
             }
             // **WHOSE TOKEN DID IT LAND ON?** That seat, if nobody is already
             // driving it. This is what makes a second finger a second player
             // rather than an interruption.
-            let taken: Vec<usize> = fingers.values().copied().collect();
-            let on_token = (0..MAX_SMASH_SEATS).find(|slot| {
-                !taken.contains(slot)
-                    && token_rect(&layout, &select, &rest, *slot)
-                        .map(SelectLayout::touchable)
-                        .is_some_and(|rect| rect.contains(touch.position()))
-            });
+            let taken: Vec<usize> = local.fingers.values().copied().collect();
+            let on_token = (0..MAX_SMASH_SEATS)
+                .filter(|slot| !taken.contains(slot))
+                .filter_map(|slot| {
+                    let rect = SelectLayout::touchable(token_rect(
+                        &layout,
+                        &select,
+                        &fighters,
+                        slot,
+                    )?);
+                    rect.contains(touch.position()).then_some((
+                        slot,
+                        rect.center().distance_squared(touch.position()),
+                    ))
+                })
+                .min_by(|a, b| a.1.total_cmp(&b.1))
+                .map(|(slot, _)| slot);
             // ⛔ **A SEAT MID-CARRY CLAIMS THE NEXT FINGER, and without this
             // the two-tap idiom is broken on a phone.** Tap your token, tap a
             // fighter: those are two DIFFERENT fingers, because the first one
@@ -1172,7 +1158,7 @@ pub fn drive_the_cursor(
                 Some(DESKTOP_SEAT)
             });
             if let Some(seat) = seat {
-                fingers.insert(touch.id(), seat);
+                local.fingers.insert(touch.id(), seat);
             }
         }
         // ⛔ **Android RECYCLES pointer ids**, so a finger that lands after
@@ -1180,7 +1166,7 @@ pub fn drive_the_cursor(
         // Claiming happens once, above, on the just-pressed edge only — a seat
         // is never reassigned to a finger already down.
         let mut lifted: Vec<u64> = Vec::new();
-        for (id, seat) in fingers.iter() {
+        for (id, seat) in local.fingers.iter() {
             if let Some(touch) = touches.get_pressed(*id) {
                 drives[*seat].moved_to = Some(touch.position());
                 if touches.just_pressed(*id) {
@@ -1195,7 +1181,7 @@ pub fn drive_the_cursor(
             }
         }
         for id in lifted {
-            fingers.remove(&id);
+            local.fingers.remove(&id);
         }
     }
 
@@ -1212,26 +1198,6 @@ pub fn drive_the_cursor(
         page.0 = (page.0 + 1).min(last_page);
     }
 
-    let sources = devices
-        .as_deref()
-        .map(|devices| {
-            crate::select::seats_offered_under(
-                devices,
-                ambition_platformer2d::input::sources::InputAssignmentPolicy::JoinToClaim,
-            )
-        })
-        .unwrap_or(1);
-
-    // **WHO HAD A TOKEN IN HAND WHEN THE FRAME BEGAN.**
-    //
-    // ⛔ **read BEFORE the loop, because the loop empties it.** The graded rung
-    // at the bottom — first Back puts your token down, second Back leaves —
-    // reads "was this seat holding something"; asking after the loop asks a
-    // hand that the same press just emptied, and one Back both dropped the
-    // token and quit the lobby.
-    let was_carrying: [bool; MAX_SMASH_SEATS] =
-        std::array::from_fn(|seat| cursors.seat(seat).carrying.is_some());
-
     // ── each seat, in seat order ─────────────────────────────────────────
     for seat in 0..MAX_SMASH_SEATS {
         let drive = drives[seat];
@@ -1241,113 +1207,134 @@ pub fn drive_the_cursor(
         // input source, and with a CPU sitting between two people those two
         // indices come apart.
         let own_slot = select.slot_driven_by(seat);
-        let pointer = cursors.seat_mut(seat);
 
-        // The cursor starts on the first portrait rather than at the origin. A
-        // pointer parked in a corner makes the first press cross the whole
-        // screen, and there is no way to tell that from "the cursor is broken".
-        //
-        // ⚠ **spread per seat**, so four cursors do not begin as one cursor:
-        // four hands stacked on cell zero look like a bug in the drawing.
-        if !pointer.placed {
-            if let Some(rect) = layout.portrait(seat.min(layout.characters.saturating_sub(1))) {
-                pointer.move_to(rect.center());
+        // Movement is one short mutable borrow. Token arbitration below needs
+        // the whole cursor table, so holding `seat_mut` across the state machine
+        // would make ownership harder to express than it is.
+        {
+            let pointer = cursors.seat_mut(seat);
+
+            // The cursor starts on the first portrait rather than at the origin. A
+            // pointer parked in a corner makes the first press cross the whole
+            // screen, and there is no way to tell that from "the cursor is broken".
+            //
+            // ⚠ **spread per seat**, so four cursors do not begin as one cursor:
+            // four hands stacked on cell zero look like a bug in the drawing.
+            if !pointer.placed {
+                if let Some(rect) = layout.portrait(seat.min(layout.characters.saturating_sub(1))) {
+                    pointer.move_to(rect.center());
+                }
             }
-        }
 
-        if let Some(position) = drive.moved_to {
-            pointer.move_to(position);
-        }
+            if let Some(position) = drive.moved_to {
+                pointer.move_to(position);
+            }
 
-        // **A HELD STICK ROAMS; A TAP STILL SNAPS.**
-        //
-        // ⭐ **both, and in this order.** Smash's cursor is a hand you steer,
-        // and that is what `nav` buys — but the snap is not a compromise this
-        // replaces: it is what keeps every stop on something clickable and the
-        // whole screen reachable in a bounded number of presses, which a d-pad
-        // and a keyboard still need. A stick held gives continuous motion; a
-        // tap that produces an edge with no deflection behind it falls through
-        // to the snap it always had.
-        //
-        // ⚠ **the speed is a fraction of the VIEWPORT, not a pixel constant.** A
-        // cursor that crosses a monitor in a second crawls across a phone at the
-        // same px/s, and the screen it is crossing is the thing that changed.
-        if drive.nav != Vec2::ZERO {
-            let travel =
-                drive.nav * layout.viewport.x * CURSOR_SPEED_PER_SECOND * time.delta_secs();
-            let roamed = pointer.position + travel;
-            pointer.move_to(Vec2::new(
-                roamed.x.clamp(0.0, layout.viewport.x),
-                roamed.y.clamp(0.0, layout.viewport.y),
-            ));
-        } else if drive.direction != Vec2::ZERO {
-            if let Some(entity) = cursor::snap(pointer.position, drive.direction, &rects) {
-                if let Some(target) = rects.iter().find(|target| target.entity == entity) {
-                    pointer.move_to(target.rect.center());
+            // **A HELD STICK ROAMS; A TAP STILL SNAPS.**
+            //
+            // A held stick gives continuous motion. A tap that produces a
+            // direction edge without a held deflection snaps to the next target,
+            // keeping d-pad and keyboard navigation exact.
+            if drive.nav != Vec2::ZERO {
+                let travel = drive.nav
+                    * layout.viewport.x
+                    * CURSOR_SPEED_PER_SECOND
+                    * inputs.time.delta_secs();
+                let roamed = pointer.position + travel;
+                pointer.move_to(Vec2::new(
+                    roamed.x.clamp(0.0, layout.viewport.x),
+                    roamed.y.clamp(0.0, layout.viewport.y),
+                ));
+            } else if drive.direction != Vec2::ZERO {
+                if let Some(entity) = cursor::snap(pointer.position, drive.direction, &snap_rects) {
+                    if let Some(target) = snap_rects.iter().find(|target| target.entity == entity) {
+                        pointer.move_to(target.rect.center());
+                    }
                 }
             }
         }
 
-        // Back puts a carried token down where it came from, which is the only
-        // undo this screen needs: the pick it would have replaced is untouched.
-        if drive.back && pointer.carrying.is_some() {
-            pointer.drop_it();
+        // Tap Back is token manipulation; holding Back is navigation out of
+        // the screen. The hold timer is per input seat so one player's held B
+        // cannot borrow another player's edge.
+        if drive.back_held {
+            local.back_hold_seconds[seat] += inputs.time.delta_secs();
+            if exit && local.back_hold_seconds[seat] >= BACK_HOLD_TO_LEAVE_SECONDS {
+                leave.0 = true;
+            }
+        } else {
+            local.back_hold_seconds[seat] = 0.0;
+        }
+
+        if drive.back {
+            // Ultimate's tap-B behavior: with an empty hand, the HAND returns to
+            // its own placed token and picks that token up. B while carrying any
+            // token is a no-op. If another cursor currently carries this token
+            // (possible while the development policy permits it), the owner does
+            // not steal it mid-drag.
+            if cursors.seat(seat).carrying.is_none() {
+                if let Some(own) = own_slot.filter(|slot| cursors.carrier_of(*slot).is_none()) {
+                    let card = select.slot(own);
+                    if let Some(pick) = card.pick {
+                        let cell = cell_of(pick, &fighters);
+                        let target_page = cell / layout.per_page();
+                        if page.0 != target_page {
+                            page.0 = target_page;
+                        }
+                        let token_layout = SelectLayout::paged(
+                            layout.viewport,
+                            fighters.cell_count(),
+                            target_page,
+                        );
+                        if let Some(rect) = token_rect(&token_layout, &select, &fighters, own) {
+                            let pointer = cursors.seat_mut(seat);
+                            pointer.move_to(rect.center());
+                            cursors.try_grab(seat, own);
+                        }
+                    }
+                }
+            }
             continue;
         }
 
-        let position = pointer.position;
-        let carrying = pointer.carrying;
-        let release_should_drop = pointer.release_should_drop();
+        let position = cursors.seat(seat).position;
+        let carrying = cursors.seat(seat).carrying;
+        let release_should_drop = cursors.seat(seat).release_should_drop();
 
         if drive.pressed {
             let over = cursor::hovered(position, &rects).and_then(kind_of);
-            // A PLACED token is checked first: it sits on top of the portrait it
-            // chose, and a press there means "pick this up", not "choose this
-            // again". Its resting home is in the target list; where it currently
-            // sits is the decision's answer, not the layout's.
-            //
-            // ⚠ **the TOUCH rect, not the drawn one.** A token is drawn as small
-            // as 20px on a phone so it does not cover the face it sits on;
-            // asking the drawn circle whether a thumb hit it would make the
-            // token the one thing on this screen you cannot pick up.
-            //
-            // **WHOSE TOKEN MAY THIS SEAT PICK UP?** Its own, and any token
-            // NOBODY IS DRIVING.
-            //
-            // ⛔ a seat may never take a token off another PERSON — four cursors
-            // over one pool would otherwise let seat 3 walk away with seat 1's
-            // piece, which is a different game from the one Jon asked for.
-            //
-            // ⭐ **but a CPU's token is nobody's**, and somebody has to be able
-            // to place it. One person on a keyboard setting up two CPU
-            // opponents is this lobby's most ordinary use, and it is not Melee's
-            // problem to solve because Melee has no CPU tokens in the pool. The
-            // host's own `an_up_tilt_*` tests seat Alice exactly this way, and
-            // they are what caught the rule being too strict.
+            // Tokens sit over portraits, so token eligibility is checked before
+            // the underlying portrait. Own and CPU tokens are always grabbable;
+            // other-human tokens are a policy knob that defaults ON for testing.
+            // A non-grabbable human token is transparent: the portrait beneath it
+            // remains the A target.
             let may_grab = |slot: usize| {
-                Some(slot) == own_slot || matches!(select.slot(slot).occupant, SlotOccupant::Cpu)
+                match select.slot(slot).occupant {
+                    SlotOccupant::Absent => false,
+                    SlotOccupant::Cpu => true,
+                    SlotOccupant::Controller { device } if device == seat => true,
+                    SlotOccupant::Controller { .. } => policy.allow_other_human_token_grab,
+                }
             };
-            let on_token = (0..MAX_SMASH_SEATS).find(|slot| {
-                may_grab(*slot)
-                    && token_rect(&layout, &select, &rest, *slot)
-                        .map(SelectLayout::touchable)
-                        .is_some_and(|rect| rect.contains(position))
-            });
+            let on_token = (0..MAX_SMASH_SEATS)
+                .filter(|slot| may_grab(*slot))
+                .filter_map(|slot| {
+                    let rect = SelectLayout::touchable(token_rect(
+                        &layout,
+                        &select,
+                        &fighters,
+                        slot,
+                    )?);
+                    rect.contains(position)
+                        .then_some((slot, rect.center().distance_squared(position)))
+                })
+                .min_by(|a, b| a.1.total_cmp(&b.1))
+                .map(|(slot, _)| slot);
             match (carrying, on_token, over) {
-                // Picking up.
-                //
-                // ⛔ **FIRST, and above the tap below.** A placed token sits on
-                // top of the portrait it chose, so both arms match there — and
-                // if the tap won, a token once placed could never be picked back
-                // up: every press on it would re-choose the fighter underneath.
-                //
-                // ⚠ skipped entirely under `TapOnly`, which is the one thing
-                // that variant means.
-                (None, Some(slot), _) if *style != SelectStyle::TapOnly => {
-                    // ⚠ **may be REFUSED**, and the press is then spent doing
-                    // nothing rather than falling through to the tap arm below:
-                    // reaching for a token somebody else is holding must not
-                    // quietly re-choose the fighter underneath it.
+                // Token hit-testing wins over the portrait beneath it. Mechanical
+                // exclusivity is enforced again by `try_grab`, so two hands
+                // converging on one CPU/testing token still produce one carrier.
+                (None, Some(slot), _) => {
                     cursors.try_grab(seat, slot);
                 }
                 // **PRESSING A FIGHTER WITH AN EMPTY HAND CHOOSES IT.** Jon,
@@ -1363,19 +1350,12 @@ pub fn drive_the_cursor(
                 (None, _, Some(SelectTarget::Portrait(cell))) => {
                     if let (Some(own), Some(pick)) = (own_slot, fighters.cell(cell)) {
                         select.set_pick(own, pick);
-                        // ⚠ **a tap is not a placement**, so forget where the
-                        // token was last put down and let it travel to the face
-                        // that was chosen. Keeping the old rest would choose a
-                        // fighter and leave the piece across the screen.
-                        rest.forget(own);
                     }
                 }
                 // **TURNING THE PAGE IS LEGAL WITH A TOKEN IN HAND**, and it has
                 // to be: the fighter you are carrying it to may be on another
                 // page, and having to put the token down to go looking would
-                // make a paged grid worse than an unpaged one. ⚠ therefore ABOVE
-                // the "anything else with something in hand puts it back" arm,
-                // which would otherwise swallow the press.
+                // make a paged grid worse than an unpaged one.
                 (_, _, Some(SelectTarget::PagePrev)) => {
                     page.0 = page.0.saturating_sub(1);
                 }
@@ -1390,25 +1370,14 @@ pub fn drive_the_cursor(
                 (Some(slot), _, Some(SelectTarget::Portrait(cell))) => {
                     if let Some(pick) = fighters.cell(cell) {
                         select.set_pick(slot, pick);
+                        cursors.seat_mut(seat).drop_it();
                     }
-                    // **PUT DOWN MEANS PUT DOWN, WHERE THE HAND WAS.** See
-                    // [`TokenRest`] — deriving the resting place from the pick
-                    // is what made a dropped token jump.
-                    rest.put_down(slot, position, layout.viewport);
-                    cursors.seat_mut(seat).drop_it();
                 }
-                // Anywhere else with something in hand: it stays there, and the
-                // PICK is untouched. ⚠ **the token no longer "returns" —** it
-                // used to fly home, which was the visible half of the snap Jon
-                // reported. Losing a fighter to a misclick is still the one
-                // thing a select screen must not do, and that is why the pick
-                // is left alone rather than cleared.
-                (Some(slot), _, _) => {
-                    rest.put_down(slot, position, layout.viewport);
-                    cursors.seat_mut(seat).drop_it();
-                }
+                // Empty space and unrelated controls do not invent a third token
+                // state. A token is either carried or placed on its selection.
+                (Some(_), _, _) => {}
                 (None, None, Some(SelectTarget::RoleButton(slot))) => {
-                    select.cycle_occupant(slot, sources);
+                    select.cycle_occupant(slot, seat);
                 }
                 (None, None, Some(SelectTarget::Start)) => {
                     if select.ready() {
@@ -1420,92 +1389,41 @@ pub fn drive_the_cursor(
                 (None, None, Some(SelectTarget::Back)) => {
                     leave.0 = true;
                 }
-                // ⚠ **`TapOnly` lands here when a press hits a token and
-                // nothing else.** The guard on the grab arm above declines it,
-                // and declining is the whole content of that variant — a token
-                // that is not draggable is a token a press does nothing to.
-                (None, Some(_), _) => {}
                 (None, None, _) => {}
             }
         } else if drive.released && release_should_drop {
-            // A DRAG: press on the token, move, let go over a portrait.
+            // A pointer drag commits only when it ends on a legal destination.
+            // Releasing over open space leaves the token in hand.
             let over = cursor::hovered(position, &rects).and_then(kind_of);
             if let (Some(slot), Some(SelectTarget::Portrait(cell))) = (carrying, over) {
                 if let Some(pick) = fighters.cell(cell) {
                     select.set_pick(slot, pick);
+                    cursors.seat_mut(seat).drop_it();
                 }
             }
-            if let Some(slot) = carrying {
-                rest.put_down(slot, position, layout.viewport);
-            }
-            cursors.seat_mut(seat).drop_it();
         }
-    }
-
-    // **AND WITH AN EMPTY HAND, BACK LEAVES.**
-    //
-    // ⭐ **graded, and the order is the grading.** This is the same rung every
-    // fighting game's select screen has: the first Back puts your token down,
-    // the second backs you out. Each seat's own token-drop happened in the loop
-    // above; this is what is left.
-    //
-    // ⚠ **ANY seat may press it**, which is this screen's own rule and not a new
-    // one — and it is the reason the per-seat pass above did not swallow it.
-    // Four people share ONE screen even now that they have four cursors, and on
-    // a couch the person who wants out is as often on pad 2. Nothing is lost by
-    // being wrong: arriving here resets the lobby anyway.
-    let anyone_backing_out = drives
-        .iter()
-        .enumerate()
-        .any(|(seat, drive)| drive.back_out && !was_carrying[seat]);
-    if exit && anyone_backing_out && !leave.0 {
-        leave.0 = true;
     }
 }
 
-/// **Where a slot's token is right now**, ignoring the cursor's hand.
+/// **Where a placed token is right now**, ignoring a carrier's hand.
 ///
-/// `None` for a slot nobody is at — an absent slot has no token to grab, and
-/// returning its pool rect anyway would let a click on empty space pick up a
-/// player who is not there.
+/// The token has no independent resting coordinate. Its owner slot chooses a
+/// grid cell (fighter or Random), and the token is drawn on that cell. `None`
+/// means the slot is absent or its selected cell is on another page.
 pub fn token_rect(
     layout: &SelectLayout,
     select: &SmashSelect,
-    rest: &TokenRest,
+    fighters: &SmashRoster,
     slot: usize,
 ) -> Option<HitRect> {
     let card = select.slot(slot);
     if !card.occupant.participates() {
         return None;
     }
-    // **A TOKEN RESTS ON A PORTRAIT, OR AT HOME — NEVER ON RANDOM.**
-    //
-    // ⛔ deriving the resting place from the pick moved a token NOBODY MOVED:
-    // joining a slot seats it on random (Jon, 2026-08-07), and a token that
-    // jumps onto the random square by itself takes the drag affordance with it —
-    // the player's own card is then empty and there is nothing to pick up.
-    //
-    // ⚠ so random is not a resting place. The square still lights up in the
-    // owner's colour and the card says `RANDOM` with the random icon, which is
-    // the feedback; what does not happen is the screen rearranging itself
-    // around a choice the player has not made yet. Dragging ONTO random is the
-    // same: the token goes home, because there is no portrait under it.
-    // **WHERE IT WAS PUT DOWN WINS.** See [`TokenRest`]: a token a person moved
-    // stays moved, and only one that nobody has touched is placed by its pick.
-    if let Some(at) = rest.of(slot, layout.viewport) {
-        return Some(HitRect::from_center_size(
-            at,
-            Vec2::splat(layout.token_px()),
-        ));
-    }
-    match card
-        .pick
-        .and_then(SlotPick::fighter)
-        .and_then(|index| layout.portrait(index))
-    {
-        Some(cell) => Some(token_rect_over(layout, cell, slot)),
-        None => Some(layout.token_home(slot)),
-    }
+    let cell = card.pick.map(|pick| cell_of(pick, fighters))?;
+    layout
+        .portrait(cell)
+        .map(|rect| token_rect_over(layout, rect, slot))
 }
 
 /// Where a slot's token sits once it is ON a portrait.
@@ -1547,106 +1465,14 @@ pub fn place_the_screen(
     }
 }
 
-/// **Draw the decision.**
-///
-/// In place and change-gated. Nothing here spawns or despawns: see
-/// [`spawn_select_screen`].
-#[allow(clippy::too_many_arguments)]
-pub fn update_the_select_screen(
+/// Project selection state onto the portrait grid.
+pub fn sync_select_grid(
     select: Res<SmashSelect>,
-    cursors: Res<SelectCursors>,
-    // ⚠ **PAIRED, because this system sits at Bevy's 16-param ceiling** and the
-    // note on `lobby_facts` below says a further resource is a compile error
-    // rather than a style choice. These two belong together anyway: the roster
-    // is what the grid shows and the page is which part of it.
-    grid: (Res<SmashRoster>, Res<SelectPage>, Res<TokenRest>),
-    // **THE ENGINE'S REFUSAL, if it has one.** See the prompt below: this is the
-    // only surface in the product that can say a decided roster could not be
-    // built, and until it read this the answer to that was an empty stage.
-    // ⚠ ONE param, three resources: this system is at Bevy's 16-param ceiling
-    // and a fourth resource here is a compile error, not a style choice.
-    //   `.0` the engine's refusal, if it has one — see the prompt below.
-    //   `.1`/`.2` WHICH device each seated slot holds, for the role button.
-    lobby_facts: (
-        Option<Res<ambition_platformer2d::actors::character_runtime::MatchPreparationProblems>>,
-        Option<Res<ambition_platformer2d::input::LocalDeviceOrder>>,
-        Option<Res<ambition_platformer2d::input::LocalSeatOffer>>,
-    ),
-    // Required for the same reason `spawn_select_screen`'s is; see there.
+    fighters: Res<SmashRoster>,
     art: ScreenArt,
-    windows: Query<&Window>,
-    mut cells: Query<
-        (&PortraitCell, &mut BorderColor),
-        (Without<SlotCardFrame>, Without<StartButton>),
-    >,
-    mut cards: Query<
-        (&SlotCardFrame, &mut BorderColor),
-        (Without<PortraitCell>, Without<StartButton>),
-    >,
-    mut start_button: Query<
-        &mut BorderColor,
-        (
-            With<StartButton>,
-            Without<PortraitCell>,
-            Without<SlotCardFrame>,
-        ),
-    >,
-    mut role_labels: Query<
-        (&RoleButtonLabel, &mut Text),
-        (Without<CardName>, Without<SelectPrompt>),
-    >,
-    mut card_names: Query<
-        (&CardName, &mut Text, &mut TextColor),
-        (Without<RoleButtonLabel>, Without<SelectPrompt>),
-    >,
-    mut card_portraits: Query<(&CardPortrait, &mut ImageNode, &mut Visibility), Without<SlotToken>>,
-    mut prompt: Query<
-        &mut Text,
-        (
-            With<SelectPrompt>,
-            Without<RoleButtonLabel>,
-            Without<CardName>,
-        ),
-    >,
-    mut monograms: Query<
-        (&PortraitMonogram, &mut Visibility),
-        (Without<SlotToken>, Without<CardPortrait>),
-    >,
-    mut tokens: Query<(&SlotToken, &mut Node, &mut Visibility), Without<CardPortrait>>,
-    // ⚠ **every OTHER `&mut Visibility` in this signature, excluded by name.**
-    // Bevy proves two queries disjoint from their FILTERS, not from the fact
-    // that no entity happens to carry both markers — so the moment the cursor
-    // node started writing `Visibility` (four seats, and an empty seat's hand is
-    // hidden) it conflicted with the card portraits and the monograms, and the
-    // whole screen panicked at `B0001`. ⛔ the demo's own tests cannot see this:
-    // they run `drive_the_cursor` alone.
-    mut cursor_node: Query<
-        (&CursorNode, &mut Node, &mut Visibility),
-        (
-            Without<SlotToken>,
-            Without<CardPortrait>,
-            Without<PortraitMonogram>,
-        ),
-    >,
+    mut cells: Query<(&PortraitCell, &mut BorderColor)>,
+    mut monograms: Query<(&PortraitMonogram, &mut Visibility)>,
 ) {
-    let (refusal, devices, assignment) = lobby_facts;
-    // **HOW MANY SEATS THIS MACHINE IS OFFERING**, which is how many hands the
-    // screen draws — see the cursor loop at the bottom.
-    let offered_seats = devices
-        .as_deref()
-        .map(|devices| {
-            crate::select::seats_offered_under(
-                devices,
-                ambition_platformer2d::input::sources::InputAssignmentPolicy::JoinToClaim,
-            )
-        })
-        .unwrap_or(1);
-    let (fighters, page, rest) = grid;
-    let catalog = Some(&*art.catalog);
-    let layout = current_layout(&windows, &fighters, &page);
-
-    // A cell wears the colour of whoever chose it, so the grid answers "who
-    // took Sanic" without reading four cards.
     for (cell, mut border) in &mut cells {
         let owner = (0..MAX_SMASH_SEATS).find(|slot| {
             let card = select.slot(*slot);
@@ -1659,22 +1485,40 @@ pub fn update_the_select_screen(
         );
     }
 
-    for (card, mut border) in &mut cards {
-        let lit = select.slot(card.0).occupant.participates();
-        set_border(
-            &mut border,
-            if lit { SLOT_COLORS[card.0] } else { PANEL_EDGE },
+    // Initials are a fallback for portrait art that never arrived.
+    for (mono, mut visibility) in &mut monograms {
+        let missing = match (&mono.0, art.asset_server.as_deref()) {
+            (None, _) => true,
+            (Some(handle), Some(server)) => server
+                .get_load_state(handle.id())
+                .is_none_or(|state| state.is_failed()),
+            // No asset server is a headless fixture, not a failed load.
+            (Some(_), None) => false,
+        };
+        set_visibility(
+            &mut visibility,
+            if missing {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            },
         );
     }
+}
 
-    for mut border in &mut start_button {
-        set_border(&mut border, if select.ready() { INK } else { PANEL_EDGE });
-    }
-
-    // The LIVE policy, not a second copy of the constant: this demo claims
-    // `JoinToClaim` on its own routes (`lib.rs`), and the screen only runs on
-    // one of them, so reading the resource is the same answer without being a
-    // second statement of it.
+/// Project participant-slot state onto the four bottom cards.
+pub fn sync_select_cards(
+    select: Res<SmashSelect>,
+    fighters: Res<SmashRoster>,
+    art: ScreenArt,
+    devices: Option<Res<ambition_platformer2d::input::LocalDeviceOrder>>,
+    assignment: Option<Res<ambition_platformer2d::input::LocalSeatOffer>>,
+    mut cards: Query<(&SlotCardFrame, &mut BorderColor)>,
+    mut role_labels: Query<(&RoleButtonLabel, &mut Text), Without<CardName>>,
+    mut card_names: Query<(&CardName, &mut Text, &mut TextColor), Without<RoleButtonLabel>>,
+    mut card_portraits: Query<(&CardPortrait, &mut ImageNode, &mut Visibility)>,
+) {
+    let catalog = Some(&*art.catalog);
     let naming = devices.as_deref().map(|devices| {
         (
             devices,
@@ -1684,6 +1528,18 @@ pub fn update_the_select_screen(
                 .unwrap_or_default(),
         )
     });
+
+    for (card, mut border) in &mut cards {
+        set_border(
+            &mut border,
+            if select.slot(card.0).occupant.participates() {
+                SLOT_COLORS[card.0]
+            } else {
+                PANEL_EDGE
+            },
+        );
+    }
+
     for (label, mut text) in &mut role_labels {
         let next = role_button_text(select.slot(label.0).occupant, naming);
         if text.0 != next {
@@ -1713,11 +1569,6 @@ pub fn update_the_select_screen(
             .flatten()
             .and_then(|pick| match pick {
                 SlotPick::Fighter(index) => fighters.get(index).and_then(|id| art.portrait(id)),
-                // ⚠ **the random ICON, never a fighter's face.** The draw has
-                // not happened — it happens when the match starts — so any
-                // portrait here would be the screen inventing an answer it does
-                // not have. The square's own art is the honest one: it says
-                // "this seat is a surprise", which is exactly what the seat is.
                 SlotPick::Random => random_icon(&art).map(|handle| (handle, None)),
             });
         match shown {
@@ -1733,44 +1584,22 @@ pub fn update_the_select_screen(
             None => set_visibility(&mut visibility, Visibility::Hidden),
         }
     }
+}
 
-    // **THE INITIALS SHOW ONLY WHERE THE ART DID NOT ARRIVE.**
-    //
-    // ⛔ the first draft drew them under every cell unconditionally and they
-    // showed THROUGH the portraits, which have transparent backgrounds — a
-    // ghostly "DB" behind Duelist B. Found by looking at the capture.
-    for (mono, mut visibility) in &mut monograms {
-        let missing = match (&mono.0, art.asset_server.as_deref()) {
-            (None, _) => true,
-            (Some(handle), Some(server)) => server
-                .get_load_state(handle.id())
-                .is_none_or(|state| state.is_failed()),
-            // No asset server at all is a headless fixture; claiming the art is
-            // missing would be true and useless.
-            (Some(_), None) => false,
-        };
-        set_visibility(
-            &mut visibility,
-            if missing {
-                Visibility::Inherited
-            } else {
-                Visibility::Hidden
-            },
-        );
+/// Project readiness/refusal state onto START and the prompt.
+pub fn sync_select_chrome(
+    select: Res<SmashSelect>,
+    refusal: Option<
+        Res<ambition_platformer2d::actors::character_runtime::MatchPreparationProblems>,
+    >,
+    mut start_button: Query<&mut BorderColor, With<StartButton>>,
+    mut prompt: Query<&mut Text, With<SelectPrompt>>,
+) {
+    for mut border in &mut start_button {
+        set_border(&mut border, if select.ready() { INK } else { PANEL_EDGE });
     }
 
     for mut text in &mut prompt {
-        // ⛔ **A REFUSAL OUTRANKS BOTH**, and having nowhere to say it was the
-        // last half of "a permanent failure must never present as a wait".
-        // Preparation names every reason a roster cannot become a match — an
-        // unregistered fighter, a CPU with no brain profile, a replay seat this
-        // build cannot drive — before one entity exists. Nothing in the product
-        // read it, so the screen kept offering START, the match never opened,
-        // and the player was looking at a deadlock wearing an invitation.
-        //
-        // ⚠ the screen's own `blocker()` answers a DIFFERENT question — what
-        // this person still has to do — and stays first when it applies. This is
-        // what the engine could not do with what they already chose.
         let next = if let Some(refusal) = refusal.as_deref() {
             format!("This match cannot start — {refusal}")
         } else {
@@ -1783,50 +1612,75 @@ pub fn update_the_select_screen(
             text.0 = next;
         }
     }
+}
 
-    // A token is over its chosen portrait, in the cursor's hand, or resting in
-    // the pool. Written every frame from the layout rather than remembered, so a
-    // resized window carries the tokens with it.
+/// Project movable select-screen pieces: tokens and human hand cursors.
+///
+/// These are the only two UI roles kept in one system because they share a
+/// direct visual relation: a carried token follows a cursor. Their mutual
+/// `Without` filters are therefore a local proof, not a screen-wide exclusion
+/// matrix.
+pub fn sync_select_tokens_and_cursors(
+    select: Res<SmashSelect>,
+    cursors: Res<SelectCursors>,
+    fighters: Res<SmashRoster>,
+    page: Res<SelectPage>,
+    windows: Query<&Window>,
+    devices: Option<Res<ambition_platformer2d::input::LocalDeviceOrder>>,
+    mut tokens: Query<
+        (&SlotToken, &mut Node, &mut Visibility),
+        Without<CursorNode>,
+    >,
+    mut cursor_nodes: Query<
+        (&CursorNode, &mut Node, &mut Visibility),
+        Without<SlotToken>,
+    >,
+) {
+    let layout = current_layout(&windows, &fighters, &page);
+    let offered_seats = devices
+        .as_deref()
+        .map(|devices| {
+            crate::select::seats_offered_under(
+                devices,
+                ambition_platformer2d::input::sources::InputAssignmentPolicy::JoinToClaim,
+            )
+        })
+        .unwrap_or(1);
+
     for (token, mut node, mut visibility) in &mut tokens {
-        let Some(resting) = token_rect(&layout, &select, &rest, token.0) else {
+        let card = select.slot(token.0);
+        if !card.occupant.participates() {
             set_visibility(&mut visibility, Visibility::Hidden);
             continue;
-        };
-        set_visibility(&mut visibility, Visibility::Inherited);
-        // ⚠ **whichever seat is carrying it**, not "the" cursor. A token in a
-        // hand follows that hand; asking only seat 0 would leave every other
-        // player's token sitting at home while they dragged it.
-        let rect = match cursors.carrier_of(token.0) {
-            Some(seat) => HitRect::from_center_size(
+        }
+
+        let rect = if let Some(seat) = cursors.carrier_of(token.0) {
+            Some(HitRect::from_center_size(
                 cursors.seat(seat).position,
                 Vec2::splat(layout.token_px()),
-            ),
-            None => resting,
+            ))
+        } else {
+            token_rect(&layout, &select, &fighters, token.0)
         };
-        set_rect(&mut node, rect);
+
+        match rect {
+            Some(rect) => {
+                set_visibility(&mut visibility, Visibility::Inherited);
+                set_rect(&mut node, rect);
+            }
+            // A selected fighter can be on another page. The token still has a
+            // well-defined placement; this page simply does not draw it.
+            None => set_visibility(&mut visibility, Visibility::Hidden),
+        }
     }
 
-    // ⚠ **the cursor is placed HERE, not only by `drive_the_cursor`.** Driving
-    // is gated on this screen owning its input — correct, because a pause menu
-    // over the top must take the presses — but a cursor that stops being DRAWN
-    // when something covers the screen is a cursor that has vanished. This
-    // always runs, and it is also what puts the pointer somewhere real on the
-    // very first frame.
-    for (marker, mut node, mut visibility) in &mut cursor_node {
+    for (marker, mut node, mut visibility) in &mut cursor_nodes {
         let seat = marker.0;
-        // **A SEAT WITH A DEVICE GETS A HAND, JOINED OR NOT.**
-        //
-        // ⛔ **this asked `participates()` until 2026-08-21 and that locked
-        // people out.** Jon: *"if a player seat is not enabled they don't get a
-        // cursor at all, so a game pad cannot join, unless player 1 lets them
-        // in."* Exactly right — the way IN is to press your own card's role
-        // button, and with no cursor there is nothing to press it with. A pad
-        // plugged in is a person in the room; the screen owes them a hand
-        // before it owes them a seat.
-        //
-        // ⚠ a seat with NO device and nobody in it still draws nothing: that is
-        // three cursors nobody can move, which reads as a frozen screen.
-        if !select.slot(seat).occupant.participates() && seat >= offered_seats {
+        // Cursors are indexed by INPUT seat, not by match-roster slot. Looking
+        // at `select.slot(seat)` here creates a phantom hand for a CPU hole in a
+        // sparse roster (human / CPU / human) and can hide the actual second
+        // person's hand. The local input offer is the authority for hands.
+        if seat >= offered_seats {
             set_visibility(&mut visibility, Visibility::Hidden);
             continue;
         }
@@ -1898,8 +1752,7 @@ mod touch_tests {
         app.init_resource::<StartRequested>();
         app.init_resource::<LeaveRequested>();
         app.init_resource::<SelectPage>();
-        app.init_resource::<SelectStyle>();
-        app.init_resource::<TokenRest>();
+        app.init_resource::<SelectInteractionPolicy>();
         // See the note in `lib.rs`'s fixture: the cursor integrates a clock.
         app.init_resource::<Time>();
         app.init_resource::<Touches>();
@@ -1926,11 +1779,8 @@ mod touch_tests {
         }
 
         let layout = headless_layout();
-        let select = app.world().resource::<SmashSelect>().clone();
-        let token_zero =
-            token_rect(&layout, &select, &TokenRest::default(), 0).expect("seat 0 is in the lobby");
-        let token_one =
-            token_rect(&layout, &select, &TokenRest::default(), 1).expect("seat 1 is in the lobby");
+        let token_zero = placed_token(&app, &layout, 0);
+        let token_one = placed_token(&app, &layout, 1);
 
         finger(&mut app, 10, TouchPhase::Started, token_zero.center());
         finger(&mut app, 11, TouchPhase::Started, token_one.center());
@@ -1962,26 +1812,18 @@ mod touch_tests {
         );
     }
 
-    /// **A DROPPED TOKEN STAYS WHERE IT WAS DROPPED.**
-    ///
-    /// ⛔ Jon, 2026-08-21: *"when I drop a token, it still snaps into a
-    /// location, it doesn't just stay where it was."* The resting place was
-    /// DERIVED from the pick — on the chosen portrait, or home — so letting go
-    /// anywhere teleported the piece out from under the finger that put it
-    /// there. ⚠ asserted against `token_rect`, which is what the screen both
-    /// draws and hit-tests with, rather than against the stored fraction.
+    /// Releasing a carried token over empty space does not invent a third
+    /// resting state. The token remains in the hand until it reaches a legal
+    /// fighter/Random destination.
     #[test]
-    fn a_token_let_go_in_open_space_stays_in_open_space() {
+    fn a_token_released_in_open_space_remains_carried() {
         let mut app = screen();
         app.world_mut()
             .resource_mut::<SmashSelect>()
             .set_occupant(0, SlotOccupant::Controller { device: 0 });
 
         let layout = headless_layout();
-        let select = app.world().resource::<SmashSelect>().clone();
-        let token = token_rect(&layout, &select, &TokenRest::default(), 0).expect("a token");
-        // Somewhere that is neither a portrait nor the pool: the gap under the
-        // grid, which is empty on every viewport this lays out.
+        let token = placed_token(&app, &layout, 0);
         let empty = Vec2::new(layout.viewport.x * 0.5, layout.viewport.y * 0.60);
 
         finger(&mut app, 50, TouchPhase::Started, token.center());
@@ -1991,26 +1833,22 @@ mod touch_tests {
         finger(&mut app, 50, TouchPhase::Ended, empty);
         app.update();
 
-        let select = app.world().resource::<SmashSelect>().clone();
-        let rest = *app.world().resource::<TokenRest>();
-        let landed = token_rect(&layout, &select, &rest, 0).expect("a token");
-        assert!(
-            landed.center().distance(empty) < 1.0,
-            "the token was let go at {empty:?} and went to {:?}",
-            landed.center()
+        assert_eq!(
+            app.world().resource::<SelectCursors>().seat(0).carrying,
+            Some(0),
+            "open-space release created a resting token instead of keeping it in hand"
         );
-        assert!(
-            landed.center().distance(layout.token_home(0).center()) > 1.0,
-            "the token flew home, which is the snap this fixes"
+        assert_eq!(
+            app.world().resource::<SmashSelect>().slot(0).pick,
+            Some(SlotPick::Random),
+            "moving a carried token through empty space changed its owner's selection"
         );
     }
 
     /// **PRESSING A FIGHTER WITH AN EMPTY HAND CHOOSES IT — IN THE DEFAULT.**
     ///
-    /// ⚠ **the default, which is the point.** Tap-to-pick used to need
-    /// `SelectStyle::TapToPick` switched on, and Jon's *"shouldn't I be able to
-    /// just click on a character"* is what said that was wrong. This fixture
-    /// touches no style at all.
+    /// This is the ordinary Ultimate-style fast path: a free hand selects the
+    /// portrait directly and the owner's placed token follows the new pick.
     #[test]
     fn a_tap_on_a_fighter_chooses_it_without_switching_any_mode() {
         let mut app = screen();
@@ -2050,9 +1888,7 @@ mod touch_tests {
         app.update();
 
         // The token now rests on that face. Press it again.
-        let select = app.world().resource::<SmashSelect>().clone();
-        let rest = *app.world().resource::<TokenRest>();
-        let on_face = token_rect(&layout, &select, &rest, 0).expect("a token");
+        let on_face = placed_token(&app, &layout, 0);
         finger(&mut app, 53, TouchPhase::Started, on_face.center());
         app.update();
 
@@ -2081,9 +1917,7 @@ mod touch_tests {
             select.set_occupant(1, SlotOccupant::Controller { device: 1 });
         }
         let layout = headless_layout();
-        let select = app.world().resource::<SmashSelect>().clone();
-        let token_one =
-            token_rect(&layout, &select, &TokenRest::default(), 1).expect("seat 1 is in the lobby");
+        let token_one = placed_token(&app, &layout, 1);
         let portrait = layout.portrait(1).expect("a grid with two cells");
 
         // Tap one: pick the token up. The finger LIFTS.
@@ -2119,71 +1953,118 @@ mod touch_tests {
         );
     }
 
-    /// **A SEAT MAY NOT PICK UP SOMEBODY ELSE'S TOKEN.**
-    ///
-    /// ⛔ four cursors over one pool is exactly where this goes wrong: seat 1's
-    /// hand passing over seat 0's piece must not be able to take it. The press
-    /// is arbitrated against the pressing seat's OWN token and nothing else.
+    /// Development defaults permit one human hand to manipulate another
+    /// human's token. This is useful for exercising rosters without reaching
+    /// for every controller, while the policy remains switchable to Ultimate's
+    /// stricter rule.
     #[test]
-    fn a_seat_cannot_grab_another_seats_token() {
+    fn another_human_token_is_grabbable_by_default() {
         let mut app = screen();
+        app.init_resource::<ambition_platformer2d::input::SeatMenuFrames>();
         {
             let mut select = app.world_mut().resource_mut::<SmashSelect>();
             select.set_occupant(0, SlotOccupant::Controller { device: 0 });
             select.set_occupant(1, SlotOccupant::Controller { device: 1 });
+            select.set_pick(0, 0);
+            select.set_pick(1, 1);
         }
         let layout = headless_layout();
-        let select = app.world().resource::<SmashSelect>().clone();
-        let token_zero =
-            token_rect(&layout, &select, &TokenRest::default(), 0).expect("seat 0 is in the lobby");
+        let token_zero = placed_token(&app, &layout, 0);
+        app.world_mut().resource_mut::<SelectCursors>().seat_mut(1).position = token_zero.center();
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d::input::SeatMenuFrames>()
+            .set(
+                1,
+                ambition_platformer2d::input::MenuControlFrame {
+                    select: true,
+                    ..Default::default()
+                },
+            );
 
-        // Seat 1's finger claims seat 1 by landing on its own token, then walks
-        // over to seat 0's and presses again.
-        let token_one =
-            token_rect(&layout, &select, &TokenRest::default(), 1).expect("seat 1 is in the lobby");
-        finger(&mut app, 20, TouchPhase::Started, token_one.center());
-        app.update();
-        finger(&mut app, 20, TouchPhase::Ended, token_one.center());
-        app.update();
-        finger(&mut app, 21, TouchPhase::Started, token_zero.center());
         app.update();
 
-        let cursors = *app.world().resource::<SelectCursors>();
-        assert_ne!(
-            cursors.seat(1).carrying,
+        assert_eq!(
+            app.world().resource::<SelectCursors>().seat(1).carrying,
             Some(0),
-            "seat 1 walked off with seat 0's token"
+            "the default testing policy refused another human's token"
         );
     }
 
-    /// **TAP TO PICK IS THE OTHER SMASH**, and it reaches the same decision.
-    ///
-    /// Ultimate has no token to drag: the cursor goes to a fighter and you
-    /// press. ⚠ the assertion is on `SmashSelect`, not on the token, because
-    /// the two idioms are only allowed to differ in how you ASK — what the
-    /// screen decided has to be one thing.
+    /// A connected hand is still the lobby's manipulation tool when every
+    /// match slot is CPU. It needs no owned match card to move a CPU token.
     #[test]
-    fn tap_to_pick_chooses_a_fighter_without_grabbing_anything() {
+    fn an_unseated_hand_can_move_a_cpu_token() {
         let mut app = screen();
-        *app.world_mut().resource_mut::<SelectStyle>() = SelectStyle::TapOnly;
+        app.init_resource::<ambition_platformer2d::input::SeatMenuFrames>();
         app.world_mut()
             .resource_mut::<SmashSelect>()
-            .set_occupant(0, SlotOccupant::Controller { device: 0 });
+            .set_occupant(1, SlotOccupant::Cpu);
 
         let layout = headless_layout();
-        let portrait = layout.portrait(1).expect("a grid with two cells");
-        finger(&mut app, 30, TouchPhase::Started, portrait.center());
+        let cpu_token = placed_token(&app, &layout, 1);
+        app.world_mut()
+            .resource_mut::<SelectCursors>()
+            .seat_mut(0)
+            .move_to(cpu_token.center());
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d::input::SeatMenuFrames>()
+            .set(
+                0,
+                ambition_platformer2d::input::MenuControlFrame {
+                    select: true,
+                    ..Default::default()
+                },
+            );
+
         app.update();
 
         assert_eq!(
-            app.world().resource::<SmashSelect>().slot(0).pick,
-            Some(SlotPick::Fighter(1)),
-            "a tap on a face did not choose that fighter"
+            app.world().resource::<SelectCursors>().seat(0).carrying,
+            Some(1),
+            "an unseated human hand could not configure a CPU token"
+        );
+    }
+
+    /// With the optional cross-human grab disabled, another person's token is
+    /// pointer-transparent: A reaches the fighter portrait beneath it instead.
+    #[test]
+    fn another_human_token_can_be_made_pointer_transparent() {
+        let mut app = screen();
+        app.init_resource::<ambition_platformer2d::input::SeatMenuFrames>();
+        app.world_mut()
+            .resource_mut::<SelectInteractionPolicy>()
+            .allow_other_human_token_grab = false;
+        {
+            let mut select = app.world_mut().resource_mut::<SmashSelect>();
+            select.set_occupant(0, SlotOccupant::Controller { device: 0 });
+            select.set_occupant(1, SlotOccupant::Controller { device: 1 });
+            select.set_pick(0, 0);
+            select.set_pick(1, 1);
+        }
+        let layout = headless_layout();
+        let token_zero = placed_token(&app, &layout, 0);
+        app.world_mut().resource_mut::<SelectCursors>().seat_mut(1).position = token_zero.center();
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d::input::SeatMenuFrames>()
+            .set(
+                1,
+                ambition_platformer2d::input::MenuControlFrame {
+                    select: true,
+                    ..Default::default()
+                },
+            );
+
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<SelectCursors>().seat(1).carrying,
+            None,
+            "Ultimate-style policy still let seat 1 grab seat 0's token"
         );
         assert_eq!(
-            app.world().resource::<SelectCursors>().seat(0).carrying,
-            None,
-            "tap-to-pick picked a token up, which is the idiom it replaces"
+            app.world().resource::<SmashSelect>().slot(1).pick,
+            Some(SlotPick::Fighter(0)),
+            "the non-grabbable token blocked the fighter portrait beneath it"
         );
     }
 
@@ -2278,16 +2159,20 @@ mod touch_tests {
         SelectLayout::for_viewport(None, SmashRoster::default().cell_count())
     }
 
-    /// Where slot 0's token is sitting, asked of the same function the screen
-    /// hit-tests with.
-    fn token_of_slot_zero(app: &App, layout: &SelectLayout) -> HitRect {
+    /// Where one placed token is sitting, asked of the same derivation the
+    /// screen draws and hit-tests with.
+    fn placed_token(app: &App, layout: &SelectLayout, slot: usize) -> HitRect {
         token_rect(
             layout,
             app.world().resource::<SmashSelect>(),
-            &TokenRest::default(),
-            0,
+            app.world().resource::<SmashRoster>(),
+            slot,
         )
-        .expect("slot 0 is participating, so it owns a token")
+        .expect("a participating slot on this page owns a token")
+    }
+
+    fn token_of_slot_zero(app: &App, layout: &SelectLayout) -> HitRect {
+        placed_token(app, layout, 0)
     }
 
     /// **A FINGER PLAYS THIS SCREEN.**

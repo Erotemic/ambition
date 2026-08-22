@@ -34,17 +34,15 @@ impl MenuInputFrame {
 /// independently. The two coexist on purpose: this does not replace the global
 /// frame, it answers a different question.
 ///
-/// Keyed by the participant's SLOT, which is also the seat and also the device
-/// index — one numbering, because two that have to agree eventually disagree
-/// (see [`crate::ParticipantId::slot`]).
+/// Keyed by the local input seat used by [`crate::ParticipantId::slot`]. The
+/// current local assignment policy may derive that seat from source order, but
+/// a physical source, an input participant and a game's roster slot are
+/// distinct concepts.
 ///
-/// ⛔⛔ **that numbering ends at the input layer.** A GAME's roster slot is a
-/// third index and this crate cannot speak for it: a lobby may seat a person on
-/// card 0, a machine on card 1 and a second person on card 2, and that second
-/// person still reports HERE on seat 1. Smash's select screen read this
-/// sentence as covering its cards and routed the second pad onto the CPU's,
-/// which is why the boundary is now spelled out. Ask the roster which card
-/// names your source; never index it with a seat.
+/// A game must cross that boundary explicitly. For example, a lobby may put a
+/// person on card 0, a CPU on card 1 and a second person on card 2 while the
+/// second person's menu frame is still seat 1. The roster decides which card
+/// that input seat drives; this table does not.
 
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct SeatMenuFrames {

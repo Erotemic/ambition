@@ -42,13 +42,11 @@
 //! decided slots a match needs. (Jon, 2026-07-31: *"there seems to be no way to
 //! have player 2 be a CPU player."*)
 //!
-//! ⚠ **`Controller` carries WHICH device, and that is the whole couch bug in one
-//! field.** Two slots both meaning "a person" is ambiguous the moment there are
-//! two sources in the room; a slot that names its device cannot silently share
-//! one with its neighbour. [`SmashSelect::cycle_occupant`] refuses to make a slot
-//! a controller when no unclaimed source is left, which is Jon's *"which must
-//! have a corresponding attached controller"* enforced in the value rather than
-//! checked in the widget.
+//! ⚠ **`Controller` carries WHICH input source, and that is the whole couch bug
+//! in one field.** Two slots both meaning "a person" is ambiguous the moment
+//! there are two sources in the room. [`SmashSelect::cycle_occupant`] therefore
+//! takes the source that actually pressed the card: it never guesses ownership
+//! from whichever unclaimed device happens to sort first.
 
 #[cfg(test)]
 use crate::STARTING_STOCKS;
@@ -280,12 +278,6 @@ impl SlotOccupant {
     }
 }
 
-/// **What one slot card says.**
-///
-/// The pick SURVIVES the occupant changing, on purpose: toggling a slot from
-/// controller to CPU and back is how a player hands their character to the
-/// machine, and clearing the portrait on the way through would make that a
-/// re-pick every time.
 /// **What a slot has chosen.**
 ///
 /// ⛔ **not a `usize`, because one of the choices is not a character.** The grid
@@ -356,6 +348,11 @@ impl RandomPick {
     }
 }
 
+/// **What one slot card says.**
+///
+/// Human <-> CPU preserves the current pick because the chair is still active;
+/// becoming [`SlotOccupant::Absent`] clears it. Reactivating an undecided card
+/// starts on [`SlotPick::Random`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SlotCard {
     pub occupant: SlotOccupant,
@@ -395,8 +392,8 @@ impl SlotCard {
     /// The character this slot has COMMITTED to. `None` while the slot is empty
     /// or has not picked — the two states the match waits on.
     ///
-    /// ⚠ an absent slot with a remembered pick answers `None`, which is what
-    /// makes [`SmashSelect::ready`] safe to write as a count.
+    /// An absent slot answers `None`, which is what makes
+    /// [`SmashSelect::ready`] safe to write as a count.
     pub fn locked_pick(self) -> Option<SlotPick> {
         self.occupant.participates().then_some(self.pick).flatten()
     }
@@ -417,45 +414,32 @@ impl SmashSelect {
         self.slots.iter().copied().enumerate()
     }
 
-    /// **Toggle one slot between the three things it can be.**
+    /// **Toggle one slot between absent / the requesting person / CPU.**
     ///
-    /// `Absent → Controller → Cpu → Absent`, which is Jon's button. The order is
-    /// deliberate: the first press of an empty card seats the PERSON pressing
-    /// it, because somebody reaching for an empty chair almost always means
-    /// themselves, and a second press hands that chair to the machine.
+    /// The requester is explicit. An empty card does not guess which unused
+    /// controller "must have meant" the press: if the input source that pressed
+    /// this button is not seated yet, that source takes the card. If the
+    /// requester already owns another card, the empty card skips the human rung
+    /// and becomes CPU.
     ///
-    /// `sources` is how many local input sources exist — see
-    /// [`seats_offered_under`]. When none is free the controller rung is SKIPPED
-    /// rather than refused with a beep: a fourth card on a two-pad couch goes
-    /// straight from empty to CPU, which is the only thing it could honestly
-    /// become. That is Jon's *"which must have a corresponding attached
-    /// controller"*, and it lives here because a widget that checked it would be
-    /// checking a rule it does not own.
-    pub fn cycle_occupant(&mut self, slot: usize, sources: usize) {
+    /// `Absent` is a lifecycle boundary. Leaving the lobby removes the active
+    /// fighter choice; re-entering starts on Random. Controller <-> CPU keeps the
+    /// current pick because only the controller policy changed, not the chair.
+    pub fn cycle_occupant(&mut self, slot: usize, requesting_source: usize) {
         if slot >= MAX_SMASH_SEATS {
             return;
         }
         let next = match self.slots[slot].occupant {
-            SlotOccupant::Absent => match self.first_free_device(slot, sources) {
-                Some(device) => SlotOccupant::Controller { device },
-                None => SlotOccupant::Cpu,
-            },
+            SlotOccupant::Absent if self.slot_driven_by(requesting_source).is_none() => {
+                SlotOccupant::Controller {
+                    device: requesting_source,
+                }
+            }
+            SlotOccupant::Absent => SlotOccupant::Cpu,
             SlotOccupant::Controller { .. } => SlotOccupant::Cpu,
             SlotOccupant::Cpu => SlotOccupant::Absent,
         };
-        self.slots[slot].occupant = next;
-        // **A SLOT THAT JUST JOINED IS ON RANDOM.** (Jon, 2026-08-07: *"going
-        // from 'Not Playing' to a player does not auto assign to random, and I
-        // would like that to be the case."*)
-        //
-        // ⚠ **only when it has no pick**, which is what keeps the promise the
-        // card already makes: a pick SURVIVES the occupant changing, so cycling
-        // controller → CPU → absent → controller hands your fighter to the
-        // machine and back rather than re-rolling it. Random is the state of a
-        // slot nobody has chosen for, not a thing the button does to you.
-        if next.participates() && self.slots[slot].pick.is_none() {
-            self.slots[slot].pick = Some(SlotPick::Random);
-        }
+        self.set_occupant(slot, next);
     }
 
     /// **The roster slot this local input SOURCE drives, if any.**
@@ -464,7 +448,7 @@ impl SmashSelect {
     /// nobody wrote.** The select screen keys its cursors by input seat —
     /// correctly, a hand belongs to a person — and then used that same index as
     /// the card to write a pick into. That holds only while the roster is dense
-    /// and in source order, and `first_free_device` deliberately breaks both:
+    /// and in source order; a CPU hole deliberately breaks both:
     ///
     /// ```text
     /// card 0   Controller { device: 0 }
@@ -488,34 +472,25 @@ impl SmashSelect {
 
     /// Put a slot directly into a state, for a screen that has a reason to
     /// (the walkthrough, a test, a future "everyone in" button).
+    ///
+    /// `Absent` owns the reset rule too: there is no hidden remembered fighter
+    /// behind an inactive card. Any active occupant entering an undecided card
+    /// starts on Random.
     pub fn set_occupant(&mut self, slot: usize, occupant: SlotOccupant) {
-        if slot < MAX_SMASH_SEATS {
-            self.slots[slot].occupant = occupant;
-            // The same rule the button follows, so a screen that seats somebody
-            // directly does not produce a state the button cannot reach.
-            if occupant.participates() && self.slots[slot].pick.is_none() {
+        if slot >= MAX_SMASH_SEATS {
+            return;
+        }
+        self.slots[slot].occupant = occupant;
+        if occupant.participates() {
+            if self.slots[slot].pick.is_none() {
                 self.slots[slot].pick = Some(SlotPick::Random);
             }
+        } else {
+            self.slots[slot].pick = None;
         }
     }
 
-    /// **The lowest input source no other slot is holding.**
-    ///
-    /// ⛔ This is the couch-input trap in its smallest form. Two slots that both
-    /// say "a person" and never say WHICH person is how one pad ends up driving
-    /// two fighters — the defect this repo has now found five separate times,
-    /// and every one of them was invisible with a single pad plugged in.
-    pub fn first_free_device(&self, slot: usize, sources: usize) -> Option<usize> {
-        (0..sources).find(|device| {
-            !self
-                .slots
-                .iter()
-                .enumerate()
-                .any(|(other, card)| other != slot && card.occupant.device() == Some(*device))
-        })
-    }
-
-    /// **Somebody dropped a token on a portrait.**
+    /// **Set the fighter choice owned by one match slot.**
     ///
     /// ⚠ the index is not bounds-checked here, and the reason is that the only
     /// thing that produces one is a portrait the LAYOUT drew — which the layout

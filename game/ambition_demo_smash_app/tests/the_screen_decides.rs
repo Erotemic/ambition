@@ -148,6 +148,18 @@ fn layout(app: &App) -> SelectLayout {
     SelectLayout::for_viewport(None, app.world().resource::<SmashRoster>().cell_count())
 }
 
+/// Where a participating slot's token is placed on the current page.
+fn placed_token(app: &App, slot: usize) -> HitRect {
+    let geometry = layout(app);
+    ambition_demo_smash::select_screen::token_rect(
+        &geometry,
+        app.world().resource::<SmashSelect>(),
+        app.world().resource::<SmashRoster>(),
+        slot,
+    )
+    .unwrap_or_else(|| panic!("slot {slot} has no placed token on this page"))
+}
+
 /// Put ONE SEAT'S cursor somewhere. A mouse does exactly this; so does a pad,
 /// one snap at a time, and `the_arrows_alone_can_work_the_whole_screen` covers
 /// that path.
@@ -272,11 +284,13 @@ fn two_players_take_controllers_pick_fighters_and_the_battle_starts() {
         "the second card took the first card's controller"
     );
 
-    // Pick up from the pool, drop on a portrait. Two clicks, as a pad does it.
-    click(&mut app, 0, layout.token_home(0));
+    // Pick up each player's placed token, then place it on a portrait.
+    let token = placed_token(&app, 0);
+    click(&mut app, 0, token);
     let cell = layout.portrait(nth(&app, 0)).expect("an authored portrait");
     click(&mut app, 0, cell);
-    click(&mut app, 1, layout.token_home(1));
+    let token = placed_token(&app, 1);
+    click(&mut app, 1, token);
     let cell = layout.portrait(nth(&app, 1)).expect("an authored portrait");
     click(&mut app, 1, cell);
     assert_eq!(slot(&app, 0).pick, Some(SlotPick::Fighter(nth(&app, 0))));
@@ -340,7 +354,8 @@ fn a_player_who_never_touched_the_grid_starts_on_random() {
     click(&mut app, 0, layout.role_button(0));
     click(&mut app, 1, layout.role_button(1));
     // Only slot 0 chooses. Slot 1 is left exactly as joining made it.
-    click(&mut app, 0, layout.token_home(0));
+    let token = placed_token(&app, 0);
+    click(&mut app, 0, token);
     let cell = layout.portrait(nth(&app, 1)).expect("an authored portrait");
     click(&mut app, 0, cell);
     assert_eq!(
@@ -375,12 +390,11 @@ fn a_player_who_never_touched_the_grid_starts_on_random() {
     );
 }
 
-/// **Dropping a token on nothing returns it rather than clearing the slot.**
-///
-/// Losing a fighter to a misclick is the one thing a select screen must not do
-/// to somebody holding a controller.
+/// A token has only two presentation states: placed on its selection or carried.
+/// Clicking empty space while carrying does not create an arbitrary resting
+/// coordinate, and B while carrying is a no-op.
 #[test]
-fn a_token_dropped_on_empty_space_goes_back_to_the_fighter_it_had() {
+fn a_carried_token_stays_in_hand_until_it_reaches_a_selection() {
     let mut app = build_demo_app();
     install_press_port(&mut app);
     plug_in(&mut app, 1);
@@ -388,25 +402,30 @@ fn a_token_dropped_on_empty_space_goes_back_to_the_fighter_it_had() {
     let layout = layout(&app);
 
     click(&mut app, 0, layout.role_button(0));
-    click(&mut app, 0, layout.token_home(0));
     let cell = layout.portrait(nth(&app, 1)).expect("an authored portrait");
     click(&mut app, 0, cell);
     assert_eq!(slot(&app, 0).pick, Some(SlotPick::Fighter(nth(&app, 1))));
 
-    // Pick it back up and let go over the title bar, which is nothing.
-    click(&mut app, 0, layout.token_home(0));
+    let token = placed_token(&app, 0);
+    click(&mut app, 0, token);
     click(&mut app, 0, layout.title());
     assert_eq!(
         slot(&app, 0).pick,
         Some(SlotPick::Fighter(nth(&app, 1))),
-        "a token dropped on empty space took the player's fighter with it"
+        "empty-space interaction changed the token owner's selection"
+    );
+    assert_eq!(
+        app.world().resource::<SelectCursors>().seat(0).carrying,
+        Some(0),
+        "empty-space interaction invented a resting token state"
     );
 
-    // And BACK while carrying does the same.
-    click(&mut app, 0, layout.token_home(0));
     press(&mut app, 0, back());
-    assert_eq!(slot(&app, 0).pick, Some(SlotPick::Fighter(nth(&app, 1))));
-    assert_eq!(app.world().resource::<SelectCursors>().seat(0).carrying, None);
+    assert_eq!(
+        app.world().resource::<SelectCursors>().seat(0).carrying,
+        Some(0),
+        "B dropped a token that was already in hand"
+    );
 }
 
 /// **A screen that works and cannot be seen is the same bug one layer up.**
@@ -432,7 +451,8 @@ fn the_cards_say_what_each_slot_has_decided() {
     }
 
     click(&mut app, 0, layout.role_button(0));
-    click(&mut app, 0, layout.token_home(0));
+    let token = placed_token(&app, 0);
+    click(&mut app, 0, token);
     let cell = layout.portrait(nth(&app, 0)).expect("an authored portrait");
     click(&mut app, 0, cell);
     click(&mut app, 1, layout.role_button(1));
@@ -521,7 +541,8 @@ fn a_player_alone_can_add_a_cpu_and_start_the_match() {
     );
 
     for (slot_index, character) in [(0usize, 0usize), (1, 1)] {
-        click(&mut app, 0, layout.token_home(slot_index));
+        let token = placed_token(&app, slot_index);
+        click(&mut app, 0, token);
         let cell = layout
             .portrait(nth(&app, character))
             .expect("an authored portrait");

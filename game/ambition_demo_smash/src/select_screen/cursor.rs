@@ -211,9 +211,10 @@ impl SelectCursor {
 
 /// **FOUR CURSORS, ONE PER SEAT** — the model every Smash has.
 ///
-/// ⭐ **indexed by INPUT SEAT, which is also the device index** — the same
-/// numbering `SeatMenuFrames` uses, because a cursor is a HAND and a hand
-/// belongs to a person.
+/// Indexed by local INPUT SEAT, the same key `SeatMenuFrames` uses. The
+/// current Smash seating policy maps that key onto its local-source index, but
+/// this cursor table does not claim that an input seat, a physical device and a
+/// match slot are the same identity.
 ///
 /// ⛔⛔ **and a MATCH SLOT is a third numbering, which this is not.** A seat's
 /// cursor, a seat's pad and a seat's menu frame agree; the CARD that seat
@@ -260,19 +261,19 @@ impl SelectCursors {
             .map(|(seat, _)| seat)
     }
 
-    /// **Take a slot's token, unless somebody already has it.**
+    /// **Take one token if both sides are free.**
     ///
-    /// ⭐ a human may pick up a CPU's token — that is the ordinary case of one
-    /// person setting up two machine opponents, and the rule exists so that
-    /// TWO people cannot both be setting up the same one.
+    /// This owns the two mechanical invariants of carrying: a token has at most
+    /// one carrier, and a cursor has at most one token. Which token a particular
+    /// player is ALLOWED to grab is character-select policy and stays in the
+    /// screen state machine rather than leaking into this geometry helper.
     ///
-    /// ⚠ **the incumbent wins, and re-grabbing your own hand succeeds** (it
-    /// re-arms `grabbed_at`, which is what tells a drag from a click). Seats
-    /// are arbitrated in seat order, so two hands closing on one token on the
-    /// same tick resolve to the lower seat every run — a screen that decided
-    /// this by whoever the query happened to visit first would decide it
-    /// differently between runs (ADR 0023).
+    /// Re-grabbing the token already in this hand succeeds and re-arms
+    /// `grabbed_at`, which is what distinguishes a drag from a click.
     pub fn try_grab(&mut self, seat: usize, slot: usize) -> bool {
+        if self.seat(seat).carrying.is_some_and(|held| held != slot) {
+            return false;
+        }
         match self.carrier_of(slot) {
             Some(holder) if holder != seat => false,
             _ => {
@@ -394,5 +395,24 @@ mod tests {
         assert!(cursor.release_should_drop());
         assert_eq!(cursor.drop_it(), Some(2));
         assert_eq!(cursor.carrying, None);
+    }
+
+    #[test]
+    fn a_cursor_cannot_replace_the_token_it_is_already_carrying() {
+        let mut cursors = SelectCursors::default();
+        assert!(cursors.try_grab(0, 1));
+        assert!(!cursors.try_grab(0, 2));
+        assert_eq!(cursors.seat(0).carrying, Some(1));
+        assert_eq!(cursors.carrier_of(1), Some(0));
+        assert_eq!(cursors.carrier_of(2), None);
+    }
+
+    #[test]
+    fn one_token_cannot_have_two_carriers() {
+        let mut cursors = SelectCursors::default();
+        assert!(cursors.try_grab(0, 2));
+        assert!(!cursors.try_grab(1, 2));
+        assert_eq!(cursors.carrier_of(2), Some(0));
+        assert_eq!(cursors.seat(1).carrying, None);
     }
 }

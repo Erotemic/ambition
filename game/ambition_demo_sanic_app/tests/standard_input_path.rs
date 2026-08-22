@@ -216,7 +216,7 @@ fn without_input_the_player_does_not_drift_right() {
 /// input, and the peaceful kit must suppress every one of them on every frame.
 #[test]
 fn peaceful_sanic_filters_host_combat_inputs_before_effects() {
-    use ambition_platformer2d::characters::brain::ActorControl;
+    use ambition_platformer2d::characters::control::ActorControl;
 
     let mut app = ambition_demo_sanic_app::build_demo_app();
     app.update();

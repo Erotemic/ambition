@@ -155,7 +155,7 @@ pub fn portal_input_adapter_system(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_characters::brain::ActorControl;
+    use ambition_characters::control::ActorControl;
 
     /// A body driving the gun, with the Attack press already on its slot AND on
     /// its brain-resolved frame — which is how a real press arrives: the slot

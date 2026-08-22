@@ -7,7 +7,8 @@
 use crate::actor::BodyKinematics;
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::features::HeldItem;
-use ambition_characters::brain::{held_item_by_id, ActionSet, ActorControl};
+use ambition_characters::brain::{held_item_by_id, ActionSet};
+use ambition_characters::control::{ActorControl};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use bevy::prelude::*;

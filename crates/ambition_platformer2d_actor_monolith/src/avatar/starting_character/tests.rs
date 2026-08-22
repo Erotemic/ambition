@@ -726,7 +726,8 @@ fn host_code_kit_refreshes_when_body_abilities_change() {
 #[test]
 fn peaceful_worn_kit_gates_direct_player_combat_verbs() {
     use ambition_characters::actor::control::{ActorControlFrame, ActorFireRequest};
-    use ambition_characters::brain::{ActionSet, ActorControl};
+    use ambition_characters::brain::{ActionSet};
+use ambition_characters::control::{ActorControl};
     use bevy::prelude::*;
 
     let mut frame = ActorControlFrame::neutral();
@@ -797,7 +798,8 @@ fn peaceful_worn_kit_gates_direct_player_combat_verbs() {
 fn an_authored_charging_character_keeps_its_projectile_press() {
     use crate::character_runtime::{CharacterBindings, CharacterDefinition};
     use ambition_characters::actor::control::ActorControlFrame;
-    use ambition_characters::brain::{ActionSet, ActorControl};
+    use ambition_characters::brain::{ActionSet};
+use ambition_characters::control::{ActorControl};
     use bevy::prelude::*;
 
     let charge_frame = || {
@@ -893,7 +895,8 @@ fn an_authored_charging_character_keeps_its_projectile_press() {
 fn gate_routes_a_technique_attack_slot_into_the_sanctioned_edge() {
     use ambition_characters::action_scheme::{ActorTechniques, ResolvedTechniqueEdges};
     use ambition_characters::actor::control::ActorControlFrame;
-    use ambition_characters::brain::{ActionSet, ActorControl};
+    use ambition_characters::brain::{ActionSet};
+use ambition_characters::control::{ActorControl};
     use ambition_entity_catalog::action_scheme::{ActionGate, ActionId, ActionSpec, ControlSlot};
     use bevy::prelude::*;
 
@@ -965,7 +968,7 @@ fn malformed_authored_resolution_is_safe_peaceful_not_host_code() {
 #[test]
 fn pressing_special_starts_the_real_players_folded_bubble_shield_move() {
     use ambition_characters::actor::control::ActorControlFrame;
-    use ambition_characters::brain::ActorControl;
+    use ambition_characters::control::ActorControl;
     use bevy::prelude::*;
 
     // The REAL bundle authorities + the REAL moveset build (bundles.rs:135).
@@ -1024,7 +1027,7 @@ fn pressing_special_starts_the_real_players_folded_bubble_shield_move() {
 /// (or a body whose special isn't bubble_shield) must NOT raise the guard.
 #[test]
 fn the_bubble_shield_special_move_holds_the_guard_up() {
-    use ambition_characters::brain::ActorControl;
+    use ambition_characters::control::ActorControl;
     use bevy::prelude::*;
 
     let action_set = crate::avatar::bundles::default_player_action_set(
@@ -2383,7 +2386,8 @@ fn a_minted_moveset_is_singular_and_carries_the_real_repertoire() {
 #[test]
 fn the_shield_verb_follows_the_ability_not_the_special() {
     use ambition_characters::actor::control::ActorControlFrame;
-    use ambition_characters::brain::{ActionSet, ActorControl, SpecialActionSpec};
+    use ambition_characters::brain::{ActionSet, SpecialActionSpec};
+use ambition_characters::control::{ActorControl};
     use bevy::prelude::*;
 
     let guarding = || {
@@ -2451,7 +2455,8 @@ fn the_shield_verb_follows_the_ability_not_the_special() {
 #[test]
 fn a_held_item_keeps_the_shield_verb_alive_without_the_ability() {
     use ambition_characters::actor::control::ActorControlFrame;
-    use ambition_characters::brain::{ActionSet, ActorControl};
+    use ambition_characters::brain::{ActionSet};
+use ambition_characters::control::{ActorControl};
     use bevy::prelude::*;
 
     let mut frame = ActorControlFrame::neutral();

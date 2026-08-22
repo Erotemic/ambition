@@ -25,7 +25,7 @@ pub fn resolve_portal_fire_intent(
     mut holders: Query<(
         &BodyKinematics,
         &PortalGun,
-        &mut ambition_characters::brain::ActorControl,
+        &mut ambition_characters::control::ActorControl,
     )>,
     primary_fallback: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     mut intents: MessageWriter<PortalFireIntent>,
@@ -115,7 +115,7 @@ mod tests {
                 },
                 // Every production body carries an intent frame, and this system
                 // spends the Attack press on it when the gun answers.
-                ambition_characters::brain::ActorControl::default(),
+                ambition_characters::control::ActorControl::default(),
             ))
             .id();
         app.world_mut()
@@ -140,7 +140,7 @@ mod tests {
     /// **THE FIRE SPENDS THE ATTACK PRESS — HERE, WHERE IT IS ACCEPTED.**
     #[test]
     fn an_accepted_fire_spends_the_press_and_a_refused_one_does_not() {
-        use ambition_characters::brain::ActorControl;
+        use ambition_characters::control::ActorControl;
 
         let press_survived = |active: bool| -> bool {
             let mut app = App::new();

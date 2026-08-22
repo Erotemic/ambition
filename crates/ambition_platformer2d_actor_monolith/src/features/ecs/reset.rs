@@ -81,7 +81,7 @@ pub fn reset_ecs_room_features(
             &mut ambition_characters::actor::BodyCombat,
             &mut ambition_characters::brain::Brain,
             &mut ambition_characters::brain::BossAttackState,
-            &mut ambition_characters::brain::ActorControl,
+            &mut ambition_characters::control::ActorControl,
             &mut ambition_boss_encounter::sprites::BossAnimFrame,
         ),
         With<FeatureSimEntity>,

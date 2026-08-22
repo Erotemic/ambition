@@ -10,7 +10,7 @@
 
 use super::*;
 use ambition_characters::actor::{BodyCombat, BodyHealth, Health};
-use ambition_characters::brain::ActorControl;
+use ambition_characters::control::ActorControl;
 
 const SIZE: ae::Vec2 = ae::Vec2::new(24.0, 40.0);
 

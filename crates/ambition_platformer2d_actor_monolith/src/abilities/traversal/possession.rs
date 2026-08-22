@@ -31,7 +31,8 @@
 
 use bevy::prelude::*;
 
-use ambition_characters::brain::{ActorControl, Brain};
+use ambition_characters::brain::{Brain};
+use ambition_characters::control::{ActorControl};
 use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 
 use crate::features::TemporaryControl;

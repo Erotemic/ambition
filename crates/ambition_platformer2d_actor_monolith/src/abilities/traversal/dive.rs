@@ -24,7 +24,7 @@
 use bevy::prelude::*;
 
 use crate::features::HeldItem;
-use ambition_characters::brain::ActorControl;
+use ambition_characters::control::ActorControl;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::class_b::{ClassBRemap, ClassBRemapLog};
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;

@@ -86,7 +86,7 @@ fn pirate_sky_sfx_census() {
             }
         }
         {
-            use ambition_platformer2d::characters::brain::ActorControl;
+            use ambition_platformer2d::characters::control::ActorControl;
             let w = sim.world_mut();
             let mut cq = w.query::<&ActorControl>();
             let world = sim.world();
@@ -176,7 +176,7 @@ fn pirate_sky_sfx_census() {
             println!("[sky-census] actors WITH A MOVESET: {with_moveset}; mid-move right now: {playing}");
         }
         {
-            use ambition_platformer2d::characters::brain::ActorControl;
+            use ambition_platformer2d::characters::control::ActorControl;
             let w = sim.world_mut();
             let mut cq = w.query::<&ActorControl>();
             let world = sim.world();

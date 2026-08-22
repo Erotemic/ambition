@@ -20,7 +20,7 @@ use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition_platformer2d::actors::combat::components::{ActorDisposition, ActorTarget};
 use ambition_platformer2d::actors::features::FeatureId;
 use ambition_platformer2d::characters::actor::BodyHealth;
-use ambition_platformer2d::characters::brain::ActorControl;
+use ambition_platformer2d::characters::control::ActorControl;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 use ambition_platformer2d::projectiles::LiveProjectile;

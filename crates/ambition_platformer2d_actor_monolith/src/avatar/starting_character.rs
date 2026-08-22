@@ -985,7 +985,7 @@ pub fn gate_worn_player_control(
             &crate::actor::BodyAbilities,
             Option<&ActorMoveset>,
             Option<&ambition_characters::action_scheme::ActorTechniques>,
-            &mut ambition_characters::brain::ActorControl,
+            &mut ambition_characters::control::ActorControl,
             // Sanctioned technique edges: when a slot resolves to `Technique`, the
             // gate routes the slot's device edge here (and clears the raw verb),
             // so a content technique reads THIS instead of intercepting a raw
@@ -1096,7 +1096,7 @@ pub fn sustain_bubble_shield(
     mut bodies: Query<(
         &ActionSet,
         Option<&ambition_combat::moveset::MovePlayback>,
-        &mut ambition_characters::brain::ActorControl,
+        &mut ambition_characters::control::ActorControl,
     )>,
 ) {
     use ambition_characters::brain::SpecialActionSpec;

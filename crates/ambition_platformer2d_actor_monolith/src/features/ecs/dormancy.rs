@@ -104,7 +104,7 @@ pub fn assess_dormancy(
         Has<Dormant>,
         // The brain's last word, which must be RETRACTED when the brain sleeps.
         // `Option` because a body may carry a policy before it carries a brain.
-        Option<&mut ambition_characters::brain::ActorControl>,
+        Option<&mut ambition_characters::control::ActorControl>,
     )>,
 ) {
     // Collected once rather than re-iterated per actor: the observer set is
@@ -331,7 +331,7 @@ mod tests {
     #[test]
     fn falling_asleep_retracts_the_brains_last_intent() {
         use ambition_characters::actor::control::ActorControlFrame;
-        use ambition_characters::brain::ActorControl;
+        use ambition_characters::control::ActorControl;
         use ambition_platformer2d_core::reference_frame::LocalAxes;
 
         let mut app = App::new();
@@ -383,7 +383,7 @@ mod tests {
     #[test]
     fn a_waking_actor_keeps_the_intent_its_brain_just_wrote() {
         use ambition_characters::actor::control::ActorControlFrame;
-        use ambition_characters::brain::ActorControl;
+        use ambition_characters::control::ActorControl;
         use ambition_platformer2d_core::reference_frame::LocalAxes;
 
         let mut app = App::new();

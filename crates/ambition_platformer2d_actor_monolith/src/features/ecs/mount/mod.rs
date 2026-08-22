@@ -214,10 +214,10 @@ pub struct MountedSize(pub ae::Vec2);
 /// intent). Rider/mount queries are disjoint via `With`/`Without<MountSlot>`.
 pub fn steer_mount_from_rider(
     riders: Query<
-        (&RidingOn, &ambition_characters::brain::ActorControl),
+        (&RidingOn, &ambition_characters::control::ActorControl),
         (With<Mounted>, Without<MountSlot>),
     >,
-    mut mounts: Query<(&Mountable, &mut ambition_characters::brain::ActorControl), With<MountSlot>>,
+    mut mounts: Query<(&Mountable, &mut ambition_characters::control::ActorControl), With<MountSlot>>,
 ) {
     for (riding, rider_control) in &riders {
         let Ok((mountable, mut mount_control)) = mounts.get_mut(riding.mount) else {

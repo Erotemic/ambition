@@ -582,7 +582,7 @@ impl SnapshotState for crate::actor::character_catalog::AuthoredBrainContext {
 /// and a rewind that leaves it stale hands the body an input it never chose.
 ///
 /// Every field, in declaration order. There is no clever half of this component.
-impl SnapshotState for crate::brain::ActorControl {
+impl SnapshotState for crate::control::ActorControl {
     fn encode(&self, out: &mut Vec<u8>) {
         let f = &self.0;
         put_vec2(out, f.locomotion.vec());
@@ -665,7 +665,7 @@ impl SnapshotState for crate::brain::ActorControl {
         for f in flags.iter_mut() {
             *f = r.bool()?;
         }
-        Some(crate::brain::ActorControl(ActorControlFrame {
+        Some(crate::control::ActorControl(ActorControlFrame {
             locomotion,
             velocity_target,
             facing,

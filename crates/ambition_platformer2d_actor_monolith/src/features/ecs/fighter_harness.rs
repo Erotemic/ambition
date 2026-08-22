@@ -31,9 +31,8 @@ use bevy::prelude::*;
 
 use ambition_characters::actor::control::ActorControlFrame;
 use ambition_characters::actor::ActorPose;
-use ambition_characters::brain::{
-    action_set::ActionRequest, ActionSet, ActorActionMessage, ActorControl, RangedActionSpec,
-};
+use ambition_characters::brain::{action_set::ActionRequest, ActionSet, ActorActionMessage, RangedActionSpec};
+use ambition_characters::control::{ActorControl};
 
 use super::actor_clusters::ActorClusterSeed;
 use super::brain_effects::spawn_projectiles_from_brain_actions;

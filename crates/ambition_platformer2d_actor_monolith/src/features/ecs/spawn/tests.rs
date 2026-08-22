@@ -8,9 +8,8 @@ use crate::features::{
     ActorAggression, ActorConfig, ActorDisposition, ActorIdentity, AggressionMode, CombatKit,
 };
 use ambition_characters::actor::{BodyCombat, BodyHealth};
-use ambition_characters::brain::{
-    ActionSet, ActorControl, Brain, MeleeActionSpec, MoveStyleSpec, StateMachineCfg,
-};
+use ambition_characters::brain::{ActionSet, Brain, MeleeActionSpec, MoveStyleSpec, StateMachineCfg};
+use ambition_characters::control::{ActorControl};
 use ambition_platformer2d_core as ae;
 use bevy::prelude::{App, Commands, Update};
 
@@ -263,7 +262,8 @@ fn smash_fixture_cast() -> crate::character_runtime::PreparedCharacterRegistry {
 /// `_into` on an executor-allocated root.)
 #[test]
 fn boss_spawn_attaches_brain_components() {
-    use ambition_characters::brain::{ActionSet, ActorControl, Brain, StateMachineCfg};
+    use ambition_characters::brain::{ActionSet, Brain, StateMachineCfg};
+use ambition_characters::control::{ActorControl};
     let mut app = App::new();
     app.add_systems(Update, |mut commands: Commands| {
         let authored = crate::rooms::Authored {

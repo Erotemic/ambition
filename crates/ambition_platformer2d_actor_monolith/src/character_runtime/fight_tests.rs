@@ -273,7 +273,7 @@ use crate::combat::moveset::{
 use crate::features::apply_feature_hit_events;
 use ambition_characters::actor::attack_gesture::{AttackGestureTuning, ResolvedAttackGesture};
 use ambition_characters::actor::control::ActorControlFrame;
-use ambition_characters::brain::ActorControl;
+use ambition_characters::control::ActorControl;
 
 const TICK: f32 = 1.0 / 60.0;
 

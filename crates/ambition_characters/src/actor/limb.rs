@@ -14,7 +14,7 @@ use ambition_platformer2d_core as ae;
 use bevy::prelude::{Component, Entity, Query, With};
 
 use crate::actor::control::ActorControlFrame;
-use crate::brain::ActorControl;
+use crate::control::ActorControl;
 
 /// Longest authored slot name. Inline storage keeps [`LimbSlot`] `Copy`, which
 /// is what lets it be a `BTreeMap` key and travel through rollback by value.

@@ -20,7 +20,7 @@ use bevy::prelude::*;
 use crate::actor::BodyKinematics;
 use crate::actor::BodyMana;
 use ambition_characters::actor::BodyHealth;
-use ambition_characters::brain::ActorControl;
+use ambition_characters::control::ActorControl;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 

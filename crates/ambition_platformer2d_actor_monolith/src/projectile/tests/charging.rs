@@ -102,7 +102,8 @@ fn held_release_after_medium_threshold_fires_charged_fireball() {
 #[test]
 fn a_non_home_charge_body_fires_from_its_own_muzzle_not_the_home_avatar() {
     use ambition_characters::actor::control::ActorControlFrame;
-    use ambition_characters::brain::{ActorControl, ChargesProjectiles};
+    use ambition_characters::brain::{ChargesProjectiles};
+use ambition_characters::control::{ActorControl};
     use ambition_platformer2d_core as ae;
 
     // Home player spawns far to the LEFT; the "possessed" charge body sits far RIGHT.

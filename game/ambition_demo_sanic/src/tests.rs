@@ -634,7 +634,7 @@ fn the_declared_utility_technique_toggles_both_forms_and_eats_the_fly_verb() {
     let entity = app
         .world_mut()
         .spawn((
-            ambition_platformer2d::characters::brain::ActorControl::default(),
+            ambition_platformer2d::characters::control::ActorControl::default(),
             ambition_platformer2d::characters::actor::WornCharacter::new(SANIC_CHARACTER_ID),
             ae::BodyKinematics::default(),
             // `#[require]` pulls in `ResolvedTechniqueEdges` — the seam the gate
@@ -658,7 +658,7 @@ fn the_declared_utility_technique_toggles_both_forms_and_eats_the_fly_verb() {
     let press_utility = |app: &mut App| {
         let mut control = app
             .world_mut()
-            .get_mut::<ambition_platformer2d::characters::brain::ActorControl>(entity)
+            .get_mut::<ambition_platformer2d::characters::control::ActorControl>(entity)
             .unwrap();
         control.0.fly_toggle_pressed = true;
         let mut frame = control.0.clone();
@@ -673,7 +673,7 @@ fn the_declared_utility_technique_toggles_both_forms_and_eats_the_fly_verb() {
             "the resolver consumes Utility, so generic flight never sees the press"
         );
         app.world_mut()
-            .get_mut::<ambition_platformer2d::characters::brain::ActorControl>(entity)
+            .get_mut::<ambition_platformer2d::characters::control::ActorControl>(entity)
             .unwrap()
             .0 = frame;
         *app.world_mut()
@@ -723,7 +723,7 @@ fn the_super_transformation_sounds_like_sanic_and_not_like_the_session_owner() {
             ambition_platformer2d::characters::actor::BodyHealth::new(
                 ambition_platformer2d::characters::actor::Health::new(3),
             ),
-            ambition_platformer2d::characters::brain::ActorControl::default(),
+            ambition_platformer2d::characters::control::ActorControl::default(),
             ambition_platformer2d::characters::actor::WornCharacter::new(SUPER_SANIC_CHARACTER_ID),
             ae::BodyKinematics::default(),
             // What `publish_body_presentation_sources` derives in production; the

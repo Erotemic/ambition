@@ -176,7 +176,7 @@ pub fn tick_actor_brains(
             // ⭐ it used to be `brain.player_slot()` — the same question asked of
             // an AI-policy enum, which is the conflation `Brain::Player` was.
             Option<&ambition_characters::control::DrivingParticipant>,
-            Option<&mut ambition_characters::brain::ActorControl>,
+            Option<&mut ambition_characters::control::ActorControl>,
             // ActionSet — read for the Smash brain so it knows which
             // attacks (melee / ranged) the actor can commit. `Option`
             // so dynamically-spawned actors without a set still tick.
@@ -675,7 +675,7 @@ pub(crate) fn integrate_actor_body(
     em: &mut ActorMut<'_>,
     aabb: &mut CenteredAabb,
     combat: &mut BodyCombat,
-    mut control: Option<&mut ambition_characters::brain::ActorControl>,
+    mut control: Option<&mut ambition_characters::control::ActorControl>,
     mut anim: Option<&mut crate::actor::BodyAnimFacts>,
     // The body's coarse footprint size: `Some` (a boss's composite render
     // envelope, from `BodyEnvelope`) publishes the `CenteredAabb` at that size;
@@ -999,7 +999,7 @@ pub fn integrate_sim_bodies(
             &mut CenteredAabb,
             &mut BodyCombat,
             &super::super::super::components::ActorTarget,
-            Option<&mut ambition_characters::brain::ActorControl>,
+            Option<&mut ambition_characters::control::ActorControl>,
             Option<&mut crate::actor::BodyAnimFacts>,
             Option<&super::super::Mounted>,
             &mut MotionModel,
@@ -1048,7 +1048,7 @@ pub fn integrate_sim_bodies(
             // spikes. `Option` because a home body without health is a valid
             // scratch/test body and there is nothing to ask.
             Option<&ambition_characters::actor::BodyHealth>,
-            &ambition_characters::brain::ActorControl,
+            &ambition_characters::control::ActorControl,
             &mut CenteredAabb,
             &mut crate::avatar::PlayerBodyFrameOutput,
             &mut MotionModel,

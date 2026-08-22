@@ -53,7 +53,7 @@ pub fn update_body_mode(
         &crate::features::MotionModel,
         &ae::BodyMotionFacts,
         &crate::actor::BodyEnvironmentContact,
-        &ambition_characters::brain::ActorControl,
+        &ambition_characters::control::ActorControl,
         (
             &crate::body_mode::BodyModeCapabilities,
             &crate::actor::BodyFlightState,

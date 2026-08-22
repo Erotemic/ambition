@@ -134,7 +134,7 @@ fn commanded_move_steers_the_boss_toward_target() {
             },
             boss_config(),
             member(100),
-            ambition_characters::brain::ActorControl::default(),
+            ambition_characters::control::ActorControl::default(),
             ambition_characters::brain::BossAttackState::default(),
             ambition_characters::brain::BossAttackIntent::default(),
             CommandedMove {
@@ -150,7 +150,7 @@ fn commanded_move_steers_the_boss_toward_target() {
     let control = app
         .world()
         .entity(boss)
-        .get::<ambition_characters::brain::ActorControl>()
+        .get::<ambition_characters::control::ActorControl>()
         .unwrap();
     assert!(
         control.0.velocity_target.x > 0.0,

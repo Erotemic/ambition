@@ -2195,7 +2195,7 @@ fn warp_through_secret_pipe(
         (
             bevy::prelude::Entity,
             &ae::BodyKinematics,
-            &ambition_platformer2d::characters::brain::ActorControl,
+            &ambition_platformer2d::characters::control::ActorControl,
             &mut pipe::PipeEntryLatch,
         ),
         (

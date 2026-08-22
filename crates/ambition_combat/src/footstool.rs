@@ -27,7 +27,7 @@ pub struct FootstoolBody {
     pub model: &'static ae::MotionModel,
     pub health: &'static ambition_characters::actor::BodyHealth,
     pub team: Option<&'static crate::targeting::MatchTeam>,
-    pub control: Option<&'static ambition_characters::brain::ActorControl>,
+    pub control: Option<&'static ambition_characters::control::ActorControl>,
     /// The swing clock, read ONLY to ask whether this body is mid-move — see
     /// the phantom footstool in the module doc.
     pub melee: Option<&'static crate::components::BodyMelee>,

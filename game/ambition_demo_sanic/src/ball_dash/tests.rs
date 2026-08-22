@@ -163,7 +163,7 @@ fn leaving_the_ground_past_the_grace_loses_the_charge() {
 
 use ae::SurfaceMotion;
 use ambition_platformer2d::actors::features::{MomentumMotion, MotionModel};
-use ambition_platformer2d::characters::brain::ActorControl;
+use ambition_platformer2d::characters::control::ActorControl;
 
 fn body_app() -> (App, Entity) {
     let mut app = App::new();

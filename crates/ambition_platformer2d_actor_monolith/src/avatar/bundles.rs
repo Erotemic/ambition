@@ -12,7 +12,8 @@ use crate::body_mode::BodyModeCapabilities;
 use crate::control::{LocalPlayer, PlayerSlot};
 use crate::features::{ActorFaction, ActorPose, DamageableVolumes, PogoPolicy, PogoTargetVolumes};
 use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet};
-use ambition_characters::brain::{ActionSet, ActorControl, Brain};
+use ambition_characters::brain::{ActionSet, Brain};
+use ambition_characters::control::{ActorControl};
 use ambition_characters::control::{DrivingParticipant};
 use ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState;
 

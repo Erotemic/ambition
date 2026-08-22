@@ -142,7 +142,7 @@ pub fn tick_commanded_moves(
     mut bosses: Query<(
         BossClusterRef,
         &ambition_characters::actor::BodyHealth,
-        &mut ambition_characters::brain::ActorControl,
+        &mut ambition_characters::control::ActorControl,
         &mut ambition_characters::brain::BossAttackState,
         &CommandedMove,
     )>,

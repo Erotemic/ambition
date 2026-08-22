@@ -481,7 +481,7 @@ fn dismount_impact_leaves_rider_hp_intact() {
 #[test]
 fn total_grant_routes_rider_locomotion_to_mount_but_not_fire() {
     use ambition_characters::actor::control::ActorControlFrame;
-    use ambition_characters::brain::ActorControl;
+    use ambition_characters::control::ActorControl;
 
     let mut app = build_app();
     app.add_systems(Update, steer_mount_from_rider);
@@ -538,7 +538,7 @@ fn total_grant_routes_rider_locomotion_to_mount_but_not_fire() {
 #[test]
 fn a_player_controlled_rider_pilots_the_mount_agnostically() {
     use ambition_characters::actor::control::ActorControlFrame;
-    use ambition_characters::brain::{ActorControl};
+    use ambition_characters::control::{ActorControl};
 use ambition_characters::control::{PlayerSlot};
 
     let mut app = build_app();
@@ -887,7 +887,8 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
     use ambition_characters::actor::limb::{
         fan_out_limb_intents, Limb, LimbIntents, LimbRig, LimbRouteState,
     };
-    use ambition_characters::brain::{ActorControl, BossAttackProfile, BossAttackState};
+    use ambition_characters::brain::{BossAttackProfile, BossAttackState};
+use ambition_characters::control::{ActorControl};
 
     let profile = BossProfile::from_id(
         ambition_boss_encounter::test_boss_catalog(),
@@ -1050,7 +1051,8 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
     use ambition_characters::actor::limb::{
         fan_out_limb_intents, Limb, LimbIntents, LimbRig, LimbRouteState,
     };
-    use ambition_characters::brain::{ActorControl, BossAttackIntent, BossAttackState, BossCapability, Brain};
+    use ambition_characters::brain::{BossAttackIntent, BossAttackState, BossCapability, Brain};
+use ambition_characters::control::{ActorControl};
 use ambition_characters::control::{PlayerSlot, SlotControls};
 
     let profile = BossProfile::from_id(

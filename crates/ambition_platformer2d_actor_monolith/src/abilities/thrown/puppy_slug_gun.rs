@@ -12,7 +12,7 @@
 //! future `AggressionTarget` variant, per `components.rs`). Capped at
 //! [`MAX_ALLIES`] alive; they persist until killed or the room resets.
 
-use ambition_characters::brain::ActorControl;
+use ambition_characters::control::ActorControl;
 use bevy::prelude::*;
 
 use crate::actor::BodyKinematics;

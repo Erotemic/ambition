@@ -23,7 +23,7 @@ use ambition_app::{
 };
 use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition_platformer2d::actors::features::FeatureId;
-use ambition_platformer2d::characters::brain::ActorControl;
+use ambition_platformer2d::characters::control::ActorControl;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 use bevy::prelude::{Entity, World};
 

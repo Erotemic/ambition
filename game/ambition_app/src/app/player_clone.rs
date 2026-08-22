@@ -18,7 +18,8 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::characters::brain::{ActorControl, Brain, BrainSnapshot, StateMachineCfg};
+use ambition_platformer2d::characters::brain::{Brain, BrainSnapshot, StateMachineCfg};
+use ambition_platformer2d::characters::control::{ActorControl};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::RoomGeometry;
 use ambition_platformer2d::render::rendering::{PlayerSpriteBaseline, PlayerVisual};

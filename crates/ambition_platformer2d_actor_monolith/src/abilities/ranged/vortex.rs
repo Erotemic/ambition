@@ -12,7 +12,7 @@
 //! (`ActorFaction::Boss != Enemy`) keeps them immune; only grounded/aerial mobs
 //! (and peaceful NPCs, harmlessly) match the `Enemy` faction and get pulled.
 
-use ambition_characters::brain::ActorControl;
+use ambition_characters::control::ActorControl;
 use bevy::prelude::*;
 
 use crate::actor::BodyMana;

@@ -1093,7 +1093,7 @@ pub fn apply_player_hit_events(
             // The controlled body's held input, for directional influence (CM2).
             // `Option` so a headless player with no brain still resolves (→ ZERO,
             // no DI). Inert unless `feel.di_max_angle` is authored nonzero.
-            Option<&ambition_characters::brain::ActorControl>,
+            Option<&ambition_characters::control::ActorControl>,
             // The victim's per-tick resolved frame (shield side + knockback
             // launch are frame-relative facts of the VICTIM's body).
             &crate::physics::ResolvedMotionFrame,

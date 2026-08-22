@@ -20,7 +20,7 @@ fn spawn_player(app: &mut App, pos: Vec2, facing: f32) -> Entity {
             ActionSet::default(),
             // Production bodies carry an intent frame; the drop spends the
             // Attack press on it when it commits.
-            ambition_characters::brain::ActorControl::default(),
+            ambition_characters::control::ActorControl::default(),
         ))
         .id()
 }
@@ -112,7 +112,7 @@ fn dropping_the_gun_clears_the_catalog_slot_that_picking_it_up_set() {
                 base_size: Vec2::new(24.0, 40.0),
             },
             ActionSet::default(),
-            ambition_characters::brain::ActorControl::default(),
+            ambition_characters::control::ActorControl::default(),
             // No PortalGun yet — the world pickup is what grants it.
         ))
         .id();

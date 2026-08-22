@@ -425,7 +425,7 @@
     "ambition_characters::actor::character_catalog::AuthoredBrainContext",
     "ambition_characters::actor::character_catalog::BrainBinding",
     "ambition_characters::actor::pose::ActorPose",
-    "ambition_characters::brain::ActorControl",
+    "ambition_characters::control::ActorControl",
     "ambition_characters::brain::boss_pattern::BossAttackIntent",
     "ambition_characters::brain::boss_pattern::BossAttackProfile",
     "ambition_characters::brain::boss_pattern::BossAttackState",

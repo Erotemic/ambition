@@ -14,7 +14,7 @@ use bevy::sprite::Anchor;
 /// This boss's claim on the encounter layer's priority music tier.
 const CUT_ROPE_MUSIC_OWNER: &str = "cut_rope_boss";
 
-use ambition_characters::brain::ActorControl;
+use ambition_characters::control::ActorControl;
 use ambition_characters::brain::BossAttackState;
 use ambition_combat::{GameplayBanner, HitEvent, HitSource, ResetRoomFeaturesEvent};
 use ambition_encounter::EncounterParticipants;

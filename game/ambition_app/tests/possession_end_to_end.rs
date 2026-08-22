@@ -25,7 +25,7 @@ use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
 use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition_platformer2d::actors::features::{ActorFaction, FeatureId};
-use ambition_platformer2d::characters::brain::ActorControl;
+use ambition_platformer2d::characters::control::ActorControl;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::AabbExt;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;

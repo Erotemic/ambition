@@ -25,7 +25,8 @@ use ambition_characters::actor::attack_gesture::{
 };
 use ambition_characters::actor::ActorFaction;
 use ambition_characters::brain::fighter::{FighterBrainProfile, FighterCfg, FighterState};
-use ambition_characters::brain::{ActorControl, Brain, BrainSnapshot, StateMachineCfg};
+use ambition_characters::brain::{Brain, BrainSnapshot, StateMachineCfg};
+use ambition_characters::control::{ActorControl};
 use ambition_characters::perception::{PerceivedActor, SelfView, StageView, WorldView};
 use ambition_combat::moveset::{ActorMoveset, MovePlayback};
 use ambition_entity_catalog::{

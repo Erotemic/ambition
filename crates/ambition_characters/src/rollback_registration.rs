@@ -59,7 +59,7 @@ where
             OWNER,
             "actor.authored_brain_context",
         );
-    registrar.rollback_component_canonical::<crate::brain::ActorControl>(OWNER, "actor.control");
+    registrar.rollback_component_canonical::<crate::control::ActorControl>(OWNER, "actor.control");
     registrar.rollback_component_canonical::<crate::actor::attack_gesture::AttackGestureState>(
         OWNER,
         "actor.attack_gesture_state",

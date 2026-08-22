@@ -1218,7 +1218,7 @@ fn realize_seat(
                 // only spawns visuals for `spec.enemy_spawns`, so a directly
                 // staged actor would render nothing.
                 crate::combat::components::RuntimeStagedActor,
-                ambition_characters::brain::ActorControl::default(),
+                ambition_characters::control::ActorControl::default(),
                 ambition_characters::actor::attack_gesture::AttackGestureState::default(),
                 ambition_characters::actor::attack_gesture::AttackGestureTuning::default(),
                 ambition_characters::actor::attack_gesture::ResolvedAttackGesture::default(),

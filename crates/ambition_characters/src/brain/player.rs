@@ -12,14 +12,14 @@
 //! (`pogo_pressed`, `blink_*`, `fast_fall_pressed`, `fly_toggle_pressed`,
 //! `projectile_*`, `grab_pressed`, `aim`). The sandbox's
 //! `engine_input_from_actor_control` builds the engine's `InputState` purely
-//! from `ActorControl`; the raw `ControlFrame` is no longer consulted inside
+//! from `crate::control::ActorControl`; the raw `ControlFrame` is no longer consulted inside
 //! the player simulation phases.
 //!
 //! **THAT SENTENCE WAS FALSE FOR THE WHOLE LIFE OF THE CAPTURE MECHANIC**
 //! . `grab_pressed` was not in the carry list, so a human's Grab
 //! button reached the input layer, the seat, the abilities and the action
 //! scheme — and stopped here. A CPU could grab, because AI brains write
-//! `ActorControl` directly and never call this function; a person could not.
+//! `crate::control::ActorControl` directly and never call this function; a person could not.
 //! button that says grab."*
 //!
 //! ⇒ the paragraph above is now GUARDED rather than asserted. See the
@@ -151,7 +151,7 @@ pub fn tick_player_brain_from_control(
         ae::Vec2::ZERO
     };
 
-    // Movement axis → desired velocity. At the ActorControl seam, unqualified
+    // Movement axis → desired velocity. At the crate::control::ActorControl seam, unqualified
     // direction is controlled-body-local: x = local side/right, y = local
     // down/toward-feet. Downstream movement code should not re-resolve this
     // through the raw input frame.
@@ -222,7 +222,7 @@ pub fn tick_player_brain_from_control(
     // move — and this brain, the ONE seam a human's frame crosses to reach a body, never copied
     // the field.
     //
-    // **`ActorControl::grab_pressed`'s own doc asserted the opposite**: *"the
+    // **`crate::control::ActorControl::grab_pressed`'s own doc asserted the opposite**: *"the
     // human's Grab button and a CPU's decision write this SAME field. There is
     // deliberately no `cpu_wants_grab` beside it."* The design was right and the
     // carry list simply never learned it, so the comment described an intent the
@@ -239,7 +239,7 @@ pub fn tick_player_brain_from_control(
 
     // Player-specific verbs (pogo, blink, fly_toggle, fast_fall,
     // projectile charge, aim). Promoted onto the frame so the
-    // sandbox's player simulation can read `ActorControl` only and
+    // sandbox's player simulation can read `crate::control::ActorControl` only and
     // drop the raw `ControlFrame` dependency. AI brains leave
     // these at their defaults.
     out.pogo_pressed = c.pogo_pressed;

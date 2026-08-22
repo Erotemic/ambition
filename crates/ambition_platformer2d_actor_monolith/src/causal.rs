@@ -28,7 +28,7 @@ use bevy::prelude::*;
 
 use crate::avatar::movement_components::{BodyGroundState, BodyKinematics};
 use crate::features::ecs::damage_apply::{BodyHitResolution, BodyHitResolved, BodyReactionApplied};
-use ambition_characters::brain::{ActorControl};
+use ambition_characters::control::{ActorControl};
 use ambition_characters::control::{DrivingParticipant};
 
 /// Publish one movement-intent fact per seated body per tick.

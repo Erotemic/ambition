@@ -340,7 +340,7 @@ pub fn sample_capture_escape(
     mut captives: Query<
         (
             &mut ambition_characters::smash_capture::SmashHoldState,
-            &ambition_characters::brain::ActorControl,
+            &ambition_characters::control::ActorControl,
         ),
         // ⇒ without this filter every body that has ever been captured keeps accumulating
         // escape progress from ordinary play, forever — a write to ROLLBACK STATE every tick,
@@ -686,7 +686,7 @@ mod tests {
             .insert(crate::components::ActorFaction::Player);
         app.world_mut()
             .entity_mut(victim)
-            .insert(ambition_characters::brain::ActorControl(
+            .insert(ambition_characters::control::ActorControl(
                 ambition_characters::actor::control::ActorControlFrame::neutral(),
             ));
         app.world_mut().write_message(attempt(captor));
@@ -698,7 +698,7 @@ mod tests {
 
         // Mash while HELD: progress accrues.
         app.world_mut()
-            .get_mut::<ambition_characters::brain::ActorControl>(victim)
+            .get_mut::<ambition_characters::control::ActorControl>(victim)
             .expect("the captive carries a control frame")
             .0
             .melee_pressed = true;
@@ -864,7 +864,7 @@ mod tests {
         frame.attack_axis = ae::LocalAxes::X;
         app.world_mut()
             .entity_mut(captor)
-            .insert(ambition_characters::brain::ActorControl(frame));
+            .insert(ambition_characters::control::ActorControl(frame));
         // ⚠ a hold is TWO components: the relation, and this ruleset's half.
         app.world_mut().entity_mut(victim).insert((
             CapturedBy {
@@ -877,7 +877,7 @@ mod tests {
         app.update();
         let held = &app
             .world()
-            .get::<ambition_characters::brain::ActorControl>(captor)
+            .get::<ambition_characters::control::ActorControl>(captor)
             .unwrap()
             .0;
         assert_eq!(held.locomotion, ae::LocalAxes::ZERO, "a captor walked away");
@@ -1065,7 +1065,7 @@ mod tests {
                 ambition_characters::brain::ControlHolds::only(
                     ambition_characters::brain::ControlHold::Relationship,
                 ),
-                ambition_characters::brain::ActorControl(
+                ambition_characters::control::ActorControl(
                     ambition_characters::actor::control::ActorControlFrame::neutral(),
                 ),
                 CapturedBy {
@@ -1089,7 +1089,7 @@ mod tests {
                     // edge once; here the sampler is the only reader, so writing
                     // it fresh each tick IS the mash.
                     app.world_mut()
-                        .get_mut::<ambition_characters::brain::ActorControl>(victim)
+                        .get_mut::<ambition_characters::control::ActorControl>(victim)
                         .unwrap()
                         .0
                         .melee_pressed = true;
@@ -1553,7 +1553,7 @@ pub fn constrain_captive_bodies(
 /// component expresses it, not baked in here.
 pub fn restrict_captor_control(
     captives: Query<&CapturedBy>,
-    mut captors: Query<(Entity, &mut ambition_characters::brain::ActorControl)>,
+    mut captors: Query<(Entity, &mut ambition_characters::control::ActorControl)>,
 ) {
     let holding: std::collections::HashSet<Entity> =
         captives.iter().map(|held| held.captor).collect();

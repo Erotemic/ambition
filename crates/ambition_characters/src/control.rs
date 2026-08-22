@@ -334,3 +334,18 @@ impl SlotControlLatches {
 /// can see the other.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DrivingParticipant(pub PlayerSlot);
+
+/// The body's control frame for this tick — what it is being told to do.
+///
+/// Whatever drives the body writes this and the integration stage (collision,
+/// cooldowns, effects) reads it. ⭐ it is a separate component rather than a
+/// field on `Brain` precisely so a brain swap cannot disturb the frame
+/// mid-tick, which is the same reason it does not live in `brain` at all: the
+/// frame outlives whatever produced it.
+#[derive(Component, Clone, Copy, Debug, Default)]
+#[require(
+    crate::actor::attack_gesture::AttackGestureState,
+    crate::actor::attack_gesture::AttackGestureTuning,
+    crate::actor::attack_gesture::ResolvedAttackGesture
+)]
+pub struct ActorControl(pub crate::actor::control::ActorControlFrame);

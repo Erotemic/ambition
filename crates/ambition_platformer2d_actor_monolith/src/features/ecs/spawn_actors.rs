@@ -443,7 +443,7 @@ impl EnemyActorSpawnPlan {
                     cluster_bundle,
                     self.brain,
                     self.action_set,
-                    ambition_characters::brain::ActorControl::default(),
+                    ambition_characters::control::ActorControl::default(),
                 ),
             )
             .id();
@@ -713,7 +713,7 @@ impl NpcActorSpawnPlan {
                 cluster_bundle,
                 self.brain,
                 self.action_set,
-                ambition_characters::brain::ActorControl::default(),
+                ambition_characters::control::ActorControl::default(),
             ),
         );
         let worn = npc_character_id(&interaction.interactable).map(str::to_string);
@@ -1069,7 +1069,7 @@ pub(crate) fn spawn_boss_with_overrides_into(
         // for the boss tick chain.
         brain,
         boss_action_set,
-        ambition_characters::brain::ActorControl::default(),
+        ambition_characters::control::ActorControl::default(),
         ambition_characters::brain::BossAttackState::default(),
         // §A1 intent/projection split: the driver-written fire INTENT the moveset
         // trigger reads (BossAttackState is now the projected read-model).

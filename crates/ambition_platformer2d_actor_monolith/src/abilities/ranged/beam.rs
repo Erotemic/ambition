@@ -18,7 +18,7 @@
 //! whichever axis dominates — good enough for a first pass; a rotated beam is a
 //! feel/visual follow-up.
 
-use ambition_characters::brain::ActorControl;
+use ambition_characters::control::ActorControl;
 use bevy::prelude::*;
 
 use crate::actor::BodyKinematics;

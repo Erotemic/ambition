@@ -58,7 +58,7 @@ fn force_a_grab_in_range(
     mut bodies: bevy::prelude::Query<(
         bevy::prelude::Entity,
         &ambition_platformer2d::engine_core::BodyKinematics,
-        &mut ambition_platformer2d::characters::brain::ActorControl,
+        &mut ambition_platformer2d::characters::control::ActorControl,
         Option<&ambition_platformer2d::combat::moveset::MovePlayback>,
     )>,
 ) {
@@ -317,7 +317,7 @@ fn main() {
         let world = app.world_mut();
         let mut controls = world.query::<(
             bevy::prelude::Entity,
-            &ambition_platformer2d::characters::brain::ActorControl,
+            &ambition_platformer2d::characters::control::ActorControl,
         )>();
         let pressing: Vec<bevy::prelude::Entity> = controls
             .iter(world)

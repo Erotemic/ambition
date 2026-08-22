@@ -27,7 +27,7 @@ use ambition_platformer2d::actors::features::transform_beat::{
 };
 use ambition_platformer2d::actors::items::{WorldItem, collect_world_items};
 use ambition_platformer2d::characters::actor::WornCharacter;
-use ambition_platformer2d::characters::brain::ActorControl;
+use ambition_platformer2d::characters::control::ActorControl;
 use ambition_platformer2d::characters::brain::action_set::{ActionSet, IdentityKit};
 use ambition_platformer2d::characters::equipment::WornEquipment;
 use ambition_platformer2d::combat::moveset::{ActorMoveset, RANGED_VERB};

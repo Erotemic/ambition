@@ -283,7 +283,7 @@ pub fn apply_feature_hit_events(
             // brain writes it every tick; DI reads the SAME field, so a level-9
             // CPU or RL policy DIs its own knockback like a human. `Option` for
             // bare test bodies; inert unless `feel.di_max_angle` is authored.
-            Option<&ambition_characters::brain::ActorControl>,
+            Option<&ambition_characters::control::ActorControl>,
             // The body's explicit movement policy — required (absence is never
             // a policy). The crawler's typed cling-break detach goes through it.
             &'static mut crate::features::MotionModel,

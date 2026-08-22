@@ -134,7 +134,7 @@ pub fn capture_ball_dash_input(
     mut bodies: Query<
         (
             Entity,
-            &ambition_platformer2d::characters::brain::ActorControl,
+            &ambition_platformer2d::characters::control::ActorControl,
             &ambition_platformer2d::characters::action_scheme::ResolvedTechniqueEdges,
             &ambition_platformer2d::actors::features::MotionModel,
             &ambition_platformer2d::actors::actor::BodyGroundState,

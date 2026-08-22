@@ -59,7 +59,7 @@ pub struct ResolvedAttackGesture {
 }
 
 /// Ruleset/player-owned interpretation thresholds. This component is required
-/// by [`crate::brain::ActorControl`]; a participant or ruleset may replace the
+/// by [`crate::control::ActorControl`]; a participant or ruleset may replace the
 /// default on that body. Character definitions must not tune these values.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct AttackGestureTuning {

@@ -14,7 +14,7 @@ use bevy::prelude::*;
 use crate::actor::BodyKinematics;
 use crate::actor::BodyMana;
 use crate::features::HeldItem;
-use ambition_characters::brain::ActorControl;
+use ambition_characters::control::ActorControl;
 use ambition_platformer2d_core as ae;
 
 /// Held-item id of the shockwave gauntlet.

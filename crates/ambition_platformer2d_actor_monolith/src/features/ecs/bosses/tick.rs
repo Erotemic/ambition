@@ -3,9 +3,8 @@
 
 use super::super::*;
 
-use ambition_characters::brain::{
-    ActorControl, BossAttackIntent, BossAttackState, Brain, StateMachineCfg,
-};
+use ambition_characters::brain::{BossAttackIntent, BossAttackState, Brain, StateMachineCfg};
+use ambition_characters::control::{ActorControl};
 use ambition_platformer2d_core::AabbExt;
 use bevy::prelude::{Commands, Entity};
 

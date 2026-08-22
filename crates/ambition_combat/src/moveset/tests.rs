@@ -1891,7 +1891,8 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
 #[test]
 fn a_move_started_aiming_up_fires_up_after_its_request_is_cleared() {
     use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec};
-    use ambition_characters::brain::{ActorActionMessage, ActorControl};
+    use ambition_characters::brain::{ActorActionMessage};
+use ambition_characters::control::{ActorControl};
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
@@ -1971,7 +1972,8 @@ fn a_move_started_aiming_up_fires_up_after_its_request_is_cleared() {
 fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
     use ambition_characters::actor::control::ActorFireRequest;
     use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec, RangedStyle};
-    use ambition_characters::brain::{ActorActionMessage, ActorControl};
+    use ambition_characters::brain::{ActorActionMessage};
+use ambition_characters::control::{ActorControl};
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
@@ -2053,7 +2055,8 @@ fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
 #[test]
 fn a_ranged_move_without_live_aim_fires_along_the_bodys_facing() {
     use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec};
-    use ambition_characters::brain::{ActorActionMessage, ActorControl};
+    use ambition_characters::brain::{ActorActionMessage};
+use ambition_characters::control::{ActorControl};
     for facing in [-1.0f32, 1.0] {
         let mut app = App::new();
         app.add_message::<MoveEventMessage>();
@@ -2114,7 +2117,7 @@ fn a_ranged_move_without_live_aim_fires_along_the_bodys_facing() {
 fn a_fire_intent_triggers_the_ranged_move() {
     use ambition_characters::actor::control::ActorFireRequest;
     use ambition_characters::brain::action_set::RangedActionSpec;
-    use ambition_characters::brain::ActorControl;
+    use ambition_characters::control::ActorControl;
 
     let contract = build_actor_moveset(None, None, Some(&RangedActionSpec::bolt(240.0, 3)), None)
         .expect("a ranged weapon → a moveset with a fire move");

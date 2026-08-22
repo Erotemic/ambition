@@ -3,7 +3,7 @@
 // authority as production rather than stamping body-local input state.
 use super::*;
 use crate::schedule::publish_seat_controls_when_nobody_else_does;
-use ambition_characters::brain::ActorControl;
+use ambition_characters::control::ActorControl;
 use ambition_characters::control::{PlayerSlot, SeatRawFrames};
 
 #[test]
@@ -435,7 +435,7 @@ fn a_possessed_actor_is_driven_by_the_controlled_brain_producer() {
             seed.into_components(),
             // What the production spawn sites add beside the cluster: an intent
             // frame and a seat. Possession moves only the second.
-            ambition_characters::brain::ActorControl::default(),
+            ambition_characters::control::ActorControl::default(),
             DrivingParticipant(PlayerSlot::PRIMARY),
         ))
         .id();
@@ -521,7 +521,7 @@ use ambition_characters::control::{DrivingParticipant, PlayerSlot};
         .world_mut()
         .spawn((
             seed.into_components(),
-            ambition_characters::brain::ActorControl::default(),
+            ambition_characters::control::ActorControl::default(),
             DrivingParticipant(PlayerSlot::PRIMARY),
             ScriptedControl,
         ))

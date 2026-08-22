@@ -193,7 +193,7 @@ fn three_domains_answer_one_question_about_one_body_on_one_tick() {
             ambition_platformer2d_actor_monolith::avatar::movement_components::BodyKinematics::default(),
             ambition_platformer2d_actor_monolith::avatar::movement_components::BodyGroundState::default(),
             DrivingParticipant(PlayerSlot(1)),
-            ambition_characters::brain::ActorControl::default(),
+            ambition_characters::control::ActorControl::default(),
         ))
         .id();
 
@@ -290,7 +290,8 @@ fn the_tick_the_host_stamps_is_the_tick_the_facts_carry() {
 #[test]
 fn an_ai_bodys_received_frame_is_explained_under_the_same_subject_the_brain_uses() {
     use ambition_causal::SubjectKey;
-    use ambition_characters::brain::{ActorControl, Brain};
+    use ambition_characters::brain::{Brain};
+use ambition_characters::control::{ActorControl};
 use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 
     let mut app = App::new();

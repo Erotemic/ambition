@@ -209,7 +209,7 @@ mod tests {
         let victim = body(app, 20.0, "victim");
         app.world_mut().entity_mut(captor).insert((
             ActorMoveset(crate::george_booul_moveset::george_booul_moveset()),
-            ambition_platformer2d::characters::brain::ActorControl(ActorControlFrame::neutral()),
+            ambition_platformer2d::characters::control::ActorControl(ActorControlFrame::neutral()),
         ));
         app.world_mut().entity_mut(victim).insert(
             // SHIELDING, and it changes nothing — the third leg of the
@@ -223,7 +223,7 @@ mod tests {
     fn press(app: &mut App, captor: Entity, f: impl FnOnce(&mut ActorControlFrame)) {
         let mut control = app
             .world_mut()
-            .get_mut::<ambition_platformer2d::characters::brain::ActorControl>(captor)
+            .get_mut::<ambition_platformer2d::characters::control::ActorControl>(captor)
             .expect("the captor carries a control frame");
         control.0 = ActorControlFrame::neutral();
         f(&mut control.0);
@@ -247,7 +247,7 @@ mod tests {
             // restarting it at t=0 so it never reaches its own Active window at 0.16s.
             if let Some(mut control) =
                 app.world_mut()
-                    .get_mut::<ambition_platformer2d::characters::brain::ActorControl>(captor)
+                    .get_mut::<ambition_platformer2d::characters::control::ActorControl>(captor)
             {
                 control.0.clear_edges();
             }

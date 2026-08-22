@@ -42,7 +42,8 @@ use ambition_characters::actor::attack_gesture::{
     ResolvedAttackGesture,
 };
 use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
-use ambition_characters::brain::{ActorActionMessage, ActorControl};
+use ambition_characters::brain::{ActorActionMessage};
+use ambition_characters::control::{ActorControl};
 use ambition_entity_catalog::placements::DamageKind;
 use ambition_sfx::{PresentationSourceId, SfxId, SfxMessage, SfxWriter};
 use ambition_time::WorldTime;

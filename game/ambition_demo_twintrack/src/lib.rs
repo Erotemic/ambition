@@ -1152,7 +1152,7 @@ fn capture_twintrack_interaction(
     traveler: Query<
         (
             Entity,
-            &ambition_platformer2d::characters::brain::ActorControl,
+            &ambition_platformer2d::characters::control::ActorControl,
             &ae::BodyKinematics,
             &ProperTimeElapsed,
         ),

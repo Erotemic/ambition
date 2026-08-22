@@ -12,7 +12,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::actors::actor::PrimaryPlayer;
-use ambition_platformer2d::characters::brain::ActorControl;
+use ambition_platformer2d::characters::control::ActorControl;
 use ambition_platformer2d::characters::equipment::WornEquipment;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::frame_env::ResolvedMotionFrame;

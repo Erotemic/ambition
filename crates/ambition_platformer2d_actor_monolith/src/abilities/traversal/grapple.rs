@@ -15,7 +15,7 @@ use bevy::prelude::*;
 
 use crate::actor::BodyKinematics;
 use crate::features::HeldItem;
-use ambition_characters::brain::ActorControl;
+use ambition_characters::control::ActorControl;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 

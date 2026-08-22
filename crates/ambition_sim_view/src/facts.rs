@@ -12,7 +12,7 @@
 use bevy::prelude::*;
 
 use ambition_characters::actor::{BodyHealth, BodyWallet};
-use ambition_characters::brain::ActorControl;
+use ambition_characters::control::ActorControl;
 use ambition_platformer2d_actor_monolith::actor::{
     BodyKinematics, BodyMana, PlayerEntity, PrimaryPlayer,
 };

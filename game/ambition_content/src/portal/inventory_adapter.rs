@@ -56,7 +56,7 @@ pub fn drop_portal_gun_system(
             &BodyKinematics,
             &mut ActionSet,
             Option<&StashedActionSet>,
-            &mut ambition_characters::brain::ActorControl,
+            &mut ambition_characters::control::ActorControl,
         ),
         (With<PortalGun>, Without<HeldItem>),
     >,

@@ -30,7 +30,7 @@ fn brain_display_contains_label() {
 
 #[test]
 fn emit_brain_action_messages_skips_entities_missing_components() {
-    // Resolver queries Brain + ActionSet + ActorControl +
+    // Resolver queries Brain + ActionSet + crate::control::ActorControl +
     // ActorPose. Entities missing any one are skipped silently
     // (Bevy query filter). Pins this behavior so a future
     // refactor that loosens the filter doesn't accidentally
@@ -45,7 +45,7 @@ fn emit_brain_action_messages_skips_entities_missing_components() {
         .world_mut()
         .spawn((
             Brain::stand_still(),
-            ActorControl::default(),
+            crate::control::ActorControl::default(),
             crate::actor::ActorPose::default(),
         ))
         .id();
@@ -54,7 +54,7 @@ fn emit_brain_action_messages_skips_entities_missing_components() {
         .world_mut()
         .spawn((
             Brain::stand_still(),
-            ActorControl::default(),
+            crate::control::ActorControl::default(),
             ActionSet::peaceful(),
         ))
         .id();
@@ -88,7 +88,7 @@ fn emit_brain_action_messages_handles_many_actors() {
     for i in 0..50 {
         app.world_mut().spawn((
             Brain::stand_still(),
-            ActorControl(frame),
+            crate::control::ActorControl(frame),
             actions.clone(),
             crate::actor::ActorPose {
                 center: ae::Vec2::new(i as f32 * 10.0, 0.0),
@@ -107,11 +107,11 @@ fn emit_brain_action_messages_handles_many_actors() {
 
 #[test]
 fn actor_control_default_is_neutral_frame() {
-    // ActorControl Default = frame.neutral. Pins the
-    // "fresh-spawn ActorControl has zero intent" baseline so
+    // crate::control::ActorControl Default = frame.neutral. Pins the
+    // "fresh-spawn crate::control::ActorControl has zero intent" baseline so
     // the EFFECTS consumer that reads it before any
     // brain tick has run won't spuriously fire actions.
-    let ac = ActorControl::default();
+    let ac = crate::control::ActorControl::default();
     assert_eq!(ac.0, crate::actor::control::ActorControlFrame::neutral());
     assert!(!ac.0.wants_any_action());
 }
@@ -150,7 +150,10 @@ fn brain_swap_via_commands_replaces_existing_component() {
     let mut app = App::new();
     let entity = app
         .world_mut()
-        .spawn((Brain::stand_still(), ActorControl::default()))
+        .spawn((
+            Brain::stand_still(),
+            crate::control::ActorControl::default(),
+        ))
         .id();
     // Initially StandStill.
     let world = app.world();
@@ -424,7 +427,7 @@ fn observe_brain_action_counter_sums_per_frame_messages() {
             cfg: MeleeBruteCfg::STRIKER_DEFAULT,
             state: MeleeBruteState::default(),
         }),
-        ActorControl(frame),
+        crate::control::ActorControl(frame),
         actions,
         crate::actor::ActorPose::default(),
     ));
@@ -440,7 +443,7 @@ fn observe_brain_action_counter_sums_per_frame_messages() {
 }
 
 /// emit_brain_action_messages walks every Brain/ActionSet/
-/// ActorControl + ActorPose entity and writes a message per resolved
+/// crate::control::ActorControl + ActorPose entity and writes a message per resolved
 /// ActionRequest. Pins that the resolver system, scheduled in
 /// PlayerInput, observes the brain output correctly.
 #[test]
@@ -463,7 +466,7 @@ fn emit_brain_action_messages_writes_one_message_per_request() {
                 cfg: MeleeBruteCfg::STRIKER_DEFAULT,
                 state: MeleeBruteState::default(),
             }),
-            ActorControl(frame),
+            crate::control::ActorControl(frame),
             actions,
             crate::actor::ActorPose {
                 center: ae::Vec2::new(50.0, 100.0),

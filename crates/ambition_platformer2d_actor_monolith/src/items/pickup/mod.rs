@@ -18,7 +18,7 @@ use bevy::prelude::*;
 use crate::actor::BodyKinematics;
 use crate::features::HeldItem;
 use crate::platformer_runtime::prelude::SpawnScopedExt;
-use ambition_characters::brain::ActorControl;
+use ambition_characters::control::ActorControl;
 use ambition_characters::brain::{
     ActionSet, HeldItemSpec, HeldUseBehavior, MeleeActionSpec, SwipeSpec,
 };

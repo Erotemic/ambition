@@ -863,7 +863,8 @@ mod tests {
         use ambition_characters::actor::character_catalog::CharacterCatalog;
         use ambition_characters::actor::control::ActorControlFrame;
         use ambition_characters::actor::WornCharacter;
-        use ambition_characters::brain::{ActorControl, MeleeActionSpec, SwipeSpec};
+        use ambition_characters::brain::{MeleeActionSpec, SwipeSpec};
+use ambition_characters::control::{ActorControl};
 
         let mut app = App::new();
         app.add_plugins(bevy::state::app::StatesPlugin);

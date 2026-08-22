@@ -30,7 +30,7 @@ fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
                 base_size: Vec2::new(24.0, 40.0),
             },
             ActionSet::default(),
-            ambition_characters::brain::ActorControl::default(),
+            ambition_characters::control::ActorControl::default(),
             // `fire_held_ranged_system` reads the resolved frame (ADR 0024).
             crate::physics::ResolvedMotionFrame::default(),
         ))
@@ -62,7 +62,7 @@ fn items_in_world(app: &mut App) -> usize {
 fn set_control(app: &mut App, player: Entity, attack: bool, shield: bool) {
     let mut control = app
         .world_mut()
-        .get_mut::<ambition_characters::brain::ActorControl>(player)
+        .get_mut::<ambition_characters::control::ActorControl>(player)
         .unwrap();
     control.0.melee_pressed = attack;
     control.0.shield_held = shield;
@@ -393,7 +393,7 @@ fn pickup_consumes_the_attack_press() {
     );
     assert!(
         !app.world()
-            .get::<ambition_characters::brain::ActorControl>(player)
+            .get::<ambition_characters::control::ActorControl>(player)
             .unwrap()
             .0
             .melee_pressed,
@@ -424,7 +424,7 @@ fn pickup_targets_the_controlled_subject_not_a_primary_player_marker() {
                 facing: 1.0,
             },
             ActionSet::default(),
-            ambition_characters::brain::ActorControl::default(),
+            ambition_characters::control::ActorControl::default(),
         ))
         .id();
     app.insert_resource(
@@ -438,7 +438,7 @@ fn pickup_targets_the_controlled_subject_not_a_primary_player_marker() {
     });
     // Drive an Attack on the body's own semantic control frame.
     app.world_mut()
-        .get_mut::<ambition_characters::brain::ActorControl>(body)
+        .get_mut::<ambition_characters::control::ActorControl>(body)
         .unwrap()
         .0
         .melee_pressed = true;

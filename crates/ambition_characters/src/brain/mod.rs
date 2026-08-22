@@ -242,19 +242,6 @@ impl Brain {
     }
 }
 
-/// Sibling component holding the actor's last-tick control frame.
-/// The brain-driver system writes into this; the integration stage
-/// (collision, cooldowns, effects) reads from it. Made a separate
-/// component (rather than a field on `Brain`) so brain swaps don't
-/// disturb the frame's value mid-tick.
-#[derive(Component, Clone, Copy, Debug, Default)]
-#[require(
-    crate::actor::attack_gesture::AttackGestureState,
-    crate::actor::attack_gesture::AttackGestureTuning,
-    crate::actor::attack_gesture::ResolvedAttackGesture
-)]
-pub struct ActorControl(pub crate::actor::control::ActorControlFrame);
-
 /// **The game is driving this body, not whoever normally controls it.**
 ///
 /// A death beat, a flagpole slide, an act-clear brake: the sequence owns the
@@ -522,7 +509,7 @@ impl ActorActionMessage {
 }
 
 /// Bevy system: walk every actor entity that has a Brain +
-/// ActionSet + ActorControl + gameplay ActorPose and emit one
+/// ActionSet + crate::control::ActorControl + gameplay ActorPose and emit one
 /// `ActorActionMessage` per resolved action request. Runs after the
 /// brain-driver systems (tick_controlled_brains, update_ecs_actors's
 /// runtime tick) so the frame is current.
@@ -534,7 +521,7 @@ impl ActorActionMessage {
 pub fn emit_brain_action_messages(
     actors: Query<(
         Entity,
-        &ActorControl,
+        &crate::control::ActorControl,
         &ActionSet,
         &crate::actor::ActorPose,
         bevy::prelude::Has<MovesetRanged>,
@@ -585,7 +572,7 @@ pub struct ChargesProjectiles;
 /// per charge-capable actor per tick. The charge-projectile input
 /// consumer (`charge_projectile_input` in `ambition_platformer2d_actor_monolith`) drives its
 /// motion-recognition buffer + Fireball charge state machine from
-/// this stream from the already translated `ActorControl` rather than raw slot input.
+/// this stream from the already translated `crate::control::ActorControl` rather than raw slot input.
 ///
 /// Emitted every tick — even on neutral input — because the
 /// motion-recognition buffer needs continuous axis samples to detect
@@ -594,7 +581,11 @@ pub struct ChargesProjectiles;
 /// the press frame). The consumer cheaply pushes the axis sample
 /// into the buffer on idle ticks.
 pub fn emit_player_projectile_tick_messages(
-    actors: Query<(Entity, &ActorControl, Option<&ChargesProjectiles>)>,
+    actors: Query<(
+        Entity,
+        &crate::control::ActorControl,
+        Option<&ChargesProjectiles>,
+    )>,
     mut writer: MessageWriter<ActorActionMessage>,
 ) {
     for (entity, control, charges) in &actors {

@@ -186,7 +186,6 @@
     "derived.player_body_frame_output",
     "derived.portal_carves",
     "derived.portal_host_depths",
-    "derived.portal_player_movement_intent",
     "derived.portal_transitable",
     "derived.projectile_view",
     "derived.resolved_attack_gesture",

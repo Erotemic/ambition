@@ -6959,6 +6959,19 @@ BUILD.** It did not, for two call sites in the monolith
 reach because they only fail once `ambition_projectiles`' own surface is gated.
 `cargo check` the sentinel, and run its tests, before believing a shrink.
 
+⛔ **AND THE REMAINING 15 REALLY DO WAIT ON THE CARVE — verified 2026-08-22, not
+inherited.** Having moved two, I checked whether the other thirteen share the
+property that made these cheap. They do not: **12 of the 15 are UNCONDITIONAL
+monolith deps** (`audio`, `boss_encounter`, `conversation`, `cutscene`, `dialog`,
+`encounter`, `items`, `persistence`, `projectiles`, `settings_menu`, `sfx`,
+`vfx`) and the monolith has **no feature that would gate any of them** — its
+whole feature list is `causal · portal{,_render,_ldtk} · {desktop,android,web}_platform ·
+visible* · web* · headless · dev_tools · dev_hot_reload · static_* · android*`.
+LDtk and portal were cheap because the CODE was already `#[cfg]`d and only the
+manifest lagged; for these twelve there is nothing to lag behind. ⇒ this
+baseline's 2026-07-30 note is correct and now re-verified — **do not re-probe
+them one by one; the next move on this ratchet is the §4 carve.**
+
 ⚠ price: two tracked lockfiles (`minimal_game`, `capability_demo`) and one
 gitignored one (`external_consumer`) — regenerate all of them, and Outlander
 needs `CARGO_TARGET_DIR` pointed somewhere writable to verify.

@@ -1393,6 +1393,24 @@ a policy away to give back. `project_driving_participant` is the ONE runtime
 writer. Rollback schema v59; the seat is registered AND value-probed, because two
 peers can agree a body is driven and disagree about by whom.
 
+⛔⛔ **AND THE CHEAP-LOOKING SHORTCUT IS UNSAFE — do not spend a session on it
+(measured 2026-08-22).** The row's own complaint is that the fighter sits in a
+floor crate *"unconditionally: there is no feature gate"*, which reads as an
+invitation to add one. `ambition_characters` already carries three features, so
+the pattern is right there, and 16,242 lines is a large prize.
+
+⇒ ⛔ **but the thing that would have to be gated is ROLLBACK STATE.** `Brain` is
+registered (`rollback_component_cursor`, `actor.brain`) and `snapshot_impls.rs`
+encodes `StateMachineCfg::Fighter { state, .. }` and `::Smash { state, .. }` by
+name. `#[cfg(feature)]` on those variants makes the WIRE FORMAT a function of a
+cargo feature: two peers built differently agree they are playing and disagree
+about what a brain is, and no suite inside one build can see it. A determinism
+hazard is not a compile-time saving.
+
+⇒ ⭐ **so the trait remains the only candidate**, and its open sub-problem (what
+a fighterless composition names, without a silent no-op default) is still the
+thing to solve. The feature gate is not a smaller version of it.
+
 ▢ **WHAT IS LEFT IS THE CRATE CARVE, AND IT IS BLOCKED. Measured 2026-08-20.**
 10,067 lines (8,948 non-test) of platform-fighter policy — `brain/fighter`,
 `brain/smash`, 32 files — still sit inside `ambition_characters`, a floor crate

@@ -1409,8 +1409,19 @@ pub fn trigger_moveset_moves(
         } else if frame.grab_pressed {
             // A free body's grab. The move's own Active window carries the
             // capture attempt; this only starts the move.
+            //
+            // ⭐ **the RUNNING grab**, the capture kit's half of the dash
+            // attack: a body already running reaches out with `grab_dash`, which
+            // every fighter has because `SmashCaptureRepertoire::bound` derives
+            // it from that fighter's own standing grab. Same gait fact the dash
+            // attack reads — ⛔ `running`, NEVER `BodyMotionFacts::dashing`,
+            // which `SMASH_FIGHTER_KIT` leaves permanently false and which made
+            // the dash attack unreachable in the game it was built for.
             (
-                moveset.0.move_for_verb(GRAB_VERB).cloned(),
+                moveset
+                    .0
+                    .move_for_flat_verb(GRAB_VERB, grounded, running)
+                    .cloned(),
                 &[GRAB_VERB][..],
             )
         } else if frame.special_pressed {

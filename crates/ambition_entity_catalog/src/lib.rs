@@ -1390,6 +1390,14 @@ pub enum AttackDir {
     Back,
 }
 
+/// **The RUNNING-stance verb for an attack base** — the one place the suffix is
+/// spelled, so the runtime's verb vocabulary and the selector cannot disagree
+/// about the word. Named for the genre's move ("dash attack"), keyed off the
+/// body's gait and not off `AbilitySet::dash`.
+pub fn dash_stance_verb(base: &str) -> String {
+    format!("{base}_dash")
+}
+
 /// The verb-id fallback chain for a directional attack, most-specific first.
 /// A moveset that authors only `base` still answers every direction; adding
 /// `{base}_air_down` (a pogo down-air) is purely additive data — never a schema
@@ -1401,14 +1409,6 @@ pub enum AttackDir {
 /// - aerial, `Down`:   `attack_air_down` → `attack_down` → `attack_air` → `attack`
 /// - grounded, `Down`: `attack_down` → `attack`
 /// - grounded, `Neutral`: `attack`
-/// **The RUNNING-stance verb for an attack base** — the one place the suffix is
-/// spelled, so the runtime's verb vocabulary and the selector cannot disagree
-/// about the word. Named for the genre's move ("dash attack"), keyed off the
-/// body's gait and not off `AbilitySet::dash`.
-pub fn dash_stance_verb(base: &str) -> String {
-    format!("{base}_dash")
-}
-
 pub fn directional_verb_chain(base: &str, dir: AttackDir, grounded: bool) -> Vec<String> {
     let dir_suffix = match dir {
         AttackDir::Neutral => None,
@@ -1537,6 +1537,14 @@ pub const TAUNT_VERB: &str = "taunt";
 /// it and the generic catalog stops naming a throw. Until then one definition
 /// here beats the same strings copied into a selector and an authoring module.
 pub const GRAB_VERB: &str = "grab";
+/// **The RUNNING grab.** The same reach-out performed out of a run, which in
+/// this genre trades endlag for the range the run already carries — so unlike
+/// the dash ATTACK (a different move entirely, which each fighter authors) this
+/// one is DERIVED from the fighter's own standing grab. Spelled here because
+/// [`MovesetContract::move_for_flat_verb`] needs a `&'static str`;
+/// `a_running_grabs_verb_is_the_dash_stance_of_the_grab` pins it to
+/// [`dash_stance_verb`] so the two spellings cannot drift.
+pub const GRAB_DASH_VERB: &str = "grab_dash";
 /// Neutral Attack inside a capture. Repeatable; the hold survives it.
 pub const CAPTURE_PUMMEL_VERB: &str = "capture_pummel";
 /// Forward Attack inside a capture. Ends the hold at its authored release.
@@ -1583,10 +1591,13 @@ impl MovesetContract {
     /// no vocabulary for the difference.
     ///
     /// ⚠ **composes with [`Self::move_for_directional_verb`] rather than
-    /// replacing it**, and that is not a wrapper to unpick later: every OTHER
-    /// verb — special, smash, taunt — has no dash stance to ask about, and
+    /// replacing it**, and that is not a wrapper to unpick later: the remaining
+    /// verbs — special, smash, taunt — have no dash stance to ask about, and
     /// giving them one would be a question with a constant answer. A fighter
     /// that authors no `{base}_dash` resolves exactly what it did before.
+    ///
+    /// ⚠ GRAB is the other verb that does have one, and it goes through
+    /// [`Self::move_for_flat_verb`] instead, because the capture kit is flat.
     pub fn move_for_attack(
         &self,
         base: &str,
@@ -1603,6 +1614,31 @@ impl MovesetContract {
             }
         }
         self.move_for_directional_verb(base, dir, grounded)
+    }
+
+    /// **A FLAT verb's move, preferring its RUNNING-stance variant.** The
+    /// sibling of [`Self::move_for_attack`] for a verb with no directional
+    /// family — the capture kit, whose own doc is emphatic that a throw is not
+    /// `grab_forward`.
+    ///
+    /// ⚠ **conditioned on the variant being BOUND**, exactly as the dash attack
+    /// is: a contract without `{base}_dash` resolves its press to `base`, byte
+    /// for byte, so this cannot change what an existing moveset does.
+    pub fn move_for_flat_verb(
+        &self,
+        base: &str,
+        grounded: bool,
+        running: bool,
+    ) -> Option<&MoveSpec> {
+        if grounded && running {
+            if let Some(mv) = self
+                .move_for_verb(&dash_stance_verb(base))
+                .filter(|mv| mv.gates.permits(grounded))
+            {
+                return Some(mv);
+            }
+        }
+        self.move_for_verb(base)
     }
 
     pub fn move_for_directional_verb(

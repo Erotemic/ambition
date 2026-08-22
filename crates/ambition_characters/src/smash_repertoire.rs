@@ -236,6 +236,11 @@ pub const REPERTOIRE_VERBS: &[&str] = &[
     "special_air_down",
     // The capture kit — flat, never directional. A throw is not `grab_forward`.
     "grab",
+    // ⭐ the one capture verb with a STANCE rather than a direction: the same
+    // grab out of a run. Derived from each fighter's standing grab in
+    // `SmashCaptureRepertoire::bound`, so no fighter authors it and every
+    // fighter has it.
+    "grab_dash",
     "capture_pummel",
     "capture_throw_forward",
     "capture_throw_back",
@@ -612,10 +617,13 @@ mod tests {
         // retune.** 15 → 18 on 2026-08-19, when `capture` stopped being `Option`
         // because every fighter gained a grab and this fixture became a fighter
         // WITH one, binding the three capture verbs beside its ordinary slots.
-        // 18 → 19 on 2026-08-20 with the taunt, 19 → 20 with the dash attack. The claim above is untouched
-        // either way: abstaining from the neutral special still binds nothing,
-        // and this number exists to catch a slot binding something it should not.
-        assert_eq!(set.verbs.len(), 20);
+        // 18 → 19 on 2026-08-20 with the taunt, 19 → 20 with the dash attack,
+        // 20 → 21 on 2026-08-22 with the RUNNING GRAB — which every fighter has
+        // without authoring one, because the capture kit derives it. The claim
+        // above is untouched either way: abstaining from the neutral special
+        // still binds nothing, and this number exists to catch a slot binding
+        // something it should not.
+        assert_eq!(set.verbs.len(), 21);
     }
 
     /// **Two slots cannot share a move id.** The one integrity defect this shape

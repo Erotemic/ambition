@@ -419,6 +419,69 @@ fn directional_verb_chain_orders_most_specific_first() {
 /// AIRBORNE dashing body never does (a dash is a ground stance), and a fighter
 /// that authors none resolves exactly what it did before — which is the property
 /// that lets this ship without touching thirteen non-smash movesets.
+/// **The RUNNING GRAB — the capture kit's half of the dash attack.**
+///
+/// ⛔ four cases, each killing a different wrong version: a running grounded
+/// body reaches with its running grab, a STANDING body never does (or every
+/// grab became the committed one), an AIRBORNE running body never does (a run
+/// is a ground stance, and the capture kit is GROUNDED for v1), and a contract
+/// without the variant resolves its press to the plain grab byte for byte —
+/// which is what lets this ship without touching a single moveset.
+#[test]
+fn a_running_body_reaches_with_its_running_grab() {
+    let with_dash_grab = MovesetContract {
+        verbs: BTreeMap::from([
+            ("grab".to_string(), "grab".to_string()),
+            ("grab_dash".to_string(), "grab_run".to_string()),
+        ]),
+        moves: vec![
+            bare_move("grab", Some(true)),
+            bare_move("grab_run", Some(true)),
+        ],
+    };
+    let pick = |grounded, running| {
+        with_dash_grab
+            .move_for_flat_verb("grab", grounded, running)
+            .unwrap()
+            .id
+            .clone()
+    };
+    assert_eq!(pick(true, true), "grab_run", "a run did not own the press");
+    assert_eq!(
+        pick(true, false),
+        "grab",
+        "a standing grab became the running one"
+    );
+    assert_eq!(
+        pick(false, true),
+        "grab",
+        "a running grab was thrown in the air"
+    );
+
+    // ⛔ **the WORD is spelled once.** `GRAB_DASH_VERB` exists only because the
+    // binding table needs a `&'static str`; if it ever drifts from the suffix
+    // rule, the selector asks for a verb the vocabulary does not declare.
+    assert_eq!(
+        super::GRAB_DASH_VERB,
+        super::dash_stance_verb(super::GRAB_VERB)
+    );
+
+    // ⛔ the floor: a contract with no running grab is untouched.
+    let without = MovesetContract {
+        verbs: BTreeMap::from([("grab".to_string(), "grab".to_string())]),
+        moves: vec![bare_move("grab", Some(true))],
+    };
+    assert_eq!(
+        without
+            .move_for_flat_verb("grab", true, true)
+            .unwrap()
+            .id
+            .clone(),
+        "grab",
+        "a contract without the variant must resolve exactly as before"
+    );
+}
+
 #[test]
 fn a_running_body_gets_its_dash_attack_before_any_direction() {
     let with_dash = MovesetContract {

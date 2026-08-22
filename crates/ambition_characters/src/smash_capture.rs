@@ -249,6 +249,59 @@ pub fn capture_beat(id: &str, clip: &str, duration_s: f32) -> MoveSpec {
     }
 }
 
+/// Extra STARTUP a running grab pays over the standing one — the wind-up of
+/// reaching out while already moving. Two frames at 60Hz.
+const RUNNING_GRAB_EXTRA_STARTUP_S: f32 = 2.0 / 60.0;
+/// Extra RECOVERY a running grab pays. **This is the whole trade** and it is
+/// why the genre's dash grab is a commitment: whiffing one out of a run is
+/// punishable in a way whiffing a standing grab is not. Twelve frames at 60Hz.
+const RUNNING_GRAB_EXTRA_RECOVERY_S: f32 = 12.0 / 60.0;
+
+/// **A fighter's RUNNING grab, derived from its own standing grab.**
+///
+/// ⭐ **derived rather than authored, and the genre is the reason.** A dash
+/// ATTACK is a different move — a shoulder charge where the jab was — so each
+/// fighter authors one and `SmashRepertoire` makes it a required slot. A dash
+/// GRAB is the same reach-out performed while running: same clip, same catch,
+/// slower to start and much slower to end. Deriving it means every fighter gets
+/// one in its own timing, with no per-fighter number anybody had to invent and
+/// no slot for a new fighter to forget.
+///
+/// ⚠ **it takes the extra time in SECONDS, not as a ratio.** The genre states
+/// these as frame counts, and a multiplier would punish a fast grab less than a
+/// slow one — the opposite of a commitment that is supposed to cost the same
+/// wherever you spend it.
+///
+/// The windows shift as a body: everything after the startup moves later by the
+/// added wind-up, and recovery alone stretches by the added endlag.
+fn running_grab_from(standing: &MoveSpec) -> MoveSpec {
+    let mut running = standing.clone();
+    running.id = format!("{}_dash", standing.id);
+    // A derived move never inherits a hand-written label: the standing grab's
+    // would name the wrong beat in a prompt.
+    running.display_name = None;
+    running.duration_s =
+        standing.duration_s + RUNNING_GRAB_EXTRA_STARTUP_S + RUNNING_GRAB_EXTRA_RECOVERY_S;
+    for w in &mut running.windows {
+        match w.tag {
+            ambition_entity_catalog::WindowTag::Startup => {
+                w.end_s += RUNNING_GRAB_EXTRA_STARTUP_S;
+            }
+            ambition_entity_catalog::WindowTag::Recovery => {
+                w.start_s += RUNNING_GRAB_EXTRA_STARTUP_S;
+                w.end_s += RUNNING_GRAB_EXTRA_STARTUP_S + RUNNING_GRAB_EXTRA_RECOVERY_S;
+            }
+            // Active and anything else the author placed: the catch happens at
+            // the same point in the swing, just later.
+            _ => {
+                w.start_s += RUNNING_GRAB_EXTRA_STARTUP_S;
+                w.end_s += RUNNING_GRAB_EXTRA_STARTUP_S;
+            }
+        }
+    }
+    running
+}
+
 fn window(
     tag: ambition_entity_catalog::WindowTag,
     start_s: f32,
@@ -491,7 +544,7 @@ pub mod verbs {
     pub use ambition_entity_catalog::{
         CAPTURE_PUMMEL_VERB as PUMMEL, CAPTURE_THROW_BACK_VERB as THROW_BACK,
         CAPTURE_THROW_DOWN_VERB as THROW_DOWN, CAPTURE_THROW_FORWARD_VERB as THROW_FORWARD,
-        CAPTURE_THROW_UP_VERB as THROW_UP, GRAB_VERB as GRAB,
+        CAPTURE_THROW_UP_VERB as THROW_UP, GRAB_DASH_VERB as GRAB_DASH, GRAB_VERB as GRAB,
     };
 }
 
@@ -551,10 +604,18 @@ impl SmashCaptureRepertoire {
         // beat**, rather than inside each `author_*` helper. A fighter cannot
         // author a throw and forget its release flash, and there is no second
         // site to keep in agreement.
+        // The running grab is DERIVED here, from the standing grab this fighter
+        // authored, so it picks up that fighter's own timing and — being built
+        // before the cue is applied below — its own reach flash too.
+        let running_grab = running_grab_from(&grab);
         let mut out = vec![
             (
                 verbs::GRAB,
                 cue_at_reach(row_first(grab, &["grab"]), cues.reach),
+            ),
+            (
+                verbs::GRAB_DASH,
+                cue_at_reach(row_first(running_grab, &["grab"]), cues.reach),
             ),
             (
                 verbs::PUMMEL,
@@ -690,6 +751,83 @@ mod tests {
     /// throw offers three capture verbs and not six. A press for a throw it does
     /// not have must find nothing — NOT fall through to a pummel, which would
     /// tell the player the fighter has a bad up-throw when it has none.
+    /// **The running grab is the fighter's OWN grab, later and longer.**
+    ///
+    /// ⛔ this is the assertion that makes the derivation honest rather than a
+    /// second invented move: every window keeps its shape, the catch happens at
+    /// the same point in the swing, and the ONLY additions are the wind-up and
+    /// the endlag — the endlag being the trade the genre actually charges for
+    /// grabbing out of a run.
+    #[test]
+    fn a_running_grab_is_the_standing_one_later_and_longer() {
+        let standing = grab_shell("grab", "grab", 0.07, 0.05, 0.2);
+        let running = super::running_grab_from(&standing);
+
+        assert_eq!(running.id, "grab_dash", "the derived id must not collide");
+        assert_eq!(
+            running.clip.clip, standing.clip.clip,
+            "a derived grab asks for the fighter's own clip"
+        );
+        assert!(
+            (running.duration_s
+                - (standing.duration_s
+                    + super::RUNNING_GRAB_EXTRA_STARTUP_S
+                    + super::RUNNING_GRAB_EXTRA_RECOVERY_S))
+                .abs()
+                < 1e-6,
+            "the running grab must cost exactly the two stated deltas, got {}",
+            running.duration_s
+        );
+
+        let find = |spec: &MoveSpec, tag: ambition_entity_catalog::WindowTag| {
+            spec.windows
+                .iter()
+                .find(|w| w.tag == tag)
+                .map(|w| (w.start_s, w.end_s))
+                .expect("window present")
+        };
+        use ambition_entity_catalog::WindowTag;
+        let (_, s_end) = find(&standing, WindowTag::Startup);
+        let (r_s_start, r_s_end) = find(&running, WindowTag::Startup);
+        assert!(r_s_start.abs() < 1e-6, "the wind-up still begins at zero");
+        assert!(
+            (r_s_end - (s_end + super::RUNNING_GRAB_EXTRA_STARTUP_S)).abs() < 1e-6,
+            "the wind-up did not lengthen by the stated startup"
+        );
+
+        // ⛔ the ACTIVE window keeps its LENGTH — a running grab catches for just
+        // as long, it simply catches later. A derivation that stretched it would
+        // be a better grab, not a committed one.
+        let (a_start, a_end) = find(&standing, WindowTag::Active);
+        let (ra_start, ra_end) = find(&running, WindowTag::Active);
+        assert!(
+            ((ra_end - ra_start) - (a_end - a_start)).abs() < 1e-6,
+            "the catch window changed length"
+        );
+        assert!(
+            (ra_start - (a_start + super::RUNNING_GRAB_EXTRA_STARTUP_S)).abs() < 1e-6,
+            "the catch did not move later by the stated startup"
+        );
+
+        // And recovery carries the whole extra commitment.
+        let (rec_start, rec_end) = find(&standing, WindowTag::Recovery);
+        let (rr_start, rr_end) = find(&running, WindowTag::Recovery);
+        assert!(
+            ((rr_end - rr_start) - ((rec_end - rec_start) + super::RUNNING_GRAB_EXTRA_RECOVERY_S))
+                .abs()
+                < 1e-6,
+            "recovery did not absorb the endlag the genre charges"
+        );
+        assert!(
+            (rr_start - (rec_start + super::RUNNING_GRAB_EXTRA_STARTUP_S)).abs() < 1e-6,
+            "recovery did not shift with the swing"
+        );
+        assert!(
+            (rr_end - running.duration_s).abs() < 1e-6,
+            "the move outlives its own last window"
+        );
+    }
+
     #[test]
     fn an_unauthored_throw_is_absent_rather_than_substituted() {
         let kit = SmashCaptureRepertoire {
@@ -716,7 +854,12 @@ mod tests {
         let verbs: Vec<&str> = kit.bound().into_iter().map(|(v, _)| v).collect();
         assert_eq!(
             verbs,
-            vec![verbs::GRAB, verbs::PUMMEL, verbs::THROW_FORWARD],
+            vec![
+                verbs::GRAB,
+                verbs::GRAB_DASH,
+                verbs::PUMMEL,
+                verbs::THROW_FORWARD
+            ],
             "an absent throw invented a verb, or an authored one lost its"
         );
     }
@@ -762,15 +905,25 @@ mod tests {
                 .iter()
                 .map(|(head, _)| head.as_str())
                 .collect::<Vec<_>>(),
-            vec!["grab", "pummel", "throw_forward"],
+            // ⚠ TWO "grab" heads: the running grab is derived from the standing
+            // one, so it asks the sheet for the same row — which is the point of
+            // deriving it rather than making every fighter author a second clip.
+            vec!["grab", "grab", "pummel", "throw_forward"],
             "a capture beat asked the sheet for a row its verb does not name"
         );
+        // ⛔ found BY NAME, not by index. This read `chains[2]` until the running
+        // grab was inserted ahead of it, at which point a positional assertion
+        // would have quietly started checking a different beat's chain.
+        let throw = chains
+            .iter()
+            .find(|(head, _)| head == "throw_forward")
+            .expect("the forward throw is bound");
         assert!(
-            chains[2]
+            throw
                 .1
                 .starts_with(&["throw".to_string(), "fthrow".to_string()]),
             "the generic throw row or the fighter's own clip fell out of the chain: {:?}",
-            chains[2].1
+            throw.1
         );
     }
 }

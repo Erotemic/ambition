@@ -17,8 +17,8 @@
 //!   so it lives in Ambition; the crate just owns the marker components.
 //!
 //! Both read ONLY portal-owned components ([`PortalTransit`], [`PortalInputWarp`],
-//! [`PortalEmission`]) + the content-agnostic [`PlayerMovementIntent`] seam, so
-//! the crate emits everything they need without naming the player or input.
+//! [`PortalEmission`]) plus the seat frame of whoever drives the body, so the
+//! crate emits everything they need without naming the player or input.
 
 use bevy::prelude::*;
 
@@ -113,19 +113,15 @@ pub fn restore_wall_abilities_after_transit(
 /// guard (held input can't push back into the exit wall while it's fresh). Both
 /// are deliberately mild so portals never feel like a hard input latch.
 ///
-/// The body whose guards shape the input is the CONTROLLED subject (a possessed
-/// actor while possessing, else the home avatar) — `PlayerMovementIntent` is the
-/// local player's one input stream, and the guards only mean anything on the
-/// body that stream is driving. Same resolution as the portal-gun use path
-/// (`portal_input_adapter_system`).
+/// ⭐ **PER SEAT.** Each warped body names its own [`DrivingParticipant`], and the
+/// guards shape THAT seat's frame. This used to shape one global
+/// `PlayerMovementIntent` — the local player's single input stream — which made
+/// portal input warping primary-only: a second player crossing a portal had
+/// their held movement rotated for player one, or not at all.
 ///
 /// Reads the portal-owned [`PortalInputWarp`] / [`PortalEmission`] guards (set by
 /// [`portal_player_input_adapter`](super::transit_body_adapter::portal_player_input_adapter) on a
-/// crossing) and MUTATES the content-agnostic [`PlayerMovementIntent`] (the live movement axis for
-/// this frame), never the Ambition input type. The content adapter
-/// (`sync_movement_intent_from_control` / `apply_movement_intent_to_control`) brackets this system
-/// to copy `ControlFrame` axes into the intent before it runs and back out afterward, so the timing
-/// and result are byte-identical to mutating `ControlFrame` directly.
+/// crossing) and edits the seat's frame through `shape_seat_frame`.
 pub fn warp_portal_input(
     time: Option<Res<ambition_time::WorldTime>>,
     mut commands: Commands,

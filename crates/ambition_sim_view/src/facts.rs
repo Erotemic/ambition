@@ -104,12 +104,12 @@ pub fn rebuild_held_item_view(
 /// placement pass dims a label that would be drawn across a driven body rather
 /// than shoving the label aside (`ambition_render::rendering::label_layout`).
 ///
-/// Derived from the BRAIN, not from a player marker, for two reasons. First,
-/// possession is a brain transfer, so a possessed enemy is the driven body and
-/// the vacated home avatar is not — asking "who carries a player brain" gets
-/// that right for free. Second, it is plural: a couch-versus match has two
-/// driven bodies and neither is more protected than the other
-/// ([[feedback-relativity-principle]]).
+/// Derived from WHO DRIVES the body, not from a player marker, for two reasons.
+/// First, possession is a SEAT REDIRECT, so a possessed enemy carries the seat
+/// and the vacated home avatar does not — asking who holds the seat gets that
+/// right for free. Second, it is plural: a couch-versus match has two driven
+/// bodies and neither is more protected than the other, because a rule that
+/// privileges one participant stops being a rule about bodies.
 ///
 /// Note what this is NOT: it is not the nameplate index's `controlled` flag.
 /// That flag lives on rows keyed by `FeatureId`, and the home avatar carries

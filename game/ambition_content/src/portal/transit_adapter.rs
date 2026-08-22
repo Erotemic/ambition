@@ -1,25 +1,15 @@
-//! Ambition transit bindings for the portal mechanic.
+//! Ambition GROUND-ITEM bindings for the portal mechanic.
 //!
-//! Portal core's transit ([`ambition_portal2d::portal_transit`] /
-//! [`ambition_portal2d::warp_portal_input`] / [`ambition_portal2d::portal_teleport_ground_items`])
-//! is content-agnostic: it reads/writes a [`PlayerMovementIntent`] resource and a
-//! [`PortalTransitable`] body component instead of the Ambition [`ControlFrame`]
-//! input type or the [`GroundItem`] body. These adapters own that glue:
+//! Portal core teleports thrown items through its content-agnostic
+//! [`PortalTransitable`] body rather than through Ambition's [`GroundItem`].
+//! This module attaches that marker and keeps the two in sync around transit.
 //!
-//! - **Movement intent:** the same-wall held-input warp + emergence guard rotate
-//!   the player's held movement after a crossing so movement continues correctly.
-//!   Portal core applies that to [`PlayerMovementIntent`]; this module mirrors the
-//!   `ControlFrame` movement axes into the intent before the warp/transit runs and
-//!   copies the (possibly warped) intent back to `ControlFrame` afterward, so the
-//!   result is byte-identical to portal core mutating `ControlFrame` directly.
-//! - **Ground-item transit:** thrown [`GroundItem`]s are teleported by portal core
-//!   through the generic [`PortalTransitable`] body; this module attaches that
-//!   marker to ground items and keeps it in sync with the `GroundItem` body around
-//!   transit.
+//! ⚠ it used to own a second job — mirroring `ControlFrame` movement axes into a
+//! `PlayerMovementIntent` resource and back — and neither the job nor the
+//! resource exists: portal input warping now resolves the `DrivingParticipant`
+//! and edits THAT seat's frame (`warp_portal_input`, `ability_adapter`).
 //!
-//! [`ControlFrame`]: ambition_input::ControlFrame
 //! [`GroundItem`]: ambition_platformer2d_actor_monolith::items::pickup::GroundItem
-//! [`PlayerMovementIntent`]: ambition_portal2d::PlayerMovementIntent
 //! [`PortalTransitable`]: ambition_portal2d::PortalTransitable
 
 use bevy::prelude::*;

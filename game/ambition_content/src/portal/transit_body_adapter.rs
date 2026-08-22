@@ -225,8 +225,8 @@ pub fn reconcile_kernel_bodies_after_portal_transit(
 /// - inserts the [`PortalInputWarp`] held-input warp **iff** this convention's
 ///   map flips horizontal movement and a movement input is held.
 ///
-/// `PlayerMovementIntent` / `PortalEmission` / `PortalInputWarp` are INPUT and
-/// must never be referenced by the portal core. This runs `.after(portal_transit)`
+/// [`PortalEmission`] and [`PortalInputWarp`] are INPUT and must never be
+/// referenced by the portal core. This runs `.after(portal_transit)`
 /// and `.before` the player controller so these components exist the same frame
 /// the controller runs (as they did when transit inserted them inline).
 pub fn portal_player_input_adapter(

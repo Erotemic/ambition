@@ -11,9 +11,9 @@
 //! resources are initialized by [`AmbitionAbilitiesPlugin`]. The possession
 //! *systems* stay chained inside
 //! `crate::schedule::plugins::register_player_simulation_systems` alongside the
-//! player tick; possession is now pure brain transfer, so there is no
+//! player tick; possession is a pure SEAT REDIRECT, so there is no
 //! `not_possessing` control gate — the vacated home avatar is inert because it
-//! no longer carries a player brain.
+//! no longer carries a seat.
 //!
 //! This module is a neutral, top-level ability layer (a sibling of
 //! `crate::mechanics`), distinct from `ambition_platformer2d_core::abilities` in

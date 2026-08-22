@@ -136,7 +136,7 @@ fn the_demo_spawns_the_rooms_static_visuals() {
 /// Asserted by the POLICY, not by the plugin list: two labels from two families
 /// are spawned on top of each other, and the pass must separate them. A test
 /// that looked for the plugin would go green on a plugin that had stopped
-/// working [[feedback-a-green-guardrail-proves-nothing]].
+/// working — presence is not behaviour.
 #[test]
 fn the_generic_presentation_face_places_world_labels() {
     use ambition_platformer2d::render::rendering::{WorldLabel, WorldLabelFamily};

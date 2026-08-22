@@ -19,8 +19,8 @@
 //!
 //! Note the subject is *whoever is driving*, read from
 //! [`ControlledBodiesView`] — not "the player". A possessed enemy and both
-//! fighters in a couch match get the same protection
-//! ([[feedback-relativity-principle]]).
+//! fighters in a couch match get the same protection: a rule that singles out
+//! "the player" stops being a rule about bodies.
 
 use ambition_platformer2d_core as ae;
 use ambition_sim_view::ControlledBodiesView;
@@ -509,7 +509,8 @@ pub(crate) fn label_size(
 /// Bodies a label must not obscure: every body somebody is driving.
 ///
 /// Read from the sim's [`ControlledBodiesView`] rather than from render
-/// entities ([[feedback-render-reads-simview-not-sim-components]]).
+/// entities — render reads the view, never the sim components directly, so a
+/// presentation pass cannot start depending on simulation layout.
 ///
 /// This deliberately does NOT use `NameplateIndex`'s `controlled` flag, which
 /// is the obvious-looking source and is wrong: that index only carries rows

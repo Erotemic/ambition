@@ -200,10 +200,10 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .in_set(PortalSet::WeaponAndProjectiles),
         );
 
-        // --- Movement-intent bracketing around portal core's input warp --- Portal core's
-        // `warp_portal_input` reads + mutates the content-agnostic `PlayerMovementIntent`;
-        // these adapters mirror it to/from `ControlFrame` so the result is byte-identical to
-        // the old direct-`ControlFrame` mutate.
+        // --- Portal bodies for the input warp --- `warp_portal_input` resolves
+        // each warped body's `DrivingParticipant` and edits that seat's frame
+        // directly; the bracketing adapters that used to mirror a global
+        // `PlayerMovementIntent` to and from `ControlFrame` are gone with it.
         app.add_systems(
             sim,
             ensure_portal_bodies

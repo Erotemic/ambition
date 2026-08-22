@@ -44,8 +44,8 @@ pub struct DialogueDispatch<'w, 's> {
     pub tick: Option<Res<'w, ambition_time::SimTick>>,
     /// Who drives a body, for attributing the conversation to a seat.
     ///
-    /// the brain is what actually answers "whose body is this" — possession is
-    /// a brain transfer, so a possessed actor's conversation belongs to the seat
+    /// `DrivingParticipant` is what answers "whose body is this" — possession is
+    /// a SEAT REDIRECT, so a possessed actor's conversation belongs to the seat
     /// that possessed it without this needing to know possession exists.
     pub driver: Query<'w, 's, &'static ambition_characters::control::DrivingParticipant>,
     /// Which Yarn nodes content compiled. Read to decide whether a

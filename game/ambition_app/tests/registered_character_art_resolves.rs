@@ -86,7 +86,8 @@ fn every_registered_character_resolves_the_art_it_declares() {
 /// **The two declaration authorities agree, in the SHIPPED composition.**
 ///
 /// Nothing has ever asserted on it, so a conflict in the shipped cast is a log line among hundreds
-/// and a green suite [[feedback-a-green-guardrail-proves-nothing]]. This is the assertion.
+/// and a green suite — and a guardrail that is green because it checks nothing
+/// proves nothing. This is the assertion.
 #[test]
 fn the_shipped_cast_has_one_authority_per_character() {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);

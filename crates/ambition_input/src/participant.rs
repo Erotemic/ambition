@@ -27,13 +27,18 @@ use bevy::prelude::*;
 pub struct ParticipantId(pub u8);
 
 impl ParticipantId {
-    /// The first local seat. Owns the global `ControlFrame`.
+    /// The first local seat.
     pub const PRIMARY: Self = Self(0);
 
-    /// The second local seat — couch versus. Writes `SlotControls[1]` directly
-    /// and never touches the global frame, which is what keeps player one
-    /// unaffected by player two arriving or leaving.
+    /// The second local seat — couch versus.
     pub const SECONDARY: Self = Self(1);
+
+    // ⚠ these used to differ in KIND: primary "owned the global `ControlFrame`"
+    // and secondary "wrote `SlotControls[1]` directly and never touched the
+    // global frame". That asymmetry is what made half the input path
+    // primary-only, and D175 removed it — every seat publishes through
+    // `SlotControls` / `SeatRawFrames`, and the global frame is a device-edge
+    // adapter for the local primary, not a routing table.
 
     /// The controller slot this seat drives. Participant ids and player slots
     /// are the same numbering on purpose: a seat IS a slot, and two maps that
@@ -279,10 +284,10 @@ impl SeatInputContexts {
         self.seats.get(&slot).unwrap_or(&NO_CONTEXT)
     }
 
-    /// The seat that owns the global `ControlFrame` and the on-screen prompts.
-    /// Consumers that are genuinely about the local primary — the touch
-    /// overlay, the control-prompt HUD, the `ControlFrame` bridge — say so by
-    /// calling this rather than by being the only reader of a global.
+    /// The local primary seat: the device-edge `ControlFrame` adapter and the
+    /// on-screen prompts. Consumers that are genuinely about the local primary
+    /// — the touch overlay, the control-prompt HUD, the `ControlFrame` bridge —
+    /// say so by calling this rather than by being the only reader of a global.
     pub fn primary(&self) -> &ActiveInputContext {
         self.for_seat(ParticipantId::PRIMARY.slot())
     }

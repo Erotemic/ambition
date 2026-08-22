@@ -310,7 +310,7 @@ watch_paths = ["game/ambition_app/src/app/sim_systems.rs"]
 rationale = "app/sim_systems.rs must not re-define library-owned systems"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-forbid = ["fn sync_live_player_dev_edits_system", "fn apply_suspended_time_scale_system", "fn input_timer_system", "fn interaction_input_system", "fn cleanup_timers_system"]
+forbid = ["fn sync_live_player_dev_edits_system", "fn apply_suspended_time_scale_system", "fn tick_room_transition_cooldown", "fn tick_home_body_reaction_timers", "fn derive_slot_direction_gestures", "fn interaction_input_system", "fn cleanup_timers_system"]
 file = "game/ambition_app/src/app/sim_systems.rs"
 
 [[policy]]
@@ -319,10 +319,10 @@ scope = "game"
 kind = "file-contains"
 owners = ["ambition_app"]
 watch_paths = ["crates/ambition_platformer2d_runtime/src/player_schedule.rs"]
-rationale = "engine player schedule references the moved systems via library paths (dev-tools live-edit is ordered as its domain SET per decision #9, not by leaf-system name)"
+rationale = "engine player schedule references the moved systems via library paths (dev-tools live-edit is ordered as its domain SET per decision #9, not by leaf-system name). The three input-timer entries were one `input_timer_system` until 2026-08-22, when its unrelated jobs were split; they are named as leaves rather than as `InputTimersAdvanced` because what this proves is that the systems are LIBRARY-owned, which a set reference would not show"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-contains = ["ambition_dev_tools::DevEditApplySet", "ambition_time::time_control::apply_suspended_time_scale_system", "ambition_platformer2d_actor_monolith::control::input_timer_system", "ambition_platformer2d_actor_monolith::control::interaction_input_system", "ambition_platformer2d_actor_monolith::control::cleanup_timers_system"]
+contains = ["ambition_dev_tools::DevEditApplySet", "ambition_time::time_control::apply_suspended_time_scale_system", "ambition_platformer2d_actor_monolith::control::tick_room_transition_cooldown", "ambition_platformer2d_actor_monolith::control::tick_home_body_reaction_timers", "ambition_platformer2d_actor_monolith::control::derive_slot_direction_gestures", "ambition_platformer2d_actor_monolith::control::interaction_input_system", "ambition_platformer2d_actor_monolith::control::cleanup_timers_system"]
 file = "crates/ambition_platformer2d_runtime/src/player_schedule.rs"
 
 [[policy]]

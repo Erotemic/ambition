@@ -212,13 +212,50 @@ const RUNNING_GRAB_EXTRA_RECOVERY_S: f32 = 12.0 / 60.0;
 /// The windows shift as a body: everything after the startup moves later by the
 /// added wind-up, and recovery alone stretches by the added endlag.
 fn running_grab_from(standing: &MoveSpec) -> MoveSpec {
-    let mut running = standing.clone();
-    running.id = format!("{}_dash", standing.id);
-    // A derived move never inherits a hand-written label: the standing grab's
-    // would name the wrong beat in a prompt.
-    running.display_name = None;
-    running.duration_s =
-        standing.duration_s + RUNNING_GRAB_EXTRA_STARTUP_S + RUNNING_GRAB_EXTRA_RECOVERY_S;
+    // ⛔ EXHAUSTIVE on purpose. This derivation rewrites a move's TIMELINE, and
+    // every absolute time on it has to move together or the move desynchronises
+    // from itself. Destructuring means a `MoveSpec` that grows a new field
+    // stops this compiling and asks whether the new field is a POINT on the
+    // timeline (shift it) or a DURATION owed elsewhere (leave it) — rather than
+    // being silently left behind, which is how `events` and `autocancel_after_s`
+    // were missed the first time.
+    let MoveSpec {
+        id,
+        display_name: _,
+        clip,
+        duration_s,
+        windows,
+        events,
+        gates,
+        start_impulse,
+        smash_charge_mult,
+        // A duration OWED after landing, not a point in the move. It does not
+        // move when the move gets longer.
+        landing_lag_s,
+        // A point measured from the move's start, so it moves with the rest.
+        autocancel_after_s,
+    } = standing.clone();
+    let mut running = MoveSpec {
+        // A derived move never inherits a hand-written label: the standing
+        // grab's would name the wrong beat in a prompt.
+        display_name: None,
+        id: format!("{id}_dash"),
+        clip,
+        duration_s: duration_s + RUNNING_GRAB_EXTRA_STARTUP_S + RUNNING_GRAB_EXTRA_RECOVERY_S,
+        windows,
+        events,
+        gates,
+        start_impulse,
+        smash_charge_mult,
+        landing_lag_s,
+        autocancel_after_s: autocancel_after_s.map(|at| at + RUNNING_GRAB_EXTRA_STARTUP_S),
+    };
+    // Whatever the author placed on the swing happens at the same point IN the
+    // swing, which is now later. An event left at its original time would fire
+    // during the startup this derivation added.
+    for event in &mut running.events {
+        event.at_s += RUNNING_GRAB_EXTRA_STARTUP_S;
+    }
     for w in &mut running.windows {
         match w.tag {
             ambition_entity_catalog::WindowTag::Startup => {
@@ -738,6 +775,43 @@ mod tests {
         assert!(
             (rr_end - running.duration_s).abs() < 1e-6,
             "the move outlives its own last window"
+        );
+
+        // ⛔ **EVENTS AND AUTOCANCEL MOVE TOO**, and they are the half the
+        // derivation forgot. A grab's own effect fires at a point on its
+        // timeline; leaving that point where it was while the swing slides later
+        // fires it during the wind-up this derivation ADDED — the attempt going
+        // live before the hand has reached. Nothing ships that shape today only
+        // because the cue is applied after derivation, which makes this a trap
+        // for the next author rather than a live bug.
+        let mut timed = grab_shell("grab", "grab", 0.07, 0.05, 0.2);
+        timed.events.push(ambition_entity_catalog::MoveEvent {
+            at_s: 0.09,
+            kind: ambition_entity_catalog::MoveEventKind::Sfx {
+                cue: "reach".to_string(),
+            },
+        });
+        timed.autocancel_after_s = Some(0.15);
+        let derived = super::running_grab_from(&timed);
+        assert!(
+            (derived.events[0].at_s - (0.09 + super::RUNNING_GRAB_EXTRA_STARTUP_S)).abs() < 1e-6,
+            "an authored event stayed where it was while the swing moved later,              so it now fires during the added wind-up; got {}",
+            derived.events[0].at_s
+        );
+        assert!(
+            (derived.autocancel_after_s.expect("carried")
+                - (0.15 + super::RUNNING_GRAB_EXTRA_STARTUP_S))
+                .abs()
+                < 1e-6,
+            "the autocancel point is measured from the move's start and did not              move with it"
+        );
+        //  a move that authored NEITHER keeps neither -- the shift must not
+        // invent an autocancel out of `None`.
+        assert!(
+            super::running_grab_from(&standing)
+                .autocancel_after_s
+                .is_none(),
+            "a grab with no autocancel acquired one"
         );
     }
 

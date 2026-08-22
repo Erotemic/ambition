@@ -435,7 +435,6 @@ mod tests {
     /// the same thing, and they disagree about traversal the entire time.
     #[test]
     fn a_reversed_phase_keeps_the_divergence_rather_than_collapsing_it() {
-        let dt = 1.0 / 60.0;
         let mut ahead = GatePortalPhase::Opening {
             elapsed: PORTAL_OPENING_DURATION_SECS * 0.75,
         };

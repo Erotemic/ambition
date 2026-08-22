@@ -17,6 +17,7 @@ use ambition_input::{ActiveDevice, MenuControlFrame, SeatActiveDevices};
 #[cfg(feature = "input")]
 use ambition_persistence::settings::{MenuTapMode, UserSettings};
 use ambition_sfx::{SfxMessage, SfxWriter};
+#[cfg(feature = "input")]
 use ambition_ui_nav::DialogChoiceSlot;
 #[cfg(feature = "input")]
 use ambition_ui_nav::{resolve_selectable_row_interaction, RowPointerOutcome};

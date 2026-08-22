@@ -673,7 +673,7 @@ fn the_declared_utility_technique_toggles_both_forms_and_eats_the_fly_verb() {
     let scheme = derive_action_scheme(&abilities, None, None, &[super::transform_technique()]);
 
     // Stand in for the persona gate: press the device verb, run THE resolver.
-    let mut press_utility = |app: &mut App| {
+    let press_utility = |app: &mut App| {
         let mut control = app
             .world_mut()
             .get_mut::<ambition_platformer2d::characters::brain::ActorControl>(entity)

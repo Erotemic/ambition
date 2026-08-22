@@ -198,6 +198,9 @@ impl PreparedPlatformerSource {
         let mut room_set = self.room_set.clone();
         room_set.active = room_set.room_index_by_id(room_id)?;
         let active_spec = room_set.active_spec().clone();
+        // `mut` only under `ldtk`: the block that mutates the installed index is
+        // behind that feature, so without it the binding is read-only.
+        #[cfg_attr(not(feature = "ldtk"), allow(unused_mut))]
         let mut candidate = self.with_world(
             room_set,
             RoomGeometry(active_spec.world),

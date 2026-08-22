@@ -127,6 +127,8 @@
 * NOTE: developing out the smash combat system and the ambition combat system should be very similar and feed each other, because I want the combat in ambition to feel a little smash like. I want knockback to increase depending on how damaged you are. The ambition game will have health, and not percent, so there will be a limit, and maybe some enemy characters won't have this property, but the main character will. The knockback is what will make this game fun.
 
 * We need an animation for a main character for when they are knocked down. We need an animation (or at least architecture slots) for a slow getup, a tech, and a getup attack. All smash characters will need this too.
+  * ✔ **the slots and the MECHANICS both exist** — `movement/knockdown.rs` is the full tumble → knockdown → tech → getup cycle: a tech window (~20 frames, the Ultimate one), a lockout for a mistimed tech, tech roll and wall tech as distinct motions, invulnerability on a successful tech and on standing up, and `MovementOp::GetupAttack`. The animation rows are `knockdown` / `getup` / `tech` / `getup_attack`, and a sheet without them falls back rather than breaking.
+  * ▢ **what is missing is ART, on 9 of the 16 select-screen fighters.** Carrying all four rows: `player_robot_v3`, `perfect_cellular_automaton`, `npc_emmy_noether`, `npc_carl_stargan`, `special_patent_clerk`, `pointed_polygon`, `pugnacious_polygon`. Carrying none: `george_booul`, `mary_o_v2_tall`, `sanic`, `npc_pirate_admiral`, `npc_ninja_shadow_oni_leader`, `npc_alice`, `npc_bob`, `npc_oiler`, `goblin`.
 
 
 * in the title menu FPS is 60 FPS, whereas ambition itself gets 140 FPS, and I don't know if the title 60FPS is intentional

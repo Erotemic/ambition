@@ -324,7 +324,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // would otherwise die on the first tick of a match. `add_message` is
         // idempotent, so the composition that already registers it is
         // unaffected (`transform_beat` does exactly this for the same reason).
-        app.add_message::<crate::time::time_control::ClockScaleRequest>();
+        app.add_message::<ambition_time::time_control::ClockScaleRequest>();
         // ⚠ REGISTERED WHERE THE WRITERS ARE SCHEDULED, not one crate up.
         // `apply_feature_hit_events` and the player hit path both write
         // `BodyHitResolved`, and registering it in `ambition_platformer2d_runtime` left every

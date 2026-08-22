@@ -15,7 +15,7 @@ use bevy::prelude::{Commands, Entity, MessageWriter, Query, Res, ResMut, With};
 use ambition_platformer2d_actor_monolith::platformer_runtime::lifecycle::RoomResident;
 use ambition_platformer2d_actor_monolith::rooms;
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
-use ambition_platformer2d_actor_monolith::time::time_control::ClockResetRequest;
+use ambition_time::time_control::ClockResetRequest;
 use ambition_platformer2d_actor_monolith::world::physics;
 use ambition_platformer2d_core::{self as ae, AabbExt, RoomGeometry};
 use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
@@ -366,7 +366,7 @@ impl RoomTransitionApplication<'_, '_> {
         let arrival_pos = clusters.kinematics.pos;
 
         self.clock.clock_resets.write(ClockResetRequest::sim_clock(
-            ambition_platformer2d_actor_monolith::time::time_control::ClockRequester::Engine,
+            ambition_time::time_control::ClockRequester::Engine,
             "room_transition",
         ));
         self.clock.sim_state.remaining = if edge_exit {

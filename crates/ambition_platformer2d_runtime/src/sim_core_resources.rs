@@ -60,10 +60,10 @@ impl Plugin for SimCoreResourcesPlugin {
             .add_message::<ambition_platformer2d_actor_monolith::rooms::RoomLoaded>()
             // ADR 0010 — time-control vocabulary. Gameplay code writes
             // time-control messages instead of mutating time_scale directly.
-            .add_message::<ambition_platformer2d_actor_monolith::time::time_control::ClockScaleRequest>()
-            .add_message::<ambition_platformer2d_actor_monolith::time::time_control::ClockResetRequest>()
-            .init_resource::<ambition_platformer2d_actor_monolith::time::time_control::RegimePolicy>()
-            .init_resource::<ambition_platformer2d_actor_monolith::time::time_control::RequestedClockScale>()
+            .add_message::<ambition_time::time_control::ClockScaleRequest>()
+            .add_message::<ambition_time::time_control::ClockResetRequest>()
+            .init_resource::<ambition_time::time_control::RegimePolicy>()
+            .init_resource::<ambition_time::time_control::RequestedClockScale>()
             .init_resource::<ambition_time::ClockState>()
             .register_type::<ambition_platformer2d_shared_tangle::schedule::GameMode>()
             .init_resource::<ambition_platformer2d_actor_monolith::trace::GameplayTraceBuffer>()

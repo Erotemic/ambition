@@ -12,10 +12,8 @@
 //! decode must stay in the same order, and `snapshot_unit_enum!` codes are
 //! authored per variant so inserting one never renumbers the rest.
 
-use ambition_platformer2d_core::snapshot::{
-    put_f32, put_u64,
-    Reader, SnapshotState,
-};
+use ambition_platformer2d_core::snapshot::{put_f32, put_u64, Reader, SnapshotState};
+use ambition_platformer2d_core::snapshot_unit_enum;
 
 impl SnapshotState for crate::SimTick {
     fn encode(&self, out: &mut Vec<u8>) {
@@ -59,6 +57,35 @@ impl SnapshotState for crate::ClockState {
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         Some(Self {
             time_scale: r.f32()?,
+        })
+    }
+}
+impl SnapshotState for crate::time_control::RequestedClockScale {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_f32(out, self.sim_clock);
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self {
+            sim_clock: r.f32()?,
+        })
+    }
+}
+
+snapshot_unit_enum!(crate::time_control::Regime {
+    Solo = 0,
+    RLDeterministic = 1,
+    Cinematic = 2,
+});
+
+impl SnapshotState for crate::time_control::RegimePolicy {
+    fn encode(&self, out: &mut Vec<u8>) {
+        self.regime.encode(out);
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self {
+            regime: crate::time_control::Regime::decode(r)?,
         })
     }
 }

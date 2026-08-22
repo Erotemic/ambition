@@ -18,7 +18,6 @@ use ambition_platformer2d_core::snapshot::{
 };
 // ⚠ `snapshot_pod` is no longer imported: the last user in this crate was
 // `ActorSurfaceState`, whose impl left with its type on 2026-08-21 (D33).
-use ambition_platformer2d_core::snapshot_unit_enum;
 
 impl SnapshotState for crate::features::ActorStatus {
     fn encode(&self, out: &mut Vec<u8>) {
@@ -306,36 +305,6 @@ impl SnapshotState for crate::avatar::PlayerSafetyState {
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         Some(Self::new(r.vec2()?))
-    }
-}
-
-impl SnapshotState for crate::time::time_control::RequestedClockScale {
-    fn encode(&self, out: &mut Vec<u8>) {
-        put_f32(out, self.sim_clock);
-    }
-
-    fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(Self {
-            sim_clock: r.f32()?,
-        })
-    }
-}
-
-snapshot_unit_enum!(crate::time::time_control::Regime {
-    Solo = 0,
-    RLDeterministic = 1,
-    Cinematic = 2,
-});
-
-impl SnapshotState for crate::time::time_control::RegimePolicy {
-    fn encode(&self, out: &mut Vec<u8>) {
-        self.regime.encode(out);
-    }
-
-    fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(Self {
-            regime: crate::time::time_control::Regime::decode(r)?,
-        })
     }
 }
 

@@ -11,7 +11,7 @@
 use bevy::prelude::{Has, MessageWriter, Query, Res, ResMut, Resource, World};
 
 use crate::character_runtime::{ActiveMatch, MatchInstance};
-use crate::time::time_control::{ClockRequester, ClockScaleRequest};
+use ambition_time::time_control::{ClockRequester, ClockScaleRequest};
 use ambition_time::ClockDomain;
 
 use ambition_combat::stocks::{

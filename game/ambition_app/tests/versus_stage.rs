@@ -1999,7 +1999,7 @@ fn the_freeze_is_requested_on_the_tick_the_knockout_lands() {
     settle_into_a_live_round(&mut app);
     let target = |app: &App| {
         app.world()
-            .resource::<ambition_platformer2d::actors::time::time_control::RequestedClockScale>()
+            .resource::<ambition_platformer2d::time::time_control::RequestedClockScale>()
             .sim_clock
     };
     assert!(

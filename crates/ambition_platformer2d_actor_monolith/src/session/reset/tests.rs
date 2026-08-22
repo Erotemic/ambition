@@ -308,7 +308,7 @@ fn min_app() -> App {
     // emits the `RoomLoaded` staging fact (JD4).
     app.add_message::<crate::session::RespawnRoomVisualsRequested>();
     app.add_message::<crate::rooms::RoomLoaded>();
-    app.add_message::<crate::time::time_control::ClockResetRequest>();
+    app.add_message::<ambition_time::time_control::ClockResetRequest>();
     app.add_message::<NewGameResetCommitted>();
     app.add_systems(Update, process_new_game_reset_request);
     app

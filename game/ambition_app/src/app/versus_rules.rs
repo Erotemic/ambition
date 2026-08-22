@@ -269,8 +269,8 @@ pub fn settle_versus_round(
         &mut ambition_platformer2d::projectiles::PlayerProjectileState,
         With<MatchSeat>,
     >,
-    mut scale: MessageWriter<ambition_platformer2d::actors::time::time_control::ClockScaleRequest>,
-    mut snap: MessageWriter<ambition_platformer2d::actors::time::time_control::ClockResetRequest>,
+    mut scale: MessageWriter<ambition_platformer2d::time::time_control::ClockScaleRequest>,
+    mut snap: MessageWriter<ambition_platformer2d::time::time_control::ClockResetRequest>,
 ) {
     // No roster means no match. The stage's own teardown removes it, so this
     // needs no second opinion about whether versus is running.
@@ -465,8 +465,8 @@ pub fn settle_versus_round(
     // over the following second. A scale request cannot do this job at all,
     // because `min` keeps the strongest slow and the freeze is still in force.
     snap.write(
-        ambition_platformer2d::actors::time::time_control::ClockResetRequest::sim_clock(
-            ambition_platformer2d::actors::time::time_control::ClockRequester::Scripted,
+        ambition_platformer2d::time::time_control::ClockResetRequest::sim_clock(
+            ambition_platformer2d::time::time_control::ClockRequester::Scripted,
             "versus_round_start",
         ),
     );
@@ -546,13 +546,13 @@ fn hand_back_the_controls(
 }
 
 fn request_freeze(
-    scale: &mut MessageWriter<ambition_platformer2d::actors::time::time_control::ClockScaleRequest>,
+    scale: &mut MessageWriter<ambition_platformer2d::time::time_control::ClockScaleRequest>,
 ) {
     scale.write(
-        ambition_platformer2d::actors::time::time_control::ClockScaleRequest {
+        ambition_platformer2d::time::time_control::ClockScaleRequest {
             domain: ambition_platformer2d::time::ClockDomain::SimClock,
             scale: 0.0,
-            requester: ambition_platformer2d::actors::time::time_control::ClockRequester::Scripted,
+            requester: ambition_platformer2d::time::time_control::ClockRequester::Scripted,
             reason: "versus_ko_hold",
         },
     );

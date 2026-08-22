@@ -7,8 +7,8 @@
 //! checksums, mapping, and load behavior without making the generic runtime
 //! depend on that backend.
 
-use bevy::prelude::*;
 use ambition_platformer2d_core::snapshot::{checksum_bytes, RollbackRegistrar};
+use bevy::prelude::*;
 
 pub mod registrar;
 pub mod registry;
@@ -42,6 +42,7 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     ambition_combat::register_rollback_state(registrar);
     ambition_platformer2d_actor_monolith::register_rollback_state(registrar);
     ambition_characters::register_rollback_state(registrar);
+    ambition_time::register_rollback_state(registrar);
     ambition_boss_encounter::register_rollback_state(registrar);
     ambition_conversation::register_rollback_state(registrar);
     ambition_sprite_sheet::register_rollback_state(registrar);
@@ -166,7 +167,8 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     // carries both since Phase 4; losing the stamp across a rewind would read
     // as OwnershipLost at the next boundary verification.
     // ⚠ this chain's gameplay-owned head moved to its domain-owned rollback declaration.
-    registrar.rollback_component_canonical::<bc::BodyAbilities>(ENGINE, "body.abilities")
+    registrar
+        .rollback_component_canonical::<bc::BodyAbilities>(ENGINE, "body.abilities")
         .rollback_component_canonical::<bc::BodyGroundState>(ENGINE, "body.ground")
         .rollback_component_canonical::<bc::BodyWallState>(ENGINE, "body.wall")
         .rollback_component_canonical::<bc::BodyJumpState>(ENGINE, "body.jump")
@@ -229,21 +231,22 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     // survives it would swallow the re-announcement on the replay and the
     // ruleset would never hear that the match ended.
     // ⚠ this chain's gameplay-owned head moved to its domain-owned rollback declaration.
-    registrar.rollback_component_canonical::<ambition_platformer2d_core::geometry::CenteredAabb>(
-        ENGINE,
-        "actor.centered_aabb",
-    )
-    .rollback_component_canonical::<bc::BodyModeState>(ENGINE, "actor.body_mode")
-    .rollback_component_canonical::<bc::BodyLedgeState>(ENGINE, "actor.ledge")
-    .rollback_component_canonical::<ambition_platformer2d_core::MotionModel>(
-        ENGINE,
-        "actor.motion_model",
-    )
-    .rollback_component_canonical::<bc::BodyComboTrace>(ENGINE, "actor.combo_trace")
-    .rollback_component_canonical::<ambition_time::ProperTimeScale>(
-        ENGINE,
-        "actor.proper_time_scale",
-    );
+    registrar
+        .rollback_component_canonical::<ambition_platformer2d_core::geometry::CenteredAabb>(
+            ENGINE,
+            "actor.centered_aabb",
+        )
+        .rollback_component_canonical::<bc::BodyModeState>(ENGINE, "actor.body_mode")
+        .rollback_component_canonical::<bc::BodyLedgeState>(ENGINE, "actor.ledge")
+        .rollback_component_canonical::<ambition_platformer2d_core::MotionModel>(
+            ENGINE,
+            "actor.motion_model",
+        )
+        .rollback_component_canonical::<bc::BodyComboTrace>(ENGINE, "actor.combo_trace")
+        .rollback_component_canonical::<ambition_time::ProperTimeScale>(
+            ENGINE,
+            "actor.proper_time_scale",
+        );
 
     // Complete rollback entity shapes. The old custom restore engine only
     // patched a narrow state subset and left the remaining components stale.
@@ -402,51 +405,52 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     // re-creates — dropping it would leave the resimulated loot invisible while
     // the original was drawn, which is the bug this component exists to fix.
     // ⚠ this chain's gameplay-owned head moved to its domain-owned rollback declaration.
-    registrar.rollback_component_clone::<ambition_platformer2d_core::body_clusters::AbilityBase>(
-        ENGINE,
-        "body.ability_base",
-    )
-    // The renderer's runtime-visual DISCOVERY marker. An actor staged outside the
-    // authored `RoomSpec` lists (a duel fighter, a runtime-spawned mount) is only
-    // given the sprite pipeline because it carries this, so losing it across a
-    // restore leaves the actor rendering invisibly for the rest of the session.
-    // Same class as `PlayerVisual`, which this instrument caught the same way:
-    // presentation, but presentation whose ABSENCE is permanent. Surfaced by the
-    // A20 mounted-pair sweep — no swept ROOM stages an actor imperatively.
-    // Which provider's bank an entity's cues come out of (G1). For a BODY this is
-    // republished every sim tick from its worn character, so it would survive a
-    // restore either way — but for a PROJECTILE it is stamped once, at spawn, from a
-    // firer that may be dead by the time the bolt lands. Unregistered, bevy_ggrs
-    // recreates the bolt without it and the impact reverts to the session's voice
-    // for the rest of the shot's life. Same class as `PlayerVisual` and
-    // `RuntimeStagedActor`: presentation, but presentation whose ABSENCE is
-    // permanent. Probed by value, because the value is the whole fact and a count
-    // of "how many entities have a source" says nothing about WHOSE.
-    .rollback_component_clone_probed::<ambition_sfx::BodyPresentationSource>(
-        ENGINE,
-        "presentation.body_source",
-        |source| checksum_bytes(source.id().as_str().as_bytes()),
-    )
-    // The marker that says the per-tick derivation OWNS that source and may retract
-    // it. Losing it across a restore would strand a body's source: the derivation
-    // stops maintaining what it can no longer recognise as its own.
-    .rollback_component_clone::<ambition_sfx::DerivedPresentationSource>(
-        ENGINE,
-        "presentation.body_source_derived",
-    )
-    // Portal-gun runtime (deep review 2026-07-19 §2.2). `PortalBody`/`Policy`/
-    // `Transit`/`PlacedPortal` were registered but the gun-side state was not,
-    // so a rewind could carry a cooldown latch or an in-flight shot in from an
-    // abandoned future — permitting or blocking a transit the confirmed
-    // timeline never saw.
-    // The pickup's ARM TIMER is ticked every sim tick by `arm_portal_pickups`, so a
-    // rewind that kept an abandoned future's timer would let the same press that
-    // dropped a gun immediately re-grab it — or refuse a grab the confirmed
-    // timeline allowed. Surfaced by the coverage sweep only once its population was
-    // derived from the rollback vocabulary: a pickup carries neither
-    // `FeatureSimEntity` nor `BodyKinematics`.
-    .rollback_component_clone::<bevy::prelude::Name>(ENGINE, "entity.name")
-    .rollback_component_clone::<bevy::prelude::Transform>(ENGINE, "entity.transform");
+    registrar
+        .rollback_component_clone::<ambition_platformer2d_core::body_clusters::AbilityBase>(
+            ENGINE,
+            "body.ability_base",
+        )
+        // The renderer's runtime-visual DISCOVERY marker. An actor staged outside the
+        // authored `RoomSpec` lists (a duel fighter, a runtime-spawned mount) is only
+        // given the sprite pipeline because it carries this, so losing it across a
+        // restore leaves the actor rendering invisibly for the rest of the session.
+        // Same class as `PlayerVisual`, which this instrument caught the same way:
+        // presentation, but presentation whose ABSENCE is permanent. Surfaced by the
+        // A20 mounted-pair sweep — no swept ROOM stages an actor imperatively.
+        // Which provider's bank an entity's cues come out of (G1). For a BODY this is
+        // republished every sim tick from its worn character, so it would survive a
+        // restore either way — but for a PROJECTILE it is stamped once, at spawn, from a
+        // firer that may be dead by the time the bolt lands. Unregistered, bevy_ggrs
+        // recreates the bolt without it and the impact reverts to the session's voice
+        // for the rest of the shot's life. Same class as `PlayerVisual` and
+        // `RuntimeStagedActor`: presentation, but presentation whose ABSENCE is
+        // permanent. Probed by value, because the value is the whole fact and a count
+        // of "how many entities have a source" says nothing about WHOSE.
+        .rollback_component_clone_probed::<ambition_sfx::BodyPresentationSource>(
+            ENGINE,
+            "presentation.body_source",
+            |source| checksum_bytes(source.id().as_str().as_bytes()),
+        )
+        // The marker that says the per-tick derivation OWNS that source and may retract
+        // it. Losing it across a restore would strand a body's source: the derivation
+        // stops maintaining what it can no longer recognise as its own.
+        .rollback_component_clone::<ambition_sfx::DerivedPresentationSource>(
+            ENGINE,
+            "presentation.body_source_derived",
+        )
+        // Portal-gun runtime (deep review 2026-07-19 §2.2). `PortalBody`/`Policy`/
+        // `Transit`/`PlacedPortal` were registered but the gun-side state was not,
+        // so a rewind could carry a cooldown latch or an in-flight shot in from an
+        // abandoned future — permitting or blocking a transit the confirmed
+        // timeline never saw.
+        // The pickup's ARM TIMER is ticked every sim tick by `arm_portal_pickups`, so a
+        // rewind that kept an abandoned future's timer would let the same press that
+        // dropped a gun immediately re-grab it — or refuse a grab the confirmed
+        // timeline allowed. Surfaced by the coverage sweep only once its population was
+        // derived from the rollback vocabulary: a pickup carries neither
+        // `FeatureSimEntity` nor `BodyKinematics`.
+        .rollback_component_clone::<bevy::prelude::Name>(ENGINE, "entity.name")
+        .rollback_component_clone::<bevy::prelude::Transform>(ENGINE, "entity.transform");
 
     // These values are guaranteed to be republished before any downstream
     // consumer in each GGRS frame, so storing them would duplicate authority.

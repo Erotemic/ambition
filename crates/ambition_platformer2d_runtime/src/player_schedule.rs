@@ -91,7 +91,7 @@ impl Plugin for PlayerSchedulePlugin {
                 // to the tick this names. Unconditional: a suspended world
                 // still advances its timeline, it just moves zero sim seconds.
                 ambition_time::advance_sim_tick,
-                ambition_platformer2d_actor_monolith::time::time_control::apply_suspended_time_scale_system
+                ambition_time::time_control::apply_suspended_time_scale_system
                     .run_if(gameplay_suspended),
                 ambition_time::refresh_world_time,
                 // Mirror the freshly-snapshotted `WorldTime::sim_dt()` into
@@ -134,11 +134,11 @@ impl Plugin for PlayerSchedulePlugin {
             (
                 ambition_platformer2d_actor_monolith::time::time_control::emit_player_time_intent_system
                     .run_if(gameplay_allowed),
-                ambition_platformer2d_actor_monolith::time::time_control::apply_clock_scale_requests
+                ambition_time::time_control::apply_clock_scale_requests
                     .run_if(gameplay_allowed),
                 ambition_platformer2d_actor_monolith::time::time_control::smooth_sim_clock_toward_target_system
                     .run_if(gameplay_allowed),
-                ambition_platformer2d_actor_monolith::time::time_control::apply_clock_reset_requests
+                ambition_time::time_control::apply_clock_reset_requests
                     .run_if(gameplay_allowed),
             )
                 .chain()

@@ -36,48 +36,35 @@ where
             OWNER,
             "message.causal_body_hit_resolved",
         );
-        registrar.clear_message_on_rollback::<crate::features::ecs::damage_apply::BodyReactionApplied>(
-            OWNER,
-            "message.causal_body_reaction_applied",
-        );
+        registrar
+            .clear_message_on_rollback::<crate::features::ecs::damage_apply::BodyReactionApplied>(
+                OWNER,
+                "message.causal_body_reaction_applied",
+            );
     }
 
     registrar.require_rollback::<crate::features::transform_beat::TransformBeat>(
         OWNER,
         "entity:transform_beat",
     );
-    registrar.require_rollback::<crate::rooms::RoomSet>(
-        OWNER,
-        "root:room_set",
-    );
-    registrar.require_rollback::<crate::items::pickup::GroundItem>(
-        OWNER,
-        "entity:ground_item",
-    );
+    registrar.require_rollback::<crate::rooms::RoomSet>(OWNER, "root:room_set");
+    registrar.require_rollback::<crate::items::pickup::GroundItem>(OWNER, "entity:ground_item");
     // ⚠ **a MOVING world item is the same kind of thing as a ground item, and
     // was not registered.** `spawn_moving_world_item` uses `spawn_room_scoped`,
     // and `RoomScopedEntity` is a LIFETIME marker — it says when the entity
     // dies with its room, and nothing about whether a rewind can reproduce it.
     // A block bonked on a mispredicted frame therefore left an item standing in
     // a future that was abandoned. (GPT review of 5cc4337..47d7de3, finding 1.)
-    registrar.require_rollback::<crate::items::world_item::WorldItem>(
-        OWNER,
-        "entity:world_item",
-    );
-    registrar.require_rollback::<crate::gravity::GravityFlipSwitch>(
-        OWNER,
-        "entity:gravity_flip_switch",
-    );
+    registrar.require_rollback::<crate::items::world_item::WorldItem>(OWNER, "entity:world_item");
+    registrar
+        .require_rollback::<crate::gravity::GravityFlipSwitch>(OWNER, "entity:gravity_flip_switch");
     // ⚠ **the heal shrine, for the same reason as the portal gun pickup**
     // (2026-08-06, K2b edit 2). It carries `SimId`, `SpawnOrigin` and
     // `TransactionId`, had no anchor, and so those registrations were inert on
     // it. Its own component is waived as authored geometry — the heal reads it
     // and never writes it — but the anchor is not about the shrine's data; it is
     // about whether GGRS reproduces the ENTITY on a resimulated timeline.
-    registrar.require_rollback::<crate::shrine::HealShrine>(
-        OWNER,
-        "entity:heal_shrine",
-    );
+    registrar.require_rollback::<crate::shrine::HealShrine>(OWNER, "entity:heal_shrine");
     registrar.rollback_component_clone_checksum::<crate::rooms::RoomSet>(
         OWNER,
         "root.room_set",
@@ -123,19 +110,12 @@ where
         OWNER,
         "resource.gameplay_elapsed",
     );
-    registrar.rollback_resource_canonical::<crate::time::time_control::RequestedClockScale>(
-        OWNER,
-        "resource.requested_clock_scale",
-    );
-    registrar.rollback_resource_canonical::<crate::time::time_control::RegimePolicy>(
-        OWNER,
-        "resource.clock_regime_policy",
-    );
     registrar.rollback_resource_canonical::<crate::session::reset::NewGameResetRequested>(
         OWNER,
         "resource.sandbox_reset_requested",
     );
-    registrar.rollback_resource_canonical::<crate::session::lifecycle_commit::PendingLifecycleCommit>(
+    registrar
+        .rollback_resource_canonical::<crate::session::lifecycle_commit::PendingLifecycleCommit>(
             OWNER,
             "resource.pending_lifecycle_commit",
         );
@@ -148,7 +128,8 @@ where
             "resource.possession_state",
             |state| state.possessed.into_iter().chain(state.home).collect(),
         );
-    registrar.rollback_resource_map_entities::<crate::abilities::traversal::possession::PossessionState>(
+    registrar
+        .rollback_resource_map_entities::<crate::abilities::traversal::possession::PossessionState>(
             OWNER,
             "map.resource.possession_state",
         );
@@ -160,22 +141,17 @@ where
         OWNER,
         "actor.match_seat",
     );
-    registrar.rollback_component_cursor::<crate::features::ActorMotionPath>(
-        OWNER,
-        "actor.motion_path",
-    );
-    registrar.rollback_component_canonical::<crate::features::ActorStatus>(
-        OWNER,
-        "actor.status",
-    );
+    registrar
+        .rollback_component_cursor::<crate::features::ActorMotionPath>(OWNER, "actor.motion_path");
+    registrar.rollback_component_canonical::<crate::features::ActorStatus>(OWNER, "actor.status");
     registrar.rollback_component_canonical::<crate::features::ecs::perception::Perception>(
         OWNER,
         "actor.perception",
     );
     registrar.rollback_component_canonical::<crate::features::ecs::perception::PerceptionMemory>(
-            OWNER,
-            "actor.perception_memory",
-        );
+        OWNER,
+        "actor.perception_memory",
+    );
     registrar.rollback_component_canonical::<crate::features::TemporaryControl>(
         OWNER,
         "actor.temporary_control",
@@ -188,14 +164,8 @@ where
         OWNER,
         "player.safety_state",
     );
-    registrar.rollback_component_clone::<crate::control::LocalPlayer>(
-        OWNER,
-        "player.local_marker",
-    );
-    registrar.rollback_component_clone::<crate::features::ActorConfig>(
-        OWNER,
-        "actor.config",
-    );
+    registrar.rollback_component_clone::<crate::control::LocalPlayer>(OWNER, "player.local_marker");
+    registrar.rollback_component_clone::<crate::features::ActorConfig>(OWNER, "actor.config");
     registrar.rollback_component_clone_probed::<crate::features::transform_beat::TransformBeat>(
         OWNER,
         "actor.transform_beat",
@@ -215,61 +185,32 @@ where
                 .collect()
         },
     );
-    registrar.rollback_map_entities::<crate::features::LimbRig>(
-        OWNER,
-        "map.limb_rig",
-    );
+    registrar.rollback_map_entities::<crate::features::LimbRig>(OWNER, "map.limb_rig");
     registrar.rollback_component_clone_entity_ref::<crate::features::Limb>(
         OWNER,
         "limb.member",
         |limb| limb.of,
     );
-    registrar.rollback_map_entities::<crate::features::Limb>(
-        OWNER,
-        "map.limb_member",
-    );
-    registrar.rollback_component_clone::<crate::features::LimbRouteState>(
-        OWNER,
-        "limb.route_state",
-    );
-    registrar.rollback_component_clone::<crate::features::LimbIntents>(
-        OWNER,
-        "limb.intents",
-    );
-    registrar.rollback_component_clone::<crate::features::CanPilot>(
-        OWNER,
-        "mount.can_pilot",
-    );
-    registrar.rollback_component_clone::<crate::features::Mass>(
-        OWNER,
-        "mount.mass",
-    );
+    registrar.rollback_map_entities::<crate::features::Limb>(OWNER, "map.limb_member");
+    registrar
+        .rollback_component_clone::<crate::features::LimbRouteState>(OWNER, "limb.route_state");
+    registrar.rollback_component_clone::<crate::features::LimbIntents>(OWNER, "limb.intents");
+    registrar.rollback_component_clone::<crate::features::CanPilot>(OWNER, "mount.can_pilot");
+    registrar.rollback_component_clone::<crate::features::Mass>(OWNER, "mount.mass");
     registrar.rollback_component_clone_entity_set::<crate::features::MountSlot>(
         OWNER,
         "mount.slot",
         |slot| slot.rider.into_iter().collect(),
     );
-    registrar.rollback_map_entities::<crate::features::MountSlot>(
-        OWNER,
-        "map.mount_slot",
-    );
-    registrar.rollback_component_clone::<crate::features::Mountable>(
-        OWNER,
-        "mount.mountable",
-    );
-    registrar.rollback_component_clone::<crate::features::Mounted>(
-        OWNER,
-        "mount.mounted",
-    );
+    registrar.rollback_map_entities::<crate::features::MountSlot>(OWNER, "map.mount_slot");
+    registrar.rollback_component_clone::<crate::features::Mountable>(OWNER, "mount.mountable");
+    registrar.rollback_component_clone::<crate::features::Mounted>(OWNER, "mount.mounted");
     registrar.rollback_component_clone_entity_ref::<crate::features::RidingOn>(
         OWNER,
         "mount.riding_on",
         |riding| riding.mount,
     );
-    registrar.rollback_map_entities::<crate::features::RidingOn>(
-        OWNER,
-        "map.riding_on",
-    );
+    registrar.rollback_map_entities::<crate::features::RidingOn>(OWNER, "map.riding_on");
     // **An ARMED challenge, counting down to a fight.**
     //
     // ⛔ **it was not rollback state, and it is the `SaveRestored` failure
@@ -284,10 +225,8 @@ where
         "actor.pending_challenge",
         |pending| pending.challenger.into_iter().collect(),
     );
-    registrar.rollback_map_entities::<crate::features::PendingChallenge>(
-        OWNER,
-        "map.pending_challenge",
-    );
+    registrar
+        .rollback_map_entities::<crate::features::PendingChallenge>(OWNER, "map.pending_challenge");
     registrar.rollback_component_clone::<crate::items::pickup::StashedActionSet>(
         OWNER,
         "actor.stashed_action_set",
@@ -342,22 +281,14 @@ where
         "feature.switch_on",
         |on| u64::from(on.0),
     );
-    registrar.rollback_component_clone::<crate::encounter::SwitchFeature>(
-        OWNER,
-        "feature.switch",
-    );
+    registrar.rollback_component_clone::<crate::encounter::SwitchFeature>(OWNER, "feature.switch");
     registrar.rollback_component_clone::<crate::features::PickupCollectLock>(
         OWNER,
         "feature.pickup_collect_lock",
     );
-    registrar.rollback_component_clone::<crate::features::PickupArt>(
-        OWNER,
-        "feature.pickup_art",
-    );
-    registrar.rollback_component_clone::<crate::items::pickup::GroundItem>(
-        OWNER,
-        "item.ground_item",
-    );
+    registrar.rollback_component_clone::<crate::features::PickupArt>(OWNER, "feature.pickup_art");
+    registrar
+        .rollback_component_clone::<crate::items::pickup::GroundItem>(OWNER, "item.ground_item");
     // ⚠ **CUSTODY IS SIMULATION STATE, not a cache.** It decides on every later
     // frame whether the item is drawn, stepped by `ground_item_physics`, and
     // grabbable — so a rewind that restored the wrong value leaves the same axe
@@ -381,10 +312,7 @@ where
             }
         },
     );
-    registrar.rollback_map_entities::<crate::items::pickup::ItemCustody>(
-        OWNER,
-        "map.item_custody",
-    );
+    registrar.rollback_map_entities::<crate::items::pickup::ItemCustody>(OWNER, "map.item_custody");
     // The pickup's ATTRACTION POLICY rides the same entity as the pickup, so a
     // rewind that recreates a dropped coin has to recreate whether it comes to
     // you. Authored at spawn and never mutated — but "never mutated" is not
@@ -508,9 +436,7 @@ where
             // timelines of one session. The id and the exclusive slot are what
             // a divergent spawn would change.
             match &item.payload {
-                crate::items::world_item::WorldItemPayload::Equip(
-                    row,
-                ) => {
+                crate::items::world_item::WorldItemPayload::Equip(row) => {
                     row.id.hash(&mut hasher);
                     row.exclusive_slot.hash(&mut hasher);
                 }
@@ -560,7 +486,9 @@ where
             // mid-arc. The plan is authored and does not normally change, which
             // is exactly why a timeline where it DID is worth catching.
             let plan = &motion.plan;
-            plan.emerge.map(|e| (e.distance.to_bits(), e.seconds.to_bits())).hash(&mut hasher);
+            plan.emerge
+                .map(|e| (e.distance.to_bits(), e.seconds.to_bits()))
+                .hash(&mut hasher);
             plan.speed.to_bits().hash(&mut hasher);
             plan.facing.to_bits().hash(&mut hasher);
             plan.gravity.to_bits().hash(&mut hasher);
@@ -573,14 +501,10 @@ where
         OWNER,
         "gravity.flip_switch",
     );
-    registrar.rollback_component_clone::<crate::features::MountedBrainCache>(
-        OWNER,
-        "mount.brain_cache",
-    );
-    registrar.rollback_component_clone::<crate::features::MountedSize>(
-        OWNER,
-        "mount.authored_size",
-    );
+    registrar
+        .rollback_component_clone::<crate::features::MountedBrainCache>(OWNER, "mount.brain_cache");
+    registrar
+        .rollback_component_clone::<crate::features::MountedSize>(OWNER, "mount.authored_size");
     registrar.declare_rollback_derived_component::<crate::avatar::body_integration::PlayerBodyFrameOutput>(
         OWNER,
         "derived.player_body_frame_output",
@@ -606,11 +530,12 @@ where
         "derived.boss_animation_frame_sample",
         "republished every tick by drive_boss_animators from the rewound BossAnimFrame cursor",
     );
-    registrar.declare_rollback_derived_resource::<crate::features::ecs::perception::PerceptionPeers>(
-        OWNER,
-        "derived.perception_peers",
-        "perception snapshot rebuilt every tick before brains read it",
-    );
+    registrar
+        .declare_rollback_derived_resource::<crate::features::ecs::perception::PerceptionPeers>(
+            OWNER,
+            "derived.perception_peers",
+            "perception snapshot rebuilt every tick before brains read it",
+        );
     registrar.declare_rollback_derived_resource::<crate::features::ecs::perception::PerceptionProjectiles>(
         OWNER,
         "derived.perception_projectiles",
@@ -621,10 +546,8 @@ where
         "derived.encounter_switch_index",
         "rebuilt from SwitchFeature + SwitchOn components each frame",
     );
-    registrar.clear_message_on_rollback::<crate::features::BrainCommand>(
-        OWNER,
-        "message.brain_command",
-    );
+    registrar
+        .clear_message_on_rollback::<crate::features::BrainCommand>(OWNER, "message.brain_command");
     // **What a conversation asked the simulation for**, released by the
     // narrative ledger at the head of the tick it was stamped for. Cleared on
     // load for the same reason as every other released fact: the resimulated
@@ -642,10 +565,7 @@ where
         OWNER,
         "message.spawn_actor_request",
     );
-    registrar.clear_message_on_rollback::<crate::ActorDiedMessage>(
-        OWNER,
-        "message.actor_died",
-    );
+    registrar.clear_message_on_rollback::<crate::ActorDiedMessage>(OWNER, "message.actor_died");
     registrar.clear_message_on_rollback::<crate::session::reset::NewGameResetCommitted>(
         OWNER,
         "message.sandbox_reset_committed",
@@ -670,30 +590,6 @@ where
         OWNER,
         "message.room_replay_requested",
     );
-    registrar.clear_message_on_rollback::<crate::time::time_control::ClockResetRequest>(
-        OWNER,
-        "message.clock_reset_request",
-    );
-    registrar.clear_message_on_rollback::<crate::time::time_control::ClockScaleRequest>(
-        OWNER,
-        "message.clock_scale_request",
-    );
-    registrar.clear_message_on_rollback::<crate::encounter::SwitchActivated>(
-        OWNER,
-        "message.switch_activated",
-    );
-    registrar.clear_message_on_rollback::<crate::session::reset::RoomReplayRequested>(
-        OWNER,
-        "message.room_replay_requested",
-    );
-    registrar.clear_message_on_rollback::<crate::time::time_control::ClockResetRequest>(
-        OWNER,
-        "message.clock_reset_request",
-    );
-    registrar.clear_message_on_rollback::<crate::time::time_control::ClockScaleRequest>(
-        OWNER,
-        "message.clock_scale_request",
-    );
     // Save application is a rollback-relevant latch because the state it guards
     // rewinds even though the literal Update systems that set it do not resimulate.
     registrar.rollback_resource_clone::<crate::session::durable_horizon::SaveRestored>(
@@ -705,9 +601,8 @@ where
     // the item horizon that owns capture, restore and durable adoption.
     crate::items::pickup::minted_horizon::register_checkpoint_rollback_state(registrar);
 
-    registrar.declare_rollback_derived_resource::<
-        crate::world::gated_lock_walls::GatedLockWallCache,
-    >(
+    registrar
+        .declare_rollback_derived_resource::<crate::world::gated_lock_walls::GatedLockWallCache>(
         OWNER,
         "derived.gated_lock_wall_cache",
         "authored gated walls for the active room; recomputed from the room set and LDtk project",
@@ -719,7 +614,6 @@ where
         "derived.authored_switch_commands",
         "authored switch verbs prepared for the active room; recomputed from the room set and LDtk project",
     );
-
 }
 
 fn room_set_checksum(rooms: &crate::rooms::RoomSet) -> u64 {

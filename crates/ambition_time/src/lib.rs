@@ -14,7 +14,11 @@
 //! - [`WorldTime::player_dt`] for observer cognitive time.
 //! - [`WorldTime::entity_dt`] for per-entity proper time inside the sim schedule.
 
+pub mod time_control;
 
+// Domain-owned rollback declaration; the host supplies the backend registrar.
+mod rollback_registration;
+pub use rollback_registration::register_rollback_state;
 mod snapshot_impls;
 
 use bevy::ecs::system::SystemParam;

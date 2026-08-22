@@ -38,7 +38,7 @@ use ambition_characters::actor::BodyHealth;
 use ambition_sprite_sheet::character::{ActorAnimOverride, CharacterAnim};
 use ambition_time::{ClockDomain, WorldTime};
 
-use crate::time::time_control::{ClockRequester, ClockScaleRequest};
+use ambition_time::time_control::{ClockRequester, ClockScaleRequest};
 
 /// What a transformation looks like for THIS body. Authored per character by
 /// the game; absent means transformations are instant, which is a legitimate

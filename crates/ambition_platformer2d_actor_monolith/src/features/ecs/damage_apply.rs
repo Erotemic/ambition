@@ -24,7 +24,7 @@ use crate::actor::PrimaryPlayerOnly;
 use crate::avatar::PlayerSafetyState;
 use crate::combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent, HitTarget};
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
-use crate::time::time_control::{ClockRequester, ClockResetRequest};
+use ambition_time::time_control::{ClockRequester, ClockResetRequest};
 use crate::{
     remember_safe_player_position, ActorDiedMessage, RoomTransitionCooldown, SafePositionContext,
 };

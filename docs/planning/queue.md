@@ -3726,6 +3726,41 @@ and would cost nothing — but a body switching between biped, morph ball and
 flight is MOVEMENT, and putting it in the combat domain buys a free carve at the
 price of the ownership question this row exists to answer.
 
+✔✔ **`time_control` CARVED TO `ambition_time` (2026-08-22) — the destination
+already owned half of the ADR.** The coupling table above prices `time` at 2
+outbound; what it does not show is that ADR 0010 was living in TWO CRATES.
+`ClockDomain`, `ClockState` and `ClockObserver` were already in `ambition_time`,
+while *who may change a clock* sat in the monolith — and the policy half dragged
+combat feel, `BodyCombat` and developer tooling in with it.
+
+⭐ **the split was by ITEM and the measurement found it in one pass.** Of 532
+lines, ONE 92-line system (`emit_player_time_intent_system`) carried all six
+heavy dependencies and a 23-line ramp carried one; ~380 lines needed nothing but
+`ambition_time`. So the arbitration moved and the intent stayed.
+
+⛔ **the compiler named the one thing the measurement missed**, which is the
+whole argument for letting it: `report_sim_clock_changes` logs through
+`shared_tangle::world_log`, so it stayed behind rather than dragging the tangle
+under a base crate. ⇒ **a coupling count finds the shape; only the build finds
+the last edge.**
+
+⭐ **and the seam got more coherent, not just shorter.** `ClockRequester::Player`
+carried an `ambition_characters::brain::PlayerSlot` while `ClockDomain::PlayerClock`
+beside it carried an `ambition_time::ClockObserver` — two newtypes for one fact
+across one enum. The payload was never read (every construction was `PRIMARY` and
+the policy matches `Player(_)`), so it now speaks the crate's own vocabulary and
+the arbitration needs no character edge at all.
+
+⚠ price, and it is the full D33 list: a new `ambition_time::register_rollback_state`
+in the runtime's domain list, the `SnapshotState` impls following their types by
+the orphan rule, three full-path lines in `rollback-schema-baseline.json`, and one
+`file-contains` policy row that pinned the old path by name. The `.txt`
+fingerprint did not move — it keys on the bare type name.
+
+⭐ **a free deletion fell out on the way**: four `clear_message_on_rollback`
+declarations were registered TWICE in the monolith, byte-identical blocks sixteen
+lines apart.
+
 ⛔⛔ **AND MY OWN "ZERO DEPENDENCIES" WAS A `crate::` COUNT — the same error this
 entry opens by naming.** Counting what the module REACHES, not how it spells it:
 

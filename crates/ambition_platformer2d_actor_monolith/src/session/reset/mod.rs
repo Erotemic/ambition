@@ -81,7 +81,7 @@ use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 #[derive(SystemParam)]
 pub struct ResetPlayState<'w> {
     sim_state: ResMut<'w, crate::RoomTransitionCooldown>,
-    clock_resets: MessageWriter<'w, crate::time::time_control::ClockResetRequest>,
+    clock_resets: MessageWriter<'w, ambition_time::time_control::ClockResetRequest>,
     moving_platforms: ResMut<'w, ambition_platformer2d_world::collision::MovingPlatformSet>,
     character_catalog: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
     authored_sheets: Res<'w, ambition_sprite_sheet::character::sheets::AuthoredSheets>,
@@ -327,8 +327,8 @@ pub fn process_new_game_reset_request(
     // 6. Reset the player to the start room's spawn point.
     play_state
         .clock_resets
-        .write(crate::time::time_control::ClockResetRequest::sim_clock(
-            crate::time::time_control::ClockRequester::Engine,
+        .write(ambition_time::time_control::ClockResetRequest::sim_clock(
+            ambition_time::time_control::ClockRequester::Engine,
             "sandbox_reset",
         ));
     play_state.sim_state.remaining = 0.0;

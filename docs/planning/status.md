@@ -43,7 +43,7 @@ body drives this slot".
 
 ⛔⛔ **THE ROW'S OWN PLAN WAS WRONG ABOUT WHERE THE DERIVATION RUNS, and checking
 that is what made the fix small.** It said the gesture derivation is on the FEEL
-clock and must not move after publication. `input_timer_system` is registered
+clock and must not move after publication. The `InputTimersAdvanced` set is registered
 into the SIM schedule, which under a rollback host **is** `GgrsSchedule` — it
 runs inside rollback, with `SlotInteractionState` as canonical rollback state.
 The clock argument was sound; the placement claim was not.

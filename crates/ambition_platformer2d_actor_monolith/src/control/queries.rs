@@ -114,6 +114,35 @@ pub fn seat_frame_this_tick(
 ///
 /// It answered for every host by being written by whichever authority was live, which is what made
 /// it a bus and what made every shaping stage seat zero's.
+///
+/// ⛔⛔ **MIGRATION INFRASTRUCTURE. DO NOT MAKE THIS THE PERMANENT MODEL, AND DO
+/// NOT ADD CLIENTS.** Three systems use it (fast-fall derivation, the app's
+/// reset read, the portal adapter). That is the ceiling until the stages below
+/// exist, and the reason is written into the name of what it writes:
+/// `SeatRawFrames` is documented as the RAW proposal before shaping, and this
+/// function shapes into it. The type stopped describing its contents the day
+/// this was written, which is a bridge admitting it is one.
+///
+/// A shaper reaching for this has to accommodate all three publication
+/// architectures at once — fixed tick, rollback, frame-step — because
+/// `seat_frame_this_tick` decides which representation is authoritative and this
+/// writes every representation to make the hosts agree. That works, and it does
+/// not scale to ten mechanics.
+///
+/// The endpoint is staged rather than dual-written:
+///
+/// ```text
+/// physical sample → SeatInputProposal → (latch / rollback agreement)
+///                 → ConfirmedSeatInput → deterministic derivation
+///                 → EffectiveSlotControls
+/// ```
+///
+/// Each transformation then names ONE stage: device calibration on the proposal
+/// side, anything that must be transmitted as participant input at the agreement
+/// boundary, and derived gestures like double-tap and fast-fall on the
+/// simulation side, from confirmed edges plus rollback-backed history. Build
+/// that when the next input change needs the boundary — not as a rewrite for its
+/// own sake, and not one client later than that.
 pub fn shape_seat_frame(
     latches: Option<&ambition_characters::control::SlotControlLatches>,
     rollback: Option<&ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>,

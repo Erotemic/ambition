@@ -508,7 +508,7 @@ did not survive that.
 | --- | --- |
 | `SelectCursors` still clamps a bad seat onto a real player | ✔ accessors return `Option`; `try_grab` refuses. Test pins that the LAST seat is untouched by a request past the end |
 | `body_driving_seat` picks the first of two claimants | ✔ returns `None`. Its `debug_assert!(false)` went too: debug panicked while release drove an arbitrary body, so the builds disagreed about what a violated invariant DOES — which is why the release behaviour was never seen, and why it could not be tested |
-| `shape_seat_frame` dual-writes raw + published | ◐ recorded as decision §31; the requested caller-count guard DECLINED as meta-test machinery |
+| `shape_seat_frame` dual-writes raw + published | ◐ decision §31; caller-count guard DECLINED as meta-test machinery. 2026-08-22: FROZEN in its own doc instead — migration infrastructure, three clients, no new ones; the staged proposal→confirmed→effective endpoint is written there |
 | control vocabulary accumulating under `brain` | ✔ and it took THREE moves, not one — the review named the seat tables, and following them found the rest. 321 lines (seat identity + its tables), then `ActorControl` (the per-body frame, 96 refs — its own doc argued the move: it is a separate component so a brain swap cannot disturb it), then control AUTHORITY (`ScriptedControl` / `ControlHold(s)` / claim-release-clear, 176 lines, found by following `release_capture`). `brain/mod.rs` is 525 lines and exports NO control-domain name; no migration re-export at any step |
 | `LimbSlot` is a closed enum documented to grow per content | ✔ validated open id (`Copy`, bytewise order, `[a-z0-9_]`); probe key is an FNV hash where an enum cast stood |
 | projectile collision is endpoint-only, first-victim-wins | ▢ recorded beside the bolt ruling; ⚠ one correction — projectiles ARE sorted by spawn sequence, so it is arbitrary arbitration, not a desync |
@@ -754,10 +754,12 @@ crates/ambition_input/src/control.rs:119
 
 `read_gameplay_control_frame_with_settings` is the ONLY producer of a frame for
 seats 1+ (`populate_secondary_slot_controls`), and it hardcodes that flag. Seat
-zero gets it from `input_timer_system`, which derives a double-tap from
-`Res<ControlFrame>` and writes it back. ⇒ **in a couch match, player two cannot
+zero gets it from the double-tap derivation, which reads `Res<ControlFrame>` and
+writes it back. ⇒ **in a couch match, player two cannot
 fast-fall.** The same system writes only `slot_gestures.primary_mut()`, so
 `double_tap_up_pending` — the door/interact gesture — is seat zero's too.
+(That system was `input_timer_system`; it is `derive_slot_direction_gestures`
+since 2026-08-22, when its three unrelated jobs were split at thirteen params.)
 
 ⚠ **and `SlotInteractionState` is ALREADY slot-keyed with `MAX_SLOTS` entries,
 and the CONSUMER already reads per slot** (`body_mode/mechanics/mod.rs:156`
@@ -820,14 +822,14 @@ last seat-zero arm.
 
 ⛔⛔ **AND THE ROW'S OWN PLAN WAS WRONG ABOUT WHERE THE DERIVATION RUNS.** It
 said the gesture derivation is on the FEEL clock and must not move after
-publication. Measured: `input_timer_system` is registered into the SIM schedule,
+publication. Measured: the input-timer set is registered into the SIM schedule,
 which under a rollback host IS `GgrsSchedule` — it runs inside rollback, and
 `SlotInteractionState` is `rollback_resource_canonical`. The clock argument was
 sound and the placement claim was not, which is why the fix is a loop in place
 rather than a move.
 
 ⚠ **what the derivation's placement actually costs, stated because it is the
-next reader's trap.** `input_timer_system` and `interaction_input_system` are
+next reader's trap.** The `InputTimersAdvanced` systems and `interaction_input_system` are
 still tagged `InputSet::Route` although neither writes `ControlFrame` any more.
 By the set's definition they do not belong in it; what keeps them there is the
 ORDERING it carries. The portal warp is pinned after `InteractionInputBuffered`

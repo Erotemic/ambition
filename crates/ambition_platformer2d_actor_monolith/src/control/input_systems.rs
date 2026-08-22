@@ -332,8 +332,10 @@ pub fn cleanup_timers_system(
 #[cfg(test)]
 mod per_seat_gesture_tests {
     use super::*;
-    use crate::control::{DrivingParticipant, SlotInteractionState};
-    use ambition_characters::brain::{PlayerSlot, SeatRawFrames, SlotControls};
+    use crate::control::DrivingParticipant;
+    use ambition_characters::brain::{
+        PlayerSlot, SeatRawFrames, SlotControls, SlotInteractionState,
+    };
     use ambition_combat::feel::Platformer2dFeelTuningMonolith;
     use ambition_platformer2d_core::ControlFrame;
 
@@ -446,8 +448,8 @@ mod per_seat_gesture_tests {
 mod interaction_suppression_tests {
     use super::*;
     use crate::actor::{PlayerEntity, PrimaryPlayer};
-    use ambition_characters::brain::SlotInteractionState;
     use ambition_characters::actor::BodyCombat;
+    use ambition_characters::brain::SlotInteractionState;
     use ambition_combat::feel::Platformer2dFeelTuningMonolith;
     use ambition_platformer2d_core::ControlFrame;
 

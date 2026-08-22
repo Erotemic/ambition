@@ -3916,9 +3916,29 @@ crate::features::ecs (41 of the 94)                 → intra-family paths, not 
 ```
 
 ⇒ **the monolith's biggest domain is held by far less than its reference counts
-suggest**, and the residue is small and nameable (`banter`,
-`damageable_volumes`, `BossVolumeContext`, `BossAnimationFrameSample`,
-`ActorAggression`). ⛔ **so stop pricing carves from `crate::` counts on this
+suggest.** Resolving the residue to the last symbol — `BossVolumeContext` and
+`BossAnimationFrameSample` are `ambition_boss_encounter`, `ActorAggression` is
+`ambition_combat` — leaves **SIX monolith-owned names** holding 3,788 lines:
+
+```text
+CombatBanterRegistry      4 refs   features::banter (a 63-line module)
+ActorClusterSeed          3        features::ecs::actor_clusters
+damageable_volumes        2        features::damageable_volumes
+actor_component_snapshot  1        features::ecs::actors
+enemy_component_snapshot  1        features::ecs
+(damage_apply            32        inside the family itself — not coupling)
+```
+
+⭐⭐ **AND FIVE OF THE SIX BELONG TO THE SPAWN DOMAIN**, which is the OTHER half
+of `features/ecs`. `ambition_combat` already owns `hitbox`, `on_hit`,
+`events::ActorStimulus` and `components::{ActorFaction, ActorAggression}`, so
+damage APPLICATION belongs there by every other measure — but cluster seeds and
+component snapshots are construction, and the monolith already depends on
+`ambition_combat`, so exposing them upward would be a cycle.
+
+⇒ **the next D33 slice is therefore SPAWN, not damage**, and the two move in that
+order or together. That is a statement about which carve is even possible, which
+is what this row has been asking for since it was written. ⛔ **so stop pricing carves from `crate::` counts on this
 crate entirely** — three modules measured this way in one day and all three were
 mostly laundering. Resolve every name to its defining crate first; the count that
 matters is the one left over.

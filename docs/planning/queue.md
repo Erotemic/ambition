@@ -4038,6 +4038,49 @@ the memo INSIDE the onset question. A caller that could read without advancing
 would emit the strike edge every tick the strike is live — the exact bug the memo
 exists to prevent — so the two steps are one call.
 
+⭐⭐ **AND THE NAMED SURVIVOR IS ALREADY MEASURED: `RoomContentStagingRegistry`
+NEEDS A HOME THAT DOES NOT EXIST (2026-08-22).** Resolving every name, as this row
+requires:
+
+```text
+content_staging.rs (399 lines)  names, beyond std/bevy, exactly TWO things:
+    crate::rooms::RoomSpec                → ambition_platformer2d_world   ✔ outward
+    spawn_actors::SpawnActorRequest       → monolith-owned                ⛔ THE EDGE
+
+SpawnActorRequest / SpawnActorKind  names, resolved to defining crate:
+    ae::Vec2                              → ambition_platformer2d_core    ✔
+    ActorFaction                          → ambition_characters           ✔
+    BossBrain, CharacterBrain, CharacterId→ ambition_entity_catalog       ✔
+    BossOverrides                         → ambition_boss_encounter       ✔
+```
+
+⇒ **the seed has ZERO monolith-owned dependencies** — it is a plain content-free
+request (two `String`, two `Vec2`, a faction, an optional grudge, and a two-variant
+kind). ⛔ **but no crate BELOW the monolith carries the five crates it needs.**
+Exactly three carry all five and every one is disqualified by DIRECTION or domain:
+`ambition_platformer2d` (the facade, above), the monolith itself, and
+`ambition_sim_view` (a render read-model). The near misses are all above too —
+`ambition_platformer2d_runtime` and `..._provider` each miss only
+`ambition_entity_catalog` **and each already consumes the registry**, but both
+DEPEND ON the monolith, so moving there inverts the edge.
+
+⇒ ⚠ **the honest candidates below the monolith are two, and both cost something.**
+`ambition_platformer2d_shared_tangle` is where the registry is already *documented*
+(`construction/registry.rs` names it in a doc comment) — but it carries **none** of
+the four and its own manifest says *"Foundation-only — still NEVER
+ambition_platformer2d_actor_monolith"*, so it would take four new edges.
+`ambition_boss_encounter` carries everything the SEED names with **zero new edges**
+(it misses only `..._world`, which the seed does not need — only `content_staging`
+does) — but a request that spawns ENEMIES as well as bosses does not belong in a
+boss crate, and putting it there would launder the name to buy a clean graph.
+
+⇒ **this is the `body_mode` verdict again, and it should be read the same way:
+leave it until a home exists for an unrelated reason.** ⭐ but the shape is now
+recorded exactly, so the next reader does not re-derive it: the blocker is NOT
+coupling — the seed is already free — it is that **the five crates a content-free
+spawn seed names have no common descendant.** That is an argument for a small
+spawn-vocabulary crate, and it is the first time this row has produced one.
+
 ⭐⭐ **`body_mode` MEASURED, AND ITS COUPLING WAS RE-EXPORT LAUNDERING — 2026-08-22.**
 The table above prices `body_mode` at 8 outbound `crate::` references. Reading
 what those 8 references NAME: 11 of the 12 symbols already live outside the

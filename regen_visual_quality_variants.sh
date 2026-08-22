@@ -1,32 +1,16 @@
 #!/usr/bin/env bash
 # Generate reduced-resolution sprite and parallax assets after full-res publish.
-#
-# Work is incremental by default: a tier is rebuilt for a sheet only when the
-# authored sheet, one of its page PNGs, or the generator itself is newer than
-# what was published. A full run with nothing changed costs seconds.
+# A sheet/tier is rebuilt when its source pages or generator are newer than the
+# published output; --force bypasses this freshness check.
 #
 # Usage:
-# ./regen_visual_quality_variants.sh
-# ./regen_visual_quality_variants.sh --sprites-only
-# ./regen_visual_quality_variants.sh --backgrounds-only
-# ./regen_visual_quality_variants.sh --target patent_clerk        # one character, every tier
-# ./regen_visual_quality_variants.sh --target 'pirate_*' --tier 0_5x
-# ./regen_visual_quality_variants.sh --force                      # ignore the freshness check
-# ./regen_visual_quality_variants.sh --clean                      # empty each tier root first
-#
-#   --target takes an fnmatch pattern and repeats; --tier is one of
-#   0_5x / 0_25x / potato and repeats.
+#   ./regen_visual_quality_variants.sh [--sprites-only|--backgrounds-only]
+#       [--target <fnmatch>]... [--tier <0_5x|0_25x|potato>]...
+#       [--force] [--clean]
 #
 # Environment:
-#   AMBITION_SPRITE_PYTHON=/path/to/python  Override the sprite tool .venv.
-#   AMBITION_QUALITY_VARIANTS=0             Skip variant generation entirely.
-#
-# there is no hand-written postcondition here any more. This script asserted
-# `sprites_0_5x/player_robot_spritesheet.ron` for weeks after the player sheet
-# became `player_robot_v3`, so every run did its work, printed its summary, and
-# then exited 1 on a file that had stopped existing. The generator now verifies
-# the units it actually planned, which is a list that cannot drift because
-# nothing maintains it.
+#   AMBITION_SPRITE_PYTHON=/path/to/python
+#   AMBITION_QUALITY_VARIANTS=0
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

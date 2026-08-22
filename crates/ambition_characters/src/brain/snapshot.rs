@@ -26,14 +26,8 @@
 
 use ambition_platformer2d_core as ae;
 
-/// What a brain sees this tick. Read-only; brains never mutate the
-/// snapshot (they write to `&mut ActorControlFrame` instead).
-/// not `Copy` since FB4b. `attack_kit` is a `Vec`, and the alternatives
-/// were worse: a lifetime on `BrainSnapshot` would infect every brain signature
-/// in the crate, and passing the kit beside the snapshot would put body-derived
-/// truth on a second channel — which is the split the world-in port exists to
-/// prevent. Every hot path already takes `&BrainSnapshot`; the copies that
-/// remained were test fixtures.
+/// Immutable per-tick brain input. Brains write decisions to
+/// `ActorControlFrame`; body-derived facts stay on this single read channel.
 #[derive(Clone, Debug)]
 pub struct BrainSnapshot {
     /// The capture relationship, as three plain facts. Resolved by the phase

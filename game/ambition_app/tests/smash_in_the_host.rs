@@ -776,31 +776,10 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
     );
 }
 
-/// The seating is FROZEN in a build a player runs.
-///
-/// Every test passed because tests construct the resource by hand.
-///
-/// This asserts the thing none of them did: that a decided match leaves a frozen
-/// topology behind, sized by the ROSTER rather than by how many pads happen to be
-/// plugged in.
-///
-/// and it counts HUMANS, which it did not. It asserted
-/// `declared_seats == roster.participants.len()`, CPUs included — and
-/// `declared_seats` is read for two things that both mean *how many people are
-/// playing on this machine*: it sizes the ggrs session's local handles, and it
-/// picks solo-vs-couch in `assign_local_seat_devices`, where `players < 2` means
-/// "leave leafwing's any-pad behaviour alone". So this one-human-one-CPU match
-/// built a two-handle session whose second handle nothing ever wrote, and put a
-/// solo player on the COUCH branch, which assigns pads positionally — fine while
-/// their pad is at index 0 and nothing at all the moment it is not.
-///
-/// what this fixture can no longer distinguish, said plainly. With one
-/// human and no pads the roster's human count and the device count are both 1,
-/// so "the roster wins over the devices" is not separable here any more. The
-/// case that separates them is two humans on one keyboard, and
-/// `a_keyboard_player_and_a_pad_player_drive_different_fighters` is the test
-/// that builds it. What is left here is the claim that only this fixture makes:
-/// a CPU does not buy a seat at the input table.
+/// A decided match freezes local input topology from human participants, not
+/// roster length. CPU fighters do not allocate local GGRS/input seats. Mixed
+/// keyboard/pad separation is covered separately; this fixture pins the
+/// one-human-plus-CPU case.
 #[test]
 fn a_decided_match_freezes_the_local_seating() {
     use ambition_platformer2d::input::LocalSeatTopology;

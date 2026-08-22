@@ -1,29 +1,11 @@
-// Portal integration test: only built with the portal mechanic + RL stepping
-// API. Compiled out (empty test binary) when `portal` is disabled.
+// Portal integration test: only built with the portal mechanic + RL stepping API.
 #![cfg(all(feature = "portal", feature = "rl_sim"))]
-//! Stage 19 Phase 4 — the projectile-transit DEMO, proven against the REAL app
-//! schedule.
+//! Verifies free-flying portal transit in the real app schedule.
 //!
-//! A projectile is a free-flying body: it carries the shared `BodyKinematics`
-//! and is opted into the ONE generic `portal_transit` core with a free-flying
-//! `PortalPolicy { reorient: false, carry_velocity: true }`. The unit suite in
-//! `ambition_content::portal::transit_body_adapter` proves the Phase-4 tagging
-//! adapter (`ensure_projectile_portal_bodies`) + the core transit in isolation;
-//! THIS test proves the same thing end-to-end inside a live `Platformer2dSimHarness` app —
-//! the real `PortalSet::Transit` schedule processes a projectile-shaped body and
-//! transits it through a placed pair.
-//!
-//! Setup: read a live authored portal pair, spawn a projectile-shaped body
-//! (small `BodyKinematics`, no `ActorRoll`, the free-flying `PortalPolicy`)
-//! flying into the entry portal, then step the real app and assert the body
-//! emerges on the far side travelling through the exit (keeps flying — not
-//! stopped, not re-oriented).
-//!
-//! The body is spawned already carrying `PortalBody` + `PortalPolicy` (both
-//! public) so the test needs no `pub(crate)` projectile types; the projectile
-//! *tagging* path is covered by the in-crate unit suite. What this guards is the
-//! real-app wiring: `portal_transit` runs in the live schedule against a
-//! free-flying body and carries it through the pair.
+//! A projectile-shaped body carries shared `BodyKinematics`, `PortalBody`, and a
+//! non-reorienting velocity-preserving `PortalPolicy`. The test uses a live
+//! authored portal pair and the normal `PortalSet::Transit` schedule; projectile
+//! tagging itself is covered by the in-crate adapter tests.
 
 use crate::common::{base, first_authored_portal_pair, fixed_60hz_room_sim};
 

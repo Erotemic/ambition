@@ -104,9 +104,7 @@ fn a_compiled_pack_carries_the_sfx_registry_the_runtime_will_load() {
     assert_eq!(sfx.sample_rate, 44100);
 }
 
-/// The rules are `validate()`'s, reached without building an App. A
-/// `default_track` naming no track means startup has nothing to play, and
-/// before this the only thing that said so was `AudioCatalogFragment::new`.
+/// Validation rejects a `default_track` that names no authored track.
 #[test]
 fn a_default_track_naming_no_track_is_refused() {
     let text = MUSIC.replace(r#"default_track: "theme""#, r#"default_track: "missing""#);

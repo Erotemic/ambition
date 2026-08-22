@@ -1,20 +1,9 @@
-//! Authoritative body cluster types — the movement aggregate every actor
-//! carries, the player included (NOT player-specific).
+//! Authoritative movement-state components shared by every actor body.
 //!
-//! Each Bevy `Component` carries one tightly related slice of body state
-//! (kinematics, ground contact, dash charges, …). Together they form the
-//! authoritative movement aggregate every body — player, enemy, NPC, boss —
-//! shares. The clusters hold SHARED facts: contact facts the collision
-//! doctrine writes and preserved resources/cooldowns. Policy-PRIVATE maneuver
-//! state lives inside the body's `MotionModel` variant (ADR 0024 — see
-//! [`crate::movement::AxisManeuverState`]).
-//!
-//! [`BodyClustersMut`] is a struct-of-`&mut` view assembled from a
-//! `Query<BodyClusterQueryData, …>::as_clusters_mut()` call; every
-//! engine entry point in `crate::movement` takes one.
-//! Tests that need a non-ECS scratchpad construct
-//! [`BodyClusterScratch::new_with_abilities`] and re-borrow via
-//! `BodyClusterScratch::as_mut`.
+//! Cluster components hold shared kinematics, contact, resources, and cooldowns;
+//! policy-private maneuver state lives in the body's `MotionModel`.
+//! [`BodyClustersMut`] collects mutable cluster references for movement entry
+//! points, while [`BodyClusterScratch`] provides the same shape for tests.
 
 use crate::abilities::AbilitySet;
 use crate::movement::ComboMark;
@@ -22,21 +11,12 @@ use crate::player_state::{BodyMode, ResourceMeter};
 use crate::world::{ClimbableContact, WaterContact};
 use crate::Vec2;
 
-/// Mutable cluster references aggregated for the engine
-/// `update_player_*_with_clusters` entry points.
-///
-/// Holding the 18 cluster refs in a struct keeps the entry-point
-/// signatures from accumulating 20+ positional parameters and lets
-/// sandbox callers build the view from a Bevy query without going
-/// through a separate bridge module.
+/// Mutable body-cluster view consumed by movement entry points.
 pub struct BodyClustersMut<'a> {
     pub abilities: &'a BodyAbilities,
     pub kinematics: &'a mut BodyKinematics,
-    /// The §3.1 per-tick motion record, written by the simulation phase
-    /// itself (see [`SweepSample`]). `Option` so legacy bodies, scratch
-    /// tests, and non-pipeline movers opt in incrementally — an absent
-    /// sample means swept readers fall back to their historical
-    /// `vel·dt` approximation.
+    /// Per-tick motion record written by simulation. When absent, swept
+    /// readers fall back to the `vel * dt` approximation.
     pub sweep: Option<&'a mut SweepSample>,
     pub base_size: &'a mut BodyBaseSize,
     pub ground: &'a mut BodyGroundState,
@@ -167,31 +147,12 @@ impl AbilityBase {
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug)]
 pub struct AuthoredMovementTuning(pub crate::movement::MovementTuning);
 
-/// Position, velocity, AABB size, and facing direction of a body.
+/// Position, velocity, AABB size, and facing shared by every actor body.
 ///
-/// The foundational body state every controllable body in the platformer
-/// shares: the player, enemies/NPCs, and bosses all carry one. It replaces
-/// the three historical parallel types (`PlayerKinematics`,
-/// `ActorKinematics`, `BossKinematics`) so any code that operates on "a body"
-/// (orientation, transit, vortex, brain effects, …) holds ONE query instead
-/// of branching across three.
-///
-/// The player shares this unified component with enemies / NPCs / bosses. The
-/// player-only "base / standing body size" lives separately on
-/// [`BodyBaseSize`] so the shared component stays minimal.
-///
-/// ## Query-conflict discipline
-///
-/// Because player, enemy, and boss entities all carry `BodyKinematics`, any
-/// single system that holds more than one `&mut BodyKinematics` query (or a
-/// `&mut` query alongside another that can alias the same entity) must make the
-/// queries provably disjoint with marker filters (player / enemy / boss are
-/// mutually exclusive archetypes). Handle the conflict with filters, never by
-/// re-splitting the component.
-///
-/// Bosses float and never integrate `vel` themselves (the brain emits a fresh
-/// `desired_vel` each tick for `integrate_body`), so a boss simply leaves
-/// `vel` at [`Vec2::ZERO`].
+/// Systems with multiple mutable `BodyKinematics` queries must make them
+/// provably disjoint with marker filters rather than introducing parallel body
+/// components. Boss brains emit `desired_vel`; their stored `vel` remains
+/// [`Vec2::ZERO`].
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq)]
 pub struct BodyKinematics {
     pub pos: Vec2,

@@ -1,64 +1,26 @@
-//! The one body step. Every controllable body — the home avatar, an AI
-//! actor, a seated fighter, a boss — reaches the movement kernel through
-//! [`step_body`], so a rule about how a body integrates cannot reach one road
-//! and miss another.
-//!
-//! So the freeze was a property of *who got hit* rather than of the hit, a player felt every
-//! connect, and an exchange between two AI bodies froze neither of them. On a platform fighter that
-//! is every CPU match and every seat past the first.
-//!
-//!  so this function exists to make the rule structural rather than
-//! remembered. It lives here, in the actor-behaviour crate, because this crate's
-//! stated job is *"the same brain + control-frame contract drives players, NPCs,
-//! enemies, and bosses"* — and because the rule needs [`BodyCombat`], which
-//! [`ambition_platformer2d_core`] deliberately cannot see: `step_motion`'s own
-//! contract is *"model dispatch happens inside the trusted kernel, while
-//! body/controller identity remains outside."* A body's hitlag is body identity.
-//!
-//!  what stays with the CALLER, on purpose: resolving which
-//! [`MovementTuning`] this body moves under (authored feel, a live inspector
-//! slider, a flyer's derived chase speed), and building the [`InputState`]. Those
-//! differ legitimately between roads. What must not differ is what happens once
-//! they are resolved.
+//! Shared movement step for every controllable body.
+//! Callers resolve input and tuning; this seam applies body-generic hitlag and out-of-play rules
+//! before dispatching to the movement kernel.
 
 use ambition_platformer2d_core as ae;
 
 use super::BodyCombat;
 
-/// Step one body through the movement kernel, spending whatever hitlag it is in.
-///
-///  `axis_tuning` is applied here rather than by the caller because the
-/// live-tuning refresh and the step are one operation in practice: a caller that
-/// steps without refreshing runs a body on last session's authored feel, and a
-/// caller that refreshes without stepping has done nothing. Both roads already
-/// wrote these two lines adjacent; this is that pair, named once.
-///
-///  the refresh touches ONLY the axis policy's parameters. The environmental
-/// acceleration frame rides `ctx.frame` and cannot be frozen into, or reset
-/// with, movement-model configuration.
+/// Step one body through the movement kernel with shared hitlag and out-of-play handling.
+/// Axis tuning is refreshed here so refresh and integration cannot diverge between body roads.
 pub fn step_body(
     model: &mut ae::movement::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
     combat: &BodyCombat,
     axis_tuning: ae::MovementTuning,
-    // Has this body's attempt already ended? (`OutOfPlay`, ADR 0033.) A bool
-    // for the same reason the caller takes one: the rule is applied HERE so a
-    // second road cannot invent a slightly different "does a dead body move".
+    // Out-of-play is enforced here so controller-specific roads cannot define different dead-body motion.
     out_of_play: bool,
     mut ctx: ae::MotionStepContext<'_>,
 ) -> ae::MotionStepResult {
     if let ae::movement::MotionModel::AxisSwept(axis) = model {
         axis.params = axis_tuning.axis_swept_params();
     }
-    //  `OutOfPlay`'s own doc already CLAIMED this — *"it makes 'she dies
-    // where she died' free … nothing moves her now, so there is nothing to
-    // pin"* — while the flag only ever gated a `BodyReset`. Gravity and carried
-    // momentum went on integrating, so she slid or fell through her own death
-    // animation. The doc was right about the intent and nothing implemented it.
-    //
-    // Velocity is cleared rather than merely frozen because the window ends in a
-    // respawn or a level reset; a retained velocity would be spent the instant
-    // the body came back. Idempotent, so it is safe under rollback re-simulation.
+    // Clear retained velocity while out of play so it cannot be spent after respawn or reset.
     if out_of_play {
         ae::movement::halt_body(clusters.kinematics);
         ctx.dt = 0.0;

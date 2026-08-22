@@ -1,29 +1,8 @@
-//! FB4b — the rig that turns the fighter brain into inputs. (§13)
+//! Fighter decision rig: cadence, held intent, APM limiting, and deterministic noise.
 //!
-//! Everything below this file is pure and already tested: `classify` (L1), `generate_options`
-//! (L2), `refine_by_rollout` (L3), the `HabitModel`, the `DelayedPerception` buffer.
-//!
-//! This is that brain. It is mostly plumbing plus three careful pieces, and each
-//! of the three is rollback state rather than cache:
-//!
-//! * cadence — a decision every `decision_interval_ticks`, with the chosen
-//!   intent HELD in between. A brain that re-decided every tick would be
-//!   frame-perfect in a way no player is, and the held intent is what a human's
-//!   hand actually does between thoughts.
-//! * APM — enforced at the ONE emission point, so the humanity histogram
-//!   measures what the brain DID rather than what it wanted.
-//! * noise — one `u64` stream, stepped only when consumed, spending samples
-//!   on press TIMING only. The moveset aims the melee; there is no aim noise in
-//!   v1.
-//!
-//! ## Every field of `FighterState` gates behaviour, so every field rewinds
-//!
-//! That is the derive-memo rule applied in advance rather than after a desync:
-//! a field that decides what the brain does next is not a cache of something
-//! recomputable, it is the brain's position in its own loop. `BossPatternState`'s
-//! `rng_seed` is the precedent — it is snapshot-registered for exactly this
-//! reason, and a noise stream that did not rewind would make the same fighter
-//! throw a different jab on a replay.
+//! Every `FighterState` field affects future decisions and is rollback state.
+//! APM is enforced at action emission, and the deterministic RNG advances only
+//! when a sample is consumed.
 
 use ambition_platformer2d_core::{self as ae, Vec2};
 
@@ -494,33 +473,10 @@ fn decide(
         apply_movement(verb, view, frame);
     }
 
-    // ATTACK: a chosen attack becomes a PENDING press, jittered by the profile's
-    // execution noise. The winner is L3's when L3 spoke, L2's otherwise.
-    // `and_then`, not `map`. `RefinedChoice::move_id` is the rollout's
-    // preferred attack and it is `None` when L2 offered none — `map` wrapped
-    // that in a second `Some`, so every decision that ran a rollout requested an
-    // attack that named no move, including in `Recovery`. See the field's doc.
-    //
-    // the BINDING travels with it, which is the whole of 2: the winner used to be reduced
-    // to "yes, attack" and a tick count, and the press that matured was a neutral melee edge —
-    // so the reach, frame-advantage and rollout work decided WHETHER to swing and never WHICH
-    // move.
-    //
-    // AND IN `Recovery` THE KERNEL OUTRANKS BOTH. L2 orders the routes by
-    // the one thing a pure function can see — how hard each one pushes against
-    // gravity — and that order is a proposal, not an answer. Which authored
-    // action is useful from where this body actually is has exactly one
-    // authority, and it is the movement kernel; `best_route` drove it from here
-    // and reported which route got home.
-    //
-    // Three outcomes, and each is a different instruction:
-    //   * a named route   press THAT move, whatever it ranked;
-    //   * home already    press NOTHING. Spending a recovery you did not need
-    //                      is how a fighter loses to an edgeguard, and this
-    //                      falls out of the search order rather than being a
-    //                      rule somebody wrote;
-    //   * nothing found   a BOUNDED negative, never a proof. Fall through to
-    //                      the ordinary ranking and do the best available thing.
+    // A chosen attack carries its exact move binding through execution noise.
+    // During recovery, the movement kernel has final authority: an endorsed
+    // route is pressed, an already-regained state presses nothing, and a bounded
+    // search miss falls back to the ordinary attack ranking.
     let endorsed_recovery = if situation == Situation::Recovery {
         lens.as_ref().map(|lens| {
             lens.best_route(super::recovery::RecoveryQuery {
@@ -532,49 +488,16 @@ fn decide(
     } else {
         None
     };
-    // the MOVE ID travels with the binding, and it is not decoration. A
-    // binding is a button and a stick direction; two different moves in one kit
-    // reach the same one under different gates, so a trace that published only
-    // the binding could not answer *"which authored action did the CPU select
-    // here"* — the question this whole layer exists to be judged on. Carrying
-    // the id costs one `clone` per decision on the branch that already cloned
-    // it, and it is what makes `Situation::Recovery → the move pressed` a field
-    // lookup rather than an inference.
+    // Keep the authored move id with the physical binding so traces can identify
+    // the selected action even when multiple moves share a button/direction.
     let wants_attack: Option<(super::options::AttackBinding, String)> = match endorsed_recovery {
         Some(verdict) if verdict.regained() => verdict
             .route
             .and_then(|index| route_moves.get(index))
             .map(|candidate| (candidate.binding, candidate.move_id.clone())),
-        // THE SEARCH RAN AND ENDORSED NOTHING  THROW NOTHING. The
-        // kernel is the authority on which authored action is useful from here,
-        // and it is the authority in BOTH directions — a negative is its answer,
-        // not its silence.
-        //
-        // `lifting_candidates`' own doc named the consequence in advance: *"If a caller ever
-        // takes `.first()` here as the recovery, the tiny-rising-aerial trap is back."*
-        //
-        // He spent a third of the match firing a recovery the kernel had just finished saying would
-        // not work, could not act while it played, and started three distinct moves out of sixteen
-        // authored.
-        //
-        // and pressing it was not the safe half. A grid over the real stage
-        // (`excluded_middle` = `Set (0, -1020)`) says a straight-up burst ERASES
-        // the drift that would have carried him back across, so from beside the
-        // lip he rockets past it and returns to the same place; the search had
-        // probed exactly that move from exactly that state and answered no. There
-        // is no information in overriding it — the ranking knows strictly less
-        // than the search that just ran.
-        //
-        //  so this is not "rank the failures by how dead they are"
-        // (`least_bad_route`, the repair the journal proposed): there is nothing
-        // to rank, because the alternative to a route the kernel rejected is
-        // KEEPING it. A recovery spent early is a recovery you do not have when
-        // the edgeguard comes, which is the same fighting-game fact the
-        // buttons-only baseline already encodes by going first.
-        //
-        // the movement half is untouched and still runs: `Recover` was chosen
-        // above, the body is still steering home, and the next decision (five
-        // ticks later) asks the kernel again from wherever the drift has got to.
+        // A completed recovery search with no endorsed route is authoritative:
+        // press no recovery attack. Movement steering continues and the next
+        // decision re-evaluates from the new state.
         Some(_) => None,
         // An ordinary situation: no recovery search ran, and the ranking is
         // exactly right.

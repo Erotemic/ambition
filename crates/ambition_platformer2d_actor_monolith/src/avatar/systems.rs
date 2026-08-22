@@ -13,19 +13,9 @@ use ambition_characters::control::{ActorControl};
 use ambition_characters::control::{DrivingParticipant, SlotControls};
 use ambition_platformer2d_core as ae;
 
-/// Blank the control frame of every body a scripted sequence is driving.
+/// Blank scripted bodies after brain production and before control consumers.
 ///
-/// Ordered immediately AFTER the brains write, which is the whole point. The
-/// sequences that predate [`ScriptedControl`] each blanked the frame from their
-/// own phase — Mary-O's death beat from `GameplayEffects` — and the brain simply
-/// refilled it at the next frame's `PlayerInput` before anything read it. The
-/// only position where blanking is observable is between the producer and the
-/// frame's consumers, so the engine owns that position rather than asking each
-/// sequence to find it.
-///
-/// This clears the frame the body ACTS on; it does not touch the device layer,
-/// so a held button is still held and resumes on its own once the sequence
-/// retires.
+/// Device state is untouched, so held input resumes when scripted control ends.
 pub fn blank_scripted_control_frames(mut bodies: Query<&mut ActorControl, With<ScriptedControl>>) {
     for mut control in &mut bodies {
         control.0 = ambition_characters::actor::control::ActorControlFrame::neutral();
@@ -45,53 +35,18 @@ pub fn sync_player_actor_poses(
     }
 }
 
-/// The set [`tick_controlled_brains`] runs in — the controlled-decision phase.
+/// Ordering seam meaning participant input has been translated to `ActorControl`.
 ///
-/// FOUR consumers pinned this function by name: both Mary-O rows, one Sanic row,
-/// and the causal movement-intent observer. It was recorded for a while as the
-/// one conversion that would be STRICTER rather than equivalent, on the grounds
-/// that `PlayerInputSet::Brain` already holds two things.
-///
-/// A NESTED single-member set is always available and is exactly equivalent to the leaf pin it
-/// replaces.
-///
-/// It also unblocks a pin that could never have used the parent. The causal
-/// observer `record_player_movement_intent` is itself a member of
-/// `PlayerInputSet::Brain`, so `.after(PlayerInputSet::Brain)` would be a cycle;
-/// `.after(ControlledBrainTick)` is not, because it is not in this set.
-///
-/// ONE member, permanently. The parent phase is the place to add brain-adjacent
-/// work; this set means "participant control has become `ActorControl`" and
-/// nothing else, which is precisely what all four consumers were reaching for.
+/// Keep this a single-member leaf set; brain-adjacent work belongs in the parent
+/// phase, while consumers may order directly after this translation.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ControlledBrainTick;
 
-/// Translate participant control into `ActorControl`, for ANY controlled body.
+/// Translate `SlotControls` into `ActorControl` for any participant-driven body.
 ///
-/// The INPUT AUTHORITY is [`SlotControls`], keyed by the
-/// [`DrivingParticipant`]`(slot)` the body itself carries — never an entity-local
-/// copy and never an identity marker. A body is controlled because a participant
-/// is driving it, which is equally true of the home avatar and of an actor
-/// somebody possessed. Body mechanics consume the translated [`ActorControl`]
-/// written here.
-///
-///  the one fact that WAS actor-specific is the movement scale, and it does not
-/// need actor configuration to state it. `velocity_target` is an absolute
-/// world-space command, so the translation needs the body's own top speed;
-/// [`MotionModel::commanded_top_speed`] is that number, on the one movement-policy
-/// component every movable body already carries. A body with no movement policy
-/// commands no speed, which is what the home avatar did explicitly before.
-///
-/// The query requires `&DrivingParticipant`, so a vacated home avatar (its seat
-/// redirected away by `possession`) is skipped — it stays inert with a neutral
-/// `ActorControl`, and its own `Brain` says what it does when nobody is driving.
-/// A body nobody is driving is skipped for the same reason: its `ActorControl`
-/// belongs to an AI producer.
-///
-/// one filter is deliberately NOT inherited from the actor tick:
-/// `Without<Dormant>`. Dormancy sleeps a BRAIN — *"only the brain sleeps: the
-/// body still integrates"* — and a participant is not an AI to be optimised away.
-/// A human pressing right on a body that has gone dormant must move it.
+/// `DrivingParticipant` selects the slot; body motion policy supplies movement
+/// scale. Vacated or autonomous bodies are skipped. Dormancy does not suppress
+/// human-driven bodies because it sleeps AI brain work, not body integration.
 pub fn tick_controlled_brains(
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     slots: Res<SlotControls>,
@@ -111,19 +66,12 @@ pub fn tick_controlled_brains(
         });
 
     for (kin, ground, resolved_frame, motion_model, driver, mut control) in &mut controlled {
-        // The body's OWN per-tick resolved frame (ADR 0024): the same value
-        // this tick's integration moves the body under, so controller
-        // interpretation and physics can never disagree at a zone boundary.
+        // Input interpretation uses the same resolved frame as this tick's physics.
         let control_down = resolved_frame.down();
-        // INPUT AUTHORITY: this body's OWN slot frame, keyed by the seat it
-        // holds — the SAME `DrivingParticipant(slot)` → `SlotControls` path a
-        // possessed actor reads.
+        // Input authority is the body's driving slot.
         let slot = driver.0;
         let input = slots.get(slot);
-        // Build the snapshot from the player's cluster components plus
-        // the per-tick slot frame. The input is what makes
-        // the translation deterministic: same input +
-        // same body snapshot → same ActorControlFrame.
+        // Same slot frame plus same body snapshot produces the same control frame.
         let snapshot = BrainSnapshot {
             // A possessed body's brain drives a body a person is steering; it is
             // never in a capture on this road, and saying so beats inheriting a
@@ -146,12 +94,8 @@ pub fn tick_controlled_brains(
             // reverse a controlled body.
             side_contact_normal: None,
             turns_at_walls: false,
-            // FB4b §13.2: the fighter brain's attack kit. EMPTY here, and that is a
-            // recorded gap rather than a default: `ActorMut` does not carry the
-            // body's `ActorMoveset`, so filling this needs the moveset threaded into
-            // the actor query. A fighter with an empty kit plays MOVEMENT ONLY —
-            // `generate_options` produces no attacks — which is honest degradation
-            // and not a silent wrong answer. See the S7 row in the 72h queue.
+            // This translation path does not carry an ActorMoveset; fighter attack
+            // generation is therefore inactive here.
             attack_kit: Vec::new(),
             // The player brain reads input, not the Smash aerial path; grounded
             // locomotion semantics regardless of fly mode.
@@ -163,13 +107,7 @@ pub fn tick_controlled_brains(
             health_fraction: 1.0,
             sim_time: 0.0,
             dt: 0.0,
-            // The body's own top speed, from its own movement policy. The
-            // grounded integrators scale the normalized `locomotion` stick
-            // themselves and ignore this; a FREE-MOVER is steered by the absolute
-            // `velocity_target` the translator derives from it, which is how a
-            // possessed flyer moves at ITS speed with no possession-specific
-            // plumbing. Absent policy  0.0, the value the home avatar stated
-            // explicitly when this system only ever saw home avatars.
+            // Free-mover velocity targets use the body's own commanded top speed.
             max_run_speed: motion_model.map_or(0.0, |model| model.commanded_top_speed()),
             // The player brain does not predict; it translates a stick. Nothing
             // on this path reads a movement law, and claiming one would be a

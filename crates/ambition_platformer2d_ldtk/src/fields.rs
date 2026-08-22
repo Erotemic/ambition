@@ -229,33 +229,12 @@ pub(super) fn parse_debug_label_kind(
 #[cfg(test)]
 mod tests;
 
-/// HOW FAR A BODY MUST STEP UP TO WALK INTO THIS RECT, in px. `0` when the
-/// ground inside it is level with the ground just outside.
+/// Return how far the ground inside an exit is above the adjacent approach ground.
 ///
-/// ```text
-/// levels with an EdgeExit    15
-/// levels with a Solid ENTITY  4   (mary_o_1_1, mary_o_1_3,
-///                                  mockingbird_arena, gnu_ton_arena)
-/// intersection                0   -- EMPTY
-/// ```
-///
-/// No level has both, so the rule scanned an empty set on every world it was
-/// ever run against — *a check that cannot fail is worse than no check, because
-/// it spends the credibility of the ones that can.*
-///
-/// Three of those five were correct authoring: their zone's bottom row is solid because that
-/// row IS THE FLOOR, running unbroken across the level, and a zone stopping one row above the
-/// floor could never be touched by a body standing on it.
-///
-///  the question is not "is there anything solid in here", it is "is the ground in here HIGHER
-/// than the ground out there". Only `central_hub_main`'s two exits were: their openings are holes
-/// in a three-cell-thick wall whose bottom rows were still solid, so the opening sat 32px above the
-/// floor — a window, not a door, and a walking body stalled against the sill at x=1841 .
-///
-/// `0` for a level with no Collision IntGrid, and for a zone with no ground
-/// under it at all — both honest: a level that paints no collision blocks
-/// nobody, and a doorway over a void is a different complaint with a different
-/// rule.
+/// For each exit column, the first solid cell at or below the zone top is the
+/// walking surface. The worst inside surface is compared with the adjacent
+/// approach column. Returns `0` when collision data or a usable ground surface
+/// is absent. This tests traversability rather than solid occupancy.
 pub(super) fn edge_exit_step_up_px(level: &LdtkLevel, rect: (i32, i32, i32, i32)) -> i32 {
     let Some(layer) = level
         .layer_instances

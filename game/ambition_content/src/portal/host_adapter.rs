@@ -1,29 +1,9 @@
-//! Ambition bridge: CC6 host attachment — portals ride identified geometry.
+//! Bridge placed portals to identified world faces.
 //!
-//! Portal core owns the aperture MODEL (`PlacedPortal.host` — a
-//! [`GeoFaceRef`](ambition_platformer2d_core::GeoFaceRef), plus the derived
-//! `pos`/`vel`/`prev_pos` caches). It never names the concrete composed world.
-//! This adapter owns the two world-seam steps of the §5-P2 frame order:
-//!
-//! 1. Attach (lazy, once per placed portal): attribute the portal's
-//!    placement point to the identified block face it sits on, in the
-//!    UNCARVED authored + movers view. Attribution runs against
-//!    `RoomGeometry` + moving platforms — never the carved composition: the
-//!    carve replaces the host block with anonymous derived pieces, and a
-//!    portal must anchor to the durable authored face (§3.6 rule 2).
-//! 2. Refresh (each frame, §5-P2 step 2, after movers integrate and
-//!    before eviction/carves/transit): re-derive the hosted aperture's
-//!    `pos` from the face anchor, record `prev_pos` (the aperture's own
-//!    sweep sample for the relative transit trigger), and derive `vel`
-//!    (px/s, for the Galilean transfer map) from the host block's
-//!    authoritative per-tick displacement. A hosted portal whose face is
-//!    GONE from the composed view closes — a portal cannot exist without
-//!    its host face (the eviction system then handles any straddler on the
-//!    vanished plane).
-//!
-//! Unhosted portals (attribution found no identified face — fixtures,
-//! anonymous fixture geometry) are left exactly as placed: zero velocity,
-//! zero frame delta, byte-identical to the pre-CC6 portal.
+//! Attribution runs once against uncarved hostable surfaces. After mover
+//! integration, hosted portals refresh position, sweep state, and velocity from
+//! their face anchor. A portal closes when its host face disappears; unhosted
+//! fixtures remain static.
 
 use bevy::prelude::*;
 
@@ -44,8 +24,6 @@ pub struct PortalHostScanned;
 /// Lazily attach just-placed portals to the identified face they sit on.
 pub fn attach_portal_hosts(
     mut commands: Commands,
-    // The ONE collision read-API. This composed its own world from the room and
-    // the platform set — the last reader outside the collision module to do so.
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     mut portals: Query<(Entity, &mut PlacedPortal), Without<PortalHostScanned>>,
 ) {
@@ -71,7 +49,7 @@ pub fn attach_portal_hosts(
     }
 }
 
-/// §5-P2 step 2: re-derive each hosted aperture's frame from its host face.
+/// Re-derive each hosted aperture frame from its current host face.
 pub fn refresh_hosted_portal_frames(
     mut commands: Commands,
     collision: ambition_platformer2d_world::collision::CollisionWorld,
@@ -109,8 +87,3 @@ pub fn refresh_hosted_portal_frames(
         };
     }
 }
-
-// `hostable_view` stood here and is DELETED. "The uncarved authored + movers
-// view portals may anchor to" is a real and distinct question — and it is named
-// on the collision API now, as `CollisionWorld::hostable_surfaces`, so no
-// consumer composes a collision world by hand.

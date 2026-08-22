@@ -508,43 +508,15 @@ impl Item {
         None
     }
 
-    //  `legacy_dialog_alias` was here and had ZERO production adopters after
-    // the Yarn inventory mirror went away. Its one caller rebuilt a snapshot of
-    // the bag keyed under both the catalog id and the alias so a synchronous
-    // `<<if>>` could look it up; authored dialogue now asks the item domain's
-    // `inventory.holds` condition, which resolves loose spelling through
-    // `from_dialog_id` — where the alias already lived. A public method whose
-    // only remaining caller is its own test is not a capability.
 }
 
-/// The player's 24 catalog rows: a QUANTITY per slot, plus which slot is in the
-/// body's hand.
+/// Quantity-owned catalog items plus the currently equipped slot.
 ///
-/// `counts[i]` is how many of [`Item::from_index(i)`] the player owns as a
-/// quantity, with no object behind it — a `<<give_item>>` grant, a shop
-/// purchase, a stack of health cells. For unique items it is 0 or 1, for
-/// [`ItemCategory::Consumable`] it is a stack size. `equipped` is the slot the
-/// body is currently holding, written by the ONE take-custody operation.
-///
-/// #  WHAT THIS TABLE IS NOT AN AUTHORITY FOR
-///
-/// A held object is NOT a row here. Nine of the 24 slots
-/// ([`Item::held_item_id`] is `Some`) can be an INSTANCE in the world as well as
-/// a quantity in this table, and while both stored the same acquisition they
-/// disagreed: a death that returned a picked-up weapon to its pedestal retracted
-/// the object and left the row, because this resource is not checkpoint state
-/// and nothing captures or restores it. The player kept owning a thing that was
-/// lying back on its shelf, the durable save wrote the phantom to disk, and the
-/// inventory menu would happily equip it and MINT a second one on the next
-/// throw.
-///
-///  so the object side is the authority and this table PROJECTS it:
-/// [`Self::count`] reports the stored quantity or the hand, and the pressed
-/// pickup no longer grants at all. The two populations are now disjoint — a row
-/// is an entitlement with no object; an object is an occurrence the checkpoint
-/// owns — and the disagreement has nowhere to live.
-///
-///  [`Self::to_persisted`] therefore writes the STORED quantity, never [`Self::count`].
+/// `counts` is authoritative only for entitlements with no world object. Held
+/// item instances remain authoritative on the object/custody side; [`Self::count`]
+/// projects both populations for queries. Persistence writes stored quantities
+/// through [`Self::to_persisted`] and never serializes that projection as a
+/// second ownership authority.
 #[derive(Resource, Clone, Debug, PartialEq, Eq)]
 pub struct OwnedItems {
     counts: [u32; ITEM_COUNT],
@@ -560,15 +532,10 @@ impl Default for OwnedItems {
     }
 }
 
-/// Somebody asked for an item to be granted; the simulation grants it.
+/// Simulation-side request to grant an item.
 ///
-/// A rewind restored the bag and did not re-run the command — the Yarn runner is not rewound, and
-/// it does not execute between resimulated ticks — so the grant silently un-happened, leaving the
-/// authoritative inventory disagreeing with the history the player had already been shown.
-///
-/// The `count` is already floored to a whole number here: parsing "1.9 potions"
-/// is the command's business, and an applier that had to re-decide it would be a
-/// second place for the rule to live.
+/// `count` is already normalized to a whole number by the command/parser layer;
+/// the simulation only applies the request.
 #[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ItemGrantRequested {
     pub item: Item,

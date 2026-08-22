@@ -95,14 +95,8 @@ impl LdtkRuntimeSolid {
     }
 }
 
-/// Rebuilt every frame from plugin-spawned `Solid` LDtk entities carrying the
-/// typed `LdtkSolid` component.
-///
-/// This is the parallel ECS view of solid collision authored in LDtk. The
-/// runtime collision world (`ae::World::blocks`) is still populated by the
-/// JSON adapter for now; once the raw-LDtk-vs-runtime overlay (Step 2 of the
-/// LDtk roadmap) verifies parity, this index becomes the collision authority
-/// and the JSON path retires.
+/// ECS-side solid-collision index rebuilt from typed LDtk entities. During the
+/// parity period the JSON adapter still populates `ae::World::blocks`.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct LdtkRuntimeSolidIndex {
     pub active_area: String,

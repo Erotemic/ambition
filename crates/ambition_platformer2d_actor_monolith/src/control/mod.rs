@@ -1,28 +1,9 @@
-//! The local control seam — device frame → slot → the body carrying that
-//! slot's player brain.
+//! Local control seam from device input to the body driven by a participant.
 //!
-//! This is not player-centrism; it is the wire between a human and a body, and
-//! naming it is most of what "player-ness is a brain and a slot, not a directory"
-//! means. Read it in order:
-//!
-//! 1. [`components`] — the state. `LocalPlayer` (this body's input source is
-//!    local) plus `SlotGestures` / [`SlotInteractionState`] (a CONTROLLER's
-//!    gestures, which follow it onto whatever body it drives).
-//! 2. [`input_systems`] — the device layer: edge/timer derivation and gesture
-//!    recognition off the raw `ControlFrame`.
-//! 3. [`slots`] — the local-device → canonical-slot publication boundary.
-//! 4. [`queries`] — slot-explicit player lookups, so a call site says whether it
-//!    means "the primary player" or "every player".
-//!
-//! Downstream of this module, nothing holds `Res<ControlFrame>`. Controller
-//! adapters read `SlotControls`; body mechanics read the brain's `ActorControl`
-//! (`ambition_characters::actor::control` — the brain→body contract, the far end
-//! of this same wire). The workspace `ControlFrame` policy enforces it,
-//! and its allowlist is almost exactly this module's contents.
-//!
-//! Extracted from `crate::avatar` in the S5/S6 fold (refactor-chain R6c): the
-//! slot machinery was never player-only state, and keeping it under `player/`
-//! was one of the reasons that module read as a universal dependency sink.
+//! This module owns local-slot publication and gesture state. Downstream body
+//! mechanics consume `ActorControl`; they do not read the raw `ControlFrame`.
+//! Player identity is not a simulation path: driving authority selects the body,
+//! and the same body mechanics apply regardless of controller kind.
 
 pub mod acting;
 pub mod authority;

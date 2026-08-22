@@ -221,31 +221,10 @@ fn mirrored_frames(
     (held, frames.len())
 }
 
-/// AND THE SHARED STREAM SHOWS: two Emmys hold a mirror far longer than two
-/// of anybody else. This is the only assertion in this file a player could see.
-///
-/// COMPARATIVE ON PURPOSE, because measuring Emmy alone is VACUOUS — a first
-/// draft did exactly that and passed for every character. Measured over a
-/// 120-tick window both pairs stayed mirrored to within 0.0003px, Emmy and the
-/// Pirate Admiral alike: the fighters have not yet consumed enough execution noise
-/// for two different streams to show, so *"Emmy mirrored for the whole window"* was
-/// a fact about the window, not about Emmy.  the honest form is a contrast
-/// against a character with its own streams, over a window long enough for the
-/// difference to exist.
-///
-/// ```text
-///                      streams   mirrored for      match ran
-/// npc_emmy_noether          IDENTICAL 2576 of 2576 fr   2576 fr  (a stalemate: they
-///                                                           answer every move
-///                                                           with its reflection)
-/// npc_pirate_admiral   DIFFERENT  488 of 1548 fr   1548 fr  (they fight, and it
-///                                                           ends)
-/// ```
-///
-/// the shorter Admiral match is itself the finding: two fighters that think
-/// differently actually resolve their match, while two Emmys mirror each other into
-/// a much longer one. Nothing here asserts that — it is context for whoever reads a
-/// failure.
+/// Two Emmys remain mirror-symmetric substantially longer than fighters with
+/// independent streams. The comparison uses the same observation window for
+/// both pairs so the assertion measures controller-stream behavior rather than
+/// a short-window symmetry shared by every fighter.
 #[test]
 fn two_emmys_hold_a_mirror_far_longer_than_two_ordinary_fighters() {
     // One window for both, so the comparison cannot be an artifact of two

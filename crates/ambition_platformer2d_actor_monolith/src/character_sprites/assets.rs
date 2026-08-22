@@ -1,28 +1,9 @@
-//! Spritesheet asset bundle + on-disk loading.
+//! Character sprite asset loading and catalog-to-sheet resolution.
 //!
-//! Each character is identified by a stable `character_id` keyed in
-//! `assets/data/character_catalog.ron` (loaded by
-//! [`ambition_characters::actor::character_catalog`]). The catalog provides the
-//! display name + on-disk path; the per-character `CharacterSheetSpec`
-//! (frame/grid/anchor metadata) is resolved by
-//! [`catalog_join::sheet_for_character_id_from_data`], which lives in
-//! `ambition_sprite_sheet` — this module only adapts the Bevy catalog resource
-//! to it ([`sheet_for_character_id_in`]).
-//!
-//! Missing files are not errors — callers fall back to colored
-//! rectangles (the game must always run regardless of asset state).
-//! All path/existence policy goes through
-//! [`crate::assets::platformer_assets::Platformer2dAssetCatalog`]; this module
-//! no longer owns any `target_os = "android"` cfg branches or
-//! `BEVY_ASSET_ROOT` probes.
-//!
-//! Before Phase 6 this module duplicated character metadata in a
-//! `NPC_SPRITE_REGISTRY` table (display name + filename + sheet
-//! const) and a parallel `npc_sprite_label` display-name → catalog-
-//! id mapper. Both are gone now: the catalog is the single source
-//! of `display_name` and on-disk path, while
-//! `sheet_for_character_id_in` is the only place that joins a catalog id
-//! to its sheet metadata through an explicit App-local catalog.
+//! Character ids, display metadata, and asset paths come from the App-local
+//! character catalog; sheet geometry is joined through `ambition_sprite_sheet`.
+//! Missing art is allowed so simulation can run with placeholder presentation.
+//! Path and source policy stays in `Platformer2dAssetCatalog`.
 
 use bevy::prelude::*;
 
@@ -34,11 +15,8 @@ use ambition_characters::actor::character_catalog::{
 };
 use ambition_persistence::settings::{TextureResolutionScale, VisualQualityBudget};
 use ambition_platformer2d_core as ae;
-// The catalog→sheet join lives BELOW this crate (`ambition_sprite_sheet`) —
-// nothing in either function was the monolith's. Named as a module rather than
-// imported flat: `sheet_for_character_id_from_data` and the `_in` wrapper below it differ
-// by three characters, and the qualifier is what keeps a call site honest about
-// which one it means.
+// Keep the catalog-to-sheet join qualified so call sites distinguish the
+// data-level resolver from this App-local wrapper.
 use ambition_sprite_sheet::character::catalog_join;
 use ambition_sprite_sheet::character::sheets;
 use ambition_sprite_sheet::character::{

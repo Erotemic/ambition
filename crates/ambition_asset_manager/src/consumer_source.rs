@@ -191,10 +191,7 @@ mod tests {
         assert_eq!(listed, vec!["engine.png", "mine.png"], "sorted union");
     }
 
-    /// Metadata cannot come from a layer that did not supply the bytes. A
-    /// consumer overriding an engine sprite and authoring no `.meta` used to
-    /// receive the ENGINE's meta — sampler, atlas and loader settings for a
-    /// different image.
+    /// Metadata must come from the same layer that supplied the asset bytes.
     #[test]
     fn metadata_follows_the_layer_that_supplied_the_asset() {
         let (_dir, authored, shared) = roots();
@@ -229,9 +226,7 @@ mod tests {
         });
     }
 
-    /// `is_directory` cannot contradict `read`. An authored FILE shadowed by
-    /// a shared DIRECTORY of the same name used to report "directory" while
-    /// `read` returned the file's bytes.
+    /// All operations resolve a path through the same owning layer.
     #[test]
     fn a_path_is_answered_by_the_layer_that_owns_it() {
         let (_dir, authored, shared) = roots();

@@ -1,30 +1,10 @@
-//! The input stream (netcode N0.2) — the per-tick input artifact.
+//! Versioned per-tick input recordings for replay, trajectories, and desync
+//! analysis.
 //!
-//! One type serves four jobs that were each about to grow their own format:
-//!
-//! - replay fixtures — record a session, replay it, assert zero divergence;
-//! - RL trajectories — the action sequence half of `(observation, action)`;
-//! - desync forensics — the input both peers agreed on, so a divergence can
-//!   be blamed on the sim rather than the input;
-//! - the wire format, later — N2 lockstep peers exchange exactly this.
-//!
-//! Because the same bytes must eventually cross a network, the encoding obeys
-//! the Q4 guardrails (see `docs/adr/0023-same-build-determinism.md`): explicit
-//! field order, no platform-width-dependent types (`u64` ticks, `u32` version —
-//! never `usize`), and a version stamp checked on load.
-//!
-//! # The timeline
-//!
-//! Frames key on `SimTick` — the sim step index, not a wall-clock instant and
-//! not a rendered frame. A stream is contiguous: tick `t`, `t+1`, … with no
-//! gaps, because a gap is not "no input", it is a missing decision.
-//!
-//! # Slots
-//!
-//! Each frame carries one `ControlFrame` per player slot, in slot order. A
-//! single-player stream has one. This is why the artifact is `SlotControls`
-//! per tick rather than one `ControlFrame` per tick: local multiplayer (N1) and
-//! lockstep (N2) are the same recording.
+//! Frames are keyed by contiguous `SimTick` values and contain one
+//! `ControlFrame` per player slot in slot order. The encoding uses explicit
+//! field order, fixed-width integer types, and a checked version so recordings
+//! are platform-stable.
 
 use serde::{Deserialize, Serialize};
 

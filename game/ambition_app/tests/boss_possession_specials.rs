@@ -1,28 +1,10 @@
-//! Boss possession END-TO-END through the real headless sim — the "bosses are in
-//! scope" mandate (unified-actors I2/I7): a possessed boss consumes slot input
-//! AND commands its OWN authored specials, not movement only.
+//! End-to-end boss possession through the real headless simulation.
 //!
-//! Possession is a seat redirect: `DrivingParticipant(PRIMARY)` moves onto the boss,
-//! which then reads slot input through the SAME universal-brain path every
-//! controlled body uses. The boss tick (`tick_boss_brains_system`) maps attack /
-//! special input onto the boss's persisted `BossCapability` (its authored strike
-//! repertoire, body data that survives the brain swap) and publishes a per-frame
-//! `BossAttackIntent` the shared moveset trigger reads (§A1 intent/projection split).
-//! A SPECIAL runs through the moveset like the autonomous pattern's — its move fires
-//! the content technique (with the possessor's effective Player faction) and projects
-//! the read-model. Capability is body data; the human is the policy choosing from it.
-//!
-//! This pins, driving REAL inputs through `Platformer2dSimHarness::step`:
-//! 1. A ~2s Down+Interact hold next to a boss possesses it (its brain becomes
-//!    the primary seat), without mutating its authored `Boss` faction.
-//! 2. Pressing Attack fires a geometry strike through the moveset (R1.4 — possession
-//!    grants the full kit), and the strike's hitbox carries the possessor's EFFECTIVE
-//!    `Player` faction. WHICH strike is the boss's authored choice: a profile with a
-//!    G5 `possessed_verbs` map commands the move that map names; one without keeps the
-//!    legacy capability-slot-0 mapping.
-//! 3. Pressing Special (blink button) fires the boss's SIGNATURE content special —
-//!    it runs through the moveset, so its `active_profile` read-model is projected.
-//! 4. Releasing restores the boss's autonomous `BossPattern` brain.
+//! Possession redirects a driving participant onto the boss; the boss keeps its
+//! authored faction and `BossCapability`. Human attack/special input chooses from
+//! that body-owned repertoire, while emitted attacks use the possessor's
+//! effective combat faction. Releasing possession restores the autonomous boss
+//! brain.
 
 #![cfg(feature = "rl_sim")]
 

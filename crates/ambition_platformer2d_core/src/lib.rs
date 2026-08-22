@@ -1,30 +1,8 @@
-//! The pure, content-free movement/physics MODEL — the math the rest of
-//! the workspace builds on.
+//! Content-free deterministic movement and body-state foundation.
 //!
-//! This is the foundation crate: a deterministic, mostly Bevy-free
-//! kinematic platformer simulation with no game-specific content. It owns
-//! the testable gameplay rules every sibling crate reuses — kinematic
-//! body movement, AABB collision semantics, ability gates, ledge-grab
-//! probes, world collision/water/climbable region data, gravity-relative
-//! reference frames, and the cluster components (`BodyKinematics`,
-//! `BodyGroundState`, …, `BodyComboTrace`) that make up an actor's ECS
-//! body (the player included). `ambition_characters` (minds/cast),
-//! `ambition_content` (named game content), and `ambition_platformer2d_actor_monolith`
-//! (machinery) all sit above it.
-//!
-//! Top-level modules: [`abilities`] (capability flags), [`config`]
-//! (coordinate/layer constants), [`geometry`] (Aabb2d-backed collision
-//! primitives), [`ledge_grab`] (ledge probe + state), [`movement`] (the
-//! body movement spine + tuning), [`body_clusters`] (the authoritative
-//! cluster components + the `BodyClustersMut` view), [`player_state`]
-//! (locomotion/body-mode/resource-meter vocabulary), [`reference_frame`]
-//! (gravity-relative frame transforms), and [`world`] (room block data).
-//!
-//! There is no monolithic body aggregate: the cluster components are the
-//! only body state, and every entry point in [`movement`] operates on a
-//! [`body_clusters::BodyClustersMut`] view natively. Tests build a
-//! non-ECS scratchpad via
-//! [`body_clusters::BodyClusterScratch::new_with_abilities`].
+//! Actor bodies, including player-controlled bodies, use the same cluster
+//! components and [`body_clusters::BodyClustersMut`] movement seam. Tests use
+//! [`body_clusters::BodyClusterScratch`] as the non-ECS form of that same state.
 
 pub mod abilities;
 pub mod body_clusters;
@@ -50,8 +28,7 @@ mod snapshot_impls;
 pub(crate) mod test_support;
 pub mod world;
 
-// Re-export the public surface so story/sandbox crates can treat the engine as
-// the main mechanics API while the internals stay organized by concern.
+// Public mechanics surface.
 pub use abilities::{AbilityGrant, AbilitySet, MatchAbilities, MatchBody};
 pub use bevy_math::Vec2;
 pub use body_clusters::{

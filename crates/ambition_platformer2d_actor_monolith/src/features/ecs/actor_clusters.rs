@@ -150,40 +150,15 @@ impl ActorBody {
         ))
     }
 
-    /// Build the movement body whose ability mask is DERIVED from the actor's
-    /// [`CombatCapabilities`] — the verbs the shared movement pipeline owns for
-    /// this body. Locomotion (run + jump) is always on; dash turns on with
-    /// `can_dash` (the pipeline's real dash impulse replaces the actor's old
-    /// speed-cap burst). fly turns on for an aerial body (it lives in flight
-    /// mode) OR a body that can toggle flight (`can_fly`); an aerial body also
-    /// starts with `flight.fly_enabled` so it runs the shared flight limb from
-    /// spawn. shield turns on with `can_shield` (the pipeline's shield limb;
-    /// the damage path reads `shield.active` off that ONE component). blink
-    /// turns on with `can_blink` (the pipeline's blink limb; the driver emits the
-    /// blink sfx/vfx from the returned `FrameEvents.blinks`).
-    /// Seed a combat body's movement `AbilitySet` from its authored movement
-    /// kit (`ArchetypeSpec::movement_kit`): the shared locomotion base
-    /// unioned with the character's authored verbs (blink / fly / shield / dash),
-    /// plus the `attack` verb every combat body carries. `is_aerial` forces
-    /// flight on regardless of the kit. This is the one place a character's
-    /// authored kit becomes the body's live capability set — the same
-    /// `AbilitySet` the player runs, so there is no parallel enemy-only mask.
-    /// `base_size` is the body's IDENTITY size — what it returns to on a reset.
-    ///
-    /// it is a parameter because `BodyBaseSize::default()` is the default
-    /// PLAYER size, and no enemy or boss spawn path ever wrote it. Every
-    /// non-player body in the game carried a base size that was not its own,
-    /// invisibly, because `base_size` is read only by `reset_body_clusters` and
-    /// nothing reset an enemy through it — so the first path that did would have
-    /// silently resized every enemy to a player. Asked here, where the answer is
-    /// already in scope, so a body cannot be constructed without one.
+    /// Build a combat body's live movement abilities from the shared locomotion
+    /// base plus its authored kit. Aerial bodies start with flight enabled and
+    /// every combat body carries the attack capability; policy/moveset state
+    /// decides whether it actually attacks. `base_size` is required identity
+    /// state used when resetting the body.
     pub fn from_kit(kit: ae::AbilitySet, is_aerial: bool, base_size: ae::Vec2) -> Self {
         let mut abilities = Self::locomotion_abilities().union(kit);
         abilities.fly = is_aerial || abilities.fly;
-        // A combat body HAS the attack verb (capability); WHETHER it swings is gated
-        // by its `ActionSet.melee` (a peaceful NPC's empty set folds no `"attack"`
-        // move, so it carries no `MovesetMelee`) and its brain (policy). The one
-        // melee lifecycle is the moveset — no actor-only melee-start path.
+        // Attack is capability; the moveset and brain decide whether it is exercised.
         abilities.attack = true;
         let mut scratch = ae::BodyClusterScratch::new_with_abilities(ae::Vec2::ZERO, abilities);
         scratch.flight.fly_enabled = is_aerial;
@@ -191,10 +166,8 @@ impl ActorBody {
         Self(scratch)
     }
 
-    /// The grounded actor's locomotion ability mask: run + jump + double-jump the
-    /// shared movement pipeline owns. Capability verbs are layered on by
-    /// [`Self::from_caps`]. `reset` is OFF so the reset gesture never fires on an
-    /// actor body; wall-cling / ledge-grab / dodge / swim stay OFF for now.
+    /// Shared grounded locomotion floor. Character-specific verbs are layered on
+    /// by [`Self::from_kit`]; reset remains disabled for actor bodies.
     pub fn locomotion_abilities() -> ae::AbilitySet {
         ae::AbilitySet {
             move_horizontal: true,
@@ -207,14 +180,8 @@ impl ActorBody {
     }
 }
 
-/// Mutable borrow of every component the enemy integration touches,
-/// assembled from a Bevy query via [`ActorClusterQueryData`].
-///
-/// The 18 ancillary movement clusters are borrowed as individual real-component
-/// refs (`ground`, `wall`, …) — the same components the player carries — so
-/// [`Self::clusters_mut`] can hand the shared movement pipeline a
-/// [`ae::BodyClustersMut`] view built from `kin` + these refs, exactly like
-/// the player's own query item does.
+/// Mutable actor components assembled into the same [`ae::BodyClustersMut`]
+/// movement view used by player-controlled bodies.
 pub struct ActorMut<'a> {
     pub kin: &'a mut BodyKinematics,
     /// §3.1 motion record (optional only for owned scratch tests — ECS-spawned
@@ -579,32 +546,10 @@ impl ActorClusterSeed {
             .as_ref()
             .and_then(PathMotion::start_pos)
             .unwrap_or_else(|| actor_spawn_center_for_collision(aabb, collision_size));
-        // Body locomotion CAPABILITY vs AI POLICY (control-refactor convergence):
-        // `max_run_speed` is the body's PHYSICAL top speed under direct control — the same
-        // capability the player body has, so a possessed NPC is responsive, not stuck at stroll
-        // pace. `patrol_speed`/`chase_speed` are AI POLICY: the peaceful brain expresses them
-        // as NORMALIZED intent (`locomotion_for(patrol_speed)` = patrol_speed / max_run_speed),
-        // which the integrator scales back — so autonomous patrol still ambles at
-        // NPC_PATROL_SPEED while the SAME body sprints at `max_run_speed` when a player drives
-        // it.
-        //
-        // AND THE BODY'S TWO NUMBERS COME FROM THE CHARACTER WHEN IT HAS
-        // ONE. `max_health: 1` and the shared
-        // `MAX_RUN_SPEED` are what a placement gets when nothing knows who it is
-        // — which was every NPC, including an exploding mite and a burning
-        // flying shark standing in a room with one hit point and the player's
-        // top speed. A character that states its own vitals and locomotion is
-        // the authority on both.
-        //
-        // `patrol_speed` / `chase_speed` STAY. They are AI POLICY, and the
-        // three authorities do not blur here of all places: how fast a body CAN
-        // move is the body's fact, how fast it CHOOSES to amble is the
-        // controller's. A character authoring `run_speed: 400.0` must not make
-        // its idle stroll a sprint.
-        //
-        // and `respawn` stays `DeadStaysDead` for the same reason, one
-        // authority over: an NPC is a unique named placement (ADR 0022), and
-        // that is a fact about the PLACEMENT, not about the creature.
+        // Body capability comes from authored character data when available;
+        // patrol/chase speed remains controller policy. A possessed NPC can use
+        // its physical top speed without changing its autonomous stroll. Respawn
+        // policy remains placement-owned rather than character-owned.
         let authored_body = character_id
             .and_then(|cid| prepared.and_then(|prepared| prepared.get(cid)))
             .and_then(|prepared| prepared.body_blueprint().ok());

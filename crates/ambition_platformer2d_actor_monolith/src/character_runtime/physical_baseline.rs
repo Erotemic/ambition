@@ -1,43 +1,16 @@
-//! What a prepared character says about a BODY, applied one way everywhere.
+//! Prepared-character physical facts shared by every body-construction path.
 //!
-//! A character's kit was unified at the finalization barrier: one fold, one
-//! answer, every construction path reading the same value. Its *physical*
-//! identity was not. Three paths built a body and each decided health, mass and
-//! collision size for itself:
-//!
-//! | | max health | mass | `Explicit` box |
-//! |---|---|---|---|
-//! | spawned match fighter | `prepared.vitals` | `prepared.vitals` | yes |
-//! | adopted match fighter | `prepared.vitals` | `prepared.vitals` | yes |
-//! | worn exploration player | the CATALOG row | never set | no |
-//!
-//! # Why the numbers and the WRITE are separate
-//!
-//! [`PhysicalBaseline`] resolves *what the values are*. That is the part that has
-//! to be identical everywhere, and it is a pure function of the prepared
-//! definition. How they reach a body is legitimately different: two of these
-//! paths assemble components for an entity that does not exist yet, and one
-//! mutates a live one. A single `fn(&mut World)` would have to pretend those are
-//! the same operation.
-//!
-//! # What this does NOT do, deliberately
-//!
-//! It does not run per tick. These are construction facts. A projection that
-//! rewrote a live body's health would delete the damage it had taken, and one
-//! that rewrote its size every frame would be a second geometry authority beside
-//! the transit seam (ADR 0024). [`BaselineBoundary`] names the two moments a body
-//! may legitimately be told what it physically is.
+//! [`PhysicalBaseline`] resolves health, mass, and construction geometry as pure
+//! data. [`BaselineBoundary`] keeps creation separate from replacement because a
+//! live body retains accumulated damage and geometry may have another runtime
+//! authority. These facts are applied only at those boundaries, never per tick.
 
 use bevy::ecs::system::EntityCommands;
 
 use super::{BodySource, PreparedCharacterDefinition};
 use ambition_platformer2d_core::Vec2;
 
-/// The moment a body is being told what it physically is.
-///
-/// Not a verbosity knob — the two boundaries genuinely differ about current
-/// health, and being explicit is what keeps a re-wear from healing a fighter
-/// mid-round.
+/// Boundary at which prepared physical facts may be applied to a body.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BaselineBoundary {
     /// A body is being built, or activated into a match. It starts at FULL

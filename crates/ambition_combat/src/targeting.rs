@@ -1,12 +1,7 @@
-//! Per-frame `ActorTarget` selection for non-player actors.
+//! Per-frame combat relationship and `ActorTarget` selection.
 //!
-//! Runs at the top of the actor simulation chain so each enemy /
-//! boss / NPC's downstream tick reads "who am I looking at right
-//! now" from its `ActorTarget` component rather than from the global
-//! primary-player query. Today's policy is "nearest alive player-
-//! faction entity"; co-op / split-screen builds can later swap a
-//! sticky-target or role-based selector here without touching any
-//! actor update signatures (OVERNIGHT-TODO #17.8).
+//! Autonomous actors consume their own `ActorTarget`; target selection must not depend on a global
+//! primary-player entity.
 
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
@@ -24,23 +19,10 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 /// The relations matrix is indexed by `faction as usize`.
 const FACTION_COUNT: usize = 5;
 
-/// Who-fights-whom, as DATA rather than hard-coded actor types — the relational
-/// targeting seam. `hostile[from][to] == true` means a `from`-faction actor
-/// treats `to`-faction actors as a combat target this frame.
+/// Directed faction hostility used for autonomous target selection.
 ///
-/// This is the seam future stealth / bounty / grudge / alliance systems write
-/// to: revealing yourself flips the player's row, a bounty makes a faction
-/// hostile to the player, an alliance clears two factions' mutual hostility — all
-/// without touching the brains or the actor spawn path.
-///
-/// The default encodes the combat baseline: Player ↔ Enemy and Player ↔ Boss
-/// are mutually hostile (the player and the hostile world fight), and nothing else
-/// is — Npc / Neutral are peaceful, and same-faction actors don't fight. This is
-/// the single source of truth the damage paths consult (melee + projectile),
-/// so it reproduces today's player-vs-enemy combat with no behavior change while
-/// making actor-vs-actor hostility expressible (a room sets, e.g.,
-/// `set_mutual_hostile(Enemy, Boss, true)` for a spectator arena, and may *clear*
-/// `Enemy → Player` so the combatants ignore the observing player).
+/// `hostile[from][to]` means `from` actors may select `to` actors as foes. The default declares
+/// Player ↔ Enemy and Player ↔ Boss hostile; all other faction pairs are non-hostile.
 #[derive(Resource, Clone, Debug)]
 pub struct FactionRelations {
     hostile: [[bool; FACTION_COUNT]; FACTION_COUNT],
@@ -78,27 +60,16 @@ impl FactionRelations {
     }
 }
 
-/// Friendly-fire policy — the DAMAGE-side counterpart to [`FactionRelations`]
-/// (which is the TARGETING side). Targeting decides whom a brain *aims at*;
-/// this decides whether a hit that *lands* deals damage.
+/// Whether same-faction allies may damage each other.
 ///
-/// Damage is physical: a hit damages any body it overlaps that is NOT the
-/// attacker (self is excluded at every call site by entity). The one default
-/// exclusion is same-faction allies — friendly fire is OFF by default, so a
-/// pirate's stray shot can't hurt another pirate. A different-faction bystander
-/// (e.g. the player observing a duel) IS hit by strays; that's deliberate.
-/// Set `enabled = true` to opt INTO friendly fire (free-for-all): same-faction
-/// bodies then damage each other too. Per-entity grudges/charm overrides would
-/// layer on top of this faction baseline later.
+/// Different-faction overlaps remain physically damaging even when the factions are not hostile;
+/// targeting and damage authorization are distinct questions.
 #[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default)]
 pub struct FriendlyFire {
     pub enabled: bool,
 }
 
-/// Register the relational-targeting resources combat OWNS (rule 5): the
-/// default `FactionRelations` matrix + the `FriendlyFire` toggle. The
-/// WorldPrep schedule calls this instead of init-ing combat's resources from
-/// another module, so ownership travels with the types into `ambition_combat`.
+/// Register combat-owned relationship resources.
 pub fn init_targeting_resources(app: &mut App) {
     app.init_resource::<FactionRelations>();
     app.init_resource::<FriendlyFire>();
@@ -116,14 +87,10 @@ pub fn can_damage(
     friendly_fire.enabled || attacker != victim
 }
 
-/// Effective combat allegiance: a body a participant is currently driving (it
-/// carries [`ambition_characters::control::DrivingParticipant`]) fights as
-/// [`ActorFaction::Player`] regardless of its AUTHORED faction. This is why
-/// possession never overwrites `ActorFaction` (no flip, no restore bookkeeping):
-/// every combat faction read — targeting, damage gates, hitbox stamps — resolves
-/// through this, so a possessed body attacks its former allies and is targeted by
-/// them, then reverts the instant control leaves (the authored faction was never
-/// touched).
+/// Resolve combat allegiance without mutating authored faction state.
+///
+/// A participant-driven body fights as [`ActorFaction::Player`]; otherwise its authored faction
+/// applies. Possession therefore needs no faction overwrite/restore path.
 pub fn effective_faction(
     authored: ActorFaction,
     driver: Option<&ambition_characters::control::DrivingParticipant>,
@@ -135,30 +102,10 @@ pub fn effective_faction(
     }
 }
 
-/// A grudge is the DAMAGE-side counterpart to a [`FactionRelations`] entry: just as
-/// relations make two FACTIONS hostile, a grudge makes one body hostile to one exact
-/// ENTITY. So a grudge authorizes a hit even between SAME-faction bodies that
-/// `can_damage` would otherwise spare — the mechanism behind two normal NPCs dueling
-/// (both `Npc`, each grudging the other) without either being re-tagged a hostile
-/// faction. Self-exclusion (`attacker_entity == victim_entity`) stays the caller's.
+/// Ruleset team identity for match participants.
 ///
-/// `attacker_grudge` is the firing body's [`ActorAggression::grudge`]; `None` (no grudge, or a
-/// grudge-less attacker like the environment) falls straight back to the faction rule.
-///
-/// A team is a relation a RULESET declares, and it outranks faction for the one
-/// question that matters here: may this hit land? Two bodies on different teams
-/// damage each other; two on the same team do not.
-///
-/// It exists because faction cannot express it. `effective_faction` maps ANY
-/// player-brained body to `ActorFaction::Player` — load-bearing for possession,
-/// since a possessed enemy must stop being hittable by the player possessing it
-/// — so two humans are always the same faction no matter what the roster says.
-/// A versus stage had to switch on GLOBAL friendly fire to get around that,
-/// which is right for a free-for-all and wrong the moment a 2v2 exists: it makes
-/// teammates hittable too.
-///
-/// Only bodies that HAVE a team are judged by it. A body with no team is
-/// unchanged in every respect, so nothing outside a match notices this exists.
+/// When both bodies have teams, team relation outranks faction: same-team bodies are allies and
+/// different-team bodies are foes. Bodies outside a team continue to use grudge/faction policy.
 #[derive(bevy::prelude::Component, Clone, Debug, PartialEq, Eq)]
 pub struct MatchTeam(pub String);
 
@@ -186,23 +133,10 @@ pub fn team_allows_damage(
     }
 }
 
-/// How two bodies stand to each other. ONE answer, for every consumer.
+/// Combat relationship shared by target selection and damage authorization.
 ///
-/// there were two, and they disagreed. "May this damage land" read faction difference plus
-/// a team override; "is this a target worth chasing" read the `FactionRelations` hostility
-/// matrix and had never heard of a team. That is the hack this type exists to delete.
-///
-/// The three answers are the ones a combat rule actually needs:
-///
-/// * [`Self::Foe`] — go after it, and hit it. A different team, a hostile
-///   faction relation, or a personal grudge.
-/// * [`Self::Ally`] — same team, or same faction. Spared unless friendly fire.
-/// * [`Self::Neutral`] — a different faction this one is not hostile TO. Not
-///   a target, but not protected either, which is the distinction a single
-///   boolean could never carry: damage is physical (a swing that reaches a
-///   bystander hurts it) while targeting is relational (nobody goes hunting a
-///   bystander). Collapsing the two is how a stray hit stopped landing, or a
-///   town NPC became prey.
+/// `Foe` is targetable and damageable; `Ally` needs friendly fire to take damage; `Neutral` is not
+/// targeted but can still be struck physically.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CombatRelation {
     Ally,
@@ -229,23 +163,11 @@ impl CombatRelation {
     }
 }
 
-/// THE combat-relationship policy. Both "may I damage this" and "should I
-/// chase this" resolve through here, so they cannot drift again.
+/// Resolve the relationship used by both targeting and damage policy.
 ///
-/// Precedence, highest first:
-///
-/// 1. A grudge — a per-entity feud, deliberately stronger than any group
-///    rule, so two teammates can settle something the ruleset did not
-///    anticipate.
-/// 2. A team — when BOTH bodies are in a match. Match rules outrank
-///    authored world allegiance, which is the whole point of a crossover stage:
-///    a Hall NPC and a boss can be seated as opponents without either
-///    character's authored row being edited.
-/// 3. Authored faction, through the [`FactionRelations`] matrix and then
-///    plain sameness.
-///
-/// Allegiance is EFFECTIVE on both sides: a possessed body fights as its
-/// driver's side without its authored faction being mutated.
+/// Precedence is grudge, then team when both bodies have one, then effective faction and the
+/// optional [`FactionRelations`] matrix. Participant control affects effective faction without
+/// mutating authored allegiance.
 #[allow(clippy::too_many_arguments)]
 pub fn combat_relation(
     // `None` = no matrix opinion, which is what the DAMAGE side passes. Damage is physical:

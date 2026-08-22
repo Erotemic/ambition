@@ -81,33 +81,12 @@ fn the_shipped_games_compose_through_the_public_api() {
     }
 }
 
-/// Can the SECOND mounted experience be launched, with its own content?
-///
-/// The suspicion it tests is specific — the facade installs
-/// `PlatformerAssetsPlugin::for_experience(experiences[0])` and `.with_room(experiences[0].room)`,
-/// so everything that plugin resolves PER EXPERIENCE is resolved for the primary and handed to
-/// every other one.
-///
-/// * the CAST is shared and correct — catalog fragments merge, so Mary-O's
-///   sheet is in the asset catalog of a host whose primary is Sanic;
-/// * the ROUTE is reachable and activates with Mary-O's own experience id;
-/// * the MUSIC is not — the catalog folds `music_for(primary)` only, so a
-///   secondary experience's declared tracks have no entry in it;
-/// * the SFX bank is published attributed to the PRIMARY's id.
-///
-/// the music limit is a PATH POLICY limit, not silence, and the difference
-/// is worth stating where the assertion is: `AudioLibrary` resolves a track the
-/// catalog does not carry through the track's own `asset_path`, or the
-/// `audio/music/generated/{id}/full.ogg` convention. What a secondary experience
-/// loses is the catalog's asset-source prefixing and quality variants. A reader
-/// who took the assertion below for "the second game has no music" would fix the
-/// wrong thing — which is why this paragraph exists rather than a stronger
-/// assertion nobody could justify.
-///
-/// So the last two are asserted as the LIMIT they currently are, in the test
-/// rather than only in prose, and `PlatformerApp`'s docs now say so. The review
-/// is explicit that the alternative — building multi-experience asset
-/// virtualization on no failing consumer — is the wrong trade today.
+/// A secondary mounted experience can launch with merged cast/routes. Asset
+/// catalog policy is still primary-experience scoped: secondary music can fall
+/// back to its direct/conventional path, while catalog prefixing and quality
+/// variants remain primary-scoped; the SFX bank is likewise attributed to the
+/// primary experience. These limits are asserted below rather than interpreted
+/// as absence of secondary audio.
 #[test]
 fn the_second_mounted_experience_launches_and_its_asset_policy_is_the_primarys() {
     use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};

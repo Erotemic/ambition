@@ -1,19 +1,7 @@
-//! Where the world ENDS, and who gets to say so.
+//! Blast-zone ownership and exit-cause tests.
 //!
-//! Three facts, none of which held before:
-//!
-//! 1. The edge is the STAGE's. It was a `200.0` literal, so no room could
-//!    disagree with it — which made a platform fighter's blast zone, a number
-//!    that differs per stage and is the entire loss condition of the genre,
-//!    impossible to author.
-//! 2. Every motion policy agrees where that edge is. The gate's own doc called
-//!    itself "the ONE gate every policy publishes through" while the axis-swept
-//!    policy kept a private transcription of it. Two copies of a constant agree
-//!    right up until someone edits one.
-//! 3. The gate says WHY. Falling out of the world and touching a spike used to
-//!    arrive as the same anonymous `hazard` bool, so nothing downstream could
-//!    tell a pit from a hazard — and the death publisher said so in a comment
-//!    instead of in code.
+//! The stage authors the blast margin, every motion policy uses the same gate,
+//! and the gate distinguishes leaving the world from other hazards.
 
 use super::super::*;
 use crate::body_clusters::BodyClusterScratch;

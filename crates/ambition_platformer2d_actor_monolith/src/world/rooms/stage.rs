@@ -7,9 +7,8 @@
 //! expected authoritative roster. Startup, reset, ordinary transition, LDtk
 //! hot reload, and snapshot reconstruction execute this one artifact.
 //!
-//! The file retains its historical `stage.rs` path, but there is no longer a
-//! restore-only staging API. Snapshot reconstruction is a use of canonical construction,
-//! not a second construction authority.
+//! Snapshot reconstruction also executes this canonical construction plan; it
+//! is not a second construction authority.
 
 use std::collections::BTreeSet;
 use std::hash::{Hash, Hasher};

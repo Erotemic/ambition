@@ -1,33 +1,8 @@
 #![cfg(all(feature = "input", feature = "visible"))]
 
-//! A QUALITY CHANGE MAY CHANGE THE TIER. IT MAY NOT CHANGE THE CHARACTER.
-//!
-//! from the robot v3 character to the robot v2 character."*
-//!
-//! THIS EXERCISES THE REPORTED CASE, NOT A PROXY — and it does not
-//! reproduce. In a direct gameplay boot the PrimaryPlayer's own worn character
-//! is resident, its sheet MOVES tier when the profile changes, and its file root
-//! is unchanged. Both of those are asserted, because either one missing makes
-//! the test green for the wrong reason. That is the tenth eliminated cause; the
-//! other nine are in `sprite-residency-and-live-quality.md`, and every layer
-//! that could CHOOSE the wrong sheet is deterministic. What is left is WHEN.
-//!
-//! `shell_hosted` DECIDES WHETHER THIS TEST MEANS ANYTHING. With `true`
-//! the app boots to the launcher, there is no `PrimaryPlayer` at all, and the
-//! resident tokens are 18 NPCs — none of them the character the report is
-//! about. Written as `if let Some(worn)` the player check passed while never
-//! running, so the boot is `false` and the check is an `expect`.
-//!
-//! two things made this unwritable until now, both worth knowing:
-//! `GameAssets` is ABSENT from a shell-host composition (character realizations
-//! are presentation state); and there was no accessor enumerating RESIDENT
-//! sheets — `declared_character_ids()` is that set's COMPLEMENT, so reaching for
-//! it yields a tautology.
-//!
-//! the assertion is on the FILE ROOT, not the path. A tier change is
-//! SUPPOSED to move `sprites/x.png` to `sprites_potato/x.png`. Asserting the
-//! path would fail on correct behaviour; asserting the root fails only when the
-//! character actually changed.
+//! Changing visual quality may change a resident sheet tier, never its character identity.
+//! The direct-gameplay fixture requires the primary player token to be resident and to
+//! change path, then verifies its character file root is unchanged.
 
 use bevy::asset::AssetServer;
 use bevy::prelude::*;
@@ -68,10 +43,7 @@ fn changing_the_quality_profile_never_changes_which_character_a_token_resolves_t
         app.update();
     }
 
-    // THE PLAYER'S OWN CHARACTER MUST BE ONE OF THE TOKENS CHECKED, and
-    // this is an assert rather than an `if let` on purpose: written as a silent
-    // skip it passed while never running (measured — the shell-hosted boot has
-    // no player at all).
+    // Require the primary player token so the reported character path is actually exercised.
     let worn = {
         let world = app.world_mut();
         let mut q = world.query_filtered::<
@@ -90,8 +62,7 @@ fn changing_the_quality_profile_never_changes_which_character_a_token_resolves_t
         before.len(),
         before.keys().take(10).collect::<Vec<_>>(),
     );
-    // LOUD: a transition over an empty table proves nothing, and an empty
-    // table is exactly what a silently-failed boot produces.
+    // An empty residency table would make the transition check vacuous.
     assert!(
         !before.is_empty(),
         "no character sheets are resident after boot, so this test would pass \
@@ -125,10 +96,7 @@ fn changing_the_quality_profile_never_changes_which_character_a_token_resolves_t
          over nothing. {} tokens resident.",
         before.len(),
     );
-    // AND THE PLAYER'S OWN TOKEN MUST BE ONE THAT MOVED. Being merely RESIDENT is not
-    // enough: if the player's sheet sat still across the quality change, the identity check
-    // below is vacuous for precisely the character the rule is about, and the test would go
-    // green having covered every NPC and not him.
+    // The primary player token itself must have moved tiers before checking identity.
     assert!(
         moved.iter().any(|t| t.eq_ignore_ascii_case(&worn)),
         "the player wears `{worn}`, whose sheet did NOT move across the quality \

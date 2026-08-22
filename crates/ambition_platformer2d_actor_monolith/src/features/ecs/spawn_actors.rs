@@ -1190,22 +1190,9 @@ pub(crate) fn spawn_runtime_minion_into(
     let encounter_id = encounter_id.into();
     let aabb = ae::Aabb::new(world_pos, half_size);
     let brain = ambition_entity_catalog::placements::CharacterBrain::Custom(character_id.into());
-    //  A SUMMON NAMES A CHARACTER. THERE IS NO OTHER KIND.
-    //
-    // That census counted LDtk placements and could not see a Rust constant, so the roster
-    // lookup quietly answered `combatant` for every minion the boss cast: wrong health, wrong
-    // speed, wrong body, no crawl, no cling.
-    //
-    //  and the refusal is a PREPARATION refusal now (AC6.1b). The summon
-    // batch is a construction plan like any other, and
-    // `construction::preflight_planned_bodies` resolves this against the same
-    // registry before the batch is planned — where a rejected batch has spent
-    // nothing and built nothing. What is left here says the two agree.
-    //
-    //  the `report_unprepared_character` call that stood here went with the
-    // fallback vocabulary: it takes *what will build this body INSTEAD*, was
-    // passed `None`, and its own assertion then fired one line before this
-    // panic said the same thing better.
+    // Summons name prepared characters. Preflight resolves the same registry
+    // before reserving or constructing the batch, so reaching this failure means
+    // preparation and construction disagreed.
     let Some(body) = prepared
         .get(character_id)
         .and_then(|prepared| prepared.body_blueprint().ok())
@@ -1265,33 +1252,11 @@ pub(crate) fn spawn_runtime_minion_into(
     }
 }
 
-/// Populate an enemy onto a root the construction executor allocated.
-///
-/// This no longer spawns a giant's hand limbs. They were minted here as two
-/// authoritative roots no plan row named — the last construction-family
-/// exception. Giant hands are explicit construction rows now
-/// ([`crate::construction::authored_giant_requests`]); a `"giant"`-class host is
-/// built by [`populate_giant_host_into`] (this plus the host-side rig state) and
-/// each hand by [`populate_giant_hand_into`], with the two joined by
-/// `ambition.limb` relations. This function stays the path for every ordinary,
-/// unlimbed enemy.
+/// Populate an ordinary enemy onto a preallocated construction root. Giant
+/// limbs are explicit construction rows and use the giant host/limb paths.
 #[allow(clippy::too_many_arguments)]
-/// What a placement that says nothing about respawn gets.
-///
-///  deliberately NOT `RespawnPolicy::default()`, which is `DeadStaysDead`
-/// — the answer for a NAMED, unique actor. A placement that authors no respawn
-/// policy is the opposite: an ordinary room body nothing in particular is said
-/// about, which is the trash-grunt case `OnRoomReenter`'s own doc describes
-/// (*"fresh every time the player enters the room"*).
-///
-///  this is what the reserved `combatant` row was silently supplying through a
-/// lookup that could not fail. Stated here, it is a decision somebody can read
-/// and disagree with.  it WAS pinned equal to that row by
-/// `the_undescribed_respawn_policy_matches_the_combatant_row`, which went with
-/// the row — deliberately, and the deletion commit says so: the pin existed to
-/// prove the constant changed nothing while both existed, and there is nothing
-/// left to be equal to. Respawn is the PLACEMENT's fact (ADR 0022); this is the
-/// engine's answer when the placement declines to state it.
+/// Default for placements that do not author a respawn policy. Named actors use
+/// their explicit policy; ordinary unspecified room bodies respawn on reentry.
 pub(crate) const UNDESCRIBED_BODY_RESPAWN: ambition_entity_catalog::placements::RespawnPolicy =
     ambition_entity_catalog::placements::RespawnPolicy::OnRoomReenter;
 
@@ -2059,10 +2024,8 @@ pub(super) fn spawn_encounter_mob(
 /// (`SimId::spawned` under its summoner, taken from the summoner's own `SimIdCounter`) and an
 /// explicit [`SpawnOrigin::Dynamic`] naming its parent.
 ///
-/// A summon that cannot name its summoner's identity is skipped: the spawner is
-/// mid-migration to `SimId` (an unidentified body cannot lend an identity), and
-/// minting a parentless dynamic id would reintroduce exactly the ambiguity this
-/// replaces.
+/// A summon without a summoner `SimId` is skipped because dynamic identities
+/// require an explicit parent provenance.
 /// One summoner's reserved stretch of its own identity sequence.
 ///
 /// Carries the value planning READ as well as the value it wants to write, so

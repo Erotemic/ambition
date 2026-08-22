@@ -1,30 +1,8 @@
-//! The authoring contract, as data both languages read.
+//! Shared LDtk entity-authoring contract.
 //!
-//! The converters in [`crate::conversion`] are the runtime's law: they refuse an
-//! `EnemySpawn` with no `character_id`, a `Portal` with an unspellable colour, a
-//! `MovingPlatform` that authors two motions. None of that was reachable from the
-//! Python authoring loop, so `area create` + `repair` + `validate` all reported
-//! GREEN on a room the converter hard-refuses — three affirmative OKs on content
-//! that would have panicked the game on load. and the agent that hits this is
-//! precisely the one with no build lease, which cannot discover the law by
-//! running it.
-//!
-//! a required-field table maintained in Python beside a parser maintained in
-//! Rust is that same defect one layer up. So there is exactly one table, in
-//! `ldtk_entity_contract.json` beside this file, and the two languages meet on it:
-//!
-//! - Rust PROVES it. The `prover` submodule builds each entity from the
-//!   table, runs the REAL `conversion::entity_to_runtime`, and asserts every
-//!   claim in both directions. A `required` field whose removal does not fail the
-//!   converter is a test failure; so is an entity that fails to convert when only
-//!   its declared-required fields are present. The table therefore cannot claim a
-//!   requirement the parser does not enforce, and the parser cannot grow one the
-//!   table does not declare.
-//! - Python ENFORCES it. `validate_rules/entity_contract.py` reads the same
-//!   file with no cargo in sight.
-//!
-//! Adding a required field is one parser change plus one edit here. There is no
-//! second list.
+//! `ldtk_entity_contract.json` is the single required-field/grammar table used
+//! by both authoring paths. Rust proves it against the real conversion code in
+//! both directions; Python reads the same data for validation without Cargo.
 
 use std::sync::OnceLock;
 

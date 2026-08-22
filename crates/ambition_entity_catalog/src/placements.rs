@@ -1,12 +1,4 @@
-//! The authored-placement schema vocabulary — architecture.md §4b.
-//!
-//! These are the closed, serde-able authoring enums that authored maps
-//! declare over content: brains (who a spawned actor becomes), the
-//! damage relationship/category, and the hazard/prop respawn policy.
-//! They are pure data (no `Vec2`, no runtime state, no Bevy) so they live
-//! in the Tier-0 catalog — below every crate that interprets them. The
-//! sim/content LOWERS these records into behavior at room-load; the arrow
-//! is always sim/content → catalog, never the reverse.
+//! Pure authored placement schema lowered into runtime behavior by higher layers.
 
 use crate::PickupKind;
 use serde::{Deserialize, Serialize};
@@ -106,10 +98,7 @@ pub struct HazardSpec {
     pub path_id: Option<String>,
 }
 
-/// Authored interaction data for NPCs, doors, pickups, breakables, and custom
-/// interactions. Runtime components are materialized when the room loads.
-/// interactables now flow through the single `PlacementRecord` channel, so the
-/// schema payload and the world IR share ONE pure type instead of a mirror.
+/// Authored interaction data lowered to runtime components when the room loads.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct InteractableSpec {
     pub prompt: String,
@@ -155,11 +144,7 @@ pub enum InteractionKindSpec {
     Custom(String),
 }
 
-/// The authored pickup schema — a collectible's reward category, respawn
-/// policy, and collected flag. Fully plain data; the interaction runtime lowers
-/// it to a live pickup component at room load. Moved down from
-/// `ambition_platformer2d_world::rooms` (fable audit F9.2) so the schema and world IR share
-/// ONE pure type carried on the single `PlacementRecord` channel.
+/// Authored pickup reward, respawn policy, collection state, and optional presentation.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PickupSpec {
     pub kind: PickupKind,
@@ -192,16 +177,8 @@ impl PickupSpec {
     }
 }
 
-// It was byte-identical to `crate::PickupKind` -- same five variants, same fields, same derives --
-// in the SAME crate. `PickupKind`'s own doc already said it "was never interaction-specific, it was
-// merely first needed there"; this was the other half of that consolidation, left behind. The
-// authored schema names `PickupKind` directly now, and the serialized shape is unchanged because
-// the variant names and fields were identical.
 
-/// The authored chest schema — open/closed state, an optional reward, and a
-/// persistence flag. Fully plain data; the interaction runtime lowers it to a
-/// live chest at room load. Moved down from `ambition_platformer2d_world::rooms` (fable audit
-/// F9.2) onto the single `PlacementRecord` channel.
+/// Authored chest state, optional reward, and persistence policy.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ChestSpec {
     pub state: ChestStateSpec,
@@ -270,10 +247,7 @@ impl BreakableCollisionSpec {
     }
 }
 
-/// The authored breakable schema — destructible platform/orb with health,
-/// collision, trigger, and debris cue. Fully plain data; lowered to a live
-/// breakable at room load. Moved down from `ambition_platformer2d_world::rooms` (fable audit
-/// F9.2) onto the single `PlacementRecord` channel.
+/// Authored breakable health, collision, trigger, respawn, and debris behavior.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BreakableSpec {
     pub state: BreakableStateSpec,
@@ -310,10 +284,7 @@ pub enum BreakableStateSpec {
     Respawning,
 }
 
-/// Authored/runtime portal channel color. A pure enum (mirrors the Ambition
-/// portal crate's color vocabulary) so it lives in the Tier-0 catalog; portal
-/// lowerings map it to their runtime channel at the sim edge. Moved down from
-/// `ambition_platformer2d_world::rooms` (fable audit F9.2).
+/// Pure authored portal-channel color lowered to runtime portal vocabulary.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PortalChannelColorSpec {
     Purple,
@@ -374,14 +345,8 @@ impl PortalChannelColorSpec {
     }
 }
 
-/// The authored static-portal schema (the Tier-0 MIRROR of the runtime-facing
-/// `ambition_platformer2d_world::rooms::PortalSpec`). Unlike the other placement families,
-/// the runtime spec carries `Vec2` (`pos`/`normal`) and cannot itself live in
-/// Tier-0, so this plain mirror stores `normal` as a pair and DERIVES the face
-/// center from the placement record's `aabb.center()` at lowering time (the
-/// converter sets `pos = box center = aabb.center()`). `half_length` is the
-/// authored along-surface half-extent (also derivable from the aabb + normal,
-/// stored explicitly to preserve the authored value exactly).
+/// Authored static portal data without runtime vector types.
+/// Position is derived from the placement AABB center during lowering.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PortalSchema {
     pub color: PortalChannelColorSpec,
@@ -393,11 +358,7 @@ pub struct PortalSchema {
     pub half_length: Option<f32>,
 }
 
-/// The CLOSED authored-placement schema (architecture.md §4b.3): everything an
-/// authored map may declare beyond geometry, as editor-visible plain data.
-/// Variants grow as W-queue step 3 converts hardcoded spawn branches into
-/// registered lowering interpreters; `PlacementKind` (the fieldless mirror
-/// keying the lowering registry) lands with the registry in that step.
+/// Closed authored placement payload keyed by [`PlacementKind`].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum PlacementSchema {
     Hazard(HazardSpec),
@@ -449,35 +410,10 @@ impl PlacementSchema {
     }
 }
 
-/// Authored rule for when a defeated actor reappears (ADR 0022) — ONE
-/// enum for every reappearance mechanic, authored per archetype row
-/// (`respawn:` in `character_archetypes.ron`); a future EnemySpawn LDtk
-/// field can override a single placement.
+/// Spawn-context disposition for this placement.
 ///
-/// The default is `DeadStaysDead` — the intuitively-correct rule for
-/// a unique actor in a persistent world ("Morrowind rules"). Respawning
-/// is an AUTHOR'S choice: trash mobs opt into `OnRoomReenter`,
-/// mini-boss-tier presences into `OnRest`, training dummies into
-/// `InPlace(secs)`.
-///
-/// Mechanics: the kill hook in `damage/actor_hit.rs` matches this policy
-/// — `InPlace` arms the in-place revive timer (no flag, no drops);
-/// `DeadStaysDead` / `OnRest` write the persistent death flag their
-/// respawn horizon implies; `OnRoomReenter` writes nothing. The
-/// room-load `save_sync` reads the flags back into `alive = false`. A
-/// "rest" event clears just the `_dead_until_rest` flags.
-/// How this placement's body FEELS about the player — the disposition it
-/// spawns with.
-///
-/// a spawn-context fact, and the last one an enemy archetype owned. A row
-/// could say `hostile_by_default: false` — the puppy slug is ambient wildlife
-/// that never aggros — which made peacefulness a property of the CREATURE. It is
-/// not:
-/// the same goblin is a hostile in a corridor and a bystander in a market, and
-/// under the character-template model the creature is one definition either way.
-///
-/// `None` on a placement means "the archetype's answer", which is every level
-/// authored before this existed.
+/// Disposition belongs to the placement rather than the character template: the
+/// same character may be hostile in one context and peaceful in another.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SpawnDisposition {
     /// Seeks a target and publishes contact damage. The ordinary enemy.
@@ -490,17 +426,15 @@ pub enum SpawnDisposition {
 impl SpawnDisposition {
     /// Whether a body with this disposition attacks on sight.
     ///
-    /// it was `attacks_player`. Who a
-    /// hostile body attacks is a TARGETING question with its own authority
-    /// (`ActorFaction`, `MatchTeam`, `damage_lands_between`), and naming a player
-    /// here made the engine's hostility model read as if a player were the only
-    /// thing that could be attacked. A CPU-versus-CPU match is full of bodies
-    /// that attack on sight and no player at all.
+    /// Target selection remains the responsibility of faction/team targeting rules.
     pub fn is_hostile(self) -> bool {
         matches!(self, Self::Hostile)
     }
 }
 
+/// Authored rule for when a defeated actor reappears.
+///
+/// `DeadStaysDead` is the default; respawning must be selected explicitly per archetype/placement.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub enum RespawnPolicy {
     /// Dead stays dead — forever (an explicit save reset is the only

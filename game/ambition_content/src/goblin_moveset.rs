@@ -1,30 +1,8 @@
-//! The goblin's repertoire — the third character in the game to state its own
-//! moves, and the first ENEMY to.
+//! Goblin-authored platform-fighter repertoire.
 //!
-//! That floor is one `simple_melee` swipe handed to every seated fighter whose character says
-//! nothing, and its goal is DELETION: the count falls by one each time somebody writes a table.
-//! The goblin is the cheapest next one — Ambition's own, already on the grid, already authoring
-//! its body (170 px/s, 5 HP, 0.70 contact) and its controller policy (the shared
-//! `medium_striker`).
-//!
-//! it is NOT the robot's table with different numbers. A goblin is small,
-//! fast and scrappy: it gets in, it pokes, and its punish window is short because
-//! it cannot afford a long one. Against the robot that reads as
-//!
-//! ```text
-//!            reach     jab startup   f-smash damage   b-air
-//!   robot     26 px       0.05 s          15          10
-//!   goblin    22 px       0.04 s          12          9
-//! ```
-//!
-//! — a shorter, faster, weaker fighter that has to be closer to matter. The
-//! differences are the authored ones; the SHAPE is `strike`'s, which is the whole
-//! reason that helper was pulled out of the robot's file.
-//!
-//! the clip names are the standard vocabulary and the fallback chain does the
-//! rest. The goblin sheet does not have 132 rows; `strike` names `smash_forward`
-//! and settles for `attack_side`, then `attack`, then `slash`, then `idle`. A
-//! missing clip costs the move its picture, never its gameplay.
+//! The goblin is a short-range, fast-startup, lower-damage fighter. Moves use
+//! the shared `strike` authoring shape and standard animation fallback vocabulary,
+//! so missing specialized clips affect presentation rather than gameplay.
 
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
@@ -39,7 +17,7 @@ use ambition_characters::moveset_authoring::{
 };
 use ambition_platformer2d::entity_catalog::ImpulseMode;
 
-/// See the module doc. Sixteen moves, the genre's standard verb map.
+/// The goblin's standard platform-fighter verb map.
 pub fn goblin_moveset() -> MovesetContract {
     // ── grounded ─────────────────────────────────────────────────────────────
     //

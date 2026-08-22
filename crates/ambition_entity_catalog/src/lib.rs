@@ -93,13 +93,9 @@ impl ParamValue {
     }
 }
 
-/// A reference to a content-defined technique/effect by string key, carrying
-/// its opaque [`ParamValue`] payload. This is the ONE ability-vocabulary
-/// reference: timed events ([`MoveEventKind::Effect`]), sustained windows
-/// ([`MoveWindow::sustain_effect`]), and on-hit volume payloads
-/// ([`HitVolume::on_hit`]) all name an `EffectRef`. The engine never matches a
-/// key; a content-owned technique recognizes it and hydrates its own params
-/// (fable review AJ1).
+/// Content-defined technique/effect reference with opaque parameters. Timed
+/// events, sustained windows, and on-hit payloads share this vocabulary; the
+/// content-owned technique recognizes the key and hydrates its own params.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EffectRef {
     pub key: String,
@@ -266,11 +262,8 @@ pub struct HitVolume {
     /// owner's gravity frame (frame-correct under any gravity), then applies DI (CM2).
     #[serde(default)]
     pub launch_dir: Option<(f32, f32)>,
-    /// A conditional technique that fires WHEN this volume lands a hit, with
-    /// the hit context (owner, victim, contact). The missing conditional
-    /// primitive: pogo, lifesteal, on-hit status, launch modifiers. `None` for
-    /// an ordinary damage volume (fable review AJ1). Down-air pogo authors
-    /// `on_hit: Some(EffectRef { key: "pogo_bounce", .. })`.
+    /// Optional technique fired when this volume lands, with owner/victim/contact
+    /// context. `None` is an ordinary damage-only volume.
     #[serde(default)]
     pub on_hit: Option<EffectRef>,
     /// Presentation tag for this volume's strike (§7.1/§7.2): a bladed swing
@@ -639,52 +632,21 @@ pub enum MoveEventKind {
         /// super asks for more.
         #[serde(default = "default_vfx_scale")]
         scale: f32,
-        /// WHAT IT SOUNDS LIKE, when that is not what it looks like.
-        ///
-        ///  `None` — the default and the overwhelming case — means *the cue
-        /// the effect's own name addresses*. The shipped bank carries one
-        /// `vfx.<family>.<row>` cue per authored row, so a burst that wants its
-        /// own sound has already said which one by naming the art; presentation
-        /// resolves it and the author remembers nothing.
-        ///
-        ///  this field is why the ceremony could go. Fourteen fighter
-        /// tables hand-wrote a `Sfx` event beside every `Vfx` one — 74 of 145
-        /// authored cues did nothing but restate the default — because the only
-        /// way to say "a looping variant of this row's sound" was a second
-        /// event. A sustained burst is ONE authored thing now, and the pair is
-        /// not a thing an author can get half-right.
+        /// Optional sound override. `None` resolves the cue addressed by the VFX
+        /// row itself; use `Some` only when presentation should sound different.
         #[serde(default)]
         sfx: Option<String>,
     },
     /// Emit a content-defined effect (the `Effect` vocabulary / technique seam
     /// resolves it), carrying its opaque params.
     Effect(EffectRef),
-    /// FIRE the owner's ranged weapon now, sampling its LIVE aim at this frame.
-    /// Content-free on purpose (mirrors [`Effect`](Self::Effect)): the move names
-    /// "shoot", and the dispatcher reads the owner's `ActionSet.ranged` slot + its
-    /// current aim/facing to build the concrete shot — so a `"fire"` move gets real
-    /// startup/recovery windows while its projectile still tracks a strafing target
-    /// (fable review: ranged subsumption, option A — dynamic aim, not facing-lock).
+    /// Fire the owner's ranged action using live aim/facing at this frame. The
+    /// move supplies timing; the dispatcher's `ActionSet.ranged` supplies the shot.
     Ranged,
-    /// A TIMED authored self-displacement, body-local (`+x = facing,
-    /// `+y = gravity-down`) — the move moving its own owner, at a moment the
-    /// timeline chooses.
-    ///
-    ///  why this exists when [`MoveSpec::start_impulse`] already did. That
-    /// field is a velocity ADD applied at TRIGGER, and both halves fail the one
-    /// move a platform fighter cannot do without. A recovery special has to fire
-    /// its burst AFTER its startup — that windup is the tell the whole move is
-    /// balanced around — and it has to SET the rise rather than add to it,
-    /// because a body that is falling at terminal velocity when it presses the
-    /// button is exactly the body that needs it: `vel += -1000` while falling at
-    /// 900 climbs at 100, so an additive recovery is strongest when it is least
-    /// needed and useless when it is most. [`ImpulseMode::Set`] is the whole
-    /// difference between an Up-B and a hop.
-    ///
-    ///  not a character mechanic. It is authored self-motion on a
-    /// timeline, and its second and third customers are already obvious: a dive
-    /// that commits downward mid-aerial, a lunge that travels on the active
-    /// frame instead of the press.
+    /// Timed authored self-displacement in body-local axes (`+x = facing`,
+    /// `+y = gravity-down`). Unlike `MoveSpec::start_impulse`, this fires at the
+    /// timeline event and may set rather than add velocity, which is required for
+    /// recovery moves whose burst follows startup.
     Impulse {
         /// Body-local `(side toward facing, gravity-down)` in engine units/s.
         local: (f32, f32),
@@ -1310,10 +1272,9 @@ pub fn dash_stance_verb(base: &str) -> String {
     format!("{base}_dash")
 }
 
-/// The verb-id fallback chain for a directional attack, most-specific first.
-/// A moveset that authors only `base` still answers every direction; adding
-/// `{base}_air_down` (a pogo down-air) is purely additive data — never a schema
-/// fork (fable review AJ1: smash-style tilt/smash variants are MORE VERBS).
+/// Verb-id fallback chain for a directional attack, most-specific first. A
+/// moveset that authors only `base` still answers every direction; directional
+/// and aerial verbs are additive entries in the same vocabulary.
 ///
 /// Examples (`base = "attack"`):
 /// - aerial, `Forward`: `attack_air_forward` → `attack_forward` → `attack_air` → `attack`

@@ -12,54 +12,19 @@ use ambition_platformer2d_actor_monolith::features::{
     ActorFaction, BodyKinematics, EncounterMob, FeatureId, Mountable,
 };
 
-/// How near an observer has to be for one of Ambition's roaming hostiles to
-/// keep thinking.
+/// Wake radius for roaming Ambition hostiles.
 ///
-/// NOT Mary-O's 720 and NOT Sanic's 4800, and not this game's run speed
-/// either. A wake radius is a lead time wearing distance's clothes: it must be
-/// long enough that an actor is already moving by the time an observer can see
-/// it, so it is `observer top speed × lead time`, and the mistake to avoid is
-/// taking "top speed" to mean the number in the run tuning.
-///
-/// Ambition's protagonist BLINKS. `MAX_RUN_SPEED` is 270 px/s, `DASH_SPEED` is
-/// 760 — but `BLINK_DISTANCE` is 190 px on a `BLINK_COOLDOWN` of 0.180 s, so a
-/// chaining player closes ≈1056 px/s, nearly four times the run and well
-/// past the dash. Deriving from 270 would have produced a 648 px radius and
-/// enemies snapping into motion in full view, which is worse than one that was
-/// walking all along.
-///
-/// So: the same 2.4 s of lead the other two games use, against 1056 px/s  2534,
-/// rounded to 2560.
-///
-/// and it mostly does not fire today, which is stated rather than tuned
-/// away. Ambition is authored as discrete rooms reached through loading
-/// zones, and only the active room's contents are staged; the largest
-/// enemy-bearing room (`scroll_lab`, 3200×900) has a 3324 px diagonal and most
-/// are under 1500. So an enemy sleeps only in the far corner of `scroll_lab`,
-/// `vertical_shaft` or `square_arena`. Shrinking the number until it fired more
-/// often would break the property it exists to hold — the radius is a fact about
-/// the OBSERVER, not about how big a room happens to be — and it becomes live
-/// the day content authors a long level.
+/// This is derived from the controlled body's fastest repeated traversal
+/// (blink), not ordinary run speed, with roughly 2.4 seconds of lead time. The
+/// radius is observer-motion policy and should not be tuned down merely to make
+/// dormancy trigger inside today's room sizes.
 pub const AMBITION_WAKE_RADIUS: f32 = 2560.0;
 
-/// Whether this body's `ActorControl` may be written by something other than
-/// its own brain: a LIMB, which the host's rig fans intents onto every tick, or
-/// a MOUNT, which a rider — up to and including the PLAYER (ADR 0020,
-/// `ControlGrant::Total`) — may board and steer.
+/// True when another body may author this body's `ActorControl`.
 ///
-/// Neither may sleep. Going dormant RETRACTS `ActorControl` on the sleep
-/// transition — the engine seam clears the frame because a body goes on
-/// integrating the brain's last word — while the driver writes that same
-/// component every tick, so a dozing hand or a dozing ridden mount is two
-/// authorities over one frame. GNU-ton's giant and its two hands are the live
-/// always-driven case.
-///
-/// a mount declares `Never` whether or not it is carrying a rider today.
-/// Boarding is a runtime event and a stance is declared once at spawn, so
-/// "rideable" is the only form of the question a declaration can answer — and
-/// getting it wrong in the other direction means a body the player is riding
-/// having its control frame retracted underneath them. That covers the cove's
-/// four flying sharks, which roam unridden and can also be boarded.
+/// Limbs and mounts never sleep because dormancy retracts `ActorControl`, which
+/// would conflict with the external driver. Mounts use this stance even while
+/// currently unridden because boarding is dynamic.
 fn is_driven_by_another_body(is_mount: bool, is_limb: bool) -> bool {
     is_mount || is_limb
 }
@@ -80,12 +45,7 @@ pub fn stance_for(
         return None;
     }
 
-    // The duel is the one content pair that genuinely fights under its own
-    // decisions and still must never sleep. The exhibition IS the simulation:
-    // `register_duel_content_staging` stages the fight as part of room
-    // construction so the pair is already battling the instant the player walks
-    // in, and `<<duel>>` stages it beside the player anywhere. A fight that only
-    // starts once you are close enough is not the exhibit.
+    // The duel is an always-running exhibition and must not pause with observer distance.
     if matches!(
         feature_id,
         Some(crate::duel_arena::DUEL_PCA_ID) | Some(crate::duel_arena::DUEL_ROBOT_ID)

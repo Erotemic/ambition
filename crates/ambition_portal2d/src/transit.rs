@@ -55,32 +55,12 @@ pub struct PortalCarves {
     pub holes: Vec<ae::Aabb>,
 }
 
-/// Carve placed-portal apertures out of the host surface — but ONLY a portal an
-/// opted-in body currently occupies, so the opening exists exactly while a body
-/// is passing through and re-seals the instant it clears. A permanently-carved
-/// portal left a walk-in pocket in the host wall (you could wiggle into the solid
-/// wall / ledge-grab the carved edges); gating the carve on a present body closes
-/// that. Pair-gated — a lone portal never carves.
+/// Publish apertures that must be carved from host collision this frame.
 ///
-/// A portal is carved when ANY of:
-/// * a [`PortalBody`] currently overlaps its capture opening — the walk-in /
-///   resting case: a body in the opening keeps it open, no velocity required.
-/// * a [`PortalBody`] is inside its [approach box](super::placement::approach_box)
-///   AND moving into the portal (`vel · normal < 0`). The approach box extends
-///   a fixed `APPROACH_CARVE_REACH` outward of the face — deliberately
-///   dt-independent. (Two prior schemes failed here: keying the carve off the
-///   transit latch lagged one frame, and sweeping the body by `vel * dt` read a
-///   STALE dt — this system runs `.before(CoreSimulation)` but the sim clock
-///   refreshes inside it — and pre-gravity velocity, so a frame hitch at re-entry
-///   under-swept, left the floor solid for one frame, and the integrator grounded
-///   the body, killing its entry momentum. A fixed geometric reach sized to the
-///   worst per-frame travel cannot be cheated by frame-time jitter.)
-/// * a body is mid-transit straddling it ([`PortalTransit`]) — keeps the hole
-///   open through the deep sink/cross even after the body's centroid has dropped
-///   past the thin capture box.
-///
-/// Writes the carve geometry into the portal-owned [`PortalCarves`] resource (not
-/// the host overlay); the Ambition bridge copies it into the collision overlay.
+/// A paired portal is carved while an opted-in body overlaps the opening,
+/// approaches it inward, or remains mid-transit. Approach uses a fixed
+/// dt-independent geometric reach so carve publication does not depend on the
+/// simulation clock. The host bridge applies the resulting `PortalCarves`.
 pub fn publish_portal_carves(
     portals: Query<&PlacedPortal>,
     bodies: Query<&BodyKinematics, With<PortalBody>>,

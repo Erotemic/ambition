@@ -1,15 +1,7 @@
-//! A fighter knocked off THIS platform reaches the world's edge.
+//! Integration checks that the authored Smash stage can actually drive its stocks/knockout loop.
 //!
-//! The one claim about the stocks loop that no unit test in
-//! `ambition_demo_smash` can make. Those cover spend, respawn, eliminate and
-//! end, each in isolation and each correctly. What none of them can answer is
-//! whether the stage's own numbers — a 420px platform in a 960px world with a
-//! 220px blast margin — put the world's edge somewhere a launched body actually
-//! gets to.
-//!
-//! That is the difference between a loop that is correct and a game that works,
-//! and it is exactly the class this repository keeps rediscovering: every
-//! instrument green, and green about less than it claimed.
+//! Unit tests cover the stock transitions; these tests cover the composed stage geometry and route
+//! ordering needed to reach them.
 
 use ambition_demo_smash_app::build_demo_app;
 use ambition_platformer2d::engine_core::AabbExt;
@@ -58,14 +50,10 @@ fn the_worlds_edge_sits_within_a_launch_of_the_platform() {
     }
 }
 
-/// The demo opens on character select, and the battle starts when the players
-/// lock in.
+/// Character selection prepares the roster before routing into battle.
 ///
-/// That ORDER is the correctness argument rather than an implementation detail.
-/// Seating reads `MatchParticipantRoster` on the sim schedule; if the route
-/// changed first the stage would come up with no roster, seating would find
-/// nothing to do, and the match would open with an empty cast that nothing
-/// retries into existence.
+/// Seating consumes `MatchParticipantRoster` on the simulation schedule, so this ordering is part
+/// of the match-start contract.
 #[test]
 fn the_demo_opens_on_select_and_the_battle_starts_when_players_lock_in() {
     let mut app = build_demo_app();
@@ -955,32 +943,10 @@ fn a_seated_fighter_carries_the_verbs_its_character_authored_and_not_the_engines
     }
 }
 
-/// YOU CAN SEE THE THING THAT DECIDES EVERY MATCH.
-///
-/// the framing policy was never the problem — `frame_the_cast` already
-/// framed every live seat. Three things downstream threw that framing away, and
-/// this test is red on each of them:
-///
-/// ```text
-///   the ROOM CLAMP        a blast zone is OUTSIDE `world.size` by construction,
-///                         so the region a body can die in is precisely the
-///                         region a room-clamped camera cannot look at. On this
-///                         stage the view is also WIDER than the world, so
-///                         `clamp_or_center` pinned the camera at the world
-///                         centre for the entire match.
-///   `stable_center`       the synthesized cast body had `size: ZERO` against a
-///                         `base_size` of the framing VIEW, so the crouch
-///                         compensation shifted the frame half a screen: the
-///                         cast's centre at y=366 targeted as y=202.
-///   the TARGET EASE       8 Hz lags a launched body by ~v/8 — 46 units past the
-///                         edge at the moment of the knockout.
-/// ```
-///
-/// the non-vacuity guard is the LEAVING, and it is doing real work: a
-/// match where nobody was ever knocked off the platform keeps every fighter
-/// inside any frame at all, and this fixture is a live fight rather than a
-/// scripted one. So it first proves a body reached the blast zone — OUTSIDE the
-/// room's own bounds — and only then asks what the camera was showing.
+/// Live fighters remain visible even while entering the blast zone. The test
+/// first proves a fighter actually leaves the room bounds, then checks framing;
+/// otherwise a quiet match could satisfy the camera assertion vacuously. Smash
+/// framing must follow the cast rather than clamp to the room bounds.
 #[test]
 fn every_live_fighter_stays_inside_the_frame() {
     use ambition_platformer2d::actor::{BodyKinematics, MatchSeat};

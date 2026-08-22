@@ -130,17 +130,8 @@ mod tests {
         ambition_dialog::DialogueContext::between(speaker, listener)
     }
 
-    /// The review's counterexample: a corrected branch replaces the body
-    /// being talked to, and everything else about the opening is identical.
-    ///
-    ///  `(node, opened_at)` reports these as one conversation, so the abandoned
-    /// branch's narrative end would close the corrected branch's conversation —
-    /// a different conversation, with a different body, that nobody has finished.
-    ///
-    ///  the two talkers wear the same character, which is the point: this is
-    /// the case the dialogue ids cannot separate, so it is what the `SimId`s are
-    /// for. The mirror case is
-    /// [`two_speakers_at_one_tick_through_one_node_are_two_conversations`].
+    /// Different talker identities at the same tick/node must mint different conversation instances,
+    /// even when both bodies wear the same character/dialogue identity.
     #[test]
     fn two_talkers_at_one_tick_through_one_node_are_two_conversations() {
         let twins = between("player", "npc_guard");
@@ -150,9 +141,7 @@ mod tests {
             ConversationInstanceId::mint(100, "chat", placement("player"), placement("b"), &twins);
         assert_ne!(to_a, to_b);
 
-        //  and the INITIATOR separates them too: two seats at the couch can
-        // reach the same NPC on the same tick, and whose conversation it is is
-        // part of what it is.
+        // Initiator identity is also part of the conversation instance.
         let by_other =
             ConversationInstanceId::mint(100, "chat", placement("other"), placement("a"), &twins);
         assert_ne!(to_a, by_other);

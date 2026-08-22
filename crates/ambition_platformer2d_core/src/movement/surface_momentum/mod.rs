@@ -654,34 +654,13 @@ fn choose_route_branch_at_rest(
     Some((branch.on, selected, taken))
 }
 
-/// Resolve the tangent/normal ambiguity of a body resting exactly on an
-/// interior polyline joint.
+/// Resolve the branch ambiguity of a stationary body exactly on an interior
+/// surface joint.
 ///
-/// `SurfaceMotion::Riding` stores arc length, not a segment id. At a joint that
-/// is sufficient while moving: the sign of `v_t` says which branch is entered.
-/// At zero speed, [`SurfaceChain::frame_at`] necessarily picks one side by an
-/// arbitrary `<=` tie. If that side is wall-like while the other is a floor,
-/// the straight-run stick rule ejects the body even though a valid support
-/// exists. The visible result is a body frozen on a ramp/loop edge that cannot
-/// jump, crouch, or walk away.
-///
-/// For a genuinely stationary body, nudge onto exactly one adjacent branch
-/// using, in order:
-/// 1. the branch gravity presses the body onto most strongly,
-/// 2. held run intent when support is tied (positive = increasing arc).
-///
-/// A moving body is left exactly at the joint. [`advance_riding`] must observe
-/// and classify that crossing; pre-selecting the entered branch here would skip
-/// its convex/concave launch rule.
-///
-/// Support precedes intent at rest so walking off a supported lip begins on the
-/// supporting tangent; [`advance_riding`] then applies the ordinary convex-joint
-/// launch rule. Selecting the unsupported wall branch first would launch down
-/// the wall instead of carrying the body's floor momentum over the edge.
-///
-/// Open endpoints are not joints and remain governed by the ordinary launch
-/// rule. The nudge uses [`joint_nudge`], so it is representable at any arc
-/// magnitude and remains far below gameplay geometry scale.
+/// Moving bodies stay on the joint so [`advance_riding`] owns the crossing and
+/// convex/concave launch rule. At rest, choose the adjacent branch with stronger
+/// gravity support, then use run intent as the tie-breaker. Open endpoints remain
+/// governed by the normal launch rule.
 fn stabilize_joint_rest(chain: &SurfaceChain, s: f32, v_t: f32, run: f32, gravity: Vec2) -> f32 {
     let count = chain.segment_count();
     if count < 2 {
@@ -694,12 +673,7 @@ fn stabilize_joint_rest(chain: &SurfaceChain, s: f32, v_t: f32, run: f32, gravit
         s.clamp(0.0, total)
     };
 
-    // Moving bodies must reach the joint through `advance_riding`, which owns
-    // the convex/concave turn rule. Nudging a moving body onto the entered
-    // segment here bypasses that rule entirely: a runner at a block lip can be
-    // placed directly on the wall, while a flush block seam can shed before the
-    // ordinary same-frame handoff. This helper exists only for the genuinely
-    // ambiguous zero-speed case.
+    // Moving crossings belong to `advance_riding`; only zero-speed joints are ambiguous here.
     const SPEED_EPS: f32 = 1.0e-3;
     if v_t.abs() > SPEED_EPS {
         return s;

@@ -61,30 +61,14 @@ pub struct CameraSnapshot2d {
     pub active_camera_zone: Option<String>,
 }
 
-/// Which frame a view presents the world in — defined in
-/// [`ambition_geometry::reference_frame`], beside the [`ae::InputFrameMode`] it
-/// has to stay consistent with.
-///
-///  it moved there when the camera option shipped: a settings crate that must
-/// store this policy cannot depend on the view layer, and two enums meaning one
-/// thing is the fork that let `ScreenRelative` quietly mean "world-relative".
-/// [`ae::InputFrameMode::under_camera`] is the rule that ties them together.
+/// Which frame a view presents the world in, shared with input-frame policy.
+/// [`ae::InputFrameMode::under_camera`] defines the corresponding input semantics.
 pub use ae::CameraReferenceFrame;
 
-/// The camera roll a view wants, given its frame policy and — for
-/// [`CameraReferenceFrame::SubjectFrame`] — the subject's resolved down axis.
+/// Base camera roll for a view frame before any chart transit.
 ///
-///  derived in RENDER space, which is world space with y flipped. That is
-/// the convention `portal_transit_roll` already establishes for the only other
-/// producer of this value, and measuring the turn directly there is what keeps
-/// the sign unambiguous. Screen-down is render `(0, -1)`; a world down of
-/// `(dx, dy)` is render `(dx, -dy)`; the signed angle from screen-down to it is
-/// `atan2(dx, dy)`. Rotating the CAMERA by that angle presents the world rotated
-/// the other way, which puts the subject's feet at the bottom of the screen.
-///
-///  this is the BASE roll only — what the view presents when nothing is
-/// mapping the world through a chart rotation. [`presented_roll_radians`]
-/// composes it with a transit.
+/// In subject-relative mode, render space flips world Y, so a normalized world-down `(dx, dy)`
+/// maps to the camera angle `atan2(dx, dy)`. [`presented_roll_radians`] composes transit rotation.
 pub fn observer_roll_radians(frame: CameraReferenceFrame, subject_down: Option<ae::Vec2>) -> f32 {
     match frame {
         CameraReferenceFrame::WorldFixed => 0.0,
@@ -118,28 +102,11 @@ pub struct CameraChartTransit {
     pub observer_roll_at_entry: f32,
 }
 
-/// The roll a view actually presents: its own frame, plus whatever part of
-/// the chart rotation its frame has not already absorbed.
+/// Roll actually presented by the view.
 ///
-///  the two rolls are NOT independent angles to add, and deriving that is
-/// the whole of this function. Take a floor↔wall portal, whose map rotation
-/// `M` is ±π/2:
-///
-/// - the destination's gravity matches the source's. The body somersaults
-///   but its down axis is unchanged, so the base roll is unchanged. The view
-///   needs `M` on top of its base to keep the image continuous, and gives it
-///   back when the crossing ends. `base + M`.
-/// - the portal also changes the body's frame (it lands on a wall that is
-///   now its floor). The subject's down rotates by `M` too, so a
-///   [`CameraReferenceFrame::SubjectFrame`] view's base roll ALREADY moved by
-///   `M` the instant the body crossed. Adding `M` again would spin the world a
-///   full extra half-turn through the seam and then spin it back.
-///
-/// Both cases are one rule: the view presents the roll it had adopted at
-/// entry, turned by the chart rotation. In the first case the adopted roll is
-/// still the live base, so this is `base + M`; in the second the adopted roll is
-/// the PRE-crossing base, so it is `base_before + M` — which is exactly the
-/// post-crossing base, reached with no overshoot.
+/// During a chart transit, compose the map rotation with the observer roll captured at entry rather
+/// than the live base roll. This avoids double-counting a rotation already absorbed by a
+/// [`CameraReferenceFrame::SubjectFrame`] subject.
 pub fn presented_roll_radians(
     frame: CameraReferenceFrame,
     subject_down: Option<ae::Vec2>,
@@ -308,39 +275,14 @@ pub struct CameraSnapshotResolveInput<'a> {
     /// The view subject's resolved down axis, read by `SubjectFrame`. `None`
     /// when the view has no subject to orient on.
     pub subject_down: Option<ae::Vec2>,
-    /// A chart rotation this view is presenting through — a portal crossing
-    /// today. `None` whenever nothing is mapping the world, which is almost
-    /// every frame and every capture.
+    /// Chart rotation currently presented by this view, if any.
     pub chart_transit: Option<CameraChartTransit>,
-    /// A world box the room clamp is not allowed to hide — the declared
-    /// cast's bounding box, in world coordinates.
+    /// World box the room clamp must keep visible, such as a platform-fighter cast extending into
+    /// blast margins outside the authored room bounds. [`hold_camera_target`] applies the minimum
+    /// correction needed after the ordinary clamp.
     ///
-    ///  THE CLAMP IS WHY A PLATFORM FIGHTER'S CAMERA SHOWED AN EMPTY
-    /// PLATFORM AT EVERY KNOCKOUT.
-    /// The framing above already frames every live seat correctly; the room
-    /// clamp then threw that centre away, because *the region a body can be
-    /// in is bigger than the region the room draws*. A stage's blast margins
-    /// are outside `world.size` by construction — that is what a blast margin
-    /// IS — so a fighter in the blast zone is somewhere a room-clamped camera
-    /// can never look. Worse, the smash stage's view is WIDER than its world,
-    /// so `clamp_or_center` pinned the camera at the world centre for the whole
-    /// match: 149 body-frames of a live fighter drawn outside the frame, up to
-    /// 180 units past the edge, and the KO itself happening off-screen.
-    ///
-    ///  it CORRECTS the clamped centre, and only by what is needed. The
-    /// centres that hold this box are a closed interval per axis, and the
-    /// already-clamped target is clamped into it (see [`hold_camera_target`]).
-    /// While the box sits comfortably inside the view that interval is wide,
-    /// the target is already inside it, and nothing changes — so the ordinary
-    /// easing and the room clamp behave exactly as before everywhere the game
-    /// is not asking to look outside the room on purpose, and this is `None`
-    /// for every exploration room and every capture.
-    ///
-    ///  deliberately NOT reusing [`Self::extra_clamp_center_world`]: that is
-    /// the portal adapter's padding POINT, with its own diagnostic
-    /// (`unpadded_center_world`) reporting the camera without it. Two writers
-    /// with different meanings on one field is a fork waiting to happen, and
-    /// this one is a BOX because a pair of fighters is a box.
+    /// This is distinct from [`Self::extra_clamp_center_world`]: that input is a portal-padding
+    /// point and is intentionally excluded from `unpadded_center_world` diagnostics.
     pub must_frame_world: Option<ae::Aabb>,
 }
 
@@ -451,37 +393,15 @@ pub fn resolve_follow_camera_snapshot(
         desired
     };
 
-    // Soft subject framing. A deadzone, not a second follow policy: while
-    // the subject's protected bounds stay inside the safe region the camera
-    // target does not move at all, and when they cross an edge only the
-    // correction needed to return them is applied. Runs BEFORE easing (so the
-    // ordinary smoothing carries the correction) and before clamping (so room
-    // bounds remain the authoritative fallback).
-    //
-    // Bypassed while a camera zone has taken authorship (cinematic lock),
-    // during blink arrival, and on any snap — a deadzone must never fight a
-    // deliberate composition.
+    // Soft framing is a deadzone applied before easing and clamping. Cinematic locks, blink arrival,
+    // and snap-camera requests bypass it so it cannot compete with explicit composition.
     let target_roll = presented_roll_radians(
         input.reference_frame,
         input.subject_down,
         input.chart_transit,
     );
-    //  THE ROLL IS EASED; THE SEAM IS NOT. `presented_roll_radians` has no
-    // history, so in `SubjectFrame` mode a discontinuity in the subject's down
-    // axis — possession, a gravity flip — rotated the world up to a half turn in
-    // ONE frame. Easing it here rather than at a consumer keeps the resolve the
-    // single place a view's orientation is decided, which is what makes the
-    // rolled clamp below measure the footprint actually being drawn.
-    //
-    //  a chart transit ADOPTS instead, because its discontinuity is the
-    // point: the view is asked to present the portal chart's rotation
-    // immediately so the two sides line up across the seam, and smoothing
-    // through that is exactly the overshoot C4's composition rule was derived to
-    // avoid. Storing the adopted value means leaving the transit continues from
-    // where the seam left the view rather than snapping back.
-    //
-    //  a capture (`ease_state: None`) takes the raw target: it renders one
-    // frame with no previous orientation to be continuous with.
+    // Ease ordinary subject-frame roll changes in the resolver. Chart transits adopt immediately so
+    // the portal seam stays aligned; stateless captures use the raw target roll.
     let rotation_radians = match ease_state.as_deref_mut() {
         Some(state) if input.chart_transit.is_none() => {
             let eased = match state.live_observer_roll {
@@ -565,10 +485,7 @@ pub fn resolve_follow_camera_snapshot(
 
     let bounds = active_zone.map(|zone| zone.clamp_mode).unwrap_or_default();
     let target = world_to_centered_render(input.world, target_world);
-    // THE CLAMP MEASURES THE VIEW'S WORLD FOOTPRINT, NOT ITS SIZE. A rolled
-    // view occupies a rotated rectangle; asking whether it fits inside a room is
-    // a question about that rectangle's bound, and until this line it was asked
-    // of an upright one.
+    // Clamp the axis-aligned footprint of the rolled view, not the upright viewport dimensions.
     let (clamp_half_w, clamp_half_h) =
         rolled_view_half_extents(half_view_w, half_view_h, rotation_radians);
     let (normal_host_x, normal_host_y) = clamp_camera_target(
@@ -736,25 +653,10 @@ fn world_to_centered_render(world: &ae::World, p: ae::Vec2) -> ae::Vec2 {
     ae::Vec2::new(p.x - world.size.x * 0.5, world.size.y * 0.5 - p.y)
 }
 
-/// The world-space half-extents a ROLLED view occupies.
+/// Axis-aligned world-space half-extents of a rolled rectangular view.
 ///
-/// A camera clamp asks *does the view fit inside these bounds*, and the answer
-/// depends on the view's ORIENTATION: at a quarter turn a 16:9 viewport is
-/// taller than it is wide. The clamp read `half_view_w`/`half_view_h` — the
-/// footprint of an upright rectangle — so a rolled view was clamped as though it
-/// were upright, and portal transits roll ±π/2 TODAY for a floor↔wall pair. That
-/// is how a transit could show outside the room.
-///
-/// This is the axis-aligned bound of the rotated rectangle, which is what a
-/// clamp that must CONTAIN the view needs. A tighter policy would use the convex
-/// footprint; nothing asks for one.
-///
-///  the render-space y flip does not reach this, which is worth stating
-/// rather than rediscovering: both terms take absolute values, and `cos(-t) ==
-/// cos(t)`, `|sin(-t)| == |sin(t)|`. Rolling either way occupies one footprint.
-///
-/// At zero roll this is the identity, so every upright view — which is every
-/// view that is not mid-transit — clamps exactly as it always did.
+/// The clamp must contain the rotated footprint. Absolute sine/cosine terms make the result
+/// independent of rotation sign, and zero roll is the identity.
 fn rolled_view_half_extents(half_view_w: f32, half_view_h: f32, roll_radians: f32) -> (f32, f32) {
     if roll_radians == 0.0 {
         return (half_view_w, half_view_h);
@@ -933,43 +835,21 @@ fn clamp_or_center(value: f32, min: f32, max: f32) -> f32 {
     }
 }
 
-// Owning it here makes the AJ13 "camera is an observer" boundary structural: ONE resolved snapshot,
-// ONE writer, and presentation only consumes it (portal continuity applies its deltas to a COPY,
-// never to this state).
-//
-// The invariant E4-17 was really about is the single writer — NOT which schedule advances it.
-// The resolve is a visible-host observer: it takes the physical viewport and video settings,
-// eases on the render clock, and no sim system reads what it publishes.
+// Camera observation has one writer. Presentation may transform copies; simulation never consumes
+// the resolved presentation snapshot.
 
-/// THE SCREEN RECTANGLE THIS VIEW OCCUPIES — an OBSERVER FACT the windowed
-/// host publishes each frame (`publish_camera_viewport`). Headless runs keep the
-/// default design-window rectangle, so the resolver (and any RL reader of
-/// [`ResolvedCameraSnapshot`]) works without a window.
+/// Screen rectangle occupied by this view, published by the windowed host.
 ///
-/// It carried only `px` — a size — which is everything the zoom/clamp maths needs and exactly
-/// nothing of what a second view needs: two views sharing one screen differ by WHERE they sit,
-/// not only by how big they are. With an origin the component states the whole rectangle, and
-/// `apply_gameplay_camera_viewport` can hand each camera its own view's rectangle instead of
-/// one global gameplay rect handed to all of them.
-///
-///  logical display pixels, both fields — the space the resolved layout,
-/// window cursors, touches and `bevy_ui` share. `Camera::viewport` is PHYSICAL,
-/// and the scale factor is applied at that one seam
-/// (`apply_gameplay_camera_viewport`) and nowhere else. (The old doc said
-/// "physical"; the applier multiplying by `window.scale_factor()` proves it was
-/// never that.)
+/// Size and origin are in logical display pixels. The physical-pixel conversion belongs only at
+/// `apply_gameplay_camera_viewport`; headless views use the default design-window rectangle.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq)]
 pub struct CameraViewport {
     /// Size of this view's rectangle, logical pixels (world-frame-free — a
     /// screen fact). Consumed by the observation resolve below for orthographic
     /// scale, visible-world extent and clamp half-extents.
     pub px: ae::Vec2,
-    /// Top-left of this view's rectangle within the display, logical pixels.
-    ///
-    /// Zero for a view that starts at the display origin, which is every
-    /// single-view composition today. The resolve does not read it — where a
-    /// rectangle sits changes nothing about how much world fits in it — so this
-    /// exists purely so the view can be PLACED.
+    /// Top-left of this view's rectangle within the display, in logical pixels. Camera scale does
+    /// not depend on origin; presentation uses it to place the view.
     pub origin_px: ae::Vec2,
 }
 
@@ -982,14 +862,10 @@ impl Default for CameraViewport {
     }
 }
 
-/// What a presentation adapter tells the resolve, before it resolves.
+/// Presentation-owned inputs applied before camera resolution.
 ///
-/// The generic seam a presentation adapter (portal camera continuity today) may
-/// write: an extra clamp target the bounds should be padded toward, and the
-/// chart rotation the view is presenting through. Both default to `None` every
-/// frame they are not actively needed — the writer owns clearing them.
-///
-/// A rotation-aware clamp is only expressible once the roll is an INPUT.
+/// Writers clear inactive values each frame. Rotation is an input so the resolver can clamp the
+/// actual rolled footprint.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, Default)]
 pub struct CameraPresentationInputs {
     /// Optional extra center that should remain inside the clamp bounds.
@@ -998,12 +874,9 @@ pub struct CameraPresentationInputs {
     pub chart_transit: Option<CameraChartTransit>,
 }
 
-/// THE published observation: the follow-camera snapshot resolved once per
-/// rendered FRAME, plus the raw follow point it framed. Presentation reads
-/// this (applying shake/portal deltas to a copy); RL/headless readers may read
-/// it too — it is plain data.
+/// Follow-camera observation resolved once per rendered frame.
 ///
-/// Per frame, not per tick: this is presentation state. See [`CameraObservationPlugin`].
+/// Presentation transforms copies of this state; simulation does not consume it.
 #[derive(bevy::prelude::Component, Clone, Debug, Default)]
 pub struct ResolvedCameraSnapshot {
     pub snapshot: CameraSnapshot2d,
@@ -1013,33 +886,16 @@ pub struct ResolvedCameraSnapshot {
     pub follow_world: ae::Vec2,
 }
 
-/// Resolve the follow camera for this frame (the ONE writer of
-/// [`CameraEaseState`]).
+/// Resolve the follow camera for this frame; this is the sole writer of [`CameraEaseState`].
 ///
-/// An OBSERVER: it runs once the sim has finished advancing for this frame, so
-/// it sees final body positions, and after any post-sim presentation adapter
-/// (portal camera continuity) has had its same-frame say through the
-/// observer-input resources. Presentation consumers order
-/// `.after(`[`CameraObservationSet`]`)`.
-///
-/// It reads sim state and writes only presentation state; nothing in the
-/// simulation reads what it publishes.
+/// It runs after simulation and presentation-input adapters. Consumers of the published snapshot
+/// order after [`CameraObservationSet`].
 #[allow(clippy::too_many_arguments)]
-/// Where to point a camera that is watching a cast rather than driving one,
-/// and how wide to open it.
+/// Framing bounds and stable anchor for a declared cast.
 ///
-/// Returns `None` for an empty or unresolvable cast, which is the ordinary case
-/// outside a match — a caller with no declared cast has nothing to frame and
-/// must not fall back to the world origin, because "the camera is at 0,0" looks
-/// exactly like "the camera is broken" and this repo has shipped that before.
+/// Empty or unresolvable casts return `None`; callers must not invent a world-origin fallback.
 struct CastFraming {
-    /// The cast's bounding box — the ONE fact this is.
-    ///
-    /// The centre to point at, the floor on how wide to open, and the region
-    /// the room clamp may not hide are all read off it, which is why it is
-    /// carried as a box rather than as a centre and a size: those two were
-    /// smoothed separately, and a box has one hysteresis instead of two that
-    /// can disagree.
+    /// Cast bounds drive target center, minimum view size, and must-frame clamp relaxation.
     bounds: ae::Aabb,
     /// The body the presented-pose sample is taken from — the first seat, so
     /// the choice is stable rather than whichever entity sorted first.
@@ -1051,50 +907,16 @@ struct CastFraming {
 /// it is already wider.
 const CAST_FRAMING_MARGIN: f32 = 48.0;
 
-/// How fast the cast framing CLOSES, as an exponential rate in Hz.
+/// Exponential close rate for cast framing.
 ///
-/// ```text
-///   widening   33 .. 49 units/frame, over 7-8 frames   (800 -> 1115)
-///   closing    237 .. 361 units in ONE frame           (-> 800)
-/// ```
-///
-/// The widening was never eased and never needed to be: its INPUT is a body
-/// flying, which is already continuous, so the ramp comes out smooth for free.
-/// The close is a DISCONTINUITY in the input — the body is taken out of play and
-/// the cast's bounding box collapses between one frame and the next — and there
-/// was nothing to absorb it. So widening stays immediate (a fighter launched off
-/// the top must not leave the frame while the camera catches up) and only the
-/// close is eased.
-///
-///  a rate, not a duration, matching the target ease a few screens down
-/// (`easing_hz`, 8.0). 5 Hz closes ~63% of the gap in 0.2 s and reads as a
-/// camera settling rather than a cut; it is deliberately slower than the
-/// widening it undoes, which is the same shape `CameraEaseTuning` already
-/// declares for the encounter zoom (out 1.6, in 0.9).
-///
-/// ```text
-///   on an elimination     209.6 -> 27.0    (a 248.8-unit collapse absorbed)
-///   on a respawn teleport 251, 203, 202, 179 -> 153, 78, 63, 41
-/// ```
-///
-///  the surviving 153 is an OPEN — a fighter respawns at the platform while
-/// the survivor is off the left edge, so the box grows outward — and outward is
-/// immediate by the policy above, on purpose.
+/// Outward edges are adopted immediately so a launched fighter stays visible; inward edges ease at
+/// this rate so elimination/respawn discontinuities do not cut the camera.
 const CAST_FRAMING_CLOSE_HZ: f32 = 5.0;
 
-/// Move one edge of the presented cast box toward where the cast really is.
+/// Move one presented cast-box edge toward the current cast edge.
 ///
-/// `outward` is `+1` for a MAXIMUM edge and `-1` for a MINIMUM one — the sign in
-/// which that edge grows the box. An edge moving outward is ADOPTED (a fighter
-/// flying must never leave the frame while the camera catches up); an edge
-/// moving inward EASES at [`CAST_FRAMING_CLOSE_HZ`].
-///
-/// easing the BOX is what gives the centre its smoothing for free, and that is the whole reason
-/// the framing is carried as a box rather than as a size. Until the room clamp was taught to let
-/// the camera leave the room (see [`CameraSnapshotResolveInput::must_frame_world`]) the framing
-/// CENTRE was pinned, so only the size could move and only the size needed easing. Absorbing those
-/// in the box absorbs them once, for the centre, the zoom and the clamp together, instead of three
-/// times in three shapes.
+/// `outward` is `+1` for a maximum edge and `-1` for a minimum. Expansion is immediate; contraction
+/// eases at [`CAST_FRAMING_CLOSE_HZ`]. Easing the box keeps center, zoom, and clamp coherent.
 fn ease_cast_edge(previous: f32, current: f32, alpha: f32, outward: f32) -> f32 {
     if (current - previous) * outward >= 0.0 {
         current

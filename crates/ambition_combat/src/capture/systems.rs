@@ -56,36 +56,13 @@ pub struct CaptorView {
     frame: Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
 }
 
-/// Acquire a captive for every live grab attempt that reaches one.
+/// Acquire a captive for each live grab attempt that reaches an eligible body.
 ///
-/// # Eligibility, stated rather than discovered
-///
-/// A captor must be alive, grounded, holding nobody, and driving itself. A
-/// victim must be a different body, alive, grounded, held by nobody, driving
-/// itself, and someone this captor is allowed to damage.
-///
-///  and BOTH must be a [`CaptureParticipant`] — a body the hold, the
-/// pummel, the throw and the release can all actually operate on. That is asked
-/// here, at the only moment where refusing costs nothing, rather than discovered
-/// three beats later by a step that finds half a body.
-///
-///  `damage_lands_between`, the SAME relational rule a strike asks. A grab
-/// that could take a teammate would be a different game; routing it through the
-/// hostility question every other offensive road asks is what keeps friendly
-/// fire, teams and factions answering once.
-///
-///  v1 refuses an airborne victim, and refuses an airborne captor. Aerial
-/// grabs, tether grabs and command grabs are named future techniques, and a
-/// standing grab that happened to answer an airborne press would be a bad one of
-/// them by accident rather than a designed one on purpose.
-///
-/// # Why the arbitration is spelled out
-///
-/// A grab volume can overlap two legal bodies. Taking whichever the query
-/// yields first makes the capture depend on archetype/table order — stable
-/// within a run and NOT stable across a rollback resimulation, which is the
-/// definition of a desync. So candidates are ranked: nearest to the volume's
-/// centre first, and an exact tie broken by the victims' stable [`SimId`].
+/// Captor and victim must both be grounded, alive, uncaptured
+/// [`CaptureParticipant`] bodies under autonomous control, and the ordinary
+/// `damage_lands_between` relation must permit the interaction. Overlapping
+/// candidates are ordered by distance to the grab volume, then stable [`SimId`],
+/// so arbitration is deterministic rather than query-order dependent.
 pub fn acquire_captures(
     mut commands: Commands,
     mut attempts: MessageReader<CaptureAttemptRequested>,

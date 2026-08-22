@@ -58,48 +58,19 @@ pub use visuals::{
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PortalObservationSet;
 
-/// Portal composite z band — the ONE place the seam's front-to-back order is
-/// declared. A through-portal window shows a captured composite of the FAR
-/// side, so it draws OVER the exit body copy, which then reads as the single
-/// seamless source of the far side instead of a second sprite laid on top. It
-/// stays BELOW actors (`WORLD_Z_PLAYER` = 20) so a near-side actor standing
-/// in front of the aperture still correctly occludes the window, and BELOW
-/// the rim/label overlay band ([`PORTAL_RIM_OVERLAY_Z`]) so a portal's
-/// identifying frame always draws whole.
-///
-/// The transiting body itself draws as texture-clipped PIECES (see
-/// [`sync_portal_body_pieces`]), on the WORLD layer — captures photograph
-/// them, so through a DISJOINT pair's window you see your own copy emerging
-/// (the wormhole view). The `here` slice draws in the actor band; the
-/// emerged `through` slice — like the fallback unclipped exit copy — sits at
-/// [`PORTAL_EXIT_COPY_Z`], just BELOW the window, so wherever a wormhole
-/// pane covers the exit region its captured copy is the single image shown.
-/// At a DOORWAY pair (opposed faces across a thin slab, see
-/// `PortalViewConeConfig::doorway_pair_max_gap`) the pane is clipped to the
-/// slab and the slices are clipped to be OUTSIDE it, so both slices draw
-/// direct and crisp and the chart swap at the centroid snap trades like for
-/// like — the doorway is a hole, not a wormhole, and never photographs a
-/// region that is also directly on screen. The held gun decomposes the same
-/// way (`gun_visuals`).
-///
-/// Within the band, a pair's two overlapping panes (thin-wall doorway) sort
-/// by PAIRWISE FRONT-SIDE DOMINANCE with hysteresis, not by radial distance
-/// (see `view_cones::mesh::pane_z`) — radial distance is near-tied everywhere
-/// around a thin-wall seam and alternated the opaque panes frame-to-frame. A
-/// fully unambiguous overlapping composite would still need per-window
-/// stenciling (review report, Q9), but the dominant pane is now stable.
+/// Through-portal composite z. The captured far-side image draws above the
+/// exit body copy but below actors and the portal rim, so near-side actors still
+/// occlude the aperture and the rim remains intact. Transiting body pieces stay
+/// on world layers and are captured by disjoint wormhole views; doorway pairs
+/// clip direct slices outside the thin slab. Overlapping panes use front-side
+/// dominance with hysteresis (`view_cones::mesh::pane_z`) rather than radial
+/// distance.
 pub const PORTAL_WINDOW_Z: f32 = 9.5;
 /// The exit-side body slice z (just below [`PORTAL_WINDOW_Z`]).
 pub const PORTAL_EXIT_COPY_Z: f32 = 9.4;
-/// Portal rim/core/label overlay z — ABOVE the window band: the identifying
-/// frame is an OVERLAY on the seam, so a portal always draws whole instead of
-/// a pane of takeover glass hiding the partner's rim / its own back half (the
-/// c136/c137 "portal only half appearing"). The glass stays the single source
-/// of the far-side IMAGE (exit copy and captures sit below it unchanged);
-/// only the thin frame sits on top. Still below actors, so a body in front of
-/// the surface occludes the frame naturally, and the emerging `through` slice
-/// at [`PORTAL_EXIT_COPY_Z`] passes BEHIND the thin rim bar — the ring reads
-/// as being in front of the body it emits, as it should.
+/// Portal rim/core/label overlay z: above the window and exit slice, below
+/// actors. The thin rim therefore stays intact while near-side bodies can still
+/// occlude the whole portal.
 pub const PORTAL_RIM_OVERLAY_Z: f32 = 10.0;
 
 /// The host-world half of the render transform: the world's size, copied from

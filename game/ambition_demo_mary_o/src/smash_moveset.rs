@@ -1,29 +1,8 @@
-//! Mary-O's repertoire, for the stage she visits rather than the one she
-//! lives on.
+//! Mary-O's platform-fighter repertoire.
 //!
-//! AND IT CHANGES NOTHING IN HER OWN GAME, which is the only reason this
-//! file is allowed to exist. Her catalog row authors `abilities: Some([RunJump])`
-//! — *"Mary-O Classic is deliberately only the run/jump floor"* — and `RunJump`
-//! does not include `attack`. A move table is *what the attack IS*; the ability
-//! is *whether this body may attack at all*, and hers says no. So these sixteen
-//! moves are unreachable at home and reach a body the moment a stage GRANTS the
-//! verb, which the smash stage does (`MatchAbilities::levelled`).
-//!
-//!  that split is what makes "a classic platformer protagonist on a fighting
-//! grid" expressible instead of a contradiction. Her jump physics, her one-hit
-//! death and her two on-screen buttons are untouched.
-//!
-//! THE PARAGRAPH ABOVE WAS AN INTENT, NOT AN IMPLEMENTATION, FOR ITS FIRST DAY. Nothing read
-//! the ability: `combat_actions` derived the Attack and Special slots from the MOVESET alone, so
-//! attaching this table put all twenty-three of her swings on a press in her own platformer. The
-//! guard is behavioural — `ambition_demo_mary_o_app`'s `mary_o_at_home_can_only_run_and_jump`
-//! presses every combat button in every aim and asserts nothing starts.
-//!
-//! ## The character
-//!
-//! She is a platformer, so her kit is FEET. Light, quick, and the weakest kill power on the grid:
-//! what she has instead is the best down-air in it, because falling on things is the genre she
-//! comes from.
+//! Her home character catalog grants `RunJump`, which excludes attack; the
+//! moveset therefore does not grant combat capability by itself. A host that
+//! grants attack can use this light, quick kit with strong down-air pressure.
 
 use ambition_platformer2d::characters::moveset_authoring::{
     committed_tail, impulse, on_contact, sfx, strike, vfx_at,
@@ -41,7 +20,7 @@ use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
 const STEP_FX: f32 = 0.8;
 const FLAME_FX: f32 = 1.1;
 
-/// See the module doc. Sixteen presses.
+/// Build Mary-O's platform-fighter moveset.
 pub fn mary_o_moveset() -> MovesetContract {
     // JAB — `hop_kick`. A quick boot. She does not have a punch.
     let jab = strike(

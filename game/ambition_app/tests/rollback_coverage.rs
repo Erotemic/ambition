@@ -1539,33 +1539,9 @@ fn the_resource_sweep_actually_catches_an_unregistered_resource() {
     );
 }
 
-/// The same sweep, over the composition that actually ships.
-///
-///  the sweep above boots `Platformer2dSimHarness` — the Ambition sandbox —
-/// so a resource that only exists in a DEMO PROVIDER's composition is invisible
-/// to it. `SpentPowerBlocks` (Mary-O's spent ?-blocks) lived unregistered for
-/// as long as both existed, and no sweep could have said so: the world it walks
-/// never had Mary-O's plugin in it.
-///
-/// `build_visible_app` composes every provider — Ambition, Sanic, Mary-O,
-/// Pocket, Smash — so booting it needs no new fixture and sees what a player's
-/// process sees. `NoWindow` keeps it headless (and, writes its
-/// own state directory rather than the user's).
-///
-///  this is the SECOND of the two blind spots B3b names; the first — transient
-/// entities spawned and despawned inside a route — is covered by
-/// `rollback_exit_oracle`'s per-frame census, which caught two regressions the
-/// day it was pointed at them.
-///
-///  AND IT HAS A BLIND SPOT OF ITS OWN, this fixture
-/// never runs the simulation. `build_visible_app` seats no session, and in
-/// rollback mode there deliberately is none until one is, so `GgrsSchedule` never
-/// advances a frame — `the_shipped_fixture_does_not_advance_the_simulation`
-/// prints the witness (0 of 255 snapshot stores written across 30 updates).
-///
-/// So this sweep enumerates the world as COMPOSED, not as PLAYED, and any resource the
-/// running simulation creates is invisible to it. A green result here means *composed clean* —
-/// it is not, and must not be cited as, a statement about a session in progress.
+/// Sweep the shipped multi-provider composition for mutable Ambition resources.
+/// This fixture inspects composed state only; it does not advance a live rollback session,
+/// so runtime-created resources require the simulation sweep below.
 #[test]
 fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
     let mut app =
@@ -1576,18 +1552,8 @@ fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
         app.update();
     }
 
-    //  message channels are somebody else's job.
-    // `Messages<T>` is a resource, so a naive sweep counts ~240 of them here —
-    // and `rollback_exit_oracle::every_gameplay_message_channel_is_rewound_on_rollback_or_named`
-    // already owns that question, with its own named list and its own reasoning
-    // about stale reader cursors. Two instruments claiming one population is how
-    // a waiver in one gets read as coverage by the other.
-    // ...and so is the rollback ENGINE's own storage. `bevy_ggrs`'s snapshot
-    // stores are generic over our types, so `ComponentSnapshots<ambition_…>`
-    // matches a substring search for `ambition_` while being the machinery doing
-    // the rewinding rather than state to be rewound. Same for the two bevy render
-    // resources that mention our types. Keeping only names that START with
-    // `ambition_` is the population this sweep is actually about: 308 → 66.
+    // Message channels have their own rollback oracle. Restrict this sweep to resources whose
+    // type names start with `ambition_` so GGRS/render storage mentioning Ambition types is excluded.
     let unaccounted: Vec<String> = unaccounted_resources(app.world())
         .into_iter()
         .filter(|name| !name.contains("::Messages<"))
@@ -1628,10 +1594,7 @@ fn every_mutable_ambition_resource_is_registered_derived_or_waived() {
     for _ in 0..8 {
         sim.step(AgentAction::default());
     }
-    // ...and then SEAT A MATCH, because a resource that only exists while a
-    // match is live is invisible to a sweep of a world with no match in it.
-    // `ActiveMatch` is exactly that resource, and this sweep reported green
-    // over it for as long as both existed (AA2 / AC2).
+    // Seat a match so resources that exist only during active matches are included.
     seat_a_two_cpu_match(&mut sim);
 
     let unaccounted = unaccounted_resources(sim.world());
@@ -1793,37 +1756,11 @@ fn no_render_only_frame_writes_a_rollback_registered_resource() {
     );
 }
 
-// ── An inert registration is worse than a missing one ────────────────────────
-//
-// API finding (a), made measurable. `rollback_component_canonical::<T>` installs
-// a `ComponentSnapshotPlugin`, and bevy_ggrs' snapshot plugins act ONLY on
-// entities carrying `bevy_ggrs::Rollback`. That marker is installed by
-// `require_rollback::<A>` for some ANCHOR component `A`. So a component that is
-// registered canonical, but only ever lives on entities that carry no anchor,
-// is registered and inert: the registry lists it, `encoded_types()` counts it,
-// the sweep above says the component is "accounted", and nothing rewinds it.
-//
-// That is strictly worse than forgetting to register it, because every instrument reports
-// success.
-//
-// The check cannot be static — which entities carry which components is a runtime fact — so it
-// runs over the SAME real populations the sweeps above build, and asks the co-occurrence
-// question directly.
+// A registered component is actually rewound only on entities carrying a GGRS rollback
+// anchor. This runtime sweep checks that registered components co-occur with such an anchor.
 
-/// Archetypes deliberately OUTSIDE the rollback envelope, keyed by a
-/// component whose presence identifies them, with the reason.
-///
-/// A waiver here is a CLAIM: *this entity's registered components never change
-/// during simulation, so nothing is lost by not restoring them.* That is a much
-/// narrower statement than "this entity does not matter", and it is the only one
-/// that makes an unanchored registration harmless rather than silently broken.
-///
-///  each of these earns its place by being IMMUTABLE-after-construction, not by
-/// being unimportant. `SpawnOrigin`, `TransactionId` and `SimId` are construction
-/// provenance (ADR 0030) — written once when the entity is built and never
-/// again — so a rewind that does not restore them restores the same values they
-/// already hold. A prop that started MOVING would fall out of this justification
-/// immediately, which is why the waiver names a marker rather than a module.
+/// Unanchored archetypes whose registered components are immutable after construction.
+/// A waiver stops applying as soon as the archetype gains simulation-mutated registered state.
 const INERT_WAIVED: &[(&str, &str)] = &[
     (
         "ambition_platformer2d_shared_tangle::lifecycle::markers::RoomVisual",
@@ -1840,16 +1777,8 @@ const INERT_WAIVED: &[(&str, &str)] = &[
     ),
 ];
 
-/// Construction provenance is written ONCE and never again (ADR 0030), so an
-/// entity whose only snapshot-registered components are provenance is outside
-/// the envelope by construction rather than by exception: a rewind that does not
-/// restore them restores exactly the values they already hold.
-///
-/// A RULE rather than a per-archetype waiver, deliberately. Every room prop, every
-/// authored fixture, every future one lands here without anybody adding a line —
-/// and the moment a prop gains a component that CHANGES, its stranded set stops
-/// being a subset of this and the sweep speaks up. A waiver list would have grown
-/// one entry per prop and gone unread by the third.
+/// Construction-provenance components are write-once, so an entity stranded only on this set
+/// needs no snapshot restore; adding any mutable registered component makes it fail the sweep.
 const PROVENANCE_ONLY: &[&str] = &[
     "ambition_platformer2d_shared_tangle::construction::SpawnOrigin",
     "ambition_platformer2d_shared_tangle::construction::TransactionId",

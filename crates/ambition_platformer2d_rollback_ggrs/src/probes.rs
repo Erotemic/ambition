@@ -1,28 +1,9 @@
-//! Per-component checksum localization across the save/load boundary.
+//! Per-component checksum localization across rollback save/load.
 //!
-//! ## What it measures, and why that is the right question
-//!
-//! Not "do two runs agree" — that reproduces the aggregate's blindness with more
-//! steps. It measures the restore directly: for each registered rollback
-//! component, take a census immediately before bevy_ggrs saves frame `F`, and take
-//! it again immediately after bevy_ggrs loads frame `F`. A component whose census
-//! changed across that boundary is a component the snapshot did not put back, and
-//! it is named.
-//!
-//! ## Order independence
-//!
-//! bevy_ggrs destroys and recreates rollback entities, so entity ids and archetype
-//! order both change across a load. A census that folded per-entity checksums in
-//! iteration order would therefore report a difference for every component on
-//! every load — all noise, no signal. Each probe combines its per-entity
-//! checksums with a wrapping SUM plus a count, which is invariant under reordering
-//! and still detects a changed value, a lost carrier, or a gained one.
-//!
-//! Addition rather than XOR because XOR annihilates equal pairs: a component held
-//! with the same value by exactly two entities censused as `0x0` and could hide a
-//! compensating change. A genuine value SWAP between two carriers still survives
-//! either combiner, and is accepted — this is a localizer pointing at a component,
-//! not a proof of equality. The oracle remains the guard.
+//! Each registered component is censused immediately around a restore. Entity
+//! ids and iteration order may change, so probes use carrier count plus wrapping
+//! sums of value projections. Presence-only probes are tracked explicitly; the
+//! aggregate rollback checksum remains the equality oracle.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -33,29 +14,14 @@ use bevy::prelude::*;
 pub struct ComponentCensus {
     /// How many entities carried this component.
     pub count: usize,
-    /// Order-independent SUM of each carrier's checksum projection — the SAME
-    /// projection the GGRS aggregate uses, so a difference here is a difference the
-    /// session would see.
-    ///
-    /// Wrapping addition rather than XOR, learned the hard way: XOR makes two
-    /// carriers with IDENTICAL values cancel to zero, so a component held equal by
-    /// exactly two entities reported `0x0000000000000000` and any change to one of
-    /// them could be masked by a matching change to the other. Addition has no such
-    /// annihilating pair.
+    /// Order-independent wrapping sum of carrier checksum projections. XOR is
+    /// not used because equal carrier values can cancel in pairs.
     pub xor: u64,
 }
 
-/// How much of a component's state a probe can actually see.
-///
-/// `ProjectileOwner` is the case that matters — snapshotted by clone, remapped as an entity
-/// reference, and probed by counting carriers. A restore that put back the right NUMBER of owners
-/// and pointed one of them at the wrong body was indistinguishable from a correct one, on exactly
-/// the state the equipment divergence turned on.
-///
-/// So strength is recorded, [`RollbackChecksumProbes::presence_only_type_names`]
-/// enumerates the weak ones, and the guard compares that enumeration against an
-/// explicit list with stated reasons. A weakness that has to be written down is a
-/// different thing from one that has to be noticed.
+/// How much component state a probe observes. Presence-only value-bearing
+/// components are enumerated so weak coverage stays explicit; zero-sized marker
+/// components are complete when counted by carrier.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ProbeStrength {
     /// Counts carriers. Detects a lost or gained carrier; blind to the value.

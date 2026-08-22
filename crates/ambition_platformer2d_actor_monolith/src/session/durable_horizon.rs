@@ -23,17 +23,10 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 };
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
-/// Has the loaded save been applied to this world yet?
+/// Whether the loaded save has been applied to this world.
 ///
-/// ONE latch for the whole durable restore, and that is the point of the
-/// name. It used to be `InventoryRestored` and gate only the catalog + wallet;
-/// the occurrence leg asks the same question — *has the file been applied?* — and
-/// a second flag would be a second answer to it, free to disagree the first time
-/// one leg's precondition was met and the other's was not.
-///
-/// ROLLBACK STATE. This is an "already applied" flag that GATES behaviour, not a cache, and
-/// everything it coordinates rewinds: `OwnedItems`, `BodyWallet`, `AmbitionGameSave` and the
-/// occurrence ledger are all in the schema.
+/// This is the single durable-restore latch across inventory and occurrence
+/// domains. It gates behavior and is therefore rollback state, not a cache.
 #[derive(Resource, Default, Clone)]
 pub struct SaveRestored(pub bool);
 

@@ -7,9 +7,6 @@ use super::*;
 
 mod actors;
 mod features;
-// spawn BUNDLES moved to `features::ecs::actor_bundles` (E2): spawn
-// machinery is features-side; the bundles reference combat components
-// through the legal features → combat arrow.
 
 pub use actors::*;
 pub use features::*;
@@ -61,19 +58,10 @@ mod tests {
     }
 }
 
-/// Per-actor combat-CONSEQUENCE traits, derived from the actor's authored
-/// archetype DATA at spawn (`character_archetypes.ron`) and attached as a
-/// component so generic combat systems can branch on capabilities
-/// instead of matching named archetype enums. The content layer
-/// derives it; the kit only defines the vocabulary.
+/// Runtime combat consequences derived from authored character death traits.
 ///
-/// This carries what happens on death / to a weapon — NOT which movement verbs
-/// the body can use. Movement capability (blink / fly / shield / dash) is one
-/// vocabulary for every body: the body's [`ae::AbilitySet`]
-/// (`BodyAbilities` / `AbilityBase`), the same the player carries. A character's
-/// authored movement kit is unioned into that set at spawn
-/// (`ActorBody::from_kit`), so there is one movement-capability authority per
-/// body, never a parallel `can_*` mirror here.
+/// Movement verbs are not mirrored here; body movement capability remains authoritative in
+/// [`ae::AbilitySet`].
 #[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct CombatCapabilities {
     /// Detonates at the corpse on death (Enemy-faction blast), so a
@@ -95,18 +83,8 @@ pub struct CombatCapabilities {
 }
 
 impl From<&ambition_characters::actor::CharacterDeathTraits> for CombatCapabilities {
-    /// The one lowering from authored death traits to the runtime component.
-    ///
-    /// A character definition states what it does when it dies as plain data in
-    /// the character domain; construction turns that into the live component.
-    /// The direction matters more than the shape: the authoring type cannot
-    /// reach up into this crate (`ambition_combat` already depends on
-    /// `ambition_characters`), so the fact has to be stated below and lowered
-    /// here. See `ambition_characters::actor::death_traits`.
-    ///
-    /// field-for-field TODAY, and deliberately written out rather than
-    /// derived: the moment either side grows a field the other does not have,
-    /// this stops compiling and someone has to say which layer owns it.
+    /// Lower authored death traits into the combat-owned runtime component.
+    /// Explicit field mapping keeps ownership changes compile-visible.
     fn from(traits: &ambition_characters::actor::CharacterDeathTraits) -> Self {
         let ambition_characters::actor::CharacterDeathTraits {
             explodes_on_death,
@@ -125,13 +103,8 @@ impl From<&ambition_characters::actor::CharacterDeathTraits> for CombatCapabilit
     }
 }
 
-/// Composable per-body movement knobs (gravity, run, jump, fall cap) — the
-/// physics every body's spine runs on. Resolved hierarchically per archetype:
-/// `BASELINE ← inherited archetype's resolved tuning ← this archetype's patch`
-/// (see [`BodyMovementPatch`]). Today this feeds the actor integrator (replacing
-/// the old hardcoded `ENEMY_*` constants); the roadmap's unification consumes it
-/// as the per-body physics when actors run the shared player pipeline, so a heavy
-/// brute can fall harder and a floaty wisp drift, all from data.
+/// Composable per-body movement tuning resolved from baseline, inheritance, and
+/// [`BodyMovementPatch`] overrides.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BodyMovementTuning {
     /// Downward acceleration along the local gravity axis (px/s²).
@@ -155,12 +128,7 @@ impl BodyMovementTuning {
         double_jump_speed: 430.0,
     };
 
-    /// Build the engine `MovementTuning` the grounded spine runs on for this
-    /// body: the composed gravity/run/fall knobs over the bare default, with the
-    /// body's run cap and gravity frame, frictionless (a grounded actor carries no
-    /// friction limbs — friction lives in the rich pipeline this body adopts next).
-    /// `gravity_scale` lets a partially-floating body damp its gravity. One movement
-    /// source per body — the seam the unification's full pipeline also consumes.
+    /// Build shared engine movement tuning for the body's gravity/run/fall parameters.
     pub fn spine_tuning(&self, max_run_speed: f32) -> ae::MovementTuning {
         ae::MovementTuning {
             gravity: self.gravity,
@@ -174,13 +142,7 @@ impl BodyMovementTuning {
         }
     }
 
-    /// Build the engine `MovementTuning` the full player pipeline runs on for
-    /// this body. Extends [`Self::spine_tuning`] with the body's jump speeds (the
-    /// rich pipeline owns jumping, where the bare spine left it to the caller), so
-    /// a body routed through `update_body_*_with_clusters` jumps with its OWN
-    /// authored impulse instead of the player default. Dash/blink/ledge distances
-    /// stay at the engine default for now — gated off until the body's ability
-    /// mask opts in.
+    /// Extend [`Self::spine_tuning`] with this body's authored jump impulses.
     pub fn body_tuning(&self, max_run_speed: f32) -> ae::MovementTuning {
         ae::MovementTuning {
             jump_speed: self.jump_speed,
@@ -196,10 +158,7 @@ impl Default for BodyMovementTuning {
     }
 }
 
-/// A partial override layer authored on an archetype (RON). Every knob is
-/// `Option`: `None` inherits (from the parent archetype or the baseline), `Some`
-/// overrides. This is what makes the tuning COMPOSE — a row specifies only what
-/// differs, and `inherits` lets one archetype extend another.
+/// Partial authored movement override; `None` inherits and `Some` replaces the base value.
 #[derive(Clone, Copy, Debug, Default, PartialEq, serde::Deserialize)]
 #[serde(default)]
 pub struct BodyMovementPatch {
@@ -211,9 +170,7 @@ pub struct BodyMovementPatch {
 }
 
 impl BodyMovementPatch {
-    /// Layer this patch onto a resolved base: each `Some` knob overrides, each
-    /// `None` keeps the base. The single composition primitive the hierarchical
-    /// resolver folds along the inheritance chain.
+    /// Layer this patch onto an already resolved base tuning.
     pub fn apply_onto(&self, base: BodyMovementTuning) -> BodyMovementTuning {
         BodyMovementTuning {
             gravity: self.gravity.unwrap_or(base.gravity),
@@ -225,19 +182,9 @@ impl BodyMovementPatch {
     }
 }
 
-// `ActorTuning` moved to `features::ecs::actor_tuning` (E2): the actor
-// archetype tuning block (it names projectile visual vocabulary); combat
-// reads only the projected `CombatTuning` below.
 
-/// Combat-owned per-body tuning read by the damage paths (E2 verdict b).
-///
-/// The CM1 knockback-scaling law needs the victim's `weight`, an actor fact
-/// authored on `ActorTuning`. Combat may NOT import the sim-heart `ActorConfig`
-/// to read it, so actor SPAWN projects the value onto this combat-owned carrier
-/// (actors → combat, the legal arrow); the hitbox resolver reads `CombatTuning`
-/// instead of reaching up into `ActorConfig`. Bodies without one (the player,
-/// headless test bodies) fall back to the reference `1.0` — byte-parity with the
-/// old `Option<&ActorConfig>` read.
+/// Combat-owned projection of authored per-body tuning used by damage/hit resolution.
+/// Bodies without it use the reference defaults.
 #[derive(Component, Clone, Debug)]
 pub struct CombatTuning {
     /// Knockback weight (CM1): heavier bodies launch less under the same growth
@@ -253,10 +200,7 @@ pub struct CombatTuning {
     /// remains only for content-free fixtures. Combat forwards the stable id to
     /// the App-local authored-volume resolver.
     pub sprite_character_id: Option<String>,
-    /// How THIS body reacts to being struck (CM8): the victim-owned half of hit feedback — the
-    /// default hurt sound plus the spray/debris it throws. The per-body home the survey (§8
-    /// fact 4) named, so a heavy body could later clang where a light one squishes. The player
-    /// is handled by its own consumer with [`ambition_vfx::HurtFeedback::PLAYER`].
+    /// Victim-owned hurt sound and spray/debris response.
     pub hurt_feedback: ambition_vfx::HurtFeedback,
 }
 
@@ -271,15 +215,6 @@ impl Default for CombatTuning {
     }
 }
 
-/// Which motion / AI state-machine template a brain instantiates.
-// `CharacterBrainTemplate`/`BrainProfile` moved to
-// `features::ecs::actor_tuning` (E2): actor archetype vocabulary.
-// `RespawnPolicy` moved to `ambition_entity_catalog::placements`
-// ([W-a]: the ADR-0022 authored schema half).
-
-/// It has to travel WITH the health component: it was authored per-archetype on `ActorTuning`
-/// and read in exactly one place, so the player's body had no death policy at all — and a
-/// versus fighter IS the adopted player.
-///
-/// Re-exported here because this is where its consumers learned to name it.
+/// TODO(compat-remove): migrate combat callers to `ambition_characters::actor::DeathPolicy`,
+/// then delete this re-export.
 pub use ambition_characters::actor::DeathPolicy;

@@ -1,23 +1,10 @@
-//! Body-generic [`WorldView`] builder — the gameplay-layer half of the world-out
-//! port (architecture roadmap S4).
+//! Gameplay construction of controller-neutral [`WorldView`] values.
 //!
-//! [`ambition_characters::perception`] owns the headless, controller-neutral
-//! *value* ([`WorldView`] / [`WorldMemory`]) and its pure tactical queries; this
-//! module owns the construction — reading real solids, other actor bodies, and
-//! live projectiles out of the gameplay world and packing them into the view.
-//!
-//! ### Body-generic by construction (guardrail #1)
-//!
-//! [`build_world_view`] takes a [`PerceptionBody`] — the minimal description of
-//! any body (player-robot, Perfect Cell-ular Automaton, NPC, boss) — never an
-//! `CharacterBrain`-keyed or `"player"`-keyed input. Perception "for the player" is a
-//! brain driving the player-robot body through this same function, so when S5/S6
-//! land there is no enemy-only path to undo. Hostility is resolved relationally
-//! against [`FactionRelations`] (the S3e seam), not by a player-vs-enemy branch.
-//!
-//! The peer / projectile lists are pre-collected before the per-body loop (the
-//! same shape the crowding pass uses), so a body perceives the others without a
-//! second mutable borrow of the actor query.
+//! `ambition_characters::perception` owns the pure view/memory types and tactical
+//! queries; this module collects live solids, bodies, and projectiles. Perception
+//! is body-generic and hostility is relational through `FactionRelations`, not a
+//! player/enemy branch. Peer/projectile snapshots are collected before mutable
+//! per-body updates to avoid conflicting world borrows.
 
 use ae::AabbExt;
 use ambition_platformer2d_core as ae;

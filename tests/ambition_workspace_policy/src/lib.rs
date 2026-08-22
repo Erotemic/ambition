@@ -1,29 +1,8 @@
-//! Workspace-policy runner.
+//! Repository-structure policy runner.
 //!
-//! This crate is the ONE home for repository-structure tests. It reads the
-//! workspace as data — parsed `Cargo.toml` manifests and a walk of the Rust
-//! source tree — and checks declarative policies (loaded from `policies/*.toml`)
-//! plus a handful of custom semantic scanners (`custom/`). It links no
-//! production Ambition crate, so running the policy suite never compiles
-//! `ambition_app`.
-//!
-//! Layout:
-//!   * [`model`]     — what a policy IS ([`model::Policy`]) and what a failure
-//!                     looks like ([`model::Diagnostic`] / [`model::Report`]).
-//!   * [`workspace`] — repository-root discovery, workspace-member parsing,
-//!                     manifest dependency parsing, and Rust source walking with
-//!                     centralized exclusions/scanning primitives.
-//!   * [`runner`]    — loads a `policies/*.toml` file and dispatches each policy
-//!                     to its rule kind.
-//!   * [`rules`]     — the declarative rule kinds (path/dependency/member/
-//!                     source-reference). Repetitive, data-driven.
-//!   * [`custom`]    — one-off semantic scanners kept as readable Rust
-//!                     (determinism, control-frame, module-size, …), configured
-//!                     by their own data files. Added as rules migrate.
-//!
-//! Everything is exercised by `tests/policy.rs`, whose four independently
-//! filterable tests are `repository_policies`, `engine_policies`,
-//! `game_policies`, and `policy_runner_self_tests`.
+//! Policies inspect manifests and Rust source without linking production crates.
+//! Declarative rules live in `policies/*.toml`; custom scanners cover structural
+//! invariants that need semantic source inspection.
 
 pub mod custom;
 pub mod model;

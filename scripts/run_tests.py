@@ -37,17 +37,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-# The run-state file another process should read to learn whether a suite is
-# still going. See the module docstring: process-scanning for the answer is
-# what hangs, because the scan matches the shell doing the scanning.
+# External waiters read this state file; process-name polling can match the waiter itself.
 STATUS_NAME = "run_tests_status.json"
-# the disk guard lives in `check_disk_headroom.py`, not here, and is IMPORTED rather than copied. A
-# guard only one caller can run is a guard for one caller.
+# Share the repository disk-headroom policy rather than duplicating it in this runner.
 from check_disk_headroom import MIN_FREE_GB, free_gb_on_target, target_dir  # noqa: E402
 
-# `scripts/lib/measurement_paths.py` imports nothing but `pathlib`, which is what makes it
-# importable from the suite's own entry point — the telemetry ENVELOPE below still stays
-# hand-copied, because that would mean importing a 1,500-line checker.
+# Keep shared measurement paths in the small dependency-free helper.
 sys.path.insert(0, str(REPO / "scripts" / "lib"))
 import measurement_paths  # noqa: E402
 
@@ -71,13 +66,8 @@ DENY_EXACT = {
     # already runs headlessly in tests, and enabling both double-registers
     # render setup. No test gates on `headless`, so denying it loses nothing.
     "headless",
-    # `profile` forwards `bevy/trace_tracy`, whose static initializer ABORTS the
-    # test binary on a CPU without an invariant TSC -- before libtest lists a
-    # single test, so `--list` and a filter matching nothing fail identically.
-    # Nothing in the repo gates a test on it, so denying it loses no coverage.
-    #
-    # That set's own comment predicted this exact requirement: "if you remove this skip, expect to
-    # deny `profile` in the same commit."
+    # `profile` forwards Tracy, whose initializer can abort before libtest on CPUs without an
+    # invariant TSC. No test is gated on this feature, so exclude it from headless feature jobs.
     "profile",
 }
 DENY_PREFIX = ("android", "web", "visible_web", "static_")
@@ -89,40 +79,9 @@ DENY_PREFIX = ("android", "web", "visible_web", "static_")
 DETACHED_TOOL_MARKER = "detached_tool"
 PYTEST_TIMING_ARGS = ["--durations=20", "--durations-min=0.05"]
 
-# Big composition crates whose only non-default headless-safe features gate NO
-# test code (verified: app's portal_ldtk/profile, actors' profile, menu,
-# runtime). A feature job for them recompiles the entire Bevy/ambition graph in
-# a fresh feature-variant -- tens of GB of target artifacts -- for zero added
-# coverage (their real tests already run in the `--workspace` backbone). Skip
-# them. Every other crate's feature job unlocks tests, so it stays.
-#
-# RULE: adding a `#[cfg(feature = ...)]` test to a skipped crate must remove
-# the skip in the same commit -- a stale entry here silently un-runs tests.
-# ambition_platformer2d_host left this set: its portal_render seam tests are
-# feature-gated, and the portal feature now forwards ambition_platformer2d_runtime/portal
-# so the composition is complete.
-#
-# `ambition_platformer2d` JOINED it on the reasoning that its 17 extra features
-# are all FORWARDERS and "the facade's own tests gate on no feature".
-#
-# Real, and not the "tens of GB" that phrase suggests — that figure belonged to
-# `ambition_platformer2d_actor_monolith`' `profile` feature, which is denied above.
-#
-# It appeared at all only because the facade gained its first `#[cfg(test)]`
-# module that day — `crate_has_tests` is what admits a crate to this pass — and
-# the job it created FAILED immediately, which is worth recording where the next
-# person to remove this entry will read it:
-#
-#   Tracy Profiler initialization failure: CPU doesn't support invariant TSC.
-#
-# The `profile` feature forwards `bevy/trace_tracy`, whose static initializer ABORTS the test binary
-# on a CPU without an invariant TSC — before libtest lists a single test, so `--list` and a filter
-# matching nothing fail identically. Nothing in the repo gates a test on `profile`. Its `profile`
-# feature is denied above rather than built, which is what the entry below always said would be
-# needed.
-#
-# Removing it is what the rule requires; the cost is a feature-variant build of the runtime graph,
-# paid once per suite.
+# Composition crates listed here have no tests gated by their extra headless-safe features, so a
+# separate feature variant adds build cost without coverage. If one gains a feature-gated test,
+# remove it from this set in the same change.
 SKIP_FEATURE_JOB = {
     "ambition_app",
     "ambition_menu",
@@ -233,11 +192,7 @@ def timings_payload(results: list[JobResult]) -> list[dict]:
 
 
 def selected_members(only: list[str]) -> list[Path]:
-    """Workspace members with a `Cargo.toml`, validated against `only`.
-
-    An unknown package name is a HARD error: silently planning zero jobs (the old
-    behavior) makes a typo look like a green run.
-    """
+    """Workspace members with a `Cargo.toml`, rejecting unknown requested packages."""
     members = [c for c in workspace_members() if (c / "Cargo.toml").exists()]
     if only:
         known = {c.name for c in members}
@@ -251,12 +206,7 @@ def selected_members(only: list[str]) -> list[Path]:
 
 
 def wasm_target_installed() -> bool:
-    """Whether `wasm32-unknown-unknown` is available to this toolchain.
-
-    Asked rather than assumed: a machine without the target would otherwise turn
-    the web check into a job that can never pass, and a check that cannot pass
-    wedges whoever is waiting on a green suite.
-    """
+    """Whether `wasm32-unknown-unknown` is available to this toolchain."""
     rustup = os.path.expanduser("~/.cargo/bin/rustup")
     if not os.path.exists(rustup):
         rustup = "rustup"
@@ -265,8 +215,7 @@ def wasm_target_installed() -> bool:
             [rustup, "target", "list", "--installed"],
             capture_output=True, text=True, check=False)
     except OSError:
-        # No rustup at all (a distro toolchain, a container). Unknowable rather
-        # than absent — say so by declining the job, which the caller reports.
+        # Without rustup, this runner cannot prove the wasm target is installed.
         return False
     return result.returncode == 0 and "wasm32-unknown-unknown" in result.stdout
 
@@ -283,17 +232,8 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # `--heavy` is the MORE-than-exhaustive pass; it cannot mean less.
     everything = everything or heavy
 
-    # Repo-coupled Python tests run first because they validate the cheap guards
-    # that decide whether this checkout is internally coherent. Detached tool
-    # tests live behind --tool-tests and periodic repository-hygiene audits live
-    # behind --maintenance; neither ordinary engine/game edits nor a Rust test
-    # failure need to wait for them.
-    #
-    # Everything after the pytest job is DEFERRED until the Rust backbone has
-    # started. This is an ordering decision, not a coverage reduction: warning,
-    # documentation, and compile-cost guards still contribute to the same final
-    # default verdict, but `cargo test --workspace` begins as soon as the cheap
-    # repo-coupled Python gate completes.
+    # Run the cheap repo-coupled Python gate first, then start the Rust backbone before deferred
+    # documentation/warning/compile-cost checks. Detached tools and maintenance audits are opt-in.
     post_rust_repo_jobs: list[Job] = []
     if not only and include_python_tooling:
         jobs.append(Job(
@@ -322,10 +262,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         tail = list(libtest_args) + list(extra)
         return (["--"] + tail) if tail else []
 
-    # Default-feature jobs. Every SELECTED package gets its own `cargo test -p`,
-    # so a package filter can NEVER plan zero jobs; with no filter the whole
-    # workspace builds as one unified graph. `--fast` honors the same restriction
-    # (it only drops the feature/heavy passes below).
+    # Package filters run that package directly; the unfiltered backbone uses one workspace graph.
     if only:
         for crate in members:
             if crate.name in only:
@@ -335,13 +272,8 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         jobs.append(Job("workspace (default features)",
                         [CARGO, "test", "--workspace", *libtest()]))
 
-    # Exercise the visible render composition in the default plan. Headless
-    # app-boot tests cover simulation only; `capture_scene` composes presentation
-    # and exits non-zero on invalid parameters. Use a small frame and short
-    # warmup because this checks composition, not visual fidelity.
-    # binary's graph.
-    # Whole-suite only: a `-p ambition_input` run has no business booting a
-    # renderer, and the filter's contract is that it plans that package's tests.
+    # The unfiltered default plan also boots visible presentation through a small `capture_scene`;
+    # package-filtered runs stay scoped to the requested crate.
     if not only:
         jobs.append(Job("acceptance: the render composition draws a frame",
                         [CARGO, "run", "-p", "ambition_app_tools",
@@ -350,11 +282,8 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                          "target/composition_boot.png", "320x180",
                          "--warmup", "20"]))
 
-    # Per-crate feature jobs: enable each crate's headless-safe extra features so
-    # its #[cfg(feature = "...")] tests actually compile and run. Skipped under
-    # --fast (backbone only). Big composition crates whose extra features gate no
-    # test code are always skipped -- their default-feature job already runs every
-    # test, and a feature variant would recompile the whole graph for nothing.
+    # Exhaustive mode proves each crate's headless-safe feature combination compiles, then runs all
+    # gated tests together in one union graph.
     check_jobs: list[Job] = []
     union_features: list[str] = []
     if everything:
@@ -371,65 +300,29 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                            if not is_denied(f) and f not in default)
             if not extra or not crate_has_tests(crate):
                 continue
-            # **FRONT 1: PROVE IT COMPILES HERE, RUN IT ONCE BELOW.**
-            #
-            # Only the first needs its own build graph — and a distinct feature set IS a distinct
-            # build graph, which is why 23 of these cost 23 dependency builds at opt-level 3.
-            #
-            # `cargo check` keeps the compile guarantee without codegen or
-            # linking; the union job below runs every gated test in ONE graph.
+            # Prove this feature combination with `cargo check`; the union job below executes the
+            # gated tests without linking a separate test graph per crate.
             check_jobs.append(Job(f"{name} [{','.join(extra)}] (compiles)",
                                   [CARGO, "check", "-p", name, "--all-targets",
                                    "--features", ",".join(extra)]))
             union_features.extend(f"{name}/{f}" for f in extra)
 
-    # **AN OPTIONAL DEPENDENCY THAT CANNOT BE TURNED OFF IS A FICTION.**
-    #
-    # this guards the CONDITION, not a proxy for it: the boundary IS "the
-    # crate builds without the feature", so the check is that build. A grep for
-    # unconditional `bevy_ecs_ldtk` would pass the day someone reaches for a
-    # different LDtk-shaped type through a re-export.
-    #
-    # `check`, not `build` — the claim is about the dependency graph resolving
-    # and the code type-checking without LDtk, and neither needs codegen.
+    # The LDtk dependency is optional only if the monolith type-checks with default features off;
+    # test that boundary directly rather than scanning source text for one dependency name.
     if everything and (not only or "ambition_platformer2d_actor_monolith" in only):
         check_jobs.append(Job(
             "the monolith's LDtk feature is REALLY optional (--no-default-features)",
             [CARGO, "check", "-p", "ambition_platformer2d_actor_monolith",
              "--no-default-features"]))
 
-    # **THE CAUSAL INSTRUMENT AGAINST THE REAL APP.** `ambition_app` is in
-    # SKIP_FEATURE_JOB, and that set's own rule says adding a
-    # `#[cfg(feature = ...)]` test to a skipped crate must remove the skip in the
-    # same commit. This is the narrower form of that: one targeted job instead of
-    # a full all-non-default-features variant of the biggest crate in the repo.
-    #
-    # A feature with no consumer is a feature that has quietly stopped working.
-    #
-    # this is a second feature variant of the app graph, so it is deliberately
-    # non-fast. If it ever costs more than it catches, the honest alternative is
-    # folding `causal` into `desktop_dev` — recording is policy-gated `Off` by
-    # default, so the cost would be code size and a per-tick policy check, not
-    # published facts.
+    # Exhaustive mode also exercises the causal feature against the real app composition rather
+    # than assuming that a leaf-crate feature compile proves the assembled consumer.
     if not only and everything:
-        # The compile proofs first: they are cheap, and a combination that does
-        # not build should say so before an hour of test running.
+        # Fail feature-combination compile proofs before the more expensive test graph.
         jobs.extend(check_jobs)
 
-        # **AND THE ONE GRAPH THAT RUNS EVERY GATED TEST.** (Front 1)
-        #
-        # **the union SEES MORE than the per-crate jobs, which is the finding
-        # that justifies it.** Compiling everything at once surfaced three
-        # `causal` message channels that both rollback oracles had been green
-        # over because the default job never compiled them.
-        #
-        # `--no-fail-fast` is load-bearing: cargo otherwise stops at the first
-        # failing target, so one red crate hides every later one — measured, and
-        # it is why this must not be a plain `cargo test`.
-        #
-        # feature unification means a crate here is compiled with features its
-        # own job would not enable. That is exactly what the check lane above
-        # exists to cover: each combination still gets its own resolution proof.
+        # Run every feature-gated test in one graph. `--no-fail-fast` preserves failures from later
+        # targets; the per-crate checks above separately prove each feature combination resolves.
         if union_features:
             jobs.append(Job(
                 "workspace [every headless-safe feature] — one graph, every gated test",
@@ -902,18 +795,14 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
             json.dumps(timings_payload(results), indent=2) + "\n")
         print(f"  timings written to {timings_json}")
 
-    # Append the persistent cost row; `--timings-json` is the per-run export.
+    # Keep the persistent suite-cost ledger separate from the optional per-run timing export.
     ledger = append_cost_ledger(
         results, exhaustive, filtered, rust_only, tool_tests_only, maintenance_only
     )
     if ledger:
         print(f"  cost appended to {ledger.relative_to(REPO) if ledger.is_relative_to(REPO) else ledger}")
 
-    # **What this run COST in disk**, as a number rather than as a surprise.
-    #
-    # A figure printed every run is what lets somebody notice the trend BEFORE the volume is full —
-    # and it is a measurement that moves when the job plan changes, which is the only kind worth
-    # having.
+    # Report disk delta because the selected build graph can materially change target usage.
     free_after = free_gb_on_target()
     spent = free_gb - free_after
     print(f"  disk: {free_after:.0f} GB free "
@@ -943,9 +832,7 @@ def main() -> int:
     ap.add_argument("--heavy", action="store_true",
                     help="also run #[ignore]d tests and app acceptance cycles "
                          "(implies the exhaustive plan)")
-    # The NAME is the feature. An agent reading `--help` or a stale command
-    # line should be talked out of it by the flag itself, because being the
-    # default is exactly how the exhaustive plan became the reflex.
+    # Keep the exhaustive flag deliberately explicit; it is not the edit-loop default.
     ap.add_argument("--run-everything-you-probably-dont-need-this",
                     dest="run_everything", action="store_true",
                     help="the exhaustive plan: a cargo test -p per crate with "
@@ -955,9 +842,7 @@ def main() -> int:
                          "CI and Jon "
                          "sweeps this periodically himself, so in a dev cycle "
                          "the default plan or a focused test is what you want.")
-    # Kept so an existing command line or script does not break. `--fast` WAS
-    # the backbone-only mode; the backbone is now the default, so it is a no-op
-    # that says so rather than a silent one.
+    # Compatibility flag: the backbone is now the default, so `--fast` is a reported no-op.
     ap.add_argument("--fast", action="store_true",
                     help="DEPRECATED no-op: the backbone is the default now")
     ap.add_argument("--rust", action="store_true",

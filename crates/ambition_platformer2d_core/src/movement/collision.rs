@@ -413,41 +413,13 @@ struct AxisClaim<'a> {
     block: &'a Block,
 }
 
-/// Positional penetration repair for ONE world axis, role-aware — the merge of
-/// the old `resolve_axis_clusters` (X) / `resolve_vertical_clusters` (Y) pair,
-/// which had drifted: only the Y flavor owned OneWay landings, the nested-graze
-/// skip, and grounding, so those semantics vanished whenever gravity rotated
-/// onto X. Support and wall decisions are expressed in controlled-body terms:
-/// feet/head along the gravity axis, side normals along the local side axis.
+/// Resolve penetration along one world axis using order-independent interval constraints.
 ///
-/// So each block now contributes a BOUND on the body's centre instead
-/// ([`AxisClaim`]), and the resolved position is a function of the resulting
-/// feasible INTERVAL:
-///
-/// - Every intersecting block demands a strictly non-zero correction, so a
-///   claim toward +axis puts the interval's floor ABOVE the current centre and
-///   a claim toward -axis puts its ceiling BELOW it. Claims in one direction
-///   are therefore always feasible, and claims in BOTH directions never are —
-///   the interval is `[min, max]` with `max < min`, which is exactly the
-///   physical statement "the body does not fit".
-/// - Feasible  move to the interval's binding edge, i.e. obey the DEEPEST
-///   claim. Order-independent by construction (a max over a set), and where
-///   only one block claims the axis — every ride, every ledge, every ordinary
-///   collision — the applied delta is that block's own delta unchanged, written
-///   with the same grounding, velocity-zero and contact push as before.
-/// - Infeasible  return an [`AxisConstraintConflict`] and DO NOT MOVE. The
-///   kernel refuses to invent a position no surface agrees with; the contacts
-///   are still reported and the axis velocity is still zeroed, because both are
-///   true (the body IS touching both, and it CANNOT move along this axis). The
-///   perpendicular axis is untouched, so a crushed body can still walk out
-///   sideways under its own power.
-///
-/// the no-artificial-pushout refusal is preserved as a filter on ADMISSION,
-/// not routed around: a block whose own correction exceeds the body's
-/// half-extent ([`is_contact_range_snap`]) contributes NO claim at all — it does
-/// not move the body, does not report a contact, and cannot manufacture a
-/// conflict either. Because the binding edge is always some admitted claim's own
-/// bound, the delta finally applied is always one that passed the refusal.
+/// Each intersecting solid contributes a lower or upper center bound. A feasible
+/// interval resolves to its binding edge; an empty interval returns
+/// [`AxisConstraintConflict`] without moving the body. Claims beyond
+/// [`is_contact_range_snap`] are excluded before interval construction, so an
+/// accepted repair is always one an individual contact was allowed to request.
 #[allow(clippy::too_many_arguments)]
 fn resolve_axis_repair(
     world: &World,
@@ -472,11 +444,7 @@ fn resolve_axis_repair(
         {
             continue;
         }
-        // a hidden block never pushes a body out of itself. Repair asked
-        // only `is_solid_for_axis`, which says yes on the gravity axis, so a body
-        // that ended a tick overlapping a `BonkOnly` block was depenetrated and
-        // could be left standing on it — the invisible floor the kind exists to
-        // remove, reached by the one road the swept fix did not cover.
+        // `BonkOnly` reacts to rising-head contact but never supplies support/repair geometry.
         if crate::collision_semantics::blocks_only_a_rising_head(block.kind) {
             continue;
         }

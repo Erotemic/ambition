@@ -1,18 +1,8 @@
-//! The deterministic snapshot vocabulary.
+//! Backend-neutral deterministic snapshot vocabulary.
 //!
-//! Lives in the FLOOR — `ambition_platformer2d_core` depends on no workspace crate, which is what
-//! lets every domain implement [`SnapshotState`] for its OWN types. The tree recorded that cost as
-//! ~100 foreign impls in one 2688-line file, there because it was the only place they could
-//! compile.
-//!
-//! Carved under the API growth doctrine in `docs/concepts/api-growth.md`, which authorises an internal carve
-//! when a leak cannot be closed without moving code between crates — and
-//! authorises exactly the boundary the leak names.
-//!
-//! `CanonicalCodecStrategy` deliberately did NOT come along: it implements
-//! `bevy_ggrs::Strategy`, so it is a GGRS bridge, and pulling `bevy_ggrs` into
-//! the floor would make every domain depend on the patched fork that is this
-//! engine's highest-cost consumer leak.
+//! Domain crates implement these traits for their own state without depending
+//! on the rollback backend. Backend-specific storage strategies remain above
+//! this foundation.
 
 /// A deterministic, process-stable FNV-1a 64-bit hash.
 #[derive(Clone, Copy, Debug)]
@@ -338,41 +328,16 @@ pub struct RequiredRollbackState {
     pub why: &'static str,
 }
 
-/// The backend-neutral registration vocabulary a domain speaks to install its
-/// own rollback state.
+/// Backend-neutral registrar for domain-owned rollback state.
 ///
-/// [`RequiredRollbackState`] lets a domain DECLARE what it needs rewound.
-/// This lets it DO the registering — without naming a rollback backend, and
-/// without a crate above it holding a list of its types.
-///
-/// why this closes the argument that kept the census central. Every
-/// `bevy_ggrs` registration entry point is generic over the concrete type, so
-/// something must monomorphize it — but the monomorphizing call site can be a
-/// TRAIT METHOD the domain invokes, not a line in the netcode crate. The
-/// implementor supplies the machinery and names `bevy_ggrs`; the domain supplies
-/// `T` and the projection. Generic-over-`T` was never an argument for owning the
-/// list of `T`s: `ambition_platformer2d_rollback_ggrs::AmbitionRollbackApp`
-/// already demonstrated the typed façade, one crate too high up.
-///
-/// methods are generic, so this trait is NOT object-safe, and must not
-/// become so. A domain takes `&mut impl RollbackRegistrar`; monomorphisation
-/// happens where the host constructs the concrete registrar. Type-erasing it
-/// would mean an Ambition-owned snapshot layer — a second rollback
-/// implementation, not a seam.
-///
-/// the FLOOR is the only place it can live. A domain crate below the
-/// runtime cannot depend on the runtime, and the orphan rule forbids the runtime
-/// implementing a floor trait for foreign `bevy_app::App` — so the implementor
-/// is a runtime-owned WRAPPER around `App`, which is orphan-clean and costs the
-/// floor no Bevy-app dependency at all.
+/// Domains supply the concrete component type and checksum projection; the host
+/// implements storage mechanics and may depend on the rollback backend. Generic
+/// methods are intentionally not object-safe. The runtime uses an `App` wrapper
+/// to satisfy dependency and orphan-rule boundaries without moving backend
+/// dependencies into domain crates.
 pub trait RollbackRegistrar {
-    /// The methods below intentionally fail closed by default.
-    ///
-    /// Production backends such as the GGRS registrar implement the complete
-    /// vocabulary. Narrow capturing registrars used by domain tests may implement
-    /// only the operation the test is observing; if the domain starts asking for
-    /// any additional rollback operation, the default panics immediately instead
-    /// of silently dropping rollback state.
+    /// Defaults fail closed so a partial test registrar cannot silently omit newly
+    /// requested rollback state.
     fn rollback_component_canonical<T>(
         &mut self,
         _owner: &'static str,

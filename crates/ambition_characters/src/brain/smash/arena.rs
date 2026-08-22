@@ -1,30 +1,10 @@
-//! Headless brain-vs-brain arena simulation + non-degeneracy analytics.
+//! Headless brain-vs-brain arena for non-degeneracy checks.
 //!
-//! This is the fighter-AI safety net. It runs two brains against each other
-//! in a small bounded stage (floor, ceiling, side walls, a couple of platforms),
-//! with a faithful-*enough* kinematic model: locomotion throttle, gravity + jump
-//! arcs for grounded bodies, free 2D `velocity_target` steering for flyers, wall/
-//! floor/ceiling clamping, and melee hits that apply knockback (both fighters have
-//! infinite health, so the bout never ends — we study *movement*, not who wins).
-//!
-//! It then analyses the recorded trace for the degeneracy signatures the design
-//! forbids:
-//!   - frozen / cornered — a fighter pinned in one spot or a wall corner for
-//!     too long,
-//!   - looping — the path collapses to a tiny repeating cycle,
-//!   - dead stage space — columns of the arena a human would use that the
-//!     fighter never visits,
-//!   - one-note play — fewer than a handful of distinct verbs over the bout.
-//!
-//! The assertions are structural / statistical, never byte-for-byte: the game
-//! logic will change over time, so the test must survive a different-but-still-good
-//! fight. It is the guard the user asked for against degenerate hand-authored (or,
-//! later, learned) policies — not a frame-perfect replay.
-//!
-//! This is a brain-level harness: the model is the brain's *contract*
-//! ([`BrainSnapshot`] in, [`ActorControlFrame`] out), not the full game physics.
-//! Passing here means the policy is non-degenerate; in-engine feel is verified
-//! separately.
+//! A lightweight kinematic model exercises the brain contract
+//! ([`BrainSnapshot`] in, [`ActorControlFrame`] out) and analyzes traces for
+//! freezing/cornering, tight loops, unused stage space, and one-note action
+//! selection. Assertions are structural/statistical rather than frame-perfect;
+//! full-engine feel is tested elsewhere.
 
 use ambition_platformer2d_core as ae;
 

@@ -1,37 +1,14 @@
-//! What a seated fighter IS, and which match is live.
-//!
-//! That shape is gone: [`crate::character_runtime::prepared_match`] answers every question first
-//! and then builds the whole cast from the answer. What is left here is the seat BINDING — the
-//! component a body wears, the derivation that reads the cast off the world, and the latch that
-//! says a match is live.
+//! Match-seat binding and the rollback-safe receipt for a live prepared match.
 
 use bevy::prelude::*;
 
-/// Which seat of the match this body is.
-///
-/// The roster's index, on the body. Match RULES need to name a fighter — whose
-/// health bar is on the left, who won the round, where to put them back — and
-/// every other way to identify one is a guess: `DrivingParticipant(slot)` misses the
-/// CPU seat, the worn character id collides in a mirror match, and entity order
-/// is not an order. Activation is the only place that knows, so it says so.
+/// Stable roster seat carried by the fighter body.
+/// Driving participant, character id, and entity order cannot substitute for seat identity.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MatchSeat(pub usize);
 
-/// The bodies in a live match, in seat order, DERIVED from the world.
-///
-/// The seat binding lives on the fighters as [`MatchSeat`], which is where it
-/// belongs: a body knows which seat it is, and a body that no longer exists
-/// cannot claim one. Anything that needs the cast asks the world through this,
-/// rather than reading a list somebody remembered.
-///
-/// A resource holding live `Entity` values, mutated from inside the rollback schedule and not
-/// registered as rollback state, keeps its future contents across a rewind: the bodies are restored
-/// to an earlier state — or to not existing — while the list still names them. Deriving costs one
-/// query and cannot go stale, because there is nothing to keep in step.
-///
-/// Sorted by seat, so `participants[i]` is seat `i` however the entities were
-/// spawned. Entity order is not an order; a set that arrives in spawn order makes
-/// indexing it mean nothing.
+/// Derive live fighter entities from rollback-restored [`MatchSeat`] components, sorted by seat.
+/// No resource stores live entity handles for the cast.
 pub fn match_participants(seated: &Query<(Entity, &MatchSeat)>) -> Vec<Entity> {
     let mut by_seat: Vec<(usize, Entity)> = seated
         .iter()
@@ -41,27 +18,8 @@ pub fn match_participants(seated: &Query<(Entity, &MatchSeat)>) -> Vec<Entity> {
     by_seat.into_iter().map(|(_, entity)| entity).collect()
 }
 
-/// The match that is LIVE.
-///
-/// Present means every seat in the prepared match has a body. Absent means no
-/// match is running — either none was prepared, or activation has not run yet.
-///
-/// this replaced a `MatchSeated(bool)`, and the difference is the whole point.
-/// A bool said seating had FINISHED and never said WHO, so nothing could ask
-/// whether the live fighters are still the set the match was built from.
-///
-/// and it says how MANY, not WHICH. Naming the
-/// bodies meant holding `Vec<Entity>` in a resource written from inside the
-/// rollback schedule and not registered as rollback state, so a rewind across
-/// activation would restore the fighters and leave the list pointing at the
-/// future. [`match_participants`] derives the cast from [`MatchSeat`] on the
-/// bodies themselves, which rewinds because the bodies do.
-///
-/// What is left is plain data: a count, a generation number, and the identity
-/// of the activation it receipts — all facts about the DECISION to activate.
-///
-/// so identity is stated, not inferred: this receipt names the session whose
-/// plan it built, and fighter presence is irrelevant to it.
+/// Receipt for a fully activated match.
+/// Stores activation facts only; the live cast is derived from [`MatchSeat`] components.
 #[derive(Resource, Debug, Clone, PartialEq)]
 pub struct ActiveMatch {
     /// How many seats this match activated with. Compare it against
@@ -74,43 +32,13 @@ pub struct ActiveMatch {
     /// session lifecycle at all, which is the same answer `PreparedMatch` stamps
     /// there, so the two still compare equal.
     session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
-    /// The sim tick the cast was built on, so the opening ceremony can be
-    /// DERIVED rather than ticked.
-    ///
-    /// this is what lets a 3–2–1–GO countdown exist without any new mutable
-    /// state in the rollback window: the phase is `now - activated_on` against
-    /// the ruleset's declared length, which a rewind recomputes identically.
-    ///
-    /// `None` in a composition with no sim clock at all (a bare fixture), where
-    /// the honest answer is that there is no ceremony to time — the hold is
-    /// released immediately, exactly as it was before countdowns existed.
+    /// Simulation tick of activation, used to derive opening-ceremony phase without mutable timer state.
+    /// `None` means the composition has no simulation clock.
     activated_on: Option<u64>,
 }
 
-/// WHICH ACTIVATION OF WHICH MATCH — the identity a ruleset keys its own per-match state
-/// on.
-///
-/// The repair at the time was to retract it from `activate_the_prepared_match` — which works,
-/// and which made the GENERIC activation road know that one particular ruleset keeps a private
-/// boolean.
-///
-/// keyed to this, a ruleset's per-match state goes stale BY
-/// CONSTRUCTION. *"Has this match been decided"* is `settled == Some(live
-/// instance)`, and a different match is not this one — so there is no retraction
-/// to schedule, no ordering to get right, and nothing for activation to know
-/// about a ruleset it may not even be composed with.
-///
-/// it rewinds because both halves do. This is derived from
-/// [`ActiveMatch`], which is rollback state, and the ruleset's latch stores a
-/// copy — so a rewind across the deciding frame restores a latch stamped with a
-/// match and a receipt that agree again, or restores the receipt's ABSENCE and
-/// the question stops being asked. No change detection is involved, which is the
-/// property that makes it safe inside the rollback window.
-///
-/// a composition with neither a session nor a clock cannot tell two
-/// activations apart, and that is the honest answer rather than a hole: those
-/// are the two facts that distinguish one activation from the next, and a
-/// composition with no clock has no tick on which to run a second match.
+/// Stable activation identity used by ruleset-local per-match state.
+/// It derives from rollback-restored session and activation tick, so stale state fails identity match.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct MatchInstance {
     /// The gameplay session the cast was built in.
@@ -131,9 +59,7 @@ impl MatchInstance {
         (self.session, self.activated_on)
     }
 
-    /// Rebuild from a rollback snapshot. The fields stay private so
-    /// [`ActiveMatch::instance`] is the only place one is MINTED; this is the
-    /// hatch, and it is named for what it is.
+    /// Rebuild a present activation from rollback state; resource snapshotting separately restores absence.
     #[doc(hidden)]
     pub fn from_snapshot(
         session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
@@ -147,11 +73,7 @@ impl MatchInstance {
 }
 
 impl ActiveMatch {
-    /// Publish an activation. The one production constructor.
-    ///
-    /// called only by `activate_the_prepared_match`, which is infallible — so
-    /// unlike every earlier version of this latch there is no path on which it
-    /// can be published over a partially built cast.
+    /// Publish the receipt after the full cast has been activated.
     pub fn activated(
         seats: usize,
         seat_topology: Option<u64>,
@@ -172,29 +94,19 @@ impl ActiveMatch {
         self.activated_on.map(|then| now.saturating_sub(then))
     }
 
-    /// The session whose prepared plan this receipts.
-    ///
-    /// Activation compares this against the plan's own stamp to ask "have I
-    /// already built THIS match", which is a question a despawned cast cannot
-    /// change the answer to.
+    /// Session whose prepared plan this activation receipts.
     pub fn session(
         &self,
     ) -> Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId> {
         self.session
     }
 
-    /// How many fighters this match activated with.
-    ///
-    /// Deliberately not "how many are alive now" — that is a question for the
-    /// world, and [`match_participants`] answers it. The difference between the
-    /// two is exactly the signal a rules layer wants.
+    /// Number of seats activated; live participants are derived from the world.
     pub fn seats(&self) -> usize {
         self.seats
     }
 
-    /// WHICH MATCH THIS IS, as something a ruleset can key its own state on.
-    ///
-    /// See [`MatchInstance`] for why a ruleset wants one.
+    /// Identity rulesets use to key per-match state.
     pub fn instance(&self) -> MatchInstance {
         MatchInstance {
             session: self.session,
@@ -208,28 +120,19 @@ impl ActiveMatch {
         self.seat_topology
     }
 
-    /// Adopt a frozen topology this match already agrees with.
-    ///
-    /// The ONLY legitimate mutation of a live activation, and the narrowness is
-    /// the point. It records which topology decided a seating that has not
-    /// changed — it cannot move a body, add a seat or drop one.
+    /// Record the frozen topology that already agrees with this unchanged seating.
     pub fn adopt_seat_topology(&mut self, generation: u64) {
         self.seat_topology = Some(generation);
     }
 
-    /// Build an activation directly, for a test that needs a LIVE match without
-    /// standing up preparation to produce one.
-    ///
-    /// The fields stay private so production has exactly one publisher; this is
-    /// the hatch, and it is named for what it is.
+    /// Test-only constructor for a live match without preparation.
     #[doc(hidden)]
     pub fn for_test(seats: usize, seat_topology: Option<u64>) -> Self {
         Self {
             seats,
             seat_topology,
             session: None,
-            // No clock, so no ceremony: a fixture that wants a LIVE match gets
-            // one, which is what this hatch is named for.
+            // No clock means no opening-ceremony hold.
             activated_on: None,
         }
     }

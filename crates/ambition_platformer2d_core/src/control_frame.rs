@@ -210,34 +210,17 @@ impl ControlFrame {
     }
 }
 
-/// The frame→tick input latch (netcode N0.1).
+/// Latches frame-rate device samples until the next simulation tick.
 ///
-/// Devices sample on the FEEL clock (once per rendered frame); the simulation consumes on the
-/// TICK clock. When the two are the same clock (frame-stepped mode) no latch is needed and none
-/// is installed.
+/// Levels use the newest sample while edges accumulate. The first tick drains
+/// accumulated edges; additional ticks before another device sample see levels
+/// only, so sub-tick taps are neither lost nor repeated. Headless, replay, and
+/// rollback paths author per-tick [`ControlFrame`] values directly and do not
+/// use this latch.
 ///
-/// - Several frames per tick (render faster than the sim): each device
-///   sample is [`accumulate_control_frame_latch`]d into the latch, so a press
-///   and release that both happen between two ticks still reach the sim as a
-///   press. Without this, sub-tick taps vanish.
-/// - Several ticks per frame (sim catching up after a hitch): the first
-///   tick takes the edges; later ticks in the same frame see levels only. A
-///   single tap can never fire twice.
-///
-/// The latch is written by the DEVICE layer. Headless, RL, and replay drivers
-/// have no device: they author [`ControlFrame`] — the per-tick frame — directly,
-/// and no latch resource exists, so [`publish_latched_control_frame`] never
-/// runs and never clobbers them.
-///
-/// so a reader who trusts that `.before` will conclude the ordering is already
-/// enforced and delete this. It is not; this is the mechanism. (The rollback
-/// host solves the same problem differently — the SESSION publishes the frame
-/// GGRS confirmed, on the `ReadInputs` edge.)
-/// NOT a `Resource` — it is one ROW of
-/// `ambition_characters::control::SlotControlLatches`, seat zero's included. It
-/// was a standalone resource beside that array, which covered slots 1.. and said
-/// so in its own doc; every consumer then handled the pair. See
-/// `SlotControlLatches`.
+/// This is one row of `ambition_characters::control::SlotControlLatches`, not a
+/// standalone resource. Device publication and simulation consumption must stay
+/// explicitly ordered.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ControlFrameLatch {
     accumulated: ControlFrame,

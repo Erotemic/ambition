@@ -48,10 +48,7 @@ pub mod sim_identity;
 #[cfg(test)]
 mod sim_identity_tests;
 
-// Re-exported, not owned. It lives in `ambition_platformer2d_shared_tangle` because
-// the crates that most need it — `ambition_platformer2d_actor_monolith`' character preparation tests
-// — are BELOW this one, and a lifecycle helper only the top of the graph can
-// reach is a helper the layers that hand-drive apps cannot use.
+// Re-export the shared finalization seam without moving its ownership up the dependency graph.
 pub use ambition_platformer2d_shared_tangle::app_finalization::{finalize, finalize_and_update};
 pub use combat_schedule::CombatSchedulePlugin;
 pub use content_identity::{
@@ -100,13 +97,9 @@ pub mod host_input {
         toggle_player_trail_emission_from_actions, MenuFrameConsume, MenuFrameCutsceneSkip,
         MenuFramePopulate, MenuNavConsume, SeatBurstTriggerState, SimulationSetupSet,
     };
-    // The publication boundary every shaping stage runs before. Re-exported
-    // beside the system that carries it, so the host installs the pipeline
-    // through one path rather than depending on the monolith directly.
+    // Publication boundary re-exported with the host-facing shaping systems.
     pub use ambition_platformer2d_actor_monolith::control::PrimarySlotInputCommit;
-    // The frame→tick latch. Re-exported beside the system that drains
-    // it for the same reason — the host does not depend on `ambition_characters`
-    // directly.
+    // Frame-to-tick latch re-exported through the host-facing input seam.
     pub use ambition_characters::control::SlotControlLatches;
     pub use ambition_dialog::dialog_pointer_input;
 }
@@ -126,19 +119,13 @@ pub mod demo_fixture {
     pub use ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry;
     pub use ambition_platformer2d_actor_monolith::features::ActorConstructionContext;
     pub use ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry;
-    // `LdtkRuntimeIndex` is deliberately NOT re-exported here (removed
-    // ). A demo shell is a RON-authored consumer; it existed in this
-    // list only so such a consumer could hand an empty index to a constructor
-    // that demanded one, which is a fixture module laundering a format
-    // dependency into games that have none.
+    // Demo fixtures are RON-authored consumers and intentionally do not expose LDtk runtime state.
     pub use ambition_platformer2d_actor_monolith::rooms::{ActiveRoomMetadata, RoomSet, RoomSpec};
     pub use ambition_platformer2d_actor_monolith::session::setup::{
         simulation_world, SimulationSetup,
     };
     pub use ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry;
-    // The neutral movement-tuning authority a demo's simulation reads. The
-    // dev-tools mirror is deliberately NOT re-exported here any more: a demo is
-    // a shipping-shaped consumer and must not read the inspector's state.
+    // Demo simulation reads the neutral movement-tuning authority, not dev-tools mirror state.
     pub use ambition_platformer2d_core::ActiveMovementTuning;
     pub use ambition_platformer2d_shared_tangle::schedule::SimulationSetupSet;
 }
@@ -326,31 +313,13 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
     }
 }
 
-/// The engine's content-free simulation plugin group (see module docs).
+/// Content-free simulation plugin group.
 ///
-/// # Simulation host (netcode N0.1)
-///
-/// The default [`SimulationHost::RenderFrame`] advances once per rendered frame
-/// in `Update`. [`Self::fixed_tick`] advances at [`SIM_TICK_HZ`] in
-/// `FixedUpdate`. [`SimulationHost::Rollback`] is reserved for a concrete
-/// rollback backend, which chooses the schedule and installs snapshot/session
-/// machinery outside this generic runtime crate.
-///
-/// Every member plugin registers into
-/// [`SimSchedule`](ambition_platformer2d_shared_tangle::schedule::SimSchedule) rather
-/// than naming a schedule, so the host choice threads through the whole group
-/// and through content plugins that ask `app.sim_schedule()` the same way.
-///
-/// Such an app must set the construction-time host before its first simulation/content plugin:
-///
-/// ```ignore
-/// app.set_simulation_host(SimulationHost::Fixed60Hz);
-/// app.add_plugins(MyContentPlugin);
-/// app.add_plugins(PlatformerEnginePlugins::fixed_tick());
-/// ```
-///
-/// Getting that order wrong panics at startup rather than silently splitting
-/// the simulation across schedules.
+/// [`SimulationHost::RenderFrame`] uses `Update`; [`Self::fixed_tick`] uses
+/// [`SIM_TICK_HZ`] in `FixedUpdate`; rollback backends install their own session
+/// machinery. Members register through `SimSchedule`, so content and engine
+/// systems share the selected host. Set the host before adding simulation or
+/// content plugins; changing it after registration is rejected at startup.
 #[derive(Default)]
 pub struct PlatformerEnginePlugins {
     pub host: SimulationHost,

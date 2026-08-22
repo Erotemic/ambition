@@ -1,8 +1,9 @@
-//! How big an enemy IS, derived rather than guessed.
+//! Checks that authored sprite rendering and collision describe the same body.
 //!
-//! too big visually. The sprite might not match the box for the snake."*
-//!
-//! So this stops turning the knob and states the target instead.
+//! The snake uses legacy whole-frame rendering while its sheet publishes a much
+//! flatter body rectangle. The test ratchets that ratio so scale changes cannot
+//! hide the geometry disagreement; regenerating per-frame render rectangles is
+//! the intended fix.
 
 use ambition_demo_mary_o::snake::SNAKE_SHEET_TARGET;
 use ambition_platformer2d::character_sprites::posed_body_geometry;
@@ -12,32 +13,8 @@ use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 /// half of these — which is the scale every enemy is read against.
 const TILE: f32 = 32.0;
 
-/// How much taller than its own body a drawn enemy may be.
-///
-/// the measurement that changed the question. The snake's sheet publishes
-/// a body of 117 x 52 px — a long, flat animal — inside a 128 x 128
-/// frame, and `PosedBodyGeometry::render` is *"the whole sheet frame"*. So at
-/// any scale the drawn quad is SQUARE while the creature is 2.25:1, and the
-/// sprite stands about 2.5x taller than the box it collides with.
-///
-/// The overhang is 2.46x either way, because a ratio is scale-invariant.  read the numbers off the
-/// run, not off this comment.
-///
-/// this asserts the RATIO, not a size. How big a snake should be is a
-/// taste call for whoever is looking at the running game; that its picture and
-/// its body should describe the same animal is not.
-///
-///  the snake is on the legacy path and the AI Slop is not, which is the
-/// whole of the difference this file has been measuring:
-///
-/// ```text
-/// snakes_on_a_cartesian_plane    0 per-frame rects   -> quad is the whole frame
-/// ai_slop                       44 per-frame rects   -> quad is the frame's rect
-/// ```
-///
-/// So the remaining work is REGENERATION, not engineering: 63 of 196 sheets never opted in,
-/// ranked worst-first in. do not build a quad-from-body road; it would be a second answer to a
-/// question already answered.
+/// Current legacy whole-frame/body-height ratio for the snake. It is scale
+/// invariant and should decrease when the sheet gains per-frame render geometry.
 const QUAD_OVERHANG_LIMIT: f32 = 2.47;
 
 #[test]

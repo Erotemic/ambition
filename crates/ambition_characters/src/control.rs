@@ -306,32 +306,13 @@ impl SlotControlLatches {
     }
 }
 
-/// **The participant slot driving this body**, this tick.
+/// Participant slot currently driving this body.
 ///
-/// ⭐⭐ **this WAS the `slot` inside `Brain::Player(slot)`, and it is not a
-/// brain.** *"A participant drives this body"* is not an AI backend; it sat in
-/// that enum because the enum was the only place to say it, which is why
-/// possession used to MOVE a policy variant in order to change who is driving,
-/// and why `PossessionState` needed a `restore_brain` to put the displaced
-/// policy back. `Brain` is AI policy only now, and this is the driver.
-///
-/// ⭐ **AUTHORED at the spawn/seat site, RECONCILED by exactly one system.** A
-/// body that a participant drives is spawned wearing this; the one runtime writer
-/// is `control::project_driving_participant`, which moves the PRIMARY seat onto a
-/// possessed body and back. Nothing else inserts or removes it, because two
-/// writable answers to *who drives this body* is the defect this type exists to
-/// end.
-///
-/// ⛔ **it is REGISTERED rollback state, not a derive.** It was declared derived
-/// while it was reprojected from `Brain::Player`, which IS in the snapshot; with
-/// the variant gone there is no upstream to reproject from — the seat assignment
-/// lives here and nowhere else, so a rewind that did not carry it would restore a
-/// body nobody drives.
-///
-/// The TYPE lives here because it is vocabulary — `PlayerSlot` is here, `Brain`
-/// is here, and the two crates that ask *who drives this body* (the interaction
-/// seam and the conversation seam) can both already see this module and neither
-/// can see the other.
+/// This is the authoritative driver identity; [`crate::brain::Brain`] remains
+/// the actor's autonomous policy. Spawn/seat construction authors the initial
+/// value and `control::project_driving_participant` is the sole runtime writer.
+/// The component is rollback state because no upstream component can reconstruct
+/// the seat assignment after rewind.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DrivingParticipant(pub PlayerSlot);
 
@@ -350,54 +331,22 @@ pub struct DrivingParticipant(pub PlayerSlot);
 )]
 pub struct ActorControl(pub crate::actor::control::ActorControlFrame);
 
-// ── Control AUTHORITY: who is allowed to drive this body ─────────────────────
-//
-// ⭐ these live beside seat identity for the same reason it does. A hold is a
-// claim on a body's control, and `ScriptedControl` is DERIVED from the holds —
-// neither is a policy, so neither is a `Brain`.
-/// **The game is driving this body, not whoever normally controls it.**
+// Control authority: holds are claims on a body, while `ScriptedControl` is
+// derived suppression state. Neither is controller policy, so neither is a `Brain`.
+/// Marker that ordinary control is suppressed because another authority drives
+/// or holds this body.
 ///
-/// A death beat, a flagpole slide, an act-clear brake: the sequence owns the
-/// body until it retires, and ordinary gameplay must stop acting on it. ADR 0024
-/// already names the POSITIONAL half of this — `constrain_body_pose` is
-/// documented as "a mount's saddle, a scripted flagpole slide". This is the
-/// control half, which had no name and was therefore reinvented at every site.
-///
-/// It is a marker rather than a set of flags on purpose.
-///
-/// Insert it when the sequence begins and remove it when the sequence retires.
-/// Whoever inserts it is responsible for driving the body meanwhile — a blanked
-/// control frame is not a frozen body, and gravity will happily walk an
-/// undriven one out from under its pose.
-///
-/// An earlier draft of this note said *"one scripted sequence per body at a time — consumers
-/// remove this without checking who put it there, which is fine while a death beat, a flagpole
-/// slide, and an act clear are mutually exclusive; a second concurrent sequence would need a
-/// claimant, the way the encounter layer's priority music tier does"*. A capture IS that second
-/// concurrent sequence: it holds a body for as long as the grab lasts, during which a ruleset's
-/// KO freeze can legitimately claim the same body — and then the throw's release stripped the
-/// freeze off somebody else's fight. So the claimant exists now, and the prediction is spent
-/// rather than pending.
+/// Derived from [`ControlHolds`]. A subsystem claiming control remains
+/// responsible for the body's behavior while its hold is active.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct ScriptedControl;
 
-/// **How often a CPU captive presses**, in struggles per second.
-///
-/// ⭐ ONE cadence for every brain family. A captive's struggle is a fact about
-/// being held, not about which decision maker the body carries, and two brains
-/// with two rates would make a fighter's escape depend on its AI template.
-///
-/// ⚠ a person's cadence, deliberately — a body that pressed on every single
-/// tick would escape in a fraction of the time any human could, which is not a
-/// difficulty setting, it is a different mechanic.
+/// CPU struggle cadence, shared by every brain family so escape timing does not
+/// depend on the AI template.
 const STRUGGLE_PRESSES_PER_SECOND: f32 = 6.0;
 
-/// Does this tick carry a struggle press?
-///
-/// ⭐ **stateless, and that is the point.** The cadence is a function of how
-/// long the hold has lasted — a fact the relationship already keeps and rollback
-/// already restores — so a captive's mash needs no timer inside the brain, and a
-/// rewind cannot leave one out of step with the hold it belongs to.
+/// Whether this tick crosses a struggle cadence boundary. Stateless so rollback
+/// derives it entirely from capture duration.
 pub fn struggling_this_tick(captured_for: f32, dt: f32) -> bool {
     if dt <= 0.0 {
         return false;
@@ -406,18 +355,10 @@ pub fn struggling_this_tick(captured_for: f32, dt: f32) -> bool {
     beat(captured_for) != beat(captured_for - dt)
 }
 
-/// **Why a body's ordinary control is suppressed — one bit per authority.**
+/// Genre-neutral reason an authority is suppressing ordinary control.
 ///
-/// ⭐ **the reasons are GENRE-NEUTRAL on purpose.** A hold is a fact about
-/// bodies, not about a fighting game: a captured body, a body mid-cutscene and a
-/// body waiting out a countdown are the same fact to everything downstream, and
-/// naming the bits after their KIND of authority rather than after the feature
-/// that claims them is what keeps a platform fighter's vocabulary out of the
-/// generic character crate.
-///
-/// ⛔ **two authorities that can overlap need two bits.** Sharing one is the
-/// exact bug this type exists to prevent, rewritten one layer down: whoever
-/// released first would free a body the other still holds.
+/// Authorities that may overlap use distinct bits so releasing one hold cannot
+/// release another.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum ControlHold {
@@ -436,19 +377,10 @@ pub enum ControlHold {
     Interlude = 1 << 4,
 }
 
-/// The set of authorities currently suppressing this body's ordinary control.
+/// Authorities currently suppressing ordinary control.
 ///
-/// ⭐ **the invariant, and the whole reason the type exists: a subsystem
-/// releases only the hold it owns.** [`release`](Self::release) clears one bit
-/// and cannot clear another, so the question *"is anybody else still holding
-/// this body"* is answered by the data rather than by each caller's memory of
-/// which features exist.
-///
-/// ⚠ **rollback state.** It decides [`ScriptedControl`], which is rewound, so a
-/// rewind that restored one and not the other would leave a body free by one
-/// account and held by the other — the half-state the conversation hold already
-/// documents. A `u8` is registered rather than a list of owner names so the
-/// snapshot is a value, not a set of pointers.
+/// Each subsystem releases only its own bit. This is rollback state because it
+/// determines [`ScriptedControl`]; snapshots must preserve the full claim set.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ControlHolds(u8);
 
@@ -478,12 +410,7 @@ impl ControlHolds {
         self.0 == 0
     }
 
-    /// The claim set as a value, for a rollback checksum projection.
-    ///
-    /// ⚠ **a presence-only probe would not do here.** Two peers can agree that
-    /// a body is held and disagree about BY WHOM, and the next release would
-    /// then free it on one machine and not the other — a desync that starts as
-    /// one fighter moving a frame earlier than the other.
+    /// Claim bits for rollback checksum projection; authority identity is part of state.
     pub fn bits(&self) -> u8 {
         self.0
     }

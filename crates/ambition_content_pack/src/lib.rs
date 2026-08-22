@@ -1,29 +1,9 @@
-//! The content-pack compiler.
+//! Content-pack compiler.
 //!
-//! ```text
-//! ContentPackDraft
-//!     ↓ parse
-//!     ↓ schema resolution
-//!     ↓ capability validation
-//!     ↓ facet validation
-//!     ↓ aggregation
-//!     ↓ reference resolution
-//!     ↓ conflict detection
-//!     ↓ canonical ordering
-//!     ↓ fingerprint
-//! PreparedContentPack
-//! ```
-//!
-//! Adding or editing ordinary content must not require rebuilding Rust.
-//!
-//! [`compile`] is the single validation implementation used by tests, CI, the
-//! CLI, development reload, and packaging.
-//!
-//! ## Foundations only
-//!
-//! No Bevy, no engine domain types, no game content. Capabilities own their
-//! schemas and register them ([`SchemaRegistry`]), which is what keeps a new
-//! content family from being an edit to one central closed enum.
+//! [`compile`] is the single parse/resolve/validate/canonicalize/fingerprint path
+//! used by tests, CI, reload, packaging, and CLI tooling. This crate stays free
+//! of Bevy and game-domain types; capability owners register their schemas via
+//! [`SchemaRegistry`]. Ordinary content changes therefore do not rebuild Rust.
 
 mod diagnostic;
 mod draft;

@@ -1,28 +1,8 @@
-//! The readiness invariant, and the backstop that names an omission. (§4.9)
+//! Character materialization readiness checks.
 //!
-//! ## Why not "compare two apps' resources"
-//!
-//! That test would pass while being worthless: it asserts an implementation detail (which resources
-//! exist) and goes red every time either app gains an unrelated one. It also cannot fail for the
-//! RIGHT reason, because two apps that install identical resources can still stage characters
-//! differently.
-//!
-//! The invariant that actually matters is about outcomes:
-//!
-//! > Every staged character reaches `Ready` or a named terminal `Failed` state
-//! > before the reveal barrier opens.
-//!
-//! Note what it forbids: not failure — a missing sheet in an art-free build is
-//! legitimate — but SILENCE. A character that is neither ready nor failed is one
-//! nobody decided about, which is precisely the state Mary-O's rectangle lived in.
-//!
-//! ## And the backstop
-//!
-//! Making omission impossible by construction is the primary defence: the engine
-//! plugin group installs the materializer unconditionally, so no application can
-//! leave it out. [`audit_character_capabilities`] covers what construction cannot
-//! — an unusual composition that assembled the pieces by hand — by NAMING the gap
-//! instead of quietly drawing placeholders forever.
+//! Every staged character must reach `Ready` or a named terminal `Failed` state
+//! before reveal. `audit_character_capabilities` reports missing composition
+//! authority instead of allowing a staged character to remain unsettled.
 
 use bevy::prelude::*;
 
@@ -122,34 +102,18 @@ pub fn audit_character_capabilities(world: &World) -> Vec<CharacterCapabilityGap
     gaps
 }
 
-/// Two declaration authorities disagreeing about one character.
+/// A disagreement between the prepared registry and assembled character catalog.
 ///
-/// The prepared registry and the assembled catalog are both real authorities during
-/// the migration, and every lookup in the engine prefers one or the other by rule:
-/// the sheet resolver takes the registry first, `provider_of_character` takes the
-/// registry first, the sprite alias table takes whatever declared last. Those rules
-/// only agree when the two authorities agree, and nothing checked that they did — so
-/// a character could be spawned with the catalog's moveset, drawn from the registry's
-/// sheet, and credited to the registry's provider.
+/// Both authorities are currently readable by different runtime paths, so shared
+/// character ids must agree on identity, art, provider, and gameplay definition.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CharacterAuthorityConflict {
-    /// One display name, two different characters, across the combined namespace.
-    /// The registration seam rejects this WITHIN the registry; this is the case it
-    /// cannot see, because the catalog is assembled separately and may arrive after.
+    /// One display name identifies different characters across the two authorities.
     AmbiguousDisplayName {
         display_name: String,
         ids: Vec<String>,
     },
-    /// One id, two different NAMES — the inverse of the case above, and the one
-    /// it cannot see.
-    ///
-    /// Rename a character in one authority and it answers to one name and is labelled with the
-    /// other.
-    ///
-    /// The sibling variants caught the two ways that had already bitten (one
-    /// name many ids; one id two sheets) and this third way was simply never
-    /// asked, which is the recurring shape: a parity audit is only as wide as
-    /// the fields somebody thought to compare.
+    /// One character id has different display names across the two authorities.
     DisplayNameDisagreement {
         character_id: String,
         registry_display_name: String,
@@ -416,10 +380,7 @@ mod authority_parity_tests {
         app
     }
 
-    /// The migration hazard, named. Both authorities declare `mary_o`, with
-    /// different art. Every resolver in the engine prefers the registry, so the
-    /// catalog's sheet is dead content that still reads as authoritative — and
-    /// anything consulting the catalog directly disagrees with what is drawn.
+    /// A shared character id with different sheets is an authority conflict.
     #[test]
     fn a_character_declared_by_both_authorities_with_different_art_is_a_conflict() {
         let mut app = app_with_catalog();
@@ -479,8 +440,7 @@ mod authority_parity_tests {
         );
     }
 
-    /// Agreeing providers are not a conflict — the ordinary state of a character
-    /// that is declared twice during the migration.
+    /// Duplicate declarations are allowed when their providers agree.
     #[test]
     fn agreeing_providers_are_not_a_conflict() {
         let mut app = app_with_catalog();

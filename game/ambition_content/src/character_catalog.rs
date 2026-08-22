@@ -435,45 +435,14 @@ mod tests {
         );
     }
 
-    // `the_cast_that_still_needs_a_body_assist_only_shrinks` DELETED
-    // on its own instruction. It counted the characters that could
-    // not build a body from their own definition — the population
-    // the deleted body-assist seam existed to correct — and its second assertion
-    // said what to do when the count hit zero: *"every registered character can
-    // now build its own body … delete it (checklist item 9) and this ratchet
-    // with it."*
 
-    /// AND HOW MANY STATE THEIR OWN MOVES — P3.24's number, which had no
-    /// ratchet while its twin above did.
-    ///
-    /// But the concept survives the rename, and so does the thing that ends it: a character
-    /// that authors its own timelines never reaches that floor.
-    ///
-    /// a floor and a control, exactly like the verbs ratchet. It must not be
-    /// empty (or the unarmed declaration is what every fight is made of, and no
-    /// content exercises the authored road) and it must not yet be everybody.
-    ///
-    /// but the control does NOT instruct a deletion, and that is a
-    /// correction. Most of this cast authors `default_action_set: "peaceful"`
-    /// — `melee: None, ranged: None, special: None` — deliberately, and Mary-O's
-    /// row says so outright: *"Mary-O Classic is deliberately only the run/jump
-    /// floor."* `unarmed_melee` is what lets such a character be seated at all,
-    /// so whether it is scaffolding or permanent architecture is a PRODUCT
-    /// question rather than a migration step.
-    ///
-    /// this asks the PREPARED registry, not the authoring functions. A
-    /// moveset reaches a fighter as `PreparedCharacterDefinition::authored_moveset`
-    /// — which is the field `ambition_demo_smash` actually filters on when it
-    /// decides which seats need the floor — so asking anything else would measure
-    /// a different set than the one the game uses.
+    /// Prepared characters must exercise authored move timelines, while peaceful characters
+    /// may still rely on the seating floor supplied by `DeclaredCombatRules::unarmed_melee`.
     #[test]
     fn the_cast_that_states_its_own_moves_only_grows() {
         let mut app = bevy::prelude::App::new();
         crate::character_catalog::register(&mut app);
-        // BOTH, and the pair is not interchangeable: `register_declared_cast` deliberately SKIPS
-        // the lineage ("the lineage registers itself above"), so a fixture with only that call
-        // measures the NPC cast and silently leaves out the player robots — the characters most
-        // likely to author a table.
+        // The lineage and declared cast are separate registration paths; include both.
         crate::player_robot_lineage::register(&mut app);
         crate::player_robot_lineage::register_declared_cast(&mut app);
         ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
@@ -502,25 +471,12 @@ mod tests {
         );
     }
 
-    /// A CHARACTER THAT AUTHORS ITS POLICY MUST NOT ALSO NAME A PRESET.
-    ///
-    /// A definition's `BrainProfile` outranks the row's `default_brain` everywhere it is read,
-    /// so a character holding both states its policy twice and the loser is invisible until
-    /// somebody reads three files.
-    ///
-    /// the exemptions are the ones that cannot go YET, each with the reason,
-    /// and they are not a to-do list somebody may extend casually: a preset that
-    /// carries `aggressiveness` also carries a RELATIONSHIP, which belongs to the
-    /// placement's disposition, and dropping it first is what took the cove
-    /// parrot's peacefulness away for four attempts.
+    /// A character-authored `BrainProfile` must not also name a preset brain policy.
     #[test]
     fn a_character_states_its_policy_in_one_place() {
         /// `(character, preset it still names, why it cannot drop it yet)`
         const KNOWN_DOUBLE_STATED: &[(&str, &str, &str)] = &[
-            // Every character that authors a policy now states it in exactly one place. an entry
-            // added here must carry the reason its character cannot drop the preset yet, and it
-            // must LEAVE the moment that stops being true — the rot-check below enforces that, and
-            // it has already caught one wrong entry.
+            // Any temporary exception must name why the preset cannot yet be removed.
         ];
 
         let catalog = load_catalog();

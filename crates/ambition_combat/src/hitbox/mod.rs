@@ -1,28 +1,7 @@
-//! Hitbox-entity lifecycle: spawn → overlap-check → despawn.
+//! Hitbox-entity lifecycle: spawn, resolve overlaps, then despawn.
 //!
-//! Per the actor/brain follow-up plan
-//! (`dev/journals/actor-brain-migration-followups-plan.md`, Task A):
-//! enemy melee strikes were resolved by per-tick polling inside
-//! `update_ecs_actors` (calling `enemy.player_damage(player_body)`
-//! every frame the attack_timer was hot). That bypass made melee
-//! the only attack family that didn't flow through the actor/brain
-//! → ActorActionMessage → EFFECTS-consumer seam.
-//!
-//! This module replaces the poll with explicit entities:
-//!
-//! - `update_ecs_actors` detects the windup → active edge and
-//!   spawns one `(Hitbox, HitboxLifetime, HitboxHits)` entity per
-//!   strike using the strike's per-archetype AABB.
-//! - `apply_hitbox_damage` (this module) tests overlap against the
-//!   target faction's hurtboxes each tick, emits the matching
-//!   damage event, and inserts hit targets into `HitboxHits` so a
-//!   long active window can't double-hit the same target.
-//! - `tick_and_despawn_hitboxes` (this module) advances every
-//!   hitbox's lifetime and despawns expired ones.
-//!
-//! `HitboxAnchor::FollowOwner` re-resolves the hitbox AABB each tick from the owner entity's
-//! position, so a moving attacker's swing tracks the actor without a per-frame component
-//! update.
+//! `HitboxHits` deduplicates victims across a multi-tick active window. `HitboxAnchor::FollowOwner`
+//! resolves world geometry from the owner's current position each tick.
 
 use bevy::ecs::query::QueryData;
 use bevy::prelude::{Commands, Entity, Has, Message, MessageWriter, Query, Res, With};
@@ -39,8 +18,7 @@ use crate::actor_faction_from_hit_side;
 use ambition_time::WorldTime;
 use ambition_vfx::vfx::VfxMessage;
 
-// Re-exported here so `combat::hitbox::Hitbox` (and `features::Hitbox`) paths are unchanged;
-// the SYSTEMS below (damage resolution, melee spawn, lifecycle) stay in the lib.
+// Public hitbox vocabulary remains available beside the resolution systems.
 pub use crate::strike::{
     HitSide, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime,
 };
@@ -68,17 +46,9 @@ pub struct LandedBodyHit {
 
 /// Resolve a live hitbox's unit-bearing payload for one victim.
 ///
-/// Feel multipliers pass through unchanged. Authored melee speed growth is
-/// evaluated here because it depends on the struck body's accumulated damage
-/// and weight; the resulting event no longer carries unresolved growth.
-///
-/// `ruleset_growth` is what a stage says when the MOVE says nothing. An
-/// authored volume's own `knockback_growth` wins outright; a swing derived from the
-/// `simple_melee` prefab carries `0.0`, which is every basic attack in the game,
-/// and without this every one of them launched a 150% opponent exactly as far as
-/// a fresh one. The ruleset value is a FRACTION of this move's base launch per
-/// point of damage, so one number makes a jab grow gently and a smash grow hard
-/// (see [`crate::rules::DeclaredCombatRules::knockback_growth`]).
+/// Feel multipliers pass through unchanged. Launch-speed growth is resolved against the victim's
+/// accumulated damage and weight; authored nonzero growth overrides the ruleset fraction of base
+/// launch speed.
 fn resolved_hitbox_knockback_magnitude(
     knockback: HitboxKnockback,
     victim_damage_taken: i32,
@@ -108,12 +78,8 @@ fn resolved_hitbox_knockback_magnitude(
 /// exactly those volumes; a body that publishes none falls back to its coarse
 /// box.
 ///
-/// The distinction that matters: a body carrying the component with an EMPTY list
-/// is *intangible* — the authored answer for an invulnerable window, or a corpse
-/// the publisher cleared — so it is a MISS, not a reason to consult the coarse
-/// box. Collapsing those two cases is how an authored invulnerability silently
-/// stops working, and it is why the fallback is keyed on the component's absence
-/// rather than on the list being empty.
+/// Component absence falls back to the coarse body box. A present component with no volumes means
+/// intangible and must not fall back.
 pub fn strike_reaches_victim(
     world_volume: &ambition_platformer2d_core::CombatVolume,
     victim_damageable: Option<&super::components::DamageableVolumes>,
@@ -143,33 +109,10 @@ pub fn strike_reaches_victim(
     }
 }
 
-/// The body a strike lands on — one entity role, named once.
+/// Shared query contract for a body that may receive a strike.
 ///
-/// Every damage family asks the same questions of the thing it hit: where is it, whose side is
-/// it on, may it be struck at all, what silhouette does it present, and which way does *its*
-/// frame call "away".
-///
-/// * [`apply_hitbox_damage`] (melee) carried the published silhouette inline;
-/// * `apply_feature_hit_events` could not — its tuple was at the ARITY ceiling, so
-///   the silhouette rode a second `Query<&DamageableVolumes>` beside it;
-/// * `step_projectiles` had neither, and its comment nonetheless claimed "the SAME
-///   published hurtbox" as melee. It tests the coarse box. The prose was the only
-///   place the parity existed.
-///
-/// That drift is the argument for the type. A role spelled three ways cannot be
-/// diffed; a role spelled once has one answer, and [`Self::reached_by`] is it.
-///
-/// # Required versus optional is deliberate, and it is a FILTER decision
-///
-/// Only `aabb` and `faction` are required — the two facts without which "a strike
-/// hit this" is not a sentence. Everything else is `Option`, because a body that
-/// lacks it has a correct answer rather than a missing one: no `DamageableVolumes`
-/// means fall back to the coarse box, no `BodyHealth` means it cannot be a corpse,
-/// no `BodyShieldState` means it cannot parry.
-///
-/// A caller that genuinely wants a narrower set says so in its own [`With`] filter, where the
-/// narrowing is visible at the call site — that is exactly how melee keeps its combat-body-only
-/// victim set below.
+/// `aabb` and `faction` are required. Optional components each have a defined absence semantic;
+/// callers that require a narrower victim population must express that with query filters.
 #[derive(QueryData)]
 pub struct StrikeVictim {
     pub entity: Entity,
@@ -194,14 +137,7 @@ pub struct StrikeVictim {
     pub shield: Option<&'static ambition_platformer2d_core::BodyShieldState>,
     /// This body's voice, for the cue its striker emits (the parry clang).
     pub voice: Option<&'static ambition_sfx::BodyPresentationSource>,
-    /// The victim's own resolved motion frame (ADR 0024).
-    ///
-    /// A field, not a `Query<&ResolvedMotionFrame>` beside the victim query.
-    /// Both damage families looked this up by victim entity, through byte-identical
-    /// `.map(|f| f.basis()).unwrap_or(default)` ladders — a per-victim component
-    /// reached by a second lookup only because the victim tuple had run out of
-    /// room. It belongs to the victim, so it rides with the victim, and the ladder
-    /// is [`StrikeVictimItem::knockback_side`] once.
+    /// The victim's resolved motion frame; knockback direction is interpreted in this frame.
     pub frame: Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     pub is_player: Has<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
 }
@@ -277,14 +213,8 @@ pub fn apply_hitbox_damage(
     // (fall back to the default: friendly fire OFF — same-faction allies safe).
     // AE6: resolved match rules, not the world's baseline toggle.
     tuning: Option<Res<crate::rules::ResolvedCombatTuning>>,
-    // The vulnerability cluster is a FILTER here, and it is now spelled as
-    // one. It was four REQUIRED members of the data tuple bound to `_vuln` and
-    // never read — since §A2 i-frames are consumed by `resolve_body_hit` on the
-    // victim side, never decided here. Its remaining job is to say "only real
-    // combat bodies are victims of hostile melee", which is a `With` claim. As
-    // data it read like an input; as a filter it reads like the narrowing it is,
-    // and the victim SET is byte-identical either way (`With<T>` and `&T` match
-    // the same archetypes).
+    // These components narrow hostile melee to complete combat bodies; victim-side resolution
+    // owns their actual semantics.
     victims: Query<
         StrikeVictim,
         (
@@ -313,16 +243,8 @@ pub fn apply_hitbox_damage(
     // keeps a multi-tick Active window from re-smashing the same breakable every frame. A body with
     // no playback answers with an empty list and still strikes.
     attacker_moves: Query<&crate::moveset::MovePlayback>,
-    // A live Hitbox is already authoritative gameplay state. Moveset strikes
-    // exist only while their active window exists; `BodyMelee.swing` is a
-    // presentation/read-model projection and must never gate whether this
-    // geometry can deal damage. Keeping the authority here prevents a visible,
-    // correctly placed strike from becoming inert because a secondary projection
-    // lagged, was absent, or classified the move differently.
-    // CM8: melee overlap no longer emits hit feedback here — the ONE victim-side
-    // reaction (`emit_hit_feedback`) owns sfx/spray/debris now, so this system
-    // only needs the `VfxMessage` writer for the wielded-AOE landing cue (a World
-    // strike, not a body-owned melee contact).
+    // Live Hitbox state is authoritative for damage; presentation projections must not gate it.
+    // Victim-side `emit_hit_feedback` owns melee feedback. This writer is only for wielded-AOE VFX.
     mut vfx: MessageWriter<VfxMessage>,
     mut hit_events: MessageWriter<HitEvent>,
     mut landed_hits: MessageWriter<LandedBodyHit>,

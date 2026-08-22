@@ -1,33 +1,10 @@
-//! BD1 — the three authored-logic atoms, as pure functions.
+//! Pure control-flow resolution for boss conditional selection, interrupts, and
+//! stances.
 //!
-//! `docs/planning/engine/boss-design.md` §1: *"today's `BossPattern` sequencing
-//! covers timed/scripted beats; add the three authored-logic atoms fights keep
-//! wanting: conditional selection, interrupts, and stances. No scripting
-//! language — three enum arms."*
-//!
-//! Everything here is a pure function of `(pattern, state, context)`. The ticker
-//! in [`super::tick`] calls it; nothing here touches Bevy, and every rule is a
-//! unit test rather than a play session.
-//!
-//! ## Resolution, not interpretation
-//!
-//! A `Select` is rolled when the timeline is resolved, not when the cursor
-//! reaches it. Resolution happens on phase change, on stance enter/leave, and
-//! each time the cursor loops — so for a looping script, "roll once when reached"
-//! and "roll once per pass" are the same thing.
-//!
-//! Two reasons it is done this way. The ticker's cursor arithmetic advances by
-//! step DURATION, and a zero-duration step at the cursor is a foot-gun (an
-//! unbounded advance loop is one authoring mistake away). And BD5's validator
-//! wants to integrate a pass's total threat, which it cannot do against a step
-//! that means "and then, maybe, some other steps."
-//!
-//! ## Determinism
-//!
-//! `Select` rolls off the boss's existing seeded RNG stream (`rng_seed`), the
-//! same one the idle-attack gate uses. Interrupt bookkeeping is index-parallel to
-//! the rule list, and stances live in a `BTreeMap` — nothing here iterates a hash
-//! container (ADR 0023).
+//! `Select` is resolved on phase/stance changes and each cursor loop rather than
+//! as a zero-duration timeline step. Selection consumes the boss's seeded RNG;
+//! interrupt state is index-parallel to authored rules and stances use `BTreeMap`
+//! so control-flow resolution remains deterministic.
 
 use super::{
     step_duration, BossEncounterPhase, BossPattern, BossPatternContext, BossPatternState,

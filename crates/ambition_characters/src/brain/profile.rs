@@ -76,16 +76,8 @@ pub struct BrainProfile {
     /// inhabiting the same body.
     #[serde(default = "default_turns_at_walls")]
     pub turns_at_walls: bool,
-    /// How hard this driver walks while patrolling, as a fraction of the
-    /// body's own top speed — §4.7's normalized effort, and the reason a
-    /// profile never authors px/s.
-    ///
-    ///  the runtime hard-coded `0.5` and `1.0` in `new_character_in`, so a
-    /// character-first body could not be an ambler or a sprinter: every
-    /// migrated creature patrolled at exactly half pace whatever its archetype
-    /// row had said. `pirate_shark_rider` authors 0.4783 and `medium_striker`
-    /// 0.44 — numbers that were tuned, and that a migration would have silently
-    /// rounded to one shared value.
+    /// Patrol effort as a fraction of the body's own top speed. Profiles
+    /// author normalized effort rather than world-space speed.
     #[serde(default = "default_patrol_effort")]
     pub patrol_effort: f32,
     /// The same, for a committed chase.
@@ -174,8 +166,7 @@ impl BrainProfile {
 mod tests {
     use super::*;
 
-    /// A profile authored with only a template is complete, and its
-    /// defaults are the ones the runtime used to hard-code.
+    /// A template-only profile is complete and receives the runtime defaults.
     #[test]
     fn a_template_only_profile_keeps_the_runtime_defaults() {
         let profile: BrainProfile = ron::from_str("(template: Wanderer)")

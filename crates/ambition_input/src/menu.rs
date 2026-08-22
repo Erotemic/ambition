@@ -25,32 +25,13 @@ impl MenuInputFrame {
     }
 }
 
-/// Per-SEAT menu intent, for the screens where "who pressed it" is the whole
-/// question.
+/// Per-seat menu intent for surfaces where input ownership must remain distinct.
 ///
-/// [`MenuControlFrame`] is one global answer, and that is right for a pause menu
-/// (whoever reached for a controller pauses the game) and wrong for a character
-/// select screen, where four people navigate four cursors and lock in
-/// independently. The two coexist on purpose: this does not replace the global
-/// frame, it answers a different question.
-///
-/// Keyed by the local input SEAT (see [`crate::ParticipantId::slot`]).
-///
-/// a seat is not a device, and the agreement between them is a POLICY
-/// rather than a fact. The current local assignment derives a seat from source
-/// ORDER — it counts the sources this machine has taken up, so somebody who
-/// picks up pad three while pads one and two are unplugged is seat ZERO. A
-/// physical source, an input participant and a game's roster slot stay distinct
-/// concepts however the policy happens to line them up today.
-///
-/// a sparse physical id reaching a dense channel is the bug
-/// `LocalChannelPlan` exists for — a fighter was deaf for a whole match — so
-/// this numbering is a channel and must never be read back as hardware identity.
-///
-/// A game must cross that boundary explicitly. For example, a lobby may put a
-/// person on card 0, a CPU on card 1 and a second person on card 2 while the
-/// second person's menu frame is still seat 1. The roster decides which card
-/// that input seat drives; this table does not.
+/// Seat numbers are dense local input channels, not hardware identities or game
+/// roster slots. [`LocalChannelPlan`](crate::local_seats::LocalChannelPlan) owns
+/// device-to-seat assignment; each game explicitly maps those seats into its
+/// roster. Global [`MenuControlFrame`] remains appropriate for shared menus such
+/// as pause screens.
 
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct SeatMenuFrames {

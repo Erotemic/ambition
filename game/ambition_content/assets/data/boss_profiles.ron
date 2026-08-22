@@ -1,80 +1,16 @@
-// Boss behavior profiles — single source of truth for movement
-// patterns, macro tunings, scripted attack timelines, and the
-// numerical knobs that decide how each boss FEELS in combat.
-// Loaded once at startup into a
-// `LazyLock<HashMap<String, BossBehaviorProfile>>` in
-// `content/features/bosses.rs`. `BossBehaviorProfile::from_data(id)`
-// is the read site; the test-only `clockwork_warden()` / `mockingbird()`
-// / `gnu_ton_rider()` aliases delegate to it.
-//
-// To re-tune a fight: edit the row, restart the sandbox. No Rust
-// changes needed.
-//
-// To add a boss:
-//   1. Add a new key + row below when custom behavior tuning is needed.
-//      Bosses without a row still spawn through the generic fallback.
-//   2. (Optional) Wire it through `boss_encounter::profile::*` if it
-//      needs an authored `BossEncounterSpec` or reward profile.
-//
-// Top-level shape: `{ "<id>": BossBehaviorProfile }`. Each value is
-// the full struct serialization — see
-// `content/features/bosses.rs::BossBehaviorProfile` for the field
-// catalog. `combat_size` is `Some((w, h))` or `None`;
-// `attack_origin_offset` and `projectile_origin_offset` are `(x, y)`
-// tuples (default to zero).
-//
-// `BossMovementProfile` variants:
-//   AnchorSway(x_radius, y_bob, x_frequency, y_frequency,
-//              chase_scale, chase_limit, speed)
-//   AirSwoop(x_radius, y_radius, x_frequency, y_frequency,
-//            chase_scale, chase_limit, speed)
-//   StationaryGiant(sway_amplitude, sway_frequency, speed)
-// All carry named fields — use `AirSwoop(x_radius: 250.0, ...)`.
-//
-// `BossAttackPattern`:
-//   Cycle — rotate through `attacks` using flat windup / active /
-//           cooldown durations.
-//   Scripted(intro, phase1, transition, phase2, enrage) — per-phase
-//           BossPattern with `steps: [...]`.
-//
-// `BossPatternStep` variants:
-//   Telegraph(profile: <attack>, duration: <s>)
-//   Strike(profile: <attack>, duration: <s>)
-//   Rest(duration: <s>)
-//
-// `BossAttackProfile` is a keyed carrier (no per-boss variants):
-//   Strike("<key>")  — a body-mounted geometry strike; the key selects its
-//     hitbox rects from the strike-geometry table. Built-in keys: floor_slam,
-//     side_sweep, full_body_pulse, wing_sweep, dive_lane, broadside, hand_slam,
-//     hand_sweep, head_descent, converging_shockwave, hazard_column. A new
-//     geometry strike is a new key + rects in the `strike_geometry` override.
-//   Special("<key>") — a content-technique special (apple_rain, overfit_volley,
-//     minima_trap, saddle_point, gradient_cascade, …); a content system reads
-//     the key and emits the effects. No body geometry.
+// Authored boss behavior profiles. Shape: `{ "<id>": BossBehaviorProfile }`.
+// Bosses without a row use the generic fallback.
+// `Cycle` rotates through `attacks` with flat durations; `Scripted` uses per-phase
+// Telegraph/Strike/Rest timelines.
+// `Strike("key")` selects body-mounted geometry; `Special("key")` dispatches a
+// content-owned technique with no body geometry.
 {
-    // ============================================================
-    // Clockwork Warden / Gradient Sentinel — polished multi-phase
-    // Scripted boss. See
-    // `dev/journals/gradient-sentinel-boss-design-2026-05-25.md`
-    // for the full design (theme, arena geometry, attack vocab,
-    // per-phase tempo).
-    //
-    // Phase 1 (~16s): FloorSlam, HazardColumn, MemorizedVolley,
-    //   SideSweep. Slow and readable, generous Rest beats.
-    // Transition (3s): pure Rest while the music swaps.
-    // Phase 2 (~22s): adds hazards/minions — PitTrap, RotatingCross,
-    //   MinionCascade, returning MemorizedVolley + FullBodyPulse.
-    // Enrage (~10s): tighter PitTrap → MemorizedVolley → RotatingCross
-    //   → HazardColumn combos.
-    // ============================================================
+    // Clockwork Warden / Gradient Sentinel: scripted multi-phase profile.
     "clockwork_warden": (
         id: "clockwork_warden",
         sprite_target: Some("boss"),
         reward_ability: Some("markrecall"),
-        // Tightened combat size to roughly match the visible sprite
-        // body: the clockwork_warden sheet has body_pixel_bbox 106×83
-        // inside a 128×128 frame. Boss spawns at 64×80 world px so
-        // the visible body is ~53 wide and ~52 tall.
+        // Combat size follows the visible body bbox rather than the full sprite frame.
         combat_size: Some((54.0, 56.0)),
         movement: AnchorSway(
             x_radius: 130.0,
@@ -120,9 +56,7 @@
             retreat_speed_scale: 0.80,
             retreat_distance: 280.0,
         ),
-        // Legacy `attacks` is unused for Scripted bosses, but kept
-        // populated with the full attack vocabulary for diagnostics
-        // (e.g. `boss inspect`-style tooling).
+        // Scripted timing ignores `attacks`; the list remains the profile's diagnostic vocabulary.
         attacks: [
             Strike("floor_slam"),
             Strike("side_sweep"),

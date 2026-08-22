@@ -137,20 +137,14 @@ pub fn live_custody_rows(
         .collect()
 }
 
-/// Record who was carrying what, at the instant a checkpoint commits.
-///
-/// an empty capture is a real answer and is written. "Nothing was being
-/// carried at this checkpoint" is exactly what makes a later death take a
-/// picked-up object back off the player; skipping the write would leave an
-/// older checkpoint's hands in place.
+/// Record custody at checkpoint commit, including an empty custody set.
 pub fn capture_custody_baseline(
     mut commits: MessageReader<CheckpointCommitted>,
     carried: Query<(&SimId, &InCustodyOf), With<RoomScopedEntity>>,
     custodians: Query<&SimId>,
     baseline: Option<ResMut<CustodyBaseline>>,
 ) {
-    // Drained unconditionally, like every other reader of this channel: a commit
-    // seen during a load must not be re-read against a world that has moved on.
+    // Drain commits even when the baseline resource is absent; events are frame-scoped.
     let committed = commits.read().count() > 0;
     let Some(mut baseline) = baseline else {
         return;
@@ -164,35 +158,10 @@ pub fn capture_custody_baseline(
     }
 }
 
-/// THE RETRACTION IS NOT HERE, AND THAT IS A LAYERING FACT RATHER THAN
-/// AN OVERSIGHT. Taking an object back out of a hand means retracting BOTH
-/// sides of a forked relation: `InCustodyOf` on the object, which this crate
-/// owns, and `HeldItem` on the body, which lives in `ambition_combat` — a crate
-/// this one does not and must not depend on. A retraction that answered only the
-/// half it can see leaves the body permanently holding a ghost and refusing
-/// every future pickup, which is exactly what the acceptance fixture caught.
-///
-/// and the tempting generic repair is WRONG: "empty a hand whose spec
-/// matches nothing in that body's custody" would disarm every authored fighter,
-/// because a character definition's `held_item` puts a `HeldItem` on a body with
-/// no world object behind it at all.
-///
-///  `restore_custody_to_checkpoint` therefore lives with the item domain, which
-/// can see both halves. The CAPTURE stays here because it reads only identities.
-///
-/// and the same boundary decides the other direction. A baseline row whose
-/// occurrence has no live entity at all is put back by MATERIALIZING one — which
-/// needs the authored record, the recipe and the family's components, none of
-/// which this crate can name. Recording a custodian by identity is what makes
-/// that possible from here; performing it is not.
-///
-/// What rebuilds one is a durable DESCRIPTION captured at the same commit — provenance plus the
-/// authored id of its item spec — and that value is
-/// `items::pickup::minted_horizon::MintedItemBaseline`, in the item domain, for exactly the reason
-/// the retraction is: this crate cannot see a `GroundItem`'s spec, and *what an item is* is not a
-/// question it may answer.
-///
-///  the baseline is a projection of DOMAINS. These rows stay identities.
+/// Custody restoration stays in the item domain because it must update both
+/// `InCustodyOf` and `HeldItem`, and may need authored item data to materialize a
+/// missing object. This layer captures only durable identities and must not depend
+/// on item/combat representation.
 #[allow(dead_code)]
 pub const fn retraction_needs_both_halves_of_a_fork() {}
 

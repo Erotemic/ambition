@@ -1,8 +1,4 @@
-//! Per-frame Bevy systems that mirror engine actor state into Bevy
-//! sprites + animations. Covers the player, enemies, and bosses
-//! along with the upgrade-to-spritesheet pass that converts the
-//! initial colored rectangles into authored character sprites once
-//! the asset is loaded.
+//! Per-frame actor sprite and animation presentation.
 
 use ambition_platformer2d_core as ae;
 use bevy::math::Vec2 as BVec2;
@@ -24,35 +20,11 @@ use ambition_sprite_sheet::character::{
 };
 use ambition_sprite_sheet::game_assets::{self, EntitySprite, GameAssets};
 
-/// Is this texture usable yet? — the question four binders were asking as
-/// `Assets<Image>::get(..).is_some()`.
+/// Whether a texture handle is ready for presentation.
 ///
-/// that read conflates three facts the engine should keep apart:
-///
-/// ```text
-/// asset loaded / ready  !=  CPU representation resident  !=  GPU resident
-/// ```
-///
-/// They coincide only because Bevy loads images as `MAIN_WORLD | RENDER_WORLD`,
-/// so every decoded sheet keeps its full RGBA in main-world RAM for the lifetime
-/// of the handle. The moment a game chooses otherwise — and residency policy
-/// SHOULD be a consuming game's choice — presence stops meaning "loaded" and
-/// starts meaning "not yet evicted", and a body would go invisible the instant
-/// its texture began working.
-///
-/// the discriminator is who OWNS the handle, and `get_load_state` answers
-/// it: `Some(..)` for anything the asset server is tracking, `None` for a handle
-/// the main world was handed directly (`reserve_handle`, `add`, a procedurally
-/// generated sprite). A server-owned sheet is asked the semantic question — the
-/// same one `inspect_room_asset_manifest` asks of the room barrier — and survives
-/// main-world eviction. A directly-inserted image has no load to ask about, so
-/// its presence IS its readiness, which is also the honest answer for a game that
-/// builds a sprite itself.
-///
-/// behaviour is unchanged today under both branches: an image enters
-/// `Assets<Image>` exactly when it finishes loading, and a FAILED load is false
-/// either way, so a body keeps its current pixels in every case that mattered
-/// before.
+/// Asset-server handles use load state so readiness is independent of CPU
+/// residency. Directly inserted/procedural handles have no load state, so their
+/// presence in `Assets<Image>` is the readiness signal.
 pub(crate) fn texture_is_ready(
     asset_server: &AssetServer,
     images: &Assets<Image>,
@@ -92,10 +64,7 @@ pub fn ensure_player_visual_sprite(
     >,
 ) {
     for entity in &players {
-        // `try_insert`: REPRODUCED. A `PlayerVisual` is
-        // session-scoped, and session teardown despawns the whole scope — so a
-        // provider switch on the frame this safety net fires lands the sprite on
-        // a dead entity.
+        // Session teardown may despawn this entity before queued commands apply.
         commands.entity(entity).try_insert(Sprite::from_color(
             Color::srgba(0.18, 0.55, 1.0, 1.0),
             BVec2::ONE,

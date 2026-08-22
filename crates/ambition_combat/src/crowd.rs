@@ -1,23 +1,8 @@
-//! Where a body contests space when it fights.
+//! Crowding classification used by fighter spacing logic.
 //!
-//! A crowd of attackers converging on one target reads as a pile unless
-//! something spaces them out. That job belongs to the brain's per-actor
-//! crowding signal — personal-space pressure computed from the positions of the
-//! other bodies in the fight — and this enum is the one fact that signal needs
-//! that positions do not carry: a flyer holds its distance from other flyers,
-//! and ignores the bodies on the ground beneath it.
-//!
-//! Nothing read the result. It does not, and it cost more than nothing to keep: the board was
-//! anchored on "the primary player, or the lowest `PlayerSlot`", which is the single largest
-//! player-centric assumption inside generic actor simulation, and it was there to feed a mechanism
-//! with no consumer.
+//! Ground and aerial bodies contest space within their own crowd class.
 
-/// Whether a fighting body contests ground space or airspace.
-///
-/// The crowding signal reads this to scope who counts as a neighbour: an aerial
-/// body keeps its distance from other aerial bodies over a wider radius, and a
-/// grounded body spaces itself against grounded ones. Nothing else distinguishes
-/// them — this is not a family, a capability, or a movement mode.
+/// Which crowd class contributes to this body's spacing pressure.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum CrowdKind {
     /// Fights from the ground.

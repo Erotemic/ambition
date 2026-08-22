@@ -1,30 +1,9 @@
-//! CAPTURE — one body holding another, as a relationship rather than a hit.
+//! Capture is a persistent relationship between two bodies, separate from hit
+//! resolution and [`MovePlayback`](crate::moveset::MovePlayback).
 //!
-//! ```text
-//! a HIT       spatial overlap → damage → knockback → over, inside one move
-//! a CAPTURE   spatial acquisition → RELATIONSHIP → later moves target it → release
-//! ```
-//!
-//! The distinction is not stylistic. It decides four things at once:
-//!
-//! * a shield stops a hit and does NOT stop a grab, so a grab cannot resolve as
-//!   a blocked strike;
-//! * a pummel affects an already-SELECTED counterpart, not everything
-//!   overlapping a box;
-//! * a pummel must not END the thing that lets it happen;
-//! * a throw ends it, at an authored frame rather than at a button press.
-//!
-//! so this is not `HitVolume { damage: 0, grab: true }`, and it is not
-//! [`MovePlayback`](crate::moveset::MovePlayback) either. Those answer different
-//! questions and both answers are needed at once:
-//!
-//! ```text
-//! MovePlayback   WHICH authored technique this body is executing right now
-//! CapturedBy     WHO currently holds this body
-//! ```
-//!
-//! A pummel gets a fresh `MovePlayback` while `CapturedBy` is untouched. That
-//! separation IS the architecture; everything else here follows from it.
+//! Acquisition selects the captive once. Pummels target that relationship
+//! without reacquiring through collision, and throws end it at their authored
+//! release frame.
 
 pub mod systems;
 
@@ -32,22 +11,11 @@ use bevy::prelude::{Component, Entity, Message, Query};
 
 use ambition_platformer2d_core as ae;
 
-/// Who is holding this body. The one authority on a capture relationship.
+/// Who is holding this body; the sole authority for the capture relationship.
 ///
-/// To ask *"who am I holding?"*, use [`captive_of`]: a scan over a handful of fighters is not a
-/// performance problem, and a wrong answer would be.
-///
-/// if a measured customer ever needs a captor-side projection, it should be a
-/// DERIVED cache rebuilt from this, never a second thing to write.
-///
-/// # Why live `Entity`, not `SimId`
-///
-/// This is short-lived in-match state, not persistent-world identity: a capture
-/// begins and ends inside one exchange and no save file needs to remember one.
-/// So it holds a live handle and implements
-/// [`MapEntities`](bevy::ecs::entity::MapEntities) for rollback, the same shape
-/// `RidingOn` uses. A `SimId`-keyed capture would buy durability nothing wants
-/// and pay a lookup every tick for it.
+/// The inverse is derived with [`captive_of`] rather than stored separately. A
+/// live `Entity` is appropriate because captures are short-lived match state;
+/// [`MapEntities`](bevy::ecs::entity::MapEntities) remaps it for rollback.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct CapturedBy {
     /// The body holding this one.
@@ -61,11 +29,6 @@ pub struct CapturedBy {
     ///
     /// not assumed to be `1.0`.
     pub prior_gravity_scale: f32,
-    // What is left is the RELATION — who holds whom, where, and what physical state release must
-    // give back — and every field of it is answerable without knowing what genre is being played.
-    //
-    // the split is not cosmetic: it is why a capture in another game does not
-    // pay to rewind a pummel counter it has no rule for.
 }
 
 impl bevy::ecs::entity::MapEntities for CapturedBy {
@@ -74,15 +37,10 @@ impl bevy::ecs::entity::MapEntities for CapturedBy {
     }
 }
 
-/// Who is `captor` holding, if anyone? The inverse of [`CapturedBy`].
+/// Returns the captive held by `captor`, if any.
 ///
-/// The deliberate answer to not mirroring the relation on the captor. Linear in
-/// captives — of which there are at most one per captor and a handful per stage.
-///
-/// deterministic by construction: at most one body may name a given
-/// captor, so there is no iteration-order question to get wrong. The runtime
-/// that establishes a capture is what upholds that, by refusing to acquire for a
-/// captor that already holds somebody.
+/// Capture acquisition guarantees at most one captive per captor, so this
+/// inverse lookup has no iteration-order ambiguity.
 pub fn captive_of(captor: Entity, captives: &Query<(Entity, &CapturedBy)>) -> Option<Entity> {
     captives
         .iter()
@@ -111,22 +69,16 @@ pub struct CaptureAttemptRequested {
     pub hold_offset: ae::Vec2,
 }
 
-/// A pummel's impact frame, landing on whoever this body already holds.
+/// A pummel impact targeting the captive already selected by the relationship.
 ///
-/// it names no victim, and that is the point: the target was selected when
-/// the capture was established, so a pummel does not reacquire anybody through
-/// collision. This is the first authored technique in the codebase that targets
-/// a semantic RELATIONSHIP rather than a volume.
+/// It carries no victim because pummels do not reacquire through collision.
 #[derive(Message, Clone, Copy, Debug, PartialEq)]
 pub struct CapturePummelRequested {
     pub captor: Entity,
     pub damage: i32,
 }
 
-/// A throw's authored release frame.
-///
-/// Damage, launch, and the END of the relationship, at one instant chosen by the
-/// timeline rather than by the press that started the move.
+/// A throw's authored release frame, which damages, launches, and ends capture.
 #[derive(Message, Clone, Copy, Debug, PartialEq)]
 pub struct CaptureThrowRequested {
     pub captor: Entity,

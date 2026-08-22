@@ -1,29 +1,9 @@
-//! Sandbox-side body-mode driver (crouch + morph ball + collision-safe
-//! stand-up).
+//! Controlled-body mode driver for crouch, morph ball, and climbing.
 //!
-//! Listens to the deadzoned `axis_y` from `ControlFrame` and the
-//! double-tap-down gesture (`fast_fall_pressed`) and asks the engine
-//! to flip the player's body mode between `Standing`, `Crouching`, and
-//! `MorphBall`. `try_change_body_mode_clusters` does the per-frame
-//! collision-safe resize: if a low ceiling would clip the larger body
-//! the helper rejects the transition and the player stays in the
-//! smaller stance. Auto-detected `PlayerModeChanged` trace events
-//! fire from the trace recorder diffing `body_mode` between snapshots,
-//! so this driver does not push events itself.
-//!
-//! Input model:
-//! - Standing + Down held + grounded → Crouching.
-//! - Standing/Crouching + double-tap Down + grounded → MorphBall.
-//! - MorphBall + Jump pressed → try Standing (gated). If a low
-//!   ceiling blocks the standing body, the morph ball stays curled.
-//! - Crouching + Down released → Standing (gated).
-//! - Standing/Crouching + Up/Down inside `climbable_contact` → Climbing.
-//! - Climbing + Up + Jump → ladder jump boost, stay Climbing.
-//! - Climbing + Jump without Up, or the burst press → push off, exit to Standing.
-//!   Climbing + losing contact → exit to Standing automatically.
-//! - Mid-action mechanics (dash, blink-aim, wall-cling/climb, ledge grab,
-//!   swim) own the player shape; the driver no-ops while any of them are
-//!   active.
+//! `try_change_body_mode_clusters` owns collision-safe resizing. Mid-action
+//! mechanics that own body shape suppress mode transitions. Any driven body with
+//! `BodyModeCapabilities` uses this path; controller kind does not select a
+//! separate simulation path.
 
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
@@ -35,14 +15,9 @@ const CROUCH_AXIS_Y_THRESHOLD: f32 = 0.4;
 
 pub fn update_body_mode(
     world: ambition_platformer2d_world::collision::CollisionWorld,
-    // Slot gestures (double-tap-down → morph) keyed by the controlling slot. The
-    // body reads ITS controller's gesture, never a privileged home avatar's.
+    // Slot-scoped gesture edges for the participant driving each body.
     mut slot_gestures: ResMut<ambition_characters::control::SlotInteractionState>,
-    // Every DRIVEN body (carrying `DrivingParticipant(slot)`) that has body-mode
-    // capability + posture clusters. Not `With<PlayerEntity>`: a possessed actor with
-    // the capability body-modes through the same system; a vacated home body holds
-    // no seat so it never matches. Presence of `BodyModeCapabilities` gates it —
-    // a body without the kit is skipped entirely.
+    // Capability-gated driven bodies; no `PlayerEntity` identity filter.
     mut bodies: Query<(
         &ambition_characters::control::DrivingParticipant,
         &mut crate::actor::BodyKinematics,
@@ -81,13 +56,9 @@ pub fn update_body_mode(
         (caps, flight, resolved_frame),
     ) in &mut bodies
     {
-        // Only bodies a participant is DRIVING act — the query's
-        // `DrivingParticipant(slot)` IS that filter now, so an autonomous body
-        // (or a vacated home body) never reaches this loop at all.
+        // `DrivingParticipant` is the control-authority filter.
         let slot = driver.0;
-        // Intent comes from the body's own `ActorControl` (already gravity/mode
-        // resolved by the brain), and the double-tap-down morph gesture from the
-        // controller's slot — never raw device input or an entity-local copy.
+        // ActorControl supplies body-local intent; gesture edges remain slot-scoped.
         let control = &control.0;
 
         // Mid-action mechanics own the body shape — don't fight them.
@@ -104,14 +75,7 @@ pub fn update_body_mode(
             continue;
         }
 
-        // "Descend" gate: crouch is "press toward the controlled body's feet".
-        // The brain already resolved raw device axes into `locomotion` (local frame,
-        // gravity- and input-mode-relative), so we consume THAT directly — no second
-        // resolve, no entity-local input copy. `up_held` replaces the old raw up-edge for
-        // the unmorph gesture: a held-up (or jump) stands the body up.
-        // The body's OWN per-tick resolved frame (ADR 0024) — never a global
-        // field: a possessed body inside a rotated-gravity zone crouches and
-        // climbs in ITS frame.
+        // Crouch/climb directions use the body's resolved motion frame.
         let gravity_dir = resolved_frame.down();
         let frame = resolved_frame.basis();
         let local_axis = control.locomotion;
@@ -141,11 +105,7 @@ pub fn update_body_mode(
         let solid = |b: &ae::Block| matches!(b.kind, ae::BlockKind::Solid);
         let climbable_contact_present = env_contact.climbable.is_some();
 
-        // Consume the double-tap-down edge (from the controller's slot) regardless of
-        // branch so we don't latch a stale signal across frames or gameplay states.
-        // a slot that does not exist has pressed nothing. `get_mut` fails
-        // closed rather than clamping onto the last valid participant, so this
-        // reads `false` instead of silently consuming somebody else's edge.
+        // Consume the slot edge once; a missing slot fails closed to `false`.
         let double_tap_down = slot_gestures
             .get_mut(slot)
             .map(|gestures| std::mem::take(&mut gestures.double_tap_down_pending))

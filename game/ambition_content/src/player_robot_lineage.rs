@@ -150,37 +150,10 @@ fn definition_from(
             strength: 0.6,
             amount: 1,
         })
-        // The CONTROLLER half, by name — shared rather than inlined, because a
-        // policy that only one character can use is a policy fused to a body all
-        // over again.
+        // Autonomous behavior is a named policy shared independently of body identity.
         .with_autonomous_profile_named("robot_duelist")
-        // AND THE VERBS ITS BODY HAS.
-        //
-        // the protagonist authored none, so a match seating it took
-        // the *migration bridge*: `seat_abilities` hands an unauthored
-        // character the MODE's declared set verbatim, because almost nothing
-        // in the repo states its own verbs and removing that row today would
-        // strip the Smash cast bare. The bridge is documented as meant to
-        // shrink, and it shrinks one character at a time — this is the
-        // first, and it is the right first because it is the one body both
-        // games are supposed to share.
-        //
-        // no behaviour change in Smash, by construction: the stage
-        // declares a subset of this, and `authored ∩ mask` is the mask. What
-        // changes is WHY — the robot may shield because the robot can
-        // shield, not because nobody asked it.
-        //
-        // `fly` IS one of the robot's verbs, and my first pass had this
-        // wrong. It reads like a dev toggle from the player's side and it is
-        // not: the archetype row granted `can_fly` beside `is_aerial: false`,
-        // with the reason written down — *"grounded-base hybrid, exactly like
-        // the player: fights on the ground and takes to the air via the fly
-        // toggle when it needs the vertical space."* The duel arena's exhibition
-        // robot uses it, and a body that could not would be a different creature.
-        //
-        // `reset` stays out, and that one really is a debug affordance:
-        // authoring it would hand every game that seats the robot a way to
-        // teleport home.
+        // Character-authored body capabilities. Matches may mask these abilities but do not
+        // invent them. Flight is intentional for this grounded hybrid; reset is debug-only.
         .with_abilities(ambition_platformer2d_core::AbilitySet {
             move_horizontal: true,
             jump: true,
@@ -211,69 +184,34 @@ fn definition_from(
             fly_toggle: true,
             ..ambition_platformer2d_core::AbilitySet::NONE
         });
-    // THE SIGNATURE PROJECTILE. The robot fires a Hadouken, and that was a
-    // fact only an enemy ARCHETYPE row could state — so a
-    // character-first robot fired an unadorned rock while the archetype road drew
-    // the real thing.
+    // Character-owned ranged presentation.
     definition = definition.with_ranged_vfx("hadouken");
-    // AND IT CHARGES. Hold to build, release to fire — the mechanic the
-    // protagonist has always had, authored on the CHARACTER for the first time
-    // .
+    // Hold to charge, release to fire.
     definition = definition
         .with_ranged_execution(ambition_characters::brain::RangedExecution::ChargedProjectile);
-    // THEOREM CHAIN, on the incarnation the duel fields. v3 carries the
-    // platform-fighter table instead; two incarnations of one robot with
-    // different repertoires is what a lineage IS.
+    // Incarnations share lineage while authoring different repertoires.
     if incarnation.id == V2.id {
         definition = definition.with_moveset(crate::player_robot_moveset::theorem_chain_moveset());
     }
     if incarnation.id == V3.id {
         definition = definition.with_moveset(crate::player_robot_moveset::player_robot_moveset());
-        // The moveset says the swing's timeline; this says the robot has a swing, a bolt and a
-        // bubble shield at all — the half that was `default_player_action_set` in host code,
-        // keyed off `playable_kit: HostCode` in the catalog row.
-        //
-        // authoring it is what makes this character `PreparedKit::Authored`,
-        // and §4's `ranged_execution` is why that no longer costs it the charge.
+        // V3 authors both move timelines and the action slots it exposes.
         definition =
             definition.with_action_set(crate::player_robot_moveset::player_robot_action_set());
     }
     definition.lineage = Some(Lineage {
         derived_from: incarnation.replaces.map(str::to_string),
-        // Left `None` deliberately. These are hand-authored incarnations, not
-        // the output of a crossover generator, so there is no revision or source
-        // fingerprint to state — and inventing one would make provenance that
-        // cannot be traced look like provenance that can.
+        // Hand-authored incarnations have no generator provenance.
         generator_revision: None,
         source_fingerprint: None,
     });
     definition
 }
 
-/// Being hit is judged on their torso, not on their outline.
+/// Combat targets the torso rather than the full collision outline.
 ///
-/// The player hitbox needs to be very forgiving to the player."*
-///
-/// that sentence describes TWO boxes, which is why it read as
-/// contradictory. The collision box has to keep their head, or a robot whose
-/// head is nearly half their height walks it through every ceiling; the hurtbox is
-/// the one that can stop under it. They were one rectangle until this, so
-/// "forgiving" had nowhere to live — the `HurtboxDoc` seam has existed since A7
-/// and the protagonist authored nothing, so their hurtbox fell back to the coarse
-/// body AABB.
-///
-/// | | |
-/// |---|---|
-/// | antenna | `y 59..67`, `x 80..92` — a 13 px stalk |
-/// | head | `y 68..104`, out to `x 148` at its widest |
-/// | shoulders/neck | `y 104..110`, narrowing to `x 95..145` |
-/// | torso and arms | `y 110..140`, `x 83..138` |
-/// | legs and feet | `y 140..157`, `x 87..136` |
-///
-/// So `top` clears the head and lands on the shoulder line, `bottom` keeps the
-/// shoe line the box already stood on, and the sides come in inside the arm
-/// span — further on the right because their head, and only their head, is drawn
-/// off-centre that way.
+/// The collision body still includes the head for world collision. The hurtbox
+/// begins near the shoulders, retains the feet, and excludes arm/head overhang.
 fn forgiving_hurtbox(body_world: ambition_platformer2d_core::Vec2) -> HurtboxDoc {
     // Fractions of the authored body box, per edge.
     const LEFT: f32 = 0.09;
@@ -281,10 +219,7 @@ fn forgiving_hurtbox(body_world: ambition_platformer2d_core::Vec2) -> HurtboxDoc
     const TOP: f32 = 0.43;
     const BOTTOM: f32 = 0.01;
 
-    // +y is DOWN — `DEFAULT_GRAVITY_DIR` is `(0, 1)`, and sheet pixel
-    // space and world space share that handedness. A box that sits low on the
-    // body therefore takes a POSITIVE y offset; the opposite sign would put their
-    // hurtbox in the air above their head and nothing would ever hit them.
+    // World +y is down, so a lower hurtbox center has a positive y offset.
     let offset = ambition_platformer2d_core::Vec2::new(
         ((LEFT + (1.0 - RIGHT)) * 0.5 - 0.5) * body_world.x,
         ((TOP + (1.0 - BOTTOM)) * 0.5 - 0.5) * body_world.y,
@@ -294,10 +229,7 @@ fn forgiving_hurtbox(body_world: ambition_platformer2d_core::Vec2) -> HurtboxDoc
         (1.0 - TOP - BOTTOM) * 0.5 * body_world.y,
     );
     HurtboxDoc {
-        // One timeline, no poses and no moves. The duelists vary theirs by pose
-        // because their archetypes trade reach against exposure; nothing about
-        // the protagonist's body changes shape, and authoring a pose entry that
-        // restates the default is a second place for the number to drift.
+        // The body shape is pose-independent, so one default timeline is authoritative.
         default: Some(HurtboxTimeline {
             keyframes: vec![HurtboxKeyframe {
                 at_s: 0.0,

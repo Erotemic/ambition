@@ -130,27 +130,13 @@ pub fn sync_boss_encounter_phase(
     }
 }
 
-/// TRIGGER the boss's data-driven attack MOVES: while a strike profile is the boss's
-/// active attack, ensure its move is playing (insert `MovePlayback` from the boss's
-/// `ActorMoveset` for that profile's [`move_id`](ambition_characters::brain::BossAttackProfile::move_id)).
-/// This is the ONE trigger for EVERY boss strike — geometry AND special — so a boss's
-/// melee runs through the SAME moveset runtime an actor's swing does (fable review
-/// §A1: the moveset is the boss's melee system too), retiring the bespoke
-/// `sync_boss_strike_hitboxes` per-tick geometry poll AND the boss-only
-/// `dispatch_boss_special`:
+/// Start the moveset entry named by the boss's current attack intent.
 ///
-/// - A geometry profile's move carries the strike's static hit volumes on its
-///   Active window; `advance_move_playback` spawns/despawns the Boss-faction strike
-///   hitbox through the shared `apply_hitbox_damage` path.
-/// - A special profile's move SUSTAINS `Effect{key}` every strike frame; the
-///   `Effect{key}`→`Special{key}` bridge fires the content technique.
-///
-/// `Without<MovePlayback>` gates re-trigger; the move duration equals the authored
-/// strike window (both on the boss's proper time = sim time undilated), so the strike
-/// lasts exactly the window. A possessed boss (its `active_profile` set from
-/// controller input in `tick_boss_brains_system`) fires SPECIALS *and* GEOMETRY
-/// strikes here — possession grants the full kit (R1.4); the strike hitbox carries
-/// the possessor's effective faction (stamped in `advance_move_playback`).
+/// Geometry and special strikes both use the shared moveset runtime: geometry
+/// moves publish hit volumes, while sustained effect windows dispatch content
+/// techniques. `Without<MovePlayback>` prevents retrigger during the authored
+/// window. Possessed bosses choose from the same body-owned repertoire; emitted
+/// attacks use the possessor's effective faction.
 pub fn trigger_boss_attack_moves(
     mut commands: Commands,
     bosses: Query<
@@ -382,11 +368,8 @@ pub fn tick_boss_brains_system(
             // The boss's HP authority (§A1) — liveness is `health.alive()`.
             &ambition_characters::actor::BodyHealth,
             &mut Brain,
-            // **WHO DRIVES THIS BOSS**, if anybody. The possession arm below keys
-            // on it; it used to key on `brain.player_slot()`, which meant the
-            // scripted pattern had to be stashed elsewhere to make room for the
-            // driver. The pattern now stays where it is and simply stops
-            // deciding.
+            // Possession keys on driver authority; the boss brain remains attached
+            // and simply stops deciding while a participant drives the body.
             Option<&ambition_characters::control::DrivingParticipant>,
             &mut ActorControl,
             // The per-frame attack INTENT the trigger reads (§A1 intent/projection

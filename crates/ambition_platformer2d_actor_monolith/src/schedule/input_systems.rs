@@ -138,11 +138,8 @@ pub fn spawn_primary_input_participant(
         ActionState::<Platformer2dInputActionMonolith>::default(),
         recipe.build(),
         recipe,
-        // seat zero carries its own burst edge like every other seat. It
-        // used to keep one in a `PlayerBurstTriggerState` RESOURCE, which is
-        // correct for exactly one seat; the merged producer reads the component
-        // for everybody, and a participant without it drops out of the query
-        // entirely — its frame is then never written and reads neutral forever.
+        // Burst edge state is participant-local so every seat contributes to
+        // the merged control-frame producer.
         SeatBurstTriggerState::default(),
     ));
 }
@@ -305,32 +302,10 @@ pub fn declare_gameplay_input_context(
     }
 }
 
-/// Declare the in-session UI surfaces as context claims.
-///
-/// `participant.rs` has always stated the rule — *"nothing derives input ownership from
-/// `GameMode` or from the presence of a controlled body"* — and until now this crate derived
-/// exactly that: `populate_control_frame_from_ actions` matched `GameMode::Dialogue` and asked
-/// `ActiveCutscene` directly, and every other router would have had to match them again.
-///
-/// So the surfaces DECLARE, and the routers read one resolved answer.
-///
-/// the owner is asked, never inferred. A conversation declares whose it is
-/// when it opens (`ConversationInputOwner`), derived from the initiator's
-/// `DrivingParticipant(slot)`. There is deliberately no "nobody said, so capture
-/// everybody" arm — that was the behaviour, and an absence of attribution is
-/// exactly when claiming the whole couch is least defensible.
-///
-/// it reads the AUTHORITY, not `GameMode`. `GameMode::Dialogue` still
-/// stops the world for the things that are genuinely global, but it cannot name
-/// a seat, so it could never have answered this. One consequence worth knowing:
-/// capture now begins on the frame the conversation OPENS rather than the frame
-/// the mode transition lands, because `next_mode` applies a frame later.
-///
-/// pause is deliberately NOT here. `GameMode::Paused` stops the world,
-/// which is not a per-seat fact, and the paused path does something a context
-/// claim cannot express: it writes a MENU frame into `ControlFrame` rather than
-/// a neutral one, so a paused seat can still navigate. Folding it in would
-/// silently delete that.
+/// Declare dialogue and cutscene input contexts from their authoritative owners.
+/// Conversation capture is attributed by `ConversationInputOwner`; absent attribution
+/// captures nobody. Pause remains separate because it routes menu input rather than a
+/// neutral gameplay frame.
 #[cfg(feature = "input")]
 pub fn declare_in_session_input_contexts(
     cutscene: Res<ambition_cutscene::ActiveCutscene>,

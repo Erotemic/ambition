@@ -495,39 +495,12 @@ impl BossSpriteAsset {
     }
 }
 
-// ADR 0020 mount/rider split (G1): the GNU-ton generator emits the giant GNU
-// MOUNT (the body, scholar-less) and the scholar RIDER (drawn alone) into the
-// `gnu_ton_boss/` install dir. `giant_gnu` is the giant; `gnu_ton_rider` is the
-// scholar's own tight-trimmed sheet. The generator ALSO still emits the fused
-// `gnu_ton_boss*` sheets and the `_body`/`_hands` layer pages the old split
-// render consumed; nothing loads them since the E6 teardown (R2), and stripping
-// them is a change to the `tools/ambition_sprite2d_renderer` submodule.
-// The T-Rex boss reuses the published trex *enemy* sheet — no separate boss
-// render is generated; the boss path just maps `trex_boss` onto this sheet.
+// GNU-ton publishes separate giant-mount and scholar-rider sheets. The T-Rex boss
+// reuses the normal T-Rex enemy sheet.
 
-/// Giant GNU MOUNT sheet — the giant wildebeest body (ADR 0020 mount/rider
-/// split, G1).
-///
-/// Until the E6 teardown this layout was authored as the FUSED `gnu_ton` sheet
-/// (giant + scholar drawn together) and cloned byte-for-byte into the giant's.
-/// The fused boss is gone, so the giant now owns the layout it always described.
-///
-/// Frame layout: 768×576 pixels per frame, 6 animation rows. Bumped from
-/// the older 512×384 to keep the giant readable when blown up to its
-/// in-game render scale.
-/// Rows map to BossAnim as: Rest/FloorSlam/SideSweep/SpikeHalo/Hit/Death.
-///
-/// The collision box is placed at the giant's shoulder ridge, where the
-/// GNU-ton scholar's feet touch the body. The runtime hitboxes use the same
-/// design-space anchor, so the head and hands line up with the generated sprite
-/// instead of a generic boss rectangle. The scholar's shoulder anchor for the
-/// runtime `Mountable::rider_offset` is design-space
-/// `(_MAN_CENTER_X ≈ 44.0, _MAN_CENTER_Y ≈ -20.0)` relative to the giant frame
-/// center (recorded in the generator's `giant_gnu_actor.ron`).
-///
-/// `collision_scale: 4.5` makes the 768×576 sprite render much larger
-/// than the authored box, so the giant body dominates the arena
-/// while runtime hitboxes stay tied to named parts.
+/// Giant GNU mount sheet. Frames are 768x576 across six boss-animation rows.
+/// The collision anchor is the shoulder ridge where the scholar rider sits;
+/// runtime hitboxes use the same design-space anchor.
 pub static GIANT_GNU_SHEET: std::sync::LazyLock<BossSheetSpec> =
     std::sync::LazyLock::new(|| BossSheetSpec {
         label_width: 0,

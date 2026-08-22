@@ -287,12 +287,7 @@ fn brain_npc_patrol_ctor_inherits_spawn_and_radius() {
     assert!(!b.is_hostile());
 }
 
-/// A `Brain` cannot say who drives a body, and that is the point.
-///
-/// ⛔ this used to assert `is_player()` / `player_slot()` — an AI-policy enum
-/// answering a question about a person. The answer lives on the body as
-/// [`crate::control::DrivingParticipant`], so a driven body keeps its own policy and gets it back
-/// by never having lost it.
+/// Driver identity is a body component and does not replace the actor's brain.
 #[test]
 fn the_driving_participant_is_a_component_on_the_body_not_a_brain_variant() {
     let mut world = bevy::prelude::World::new();

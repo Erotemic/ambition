@@ -36,7 +36,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 12 (§1, §6, §7, §9, §10, §11, §12, §13, §21, §22, §23, §25 and §27 are ANSWERED; §8 is DEFERRED)
+## Open decisions — 13 (§1, §6, §7, §9, §10, §11, §12, §13, §21, §22, §23, §25 and §27 are ANSWERED; §8 is DEFERRED)
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
@@ -1491,6 +1491,42 @@ git submodule foreach 'git ls-remote --exit-code origin >/dev/null 2>&1 \
 by rolling the superproject pointer back. The superproject commits depend on the
 submodule content; the pointer is the symptom, the credential is the cause.
 
+
+### 28. The height contract's WARN has a false premise — what should it compare?
+
+D165's ruling 2 (yours, 2026-08-17) says height is a contract, *"a tight
+tolerance **WARNS** when the resulting scale drifts far from 1.0"*, with the
+instruction to pick the tolerance from the measured population rather than
+inventing a round one.
+
+⛔ **Measured 2026-08-22, and no character is anywhere near 1.0.** Across the 95
+catalog characters with a resolvable height and a body bbox:
+
+```text
+scale = declared height / body pixel height
+  min 0.188 · p10 0.223 · median 0.320 · p90 0.456 · max 0.571
+```
+
+Every sheet is authored two to five times larger than the world size it draws
+at — `npc_ninja_shadow_oni_leader` is a 256px body drawn 48 world px tall
+(0.188). ⇒ **a tolerance around 1.0 would warn on 100% of the cast**, which is
+the mirror of a check that cannot fail.
+
+⚠ what the spread actually says is that the cast does NOT share an art
+resolution: at 0.188 a character carries three times the on-screen pixel density
+of one at 0.571, so neighbours in the same room are drawn from very differently
+sized art. That is a real thing to warn about — it is just not "far from 1.0".
+
+**The decision:** should the warn compare a sheet's scale to
+- (a) **the cast median** (0.320), warning outside some band — this catches "your
+  art is much denser/coarser than everyone else's", or
+- (b) **a declared per-project art resolution** (e.g. "bodies are authored at 3×
+  world"), warning on any sheet that disagrees — the same check, but with the
+  expectation stated once instead of inferred from whoever is in the catalog, or
+- (c) nothing yet — the spread is intentional and a warn would be noise.
+
+⚠ **and no tolerance should be picked before this is answered**, because (a) and
+(b) measure different things: (a) drifts as the cast changes, (b) does not.
 
 ### 26. Rename the blast zone out of every world's authoring schema? (D169)
 

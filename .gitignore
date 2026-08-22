@@ -223,3 +223,5 @@ untracked
 # build on one machine — the next agent to run the mark/sweep pair overwrites it,
 # and a committed one would be a stale mark that sweeps a live working set.
 /sweep.timestamp
+
+git-of-theseus

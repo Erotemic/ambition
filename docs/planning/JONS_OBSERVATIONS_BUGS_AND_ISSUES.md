@@ -38,7 +38,7 @@
 * A sword respects an authored hurtbox and a bolt never has — `step_projectiles` tests the coarse `CenteredAabb` while melee consults `DamageableVolumes`. [agent-found]
 
   ▢ Found 2026-08-08 and deliberately not fixed, because it changes how bolts connect and the feel call is yours.
-  * ◐ Half of it LANDED since: projectiles now resolve victims through `StrikeVictim`, the same named role melee uses, so a body publishing an EMPTY volume list offers no target — a bolt no longer lands on something a sword passes through. Only the PRECISION half is left (the overlap test is still the coarse box), and that is the feel call. Tracked as decision 1.
+  * ◐ Half of it LANDED since: projectiles now resolve victims through `StrikeVictim`, the same named role melee uses, so a body publishing an EMPTY volume list offers no target — a bolt no longer lands on something a sword passes through. ~~Only the PRECISION half is left~~ — ✔ **CLOSED 2026-08-22**: you ruled for it (decision 1) and `step_projectiles` now asks the same `strike_reaches_victim` rule melee does. ⛔ this is a real feel change on shipped content and it is the intended one: a shot that used to land on a body whose authored volume is tighter than its box will now miss it, and one that grazes an edge will now connect.
 
 * In smash if you throw out an attack you hurt yourself.
   * ✔ Fixed — the swing also broadcast a body-scanning volume that came back around to its owner; bodies are now resolved by identity and a test poisons the old route.

@@ -48,7 +48,9 @@ victim-geometry rule.
 INTANGIBILITY   ✔ CLOSED — a body carrying an EMPTY `DamageableVolumes` list
                   now offers NO target, so a bolt no longer lands on (and is
                   eaten by) a body a sword passes straight through
-PRECISION       ▢ OPEN — the overlap test is still the coarse `victim.aabb`
+PRECISION       ✔ CLOSED 2026-08-22 — `step_projectiles` asks
+                  `victim.reached_by(&kin.aabb().into())`, the same
+                  `strike_reaches_victim` rule melee uses
 ```
 
 ⭐⭐ **RULED: the projectile respects the AUTHORED HURT VOLUME — the same geometry
@@ -60,6 +62,16 @@ that connects today against a body whose authored volume is tighter than its AAB
 will start missing. That is the point, not a regression to file.
 ⚠ per-volume overlap now runs on every projectile tick — **measure it rather than
 assuming it is free**, and say so at the loop.
+
+✔ **BUILT 2026-08-22.** The two checks collapsed into one: `reached_by` answers
+intangibility for free, and `is_intangible`'s own doc says a caller that asks it
+*"must not ask twice"*. Pinned by
+`a_bolt_misses_the_gap_in_an_authored_silhouette` — same body, same bolt, same
+position, only the published rectangle moves — and falsified by restoring the
+coarse box, which reddens it while the two sibling bolt tests stay green. The
+cost note is at the loop as asked: `strike_reaches_victim` walks a 1–2 volume
+list where an AABB test stood, so it is a constant factor on a loop already
+bounded by live shots × candidate victims.
 
 ### 2. Advance the measurement-submodule pointer?
 

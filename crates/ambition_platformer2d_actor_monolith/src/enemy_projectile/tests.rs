@@ -982,10 +982,74 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
 /// miss from being the uninteresting kind — a bolt that reaches nothing hits
 /// nothing.
 ///
-/// ⚠ **the INTANGIBILITY half of D23 only.** A bolt still tests the coarse box
-/// against a body that published a real silhouette; making it test the authored
-/// rectangles retires `strict_intersects` for projectiles and changes how every
-/// shot connects, which is Jon's feel call.
+/// ⚠ **the INTANGIBILITY half of D23.** The PRECISION half — a bolt testing the
+/// authored rectangles rather than the coarse box — was Jon's feel call, he
+/// ruled for it (decision 1, 2026-08-17), and it is pinned by
+/// [`a_bolt_misses_the_gap_in_an_authored_silhouette`] below.
+/// **A bolt misses what a sword would miss: the gap in an authored silhouette.**
+///
+/// Jon's ruling (decision 1, 2026-08-17): *"the projectile respects the AUTHORED
+/// HURT VOLUME — the same geometry melee uses"*, so a crouching or ledge-hanging
+/// fighter reads the same to a bolt and to a swing.
+///
+/// ⛔ **the control is the whole test.** A body whose published volume COVERS the
+/// bolt must still be hit — otherwise "it missed" would prove only that the
+/// fixture never overlapped, which is the failure mode the sibling above names.
+/// Both arms use the same body, the same bolt and the same position; the only
+/// thing that changes is which rectangle the victim published.
+#[test]
+fn a_bolt_misses_the_gap_in_an_authored_silhouette() {
+    use ambition_characters::actor::{BodyHealth, Health};
+
+    /// One Enemy bolt overlapping a Player body whose published silhouette is
+    /// `volume` — authored directly, so this measures the GEOMETRY rule and not
+    /// whatever the shipped publisher happens to emit.
+    fn arena_publishing(volume: ae::Aabb) -> App {
+        let mut app = arena_projectile_app(crate::features::FactionRelations::default());
+        let pos = ae::Vec2::new(300.0, 100.0);
+        let mut volumes = crate::combat::components::DamageableVolumes::default();
+        volumes.set_single(volume);
+        app.world_mut().spawn((
+            crate::features::FeatureSimEntity,
+            crate::features::FeatureId::new("arena_fighter"),
+            crate::features::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
+            crate::combat::components::ActorFaction::Player,
+            volumes,
+            BodyHealth::new(Health {
+                current: 3,
+                max: 3,
+                invulnerable: Default::default(),
+            }),
+        ));
+        spawn_overlapping_enemy_glider(&mut app, pos);
+        app.update();
+        app
+    }
+
+    // ── Control: the published rectangle covers the body, and the bolt lands ──
+    let covering = arena_publishing(ae::Aabb::new(
+        ae::Vec2::new(300.0, 100.0),
+        ae::Vec2::new(8.0, 12.0),
+    ));
+    assert!(
+        !covering.world().resource::<CapturedHits>().0.is_empty(),
+        "a bolt inside an authored silhouette must land — without this the miss \
+         below proves only that the fixture never overlapped"
+    );
+
+    // ── The gap: the same body, the same bolt, a silhouette that is elsewhere ──
+    let gapped = arena_publishing(ae::Aabb::new(
+        ae::Vec2::new(300.0, 400.0),
+        ae::Vec2::new(8.0, 12.0),
+    ));
+    assert!(
+        gapped.world().resource::<CapturedHits>().0.is_empty(),
+        "the bolt overlapped the coarse box and NOT the authored volume, and it \
+         still landed — the projectile is testing the box again, which is the \
+         half of D23 Jon ruled for"
+    );
+}
+
 #[test]
 fn a_bolt_passes_through_a_body_that_published_no_hurtbox() {
     use ambition_characters::actor::{BodyHealth, Health};

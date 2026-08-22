@@ -230,50 +230,74 @@ fn live_boss_spritesheet_ron_round_trips() {
     );
 }
 
-///  the assertion is about the SURVIVOR, not about the log line: a test that
-/// captured the warning would be checking that a scanner sees its own fixture.
-/// What matters is that last-wins still resolves (so the seventeen legitimate
-/// archetype-sharers keep working) while the geometry mismatch is the condition
-/// a human is told about.
+/// ⭐⭐ **TWO SHEETS DECLARING ONE RIG TARGET EACH KEEP THEIR OWN PAGE.**
+///
+/// ⛔⛔ this test used to assert the OPPOSITE, and it AGREED WITH THE BUG: it was
+/// called `two_manifests_claiming_one_target_with_different_geometry_still_resolve`
+/// and its body checked that last-wins picked the second file, calling that
+/// *"preserved"*. Under target keying one of the two sheets was simply
+/// unreachable — in the shipped table `robot` lost its own 256x256 page to
+/// `tech_bro_disruptor`. Keyed by FILE ROOT (§19) neither wins, because they were
+/// never competing: a rig target is which adapter DREW a sheet, and 48 sheets
+/// share five of them.
 #[test]
-fn two_manifests_claiming_one_target_with_different_geometry_still_resolve() {
-    let stale = r#"[(target: "pirate_heavy_broadside_bess", image: "bess.png", label_width: 100,
+fn two_manifests_declaring_one_rig_target_each_keep_their_own_page() {
+    let bess = r#"[(target: "pirate_heavy", image: "bess.png", label_width: 100,
         frame_width: 172, frame_height: 138,
         rows: [(animation: "side", row_index: 0, frame_count: 1, duration_ms: 60, duration_secs: 0.06,
                 rects: [(x: 0, y: 0, w: 172, h: 138)])])]"#;
-    let live = r#"[(target: "pirate_heavy_broadside_bess", image: "bess.png", label_width: 100,
+    let broadside = r#"[(target: "pirate_heavy", image: "broadside.png", label_width: 100,
         frame_width: 319, frame_height: 250,
         rows: [(animation: "side", row_index: 0, frame_count: 1, duration_ms: 60, duration_secs: 0.06,
                 rects: [(x: 0, y: 0, w: 319, h: 250)])])]"#;
-    // Sorted as `build.rs` sorts them: the stale `pirate_heavy_…` root first.
+    // Sorted as `build.rs` sorts them.
     let table: &[(&str, &str)] = &[
-        ("pirate_heavy", stale),
-        ("pirate_heavy_broadside_bess", live),
+        ("pirate_heavy_bess", bess),
+        ("pirate_heavy_broadside", broadside),
     ];
     let registry = SheetRegistry::from_baked_table(table);
-    let record = registry
-        .get("pirate_heavy_broadside_bess")
-        .expect("the target resolves");
+
+    let first = registry
+        .get("pirate_heavy_bess")
+        .expect("the first sheet resolves by its own file root");
     assert_eq!(
-        (record.frame_width, record.frame_height),
-        (319, 250),
-        "last-wins is preserved — the warn is a diagnosis, not a policy change",
+        (first.frame_width, first.frame_height),
+        (172, 138),
+        "the shared rig target must not cost this sheet its own page",
     );
+    let second = registry
+        .get("pirate_heavy_broadside")
+        .expect("the second sheet resolves by its own file root");
+    assert_eq!((second.frame_width, second.frame_height), (319, 250));
+
+    // The rig target is not a key at all — that is the whole ruling.
+    assert!(
+        registry.get("pirate_heavy").is_none(),
+        "a renderer target string must not be a durable engine identity",
+    );
+    // Nothing shadowed anything: they never shared a key.
+    assert!(registry.shadowed_targets().is_empty());
+    // And `record.target` now answers "how do I ask for this sheet".
+    assert_eq!(first.target, "pirate_heavy_bess");
 }
 
 /// A quality-variant RON (`sprites_potato/…`, baked as `<root>.potato` by
-/// `build.rs::baked_key_for_path`) must NOT clobber the full-res base in the
-/// target-keyed `SheetRegistry`. Every resolution variant of a sheet carries the
-/// IDENTICAL `record.target`, so a naive last-write-wins insert left
-/// `get("robot_slash")` returning the 8px potato frames — and any consumer that
-/// crops the full-res PNG with those tiny rects rendered a mis-cropped dark strip
-/// . The base must win.
+/// `build.rs::baked_key_for_path`) must not answer a request for the full-res
+/// base: a consumer that cropped the full-res PNG with 8px potato rects drew a
+/// mis-cropped dark strip.
 ///
-/// Deterministic: hand-built table (the real `BAKED_SHEET_RONS` only carries variant rows when the
-/// gitignored `sprites_*x/` folders exist locally, so a registry-level assertion would silently
-/// pass in CI).
+/// ⭐ **under file-root keying this holds BY CONSTRUCTION**, and that is the
+/// point of the row: `slash` and `slash.potato` are different keys, so the
+/// variant no longer has to be SKIPPED to keep it away from the base. The old
+/// build dropped every variant record on the floor because every tier of
+/// `robot_slash` carries the identical `target: "robot_slash"` — a hazard that
+/// belonged to target keying and left with it.
+///
+/// Deterministic: hand-built table (the real `BAKED_SHEET_RONS` only carries
+/// variant rows when the gitignored `sprites_*x/` folders exist locally, so a
+/// registry-level assertion would silently pass in CI).
 #[test]
-fn quality_variant_records_do_not_clobber_the_base_registry() {
+fn a_quality_variant_answers_only_its_own_key() {
     let base = r#"[(target: "slash", image: "slash_spritesheet.png", label_width: 100,
         frame_width: 116, frame_height: 118,
         rows: [(animation: "side", row_index: 0, frame_count: 1, duration_ms: 60, duration_secs: 0.06,
@@ -284,18 +308,20 @@ fn quality_variant_records_do_not_clobber_the_base_registry() {
                 rects: [(x: 1, y: 1, w: 5, h: 6)])])]"#;
     let table: &[(&str, &str)] = &[("slash", base), ("slash.potato", potato)];
     let registry = SheetRegistry::from_baked_table(table);
+
     let record = registry.get("slash").expect("base record present");
     assert_eq!(
         record.frame_width, 116,
-        "full-res base must win, not the 8px potato variant"
+        "the full-res base answers its own root, not the 8px potato variant"
     );
     assert_eq!(record.frame_height, 118);
-    // The variant is not smuggled in under a suffixed key either.
-    assert!(registry.get("slash.potato").is_none());
-    // Sanity: the marker classifier agrees on which roots are variants.
-    assert!(is_quality_variant_file_root("slash.potato"));
-    assert!(is_quality_variant_file_root("robot_slash.0_5x"));
-    assert!(!is_quality_variant_file_root("slash"));
+
+    // ⭐ the variant is REACHABLE now rather than dropped — the resolution-pair
+    // loader asks for exactly this key.
+    let variant = registry
+        .get("slash.potato")
+        .expect("the variant keeps its own key");
+    assert_eq!((variant.frame_width, variant.frame_height), (8, 8));
 }
 
 /// A target packed into a SHARED pack references a sparse subset of the
@@ -572,10 +598,14 @@ fn body_extent_rejects_degenerate_box() {
     assert_eq!(m.body_pixel_extent(character::CharacterAnim::Idle), None);
 }
 
-/// A file root that names several records is refused, not truncated to the
-/// first one.
+/// A file root that names several records does not resolve to the first one —
+/// each record keeps its own target key instead.
+///
+/// ⭐ the pair of assertions is the whole rule: the ROOT is refused (it names all
+/// eight props and therefore none) while the RECORDS stay reachable, which is
+/// why `creator_lab_props`' eight props survived the move to file-root keying.
 #[test]
-fn a_multi_record_file_root_is_refused_rather_than_silently_truncated() {
+fn a_multi_record_file_root_is_refused_while_its_records_keep_their_targets() {
     let rec = |t: &str, img: &str| {
         format!(
             r#"(target: "{t}", image: "{img}", label_width: 10, frame_width: 10,
@@ -590,10 +620,7 @@ fn a_multi_record_file_root_is_refused_rather_than_silently_truncated() {
         rec("first_prop", "props.png"),
         rec("second_prop", "props.png")
     );
-    let reg = SheetRegistry::from_baked_table_by_file_root(&[
-        ("solo", one.as_str()),
-        ("props", two.as_str()),
-    ]);
+    let reg = SheetRegistry::from_baked_table(&[("solo", one.as_str()), ("props", two.as_str())]);
 
     // The single-record root still resolves — the refusal is narrow.
     assert!(
@@ -616,6 +643,73 @@ fn a_multi_record_file_root_is_refused_rather_than_silently_truncated() {
         "the refusal must carry EVERY target, so a caller with a catalog can \
          tell a packed prop atlas from a character it needs to resolve"
     );
+
+    // ⭐ and the records themselves are still there. A packed atlas is the ONE
+    // case where `record.target` is the key, because the file root cannot be.
+    assert!(
+        reg.get("first_prop").is_some() && reg.get("second_prop").is_some(),
+        "refusing the ambiguous ROOT must not drop the records it names — that \
+         would make eight lab props unreachable"
+    );
+}
+
+/// ⭐⭐ **THE THREE SHEETS THAT USED TO LOSE THEIR OWN PAGE KEEP IT.**
+///
+/// Measured on the real baked table 2026-08-19, target-keyed: `robot` lost its
+/// own 256x256 page to `tech_bro_disruptor` (215x256), `goblin` lost 239x253 to
+/// `ranged_skirmisher` (235x229), `sandbag` lost 128x128 to
+/// `sandbag_full_review` (256x256). All three are file roots of their own, so
+/// under §19's keying each answers with its own geometry and the usurper answers
+/// with its.
+///
+/// ⚠ **the skip is falsifiable, deliberately.** These sheets are generated art
+/// and gitignored, so a checkout that never ran regen bakes an empty table —
+/// which is why a bare `if let Some(..)` here would be a check that cannot fail.
+/// If no pair is present the test instead asserts the table really is art-less,
+/// so "nothing to check" has to be TRUE rather than merely convenient.
+#[test]
+fn a_shared_rig_target_no_longer_costs_a_sheet_its_own_page() {
+    let reg = SheetRegistry::from_baked_table(baked_sheet_rons::BAKED_SHEET_RONS);
+
+    // (file root, its own frame size, the sheet that used to take the key)
+    let pairs = [
+        (
+            "robot",
+            (256u32, 256u32),
+            "tech_bro_disruptor",
+            (215u32, 256u32),
+        ),
+        ("goblin", (239, 253), "ranged_skirmisher", (235, 229)),
+        ("sandbag", (128, 128), "sandbag_full_review", (256, 256)),
+    ];
+
+    let mut checked = 0usize;
+    for (root, own, usurper, usurper_frame) in pairs {
+        let (Some(mine), Some(theirs)) = (reg.get(root), reg.get(usurper)) else {
+            continue;
+        };
+        assert_eq!(
+            (mine.frame_width, mine.frame_height),
+            own,
+            "`{root}` answered with someone else's page — the rig target is \
+             acting as a durable identity again",
+        );
+        assert_eq!(
+            (theirs.frame_width, theirs.frame_height),
+            usurper_frame,
+            "`{usurper}` must keep its own page too; both are real characters \
+             and neither is a stale manifest",
+        );
+        checked += 1;
+    }
+
+    if checked == 0 {
+        assert!(
+            reg.is_empty(),
+            "the baked table has sheets but none of the three known collision \
+             roots — re-measure rather than letting this test go quiet",
+        );
+    }
 }
 
 /// The refusal reaches the real baked table without taking the one key this
@@ -629,7 +723,7 @@ fn a_multi_record_file_root_is_refused_rather_than_silently_truncated() {
 /// is worse than no test.
 #[test]
 fn the_real_baked_table_still_resolves_the_players_variant() {
-    let reg = SheetRegistry::from_baked_table_by_file_root(baked_sheet_rons::BAKED_SHEET_RONS);
+    let reg = SheetRegistry::from_baked_table(baked_sheet_rons::BAKED_SHEET_RONS);
     // The player's variant is the reason this index exists at all.
     assert!(
         reg.get("player_robot_v3").is_some(),

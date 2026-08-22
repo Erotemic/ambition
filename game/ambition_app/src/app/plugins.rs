@@ -832,22 +832,32 @@ impl Plugin for AmbitionGamePresentationPlugin {
     }
 }
 
-/// Warn only for a shadowed sheet target that is a CHARACTER, because only
-/// those are resolved by target —.
+/// Warn when a sheet a CHARACTER resolves art by lost its key to a different
+/// grid.
 ///
-/// the sheet crate cannot make this call and must not learn to. Its
-/// collision check fired ~30 times per Android boot because 17 characters share
-/// the rig target `toon`, 18 share `robot` and 9 share `goblin`, all
-/// legitimately and with genuinely different frame sizes — and nothing looks art
-/// up by a rig name. What DOES get looked up by target is a character id, and
-/// that is the case that cost a day: a stale May manifest won
-/// `pirate_heavy_broadside_bess`, so she loaded the right image and cropped it
-/// with a dead grid.
+/// ⭐⭐ **§19 (2026-08-22) changed what a shadow MEANS here, and the old reading
+/// is worth stating because it is what this function was written for.** The
+/// registry used to key by `record.target`, so a shadow was a shared RIG
+/// ADAPTER: 18 sheets declare `robot`, 16 declare `toon`, 9 declare `goblin`,
+/// and the check fired ~30 times per Android boot on collisions that were mostly
+/// legitimate. Keyed by FILE ROOT that class is gone — a rig target is not a key
+/// at all, so `robot` and `tech_bro_disruptor` no longer compete.
+///
+/// What a shadow means NOW is narrower and still real: **one sheet FILENAME
+/// exists in two sprite directories publishing different art.** `shrine` is the
+/// only one in the tree today (`sprites/` and `sprites/props/`) and the two files
+/// are byte-identical, so nothing fires. If they ever diverge, a character naming
+/// `shrine` would load one image and crop it with the other's grid — the same
+/// day-long failure a stale May manifest caused on
+/// `pirate_heavy_broadside_bess`.
+///
+/// ⛔ the catalog filter stays for the same reason it was added: the sheet crate
+/// can see that a key was claimed twice and CANNOT see whether anything resolves
+/// art by it. Only a caller with a catalog knows that.
 ///
 /// `Option` on both, and that is not defensive padding. A composition may
 /// legitimately reach here with neither — a headless tool, a demo that mounts no
-/// Ambition cast — and the correct behaviour there is to say nothing rather than
-/// to report every rig target as suspicious.
+/// Ambition cast — and the correct behaviour there is to say nothing.
 fn report_shadowed_character_sheets(
     registry: Option<bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SheetRegistry>>,
     catalog: Option<
@@ -860,18 +870,14 @@ fn report_shadowed_character_sheets(
         return;
     };
     for shadowed in registry.shadowed_targets() {
-        // Is this target one a CHARACTER resolves art by? A rig name like
-        // `toon` is not, and is dropped here.
+        // Is this key one a CHARACTER resolves art by?
         let Some(entry) = catalog.get(&shadowed.target) else {
             continue;
         };
-        // Of the 39 shadowed targets, `toon` (15) is not a catalog id, but `robot` (15), `goblin`
-        // (8) and `sandbag` (1) ALL are: those names are shared RIG adapters that happen to also
-        // name a character. Warning on "the catalog knows it" would have reported 24 legitimate rig
-        // shares as defects, which is the noise this filter exists to remove.
-        //
-        // That is exactly "the record this character names is the loser", and it is a question
-        // the pair (catalog entry, ShadowedTarget) can answer.
+        // "The record this character names is the loser" — a question only the
+        // pair (catalog entry, ShadowedTarget) can answer. A character whose
+        // sheet WON the key is fine; it is the loser that loads one image and
+        // crops it with the winner's grid.
         let names_the_loser = std::path::Path::new(&entry.spritesheet)
             .file_name()
             .and_then(|name| name.to_str())

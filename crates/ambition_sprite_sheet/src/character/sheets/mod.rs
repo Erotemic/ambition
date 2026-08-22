@@ -277,45 +277,24 @@ pub fn try_load_spec_for_target_authored(
     try_load_spec_for_target(target, tuning)
 }
 
-/// Process-wide index of every baked `SheetRecord`. Single-record files key
-/// by filename root to avoid archetype-target collisions; multi-record packed
-/// PNGs key each record by its own target.
+/// Process-wide index of every baked [`SheetRecord`], keyed by
+/// [`crate::index_baked_table`]'s one rule — file root, except that a packed
+/// atlas keys each record by its own target.
 ///
 /// §5 classification (per the old restructuring blueprint, folded into
-/// `docs/planning/engine/architecture.md`): immutable asset cache —
-/// derived once from the compile-time `BAKED_SHEET_RONS` table, pure and
-/// override-free. Correctly a process-global `OnceLock`; not a content
-/// registry, so it has no `install_*` seam.
+/// `docs/planning/engine/architecture.md`): immutable asset cache — derived once
+/// from the compile-time `BAKED_SHEET_RONS` table, pure and override-free.
+/// Correctly a process-global `OnceLock`; not a content registry, so it has no
+/// `install_*` seam.
+///
+/// ⛔ it holds the SAME keying rule as [`crate::SheetRegistry`] because it calls
+/// it. The two used to hand-roll it separately and disagreed: the registry keyed
+/// by `record.target` and this one by file root, so one shared engine resource
+/// answered "give me sheet `robot`" with `tech_bro_disruptor`'s page while this
+/// index answered correctly.
 fn record_index() -> &'static HashMap<String, SheetRecord> {
     static INDEX: OnceLock<HashMap<String, SheetRecord>> = OnceLock::new();
-    INDEX.get_or_init(|| {
-        let mut index: HashMap<String, SheetRecord> = HashMap::new();
-        for (filename_root, text) in crate::baked_sheet_rons::BAKED_SHEET_RONS {
-            let Ok(records) = ron::from_str::<Vec<SheetRecord>>(text) else {
-                // Skip malformed RON quietly — the
-                // `every_spritesheet_ron_parses_into_sheet_record` test
-                // catches these in CI. Avoid panicking at runtime so a
-                // hand-edited file under a subdir doesn't kill startup.
-                continue;
-            };
-            if records.len() == 1 {
-                let mut record = records.into_iter().next().unwrap();
-                record.target = (*filename_root).to_owned();
-                index.insert((*filename_root).to_owned(), record);
-            } else {
-                let scale_suffix = filename_root.rsplit_once('.').and_then(|(_, suffix)| {
-                    matches!(suffix, "0_5x" | "0_25x" | "potato").then_some(suffix)
-                });
-                for mut record in records {
-                    if let Some(scale_suffix) = scale_suffix {
-                        record.target = format!("{}.{}", record.target, scale_suffix);
-                    }
-                    index.insert(record.target.clone(), record);
-                }
-            }
-        }
-        index
-    })
+    INDEX.get_or_init(|| crate::index_baked_table(crate::baked_sheet_rons::BAKED_SHEET_RONS).sheets)
 }
 
 /// Look up the baked [`SheetRecord`] for a manifest target key — the same

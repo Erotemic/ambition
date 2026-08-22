@@ -1,7 +1,7 @@
 //! A CHARACTER'S SHEET MUST NOT BE FILED UNDER A NAME THAT MEANS EIGHT
 //! THINGS.
 //!
-//! `SheetRegistry::from_baked_table_by_file_root` keys sheets by file root so
+//! `SheetRegistry::from_baked_table` keys sheets by file root so
 //! the player's `player_robot_v3` stays distinct from the enemy `robot`. A file
 //! root only identifies a sheet while the file holds ONE record; `creator_lab_props`
 //! packs 8 props into one, so that root names all eight and therefore none.

@@ -646,93 +646,46 @@ impl SheetRegistry {
         Some((metrics, record.frame_width, record.frame_height))
     }
 
-    /// Build a fully-populated registry from a baked `(filename_root, ron_text)`
+    /// Build a fully-populated registry from a baked `(file_root, ron_text)`
     /// table — the `*_spritesheet.ron` manifests the game bakes at build time.
-    /// Pure (no Bevy `App` / `Startup` schedule): the host crate owns the baked
-    /// table (it knows where its sprite assets live) and passes it in, so this
-    /// crate stays a content-free, reusable sprite-sheet vocabulary. Most files
-    /// are a length-1 list; shared-PNG sheets (lab props) carry multiple records.
+    ///
+    /// Keyed by [the one rule](index_baked_table). Pure (no Bevy `App` /
+    /// `Startup` schedule): the host crate owns the baked table — it knows where
+    /// its sprite assets live — and passes it in, so this crate stays a
+    /// content-free, reusable sprite-sheet vocabulary.
     pub fn from_baked_table(table: &[(&str, &str)]) -> Self {
-        let mut registry = Self::default();
-        let mut loaded = 0usize;
-        let mut failed: Vec<(String, String)> = Vec::new();
-        for (filename_root, text) in table {
-            // Below-full quality-variant RONs (`sprites_0_5x` / `_0_25x` /
-            // `_potato`, baked as `<root>.<marker>` by `build.rs::baked_key_for_path`)
-            // are embedded in the SAME table but MUST NOT enter this target-keyed
-            // registry: every variant of `robot_slash` carries the identical
-            // `target: "robot_slash"`, so the last one inserted (potato, 8px
-            // frames) would silently clobber the full-res base. Any consumer that
-            // reads `Res<SheetRegistry>` directly against a full-res PNG (the slash
-            // VFX, shrine/projectile visuals) would then crop with potato-scale
-            // rects. Variant records reach the resolution-pair loader through the
-            // separate file-root-keyed indices (`from_baked_table_by_file_root`,
-            // `character::sheets::record_index`) that key them distinctly.
-            if is_quality_variant_file_root(filename_root) {
-                continue;
-            }
-            match ron::from_str::<Vec<SheetRecord>>(text) {
-                Ok(records) => {
-                    for record in records {
-                        // a blanket collision warn would be noise, which is
-                        // why this sat: sheets legitimately share a target
-                        // (`toon` x17, `robot` x18, `goblin` x9 — see the
-                        // file-root index below). What is NEVER legitimate is two
-                        // records claiming one target with DIFFERENT frame
-                        // geometry, because that is the case where the winner
-                        // crops the loser's image with the wrong grid.
-                        //
-                        // The condition cannot tell its harmful case from its harmless one: 17
-                        // characters share the rig target `toon` and legitimately have 17 different
-                        // frame sizes, and nothing resolves art by `toon` at all. Measured: 146
-                        // targets are claimed by more than one record, and ZERO images are
-                        // described by two different grids — so the sharers differ in IMAGE, every
-                        // one of them.
-                        //
-                        //  recorded, not reported. The collision is visible only
-                        // here; whether the loser is RESOLVABLE is visible only to
-                        // a caller with a catalog, and this crate's whole claim is
-                        // to be a content-free sprite-sheet vocabulary.
-                        if let Some(prior) = registry.sheets.get(&record.target) {
-                            if prior.frame_width != record.frame_width
-                                || prior.frame_height != record.frame_height
-                            {
-                                registry.shadowed.push(ShadowedTarget {
-                                    target: record.target.clone(),
-                                    loser_image: prior.image.clone(),
-                                    loser_frame: (prior.frame_width, prior.frame_height),
-                                    winner_image: record.image.clone(),
-                                    winner_frame: (record.frame_width, record.frame_height),
-                                });
-                            }
-                        }
-                        registry.sheets.insert(record.target.clone(), record);
-                        loaded += 1;
-                    }
-                }
-                Err(err) => {
-                    failed.push(((*filename_root).to_owned(), err.to_string()));
-                }
-            }
-        }
+        let index = index_baked_table(table);
+        let registry = Self {
+            sheets: index.sheets,
+            shadowed: index.shadowed,
+            ambiguous_roots: index.ambiguous_roots,
+        };
 
         info!(
-            "SheetRegistry: loaded {loaded} sheets from baked table ({} failed)",
-            failed.len()
+            "SheetRegistry: loaded {} sheets from baked table ({} failed)",
+            registry.sheets.len(),
+            index.failed.len(),
         );
-        for (file, err) in failed {
+        for (file, err) in index.failed {
             warn!("SheetRegistry: failed to parse baked {file}: {err}");
         }
-        // Shared rig targets may legitimately have conflicting frame geometry.
-        // This crate records them at debug level; the catalog-aware consumer
-        // warns only when a shadowed target is an actual character id.
+        // DEBUG, not WARN, for both summaries: a packed prop atlas is a
+        // legitimate authoring choice, and a boot-time warning that ends by
+        // explaining itself away trains people to skim the channel.
+        if !registry.ambiguous_roots.is_empty() {
+            debug!(
+                "SheetRegistry: {} packed file root(s) index their records by \
+                 target instead. First: {}",
+                registry.ambiguous_roots.len(),
+                registry.ambiguous_roots[0],
+            );
+        }
         if !registry.shadowed.is_empty() {
             debug!(
-                "SheetRegistry: {} target(s) claimed twice with different frame \
-                 geometry — a shared RIG target (`toon`, `robot`, `goblin`) is \
-                 legitimate and harmless, and a CHARACTER id here is the harmful \
-                 case, which `report_shadowed_character_sheets` warns about \
-                 against the catalog. First: {}. Full list: \
+                "SheetRegistry: {} key(s) claimed twice with different frame \
+                 geometry. Under file-root keying this means one sheet FILENAME \
+                 exists in two directories with different art — the same-name \
+                 duplicate is normally byte-identical. First: {}. Full list: \
                  `SheetRegistry::shadowed_targets()`.",
                 registry.shadowed.len(),
                 registry.shadowed[0],
@@ -740,64 +693,108 @@ impl SheetRegistry {
         }
         registry
     }
+}
 
-    /// Like [`from_baked_table`], but keys each sheet by its file root
-    /// (the table's first tuple element) instead of `record.target`.
+/// What [`index_baked_table`] produces, before anything decides how loudly to
+/// say it.
+#[derive(Default)]
+pub(crate) struct BakedIndex {
+    pub(crate) sheets: HashMap<String, SheetRecord>,
+    shadowed: Vec<ShadowedTarget>,
+    ambiguous_roots: Vec<AmbiguousFileRoot>,
+    failed: Vec<(String, String)>,
+}
+
+impl BakedIndex {
+    /// A record enters under `key`, and its `target` is REWRITTEN to that key.
     ///
-    /// Several sheets legitimately share one `target` — e.g. `robot` and
-    /// `player_robot_v3` are both authored against the `"robot"` adapter, so
-    /// `record.target == "robot"` for both and they collide in the
-    /// target-keyed registry. File roots are unique (one per
-    /// `*_spritesheet.ron`), so this keeps them distinct. Use it when you
-    /// need a specific sheet variant (the player's `player_robot_v3`, not the
-    /// enemy `robot`).
-    ///
-    /// this is the posture the crate already had, joined late.
-    /// `AuthoredSheets::insert_ron` refuses a multi-record sheet outright rather
-    /// than leaving its earlier records installed — *"a provider told 'rejected'
-    /// and handed a half-populated registry is worse off than one told
-    /// nothing"*. The file-root index was the one door still taking a guess.
-    pub fn from_baked_table_by_file_root(table: &[(&str, &str)]) -> Self {
-        let mut registry = Self::default();
-        for (file_root, text) in table {
-            match ron::from_str::<Vec<SheetRecord>>(text) {
-                Ok(records) if records.len() == 1 => {
-                    let record = records.into_iter().next().expect("len checked");
-                    registry.sheets.insert((*file_root).to_owned(), record);
-                }
-                Ok(records) if records.is_empty() => {}
-                Ok(records) => {
-                    registry.ambiguous_roots.push(AmbiguousFileRoot {
-                        file_root: (*file_root).to_owned(),
-                        targets: records.into_iter().map(|r| r.target).collect(),
-                    });
-                }
-                Err(err) => {
-                    warn!("SheetRegistry: failed to parse baked {file_root}: {err}");
-                }
+    /// so `record.target` answers *"how do I ask for this sheet"* and
+    /// nothing else. It used to answer *"which rig adapter drew it"*, which is
+    /// an authoring fact 48 sheets share and no lookup wants.
+    fn insert(&mut self, key: String, mut record: SheetRecord) {
+        if let Some(prior) = self.sheets.get(&key) {
+            if prior.frame_width != record.frame_width
+                || prior.frame_height != record.frame_height
+            {
+                self.shadowed.push(ShadowedTarget {
+                    target: key.clone(),
+                    loser_image: prior.image.clone(),
+                    loser_frame: (prior.frame_width, prior.frame_height),
+                    winner_image: record.image.clone(),
+                    winner_frame: (record.frame_width, record.frame_height),
+                });
             }
         }
-        // DEBUG for the same reason the shadowed summary is: a packed prop
-        // atlas is a legitimate authoring choice, and a boot-time warning that
-        // ends by explaining itself away trains people to skim the channel.
-        if !registry.ambiguous_roots.is_empty() {
-            debug!(
-                "SheetRegistry: {} file root(s) hold several records and are not \
-                 indexed by file root. First: {}",
-                registry.ambiguous_roots.len(),
-                registry.ambiguous_roots[0],
-            );
-        }
-        registry
+        record.target = key.clone();
+        self.sheets.insert(key, record);
     }
 }
 
-/// True when a baked file root names a below-full quality variant — the
-/// `<root>.0_5x` / `.0_25x` / `.potato` keys `build.rs::baked_key_for_path`
-/// emits for the `sprites_0_5x` / `sprites_0_25x` / `sprites_potato` folders.
-/// Kept in sync with that function; the base (full-res) root carries no marker.
-fn is_quality_variant_file_root(root: &str) -> bool {
-    root.ends_with(".0_5x") || root.ends_with(".0_25x") || root.ends_with(".potato")
+/// ⭐⭐ **THE ONE KEYING RULE for a baked sheet table, and it is a RULING:** a
+/// sheet is named by its **FILE ROOT**, because a file root names a PRODUCT —
+/// one published page — and a product lookup is what this registry serves.
+/// (Jon, 2026-08-22, `docs/planning/awaiting-maintainer-decision.md` §19.)
+///
+/// ⛔⛔ **never by `record.target`.** A renderer target is an AUTHORING choice —
+/// which rig adapter drew the sheet — and 48 sheets share five of them
+/// (`robot` x18, `toon` x16, `goblin` x9, `sandbag` x3, `ninja` x2). Keyed by
+/// target, *"give me sheet X"* is answered by whichever manifest happened to
+/// load last: `robot` lost its own 256x256 page to `tech_bro_disruptor`.
+/// The standing principle, from the 2026-08-18 review: *"Do not let a
+/// sprite-renderer target string accidentally become the durable identity of a
+/// character package."*
+///
+/// The ONE exception is [`AmbiguousFileRoot`]'s: **a file root stops
+/// identifying a sheet the moment the file holds two.** A packed atlas
+/// (`creator_lab_props`, 8 props in one PNG) therefore keys each record by its
+/// own target — the root would name all eight and so name none. Those roots are
+/// reported so a catalog-aware caller can notice one it expected to resolve.
+///
+/// ⚠ quality variants are NOT skipped, and must not be: `build.rs` bakes them
+/// as `<root>.0_5x` / `.0_25x` / `.potato`, which are distinct keys. The old
+/// target-keyed build had to skip them because every variant of `robot_slash`
+/// carries the identical `target: "robot_slash"` and the potato 8px grid would
+/// clobber the full-res base. That hazard is a property of target keying and
+/// leaves with it.
+pub(crate) fn index_baked_table(table: &[(&str, &str)]) -> BakedIndex {
+    let mut index = BakedIndex::default();
+    for (file_root, text) in table {
+        match ron::from_str::<Vec<SheetRecord>>(text) {
+            Ok(records) if records.is_empty() => {}
+            Ok(records) if records.len() == 1 => {
+                let record = records.into_iter().next().expect("len checked");
+                index.insert((*file_root).to_owned(), record);
+            }
+            Ok(records) => {
+                index.ambiguous_roots.push(AmbiguousFileRoot {
+                    file_root: (*file_root).to_owned(),
+                    targets: records.iter().map(|r| r.target.clone()).collect(),
+                });
+                // A packed atlas's own targets carry no scale marker, so the
+                // variant tiers would collide with the base on `genesis_vat`.
+                // The marker rides the file root; put it back on each record.
+                let marker = quality_variant_marker(file_root);
+                for record in records {
+                    let key = match marker {
+                        Some(marker) => format!("{}.{marker}", record.target),
+                        None => record.target.clone(),
+                    };
+                    index.insert(key, record);
+                }
+            }
+            Err(err) => index
+                .failed
+                .push(((*file_root).to_owned(), err.to_string())),
+        }
+    }
+    index
+}
+
+/// The tier marker `build.rs::baked_key_for_path` appended, if any.
+fn quality_variant_marker(file_root: &str) -> Option<&'static str> {
+    ["0_5x", "0_25x", "potato"]
+        .into_iter()
+        .find(|marker| file_root.ends_with(&format!(".{marker}")))
 }
 
 /// Build a [`SheetRegistry`] from the build-script baked RON table.

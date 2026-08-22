@@ -36,9 +36,7 @@ const PLAYER_CHARACTER_ID: &str = "player_robot_v3";
 /// registry, so it has no `install_*` seam.
 fn file_root_registry() -> &'static SheetRegistry {
     static REG: OnceLock<SheetRegistry> = OnceLock::new();
-    REG.get_or_init(|| {
-        SheetRegistry::from_baked_table_by_file_root(baked_sheet_rons::BAKED_SHEET_RONS)
-    })
+    REG.get_or_init(|| SheetRegistry::from_baked_table(baked_sheet_rons::BAKED_SHEET_RONS))
 }
 
 /// File roots the index REFUSED for naming several records, exposed so a

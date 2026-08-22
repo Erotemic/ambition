@@ -90,9 +90,13 @@ fn ride_into_the_corner(o: RampOrientation) -> ae::Vec2 {
     let mut scratch = ae::BodyClusterScratch::new_with_abilities(
         f.point + f.normal * radius,
         ae::AbilitySet::default(),
-    );
+    )
+    // SAID at construction rather than patched on after. A scratch body has no
+    // entity, no frame and no integrator, so there is no velocity authority to
+    // route through -- but the policy matches the receiver's NAME and cannot
+    // tell a scratch bag from a simulated body. This is the seam it points at.
+    .with_velocity(ae::Vec2::ZERO);
     scratch.kinematics.size = size;
-    scratch.kinematics.vel = ae::Vec2::ZERO;
     let mut model = ae::MotionModel::surface_momentum(params);
     let ae::MotionModel::SurfaceMomentum(motion) = &mut model else {
         unreachable!();

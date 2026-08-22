@@ -83,6 +83,7 @@
 //! | `give_item` | yes — `OwnedItems` is rollback state | ledger → `ItemGrantRequested` |
 //! | `buy_item` / `sell_item` | yes — so is `BodyWallet` | ledger → `ShopTransactionRequested` |
 //! | `play_sfx` | **no** — reaches the speakers, never read back | its own channel |
+//! | `music` | **no** — nothing in the sim branches on the soundtrack | its own channel |
 //! | `spawn_fireworks` | **no** — a visual sequence | its own channel |
 //! | `spawn_chest`, `camera_zoom` | **no** — logged stubs with no consumer | nothing |
 //!
@@ -410,6 +411,23 @@ pub fn cmd_play_sfx(In(id_str): In<String>, mut sfx: ambition_sfx::SfxWriter) {
     });
 }
 
+/// `<<music "track_id">>` — ask for a track. An empty id hands the room its own
+/// music back.
+///
+/// ⛔ **not on `<<challenge>>`.** Scoring a fight is content's call, not the
+/// generic combat trigger's: a track there would play for every challenge in the
+/// game. The two commands compose on one authored choice instead.
+///
+/// ⚠ the claim is bounded by the ROOM, not by the dialogue box — it has to
+/// outlive the box, since the fight starts after the box closes. See
+/// [`ambition_conversation::NarrativeMusicRequest`].
+pub fn cmd_music(
+    In(track): In<String>,
+    mut music: ResMut<ambition_conversation::NarrativeMusicRequest>,
+) {
+    music.request(&track);
+}
+
 /// `<<spawn_fireworks>>` — spawn a short test sequence of reusable explosion
 /// VFX/SFX near the player. Authored from the Kernel Guide dialog so designers
 /// can verify the explosion pipeline without entering a boss room.
@@ -532,6 +550,7 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     let sell_item_id = commands.register_system(cmd_sell_item);
     let spawn_chest_id = commands.register_system(cmd_spawn_chest);
     let play_sfx_id = commands.register_system(cmd_play_sfx);
+    let music_id = commands.register_system(cmd_music);
     let spawn_fireworks_id = commands.register_system(cmd_spawn_fireworks);
     let camera_zoom_id = commands.register_system(cmd_camera_zoom);
     let cmds = runner.commands_mut();
@@ -543,6 +562,7 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     cmds.add_command("sell_item", sell_item_id);
     cmds.add_command("spawn_chest", spawn_chest_id);
     cmds.add_command("play_sfx", play_sfx_id);
+    cmds.add_command("music", music_id);
     cmds.add_command("spawn_fireworks", spawn_fireworks_id);
     cmds.add_command("camera_zoom", camera_zoom_id);
 }

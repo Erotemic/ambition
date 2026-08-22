@@ -216,3 +216,76 @@ fn resolver_iterates_multiple_bindings() {
 // the mode says a simple base track is currently audible OR the
 // director is in `AdaptiveOutro` and the directive's target state
 // is no longer the outro section.
+
+// ── The simple-track priority list ────────────────────────────────────────
+
+use super::intent::simple_track_candidates;
+use ambition_audio::selection::ActiveAudioSelection;
+use ambition_encounter::EncounterMusicRequest;
+use crate::rooms::RoomMusicRequest;
+
+fn narrative(track: &str) -> ambition_conversation::NarrativeMusicRequest {
+    let mut request = ambition_conversation::NarrativeMusicRequest::default();
+    request.request(track);
+    request
+}
+
+fn room(track: &str) -> RoomMusicRequest {
+    RoomMusicRequest {
+        desired_track: Some(track.to_string()),
+    }
+}
+
+/// A conversation outranks the room it happens in — the point of the command.
+#[test]
+fn a_conversations_track_beats_the_rooms_own() {
+    let candidates = simple_track_candidates(
+        &room("for_emmy_forever_ago"),
+        Some(&narrative("super_smash_siblings_theme")),
+        None,
+        &ActiveAudioSelection::default(),
+        &EncounterMusicRequest::default(),
+    );
+    assert_eq!(
+        candidates.first().map(String::as_str),
+        Some("super_smash_siblings_theme")
+    );
+    assert!(
+        candidates.contains(&"for_emmy_forever_ago".to_string()),
+        "the room stays a candidate underneath, so releasing the claim restores it: {candidates:?}"
+    );
+}
+
+/// ...but a live fight scores itself. An encounter is the more specific claim.
+#[test]
+fn a_fight_outranks_a_conversations_track() {
+    let mut encounter = EncounterMusicRequest::default();
+    encounter.claim_priority("test_boss", "you_are_too_slow");
+    let candidates = simple_track_candidates(
+        &room("for_emmy_forever_ago"),
+        Some(&narrative("super_smash_siblings_theme")),
+        None,
+        &ActiveAudioSelection::default(),
+        &encounter,
+    );
+    assert_eq!(
+        candidates.first().map(String::as_str),
+        Some("you_are_too_slow")
+    );
+}
+
+/// An empty id hands the room its own music back without a second command.
+#[test]
+fn an_empty_id_is_not_a_claim() {
+    let candidates = simple_track_candidates(
+        &room("for_emmy_forever_ago"),
+        Some(&narrative("")),
+        None,
+        &ActiveAudioSelection::default(),
+        &EncounterMusicRequest::default(),
+    );
+    assert_eq!(
+        candidates.first().map(String::as_str),
+        Some("for_emmy_forever_ago")
+    );
+}

@@ -1448,6 +1448,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "⭐ the strongest argument on this list, and it is in the type's own doc:          `wetness` is smoothed \"using wall-clock dt, so the transition keeps          progressing while the world is paused or in bullet-time — audio buses          always run on the WALL CLOCK\". A rewind does not move wall time          backwards, so wall-clock state is not rollback state by construction          rather than by category",
     ),
     (
+        "ambition_conversation::music::NarrativeMusicRequest",
+        "⛔ REGISTERING IT WOULD BE THE DEFECT. Its only writer is the `<<music>>` Yarn command, which runs in `Update` — outside the rollback schedule, never re-executed on resimulation — so a rewind that restored this would DELETE a claim the runner cannot make again. Its only reader is the music intent adapter. Nothing in the simulation branches on which track is playing",
+    ),
+    (
         "ambition_platformer2d_host::gameplay_presentation::ScreenOccupancy",
         "what the framing was composed against, \"resolved to logical display          pixels\" — a statement about the DISPLAY, kept as its own resource so a          debug overlay can show it. The display is not rewound",
     ),

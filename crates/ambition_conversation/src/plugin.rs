@@ -73,6 +73,7 @@ impl Plugin for ConversationPlugin {
         // simulation schedule, so a rewind cannot un-close a box the player
         // already watched close.
         app.init_resource::<ActiveConversation>();
+        app.init_resource::<crate::NarrativeMusicRequest>();
         // ⛔ **REGISTER THE CHANNEL THE PORT ASKS THROUGH.** The break rule
         // writes it and the cast answers it — the cast lives in `features::npcs`
         // and the channel is this module's, so this plugin owns the

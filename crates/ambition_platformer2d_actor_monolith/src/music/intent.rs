@@ -31,6 +31,28 @@ use ambition_audio::music::{AdaptiveMusicCatalogRegistry, EncounterMusicBinding,
 /// (large-brute) state. Content tuning — owned here, not by the director.
 pub(super) const LARGE_BRUTE_DELAY_SECONDS: f32 = 3.5;
 
+/// **Release a conversation's music claim when the room changes.**
+///
+/// A `<<music>>` claim deliberately outlives the dialogue box — the fight it
+/// scores starts after the box closes — so the ROOM is what bounds it. Without
+/// this the track follows the player through doors with nothing able to stop it.
+pub fn release_narrative_music_on_room_change(
+    active_room: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        crate::rooms::ActiveRoomMetadata,
+    >,
+    // ⚠ OPTIONAL, like every other resource this module reads: the audio plugin
+    // is installed in apps that never add `ConversationPlugin`, and a plain
+    // `ResMut` panics rather than skipping when nobody owns the resource.
+    narrative_music: Option<ResMut<ambition_conversation::NarrativeMusicRequest>>,
+) {
+    let Some(mut narrative_music) = narrative_music else {
+        return;
+    };
+    if active_room.is_changed() && narrative_music.track().is_some() {
+        narrative_music.clear();
+    }
+}
+
 /// Resolve this frame's [`MusicIntent`] from Ambition gameplay state.
 ///
 /// Runs before [`super::drive_music_director`] each frame and is the only
@@ -44,6 +66,7 @@ pub fn compute_music_intent(
         EncounterMusicRequest,
     >,
     room_music: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomMusicRequest>,
+    narrative_music: Option<Res<ambition_conversation::NarrativeMusicRequest>>,
     radio: Option<Res<RadioStationState>>,
     audio_selection: Res<ActiveAudioSelection>,
     mut intent: ResMut<MusicIntent>,
@@ -67,6 +90,7 @@ pub fn compute_music_intent(
 
     let candidates = simple_track_candidates(
         &room_music,
+        narrative_music.as_deref(),
         radio.as_deref(),
         &audio_selection,
         &encounter_music,
@@ -95,18 +119,25 @@ pub fn compute_music_intent(
 }
 
 /// Build the simple-track priority list. Priority: encounter music (boss beats
-/// wave, resolved inside `EncounterMusicRequest::desired_track`) > radio > room
-/// default > sandbox default. The director plays the first id that exists in its
-/// `AudioLibrary`, so this stays a pure list of candidate ids (no audio backend
-/// access here).
-fn simple_track_candidates(
+/// wave, resolved inside `EncounterMusicRequest::desired_track`) > a track a
+/// conversation asked for > radio > room default > sandbox default. The director
+/// plays the first id that exists in its `AudioLibrary`, so this stays a pure
+/// list of candidate ids (no audio backend access here).
+///
+/// ⚠ a live fight outranks a conversation: the encounter scoring itself is the
+/// more specific claim, and the narrative request survives the box that made it.
+pub(super) fn simple_track_candidates(
     room_music: &RoomMusicRequest,
+    narrative_music: Option<&ambition_conversation::NarrativeMusicRequest>,
     radio: Option<&RadioStationState>,
     audio_selection: &ActiveAudioSelection,
     encounter_music: &EncounterMusicRequest,
 ) -> Vec<String> {
     let mut candidates = Vec::new();
     if let Some(track) = encounter_music.desired_track() {
+        candidates.push(track.to_string());
+    }
+    if let Some(track) = narrative_music.and_then(|music| music.track()) {
         candidates.push(track.to_string());
     }
     if let Some(track) = radio.and_then(|radio| radio.selected_track()) {

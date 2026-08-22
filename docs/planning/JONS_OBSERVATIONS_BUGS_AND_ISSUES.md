@@ -130,7 +130,9 @@
 
 
 * When you challenge PCA in the C4 symmetry room we should change the music to a smash track.
-  * ▢ **RE-PRICED 2026-08-21: it is NOT "one value on the encounter", and the earlier note had the shape wrong.** Traced end to end:
+  * ✔ SHIPPED 2026-08-22. `<<music "super_smash_siblings_theme">>` is authored on the *Challenge it.* choice; the claim outranks the room, is outranked by a live fight, and is released when you leave the room.
+  * ⊙ **the authorization cost in the trace below was wrong** — gameplay contexts pass no allowlist, so the whole registry is already authorized and nothing needed authorizing.
+  * ⊙ **RE-PRICED 2026-08-21: it is NOT "one value on the encounter", and the earlier note had the shape wrong.** Traced end to end:
     * ⭐ the moment is `assets/dialogue/sandbox/symmetry.yarn:56` — the *"Challenge it."* choice fires `<<challenge>>`.
     * ⭐ **the track exists**, so no regen is needed: `super_smash_siblings_theme`, `_grand_symphony` and `_character_select` are all in `music_registry.ron` already.
     * ⛔ **the room's own music must STAY.** `symmetry_room` authors `music_track: for_emmy_forever_ago` in `sandbox.ldtk`, which is right for the puzzle — the CHALLENGE is what should swap, not the room.

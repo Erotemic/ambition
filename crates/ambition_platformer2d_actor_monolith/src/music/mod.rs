@@ -31,7 +31,7 @@ pub use ambition_audio::music::{
     MusicLayerChannels, MusicLayerGainSpec, MusicLayerSourceSpec, MusicLayerSpec, MusicSectionSpec,
     MusicStateSpec, MUSIC_LOG_TARGET,
 };
-pub use intent::compute_music_intent;
+pub use intent::{compute_music_intent, release_narrative_music_on_room_change};
 
 /// Mirror the user's effective music volume into the audio crate's
 /// [`ambition_audio::MusicMix`] each frame, BEFORE the director runs,

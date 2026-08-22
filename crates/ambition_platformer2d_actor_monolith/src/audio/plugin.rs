@@ -153,6 +153,7 @@ impl Plugin for Platformer2dAudioPlugin {
                 Update,
                 (
                     crate::music::sync_music_mix,
+                    crate::music::release_narrative_music_on_room_change,
                     crate::music::compute_music_intent,
                     crate::music::drive_music_director,
                 )
@@ -208,6 +209,7 @@ struct AudioRequestState<'w, 's> {
         >,
     >,
     radio: Option<ResMut<'w, super::RadioStationState>>,
+    narrative: Option<ResMut<'w, ambition_conversation::NarrativeMusicRequest>>,
     intent: Option<ResMut<'w, crate::music::MusicIntent>>,
     director: Option<ResMut<'w, crate::music::MusicDirectorState>>,
     music_playback: Option<ResMut<'w, ambition_audio::library::MusicPlaybackState>>,
@@ -261,6 +263,9 @@ fn reset_audio_request_state_on_context_change(
     }
     if let Some(radio) = state.radio.as_deref_mut() {
         *radio = Default::default();
+    }
+    if let Some(narrative) = state.narrative.as_deref_mut() {
+        narrative.clear();
     }
     if let Some(intent) = state.intent.as_deref_mut() {
         *intent = Default::default();

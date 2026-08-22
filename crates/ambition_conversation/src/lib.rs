@@ -110,6 +110,7 @@ pub mod dialog;
 mod hold;
 mod instance;
 mod ledger;
+mod music;
 mod opening;
 mod plugin;
 mod rules;
@@ -121,6 +122,7 @@ mod tests;
 pub use authority::{ActiveConversation, ConversationInputOwner, LiveConversation};
 pub use hold::{project_conversation_hold, HeldByConversation};
 pub use instance::ConversationInstanceId;
+pub use music::NarrativeMusicRequest;
 pub use ledger::{
     release_narrative_inputs, NarrativeInputLedger, NarrativeInputPlugin, NarrativeInputWriter,
 };

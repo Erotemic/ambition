@@ -7093,7 +7093,31 @@ BUILD.** It did not, for two call sites in the monolith
 reach because they only fail once `ambition_projectiles`' own surface is gated.
 `cargo check` the sentinel, and run its tests, before believing a shrink.
 
-⛔ **AND THE REMAINING 15 REALLY DO WAIT ON THE CARVE — verified 2026-08-22, not
+⛔⛔ **EXCEPT THREE OF THEM, WHICH THE MONOLITH NEVER NAMES — measured
+2026-08-22.** The baseline says every unwanted crate is *"reachable via
+`ambition_platformer2d_actor_monolith` alone"*. For three it is not:
+
+```text
+ambition_settings_menu   0 monolith files   ← ambition_game_shell ← load_presentation ← facade
+ambition_sfx_bank        0                  ← ambition_sfx ← ambition_audio ← game_shell
+ambition_ui_nav          0                  ← ambition_dialog ← ambition_conversation ← facade
+```
+
+⇒ they wait on a gate in `ambition_sfx`, `ambition_dialog` and the game-shell
+chain, **not on the monolith carve** — three separate small pieces of work rather
+than one big one. ⚠ each is a REAL gate, not a manifest tweak: making the dep
+optional and building without it costs 6 / 4 / — compile errors respectively, so
+the code coupling is genuine (unlike LDtk and portal, where the code was already
+`#[cfg]`d and only the manifest lagged).
+
+⚠ **and `ambition_cutscene` is the near-miss worth naming.** Its whole hold is
+ONE type — `CutsceneTriggerQueue`, used in two files of `ambition_boss_encounter`
+— so it looks like a one-line gate. It is not worth taking: `boss_encounter`
+itself is named by **50 monolith files**, so it stays in the closure regardless,
+and splitting "a boss that triggers a cutscene" out of the boss domain to win one
+crate is a capability claim made for a number.
+
+⛔ **THE OTHER TWELVE REALLY DO WAIT ON THE CARVE — verified 2026-08-22, not
 inherited.** Having moved two, I checked whether the other thirteen share the
 property that made these cheap. They do not: **12 of the 15 are UNCONDITIONAL
 monolith deps** (`audio`, `boss_encounter`, `conversation`, `cutscene`, `dialog`,

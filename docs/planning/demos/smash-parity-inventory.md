@@ -122,7 +122,7 @@ you add a `▢`, and before you work one.
 | Teams and friendly fire toggle | ~ | `DeclaredCombatRules::friendly_fire` IS the toggle (smash declares `false`); no menu exposes it |
 | Items | ~ | `combat/held_items.rs` holds one; no pickup, throw or spawner |
 | Final Smash | ▢ | — |
-| Respawn platform | ▢ | — |
+| Respawn platform | ~ | the MECHANIC ships and only the PLATFORM is absent: `place_respawning_fighters` puts each returning fighter at `respawn_placement(stage_centre(), seat)` — per-seat, so two returning on one frame do not land inside each other, guarded by a spacing test — zeroes the velocity that threw it off, and grants 2.0s of `Empowerment::UNTOUCHABLE` through the same rollback-registered timed grant a star pickup uses. ⇒ what is missing is the standable platform and its DROP-OFF: today protection expires on a timer, where the genre also ends it when you act. Reopen as that, not as "respawn" |
 
 ## Presentation
 

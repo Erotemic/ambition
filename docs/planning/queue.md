@@ -419,7 +419,7 @@ prevented a re-do (the acceleration-term one has prevented it twice). What moves
 out is the per-incident narrative — which test went red on which date — and its
 home is the regression test, this ledger, or the commit message.
 
-- ▢ **D179 — ONE CONTACT DEFECT LEFT; THE GAP-SPLIT RESIDUAL IS CLOSED.** (found
+- ▢ **D179 — ONE CONTACT DEFECT LEFT; THE SPLIT AND THE SCOPING ARE CLOSED.** (found
   2026-08-21, by GPT review of `f8ad04f9a`)
 
 `constrain_motion` now divides a gap between bodies that are both closing on it
@@ -516,6 +516,32 @@ bug; it OCCUPIES the place where the test that would have caught it belongs.
 tests.rs` carries the falsifiers for all three: a lone mover must still spend
 the whole gap, and a blocker travelling away must not be charged for space it is
 vacating.
+
+**(c) ✔ SESSION SCOPING — the guard is REAL and it is one layer up.** The same
+review asked for a session discriminator on `BodyContactSnapshot`, since
+`snapshot_body_contact` queries every grounded `BodyContact` with no scope
+filter, and two sessions' bodies at overlapping coordinates could interact
+across scopes. Measured rather than assumed:
+
+```text
+SessionScopedEntity   exists, tags EVERY session-owned entity — and ⚠ NO
+                      gameplay system filters on it; only the lifecycle,
+                      rollback and shell crates use it at all
+integrate_sim_bodies  takes SessionWorldRef<RoomGeometry>, which IS
+                      Single<Ref<T>, With<SessionRoot>>
+```
+
+⇒ **a `Single` matching two roots fails param validation and the system is
+SKIPPED.** The consumer cannot run at all in the state the concern describes.
+The snapshot pass has no `Single`, so it would build a cross-session table —
+which nothing reads, and which clears unconditionally next tick (its own doc
+requires that, for the stale-derivation reason). No body ever moves.
+
+⛔ **so do NOT add a discriminator to the snapshot.** It would be a second guard
+for a rule already enforced structurally, and a weaker one. ⚠ the line to watch
+is the INTEGRATOR's reach into the world: if it ever stops going through
+`SessionWorldRef`, this becomes live and the query is not where to fix it.
+
 
 - ✔ **D178 — a participant's pane followed a BODY, not the participant.**
   TwinTrack's second pane wrote `ViewSubject(laboratory_twin)`, so it framed

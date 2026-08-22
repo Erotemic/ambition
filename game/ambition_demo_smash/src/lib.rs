@@ -3657,6 +3657,7 @@ mod pause_arbitration_tests {
         app.world_mut()
             .resource_mut::<select_screen::cursor::SelectCursors>()
             .seat_mut(0)
+            .expect("seat 0")
             .move_to(button.center());
 
         // Seat 0 presses confirm on that button, which cycles the slot.
@@ -3726,6 +3727,7 @@ mod pause_arbitration_tests {
         app.world_mut()
             .resource_mut::<select_screen::cursor::SelectCursors>()
             .seat_mut(0)
+            .expect("seat 0")
             .move_to(layout.portrait(0).expect("a portrait").center());
 
         seat_presses(
@@ -3741,8 +3743,13 @@ mod pause_arbitration_tests {
         let cursor = app
             .world()
             .resource::<select_screen::cursor::SelectCursors>()
-            .seat(0);
-        assert_eq!(cursor.carrying, Some(0), "tap-B did not pick up the owner's token");
+            .seat(0)
+            .expect("seat 0");
+        assert_eq!(
+            cursor.carrying,
+            Some(0),
+            "tap-B did not pick up the owner's token"
+        );
         assert_eq!(
             cursor.position,
             token.center(),
@@ -3768,6 +3775,7 @@ mod pause_arbitration_tests {
         app.world_mut()
             .resource_mut::<select_screen::cursor::SelectCursors>()
             .seat_mut(2)
+            .expect("seat 2")
             .move_to(back.center());
         seat_presses(
             &mut app,
@@ -3805,6 +3813,7 @@ mod pause_arbitration_tests {
             app.world()
                 .resource::<select_screen::cursor::SelectCursors>()
                 .seat(0)
+                .expect("seat 0")
                 .carrying,
             Some(0),
             "BACK dropped a carried token"
@@ -3864,6 +3873,7 @@ mod pause_arbitration_tests {
         app.world_mut()
             .resource_mut::<select_screen::cursor::SelectCursors>()
             .seat_mut(1)
+            .expect("seat 1")
             .move_to(face.center());
         seat_presses(
             &mut app,
@@ -3909,6 +3919,7 @@ mod pause_arbitration_tests {
         app.world_mut()
             .resource_mut::<select_screen::cursor::SelectCursors>()
             .seat_mut(0)
+            .expect("seat 0")
             .move_to(role.center());
         seat_presses(
             &mut app,
@@ -3921,7 +3932,10 @@ mod pause_arbitration_tests {
         app.update();
 
         assert_eq!(
-            app.world().resource::<select::SmashSelect>().slot(1).occupant,
+            app.world()
+                .resource::<select::SmashSelect>()
+                .slot(1)
+                .occupant,
             select::SlotOccupant::Controller { device: 1 },
             "enabling the second card ignored the connected, unseated second participant"
         );
@@ -3966,6 +3980,7 @@ mod pause_arbitration_tests {
         app.world_mut()
             .resource_mut::<select_screen::cursor::SelectCursors>()
             .seat_mut(1)
+            .expect("seat 1")
             .move_to(face.center());
         seat_presses(
             &mut app,
@@ -4033,8 +4048,8 @@ mod pause_arbitration_tests {
             let mut cursors = app
                 .world_mut()
                 .resource_mut::<select_screen::cursor::SelectCursors>();
-            cursors.seat_mut(0).move_to(token.center());
-            cursors.seat_mut(1).move_to(token.center());
+            cursors.seat_mut(0).expect("seat 0").move_to(token.center());
+            cursors.seat_mut(1).expect("seat 1").move_to(token.center());
         }
         let press = MenuControlFrame {
             select: true,
@@ -4048,7 +4063,10 @@ mod pause_arbitration_tests {
             .world()
             .resource::<select_screen::cursor::SelectCursors>();
         assert_eq!(
-            (cursors.seat(0).carrying, cursors.seat(1).carrying),
+            (
+                cursors.seat(0).expect("seat 0").carrying,
+                cursors.seat(1).expect("seat 1").carrying
+            ),
             (Some(2), None),
             "both hands closed on the machine's one token"
         );

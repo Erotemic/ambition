@@ -69,10 +69,19 @@ where
 /// is a seat possession or vacate never retracted — and how loudly that is said
 /// must not depend on which caller happened to ask.
 ///
-/// ⚠ **it still returns the first rather than refusing.** A hard failure here
-/// would take down a running game over a control bug that a debug build already
-/// shouts about, and every caller's fallback (the engine's default gravity, the
-/// session's default view) is a survivable answer.
+/// ⛔⛔ **an AMBIGUOUS seat drives NOTHING — it does not drive the first body
+/// the query yielded (corrected 2026-08-22).** This used to return `first`
+/// under a note arguing that a hard failure was worse than a survivable answer,
+/// and that much is still true: it does not panic. But "survivable" and "some
+/// arbitrary body obeys this stick" are different things. Query order is
+/// archetype order, so the old behaviour picked a DIFFERENT victim depending on
+/// spawn history, which is not a recovery policy rollback code should encode.
+///
+/// Every caller's `None` fallback — the engine's default gravity, the session's
+/// default view — is the survivable answer that argument wanted, and it is the
+/// one that does not hand somebody else's body to a stick. Zero holders and two
+/// holders now answer the same way, loudly, and the invariant is repaired by
+/// fixing the possession/vacate that left the stale seat.
 pub fn body_driving_seat(
     drivers: &Query<(Entity, &crate::control::DrivingParticipant)>,
     slot: PlayerSlot,
@@ -84,16 +93,25 @@ pub fn body_driving_seat(
     let first = holders.next();
     let extra = holders.count();
     if extra > 0 {
-        debug_assert!(
-            false,
-            "control invariant violated: {} entities hold DrivingParticipant({slot:?}) \
-             (expected at most one); possession/vacate left a stale seat",
-            extra + 1,
-        );
+        // ⛔ **no `debug_assert!(false)` here, deliberately.** It used to panic
+        // in debug while release quietly drove an arbitrary body — so the two
+        // builds disagreed about what a violated invariant DOES, which is
+        // precisely why the release behaviour went unnoticed. One policy now,
+        // in every build: say it loudly and drive nothing. That also makes the
+        // rule testable, which a debug-only panic made impossible.
         bevy::log::error!(
             "control invariant: {} entities hold DrivingParticipant({slot:?}); using the first",
             extra + 1,
         );
+        // ⛔⛔ **AMBIGUOUS IDENTITY RESOLVES TO NO IDENTITY.** This used to
+        // return `first` — "whichever entity Bevy happened to yield" — which
+        // makes a broken control-authority invariant into a body silently
+        // driven by the wrong person's stick, and does it differently depending
+        // on archetype order, which is not a recovery policy anything in
+        // rollback should encode. Refusing is the honest answer: the seat
+        // drives nothing this tick, loudly, until possession/vacate is fixed
+        // (GPT review, 2026-08-22).
+        return None;
     }
     first
 }
@@ -229,4 +247,70 @@ pub fn controlled_frame_down(
         .map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |frame| {
             frame.down()
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::prelude::*;
+
+    /// Ask the real query the real question, through a system — a hand-built
+    /// iterator would test my arithmetic rather than the function's contract.
+    fn seat_holder(app: &mut App, slot: PlayerSlot) -> Option<Entity> {
+        #[derive(Resource, Default)]
+        struct Answer(Option<Entity>, bool);
+        app.init_resource::<Answer>();
+        app.world_mut().resource_mut::<Answer>().1 = false;
+        let mut system = bevy::ecs::system::IntoSystem::into_system(
+            move |drivers: Query<(Entity, &crate::control::DrivingParticipant)>,
+                  mut answer: ResMut<Answer>| {
+                answer.0 = body_driving_seat(&drivers, slot);
+                answer.1 = true;
+            },
+        );
+        system.initialize(app.world_mut());
+        system.run((), app.world_mut());
+        let answer = app.world().resource::<Answer>();
+        assert!(answer.1, "the probe system never ran");
+        answer.0
+    }
+
+    /// ⛔⛔ **two holders of one seat resolve to NOBODY, not to whichever body
+    /// the query yielded first.**
+    ///
+    /// The old behaviour returned `first`, so a possession that forgot to
+    /// vacate handed one person's stick to an arbitrary second body — arbitrary
+    /// because query order is archetype order, which depends on spawn history.
+    /// This pins all three arities at once: the answer for a broken invariant
+    /// is the same as the answer for an empty one.
+    #[test]
+    fn two_bodies_claiming_one_seat_resolve_to_no_body() {
+        let slot = PlayerSlot::PRIMARY;
+        let mut app = App::new();
+
+        assert_eq!(seat_holder(&mut app, slot), None, "nobody holds it yet");
+
+        let only = app
+            .world_mut()
+            .spawn(crate::control::DrivingParticipant(slot))
+            .id();
+        assert_eq!(
+            seat_holder(&mut app, slot),
+            Some(only),
+            "one holder is the whole point of the query"
+        );
+
+        // The stale-seat bug: a second body claims the same seat.
+        let second = app
+            .world_mut()
+            .spawn(crate::control::DrivingParticipant(slot))
+            .id();
+        assert_ne!(only, second);
+        assert_eq!(
+            seat_holder(&mut app, slot),
+            None,
+            "an ambiguous seat drove a body — the caller was handed one of two \
+             claimants chosen by archetype order"
+        );
+    }
 }

@@ -134,7 +134,10 @@ fn click(app: &mut App, rect: ambition_demo_smash::select_screen::cursor::HitRec
     {
         let mut cursors = app.world_mut().resource_mut::<SelectCursors>();
         for seat in 0..4 {
-            cursors.seat_mut(seat).move_to(rect.center());
+            cursors
+                .seat_mut(seat)
+                .expect("seat is bounded by the loop")
+                .move_to(rect.center());
         }
     }
     confirm(app);
@@ -160,10 +163,7 @@ fn screen(app: &App) -> SelectLayout {
 
 /// Where an active slot's placed token is drawn. The token has no independent
 /// home/rest coordinate: when it is not carried, its pick determines this rect.
-fn placed_token(
-    app: &App,
-    slot: usize,
-) -> ambition_demo_smash::select_screen::cursor::HitRect {
+fn placed_token(app: &App, slot: usize) -> ambition_demo_smash::select_screen::cursor::HitRect {
     let layout = screen(app);
     ambition_demo_smash::select_screen::token_rect(
         &layout,
@@ -712,7 +712,10 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
         {
             let mut cursors = app.world_mut().resource_mut::<SelectCursors>();
             for seat in 0..4 {
-                cursors.seat_mut(seat).move_to(rect.center());
+                cursors
+                    .seat_mut(seat)
+                    .expect("seat is bounded by the loop")
+                    .move_to(rect.center());
             }
         }
         pad_set(app, pad, GamepadButton::South, 1.0);
@@ -4234,7 +4237,10 @@ fn pad_click(
     {
         let mut cursors = app.world_mut().resource_mut::<SelectCursors>();
         for seat in 0..4 {
-            cursors.seat_mut(seat).move_to(rect.center());
+            cursors
+                .seat_mut(seat)
+                .expect("seat is bounded by the loop")
+                .move_to(rect.center());
         }
     }
     pad_hold(app, pad, GamepadButton::South, 1.0);

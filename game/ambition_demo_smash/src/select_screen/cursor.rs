@@ -238,32 +238,25 @@ pub struct SelectCursors {
 }
 
 impl SelectCursors {
-    /// ⛔ **an out-of-range seat is a bug, not a neighbour.** A seat is an
-    /// identity; clamping it hands one person another's cursor and surfaces
-    /// downstream as UI weirdness. Loud in debug, survivable in release — the
-    /// shape `body_driving_seat` uses for its own invariant.
-    fn checked(seat: usize) -> usize {
-        debug_assert!(
-            seat < crate::select::MAX_SMASH_SEATS,
-            "seat {seat} is out of range ({} seats): an input seat is an \
-             IDENTITY, and clamping it hands one person another's cursor",
-            crate::select::MAX_SMASH_SEATS,
-        );
-        if seat >= crate::select::MAX_SMASH_SEATS {
-            bevy::log::error!(
-                "select cursor asked for seat {seat} of {}; using the last seat",
-                crate::select::MAX_SMASH_SEATS,
-            );
-        }
-        seat.min(crate::select::MAX_SMASH_SEATS - 1)
+    /// ⛔⛔ **an out-of-range seat resolves to NO seat, never to a neighbour.**
+    ///
+    /// This used to clamp with `seat.min(MAX - 1)` under a doc that said,
+    /// correctly, that *"clamping hands one person another's cursor"* — loud in
+    /// debug and silently wrong in release, which is the build where a stranger
+    /// moving your cursor is not survivable. An invalid identity is not a
+    /// nearby identity, and a menu that answers for the wrong person is worse
+    /// than one that answers for nobody (GPT review, 2026-08-22).
+    ///
+    /// ⚠ **no caller pays for this.** Every production reader runs inside
+    /// `for seat in 0..MAX_SMASH_SEATS`, so the `Option` is always `Some` and
+    /// the change is free where it matters; what it removes is the ability for
+    /// a future caller to pass a seat it got from data and be handed somebody.
+    pub fn seat(&self, seat: usize) -> Option<&SelectCursor> {
+        self.seats.get(seat)
     }
 
-    pub fn seat(&self, seat: usize) -> &SelectCursor {
-        &self.seats[Self::checked(seat)]
-    }
-
-    pub fn seat_mut(&mut self, seat: usize) -> &mut SelectCursor {
-        &mut self.seats[Self::checked(seat)]
+    pub fn seat_mut(&mut self, seat: usize) -> Option<&mut SelectCursor> {
+        self.seats.get_mut(seat)
     }
 
     /// Every seat's cursor, in seat order — the order a reader must draw and
@@ -295,13 +288,21 @@ impl SelectCursors {
     /// Re-grabbing the token already in this hand succeeds and re-arms
     /// `grabbed_at`, which is what distinguishes a drag from a click.
     pub fn try_grab(&mut self, seat: usize, slot: usize) -> bool {
-        if self.seat(seat).carrying.is_some_and(|held| held != slot) {
+        // ⛔ a seat that does not exist grabs NOTHING — it does not grab on the
+        // last seat's behalf, which is what the clamped accessor used to do.
+        let Some(cursor) = self.seat(seat) else {
+            return false;
+        };
+        if cursor.carrying.is_some_and(|held| held != slot) {
             return false;
         }
         match self.carrier_of(slot) {
             Some(holder) if holder != seat => false,
             _ => {
-                self.seat_mut(seat).grab(slot);
+                // `seat` indexed successfully above.
+                if let Some(cursor) = self.seat_mut(seat) {
+                    cursor.grab(slot);
+                }
                 true
             }
         }
@@ -426,9 +427,41 @@ mod tests {
         let mut cursors = SelectCursors::default();
         assert!(cursors.try_grab(0, 1));
         assert!(!cursors.try_grab(0, 2));
-        assert_eq!(cursors.seat(0).carrying, Some(1));
+        assert_eq!(cursors.seat(0).expect("seat 0").carrying, Some(1));
         assert_eq!(cursors.carrier_of(1), Some(0));
         assert_eq!(cursors.carrier_of(2), None);
+    }
+
+    /// ⛔⛔ **an out-of-range seat is NOBODY, not the nearest somebody.**
+    ///
+    /// This table clamped with `seat.min(MAX - 1)`, so seat 7 of 4 moved player
+    /// 4's cursor and grabbed with player 4's hand — an identity bug converted
+    /// into wrong input, in release builds only. The falsifier is that the last
+    /// seat must be UNTOUCHED by a request that named a seat past the end.
+    #[test]
+    fn a_seat_past_the_end_resolves_to_nobody_rather_than_the_last_seat() {
+        let mut cursors = SelectCursors::default();
+        let past_the_end = crate::select::MAX_SMASH_SEATS + 3;
+
+        assert!(cursors.seat(past_the_end).is_none());
+        assert!(cursors.seat_mut(past_the_end).is_none());
+
+        // ⭐ the part that actually bit: a WRITE through the clamp landed on a
+        // real person. `try_grab` must refuse, and the last seat must still be
+        // empty afterwards.
+        assert!(
+            !cursors.try_grab(past_the_end, 1),
+            "a seat that does not exist grabbed a token"
+        );
+        assert_eq!(
+            cursors
+                .seat(crate::select::MAX_SMASH_SEATS - 1)
+                .expect("the last seat exists")
+                .carrying,
+            None,
+            "the out-of-range grab landed on the last seat's cursor"
+        );
+        assert_eq!(cursors.carrier_of(1), None);
     }
 
     #[test]
@@ -437,6 +470,6 @@ mod tests {
         assert!(cursors.try_grab(0, 2));
         assert!(!cursors.try_grab(1, 2));
         assert_eq!(cursors.carrier_of(2), Some(0));
-        assert_eq!(cursors.seat(1).carrying, None);
+        assert_eq!(cursors.seat(1).expect("seat 1").carrying, None);
     }
 }

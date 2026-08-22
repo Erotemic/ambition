@@ -771,7 +771,14 @@ mod tests {
         payless.sort_unstable();
         assert_eq!(
             payless,
-            vec!["george_grab"],
+            // ⭐ the RUNNING grab is here for the same reason the standing one
+            // is, and it is not authored: the capture kit derives it from this
+            // fighter's own grab. ⚠ that also means the startup band above now
+            // constrains a DERIVED move — if george's grab ever starts close
+            // enough to `POKE_MAX_STARTUP_S`, the derived wind-up can push its
+            // variant into the band this fighter says it does not have, and the
+            // assertion above is what would say so.
+            vec!["george_grab", "george_grab_dash"],
             "the set of moves that reach and deal no damage changed"
         );
 

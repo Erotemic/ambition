@@ -1083,8 +1083,16 @@ pub(crate) fn drive_the_cursor(
     // snap-back bug `SeatActiveDevices` exists for. Local rather than read
     // from that resource because this screen needs the POSITION of the move,
     // not just the fact of it.
-    if let Some(position) = inputs.windows.iter().next().and_then(Window::cursor_position) {
-        if local.last_mouse.is_none_or(|previous| previous.distance_squared(position) > 0.01) {
+    if let Some(position) = inputs
+        .windows
+        .iter()
+        .next()
+        .and_then(Window::cursor_position)
+    {
+        if local
+            .last_mouse
+            .is_none_or(|previous| previous.distance_squared(position) > 0.01)
+        {
             drives[DESKTOP_SEAT].moved_to = Some(position);
         }
         local.last_mouse = Some(position);
@@ -1121,16 +1129,10 @@ pub(crate) fn drive_the_cursor(
             let on_token = (0..MAX_SMASH_SEATS)
                 .filter(|slot| !taken.contains(slot))
                 .filter_map(|slot| {
-                    let rect = SelectLayout::touchable(token_rect(
-                        &layout,
-                        &select,
-                        &fighters,
-                        slot,
-                    )?);
-                    rect.contains(touch.position()).then_some((
-                        slot,
-                        rect.center().distance_squared(touch.position()),
-                    ))
+                    let rect =
+                        SelectLayout::touchable(token_rect(&layout, &select, &fighters, slot)?);
+                    rect.contains(touch.position())
+                        .then_some((slot, rect.center().distance_squared(touch.position())))
                 })
                 .min_by(|a, b| a.1.total_cmp(&b.1))
                 .map(|(slot, _)| slot);
@@ -1146,8 +1148,12 @@ pub(crate) fn drive_the_cursor(
             // between them. A deterministic answer beats a lucky one, and the
             // case needs two people to put two tokens down and then have one of
             // them tap.
-            let carrying = (0..MAX_SMASH_SEATS)
-                .find(|seat| !taken.contains(seat) && cursors.seat(*seat).carrying.is_some());
+            let carrying = (0..MAX_SMASH_SEATS).find(|seat| {
+                !taken.contains(seat)
+                    && cursors
+                        .seat(*seat)
+                        .is_some_and(|cursor| cursor.carrying.is_some())
+            });
             // ⚠ **otherwise it drives seat 0, and only if seat 0 is free.** One
             // person on a phone taps portraits and buttons without ever
             // touching a token, and that has to work; a stray thumb during
@@ -1237,7 +1243,9 @@ pub(crate) fn drive_the_cursor(
         // the whole cursor table, so holding `seat_mut` across the state machine
         // would make ownership harder to express than it is.
         {
-            let pointer = cursors.seat_mut(seat);
+            let pointer = cursors
+                .seat_mut(seat)
+                .expect("`seat` is bounded by the loop over 0..MAX_SMASH_SEATS");
 
             // The cursor starts on the first portrait rather than at the origin. A
             // pointer parked in a corner makes the first press cross the whole
@@ -1297,7 +1305,12 @@ pub(crate) fn drive_the_cursor(
             // token is a no-op. If another cursor currently carries this token
             // (possible while the development policy permits it), the owner does
             // not steal it mid-drag.
-            if cursors.seat(seat).carrying.is_none() {
+            if cursors
+                .seat(seat)
+                .expect("`seat` is bounded by the loop over 0..MAX_SMASH_SEATS")
+                .carrying
+                .is_none()
+            {
                 if let Some(own) = own_slot.filter(|slot| cursors.carrier_of(*slot).is_none()) {
                     let card = select.slot(own);
                     if let Some(pick) = card.pick {
@@ -1312,7 +1325,9 @@ pub(crate) fn drive_the_cursor(
                             target_page,
                         );
                         if let Some(rect) = token_rect(&token_layout, &select, &fighters, own) {
-                            let pointer = cursors.seat_mut(seat);
+                            let pointer = cursors
+                                .seat_mut(seat)
+                                .expect("`seat` is bounded by the loop over 0..MAX_SMASH_SEATS");
                             pointer.move_to(rect.center());
                             cursors.try_grab(seat, own);
                         }
@@ -1322,9 +1337,18 @@ pub(crate) fn drive_the_cursor(
             continue;
         }
 
-        let position = cursors.seat(seat).position;
-        let carrying = cursors.seat(seat).carrying;
-        let release_should_drop = cursors.seat(seat).release_should_drop();
+        let position = cursors
+            .seat(seat)
+            .expect("`seat` is bounded by the loop over 0..MAX_SMASH_SEATS")
+            .position;
+        let carrying = cursors
+            .seat(seat)
+            .expect("`seat` is bounded by the loop over 0..MAX_SMASH_SEATS")
+            .carrying;
+        let release_should_drop = cursors
+            .seat(seat)
+            .expect("`seat` is bounded by the loop over 0..MAX_SMASH_SEATS")
+            .release_should_drop();
 
         if drive.pressed {
             let over = cursor::hovered(position, &rects).and_then(kind_of);
@@ -1333,23 +1357,17 @@ pub(crate) fn drive_the_cursor(
             // other-human tokens are a policy knob that defaults ON for testing.
             // A non-grabbable human token is transparent: the portrait beneath it
             // remains the A target.
-            let may_grab = |slot: usize| {
-                match select.slot(slot).occupant {
-                    SlotOccupant::Absent => false,
-                    SlotOccupant::Cpu => true,
-                    SlotOccupant::Controller { device } if device == seat => true,
-                    SlotOccupant::Controller { .. } => policy.allow_other_human_token_grab,
-                }
+            let may_grab = |slot: usize| match select.slot(slot).occupant {
+                SlotOccupant::Absent => false,
+                SlotOccupant::Cpu => true,
+                SlotOccupant::Controller { device } if device == seat => true,
+                SlotOccupant::Controller { .. } => policy.allow_other_human_token_grab,
             };
             let on_token = (0..MAX_SMASH_SEATS)
                 .filter(|slot| may_grab(*slot))
                 .filter_map(|slot| {
-                    let rect = SelectLayout::touchable(token_rect(
-                        &layout,
-                        &select,
-                        &fighters,
-                        slot,
-                    )?);
+                    let rect =
+                        SelectLayout::touchable(token_rect(&layout, &select, &fighters, slot)?);
                     rect.contains(position)
                         .then_some((slot, rect.center().distance_squared(position)))
                 })
@@ -1393,7 +1411,10 @@ pub(crate) fn drive_the_cursor(
                 (Some(slot), _, Some(SelectTarget::Portrait(cell))) => {
                     if let Some(pick) = fighters.cell(cell) {
                         select.set_pick(slot, pick);
-                        cursors.seat_mut(seat).drop_it();
+                        cursors
+                            .seat_mut(seat)
+                            .expect("`seat` is bounded by the loop over 0..MAX_SMASH_SEATS")
+                            .drop_it();
                     }
                 }
                 // Empty space and unrelated controls do not invent a third token
@@ -1421,7 +1442,10 @@ pub(crate) fn drive_the_cursor(
             if let (Some(slot), Some(SelectTarget::Portrait(cell))) = (carrying, over) {
                 if let Some(pick) = fighters.cell(cell) {
                     select.set_pick(slot, pick);
-                    cursors.seat_mut(seat).drop_it();
+                    cursors
+                        .seat_mut(seat)
+                        .expect("`seat` is bounded by the loop over 0..MAX_SMASH_SEATS")
+                        .drop_it();
                 }
             }
         }
@@ -1650,14 +1674,8 @@ pub fn sync_select_tokens_and_cursors(
     page: Res<SelectPage>,
     windows: Query<&Window>,
     offer: Option<Res<ambition_platformer2d::input::LocalSeatOffer>>,
-    mut tokens: Query<
-        (&SlotToken, &mut Node, &mut Visibility),
-        Without<CursorNode>,
-    >,
-    mut cursor_nodes: Query<
-        (&CursorNode, &mut Node, &mut Visibility),
-        Without<SlotToken>,
-    >,
+    mut tokens: Query<(&SlotToken, &mut Node, &mut Visibility), Without<CursorNode>>,
+    mut cursor_nodes: Query<(&CursorNode, &mut Node, &mut Visibility), Without<SlotToken>>,
 ) {
     let layout = current_layout(&windows, &fighters, &page);
     let offered_seats = offer
@@ -1674,7 +1692,10 @@ pub fn sync_select_tokens_and_cursors(
 
         let rect = if let Some(seat) = cursors.carrier_of(token.0) {
             Some(HitRect::from_center_size(
-                cursors.seat(seat).position,
+                cursors
+                    .seat(seat)
+                    .expect("`seat` is bounded by the loop over 0..MAX_SMASH_SEATS")
+                    .position,
                 Vec2::splat(layout.token_px()),
             ))
         } else {
@@ -1705,7 +1726,9 @@ pub fn sync_select_tokens_and_cursors(
             continue;
         }
         set_visibility(&mut visibility, Visibility::Inherited);
-        let pointer = cursors.seat(seat);
+        let pointer = cursors
+            .seat(seat)
+            .expect("`seat` is bounded by the loop over 0..MAX_SMASH_SEATS");
         let at = if pointer.placed {
             pointer.position
         } else {
@@ -1808,7 +1831,10 @@ mod touch_tests {
 
         let cursors = *app.world().resource::<SelectCursors>();
         assert_eq!(
-            (cursors.seat(0).carrying, cursors.seat(1).carrying),
+            (
+                cursors.seat(0).expect("seat 0").carrying,
+                cursors.seat(1).expect("seat 1").carrying
+            ),
             (Some(0), Some(1)),
             "two fingers on two tokens did not put one in each seat's hand"
         );
@@ -1854,7 +1880,11 @@ mod touch_tests {
         app.update();
 
         assert_eq!(
-            app.world().resource::<SelectCursors>().seat(0).carrying,
+            app.world()
+                .resource::<SelectCursors>()
+                .seat(0)
+                .expect("seat 0")
+                .carrying,
             Some(0),
             "open-space release created a resting token instead of keeping it in hand"
         );
@@ -1913,7 +1943,11 @@ mod touch_tests {
         app.update();
 
         assert_eq!(
-            app.world().resource::<SelectCursors>().seat(0).carrying,
+            app.world()
+                .resource::<SelectCursors>()
+                .seat(0)
+                .expect("seat 0")
+                .carrying,
             Some(0),
             "pressing a placed token re-chose the fighter under it instead of \
              picking the token up"
@@ -1946,7 +1980,11 @@ mod touch_tests {
         finger(&mut app, 40, TouchPhase::Ended, token_one.center());
         app.update();
         assert_eq!(
-            app.world().resource::<SelectCursors>().seat(1).carrying,
+            app.world()
+                .resource::<SelectCursors>()
+                .seat(1)
+                .expect("seat 1")
+                .carrying,
             Some(1),
             "the first tap did not leave seat 1 holding its token"
         );
@@ -1990,7 +2028,11 @@ mod touch_tests {
         }
         let layout = headless_layout();
         let token_zero = placed_token(&app, &layout, 0);
-        app.world_mut().resource_mut::<SelectCursors>().seat_mut(1).position = token_zero.center();
+        app.world_mut()
+            .resource_mut::<SelectCursors>()
+            .seat_mut(1)
+            .expect("seat 1")
+            .position = token_zero.center();
         app.world_mut()
             .resource_mut::<ambition_platformer2d::input::SeatMenuFrames>()
             .set(
@@ -2004,7 +2046,11 @@ mod touch_tests {
         app.update();
 
         assert_eq!(
-            app.world().resource::<SelectCursors>().seat(1).carrying,
+            app.world()
+                .resource::<SelectCursors>()
+                .seat(1)
+                .expect("seat 1")
+                .carrying,
             Some(0),
             "the default testing policy refused another human's token"
         );
@@ -2025,6 +2071,7 @@ mod touch_tests {
         app.world_mut()
             .resource_mut::<SelectCursors>()
             .seat_mut(0)
+            .expect("seat 0")
             .move_to(cpu_token.center());
         app.world_mut()
             .resource_mut::<ambition_platformer2d::input::SeatMenuFrames>()
@@ -2039,7 +2086,11 @@ mod touch_tests {
         app.update();
 
         assert_eq!(
-            app.world().resource::<SelectCursors>().seat(0).carrying,
+            app.world()
+                .resource::<SelectCursors>()
+                .seat(0)
+                .expect("seat 0")
+                .carrying,
             Some(1),
             "an unseated human hand could not configure a CPU token"
         );
@@ -2063,7 +2114,11 @@ mod touch_tests {
         }
         let layout = headless_layout();
         let token_zero = placed_token(&app, &layout, 0);
-        app.world_mut().resource_mut::<SelectCursors>().seat_mut(1).position = token_zero.center();
+        app.world_mut()
+            .resource_mut::<SelectCursors>()
+            .seat_mut(1)
+            .expect("seat 1")
+            .position = token_zero.center();
         app.world_mut()
             .resource_mut::<ambition_platformer2d::input::SeatMenuFrames>()
             .set(
@@ -2077,7 +2132,11 @@ mod touch_tests {
         app.update();
 
         assert_eq!(
-            app.world().resource::<SelectCursors>().seat(1).carrying,
+            app.world()
+                .resource::<SelectCursors>()
+                .seat(1)
+                .expect("seat 1")
+                .carrying,
             None,
             "Ultimate-style policy still let seat 1 grab seat 0's token"
         );
@@ -2102,7 +2161,12 @@ mod touch_tests {
         app.init_resource::<ambition_platformer2d::input::MenuControlFrame>();
         app.update();
 
-        let start = app.world().resource::<SelectCursors>().seat(0).position;
+        let start = app
+            .world()
+            .resource::<SelectCursors>()
+            .seat(0)
+            .expect("seat 0")
+            .position;
         // A tenth of a second of full-right deflection.
         app.world_mut()
             .resource_mut::<ambition_platformer2d::input::MenuControlFrame>()
@@ -2111,7 +2175,12 @@ mod touch_tests {
         app.world_mut().resource_mut::<Time>().advance_by(step);
         app.update();
 
-        let moved = app.world().resource::<SelectCursors>().seat(0).position;
+        let moved = app
+            .world()
+            .resource::<SelectCursors>()
+            .seat(0)
+            .expect("seat 0")
+            .position;
         assert!(
             moved.x > start.x,
             "a held stick left the cursor at {moved:?}, where it started"
@@ -2145,13 +2214,31 @@ mod touch_tests {
             .nav = Vec2::X;
 
         let step = std::time::Duration::from_millis(50);
-        let start = app.world().resource::<SelectCursors>().seat(0).position.x;
+        let start = app
+            .world()
+            .resource::<SelectCursors>()
+            .seat(0)
+            .expect("seat 0")
+            .position
+            .x;
         app.world_mut().resource_mut::<Time>().advance_by(step);
         app.update();
-        let after_one = app.world().resource::<SelectCursors>().seat(0).position.x;
+        let after_one = app
+            .world()
+            .resource::<SelectCursors>()
+            .seat(0)
+            .expect("seat 0")
+            .position
+            .x;
         app.world_mut().resource_mut::<Time>().advance_by(step);
         app.update();
-        let after_two = app.world().resource::<SelectCursors>().seat(0).position.x;
+        let after_two = app
+            .world()
+            .resource::<SelectCursors>()
+            .seat(0)
+            .expect("seat 0")
+            .position
+            .x;
 
         let first = after_one - start;
         let second = after_two - after_one;
@@ -2217,7 +2304,11 @@ mod touch_tests {
         // spent before the finger arrives and cannot be mistaken for its work.
         app.update();
         assert_ne!(
-            app.world().resource::<SelectCursors>().seat(0).position,
+            app.world()
+                .resource::<SelectCursors>()
+                .seat(0)
+                .expect("seat 0")
+                .position,
             token.center(),
             "the cursor already sat on the token, so this test cannot see a \
              finger move it"
@@ -2226,12 +2317,20 @@ mod touch_tests {
         finger(&mut app, 7, TouchPhase::Started, token.center());
         app.update();
         assert_eq!(
-            app.world().resource::<SelectCursors>().seat(0).position,
+            app.world()
+                .resource::<SelectCursors>()
+                .seat(0)
+                .expect("seat 0")
+                .position,
             token.center(),
             "a finger on slot 0's token did not move the cursor to it"
         );
         assert_eq!(
-            app.world().resource::<SelectCursors>().seat(0).carrying,
+            app.world()
+                .resource::<SelectCursors>()
+                .seat(0)
+                .expect("seat 0")
+                .carrying,
             Some(0),
             "the touch press never reached the screen's click arbitration"
         );
@@ -2241,7 +2340,11 @@ mod touch_tests {
         finger(&mut app, 7, TouchPhase::Ended, token.center());
         app.update();
         assert_eq!(
-            app.world().resource::<SelectCursors>().seat(0).carrying,
+            app.world()
+                .resource::<SelectCursors>()
+                .seat(0)
+                .expect("seat 0")
+                .carrying,
             Some(0),
             "lifting the finger put the token straight back down"
         );
@@ -2249,7 +2352,11 @@ mod touch_tests {
         finger(&mut app, 8, TouchPhase::Started, portrait.center());
         app.update();
         assert_eq!(
-            app.world().resource::<SelectCursors>().seat(0).position,
+            app.world()
+                .resource::<SelectCursors>()
+                .seat(0)
+                .expect("seat 0")
+                .position,
             portrait.center(),
             "the second tap did not move the cursor onto the portrait"
         );
@@ -2283,7 +2390,11 @@ mod touch_tests {
         finger(&mut app, 3, TouchPhase::Moved, portrait.center());
         app.update();
         assert_eq!(
-            app.world().resource::<SelectCursors>().seat(0).carrying,
+            app.world()
+                .resource::<SelectCursors>()
+                .seat(0)
+                .expect("seat 0")
+                .carrying,
             Some(0),
             "the token came out of the cursor's hand part-way through the drag"
         );
@@ -2296,7 +2407,11 @@ mod touch_tests {
             "the finger let go over a portrait and the token did not land on it"
         );
         assert_eq!(
-            app.world().resource::<SelectCursors>().seat(0).carrying,
+            app.world()
+                .resource::<SelectCursors>()
+                .seat(0)
+                .expect("seat 0")
+                .carrying,
             None,
             "the drag ended with the token still in hand"
         );
@@ -2334,7 +2449,11 @@ mod touch_tests {
         finger(&mut app, 5, TouchPhase::Started, token.center());
         app.update();
         assert_eq!(
-            app.world().resource::<SelectCursors>().seat(0).carrying,
+            app.world()
+                .resource::<SelectCursors>()
+                .seat(0)
+                .expect("seat 0")
+                .carrying,
             Some(0),
             "the driving finger never picked the token up"
         );
@@ -2342,12 +2461,20 @@ mod touch_tests {
         finger(&mut app, 2, TouchPhase::Started, portrait.center());
         app.update();
         assert_eq!(
-            app.world().resource::<SelectCursors>().seat(0).position,
+            app.world()
+                .resource::<SelectCursors>()
+                .seat(0)
+                .expect("seat 0")
+                .position,
             token.center(),
             "a second finger stole the cursor from the one that was dragging"
         );
         assert_eq!(
-            app.world().resource::<SelectCursors>().seat(0).carrying,
+            app.world()
+                .resource::<SelectCursors>()
+                .seat(0)
+                .expect("seat 0")
+                .carrying,
             Some(0),
             "the second finger's press arbitrated, so the drag let go of the token"
         );

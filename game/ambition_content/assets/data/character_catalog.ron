@@ -873,6 +873,11 @@
             manifest: "sprites/pirate_heavy_broadside_bess_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,
+            // Its MEASURED height, authored so the number is visible and editable:
+            // `Wide` has no default, so this row rode `ldtk_box x collision_scale`.
+            // Identical output today (the legacy scale WAS height/body_h); the point
+            // is that changing the size is now one number.
+            standing_height: Some(58.7),
             composition: None,
             default_brain: "",
             default_action_set: "brute_lunge",
@@ -891,6 +896,11 @@
             manifest: "sprites/pirate_heavy_iron_mary_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,
+            // Its MEASURED height, authored so the number is visible and editable:
+            // `Wide` has no default, so this row rode `ldtk_box x collision_scale`.
+            // Identical output today (the legacy scale WAS height/body_h); the point
+            // is that changing the size is now one number.
+            standing_height: Some(56.2),
             composition: None,
             // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors a
             // policy, and the preset it used to name carried `aggressiveness:
@@ -915,6 +925,11 @@
             manifest: "sprites/pirate_heavy_salt_annet_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,
+            // Its MEASURED height, authored so the number is visible and editable:
+            // `Wide` has no default, so this row rode `ldtk_box x collision_scale`.
+            // Identical output today (the legacy scale WAS height/body_h); the point
+            // is that changing the size is now one number.
+            standing_height: Some(60.4),
             composition: None,
             default_brain: "",
             default_action_set: "brute_lunge",

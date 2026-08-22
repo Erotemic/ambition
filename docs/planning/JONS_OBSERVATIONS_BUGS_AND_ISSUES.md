@@ -113,7 +113,8 @@
     ```
 
     ⇒ the ordinary pirates are EXACTLY your robot's height, and the heavies are only ~20% taller than them rather than hulking. That is the whole report, in numbers.
-  * ▢ **so the fix is authoring, and it needs your heights.** `npc_pirate_admiral/cutlass_viper/lookout/navigator/quartermaster/raider` are `Standard` (48 today; your "2x" = 96). The three heavies — `broadside_bess`, `iron_mary`, `salt_annet` — are `body_kind: Wide`, which deliberately has NO default height, so they still ride the legacy `ldtk_box × collision_scale` road; they need a `standing_height` each rather than a smaller scale. ⚠ 17 rows author no `body_kind` at all, and `Wide`/`Floating`/`Crawler` (27 rows) have no shared unit by design — say whether they should.
+  * ◐ **the three heavies are ON the shared road now (2026-08-22), at their own measured heights** — `broadside_bess 58.7`, `iron_mary 56.2`, `salt_annet 60.4`. `Wide` has no default, so they rode `ldtk_box × collision_scale`; authoring the height they already had swaps the road without changing the look (two are byte-identical; `salt_annet` moved 0.1px in width because I authored the rounded number). ⇒ **making them smaller is now editing one number each**, which is what you asked for.
+  * ▢ **the six Standard pirates still need your number.** `npc_pirate_admiral/cutlass_viper/lookout/navigator/quartermaster/raider` are `Standard` (48 today; your "2x" = 96). The three heavies — `broadside_bess`, `iron_mary`, `salt_annet` — are `body_kind: Wide`, which deliberately has NO default height, so they still ride the legacy `ldtk_box × collision_scale` road; they need a `standing_height` each rather than a smaller scale. ⚠ 17 rows author no `body_kind` at all, and `Wide`/`Floating`/`Crawler` (27 rows) have no shared unit by design — say whether they should.
 
 
 * The pirates in the pirate sky no longer ride their sharks. 

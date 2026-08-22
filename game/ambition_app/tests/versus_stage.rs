@@ -240,7 +240,7 @@ fn leaving_versus_does_not_seat_fighters_into_the_next_game() {
 #[test]
 fn two_controllers_make_versus_a_two_player_game() {
     use ambition_platformer2d::actors::actor::BodyKinematics;
-    use ambition_platformer2d::characters::brain::DrivingParticipant;
+    use ambition_platformer2d::characters::control::DrivingParticipant;
 
     let mut app = versus_app();
     // Both pads present BEFORE the stage is chosen. The roster decides at stage
@@ -420,7 +420,7 @@ fn a_seated_fighter_derives_its_character_and_not_just_its_name() {
 fn both_fighters_can_actually_hit_each_other() {
     use ambition_platformer2d::actors::actor::BodyKinematics;
     use ambition_platformer2d::characters::actor::BodyHealth;
-    use ambition_platformer2d::characters::brain::DrivingParticipant;
+    use ambition_platformer2d::characters::control::DrivingParticipant;
 
     let mut app = versus_app();
     let pad_one = app.world_mut().spawn(Gamepad::default()).id();
@@ -2244,7 +2244,7 @@ fn a_seated_fighter_is_damageable_through_its_authored_hurtbox() {
 #[test]
 fn a_round_opens_on_a_countdown_that_nobody_can_act_through() {
     use ambition_platformer2d::actors::actor::BodyKinematics;
-    use ambition_platformer2d::characters::brain::{DrivingParticipant, PlayerSlot};
+    use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
 
     let mut app = versus_app();
     let pad = app.world_mut().spawn(Gamepad::default()).id();

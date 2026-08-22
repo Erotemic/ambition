@@ -16,7 +16,7 @@
 
 use bevy::prelude::*;
 
-use ambition_characters::brain::{DrivingParticipant, PlayerSlot, SlotControls};
+use ambition_characters::control::{DrivingParticipant, PlayerSlot, SlotControls};
 use ambition_input::ControlFrame;
 use ambition_platformer2d_actor_monolith::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use ambition_sim_view::affordances::{InteractVariant, NearestInteractable};

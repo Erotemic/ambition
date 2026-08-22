@@ -40,7 +40,8 @@
 
 use bevy::prelude::*;
 
-use ambition_characters::brain::{ActorControl, Brain, DrivingParticipant, PlayerSlot};
+use ambition_characters::brain::{ActorControl, Brain};
+use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 
 use crate::features::TemporaryControl;
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
@@ -180,7 +181,7 @@ pub fn holding_ascend(
 /// `SlotControls[PRIMARY]`. This keeps release input available while the home avatar is vacated.
 #[allow(clippy::too_many_arguments)]
 pub fn possession_trigger_system(
-    slots: Res<ambition_characters::brain::SlotControls>,
+    slots: Res<ambition_characters::control::SlotControls>,
     controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
     frames: Query<&crate::physics::ResolvedMotionFrame>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
@@ -236,7 +237,7 @@ pub fn possession_trigger_system(
         |s| s.gameplay.resolved_movement_frame_mode(),
     );
     // Possession is currently primary-seat gameplay policy.
-    let control = slots.get(ambition_characters::brain::PlayerSlot::PRIMARY);
+    let control = slots.get(ambition_characters::control::PlayerSlot::PRIMARY);
     let down = holding_descend(control.axis_x, control.axis_y, gravity_dir, movement_mode);
     // The gesture is a HOLD, so it accumulates on the interact button being
     // HELD — not the single-frame `interact_pressed` edge (which doors / the

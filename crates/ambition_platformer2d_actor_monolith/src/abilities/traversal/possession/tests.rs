@@ -2,7 +2,8 @@ use super::*;
 use crate::actor::BodyKinematics;
 use crate::actor::PrimaryPlayer;
 use crate::features::ActorFaction;
-use ambition_characters::brain::{PlayerSlot, StateMachineCfg};
+use ambition_characters::brain::{StateMachineCfg};
+use ambition_characters::control::{PlayerSlot};
 
 fn vec2(x: f32, y: f32) -> ambition_platformer2d_core::Vec2 {
     ambition_platformer2d_core::Vec2::new(x, y)
@@ -11,7 +12,7 @@ fn vec2(x: f32, y: f32) -> ambition_platformer2d_core::Vec2 {
 /// App with the trigger + 1s/frame real time, so 2 held frames clear the 2s hold.
 fn trigger_app() -> App {
     let mut app = App::new();
-    app.init_resource::<ambition_characters::brain::SlotControls>();
+    app.init_resource::<ambition_characters::control::SlotControls>();
     app.insert_resource(ambition_time::WorldTime {
         raw_dt: 1.0,
         scaled_dt: 1.0,
@@ -91,10 +92,10 @@ fn faction_of(app: &App, e: Entity) -> ActorFaction {
 }
 
 fn hold_down_interact(app: &mut App, held: bool) {
-    let slot = ambition_characters::brain::PlayerSlot::PRIMARY;
+    let slot = ambition_characters::control::PlayerSlot::PRIMARY;
     let mut slots = app
         .world_mut()
-        .resource_mut::<ambition_characters::brain::SlotControls>();
+        .resource_mut::<ambition_characters::control::SlotControls>();
     let mut frame = slots.get(slot);
     frame.axis_y = if held { 1.0 } else { 0.0 };
     frame.interact_held = held;

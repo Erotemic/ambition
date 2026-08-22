@@ -989,10 +989,10 @@ mod body_health_wire_tests {
         assert_eq!(restored.policy(), DeathPolicy::HpDepleted);
     }
 }
-impl SnapshotState for crate::brain::SlotInteractionState {
+impl SnapshotState for crate::control::SlotInteractionState {
     fn encode(&self, out: &mut Vec<u8>) {
-        for index in 0..crate::brain::SlotControls::MAX_SLOTS {
-            let gestures = self.get(crate::brain::PlayerSlot(index as u8));
+        for index in 0..crate::control::SlotControls::MAX_SLOTS {
+            let gestures = self.get(crate::control::PlayerSlot(index as u8));
             put_f32(out, gestures.down_tap_timer);
             put_f32(out, gestures.up_tap_timer);
             put_f32(out, gestures.interact_buffer_timer);
@@ -1004,12 +1004,12 @@ impl SnapshotState for crate::brain::SlotInteractionState {
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         let mut state = Self::default();
-        for index in 0..crate::brain::SlotControls::MAX_SLOTS {
+        for index in 0..crate::control::SlotControls::MAX_SLOTS {
             // `?` rather than an unwrap: the loop is bounded by `MAX_SLOTS`, so
             // this cannot be `None` today, and a decode that could not address
             // one of its own slots is a failed decode rather than a panic.
-            *state.get_mut(crate::brain::PlayerSlot(index as u8))? =
-                crate::brain::SlotGestures {
+            *state.get_mut(crate::control::PlayerSlot(index as u8))? =
+                crate::control::SlotGestures {
                     down_tap_timer: r.f32()?,
                     up_tap_timer: r.f32()?,
                     interact_buffer_timer: r.f32()?,

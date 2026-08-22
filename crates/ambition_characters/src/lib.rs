@@ -50,6 +50,7 @@ pub mod actor;
 pub mod binding_namespaces;
 pub mod boss_encounter;
 pub mod brain;
+pub mod control;
 pub mod equipment;
 pub mod moveset_authoring;
 pub mod moveset_prefabs;

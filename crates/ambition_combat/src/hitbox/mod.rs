@@ -190,7 +190,7 @@ pub struct StrikeVictim {
     /// **Who drives this body**, if anybody. The one input to effective
     /// allegiance; it used to be `Option<&Brain>` back when a driver could only
     /// be named by swapping the body's AI policy for one.
-    pub driver: Option<&'static ambition_characters::brain::DrivingParticipant>,
+    pub driver: Option<&'static ambition_characters::control::DrivingParticipant>,
     /// The published silhouette, when this body publishes one. See
     /// [`strike_reaches_victim`] for why absent and empty mean opposite things.
     pub volumes: Option<&'static super::components::DamageableVolumes>,

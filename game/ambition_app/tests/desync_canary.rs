@@ -404,9 +404,9 @@ fn two_seats_drive_independent_streams_through_a_rewind() {
     // — that GGRS carried a second, different input to the slot its brain reads.
     let seat_two = sim
         .world()
-        .get_resource::<ambition_platformer2d::characters::brain::SlotControls>()
+        .get_resource::<ambition_platformer2d::characters::control::SlotControls>()
         .expect("a two-seat session publishes slot controls")
-        .get(ambition_platformer2d::characters::brain::PlayerSlot(1));
+        .get(ambition_platformer2d::characters::control::PlayerSlot(1));
     let seat_one = *sim
         .world()
         .get_resource::<ambition_platformer2d::engine_core::ControlFrame>()

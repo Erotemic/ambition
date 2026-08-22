@@ -249,11 +249,11 @@ pub fn portal_player_input_adapter(
     mut transited: MessageReader<PortalBodyTransited>,
     mut teleported: MessageWriter<BodyTeleported>,
     mut trail_breaks: MessageWriter<TrailContinuityBreak>,
-    latches: Option<Res<ambition_characters::brain::SlotControlLatches>>,
+    latches: Option<Res<ambition_characters::control::SlotControlLatches>>,
     rollback: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
-    slots: Res<ambition_characters::brain::SlotControls>,
-    raw: Res<ambition_characters::brain::SeatRawFrames>,
-    drivers: Query<&ambition_characters::brain::DrivingParticipant>,
+    slots: Res<ambition_characters::control::SlotControls>,
+    raw: Res<ambition_characters::control::SeatRawFrames>,
+    drivers: Query<&ambition_characters::control::DrivingParticipant>,
 ) {
     for ev in transited.read() {
         // Only a DRIVEN body carries input/trace side effects; autonomous actors

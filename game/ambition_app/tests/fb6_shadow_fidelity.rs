@@ -37,7 +37,7 @@ use ambition_platformer2d::characters::actor::{ActorFaction, BodyHealth};
 use ambition_platformer2d::characters::brain::fighter::{
     shadow_step, ShadowEvent, ShadowIntent, ShadowState, ShadowTuning,
 };
-use ambition_platformer2d::characters::brain::DrivingParticipant;
+use ambition_platformer2d::characters::control::DrivingParticipant;
 use ambition_platformer2d::characters::perception::{
     Perceived, PerceivedActor, SelfView, StageView, WorldView,
 };

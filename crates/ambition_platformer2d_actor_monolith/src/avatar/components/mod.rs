@@ -13,7 +13,7 @@ use bevy::prelude::*;
 // Re-export generic player markers from the platformer runtime.
 pub use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 // Stable facade for the player-slot marker used by brain/player code.
-pub use ambition_characters::brain::PlayerSlot;
+pub use ambition_characters::control::PlayerSlot;
 
 /// Player money — abstract coin/credits balance shown on the HUD and spent at
 // The body's coin/credits wallet is now `ambition_characters::actor::BodyWallet` (body

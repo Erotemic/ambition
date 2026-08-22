@@ -53,7 +53,7 @@
 //! The remaining split is tracked in `docs/planning/tracks.md`; a reproduction
 //! being fixed is not the identity model being separated.
 
-use ambition_characters::brain::PlayerSlot;
+use ambition_characters::control::PlayerSlot;
 use ambition_input::ParticipantId;
 
 /// The seat this participant's input is published into.

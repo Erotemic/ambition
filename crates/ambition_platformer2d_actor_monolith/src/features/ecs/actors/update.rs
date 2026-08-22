@@ -186,7 +186,7 @@ pub fn tick_actor_brains(
             //
             // ⭐ it used to be `brain.player_slot()` — the same question asked of
             // an AI-policy enum, which is the conflation `Brain::Player` was.
-            Option<&ambition_characters::brain::DrivingParticipant>,
+            Option<&ambition_characters::control::DrivingParticipant>,
             Option<&mut ambition_characters::brain::ActorControl>,
             // ActionSet — read for the Smash brain so it knows which
             // attacks (melee / ranged) the actor can commit. `Option`
@@ -1390,7 +1390,7 @@ pub fn apply_actor_contact_damage(
             (
                 Entity,
                 &super::super::super::components::ActorTarget,
-                Option<&ambition_characters::brain::DrivingParticipant>,
+                Option<&ambition_characters::control::DrivingParticipant>,
                 Option<super::super::actor_clusters::ActorClusterQueryData>,
             ),
             // Bosses are contact attackers through THIS shared system now (fable

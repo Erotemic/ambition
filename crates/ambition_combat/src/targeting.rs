@@ -117,7 +117,7 @@ pub fn can_damage(
 }
 
 /// Effective combat allegiance: a body a participant is currently driving (it
-/// carries [`ambition_characters::brain::DrivingParticipant`]) fights as
+/// carries [`ambition_characters::control::DrivingParticipant`]) fights as
 /// [`ActorFaction::Player`] regardless of its AUTHORED faction. This is why
 /// possession never overwrites `ActorFaction` (no flip, no restore bookkeeping):
 /// every combat faction read — targeting, damage gates, hitbox stamps — resolves
@@ -131,7 +131,7 @@ pub fn can_damage(
 /// throughout, so the policy could never have answered this.
 pub fn effective_faction(
     authored: ActorFaction,
-    driver: Option<&ambition_characters::brain::DrivingParticipant>,
+    driver: Option<&ambition_characters::control::DrivingParticipant>,
 ) -> ActorFaction {
     if driver.is_some() {
         ActorFaction::Player
@@ -273,12 +273,12 @@ pub fn combat_relation(
     // hate, which is the bystander bug in reverse.
     relations: Option<&FactionRelations>,
     attacker_faction: ActorFaction,
-    attacker_driver: Option<&ambition_characters::brain::DrivingParticipant>,
+    attacker_driver: Option<&ambition_characters::control::DrivingParticipant>,
     attacker_team: Option<&MatchTeam>,
     attacker_grudge: Option<Entity>,
     candidate: Entity,
     candidate_faction: ActorFaction,
-    candidate_driver: Option<&ambition_characters::brain::DrivingParticipant>,
+    candidate_driver: Option<&ambition_characters::control::DrivingParticipant>,
     candidate_team: Option<&MatchTeam>,
 ) -> CombatRelation {
     if attacker_grudge == Some(candidate) {
@@ -401,7 +401,7 @@ pub fn select_actor_targets(
             &CenteredAabb,
             &ActorFaction,
             &BodyHealth,
-            Option<&ambition_characters::brain::DrivingParticipant>,
+            Option<&ambition_characters::control::DrivingParticipant>,
             // A match seat, when this body is in one. Selection has to see it or
             // it answers a different question from the damage side — see
             // [`combat_relation`].
@@ -416,7 +416,7 @@ pub fn select_actor_targets(
             &mut ActorTarget,
             &ActorAggression,
             Option<&ActorFaction>,
-            Option<&ambition_characters::brain::DrivingParticipant>,
+            Option<&ambition_characters::control::DrivingParticipant>,
             Option<&MatchTeam>,
         ),
         With<FeatureSimEntity>,

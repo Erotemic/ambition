@@ -30,7 +30,7 @@
 
 use ambition_platformer2d_core as ae;
 
-use super::PlayerSlot;
+use crate::control::PlayerSlot;
 use ambition_platformer2d_core::ControlFrame;
 
 use super::snapshot::BrainSnapshot;

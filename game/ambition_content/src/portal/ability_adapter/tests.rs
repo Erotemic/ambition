@@ -9,7 +9,7 @@
 //! drive the REAL adapters + the portal-owned marker components.
 use bevy::prelude::*;
 
-use ambition_characters::brain::{DrivingParticipant, PlayerSlot, SeatRawFrames, SlotControls};
+use ambition_characters::control::{DrivingParticipant, PlayerSlot, SeatRawFrames, SlotControls};
 use ambition_platformer2d_actor_monolith::actor::{PlayerEntity, PrimaryPlayer};
 
 /// Seat-local input surface read and written by the portal warp.

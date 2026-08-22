@@ -335,8 +335,8 @@ mod schedule_tests {
     // membership: `InputSet::Route`. It carries no manual ordering against
     // the consumer, so it can only land before the consume if the structural
     // `InputSet::Route.before(PrimarySlotInputCommit)` contract holds.
-    fn populate_only_via_set(mut raw: ResMut<ambition_characters::brain::SeatRawFrames>) {
-        let slot = ambition_characters::brain::PlayerSlot::PRIMARY;
+    fn populate_only_via_set(mut raw: ResMut<ambition_characters::control::SeatRawFrames>) {
+        let slot = ambition_characters::control::PlayerSlot::PRIMARY;
         let mut frame = raw.get(slot);
         frame.axis_x = 0.75;
         raw.set(slot, frame);
@@ -349,7 +349,7 @@ mod schedule_tests {
     /// is deliberately no second slot→body copy to inspect.
     #[test]
     fn input_set_populate_runs_before_primary_slot_publication() {
-        use ambition_characters::brain::{PlayerSlot, SeatRawFrames, SlotControls};
+        use ambition_characters::control::{PlayerSlot, SeatRawFrames, SlotControls};
         use ambition_platformer2d_actor_monolith::control::PrimarySlotInputCommit;
         use ambition_platformer2d_actor_monolith::schedule::publish_seat_controls_when_nobody_else_does;
 

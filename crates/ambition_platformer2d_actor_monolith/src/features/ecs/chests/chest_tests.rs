@@ -3,7 +3,7 @@
 //! `Opened`; an unbuffered player or a non-overlapping chest does not.
 use super::*;
 use crate::actor::BodyAnimFacts;
-use ambition_characters::brain::SlotInteractionState;
+use ambition_characters::control::SlotInteractionState;
 use ambition_platformer2d_core::BodyBaseSize;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;

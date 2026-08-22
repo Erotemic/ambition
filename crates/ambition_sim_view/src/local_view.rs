@@ -158,7 +158,7 @@ pub struct ViewSubject(pub Entity);
 /// camera looks; `DrivingParticipant` says who is driving. Collapsing the two
 /// would make every spectator view a possession.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ViewParticipant(pub ambition_characters::brain::PlayerSlot);
+pub struct ViewParticipant(pub ambition_characters::control::PlayerSlot);
 
 /// **THE BODY THIS VIEW IS LOOKING AT**, resolved once per frame from whichever
 /// way the view declared it.
@@ -200,7 +200,7 @@ pub fn resolve_view_subjects(
         ),
         bevy::prelude::With<LocalView>,
     >,
-    drivers: bevy::prelude::Query<(Entity, &ambition_characters::brain::DrivingParticipant)>,
+    drivers: bevy::prelude::Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
 ) {
     use bevy::prelude::DetectChangesMut as _;
     for (mut resolved, subject, participant) in &mut views {

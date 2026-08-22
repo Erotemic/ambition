@@ -8,7 +8,8 @@
 
 use super::*;
 use ambition_causal::{FactValue, RecordingPolicy};
-use ambition_characters::brain::{Brain, PlayerSlot};
+use ambition_characters::brain::{Brain};
+use ambition_characters::control::{PlayerSlot};
 
 fn app() -> App {
     let mut app = App::new();
@@ -22,7 +23,7 @@ fn app() -> App {
 
 fn seated(app: &mut App, slot: u8) -> Entity {
     app.world_mut()
-        .spawn(ambition_characters::brain::DrivingParticipant(PlayerSlot(
+        .spawn(ambition_characters::control::DrivingParticipant(PlayerSlot(
             slot,
         )))
         .id()

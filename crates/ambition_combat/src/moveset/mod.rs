@@ -571,7 +571,7 @@ pub fn advance_move_playback(
         // contract is that every hitbox stamp resolves through it, and this move
         // strike is one of them. `None` (nobody drives it) ⇒ the authored faction
         // (identity for every ordinary actor).
-        Option<&ambition_characters::brain::DrivingParticipant>,
+        Option<&ambition_characters::control::DrivingParticipant>,
         // §7.1: actors project their sprite catalog id onto combat tuning;
         // controllable bodies carry the same identity as WornCharacter. Both
         // resolve authored per-animation blade geometry from the App-local catalog.

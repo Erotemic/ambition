@@ -111,7 +111,7 @@ fn main() {
     // `ControlFrameLatch` resource beside it.
     let latches = app
         .world()
-        .get_resource::<ambition_platformer2d::characters::brain::SlotControlLatches>()
+        .get_resource::<ambition_platformer2d::characters::control::SlotControlLatches>()
         .copied();
     println!("web-persona-boot: simulation host = {host:?}, device latches = {latches:?}");
     let Some(latches) = latches else {
@@ -129,7 +129,7 @@ fn main() {
     // latch registered without its frame-clock accumulator reproduces the exact
     // bug with the resource sitting right there. Startup ran hundreds of frames
     // above; if `accumulate_control_frame_latch` were scheduled, it has run.
-    if !latches.is_device_authority(ambition_platformer2d::characters::brain::PlayerSlot::PRIMARY) {
+    if !latches.is_device_authority(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY) {
         eprintln!(
             "web-persona-boot: ⛔ the web persona has a `SlotControlLatches` whose seat \
              zero NOTHING \

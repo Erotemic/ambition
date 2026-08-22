@@ -116,7 +116,7 @@ fn rebuild_provoked_brain(
     }
     commands.queue(move |world: &mut bevy::prelude::World| {
         let driven = world
-            .get::<ambition_characters::brain::DrivingParticipant>(entity)
+            .get::<ambition_characters::control::DrivingParticipant>(entity)
             .is_some();
         if driven {
             return;
@@ -322,7 +322,7 @@ pub(crate) fn provoke_actor_in_place(
         let provoked_action_set = proj.action_set;
         commands.queue(move |world: &mut bevy::prelude::World| {
             let driven = world
-                .get::<ambition_characters::brain::DrivingParticipant>(entity)
+                .get::<ambition_characters::control::DrivingParticipant>(entity)
                 .is_some();
             let Ok(mut em) = world.get_entity_mut(entity) else {
                 return;

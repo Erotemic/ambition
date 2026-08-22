@@ -1235,7 +1235,7 @@ fn with_nobody_in_the_second_seat_the_twin_stands_still_and_stays_watched() {
 #[test]
 fn the_second_pane_follows_its_participant_to_a_new_body() {
     use ambition_demo_twintrack::LAB_TWIN_SLOT;
-    use ambition_platformer2d::characters::brain::DrivingParticipant;
+    use ambition_platformer2d::characters::control::DrivingParticipant;
 
     let mut app = ambition_demo_twintrack_app::build_demo_app();
     activate(&mut app);

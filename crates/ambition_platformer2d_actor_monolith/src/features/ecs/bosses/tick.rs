@@ -385,7 +385,7 @@ pub fn tick_boss_brains_system(
     // driven body uses. Bosses are valid controllable bodies (architecturally); design
     // gating of WHICH boss is possessable lives above, in the possession target
     // filter — not as a "bosses can never be controlled" barrier in this tick.
-    slot_controls: Res<ambition_characters::brain::SlotControls>,
+    slot_controls: Res<ambition_characters::control::SlotControls>,
     mut bosses: Query<
         (
             bevy::ecs::entity::Entity,
@@ -398,7 +398,7 @@ pub fn tick_boss_brains_system(
             // scripted pattern had to be stashed elsewhere to make room for the
             // driver. The pattern now stays where it is and simply stops
             // deciding.
-            Option<&ambition_characters::brain::DrivingParticipant>,
+            Option<&ambition_characters::control::DrivingParticipant>,
             &mut ActorControl,
             // The per-frame attack INTENT the trigger reads (§A1 intent/projection
             // split): the driver (autonomous pattern OR possession) writes which

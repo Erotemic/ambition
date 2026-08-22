@@ -15,7 +15,7 @@
 use bevy::input::ButtonInput;
 use bevy::prelude::*;
 
-use ambition_platformer2d::characters::brain::{PlayerSlot, SlotControls};
+use ambition_platformer2d::characters::control::{PlayerSlot, SlotControls};
 use ambition_platformer2d::engine_core::ControlFrame;
 
 fn player_pos_x(app: &mut App) -> f32 {

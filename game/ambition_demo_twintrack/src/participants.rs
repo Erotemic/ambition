@@ -30,7 +30,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::actor::{ActorConfig, ActorFaction, SpawnActorKind, SpawnActorRequest};
-use ambition_platformer2d::characters::brain::{DrivingParticipant, PlayerSlot};
+use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::relativity2d::{
     OpticalSource2d, ProperTimeElapsed, RelativisticClock2d, RelativisticObserver2d,

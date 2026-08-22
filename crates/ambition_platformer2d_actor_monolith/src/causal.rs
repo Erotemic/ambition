@@ -28,7 +28,8 @@ use bevy::prelude::*;
 
 use crate::avatar::movement_components::{BodyGroundState, BodyKinematics};
 use crate::features::ecs::damage_apply::{BodyHitResolution, BodyHitResolved, BodyReactionApplied};
-use ambition_characters::brain::{ActorControl, DrivingParticipant};
+use ambition_characters::brain::{ActorControl};
+use ambition_characters::control::{DrivingParticipant};
 
 /// Publish one movement-intent fact per seated body per tick.
 ///
@@ -467,7 +468,8 @@ pub fn record_hit_reactions(
 mod tests {
     use super::*;
     use ambition_causal::{FactValue, RecordingPolicy};
-    use ambition_characters::brain::{Brain, PlayerSlot};
+    use ambition_characters::brain::{Brain};
+use ambition_characters::control::{PlayerSlot};
 
     fn app() -> App {
         let mut app = App::new();
@@ -561,7 +563,8 @@ mod tests {
 mod damage_tests {
     use super::*;
     use ambition_causal::{FactValue, RecordingPolicy};
-    use ambition_characters::brain::{Brain, PlayerSlot};
+    use ambition_characters::brain::{Brain};
+use ambition_characters::control::{PlayerSlot};
 
     fn app() -> App {
         let mut app = App::new();
@@ -697,7 +700,8 @@ mod knockback_tests {
     use super::*;
     use crate::features::ecs::damage_apply::BodyReaction;
     use ambition_causal::{FactValue, RecordingPolicy};
-    use ambition_characters::brain::{Brain, PlayerSlot};
+    use ambition_characters::brain::{Brain};
+use ambition_characters::control::{PlayerSlot};
 
     fn reaction_app() -> App {
         let mut app = App::new();

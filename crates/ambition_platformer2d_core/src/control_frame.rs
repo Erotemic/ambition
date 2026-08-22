@@ -21,7 +21,7 @@ use crate::RawDirectionEdges;
 ///
 /// **Local-primary adapter:** the host still keeps one global `ControlFrame`
 /// resource at the device edge for the local primary input, then publishes that
-/// finalized value into `ambition_characters::brain::SlotControls`. The type
+/// finalized value into `ambition_characters::control::SlotControls`. The type
 /// itself is slot-neutral; no copy is stored on the controlled body.
 /// `#[serde(default)]`: an input stream recorded before a field existed loads
 /// with that field NEUTRAL, which is what the old recording meant by it. This
@@ -250,7 +250,7 @@ impl ControlFrame {
 /// host solves the same problem differently — the SESSION publishes the frame
 /// GGRS confirmed, on the `ReadInputs` edge.)
 /// ⚠ **NOT a `Resource` — it is one ROW of
-/// `ambition_characters::brain::SlotControlLatches`, seat zero's included.** It
+/// `ambition_characters::control::SlotControlLatches`, seat zero's included.** It
 /// was a standalone resource beside that array, which covered slots 1.. and said
 /// so in its own doc; every consumer then handled the pair. See
 /// `SlotControlLatches`.

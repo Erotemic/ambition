@@ -67,7 +67,7 @@ pub fn reset_sandbox(
     anim: &mut ambition_platformer2d_actor_monolith::actor::BodyAnimFacts,
     combat: &mut ambition_characters::actor::BodyCombat,
     health: Option<&mut ambition_characters::actor::BodyHealth>,
-    interaction: &mut ambition_characters::brain::SlotGestures,
+    interaction: &mut ambition_characters::control::SlotGestures,
     blink_cam: &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
     tuning: ae::MovementTuning,
     feel: Platformer2dFeelTuningMonolith,
@@ -156,7 +156,7 @@ pub fn apply_room_replay_request_system(
         ),
         ambition_platformer2d_actor_monolith::actor::PrimaryPlayerOnly,
     >,
-    mut slot_gestures: ResMut<ambition_characters::brain::SlotInteractionState>,
+    mut slot_gestures: ResMut<ambition_characters::control::SlotInteractionState>,
 ) {
     if replay_requests.read().count() == 0 {
         return;

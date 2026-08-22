@@ -5,7 +5,7 @@ use super::super::CenteredAabb;
 use super::*;
 use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 use ambition_characters::actor::limb::LimbSlot;
-use ambition_characters::brain::DrivingParticipant;
+use ambition_characters::control::DrivingParticipant;
 use bevy::prelude::*;
 
 /// A patrol lane centre no derivation would ever produce — the marker the
@@ -545,7 +545,8 @@ fn total_grant_routes_rider_locomotion_to_mount_but_not_fire() {
 #[test]
 fn a_player_controlled_rider_pilots_the_mount_agnostically() {
     use ambition_characters::actor::control::ActorControlFrame;
-    use ambition_characters::brain::{ActorControl, PlayerSlot};
+    use ambition_characters::brain::{ActorControl};
+use ambition_characters::control::{PlayerSlot};
 
     let mut app = build_app();
     // The two coupling systems in their schedule order: steer routes the rider's
@@ -1060,10 +1061,8 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
     use ambition_characters::actor::limb::{
         fan_out_limb_intents, Limb, LimbIntents, LimbRig, LimbRouteState,
     };
-    use ambition_characters::brain::{
-        ActorControl, BossAttackIntent, BossAttackState, BossCapability, Brain, PlayerSlot,
-        SlotControls,
-    };
+    use ambition_characters::brain::{ActorControl, BossAttackIntent, BossAttackState, BossCapability, Brain};
+use ambition_characters::control::{PlayerSlot, SlotControls};
 
     let profile = BossProfile::from_id(
         ambition_boss_encounter::test_boss_catalog(),

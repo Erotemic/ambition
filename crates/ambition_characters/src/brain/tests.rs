@@ -288,21 +288,31 @@ fn brain_npc_patrol_ctor_inherits_spawn_and_radius() {
 ///
 /// ⛔ this used to assert `is_player()` / `player_slot()` — an AI-policy enum
 /// answering a question about a person. The answer lives on the body as
-/// [`DrivingParticipant`], so a driven body keeps its own policy and gets it back
+/// [`crate::control::DrivingParticipant`], so a driven body keeps its own policy and gets it back
 /// by never having lost it.
 #[test]
 fn the_driving_participant_is_a_component_on_the_body_not_a_brain_variant() {
     let mut world = bevy::prelude::World::new();
     let driven = world
-        .spawn((Brain::stand_still(), DrivingParticipant(PlayerSlot(2))))
+        .spawn((
+            Brain::stand_still(),
+            crate::control::DrivingParticipant(crate::control::PlayerSlot(2)),
+        ))
         .id();
     let cpu = world.spawn(Brain::stand_still()).id();
 
     assert_eq!(
-        world.get::<DrivingParticipant>(driven).map(|d| d.0),
-        Some(PlayerSlot(2))
+        world
+            .get::<crate::control::DrivingParticipant>(driven)
+            .map(|d| d.0),
+        Some(crate::control::PlayerSlot(2))
     );
-    assert_eq!(world.get::<DrivingParticipant>(cpu).map(|d| d.0), None);
+    assert_eq!(
+        world
+            .get::<crate::control::DrivingParticipant>(cpu)
+            .map(|d| d.0),
+        None
+    );
     assert!(
         matches!(world.get::<Brain>(driven), Some(Brain::StateMachine(_))),
         "the driven body lost its own policy — nothing may swap a brain to say \
@@ -610,11 +620,11 @@ fn melee_brute_brain_resolves_through_action_set() {
 /// couch match, and only one of them gets a press that lands between two ticks.
 #[test]
 fn a_secondary_seats_sub_tick_tap_is_not_swallowed() {
-    use crate::brain::{PlayerSlot, SlotControlLatches};
+    use crate::control::{PlayerSlot, SlotControlLatches};
     use ambition_platformer2d_core::ControlFrame;
 
-    let mut latches = SlotControlLatches::default();
-    let seat_two = PlayerSlot(1);
+    let mut latches = crate::control::SlotControlLatches::default();
+    let seat_two = crate::control::PlayerSlot(1);
 
     // Player two taps jump and is already back up by the next rendered frame.
     latches.accumulate(
@@ -643,25 +653,25 @@ fn a_secondary_seats_sub_tick_tap_is_not_swallowed() {
 /// and the bug this forbids would be player two's jump firing player three's.
 #[test]
 fn each_seats_latch_is_its_own() {
-    use crate::brain::{PlayerSlot, SlotControlLatches};
+    use crate::control::{PlayerSlot, SlotControlLatches};
     use ambition_platformer2d_core::ControlFrame;
 
-    let mut latches = SlotControlLatches::default();
+    let mut latches = crate::control::SlotControlLatches::default();
     latches.accumulate(
-        PlayerSlot(1),
+        crate::control::PlayerSlot(1),
         ControlFrame {
             attack_pressed: true,
             ..ControlFrame::default()
         },
     );
 
-    assert!(latches.peek(PlayerSlot(1)).attack_pressed);
+    assert!(latches.peek(crate::control::PlayerSlot(1)).attack_pressed);
     assert!(
-        !latches.peek(PlayerSlot(2)).attack_pressed,
+        !latches.peek(crate::control::PlayerSlot(2)).attack_pressed,
         "seat two's attack reached seat three"
     );
     assert!(
-        !latches.peek(PlayerSlot(0)).attack_pressed,
+        !latches.peek(crate::control::PlayerSlot(0)).attack_pressed,
         "seat two's attack reached the PRIMARY seat, which drains a different \
          latch entirely — double-latching slot 0 would hold one press for two \
          ticks"
@@ -673,11 +683,11 @@ fn each_seats_latch_is_its_own() {
 /// before it must not survive it. The primary seat follows the same rule.
 #[test]
 fn resetting_a_seat_drops_its_held_levels_not_just_its_edges() {
-    use crate::brain::{PlayerSlot, SlotControlLatches};
+    use crate::control::{PlayerSlot, SlotControlLatches};
     use ambition_platformer2d_core::ControlFrame;
 
-    let mut latches = SlotControlLatches::default();
-    let seat = PlayerSlot(1);
+    let mut latches = crate::control::SlotControlLatches::default();
+    let seat = crate::control::PlayerSlot(1);
     latches.accumulate(
         seat,
         ControlFrame {

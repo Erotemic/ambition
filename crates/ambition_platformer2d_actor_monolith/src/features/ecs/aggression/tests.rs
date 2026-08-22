@@ -542,9 +542,8 @@ fn provoking_a_player_driven_body_changes_its_mood_and_not_its_driver() {
     use ambition_characters::actor::character_catalog::{
         AutonomousSource, BrainBinding, BrainPresetId,
     };
-    use ambition_characters::brain::{
-        ActionSet, Brain, DrivingParticipant, PlayerSlot, StateMachineCfg,
-    };
+    use ambition_characters::brain::{ActionSet, Brain, StateMachineCfg};
+use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 
     let mut app = App::new();
     app.add_message::<ActorStimulus>();

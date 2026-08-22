@@ -1,21 +1,21 @@
 //! **An invalid participant identifier cannot write to a real participant.**
 //!
-//! The old `get_mut` clamped an out-of-range [`PlayerSlot`] onto the LAST valid
-//! one, so `PlayerSlot(9)` and `PlayerSlot(3)` were the same controller. This
+//! The old `get_mut` clamped an out-of-range [`crate::control::PlayerSlot`] onto the LAST valid
+//! one, so `crate::control::PlayerSlot(9)` and `crate::control::PlayerSlot(3)` were the same controller. This
 //! pins the replacement: invalidity is `None`, and every real slot is left
 //! exactly as it was.
 
-use super::{PlayerSlot, SlotControls};
-use super::{SlotGestures, SlotInteractionState};
+use crate::control::{PlayerSlot, SlotControls};
+use crate::control::{SlotGestures, SlotInteractionState};
 
 /// A gesture state that is visibly non-default in every slot, so a stray write
 /// anywhere shows up as a difference rather than as a value that happened to
 /// match.
 fn distinctly_filled() -> SlotInteractionState {
-    let mut state = SlotInteractionState::default();
-    for index in 0..SlotControls::MAX_SLOTS {
+    let mut state = crate::control::SlotInteractionState::default();
+    for index in 0..crate::control::SlotControls::MAX_SLOTS {
         let gestures = state
-            .get_mut(PlayerSlot(index as u8))
+            .get_mut(crate::control::PlayerSlot(index as u8))
             .expect("every slot below MAX_SLOTS is valid");
         gestures.interact_buffer_timer = 1.0 + index as f32;
         gestures.double_tap_up_pending = true;
@@ -34,16 +34,16 @@ fn an_invalid_slot_cannot_alter_any_real_participant() {
     // and every assertion vacuous, and the fixture above would have written
     // nothing to compare.
     assert!(
-        SlotControls::MAX_SLOTS >= 2,
+        crate::control::SlotControls::MAX_SLOTS >= 2,
         "this test needs at least two real slots to tell a clamp from a refusal"
     );
 
     for out_of_range in [
-        SlotControls::MAX_SLOTS,
-        SlotControls::MAX_SLOTS + 1,
+        crate::control::SlotControls::MAX_SLOTS,
+        crate::control::SlotControls::MAX_SLOTS + 1,
         u8::MAX as usize,
     ] {
-        let slot = PlayerSlot(out_of_range as u8);
+        let slot = crate::control::PlayerSlot(out_of_range as u8);
         assert!(
             after.get_mut(slot).is_none(),
             "slot {out_of_range} is out of range but resolved to a real controller"
@@ -52,13 +52,13 @@ fn an_invalid_slot_cannot_alter_any_real_participant() {
         // answer: a controller that does not exist is pressing nothing.
         assert_eq!(
             after.get(slot),
-            SlotGestures::default(),
+            crate::control::SlotGestures::default(),
             "an out-of-range READ should report a controller pressing nothing"
         );
     }
 
-    for index in 0..SlotControls::MAX_SLOTS {
-        let slot = PlayerSlot(index as u8);
+    for index in 0..crate::control::SlotControls::MAX_SLOTS {
+        let slot = crate::control::PlayerSlot(index as u8);
         assert_eq!(
             after.get(slot),
             before.get(slot),
@@ -73,15 +73,17 @@ fn an_invalid_slot_cannot_alter_any_real_participant() {
 /// out-of-range write used to land on.
 #[test]
 fn the_last_valid_slot_is_not_a_dumping_ground_for_bad_indices() {
-    let last = PlayerSlot((SlotControls::MAX_SLOTS - 1) as u8);
+    let last = crate::control::PlayerSlot((crate::control::SlotControls::MAX_SLOTS - 1) as u8);
     let mut state = distinctly_filled();
     let before_last = state.get(last);
     assert!(
-        before_last != SlotGestures::default(),
+        before_last != crate::control::SlotGestures::default(),
         "the fixture never wrote to the last slot, so the assertion below could not fail"
     );
 
-    if let Some(gestures) = state.get_mut(PlayerSlot(SlotControls::MAX_SLOTS as u8 + 7)) {
+    if let Some(gestures) = state.get_mut(crate::control::PlayerSlot(
+        crate::control::SlotControls::MAX_SLOTS as u8 + 7,
+    )) {
         gestures.reset();
     }
 
@@ -100,7 +102,7 @@ const HOLD: f32 = 2.0;
 /// Holding Up interacts ONCE, not on every frame after the threshold.
 #[test]
 fn a_sustained_up_hold_interacts_exactly_once() {
-    let mut gestures = SlotGestures::default();
+    let mut gestures = crate::control::SlotGestures::default();
     let mut fired = 0;
     for _ in 0..240 {
         if gestures.held_up_interact(true, 1.0 / 60.0, HOLD) {
@@ -116,7 +118,7 @@ fn a_sustained_up_hold_interacts_exactly_once() {
 /// Letting go restarts the hold — two short holds are not one long one.
 #[test]
 fn releasing_up_restarts_the_hold() {
-    let mut gestures = SlotGestures::default();
+    let mut gestures = crate::control::SlotGestures::default();
     for _ in 0..100 {
         assert!(!gestures.held_up_interact(true, 1.0 / 60.0, HOLD));
     }
@@ -132,16 +134,17 @@ fn releasing_up_restarts_the_hold() {
 /// The hold survives the wire: it is rollback state like every other timer here.
 #[test]
 fn the_up_hold_survives_a_snapshot() {
-    let mut state = SlotInteractionState::default();
-    let slot = PlayerSlot(2);
+    let mut state = crate::control::SlotInteractionState::default();
+    let slot = crate::control::PlayerSlot(2);
     state
         .get_mut(slot)
         .expect("slot 2 is valid")
         .held_up_interact(true, 1.5, HOLD);
 
     let bytes = ambition_platformer2d_core::snapshot::encode_state(&state);
-    let restored =
-        ambition_platformer2d_core::snapshot::decode_state::<SlotInteractionState>(&bytes)
-            .expect("the encoding decodes");
+    let restored = ambition_platformer2d_core::snapshot::decode_state::<
+        crate::control::SlotInteractionState,
+    >(&bytes)
+    .expect("the encoding decodes");
     assert_eq!(restored.get(slot).up_hold_timer, 1.5);
 }

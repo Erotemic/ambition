@@ -9,9 +9,10 @@ use crate::actor::{
 };
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::body_mode::BodyModeCapabilities;
-use ambition_characters::brain::SlotInteractionState;
+use ambition_characters::control::SlotInteractionState;
 use ambition_characters::actor::control::ActorControlFrame;
-use ambition_characters::brain::{ActorControl, DrivingParticipant, PlayerSlot};
+use ambition_characters::brain::{ActorControl};
+use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_platformer2d_core::world::{ClimbableKind, ClimbableRegion, ClimbableSpec, World};
 use ambition_platformer2d_core::Vec2;
 use bevy::prelude::{App, Entity, Update};

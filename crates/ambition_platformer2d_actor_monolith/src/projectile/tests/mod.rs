@@ -18,7 +18,7 @@ use super::systems::{charge_projectile_input, step_projectiles};
 use crate::features::{ActorIdentity, GameplayBanner, HitEvent, SetFlagRequested};
 use crate::trace::GameplayTraceBuffer;
 use ambition_characters::actor::BodyHealth;
-use ambition_characters::brain::{PlayerSlot, SeatRawFrames};
+use ambition_characters::control::{PlayerSlot, SeatRawFrames};
 use ambition_input::ControlFrame;
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_vfx::vfx::DebrisBurstMessage;

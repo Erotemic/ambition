@@ -17,7 +17,7 @@ use ambition_platformer2d_core::ControlFrame;
 pub fn drive_control_frame(world: &mut World, frame: ControlFrame) {
     drive_slot_frame(
         world,
-        ambition_characters::brain::PlayerSlot::PRIMARY,
+        ambition_characters::control::PlayerSlot::PRIMARY,
         frame,
     );
 }
@@ -40,11 +40,11 @@ pub fn drive_control_frame(world: &mut World, frame: ControlFrame) {
 /// second road with different rules.
 pub fn drive_slot_frame(
     world: &mut World,
-    slot: ambition_characters::brain::PlayerSlot,
+    slot: ambition_characters::control::PlayerSlot,
     frame: ControlFrame,
 ) {
     if let Some(mut latches) =
-        world.get_resource_mut::<ambition_characters::brain::SlotControlLatches>()
+        world.get_resource_mut::<ambition_characters::control::SlotControlLatches>()
     {
         latches.accumulate(slot, frame);
         return;
@@ -63,10 +63,10 @@ pub fn drive_slot_frame(
     // the slot below with the shaped result anyway. A composition that installs
     // NONE of them (the smallest headless fixture) has no commit either, so
     // without the second write its press would sit in a table nothing drains.
-    if let Some(mut raw) = world.get_resource_mut::<ambition_characters::brain::SeatRawFrames>() {
+    if let Some(mut raw) = world.get_resource_mut::<ambition_characters::control::SeatRawFrames>() {
         raw.set(slot, frame);
     }
-    if let Some(mut slots) = world.get_resource_mut::<ambition_characters::brain::SlotControls>() {
+    if let Some(mut slots) = world.get_resource_mut::<ambition_characters::control::SlotControls>() {
         slots.set(slot, frame);
     }
 }

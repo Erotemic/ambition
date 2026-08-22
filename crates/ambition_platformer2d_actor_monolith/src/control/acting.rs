@@ -29,8 +29,8 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 use super::authority::DrivingParticipant;
-use ambition_characters::brain::{SlotGestures, SlotInteractionState};
-use ambition_characters::brain::PlayerSlot;
+use ambition_characters::control::{SlotGestures, SlotInteractionState};
+use ambition_characters::control::PlayerSlot;
 
 /// The controller gestures that answer for a given body.
 #[derive(SystemParam)]

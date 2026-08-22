@@ -310,7 +310,7 @@ fn possession_survives_the_real_rollback_window() {
     );
     assert!(
         sim.world_mut()
-            .get::<ambition_platformer2d::characters::brain::DrivingParticipant>(target)
+            .get::<ambition_platformer2d::characters::control::DrivingParticipant>(target)
             .is_some(),
         "the possessed body stopped holding the primary seat across the window"
     );

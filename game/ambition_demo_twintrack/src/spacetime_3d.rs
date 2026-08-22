@@ -418,9 +418,9 @@ fn spawn_spacetime_3d(
 /// `spawn_spacetime_3d` for the same note at more length.
 fn toggle_spacetime_minimap(
     keys: Option<Res<ButtonInput<KeyCode>>>,
-    slots: Res<ambition_platformer2d::characters::brain::SlotControls>,
+    slots: Res<ambition_platformer2d::characters::control::SlotControls>,
     traveler: Query<
-        &ambition_platformer2d::characters::brain::DrivingParticipant,
+        &ambition_platformer2d::characters::control::DrivingParticipant,
         With<TravelerTwin>,
     >,
     mut special_was_pressed: Local<bool>,

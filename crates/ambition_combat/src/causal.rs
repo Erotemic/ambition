@@ -26,7 +26,7 @@
 //! survives the respawns in the middle of the answer.
 
 use ambition_causal::{CausalFact, CausalRecording, FactDetail, SubjectKey, domains};
-use ambition_characters::brain::DrivingParticipant;
+use ambition_characters::control::DrivingParticipant;
 use bevy::prelude::*;
 
 use crate::stocks::{BodyKnockedOut, FighterStockSpent, StocksMatchDecided};

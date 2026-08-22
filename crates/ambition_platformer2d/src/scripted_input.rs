@@ -32,8 +32,8 @@
 //!
 //! ⚠ **the local participant, singular — and it now says WHICH seat rather than
 //! implying one.** This writes
-//! [`PlayerSlot::PRIMARY`](ambition_characters::brain::PlayerSlot::PRIMARY)'s row
-//! of [`SeatRawFrames`](ambition_characters::brain::SeatRawFrames), the seat every
+//! [`PlayerSlot::PRIMARY`](ambition_characters::control::PlayerSlot::PRIMARY)'s row
+//! of [`SeatRawFrames`](ambition_characters::control::SeatRawFrames), the seat every
 //! one of these fixtures scripts. It used to write the global `ControlFrame`,
 //! where "the primary seat" was not stated anywhere — it was what that resource
 //! happened to mean. Scripting a second seat is one line from here the day a
@@ -41,7 +41,7 @@
 
 use bevy::prelude::*;
 
-use ambition_characters::brain::{PlayerSlot, SeatRawFrames, SlotControls};
+use ambition_characters::control::{PlayerSlot, SeatRawFrames, SlotControls};
 use ambition_platformer2d_core::ControlFrame;
 
 /// **What the fixture wants the local participant to be holding.**

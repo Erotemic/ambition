@@ -38,7 +38,7 @@ fn spawn_interaction_player(app: &mut App, player_pos: ae::Vec2) {
     // The interact buffer is SLOT state now; prime the primary controller slot and
     // point the controlled subject at this body.
     app.world_mut()
-        .get_resource_or_insert_with(ambition_characters::brain::SlotInteractionState::default)
+        .get_resource_or_insert_with(ambition_characters::control::SlotInteractionState::default)
         .primary_mut()
         .interact_buffer_timer = 0.15;
     app.world_mut().insert_resource(
@@ -241,7 +241,7 @@ fn interact_buffered_opens_adjacent_chest() {
     );
     assert!(
         !app.world()
-            .resource::<ambition_characters::brain::SlotInteractionState>()
+            .resource::<ambition_characters::control::SlotInteractionState>()
             .primary()
             .buffered(),
         "interact buffer should be cleared after opening chest"

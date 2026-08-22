@@ -143,7 +143,7 @@ pub mod host_input {
     // The frame→tick latch (queue Y2). Re-exported beside the system that drains
     // it for the same reason — the host does not depend on `ambition_characters`
     // directly.
-    pub use ambition_characters::brain::SlotControlLatches;
+    pub use ambition_characters::control::SlotControlLatches;
     pub use ambition_dialog::dialog_pointer_input;
 }
 
@@ -373,7 +373,7 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
         // Slot-keyed gesture/buffer authority (double-tap, interact buffer).
         // Local input publishes it; body mode / interaction / transitions
         // consume it for the controlled body's slot.
-        app.init_resource::<ambition_characters::brain::SlotInteractionState>();
+        app.init_resource::<ambition_characters::control::SlotInteractionState>();
     }
 }
 

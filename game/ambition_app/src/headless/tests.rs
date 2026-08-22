@@ -188,9 +188,8 @@ fn sim_accumulates_messages_across_repeated_attacks() {
 #[test]
 fn sim_spawns_player_with_brain_and_action_set() {
     use ambition_platformer2d::actors::actor::PlayerEntity;
-    use ambition_platformer2d::characters::brain::{
-        ActionSet, ActorControl, DrivingParticipant, PlayerSlot,
-    };
+    use ambition_platformer2d::characters::brain::{ActionSet, ActorControl};
+use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
     let mut app = initialized_sandbox_sim_app();
     let mut q = app
         .world_mut()

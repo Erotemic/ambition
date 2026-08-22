@@ -58,19 +58,19 @@ pub fn input_timer_system(
     mut sim_state: ResMut<crate::RoomTransitionCooldown>,
     // ⭐ **the SLOT TABLE, not the global frame.** The derivation refines the
     // frame each body is about to read, and every body reads its own slot.
-    mut slots: ResMut<ambition_characters::brain::SlotControls>,
+    mut slots: ResMut<ambition_characters::control::SlotControls>,
     // ⛔⛔ **WRITE to BOTH, because the global `ControlFrame` used to be both.**
     // The derived flag reached the body this tick (the frame→slot copy read that
     // resource after this system ran) AND the encoded rollback input (the latch
     // folded the same resource). Writing only the slot loses the second; writing
     // only the raw row loses the first on a latch host, where the drain has
     // already happened by the time this runs.
-    mut raw: ResMut<ambition_characters::brain::SeatRawFrames>,
+    mut raw: ResMut<ambition_characters::control::SeatRawFrames>,
     // Which of those two is THIS TICK's input depends on the clock — see
     // `seat_frame_this_tick`.
-    latches: Option<Res<ambition_characters::brain::SlotControlLatches>>,
+    latches: Option<Res<ambition_characters::control::SlotControlLatches>>,
     rollback: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
-    mut slot_gestures: ResMut<ambition_characters::brain::SlotInteractionState>,
+    mut slot_gestures: ResMut<ambition_characters::control::SlotInteractionState>,
     // Home/player bodies tick their OWN reaction timers here (they aren't in the
     // actor tick). Iterates every player body so a co-op / clone body ticks its own.
     mut home_feel_q: Query<
@@ -128,8 +128,8 @@ pub fn input_timer_system(
     // hardcoded `false` for every other seat and **player two could not
     // fast-fall** (D175). The participant that never joined: nothing was
     // missing but the loop.
-    for index in 0..ambition_characters::brain::SlotControls::MAX_SLOTS {
-        let slot = ambition_characters::brain::PlayerSlot(index as u8);
+    for index in 0..ambition_characters::control::SlotControls::MAX_SLOTS {
+        let slot = ambition_characters::control::PlayerSlot(index as u8);
         let Some(interaction) = slot_gestures.get_mut(slot) else {
             continue;
         };
@@ -153,7 +153,7 @@ pub fn input_timer_system(
             &drivers,
             slot,
             &frames,
-            (slot == ambition_characters::brain::PlayerSlot::PRIMARY)
+            (slot == ambition_characters::control::PlayerSlot::PRIMARY)
                 .then(|| primary_q.single().ok())
                 .flatten(),
         );
@@ -199,14 +199,14 @@ pub fn interaction_input_system(
     world_time: Res<ambition_time::WorldTime>,
     feel_tuning: Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>,
     // Proposal-side input for this frame; confirmed simulation input is in `slots`.
-    raw: Res<ambition_characters::brain::SeatRawFrames>,
-    slots: Res<ambition_characters::brain::SlotControls>,
-    latches: Option<Res<ambition_characters::brain::SlotControlLatches>>,
+    raw: Res<ambition_characters::control::SeatRawFrames>,
+    slots: Res<ambition_characters::control::SlotControls>,
+    latches: Option<Res<ambition_characters::control::SlotControlLatches>>,
     rollback: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
     drivers: Query<(Entity, &crate::control::DrivingParticipant)>,
     frames: Query<&crate::physics::ResolvedMotionFrame>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
-    mut slot_gestures: ResMut<ambition_characters::brain::SlotInteractionState>,
+    mut slot_gestures: ResMut<ambition_characters::control::SlotInteractionState>,
     // Hit-stun gate reads the DRIVEN body's reaction state — the body actually
     // being driven by this seat, home avatar or possessed actor.
     combat_q: Query<&ambition_characters::actor::BodyCombat>,
@@ -229,10 +229,10 @@ pub fn interaction_input_system(
     // interact buffer is what doors and dialogue read, keyed by the acting body's
     // slot — so a second player standing at a door pressed a button that was
     // buffered for nobody (D175).
-    for index in 0..ambition_characters::brain::SlotControls::MAX_SLOTS {
-        let slot = ambition_characters::brain::PlayerSlot(index as u8);
+    for index in 0..ambition_characters::control::SlotControls::MAX_SLOTS {
+        let slot = ambition_characters::control::PlayerSlot(index as u8);
         let body = crate::control::body_driving_seat(&drivers, slot).or_else(|| {
-            (slot == ambition_characters::brain::PlayerSlot::PRIMARY)
+            (slot == ambition_characters::control::PlayerSlot::PRIMARY)
                 .then(|| primary_q.single().ok())
                 .flatten()
         });
@@ -330,9 +330,7 @@ pub fn cleanup_timers_system(
 mod per_seat_gesture_tests {
     use super::*;
     use crate::control::DrivingParticipant;
-    use ambition_characters::brain::{
-        PlayerSlot, SeatRawFrames, SlotControls, SlotInteractionState,
-    };
+    use ambition_characters::control::{PlayerSlot, SeatRawFrames, SlotControls, SlotInteractionState};
     use ambition_combat::feel::Platformer2dFeelTuningMonolith;
     use ambition_platformer2d_core::ControlFrame;
 
@@ -448,7 +446,7 @@ mod interaction_suppression_tests {
     use super::*;
     use crate::actor::{PlayerEntity, PrimaryPlayer};
     use ambition_characters::actor::BodyCombat;
-    use ambition_characters::brain::SlotInteractionState;
+    use ambition_characters::control::SlotInteractionState;
     use ambition_combat::feel::Platformer2dFeelTuningMonolith;
     use ambition_platformer2d_core::ControlFrame;
 
@@ -462,9 +460,9 @@ mod interaction_suppression_tests {
         app.init_resource::<SlotInteractionState>();
         // The seat's RAW row — the pre-publish device sample this system reads,
         // which used to be the global `ControlFrame` (D175).
-        let mut raw = ambition_characters::brain::SeatRawFrames::default();
+        let mut raw = ambition_characters::control::SeatRawFrames::default();
         raw.set(
-            ambition_characters::brain::PlayerSlot::PRIMARY,
+            ambition_characters::control::PlayerSlot::PRIMARY,
             ControlFrame {
                 interact_pressed: interact,
                 axis_y,
@@ -476,7 +474,7 @@ mod interaction_suppression_tests {
         // is this tick's input and the slot table is the empty destination it
         // will be published into. Both exist in any real composition —
         // `BrainPlugin` installs the pair.
-        app.init_resource::<ambition_characters::brain::SlotControls>();
+        app.init_resource::<ambition_characters::control::SlotControls>();
         app.world_mut()
             .spawn((PlayerEntity, PrimaryPlayer, BodyCombat::default()));
         app.init_resource::<ambition_time::WorldTime>();
@@ -504,12 +502,12 @@ mod interaction_suppression_tests {
         app.insert_resource(Platformer2dFeelTuningMonolith::default());
         app.init_resource::<SlotInteractionState>();
         // The latch's presence is what says which clock this composition runs on.
-        app.init_resource::<ambition_characters::brain::SlotControlLatches>();
+        app.init_resource::<ambition_characters::control::SlotControlLatches>();
         // The raw row is NEUTRAL — the tap was never in one sample.
-        app.init_resource::<ambition_characters::brain::SeatRawFrames>();
-        let mut slots = ambition_characters::brain::SlotControls::default();
+        app.init_resource::<ambition_characters::control::SeatRawFrames>();
+        let mut slots = ambition_characters::control::SlotControls::default();
         slots.set(
-            ambition_characters::brain::PlayerSlot::PRIMARY,
+            ambition_characters::control::PlayerSlot::PRIMARY,
             ControlFrame {
                 interact_pressed: true,
                 ..Default::default()

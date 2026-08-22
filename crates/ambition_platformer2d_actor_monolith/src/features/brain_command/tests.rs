@@ -12,7 +12,8 @@ use ambition_characters::actor::character_catalog::{
     CharacterCatalog,
 };
 use ambition_characters::actor::ActorPose;
-use ambition_characters::brain::{Brain, DrivingParticipant, PlayerSlot, StateMachineCfg};
+use ambition_characters::brain::{Brain, StateMachineCfg};
+use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::ecs::message::Messages;

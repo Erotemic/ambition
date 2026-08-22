@@ -52,7 +52,7 @@ pub struct DialogueDispatch<'w, 's> {
     /// ⭐ the brain is what actually answers "whose body is this" — possession is
     /// a brain transfer, so a possessed actor's conversation belongs to the seat
     /// that possessed it without this needing to know possession exists.
-    pub driver: Query<'w, 's, &'static ambition_characters::brain::DrivingParticipant>,
+    pub driver: Query<'w, 's, &'static ambition_characters::control::DrivingParticipant>,
     /// Which Yarn nodes content compiled. Read to decide whether a
     /// self-conversation has a branch to enter; an unpopulated index never
     /// suppresses.
@@ -172,7 +172,7 @@ impl DialogueDispatch<'_, '_> {
     /// siblings that cannot see each other. Converting here would make this
     /// module a second owner of it, and would put a `participant_seat` edge into
     /// a module whose whole carve accounting is two edges to the BARK.
-    pub fn driving_slot(&self, body: Entity) -> Option<ambition_characters::brain::PlayerSlot> {
+    pub fn driving_slot(&self, body: Entity) -> Option<ambition_characters::control::PlayerSlot> {
         self.driver.get(body).ok().map(|driver| driver.0)
     }
 }

@@ -1576,6 +1576,55 @@ sized art. That is a real thing to warn about — it is just not "far from 1.0".
 ⚠ **and no tolerance should be picked before this is answered**, because (a) and
 (b) measure different things: (a) drifts as the cast changes, (b) does not.
 
+### 31. ▢ NEW 2026-08-22 — is `SeatRawFrames` a PROPOSAL, or is it also where derived semantics land? (D175)
+
+Raised by a GPT review of the overnight snapshot, and the code half is verified:
+`shape_seat_frame` (`control/queries.rs`) ends with
+
+```rust
+slots.set(slot, frame);
+raw.set(slot, frame);
+```
+
+so a shaper writes BOTH tables. That contradicts `SeatRawFrames`' own type-level
+contract — *"EVERY SEAT'S RAW FRAME, BEFORE ANY SHAPING STAGE HAS RUN"* and
+*"THIS TABLE IS THE PROPOSAL, NOT THE AGREEMENT"* — because after a shaping pass
+it holds a post-shaping value.
+
+⭐ **the dual write is not a mistake, it is a compatibility bridge, and it works.**
+There are three hosts (fixed-tick latch, GGRS, frame-step) and they disagree about
+which table already holds this tick's input; writing both is what made all three
+correct at once, which is the multiplayer fix D175 was for. The question is
+whether that bridge should become the permanent shape.
+
+⚠ **the reviewer's case, and it is a fair one:** fast-fall is derived from
+CONFIRMED input plus rollback-backed gesture history, so it is not a modification
+to the physical proposal a device made — yet the helper writes it back into the
+proposal table. Their suggested stage model:
+
+```text
+device sample -> LocalSeatProposal -> latch/GGRS agreement -> ConfirmedSeatInput
+              -> deterministic gesture derivation -> EffectiveSlotControls
+```
+
+with each transformation editing exactly ONE stage, portal warping on the
+proposal side (it must be part of the agreed input) and fast-fall on the
+confirmed side.
+
+⛔ **they also asked for a guard preventing new `shape_seat_frame` callers, and
+that is declined**: a check that counts call sites is source-text meta-test
+machinery, which AGENTS.md forbids and which this project has refused before —
+the standing note even predicts that an LLM review will ask for exactly this.
+The question above is a real design decision and belongs here; a tripwire around
+it is not the way to hold it open.
+
+**What is needed from you:** whether `SeatRawFrames` keeps its stated contract —
+in which case the derived-semantics writes move to a separate published table and
+the three-host knowledge leaves the shaper — or whether the contract is rewritten
+to say what the code now does. ⚠ either answer is cheap TODAY and gets more
+expensive per input mechanic added, because each one currently learns the
+fixed-step / GGRS / frame-step distinction on its way in.
+
 ### 26. Rename the blast zone out of every world's authoring schema? (D169)
 
 ⭐ **the measurement first, because it changes the question the plan asked.**

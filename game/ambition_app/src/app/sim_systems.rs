@@ -90,7 +90,7 @@ pub fn apply_player_reset_input_system(
     >,
     // Reset zeroes the local controller's slot gestures (reset/save identity is a
     // sanctioned PrimaryPlayer concern).
-    mut slot_gestures: ResMut<ambition_platformer2d::characters::brain::SlotInteractionState>,
+    mut slot_gestures: ResMut<ambition_platformer2d::characters::control::SlotInteractionState>,
 ) {
     let pressed = ambition_platformer2d::actors::control::seat_frame_this_tick(
         latches.as_deref(),

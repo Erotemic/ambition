@@ -338,7 +338,7 @@ fn untargeted_heal_routes_to_primary() {
 /// now that input is slot-owned rather than copied onto bodies.
 #[test]
 fn two_slots_have_independent_control_frames() {
-    use ambition_characters::brain::SlotControls;
+    use ambition_characters::control::SlotControls;
     use ambition_input::ControlFrame;
 
     let mut slots = SlotControls::default();

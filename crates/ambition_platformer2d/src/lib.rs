@@ -460,7 +460,7 @@ pub mod sim {
     /// survives exactly as the primary seat's does; without one it writes the
     /// pending seat input directly, which is what a headless or replay driver
     /// wants.
-    pub use ambition_characters::brain::PlayerSlot;
+    pub use ambition_characters::control::PlayerSlot;
 
     /// **WHO DRIVES THIS BODY.** A body wearing one is steered by that seat's
     /// `SlotControls` frame; a body without one is left to its own `Brain`.
@@ -470,7 +470,7 @@ pub mod sim {
     /// number alone cannot say it. Possession is the only thing that MOVES one
     /// at runtime; a spawn site authoring one is stating a seat, not competing
     /// with that reconcile.
-    pub use ambition_characters::brain::DrivingParticipant;
+    pub use ambition_characters::control::DrivingParticipant;
 
     /// **EVERY SEAT'S RAW FRAME, before any shaping stage has run** — the table
     /// a stage that refines input writes into.
@@ -480,7 +480,7 @@ pub mod sim {
     /// a portal warp or a scripted substitution applied to the primary and to
     /// nobody else, which is why player two could not fast-fall (D175). A stage
     /// that shapes input names the seat it shapes now.
-    pub use ambition_characters::brain::SeatRawFrames;
+    pub use ambition_characters::control::SeatRawFrames;
 
     /// **WHAT EACH SEAT ACTUALLY RECEIVED** — the committed frame every body
     /// reads through its `DrivingParticipant(slot)`.
@@ -488,12 +488,12 @@ pub mod sim {
     /// ⚠ the read side of [`SeatRawFrames`]: that table is what the local device
     /// proposed and this is what the simulation agreed to, which under a
     /// rollback host are different frames on a resimulated tick.
-    pub use ambition_characters::brain::SlotControls;
+    pub use ambition_characters::control::SlotControls;
 
     /// **THE FRAME→TICK LATCH, one row per seat.** A tap that opens and closes
     /// between two ticks folds in here and drains on the tick, so a fixed-tick
     /// or rollback host never swallows it.
-    pub use ambition_characters::brain::SlotControlLatches;
+    pub use ambition_characters::control::SlotControlLatches;
     #[cfg(feature = "rollback")]
     pub use ambition_platformer2d_rollback_ggrs::drive_slot_frame;
     #[cfg(not(feature = "rollback"))]

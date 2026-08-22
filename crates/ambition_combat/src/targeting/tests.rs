@@ -1,7 +1,7 @@
 use super::*;
 use crate::components::{ActorAggression, ActorFaction, ActorTarget, CenteredAabb};
-use ambition_characters::brain::DrivingParticipant;
-use ambition_characters::brain::PlayerSlot;
+use ambition_characters::control::DrivingParticipant;
+use ambition_characters::control::PlayerSlot;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 

@@ -562,7 +562,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored faction; changed only by possession, which respawns the body",
         ),
         (
-            "ambition_characters::brain::PlayerSlot",
+            "ambition_characters::control::PlayerSlot",
             "authored slot index; immutable for the session",
         ),
         (

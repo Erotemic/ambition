@@ -437,7 +437,7 @@ fn a_match_builds_its_own_cast_and_leaves_other_bodies_alone() {
 /// experience declares no session body at all.
 #[test]
 fn a_second_human_seat_gets_its_own_body_on_its_own_slot() {
-    use ambition_characters::brain::PlayerSlot;
+    use ambition_characters::control::PlayerSlot;
 
     let mut app = seating_app();
     app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
@@ -459,7 +459,7 @@ fn a_second_human_seat_gets_its_own_body_on_its_own_slot() {
     let world = app.world_mut();
     let mut bodies = world.query::<(
         &ambition_characters::actor::WornCharacter,
-        Option<&ambition_characters::brain::DrivingParticipant>,
+        Option<&ambition_characters::control::DrivingParticipant>,
     )>();
     let mut seats: Vec<(String, Option<u8>)> = bodies
         .iter(world)
@@ -507,7 +507,7 @@ fn a_local_human_body_keeps_local_source_identity_on_the_slot_model() {
     let world = app.world_mut();
     let mut locals = world.query::<(
         &crate::control::components::LocalPlayer,
-        Option<&ambition_characters::brain::DrivingParticipant>,
+        Option<&ambition_characters::control::DrivingParticipant>,
     )>();
     let seats: Vec<_> = locals
         .iter(world)
@@ -538,7 +538,7 @@ fn a_local_human_body_keeps_local_source_identity_on_the_slot_model() {
 /// dense channel, and the plan still remembers which controller feeds it.
 #[test]
 fn a_human_behind_a_cpu_seat_still_lands_on_channel_zero() {
-    use ambition_characters::brain::{DrivingParticipant, PlayerSlot};
+    use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 
     let mut app = seating_app();
     app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
@@ -592,7 +592,7 @@ fn a_human_behind_a_cpu_seat_still_lands_on_channel_zero() {
 /// Three channels, no holes; three sources, one hole.
 #[test]
 fn three_people_on_pads_zero_one_and_three_get_channels_zero_one_and_two() {
-    use ambition_characters::brain::{DrivingParticipant, PlayerSlot};
+    use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 
     let mut app = seating_app();
     for id in ["mary_o", "sanic", "duelist"] {

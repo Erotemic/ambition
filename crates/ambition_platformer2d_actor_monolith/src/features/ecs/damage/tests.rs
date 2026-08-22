@@ -1908,7 +1908,7 @@ fn a_projectile_hit_flashes_its_victim_but_never_its_thrower() {
 fn a_boss_is_adjudicated_by_the_same_relationship_rule_as_any_other_body() {
     use crate::combat::components::ActorFaction;
     use crate::combat::targeting::FriendlyFire;
-    use ambition_characters::brain::DrivingParticipant;
+    use ambition_characters::control::DrivingParticipant;
 
     let boss_entity = bevy::prelude::Entity::from_raw_u32(7).expect("nonzero raw index");
     let ff = FriendlyFire::default();
@@ -1943,7 +1943,7 @@ fn a_boss_is_adjudicated_by_the_same_relationship_rule_as_any_other_body() {
         super::boss_damage_allowed(
             side(
                 &ActorFaction::Boss,
-                Some(&DrivingParticipant(ambition_characters::brain::PlayerSlot(
+                Some(&DrivingParticipant(ambition_characters::control::PlayerSlot(
                     0
                 )))
             ),

@@ -139,10 +139,10 @@ pub fn body_driving_seat(
 /// device write on the other. That dual meaning is what made it a bus, and is
 /// why removing it (D175) needs the question asked explicitly instead.
 pub fn seat_frame_this_tick(
-    latches: Option<&ambition_characters::brain::SlotControlLatches>,
+    latches: Option<&ambition_characters::control::SlotControlLatches>,
     rollback: Option<&ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>,
-    slots: &ambition_characters::brain::SlotControls,
-    raw: &ambition_characters::brain::SeatRawFrames,
+    slots: &ambition_characters::control::SlotControls,
+    raw: &ambition_characters::control::SeatRawFrames,
     slot: PlayerSlot,
 ) -> ambition_platformer2d_core::ControlFrame {
     if another_authority_publishes(latches, rollback) {
@@ -166,10 +166,10 @@ pub fn seat_frame_this_tick(
 /// every host by being written by whichever authority was live, which is what
 /// made it a bus and what made every shaping stage seat zero's.
 pub fn shape_seat_frame(
-    latches: Option<&ambition_characters::brain::SlotControlLatches>,
+    latches: Option<&ambition_characters::control::SlotControlLatches>,
     rollback: Option<&ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>,
-    slots: &mut ambition_characters::brain::SlotControls,
-    raw: &mut ambition_characters::brain::SeatRawFrames,
+    slots: &mut ambition_characters::control::SlotControls,
+    raw: &mut ambition_characters::control::SeatRawFrames,
     slot: PlayerSlot,
     edit: impl FnOnce(&mut ambition_platformer2d_core::ControlFrame),
 ) {
@@ -198,7 +198,7 @@ pub fn shape_seat_frame(
 /// absent"* — `replaying_history` says whether THIS pass is a replay, which is a
 /// different question and the wrong one here.
 pub fn another_authority_publishes(
-    latches: Option<&ambition_characters::brain::SlotControlLatches>,
+    latches: Option<&ambition_characters::control::SlotControlLatches>,
     rollback: Option<&ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>,
 ) -> bool {
     latches.is_some() || rollback.is_some()

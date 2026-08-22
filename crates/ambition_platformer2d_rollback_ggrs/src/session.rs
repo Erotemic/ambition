@@ -51,7 +51,7 @@ pub struct InputSeamMisuse(pub bool);
 /// notice.
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq)]
 pub struct PendingSeatInputs {
-    seats: [ControlFrame; ambition_characters::brain::SlotControls::MAX_SLOTS],
+    seats: [ControlFrame; ambition_characters::control::SlotControls::MAX_SLOTS],
 }
 
 impl PendingSeatInputs {
@@ -230,7 +230,7 @@ impl SyncTestSettings {
     /// refuses to start is worse than one that starts with a sane count.
     pub fn player_count(&self) -> usize {
         self.players
-            .clamp(1, ambition_characters::brain::SlotControls::MAX_SLOTS)
+            .clamp(1, ambition_characters::control::SlotControls::MAX_SLOTS)
     }
 }
 
@@ -396,8 +396,8 @@ fn reset_input_authority(world: &mut World) {
     // ⭐ ONE table. This used to reset seat zero's latch and the other seats'
     // separately, which is exactly how "preserved some, cleared the rest" became
     // possible in the first place.
-    if world.contains_resource::<ambition_characters::brain::SlotControlLatches>() {
-        world.insert_resource(ambition_characters::brain::SlotControlLatches::default());
+    if world.contains_resource::<ambition_characters::control::SlotControlLatches>() {
+        world.insert_resource(ambition_characters::control::SlotControlLatches::default());
     }
 }
 
@@ -567,7 +567,7 @@ pub fn session_is_active(world: &World) -> bool {
 pub fn drive_control_frame(world: &mut World, frame: ControlFrame) {
     drive_slot_frame(
         world,
-        ambition_characters::brain::PlayerSlot::PRIMARY,
+        ambition_characters::control::PlayerSlot::PRIMARY,
         frame,
     );
 }
@@ -587,13 +587,13 @@ pub fn drive_control_frame(world: &mut World, frame: ControlFrame) {
 /// the fixture asserting the refusal asserted the bug.
 pub fn drive_slot_frame(
     world: &mut World,
-    slot: ambition_characters::brain::PlayerSlot,
+    slot: ambition_characters::control::PlayerSlot,
     frame: ControlFrame,
 ) {
     // A device-backed host: fold into the seat's latch so a sub-tick press
     // survives to the tick that drains it.
     if let Some(mut latches) =
-        world.get_resource_mut::<ambition_characters::brain::SlotControlLatches>()
+        world.get_resource_mut::<ambition_characters::control::SlotControlLatches>()
     {
         latches.accumulate(slot, frame);
         return;
@@ -621,10 +621,10 @@ pub fn drive_slot_frame(
     // the slot below with the shaped result anyway. A composition that installs
     // NONE of them (the smallest headless fixture) has no commit either, so
     // without the second write its press would sit in a table nothing drains.
-    if let Some(mut raw) = world.get_resource_mut::<ambition_characters::brain::SeatRawFrames>() {
+    if let Some(mut raw) = world.get_resource_mut::<ambition_characters::control::SeatRawFrames>() {
         raw.set(slot, frame);
     }
-    if let Some(mut slots) = world.get_resource_mut::<ambition_characters::brain::SlotControls>() {
+    if let Some(mut slots) = world.get_resource_mut::<ambition_characters::control::SlotControls>() {
         slots.set(slot, frame);
     }
 }
@@ -756,7 +756,7 @@ fn capture_latched_local_input(
     // ⭐ **ONE table for every seat, zero included.** This took seat zero's latch
     // as a separate resource beside this one and drained the two in separate
     // blocks — the same edge, the same reason, twice.
-    latches: Option<ResMut<ambition_characters::brain::SlotControlLatches>>,
+    latches: Option<ResMut<ambition_characters::control::SlotControlLatches>>,
     mut pending: ResMut<PendingSeatInputs>,
 ) {
     // ONLY when a device is actually wired to this latch. An untouched latch
@@ -772,7 +772,7 @@ fn capture_latched_local_input(
     let Some(mut latches) = latches else {
         return;
     };
-    let primary = ambition_characters::brain::PlayerSlot::PRIMARY;
+    let primary = ambition_characters::control::PlayerSlot::PRIMARY;
     if latches.is_device_authority(primary) {
         pending.set(0, latches.take(primary));
     }
@@ -781,8 +781,8 @@ fn capture_latched_local_input(
     // `PendingLocalInput` directly, and replacing that with a neutral default is
     // how four oracles went red at once. Nothing drives `PendingSeatInputs`
     // behind this system's back.
-    for handle in 1..ambition_characters::brain::SlotControls::MAX_SLOTS {
-        let slot = ambition_characters::brain::PlayerSlot(handle as u8);
+    for handle in 1..ambition_characters::control::SlotControls::MAX_SLOTS {
+        let slot = ambition_characters::control::PlayerSlot(handle as u8);
         pending.set(handle, latches.take(slot));
     }
 }
@@ -831,11 +831,11 @@ fn publish_local_inputs(
 fn publish_ggrs_input(
     inputs: Res<PlayerInputs<AmbitionGgrsConfig>>,
     mut control: ResMut<ControlFrame>,
-    mut slots: Option<ResMut<ambition_characters::brain::SlotControls>>,
+    mut slots: Option<ResMut<ambition_characters::control::SlotControls>>,
 ) {
     for (handle, (input, _)) in inputs.iter().enumerate() {
         if let Some(slots) = slots.as_deref_mut() {
-            slots.set(ambition_characters::brain::PlayerSlot(handle as u8), *input);
+            slots.set(ambition_characters::control::PlayerSlot(handle as u8), *input);
         }
     }
     // ⚠ **from the table, not from `inputs[0]`** — so the mirror cannot disagree
@@ -843,7 +843,7 @@ fn publish_ggrs_input(
     // anything and neutral is the honest answer.
     *control = slots
         .as_deref()
-        .map(|slots| slots.get(ambition_characters::brain::PlayerSlot::PRIMARY))
+        .map(|slots| slots.get(ambition_characters::control::PlayerSlot::PRIMARY))
         .filter(|_| !inputs.is_empty())
         .unwrap_or_default();
 }
@@ -1039,21 +1039,21 @@ mod tests {
         // be doing the silent no-op the arm below already forbids for GGRS.
         let mut fixed = World::new();
         fixed.insert_resource(ControlFrame::default());
-        fixed.insert_resource(ambition_characters::brain::SeatRawFrames::default());
-        fixed.insert_resource(ambition_characters::brain::SlotControls::default());
+        fixed.insert_resource(ambition_characters::control::SeatRawFrames::default());
+        fixed.insert_resource(ambition_characters::control::SlotControls::default());
         drive_control_frame(&mut fixed, pressed);
         assert_eq!(
             fixed
-                .resource::<ambition_characters::brain::SeatRawFrames>()
-                .get(ambition_characters::brain::PlayerSlot::PRIMARY)
+                .resource::<ambition_characters::control::SeatRawFrames>()
+                .get(ambition_characters::control::PlayerSlot::PRIMARY)
                 .axis_x,
             1.0,
             "the raw row is where a shaping stage would see the press"
         );
         assert_eq!(
             fixed
-                .resource::<ambition_characters::brain::SlotControls>()
-                .get(ambition_characters::brain::PlayerSlot::PRIMARY)
+                .resource::<ambition_characters::control::SlotControls>()
+                .get(ambition_characters::control::PlayerSlot::PRIMARY)
                 .axis_x,
             1.0,
             "and the slot is where a composition with no shaping stages reads it"
@@ -1085,12 +1085,12 @@ mod tests {
         let mut windowed = World::new();
         windowed.insert_resource(ControlFrame::default());
         windowed.insert_resource(PendingSeatInputs::default());
-        windowed.insert_resource(ambition_characters::brain::SlotControlLatches::default());
+        windowed.insert_resource(ambition_characters::control::SlotControlLatches::default());
         drive_control_frame(&mut windowed, pressed);
         assert_eq!(
             windowed
-                .resource::<ambition_characters::brain::SlotControlLatches>()
-                .peek(ambition_characters::brain::PlayerSlot::PRIMARY)
+                .resource::<ambition_characters::control::SlotControlLatches>()
+                .peek(ambition_characters::control::PlayerSlot::PRIMARY)
                 .axis_x,
             1.0
         );
@@ -1334,16 +1334,16 @@ mod tests {
     fn device_edges_are_consumed_when_read_inputs_runs_not_each_render_frame() {
         let mut app = App::new();
         app.init_schedule(ReadInputs)
-            .init_resource::<ambition_characters::brain::SlotControlLatches>()
+            .init_resource::<ambition_characters::control::SlotControlLatches>()
             .init_resource::<PendingSeatInputs>()
             .init_resource::<LocalPlayers>();
         install_session_bridge(&mut app);
 
         {
-            let primary = ambition_characters::brain::PlayerSlot::PRIMARY;
+            let primary = ambition_characters::control::PlayerSlot::PRIMARY;
             let mut latches = app
                 .world_mut()
-                .resource_mut::<ambition_characters::brain::SlotControlLatches>();
+                .resource_mut::<ambition_characters::control::SlotControlLatches>();
             latches.accumulate(
                 primary,
                 ControlFrame {
@@ -1492,7 +1492,7 @@ mod replay_pass_tests {
 #[cfg(test)]
 mod multi_seat_input_tests {
     use super::*;
-    use ambition_characters::brain::{PlayerSlot, SlotControls};
+    use ambition_characters::control::{PlayerSlot, SlotControls};
 
     fn frame_with_axis(axis_x: f32) -> ControlFrame {
         ControlFrame {

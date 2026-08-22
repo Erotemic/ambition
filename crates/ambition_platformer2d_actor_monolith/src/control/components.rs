@@ -2,7 +2,7 @@
 //! state owned by each controller slot.
 //!
 //! `LocalPlayer` says *this body is driven by an input source on this machine*.
-//! The actual per-tick input authority is [`ambition_characters::brain::SlotControls`],
+//! The actual per-tick input authority is [`ambition_characters::control::SlotControls`],
 //! keyed by the body's [`PlayerSlot`]; it is deliberately not copied onto the
 //! body. `SlotGestures` / `SlotInteractionState` are likewise SLOT-level: a
 //! gesture belongs to a controller and follows it onto whatever body it drives.
@@ -11,7 +11,7 @@ use bevy::prelude::*;
 
 // The slot marker every body-facing consumer keys on. Defined a tier down, in
 // `ambition_characters::brain`, because a brain names its own slot.
-pub use ambition_characters::brain::PlayerSlot;
+pub use ambition_characters::control::PlayerSlot;
 pub use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 
 /// Marks a player whose input comes from this machine's input devices

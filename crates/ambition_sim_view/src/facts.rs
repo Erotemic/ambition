@@ -127,7 +127,7 @@ pub struct ControlledBodyFact {
 
 pub fn rebuild_controlled_bodies_view(
     mut view: ResMut<ControlledBodiesView>,
-    bodies: Query<&BodyKinematics, With<ambition_characters::brain::DrivingParticipant>>,
+    bodies: Query<&BodyKinematics, With<ambition_characters::control::DrivingParticipant>>,
 ) {
     // AMBITION_REVIEW(determinism): query order is not stable, and this Vec is
     // built in it. Safe: the only consumer asks "does any of these boxes

@@ -127,7 +127,7 @@ pub fn detect_room_transition_system(
     // door restrictions gate on body properties (size/shape/locomotion), never on
     // "is this the home avatar". Falls back to the primary player at startup.
     controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
-    mut slot_gestures: ResMut<ambition_characters::brain::SlotInteractionState>,
+    mut slot_gestures: ResMut<ambition_characters::control::SlotInteractionState>,
     // ⛔⛔ **THE PATH IS THE SWEEP SAMPLE, NEVER `vel · dt`** — this system was the
     // last swept reader in the engine still reconstructing motion from the
     // POST-collision velocity, and that is the bug Jon reported as *"I moved into

@@ -299,7 +299,7 @@ impl Platformer2dSimHarness {
     pub fn drive_seat(&mut self, slot: u8, frame: ControlFrame) {
         ambition_platformer2d::rollback::drive_slot_frame(
             self.app.world_mut(),
-            ambition_platformer2d::characters::brain::PlayerSlot(slot),
+            ambition_platformer2d::characters::control::PlayerSlot(slot),
             frame,
         );
     }

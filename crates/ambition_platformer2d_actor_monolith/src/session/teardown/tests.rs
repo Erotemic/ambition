@@ -6,7 +6,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{SessionScopeId, SessionScop
 
 use super::*;
 use crate::abilities::traversal::possession::PossessionState;
-use ambition_characters::brain::SlotInteractionState;
+use ambition_characters::control::SlotInteractionState;
 use crate::encounter::SwitchActivationQueue;
 use crate::RoomTransitionCooldown;
 use ambition_boss_encounter::BossEncounterRegistry;

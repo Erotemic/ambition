@@ -14,7 +14,7 @@
 
 use bevy::prelude::{Res, ResMut, Resource};
 
-use ambition_characters::brain::SlotControls;
+use ambition_characters::control::SlotControls;
 use ambition_platformer2d_core::InputStream;
 use ambition_time::SimTick;
 
@@ -78,7 +78,7 @@ pub fn record_input_stream(
     };
     stream.push(
         tick.get(),
-        (0..slot_count).map(|slot| slots.get(ambition_characters::brain::PlayerSlot(slot))),
+        (0..slot_count).map(|slot| slots.get(ambition_characters::control::PlayerSlot(slot))),
     );
 }
 

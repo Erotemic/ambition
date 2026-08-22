@@ -42,14 +42,14 @@ pub fn update_body_mode(
     world: ambition_platformer2d_world::collision::CollisionWorld,
     // Slot gestures (double-tap-down → morph) keyed by the controlling slot. The
     // body reads ITS controller's gesture, never a privileged home avatar's.
-    mut slot_gestures: ResMut<ambition_characters::brain::SlotInteractionState>,
+    mut slot_gestures: ResMut<ambition_characters::control::SlotInteractionState>,
     // Every DRIVEN body (carrying `DrivingParticipant(slot)`) that has body-mode
     // capability + posture clusters. Not `With<PlayerEntity>`: a possessed actor with
     // the capability body-modes through the same system; a vacated home body holds
     // no seat so it never matches. Presence of `BodyModeCapabilities` gates it —
     // a body without the kit is skipped entirely.
     mut bodies: Query<(
-        &ambition_characters::brain::DrivingParticipant,
+        &ambition_characters::control::DrivingParticipant,
         &mut crate::actor::BodyKinematics,
         &crate::actor::BodyBaseSize,
         &mut crate::actor::BodyModeState,

@@ -175,7 +175,7 @@ fn facts_survive_a_parallel_schedule() {
 #[test]
 fn three_domains_answer_one_question_about_one_body_on_one_tick() {
     use ambition_platformer2d_actor_monolith::features::ecs::damage_apply::{BodyHitResolution, BodyHitResolved};
-    use ambition_characters::brain::{DrivingParticipant, PlayerSlot};
+    use ambition_characters::control::{DrivingParticipant, PlayerSlot};
     use ambition_combat::stocks::FighterStockSpent;
 
     let mut app = app();
@@ -303,7 +303,8 @@ fn the_tick_the_host_stamps_is_the_tick_the_facts_carry() {
 #[test]
 fn an_ai_bodys_received_frame_is_explained_under_the_same_subject_the_brain_uses() {
     use ambition_causal::SubjectKey;
-    use ambition_characters::brain::{ActorControl, Brain, DrivingParticipant, PlayerSlot};
+    use ambition_characters::brain::{ActorControl, Brain};
+use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 
     let mut app = App::new();
     app.add_plugins(CausalPlugin);

@@ -33,7 +33,7 @@
 
 use bevy::prelude::*;
 
-use ambition_characters::brain::PlayerSlot;
+use ambition_characters::control::PlayerSlot;
 
 use crate::abilities::traversal::possession::PossessionState;
 
@@ -44,7 +44,7 @@ use crate::abilities::traversal::possession::PossessionState;
 // the conversation seam can see the other. Re-exported rather than re-declared:
 // two meanings on one word in one crate is the collision this seam already
 // walked into once.
-pub use ambition_characters::brain::DrivingParticipant;
+pub use ambition_characters::control::DrivingParticipant;
 
 /// **Move the PRIMARY seat onto a possessed body, and hand it back on release.**
 ///

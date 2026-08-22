@@ -7,10 +7,8 @@ use super::events::PlayerHealRequested;
 use super::movement_components::{BodyGroundState, BodyKinematics};
 use crate::features::ActorPose;
 use ambition_characters::actor::BodyHealth;
-use ambition_characters::brain::{
-    tick_player_brain, ActorControl, BrainSnapshot, DrivingParticipant, ScriptedControl,
-    SlotControls,
-};
+use ambition_characters::brain::{tick_player_brain, ActorControl, BrainSnapshot, ScriptedControl};
+use ambition_characters::control::{DrivingParticipant, SlotControls};
 use ambition_platformer2d_core as ae;
 
 /// Blank the control frame of every body a scripted sequence is driving.

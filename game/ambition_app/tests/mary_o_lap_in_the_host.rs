@@ -283,14 +283,14 @@ struct HeldPress {
 /// Read the frame and the slot from INSIDE the sim, after the commit set.
 fn observe_from_inside_the_sim(
     frame: Res<ambition_platformer2d::input::ControlFrame>,
-    slots: Option<Res<ambition_platformer2d::characters::brain::SlotControls>>,
-    driving: Query<&ambition_platformer2d::characters::brain::DrivingParticipant>,
+    slots: Option<Res<ambition_platformer2d::characters::control::SlotControls>>,
+    driving: Query<&ambition_platformer2d::characters::control::DrivingParticipant>,
     mut held: ResMut<HeldPress>,
 ) {
     held.seen_frame_x = frame.axis_x;
     held.seen_slot_x = slots
         .map(|s| {
-            s.get(ambition_platformer2d::characters::brain::PlayerSlot::PRIMARY)
+            s.get(ambition_platformer2d::characters::control::PlayerSlot::PRIMARY)
                 .axis_x
         })
         .unwrap_or(f32::NAN);

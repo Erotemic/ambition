@@ -4,7 +4,7 @@
 use super::*;
 use crate::schedule::publish_seat_controls_when_nobody_else_does;
 use ambition_characters::brain::ActorControl;
-use ambition_characters::brain::{PlayerSlot, SeatRawFrames};
+use ambition_characters::control::{PlayerSlot, SeatRawFrames};
 
 #[test]
 fn mana_regenerates_over_time_but_clamps_to_max() {
@@ -401,7 +401,7 @@ fn player_brain_seam_translates_control_frame_to_actor_control() {
 /// one game's authoring type reaching into a generic controlled seam.
 #[test]
 fn a_possessed_actor_is_driven_by_the_controlled_brain_producer() {
-    use ambition_characters::brain::{DrivingParticipant, PlayerSlot};
+    use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 
     const POSSESSED_TOP_SPEED: f32 = 137.0;
 
@@ -495,7 +495,8 @@ fn a_possessed_actor_is_driven_by_the_controlled_brain_producer() {
 /// one back across the other turns this red.
 #[test]
 fn a_scripted_sequence_silences_a_possessed_body() {
-    use ambition_characters::brain::{DrivingParticipant, PlayerSlot, ScriptedControl};
+    use ambition_characters::brain::{ScriptedControl};
+use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 
     let mut app = App::new();
     app.init_resource::<SeatRawFrames>();

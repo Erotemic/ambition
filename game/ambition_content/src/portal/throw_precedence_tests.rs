@@ -17,9 +17,8 @@
 
 use bevy::prelude::*;
 
-use ambition_characters::brain::{
-    ActorControl, DrivingParticipant, HeldItemSpec, PlayerSlot, SlotControls,
-};
+use ambition_characters::brain::{ActorControl, HeldItemSpec};
+use ambition_characters::control::{DrivingParticipant, PlayerSlot, SlotControls};
 use ambition_combat::held_items::HeldItem;
 use ambition_platformer2d_actor_monolith::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d_actor_monolith::items::pickup::{throw_held_item_system, GroundItem};

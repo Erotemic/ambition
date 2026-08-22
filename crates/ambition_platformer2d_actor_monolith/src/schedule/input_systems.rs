@@ -513,8 +513,8 @@ pub fn populate_seat_control_frames(
     // here to be shaped; the commit stage folds it into that seat's latch after
     // every shaping stage has run. Seat zero used to land in the global
     // `ControlFrame` instead, which is how the shapers became its alone.
-    mut raw: ResMut<ambition_characters::brain::SeatRawFrames>,
-    mut latches: Option<ResMut<ambition_characters::brain::SlotControlLatches>>,
+    mut raw: ResMut<ambition_characters::control::SeatRawFrames>,
+    mut latches: Option<ResMut<ambition_characters::control::SlotControlLatches>>,
     // ⛔⛔ **THE UNFOCUS GUARD, whose absence was a real defect.** The rule was
     // already ONE function — `input_suppressed_by_unfocus` — and only one of the
     // two roads that needed it ever asked, because the other took no window
@@ -605,8 +605,8 @@ pub fn populate_seat_control_frames(
 /// happen.
 #[cfg(feature = "input")]
 pub fn commit_seat_raw_frames(
-    raw: Res<ambition_characters::brain::SeatRawFrames>,
-    latches: Option<ResMut<ambition_characters::brain::SlotControlLatches>>,
+    raw: Res<ambition_characters::control::SeatRawFrames>,
+    latches: Option<ResMut<ambition_characters::control::SlotControlLatches>>,
 ) {
     // ⚠ `Option`, because the host registers this unconditionally and a
     // frame-stepped composition installs no latch. There it is
@@ -643,10 +643,10 @@ pub fn commit_seat_raw_frames(
 /// copies a table that authority does not write, so it has to ask.
 #[cfg(feature = "input")]
 pub fn publish_seat_controls_when_nobody_else_does(
-    latches: Option<Res<ambition_characters::brain::SlotControlLatches>>,
+    latches: Option<Res<ambition_characters::control::SlotControlLatches>>,
     rollback: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
-    raw: Res<ambition_characters::brain::SeatRawFrames>,
-    mut slots: ResMut<ambition_characters::brain::SlotControls>,
+    raw: Res<ambition_characters::control::SeatRawFrames>,
+    mut slots: ResMut<ambition_characters::control::SlotControls>,
 ) {
     if crate::control::another_authority_publishes(latches.as_deref(), rollback.as_deref()) {
         return;
@@ -684,14 +684,14 @@ pub fn publish_seat_controls_when_nobody_else_does(
 #[cfg(feature = "input")]
 pub fn publish_latched_slot_controls(
     replay: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
-    mut latches: ResMut<ambition_characters::brain::SlotControlLatches>,
-    mut slots: ResMut<ambition_characters::brain::SlotControls>,
+    mut latches: ResMut<ambition_characters::control::SlotControlLatches>,
+    mut slots: ResMut<ambition_characters::control::SlotControls>,
 ) {
     if replay.is_some_and(|replay| replay.replaying_history) {
         return;
     }
-    for slot in 0..ambition_characters::brain::SlotControls::MAX_SLOTS {
-        let slot = ambition_characters::brain::PlayerSlot(slot as u8);
+    for slot in 0..ambition_characters::control::SlotControls::MAX_SLOTS {
+        let slot = ambition_characters::control::PlayerSlot(slot as u8);
         slots.set(slot, latches.take(slot));
     }
 }
@@ -711,10 +711,10 @@ pub fn publish_latched_slot_controls(
 /// is what notices. Drive input with `drive_slot_frame`.
 #[cfg(feature = "input")]
 pub fn mirror_primary_slot_to_control_frame(
-    slots: Res<ambition_characters::brain::SlotControls>,
+    slots: Res<ambition_characters::control::SlotControls>,
     mut frame: ResMut<ControlFrame>,
 ) {
-    *frame = slots.get(ambition_characters::brain::PlayerSlot::PRIMARY);
+    *frame = slots.get(ambition_characters::control::PlayerSlot::PRIMARY);
 }
 
 /// Bridge keyboard/gamepad/menu-wheel input into the device-agnostic menu frame.
@@ -1433,7 +1433,7 @@ mod focus_gate_tests {
     /// half of this test pins that the two gates are independent.
     #[test]
     fn a_seat_browsing_a_menu_stops_driving_its_slot_and_the_others_keep_playing() {
-        use ambition_characters::brain::{PlayerSlot, SlotControls};
+        use ambition_characters::control::{PlayerSlot, SlotControls};
         use ambition_input::participant::context_priority;
         use ambition_input::{ContextClaim, GAMEPLAY_CONTEXT, LAUNCHER_CONTEXT};
         use ambition_platformer2d_shared_tangle::schedule::GameMode;
@@ -1463,7 +1463,7 @@ mod focus_gate_tests {
         // ⚠ **and the table it is committed FROM.** These are one model:
         // `BrainPlugin` installs both, and a hand-built fixture that takes
         // only the destination is describing a composition that cannot exist.
-        app.init_resource::<ambition_characters::brain::SeatRawFrames>();
+        app.init_resource::<ambition_characters::control::SeatRawFrames>();
         // Seat zero's destination: every real composition has it, and the merged
         // producer writes row zero there. See its delivery branch.
         app.init_resource::<ambition_input::ControlFrame>();
@@ -1541,7 +1541,7 @@ mod focus_gate_tests {
     /// build that had simply stopped seat one for some other reason.
     #[test]
     fn an_unfocused_window_stops_a_secondary_seat_too() {
-        use ambition_characters::brain::{PlayerSlot, SlotControls};
+        use ambition_characters::control::{PlayerSlot, SlotControls};
         use ambition_input::participant::context_priority;
         use ambition_input::{ContextClaim, GAMEPLAY_CONTEXT};
         use ambition_platformer2d_shared_tangle::schedule::GameMode;
@@ -1553,7 +1553,7 @@ mod focus_gate_tests {
             // ⚠ **and the table it is committed FROM.** These are one model:
             // `BrainPlugin` installs both, and a hand-built fixture that takes
             // only the destination is describing a composition that cannot exist.
-            app.init_resource::<ambition_characters::brain::SeatRawFrames>();
+            app.init_resource::<ambition_characters::control::SeatRawFrames>();
             app.init_resource::<ambition_input::ControlFrame>();
             // Seat zero's destination: every real composition has it, and the merged
             // producer writes row zero there. See its delivery branch.
@@ -1636,7 +1636,7 @@ mod focus_gate_tests {
     /// second pins what the move BUYS, which is the reason to make it.
     #[test]
     fn an_in_session_surface_claims_input_and_can_claim_it_for_one_seat() {
-        use ambition_characters::brain::{PlayerSlot, SlotControls};
+        use ambition_characters::control::{PlayerSlot, SlotControls};
         use ambition_input::participant::context_priority;
         use ambition_input::{ContextClaim, DIALOGUE_CONTEXT, GAMEPLAY_CONTEXT};
         use ambition_platformer2d_shared_tangle::schedule::GameMode;
@@ -1665,7 +1665,7 @@ mod focus_gate_tests {
         // ⚠ **and the table it is committed FROM.** These are one model:
         // `BrainPlugin` installs both, and a hand-built fixture that takes
         // only the destination is describing a composition that cannot exist.
-        app.init_resource::<ambition_characters::brain::SeatRawFrames>();
+        app.init_resource::<ambition_characters::control::SeatRawFrames>();
         // Seat zero's destination: every real composition has it, and the merged
         // producer writes row zero there. See its delivery branch.
         app.init_resource::<ambition_input::ControlFrame>();
@@ -1777,7 +1777,7 @@ mod focus_gate_tests {
     /// answer `stops_the_world`, which the second half of this test pins.
     #[test]
     fn dialogue_claims_the_talker_while_a_pause_still_stops_everybody() {
-        use ambition_characters::brain::{PlayerSlot, SlotControls};
+        use ambition_characters::control::{PlayerSlot, SlotControls};
         use ambition_input::participant::context_priority;
         use ambition_input::{ContextClaim, GAMEPLAY_CONTEXT};
         use ambition_platformer2d_shared_tangle::schedule::GameMode;
@@ -1796,7 +1796,7 @@ mod focus_gate_tests {
         // ⚠ **and the table it is committed FROM.** These are one model:
         // `BrainPlugin` installs both, and a hand-built fixture that takes
         // only the destination is describing a composition that cannot exist.
-        app.init_resource::<ambition_characters::brain::SeatRawFrames>();
+        app.init_resource::<ambition_characters::control::SeatRawFrames>();
         // Seat zero's destination: every real composition has it, and the merged
         // producer writes row zero there. See its delivery branch.
         app.init_resource::<ambition_input::ControlFrame>();

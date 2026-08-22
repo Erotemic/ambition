@@ -1553,7 +1553,7 @@ impl PlatformerApp {
     /// that refuses, so this refuses.
     #[cfg(feature = "rollback")]
     pub fn rollback(mut self, participants: usize) -> Self {
-        let seats = crate::characters::brain::SlotControls::MAX_SLOTS;
+        let seats = crate::characters::control::SlotControls::MAX_SLOTS;
         if participants == 0 || participants > seats {
             self.draft.conflicts.push(format!(
                 "`rollback({participants})` cannot be seated: a session carries \
@@ -2104,7 +2104,7 @@ mod tests {
     /// participants over a GGRS session built with one.
     #[test]
     fn a_participant_count_the_session_cannot_seat_is_refused() {
-        let seats = crate::characters::brain::SlotControls::MAX_SLOTS;
+        let seats = crate::characters::control::SlotControls::MAX_SLOTS;
         for count in [0, seats + 1] {
             let refused = PlatformerApp::headless()
                 .rollback(count)

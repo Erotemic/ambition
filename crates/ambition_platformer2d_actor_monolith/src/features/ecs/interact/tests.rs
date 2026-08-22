@@ -15,7 +15,7 @@ fn spawn_interaction_player(app: &mut App, pos: ae::Vec2) -> Entity {
     // The interact buffer is SLOT state now (published from the device); prime
     // the primary controller's slot so the system sees a live buffered interact.
     app.world_mut()
-        .get_resource_or_insert_with(ambition_characters::brain::SlotInteractionState::default)
+        .get_resource_or_insert_with(ambition_characters::control::SlotInteractionState::default)
         .primary_mut()
         .interact_buffer_timer = 0.15;
     player
@@ -360,7 +360,7 @@ fn self_talk_without_a_self_branch_is_suppressed_without_a_trace() {
     );
     assert!(
         world
-            .resource::<ambition_characters::brain::SlotInteractionState>()
+            .resource::<ambition_characters::control::SlotInteractionState>()
             .primary()
             .buffered(),
         "the buffered press is NOT consumed: the player may still interact \
@@ -475,7 +475,7 @@ fn spawn_driven_body(app: &mut App, pos: ae::Vec2, slot: u8) -> Entity {
                 facing: 1.0,
             },
             crate::actor::BodyAnimFacts::default(),
-            ambition_characters::brain::DrivingParticipant(ambition_characters::brain::PlayerSlot(
+            ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot(
                 slot,
             )),
         ))
@@ -485,17 +485,17 @@ fn spawn_driven_body(app: &mut App, pos: ae::Vec2, slot: u8) -> Entity {
 fn buffer_interact(app: &mut App, slot: u8, secs: f32) {
     let mut state = app
         .world_mut()
-        .get_resource_or_insert_with(ambition_characters::brain::SlotInteractionState::default);
+        .get_resource_or_insert_with(ambition_characters::control::SlotInteractionState::default);
     state
-        .get_mut(ambition_characters::brain::PlayerSlot(slot))
+        .get_mut(ambition_characters::control::PlayerSlot(slot))
         .expect("slot is in range")
         .interact_buffer_timer = secs;
 }
 
 fn buffered_secs(app: &App, slot: u8) -> f32 {
     app.world()
-        .resource::<ambition_characters::brain::SlotInteractionState>()
-        .get(ambition_characters::brain::PlayerSlot(slot))
+        .resource::<ambition_characters::control::SlotInteractionState>()
+        .get(ambition_characters::control::PlayerSlot(slot))
         .interact_buffer_timer
 }
 

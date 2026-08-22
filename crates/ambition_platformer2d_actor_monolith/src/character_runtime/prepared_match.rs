@@ -1484,7 +1484,7 @@ fn bind_seat_control(commands: &mut Commands, body: Entity, authority: &ControlA
             // channel, and `participant_seat` is where that projection lives.
             commands.entity(body).insert((
                 crate::control::components::LocalPlayer,
-                ambition_characters::brain::DrivingParticipant(
+                ambition_characters::control::DrivingParticipant(
                     crate::participant_seat::player_slot_of(*channel),
                 ),
             ));

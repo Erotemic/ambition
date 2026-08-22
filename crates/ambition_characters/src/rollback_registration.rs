@@ -102,7 +102,7 @@ where
     //
     // ⚠ the same shape as `ControlHolds` above, for the same reason: a small
     // integer that fully determines the value belongs in the checksum.
-    registrar.rollback_component_clone_probed::<crate::brain::DrivingParticipant>(
+    registrar.rollback_component_clone_probed::<crate::control::DrivingParticipant>(
         OWNER,
         "actor.driving_participant",
         |driver| u64::from(driver.0 .0),
@@ -120,7 +120,7 @@ where
         OWNER,
         "actor.charges_projectiles",
     );
-    registrar.rollback_component_clone::<crate::brain::PlayerSlot>(OWNER, "actor.player_slot");
+    registrar.rollback_component_clone::<crate::control::PlayerSlot>(OWNER, "actor.player_slot");
     registrar.rollback_component_clone::<crate::brain::ActionSet>(OWNER, "actor.action_set");
     registrar.rollback_component_clone::<crate::brain::action_set::IdentityKit>(
         OWNER,
@@ -145,11 +145,11 @@ where
         "derived.resolved_attack_gesture",
         "republished from ActorControl and rollback-backed gesture history before move triggering",
     );
-    registrar.rollback_resource_canonical::<crate::brain::SlotInteractionState>(
+    registrar.rollback_resource_canonical::<crate::control::SlotInteractionState>(
         OWNER,
         "resource.slot_interaction_state",
     );
-    registrar.declare_rollback_derived_resource::<crate::brain::SlotControls>(
+    registrar.declare_rollback_derived_resource::<crate::control::SlotControls>(
         OWNER,
         "derived.slot_controls",
         "republished from GGRS PlayerInputs at the head of every frame",

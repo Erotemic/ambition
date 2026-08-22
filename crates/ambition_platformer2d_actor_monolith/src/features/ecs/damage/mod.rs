@@ -38,7 +38,7 @@ use ambition_vfx::vfx::VfxMessage;
 /// One side of a combat relationship, as this module reads it off a body.
 type CombatSide<'w> = (
     &'w crate::combat::components::ActorFaction,
-    Option<&'w ambition_characters::brain::DrivingParticipant>,
+    Option<&'w ambition_characters::control::DrivingParticipant>,
     Option<&'w crate::combat::targeting::MatchTeam>,
 );
 
@@ -417,7 +417,7 @@ pub fn apply_feature_hit_events(
         // taken from.
         Query<(
             &'static crate::combat::components::ActorFaction,
-            Option<&'static ambition_characters::brain::DrivingParticipant>,
+            Option<&'static ambition_characters::control::DrivingParticipant>,
             Option<&'static crate::combat::targeting::MatchTeam>,
         )>,
     ),

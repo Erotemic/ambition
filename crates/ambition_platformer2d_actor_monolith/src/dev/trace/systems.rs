@@ -161,7 +161,7 @@ pub fn record_frame_system(
     replay: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
     clock: Res<ambition_time::ClockState>,
     platform_set: Res<ambition_platformer2d_world::collision::MovingPlatformSet>,
-    slots: Res<ambition_characters::brain::SlotControls>,
+    slots: Res<ambition_characters::control::SlotControls>,
 
     time: Res<Time>,
     rooms: Option<
@@ -211,7 +211,7 @@ pub fn record_frame_system(
     // Trace recording is read-only. Walks the cluster components
     // directly through `BodyClustersMut`.
     let clusters = cluster_item.as_clusters_mut();
-    let control_frame = slots.get(ambition_characters::brain::PlayerSlot::PRIMARY);
+    let control_frame = slots.get(ambition_characters::control::PlayerSlot::PRIMARY);
     let real_dt = time.delta_secs();
     let sim_dt = real_dt * clock.time_scale;
     let active_area = rooms

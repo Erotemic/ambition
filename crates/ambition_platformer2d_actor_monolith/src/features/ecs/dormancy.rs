@@ -106,13 +106,13 @@ pub struct Dormant;
 /// ⭐ **the predicate IS the query now.** This used to ask for every `Brain` and
 /// then `matches!(.., Brain::Player(_))` — a filter written because *"somebody is
 /// driving this body"* had nowhere of its own to live. It has one now:
-/// [`ambition_characters::brain::DrivingParticipant`] is authored at the seat and
+/// [`ambition_characters::control::DrivingParticipant`] is authored at the seat and
 /// moved by possession alone, so the observer set is a `With<>` and there is no
 /// filter left to get wrong. The rule quoted above still holds — what changed is
 /// that the fact it describes is no longer spelled inside an AI-policy enum.
 pub fn assess_dormancy(
     mut commands: Commands,
-    observers: Query<&ae::BodyKinematics, With<ambition_characters::brain::DrivingParticipant>>,
+    observers: Query<&ae::BodyKinematics, With<ambition_characters::control::DrivingParticipant>>,
     mut actors: Query<(
         Entity,
         &ae::BodyKinematics,
@@ -210,8 +210,8 @@ mod tests {
             // parked body while the seat moves to the possessed one.
             app.world_mut().spawn((
                 PlayerEntity,
-                ambition_characters::brain::DrivingParticipant(
-                    ambition_characters::brain::PlayerSlot::PRIMARY,
+                ambition_characters::control::DrivingParticipant(
+                    ambition_characters::control::PlayerSlot::PRIMARY,
                 ),
                 body_at(*x),
             ));
@@ -254,8 +254,8 @@ mod tests {
         app.world_mut().spawn((PlayerEntity, body_at(0.0)));
         // The possessed body, far away, holding the primary seat.
         app.world_mut().spawn((
-            ambition_characters::brain::DrivingParticipant(
-                ambition_characters::brain::PlayerSlot::PRIMARY,
+            ambition_characters::control::DrivingParticipant(
+                ambition_characters::control::PlayerSlot::PRIMARY,
             ),
             body_at(5_000.0),
         ));
@@ -366,8 +366,8 @@ mod tests {
         // Driven, not merely marked — see `app_with`.
         app.world_mut().spawn((
             PlayerEntity,
-            ambition_characters::brain::DrivingParticipant(
-                ambition_characters::brain::PlayerSlot::PRIMARY,
+            ambition_characters::control::DrivingParticipant(
+                ambition_characters::control::PlayerSlot::PRIMARY,
             ),
             body_at(0.0),
         ));

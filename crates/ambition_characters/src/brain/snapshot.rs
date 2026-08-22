@@ -215,7 +215,7 @@ pub struct BrainSnapshot {
     pub front_wall_clearance: Option<f32>,
     /// Per-tick input snapshot for [`crate::brain::tick_player_brain`].
     /// `None` for non-player actors. The player-brain driver fills this directly
-    /// from the [`SlotControls`](crate::brain::SlotControls) entry named by the
+    /// from the [`SlotControls`](crate::control::SlotControls) entry named by the
     /// body's `DrivingParticipant(slot)`; no input frame is copied onto the entity.
     pub player_input: Option<ambition_platformer2d_core::ControlFrame>,
 

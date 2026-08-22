@@ -380,7 +380,6 @@ fn catalog_tuning_reproduces_the_old_hardcoded_sheets() {
     );
 }
 
-
 /// `inspect_hall_sprites.py` couldn't see the issue because its `pyron.load` parser was more
 /// permissive than the Rust runtime's `ron::from_str`.
 #[test]
@@ -491,6 +490,67 @@ fn resolve_anim_renders_most_specific_pose_in_the_actor_anim_set() {
     // A pose with no relative in the set is the only case that floors at Idle.
     assert_eq!(spec.resolve_anim(CharacterAnim::Fly), CharacterAnim::Idle);
     assert_eq!(spec.resolve_anim(CharacterAnim::Jump), CharacterAnim::Idle);
+}
+
+/// **An authored `standing_height` IS the body's height — not a hint, not a
+/// scale factor applied to something else.**
+///
+/// The derivation has two branches, and until 2026-08-22 the authored one had
+/// never run in shipped content, so nothing had ever checked that it delivers
+/// what it promises. It does: the three heavies land on their stated numbers
+/// exactly. This pins that, for every row that authors a height now or later.
+///
+/// ⛔ deliberately asserts NO specific number and names NO character. The
+/// heights are Jon's to retune, and a test that spelled `56.2` would redden on
+/// an ordinary content edit while telling us nothing about the mechanism. The
+/// invariant is the equality itself, which survives any retune and widens on its
+/// own as the remaining 142 rows get authored.
+///
+/// ⚠ a row whose sheet publishes no `body_metrics` derives `None` and keeps its
+/// LDtk box whatever the catalog says — that is the documented rule, so those
+/// rows are skipped rather than failed. If a height is authored for one, the
+/// number silently does nothing; the count printed on failure is how that shows.
+#[test]
+fn an_authored_standing_height_is_the_height_the_body_derives() {
+    use super::assets::sprite_body_collision_for_character_id_in;
+
+    let catalog = test_catalog();
+    let sheets = Default::default();
+    let ldtk = ambition_platformer2d_core::Vec2::new(28.0, 46.0);
+
+    let mut checked = 0usize;
+    let mut inert = Vec::new();
+    for (id, entry) in &catalog.data().characters {
+        let Some(authored) = entry.standing_height else {
+            continue;
+        };
+        match sprite_body_collision_for_character_id_in(&sheets, &catalog, id, ldtk) {
+            Some(body) => {
+                checked += 1;
+                assert!(
+                    (body.collision.y - authored).abs() < 1e-3,
+                    "{id} authors a standing height of {authored} but derives a body \
+                     {:.3} tall — the authored branch is not honoring its input",
+                    body.collision.y,
+                );
+            }
+            // No published body box: the LDtk spawn box decides and the authored
+            // height is inert. Collected so an authored-but-ignored height is
+            // visible rather than passing silently.
+            None => inert.push(id.clone()),
+        }
+    }
+
+    assert!(
+        checked > 0,
+        "no catalog row authors a standing_height, so this guard checked nothing \
+         — if heights were removed on purpose, remove this test with them"
+    );
+    assert!(
+        inert.is_empty(),
+        "these rows author a standing_height that CANNOT apply, because their \
+         sheet publishes no body_metrics — the number is silently doing nothing: {inert:?}"
+    );
 }
 
 /// **AUDIT LISTING: which characters have a derivable body height, and what it

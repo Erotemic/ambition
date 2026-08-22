@@ -457,6 +457,15 @@ fn list_what_the_shipped_ceiling_is_still_holding() {
 /// the concrete types a prefix covers TODAY all match the reason it gives — a row
 /// whose reason does not describe it is a prefix that has grown past its
 /// justification, which is exactly how `BossAnimFrame` got through.
+///
+/// ✔ **`ambition_sprite_sheet::` audited 2026-08-22 and it is CLEAN.** It holds
+/// five components — `BossAnimFrame`, `BossAnimator`, `CharacterAnimator`,
+/// `ActorAnimOverride`, `SpritePosedBody`. `BossAnimFrame` is registered now
+/// (`ambition_boss_encounter::register_rollback_state`, a rewound cursor), and
+/// the other four are written at spawn and never mutated — `SpritePosedBody` has
+/// no `&mut` site in the workspace — so "sprite metadata / asset binding"
+/// describes them. ⚠ this says nothing about the OTHER 21 prefixes, and nothing
+/// about next month: it is the check being demonstrated, not retired.
 #[test]
 #[ignore = "audit listing: prints what each waiver covers; read it, do not assert on it"]
 fn list_what_every_waiver_actually_covers() {

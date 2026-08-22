@@ -123,7 +123,7 @@ rl_sim = ["dep:ambition_sim_harness"]
 # ⚠ opt-in, not default. Recording costs work per tick and the shipped game has
 # no use for it; what it needed was a DOOR, not a default.
 causal = ["ambition_platformer2d/causal", "dep:ambition_causal"]
-headless = ["ambition_platformer2d/headless"]
+headless = ["ambition_platformer2d/headless", "ldtk_runtime", "input"]
 dev_tools = ["ambition_platformer2d/dev_tools", "dep:bevy-inspector-egui"]
 dev_hot_reload = ["ambition_platformer2d/dev_hot_reload"]
 static_map = ["ambition_platformer2d/static_map", "ambition_content/static_map"]

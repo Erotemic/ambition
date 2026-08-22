@@ -15,7 +15,7 @@ replenish it. Focused plans own technical design.
 If this page disagrees with current source or a focused open plan, update this
 page rather than appending an archaeological correction.
 
-## 2026-08-21, LATEST — D175's fork chain is CLOSED, and player two can fast-fall
+## 2026-08-21, LATEST — D175 is CLOSED, and player two can fast-fall
 
 ```text
 feel-clock latch  ✔ 889107010  SlotControlLatches — seat zero is row zero
@@ -48,15 +48,22 @@ into the SIM schedule, which under a rollback host **is** `GgrsSchedule` — it
 runs inside rollback, with `SlotInteractionState` as canonical rollback state.
 The clock argument was sound; the placement claim was not.
 
-▢ **what is left is a `SlotGestures` SPLIT, not another table.** The gesture
-derivation and the interact buffer are still tagged `InputSet::Route` although
-neither writes `ControlFrame` any more. What keeps them there is the ORDERING:
-the portal warp is pinned after `InteractionInputBuffered` and before the commit,
-because a warp may not rewrite the axes until the interact press has been
-buffered against the UNWARPED ones. Moving either past the commit makes the graph
-unsolvable, and Bevy says so outright. Split the double-tap WINDOW timers (device
-clock, like the latch) from the PENDING flags and interact buffer (sim state a
-rollback restores), and both systems can move into the shaping window.
+✔ **and the row is CLOSED — the step I had written down as remaining was
+falsified by one grep.** I had planned a `SlotGestures` split so the gesture
+derivation could move into the `Update` device window. `bevy_ggrs-0.21.0`'s
+`time.rs` replaces `Time<()>` with `Time<GgrsTime>` for the duration of
+`GgrsSchedule`, and that clock is `advance_to(frame / framerate)` from
+`RollbackFrameCount` — derived from the frame number and itself
+rollback-snapshotted. ⇒ `Res<Time>` in the sim schedule is deterministic and
+rewound, and the derivation is already in the right place; moving it to `Update`
+would have put it on the WALL clock and created the desync the move was for.
+
+⇒ what was left was a DEFINITION. `InputSet::Route` said *"every system that
+WRITES the `ControlFrame` resource lives here"*, a rule identical to its purpose
+only while one global frame WAS the input. Its real content is the ORDERING —
+everything that shapes a seat's frame before the publication boundary — which is
+why the gesture derivation and the interact buffer are still members although
+neither touches that resource.
 
 **Also this session.** The camera resolve stopped searching control authority — a
 `DrivingParticipant` query had been folded into another parameter's tuple to fit

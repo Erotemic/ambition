@@ -91,11 +91,23 @@ pub use seating::{LocalSeatOffer, SessionSeatingSource};
 ///    [`participant::ContextClaim`]s; [`participant::SeatInputContexts`]
 ///    resolves EVERY seat's answer at the end of the set.
 /// 4. [`InputSet::Route`] — actions + the active context route into the
-///    semantic seams. Every system that WRITES the `ControlFrame` resource
-///    (participant action routing, portal movement-intent brackets,
-///    edge-derived flags) and the `MenuControlFrame` lives here; every system
-///    that READS them to drive gameplay runs after it. The sandbox pins
-///    `Route` before its gameplay consumer (`populate_slot_controls`), so a
+///    semantic seams. Every system that SHAPES A SEAT'S FRAME before it is
+///    published — participant action routing, the portal movement-intent
+///    bracket, edge-derived flags — and the `MenuControlFrame` lives here;
+///    every system that READS a published frame to drive gameplay runs after
+///    it.
+///
+///    ⛔ **it used to say "every system that WRITES the `ControlFrame`
+///    resource", and that definition retired with the resource's job** (D175).
+///    While one global frame WAS the input, membership and the property were the
+///    same sentence. Seats are shaped in their own rows of `SeatRawFrames` now
+///    and `ControlFrame` is seat zero's output mirror, so the membership rule is
+///    the ORDERING the set has always really carried: before the publication
+///    boundary. Two systems that no longer touch that resource — the gesture
+///    derivation and the interact buffer — are still members for exactly that
+///    reason, and are correct to be.
+///
+///    The sandbox pins `Route` before its gameplay consumer, so a
 ///    writer can never "float" past the consume boundary and stamp stale
 ///    input over the fresh frame — the regression that once killed the Move
 ///    axis.
@@ -110,8 +122,9 @@ pub enum InputSet {
     ResolveActions,
     /// Context claims are declared; the active context resolves.
     ResolveContext,
-    /// Actions + context route into `ControlFrame` / `MenuControlFrame` /
-    /// semantic UI commands. All `ControlFrame`-writing systems live here.
+    /// Actions + context shape each seat's frame, and the `MenuControlFrame` /
+    /// semantic UI commands. Every stage that must run before the publication
+    /// boundary lives here.
     Route,
     /// Resolved cue read-models publish for presenters.
     PublishCues,

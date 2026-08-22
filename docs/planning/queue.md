@@ -591,7 +591,7 @@ vacating.
   after building all four tiers, 58 passed and 0 ignored. A guard that could only
   ever be ignored would be a check that cannot fail.
 
-- ▢ **D175 — NINE PARTICIPANT-INPUT ITEMS REACHABLE FROM NO LEDGER ROW.**
+- ✔ **D175 — NINE PARTICIPANT-INPUT ITEMS REACHABLE FROM NO LEDGER ROW.** CLOSED 2026-08-21.
   (promoted 2026-08-21)
 
 ⭐⭐ **MEASURED 2026-08-21, so the next session starts from a number rather than
@@ -696,6 +696,29 @@ systems move into the shaping window, which is where the ordering wants them.
 ⛔ do not attempt it by moving the systems alone: `SlotInteractionState` is
 canonical rollback state, and writing it from `Update` takes it out of the sweep
 that restores it.
+
+⛔⛔ **AND THAT "REMAINING STEP" WAS WRONG WITHIN THE HOUR — MEASURED, then
+retracted.** The paragraph above said to split `SlotGestures` so the derivation
+could move into the `Update` device window. **Do not.** `bevy_ggrs-0.21.0`
+`time.rs` replaces `Time<()>` with `Time<GgrsTime>` for the duration of
+`GgrsSchedule`, and `Time<GgrsTime>` is `advance_to(frame / framerate)` from
+`RollbackFrameCount` — derived from the frame number, and itself
+rollback-snapshotted. ⇒ `Res<Time>` inside the sim schedule is DETERMINISTIC AND
+REWOUND, `SlotInteractionState` is canonical rollback state advanced by that
+clock, and the derivation is already in the right place. Moving it to `Update`
+would put it on the WALL clock and create the desync the move was meant to avoid.
+
+⇒ **what was actually left was a DEFINITION, not a refactor.** `InputSet::Route`
+said *"every system that WRITES the `ControlFrame` resource lives here"* — a rule
+that was identical to its purpose only while one global frame WAS the input. The
+set's real content has always been the ORDERING: everything that shapes a seat's
+frame before the publication boundary. Restated at the declaration, and the two
+systems that no longer touch `ControlFrame` are members for that reason and are
+correct to be. **D175 is closed.**
+
+⚠ the general lesson, and it is the second time today: a confidently written
+"next step" is a hypothesis. `bevy_ggrs`' own source answered this in one grep.
+
 
 ⭐ **two of the three are gone, and the twins went with them.**
 `drive_control_frame` and `drive_seat_frame` — a declared pair, *"the twin of

@@ -115,8 +115,9 @@ fn step(app: &mut App) {
 /// driver.
 ///
 /// ⚠ **that makes [`step`] correct for its own test and structurally blind for
-/// this one** — an instrument whose noise floor is above the signal. Compare
-/// [[reference_causal_instrument_gotchas]]: a narrowed seam silences a domain.
+/// this one** — an instrument whose noise floor is above the signal, and the
+/// general form is that narrowing a seam to quieten one domain silences every
+/// other domain that spoke through it.
 fn step_fast(app: &mut App) {
     app.update();
 }
@@ -466,9 +467,9 @@ fn cover_is_up(app: &mut App) -> bool {
 /// ⇒ **the flash is not reproducible in `build_visible_app` on desktop.** The
 /// 190 `no render family claimed` lines in the 290 s desktop profile came from
 /// somewhere this composition does not reach — a different route, or the
-/// windowed app's own presentation wiring
-/// ([[reference_app_only_presentation_class]] is the standing warning that a
-/// composition can be a silent half-engine). ⛔ **do not tune
+/// windowed app's own presentation wiring — a composition can be a silent
+/// half-engine, installing the systems a class of presentation needs while
+/// never selecting that class, so nothing is missing and nothing runs. ⛔ **do not tune
 /// `presentation_settle_deadline` on the strength of this file** — it has not
 /// observed the phenomenon.
 ///

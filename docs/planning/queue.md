@@ -701,6 +701,26 @@ is the INTEGRATOR's reach into the world: if it ever stops going through
 - ✔ **D175 — NINE PARTICIPANT-INPUT ITEMS REACHABLE FROM NO LEDGER ROW.** CLOSED 2026-08-21.
   (promoted 2026-08-21)
 
+⚠ **REOPENED AS ONE QUESTION, 2026-08-22 — see
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) §31.** The
+BEHAVIOUR this row bought is intact and verified; what an external review found
+is that the mechanism carrying it is a compatibility bridge being documented as
+architecture. `shape_seat_frame` writes BOTH `SlotControls` and `SeatRawFrames`,
+because the three hosts (fixed-tick latch, GGRS, frame-step) disagree about which
+already holds this tick's input — and writing both is what made all three correct
+at once. But `SeatRawFrames` says of itself *"BEFORE ANY SHAPING STAGE HAS RUN"*
+and *"THE PROPOSAL, NOT THE AGREEMENT"*, and after a shaping pass it holds a
+post-shaping value.
+
+⇒ ⛔ **the review also asked for a guard preventing new `shape_seat_frame`
+callers, and that was declined** — a check counting call sites is source-text
+meta-test machinery, which AGENTS.md forbids and which this ledger's own standing
+note predicts an LLM review will request. The design question is real and is in
+the decision file; a tripwire is not how to hold it open.
+
+⇒ ⚠ **it gets more expensive per input mechanic**, because each new one currently
+learns the fixed-step / GGRS / frame-step distinction on its way in. Cheap today.
+
 ⭐⭐ **MEASURED 2026-08-21, so the next session starts from a number rather than
 from prose.** The privileged-primary bus costs SEAT ONE TWO PIECES OF SMASH
 VOCABULARY, and both are provable by reading one line:

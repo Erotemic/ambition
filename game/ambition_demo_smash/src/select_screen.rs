@@ -1975,7 +1975,11 @@ mod touch_tests {
             .resource_mut::<SelectCursors>()
             .seat_mut(1)
             .expect("seat 1")
-            .position = token_zero.center();
+            // ⛔ `move_to`, NOT `.position = …`. A cursor is PLACED or it is
+            // not, and an unplaced one is relocated to the first portrait by
+            // the screen's own opening move — so assigning the field alone
+            // parked this finger on a portrait and the token was never hit.
+            .move_to(token_zero.center());
         app.world_mut()
             .resource_mut::<ambition_platformer2d::input::SeatMenuFrames>()
             .set(
@@ -2061,7 +2065,11 @@ mod touch_tests {
             .resource_mut::<SelectCursors>()
             .seat_mut(1)
             .expect("seat 1")
-            .position = token_zero.center();
+            // ⛔ `move_to`, NOT `.position = …`. A cursor is PLACED or it is
+            // not, and an unplaced one is relocated to the first portrait by
+            // the screen's own opening move — so assigning the field alone
+            // parked this finger on a portrait and the token was never hit.
+            .move_to(token_zero.center());
         app.world_mut()
             .resource_mut::<ambition_platformer2d::input::SeatMenuFrames>()
             .set(

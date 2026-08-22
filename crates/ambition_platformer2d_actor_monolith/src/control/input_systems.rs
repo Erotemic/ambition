@@ -65,7 +65,7 @@ pub fn input_timer_system(
     // `seat_frame_this_tick`.
     latches: Option<Res<ambition_characters::brain::SlotControlLatches>>,
     rollback: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
-    mut slot_gestures: ResMut<crate::control::SlotInteractionState>,
+    mut slot_gestures: ResMut<ambition_characters::brain::SlotInteractionState>,
     // Home/player bodies tick their OWN reaction timers here (they aren't in the
     // actor tick). Iterates every player body so a co-op / clone body ticks its own.
     mut home_feel_q: Query<
@@ -220,7 +220,7 @@ pub fn interaction_input_system(
     drivers: Query<(Entity, &crate::control::DrivingParticipant)>,
     frames: Query<&crate::physics::ResolvedMotionFrame>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
-    mut slot_gestures: ResMut<crate::control::SlotInteractionState>,
+    mut slot_gestures: ResMut<ambition_characters::brain::SlotInteractionState>,
     // Hit-stun gate reads the DRIVEN body's reaction state — the body actually
     // being driven by this seat, home avatar or possessed actor.
     combat_q: Query<&ambition_characters::actor::BodyCombat>,
@@ -446,7 +446,7 @@ mod per_seat_gesture_tests {
 mod interaction_suppression_tests {
     use super::*;
     use crate::actor::{PlayerEntity, PrimaryPlayer};
-    use crate::control::SlotInteractionState;
+    use ambition_characters::brain::SlotInteractionState;
     use ambition_characters::actor::BodyCombat;
     use ambition_combat::feel::Platformer2dFeelTuningMonolith;
     use ambition_platformer2d_core::ControlFrame;

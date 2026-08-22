@@ -125,6 +125,10 @@ where
         "derived.resolved_attack_gesture",
         "republished from ActorControl and rollback-backed gesture history before move triggering",
     );
+    registrar.rollback_resource_canonical::<crate::brain::SlotInteractionState>(
+        OWNER,
+        "resource.slot_interaction_state",
+    );
     registrar.declare_rollback_derived_resource::<crate::brain::SlotControls>(
         OWNER,
         "derived.slot_controls",

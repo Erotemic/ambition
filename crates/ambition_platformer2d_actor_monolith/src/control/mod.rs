@@ -33,7 +33,7 @@ pub mod slots;
 
 pub use acting::ActingParticipant;
 pub use authority::{project_driving_participant, DrivingParticipant};
-pub use components::{LocalPlayer, PlayerSlot, SlotGestures, SlotInteractionState};
+pub use components::{LocalPlayer, PlayerSlot};
 pub use input_systems::{
     cleanup_timers_system, input_timer_system, interaction_input_system, InputTimersAdvanced,
     InteractionInputBuffered,

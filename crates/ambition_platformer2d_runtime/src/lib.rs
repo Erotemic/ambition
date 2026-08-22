@@ -371,7 +371,7 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
         // Slot-keyed gesture/buffer authority (double-tap, interact buffer).
         // Local input publishes it; body mode / interaction / transitions
         // consume it for the controlled body's slot.
-        app.init_resource::<ambition_platformer2d_actor_monolith::control::SlotInteractionState>();
+        app.init_resource::<ambition_characters::brain::SlotInteractionState>();
     }
 }
 

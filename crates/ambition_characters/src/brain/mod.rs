@@ -186,6 +186,143 @@ impl SeatRawFrames {
     }
 }
 
+// ── Slot-keyed GESTURE state ──────────────────────────────────────────────
+//
+// ⭐ these live beside `SlotControls` / `SlotControlLatches` / `SeatRawFrames`
+// because they are the same kind of thing: a table keyed by controller slot.
+// They depend on nothing but primitives and `PlayerSlot`.
+
+/// One controller slot's double-tap timers and interact buffer.
+///
+/// ⚠ deliberately NOT a `Component`: the gestures belong to the controller, so a
+/// possessed body reads the slot driving it rather than a privileged home avatar.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct SlotGestures {
+    /// Non-zero means a down-tap is live and a second one would be a double-tap.
+    pub down_tap_timer: f32,
+    /// Non-zero means an up-tap is live and a second one would be a double-tap.
+    pub up_tap_timer: f32,
+    /// Keeps `interact` live across frames, so the button need not be held for
+    /// the whole activation animation.
+    pub interact_buffer_timer: f32,
+    /// A double-tap-down edge, awaiting its consumer.
+    pub double_tap_down_pending: bool,
+    /// A double-tap-up edge, awaiting its consumer.
+    pub double_tap_up_pending: bool,
+}
+
+impl SlotGestures {
+    /// Advance timers and detect a double-tap-down edge. Returns `true` when
+    /// two taps arrive within `window` seconds.
+    pub fn register_down_tap(&mut self, down_pressed: bool, frame_dt: f32, window: f32) -> bool {
+        self.down_tap_timer = (self.down_tap_timer - frame_dt).max(0.0);
+        if !down_pressed {
+            return false;
+        }
+        if self.down_tap_timer > 0.0 {
+            self.down_tap_timer = 0.0;
+            true
+        } else {
+            self.down_tap_timer = window;
+            false
+        }
+    }
+
+    /// Advance timers and detect a double-tap-up edge. Returns `true` when
+    /// two taps arrive within `window` seconds.
+    pub fn register_up_tap(&mut self, up_pressed: bool, frame_dt: f32, window: f32) -> bool {
+        self.up_tap_timer = (self.up_tap_timer - frame_dt).max(0.0);
+        if !up_pressed {
+            return false;
+        }
+        if self.up_tap_timer > 0.0 {
+            self.up_tap_timer = 0.0;
+            true
+        } else {
+            self.up_tap_timer = window;
+            false
+        }
+    }
+
+    /// Update the interact buffer and return whether the buffer is live.
+    pub fn buffered_interact(&mut self, pressed: bool, frame_dt: f32, window: f32) -> bool {
+        self.interact_buffer_timer = (self.interact_buffer_timer - frame_dt).max(0.0);
+        if pressed {
+            self.interact_buffer_timer = window;
+        }
+        self.interact_buffer_timer > 0.0
+    }
+
+    pub fn buffered(self) -> bool {
+        self.interact_buffer_timer > 0.0
+    }
+
+    pub fn clear(&mut self) {
+        self.interact_buffer_timer = 0.0;
+    }
+
+    pub fn reset(&mut self) {
+        *self = Self::default();
+    }
+}
+
+/// Slot-keyed gestures — the authority for "which controller wants to interact,
+/// morph or double-tap". Input publishes into a slot; consumers read the slot of
+/// the body they act on.
+#[derive(Resource, Clone, Copy, Debug, Default)]
+pub struct SlotInteractionState {
+    slots: [SlotGestures; SlotControls::MAX_SLOTS],
+}
+
+impl SlotInteractionState {
+    /// This slot's gestures (default for an out-of-range slot).
+    pub fn get(&self, slot: PlayerSlot) -> SlotGestures {
+        self.slots.get(slot.0 as usize).copied().unwrap_or_default()
+    }
+
+    /// **Mutable access to a slot's gestures — `None` for a slot that does not
+    /// exist.**
+    ///
+    /// ⛔ **it used to CLAMP, and clamping a participant identifier is not a
+    /// defensive measure, it is a wrong write to somebody else's controller.**
+    /// `PlayerSlot(9)` resolved to the LAST valid slot, so a caller that had
+    /// mistaken a slot could take player 4's buffered interact and consume it —
+    /// a bug that presents as "somebody else's door opened" and can never be
+    /// traced back to an index. (The comment on the old body was wrong in its
+    /// own right: it promised a fallback to slot 0 while the code clamped to
+    /// the last one, so neither the promise nor the behaviour was defensible.)
+    ///
+    /// ⭐ **`SlotControls` already models the honest policy** — a write to a
+    /// slot that does not exist is ignored — and returning `Option` states the
+    /// same thing where the caller can see it. [`get`](Self::get) still answers
+    /// `default()` for an out-of-range READ, which is a different question with
+    /// a defensible answer: a controller that does not exist is pressing
+    /// nothing.
+    pub fn get_mut(&mut self, slot: PlayerSlot) -> Option<&mut SlotGestures> {
+        self.slots.get_mut(slot.0 as usize)
+    }
+
+    /// The local primary controller's gestures — the single-player default.
+    pub fn primary(&self) -> SlotGestures {
+        self.get(PlayerSlot::PRIMARY)
+    }
+
+    /// Mutable primary-controller gestures.
+    ///
+    /// ⚠ **the one unconditional accessor on this type, and it is sound by
+    /// construction rather than by a caller's care**: the const assertion below
+    /// pins that the primary slot is inside the array, so this cannot become
+    /// the clamp it replaced by way of a later change to either constant.
+    pub fn primary_mut(&mut self) -> &mut SlotGestures {
+        &mut self.slots[PlayerSlot::PRIMARY.0 as usize]
+    }
+}
+
+/// The primary slot exists. `primary_mut` indexes unconditionally on the
+/// strength of this, so a build where the two constants disagreed would fail
+/// here rather than panic in a frame.
+const _: () = assert!((PlayerSlot::PRIMARY.0 as usize) < SlotControls::MAX_SLOTS);
+
 /// **THE FRAME→TICK INPUT LATCH, ONE PER SEAT — INCLUDING SEAT ZERO.**
 ///
 /// A tap that opens and closes between two ticks must still reach the sim, so a
@@ -907,6 +1044,9 @@ pub fn log_brain_action_messages(mut reader: MessageReader<ActorActionMessage>) 
         );
     }
 }
+
+#[cfg(test)]
+mod slot_gesture_tests;
 
 #[cfg(test)]
 mod tests;

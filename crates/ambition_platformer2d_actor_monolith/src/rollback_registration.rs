@@ -131,10 +131,6 @@ where
         OWNER,
         "resource.clock_regime_policy",
     );
-    registrar.rollback_resource_canonical::<crate::control::SlotInteractionState>(
-        OWNER,
-        "resource.slot_interaction_state",
-    );
     registrar.rollback_resource_canonical::<crate::session::reset::NewGameResetRequested>(
         OWNER,
         "resource.sandbox_reset_requested",

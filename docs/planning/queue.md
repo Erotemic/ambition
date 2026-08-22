@@ -3687,6 +3687,47 @@ this measurement produces — nothing in the monolith would notice them leaving:
   of its own — ⛔ check that destination's stated contract first, which is the
   rule D136 yields.
 
+⭐⭐ **`body_mode` MEASURED, AND ITS COUPLING WAS RE-EXPORT LAUNDERING — 2026-08-22.**
+The table above prices `body_mode` at 8 outbound `crate::` references. Reading
+what those 8 references NAME: 11 of the 12 symbols already live outside the
+monolith and are reached through its re-exports (`BodyKinematics`, `BodyModeState`,
+`BodyFlightState`, `BodyJumpState`, `BodyGroundState`, `BodyEnvironmentContact`,
+`BodyBaseSize`, `MotionModel` → `ambition_platformer2d_core`; `ResolvedMotionFrame`
+→ `shared_tangle`; `CombatCapabilities` → `ambition_combat`). ⇒ **a `crate::` count
+prices the SPELLING, not the dependency.** Resolve each name before believing a
+coupling number: a module that reads only re-exports is already free.
+
+⇒ exactly ONE symbol was genuinely monolith-owned: `SlotInteractionState`.
+
+⛔⛔ **and one of the 12 laundered through a RENAME**, which no grep for the real
+type would have caught: `crate::features::MomentumMotion` is
+`pub use ae::movement::SurfaceMomentumMotion as MomentumMotion` two modules down.
+⇒ resolve the name, do not pattern-match it.
+
+⇒ **`body_mode` now has ZERO monolith-owned dependencies** (re-measured after the
+move) and 2 inbound sites (`avatar/bundles.rs`, `rollback_registration.rs`). It is
+unblocked. ⚠ but the consumer question is still open and D33's own rule says ask it
+first: unlike `affordances` it is LIVE (the runtime schedules `update_body_mode`),
+so the question is not whether anything wants it but WHICH CRATE should own a body
+switching motion modes.
+
+✔✔ **AND IT MOVED (2026-08-22) — the per-slot input model is now one place.**
+`SlotGestures` + `SlotInteractionState` → `ambition_characters::brain`, beside
+`SlotControls`, `SlotControlLatches` and `SeatRawFrames`, which is what they are:
+slot-keyed input tables. They carried **no dependency with them** — primitives and
+a `PlayerSlot` — and the `PlayerEntity` / `PrimaryPlayer` re-export that sat beside
+them in `control::components` is not theirs and stayed. ⭐ that mattered, because
+`ambition_characters` had already REFUSED the `shared_tangle` edge in writing; the
+carve had to be a SPLIT of the file, not a move of it.
+
+⭐ **the orphan rule adjudicated the rest, as its own doc promised it would.**
+`impl SnapshotState for SlotInteractionState` stopped compiling in the monolith the
+moment the type left — trait foreign, type foreign — so the impl and the
+`rollback_resource_canonical` registration moved to `ambition_characters` too.
+Ledger price, exactly as the four-artifact table below predicts: the `.txt`
+fingerprint unchanged, no version bump, one full-path line in
+`rollback-schema-baseline.json` re-pointed.
+
 ⭐⭐ **THE FIFTH GATE, RUN ACROSS EVERY MODULE — 2026-08-21.** Which modules hold
 rollback-registered types (asked of the monolith's `rollback_registration.rs`,
 because a module can be rollback state without containing one line that says so):

@@ -6,7 +6,7 @@
 //! exactly as it was.
 
 use super::{SlotGestures, SlotInteractionState};
-use ambition_characters::brain::{PlayerSlot, SlotControls};
+use super::{PlayerSlot, SlotControls};
 
 /// A gesture state that is visibly non-default in every slot, so a stray write
 /// anywhere shows up as a difference rather than as a value that happened to

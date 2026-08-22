@@ -29,7 +29,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 use super::authority::DrivingParticipant;
-use super::components::{SlotGestures, SlotInteractionState};
+use ambition_characters::brain::{SlotGestures, SlotInteractionState};
 use ambition_characters::brain::PlayerSlot;
 
 /// The controller gestures that answer for a given body.

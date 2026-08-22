@@ -21,7 +21,7 @@ fn empty_world(name: &str) -> ae::World {
 #[test]
 fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
     use crate::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-    use crate::control::SlotInteractionState;
+    use ambition_characters::brain::SlotInteractionState;
     use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
     use bevy::prelude::*;
 
@@ -162,7 +162,7 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
 #[test]
 fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
     use crate::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-    use crate::control::SlotInteractionState;
+    use ambition_characters::brain::SlotInteractionState;
     use bevy::prelude::*;
 
     #[derive(Resource, Default)]
@@ -298,7 +298,7 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
 #[test]
 fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
     use crate::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-    use crate::control::SlotInteractionState;
+    use ambition_characters::brain::SlotInteractionState;
     use bevy::prelude::*;
 
     #[derive(Resource, Default)]

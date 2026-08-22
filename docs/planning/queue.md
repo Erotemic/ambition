@@ -372,23 +372,27 @@ chase 18   item (208.0, 280.4)    body (201.1302, 400.0)
 chase 54   item (235.5, 272.5)    body (201.1302, 400.0)   ← unchanged
 ```
 
-⇒ **she is stopped dead just short of the block, on the floor at y=400** — and
-the ground under that block is HIGHER than the floor she is standing on, which
-is the same geometry fact D182 measured from the other direction. So the reward
-is paid onto a ledge the payee cannot climb by walking.
+⇒ **she is stopped dead just short of the block, on the floor at y=400** — the
+same standstill D182 records from the other direction, and by the same unknown
+mechanism. ⛔ it is NOT a step in the terrain: 1-1's collision layer is flat at
+`surface_y = 416` across x=160..272, and at the pinned pose her box overlaps
+zero blocks.
 
-⚠ **the question is level geometry and feel, not the item.** Either the block
-belongs where a grounded player can collect what it pays, or the payout has to
-travel to her. ⛔ do NOT "fix" it by teaching the fixture to jump — that would
-assert a game whose reward needs a platforming act the level never teaches.
-⭐ next step is a measurement, not a decision: what is the ground height profile
-around x=192..224 in 1-1, and is the step authored or accidental?
+⇒ **so D181 and D182 are ONE defect seen twice**: a body at x≈200-208 under
+that block cannot move, however it got there. ⛔ do NOT "fix" the test by
+teaching it to jump — that would assert a game nobody can play, and it would
+hide the standstill.
+
+⭐ **next step, and it is a measurement**: the ground profile is already ruled
+out, so instrument what the movement kernel is told at that pose — the proposed
+delta, the sweep result and the ground/wall facts — for x=208 against x=508. One
+of them differs and that difference is the bug.
 
 ⭐ the sibling defect in the same area is FIXED and is the reason this one is
 now visible — see D182.
 
-- ✔ **D182 — A BODY PLACED AT A GUESSED HEIGHT IS INSERTED INTO THE TERRAIN, AND
-  IS THEN INERT FOREVER.** (found and fixed 2026-08-22)
+- ◐ **D182 — A BODY SET DOWN UNDER 1-1's FIRST ?-BLOCK IS INERT, AND WHY IS
+  STILL UNKNOWN.** (found 2026-08-22; the test is fixed, the mechanism is not)
 
 `two_rooms::she_crosses_wearing_the_form_she_earned` had been red long enough to
 read as background. The body was grounded, at rest, correctly seated, in
@@ -408,16 +412,28 @@ input arrival   jump_pressed/held true in the slot             ✖
 movement kernel a core repro of a flush transit WALKS FINE     ✖
 ```
 
-⇒ **the discriminator was the x, not the y.** Placed under the block she is
-pinned; placed 300px to the right at the SAME height she walks immediately. The
-fixture reused her spawn height on the stated argument that *"1-1's surface runs
-unbroken from her spawn to this block"* — it does not, the ground under the
-block is higher, and she was inserted INSIDE it. A body embedded in terrain is
-blocked on both horizontal sweeps and reads exactly like a body ignoring input.
+⇒ **the discriminator is the x, not the y.** Placed under the block she is
+pinned; placed 300px to the right at the SAME height she walks immediately.
 
-Fixed by arriving the way a player does: dropped from `DROP_HEIGHT_PX` above and
-allowed to land. That survives the level's heights moving, which the file's own
-doc had already worried about.
+⛔⛔ **AND THE FIRST EXPLANATION OF THAT WAS WRONG — I committed it, then
+measured it false.** I wrote that the ground under the block is higher and she
+was inserted INSIDE the terrain. Two measurements refute it:
+
+```text
+Collision IntGrid, x = 160..272   surface_y = 416 at EVERY column — flat
+her box at the pinned pose        (197.3, 384)..(218.7, 416), overlapping
+                                  0 blocks in RoomGeometry
+```
+
+Her feet rest exactly on the surface and she is embedded in nothing. ⇒ **the
+mechanism is still unexplained**, and the honest record is the discriminator
+plus the eliminations, not a story that fits them.
+
+⭐ **the FIX is sound independently of the mechanism**: she is dropped from
+`DROP_HEIGHT_PX` above and lands, which is how a player arrives at a spot and
+needs no theory about why that spot is special. ⚠ this is exactly the
+right-number-wrong-sentence trap — the repro was solid and the explanation
+attached to it was invented.
 
 ⚠ **the engine is NOT at fault and the new kernel regression says so** —
 `a_body_transited_flush_with_the_ground_can_still_walk` transits a body to

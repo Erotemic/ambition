@@ -113,6 +113,8 @@
   * ⊙ so the gun-sword routes Attack to the bolt today; say if the DIRECTIONAL half you described (a tilt or aerial doing something different from neutral) is still wanted, because every direction currently routes to the one shot.
 
 * In the ambition game, when I move from one room to another that is separated in LDTK, the camera moved as if there is a pan that should be happening. The camera room transition pans are just wrong.
+  * ⊙ **I could not reproduce it, and three mechanisms are refuted — please name the two rooms.** Measured: the room id and your body's teleport land on the SAME frame; `PresentedPose` parks at the destination on a teleport rather than leaving a stale delta; and a census of every authored transition says all 151 (127 Door, 24 EdgeExit) cross an area boundary, so `room_changed` is true for all of them and the camera adopts the new target instead of easing to it.
+  * ▢ **but there IS a real gap next door, if you want it closed:** the camera snaps ONLY on a room change or a blink, never on "the subject teleported". A synthetic teleport inside one room panned it 440px over about 40 ticks. No authored transition is of that kind today — the one multi-level area (`central_hub_complex`, main + basement) is spatially continuous, so walking between its two LDtk levels is a walk — but any future same-room teleport will pan.
 
 
 * The main character shield sprite has the bubble in the wrong place, just kinda to the upper left. 

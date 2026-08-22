@@ -3711,6 +3711,27 @@ first: unlike `affordances` it is LIVE (the runtime schedules `update_body_mode`
 so the question is not whether anything wants it but WHICH CRATE should own a body
 switching motion modes.
 
+⭐ **AND THE ANSWER IS NARROWER THAN THE MODULE LOOKS.** Resolving what
+`body_mode` actually needs, rather than what it names:
+
+* `CombatCapabilities` is a **doc comment**, not code — one `///` line in
+  `mod.rs`. There is no combat edge at all.
+* `ResolvedMotionFrame` (`shared_tangle`) is the ONLY real non-core dependency:
+  one query param in `mechanics/mod.rs` and two test constructions.
+
+⇒ so the destination has to be a crate that may see `shared_tangle`. That rules
+out `ambition_characters`, which refused that edge in writing and would need
+`ambition_combat` too if the doc line were real. `ambition_combat` already has it
+and would cost nothing — but a body switching between biped, morph ball and
+flight is MOVEMENT, and putting it in the combat domain buys a free carve at the
+price of the ownership question this row exists to answer.
+
+⚠ **the shape worth pricing first: the module is a pure decision plus thin Bevy
+glue.** If the decision half takes no `ResolvedMotionFrame`, it belongs in
+`ambition_platformer2d_core::movement` beside the kernel it selects a model for,
+and only the system stays behind. Measure that split before choosing a crate for
+the whole file.
+
 ✔✔ **AND IT MOVED (2026-08-22) — the per-slot input model is now one place.**
 `SlotGestures` + `SlotInteractionState` → `ambition_characters::brain`, beside
 `SlotControls`, `SlotControlLatches` and `SeatRawFrames`, which is what they are:

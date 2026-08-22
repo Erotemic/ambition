@@ -413,7 +413,22 @@ fn two_different_tables_produce_two_different_fights() {
 /// `Situation::Recovery`. Do not promote this to the stronger claim.
 #[test]
 fn every_authored_route_gets_pressed() {
-    const WINDOW: usize = 1800;
+    // THE WINDOW IS PATIENCE, NOT THE MEASUREMENT, and it moved on 2026-08-22.
+    //
+    // This probe watches a whole MATCH and asks whether a route ever got
+    // pressed, so what it really measures is when that match happens to put a
+    // fighter far enough out to want one. Fixing the airborne-grab gate changed
+    // how the two CPUs trade, George's first trip offstage landed later, and at
+    // 1800 the affordance had not been exercised yet. Nothing about his
+    // recovery changed: `the_cpu_throws_its_authored_recovery_during_a_match`
+    // above asks the brain what it SELECTED in `Situation::Recovery` and is
+    // green, which is the strong claim this test explicitly does not make.
+    //
+    // Measured rather than guessed: 2100 fails, 2400 passes. Sitting on the
+    // threshold means the next behaviour change flips it again, so this is
+    // double the original -- headroom for a probe whose cost is one more
+    // simulated match, not a promise that a CPU recovers within N ticks.
+    const WINDOW: usize = 3600;
 
     let m = run_a_match(
         [

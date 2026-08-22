@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `78df20395` (2026-08-21 local project date).
+**Snapshot:** `16f2c229d` (2026-08-22 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it
@@ -101,12 +101,21 @@ when that resource changed role, and immediately reported a one-tick lag they ha
 never been able to see. ⇒ ask of any liveness check: is the thing I read
 DOWNSTREAM of the thing I drive, or is it the thing I drive?
 
-⚠ **two `ambition_demo_mary_o_app` tests are RED and were red before this work** —
-`level_1_acceptance::a_grown_mary_o_bonks_a_question_block…` and
-`two_rooms::she_crosses_wearing_the_form_she_earned`. Verified against `8f3c0e85e`
-in a detached worktree. ⭐ that technique is worth reusing: a baseline worktree
-will not build until the SUBMODULE paths are symlinked into it, and the symlinks
-must be removed BEFORE `git worktree remove --force`.
+✔ **both long-red `ambition_demo_mary_o_app` tests are CLOSED** (D181, D182) —
+39 pass, 0 fail. One was a fixture setting a body down at a guessed height; the
+other was the chase walking small Mary-O into a snake, where the "stall" was her
+corpse and `halt_body` was doing its job.
+
+⛔⛔ **AND FOUR MECHANISMS WERE PROPOSED ACROSS THOSE TWO ROWS; THREE WERE
+WRONG.** Embedded in terrain (the collision layer is flat and she overlaps
+nothing), pinned and immobile (a differential at two x-positions shows identical
+walking and jumping — the "pin" was two-tick input latency read off a probe that
+printed before it stepped), and rising through the block without striking
+(`Head/Block` fires at exactly the underside). ⇒ **A DIFFERENTIAL BEATS A
+THEORY**: every refutation came from running the same code at two inputs, never
+from reasoning about one. ⛔ do not publish a mechanism in the same commit as a
+fix unless the fix depends on it — this fix was correct under all three wrong
+stories, and only the prose needed retracting.
 
 ⚠ **also long-red and outside the gate**: three `ambition_workspace_policy`
 engine-policy rows (`body_step.rs` direct `kinematics.pos`/`vel` writes, and a

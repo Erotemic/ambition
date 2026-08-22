@@ -299,33 +299,12 @@ pub fn ensure_active_room_parallax_theme(
     );
 }
 
-/// ONE BACKDROP PANEL SET PER LIVE VIEW.
+/// Maintain one parallax panel set per live local view.
 ///
-/// the reason is that one entity cannot hold two views' transforms. A
-/// panel is offset by where ITS camera stands in the room and sized against THAT
-/// camera's viewport rectangle; two views legitimately want the same sky at two
-/// positions and two sizes, so naming which view a single shared entity serves
-/// could not have made it correct.
-///
-/// a second view is a COUNT, not a special case, and the single-view case
-/// stays exactly one entity per layer. The panel the room spawned is CLAIMED
-/// by the lowest-id view rather than demoted to an un-drawn template; a template
-/// would make a one-view game allocate two entities per layer to draw one. Views
-/// past the first get copies.
-///
-/// the claim is keyed on `LocalViewId`, not on query order — which entity
-/// is "the root's view" has to be the same answer on every frame and every run,
-/// and archetype iteration is neither.
-///
-/// and a view is retracted by DESPAWNING its copies, never by clearing their
-/// key. A copy that keeps its `Sprite` and loses its `PresentedForView` is
-/// still drawn by the renderer while dropping out of every query that selects by
-/// view. The root is the one exception and is RE-KEYED onto the surviving lowest
-/// view: a reset, not a removal.
-///
-/// This is `mirror_static_world_labels_per_view` one family over, deliberately
-/// the same shape — the point of `PresentedForView` is that "per view" has one
-/// spelling.
+/// The lowest `LocalViewId` deterministically claims each room-spawned root;
+/// additional views receive copies. Removed views despawn their copies, while a
+/// root is re-keyed to the lowest survivor. Never clear `PresentedForView` on a
+/// still-rendered sprite, because it would become an unscoped draw.
 #[allow(clippy::type_complexity)]
 pub fn mirror_parallax_layers_per_view(
     mut commands: Commands,

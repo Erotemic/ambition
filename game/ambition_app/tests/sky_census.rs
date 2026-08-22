@@ -1,30 +1,8 @@
-//! WHAT DOES `pirate_sky_lookout` ACTUALLY ASK THE SFX CHANNEL FOR?
+//! Diagnostic census for combat/SFX activity in `pirate_sky_lookout`.
 //!
-//! He refused the reading: *"there must be sounds in the pirate sky. they fire their gun
-//! swords… I'm just giving you an example of something obvious the instrument should be able to
-//! hear.
-//!
-//! ```text
-//! actors in the room                10   (4 flying sharks, 4 pirate riders, 2 parrots)
-//! DORMANT actors                     0   — every one is awake
-//! actors holding a combat TARGET  10/10  — every one has somebody to shoot
-//! upstream FxRequests               0    — in THIRTY SECONDS
-//! ticks with any audio             12/1800
-//! ```
-//!
-//!  eight awake, targeted pirates fire nothing at all in the headless sim.
-//! Whatever makes them shoot in the running game is not reaching this
-//! composition, so a census built on it cannot hear the scene it is pointed at —
-//! and neither can any other test built on this harness that concludes
-//! "nothing bad happened".
-//!
-//! that is the reason this is `#[ignore]`d rather than asserted: the honest
-//! assertion ("awake targeted enemies produce combat over 30s") is RED today,
-//! and a red test on `main` is not how a finding gets reported. Run it with
-//! `cargo test -p ambition_app --test app_it -- pirate_sky --ignored --nocapture`.
-//!
-//! do NOT read a future green here as "the sky is quiet". It is quiet because
-//! nothing happens.
+//! The current headless harness leaves the targeted pirates inert, so this test
+//! is ignored rather than treating zero SFX as a valid scene result. Run it
+//! explicitly when diagnosing whether that harness reaches enemy combat.
 
 use ambition_platformer2d::sfx::{OwnedSfxMessage, SfxMessage};
 use crate::common::fixed_60hz_room_sim;

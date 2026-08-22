@@ -128,27 +128,13 @@ pub enum PreparedKit {
         action_set: crate::brain::ActionSet,
         moveset: MovesetContract,
     },
-    /// NOBODY AUTHORED A KIT FOR THIS CHARACTER, so the body's own
-    /// `AbilitySet` rebuilds one — the host's code-side kit.
+    /// No catalog action set exists, so the body's runtime `AbilitySet` builds
+    /// the host-side kit. This remains valid for hosts whose protagonist kit
+    /// depends on runtime progression rather than a catalog row; a shipped
+    /// catalog character reaching this arm indicates missing content.
     ///
-    /// What reaches this arm is exactly that absence: an id the catalog does not know, or no
-    /// catalog at all.
-    ///
-    ///  MEASURED, so the reachability is a fact rather than a guess
-    /// of the 32 characters Ambition's own registration publishes,
-    /// zero land here — every one has a catalog row. This arm is not
-    /// migration residue for all that: it names the one case a per-character
-    /// value structurally CANNOT hold, because the host's protagonist kit is
-    /// built from that body's runtime `AbilitySet` and progression. A host that
-    /// registers characters without shipping Ambition's catalog is its
-    /// consumer.
-    ///
-    ///  so do not "finish the migration" by deleting it. The thing to watch is
-    /// the opposite: if a SHIPPED character ever lands here it is a missing
-    /// catalog row, not a design.
-    ///
-    /// `authored_moveset` is still honoured: a character with no action set may
-    /// still bring its own timelines.
+    /// `authored_moveset` is still honored when timelines exist without an
+    /// authored action set.
     Unauthored {
         authored_moveset: Option<MovesetContract>,
     },
@@ -223,21 +209,12 @@ impl std::fmt::Display for MissingCharacterFacts {
 }
 
 impl PreparedCharacterDefinition {
-    /// Can a body be built from this character ALONE — and if not, what is
-    /// missing?
+    /// Return the body blueprint only when every fact required by
+    /// character-first construction is authored.
     ///
-    ///  the migration frontier, as one question with a nameable answer.
-    /// Construction has two roads: character-first, which reads only the
-    /// blueprint, and the legacy road, which builds an enemy ARCHETYPE and
-    /// patches the character over it. Which road a spawn takes cannot be a
-    /// guess, and it cannot be "does it have a character id" — a character that
-    /// authored nothing but a sheet would arrive as a body with no top speed,
-    /// unable to move.
-    ///
-    ///  adding a required fact here is how the frontier moves. A fact that
-    /// construction cannot do without belongs in this list, and the day one is
-    /// added every character missing it drops to the legacy road WITH A REASON
-    /// rather than silently.
+    /// Required construction facts belong in this checklist. Missing facts are
+    /// reported explicitly so callers can choose their compatibility path rather
+    /// than treating a character id alone as sufficient.
     pub fn body_blueprint(&self) -> Result<CharacterBodyBlueprint<'_>, MissingCharacterFacts> {
         let mut missing = Vec::new();
         if self.locomotion.is_none() {
@@ -1332,31 +1309,13 @@ pub fn prepare_and_finalize_against_for_test(
     }
 }
 
-/// The prepared authority: one entry per character, keyed by stable id.
+/// Prepared character authority keyed by stable id.
 ///
-/// §4.1's end state is that subsystem read models are DERIVED from this rather than registered
-/// beside it.
-///
-/// * Derived from here: sprite declarations, cue authorization, each body's
-///   presentation source, and the authored MOVESET, HURTBOX DOC, ACTION SET and
-///   MOTION MODEL of any body whose identity resolves to a registered character.
-///   Both construction paths honour all four —
-///   `project_prepared_character_definitions` for a seated or spawned body, and
-///   `avatar::starting_character`'s one construction for a worn one — because
-///   wiring only the worn path left seated fighters without their action set for
-/// a day.
-/// * Still the catalog's, and legitimately: display names, sheet targets,
-///   default brains, tiers, tags, aggro and attack ranges, and the remaining
-///   movement TUNING. Those are not the KIT, which is what C3 was about — the
-///   catalog is the right authority for what a character is CALLED and what it
-///   LOOKS like, and it stays the fallback for every kit field a definition did
-///   not author, which is most characters.
-///
-/// Precedence, in one sentence: an explicitly authored value on the
-/// definition outranks the catalog row; `None` means the author said nothing and
-/// the row stands; and `Some(empty)` is an authoring DECISION that outranks the
-/// row exactly as a filled one does. That last distinction is the load-bearing
-/// one — collapsing it hands an intentionally weaponless character a punch.
+/// Authored definition values override catalog fallbacks for kit fields; `None`
+/// means use the catalog value, while `Some(empty)` is an explicit empty value.
+/// Sprite declarations, cue authorization, presentation source, moveset,
+/// hurtbox, action set, and motion model are derived from this registry. Display
+/// metadata and remaining catalog tuning stay catalog-owned.
 #[derive(bevy::prelude::Resource, Debug, Clone, Default)]
 pub struct PreparedCharacterRegistry {
     by_id: BTreeMap<ambition_entity_catalog::CharacterId, PreparedCharacterDefinition>,

@@ -1,31 +1,7 @@
-//! ONE ITEM, TWO PERSISTENCE AUTHORITIES, ASKED TO AGREE FOR THE FIRST TIME.
-//!
-//! ```text
-//! DURABLE SAVE   items::persist mirrors OwnedItems (the 24-slot catalog) into
-//! (disk)         AmbitionGameSave, keyed by stable `dialog_id`
-//!                -> restores a COUNT
-//!
-//! CHECKPOINT     CustodyBaseline + MintedItemBaseline, captured at a shrine
-//! (memory)       rest, keyed by SimId
-//!                -> restores an INSTANCE into a specific hand
-//! ```
-//!
-//! the same physical object crosses between them, by design. The
-//! inventory menu equips straight out of the count table; throwing what it
-//! equipped mints an instance. So one javelin is a row in `OwnedItems` and an
-//! occurrence in the custody baseline at the same time.
-//!
-//! Every beat here is an ordinary road: a real grant channel, the one
-//! take-custody operation the menu calls, a pressed throw, a pressed pickup, a
-//! real shrine rest, a real death report, and the two production persist systems.
-//!
-//! the only manufactured trigger is the LOAD. The restore is latched by
-//! `SaveRestored`, which a fresh process starts `false`; clearing the latch
-//! in-process is what "the game booted and read the file" looks like from inside
-//! one App.
-//!
-//! `DurableSaveHorizonPlugin` owns it now, in the runtime plugin group, so stepping a frame is what
-//! saves.
+//! Cross-check the two persistence authorities for one physical item.
+//! Durable save state restores catalog counts by item id; checkpoint state restores
+//! concrete custody instances by `SimId`. Equipping and throwing can move one item
+//! through both representations, so the two restore paths must agree.
 
 use ambition_app::{AgentAction, Platformer2dSimHarness};
 use bevy::ecs::system::RunSystemOnce;
@@ -56,9 +32,6 @@ type Custody = ambition_platformer2d::actors::items::pickup::ItemCustody;
 type Ground = ambition_platformer2d::actors::items::pickup::GroundItem;
 type Held = ambition_platformer2d::combat::held_items::HeldItem;
 
-// ───────────────────────────────────────────────────────────────────────────
-// The world, read through its own vocabulary.
-// ───────────────────────────────────────────────────────────────────────────
 
 fn body(sim: &mut Platformer2dSimHarness) -> Entity {
     let mut query = sim
@@ -79,9 +52,7 @@ fn body_pos(sim: &mut Platformer2dSimHarness) -> (f32, f32) {
     (kin.pos.x, kin.pos.y)
 }
 
-/// Every live occurrence of one identity, and whether each is in a hand.
-///
-/// a COUNT, never a lookup — a duplicate is one of the ways this fails.
+/// All live occurrences of one identity and their custody. Return a collection so duplicates fail.
 fn occurrences(sim: &mut Platformer2dSimHarness, id: &SimId) -> Vec<(Entity, Custody)> {
     let mut query = sim.world_mut().query::<(Entity, &SimId, &Custody)>();
     query
@@ -91,8 +62,7 @@ fn occurrences(sim: &mut Platformer2dSimHarness, id: &SimId) -> Vec<(Entity, Cus
         .collect()
 }
 
-/// Every live occurrence the SIMULATION minted, asked by `SpawnOrigin` rather
-/// than by the spelling of the id (`SimId::as_str`'s doc forbids the latter).
+/// Simulation-minted occurrences, identified by `SpawnOrigin` rather than id spelling.
 fn dynamic_occurrences(sim: &mut Platformer2dSimHarness) -> Vec<SimId> {
     let mut query = sim.world_mut().query::<(&SimId, &SpawnOrigin, &Ground)>();
     let mut found: Vec<SimId> = query
@@ -104,8 +74,7 @@ fn dynamic_occurrences(sim: &mut Platformer2dSimHarness) -> Vec<SimId> {
     found
 }
 
-/// Where the named object is lying right now. Panics rather than returning
-/// `None`: a room that stopped authoring it is a fixture measuring nothing.
+/// Unique in-world position for this identity; panic if the fixture is absent or duplicated.
 fn resting_place(sim: &mut Platformer2dSimHarness, id: &SimId) -> (f32, f32) {
     let mut query = sim.world_mut().query::<(&SimId, &Ground, &Custody)>();
     let found: Vec<(f32, f32)> = query
@@ -122,18 +91,12 @@ fn resting_place(sim: &mut Platformer2dSimHarness, id: &SimId) -> (f32, f32) {
     found[0]
 }
 
-/// The catalog count of one item — the DURABLE authority's answer to "do you
-/// own one".
+/// Durable catalog count for one item.
 fn catalog_count(sim: &Platformer2dSimHarness, item: Item) -> u32 {
     sim.world().resource::<OwnedItems>().count(item)
 }
 
-/// The count the SAVE FILE holds for one item, by its stable `dialog_id`.
-///
-/// read out of `AmbitionGameSave` rather than out of `OwnedItems`, because the
-/// question is what would land on disk — the two are mirrored by
-/// `persist_inventory_to_save`, and a fixture that read the live resource would
-/// be asserting the thing it means to compare against.
+/// Count serialized into `AmbitionGameSave`, read independently of the live `OwnedItems` mirror.
 fn saved_count(sim: &Platformer2dSimHarness, item: Item) -> u32 {
     sim.world()
         .resource::<AmbitionGameSave>()
@@ -145,9 +108,6 @@ fn saved_count(sim: &Platformer2dSimHarness, item: Item) -> u32 {
         .unwrap_or(0)
 }
 
-// ───────────────────────────────────────────────────────────────────────────
-// The roads.
-// ───────────────────────────────────────────────────────────────────────────
 
 /// Stand on an object and press Attack until it is in hand. Edge-triggered, so
 /// the press is released between attempts.

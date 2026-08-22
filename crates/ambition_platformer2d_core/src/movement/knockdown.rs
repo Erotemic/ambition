@@ -1,28 +1,8 @@
-//! Tumble → knockdown → tech → getup: what happens to a body between the
-//! hit that launched it and the moment it is standing again.
+//! Tumble, knockdown, tech, and getup body mechanics.
 //!
-//! Every established platform fighter builds its neutral out of exactly the states below, and the
-//! reason is not decoration: without knockdown there is nothing to punish, and without a tech there
-//! is no way to refuse the punish.
-//!
-//! ```text
-//!   a hit launches you            ── tumble ──────────────────────────┐
-//!   (only above the body's                     │ press the evade      │
-//!    authored threshold)                       │ button near a        │
-//!                                              ▼ surface             ▼
-//!   you hit the floor still tumbling       ── tech ──          ── knockdown ──
-//!                                          i-frames,           prone; getup by
-//!                                          instant recovery    roll / attack /
-//!                                                              stand / timeout
-//!   a mistimed tech                        ── lockout ──  no tech for a while
-//! ```
-//!
-//! body-generic and AUTHORED, exactly like the air dodge. A body whose
-//! tuning leaves [`crate::movement::TraversalAbilityTuning::tumble_speed`] at
-//! `0.0` never tumbles, which is every body in the game until one says
-//! otherwise — a wandering enemy that got knocked down and had to stand up would
-//! be a different game for the exploration side, and that is not a decision the
-//! fighter demo gets to make for it.
+//! Bodies opt in through authored traversal tuning. A body with zero
+//! `tumble_speed` never enters this state machine, so fighter-specific recovery
+//! behavior does not leak into unrelated actors.
 
 use super::input::InputState;
 use super::model::AxisManeuverState;

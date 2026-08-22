@@ -38,8 +38,7 @@ impl Scope {
     }
 }
 
-/// How severe a violation is. Everything is `Error` today; `Warn` exists so a
-/// future ratchet can land advisory before it bites.
+/// Policy violation severity. `Warn` supports advisory rules without changing the schema.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Severity {
@@ -112,8 +111,6 @@ pub enum RuleKind {
 #[serde(deny_unknown_fields)]
 pub struct Policy {
     /// Stable, searchable identifier (e.g. `engine.host-names-no-content`).
-    /// Derived from the old test name where one existed, so `git log -S` still
-    /// finds the history.
     pub id: String,
     pub scope: Scope,
     pub kind: RuleKind,
@@ -168,8 +165,7 @@ pub struct Policy {
     /// in code.
     #[serde(default)]
     pub forbid: Vec<String>,
-    /// `forbidden-source-reference`: substrings that, if present on a line,
-    /// exempt that line (the reviewed cross-boundary exceptions).
+    /// `forbidden-source-reference`: substrings that exempt a matching source line.
     #[serde(default)]
     pub allow_lines: Vec<String>,
     /// `forbidden-source-reference`: path substrings whose files are skipped.

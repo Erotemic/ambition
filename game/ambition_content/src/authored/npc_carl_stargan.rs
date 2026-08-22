@@ -1,32 +1,8 @@
-//! CARL STARGAN.
+//! Carl Stargan's character-owned locomotion, combat capability, and autonomous
+//! policy.
 //!
-//! > *"There is no separate 'can fight' character property. A character can
-//! > fight exactly to the extent that its body has abilities/capabilities that
-//! > can produce combat effects."*
-//!
-//! So the long-open question *"does Carl Stargan fight?"* is
-//! not answered here with a flag. It is answered by this file authoring a
-//! moveset: he has a swipe, therefore he can swing it. A body with no damaging
-//! ability simply has nothing useful to execute when asked to attack, and no
-//! `can_fight` / `combatant` / peaceful-vs-fighter taxonomy is needed to say so.
-//!
-//! The two content facts he owns, both verbatim from that handoff:
-//!
-//! - *"Carl does not have the fly ability."* and not by omission — by an
-//!   authored locomotion that says he walks. *"Do not infer flight from his art,
-//!   body kind, NPC role, or any legacy archetype."*
-//! - *"Carl can fight … his combat capability is intrinsic to the character/body,
-//!   not something granted by being controlled or by entering a particular
-//!   mode."*
-//!
-//! friendly is CONTEXT, and it stays out of this file. *"Do not make him
-//! permanently peaceful/passive merely because he may normally appear as a
-//! friendly NPC. His placement/disposition can be friendly while his body still
-//! possesses combat capabilities and his autonomous policy can defend allies."*
-//! His one shipped placement is a Hall `NpcSpawn` with
-//! `brain_override: stand_still`, and that placement keeps its override — a
-//! standing statue with a sword is a body that is not being asked to swing, not
-//! a body that cannot.
+//! Carl walks and can fight; friendliness and `stand_still` are placement or
+//! controller policy, not restrictions on the body itself.
 
 use ambition_characters::actor::CharacterLocomotion;
 use ambition_characters::brain::{
@@ -34,13 +10,10 @@ use ambition_characters::brain::{
 };
 use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
 
-/// See the module doc. Reached through [`super::AUTHORED_CAST`], which is also
-/// what makes this character buildable — there is no second list to remember.
+/// Authored through [`super::AUTHORED_CAST`], the canonical buildable-cast registry.
 pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDefinition {
     let mut definition = definition
-        // HE WALKS. Authored rather than defaulted, because the question
-        // this file closes was whether he flies, and a default is not an answer
-        // to a question somebody asked.
+        // Walking is explicit; do not infer flight from art, role, or body kind.
         .with_locomotion(CharacterLocomotion {
             run_speed: 210.0,
             move_style: MoveStyleSpec::Walk,
@@ -58,9 +31,7 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             special: None,
             move_style: MoveStyleSpec::Walk,
         })
-        // The policy that lets him answer a fight he did not start. It is
-        // CONTROLLER policy, not body identity — his Hall placement overrides it
-        // with `stand_still`, and overriding it is what a placement is for.
+        // Autonomous policy is controller behavior; placements may override it.
         .with_moveset(crate::carl_stargan_moveset::carl_stargan_moveset())
         .with_autonomous_profile(BrainProfile {
             template: CharacterBrainTemplate::Smash,

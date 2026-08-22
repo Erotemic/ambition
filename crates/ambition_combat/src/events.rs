@@ -1,18 +1,7 @@
-//! Combat-kit message/event vocabulary + small shared value types.
-//!
-//! Holds `FeatureCombatTuning`, the hit model
-//! (`HitMode`, `HitKnockback`, `ActorStimulus`), the typed gameplay-effect
-//! messages consumed in [`bus`](super::bus) (`SetFlagRequested`,
-//! `QuestAdvanceRequested`, `SwitchActivated`, `GameplaySfxRequested`), the
-//! room-reset signals (`RoomResetReason`, `ResetRoomFeaturesEvent`), and the
-//! `GameplayBanner` HUD resource. Pure data/messages — no systems.
+//! Combat message/event vocabulary and small shared value types.
 
 use super::*;
 
-// The feature-visual taxonomy (`FeatureVisualKind`, `BoundFeatureKind`) moved
-// to `ambition_platformer2d_shared_tangle::feature_kind` and the `FeatureView`
-// read-model row to `ambition_sim_view` (recon C2): the taxonomy is foundation
-// vocabulary and the row is the read-model's own — neither is combat model.
 
 #[derive(Clone, Copy, Debug)]
 pub struct FeatureCombatTuning {
@@ -81,17 +70,8 @@ pub enum ActorStimulus {
     },
 }
 
-// Typed cross-system gameplay effects emitted by feature code.
-//
-// Each is its own Bevy [`Message`] with a focused consumer in `bus.rs`.
-// This deliberately replaces the former single `GameplayEffect` enum bus:
-// unrelated domain events (save flags, quest advances, switch activations,
-// audio) no longer share one channel, so a consumer only declares a reader
-// for the message it actually handles.
-//
-// Do not reintroduce a generic effect enum or side-channel `Vec`s for
-// progression/save/audio routing. Add a typed message + a focused consumer
-// system instead.
+// Cross-system gameplay effects use typed messages with focused consumers.
+// Do not reintroduce a generic effect enum or side-channel vectors.
 
 /// Set a save/quest flag. The consumer mirrors `on == true` into a
 /// `QuestAdvanceEvent::FlagSet` so flag-driven quest steps advance in the
@@ -102,11 +82,7 @@ pub struct SetFlagRequested {
     pub on: bool,
 }
 
-// `QuestAdvanceRequested` moved to `crate::quest` (E2): quest owns its
-// advance vocabulary; combat must not name it.
 
-// `SwitchActivated` moved to `crate::encounter::switches` (E2): it names
-// encounter vocabulary; combat must not.
 
 /// Standalone audio-only gameplay effect. Use typed presentation vectors for
 /// sounds that also imply VFX/progression, and this message for bare audio.
@@ -173,8 +149,7 @@ impl GameplayBanner {
     }
 }
 
-/// Message form for systems that cannot cheaply acquire `ResMut<GameplayBanner>`
-/// without bloating an already-large system signature.
+/// Message form for indirect banner requests.
 #[derive(Message, Clone, Debug, PartialEq)]
 pub struct GameplayBannerRequested {
     pub text: String,
@@ -236,17 +211,8 @@ pub enum HitSource {
 }
 
 impl HitSource {
-    /// Is this an unresolved strike still hunting for whom it hit?
-    ///
-    /// only ask this of an event whose target is NOT resolved. Every
-    /// victim-side producer in the tree stamps [`HitTarget::Body`] now, and a
-    /// named victim is the whole answer — the three sites that consult this all
-    /// reach it only on a `Volume` / `UnresolvedFeatures` / `OrbMatch` event,
-    /// where "who is this broadcast FOR" is a real question.
-    ///
-    /// so it is NOT "attacker-side", which is what it was called, and that
-    /// name is why it read as a fact about the player-versus-world direction of
-    /// combat. It is a fact about the event's RESOLUTION state.
+    /// Whether this unresolved strike still needs victim resolution.
+    /// Resolved `HitTarget::Body` events already name their victim.
     pub fn seeks_victims(&self) -> bool {
         matches!(
             self,
@@ -268,70 +234,20 @@ pub enum HitTarget {
     /// authoring zones).
     #[default]
     Volume,
-    /// One pre-resolved body victim, named by entity. A producer that
-    /// already did the work — overlap, relationship, self-exclusion, dedup —
-    /// stamps who it picked, and every consumer applies the hit to exactly that
-    /// body. Explicit victim identity outranks
-    /// [`HitSource::seeks_victims`]'s legacy broadcast direction.
-    ///
-    /// Its real job was telling two consumers which one owned the event, which is a question
-    /// each consumer can answer by asking whether the victim is in ITS population. A controller
-    /// kind is not a damage route.
+    /// One pre-resolved body victim. Explicit victim identity is the complete routing answer.
     Body(bevy::prelude::Entity),
     /// Orb-AABB match (pogo). Only the breakable whose AABB
     /// approximately equals `volume` is hit; actors / bosses are
     /// skipped.
     OrbMatch,
-    /// The part of a strike the body resolver could not resolve.
-    ///
-    /// A body-owned melee strike resolves every real combat body itself, by
-    /// identity, in [`crate::hitbox::apply_hitbox_damage`] — and publishes one
-    /// [`crate::hitbox::LandedBodyHit`] per contact. But a strike also reaches
-    /// things that are not bodies: a breakable crate, and a boss whose HP and
-    /// phase live on an encounter rather than on a combat body. Those have no
-    /// entity the resolver can name, so they stay UNRESOLVED and the geometry
-    /// has to be broadcast for them.
-    ///
-    /// This is not [`Self::Volume`], and the difference is load-bearing.
-    /// `Volume` means "nothing here is resolved — scan everything", and the
-    /// wielded world-AOE primitive still means exactly that. This variant means
-    /// "the bodies are ALREADY resolved; scan only what a body resolver cannot
-    /// see". A consumer that treats the two alike damages every combat body a
-    /// second time, on top of the identified hit it already took.
-    ///
-    /// Keeps unresolved feature broadcasts distinct from already resolved body
-    /// hits.
-    ///
-    /// TODO(compat-remove): remove this variant once bosses and breakables are
-    /// resolvable victims in their own right.
+    /// Remainder of a strike after body victims were resolved by identity.
+    /// Consumers must scan only non-body targets here or bodies receive duplicate damage.
+    /// TODO(compat-remove): remove once bosses and breakables are directly resolvable victims.
     UnresolvedFeatures,
 }
 
-/// One hit event in world space — the single canonical channel for
-/// damage in either direction (attacker → feature, or anything →
-/// player). Producers emit these as Bevy messages; the feature- and
-/// player-damage systems filter by source-direction and apply.
-///
-/// Source-specific resolution:
-/// - `PlayerSlash` / `PlayerProjectile`: broadcast match — every
-///   feature whose AABB strict-intersects `volume` takes a hit.
-/// - `PogoBounce`: orb-exact match — only the breakable whose AABB
-///   approximately equals `volume` is hit; actors / bosses are skipped.
-/// - `Hazard` / `Enemy*` / `Boss*` with `target = Player(e)`: the
-///   pre-resolved player victim takes the hit (mode + knockback
-///   applied). `target = Volume` falls back to the primary player.
-/// The in-flight victim-side hits, staged at the end of the Combat phase for
-/// the player-victim resolver that runs in the NEXT frame's PlayerSimulation
-/// phase.
-///
-/// A message buffer cannot carry sim state across a frame boundary under GGRS:
-/// the buffer is cleared on `LoadWorld` (so a rewind between the strike's
-/// write and the victim's read silently un-hits the player), and reader
-/// cursors are `Local`s no snapshot can see. Cross-frame combat truth
-/// therefore lives in this rollback-registered FIFO — the
-/// `SwitchActivationQueue` pattern, found by the
-/// Phase-5 exit oracle when an enemy hit on the player failed to survive
-/// resimulation.
+/// Rollback-registered FIFO for victim-side hits that intentionally cross a frame boundary.
+/// Bevy message buffers and reader cursors are not rollback state.
 #[derive(bevy::prelude::Resource, Clone, Debug, Default)]
 pub struct PendingPlayerHitEvents(pub Vec<HitEvent>);
 
@@ -348,6 +264,7 @@ impl bevy::ecs::entity::MapEntities for PendingPlayerHitEvents {
     }
 }
 
+/// Canonical world-space hit message. `target` states the victim-resolution mode.
 #[derive(Message, Clone, Debug)]
 pub struct HitEvent {
     /// World-space volume the hit covers. For broadcast / orb-match
@@ -368,22 +285,13 @@ pub struct HitEvent {
     /// Reaction mode for player victims (`Knockback` / `SafeRespawn`).
     /// Ignored for non-player targets.
     pub mode: HitMode,
-    /// Knockback impulse to apply to the victim, and the only channel that
-    /// carries one. `None` means this hit genuinely does not push its target
-    /// (pogo, player projectile). a source-specific impulse field is not an
-    /// alternative spelling — see [`HitSource::Melee`] for the one that
-    /// existed and what it cost.
+    /// Knockback carried by this hit. `None` means the hit does not push its victim.
     pub knockback: Option<HitKnockback>,
     /// Target keys that have already been hit by this one-hit-per-
     /// target source. Empty for ordinary one-frame projectiles /
     /// hazards / pogos.
     pub ignored_targets: Vec<String>,
-    /// Authored STRIKE SOUND identity (CM8): the sound the attack behind this
-    /// hit makes on contact, carried to the ONE victim-side reaction so the
-    /// payload is never chosen by an `is_player` branch. `None` = the victim's
-    /// own [`ambition_vfx::HurtFeedback`] default sound. A `Copy` `u64` id —
-    /// cheap weight on the snapshotted `PendingPlayerHitEvents` FIFO, unlike a
-    /// `String` — and excluded from the checksum like the other id fields.
+    /// Authored contact-sound id. `None` uses the victim feedback default.
     pub strike_sfx: Option<ambition_sfx::SfxId>,
 }
 
@@ -391,14 +299,7 @@ pub struct HitEvent {
 mod resolution_direction_tests {
     use super::HitSource;
 
-    /// The predicate answers one question — is this unresolved strike still
-    /// hunting for whom it hit — and the split is between a cause that goes
-    /// LOOKING for a body and one that happens TO whoever is standing there.
-    ///
-    /// That mattered only because the player FIFO staged on the COMPLEMENT of this predicate; it
-    /// stages on whether the named victim is in its own population now, so the answer gates nothing
-    /// for a resolved hit — and every contact producer in the tree resolves its victim. A body
-    /// whose footprint harms what it touches genuinely is out looking.
+    /// Only unresolved strike causes seek victims; hazards and world exit arrive at a victim.
     #[test]
     fn a_strike_seeks_victims_and_the_world_does_not() {
         for hunting in [

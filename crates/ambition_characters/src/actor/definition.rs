@@ -1,24 +1,10 @@
-//! THE AUTHORED CHARACTER — what content writes down, before anything
-//! resolves it.
-//!
-//! Item 1 settled where the cut goes and the file settled it, not a preference:
-//! `derive_moveset` — the single reach into `ambition_combat` — is a private
-//! preparation function rather than a method on this type, and resolving a kit
-//! is runtime work. So the AUTHORED half moves and
-//! `PreparedCharacterDefinition` stays above.
-//!
-//! this half already had no `crate::` references at all, which is how a 600-line move became a
-//! cut rather than a refactor.
+//! Authored character data before runtime preparation.
+//! Kit resolution remains runtime work; this module contains body-owned authored facts.
 
 use ambition_entity_catalog::{HurtboxDoc, MovesetContract};
 
-/// Non-authoritative provenance for a generated crossover variant (§4.3).
-///
-/// `mary_o` and `mary_o_smash` are two independent, fully-resolved products with
-/// distinct stable ids, emitted by one generator from shared source. The engine
-/// never learns what a mode is — there is no patch layer and no override
-/// precedence — and it must not interpret any of this as a balance layer. It
-/// exists so a derived character is reproducible.
+/// Non-authoritative reproducibility metadata for generated variants.
+/// Derived characters have independent stable ids; lineage is not inheritance or balance policy.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Lineage {
     pub derived_from: Option<String>,
@@ -26,40 +12,21 @@ pub struct Lineage {
     pub source_fingerprint: Option<String>,
 }
 
-/// Physical limits and vitals. Optional fields distinguish "not authored" from
-/// an explicit value, allowing body construction defaults to remain authoritative
-/// when the character definition does not override them.
-///
-/// Default health for a body with no authored health authority. Provocation does
-/// not replace the body's health pool.
+/// Default health when no character-authored health pool is provided.
 pub const DEFAULT_UNAUTHORED_BODY_HEALTH: i32 = 4;
 
+/// Optional authored physical limits; `None` leaves construction-time state authoritative.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Vitals {
-    /// How much punishment this character's body takes. `None` leaves whatever
-    /// pool the body's construction established — for a playable body that is
-    /// the host's standard pool.
-    ///
-    /// The definition-side analogue of the catalog row's `max_health`, which has
-    /// carried exactly this `Option` meaning since it was added; finalization
-    /// folds the two, definition first.
+    /// Authored health pool. `None` leaves the construction-time pool authoritative.
     pub max_health: Option<i32>,
     /// Reaches the body as `Mass`, which drives the mount pair's mass-weighted
     /// center of gravity. `None` preserves the body's existing mass; `Some(1.0)`
     /// is an explicit authored override even though `1.0` is the ambient default.
     pub mass: Option<f32>,
-    /// How hard this body is to LAUNCH — the knockback weight, reaching a
-    /// body as `CombatTuning::weight` (`ambition_combat`). `1.0` is
-    /// the reference body; a heavy fighter authors more and takes less of the
-    /// growth term (`scaled_knockback` divides by it).
-    ///
-    ///  distinct from [`Self::mass`], which is the mount pair's centre of
-    /// gravity. They are the same word in physics and two different mechanics
-    /// here, and conflating them would make a heavy mount hard to knock about
-    /// as a side effect of how its rider orbits it.
-    ///
-    /// `None` leaves the body's own — for a clustered actor that is its roster archetype's,
-    /// which is the ONLY place a weight could be stated until now.
+    /// Knockback weight used by combat launch scaling. `1.0` is the reference body.
+    /// This is independent of [`Self::mass`], which controls mount-pair physics.
+    /// `None` preserves the body or roster value.
     pub knockback_weight: Option<f32>,
     /// Standing height in world pixels, used to scale sprite-authored geometry
     /// consistently across characters. `None` preserves the construction-time
@@ -73,21 +40,9 @@ pub fn world_per_pixel_for_height(canonical_height: f32, sheet_pixel_height: f32
     (sheet_pixel_height > 0.0).then(|| canonical_height / sheet_pixel_height)
 }
 
-/// Where a body's collision geometry comes from (§4.11, §5).
-///
-/// * `SpriteAuthored { world_per_pixel }` becomes a
-///   [`SpritePosedBody`](ambition_sprite_sheet::character::sheets::SpritePosedBody), installed by
-///   `project_prepared_character_definitions` and retracted with the rest of that
-///   system's grants. From there the existing per-tick sync derives the collision
-///   box, the sprite quad and its offset off the art, so a body that changes
-///   SHAPE between poses needs no bespoke per-state boxes.
-/// * `Explicit { half_extents }` is a SPAWN-time size, consumed by seating in
-///   place of its `SEAT_BODY_PX` placeholder.
-///
-///  the split is not arbitrary. A projection that resized a LIVE body would be
-/// a second geometry authority beside the transit seam (ADR 0024); a spawn-time
-/// constant cannot express a silhouette that changes with the pose. Each variant
-/// goes to the authority that can actually honour it.
+/// Authority for body collision geometry.
+/// `SpriteAuthored` follows per-pose sheet geometry; `Explicit` is a spawn-time constant.
+/// Runtime projections must not become a second live-body geometry authority.
 #[derive(Debug, Clone, PartialEq)]
 pub enum BodySource {
     /// The sheet authors it, per pose (`SpritePosedBody`).
@@ -96,114 +51,41 @@ pub enum BodySource {
     Explicit { half_extents: (f32, f32) },
 }
 
-/// One authored character. Sections may be inline or referenced.
-///
-/// Note what is NOT here: `default_brain` (§4.7 — control assignment is a session
-/// binding on a participant, not an identity trait) and any hand-listed cue
-/// vocabulary (§4.6 — derived).
+/// One authored character. Control assignment belongs to session authority, not character identity.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CharacterDefinition {
     pub id: ambition_entity_catalog::CharacterId,
     pub display_name: String,
-    /// Attribution and asset roots. NOT authority: a provider does not own the
-    /// right to reinterpret engine rules for its characters.
+    /// Attribution and asset namespace; not gameplay-rule authority.
     pub provider: String,
     pub lineage: Option<Lineage>,
     /// The sheet manifest target this character's art resolves through.
     pub sheet: Option<String>,
-    /// Select-screen portrait. Loads WITHOUT the sheet, so an enumeration screen
-    /// costs no sheet decode.
-    ///
-    /// This is an unresolved portrait target name. Either resolve it through a
-    /// dedicated target resolver or let the catalog own concrete portrait paths;
-    /// do not duplicate concrete art paths here.
+    /// Logical portrait target resolved independently of the full sheet.
     pub portrait: Option<String>,
-    /// Lines this character says when nothing more specific does.
-    ///
-    /// A newly registered character has no dialogue graph, no situation pools
-    /// and usually no writer — and standing on a pedestal saying nothing is
-    /// worse than saying something generic in its own voice. The catalog has
-    /// expressed exactly this for a while, on `fallback_dialogue`: *"a character
-    /// arrives from the sprite pipeline with a voice long before anyone writes
-    /// four separate pools for it … the fallback exists so a newly authored
-    /// character is never mute."*
-    ///
-    /// It could only say that about a character with a CATALOG ROW. A
-    /// registered-only character — which is every character another game brings
-    /// — had no way to carry a voice at all, so four of them stand mute on Hall
-    /// pedestals.
-    ///
-    ///  the LOWEST-precedence voice, not a dialogue system: a yarn node wins,
-    /// then the catalog row's situation pool, then its `fallback_dialogue`, then
-    /// this. It exists so the floor is "says something in character" rather than
-    /// silence.
+    /// Lowest-precedence fallback voice lines.
+    /// Yarn and catalog situation/fallback dialogue take precedence.
     pub voice: Vec<String>,
     pub body: Option<BodySource>,
     pub hurtboxes: Option<HurtboxDoc>,
     pub vitals: Vitals,
-    /// What this body does when it DIES, and what it drops — explode,
-    /// divide, crash, or refuse to die at all.
-    ///
-    /// These are properties of the creature, and until now the ONLY producer of
-    /// `CombatCapabilities` (`ambition_combat`) in the workspace was
-    /// `ArchetypeSpecExt:combat_capabilities` — so a mite that splits when killed could say so
-    /// as an archetype and a registered character could not say it at all.
-    ///
-    /// `None` means the author said nothing, and nothing is inserted — today's
-    /// behaviour for every character in the repo.  absence RETRACTS on a
-    /// re-wear, like every other physical fact a persona claims: wearing a
-    /// sandbag and then a duelist must not leave the duelist unkillable.
+    /// Body death and drop behavior. `None` publishes no character-specific override.
+    /// Changing characters must retract any previously projected death traits.
     pub death_traits: Option<crate::actor::CharacterDeathTraits>,
     pub moveset: Option<MovesetContract>,
-    /// What this character CAN do — melee, ranged, special, locomotion style.
-    ///
-    /// Splitting this from [`Self::moveset`] is the identity split C3 is about.
-    /// A moveset says what the MOVES are; an action set says what the body and
-    /// the AI believe the body can reach for. Leaving the second exclusively in
-    /// the catalog means a definition can author moves the brain does not know
-    /// exist — and it makes a ranged move depend on a projectile specification
-    /// from a different authority entirely.
+    /// Actions this character may choose, separate from the moveset that defines the moves.
     pub action_set: Option<crate::brain::ActionSet>,
     /// How this character MOVES — the state-free movement policy.
     ///
     /// `None` leaves the catalog row's movement policy in force.
     pub motion_model: Option<ambition_platformer2d_core::MotionModelSpec>,
-    /// Per-character axis FEEL — run accel, jump speed, coyote time, the rest.
-    ///
-    /// Distinct from [`Self::motion_model`], which picks the SOLVER. This is that
-    /// solver's numbers, and it is the last kit-adjacent field that was still
-    /// exclusively the catalog's.
-    ///
-    ///  `None` and `Some` are load-bearing here in a way they are not elsewhere:
-    /// the marker component's PRESENCE means "this body's tuning is authored,
-    /// not the shared dev tuning", so an unauthored character must end up with no
-    /// marker rather than with a defaulted one. A re-wear from an authored feel
-    /// back to the sandbox protagonist has to return the body to the live
-    /// inspector sliders.
+    /// Per-character solver parameters. `None` leaves live/shared tuning authoritative.
+    /// Presence of this field marks tuning as authored rather than inspector-controlled.
     pub movement_tuning: Option<ambition_platformer2d_core::MovementTuning>,
-    /// The verbs this BODY has — jump, double jump, dash, dodge, shield,
-    /// ledge grab, blink, fly, glide, swim.
-    ///
-    ///  a capability is the character's, never the controller's and never
-    /// the ruleset's. The archetype has always been able to state a movement
-    /// kit (`ArchetypeSpecExt::movement_kit`, four flags); a registered
-    /// character could not state one at all, which is why a match seat had to be
-    /// handed a flat set by the MATCH — *"every fighter in this match has the
-    /// same verbs"* — and why the Smash demo's fighters do not use the shield,
-    /// dodge and ledge machinery that already exists underneath them. Nothing
-    /// had granted them the capability, because nothing could.
-    ///
-    ///  `None` means the author said nothing, and the migration bridge
-    /// stands: a seat whose character authors no verbs still takes the match's
-    /// declared set, exactly as today. That bridge is what a character authoring
-    /// its own kit removes, one character at a time.
-    ///
-    ///  a ruleset may only take verbs away. `AbilitySet::intersect` is the
-    /// operation a mode is allowed: Smash may say *"no flying in this match"*
-    /// and may not say *"everyone can jump"*, because forcing a jump onto a body
-    /// that cannot jump is the engine manufacturing a capability — the exact
-    /// thing that makes Puppy Slug in a fighter seat indistinguishable from a
-    /// generic humanoid.
+    /// Body-authored ability baseline; controller kind never grants body capabilities.
+    /// Match `MatchAbilities` may add a declared floor and apply a ceiling:
+    /// `effective = (authored union granted) intersect permitted`.
+    /// `None` contributes no character-authored abilities.
     pub abilities: Option<ambition_platformer2d_core::AbilitySet>,
     /// How this body moves under its own power — top speed, gait, surface
     /// cling. See [`crate::actor::CharacterLocomotion`].
@@ -211,132 +93,32 @@ pub struct CharacterDefinition {
     /// Whether touching this body hurts, and how much. `None` = it does
     /// not, which is most characters.
     pub contact_damage: Option<crate::actor::ContactDamage>,
-    /// The POLICY this character runs when nothing else drives it — the
-    /// controller authority, carried as a value rather than as a name.
-    ///
-    /// and it is the ONLY half now. The convergence turned out to be a deletion: the preset
-    /// half had zero authors in the entire repo and one consumer, and its absence was what
-    /// produced the empty-string default that crashed two shipped rooms. A character states its
-    /// policy HERE, or it leaves the catalog row in charge; there is no third place.
-    ///
-    /// What is gone is a definition being able to say the same thing in the row's words.
-    ///
-    /// `None` leaves the archetype's projection in charge, which is every
-    /// character that has not migrated.
+    /// Inline autonomous policy for this character.
+    /// `None` leaves the catalog/archetype projection authoritative.
     pub autonomous_profile: Option<crate::brain::BrainProfile>,
-    /// The SHARED policy this character names, resolved out of the catalog's
-    /// `autonomous_profiles` map at preparation into [`Self::autonomous_profile`].
-    ///
-    /// Carrying a profile by value says what ONE character does; naming one says several characters
-    /// fight alike — which is the whole reason `medium_striker` exists as a whole-body archetype
-    /// worn by five goblins, a lab raider and a skitter. A named profile lets those five keep their
-    /// own bodies and share the decision-making, which is the Group-B/Group-C split.
-    ///
-    /// INLINE XOR NAMED, and authoring both is a REFUSAL. Documenting replacement as
-    /// specialization is misleading API on the day it ships; if a real patch is ever wanted it gets
-    /// a real `BrainProfilePatch` with explicit semantics.
-    ///
-    ///  and a name nobody authored is a PREPARATION FAILURE, not a silent
-    /// `None`. Falling back would reproduce the explicit-`CharacterId` mistake
-    /// one layer down: the author said which policy this creature uses, the
-    /// lookup missed, and the archetype quietly stayed in charge — green
-    /// everywhere, wrong in play.
+    /// Provider-relative name of a shared autonomous policy resolved during preparation.
+    /// Inline and named policies are mutually exclusive; an unresolved name is a preparation error.
     pub autonomous_profile_ref: Option<crate::brain::BrainProfileRef>,
-    /// The policy this creature adopts when PROVOKED, by provider-relative
-    /// name.
-    ///
-    ///  provocation picks an enemy ARCHETYPE by substring-matching a display
-    /// name today (`hostile_brain_id_for_actor`: *does the id or the name or
-    /// the dialogue node contain "pirate"*). That is the fused ontology at its
-    /// most literal — a peaceful pirate that gets struck is handed a different
-    /// BODY, not a different attitude — and it is the only thing keeping three
-    /// archetype rows alive that no level places.
-    ///
-    ///  what provocation actually is: the same body, a different driver, and a
-    /// changed relationship. This is the driver half, stated by the creature
-    /// that has one.
-    ///
-    /// `None` = this character has nothing to say about being provoked, which
-    /// leaves the legacy name-match in charge — every character today.
+    /// Provider-relative autonomous policy adopted by the same body when provoked.
+    /// `None` leaves the existing fallback behavior in charge.
     pub provoked_profile_ref: Option<crate::brain::BrainProfileRef>,
-    /// What this character's PROJECTILE looks like — the cosmetic id its
-    /// ranged verb spawns (`"hadouken"`).
-    ///
-    /// `None` = this character's ranged verb draws whatever the projectile
-    /// itself authors, which is every character that has never had one.
+    /// Cosmetic projectile id for this character. `None` uses projectile-authored presentation.
     pub ranged_vfx: Option<String>,
-    /// HOW this character's ranged attack is executed — a charged projectile
-    /// (hold to build, release to fire) or an ordinary moveset verb.
-    ///
-    /// It was derived from `PlayableKitSource::HostCode`, which made a gameplay property of the
-    /// protagonist's attack look like a property of which crate built it — and so made *delete
-    /// HostCode* read as *delete the charge*.
-    ///
-    ///  the DEFAULT is `MovesetVerb`, which is what every character that has
-    /// never had a charge already does.
+    /// Execution mode for ranged attacks; defaults to `MovesetVerb`.
     pub ranged_execution: crate::brain::RangedExecution,
-    /// This body is a PRACTICE TARGET — a training dummy, not a
-    /// participant.
-    ///
-    ///  on the definition, not read off a catalog tag. The plane-swarm
-    /// lesson: a body that reads an intrinsic from a catalog row it cannot see
-    /// gets the wrong answer in a standalone demo that borrowed the character.
+    /// Whether this body is a practice target rather than a participant.
     #[doc(alias = "is_sandbag")]
     pub practice_target: bool,
-    /// The weapon this character carries, by id, resolved through the same
-    /// held-item registry the archetype's `held_item` uses.
-    ///
-    ///  a fact about the creature, not about the placement. A cove raider
-    /// carries a gun-sword wherever it stands; the item is what it drops when it
-    /// dies and what its swing looks like. It was reachable only through an
-    /// archetype row, so a migrated raider lost its weapon — which is most of
-    /// what a raider IS.
-    ///
-    ///  it grants no VERBS here. The archetype path folds a held item's
-    /// melee/ranged into the resolved `ActionSet`; a character authors its verbs
-    /// on [`Self::action_set`] directly, so this states what the body HOLDS and
-    /// the action set states what it DOES. Authoring an item and forgetting the
-    /// verb gives a body a weapon it never swings — visible, rather than a
-    /// silently different creature.
+    /// Weapon carried by this character.
+    /// Held items do not grant verbs; [`Self::action_set`] states what the body can do.
     pub held_item: Option<String>,
-    /// What this body can be RIDDEN as, and what it can ride (ADR 0020).
-    /// `None` = neither. See
-    /// [`crate::actor::CharacterMount`].
+    /// What this body can ride or be ridden as. `None` means neither.
     pub mount: Option<crate::actor::CharacterMount>,
-    /// Deep-dream visual jitter seed — this character's participation in the
-    /// psychedelic shader pass, and how it differs from its neighbours.
-    ///
-    ///  presentation, and on the definition for the same reason the sheet
-    /// is: it is a fact about what this creature LOOKS like, true of every
-    /// instance, and it was reachable only through an enemy archetype row. The
-    /// puppy slug is the live case — `dream_seed: Some(0.271828)` is the only
-    /// thing between a migrated slug and the psychedelic pass it has always had.
-    ///
-    /// `None` = does not participate, which is nearly everything.
+    /// Presentation seed for deep-dream visual jitter. `None` excludes this character from the pass.
     pub dream_seed: Option<f32>,
-    /// Two of this character, told the same things, think the same thoughts —
-    /// so a mirror match plays as a reflection.
-    ///
-    ///  an authored TRAIT, not the default CPU policy. Ordinarily an
-    /// autonomous participant's deterministic decision/noise stream is derived
-    /// from WHICH PARTICIPANT it is, so two CPUs wearing one character diverge
-    /// within a few decisions — that is what a viewer expects of two opponents.
-    /// A character that authors this asks for the opposite: every equally
-    /// configured twin begins on the SAME cognitive stream.
-    ///
-    ///  it does NOT synchronise their actions, and must never be
-    /// implemented that way. The property is *identical cognition + symmetric
-    /// information → symmetric behaviour*, which is an emergent consequence of
-    /// sharing one stream, not a canned mirror animation. The moment two of them
-    /// see different worlds — different damage, different position, a different
-    /// foe — they decide differently, and that is correct. A mirror that survived
-    /// asymmetric observations would be a puppet show.
-    ///
-    ///  so the only thing this authorises is the CHOICE OF STREAM, made once at
-    /// construction. Nothing reads it per tick, and nothing compares two bodies.
-    ///
-    /// `false` — the default and nearly everything — means this character's CPUs
-    /// think for themselves.
+    /// If true, equally configured CPU twins start from the same deterministic cognitive stream.
+    /// This does not synchronize actions: differing observations must still produce divergence.
+    /// The choice is made at construction, not per tick.
     pub preserves_mirror_symmetry: bool,
 }
 
@@ -403,9 +185,7 @@ impl CharacterDefinition {
         self
     }
 
-    /// Author this character's CPU twins onto one cognitive stream, so a mirror
-    /// match plays as a reflection. See [`Self::preserves_mirror_symmetry`] —
-    /// especially the paragraph on what this deliberately does NOT do.
+    /// Use one initial cognitive stream for equally configured CPU twins.
     pub fn preserving_mirror_symmetry(mut self) -> Self {
         self.preserves_mirror_symmetry = true;
         self
@@ -423,12 +203,7 @@ impl CharacterDefinition {
         self
     }
 
-    /// Name a SHARED policy, PROVIDER-RELATIVE. See
-    /// [`Self::autonomous_profile_ref`].
-    ///
-    ///  pass the LOCAL name (`medium_striker`). Whether the assembled catalog
-    /// has namespaced its fragments is not something an author should have to
-    /// know, and the one who guesses wrong gets a silent miss.
+    /// Name a shared provider-relative policy by its local key.
     pub fn with_autonomous_profile_named(mut self, key: impl Into<String>) -> Self {
         self.autonomous_profile_ref = Some(crate::brain::BrainProfileRef::new(key));
         self
@@ -441,14 +216,13 @@ impl CharacterDefinition {
         self
     }
 
-    /// Author what this character's projectile looks like. See
-    /// [`Self::ranged_vfx`].
-    /// See [`Self::ranged_execution`]. A character that charges says so here.
+    /// Author how this character executes ranged attacks.
     pub fn with_ranged_execution(mut self, execution: crate::brain::RangedExecution) -> Self {
         self.ranged_execution = execution;
         self
     }
 
+    /// Author this character's projectile presentation id.
     pub fn with_ranged_vfx(mut self, id: impl Into<String>) -> Self {
         self.ranged_vfx = Some(id.into());
         self
@@ -515,24 +289,13 @@ impl CharacterDefinition {
         self
     }
 
-    /// Hand this character's body geometry to its spritesheet.
-    ///
-    /// `world_per_pixel` is the ONE number: how much world one sheet pixel
-    /// covers. The collision box, the sprite quad and the quad's offset all
-    /// follow from the art at that scale, so none of the three can drift from
-    /// the other two. See [`BodySource`].
+    /// Use sheet-authored body geometry at one `world_per_pixel` scale.
     pub fn with_sprite_authored_body(mut self, world_per_pixel: f32) -> Self {
         self.body = Some(BodySource::SpriteAuthored { world_per_pixel });
         self
     }
 
-    /// State how tall this character stands, in world pixels — 16 to a tile.
-    /// See [`Vitals::canonical_height`] for what the unit is and why it is a
-    /// contract rather than a hint.
-    ///
-    ///  this states the FACT; deriving the art scale from it is
-    /// [`world_per_pixel_for_height`], because only the caller holding the sheet
-    /// knows how tall the body is in that sheet's own pixels.
+    /// Author standing height in world pixels; sheet-aware callers derive art scale from it.
     pub fn with_canonical_height(mut self, height: f32) -> Self {
         self.vitals.canonical_height = Some(height);
         self

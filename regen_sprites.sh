@@ -1,53 +1,26 @@
 #!/usr/bin/env bash
-# Re-render every sprite asset and install into the sandbox crate.
-#
-# Covers:
-#   - Config-driven targets (robot / goblin / boss): re-renders every
-#     registered YAML job (run `ambition_sprite2d_renderer list`) from the
-#     renderer package's config dir
-#     tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/configs/*.yaml
-#     — straight into crates/ambition_platformer2d_actor_monolith/assets/sprites/.
-#   - Entity sprites (chest, breakable, door zone, etc.): re-rendered into
-#     crates/ambition_platformer2d_actor_monolith/assets/sprites/entities/.
-#   - Standalone pirate sheets: rendered and published into
-#     crates/ambition_platformer2d_actor_monolith/assets/sprites/.
-#   - Tack-on targets (sandbag, mockingbird): rendered into the renderer's
-#     generated/ dir then installed into crates/ambition_platformer2d_actor_monolith/assets/sprites/.
-#   - Shared-page ultrapack atlases, one per quality tier, into
-#     crates/ambition_platformer2d_actor_monolith/assets/sprite_packs/<tier>/.
-#   - Reduced-resolution per-sheet quality variants (sprites_0_5x / _0_25x /
-#     _potato). this step is what a phone loads; skipping it silently falls
-#     the device back to full-resolution art.
+# Re-render and publish the sprite suite, quality variants, and shared atlases.
+# Registered targets come from the sprite renderer config; entity and standalone
+# sheets are published into the actor-monolith sprite assets.
 #
 # Usage:
-# ./regen_sprites.sh                  # render + install everything (cache-skipped if fresh)
-# ./regen_sprites.sh --force          # bypass the cache, re-render unconditionally
-# ./regen_sprites.sh --list           # show registered targets for focused regen
-# ./regen_sprites.sh --target <name>  # render + install one registered target
-# ./regen_sprites.sh --target a --target b   # repeatable; renders both
+#   ./regen_sprites.sh
+#   ./regen_sprites.sh --force
+#   ./regen_sprites.sh --list
+#   ./regen_sprites.sh --target <name>   # repeatable
 #
 # Environment:
-#   AMBITION_SPRITE_PYTHON=/path/to/python  Override the sprite tool .venv.
-#   AMBITION_LDTK_PYTHON=/path/to/python    Override the LDtk tool .venv.
-#   AMBITION_ULTRAPACK=0                    Skip the shared-page atlas step.
-#   AMBITION_ULTRAPACK_DEBUG=1              Emit per-page pack diagnostics.
-#   AMBITION_QUALITY_VARIANTS=0             Skip the reduced-resolution variants.
-#   LINE_PROFILE=1                         Profile expensive renderer subprocesses.
-#   AMBITION_LINE_PROFILE_DIR=/path         Override the profile report root.
-#   AMBITION_LINE_PROFILE_TEXT=1            Also write one detailed .txt sidecar.
+#   AMBITION_SPRITE_PYTHON=/path/to/python
+#   AMBITION_LDTK_PYTHON=/path/to/python
+#   AMBITION_ULTRAPACK=0
+#   AMBITION_ULTRAPACK_DEBUG=1
+#   AMBITION_QUALITY_VARIANTS=0
+#   LINE_PROFILE=1
+#   AMBITION_LINE_PROFILE_DIR=/path
+#   AMBITION_LINE_PROFILE_TEXT=1
 #
-# Focused variant work does not need this script at all:
-# ./regen_visual_quality_variants.sh --target patent_clerk
-# ./regen_visual_quality_variants.sh --target 'pirate_*' --tier 0_5x
-#
-# Caching:
-#   The renderer's Python sources + configs are fingerprinted into
-#   `tools/ambition_sprite2d_renderer/.cache/regen-fingerprint`. On the
-#   next run, if the fingerprint matches AND every expected published output
-#   already exists in assets/sprites/, the script exits early with no
-#   rendering work. Fingerprint mismatch (a renderer source edit) or
-#   a missing expected output (someone deleted an asset) triggers a full
-#   re-render. `--force` always re-renders.
+# The renderer/config fingerprint plus expected published outputs form the
+# incremental cache. --force bypasses it.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -779,31 +752,12 @@ all_outputs_present() {
 }
 
 # --- Per-sheet cache ------------------------------------------------------
-# The global fingerprint above is all-or-nothing: it only stores on a
-# fully-successful run, so an interrupted (partial) run re-renders every
-# sheet next time. The per-sheet cache below lets the per-target publish
-# loops skip individual sheets that are already current, so a resumed
-# partial run only renders what's actually left.
-#
-# Each cache unit (one publishable target) is keyed on:
-#   CORE_SHARED  — a hash of the *shared* renderer infra that any target
-#                  can depend on (top-level package modules, the core/
-#                  authoring/registry/cli subpackages, every `_*.py`
-#                  family helper, every `__init__.py`, and the renderer
-#                  dir's top-level scripts). Editing shared infra changes
-#                  CORE_SHARED, which invalidates ALL per-sheet units —
-#                  the conservative, never-stale choice.
-#   leaf hash    — a hash of the target's OWN module file (or package
-#                  dir). Editing one leaf generator changes only that
-#                  unit's key, so only that sheet re-renders.
-#
-# This relies on the codebase convention that shared drawing logic lives
-# in core/, authoring/, or a `_`-prefixed family helper (e.g.
-# authoring/sheet_build.py, authoring/lasersword_common.py,
-# targets/characters/_pirate_common.py, targets/props/_held_prop_common.py)
-# — a target must never import a sibling non-`_` leaf module, or a change
-# to that sibling would not invalidate this unit. The renderer already
-# follows this convention.
+# The global cache commits only after a fully successful run. Per-sheet keys
+# allow an interrupted run to resume without rebuilding current targets. Each
+# key combines shared renderer infrastructure with that target's leaf generator;
+# shared helper changes invalidate every target, leaf changes only that target.
+# Target modules must not import sibling non-underscore leaf modules, because
+# those siblings are intentionally outside another target's cache key.
 sheets_cache_dir="$cache_dir/sheets"
 
 compute_core_shared() {

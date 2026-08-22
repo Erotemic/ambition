@@ -282,30 +282,12 @@ pub fn build_sync_test_session(
 
 /// Install an already-built sync-test session as the new frame-zero baseline.
 ///
-/// INFALLIBLE by construction: everything here is a world write. It performs the
-/// destructive resets a rebase entails — frame counters and, crucially, the
-/// `Time<GgrsTime>` clock — then installs the session. Because it cannot fail, a
-/// caller can run it AFTER its own destructive step knowing the rebase completes.
-/// Say so, loudly, when a session is being started before there is a world to
-/// rewind.
+/// Installation only mutates world state and cannot fail. Rebase resets frame
+/// counters and `Time<GgrsTime>` before installing the session.
 ///
-/// A rollback session takes the CURRENT world as frame zero. If gameplay
-/// construction has not run yet, the frames immediately after this one build the
-/// room and the bodies through `Commands` — and a rollback cannot undo
-/// construction, so every resimulated frame in that window mismatches. GGRS
-/// reports that correctly and reports it as a checksum difference, which tells a
-/// consumer nothing about the cause.
-///
-/// The engine's own harness cannot hit this: `Platformer2dSimHarness` builds the room first
-/// by construction. So the only people who meet it are exactly the ones with no
-/// way to diagnose it — an external consumer starting a session at boot gets
-/// frames 2, 3 and 4 mismatching forever. Outlander did precisely that
-/// .
-///
-/// A warning and not a refusal: a fixture may legitimately want a session over an
-/// empty world, and the engine does not get to veto a composition it cannot see
-/// the purpose of. What it can do is name the cause the one time it is cheap to
-/// name it.
+/// Warn when frame zero has no constructed session world: construction via
+/// `Commands` after session start cannot be undone by rollback, so those frames
+/// will checksum-mismatch on resimulation. Empty-world fixtures remain allowed.
 fn warn_if_no_world_to_rewind(world: &World) {
     if has_session_world_root(world) {
         return;
@@ -1569,32 +1551,11 @@ mod ac23_tests {
     }
 }
 
-/// Say something when a consumer drives the seam this host does not read.
-///
-/// A GGRS host consumes [`PendingSeatInputs`], because the frame it simulates is the one the
-/// session CONFIRMED — and [`publish_ggrs_input`] overwrites `ControlFrame` from those
-/// confirmed inputs on every simulated frame. So a consumer that writes `ControlFrame` under a
-/// rollback host has it silently clobbered: the walk loop runs, the body never moves, and
-/// nothing anywhere says why.
-///
-///  the predicate is exact, not a guess. Under GGRS, `ControlFrame` is
-/// derived FROM handle zero's `PendingSeatInputs` by way of the session, so a
-/// neutral pending
-/// frame produces a neutral control frame. `ControlFrame` non-neutral while
-/// that handle is neutral therefore means somebody else wrote it, and
-/// that write is about to be discarded. A CPU-only session (both neutral), a
-/// driven harness (both live) and an ordinary player (both live) are all
-/// silent.
-///
-///  sustained, and said ONCE. A single frame can straddle the write, so it
-/// waits for `WRONG_SEAM_FRAMES` consecutive frames — long enough that a
-/// transient cannot trip it, short enough to appear in the first second of a
-/// broken consumer's run.
-///
-///  this runs in `Update`, deliberately OUTSIDE the rollback schedule: its
-/// counter is a `Local`, a `Local` does not rewind, and a diagnostic that
-/// miscounts under resimulation would be reporting on itself. Nothing here gates
-/// behaviour — it only warns.
+/// Warn when a rollback consumer writes `ControlFrame` instead of
+/// `PendingSeatInputs`. GGRS derives `ControlFrame` from confirmed seat input on
+/// each simulated frame, so an external write would be discarded. The warning
+/// requires sustained disagreement and runs outside rollback because its local
+/// counter is diagnostic-only and must not rewind.
 fn report_input_written_to_the_wrong_seam(
     mut reported: ResMut<InputSeamMisuse>,
     control: Option<Res<ControlFrame>>,

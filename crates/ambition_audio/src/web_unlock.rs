@@ -1,31 +1,9 @@
-//! Browser AudioContext unlock detection + ECS readiness flag.
+//! Cross-platform audio-start readiness.
 //!
-//! Browsers create the Web Audio `AudioContext` in the `suspended`
-//! state and only let `ctx.resume()` succeed when called from inside
-//! a user-gesture event handler. Kira (via cpal's webaudio backend)
-//! constructs the AudioContext at startup and calls `ctx.resume()`
-//! lazily from `Stream::play()`; those play calls dispatch from
-//! Bevy's RAF loop, *not* from a gesture handler, so the resume
-//! silently fails and audio stays muted forever.
-//!
-//! The fix has two halves:
-//!
-//! 1. JS-side resume — `game/ambition_app/web/index.html`
-//!    patches `window.AudioContext` to track every context cpal
-//!    creates, then resumes them all from a real DOM gesture handler
-//!    (`pointerdown` / `keydown` / `touchstart` / `click`). This is
-//!    the half that actually unblocks playback.
-//!
-//! 2. Rust-side gating — this module observes the *first* Bevy
-//!    input event and flips [`AudioUnlockState::unlocked`] to `true`.
-//!    Music + SFX startup gates itself on that flag so we don't fire
-//!    a `play()` against a context the JS hook hasn't had a chance
-//!    to resume yet.
-//!
-//! On non-wasm targets the JS hook is irrelevant and the
-//! `AudioUnlockState` flips on the first frame so behavior matches
-//! the pre-deferred startup. Cross-platform call sites can read
-//! `unlock.unlocked` uniformly.
+//! On wasm, `web/index.html` resumes Web Audio contexts from a real DOM gesture;
+//! this module publishes the corresponding first Bevy input event through
+//! [`AudioUnlockState`] so music and SFX do not start before that gesture. Native
+//! backends mark the state ready during startup.
 
 use bevy::input::touch::Touches;
 use bevy::input::ButtonInput;
@@ -81,10 +59,7 @@ fn log_initial_lock_status() {
     }
 }
 
-/// Native (desktop / Android) backends don't require a user gesture
-/// to start audio. Flip the unlock flag in Startup so downstream
-/// systems that gate on it behave identically to the pre-deferred
-/// startup.
+/// Native backends require no gesture, so publish readiness during startup.
 fn prime_unlock_for_native(
     // Written only by the native arm below; the wasm build waits for a real
     // gesture instead, so there the binding is read-only.

@@ -1,19 +1,9 @@
-//! Test-only helpers that drive bodies through the SAME trusted boundary
-//! production uses ([`step_motion`] and the environment-supplied frame).
+//! Test helpers that drive bodies through production [`step_motion`] with an
+//! explicit environment frame.
 //!
-//! The historical whole-policy entry points (`update_player_*`) are gone from
-//! the engine; these reconstruct their ergonomic shapes for the invariant
-//! tests. [`TestTuning`] pairs the flat authored [`MovementTuning`] with the
-//! explicit frame direction the ENVIRONMENT would resolve in production — the
-//! direction is test-fixture state here precisely because it may no longer
-//! live inside any tuning/parameter type.
-//!
-//! Model-private maneuver state (ADR 0024) lives inside the scratch body's
-//! persistent [`MotionModel`] (`BodyClusterScratch::model`), NOT in a
-//! per-call temporary: every helper refreshes the axis params from the
-//! fixture tuning via the production same-variant `apply_spec` path, so
-//! multi-tick tests keep coyote windows, buffers, dash timers, and ledge
-//! grabs across steps exactly as a live entity would.
+//! [`TestTuning`] carries authored tuning plus the fixture's resolved frame
+//! direction. Model-private maneuver state stays in the scratch body's persistent
+//! [`MotionModel`], so multi-tick tests preserve buffers, timers, and ledge state.
 
 use crate::body_clusters::{reset_body_clusters, BodyClusterScratch, BodyClustersMut};
 use crate::movement::{

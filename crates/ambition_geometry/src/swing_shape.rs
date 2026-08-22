@@ -154,37 +154,13 @@ const NEAR_BAND: f32 = 0.15;
 const MIN_AXIS_LEN: f32 = 1.0e-3;
 
 impl CombatVolume {
-    /// Project this volume into the swing shape an effect should be drawn for,
-    /// as seen from the attacker at `from`.
+    /// Project this combat volume into a renderable swing shape rooted at
+    /// attacker position `from`. Circles remain radial; other volumes use the
+    /// attacker-to-centroid axis to identify the rooted end.
     ///
-    /// `from` is the striking body's position, and it supplies the ONE thing a
-    /// volume cannot: which end of the shape is the handle. A blade arc is the
-    /// same polygon whichever way you read it; only the attacker says which end
-    /// is rooted at the body.
-    ///
-    /// A [`CombatVolume::Circle`] is radial by construction. Everything else is
-    /// a sweep along attacker → volume, which is the axis the authored volumes
-    /// are built on (`cone()`'s `(dx, dy)` is always cardinal in the body's
-    /// frame).
-    /// THE AXIS IS THE ATTACKER'S, AND THAT IS A KNOWN LIMIT.
-    ///
-    /// Taking it from `attacker → volume centroid` means a swing authored above
-    /// the body — a slash across the chest rather than the navel, which is what
-    /// the drawn character wants, being half again its collision box with its
-    /// feet at the bottom — tilts the drawn quad up to meet it. Measured: 8
-    /// degrees for a rise of 0.10 body-heights, polygon level, art alone
-    /// leaning. `SLASH_RISE` is 0 in the generator for exactly that reason.
-    ///
-    /// Inferring the axis FROM THE VOLUME does not fix it, and I tried three ways.
-    /// Nearest-vertex-to-farthest puts both ends on corners, arbitrarily, because a symmetric edge
-    /// has two of them. Averaging a slice at each end recovers the midpoints only if the
-    /// provisional axis is already level — and the tilt is precisely what makes the two corners of
-    /// one edge project differently, so it converges on the tilt it was given.
-    ///
-    /// The reason inference keeps failing is that it is re-deriving something the AUTHORING
-    /// KNEW. `cone()` and `half_disc()` take a cardinal `(dx, dy)` and the volume drops it on
-    /// the way out — the same class of loss as the `.bounds()` call this type was created to
-    /// remove. That is a real change to the strike-spawn path and it is not this commit.
+    /// This axis is an approximation: vertically offset authored sweeps can tilt
+    /// toward their centroid. The exact fix is to retain the authored sweep axis
+    /// in `CombatVolume` rather than infer it from geometry.
     pub fn swing_shape(&self, from: Vec2) -> SwingShape {
         if let CombatVolume::Circle { center, radius } = self {
             return SwingShape::Radial {

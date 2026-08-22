@@ -476,30 +476,10 @@ impl ModuleDraft {
         self
     }
 
-    /// Declare what a mounted capability needs REWOUND, so the composition
-    /// refuses rather than desyncing.
+    /// Declare rollback state required by capabilities mounted in this module.
     ///
-    /// A capability offers its rollback state and the composition installs it —
-    /// which keeps a mechanic's dependency closure to foundations, and leaves a
-    /// hole: nothing made the composition accept the offer, and a skipped
-    /// registration is a DESYNC, not a missing feature. A cooldown that is not
-    /// rewound lets its action fire twice from one charge on a resimulated
-    /// frame.
-    ///
-    /// ```ignore
-    /// module.capability(capability_demo::PulsePlugin::default())
-    ///       .requires_rollback(capability_demo::REQUIRED_ROLLBACK);
-    /// ```
-    ///
-    ///  declared by the MODULE, not carried by the capability, because a
-    /// capability is deliberately an opaque closure with no identity here (see
-    /// [`Self::capability`]). Giving capabilities metadata to carry this would
-    /// be inventing the identity model that method's own docs refuse to guess
-    /// at — so the module that knows it mounted the thing says what it needs.
-    ///
-    ///  checked only when a rollback registry exists. A composition with
-    /// no rollback host has nothing to desync, and demanding registrations from
-    /// it would refuse a headless game for a hazard it cannot have.
+    /// Requirements are checked only when a rollback registry exists. Missing
+    /// registrations make rollback composition fail rather than desynchronize.
     pub fn requires_rollback(
         &mut self,
         required: &'static [ambition_platformer2d_core::snapshot::RequiredRollbackState],
@@ -508,32 +488,10 @@ impl ModuleDraft {
         self
     }
 
-    /// Provide the rollback registration a required state needs.
+    /// Provide registration satisfying a declared rollback requirement.
     ///
-    /// The other half of [`Self::requires_rollback`], and without it a module could DECLARE
-    /// what must rewind and had no supported way to supply it — so a rollback-enabled game
-    /// mounting a capability with required state could not be composed at all through this API.
-    ///
-    /// ```ignore
-    /// module
-    ///     .capability(capability_demo::PulsePlugin::default())
-    ///     .requires_rollback(capability_demo::REQUIRED_ROLLBACK)
-    ///     .provides_rollback::<capability_demo::PulseCooldown>(
-    ///         capability_demo::PULSE_CAPABILITY,
-    ///         capability_demo::ROLLBACK_STATE,
-    ///         |cooldown| u64::from(cooldown.remaining_ticks),
-    ///     );
-    /// ```
-    ///
-    ///  the owner and name must MATCH the requirement, and the composition
-    /// checks that after applying every contribution — a registration under
-    /// another owner satisfies nothing, which is what makes the pair a contract
-    /// rather than two lists.
-    ///
-    ///  it is the MODULE that provides this, not the capability. A
-    /// capability that registered its own rollback state would have to link the
-    /// simulation to reach the trait — `capability_demo` did, and cost 133
-    /// crates. Declaring here keeps that closure at 8.
+    /// `owner` and `name` must exactly match the requirement. The module hosts
+    /// the registration so the capability itself remains backend-independent.
     #[cfg(feature = "rollback")]
     pub fn provides_rollback<T>(
         &mut self,

@@ -1,43 +1,16 @@
-//! Bevy `EmbeddedAssetRegistry` integration for the sandbox catalog.
+//! Bevy `EmbeddedAssetRegistry` integration for platformer assets.
 //!
-//! Centralizes the embedded URL constants ([`embedded_core`] for fonts /
-//! sheets / core entity sprites; world JSON URLs come from the installed
-//! `WorldManifest` rows), the
-//! `include_bytes!` registrations that back them, and the
-//! [`AmbitionAssetSourcePlugin`] that installs everything into Bevy at
-//! startup.
-//!
-//! Catalog entries (built by [`super::builders`]) reference these URL
-//! constants by name via `with_embedded_core_candidate`; tests in
-//! `super::tests` walk [`embedded_core::ALL_URLS`] to verify every URL
-//! has both an authored catalog candidate and a matching registry
-//! insertion. Keeping all three coupled here avoids the "three-place
-//! edit" trap when adding a new embedded asset.
+//! This module couples embedded URL constants with their `include_bytes!`
+//! registrations. Catalog tests verify each URL also has an authored candidate.
+//! World JSON registrations come from installed `WorldManifest` rows.
 
 use bevy::prelude::{App, Plugin};
 
 use crate::AssetProfile;
 
-/// Declarative table of embedded core assets.
-///
-/// Each row is `NAME => "<embedded_url>" @ "<include_bytes_path>"`. The
-/// macro emits:
-///
-/// 1. a `pub const NAME: &str = "<embedded_url>"` inside [`embedded_core`]
-/// 2. an entry in [`embedded_core::ALL_URLS`]
-/// 3. an `EmbeddedAssetRegistry::insert_asset(... include_bytes!(...))`
-///    call inside [`register_embedded_core_assets`] (under
-///    `static_core_assets`)
-///
-/// Adding a new embedded asset is one row in the macro — the previous
-/// "three-line change" recipe collapses to a single declaration. The
-/// guardrail tests still verify catalog candidates exist for each URL
-/// (the third pairing, on the catalog-entry side).
-///
-/// `<include_bytes_path>` is interpreted relative to *this* source
-/// file (`assets/platformer_assets/embedded.rs`), so
-/// `"../../../ambition_platformer2d_actor_monolith/assets/foo.png"` resolves to
-/// `crates/ambition_platformer2d_actor_monolith/assets/foo.png`.
+/// Declarative embedded-core table. Each row emits the public URL constant, an
+/// `ALL_URLS` entry, and the matching registry insertion. Include paths are
+/// relative to this source file.
 macro_rules! embed_core_assets {
     (
         $( $name:ident => $url:literal @ $rel_path:literal ),* $(,)?
@@ -144,36 +117,11 @@ embed_core_assets! {
         @ "../../../ambition_platformer2d_actor_monolith/assets/sprites/entities/boss_core.png",
 }
 
-/// Bevy plugin that backs every URL the
-/// [`super::Platformer2dAssetCatalog`] hands out with a real `AssetSource`.
+/// Registers embedded catalog assets and installed world JSON with Bevy.
 ///
-/// Today this is the embedded source only: the plugin inserts every
-/// installed `WorldManifest` row's LDtk JSON bytes (when the game built
-/// them in) into Bevy's
-/// [`bevy::asset::io::embedded::EmbeddedAssetRegistry`] under the row's
-/// `embedded_bevy_path`, matching the `EmbeddedBinary` candidate the
-/// catalog authors from the same row — the pairing cannot drift.
-///
-/// Adding more embedded assets (sprites, fonts, audio) is a recipe:
-/// 1. Add a `with_location(EmbeddedBinary, AssetLocation::embedded("ambition_platformer2d_actor_monolith/..."))`
-///    candidate to the catalog entry.
-/// 2. Add a matching `EmbeddedAssetRegistry::insert_asset(...,
-///    include_bytes!(...))` call in [`register_embedded_assets`].
-/// 3. Optional: extend the `static_map` feature gate or introduce a
-///    separate gate (`static_fonts`, etc.) if a packaged subset is
-///    desirable.
-///
-/// HTTP / HTTPS / IPFS source registration is a future slice; the
-/// catalog already emits `https://...` URLs from authored
-/// `HttpRemote` candidates, but the matching Bevy `AssetReader` isn't
-/// wired yet.
-///
-/// ## Ordering requirement
-///
-/// `EmbeddedAssetRegistry` is created by Bevy's `AssetPlugin`. The
-/// plugin therefore must run AFTER `DefaultPlugins`. The visible app builders
-/// in `ambition_app::app` add it as the last plugin in the
-/// `AmbitionGamePresentationPlugin` install order.
+/// The registry is created by Bevy's `AssetPlugin`, so this plugin must run
+/// after `DefaultPlugins`. World rows use the same `embedded_bevy_path` authored
+/// by their `EmbeddedBinary` catalog candidate.
 pub struct AmbitionAssetSourcePlugin {
     pub profile: AssetProfile,
     pub embedded_worlds: Vec<EmbeddedWorldAsset>,

@@ -156,107 +156,39 @@ fn spawn_pane_camera(commands: &mut Commands, view: Entity) {
 #[cfg(not(feature = "visible"))]
 fn spawn_pane_camera(_commands: &mut Commands, _view: Entity) {}
 
-/// Say that two people may play, and say which devices they are holding.
+/// Claim TwinTrack's two local seats and their device-to-channel plan.
 ///
-/// A gameplay seat is normally declared by a match roster — deliberately, so a
-/// controller left plugged into a machine does not silently become a second
-/// player. TwinTrack has no match and no roster; what it has is an EXPERIENCE
-/// whose exhibit is two observers, which is the same kind of statement a
-/// character-select surface makes while it is up.
-///
-/// AND THE SEAT COUNT ALONE IS NOT ENOUGH — measured on real hardware.
-/// but they both control patent clerk, neither controls emmy."* Two seats
-/// existed and seat one was inert, because the default assignment policy is
-/// `UnifiedPrimary` — *"Keyboard, gamepads and everything else drive the PRIMARY
-/// participant"* — which is right for solo play and hands the only pad to the
-/// seat that already has the keyboard.
-///
-///  `JoinToClaim` is the couch statement: the keyboard stays with the seat that
-/// has been playing, and an unclaimed pad becomes player two. A keyboard and one
-/// controller are two people at TwinTrack, which is the whole point of the
-/// exhibit.
-///
-/// and the headless suite could not have caught it. The integration tests
-/// build without the `input` feature, so they have no `InputParticipant`s, no
-/// devices and no assignment pass to be wrong — they drive `SlotControls`
-/// directly. That is why the declaration is asserted where a test CAN read it,
-/// and why the mechanism it depends on is pinned upstream in
-/// `ambition_input::local_seats`
-/// (`a_single_pad_beside_a_keyboard_player_drives_the_second_seat`).
+/// The exhibit has no match roster, so it owns a `JoinToClaim` seat offer and a
+/// decided channel plan directly: keyboard drives one observer and the first pad
+/// drives the other. Both claims are experience-owned so another route cannot be
+/// overwritten or released by value coincidence.
 fn declare_the_couch(
     router: Res<ambition_platformer2d::game_shell::ShellRouter>,
     mut offer: ResMut<ambition_platformer2d::input::LocalSeatOffer>,
-    // HOW MANY LOCAL CHANNELS THE SESSION OPENS. The third half of the
-    // couch, and the one whose absence made the other two useless — see the
-    // block comment below.
+    // Decided local channels must exist before rollback session sizing.
     mut seating: ResMut<ambition_platformer2d::input::SessionSeatingSource>,
-    // WHETHER THIS EXPERIENCE IS THE ONE HOLDING THE CLAIM. Both
-    // resources are process-global and TwinTrack is one route in a host that
-    // also runs Mary-O, Smash and a launcher — so "not live  write the
-    // default" is a demo plugin stamping a global while another game owns the
-    // screen. It is not hypothetical: writing `UnifiedPrimary` unconditionally
-    // retracted SMASH's couch policy on every frame of every smash match, and
-    // its select screen then offered one seat to two people
-    // (`smash_in_the_host::two_participants_start_a_match_and_can_still_pause_it`).
-    //
-    // A claim is released by whoever made it.
-    //
-    // ```text
-    // if seats == 2      { seats = 0 }
-    // if policy == couch { policy = default }
-    // ```
-    //
-    // A successor route that independently claims exactly those same values is
-    // erased by this teardown — and no test written against a successor claiming
-    // DIFFERENT values can see it, which is why the one here claimed four seats.
-    // Both facts now live in an OWNED `LocalSeatOffer`, so the question is *is
-    // this mine* and the value never enters into it.
+    // Seat/channel resources are process-global; only their owning experience may release them.
 ) {
-    // THE ROUTE, NOT THE ROOM, and the difference is a whole frame that
-    // matters. This asked `ActiveRoomMetadata`, which exists only once the
-    // plaza has been CONSTRUCTED — and the rollback session is sized the moment
-    // a gameplay world appears, which is the same tick. A claim that lands with
-    // the construction cannot precede it. The route is what the launcher
-    // switched, it is live before any of the plaza exists, and it is the same
-    // authority Smash's select screen reads for the same reason.
+    // Route state is available before room construction and rollback session sizing.
     let live = router
         .active
         .as_ref()
         .is_some_and(|active| active.route_id.as_str() == TWINTRACK_GAMEPLAY_ROUTE);
     let couch = ambition_platformer2d::input::InputAssignmentPolicy::JoinToClaim;
     if live {
-        // Written only on a change: this is read by a system that spawns and
-        // despawns seat entities. but OWNERSHIP counts as a change — an
-        // offer that already reads the way this one wants it still has to become
-        // TwinTrack's, or the surface that made it will withdraw TwinTrack's
-        // seats when it leaves.
+        // Matching values still need TwinTrack ownership before they can be relied on.
         if !offer.is_owned_by(TWINTRACK_EXPERIENCE)
             || offer.seats() != TWINTRACK_SEATS
             || offer.policy() != couch
         {
             offer.claim(TWINTRACK_EXPERIENCE, TWINTRACK_SEATS, couch);
         }
-        // Nothing had told it to open two, so it sized itself from connected DEVICES (one pad  one
-        // handle) and a GGRS session is never resized afterwards.
-        //
-        // the plan, not a count. Which SOURCE drives each channel is the
-        // half a number cannot carry: the traveler is on the keyboard and the
-        // laboratory twin on the first pad, and a bare `2` leaves every consumer
-        // to re-derive that and disagree.
-        //
-        // it does not go through `pending` first. That state is for a
-        // surface whose answer is not known yet — a lobby waiting on people to
-        // pick. TwinTrack's exhibit IS two observers, so the answer exists
-        // before the route opens and holding the session for it would be a stall
-        // with nothing at the end of it.
+        // The source plan, not just a count, is known before this fixed two-observer route opens.
         let plan = ambition_platformer2d::input::LocalChannelPlan::from_sources([
             ambition_platformer2d::input::LocalInputSource::Keyboard,
             ambition_platformer2d::input::LocalInputSource::FIRST_PAD,
         ]);
-        // the same ownership rule as the offer above. Acquiring a plan
-        // that already reads the way this one wants it must still establish the
-        // owner; concluding "no claim is necessary, the value already matches"
-        // leaves the previous owner holding a claim TwinTrack depends on.
+        // Matching channel values still need TwinTrack ownership.
         if !seating.is_owned_by(TWINTRACK_EXPERIENCE) || seating.channel_plan() != Some(&plan) {
             *seating = ambition_platformer2d::input::SessionSeatingSource::decided(
                 TWINTRACK_EXPERIENCE,
@@ -265,10 +197,7 @@ fn declare_the_couch(
         }
         return;
     }
-    // no `Local<bool>` guard, and none is needed. Both releases are
-    // no-ops on a claim that is not this owner's, so running them on every frame
-    // this route is not live says exactly what one run of them says. The flag
-    // existed to make "exactly once" true; ownership makes it irrelevant.
+    // Release is owner-checked and therefore idempotent while the route is inactive.
     offer.release(TWINTRACK_EXPERIENCE);
     seating.release(TWINTRACK_EXPERIENCE);
 }

@@ -1,11 +1,9 @@
-//! Bevy + bevy_ecs_ldtk plugin glue and runtime-spine indexing for the
-//! sandbox's LDtk integration.
+//! Bevy/`bevy_ecs_ldtk` runtime integration over the pure LDtk parser.
 //!
-//! This submodule isolates everything that needs `bevy_ecs_ldtk` types (PluginEntityInstance,
-//! LevelSet, LdtkEntity, asset `Handle<LdtkProject>`) from the pure-Rust LDtk JSON parser /
-//! validator / surface compiler in `super`. Once the runtime-spine roadmap (`memory
-//! project_ldtk_roadmap`) is complete enough for the JSON adapter to retire, this becomes the
-//! collision authority too.
+//! Typed ECS collision entities currently coexist with the JSON-built runtime
+//! collision world while parity is checked.
+//! TODO(compat-remove): once parity proves the typed LDtk collision indices are
+//! authoritative, delete the JSON collision adapter and its duplicate blocks.
 
 mod asset;
 mod components;

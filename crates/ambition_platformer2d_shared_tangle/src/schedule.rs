@@ -205,30 +205,14 @@ pub enum CombatSet {
     ContentFlavor,
 }
 
-/// The one umbrella set containing EVERY gameplay-simulation phase in the sim
-/// schedule: all of [`Platformer2dSimulationPhaseMonolith`], the portal/projectile/combat sub-chains
-/// nested inside them, and the pre-`CoreSimulation` strays (sim-id minting,
-/// class-B log clear, portal carves).
-///
-/// Its purpose is the session gate: the whole gameplay simulation carries ONE
-/// run condition
-/// ([`crate::lifecycle::simulation_authorized`]) so a host that routes
-/// gameplay through shell sessions gets a sleeping simulation — frozen tick
-/// timeline included — at launcher/title/loading routes, while direct-entry
-/// and headless apps (no [`crate::lifecycle::SessionGatedSimulation`] marker)
-/// keep today's always-on behavior.
+/// Umbrella for every gameplay-simulation phase in the sim schedule.
+/// Hosts with `SessionGatedSimulation` gate this whole set; direct/headless
+/// compositions without that marker remain always-on.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct GameplaySimulationRoot;
 
-/// Coarse simulation ordering for sandbox gameplay systems.
-///
-/// This is the concrete sandbox app realization of the lower
-/// [`PlatformerRuntimeSet`] vocabulary, plus Ambition-specific tail phases. It
-/// lives here because host, runtime, content, sim-view, and render all need to
-/// order against the same labels without depending on the actor-domain crate.
-///
-/// Every variant is nested inside [`GameplaySimulationRoot`]
-/// (`configure_platformer2d_simulation_phases`), which carries the session-gate run condition.
+/// Coarse simulation-order vocabulary shared by host, runtime, content, view,
+/// and render. Every phase is nested inside [`GameplaySimulationRoot`].
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum Platformer2dSimulationPhaseMonolith {
     /// Top-level set that contains the six sub-sets below. Kept as a
@@ -250,7 +234,7 @@ pub enum Platformer2dSimulationPhaseMonolith {
     /// (control + simulation) plus the post-sim damage / safe-respawn
     /// resolver.
     PlayerSimulation,
-    /// Room transition detection + apply + per-room feature reset.
+    /// Room transition detection, apply, and per-room feature reset.
     RoomTransition,
     /// Attack lifecycle, projectile updates, and feature damage apply.
     Combat,
@@ -265,19 +249,14 @@ pub enum Platformer2dSimulationPhaseMonolith {
     LdtkRuntimeSpine,
     /// Moving platforms + encounter state + gameplay banner.
     EncounterSimulation,
-    /// Auto-triggered cutscenes, cutscene drain/tick.
+    /// Auto-triggered cutscenes and cutscene drain/tick.
     Cutscene,
     /// Flag/quest/switch/boss/NPC/sfx gameplay-effect routing.
     GameplayEffects,
     /// Boss save sync, quest events, body-mode, room metadata, map sync.
     Progression,
-    /// Sandbox reset request processor. Joined into the main post-core
-    /// chain (between `Progression` and `FeatureViewSync`) because the
-    /// reset path despawns every `RoomScopedEntity` (including every
-    /// `RoomVisual`) and every feature sim entity, flips the active
-    /// room, and re-lowers the start room's feature set through the
-    /// installed placement registry — all mutations the cache must
-    /// observe before presentation reads it.
+    /// Processes resets before feature-view sync because reset mutates room and
+    /// feature entities that the presentation cache must observe this frame.
     ResetProcessing,
     /// Rebuild the presentation-facing feature-view cache after every
     /// same-frame mutation to feature state.
@@ -289,25 +268,8 @@ pub enum Platformer2dSimulationPhaseMonolith {
     Trace,
 }
 
-/// The phases inside [`Platformer2dSimulationPhaseMonolith::PlayerInput`], as an orderable vocabulary.
-///
-/// `PlayerInput` is one set containing a single long `.chain()`, and for a while
-/// that meant anything needing to run at a particular point in it had to name a
-/// LEAF SYSTEM — `.after(apply_worn_character_gameplay)`, `.before(..)` — which
-/// the engine roadmap's Task 6 explicitly rules out ("runtime orders semantic
-/// sets rather than naming leaf systems"). Two costs, both paid:
-///
-/// * A caller cannot tell which SET a named leaf lives in. that
-///   produced a `GgrsSchedule` before/after cycle: a system was ordered
-///   `.in_set(Combat).before(apply_worn_character_gameplay)`, and that leaf turns
-///   out to live in `PlayerInput`, which precedes `Combat`. Nothing in the call
-///   site could have revealed it.
-/// * An external consumer ordering against a leaf is coupled to a name the engine
-///   is free to rename or split. Ordering against a phase is not.
-///
-/// The variants are the phases the chain already had; naming them changed no
-/// order. They are chained in [`Platformer2dSimulationPhaseMonolith::PlayerInput`], so
-/// `.in_set(PlayerInputSet::Persona)` is a complete statement of intent.
+/// Ordered semantic phases inside [`Platformer2dSimulationPhaseMonolith::PlayerInput`].
+/// Cross-crate consumers order against these sets rather than leaf systems.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum PlayerInputSet {
     /// This frame's device input reaches the canonical slot model: timers,
@@ -335,17 +297,8 @@ pub enum PlayerInputSet {
     BodyMode,
 }
 
-/// The phases inside [`Platformer2dSimulationPhaseMonolith::Progression`], as
-/// an orderable vocabulary.
-///
-/// Same shape and same reason as [`PlayerInputSet`], one phase later.
-///
-/// the boundaries are not arbitrary: they are where the pins already were.
-/// Two slots (`ContentEncounterScriptSet`, `ambition_encounter::EncounterLifecycleSet`)
-/// anchored INSIDE the boss group, both against `update_encounter_progress` —
-/// which is why the boss work is two phases rather than one. A vocabulary that
-/// could not express an existing anchor would have forced the anchor to stay a
-/// leaf, and the leaf is the thing being removed.
+/// Ordered semantic phases inside [`Platformer2dSimulationPhaseMonolith::Progression`].
+/// Boss advance and hazards remain separate because encounter lifecycle slots lie between them.
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ProgressionSet {
     /// Boss encounters advance: mount-death notification, encounter + entity
@@ -360,10 +313,7 @@ pub enum ProgressionSet {
     /// Save → ECS mirrors for actors and bosses, once the encounter state they
     /// mirror is settled.
     SaveMirror,
-    /// Quest events pushed and then applied. `apply_quest_advance_events` is the
-    /// one system in this phase that lives in `ambition_persistence` rather than
-    /// the monolith, which is why a slot ordering against it had to name a leaf
-    /// from a third crate.
+    /// Push and apply quest events.
     Quest,
     /// Room metadata, music request and portal phase timers — the world catching
     /// up with the progression that just happened.
@@ -373,14 +323,9 @@ pub enum ProgressionSet {
     Map,
 }
 
-/// The phases inside [`Platformer2dSimulationPhaseMonolith::RoomTransition`].
-///
-/// Same shape, and same reason, as [`PlayerSimulationSet`]: this set carried an
-/// ordering slot described in prose — *"the host's transition APPLY slots in
-/// between"* — with the two systems it slots between named as leaves from another
-/// crate. The engine fills that slot itself now (the readiness transaction and
-/// the authorized commit), which makes it more important to name and not less: a
-/// game replacing the transition policy needs somewhere to put it.
+/// Detect, apply, and reset phases inside
+/// [`Platformer2dSimulationPhaseMonolith::RoomTransition`]. Hosts that replace
+/// transition policy join the [`Self::Apply`] slot.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum RoomTransitionSet {
     /// Has a transition been requested? Edge/door/walk detection publishes the
@@ -394,19 +339,8 @@ pub enum RoomTransitionSet {
     Reset,
 }
 
-/// The movement anchor inside [`Platformer2dSimulationPhaseMonolith::WorldPrep`].
-///
-/// Unlike [`PlayerInputSet`] and [`CombatSet`], this is deliberately NOT a full decomposition
-/// of its set.
-///
-/// That one is worth naming, because it is the question every game asks: *does my
-/// system run before bodies move, or after they have landed?* Mary-O's stomp
-/// classifier asks it (a stomp is classified from RESOLVED positions) and so does
-/// the portal transit schedule.
-///
-/// These are placement sets around the existing anchor, not a restructuring:
-/// [`Self::Integrate`] contains the one movement system, and the two neighbours
-/// are where a consumer joins.
+/// Movement-order anchors inside [`Platformer2dSimulationPhaseMonolith::WorldPrep`].
+/// Consumers can state whether they run before or after body integration.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum WorldPrepSet {
     BeforeIntegrate,
@@ -414,43 +348,21 @@ pub enum WorldPrepSet {
     /// the home/player body integrate through the same engine entry.
     Integrate,
     AfterIntegrate,
-    /// The shared body-contact damage pass, as a boundary a consumer can order
-    /// against.
-    ///
-    /// Deliberately NOT chained after [`Self::AfterIntegrate`]. Chaining it would
-    /// add an ordering that does not exist today — everything in `AfterIntegrate`
-    /// would suddenly be required to precede contact damage — and a refactor that
-    /// silently adds edges is how a schedule acquires constraints nobody chose.
-    /// It is a label on an existing system, and a consumer that needs to run
-    /// before contact damage says so itself.
-    ///
-    /// Mary-O's stomp rules are the reason it exists: a stomp must resolve the
-    /// enemy (snake to shell, walker to dead) in time for this pass to skip it, or
-    /// the stomper is also hurt.
+    /// Shared body-contact damage pass. It is deliberately not chained after
+    /// [`Self::AfterIntegrate`]; consumers add only the edge they require.
+    /// Stomp resolution, for example, must precede this pass so a resolved enemy
+    /// does not also damage the stomper.
     ContactDamage,
 }
 
-/// The phases inside [`Platformer2dSimulationPhaseMonolith::PlayerSimulation`].
-///
-/// Third of the six `Platformer2dSimulationPhaseMonolith` phases to get named sub-sets (after
-/// [`PlayerInputSet`] and [`CombatSet`]), for the same reason and with the same
-/// rule: naming them changed no order.
-///
-/// A documented slot is still a coupling: a host reading that sentence has to trust it stays
-/// true, and nothing checks that it does. [`Self::PostPossession`] IS that slot, and a host
-/// joins it by name.
+/// Ordered possession, host extension, and outcome phases inside
+/// [`Platformer2dSimulationPhaseMonolith::PlayerSimulation`].
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum PlayerSimulationSet {
     /// Who is driving which body. Possession triggers and releases; a target
     /// that stopped existing hands control back.
     Possession,
-    /// The host's slot between control settling and damage landing. Home
-    /// reset policy and player presentation live here in Ambition: they read the
-    /// movement phase's hand-off and move no body, so they must run once
-    /// possession is settled and before the frame's damage is applied.
-    ///
-    /// Empty in a host that registers nothing, which is what makes it a slot
-    /// rather than a phase the engine owes systems to.
+    /// Host extension slot after possession settles and before damage lands.
     PostPossession,
     /// This frame's damage and death facts applied to the player body.
     /// Includes the kernel's own death path (pit, drown, tile hazard), which
@@ -476,14 +388,8 @@ pub enum FeatureInteractionSet {
     /// have been read. Both use the same `strict_intersects` reach, so a
     /// conversation cannot begin and immediately break.
     Continuity,
-    /// The CAST half of the break: continuity said who should speak, this
-    /// says what they say. Immediately after [`Self::Continuity`], so the bubble
-    /// lands on the same tick the conversation ended.
-    ///
-    /// a slot `conversation` names and the cast fills. The set is declared
-    /// by the ordering vocabulary and its member lives in `features::npcs`,
-    /// which is the temporal twin of the `ConversationCutBark` message port:
-    /// continuity owns WHEN, the cast owns WHAT.
+    /// Cast after continuity so a cut-bark is published on the same tick.
+    /// Continuity decides when to bark; the cast decides what to say.
     CutBarkCast,
     /// The hold, PROJECTED — whatever [`Self::Continuity`] decided (a break,
     /// a body that stopped existing, or nothing at all), the world is made to
@@ -503,23 +409,13 @@ pub enum FeatureInteractionSet {
     SwitchIndex,
 }
 
-/// Bevy run condition: returns `true` only in [`GameMode::Playing`].
-///
-/// Use this to gate simulation systems that must not run while paused,
-/// in dialogue, in a room transition, or in a cutscene.
-///
-/// ```ignore
-/// app.add_systems(Update, my_system.run_if(gameplay_allowed));
-/// ```
+/// Run condition for systems that may advance gameplay only in [`GameMode::Playing`].
 pub fn gameplay_allowed(mode: Res<State<GameMode>>) -> bool {
     mode.get().allows_gameplay()
 }
 
-/// Bevy run condition: complement of [`gameplay_allowed`]. True in any mode
-/// that suspends gameplay (paused, dialogue, room transition, cutscene).
-///
-/// On a couch that is player two stopped mid-jump because player one walked into an NPC; in single
-/// player it is every NPC and hazard in the room holding still for a text box.
+/// Run condition for modes that stop simulation time. Dialogue follows
+/// [`DialogueStopsTheWorld`].
 pub fn gameplay_suspended(
     mode: Res<State<GameMode>>,
     dialogue_policy: Option<Res<DialogueStopsTheWorld>>,
@@ -528,13 +424,7 @@ pub fn gameplay_suspended(
         .stops_the_world(dialogue_policy.map(|p| *p).unwrap_or_default())
 }
 
-/// Coarse gameplay/session mode shared by runtime, input, host, and render.
-///
-/// `GameMode` is intentionally broader than per-entity behavior. It belongs
-/// with the schedule vocabulary because it answers the same question as the
-/// runtime sets: which groups of systems may mutate gameplay state this frame?
-/// Enemy, chest, boss, and dialogue state machines can layer narrower state on
-/// top of this coarse mode without teaching every mechanic how to pause itself.
+/// Coarse gameplay/session mode used to gate simulation and gameplay input.
 #[derive(States, Debug, Clone, Copy, Eq, PartialEq, Hash, Default, Reflect)]
 pub enum GameMode {
     /// Normal gameplay: controlled actors, NPCs, enemies, hazards, room
@@ -546,18 +436,15 @@ pub enum GameMode {
     /// responsive. Gameplay actions are deliberately not converted into an
     /// engine `InputState` while this mode is active.
     Paused,
-    /// Reserved for NPC conversations and other text-driven interactions.
+    /// Text-driven interaction mode.
     Dialogue,
-    /// Reserved for scripted room loads or door/edge transition presentation.
+    /// Scripted room-load or transition-presentation mode.
     RoomTransition,
-    /// Reserved for future cutscenes or scripted set pieces.
+    /// Scripted cutscene or set-piece mode.
     Cutscene,
 }
 
-/// Does a conversation stop the world?
-///
-/// Nothing else has to change, because the world-stop and the input claim were already two
-/// different mechanisms wearing one switch.
+/// Whether dialogue freezes simulation time.
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct DialogueStopsTheWorld(pub bool);
 
@@ -567,14 +454,8 @@ impl GameMode {
         matches!(self, Self::Playing)
     }
 
-    /// Whether the SIM CLOCK freezes in this mode.
-    ///
-    /// `Paused` is the pause. `RoomTransition` and `Cutscene` are genuinely
-    /// global — a room is loading, or a scripted beat owns the screen — and are
-    /// explicitly NOT the same question as dialogue.
-    ///
-    /// Dialogue answers `false` by default and defers to
-    /// [`DialogueStopsTheWorld`] when an experience has an opinion.
+    /// Whether the simulation clock freezes in this mode. Pause, room transition,
+    /// and cutscene always freeze; dialogue follows [`DialogueStopsTheWorld`].
     pub fn stops_the_world(self, dialogue_policy: DialogueStopsTheWorld) -> bool {
         match self {
             Self::Playing => false,

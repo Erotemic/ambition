@@ -1,28 +1,10 @@
-//! Character action scheme — the per-subject vocabulary of "what does each
-//! control slot do, and what is it called."
+//! Device-free character action vocabulary.
 //!
-//! This is the DATA half of the character-actions design
-//! (`docs/planning/engine/character-actions.md`). A subject (a character, or
-//! later a menu context) declares an ordered set of [`ActionSpec`]s: for each
-//! [`ControlSlot`] it claims, the action's stable id, its player-facing
-//! label + optional visual, and its [`ActionGate`] — what pressing that slot
-//! actually does.
-//!
-//! Two rules keep this crate a pure-data leaf (serde only, no engine, no Bevy):
-//!
-//! - The gate is string-keyed. `ActionGate::Movement("jump")` names a
-//!   movement-action id; the TYPED resolution to the engine's `MovementAction`
-//!   (and the kernel dispatch) lives in the character/runtime crate that has
-//!   the engine dep. This crate never references the kernel.
-//! - Slots are device-free. [`ControlSlot`] is the abstract button
-//!   position (Jump / Attack / …), not a physical key or a leafwing
-//!   `Platformer2dInputActionMonolith`. The physical-input → slot binding is owned by the input
-//!   layer; this crate only says which slot an action lives on.
-//!
-//! The runtime scheme is a DERIVED cache of already-snapshotted authorities
-//! (`AbilitySet` + moveset + techniques), so a rollback reconstructs it for
-//! free — nothing scheme-shaped ever enters the input stream or the snapshot
-//! ledger. See the design doc's invariant 1.
+//! A subject maps ordered [`ControlSlot`]s to stable action ids, labels, visuals,
+//! and string-keyed [`ActionGate`]s. Physical device bindings belong to the input
+//! layer; typed movement-action resolution belongs to the runtime. The runtime
+//! scheme is derived from snapshotted body authorities and is not rollback state
+//! itself.
 
 use serde::{Deserialize, Serialize};
 

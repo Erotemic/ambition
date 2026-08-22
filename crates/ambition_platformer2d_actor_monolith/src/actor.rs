@@ -1,18 +1,8 @@
-//! The neutral actor vocabulary home for shared sim-state — components any
-//! simulation body may carry, including bodies under participant control.
+//! Neutral vocabulary for simulation state any actor body may carry.
 //!
-//! Establishing this module is step 4 (the keystone) of the unified-actors plan
-//! (`docs/concepts/one-body-one-path.md` / `engine/architecture.md`): the
-//! shared body/sim-state was historically surfaced through `crate::avatar`, which
-//! made `crate::avatar` a universal dependency sink — ~20 of the non-player
-//! modules imported it just to name a body component. Re-homing the shared types
-//! here dissolves those back-edges so the runtime domains can extract into leaf
-//! crates.
-//!
-//! Rule: new shared body sim-state lands on neutral actor/body vocabulary,
-//! never on a participant-specific component merely because one body is currently
-//! controlled. Camera/HUD/device concerns remain outside body authority; body-owned
-//! inventory, economy, capabilities, motion, and combat stay with the body.
+//! Shared body state belongs here rather than on participant-specific types.
+//! Camera/HUD/device concerns remain outside body authority; inventory, economy,
+//! capabilities, motion, and combat remain body-owned.
 
 pub use crate::platformer_runtime::body::BodyKinematics;
 pub use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
@@ -20,17 +10,8 @@ pub use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlay
 pub use ambition_characters::actor::BodyAnimFacts;
 pub use ambition_combat::BodyMelee;
 
-/// The shared movement-cluster components every body carries — the 18
-/// ancillary clusters (ground contact, wall, jump, dash, flight, blink, ledge,
-/// dodge, shield, body-mode, environment contact, mana, offense, action buffer,
-/// lifetime, combo trace, base size, ability mask) that, together with
-/// [`BodyKinematics`], form the authoritative movement aggregate the shared
-/// kernel (`ae::step_motion`) reads and writes.
-///
-/// These were historically named `Player*` and surfaced through `crate::avatar`, which made
-/// every non-player module that names a body component import the player. The types
-/// `#[derive(Component)]` in `ambition_platformer2d_core`; this is the single import surface
-/// for them.
+/// Shared movement-cluster components that, with [`BodyKinematics`], form the
+/// authoritative movement aggregate consumed by the common movement kernel.
 pub use ambition_platformer2d_core::{
     BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState, BodyComboTrace, BodyDashState,
     BodyDodgeState, BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState,
@@ -38,17 +19,10 @@ pub use ambition_platformer2d_core::{
     BodyWallState,
 };
 
-/// The ancillary movement clusters every body spawns with as real ECS
-/// components — everything in the movement aggregate EXCEPT [`BodyKinematics`]
-/// (the shared kinematic truth, spawned as its own component so rendering /
-/// gravity / targeting can read one position without the movement set).
-///
-/// This is the single spawn surface for the ancillary clusters, nested by BOTH
-/// the player (`PlayerSimulationBundle`) and every actor
-/// (`ActorClusterSeed::into_components`). Carrying the identical real components
-/// on both is what lets one query ([`ambition_platformer2d_core::BodyClusterQueryData`])
-/// — and ultimately one movement driver — serve the player and the actors alike,
-/// instead of the actor wrapping them in a non-ECS scratch blob.
+/// Ancillary movement components spawned on every body. [`BodyKinematics`] is
+/// separate so rendering, gravity, and targeting can read kinematics without
+/// borrowing the full movement aggregate. Player and non-player construction use
+/// this same bundle and the same `BodyClusterQueryData` path.
 #[derive(bevy::prelude::Bundle)]
 pub struct AncillaryMovementBundle {
     pub abilities: BodyAbilities,

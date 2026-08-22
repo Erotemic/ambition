@@ -70,25 +70,8 @@ pub fn classify(view: Perceived<'_>) -> Situation {
     let me = &view.self_view;
     let gravity_down = me.gravity_down;
 
-    // 1. Self offstage. Nothing else matters.
-    //
-    // "offstage" is TWO facts on a platform stage, and this asked one.
-    // `StageView` is the ROOM, so a fighter that walked off the lip of a 420px
-    // platform in a 640px room was still *inside the stage* for another hundred
-    // pixels of falling: L1 answered `Neutral`, L2 kept offering `Retreat` — the
-    // verb pointing further out — and `Recover`, the one verb that means "get
-    // back", was not on the list until the body had left the ROOM.
-    //
-    // So the question recovery is actually about is whether there is anywhere to
-    // LAND. A body with the room around it and nothing underneath it is
-    // recovering, whatever the room says.
-    //
-    // and it asks whether terrain was BUILT first. A view with no solids
-    // at all is not a body over an abyss, it is a composition that does not
-    // publish terrain — the `juggle_escape` scenario fixture is exactly that,
-    // and without this clause it read as `Recovery` the moment this landed.
-    // "I cannot see the floor" must never mean "the floor ends here";
-    // `floor_ahead` carries the same warning three screens up.
+    // Recovery means outside the stage or airborne with published terrain and no
+    // landing surface below. An empty terrain view means "unknown", not "void".
     let nothing_to_land_on =
         !view.terrain.is_empty() && !view.self_view.on_ground && view.ground_below().is_none();
     if view.self_offstage() || nothing_to_land_on {
@@ -107,18 +90,7 @@ pub fn classify(view: Perceived<'_>) -> Situation {
         };
     };
 
-    // 2. Self is the one with a problem.
-    //
-    // cornered is about the FLOOR as well as the room. It was
-    // only ever asked of `stage.distance_to_edge`, and on an enclosed room the
-    // room's edge and the floor's edge are the same line — which is why nothing
-    // needed the distinction until the smash stage, the first room in this
-    // engine you can walk out of. On a platform stage a fighter standing on the
-    // very lip of the floor is still 110px from the room boundary, so this
-    // answered "not cornered" while the body was one step from a self-KO.
-    //
-    // A fighter that loses stocks to the floor has no difficulty curve, which
-    // makes this the first thing the ladder needs to be true.
+    // Cornering considers both room/blastzone bounds and the local floor edge.
     let floor_edge = view.floor_edge_distance().unwrap_or(f32::INFINITY);
     let cornered =
         view.stage.distance_to_edge(me.pos) < CORNER_MARGIN_PX || floor_edge < CORNER_MARGIN_PX;

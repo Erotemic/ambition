@@ -209,7 +209,8 @@ pub struct ActorInteraction {
     pub interactable: ambition_interaction::Interactable,
     pub talk_radius: f32,
 }
-// `ActorFaction` moved to `ambition_characters::actor::pose` with `ActorPose`.
+// TODO(compat-remove): migrate remaining combat callers to
+// `ambition_characters::actor::pose::ActorFaction`, then delete this re-export.
 pub use ambition_characters::actor::pose::ActorFaction;
 
 /// Per-actor current targeting read-model.

@@ -40,18 +40,10 @@ pub struct SessionRoomVisualsPlugin;
 
 impl Plugin for SessionRoomVisualsPlugin {
     fn build(&self, app: &mut App) {
-        // `spawn_room_visuals` below spawns SIGNAGE and FIXTURE world labels, so
-        // the composition that spawns them is the composition that must install
-        // the pass which places, fades and typefaces them. Leaving that to
-        // `ActorNameplatePresentationPlugin` made the AC12/AC20 policy true of
-        // the full Ambition app only: the external consumer, Mary-O and Sanic
-        // drew the same labels at raw anchors in Bevy's fallback font. Adding it
-        // twice is a no-op — see `WorldLabelLayoutPlugin`.
+        // Room visuals include world labels, so this composition also installs their layout pass.
+        // `WorldLabelLayoutPlugin` is idempotent.
         app.add_plugins(crate::rendering::WorldLabelLayoutPlugin);
-        // The resolved quality budget and the system that keeps it true. Every
-        // parallax and sprite pass below reads it, and the SYNC was app-local —
-        // so in every other composition the resource sat at its `Default`
-        // forever. Idempotent; see `VisualQualityPlugin`.
+        // Room/parallax passes consume the resolved quality budget; install its idempotent owner.
         app.add_plugins(crate::quality::VisualQualityPlugin);
         app.init_resource::<PresentedSessionScope>();
         app.init_resource::<PhysicsSandboxSettings>();
@@ -59,26 +51,10 @@ impl Plugin for SessionRoomVisualsPlugin {
             Update,
             sync_session_room_visuals.in_set(SessionScopeSet::Presentation),
         );
-        // the per-block art override, beside the pass that spawns blocks.
-        // `spawn_room_visuals` resolves a block's texture from its `BlockKind`
-        // alone, so every solid in a room is one picture; `BlockArt` is how a
-        // game says otherwise, and `apply_block_art` is what makes saying it
-        // work. Registered HERE for the reason the three notes around it give:
-        // the composition that spawns the thing installs the pass that completes
-        // it, or the seam exists everywhere and functions in the shipped app
-        // only.
+        // The composition that spawns blocks also applies authored per-block art overrides.
         app.add_systems(Update, crate::rendering::apply_block_art);
-        // the same lesson as the label pass above, one family over. The
-        // parallax THEME load lived in `game/ambition_app`'s room-transition
-        // machinery, so a room in a second biome had a backdrop in the shipped
-        // host and none anywhere else — silently, because `spawn_parallax_layers`
-        // skips a layer whose handle is absent. The composition that spawns the
-        // layers is the composition that must load them.
-        //
-        // The refresh moves with it: it is what turns the load into visible
-        // layers (it watches `GameAssets` for change), and leaving it in the app
-        // would have made the load a no-op everywhere else — a fix that reads as
-        // a fix and changes no picture.
+        // The layer-spawning composition owns active-room theme loading and the refresh that
+        // materializes newly available/quality-changed parallax assets.
         app.add_systems(
             Update,
             (
@@ -119,9 +95,7 @@ impl Plugin for PlatformerPresentationPlugin {
                 .in_set(PlatformerPresentationSetupSet),
         );
         app.add_plugins(SessionRoomVisualsPlugin);
-        // Room TRANSITIONS rebuild the visuals through
-        // `respawn_room_visuals_on_request`, which `PresentationVisualAnimationPlugin`
-        // already registers — the sim emits the request and never imports render.
+        // Room-transition requests rebuild visuals through the presentation animation plugin.
         app.add_plugins((
             PresentationVisualAnimationPlugin,
             PlayerVisualSchedulePlugin,
@@ -129,56 +103,20 @@ impl Plugin for PlatformerPresentationPlugin {
     }
 }
 
-/// The gameplay camera plus a full-screen front UI camera. The main camera
-/// renders layer 0 (sprites) plus the parallax background layer. A game that
-/// wants extra layers — Ambition adds the portal-window layer — spawns its own
-/// and skips this plugin's `Startup` set, or adds the layer to this entity
-/// afterwards.
+/// Spawn the single-view gameplay camera and full-screen front-UI camera.
 ///
-/// Under such a profile the main camera gets a `Camera::viewport`, and `bevy_ui` lays every
-/// node out against its TARGET camera's rect — so a single camera doing both jobs would
-/// letterbox the HUD, the menus, the load screen, and the surround bars themselves into the
-/// gameplay rectangle. Node→camera resolution is by `IsDefaultUiCamera` / `UiTargetCamera` and
-/// is independent of sprite render layers, so UI renders here regardless of the dedicated
-/// layer. This mirrors the full host's scaffold deliberately: a demo host should not have to
-/// hand-build a camera rig to get correct framing.
+/// Gameplay may occupy a viewport, while UI targets the full display. Multi-view compositions own
+/// their gameplay rigs and use this path only for the unambiguous full-screen UI camera.
 fn spawn_main_camera(
     mut commands: Commands,
-    // The view is spawned at plugin BUILD time, so it is already here; binding the link at
-    // SPAWN makes "which view does this camera show" a composition decision on the entity
-    // rather than a uniqueness assumption re-derived every frame in `camera_follow`.
+    // Bind camera→view at spawn so view ownership is composition state, not a per-frame guess.
     views: Query<Entity, With<ambition_sim_view::LocalView>>,
 ) {
     let layers = bevy::camera::visibility::RenderLayers::layer(0)
         .with(ambition_platformer2d_shared_tangle::camera_layers::PARALLAX_BACKGROUND_LAYER);
-    // this read `views.iter().next()`, which is the take this whole seam
-    // exists to delete. With one view it is right; with two it silently binds
-    // this rig to whichever view the archetype happened to yield first, and every
-    // downstream resolve then faithfully honours a link that was a coin flip —
-    // the process-global "the gameplay view" restored as a spawn-time guess, and
-    // invisible because a wrong link still draws a picture.
-    //
-    // the rule is `ViewsOnHand`'s, the same one `camera_follow`, the viewport
-    // applier and the draw-side lookup share: the only view in a single-view
-    // composition, and a REFUSAL when several exist. This plugin spawns exactly
-    // ONE main camera, so with several views there is no honest answer for it to
-    // give — a composition that wants two rigs binds them itself. Leaving the
-    // link off makes every consumer decline loudly rather than present the wrong
-    // view, which is the standard the rest of this seam already holds.
-    //
-    // and "binds them itself" is now a call, not an instruction to copy this
-    // wiring: `ambition_sim_view::compose_local_views` spawns N views with
-    // exactly the facts the engine's single-view path spawns, binds one camera to
-    // each, and takes a `ViewPlacement` to lay them out.
-    //
-    // AND THE UNBINDABLE RIG IS NOT SPAWNED AT ALL. Declining only the
-    // LINK left a full-screen `MainCamera` in the world that every consumer
-    // refused — so a split-screen composition got its two correct panes plus a
-    // third camera drawing the world at the origin over the top of them, and the
-    // only trace was an `error_once` line. A rig this function cannot honestly
-    // bind is a rig nobody asked for; the front HUD camera below is spawned
-    // either way, because a composition owning its own gameplay rigs still wants
-    // one full-screen UI camera and there is nothing ambiguous about that one.
+    // This plugin owns exactly one gameplay rig. Spawn it only when `ViewsOnHand` can identify one
+    // view; multi-view callers use `ambition_sim_view::compose_local_views` and must not receive an
+    // extra unbound full-screen gameplay camera.
     let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter());
     match on_hand.presented_by(None) {
         Some(view) => {
@@ -191,11 +129,7 @@ fn spawn_main_camera(
                     Name::new("Main Camera"),
                 ))
                 .id();
-            // published through the shared writer, which refuses a SECOND rig
-            // instead of letting the last one win. `MainCameraEntity` is a
-            // single-camera spawn record with no production reader — a full-screen
-            // UI node that wants the whole display targets a display-scoped
-            // camera, not whichever gameplay rig this happens to be.
+            // The shared publisher rejects a second main-camera record rather than choosing a winner.
             ambition_platformer2d_shared_tangle::camera_layers::publish_main_camera(
                 &mut commands,
                 camera,

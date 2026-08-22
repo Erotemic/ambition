@@ -36,29 +36,14 @@ pub const SWING_SFX_CUE: &str = "player.slash";
 // the character DOMAIN.  they are back in `ambition_combat::moveset`, beside the compile-time hash
 // pins that correctly never left it.
 
-///  THE COMPILE-TIME PINS STAYED IN `ambition_combat`, deliberately. Three
-/// of these cues are asserted equal to `ambition_sfx::ids` entries at compile
-/// time, because a cue authored here that no longer hashes to its id would
-/// silently stop resolving to a material variant and play the selector itself.
-/// This crate cannot see `ambition_sfx` and should not: it owns the authored
-/// TEXT, and the crate that knows the id table owns the pin. See
-/// `ambition_combat::moveset` — the assertions are unchanged and still fire.
+/// Cue-id hash pins live in `ambition_combat`, which owns the SFX id table.
+/// This crate owns authored cue text without depending on the audio registry.
 const _: () = ();
 
-/// Convert an authored [`MeleeActionSpec`] into a data-driven `"attack"`
-/// [`MoveSpec`] — the melee subsumption (fable review §A1 / §3a). The swing's
-/// windup/active/recover timeline becomes Startup / Active(one forward Rect hit
-/// volume) / Recovery windows on the owner's proper-time clock, so a plain melee
-/// runs through the SAME moveset runtime as the body's specials. Re-binding a
-/// swing onto another body is now a data edit, and the swing composes with
-/// dilation / pause for free.
-///
-/// The forward hit volume is a body-local rect sized from the spec's `reach_px`
-/// (offset a bit past the body, half-extent covering the reach + a torso-height
-/// band). Knockback is a sensible default. This base swing is the `"attack"`
-/// verb; the up/down-tilt, the four aerials, and the pogo down-air are DERIVED
-/// from it by [`directional_attack_variants`] — every direction runs through the
-/// moveset (there is no flat player melee path anymore).
+/// Convert an authored [`MeleeActionSpec`] into the base `"attack"` move.
+/// The timeline maps to startup/active/recovery windows and one body-local hit
+/// volume. Directional and aerial variants derive from this move so all melee
+/// executes through the shared moveset runtime.
 pub fn attack_move_from_melee(spec: &MeleeActionSpec) -> MoveSpec {
     let (windup, active, recover, damage, reach) = spec.timeline();
     // The authored-melee path is now a thin adapter over the `simple_melee`

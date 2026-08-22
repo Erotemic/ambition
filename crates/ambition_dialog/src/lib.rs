@@ -1,28 +1,9 @@
-//! Reusable dialogue runtime (E1c carve out of `ambition_platformer2d_actor_monolith`).
+//! Reusable, content-free dialogue runtime.
 //!
-//! Owns the engine-side dialogue machinery, content-free:
-//!
-//! - [`DialogState`] — the poll-based UI read model. Callers mutate it through
-//!   pure methods (`start`, `close`, `confirm_or_advance`, `select_delta`); the
-//!   bridge drains its `pending_*` requests into the live `DialogueRunner` and
-//!   writes runner events back.
-//! - [`dialog_reveal_tick`] / [`dialog_input`] / [`dialog_pointer_input`] — the
-//!   typewriter reveal + input translators (the last two `input`-gated).
-//! - [`DialogueVoiceCatalog`] — the App-local seam through which a provider
-//!   contributes its cast voiceprints without naming characters here.
-//! - [`YarnBridgePlugin`] — the `bevy_yarnspinner` ↔ `DialogState` bridge,
-//!   including the presentation-neutral `present_speaker` / `portrait_clip`
-//!   commands, and the [`YarnContentBindings`] installer seam a host registers
-//!   its game-specific Yarn vocabulary through (`ui`-gated).
-//!
-//! ## What stays host-side
-//!
-//! The game's Yarn *bindings* (commands like `<<give_item>>`, functions like
-//! `<<if boss_cleared("x")>>`) reference actor/save state, so they live in the
-//! host and register through [`YarnContentBindings`]. The runtime has no notion
-//! of a host "game mode": it flips [`DialogState::active`] and the host maps
-//! that onto its own session state. This is the seam that lets the dialogue
-//! runtime be reused by another game.
+//! Owns dialog state, reveal/input translation, voice registration, and the Yarn
+//! bridge. Game-specific Yarn commands/functions stay host-side and register
+//! through `YarnContentBindings`; hosts map `DialogState::active` onto their own
+//! session state.
 
 mod content;
 mod context;

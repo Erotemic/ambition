@@ -1,38 +1,8 @@
-// The boss SEED LIBRARY v1 — `docs/planning/engine/boss-design.md` §2, slice BD4.
-//
-// Nine attack archetypes, EXTRACTED from the twenty-two `BossAttackProfile` keys
-// the shipped roster actually uses, generalized, and documented. A fight is
-// 4–7 seeds + phase escalation + one signature bespoke move.
-//
-// Shape: `{ "<seed_id>": MoveSeed }`, deserialized by
-// `ambition_characters::brain::boss_pattern::seeds::SeedLibrary::from_ron`.
-//
-// ── THE BANDS ARE MEASURED, NOT INVENTED ──────────────────────────────────
-// `telegraph` and `active` are the exact observed envelope of every occurrence
-// of every instance in `boss_profiles.ron` — no padding. The test
-// `boss_seeds_bands_are_the_measured_envelope` re-derives them from the profile
-// RON and fails BOTH when an occurrence falls outside a band AND when a band is
-// wider than its own instances. So retuning a boss updates this file, by design:
-// that is how the library stays true, and it is the accretion discipline §2 asks
-// for made mechanical.
-//
-// ── WHAT IS DELIBERATELY ABSENT ───────────────────────────────────────────
-// `recovery`. §3's commitment rule wants a punish window per attack, and there is
-// no per-attack recovery in `BossPatternStep`: the punish window is the `Rest`
-// beat that FOLLOWS a `Strike`, a property of the OCCURRENCE, not the move. BD5's
-// validator must measure it per beat. Inventing a field nothing could fill would
-// have been worse than naming the gap.
-//
-// §2 also names `counter_stance`, `enrage_repeat`, and `grab_command`. The
-// roster contains no instance of any of them. An archetype with no example
-// teaches an authoring agent nothing, so they are NOT in this file; they arrive
-// with the fight that first needs one. (BD1's `Stance` pattern arm is what
-// `counter_stance` will be built on.)
-//
-// ── ADDED BY THE EXTRACTION ───────────────────────────────────────────────
-// `body_nova` and `spread_volley` were not in §2's list. They fell out of the
-// data: two bosses' signature moves are a proximity burst, and two more fire an
-// instantaneous ring/cone. Both are their own answer-shape, so both are seeds.
+// Boss attack-seed library. Shape: `{ "<seed_id>": MoveSeed }`.
+// `telegraph` and `active` are exact envelopes of the listed occurrences in
+// `boss_profiles.ron`; `boss_seeds_bands_are_the_measured_envelope` enforces both bounds.
+// Recovery is occurrence-level: the `Rest` beat after a `Strike`, not a seed field.
+// Only archetypes with concrete roster instances belong here.
 {
     // ============================================================
     "sweep": (

@@ -1,35 +1,17 @@
 #!/usr/bin/env bash
-# Idempotently take a fresh Ambition checkout to a runnable desktop setup.
-#
-# This is a bootstrap and environment-repair command. Normal development does
-# not require running it before every asset regeneration; existing tool-local
-# virtualenvs are reused directly by regen_sprites.sh and the renderer CLIs.
-#
-# The default path is intentionally complete:
-#   - install Ubuntu/Debian host libraries and offline audio tools;
-#   - install Rust plus the developer Cargo utilities used by repo scripts;
-#   - install the profiling toolchain the repo's own scripts depend on;
-#   - arm the LLM resource-accounting git hook;
-#   - initialize every git submodule recursively;
-#   - create one Python virtualenv per active authoring tool;
-#   - install each tool from its own pyproject metadata;
-#   - regenerate backgrounds, sprites, music, and SFX;
-#   - fetch and check the desktop game target.
+# Idempotently prepare a fresh checkout for desktop development. The default
+# path installs host/Rust tools, initializes submodules, creates tool-local
+# Python environments, regenerates assets, and checks the desktop target.
+# Existing tool environments are reused by normal asset commands.
 #
 # Usage:
-# ./run_developer_setup.sh
-# ./run_developer_setup.sh --skip-system-packages
-# ./run_developer_setup.sh --skip-rust
-# ./run_developer_setup.sh --no-profile
-# ./run_developer_setup.sh --skip-submodules
-# ./run_developer_setup.sh --skip-tally
-# ./run_developer_setup.sh --skip-python
-# ./run_developer_setup.sh --skip-assets
-# ./run_developer_setup.sh --skip-cargo-check
+#   ./run_developer_setup.sh [--skip-system-packages] [--skip-rust]
+#       [--no-profile] [--skip-submodules] [--skip-tally]
+#       [--skip-python] [--skip-assets] [--skip-cargo-check]
 #
-# Environment overrides:
-#   AMBITION_TOOL_PYTHON=3.12   Python version used for every tool-local .venv.
-#   UV_EXCLUDE_NEWER=YYYY-MM-DD Override the rolling 14-day package cutoff.
+# Environment:
+#   AMBITION_TOOL_PYTHON=3.12
+#   UV_EXCLUDE_NEWER=YYYY-MM-DD
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

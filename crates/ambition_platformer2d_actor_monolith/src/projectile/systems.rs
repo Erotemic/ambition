@@ -28,32 +28,11 @@ const PROJECTILE_REFLECT_SPEED_SCALE: f32 = 1.3;
 /// Health a successful parry restores (a reason to parry rather than dodge).
 const PARRY_HEAL: i32 = 1;
 
-/// Body-generic projectile PARRY reflect: a timed shield RE-OWNS the shot to the
-/// parrying body — both halves of that, the owner HANDLE and the
-/// [`ProjectileAllegiance`] the damage rule actually reads — and reverses+boosts
-/// the velocity. Re-owning is how a reflected shot becomes the parrier's attack
-/// now that damage is attribution-driven. The SAME mechanic
-/// for the player and any shielding actor (a possessed body, a mixed-faction
-/// duelist); the player's parry HEAL stays a player-facing reward at the call site
-/// .
-///
-/// # Combat ownership moves; the bolt's VOICE does not (H1/H7)
-///
-/// Before the stamp existed the re-own worked by making the next tick's owner LOOKUP find a
-/// different body, which is the same mechanism that lost the shot's allegiance entirely when a
-/// firer died.
-///
-/// The re-own above is a combat fact: damage now routes off the parrier's faction.
-/// It deliberately does NOT re-stamp `BodyPresentationSource`, so the shot's impact
-/// still sounds like the character that FIRED it. Those are two different questions
-/// — the same split `AudioContextOwner` and `PresentationSourceId` already draw —
-/// and a fireball does not become a different fireball because somebody swatted it
-/// back. What changes hands is who it is aimed at.
-///
-/// The CLANG is the other side of that: parrying is the parrier's technique, so the
-/// reflect cue takes the parrier's source. Pinned by
-/// `parry_tests::a_reflected_shot_keeps_its_firers_voice_and_the_clang_is_the_parriers`,
-/// because the policy is a choice and not a consequence.
+/// Reflect a parried projectile and transfer combat ownership to the parrier.
+/// `ProjectileOwner` and `ProjectileAllegiance` change together so damage uses
+/// the parrier's authority. Presentation source stays with the original shot,
+/// while the parry clang uses the parrier's source: combat ownership and a
+/// projectile's voice are separate facts.
 fn reflect_parried_shot(
     commands: &mut Commands,
     proj_entity: Entity,
@@ -112,18 +91,8 @@ fn player_projectile_muzzle_local_offset(
     }
 }
 
-/// Charge-projectile INPUT: per-BODY charge / Hadouken-motion recognition / fire.
-/// Emits a [`ProjectileSpawnRequest`]; the actual flight is stepped by
-/// [`step_projectiles`] (the unified faction-general stepper).
-///
-/// Body/ability-subject, NOT player-marker: it iterates any body carrying the
-/// chargeable-projectile CAPABILITY ([`ambition_characters::brain::ChargesProjectiles`])
-/// plus its charge state — the SAME capability gate the emitter
-/// (`emit_player_projectile_tick_messages`) uses, so the two sides are symmetric.
-/// The projectile origin is the EMITTING body's own muzzle (`kin.pos`), so a
-/// possessed body that adopts the player's kit fires from ITSELF, not the home
-/// avatar. Only the home body carries the charge state today; the player-flavoured
-/// anim pulse is therefore OPTIONAL (a non-home charge body has no `BodyAnimFacts`).
+/// Per-body charge/motion-recognition/fire input for charge-capable bodies.
+/// Emits [`ProjectileSpawnRequest`]; [`step_projectiles`] owns flight.
 #[allow(clippy::too_many_arguments)]
 pub fn charge_projectile_input(
     world_time: Res<ambition_time::WorldTime>,
@@ -187,13 +156,7 @@ pub fn charge_projectile_input(
         state.clock += dt;
         state.spawner.tick(dt);
 
-        // Sample motion for Hadouken recognition. Both the action message
-        // axis and `MotionDirection::from_axis` use the +Y-DOWN convention
-        // (the engine matcher returns `Down` for y > 0; pinned by the
-        // `motion_direction_quantization` engine test). Pass axis through
-        // unchanged — an earlier negation here was inverting the sign
-        // and silently mapping every "press Down" sample to `Up`, which
-        // made every QCF detection fail forever.
+        // Motion input uses the same +Y-down convention as `MotionDirection::from_axis`.
         let dir =
             crate::projectile::MotionDirection::from_axis(tick_info.axis.x, tick_info.axis.y, 0.55);
         let now = state.clock;
@@ -370,36 +333,16 @@ struct PlayerProjectileTickInfo {
     released: bool,
 }
 
-/// The unified projectile step pipeline. Processes EVERY in-flight projectile —
-/// player- and enemy-spawned alike (one `LiveProjectile` query) — sorted by
-/// the global [`ProjectileSeq`], routing behavior by the shot's frozen
-/// [`ProjectileAllegiance`]:
-///
-/// - Player-faction shots damage enemies / bosses / breakables (one hit =
-///   one despawn) and bounce on solids per `WorldHitPolicy::Bouncing`.
-/// - Enemy-faction shots can be parried (flip to Player-faction + reflect),
-///   else damage the first vulnerable overlapping player, and expire on any
-///   solid contact.
-///
-/// Lasersword shots detonate (rendered explosion) on death / wall-hit either
-/// way. This replaces the former separate player/enemy step loops; body input /
-/// charge / fire policy stays in [`charge_projectile_input`], which emits the
-/// same `ProjectileSpawnRequest` as every other projectile producer.
+/// Set containing the unified in-flight projectile step for all allegiances.
+/// Shots are processed in global `ProjectileSeq` order; allegiance determines damage,
+/// parry, and solid-contact policy.
 #[allow(clippy::too_many_arguments)]
-/// The set `step_projectiles` runs in.
-///
-///  `ambition_platformer2d_host` orders two RENDER passes against this function by name —
-/// `sync_projectile_visuals` and `sync_projectile_charge_visuals`, both
-/// `.after(projectile_schedule::step_projectiles)` — so presentation reaches through the
-/// runtime's re-export into a monolith leaf to place itself.
-///
-///  ONE member. The two systems beside it in the tuple —
-/// `charge_projectile_input` and `materialize_projectiles_for_next_tick` — are
-/// deliberately AFTER the step ("so the new body first ticks next frame"), so a
-/// set spanning them would push presentation past a spawn it is not waiting for.
+/// Ordering anchor for the in-flight projectile step only.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ProjectileStepSet;
 
+/// Step every live projectile in deterministic spawn order.
+/// Player/enemy routing shares this body-general path; bosses and breakables use the feature-hit path.
 pub fn step_projectiles(
     mut commands: Commands,
     world_time: Res<ambition_time::WorldTime>,
@@ -427,37 +370,15 @@ pub fn step_projectiles(
             Without<FeatureSimEntity>,
         ),
     >,
-    // Read-only victim bodies for hostile-shot damage + parry. Disjoint from the
-    // mutable projectile query above (both touch `BodyKinematics`; B0001) via the
-    // `LiveProjectile` marker split.
-    //
-    // ONE victim set for hostile shots — every body, player included. The player
-    // is selected by `is_player` for PAYLOAD POLICY only (routing stamp, parry
-    // heal), never by a separate query or a separate loop. Bosses are excluded
-    // because the boss-facing hit path is `ecs_bosses` below; including them would
-    // double-damage.
-    //
-    // Now the SAME NAMED ROLE melee uses — [`StrikeVictim`], owned by `ambition_combat::hitbox`
-    // beside the victim-geometry rule. Sharing the type makes the claim checkable — and it exposed
-    // a bolt landing on a body a sword passes through. The INTANGIBILITY half of that is closed in
-    // the loop below; the precision half is still open, and says so there.
-    //
-    //  NO `With` filter on the vulnerability cluster, deliberately, and unlike melee: a shot
-    // must be able to hit any body with a hurtbox and a faction, including a simple feature
-    // body carrying no shield/dodge state at all.
+    // One shared body-victim query for hostile shots and parry. Player identity affects
+    // reward/payload policy only; bosses use the separate encounter hit path below.
+    // No vulnerability `With` filter: simple factioned hurtbox bodies are valid victims too.
     victims: Query<
         ambition_combat::hitbox::StrikeVictim,
         (Without<LiveProjectile>, Without<BossConfig>),
     >,
     mut feature_damage: MessageWriter<HitEvent>,
     ecs_breakables: Query<(&FeatureId, &CenteredAabb, &BreakableFeature), With<FeatureSimEntity>>,
-    //  the actor hit PREDICTION is gone with the fork that needed it. It
-    // existed so a Player-faction shot could decide whether its `Volume`
-    // broadcast would land on anything before emitting one; the victim loop
-    // names those bodies directly now, and re-asking here would be the second
-    // rule this file just finished deleting. `ecs_actors` went with it — one
-    // fewer system param, and one fewer place for "does this hit an actor" to
-    // grow a second answer.
     ecs_bosses: Query<
         (
             &FeatureId,
@@ -473,28 +394,10 @@ pub fn step_projectiles(
     mut vfx: MessageWriter<VfxMessage>,
     mut heals: MessageWriter<crate::avatar::PlayerHealRequested>,
     mut trace: ResMut<GameplayTraceBuffer>,
-    // Relational damage authority + non-player actor victims for actor-vs-actor
-    // projectile damage. A shot damages any DIFFERENT-faction body it hits, routed
-    // off the FIRER's faction (looked up from its owner entity): a PCA (Enemy)
-    // glider hits a robot (Boss) and vice versa, and a stray hits a different-faction
-    // bystander (the observer). Same-faction allies are spared unless friendly fire
-    // is on — so a pirate's shot can't hit another pirate. (Targeting is separate.)
-    // AE6: resolved match rules, not the world's baseline toggle.
+    // Damage authority comes from the firer's faction/grudge/team. Match team outranks
+    // faction for whether a shot may land; bosses use the authored catalog below.
     tuning: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
-    // Still bundled into ONE tuple slot to stay under Bevy's 16-param ceiling, but
-    // one member SHORTER: `victim_frames` left, because a per-victim component
-    // belongs to the victim view rather than to a lookup query beside it.
-    // - `owner_combat` — the firer's REAL faction, optional grudge and MATCH TEAM,
-    //   looked up from the projectile's owner entity (player / enemy / boss /
-    //   player-robot). The faction RETIRES the binary `ProjectileGameplay.faction`
-    //   (damage routes off the owner, not a side label); the grudge is the
-    //   per-entity DAMAGE override that lets a shot hit a same-faction body its
-    //   firer feuds with (an `Npc` duelist's bolt). Read-only, so it may overlap
-    //   `victims`.
-    //
-    //  THE TEAM JOINED IT, and its absence was the rule: *"PCA's glider doesn't do any damage or hit anyone."* Measured on the shipped stage, both seats come back `ActorFaction:Player` with teams `seat 1` and `seat 2` — melee asks `team_allows_damage` and lands, this loop asked `damage_lands` and spared every shot as an ally. It was never about the glider: NO projectile from ANY fighter could hit anybody on a crossover grid, because a Hall NPC and a demo protagonist are not enemies of each other outside the match. `StrikeVictim` has carried the victim's `team` the whole time — *"Outranks faction for 'may this land'"* — and this was the one caller that never asked for it.
-    // - `boss_catalog` — App-local authored boss geometry used by the hit predicate.
-    // - `visual_catalog` — the open, content-owned projectile art registry; the detonation-FX pick resolves a shot's visual id through it.
+    // Bundled into one SystemParam slot to stay under Bevy's parameter ceiling.
     (owner_combat, boss_catalog, visual_catalog): (
         Query<(
             &ActorFaction,
@@ -542,17 +445,8 @@ pub fn step_projectiles(
             .and_then(|art| art.expiry_vfx);
         let owner_entity = owner.map(|o| o.0);
         let owner_combat_data = owner_entity.and_then(|e| owner_combat.get(e).ok());
-        // Stamped immediately after materialization and read on every tick after, so the answer
-        // stops depending on whether the firer is still resident.
-        //
-        // A shot does not become neutral because the body that fired it stopped being resident.
-        //
-        //  freezing is not memoising a lookup — the stamp is the AUTHORITY
-        // from here on, which is what lets a parry deliberately REWRITE it
-        // (`reflect_parried_shot`) instead of reaching for whoever the owner
-        // handle now points at. It is registered rollback state for the same
-        // reason: after a rewind past the firer's death there is nothing left to
-        // re-derive it from.
+        // Projectile allegiance is frozen launch authority and rollback state. Parry may
+        // deliberately rewrite it; it must not be re-derived from a firer that may be gone.
         let allegiance: Option<ProjectileAllegiance> = match stamped_allegiance {
             Some(stamped) => Some(stamped),
             // First sight. A shot always takes flight while its firer lives, so
@@ -739,20 +633,8 @@ pub fn step_projectiles(
                 continue;
             }
 
-            // The strike's UNRESOLVED half, exactly as a body-owned melee
-            // publishes it. The loop above named every combat body this shot
-            // reaches; it cannot name a breakable, or a boss whose HP and phase
-            // live on an encounter rather than on a body carrying the combat
-            // cluster — neither matches `StrikeVictim`, and the query excludes
-            // `BossConfig` outright.
-            //
-            //  `UnresolvedFeatures`, NOT `Volume`: `Volume` means "scan
-            // everything" and would damage every body a second time on top of
-            // the identified hit it just took. The consumer skips its actor scan
-            // on this target for that reason.
-            //
-            // A hostile bolt could not break a crate at all — not by policy, just because the other
-            // side of the fork was the only one that looked.
+            // Bodies were resolved directly above. `UnresolvedFeatures` sends only the remaining
+            // boss/breakable portion through feature resolution, avoiding a second body hit.
             let unresolved = HitEvent {
                 strike_sfx: None,
                 volume: kin.aabb().into(),
@@ -929,12 +811,7 @@ mod parry_tests {
         );
     }
 
-    /// The body-generic parry reflect — the ONE mechanic the player parry and the
-    /// new actor parry both call (§A10) — re-owns the shot to the parrying body and
-    /// reverses + boosts its velocity, so a reflected shot becomes the parrier's own
-    /// bolt (damage routes off the parrier's faction next tick) whether a player or
-    /// a shielding actor caught it. Pins that a future edit can't make the reflect
-    /// re-own to a hardcoded player again.
+    /// A parry re-owns the projectile to the parrying body and reverses/boosts velocity.
     #[test]
     fn reflect_re_owns_the_shot_to_the_parrier_and_reverses_velocity() {
         let mut app = App::new();

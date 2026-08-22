@@ -1,31 +1,10 @@
-//! Player brain — translates a slot-selected `ControlFrame` into the abstract
-//! intent fields of [`crate::actor::control::ActorControlFrame`].
+//! Player-brain translation from slot-selected [`ControlFrame`] values to
+//! [`crate::actor::control::ActorControlFrame`] intent.
 //!
-//! The player brain is purely a translation layer. It does not
-//! make any gameplay decisions — every decision (variable-height
-//! jump, dash window, projectile charge) lives in the integration
-//! stage, the same way an enemy brain decides "I want to fire" but
-//! the projectile-spawner system handles the cooldown gating.
-//!
-//! Every `ControlFrame` field the player simulation needs survives
-//! this translation, including the player-specific verbs
-//! (`pogo_pressed`, `blink_*`, `fast_fall_pressed`, `fly_toggle_pressed`,
-//! `projectile_*`, `grab_pressed`, `aim`). The sandbox's
-//! `engine_input_from_actor_control` builds the engine's `InputState` purely
-//! from `crate::control::ActorControl`; the raw `ControlFrame` is no longer consulted inside
-//! the player simulation phases.
-//!
-//! THAT SENTENCE WAS FALSE FOR THE WHOLE LIFE OF THE CAPTURE MECHANIC
-//! . `grab_pressed` was not in the carry list, so a human's Grab
-//! button reached the input layer, the seat, the abilities and the action
-//! scheme — and stopped here. A CPU could grab, because AI brains write
-//! `crate::control::ActorControl` directly and never call this function; a person could not.
-//! button that says grab."*
-//!
-//!  the paragraph above is now GUARDED rather than asserted. See the
-//! exhaustive destructure at the top of [`tick_player_brain_from_control`]:
-//! adding a `ControlFrame` field is a compile error here until somebody decides
-//! whether a human carries it.
+//! Gameplay decisions remain in shared integration systems rather than a
+//! player-specific simulation path. [`tick_player_brain_from_control`]
+//! exhaustively destructures `ControlFrame`, forcing each new input field to be
+//! considered by the human-control translation.
 
 use ambition_platformer2d_core as ae;
 
@@ -49,11 +28,7 @@ pub fn tick_player_brain(
     snapshot: &BrainSnapshot,
     out: &mut crate::actor::control::ActorControlFrame,
 ) {
-    // Per Chunk 4e: BrainSnapshot now carries the player's input
-    // frame as an Option. When present we delegate to the
-    // input-aware translator. When absent (e.g. a player-brained body whose
-    // slot has not been published into this snapshot), emit a neutral frame +
-    // facing so integration never consumes stale input.
+    // Missing slot input produces neutral intent so stale input cannot survive.
     if let Some(ref input) = snapshot.player_input {
         tick_player_brain_from_control(input, snapshot, out);
         return;
@@ -73,12 +48,7 @@ pub fn tick_player_brain_from_control(
 ) {
     *out = crate::actor::control::ActorControlFrame::neutral();
 
-    // A struct pattern with no `..` makes adding a `ControlFrame` field a COMPILE ERROR right
-    // here, so the next verb cannot be silently human-unreachable.
-    //
-    // every binding is `_` and that is the point: this states a DECISION,
-    // it reads nothing. The real reads stay below where they are legible, and
-    // this list stays a list of answered questions.
+    // No `..`: adding an input field must make this translation choose how to carry it.
     let ControlFrame {
         // ── carried below, verbatim or after interpretation ──
         axis_x: _,

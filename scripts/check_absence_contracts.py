@@ -780,58 +780,13 @@ DEPENDENCY_CONTRACTS: list[dict] = [
 MODULE_ALLOWLISTS: list[dict] = [
     {
         "id": "outlander-names-only-the-public-sdk",
-        # This contract measures the external consumer only; other facade users
-        # have separate ownership/dependency contracts.
+        # This contract measures only the external-consumer fixture.
         "paths": ["fixtures/external_consumer/"],
-        # The fixture's `tests/` ARE the consumer. Elsewhere a test calling a
-        # resolver is not a second authority, so `is_test_path` excludes it; here
-        # the tests are a third party exercising the public API, which is exactly
-        # the population being measured. It happens not to change the SET today —
-        # every module the tests name, `src/` names too — but it changes the
-        # counts, and the counts are §2a's cost proxy.
+        # Fixture tests exercise the same public API and are part of this consumer surface.
         "include_tests": True,
         "facade": "ambition_platformer2d",
-        # THE PUBLIC SDK, as of slice A. `ambition_platformer2d::app` is the host-composition
-        # facade `docs/sdk/api-prototype.md` §5 specifies (`PlatformerApp`,
-        # `SessionMode`, `AssetSource`, `GameModule`, `ModuleManifest`,
-        # `ModuleDraft`, and `app::prelude`). It is the one name a consumer may
-        # reach for that is a PROMISE rather than a mirror of our crate list —
-        # which is the whole distinction this contract measures.
-        #
-        # Adding a name here is a compatibility commitment, not a way to make
-        # the ratchet green. The test that reads this table cannot tell the two
-        # apart, so the review is the gate: a module belongs here only once
-        # `docs/sdk/api-prototype.md` names it as SDK surface.
-        #
-        # §5 also lists `ambition_platformer2d::experience`; the implementation put
-        # `GameModule`/`ModuleManifest`/`ModuleDraft` in `ambition_platformer2d::app` beside
-        # `PlatformerApp` instead of splitting them, so `experience` does not
-        # exist and is deliberately NOT pre-registered here. An allowlist entry
-        # for a module nothing names is exactly the stale entry invariant 2
-        # forbids.
-        # The reviewed SDK surface, kept IDENTICAL across consumers — a module
-        # that is a promise to one game is a promise to all of them, and a
-        # per-consumer allowlist would let the same name be public here and a
-        # leak there.
-        #
-        # `app` (slice A), `world` (slice C, once the facade stopped mirroring
-        # it), and `actor`/`sim`/`view` (slice C) — each a CLOSED list, not a
-        # crate re-export. `bevy` is the facade's documented re-export.
-        #
-        # `rollback` (slice F) is the one name here that ADR 0031 explicitly
-        # REFUSED to let arrive this way. Its Deferred section reserved
-        # rollback-as-a-public-knob for "its own slice, its own acceptance
-        # tests", calling it "a far larger promise than a clock: frozen schema,
-        # complete authoritative baseline, stable participants, deterministic
-        # activation, lifecycle rebasing, confirmation boundaries."
-        #
-        # For four slices the correct move was to leave the ratchet at 1 rather
-        # than take it to zero by curating a module — the shortcut is recorded
-        # in `slice-d-selection.json` as "closeable: Yes, trivially and
-        # WRONGLY". What changed is not the pressure to finish; it is that
-        # slice F built the six properties and each has a test named in
-        # `fixtures/external_consumer/tests/rollback_is_a_promise.rs`. The entry is the
-        # promise, so it may only appear alongside the thing that earns it.
+        # Reviewed public SDK surface. Add a module only when the SDK contract names it;
+        # an allowlist entry is a compatibility commitment, not a ratchet escape hatch.
         "allowed": {
             "actor",
             "app",
@@ -842,32 +797,7 @@ MODULE_ALLOWLISTS: list[dict] = [
             "view",
             "world",
         },
-        # There are eighteen.
-        #
-        # Six of `asset_manager`'s eight uses closed and the module STAYS, because module
-        # granularity is a coarse unit that reports progress late. That is the right direction
-        # for a gate to err in; §2a of the growth method carries the per-path counts beside it
-        # for the finer picture. 14 -> 11, slice C. Pruned in the migrating commit, because
-        # invariant 2 went STALE-red and named both.
-        #
-        # What is left is not composition. `runtime` is 13 uses of `rollback::*` — the session knob
-        # ADR 0031 defers to its own slice — and the rest is content and gameplay vocabulary that
-        # needs its own derivation rather than the same treatment applied eleven times. 11 -> 7.
-        # `actors`, `characters`, `sprite_sheet` and `entity_catalog` RETIRED into the curated
-        # `character`/`actor`/`view` modules. 18 -> 1 across slices A-C. What is left is
-        # `ambition_platformer2d::runtime`, and every one of its ten uses is `rollback::*`.
-        #
-        # It stays. ADR 0031's Deferred section is explicit that rollback as a
-        # public knob is "a far larger promise than a clock — frozen schema,
-        # complete authoritative baseline, stable participants, deterministic
-        # activation, lifecycle rebasing, confirmation boundaries", with its own
-        # slice and its own acceptance tests. Curating it into
-        # `ambition_platformer2d::rollback` would make exactly that promise through the back
-        # door. A zero leak count alone is not sufficient reason to publish
-        # rollback as SDK surface.
-        #
-        # Rollback becomes public only through the deliberate API reserved by
-        # ADR 0031, not by mirroring the internal runtime module.
+        # Empty baseline: this consumer names no implementation-shaped modules.
         "baseline": set(),
         "reason": (
             "A game depends on `ambition_platformer2d`, and `ambition_platformer2d` is currently the list "
@@ -884,19 +814,11 @@ MODULE_ALLOWLISTS: list[dict] = [
     },
     {
         "id": "minimal-game-names-only-the-public-sdk",
-        # Consumer-matrix row 2, added by slice B. The SECOND consumer gets its
-        # own ratchet from the start, because a second consumer that may name
-        # whatever it likes is not a proof of anything — it is a second way to
-        # be shaped like one game.
+        # The minimal-game fixture has an independent public-SDK ratchet.
         "paths": ["fixtures/minimal_game/"],
         "include_tests": True,
         "facade": "ambition_platformer2d",
-        # `app` is the SDK. `bevy` is the facade's deliberate re-export — its own doc comment
-        # commits to it ("so a game can name bevy TYPES through `ambition_platformer2d::bevy`"), and
-        # this game proves the commitment is worth something: it needs NO `bevy` entry in its
-        # manifest at all, because it derives nothing. Outlander does. That is the difference
-        # between a promise and an accident, and it is what makes this entry honest rather than a
-        # way to make the number smaller.
+        # `bevy` is a documented facade re-export and therefore part of the public surface.
         "allowed": {"actor", "app", "bevy", "character", "sim", "view", "world"},
         # Empty baseline: the minimal consumer now names only reviewed SDK
         # surface. New implementation-module imports must fail this ratchet.

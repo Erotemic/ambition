@@ -1,29 +1,8 @@
-//! THIS DEMO'S CHARACTER PACKAGE — George's values, as content.
+//! Smash demo content pack for George Booul.
 //!
-//!  first facet, from the consuming side. The queue's row draws three layers and says the
-//! middle one does not exist yet:
-//!
-//! ```text
-//! Smash capability   defines the facet's semantics    ambition_characters::smash_fighter
-//!         ^
-//! character package  authors George's VALUES          assets/fighters/george_booul.ron
-//!         v
-//! Smash preparation  produces runtime MoveSpecs       CaptureKitAuthoring::into_repertoire
-//! ```
-//!
-//! This module is the character-package layer. It compiles this demo's own pack
-//! through `ambition_platformer2d::content` — the same compiler Ambition's pack
-//! uses, reached through the facade rather than through the game crate — and
-//! hands the prepared kit to [`crate::george_booul_moveset`].
-//!
-//! ## The E9 oracle still holds, and it is what shaped this
-//!
-//! This crate's manifest says *"`ambition_platformer2d` + `bevy` and nothing else. If authoring a
-//! STOCKS match needs a type the umbrella does not re-export, that is an engine leak and it fails
-//! to compile HERE."* Compiling a pack needed one: parsing `pack.ron` was a `ron::from_str` at
-//! every pack owner, and `ron` is not a facade re-export.
-//!
-//! ## A missing facet is LOUD
+//! The demo compiles its embedded `pack.ron` through the platformer facade and
+//! prepares George's platform-fighter facet. George's authored values live with
+//! the character in the sprite-authoring submodule; this demo selects them.
 
 use ambition_platformer2d::characters::smash_capture::SmashCaptureRepertoire;
 use ambition_platformer2d::characters::smash_fighter::content_schema::lowered_smash_fighters;
@@ -38,14 +17,7 @@ const PACK_MANIFEST_RON: &str = include_str!("../assets/pack.ron");
 /// silently absent fighter.
 const GEORGE_FACET_PATH: &str =
     "../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/characters/george_booul/smash_fighter.ron";
-/// embedded from the CHARACTER-AUTHORING SUBMODULE, not from this demo.
-/// The: *"Smash should select George; it should not own
-/// George's values."* The values moved to
-/// `tools/ambition_sprite2d_renderer/.../characters/george_booul/smash_fighter.ron`,
-/// whose repository claims that material by name; this crate keeps the SELECTION
-/// and the schema/preparation stay in Rust.
-///
-/// That is what "George's values live with George" means.
+/// George's authored fighter facet, selected here but owned by character authoring.
 const GEORGE_FACET_RON: &str = include_str!(
     "../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/characters/george_booul/smash_fighter.ron"
 );
@@ -55,12 +27,7 @@ fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
     [(GEORGE_FACET_PATH.to_string(), GEORGE_FACET_RON.to_string())]
 }
 
-/// Compile this demo's embedded pack.
-///
-/// assets are UNCHECKED here for the same reason they are in Ambition's own
-/// pack: a shipped binary's art may legitimately be absent on a fresh clone, and
-/// refusing to boot over a missing sheet would make the content compiler the
-/// thing that stops the game rather than the thing that explains it.
+/// Compile the embedded pack without requiring art assets to exist locally.
 pub fn compile_pack() -> Result<PreparedContentPack, CompileFailure> {
     let draft = ambition_platformer2d::content::ContentPackDraft::from_manifest_ron(
         PACK_MANIFEST_RON,
@@ -73,10 +40,7 @@ pub fn compile_pack() -> Result<PreparedContentPack, CompileFailure> {
     )
 }
 
-/// The prepared pack, compiled once per process.
-///
-/// A loud stop on failure, the same choice Ambition's pack made: content that
-/// silently lost a fighter's grab is worse than a stop that names the file.
+/// Compile and cache the pack once; invalid authored content is fatal.
 pub fn prepared() -> &'static PreparedContentPack {
     static PREPARED: std::sync::OnceLock<PreparedContentPack> = std::sync::OnceLock::new();
     PREPARED.get_or_init(|| {

@@ -1,29 +1,9 @@
-//! Pure through-portal view geometry — what a viewer looking into one
-//! portal sees of the world at its partner.
+//! Pure through-portal view geometry.
 //!
-//! Two display models, sharing the same source region (the world in FRONT of
-//! the exit portal):
-//!
-//! - Window ([`ViewCone`] / [`view_cone`] — what the default renderer
-//!   ships): the view recedes INTO the entry's host surface, like glass set in
-//!   the wall — you see "through the portal a little bit." A window's display
-//!   map is the BODY map ([`map_point`]) — the same map transit uses for
-//!   positions and velocities — so the window agrees with where bodies
-//!   actually emerge. The body map is orthogonal: under the rotation convention
-//!   it is det +1 and factors as a rotation; under the reflection convention it
-//!   is det −1 and factors as a rotation plus one texture flip. Sprites realize
-//!   that exact factorization via [`copy_transform`], so window, copy, and
-//!   transit are ONE map.
-//! - Projection ([`PortalViewMap`] / [`view_point`]): the view protrudes
-//!   into the room in front of the entry, hologram-style. Its map is the body
-//!   map composed with a reflection across the entry plane, so its parity is the
-//!   opposite of the body map. [`PortalViewMap`] stores the same rotation/flip
-//!   factorization and applies it exactly.
-//!
-//! Like [`pieces`], this module is pure and allocation-light: no ECS, no
-//! render types, no RNG. The renderer (`ambition_portal2d_presentation`) builds
-//! its capture cameras and window UVs from [`view_cone`]; a roll-your-own
-//! host consumes the same functions.
+//! Window rendering uses the same body map as transit, preserving its parity and
+//! transform. Projection view composes that map with reflection across the entry
+//! plane. `PortalViewMap` stores the resulting rotation/flip factorization for
+//! presentation consumers.
 
 use ambition_platformer2d_core as ae;
 use bevy::math::Vec2;

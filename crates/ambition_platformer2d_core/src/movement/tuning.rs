@@ -492,11 +492,8 @@ pub enum AxisHorizontalLaw {
     Momentum(MomentumHorizontalTuning),
 }
 
-/// Additional rates needed by a momentum-preserving horizontal law.
-///
-/// Forward acceleration and speed caps remain the shared `run_accel`,
-/// `air_accel`, and `max_run_speed` fields on [`AxisLocomotion`]. These values
-/// define only the cases the responsive law historically conflated.
+/// Additional reversal and coasting rates for momentum-preserving movement.
+/// Forward acceleration and speed caps remain on [`AxisLocomotion`].
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MomentumHorizontalTuning {
     pub ground_reverse_accel: f32,
@@ -701,11 +698,8 @@ pub struct TraversalAbilityTuning {
     pub ledge_momentum: LedgeMomentumTuning,
 }
 
-/// The shield as a RESOURCE — integrity that drains while held, regenerates
-/// while down, is spent by blocked hits, and breaks the guard when exhausted.
-///
-/// Set [`Self::max_health`] to `0.0` (the default) to leave a body's shield an
-/// unlimited on/off guard, which is what every body had before this existed.
+/// Shield integrity that drains while held, regenerates while down, and breaks
+/// the guard when exhausted. `max_health == 0.0` selects an unlimited guard.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ShieldTuning {
     /// Total integrity. `0.0` = this body's shield is not a resource.
@@ -1000,8 +994,7 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     air_stop_assist: AIR_STOP_ASSIST,
     carried_decay: 0.0,
     max_run_speed: MAX_RUN_SPEED,
-    // Inherit the ground cap: every body drifts at its run speed until one
-    // authors otherwise, which is byte-parity with before this field existed.
+    // Zero inherits the ground run-speed cap.
     max_air_speed: 0.0,
     run_commit_frac: RUN_COMMIT_FRAC,
     max_fall_speed: MAX_FALL_SPEED,

@@ -1,6 +1,4 @@
-//! `required-path` / `forbidden-path`: assert repo-relative paths exist / are
-//! absent. The bread-and-butter of "this crate was extracted / this legacy file
-//! is gone" ratchets.
+//! `required-path` / `forbidden-path`: assert repository-relative paths exist or are absent.
 
 use crate::model::{Policy, Report};
 use crate::workspace::Workspace;

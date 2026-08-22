@@ -1,31 +1,9 @@
-//! Ambition host adapter for portal presentation.
+//! Ambition-specific host glue for the reusable portal mechanic and renderer.
 //!
-//! The portal mechanic (the portal gun place/replace/channel, the one
-//! generic aperture transit over `PortalBody` + `PortalPolicy`, placement +
-//! transit math, carve publishing, pieces geometry, lifecycle, the pure shot
-//! helper over `SolidWorldQuery`, the portal events + `PortalPlugin`) lives in
-//! the standalone, content-free crate
-//! [`ambition_portal2d`](https://docs.rs/ambition_portal2d) (Stage 19; ADR 0019),
-//! and the portal visuals (placed-portal quads + labels, the held / pickup
-//! gun sprite, mid-transit body pieces, the disorientation indicator, the
-//! through-portal view cones) live in its reusable default renderer
-//! [`ambition_portal2d_presentation`]. This module contains only the
-//! Ambition-specific glue that is NOT reusable:
-//!
-//! - the presentation host adapter (render-gated): sync the crate-owned
-//!   [`PortalWorldFrame`] from [`RoomGeometry`], tag [`PortalSceneBody`] on the
-//!   player's visual entity, tag [`PortalAffordanceBody`] on the CONTROLLED
-//!   body, publish [`PortalBodyView`] pose facts for both, and load
-//!   [`PortalGunArt`] from the Ambition asset paths. The presentation crate
-//!   never names a host type — not even "player"; these systems are the
-//!   entire bridge.
-//! - the semantic developer action that toggles the portal gun.
-//!
-//! The Ambition content adapters that bridge the mechanic's seams to game
-//! concepts (input -> fire intent, carve -> collision overlay, room-reset ->
-//! clear, sfx, player input / ability shaping, identity -> policy tagging)
-//! live in `ambition_content::portal`; reusable portal types are imported
-//! directly from `ambition_portal2d` or `ambition_portal2d_presentation`.
+//! This adapter publishes host world/body/view facts into
+//! `ambition_portal2d_presentation` without making that crate depend on Ambition
+//! player or room types. Gameplay/content adapters remain in
+//! `ambition_content::portal`.
 
 mod host_adapter {
     use bevy::prelude::*;

@@ -1,31 +1,10 @@
-//! Where on-screen controls and HUD actually go.
+//! Resolved placement for on-screen controls and HUD.
 //!
-//! This module is the one resolved source of truth for that placement: producers publish what
-//! they NEED ([`ControlFootprints`]), the pure resolver decides where it FITS, and the
-//! touch/HUD presenters consume the answer. No presenter infers margins from the window on its
-//! own, so the rendered node, the hit region, and the reserved area cannot disagree.
-//!
-//! # The fallback ladder
-//!
-//! A 4:3 viewport does not leave usable side surround on every display. At
-//! 1920x1200 each side is 160px, while the action cluster wants 233px — so a
-//! profile cannot simply assert that controls live in the surround. The ladder
-//! is explicit, deterministic, and published as
-//! [`ResolvedControlRegions::placement`] so diagnostics and tests can see which
-//! rung was taken:
-//!
-//! 1. [`ControlPlacement::ReservedSurround`] — every cluster at its preferred
-//!    size, entirely outside the gameplay rectangle;
-//! 2. [`ControlPlacement::CompactSurround`] — every cluster still reserved, but
-//!    at least one shrunk toward its minimum usable size;
-//! 3. [`ControlPlacement::HybridSurround`] — one side reserved, the other
-//!    overlaying gameplay;
-//! 4. [`ControlPlacement::Overlay`] — ordinary corner-anchored overlay, which
-//!    is what every game got before reserved surrounds existed.
-//!
-//! Never silently overlap gameplay while claiming reserved placement: an
-//! overlapping cluster is reported as `reserved: false`, and the placement rung
-//! says so.
+//! Producers publish [`ControlFootprints`], one pure resolver chooses placement,
+//! and presenters consume the result so drawing, hit regions, and reserved space
+//! share one authority. The deterministic fallback order is reserved surround,
+//! compact surround, hybrid surround, then overlay. Any cluster overlapping
+//! gameplay is reported as non-reserved.
 
 use ambition_platformer2d_core as ae;
 use bevy::prelude::Resource;

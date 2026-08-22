@@ -1,29 +1,8 @@
-// Ambition's fighter-brain difficulty ladder — `docs/planning/engine/fighter-brain.md` §4.
-//
-// Nine rows, one per level. §4: *"Games/demos ship their own rows — it's content."*
-// Parsed by `ambition_characters::brain::fighter::profile::FighterBrainLadder::from_ron`,
-// whose `problems()` is asserted empty by a content test: monotone in reaction,
-// APM, and execution noise, and never zero reaction on any row (§1.3: "Level 9
-// = small numbers, never zero").
-//
-// `reaction_ms` is the ONLY thing that decides how late the brain sees the world:
-// it becomes a `DelayedPerception` buffer, which is the only thing that can mint a
-// `Perceived`, which is the only view L1 and L2 can read. The no-cheat contract is
-// a type, not a promise.
-//
-// `rollout_depth` / `rollout_k` are ZERO on every row: L3 exists (fighter-brain.md
-// §12 — a pure shadow-model rollout, exact step budget) but §12.7 gates authoring
-// nonzero rows on FB6e's instruments (the fidelity floor and `l3_earns_its_depth`).
-// §1 promises graceful degradation — "L3 is an upgrade, not a dependency" — so the
-// whole ladder plays on L2's scores alone until the instruments say otherwise, and
-// turning L3 on never touches a difficulty's identity.
-//
-// `utility_weights` are v1 starting values, not tuned. §FB6: "scoring weights
-// are NOT divined up front … FB4's ladder self-play monotonicity gate is the
-// calibration instrument." `expected_payoff` is FB6a's fifth feature — it prices a
-// move's POWER on a plausible landing, closing the hole FB2 recorded (a jab
-// out-scored a smash on any punish they both fit). Low rungs leave it at zero:
-// not noticing which move hits harder IS a difficulty statement.
+// Fighter-brain difficulty rows. Validation requires reaction/APM/noise to be
+// monotone and reaction to stay nonzero. `reaction_ms` controls the delayed
+// perception buffer. Rollout fields remain zero until rollout fidelity is good
+// enough to enable them without changing lower-level behavior. Utility weights
+// are authored difficulty parameters; low levels intentionally omit some cues.
 [
     // Level 1 — half a second late, barely acts, sprays. Reads nothing.
     (level: 1, reaction_ms: 500.0, apm_cap:  60.0, execution_noise: 0.40,

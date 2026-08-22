@@ -95,16 +95,8 @@ impl LdtkRuntimeRole {
     }
 }
 
-/// Typed Ambition collision component attached to plugin-spawned `Solid`
-/// entities.
-///
-/// The first collision-heavy LDtk category to leave the JSON-only adapter path:
-/// while `compose_runtime_area` still produces `ae::Block::solid()` entries for
-/// the runtime collision world, every spawned `Solid` LDtk entity now also
-/// carries this typed component so future systems can query ECS-side without
-/// reparsing the LDtk file. Once the raw-LDtk-vs-runtime overlay (Step 2 of the
-/// LDtk roadmap) verifies parity, the JSON path can be retired and these
-/// components become collision authority.
+/// Typed collision data attached to plugin-spawned `Solid` entities. The JSON
+/// adapter currently publishes the matching runtime block during parity rollout.
 #[derive(Component, Clone, Debug, Default)]
 pub struct LdtkSolid {
     /// Top-left corner in LDtk-level-local pixel coordinates.
@@ -113,13 +105,8 @@ pub struct LdtkSolid {
     pub size: [i32; 2],
 }
 
-/// Typed Ambition component attached to plugin-spawned `OneWayPlatform` entities.
-///
-/// Same shape as `LdtkSolid` — the JSON adapter still produces the
-/// matching `ae::Block::one_way_up()` for the runtime collision world,
-/// but the typed component lets gameplay/debug systems query ECS-side
-/// instead of reparsing identifiers. Step in the LDtk runtime-spine
-/// roadmap that mirrors `LdtkSolid`.
+/// Typed collision data for plugin-spawned one-way platforms. The JSON adapter
+/// currently publishes the matching runtime block as well.
 #[derive(Component, Clone, Debug, Default)]
 pub struct LdtkOneWayPlatform {
     pub level_px: [i32; 2],

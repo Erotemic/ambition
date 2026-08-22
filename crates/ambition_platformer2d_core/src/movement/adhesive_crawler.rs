@@ -1,20 +1,10 @@
-//! Adhesive-crawler movement policy — a body GLUED to the surface it stands on,
-//! crawling floors, walls, and ceilings by following the surface around convex
-//! and concave corners (the PuppySlug crawl).
+//! Adhesive-crawler movement policy for floors, walls, and ceilings.
 //!
-//! This is the third sibling policy behind [`super::step_motion`]. It was
-//! historically a hidden actor-only integrator (`step_surface_walker`) that
-//! wrote body pose outside the kernel; it is now an explicit
-//! [`super::MotionModel`] variant with its own authored [`CrawlerParams`] and
-//! private [`CrawlerState`], stepped through the same frame-aware entry every
-//! other body uses.
-//!
-//! Frame law: the crawler receives the environment-resolved
-//! [`MotionFrame`](crate::MotionFrame) like every policy. While ATTACHED its
-//! support direction is the clung surface (policy-private state, deliberately
-//! independent of gravity — that is what "adhesive" means); while DETACHED it
-//! free-falls along the frame's acceleration and re-attaches on the surface it
-//! lands on, oriented by the frame's down axis.
+//! [`super::step_motion`] drives this [`super::MotionModel`] with authored
+//! [`CrawlerParams`] and private [`CrawlerState`]. While attached, support is the
+//! clung surface and is independent of gravity. While detached, the body falls
+//! along the resolved [`MotionFrame`](crate::MotionFrame) acceleration and
+//! reattaches to the surface it lands on.
 
 use serde::{Deserialize, Serialize};
 

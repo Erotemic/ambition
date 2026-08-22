@@ -159,73 +159,24 @@ pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> Match
         .collect();
     MatchParticipantRoster {
         participants,
-        // The `Starting` arm reaching zero is what takes it off, which is already the one place
-        // a round goes live.
+        // The stage ceremony releases this suspension when the round goes live.
         opens_suspended: true,
-        // THIS STAGE OWNS ITS OWN CEREMONY, so the engine's countdown stays
-        // out of it: the `Starting` arm reaching zero is what takes the hold
-        // off, and it has been that way since before a ruleset could declare a
-        // count. `0` says "not mine to end" rather than "no countdown" — the
-        // versus round very much has one.
+        // The stage owns its countdown; the engine-level countdown is disabled.
         opening_countdown_ticks: 0,
-        // no clock: a versus round ends on health, and a stalemate there is
-        // already answered by the round's own economy.
+        // Rounds end on health rather than a match clock.
         time_limit_ticks: 0,
-        // A FAIR FIGHT. Seat 0 is the ADOPTED primary player and arrives
-        // carrying whatever the session granted it — in the shipped host, the
-        // sandbox dev kit (blink, fly, shield). Every other seat is spawned with
-        // the basic run-and-jump floor. So player one could teleport and fly and
-        // the opponent could not, and the control legend on screen said so.
-        //
-        // Stated by the match rather than assumed by seating: a stage that wants
-        // asymmetric fighters says something else here.
-        // `basic()` HAS NO `attack`, and a duel where nobody may swing is
-        // incoherent. It stood because the swing did not come from the fighter
-        // at all: a seat was built out of the CPU archetype, and
-        // `versus_duelist`'s authored `melee` reached the body regardless of
-        // what the match said the body could do. Building a seat from its
-        // CHARACTER instead took that away, and this is the
-        // fact that was hiding behind it — the mask never granted the verb its
-        // own fighters needed.
-        //
-        // deliberately the SAME shape as the Smash stage's floor minus its
-        // platform-fighter extras: this stage is a duel on one screen, and its
-        // opponent brain does not use a dodge or a ledge.
-        //
-        // `at_most`, which is exactly what this has always been — a CEILING and no floor.
-        // The smash stage next door levels instead (`MatchAbilities:levelled`); saying which of
-        // the two a stage means is the whole point of the type, and this one means *"a
-        // character keeps what it authored, minus what this duel forbids"*. A floor here would
-        // hand the robot lineage the `reset` its definition deliberately refuses — `basic`
-        // grants one — which is the trap that stopped this being a grant in the first place.
-        // Restating it here is how the stage came to be the only thing dressing its own cast.
+        // The duel declares one symmetric capability ceiling. `at_most` preserves
+        // character-authored abilities below that ceiling instead of granting a
+        // common floor, so excluded verbs stay excluded.
         fighter_abilities: Some(ae::MatchAbilities::at_most(
             super::versus_fighters::VERSUS_FIGHTER_KIT,
         )),
-        // The smash stage next door supplies one because it seats a crossover cast that never
-        // agreed to be a platform fighter (see `MatchParticipantRoster::fighter_body`), and
-        // this duel wants none of its extras: no jump squat, no air dodge, no floor game.
+        // This duel does not impose platform-fighter body defaults.
         fighter_body: None,
-        // S4: NOT a stocks match yet, and the `None` is a decision rather than a
-        // gap. The shipped stage settles ROUNDS off health, and switching it to
-        // stocks changes what a versus match IS — a product call, not a
-        // refactor. The loop it would switch to exists and is proven
-        // (`ambition_combat::stocks`, plus the app-level fixture); this line is
-        // where a stage opts in, and flipping it to `Some(n)` also flips every
-        // fighter to `DeathPolicy::Unbounded`, which is the pair that has to
-        // travel together.
+        // Health rounds, not stocks. Opting into stocks also changes fighter death policy.
         fighter_stocks: None,
-        // NONE, and it is a decision. This stage settles ROUNDS
-        // off health, so the pool is literal hit points rather than the scale a
-        // percent is read against — and its cast is `versus_fighters::duelists()`,
-        // two characters authored FOR this stage whose light/heavy split is
-        // partly the pool itself (`with_health`). Declaring one number here
-        // would flatten a difference the stage exists to have.
-        //
-        // the day this stage seats somebody else's character, this becomes `Some(_)`. That
-        // is the whole of: an authored `max_health` is a statement made under the AUTHORING
-        // game's rules, and a host that seats a foreign cast owes its own. Smash seats fourteen
-        // and declares one.
+        // Preserve the duelists' authored health pools. A host seating foreign
+        // characters must provide its own normalization.
         fighter_health_pool: None,
         seating,
         // WHOSE MATCH THIS IS. The exit rule below removes the roster it

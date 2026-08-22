@@ -1,28 +1,9 @@
-//! Real-ECS headless fighter harness (architecture roadmap S0).
+//! Real-ECS headless fighter harness.
 //!
-//! The unified-control architecture
-//! (`docs/concepts/one-body-one-path.md`) hangs on a
-//! contract: *any controller drives any body through one input seam, and the
-//! body enforces all physics.* That contract has to be proven against the
-//! real simulation systems, not a proxy with its own kinematics. This module
-//! is the seed of that harness: it builds a minimal but real headless `App` —
-//! real messages, the real `emit_brain_action_messages` resolver and the real
-//! `spawn_projectiles_from_brain_actions` body-enforcement system — drops a
-//! body, lets a chosen controller drive the one input seam (`ActorControlFrame`),
-//! and ticks.
-//!
-//! It deliberately drives the body through the same `ActorControlFrame` seam a
-//! brain, a possessing human, or a future RL policy use, so a test controller is
-//! substitutable for any of them (invariant I1). As later slices land (unified
-//! motor, full capability parity, headless perception), this harness grows to
-//! drop full bodies in a real room and tick the whole actor pipeline; today it
-//! covers the first migrated intent — fire (S1) — and proves the body owns the
-//! fire rate (invariant I3).
-//!
-//! This is test-support; it is compiled only under `cfg(test)`. The proxy arena
-//! in `ambition_characters::brain::smash::arena` (own kinematics, no terrain) is
-//! retired in favor of harnesses like this for "works in a fight" claims; the
-//! brain's pure-stage unit tests stay for fast checks.
+//! Test controllers drive bodies through `ActorControlFrame`, the same seam used
+//! by brains and possessing humans, while real body systems enforce mechanics.
+//! Use this harness for integration claims that require simulation behavior;
+//! pure brain-stage tests remain appropriate for isolated decision logic.
 
 #![cfg(test)]
 

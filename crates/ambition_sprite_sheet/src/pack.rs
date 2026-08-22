@@ -22,12 +22,9 @@
 //! }
 //! ```
 //!
-//! This is JSON, not RON, on purpose: the packer is a Python tool and JSON is the drift-free
-//! interchange (Python-authored RON parses looser than Rust's `ron`). The catalog is a
-//! staging/build artifact — nothing bakes it into the binary yet. This type is the runtime
-//! loader: parse the JSON, then `resolve(target, animation, frame) → placement`. It deliberately
-//! does not replace the [`SheetRegistry`](crate::SheetRegistry) path; it is the schema a future
-//! consumer migrates onto once the tiered packs install into a runtime root.
+//! JSON is the Python packer's interchange format. The catalog is a build
+//! artifact parsed by this runtime loader and currently coexists with the
+//! [`SheetRegistry`](crate::SheetRegistry) path.
 
 use std::collections::HashMap;
 

@@ -62,18 +62,11 @@ pub use state_machine::{
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-/// Identifies which autonomous policy drives an actor when no participant is.
+/// Autonomous policy attached to an actor.
 ///
-/// ⭐⭐ **a `Brain` is an AI backend and nothing else.** It used to carry a
-/// `Player(crate::control::PlayerSlot)` variant, so every exhaustive match over it had an arm for
-/// a thing that is not a policy and possession had to swap policies around in
-/// order to say who was driving. Who drives a body is [`crate::control::DrivingParticipant`]; a
-/// driven body KEEPS whatever policy it has, and gets it back by never having
-/// lost it.
-///
-/// Brains are dispatched via enum match (not trait objects) to keep
-/// the per-tick cost a single switch. New backends extend the enum;
-/// future variants will include `Remote`, `Scripted`, and `RlPolicy`.
+/// Driver identity lives in [`crate::control::DrivingParticipant`]; possession
+/// does not replace the actor's brain. Enum dispatch keeps per-tick policy
+/// selection to a direct match rather than trait-object dispatch.
 #[derive(Component, Clone, Debug)]
 pub enum Brain {
     /// Pre-canned AI policy template. The variant carries both the

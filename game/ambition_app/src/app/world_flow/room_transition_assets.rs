@@ -918,35 +918,12 @@ const ASSET_READINESS_STALL_REPORT: Duration = Duration::from_secs(5);
 /// Promotion is an equality check against a freshly-derived manifest, so stale
 /// content or quality variants are never trusted.
 #[allow(clippy::too_many_arguments)]
-/// How many one-hop neighbours may have their preparation prefetched.
+/// Maximum number of one-hop rooms prefetched from the active room.
 ///
-/// ```text
-/// staged cast on entering the Ambition route:  162 characters
-/// decoded in the 10-15s window:                +157 images, +357.8 MP
-/// resident image memory:                       1803 MB
-/// frames in that 5s window:                    91   (p99 1372ms, max 1437ms)
-/// ```
-///
-/// Two things make it hurt rather than merely cost:
-///
-/// * it is not covered. The transition path demands the same art behind the
-///   load cover (`build_room_asset_manifest` → `demand_room_character_sheets`),
-///   where a wait is invisible. Prefetching converts that covered wait into an
-///   uncovered multi-hundred-millisecond hitch DURING PLAY — for up to 21 rooms
-///   the player may never walk into.
-/// * it grew silently. Every room wired to the hub added its cast to the
-///   cost of standing in the hub, and no instrument watched it: the boot budget
-///   measures the title screen and this is entirely post-boot.
-///
-/// the cap SKIPS a room outright rather than prefetching it partially, and
-/// that is deliberate. A half-prefetched room would cache a manifest that does
-/// not name the art it needs, and the transition promotes cached manifests — so
-/// the room would reveal with its cast undecoded. Skipping produces an ordinary
-/// prefetch MISS, which is the well-tested covered path.
-///
-/// Four is chosen against the world's real shape, not as a round number: every
-/// corridor and lab in `sandbox.ldtk` has at most four exits, so ordinary
-/// traversal is unaffected and only the hubs are trimmed.
+/// Excess neighbors are skipped as complete rooms rather than partially
+/// prefetched because cached manifests are promoted only when complete. Four
+/// covers ordinary corridor/lab branching while bounding uncovered decode work
+/// at high-degree hubs.
 const NEIGHBOR_PREFETCH_ROOM_BUDGET: usize = 4;
 
 pub(crate) fn prefetch_neighbor_room_preparation_system(

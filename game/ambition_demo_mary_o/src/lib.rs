@@ -2003,32 +2003,13 @@ fn tick_level_clock(
     }
 }
 
-/// Death costs a life, and running out of time is a death.
+/// Spend one life when the local player attempt ends.
 ///
-/// Two ways to die, one accounting, and exactly one life per attempt lost.
-///
-/// # Why this reads a message and not the respawn counter
-///
-/// That counter is bumped by SIX unrelated callers — a combat death, a kernel hazard/pit reset,
-/// a room load, an avatar rebuild, a sandbox reset, and a room replay's own body reset. The
-/// last one closed a loop: a death spent a life and requested a replay, the replay reset the
-/// body, the reset bumped the counter, this system read that as a second death, spent another
-/// life, and requested another replay. Unbounded, at frame rate. Grabbing the FLAG entered the
-/// same loop, because the level-cycle also requests a replay.
-///
-/// [`ActorDiedMessage`] is the engine's authoritative "the local player's
-/// attempt ended" fact, published from both real death paths — the hit resolver
-/// for combat deaths, and `publish_kernel_reset_death` for the pit/drown/hazard
-/// reset that never reaches the resolver. A replay's reset publishes nothing, so
-/// the loop cannot form by construction rather than by guard.
-///
-/// # What is deliberately NOT a death
-///
-/// A `SafeRespawn` hazard bump-back does not publish it, so it costs no life —
-/// that is the engine saying "returned to safety", not "died", and Mary-O now
-/// agrees with it. A room replay and a room load cost no life either.
-///
-/// # What happens at zero
+/// Consume `ActorDiedMessage`, not respawn/reset counters: room loads, replays,
+/// and rebuilds also reset bodies but must not spend lives. Combat and terminal
+/// kernel hazards publish death; `SafeRespawn`, room replay, and room load do not.
+/// Death messages are drained even when no level state is present so an event
+/// cannot be charged to a later attempt.
 fn spend_lives_on_death(
     mut level: bevy::prelude::Query<&mut MaryOLevelState>,
     bodies: bevy::prelude::Query<
@@ -2128,34 +2109,12 @@ fn publish_timeout_death(
     });
 }
 
-/// The secret pipe. Press DOWN on the surface mouth and you fall out of the
-/// pipe hanging from the vault's ceiling; press UP at the mouth of the pipe at the
-/// vault's far end and you rise out of its surface half, nine tiles further along.
+/// Start a secret-pipe transit when the player presses into a pipe mouth.
 ///
-/// One verb at both ends: touch a pipe's mouth and press into it. The mouth is
-/// the pipe's own open face ([`mouth_band`]) and [`at_mouth`] is the whole test —
-/// centred on the pipe, box against the face. Nothing here measures a region of
-/// the room, which is what made the overhead end feel like a button that worked
-/// anywhere below the pipe.
-///
-/// The warp is a real TRANSIT, not a position poke: `transit_body` is the engine
-/// authority for discretely relocating a body (ADR 0024), and it reconciles the
-/// motion model's private attachment and maneuver state on the way. Without that
-/// a player who entered the pipe while wall-clinging would arrive in the vault
-/// still clinging to a wall that is no longer there.
-///
-/// The pipe is entered DIRECTIONALLY: press DOWN standing on
-/// the entry mouth to drop in, press UP with your head in the return pipe's mouth
-/// to surface — the classic warp-pipe verb. That does NOT break the "a single Up/Down must not
-/// trigger a door" rule: a pipe is not a door, and the press has to point INTO
-/// the pipe while you stand on its mouth, which reads as deliberate, not
-/// incidental. It also removes the ping-pong for free — the two ends need
-/// OPPOSITE directions, so a held press that warped you down can never fire the
-/// up-return at the far end.
-/// The press does not relocate the body — it STARTS a [`pipe::PipeTransit`], the
-/// scripted half-second slide in and out that `pipe::run_pipe_transits` drives.
-/// A body already in a tube is excluded from this query, so the trip cannot be
-/// re-triggered from inside itself.
+/// Entry uses Down and return uses Up, so a held input cannot immediately
+/// retrigger the opposite end. `PipeTransit` performs the relocation through the
+/// engine transit seam, which reconciles attachment and maneuver state; bodies
+/// already in transit are excluded.
 fn warp_through_secret_pipe(
     mut commands: bevy::prelude::Commands,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,

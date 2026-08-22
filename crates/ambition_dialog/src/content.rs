@@ -1,33 +1,15 @@
-//! Dialogue content types — minimal post-Yarn migration.
+//! Runtime dialogue option data consumed by the UI view model.
 //!
-//! Authored conversation content is CONTENT: the game's `.yarn` set and
-//! the validator's known-dialogue-id surface live in
-//! `ambition_content::dialogue::yarn` (R3.2). The runtime type here
-//! covers only what the UI view-model still needs:
-//!
-//! - [`DialogChoice`] — the runtime option representation written
-//!   by the Yarn bridge into [`crate::DialogState`]`.current_options`
-//!   and projected into `ambition_sim_view::DialogView`. Concrete game
-//!   presenters read `label`; `next_node` / `note` / `close_after` are
-//!   vestigial fields retained only for the runtime option shape;
-//!   they're set to `None` / `false` by the bridge.
-//!
-//! Boss-cleared / flag-set redirects are now inline `<<if boss_cleared("x")>>` branches inside
-//! the `.yarn` files.
+//! Authored dialogue lives in game-owned Yarn content.
 
-/// Option emitted by Yarn's `PresentOptions` event, in the shape
-/// the existing UI renderer expects. The bridge fills `label` from
-/// the Yarn option's text; the other fields are vestigial.
+/// Option emitted by Yarn `PresentOptions` in the UI renderer's runtime shape.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct DialogChoice {
     pub label: String,
-    /// Vestigial — was the RON-era "next tree-node index". Yarn
-    /// dispatches via `OptionId`, stored on `DialogState.yarn_option_ids`.
+    /// Compatibility field; Yarn dispatches through `DialogState.yarn_option_ids`.
     pub next_node: Option<usize>,
-    /// Vestigial — was the RON-era "system aside text after picking
-    /// this option". Inline Yarn lines now carry asides directly.
+    /// Compatibility field; Yarn carries aside text inline.
     pub note: Option<String>,
-    /// Vestigial — was the RON-era "this option closes the dialog".
-    /// Yarn's runner reports closure via `DialogueCompleted`.
+    /// Compatibility field; Yarn reports closure via `DialogueCompleted`.
     pub close_after: bool,
 }

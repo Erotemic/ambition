@@ -1,26 +1,6 @@
-//! Session teardown: reset the process-global resources that hold live-session
-//! state when the active session scope retires.
-//!
-//! The generic [`despawn_retired_session_entities`] sweep already despawns every
-//! `SessionScopedEntity` for the retiring scope, so all of a session's ECS
-//! entities and relationships die with it. What the sweep does NOT touch is the
-//! handful of process-global `Resource`s that MIRROR that live state — an index
-//! from an id to a now-dead entity, the possession pair, the room's advancing
-//! moving platforms, transient room bookkeeping. Left alone, they retain dangling
-//! `Entity` handles and stale gameplay state across a teardown, and the next
-//! activation's populate/setup systems (gated on `specs_loaded`-style flags) will
-//! not re-arm because they believe the state is already loaded.
-//!
-//! This is the resource half of the "activate A, tear it down, activate B, and
-//! prove nothing refers to the old scope" gate. It deliberately resets ONLY
-//! session-scoped mutable mirrors that a fresh activation rebuilds — never the
-//! App-global authored catalogs, provider registrations, or lowering registries,
-//! which are process-global authority by design.
-//!
-//! Symmetry note: the same registries are reset by
-//! [`super::reset::process_new_game_reset_request`] on a same-session sandbox
-//! reset; teardown additionally clears [`PossessionState`] because a retirement
-//! (unlike a reset) despawns the player, leaving its possession handles dangling.
+//! Reset process-global mirrors of live-session state when a session scope retires.
+//! Entity cleanup handles `SessionScopedEntity`; this module clears resources that retain entity
+//! handles or per-session latches. App-global authored catalogs and registries remain intact.
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
@@ -71,36 +51,16 @@ pub struct SessionScopedResources<'w> {
     /// Retirement between production and consumption must not deliver a
     /// session-A activation into session B.
     switch_activations: ResMut<'w, SwitchActivationQueue>,
-    /// "the loaded save has been applied to THIS WORLD" — and the world it refers to has just
-    /// been retired. That sentence is the latch's own doc, and it is the whole argument for
-    /// resetting it here.
-    ///
-    /// It is set true ONCE, in `restore_inventory_from_save`, and was set false
-    /// nowhere in the tree. So the second session in a process never re-ran the
-    /// restore and inherited the first's `AuthoredOccurrences`,
-    /// `OccurrenceBaseline`, `CustodyBaseline` and `MintedItemBaseline` — a
-    /// suppressed occurrence surviving into a new game.
-    ///
-    /// One value, however many ledgers there are.
-    ///
-    /// The argument survives the change because it never depended on the number — which is exactly
-    /// why the number should not have been in it. the fifth is adopted from the LIVE bag rather
-    /// than from a save row list, because `items::persist` has already restored it by then; the
-    /// latch gates both legs, so they still land together.
+    /// Whether the loaded save has been applied to the current world.
+    /// Retirement resets the latch so the next session restores into its fresh world.
     save_restored: ResMut<'w, crate::session::durable_horizon::SaveRestored>,
 }
 
-/// Reset the session-scoped resource mirrors when any session scope retires.
-///
-/// Reads [`SessionScopeRetired`] (emitted by the game-shell bridge on route
-/// deactivation, alongside the entity-sweep signal). The mirrors are
-/// process-global rather than per-scope, so a single reset on retirement is
-/// correct — there is at most one live session at a time.
+/// Reset process-global session mirrors when any live session scope retires.
 pub fn reset_session_scoped_resources_on_retire(
     mut retired: MessageReader<SessionScopeRetired>,
     mut resources: SessionScopedResources,
 ) {
-    // Drain the channel; act if any scope retired this frame.
     if retired.read().count() == 0 {
         return;
     }
@@ -117,13 +77,7 @@ pub fn reset_session_scoped_resources_on_retire(
     *resources.save_restored = crate::session::durable_horizon::SaveRestored::default();
 }
 
-/// Installs [`reset_session_scoped_resources_on_retire`] into the exact-scope
-/// cleanup seam, beside the generic entity sweep.
-///
-/// Added by the platformer provider lifecycle (the session activation authority),
-/// which is only composed by shell hosts — the exact contexts that install
-/// `SessionScopePlugin` and therefore emit [`SessionScopeRetired`]. Direct-entry
-/// and headless apps never retire a session, so they do not install this.
+/// Installs session-resource reset in the exact-scope cleanup seam.
 pub struct SessionTeardownPlugin;
 
 impl Plugin for SessionTeardownPlugin {

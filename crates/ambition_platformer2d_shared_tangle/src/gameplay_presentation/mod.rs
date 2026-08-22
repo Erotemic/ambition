@@ -622,33 +622,13 @@ impl ScreenOccluder {
         Some(self.from_rect(rect))
     }
 
-    /// Occupancy from a `bevy_ui` computed layout.
+    /// Project a computed UI node into logical-pixel occupancy.
     ///
-    /// `size_physical` is `ComputedNode::size` and `transform` is the node's
-    /// `UiGlobalTransform`, both in physical pixels; `inverse_scale` is
-    /// `ComputedNode::inverse_scale_factor`. Returns `None` for a node with no
-    /// area, which cannot occlude anything.
-    ///
-    /// The ONE projection from computed UI layout into occupancy — the host
-    /// collector and any producer testing its own occupancy call this same
-    /// function rather than each doing the DPI arithmetic.
-    ///
-    /// # Why all four corners
-    ///
-    /// `UiGlobalTransform` is an [`Affine2`], not a translation: `UiTransform`
-    /// carries `scale` and `rotation`, and `ui_layout_system` multiplies each
-    /// node's local affine into its parent's, so a transformed ancestor reaches
-    /// here too. Reading only the translation reported a rotated or scaled
-    /// node's occupancy as its UNTRANSFORMED box centred at the right place —
-    /// correct for the identity transform every current producer happens to
-    /// use, and wrong the moment one animates a HUD panel in with a scale
-    /// tween.
-    ///
-    /// Occupancy is axis-aligned by contract (the carve consumes rectangles),
-    /// so the honest answer for a rotated node is the bounding box of its four
-    /// transformed corners. The node's local frame is centred on the origin,
-    /// spanning `-size/2 ..= size/2` — the same convention
-    /// `ComputedNode::contains_point` inverts against.
+    /// `size_physical` and `transform` are in physical pixels; `inverse_scale`
+    /// converts the result to logical pixels. The transform is affine, so all
+    /// four local corners are transformed before taking the axis-aligned bounds.
+    /// This is the shared projection authority for UI occlusion. Returns `None`
+    /// for invalid scale or zero-area geometry.
     pub fn from_computed_ui(
         self,
         size_physical: ae::Vec2,

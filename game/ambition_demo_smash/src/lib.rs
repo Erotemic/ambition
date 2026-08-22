@@ -1940,41 +1940,12 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
     }
 }
 
-/// How far a launched fighter may steer its own knockback, in radians —
-/// ~18°, Smash Ultimate's DI budget.
-///
-/// this is the difference between a knock-off that is a READ and one that is
-/// a coin flip: the victim of a launch is still playing. Authored per game
-/// because Ambition's PvE answers `0.0` — being hit there is a punishment, not
-/// the opening of a negotiation.
+/// Maximum directional influence on launch angle, in radians.
 const SMASH_DI_MAX_ANGLE: f32 = 0.31;
 
-/// How hard a launch grows with the victim's percent — a fraction of the
-/// move's own base launch, per point of damage. `0.01` doubles a hit's launch at
-/// 100%.
-///
-/// authored HERE, like the DI budget and the jump squat, and for the same
-/// reason: knockback that grows with damage is what a platform fighter IS and it
-/// is wrong for Ambition's PvE, where being hit is a punishment rather than a
-/// meter. The world baseline stays flat; a stage that wants the loop says so.
-///
-/// The number: a duelist's swipe launches at 120 px/s, so at 100 damage it
-/// launches at 360 and at 200 damage at 600 — a fresh opponent is hard to move
-/// and a worn one flies, which is the read the whole stage is built around.
-///
-/// bumped 0.01 → 0.02: *"knockback multiplier in smash
-/// is currently zero? I'd like to bump that number up so it's non zero."* It was
-/// not literally zero, but doubling at 100% is barely a curve when a stock ends
-/// somewhere north of 120% — the launch a player feels grows over the whole
-/// match rather than at the end of it. Tripling at 100% is the genre's shape.
-/// See `moveset.rs` for the unit trap that made the authored moves ignore this
-/// entirely, which is the half that actually read as zero.
-/// `pub` so the ROSTER-WIDE guard can read it. `moveset.rs`'s unit check
-/// only ever swept `fighter_moveset()` — the eleven-verb fallback the two robot
-/// stand-ins carry — so the fourteen fighters who author their own tables were
-/// outside the one guard that exists to catch this. The host census
-/// (`smash_roster_movesets`) sweeps all of them and needs the declaration to
-/// compare against.
+/// Fraction of base launch added per point of victim damage. This is a Smash
+/// game rule; the shared PvE movement baseline does not scale knockback this way.
+/// Public so roster-wide validation can check every authored fighter moveset.
 pub const SMASH_KNOCKBACK_GROWTH: f32 = 0.02;
 
 /// Stable ids the shell routes and lists this demo by.

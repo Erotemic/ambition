@@ -130,34 +130,14 @@ fn clear_projectile(control: &mut ActorControlFrame) {
     control.projectile_released = false;
 }
 
-/// THE per-slot dispatch half of the shared resolver: [`derive_action_scheme`]
-/// says *what* each control slot does; this applies that to a body's live combat
-/// frame, routing techniques and stripping verbs the body doesn't own.
+/// Apply an [`ActionSchemeContract`] to a live [`ActorControlFrame`].
 ///
-/// For every slot that carries a device verb in [`ActorControlFrame`] (Attack,
-/// Special, Projectile, and Shield):
-///
-/// - `Technique(id)` → route the slot's device edge into `edges[id]` and
-///   CLEAR the raw verb, so the content system reads the sanctioned edge and a
-///   bare melee/special/projectile press is no longer the API.
-/// - `Move` → keep the verb (the moveset runtime owns it).
-/// - absent → strip the verb, so a body without the slot cannot fire it.
-///   `holds_item` keeps Attack/Projectile/Shield alive (a held item repurposes
-///   attack for throw/use, and shield+attack IS the throw gesture); Special has
-///   no such reuse.
-///
-/// The Modifier and Utility slots carry device verbs too and route the same way,
-/// differing only in what a press MEANS there: Modifier sustains (its edge keeps
-/// `held` and is not consumed), Utility switches mode (a one-shot press, cleared
-/// after routing).
-///
-/// A `Technique` declared on a slot WITHOUT a device verb here (Jump / Burst /
-/// Blink / Interact) is returned in the [`UnroutableTechnique`] list rather than
-/// dropped: those cannot fire until the kernel consumes actions (Phase 3).
-///
-/// Pure and Bevy-free (takes the frame + edges by reference) so the whole slot
-/// matrix is unit-testable without a world; `edges` is cleared first, so a
-/// released technique leaves no stale edge behind.
+/// `Technique(id)` routes a slot's device edge into `edges[id]` and clears the
+/// raw verb; `Move` leaves the verb for the moveset runtime; absent slots strip
+/// verbs the body does not own. Held items retain the attack/projectile/shield
+/// verbs they repurpose. Techniques on slots with no device verb are returned as
+/// [`UnroutableTechnique`] rather than dropped. `edges` is cleared before each
+/// resolution so released techniques cannot leave stale state.
 pub fn resolve_control_slots(
     scheme: &ActionSchemeContract,
     control: &mut ActorControlFrame,
@@ -441,18 +421,8 @@ fn combat_actions(
         ControlSlot::Special,
         ids::SPECIAL,
     );
-    // Grab needs BOTH the permission and the authored move.
-    //
-    //  the AND is what makes the roster migration incremental. Granting `SMASH_FIGHTER_KIT`
-    // turns `abilities.grab` on for all fourteen fighters at once; without the second term that
-    // would advertise a Grab button on every one of them and every press would find no move to
-    // play.
-    //
-    //  `has_verb`, not `has_directional_verb`. A grab has no directional
-    // family: the four throws are not `grab_forward`/`grab_up`, they are separate
-    // capture-context moves selected by the ATTACK press while a captive is held.
-    // Accepting a prefix here would let an unrelated `grab_bag` verb light the
-    // slot up.
+    // Grab requires both capability permission and an authored exact `grab`
+    // verb. Throws are capture-context moves, not directional grab variants.
     push(
         abilities.grab && has_verb(ids::GRAB),
         ControlSlot::Grab,
@@ -596,15 +566,8 @@ mod tests {
         scheme.iter().map(|a| a.slot).collect()
     }
 
-    /// THE GRAB SLOT NEEDS BOTH HALVES, AND EITHER ONE ALONE IS NOTHING.
-    ///
-    /// This is the invariant the roster migration rests on. `SMASH_FIGHTER_KIT` turns
-    /// `abilities.grab` on for all fourteen fighters in one line; if the permission alone lit the
-    /// slot, every one of them would advertise a Grab button and every press would find no move to
-    /// play.
-    ///
-    ///  four cases, because a two-term AND has four and only asserting the
-    /// true one would pass with `||` written in the code.
+    /// The Grab slot requires both permission and an authored exact move.
+    /// Exercise all four truth-table cases so `&&` cannot regress to `||`.
     #[test]
     fn the_grab_slot_needs_the_permission_and_the_authored_move() {
         let with_grab = moveset(&["attack", "grab"]);

@@ -209,32 +209,14 @@ pub fn sync_ldtk_level_set(
     index.mark_level_set_synced();
 }
 
-/// Position the `LdtkWorldBundle` root entity so the rendered LDtk
-/// Tiles layer aligns with Ambition's centered active-area frame.
+/// Align the LDtk bundle's bottom-left tile origin with Ambition's centered
+/// active-area frame. `bevy_ecs_ldtk` uses level-local pixel coordinates from
+/// the bundle origin; Ambition maps the room bottom-left to
+/// `(-world.size.x/2, -world.size.y/2)`. The bundle therefore receives that XY
+/// offset and sits just behind `WORLD_Z_BLOCK`.
 ///
-/// Coordinate reconciliation, ADR 0015 §Coordinate-frame
-/// reconciliation: `bevy_ecs_ldtk` renders Tiles in raw LDtk
-/// world-pixel space — each level sits at its own world origin and
-/// every tile inside is at level-local px coords. With
-/// `LevelSpawnBehavior::UseZeroTranslation` (the default + our
-/// setting) the active level sits at the bundle's origin and tiles
-/// render upward + rightward from (0,0) in Bevy's Y-up.
-///
-/// Ambition's renderer (`world_to_bevy`) centers each active area
-/// at the Bevy camera origin: an `ae::Vec2(0,0)` (engine top-left)
-/// becomes `(-world.size.x/2, +world.size.y/2)`. The bottom-left
-/// of the room becomes `(-world.size.x/2, -world.size.y/2)`.
-///
-/// To make bevy_ecs_ldtk's tile origin (the level's bottom-left)
-/// match Ambition's bottom-left, translate the entire
-/// `LdtkWorldBundle` root by that offset. Z is set just behind
-/// `WORLD_Z_BLOCK` so Ambition's existing block visuals draw on
-/// top of (or alongside) the tile background.
-///
-/// AMBITION_REVIEW(spatial): this is the single seam where LDtk
-/// world coords meet Ambition's centered frame. Re-check any time
-/// the level layout changes (room dimensions, `world_to_bevy`,
-/// LdtkSettings::level_spawn_behavior).
+/// Keep this seam consistent with room dimensions, `world_to_bevy`, and
+/// `LdtkSettings::level_spawn_behavior`.
 pub fn sync_ldtk_world_transform(
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_world::rooms::RoomSet,

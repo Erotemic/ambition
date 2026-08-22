@@ -1,28 +1,14 @@
 #!/usr/bin/env bash
-# Put THIS worktree's `target/` on guest-local disk without hardcoding a path.
+# Bind this worktree's default `target/` path to guest-local storage. The repo may
+# live on a shared filesystem, but Cargo still sees its ordinary per-worktree
+# target directory, so no `CARGO_TARGET_DIR` coordination is required and
+# parallel worktrees do not share locks or artifacts.
 #
-# The repo is checked out on virtiofs, shared between the VM and the host.
-# Cargo's default target dir — `<worktree>/target` — therefore lands on the
-# slow, shared filesystem, and VM and host would co-mingle artifacts in it.
-#
-# Every worktree shared ONE target dir, so parallel agents fought over its lock and thrashed
-# each other's fingerprints. The path was a guess about the machine, baked into a committed
-# file. And an agent that overrode `CARGO_TARGET_DIR` — which is the obvious thing to do when
-# you want your own — silently stopped sharing a build with anything that did not, including the
-# goal guard, so "green here, red there" became possible and did happen.
-#
-# A bind mount fixes all three: `<worktree>/target` stays cargo's default, so
-# nothing is hardcoded and nothing needs an env override, while the bytes land
-# on ext4. Each worktree gets its own backing store keyed by its path, so two
-# agents never share a lock.
-#
-# OPT-IN ON PURPOSE. Not running it is a working configuration — you just get
-# a slower target dir on the shared mount. This script never edits the repo.
-#
+# This is optional and does not edit the repository.
 # Usage:
-#     scripts/setup_target_bindmount.sh              # mount (idempotent)
-#     scripts/setup_target_bindmount.sh --status
-#     scripts/setup_target_bindmount.sh --unmount
+#   scripts/setup_target_bindmount.sh
+#   scripts/setup_target_bindmount.sh --status
+#   scripts/setup_target_bindmount.sh --unmount
 set -euo pipefail
 
 STORE_ROOT="${AMBITION_TARGET_STORE:-$HOME/.cache/ambition-targets}"

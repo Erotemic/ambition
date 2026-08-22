@@ -1,31 +1,9 @@
-//! Where everything on the select screen IS.
+//! Pure select-screen geometry shared by rendering and cursor hit-testing.
 //!
-//! One pure function from a viewport size to a set of rectangles. The Bevy
-//! nodes are positioned from it and the cursor hit-tests against it, so "what
-//! you clicked" and "what you saw" cannot disagree — they are the same numbers.
-//!
-//! ## Why this is arithmetic and not flexbox
-//!
-//! The obvious build is a flex tree, and then hit-testing reads each node's
-//! `ComputedNode` back out. That has two costs the moment a virtual cursor is
-//! involved, and both were going to be paid:
-//!
-//! * `bevy_ui` measures in `PostUpdate`, so a freshly spawned node reads a
-//!   ZERO rect for a frame — the cursor is over nothing exactly when the screen
-//!   appears, and a zero rect at the origin is the nearest thing to everything.
-//! * it is only testable with a renderer. The demo's own app is headless
-//!   (`add_headless_foundation` — no `WindowPlugin`, no `UiPlugin`), which is
-//!   what lets a test press buttons at all. A screen whose geometry only exists
-//!   under a GPU is a screen whose geometry is never checked.
-//!
-//! Deriving the rectangles instead makes both go away, and costs one screenful
-//! of arithmetic that is itself unit-testable. the nodes are therefore
-//! ABSOLUTELY positioned from this: a flex parent that also had opinions would
-//! be the second authority this exists to avoid.
-//!
-//! *"a grid of portraits … on the top 65% of the screen. The bottom 35% of the
-//! screen should be 4 participant slot cards."* [`GRID_FRACTION`] is that 65%
-//! and it is the only place it appears.
+//! Rectangles are derived directly from the viewport rather than read back from
+//! Bevy UI layout, so rendering, hit-testing, and headless tests use one geometry
+//! authority. [`GRID_FRACTION`] allocates the portrait grid above participant
+//! cards.
 
 use bevy::prelude::Vec2;
 
@@ -35,57 +13,31 @@ use crate::select::MAX_SMASH_SEATS;
 
 pub const GRID_FRACTION: f32 = 0.65;
 
-/// The viewport a screen with no window is laid out for.
-///
-/// not a guess and not zero. A headless app has no `Window`, and laying
-/// out against `Vec2::ZERO` collapses every rectangle to a point — after which
-/// every hit test answers "nothing" and every test of this screen passes
-/// vacuously. 1280x720 is the size the demo's own tests and `capture_scene`
-/// both use.
+/// Viewport used by headless select-screen tests and capture tooling.
 pub const HEADLESS_VIEWPORT: Vec2 = Vec2::new(1280.0, 720.0);
 
 const MARGIN: f32 = 14.0;
 const GAP: f32 = 10.0;
-/// tall enough to clear the shell's own buttons. The host draws Menu and
-/// Back in the top-right corner over whatever route is up, and a 36px title
-/// strip put the last portrait of the first row underneath them — photographed,
-/// not reasoned about.
+/// Title clearance for the shell's top-right controls.
 const TITLE_H: f32 = 64.0;
 const CONTROL_STRIP_H: f32 = 44.0;
 const CARD_GAP: f32 = 8.0;
 const ROLE_BUTTON_H: f32 = 30.0;
 const START_W: f32 = 150.0;
 const START_H: f32 = 34.0;
-/// The way OUT, opposite START and the same size, so the two verbs this screen
-/// offers read as a pair rather than as a button and an afterthought.
+/// Back control width, paired with the start control.
 const BACK_W: f32 = 150.0;
 const BACK_H: f32 = 32.0;
 
-/// these are the drawn sizes and they are NOT the hit sizes. See
-/// [`MIN_TOUCH_PX`] and [`SelectLayout::touchable`]: a token drawn at 26px on a
-/// phone is a target a thumb misses, and growing the ART to fix that would make
-/// four tokens on one portrait overlap into a blob. The two questions have two
-/// answers.
+/// Drawn token/cursor sizes; touch hit regions are expanded separately.
 pub const TOKEN_PX: f32 = 26.0;
 pub const CURSOR_PX: f32 = 22.0;
 
-/// The smallest thing a finger may be asked to hit.
-///
-/// 44px is this repository's own number, not a borrowed guideline —
-/// `ambition_touch_input`'s layout builds its menu rows against exactly it. It
-/// is restated here rather than imported because that crate's constants are
-/// `pub(crate)` and this demo has no dependency edge to it; a new edge for one
-/// float would cost five lockfiles and the contracts job.
+/// Minimum touch hit size, matching the repository's touch-input layout.
 pub const MIN_TOUCH_PX: f32 = 44.0;
 
-/// The most columns the grid will use before it starts adding rows. Six
-/// 1280-wide columns are still a readable portrait; more is a row of stamps.
-///
-/// a CAP, not the answer. Applied unconditionally it laid a phone out
-/// with the desktop's grid: at 844x390 an eighteen-fighter roster came out
-/// 6x3 with 36x42 cells, well under [`MIN_TOUCH_PX`]. [`SelectLayout::new`]
-/// takes the widest grid that still clears the floor, and this only stops it
-/// going past six on a monitor.
+/// Upper bound on columns; [`SelectLayout::new`] may choose fewer to preserve
+/// [`MIN_TOUCH_PX`].
 const MAX_COLUMNS: usize = 6;
 
 /// Every rectangle on the screen, derived from the viewport and the roster size.

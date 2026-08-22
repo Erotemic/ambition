@@ -135,35 +135,13 @@ pub struct RespawnTimer(pub f32);
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct StandTimer(pub f32);
 
-/// Volumes that can currently receive player-side attack damage.
+/// Per-frame volumes that can currently receive attack damage.
 ///
-/// This is intentionally a per-frame ECS read model rather than a type-specific
-/// helper call: actors can publish their current body AABB, bosses can publish
-/// sprite-authored hurtboxes, and breakables can publish authored trigger
-/// volumes. Systems that care about "what can the player hit?" should consume
-/// this component instead of rediscovering family-specific geometry.
-/// Since damage resolution reads this component, it must distinguish three
-/// states, not two:
-///
-/// * *never published* (`published == false`) — nobody has spoken for this body
-///   yet, so a consumer falls back to the body's coarse box. A body spawned this
-///   tick, or a bare test fixture that does not run the publisher, lives here.
-/// * *published, non-empty* — these volumes ARE the body's silhouette.
-/// * *published, empty* — the body is deliberately intangible: an authored
-///   invulnerable window, or a corpse the publisher cleared.
-///
-/// Collapsing the first and third is how an authored invulnerability silently
-/// becomes a hittable rectangle, and collapsing them the other way makes every
-/// freshly spawned body a ghost. Both were live possibilities the first time
-/// damage started reading this component, and one of them broke a projectile test
-/// immediately.
-/// The volumes are SHAPED ([`ae::CombatVolume`]), not boxes. A body is a
-/// silhouette, and a convex piece describes an arm, a wing or a tail without the
-/// rectangle's dead corners; a body that is honestly a rectangle simply
-/// publishes [`ae::CombatVolume::Aabb`], which keeps the cheap box-vs-box
-/// overlap path. Multi-part stays multi-part: one hull cannot express disjoint
-/// pieces — a single hull over head + torso + outstretched arm fills every gap
-/// between them — so the list is the expressive unit and each entry is one part.
+/// Consumers must preserve three states: unpublished falls back to the body's
+/// coarse box; published non-empty uses the authored silhouette; published
+/// empty is intentionally intangible. The list may contain multiple shaped
+/// [`ae::CombatVolume`] parts because one hull cannot represent disjoint body
+/// regions.
 #[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct DamageableVolumes {
     pub volumes: Vec<ae::CombatVolume>,
@@ -179,18 +157,9 @@ impl DamageableVolumes {
         self.published
     }
 
-    /// Published, and published NOTHING: this body can be hit nowhere.
+    /// True when a publisher has explicitly made this body unhittable.
     ///
-    /// The third state above, named — an authored invulnerable window, or a
-    /// corpse the publisher cleared. It is the half of the victim-geometry rule
-    /// that is *family-universal*: whether a strike reaches a published
-    /// silhouette depends on the strike's own precision, but "there is nothing
-    /// to reach" is the same answer for a blade, a bolt and a blast.
-    ///
-    /// So it is asked by [`strike_reaches_victim`](crate::hitbox::strike_reaches_victim)
-    /// as that rule's first arm, and separately by consumers that are not (yet)
-    /// on the shared geometry rule — `step_projectiles` still tests the coarse
-    /// box, and must nonetheless refuse a body that offers no target at all.
+    /// Consumers must check this before any coarse-box fallback.
     pub fn intangible(&self) -> bool {
         self.published && self.volumes.is_empty()
     }
@@ -267,6 +236,3 @@ pub struct PogoTargetVolumes {
 /// semantics (for example a stand-to-crumble or pogo-refresh platform).
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PogoTargetContributor;
-
-// `SwitchFeature`/`SwitchOn` moved to `crate::encounter::switches` (E2):
-// they carry encounter vocabulary (`SwitchActivation`).

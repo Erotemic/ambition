@@ -1,32 +1,10 @@
-//! The transformation moment — the beat a body plays when it becomes
-//! something else.
+//! Shared presentation/simulation beat for body transformations.
 //!
-//! animation when she grows or transforms. In single player this might request
-//! that time around the transforming character slows down as an effect, but in a
-//! multi-player setting the time slow needs to be agreed upon by all players"*,
-//! and *"similarly to mary-o sanic needs the transform animation"*.
-//!
-//! Two demos asking for the same thing is the shape of an engine capability, not
-//! of two demo hacks. So the beat is one thing here, and what each game owns is
-//! only the DECISION that a transformation happened plus the numbers it wants.
-//!
-//! ## The multiplayer clause is structural, not promised
-//!
-//! The beat never touches `ClockState::time_scale`. It writes a [`ClockScaleRequest`], and
-//! `apply_clock_scale_requests` consults the active [`RegimePolicy`] before granting one —
-//! `Regime::Solo` grants, and a regime that cannot afford one participant bending everyone's clock
-//! denies. A demo that dilated time by writing the scale itself would be correct in single-player
-//! and wrong the moment a second participant existed, silently.
-//!
-//! ## What it does
-//!
-//! For its duration: pins the shown pose (`ActorAnimOverride`), asks for the
-//! authored clock scale every frame, and — if the policy says so — makes the
-//! body untouchable, because a transformation you can be hit out of is a
-//! punishment for collecting a powerup.
-//!
-//! It ticks on WALL time, not sim time. A beat that dilates the clock and then
-//! measures itself with the dilated clock stretches itself by its own effect.
+//! During the authored wall-clock duration it pins an animation pose, publishes
+//! a [`ClockScaleRequest`], and optionally makes the body untouchable. The beat
+//! never writes global clock scale directly; active regime policy decides whether
+//! a requested dilation is allowed. Wall time prevents the beat from stretching
+//! its own duration when dilation is granted.
 
 use bevy::prelude::*;
 

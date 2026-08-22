@@ -119,31 +119,11 @@ fn settle(app: &mut App) {
     }
 }
 
-/// Assert that a scripted press actually reaches the simulation.
-///
-/// THIS RETURNED `bool` AND ITS CALLERS USED IT TO `return` EARLY,
-/// printing `SKIP: a participant pipeline owns ControlFrame in this build`. A
-/// test that returns early is a test that PASSES — so the proof evaporated in
-/// exactly the composition it most needed to hold, and the run summary said
-/// nothing. The guard correctly detected that the press was being erased and
-/// then reported the situation as fine.
-///
-/// the ORIGINAL diagnosis is kept, because it is why the guard existed: a
-/// crate-level `cfg(not(feature = "input"))` reads THIS crate's flag, while the
-/// thing that erases a scripted write is `ambition_platformer2d/input` in the
-/// DEPENDENCY. Under `cargo test --workspace` cargo unifies features across the
-/// graph, so `ambition_platformer2d` builds WITH `input` while this crate's flag
-/// stays off. Ask the composition, not the feature flag.
-///
-/// the probe is `ControlFrame` right after the update, deliberately.
-/// `scripted_input`'s own delivery counter observes the SLOT TABLE, which
-/// Bevy publishes from `FixedUpdate` — a frame BEHIND the `Update` that
-/// wrote the press — so it reads `0 delivered` on the first press of a
-/// healthy run. It is an end-of-run check; this is a precondition.
-///
-/// the condition is unreachable now rather than merely detected: `scripted_input` writes after
-/// `InputSet::Route`, so it is the last writer under a composed pipeline and the only writer
-/// without one.
+/// Assert that scripted input survives the composed participant pipeline.
+/// Probe `ControlFrame` immediately after `Update`: the scripted delivery counter
+/// observes the slot table from `FixedUpdate` and can lag the first press. The
+/// scripted writer is ordered after normal input routing so a composed input
+/// feature cannot erase the test press.
 #[track_caller]
 fn assert_scripted_input_reaches_the_sim(app: &mut App) {
     let probe = ControlFrame {

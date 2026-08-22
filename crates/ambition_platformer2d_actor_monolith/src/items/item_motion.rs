@@ -1,32 +1,9 @@
-//! How a pickup moves — an authored motion PLAN, stepped by the engine.
+//! Authored pickup motion plans stepped by the engine.
 //!
-//! A mushroom that walks off a block and turns at walls, and a star that ricochets down a
-//! corridor, are the same machine with different numbers. So a game does not write a mover: it
-//! states a [`ItemMotionPlan`] — emerge, speed, gravity, bounce, turn-at-walls — and the engine
-//! steps every pickup that has one.
-//!
-//! ## Why this is not a brain, and not a body either
-//!
-//! It is not a brain because there is nothing to decide. A mushroom has no
-//! goal, no target, and no state to reason about; "keep going, turn at walls" is
-//! not a decision made each tick, it is a shape. Giving pickups controllers
-//! would mean every game that wants a moving coin has to author an AI.
-//!
-//! It is not a body because a pickup has none of what a body is for: no
-//! input frame, no abilities, no limbs, no melee, no health, no facing that
-//! anything reads. Routing it through `step_motion` would mean giving every
-//! collectible the full actor cluster set so that the two numbers it actually
-//! uses can be read out of them.
-//!
-//! What it *does* share with a body is the world it hits, and that is shared
-//! literally — the same [`ae::World`] blocks and the same [`ae::Aabb`] algebra.
-//! The resolve below is axis-separated and deliberately small: move along one
-//! axis, push out of whatever it entered, report which face it touched. It
-//! answers less than the body kernel because a pickup asks less.
-//!
-//! ## The position stays in one place
-//!
-//! Motion writes [`WorldItem::pos`], the same field collection and rendering already read.
+//! [`ItemMotionPlan`] covers emergence, travel, gravity, bounce, and wall turns
+//! without giving collectibles actor brains or body clusters. Resolution uses the
+//! shared world/AABB geometry but only the axis-separated contact behavior items
+//! need. Motion writes the authoritative [`WorldItem::pos`].
 
 use bevy::prelude::*;
 

@@ -1,32 +1,12 @@
-//! Two observer panes side by side, each resolved in its own reference frame.
+//! Side-by-side observer panes resolved in separate reference frames.
 //!
-//! The panes exist to make one thing visible at once: the laboratory twin and
-//! the traveler disagree about the order of the same two events. Both
-//! beacons flash together in laboratory coordinate time. The left pane, drawn
-//! for an observer at rest and equidistant, always reports them simultaneous.
-//! The right pane, drawn for the traveler, reports a definite order whose sign
-//! follows the traveler's velocity — and the two ordering strips sit at the
-//! same height in both panes so the disagreement is a glance, not a reading.
+//! Both panes read `TwinTrackDualObserverView`; neither owns or mutates
+//! simulation state. World-space presentation is duplicated per pane on private
+//! render layers so each camera can resolve the same events independently.
 //!
-//! Every pane is a read-only consumer of `TwinTrackDualObserverView`. Nothing
-//! here writes simulation state, and the panes hold no data of their own: the
-//! only reason this module exists separately from that read model is that a
-//! headless composition has no renderer to draw into.
-//!
-//! the world-space entities are DUPLICATED per pane, on one private
-//! render layer each. That is the ruled consequence of an adaptive layout
-//! a view that may split at any moment cannot be served by one
-//! shared set of world-space entities. TwinTrack duplicates its handful of
-//! instrument sprites rather than the plaza, which is why the cost is trivial
-//! here and would not be for the full game.
-//!
-//! these cameras deliberately do not join the engine's `LocalView` model.
-//! Production spawns exactly one `LocalView`, and the shared camera→view
-//! binding rule refuses to bind at all once several views exist — so spawning a
-//! second view here would unbind the gameplay camera, and there would still be
-//! no layout policy to give the two views different rectangles. These are
-//! demo-owned composited cameras in the same shape as the 2+1D spacetime
-//! minimap. Moving them onto real per-view rectangles is engine work.
+//! These demo-owned cameras intentionally bypass `LocalView`: production still
+//! assumes one local view and has no per-view rectangle policy for split-screen
+//! composition.
 
 use bevy::camera::visibility::RenderLayers;
 use bevy::camera::Viewport;

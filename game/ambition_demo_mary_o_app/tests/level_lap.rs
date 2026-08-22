@@ -1,31 +1,9 @@
-//! THE WHOLE LAP: 1-1 → 1-2 → 1-3 → 1-1, each leg ending at the RIGHT level.
+//! Runs the authored 1-1 -> 1-2 -> 1-3 -> 1-1 circuit in one session.
 //!
-//! on what the test owes: *"what I want to make sure is that she actually gets
-//! put into the next level and it is the correct next level."*
-//!
-//! ```text
-//!   Replay          exit_for_room found no `next_room` and restarts THIS level
-//!                   -> the room "changes" to itself, and 1-1 sends you to 1-1
-//!   wrong successor a stale destination sends 1-2 back to 1-1
-//!                   -> the room changes, to the wrong place
-//!   no body         the room changes and she is not IN it
-//! ```
-//!
-//! `grabbing_the_authored_pole_carries_you_out_of_the_level` asserts `id != from`,
-//! which every one of those three can satisfy. `level_circuit`'s two-level walk
-//! PLANTS `FlagPhase::Tallied` rather than reaching a pole. So this one warps her
-//! to each level's own authored pole, lets the REAL end-of-level sequence run,
-//! and names the destination.
-//!
-//! one app, three legs, on purpose. Booting a fresh session per leg would
-//! test three FIRST levels rather than a lap, and the return leg — 1-3 back to
-//! 1-1 — is historically the broken one precisely because a destination
-//! installed once at Startup is right only for the room the session opened in.
-//!
-//! the chain is spelled out here rather than read from `exit_for_room`.
-//! That function IS the subject; asking it what to expect would pass on the day
-//! it answers `Replay` for everything. If the authored `next_room` fields change,
-//! this list is meant to be edited deliberately.
+//! Each leg reaches that room's authored pole and lets the real end-of-level
+//! transition run. The expected chain is written explicitly so the transition
+//! implementation cannot define its own oracle. Keeping one session also covers
+//! destination state that must change as rooms advance.
 
 use bevy::prelude::*;
 

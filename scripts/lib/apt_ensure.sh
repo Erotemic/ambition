@@ -1,38 +1,14 @@
 #!/usr/bin/env bash
-# Idempotent apt installation that reaches for sudo only when it must.
+# Idempotent apt installation with lazy privilege escalation.
 #
-# The point of this helper is the CHECK, not the install. `dpkg-query` and
-# `apt-cache` both answer as an unprivileged user, so a machine that already
-# has every requested package runs no `sudo`, no `apt-get update`, and no
-# `apt-get install` -- which is what makes re-running a setup script on a
-# working checkout a fast no-op instead of a password prompt.
+# `apt_ensure <pkg>...` installs required packages and returns non-zero on
+# failure. `apt_ensure_optional <pkg>...` never fails and never escalates solely
+# for an unavailable optional package; it filters candidates with unprivileged
+# `apt-cache` first. Already-installed packages require no sudo or apt update.
 #
-# Source this file, then call:
-#   apt_ensure <pkg>...           packages setup cannot proceed without.
-#                                 Returns non-zero if any could not be
-#                                 installed; the caller decides if that is
-#                                 fatal.
-#   apt_ensure_optional <pkg>...  packages whose absence is acceptable. Always
-#                                 returns 0.
-#
-# An OPTIONAL package must never escalate on its own. Optional packages are
-# permanently missing on purpose -- a headless box does not want the Tracy GUI
-# libraries, and a package the configured repositories do not carry can never
-# be installed at all. Treating "an optional package is absent" as "escalate to
-# sudo and refresh apt metadata" makes EVERY run of a fully-provisioned machine
-# prompt for a password to accomplish nothing. So optional packages are
-# filtered against `apt-cache` (no privileges needed) before anything is asked
-# of sudo, and an unavailable one is dropped rather than retried forever.
-#
-# `apt-get update` is lazy: rather than predicting whether apt metadata is
-# stale, install first and let apt say so. A failed install is retried once
-# after an update, which is correct on both a warm machine (no update, fast)
-# and a freshly built container whose lists would 404 (update, then succeed).
-#
-# Environment:
-#   UPDATE                 non-empty runs `apt-get update` up front, before the
-#                          first install rather than only after one fails.
-#   APT_ENSURE_LOG_PREFIX  tag for this helper's messages.
+# Installation retries once after `apt-get update`; UPDATE requests that refresh
+# up front. At most one update runs per process. APT_ENSURE_LOG_PREFIX controls
+# the message prefix.
 
 # Whether `apt-get update` has already run in this process. At most once:
 # apt_ensure and apt_ensure_optional are called separately but share metadata.

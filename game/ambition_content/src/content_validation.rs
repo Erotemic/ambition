@@ -233,35 +233,12 @@ fn validate_npc_dialogue_ids(
     }
 }
 
-/// Validate every authored `NpcSpawn.brain_override` against the *assembled*
-/// character catalog — the real content check the resolver's namespace rule was
-/// built for, run before any actor spawns.
+/// Validate authored NPC brain overrides against the assembled character catalog.
 ///
-/// For each `NpcSpawn` that names a `character_id`, the pair
-/// `(character_id, brain_override)` must resolve through
-/// [`CharacterCatalog::validate_brain_override`](ambition_characters::actor::character_catalog::CharacterCatalog::validate_brain_override):
-/// the character must exist, and a non-empty override must qualify inside the
-/// character's own provider namespace (a fully-qualified preset is used exactly;
-/// a raw preset resolves character-provider-local — never a silent cross-provider
-/// fallback). An empty/absent override is the character default and always
-/// passes.
-///
-/// An `NpcSpawn` with a `brain_override` but NO `character_id` is a content error
-/// on its own: there is no character whose namespace could qualify the override.
-/// (An anonymous NPC with neither field is a valid brainless placement and is
-/// skipped.)
-///
-/// This is the production host contract: an unresolved override is rejected here
-/// so `resolve_npc_brain` never has to tolerate an unknown preset at spawn time.
-///
-/// An UNKNOWN `character_id` is tolerated (skipped), because a partial composition
-/// — a single-provider host, or this embedded Ambition-only check — legitimately
-/// loads a catalog that does not own every character the shared Hall places
-/// (`sanic`, `mary_o`, …). The FULL multi-provider host passes the merged catalog,
-/// so nothing is skipped there and every Hall character is validated (proven by
-/// `app_local_catalog_composition`'s full-host test). A KNOWN character's override
-/// is validated in every composition — that is the part `resolve_npc_brain` must
-/// never have to tolerate at runtime.
+/// Raw override names resolve within the character's provider namespace;
+/// qualified names resolve exactly. An override without a `character_id` is an
+/// error. Unknown characters are skipped so partial provider compositions remain
+/// valid, while every known character's override must resolve before spawning.
 fn validate_npc_brain_overrides(
     project: &LdtkProject,
     character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,

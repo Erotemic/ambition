@@ -1,31 +1,8 @@
-//! Does the CPU actually PLAY the repertoire, or does it own one?
+//! Observe which moves CPUs actually start during a real CPU-versus-CPU match.
 //!
-//! So this is an INSTRUMENT first and an assertion second. It watches which
-//! moves actually start on a body during a real CPU-versus-CPU match — the same
-//! `MovePlayback` the runtime inserts when a press resolves, so nothing here can
-//! observe a move the body did not perform — and PRINTS the histogram every run.
-//!
-//! An instrument reports; the assertions below are a separate, smaller claim laid on top of the
-//! report.
-//!
-//! the thresholds are floors, not targets. do not tune content against
-//! them: "five distinct move ids" is the difference between a repertoire and a
-//! single swing, and a fighter that hits exactly five is barely passing rather
-//! than correct.
-//!
-//! ## Nothing here names a move
-//!
-//! every classification is read off the body's OWN `ActorMoveset`: a special
-//! is a move some `special*` verb reaches, an aerial is a move gated
-//! airborne-only, a ROUTE is a move whose authored frame data commands an
-//! against-gravity displacement — the same `lift_speed > 0` predicate
-//! `lifting_candidates` proposes recovery routes from. Author a table, and this
-//! measures it without an edit. A test carrying a list of George's move ids
-//! would pass forever while a second fighter threw one jab.
-//!
-//! `excluded_middle` is named in exactly one place — the mirror-match
-//! recovery test — and deliberately: that one is a claim about GEORGE's
-//! specific way home, and it says so.
+//! The histogram is instrumentation; assertions enforce minimum repertoire coverage, not tuning
+//! targets. Move classes are derived from each body's authored `ActorMoveset`, so generic coverage
+//! does not depend on character-specific move names.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -96,10 +73,6 @@ impl MoveLedger {
         all
     }
 }
-
-// ---------------------------------------------------------------------------
-// Classification, derived from the table and never from a name.
-// ---------------------------------------------------------------------------
 
 /// Move ids some `special*` verb reaches.
 fn specials(table: &MovesetContract) -> BTreeSet<&str> {

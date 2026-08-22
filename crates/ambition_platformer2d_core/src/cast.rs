@@ -1,43 +1,19 @@
-//! `cast` — the swept-primitive library (docs/concepts/movement-collision.md).
+//! Shared swept collision primitives. Path-dependent gameplay evaluates the
+//! continuous body path rather than sampled endpoints.
 //!
-//! THE SWEEP LAW: anything that changes state as a function of a body's path evaluates against
-//! the continuous swept path `pos → pos + vel·dt`, never sampled endpoints.
-//!
-//! What lives here / is surfaced here:
-//! - Swept AABB vs AABB — [`AabbExt::sweep_hit`] (Parry-backed), the base
-//!   solid-contact primitive both movement kernels share.
-//! - Swept AABB vs the composed world — [`body_sweep`], the earliest
-//!   predicate-filtered block hit for a body moving by `delta`. THE body-vs-world
-//!   entry (player movement solids, blink blockers, one-way landing tests, spawn
-//!   blockers, enemy collision all ask it their own question via the predicate).
-//!
-//! - Segment ray vs the solid world — [`raycast_solids`] over the narrow
-//!   [`SolidWorldQuery`] seam, and the underlying [`ray_aabb`] slab query
-//!   (moved down from `ambition_platformer2d_shared_tangle` per the CC1 ruling —
-//!   docs/concepts/movement-collision.md).
-//!
-//! Deliberately NOT absorbed (ruled, docs/concepts/movement-collision.md): the
-//! swept-circle primitive (`first_circle_hit`) is load-bearing interior of
-//! the momentum kernel (`SurfaceChain` / `resolve_surface` intimacy, on the
-//! no-pushout/OOB path) and stays kernel-private in [`crate::movement::surface_momentum`]; a
-//! public swept-circle query is minted here only when a consumer outside the
-//! kernel lands. The portal-aware cast rides CC5's aperture vocabulary
-//! ([`crate::frame`]).
-//!
-//! CC2 (the trigger-sweep audit) converts discrete path-dependent readers to
-//! call THESE entry points; new unswept readers are then a flagged review
-//! pattern.
+//! This module exposes swept AABB/AABB, body/world, and solid-world ray casts.
+//! The momentum kernel's swept-circle primitive remains private because it
+//! depends on `SurfaceChain` resolution internals; portal-aware casting uses the
+//! shared aperture vocabulary in [`crate::frame`].
 
 use crate::frame::{self, MapConvention, PortalAperture};
 use crate::geometry::Aabb;
 use crate::world::{Block, BlockKind, SweepHit, World};
 use crate::Vec2;
 
-// The swept-AABB primitive + its hit record — re-exported so `cast` is the ONE
-// name a caller reaches for. `AabbExt::sweep_hit(delta, other)` is the
-// Parry-backed base both kernels build on.
+// Public swept-AABB primitive and hit record.
 pub use crate::geometry::{AabbExt, AabbSweepHit};
-// The body-vs-world hit record ([`body_sweep`]'s return).
+// Body-vs-world sweep hit record.
 pub use crate::world::SweepHit as WorldSweepHit;
 
 /// The earliest Parry-backed swept-AABB hit for `body` moving by `delta` against

@@ -8,51 +8,23 @@
 
 use super::*;
 
-/// Publish the damageable volumes of every live body, in one rule.
+/// Publish current damageable volumes for every ordinary live body.
 ///
-/// Peaceful NPCs and hostile enemies intentionally share this path: both are
-/// valid strike targets, and by default both become pogo targets through
-/// [`derive_pogo_target_volumes`]. Hostility should affect AI and damage dealt,
-/// not whether a body can be hit.
-///
-/// So does the player. This system was gated `With<FeatureSimEntity>` — a marker the primary
-/// player does not carry — which meant a player could author hurtboxes and never publish them, and
-/// made "hittable" a property of which spawn path built the body.
-///
-/// # Registered TWICE, deliberately
-///
-/// The same function runs in two phases, because two consumers need the answer
-/// at two different moments and there must not be two *rules*:
-///
-/// * in `WorldPrep`, so [`derive_pogo_target_volumes`] and the feature-world
-///   collision overlay (rebuilt in the same set) see this frame's targets;
-/// * again after `PlayerSimulation`, before `Platformer2dSimulationPhaseMonolith::Combat`, so damage
-///   resolves against post-movement positions. A body's `CenteredAabb` is
-///   written by its integrator — the player's in `PlayerSimulation`, an actor's
-///   in `WorldPrep` — so publishing only in `WorldPrep` would hand the damage
-///   path a player box one frame stale. That is the same defect class as the
-///   Mary-O contact bug: a classifier must read the positions the contact pass
-///   reads.
-///
-/// Two invocations of one rule is a refresh.
+/// Disposition does not affect hittability: player, peaceful NPC, and hostile
+/// bodies use the same rule. This system runs in `WorldPrep` for pogo/world
+/// consumers and again after player movement so combat sees post-movement
+/// geometry. Both phases invoke this one publishing rule.
 pub fn refresh_body_damageable_volumes(
     mut bodies: Query<
         (
             &CenteredAabb,
             Option<&ambition_characters::actor::BodyHealth>,
-            // §7.10: a body that AUTHORED hurtboxes publishes those instead of its
-            // coarse envelope. Exactly the seam the boss path already uses for its
-            // head/hand volumes -- an authored silhouette beats a bounding
-            // rectangle, and now any character can have one, not just a boss.
+            // Authored hurtboxes override the coarse body envelope.
             Option<&crate::character_runtime::ResolvedHurtboxes>,
             Option<&crate::actor::BodyKinematics>,
             &mut DamageableVolumes,
         ),
-        // Two families that publish their OWN volumes by a different rule, and
-        // would be clobbered by the coarse box: a boss's active head/hand
-        // hurtboxes (the GNU-ton seam) and a breakable's intact/broken gate.
-        // Everything else -- player, enemy, npc, sandbag, a possessed anything --
-        // resolves here, through ONE rule.
+        // Bosses and breakables publish their own family-specific volumes.
         (
             Without<ambition_boss_encounter::BossConfig>,
             Without<BreakableFeature>,
@@ -60,11 +32,7 @@ pub fn refresh_body_damageable_volumes(
     >,
 ) {
     for (aabb, health, hurtboxes, kin, mut damageable) in &mut bodies {
-        // Structural tangibility gate: a live body — peaceful or
-        // hostile — is a valid body-strike / pogo target; a dead one is an
-        // intangible corpse and publishes no volume (so you cannot pogo off a
-        // corpse). Disposition governs AI and damage dealt TO the player, not
-        // whether the player can refresh a downslash from the body.
+        // Dead bodies publish no target volume; disposition does not affect tangibility.
         if crate::combat::util::body_is_corpse(health) {
             damageable.clear();
             continue;
@@ -76,20 +44,11 @@ pub fn refresh_body_damageable_volumes(
     }
 }
 
-/// A body's authored silhouette in world space, if it authored one at all.
+/// A body's authored hurtbox silhouette in world space.
 ///
-/// `Some(vec![])` is a real authored answer meaning "invulnerable during this
-/// window", so a caller must NOT treat it as "nothing authored" and fall through
-/// to a coarse box — that fallthrough would silently delete an authored
-/// invulnerability. `None` means no doc, which is what the fallback is for.
-///
-/// Boxes, and honestly so: the authored hurtbox TIMELINE
-/// (`ambition_entity_catalog`'s hurtbox contracts) is authored as rectangles,
-/// so this producer publishes `CombatVolume::Aabb` and the cheap overlap path
-/// applies. The component can carry hulls — the sprite-metadata producer
-/// (`damageable_volumes`) publishes them when a sheet authors a `poly` — and
-/// widening the timeline schema to hulls is its own step, not a silent
-/// reinterpretation of rows that were written as rects.
+/// `None` means no authored hurtboxes and permits coarse fallback.
+/// `Some(vec![])` is an explicit intangible window and must remain empty. Timeline
+/// hurtboxes are authored as rectangles, so this path publishes AABB volumes.
 fn authored_world_volumes(
     hurtboxes: Option<&crate::character_runtime::ResolvedHurtboxes>,
     kin: Option<&crate::actor::BodyKinematics>,
@@ -104,14 +63,8 @@ fn authored_world_volumes(
     )
 }
 
-/// Publish strike-damageable boss volumes from the same authored hurtbox path
-/// used by actual boss damage application.
-///
-/// This is the GNU-ton-critical seam: his coarse spawn/render AABB is a giant
-/// composite envelope, but `damageable_volumes` returns the active head/hand
-/// hurtboxes from `BossAttackState` + sprite frame metadata. The downstream
-/// pogo derivation therefore exposes the thing the player can actually damage,
-/// not the composite body's bounding rectangle.
+/// Publish boss damageable volumes from authored hurtboxes or active boss parts,
+/// never the composite body's coarse envelope.
 pub fn refresh_boss_damageable_volumes(
     boss_catalog: Res<ambition_boss_encounter::BossCatalog>,
     mut bosses: Query<(
@@ -119,10 +72,7 @@ pub fn refresh_boss_damageable_volumes(
         &ambition_characters::actor::BodyHealth,
         &ambition_characters::brain::BossAttackState,
         Option<&crate::features::BossAnimationFrameSample>,
-        // A boss is a character too: if one AUTHORS a `HurtboxDoc`, that doc
-        // wins over the frame-sampled parts below. Without this branch a boss
-        // was the one family that could not use the authored path, which is
-        // backwards — the authored path exists BECAUSE bosses needed it.
+        // Authored character hurtboxes override boss-part sampling.
         Option<&crate::character_runtime::ResolvedHurtboxes>,
         Option<&crate::actor::BodyKinematics>,
         &mut DamageableVolumes,

@@ -1,24 +1,6 @@
-//! Player-query helpers that make singleton vs. multi-player intent
-//! explicit at the call site.
-//!
-//! The game currently spawns exactly one player, but most call sites
-//! that reach for `single_mut()` are implicitly relying on that fact.
-//! These helpers give contributors obvious APIs to pick between:
-//!
-//! - `PrimaryPlayerOnly` — filter type usable on any `Query`
-//!   (immutable or mutable component access) when the system genuinely
-//!   wants the camera/HUD/dev-tool target. In Bevy the same filter
-//!   works for both read and write queries, so there is no separate
-//!   `…Mut` variant.
-//! - `primary_player_entity` — finds the primary player's `Entity`
-//!   from any `Query<Entity, With<PrimaryPlayer>>` without panicking.
-//! - `sort_players_by_slot` — collects player entities ordered by
-//!   `PlayerSlot` so future iteration is deterministic.
-//!
-//! Use these *only* where the singleton intent matters. The bulk of
-//! existing systems still use `single_mut()` and that's fine for now —
-//! the goal of this module is to make new singleton assumptions
-//! visible, not to rewrite every old one.
+//! Query helpers for explicit primary-player, all-player, and controlled-body
+//! intent. Use primary-player helpers only for presentation/session semantics;
+//! generic simulation should operate on bodies or control authority instead.
 
 use bevy::ecs::query::{QueryData, QueryFilter};
 use bevy::prelude::*;
@@ -59,29 +41,11 @@ where
     out
 }
 
-/// THE BODY DRIVING A SEAT: the entity carrying `DrivingParticipant(slot)`.
+/// Resolve the unique body carrying `DrivingParticipant(slot)`.
 ///
-/// ⛔⛔ **there were THREE hand-written copies of this loop and they disagreed
-/// about the error case.** `resolve_controlled_subject` counted holders,
-/// debug-asserted and logged before taking the first; the camera resolve took
-/// the first silently while its own comment called a second holder an error; a
-/// third asked only about slot zero. One body drives one slot — a second holder
-/// is a seat possession or vacate never retracted — and how loudly that is said
-/// must not depend on which caller happened to ask.
-///
-/// ⛔⛔ **an AMBIGUOUS seat drives NOTHING — it does not drive the first body
-/// the query yielded (corrected 2026-08-22).** This used to return `first`
-/// under a note arguing that a hard failure was worse than a survivable answer,
-/// and that much is still true: it does not panic. But "survivable" and "some
-/// arbitrary body obeys this stick" are different things. Query order is
-/// archetype order, so the old behaviour picked a DIFFERENT victim depending on
-/// spawn history, which is not a recovery policy rollback code should encode.
-///
-/// Every caller's `None` fallback — the engine's default gravity, the session's
-/// default view — is the survivable answer that argument wanted, and it is the
-/// one that does not hand somebody else's body to a stick. Zero holders and two
-/// holders now answer the same way, loudly, and the invariant is repaired by
-/// fixing the possession/vacate that left the stale seat.
+/// Zero or multiple holders resolve to `None`; query order must never choose an
+/// arbitrary body for an ambiguous control identity. Multiple holders are logged
+/// as an invariant violation so possession/vacate ownership can be repaired.
 pub fn body_driving_seat(
     drivers: &Query<(Entity, &crate::control::DrivingParticipant)>,
     slot: PlayerSlot,
@@ -93,24 +57,13 @@ pub fn body_driving_seat(
     let first = holders.next();
     let extra = holders.count();
     if extra > 0 {
-        // ⛔ **no `debug_assert!(false)` here, deliberately.** It used to panic
-        // in debug while release quietly drove an arbitrary body — so the two
-        // builds disagreed about what a violated invariant DOES, which is
-        // precisely why the release behaviour went unnoticed. One policy now,
-        // in every build: say it loudly and drive nothing. That also makes the
-        // rule testable, which a debug-only panic made impossible.
+        // Keep invariant handling identical in debug and release: log and
+        // refuse ambiguous control authority.
         bevy::log::error!(
             "control invariant: {} entities hold DrivingParticipant({slot:?}); using the first",
             extra + 1,
         );
-        // ⛔⛔ **AMBIGUOUS IDENTITY RESOLVES TO NO IDENTITY.** This used to
-        // return `first` — "whichever entity Bevy happened to yield" — which
-        // makes a broken control-authority invariant into a body silently
-        // driven by the wrong person's stick, and does it differently depending
-        // on archetype order, which is not a recovery policy anything in
-        // rollback should encode. Refusing is the honest answer: the seat
-        // drives nothing this tick, loudly, until possession/vacate is fixed
-        // (GPT review, 2026-08-22).
+        // Ambiguous control identity drives no body this tick.
         return None;
     }
     first

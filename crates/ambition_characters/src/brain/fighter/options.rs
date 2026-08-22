@@ -314,34 +314,9 @@ pub fn generate_options(
     sort_by_score_then_name(&mut movement, |m| (m.score, verb_order(m.verb)));
 
     if situation == Situation::Recovery {
-        // THE ONE ATTACK A RECOVERING BODY MAY THROW IS THE ONE THAT LIFTS
-        // IT.
-        //
-        // scored on LIFT ALONE, deliberately. Reach, frame advantage and
-        // payoff are questions about an opponent, and a recovering body is not
-        // having a conversation with one — the whole utility vocabulary is the
-        // wrong instrument here, and borrowing it would price a way home by how
-        // hard it hits.
-        //
-        // AND THIS ORDER IS A PROPOSAL, NOT THE ANSWER. L2 is pure: it
-        // has no world, no kernel and no idea where the body will be, so the
-        // most it can say is *"these are the moves that displace me, biggest
-        // rise first."* The DECISION overrides this with the route the recovery
-        // lens actually got home on (`decide`'s `endorsed_recovery`), because a
-        // move's usefulness from a particular place is a physics question and
-        // this function cannot ask one. If a caller ever takes `.first()` here
-        // as the recovery, the tiny-rising-aerial trap is back.
-        //
-        // the caller that did exactly that is GONE. `decide`
-        // fell through to `options.attacks.first()` whenever the search endorsed
-        // nothing, which on the smash stage was 97 of 100 recovery decisions; it
-        // now presses NOTHING on that branch, so the kernel's answer stands in
-        // both directions and this list is a proposal in fact and not only in
-        // prose. the warning above is kept because it is about the NEXT
-        // caller, not the last one.
-        //
-        // and it is the ORDER the lens searches, so the two layers agree
-        // about which route index means which move.
+        // Recovery attacks are candidates that lift the body, ordered only by lift.
+        // The recovery lens decides whether any candidate actually reaches safety;
+        // callers must not treat the first candidate as an endorsed route.
         let mut attacks: Vec<AttackOption> = lifts
             .into_iter()
             .map(|c| AttackOption {
@@ -369,10 +344,7 @@ pub fn generate_options(
     }
     let foe = foe.expect("checked");
 
-    // WHERE THE OPPONENT IS, not merely how far away. This was
-    // `let gap = (foe.pos - me.pos).length()`, and throwing the direction away is
-    // the whole of why no kit's vertical game was ever selected — see
-    // [`coverage_fit`].
+    // Preserve relative direction because attack coverage is directional.
     //
     // Body-local and facing-relative, the frame the authored volumes are in:
     // `+x` toward this body's facing, `+y` toward its feet.

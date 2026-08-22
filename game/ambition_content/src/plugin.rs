@@ -1,100 +1,47 @@
-//! [`AmbitionContentPlugin`] — named Ambition game-content registration.
+//! Ambition game-content registration.
 //!
-//! The app installs this composer once during simulation setup so visible and
-//! headless builds register the same named content through one seam.
-//!
-//! Today it composes the quest roster, boss roster, dialogue/cutscene/banter
-//! content, intro/cut-rope story hooks, and — behind the `portal` feature —
-//! Ambition-specific portal input/inventory adapters.
-//!
-//! Mechanic runtime state, world/asset catalog bootstrapping, and the starter item
-//! roster keep their existing app-assembly insertion points because those depend on
-//! runtime ordering outside named-content registration.
+//! Visible and headless builds register the same named quests, bosses,
+//! dialogue, characters, authored catalogs, and game-specific adapters here.
+//! Runtime mechanisms and asset/world bootstrapping remain in app assembly.
 
 use bevy::prelude::*;
 
-/// Installs all named Ambition game-content registration.
-///
-/// Mounted by `app::plugins::add_simulation_plugins` (after the runtime /
-/// mechanic plugins) so both visible and headless builds register the same
-/// named content in the same place.
+/// Install Ambition's named content into the simulation app.
 pub struct AmbitionContentPlugin;
 
 impl Plugin for AmbitionContentPlugin {
     fn build(&self, app: &mut App) {
-        // Declare, per actor, which of Ambition's cast may stop thinking. The
-        // engine attaches no distance rule to anything (dormancy is "not
-        // something that should be inherent"), so a crate that stages bosses,
-        // arena mobs, a duel and 144 Hall characters and says nothing leaves
-        // "always awake" indistinguishable from "nobody chose". See
-        // `dormancy` for the per-class reasoning and the radius derivation.
+        // Game-authored dormancy policy per actor.
         super::dormancy::register(app);
 
-        // Register every named projectile look (player kit, apple rain,
-        // lasersword, glider) into the reusable, empty-by-default projectile
-        // visual catalog. Sim-scoped (not presentation-only) so the lasersword's
-        // detonation FX resolves in headless builds too; the reusable projectile
-        // crate names none of these looks.
+        // Named projectile presentation used by Ambition content.
         super::projectiles::register(app);
 
-        // Register the player kit's named motion techniques (qcf / qcf_grace /
-        // hcf) into the reusable, empty-by-default motion-technique catalog. The
-        // reusable input crate names no gesture; the fire system asks by id.
+        // Named motion techniques used by the player kit.
         super::input_techniques::register(app);
 
-        // Contribute authored music/SFX to this Bevy App. Re-registering the
-        // identical provider fragment is idempotent, so hosts may compose this
-        // plugin without coordinating a process-global install order.
+        // App-local authored audio registries.
         super::audio_registries::register(app);
 
-        // Contribute the provider's character fragment to the App-local
-        // assembly. Runtime simulation, presentation, dialogue, and authored
-        // attack geometry all read the assembled resource explicitly.
+        // App-local character catalog fragment.
         super::character_catalog::register(app);
 
-        // The protagonist's own lineage, registered as three characters rather
-        // than one with a version knob. `player_robot_lineage` is the generator;
-        // what it emits is three complete definitions that share nothing at
-        // runtime. See that module for why `Lineage::derived_from` is provenance
-        // and not an inheritance edge.
+        // Register each robot incarnation as a complete character.
         super::player_robot_lineage::register(app);
-        // AND every other character this provider declares, so the crossover
-        // grid cannot offer a fighter this host is unable to build.
+        // Ensure every character offered by this provider is constructible.
         super::player_robot_lineage::register_declared_cast(app);
 
-        // Publish this provider's world manifest (which .ldtk files exist +
-        // the entry room) as an App-local resource, so in-schedule readers —
-        // the tile-render spine's handle load, the hot-reload transaction,
-        // per-session visual spine spawn — take it as a `Res`. Pre-App and
-        // plugin-build readers get the same value as a `&WorldManifest`
-        // argument from whoever prepares them. No process global: a second
-        // provider in this process publishes its own into its own App.
+        // App-local world manifest shared by runtime and presentation readers.
         app.insert_resource(super::worlds::world_manifest());
 
-        // Install the authored item catalog (C1 — content out of core) into the
-        // machinery lib before any item flavor/wiring is read. Byte-identical to
-        // the engine's built-in 24-item default table (pinned by
-        // `items_ron_matches_builtin_defaults`), so shipped items read unchanged;
-        // a content game re-authors an item by editing its row in `items.ron`.
-        //
-        // It also meant the grid's positional invariant went unchecked at the only place that could
-        // check it: `from_ron` accepts a file with a row missing, and every later row then silently
-        // re-authors the wrong slot, with the tail falling back to built-in defaults so the grid
-        // still looks full. The `item_catalog` schema refuses that.
+        // Install the validated item catalog lowered from the prepared pack.
         ambition_items::install_item_catalog(
             ambition_items::content_schema::lowered_item_catalog(crate::pack::prepared())
                 .expect("the items schema lowers its catalog for every pack that compiles")
                 .clone(),
         );
 
-        // Insert Ambition's authored music-cue catalog (the goblin adaptive tune
-        // + its encounter binding) so the reusable ambition_audio director plays
-        // it. A content-less provider simply contributes no adaptive catalog;
-        // the director resolves through the selected provider's App-local
-        // `AdaptiveMusicCatalogRegistry`. The catalog is CONTENT — it left the
-        // machinery lib's audio plugin here (the B1 seam). The App-local
-        // registry holds complete provider catalogs; the active audio context
-        // selects one provider's definitions at runtime.
+        // Register Ambition's adaptive music catalog under its content provider.
         #[cfg(feature = "audio")]
         {
             let cue_catalog = crate::music::ambition_music_cue_catalog();
@@ -102,16 +49,7 @@ impl Plugin for AmbitionContentPlugin {
             app.register_adaptive_music_catalog(crate::AMBITION_CONTENT_PROVIDER, cue_catalog);
         }
 
-        // Install authored encounter wave timelines (goblin mob-lab, …) into the
-        // machinery lib's wave book before the encounter loader runs — the engine
-        // hard-codes no encounter's waves.
-        // from the PREPARED PACK, not a second parse of the same file.
-        // This was `ron::from_str(include_str!(..)).expect(..)` — so the pack
-        // could validate bytes the runtime never consulted, and a malformed file
-        // reached a player as a serde panic at startup instead of a compile
-        // diagnostic. The `encounter_waves` schema owns the reading now, and its
-        // check refuses things a parse accepts: an encounter with zero waves, a
-        // wave with no mobs, a trigger id the verbatim lookup can never match.
+        // Install validated encounter waves lowered from the prepared pack.
         ambition_encounter::install_encounter_waves(
             app,
             ambition_encounter::content_schema::lowered_encounter_waves(crate::pack::prepared())
@@ -119,18 +57,7 @@ impl Plugin for AmbitionContentPlugin {
                 .expect("the encounter schema lowers its book for every pack that compiles"),
         );
 
-        // THE GAME'S OWN DIFFICULTY RUNGS, handed to the sim. Nine rows
-        // authored in July that nothing had ever read: `FighterBrainProfile::for_level`
-        // documents itself as "a FLOOR … a game that cares ships its own nine rows
-        // and this is never consulted", and every call site consulted it anyway.
-        // The consequence was not a tuning delta — `for_level` gives every rung
-        // `UtilityWeights::default()`, which is `v1()`, which is the authored level
-        // NINE, so a level-1 CPU priced a kill move exactly as the hardest one did.
-        //
-        // inserted rather than threaded: the pack lives here, ABOVE the crate
-        // that builds brains, and a fighter is constructed at the leaf of a spawn
-        // tree whose roots include a thrown ability. `project_authored_fighter_ladder`
-        // applies it at insertion.
+        // Game-authored CPU difficulty ladder consumed during fighter construction.
         app.insert_resource(ambition_characters::brain::fighter::AuthoredFighterLadder(
             ambition_characters::brain::fighter::content_schema::lowered_fighter_brain_ladder(
                 crate::pack::prepared(),
@@ -139,9 +66,7 @@ impl Plugin for AmbitionContentPlugin {
             .expect("the fighter-ladder schema lowers its rungs for every pack that compiles"),
         ));
 
-        // The spectator duel is the arena room's registered content staging:
-        // part of room construction (every path — activation, transition,
-        // reset, restore staging — rebuilds it), not a RoomLoaded consumer.
+        // Spectator duel staging is room-construction content.
         app.init_resource::<ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>();
         super::duel_arena::register_duel_content_staging(
             &mut app
@@ -186,8 +111,7 @@ impl Plugin for AmbitionContentPlugin {
         app.add_plugins(super::encounters::AmbitionEncounterContentPlugin);
         app.add_plugins(super::dialogue::AmbitionDialogueContentPlugin);
 
-        // Installs intro cutscenes, room bindings, dialogue, and visible-build NPC
-        // sprite rows while keeping story content out of sandbox-owned files.
+        // Intro story content and visible-build presentation rows.
         app.add_plugins(crate::intro::IntroPlugin);
 
         // Ambition-specific portal adapters; the reusable portal core is installed
@@ -195,9 +119,7 @@ impl Plugin for AmbitionContentPlugin {
         #[cfg(feature = "portal")]
         app.add_plugins(super::portal::AmbitionPortalAdaptersPlugin);
 
-        // The falling-sand room's SIM half (deterministic sand grid + settled
-        // ledger). Headless-safe — the module is ungated — but registered
-        // under the feature so bundle semantics match the presentation half.
+        // Deterministic falling-sand simulation, gated with its feature bundle.
         #[cfg(feature = "falling_sand")]
         app.add_plugins(crate::falling_sand_sim::FallingSandSimPlugin);
     }

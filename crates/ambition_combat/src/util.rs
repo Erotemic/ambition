@@ -1,9 +1,4 @@
-//! Grab-bag of small feature-side helpers — not a cohesive subsystem.
-//!
-//! Collision predicates (`player_is_standing_on`, `approximately_same_aabb`), plain math
-//! (`approach` toward-target clamp, `midpoint`, the zero-safe `SignumOr`), keyword-based hazard
-//! SFX lookup (`hazard_sfx_id`), and keyword-based hazard SFX lookup. Grep here when a feature
-//! system needs a one-liner; no shared theme beyond that.
+//! Small feature-side helpers that do not own a subsystem.
 
 use super::*;
 
@@ -14,16 +9,8 @@ pub fn player_is_standing_on(player: ae::Aabb, platform: ae::Aabb) -> bool {
     horizontally_overlaps && near_top
 }
 
-// Note: the older `blocked` / `blocked_y` predicates lived here.
-// They were ad-hoc collision tests used by enemy / NPC sweep code,
-// and their OneWay handling did not differentiate above-vs-below
-// approaches — a hostile NPC chasing the player could not drop
-// through a one-way platform, breaking the chase. Both paths now
-// route through `ambition_platformer2d_core::step_motion` — the ONE
-// movement kernel, which is the player's sweep rather than something
-// that mirrors it. Don't reintroduce the old helpers; if a new caller
-// needs collision-aware motion, drive a `BodyKinematics` through
-// `step_motion`.
+// Collision-aware body motion belongs in `ambition_platformer2d_core::step_motion`;
+// do not add feature-side collision kernels here.
 
 pub fn approximately_same_aabb(a: ae::Aabb, b: ae::Aabb) -> bool {
     // Pogo-bounce routing matches an engine-reported orb AABB against
@@ -39,15 +26,8 @@ pub fn midpoint(a: ae::Vec2, b: ae::Vec2) -> ae::Vec2 {
     ae::Vec2::new((a.x + b.x) * 0.5, (a.y + b.y) * 0.5)
 }
 
-/// Pick the SFX bank entry for a hazard contact based on the hazard's
-/// authored name. Substring match keeps this resilient to naming
-/// drift (e.g. `Lava Pit` and `lava_pool` both resolve to lava splash)
-/// without coupling the engine to an SFX-asset enum. Falls back to a
-/// generic player-damage clip when no keyword matches.
-///
-/// Long-term, a typed `HazardKind` field on the engine-side
-/// `DamageVolume` would let this dispatch happen on a real enum;
-/// until then the substring set is short enough to grep.
+/// Pick a hazard-contact SFX from keywords in the authored hazard name.
+/// Falls back to generic player damage when no keyword matches.
 pub fn hazard_sfx_id(name: &str) -> ambition_sfx::SfxId {
     let n = name.to_ascii_lowercase();
     if n.contains("lava") {
@@ -227,22 +207,12 @@ pub fn shield_blocks_hit(
     local_side_delta.signum() == facing.signum()
 }
 
-/// THE DRAWN EFFECT DOES NOT OVERSHOOT THE VOLUME. Ever.
-///
-/// This was 1.15 — a "presentation margin" that scaled the swing shape up by 15% in every direction
-/// after deriving it from the volume, so the quad the art is stretched into was always larger than
-/// the polygon that hurts.
+/// Swing art uses the exact authored combat volume; it must not overshoot damage geometry.
 const SLASH_ART_MARGIN: f32 = 1.0;
 
-/// THE single melee-slash effect emit. EVERY body's melee — the player AND any
-/// brain-driven actor — draws its swing through this one function, so the slash
-/// visual has exactly ONE definition.
+/// Emit the shared melee-slash visual for any body.
 ///
-/// ONE BODY, ONE PATH: do NOT add another `VfxMessage::Slash` site — call this.
-/// The former two-state-machine fork (the flat `MeleeSwing`/`BodyMelee` driver
-/// vs the `MovePlayback` moveset) is collapsed: melee is a `"attack"`-verb
-/// moveset move for every body, and `advance_move_playback` is the sole caller
-/// on the strike path.
+/// Melee presentation has one path; callers should route slash effects through this function.
 pub fn emit_melee_slash(
     vfx: &mut MessageWriter<VfxMessage>,
     volume: &ae::CombatVolume,

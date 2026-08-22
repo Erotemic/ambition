@@ -1,52 +1,21 @@
-//! Hurtboxes resolved from simulation clocks, never from what was drawn. (§4.11)
+//! Hurtboxes resolved from simulation state and clocks, independent of rendering.
 //!
-//! Hitboxes belong to the move — that was already true, `MoveWindow.volumes`.
-//! Hurtboxes do not, and the prohibition is the whole design:
-//!
-//! > A hurtbox must never be derived from the rendered animation frame: not from
-//! > whether an image loaded, not from the renderer's clock, not from frame
-//! > interpolation, and it must exist in headless runs.
-//!
-//! Nothing in this module can reach an asset, a renderer, or a decoded frame. A
-//! headless RL rollout and a windowed playtest compute identical volumes, because
-//! there is no path by which "is anyone watching" could enter the answer. The
-//! sprite-derived bbox stays the compatibility default when a body authored
-//! nothing — never the authority.
-//!
-//! ## Selection, and which clock
-//!
-//! ```text
-//! active move override   → the MOVE clock (owner's proper time since move start)
-//! body pose/status       → that state's own timer (hitstun, tumble) or a
-//!                          deterministic locomotion phase
-//! default body shapes    → static
-//! ```
-//!
-//! One format, several authoritative clocks. Hitstun is a body STATE, not a fake
-//! move: moves initiate actions with cancels and motion locks, and modelling
-//! hitstun as one would make it cancellable.
+//! Active move overrides use the move clock; body status poses use their own
+//! deterministic timers or locomotion phase; default shapes are static. A body
+//! without authored hurtboxes may use the sprite-derived compatibility box, but
+//! rendered frames never become gameplay authority.
 
 use bevy::prelude::*;
 
 use ambition_entity_catalog::{HurtboxDoc, HurtboxVolume};
 
-/// A body's authored hurtbox document.
-///
-/// Presence is the opt-in. A body without it keeps the sprite-derived
-/// compatibility box, which is the pre-existing behaviour and still correct for
-/// every character that has not authored volumes yet.
+/// A body's authored hurtbox document. Absence selects the sprite-derived
+/// compatibility box.
 #[derive(Component, Debug, Clone, PartialEq)]
 pub struct AuthoredHurtboxes(pub HurtboxDoc);
 
-/// The body-state pose this body is in, and how long it has been there.
-///
-/// Written by the sim from authoritative state, so the pose id is a gameplay fact
-/// rather than an animation row. The vocabulary is [`BODY_POSES`] and nothing
-/// else; content authors profiles against it.
-///
-/// The other four are absent from the vocabulary rather than listed as aspirations: adding one
-/// means giving [`body_pose`] the fact that produces it, and the reachability test will not let the
-/// name land without it.
+/// Authoritative body-state pose and elapsed proper time. Pose ids are gameplay
+/// facts from [`BODY_POSES`], not renderer animation rows.
 #[derive(Component, Debug, Clone, PartialEq)]
 pub struct BodyPoseClock {
     pub pose: String,

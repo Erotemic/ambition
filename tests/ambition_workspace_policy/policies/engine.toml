@@ -1719,49 +1719,19 @@ watch_paths = ["crates/ambition_platformer2d_runtime/Cargo.toml"]
 rationale = "runtime composes sim/mechanic/model/dev-state crates, not app/content/host/render"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-# It is a mechanic/model crate, not app/content/host/render, so it fits the rationale above; the
-# list simply lagged the decision, and this gate only caught it once an earlier failure stopped
-# masking the whole job.
 allow = ["ambition_platformer2d_actor_monolith", "ambition_projectiles", "ambition_combat", "ambition_encounter", "ambition_dialog", "ambition_characters", "ambition_portal2d", "ambition_sim_view", "ambition_vfx", "ambition_time", "ambition_input", "ambition_platformer2d_core", "ambition_sfx", "ambition_persistence", "ambition_menu", "ambition_items", "ambition_platformer2d_shared_tangle", "ambition_dev_tools", "ambition_platformer2d_world", "ambition_load",
-    # Structured causal facts: a FOUNDATION crate with no Bevy beyond `bevy_ecs`,
-    # no domain types and no content. The runtime owns the host-side half of
-    # causal recording (the frame stamp, the execution-identity fact), so the
-    # edge is downward and in the same direction as `ambition_platformer2d_core`.
+    # Causal vocabulary is a foundation dependency used by runtime-side recording.
     "ambition_causal",
-    # A cutscene is a MECHANIC, and the manifest proves it: `ambition_cutscene`'s
-    # only workspace dependency is `ambition_platformer2d_core` — the same shape
-    # as `ambition_dialog` and `ambition_items`, no content, no host, no render.
-    # The runtime owns its rollback domain (`ActiveCutscene` is optional-canonical
-    # session state), so the edge is downward and fits the rationale above.
+    # Cutscene mechanics are lower-tier simulation state composed by the runtime.
     "ambition_cutscene",
-    # Sheet vocabulary (`AuthoredSheets`). this edge is not new — it is newly
-    # VISIBLE. The combat schedule has always snapshotted the provider-authored
-    # sheet registry; it reached the type through
-    # `ambition_platformer2d_actor_monolith::character_sprites`, a facade whose
-    # own comment justified 22 `ambition_sprite_sheet` re-exports as sparing
-    # consumers "a new dependency edge to name it". Deleting the facade
-    # turned the laundered edge into a declared one. It is a leaf
-    # asset/vocabulary crate — no Bevy beyond assets, no domain, no content, and
-    # already linked transitively under the monolith — so it fits the rationale
-    # above and adds no graph depth.
+    # Runtime snapshots provider-authored sheet vocabulary from this leaf crate.
     "ambition_sprite_sheet",
     "ambition_character_sprites",
-    # In this list's own terms: it sits at the same graph depth as `ambition_platformer2d_world`
-    # above, it names no app/content/host/render crate, and `ambition_platformer2d_actor_monolith` —
-    # already allowed — has linked it all along, so this adds no graph depth either. The runtime
-    # owns the rollback domain for `LdtkRuntimeIndex` and installs the room-load spine, which is
-    # composition, the job this tier is for.
+    # Runtime composes the LDtk adapter and owns its rollback/session integration.
     "ambition_platformer2d_ldtk",
-    # Conversation continuity (`ActiveConversation`, `ConversationEnded`, `ConversationCutBark`).
-    # **not a new edge — a newly NAMED one**, and the fourth time this list has learned the
-    # identical lesson. It is a leaf domain over `ambition_dialog` / `ambition_characters` /
-    # `ambition_combat` / `ambition_platformer2d_core` — no app, content, host or render — sits at
-    # the same depth as `ambition_dialog` above, and the already-allowed monolith has linked it all
-    # along, so it adds no graph depth.
+    # Conversation continuity is lower-tier domain state composed by the runtime.
     "ambition_conversation",
-    # It is a leaf domain over `ambition_characters` / `ambition_combat` / `ambition_encounter` /
-    # `ambition_cutscene` / `ambition_platformer2d_core` — no app, content, host or render — and the
-    # already-allowed monolith has linked it all along, so it adds no graph depth.
+    # Boss-encounter state is lower-tier domain state composed by the runtime.
     "ambition_boss_encounter"]
 manifest = "crates/ambition_platformer2d_runtime/Cargo.toml"
 
@@ -1774,44 +1744,8 @@ watch_paths = ["crates/ambition_platformer2d_runtime/Cargo.toml"]
 rationale = "runtime is headless composition, not app/content/host/render/backend ownership"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-# It was here on the reading that the LDtk crate is a BACKEND the headless runtime sits under, so
-# naming it would be an UPWARD reach. `cargo tree` says otherwise, and says it conclusively:
-# `ambition_platformer2d_ldtk`'s entire transitive closure contains ZERO occurrences of
-# `ambition_platformer2d_runtime` or `ambition_platformer2d_actor_monolith`. Its own dependencies
-# are `ambition_asset_manager`, `ambition_entity_catalog`, `ambition_platformer2d_core`,
-# `ambition_platformer2d_shared_tangle` and `ambition_platformer2d_world` — the same depth as
-# `ambition_platformer2d_world`, which this policy's sibling allowlist has permitted all along. That
-# is the third instance of the story the allowlist already records twice, for
-# `ambition_sprite_sheet` and `ambition_character_sprites`: a laundered edge becoming a declared one
-# reads as a new violation and is not one.
-#
-# ✔ **the real concern the row was groping at is FIXED, and it
-# was never a manifest edge.** `PlatformerSessionWorld` carried `runtime_rooms:
-# LdtkRuntimeIndex` as a mandatory bundle field, so every RON-only game — Sanic,
-# Mary-O, Pocket, TwinTrack, Smash — constructed an `LdtkRuntimeIndex::default()`
-# it would never fill, and the type's own `Default` doc said so out loud ("the 'no
-# LDtk world installed' index"). The index is OPTIONAL session state a format
-# installs now (`PreparedPlatformerSource::with_installed_ldtk_index`), inserted
-# beside the canonical bundle rather than inside it, so a RON-authored session
-# root carries no such component at all.
-#
-# **and the fix did NOT move this manifest edge, which is the lesson.** The runtime still
-# declares `ambition_platformer2d_ldtk` — it installs the room-load spine and owns the rollback
-# domain — and `capability-footprint-may-not-grow` still reads 42/15 with
-# `ambition_platformer2d_ldtk` among the fifteen, because what holds it in a movement-only
-# game's closure is the MONOLITH. What is left is five production files (encounter
-# loading/systems, the map menu, gated lock walls, `world/mod`) naming `LdtkProject`,
-# `LdtkLevel`, `ActiveLdtkProject`, `LdtkVocabulary` and the `field_*` readers — all genuinely
-# LDtk, and the encounter half is the large remaining work. ⇒ a dependency-denylist row could
-# not have stated the wart, and removing the wart does not move a dependency count. Two
-# different instruments, two different facts — which is exactly why leaving this row here to
-# gesture at the wart turned one deleted facade into seven red sites across three policies.
-#
-# `bevy_ecs_ldtk` STAYS DENIED, and that is the half with teeth: the runtime may compose the adapter
-# crate; it may not name the third-party backend the adapter exists to contain. The generic runtime
-# owns backend-neutral schema/composition metadata; selecting a concrete rollback backend is an
-# upper composition decision. Naming either the dedicated backend crate or `bevy_ggrs` here would
-# recreate the dependency inversion the carve removed.
+# Runtime may compose the LDtk adapter, but must not depend directly on the LDtk
+# backend or concrete rollback backend crates.
 deny = ["ambition_app", "ambition_content", "ambition_platformer2d_host", "ambition_render", "ambition_touch_input", "ambition_inventory_ui", "ambition_platformer2d_rollback_ggrs", "bevy_ecs_ldtk", "bevy_ggrs"]
 manifest = "crates/ambition_platformer2d_runtime/Cargo.toml"
 
@@ -1825,23 +1759,9 @@ rationale = "runtime source composes without reaching into app/content/host/rend
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_platformer2d_runtime/src"]
-# `ambition_platformer2d_ldtk::` left this list with the manifest row above, on
-# the same evidence and for the same reason — a source rule and a manifest rule
-# stating one wrong fact twice is still one wrong fact. `bevy_ecs_ldtk::` STAYS:
-# the runtime may name the adapter, never the backend the adapter contains.
-#
-# **and its `allow_lines` waiver went with it, which was dead before it was
-# obsolete.** The waiver exempted lines containing the QUOTED string
-# `"ambition_platformer2d_ldtk::` — a type-name literal, not a path — and no file
-# under `crates/ambition_platformer2d_runtime/src` has contained one for as long
-# as the rule has been red. So it was a waiver exempting nothing, sitting under a
-# rule that was failing on five lines it did not cover: the exact shape of a
-# waiver that reassures a reader without checking anything.
+# Runtime may name the adapter crate, never the third-party/backend implementation beneath it.
 forbid = ["ambition_render::", "ambition_platformer2d_host::", "ambition_content::", "ambition_app::", "ambition_touch_input::", "ambition_inventory_ui::", "ambition_platformer2d_rollback_ggrs::", "bevy_ecs_ldtk::", "bevy_ggrs::"]
-# The registrar deliberately preserves the historical descriptor text because
-# descriptors are part of the stable rollback schema fingerprint. This is inert
-# metadata, not a Rust path or backend dependency; changing it merely to satisfy
-# the source scanner would churn prepared-content identity.
+# Stable rollback descriptor text is fingerprinted metadata, not a backend dependency.
 allow_lines = ["component presence automatically installs bevy_ggrs::Rollback"]
 
 [[policy]]

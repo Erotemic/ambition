@@ -169,12 +169,8 @@ pub fn tick_actor_brains(
             // both because dynamically-spawned actors (debug tools,
             // scripted spawns) might skip brain attachment.
             Option<&mut ambition_characters::brain::Brain>,
-            // WHO DRIVES THIS BODY, if anybody. Two things read it here: the
-            // skip below (a body a participant is driving does not get decided
-            // for) and the EFFECTIVE faction in its own world-out view.
-            //
-            // ⭐ it used to be `brain.player_slot()` — the same question asked of
-            // an AI-policy enum, which is the conflation `Brain::Player` was.
+            // Driver authority suppresses autonomous decisions and contributes
+            // to the body's effective faction view.
             Option<&ambition_characters::control::DrivingParticipant>,
             Option<&mut ambition_characters::control::ActorControl>,
             // ActionSet — read for the Smash brain so it knows which

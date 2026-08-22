@@ -33,34 +33,13 @@ pub fn sprite_render_size(spec: &CharacterSheetSpec, collision: Vec2) -> Vec2 {
     sprite_render_size_scaled(spec, collision, 1.0)
 }
 
-/// The quad is the FRAME at the scale that fits the sheet's BODY into the
-/// collision box — one uniform scale, so the art is never stretched and the
-/// drawn character is the size of the thing it collides with.
+/// Scale the entire atlas frame uniformly so its published body bbox fits inside
+/// the collision box. Transparent frame padding remains part of the quad; only
+/// the body's measured extent determines world scale, so the art is not
+/// stretched. `visual_scale` is an explicit presentation-only multiplier.
 ///
-/// the scale is computable, which is why nothing authors it any more. A sheet publishes
-/// `body_pixel_bbox` (184 of 190 do — the generator measures the alpha bbox on every
-/// regeneration), so `world_per_pixel = fit(collision, body)` is arithmetic.
-///
-/// * the height came off the collision box's LARGER axis, so a long flat animal was drawn as tall as it is wide;
-/// * the width came off the PADDED FRAME's aspect, which its own comment named as the intent — so the drawn body's size depended on how much empty space the generator's crop happened to leave around it;
-/// * `collision_scale` corrected frame padding per sheet. The resulting figure scale varied by
-///   10.9x across baked sheets; deriving scale from the body bbox makes it 1.0 by construction.
-///
-/// the whole frame is still drawn, not a crop of it. `Sprite::custom_size`
-/// scales the entire atlas frame into the quad per axis, so sizing the quad to
-/// the BODY while still sampling the frame divides the padding into the
-/// character — measured, first try, at a 2.20x vertical squash on the snake and
-/// 0.65x horizontal on Mary-O. Keeping the quad frame-shaped and scaling it
-/// uniformly is what `posed_body_geometry` already does for sheet-authored
-/// bodies, and it needs no atlas surgery: the padding is transparent.
-///
-/// `visual_scale` is presentation-only and is a deliberate deviation from "the
-/// picture is the body" — it stays 1.0 unless somebody looking at the running
-/// game wants a character drawn off its own box on purpose.
-///
-/// Sheets with no published body (2 of 183 baked: `creator_lab_props`,
-/// `weird_hermit`) keep the old arithmetic, because there is nothing else to
-/// ask.
+/// TODO(compat-remove): once every sheet publishes a body bbox, delete the
+/// `collision_scale` fallback for sheets without one.
 pub fn sprite_render_size_scaled(
     spec: &CharacterSheetSpec,
     collision: Vec2,
@@ -69,20 +48,13 @@ pub fn sprite_render_size_scaled(
     let frame = spec.frame_pixels();
     let scale = visual_scale.max(0.05);
     if let Some(body) = spec.body_pixel_extent(CharacterAnim::Idle) {
-        // Fit rather than match-one-axis: the box and the art can disagree about
-        // aspect (an LDtk rectangle is a placement, not a claim about a
-        // silhouette), and the honest reading of a disagreement is that the
-        // drawn body stays INSIDE the box, touching on the axis that binds.
-        // Where the box was derived from this same rectangle — the common case,
-        // because `sprite_body_collision_for_character_id` derives it — both
-        // axes bind and the fit is exact.
+        // Preserve aspect ratio and keep the published body inside the collision box.
         let fit = (collision.x.max(1.0) / body.x).min(collision.y.max(1.0) / body.y);
         if fit.is_finite() && fit > 0.0 {
             return frame * fit * scale;
         }
     }
-    // No published body: height off the collision box's larger axis, width off
-    // the frame aspect, corrected by the sheet's hand-tuned `collision_scale`.
+    // Compatibility fallback for sheets without a published body bbox.
     let height = collision.x.max(collision.y).max(8.0) * spec.collision_scale * scale;
     Vec2::new(height * frame.x / frame.y, height)
 }

@@ -1,63 +1,28 @@
-//! The ECS side of causal recording.
+//! Bevy host adapter for `ambition_causal` recording and frame stamps.
 //!
-//! `ambition_causal` is Bevy-free on purpose — every domain can depend on it
-//! without depending on any other domain, which is what lets an explanation
-//! survive a composition that has movement and no combat. This module is the
-//! HOST adapter: the plugin, the tick stamp, and the one fact only a host can
-//! publish.
-//!
-//! the resource itself lives in `ambition_causal` (behind its `bevy`
-//! feature, which is `bevy_ecs` alone), not here. A movement fact published from
-//! `ambition_platformer2d_actor_monolith` must not require the runtime crate, and a `CausalRecording`
-//! owned by a host would have forced exactly that.
-//!
-//! ## Why a resource and not the sink
-//!
-//! `ambition_causal`'s scoped sink is THREAD-LOCAL. That is sound for the pure
-//! call tree it was built for (the fighter's decision, five hops below any
-//! system, driven from one thread by `ladder_probe` or a test) and unsound
-//! here: Bevy runs systems across worker threads, so a system publishing into a
-//! sink opened on the main thread would publish into nothing.
-//!
-//! `ambition_causal::facts_lost_offthread()` counts exactly that, and
-//! [`assert_no_offthread_loss`] is how a host turns the count into a failure
-//! rather than a mystery. A system publishes through
-//! `ResMut<CausalRecording>`, which is sound and — because Bevy's schedule
-//! order is deterministic — also ordered.
+//! Domain code depends on the Bevy-free causal vocabulary. ECS publishers write
+//! the shared [`CausalRecording`] resource because the scoped causal sink is
+//! thread-local and cannot safely receive facts from Bevy worker threads.
+//! [`assert_no_offthread_loss`] exposes any accidental scoped-sink use.
 
 use ambition_causal::{
     CausalFact, CausalRecording, Execution, FactDetail, RecordingPolicy, domains,
 };
 use bevy::prelude::*;
 
-/// Where publishers run, relative to the frame stamp.
-///
-/// A publisher outside this set may run before the stamp and carry the previous
-/// frame's identity — which is not a hypothetical: it is what the
-/// parallel-schedule proof found the first time this plugin was written.
+/// Publishers ordered after the causal frame stamp.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum RecordingSet {
     Publish,
 }
 
-/// Install causal recording.
-///
-/// `RecordingPolicy::Off` is the default and the plugin does not change
-/// it. Installing the plugin makes recording POSSIBLE; a caller turns it on
-/// for the domains it is investigating. An instrument that is on by default is
-/// an instrument somebody turns off, and then it is not there when needed.
+/// Install causal recording infrastructure without enabling any recording domain.
 pub struct CausalPlugin;
 
 impl Plugin for CausalPlugin {
     fn build(&self, app: &mut App) {
-        // Stamp in `First` so facts published by a plain `App` using this plugin
-        // receive a frame stamp even outside the engine's simulation schedule.
-        //
-        // `player_schedule` ALSO stamps, at the head of the sim phase, and
-        // that is not redundant: `SimulationReplayState` is only meaningful
-        // there, so the sim-phase stamp is the one that can tell an original
-        // tick from a resimulated one. Both are idempotent writes of the same
-        // two values, so the later one simply refines the earlier.
+        // `First` provides a host frame stamp; the simulation schedule stamps
+        // again when replay state is available. The writes are idempotent.
         app.init_resource::<CausalRecording>()
             .add_systems(bevy::app::First, stamp_causal_frame);
     }

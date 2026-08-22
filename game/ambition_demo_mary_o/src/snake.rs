@@ -528,30 +528,10 @@ pub fn tag_mary_o_snakes(
     }
 }
 
-/// A reset snake is a WALKER again.
-///
-/// The engine's reset restores what the ENGINE owns — position, HP, disposition,
-/// the pose pin — but a shell is composed from state the engine cannot know
-/// about: this demo's own `SnakeShell` phase, and the `body_contact_damage`
-/// tuning the shell machine flips to make a boxed snake safe to walk up to.
-/// Neither is touched by `reset_to_spawn`, so a replay brought back snakes still
-/// boxed, and one that was mid-kick came back still sliding — running down a
-/// level in which nobody had stomped anything.
-///
-/// It hangs off `ResetRoomFeaturesEvent`, the engine's ONE "put this room back"
-/// signal, rather than `RoomLoaded`: that also covers a same-room retry, which a
-/// load-time hook would miss. Every field the shell machine writes is written
-/// back, so this cannot drift into resetting only some of them:
-/// - the phase → `Walking`,
-/// - the freeze lock → cleared (it can walk),
-/// - contact damage → armed (it is a threat again).
-///
-/// AMBITION_REVIEW: `body_contact_damage` living on `ActorConfig.tuning` is why
-/// this has to exist at all. That struct is documented as the archetype's
-/// authored projection, "never mutated at runtime" — which is why the engine's
-/// reset does not restore it — and this demo mutates it every frame as a lever.
-/// A per-body runtime switch, distinct from authored tuning, would let the
-/// engine reset it generically for every game.
+/// Restore demo-owned snake-shell state on room reset. Engine reset restores
+/// body state, but `SnakeShell` and the shell mechanic's runtime contact-damage
+/// toggle are owned here. Listen to `ResetRoomFeaturesEvent` so same-room retries
+/// reset them as well as room reloads.
 pub fn reset_snakes_on_room_reset(
     mut resets: MessageReader<ambition_platformer2d::actors::features::ResetRoomFeaturesEvent>,
     mut snakes: Query<(&mut SnakeShell, &mut BodyCombat, &mut ActorConfig)>,

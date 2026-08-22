@@ -1,25 +1,6 @@
-//! Boss systems: brain tick (intent), encounter-phase forwarding,
-//! sandbox-aware integration, and contact-damage publication.
+//! Boss encounter-phase projection, brain tick, and body integration systems.
 //!
-//! Three Bevy systems live here, chained in the `WorldPrep` set:
-//!
-//! 1. [`sync_boss_encounter_phase`] — copy the active encounter
-//!    phase from `BossEncounterRegistry` into each boss's
-//!    `BossEncounter::encounter_phase` cluster mirror. Runs first so the
-//!    brain tick below sees the current phase this frame.
-//! 2. [`tick_boss_brains_system`] — for every boss with a
-//!    `Brain::StateMachine(BossPattern)`, build a
-//!    [`BossPatternContext`], call [`tick_boss_pattern`], and
-//!    publish [`ActorControlFrame`] plus transient [`BossAttackIntent`].
-//!    The matching move is the execution authority; [`BossAttackState`]
-//!    is projected from its `MovePlayback` for debug, animation,
-//!    damage, and vulnerable-volume consumers.
-//! 3. [`update_ecs_bosses`] — integration only. Reads
-//!    `ActorControl::0.desired_vel`, integrates the boss body via
-//!    `BossMut::integrate_body` (boss cluster view), syncs presentation mirrors,
-//!    and publishes both strike and body-contact damage by calling
-//!    `boss_attack_damage` against the boss's `BossAttackState` —
-//!    no runtime attack-state fields are involved.
+//! Phase projection precedes brain decisions; move playback remains attack execution authority.
 
 mod sync;
 mod tick;

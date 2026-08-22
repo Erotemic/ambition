@@ -102,21 +102,9 @@ fn displace(app: &mut App, to: Vec2) {
     );
 }
 
-/// Hold Right, in a way that does not depend on which composition this is.
-///
-/// THIS WAS A TWO-ARM `#[cfg(feature = "input")]` FORK, AND THE CFG READ THE WRONG CRATE'S
-/// FEATURE. The arm that writes `ControlFrame` directly was selected by THIS crate's `input`
-/// flag, while the thing that overwrites such a write is `ambition_platformer2d/input` — the
-/// participant pipeline in the dependency, which workspace feature unification turns on regardless.
-/// So the file compiled either way and the two arms did not correspond to the two compositions at
-/// all: under `-p ambition_demo_sanic_app -p ambition_app`, all four cases walked to x=5615 of the
-/// strip at x=5648 and reported themselves vacuous.
-///
-/// there is one seam now and it is composition-independent by
-/// construction: `scripted_input` writes after the pipeline's routing stage
-/// and before the frame→tick latch, so it wins under a build that HAS a
-/// device bridge and works unchanged under one that does not. No cfg, no arms,
-/// nothing for a feature flag to select wrongly.
+/// Hold Right through the composition-independent scripted-input seam. It writes
+/// after device routing and before the frame-to-tick latch, so the same helper
+/// works with or without an installed device bridge.
 fn hold_right(app: &mut App) {
     ambition_platformer2d::scripted_input::hold(
         app,
@@ -201,12 +189,8 @@ fn walk_right_into(from_x: f32, rings: i32, super_form: bool, frames: usize) -> 
             out.sent_home = true;
             break;
         }
-        // stop at the FIRST thing that happens to him. Running on past a successful hit
-        // re-collects the rings he just dropped (they are real pickups and he is still holding
-        // Right), and the first draft of this read 14 rings back at the finish line and called the
-        // spend a failure. unless he DIED, in which case keep going (ADR 0033). The
-        // ring-recollection hazard this break exists for cannot bite on a death: he is out of play
-        // and the level is about to be put back.
+        // Stop after the first non-lethal hit so dropped rings cannot be re-collected
+        // before the assertion. Continue through death because the body is out of play.
         if out.deaths == 0 && (out.rings != rings || out.hp != hp0) {
             break;
         }

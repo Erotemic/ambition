@@ -293,39 +293,14 @@ fn the_grid_offers_only_named_and_seatable_fighters() {
     }
 }
 
-// `the_grid_fighters_with_a_real_repertoire_only_grow` IS DELETED and its own last line is
-// what deleted it: *"some fighter must still be on the generic floor, or this test has
-// stopped distinguishing anything and P3.24 is DONE — in which case delete it rather than leave
-// it passing."* Every fighter on the grid authors a repertoire now, so the count it ratcheted
-// has reached the cast and the list it kept was the whole roster written out twice.
+// Every fighter on the grid now authors a repertoire; no generic-repertoire
+// migration ratchet remains.
 
-/// THE STAND-IN ROBOTS STEP ASIDE IN A HOST THAT CARRIES THE REAL LINEAGE —
-/// and the copies stay in the standalone demo for a reason that is not
-/// historical.
+/// Stand-in robots are used only when the canonical robot lineage is unavailable.
+/// `SmashRoster::assemble` drops each stand-in when its canonical character resolves.
 ///
-/// P5.39 asks whether the standalone demo's two robot copies can be deleted
-/// now that provider registration is clean. The answer is NO, and the exact
-/// dependency reason is one line of `game/ambition_demo_smash/Cargo.toml`:
-///
-/// ```text
-/// ambition_platformer2d + bevy, and nothing else   (the E9 oracle rule)
-/// ```
-///
-/// `player_robot_v3` / `player_robot_v2` are authored in `ambition_content`, a
-/// GAME crate. Depending on it would delete the one property that demo exists
-/// for — that a stocks match is expressible through the ENGINE facade alone —
-/// so the copies are the packaging boundary rather than a leftover.
-///
-/// what makes them harmless is that the duplication is CONDITIONAL:
-/// `SmashRoster::assemble` drops each copy the moment the character it stands in
-/// for resolves, so no host ever shows two robots side by side with one of them
-/// wearing a made-up name. Three test files rely on that in a comment; nothing
-/// asserted it, and a stand-in that stopped stepping aside would show up as a
-/// duplicate portrait nobody was looking for.
-///
-/// the poison is the standalone default, which must still contain them —
-/// otherwise this test passes on a build where the copies were simply gone from
-/// the roster and the drop rule had stopped running.
+/// TODO(compat-remove): remove the stand-ins once the standalone Smash demo can
+/// consume the canonical robot lineage without depending on a game-level content crate.
 #[test]
 fn the_demos_robot_copies_step_aside_for_the_real_lineage() {
     let mut app =
@@ -1021,11 +996,8 @@ fn every_fighters_growth_is_a_tuning_choice_and_never_a_unit_slip() {
                 if volume.knockback <= 0.0 {
                     continue;
                 }
-                // ZERO IS A SENTINEL, NOT A SLIP, and the first version of
-                // this guard failed on it. `resolved_hitbox_knockback_magnitude`
-                // reads `if growth > 0.0 { growth } else { base * ruleset_growth }`
-                // — so an unauthored growth DEFERS to the stage's declaration and
-                // is already correct by construction. Every fighter carries seven
+                // Zero growth is a sentinel: unauthored growth defers to the
+                // ruleset's `base * ruleset_growth`. Every fighter carries seven
                 // prefab-derived swings (`attack`, `attack_up`, the aerials) at
                 // `knockback: 120, growth: 0`, and flagging those would have made
                 // this guard fire on the whole grid for the one case that needs no

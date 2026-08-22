@@ -1,66 +1,21 @@
 #!/usr/bin/env python3
-"""**Dress an LDtk world's editor in the art the ENGINE actually draws.**
+"""Wire engine sprite art into the LDtk editor representation.
 
-Jon, 2026-08-05: *"Something I would very much like is if the mary-o ldtk file
-was able to use the sprites and tiles so the editor looked more like the level
-we were building."*
+IntGrid values receive generated AutoLayer art, entity definitions receive
+`tileRect` previews when their mapping is one-to-one, and field-dependent entity
+art can select a tile from an enum value. The generated atlas is derived from the
+engine sprite directory rather than authored independently.
 
-Opening a world in LDtk showed grey IntGrid cells and coloured rectangles. The
-running game draws the same level out of `assets/sprites/entities/*.png` — the
-masonry of `solid_tile.png`, the interrobang plate of `bonus_block_tile.png`,
-the spikes of `hazard_tile.png`. Nothing was missing but the wiring: LDtk only
-renders what a `.ldtk` registers, and no world registered any of it.
+Engine textures may span multiple 16px LDtk cells; generated AutoLayer rules
+select the appropriate texture quadrant by cell parity. World-specific mappings
+live in `<world>.editor_art.json` beside the LDtk project.
 
-This tool is that wiring, and it takes the art from ONE place — the engine's own
-sprite folder — so an editor cell cannot drift from the block the simulation
-spawns underneath it. Three halves, which is one more than a half allows:
+Usage::
 
-* Every IntGrid layer gets a sibling AutoLayer that draws it. Painting
-  `Solid` shows masonry and keeps showing it as the author edits, because LDtk
-  re-evaluates the rules from the cells whenever they change.  the art is on
-  its OWN layer because the first version put the rules on the collision layer
-  itself and thereby hid the collision (see `COLLISION_OPACITY`), and the tiles
-  are BAKED because LDtk does not re-evaluate on open (see
-  `build_art_layer_instance`) — two ways to ship a level that renders nothing
-  but a grey slab.
-* Entity defs get a `tileRect`. A `ChestSpawn` looks like the chest, a
-  `MovingPlatform` like the platform.
-* A field can decide the picture, per placement. `field_art` points an enum
-  field's values at art and switches the def to `EntityTile`, so a `?`-block and
-  a brick are the same entity def wearing what their `kind` says — see
-  `apply_field_art`, which is also where the limits of that live.
+    PYTHONPATH=tools/ambition_ldtk_tools \
+      python3 -m ambition_ldtk_tools asset editor-art <world.ldtk> --in-place
 
- the art is 32px and the grid is 16px, so one tile takes FOUR cells. Every
-engine tile texture is authored at 32×32 (or 32×16 / 16×32) and the game repeats
-it at native scale across a block's footprint, while collision is authored on a
-16px grid. So each texture is cut on the 16px grid and re-assembled by cell
-parity: one `Single` rule per quadrant, `xModulo`/`yModulo` = the texture's size
-in cells and `xOffset`/`yOffset` = which quadrant. Four rules reproduce a 32×32
-texture exactly, phased to the level origin.
-
- the atlas is generated, never authored. LDtk needs one image per tileset
-and the engine ships one PNG per sprite, so this composes them onto a 16px grid
-and records where each landed. It is written next to the sprites it is made of
-(and gitignored with them, like `editor_icons.png`), so a fresh clone rebuilds
-it from `regen_sprites.sh` rather than carrying a binary in git.
-
-# # Usage
-
-```bash
-PYTHONPATH=tools/ambition_ldtk_tools \\
-python3 -m ambition_ldtk_tools asset editor-art \\
-    game/ambition_demo_mary_o/assets/worlds/mary_o.ldtk --in-place
-```
-
-A world adds its own nouns through a sidecar named after it —
-`<world>.editor_art.json` beside the `.ldtk` — which names extra art files and
-maps its own entity defs onto them. Mary-O's pipes and blocks come from there;
-this module knows only what the ENGINE draws, which is the part every world
-shares.
-
-`--preview OUT.png` renders the level exactly as these rules will draw it, which
-is the only way to look at the result without opening the editor.
-"""
+`--preview OUT.png` renders the editor-art result without opening LDtk."""
 
 from __future__ import annotations
 
@@ -617,10 +572,8 @@ def build_art_layer_instance(
         # "until the first edit", and the tiles are a pure function of cells the file already
         # carries.
         "autoLayerTiles": [],
-        # required by the schema on EVERY layer instance whatever its type —
-        # an AutoLayer holds no cells, tiles or entities of its own and still
-        # has to say so. The schema check is what said so; the first version of
-        # this omitted all three.
+        # Required by the schema on every layer instance, even though an
+        # AutoLayer owns none of these collections directly.
         "intGridCsv": [],
         "gridTiles": [],
         "entityInstances": [],
@@ -873,14 +826,10 @@ def close_field_into_enum(
 def apply_field_display(
     project: dict[str, Any], field_display: dict[str, str]
 ) -> list[str]:
-    """Say a field's VALUE out loud in the editor.
+    """Display a selected field value beside its entity in LDtk.
 
-    Jon: *"I can't tell what power up is in the block."* He cannot, and in the
-    game he is not meant to — a block's look never announces its contents, which
-    is the whole point of the split. But an AUTHOR is not a player: the editor
-    is where you need to see that this brick is the one with the quasar in it.
-    LDtk prints a field beside its entity when the field says so, which costs
-    the game nothing because the game never reads `editorDisplayMode`.
+    This is editor-only presentation; the runtime does not read
+    `editorDisplayMode`.
     """
     messages: list[str] = []
     for path, mode in sorted(field_display.items()):
@@ -916,22 +865,11 @@ def apply_field_art(
     field_art: dict[str, dict[str, str]],
     by_key: dict[str, Placement],
 ) -> list[str]:
-    """Make an entity's picture follow one of its FIELDS.
+    """Make an entity tile follow a closed enum field.
 
-    Jon: *"is it possible to have the sprite/tile change depending on the
-    properties of the LDtk entity?"* Yes, and LDtk has exactly one mechanism for
-    it: a field whose type is an ENUM whose values carry tiles, displayed with
-    `editorDisplayMode: "EntityTile"`. Then a `?`-block and a brick are the same
-    entity def wearing what their `kind` says, per instance, live as it is
-    edited — which is also how they differ in the game.
-
-     this closes the field. An enum can only hold the values it spells, so
-    it fits a vocabulary the runtime already closes (`kind` is `Question`,
-    `Brick` or `Hidden` and anything else is refused at load) and NOT one it
-    leaves open. `EnemySpawn.brain` is the counter-example and the reason this
-    is a map rather than a sweep: `parse_enemy_brain` accepts `Guard:<radius>`
-    and any custom id, so a dropdown would make most of what
-    the field means unauthorable — a worse trade than a generic icon.
+    LDtk's `EntityTile` display mode maps enum values to tiles per instance. Use
+    it only for closed vocabularies; open string-like fields such as
+    `EnemySpawn.brain` must remain authorable outside a fixed dropdown.
 
     The VALUES belong to the world's vocabulary manifest, which is what creates
     the enum; this only fills in each value's picture.

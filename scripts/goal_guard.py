@@ -1,365 +1,33 @@
 #!/usr/bin/env python3
-"""Deterministic goal guard for long agent runs.
+"""Deterministic Stop-hook guard for long agent runs.
 
-`/goal` installs a Stop hook whose condition is judged by a model reading the
-conversation. On 2026-07-25 that judge released a 24-hour run after 84 minutes:
-the agent wrote a completion-shaped status report ("A1 done, A2 done, three
-findings...") and the judge, reading prose, called the goal met and auto-cleared
-itself. The session then idled for nine hours with nobody to restart it.
+The guard evaluates repository checks rather than conversational claims. An
+armed goal blocks Stop until its checks pass or a configured release condition
+fires. Release conditions include an absolute deadline, a maximum run duration,
+a stalled-commit limit, and a crash fuse.
 
-The lesson is not "the hook was too weak". It is that the ARBITER was the wrong
-kind. A judge that reads prose can be persuaded by prose, and a model that is
-tired of an item is exactly the thing most motivated to write persuasive prose.
+`--pause` skips one Stop; `--hold` skips Stops until `--unhold`, while deadlines
+continue to run. `--extend` moves both clock-based releases. Coordinator waits
+may temporarily stand the guard down while background work is outstanding.
 
-So this guard is a `command` hook. It reads the repository, never the
-conversation. Its answer is an exit status from a list of shell checks the
-human wrote in advance, and no amount of eloquence at 2am moves it.
+Goals are repository-local but session-scoped. The first stopping session claims
+an unowned goal; `--share` permits additional sessions to join the same goal.
+`--resume` releases stale ownership after a session reset. Hook wiring must find
+this script from any working directory and must fail closed on Stop if it cannot.
 
-# # What it is NOT
-
-It is not unfoolable. The checks it runs are commands, and the agent can edit
-the files those commands read. The honest claim is narrower: it converts
-"convince a judge" into "falsify a specific artifact", which is a much louder
-thing to do and leaves a diff. Write checks that name a TEST, not a doc marker,
-and the bar goes up again.
-
-And every word of that assumes the guard RAN. Nothing in this file can establish
-that — a guard that is never invoked is indistinguishable, from inside, from a
-guard whose checks all passed. Both failures found on 2026-08-05 were of exactly
-that kind and neither was visible in the checks: the wiring could not find the
-script, and `repo_root()` found the wrong repository. The one symptom available
-to a human is `.goal/state.json` going stale while the session works on.
-
-# # The four ways out, none of which needs the repository to be healthy
-
-A guard that can wedge a session is worse than no guard, and this one has had
-that bug twice (a SessionStart hook that ran `cargo check` before the session
-was ready; a stall counter that reset itself whenever `git` failed). The escape
-hatches are therefore listed here rather than inferred from the code:
-
-1. `deadline_utc` passes — the intended release. `--arm` REFUSES a deadline it
-   cannot parse, because a deadline that silently becomes `None` is a run with
-   no end.
-2. `max_stalled_blocks` blocks with no new commit. An unreadable `HEAD` counts
-   as a stall, not as progress: not knowing whether work happened must never
-   read as "work happened".
-3. `max_run_hours` since the FIRST block (default 36). Depends on nothing but
-   the clock — not on git, not on the checks, not on this file being correct
-   past the point of parsing.
-4. `MAX_CONSECUTIVE_CRASHES` crashes of this script. A crashed guard blocks,
-   because a broken instrument is not a passing one, but it stands down before
-   a typo here can cost somebody their whole session.
-
-Every one of those says out loud that the goal was NOT met when it fires.
-
-# # Pausing for one turn (`--pause`) — the exception that is not an exit
-
-Those four END a run. There is a fifth thing a human wants that none of them
-serves: *"finish that and then wait for me."* Without a way to say it, the only
-lever is `--clear`, which kills a 72-hour run to ask a question — so the run
-gets cleared, or the agent talks itself out of the guard instead. Neither is
-what was asked for.
-
-    python3 scripts/goal_guard.py --pause "Jon asked me to stop and wait"
-
-That arms a ONE-SHOT token. The Stop hook at the end of this turn spends it
-(skipping the checks entirely, since the point is to hand the turn back now) and
-lets the session idle. The token is gone by then, so the NEXT Stop blocks
-normally: the pause costs exactly one turn, and pausing again needs asking
-again. It expires after `PAUSE_TTL_MINUTES` unused, so it cannot be armed early
-and cashed in at 3am, and every spend prints its reason and increments
-`pauses` in `.goal/state.json`, where `--status` shows it.
-
-⛔ **The agent arms this only when the human asks for it in that turn.** The
-guard cannot check intent — it makes the act visible instead, which is the same
-bargain the rest of this file makes.
-
-# # Holding indefinitely (`--hold` / `--unhold`) — when one turn is not enough
-
-⭐ **added 2026-08-18, because the one-shot was the wrong shape for working on
-something together.** `--pause` buys exactly one turn, so a conversation — Jon
-and the agent iterating on Mary-O's art, a render and a reaction per exchange —
-costs a re-arm every single turn. Jon: *"if we need to implement a real pause
-option for the goal script, then do it."*
-
-    python3 scripts/goal_guard.py --hold "we're working on the art"
-    python3 scripts/goal_guard.py --unhold
-
-A hold is NOT spent by reading it. Every Stop while held skips the checks and
-hands the turn back, until a human lifts it. Three properties keep that from
-being a hole:
-
-* ⭐ **the deadline still runs.** A held goal releases on `deadline_utc` /
-  `max_run_hours` exactly as an unheld one does. Holding buys quiet, not
-  immortality, and a run held past its deadline simply ends.
-* ⭐ **it is loud on every turn, not just the first.** Each Stop prints that the
-  goal is held, for how long, and how to lift it — so unlike a silent hold it
-  cannot be forgotten, and the age in the message is the nag.
-* ⭐ **a new session is told before it reads the open items.** `--inject`
-  announces the hold and returns, instead of listing work that would read as
-  pressure to resume something the human deliberately stopped.
-
-⛔ **this one is a HUMAN's instrument, more than `--pause` is.** A one-shot armed
-unasked costs a turn; a hold armed unasked costs the run. Nothing here can
-prevent that — what it does is make it impossible to hide.
-
-# # Giving a live run more time (`--extend`)
-
-    python3 scripts/goal_guard.py --extend 48h      # 2d, 90m, or 2026-08-20T20:15Z
-    python3 scripts/goal_guard.py --extend          # just print the clocks
-
-⛔ **Do not hand-edit `deadline_utc`.** Two of the four releases above are
-clocks, they are stored in different units against different origins, and the
-EARLIER one wins: `deadline_utc` is absolute, `max_run_hours` counts from the
-first block. Moving one is not extending the run — it leaves the other to fire
-on the old schedule, from a field the editor was not looking at. `--extend`
-moves both and keeps the gap between them.
-
-It will not touch `max_stalled_blocks`. That is a progress oracle, not a clock;
-buying hours is not evidence that work is landing, and resetting it silently
-would turn "extend the timer" into "forgive the stall" — so the stall count is
-printed instead, which is the number a human extending a quiet run needs to see.
-
-With no argument it changes nothing and prints the three releases. `--status`
-answers the same question, but it RUNS EVERY CHECK to do it, and in a repository
-whose checks build the workspace that is minutes of wall clock to learn a date.
-
-# # Coordinator mode: waiting on background work is not stopping
-
-A coordinator that spawns subagents and yields the turn to wait for them is
-ENDING A TURN, and a turn ending is the only event this hook can observe. Left
-alone, the guard blocks that yield and tells the agent to resume — every time,
-forever, each block injecting the whole preamble. That is the guard pushing an
-agent through precisely the behaviour it wanted.
-
-So the Stop path checks the TRANSCRIPT for work that went async and never
-reported back, and stands down while any is outstanding. The wait is read from
-the transcript rather than from anything the agent says, because "I am waiting
-for my subagents" is the cheapest sentence an agent that wants out can write.
-Three bounds, and each one exists because of a specific way this could go wrong:
-
-* every `WAIT_HEARTBEAT_MINUTES` a still-unmoved wait is BLOCKED anyway, with a
-  short message asking how the subagents are doing. Work in flight hangs, and
-  from inside a Stop hook a hung task and a slow one are indistinguishable
-  (Jon, 2026-08-15);
-* the wait resets whenever the outstanding SET changes, so a coordinator whose
-  subagents are landing keeps earning quiet and one whose set is frozen does not;
-* after `WAIT_CEILING_HOURS` the stand-down stops entirely. A task that was
-  KILLED never sends a completion, so without a ceiling one `TaskStop` buys
-  silence for the rest of the session.
-
-⚠ The launch/completion pairing is VERIFIED for background `Bash` tasks. Agent
-tool subagents are documented to report through the same channel and the join key
-is not tool-specific, but no transcript available when this was written contained
-one — every `isSidechain` count was zero. If subagents are not standing the guard
-down, that is the first thing to check.
-
-# # The full goal text is worth tokens sometimes, not every turn
-
-The preamble is several thousand tokens and byte-identical every turn, so
-reprinting it at every block spends the context the agent needs to do the work in
-order to say nothing new. Repeats get a short form — the open items, the time
-left, and the closing push — and the full text comes back on the first block, on
-`FULL_REASON_INTERVAL_MINUTES`, and whenever the transcript shows a COMPACT since
-the last full print. That last one is the case that matters: a compact is exactly
-when the agent has lost the goal. A goal shorter than
-`SHORT_FORM_MIN_GOAL_CHARS` is always printed whole, because abbreviating it
-costs more than it saves.
-
-
-⛔ **The hook command must not contain a RELATIVE path.** A hook inherits the
-session's working directory, which follows the agent around: one `cd` into a
-subdirectory and `python3 scripts/goal_guard.py` resolves to nothing. The
-runtime treats a hook script it cannot find as NON-BLOCKING and says so only in
-a suggestion-level note, so the guard does not fail — it silently ceases to
-exist. That released a 72-hour run on 2026-08-05 and the session idled 4h12m.
-
-So the command walks UP from the working directory to find the guard, and, if it
-cannot, emits a block of its own rather than vanishing:
-
-    d="${CLAUDE_PROJECT_DIR:-$PWD}"
-    until [ -f "$d/scripts/goal_guard.py" ] || [ "$d" = / ]; do d=$(dirname "$d"); done
-    if [ -f "$d/scripts/goal_guard.py" ]; then exec python3 "$d/scripts/goal_guard.py"
-    else echo '{"decision":"block","reason":"the guard could not be located..."}'; fi
-
-`$CLAUDE_PROJECT_DIR` is preferred when the runtime sets it; the walk is the
-fallback that does not depend on a variable this file cannot verify. The
-SessionStart copy is the same finder with `--inject`, and stays SILENT when the
-walk fails — blocking startup is the one thing that can lock you out (see below).
-
-Only the Stop hook runs the checks, and only the Stop hook gets a long timeout.
-`--inject` reads `.goal/state.json` and returns immediately: SessionStart blocks
-session startup, so a hook that shells out to `cargo check` there can lock you
-out of the repository entirely. The short timeout is a second line of defence,
-not the fix.
-
-Both are INERT unless `.goal/active.json` exists, so committing that config does
-not change ordinary interactive sessions. Arming is an explicit act:
+Typical commands::
 
     python3 scripts/goal_guard.py --arm .goal/my-run.json
     python3 scripts/goal_guard.py --status
+    python3 scripts/goal_guard.py --pause "reason"
+    python3 scripts/goal_guard.py --hold "reason"
+    python3 scripts/goal_guard.py --unhold
+    python3 scripts/goal_guard.py --extend 48h
     python3 scripts/goal_guard.py --clear
 
-# # A goal belongs to ONE session, or to SEVERAL if you say so
-
-The goal is armed in the REPOSITORY, but a run belongs to one session. Without
-scoping, every other session sharing the working directory — a quick question in
-a second window, another agent, a fresh terminal — is held by a goal it was
-never given, and the only way out is to disarm the run that IS working.
-
-So the guard records an owner. `session_id` arrives in the hook payload the
-runtime already sends, and:
-
-* an UNCLAIMED goal is claimed by the first Stop hook that sees it, so `--arm`
-  still needs no session id and the arming run keeps the goal by default;
-* any other session's Stop hook returns immediately and has NO side effects on
-  the run — it does not run the checks, count a block, or touch the stall
-  counter;
-* `--inject` stays silent in non-owner sessions, so a second window does not get
-  told to work somebody else's queue;
-* a payload with NO session id at all (a manual run, an older client) is treated
-  as the owner. "I cannot tell whose this is" must fail toward blocking — the
-  one thing this must never do by accident is RELEASE a run.
-
-    python3 scripts/goal_guard.py --own <session-id>   # ADD a session to the roster
-    python3 scripts/goal_guard.py --disown             # release EVERY session
-
-⭐ **SEVERAL sessions, one run (`--share`), added 2026-08-20**, because the
-arrangement grew a second lane: Jon runs an architecture session and a feature
-session against one repository, and only one of them was being held to anything.
-
-    python3 scripts/goal_guard.py --share      # every session that stops here JOINS
-    python3 scripts/goal_guard.py --unshare    # no NEW session joins; the roster stays held
-
-Ownership is a ROSTER now — one session id per line — and a pre-2026-08-20
-single-line file is a valid roster of one, so nothing armed before this reads
-differently. ⛔ **`--share` is an explicit act and the default is unchanged**,
-because the single-owner property is worth keeping: an unshared goal does not
-reach out and hold the window somebody opened to ask one thing. A shared goal
-does exactly that. That is the cost of the capability and the reason it is a flag
-rather than a default. `--disown` removes only the session that runs it and
-leaves the rest held; `--own` ADDS rather than replaces, because replacing
-released the session already working without saying so.
-
-⚠ **the roster is APPENDED to, never read-modify-written** — for the reason
-`owner_path` records about `state.json`: a Stop hook spends minutes in
-`run_checks` between reading and writing, so a concurrent claim in that window is
-silently dropped, and the symptom is a goal quietly reverting to unclaimed.
-
-⚠ **the block and stall counters stay SHARED across the roster**, deliberately:
-*"40 blocks with no new commit"* is a fact about the REPOSITORY, not about a
-session, and HEAD moving for either lane resets it for both. The cost is that two
-lanes reach the stall fuse in half the wall clock. That is worth saying rather
-than splitting the counter — a per-session stall fuse would let one idle lane sit
-forever while the other carried the run.
-
-⭐ **and two lanes in two WORKTREES need none of this.** `repo_root()` resolves
-through `__file__`, so a worktree's copy of this script resolves to the worktree
-and reads its own `.goal/`. Two worktrees can hold two DIFFERENT goals today,
-with no sharing at all. ⇒ use `--share` when the lanes are working ONE goal; use
-a goal per worktree when they are not.
-
-Ownership lives in `.goal/owner`, which `--arm` and `--clear` remove, so every
-fresh run starts unclaimed.
-
-⚠ **`/clear` gives the session a new id**, which orphans the goal: the old owner
-will never stop again, so every session is released and the guard is silently
-doing nothing. It fails OPEN rather than locking anybody out, which is the right
-direction, but nothing announces it — the new session is not the owner, so
-SessionStart stays silent and the agent never learns a goal exists.
-
-The way back is one command, and it is what to tell an agent after a `/clear`:
-
-    python3 scripts/goal_guard.py --resume
-
-That releases ownership AND prints the goal with its open items, so the agent
-knows what it is resuming; this session claims it at the end of the turn.
-`--status` prints the current owner if you need to check.
-
-# # The goal file — per RUN
-
-    {
-      "goal": "complete the queue",
-      "deadline_utc": "2026-07-26T04:51:00Z",
-      "max_stalled_blocks": 3,
-      "checks": [
-        {"name": "the ledger has no open rows",
-         "cmd": "grep -q 'TODO' docs/ledger.md; test $? -eq 1"},
-        {"name": "the project still builds",
-         "cmd": "<your build command>", "timeout": 900}
-      ]
-    }
-
-`deadline_utc` is what makes "24 hours" mean 24 hours in both directions: the
-guard holds the run open until then, and releases it afterwards rather than
-wedging the session forever.
-
-⛔ **Write a file-scoped check as `grep -q PAT F; test $? -eq 1`, never as
-`! grep -q PAT F`.** `grep` exits 2 when it cannot READ the file, and `!` turns
-that into a pass — so a check whose subject gets renamed or archived reports
-satisfied forever, about a file that no longer exists. Three checks in this repo
-did exactly that for two days. `test $? -eq 1` passes only on "read it, found
-nothing", so a vanished subject goes RED and names itself.
-
-# # `.goal-guard.json` — per REPOSITORY
-
-Two things vary by repository rather than by run, and they were constants in
-this file until 2026-08-15, which is what stopped it being portable:
-
-    {
-      "build_processes": ["cargo", "rustc"],
-      "default_check_timeout": 900
-    }
-
-`build_processes` names the processes whose presence means something else is
-competing for the machine while a check is timed; leave it out and the cost
-recorder writes `null` rather than claiming an idle machine it never observed.
-`default_check_timeout` is the per-check ceiling when a check does not set its
-own. Both are optional — a repo with no config file at all is a working install.
-
-It is COMMITTED, unlike `.goal/`, which is gitignored per-run state.
-
-# # Porting this to another repository
-
-Copy `goal_guard.py`, its tests, the two hook entries in `.claude/settings.json`,
-and add `.goal/` to `.gitignore`. Then write a `.goal-guard.json`. There is
-nothing else: the file is stdlib-only, `git` is soft-required (an unreadable
-HEAD counts as a stall, never as progress), and the checks are ordinary shell.
-
-Three assumptions come with it, and a new repo should agree to them rather than
-discover them:
-
-* **the progress oracle is a new commit on HEAD.** `max_stalled_blocks` releases
-  a run that has blocked N times without one. That suits a repo where finished
-  work is committed work; a repo with long-lived branches and rare commits would
-  be released for making steady progress;
-* **the guard must sit one directory below the repo root** — `repo_root()` is
-  `__file__.parent.parent` — and the up-walk in the hook command must name that
-  directory;
-* **`/proc` is how contention is sampled.** Elsewhere the cost recorder writes
-  `-1`, which is honest and useless; the rest of the guard is unaffected.
-
-The narrative behind these rules — which incident produced which line — is in
-`docs/tools/goal-guard.md`. Rules travel; stories stay where they happened.
-
-# # Why it does not follow the documented `stop_hook_active` advice
-
-Claude Code's hook docs say a Stop hook should "check stop_hook_active in the
-input and return success while it's true". A hook that obeys that blocks exactly
-ONCE and then lets the agent go — which is the same hole in a different shape.
-
-The runtime already has the loop guard that advice exists to provide:
-`stopHookBlockingCount` is capped (default 8, `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP`
-raises it) and — the part that matters — it RESETS to zero on any turn that runs
-tools. So consecutive blocks only accumulate while the agent is doing nothing,
-which is precisely when a run should be released.
-
-This guard keeps its own, stricter version of that: it releases if it has
-blocked `max_stalled_blocks` times with no new commit on HEAD. Not "no new
-turn" — no new COMMIT, because in this repo finished work is committed work.
-An agent thrashing without committing is not making progress, and the guard
-says so out loud instead of pinning the session against the wall.
-"""
+Goal files contain `goal`, `checks`, and release limits. Checks should test real
+artifacts and fail when their subject cannot be read. The historical incidents
+behind these rules belong in `docs/tools/goal-guard.md`."""
 
 from __future__ import annotations
 
@@ -401,18 +69,9 @@ PAUSE_TTL_MINUTES = 30.0
 # each block injecting the whole goal. That is not a stall the guard should push
 # through; it is the agent doing exactly the right thing.
 #
-# So: while launched work has not reported back, the guard stands down. Three
-# bounds keep that from becoming a hole, because "I am waiting" is the easiest
-# sentence in the world for an agent that wants out to write:
-#
-# * the wait is derived from the TRANSCRIPT, not from anything the agent says —
-#   a real `tool_use` that really went async and really has not returned;
-# * every WAIT_HEARTBEAT_MINUTES the guard blocks anyway to ask how the subagents
-#   are doing, because in-flight work hangs and a silent coordinator waiting on a
-#   dead task looks exactly like a healthy one;
-# * after WAIT_CEILING_HOURS with nothing returning, standing down stops. A task
-#   that was killed never sends a completion, so without this one `TaskStop` buys
-#   permanent silence.
+# While launched work has not reported back, the guard stands down. The wait is
+# derived from transcript tool events, heartbeat blocks still surface stalled
+# work, and WAIT_CEILING_HOURS bounds the stand-down if completion never arrives.
 WAIT_HEARTBEAT_MINUTES = 60.0
 WAIT_CEILING_HOURS = 4.0
 
@@ -438,12 +97,7 @@ SHORT_FORM_MIN_GOAL_CHARS = 1200
 
 
 def as_int(value, fallback: int) -> int:
-    """A malformed number in the goal file must not crash the guard.
-
-    Every one of these used to be a bare `int(...)` on JSON a human hand-edits at
-    2am. A `TypeError` there lands in the crash handler, which keeps blocking —
-    so a stray string in `max_stalled_blocks` could wedge the session with no way
-    out but deleting the file (GPT 5.6, 2026-07-28)."""
+    """Parse an integer setting without letting malformed goal JSON crash the guard."""
     try:
         return int(value)
     except (TypeError, ValueError):
@@ -458,23 +112,10 @@ def as_float(value, fallback: float) -> float:
 
 
 def repo_root() -> Path:
-    """The root of the repository THIS FILE lives in — never the one cwd is in.
+    """Return the repository containing this script, independent of cwd.
 
-    This asked `git rev-parse --show-toplevel`, and claimed that made the guard
-    work "from any cwd a hook happens to have". It did not: a hook inherits the
-    session's working directory, and one `cd` into a NESTED git repository made
-    `--show-toplevel` answer with the sub-repo, where `.goal/active.json` does
-    not exist — so `mode_stop` took its "not armed: ordinary sessions are
-    untouched" path and released a 72-hour run (2026-08-05; see
-    `docs/tools/goal-guard.md`).
-
-    `git` was never the right authority for this. The guard is armed relative to
-    the repo it is COMMITTED IN, and `__file__` says which one that is without
-    asking anybody. A worktree gets its own copy and so resolves to itself, which
-    is also correct.
-
-    ⛔ This is why a port must keep the guard exactly one directory below the
-    repo root.
+    The guard is committed at `<repo>/scripts/goal_guard.py`; resolving from
+    `__file__` also gives each worktree its own repository-local goal state.
     """
     return Path(__file__).resolve().parent.parent
 
@@ -484,27 +125,18 @@ def config_path(root: Path) -> Path:
 
 
 def guard_config(root: Path) -> dict:
-    """Per-REPOSITORY settings, as opposed to per-RUN settings.
+    """Load committed repository-level guard settings.
 
-    The goal JSON is already the config layer for a run: what to check, how long
-    to run, when to release. But two things vary by REPOSITORY rather than by
-    run, and they were constants in this file until 2026-08-15 — which is the
-    coupling that stopped it being portable. A Rust repo and a Python repo want
-    different numbers here and neither should have to fork the guard to say so.
-
-    It lives at the repo root and is COMMITTED, unlike `.goal/`, which is
-    gitignored per-run state and would take this with it on a fresh clone.
-
-    Absent or unreadable, the defaults apply and the guard behaves exactly as it
-    did before this existed — a port with no config file is a working port.
+    Per-run checks and release limits live in the goal JSON. This file supplies
+    repository-specific defaults such as build-process names and check timeout.
+    Missing or unreadable config falls back to built-in defaults.
 
         {
           "build_processes": ["cargo", "rustc"],
           "default_check_timeout": 120
         }
 
-    `build_processes` names the processes whose presence means something ELSE is
-    competing for this machine while a check is timed. Empty (the default) makes
+    `build_processes` names processes treated as build contention. Empty makes
     the recorder write `null` rather than `0`: a repo that never said what a
     build looks like has not observed an idle machine, and recording that as
     "zero contention" would be a measurement that cannot fail.
@@ -571,14 +203,7 @@ def owner_path(root: Path) -> Path:
 
 
 def owner_sessions(root: Path) -> list[str]:
-    """The roster, in claim order. One session id per line.
-
-    ⭐ **a ROSTER rather than a single id since 2026-08-20**, because a run can
-    legitimately be worked by more than one session at once — Jon runs an
-    architecture lane and a feature lane against one repository. A
-    single-line file is still a valid roster of one, so every goal armed before
-    this reads unchanged.
-    """
+    """Return owner session ids in claim order, one per line."""
     try:
         text = owner_path(root).read_text()
     except OSError:
@@ -611,7 +236,8 @@ def join_owner(root: Path, session: str) -> None:
         with owner_path(root).open("a", encoding="utf8") as handle:
             handle.write(session + "\n")
     except OSError:
-        # Not fatal: an unrecorded owner reads as unclaimed, which blocks.
+        # Not fatal: an unrecorded owner reads as unclaimed, which blocks. The
+        # failure direction is "holds the run", never "releases it".
         pass
 
 
@@ -678,7 +304,7 @@ def session_owns_goal(root: Path, hook_input: dict, *, claim: bool) -> bool:
         if claim:
             join_owner(root, session)
         return True
-    # **A SHARED run lets a second session JOIN rather than stand down.** The
+    # ⭐ **A SHARED run lets a second session JOIN rather than stand down.** The
     # unshared path below is unchanged and is still the default: a goal one
     # session claimed does not reach out and hold every other window.
     if claim and goal_is_shared(root):
@@ -789,20 +415,10 @@ class CheckResult:
 
 
 def _foreign_build_processes(names: list[str]) -> int | None:
-    """How many of `names` are running — the machine's contention at sample time.
+    """Count configured build processes using `/proc`.
 
-    Read from `/proc` rather than shelling out to `pgrep -f`, which MATCHES ITS
-    OWN SHELL and so can never report zero (a tighter regex does not fix it).
-
-    The names were `("cargo", "rustc")` in the source until 2026-08-15. That made
-    the recorder silently meaningless in any repo that does not build Rust — it
-    would count zero forever and the row would read as a quiet machine. They come
-    from `.goal-guard.json` now.
-
-    Three distinguishable answers, and keeping them apart is the whole point:
-    a COUNT, `None` for "this repo never said what a build looks like", and `-1`
-    for "`/proc` could not be read" (a Mac, a container). Collapsing any of those
-    into `0` would report an idle machine that was never observed.
+    Returns a count, `None` when the repository declares no build-process names,
+    or `-1` when `/proc` cannot be read. These states must not collapse to zero.
     """
     if not names:
         return None
@@ -827,41 +443,17 @@ def _foreign_build_processes(names: list[str]) -> int | None:
 def record_check_cost(
     root: Path, results: list[CheckResult], load_before: float | None = None
 ) -> None:
-    """Append one row per Stop-hook invocation to `.goal/check_cost.jsonl`.
+    """Append best-effort Stop-check timing data under `.goal/`.
 
-    ⭐ **Jon, 2026-08-08: measure compile and test time in the context of REAL
-    work.** This is that loop. A guard that runs the build and the suite at the
-    end of every turn is the heaviest recurring job on the machine, and it had
-    run 114 times in 11h17m before anything timed it — while purpose-built
-    instruments measured only synthetic builds staged for measurement.
-
-    ⛔ **it writes under `.goal/`, which the "nothing is left uncommitted" check
-    already excludes.** A recorder that dirties the tree would fail the very run
-    it measures — the instrument becoming the defect.
-
-    ⚠ **`foreign_builds` is a POINT-IN-TIME sample and is noisy** — build
-    processes come and go between samples. `load_before` / `load_after`
-    (1-minute averages) are the sturdier contention signal; prefer them when the
-    two disagree. `build_processes` records WHAT was counted, because a
-    contention number whose subject is unstated cannot be compared to anything.
-
-    ⚠ **and none of this is decoration.** A duration with no contention stamp
-    records the supervisor's cadence as if it were the code, and the biggest
-    contender for the machine IS this guard. Recording never fails the run: it is
-    best-effort by construction.
-
-    The measurements that motivated this, including one whose headline number
-    turned out to be overstated, are written up in `docs/tools/goal-guard.md`.
+    Rows include load averages and configured build-process contention so check
+    duration is not interpreted without machine-load context. Recording must
+    never fail or dirty the guarded repository state.
     """
     try:
         watched = guard_config(root)["build_processes"]
         payload = {
-            # SCHEMA 2: `foreign_builds` may now be `null`, meaning
-            # this repo never declared what a build process looks like, and the
-            # new `build_processes` field says what was actually counted. A
-            # contention number whose subject is unrecorded cannot be compared
-            # across repos, which is the same reason a duration needs a
-            # contention stamp in the first place.
+            # Schema 2 records the process names associated with `foreign_builds`;
+            # null means this repository did not define a build-process set.
             "schema": 2,
             "kind": "goal_check",
             "recorded_at": now_utc().isoformat(),
@@ -917,8 +509,13 @@ def run_checks(goal: dict, root: Path) -> list[CheckResult]:
             # A timeout is NOT a pass. The whole point of this file is that
             # "we could not tell" never resolves to "done".
             #
-            # The line has to say which of the two it is and what to do about it, or the next
-            # repo loses the same days to the same sentence.
+            # But it is not a FAILURE either, and saying only "timed out after
+            # 120s" let this repo read a green suite as red for days: the check
+            # `cargo test -p ambition_app --test app_it` cannot finish a cold
+            # compile inside the default, so the block reported an integration
+            # suite that was never actually run. The line has to say which of the
+            # two it is and what to do about it, or the next repo loses the same
+            # days to the same sentence.
             results.append(
                 CheckResult(
                     name, cmd, False,
@@ -954,26 +551,12 @@ def clear_goal(
     remove: bool = True,
     session: str = "",
 ) -> None:
-    """Archive rather than delete: what a finished run was asked to do is
-    evidence, and the next run's post-mortem wants it.
+    """Archive a goal, optionally releasing only one owner session.
 
-    `remove=False` archives the outgoing goal WITHOUT disarming, which is what
-    `--arm` needs: replacing a goal is not clearing one, but the thing being
-    replaced is still evidence and still gone forever if nobody writes it down.
-
-    ⛔⛔ **`session` MAKES A CLEAR PER-SESSION, and its absence is a GLOBAL
-    clear.** Ownership is a roster (see `owner_sessions`), so one session
-    finishing is one name leaving it — not the end of the goal. Without this,
-    an agent typing `--clear` in its own window disarmed every other session in
-    the repository, which is what happened on 2026-08-20: one lane wrapped up
-    and silently released the lane that was still working.
-
-    ⭐ the two cases are genuinely different and both are wanted:
-      * `session` given  — a HAND clear. Drop that name; disarm only if the
-        roster is now empty, because a goal nobody holds is not armed.
-      * `session` empty  — the goal itself is OVER for everybody: its checks
-        passed, its deadline expired, or a fuse blew. Those are facts about the
-        GOAL, not about who was watching it.
+    `remove=False` archives the outgoing goal without disarming it, which is
+    used when `--arm` replaces one goal with another. With `session`, only that
+    owner leaves and the goal remains armed while other owners exist. Without a
+    session, the goal ends for every owner.
     """
     active = active_path(root)
     if not active.exists():
@@ -1000,7 +583,7 @@ def clear_goal(
         active.unlink()
         state_path(root).unlink(missing_ok=True)
         owner_path(root).unlink(missing_ok=True)
-        # the SHARE marker dies with the run it shared. A stale one would make
+        # ⛔ the SHARE marker dies with the run it shared. A stale one would make
         # the NEXT goal armed here hold every window in the repository without
         # anybody asking for it.
         shared_path(root).unlink(missing_ok=True)
@@ -1010,11 +593,14 @@ def clear_goal(
 
 # ── Reading the transcript for what the hook input does not say ───────────────
 
-# A tool result announcing that its work went async. Matching only the first misses every task
-# that went async by timing out — which is the shape a HUNG task arrives in, so the miss would
-# land exactly where the heartbeat is needed most.
+# A tool result announcing that its work went async. BOTH forms matter and only
+# one of them was obvious: a call made with `run_in_background` says "running in
+# background with ID", and a FOREGROUND call that outlived its timeout says
+# "moved to the background (ID". Matching only the first misses every task that
+# went async by timing out — which is the shape a HUNG task arrives in, so the
+# miss would land exactly where the heartbeat is needed most.
 #
-# THE ID IS PART OF THE PATTERN, and leaving it out cost a false positive on
+# ⛔ THE ID IS PART OF THE PATTERN, and leaving it out cost a false positive on
 # the first run: a `grep` whose OUTPUT contained the phrase "running in
 # background with ID" registered as a launch, so the guard believed a task was
 # in flight that had never existed. Requiring `: <id>` is what separates the
@@ -1230,16 +816,10 @@ def write_state(root: Path, state: dict) -> None:
 
 
 def current_hold(root: Path) -> dict | None:
-    """The SUSTAINED pause, if one is in force.
+    """Return the sustained hold, if any.
 
-    Unlike [`take_pause`] this is not spent by reading it: a hold stays until a
-    human lifts it with `--unhold`. That is the whole difference, and it is the
-    difference Jon asked for — a one-shot pause has to be re-armed every turn,
-    which makes working through a problem together cost a re-arm per exchange.
-
-    ⚠ **it does not expire, and the deadline is what stops that being a hole.**
-    A held goal still releases on `deadline_utc` / `max_run_hours` exactly as an
-    unheld one does; holding buys quiet, not immortality.
+    A hold remains until `--unhold`; unlike a one-shot pause, reading it does not
+    consume it. Goal deadlines and run fuses still apply while held.
     """
     state = load_json(state_path(root)) or {}
     hold = state.get("hold")
@@ -1262,17 +842,10 @@ def hold_age_text(hold: dict) -> str:
 
 
 def take_pause(root: Path) -> dict | None:
-    """Spend a pending one-shot pause, if there is a live one.
+    """Consume and return a live one-shot pause record.
 
-    Returns the pause record it consumed, or None. Consuming is the whole point:
-    the token is removed from `.goal/state.json` before this returns, so the very
-    next Stop hook — the end of the turn after the human's reply — blocks again.
-    There is no way to pause TWO turns except by asking twice.
-
-    An expired token is dropped rather than honoured. A pause armed at hour 2 and
-    spent at hour 40 is not "waiting for input", it is a release with a delay
-    fuse, and this guard's whole subject is releases that happen for reasons
-    other than the work being done.
+    The token is removed before returning so it can skip exactly one Stop. An
+    expired token is discarded.
     """
     state = load_json(state_path(root)) or {}
     pending = state.get("pause_once")
@@ -1393,7 +966,7 @@ def mode_stop(root: Path, hook_input: dict) -> int:
 
     # A SUSTAINED pause the human asked for. Checked before everything else for
     # the same reason the one-shot is: the point is to hand the turn back now.
-    # it is deliberately LOUD — every single Stop says the goal is held, names
+    # ⚠ it is deliberately LOUD — every single Stop says the goal is held, names
     # the reason and says how to lift it, so a hold cannot be quietly forgotten
     # the way a silent one would be.
     hold = current_hold(root)
@@ -1466,18 +1039,8 @@ def mode_stop(root: Path, hook_input: dict) -> int:
     # is simply stuck and a human should hear about it.
     state = load_json(state_path(root)) or {}
     sha = head_sha(root)
-    # An UNREADABLE head is not progress.
-    #
-    # This read `stalled + 1 if sha and sha == last_head else 0`, so a failing
-    # `git rev-parse` — a permission problem, a lock file, a repo the hook cannot
-    # see — returned "" and reset the counter to zero on every single block. The
-    # stall release could then never fire, and the one escape hatch from a run
-    # that is going nowhere was disabled by exactly the infrastructure failures
-    # most likely to make a run go nowhere.
-    #
-    # So the three cases are named: a NEW commit is progress and resets; the same
-    # commit is a stall; and not knowing is a stall too, because a guard that
-    # cannot see progress must not assume it.
+    # An unreadable head is not progress. A new commit resets the stall
+    # counter; the same or unknown head increments it.
     if not sha:
         stalled = as_int(state.get("stalled"), 0) + 1
     elif sha == state.get("last_head"):
@@ -1523,9 +1086,12 @@ def mode_stop(root: Path, hook_input: dict) -> int:
 
     # The WALL-CLOCK fuse, which depends on nothing but the clock.
     #
-    # A goal with no deadline and a check that can never pass is an unbounded block, so the guard
-    # keeps its own ceiling: `--arm` now rejects a malformed deadline outright, and this catches
-    # goals armed before that existed, or edited by hand afterwards.
+    # `deadline_utc` is the intended release and every armed goal should carry
+    # one — but it is optional, and an unparseable one used to become silently
+    # no deadline at all. A goal with no deadline and a check that can never pass
+    # is an unbounded block, so the guard keeps its own ceiling: `--arm` now
+    # rejects a malformed deadline outright, and this catches goals armed before
+    # that existed, or edited by hand afterwards.
     fuse_h = as_float(goal.get("max_run_hours"), DEFAULT_MAX_RUN_HOURS)
     started = parse_deadline(first_block_at)
     if fuse_h > 0 and started and now_utc() - started >= _dt.timedelta(hours=fuse_h):
@@ -1556,23 +1122,10 @@ def mode_stop(root: Path, hook_input: dict) -> int:
 
 
 def mode_inject(root: Path, hook_input: dict) -> int:
-    """Re-state the goal wherever context can be injected — from CACHE only.
+    """Inject cached goal context without running checks.
 
-    Compaction is the reason this exists. `PostCompact` cannot inject context
-    (its schema has no `additionalContext`), so the goal has to re-enter through
-    a channel that fires anyway — SessionStart on resume, and the Stop hook's own
-    block reason after every single turn.
-
-    It must NOT run the checks. SessionStart fires before the session is ready,
-    and the caller waits: on 2026-07-27 a goal whose checks include a 900s
-    `cargo check` wedged startup until the IDE gave up at 60s and the only way
-    in was `mv .goal/active.json .goal/active.json.paused`. A guard that can
-    lock you out of the repository it guards is worse than no guard.
-
-    So this reads `.goal/state.json` — the open items the last Stop hook wrote —
-    and says so. That is a cache, and it can be stale, but it is stale in the
-    safe direction: it restates work as OPEN, and the Stop hook is still the
-    authority that decides anything is finished.
+    Session-start injection must remain cheap and non-blocking. It may restate
+    stale open items, but only the Stop hook decides that checks are satisfied.
     """
     goal = load_json(active_path(root))
     if not goal:
@@ -1591,7 +1144,7 @@ def mode_inject(root: Path, hook_input: dict) -> int:
         return 0
 
     state = load_json(state_path(root)) or {}
-    # a HELD goal must say so at session start, or a fresh session reads the
+    # ⚠ a HELD goal must say so at session start, or a fresh session reads the
     # open items as pressure and starts working on something the human paused.
     held = state.get("hold")
     if isinstance(held, dict):
@@ -1711,25 +1264,11 @@ def mode_resume(root: Path) -> int:
 
 
 def mode_pause(root: Path, reason: str) -> int:
-    """Arm a ONE-SHOT pause: the current turn may end, the next one may not.
+    """Arm a visible one-shot pause for the current turn.
 
-    This is the only sanctioned way for an agent to hand the turn back mid-run,
-    and it exists because the alternative Jon was left with — clearing the goal —
-    ends the run. "Finish up and wait for me" should cost one turn, not the run.
-
-    Three properties make it a pause rather than a hole:
-
-    * it is SPENT by the next Stop hook and gone (`take_pause`), so the goal is
-      live again the moment the human's reply is answered;
-    * it EXPIRES (`PAUSE_TTL_MINUTES`), so it cannot be armed early and cashed
-      in hours later when nobody is watching;
-    * it is LOUD — `.goal/state.json` counts pauses, and spending one prints a
-      `systemMessage` naming the reason into the transcript the human reads.
-
-    None of that stops an agent that wants out from calling it unasked. Nothing
-    in this file can (see the module docstring): the guard converts persuasion
-    into a visible act, and this is one of the visible acts. A pause nobody asked
-    for shows up in the terminal, in the state file, and in `--status`.
+    The next Stop consumes the pause, it expires after `PAUSE_TTL_MINUTES`, and
+    its reason is recorded in state/transcript output. Clearing the goal is not
+    required.
     """
     if not load_json(active_path(root)):
         print("no goal armed — nothing to pause")
@@ -1750,24 +1289,10 @@ def mode_pause(root: Path, reason: str) -> int:
 
 
 def mode_hold(root: Path, reason: str) -> int:
-    """Hold the goal until a human lifts it — the SUSTAINED sibling of `--pause`.
+    """Hold the goal until `--unhold`.
 
-    ⭐ **why this exists.** `--pause` is a one-shot: it buys exactly one turn and
-    has to be re-armed for the next. That is right for *"finish up and wait"*, and
-    wrong for *"stop, we are going to work on this together"* — which is what Jon
-    asked for while iterating on Mary-O's art, where a re-arm per exchange is
-    noise in the middle of a conversation.
-
-    ⚠ **it does not expire, and that is safe for one reason only: the DEADLINE
-    still runs.** A held goal releases on `deadline_utc` / `max_run_hours`
-    exactly as an unheld one does. Holding buys quiet, not immortality, and a run
-    that is held past its deadline simply ends.
-
-    ⛔ **this is a HUMAN's instrument.** The one-shot pause is self-limiting, so an
-    agent arming it unasked costs a turn; a hold armed unasked would cost the run.
-    Nothing in this file can stop that (see the module docstring) — what it does
-    instead is make it impossible to hide: every Stop while held prints that it is
-    held, for how long, and why, into the transcript the human reads.
+    Unlike `--pause`, a hold is sustained. Goal deadlines and run fuses continue
+    to run, and Stop output reports the hold duration and reason.
     """
     if not load_json(active_path(root)):
         print("no goal armed — nothing to hold")
@@ -1809,18 +1334,10 @@ def mode_unhold(root: Path) -> int:
 
 
 def timer_lines(root: Path, goal: dict) -> list[str]:
-    """ALL THREE RELEASES, in one place, computed the same way `mode_stop` does.
+    """Return the deadline, run fuse, and stall fuse without running checks.
 
-    ⭐ this exists because "how long is left?" had no cheap answer. `--status`
-    knows, but it RUNS THE CHECKS to say so, and in this repository that is a
-    cargo build — minutes of wall clock and a screenful of output to learn a
-    date. Reading the two files by hand instead is what `--extend` was added to
-    stop, and it would be silly to fix the write and leave the read expensive.
-
-    Naming the stall fuse here is the load-bearing part: it is the release
-    `--extend` CANNOT move (it counts blocks, not seconds), so a run that is
-    about to be let go for lack of commits looks exactly like a healthy one from
-    the deadline alone.
+    The stall fuse counts blocks rather than time and is not changed by
+    `--extend`, so it is reported separately from the two clocks.
     """
     now = now_utc()
     state = load_json(state_path(root)) or {}
@@ -1860,24 +1377,11 @@ def timer_lines(root: Path, goal: dict) -> list[str]:
 
 
 def mode_extend(root: Path, raw: str) -> int:
-    """Move BOTH clocks that end a run, in one command, and show the result.
+    """Extend the deadline and max-run clock while preserving their gap.
 
-    ⛔⛔ **THE DEADLINE IS NOT THE ONLY CLOCK, AND IT IS NOT EVEN THE ONE THAT
-    FIRES FIRST.** `max_run_hours` counts from the FIRST BLOCK, not from the
-    arming, so a hand edit that moves `deadline_utc` alone leaves the run to
-    release itself on the old schedule through a backstop the editor was not
-    looking at. That is the entire reason this is a command: the operation is
-    two coupled edits, and the coupling is invisible in the file. Extending
-    keeps the gap between them, so whichever one Jon armed as the real end stays
-    the real end.
-
-    The stall fuse is deliberately NOT touched. It is a progress oracle, not a
-    clock; buying more time is not evidence that work is landing, and silently
-    resetting it would turn "extend the timer" into "forgive the stall".
-
-    Called with no argument it changes nothing and just prints the clocks, which
-    makes the read cheap too — `--status` answers the same question but runs
-    every check to do it.
+    The stall fuse is intentionally unchanged because elapsed time is not
+    evidence of progress. With no duration, print the clocks without running
+    checks.
     """
     goal = load_json(active_path(root))
     if not goal:
@@ -1913,6 +1417,8 @@ def mode_extend(root: Path, raw: str) -> int:
 
     fuse_h = as_float(goal.get("max_run_hours"), DEFAULT_MAX_RUN_HOURS)
     if fuse_h > 0:
+        # Written even when it was ABSENT: the default applies either way, and a
+        # default that fires early is the failure this command exists to prevent.
         goal["max_run_hours"] = round(fuse_h + hours, 3)
     goal["deadline_utc"] = stamp_utc(new_deadline)
 
@@ -2000,7 +1506,10 @@ def mode_status(root: Path) -> int:
         print(f"pauses spent: {state['pauses']}, last {state.get('last_pause_at', '?')}")
     if state:
         print(f"blocks so far: {state.get('blocks', 0)}, stalled: {state.get('stalled', 0)}")
-        # The only symptom of a guard that is not running at all.
+        # The only symptom of a guard that is not running at all. Every other
+        # line here is about whether the WORK is done; this one is about whether
+        # the instrument is plugged in, which is the failure that costs hours
+        # because nothing else reports it.
         last = parse_deadline(state.get("last_block_at"))
         if last:
             idle_h = (now_utc() - last).total_seconds() / 3600.0
@@ -2010,16 +1519,7 @@ def mode_status(root: Path) -> int:
 
 
 def validate_goal(goal: dict) -> list[str]:
-    """Every way a goal file can wedge a session, checked BEFORE it is armed.
-
-    Arming used to check one thing — that checks exist — and everything else was
-    read later, in a hook, where a bad value either silently disabled a release
-    (an unparseable `deadline_utc` became NO deadline) or raised inside the Stop
-    hook, which keeps blocking by design (GPT 5.6, 2026-07-28). Both failures
-    land on a human who has to work out why the session will not end.
-
-    Arming is the one moment a person is watching, so it is where these belong.
-    """
+    """Validate goal fields that could disable a release or crash the Stop hook."""
     problems: list[str] = []
 
     checks = goal.get("checks")
@@ -2048,6 +1548,7 @@ def validate_goal(goal: dict) -> list[str]:
 
     raw_deadline = goal.get("deadline_utc")
     if raw_deadline and parse_deadline(raw_deadline) is None:
+        # An invalid deadline must fail arming rather than disable the deadline.
         problems.append(
             f"`deadline_utc` {raw_deadline!r} is not an ISO-8601 timestamp — a "
             "deadline that does not parse is silently NO deadline"
@@ -2078,8 +1579,8 @@ def mode_arm(root: Path, source: str) -> int:
             print(f"  - {problem}", file=sys.stderr)
         return 2
     goal_dir(root).mkdir(parents=True, exist_ok=True)
-    # `remove=False` because this is not a release: the outgoing goal is
-    # archived and then immediately overwritten by the incoming one.
+    # Preserve the outgoing goal before replacement. `remove=False` archives it
+    # without disarming before the incoming goal overwrites `active.json`.
     if src.resolve() != active_path(root).resolve():
         clear_goal(root, "replaced by --arm", remove=False)
         shutil.copyfile(src, active_path(root))
@@ -2090,7 +1591,7 @@ def mode_arm(root: Path, source: str) -> int:
 
 
 def main() -> int:
-    # **NOT `description=__doc__`.** The module docstring is this file's DESIGN
+    # ⛔ **NOT `description=__doc__`.** The module docstring is this file's DESIGN
     # RECORD — why the arbiter is a command hook and not a model, what the four
     # ways out are and why each exists — and it is 296 lines of `--help`. An agent
     # running `--help` is mid-task and wants the operational answer, not the
@@ -2214,7 +1715,7 @@ def main() -> int:
     if args.pause is not None:
         return mode_pause(root, args.pause)
     if args.own:
-        # ADDS to the roster rather than replacing it, so binding a second
+        # ⭐ ADDS to the roster rather than replacing it, so binding a second
         # session by id does not silently release the first.
         join_owner(root, args.own.strip())
         roster = owner_sessions(root) or []
@@ -2265,12 +1766,12 @@ def main() -> int:
     if args.clear is not None:
         roster = owner_sessions(root) or []
         if args.clear:
-            # per-session: drops THIS window and disarms only if it held the
+            # ⛔ per-session: drops THIS window and disarms only if it held the
             # goal alone. See `clear_goal`'s `session` argument.
             clear_goal(root, "cleared by hand", session=args.clear.strip())
             return 0
-        # It is only ambiguous when the roster is shared, so refuse exactly there rather than making
-        # the common case ceremonious.
+        # A bare clear is ambiguous for a shared roster; require the caller to
+        # choose one session or all sessions explicitly.
         if len(roster) > 1:
             print(
                 "REFUSING: this goal is held by "
@@ -2330,12 +1831,8 @@ if __name__ == "__main__":
         # A crashed guard must never silently release a run: say so loudly and
         # keep blocking, because "the guard broke" is not "the work is done".
         #
-        # But not forever. Blocking on a crash means a typo in THIS file wedges
-        # every session in the repo, with the only escape being to find and move
-        # `.goal/active.json` by hand — which is exactly the lock-out this file
-        # claims at the top it cannot cause. After
-        # MAX_CONSECUTIVE_CRASHES it releases and says why, loudly enough that
-        # nobody mistakes it for the goal being met.
+        # Bound crash blocking so a broken guard cannot make the repository
+        # unusable. The release message explicitly says the goal was not met.
         root = repo_root()
         if active_path(root).exists():
             crashes = note_crash(root)

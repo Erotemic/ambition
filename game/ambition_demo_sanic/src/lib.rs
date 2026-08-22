@@ -2208,11 +2208,8 @@ fn ring_step(
 
 /// World x of the goal line.
 ///
-/// Set back from the level's right edge because the body cannot reach the edge
-/// itself: the runnable extent tops out around `LEVEL_WIDTH - 270`, so a goal
-/// any closer to the wall is one a player can never cross. The first version of
-/// this sat at `LEVEL_WIDTH - 130` and made the act literally uncompletable —
-/// you could run the speedway forever and nothing would ever happen.
+/// Kept inside the player's reachable horizontal extent rather than at the
+/// level's visual edge.
 pub const GOAL_X: f32 = LEVEL_WIDTH - 400.0;
 
 /// How long the results card holds before the act restarts.

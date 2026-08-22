@@ -141,11 +141,8 @@ fn choosing_versus_seats_two_fighters_in_the_arena() {
     let mut characters: Vec<String> = worn.iter(world).map(|worn| worn.id().to_string()).collect();
     characters.sort();
 
-    // EXACTLY the roster, not "at least the roster". The first version of this
-    // asserted presence and passed while the arena held two Mary-Os: the session
-    // spawns a player body wearing the starting character, and seating spawned a
-    // second one beside it. Presence is the assertion you write when you have not
-    // looked at the screen.
+    // Require exactly the seated roster so duplicate starting bodies cannot hide
+    // behind presence-only assertions.
     assert_eq!(
         characters,
         vec![
@@ -2234,22 +2231,9 @@ fn a_round_opens_on_a_countdown_that_nobody_can_act_through() {
     );
 }
 
-/// A fighter knocked off the stage loses the round.
-///
-/// The verb the whole genre is built on, and until now it could not happen at all.
-///
-/// The stage was a closed box — floor plus two walls — so there was nowhere to
-/// be knocked to. And the movement kernel's out-of-bounds gate, which every
-/// motion policy publishes through, flagged a body that had left the world and
-/// then dropped the flag for actors: their frame events were read for
-/// presentation and discarded. Three separate doc comments promised that "the
-/// blast-zone / OOB / fell-out gate the engine already owns" owned this death.
-/// Nothing did, so a fighter knocked off the stage fell forever — alive, ticked,
-/// accelerating, and still counted as standing by the round rule.
-///
-/// Seat 1 deliberately: seat 0 is an adopted `PlayerEntity` with its own reset
-/// publisher, and seat 1 is the ACTOR path — the one that had no out-of-bounds
-/// handling whatsoever, and the one every additional fighter uses.
+/// A fighter knocked beyond the stage blast zone loses the round.
+/// Seat 1 exercises the actor path used by additional fighters rather than the
+/// adopted primary-player reset path.
 #[test]
 fn a_fighter_knocked_off_the_stage_loses_the_round() {
     use ambition_platformer2d::actors::actor::BodyKinematics;

@@ -1,10 +1,5 @@
-//! Behaviour tests for the runtime brain-switch authority.
-//!
-//! These pin the campaign's runtime-switching requirements: `UsePreset` replaces
-//! the live brain, `RestoreDefault` rebuilds a fresh default around the AUTHORED
-//! home (not the current pose), the same command replays deterministically, a
-//! command only touches its target, and a MOUNT's displaced brain is never
-//! overwritten by an autonomous switch.
+//! Behavior tests for runtime brain switching: preset replacement, authored-home
+//! restoration, deterministic replay, target isolation, and mount ownership.
 
 use super::*;
 use ambition_characters::actor::character_catalog::{

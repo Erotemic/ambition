@@ -1,59 +1,14 @@
 #!/usr/bin/env python3
-"""**WHERE THIS REPO KEEPS ITS MEASUREMENT LEDGERS — declared once.**
+"""Shared paths for compile and test telemetry.
 
-The five append-only telemetry ledgers live in `dev/ambition_dev_measurements`,
-a git submodule (`https://github.com/Erotemic/ambition_dev_measurements.git`),
-because they grow monotonically and every checkout pays for the growth. On
-2026-08-08 those five files were **3.88 MB of a 43.95 MB tracked tree**, and a
-cost ledger only ever gets bigger — its history IS its value, so there is no
-pruning policy that would fix this. A submodule keeps the whole history without
-charging every clone, worktree and CI checkout for it.
+Append-only ledgers live in the `dev/ambition_dev_measurements` submodule.
+Readers may treat an uninitialized submodule as having no rows; writers must call
+`require_writable()` before appending so measurements are never written into an
+empty submodule mount and later discarded.
 
-⛔ **these same five paths used to be declared THREE times.**
-`scripts/compile_ratchet.py`, `scripts/compile_report.py` and
-`scripts/compile_cost.py` each spelled them out independently, and
-`scripts/run_tests.py` inlined a fourth copy. That is the *two readers of one
-declaration, never two declarations* defect: relocating the directory means
-finding every copy, and the copy that gets missed goes on writing to the old
-place while everything else reads the new one — both halves correct, disagreeing,
-with nothing in either output saying so. Same shape as
-`scripts/lib/asset_roots.sh`, same fix: the consumer declares, and the tools are
-told.
-
-## What happens when the submodule is absent, and why writers must refuse
-
-⛔ **a clone without `--recursive` still HAS `dev/ambition_dev_measurements/`.**
-Git materialises the mount point as an EMPTY DIRECTORY. So every
-`open(..., "a")` in this repo would succeed there: a collector would CREATE
-`compile_units.jsonl`, write a real measurement into it, print a `file://` link,
-and exit 0. That file is then an untracked stray inside an uninitialised
-submodule — removed without comment by the next `git submodule update --init`,
-never seen by `git status` in the parent, and never in the ledger it was meant
-for. A measurement that is silently discarded is worse than one never taken,
-because the run that took it reported success.
-
-⭐ So **every writer calls `require_writable()` before opening a ledger for
-append**, and readers do not:
-
-* a READER on an absent submodule sees files that do not exist, which is exactly
-  the fresh-clone case `scripts/compile_report.py` already renders as
-  *"has no rows"*. Hard-failing there would break a page that is designed to be
-  honest about thin data.
-* a WRITER has nowhere to put its row and must say so, naming the one command
-  that fixes it.
-
-⚠ **`dev/compile_ratchet_baseline.json` deliberately did NOT move** and is
-declared here so that the reason travels with the paths. It is a GATE INPUT —
-`python3 scripts/compile_ratchet.py` reads it on every run (⚠ the BARE
-invocation is the gate; there is no `--check` flag) — and a gate whose baseline
-sits behind an uninitialised submodule cannot run at all. It is also bounded: one
-frozen snapshot, rewritten rather than appended, so it never had the problem the
-ledgers have.
-
-⚠ **this module imports nothing but the standard library and must stay that
-way.** `scripts/run_tests.py` is the suite's own entry point and cannot afford to
-pull in a 1,500-line checker in order to learn a file path.
-"""
+`dev/compile_ratchet_baseline.json` remains in the main repository because it is
+a bounded gate input required by the compile ratchet. This module intentionally
+uses only the standard library so suite entry points can import it cheaply."""
 
 from __future__ import annotations
 

@@ -135,15 +135,10 @@ def test_an_upsert_keeps_the_uids_every_placement_references():
 
 
 def test_a_compatible_change_leaves_the_authored_values_alone():
-    """An authored block kind is data; a schema edit is not allowed to forget it.
+    """A compatible schema change must preserve authored field values.
 
-    ⚠ **this named `Quasar` and went red when `Quasar` stopped being a kind.**
-    It became `contents: AlwaysQuasar` on an ordinary Brick when the block
-    vocabulary was normalized (2026-08-06), and the assertion had been pinning
-    the level's content rather than the tool's behaviour. That is the second
-    stale literal in this file — `contents` was the first — so the fixture check
-    now asks the question it actually means: *does the level author enough
-    distinct kinds for a preservation test to be meaningful?*
+    The fixture only requires multiple distinct authored kinds; it must not pin a
+    particular content vocabulary value.
     """
     project, manifest = load_mary_o()
     original = kind_values(project)

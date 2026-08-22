@@ -1,35 +1,11 @@
-//! Mary-O's own LDtk nouns, so a level is authored by filling in FIELDS
-//! rather than by typing a name convention exactly right.
+//! Mary-O-specific LDtk vocabulary.
 //!
-//! ## The seam, and why no engine change was needed
+//! `LdtkVocabulary` supplies game-owned entity converters. Converters emit
+//! engine-owned `RoomEmission`, so Mary-O encodes typed block kind into the
+//! emitted name while authors choose `kind` as a field.
 //!
-//! `LdtkVocabulary` lets a game hand its own entity converters to a conversion.
-//! That seam has existed, documented and tested, with no users; Mary-O is
-//! the first, and being its first real user is what turned up that it was a
-//! process-global `OnceLock` rather than a parameter.
-//!
-//! A converter's only output is `RoomEmission`, whose channels are engine-owned types — so a
-//! game-specific PAYLOAD still has nowhere typed to land, and the authored block reaches the
-//! runtime carrying a `name` and nothing else.
-//!
-//! so the name convention did not go away — it stopped being something a
-//! HUMAN types. The author picks `kind: Power` from a dropdown; this converter
-//! encodes it; [`block_look_of`] decodes it. A convention two pieces of Mary-O
-//! share is an implementation detail. A convention an author has to spell
-//! correctly is a trap.
-//!
-//! ## The encoded name
-//!
-//! ```text
-//! maryo_block:<kind>:<iid>
-//! ```
-//!
-//! the iid, not an ordinal. An index cannot come from here — a converter
-//! sees ONE entity and has no idea how many others exist — and that is the good
-//! kind of pressure: an ordinal was never a durable identity anyway, since
-//! inserting a block renumbers every one after it. The LDtk iid survives moves,
-//! edits and reordering, which is exactly what a runtime that remembers *"this
-//! block is spent"* needs.
+//! Encoded form: `maryo_block:<kind>:<iid>`. The LDtk IID provides durable
+//! identity across moves and reordering; ordinals do not.
 
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::ldtk_map::{LdtkEntityCtx, RoomEmission};
@@ -667,21 +643,9 @@ mod tests {
         found
     }
 
-    /// What the tools are told Mary-O owns is what Mary-O installs.
-    ///
-    /// this is the half that makes the LDtk validator's vocabulary honest.
-    /// The validator cannot run Rust, so it trusts
-    /// `assets/worlds/mary_o.entities.json` when it sees a `MaryOBlock`. Its
-    /// first version instead trusted the project's own `defs.entities` — and a
-    /// plus an instance of it validated clean with no converter anywhere,
-    /// because `defs` is written by the same generator that writes the
-    /// instances. The file was being compared against itself.
-    ///
-    /// so the manifest is a DECLARATION and this is the audit. A noun
-    /// declared here with no converter behind it fails here; a converter
-    /// installed without being declared makes every level using it fail
-    /// validation. Neither list is derived from the other, so a lie in either
-    /// one is a red test rather than a level that quietly loads wrong.
+    /// Audit that Mary-O installs converters for the entity vocabulary declared
+    /// to external LDtk tooling. The manifest and converter list are independent
+    /// authorities so disagreement fails validation.
     #[test]
     fn the_declared_manifest_matches_the_converters_actually_installed() {
         let mut declared = manifest_identifiers(MARY_O_ENTITY_MANIFEST);

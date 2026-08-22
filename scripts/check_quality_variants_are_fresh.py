@@ -1,45 +1,17 @@
 #!/usr/bin/env python3
-"""**Are the reduced-resolution asset tiers the same art as full resolution?**
+"""Check that reduced-resolution sprite tiers are fresh relative to full resolution.
 
-Jon, 2026-08-12: *"When I change the video quality in ambition, my sprite went
-from the robot v3 character to the robot v2 character"*, and *"I see the new emmy
-sprite on the select screen, but her character is the old sprite in the match."*
-Two reports, one fact: 163 of 192 sheets under ``sprites_0_5x`` / ``sprites_0_25x``
-/ ``sprites_potato`` were four days behind ``sprites/``. The reduced tiers are
-what the runtime loads under the Low / Medium / Potato quality profiles, so the
-game was drawing 08-08 art at one quality setting and 08-11 art at another. It
-reads as a character being swapped because that is exactly what you see.
-
-⭐ **THIS IS THE CHECK THAT DID NOT EXIST.** Everything else was already right:
-the generator is incremental and correct, ``regen_sprites.sh`` chains it, and
-``regen_visual_quality_variants.sh`` runs it standalone. What nothing did was
-*notice* — a tier can sit arbitrarily far behind its source and every test, every
-build and every capture stays green, because a stale PNG is a perfectly valid
-PNG. The only symptom is a person looking at the screen.
-
-⚠ **mtime, deliberately, with a tolerance.** Content hashes cannot answer this:
-the tier file is a DOWNSCALE of the source, so it never equals it, and storing
-recorded source hashes would add a provenance sidecar that can itself go stale
-(one more thing nothing checks). Modification time is what the generator's own
-freshness rule already uses, so this check agrees with the thing it is guarding
-by construction rather than by a second implementation of the same rule.
-
-⛔ **the tolerance is what makes it clone-safe.** A fresh ``git clone`` stamps
-every file with checkout time in arbitrary order, so tier files WILL land
-fractionally older than their sources on a tree nobody has touched. The real
-failure was four days. `STALE_AFTER_S` sits between those two magnitudes by a
-wide margin in both directions, so this neither flaps on a clone nor needs a
-"known good" list to stay quiet.
+Low/Medium/Potato profiles load downscaled tier files, so stale tier assets can
+show older character art while the full-resolution profile is current. Freshness
+uses modification time with a tolerance large enough to ignore checkout-order
+jitter but small enough to catch real stale generations.
 
 Usage::
 
     python3 scripts/check_quality_variants_are_fresh.py
     python3 scripts/check_quality_variants_are_fresh.py --asset-root <dir>
 
-Exit 0 = every published tier file is at least as new as its full-resolution
-source. Exit 1 = at least one is stale; the fix is always the same and is
-printed with the failure.
-"""
+Exit 1 names stale files and the regeneration command."""
 
 from __future__ import annotations
 

@@ -1,34 +1,8 @@
-"""The SDK's `[patch.crates-io]` advice must match the workspace it describes.
+"""The SDK's Cargo patch guidance must match the workspace manifest.
 
-`docs/sdk/README.md` tells a third party to copy a `bevy_ggrs` git pin out of the
-workspace root, because Cargo patch tables do not cross a workspace boundary and
-without it a consumer that selects the rollback backend does not compile. The 2026-07-30 blind
-agent run found that gap the expensive way: it hit `cannot find type
-GgrsFrameTiming` before it could ask a single API question.
-
-That paragraph is now the first thing in the SDK, and it contains a **pinned
-revision** — which makes it the kind of documentation that rots silently. The
-day somebody bumps the fork, the README keeps confidently telling strangers to
-pin a rev that no longer matches, and the failure looks exactly like the one the
-paragraph exists to prevent.
-
-⚠ **This is here because the underlying leak is DEFERRED, not fixed.** Jon
-decided 2026-07-30 to wait for the accessor to ship in a released `bevy_ggrs`
-(see `docs/planning/maintainer-decisions.md`). "Come back to it later" is only
-safe if later arrives to a document that is still true, and the deferral could
-last as long as an upstream release cycle.
-
-It is a text check, which this repo is otherwise sceptical of — see AGENTS.md,
-"avoid bullshit guardrails". It earns its place because the subject genuinely IS
-a string that must equal another string, in two files that nothing else relates,
-and because being wrong is not a cosmetic docs issue: it is a consumer who
-cannot build. There is no type, API boundary, or behavioural test that can
-express "the README's rev equals the manifest's rev".
-
-Delete this the day the fork does — when the workspace has no `bevy_ggrs` patch
-entry, the README should have no paragraph about one, and the check below says
-so rather than passing vacuously.
-"""
+When the workspace carries a `bevy_ggrs` patch, the SDK guidance must name the
+same revision required by an external consumer. When that patch disappears, the
+corresponding SDK workaround must disappear too."""
 
 from __future__ import annotations
 

@@ -1,130 +1,18 @@
 #!/usr/bin/env python3
-"""Author a new Ambition LDtk active area / level from a small RON/JSON spec.
+"""Create or replace an Ambition LDtk active area from a small RON/JSON spec.
 
-The pain of hand-authoring an LDtk level is:
+The spec names level placement, dimensions, collision fill, optional level
+metadata, and entity instances. Entity fields are coerced to their declared LDtk
+types. Static collision nouns such as `Solid`, `OneWayPlatform`, and `BlinkWall`
+are lowered to the canonical IntGrid representation instead of emitted as entity
+instances.
 
-- correct entity / field `defUid` references,
-- valid `intGridCsv` of the right size,
-- editor-roundtrip metadata (`realEditorValues`, `__pivot`, `__smartColor`),
-- placement that doesn't overlap an existing level,
-- the `activeArea` level field that Ambition uses to group levels.
+`connect_to` may add reciprocal `LoadingZone` instances to existing levels and
+rejects missing targets or overlapping placements. `--dry-run` builds and
+summarizes the result without writing. A committed edit is repaired and
+validated before the command succeeds.
 
-This tool takes a high-level spec (entity kind + grid/px position + named
-fields), builds a complete level dict in memory, appends it to the existing
-sandbox `.ldtk` file, then delegates the editor-roundtrip metadata fill-in
-to the existing `ambition_ldtk_tools repair` pass. The resulting file is
-guaranteed to validate cleanly with `ambition_ldtk_tools validate` (both
-Ambition semantic + LDtk JSON schema) before this tool exits.
-
-Spec format (RON — see existing files under
-`tools/ambition_ldtk_tools/specs/*.ron` for working examples):
-
-    (
-        id: "mob_lab",                    // activeArea string
-        level_id: "mob_lab",              // level identifier
-        world_x: 14000,                   // placement
-        world_y: 1024,
-        px_wid: 1800,                     // level pixel size
-        px_hei: 900,
-        grid_size: 16,                    // optional: project defaultGridSize
-        fill_collision: "solid_border",   // 'empty' | 'solid_border' | 'solid_floor'
-        bg_color: "#1a1a24",              // optional
-        entities: [
-            (
-                type: "PlayerStart",
-                px: [60, 60],
-                size: [28, 46],
-                fields: (name: "lab_start"),
-            ),
-            (
-                type: "Solid",            // *static-collision* type: lowered to IntGrid
-                px: [0, 800],
-                size: [1800, 100],
-                fields: (name: "floor"),
-            ),
-            (
-                type: "LoadingZone",
-                px: [0, 600],
-                size: [60, 100],
-                fields: (
-                    id: "lab_exit",
-                    name: "lab_exit",
-                    activation: "walk",
-                    target_room: "central_hub_complex",
-                    target_zone: "lab_door",
-                    bidirectional: true,
-                ),
-            ),
-        ],
-    )
-
-Field values are coerced to the type declared in `defs.entities[*].fieldDefs`
-so the spec can stay loose (`true` / `1.5` / `"hello"`).
-
-Optional biome / audio metadata (added to the project's
-`defs.levelFields` by `tools/add_biome_level_fields.py`):
-
-    biome: "cave",            // biome label, drives ambient selection
-    music_track: "cave_loop", // MusicTrack.id from sandbox.ron
-    ambient_profile: "damp",  // ambient sfx / particle profile id
-    visual_theme: "blue",     // palette / shader-variant id
-
-These are top-level spec keys (not under `entities`) and are
-written as level field instances. The validator/runtime treat them
-as optional, so omitting any of them is safe.
-
-Optional `connect_to` list creates reciprocal `LoadingZone` entities
-in existing target levels:
-
-    connect_to: [
-        (
-            target_room: "central_hub_complex",   // required
-            px: [240, 600],                       // target-side pos
-            size: [16, 96],                       // target-side size
-            id: "lab_door",                       // optional: source LoadingZone.id
-            target_zone: "lab_entry",             // optional: source-side LoadingZone
-            activation: "Door",                   // optional, defaults to Door
-            bidirectional: true,                  // optional, defaults to true
-        ),
-    ]
-
-The helper rejects connecting to a missing target_room or placing the
-new LoadingZone on top of an existing entity rectangle in the target
-level. Bring-your-own loading zone in the spec's `entities:` list,
-then declare a `connect_to` for the reciprocal back-link to skip
-hand-editing the target level.
-
-Dry-run preview
----------------
-
-`--dry-run` builds the level entirely in memory, prints a
-human-readable summary (entity counts by type, exit links, IntGrid
-cell totals, reciprocal LoadingZones), and exits without writing the
-file or running repair/validate. Use it before committing a spec to
-the live `sandbox.ldtk` to verify the result matches intent.
-
-Static-collision lowering
--------------------------
-
-`Solid`, `OneWayPlatform`, and `BlinkWall` entities in the `entities:`
-list are *automatically lowered* into IntGrid cells on the Collision
-layer rather than emitted as entity instances on the Ambition layer.
-This produces the same per-project canonical representation as
-`tools/ldtk_intgrid_migration.py`:
-
-  - The runtime collision world is identical (the rect-merge pass in
-    `int_grid_value_to_block` reconstructs the same merged blocks).
-  - The LDtk editor renders these as paintable IntGrid cells, so a
-    human can edit the geometry per cell instead of moving big
-    rectangles.
-  - There is one collision representation, not two — every gameplay
-    level in the project goes through IntGrid.
-
-Use rect spec for those types: `px: [x, y], size: [w, h]`. The size
-is required (the IntGrid lowering needs an explicit footprint to
-paint). Other entities (PlayerStart, LoadingZone, Switch, NPC,
-EncounterTrigger, LockWall, …) stay on the Ambition layer.
-"""
+See `tools/ambition_ldtk_tools/specs/*.ron` for complete examples."""
 
 from __future__ import annotations
 
@@ -563,18 +451,9 @@ def entity_to_intgrid_value(ent_spec: dict) -> int | None:
     entities can carry motion paths (`path_points`/`path_speed`)
     and per-volume damage that IntGrid cells can't represent.
 
-    ⛔ **This used to end "use HazardBlock for static damage
-    surfaces and DamageVolume only for moving / variable-damage
-    hazards", and that sentence was false in the way that costs a
-    day.** `HazardBlock` damages NOTHING. It lowers to IntGrid
-    value 5 -> `BlockKind::Hazard` -> `ResetCause::Hazard`, which
-    teleports the toucher to spawn without consulting health,
-    currency, or an i-frame. Sanic's speedway followed this advice
-    for its mid-course spike strip and the strip teleported a
-    runner carrying 40 rings back to the start line -- Jon reported
-    it as *"hitting the spikes should not be an insta kill"*.
+    `HazardBlock` resets the toucher to spawn; it is not a damage source.
+    `DamageVolume` publishes ordinary damage and may be static or moving.
 
-    ⇒ the real rule, both halves of it:
 
     - `HazardBlock` -- the pit floor / death gap. One outcome:
       back to spawn. Static, paintable, free.

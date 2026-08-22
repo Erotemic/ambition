@@ -1,47 +1,16 @@
 #!/usr/bin/env python3
-"""**A ratchet on loading-zone names that are authoring ids** — ledger D161.
+"""Ratchet player-visible loading-zone names that still look like authoring ids.
 
-A `LoadingZone`'s `name` is rendered to the player. Both roads in
-`spawn_loading_zone` print it — a `Door` through `DoorNameplateSource`, everything
-else through an unconditional `spawn_world_label` — and neither asks whether the
-string is fit to show anybody. So the flagship's OPENING room greets a player
-with `wake_room_arrival` under the robot and a clipped `wake_to…` in the corner,
-one line away from `→ corridor`, which an author wrote.
-
-⭐ **the schema is not wrong and the renderer is not missing a road.**
-`water_world`'s door reads *"to basement hub"* — prose, out of the same field.
-The field already carries prose wherever somebody bothered; most zones never got
-one. ⇒ authoring the names is the fix, and this only stops the pile growing.
-
-⛔ **do NOT "prettify" an id** by swapping underscores for spaces. That
-manufactures prose the author never wrote, and `wake_to_raid` has no good
-rendering. ⛔ and drawing NOTHING when a name looks like an id is a regression
-for the doors that legitimately want a label.
-
-⚠ **PER FILE, because one world would otherwise hide every other.** A single
-total lets one world's 26 become 40 while another sheds 14 and the number
-"improves".
-
-⛔⛔ **AND A FILE'S NAME IS NOT ITS AUDIENCE.** The bulk of these lived in
-`sandbox.ldtk` and I first wrote them off as a developer sandbox where an id is
-defensible. `sandbox.ldtk` holds `central_hub_complex`, which the world manifest
-names as `entry_room` — so 17 were in the game's FIRST ROOM and 12 in the level
-below it, both already carrying authored prose alongside. One query against the
-manifest would have said so.
-
-⛔⛔ **DEDUPE BY REAL PATH.** Every world under `game/*/assets/worlds/` is a
-SYMLINK into `game/ambition_map_assets/`, so a naive walk counts each world two
-or three times — which is exactly how this population was first published
-DOUBLED (302/260/38 instead of 151/130/19). ⚠ the ratio survived that error at
-86% both times, which is why it read as plausible: **a proportion is not a check
-on a total.**
+A zone `name` is presentation text, so underscore-shaped identifiers should be
+replaced by authored prose rather than prettified mechanically or hidden. Counts
+are tracked per world file and symlinked worlds are deduplicated by real path so
+one world's improvement cannot hide another's regression.
 
 Usage::
 
-    python3 scripts/check_zone_name_ratchet.py            # report
-    python3 scripts/check_zone_name_ratchet.py --check    # exit 1 on a rise
-    python3 scripts/check_zone_name_ratchet.py --update   # rewrite the baseline
-"""
+    python3 scripts/check_zone_name_ratchet.py
+    python3 scripts/check_zone_name_ratchet.py --check
+    python3 scripts/check_zone_name_ratchet.py --update"""
 
 from __future__ import annotations
 

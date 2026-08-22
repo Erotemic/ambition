@@ -588,21 +588,11 @@ pub fn frame_advantage(startup_s: f32, their_commitment_s: f32) -> f32 {
     ((their_commitment_s - startup_s) / scale).clamp(-1.0, 1.0)
 }
 
-/// Movement verbs the body's capability mask permits, scored by the situation.
+/// Movement verbs permitted by the body's capability mask, with coarse scores
+/// for the situation's immediate obligation: recover, evade, or approach.
 ///
-/// The scores are coarse ON PURPOSE. §1 puts the interesting judgement in the
-/// attack scorer and in L3's rollouts; movement's job at L2 is to express the
-/// situation's ONE obligation — get back, get out, get in — so that a brain with
-/// no L3 still plays a recognizable game.
-/// Would moving `toward` walk this body off the floor it is standing on?
-///
-/// The brain was not wrong — the world changed. L1 has `Situation::Recovery` for
-/// a body ALREADY offstage, and until the smash stage every room in this engine
-/// was enclosed, so `Approach` was always safe and nothing had to score a ledge.
-/// A platform-fighter stage is the first room you can walk out of.
-///
-/// The margin is a body-width rather than a tuned distance: a fighter that stops
-/// exactly at the edge is standing on the one pixel a knockback removes.
+/// `walks_off` protects approach choices on open stages. Its margin is one body
+/// width so a fighter does not deliberately stop on the ledge boundary.
 fn walks_off(view: &crate::perception::WorldView, toward: f32) -> bool {
     // ONE authority: `WorldView::floor_ahead`, which L1 also asks to classify
     // `Disadvantage`. Two implementations of "where does the floor end" would

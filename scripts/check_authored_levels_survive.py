@@ -1,28 +1,10 @@
 #!/usr/bin/env python3
-"""**No authored level may vanish from a world.**
+"""Guard against accidental deletion of authored LDtk levels.
 
-⛔⛔ **the failure this exists to catch leaves everything else GREEN.** On
-2026-08-15 a commit that authored enemy `facing` also deleted an entire level —
-139 insertions against 1316 deletions — and every downstream check agreed with
-the result: valid LDtk, clean roundtrip, clean `doctor`, intact schema. Nothing
-was corrupt. The world was simply smaller, and every tool that derives its roster
-*from the file* reported success about the smaller world.
-
-⭐ **the cause is structural and will recur.** A generator that owns a whole file
-discards anything authored into that file by a different road. `author_*.py`
-rebuilds a world from the specs it knows; a level built with `area create` +
-`entity add` is not among them; and a `.ldtk` cannot be partially regenerated. An
-agent running the regenerate does this every time without doing anything wrong.
-
-⇒ so the invariant is a RATCHET, not a fixed list. **Adding a level is ordinary
-and needs no ceremony; losing one is an error.** Run with `--bless` to record new
-levels after adding them deliberately.
-
-⚠ **this checks the ROSTER, not the contents.** A level that survives as an empty
-husk passes here. That is deliberate — emptiness is what `doctor` and the entity
-contract already measure, and a guard that tries to check everything checks
-nothing.
-"""
+The baseline records each world file's set of level identifiers. Adding levels is
+allowed; removing a recorded level is an error unless the baseline is explicitly
+updated with `--bless`. The check is intentionally limited to roster survival;
+other validators own level contents and entity correctness."""
 
 from __future__ import annotations
 

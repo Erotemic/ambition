@@ -309,12 +309,7 @@ def test_the_allowlist_does_not_confuse_a_crate_name_with_the_facade():
 
 
 def test_the_allowlist_stays_silent_on_prose_naming_a_module():
-    """Documenting a leak must not register as the leak.
-
-    Three absence checks in this repo went red on the docstring explaining the
-    removal. The allowlist has the same exposure and more of it — the campaign
-    documents are FULL of `ambition_platformer2d::runtime` — so it gets the same probe.
-    """
+    """Documenting a leak must not register as the leak."""
     for comment in (
         "/// Outlander used to reach for `ambition_platformer2d::runtime::rollback`.",
         "//! LEAK CLOSED: no longer names ambition_platformer2d::time.",
@@ -336,13 +331,10 @@ def test_the_allowlist_catches_a_module_outside_the_reviewed_surface():
 
 
 def test_the_allowlist_catches_a_stale_baseline_entry():
-    """Invariant 2 — the one that makes this a ratchet and not a budget.
+    """Invariant 2: baseline entries must be pruned when usage disappears.
 
-    Without it, migrating `time` away while leaving `time` in the baseline
-    frees a slot: the COUNT still reads 2, and the next module to appear
-    occupies the gap without ever tripping invariant 1. `Freeze the SET`
-    (the archived API campaign method) is only enforced if the set is pruned as it
-    shrinks, so an unpruned entry has to be as red as a new one.
+    Otherwise a vacated slot could be reused without increasing the baseline
+    count, turning the set ratchet into a budget.
     """
     contract = {"allowed": set(), "baseline": {"runtime", "time"}}
     usage = {"runtime": [("x.rs", 1)]}
@@ -376,13 +368,10 @@ def test_every_module_allowlist_holds_against_the_live_tree(contract):
 
 @pytest.mark.parametrize("contract", MODULE_ALLOWLISTS, ids=lambda c: c["id"])
 def test_the_allowlist_baseline_is_not_silently_empty(contract):
-    """A measurement bug reads exactly like a finished migration.
+    """The allowlist census must remain non-vacuous.
 
-    If `allowlist_usage` stopped finding anything — a path typo, a renamed
-    fixture, a regex that no longer matches — every invariant above passes and
-    the campaign's progress metric reports ZERO, which is the success
-    condition. That failure is green in the direction that feels good, so the
-    non-vacuity is asserted rather than assumed.
+    An empty census could mean a broken path or matcher while all ratchets appear
+    green, so the measurement itself is asserted.
     """
     root = Path(__file__).resolve().parents[2]
     usage = allowlist_usage(contract, root)
@@ -409,17 +398,10 @@ def test_the_rollback_ratchet_holds_against_the_live_tree():
 
 
 def test_the_rollback_ratchet_is_not_silently_empty():
-    """A measurement bug reads exactly like a finished federation.
+    """The rollback-schema census must remain non-vacuous.
 
-    If the extraction stopped matching — a moved file, a changed spelling — both
-    invariants pass and the ratchet reports ZERO encoded types, which used to be
-    read as its SUCCESS condition. Green in the direction that feels good, so it
-    is asserted.
-
-    ⚠ This test EARNED its keep on 2026-07-30. Slice F moved the snapshot trait
-    to the floor and renamed the collector's key from `central_codecs` to
-    `encoded_types`; this assertion is what failed, rather than a ratchet
-    quietly freezing an empty set and reporting 19 of 19.
+    A broken extractor could otherwise report an empty, apparently green wire
+    format. Assert both schema-name and encoded-type populations directly.
     """
     root = Path(__file__).resolve().parents[2]
     current = rollback_schema_usage(root)
@@ -567,12 +549,7 @@ def test_the_footprint_ratchet_catches_a_new_linked_crate(tmp_path, monkeypatch)
 
 
 def test_the_footprint_baseline_is_not_silently_empty():
-    """A measurement bug reads as a finished decomposition.
-
-    If the graph walk ever returns nothing, the ratchet passes and the campaign's
-    §2e counter reports ZERO unwanted crates — its success condition. Green in
-    the flattering direction, so it is asserted.
-    """
+    """The capability-footprint graph census must remain non-vacuous."""
     import json
 
     root = Path(__file__).resolve().parents[2]

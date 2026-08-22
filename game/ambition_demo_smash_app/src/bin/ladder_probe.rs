@@ -183,12 +183,8 @@ fn trace_seam(app: &mut App, tick: usize) {
                 );
             }
         }
-        // every DECISION prints, and the frames between them are sampled.
-        // The first version sampled both at 1-in-5 and every decision row came
-        // back `asked=- chose=-`, which reads as "the brain decided nothing" and
-        // is instead "you looked on the wrong tick". A decision fires on its own
-        // cadence — that is what `decision_interval_ticks` IS — so sampling it
-        // like a per-tick quantity drops most of them and misreports the rest.
+        // Print every decision event; only sample the frames between decisions.
+        // Decision cadence is independent of per-tick sampling.
         if decided.is_none() && tick % 5 != 0 {
             continue;
         }

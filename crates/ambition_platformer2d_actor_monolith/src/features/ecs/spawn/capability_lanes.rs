@@ -1,33 +1,9 @@
-//! THE CAPABILITY CONSTRUCTION LANES a room composes beside the actor lane.
+//! Service-free capability construction lanes composed beside the actor lane.
 //!
-//! What it also did was price the shape: enrolling one lane touched `RoomFeatureConstructionPlan`
-//! in ELEVEN places (a plan field, a receipt field, preparation, the predicted roster, the
-//! deterministic dump, the binding agreement, verification, single-root reconstruction, the commit,
-//! the committed roster union, and the accessor), and the portal lane already repeated most of that
-//! shape. Two lanes is a coincidence; three would be a pattern nobody declared.
-//! `RoomFeatureConstructionPlan` should know it HAS lanes, rather than independently reimplementing
-//! every operation once per family.
-//!
-//! AND IT IS A NORMAL STRUCT WITH NAMED FIELDS. No `Any`, no `TypeId`, no
-//! executable registry, no service locator. The engine has two capability
-//! lanes. Heterogeneous dispatch to solve two cases is harder to read than the
-//! two cases, and it would trade a compile error for a runtime lookup — which is
-//! the opposite of what every other part of this module is for. What removes the
-//! per-lane repetition is not dynamism, it is that each operation below is a
-//! generic function over `ConstructionDomain` applied once per field.
-//!
-//! That is the whole mechanism: a carry list the compiler keeps. See `verify` for the one that
-//! would otherwise be easiest to miss — a lane absent from verification is a lane whose commit
-//! nothing checks.
-//!
-//! That is the claim this type makes, executed rather than asserted.
-//!
-//! `Services = ()` is a BOUND here, not a coincidence. A capability lane
-//! reads no frozen catalogs at execution time; the actor lane does
-//! (`ActorConstructionServices` — the character catalog, the hostile roster, boss
-//! profiles), which is exactly why it is NOT a member of this set and is composed
-//! beside it. A future capability that needs services does not quietly join: it
-//! fails the bound and somebody has to decide what that means.
+//! Lanes are named struct fields, not a runtime registry. Shared generic helpers
+//! keep preparation, dumps, verification, reconstruction, and commit consistent
+//! across every lane. `ConstructionDomain<Services = ()>` excludes the actor lane,
+//! which requires frozen construction catalogs.
 
 use bevy::prelude::Commands;
 

@@ -6,10 +6,8 @@
 //! coordinates autosave.
 //!
 //! Convention: the save file lives next to `settings.ron` under the
-//! OS-conventional data dir. One slot for now ("sandbox") because the
-//! sandbox itself isn't a campaign — the save just remembers the mob
-//! lab defeat state and the reset-switch position so a session is
-//! continuous across restarts. A future story crate adds named slots.
+//! OS-conventional data dir. One slot currently stores the mob-lab defeat state
+//! and reset-switch position so a session is continuous across restarts.
 //!
 //! All I/O is non-fatal: a missing file means "fresh sandbox", a
 //! corrupt file logs a warning and falls back to defaults. Save writes

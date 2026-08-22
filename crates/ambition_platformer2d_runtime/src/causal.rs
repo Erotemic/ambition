@@ -50,13 +50,8 @@ pub struct CausalPlugin;
 
 impl Plugin for CausalPlugin {
     fn build(&self, app: &mut App) {
-        // It goes in `First`, and that is the plugin's whole job beyond the
-        // resource: a consumer who adds `CausalPlugin` to a plain `App` and
-        // publishes a fact must get a stamped one. The first version installed
-        // only the resource, on the reasoning that the sim schedule owns the
-        // stamp — and a consumer's app then recorded every fact at tick zero,
-        // silently. An SDK entry point that only works inside this engine's own
-        // schedule is not an entry point.
+        // Stamp in `First` so facts published by a plain `App` using this plugin
+        // receive a frame stamp even outside the engine's simulation schedule.
         //
         // `player_schedule` ALSO stamps, at the head of the sim phase, and
         // that is not redundant: `SimulationReplayState` is only meaningful

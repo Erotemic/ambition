@@ -1,77 +1,28 @@
 #!/usr/bin/env python3
-"""Ambition test runner -- a pytest-like front door to the whole cargo suite.
+"""Ambition test runner and front door to the Cargo/Python suite.
 
-`./run_tests.sh` (which execs this) runs the BACKBONE: repo-coupled Python
-checks and `cargo test --workspace` — one cargo invocation, one build graph.
-Self-contained maintainer-tool tests use the `detached_tool` marker and run
-explicitly with `./run_tests.sh --tool-tests` when those tools change. Periodic
-repository-hygiene audits run through `./run_tests.sh --maintenance` instead of
-blocking ordinary code validation. That is broad-good-enough coverage and it is
-what you want in a dev cycle.
+The default backbone runs repository-coupled Python checks plus one
+`cargo test --workspace` build graph. Detached maintainer-tool tests and periodic
+repository-maintenance checks are opt-in. The exhaustive feature-gated plan is
+available explicitly but is not the default development loop.
 
-⭐ **THE DEFAULT IS DELIBERATELY NOT EXHAUSTIVE, and that is Jon's call
-(2026-08-02).** The exhaustive plan — a separate `cargo test -p` per crate with
-its feature-gated tests enabled, the external-consumer fixtures, the wasm check —
-lives behind `--run-everything-you-probably-dont-need-this`, and the name is the
-warning. Measured on 2026-08-02: the exhaustive plan is 33 jobs and **63 minutes**
-of which **~7% executed tests**; the backbone's cargo job is 607s of that. The
-rest is cargo re-resolving features per invocation and rebuilding the same
-dependencies — the actor monolith was compiled SIXTEEN times in one run.
+Useful forms::
 
-⛔ **If you are an agent, you almost certainly want the default or narrower.**
-There is no CI. Jon runs the exhaustive plan periodically himself and accepts a
-day of drift; you spending an hour on it does not add safety, it duplicates a
-sweep that is already scheduled. Run the focused test that answers your actual
-question. The full plan's whole value is finding what the backbone cannot see,
-and it is worth an hour roughly never in the middle of an edit.
+    ./run_tests.sh
+    ./run_tests.sh --rust
+    ./run_tests.sh --tool-tests
+    ./run_tests.sh --maintenance
+    ./run_tests.sh -p <crate>
+    ./run_tests.sh -k <substring>
+    ./run_tests.sh --list
+    ./run_tests.sh --run-everything-you-probably-dont-need-this
+    ./run_tests.sh --heavy
 
-What the exhaustive plan buys, so the trade is legible rather than folkloric:
-cargo unifies features per build graph, and there is no safe workspace-wide
-"--all-features" here (that would pull in android/web/wasm targets). So a crate's
-`#[cfg(feature = "...")]` tests are compiled ONLY by a `cargo test -p` that
-enables them. The safe set is computed from each Cargo.toml (own features minus a
-platform/wasm/static-asset denylist), so it can't drift as features are added.
-The backbone therefore does not run feature-gated tests at all, and says so out
-loud at the end of every run rather than letting a partial pass read as a full one.
-
-Usage:
-  ./run_tests.sh                     # BACKBONE: python suites + cargo test --workspace
-  ./run_tests.sh --rust              # Rust/Cargo lane only; no Python checkers
-  ./run_tests.sh --tool-tests        # detached developer-tool tests only
-  ./run_tests.sh --maintenance       # periodic repository-hygiene audits only
-  ./run_tests.sh -p <crate>          # only that crate's job (repeatable)
-  ./run_tests.sh -k <substr>         # only tests whose name contains <substr>
-  ./run_tests.sh --list              # print the job plan, run nothing
-  ./run_tests.sh -- --nocapture      # args after `--` go to libtest
-  ./run_tests.sh --run-everything-you-probably-dont-need-this
-                                     # the 33-job exhaustive plan (~25 min)
-  ./run_tests.sh --heavy             # ALSO #[ignore]d tests + app acceptance;
-                                     #   implies the exhaustive plan
-An unknown -p package or an otherwise empty plan is a hard error.
-
-Exit code is nonzero if any job fails. A pytest-style summary is printed last.
-
-WAITING FOR A RUN (read this before you write a polling loop)
-------------------------------------------------------------
-Every run rewrites a small status file -- `target/run_tests_status.json` by
-default, `--status-json PATH` to move it. It holds `{"state": "running" |
-"done" | "crashed", ...}` plus the pass/fail tally once finished. Ask *that*
-whether the suite is still going:
-
-    python3 -c 'import json,sys; \
-      print(json.load(open("target/run_tests_status.json"))["state"])'
-
-Ctrl-C and any exception land on `"crashed"`. A SIGKILL (the OOM killer) runs
-nothing, so it can strand a `"running"` -- that is what the recorded `pid` is
-for: no such process means the file is stale, whatever it says.
-
-Do NOT poll with `pgrep -f run_tests.py`. The polling shell's own command line
-contains the string `run_tests.py`, so pgrep matches the waiter itself, the
-condition is permanently true, and the loop never exits. On 2026-07-31 seven
-such shells were found still sleeping hours after the suite they were waiting
-on had finished -- each one kept the next one alive. The bug is silent: the
-loop looks like it is waiting for work that is simply slow.
-"""
+Every run writes `target/run_tests_status.json` (or `--status-json PATH`) with a
+state of `running`, `done`, or `crashed`, plus its pid and final tally. External
+waiters should read that status file rather than process-scan for `run_tests.py`.
+An empty job plan or unknown package is an error; the process exits nonzero when
+any selected job fails."""
 from __future__ import annotations
 
 import argparse
@@ -231,20 +182,11 @@ class Job:
 
 @dataclass
 class JobResult:
-    """One executed job: what ran, whether it passed, and how long it took.
+    """One executed job and its wall-clock/test-execution timings.
 
-    `executed_seconds` is the part of `seconds` that was RUNNING TESTS rather
-    than compiling — summed from libtest's own "finished in Xs" lines, which
-    every test binary already prints. The rest is the build graph, and the whole
-    campaign this measurement serves is about paying for that graph fewer times.
-    A job with no test binaries (a bare `cargo check`) reports 0.0 and means it.
-
-    ⚠ **it counts LIBTEST only, and the pytest jobs therefore read 0.0.** The
-    repo-tooling and ldtk-tools jobs really do spend their whole wall clock
-    executing, so the summary percentage is a statement about the CARGO jobs —
-    which is where the campaign's cost is — and understates the whole-suite
-    figure. Said here because a percentage nobody can source is how the last
-    measurement went wrong.
+    `executed_seconds` sums libtest's reported execution time. Cargo jobs with no
+    test binaries and non-libtest jobs report 0.0, so the derived execution
+    percentage applies to the Cargo/libtest portion of the suite.
     """
     name: str
     argv: list[str]
@@ -332,13 +274,9 @@ def wasm_target_installed() -> bool:
 def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                everything: bool = False,
                include_python_tooling: bool = True) -> list[Job]:
-    """Plan the run. `everything=False` (the DEFAULT) is the backbone.
+    """Plan the run; the default is the focused backbone.
 
-    ⚠ The gate below reads `if everything:` and it used to read `if not fast:`.
-    The inversion is the point, not a refactor: the exhaustive plan is opt-in as
-    of 2026-08-02 because being the default made it the thing an agent reached
-    for instead of the focused test that would have answered the question. See
-    the module docstring and `docs/recipes/cheapest-sufficient-check.md`.
+    The exhaustive plan is opt-in. See `docs/recipes/cheapest-sufficient-check.md`.
     """
     jobs: list[Job] = []
     members = selected_members(only)
@@ -397,24 +335,10 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         jobs.append(Job("workspace (default features)",
                         [CARGO, "test", "--workspace", *libtest()]))
 
-    # **the RENDER composition, which nothing else boots.** Every app-boot
-    # job in this plan is `--headless`, and so is every app-boot test in the
-    # workspace: the suite proves the SIMULATION composes and has never once
-    # proved the presentation does.
-    #
-    # That hole is the exact shape of the defects. They were found by hand, by someone who happened
-    # to want a picture.
-    #
-    # `capture_scene` already builds that composition and already exits non-zero
-    # when a param fails to validate, so this needs no new test infrastructure —
-    # only for something to RUN it. It asks whether the app COMPOSES, not what it
-    # looks like, hence 320x180 and 20 warmup ticks.
-    #
-    # **in the DEFAULT plan, not behind `--heavy`.** Opt-in coverage is what
-    # let `modules_md.py` sit with a check mode nothing ever called, and this
-    # repo's conclusion from that was "a guard nobody executes is not a guard."
-    # The class bit during ordinary work, so it runs during ordinary work; the
-    # cost is RUNTIME only, because `--workspace` above already builds this
+    # Exercise the visible render composition in the default plan. Headless
+    # app-boot tests cover simulation only; `capture_scene` composes presentation
+    # and exits non-zero on invalid parameters. Use a small frame and short
+    # warmup because this checks composition, not visual fidelity.
     # binary's graph.
     # Whole-suite only: a `-p ambition_input` run has no business booting a
     # renderer, and the filter's contract is that it plans that package's tests.
@@ -545,18 +469,9 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                         [CARGO, "test"],
                         cwd=str(REPO / "fixtures" / "external_consumer")))
 
-        # . `minimal_game` is the campaign's SECOND sentinel
-        # consumer and it had never run here — for the same structural reason
-        # Outlander needs its own job (own workspace, own lockfile, outside
-        # `cargo test --workspace`), minus the job.
-        #
-        # Two consumer-matrix rows rest on its 16 tests: `movement-only-minimal-game` and
-        # `noncombat-actor`.
-        #
-        # It was ratcheted the whole time (`minimal-game-names-only-the-public-sdk`,
-        # baseline zero), which is what made the gap easy to miss: a green
-        # contract about the consumer's IMPORTS says nothing about whether the
-        # consumer still boots.
+        # `minimal_game` is its own workspace, so `cargo test --workspace` does
+        # not execute it. Run it explicitly to cover the minimal consumer's boot
+        # behavior in addition to its import ratchet.
         jobs.append(Job("external consumer: minimal game",
                         [CARGO, "test"],
                         cwd=str(REPO / "fixtures" / "minimal_game")))
@@ -608,25 +523,9 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                   "(`rustup target add wasm32-unknown-unknown`). "
                   "The web build is UNCHECKED in this run.")
 
-    # **LINKS IS NOT BOOTS, AND THE BROWSER PROVED IT TWICE.**
-    #
-    # The two jobs above compile and link the browser artifact. Both stayed green
-    # through a week in which the browser showed a blank canvas for THREE
-    # different reasons: `run_web` composed no shell host; then it composed one
-    # and the web feature set had nothing that could draw a route; then
-    # `grid_menu_nav` panicked on its first tick because `RebindCapture` was
-    # initialised behind the Lunex feature while the FLAT backend required it.
-    #
-    # **and none of them needed a browser to find.** Every one is a fact about
-    # composing and stepping the app under the web persona's CARGO FEATURES,
-    # which a native host can do. That is what this runs — no wasm toolchain, no
-    # headless Chrome, ~1 minute — and it is the only job here that would have
-    # caught any of the three.
-    #
-    # it deliberately uses `visible_web_base` rather than `web_served_assets`:
-    # the latter pulls `web_platform`, whose wasm-bindgen entry points do not
-    # belong in a native run. The features that decide COMPOSITION are all in the
-    # base.
+    # Compile/link checks do not prove the web persona can boot. Step the web
+    # composition natively under `visible_web_base`; `web_served_assets` also
+    # enables wasm-only platform entry points that do not belong in this run.
     if not only and everything:
         jobs.append(Job(
             "web persona BOOTS [visible_web_base, native]",
@@ -744,12 +643,9 @@ def completed_rows(results: list[JobResult]) -> list[dict]:
 
 
 def telemetry_envelope() -> dict:
-    """The columns every compile-telemetry row carries, whatever its grain.
+    """Return best-effort metadata shared by compile-telemetry rows.
 
-    ⚠ **best-effort, like the ledger it feeds.** Nothing here is allowed to fail
-    a suite: an unreadable manifest or a missing git binary yields `None` for
-    that column rather than an exception. A missing value is a gap in a
-    statistic; a raised exception is a red run for a bookkeeping reason.
+    Missing metadata yields `None`; telemetry collection must not fail the suite.
     """
     def git(*args: str) -> str | None:
         try:
@@ -776,15 +672,8 @@ def telemetry_envelope() -> dict:
         "label": os.environ.get("RUN_TESTS_LABEL", ""),
         "profile": "test",
         "opt_level": opt_level,
-        # That is the single largest confounder in this ledger's own numbers.
-        #
-        # **the default is "0", not the config file, and the first draft got
-        # this backwards.** `run()` builds `env = dict(os.environ)` — a COPY —
-        # and then `setdefault`s `CARGO_INCREMENTAL=0` on it, so the PARENT
-        # process this function runs in has the variable UNSET on every ordinary
-        # suite run. Reading it with no default reported `incremental: true` for
-        # exactly the runs that are incremental-off: a column wrong precisely
-        # when it matters, which is worse than no column. Mirror the runner's
+        # `run()` defaults child Cargo jobs to `CARGO_INCREMENTAL=0` without
+        # mutating the parent environment, so mirror that default here.
         # own default, and if that `setdefault` ever changes, change this with it.
         "incremental": os.environ.get("CARGO_INCREMENTAL", "0") not in ("0", ""),
     }
@@ -794,17 +683,9 @@ def append_cost_ledger(results: list[JobResult], exhaustive: bool,
                        filtered: bool, rust_only: bool = False,
                        tool_tests_only: bool = False,
                        maintenance_only: bool = False) -> Path | None:
-    """Record what this run COST, on every run, so two runs can be compared.
+    """Append this run's cost so test-iteration trends can be compared.
 
-    ⭐ **Front 0 of the test-iteration campaign** (Jon, 2026-08-02: *"testing
-    iteration is wasting too much agent time, it is unacceptable"*). Every claim
-    the campaign makes — that a change removed a compile, that parallelism helped
-    — is judged against this file, and the campaign must not quote another
-    hand-read log: its founding numbers were read off ONE run by hand, on a
-    machine that had a second agent building in the same target directory.
-
-    Appended, never rewritten: the value is the TREND, and one line per run is
-    small enough to keep forever.
+    The ledger is append-only; individual runs remain available for comparison.
     """
     ledger = Path(os.environ.get("RUN_TESTS_COST_LEDGER",
                                  measurement_paths.JOBS_LEDGER))
@@ -1021,9 +902,7 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
             json.dumps(timings_payload(results), indent=2) + "\n")
         print(f"  timings written to {timings_json}")
 
-    # ...and the ledger every run appends to, whether or not anybody asked.
-    # `--timings-json` is for looking at ONE run; this is what makes the next
-    # measurement a comparison instead of another hand-read log.
+    # Append the persistent cost row; `--timings-json` is the per-run export.
     ledger = append_cost_ledger(
         results, exhaustive, filtered, rust_only, tool_tests_only, maintenance_only
     )

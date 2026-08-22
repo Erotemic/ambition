@@ -77,19 +77,9 @@ fn seats(sim: &mut Platformer2dSimHarness) -> Vec<(usize, String)> {
 /// under test is a settled one rather than a boot frame.
 const FRAMES_BEFORE_THE_ROSTER: usize = 20;
 
-/// Put the roster in, and make THAT the rollback baseline.
-///
-/// The two obvious arrangements are both wrong, and each was written first:
-///
-/// * roster as frame-zero setup. Then seating activates on tick 0 — probed,
-///   not assumed — and GGRS cannot rewind to before its own frame zero. Nothing
-///   ever resimulates across the activation boundary, and the test passes with
-///   the registrations REMOVED. It was checking that a match survives a rewind
-///   window it was never inside.
-/// * roster inserted mid-run without rebasing. That is a direct `world_mut`
-///   mutation behind the rollback cursor, and the harness contract says so:
-///   resimulating frames 18–20 replays a world with no roster in it, and the
-///   sync test reports the mismatch immediately (it did).
+/// Insert the roster after ordinary simulation has begun, then make that state
+/// the rollback baseline. The test must exercise activation inside rollback
+/// history without mutating the live world behind the rollback cursor.
 fn introduce_the_roster(sim: &mut Platformer2dSimHarness) {
     for _ in 0..FRAMES_BEFORE_THE_ROSTER {
         sim.step(AgentAction::default());
@@ -229,23 +219,10 @@ use ambition_platformer2d::sim::{Platformer2dSimulationPhaseMonolith, SimSchedul
 use ambition_platformer2d::time::SimTick;
 use bevy::prelude::{Commands, IntoScheduleConfigs, Res, ResMut, Resource};
 
-/// How far past the first OBSERVED rewind the roster is scheduled to appear.
+/// Offset from the first observed rewind to roster activation.
 ///
-/// not a `SimTick` constant, and the constant is what broke. This was
-/// `const ROSTER_ARRIVES_AT: SimTick = 12` — "well past `check_distance: 4`" —
-/// and the arithmetic was about the wrong clock. `SimTick` counts every frame
-/// the session world has simulated, including the ~240 the shell spends
-/// activating a route before GGRS is running; the rollback window's own frame
-/// counter starts at zero somewhere inside that. So the roster reliably arrived
-/// two hundred ticks BEFORE anything could rewind, the activation happened
-/// outside the window entirely, and the fixture's own guard said so:
-/// *"no frame earlier than the activation was ever resimulated"*.
-///
-/// so the arrival is READ OFF THE RUN, exactly like the crossing this file
-/// already derives that way: step until a resimulated frame proves the window
-/// is live, then schedule the roster a few frames further on. Anything phrased
-/// against `SimTick` is measuring a different clock than the one it reasons
-/// about.
+/// This is relative to the rollback window, not global `SimTick`, because shell
+/// activation advances the simulation clock before the rollback frame clock starts.
 const ROSTER_ARRIVES_AFTER_THE_WINDOW_OPENS: u64 = 8;
 
 /// The tick the roster is due on, decided once the window is known to be
@@ -748,14 +725,10 @@ fn human_roster(count: usize) -> MatchParticipantRoster {
     }
 }
 
-/// SEATING IS ONE-SHOT, and this fixture exists in the shape it does
-/// because of that.
+/// Seating is one-shot. Keep the roster fixed for the session; this fixture
+/// varies activation state without introducing unsupported mid-match roster edits.
 ///
-/// The first version of this test grew the roster from one seat to two mid-session and asserted
-/// the rewind reconstructed TWO. Growing a match mid-fight is not a thing the engine does, and
-/// asserting it would have pinned a behaviour nobody wants.
-///
-/// So the roster is a pure function of `SimTick` in the SAME shape the
+/// The roster is a pure function of `SimTick` in the same shape the
 /// activation fixture uses — absent, then present — and what is new here is that
 /// its participants are HUMAN.
 fn the_human_roster_arrives_on_a_tick(

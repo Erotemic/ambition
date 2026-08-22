@@ -87,20 +87,8 @@ impl Default for MaryOEntryRoom {
     }
 }
 
-/// Every room a session can be asked to enter.
-///
-/// One answer, because three things need it and were each spelling it out:
-/// [`mary_o_session_world_entering`] builds the set, `capture_mary_o` validates
-/// `--room` against it, and the probe that every id reaches its own geometry
-/// loops over it. that last one is why this is one function rather than a
-/// doc sentence — a room added here is a room the probe immediately demands,
-/// instead of one that quietly inherits 1-1's world the way 1-2 did.
-///
-/// The areas are read off the file now.
-///
-/// the fixture course is appended rather than read, because it is genuinely
-/// not in the file: a Rust-built probe room a session carries INSTEAD of the
-/// shipped levels.
+/// Every room a Mary-O session may enter. Authored areas come from the content
+/// file; the Rust-built fixture course is appended explicitly for tests/tools.
 pub fn mary_o_room_ids() -> Vec<String> {
     let mut ids = crate::authored_area_ids();
     ids.push(crate::test_course::TEST_COURSE_ROOM_ID.to_string());
@@ -111,29 +99,9 @@ pub fn mary_o_session_world() -> MaryOSessionWorld {
     mary_o_session_world_entering(LEVEL_1_1_ROOM_ID)
 }
 
-/// The same world, started in `entry` — and now that is true of all three
-/// room ids rather than of two.
-///
-/// this was a FORK wearing that doc comment. The body branched on the test
-/// course and built 1-1 for everything else, while `entry` went straight to
-/// [`RoomSet::from_parts`] — so a session entering 1-2 had 1-2 as its ACTIVE room
-/// and 1-1's `geometry` and `metadata`. Two of the three ids worked and the third
-/// returned a world that disagreed with itself, which presents as *"the wrong
-/// level loaded"* rather than as a refusal. It is the reason nobody could look at
-/// 1-2.
-///
-/// the room list is built once and the active room is READ BACK OUT of the
-/// set, so the geometry cannot describe a room the set is not in. Selecting the
-/// entry room separately and appending the rest is what made the disagreement
-/// expressible in the first place — and the obvious repair (pick `level_1_2()`
-/// for a 1-2 entry, keep the existing `vec![room, level_1_2()]`) would have put
-/// 1-2 in the graph twice.
-///
-/// an id in NO list still answers, with the set's own fallback room
-/// (`from_parts` activates index 0). That stays a silent fallback rather than a
-/// panic because this is called from a system on a resource a host inserts — but
-/// the pair is consistent now: whatever room the set activated is the room the
-/// geometry describes.
+/// Build the session world with `entry` active, then derive geometry/metadata
+/// from the room the resulting `RoomSet` actually activated. Unknown ids use the
+/// set's fallback room, keeping active-room identity and geometry consistent.
 pub fn mary_o_session_world_entering(entry: &str) -> MaryOSessionWorld {
     // The fixture course is neither of them: it is a self-contained probe room
     // with no loading zones that loops on its own goal (`exit_for_room`), so a

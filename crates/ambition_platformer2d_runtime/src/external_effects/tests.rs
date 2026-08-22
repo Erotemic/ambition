@@ -218,9 +218,8 @@ fn a_new_session_invalidates_pending_intents() {
     );
 }
 
-/// The trap that made the first version of this wrong. The sim is NOT the only
-/// writer: menus and the render-side fan-out write these same channels from
-/// `Update`. An advance must leave their traffic completely alone.
+/// Advancing simulation effects must not disturb messages queued by non-simulation
+/// writers such as menus or render-side fan-out.
 #[test]
 fn an_advance_does_not_disturb_what_another_writer_queued() {
     let mut host = Host::new();
@@ -248,7 +247,7 @@ fn clearing_instead_of_swapping_would_lose_the_other_writer() {
     host.other_writer_queues(500);
 
     host.boundary(0, 0);
-    host.world.resource_mut::<Messages<TestFx>>().clear(); // what the first version did
+    host.world.resource_mut::<Messages<TestFx>>().clear(); // simulate clearing the live channel
     host.world
         .resource_mut::<Messages<TestFx>>()
         .write(TestFx(77));

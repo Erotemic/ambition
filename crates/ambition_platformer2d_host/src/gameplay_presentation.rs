@@ -322,9 +322,7 @@ pub fn describe_resolved_layout(
         None => String::new(),
     };
 
-    // Every field says what it actually is. The first version of this line
-    // labelled `layout.surround` as "viewport", which is the sort of thing a
-    // device check reads once, believes, and then spends an hour confused by.
+    // Keep diagnostic labels aligned with the fields they print.
     format!(
         "presentation: env={:?} viewport={} surround={:?} hud={:?} \
          display={} safe={} gameplay={} subject-safe={} safe-region={} \

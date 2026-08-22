@@ -101,25 +101,12 @@ impl ChecksumProbe {
     }
 }
 
-/// Every registered component's probe.
+/// Localization probes for rollback-registered components.
 ///
-/// Populated by the registration seam itself, so a component cannot be
-/// rollback-registered and remain invisible to localization. That coupling is the
-/// point: the two holes in the previous instrument were both "the sweep did not
-/// know to look here".
-///
-/// The claim is now enforced rather than asserted, by
-/// `rollback_exit_oracle::every_state_bearing_rollback_registration_owns_a_localization_probe`,
-/// which compares `type_names` against every descriptor whose
-/// `RollbackEntryKind::carries_state`. A comment is not a coupling.
-///
-/// And "owns a probe" is still weaker than it reads, which is why
-/// [`ProbeStrength`] exists. That test compares type NAMES, so a probe that counts
-/// carriers satisfies it while seeing nothing of the value —
-/// `every_presence_only_probe_is_named_with_its_reason` is the second half, and it
-/// is what keeps "254 of 254 probed" from being read as "254 of 254 checked".
-/// Today that is 112 value probes, 22 markers where presence IS the value, and 120
-/// presence-only registrations each named with the reason it cannot do better.
+/// Registration populates this collection so state-bearing rollback types cannot
+/// be invisible to localization. [`ProbeStrength`] distinguishes value probes from
+/// marker/presence-only probes; policy tests require weak probes to be named and
+/// justified explicitly.
 #[derive(Resource, Default, Clone)]
 pub struct RollbackChecksumProbes {
     probes: Vec<ChecksumProbe>,
@@ -384,13 +371,10 @@ where
     for (carrier, target) in pairs {
         // HASH THE PAIR.
         //
-        // And it has to be a hash of the two together, not an arithmetic blend of
-        // two hashes: any `a*K + b` mixture decomposes back into
-        // `K*Σtargets + Σcarriers` under the outer sum, both of which are
-        // permutation-invariant. (Measured — the first version of this did exactly
-        // that and its swap test failed.) Hashing the concatenated bytes has no such
-        // decomposition, while the outer wrapping SUM keeps the census independent
-        // of iteration order, which the whole module depends on.
+        // Hash the pair together rather than arithmetically blending independent
+        // hashes; linear mixtures decompose under the outer sum and cannot detect
+        // carrier/target swaps. The outer wrapping sum still keeps iteration order
+        // irrelevant.
         let mut pair = [0u8; 16];
         pair[..8].copy_from_slice(&stable_identity(world, carrier).to_le_bytes());
         pair[8..].copy_from_slice(&stable_identity(world, target).to_le_bytes());

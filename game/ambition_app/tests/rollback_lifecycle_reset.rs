@@ -140,21 +140,11 @@ fn living_enemies(sim: &mut Platformer2dSimHarness) -> Vec<(f32, f32)> {
         .collect()
 }
 
-/// The load-bearing behavioral proof. A manual same-room reset, driven
-/// inside a forced rollback window, must genuinely restore a damaged enemy to
-/// spawn HP and a broken brick to intact — the exact "enemy fails to snap back"
-/// divergence the campaign doc recorded, now asserted as restored rather than
-/// merely checksum-clean.
-/// Which registered component does this scenario's divergence live in?
+/// A same-room reset inside a forced rollback window restores enemy health and
+/// broken-brick state, not merely checksum agreement.
 ///
-/// The aggregate sync-test says "checksum mismatch at frames [21,22,23]" and
-/// names nothing. This censuses every registered type on every save and every
-/// load and reports the ones whose census differs between a frame's first
-/// simulation and its resimulation — the same instrument
-/// `rollback_exit_oracle`'s localizer uses, pointed at the lifecycle-reset
-/// route instead of the combat one.
-///
-/// `#[ignore]` for cost.
+/// The census localizes any divergence to registered component types across the
+/// first simulation and resimulation. `#[ignore]` for cost.
 #[test]
 #[ignore = "diagnostic: per-component restore census on every save/load; run when this module is red"]
 fn which_component_does_the_lifecycle_reset_divergence_live_in() {
@@ -264,13 +254,8 @@ fn a_manual_reset_restores_a_damaged_enemy_and_a_broken_brick_under_forced_rollb
     }
 }
 
-/// A player death fires a same-room reset while enemies are mid-brawl. The reset
-/// revives them (`health.reset()`) inside the rollback window. This PASSES to
-/// 2400 frames — the emergent end-to-end witness that the in-place reset
-/// boundary the campaign doc recorded is now closed. Keeps it closed.
-///
-/// (The strikers whittling the 3-HP player down are MELEE, not projectile
-/// shooters — see the module note.)
+/// A player death triggers a same-room reset while enemies are mid-brawl; the
+/// rollback window must restore their health in place.
 #[test]
 fn a_player_death_reset_survives_the_rollback_window() {
     let mut sim = repro_sim();

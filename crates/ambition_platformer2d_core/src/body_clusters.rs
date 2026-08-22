@@ -395,52 +395,17 @@ pub struct BodyFlightState {
     /// World-imparted (written by the portal adapter and by knockback) —
     /// SHARED, not policy-private.
     pub carried_run: f32,
-    /// How long this carry is still OWED to the body, in seconds.
-    ///
-    /// The floor exists because momentum the world imparted must not bleed away
-    /// under the hands-off air stop assist. But that argument has an expiry: it
-    /// is momentum you were given *while you could not act*, so it stops being
-    /// owed the moment you can. Without a bound, one knockback makes a body
-    /// coast at its launch speed for the rest of its airtime and the tight
-    /// stop-on-release feel is gone for everyone who was ever hit (queue F0e).
-    ///
-    /// Zero means the ordinary rule: `carried_run` bleeds at
-    /// `MovementTuning::carried_decay` like it always did. A portal fling leaves
-    /// this at zero deliberately — a fling is a change of reference frame, not a
-    /// reaction you are locked out of, and it has always decayed that way.
+    /// Seconds for which world-imparted carried momentum is protected from the
+    /// normal airborne stop-assist decay. `0.0` uses ordinary `carried_decay`;
+    /// portal frame changes intentionally leave it at zero.
     pub carried_hold: f32,
-    /// A world-space launch an external reaction imparted, not yet handed to
-    /// the motion model. `Vec2::ZERO` between hits, which is almost always.
+    /// World-space reaction launch waiting for the motion model to consume it.
     ///
-    /// why this exists at all: writing a launch into
-    /// `BodyKinematics::vel` is only authoritative for a model that OWNS `vel`.
-    /// A surface-momentum body that is `Riding` does not — its `vel` is
-    /// documented as *"DERIVED (published for observers)"*, computed from the
-    /// scalar `v_t` along the tangent — so a knockback written there was
-    /// republished away on the next step and Sanic took hits without moving.
-    /// The impulse has to reach the model, and only the model can decide what a
-    /// launch MEANS to it (leave the surface, or override the run).
-    ///
-    /// drained by [`step_motion`](crate::movement::step_motion), the single
-    /// movement gateway, and by nothing else. Putting the drain there rather
-    /// than asking each writer to also call the model is deliberate: this repo
-    /// has repeatedly been bitten by an authority that needs a follow-up call,
-    /// and a launch that silently did nothing is exactly that failure.
-    ///
-    /// it rides on `BodyFlightState` because that cluster is ALREADY the
-    /// world-imparted momentum channel (see `carried_run` above, written by
-    /// the portal adapter and by knockback) and is already rollback-registered
-    /// as `body.flight`. A pending launch that did not rewind would be a phantom
-    /// hit on the resimulated timeline; here it rewinds with everything else and
-    /// needs no new registration.
-    ///
-    /// `Vec2::ZERO` is the empty state rather than an `Option`, for the
-    /// snapshot's sake: the encoder has a `vec2` primitive and no `Option<Vec2>`
-    /// one, and inventing an option encoding to express "no launch" would put a
-    /// new shape in the wire format for a case that already has a harmless
-    /// spelling. A launch of exactly zero is a no-op either way — the kernel's
-    /// own `apply_pad_impulse` has always early-returned on
-    /// `length_squared() <= 1e-6` for the same reason.
+    /// Writers cannot assign `BodyKinematics::vel` directly because some motion
+    /// models publish velocity from their own authoritative coordinates.
+    /// `step_motion` drains this field and interprets the launch for the active
+    /// model. It lives in rollback-registered `BodyFlightState`, and `Vec2::ZERO`
+    /// is the no-op/empty representation.
     pub pending_launch: crate::Vec2,
 }
 

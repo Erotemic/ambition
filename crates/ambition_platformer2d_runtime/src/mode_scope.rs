@@ -1,33 +1,9 @@
-//! The demo-hosting seam (decomposition D-C, vision §5): scoped game modes.
+//! Scoped game-mode runtime for hosted demos/rulesets.
 //!
-//! Ambition hosts its own demos. A demo's rules crate exposes a
-//! `<Demo>RulesPlugin` whose systems are gated on the ACTIVE ROOM's mode tag —
-//! not on a global `State`, which only one ruleset could ever own at a time.
-//! Several hosted rulesets therefore coexist in one binary, each awake only
-//! inside the rooms that opted into it:
-//!
-//! ```ignore
-//! impl Plugin for SanicRulesPlugin {
-//!     fn build(&self, app: &mut App) {
-//!         let sim = app.sim_schedule();
-//!         let rules = (accumulate_momentum, ride_the_loop);
-//!         if self.hosted {
-//!             app.add_systems(sim, rules.run_if(in_mode("sanic")));
-//!         } else {
-//!             app.add_systems(sim, rules);   // standalone: the whole game IS the demo
-//!         }
-//!     }
-//! }
-//! ```
-//!
-//! `SanicRulesPlugin::hosted()` vs `::global()` is a CONSTRUCTOR FLAG, not two
-//! plugins — the rules are one list, and only their gating differs.
-//!
-//! Mode-owned state rides an entity carrying [`ModeScopedEntity`] (spawn it with
-//! `Commands::spawn_mode_scoped`), so leaving the mode's rooms tears it down
-//! through the same lifetime-scope vocabulary a room-scoped entity uses. The
-//! sweep lives here rather than beside the marker because it reads the active
-//! room's metadata, which is a tier above the lifecycle primitives.
+//! Rules may coexist in one app and gate their systems on the active room's mode
+//! tag rather than owning a global state. Standalone compositions can install the
+//! same rules ungated. Mode-owned entities carry `ModeScopedEntity` and are swept
+//! when routing leaves the mode.
 
 use bevy::prelude::*;
 

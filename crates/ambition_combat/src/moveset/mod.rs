@@ -1056,29 +1056,6 @@ pub fn resolve_attack_gestures(
     }
 }
 
-/// TRIGGER a body's data-driven move from its control-frame verb edges: a
-/// `special_pressed` → the DIRECTIONAL `"special"` verb, a `melee_pressed` →
-/// the DIRECTIONAL `"attack"` verb (resolved by aim + grounded state through the
-/// authored verb chain — `attack_air_down` → `attack_down` → `attack`), a ranged
-/// intent → the `"ranged"` verb. A body already playing a move refuses a new one — the move's
-/// own duration IS the fire-rate gate — UNLESS the playing move authors a
-/// `Cancelable` window covering this instant whose condition holds and whose
-/// `into` names the request (CM4): then the live boxes tear down exactly as
-/// natural completion does and the new move starts same-frame. `jump`/`dash`
-/// entries END the move early on those edges — the normal locomotion path
-/// (reading the SAME control frame this tick) performs the jump/dash itself;
-/// no second dispatcher. An empty cancel timeline is byte-identical to the
-/// pre-CM4 reject (the parity pin). Facing locks at trigger from the body's
-/// kinematics (the Smash convention — a committed swing doesn't re-aim).
-///
-/// ONE trigger seam for every body (guardrail #1): the same system drives an
-/// actor's melee, the PCA's signature move, a folded boss's pattern, and the
-/// player's directional repertoire (R2.5). A body authoring only `"attack"`
-/// resolves every direction to it — byte-identical to the pre-directional path.
-///
-/// A WEAPON IN HAND OWNS THE ATTACK PRESS — see
-/// [`held_weapon_attack_move`]. The wearer's own `attack` verbs keep existing;
-/// they simply stop being what that press reaches.
 /// Name the writer of a move's self-motion impulse.
 ///
 /// Two call sites author the same impulse — the plain trigger and the CANCEL path — and they
@@ -1119,43 +1096,15 @@ fn record_impulse_authorship(
     );
 }
 
-/// The swing a held weapon answers a directional Attack with — `None` when
-/// that weapon answers the press somewhere other than the move runtime.
+/// Resolve the held weapon's directional Attack move, or `None` when the item
+/// handles that press through another runtime path (for example a projectile or
+/// throw system).
 ///
-/// incorrectly still use my normal jab attack. Holding an item should reroute
-/// normal attack actions to the item action, which might be like throw for
-/// bombs or fire for the gun sword … the default for the gun sword is they all
-/// route to the one action the item has: shoot."*
-///
-/// The `ActionSet` and the moveset are a UNION for the Attack slot
-/// (`ambition_characters::action_scheme::combat_actions`), and only one half was ever displaced.
-///
-/// So the press is arbitrated HERE, by identity, from the one authority on what
-/// a body is holding:
-///
-/// - the weapon authors a melee verb (an axe) → its swing answers, built
-///   through the same [`build_actor_moveset`] a spawned body's would be, so the
-///   whole directional family (tilts, aerials, the pogo down-air) comes with it;
-/// - the weapon authors no melee verb (the gun-sword's bolt, a bomb's throw, a
-///   gauntlet's bespoke system) → nothing answers here, and the item's own
-///   subject-generic system consumes the press it already reads.
-///
-/// the wearer's `attack` MOVES are not pruned, and must not be. A
-/// timeline nothing presses is inert; deleting it on a reachability argument
-/// throws away authored content and makes unequipping a restore problem. Only
-/// the RESOLUTION moves, and it moves back the instant the hand is empty — so
-/// there is nothing to stash, and a rewind past an equip is correct for free
-/// (`HeldItem` is already rollback state).
-///
-/// and the slot must survive, which is why this is not a verb revoke.
-/// `touch_action_available` draws — and admits touches for — an on-screen Attack
-/// button only while `ControlPrompt` carries a label for the Attack slot, and
-/// that label comes from the scheme's union of moveset verb and `ActionSet`
-/// melee. A guard that took the wearer's `attack` verbs away would leave the
-/// gun-sword with no Attack slot at all: still fireable on a desktop (the
-/// persona gate's `holds_item` exception keeps `melee_pressed` alive) and
-/// untappable on a phone. Resolving the press instead of deleting the verb
-/// keeps the button drawn.
+/// A weapon with melee vocabulary uses the normal moveset builder and therefore
+/// inherits the directional attack family. The wearer's own attack timelines
+/// remain intact for unequip/rewind; only press resolution changes. Keeping the
+/// Attack slot present also preserves the touch-control prompt for non-melee
+/// held items.
 fn held_weapon_attack_move(
     spec: &ambition_characters::brain::HeldItemSpec,
     dir: AttackDir,
@@ -1169,6 +1118,17 @@ fn held_weapon_attack_move(
         .move_for_directional_verb(ATTACK_VERB, dir, grounded)
         .cloned()
 }
+
+/// Trigger a body's authored move from control-frame verb edges. Directional
+/// attack resolution follows the authored verb chain; ranged and special use
+/// their corresponding verbs. A live move rejects replacement unless its
+/// cancel window authorizes the requested move. Jump/dash cancel the move and
+/// are executed by the locomotion path from the same control frame. Facing is
+/// captured at trigger time.
+///
+/// This is the single trigger seam for every body. When a held weapon owns the
+/// Attack press, [`held_weapon_attack_move`] resolves the weapon action instead
+/// of the wearer's normal attack without deleting the wearer's authored moves.
 
 pub fn trigger_moveset_moves(
     mut commands: Commands,

@@ -67,17 +67,8 @@ ABSENCE_CONTRACTS: list[dict] = [
             #    the generic side stops enumerating names it does not own.
             ":(exclude)crates/ambition_characters/src/brain/mod.rs",
         ],
-        # TWO PATTERNS, because ONE MISSED AN EDGE. The
-        # first version watched `fighter::` under `brain/` only, and the fourth
-        # edge is `Brain`'s rollback CURSOR CODEC in `snapshot_impls.rs`: it
-        # hand-writes a per-variant tag and encodes `state.ticks_until_decision`,
-        # `state.apm.presses` and the pending press by field. That names the
-        # fighter brain's internals as thoroughly as any import — and it was
-        # invisible on BOTH axes, since the file is outside `brain/` and it
-        # spells `StateMachineCfg::Fighter`, never `fighter::`.
-        #
-        #  the second pattern watches the VARIANT, which is what a capability
-        # arm actually looks like from the generic side.
+        # Watch both direct module references and the enum variant used by the
+        # rollback codec outside `brain/`.
         "patterns": [r"\bfighter::", r"StateMachineCfg::Fighter"],
         "reason": (
             "The 2026-08-19 GPT review withdrew the standing 'do not carve yet' hold on "
@@ -367,10 +358,8 @@ ABSENCE_CONTRACTS: list[dict] = [
         # "migrated" is a claim about what no longer exists, which is exactly the
         # kind of claim this file is for.
         "id": "outlander-does-not-hand-order-its-own-composition",
-        # Bounded to the external fixture for the same reason the allowlist row
-        # is: in-repo apps composing by hand is a MEASUREMENT question the
-        # campaign defers, not a rule, and widening this would answer it by
-        # accident in a row whose subject is one consumer.
+        # This contract is scoped to the external consumer; in-repo composition
+        # is measured separately.
         "paths": ["fixtures/external_consumer/"],
         # The fixture's tests ARE the consumer — a third party exercising the
         # public API — so a test that rebuilds the composition by hand is exactly
@@ -874,17 +863,11 @@ MODULE_ALLOWLISTS: list[dict] = [
         # activation, lifecycle rebasing, confirmation boundaries", with its own
         # slice and its own acceptance tests. Curating it into
         # `ambition_platformer2d::rollback` would make exactly that promise through the back
-        # door, and the ratchet reaching zero is not a good enough reason to
-        # make a promise the campaign deliberately deferred.
+        # door. A zero leak count alone is not sufficient reason to publish
+        # rollback as SDK surface.
         #
-        # This is the one entry that must NOT be closed by the technique that
-        # closed the other seventeen.
-        #
-        # What closed it is the slice ADR 0031 reserved.
-        #
-        # The distinction is not ceremony. The rejected shortcut publishes the
-        # SAME module name over the SAME implementation; what it omits is the
-        # thing that makes the name a promise instead of a mirror.
+        # Rollback becomes public only through the deliberate API reserved by
+        # ADR 0031, not by mirroring the internal runtime module.
         "baseline": set(),
         "reason": (
             "A game depends on `ambition_platformer2d`, and `ambition_platformer2d` is currently the list "
@@ -915,44 +898,8 @@ MODULE_ALLOWLISTS: list[dict] = [
         # between a promise and an accident, and it is what makes this entry honest rather than a
         # way to make the number smaller.
         "allowed": {"actor", "app", "bevy", "character", "sim", "view", "world"},
-        # against the crate as first written. FOUR, against
-        # Outlander's fourteen — and the four are not a smaller sample of the
-        # same problem, they are one specific hole: `PlatformerExperienceAuthoring`
-        # + `PreparedPlatformerSource` + `RoomSpec` + the `engine_core` geometry
-        # vocabulary. A minimal game can now COMPOSE through the SDK and still
-        # cannot DECLARE a room or an experience through it. That is a measured
-        # leak with a named boundary, which is exactly what §3 wants for
-        # selecting the next slice.
-        # FIVE, not the four first recorded — and the correction is the finding.
-        #
-        # It did not RUN: the host sat in `HostStatus::Activating` for 600 ticks and never started,
-        # because preparation validation refuses an experience whose provider registered no explicit
-        # audio fragment. A movement-only game with no sound must still DECLARE its silence, so
-        # `ambition_platformer2d::audio` is a fifth module every game names no matter how small.
-        #
-        # The ratchet caught the growth on its first live use, which is the only reason this is
-        # a corrected number rather than a wrong one. 5 -> 3. (A module literally named
-        # `demo_fixture` in a shipped game's dependency list is the namespace mirror
-        # confessing.)
-        #
-        # PRUNED IN THE MIGRATING COMMIT, which is invariant 2's whole point — it went STALE-red and
-        # named both, so the slots cannot be reoccupied silently.
-        #
-        # `world` is deliberately STILL BASELINE, not promoted to `allowed`. It moves to
-        # `allowed` when the facade turns it into a curated module. Making a number smaller is
-        # not a reason to promise something. 2 -> 1. `audio` retired with
-        # `ModuleDraft::no_audio()`: declaring silence is a word on the draft now, not a
-        # hand-registered fragment.
-        #
-        # EMPTY. The movement-only minimal game names ONLY reviewed SDK
-        # surface: `ambition_platformer2d::app`, `ambition_platformer2d::world`, and the facade's
-        # documented `bevy` re-export.
-        #
-        # This is §4's first terminal condition reached for ONE consumer. It is
-        # not the campaign's terminal condition — Outlander still names 14, and
-        # four consumer-matrix categories are unproven — but it is the first
-        # evidence that "consumers name only the SDK" is a reachable state
-        # rather than an aspiration.
+        # Empty baseline: the minimal consumer now names only reviewed SDK
+        # surface. New implementation-module imports must fail this ratchet.
         "baseline": set(),
         "reason": (
             "The movement-only minimal game is the consumer-matrix row Outlander "
@@ -966,18 +913,10 @@ MODULE_ALLOWLISTS: list[dict] = [
     },
 ]
 
-# ── The campaign's SECOND ratchet: central rollback ownership ────────────────
-#
-# Slice F needs it, because federating rollback ownership without a ratchet is a migration with
-# nothing watching it.
-#
-# Same two invariants as the module allowlist, for the same reason:
-#
-#   1. current ⊆ frozen  — no NEW stable name or codec may enter the CENTRAL
-#                          registration. New domain state registers itself.
-#   2. frozen ⊆ current  — a name that has left must be PRUNED, or the baseline
-#                          is a budget and the vacated slot fills silently.
-#
+# Central rollback ownership ratchet.
+# New domain state must not enter central registration, and entries that leave
+# must be pruned from the frozen baseline.
+
 # Frozen as a SET, never as a count.
 #
 # §2e's subject, made non-increasing.
@@ -1048,32 +987,12 @@ ROLLBACK_SCHEMA_BASELINE = (
 
 @functools.cache
 def rollback_schema_usage(root: Path) -> dict[str, list[str]]:
-    """The stable schema names, and every type in the rollback wire format.
+    """Return stable schema names and all types in the rollback wire format.
 
-    Process-local cache: this is a read-only census of one tree. The pytest suite
-    asks several independent invariants about the same census, so measure once and
-    let each invariant reason over the same observation.
-
-    ⚠ **`central_codecs` was renamed `encoded_types` on 2026-07-30, and the
-    rename IS the finding.** It used to read `impl SnapshotState for …` out of
-    ONE file, `ambition_platformer2d_runtime/src/rollback/codecs.rs`, because that was the
-    only file where such an impl could compile: the trait lived at the top of
-    the dependency graph, above every crate whose types it encoded, so ~100
-    foreign impls were centralised there by the orphan rule rather than by
-    design. Slice F moved the trait to `ambition_platformer2d_core::snapshot` — the
-    floor — and the impls went home to the crates that define their types.
-
-    The invariant did not change and must not: the rollback wire format is a
-    frozen set, and a type joining or leaving it is a schema change that has to
-    be seen. What changed is that "the wire format" is no longer a synonym for
-    "one file". A guard that keeps reading the old path would report a green
-    empty set forever — the failure mode this file's own header calls an
-    instrument that measures nothing and reports the success condition.
-
-    ⚠ The type paths are recorded EXACTLY as each impl spells them, and after
-    the carve a crate spells its own types `crate::…`. So the name is now
-    qualified by the file's crate. Two crates could otherwise both claim
-    `crate::Foo` and the ratchet would see one entry where there are two.
+    Cache the read-only census because several invariants query the same tree.
+    The wire format is distributed across central and domain-owned impls, so the
+    guard scans both. Type paths are qualified by crate to disambiguate local
+    `crate::...` spellings.
     """
     # The central runtime-adjacent registrations plus domain-owned offers.
     #
@@ -1189,28 +1108,11 @@ _BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
 
 
 def is_test_path(path: str) -> bool:
-    """Whether `path` is test code rather than production code.
+    """Whether `path` names a separate test file.
 
-    The module docstring has always claimed these contracts "search production
-    source only", and the path lists did not enforce it — they happened not to
-    match test code, which is not the same thing. The first contract that named a
-    function a test legitimately calls proved the gap by flagging its own test
-    (2026-07-28).
-
-    A test calling a resolver is not a second authority; it is a test. What the
-    contracts are about is who DECIDES in the shipped binary.
-
-    Opt back in with `"include_tests": True` — exactly one contract needs it,
-    because its subject IS a test file, and defaulting the other way would have
-    silently disabled it.
-
-    ⚠ **This is a PATH test, and this repo also writes tests inline.** A
-    `#[cfg(test)] mod` inside a production `lib.rs` is invisible here — found
-    2026-07-28 when a contract flagged Mary-O's own inline physics assertions.
-    Line-local comment stripping cannot see a module boundary, so the honest
-    statement is "production PATHS only", not "production code only". A contract
-    whose symbol is legitimately named by inline tests has to narrow its paths
-    instead, and say why.
+    Contracts exclude test paths unless `include_tests` is set. Inline
+    `#[cfg(test)]` modules are not detectable by this path-only check, so
+    contracts that would match inline tests must narrow their paths.
     """
     return (
         "/tests/" in path
@@ -1222,17 +1124,11 @@ def is_test_path(path: str) -> bool:
 
 
 def strip_comments_for(path: str, line: str) -> str:
-    """Return `line` with comment text removed, so prose cannot match a pattern.
+    """Return `line` with comment text removed before pattern matching.
 
-    Deliberately line-local and deliberately crude. A multi-line `/* */` body
-    survives only if it contains no `//`, and the one shape that matters — a
-    `///` or `//!` paragraph naming the thing that was removed — is removed
-    exactly. Being conservative in the other direction (treating code as
-    comment) would HIDE a real violation, so nothing here strips code.
-
-    `#` is a comment in shell and Python and not in Rust, where it opens an
-    attribute — and `#[ignore]` is precisely what one contract looks for. So the
-    hash rule is applied by file type rather than universally.
+    Keep the stripping conservative so code is never hidden as prose. Hash
+    comments are stripped only for languages where `#` is comment syntax; Rust
+    attributes such as `#[ignore]` must remain visible.
     """
     stripped = _BLOCK_COMMENT.sub(" ", line)
     stripped = _LINE_COMMENT.sub("", stripped)
@@ -1520,15 +1416,8 @@ def main() -> int:
         # module named: a new module is invariant 1's problem and this number
         # must not be able to rise when one appears. It only ever falls.
         #
-        # Adding a private-module `use` to `fixtures/external_consumer/src/lib.rs` turns
-        # `outlander-names-only-the-public-sdk` RED, so invariant 1 still fires; what fell to zero
-        # is the campaign's backlog, not the guard.
-        #
-        # do not "clean up" these two contracts for reading empty. The same
-        # audit found a rule one crate over that genuinely could not fire — the
-        # LDtk `EdgeExit ... overlaps solid X` reachability check scanned an
-        # entity kind that no level carrying an EdgeExit places (15 levels vs 4,
-        # intersection EMPTY), and five unreachable exits shipped behind it.
+        # Empty baselines are still active guards: a new private-module import
+        # makes the corresponding contract fail.
         still_open = sum(
             len(set(allowlist_usage(contract, root)) & set(contract["baseline"]))
             for contract in MODULE_ALLOWLISTS

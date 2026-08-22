@@ -1,16 +1,8 @@
 //! The smallest game this engine can stand up.
 //!
-//! The smallest external consumer used by the current SDK and capability-
-//! composition programs (`docs/planning/engine/public-sdk-1.0.md` and
-//! `docs/planning/engine/capability-and-runtime-composition.md`). It began as
-//! consumer-matrix row 2 of the archived API 1.0 campaign: *a movement-only
-//! minimal game — optional-capability closure. Does a small game link menus,
-//! persistence, audio, bosses?*
-//!
-//! Outlander cannot answer that. It authors a character, an enemy, a room, a
-//! construction recipe and a transition, so every capability it links is one it
-//! plausibly asked for. This game asks for as little as a game can and still be
-//! one, which is the only way to find out what the engine hands you anyway.
+//! Minimal external consumer used to measure optional-capability closure.
+//! It asks for as little as a runnable game can so linked capabilities reflect
+//! what the engine supplies implicitly rather than what content requested.
 //!
 //! # What it deliberately does NOT author
 //!

@@ -1,35 +1,10 @@
-//! Stocks: the loop a KO'd fighter actually goes round. (S4 part 1)
+//! Ruleset-owned lives/stocks accounting.
 //!
-//! [`FighterStocks`](crate::components::FighterStocks) has existed as vocabulary
-//! with no consumer — no rule spent one, nothing respawned, nothing was ever
-//! eliminated, and it was not rollback state. This is the loop that makes it a
-//! count of something.
-//!
-//! ## Why a KO needs its own signal
-//!
-//! The obvious implementation reads health: a ruleset watches for `!alive()` and
-//! calls that a KO. It cannot work here, and the reason is the whole shape of
-//! S4. A stocks fighter is [`DeathPolicy::Unbounded`] — its meter never kills,
-//! because its death is the world's — so its pool is FULL at the moment it is
-//! knocked off the stage. A ruleset watching health would watch a healthy
-//! fighter fall out of the world forever.
-//!
-//! So the death paths announce it. [`BodyKnockedOut`] is written exactly where
-//! the two `RulesetOwnsDeath` arms already decided that a match, not the world,
-//! owns this body's death — the same branch, now saying so out loud instead of
-//! leaving a ruleset to infer it from a health value that no longer moves.
-//!
-//! ## The authority split
-//!
-//! This module owns the COUNT: spend one, decide whether that was the last, mark
-//! the fighter eliminated, and clear the meter so a respawning body comes back
-//! at 0%. It does not know where a body goes, what a round is, or when a match
-//! is over — those need a stage, a seat and a scoreboard, and they belong to the
-//! ruleset. [`FighterStockSpent`] is the handoff.
-//!
-//! Engine-shaped rather than Smash-shaped: a lives counter is the same object,
-//! and a game with three lives and a checkpoint uses this without knowing what a
-//! stock is.
+//! A stocks fighter may use [`DeathPolicy::Unbounded`], so health cannot signal a
+//! knockout. Death paths emit [`BodyKnockedOut`] when a ruleset owns the death.
+//! This module spends the count, marks elimination, resets the meter for a
+//! respawn, and emits [`FighterStockSpent`]. Stage placement, rounds, and match
+//! completion remain ruleset responsibilities.
 
 use bevy::prelude::{
     Commands, Component, Entity, Message, MessageReader, MessageWriter, Query, Without,

@@ -2303,17 +2303,8 @@ fn at_mouth(body: ae::Aabb, mouth: ae::Aabb) -> bool {
 fn cycle_level_on_flag_tally(
     time: bevy::prelude::Res<ambition_platformer2d::time::WorldTime>,
     mut dwell: bevy::prelude::Local<f32>,
-    // THE ROOM SHE IS TRAVELLING TO, not a bare "already asked" flag.
-    //
-    // The first version of this was a `bool`, and it made the level PING-PONG:
-    // The arrival test compared the active room against the destination
-    // RE-DERIVED THIS TICK — and arriving in 1-2 re-derives the destination to
-    // 1-2's own exit, which is 1-1. So "am I there yet" asked about the NEXT
-    // trip, never saw itself arrive, and immediately asked to leave again.
-    //
-    // Remembering the target makes the question answerable: she has arrived when
-    // she is standing in the room she ASKED for, which no later re-derivation
-    // can change.
+    // Remember the requested destination. Arrival is defined against that target,
+    // not against a destination re-derived from the newly active room.
     mut departing: bevy::prelude::Local<Option<String>>,
     mut owners: bevy::prelude::Query<(&mut flag::FlagSequence, &mut MaryOLevelState)>,
     // The body the flag sequence drove to the pole, by stable identity. A transition names the

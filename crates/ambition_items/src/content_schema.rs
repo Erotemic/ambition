@@ -113,12 +113,8 @@ fn declare(facet: &FacetSource<'_>, rows: &[ItemMeta], out: &mut FacetOutcome) {
         // Refuse the un-normalized spelling rather than silently rewriting it, so the id an
         // author reads in the file is the id scripts use.
         //
-        // compared against `row.dialog_id`, the RAW value — NOT the trimmed
-        // one. My first version normalized a trimmed copy and compared it to
-        // that same trimmed copy, so `" portalgun "` passed the check my own
-        // comment named, and then lowered with its whitespace intact. A check
-        // that pre-applies part of the transform it is testing for cannot see
-        // that part.
+        // Compare normalization against the raw authored value; pre-trimming would
+        // hide the whitespace this validation is meant to reject.
         let raw = row.dialog_id.as_str();
         let normalized: String = raw
             .chars()

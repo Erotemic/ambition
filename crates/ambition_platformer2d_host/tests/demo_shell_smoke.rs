@@ -137,14 +137,8 @@ fn fixture_setup(
     );
 }
 
-/// A SHELL WITH NO ENCOUNTER CONTENT BOOTS.
-///
-/// the run's gate is `cargo check -p ambition_app --all-targets` plus
-/// `app_it`, and neither builds this crate's tests. A whole crate went red and
-/// stayed green to the campaign. That is the finding; the panic is only how it
-/// showed up.
-///
-/// The panic stays for a world with encounters and no authorities to drive them.
+/// A shell with no encounter content boots. Worlds that contain encounters but
+/// provide no encounter authority still fail.
 #[test]
 fn demo_shell_boots_and_ticks() {
     let mut app = App::new();

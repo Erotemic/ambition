@@ -59,16 +59,9 @@ pub fn run_frame_despawning_targets<Doomed: Component, M, P>(
     app.update();
 }
 
-/// The same frame, plus PROOF the pass did something.
-///
-/// A probe whose fixture misses one precondition takes an early-out, never
-/// reaches the deferred write, and passes — reporting a hazard as absent when it
-/// was simply never exercised. The portal probe did exactly that on its first
-/// outing, and the actor-sprite probe below did it again on its first run: green
-/// against an unconverted `insert`, because the pass had skipped the entity.
-///
-/// So the caller spawns a WITNESS alongside the doomed target — same population, same frame,
-/// not despawned — and names a component the pass must have written to it.
+/// Run the same frame with a surviving witness that proves the pass executed.
+/// The witness belongs to the same population and names a component the pass must
+/// write, preventing an early-out fixture from passing vacuously.
 pub fn run_frame_despawning_targets_with_witness<Doomed, Witness, Written, M, P>(
     app: &mut App,
     schedule: impl ScheduleLabel + Clone,
@@ -247,16 +240,9 @@ mod production_passes {
     }
 }
 
-/// The last candidate the L24 sweep left open: the BOSS visual insert.
-///
-/// Deliberately not converted on the strength of "same shape as the other two",
-/// which is reasoning, and this row exists because reasoning was not enough.
-///
-/// The fixture is expensive, and the expense IS the point — the pass early-outs
-/// unless a boss sheet resolves AND `Assets<Image>` already holds its page-0
-/// texture AND both read-models carry the id. Every one of those is a way for
-/// the probe to pass while exercising nothing, which is exactly how the portal
-/// probe was vacuous on its first outing.
+/// Exercise the boss visual insert with all prerequisites satisfied. The fixture
+/// resolves the boss sheet, loads page 0, and populates both read models so the
+/// pass cannot succeed through an early-out.
 #[cfg(test)]
 mod boss_pass {
     use super::*;

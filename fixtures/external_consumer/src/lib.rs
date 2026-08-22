@@ -1,28 +1,8 @@
-//! Outlander — the Phase-6 external-architecture proof.
+//! Outlander: a tiny external game authored through `ambition_platformer2d`.
 //!
-//! A complete (tiny) game authored from OUTSIDE the engine workspace, through
-//! the `ambition_platformer2d` umbrella alone: one room, one playable character, one
-//! autonomous sentry character, one construction recipe, one transition. The point
-//! is not the game — it is the
-//! evidence: every `ambition_platformer2d::` path this file imports is the de-facto SDK
-//! surface, and every place it has to lean on an engine-internal assumption is
-//! recorded in the campaign doc's Phase 6 account as an API leak.
-//!
-//! What each § authors and through which seam:
-//! - §room     — `RoomSpec` in code (`ambition_platformer2d::world::rooms` + `engine_core`).
-//! - §character— `CharacterCatalogFragment::from_ron` (the same catalog seam
-//!               every in-repo provider uses).
-//! - §enemy    — a `CharacterDefinition` plus a `RoomContentStagingRegistry`
-//!               stager. Because of Phase 4, the
-//!               staged enemy is lowered as a CONSTRUCTION PLAN ROW through
-//!               the `ambition.staged-actor` recipe — the "one construction
-//!               recipe" this fixture consumes without defining (an external
-//!               crate cannot add recipe BEHAVIOR; that closed enum is
-//!               recorded leak #2).
-//! - §transition — an in-room gate built on `engine_core::movement::transit_body`
-//!               (ADR 0024). A cross-room `LoadingZone` swap is impossible from
-//!               out here (wiring is app-local in `ambition_app::world_flow`) —
-//!               recorded leak #1.
+//! It exercises one room, a playable character, an autonomous sentry, staged
+//! construction, and an in-room transition using only the public facade. Any
+//! engine-internal assumption required here is an SDK boundary defect.
 
 use bevy::prelude::*;
 
@@ -504,40 +484,12 @@ pub fn build_outlander_app() -> App {
         .build()
 }
 
-/// The SAME game under a GGRS rollback host, with a sync-test session.
+/// Build the same Outlander composition under a GGRS sync-test host.
 ///
-/// Sync test is the strongest available proof and the cheapest to run: GGRS
-/// resimulates every frame `check_distance` times from a restored snapshot and
-/// compares checksums itself, so a divergence is a panic inside the engine
-/// rather than an assertion this fixture had to invent. If `BeaconCharge` did
-/// not round-trip, or its encoder dropped a field, or the charge system read
-/// wall-clock time, that comparison is what notices.
-///
-/// The host switch is one builder call versus [`build_outlander_app`]. That is
-/// the claim: a consumer does not restructure its game to become
-/// rollback-capable.
-///
-/// The A2 inventory found eight ordering rules in this fixture's hand-composed
-/// hosts. Migrating to the builder found a NINTH, which had been sitting in
-/// this function's own comment and nowhere else:
-///
-/// > "Under GGRS the sim advances only through session requests, so the frame
-/// > dt must be the tick dt exactly (integer nanos, no drift)."
-///
-/// `Time::<Fixed>::from_hz(60.0)` rounds to `16_666_667`ns. GGRS wants the
-/// truncated `16_666_666`. Composing this host with the obvious value — the
-/// one the fixed-tick face correctly uses — cost 12 frames: the parity walk
-/// below took 192 `update()` calls to reach a world state the fixed-tick host
-/// reached in 180, while every GGRS checksum still agreed.
-///
-/// That is the silent class. A consumer who wrote the obvious thing got a host
-/// that runs, simulates correctly, agrees on every checksum, and quietly needs
-/// 7% more frames — with nothing to grep for and no failure to read. It
-/// surfaced only because `consumer_owned_authoritative_state_survives_real_resimulation`
-/// compares the two hosts' timelines and went red on a change that looked
-/// unrelated to either. The canary earned its keep.
-///
-/// `ambition_platformer2d::app` states the rule now, for both faces.
+/// Switching hosts is a builder choice; the consumer game does not restructure
+/// itself for rollback. GGRS owns rollback startup ordering and checksum-based
+/// resimulation. The host also owns the exact simulation tick duration so fixed
+/// and rollback compositions advance the same timeline.
 pub fn build_outlander_rollback_app() -> Result<App, String> {
     // Rollback is a supported session mode as of slice F, and Outlander says
     // how many people are playing — one. The count is declared HERE, at
@@ -547,14 +499,8 @@ pub fn build_outlander_rollback_app() -> Result<App, String> {
         .mount(OutlanderModule)
         .build();
 
-    // The first draft skipped both, started the session on update #1, and watched GGRS report a
-    // checksum mismatch on frames 2, 3 and 4 forever.
-    //
-    // `ambition_platformer2d::rollback::start` performs that sequence. What Outlander
-    // proves by no longer containing it is that the ordering is the ENGINE's
-    // to get right — a consumer who has never seen this comment gets the same
-    // startup, and the wrong orderings are unreachable rather than warned
-    // about.
+    // `ambition_platformer2d::rollback::start` owns rollback startup ordering so
+    // consumers cannot construct invalid startup sequences.
     ambition_platformer2d::rollback::start(
         &mut app,
         ambition_platformer2d::rollback::RollbackPlan::new(),

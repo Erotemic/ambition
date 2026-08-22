@@ -181,32 +181,11 @@ mod tests {
         );
     }
 
-    // It was P2.22's acceptance signal as a countdown: it rebuilt every shipped placement's
-    // resolution against an EMPTY roster and listed what stopped resolving, so the distance to
-    // deleting `character_archetypes.ron` was a number somebody could read. Its last entries
-    // were four uncast identifiers, and each left by a DECISION rather than a deletion
-    // (skitters are Puppy Slug; `large_brute` is the authored Goblin Brute; `small_lurker` cast
-    // provisionally as `npc_ai_slop`).
-    //
-    // its own note said the empty list did NOT license the deletion —
-    // *"`spawn_actors` still ASKS the roster; with no row left those arms answer
-    // `None` forever and become dead code to delete, which is checklist item
-    // 22"* — and that is what this slice did. The file, the resource, the asking
-    // arms and this countdown all went together.
+    // The old archetype roster and its placement-resolution census are gone;
+    // shipped placements resolve through character definitions instead.
 
-    /// "CHANGING THE CONTROLLER DOES NOT CHANGE THE BODY" — ASSERTED OF
-    /// SHIPPED CONTENT, not of a fixture.
-    ///
-    /// this is the campaign's central proposition standing up in a room a
-    /// player can walk into: one body wearing three different controllers, and
-    /// one controller worn by four different bodies. A demo that shows six
-    /// archetypes proves nothing about composition; this one cannot be authored
-    /// at all unless body and controller are genuinely separable.
-    ///
-    /// both directions, because either alone is satisfiable by accident.
-    /// Several bodies under one controller is just "a shared policy"; several
-    /// controllers on one body is just "a versatile creature". Only the two
-    /// together say the axes are independent.
+    /// Shipped content exercises body/controller independence in both directions:
+    /// one body under multiple controllers and one controller across multiple bodies.
     #[test]
     fn the_basement_gallery_shows_one_body_under_many_controllers_and_the_reverse() {
         use ambition_platformer2d_ldtk::{LdtkProject, LdtkVocabulary};

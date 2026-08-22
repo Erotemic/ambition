@@ -1,26 +1,8 @@
-"""Every tracked `.ldtk` must stay a SYMLINK into `game/ambition_map_assets`.
+"""Tracked LDtk worlds must remain symlinks into `game/ambition_map_assets`.
 
-The six LDtk worlds (~5 MB, the densest content this repo tracks) live in the
-`ambition_map_assets` submodule and reach the game through tracked symlinks.
-Git stores those natively (mode 120000), so a fresh clone gets them for free.
-
-⛔ **The failure this defends is silent and expensive**: a tool that writes a
-world by creating a temp file and renaming it over the destination *destroys the
-symlink* and leaves a real multi-megabyte file, which then gets committed
-straight back into the main repo. Nothing errors. The next person notices when
-the checkout is 5 MB bigger for no reason anyone can attribute.
-
-Every writer in `tools/ambition_ldtk_tools` was checked (2026-08-08) and all go
-through `path.write_text(dump_editor_style(project))`, which writes *through* a
-link and preserves it. The LDtk **editor** is outside that guarantee, which is
-why this is a test and not a comment.
-
-⚠ **A DANGLING link is not a failure here.** Jon, 2026-08-08: *"A symlink lets
-us know when the submodule isn't checked out."* That is the intended signal, so
-resolution is checked separately and skipped when the submodule is absent — the
-mode assertion below is what must hold unconditionally, and it holds whether or
-not anyone ran `git submodule update`.
-"""
+Writers may update the target through the link but must not replace the symlink
+with a copied world file. Dangling links are allowed when the submodule is not
+initialized; link resolution is checked separately."""
 
 from __future__ import annotations
 
@@ -72,19 +54,10 @@ def test_every_tracked_world_is_a_symlink():
 
 
 def test_the_working_tree_agrees_with_the_index():
-    """⛔ **The index alone cannot see this**, which is why it needs its own test.
+    """Tracked map symlinks must also remain symlinks in the working tree.
 
-    A generator that writes a real file over a tracked symlink produces a
-    TYPECHANGE: `git status` says `T`, the index still reports mode 120000, and
-    every assertion above keeps passing because they all read the index. The
-    breakage is entirely in the working tree.
-
-    Caught live on 2026-08-08 when regenerating `sanic_speedway.ldtk` replaced
-    its link. ⚠ before this test, the only symptom was
-    `test_every_link_points_into_the_map_submodule` dying with a raw
-    `OSError: [Errno 22] Invalid argument` out of `readlink` — a real failure
-    wearing a stack trace nobody can act on. Now that test skips the entry and
-    this one names it.
+    The index still reports mode 120000 after a generator replaces a link with a
+    regular file, so working-tree type changes require a separate check.
     """
     broken = [
         path

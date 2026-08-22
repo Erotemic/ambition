@@ -1,19 +1,8 @@
-//! A staged cast authorizes its own presentation sources. (§4.5, §4.7)
+//! Authorize presentation sources for a staged cast.
 //!
-//! §7.7 gave the engine the vocabulary for several providers emitting cues in one
-//! session: a request carries a [`PresentationSourceId`](ambition_sfx::PresentationSourceId), and
-//! `ActiveAudioSelection::authorize_sfx_source` binds that source to a provider's
-//! cue registry and bank allowlist. So the same logical cue id — `Dash` — can
-//! resolve to two genuinely different sounds for two characters in one fight.
-//!
-//! Nothing in production called it. The only non-unit-test caller was a rendered
-//! test, which means the vocabulary existed and the sentence was never spoken: a
-//! secondary provider's correctly-tagged cue reached the audio authority, found no
-//! authorization for its source, and was denied. A cue that is silently
-//! dropped is worse than one that plays the wrong sound, because nothing reports
-//! it — the request was well-formed and the refusal was invisible.
-//!
-//! This module is that sentence. Seating a cast is what authorizes its sources.
+//! Each provider source is bound to its cue registry and bank allowlist so the
+//! same logical cue id can resolve differently for different characters in one
+//! session. Seating the cast establishes those authorizations.
 
 use bevy::prelude::*;
 use std::collections::BTreeSet;
@@ -394,12 +383,8 @@ pub fn project_prepared_character_definitions(
         // Looked up by the recorded id, so the removal is exactly what this system granted and
         // never something the spawn seeded.
         //
-        // `ActorMoveset` is deliberately NOT retracted, and the first version of this did retract
-        // it. Removing it is worse than leaving a stale value: `apply_worn_character_gameplay`
-        // takes `&mut ActorMoveset` as a required query column, so a body without the component
-        // stops matching the PERSONA DERIVE ENTIRELY — losing its name, action set and identity kit
-        // too, permanently, not just its moves. And the retraction was unnecessary anyway: for a
-        // worn body the persona derive is the single writer and replaces the moveset wholesale on
+        // Do not retract `ActorMoveset`: `apply_worn_character_gameplay` requires
+        // the component as a query column and replaces its value wholesale for worn bodies.
         // the same tick this runs.
         if let Some(previous) = projected {
             previous.granted.retract(entity, &mut commands);
@@ -486,23 +471,9 @@ pub fn grant_prepared_character_body(
     movement_tuning: Option<ambition_platformer2d_core::MovementTuning>,
 ) {
     {
-        // THE APPLIED-TEMPLATE STAMP FOR GAMEPLAY, written at CONSTRUCTION
-        // .
-        //
-        // without it the contract was a lie, and I asserted otherwise. The persona derive
-        // re-applies a body whenever `stale_cast = PersonaBaseline.is_none_or(..)`, and
-        // construction wrote only `ProjectedCharacterKit` — so a body built COMPLETE had no
-        // baseline, `stale_cast` was true, and the character was applied a second time on the
-        // next pass.
-        //
-        // `displaced` is EMPTY, and that is the Construction boundary's whole
-        // meaning: nothing was taken from this body, because the body was BUILT
-        // as this character. A replacement records what it displaced so it can
-        // retract to it; a construction has nothing to retract to.
-        // the gate is "is a derive coming", not "who writes the kit". Those
-        // are two different questions and this asked one of them: a caller that
-        // resolves its own kit (a match seat) still needs the gameplay baseline,
-        // because nothing else is going to write it.
+        // Construction writes the gameplay baseline unless persona derivation will
+        // do so. A newly constructed body displaced nothing, so its baseline has
+        // an empty `displaced` set even when the caller resolved its kit.
         if kit != KitOwnership::PersonaDerive {
             commands
                 .entity(entity)
@@ -517,28 +488,10 @@ pub fn grant_prepared_character_body(
             generation,
             granted: GrantedBodyFacts::of(prepared, movement_tuning),
         });
-        // THE KIT, for the bodies the persona derive cannot see.
-        //
-        // `apply_worn_character_gameplay` is the ONE writer that turns a `WornCharacter` into a
-        // persona. This system wrote seated bodies' kits too, on the belief that seated bodies
-        // did not match it — and they always did.
-        //
-        // So there were two writers for one question, and they answered it
-        // differently: this one wrote what the definition AUTHORED, while the
-        // derive resolved authored-vs-catalog first. A character that authored no
-        // action set fought as the worn player and stood empty-handed as player
-        // two. Phase A made the two answers identical; deleting this
-        // writer is what stops them drifting apart again.
-        //
-        // What is left here is the population the derive genuinely cannot see: a
-        // body with no `WornCharacter` at all — an archetype-staged actor
-        // identified by its `CombatTuning.sprite_character_id`. This is still its
-        // only route to an authored moveset.
-        //
-        // Two writers on DISJOINT populations, named, rather than two writers on
-        // overlapping ones. That is the honest state; collapsing the last of it
-        // means giving tuning-identified bodies a real worn identity, which is a
-        // change to what those bodies ARE and does not belong in this commit.
+        // Only bodies without `WornCharacter` use this grant path; worn personas
+        // are projected by `apply_worn_character_gameplay`.
+        // TODO(compat-remove): give tuning-identified staged bodies a real worn
+        // identity, then remove this secondary kit writer.
         if kit == KitOwnership::Grant {
             // That made two writers for one question, on two paths, and they answered
             // it differently: this one wrote what the definition AUTHORED, while the

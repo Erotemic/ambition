@@ -737,11 +737,8 @@ mod capture_cue_tests {
 
     /// EVERY BEAT OF A CAPTURE SHOWS SOMETHING, AND SHOWS THE FIGHTER'S OWN.
     ///
-    ///  the gap this closes: the grab chain simulated correctly and was
-    /// completely invisible — a hold read as two fighters standing unusually
-    /// close together.  and the cue is AUTHORED, because three kits guard that
-    /// every effect in them is drawn off their own sheet; a shared row is a real
-    /// violation of that, which is how the first version of this was caught.
+    /// Capture beats carry authored cues from the fighter's own sheet so grab
+    /// state is visible without introducing shared presentation rows.
     #[test]
     fn every_capture_beat_carries_the_fighters_own_cue() {
         let bound = kit(CaptureCues {

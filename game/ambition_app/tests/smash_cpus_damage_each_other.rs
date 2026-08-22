@@ -1,34 +1,8 @@
-//! TWO CPUs IN THE SHIPPED COMPOSITION FIGHT EACH OTHER, AND THIS SAYS SO IN
-//! UNITS NOBODY CAN MISREAD.
+//! Prove two CPUs in the shipped Smash composition actually fight each other.
 //!
-//! > *"In a real duel neither fighter exceeds 0.84% peak damage — they never hit
-//! > each other; the 'outlast' numbers the ladder rig reports are measuring who
-//! > walked off later."*
-//!
-//! `0.84` was 84%. [`BodyHealth::damage_percent`] returns a RATIO — its own doc says *"`1.88`
-//! is a legal answer and is how a HUD prints `188%`"* — and `ladder_rig` printed it under a literal
-//! `%`.
-//!
-//! ## What this asserts, and why each term is needed
-//!
-//! ```text
-//! peak damage    each fighter's meter passes half its pool  ← "a fight happened"
-//! hitstun        each fighter spent time in hitstun         ← "and the damage
-//!                                                              came from the OTHER
-//!                                                              one, not a hazard"
-//! bodies seated  both seats existed for most of the match   ← the zero floor
-//! ```
-//!
-//! the peak alone is not enough. A stage hazard, a self-destruct or a
-//! scripted spike would move the meter with nobody landing anything; hitstun is
-//! what a body enters when something HITS it. and the seat count is asserted
-//! because a match that never seated two bodies reports two peaks of zero and
-//! would fail loudly for the wrong reason — or, with the assertions inverted,
-//! pass silently.
-//!
-//! UNITS, stated once: every number here is a ratio of the fighter's own
-//! damage pool. `1.0` is 100%. The `×100` belongs at a print site and appears
-//! nowhere in the assertions.
+//! Each fighter must accumulate substantial damage and enter hitstun, while both
+//! seats remain present. Damage is expressed as a ratio (`1.0 == 100%`); hitstun
+//! distinguishes opponent hits from environmental/self damage.
 
 use ambition_demo_smash::select::SmashRoster;
 use ambition_platformer2d::actor::MatchSeat;

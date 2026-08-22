@@ -1,31 +1,9 @@
-"""A room's GENERATOR must not out-live the roster row it was written against.
+"""Generated room specs must not retain unresolved brain references.
 
-⛔⛔ **THE THIRD COPY NOBODY COUNTED.** D73's migration moves a placement off the
-archetype roster and onto a character: the row is deleted from
-`character_archetypes.ron` and the placement in the shipped `.ldtk` grows a
-`character_id`. Both halves were done and checked. But a room is not authored by
-hand — it is generated from a spec in `specs/*_area.ron`, and that spec keeps its
-own copy of every placement's fields.
-
-Measured 2026-08-13: the worlds were fully migrated (every `EnemySpawn` /
-`NpcSpawn` carried a `character_id` bar one open content decision) while **twelve
-spec placements still named `brain:` keys whose rows had been deleted and named
-no character at all** — `ranged_skirmisher`, `pirate_on_shark`, `exploding_mite`,
-`dividing_mite`, `giant_gnu`, `small_skitter`, `large_brute`. Regenerating any of
-those rooms would have written the pre-migration placement straight back over the
-migrated one, and nothing in the repository would have said so.
-
-⚠ **`brain` staying is fine; `brain` staying ALONE is not.**
-`intro_raid_corridor_area.ron` is the convention this asserts — it carries
-`brain: "medium_striker"` *and* `character_id: "npc_lab_raider"`, so the
-controller policy is still named and the body no longer depends on a row.
-
-⇒ so the condition is exactly: **a spec's `brain:` must name something that still
-resolves — a built-in, or a surviving roster row — or else the placement must
-name its character.** Not "specs mention no dead names" (a proxy that would go
-green by deleting the field), and not "every placement has a `character_id`"
-(which would demand casting decisions that are Jon's to make, ledger D96).
-"""
+A spec `brain` may name a built-in controller or surviving roster entry. If it
+names neither, that placement must also identify its character so regeneration
+cannot restore a pre-migration archetype-only placement. Valid brain metadata may
+remain alongside `character_id`."""
 
 from __future__ import annotations
 

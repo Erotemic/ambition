@@ -151,13 +151,8 @@ fn pad_per_seat(sim: &mut Platformer2dSimHarness) -> Vec<(u8, Option<Entity>)> {
 
 /// the extra frames are the point, not padding. Seats are created in
 /// `Update` (`seat_input_participants_for_roster`) and devices are assigned in
-/// `PreUpdate` (`assign_local_seat_devices`) — the host's own split, because an
-/// association made after leafwing resolves is read a frame late. So on the
-/// frame a seat first exists, no assignment pass has run with it present, and
-/// every map still reads `None`. Asserting there measures the gap between two
-/// schedules and calls it a broken product: the first version of this test did
-/// exactly that, on a topology that had already frozen correctly with both pads
-/// recorded.
+/// `assign_local_seat_devices` runs in `PreUpdate`, so a newly created seat is
+/// not expected to have a device assignment until the next assignment pass.
 fn step_until_seated(sim: &mut Platformer2dSimHarness, want: usize, what: &str) {
     for tick in 0..180 {
         sim.step(AgentAction::default());

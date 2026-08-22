@@ -1,36 +1,11 @@
-//! Flat, tabbed `bevy_ui` renderer of a [`MenuPageModel`].
+//! Flat `bevy_ui` renderer for [`MenuPageModel`].
 //!
-//! This is the SECOND presentation of the backend-agnostic menu model (the first
-//! being the bevy_lunex 3D cube in the `ambition_menu_kaleidoscope` cube renderer). Having two
-//! real renderers of the same model empirically validates the engine/content
-//! seam: this module draws the *same* controls, labels, actions and scroll window
-//! the cube draws — just flat, with `bevy_ui` flex/grid layout instead of a 3D
-//! projection.
-//!
-//! # What this module does (and does NOT do)
-//!
-//! It owns the model → entity mapping only. Given a description of the menu
-//! ([`BevyUiMenuView`]: the tab set, the active tab index, the active page's
-//! [`MenuPageModel`], and the focused control), [`spawn_bevy_ui_menu`] spawns a
-//! `bevy_ui` tree:
-//!
-//! * a tab bar row at the top — one [`BevyUiMenuTab`] button per tab, the
-//!   active one flagged + visually highlighted;
-//! * the active page's body — panels/backgrounds as [`Node`]s, text/labels as
-//!   [`Text`], interactive controls as focusable rows tagged with their
-//!   [`AmbitionMenuControl`] (carrying `kind` + `action` + [`MenuFocusKey`]), the
-//!   item grid laid out by the model's authored rects, and a scrollbar (track
-//!   + thumb) for a [`MenuControlKind::Scrollbar`] node whose thumb scrolls.
-//!
-//! The host drives navigation + dispatch in a later phase. The seam it relies on
-//! is the same as the cube's: every interactive control entity carries an
-//! [`AmbitionMenuControl<Action>`] (so a picking/nav system can map an entity →
-//! its `Action`) plus a [`MenuVisualState`] with `focused`/`selected` set, and the
-//! focused control is additionally flagged with [`BevyUiMenuFocused`]. This module
-//! puts no game dispatch in the engine — it only spawns tagged entities.
-//!
-//! Generic over `PageId` / `Action` exactly like the cube renderer; no
-//! Ambition-specific types appear here.
+//! This module owns model-to-entity presentation only. It spawns tabs, panels,
+//! labels, focusable controls, grids, and scrollbars, tagging interactive
+//! entities with [`AmbitionMenuControl`] and visual focus/selection state. Hosts
+//! perform navigation and action dispatch separately. The renderer is generic
+//! over page/action ids and shares the backend-agnostic model with other menu
+//! presentations.
 
 use bevy::ecs::relationship::RelatedSpawnerCommands;
 use bevy::prelude::*;

@@ -1,14 +1,8 @@
-"""The app-only-presentation guard has to FIRE, and has to stay quiet on prose.
+"""Poison tests for the engine-installation boundary checker.
 
-Running the script against the live tree proves nothing: it is green, which is
-the point of it. These tests do what the live run cannot — feed it the shapes it
-exists to catch, and the shapes it must NOT catch.
-
-The second kind matters more than it looks. The first version of this script
-read `run_if(in_mode(..))` as a system registration and reported four predicates
-as missing engine presentation; a guard that cries wolf about `in_mode` is a
-guard whose next real finding gets skimmed past.
-"""
+Fixtures prove the checker fires when engine-owned systems are registered only
+from app composition while remaining quiet on prose that merely names the same
+symbols."""
 
 from __future__ import annotations
 

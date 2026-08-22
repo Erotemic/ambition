@@ -89,17 +89,9 @@ fn every_neighbour_of_the_starting_room_gets_a_prepared_plan() {
     );
 }
 
-/// A WARM PREFETCH MUST COST NOTHING TO KEEP WARM.
-///
-/// The point of preparing a neighbour is to pay once and hold the result. A
-/// cache that re-derives its whole neighbourhood every frame is not a cache: it
-/// is a per-frame tax whose hit rate looks perfect, because every promotion does
-/// find an entry — one that was rebuilt moments earlier.
-///
-/// The analogy was good enough to act on and wrong, and the counter it needed (`preparations` —
-/// every other one describes promotions) is what told the difference. If a future change makes
-/// the refresh condition fire on rollback restores, this says so in numbers instead of the cost
-/// hiding behind a perfect hit rate.
+/// Once neighbour prefetch settles, keeping the cache warm must not prepare the
+/// same neighbourhood every frame. Count preparations directly; promotion hit
+/// rate alone cannot distinguish a retained entry from one rebuilt moments ago.
 #[test]
 fn a_settled_neighbourhood_stops_preparing_itself() {
     let mut app = gameplay_after_startup();

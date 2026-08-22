@@ -1,36 +1,10 @@
-//! The authored difficulty ladder actually reaches a fighter's brain.
+//! Integration test that the authored fighter difficulty ladder reaches the
+//! runtime fighter brain.
 //!
-//! `fighter_brain_ladder.ron` was nine rungs that nothing read: every production
-//! call site asked [`FighterBrainProfile::for_level`], which documents itself as
-//! *"a FLOOR, not the ladder. A game that cares ships its own nine rows … and
-//! this is never consulted."* The consequence was not a tuning delta —
-//! `for_level` hands every rung `UtilityWeights::default()`, which is `v1()`,
-//! which is the authored level nine — so a level-1 CPU priced a kill move
-//! exactly as the hardest one did.
-//!
-//! Any one of those could be perfectly written and silently absent, and every existing test
-//! would still pass — the same class as `content_dormancy`'s *"it also proves the pass is
-//! registered, which a compile cannot catch."*
-//!
-//! the level is 5 on purpose, and this is the trap that makes a naive
-//! version of this test worthless. The authored ladder's level 9 row is
-//! byte-identical to `UtilityWeights::v1()` (`1.0 / 0.6 / 0.4 / -0.8 / 0.5`),
-//! and level 1's `reaction_ms` is 500.0 in BOTH the ladder and the floor. So
-//! a probe that picked the top rung, or that asserted reaction time at the
-//! bottom one, would pass whether or not any of this was wired. Level 5 differs
-//! on every axis, and the assertion below refuses to run until it has checked
-//! that.
-//!
-//! and this composition is the ONLY one where the two halves meet — measured,
-//! not assumed. Ambition's own 24 archetypes contain zero `Fighter` brains (12
-//! `Smash`, 3 `Skirmisher`, 4 `StandStill`, the rest one-offs); all 7 `Fighter`
-//! rows in the workspace are `ambition_demo_smash`'s roster, plus its
-//! `"duelist": Fighter(level: 5)`. And `ambition_demo_smash` depends on
-//! `ambition_platformer2d` alone — never on `ambition_content` — so the ladder is
-//! authored in the game with no fighters and consumed by the game that cannot see
-//! it. `ambition_app` is where both are composed. Running the smash demo
-//! STANDALONE still gets the engine floor, and that is a real remaining gap,
-//! recorded rather than papered over here.
+//! Level 5 is used because it differs from the engine floor on every asserted
+//! axis, avoiding endpoint values that could pass without the authored ladder.
+//! The full app composition is required because it brings the authored ladder and
+//! Smash fighter consumers together.
 
 use ambition_platformer2d::characters::actor::character_catalog::{brain_from_preset, BrainPreset};
 use ambition_platformer2d::characters::brain::fighter::{

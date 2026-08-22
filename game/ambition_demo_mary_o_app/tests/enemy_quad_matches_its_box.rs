@@ -106,11 +106,8 @@ fn the_ai_slops_box_has_the_shape_its_sheet_publishes() {
          if the art became square the square box was never the bug"
     );
 
-    // ask the SIZING FUNCTION, not the sheet. The first draft of this
-    // recomputed the height from `sheet.collision` itself and was therefore green
-    // against the splat it exists to prevent — a guard passing through its own
-    // arithmetic rather than through the code. Probed: stubbing
-    // `ai_slop_half_size` back to the square now fails here.
+    // Exercise the production sizing function rather than recomputing its
+    // arithmetic in the test.
     let half = ambition_demo_mary_o::ai_slop::ai_slop_half_size();
     let (width, height) = (half.x * 2.0, half.y * 2.0);
     assert!(

@@ -1,34 +1,9 @@
 #!/usr/bin/env python3
-"""IntGrid cell editing — paint, erase, and summarize Collision /
-Water / Climbable IntGrid layers.
+"""Inspect and edit authored LDtk IntGrid cells.
 
-Until now Ambition's authoring loop lowered Solid / OneWayPlatform /
-BlinkWall / HazardBlock entities into IntGrid cells at `area create`
-time, but had no way to inspect or surgically edit those cells
-afterwards. That's a problem when:
-
-  - A wall placed by `area create` overlaps a LoadingZone slot the
-    player now needs to walk through (the user's 2026-05-16 EdgeExit
-    feedback — walls overlapping side-exit zones blocked the
-    transition).
-  - You want to verify what surfaces a room actually has before
-    snapping a door (`door snap` only sees existing cells; this
-    lets you SEE those cells).
-  - You want to clear a small region without re-authoring the
-    whole level from spec.
-
-Two subcommands today (`paint` is reserved but unimplemented; add
-when a real need lands rather than speculatively):
-
-  intgrid summarize --level X [--layer Collision]
-    Print a per-value cell count + bounding box per IntGrid layer.
-
-  intgrid erase --level X --px X,Y --size W,H [--layer Collision]
-    Zero out every IntGrid cell that overlaps the given rect.
-
-Default layer is `Collision`; pass `--layer Water` or
-`--layer Climbable` for those.
-"""
+`summarize` reports per-value counts and bounds for an IntGrid layer. `erase`
+zeros cells overlapping a pixel rectangle. The default layer is `Collision`;
+other IntGrid layers such as `Water` and `Climbable` may be selected explicitly."""
 
 from __future__ import annotations
 

@@ -1,49 +1,15 @@
 #!/usr/bin/env python3
-"""**Did a rollback codec change shape without the wire format saying so?**
+"""Guard rollback codec shape against an unchanged wire-format version.
 
-`GGRS_ROLLBACK_SCHEMA_VERSION` exists so two peers that encode different bytes
-cannot believe they agree. Bumping it is a HUMAN step, and on 2026-08-10 four
-codecs changed under an unchanged version in a single day — `BodyCombat` gained
-`landing_lag_timer`, `AxisManeuverState` gained `jump_squat_timer`,
-`AxisLocomotion` gained `jump_squat_time` and `max_air_speed`, and the deferred
-transition intent gained `zone_sfx`.
+The checker hashes the ordered codec primitives used by rollback readers and
+writers. Adding, removing, or changing the primitive type of an encoded field
+changes the baseline while comment and local-name edits do not. A pure reorder
+of adjacent fields with the same primitive type is not detectable by this
+method.
 
-⛔ **nothing caught it, and the near-miss is the interesting part.** Two guards
-already watch this area and neither can see a field:
-
-* `rollback-wire-format-is-frozen` counts stable NAMES. All 348 were unchanged —
-  no registration was added, removed or renamed.
-* `rollback_schema_baseline.txt` records `name / kind / type / description` per
-  registration. A field inside a codec changes none of those four columns.
-
-Both answer *"is the SET of registered things the same"*. Neither answers *"does
-each thing still encode the same shape"*, which is the question a peer actually
-depends on.
-
-# # What this measures
-
-The ordered sequence of codec PRIMITIVES per file — `put_f32`, `put_bool`,
-`r.u8()`, … — hashed. Adding, removing or retyping an encoded field changes the
-sequence; editing a comment, renaming a local, or rewrapping a line does not. So
-the guard is quiet during ordinary work and loud on exactly the edit that needs
-a version bump.
-
-⚠ **the one blind spot, stated rather than hidden**: swapping two fields of the
-SAME primitive type leaves the sequence identical, so this cannot see a pure
-reorder of two `f32`s. That is a real wire change and this will not catch it. It
-is the narrow residue of a check that is otherwise free of false positives, and
-a checker that cried wolf on every rename would be turned off within a week.
-
-# # What to do when it goes red
-
-1. Did the BYTES a peer encodes change? Then bump `GGRS_ROLLBACK_SCHEMA_VERSION`
-   and describe the change in its doc log, the way every version there does.
-2. Re-record this baseline (`--record`) in the same commit.
-
-⛔ do not re-record without step 1 unless the edit provably changed no bytes —
-re-recording alone silences the guard and restores the exact hole it exists to
-close.
-"""
+When encoded bytes change, bump `GGRS_ROLLBACK_SCHEMA_VERSION` and record the new
+baseline in the same change. Do not re-record merely to silence a real wire
+change."""
 
 from __future__ import annotations
 

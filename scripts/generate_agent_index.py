@@ -78,8 +78,10 @@ def iter_files() -> list[Path]:
     return sorted(out)
 
 
-# Workspace source roots that hold Rust crate source. The symbol/test indexes sweep all three so
-# a chat agent can find e.g. Smb1RulesPlugin / level_1_1 in game/.
+# Workspace source roots that hold Rust crate source. `crates/` is the engine;
+# `game/` holds the app + content + demo crates (re-homed by decomposition E7);
+# `tests/` holds the workspace-policy package. The symbol/test indexes sweep all
+# three so a chat agent can find e.g. Smb1RulesPlugin / level_1_1 in game/.
 SOURCE_ROOTS = ("crates", "game", "tests")
 
 
@@ -318,9 +320,7 @@ def build_doc_health(files: list[Path]) -> dict[str, object]:
     return {**generated_meta(), "doc_count": len(md), "longest_markdown": longest}
 
 
-# The canonical "read me first" docs. AGENTS.md is the root instruction file
-# ; docs/planning/ is the consolidated single source of
-# truth (vision -> roadmap -> the live tracks queue). Order = suggested read order.
+# Canonical entry documents, in suggested reading order.
 ENTRY_DOC_CANDIDATES = (
     "AGENTS.md",
     "CLAUDE.md",
@@ -639,6 +639,9 @@ def main() -> int:
     update_agent_manifest(generated_meta())
     write_generation_stamp(indexed_files=len(files))
 
+    # The resolved graph before the catalog, so one run leaves a coherent set.
+    # `build_catalog` names this file in its prune allowlist; if that ever stops
+    # being true this file is deleted on every run and nothing says so.
     resolved = build_resolved_dependency_graph()
     write_json(INDEX_DIR / "crates" / "graph-resolved.json", resolved)
     if not resolved.get("available"):

@@ -1,64 +1,23 @@
 #!/usr/bin/env python3
-"""Run real builds under NAMED configurations and record what each unit cost.
+"""Collect per-unit compile telemetry under named build configurations.
 
-`compile_ratchet.py` is the gate (deterministic, builds nothing).
-`compile_cost.py` is the stopwatch for ONE edit (one number per scenario).
-This is the **collector**: it builds the whole graph under a configuration it
-owns, and writes one row per compile unit into `dev/ambition_dev_measurements/compile_units.jsonl`.
+Unlike `compile_ratchet.py`, this script performs real Cargo builds. Each
+configuration owns a separate target directory and runs serially so fingerprint
+changes cannot invalidate another measurement. `cold` records the full graph;
+`first-party` applies temporary source edits to measure the rebuild Ambition
+itself pays.
 
-Jon, 2026-08-08: *"time per module, lines of code in the module at time of
-compile … debug vs release, optimization mode … so we can build statistics and
-gain more insights into how to optimize compile time in maybe non obvious
-ways."* The ratchet froze the graph numbers; this fills in the seconds.
+Configuration facts such as optimization and incremental mode are read from or
+cross-checked against the rustc invocation rather than inferred from manifest or
+parent-environment defaults. Temporary edits are restored from saved bytes, and
+the script refuses to touch dirty probe files.
 
-# # One cargo build at a time, and its OWN target dir
+Usage::
 
-Every configuration below changes a rustc fingerprint (`--release`,
-`CARGO_INCREMENTAL`), so two of them sharing `CARGO_TARGET_DIR` would each
-rebuild what the other just built. `compile_cost.py`'s docstring records the
-symptom: a warm no-op that should have been under a second reported **222s**,
-which reads like a slow machine rather than a mistake. So each configuration
-gets `--target-root/<config>` and the phases run strictly in sequence. This
-script never backgrounds a build.
-
-# # Two dimensions this repo has already recorded WRONG, and how they are read here
-
-1. **`opt-level` is not what the manifest says.** `[profile.dev.package."*"]`
-   applies to DEPENDENCIES ONLY — workspace members inherit `[profile.dev]`.
-   A previous draft of `compile_ratchet.package_opt_levels` got this backwards
-   and reported the monolith at 3 when it builds at 1. So the level is **read
-   off the rustc command line** that cargo actually issued (`cargo build -v`
-   prints it), and every row says which way it was obtained in
-   `opt_level_source`. Ask the tool; do not model it.
-
-2. **`CARGO_INCREMENTAL` inherited from the parent env lies.** `run_tests.py`
-   copies the environment and then `setdefault`s `CARGO_INCREMENTAL=0` for its
-   children, so a collector reading its own `os.environ` reports `true` for
-   exactly the runs that are off. This script **sets the variable explicitly**
-   for every build and records the value it set, and cross-checks it against
-   `-C incremental=` on the rustc line.
-
-# # The phases, and why there are two
-
-* **`cold`** — a fresh target dir. Every unit in the graph compiles, third-party
-  included, so this is the only phase that can say what a dependency costs.
-  Expensive; run once per configuration.
-* **`first-party`** — a real one-line edit appended to EVERY first-party crate's
-  lib root, then rebuilt. This is the recompilation the repo actually pays, it
-  is directly comparable to the 19 back-filled rows from 2026-08-07, and it is
-  the phase to regress against `dev/ambition_dev_measurements/compile_graph.jsonl`'s line counts.
-
-⛔ **the edit is reverted by writing the original bytes back, never by git.**
-Same rule as `compile_cost.py`: a `git checkout --` here would delete whatever
-uncommitted work was in those files. The script refuses to start if any file it
-would touch is already dirty.
-
-Usage:
     python3 scripts/compile_collect.py --config dev
     python3 scripts/compile_collect.py --config dev --config release
     python3 scripts/compile_collect.py --config dev --phase first-party
-    python3 scripts/compile_collect.py --list
-"""
+    python3 scripts/compile_collect.py --list"""
 
 from __future__ import annotations
 
@@ -315,20 +274,11 @@ def restore(original: dict[Path, bytes]) -> None:
 
 
 def foreign_cargo(own_target: Path) -> list[str]:
-    """Other `cargo` processes on this box, and which target dir each writes to.
+    """Return other cargo processes and the target directory each uses.
 
-    ⛔ **this is not the same hazard as a shared target dir, and it is not
-    smaller.** Two builds in ONE target dir invalidate each other's
-    fingerprints — the 222s warm no-op. Two builds in DIFFERENT target dirs do
-    not corrupt anything; they simply run on the same eight cores, and every
-    duration in the report is inflated by however much of it overlapped. That
-    reading also looks like a slow machine rather than a mistake, so it is
-    recorded on the row instead of being assumed away.
-
-    ⚠ **matched by `/proc/<pid>/comm`, never by `pgrep -f`.** A `pgrep -f cargo`
-    matches the polling shell's own command line — this repo stranded seven
-    loops that way on 2026-07-31 — and a tighter regex does not fix it. `comm`
-    is the executable name and cannot match a Python process looking for it.
+    Separate target directories avoid fingerprint corruption but still contend
+    for CPU, so overlapping builds are recorded with measurements. Match
+    `/proc/<pid>/comm` to identify the executable without self-matching probes.
     """
     found: list[str] = []
     for entry in Path("/proc").iterdir():

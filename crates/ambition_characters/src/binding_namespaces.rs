@@ -1,15 +1,8 @@
 //! THE NAMESPACES CHARACTER PREPARATION RESOLVES AGAINST — the vocabulary
 //! every cross-layer reference a character makes is checked in.
 //!
-//! these lived in the actor monolith, at the top of the 2,000-line file that also holds
-//! preparation and a Bevy `App` extension.
-//!
-//! the first version of this took the edge to `ambition_platformer2d_shared_tangle` instead, and
-//! "the contracts pass" was the wrong test. Nothing forbids that edge, and the note here argued
-//! its safety on exactly those grounds. What it did not weigh is that shared_tangle is ~18k lines
-//! across 51 files of platformer lifecycle, camera, transit, schedules and hotkeys, and this file
-//! uses ONE name from it — so every edit to any of those files invalidated the canonical character
-//! domain. The boundary is its own crate now, whose entire dependency list is `tracing`.
+//! These namespace contracts live in a small boundary crate so the canonical
+//! character domain does not depend on broad platformer lifecycle infrastructure.
 //!
 //! a namespace is a MARKER, not a table. Each one names a kind of
 //! reference and supplies the word a diagnostic prints; the vocabulary a

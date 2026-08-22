@@ -69,20 +69,9 @@ fn running_into_a_wall_reports_a_side_contact_with_the_surface_normal() {
     );
 }
 
-/// A rising head into a hidden block is a CONTACT, not just a stop.
-///
-/// it was only a stop. `BlockKind::BonkOnly` exists to be solid against a
-/// rising head and air to everything else, and the swept resolution truncated
-/// the motion correctly — but then took a `BonkOnly`-only arm of an `if / else
-/// if` chain whose comment claimed it "falls through to the ordinary face
-/// resolution below". It does not; the head-contact arm was skipped. So the body
-/// stopped dead under an invisible block and `FrameEvents.contacts` was empty,
-/// which is indistinguishable from never having touched it. Mary-O's hidden
-/// block in 1-2 could not be bonked at all.
-///
-/// both terms are OBSERVED: her head is asserted to have actually reached
-/// the block's underside before the contact is demanded, so a jump that fell
-/// short accuses the probe rather than the engine.
+/// A rising head into a `BonkOnly` block must both stop and emit a head contact.
+/// The fixture separately proves that the body reached the block underside so a
+/// short jump cannot satisfy the contact assertion vacuously.
 #[test]
 fn rising_into_a_bonk_only_block_reports_a_head_contact() {
     use crate::collision_semantics::ContactKind;

@@ -212,21 +212,9 @@ fn print_what_the_file_authors() {
     }
 }
 
-/// Two vocabularies, one process, and they disagree — correctly.
-///
-/// this test could not have been written before. The converter registry
-/// was a process-global `OnceLock` whose contract was "first install wins,
-/// later calls are ignored": whichever `App`, tool or test touched it first
-/// defined LDtk conversion for everything else in the process, and the only
-/// evidence was an error log. Two games in one binary, a game and a tool, or
-/// two test Apps in one run could not carry different vocabularies at all.
-///
-/// the vocabulary is a PARAMETER now, so both answers below are true at
-/// the same time in the same process, which is the whole claim:
-///
-/// The claim that needs proving is that constructing hers does not CHANGE the engine's answer,
-/// so the same refusal has to hold on the far side of a successful conversion. That is the
-/// exact shape the global got wrong.
+/// Two vocabulary values can coexist in one process and produce different
+/// conversion answers without mutating one another. Constructing Mary-O's
+/// vocabulary must not change the engine-only vocabulary's refusal.
 #[test]
 fn the_same_level_reads_differently_to_two_vocabularies_in_one_process() {
     let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(WORLD_JSON)
@@ -342,9 +330,8 @@ fn every_lift_wraps_outside_the_room() {
         "a lift teleports where the player can see it:\n{}",
         visible.join("\n"),
     );
-    // the floor, and it has already earned itself: the first draft of this
-    // check ran against the ANOTHER world's project and found no looping
-    // platform at all, which is a green indistinguishable from a safe one.
+    // Require a non-empty looping-platform census so this check cannot pass
+    // against the wrong world or an empty fixture.
     assert!(
         looping >= 3,
         "1-2 authors a three-lift conveyor; only {looping} looping platform(s) \

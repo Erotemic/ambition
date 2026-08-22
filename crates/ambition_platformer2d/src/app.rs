@@ -24,10 +24,8 @@ use crate::world::rooms::RoomMetadata;
 
 /// Curated imports for a game's `main`.
 ///
-/// A domain prelude, not the root one. `ambition_platformer2d::prelude` re-exports
-/// twenty-five crate mirrors; an agent told to import all of them has been told
-/// nothing about which four matter. Campaign §A2: one enormous root prelude is
-/// a discovery problem, not a convenience.
+/// This domain prelude avoids exposing the broader implementation topology of
+/// `ambition_platformer2d::prelude`.
 pub mod prelude {
     pub use super::{
         host_status, AssetSource, CompositionError, GameModule, HostStatus, ModuleDraft,
@@ -62,10 +60,9 @@ pub enum HostStatus {
     /// A route is being prepared. Normal for a few frames after boot; a host
     /// stuck here is a preparation that never completed.
     Activating { route: String },
-    /// Routing REFUSED this host, and this is why.
+    /// Why routing refused this host.
     ///
-    /// A headless test with no log subscriber saw a host that simply never started, and the
-    /// campaign burned a whole slice discovering that on its own new consumer.
+    /// Stored explicitly so headless and no-log consumers can diagnose failed activation.
     Refused { reasons: Vec<String> },
     /// A route is live.
     ///
@@ -579,9 +576,7 @@ impl ModuleDraft {
 
     /// Apply an edit to the experience currently being declared.
     ///
-    /// With one global experience the ordering did not matter; with several, "which one did
-    /// that route attach to" has a wrong answer, and a route silently attached to nothing is
-    /// precisely the empty host this campaign spent slice C making impossible.
+    /// The explicit association prevents routes from attaching to the wrong experience or none.
     fn on_current(&mut self, what: &str, edit: impl FnOnce(&mut ExperienceDraft)) -> &mut Self {
         let owner = self.defining.clone();
         match self.current.and_then(|i| self.experiences.get_mut(i)) {
@@ -597,9 +592,7 @@ impl ModuleDraft {
 
 /// A game module: what it needs before the foundation, and what it declares.
 ///
-/// Both methods take `&self` — campaign §A2. Not because `Box<dyn GameModule>`
-/// demands it, but because a receiver-less `define` or an associated `const ID`
-/// forecloses parameterised modules for nothing:
+/// Both methods take `&self` so modules may carry configuration:
 ///
 /// ```ignore
 /// PlatformerApp::windowed("Sanic").mount(SanicModule { difficulty: Hard })
@@ -744,17 +737,9 @@ impl Plugin for DeclaredCapabilities {
 pub struct PlatformerApp {
     face: Face,
     session: SessionMode,
-    /// Not a [`SessionMode`] arm, on purpose.
+    /// Internal rollback composition without making rollback a public [`SessionMode`].
     ///
-    /// Rollback is not a public knob in slice A, so putting a `Rollback` arm on
-    /// the public enum would promise exactly what the campaign defers. But the
-    /// external fixture has a rollback host TODAY, and leaving it hand-composed
-    /// while the other two faces went through the builder would end the slice
-    /// with two composition paths — rule 4's violation, and calling it
-    /// "deferred" would not make it one.
-    ///
-    /// So: one composition authority, one publicly supported mode, and an
-    /// escape hatch that is impossible to reach by accident.
+    /// This keeps one composition authority while avoiding a public mode commitment.
     rollback_participants: Option<usize>,
     game_assets: bool,
     start_at: StartAt,

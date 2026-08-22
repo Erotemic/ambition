@@ -1,12 +1,5 @@
-//! The smallest game stands up — on both faces, from one module.
-//!
-//! Consumer-matrix row 2. Outlander already proves external composition, so
-//! what these add is the part one consumer cannot: that the API works for a
-//! game which asked for almost nothing.
-//!
-//! Each test below corresponds to a slice-B exit criterion, and none of them
-//! asserts "it compiled" — the campaign's rule is that a proof is a test that
-//! runs.
+//! Runtime checks for the smallest game on both supported faces from one module.
+//! The fixture proves that a minimally configured game can boot through the public API.
 
 use ambition_platformer2d::app::prelude::*;
 use minimal_game::MinimalModule;
@@ -155,21 +148,9 @@ fn declaring_no_cast_and_a_starting_character_is_refused() {
     );
 }
 
-/// A game that will never start says WHY, instead of hanging.
-///
-/// This is slice B's failure, turned into the check that should have caught it.
-///
-/// A module that declares no audio is refused by preparation validation. Before
-/// slice C the refusal reached `error!` and stopped there: a headless consumer
-/// with no log subscriber saw `Activating` forever, and a poll loop spun 600
-/// ticks on a decision the engine had reached on tick 3. That cost this
-/// campaign a whole slice and a falsely-"proven" consumer-matrix row.
-///
-/// `ShellCommandRejection::LoadFailed`'s own doc comment had already recorded
-/// the shape — without its carried failures "the route appeared to stall
-/// forever with no diagnosable cause" — so the reasons existed. They were just
-/// never anywhere a consumer could read them. A log line is an operator
-/// affordance; this is the API one.
+/// A game that cannot start exposes the preparation rejection programmatically.
+/// Headless and no-log consumers must not depend on log output to diagnose a
+/// refused activation.
 #[test]
 fn a_game_that_will_never_start_reports_why() {
     struct Voiceless;
@@ -730,20 +711,8 @@ fn a_multi_game_host_can_start_at_its_launcher() {
 
 /// The SDK's worked room example compiles and runs.
 ///
-/// This test exists because the SDK has now gone stale in the expensive
-/// direction THREE times, and each time prose was the only thing holding it
-/// true:
-///
-/// * the README's "Known gaps" advertised gaps slices B and C had closed;
-/// * `api-prototype.md` §5 published `ambition_platformer2d::experience`, which never existed;
-/// * §5 then DENIED `ambition_platformer2d::world::prelude` exists, after slice C shipped it —
-///   which cost blind run 4 two engine crates, and is the whole reason its
-///   headline finding was a documentation defect rather than an API one.
-///
-/// A doc example nothing executes is a claim, and this campaign's own rule is
-/// "name a test, never a doc marker". So the README's room snippet is
-/// reproduced here VERBATIM — same imports, same shape — and run. If the
-/// vocabulary moves again, this fails instead of a reader failing.
+/// Keep this executable example aligned with the README so public vocabulary
+/// changes fail in CI rather than for readers.
 #[test]
 fn the_sdk_worked_room_example_compiles_and_runs() {
     // Exactly the README's imports for a room: the domain prelude, nothing else.

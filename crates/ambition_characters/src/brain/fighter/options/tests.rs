@@ -1170,9 +1170,8 @@ fn a_blocked_move_loses_even_when_it_is_the_best_one() {
     let view = view_with(300.0, 340.0);
     let mut best = candidate("perfect", 0.05, 40.0);
     best.legality = ActionLegality::BlockedByPlayback;
-    //  it must REACH, just badly. An 8px reach against a 40px gap is filtered
-    // by the *sibling* ("cannot reach") rule, which would leave the kit empty
-    // and make this test pass for the wrong reason — it did, on the first draft.
+    // The poorer candidate must still reach; otherwise the sibling reachability
+    // filter empties the kit and makes this test vacuous.
     let poor = candidate("stubby", 0.3, 20.0);
     let kit = [best, poor];
 

@@ -1,14 +1,8 @@
-"""`scripts/gate_suite.py` decides which suite a turn needs. Pin the decision.
+"""Tests for `scripts/gate_suite.py` change classification.
 
-⛔ **the ruling this implements is a deliberate loosening**, so the tests here
-guard the SAFE direction rather than the fast one. Every case below is written so
-that a bug makes the gate run MORE than it needs, never less — except the two
-cases that are the whole point (prose-only, and the append-only measurements
-submodule), which are pinned exactly.
-
-Jon, 2026-08-08: *"I want to bias towards running less tests to balance out the
-agent urge to run more … We will catch regressions eventually."*
-"""
+Documentation/measurement-only edits may select the smoke gate. Any source,
+asset, configuration, or unknown path must fail toward the full suite so a
+classification bug cannot silently skip behavioral coverage."""
 
 from __future__ import annotations
 
@@ -43,15 +37,10 @@ def test_an_asset_is_not_prose():
 
 
 def test_a_generated_file_and_a_submodule_pointer_are_not_skippable():
-    """⚠ the generated file here is a GATE INPUT, chosen on purpose.
+    """Generated gate inputs and submodule pointers are not prose-only changes.
 
-    This case used to name `dev/compile_units.jsonl`, which moved into the
-    measurements submodule on 2026-08-08 and is now the one thing that IS
-    skippable — so keeping it would have inverted the case it was written for.
-    `dev/compile_ratchet_baseline.json` is the generated file that stayed behind:
-    the bare `python3 scripts/compile_ratchet.py` gate reads it on every run, so
-    a change to it changes what a check decides, which is exactly what "not
-    prose" has to mean.
+    The compile-ratchet baseline changes gate behavior and therefore must run the
+    gate suite.
     """
     assert not gate.is_skippable_only(["dev/compile_ratchet_baseline.json"])
     assert not gate.is_skippable_only([".agent/index/catalog.json"])

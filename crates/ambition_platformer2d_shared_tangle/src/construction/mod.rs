@@ -1,35 +1,11 @@
-//! Explicit spawn provenance and the one construction plan.
+//! Content-free construction planning and explicit spawn provenance.
 //!
-//! `docs/planning/engine/immutable-content-and-transactional-construction.md`
-//! §6.2–6.3 and Phase 3. Two rules drive everything here:
-//!
-//! > Plan before mutation. Construction is decided as a pure value first;
-//! > execution consumes that value instead of rediscovering authoritative
-//! > decisions while the live world is already half-replaced.
-//!
-//! > Provenance is data. Who requested an entity, and how to rebuild it, is
-//! > a component you can read — never a fact recovered by parsing the identity
-//! > string the sim happened to generate.
-//!
-//! ## Why this sits beside `SimId`
-//!
-//! [`SimId`](crate::sim_id::SimId) is *identity*: which entity this is. That coupling means the
-//! id grammar cannot change without silently changing reconstruction, and it means an entity
-//! whose spelling lies about its family (every summoned minion, which lands in the authored
-//! `placement:` namespace) is unreconstructable in principle. Splitting the two is the whole
-//! point: ids stay legible, provenance stays *readable*.
-//!
-//! ## What a domain supplies
-//!
-//! This module is content-free. A domain ([`ConstructionDomain`]) names the two
-//! things core cannot know: what one planned row carries
-//! ([`ConstructionDomain::Parameters`]) and what its recipes need in hand to
-//! execute ([`ConstructionDomain::Services`] — frozen catalogs, a frozen
-//! interpreter table). It also supplies the two functions that make a row
-//! buildable: [`ConstructionDomain::dispatch`], ONE exhaustive match yielding
-//! both a row's recipe identity and the function that populates the root the
-//! executor allocated. Neither the caller nor the recipe chooses the pairing or
-//! the entity, so neither can get it wrong.
+//! Construction decisions are pure values produced before world mutation;
+//! execution consumes those plans instead of rediscovering authority mid-build.
+//! `SimId` identifies an entity, while provenance records who requested it and
+//! how it can be reconstructed without parsing identity strings. A
+//! [`ConstructionDomain`] supplies domain parameters/services and one exhaustive
+//! dispatch from planned row to recipe/populator.
 
 use std::collections::{BTreeMap, BTreeSet};
 

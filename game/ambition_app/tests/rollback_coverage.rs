@@ -695,11 +695,9 @@ fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
 /// wearing the right character. A seat that silently fails to adopt is how a
 /// match sweep ends up inspecting an empty roster and reporting success.
 ///
-///  the robot lineage, not the arena duelists. A plain `Platformer2dSimHarness` prepares
-/// exactly `["player_robot_v2", "player_robot_v3", "robot"]` — the duelists are
-/// versus-ROUTE content — and `seat_character` returns `None` for an unprepared
-/// id, silently. The vacuity guard is what said so; the first version of this
-/// named the duelists and swept nothing.
+/// Use characters prepared by the plain simulation harness. `seat_character`
+/// returns `None` for unprepared IDs, so the vacuity guard must prove seats were
+/// actually created.
 fn seat_a_two_cpu_match(sim: &mut Platformer2dSimHarness) -> usize {
     use ambition_platformer2d::actors::character_runtime::{
         ControllerBinding, MatchParticipant, MatchParticipantRoster,

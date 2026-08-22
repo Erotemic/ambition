@@ -1,33 +1,10 @@
-//! What a room REFERENCES, resolved at construction time.
+//! Resolve `RoomSpec` references before construction mutates the world.
 //!
-//! A `RoomSpec` is full of ids that point at something else: a patrol brain
-//! names a kinematic path, an NPC placement names one, a moving hazard names
-//! one, an enemy spawn names a character archetype. Each of those was resolved
-//! by its own consumer, at its own moment, with its own way of shrugging — the
-//! patrol brain falls back to passive, the archetype falls back to a default. A
-//! room could therefore be authored entirely of typos and still construct,
-//! quietly, into something that merely looked under-populated.
-//!
-//! Only references that shrug belong here. A ground item's held-item id already
-//! REFUSES the room, so it is construction's business, not this sweep's — see
-//! [`HeldItemId`].
-//!
-//! This module resolves all of them in one pass, before construction mutates
-//! anything, and returns ONE
-//! [`BindingReport`](ambition_platformer2d_shared_tangle::binding::BindingReport).
-//!
-//! # Why it lives here and not in a game
-//!
-//! `game/ambition_content` has had a cross-content validator for a while, and
-//! its opening line states this module's thesis exactly: catch content typos
-//! "instead of letting string ids silently fall back or never fire". But it
-//! reads raw LDtk JSON, so it only ever served the one game with an `.ldtk`
-//! file. Mary-O builds `RoomSpec`s in Rust, Sanic builds its course, Outlander
-//! authors a ridge from outside the workspace — and none of them got any of it.
-//!
-//! Resolving the world IR instead of the authoring file is what makes this an
-//! ENGINE capability: every provider gets it, whatever backend produced the
-//! room (ADR 0021), including backends that do not exist yet.
+//! Patrol paths, characters, and similar references that would otherwise fall
+//! back are resolved in one pass and reported through `BindingReport`. References
+//! whose own construction already refuses invalid ids remain with their owning
+//! domain. Resolving the engine room IR rather than a specific authoring file
+//! gives every content backend the same validation.
 
 use ambition_platformer2d_shared_tangle::binding::{
     BindingLedger, BindingReport, Namespace, Ref, Resolver,

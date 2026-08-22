@@ -108,13 +108,7 @@ def _riders() -> list[Spawn]:
 
 @pytest.fixture(scope="module")
 def worlds_present() -> None:
-    """⚠ SKIP rather than fail when the submodule is absent.
-
-    A dangling world symlink is the DESIGNED signal for "you did not run
-    `git submodule update --init`" (Jon, 2026-08-08), and every worktree agent
-    hits it. Failing here would turn a deliberate state into a red on every
-    non-recursive clone.
-    """
+    """Skip when map assets are absent from a non-recursive checkout."""
     if not MAP_ASSETS.is_dir() or not any(MAP_ASSETS.rglob("*.ldtk")):
         pytest.skip("game/ambition_map_assets is not checked out")
 

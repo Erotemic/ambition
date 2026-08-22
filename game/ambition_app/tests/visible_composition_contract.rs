@@ -31,10 +31,8 @@ struct CompositionContract {
     /// omit it composes a perfectly correct host that boots to the launcher and
     /// renders nothing at all.
     ///
-    /// this is a FEATURE fact, which is why the first version of this file
-    /// could not see it. Every assertion here ran under the default desktop
-    /// features, where the answer is trivially yes. The browser's feature set is
-    /// a different build, and it was the one that was blank.
+    /// This is a feature-composition property, so it must be tested under the
+    /// persona's actual feature set rather than default desktop features.
     route_presentation: bool,
 }
 

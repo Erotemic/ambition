@@ -72,12 +72,8 @@ MIRRORED_TREES = (
     "crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_0_5x",
     "crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_0_25x",
     "crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_potato",
-    # Content-side generated art too, and it is easy to forget because it sits
-    # under a different crate. The first version of this list stopped at the
-    # monolith and left `vanity_card`'s frames behind; the app integration suite
-    # then failed twenty tests in this worktree — declared art paths, doors, the
-    # HUD, the smash roster — none of which look like a missing picture until you
-    # diff the asset trees.
+    # Content-side generated art lives outside the monolith and must be mirrored
+    # with the rest of the generated asset tree.
     "game/ambition_content/assets/vanity_card",
     "game/ambition_content/assets/backgrounds",
     "game/ambition_content/assets/concept_art",

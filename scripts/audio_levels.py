@@ -1,90 +1,23 @@
 #!/usr/bin/env python3
-"""**Measure how loud every sound in Ambition actually is, on one page.**
+"""Measure relative loudness across Ambition music and SFX.
 
-Prompted by: *"The Sanic music is much louder than the rest of the tunes, and
-the SFX sanic uses are also way too loud. We need a way to programmatically
-inspect the relative levels of different SFX and music scores so we identify
-things that might blow somebodies ear out."*
+The report combines three sources: rendered music files, clips packed in the SFX
+bank, and procedural `SfxSpec` cues synthesized with the same parameters as the
+runtime. It reports measurements only; it never retunes assets.
 
-The instrument reports; it never retunes anything. Fixing a level is a separate,
-explicit edit that names the file and the delta.
+Music is ranked by integrated LUFS and true peak. Short SFX are ranked by RMS
+dBFS and true peak because integrated LUFS is not meaningful for these clip
+lengths. Packed and procedural SFX share one comparison population even though
+the report records their production cohort separately.
 
-# # The corpus is THREE populations, not one, and two of them are not files
+Measurements are cached under `target/audio_loudness/` by content identity.
 
-⚠ a sweep of `*.ogg` finds **only music**. Every loose ogg in the tree is under
-`assets/audio/music/generated/`; there is not one loose SFX file. An instrument
-that globs audio files and stops there answers half the question asked and
-reports *nothing at all* about the SFX complaint.
+Usage::
 
-1. **music** — the loose `.ogg` scores and adaptive sections. Each one is a
-   complete mix that plays alone (adaptive entries are *sections* crossfaded one
-   at a time, not simultaneous stems), so they are directly comparable.
-2. **sfx_packed** — 381 clips inside `assets/audio/sfx.bank`, a single 30 MB
-   binary. Measured by slicing payloads straight out of the bank rather than out
-   of `tools/ambition_sfx_renderer/output/`, because *the bank is what ships*:
-   the runtime prefers packed clips over the procedural fallback, and the loose
-   renderer output is an input that can drift from what was last packed.
-3. **sfx_procedural** — `SfxSpec` rows: waveform + envelope + `volume`,
-   synthesized at runtime by `audio_source_from_sfx_spec`. **These are the ones
-   the complaint is about** and they exist nowhere on disk as audio. They are
-   extracted from `sfx_registry.ron` and from the providers' Rust, synthesized
-   here, and pushed through the *same* measurement path as everything else so
-   the numbers sit on one scale.
-
-⚠ (3) means this script carries a Python port of the Rust synthesizer. It is the
-only way to put a procedural cue on the same axis as a rendered one without a
-cargo build, and it is the part most likely to go stale — `scripts/tests/
-test_audio_levels.py` pins the port's analytic invariant (an unenveloped cue's
-RMS == authored `volume` x the engine's procedural reference level, whatever the
-waveform and noise mix) and pins that the extractor still resolves every field
-of every provider spec, so a refactor of `sanic_open()` fails loudly instead of
-silently dropping Sanic from the report.
-
-# # Why ebur128, and the one place it is structurally blind
-
-`ffmpeg -af ebur128=peak=true` is ITU-R BS.1770: integrated LUFS, loudness
-range, and **true peak** in one pass. True peak is the number that predicts a
-clipping-driven ear-stab, and it is the one a naive `max(abs(sample))` misses.
-
-⛔ **but integrated LUFS is undefined below ~400 ms and returns the -70 LUFS
-floor instead of saying so.** Measured here: `player.dash` (150 ms) reports
-`I: -70.0 LUFS` — an absolute-gate artifact, not a quiet clip. Every SFX in this
-repo is shorter than 400 ms, so *the whole SFX population reads as -70 LUFS*.
-An instrument that ranked SFX by LUFS would report a perfect tie and find
-nothing. So each POPULATION is ranked on the metric that is defined for it:
-
-* **music → integrated LUFS** (with max short-term as the "loudest moment").
-* **SFX → RMS dBFS and true peak** (`astats`, same ffmpeg pass, any length).
-
-⛔ **a population is not a cohort, and the difference decides the answer.** The
-three cohorts above are how a sound was *produced*; a population is what it
-plays *alongside*. `sfx_packed` and `sfx_procedural` share a metric and share
-the SFX mix bus, and the runtime picks between them per provider — the same cue
-id is a packed sample in one game and a synth spec in another. Judging each
-against its own median hides the whole defect, because a uniformly hot
-population has no internal outlier: measured here, the procedural path sits
-**+8.4 dB** over the packed path, and Sanic reads +4.6 dB against its cohort but
-**+12.1 dB** against everything it actually plays with. So outlier statistics
-run per population; cohorts are reported, and their *offset from the population*
-is itself a finding.
-
-# # Cost
-
-Measured 2026-08-08, 8 workers: **87 s cold** for 782 sounds (347 music files —
-4.8 h of audio — plus 381 bank clips and 54 synthesized specs), **1–4 s warm**.
-Results cache under `target/audio_loudness/`, keyed by a metrics version plus
-content identity: path+mtime+size for files, sha1 for unpacked bank payloads,
-and the SPEC for a synthesized cue (⚠ never its bytes — libsndfile stamps a
-float WAV's `PEAK` chunk with the creation time, so hashing the render gives a
-cache that misses every single time and never says so).
-
-# # Usage
-
-    python3 scripts/audio_levels.py                 # full sweep + report
-    python3 scripts/audio_levels.py --limit 20      # smoke run
+    python3 scripts/audio_levels.py
+    python3 scripts/audio_levels.py --limit 20
     python3 scripts/audio_levels.py --only music
-    python3 scripts/audio_levels.py --json out.json # full per-item dump
-"""
+    python3 scripts/audio_levels.py --json out.json"""
 
 from __future__ import annotations
 
@@ -1164,27 +1097,11 @@ def verdict_lines(items: list[Item]) -> list[str]:
 
 
 def _loudest_sounds_finding(by_population: dict[str, list[Item]]) -> list[str]:
-    """The LOUDEST SOUNDS, which is the question that was actually asked.
+    """Rank individual loudness outliers within each population.
 
-    ⛔ **an owner median answers a different question than the one above it.**
-    The offenders list ranks a catalogue by how uniformly loud it is; a provider
-    with three screamers and forty whispers has an unremarkable median and never
-    appears, while a provider whose whole set sits in a narrow band near the top
-    is flagged every run. Measured 2026-08-10: the offenders list named `sanic`,
-    `ability` and `ui` — all procedural-heavy owners clustered in a narrow band —
-    and the genuinely loudest sound in the tree, `player.attack.charge` at
-    -12.6 dB RMS / -6.0 dBTP, appeared **nowhere**, because `player` also owns
-    many quiet clips. Sanic's loudest cue is 5 dB quieter in RMS and 9 dB quieter
-    in true peak than that.
-
-    Jon asked for *"ear-damaging outliers found rather than stumbled on"*. An ear
-    is stabbed by ONE sound, not by a median, so this section ranks individual
-    sounds against their own population's spread.
-
-    ⚠ **robust statistics, not mean/sigma.** These distributions have long quiet
-    tails (a 381-clip bank spans 32 dB), and a tail drags a mean down and inflates
-    a sigma, so a genuine screamer scores fewer sigmas than it deserves. Median +
-    MAD is unmoved by the tail. The 3.0 factor is ~2 sigma for a normal
+    Owner medians describe catalogue balance, not isolated loud sounds. Use
+    median and MAD because the populations have long quiet tails that distort
+    mean/sigma thresholds. The 3.0 factor is ~2 sigma for a normal
     distribution — loose enough to be worth reading, tight enough to stay short.
     """
     out: list[str] = ['', '### The loudest individual sounds', '']

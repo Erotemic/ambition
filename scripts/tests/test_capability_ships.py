@@ -1,14 +1,8 @@
-"""`check_capability_ships.py` holds against the live tree.
+"""Tests that shipping compositions install resources required by live capabilities.
 
-The guard finds a resource that every shipping build reads as `Option<Res<T>>`
-and that only a DEV-gated module ever installs — S35's shape, where the frozen
-seat topology existed solely inside `#[cfg(feature = "dev_tools")]` code and so
-was absent from every build a player runs.
-
-⚠ it lives here rather than as a `run_tests.py` job for the same reason as the
-other guards added on 2026-08-01: this suite runs first and cheaply, and a guard
-nobody executes is indistinguishable from one that passes.
-"""
+A capability must not depend on a resource that is only provided by developer or
+optional scaffolding. The test exercises the guard against that missing-provider
+shape."""
 
 from __future__ import annotations
 

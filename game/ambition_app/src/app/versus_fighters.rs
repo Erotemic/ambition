@@ -1,33 +1,8 @@
-//! Two characters authored to fight.
+//! Versus-specific fighters with a shared duelist move grammar.
 //!
-//! Couch versus works: two controllers, two bodies, each driving only its own.
-//! It is two people walking into each other, because neither `mary_o` nor
-//! `sanic` authors a move list. Sanic's catalog row says why in as many words —
-//! *"a peaceful speedster: the momentum ride + ball dash ARE the kit; no combat
-//! moveset"* — and Mary-O must play like SMB1, where a jab is a flourish
-//! nobody asked for. Bolting attacks onto either would be authoring against
-//! their design to make a different mode work.
-//!
-//! So the arena gets fighters of its own, and they are the first production
-//! callers of [`CharacterDefinition::with_moveset`] — the seam C3 landed and
-//! recorded as "waiting on its first real fighter".
-//!
-//! ## Why two definitions and one archetype
-//!
-//! A fighting game is characters who share a grammar and differ in numbers: the
-//! jab is fast and weak, the smash is slow and heavy, and WHICH fast and which
-//! heavy is the character. [`duelist_moveset`] is the grammar and
-//! [`DuelistNumbers`] is the character, so adding a third fighter is a struct
-//! literal rather than a fifth copy of four `MoveSpec`s — and the two that exist
-//! cannot silently drift into different move sets.
-//!
-//! ## Art is SHARED, not authored here
-//!
-//! Both fighters name an existing sheet. Characters are shared by id and a
-//! definition names its art rather than owning it, which is exactly what lets a
-//! versus-only fighter exist without anybody drawing anything. Swings fall back
-//! to `idle` on a sheet with no attack row — visibly plain, honestly plain, and
-//! not a placeholder pretending to be art.
+//! Their definitions vary combat numbers while sharing the same move structure.
+//! They reference existing sprite sheets; missing attack rows use the normal
+//! animation fallback path.
 
 use ambition_platformer2d::actors::character_runtime::{CharacterDefinition, POSE_HITSTUN};
 use ambition_platformer2d::characters::brain::ActionSet;
@@ -37,11 +12,7 @@ use ambition_platformer2d::entity_catalog::{
 };
 use ambition_platformer2d::entity_catalog::{MoveGates, MovesetContract};
 
-/// What makes one duelist different from another.
-///
-/// Deliberately four numbers and a reach, not a full `MoveSpec` budget: the
-/// point of an archetype is that the shape is shared, and a knob that only one
-/// fighter ever sets belongs on that fighter's move, not here.
+/// Per-character parameters for the shared duelist moveset.
 #[derive(Clone, Copy, Debug)]
 pub struct DuelistNumbers {
     /// The fast poke. Low damage, low commitment — what you press when unsure.
@@ -56,13 +27,7 @@ pub struct DuelistNumbers {
     pub smash_windup_s: f32,
 }
 
-/// The grammar every duelist speaks: a jab, an up-tilt, a down-tilt, and a
-/// forward smash.
-///
-/// Four moves is the smallest set that makes a FIGHT rather than a button:
-/// something safe, something that covers above, something that covers below,
-/// and something that ends the round. Anything less and both players press the
-/// same button forever.
+/// Build the shared jab, directional-tilt, and forward-smash grammar.
 pub fn duelist_moveset(numbers: DuelistNumbers) -> MovesetContract {
     let jab = SimpleMeleeParams {
         windup_s: 0.06,

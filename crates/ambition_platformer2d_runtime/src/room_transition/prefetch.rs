@@ -67,18 +67,9 @@ impl RoomConstructionPlanPrefetch {
         self.plans.remove(room_id);
     }
 
-    /// Promote the exact immutable artifact prepared for this target, if one
-    /// was prepared under identity that still holds AND still describes the
-    /// target spec. A same-id hot reload or a session change is a miss.
-    ///
-    /// and so is a plan prepared against different DISPOSITIONS. A room
-    /// build asks where the occurrences it minted before actually are, and a
-    /// plan froze that answer: one prepared while an authored object was being
-    /// carried deliberately OMITS it, and committing that plan after the object
-    /// was put down and destroyed would leave the room permanently short of a
-    /// thing it authors. `outlook` is what the world remembers NOW; a plan that
-    /// was prepared against anything else is a miss, which costs one preparation
-    /// and is what the miss path is for.
+    /// Promote only when session identity, target spec, and world outlook still
+    /// match the prepared plan. A hot reload, session change, or custody/disposition
+    /// change is a miss and must re-prepare against the current outlook.
     pub fn promote(
         &mut self,
         content_epoch: u64,

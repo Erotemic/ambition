@@ -1,62 +1,14 @@
 #!/usr/bin/env python3
-"""Pick the integration suite a turn actually needs, and run it.
+"""Choose the integration gate required by the current diff.
 
-⭐ **Jon, 2026-08-08, verbatim:**
+Only documentation and the append-only measurements submodule may use the small
+smoke suite. Any other changed path selects the full integration suite. This is
+a whitelist: unknown or newly introduced paths fail toward running more tests,
+not fewer.
 
-> *"I want to bias towards running less tests to balance out the agent urge to
-> run more. So yes run a much much smaller suite for docs only changes. We will
-> catch regressions eventually."*
-
-The measurement that earned the ruling: `app_it` was **94.6% of all Stop-check
-time** (158.4 s of 161.1 s), `cargo check` was 0.5 s warm, and 114 checks in
-11h17m came to roughly **five hours of suite** — most of it on turns that edited
-nothing but planning prose.
-
-⛔ **The "we will catch regressions eventually" clause is the cost, taken
-knowingly.** A smaller gate does not make a regression less likely; it makes it
-arrive later than the turn that caused it. That trade is the maintainer's and he
-made it. So this script must not hedge it back — a "small" suite that quietly
-stays large would be disobeying the ruling, not being careful.
-
-## Whitelist, never blacklist
-
-Only `docs/` and the measurements submodule are skippable. Everything else —
-source, assets, `.ron` data the tests read, generated files, other submodule
-pointers, `Cargo.toml`, this script — forces the full suite.
-
-The asymmetry is deliberate and is the whole safety argument: **the failure mode
-of the RULE is a slower turn, and the failure mode of the SUITE is a later
-catch.** A blacklist ("skip when no `.rs` changed") inverts that — assets and
-generated files are not `.rs` and do change behaviour — so it is not offered even
-as an option.
-
-⭐ **`dev/ambition_dev_measurements` is the second entry and it is NOT prose**, so
-it is named for what it is: a write-only RECORD of what past runs cost. It earns
-the exemption twice over.
-
-* Nothing in the build or test graph reads it. This script runs
-  `cargo test -p ambition_app --test app_it`, and no row of telemetry can change
-  what that reports. ⚠ the one measurement artifact that IS an input to a check —
-  `dev/compile_ratchet_baseline.json`, which the bare
-  `python3 scripts/compile_ratchet.py` gate reads on every run — deliberately
-  stayed OUT of the submodule and is still non-prose, so it still forces the
-  full suite when it moves.
-* Without the exemption the prose-only case would be dead within one suite run.
-  `run_tests.py` appends a row to `run_tests_cost.jsonl` on EVERY run, which
-  leaves the submodule's working tree dirty, which `git status --porcelain` in
-  the PARENT reports as a modified `dev/ambition_dev_measurements`. So the next
-  turn — the pure-prose one this ruling exists for — would see a non-prose path
-  and run the full suite, for a file it did not touch and cannot be affected by.
-
-## What the smoke subset is FOR
-
-⭐ Not "the tests that could break from editing a document" — that set is empty,
-which is the point of the ruling. The smoke subset exists to catch **this script
-being wrong**: a path that should have forced the full suite and did not. So the
-modules are chosen to fail loudly if the app stops composing at all, and they are
-named with a reason each rather than picked by runtime. A subset chosen by
-runtime is one nobody can defend, and it rots silently as tests are added.
-"""
+The smoke modules exist to detect a mistaken classification that broke basic app
+composition; they are not intended to cover behavior affected by documentation
+changes."""
 
 from __future__ import annotations
 

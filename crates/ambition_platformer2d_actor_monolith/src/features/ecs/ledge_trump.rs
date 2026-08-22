@@ -1,33 +1,8 @@
-//! The ledge trump: one edge, one body.
+//! Ledge trumping enforces one hanging body per edge.
 //!
-//! The third body-vs-body interaction beside [`super::capture`] and
-//! [`super::footstool`], and it exists because the kernel's ledge grab cannot
-//! see anybody else. `try_start_ledge_grab` asks one body about one wall, so two
-//! fighters could hang on the SAME edge — both intangible, both safe, and the
-//! stage's only recovery point shared rather than contested.
-//!
-//! ```text
-//! a CAPTURE    volume overlap        -> a relationship that outlives the move
-//! a FOOTSTOOL  feet on a head + jump -> two impulses and a stun, over at once
-//! a TRUMP      two hands on one edge -> the later arrival keeps it
-//! ```
-//!
-//! ## The later arrival wins, and that is the mechanic
-//!
-//! the edge belongs to whoever caught it MOST RECENTLY. That is the
-//! genre's rule and it is the one that makes an edge contested: a fighter
-//! hanging on the ledge to wait out a recovery can be taken off it by the very
-//! body they were waiting for. `LedgeGrabState::elapsed` already counts the
-//! seconds since a grab, so the trumper is simply the smaller number.
-//!
-//! and the trumped body loses its intangibility with the edge. It was
-//! bought with airtime it no longer has — see
-//! [`ae::ledge_grab::ledge_grab_invuln_earned`] — and a body that kept the
-//! window while falling would be the safest thing on the stage.
-//!
-//! PARTIAL against the genre, and named rather than implied: a trumped
-//! body is dropped, where Ultimate pops it outward into a brief helpless state.
-//! The drop is the half that makes the edge contested; the pop is feel.
+//! The most recent grab keeps the ledge; older holders are knocked off and lose
+//! ledge-grab intangibility. This implements the contested-edge rule without the
+//! outward helpless pop used by some platform fighters.
 
 use bevy::prelude::*;
 
@@ -39,15 +14,10 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 /// bodies, so this is a float-equality tolerance rather than a reach.
 const SAME_EDGE_EPSILON: f32 = 1.0;
 
-/// Take the edge away from whoever caught it first.
+/// Keep the newest holder of each edge and knock older holders off.
 ///
-/// # Why the order is spelled out
-///
-/// Three bodies can be on one edge, and `elapsed` can tie — two fighters that
-/// grabbed on the same tick have the same age to the float. Taking whichever
-/// pair the query yields first makes the outcome depend on archetype order,
-/// which is stable within a run and NOT stable across a rollback resimulation.
-/// So the holders are sorted by `(elapsed, SimId)` and only the FIRST survives.
+/// Sorting by `(elapsed, SimId)` gives same-tick grabs a deterministic winner
+/// independent of query/archetype order.
 pub fn resolve_ledge_trumps(
     mut bodies: Query<(
         Entity,

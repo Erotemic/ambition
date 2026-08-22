@@ -236,18 +236,10 @@ def test_test_time_splits_the_build_graph_from_the_running():
 
 
 def test_the_page_renders_from_any_subset_of_the_five_ledgers():
-    """⛔ a present-but-EMPTY ledger is not the same case as a missing one.
+    """The report must render for every subset of available ledgers.
 
-    The all-missing path was handled and the partial path was not: an empty
-    `compile_units.jsonl` produced zero builds, and the coverage section indexed
-    `span_units[0]` on an empty list. A fresh clone that has run one collector
-    and not the others is the ordinary case, so every subset must render.
-
-    ⭐ **and it is now the FRESH-CLONE case too.** The ledgers moved into the
-    `dev/ambition_dev_measurements` submodule on 2026-08-08, so a clone without
-    `--recursive` has none of the five. Degrading here rather than failing is
-    exactly why the report is allowed to be a reader with no submodule guard —
-    see `scripts/lib/measurement_paths.py`.
+    Empty and missing ledgers are both valid inputs, including non-recursive
+    checkouts without the measurements submodule.
     """
     real = {name: report.load_jsonl(path) for name, path in report.LEDGERS.items()}
     names = list(real)

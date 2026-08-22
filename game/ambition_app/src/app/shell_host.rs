@@ -1,32 +1,10 @@
-//! The Ambition multi-game shell host — title screen, provider
-//! composition, and the Ambition game as one provider among equals.
+//! Multi-game shell host for Ambition and registered experience providers.
 //!
-//! `compose_ambition_shell_host` turns the visible Ambition app into a
-//! shell-routed host: `./run_game.sh` boots into the Ambition launcher
-//! (title screen), whose entries derive from registered experience providers
-//! (Ambition, Sanic, Mary-O, Pocket, TwinTrack, Smash, Versus — plus Exit). Selecting an
-//! entry activates that provider's gameplay session through the shared
-//! shell/session/load lifecycle; `QuitToHome` retires the exact session and
-//! resumes the launcher; Exit leaves the process.
-//!
-//! a row need not lead to GAMEPLAY. Smash's entry opens its character
-//! select — a frontend route the provider registers itself — and the stage
-//! arrives when that screen has decided. The host knows nothing about it: the
-//! row is derived from the registration like every other, and the registration
-//! names an ENTRY route distinct from its session one.
-//!
-//! The Ambition GAME lives behind [`AmbitionExperiencePlugin`] — the same
-//! provider contract the demos use. Its activation constructs a fresh
-//! session-scoped simulation world from the boot-prepared LDtk data
-//! ([`AmbitionPreparedWorld`]); teardown is the generic session-scope sweep.
-//! The provider names no launcher route: home is host-relative.
-//!
-//! Direct development entry (`--direct`, or any `--start-room`/mode alias
-//! that wants to land in gameplay immediately) keeps the pre-shell path: the
-//! world constructs at `Startup` exactly as before and no launcher exists.
-//! That choice is host CONFIGURATION, not a second gameplay implementation —
-//! both paths run the same construction code, differing only in when it runs
-//! and who owns the spawned entities.
+//! The launcher derives rows from provider registrations; selecting a row enters
+//! that provider's declared entry route and session lifecycle, while `QuitToHome`
+//! retires the active session and returns to the host-owned launcher. Ambition
+//! itself implements the same provider contract as demos. Direct development
+//! entry bypasses the launcher but uses the same gameplay construction path.
 
 use bevy::prelude::*;
 
@@ -49,52 +27,18 @@ pub const AMBITION_LAUNCHER_ROUTE: &str = "ambition_launcher";
 #[derive(Resource, Default, Debug, Clone, Copy)]
 pub struct AmbitionShellHosted;
 
-// `direct_entry` was deleted with the path it gated (K2b edit 3).
-//
-// It answered "is `AmbitionShellHosted` absent", and every composition inserts
-// it now — so the run condition was permanently false and the four startup
-// systems behind it were dead code that looked live. That is the more dangerous
-// kind: it invites somebody to re-wire a second way to start a game.
-
-/// Ambition's gameplay implementation is a reusable provider crate. The host
-/// re-exports its public identities for compatibility while owning only home,
-/// startup, platform, and process policy.
+/// Ambition gameplay provider identities temporarily re-exported by the host.
+/// TODO(compat-remove): migrate callers to `ambition_content::provider`, then
+/// remove this host-level re-export.
 pub use ambition_content::provider::{
     AmbitionExperienceConfig, AmbitionExperiencePlugin, AmbitionPreparedWorld, AMBITION_EXPERIENCE,
     AMBITION_GAMEPLAY_ROUTE,
 };
 
-/// Compose the shell-routed multi-game host on top of the already-composed
-/// visible Ambition app: shell/load/session plugins, the three linked
-/// providers, the launcher-as-home routing, process exit, and the universal
-/// in-session Quit to Home binding.
-/// The headless shell host, booted straight to a chosen route.
-///
-/// This is the parameter that lets a caller say so, and lets a test build BOTH paths and compare
-/// their worlds, which is the evidence the deletion stage needs. `compose_ambition_shell_host`
-/// keeps its launcher default, so nothing that exists today changes. The ONE way to compose a
-/// playable Ambition, in three ordered steps.
-///
-/// the ORDER is load-bearing and not obvious, which is the other reason
-/// for a function:
-/// 1. [`AmbitionShellHosted`] goes in FIRST. Composing without it left the app
-///    carrying the build-time root AND the activation's — two canonical roots,
-///    and a panic on the first read.
-/// 2. The simulation plugin comes BEFORE the shell. The shell is an ADAPTER over
-///    a composed game, not a composition of one: `settle_versus_round` requires
-///    `Res<WorldTime>`, which the sim plugin installs, so the reverse order
-///    panics inside parameter validation naming a system the caller never heard
-///    of.
-/// 3. Only then the shell, booted to the gameplay route.
-///
-/// The caller still supplies its own foundation (`add_headless_foundation`,
-/// `MinimalPlugins`, or a windowed one) — that is a real choice and this does not
-/// make it. What it removes is the part nobody should be choosing.
-///
-/// this does NOT settle. Activation is asynchronous — a load barrier and eight
-/// preparation work items — so a caller that needs a live world calls
-/// `settle_until_session_world` after. Folding the settle in would hide a wait
-/// from callers that legitimately want to inspect the pre-activation frames.
+/// Compose a headless Ambition gameplay host in dependency order: mark the app
+/// shell-hosted, install simulation, then install the shell booted to gameplay.
+/// The caller supplies the Bevy foundation. Activation remains asynchronous;
+/// callers that require a live session world settle it explicitly.
 pub fn compose_ambition_gameplay_host(app: &mut App) {
     app.insert_resource(AmbitionShellHosted);
     app.add_plugins(crate::app::AmbitionGameSimulationPlugin);

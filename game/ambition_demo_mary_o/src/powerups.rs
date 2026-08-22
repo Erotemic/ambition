@@ -1164,27 +1164,9 @@ pub fn dress_power_blocks(
             Some(MaryOBlockLook::Hidden) if is_spent => {
                 Some(BlockArt(EntitySprite::SpentBlockTile))
             }
-            // That fork is gone: `spawn_block` resolves every `BlockKind::Solid` through
-            // `block_tile_sprite`, so a brick built from an entity and a wall built from cells
-            // already draw the same tile. The override said nothing the kind was not already
-            // saying.
-            //
-            // and once `apply_block_art` could reach a painted block the redundant override
-            // stopped being harmless. Naming art for a block clears the level's authored colour —
-            // it must, or a hidden block's reveal stays transparent — so in a level that paints its
-            // own stone this would have stripped the paint off exactly the brick that is supposed
-            // to be indistinguishable from the wall. Saying nothing is what keeps it hidden.
-            //
-            // That is true and it is the point: the secret is worth keeping until the block pays,
-            // and after it has paid there is no secret left to keep — only a player who cannot tell
-            // which bricks they have already emptied.
-            //
-            // Naming art only at the moment of payout takes the paint off exactly the block that
-            // has stopped being a secret.
-            //
-            // a brick that holds NOTHING never reaches `spent` at all: it
-            // shatters through `bricks::break_bricks`. So this arm is precisely
-            // "a brick that was hiding something and has now given it up".
+            // Unspent bricks keep room-authored art/color so they remain visually
+            // indistinguishable from masonry. Once a brick pays out, give it the
+            // spent-block texture; empty bricks shatter instead of reaching `spent`.
             Some(MaryOBlockLook::Brick) if is_spent => Some(BlockArt(EntitySprite::SpentBlockTile)),
             Some(MaryOBlockLook::Brick) => None,
             _ => None,
@@ -1192,19 +1174,15 @@ pub fn dress_power_blocks(
         let Some(want) = want else {
             continue;
         };
-        // a spent block gets its OWN texture, it does not fall back to the kind's. The first
-        // version removed the override and let the block become plain masonry, which hides its own
-        // history — a player cannot tell a used block from a wall.
+        // A spent block keeps an explicit spent texture rather than falling back
+        // to its block kind.
         if art != Some(&want) {
             commands.entity(entity).insert(want);
         }
     }
 }
 
-/// Re-arm every ?-block when the room (re)loads or replays. The twin of
-/// [`crate::bricks::rearm_bricks_for_a_fresh_attempt`], and it had both of the
-/// same defects: a death left every block spent, and the `LEVEL_1_1_ROOM_ID` gate
-/// meant 1-2's blocks never came back at all. See that function for the reasoning.
+/// Re-arm every power block when its room loads or replays.
 pub fn rearm_power_blocks_for_a_fresh_attempt(
     mut rooms: MessageReader<RoomLoaded>,
     mut replays: MessageReader<ambition_platformer2d::actors::session::reset::RoomReplayRequested>,

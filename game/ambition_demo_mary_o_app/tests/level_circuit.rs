@@ -90,10 +90,8 @@ fn grabbing_the_authored_pole_carries_you_out_of_the_level() {
                      changing afterwards only hides it when nothing drops the request."
                 );
                 assert_eq!(id, LEVEL_1_2_ROOM_ID, "1-1's goal names 1-2");
-                // AND IT HAS TO STAY THERE. The first version of the keep-asking fix remembered
-                // only THAT it had asked, not WHERE, so the arrival test compared the active room
-                // against a destination re-derived this tick — which, on arriving in 1-2, is
-                // already 1-2's own exit back to 1-1.
+                // The transition must remain settled after arrival; destination tracking
+                // is tied to the requested room, not re-derived from the new room.
                 for _ in 0..240 {
                     app.update();
                     assert_eq!(

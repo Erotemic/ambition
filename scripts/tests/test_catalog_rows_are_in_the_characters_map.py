@@ -1,23 +1,8 @@
-"""A character-shaped row that is not in the `characters` map is not a character.
+"""Character-shaped catalog rows must live in the `characters` map exactly once.
 
-⛔ **This happened on 2026-08-05 and nothing caught it.** Four new rows were
-inserted into `character_catalog.ron` by finding the first id that sorted after
-each one — and the file has several id-keyed maps, so all four landed inside
-`action_set_presets`. Every art check passed, because the sheets and portraits
-they named really did exist. The characters simply were not in the game.
-
-The only thing that noticed was a guard added an hour earlier for an unrelated
-reason (`rendered_identities_are_registered`), and it noticed by accident: it
-asks whether a renderer's declared id is registered, and these four were not.
-
-So this asks the question directly, and from the FILE rather than the runtime:
-a row carrying `display_name` and `spritesheet` is a character row, and a
-character row belongs in exactly one place.
-
-⚠ **it reads structure, not names.** A list of expected ids would have to be
-maintained and would go stale the first time somebody adds a character; the
-SHAPE of a character row is the durable fact.
-"""
+The test recognizes character rows by structure (`display_name`, `spritesheet`,
+etc.) rather than by a hand-maintained id list, so newly added characters are
+covered automatically and cannot be misplaced into another keyed map."""
 
 from __future__ import annotations
 

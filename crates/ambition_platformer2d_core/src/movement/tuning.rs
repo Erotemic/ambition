@@ -310,11 +310,8 @@ pub struct MovementTuning {
     #[serde(default)]
     pub carried_decay: f32,
     pub max_run_speed: f32,
-    /// air ACCELERATION was authored and air TOP SPEED was not, so a
-    /// body's ground run cap governed its drift — the accidental reuse of
-    /// ground locomotion the combat campaign names. In a platform fighter air
-    /// speed is a per-character stat and a slow-running heavy can still drift
-    /// fast; expressing that was impossible.
+    /// Air top speed is independent of ground run speed so per-character drift
+    /// can differ from ground locomotion.
     ///
     /// the sentinel is deliberate, not laziness. `Option<f32>` would cost
     /// a bool in the motion codec's frozen wire layout for a value whose

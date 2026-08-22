@@ -1,22 +1,8 @@
-"""The no-warnings guard's parser, pinned against real cargo output.
+"""Tests for the warning parser against representative Cargo short-format output.
 
-⛔ **the first version of this parser was inverted, and it FIRED on the probe
-anyway.** It matched `^warning:` — which in `--message-format=short` is cargo's
-per-crate SUMMARY line, not a diagnostic — so it reported
-
-    `ambition_geometry` (lib) generated 1 warning (run `cargo fix` …)
-    `ambition_geometry` (lib test) generated 1 warning (1 duplicate)
-
-and dropped the actual `unused import` it was standing on. Exit code 1, two rows,
-zero information, and both rows describing the same single warning.
-
-⭐ that is the lesson this file exists for: **a red guard is not a working
-guard.** "I planted a defect and it went red" is the standard probe, and it was
-satisfied here by an instrument that could not name the defect. The probe has to
-check WHAT came back, not just that something did.
-
-The samples below are real stderr from this workspace, not invented shapes.
-"""
+The parser must return the actual diagnostics rather than Cargo's per-crate
+warning summary lines, and planted warning output must both fail the guard and
+name the underlying diagnostic."""
 
 from __future__ import annotations
 

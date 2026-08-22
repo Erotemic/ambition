@@ -98,22 +98,8 @@ pub struct MadeThisMemeCardPlugin;
 
 impl Plugin for MadeThisMemeCardPlugin {
     fn build(&self, app: &mut App) {
-        // the card is a SHELL SEGMENT, and `ambition_content`'s presentation
-        // does not drag the game shell in behind it — a composition can hold this
-        // plugin with no shell at all (`capture_scene` does). `spawn_vanity_card`
-        // asks `ActiveShellSequence` what segment is registered and returns when
-        // the answer is "none", so "the resource does not exist" has the SAME
-        // answer; without the condition it was a `Res` validation panic instead.
-        //
-        // and it gates all THREE, not just the spawner. The first draft let the
-        // other two run on the reasoning that no shell means no roots means their
-        // queries find nothing — true of the BODIES, and beside the point:
-        // `animate_vanity_card` holds a `MessageWriter<ShellSequenceCommand>`, and
-        // Bevy validates every param BEFORE the system body decides it has no work,
-        // so it panicked on an unregistered message type instead.
-        //
-        // The honest statement is the simple one: this card exists only inside a
-        // shell sequence, so with no shell none of it runs.
+        // The card exists only inside a shell sequence. Gate all of its systems so
+        // shell-less compositions do not require shell resources or message types.
         app.add_systems(
             Update,
             (spawn_vanity_card, animate_vanity_card, fit_card_to_display)

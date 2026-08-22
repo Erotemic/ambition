@@ -111,23 +111,11 @@ pub const PLAYABLE_ROSTER: &[&str] = &[
     "npc_emmy_noether",
 ];
 
-/// Characters this game can BUILD but does not OFFER as a selection.
+/// Characters this game can build without offering them as player selections.
 ///
-/// It must NOT define which characters the engine is capable of constructing."* Until this
-/// existed the two questions were one list, so making a character buildable also put a portrait
-/// on the select grid — and a mite does not belong there.
-///
-/// Registration is `PLAYABLE_ROSTER ∪ this`. Empty today, so nothing changes
-/// yet; it is the door phase 2's migration walks through, one character at a
-/// time.
-///
-/// Author first, register second; that ordering is the whole reason this list is empty rather than
-/// pre-filled with the obvious candidates. THE BUILD-ONLY CAST IS DERIVED, not listed.
-///
-///  authoring a character MAKES it buildable. `authored/` is one file per
-/// creature and [`crate::authored::AUTHORED_CAST`] is the one table; twenty-two
-/// of the twenty-four ids come from there now and cannot fall out of sync with
-/// their own authoring, because they ARE their own authoring.
+/// Buildability comes from authored character registration and is distinct from
+/// the playable roster. The build-only cast is derived from authored definitions
+/// rather than maintained as a second list.
 pub fn buildable_only_cast() -> impl Iterator<Item = &'static str> {
     crate::authored::authored_ids()
         .chain(REGISTERED_WITHOUT_A_BODY.iter().copied())
@@ -363,21 +351,9 @@ mod tests {
 
     /// A migrated character has no archetype row left.
     ///
-    /// the acceptance signal for this campaign is a DELETION, and a test that only checked the
-    /// new authority would pass just as well with both standing. This is the other half: the
-    /// file must not still describe a creature its character now describes.
-    ///
-    /// The sound instrument is the one production uses: build the definition and ask
-    /// `body_blueprint()`, which is the same call the spawn roads make.
-    ///
-    /// this number is the campaign's remaining distance. A placement naming
-    /// a body-complete character is built character-first and never touches the
-    /// archetype road; every other one is why `combatant` still has to exist. The
-    /// test asserts the count only moves UP, so a migration that quietly stops
-    /// authoring locomotion cannot pass.
-    ///
-    /// Six characters is the size of the error a plausible-looking one-off measurement made, which
-    /// is the argument for the census living here instead of in a shell pipeline.
+    /// Production readiness is measured through `body_blueprint()`, the same
+    /// definition path used by spawning. The census may only increase so losing
+    /// authored locomotion cannot masquerade as migration progress.
     #[test]
     fn the_body_complete_cast_only_grows() {
         let complete: Vec<&str> = crate::character_catalog::buildable_cast()
@@ -390,18 +366,8 @@ mod tests {
                         crate::AMBITION_CONTENT_PROVIDER,
                     ),
                 );
-                // "authors its own locomotion" is the CAMPAIGN's criterion,
-                // not a copy of `body_blueprint`'s. The brief says it in those
-                // words — *"a placement naming a COMPLETE character (one that
-                // states its locomotion) is built by `new_character_in`"* — and
-                // `body_blueprint` happens to check the same single fact today.
-                //
-                // if preparation ever requires a SECOND fact, this census
-                // becomes optimistic rather than wrong, and the place to look is
-                // `PreparedCharacterDefinition::body_blueprint`'s missing list.
-                // Asking that function directly is not possible from here:
-                // preparation's test entry point is `#[cfg(test)]` inside the
-                // monolith, so it does not exist for another crate.
+                // This census uses authored locomotion as the completeness signal.
+                // If preparation gains additional requirements, update the census to match.
                 definition.locomotion.is_some()
             })
             .collect();
@@ -725,9 +691,7 @@ mod tests {
         }
     }
 
-    /// One character, two bodies — the giant's left and right hands are the
-    /// same definition spawned twice by the rig, which is a reusable authored
-    /// template doing the thing the campaign exists to make possible.
+    /// The giant's left and right hands reuse the same character definition.
     #[test]
     fn the_giants_hands_author_the_limb_their_archetype_row_used_to() {
         use ambition_characters::brain::CharacterBrainTemplate;

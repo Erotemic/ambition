@@ -177,7 +177,7 @@ pub fn settle_versus_round(
     active_match: Option<Res<ambition_platformer2d::actors::character_runtime::ActiveMatch>>,
     mut state: ResMut<VersusMatch>,
     mut commands: Commands,
-    // Campaign 3A: a round boundary must not enumerate the transient families that might exist.
+    // A round boundary must not enumerate the transient entity families that might exist.
     mut rounds: ResMut<ambition_platformer2d::platformer::lifecycle::ActiveRoundScope>,
     mut fighters: FighterQuery,
     mut reactions: Query<&mut BodyCombat, With<MatchSeat>>,
@@ -243,14 +243,8 @@ pub fn settle_versus_round(
                 return;
             }
 
-            // GO.
-            //
-            // THE ROUND'S LIFETIME OPENS HERE, at the one place a round
-            // actually goes live, and not in `begin_round` — which runs at a
-            // TRANSITION and therefore never ran for the first round at all. A
-            // scope minted only on transitions leaves round one unscoped, so its
-            // debris would survive into round two: exactly the leak Campaign 3A
-            // exists to close, reintroduced by the shape of the state machine.
+            // Open the round lifetime when the round actually goes live. Minting
+            // scope only during transitions would leave the initial round unscoped.
             rounds.begin();
             state.phase = MatchPhase::Fighting;
             for (entity, ..) in fighters.iter() {
@@ -555,13 +549,7 @@ fn begin_round(
     }
 }
 
-/// Slot ids for the versus readouts — one health slot PER SEAT.
-///
-/// A gauge is a per-body fact. The first version declared two slots and wrote
-/// every seat above zero into the right-hand one, so in a four-player match
-/// seats 1, 2 and 3 overwrote each other and exactly two fighters were visible
-/// — one bar showing whichever body the query reached
-/// last, which is worse than no bar because it looks like information.
+/// Slot ids for the versus readouts — one health slot per seat.
 pub const HEALTH_HUD_SLOTS: [&str; 4] = [
     "versus_health_seat_1",
     "versus_health_seat_2",

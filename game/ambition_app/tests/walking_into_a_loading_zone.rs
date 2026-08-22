@@ -1,34 +1,9 @@
-//! THE CHARACTER WALKS THROUGH THE DOOR. NOBODY TELEPORTS HER INTO IT.
+//! Exercise room transitions by moving through authored zones under the real
+//! movement/control pipeline rather than teleporting the body into a trigger.
 //!
-//! both interact doors and contact doors... These are huge regressions, not sure
-//! how we didn't have a test to catch these."*
-//!
-//! and the door suite was GREEN while he could not open one. Every
-//! room-transition test in this tree, including `door_entry`'s shipped-host
-//! case, puts the body inside the zone by ASSIGNMENT —
-//! `kin.pos = zone.aabb.center()` — and then presses a key. That covers the
-//! press and the room graph and skips the part a player does: crossing the floor
-//! under their own power until their body overlaps the rectangle. Anything that
-//! breaks between "a body is walking" and "a body is inside that zone" is
-//! invisible to an assignment, because an assignment is not a walk.
-//!
-//! So these two hold a direction and let the simulation carry the body:
-//!
-//! ```text
-//!   AgentAction.move_x → the real control frame → the real movement kernel
-//!     → the body's own integration and collision
-//!     → overlap with an authored LoadingZone
-//!     → (Walk: fires on overlap · Door: fires on overlap + Interact)
-//!     → the active room actually changes
-//! ```
-//!
-//! the contact half needs a HOP, and that is a content defect, not this test being lenient. A
-//! 16px floor lip sits inside the start room's edge exit, so a walking body stalls against its side
-//! forever.
-//!
-//! the walk is asserted separately from the transition, and that split is the diagnosis. One
-//! test, two distinguishable verdicts, because "I cannot go through doors" has always had those two
-//! causes and no test could tell them apart.
+//! Walk-activated zones fire on overlap; interact doors require overlap plus the
+//! interaction edge. The test distinguishes failure to physically reach the zone
+//! from failure of the transition once overlap occurs.
 
 use ambition_app::{AgentAction, Platformer2dSimHarness};
 use ambition_platformer2d::engine_core::AabbExt;

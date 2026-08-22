@@ -130,13 +130,7 @@ def test_load_handles_some_wrapper():
 
 
 def test_empty_dict_dumps_as_map_not_unit():
-    """Regression: `dumps({})` used to emit `()` (the RON unit type),
-    which the runtime's `ron::from_str` rejected as a value for any
-    `HashMap` field. The `synth_boss_manifest` script emitted
-    `anchors: {}` (empty per-frame anchors) → `anchors: ()` → boss
-    subdir manifests silently failed to parse → Hall pedestals for
-    gnu_ton + mockingbird rendered as colored-rectangle placeholders
-    for weeks (caught 2026-05-24)."""
+    """Empty dictionaries must serialize as RON maps, not the unit value `()`."""
     out = dumps({})
     assert "{}" in out, f"empty dict should serialize as `{{}}`, got: {out!r}"
     assert "()" not in out, f"empty dict must not serialize as `()`, got: {out!r}"

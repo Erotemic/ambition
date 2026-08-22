@@ -1130,18 +1130,9 @@ mod tests {
         );
     }
 
-    ///  A RELEASE ENDS THE CAPTURE'S HOLD AND NOBODY ELSE'S.
-    ///
-    /// A capture is the first authority that can legitimately hold a body while
-    /// ANOTHER one does — a KO card, a round break, a countdown all claim the
-    /// same fighters, and a grab can be live across any of them. While capture
-    /// removed `ScriptedControl` outright, the throw's release frame handed a
-    /// frozen fighter back its controls in the middle of somebody else's
-    /// ceremony, and nothing at either end recorded that it had happened.
-    ///
-    ///  both directions, because one alone proves nothing. A release that
-    /// never freed anybody would pass the first half; a release that freed
-    /// everybody would pass the second.
+    /// Releasing a capture removes only the relationship hold. Other concurrent
+    /// control holds (round break, countdown, KO presentation, etc.) must remain.
+    /// The test covers both with and without an additional hold.
     #[test]
     fn a_release_ends_this_holds_claim_and_leaves_the_others() {
         use ambition_characters::brain::{ControlHold, ControlHolds, ScriptedControl};
@@ -1702,30 +1693,10 @@ pub fn apply_capture_pummels(
     }
 }
 
-/// A throw's authored release frame: the hold ends and the body leaves.
-///
-/// Order is the whole content of this function, and it is the order the plan
-/// states because each step depends on the last:
-///
-/// ```text
-/// damage        the meter rises BEFORE the launch reads it, so a throw's own
-///               damage counts toward how far its own throw sends you
-/// release       the relationship, the control projection and gravity, together
-/// launch        an ORDINARY hit reaction on a body that is now ordinary
-/// ```
-///
-///  the launch is not "throw velocity". It is
-/// [`scaled_knockback`](crate::util::scaled_knockback) folded onto the
-/// same [`HitKnockback`] every authored launcher builds, handed to the same
-/// reaction road. So a throw inherits weight, percent scaling, DI, arbitrary
-/// gravity, carried momentum, hitstun and hitstop — none of which it would get
-/// from a second launch engine, and all of which a platform fighter's throws are
-/// expected to have.
-///
-///  release BEFORE launch, not after. The launch arms hitstun, and hitstun
-/// is what `release_interrupted_captures` reads: launching first would leave the
-/// interruption rule to do the releasing on the following tick, which is a
-/// different code path reaching the same state by accident — and one frame late.
+/// Apply an authored throw in dependency order: damage, release, then launch.
+/// Damage contributes to the launch's percent scaling; release must happen before
+/// hitstun is armed. The launch uses the ordinary `HitKnockback` reaction path so
+/// throws inherit weight, DI, gravity, carried momentum, hitstun, and hitstop.
 pub fn apply_capture_throws(
     mut commands: Commands,
     mut requests: MessageReader<crate::capture::CaptureThrowRequested>,

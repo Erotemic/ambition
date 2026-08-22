@@ -1,36 +1,9 @@
-"""Every `ambition_platformer2d::` module the SDK's CODE BLOCKS name must actually exist.
+"""SDK code examples may name only public modules that actually exist.
 
-⚠ **This is here because prose failed three times in four blind runs**, and each
-failure sent a third-party agent into `crates/`:
-
-* the README's "Known gaps" advertised gaps slices B and C had already closed;
-* `api-prototype.md` §5 published `ambition_platformer2d::experience`, which never existed;
-* §5 then DENIED `ambition_platformer2d::world::prelude` exists, after slice C shipped it —
-  costing blind run 4 two engine crates, and making its headline finding a
-  documentation defect rather than an API one.
-
-Three instances is enough to stop writing paragraphs about it. The campaign's
-own rule — "name a test, never a doc marker" — applies to the campaign's own
-documents, and this is that test.
-
-## Why CODE BLOCKS only
-
-A doc that says "`ambition_platformer2d::experience` never existed" must not fail the guard
-that verified it. That is the exact recurrence
-`scripts/check_absence_contracts.py` was built around, and its answer is the
-same one: strip the prose, check the code. What a reader COPIES is a fenced
-block; what a reader READS about history is not a claim about the present.
-
-## What this does NOT catch
-
-A doc that DENIES a real module exists, in prose. That was the worst of the
-three and it is not mechanically checkable from the doc side — "not invented
-here" is a sentence, not a path. The countermeasure for that one is
-`the_sdk_worked_room_example_compiles_and_runs` in the minimal game, which runs
-the README's snippet verbatim: if the vocabulary moves, a test fails instead of
-a reader. Recorded rather than papered over, because a guard whose limits are
-unstated gets trusted past them.
-"""
+The check inspects copyable code blocks rather than historical prose, so a
+sentence describing a removed/nonexistent path does not fail merely for naming
+it. Broader semantic correctness of the SDK examples is covered by consumer
+fixtures that compile and run them."""
 
 from __future__ import annotations
 

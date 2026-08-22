@@ -116,8 +116,7 @@ pub fn register_badnik_character(app: &mut App) {
         template: CharacterBrainTemplate::Wanderer,
         aggro_radius: 0.0,
         attack_range: 0.0,
-        // Without this the fragment's deletion would have halved every badnik in the demo,
-        // which is the silent-retune the campaign keeps finding one field at a time.
+        // Preserve the shipped patrol effort when constructing the character definition.
         patrol_effort: 1.0,
         ..Default::default()
     });

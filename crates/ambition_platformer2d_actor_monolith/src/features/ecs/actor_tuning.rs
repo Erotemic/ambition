@@ -172,13 +172,10 @@ impl ActorTuning {
 mod authority_split_tests {
     use super::*;
 
-    /// EVERY FIELD OF `ActorTuning` HAS A DECLARED AUTHORITY, and the
-    /// compiler is what holds it rather than a number in a document.
+    /// Every `ActorTuning` field belongs to one declared authority. The exhaustive
+    /// destructure makes new or removed fields fail compilation until classified.
     ///
-    /// the columns are the CAMPAIGN's six, not the three this test was born with (AC6.2).
-    /// The plan's taxonomy has a column for them, so they sit in it.
-    ///
-    /// an exhaustive destructure does not rot. Add a field and this stops
+    /// Add a field and this stops
     /// COMPILING until somebody puts it in a column; remove one and the same.
     /// There is no number to edit and no census to redo.
     #[test]

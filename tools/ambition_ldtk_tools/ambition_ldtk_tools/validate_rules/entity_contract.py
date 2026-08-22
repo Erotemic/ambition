@@ -1,40 +1,11 @@
 #!/usr/bin/env python3
-"""**The authoring loop, holding the runtime's own contract.**
+"""Validate authored LDtk entities against the runtime-owned entity contract.
 
-`mary_o_1_3` was authored on 2026-08-15 through `area create` + `repair` +
-`validate` — three affirmative OKs — with six `EnemySpawn` entities carrying no
-`character_id`. `convert_enemy_spawn` REFUSES that, so the room would have
-panicked the game on load, and nothing in this toolbox could say so. ⭐ **the
-agent that hits this has no build lease**, so running the converter was never an
-option; the contract had to become data.
-
-It did: `crates/ambition_platformer2d_ldtk/ldtk_entity_contract.json`. That file
-is not a transcription of the Rust — the Rust `contract::prover` builds each
-entity from it, runs the real `entity_to_runtime`, and asserts every claim in
-BOTH directions, so it cannot declare a requirement the parser does not enforce
-and the parser cannot grow one it does not declare. This module reads the same
-file and needs no cargo at all.
-
-## The three dispositions, and why one of them makes authoring stricter
-
-Each field declares what the RUNTIME does with a value its grammar rejects:
-
-* ``refused`` — the converter returns `Err`. We error, agreeing with it.
-* ``open`` — the fallthrough is a real extension point with real consumers
-  (`CharacterBrain::Custom("mary_o_snake")` is matched by the Mary-O provider; a
-  `Prop.kind` is a `PropRegistry` id). We say NOTHING. Refusing here would break
-  the extension the fallthrough exists for.
-* ``silent_default`` — the converter accepts anything and quietly substitutes a
-  fixed value. ⛔ **We error anyway.** Nothing consumes the misspelt string, so it
-  can only ever be a typo; `activation: "edgeexit"` is a door, `currancy:1` is a
-  pickup that vanishes and grants nothing, and neither is visible in play. That
-  the authoring loop is stricter than the runtime here is the point rather than
-  an oversight — it is exactly the class of defect this module exists for, and
-  the alternative is the silence that shipped `mary_o_1_3`.
-
-A field with no declared grammar is silent regardless: absence rules still apply,
-but any value is a value.
-"""
+The shared JSON contract is proved against the Rust converters and read here by
+the authoring tools. `refused` values are errors, `open` grammars remain provider
+extension points, and `silent_default` grammars are rejected during authoring so
+a typo cannot be accepted as an unrelated default. Fields with no declared
+grammar accept any value while still participating in presence checks."""
 
 from __future__ import annotations
 

@@ -195,17 +195,9 @@ pub struct ActiveRoomTransitionLoad {
 }
 
 impl ActiveRoomTransitionLoad {
-    /// Record what the asset barrier has settled, and keep the stall clock
-    /// honest. Returns whether the count actually MOVED.
-    ///
-    /// two systems write this — the contributor writes it once when it builds the manifest, the
-    /// poll writes it every time it changes — and the stall clock was first taught to only one of
-    /// them. The result was a barrier stuck at `(0, 164)` whose `asset_progress_since` was `None`
-    /// forever, so it could never become old enough to explain itself: the contributor had already
-    /// stored the key the poll would have called a change.
-    ///
-    /// so the pair moves together or not at all. A caller cannot record
-    /// progress without restarting the clock, because recording IS this call.
+    /// Record settled asset progress and restart the stall clock only when the
+    /// progress key changes. All writers use this method so progress and its
+    /// timestamp cannot diverge.
     pub fn observe_asset_progress(&mut self, settled: usize, total: usize, now: Duration) -> bool {
         let key = (settled, total);
         if self.last_asset_progress == Some(key) {

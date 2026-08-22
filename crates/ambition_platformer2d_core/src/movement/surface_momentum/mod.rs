@@ -105,18 +105,10 @@ pub struct RouteDeparture {
     pub direction: i8,
 }
 
-/// A contiguous run of one chain's segments that a body was spatially
-/// coincident with — while they belonged to a DIFFERENT non-zero depth lane —
-/// at the instant it went airborne.
-///
-/// Airborne collision is otherwise lane-blind: the visible track is solid no
-/// matter which lane a flight started from, because the player cannot
-/// perceive lane membership from the air. The one thing a launched body must
-/// NOT do is instantly snag a rail of another layer it was already inside or
-/// overlapping (the loop-mouth crossover): those spans are recorded here at
-/// launch and stay non-collidable until the flight separates from them —
-/// the depth analogue of the grazing-release guard and [`RouteDeparture`]
-/// ("the surface you just shared space with is not a hit until you leave").
+/// Segments in another non-zero depth lane that overlapped the body when it
+/// became airborne. Airborne collision is otherwise lane-blind, but these spans
+/// stay suppressed until the body separates from them so launch cannot
+/// immediately snag geometry it was already intersecting.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct OcclusionSpan {
     /// Index of the occluded chain in `world.chains`.

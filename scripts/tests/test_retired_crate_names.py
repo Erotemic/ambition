@@ -125,18 +125,10 @@ def test_the_goal_harness_config_is_scanned_even_though_it_is_untracked():
 
 
 def test_the_LIVE_QUEUES_are_not_exempt():
-    """⛔ they were, until 2026-08-02, and the exemption was backwards.
+    """Live work queues must not be exempt from retired-name checks.
 
-    A queue file is not a record of the past — it is the worklist this
-    repository is driven from. A dead name in one does not misdescribe history,
-    it hands the next reader a task they cannot find: `SandboxAction` survived
-    THIRTEEN times in `queue-72h-2026-07-31.md`, and the row that mattered asked
-    for a migration of `InputMap<SandboxAction>`, which greps to nothing — so the
-    honest conclusion from reading that row was "already done".
-
-    ⚠ lifting the exemption flagged TWO lines in the entire tree, both genuinely
-    historical. A blanket waiver whose real population is two is a waiver nobody
-    priced.
+    They are actionable instructions, not historical records, so stale names in
+    them can misdirect future work.
     """
     import check_retired_crate_names as guard
 

@@ -1,36 +1,10 @@
 #!/usr/bin/env python3
-"""A game may EXTEND the LDtk vocabulary; it may not extend it by accident.
+"""Tests for game-owned extensions to the LDtk entity vocabulary.
 
-`MaryOBlock` is Mary-O's own noun — the game installs a converter for it
-through `install_ldtk_entity_converters`, and no other world has one. Making
-validation accept it went through a wrong answer first, and this file pins the
-right one.
-
-The wrong answer was to accept any identifier the project itself DEFINES::
-
-    if ident not in KNOWN_ENTITIES and ident not in entity_defs:
-        error
-
-An editor definition is not evidence that anything can convert it, and `defs`
-is written by the same generator that writes the instances — so the check was
-comparing the file against itself. A GPT 5.6 review reproduced the hole
-directly: a `BogusEntity` definition plus an instance of it validated clean
-with no converter anywhere in the engine or the game.
-
-The right answer is a DECLARED manifest, which is what these tests pin:
-
-- an identifier the engine knows is accepted, as always;
-- an identifier a game manifest declares is accepted;
-- an identifier with a full editor definition and NO manifest entry is
-  REJECTED — the reproduction above, now red;
-- a manifest that shadows an engine entity is refused, because "extend" and
-  "override" are not the same permission.
-
-The other half of the contract lives in Rust:
-`ldtk_vocabulary::tests::the_declared_manifest_matches_the_converters_actually_installed`
-asserts the manifest matches the converters the game really installs. Neither
-list is derived from the other, so a lie in either one is a red test.
-"""
+Engine entities are accepted directly; game-specific entities require an
+explicit manifest entry that is cross-checked against the converters the game
+actually installs. Merely defining an entity in the LDtk file is not sufficient,
+and a game manifest may extend but not shadow engine vocabulary."""
 
 from __future__ import annotations
 
@@ -128,12 +102,7 @@ def test_an_undeclared_game_entity_is_rejected():
 
 
 def test_a_defined_entity_with_no_converter_is_still_rejected():
-    """GPT 5.6's reproduction, kept red.
-
-    `BogusEntity` gets a complete editor definition AND a valid instance, and
-    the real manifest is present — everything the old check looked at says
-    "fine". Nothing can convert it, so validation must refuse.
-    """
+    """A defined entity with no runtime converter must still be rejected."""
     project, manifest = load_mary_o()
     clone_entity(
         project,

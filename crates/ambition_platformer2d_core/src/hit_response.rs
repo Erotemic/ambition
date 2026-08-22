@@ -109,38 +109,10 @@ pub struct HitResponseTuning {
     pub di_max_angle: f32,
 }
 
-/// THE directional-influence law (CM2): the victim's held control rotates its
-/// OWN knockback launch, by at most `max_angle` radians. Pure and
-/// frame-agnostic — `launch` is the resolved world-frame launch velocity;
-/// `di_input_local` is the victim's `ActorControl.locomotion` (local `x` =
-/// side, `y` = gravity-down, magnitude a `[0,1]` throttle); `gravity_dir`
-/// places that local intent into the world frame. The rotation turns `launch`
-/// TOWARD the held direction, weighted by how PERPENDICULAR the input is to
-/// the launch (you cannot DI along your own launch line) and by the throttle —
-/// classic smash DI. PARITY: `max_angle == 0.0` (or a null input) returns
-/// `launch` unchanged, so DI is inert until a game authors a budget.
-/// Frame-agnostic because `launch` and the world-frame input rotate together
-/// under any gravity, so the victim-local trajectory conjugates (the C4 law).
-/// SMASH DIRECTIONAL INFLUENCE — how far a frozen body shifts itself this
-/// tick of hitlag, in world px.
-///
-/// the defensive half of the mechanic [`di_adjust`] is the offensive half
-/// of. DI bends the launch you are about to take; SDI moves you out of the
-/// NEXT hit's way while the current one is still frozen. It is what makes a
-/// combo answerable rather than a sentence, and it is the reason hitlag is a
-/// window rather than merely a pause.
-///
-/// `input_local` is the victim's `ActorControl.locomotion` in the same body-local
-/// frame [`di_adjust`] takes (`x` = side, `y` = gravity-down, magnitude a
-/// `[0,1]` throttle), placed into the world by `gravity_dir` — so a wall-walker
-/// influences along the axes it actually stands on.
-///
-/// PARITY: `step <= 0.0` or a null input returns `ZERO`, so SDI is inert until a
-/// body authors a budget. Every body in Ambition does not.
-///
-/// the throttle is CLAMPED, not normalised. A half-deflected stick buys
-/// half the shift, which is the whole point of an analogue input here; a
-/// normalised direction would make a nudge worth a slam.
+/// Smash directional influence during hitlag: shift the frozen body in the
+/// victim's body-local input direction, transformed through gravity. `step <= 0`
+/// or null input is inert. Stick magnitude is clamped rather than normalized so
+/// partial deflection produces a proportionally smaller shift.
 pub fn smash_di_shift(input_local: Vec2, gravity_dir: Vec2, step: f32) -> Vec2 {
     if step <= 0.0 {
         return Vec2::ZERO;
@@ -153,6 +125,10 @@ pub fn smash_di_shift(input_local: Vec2, gravity_dir: Vec2, step: f32) -> Vec2 {
     (world / magnitude) * (step * magnitude.min(1.0))
 }
 
+/// Rotate the victim's world-space knockback launch toward held body-local input
+/// by at most `max_angle`. Influence scales with input magnitude and the component
+/// perpendicular to the launch, so input along the launch direction has no effect.
+/// `max_angle <= 0` or null input preserves the launch exactly.
 pub fn di_adjust(launch: Vec2, di_input_local: Vec2, gravity_dir: Vec2, max_angle: f32) -> Vec2 {
     if max_angle <= 0.0 {
         return launch;
@@ -211,10 +187,8 @@ pub fn hitstun_duration(knockback: Option<&HitKnockback>, tuning: &HitResponseTu
 /// The weakest connect the hitlag law admits, as a fraction of
 /// [`HitResponseTuning::hitlag_time`].
 ///
-/// It is not any more: the camera's hit shake needs the same number for its dead zone (a shake
-/// that starts above the WEAKEST connect is the shape that makes a poke silent and everything
-/// above it proportional), and a second `0.5` written over there would be two literals agreeing
-/// by coincidence — the exact shape this campaign has already paid for twice.
+/// Camera hit shake uses the same floor for its dead zone, so the shared constant
+/// prevents independent literals from drifting apart.
 pub const MIN_HITLAG_SCALE: f32 = 0.5;
 
 /// Scales with the hit exactly as hitstun does, so a jab taps and a smash

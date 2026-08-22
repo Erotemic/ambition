@@ -485,66 +485,19 @@ fn a_two_participant_roster_actually_seats_two_bodies() {
         }
     }
 
-    // THE TWO FIGHTERS ARE BUILT BY DIFFERENT PATHS, and the census above
-    // is how you see it: both carry 84 components and the SETS DIFFER. Seat 0 is
-    // player-bodied (`PlayerVisual`, `BodyPoseView`, `PresentedPose`,
-    // `Transform`, `GlobalTransform`); seat 1 is actor-bodied (`ActorIdentity`,
-    // `Perception`, `RoomVisual`, `RuntimeStagedActor`) with no transform and no
-    // pose view at all.
-    //
-    // this test deliberately does NOT assert that seat 1 has a
-    // `BodyPoseView`. That was the first draft and it is the WRONG PORT:
-    // `BodyPoseView` is the player-bodied read model, and an actor-bodied
-    // fighter is drawn through the id-keyed `ActorAnimIndex` instead — a
-    // RESOURCE rebuilt in the render presentation plugin, explicitly "NOT the
-    // sim schedule … so a headless / RL build never pays for poses it won't
-    // draw". So a headless test CANNOT tell whether seat 1 reaches the screen,
-    // and an assertion here would have been a confident measurement of the wrong
-    // thing.
-    //
-    // That is also the answer to why the rule ("add a CPU and only one player shows up")
-    // survived a green suite: the split is invisible to every headless test by construction,
-    // and the only instrument that can settle it is a photograph of the stage route.
+    // Seat 0 is player-bodied; seat 1 is actor-bodied. `BodyPoseView` is a
+    // player-body read model, while actor-bodied presentation uses `ActorAnimIndex`,
+    // so headless tests cannot prove that the actor-bodied fighter is rendered.
     assert!(
         seated.len() == 2,
         "the census above is the useful output; this pins the premise"
     );
 }
 
-/// An ADOPTED seat and a SPAWNED seat must agree on everything the ROSTER
-/// declares.
-///
-/// Seating has had to unify this ONE FIELD AT A TIME, four times, each found by
-/// looking at a picture rather than by a test:
-///
-/// * health — a spawned seat took the authored maximum; the adopted player
-///   kept whatever its session established.
-/// * box — a mirror match could put two different body shapes on the stage,
-///   and the wrong one was always player one.
-/// * mass — the same character weighed different amounts by seat.
-/// * abilities — player one had fly, blink and
-///   blink-through-walls; player two had jump and attack.
-///
-/// The shape never changes: *an adopted body keeps what the session gave it*. A
-/// fifth field is a matter of time, so this asserts the RULE for the fields a
-/// MATCH declares. health, box and mass are levelled by the seating
-/// transaction against each body's OWN character and are therefore not
-/// comparable across seats — see the note below.
-///
-/// scoped to what the ROSTER declares, deliberately. Per-CHARACTER differences
-/// are the point of a fighting game — the versus duelists author 60 and 52 health
-/// as a deliberate trade — so "both seats are identical" would be the wrong
-/// assertion. What a match DECLARES applies to every seat in it; what a character
-/// authors does not.
-///
-/// and the roster declares exactly three per-body things, all checked here:
-/// `fighter_abilities`, `fighter_stocks`, and `opens_suspended` (which stamps
-/// `ScriptedControl`). An earlier version of this test named health, body box and
-/// mass in its rationale and compared NONE of them — those
-/// three come from the character's `PhysicalBaseline`, not from the match, so
-/// comparing them ACROSS seats would fail the moment somebody authored an
-/// asymmetric pair. They are the seating transaction's job, not this test's, and
-/// naming them here made a two-field check read as a five-field one.
+/// Adopted and spawned seats must agree on every per-body field declared by
+/// the match roster: fighter abilities, stocks, and opening suspension.
+/// Character-owned physical baselines may legitimately differ across seats and
+/// are tested by seating/character construction instead.
 #[test]
 fn an_adopted_seat_and_a_spawned_seat_agree_on_every_roster_declared_field() {
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
@@ -741,13 +694,8 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
         (0, 1),
         "two players have to hold two DIFFERENT seats"
     );
-    // Milestone 4: distinct controlled ACTORS — two bodies, one per player.
-    //
-    // NOT distinct characters. The first draft asserted that too and failed:
-    // both players joined with the cursor at slot 0 and picked
-    // `smash_duelist_a`. That is a MIRROR MATCH, which every platform fighter
-    // allows and this one should — "distinct actors" is about who each person is
-    // driving, not about the roster forbidding a rematch as the same fighter.
+    // Each player must drive a distinct body/control subject. Character IDs may
+    // match because mirror matches are valid.
     assert_ne!(
         body_one, body_two,
         "both seats are driving the same body, so one player is a spectator with \
@@ -760,12 +708,8 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
     let x = |app: &App, body: Entity| app.world().get::<BodyKinematics>(body).unwrap().pos.x;
     let (start_one, start_two) = (x(&app, body_one), x(&app, body_two));
 
-    // BOTH DIRECTIONS, because one proves half of it.
-    //
-    // the first version of this drove ONLY the pad and asserted the other body
-    // stayed still. That shows the pad does not leak — and says nothing about
-    // whether the KEYBOARD player has any control authority at all. A seat wired
-    // to nothing passes it perfectly.
+    // Exercise both input sources: pad isolation alone does not prove that the
+    // keyboard seat has control authority.
 
     // Player two walks right on the PAD. Nothing is touched on the keyboard.
     pad_set(&mut app, pad, GamepadButton::DPadRight, 1.0);
@@ -1941,13 +1885,7 @@ fn open_the_lobby() -> App {
 /// A fighter this host has REGISTERED, so seating can build one.
 const PREPARED_FIGHTER: &str = "player_robot_v3";
 
-/// A SECOND registered fighter, so a case can give two seats different picks.
-///
-/// not decoration — the first draft of `a_cpu_ordered_before_the_person`
-/// gave both seats `PREPARED_FIGHTER` and PASSED, and passed for a reason that
-/// had nothing to do with the thing it was testing. A probe that cannot fail
-/// through its own motivating case is not a probe. Measured, not reasoned:
-/// running it is what said so.
+/// A second registered fighter for tests that must distinguish seat ordering.
 const OTHER_PREPARED_FIGHTER: &str = ambition_demo_smash::SMASH_GEORGE_BOOUL;
 
 /// The configuration that works. One person, one CPU, both registered.
@@ -2004,10 +1942,7 @@ fn a_cpu_ordered_before_the_person_still_starts_the_match() {
     let mut app = open_the_lobby();
     cycle_role(&mut app, 0, 2); // Absent → Controller → CPU, freeing the source
     cycle_role(&mut app, 1, 1); // …which the person then takes
-                                // DIFFERENT fighters, and that is the whole case. With both seats on
-                                // one character the first draft passed while proving nothing — see
-                                // `OTHER_PREPARED_FIGHTER` for the mechanism that made it pass and why two
-                                // picks are still required now that the mechanism is gone.
+                                // Different fighter IDs make seat ordering observable.
     pick_fighter(&mut app, 0, OTHER_PREPARED_FIGHTER);
     pick_fighter(&mut app, 1, PREPARED_FIGHTER);
 
@@ -2080,16 +2015,8 @@ fn two_cpus_can_fight_each_other() {
             "a two-CPU match must have two bodies to frame"
         );
         let centre = ((cast[0].1 + cast[1].1) / 2.0, (cast[0].2 + cast[1].2) / 2.0);
-        // TIGHT, and the first version of this was not. It allowed ±200px
-        // around the pair's span, and PROBED GREEN with the cast declaration
-        // disabled: with nothing to frame the resolver returns and leaves the
-        // previous snapshot standing, which in this fixture reads (0, 0) — and
-        // (0, 0) sat inside that window. A camera parked at the world origin
-        // passing a test about whether the camera found the fighters is exactly
-        // the green-by-construction shape this file exists to avoid.
-        //
-        // Re-probed with the declaration disabled at this tolerance: RED, by
-        // 218px on x and 231px on y.
+        // Keep the tolerance narrow enough that a stale origin snapshot cannot
+        // satisfy the framing assertion when cast resolution returns early.
         let slack = 32.0;
         assert!(
             (follow.x - centre.0).abs() <= slack && (follow.y - centre.1).abs() <= slack,
@@ -4034,14 +3961,8 @@ fn on_the_smash_pad_a_held_player_can_mash_free() {
             .expect("a two-seat match has a second body")
     };
 
-    // the hold is re-established each round, because a LIVE match keeps
-    // breaking it and that is the mechanic working.
-    // `release_interrupted_captures` ends a hold the moment either body takes a
-    // hit, and these two are fighting — a first attempt asserted across twelve
-    // presses and lost the hold to an ordinary exchange. the first version of
-    // this test treated that as a pass ("or the escape already finished"), which
-    // made it a test that could not fail: with the hold gone for ANY reason, the
-    // mash was never measured at all.
+    // Re-establish the hold each round because ordinary combat can interrupt it;
+    // the test must observe mash release rather than an unrelated interruption.
     let hold = |app: &mut App| {
         // Inserting only the first would leave a body held by somebody with no clock and nothing to
         // mash out of.

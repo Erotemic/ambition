@@ -16,33 +16,14 @@ use ambition_characters::brain::{
     WandererCfg,
 };
 
-/// **WHAT A BODY THAT AUTHORED NO FIGHTING KIT FIGHTS WITH.**
+/// Fallback fighting kit for bodies whose character authors no repertoire.
 ///
-/// **two scaffolds in this campaign are the SAME missing authority, and this is it**.
-/// `smash_fighter_kit` grants one generic swipe to any seated fighter whose character says
-/// nothing (P3.24), and the PROVOCATION path hands a peaceful body a whole archetype for the
-/// same reason (P2.20) — a Hall NPC authors `peaceful`, so without a granted kit a provoked one
-/// would have nothing to swing.
+/// Exploration provocation and platform-fighter fallback kits intentionally have
+/// different tuning; these defaults belong to session/ruleset policy, not body
+/// identity.
 ///
-/// The test below asserts the two are equal rather than trusting the transcription, and it is
-/// the equivalence baseline the roster's own deletion needs.
-///
-/// this is a FALLBACK, not a design. Every character that authors its own
-/// repertoire stops consuming it, which is the same falling-adopter-count P3.24
-/// measures — and when the count is zero this function is deleted, not retuned.
-///
-/// **AND IT IS NOT THE ONLY ONE, WHICH IS THE POINT.** Smash's
-/// `smash_fighter_kit()` answers the same question with different numbers —
-/// `0.22/0.08/0.26`, 4 damage, 34 reach, against this one's `0.28/0.08/0.32`,
-/// 1 damage, 28 reach. Faster, harder, longer: a platform fighter's floor rather
-/// than an exploration provoke. **Merging them would retune a mode while wearing
-/// a refactor's commit.**
-///
-/// ⇒ what the pair proves is that this default belongs to the SESSION RULESET —
-/// the campaign's third authority — and not to the engine or to any character. A
-/// stage states what an unarmed fighter swings for; a room states something else;
-/// neither is a fact about a body. Naming it here is the step that made the
-/// question askable, not the final home.
+/// TODO(compat-remove): delete this fallback once every adopter supplies an
+/// explicit ruleset or character fighting kit.
 pub(crate) fn default_fighting_kit() -> CombatKit {
     CombatKit {
         innate_melee: Some(ambition_characters::brain::MeleeActionSpec::Swipe(
@@ -105,72 +86,13 @@ pub(super) fn action_set_from_combat_kit(
     kit.to_action_set(held_item.map(|item| &item.spec))
 }
 
-/// **WHICH DETERMINISTIC COGNITIVE STREAM THIS FIGHTER THINKS ON.**
+/// Deterministic RNG seed for a fighter brain.
 ///
-/// **the fix is not randomness.** The stream must stay deterministic and
-/// replayable, so what it gains is a STABLE SEMANTIC IDENTITY, never a clock, a
-/// process-global RNG, or a Bevy `Entity`:
-///
-/// ```text
-/// ordinary  seed_from_id(<participant>) ⊕ level   distinct per participant
-/// authored  seed_from_id(<character>)   ⊕ level   shared by every twin
-/// ```
-///
-/// **`enemy.id` is already the participant**, not the character:
-/// `PreparedSeat::feature_id` mints `"<character>#seat<n>"` precisely so a mirror
-/// match is two bodies rather than one, and this file's every OTHER template
-/// (Smash, brute, skirmisher, sniper, aerial) already varies off it through
-/// `seed_from_id`. The fighter template was the sole outlier — so this is the
-/// file's own established rule reaching the one brain that had missed it.
-///
-/// **and the level still mixes in**, so raising a CPU's difficulty gives it a
-/// different stream as well as different weights. That is the one thing the old
-/// seed got right and it is kept.
-///
-/// ## The authored exception
-///
-/// Emmy Ethereal is the one customer: her whole subject is that a symmetry implies a
-/// conservation law, and two of her thinking identical thoughts about a symmetric stage is the
-/// joke made mechanical.
-///
-/// **the exception drops the PARTICIPANT term and substitutes the CHARACTER's
-/// own name — it does not zero the seed.** Zeroing would hand every
-/// mirror-preserving character in the game one shared stream, so two Emmys and
-/// two of somebody else would all think alike; keying on the character keeps the
-/// trait per-character while still collapsing twins.
-///
-/// **and it synchronises NOTHING per tick.** All it decides is where two
-/// streams START. The mirror is then an emergent consequence of *identical
-/// cognition + symmetric information*, and it breaks by itself the moment the two
-/// Emmys observe different worlds — which is correct, and is the difference
-/// between a character trait and a puppet show.
-///
-/// ## How long two ordinary CPUs take to LOOK different, and two rejected fixes
-///
-/// **THE CAUSE IS NOT THE SEED, IT IS THAT A DIFFERENT RNG CANNOT SEPARATE TWO BODIES DOING THE
-/// SAME THING.** The stream has exactly ONE consumer in the whole fighter brain — the press-timing
-/// jitter, and only when a decision commits to an attack (`decision.rs`: *"spending samples on
-/// press TIMING only"*). Both fighters open the match walking toward each other, and two bodies
-/// walking at one speed stay mirrored whatever their streams say.
-///
-/// ```text
-/// per-participant DECISION PHASE   488 → 220 frames, and it BROKE FIVE
-///   (stagger which tick of the      behavioural guards in `the_stage_kills`:
-///    cycle each fighter thinks on)  a 0-4 tick offset changed whether attacks
-///                                   connect at all — "the brain travels but never
-///                                   commits". Too high a price for 8.1s → 3.7s.
-/// cadence DRAWS from the stream    220 → 219 frames. Nothing. A staggered
-///   (consume a sample every         decision is not a DIFFERENT decision: it
-///    decision, not only on attack)  changed when they thought, not what they did,
-///                                   while retuning every CPU's cadence.
-/// ```
-///
-/// ⇒ **what would actually move it is asymmetric CIRCUMSTANCES, not more
-/// randomness** — and the one already on the books is a per-seat spawn offset
-/// . Two fighters who start somewhere different take a
-/// genuinely different first decision, and everything follows from that.
-/// it will also shorten Emmy's mirror, for a good reason; `smash_cpu_cognition`
-/// says so at the assertion that would notice.
+/// Ordinary fighters mix difficulty with the stable participant id, so mirror
+/// seats get independent streams without using clocks, process RNG, or Bevy
+/// entity ids. Characters that explicitly preserve mirror symmetry instead mix
+/// difficulty with the character id, giving twins the same initial stream; they
+/// still diverge naturally once their observations differ.
 fn fighter_cognition_seed(enemy: &ActorConfig, level: u8) -> u64 {
     // A participant id is `"<character>#seat<n>"`; the character alone is what is
     // left when the seat is dropped. Falling back to the whole id keeps a body
@@ -524,19 +446,9 @@ fn smash_cfg_from_spec(
         // ranged + dash + jump). Kept off for the other strikers so it
         // doesn't blanket-change every melee enemy's feel.
         sprint_to_close: profile.smash_sprint_to_close,
-        // **THE BODY'S VERBS, ASKED — not a policy's copy of them.**
-        //
-        // They made reuse a lie — the SAME shared profile on a body with no blink limb would still
-        // have told its driver to try blinking, and on a body that CAN blink but was authored by
-        // somebody who forgot the mirror, the driver would never reach for it.
-        //
-        // this is the compositional behaviour the whole campaign is for:
-        // `medium_striker` + a PCA body considers the PCA's abilities;
-        // `medium_striker` + a puppy slug cannot invent them.
-        //
-        // The brain still only ATTEMPTS: the body's `CombatCapabilities` +
-        // cooldowns are the enforce gate, and `blink_cooldown_s` is the driver's
-        // own reactive restraint (policy, I4) over the physical floor (I3).
+        // Derive available verbs from the body rather than duplicating them in the
+        // policy. The brain only attempts actions; body capabilities and cooldowns
+        // remain authoritative for enforcement.
         can_blink: body.blink,
         blink_cooldown_s: if body.blink { 1.2 } else { 0.0 },
         can_fly: body.fly || body.fly_toggle,
@@ -923,32 +835,11 @@ mod cognition_stream_tests {
 // template → brain-family mapping is pinned off a CHARACTER's profile by
 // `enemy_default_brain_picks_the_family_its_policy_names` in the spawn tests.
 
-/// **A fighter brain gets the GAME's rung, not the engine's floor.**
+/// Project the game's authored fighter difficulty rung into newly inserted brains.
 ///
-/// **this is a PROJECTION because threading was tried and cascaded.** The
-/// ladder is authored content that lives in the pack, above this crate, and it is
-/// needed at the LEAF of a spawn tree whose roots are many and unalike — a match
-/// activation, a hostility reconciler, an encounter wave, a thrown puppy-slug
-/// ability. Passing it down four levels so an ability can hand a difficulty
-/// ladder to a brain builder reached 323 lines without compiling once. A value
-/// with that shape is projected, not threaded.
-///
-/// **at INSERTION, and that is not a detail.** `FighterState::new` caches
-/// `DelayedPerception::from_reaction_ms(profile.reaction_ms)` and
-/// `HabitModel::new(profile.read_weight)` — the two axes that matter most — so
-/// overwriting `cfg.profile` alone after the fact would change nothing the player
-/// could see. The state has to be rebuilt, and the only moment that costs nothing
-/// is before any habit has accumulated.
-///
-/// **it now CARRIES the stream instead**, which is both the fix and the more honest operation:
-/// this pass exists to re-derive the profile-cached fields (`DelayedPerception`, `HabitModel`),
-/// and a fighter's position in its own noise stream is not a profile-cached field.
-///
-/// **idempotent, which is what makes it safe under change detection.** It runs
-/// on `Added<Brain>` and rewrites only when the authored rung differs from what
-/// is there, so running it twice — or after a rollback re-inserts a brain — lands
-/// on the same value. `Added` not rewinding is therefore harmless: the snapshot
-/// stores the PROJECTED profile, because that is what was live.
+/// Rebuild `FighterState` so profile-cached perception and habit fields match the
+/// authored rung, while preserving the fighter's existing noise-stream position.
+/// The projection is idempotent and only rewrites when the rung differs.
 pub fn project_authored_fighter_ladder(
     ladder: Option<bevy::prelude::Res<ambition_characters::brain::fighter::AuthoredFighterLadder>>,
     mut brains: bevy::prelude::Query<&mut Brain, bevy::prelude::Added<Brain>>,

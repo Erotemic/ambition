@@ -287,13 +287,8 @@ fn report_unclaimed_steps(
     for line in findings {
         eprintln!("{line}");
     }
-    // CLEAR IT, every tick. The first version did not, and the vacuity
-    // counter caught it: 5,850,752 facts summed across 2,000 ticks, because the
-    // log grows without bound and every tick re-counts the whole of it. A fuzz
-    // harness is meant to run for a hundred thousand steps; an instrument that
-    // accumulates every fact of every one of them is a memory profile of the
-    // probe rather than a trace. `ladder_probe` clears for the same reason and
-    // says so — the question is always "what happened on THIS tick".
+    // Clear after each tick so findings describe the current tick and the probe
+    // does not accumulate an unbounded history.
     sim.world_mut()
         .get_resource_mut::<ambition_platformer2d::causal::CausalRecording>()
         .map(|mut log| log.clear());

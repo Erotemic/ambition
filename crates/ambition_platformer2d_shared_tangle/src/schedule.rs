@@ -1,8 +1,8 @@
-//! Runtime schedule vocabulary that is independent of Ambition content.
+//! Runtime schedule vocabulary independent of game content.
 //!
-//! `Platformer2dSimulationPhaseMonolith` remains the concrete app schedule for now. These labels document
-//! the future crate-level concepts and give new runtime modules names that do
-//! not depend on app assembly details.
+//! `SimSchedule` names the Bevy schedule that advances the canonical simulation
+//! tick. Presentation, device input, audio, and HUD continue to use the frame
+//! schedule.
 
 use core::sync::atomic::{AtomicBool, Ordering};
 
@@ -10,41 +10,12 @@ use bevy::app::{App, FixedUpdate, Update};
 use bevy::ecs::schedule::{InternedScheduleLabel, ScheduleLabel};
 use bevy::prelude::*;
 
-/// Which Bevy schedule the SIMULATION runs in (netcode N0.1, the two clocks).
+/// Bevy schedule that advances the canonical simulation timeline.
 ///
-/// The engine has two clocks: the sim tick (the canonical timeline — N0.2
-/// input streams and N0.4 state hashes key on its count) and the frame/feel
-/// clock (raw render dt, driving presentation, device sampling, and per-player
-/// feel-time effects). This resource names the schedule the *tick* clock lives
-/// in. The construction-time `SimulationHost` selected by the runtime selects
-/// `Update`, `FixedUpdate`, or the GGRS schedule; this lower crate intentionally
-/// stores only the schedule label so it does not depend on the owner crate.
-///
-/// Nothing ever scales the accumulator.
-///
-/// # Reading it
-///
-/// Every plugin that registers a SIM system asks the app, rather than naming a
-/// schedule literal:
-///
-/// ```ignore
-/// impl Plugin for MySimPlugin {
-///     fn build(&self, app: &mut App) {
-///         let sim = app.sim_schedule();
-///         app.add_systems(sim, my_system.in_set(Platformer2dSimulationPhaseMonolith::WorldPrep));
-///     }
-/// }
-/// ```
-///
-/// Presentation, input-device, audio, and HUD plugins keep naming [`Update`]
-/// literally — they are the feel clock, and that is the point of the split.
-///
-/// # The seal
-///
-/// The value is sealed on first read: once any plugin has asked for the label, changing it
-/// panics rather than silently splitting the schedule graph in half (some sim systems in
-/// `Update`, the rest in `FixedUpdate` — a split-brain whose symptom is systems mysteriously
-/// never ordering against one another).
+/// Runtime construction selects `Update`, `FixedUpdate`, or a rollback schedule
+/// before simulation plugins register systems. Plugins query this resource rather
+/// than naming a simulation schedule directly. The value seals on first read; a
+/// later change panics instead of splitting the simulation graph across schedules.
 #[derive(Resource, Debug)]
 pub struct SimSchedule {
     label: InternedScheduleLabel,

@@ -185,7 +185,7 @@ fn floor_portal_bounce_conserves_momentum_per_transit_under_variable_dt() {
     use bevy::prelude::*;
 
     const SMALL_DT: f32 = 0.008; // ~120 FPS baseline
-    const SPIKE_DT: f32 = 0.050; // Jon's measured worst frame (~20 FPS hitch)
+    const SPIKE_DT: f32 = 0.050; // measured worst-frame hitch (~20 FPS)
     const DROPS: usize = 8;
 
     let opts = Platformer2dSimHarnessOptions::default()

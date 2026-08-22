@@ -1,36 +1,9 @@
-//! **Crossing a room boundary must not leave a repeating unclaimed-view
-//! population.**
+//! Crossing a room boundary must not leave unclaimed feature views behind.
 //!
-//! The mechanism is a LIFETIME MISMATCH, and it is general. The sim publishes a
-//! `FeatureView` for every live feature; each render family discovers its own
-//! population; and `draw_unclaimed_feature_views` is the floor beneath them — a
-//! view nobody claimed gets a deliberately-ugly magenta stand-in
-//! (`UnclaimedBodyPlaceholder`). So any entity that OUTLIVES the room while its
-//! picture does not parks a permanent stand-in in every room you walk into
-//! afterwards.
-//!
-//! The cover waits on `UnclaimedFeatureViews` — the census of published-but-undrawn views — because
-//! the stand-in is a DIAGNOSTIC that wants to fire LATE, only once a view has stayed unclaimed long
-//! enough to be a real orphan, while the cover needs an answer that fires IMMEDIATELY. Nothing
-//! below changes: a permanently-unclaimed id produces a census row AND (a few frames later) a
-//! stand-in, so a stand-in that survives a crossing is still a census row that survives it, and the
-//! cover still sits out its full deadline over a black screen, every crossing.
-//!
-//! **this is deliberately NOT a test that a coin dies with its room.** That test names the two
-//! spawn sites that commit already touched, passes forever, and says nothing about the third site
-//! somebody adds next month — the same death path still mints a `GroundItem` weapon under session
-//! scope alone, and every future spawner is a fresh chance at the same mismatch.
-//!
-//! ⚠ that history is also why the baseline below is the DESTINATION room's own
-//! clean population rather than the source room's: comparing against a source
-//! that is itself carrying stand-ins would let them ride into the next room
-//! unnoticed.
-//!
-//! ⚠ **it needs a real room-unload path, so it pays for the real app.** The
-//! drop-path tests build their worlds by hand, which cannot unload a room at all;
-//! this drives `build_visible_app` into gameplay and crosses two authored doors
-//! the way `hall_transition_cover` does, so the `RoomScopedEntity` sweep, the
-//! room-visual respawn and the unclaimed floor are all the shipped articles.
+//! `UnclaimedFeatureViews` is the immediate census used by the transition cover;
+//! persistent unclaimed views later receive magenta placeholders. This test uses
+//! the real room-unload path and compares against the destination room's clean
+//! population so leaked source-room views cannot hide in the baseline.
 
 use std::collections::BTreeSet;
 use std::time::Duration;

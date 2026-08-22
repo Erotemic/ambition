@@ -27,16 +27,9 @@ use ambition_characters::brain::{
 };
 use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
 
-/// What each pirate SHIPS as, transcribed from the brain preset its catalog
-/// row named — which is the behaviour-preserving migration AC4.2 asks for, and
-/// the reason this file is not three lines shorter.
-///
-/// the first draft of this gave the lookout and the navigator a cutlass,
-/// because "pirate boarding party" is a plausible story and the six ids look
-/// alike. They ship as `skirmisher_ranger` — they stand off at 140px and shoot.
-/// `a_character_states_its_policy_in_one_place` caught it, which is precisely
-/// the double-authority the guard exists to find: two statements about one
-/// creature, and the invented one winning quietly.
+/// Each pirate's authored controller policy matches its shipped role. The
+/// lookout and navigator use `skirmisher_ranger`; do not infer behavior from
+/// neighboring pirate IDs.
 #[derive(Clone, Copy)]
 enum Crew {
     /// `melee_brute_striker`: aggro 220, reach 36, chase 110.

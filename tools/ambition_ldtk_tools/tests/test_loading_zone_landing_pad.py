@@ -1,23 +1,9 @@
 #!/usr/bin/env python3
-"""A `LoadingZone` is either an EXIT or a LANDING PAD, and the validator used to
-allow only the first.
+"""A `LoadingZone` may be an outgoing exit or an arrival-only landing pad.
 
-`ambition_ldtk_tools.validate` demanded `target_room` + `target_zone` on every
-zone. The runtime has always had both shapes — `collect_room_links` skips a zone
-that names no target, and `transition_from_zone` only fires on a zone with an
-outgoing edge — so the arrival end of every one-way trip was unauthorable, and
-Mary-O's two 1-1 zones had to stay in Rust because of it.
-
-⚠ **a landing pad that names a target is a BOUNCE, not a harmless extra.** The
-body arrives standing inside the target zone (`door_arrival` = zone centre, 26px
-off its floor), so the moment the 0.16s transition cooldown lapses the zone it
-landed on fires and sends it straight back. Measured against
-`RoomSet::transition_for_player`, not reasoned about.
-
-What the rule still catches is the typo it was written for: a zone with no
-target that nothing arrives through is dead geometry, and an exit whose fields
-were never filled in looks exactly like one.
-"""
+Landing pads intentionally omit an outgoing target. Exit zones retain target
+validation, while targetless zones are accepted only when another transition
+arrives there; otherwise they remain dead authored geometry."""
 
 from __future__ import annotations
 

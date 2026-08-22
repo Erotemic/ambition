@@ -104,44 +104,17 @@ fn versus_prepared_session_world() -> PreparedPlatformerSource {
     )
 }
 
-/// The roster this stage seats: the player, and either a friend or a CPU.
+/// The roster seated when the stage begins.
 ///
-/// Seat 0 is HUMAN and is the body the session already spawned wearing
-/// `FIGHTERS[0]` — seating adopts it rather than spawning beside it. That is not
-/// a detail: the first version of this stage made both seats CPU while the
-/// session had already spawned a player wearing the same character, and the
-/// arena held two Mary-Os. The test passed because it asserted both fighters were
-/// present, which is the assertion you write when you have not looked at the
-/// screen.
+/// Seat 0 adopts the session's existing human body. Additional connected
+/// controllers receive human seats; remaining seats are CPUs. The roster is fixed
+/// at stage entry so device changes cannot mutate a running match.
 ///
-/// Seat 1 is a HUMAN when a second controller is plugged in, and a CPU otherwise.
+/// `seat_for` alternates arena sides, and teams follow the same parity. `MatchTeam`
+/// is authoritative for team damage because human fighters otherwise share the
+/// same player faction. Up to four seats are supported.
 ///
-/// Deliberately decided at STAGE ENTRY, not per frame. A pad unplugged mid-match
-/// must not silently hand player two's fighter to the AI, and a pad plugged in
-/// mid-match must not spawn a third body into a running fight; both are
-/// mid-match roster edits, which is a rule change, and this stage has no rules.
-/// Up to four seats: 1v1 with two controllers, 2v2 with four.
-///
-/// The seat count follows the controllers because that is the least ceremonious
-/// honest signal — four pads is four people, and a lobby screen asking how many
-/// players there are would stand between a stranger and the thing they came to
-/// see.
-///
-/// TEAMS FOLLOW SIDES. `seat_for` alternates left/right by index, so evens stand
-/// together and odds stand together; pairing the teams the same way puts
-/// partners on the same side of the arena rather than opposite each other.
-///
-/// It is also the case teams were built for. With four HUMAN fighters,
-/// `effective_faction` maps every one of them to `ActorFaction::Player` — so
-/// faction distinguishes nobody and `MatchTeam` is the only thing that decides
-/// who may hit whom. A 2v2 is not a bigger 1v1; it is the first arrangement
-/// where the relation is load-bearing.
-/// The archetype a versus CPU seat asks for, and this experience registers.
-///
-/// The refusal turned that into a panic in `versus_through_the_sdk`, which is the guard doing
-/// exactly its job.
-///
-/// The name is this experience's own, because the experience owns the row.
+/// The versus experience owns and registers the CPU archetype requested here.
 pub const VERSUS_CPU_BRAIN: &str = "versus_duelist";
 
 // its body half went nowhere because nothing read it. `max_health`,
@@ -265,30 +238,12 @@ pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> Match
 /// One screen, four fighters, four `SlotControls` slots.
 pub const MAX_VERSUS_SEATS: usize = 4;
 
-/// Install the roster while the versus route is active, and take it away when it
-/// is not.
+/// Keep the versus roster route-scoped and reconcile an unactivated roster with
+/// the seat topology once rollback freezes it. Route entry precedes rollback
+/// startup, so live device discovery may change before topology becomes canonical.
 ///
-/// Scoped rather than global on purpose: `MatchParticipantRoster` is what seating
-/// reads, so leaving it installed would seat two fighters into Mary-O's level the
-/// next time somebody played it. Removing it on exit also resets the seating
-/// latch, so returning to the stage seats a fresh match rather than an empty one.
-/// The roster and the session must agree about who is playing, and now they
-/// can be asked. (queue Y′9)
-///
-/// A route is entered before its rollback session starts, so the roster is built
-/// from LIVE device discovery and the topology is frozen later. A controller
-/// connecting in that gap leaves the roster seating N fighters into a session
-/// with M handles, with both citing "the connected controllers".
-///
-/// Match activation now performs the full atomic publication step: a prepared match builds the
-/// seated bodies and publishes `ActiveMatch` in one flush, and `ActiveMatch` is optional canonical
-/// rollback state. This reconciler therefore owns only the earlier question: whether a
-/// still-unactivated roster must be rebuilt against the topology that actually froze.
-///
-/// "no `ActiveMatch`" does NOT mean "no bodies yet", and reading it that way was a real
-/// authority split. Seating retries across ticks and the latch closes only when EVERY seat
-/// has a body, so between the first seated fighter and the last there is a window in which
-/// participants exist and the latch does not.
+/// `ActiveMatch` absence does not imply that no seats have been materialized;
+/// seating may span ticks before the activation latch closes.
 fn reconcile_roster_with_frozen_topology(
     mut commands: Commands,
     topology: Option<Res<ambition_platformer2d::input::LocalSeatTopology>>,
@@ -703,13 +658,8 @@ pub fn compose_versus_experience(app: &mut App) {
         "Prepare Versus",
         AuthoredCatalogFragments::new(FIGHTERS[0], VERSUS_EXPERIENCE),
     )
-    // The scoreboard. One health gauge PER SEAT plus two text readouts; the
-    // engine never learns what a ROUND is — `publish_versus_hud` writes the
-    // words.
-    //
-    // Four gauges are declared and a 1v1 fills two, because a HUD declaration is
-    // a statement about the STAGE and the stage seats four. Declaring two and
-    // making the third fighter share one is what the first version did.
+    // Declare one health gauge per possible seat. `publish_versus_hud` owns
+    // round-specific text; the engine does not model rounds.
     .with_hud({
         let mut hud = ambition_platformer2d::presentation::HudDeclaration::new();
         for (seat, slot) in super::versus_rules::HEALTH_HUD_SLOTS.iter().enumerate() {
@@ -812,11 +762,9 @@ pub fn compose_versus_experience(app: &mut App) {
         );
     }
 
-    // The ROUND lifetime (Campaign 3A). Installed by the thing that composes a
-    // MATCH rather than by the engine at large — a single-player platformer has
-    // no rounds and should carry no round culler. `settle_versus_round` mints the
-    // next round; this despawns whatever belonged to the last one, so the rules
-    // never enumerate the transient families that might exist.
+    // Round lifetime is installed by match composition, not the engine. Advancing
+    // the round retires everything scoped to the prior round without enumerating
+    // transient entity families.
     app.add_plugins(ambition_platformer2d::platformer::lifecycle::RoundScopePlugin);
 
     // Publishing the scoreboard IS presentation: it reads `VersusMatch` and
@@ -845,16 +793,8 @@ pub fn compose_versus_experience(app: &mut App) {
     // installed it, so there is still one writer.
     app.init_resource::<ambition_platformer2d::input::LocalDeviceOrder>();
 
-    // `Update`, NOT the sim schedule.
-    //
-    // The first draft put this in `Platformer2dSimulationPhaseMonolith::PlayerInput`, and its
-    // own test caught the consequence: every `Platformer2dSimulationPhaseMonolith` is nested
-    // inside `GameplaySimulationRoot`, which carries the session gate, so leaving gameplay
-    // switches OFF the system whose job is to clean up after leaving gameplay.
-    //
-    // A teardown that lives inside the thing it tears down can only ever run
-    // while it is not needed. This reads the shell router and writes resources;
-    // it is shell lifecycle, and the shell clock is where it belongs.
+    // Run on `Update`, outside `GameplaySimulationRoot`, so leaving gameplay does
+    // not disable the teardown responsible for cleaning up that transition.
     app.add_systems(
         Update,
         (

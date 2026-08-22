@@ -1,35 +1,11 @@
-//! The room construction transaction boundary.
+//! Room construction transaction boundary.
 //!
-//! One room load is one transaction. This module owns its two ends — the
-//! baseline captured before anything is built, and the verification that decides
-//! whether the room may announce itself — and nothing else may publish
-//! [`RoomLoaded`].
-//!
-//! ## Why this is not in the feature plan
-//!
-//! It was, and the boundary was in the wrong place. `RoomFeatureConstructionPlan::spawn` queued
-//! its own capture and its own verify-and-publish around the FEATURE work, and then
-//! `RoomConstructionPlan::spawn_contents` — its caller — queued the moving-platform bodies and
-//! the [`LastRoomConstructionCommit`] receipt AFTER it returned. Every listener that reacted to
-//! `RoomLoaded` by reading the room's platforms saw an empty set.
-//!
-//! A feature plan cannot own this boundary, because a feature plan is not the
-//! transaction — it is one participant in it. The outer artifact that knows when
-//! the room is COMPLETE is [`RoomConstructionPlan`](super::RoomConstructionPlan),
-//! so the bracket lives with it: [`open`] first, every participant's work in
-//! between, [`close`] last.
-//!
-//! ## What "last" buys, and what it does not
-//!
-//! The same two closures serve the deferred path and the exclusive-world `apply_to_world` path,
-//! so there is ONE publication route rather than two that can drift.
-//!
-//! This is detection, not rollback, and withholding publication is not
-//! rollback either. By the time [`close`] runs, every construction command has
-//! applied and Bevy commands cannot be undone. A failed verification means the
-//! room never announces itself and the world keeps whatever the offending recipe
-//! produced. That is better than publishing a room nobody can describe, and it
-//! is not atomicity: real atomicity needs a staging world, and there isn't one.
+//! One room load captures a baseline before construction and verifies the
+//! completed room before publishing `RoomLoaded`; feature plans are participants,
+//! not owners of that outer transaction. The same open/close bracket serves
+//! deferred and exclusive-world execution. Verification can withhold publication
+//! but cannot undo already-applied Bevy commands, so this is consistency checking,
+//! not atomic rollback.
 
 use bevy::ecs::resource::Resource;
 use bevy::prelude::{Commands, World};

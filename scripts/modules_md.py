@@ -1,23 +1,13 @@
 #!/usr/bin/env python3
-"""Generate and CHECK each crate's `MODULES.md` — the D-B navigability standard.
+"""Generate and verify each crate's `MODULES.md` map.
 
-`docs/planning/engine/decomposition.md` Phase D-B says navigability below the
-crate line is won by three things: every module under ~1.5k lines with a header
-stating its ONE concern; the `features/` hub globs dissolved; and **a `MODULES.md`
-map at each crate root**. The first two hold. This is the third, and it is the
-last unmet piece of the standard the 2026-07-10 ledger ruling leans on when it
-says no further crate split is owed.
+Rows are derived from crate-root module declarations and the first sentence of
+each module's `//!` documentation. Missing module documentation is therefore a
+finding rather than a silently omitted row. Hand-written prose below the managed
+block is preserved.
 
-The map is generated from the code, not written beside it, so it cannot rot: each
-row is a crate-root module and the FIRST sentence of that module's own `//!` doc.
-A module with no `//!` header is a finding, not an omission — the same standard
-already requires one.
-
-    python scripts/modules_md.py            # check (exit 1 on drift)
-    python scripts/modules_md.py --write    # regenerate every MODULES.md
-
-Hand-written prose goes BELOW the managed block and survives regeneration.
-"""
+    python scripts/modules_md.py
+    python scripts/modules_md.py --write"""
 
 from __future__ import annotations
 

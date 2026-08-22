@@ -30,28 +30,13 @@ pub struct Platformer2dSimHarness {
 }
 
 impl Platformer2dSimHarness {
-    /// Build a new simulation, composing a caller-supplied game.
+    /// Build a headless simulation around a caller-supplied game composition.
     ///
-    /// The harness owns the *engine* half: it builds the `App`, adds the shared
-    /// headless foundation (`add_headless_foundation`), and — when `fixed_tick`
-    /// is set — chooses the sim schedule before any sim plugin builds (a
-    /// content plugin registers into `SimSchedule` too, so a late choice would
-    /// split the sim graph across two schedules, which `set_sim_schedule` panics
-    /// on). It then hands the App to `compose`, which installs *that game's*
-    /// content + sim plugins (validating the world, inserting any start-room
-    /// override, adding the sim assembly), returning an `Err` string on invalid
-    /// content — matching the policy that a bad content/world file is a hard
-    /// error rather than a silent default.
-    ///
-    /// This is how the harness composes below the product shell: `ambition_app`
-    /// passes its own composition (see `ambition_app::rl_sim::AmbitionSim`); a
-    /// demo/test passes a minimal or provider-specific one — neither requires the
-    /// harness to know about any particular game.
-    ///
-    /// The first `app.update()` runs inside `build` so the player entity exists
-    /// before the caller's first `observation()` reads it (and a second under
-    /// `fixed_tick`, so both timestep modes reach the same one-step-executed state
-    /// at construction).
+    /// The harness installs the shared engine foundation and chooses any fixed
+    /// simulation schedule before game plugins register systems. `compose` then
+    /// installs game-specific content/simulation and may reject invalid content.
+    /// Construction performs the initial update(s) needed before observations are
+    /// available in either timestep mode.
     pub fn build(
         options: Platformer2dSimHarnessOptions,
         compose: impl FnOnce(&mut App, &Platformer2dSimHarnessOptions) -> Result<(), String>,
@@ -596,25 +581,11 @@ impl Platformer2dSimHarness {
         self.app.world_mut()
     }
 
-    /// Mutable access to the whole App, so a fixture can INSTALL SYSTEMS on top
-    /// of a harness rather than only poke its world.
+    /// Mutable access to the App for fixture-specific system wiring.
     ///
-    /// this exists because the two halves of the couch-multiplayer question
-    /// could not be asked in one place. The harness carries a rollback session;
-    /// the host carries the device→seat layer (`LocalDeviceOrder`,
-    /// `assign_local_seat_devices`, `SeatDeviceOwnership`). With only
-    /// [`Self::world_mut`], a test could author seat FRAMES but there were no
-    /// `InputParticipant` entities to own a pad — so a disconnect-under-rollback
-    /// probe ran green over an empty query and proved nothing at all (`[seat-probe] []`).
-    ///
-    /// The composition stays in the TEST, not here: this crate must not learn
-    /// which host systems a fixture wants, or every consumer inherits that
-    /// opinion. `world_mut()` for state, this for wiring.
-    ///
-    /// add systems BEFORE the first [`Self::step`]. `step` runs a full
-    /// `app.update()`, and a system added mid-episode starts running against a
-    /// world whose rollback baseline was taken without it — which desyncs on the
-    /// next rewind rather than failing where you added it.
+    /// Keep host-specific composition in tests rather than this harness. Install
+    /// systems before the first [`Self::step`] so the rollback baseline includes
+    /// the complete schedule.
     pub fn app_mut(&mut self) -> &mut App {
         &mut self.app
     }

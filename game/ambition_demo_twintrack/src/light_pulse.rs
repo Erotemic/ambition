@@ -1,35 +1,11 @@
-//! One pulse at the invariant speed, measured by two observers.
+//! TwinTrack light-pulse instrument for two observers.
 //!
-//! This is TwinTrack's second-postulate instrument. A lab-rest emitter at
-//! the beacon midpoint fires a three-ray flare on a laboratory-time schedule;
-//! each ray is a null worldline, and every observer that measures it gets `c`.
-//!
-//! a light pulse is not a fast projectile. Nothing here carries a
-//! velocity that anything integrates. A ray's laboratory position is
-//! `emission_position + c * (t - emission_time) * direction` — derived from the
-//! emission event and the invariant speed and nothing else — and every
-//! observer-frame quantity below is an exact Lorentz transform of that null
-//! displacement. Give a normal projectile a big velocity instead and the
-//! traveler would measure it at `c - v`, which is the one number this exhibit
-//! exists to contradict.
-//!
-//! Three facts a viewer can read off two panes at once:
-//!
-//! 1. the speed is invariant — the traveler flying at 0.9c does *not* watch
-//!    the forward ray crawl away at 0.1c. Both panes print `1.000 c`;
-//! 2. aberration — the crosswise ray leaves the laboratory at 90° and the
-//!    traveler measures it arriving from far ahead instead; and
-//! 3. Doppler — the ray the traveler chases is deeply redshifted, the one it
-//!    meets head-on is blueshifted, and (exactly) the two factors multiply to 1.
-//!
-//! Plus the light cone: the toward-Omega ray reaches the Omega beacon at one
-//! laboratory time, and the two observers put different own-frame times on
-//! that same arrival while both agreeing that it happened.
-//!
-//! derived, no entities, no rollback state, in the same shape as
-//! `dual_observer`. Everything is recomputed from `SpacetimeCoordinateTime2d`
-//! and canonical `BodyKinematics`, so a rewound simulation republishes the
-//! identical value on the next pass and no schema had to move.
+//! Rays are derived null worldlines, not integrated projectiles:
+//! `x = emission_position + c * (t - emission_time) * direction`. Observer-frame
+//! values come from Lorentz transforms, demonstrating invariant measured speed,
+//! aberration, Doppler shift, and observer-dependent arrival coordinates for the
+//! same event. The values are derived from rollback-authoritative world/time state
+//! and require no independent simulation state.
 
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::lifecycle::SessionRoot;

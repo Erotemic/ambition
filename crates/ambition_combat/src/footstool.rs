@@ -194,9 +194,8 @@ pub fn claim_footstools(
     }
 
     for (_, _, stomper, victim, rules, gravity_dir, victim_grounded, victim_mid_move) in pairs {
-        //  BOTH ends. A stomper over two heads takes ONE footstool, and a head
-        // under two stompers is jumped off ONCE. The first version spent only
-        // the victim, so one press shoved every body it happened to overlap.
+        // Spend both participants: one stomper can footstool once, and one victim
+        // can be footstooled once per resolution pass.
         if spent.contains(&stomper) || spent.contains(&victim) {
             continue;
         }

@@ -1,36 +1,11 @@
-//! `[game-mode]` / `[world-event]` — the coarse world-state log.
+//! Coarse `[game-mode]` / `[world-event]` logging.
 //!
-//! ## The marker convention
-//!
-//! Plain `eprintln!` with a `[marker]` prefix, matching
-//! `ambition_dev_tools::profiling` (`[startup]`, `[frame-spike]`, `[frame-census]`,
-//! `[schedule-census]`). NOT `tracing`: `scripts/profile_desktop.sh` stamps these
-//! into timeline chunks, and stderr is what reaches Android logcat through
-//! `RustStdoutStderr` — `[frame-census]` lines are confirmed present in device logs.
-//! New markers must be added to that script's `marker_regex` or they will not
-//! appear in a profile timeline.
-//!
-//! ## Every line carries a FRAME NUMBER, not just a timestamp
-//!
-//! Bevy applies `NextState` in a deferred [`StateTransition`] schedule that runs between
-//! `PreUpdate` and `Update`, so a system that calls `NextState::set` in `Update` does not see
-//! the effect until the NEXT frame. So the frame index is part of the line format, and every
-//! marker in this module shares one source for it.
-//!
-//! [`bevy::diagnostic::FrameCount`] is that source, [`mirror_frame_count`] projects
-//! it into a process-global so a log site deep inside a helper function needs no
-//! `Res<FrameCount>` plumbing (owned at a root, read at leaves  projection). The
-//! mirror runs in `First`, so every line emitted during frame N reads N — the same
-//! value an `Update` system sees, because `FrameCount` is incremented in `Last`.
-//!
-//! ## Portability
-//!
-//! This module deliberately does NOT use `ambition_dev_tools::profiling`'s
-//! `#[cfg(not(target_arch = "wasm32"))]` fork. That fork exists because
-//! `std::time::Instant::now()` panics on wasm; [`bevy::platform::time::Instant`]
-//! is the same API backed by `web_time` there, so ONE implementation compiles and
-//! WORKS on desktop, Android, and the browser. The web build gets the instrument
-//! instead of a no-op stub.
+//! Lines go to stderr with marker prefixes consumed by profiling scripts and
+//! Android logcat. Every line includes the Bevy frame number; `mirror_frame_count`
+//! publishes the `FrameCount` value early enough for helper functions that cannot
+//! receive the resource directly. Marker additions must also be recognized by the
+//! profiling timeline parser. `bevy::platform::time::Instant` keeps the same
+//! implementation portable to wasm.
 
 use core::fmt::Arguments;
 use core::sync::atomic::{AtomicU32, AtomicUsize, Ordering};

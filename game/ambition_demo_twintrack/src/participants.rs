@@ -453,14 +453,9 @@ mod tests {
         LocalSeatOffer::offered("another surface", seats, policy)
     }
 
-    /// A DEMO PLUGIN MAY NOT RETRACT A CLAIM IT DID NOT MAKE.
-    ///
-    /// This is a process-global and `ambition_app` links this crate beside
-    /// Mary-O, Smash and the launcher. The first version wrote the DEFAULTS on
-    /// every frame TwinTrack was not live — which retracted Smash's couch policy
-    /// on every frame of every smash match, and its select screen then offered
-    /// one seat to two people
-    /// (`app_it::smash_in_the_host::two_participants_start_a_match_and_can_still_pause_it`).
+    /// A demo plugin may not retract participant policy it does not own.
+    /// TwinTrack shares a process with other experiences, so it writes policy only
+    /// while TwinTrack is active.
     #[test]
     fn a_dormant_plaza_leaves_another_surfaces_couch_alone() {
         let mut app = couch_app(false);

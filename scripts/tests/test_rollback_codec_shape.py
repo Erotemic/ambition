@@ -1,19 +1,8 @@
-"""The wire format's shape guard must stay able to see a field.
+"""Tests that the rollback codec-shape guard can observe encoded fields.
 
-⛔ **the hole this closes was found by falling into it.** On 2026-08-10 four
-rollback codecs gained fields under an unchanged `GGRS_ROLLBACK_SCHEMA_VERSION`,
-and both existing guards were structurally blind: one counts stable registration
-NAMES, the other records `name / kind / type / description` per registration.
-Neither can see inside a codec, so a peer could encode different bytes for the
-same 348 names and believe it agreed.
-
-Only two things are pinned here, and each is a way this guard could report a
-confident pass that is false:
-
-* it still MATCHES the codec files (a scan that finds nothing is a silent pass);
-* a planted field CHANGES the recorded shape (a hash that cannot move is a
-  silent pass too).
-"""
+The scan must find codec files, and adding a representative encoded field must
+change the recorded shape. A guard that scans nothing or cannot respond to a
+field change must not report success."""
 
 from __future__ import annotations
 
@@ -84,17 +73,11 @@ def test_a_planted_field_moves_the_shape(tmp_path):
 
 
 def test_a_planted_wire_code_moves_the_shape(tmp_path):
-    """⛔⛔ **the THIRD construct that decides bytes without naming a `put_*`.**
+    """Unit-enum discriminant codes must contribute to the codec-shape digest.
 
-    `snapshot_unit_enum!(Ty { A = 0, B = 1 })` expands to one `put_u8` of a
-    discriminant, and that call lives in the MACRO — so an invocation site
-    contributes no primitive at all and a new wire CODE was invisible. Measured
-    2026-08-20 on a branch adding `MovementOp::Footstool = 34`: the file stayed
-    byte-identical at `3355eb410d168f88` while the enum went 34 variants to 35.
-
-    ⚠ **the COUNT does not move, the DIGEST does** — one token per invocation,
-    carrying the sorted codes. Same as `snapshot_pod!` and the array fold, and
-    the same trap for a reader skimming counts.
+    The macro contains the `put_u8`, so invocation sites do not change primitive
+    counts when a new code is added. The digest therefore includes sorted enum
+    codes explicitly.
     """
     path = tmp_path / 'codec.rs'
     path.write_text(

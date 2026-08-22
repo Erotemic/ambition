@@ -254,18 +254,9 @@ mod tests {
         assert!(!is_dormant(&app, actor));
     }
 
-    /// `ActorControl` is a COMPONENT the body integrates every tick, and the
-    /// brain tick that writes it filters `Without<Dormant>`. So falling asleep
-    /// does not stop an actor — it FREEZES ITS LAST INTENT, and
-    /// `integrate_sim_bodies` (which has no dormancy filter at all, deliberately,
-    /// so a falling enemy keeps falling) goes on acting on it. A slop that dozed
-    /// off mid-stride walks that direction forever, off the ledge this policy
-    /// exists to keep it away from.
-    ///
-    /// the first version of this module asserted only that the POLICY was
-    /// attached, which was true and useless: the actor was marked dormant and
-    /// kept walking. The claim to test is what the actor DOES, not what it is
-    /// labelled.
+    /// Entering dormancy retracts the brain's last `ActorControl` intent. Physics
+    /// integration continues for dormant bodies, so stale locomotion intent must
+    /// not remain active.
     #[test]
     fn falling_asleep_retracts_the_brains_last_intent() {
         use ambition_characters::actor::control::ActorControlFrame;

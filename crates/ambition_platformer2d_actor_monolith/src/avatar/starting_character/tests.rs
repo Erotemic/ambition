@@ -1809,14 +1809,8 @@ fn the_spawned_and_the_rewarn_host_kit_are_one_construction() {
          compares two empty contracts and proves nothing"
     );
 
-    // The WHOLE contract, not just ids and verbs.
-    //
-    // the first version of this compared `moves[].id` and `verbs`, and a probe
-    // showed it could not go red: un-sharing the construction and dropping
-    // `apply_player_robot_slash_sfx` left ids and verbs identical, because that
-    // stamp writes CUE names onto the moves. A guard that cannot fail on the
-    // divergence it exists to catch is not a guard — the same lesson this session
-    // learned twice on the touch overlay.
+    // Compare the whole moveset contract, including cue metadata, not only move
+    // IDs and verbs.
     assert_eq!(
         spawned.moveset.0, rewarn,
         "a player that SPAWNED with the host kit and one that RE-WORE it have \
@@ -2036,16 +2030,9 @@ fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
     );
 }
 
-/// A field NO persona has ever authored is never written by this path.
-///
-/// The narrowing that the first version of the retraction did not have, and the
-/// reason it desynced `rollback_lifecycle_reset` on its first full suite run.
-/// Recording the body's values wholesale and restoring them whenever the incoming
-/// character was silent made this derive a second authority over `max_health` —
-/// so it fought the direct `health.max = 3` that test stages with. Because the
-/// derive is gated on Bevy change detection, and change ticks are not rollback
-/// state, it fired on resimulated frames it had not fired on live: a write that
-/// had always been a no-op became a checksum divergence.
+/// Fields never authored by any persona are not managed by persona retraction.
+/// This prevents the derive from becoming a second authority over unrelated body
+/// state such as `max_health`, including during rollback resimulation.
 #[test]
 fn a_field_no_persona_authored_is_left_to_whoever_else_writes_it() {
     use crate::combat::moveset::ActorMoveset;

@@ -1,25 +1,13 @@
 #!/usr/bin/env python3
-"""Regenerate ``music_registry.ron`` from the rendered-OGG asset tree.
+"""Regenerate `music_registry.ron` from published music assets.
 
-The music registry is a *projection* of what music actually exists: every
-``audio/music/generated/<cue>/full.ogg`` becomes a radio track unless it is
-denied (backing-layer stems, superseded mixes). This is the elegant
-counterpart to the now-vestigial hand-authored list — registration is an
-invariant, not a chore. Run it standalone or via ``regen_music.sh`` (which
-calls it after publishing renders).
+Each conventional `audio/music/generated/<cue>/full.ogg` becomes a track unless
+explicitly denied. Off-convention assets use `SPECIAL_ENTRIES`; track-level
+one-shots require explicit score metadata rather than being inferred from
+section loopability.
 
-A registry entry carries ``id`` + ``display_name`` and, for explicitly
-marked score-level stings, ``one_shot: true``. ``asset_path`` is omitted for
-the conventional ``audio/music/generated/<id>/full.ogg`` layout (the Rust
-``MusicTrack`` derives it from ``id``) and only spelled out for off-convention
-assets (``SPECIAL_ENTRIES``). Section-level ``loopable`` is deliberately not
-used to infer track policy: mixed-section scores are common, so a non-looping
-track must opt in with a top-level ``one_shot: true`` in its active score.
-
-Usage:
-    python3 scripts/regen_music_registry.py            # rewrite the registry
-    python3 scripts/regen_music_registry.py --check     # fail if out of date
-"""
+    python3 scripts/regen_music_registry.py
+    python3 scripts/regen_music_registry.py --check"""
 
 from __future__ import annotations
 
@@ -34,29 +22,10 @@ ASSET_ROOTS_SH = REPO_ROOT / "scripts" / "lib" / "asset_roots.sh"
 
 
 def _declared_asset_crate() -> str:
-    """The consuming crate's name, read from the ONE place that declares it.
+    """Read the consuming crate name from the shell declaration.
 
-    ⛔ **this script used to carry its own copy of that name as a fallback
-    default**, immediately below a comment reading *"two readers of one
-    declaration, never two declarations"*. The name has already been retired
-    once, it moves again when the monolith is decomposed — and a second copy is
-    wrong for every value it does not hold.
-
-    ⚠ **and this docstring may not SPELL the retired name**, which is not
-    pedantry: `check_retired_crate_names` reads every tracked file and cannot
-    tell a history lesson from a live reference. Writing the old name here to
-    illustrate the point made the checker red — the prose was describing exactly
-    the mistake it was committing.
-    That is not hypothetical here: on 2026-08-07 the renderer submodule and this
-    repo disagreed about the name, 69 cues were published into a directory
-    nothing reads, and both halves reported success.
-
-    ⚠ **parsed, not imported**, because the declaration is a shell file the shell
-    tools source. One regex over one line is the whole reader; a missing or
-    unparseable declaration RAISES rather than falling back, for the same reason
-    the renderer's `publish_root()` raises: a wrong guess is how the 69 cues got
-    lost, and a missing declaration is a question rather than something to answer
-    on the caller's behalf.
+    Parse the declaration directly so shell and Python tooling share one source
+    of truth. Missing or malformed declarations raise instead of guessing.
     """
     text = ASSET_ROOTS_SH.read_text()
     match = re.search(

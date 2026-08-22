@@ -1,9 +1,4 @@
-"""Smoke tests for the `intgrid paint` subcommand added 2026-05-24.
-
-Symmetric counterpart to `intgrid erase` tests if any existed —
-verifies that painting a rect of a given IntGrid value updates the
-right cells and doesn't disturb the rest of the layer.
-"""
+"""Smoke tests for painting IntGrid values into the requested rectangle without disturbing unrelated cells."""
 
 from __future__ import annotations
 

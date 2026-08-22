@@ -507,6 +507,14 @@ pub struct CharacterPortraitRef {
     pub manifest: String,
     /// Named clip shown when dialogue does not request another expression.
     pub default_clip: String,
+    /// Named clip a STILL consumer draws — a select-screen or HUD box.
+    ///
+    /// Empty defers to the manifest's own `still_clip`, and then to
+    /// `default_clip`'s first frame. Separate from `default_clip` because the
+    /// clip that PLAYS and the pose a UI box shows are different choices, and a
+    /// looping default's first frame is wherever the loop starts.
+    #[serde(default)]
+    pub still_clip: String,
 }
 
 /// One character entry in `character_catalog.ron`.

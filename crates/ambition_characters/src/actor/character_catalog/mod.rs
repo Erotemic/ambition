@@ -111,12 +111,8 @@ impl CharacterCatalog {
             image: format!("{stem}_portraits.png"),
             manifest: format!("{stem}_portraits.ron"),
             default_clip: "default".to_string(),
+            still_clip: String::new(),
         })
-    }
-
-    /// Resolve the default close-up portrait image for presentation code.
-    pub fn portrait_image_path(&self, id: &str) -> Option<String> {
-        self.portrait_ref(id).map(|portrait| portrait.image)
     }
 
     /// Iterate every (id, entry) pair. Stable order — `BTreeMap`.
@@ -486,6 +482,7 @@ mod tests {
                 image: "sprites/sample_portraits.png".to_string(),
                 manifest: "sprites/sample_portraits.ron".to_string(),
                 default_clip: "default".to_string(),
+                still_clip: String::new(),
             })
         );
     }
@@ -497,6 +494,7 @@ mod tests {
                 image: "sprites/custom.png",
                 manifest: "sprites/custom.ron",
                 default_clip: "calm",
+                still_clip: "portrait",
             ))"#,
         );
         assert_eq!(
@@ -505,6 +503,7 @@ mod tests {
                 image: "sprites/custom.png".to_string(),
                 manifest: "sprites/custom.ron".to_string(),
                 default_clip: "calm".to_string(),
+                still_clip: "portrait".to_string(),
             })
         );
     }

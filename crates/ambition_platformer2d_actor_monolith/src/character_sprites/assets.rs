@@ -181,6 +181,7 @@ pub fn portrait_for_declared_character(
         image,
         manifest: manifest_path.to_string(),
         default_clip: manifest.default_clip.clone(),
+        still_clip: manifest.still_clip.clone(),
     })
 }
 

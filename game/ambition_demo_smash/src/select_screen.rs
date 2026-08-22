@@ -316,19 +316,18 @@ fn portrait_art(
         .and_then(|prepared| prepared.portrait.as_deref());
     let reference = portrait_for_declared_character(portraits, catalog, target, id)?;
     let handle = asset_server?.load::<Image>(reference.image.clone());
+    // STILL, said out loud. This grid never ticks a frame, so it asks for the one
+    // frame it draws instead of taking a clip and keeping its first — which is
+    // what it used to do, and what left the choice invisible at the call site.
     let rect = portraits
         .and_then(|registry| {
-            registry.resolve_clip(&reference.manifest, None, &reference.default_clip)
-        })
-        .and_then(|(_, clip)| clip.frames.first().copied())
-        .map(|frame| {
-            Rect::new(
-                frame.x as f32,
-                frame.y as f32,
-                (frame.x + frame.w) as f32,
-                (frame.y + frame.h) as f32,
+            registry.resolve_still(
+                &reference.manifest,
+                None,
+                Some(&reference.still_clip),
             )
-        });
+        })
+        .map(|(_, frame)| Rect::from(frame));
     Some((handle, rect))
 }
 

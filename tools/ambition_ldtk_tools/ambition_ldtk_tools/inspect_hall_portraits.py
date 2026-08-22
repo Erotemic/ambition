@@ -76,7 +76,11 @@ def classify(entry: dict[str, Any], sprites_dir: Path) -> tuple[str, str]:
     default_match = re.search(r'\bdefault_clip:\s*"([^"\n]+)"', text)
     if default_match is None:
         return ("bad_manifest", f"{manifest_path.name} has no default_clip")
-    default_clip = default_match.group(1)
+    # The STILL, where the target names one. This report checks that a dialogue
+    # row has a usable FACE; once `default` is a looping idle, the frame worth
+    # measuring is the pose the author chose, not wherever the loop starts.
+    still_match = re.search(r'\bstill_clip:\s*"([^"\n]+)"', text)
+    default_clip = (still_match or default_match).group(1)
     marker = re.search(
         rf'"{re.escape(default_clip)}"\s*:\s*\((?P<body>.*?)\n\s*\),',
         text,
@@ -88,7 +92,7 @@ def classify(entry: dict[str, Any], sprites_dir: Path) -> tuple[str, str]:
             f"{manifest_path.name} does not define clip {default_clip!r}",
         )
     if re.search(r'\bframes:\s*\[\s*\(', marker.group("body")) is None:
-        return ("bad_manifest", f"{manifest_path.name} default clip has no frames")
+        return ("bad_manifest", f"{manifest_path.name} clip {default_clip!r} has no frames")
     frame_match = re.search(
         r"\(x:\s*(\d+),\s*y:\s*(\d+),\s*w:\s*(\d+),\s*h:\s*(\d+)\)",
         marker.group("body"),

@@ -5,7 +5,7 @@
 //! actor geometry. The authoring implementation that produced the raster is
 //! intentionally outside this schema.
 
-use bevy::prelude::{App, Plugin, ResMut, Resource, Startup};
+use bevy::prelude::{App, Plugin, Rect, ResMut, Resource, Startup};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use tracing::{info, warn};
@@ -17,6 +17,20 @@ pub struct PortraitFrameRect {
     pub y: u32,
     pub w: u32,
     pub h: u32,
+}
+
+impl From<PortraitFrameRect> for Rect {
+    /// The sub-rectangle an `ImageNode` draws. Every still consumer needs this
+    /// and none of them should spell it out; a hand-written conversion is where
+    /// an off-by-a-width creeps in.
+    fn from(frame: PortraitFrameRect) -> Self {
+        Rect::new(
+            frame.x as f32,
+            frame.y as f32,
+            (frame.x + frame.w) as f32,
+            (frame.y + frame.h) as f32,
+        )
+    }
 }
 
 /// Named static or animated portrait clip.
@@ -39,6 +53,14 @@ pub struct PortraitSheetManifest {
     pub frame_width: u32,
     pub frame_height: u32,
     pub default_clip: String,
+    /// The clip a STILL consumer should draw, when this target names one.
+    ///
+    /// A UI box wants a chosen pose; `default_clip` is the clip that PLAYS, and
+    /// for a target whose default is a looping idle its first frame is wherever
+    /// the loop happens to start. Empty means this target names no separate
+    /// still, and a still request falls through to `default_clip`'s first frame.
+    #[serde(default)]
+    pub still_clip: String,
     pub clips: BTreeMap<String, PortraitClipRecord>,
 }
 
@@ -70,6 +92,12 @@ impl PortraitSheetManifest {
             return Err(format!(
                 "portrait manifest '{}' default clip '{}' has no frames",
                 self.target, self.default_clip
+            ));
+        }
+        if !self.still_clip.trim().is_empty() && !self.clips.contains_key(&self.still_clip) {
+            return Err(format!(
+                "portrait manifest '{}' still clip '{}' is missing",
+                self.target, self.still_clip
             ));
         }
         for (name, clip) in &self.clips {
@@ -176,28 +204,57 @@ impl PortraitSheetRegistry {
         self.by_target.keys().map(String::as_str)
     }
 
-    /// Resolve a requested clip with deterministic fallbacks: requested key,
-    /// catalog-declared default, manifest default, then the conventional
-    /// `default`. Returns the actual selected key beside its record.
-    pub fn resolve_clip<'a>(
+    /// ONE frame to draw, for a consumer that wants a still portrait.
+    ///
+    /// A still and an animation are different requests, and a portrait sheet can
+    /// answer either — so the caller says which. Selection walks requested key,
+    /// the catalog's still override, the manifest's `still_clip`, its
+    /// `default_clip`, then the conventional `default`; the chosen clip's FIRST
+    /// frame is the still. Reducing an animated clip that way is the sanctioned
+    /// degradation, not a guess: a target that wants a different still names one.
+    pub fn resolve_still(
+        &self,
+        manifest_path: &str,
+        requested: Option<&str>,
+        catalog_still: Option<&str>,
+    ) -> Option<(&str, PortraitFrameRect)> {
+        let manifest = self.get(manifest_path)?;
+        let (name, clip) = select_clip(
+            manifest,
+            [
+                requested,
+                catalog_still,
+                Some(manifest.still_clip.as_str()),
+                Some(manifest.default_clip.as_str()),
+                Some("default"),
+            ],
+        )?;
+        Some((name, *clip.frames.first()?))
+    }
+
+    /// A clip to PLAY, for a consumer that animates.
+    ///
+    /// Selection walks requested key, the catalog's declared default, the
+    /// manifest default, then the conventional `default`. A one-frame clip comes
+    /// back unchanged — a held still is a valid animation, and it is what a
+    /// character who never authored motion has to give.
+    pub fn resolve_animated<'a>(
         &'a self,
         manifest_path: &str,
         requested: Option<&str>,
-        catalog_default: &str,
+        catalog_default: Option<&str>,
     ) -> Option<(&'a str, &'a PortraitClipRecord)> {
         let manifest = self.get(manifest_path)?;
-        let candidates = [
-            requested.filter(|name| !name.trim().is_empty()),
-            (!catalog_default.trim().is_empty()).then_some(catalog_default),
-            Some(manifest.default_clip.as_str()),
-            Some("default"),
-        ];
-        for candidate in candidates.into_iter().flatten() {
-            if let Some((name, clip)) = manifest.clips.get_key_value(candidate) {
-                return Some((name.as_str(), clip));
-            }
-        }
-        None
+        select_clip(
+            manifest,
+            [
+                requested,
+                catalog_default,
+                Some(manifest.default_clip.as_str()),
+                Some("default"),
+                None,
+            ],
+        )
     }
 
     pub fn len(&self) -> usize {
@@ -207,6 +264,27 @@ impl PortraitSheetRegistry {
     pub fn is_empty(&self) -> bool {
         self.manifests.is_empty()
     }
+}
+
+/// First candidate naming a clip this manifest actually carries, with its key.
+///
+/// Blank candidates are skipped rather than matched: an unset override and an
+/// empty string mean the same thing to every caller, and a clip name is never
+/// empty (`validate` refuses one).
+fn select_clip<'a>(
+    manifest: &'a PortraitSheetManifest,
+    candidates: [Option<&str>; 5],
+) -> Option<(&'a str, &'a PortraitClipRecord)> {
+    candidates
+        .into_iter()
+        .flatten()
+        .filter(|name| !name.trim().is_empty())
+        .find_map(|name| {
+            manifest
+                .clips
+                .get_key_value(name)
+                .map(|(name, clip)| (name.as_str(), clip))
+        })
 }
 
 fn normalize_manifest_path(path: &str) -> String {
@@ -302,6 +380,37 @@ mod tests {
         assert_eq!(manifest.clips["default"].frames[0].h, 320);
     }
 
+    /// A target whose default MOVES and which names its own still.
+    fn animated_registry() -> PortraitSheetRegistry {
+        PortraitSheetRegistry::from_baked_table(&[(
+            "sprites/alice_portraits.ron",
+            r#"(
+                target: "alice",
+                image: "alice_portraits.png",
+                frame_width: 256,
+                frame_height: 320,
+                default_clip: "idle",
+                still_clip: "hero",
+                clips: {
+                    "idle": (
+                        duration_ms: 140,
+                        looping: true,
+                        frames: [
+                            (x: 0, y: 0, w: 256, h: 320),
+                            (x: 256, y: 0, w: 256, h: 320),
+                        ],
+                    ),
+                    "hero": (frames: [(x: 512, y: 0, w: 256, h: 320)]),
+                    "speaking": (
+                        duration_ms: 90,
+                        looping: true,
+                        frames: [(x: 768, y: 0, w: 256, h: 320)],
+                    ),
+                },
+            )"#,
+        )])
+    }
+
     #[test]
     fn baked_registry_resolves_named_clips_and_falls_back_to_default() {
         let registry = PortraitSheetRegistry::from_baked_table(&[(
@@ -323,15 +432,105 @@ mod tests {
             )"#,
         )]);
         let (name, clip) = registry
-            .resolve_clip("sprites\\alice_portraits.ron", Some("speaking"), "calm")
+            .resolve_animated("sprites\\alice_portraits.ron", Some("speaking"), Some("calm"))
             .expect("named clip resolves");
         assert_eq!(name, "speaking");
         assert!(clip.looping);
 
         let (name, _) = registry
-            .resolve_clip("sprites/alice_portraits.ron", Some("missing"), "calm")
+            .resolve_animated("sprites/alice_portraits.ron", Some("missing"), Some("calm"))
             .expect("missing expression falls back");
         assert_eq!(name, "calm");
+    }
+
+    /// The whole point of the split: one sheet, two questions, two answers.
+    #[test]
+    fn a_still_request_and_an_animated_request_disagree_on_purpose() {
+        let registry = animated_registry();
+
+        let (still_name, frame) = registry
+            .resolve_still("sprites/alice_portraits.ron", None, None)
+            .expect("a still resolves");
+        assert_eq!(still_name, "hero", "a declared still outranks the playing default");
+        assert_eq!(frame.x, 512);
+
+        let (clip_name, clip) = registry
+            .resolve_animated("sprites/alice_portraits.ron", None, None)
+            .expect("an animation resolves");
+        assert_eq!(clip_name, "idle");
+        assert_eq!(clip.frames.len(), 2, "the animated road keeps every frame");
+    }
+
+    /// Jon's stated fallback: ask for a still, get the first frame of what moves.
+    #[test]
+    fn a_still_of_an_animated_clip_is_its_first_frame() {
+        let registry = animated_registry();
+        let (name, frame) = registry
+            .resolve_still("sprites/alice_portraits.ron", Some("speaking"), None)
+            .expect("an animated clip still yields a still");
+        assert_eq!(name, "speaking");
+        assert_eq!(frame.x, 768);
+    }
+
+    /// And the other direction: a character who authored no motion still answers.
+    #[test]
+    fn an_animated_request_holds_a_one_frame_clip() {
+        let registry = animated_registry();
+        let (name, clip) = registry
+            .resolve_animated("sprites/alice_portraits.ron", Some("hero"), None)
+            .expect("a still clip is a held animation");
+        assert_eq!(name, "hero");
+        assert_eq!(clip.frames.len(), 1);
+        assert!(!clip.looping);
+    }
+
+    /// Without a declared still, the still road lands on the default's frame 0.
+    #[test]
+    fn an_undeclared_still_falls_through_to_the_default_clip() {
+        let registry = PortraitSheetRegistry::from_baked_table(&[(
+            "sprites/victor_portraits.ron",
+            r#"(
+                target: "victor",
+                image: "victor_portraits.png",
+                frame_width: 256,
+                frame_height: 320,
+                default_clip: "idle",
+                clips: {
+                    "idle": (
+                        duration_ms: 140,
+                        looping: true,
+                        frames: [
+                            (x: 0, y: 0, w: 256, h: 320),
+                            (x: 256, y: 0, w: 256, h: 320),
+                        ],
+                    ),
+                },
+            )"#,
+        )]);
+        let (name, frame) = registry
+            .resolve_still("sprites/victor_portraits.ron", None, None)
+            .expect("a still resolves without a declared one");
+        assert_eq!(name, "idle");
+        assert_eq!(frame.x, 0);
+    }
+
+    #[test]
+    fn a_still_clip_naming_nothing_is_rejected() {
+        let error = parse_portrait_manifest(
+            r#"(
+                target: "alice",
+                image: "alice_portraits.png",
+                frame_width: 256,
+                frame_height: 320,
+                default_clip: "default",
+                still_clip: "hero",
+                clips: {
+                    "default": (frames: [(x: 0, y: 0, w: 256, h: 320)]),
+                },
+            )"#,
+        )
+        .expect_err("a declared still must name a clip that exists");
+        assert!(error.contains("still clip 'hero' is missing"));
     }
 
     #[test]

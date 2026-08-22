@@ -975,10 +975,12 @@ fn resolve_portrait_visual(
         registered_target,
         character_id,
     )?;
-    let (clip_name, clip) = portrait_registry.resolve_clip(
+    // ANIMATED, said out loud. A dialogue box plays a clip; the still road next
+    // door draws one frame. The sheet can answer either, so the caller picks.
+    let (clip_name, clip) = portrait_registry.resolve_animated(
         &portrait.manifest,
         requested_clip,
-        &portrait.default_clip,
+        Some(&portrait.default_clip),
     )?;
     Some(ResolvedPortraitVisual {
         image_path: portrait.image.clone(),

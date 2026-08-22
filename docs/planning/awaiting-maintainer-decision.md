@@ -73,6 +73,31 @@ cost note is at the loop as asked: `strike_reaches_victim` walks a 1–2 volume
 list where an AABB test stood, so it is a constant factor on a loop already
 bounded by live shots × candidate victims.
 
+⚠ **AND THE SHARED SILHOUETTE DID NOT MAKE PROJECTILE COLLISION CONTINUOUS —
+two correctness gaps stay open, both verified against HEAD 2026-08-22** (raised
+by a GPT review; re-read at the loop rather than taken on trust):
+
+1. **Endpoint-only.** The step integrates first (`body.pos += body.vel * dt`)
+   and then tests `victim.reached_by(&kin.aabb().into())` at the RESULTING box.
+   Nothing sweeps the shape along its displacement, so a fast enough bolt can
+   cross a narrow hurt volume between ticks. ⚠ **not urgent on shipped content**:
+   the default projectile speed is ~360 px/s, about 6 px per 60 Hz tick, far
+   under any authored volume. It becomes real with faster bolts, smaller hurt
+   parts, or a lower tick rate.
+2. **First victim wins.** `for victim in &victims { … break; }` takes the first
+   qualifying body with no geometric or authored ordering. ⭐ **and the precise
+   claim matters**: the PROJECTILES are already sorted by a global spawn
+   sequence (`ordered.sort_by_key(|(_, seq)| *seq)`), so this is not a desync —
+   every peer shares the spawn history and iterates the same way. What it is, is
+   ARBITRARY: when a bolt overlaps two valid bodies on one tick, which one takes
+   it is decided by archetype order rather than by anything a designer chose.
+
+⇒ **they are ONE slice, and in that order**: sweeping the projectile against
+`DamageableVolumes` produces a time-of-impact, and a time-of-impact is exactly
+the arbitration key gap 2 lacks — nearest TOI, with the existing spawn sequence
+as the stable tie-break. ⛔ do not fix 2 alone by sorting on distance-to-centre;
+that is a proxy for the number the sweep would give for free.
+
 ### 2. Advance the measurement-submodule pointer?
 
 `dev/ambition_dev_measurements` contains useful committed measurement history.

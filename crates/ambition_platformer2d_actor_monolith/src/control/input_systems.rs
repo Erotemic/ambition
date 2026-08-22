@@ -42,7 +42,12 @@ pub struct InputTimersAdvanced;
 /// and nothing in this file holds that resource now. It runs after the
 /// publication boundary instead, on the table the bodies actually read.
 pub fn input_timer_system(
-    time: Res<Time>,
+    // ⭐ the UNSCALED SIM step, by its name. These windows are a promise to the
+    // player in real seconds, and `WorldTime::wall_dt` is exactly that value —
+    // the same number `Res<Time>` gave here, with the authority stated. Ordered
+    // `.after(refresh_world_time)` where it is scheduled; a snapshot resource
+    // has an ordering dependency that Bevy's `Time` does not.
+    world_time: Res<ambition_time::WorldTime>,
     feel_tuning: Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>,
     // **WHO IS DRIVING WHAT**, so each seat's gesture resolves against the
     // gravity of the body that seat is actually steering.
@@ -73,7 +78,7 @@ pub fn input_timer_system(
         With<crate::actor::PlayerEntity>,
     >,
 ) {
-    let frame_dt = time.delta_secs();
+    let frame_dt = world_time.wall_dt();
     let feel = *feel_tuning;
     sim_state.remaining = (sim_state.remaining - frame_dt).max(0.0);
     // ⭐ **ONE decay, called — not a fourth spelling of it** (AC3.3). This was
@@ -190,7 +195,8 @@ pub struct InteractionInputBuffered;
 /// Fold explicit Interact, double-tap Up, and held Up into each controller slot's
 /// buffered interaction, gated by gameplay state and the driven body's hit stun.
 pub fn interaction_input_system(
-    time: Res<Time>,
+    // Unscaled sim step — see `input_timer_system`.
+    world_time: Res<ambition_time::WorldTime>,
     feel_tuning: Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>,
     // Proposal-side input for this frame; confirmed simulation input is in `slots`.
     raw: Res<ambition_characters::brain::SeatRawFrames>,
@@ -212,7 +218,7 @@ pub fn interaction_input_system(
         ),
     >,
 ) {
-    let frame_dt = time.delta_secs();
+    let frame_dt = world_time.wall_dt();
     let feel = *feel_tuning;
     let movement_mode = user_settings
         .as_deref()
@@ -355,6 +361,7 @@ mod per_seat_gesture_tests {
         for slot in [0u8, 1] {
             app.world_mut().spawn(DrivingParticipant(PlayerSlot(slot)));
         }
+        app.init_resource::<ambition_time::WorldTime>();
         app.add_systems(Update, input_timer_system);
 
         // A tap arms the window; the second tap inside it IS the double-tap. Both
@@ -408,6 +415,7 @@ mod per_seat_gesture_tests {
         for slot in [0u8, 1] {
             app.world_mut().spawn(DrivingParticipant(PlayerSlot(slot)));
         }
+        app.init_resource::<ambition_time::WorldTime>();
         app.add_systems(Update, input_timer_system);
 
         let tap = ControlFrame {
@@ -471,6 +479,7 @@ mod interaction_suppression_tests {
         app.init_resource::<ambition_characters::brain::SlotControls>();
         app.world_mut()
             .spawn((PlayerEntity, PrimaryPlayer, BodyCombat::default()));
+        app.init_resource::<ambition_time::WorldTime>();
         app.add_systems(Update, interaction_input_system);
         app.update();
         app.world()
@@ -509,6 +518,7 @@ mod interaction_suppression_tests {
         app.insert_resource(slots);
         app.world_mut()
             .spawn((PlayerEntity, PrimaryPlayer, BodyCombat::default()));
+        app.init_resource::<ambition_time::WorldTime>();
         app.add_systems(Update, interaction_input_system);
         app.update();
 

@@ -168,13 +168,19 @@ impl Plugin for PlayerSchedulePlugin {
                 // `InputSet::Route` supplies the ordering window: interaction is
                 // buffered before portal warping, and both happen before
                 // `PrimarySlotInputCommit`. Confirmed-input derivations run in the sim schedule.
+                // ⛔ both read `WorldTime`, which is a SNAPSHOT taken by
+                // `refresh_world_time` at the head of this same schedule. Bevy's
+                // `Time` needed no such edge; a snapshot does, or these advance
+                // on last tick's dt.
                 ambition_platformer2d_actor_monolith::control::input_timer_system
                     .in_set(ambition_platformer2d_actor_monolith::control::InputTimersAdvanced)
                     .run_if(gameplay_allowed)
+                    .after(ambition_time::refresh_world_time)
                     .in_set(ambition_input::InputSet::Route),
                 ambition_platformer2d_actor_monolith::control::interaction_input_system
                     .in_set(ambition_platformer2d_actor_monolith::control::InteractionInputBuffered)
-                    .run_if(gameplay_allowed),
+                    .run_if(gameplay_allowed)
+                    .after(ambition_time::refresh_world_time),
                 // Portal-warped held movement input is registered by
                 // `ambition_portal2d::PortalPlugin` so the portal
                 // subsystem owns its input seam.

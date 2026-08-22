@@ -280,17 +280,20 @@ fn gameplay_systems_must_not_read_res_time_directly() {
         // decision under it is false, and "consolidating" a fork nobody
         // explained is how a deliberate one gets undone.
         //
-        // ⭐ what is on the raw clock here, and why: reaction timers (i-frames
-        // are a promise in REAL seconds — bullet-time must not hand out longer
-        // invulnerability), the double-tap gesture windows (slowing the world
-        // must not widen a double-tap), and the presentation flash, which is
-        // meant to run while paused. Pinned by
+        // ⭐ what is on the raw clock here, and why: the presentation flash,
+        // which is meant to run while paused. Pinned by
         // `the_reaction_timer_clock_forks_on_purpose`.
+        //
+        // ⚠ **NARROWED 2026-08-22.** This waiver also covered the reaction
+        // timers and the double-tap windows, which are gameplay and are
+        // rollback-canonical state. They still want the same NUMBER — unscaled
+        // seconds — but that number has a name, so they read
+        // `WorldTime::wall_dt()` and are no longer exceptions to anything. What
+        // is left here is genuinely presentation.
         (
             "control/input_systems.rs",
-            "reaction timers, double-tap windows and the presentation flash are all \
-             REAL-time by design; hitstop scales the sim clock, so a timer that ends \
-             hitstop cannot be measured on it",
+            "the presentation flash is REAL-time by design and runs while paused; \
+             the gameplay timers in this file moved to WorldTime::wall_dt",
         ),
         // Hot reload polls disk in wall-clock cadence.
         (

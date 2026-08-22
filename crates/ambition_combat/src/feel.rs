@@ -21,7 +21,7 @@ pub struct Platformer2dFeelTuningMonolith {
     /// into a door. Matches the possession hold, which is the game's other
     /// hold-a-direction gesture.
     pub interaction_hold_time: f32,
-    /// ⛔ this replaces `attack_hitstop_time` (0.055, attacker) and
+    ///  this replaces `attack_hitstop_time` (0.055, attacker) and
     /// `player_damage_hitstop_time` (0.070, victim): two unscaled constants at
     /// two sites for one event.
     pub hitlag_time: f32,
@@ -60,16 +60,16 @@ pub struct Platformer2dFeelTuningMonolith {
     /// Hollow-Knight "get bopped out, then fight back while flashing" feel.
     /// Distinct from hitstun (the longer, softer partial-movement window).
     pub knockback_recoil_lock_time: f32,
-    /// **THE METEOR LOCK** — how long a body spiked out of the AIR cannot
+    /// THE METEOR LOCK — how long a body spiked out of the AIR cannot
     /// recover. A floor under [`Self::knockback_recoil_lock_time`], never an
     /// addition: a meteor is a longer version of the same silence.
     ///
-    /// ⚠ **the value here is a BASELINE that an experience overwrites**, exactly
+    ///  the value here is a BASELINE that an experience overwrites, exactly
     /// like `di_max_angle` beside it — `DeclaredCombatRules::meteor_lock_time`
     /// is the authority and the damage road folds it in before use. `0.0` is no
     /// meteor rule, which is what an exploration game wants.
     pub meteor_lock_time: f32,
-    /// **What a CROUCHING victim multiplies an incoming launch by** — crouch
+    /// What a CROUCHING victim multiplies an incoming launch by — crouch
     /// cancel. Folded in from `DeclaredCombatRules::crouch_cancel_scale` by the
     /// damage road, exactly like `meteor_lock_time` beside it. `1.0` is no
     /// crouch cancel, which is what an exploration game wants.

@@ -11,7 +11,7 @@ use bevy::prelude::{Component, Resource};
 /// the encounter registry (or developer overview override) every
 /// frame; this resource holds the smoothed value so transitions feel
 /// like a breath instead of a snap.
-/// **a COMPONENT on a local view, not a resource.** A second local view eases
+/// a COMPONENT on a local view, not a resource. A second local view eases
 /// its own zoom toward its own target, so "the camera's ease state" is a
 /// question that has to name a view to mean anything.
 #[derive(Component, Clone, Copy, Debug)]
@@ -24,10 +24,10 @@ pub struct CameraEaseState {
     /// `None` outside such a zone — which is what makes re-entering one a fresh scroll rather
     /// than a camera pinned to where it stopped an hour ago.
     pub scroll_watermark_x: Option<f32>,
-    /// **The observer roll actually being presented**, eased toward the roll the
+    /// The observer roll actually being presented, eased toward the roll the
     /// view's reference frame asks for.
     ///
-    /// **without it the world SNAPS.** `presented_roll_radians` is a pure function of the
+    /// without it the world SNAPS. `presented_roll_radians` is a pure function of the
     /// CURRENT `subject_down`, so in `SubjectFrame` mode any discontinuity in that axis —
     /// possessing a body standing on a different surface, a gravity flip, any future
     /// view-subject change — rotated the whole world by up to a half turn in one frame.
@@ -43,7 +43,7 @@ pub struct CameraEaseState {
 
 /// How fast the presented observer roll follows its reference frame.
 ///
-/// **the genre answered this, so it is a dial and not a decision.** A gravity
+/// the genre answered this, so it is a dial and not a decision. A gravity
 /// flip rotates the view over a short interval in VVVVVV and Mario Galaxy rather
 /// than cutting; π radians in 0.30s is inside that band and reads as "the world
 /// turns under you" instead of a jump cut.
@@ -55,7 +55,7 @@ pub const OBSERVER_ROLL_EASE_RAD_PER_S: f32 = std::f32::consts::PI / 0.30;
 
 /// Ease `current` toward `target` along the SHORTEST angular path.
 ///
-/// **the wrap is the whole subtlety.** Rolls live on a circle: +π and -π are
+/// the wrap is the whole subtlety. Rolls live on a circle: +π and -π are
 /// the same orientation, and a naive `target - current` would send the view the
 /// long way round — a full rotation to reach an angle it was already at.
 pub fn ease_roll_radians(current: f32, target: f32, dt: f32) -> f32 {
@@ -150,7 +150,7 @@ pub struct CameraShakeState {
     pub seed: u32,
 }
 
-/// **How hard this game is allowed to shake, and how fast it settles.**
+/// How hard this game is allowed to shake, and how fast it settles.
 ///
 /// The cap was a `const` inside `kick` and the decay a module constant, so two
 /// games in one host shook identically whether or not that suited either of
@@ -198,19 +198,19 @@ impl CameraShakeState {
     }
 }
 
-/// **A simulation-produced request to kick the camera.** (P0.1)
+/// A simulation-produced request to kick the camera. (P0.1)
 ///
-/// **the simulation must not touch [`CameraShakeState`] directly.** A rollback host runs each
+/// the simulation must not touch [`CameraShakeState`] directly. A rollback host runs each
 /// frame more than once, and the FIRST of those passes is already unconfirmed: GGRS predicts
 /// the remote input, so a hit that a later correction erases has, by then, already kicked the
 /// live camera.
 ///
-/// So the shake became what the sound already was: an **intent**, written into a quarantined
+/// So the shake became what the sound already was: an intent, written into a quarantined
 /// channel, journalled per frame, and released once the host confirms the frame that produced
 /// it. A re-simulation that no longer produces the hit replaces its frame's batch with an empty
 /// one and the kick never happens; a confirmed hit is released exactly once.
 ///
-/// **strongest-wins survives the trip.** [`CameraShakeState::kick`] is a `max`,
+/// strongest-wins survives the trip. [`CameraShakeState::kick`] is a `max`,
 /// so several requests released together settle on the loudest exactly as several
 /// direct kicks did.
 #[derive(bevy::ecs::message::Message, Clone, Copy, Debug)]
@@ -295,7 +295,7 @@ pub fn hard_fall_shake_amplitude(impact_speed: Option<f32>) -> f32 {
 /// each having its own idea of "hard".
 pub const HIT_SHAKE_GAIN_PX_PER_S: f32 = 48.0;
 
-/// **the reference is a PARAMETER, not a constant here.** `hitlag_time` is the
+/// the reference is a PARAMETER, not a constant here. `hitlag_time` is the
 /// route's `Platformer2dFeelTuningMonolith` value; restating 0.070 in this crate
 /// would be a second literal agreeing with the first by coincidence, and a route
 /// that retunes its hitlag would silently retune its camera in the wrong

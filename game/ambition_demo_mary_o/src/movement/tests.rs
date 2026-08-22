@@ -91,7 +91,7 @@ fn the_walk_throttle_is_symmetric() {
     assert_eq!(throttle(&app, body), -WALK_THROTTLE);
 }
 
-/// **The held state survives the frame->tick latch.** A sustained technique that
+/// The held state survives the frame->tick latch. A sustained technique that
 /// evaporated on a catch-up tick would drop the player out of a run mid-stride, so
 /// the modifier must be carried as a LEVEL (retained) and not as an EDGE (consumed).
 #[test]
@@ -122,7 +122,7 @@ fn the_held_run_survives_the_frame_to_tick_latch() {
     );
 }
 
-/// **Releasing run does not erase accumulated speed**, and reaching top speed
+/// Releasing run does not erase accumulated speed, and reaching top speed
 /// takes real time rather than snapping.
 ///
 /// Both properties are consequences of Mary-O's AUTHORED acceleration meeting the
@@ -289,7 +289,7 @@ fn fired(app: &App, body: Entity) -> bool {
         .is_some()
 }
 
-/// **Firing uses the press edge** — no charge, no release to wait for. The shot
+/// Firing uses the press edge — no charge, no release to wait for. The shot
 /// is requested on the very tick the button goes down.
 #[test]
 fn firing_uses_the_press_edge_and_needs_no_charge() {
@@ -391,13 +391,13 @@ fn the_slot_label_follows_the_power_state() {
     );
 }
 
-/// **asserting `MAX_LIVE_SPARKS == 2` would be worthless.** The rule is not
+/// asserting `MAX_LIVE_SPARKS == 2` would be worthless. The rule is not
 /// the number, it is that the gate COUNTS her live shots against it; a version
 /// that read the constant and compared against something else would pass. So
 /// this fires with the screen empty, with one spark up, and with the cap
 /// reached, and only the third refuses.
 ///
-/// ⇒ so this asserts BOTH: the gate counts her live shots (the mechanism, which
+///  so this asserts BOTH: the gate counts her live shots (the mechanism, which
 /// survives a retune), and the cap is at least two (the product decision, which
 /// is what the observation was about).
 #[test]

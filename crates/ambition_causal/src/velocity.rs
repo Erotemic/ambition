@@ -1,4 +1,4 @@
-//! **Who wrote this body's velocity.**
+//! Who wrote this body's velocity.
 //!
 //! The causal log needs to identify velocity writers, not only report the
 //! resulting velocity.
@@ -12,7 +12,7 @@
 //!
 //! Use one constructor so every velocity writer emits the same fact shape.
 //!
-//! ⚠ the caller resolves its OWN subject. Subject choice is
+//!  the caller resolves its OWN subject. Subject choice is
 //! crate-specific (seat first, actor id second — see each domain's
 //! `subject_of`), and a helper that guessed would be a second authority on
 //! identity.

@@ -12,7 +12,7 @@
 use ambition_time::WorldTime;
 use bevy::prelude::{Res, ResMut};
 
-/// **The set [`mirror_sim_dt_into_runtime`] runs in — scaled `SimDt` is readable.**
+/// The set [`mirror_sim_dt_into_runtime`] runs in — scaled `SimDt` is readable.
 ///
 /// Live tuning edits apply after it, so an edit lands before the input→brain
 /// chain consumes the tick's dt.

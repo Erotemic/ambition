@@ -24,7 +24,7 @@ fn idles_when_target_out_of_range() {
     assert!(!frame.melee_pressed);
 }
 
-/// A **relentless** duelist never idles out: with a live foe well beyond
+/// A relentless duelist never idles out: with a live foe well beyond
 /// `aggro_radius` it still runs toward it (chases) instead of going inert. This
 /// is the fix for "the fight just stops when they get far apart" — a committed
 /// 1v1 fighter pursues across any distance and re-acquires after a gravity fling.
@@ -44,7 +44,7 @@ fn relentless_duelist_chases_a_foe_past_aggro_radius() {
     );
 }
 
-/// …but an **ambient** (non-relentless) striker still idles out beyond its
+/// …but an ambient (non-relentless) striker still idles out beyond its
 /// sensing radius, so a patrol enemy doesn't chase the player across the world.
 #[test]
 fn ambient_striker_still_idles_past_aggro_radius() {
@@ -62,7 +62,7 @@ fn ambient_striker_still_idles_past_aggro_radius() {
     );
 }
 
-/// **Stale-fight re-aggression**: after a long enough drought of its own offense,
+/// Stale-fight re-aggression: after a long enough drought of its own offense,
 /// a duelist drops the neutral-game patience and re-commits. Here the post-poke
 /// reset window is armed (which normally suppresses the swing), but the
 /// stale-fight push swings anyway — breaking a passive standoff instead of both
@@ -369,7 +369,7 @@ fn sprint_striker_cfg() -> SmashCfg {
     }
 }
 
-/// **CLOSING A BIG GAP IS FULL THROTTLE, AND NOTHING ELSE.**
+/// CLOSING A BIG GAP IS FULL THROTTLE, AND NOTHING ELSE.
 ///
 /// A sprint-to-close actor beyond `SPRINT_CLOSE_FRACTION * aggro` (0.55 * 460 ≈
 /// 253) opens the locomotion throttle all the way instead of walking at the
@@ -819,7 +819,7 @@ fn grounded_approach_runs_toward_target_under_rotated_gravity() {
     snap.target_alive = true;
     let mut f = crate::actor::control::ActorControlFrame::neutral();
     tick_smash(&cfg, &mut state, &actions, &snap, None, &mut f);
-    // to_target_side = (0,300)·(0,-1) = -300 ⇒ run toward it is negative.
+    // to_target_side = (0,300)·(0,-1) = -300  run toward it is negative.
     assert!(
         f.locomotion.x < 0.0,
         "should run toward the target along the LOCAL side axis under rotated \
@@ -833,7 +833,7 @@ fn grounded_approach_runs_toward_target_under_rotated_gravity() {
 /// target at screen `-x` is above.
 #[test]
 fn target_above_is_gravity_relative() {
-    // down = +x ⇒ up = -x. Target at screen -x (200 left) is "above".
+    // down = +x  up = -x. Target at screen -x (200 left) is "above".
     let snap = snap_rotated(ae::Vec2::new(1.0, 0.0), ae::Vec2::new(-200.0, 0.0));
     let obs = observe(&snap);
     assert!(
@@ -935,8 +935,8 @@ fn hybrid_flight_has_landing_hysteresis() {
     );
 }
 
-/// **Whether a body may block while AIRBORNE is the game's rule, not the
-/// brain's.**
+/// Whether a body may block while AIRBORNE is the game's rule, not the
+/// brain's.
 ///
 /// Smash Siblings wants that rule; another game on this engine may not, and answering it meant
 /// editing the brain.
@@ -946,7 +946,7 @@ fn hybrid_flight_has_landing_hysteresis() {
 /// does NOT need their answer — so the default stays Smash's rule and nothing
 /// changes by accident.
 ///
-/// ⚠ probes the HOLD rather than the reactive arm: the hold is reachable from
+///  probes the HOLD rather than the reactive arm: the hold is reachable from
 /// state alone, where the arm needs a perceived lunge, so this asks the policy
 /// question without also asserting a threat model.
 #[test]
@@ -1009,8 +1009,8 @@ fn tick(snap: &BrainSnapshot) -> crate::actor::control::ActorControlFrame {
     frame
 }
 
-/// **⭐ A CPU HOLDING SOMEBODY PUMMELS, THEN THROWS — through the ORDINARY
-/// attack press.**
+///  A CPU HOLDING SOMEBODY PUMMELS, THEN THROWS — through the ORDINARY
+/// attack press.
 ///
 /// The whole architectural claim of the CPU half, as one assertion pair. What
 /// reaches the body is `melee_pressed` plus a direction: the same two fields a
@@ -1018,7 +1018,7 @@ fn tick(snap: &BrainSnapshot) -> crate::actor::control::ActorControlFrame {
 /// pummel or a throw by reading the SAME relationship the human's press is read
 /// against.
 ///
-/// ⛔ if this ever needs a capture-specific field to pass, a CPU-only road has
+///  if this ever needs a capture-specific field to pass, a CPU-only road has
 /// appeared and the two halves have stopped being one.
 #[test]
 fn a_holding_cpu_asks_for_a_pummel_then_a_throw_with_the_ordinary_attack() {
@@ -1040,7 +1040,7 @@ fn a_holding_cpu_asks_for_a_pummel_then_a_throw_with_the_ordinary_attack() {
     );
 }
 
-/// **A CAPTOR DOES NOT ASK FOR ANOTHER GRAB, AND DOES NOT WALK.**
+/// A CAPTOR DOES NOT ASK FOR ANOTHER GRAB, AND DOES NOT WALK.
 ///
 /// The body-side restriction would strip these anyway; asking for them is still
 /// a brain describing an action it cannot have, which is how a decision log
@@ -1053,7 +1053,7 @@ fn a_holding_cpu_neither_walks_nor_grabs_again() {
     assert!(!frame.jump_pressed && !frame.special_pressed);
 }
 
-/// **A CAPTIVE STRUGGLES, AND ASKS FOR NOTHING ELSE.**
+/// A CAPTIVE STRUGGLES, AND ASKS FOR NOTHING ELSE.
 ///
 /// Two claims, and the second is why this is not just "it presses":
 ///

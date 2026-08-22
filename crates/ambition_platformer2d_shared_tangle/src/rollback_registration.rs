@@ -74,7 +74,7 @@ where
     registrar.rollback_component_clone_probed::<crate::body::BodyContact>(
         OWNER,
         "body.contact",
-        // **probed, not presence-only.** The capability is a NUMBER: two peers
+        // probed, not presence-only. The capability is a NUMBER: two peers
         // can agree a body is solid and disagree about how hard, which is a
         // divergence in every step that body takes beside another one.
         |contact| u64::from(contact.resistance.to_bits()),
@@ -85,58 +85,17 @@ where
         OWNER,
         "scope.session",
     );
-    // **RESIDENCY IS DERIVED, the SCOPES above are not.** `InCustodyOf` is a
-    // pure projection of `ItemCustody` (registered as `item.item_custody`, with
-    // its holder handle remapped): `project_custody_onto_residency` recomputes
-    // the whole thing every tick from live state, with no "already applied"
-    // gate, so a rewind that restores custody restores residency with it on the
-    // next step. It is declared rather than registered because snapshotting it
-    // would be storing an answer the sim recomputes anyway — and left
-    // undeclared it is exactly the behaviour-gating component the coverage
-    // census exists to catch.
-    //
-    // **deliberately NOT `declare_rollback_derived_component_state`**, which
-    // would demand a `SnapshotState` value projection. The only value here is an
-    // entity HANDLE, and hashing a raw handle is the determinism hazard
-    // `item.item_custody` already answers properly — its `_entity_set` probe
-    // measures the same holder through that body's stable `SimId`. A second,
-    // WORSE projection of the same fact is not more coverage.
-    //
-    // **THE REASON BELOW IS A PROMISE, AND IT IS OWED BY EVERY POPULATION
-    // THAT WEARS THIS COMPONENT.** "Reprojected from `ItemCustody`"
-    // is what excuses this from the snapshot — so a population `ItemCustody`
-    // cannot see is a population nothing reprojects, and a rewind drops the
-    // marker with nothing to put it back.
-    //
-    // ⇒ that is exactly what happened when a POSSESSED BODY started wearing it:
-    // a body has no `ItemCustody`. It is covered by a second deriver,
-    // `abilities::traversal::possession::project_possession_onto_custody`,
-    // reading `PossessionState` — which IS snapshot state — so the excuse holds
-    // for both. **a third population owes a third deriver**, and the poison is
-    // cheap: delete the component and step, because that is what a restore does.
-    // Writing it at the site that causes it passes every other test.
-    //
-    // **AND THE REASON STRING BELOW IS DELIBERATELY NOT UPDATED TO NAME THE
-    // SECOND DERIVER.** It reads as a comment and it is not one: `detail` reaches
-    // `RollbackRegistry::schema_dump`, which is hashed into
-    // `schema_fingerprint`, which the schema baseline pins and a peer compares.
-    // Editing this prose to be more accurate would be a WIRE FORMAT CHANGE, paid
-    // for in save/peer compatibility, to improve a sentence. The accurate version
-    // lives in the block above, where it costs nothing.
+    // `InCustodyOf` is fully reprojected each tick from rollback-authoritative
+    // custody/possession state. It contains an entity handle, so duplicating it
+    // in the snapshot would add a second, less stable encoding of the same fact.
     registrar.declare_rollback_derived_component::<crate::lifecycle::InCustodyOf>(
         OWNER,
         "derived.custody_residency",
         "room residency reprojected from ItemCustody every tick",
     );
-    // That is no longer true: `Placed { room, at }` rows are stamped by the item domain and do not
-    // self-retract.
-    //
-    // the argument that replaces it, and it is the one written at
-    // `AuthoredOccurrences::rewind_argument`: **every row is republished from live
-    // state while that state is loaded.** The single value that cannot be
-    // recomputed is a `Placed` row whose room is UNLOADED — and a room unloads
-    // only at a CONFIRMED transition, which a rewind never crosses. So the
-    // unrecomputable rows are exactly the ones no rewind can reach.
+    // Loaded authored occurrences are republished from live state. Unloaded
+    // placement rows only disappear at confirmed room transitions, which a
+    // rewind cannot cross.
     registrar.declare_rollback_derived_resource::<crate::lifecycle::AuthoredOccurrences>(
         OWNER,
         "derived.placement_continuity",

@@ -1,24 +1,24 @@
-//! **Where the occurrence an authored definition minted actually IS.**
+//! Where the occurrence an authored definition minted actually IS.
 //!
-//! **authored DEFINITION identity is not runtime OCCURRENCE identity.** A room is a set of
+//! authored DEFINITION identity is not runtime OCCURRENCE identity. A room is a set of
 //! authored records; building it MINTS one occurrence per record and stamps it with the
 //! record's identity ([`SimId::placement`](crate::sim_id::SimId::placement)).
 //!
 //! # THREE HORIZONS, and this file owns exactly one
 //!
-//! 1. **CURRENT** — what is true now. Owned HERE, by
+//! 1. CURRENT — what is true now. Owned HERE, by
 //!    [`AuthoredOccurrences`]. Its loaded window is the live world (an entity
 //!    with its `ItemCustody`, its position, its components); this ledger is the
 //!    part of the current world that the loaded window cannot hold, because the
 //!    room it describes is not built. Every row is republished from live state
 //!    while that state is loaded — see [`AuthoredOccurrences::rewind_argument`].
-//! 2. **BASELINE** — what a death/retry restores to: the current whereabouts
-//!    as they stood at the last committed checkpoint. **It does not exist**, and
+//! 2. BASELINE — what a death/retry restores to: the current whereabouts
+//!    as they stood at the last committed checkpoint. It does not exist, and
 //!    it is a COPY of this ledger, not a second kind of row. See
 //!    [`AuthoredOccurrences::baseline_is_a_copy_of_this`] for what would have to
 //!    exist and why an item-KIND rule is the wrong shape.
-//! 3. ✔ **DURABLE SAVE** — the same value across process lifetimes. **Built
-//! **: `AmbitionGameSaveData:occurrences` is these rows, spelled
+//! 3. ✔ DURABLE SAVE — the same value across process lifetimes. Built
+//! : `AmbitionGameSaveData:occurrences` is these rows, spelled
 //!    for disk with integer pixels, and
 //!    `session::durable_horizon` in the monolith is the pair of systems that
 //!    writes and reads them. A LOAD adopts this ledger, adopts the three
@@ -36,57 +36,57 @@ use bevy::prelude::{Query, ResMut, Resource, Vec2, With};
 use super::{InCustodyOf, RoomScopedEntity};
 use crate::sim_id::SimId;
 
-/// **Where one authored record's occurrence is**, when it is somewhere other
+/// Where one authored record's occurrence is, when it is somewhere other
 /// than where the record puts it.
 ///
-/// **absence is a variant and it is the common one.** No row means "as
+/// absence is a variant and it is the common one. No row means "as
 /// authored", which is the state of essentially every record essentially
 /// always. Nothing here is a status enum for its own sake: each variant exists
 /// because reconstruction reaches a different decision from it.
 #[derive(Clone, Debug, PartialEq)]
 pub enum OccurrenceWhereabouts {
-    /// **In a body's hands.** Alive, in no room, crossing boundaries with
+    /// In a body's hands. Alive, in no room, crossing boundaries with
     /// whoever carries it. Written by [`project_custody_onto_authored_occurrences`]
     /// from [`InCustodyOf`], which knows nothing about items.
     ///
-    /// **this row is REPUBLISHED from live state every tick**, so it retracts
+    /// this row is REPUBLISHED from live state every tick, so it retracts
     /// by itself when custody ends or when the carrier is destroyed. It is the
     /// one row a rewind can never strand.
     InCustody,
-    /// **Lying in `room`, at `at`.** The occurrence was carried somewhere and
+    /// Lying in `room`, at `at`. The occurrence was carried somewhere and
     /// put down; `at` is where it came to rest, republished while `room` is
     /// loaded and FROZEN at the value it last held when `room` unloads.
     ///
-    /// **this is the row that makes relocation durable**, and the only row
+    /// this is the row that makes relocation durable, and the only row
     /// whose value outlives the thing it describes.
     Placed { room: String, at: Vec2 },
-    /// **Gone for good.** A consumed key, a destroyed mechanism, a body killed
+    /// Gone for good. A consumed key, a destroyed mechanism, a body killed
     /// in a way the world is supposed to remember. Distinct from "no row" —
     /// which is also "not alive" — because an ordinary room unload destroys
     /// occurrences by the dozen and every one of them SHOULD come back.
     ///
-    /// **no producer today, and that is load-bearing for
-    /// [`AuthoredOccurrences::rewind_argument`].** Every other row is either
+    /// no producer today, and that is load-bearing for
+    /// [`AuthoredOccurrences::rewind_argument`]. Every other row is either
     /// republished from live state or frozen only at a room boundary; this one
     /// would be written mid-frame from an event, so the day it gains a producer
     /// the ledger owes a real rollback registration with a VALUE projection.
     Consumed,
 }
 
-/// **What reconstruction must do about one authored record**, in the room it is
+/// What reconstruction must do about one authored record, in the room it is
 /// currently building. A DERIVED value: [`AuthoredOccurrences::outlook_for`]
 /// computes it, nothing stores it.
 ///
-/// **there are THREE answers, not two.** "Author it" and "do not author it"
+/// there are THREE answers, not two. "Author it" and "do not author it"
 /// were enough only while an occurrence could never be anywhere but where its
 /// record put it.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum OccurrenceDisposition {
-    /// **Author it, from the record, as written.** The default, and what every
+    /// Author it, from the record, as written. The default, and what every
     /// record without a row gets.
     #[default]
     Authored,
-    /// **Author it from the record, but AT `at`.** The occurrence belongs to
+    /// Author it from the record, but AT `at`. The occurrence belongs to
     /// this room and is not where the record puts it — it was put down
     /// somewhere else in this room and the room has been unloaded since.
     ///
@@ -94,7 +94,7 @@ pub enum OccurrenceDisposition {
     /// the same `SimId::placement(..)`: this is the SAME occurrence coming back,
     /// not a copy of it authored at new coordinates.
     Reinstated { at: Vec2 },
-    /// **Do not author it.** The occurrence is alive somewhere this room is not,
+    /// Do not author it. The occurrence is alive somewhere this room is not,
     /// or it is deliberately gone. Minting a fresh one would put two live things
     /// behind one identity, or resurrect something the world remembers killing.
     Suppressed,
@@ -120,9 +120,9 @@ impl OccurrenceDisposition {
     }
 }
 
-/// **The derived view ONE room's construction consumes.**
+/// The derived view ONE room's construction consumes.
 ///
-/// **derived, room-scoped, and frozen onto the plan it produced.** A prepared
+/// derived, room-scoped, and frozen onto the plan it produced. A prepared
 /// plan is only valid for the world that produced it — a plan prepared while an
 /// object was being carried deliberately omits that object, and committing it
 /// after the object was put down would leave the room permanently short of a
@@ -158,9 +158,9 @@ impl RoomOccurrenceOutlook {
             .collect()
     }
 
-    /// **Every identity this build OWES the world, and where it owes it.**
+    /// Every identity this build OWES the world, and where it owes it.
     ///
-    /// **the caller must answer this list, not merely consult it.** A
+    /// the caller must answer this list, not merely consult it. A
     /// reinstatement whose record this room authors is satisfied by relocating
     /// the room's own request; one whose record belongs to ANOTHER room is
     /// satisfied only by going and getting that record. Both are the same
@@ -183,10 +183,10 @@ impl RoomOccurrenceOutlook {
     }
 }
 
-/// **THE authoritative owner of occurrence whereabouts** — horizon 1 of the
+/// THE authoritative owner of occurrence whereabouts — horizon 1 of the
 /// three in this module's header.
 ///
-/// **a world with no such resource at all means "nothing is remembered"**,
+/// a world with no such resource at all means "nothing is remembered",
 /// which is why every consumer takes it as an `Option` and a composition that
 /// never picks anything up carries an empty ledger through its whole life.
 ///
@@ -201,11 +201,11 @@ pub struct AuthoredOccurrences {
 }
 
 impl AuthoredOccurrences {
-    /// **What construction must do about every record of `room`.** The one
+    /// What construction must do about every record of `room`. The one
     /// derived view, produced from the authoritative rows and nothing else.
     ///
-    /// **a `Placed` row is the SAME fact seen from two rooms, and both
-    /// rooms must act on it.** The room the occurrence is lying in reinstates
+    /// a `Placed` row is the SAME fact seen from two rooms, and both
+    /// rooms must act on it. The room the occurrence is lying in reinstates
     /// it; every other room — including the one whose record MINTED it —
     /// suppresses it. Those two answers are one decision, and the reason they
     /// are computed in one function from one row is that they cannot be allowed
@@ -214,7 +214,7 @@ impl AuthoredOccurrences {
     /// and reinstating without suppressing puts two live things behind one
     /// `SimId`.
     ///
-    /// **so a consumer may not answer half of this.** The obligation stated
+    /// so a consumer may not answer half of this. The obligation stated
     /// by [`RoomOccurrenceOutlook::reinstatements`] includes identities the room
     /// being built does not author — the record lives next door — and a road
     /// that services only its own records has taken the suppression and skipped
@@ -249,11 +249,11 @@ impl AuthoredOccurrences {
         self.rows.get(sim_id)
     }
 
-    /// **Every row, in identity order** — for the writer that puts this value on
+    /// Every row, in identity order — for the writer that puts this value on
     /// disk.
     ///
-    /// **an ITERATOR over the sparse rows, deliberately not a "describe every
-    /// occurrence" call.** The rows are the exceptions; anything absent from this
+    /// an ITERATOR over the sparse rows, deliberately not a "describe every
+    /// occurrence" call. The rows are the exceptions; anything absent from this
     /// walk reconstructs from its authored record, and a durable form that
     /// enumerated the world instead would be the universal instance registry this
     /// ledger exists not to be.
@@ -261,9 +261,9 @@ impl AuthoredOccurrences {
         self.rows.iter()
     }
 
-    /// **Replace the whole ledger** with what a save file remembered.
+    /// Replace the whole ledger with what a save file remembered.
     ///
-    /// **it takes the rows and not a `Self`**, so the only way to build a
+    /// it takes the rows and not a `Self`, so the only way to build a
     /// ledger from outside is to state every row: a `From<AuthoredOccurrences>`
     /// would let a caller clone one authority into another and call it a load.
     pub fn adopt_rows(&mut self, rows: BTreeMap<SimId, OccurrenceWhereabouts>) {
@@ -288,9 +288,9 @@ impl AuthoredOccurrences {
             .collect()
     }
 
-    /// **Republish the whole custody leg.**
+    /// Republish the whole custody leg.
     ///
-    /// **it touches ONLY custody rows.** A `Placed` row is not a custody row
+    /// it touches ONLY custody rows. A `Placed` row is not a custody row
     /// that went missing; it is a different fact, written by a different
     /// producer, and a whole-ledger republish here would delete relocation the
     /// instant a hand emptied.
@@ -302,10 +302,10 @@ impl AuthoredOccurrences {
         }
     }
 
-    /// **State where the occurrences of one room are lying right now.**
+    /// State where the occurrences of one room are lying right now.
     ///
-    /// **only ids the caller names are touched, and there is no retraction
-    /// arm.** A `Placed` row describes a room that may not be loaded, so
+    /// only ids the caller names are touched, and there is no retraction
+    /// arm. A `Placed` row describes a room that may not be loaded, so
     /// "absent from the world" is not evidence of anything — the room is simply
     /// not built. What ends a `Placed` row is the occurrence being picked up
     /// again (custody overwrites it), a reset ([`Self::forget_everything`]), or
@@ -322,14 +322,14 @@ impl AuthoredOccurrences {
         }
     }
 
-    /// **A reset remembers nothing.**
+    /// A reset remembers nothing.
     ///
     /// The sandbox reset destroys the occurrences a whereabouts row is about —
     /// the room AND the hand — and rebuilds the start room from its authored
     /// records alone. A surviving row would put a relocated object back at
     /// coordinates from a world that no longer exists.
     ///
-    /// **and this is the degenerate case of the BASELINE horizon**: a reset is
+    /// and this is the degenerate case of the BASELINE horizon: a reset is
     /// "restore the empty baseline". See
     /// [`Self::baseline_is_a_copy_of_this`].
     pub fn forget_everything(&mut self) {
@@ -342,8 +342,8 @@ impl AuthoredOccurrences {
         self.rows.is_empty()
     }
 
-    /// **Why this is still declared DERIVED to the rollback registry, and the
-    /// exact condition that would make that a lie.**
+    /// Why this is still declared DERIVED to the rollback registry, and the
+    /// exact condition that would make that a lie.
     ///
     /// Every row is republished from live state on every tick that the state is
     /// live: [`project_custody_onto_authored_occurrences`] rebuilds the custody
@@ -356,40 +356,40 @@ impl AuthoredOccurrences {
     /// population and does not weaken the re-derivation argument below: every row this producer
     /// WOULD write is still rewritten each tick.
     ///
-    /// **the one value a rewind cannot recompute is a `Placed` row whose room
+    /// the one value a rewind cannot recompute is a `Placed` row whose room
     /// is not loaded — and a room stops being loaded only at a room TRANSITION,
-    /// which a frame rollback never crosses** (a transition commits from
+    /// which a frame rollback never crosses (a transition commits from
     /// `commit_confirmed_lifecycle`, at a confirmed frame). So the frozen value
     /// is frozen on the far side of a boundary the rewind window does not reach.
     ///
-    /// **that argument dies the day [`OccurrenceWhereabouts::Consumed`]
-    /// gains a producer**, because that row is written mid-frame from an event
+    /// that argument dies the day [`OccurrenceWhereabouts::Consumed`]
+    /// gains a producer, because that row is written mid-frame from an event
     /// and no live state re-derives it. It owes a registration with a real VALUE
     /// projection (the rows, not a presence probe) at the same moment.
     ///
-    /// **UNVERIFIED**: no rollback host was run against this file. The claim
+    /// UNVERIFIED: no rollback host was run against this file. The claim
     /// above is an argument, not a measurement.
     pub const fn rewind_argument() {}
 
-    /// **This ledger's contribution to the BASELINE horizon is a copy of
-    /// itself** — see [`OccurrenceBaseline`], which is that copy.
+    /// This ledger's contribution to the BASELINE horizon is a copy of
+    /// itself — see [`OccurrenceBaseline`], which is that copy.
     ///
     /// * a key picked up after has an `InCustody` row that the C0
     ///   copy does not; restoring the copy leaves no row, so the pedestal
     ///   authors it again;
     /// * acquiring it and then committing C1 copies the row, so a later death
     ///   restores the row and the pedestal stays empty;
-    /// * **a temporary item picked up AFTER C1 reverts too, for the same one
-    ///   reason** — its row is not in the C1 copy either. This is the line that
+    /// * a temporary item picked up AFTER C1 reverts too, for the same one
+    ///   reason — its row is not in the C1 copy either. This is the line that
     ///   makes the rule checkpoint-shaped rather than item-shaped, and a
     ///   `KeyItem => always persists` rule satisfies the first two and fails it.
     ///
-    /// **so do not write an item-kind rule.** A key persists because acquiring
+    /// so do not write an item-kind rule. A key persists because acquiring
     /// it committed a checkpoint, not because of what it is; a kind rule is a
     /// second authority that disagrees with the checkpoint the moment content
     /// changes.
     ///
-    /// **and the second half of that custody leg is closed too** (,
+    /// and the second half of that custody leg is closed too (,
     /// third leg). An occurrence whose baseline says a body was carrying it and
     /// which has NO live entity anywhere — carried out, put down, and destroyed
     /// when that room unloaded — is MATERIALIZED back into that hand from the
@@ -398,7 +398,7 @@ impl AuthoredOccurrences {
     /// family this crate has never heard of. It is
     /// `items::pickup::restore_custody_to_checkpoint`.
     ///
-    /// **note which question that answers and which it leaves alone.** A row
+    /// note which question that answers and which it leaves alone. A row
     /// of this ledger is still never a spawn instruction: [`Self::outlook_for`]
     /// answers `Suppressed` for `InCustody` in every room, and that stays
     /// exactly right, because a thing in a hand is not a thing in a room.
@@ -406,10 +406,10 @@ impl AuthoredOccurrences {
     /// it is the custody domain's precisely because of that.
     pub const fn baseline_is_a_copy_of_this() {}
 
-    /// **A reinstatement is NOT room-local, and the residency it restores is
-    /// still not KEYED.**
+    /// A reinstatement is NOT room-local, and the residency it restores is
+    /// still not KEYED.
     ///
-    /// **what is NOT closed is keyed room OWNERSHIP.** `RoomScopedEntity` says
+    /// what is NOT closed is keyed room OWNERSHIP. `RoomScopedEntity` says
     /// an occurrence dies with *a* room, never with *which* room, so residency
     /// still resolves against "whatever room is active". That is exactly right
     /// for today's single-active-room host and is the first thing that breaks
@@ -419,17 +419,17 @@ impl AuthoredOccurrences {
     pub const fn residency_is_reconstructed_not_room_local() {}
 }
 
-/// **The occurrence domain's share of the reset baseline** — horizon 2 of the
+/// The occurrence domain's share of the reset baseline — horizon 2 of the
 /// three, holding exactly what horizon 1 held at the last committed checkpoint.
 ///
-/// **a whole-value copy, and that is not laziness.** The alternative — record
+/// a whole-value copy, and that is not laziness. The alternative — record
 /// which rows changed since the checkpoint — needs a diff that stays correct
 /// across rollback, room streaming and a producer that republishes the whole leg
 /// every tick. The ledger is a few dozen rows of two small variants; the copy is
 /// the cheap side of that trade by a wide margin.
 ///
-/// **UNLIKE the ledger it copies, this is NOT derived and MUST be declared to rollback with a
-/// real VALUE projection.** Every row of `AuthoredOccurrences` is republished from live state,
+/// UNLIKE the ledger it copies, this is NOT derived and MUST be declared to rollback with a
+/// real VALUE projection. Every row of `AuthoredOccurrences` is republished from live state,
 /// which is what lets it be declared derived; nothing republishes a baseline. That is the same
 /// trap [`AuthoredOccurrences::rewind_argument`] names for [`OccurrenceWhereabouts::Consumed`],
 /// reached by a different route.
@@ -444,17 +444,17 @@ impl OccurrenceBaseline {
         &self.0
     }
 
-    /// **Adopt a ledger as the baseline** — the one road that writes this from
+    /// Adopt a ledger as the baseline — the one road that writes this from
     /// outside a [`CheckpointCommitted`](super::CheckpointCommitted).
     ///
-    /// **it exists for exactly one caller: a durable LOAD.** A fresh process
+    /// it exists for exactly one caller: a durable LOAD. A fresh process
     /// has no checkpoint history at all, so the state the file describes IS its
     /// baseline; leaving the default empty one in place would make the first
     /// death after a load take back everything the save remembered. That is the
     /// same degenerate-case reasoning the sandbox reset uses from the other
     /// side — a host that never commits restores the empty baseline.
     ///
-    /// **not a general setter.** A capture goes through
+    /// not a general setter. A capture goes through
     /// [`capture_occurrence_baseline`] and reads live state; a road that wrote
     /// the baseline from anywhere else would be a second authority on what a
     /// death restores to.
@@ -464,10 +464,10 @@ impl OccurrenceBaseline {
         }
     }
 
-    /// **The desync checksum for this baseline** — entity-free, and covering
+    /// The desync checksum for this baseline — entity-free, and covering
     /// every field a peer could disagree about.
     ///
-    /// **the projection lives with the value, not with the registration.**
+    /// the projection lives with the value, not with the registration.
     /// A checksum written beside the registry has to reach through the value's
     /// privacy to do its job, and then silently stops covering whatever a later
     /// field adds. Here the match below is exhaustive, so a new
@@ -496,7 +496,7 @@ impl OccurrenceBaseline {
     }
 }
 
-/// **Record what the world remembers, at the instant a checkpoint commits.**
+/// Record what the world remembers, at the instant a checkpoint commits.
 ///
 /// The absence of a ledger resource entirely is the only case that writes nothing, because
 /// there is then nothing in this domain to remember.
@@ -519,9 +519,9 @@ pub fn capture_occurrence_baseline(
     }
 }
 
-/// **Put the remembered ledger back, on a death.**
+/// Put the remembered ledger back, on a death.
 ///
-/// **this restores the LEDGER and nothing else, on purpose.** It does not
+/// this restores the LEDGER and nothing else, on purpose. It does not
 /// touch a single occurrence in the world: the rebuild that follows reads the
 /// restored ledger and reaches the right answer for every authored record by
 /// itself — suppress what the baseline says is elsewhere, reinstate what it says
@@ -529,7 +529,7 @@ pub fn capture_occurrence_baseline(
 /// fix up live entities would give the world two authorities on the same
 /// question, and the whole point of `outlook_for` is that there is one.
 ///
-/// **the ONE thing it cannot reach is an occurrence in a hand**, because a
+/// the ONE thing it cannot reach is an occurrence in a hand, because a
 /// held occurrence is resident in no room and no rebuild sees it. That leg is
 /// `items::pickup::restore_custody_to_checkpoint`, and it belongs to the custody
 /// domain because a hand is not room state — including the arm that has to
@@ -551,7 +551,7 @@ pub fn restore_occurrence_baseline(
     }
 }
 
-/// **Custody is the first thing that gives an occurrence a whereabouts.**
+/// Custody is the first thing that gives an occurrence a whereabouts.
 ///
 /// An occurrence a body is carrying is alive and is not in any room, so the room
 /// that authored it must not mint a second one. This reads the residency
@@ -560,7 +560,7 @@ pub fn restore_occurrence_baseline(
 /// [`InCustodyOf`](super::InCustodyOf), which knows nothing about inventories
 /// either.
 ///
-/// **recomputed unconditionally, and compared before it writes.** It carries no
+/// recomputed unconditionally, and compared before it writes. It carries no
 /// "already applied" gate, so it converges after a rewind on the next step; the
 /// equality check keeps change detection quiet on the overwhelming majority of
 /// ticks, where nothing is being carried at all.
@@ -569,7 +569,7 @@ pub fn restore_occurrence_baseline(
 /// ever carried, and the placement producer — which deliberately tracks only occurrences the
 /// ledger already remembers — never starts.
 ///
-/// **the set is a `BTreeSet`, not the query's order.** Bevy's iteration order
+/// the set is a `BTreeSet`, not the query's order. Bevy's iteration order
 /// is an archetype accident and this value reaches a construction plan, so an
 /// unordered read here would be a determinism bug that reproduces perfectly on
 /// one machine.
@@ -590,14 +590,14 @@ pub fn project_custody_onto_authored_occurrences(
 mod tests {
     use super::*;
 
-    /// **ONE ROW, TWO ROOMS, TWO OPPOSITE ANSWERS — and both are asserted.**
+    /// ONE ROW, TWO ROOMS, TWO OPPOSITE ANSWERS — and both are asserted.
     ///
     /// An occurrence carried out of the room that authored it and put down next
     /// door is exactly one fact. The room it lies in owes the world that
     /// occurrence; the room whose record minted it owes the world nothing, and
     /// authoring it again would put two live things behind one `SimId`.
     ///
-    /// **asserting only the suppression is the dangerous half**, because a
+    /// asserting only the suppression is the dangerous half, because a
     /// ledger that suppressed everywhere would pass it and would delete the
     /// object from the world permanently. Both terms are observed here, from
     /// the same row, so neither arm can regress alone.

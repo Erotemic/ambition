@@ -264,8 +264,8 @@ def test_the_identifier_list_comes_from_the_contract_and_includes_surface_ramp()
     assert {"EnemySpawn", "Solid", "LoadingZone", "Portal"} <= identifiers
 
 
-#: Exactly the keys `contract::FieldContract` deserializes. **a key outside
-#: this set is silently ignored by BOTH readers** — `refused_paterns` would
+#: Exactly the keys `contract::FieldContract` deserializes. a key outside
+#: this set is silently ignored by BOTH readers — `refused_paterns` would
 #: neither parse in Rust nor validate in Python, and the contract would quietly
 #: claim less than it means to. This is the only place that can catch it.
 RUST_FIELD_KEYS = {

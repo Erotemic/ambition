@@ -110,7 +110,7 @@ pub struct CharacterAiSnapshot {
     /// Direct unit tests often use world-like coordinates. Live actor brains
     /// feed this evaluator through `BrainSnapshot::to_character_ai_snapshot`,
     /// which first converts target deltas into the actor's acceleration frame.
-    /// Therefore the evaluator treats the x component as the policy **side**
+    /// Therefore the evaluator treats the x component as the policy side
     /// axis, not necessarily raw world X.
     pub actor_pos: Vec2,
     /// Target/player origin in the same policy space as [`Self::actor_pos`].

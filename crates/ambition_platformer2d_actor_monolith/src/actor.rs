@@ -1,4 +1,4 @@
-//! The neutral **actor vocabulary** home for shared sim-state — components any
+//! The neutral actor vocabulary home for shared sim-state — components any
 //! simulation body may carry, including bodies under participant control.
 //!
 //! Establishing this module is step 4 (the keystone) of the unified-actors plan
@@ -9,7 +9,7 @@
 //! here dissolves those back-edges so the runtime domains can extract into leaf
 //! crates.
 //!
-//! **Rule:** new shared body sim-state lands on neutral actor/body vocabulary,
+//! Rule: new shared body sim-state lands on neutral actor/body vocabulary,
 //! never on a participant-specific component merely because one body is currently
 //! controlled. Camera/HUD/device concerns remain outside body authority; body-owned
 //! inventory, economy, capabilities, motion, and combat stay with the body.
@@ -20,7 +20,7 @@ pub use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlay
 pub use ambition_characters::actor::BodyAnimFacts;
 pub use ambition_combat::BodyMelee;
 
-/// The shared **movement-cluster components** every body carries — the 18
+/// The shared movement-cluster components every body carries — the 18
 /// ancillary clusters (ground contact, wall, jump, dash, flight, blink, ledge,
 /// dodge, shield, body-mode, environment contact, mana, offense, action buffer,
 /// lifetime, combo trace, base size, ability mask) that, together with
@@ -38,7 +38,7 @@ pub use ambition_platformer2d_core::{
     BodyWallState,
 };
 
-/// The **ancillary movement clusters** every body spawns with as real ECS
+/// The ancillary movement clusters every body spawns with as real ECS
 /// components — everything in the movement aggregate EXCEPT [`BodyKinematics`]
 /// (the shared kinematic truth, spawned as its own component so rendering /
 /// gravity / targeting can read one position without the movement set).
@@ -149,7 +149,7 @@ impl AncillaryMovementBundle {
     }
 }
 
-/// Query filter for the **home avatar** — `With<PlayerEntity>` + `With<PrimaryPlayer>`.
+/// Query filter for the home avatar — `With<PlayerEntity>` + `With<PrimaryPlayer>`.
 ///
 /// Use this ONLY for genuine home-body concerns (respawn, save sync, sandbox
 /// reset, HUD/debug subject). It does NOT identify the currently CONTROLLED body:

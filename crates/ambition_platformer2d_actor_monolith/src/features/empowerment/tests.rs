@@ -2,7 +2,7 @@
 //! together, without either knowing the other exists.
 //!
 //! Counting the artifact proved the artifact. So the harm tests now assert the only thing that was
-//! ever the point: **something overlapping takes the hit.**
+//! ever the point: something overlapping takes the hit.
 
 use super::*;
 
@@ -53,7 +53,7 @@ fn app_with_striker_and_victim(
             BodyCombat::default(),
         ))
         .id();
-    // **the engine installs the clock; this fixture installs only the half a game chooses.**
+    // the engine installs the clock; this fixture installs only the half a game chooses.
     // That is the shape, and building the fixture the other way (hand-adding
     // `run_empowerments`) would test a composition no game has.
     app.add_plugins(EmpowermentLifecyclePlugin);
@@ -78,7 +78,7 @@ fn untouchable(app: &App, body: Entity) -> bool {
         .holds(Invulnerability::EMPOWERED)
 }
 
-/// **Untouchable alone.** Sanic's super form asks for exactly this and needs no
+/// Untouchable alone. Sanic's super form asks for exactly this and needs no
 /// engine change to get it.
 #[test]
 fn untouchable_alone_harms_nothing() {
@@ -92,7 +92,7 @@ fn untouchable_alone_harms_nothing() {
     );
 }
 
-/// **Harming alone.** A body that flattens what it touches without being safe
+/// Harming alone. A body that flattens what it touches without being safe
 /// itself is a legitimate thing to want, and asking for it does not drag
 /// invulnerability along.
 #[test]
@@ -119,7 +119,7 @@ fn harming_alone_hurts_what_it_touches_and_grants_no_invulnerability() {
     );
 }
 
-/// **Both, composed** — Mary-O's cosmic quasar. Nothing in the engine names it.
+/// Both, composed — Mary-O's cosmic quasar. Nothing in the engine names it.
 #[test]
 fn the_two_traits_compose_into_one_super_state() {
     let quasar = Empowerment::UNTOUCHABLE.with(Empowerment::HARMS_ON_CONTACT);
@@ -129,7 +129,7 @@ fn the_two_traits_compose_into_one_super_state() {
     assert_eq!(hits(&mut app).len(), 1);
 }
 
-/// **Who may be hit is the SHARED relational rule.** An empowered body does not
+/// Who may be hit is the SHARED relational rule. An empowered body does not
 /// flatten its own side — otherwise a co-op partner running past a star-powered
 /// player would be the star's first victim.
 #[test]
@@ -143,7 +143,7 @@ fn it_does_not_harm_its_own_faction() {
     );
 }
 
-/// **A corpse is not hit again.** The shared tangibility rule, not a second
+/// A corpse is not hit again. The shared tangibility rule, not a second
 /// opinion about it.
 #[test]
 fn it_does_not_strike_a_corpse() {
@@ -178,7 +178,7 @@ fn expiry_releases_the_reason_and_stops_the_harm() {
     );
 }
 
-/// **The harm outlives nothing.** A striker that despawns mid-empowerment
+/// The harm outlives nothing. A striker that despawns mid-empowerment
 /// cannot keep hurting whatever is standing where it used to be — which is free
 /// here, and was NOT free when this was a hitbox entity that had to be swept.
 #[test]
@@ -197,7 +197,7 @@ fn a_vanished_striker_harms_nothing() {
     );
 }
 
-/// **Taking the empowerment back releases what it was projecting**, with no
+/// Taking the empowerment back releases what it was projecting, with no
 /// second call at the removal site.
 ///
 /// Sanic's super form is exactly that granter, and it carried a hand-written
@@ -235,8 +235,8 @@ fn removing_the_empowerment_releases_its_invulnerability_without_a_second_call()
     );
 }
 
-/// **The footgun, closed: a composition that schedules NOTHING still ends a
-/// timed grant.**
+/// The footgun, closed: a composition that schedules NOTHING still ends a
+/// timed grant.
 ///
 /// So this app is deliberately impoverished. It adds the lifecycle plugin and
 /// nothing else — no phases, no ordering, no contact harm — because that is the

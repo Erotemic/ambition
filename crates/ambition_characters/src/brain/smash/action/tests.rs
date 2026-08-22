@@ -62,12 +62,12 @@ fn engage_with_melee_in_range_emits_attack() {
     );
 }
 
-/// **AN AMBITION ENEMY AIMS ITS SWING, WHICH IS HOW IT REACHES ITS OWN
-/// DIRECTIONAL MOVES.**
+/// AN AMBITION ENEMY AIMS ITS SWING, WHICH IS HOW IT REACHES ITS OWN
+/// DIRECTIONAL MOVES.
 ///
-/// ⛔⛔ **the campaign row said Ambition's enemies "do not choose from their
+///  the campaign row said Ambition's enemies "do not choose from their
 /// movesets", and re-measuring says otherwise — but nothing PINNED the half that
-/// is true**. The `Fighter` brain enumerates a scored
+/// is true. The `Fighter` brain enumerates a scored
 /// `attack_kit`; the `Smash` brain does not, and `attack_kit_of` returns an empty
 /// `Vec` for it on purpose. What it does instead is aim: `MeleeAttack { dir }`
 /// becomes `ActorControlFrame::attack_axis` in `emit`, and
@@ -75,17 +75,17 @@ fn engage_with_melee_in_range_emits_attack() {
 /// `attack_forward` out of the body's OWN `MovesetContract`, falling back to the
 /// base attack when the character authored no directional variant.
 ///
-/// ⇒ so a goblin that authors an up-tilt throws it at a target above, and the
+///  so a goblin that authors an up-tilt throws it at a target above, and the
 /// only thing choosing is this function. It had ONE test — that a melee comes out
 /// at all — and the direction, which is the entire mechanism, was unasserted.
 ///
-/// ⚠ **three cases and they are not redundant**: a function returning a constant
+///  three cases and they are not redundant: a function returning a constant
 /// forward swing passes any single one of them, and "up" and "down" are
 /// different branches with different guards — down additionally requires being
 /// AIRBORNE, because a grounded body above its target is on a platform and
 /// swinging at the floor is not the read.
 ///
-/// ⚠ gravity-framed, never world-framed: `down` is the observation's, so a
+///  gravity-framed, never world-framed: `down` is the observation's, so a
 /// rotated-gravity room gets the same reads (I10).
 #[test]
 fn an_engaged_swing_aims_at_where_the_target_actually_is() {
@@ -131,7 +131,7 @@ fn an_engaged_swing_aims_at_where_the_target_actually_is() {
          reaches an authored `attack_air_down` — got {down:?}"
     );
 
-    // ⭐ THE POISON: the same target below, but GROUNDED. A body standing on a
+    //  THE POISON: the same target below, but GROUNDED. A body standing on a
     // platform above its foe is not throwing a down-air; a rule that read only
     // the vertical offset would answer identically here and be wrong.
     let mut below_grounded = obs_at(40.0, false);

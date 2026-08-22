@@ -21,9 +21,9 @@ enum AmbitionReadInputsSet {
     PublishLocalInputs,
 }
 
-/// **Has the wrong-seam diagnostic fired this run?**
+/// Has the wrong-seam diagnostic fired this run?
 ///
-/// ⭐ **a finding, not just a log line.** The check below could have warned and
+///  a finding, not just a log line. The check below could have warned and
 /// nothing else, and its first test did what a log-only diagnostic forces a test
 /// to do: re-derive the predicate over the same resources and assert on THAT —
 /// which passes just as happily when the system is never registered. Publishing
@@ -32,14 +32,14 @@ enum AmbitionReadInputsSet {
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct InputSeamMisuse(pub bool);
 
-/// **EXTERNAL INPUT WAITING TO BE SUBMITTED TO GGRS, ONE FRAME PER HANDLE.**
+/// EXTERNAL INPUT WAITING TO BE SUBMITTED TO GGRS, ONE FRAME PER HANDLE.
 ///
 /// Intentionally not rollback state: prediction and session logic own the input
 /// stream, while simulation state is rewound beneath it.
 ///
-/// ⭐ **one per handle, because publishing seat zero's frame to all of them —
+///  one per handle, because publishing seat zero's frame to all of them —
 /// which is what `publish_local_inputs` did, back when there was only ever one —
-/// makes four pads move one fighter and checksum-compare a lie.**
+/// makes four pads move one fighter and checksum-compare a lie.
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq)]
 pub struct PendingSeatInputs {
     seats: [ControlFrame; ambition_characters::control::SlotControls::MAX_SLOTS],
@@ -57,25 +57,10 @@ impl PendingSeatInputs {
     }
 }
 
-/// Counts actual GGRS operations. It is intentionally outside rollback state so
-/// tests can prove that a single harness step performed load/resimulation work.
+/// Counts GGRS execution outside rollback state.
 ///
-/// ## Per-session versus lifetime, and why both exist (queue AC18)
-///
-/// A rebase installs a NEW session, and a new session legitimately starts its
-/// frame numbering at zero — so the per-session counters below reset with it.
-/// That is correct, and it silently invalidated the one assertion these
-/// counters existed for.
-///
-/// The rollback exit oracle asserted `advance_runs > harness_steps`. The oracle went red
-/// reporting numbers that looked exactly like a GGRS session that had stopped being driven at
-/// frame 12, and was read that way for a day. It had in fact executed 2915 advances by frame
-/// 500.
-///
-/// ⚠ **so the numbers were not wrong, they were answering a different
-/// question**, and nothing in the type said which. The `lifetime_*` fields
-/// survive session replacement and are what a whole-run claim must be made
-/// against; the unprefixed fields describe the CURRENT session only.
+/// Unprefixed counters describe the current session and reset on rebase;
+/// `lifetime_*` counters span every session installed during the process run.
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct RollbackExecutionStats {
     pub advance_runs: u64,
@@ -101,7 +86,7 @@ impl RollbackExecutionStats {
     /// The stats a freshly installed session starts from: per-session counters
     /// zeroed, lifetime totals carried through untouched.
     ///
-    /// ⚠ **carried, not folded.** The lifetime totals are accumulated by the
+    ///  carried, not folded. The lifetime totals are accumulated by the
     /// same systems that accumulate the per-session ones, so they are correct
     /// on every frame rather than only just after a rebase. Adding the outgoing
     /// session's counts here — which is the obvious reading of "carry forward",
@@ -135,13 +120,13 @@ impl RollbackSessionStatus {
         self.invalidation.is_none() && self.mismatch_frames.is_empty()
     }
 
-    /// **The status a NEW session starts from, given the outgoing one.** (AC23)
+    /// The status a NEW session starts from, given the outgoing one. (AC23)
     ///
     /// So the diagnostic CARRIES. An unhealthy timeline hands its reason to the
     /// timeline that replaces it, and the only way to clear it is to say so
     /// (`acknowledge_and_clear`).
     ///
-    /// ⚠ `mismatch_frames` does NOT carry, and that is not an oversight: frame
+    ///  `mismatch_frames` does NOT carry, and that is not an oversight: frame
     /// numbers restart at zero for every GGRS session, so carrying them forward
     /// would report a mismatch at frames the new timeline has not reached yet.
     /// The reason survives as prose, which is the part a reader acts on.
@@ -261,7 +246,7 @@ pub fn start_sync_test_session(
 
 /// [`start_sync_test_session`], declaring WHO owns the result.
 ///
-/// ⚠ **the owner is an argument, not a follow-up call.** Stamping ownership
+///  the owner is an argument, not a follow-up call. Stamping ownership
 /// after the session exists would leave a window where the maintainer's own
 /// session looks like somebody else's — and "an authority that needs a second
 /// call" is the shape this repo has been bitten by before.
@@ -331,16 +316,16 @@ fn warn_if_no_world_to_rewind(world: &World) {
     );
 }
 
-/// Whether a gameplay session world has been constructed **and is readable**.
+/// Whether a gameplay session world has been constructed and is readable.
 ///
-/// ⚠ **`session_world_entity` is `None` for a bare fixture too**, which is the
+///  `session_world_entity` is `None` for a bare fixture too, which is the
 /// same correct "no world" answer the `try_query` fallback gave, so nothing that
 /// legitimately runs without a session starts warning.
 fn has_session_world_root(world: &World) -> bool {
     ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(world).is_some()
 }
 
-/// **Replace the WHOLE input-authority cluster, atomically.**
+/// Replace the WHOLE input-authority cluster, atomically.
 ///
 /// `SlotControlLatches` was the one being preserved, which is the half a
 /// single-player test could never notice.
@@ -493,7 +478,7 @@ pub fn session_is_active(world: &World) -> bool {
     world.contains_resource::<AmbitionGgrsSession>()
 }
 
-/// **THE seam a driver writes input through, whichever host is running.**
+/// THE seam a driver writes input through, whichever host is running.
 ///
 /// A driver is anything supplying input that is not a device: a headless
 /// harness, an RL agent, a replay, an integration test, a consumer's acceptance
@@ -522,12 +507,12 @@ pub fn drive_control_frame(world: &mut World, frame: ControlFrame) {
     );
 }
 
-/// ⭐ this was TWO functions with the same four-arm shape, differing only in
+///  this was TWO functions with the same four-arm shape, differing only in
 /// which resource each arm named — and the resources they named have since
 /// become one table each (`SlotControlLatches`, `PendingSeatInputs`). What is
 /// left of the fork is the last arm.
 ///
-/// **it accepts every slot, and the version that did not was a bug.** `drive_seat_frame` refused
+/// it accepts every slot, and the version that did not was a bug. `drive_seat_frame` refused
 /// slot zero with a bare `return`, on the argument that the primary seat belonged to
 /// [`drive_control_frame`].
 pub fn drive_slot_frame(
@@ -543,7 +528,7 @@ pub fn drive_slot_frame(
         latches.accumulate(slot, frame);
         return;
     }
-    // ⚠ this does NOT clear the other handles, and an earlier version did.
+    //  this does NOT clear the other handles, and an earlier version did.
     // `drive_slot_frame` is called BEFORE the step it applies to, so clearing
     // here wiped every other seat's input on the way past — the seam was built
     // and then emptied by its own sibling, one line later. A driver that wants a
@@ -555,7 +540,7 @@ pub fn drive_slot_frame(
     // It is that seat's output mirror now, so writing it would deliver a press to nobody — the
     // silent no-op this whole seam exists to prevent.
     //
-    // ⚠ **BOTH surfaces, and that is the helper's whole contract.** A driver
+    //  BOTH surfaces, and that is the helper's whole contract. A driver
     // says *this seat is holding this frame* and must not have to know how the
     // composition was assembled. The RAW row is what a shaping stage reads — a
     // scripted reset has to reach the reset stage, a scripted stick the portal
@@ -598,7 +583,7 @@ pub(crate) fn install_session_bridge(app: &mut App) {
         // afterwards (see the note in `maintain_local_session` for why detect-and-restart is
         // worse), so whichever won, won for the whole match.
         //
-        // ⚠ **same schedule, so this is a REAL edge.** A cross-schedule `.after`
+        //  same schedule, so this is a REAL edge. A cross-schedule `.after`
         // is silently vacuous in Bevy and this repo has been bitten by one; both
         // sets live in `Update`, which is what makes the constraint bite.
         .configure_sets(
@@ -674,7 +659,7 @@ pub(crate) fn install_session_bridge(app: &mut App) {
 /// rendered frames may pass before a simulation tick, and a later level-only
 /// sample would overwrite a short press before GGRS observed it.
 fn capture_latched_local_input(
-    // ⭐ **ONE table for every seat, zero included.** This took seat zero's latch
+    //  ONE table for every seat, zero included. This took seat zero's latch
     // as a separate resource beside this one and drained the two in separate
     // blocks — the same edge, the same reason, twice.
     latches: Option<ResMut<ambition_characters::control::SlotControlLatches>>,
@@ -692,7 +677,7 @@ fn capture_latched_local_input(
     if latches.is_device_authority(primary) {
         pending.set(0, latches.take(primary));
     }
-    // ⚠ **seats 1.. are drained UNCONDITIONALLY, and seat zero is not.** Only
+    //  seats 1.. are drained UNCONDITIONALLY, and seat zero is not. Only
     // seat zero has a second author to lose to — every rollback harness drives
     // `PendingLocalInput` directly, and replacing that with a neutral default is
     // how four oracles went red at once. Nothing drives `PendingSeatInputs`
@@ -711,7 +696,7 @@ fn publish_local_inputs(
     local_players: Res<LocalPlayers>,
     mut commands: Commands,
 ) {
-    // ⭐ no `handle == 0` branch: one table answers for every handle.
+    //  no `handle == 0` branch: one table answers for every handle.
     let inputs = local_players
         .0
         .iter()
@@ -722,7 +707,7 @@ fn publish_local_inputs(
 
 /// Publish the session's confirmed inputs into what the simulation reads.
 ///
-/// ⚠ this is what puts seats 1.. INSIDE rollback.
+///  this is what puts seats 1.. INSIDE rollback.
 ///
 /// Every seat lands in one table now, and `ControlFrame` is written after the loop as what it
 /// has become: a MIRROR of what seat zero received, for the trace codec, the harness's action
@@ -737,7 +722,7 @@ fn publish_ggrs_input(
             slots.set(ambition_characters::control::PlayerSlot(handle as u8), *input);
         }
     }
-    // ⚠ **from the table, not from `inputs[0]`** — so the mirror cannot disagree
+    //  from the table, not from `inputs[0]` — so the mirror cannot disagree
     // with the seat, including in the empty-session case where nobody published
     // anything and neutral is the honest answer.
     *control = slots
@@ -911,7 +896,7 @@ fn live_content_identity(world: &mut World) -> Option<PreparedContentIdentity> {
 mod tests {
     use super::*;
 
-    /// **One call reaches whichever seam the host actually reads.**
+    /// One call reaches whichever seam the host actually reads.
     ///
     /// The three cases are not interchangeable and getting one wrong is silent: the driver keeps
     /// driving, the sim never sees the input, and nothing reports a thing.
@@ -1381,7 +1366,7 @@ mod multi_seat_input_tests {
         }
     }
 
-    /// **Every local handle gets its OWN frame.**
+    /// Every local handle gets its OWN frame.
     ///
     /// `publish_local_inputs` inserted `pending.0` for every handle, which was
     /// correct while there was exactly one and silently wrong the moment there
@@ -1430,7 +1415,7 @@ mod multi_seat_input_tests {
         assert_eq!(inputs.0.get(&1).map(|frame| frame.axis_x), Some(0.0));
     }
 
-    /// **The player count is what the session builds with**, clamped to the
+    /// The player count is what the session builds with, clamped to the
     /// slots the game supports rather than asserted: this is settings data
     /// reaching the builder from a dev tool and a harness option, and a session
     /// that refuses to start is worse than one that starts with a sane count.
@@ -1504,7 +1489,7 @@ mod multi_seat_input_tests {
 mod ac23_tests {
     use super::*;
 
-    /// **A new session inherits an unhealthy timeline's reason.** (AC23)
+    /// A new session inherits an unhealthy timeline's reason. (AC23)
     #[test]
     fn an_invalidated_session_hands_its_reason_to_its_replacement() {
         let previous = RollbackSessionStatus {
@@ -1584,7 +1569,7 @@ mod ac23_tests {
     }
 }
 
-/// **Say something when a consumer drives the seam this host does not read.**
+/// Say something when a consumer drives the seam this host does not read.
 ///
 /// A GGRS host consumes [`PendingSeatInputs`], because the frame it simulates is the one the
 /// session CONFIRMED — and [`publish_ggrs_input`] overwrites `ControlFrame` from those
@@ -1592,7 +1577,7 @@ mod ac23_tests {
 /// rollback host has it silently clobbered: the walk loop runs, the body never moves, and
 /// nothing anywhere says why.
 ///
-/// ⭐ **the predicate is exact, not a guess.** Under GGRS, `ControlFrame` is
+///  the predicate is exact, not a guess. Under GGRS, `ControlFrame` is
 /// derived FROM handle zero's `PendingSeatInputs` by way of the session, so a
 /// neutral pending
 /// frame produces a neutral control frame. `ControlFrame` non-neutral while
@@ -1601,12 +1586,12 @@ mod ac23_tests {
 /// driven harness (both live) and an ordinary player (both live) are all
 /// silent.
 ///
-/// ⚠ **sustained, and said ONCE.** A single frame can straddle the write, so it
+///  sustained, and said ONCE. A single frame can straddle the write, so it
 /// waits for `WRONG_SEAM_FRAMES` consecutive frames — long enough that a
 /// transient cannot trip it, short enough to appear in the first second of a
 /// broken consumer's run.
 ///
-/// ⚠ this runs in `Update`, deliberately OUTSIDE the rollback schedule: its
+///  this runs in `Update`, deliberately OUTSIDE the rollback schedule: its
 /// counter is a `Local`, a `Local` does not rewind, and a diagnostic that
 /// miscounts under resimulation would be reporting on itself. Nothing here gates
 /// behaviour — it only warns.
@@ -1657,7 +1642,7 @@ fn report_input_written_to_the_wrong_seam(
 mod wrong_seam_tests {
     use super::*;
 
-    /// Runs the REAL system and reads the fact it publishes. ⚠ the first version
+    /// Runs the REAL system and reads the fact it publishes.  the first version
     /// of this helper re-derived the predicate itself and asserted on that — a
     /// test that passes whether or not the system is registered at all.
     fn reported(live_session: bool, drive_control: bool, drive_pending: bool) -> bool {
@@ -1690,7 +1675,7 @@ mod wrong_seam_tests {
         app.world().resource::<InputSeamMisuse>().0
     }
 
-    /// **The broken consumer.** Drives `ControlFrame` under a rollback host,
+    /// The broken consumer. Drives `ControlFrame` under a rollback host,
     /// which reads `PendingSeatInputs` — so `publish_ggrs_input` overwrites
     /// those writes every simulated frame and the body never moves. This is the
     /// case the roadmap records as unreachable by any in-repo test.
@@ -1699,20 +1684,20 @@ mod wrong_seam_tests {
         assert!(reported(true, true, false));
     }
 
-    /// **The healthy consumer** drives the seam this host actually reads.
+    /// The healthy consumer drives the seam this host actually reads.
     #[test]
     fn driving_pending_local_input_is_silent() {
         assert!(!reported(true, false, true));
     }
 
-    /// **A fixed-tick host is not this diagnostic's business.** `ControlFrame`
+    /// A fixed-tick host is not this diagnostic's business. `ControlFrame`
     /// IS the authority there, so the identical writes must say nothing.
     #[test]
     fn driving_control_frame_without_a_session_is_silent() {
         assert!(!reported(false, true, false));
     }
 
-    /// **The poison.** An idle rollback host must stay silent, or the check is
+    /// The poison. An idle rollback host must stay silent, or the check is
     /// only asking "is a session running".
     #[test]
     fn an_idle_rollback_host_is_silent() {

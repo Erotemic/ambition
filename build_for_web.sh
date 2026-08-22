@@ -302,7 +302,7 @@ if [[ "$SKIP_BINDGEN" != true ]]; then
     OUT_JS="$OUT_DIR/ambition_app.js"
     if [[ -f "$OUT_WASM" ]]; then
         log "wasm-bindgen output: $(human_size "$OUT_WASM") wasm, $(human_size "$OUT_JS") js"
-        # **SIZE IS A BOOT FAILURE MODE, not a nicety.** The browser must
+        # SIZE IS A BOOT FAILURE MODE, not a nicety. The browser must
         # download AND COMPILE this before a single line of Rust runs, and a
         # module in the hundreds of MB can take a minute or hang a tab outright —
         # which presents as "the page loads and nothing happens", indistinguishable
@@ -336,7 +336,7 @@ fi
 # everything the content crate owns (every world addressed `game://worlds/...`, the vanity card) was
 # simply absent from the served tree.
 #
-# **The composed tree is not this script's to invent.** `package_asset_guard.py
+# The composed tree is not this script's to invent. `package_asset_guard.py
 # compose` is the single seam that collapses the roots, forbids implicit
 # overrides between them, and emits a byte contract — the same one Android
 # verifies against its APK and the Steam Deck deploy verifies after rsync. Web

@@ -93,7 +93,7 @@ pub struct RoomFeatureConstructionPlan {
     /// authoritative family is planned here; optional capabilities compose
     /// separate typed lanes beside it instead of entering this domain enum.
     construction: crate::construction::ActorConstructionPlan,
-    /// **The capability lanes, as ONE composed value.** Each is still
+    /// The capability lanes, as ONE composed value. Each is still
     /// independently typed, planned, committed and verified; what this field
     /// removes is the room plan reimplementing all six of those operations once
     /// per family. See [`capability_lanes::CapabilityLanes`] — every operation
@@ -118,10 +118,10 @@ pub struct RoomFeatureConstructionPlan {
     outlook: ambition_platformer2d_shared_tangle::lifecycle::RoomOccurrenceOutlook,
 }
 
-/// **What the world remembers about its occurrences, and the definitions a room
-/// needs in order to act on what it remembers.**
+/// What the world remembers about its occurrences, and the definitions a room
+/// needs in order to act on what it remembers.
 ///
-/// **the two travel as ONE value because acting on half the ledger deletes objects.** A
+/// the two travel as ONE value because acting on half the ledger deletes objects. A
 /// `Placed` row is a single fact with two consequences: the room whose record minted the
 /// occurrence must not mint it again, and the room the occurrence is lying in must rebuild it —
 /// even though that room does not own the record. Stating the ledger and the world definitions
@@ -139,7 +139,7 @@ pub struct OccurrenceContinuity<'a> {
     /// refer to. A room being built reaches into these only for identities the
     /// ledger says are lying in it and that its own records do not produce.
     pub world: &'a [crate::rooms::RoomSpec],
-    /// **THE SECOND DESCRIBER — how to rebuild what no record can.**
+    /// THE SECOND DESCRIBER — how to rebuild what no record can.
     ///
     /// a RUNTIME-MINTED occurrence has no authored record in any room, so the reinstatement above
     /// can never settle its debt: the loop searches `world` for a record to relocate and finds
@@ -162,7 +162,7 @@ pub struct ActorConstructionContext<'a> {
     /// [`ContentBinding::Content`] — the enum exists because the planner also
     /// serves runtime-dynamic construction, which is not.
     pub binding: ambition_platformer2d_shared_tangle::construction::ContentBinding,
-    /// **The prepared cast**, when the caller has one — so a lowered NPC can be asked what its
+    /// The prepared cast, when the caller has one — so a lowered NPC can be asked what its
     /// CHARACTER's default autonomous profile is.
     ///
     /// `Option`, and an absent registry is a legal answer rather than a
@@ -170,14 +170,14 @@ pub struct ActorConstructionContext<'a> {
     /// what this path assumed before a definition could state one. Every
     /// existing caller keeps its behaviour by saying nothing.
     pub prepared: Option<&'a crate::character_runtime::PreparedCharacterRegistry>,
-    /// **The published controller policies**, so a PLACEMENT may name one
+    /// The published controller policies, so a PLACEMENT may name one
     /// (`EnemySpawnSpec::brain_profile`). Same `Option` contract as the cast: an
     /// absent registry means this composition publishes no shared policies,
     /// which is what every level assumed before a placement could name one.
     pub brain_profiles:
         Option<&'a ambition_characters::actor::character_catalog::BrainProfileRegistry>,
-    /// **What the world remembers about the occurrences it has already minted,
-    /// and the definitions needed to act on it** — so a rebuild neither mints a
+    /// What the world remembers about the occurrences it has already minted,
+    /// and the definitions needed to act on it — so a rebuild neither mints a
     /// second occurrence for a record whose first one is alive somewhere else,
     /// nor forgets an occurrence that is lying in this room under a record this
     /// room does not own.
@@ -207,15 +207,15 @@ impl<'a> ActorConstructionContext<'a> {
         }
     }
 
-    /// **Every authority a ROOM's construction may consult, stated at once.**
+    /// Every authority a ROOM's construction may consult, stated at once.
     ///
-    /// **SEVEN ROADS BUILT THIS CONTEXT BY HAND AND FOUR OF THEM WERE INCOMPLETE.** Startup, reset,
+    /// SEVEN ROADS BUILT THIS CONTEXT BY HAND AND FOUR OF THEM WERE INCOMPLETE. Startup, reset,
     /// transition, hot reload, provider activation, the exclusive-world rebuild and the neighbour
     /// prefetch each assembled their own `new(..).with_prepared(..).with_brain_profiles(..)` chain,
     /// and a road that forgot one link did not fail to compile — it silently constructed rooms
     /// against an authority it did not have.
     ///
-    /// **so the authorities are PARAMETERS, not opt-in builder calls.** A
+    /// so the authorities are PARAMETERS, not opt-in builder calls. A
     /// caller must say what it has, including saying `None`, and the next
     /// authority a room may consult is one signature change that breaks every
     /// road at once instead of seven chances to forget. `Option` still means
@@ -252,7 +252,7 @@ impl<'a> ActorConstructionContext<'a> {
 
     /// Supply the prepared cast for this construction. See [`Self::prepared`].
     ///
-    /// **for construction that is not a ROOM's** — a summon, a runtime spawn,
+    /// for construction that is not a ROOM's — a summon, a runtime spawn,
     /// a focused fixture. A room goes through [`Self::for_room_construction`],
     /// which is where forgetting an authority stopped being possible.
     #[must_use]
@@ -264,7 +264,7 @@ impl<'a> ActorConstructionContext<'a> {
         self
     }
 
-    /// **Supply the published controller policies**, so a placement may name
+    /// Supply the published controller policies, so a placement may name
     /// one. See [`Self::brain_profiles`].
     #[must_use]
     pub fn with_brain_profiles(
@@ -313,8 +313,8 @@ impl std::fmt::Debug for RoomFeatureConstructionPlan {
     }
 }
 
-/// **Claim one lane's planned identities into the room's roster, refusing a
-/// collision with any lane already claimed.**
+/// Claim one lane's planned identities into the room's roster, refusing a
+/// collision with any lane already claimed.
 ///
 /// cross-lane identity collisions are the one thing independently typed lanes
 /// cannot check for themselves: each lane's own preparation refuses duplicates
@@ -359,7 +359,7 @@ impl RoomFeatureConstructionPlan {
             .iter()
             .map(|(_, request)| request.clone())
             .collect();
-        // **THE CHARACTER NAMESPACE LEFT THIS SWEEP WITH THE ROSTER** (AC6). It resolved each
+        // THE CHARACTER NAMESPACE LEFT THIS SWEEP WITH THE ROSTER (AC6). It resolved each
         // placement's BRAIN KEY against `roster.brain_keys()`, because the lookup behind it
         // could not fail and a misspelling became the generic `combatant` body with the right
         // name on it.
@@ -421,28 +421,28 @@ impl RoomFeatureConstructionPlan {
             &paths,
             construction.prepared,
         ));
-        // **AND NOW THE ONE QUESTION AN AUTHORED RECORD CANNOT ANSWER ABOUT
-        // ITSELF: what became of the occurrence it minted last time?** Authored
+        // AND NOW THE ONE QUESTION AN AUTHORED RECORD CANNOT ANSWER ABOUT
+        // ITSELF: what became of the occurrence it minted last time? Authored
         // DEFINITION identity is not runtime OCCURRENCE identity — a record is
         // a recipe, `SimId::placement(..)` names the thing the recipe made —
         // and a rebuild owes the world a fresh occurrence only for the records
         // whose last one is neither alive elsewhere nor deliberately gone.
         //
-        // **this asks a DISPOSITION, not "is something with this id alive".**
+        // this asks a DISPOSITION, not "is something with this id alive".
         // The second sentence has no room for a permanently destroyed object,
         // which must also not be re-authored and is not alive anywhere; the
         // ledger answers both with one call. It is also why the filter is here
         // and not in the room transition: nothing on this road knows that items
         // exist, or that a carried thing is what put a row in the ledger.
         //
-        // **AND THE ANSWER HAS THREE ARMS, NOT TWO.** An occurrence that was
+        // AND THE ANSWER HAS THREE ARMS, NOT TWO. An occurrence that was
         // carried across this room and PUT DOWN belongs to this room at
         // coordinates the record knows nothing about; rebuilding the room owes
         // the world that occurrence, with its own identity, WHERE IT WAS LEFT.
         // Reading `Reinstated` as "author it" and dropping the position is how a
         // relocation silently becomes a teleport back to the authored spot.
         //
-        // **AND THE ANSWER IS NOT A FUNCTION OF THIS ROOM'S RECORDS ALONE.**
+        // AND THE ANSWER IS NOT A FUNCTION OF THIS ROOM'S RECORDS ALONE.
         // An occurrence lying in this room may have been minted by a record next
         // door — carried here and put down — and this room owes the world that
         // occurrence exactly as much as it owes the ones it authors. Its home
@@ -491,7 +491,7 @@ impl RoomFeatureConstructionPlan {
         // reconstructed from the world's definitions plus the authoritative
         // disposition of every occurrence.
         //
-        // **only rooms the ledger's obligation actually reaches are touched.**
+        // only rooms the ledger's obligation actually reaches are touched.
         // The loop stops the moment the debt is settled and never runs at all
         // for the overwhelmingly common empty ledger, so a big world costs a
         // slice bound, not a scan.
@@ -507,7 +507,7 @@ impl RoomFeatureConstructionPlan {
                 if foreign.id == room.id {
                     continue;
                 }
-                // **a foreign room that cannot yield its records REFUSES this build**, rather
+                // a foreign room that cannot yield its records REFUSES this build, rather
                 // than quietly dropping the occurrence. The world promised the player an object
                 // back and cannot produce it; that is a preflight failure — raised while the
                 // outgoing room is still whole, like every other one here — and not a silent
@@ -685,7 +685,7 @@ impl RoomFeatureConstructionPlan {
         })
     }
 
-    /// **The dispositions this plan was prepared against.**
+    /// The dispositions this plan was prepared against.
     ///
     /// A frozen plan is only valid for the world that produced it: a plan
     /// prepared while an authored object was being carried OMITS that object,
@@ -693,7 +693,7 @@ impl RoomFeatureConstructionPlan {
     /// would leave the room permanently missing it. Stated on the artifact so a
     /// cache can compare rather than guess — see the prefetch promotion check.
     ///
-    /// **the whole outlook, not just the suppressed ids.** A plan prepared
+    /// the whole outlook, not just the suppressed ids. A plan prepared
     /// while a relocated object rested at one position is not the plan this
     /// world wants once it rests at another, and a set of identities cannot tell
     /// those two apart.
@@ -715,8 +715,8 @@ impl RoomFeatureConstructionPlan {
         &self.construction
     }
 
-    /// **`cfg(test)`, both of these: production never asks a room WHICH LANE
-    /// built something.** It asks the room for its roster, and each lane verifies
+    /// `cfg(test)`, both of these: production never asks a room WHICH LANE
+    /// built something. It asks the room for its roster, and each lane verifies
     /// itself against the shared baseline. A lane accessor exists so a test can
     /// prove an identity lives in one lane and not another — which is a claim
     /// only a test makes, and the reason these were dead code in every build.

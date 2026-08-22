@@ -13,17 +13,17 @@ use ambition_platformer2d_core::AabbExt;
 
 /// Sweep span used when an author places a platform and states no motion.
 ///
-/// ⭐ **the engine owns its own defaults.** These lived in the LDtk converter,
+///  the engine owns its own defaults. These lived in the LDtk converter,
 /// which made "what does an empty field mean" a question you answered by
 /// reading the adapter rather than the capability.
 pub const DEFAULT_SWEEP_DX: f32 = 240.0;
 /// Travel speed used when an author states none.
 pub const DEFAULT_PLATFORM_SPEED: f32 = 130.0;
 
-/// **How an authored platform moves — exactly one motion, decided when the room
-/// is authored.**
+/// How an authored platform moves — exactly one motion, decided when the room
+/// is authored.
 ///
-/// ⛔ **this replaced a bag of optional fields whose meaning was a PRECEDENCE**
+///  this replaced a bag of optional fields whose meaning was a PRECEDENCE
 /// (a path beat a loop beat a sweep). Precedence makes every wrong combination
 /// SILENT, and silence is the worst outcome for an editor field: a platform
 /// authoring both a path and a loop ran the path and never said so, and a
@@ -38,12 +38,12 @@ pub enum MovingPlatformMotionSpec {
     Sweep { dx: f32, speed: f32 },
     /// Follow a room-local [`KinematicPathSpec`], which owns its own speed.
     Path { path_id: String },
-    /// **A wrapping vertical loop — the paternoster / "infinite elevator".**
+    /// A wrapping vertical loop — the paternoster / "infinite elevator".
     ///
     /// `dy` mirrors a sweep's span: magnitude is the shaft, sign is the
-    /// direction of travel. ⚠ **positive travels DOWN** — world y is
+    /// direction of travel.  positive travels DOWN — world y is
     /// down-positive here and the LDtk conversion preserves it, so a descending
-    /// elevator is a POSITIVE `dy`. ⛔ **a loop is not a vertical sweep**: it
+    /// elevator is a POSITIVE `dy`.  a loop is not a vertical sweep: it
     /// never reverses, which is what makes a run of them read as one elevator
     /// instead of a row of lifts.
     ///
@@ -126,7 +126,7 @@ impl AuthoredPlatformMotion {
         }
 
         if let Some(path_id) = path_id {
-            // ⭐ the path owns its speed, so a `speed` written here does nothing.
+            //  the path owns its speed, so a `speed` written here does nothing.
             if self.speed.is_some() {
                 return Err(format!(
                     "follows path '{path_id}' and also authors speed, but a \
@@ -252,12 +252,12 @@ enum MovingPlatformMotion {
         segment: usize,
         dir: i32,
     },
-    /// **A one-way vertical loop — the paternoster / "infinite elevator".**
+    /// A one-way vertical loop — the paternoster / "infinite elevator".
     ///
     /// Moves continuously in one vertical direction and wraps to the opposite
     /// end instead of reversing.
     ///
-    /// ⛔ **it WRAPS where the other two REVERSE**, and that is the whole reason
+    ///  it WRAPS where the other two REVERSE, and that is the whole reason
     /// it is a third variant rather than a `Sweep` with the axis swapped. A
     /// reversing platform is a lift; a wrapping one is a conveyor of lifts, and
     /// the player experience — step off the top, another arrives from below —
@@ -269,7 +269,7 @@ enum MovingPlatformMotion {
         /// `+1` travels toward +y, `-1` toward -y. Constant for the lifetime of
         /// the platform: this motion has no reversal, which is the point.
         ///
-        /// ⚠ **+y is DOWN here.** The LDtk conversion does not flip the axis, so
+        ///  +y is DOWN here. The LDtk conversion does not flip the axis, so
         /// world y increases downward — a falling body's y grows. `+1` therefore
         /// DESCENDS on screen, which is the opposite of what "positive" reads
         /// like and is worth stating wherever the sign is chosen.
@@ -328,7 +328,7 @@ impl MovingPlatformState {
     /// `speed` is magnitude; `downward` picks the direction. A run of these with
     /// staggered `start_pos` values along the same span is the elevator shaft.
     ///
-    /// ⚠ **`downward` rather than `rising`, because +y is DOWN.** The first
+    ///  `downward` rather than `rising`, because +y is DOWN. The first
     /// version of this signature said `rising` and set `dir = +1` for it, which
     /// would have had every authored elevator travel the opposite way to its
     /// field's name — silent, and only visible by watching the game.
@@ -394,7 +394,7 @@ impl MovingPlatformState {
     /// it as [`Self::last_delta`] for readers that run after the advance.
     pub fn update(&mut self, dt: f32) -> ae::Vec2 {
         let old = self.pos;
-        // ⛔ **a WRAP is a position change that is not a MOVEMENT**, and
+        //  a WRAP is a position change that is not a MOVEMENT, and
         // `last_delta` is the quantity a rider is carried by. An arm that
         // teleports must say what it actually travelled, or `pos - old` hands the
         // rider the whole span in one frame — in the direction opposite to
@@ -470,21 +470,10 @@ impl MovingPlatformState {
         }
     }
 
-    /// The collision face this platform presents to the world this frame.
-    ///
-    /// The `kind` below is not authorable. Every
-    /// moving platform is a `BlinkWall{Soft}` — solid on both axes — so a moving
-    /// platform cannot be authored ONE-WAY even though `BlockKind::OneWay` is a
-    /// first-class kind the shared sweep already resolves for static geometry.
-    ///
-    /// ⛔ **it is not a `bool` away.** `one_way_landing_from_previous_feet` compares the body's
-    /// PREVIOUS feet coordinate against the block's CURRENT anti-gravity face — sound for
-    /// geometry that does not move, and a MIXED FRAME for geometry that does. This type already
-    /// knows that hazard: it carries [`Self::previous_aabb`] precisely because "a ledge grab
-    /// contact stored from the previous tick matches this previous AABB". So a one-way moving
-    /// platform must first DECIDE which face the crossing test reads — a rising elevator would
-    /// otherwise steal a landing by sweeping its face past a standing body's stale feet line,
-    /// and a descending one would refuse a landing it should grant.
+    /// The collision face this platform presents this frame. Moving platforms are always
+    /// two-axis `BlinkWall{Soft}` solids. One-way motion requires a frame-consistent crossing
+    /// rule because the existing one-way test compares previous feet with the current support
+    /// face; do not expose one-way authored motion until that rule exists.
     pub fn as_collision_block(&self) -> ae::Block {
         ae::Block {
             // The platform's LDtk iid IS its durable identity (§3.6
@@ -538,8 +527,8 @@ impl MovingPlatformState {
             || support_contact_matches(body, self.previous_aabb(), gravity_dir)
     }
 
-    /// Down-gravity compatibility wrapper for legacy trace callers. Prefer
-    /// [`Self::is_supporting_body`] when the active acceleration frame is known.
+    /// TODO(compat-remove): migrate trace callers to [`Self::is_supporting_body`] and delete
+    /// this down-gravity wrapper.
     pub fn is_riding(&self, player_box: ae::Aabb, on_ground: bool) -> bool {
         self.is_supporting_body(player_box, on_ground, ae::Vec2::new(0.0, 1.0))
     }
@@ -615,7 +604,7 @@ fn advance_path_position(
 /// `Loop` closes the circuit: a path of `n` points has `n` segments, including
 /// the closing leg `p[n-1] → p[0]`.
 ///
-/// ⚠ reverse (`dir < 0`) is left un-wrapped deliberately: nothing sets a
+///  reverse (`dir < 0`) is left un-wrapped deliberately: nothing sets a
 /// backwards direction under `Loop` — only `PingPong` flips `dir` — so a modulo
 /// there would be untested code serving no caller.
 fn path_target_index(

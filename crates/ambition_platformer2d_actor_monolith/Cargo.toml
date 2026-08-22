@@ -456,13 +456,13 @@ serde_json = "1"
 # The binaries moved to the `ambition_app` crate (Stage 20 / A3).
 
 [dev-dependencies]
-# **the tests still build LDtk fixtures**, and the production dependency went
+# the tests still build LDtk fixtures, and the production dependency went
 # `optional` (see above). `#[cfg(test)]` code reaches a dev-dependency, so the
 # encounter / gated-lock-wall / switch-command tests keep converting a real
 # project into rooms — which is the point of those fixtures — without putting the
 # crate back on the shipping surface.
 ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-features = false }
-# **the barrier-bypassing test seams, and DEV-ONLY is the whole point.**
+# the barrier-bypassing test seams, and DEV-ONLY is the whole point.
 # `prepare_and_finalize_for_test` and `insert_prepared` were `#[cfg(test)]
 # pub(crate)` while they lived in this crate; the P1.7 move put the model and
 # preparation into `ambition_characters` and left eighteen fixtures here, and

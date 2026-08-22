@@ -19,20 +19,11 @@ use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
 use super::*;
 
-/// Apply player damage to a boss ENTITY (the entity is the source of truth:
-/// HP on the shared `BodyHealth`, phase on `BossEncounter.encounter` — §A1).
+/// Apply damage to entity-local boss health and phase authority.
 ///
-/// The invulnerable-PHASE gate stays boss POLICY (checked before the resolver): Intro / Transition
-/// / the `transition_lock` tell / Dormant / Death swallow the hit. The boss's `BodyHitFeel` makes
-/// the boss tuning EXPLICIT: NO post-hit i-frame (`damage_invuln_time: 0.0`, so `vulnerable()`
-/// never blocks and player DPS is unchanged) and no shield — the per-body feel knob that §A2 gave
-/// the player (0.75s) and actors (0.2s), now covering bosses too. A designer wanting boss i-frames
-/// changes ONE field here.
-///
-/// Returns `(applied, killed, wallet_spent)`: `applied` is false when an
-/// invulnerable phase swallows the hit; `killed` marks HP depletion; and
-/// `wallet_spent` carries the generic shield fact to the caller. On a kill the
-/// phase is forced to `Death`.
+/// Boss phase policy rejects hits while invulnerable. Bosses currently use no
+/// post-hit i-frame and no body shield. Returns `(applied, killed, wallet_spent)`;
+/// a kill forces the phase to `Death`.
 pub(crate) fn apply_entity_boss_damage(
     status: &mut BossEncounter,
     health: &mut ambition_characters::actor::BodyHealth,
@@ -82,9 +73,9 @@ pub(crate) fn apply_entity_boss_damage(
     match resolution {
         // Already dead (raced past the caller's liveness check) — no hit.
         crate::features::ecs::damage_apply::BodyHitResolution::Ignored => (false, false, None),
-        // No shield component ⇒ the resolver never returns Blocked for a boss.
+        // No shield component  the resolver never returns Blocked for a boss.
         crate::features::ecs::damage_apply::BodyHitResolution::Blocked => (false, false, None),
-        // No `WornEquipment` ⇒ the resolver never returns Armored for a boss.
+        // No `WornEquipment`  the resolver never returns Armored for a boss.
         crate::features::ecs::damage_apply::BodyHitResolution::Armored => (true, false, None),
         crate::features::ecs::damage_apply::BodyHitResolution::WalletShielded { spent } => {
             (true, false, Some(spent))

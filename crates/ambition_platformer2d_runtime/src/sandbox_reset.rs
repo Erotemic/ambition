@@ -7,7 +7,7 @@
 //! `ambition_sfx`, and `ambition_vfx`, all of which `ambition_platformer2d_runtime` already depends
 //! on. Splitting the reset out of that module is the whole reason it could not move earlier.
 //!
-//! **Why it had to move.**
+//! Why it had to move.
 //! [`ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested`] is the engine's
 //! generic "replay the active room" request, and content emits it from three places today (Mary-O's
 //! flag completion and timeout, Sanic's act clear, Ambition's cut-rope "try again"). So in the
@@ -37,7 +37,7 @@ use ambition_vfx::VfxMessage;
 /// "back to spawn" means. Callers own the POLICY of when to reset; this owns
 /// what a reset IS.
 ///
-/// Moves the body, refills movement resources, mana **and health**, re-anchors
+/// Moves the body, refills movement resources, mana and health, re-anchors
 /// the respawn safety point, snaps the sim clock back to 1.0, and clears the
 /// melee swing, anim, combat, gesture, and blink-camera state. Emits the reset
 /// SFX/VFX pair from the before/after positions.
@@ -93,7 +93,7 @@ pub fn reset_sandbox(
     });
 }
 
-/// **The set [`apply_room_replay_request_system`] runs in.**
+/// The set [`apply_room_replay_request_system`] runs in.
 ///
 /// A room replay rebuilds the room; a reset input that must be seen by that
 /// rebuild lands before it. ONE member — applying the request IS the step.
@@ -216,7 +216,7 @@ impl Plugin for RoomReplaySchedulePlugin {
                 // so being before it is being before all of Device.
                 .before(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::Device),
         );
-        // **The replay transaction, in the order its meaning requires:**
+        // The replay transaction, in the order its meaning requires:
         //
         //   emit the request  →  clear the per-attempt state it invalidates
         //                     →  rebuild the room
@@ -227,7 +227,7 @@ impl Plugin for RoomReplaySchedulePlugin {
         // cleared. The reset sees the message on a later frame, when the reconstruction it was
         // supposed to precede has already happened.
         //
-        // ⇒ the Smirking Behemoth's "press reset and start again" rebuilt the
+        //  the Smirking Behemoth's "press reset and start again" rebuilt the
         // room with the boss still recorded defeated. `.chain()` is the whole
         // fix; the sets were always the right vocabulary.
         //

@@ -1,70 +1,11 @@
-//! **What the narrative told the simulation, and the tick each fact applies
-//! from.**
+//! Bridges narrative inputs from non-rollback dialogue into deterministic simulation ticks.
 //!
-//! The Yarn runner is content executing in real time, outside the simulation and
-//! outside rollback — deliberately, because rewinding a typewriter would stutter
-//! the text box under a player who is mid-sentence. But it does not only present
-//! text. It ends conversations, grants items, spends money, flips save flags,
-//! provokes fights and swaps brains. Every one of those is a simulation fact
-//! arriving from outside, and every one of them needs the same thing:
+//! Each input is stamped with its conversation instance and the first simulation tick that may
+//! consume it. The ledger releases records on that exact tick, only while their conversation is
+//! still active, and prunes records once the replay horizon can no longer reach them.
 //!
-//! > a record that a resimulated tick can read and reach the same answer from.
-//!
-//! ## The mirror image of the effect quarantine
-//!
-//! [`ambition_platformer2d_runtime`'s `ExternalEffectJournal`] holds sim intents
-//! by the frame that produced them until that frame is confirmed, so a sound
-//! that already reached the speakers is not un-played by a rewind. This is the
-//! same shape pointed the other way:
-//!
-//! ```text
-//! ExternalEffectJournal    sim ──▶ outside   held until the frame is CONFIRMED
-//! NarrativeInputLedger     outside ──▶ sim   held until the tick can never be
-//!                                            SIMULATED AGAIN
-//! ```
-//!
-//! Both are host bookkeeping about the timeline, both are keyed on
-//! [`ConfirmedFrameBoundary`], and neither is rollback state. That last point is
-//! the load-bearing one and it is the same rule that keeps device input out of a
-//! snapshot: **a rewind restores what the simulation DECIDED, never what it was
-//! TOLD.** Rewinding this would erase the input and the replay would reach a
-//! different history.
-//!
-//! ## Why it is a ledger and not a slot
-//!
-//! **the thing this replaces held ONE record**, and justified it by arguing
-//! that two conversations cannot finish inside an eight-frame prediction window
-//! *because a player has to read the first one*. That is not an engine
-//! invariant. Dialogue can be scripted, system-started, one line long, or
-//! auto-advancing — `<<reset_cut_rope_room>>` is reached before the player has
-//! dismissed the line it is on. A second record overwrote the first, so a rewind
-//! reaching past both replayed only the later one, and the earlier conversation
-//! came back live and STAYED live for the rest of the branch, holding a body and
-//! capturing a seat the original timeline had already released.
-//!
-//! No rule in here may depend on how fast a human reads.
-//!
-//! ## The four rules
-//!
-//! 1. **Stamped on the way in.** A record carries the
-//!    [`ConversationInstanceId`] that produced it and the first `SimTick` the
-//!    simulation may act on it — the NEXT tick, because presentation observes
-//!    the runner in `Update`, after this frame's simulation has already run.
-//! 2. **Released on an EDGE**, at `from_tick == now`, into the ordinary message
-//!    channel — so every existing sim consumer reads it unchanged and unaware.
-//!    the slot this replaces released on a LEVEL (`from_tick <= now`), which
-//!    is safe only because closing a conversation twice is closing it once. A
-//!    grant is not idempotent, and a level rule would hand out an item every
-//!    tick forever.
-//! 3. **Instance-gated.** A record releases only while its own conversation is
-//!    the live one. A branch the host abandoned did not happen, and its narrative
-//!    effects do not reach the world — the same judgement
-//!    `ExternalEffectJournal::discard_after` makes outbound. the visible cost,
-//!    stated rather than hidden: in netplay a remote player who breaks your
-//!    conversation can take back an item you watched being granted.
-//! 4. **Pruned to the replay horizon**, never by consumption. Nothing marks a
-//!    record used — that would be the erase-your-own-input defect one level down.
-//!    A record leaves when its tick can never be simulated again.
+//! The ledger is host timeline bookkeeping, not rollback state: rewinding simulation must not
+//! erase the external input that a resimulated tick needs to observe again.
 
 use bevy::ecs::message::{Message, Messages};
 use bevy::ecs::system::SystemParam;
@@ -92,7 +33,7 @@ struct StampedNarrativeInput<M> {
 /// One per payload type, so a game's own narrative vocabulary registers its own
 /// ledger and this module names no content.
 ///
-/// **never register this for rollback.** See the module docs: it is the record
+/// never register this for rollback. See the module docs: it is the record
 /// of what arrived from outside, and rewinding an input erases it. The
 /// `two_narrative_ends_in_one_window_both_replay` test fails rather than passing
 /// quietly if it ever becomes rollback state.
@@ -174,7 +115,7 @@ impl<M: Message + Clone> NarrativeInputLedger<M> {
     }
 }
 
-/// **Write down what the narrative just said.** (presentation)
+/// Write down what the narrative just said. (presentation)
 ///
 /// Bundles the three things every narrative writer needs — who is talking, what
 /// tick it is, and where the record goes — so a Yarn command says
@@ -235,8 +176,8 @@ impl<M: Message + Clone> NarrativeInputWriter<'_, M> {
     }
 }
 
-/// **Hand the simulation what the narrative told it, on the tick it applies
-/// from.** (sim)
+/// Hand the simulation what the narrative told it, on the tick it applies
+/// from. (sim)
 ///
 /// Runs at the head of the sim schedule and writes into the ordinary channel, so
 /// consumers are unchanged and unaware any of this happened.
@@ -252,9 +193,9 @@ pub fn release_narrative_inputs<M: Message + Clone>(
     }
 }
 
-/// **Forget what can never be replayed again.** (presentation/host)
+/// Forget what can never be replayed again. (presentation/host)
 ///
-/// **not in the sim schedule, and that is not a placement preference.** This
+/// not in the sim schedule, and that is not a placement preference. This
 /// runs during resimulation if it is, and a replayed tick that erases its own
 /// input reaches a different history than the run it is reproducing.
 pub fn prune_narrative_inputs<M: Message + Clone>(
@@ -298,14 +239,14 @@ impl<M: Message + Clone> Plugin for NarrativeInputPlugin<M> {
         };
 
         let sim = app.sim_schedule();
-        // **REGISTER THE CHANNEL THIS PLUGIN RELEASES INTO** — the same lesson
+        // REGISTER THE CHANNEL THIS PLUGIN RELEASES INTO — the same lesson
         // `ExternalEffectQuarantinePlugin` records. Leaving it to whoever else
         // wants the message means it always works in a shipped app and nowhere
         // else. `add_message` is guarded by `contains_resource`, so this is
         // idempotent for a channel somebody already registered.
         app.add_message::<M>()
             .init_resource::<NarrativeInputLedger<M>>()
-            // **INSIDE the root set, at its head** — the `ensure_sim_id`
+            // INSIDE the root set, at its head — the `ensure_sim_id`
             // placement, not the effect quarantine's `.before(root)` one. The
             // root carries the session gate, so a release outside it would hand
             // narrative facts to a frozen simulation at a title or loading route
@@ -338,7 +279,7 @@ mod tests {
         )
     }
 
-    /// **The release is an EDGE.** A grant is not idempotent, so a level rule
+    /// The release is an EDGE. A grant is not idempotent, so a level rule
     /// (`from_tick <= now`) would hand it over on every tick after the first.
     #[test]
     fn a_record_releases_on_its_tick_and_no_other() {
@@ -362,7 +303,7 @@ mod tests {
         );
     }
 
-    /// **A record from a branch the host abandoned does not reach the world.**
+    /// A record from a branch the host abandoned does not reach the world.
     #[test]
     fn a_record_whose_conversation_is_not_live_never_releases() {
         let mut ledger = NarrativeInputLedger::<Spoke>::default();
@@ -381,7 +322,7 @@ mod tests {
         );
     }
 
-    /// **Two conversations' records coexist**, which is the whole reason this is
+    /// Two conversations' records coexist, which is the whole reason this is
     /// a ledger. The slot it replaces could hold one.
     #[test]
     fn records_from_two_conversations_both_survive() {
@@ -395,7 +336,7 @@ mod tests {
         assert_eq!(ledger.release(Some(106), Some(&second)), vec![Spoke(2)]);
     }
 
-    /// **The depth is bounded by the replay horizon**, not by how long the
+    /// The depth is bounded by the replay horizon, not by how long the
     /// session has been running.
     #[test]
     fn the_ledger_depth_stays_within_the_replay_horizon() {
@@ -414,7 +355,7 @@ mod tests {
         );
     }
 
-    /// **No timeline is no replay**: the record is delivered once and leaves,
+    /// No timeline is no replay: the record is delivered once and leaves,
     /// which is exactly what the message-based seam did.
     #[test]
     fn a_composition_with_no_timeline_delivers_once() {
@@ -429,7 +370,7 @@ mod tests {
         );
     }
 
-    /// **`holds_for` is per conversation, not per ledger** — the guard an
+    /// `holds_for` is per conversation, not per ledger — the guard an
     /// observer of a CONDITION needs, and the one a repeated effect must not use.
     #[test]
     fn holds_for_answers_about_one_conversation() {

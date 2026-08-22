@@ -2,7 +2,7 @@
 //!
 //! A [`HitVolume`](ambition_entity_catalog::HitVolume) may carry an `on_hit: Option<EffectRef>`: a
 //! technique that fires WHEN the volume lands a body hit, with attacker/victim/contact context. The
-//! important ownership rule is that on-hit code does **not** rediscover contact. This module
+//! important ownership rule is that on-hit code does not rediscover contact. This module
 //! projects that fact to the authored effect.
 
 use bevy::prelude::{Component, Entity, Message, MessageReader, MessageWriter, Query};
@@ -100,7 +100,7 @@ pub use ambition_characters::technique::{pogo_rise_from, set_pogo_sfx, POGO_BOUN
 
 /// The contact cue a `pogo_bounce` effect authored, as an [`SfxId`].
 ///
-/// **the adapter, and it is why the lowered accessor returns a `String`.**
+/// the adapter, and it is why the lowered accessor returns a `String`.
 /// Wrapping the cue down there would mean an `ambition_characters →
 /// ambition_sfx` edge for one newtype; the layering is better with the low crate
 /// owning the authored TEXT and this crate deciding the text names a cue.

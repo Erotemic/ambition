@@ -3,7 +3,7 @@
 //! Design of record: `docs/planning/triage/gameplay-presentation-profiles.md`.
 //!
 //! Both prove arithmetic. Neither proves the thing that actually decides whether a participant
-//! sees a correct frame: **when** the numbers are available relative to Bevy's own UI layout
+//! sees a correct frame: when the numbers are available relative to Bevy's own UI layout
 //! pass.
 //!
 //! `bevy_ui` computes `ComputedNode` and `UiGlobalTransform` in `PostUpdate`

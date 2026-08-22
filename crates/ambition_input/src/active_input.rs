@@ -1,50 +1,18 @@
-//! Which input device each SEAT most recently produced GENUINE input with.
+//! Most recent genuine input device per seat and across the machine.
 //!
-//! ONE authority, two projections:
+//! [`SeatActiveDevices::for_seat`] drives seat-specific glyphs and prompts;
+//! [`SeatActiveDevices::machine`] drives machine-wide behavior such as whether
+//! mouse hover may reclaim menu focus. This is observation only: no input source
+//! is disabled. Synthetic `Pointer<Over>` events do not count as genuine mouse
+//! input; real cursor motion or button presses do.
 //!
-//! * [`SeatActiveDevices::for_seat`] — the seat's last genuine device. What a
-//!   glyph/prompt surface asks: seat 1 on a DualShock draws "Cross" while
-//!   seat 0 on the keyboard draws "Z", on the same frame.
-//! * [`SeatActiveDevices::machine`] — the newest genuine device across every
-//!   seat. What the menu mouse-hover gates ask: hover may re-claim the cursor
-//!   only while the MOUSE is the most recent input on the machine, whoever it
-//!   belongs to.
-//!
-//! Collapsing them is PA1's device-presentation half.
-//!
-//! This is a *marker*, not a mode switch. No source is ever disabled: a player
-//! may steer with the arrow keys while clicking with the mouse, or push a
-//! gamepad stick while tapping keyboard shortcuts. The marker only records
-//! the most recent genuine source so specific behaviours can be gated on it.
-//!
-//! ## Why "genuine" matters (the snap-back bug)
-//!
-//! The menus republish (despawn + respawn their controls) on every cursor
-//! move. When a fresh control spawns under a STATIONARY mouse, `bevy_ui`
-//! picking fires a `Pointer<Over>` for it. If the hover handler reacted to
-//! that, it would snap the cursor back to the mouse on every arrow-key move.
-//! The fix: a `Pointer<Over>` is NOT genuine mouse input, so it never flips
-//! the marker to `Mouse`. Only a real [`CursorMoved`] (actual pointer motion)
-//! or a mouse-button press does. The hover handlers gate on
-//! `machine() == Mouse`, so a rebuild-induced `Over` while the player is on
-//! the keyboard is ignored.
-//!
-//! ## Attribution
-//!
-//! The keyboard-and-mouse bundle belongs to the keyboard-owning seat
-//! ([`crate::sources::keyboard_owner_for`]; the primary when nobody owns it
-//! exclusively). A pad belongs to the seat whose `InputMap` is associated
-//! with it — the association the seat-device pass maintains. Touch belongs to
-//! the primary seat: it is the machine's own screen. A spare pad nobody holds
-//! marks nothing once a second seat exists — a controller on the desk is not
-//! anybody's active device.
+//! Keyboard/mouse belongs to its owning seat, gamepads to their associated
+//! seats, and touch to the primary seat. Unassigned spare pads claim no seat.
 
 use std::collections::BTreeMap;
 
 use bevy::prelude::*;
-// Only `update_seat_active_devices` names these, and it is gated — a build
-// without the feature (this crate is a plain dependency of the inventory
-// surface, which needs the context vocabulary and nothing else) would warn.
+// Only the input-enabled update system uses these types.
 #[cfg(feature = "input")]
 use bevy::input::gamepad::Gamepad;
 #[cfg(feature = "input")]
@@ -211,7 +179,7 @@ impl SeatActiveDevices {
 /// from touch while a thumb is on the stick). Idle frames leave everything
 /// unchanged.
 ///
-/// **`Pointer<Over>` is deliberately NOT consulted** — only a real
+/// `Pointer<Over>` is deliberately NOT consulted — only a real
 /// [`CursorMoved`] or a mouse-button press counts as mouse input, so a
 /// rebuild-induced `Over` under a stationary mouse can never flip the machine
 /// to `Mouse` (the menu snap-back root cause).

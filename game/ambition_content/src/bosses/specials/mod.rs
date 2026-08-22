@@ -1,4 +1,4 @@
-//! Boss special-attack **Techniques** — the content-owned systems that drive
+//! Boss special-attack Techniques — the content-owned systems that drive
 //! each named boss special. A Technique reads the boss's brain signal
 //! (`ActorActionMessage::Special`) + its per-boss temporal state, and emits
 //! generic `ambition_vfx::Effect`s for the engine to execute. The
@@ -52,10 +52,10 @@ use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 /// It owns both halves of the boss-special wiring that the engine
 /// deliberately names nothing of:
 ///
-/// 1. **State attachment** — each Technique's per-boss temporal state is
+/// 1. State attachment — each Technique's per-boss temporal state is
 ///    attached to every boss (`BossConfig`) via required components, so a
 ///    boss spawned anywhere carries the state its Technique needs.
-/// 2. **Schedule** — each Technique system runs in
+/// 2. Schedule — each Technique system runs in
 ///    [`CombatSet::ContentSpecials`], the engine's combat extension slot.
 ///    The slot's position in the combat chain (after the enemy-action
 ///    consumers, before the effect/projectile executors that drain a

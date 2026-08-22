@@ -1,26 +1,10 @@
-//! Which simulation frames are settled, and which are still a guess.
+//! Host-published boundary between confirmed and speculative simulation frames.
 //!
-//! A rollback host runs the simulation *speculatively*. It advances a frame
-//! using a prediction of what a remote peer did, and when the real input
-//! arrives it rewinds and runs that frame again with the truth. A frame is
-//! **confirmed** once every player's real input for it is known: no future
-//! message can change it, so it will never be simulated a third time.
-//!
-//! Everything inside the simulation is happy to be re-run — that is what makes
-//! rollback correct. The problem is everything *outside* it. A sound is played
-//! once and cannot be unplayed; a particle is spawned once; a save file is
-//! written once. Those effects must be keyed to the confirmed timeline rather
-//! than to whatever the simulation currently believes.
-//!
-//! [`ConfirmedFrameBoundary`] is the host's published answer to "where is that
-//! line right now". It lives in this crate beside [`crate::ControlFrame`] and
-//! [`crate::InputStream`] because it describes the same timeline those do — the
-//! sim tick — and because it must be readable by low crates (persistence, the
-//! forensic trace) that cannot and should not name a rollback session.
-//!
-//! # The absent case is the common case
-//!
-//! Read it as `Option<Res<ConfirmedFrameBoundary>>` and default to *release*.
+//! Irreversible observers such as persistence, audio, and presentation effects
+//! use [`ConfirmedFrameBoundary`] to avoid committing speculative results. Low
+//! crates can depend on this timeline fact without naming a rollback backend.
+//! When the resource is absent, there is no rollback host and frames are treated
+//! as confirmed.
 
 use bevy_ecs::resource::Resource;
 

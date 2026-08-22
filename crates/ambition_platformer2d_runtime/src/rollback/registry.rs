@@ -129,7 +129,7 @@ pub enum RollbackRegistrationError {
     /// crates each registering a `Cooldown` would hash equal, and a peer that
     /// had them the other way round would be declared compatible.
     ///
-    /// ⚠ registering ONE type under several stable names is not this. The whole
+    ///  registering ONE type under several stable names is not this. The whole
     /// point of a stable name is that it identifies the registration; 39 of the
     /// live rows do exactly that, and they carry identical type names.
     TypeIdentityCollision {
@@ -182,9 +182,9 @@ pub enum RollbackRegistrationOutcome {
     RecordedOnly,
 }
 
-/// **The part of a type's name that a CARVE leaves alone.**
+/// The part of a type's name that a CARVE leaves alone.
 ///
-/// ⭐ **the final segment, and not the module path below the crate**, which is what the answer
+///  the final segment, and not the module path below the crate, which is what the answer
 /// was until the diff it cited was read.
 ///
 /// Every path INSIDE the name is shortened, not only the outermost one, so a
@@ -236,7 +236,7 @@ impl RollbackRegistry {
             }
             None => {}
         }
-        // **What keeps v20's narrower identity sound.** The fingerprint hashes
+        // What keeps v20's narrower identity sound. The fingerprint hashes
         // [`wire_type_identity`] so that relocating a type is not a wire-format
         // change; two crates each registering a `Cooldown` would then hash equal,
         // and a peer that had the two the other way round would be declared
@@ -286,7 +286,7 @@ impl RollbackRegistry {
         out
     }
 
-    /// **What the schema actually IS**, with every organisational label removed.
+    /// What the schema actually IS, with every organisational label removed.
     ///
     /// [`Self::deterministic_dump`] carries `owner` and the type's full path because a human
     /// reading a conflict wants to know which module registered a thing and where the type
@@ -311,7 +311,7 @@ impl RollbackRegistry {
         out
     }
 
-    /// **Which of these requirements is NOT installed.**
+    /// Which of these requirements is NOT installed.
     ///
     /// A capability offers its rollback state and the composition installs it,
     /// which keeps the capability's dependency closure to foundations. The hole
@@ -323,7 +323,7 @@ impl RollbackRegistry {
     /// ([`ambition_platformer2d_core::snapshot::RequiredRollbackState`]) and the
     /// assembler can refuse when it is unmet.
     ///
-    /// ⚠ it checks the OWNER too. A name registered by somebody else is not
+    ///  it checks the OWNER too. A name registered by somebody else is not
     /// this capability's state — two capabilities may reasonably both want a
     /// `cooldown`, and only the owner distinguishes them.
     pub fn missing_required_state<'a>(
@@ -463,7 +463,7 @@ mod tests {
         registry
     }
 
-    /// **Where a type LIVES is not part of the wire format** (v20).
+    /// Where a type LIVES is not part of the wire format (v20).
     ///
     /// Only the final segment survived either move.
     #[test]
@@ -521,7 +521,7 @@ mod tests {
         );
     }
 
-    /// **What makes the narrower identity sound.**
+    /// What makes the narrower identity sound.
     ///
     /// Two `Cooldown`s in two crates hash equal once the final segment is the
     /// identity, so a peer holding them the other way round would be declared

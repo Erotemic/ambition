@@ -1,4 +1,4 @@
-//! **How a pickup moves** — an authored motion PLAN, stepped by the engine.
+//! How a pickup moves — an authored motion PLAN, stepped by the engine.
 //!
 //! A mushroom that walks off a block and turns at walls, and a star that ricochets down a
 //! corridor, are the same machine with different numbers. So a game does not write a mover: it
@@ -7,12 +7,12 @@
 //!
 //! ## Why this is not a brain, and not a body either
 //!
-//! It is not a **brain** because there is nothing to decide. A mushroom has no
+//! It is not a brain because there is nothing to decide. A mushroom has no
 //! goal, no target, and no state to reason about; "keep going, turn at walls" is
 //! not a decision made each tick, it is a shape. Giving pickups controllers
 //! would mean every game that wants a moving coin has to author an AI.
 //!
-//! It is not a **body** because a pickup has none of what a body is for: no
+//! It is not a body because a pickup has none of what a body is for: no
 //! input frame, no abilities, no limbs, no melee, no health, no facing that
 //! anything reads. Routing it through `step_motion` would mean giving every
 //! collectible the full actor cluster set so that the two numbers it actually
@@ -33,7 +33,7 @@ use bevy::prelude::*;
 use super::world_item::WorldItem;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 
-/// **What a pickup does once it is in the world.** Pure numbers — a game states
+/// What a pickup does once it is in the world. Pure numbers — a game states
 /// one of these and never writes a stepper.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ItemMotionPlan {
@@ -78,7 +78,7 @@ impl ItemMotionPlan {
         }
     }
 
-    /// **A walker**: falls, follows the ground, turns at walls. The mushroom.
+    /// A walker: falls, follows the ground, turns at walls. The mushroom.
     pub fn walker(speed: f32) -> Self {
         Self {
             emerge: None,
@@ -90,7 +90,7 @@ impl ItemMotionPlan {
         }
     }
 
-    /// **A bouncer**: a walker that keeps its bounce instead of settling. The
+    /// A bouncer: a walker that keeps its bounce instead of settling. The
     /// star. `restitution` is the fraction of impact speed it gives back.
     pub fn bouncer(speed: f32, restitution: f32) -> Self {
         Self {
@@ -204,7 +204,7 @@ fn move_axis(world: &ae::World, pos: ae::Vec2, half: ae::Vec2, delta: ae::Vec2) 
     AxisResolve { pos: moved, blocked }
 }
 
-/// **Step every pickup that has a plan.**
+/// Step every pickup that has a plan.
 ///
 /// Runs before the collect pass, so a pickup is collected where it IS this tick
 /// rather than where it was last one — a fast star would otherwise be
@@ -234,7 +234,7 @@ fn step_one_item(world: &ae::World, item: &mut WorldItem, motion: &mut ItemMotio
         // Screen up is -y. No collision: it is inside the block it is leaving.
         if let Some(rise) = motion.plan.emerge {
             if motion.emerged_for < rise.seconds {
-                // **CLAMP THE TIME CONSUMED, not the per-tick fraction.**
+                // CLAMP THE TIME CONSUMED, not the per-tick fraction.
                 //
                 // `(dt / seconds).min(1.0)` bounds a single step at the whole rise, which only
                 // matters for a rise shorter than one tick — and says nothing about the LAST

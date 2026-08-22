@@ -1,42 +1,8 @@
-"""**A rider brain without a mount is a rider standing in the air.**
+"""Guard authored rider-to-mount links in LDtk content.
 
-ADR 0020 links a rider to its mount through an LDtk `EntityRef` field,
-`mounted_on`. Jon, 2026-08-08, from play: *"The pirates in the pirate sky no
-longer ride their sharks."*
-
-⛔ **They were authored and then silently destroyed by an EDITOR SESSION.**
-`5e4d6448e` (2026-07-05) created four linked pairs in `pirate_sky_lookout` —
-verified by reading the blob at that commit. `6e48e5988` (2026-07-06, *"modify
-falling sand room"*, a 1505-line rewrite of `sandbox.ldtk` made while editing an
-**unrelated level**) brought every one back as:
-
-    { "__identifier": "mounted_on", "__type": "EntityRef", "__value": null, … }
-
-`intro.ldtk` proves the pattern from the other side: its entities carry **no
-`mounted_on` field at all** and its three refs still work, because it has not
-been through an editor session since.
-
-⭐ **Nothing errored, and nothing noticed for a month.** The standing rule about
-never rewriting a `.ldtk` is aimed at TOOLS; here the writer was the editor,
-which is where authoring is supposed to happen. That is why this is a test and
-not a comment.
-
-## What is asserted, and why it is not a COUNT
-
-The four refs were restored on 2026-08-09 from the `5e4d6448e` blob (`entityIid`
-only — the three container iids come from today's file). ⛔ **A count of mount
-refs is the wrong guard**: it goes green again the day an editor nulls them and
-somebody adds four unrelated refs. What is actually true of a mount link is
-**geometric** — a rider sits ON its mount, so the two authored boxes TOUCH. That
-catches a mis-paste, a dangling iid, and the original nulling, and it needs no
-allow-list to stay true when the next pair is authored.
-
-⚠ **the invariant is OVERLAP, not equal `px`.** The seven shark pairs do share
-their top-left pixel exactly, and it is tempting to assert that — but GNU-ton
-(`BossSpawn-6837` at `[869, 754]` aboard `EnemySpawn-6836` at `[786, 832]`) is
-authored standing on his mount's BACK, 83 right and 78 up from its corner.
-Equal-`px` would call the game's one working boss mount a defect.
-"""
+Every rider-like brain must name a live `mounted_on` entity whose authored box
+overlaps the rider. Geometry is the invariant rather than a count or equal origin,
+so new rider pairs are covered and riders standing on a mount's back remain valid."""
 
 from __future__ import annotations
 

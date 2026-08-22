@@ -1,4 +1,4 @@
-//! **Four pointers, and every device that drives one.**
+//! Four pointers, and every device that drives one.
 //!
 //! A cursor that three input sources drive is a seam, not a widget detail, and
 //! it is written here as one. Everything in this module is a plain value over
@@ -16,7 +16,7 @@
 //! portrait rather than between two, and the whole screen is reachable in a
 //! bounded number of presses.
 //!
-//! ⚠ **each cursor has ONE position and no separate "focused element".** What it
+//!  each cursor has ONE position and no separate "focused element". What it
 //! is over is re-derived from the rectangles every frame. Two representations of
 //! "where the cursor is" is how a highlight and a click end up disagreeing about
 //! which portrait was chosen.
@@ -58,7 +58,7 @@ impl HitRect {
             && point.y <= self.max.y
     }
 
-    /// ⚠ a freshly spawned node reads ZERO until layout runs in `PostUpdate`,
+    ///  a freshly spawned node reads ZERO until layout runs in `PostUpdate`,
     /// so every consumer here has to be able to say "not yet" rather than
     /// treat the origin as a real position.
     pub fn is_unmeasured(self) -> bool {
@@ -73,9 +73,9 @@ pub struct CursorTarget {
     pub rect: HitRect,
 }
 
-/// **What the cursor is over**, chosen by containment and then by distance.
+/// What the cursor is over, chosen by containment and then by distance.
 ///
-/// ⚠ `filter().min_by()` rather than `find()`: the cards overlap the pool row
+///  `filter().min_by()` rather than `find()`: the cards overlap the pool row
 /// by a few pixels at some window sizes, and a `find` over an ambiguous
 /// predicate answers confidently and wrongly. Nearest-centre is a rule that
 /// stays right when two rects genuinely overlap.
@@ -91,7 +91,7 @@ pub fn hovered(point: Vec2, targets: &[CursorTarget]) -> Option<Entity> {
         .map(|target| target.entity)
 }
 
-/// **The nearest target in a direction**, for arrows, d-pads and sticks.
+/// The nearest target in a direction, for arrows, d-pads and sticks.
 ///
 /// `direction` is any non-zero vector in screen space (y grows DOWNWARD, like
 /// the rest of this module). The cost is `along + 2 * across`: distance in the
@@ -133,7 +133,7 @@ const MIN_SNAP_TRAVEL_PX: f32 = 1.0;
 /// Sideways error costs double. See [`snap`].
 const SIDEWAYS_PENALTY: f32 = 2.0;
 
-/// **Where one seat's pointer is and what is in its hand.**
+/// Where one seat's pointer is and what is in its hand.
 ///
 /// See [`SelectCursors`], which owns one of these per seat.
 #[derive(Clone, Copy, Debug, Default)]
@@ -158,7 +158,7 @@ impl SelectCursor {
         self.placed = true;
     }
 
-    /// ⛔ **PRIVATE, and that is the invariant.** One token has at most one
+    ///  PRIVATE, and that is the invariant. One token has at most one
     /// carrier, and a rule enforced by every caller remembering it is a rule
     /// with no owner — the screen let any human grab any CPU token, and two
     /// cursors carrying the same one differ from one cursor only in which of
@@ -173,7 +173,7 @@ impl SelectCursor {
         self.carrying.take()
     }
 
-    /// **Does letting go of the mouse button mean "put it down"?**
+    /// Does letting go of the mouse button mean "put it down"?
     ///
     /// Only if the pointer actually travelled. Both idioms have to work on the
     /// same screen: a mouse user DRAGS (press, move, release), and a pad user
@@ -186,23 +186,23 @@ impl SelectCursor {
     }
 }
 
-/// **FOUR CURSORS, ONE PER SEAT** — the model every Smash has.
+/// FOUR CURSORS, ONE PER SEAT — the model every Smash has.
 ///
-/// ⭐ **indexed by INPUT SEAT** — the same key `SeatMenuFrames` uses, because a
+///  indexed by INPUT SEAT — the same key `SeatMenuFrames` uses, because a
 /// cursor is a HAND and a hand belongs to a person.
 ///
-/// ⚠ **the current seating policy maps that key onto a local-source index, and
-/// that is a policy rather than an identity.** The ordinal counts the sources
+///  the current seating policy maps that key onto a local-source index, and
+/// that is a policy rather than an identity. The ordinal counts the sources
 /// taken up on this machine, so a lone player on pad three is seat zero; this
 /// table does not claim an input seat, a physical device and a match slot are
 /// the same thing.
 ///
-/// **and a MATCH SLOT is a third numbering, which this is not.** A seat's cursor, a seat's pad and
+/// and a MATCH SLOT is a third numbering, which this is not. A seat's cursor, a seat's pad and
 /// a seat's menu frame agree; the CARD that seat drives is whichever one names its source, and
 /// [`SmashSelect::slot_driven_by`](crate::select::SmashSelect::slot_driven_by) is the only honest
 /// way to ask.
 ///
-/// ⚠ **every seat has a cursor whether or not anybody is in it.** An absent
+///  every seat has a cursor whether or not anybody is in it. An absent
 /// seat's cursor costs two floats and is simply not drawn — the alternative is
 /// an `Option` every reader unwraps, and a seat that joins mid-lobby would then
 /// have to invent a position from somewhere.
@@ -229,9 +229,9 @@ impl SelectCursors {
         self.seats.iter().enumerate()
     }
 
-    /// **Which seat is carrying `slot`'s token, if any.**
+    /// Which seat is carrying `slot`'s token, if any.
     ///
-    /// ⚠ **a search, not a lookup** — a seat may carry a CPU's token as well as
+    ///  a search, not a lookup — a seat may carry a CPU's token as well as
     /// its own, so the carrier of slot 2 is not seat 2. [`Self::try_grab`] is
     /// what keeps the answer singular; without it this returned the first of
     /// however many cursors held the same token, and the renderer drew one of
@@ -242,7 +242,7 @@ impl SelectCursors {
             .map(|(seat, _)| seat)
     }
 
-    /// **Take one token if both sides are free.**
+    /// Take one token if both sides are free.
     ///
     /// This owns the two mechanical invariants of carrying: a token has at most
     /// one carrier, and a cursor has at most one token. Which token a particular
@@ -303,7 +303,7 @@ mod tests {
         );
     }
 
-    /// **Sideways error costs double**, so a target directly right beats one
+    /// Sideways error costs double, so a target directly right beats one
     /// that is nearer in a straight line but a row down.
     #[test]
     fn a_target_dead_ahead_beats_a_nearer_diagonal_one() {
@@ -326,7 +326,7 @@ mod tests {
         assert_eq!(snap(Vec2::new(400.0, 100.0), Vec2::X, &row), None);
     }
 
-    /// ⚠ y grows DOWNWARD. "Down" must reach the slot cards, which are BELOW
+    ///  y grows DOWNWARD. "Down" must reach the slot cards, which are BELOW
     /// the grid — an inverted axis here would make the whole bottom third
     /// unreachable from a d-pad and nothing else would notice.
     #[test]
@@ -371,7 +371,7 @@ mod tests {
         );
     }
 
-    /// **A pad's pick-up must not put the token straight back down.** A release
+    /// A pad's pick-up must not put the token straight back down. A release
     /// that has not travelled is the first half of a two-click place.
     #[test]
     fn a_release_that_did_not_travel_keeps_the_token_in_hand() {

@@ -18,7 +18,7 @@
 //! These tests stay tiny on purpose: they verify the *shape* of the
 //! simulation plugin, not gameplay behavior. Behavior tests live in
 //! `scripted_gameplay.rs` and the per-feature suites under
-//! `crates/ambition_platformer2d::actors/src/**/tests.rs`.
+//! `crates/ambition_platformer2d::actors/src//tests.rs`.
 
 use ambition_platformer2d::actors::actor::BodyAnimFacts;
 use ambition_platformer2d::actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};

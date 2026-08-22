@@ -294,7 +294,7 @@ mod composed {
         assert_eq!(active_route(&app), Some("alpha-route".to_owned()));
     }
 
-    /// **Moving the cursor must not rebuild the launcher.**
+    /// Moving the cursor must not rebuild the launcher.
     ///
     /// The cursor is RUNTIME STATE, not structure. `follow_the_launcher_cursor`
     /// moves the highlight in place through `MenuVisualState`, and the restyle
@@ -305,7 +305,7 @@ mod composed {
     /// to spawn the same number of nodes would pass a count and still have
     /// thrown the tree away.
     ///
-    /// **gated, because the presentation is.** `basic_presentation` is not a
+    /// gated, because the presentation is. `basic_presentation` is not a
     /// default feature, so a bare `cargo test -p ambition_game_shell` renders no
     /// launcher at all — the 38 tests it reports never touch this. The runner's
     /// per-crate feature job is what runs it (and

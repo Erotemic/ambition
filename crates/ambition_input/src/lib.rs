@@ -7,9 +7,10 @@
 //! This is the upper-sibling input abstraction (ADR 0019): it depends DOWN on
 //! `ambition_platformer2d_core` for the `ControlFrame` vocabulary and on the
 //! input-domain `settings` (deadzones / trigger hysteresis / burst mode), but
-//! NEVER on `ambition_platformer2d_actor_monolith` or `ambition_characters`. The legacy
-//! `ambition_input::ControlFrame` path remains as a re-export for app/input
-//! adapters; reusable brains import the lower engine-core vocabulary directly.
+//! NEVER on `ambition_platformer2d_actor_monolith` or `ambition_characters`.
+//!
+//! TODO(compat-remove): migrate remaining `ambition_input::ControlFrame` callers to
+//! `ambition_platformer2d_core::ControlFrame`, then remove the re-export.
 
 use bevy::prelude::*;
 #[cfg(feature = "input")]
@@ -73,40 +74,10 @@ pub use local_seats::{
 };
 pub use seating::{LocalSeatOffer, SessionSeatingSource};
 
-/// Schedule contract for the participant input pipeline (one frame, in
-/// order): device adapters complete before routing, and every routed output
-/// completes before the shell/menu consumers read it — an edge produced this
-/// frame is consumed this frame, never "at worst a frame late".
-///
-/// The stages, chained by the host input plugin:
-///
-/// 1. [`InputSet::Collect`] — device and virtual-device adapters produce this
-///    frame's raw device state (touch state, joystick messages). Physical
-///    devices are read upstream by bevy/leafwing in `PreUpdate`; this is the
-///    `Update`-side adapter stage.
-/// 2. [`InputSet::ResolveActions`] — bindings resolve device state into the
-///    participant's `ActionState` (virtual-device merges into leafwing's
-///    already-ticked state land here).
-/// 3. [`InputSet::ResolveContext`] — surfaces declare/retract their
-///    [`participant::ContextClaim`]s; [`participant::SeatInputContexts`]
-///    resolves EVERY seat's answer at the end of the set.
-/// 4. [`InputSet::Route`] — actions + the active context route into the
-///    semantic seams. Every system that SHAPES A SEAT'S FRAME before it is
-///    published — participant action routing, the portal movement-intent
-///    bracket, edge-derived flags — and the `MenuControlFrame` lives here;
-///    every system that READS a published frame to drive gameplay runs after
-///    it.
-///
-/// Two systems that no longer touch that resource — the gesture derivation and the interact
-/// buffer — are still members for exactly that reason, and are correct to be.
-///
-///    The sandbox pins `Route` before its gameplay consumer, so a
-///    writer can never "float" past the consume boundary and stamp stale
-///    input over the fresh frame — the regression that once killed the Move
-///    axis.
-/// 5. [`InputSet::PublishCues`] — resolved cue read-models publish for
-///    presenters (labels, glyphs, touch-button contracts).
-/// 6. [`InputSet::Consume`] — shell/menu consumers of the routed semantics.
+/// Ordered participant-input pipeline. The host chains
+/// `Collect -> ResolveActions -> ResolveContext -> Route -> PublishCues -> Consume`.
+/// [`InputSet::Route`] is the publication boundary: every system that shapes a seat's semantic
+/// frame runs inside it, and gameplay consumers run after it so they cannot observe stale input.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum InputSet {
     /// Device and virtual-device adapters produce raw device state.
@@ -144,7 +115,7 @@ pub use participant::{
 #[cfg(feature = "input")]
 pub use rebind::{also_bound_to, bindable, capture, pressed_controls_this_frame};
 pub use settings::{BindingOverride, ControlFilters, OverrideControl, OverrideDeviceClass};
-/// **HOW LOCAL SOURCES BECOME PARTICIPANTS**, and who owns the keyboard when
+/// HOW LOCAL SOURCES BECOME PARTICIPANTS, and who owns the keyboard when
 /// that is a question.
 pub use sources::{InputAssignmentPolicy, KeyboardOwner};
 // `key_name` joins this list rather than the module being opened: the crate

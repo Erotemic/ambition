@@ -1,7 +1,7 @@
 //! Compatibility facade for boss sprite-sheet types.
 //!
-//! The canonical implementation moved down to `ambition_sprite_sheet::boss` so
-//! render can animate bosses without depending on `ambition_platformer2d_actor_monolith`.
+//! TODO(compat-remove): migrate remaining `ambition_boss_encounter::sprites` callers to
+//! `ambition_sprite_sheet::boss`, then delete this module.
 
 pub use ambition_sprite_sheet::boss::*;
 

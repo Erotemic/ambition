@@ -86,8 +86,8 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
 
     // The vacated home avatar, far from the zone.
     //
-    // **the `SimId`s below are what CONSTRUCTION would have given these
-    // bodies**, not decoration: `ensure_sim_id` runs in the sim schedule on every
+    // the `SimId`s below are what CONSTRUCTION would have given these
+    // bodies, not decoration: `ensure_sim_id` runs in the sim schedule on every
     // host and files a `PrimaryPlayer` under `player_slot(0)` and an authored body
     // under `placement(feature_id)`. These fixtures build their bodies by hand and
     // never run it, so without this they model a body no construction path
@@ -262,12 +262,12 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
     );
 }
 
-/// **A body that WALKED into an edge exit and was stopped by the boundary still
-/// transitions — even though its velocity is now zero.**
+/// A body that WALKED into an edge exit and was stopped by the boundary still
+/// transitions — even though its velocity is now zero.
 ///
 /// that is not a key binding issue."* He was right, and the two zone tests above
-/// are why nobody found it: **both hand the detector a velocity chosen to make
-/// the answer come out.** The tunnel test computes `vel = (end - start) / dt`
+/// are why nobody found it: both hand the detector a velocity chosen to make
+/// the answer come out. The tunnel test computes `vel = (end - start) / dt`
 /// after picking both endpoints, which is precisely the assumption production
 /// breaks; the door tests place the body inside the zone and press a key. Neither
 /// runs a body through the movement kernel, so neither could see this.
@@ -277,7 +277,7 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
 /// ```text
 /// 1. the kernel integrates prev → curr and writes SweepSample
 /// 2. collision advances to time-of-impact and calls zero_axis_vel
-/// 3. the detector reconstructs the path as vel · dt  ⇒  ZERO
+/// 3. the detector reconstructs the path as vel · dt    ZERO
 /// ```
 ///
 /// An edge exit sits at a room boundary — the one place step 2 always happens —
@@ -398,7 +398,7 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
     );
 
     // THE POISON, and it is the shipped bug: same body, same position, no
-    // sample ⇒ the reader falls back to `vel · dt`, which is zero, and the zone
+    // sample  the reader falls back to `vel · dt`, which is zero, and the zone
     // it is standing against goes unnoticed.
     assert_eq!(
         build(None).as_deref(),
@@ -853,10 +853,10 @@ fn kinematic_path_spec_matches_id_accepts_the_name_slug() {
     );
 }
 
-/// **The MOVEMENT KERNEL walks a body into a wall on an exit band, and the
-/// transition fires from the sample the kernel actually published.**
+/// The MOVEMENT KERNEL walks a body into a wall on an exit band, and the
+/// transition fires from the sample the kernel actually published.
 ///
-/// **the sibling test above MANUFACTURES its `SweepSample`, and that is the hole this one closes.**
+/// the sibling test above MANUFACTURES its `SweepSample`, and that is the hole this one closes.
 /// It proves the detector reads a sample correctly; it cannot prove the kernel still WRITES one, or
 /// writes one whose `prev` is the pre-collision position.
 ///
@@ -1007,8 +1007,8 @@ fn the_real_kernel_publishes_a_sample_that_crosses_the_zone_it_was_stopped_on() 
     );
 }
 
-/// **a rewind must put the portal's PHASE back, not just the switch that
-/// drives it.**
+/// a rewind must put the portal's PHASE back, not just the switch that
+/// drives it.
 ///
 /// This runs the shipped system over a real rollback shape: snapshot the phase
 /// resource at frame 10 (a clone, which is exactly what
@@ -1078,7 +1078,7 @@ fn a_rewind_across_the_portal_opening_window_restores_the_confirmed_phase() {
     tick_n(&mut speculative_app, 12);
     let speculative_at_frame_22 = phases(&speculative_app);
 
-    // **THE POISON** — the defect's own behaviour: resimulate frames 11..=16
+    // THE POISON — the defect's own behaviour: resimulate frames 11..=16
     // with the phase NOT restored, exactly as an unregistered resource behaves
     // while everything around it rewinds.
     let mut unrestored_app = portal_app();

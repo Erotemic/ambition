@@ -7,9 +7,9 @@
 
 use super::*;
 
-/// **Spawned by THIS attempt at the room, and cleared when the attempt is.**
+/// Spawned by THIS attempt at the room, and cleared when the attempt is.
 ///
-/// **re-scoping the drop to the ROOM would be the wrong fix.** A weapon you
+/// re-scoping the drop to the ROOM would be the wrong fix. A weapon you
 /// drop in one room and find again when you walk back is intended behaviour, and
 /// room scope deletes it on an ordinary transition. The two questions are
 /// genuinely different — *does this survive leaving the room* and *does this
@@ -17,7 +17,7 @@ use super::*;
 /// named explicitly rather than inferred from a lifetime that means something
 /// else.
 ///
-/// **it marks what the ATTEMPT produced, not everything spawned at runtime.**
+/// it marks what the ATTEMPT produced, not everything spawned at runtime.
 /// A summon a participant is still commanding or an item a body threw can be
 /// somebody's durable live state; loot on the ground is the residue of a fight
 /// that is about to be un-fought. In-flight projectiles are different: every

@@ -1,52 +1,8 @@
-//! **Which of Ambition's named cast may stop thinking — declared, per actor.**
+//! Dormancy policy for Ambition-authored actors.
 //!
-//! The engine seam is `features::ecs::dormancy`: an actor with no
-//! [`DormancyPolicy`] is always awake, because dormancy is "not something that
-//! should be inherent". Two games had already answered the
-//! question for their own casts — Mary-O's slop and snake, Sanic's badniks —
-//! and this crate, which stages every boss, every arena mob, the duel, and the
-//! Hall's 144 characters, answered nothing at all. Silence there read
-//! identically to "always awake" whether or not anybody had chosen it, which is
-//! exactly the ambiguity [`DormancyPolicy::Never`] exists to remove.
-//!
-//! ## The survey this file is the conclusion of
-//!
-//! Everything `ambition_content` stages with a brain, and what it does:
-//!
-//! | who | staged by | moves under its own decisions? |
-//! |---|---|---|
-//! | 11 bosses (9 sandbox + 1 intro + 1 cut-rope `BossSpawn`) | engine room staging, `PhaseScript:<id>` | no — the encounter's phase machine drives it |
-//! | encounter wave mobs (goblin lab: 7 across 3 waves) | `spawn_encounter_mob`, on the wave timeline | no — the wave IS the fight |
-//! | the GNU-ton mount + its two hands, the cove's 4 rideable sharks | the mount/limb rig; ADR 0020 boarding | no — a rider or a limb router writes their `ActorControl` |
-//! | the 2 duel fighters | `duel_arena`'s registered room staging | YES — the whole exhibit is that they fight |
-//! | 65 `EnemySpawn` placements (49 sandbox + 16 intro) | engine room staging, roster brain keys | YES — patrol, chase, crawl, dive |
-//! | 178 `NpcSpawn` placements (26 sandbox + 8 intro + 144 Hall) | engine room staging | no — 176 of 178 stand still; two pace a bounded lane |
-//!
-//! ## The two stances, and why each actor gets the one it does
-//!
-//! Everything that another authority already drives says [`DormancyPolicy::Never`]: a distance
-//! rule would be a SECOND authority over the same body, contradicting the first the moment they
-//! disagreed.
-//!
-//! **the radius is a LEAD TIME, and the derivation is the interesting part**;
-//! see [`AMBITION_WAKE_RADIUS`] for why Ambition's number comes from the
-//! protagonist's BLINK rather than from its run speed, and for the honest note
-//! that today's rooms are mostly smaller than it.
-//!
-//! ## One thing this cannot answer, found while writing it
-//!
-//! **POSSESSION does not move the observer marker.** The engine's wake test is
-//! "near any body marked `PlayerEntity`", and possessing an actor transfers the
-//! SEAT (`DrivingParticipant` + `TemporaryControl::Player` onto the target) while
-//! `PlayerEntity` stays on the body left behind. So a player who possesses one
-//! of these hostiles and drives it more than [`AMBITION_WAKE_RADIUS`] from their
-//! parked body would have the possessed body fall asleep — and dormancy retracts
-//! `ActorControl`, so it would stop responding. It is reachable only in the two
-//! authored rooms bigger than the radius (`scroll_lab`, `vertical_shaft`), and
-//! the fix belongs to the engine seam, not here: the observer set should be
-//! "every body a view is composed around", which is what its own doc already
-//! says. Recorded rather than worked around, because a content-side hack would
-//! hide the engine question.
+//! Scripted/externally driven actors use [`DormancyPolicy::Never`]. Roaming AI may use
+//! [`DormancyPolicy::AwakeNearObservers`] with [`AMBITION_WAKE_RADIUS`], chosen to give
+//! sufficient lead time for the protagonist's fastest traversal.
 
 use bevy::prelude::*;
 
@@ -56,10 +12,10 @@ use ambition_platformer2d_actor_monolith::features::{
     ActorFaction, BodyKinematics, EncounterMob, FeatureId, Mountable,
 };
 
-/// **How near an observer has to be for one of Ambition's roaming hostiles to
-/// keep thinking.**
+/// How near an observer has to be for one of Ambition's roaming hostiles to
+/// keep thinking.
 ///
-/// **NOT Mary-O's 720 and NOT Sanic's 4800**, and not this game's run speed
+/// NOT Mary-O's 720 and NOT Sanic's 4800, and not this game's run speed
 /// either. A wake radius is a lead time wearing distance's clothes: it must be
 /// long enough that an actor is already moving by the time an observer can see
 /// it, so it is `observer top speed × lead time`, and the mistake to avoid is
@@ -67,16 +23,16 @@ use ambition_platformer2d_actor_monolith::features::{
 ///
 /// Ambition's protagonist BLINKS. `MAX_RUN_SPEED` is 270 px/s, `DASH_SPEED` is
 /// 760 — but `BLINK_DISTANCE` is 190 px on a `BLINK_COOLDOWN` of 0.180 s, so a
-/// chaining player closes **≈1056 px/s**, nearly four times the run and well
+/// chaining player closes ≈1056 px/s, nearly four times the run and well
 /// past the dash. Deriving from 270 would have produced a 648 px radius and
 /// enemies snapping into motion in full view, which is worse than one that was
 /// walking all along.
 ///
-/// So: the same 2.4 s of lead the other two games use, against 1056 px/s ⇒ 2534,
+/// So: the same 2.4 s of lead the other two games use, against 1056 px/s  2534,
 /// rounded to 2560.
 ///
-/// **and it mostly does not fire today, which is stated rather than tuned
-/// away.** Ambition is authored as discrete rooms reached through loading
+/// and it mostly does not fire today, which is stated rather than tuned
+/// away. Ambition is authored as discrete rooms reached through loading
 /// zones, and only the active room's contents are staged; the largest
 /// enemy-bearing room (`scroll_lab`, 3200×900) has a 3324 px diagonal and most
 /// are under 1500. So an enemy sleeps only in the far corner of `scroll_lab`,
@@ -98,7 +54,7 @@ pub const AMBITION_WAKE_RADIUS: f32 = 2560.0;
 /// authorities over one frame. GNU-ton's giant and its two hands are the live
 /// always-driven case.
 ///
-/// **a mount declares `Never` whether or not it is carrying a rider today.**
+/// a mount declares `Never` whether or not it is carrying a rider today.
 /// Boarding is a runtime event and a stance is declared once at spawn, so
 /// "rideable" is the only form of the question a declaration can answer — and
 /// getting it wrong in the other direction means a body the player is riding
@@ -108,7 +64,7 @@ fn is_driven_by_another_body(is_mount: bool, is_limb: bool) -> bool {
     is_mount || is_limb
 }
 
-/// **The stance for one staged actor** — the call site where each choice is
+/// The stance for one staged actor — the call site where each choice is
 /// justified. `None` means "not a candidate", never "undecided".
 pub fn stance_for(
     faction: ActorFaction,
@@ -124,8 +80,8 @@ pub fn stance_for(
         return None;
     }
 
-    // **The duel is the one content pair that genuinely fights under its own
-    // decisions and still must never sleep.** The exhibition IS the simulation:
+    // The duel is the one content pair that genuinely fights under its own
+    // decisions and still must never sleep. The exhibition IS the simulation:
     // `register_duel_content_staging` stages the fight as part of room
     // construction so the pair is already battling the instant the player walks
     // in, and `<<duel>>` stages it beside the player anywhere. A fight that only
@@ -161,7 +117,7 @@ pub fn stance_for(
 
         // The placed peaceful cast.
         //
-        // **and 144 of them are the Hall**, which is a stress test as much as
+        // and 144 of them are the Hall, which is a stress test as much as
         // an exhibition: *"Eventually we are going to give all those characters
         // normal brains"*. `Never` is the declaration that keeps that true —
         // handing the Hall a wake radius would quietly delete the load it exists

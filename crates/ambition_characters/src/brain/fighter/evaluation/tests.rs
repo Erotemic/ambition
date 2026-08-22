@@ -1,6 +1,6 @@
 use super::*;
 
-/// **The same seed plays the same run.**
+/// The same seed plays the same run.
 ///
 /// The rig is only useful for calibration if a number that moves means the BRAIN
 /// moved. Two reports from one seed must be identical row for row.
@@ -14,7 +14,7 @@ fn one_seed_is_one_report() {
     );
 }
 
-/// **A scenario the brain cannot see is not a scenario it passed.**
+/// A scenario the brain cannot see is not a scenario it passed.
 ///
 /// The suite's own `unreproduced_by_placement` list exists because some premises
 /// need more than two positions to stage. The rig must not silently report on
@@ -32,7 +32,7 @@ fn the_report_covers_every_scenario_the_suite_names() {
     }
 }
 
-/// **Every rung stays inside the press budget it authors — and actually presses.**
+/// Every rung stays inside the press budget it authors — and actually presses.
 ///
 /// the non-vacuity half is the point. This check first went in while the rig
 /// handed the brain no attack kit: zero presses, within every cap, green and
@@ -59,10 +59,10 @@ fn no_rung_presses_faster_than_its_profile_allows() {
     );
 }
 
-/// **The ladder is ordered by press rate.**
+/// The ladder is ordered by press rate.
 ///
-/// **this is a narrower claim than "stronger levels win", and deliberately
-/// so.** Winning is a survival/damage question that needs two bodies fighting;
+/// this is a narrower claim than "stronger levels win", and deliberately
+/// so. Winning is a survival/damage question that needs two bodies fighting;
 /// this rig has one brain and a scripted opponent. What it can say is that the
 /// rungs are not interchangeable and that they order the way the ladder intends:
 /// mean APM rises monotonically, 28.5 at L1 to 103.5 at L9.
@@ -92,7 +92,7 @@ fn the_ladder_is_ordered_by_press_rate() {
     }
 }
 
-/// **PROBE: what does the armed rig actually emit?** Print-only; run with
+/// PROBE: what does the armed rig actually emit? Print-only; run with
 /// `--ignored` to read the ladder.
 #[test]
 #[ignore = "PROBE, print-only: reports the ladder census"]

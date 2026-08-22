@@ -27,12 +27,12 @@ use ambition_projectiles::ProjectileGameplay;
 /// Ensure every body that transited before the unification carries the portal
 /// transit opt-in. Maps Ambition identity → behavioral [`PortalPolicy`]:
 ///
-/// - **player** (`PlayerEntity` + `PrimaryPlayer`) → `{ reorient: true,
+/// - player (`PlayerEntity` + `PrimaryPlayer`) → `{ reorient: true,
 ///   carry_velocity: true }` (re-orients to the exit aperture and carries the
 ///   rotated velocity).
-/// - **boss** (marked by `BossConfig`) → `{ reorient: false, carry_velocity:
+/// - boss (marked by `BossConfig`) → `{ reorient: false, carry_velocity:
 ///   false }` (floats; the old no-velocity path; facing follows the brain).
-/// - **other actors** (enemies / NPCs — any remaining `BodyKinematics`) →
+/// - other actors (enemies / NPCs — any remaining `BodyKinematics`) →
 ///   `{ reorient: false, carry_velocity: true }` (carry momentum; facing follows
 ///   AI).
 ///
@@ -222,7 +222,7 @@ pub fn reconcile_kernel_bodies_after_portal_transit(
 ///   intentional and doesn't auto-dump on it),
 /// - inserts the [`PortalEmission`] emergence guard (held input can't push back
 ///   into the exit wall for a short window), and
-/// - inserts the [`PortalInputWarp`] held-input warp **iff** this convention's
+/// - inserts the [`PortalInputWarp`] held-input warp iff this convention's
 ///   map flips horizontal movement and a movement input is held.
 ///
 /// [`PortalEmission`] and [`PortalInputWarp`] are INPUT and must never be

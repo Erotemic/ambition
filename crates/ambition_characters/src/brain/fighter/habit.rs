@@ -1,4 +1,4 @@
-//! **FB5 — the opponent model: the "reads".**
+//! FB5 — the opponent model: the "reads".
 //!
 //! `docs/planning/engine/fighter-brain.md` §1:
 //!
@@ -15,11 +15,11 @@
 //!
 //! ## Bounded and inspectable, by construction
 //!
-//! - **Bounded**: `(Situation, Choice)` is a small closed product — 5 × N — so the
+//! - Bounded: `(Situation, Choice)` is a small closed product — 5 × N — so the
 //!   whole model is a fixed-size table, not a growing history. Nothing to prune.
-//! - **Inspectable**: [`HabitModel::frequency`] answers *"how often, out of what?"*
+//! - Inspectable: [`HabitModel::frequency`] answers *"how often, out of what?"*
 //!   in one call, and [`HabitModel::rows`] walks the whole thing in a stable order.
-//! - **Deterministic**: a `BTreeMap`, not the sketch's `HashMap`. §5's sketch notes
+//! - Deterministic: a `BTreeMap`, not the sketch's `HashMap`. §5's sketch notes
 //!   the counts are "read-only lookups, determinism-safe", which is true of the
 //!   LOOKUP and false of any iteration — and a trace, a snapshot, and FB6's
 //!   rollouts all iterate. ADR 0023 bans std-hash iteration where the sim can
@@ -112,7 +112,7 @@ impl HabitModel {
             .unwrap_or(0.0)
     }
 
-    /// `count / total_for_situation`, or a **uniform prior** when the opponent has
+    /// `count / total_for_situation`, or a uniform prior when the opponent has
     /// never been seen in this situation.
     ///
     /// The prior matters: a model that returned `0.0` for the unseen would tell a

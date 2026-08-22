@@ -449,7 +449,7 @@ impl AudioLibrary {
 
 /// What the base music channel is playing, and WHICH PLAY it is.
 ///
-/// **the generation is the difference between "still playing" and "started again".** The track
+/// the generation is the difference between "still playing" and "started again". The track
 /// name alone cannot tell those apart — a screen transition that stops the title theme and
 /// immediately restarts the identical file leaves exactly the state it found.
 ///
@@ -521,7 +521,7 @@ impl MusicPlaybackState {
 #[derive(Resource, Default, Clone, Copy, Debug)]
 pub struct DefaultMusicStarted(pub bool);
 
-/// **The set [`start_default_music_when_ready`] runs in.**
+/// The set [`start_default_music_when_ready`] runs in.
 ///
 /// Startup loading must settle before the default track is allowed to begin, so
 /// the loader pins `.before` this.

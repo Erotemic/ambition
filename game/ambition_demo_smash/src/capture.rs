@@ -1,4 +1,4 @@
-//! **The Smash ruleset's capture adapter: authored effect keys → typed requests.**
+//! The Smash ruleset's capture adapter: authored effect keys → typed requests.
 //!
 //! ```text
 //! Smash authoring     an EffectRef on a move's window or timeline
@@ -8,7 +8,7 @@
 //! combat/body runtime CaptureAttemptRequested / Pummel / Throw
 //! ```
 //!
-//! **the generic body runtime never matches `"smash.capture_throw"`**, and
+//! the generic body runtime never matches `"smash.capture_throw"`, and
 //! this adapter never touches body ECS state. Each half does the thing it is the
 //! right place for: a ruleset knows what its own authored strings mean, and a
 //! body runtime knows how to hold and launch a body. Collapsing them would put
@@ -42,7 +42,7 @@ pub fn translate_smash_capture_effects(
         let ActionRequest::Special { spec, params } = &message.request else {
             continue;
         };
-        // **irrefutable today, and destructured anyway.** `SpecialActionSpec`
+        // irrefutable today, and destructured anyway. `SpecialActionSpec`
         // has exactly one variant since the per-boss variants collapsed onto the
         // keyed effect seam. Naming it means the day a second variant arrives,
         // this becomes a compile error at the one place that has to decide
@@ -141,7 +141,7 @@ mod tests {
                 trigger_moveset_moves,
                 advance_move_playback,
                 dispatch_move_events,
-                // **THE FAN-OUT, so this fixture HEARS what a match hears.**
+                // THE FAN-OUT, so this fixture HEARS what a match hears.
                 // `dispatch_move_events` only writes `FxRequest`s; the cue is decided here.
                 ambition_platformer2d::render::fx::process_fx_requests,
                 translate_smash_capture_effects,
@@ -179,7 +179,7 @@ mod tests {
                         on_ground: true,
                         contact_initialized: true,
                     },
-                    // **A COMPLETE `CaptureParticipant`, at BOTH ends.**
+                    // A COMPLETE `CaptureParticipant`, at BOTH ends.
                     // Acquisition requires the body role the whole lifecycle
                     // operates on, so half a body is refused — and this fixture
                     // built its captor without combat state, which the
@@ -241,10 +241,8 @@ mod tests {
             if done(app) {
                 return;
             }
-            // **THE EDGE MUST BE CLEARED, and forgetting it cost a debug cycle.** In production
-            // the control pipeline consumes an edge once (`ActorControlFrame::clear_edges`); a
-            // fixture that leaves `grab_pressed` true re-triggers the grab EVERY tick,
-            // restarting it at t=0 so it never reaches its own Active window at 0.16s.
+            // Production consumes control edges once; fixtures must do the same or
+            // they restart the grab every tick before its active window.
             if let Some(mut control) =
                 app.world_mut()
                     .get_mut::<ambition_platformer2d::characters::control::ActorControl>(captor)
@@ -256,38 +254,11 @@ mod tests {
         panic!("{label} never happened within 2 seconds of sim time");
     }
 
-    /// **THE ACCEPTANCE SEQUENCE, END TO END, THROUGH THE REAL SYSTEMS.**
-    ///
-    /// This is the one that would catch them being individually right and jointly wrong — an
-    /// ordering that works in a hand-built app and not in the chain, an authored timing that never
-    /// reaches its own event, a relationship that survives its unit test and not a real move
-    /// ending.
-    ///
-    /// ```text
-    /// Grab            → the authored grab plays, catches a SHIELDING opponent
-    /// grab move ends  → CapturedBy SURVIVES it
-    /// Attack          → pummel; hold survives
-    /// Attack          → pummel again; hold survives
-    /// Forward+Attack  → throw; the authored release ends the hold exactly once
-    /// ```
-    /// **IT WAS RED, AND THE FIRST DIAGNOSIS OF WHY WAS WRONG.**
-    ///
-    /// A tick-by-tick probe showed the grab reaching its own effect at exactly
-    /// the authored frame (t=0.167 against an authored 0.16) and the adapter
-    /// translating it — yet `CapturedBy` was never observed. That was read as
-    /// *"acquisition declines this fixture's victim"*. It did not: acquisition
-    /// SUCCEEDED, and `release_interrupted_captures`, later in the same chained
-    /// update, dissolved the hold before anything could see it — because this
-    /// fixture's captor carried no `BodyCombat`, and that rule asked
-    /// `combat.get(captor).is_err()` as though it meant *the captor is gone*.
-    ///
-    /// the lesson is in where the evidence pointed. Every observation was
-    /// accurate and the conclusion drawn from them was not: a state observed
-    /// only BETWEEN systems is invisible to a test that looks after the whole
-    /// update, so "never established" and "established and destroyed" produce
-    /// identical evidence at the only place anyone was looking.
-    ///
-    /// The fixture builds whole bodies because a fighter is one.
+    /// End-to-end capture sequence through the production systems: grab a
+    /// shielding opponent, preserve the hold after the grab move ends, pummel
+    /// twice without releasing, then release exactly once on forward throw.
+    /// The fixture builds complete fighter bodies because capture-interruption
+    /// rules depend on their combat state.
     #[test]
     fn george_grabs_pummels_twice_and_throws() {
         let mut app = chain_app();

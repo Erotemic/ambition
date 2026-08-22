@@ -26,8 +26,8 @@ fn declared_schemas() -> BTreeSet<SchemaId> {
         .collect()
 }
 
-/// **Adding a source to `pack.ron` without registering its schema in BOTH
-/// compositions fails here.**
+/// Adding a source to `pack.ron` without registering its schema in BOTH
+/// compositions fails here.
 ///
 /// This is the whole point. Migrating a content family is four edits — a
 /// handler, a registration, a `pack.ron` line, and the runtime read — and the

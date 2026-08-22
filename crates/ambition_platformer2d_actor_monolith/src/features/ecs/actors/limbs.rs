@@ -57,7 +57,7 @@ impl ActiveLimbRoute {
     }
 }
 
-/// The hand on the host's facing side (`+` / rightward ⇒ right hand).
+/// The hand on the host's facing side (`+` / rightward  right hand).
 fn facing_side_slot(facing: f32) -> LimbSlot {
     if facing >= 0.0 {
         LimbSlot::HAND_RIGHT

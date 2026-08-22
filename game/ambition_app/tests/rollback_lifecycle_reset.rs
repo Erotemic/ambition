@@ -1,40 +1,9 @@
-//! **Track B, T1: the IN-PLACE room reset survives forced rollback — and
-//! actually restores the state it claims to.**
+//! Verify same-room resets under forced rollback.
 //!
-//! The track-0 exit oracle pins the player at HP=200 so death never triggers a
-//! same-room reset (`rollback_exit_oracle.rs` HP comment), and the campaign doc
-//! recorded "sim-triggered room reset inside a rollback window is a guaranteed
-//! divergence" (observed at frame ~2147 as a mid-brawl enemy full-heal). These
-//! tests were written to REPRODUCE that — and, per the reproduce-first
-//! discipline, they CORRECTED the diagnosis instead: the in-place reset path is
-//! rollback-safe in the current tree (the intervening lifecycle-boundary
-//! hardening — `PendingPlayerHitEvents` voiding `fd7ddbc0c`, strike-volume
-//! registration, the Combat chain reorder — closed the recorded boundary).
-//!
-//! Two witnesses keep it closed:
-//!
-//! - `a_manual_reset_restores_a_damaged_enemy_and_a_broken_brick_under_forced_rollback`
-//!   is the LOAD-BEARING behavioral proof: it folds a KNOWN damaged
-//!   enemy and a KNOWN broken brick into the rollback baseline, drives a manual
-//!   reset inside a live sync-test window, and asserts the reset genuinely
-//!   RESTORED the enemy to spawn HP and the brick to intact — not merely that
-//!   the checksum stayed clean. This is the exact divergence the campaign doc
-//!   recorded (an enemy that fails to snap back), now pinned as restored.
-//! - `a_player_death_reset_survives_the_rollback_window` is the emergent
-//!   end-to-end witness: a 3-HP player dies into a same-room reset mid-brawl and
-//!   the sim stays checksum-healthy for 2400 frames (past the ~2147 where
-//!   divergence was originally seen).
-//!
-//! NB: this lab's "strikers" are MELEE (`melee_brute_striker` / `striker_swipe`),
-//! so no `LiveProjectile` entities arise here — the reset's projectile-despawn
-//! line (`reset_ecs_room_features`) is not exercised by these tests; a
-//! ranged-enemy room would be needed to pin it, and is noted as a follow-up.
-//!
-//! Track B's REMAINING target is RECONSTRUCTION — the paths that despawn+respawn
-//! a whole room's entities via Commands (op 2b full sandbox reset, op 4 room
-//! transition, op 5 snapshot), which these tests do not exercise. That
-//! reproduction needs an input-driven transition/full-reset scenario and is
-//! still owed; see the campaign doc Track B section.
+//! One test rebases known damaged enemy and broken-brick state, resets the room,
+//! and requires both to return to authored state. The other drives a player
+//! death through the same path and keeps the sync-test session healthy. These
+//! fixtures use melee enemies, so projectile reset is outside their coverage.
 
 #![cfg(feature = "rl_sim")]
 
@@ -171,12 +140,12 @@ fn living_enemies(sim: &mut Platformer2dSimHarness) -> Vec<(f32, f32)> {
         .collect()
 }
 
-/// **The load-bearing behavioral proof.** A manual same-room reset, driven
+/// The load-bearing behavioral proof. A manual same-room reset, driven
 /// inside a forced rollback window, must genuinely restore a damaged enemy to
 /// spawn HP and a broken brick to intact — the exact "enemy fails to snap back"
 /// divergence the campaign doc recorded, now asserted as restored rather than
 /// merely checksum-clean.
-/// **Which registered component does this scenario's divergence live in?**
+/// Which registered component does this scenario's divergence live in?
 ///
 /// The aggregate sync-test says "checksum mismatch at frames [21,22,23]" and
 /// names nothing. This censuses every registered type on every save and every
@@ -361,8 +330,8 @@ fn a_player_death_reset_survives_the_rollback_window() {
 /// the floor is save PLUS checksum, and the checksum is sync-test-only, so the
 /// floor a shipped netplay session pays is strictly smaller and is not separated
 /// by this probe. What IS separated: a resimulated frame costs 2.5 ms against a
-/// 2.17 ms plain step, so save+restore is ~0.35 ms — **the cost of a rollback is
-/// re-running the SIMULATION, not moving the state.**
+/// 2.17 ms plain step, so save+restore is ~0.35 ms — the cost of a rollback is
+/// re-running the SIMULATION, not moving the state.
 #[test]
 #[ignore = "measurement, not an assertion — see the doc comment"]
 fn probe_what_a_rollback_frame_costs() {
@@ -404,14 +373,14 @@ fn probe_what_a_rollback_frame_costs() {
         base().with_sync_test_rollback_settings(4, 10),
     );
 
-    // **POPULATION vs SCHEMA, the whole point of this addition.** Same rollback settings, same
+    // POPULATION vs SCHEMA, the whole point of this addition. Same rollback settings, same
     // frame count, different amounts of world to snapshot.
     let empty = || {
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room("tiny_chamber")
     };
-    // **the knob is the ROOM, not a body count.** `stage_on_floor`'s second
+    // the knob is the ROOM, not a body count. `stage_on_floor`'s second
     // argument is HP — I read it as a population and nearly ran an experiment
     // that varied nothing while appearing to vary the thing under test. The
     // population difference that exists is between rooms: the calibration lab is

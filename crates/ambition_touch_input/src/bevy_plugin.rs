@@ -155,7 +155,7 @@ pub fn apply_touch_control_placement(
             // Nothing published a footprint for this surface: the controls are
             // HIDDEN, and hiding has to mean hidden.
             //
-            // ⚠ this collapsed the node to a zero rect and called it hidden. A
+            //  this collapsed the node to a zero rect and called it hidden. A
             // zero-size node still LAYS OUT, and every child here is
             // `PositionType::Absolute` — so the joystick art, the U/D/L/R glyphs
             // and the action labels all kept drawing, at the collapsed node's
@@ -218,7 +218,7 @@ pub struct TouchControlsPlugin;
 
 impl Plugin for TouchControlsPlugin {
     fn build(&self, app: &mut App) {
-        // ⚠ this overlay spawns TEXT and pins `.after(UiFontsLoaded)`. An empty
+        //  this overlay spawns TEXT and pins `.after(UiFontsLoaded)`. An empty
         // set makes that pin vacuous with no warning, so the consumer installs
         // the plugin that fills it rather than assuming the composition did.
         ambition_render::ui_fonts::UiFontsPlugin::ensure_installed(app);
@@ -302,7 +302,7 @@ impl Plugin for TouchControlsPlugin {
                     fold_touch_gestures
                         .in_set(ambition_input::InputSet::Route)
                         .after(ambition_platformer2d_actor_monolith::schedule::MenuFramePopulate)
-                        // ⭐ ONE pin, not one per reader. Naming each reader set
+                        //  ONE pin, not one per reader. Naming each reader set
                         // is a pin that stops covering them the day a third
                         // reader is added and nothing says so.
                         .before(ambition_platformer2d_actor_monolith::schedule::MenuFrameConsume),
@@ -1000,10 +1000,10 @@ fn is_menu_button(action: TouchActionButton) -> bool {
 
 /// Per-frame: label each touch button from the [`ControlPrompt`] read-model.
 ///
-/// - **Gameplay:** the CONTROLLED subject's own action names (possess a body →
+/// - Gameplay: the CONTROLLED subject's own action names (possess a body →
 ///   the buttons rename); a slot the scheme lacks is left untouched (hidden by
 ///   [`sync_touch_button_visibility_from_prompt`]).
-/// - **Menu / Dialogue:** the select-functional buttons (Jump / Interact) wear
+/// - Menu / Dialogue: the select-functional buttons (Jump / Interact) wear
 ///   the menu's confirm verb ("Select" / "Advance" / a specific item verb) so a
 ///   menu button never reads "Jump."
 ///
@@ -1043,12 +1043,12 @@ pub fn update_button_verb_from_prompt(
 /// source of truth consumed by BOTH on-screen visibility AND raw-touch hit
 /// testing, so a hidden button can never still be tapped at its old location.
 ///
-/// - **Gameplay:** available iff the controlled subject's scheme carries the
+/// - Gameplay: available iff the controlled subject's scheme carries the
 ///   button's slot (Sanic — no Attack/Shot/Shield — cannot fire them by tapping
 ///   the invisible circle).
-/// - **Menu / Dialogue:** only the select-functional Jump / Interact and the
+/// - Menu / Dialogue: only the select-functional Jump / Interact and the
 ///   Menu / Back row.
-/// - **Empty** (no controllable subject / cold start): only the Menu / Back row
+/// - Empty (no controllable subject / cold start): only the Menu / Back row
 ///   — every gameplay action is hidden AND untappable, never a stale default.
 pub fn touch_action_available(action: TouchActionButton, prompt: &ControlPrompt) -> bool {
     match prompt.context {
@@ -1063,10 +1063,10 @@ pub fn touch_action_available(action: TouchActionButton, prompt: &ControlPrompt)
     }
 }
 
-/// **Is this button LIVE this frame — drawn AND touchable?**
+/// Is this button LIVE this frame — drawn AND touchable?
 ///
-/// ⛔ **the drawn overlay and its touch targets used to answer this with different expressions,
-/// and the difference was exactly one term.** Visibility asked `(gameplay || always_available)
+///  the drawn overlay and its touch targets used to answer this with different expressions,
+/// and the difference was exactly one term. Visibility asked `(gameplay || always_available)
 /// && touch_action_available(..)`; the touch mask asked `touch_action_available(..)` alone,
 /// under a comment claiming "one availability source of truth".
 ///
@@ -1088,7 +1088,7 @@ pub fn touch_action_live(
     if always_available {
         return true;
     }
-    // ⭐ **the gameplay-ownership term applies only to a GAMEPLAY prompt**, and
+    //  the gameplay-ownership term applies only to a GAMEPLAY prompt, and
     // narrowing it to that is what gives dialogue its confirm button back.
     //
     // `publish_frontend_context_prompt` already resolves this correctly: when a non-gameplay
@@ -1096,7 +1096,7 @@ pub fn touch_action_live(
     // context's own submit label, and `touch_action_available` then admits only the menu confirm +
     // menu row.
     //
-    // ⚠ what the term still buys is the STALE case: the prompt keeps its last
+    //  what the term still buys is the STALE case: the prompt keeps its last
     // value when no seat resolves an owner, so a prompt still claiming Gameplay
     // while nobody owns gameplay must not show gameplay verbs. That is exactly
     // the condition below, and nothing wider.
@@ -1130,7 +1130,7 @@ fn mask_unavailable(now: &mut TouchButtonEdges, prompt: &ControlPrompt, gameplay
 /// [`touch_action_available`]). Shown buttons use `Visibility::Inherited` (never
 /// `Visible`) so they still obey the overlay-wide [`TouchControlsVisible`] root
 /// toggle.
-/// **The movement STICK is a verb nobody can press either.**
+/// The movement STICK is a verb nobody can press either.
 ///
 /// `sync_touch_button_visibility_from_prompt` below hides the gameplay action buttons while a menu
 /// owns input, on the argument that a verb nobody can press must not be on screen. The rendered
@@ -1151,8 +1151,8 @@ pub fn sync_touch_stick_visibility_from_context(
     let gameplay = active_context
         .as_deref()
         .is_none_or(|seats| seats.primary().gameplay_owned());
-    // **The stick STEERS A MENU too, and hiding it there cost the player their
-    // only way to move a selection.**
+    // The stick STEERS A MENU too, and hiding it there cost the player their
+    // only way to move a selection.
     //
     // `bind_touch_virtual_inputs` maps `TouchVirtualStick` to BOTH `Move` and `MenuStick`, and
     // the axis writer is ungated — so while a menu or dialogue owns the seat the stick is a
@@ -1192,7 +1192,7 @@ pub fn sync_touch_button_visibility_from_prompt(
     active_context: Option<Res<ambition_input::SeatInputContexts>>,
     mut buttons: Query<(&TouchActionButton, &mut Visibility)>,
 ) {
-    // **A verb nobody can press must not be on screen.**
+    // A verb nobody can press must not be on screen.
     //
     // The game-select screen showed the gameplay Jump and Interact buttons over
     // itself while a stranger chose a game, with the rest of the cluster's
@@ -1277,7 +1277,7 @@ pub struct ButtonPressed(pub bool);
 /// they are shell verbs with no ability slot at all, which is exactly what
 /// `touch_button_slot` already returns `None` for.
 ///
-/// ⚠ **`Option`, not a fallback.** The first version of this returned
+///  `Option`, not a fallback. The first version of this returned
 /// `Platformer2dInputActionMonolith::Jump` behind a `debug_assert!(false, ..)` for a button with
 /// no slot — which is the pattern this repo swept a day earlier: the release
 /// path drove JUMP from an unclassifiable button and the assert WAS the
@@ -1342,7 +1342,7 @@ pub fn update_button_glyph_from_active_input(
 /// on the Button entity (which carries both `TouchActionButton` and
 /// `ButtonPressed`), so no parent walk is needed.
 ///
-/// **Primary, not `single()`.** The overlay is one device on one screen —
+/// Primary, not `single()`. The overlay is one device on one screen —
 /// the machine's own — so it lights from the primary seat's actions, the
 /// same selection [`update_button_glyph_from_active_input`] makes for the
 /// glyphs. A couch seat's pad must not light the machine's screen; and the
@@ -1512,7 +1512,7 @@ fn update_buttons_from_interactions(
 /// is how the two halves this file just unified got out of step in the first
 /// place.
 ///
-/// ⚠ `cfg(test)`: the production path only ever WRITES the mask, so leaving this
+///  `cfg(test)`: the production path only ever WRITES the mask, so leaving this
 /// ungated is a `dead_code` warning — and `no warnings (cargo check
 /// --all-targets)` is one of the suite's four jobs, so it would have been a red
 /// I armed myself.
@@ -1808,8 +1808,8 @@ mod prompt_tests {
         assert_eq!(verb.as_str(), "Cleave");
     }
 
-    /// **The Utility button is named by the subject, not by the engine — and it
-    /// falls back only when the subject says nothing.**
+    /// The Utility button is named by the subject, not by the engine — and it
+    /// falls back only when the subject says nothing.
     ///
     /// Both directions in one test, because the pair IS the invariant and the
     /// half that was believed (permanently "Fly") is the half that was false.
@@ -1989,7 +1989,7 @@ mod prompt_tests {
         assert!(touch_action_available(TouchActionButton::Start, &e));
     }
 
-    /// **Every button a dialogue SHOWS reads what it actually does.**
+    /// Every button a dialogue SHOWS reads what it actually does.
     ///
     /// Driven through the real systems — `update_button_verb_from_prompt` then
     /// `render_touch_button_text` — so it asserts the rendered `Text`, not an
@@ -2076,7 +2076,7 @@ mod prompt_tests {
         }
     }
 
-    /// **A menu that names no confirm verb still labels its buttons honestly** —
+    /// A menu that names no confirm verb still labels its buttons honestly —
     /// the Sanic case, and the one that actually bit.
     ///
     /// *"I know in sanic the button text doesn't match what the
@@ -2086,7 +2086,7 @@ mod prompt_tests {
     /// nothing, and the confirm pair kept the verbs of the gameplay the player
     /// had just left.
     ///
-    /// ⚠ the sibling test above passes a verb and would pass against the broken
+    ///  the sibling test above passes a verb and would pass against the broken
     /// code, because supplying one is exactly what hides this. The distinguishing
     /// input is `menu_confirm: None`, so that is what this drives.
     #[test]
@@ -2148,7 +2148,7 @@ mod prompt_tests {
         );
     }
 
-    /// **The move stick is shown wherever it STEERS something**, which includes
+    /// The move stick is shown wherever it STEERS something, which includes
     /// a menu or a dialogue — not only gameplay.
     ///
     /// `bind_touch_virtual_inputs` maps `TouchVirtualStick` to both `Move` and
@@ -2189,7 +2189,7 @@ mod prompt_tests {
         );
     }
 
-    /// **A dialogue's confirm button is SHOWN and LIVE** — the report's third
+    /// A dialogue's confirm button is SHOWN and LIVE — the report's third
     /// failure, and the one the ownership term caused.
     ///
     /// When a non-gameplay context owns the seat, `publish_frontend_context_prompt`
@@ -2212,7 +2212,7 @@ mod prompt_tests {
         );
     }
 
-    /// **A STALE gameplay prompt while nobody owns gameplay shows nothing** —
+    /// A STALE gameplay prompt while nobody owns gameplay shows nothing —
     /// the fix, preserved and now stated as its own case.
     ///
     /// The prompt keeps its last value when no seat resolves an owner, so this
@@ -2238,7 +2238,7 @@ mod prompt_tests {
         );
     }
 
-    /// **Drawn and touchable are the same question**, over every combination.
+    /// Drawn and touchable are the same question, over every combination.
     ///
     /// It is asserted as a PROPERTY rather than by checking that both call one function, because
     /// what must not come back is a second expression — and a second expression would pass a "do
@@ -2312,7 +2312,7 @@ mod prompt_tests {
         assert!(state.jump.held, "an available button still registers");
     }
 
-    /// **"Hidden" has to mean removed from layout, not resized to nothing.**
+    /// "Hidden" has to mean removed from layout, not resized to nothing.
     #[test]
     fn an_unplaced_touch_surface_leaves_the_layout_entirely() {
         let mut app = App::new();

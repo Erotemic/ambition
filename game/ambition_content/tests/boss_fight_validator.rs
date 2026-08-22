@@ -1,4 +1,4 @@
-//! **BD5 run over the shipped roster** — `boss-design.md` §3's rules, measured.
+//! BD5 run over the shipped roster — `boss-design.md` §3's rules, measured.
 //!
 //! §3's original aspiration was an install-time gate (*"missing telegraph, empty fair_counters,
 //! unpunishable heavy, simultaneity budget exceeded = ERRORS"*). By maintainer decision the
@@ -64,7 +64,7 @@ fn the_validator_can_judge_every_move_the_roster_plays() {
     );
 }
 
-/// **THE MEASUREMENT.** Prints the full report and pins the error count.
+/// THE MEASUREMENT. Prints the full report and pins the error count.
 ///
 /// Run it alone to read the report:
 /// ```text
@@ -109,12 +109,12 @@ fn the_shipped_roster_against_section_threes_rules() {
     );
 }
 
-/// All 8 errors are rule 3, all in **Enrage**, all the same shape: the tightened enrage combos
+/// All 8 errors are rule 3, all in Enrage, all the same shape: the tightened enrage combos
 /// chain a `Strike` straight into the next `Telegraph`, leaving the player no punish window at all.
 /// §3 calls that an unpunishable attack; the authors called it escalation.
 ///
-/// Of the 10 warnings, **nine are rule 5: not one shipped boss
-/// authors a telegraph identity.** Every attack in the game telegraphs by duration
+/// Of the 10 warnings, nine are rule 5: not one shipped boss
+/// authors a telegraph identity. Every attack in the game telegraphs by duration
 /// alone. Today it is a measurement; promotion to a hard error requires calibration
 /// and a separate maintainer decision (not automatically after BD7). It is the
 /// single largest readability gap the pipeline has found.
@@ -123,7 +123,7 @@ fn the_shipped_roster_against_section_threes_rules() {
 /// a sweep, a slam and a nova — every one answered by jumping or dashing. A player
 /// never has to simply *step out of the way*.
 ///
-/// Rule 1 (telegraph proportionality) fires **nowhere**, which corrects BD4 §7's
+/// Rule 1 (telegraph proportionality) fires nowhere, which corrects BD4 §7's
 /// (`sweep`, `dash_through`), whose floor is 20 ticks, not a heavy's 30.
 const EXPECTED_ERRORS: usize = 8;
 const EXPECTED_WARNINGS: usize = 10;

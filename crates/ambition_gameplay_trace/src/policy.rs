@@ -12,7 +12,7 @@ pub const AUTO_DUMP_ENV: &str = "AMBITION_TRACE_AUTO_DUMP";
 /// Which trace dumps are permitted to write files.
 #[derive(Resource, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TraceDumpPolicy {
-    /// Whether OOB/teleport-triggered dumps write to disk. **Default false.**
+    /// Whether OOB/teleport-triggered dumps write to disk. Default false.
     pub auto_dumps: bool,
 }
 

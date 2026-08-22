@@ -1,22 +1,5 @@
-//! **Every registered character's declared art actually resolves.**
-//!
-//! `CharacterDefinition::with_sheet` names a sheet TARGET, and preparation checks
-//! it against the engine's baked manifest index. The check was already there and
-//! already ran — it just could not fail anything. An unresolved reference is
-//! logged and the registration publishes anyway, deliberately: a character that
-//! draws a placeholder and says why beats a session that refuses to boot.
-//!
-//! The gap that left is that `checked_namespaces()` reports a resolver RAN, not
-//! that it agreed. So four shipped characters — `sanic`, `super_sanic`, `mary_o`,
-//! `mary_o_tall` — declared `<name>_spritesheet` (the sheet FILE stem) where the
-//! registry is keyed by `<name>` (the sheet's `target:`), drew placeholders in the
-//! running game, printed four ERROR lines listing all 400-odd available ids on
-//! every boot, and no test anywhere went red.
-//!
-//! This is that test. It is not the same check as the resolver — the resolver
-//! proves content agrees with content. This proves the SHIPPED composition
-//! contains no such disagreement, which is a claim only the assembled app can
-//! make.
+//! Assembled-app guard that every registered character resolves its declared
+//! art and that each shipped provider's starting character is actually registered.
 
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
 use ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry;
@@ -58,13 +41,8 @@ fn every_registered_character_resolves_the_art_it_declares() {
         complaints.join("\n"),
     );
 
-    // **EVERY SHIPPED PROVIDER'S STARTING CHARACTER IS ACTUALLY REGISTERED.**
-    //
-    // The check above only inspects characters that ARE in the registry, so a provider that
-    // never registers passes it by being absent.
-    //
-    // A guard that inspects a population cannot notice something missing FROM the
-    // population. This names the population instead.
+    // Check the expected starting-character population explicitly so a missing
+    // provider cannot make the resolver audit pass vacuously.
     for (provider, character) in [
         ("Sanic", ambition_demo_sanic::SANIC_CHARACTER_ID),
         (
@@ -83,11 +61,7 @@ fn every_registered_character_resolves_the_art_it_declares() {
     }
 }
 
-/// **The two declaration authorities agree, in the SHIPPED composition.**
-///
-/// Nothing has ever asserted on it, so a conflict in the shipped cast is a log line among hundreds
-/// and a green suite — and a guardrail that is green because it checks nothing
-/// proves nothing. This is the assertion.
+/// The assembled cast must have one effective authority per character.
 #[test]
 fn the_shipped_cast_has_one_authority_per_character() {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
@@ -111,13 +85,7 @@ fn the_shipped_cast_has_one_authority_per_character() {
     );
 }
 
-/// **The migrated mites reach the SHIPPED composition with their bodies.**
-///
-/// That leg — authored in `ambition_content`, registered through `buildable_only_cast`,
-/// prepared into the registry the spawn path reads — is only true of the assembled app, so only
-/// the assembled app can assert it.
-///
-/// Nobody finds that until they stand next to one.
+/// The assembled app must prepare the authored mite characters with their body traits.
 #[test]
 fn the_migrated_mites_reach_the_prepared_registry_with_their_death_traits() {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);

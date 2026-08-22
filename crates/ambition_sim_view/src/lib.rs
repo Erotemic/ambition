@@ -1,24 +1,9 @@
-//! **[the observation boundary]** — the `SimView` read-model (E4).
+//! Plain-data observation boundary over simulation state.
 //!
-//! Everything here is a plain-data snapshot of sim state, rebuilt once per
-//! sim tick by extraction systems that run LAST in the sim tail
-//! (`Platformer2dSimulationPhaseMonolith::FeatureViewSync`). Builders are pure functions of sim state —
-//! no caching across ticks, no `Entity`/`Handle` borrows in the rows — so every
-//! observer (render, RL observation, netcode confirmation, the fighter brain,
-//! slower-light shaders) consumes the SAME facts.
-//!
-//! **[`camera_snapshot`] is the one exception, deliberately.** The simulation
-//! produces authoritative world facts; where the camera *looks* at them is
-//! presentation state, not a sim fact — it depends on the physical viewport,
-//! the active presentation profile and video settings, and it integrates on the
-//! render clock. It therefore resolves once per rendered FRAME in `Update`,
-//! not once per sim tick, and no sim system reads it. It lives in this crate
-//! because it is still an observation of sim state that must not reach back
-//! into the sim.
-//!
-//! Render depends on THIS crate for sim facts; it never queries the sim
-//! heart's live components (the boundary test in `ambition_render` pins
-//! that).
+//! Simulation read-models are rebuilt from authoritative state in the sim tail;
+//! observers consume these snapshots instead of querying live simulation ECS.
+//! [`camera_snapshot`] is presentation-clock state and is rebuilt once per
+//! rendered frame, but follows the same one-way observation boundary.
 
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 pub mod affordances;

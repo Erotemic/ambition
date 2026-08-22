@@ -1,4 +1,4 @@
-//! **The determinism lint set** (netcode N0.3 / ADR 0023) — custom scanner.
+//! The determinism lint set (netcode N0.3 / ADR 0023) — custom scanner.
 //!
 //! The four properties that keep level-2 same-build determinism true:
 //!   1. no ambient randomness (seeded, snapshot-registered RNG only);
@@ -284,7 +284,7 @@ fn check_wall_clock(cfg: &Config, sources: &[(String, String)]) -> Vec<(String, 
 
 // ── Rule 3 — no std-hash-order semantics ─────────────────────────────────────
 
-/// Type names that mean `std`'s hash containers **in this file**: always the FQ
+/// Type names that mean `std`'s hash containers in this file: always the FQ
 /// paths, plus the bare `HashMap`/`HashSet` when imported from `std::collections`
 /// and the file does not also import Bevy's same-named types.
 pub(crate) fn std_hash_type_names(text: &str) -> Vec<&'static str> {

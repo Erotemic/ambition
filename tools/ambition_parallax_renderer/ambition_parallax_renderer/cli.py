@@ -51,8 +51,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     p.set_defaults(func=_cmd_draw_backgrounds)
 
-    # Compatibility alias for the previous command name. This renderer still
-    # produces backgrounds; the alias avoids breaking terminal history.
+    # TODO(compat-remove): remove this old command alias once callers use `draw-backgrounds`.
     p = sub.add_parser("draw-parallax-layers", help="Alias for draw-backgrounds")
     p.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     p.set_defaults(func=_cmd_draw_backgrounds)

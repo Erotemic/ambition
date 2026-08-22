@@ -1,48 +1,10 @@
-//! **One registration per character.** (§4.1, §4.6, §5)
+//! Character registration and preparation.
 //!
-//! [`register_character`] is the single seam. What it accepts is **decomposable** —
-//! sheets, hurtboxes, movesets, and gameplay numbers have different load times,
-//! headless requirements, and replacement frequencies, so any substantial section
-//! may be inline or a reference to another typed document — but what it produces is
-//! one flat immutable value.
-//!
-//! ```text
-//! CharacterDefinition          authored, decomposable, may reference
-//!         |  prepare_character(...)      validates + flattens
-//!         v
-//! PreparedCharacterOverrides   PARTIAL. `None` still means "ask the catalog",
-//!         |                    and this module is the only one that can say it
-//!         |  Plugin::finish              folds the catalog in, once, for the
-//!         v                              whole cast, transactionally
-//! PreparedCharacterDefinition  COMPLETE, immutable, no inheritance left, no
-//!                              string search in authoritative gameplay paths
-//! ```
-//!
-//! A worn player and a seated fighter wearing the same character therefore disagreed about that
-//! character's kit.
-//!
-//! ## What is DERIVED rather than registered again
-//!
-//! So preparation derives, from the one definition:
-//!
-//! * the **cue dependency inventory** (§4.6) — read off `MoveEvent::Sfx`, hit
-//!   volumes' strike sounds, and `MoveEvent::Vfx`, never hand-listed beside the
-//!   moves it describes, because a hand-maintained list drifts;
-//! * the **art load requirement** — the token the engine materializer demands;
-//! * a **binding report** over every id in the definition.
-//!
-//! ## Every string is a cross-layer reference
-//!
-//! Preparation resolves them through the
-//! [binding resolution boundary](ambition_platformer2d_shared_tangle::binding), so a
-//! misspelled cue, move, or verb target is NAMED at load — with namespace,
-//! declarer, what was available, and a did-you-mean — instead of going silent
-//! until a playtest.
-//!
-//! ⚠ A resolver proves content agrees with CONTENT. It cannot prove a file
-//! exists: a cue id that binds against the authorized set may still name a bank
-//! entry no renderer produced. That check belongs to whoever loads the asset, and
-//! [`super::CharacterLoadStates`] is where the art half reports.
+//! [`register_character`] accepts a decomposable authored [`CharacterDefinition`].
+//! Preparation validates references and derives partial overrides; finalization folds in
+//! catalog defaults once to produce a complete immutable runtime definition. Runtime
+//! gameplay therefore does not re-run inheritance or string searches. Derived cue/art
+//! dependencies come from the definition rather than parallel hand-maintained lists.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -54,7 +16,7 @@ pub use crate::binding_namespaces::{
     MoveId, PortraitTarget, RangedPayload, SfxCueId, SheetTarget, VerbId, VfxTag,
 };
 
-/// **What one authored definition OVERRIDES, before the catalog is folded in.**
+/// What one authored definition OVERRIDES, before the catalog is folded in.
 ///
 /// The output of [`prepare_character`], and the input to finalization — never a
 /// runtime value. Every kit field here is an `Option` whose `None` means *the
@@ -147,7 +109,7 @@ struct PreparedCharacterOverrides {
     unresolved: Vec<String>,
 }
 
-/// **Where a prepared character's fighting kit comes from.**
+/// Where a prepared character's fighting kit comes from.
 ///
 /// The one honest answer to "what does this character reach for", decided ONCE
 /// at finalization instead of re-decided by each construction path.
@@ -166,22 +128,22 @@ pub enum PreparedKit {
         action_set: crate::brain::ActionSet,
         moveset: MovesetContract,
     },
-    /// **NOBODY AUTHORED A KIT FOR THIS CHARACTER**, so the body's own
+    /// NOBODY AUTHORED A KIT FOR THIS CHARACTER, so the body's own
     /// `AbilitySet` rebuilds one — the host's code-side kit.
     ///
     /// What reaches this arm is exactly that absence: an id the catalog does not know, or no
     /// catalog at all.
     ///
-    /// ⭐ **MEASURED, so the reachability is a fact rather than a guess**
+    ///  MEASURED, so the reachability is a fact rather than a guess
     /// of the 32 characters Ambition's own registration publishes,
-    /// **zero** land here — every one has a catalog row. This arm is not
+    /// zero land here — every one has a catalog row. This arm is not
     /// migration residue for all that: it names the one case a per-character
     /// value structurally CANNOT hold, because the host's protagonist kit is
     /// built from that body's runtime `AbilitySet` and progression. A host that
     /// registers characters without shipping Ambition's catalog is its
     /// consumer.
     ///
-    /// ⚠ so do not "finish the migration" by deleting it. The thing to watch is
+    ///  so do not "finish the migration" by deleting it. The thing to watch is
     /// the opposite: if a SHIPPED character ever lands here it is a missing
     /// catalog row, not a design.
     ///
@@ -192,10 +154,10 @@ pub enum PreparedKit {
     },
 }
 
-/// **Everything construction needs to build this character's body**, gathered
+/// Everything construction needs to build this character's body, gathered
 /// once so a constructor never has to rediscover what a character is.
 ///
-/// ⚠ **presentation and authoring metadata are deliberately absent** (sheet,
+///  presentation and authoring metadata are deliberately absent (sheet,
 /// portrait, voice, cue/vfx dependency inventories, the checked/unresolved
 /// report). They belong to a prepared definition and not to a body, and a
 /// constructor that could see them would eventually read one.
@@ -208,17 +170,17 @@ pub struct CharacterBodyBlueprint<'a> {
     /// the match's business) and an overridable field is honest about that where
     /// a borrowed authored value would not be.
     pub max_health: i32,
-    /// ⭐ **not `Option`** — this is what completeness MEANS. A body that cannot
+    ///  not `Option` — this is what completeness MEANS. A body that cannot
     /// say how it moves is not a body, and the whole point of
     /// [`PreparedCharacterDefinition::body_blueprint`] is that the question is
     /// answered once, at the boundary, rather than by every reader unwrapping.
     pub locomotion: crate::actor::CharacterLocomotion,
     pub contact_damage: Option<crate::actor::ContactDamage>,
     pub dream_seed: Option<f32>,
-    /// **Do this character's autonomous twins share one cognitive stream?** See
+    /// Do this character's autonomous twins share one cognitive stream? See
     /// [`CharacterDefinition::preserves_mirror_symmetry`].
     ///
-    /// ⭐ carried on the blueprint rather than looked up later, for the reason
+    ///  carried on the blueprint rather than looked up later, for the reason
     /// this whole type exists: the brain is chosen at construction on three
     /// separate roads (a seat, a room spawn, a rewind rebuild), and a fact one
     /// road reads from a registry the others cannot reach is a fact that goes
@@ -235,10 +197,10 @@ pub struct CharacterBodyBlueprint<'a> {
     pub ranged_vfx: Option<&'a str>,
 }
 
-/// **Why this character cannot build a body on its own**, named rather than
+/// Why this character cannot build a body on its own, named rather than
 /// counted.
 ///
-/// ⛔ **this replaces `is_complete_body -> bool`**.
+///  this replaces `is_complete_body -> bool`.
 ///
 /// Naming the facts costs one struct and buys the diagnostic: "goblin is not
 /// character-complete: locomotion" is a sentence somebody can act on.
@@ -261,10 +223,10 @@ impl std::fmt::Display for MissingCharacterFacts {
 }
 
 impl PreparedCharacterDefinition {
-    /// **Can a body be built from this character ALONE — and if not, what is
-    /// missing?**
+    /// Can a body be built from this character ALONE — and if not, what is
+    /// missing?
     ///
-    /// ⭐ **the migration frontier, as one question with a nameable answer.**
+    ///  the migration frontier, as one question with a nameable answer.
     /// Construction has two roads: character-first, which reads only the
     /// blueprint, and the legacy road, which builds an enemy ARCHETYPE and
     /// patches the character over it. Which road a spawn takes cannot be a
@@ -272,7 +234,7 @@ impl PreparedCharacterDefinition {
     /// authored nothing but a sheet would arrive as a body with no top speed,
     /// unable to move.
     ///
-    /// ⚠ **adding a required fact here is how the frontier moves.** A fact that
+    ///  adding a required fact here is how the frontier moves. A fact that
     /// construction cannot do without belongs in this list, and the day one is
     /// added every character missing it drops to the legacy road WITH A REASON
     /// rather than silently.
@@ -290,10 +252,10 @@ impl PreparedCharacterDefinition {
         Ok(self.blueprint_with_locomotion(self.locomotion.expect("checked above")))
     }
 
-    /// **The blueprint a MATCH SEAT builds**, with the stage supplying anything
+    /// The blueprint a MATCH SEAT builds, with the stage supplying anything
     /// the character has not stated.
     ///
-    /// ⚠ **this is the one legitimate caller of a default top speed**, and it is
+    ///  this is the one legitimate caller of a default top speed, and it is
     /// separated from [`Self::body_blueprint`] so it cannot be reached by
     /// accident. A stage has to give a body that never said how fast it is
     /// SOMETHING or it stands still on the platform; a ROOM must not, because
@@ -316,7 +278,7 @@ impl PreparedCharacterDefinition {
             locomotion,
             character_id: self.id.as_str(),
             display_name: &self.display_name,
-            // ⭐ the ONE default for a body no authority describes, shared with
+            //  the ONE default for a body no authority describes, shared with
             // the peaceful-NPC seed. It was `1` here and `1` there and `4` inside
             // generic provocation, which is how "being hit changes your HP pool"
             // got to look reasonable. See `DEFAULT_UNAUTHORED_BODY_HEALTH`.
@@ -356,7 +318,7 @@ impl PreparedKit {
     }
 }
 
-/// **A prepared character: flat, immutable, and COMPLETE.**
+/// A prepared character: flat, immutable, and COMPLETE.
 ///
 /// The session consumes resolved values. That is the real invariant behind §4.3 —
 /// not "sharing must live in a generator", but that nothing downstream re-derives
@@ -383,17 +345,17 @@ pub struct PreparedCharacterDefinition {
     /// [`CharacterDefinition::death_traits`] — `None` stays `None`
     /// through the fold, because the catalog has no counterpart for it.
     pub death_traits: Option<crate::actor::CharacterDeathTraits>,
-    /// **The verbs this body has**, as the character authored them — see
+    /// The verbs this body has, as the character authored them — see
     /// [`CharacterDefinition::abilities`]. `None` means the character stated
     /// none, and a construction path that has a legacy source for verbs (an
     /// archetype's movement kit, a match's declared set) still uses it.
     pub abilities: Option<ambition_platformer2d_core::AbilitySet>,
-    /// **How this body moves**, as the character authored it. `None` leaves a
+    /// How this body moves, as the character authored it. `None` leaves a
     /// legacy source (an archetype row, a construction default) in charge.
     pub locomotion: Option<crate::actor::CharacterLocomotion>,
-    /// **What touching this body costs**, as the character authored it.
+    /// What touching this body costs, as the character authored it.
     pub contact_damage: Option<crate::actor::ContactDamage>,
-    /// **The POLICY this character runs when nothing else drives it** — the
+    /// The POLICY this character runs when nothing else drives it — the
     /// controller authority, carried as a value rather than as a name.
     ///
     /// Every road that needs to know what this body does when nobody drives it reads THIS, and
@@ -407,17 +369,17 @@ pub struct PreparedCharacterDefinition {
     pub autonomous_profile: Option<crate::brain::BrainProfile>,
     /// See [`CharacterDefinition::ranged_vfx`].
     pub ranged_vfx: Option<String>,
-    /// **HOW this character fires** — see
+    /// HOW this character fires — see
     /// [`CharacterDefinition::ranged_execution`]. Read by the persona derive so
     /// the charge is a fact about the CHARACTER rather than about which arm of
     /// `PlayableKitSource` built it.
     pub ranged_execution: crate::brain::RangedExecution,
-    /// **The policy this creature adopts when provoked**, RESOLVED — see
+    /// The policy this creature adopts when provoked, RESOLVED — see
     /// [`CharacterDefinition::provoked_profile_ref`].
     pub provoked_profile: Option<crate::brain::BrainProfile>,
     /// The same policy's CANONICAL ID, kept beside the value.
     ///
-    /// ⭐ the value drives the body at the moment of the provoke; the id is what
+    ///  the value drives the body at the moment of the provoke; the id is what
     /// a REWIND resolves later (`AutonomousSource::ProvokedProfile`). Resolving
     /// both from one preparation is what stops them disagreeing — a provoke that
     /// installed one policy and restored another would be a desync nobody could
@@ -427,22 +389,22 @@ pub struct PreparedCharacterDefinition {
     pub practice_target: bool,
     /// See [`CharacterDefinition::held_item`].
     pub held_item: Option<String>,
-    /// **Deep-dream visual jitter seed.** See
+    /// Deep-dream visual jitter seed. See
     /// [`CharacterDefinition::dream_seed`] — presentation, true of every
     /// instance, and until now reachable only through an archetype row.
     pub dream_seed: Option<f32>,
-    /// **Do this character's autonomous twins share one cognitive stream?** See
+    /// Do this character's autonomous twins share one cognitive stream? See
     /// [`CharacterDefinition::preserves_mirror_symmetry`] for the trait and for
     /// what it deliberately does not do.
     pub preserves_mirror_symmetry: bool,
-    /// **Mount and pilot capabilities.** See [`CharacterDefinition::mount`].
+    /// Mount and pilot capabilities. See [`CharacterDefinition::mount`].
     pub mount: Option<crate::actor::CharacterMount>,
     /// What this character fights with — resolved, not inherited.
     pub kit: PreparedKit,
-    /// **The move timelines the CHARACTER ITSELF stated**, if it stated any.
+    /// The move timelines the CHARACTER ITSELF stated, if it stated any.
     ///
-    /// ⚠ **distinct from `kit`'s moveset, and the difference decides a real
-    /// question.** `kit` always carries a moveset — derived from the action set
+    ///  distinct from `kit`'s moveset, and the difference decides a real
+    /// question. `kit` always carries a moveset — derived from the action set
     /// when the character authored no timelines — so it cannot answer *"did
     /// this character say what its moves ARE?"*. A match that grants a borrowed
     /// cast a fighter's action set (`MatchParticipant::action_set`) must
@@ -456,7 +418,7 @@ pub struct PreparedCharacterDefinition {
     pub motion_model: ambition_platformer2d_core::MotionModelSpec,
     /// The movement feel, resolved.
     ///
-    /// ⚠ still an `Option`, and its `None` is now an ANSWER rather than a
+    ///  still an `Option`, and its `None` is now an ANSWER rather than a
     /// question: "this character has no authored feel, so a body wearing it runs
     /// on the shared dev tuning and must NOT carry the authored-tuning marker".
     /// Before the fold, `None` here meant the catalog might still have one.
@@ -505,7 +467,7 @@ impl PreparedCharacterDefinition {
         self.vfx_dependencies.iter().map(String::as_str)
     }
 
-    // ⛔ `checked_namespaces()` was here — the plural twin of `was_checked()`
+    //  `checked_namespaces()` was here — the plural twin of `was_checked()`
     // below, written for symmetry and never called (compiler-verified,
     // ). `was_checked` asks the question consumers actually have.
 
@@ -517,7 +479,7 @@ impl PreparedCharacterDefinition {
         self.checked.iter().any(|name| *name == namespace)
     }
 
-    /// **A line this character says when nothing more specific does.**
+    /// A line this character says when nothing more specific does.
     ///
     /// `rotation` cycles the pool so a repeated bark varies. `None` means this
     /// character brought no voice — the caller stays with whatever it had, which
@@ -532,7 +494,7 @@ impl PreparedCharacterDefinition {
         Some(self.voice[(rotation as usize) % self.voice.len()].as_str())
     }
 
-    // ⛔ `voice()` was here — the plural twin of `voice_line()` above, same
+    //  `voice()` was here — the plural twin of `voice_line()` above, same
     // shape and same fate. Nothing ever wanted the whole pool; the bark road
     // asks for one line at a rotation.
 
@@ -624,7 +586,7 @@ impl CharacterBindings {
     /// invisible. A character naming a portrait nobody authored is a fault
     /// nothing can currently raise.
     ///
-    /// ⚠ **kept deliberately.** Deleting it would delete the only road to the
+    ///  kept deliberately. Deleting it would delete the only road to the
     /// check rather than the reason it is unused: `with_available_sheets` beside
     /// it IS wired, so the pattern works and this one was simply never
     /// connected.
@@ -639,12 +601,12 @@ impl CharacterBindings {
 
     /// Whether a caller already supplied a SHEET vocabulary.
     ///
-    /// ⛔⛔ **this exists because the two `with_engine_*_vocabulary` methods had to stop being
-    /// INHERENT** (P1.7 sub-case (a)). They filled these resolvers from
+    ///  this exists because the two `with_engine_*_vocabulary` methods had to stop being
+    /// INHERENT (P1.7 sub-case (a)). They filled these resolvers from
     /// `ambition_sprite_sheet`, and that crate DEPENDS ON `ambition_characters` — so an
     /// inherent method on a type living there would be a cycle the moment the model moves down.
     ///
-    /// ⇒ they are free functions at the REGISTRATION SEAM now
+    ///  they are free functions at the REGISTRATION SEAM now
     /// (`with_engine_vocabularies`), which is also where the doc always said
     /// they belonged: *"this is the registration seam's job, because
     /// registration is where the engine is"*. What they need from the type is
@@ -729,7 +691,7 @@ impl PreparedCharacter {
 /// or a fifth direction is added, this is the one place that has to learn about
 /// it, and every character's registration starts checking against it for free.
 fn runtime_verb_vocabulary() -> Vec<String> {
-    // ⭐ the CONTRACT's crate, not the runtime's: a verb name is authoring vocabulary.
+    //  the CONTRACT's crate, not the runtime's: a verb name is authoring vocabulary.
     use ambition_entity_catalog::{ATTACK_VERB, RANGED_VERB, SMASH_VERB, SPECIAL_VERB};
     let mut vocabulary = Vec::new();
     for base in [ATTACK_VERB, SMASH_VERB, RANGED_VERB, SPECIAL_VERB] {
@@ -747,15 +709,15 @@ fn runtime_verb_vocabulary() -> Vec<String> {
             }
         }
     }
-    // ⭐⭐ **THE REPERTOIRE'S OWN VOCABULARY, ASKED FOR RATHER THAN RESTATED.**
+    //  THE REPERTOIRE'S OWN VOCABULARY, ASKED FOR RATHER THAN RESTATED.
     //
-    // ⛔ **the cost of the second list was two shipped defects in three days.**
+    //  the cost of the second list was two shipped defects in three days.
     // `prepare_character` reports an unresolved verb and PUBLISHES ANYWAY, so a verb the table
     // binds and this list has never heard of is a move authored onto a button the runtime says
     // does not exist — visible only in the binding report until somebody presses it.
     //
-    // ⚠ **still FLAT, and that is the repertoire's shape rather than an
-    // exemption here.** A throw is not `grab_forward` and a taunt has no
+    //  still FLAT, and that is the repertoire's shape rather than an
+    // exemption here. A throw is not `grab_forward` and a taunt has no
     // direction: running either through `directional_verb_chain` would invent
     // `capture_throw_up_air`, and would let a fighter that authored only throws
     // light up its grab slot through the directional matcher. The chain above
@@ -805,7 +767,7 @@ fn prepare_character(
                 ledger.record(verbs.explain(verb, format!("{declared_by} moveset verb")));
             }
         }
-        // **The moveset and the action set have to agree about RANGED.** (C3)
+        // The moveset and the action set have to agree about RANGED. (C3)
         //
         // A move on the `ranged` verb needs a projectile to throw, and the
         // projectile specification lives on the ACTION SET, not on the move. So
@@ -947,7 +909,7 @@ fn prepare_character(
     }
 }
 
-/// **Fold one character's overrides against the catalog into a complete value.**
+/// Fold one character's overrides against the catalog into a complete value.
 ///
 /// `catalog: None` is a real composition, not a degraded one: a bare engine App
 /// that registers characters and installs no catalog has nothing to inherit FROM,
@@ -1007,7 +969,7 @@ fn finalize_character(
             moveset: derive_moveset(&set, moveset),
             action_set: set,
         },
-        // ⛔ **the question is "does the catalog know this id"** (AC6.3). It was
+        //  the question is "does the catalog know this id" (AC6.3). It was
         // `playable_kit_source(&id)`, whose `Option<PlayableKitSource>` had one
         // variant and was therefore already only answering membership.
         None if catalog.is_some_and(|catalog| catalog.knows(&id)) => {
@@ -1029,11 +991,11 @@ fn finalize_character(
                 action_set: set,
             }
         }
-        // ⭐ **AN ID THE CATALOG DOES NOT KNOW, or no catalog at all** — the
+        //  AN ID THE CATALOG DOES NOT KNOW, or no catalog at all — the
         // two states that remain now that no row can select the host kit by
         // name. Both mean the same thing to a body: nobody authored a kit, so
         // build one from what this body can do.
-        // ⚠ **AND THE ONE CONTRADICTION THE PLAN SAID DID NOT EXIST.**
+        //  AND THE ONE CONTRADICTION THE PLAN SAID DID NOT EXIST.
         //
         // A character can reach this arm — authoring no action set, so the
         // HOST builds one from the body — and still bring its own timelines;
@@ -1044,7 +1006,7 @@ fn finalize_character(
         // `RangedExecution::ChargedProjectile` exists to prevent, arriving through
         // the one door it does not watch.
         //
-        // ⚠ **and REPORTING it was not enough**, which is the second half of the same finding.
+        //  and REPORTING it was not enough, which is the second half of the same finding.
         // Invalid ownership must not reach a body at all.
         _ => PreparedKit::Unauthored {
             authored_moveset: moveset.map(|mut moveset| {
@@ -1066,7 +1028,7 @@ fn finalize_character(
     };
 
     PreparedCharacterDefinition {
-        // **HEALTH FOLDS LIKE EVERY OTHER KIT FIELD**, and it is the last one
+        // HEALTH FOLDS LIKE EVERY OTHER KIT FIELD, and it is the last one
         // that did not. The catalog row has carried `max_health: Option<i32>`
         // with exactly this `None`-means-unauthored meaning since it was added,
         // and `session::setup` read it directly — so a registered character's
@@ -1101,21 +1063,21 @@ fn finalize_character(
         // a prepared character is never mute about flight and no constructor downstream has a
         // second authority to consult.
         locomotion: locomotion.map(|locomotion| crate::actor::CharacterLocomotion {
-            // ⛔⛔ **`body_kind` IS NOT LOCOMOTION AUTHORITY** (,
+            //  `body_kind` IS NOT LOCOMOTION AUTHORITY (,
             // ). This read
             // `locomotion.baseline_free_flight || body_kind(&id) == Floating`, so a
             // presentation/footprint enum decided whether a body flies — and
             // the character had no way to disagree, because `flies` was a
             // bare `bool` whose `false` meant "did not say".
             //
-            // ⚠ **`Floating` still answers a real question, and keeping that
-            // straight is the whole fix**: it supplies no
+            //  `Floating` still answers a real question, and keeping that
+            // straight is the whole fix: it supplies no
             // `default_standing_height`, meaning *the SHEET decides how tall
             // this is* — which is why the PCA's body is 68px and not the 48px
             // `Standard` hands out. Geometry and locomotion were coupled
             // through this one enum; only the locomotion edge is cut.
             //
-            // ⇒ silence now resolves to GROUNDED, and the three characters
+            //  silence now resolves to GROUNDED, and the three characters
             // that genuinely fly say so on their own definitions (the parrot,
             // the burning shark, and both plane swarms).
             baseline_free_flight: Some(locomotion.baseline_free_flight.unwrap_or(false)),
@@ -1149,27 +1111,8 @@ fn finalize_character(
         preserves_mirror_symmetry,
         mount,
         authored_moveset,
-        // **RESOLVED HERE, not at spawn.** A prepared definition should hold a
-        // canonical identity, not an authored reference someone still has to
-        // interpret — otherwise "prepared" means "partly prepared", and the
-        // catalog stays in the loop for a fact the character owns.
-        //
-        // ⭐ **the namespace is the DEFINITION's provider, and preparation no
-        // longer consults the catalog to learn it.** It used to read the
-        // character's catalog row and borrow the namespace off a neighbouring
-        // key (`entry.default_brain`), which meant a character needed a parallel
-        // catalog row to be told its own provider — the last thing keeping this
-        // fact in the catalog's hands.
-        //
-        // ⚠ **the earlier refusal to do this was right at the time and is now
-        // discharged.** Synthesising `test::patrol_peaceful` from a provider
-        // whose presets nobody had namespaced produced a key that existed
-        // nowhere, so the two id spaces stayed "assumed equal, never checked".
-        // They are checked now:
-        // `character_definitions_and_catalog_fragments_share_one_provider_namespace`
-        // asserts every registered definition's provider is a provider the
-        // catalog registry assembled under, for the shipped composition. A
-        // fixture that hits the old trap is a fixture that skipped assembly.
+        // Resolve canonical identity during preparation from the definition's provider. Spawn
+        // consumes the prepared identity and does not reinterpret authored references.
         id: ambition_entity_catalog::CharacterId::new(id),
         display_name,
         provider,
@@ -1187,28 +1130,11 @@ fn finalize_character(
     }
 }
 
-/// **Which policy this character runs**, from at most one of the two ways to say
-/// it.
+/// Resolve the character's autonomous policy.
 ///
-/// ⛔⛔ **three refusals, and each replaces a silent fallback**:
-///
-/// * **inline AND named** — replacement documented as specialization. Nothing
-///   merges, so "the inline one wins" is the more specific statement quietly
-///   discarding the shared one. An author who wanted both wants a patch type
-///   that does not exist yet, and should be told so rather than given one of
-///   their two answers.
-/// * **a name nobody authored** — the mistake `CharacterSpawnPlan` already made
-///   one layer up: an EXPLICIT reference that misses is a construction error,
-///   not an absence. Resolving it to `None` leaves the archetype projection in
-///   charge while the content file says otherwise.
-/// * **a name that needed namespacing and did not get it** — the author writes
-///   `medium_striker` and the assembled registry holds `ambition::medium_striker`,
-///   so the reference is qualified against the DEFINITION's own provider here.
-///
-/// ⚠ **no catalog at all is NOT a missing profile.** A headless fixture, an RL
-/// rollout and an art-free shell all prepare characters with nothing assembled;
-/// there is no registry for the name to be absent FROM, so the honest answer is
-/// that this composition cannot resolve shared policies, said once as a warning.
+/// Inline and named policies are mutually exclusive. Named references are
+/// provider-qualified and an explicit missing reference is an error. If no
+/// profile registry is assembled, shared policy resolution is unavailable.
 fn resolve_autonomous_profile(
     id: &str,
     provider: &str,
@@ -1260,7 +1186,7 @@ fn resolve_autonomous_profile(
     }
 }
 
-/// **Take the ranged press away from a moveset whose body wears the host kit.**
+/// Take the ranged press away from a moveset whose body wears the host kit.
 ///
 /// Returns the verb bindings removed, in sorted order, for the caller to name.
 ///
@@ -1311,7 +1237,7 @@ fn derive_moveset(
     action_set: &crate::brain::ActionSet,
     authored: Option<MovesetContract>,
 ) -> MovesetContract {
-    // ⭐ **THE LOW CRATE'S, not this monolith's**. This read
+    //  THE LOW CRATE'S, not this monolith's. This read
     // `crate::combat::moveset::build_actor_moveset`, and `ambition_combat`
     // depends on `ambition_characters` — so preparation calling UP was the last
     // thing keeping the authoritative character model from following the model
@@ -1327,11 +1253,11 @@ fn derive_moveset(
     let Some(authored) = authored else {
         return derived;
     };
-    // ⭐⭐ **AUTHORED MOVES OVERLAY THE KIT'S, they do not REPLACE it** — the same
+    //  AUTHORED MOVES OVERLAY THE KIT'S, they do not REPLACE it — the same
     // rule `derive_persona_moveset` learned two hours earlier, in the sibling
     // this pass forgot.
     //
-    // ⚠ authored wins on collision, in both halves: naming a move id or a verb
+    //  authored wins on collision, in both halves: naming a move id or a verb
     // the kit also produces is a deliberate statement about that one thing.
     let authored_ids: std::collections::BTreeSet<&str> =
         authored.moves.iter().map(|mv| mv.id.as_str()).collect();
@@ -1365,26 +1291,8 @@ impl FinalizedCharacter {
     }
 }
 
-/// Run the whole pipeline on one definition, with no composition around it.
-///
-/// Deliberately NOT available to production. The barrier exists because the
-/// catalog is not knowable at registration time, so a production caller able to
-/// fold early would be choosing to inherit from whatever happened to be
-/// installed so far — which is the ordering hazard `Plugin::finish` removes.
-///
-/// ⛔⛔ **AND THE COMING CRATE MOVE IS NOT A REASON TO WIDEN IT.**.7's own plan said this and
-/// [`FinalizedCharacter`] "must become plain `pub` test seams in the low crate", because
-/// `#[cfg(test)]` items do not cross a crate boundary and the monolith's suite leans on them.
-/// That is the easiest mechanical relocation deciding the public architecture, and it would put
-/// the early-fold hazard back on the production surface to save a test import ( of `1579ab3`, —
-/// corrected in the plan before any of it ran).
-///
-/// ⇒ **split the TESTS by what they actually test**: preparation/finalization
-/// tests move DOWN with this code and keep using private `cfg(test)` support;
-/// monolith-COMPOSITION tests stay up and drive the real
-/// registration/finalization lifecycle, which is a better test of them anyway.
-/// A cross-crate fixture that still needs private machinery after that gets an
-/// explicit test-support feature and dev-dependency — never an ordinary `pub`.
+/// Test-only finalization seam. Production finalization waits until the composition's catalog is
+/// complete; exposing this path to production would permit order-dependent early folding.
 #[cfg(any(test, feature = "test-support"))]
 pub fn prepare_and_finalize_for_test(
     definition: CharacterDefinition,
@@ -1400,13 +1308,13 @@ pub fn prepare_and_finalize_against_for_test(
     bindings: &CharacterBindings,
     catalog: Option<&crate::actor::character_catalog::CharacterCatalog>,
 ) -> FinalizedCharacter {
-    // ⚠ a fixture that hands over a catalog is modelling a composition that
+    //  a fixture that hands over a catalog is modelling a composition that
     // assembled one, and assembly publishes the policy registry beside it — so
     // the profiles come from the SAME source rather than being absent, which
     // would silently exercise the no-registry branch.
     let profiles = catalog.map(|catalog| {
         crate::actor::character_catalog::BrainProfileRegistry::from_catalog_for_test(
-            // ⚠ the provider a fixture's own characters name, so a
+            //  the provider a fixture's own characters name, so a
             // provider-relative policy reference resolves the way it will in
             // production rather than only when the key happens to be bare.
             &definition.provider,
@@ -1429,7 +1337,7 @@ pub fn prepare_and_finalize_against_for_test(
 /// §4.1's end state is that subsystem read models are DERIVED from this rather than registered
 /// beside it.
 ///
-/// * **Derived from here:** sprite declarations, cue authorization, each body's
+/// * Derived from here: sprite declarations, cue authorization, each body's
 ///   presentation source, and the authored MOVESET, HURTBOX DOC, ACTION SET and
 ///   MOTION MODEL of any body whose identity resolves to a registered character.
 ///   Both construction paths honour all four —
@@ -1437,14 +1345,14 @@ pub fn prepare_and_finalize_against_for_test(
 ///   `avatar::starting_character`'s one construction for a worn one — because
 ///   wiring only the worn path left seated fighters without their action set for
 /// a day.
-/// * **Still the catalog's, and legitimately:** display names, sheet targets,
+/// * Still the catalog's, and legitimately: display names, sheet targets,
 ///   default brains, tiers, tags, aggro and attack ranges, and the remaining
 ///   movement TUNING. Those are not the KIT, which is what C3 was about — the
 ///   catalog is the right authority for what a character is CALLED and what it
 ///   LOOKS like, and it stays the fallback for every kit field a definition did
 ///   not author, which is most characters.
 ///
-/// **Precedence, in one sentence:** an explicitly authored value on the
+/// Precedence, in one sentence: an explicitly authored value on the
 /// definition outranks the catalog row; `None` means the author said nothing and
 /// the row stands; and `Some(empty)` is an authoring DECISION that outranks the
 /// row exactly as a filled one does. That last distinction is the load-bearing
@@ -1550,8 +1458,8 @@ impl PreparedCharacterRegistry {
     /// duplicate ids and ambiguous display names), and this is the hatch a
     /// focused test uses when it wants a registry without an `App`.
     ///
-    /// ⛔ **behind `test-support`, and that feature is what keeps it off the
-    /// production surface** now that the callers are in another crate. It was
+    ///  behind `test-support`, and that feature is what keeps it off the
+    /// production surface now that the callers are in another crate. It was
     /// `#[cfg(test)] pub(crate)`, which is stronger — but `#[cfg(test)]` items
     /// do not cross a crate boundary, and the alternative was making the hatch
     /// an ordinary `pub` method, which is the mechanical relocation deciding the
@@ -1573,7 +1481,7 @@ impl PreparedCharacterRegistry {
         }
     }
 
-    /// **Stamp this registry as the publication that follows `previous`.**
+    /// Stamp this registry as the publication that follows `previous`.
     ///
     /// It takes the previous generation rather than starting from its own zero,
     /// and that is the load-bearing part: a rebuilt registry is a fresh
@@ -1676,7 +1584,7 @@ struct StagedRegistration {
     report: BindingReport,
 }
 
-/// **Validate and flatten one authored definition, without folding it.**
+/// Validate and flatten one authored definition, without folding it.
 ///
 /// The first half of registration. It is a pure function of its arguments — no
 /// catalog, no baked globals — which is what lets the same definition prepare
@@ -1696,7 +1604,7 @@ fn prepare_for_registration(
     }
 }
 
-/// **Fold a whole staged cast against the assembled catalog, transactionally.**
+/// Fold a whole staged cast against the assembled catalog, transactionally.
 ///
 /// The second half. It takes the cast rather than one character on purpose: the
 /// registry it returns is published in one write, so a reader can never observe
@@ -1733,7 +1641,7 @@ fn finalize_cast(
 // `with_engine_vocabularies` and this crate has never heard of a sprite sheet.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// **The single registration seam.** (§4.1)
+/// The single registration seam. (§4.1)
 ///
 /// Prepares the definition and stages it for the barrier. A provider makes ONE
 /// call and does not have to know that sheets, cues, and gameplay numbers are
@@ -1806,12 +1714,12 @@ pub fn stage_authored_character(
     Ok(())
 }
 
-/// **What providers have authored, before the catalog exists to fold against.**
+/// What providers have authored, before the catalog exists to fold against.
 ///
 /// The preparation-phase half of the registry. Holds partial values and is
 /// consumed by [`CharacterPreparationPlugin::finish`].
 ///
-/// ⛔ PRIVATE, and that is the barrier's second half. A resource this crate does not export
+///  PRIVATE, and that is the barrier's second half. A resource this crate does not export
 /// cannot be read, taken, or reconstructed by a host — so there is no route to a
 /// `StagedCharacter` at all outside this module, let alone to folding one.
 #[derive(bevy::ecs::resource::Resource, Debug, Clone, Default)]
@@ -1847,7 +1755,7 @@ impl StagedCharacterOverrides {
 ///
 /// Installed automatically by [`stage_authored_character`].
 ///
-/// ⚠ **`App::update` does not run `finish`** — Bevy's runners do. A hand-driven
+///  `App::update` does not run `finish` — Bevy's runners do. A hand-driven
 /// App (every headless test, every fixture, every tool in this repository) must
 /// call `ambition_platformer2d_runtime::finalize` or it will have a staged cast
 /// and no published one. That is not silent: `PreparedCharacterRegistry` is
@@ -1883,7 +1791,7 @@ fn close_preparation_barrier(world: &mut bevy::ecs::world::World) {
     finalize_prepared_cast(world);
 }
 
-/// **Fold the staged cast and publish it.** Idempotent; runs at most once.
+/// Fold the staged cast and publish it. Idempotent; runs at most once.
 fn finalize_prepared_cast(world: &mut bevy::ecs::world::World) {
     let Some(mut staged) = world.get_resource_mut::<StagedCharacterOverrides>() else {
         return;

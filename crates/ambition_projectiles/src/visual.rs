@@ -1,4 +1,4 @@
-//! Projectile visual identity — an **open, content-owned** art registry.
+//! Projectile visual identity — an open, content-owned art registry.
 //!
 //! This is the single art-selection seam shared by every projectile, player and
 //! enemy alike. A projectile entity carries a [`ProjectileVisualId`] component (an
@@ -9,7 +9,7 @@
 //! registration in a content crate* with no render-system edit (the
 //! engine-for-other-games test).
 //!
-//! The reusable crate owns the generic art VOCABULARY and an **empty-by-default**
+//! The reusable crate owns the generic art VOCABULARY and an empty-by-default
 //! catalog; it names no projectile. A game registers each named look
 //! (`"fireball"`, `"apple"`, `"lasersword"`, …) from its content crate via
 //! [`ProjectileVisualAppExt::register_projectile_visual`]. An unregistered id

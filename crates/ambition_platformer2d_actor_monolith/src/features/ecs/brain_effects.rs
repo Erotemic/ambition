@@ -76,7 +76,7 @@ pub fn spawn_projectiles_from_brain_actions(
     // aliasing. Arms the Shoot pose on the frame the body accepts a shot.
     mut anim_facts: Query<&mut crate::actor::BodyAnimFacts>,
     held_items: Query<&super::HeldItem>,
-    // **WHO WROTE THIS BODY'S VELOCITY.** The causal log answers "what is the
+    // WHO WROTE THIS BODY'S VELOCITY. The causal log answers "what is the
     // velocity" and never "who set it", so a body that moves without asking to
     // costs a survey of all 70 velocity writers to explain — measured, six
     // rebuild-and-print cycles on one 12-tick window. Recoil is one

@@ -1,4 +1,4 @@
-//! Pure portal-piece geometry — the **Core invariant** of the portal system.
+//! Pure portal-piece geometry — the Core invariant of the portal system.
 //!
 //! > Every gameplay-relevant volume is representable as zero, one, or two
 //! > portal-aware spatial pieces. Every system that asks "where is this thing?"

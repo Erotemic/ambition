@@ -62,7 +62,7 @@ pub enum ClockDomain {
 /// policy is this resource's only writer (e.g. a feel-tuned smoother
 /// ramping it toward a granted target).
 ///
-/// **Multiplayer caveat:** this is **global shared-world** — hitstop,
+/// Multiplayer caveat: this is global shared-world — hitstop,
 /// bullet-time, and pause affect the whole party. A future build that
 /// wants per-player cognitive rates uses the per-entity
 /// [`ProperTimeScale`] / [`ClockDomain::PlayerClock`] seam instead,
@@ -79,7 +79,7 @@ impl Default for ClockState {
     }
 }
 
-/// **The canonical timeline** (netcode N0.1): the index of the simulation step
+/// The canonical timeline (netcode N0.1): the index of the simulation step
 /// currently executing, counting from `0`.
 ///
 /// This is the clock that identifies a moment of simulation — not a wall-clock
@@ -187,9 +187,8 @@ impl PresentationTime<'_> {
 
 /// Per-simulation-step dt snapshot. Prefer [`WorldTime::sim_dt`] for authoritative gameplay.
 ///
-/// Legacy fields remain aliases: `raw_dt == wall_dt`,
-/// `scaled_dt == sim_dt`. The active simulation host refreshes this resource
-/// inside its authoritative schedule.
+/// TODO(compat-remove): migrate callers off `raw_dt` / `scaled_dt`, then remove those alias
+/// fields and keep only the canonical time accessors.
 #[derive(Resource, Default, Debug, Clone, Copy)]
 pub struct WorldTime {
     /// Unscaled duration of the current simulation step. Legacy alias for

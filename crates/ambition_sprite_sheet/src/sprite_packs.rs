@@ -43,8 +43,8 @@ pub fn pack_tier_for_scale(scale: TextureResolutionScale) -> &'static str {
 /// The scale a pack tier directory name denotes — the exact inverse of
 /// [`pack_tier_for_scale`], and `None` for a name that is not a tier.
 ///
-/// **exists so a caller can record what [`catalog_for_scale`] actually
-/// resolved.** That function answers a request and may hand back `full` instead;
+/// exists so a caller can record what [`catalog_for_scale`] actually
+/// resolved. That function answers a request and may hand back `full` instead;
 /// its caller then has the physical tier only as a directory name, and stamping
 /// a realization needs it as a scale. Re-deriving the fallback rule at the call
 /// site would be a second copy of the policy — see
@@ -61,7 +61,7 @@ pub fn scale_for_pack_tier(tier: &str) -> Option<TextureResolutionScale> {
 
 /// Parse-once index of every baked pack catalog, keyed by tier name.
 ///
-/// §5 classification: **immutable asset cache** — derived from the
+/// §5 classification: immutable asset cache — derived from the
 /// compile-time [`BAKED_PACK_CATALOGS`] table, pure and override-free, so a
 /// process-global `OnceLock` (same shape as the sheet `record_index`).
 fn catalogs() -> &'static HashMap<&'static str, SpritePackCatalog> {
@@ -156,7 +156,7 @@ mod tests {
 
     /// The other half (pixels on screen) is the in-app run.
     ///
-    /// **the third `eprintln!`-and-`return` in this file, and the last.** See
+    /// the third `eprintln!`-and-`return` in this file, and the last. See
     /// `baked_pack_tiers_parse_and_agree_on_coverage`: a skip that only reaches
     /// stderr is invisible on a passing run, so the tick meant "checked" and
     /// "there was nothing to check" identically.

@@ -4,12 +4,12 @@
 //! authored pole it goes 1-1 → 1-2 → 1-3 → 1-1, right level every leg. So does
 //! every other Mary-O test. And he sees 1-1 → 1-1.
 //!
-//! **because none of them build the composition that ships.** He reaches Mary-O through
+//! because none of them build the composition that ships. He reaches Mary-O through
 //! `run_game.sh` → the launcher → the shell host, and `build_visible_app` sets
 //! `SimulationHost::Rollback` for every route. The standalone demo binary is
 //! `PlatformerEnginePlugins::fixed_tick()`.
 //!
-//! **a demo binary is not a coverage argument for the game.** That is the
+//! a demo binary is not a coverage argument for the game. That is the
 //! lesson this file exists to hold, and it is worth more than the assertion
 //! below: whenever a road is "tested" only by `build_demo_app()`, the shipped
 //! path through the launcher is untested no matter how green the suite is.
@@ -42,7 +42,7 @@ fn host_app() -> App {
     app.add_plugins(StatesPlugin);
     app.init_state::<ambition_platformer2d::platformer::schedule::GameMode>();
     app.insert_resource(shell_host::AmbitionShellHosted);
-    // **the whole point of this file.** Without it the test falls to the
+    // the whole point of this file. Without it the test falls to the
     // render-frame default and stops being the shipped composition.
     use ambition_platformer2d::runtime::SimulationHostAppExt as _;
     app.set_simulation_host(ambition_platformer2d::runtime::SimulationHost::Rollback);
@@ -50,7 +50,7 @@ fn host_app() -> App {
     ambition_app::app::add_simulation_plugins(&mut app);
     app.add_plugins(ambition_platformer2d::host::PlatformerHostPlugins);
     shell_host::compose_ambition_shell_host(&mut app);
-    // **and the clock has to move.** Under GGRS the simulation advances on the
+    // and the clock has to move. Under GGRS the simulation advances on the
     // fixed timestep; a test that calls `update()` inside a millisecond of real
     // time runs the GGRS schedule zero times and every reading is the boot state.
     let timestep = app.world().resource::<Time<Fixed>>().timestep();
@@ -136,7 +136,7 @@ fn finish_at_the_pole(app: &mut App, from: &str) -> String {
     );
 }
 
-/// **Finishing 1-1 in the host lands her in 1-2, not back in 1-1.**
+/// Finishing 1-1 in the host lands her in 1-2, not back in 1-1.
 #[test]
 fn finishing_the_first_level_in_the_host_lands_in_the_second() {
     let mut app = host_app();
@@ -179,7 +179,7 @@ fn finishing_the_first_level_in_the_host_lands_in_the_second() {
 /// host wants. The latch is consulted only `if latch.is_device_authority()`, which is false
 /// with no device wired — so a headless press into it is dropped.
 ///
-/// **this does NOT walk her to the pole**, and an earlier draft that tried was
+/// this does NOT walk her to the pole, and an earlier draft that tried was
 /// dishonest: holding right with a hop every 24 frames is not platforming, and
 /// she got 750 of 3144 units before the cap. Completing 1-1 blind is not
 /// something a test can claim. What IS worth guarding is the road — that a press

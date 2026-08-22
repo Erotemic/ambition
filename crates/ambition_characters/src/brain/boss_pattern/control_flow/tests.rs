@@ -187,7 +187,7 @@ fn resolution_splices_the_winning_arm_between_its_neighbours() {
     );
 }
 
-/// The RNG stream advances once per `Select` **whether or not an arm wins**, so
+/// The RNG stream advances once per `Select` whether or not an arm wins, so
 /// two bosses that diverge in position stay in lockstep on the stream itself.
 #[test]
 fn a_select_consumes_one_draw_even_when_nothing_is_eligible() {
@@ -437,7 +437,7 @@ fn on_phase_enter_fires_on_the_rising_edge_only() {
     assert_eq!(tick_interrupts(&rules, &mut s, &c, None, 0), None);
 }
 
-/// **The trap this rule exists to avoid.** A 1s timer behind a 5s cooldown must
+/// The trap this rule exists to avoid. A 1s timer behind a 5s cooldown must
 /// not bank five firings and spend them all at t=5. The accumulator resets when
 /// the trigger CONDITION holds, not when the interrupt is allowed to fire.
 #[test]

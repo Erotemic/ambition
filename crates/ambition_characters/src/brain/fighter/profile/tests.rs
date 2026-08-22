@@ -26,7 +26,7 @@ fn a_nine_rung_ladder_parses_and_is_well_formed() {
     assert_eq!(l.level(1).unwrap().reaction_ms, 500.0);
 }
 
-/// **§1.3, as a check rather than a wish.** *"Level 9 = small numbers, never
+/// §1.3, as a check rather than a wish. *"Level 9 = small numbers, never
 /// zero."* A shipped profile that reacts instantly is a cheating CPU wearing a
 /// difficulty's name, and the `problems()` list says so at startup rather than
 /// after a self-play run.
@@ -105,7 +105,7 @@ fn the_buffer_depth_is_monotone_in_the_reaction_time() {
     );
 }
 
-/// **L3 is an upgrade, never a dependency** (§1). The whole shipped ladder runs
+/// L3 is an upgrade, never a dependency (§1). The whole shipped ladder runs
 /// with rollouts OFF, because N3.1's `restore` does not exist yet — and every
 /// rung still plays, on L2's scores alone.
 #[test]
@@ -115,16 +115,16 @@ fn the_whole_ladder_degrades_gracefully_without_l3() {
     }
 }
 
-/// **A game that shipped rows gets ITS rows, not the engine's floor.**
+/// A game that shipped rows gets ITS rows, not the engine's floor.
 ///
-/// ⛔ **this is the rule that was written down and not enforced.**
+///  this is the rule that was written down and not enforced.
 /// `FighterBrainProfile::for_level`'s own doc says a game shipping nine rows
 /// means the floor "is never consulted" — and both production call sites
 /// consulted it anyway, because a doc comment on the losing source cannot
 /// arbitrate. Ambition ships `fighter_brain_ladder.ron` and had never read a row
 /// of it.
 ///
-/// ⭐ **the numbers here are the ones that were actually wrong in the game**, not
+///  the numbers here are the ones that were actually wrong in the game, not
 /// invented ones: `for_level` gives EVERY rung `UtilityWeights::default()`, and
 /// `default()` is `v1()` — which is the authored level 9 verbatim. So a level-1
 /// CPU priced a smash exactly as a level-9 did, and the ladder's whole second
@@ -156,7 +156,7 @@ fn a_shipped_ladder_beats_the_engine_floor() {
          tell whether the ladder was consulted at all"
     );
 
-    // ⭐ the difference that matters, and the one the game was losing.
+    //  the difference that matters, and the one the game was losing.
     assert!(
         authored.utility_weights.kill_potential < floor.utility_weights.kill_potential,
         "the floor hands level 1 the level-9 weight set ({:?}), so a beginner CPU \
@@ -164,7 +164,7 @@ fn a_shipped_ladder_beats_the_engine_floor() {
         floor.utility_weights,
     );
 
-    // ⚠ a level the ladder does not author still gets a body rather than a panic:
+    //  a level the ladder does not author still gets a body rather than a panic:
     // `problems()` is where a malformed ladder is reported, at load, all at once.
     assert_eq!(
         profile_for_level(200, Some(&ladder)),

@@ -40,7 +40,7 @@ pub enum TouchActionButton {
     Projectile,
     FlyToggle,
     Shield,
-    /// **Capture attempt.** Availability-gated like Special: a scheme with no
+    /// Capture attempt. Availability-gated like Special: a scheme with no
     /// Grab slot draws no button, so only a body that has been granted the verb
     /// AND authored a grab shows one.
     Grab,
@@ -310,7 +310,7 @@ mod layout_tests {
         }
     }
 
-    /// **No two buttons crowd each other.** This used to be a comment claiming a
+    /// No two buttons crowd each other. This used to be a comment claiming a
     /// ">=4px visible-circle gap", which nothing checked — so the only thing
     /// standing between the layout and an unhittable button was
     /// `each_button_center_hit_tests_back_to_itself`, and that only catches an
@@ -347,7 +347,7 @@ mod layout_tests {
         }
     }
 
-    /// **Run and Jump are the pair.** A hold-to-run button is only usable if the
+    /// Run and Jump are the pair. A hold-to-run button is only usable if the
     /// thumb can sustain it WHILE tapping jump, so the two must be nearer each
     /// other than either is to any other button. Pinning the relationship rather
     /// than the coordinates leaves the cluster free to move.
@@ -449,7 +449,7 @@ mod layout_tests {
         );
     }
 
-    /// **Visible circles, not square bounds.** A point inside a button's square
+    /// Visible circles, not square bounds. A point inside a button's square
     /// but outside its drawn circle must hit nothing.
     ///
     /// The property never needed two buttons: a single button's own corner is inside its square and

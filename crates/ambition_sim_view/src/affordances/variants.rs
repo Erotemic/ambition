@@ -31,7 +31,7 @@ pub trait VariantLabel {
     fn i18n_key(&self) -> &'static str;
 }
 
-/// What pressing **Interact** would do right now.
+/// What pressing Interact would do right now.
 ///
 /// Carries an optional authored prompt string so a chest with an
 /// authored prompt of "Loot Cache" can override the generic "Open"

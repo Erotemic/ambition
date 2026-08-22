@@ -63,18 +63,18 @@ pub enum UiFontWeight {
     Monospace,
 }
 
-/// **The set [`load_ui_fonts`] runs in — UI font handles exist.**
+/// The set [`load_ui_fonts`] runs in — UI font handles exist.
 ///
 /// Anything spawning text at Startup has to follow it, and both the touch
 /// overlay (another crate) and the app's own UI said so by name.
 ///
-/// **an empty set makes `.before`/`.after` VACUOUS**, and Bevy does not warn.
+/// an empty set makes `.before`/`.after` VACUOUS, and Bevy does not warn.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct UiFontsLoaded;
 
 /// Owns the UI font load — the resource AND the system that fills it.
 ///
-/// **a consumer that pins [`UiFontsLoaded`] should install this itself**, via
+/// a consumer that pins [`UiFontsLoaded`] should install this itself, via
 /// [`ensure_installed`], rather than assuming some other plugin did. That is the
 /// difference between an ordering edge that holds in every composition and one
 /// that holds in the app that happened to wire it.

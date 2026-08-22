@@ -33,8 +33,8 @@ impl Plugin for ProgressionSchedulePlugin {
         // P0.2: the phase machine's own transition edge. Written by `update_boss_encounters` in
         // `BossAdvance` where the swap is committed, consumed by
         // `boss_phase_transition_feedback` in `BossHazards` — the next set in the same chain,
-        // so delivery is same-frame by construction. **deliberately NOT
-        // `clear_message_on_rollback`, and not rollback state**, for the same reason
+        // so delivery is same-frame by construction. deliberately NOT
+        // `clear_message_on_rollback`, and not rollback state, for the same reason
         // `MountDied` above is neither: it never crosses a frame boundary. A re-simulation
         // re-runs the phase machine, which re-announces the change if and only if the corrected
         // timeline really makes it.

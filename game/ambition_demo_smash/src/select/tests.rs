@@ -2,17 +2,17 @@ use super::*;
 
 /// The policy every roster test in this file builds under.
 ///
-/// **the screen's occupant numbers are indices into the sources it offered,
-/// and what index zero MEANS is the policy's answer** — the first pad here, the
+/// the screen's occupant numbers are indices into the sources it offered,
+/// and what index zero MEANS is the policy's answer — the first pad here, the
 /// keyboard under `JoinToClaim`. Naming it once keeps these tests reading as
 /// "slot 3 holds pad 3" rather than as arithmetic.
 const UNIFIED: ambition_platformer2d::input::sources::InputAssignmentPolicy =
     ambition_platformer2d::input::sources::InputAssignmentPolicy::UnifiedPrimary;
 
-/// **A roster with room in it**, so a test about the DECISION is not also a
+/// A roster with room in it, so a test about the DECISION is not also a
 /// test of how many fighters ship today.
 ///
-/// **A SEAT WITH ITS OWN MOVES KEEPS THEM; a seat with none takes the floor.**
+/// A SEAT WITH ITS OWN MOVES KEEPS THEM; a seat with none takes the floor.
 ///
 /// Two terms, and both matter: the character that authors a repertoire must NOT
 /// be handed the stage kit, and the one that authors nothing must still be — a
@@ -31,7 +31,7 @@ fn a_fighter_that_authors_its_own_moves_is_not_handed_the_stage_kit() {
         select.set_occupant(slot, SlotOccupant::Cpu);
         select.set_pick(slot, SlotPick::Fighter(pick));
     }
-    // **the fixture DECLARES a floor, because the shipped experience does**
+    // the fixture DECLARES a floor, because the shipped experience does
     // . This passed `None` for one commit after `smash_fighter_kit`
     // became `DeclaredCombatRules::unarmed_melee`, and the test went red exactly
     // as it should have: a stage that declares no floor seats an unarmed
@@ -106,7 +106,7 @@ fn the_slot_button_cycles_absent_controller_cpu() {
     assert_eq!(select.slot(0).occupant, SlotOccupant::Absent);
 }
 
-/// **No two slots hold the same input source.**
+/// No two slots hold the same input source.
 ///
 /// Two slots that both say "a person" without saying WHICH person is how one pad drives two
 /// fighters — found five separate times in this repo, and invisible every time with a single
@@ -201,7 +201,7 @@ fn selecting_again_does_not_move_an_existing_human_between_cards() {
     assert_eq!(select.slot(1).occupant, SlotOccupant::Absent);
 }
 
-/// **A THIRD PLAYER JOINS ON RANDOM AND THE MATCH STAYS READY.**
+/// A THIRD PLAYER JOINS ON RANDOM AND THE MATCH STAYS READY.
 ///
 /// the invariant underneath did not move — `ready()` still requires every
 /// participating slot to hold a pick. What moved is that joining supplies one,
@@ -231,7 +231,7 @@ fn a_third_player_joins_on_random_and_the_match_is_still_ready() {
     assert!(select.ready());
 }
 
-/// **One decided slot is not a match.** A stocks match with one side never
+/// One decided slot is not a match. A stocks match with one side never
 /// ends — `last_side_standing` correctly refuses to call a sole survivor a
 /// winner — so starting one is a game that cannot finish.
 #[test]
@@ -243,14 +243,14 @@ fn a_single_decided_slot_never_starts_a_battle() {
     assert!(select.roster(&fighters(), UNIFIED).is_none());
 }
 
-/// **Two CPUs ARE a match, and a person can join them.**
+/// Two CPUs ARE a match, and a person can join them.
 ///
 /// important that that is expressible and easy to do."*
 ///
 /// a red test whose expected value is absent from the tree is the tell: it is describing a
 /// version of the product that was decided against, not a fix that is owed.
 ///
-/// **and the rule and this test AGREED with each other**, so the suite was
+/// and the rule and this test AGREED with each other, so the suite was
 /// green over a feature the product did not have. A test that encodes a policy
 /// cannot also be the evidence the policy is right.
 #[test]
@@ -313,7 +313,7 @@ fn absent_clears_the_pick_and_rejoin_starts_on_random() {
     );
 }
 
-/// **A pick with no fighter behind it costs a SEAT, not a wrong fighter.**
+/// A pick with no fighter behind it costs a SEAT, not a wrong fighter.
 ///
 /// The roster is a composition fact now, so it can in principle be smaller than
 /// an index a decided screen is holding. Dropping that seat is the only safe
@@ -374,7 +374,7 @@ fn the_roster_carries_every_decided_slot_on_its_own_side() {
     );
 }
 
-/// **Every id this demo DECLARES is one its own catalog carries.** a roster
+/// Every id this demo DECLARES is one its own catalog carries. a roster
 /// naming a character the catalog does not have is a seat the match REFUSES,
 /// and the refusal arrives at spawn time on a screen that already said "go".
 #[test]
@@ -391,8 +391,8 @@ fn every_own_fighter_is_declared_by_this_demo() {
     }
 }
 
-// **`the_grid_is_the_roster_list_filtered_to_what_the_composition_carries`
-// lives in `ambition_app` now**, as
+// `the_grid_is_the_roster_list_filtered_to_what_the_composition_carries`
+// lives in `ambition_app` now, as
 // `smash_in_the_host::the_grid_offers_only_named_and_seatable_fighters`.
 //
 // it filtered a synthetic `CharacterCatalog`, and the FILTER MOVED: a row
@@ -405,7 +405,7 @@ fn every_own_fighter_is_declared_by_this_demo() {
 // a real one. The host version asserts BOTH directions, because each alone is
 // satisfiable by a broken filter.
 
-/// **The roster list is a list of DISTINCT characters.**
+/// The roster list is a list of DISTINCT characters.
 ///
 /// a duplicate id is two cells for one fighter, and a token dropped on the
 /// second one picks a character whose cell is not the one that lit up.
@@ -442,7 +442,7 @@ fn a_slot_past_the_ceiling_is_ignored_rather_than_a_crash() {
     assert_eq!(select.participating(), 0);
 }
 
-/// **The source count comes from the pads, and the floor is one.**
+/// The source count comes from the pads, and the floor is one.
 ///
 /// A screen that offered zero sources when nobody had a gamepad would be a demo
 /// you cannot start — the keyboard is player one on every other route here.
@@ -492,7 +492,7 @@ fn a_keyboard_and_one_pad_offer_two_sources_under_the_couch_policy() {
     );
 }
 
-/// **Milestone 8: solo play must not change.** A single player with a spare
+/// Milestone 8: solo play must not change. A single player with a spare
 /// controller must not discover that plugging it in created an empty chair.
 #[test]
 fn the_unified_policy_keeps_the_pad_only_count() {
@@ -529,14 +529,14 @@ fn the_couch_policy_still_respects_the_seat_ceiling() {
     );
 }
 
-/// **THE RANDOM SQUARE IS A CELL, AND IT IS THE LAST ONE.**
+/// THE RANDOM SQUARE IS A CELL, AND IT IS THE LAST ONE.
 ///
 /// Both directions, because each alone is satisfiable by a broken mapping: a
 /// grid that returns `Fighter` for every cell passes "the last cell is random"
 /// if it never reaches it, and one that returns `Random` for everything passes
 /// "fighters keep their index" if nothing checks the fighters.
 ///
-/// **fighters keeping their index is the load-bearing half.** Putting random
+/// fighters keeping their index is the load-bearing half. Putting random
 /// FIRST would have been just as reasonable a design and would silently
 /// re-point every portrait-by-position in the screen, the walkthrough and the
 /// host tests at its neighbour.
@@ -578,7 +578,7 @@ fn a_new_participant_starts_on_the_random_square() {
     );
 }
 
-/// **RANDOM RESOLVES TO A REAL FIGHTER, AND ONLY WHEN THE MATCH STARTS.**
+/// RANDOM RESOLVES TO A REAL FIGHTER, AND ONLY WHEN THE MATCH STARTS.
 ///
 /// the ROSTER is where the draw happens, so everything downstream — the
 /// prepared plan, activation, the rollback window — sees ordinary character ids
@@ -610,7 +610,7 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
         );
     }
 
-    // **SEEDED, not ambient** (ADR 0023). The same seed draws the same match,
+    // SEEDED, not ambient (ADR 0023). The same seed draws the same match,
     // which is what makes a desync explicable and a test able to name a draw.
     let again = select
         .roster_seeded(&fighters, 12_345, UNIFIED, &Default::default(), None)

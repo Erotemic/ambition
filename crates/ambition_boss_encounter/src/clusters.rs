@@ -52,15 +52,9 @@ pub struct BossEncounter {
     /// flip. (Deliberately distinct from `sprite_metrics.sprite_render_size`, the
     /// derived world quad; this is the *input* the sheet spec scales.)
     pub render_size: ae::Vec2,
-    /// Entity-local phase state + the trigger-driven phase mechanism: current phase, the
-    /// `transition_lock` tell timer, and the intrinsic phase triggers as DATA. This + `health`
-    /// ARE the source of truth for the fight (the old global registry live-map is gone); the
-    /// encounter-only concerns (per-phase music, lock-walls, HUD, display) live on the data
-    /// catalog / the optional encounter entity. `update_boss_encounters` seeds it once from the
-    /// boss's `BossProfile` (or `BossOverrides`) and ticks it. Keeping the state ON the entity
-    /// is what makes two of the same boss (a gauntlet) carry independent fights by construction
-    /// rather than by a string-keyed side map. See
-    /// `docs/systems/boss-encounter-architecture.md`.
+    /// Entity-local phase state and intrinsic phase triggers. Together with
+    /// `health`, this is fight authority; music, walls, HUD, and other encounter
+    /// presentation remain encounter-owned.
     pub encounter: Option<super::ActorPhaseState>,
 }
 
@@ -73,14 +67,14 @@ pub struct BossEncounter {
 /// tweaks (use the archetype profile), so a room-authored boss is unaffected.
 #[derive(bevy::prelude::Component, Clone, Debug, Default)]
 pub struct BossOverrides {
-    /// Override max HP (also the starting HP). `None` ⇒ the profile's `max_hp`.
+    /// Override max HP (also the starting HP). `None`  the profile's `max_hp`.
     pub max_hp: Option<i32>,
-    /// Override the combat/contact box half-extent → full size. `None` ⇒ the
+    /// Override the combat/contact box half-extent → full size. `None`  the
     /// profile's `combat_size`.
     pub combat_size: Option<ae::Vec2>,
-    /// Override the intrinsic phase triggers as DATA. `Some(vec![])` ⇒ the boss
+    /// Override the intrinsic phase triggers as DATA. `Some(vec![])`  the boss
     /// never phases up (fights to death — a boss reused as a plain tough enemy);
-    /// `None` ⇒ the profile-derived triggers. Proves phases are trivially
+    /// `None`  the profile-derived triggers. Proves phases are trivially
     /// flippable data, no code change.
     pub phase_triggers: Option<Vec<super::PhaseTrigger>>,
     /// Spawn the boss WITHOUT an encounter wrapper — a plain tough enemy: no
@@ -378,7 +372,7 @@ pub mod test_support {
     use super::*;
 
     /// A `(BossEncounter, BodyHealth)` pair at `hp` HP in `phase`, with
-    /// entity-local `ActorPhaseState` carrying `triggers` (empty ⇒ never phases
+    /// entity-local `ActorPhaseState` carrying `triggers` (empty  never phases
     /// up) already set to `phase`. HP lives on the shared `BodyHealth` (§A1).
     pub fn test_boss_status_with(
         hp: i32,
@@ -433,7 +427,7 @@ pub mod test_support {
     }
 }
 
-/// **The boss's encounter phase**, and the `ActorPhaseState` it is forwarded from.
+/// The boss's encounter phase, and the `ActorPhaseState` it is forwarded from.
 ///
 /// A cursor, because the rest of `BossEncounter` is sprite metrics derived from the
 /// sheet registry, and because `ActorPhaseState.triggers` is authored data.

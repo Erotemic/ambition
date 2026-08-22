@@ -6,7 +6,7 @@ use ambition_content_pack::{
     PackVersion, SchemaRegistry, SourceDeclaration,
 };
 
-/// ⚠ copied from the shape `goblin_encounter.ron` actually uses — I first wrote
+///  copied from the shape `goblin_encounter.ron` actually uses — I first wrote
 /// this from the field names I expected (`archetype`/`at`) and both positive
 /// cases failed. A fixture invented rather than read tests the invention.
 const ONE_MOB: &str =
@@ -51,7 +51,7 @@ fn refuse(name: &str, waves: &str) -> ambition_content_pack::CompileFailure {
 //
 // The `character` schema is minted by `character_catalog`, which lives in
 // `ambition_characters` — a crate this one does not depend on and must not.
-// ⭐ **a cross-schema reference is by SCHEMA ID, not by Rust type**, which is
+//  a cross-schema reference is by SCHEMA ID, not by Rust type, which is
 // exactly how `boss_encounter` names a `music_track` across the same kind of
 // boundary. So the whole fixture is a handler that mints `character` identities
 // from a whitespace-separated list; what it proves is what the compiler
@@ -137,7 +137,7 @@ fn a_compiled_pack_carries_the_wave_book_the_runtime_will_load() {
     );
 }
 
-/// ⛔ **The motivating case: the invariant a serde parse cannot see.** An
+///  The motivating case: the invariant a serde parse cannot see. An
 /// encounter authored with an empty wave list parses perfectly and means exactly
 /// what OMITTING the key means — the loader falls back to marker-derived spawns.
 /// So the file claims a timeline it does not have, and nothing says so.
@@ -161,7 +161,7 @@ fn a_wave_with_no_mobs_is_refused() {
     assert!(format!("{failure:?}").contains("no mobs"), "{failure:?}");
 }
 
-/// ⚠ the loader matches the trigger id VERBATIM against the level's trigger, so
+///  the loader matches the trigger id VERBATIM against the level's trigger, so
 /// a padded key compiles and is unreachable — the same class as the item
 /// catalog's un-normalized `dialog_id`.
 #[test]

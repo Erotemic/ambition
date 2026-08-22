@@ -23,9 +23,9 @@ pub struct BossSpriteMetricsApplied;
 /// registry, but their generic combat shape is now exposed through the same `ActorIdentity` /
 /// `BodyHealth` / `BodyCombat` components used by NPCs and enemies. This keeps future faction,
 /// targeting, HUD, and held-item work from needing to pattern-match directly on `BossFeature` for
-/// ordinary combat facts. **IT NO LONGER RETURNS A `BodyCombat`** (AC3.2).
+/// ordinary combat facts. IT NO LONGER RETURNS A `BodyCombat` (AC3.2).
 ///
-/// **a citation is only as correct as the thing it cites.** The comment here
+/// a citation is only as correct as the thing it cites. The comment here
 /// said "the same rule as `sync_actor_components_from_cluster`" and it was
 /// accurate; the rule it named was wrong.
 ///
@@ -256,16 +256,16 @@ pub(crate) fn boss_sprite_metrics_from_registry(
 mod boss_combat_rebuild_contract {
     use super::*;
 
-    /// **EVERY `BodyCombat` FIELD DECLARES WHO WRITES IT ON THE BOSS ROAD.**
+    /// EVERY `BodyCombat` FIELD DECLARES WHO WRITES IT ON THE BOSS ROAD.
     ///
-    /// **the original of this guard recorded a propagated error.**
+    /// the original of this guard recorded a propagated error.
     /// `boss_component_snapshot` rebuilt `BodyCombat` and restored a list of
     /// timers *"the same rule as `sync_actor_components_from_cluster`"* — an
     /// accurate citation of a wrong rule, so both roads forgot
     /// `landing_lag_timer` and a boss landing out of an authored aerial had its
     /// lag erased on the next frame.
     ///
-    /// ⇒ AC3.2 removed the rebuild from both roads at once. The boss snapshot no
+    ///  AC3.2 removed the rebuild from both roads at once. The boss snapshot no
     /// longer returns a `BodyCombat` at all; it writes derived liveness in place.
     #[allow(dead_code)]
     fn every_body_combat_field_declares_whether_the_boss_sync_writes_it(combat: &BodyCombat) {

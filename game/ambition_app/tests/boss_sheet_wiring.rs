@@ -1,14 +1,14 @@
-//! **The boss-sprite wiring, pinned as far as it can be pinned headlessly.**
+//! The boss-sprite wiring, pinned as far as it can be pinned headlessly.
 //!
 //! `upgrade_boss_sprites` draws the generic gradient-sentinel body for a boss
 //! exactly when `GameAssets::boss_sprite(&boss_key)` misses, where `boss_key` is
 //! the boss's lowercased BEHAVIOR ID. There are three ways to miss, and only the
 //! last needs a window:
 //!
-//! 1. **the sheet never loads** — its catalog id resolves no path;
-//! 2. **the key disagrees** — the registry is keyed by something other than the
+//! 1. the sheet never loads — its catalog id resolves no path;
+//! 2. the key disagrees — the registry is keyed by something other than the
 //!    behavior id a live boss carries;
-//! 3. **the image is still loading** — `images.get(...)` is `None` this frame, so
+//! 3. the image is still loading — `images.get(...)` is `None` this frame, so
 //!    the system skips and retries. Benign; the boss upgrades a frame later.
 
 #![cfg(feature = "rl_sim")]
@@ -105,18 +105,18 @@ fn a_boss_with_no_authored_sheet_is_absent_from_the_registry_on_purpose() {
     }
 }
 
-/// **(2') The cause the other two tests could not see.**
+/// (2') The cause the other two tests could not see.
 ///
 /// `the_render_key_is_the_behavior_id_not_the_sprite_target` resolves profiles
 /// through `BossBehaviorProfile::from_data(&boss_catalog, id)` — the DIRECT path, which panics on
 /// a miss. The SIM does not use that path. `BossConfig::new` runs
 /// `canonical_boss_id_from(name, brain)` and then `for_authored_boss`, which
-/// **silently falls back** to `BossBehaviorProfile::generic(key)`: a clone of the
+/// silently falls back to `BossBehaviorProfile::generic(key)`: a clone of the
 /// clockwork warden's tuning wearing the authored slug as its id.
 ///
 /// A generic profile draws the generic body, because `boss_sprites[slug]` misses.
 /// So an LDtk placement whose display name slugs to anything but a registered
-/// profile id renders generic **no matter how correct its sheet wiring is** — and
+/// profile id renders generic no matter how correct its sheet wiring is — and
 /// nothing upstream complains.
 ///
 /// This test walks every boss placement in every shipped room and resolves it the
@@ -187,9 +187,9 @@ fn every_authored_boss_placement_resolves_the_profile_the_sim_will_spawn() {
 }
 
 /// A boss is also an actor — post-unification there is one body vocabulary — so
-/// every boss's id appears in **both** `ActorRenderIndex` and `BossRenderIndex`.
+/// every boss's id appears in both `ActorRenderIndex` and `BossRenderIndex`.
 /// `upgrade_actor_sprites` runs first. It resolved no character sheet for
-/// "Mockingbird", fell back to the **generic enemy sheet**, and inserted a
+/// "Mockingbird", fell back to the generic enemy sheet, and inserted a
 /// `CharacterAnimator`. `upgrade_boss_sprites` is filtered
 /// `Without<CharacterAnimator>` — so it skipped that boss forever, and its
 /// dedicated sheet was never bound. Every boss in the game drew a generic body.

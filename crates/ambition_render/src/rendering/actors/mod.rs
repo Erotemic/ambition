@@ -24,7 +24,7 @@ use ambition_sprite_sheet::character::{
 };
 use ambition_sprite_sheet::game_assets::{self, EntitySprite, GameAssets};
 
-/// **Is this texture usable yet?** — the question four binders were asking as
+/// Is this texture usable yet? — the question four binders were asking as
 /// `Assets<Image>::get(..).is_some()`.
 ///
 /// that read conflates three facts the engine should keep apart:
@@ -40,7 +40,7 @@ use ambition_sprite_sheet::game_assets::{self, EntitySprite, GameAssets};
 /// starts meaning "not yet evicted", and a body would go invisible the instant
 /// its texture began working.
 ///
-/// **the discriminator is who OWNS the handle**, and `get_load_state` answers
+/// the discriminator is who OWNS the handle, and `get_load_state` answers
 /// it: `Some(..)` for anything the asset server is tracking, `None` for a handle
 /// the main world was handed directly (`reserve_handle`, `add`, a procedurally
 /// generated sprite). A server-owned sheet is asked the semantic question — the
@@ -103,7 +103,7 @@ pub fn ensure_player_visual_sprite(
     }
 }
 
-/// **The reusable selected-character presentation binder.**
+/// The reusable selected-character presentation binder.
 ///
 /// Observes the canonical simulation-owned [`WornCharacter`] identity on each
 /// player body and installs the matching visual configuration — sprite sheet,
@@ -115,7 +115,7 @@ pub fn ensure_player_visual_sprite(
 /// * rebinds when the worn identity changes (marker id ≠ worn id), REPLACING the
 ///   prior sheet-derived components rather than layering duplicates.
 ///
-/// There is **no per-character branch** — every character resolves through the
+/// There is no per-character branch — every character resolves through the
 /// same `GameAssets` catalog lookup, so a new character needs zero code here.
 /// Owned by `ambition_render` (the lowest reusable presentation crate) and added
 /// by the shared animation plugin, so `ambition_app` AND standalone demos consume
@@ -145,7 +145,7 @@ pub fn bind_worn_character_presentation(
     >,
 ) {
     for (entity, worn, bound, has_sheet, base_size) in &players {
-        // **Seed the baseline from the BODY, not from a constant.**
+        // Seed the baseline from the BODY, not from a constant.
         //
         // `PlayerSpriteBaseline::standing_collision` is the reference the render
         // scales the art against (`base_size / standing_collision` in
@@ -300,7 +300,7 @@ pub fn sync_visuals(
     // happened -- the player entity does not exist until its room loads, so
     // the first observation is not a change.
     mut last_player_render_size: Local<Option<Option<BVec2>>>,
-    // **The other two multipliers between `custom_size` and what a player SEES.**
+    // The other two multipliers between `custom_size` and what a player SEES.
     //
     // So the sprite's own size was never wrong, and the instrument's silence RULED OUT the two
     // hypotheses it was built for rather than confirming either.
@@ -333,7 +333,7 @@ pub fn sync_visuals(
                 let alpha = if pose.hit_flash_secs > 0.0 { 0.72 } else { 1.0 };
                 sprite.color = Color::srgba(0.80, 0.95, 1.0, alpha);
             } else if let Some(authored) = pose.authored_render {
-                // **The SHEET authored this body's geometry**, so there is
+                // The SHEET authored this body's geometry, so there is
                 // nothing here to compute: the quad is the frame at the authored
                 // scale, produced beside the collision box from that one number.
                 //
@@ -343,8 +343,8 @@ pub fn sync_visuals(
                 // ratio. Here the box and the quad are two readings of one number, so there is no
                 // ratio and nothing to double-count.
                 sprite.custom_size = Some(BVec2::new(authored.x, authored.y));
-                // **and the PLACEMENT comes from the same publisher as the
-                // size, rather than being re-derived here.** A sheet frame is not
+                // and the PLACEMENT comes from the same publisher as the
+                // size, rather than being re-derived here. A sheet frame is not
                 // its character: the art sits somewhere inside the frame, usually
                 // off-centre, so a quad centred on the body draws the character
                 // wherever the padding happens to put it.
@@ -604,9 +604,9 @@ fn state_aware_entity_sprite(view: &ambition_sim_view::FeatureView) -> Option<En
 /// then it is never revisited. Comparing against the realization asks the only question with an
 /// answer: *is this body drawn from the sheet the table currently holds?*
 ///
-/// **RESOLVED, not
+/// RESOLVED, not
 /// [`requested_tier`](ambition_sprite_sheet::character::CharacterSpriteAsset::requested_tier),
-/// and the question decides it.** This component is a statement about PIXELS —
+/// and the question decides it. This component is a statement about PIXELS —
 /// which generation of the art is on screen — so it must move exactly when the
 /// pixels do. A sheet with no baked variant answers `Half` with full-resolution
 /// bytes; keyed on the request, a rebind to byte-identical pixels would look
@@ -628,8 +628,8 @@ pub struct PlayerSpriteCharacter {
 
 // Every other binding site here asks the resident realization (`asset.resolved_tier`) instead.
 //
-// ⇒ removing it makes the rule structural rather than remembered: **there is no
-// longer a way to reach for the requested setting from this file**, so the next
+//  removing it makes the rule structural rather than remembered: there is no
+// longer a way to reach for the requested setting from this file, so the next
 // binder cannot repeat the mistake by picking the convenient helper. The
 // requested tier still exists where it belongs — in the settings and in the
 // loader that resolves it — it just is not something a PRESENTATION binder may
@@ -644,7 +644,7 @@ pub struct PlayerSpriteCharacter {
 /// character registry — then a STATE-keyed fallback: a sandbag renders the
 /// sandbag sheet, a fighting actor the generic enemy sheet, and a peaceful
 /// un-registered actor keeps its terminal-rectangle placeholder.
-/// **Which sprite upgrader owns this body.**
+/// Which sprite upgrader owns this body.
 ///
 /// A boss is also an actor — post-unification there is one body vocabulary — so a boss's id is
 /// in `ActorRenderIndex` *and* `BossRenderIndex`. `upgrade_boss_sprites` is filtered
@@ -654,8 +654,8 @@ pub struct PlayerSpriteCharacter {
 /// System ORDER cannot fix that (swapping them just moves the overwrite), and a
 /// `Without<BossAnimator>` filter cannot either (the boss upgrader legitimately
 /// skips a frame while its image loads, and the actor path would claim it in the
-/// gap). The read-model is the answer: **the boss index claims the id, so the boss
-/// path owns it.**
+/// gap). The read-model is the answer: the boss index claims the id, so the boss
+/// path owns it.
 pub fn actor_sprite_path_owns(id: &str, boss_render: &ambition_sim_view::BossRenderIndex) -> bool {
     boss_render.get(id).is_none()
 }
@@ -709,7 +709,7 @@ pub fn upgrade_actor_sprites(
         if !actor_sprite_path_owns(&visual.id, &boss_render) {
             continue;
         }
-        // Read the actor's materialized identity snapshot. Absent ⇒ the read-model
+        // Read the actor's materialized identity snapshot. Absent  the read-model
         // hasn't caught this actor yet (it just spawned); skip a frame — the next
         // rebuild fills it in, exactly like the `feature_views` miss above.
         let Some(actor) = actor_render.get(&visual.id) else {
@@ -827,7 +827,7 @@ pub fn upgrade_actor_sprites(
     }
 }
 
-/// **Keep the controlled body drawn from the realization the table holds.**
+/// Keep the controlled body drawn from the realization the table holds.
 ///
 /// Deferred sheets finishing their decode, and a confirmed quality change
 /// retiring a realization for one at another tier, are the same event seen from
@@ -923,8 +923,8 @@ pub fn refresh_prop_sprites_on_game_assets_change(
     let Some(assets) = assets else {
         return;
     };
-    // **THE STAMP IS THE RESIDENT REALIZATION'S TIER, NEVER THE REQUESTED
-    // SETTING**.
+    // THE STAMP IS THE RESIDENT REALIZATION'S TIER, NEVER THE REQUESTED
+    // SETTING.
     //
     // The actor path forty lines up (`BoundSpriteQuality { scale: asset.resolved_tier }`)
     // always did this correctly; the two disagreed inside one file. Asking the

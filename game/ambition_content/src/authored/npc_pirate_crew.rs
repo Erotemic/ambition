@@ -1,4 +1,4 @@
-//! **THE SIX REMAINING PIRATES**, whose bodies were the last thing keeping
+//! THE SIX REMAINING PIRATES, whose bodies were the last thing keeping
 //! `REGISTERED_WITHOUT_A_BODY` alive.
 //!
 //! They were registered as buildable and authored NOTHING — the shape that
@@ -9,13 +9,13 @@
 //!
 //! Pick reasonable explicit health values and AUTHOR THEM. Do not retain fallback health or
 //! incomplete body definitions because we are waiting for balance decisions."* His initial numbers
-//! — ordinary pirate **4**, heavy/large pirate variant **6** — are the two used here.
+//! — ordinary pirate 4, heavy/large pirate variant 6 — are the two used here.
 //!
-//! **so these numbers are TUNING and the authoring is ARCHITECTURE.** He drew
+//! so these numbers are TUNING and the authoring is ARCHITECTURE. He drew
 //! that line himself. Retuning a health value later is not reopening a decision;
 //! putting the fallback back would be.
 //!
-//! **one file for six, and that is the P2.16 rule rather than laziness.** They
+//! one file for six, and that is the P2.16 rule rather than laziness. They
 //! are one crew in three shapes — two strikers, two brutes, two rangers — and the
 //! shapes are the three brain presets their catalog rows already named. Six files
 //! differing by a literal would be the copy `AUTHORED_CAST` exists to refuse, and
@@ -27,11 +27,11 @@ use ambition_characters::brain::{
 };
 use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
 
-/// **What each pirate SHIPS as**, transcribed from the brain preset its catalog
+/// What each pirate SHIPS as, transcribed from the brain preset its catalog
 /// row named — which is the behaviour-preserving migration AC4.2 asks for, and
 /// the reason this file is not three lines shorter.
 ///
-/// **the first draft of this gave the lookout and the navigator a cutlass**,
+/// the first draft of this gave the lookout and the navigator a cutlass,
 /// because "pirate boarding party" is a plausible story and the six ids look
 /// alike. They ship as `skirmisher_ranger` — they stand off at 140px and shoot.
 /// `a_character_states_its_policy_in_one_place` caught it, which is precisely

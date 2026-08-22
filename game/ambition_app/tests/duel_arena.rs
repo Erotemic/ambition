@@ -324,7 +324,7 @@ fn duel_fighters_actually_enact_their_abilities_on_the_body() {
             "{who}: shield must actually go up on the body (got {} frames)",
             log.shield_active_frames
         );
-        // **and the cost was real rather than theoretical**: the PCA was held
+        // and the cost was real rather than theoretical: the PCA was held
         // off `PLAYABLE_ROSTER` for weeks to keep this green, so the smash grid
         // shipped one portrait short of the roster it advertises.
         //
@@ -336,7 +336,7 @@ fn duel_fighters_actually_enact_their_abilities_on_the_body() {
             log.fly_frames
         );
     }
-    // **THE AGGREGATE DASH ASSERTION IS GONE**, and its own history is the
+    // THE AGGREGATE DASH ASSERTION IS GONE, and its own history is the
     // argument.
     //
     // What it claimed to prove is proven directly, and without an opinion about

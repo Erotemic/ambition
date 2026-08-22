@@ -299,7 +299,7 @@ fn the_journal_depth_tracks_the_unconfirmed_window() {
     );
 }
 
-/// **The camera shake, held to the confirmed boundary.** (P0.1)
+/// The camera shake, held to the confirmed boundary. (P0.1)
 ///
 /// these three cases exist because the shake's first rollback guard was a
 /// `replaying_history` check inside the producer, and that check is blind to the
@@ -401,7 +401,7 @@ mod camera_shake {
         }
     }
 
-    /// **A predicted hit does not move the screen.**
+    /// A predicted hit does not move the screen.
     #[test]
     fn a_hit_on_an_unconfirmed_frame_does_not_shake_the_camera_yet() {
         let mut fight = Fight::new();
@@ -418,7 +418,7 @@ mod camera_shake {
         );
     }
 
-    /// **A hit the correction erases never reaches the screen at all.**
+    /// A hit the correction erases never reaches the screen at all.
     ///
     /// this is the clause a `replaying_history` guard structurally cannot
     /// satisfy: the pass that produced the phantom was not a replay.
@@ -452,7 +452,7 @@ mod camera_shake {
         );
     }
 
-    /// **A confirmed hit shakes the screen, exactly once.**
+    /// A confirmed hit shakes the screen, exactly once.
     ///
     /// the clause that makes the two above mean "held" rather than "broken".
     /// The count is the exactly-once half: `kick` is a `max`, so a shake released

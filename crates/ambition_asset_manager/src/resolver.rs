@@ -1,41 +1,11 @@
-//! Resolve `(AssetId, AssetProfile) -> ResolvedAsset`.
+//! Resolve `(AssetId, AssetProfile)` into a runtime asset location.
 //!
-//! The resolver is the seam between Ambition's logical catalog
-//! ([`crate::manifest`]) and the runtime asset backend. Bevy callers feed
-//! resolved locations to `AssetServer`; non-Bevy consumers feed them to their
-//! owning subsystem's byte/provider loader.
-//!
-//! ## Resolution algorithm
-//!
-//! For one `(id, profile)` pair:
-//!
-//! 1. Look up the [`crate::manifest::AssetEntry`] for `id`. Missing →
-//!    [`AssetResolutionError::UnknownId`].
-//! 2. If the profile has no preferred sources (`NoAssets`, `Headless`),
-//!    return a `Disabled` location immediately.
-//! 3. Otherwise walk the profile's
-//!    [`crate::profile::AssetProfile::preferred_sources`] order; for
-//!    each source kind:
-//!    - If the entry has an explicit
-//!      [`crate::manifest::LocationCandidate`] for that source, use its
-//!      [`crate::location::AssetLocation`].
-//!    - Otherwise, if the source is one of the filesystem / embedded
-//!      kinds, synthesize a default location from the entry's
-//!      `logical_path` (Bevy-relative for filesystem, `embedded://` for
-//!      EmbeddedBinary, etc.).
-//!    - Return the first non-`Disabled` location.
-//! 4. If no source produced a location, return `Disabled`.
-//!
-//! The resolver does NOT read any bytes, does NOT inspect the
-//! filesystem, and does NOT panic on missing required assets — the
-//! caller consults [`crate::policy::MissingAssetPolicy`].
-//!
-//! ## Hot-reload
-//!
-//! [`ResolvedAsset::supports_hot_reload`] is `true` only when both the
-//! active profile and the resolved location report hot-reload support.
-//! Today that means: `DesktopDevLoose` profile + filesystem-backed
-//! location.
+//! Resolution follows the profile's preferred source order, using an authored
+//! candidate when present and otherwise synthesizing supported default
+//! locations from `logical_path`. Profiles with no enabled sources, or entries
+//! with no matching source, resolve to `Disabled`. The resolver performs no I/O;
+//! callers apply [`crate::policy::MissingAssetPolicy`]. Hot reload requires both
+//! the active profile and resolved location to support it.
 
 use thiserror::Error;
 
@@ -64,7 +34,7 @@ pub struct ResolvedAsset {
     /// Source kind that produced `location`. `None` when the profile
     /// has no enabled sources (resolved to `Disabled`).
     pub source_used: Option<AssetSourceProfile>,
-    /// `true` when the resolved location came from an **authored**
+    /// `true` when the resolved location came from an authored
     /// [`crate::manifest::LocationCandidate`] for [`Self::source_used`];
     /// `false` when the resolver *synthesized* a default location from
     /// the entry's `logical_path` because no candidate was authored

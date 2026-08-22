@@ -1,4 +1,4 @@
-//! **THE HALL HUMANOIDS' SHARED WALK** — and nothing else, now.
+//! THE HALL HUMANOIDS' SHARED WALK — and nothing else, now.
 //!
 //! There is nobody left to author here.
 

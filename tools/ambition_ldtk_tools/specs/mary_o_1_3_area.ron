@@ -7,20 +7,20 @@
 //
 // The grammar, left to right, one existing verb per beat:
 //
-//   1. **The bonk row** — a Question/Brick run at bonk height over the spawn
+//   1. The bonk row — a Question/Brick run at bonk height over the spawn
 //      ledge, so the first thing the room teaches is the block vocabulary.
-//   2. **The short pit** (96px) — a plain running jump, calibrated against 1-1's
+//   2. The short pit (96px) — a plain running jump, calibrated against 1-1's
 //      64/96/160px pits.
-//   3. **The cellar mouth** — a warp tube down into a coin cellar. The cellar's
+//   3. The cellar mouth — a warp tube down into a coin cellar. The cellar's
 //      far pipe surfaces PAST the chasm, so the tube is a genuine alternate
 //      route rather than a detour that returns you where you started (which is
 //      what 1-1's vault does).
-//   4. **The chasm** (304px) — impassable on foot. The Cinder Ferry is the only
+//   4. The chasm (304px) — impassable on foot. The Cinder Ferry is the only
 //      way across for a player who skipped the cellar, so the room's one
 //      borrowed mechanism is load-bearing exactly once.
-//   5. **The pole** — the same three-block flagpole 1-1 and 1-2 end on.
+//   5. The pole — the same three-block flagpole 1-1 and 1-2 end on.
 //
-// ⛔ THE NAMED STATIC-COLLISION PIECES ARE NOT IN THIS FILE, AND THAT IS NOT A
+//  THE NAMED STATIC-COLLISION PIECES ARE NOT IN THIS FILE, AND THAT IS NOT A
 // STYLE CHOICE. `area create` LOWERS every `Solid` / `OneWayPlatform` /
 // `BlinkWall` entity into IntGrid cells, and an IntGrid-derived block is named
 // `"ldtk solid"` — the author's `name` is DROPPED. Mary-O dresses its flagpole
@@ -109,7 +109,7 @@
         // segment C, PAST the chasm. Two links, four halves, one of each role —
         // a tube is directed, so a round trip is authored as two links.
         //
-        // ⛔ **AUTHORED, AND INERT UNTIL THE TUBE TABLE IS ROOM-SCOPED.**
+        //  AUTHORED, AND INERT UNTIL THE TUBE TABLE IS ROOM-SCOPED.
         // `warp_through_secret_pipe` (game/ambition_demo_mary_o/src/lib.rs)
         // reads `authored_tubes()`, a process-global `LazyLock` built from
         // `pipe_tubes(&authored_room(LEVEL_1_1_ROOM_ID))` — every tube in the
@@ -164,7 +164,7 @@
         ),
 
         // ── Enemies ────────────────────────────────────────────────────────
-        // ⛔ `character_id` IS REQUIRED and its absence is a HARD REFUSAL at
+        //  `character_id` IS REQUIRED and its absence is a HARD REFUSAL at
         // conversion (`convert_enemy_spawn`, entity_converters.rs) — but
         // `area create`, `repair` and `validate` all pass a spawn without one,
         // so the whole authoring loop reports green and the game panics on load.

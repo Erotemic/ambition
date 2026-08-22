@@ -1,5 +1,5 @@
-//! This crate's causal facts: **why did a body lose a stock, get eliminated, or
-//! end the match?**
+//! This crate's causal facts: why did a body lose a stock, get eliminated, or
+//! end the match?
 //!
 //! ## An observer over MESSAGES, not over the rules
 //!
@@ -7,9 +7,9 @@
 //! (`BodyKnockedOut`, `FighterStockSpent`, `StocksMatchDecided`). That is worth
 //! more than instrumenting the rules directly:
 //!
-//! * it is **additive** — no rule gained a parameter, a branch, or a reason to
+//! * it is additive — no rule gained a parameter, a branch, or a reason to
 //!   care that anybody is watching;
-//! * it **cannot** affect the outcome, because a message reader holds no
+//! * it cannot affect the outcome, because a message reader holds no
 //!   authority over the writer;
 //! * and it stays correct when the rules change, because it observes what the
 //!   rules DECIDED rather than re-deriving how.
@@ -36,7 +36,7 @@ fn seat_of(bodies: &Query<&DrivingParticipant>, body: Entity) -> Option<u8> {
     Some(bodies.get(body).ok()?.0 .0)
 }
 
-/// **The strongest stable subject this body has** — and never `None`.
+/// The strongest stable subject this body has — and never `None`.
 ///
 /// a body-specific fact with no subject is treated by `explain` as a WORLD
 /// fact and returned for EVERY subject. So a CPU fighter losing a stock on tick

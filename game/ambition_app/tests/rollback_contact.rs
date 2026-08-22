@@ -1,4 +1,4 @@
-//! **Contact survives a rewind** — Task 2's fourth scenario family.
+//! Contact survives a rewind — Task 2's fourth scenario family.
 //!
 //! The roadmap asks that "representative damage, transition, action, and contact scenarios can be
 //! stepped, rewound, checksum-compared, and asserted through the real schedule". It walks contact

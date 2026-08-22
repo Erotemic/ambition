@@ -5,7 +5,7 @@ use crate::feel::Platformer2dFeelTuningMonolith;
 use ambition_characters::actor::BodyCombat;
 use ambition_platformer2d_core as ae;
 
-/// **What the reaction DECIDED**, so a caller can explain it.
+/// What the reaction DECIDED, so a caller can explain it.
 ///
 /// The magnitude and direction of a launch are the product of the authored
 /// knockback, the victim's own DI, and the feel tuning — three inputs whose
@@ -69,8 +69,8 @@ pub fn apply_body_hit_reaction(
         1.0
     };
     *vel = launch;
-    // ⭐ **and PUBLISH it, because the write above is not authoritative for every
-    // body.** `BodyKinematics::vel` is the authority for an axis-swept body and a
+    //  and PUBLISH it, because the write above is not authoritative for every
+    // body. `BodyKinematics::vel` is the authority for an axis-swept body and a
     // MIRROR for a riding surface-momentum one, whose velocity is derived from
     // the scalar `v_t` along its tangent and republished on the next step. Sanic
     // rides. So every knockback he took was applied faithfully to a field nothing
@@ -88,7 +88,7 @@ pub fn apply_body_hit_reaction(
     // i-frames). The window ending IS the genre's "meteor cancel"; there is no second verb to
     // press.
     //
-    // ⚠ a FLOOR under the ordinary recoil, never an addition, so a meteor is one
+    //  a FLOOR under the ordinary recoil, never an addition, so a meteor is one
     // silence of a stated length rather than two stacked. And airborne only: a
     // body already standing on the floor is driven into a floor it is on, and
     // charging it a recovery window for that would be a free stun.
@@ -131,17 +131,17 @@ pub fn apply_body_hit_reaction(
     }
 }
 
-/// ⛔ **a struct rather than the `(bool, bool)` it would otherwise be**, and the
+///  a struct rather than the `(bool, bool)` it would otherwise be, and the
 /// capture kit's own note is the argument: *"inserting it mid-list silently
 /// shifted two positional arguments into the wrong slots and the compiler
 /// reported it as a type error three parameters away."* Two adjacent booleans in
 /// a twelve-argument list is that failure waiting.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct VictimStance {
-    /// **Standing on something?** The meteor rule reads it: a spike on a
+    /// Standing on something? The meteor rule reads it: a spike on a
     /// grounded body is not a spike.
     pub grounded: bool,
-    /// **Crouching?** CROUCH CANCEL — a crouching body takes less knockback, so
+    /// Crouching? CROUCH CANCEL — a crouching body takes less knockback, so
     /// ducking is a defensive option at low percent rather than only a shorter
     /// hurtbox. See [`ambition_combat::rules::DeclaredCombatRules::crouch_cancel_scale`].
     pub crouching: bool,
@@ -151,7 +151,7 @@ pub struct VictimStance {
 /// this crate's business, the response math is the floor's
 /// (`ae::hit_response`). One constructor, so the velocity and hitstun calls
 /// cannot pick different rows for the same hit.
-/// ⚠ **`feel.di_max_angle` must already be the RESOLVED match value** (AE6).
+///  `feel.di_max_angle` must already be the RESOLVED match value (AE6).
 /// Directional influence is a rule of the match being played, not world tuning,
 /// so the system that reads `Res<Platformer2dFeelTuningMonolith>` folds the resolved rules
 /// into its LOCAL copy before the hit path sees it — see `resolved_feel`. The
@@ -176,7 +176,7 @@ pub fn hit_response_tuning(
         } else {
             feel.enemy_hitstun_time
         },
-        // ⭐ **hitstun scales with the LAUNCH now**, against this reference — the
+        //  hitstun scales with the LAUNCH now, against this reference — the
         // mechanic that makes a follow-up possible after a big hit and
         // impossible after a jab. The two constants above stay what they were:
         // the duration a REFERENCE-strength hit arms.

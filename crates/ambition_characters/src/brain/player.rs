@@ -1,7 +1,7 @@
 //! Player brain — translates a slot-selected `ControlFrame` into the abstract
 //! intent fields of [`crate::actor::control::ActorControlFrame`].
 //!
-//! The player brain is **purely a translation layer**. It does not
+//! The player brain is purely a translation layer. It does not
 //! make any gameplay decisions — every decision (variable-height
 //! jump, dash window, projectile charge) lives in the integration
 //! stage, the same way an enemy brain decides "I want to fire" but
@@ -15,14 +15,14 @@
 //! from `crate::control::ActorControl`; the raw `ControlFrame` is no longer consulted inside
 //! the player simulation phases.
 //!
-//! **THAT SENTENCE WAS FALSE FOR THE WHOLE LIFE OF THE CAPTURE MECHANIC**
+//! THAT SENTENCE WAS FALSE FOR THE WHOLE LIFE OF THE CAPTURE MECHANIC
 //! . `grab_pressed` was not in the carry list, so a human's Grab
 //! button reached the input layer, the seat, the abilities and the action
 //! scheme — and stopped here. A CPU could grab, because AI brains write
 //! `crate::control::ActorControl` directly and never call this function; a person could not.
 //! button that says grab."*
 //!
-//! ⇒ the paragraph above is now GUARDED rather than asserted. See the
+//!  the paragraph above is now GUARDED rather than asserted. See the
 //! exhaustive destructure at the top of [`tick_player_brain_from_control`]:
 //! adding a `ControlFrame` field is a compile error here until somebody decides
 //! whether a human carries it.
@@ -76,7 +76,7 @@ pub fn tick_player_brain_from_control(
     // A struct pattern with no `..` makes adding a `ControlFrame` field a COMPILE ERROR right
     // here, so the next verb cannot be silently human-unreachable.
     //
-    // **every binding is `_` and that is the point**: this states a DECISION,
+    // every binding is `_` and that is the point: this states a DECISION,
     // it reads nothing. The real reads stay below where they are legible, and
     // this list stays a list of answered questions.
     let ControlFrame {
@@ -165,7 +165,7 @@ pub fn tick_player_brain_from_control(
     // player passes `max_run_speed == 0` (its integrator ignores this field), so
     // this is inert for the grounded avatar.
     //
-    // **`velocity_target` is WORLD-SPACE and this wrote a LOCAL vector.** Its
+    // `velocity_target` is WORLD-SPACE and this wrote a LOCAL vector. Its
     // own doc says "exact world-space velocity command in px/s", and every other
     // writer agrees — `limbs.rs` sends `(home_world - pos) * gain`, and the smash
     // shadow model assigns it straight to `f.vel`. Only this one handed it the
@@ -222,7 +222,7 @@ pub fn tick_player_brain_from_control(
     // move — and this brain, the ONE seam a human's frame crosses to reach a body, never copied
     // the field.
     //
-    // **`crate::control::ActorControl::grab_pressed`'s own doc asserted the opposite**: *"the
+    // `crate::control::ActorControl::grab_pressed`'s own doc asserted the opposite: *"the
     // human's Grab button and a CPU's decision write this SAME field. There is
     // deliberately no `cpu_wants_grab` beside it."* The design was right and the
     // carry list simply never learned it, so the comment described an intent the

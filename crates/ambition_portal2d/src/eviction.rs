@@ -2,11 +2,11 @@
 //!
 //! Pushout corrupts position/reversibility and papers over real bugs.
 //!
-//! The lone exception is here: a portal **moves, closes, or teleports while a
-//! body straddles its plane** (re-firing the gun to reposition a portal out
+//! The lone exception is here: a portal moves, closes, or teleports while a
+//! body straddles its plane (re-firing the gun to reposition a portal out
 //! from under a straddler; a room reset clearing portals; the partner of a
 //! transiting body vanishing). Physically the body's two halves are in two
-//! different places, and the closing aperture would **rip the body in half**.
+//! different places, and the closing aperture would rip the body in half.
 //! We model a world-force that instead shoves the straddling body fully to the
 //! side its centroid is on, so it lands intact in open space rather than
 //! embedded in the now-solid wall. This is the only displacement the portal

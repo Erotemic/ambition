@@ -1,29 +1,10 @@
-//! **The demo changes rooms.**
+//! Verify that the standalone Mary-O demo can complete an engine-owned room
+//! transition.
 //!
-//! This is the exit proof for moving the room-transition transaction into the
-//! engine. Before it, `RoomTransitionRequested` had exactly one
-//! consumer and only `ambition_app` registered it — so in THIS binary, which
-//! deliberately does not depend on `ambition_app`, the message went into a
-//! registered channel that nothing drained. A second room was not merely
-//! unauthored; it was unreachable.
-//!
-//! So the assertion that matters is not "a transition was requested" — the
-//! request always worked. It is that the ACTIVE ROOM CHANGED and the body is
-//! standing in the new room's geometry, which is only true if a consumer ran.
-//! (Room-replay §2.5 shipped three green proofs of a beat that had no consumer
-//! in-process, each asserting a value the emitter wrote one line earlier. Not
-//! again.)
-//!
-//! ## Driving the stick under either composition
-//!
-//! The cfg reads THIS crate's `input` feature, but what actually decides whether the participant
-//! pipeline owns `ControlFrame` is `ambition_platformer2d/input` — and workspace feature
-//! unification turns that on from `ambition_app`'s defaults no matter what this crate asked for. So
-//! the guard silently stopped guarding: the file compiled, the pipeline ran in `Update` and
-//! overwrote every `PreUpdate` write, and Mary-O simply never moved.
-//!
-//! That is last-writer-wins by construction rather than by composition luck, so this proof
-//! holds under `-p` and `--workspace` alike.
+//! The proof requires the authoritative active room and player geometry to
+//! change, not merely a transition request. Scripted input is routed through the
+//! production participant pipeline so the test behaves the same under package
+//! and workspace feature unification.
 
 use ambition_demo_mary_o::level_1_2::LEVEL_1_2_ROOM_ID;
 use ambition_demo_mary_o::powerups::{SpentPowerBlocks, STAR_WAND_ID};
@@ -39,8 +20,7 @@ use bevy::prelude::*;
 
 fn boot() -> App {
     let mut app = build_demo_app();
-    // **the ordering lives in ONE place now** — after the participant pipeline's routing stage and
-    // before the frame→tick latch.
+    // Use the shared production ordering for scripted participant input.
     ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
     // Settle activation: the provider publishes its world over several frames.
     for _ in 0..90 {
@@ -190,7 +170,7 @@ fn the_two_rooms_are_linked_both_ways() {
     // Asking them now would be a check that cannot fail in the worst way: it would pass on an
     // empty `for`.
     //
-    // ⭐ **so it asks the route that actually exists.** Finishing a level is what
+    //  so it asks the route that actually exists. Finishing a level is what
     // moves you between them, `exit_for_room` is where each level says where
     // that goes, and the property worth holding is unchanged and stronger than
     // "has a zone": follow the exits and you come back to where you started.
@@ -401,28 +381,28 @@ fn run_state(app: &mut App) -> (i8, u32) {
 
 // ── The fourth quantity: the form she is WEARING ────────────────────────────
 
-/// **She crosses in the form she is wearing.**
+/// She crosses in the form she is wearing.
 ///
 /// The last of the four the continuity row asks about — *score, coins, lives,
 /// and worn power across the transition* — and the only one nothing held.
 /// [`the_run_survives_the_crossing`] covers the first three and named this one
 /// as its own gap.
 ///
-/// ⚠ **the form is a component ON THE BODY, and that is the whole design of the
-/// row.** `WornEquipment` is the authority: the exclusive `mary_o_form` slot she
+///  the form is a component ON THE BODY, and that is the whole design of the
+/// row. `WornEquipment` is the authority: the exclusive `mary_o_form` slot she
 /// wears IS her power state. Her tall sheet, her hurtbox and the HUD are all
 /// re-derived from it every frame by `sync_grown_form` and
 /// `reconcile_equipment_grants` — so asserting any of THOSE would be asserting
 /// the emitter's bookkeeping, and would pass on a body that arrived naked for as
 /// long as the deriving system had not yet run. The row is read off the body.
 ///
-/// ⛔ **and she has to have EARNED it.** Inserting a `WornEquipment` by hand
+///  and she has to have EARNED it. Inserting a `WornEquipment` by hand
 /// would prove the transition preserves something no player can obtain. So the
 /// wand is knocked out of the level's OWN authored ?-block by a real head
 /// contact — `bonk_power_blocks` mints it — and picked up by the engine's own
 /// touch-to-collect, which is the only thing here that writes the component.
 ///
-/// ⚠ what is skipped is the WALK to the block, the same concession the crossing
+///  what is skipped is the WALK to the block, the same concession the crossing
 /// proof above makes: 1-1 is 3328px of platforming and this is not a
 /// playthrough. The strike and the pickup are played.
 #[test]
@@ -499,7 +479,7 @@ fn earn_the_star_wand(app: &mut App) {
         step(app, ControlFrame::default());
     }
 
-    // ⭐ **the variable jump, steered off GEOMETRY rather than a frame count.**
+    //  the variable jump, steered off GEOMETRY rather than a frame count.
     // A bare tap rises ~33px and the underside is 48px above her head, so a tap
     // falls short; a held jump rises ~145px and sails clean over. Hold while her
     // head is still below the underside and release the instant it arrives —
@@ -512,7 +492,7 @@ fn earn_the_star_wand(app: &mut App) {
         let (pos, size) = player_body(app);
         let head = pos.y - size.y * 0.5;
         head_best = head_best.min(head);
-        // Head still BELOW the face (larger y is lower) ⇒ keep rising.
+        // Head still BELOW the face (larger y is lower)  keep rising.
         let frame = if head > underside {
             with_jump(ControlFrame::default())
         } else {
@@ -554,7 +534,7 @@ fn earn_the_star_wand(app: &mut App) {
 
 /// 1-1's first authored ?-block.
 ///
-/// ⭐ found by what the AUTHOR marked it, never by an id reconstructed from a
+///  found by what the AUTHOR marked it, never by an id reconstructed from a
 /// Rust constant — the same rule `power_loop`'s harness follows, and for the
 /// same reason: a ?-block is wherever the level says it is.
 fn first_power_block() -> ae::world::Block {
@@ -603,7 +583,7 @@ fn pending_item_pos(app: &mut App) -> Option<Vec2> {
     query.iter(app.world()).next().map(|item| item.pos)
 }
 
-/// **The form, read off the BODY.** `WornEquipment` is the authority the row's
+/// The form, read off the BODY. `WornEquipment` is the authority the row's
 /// instruction names; everything else about being grown is derived from it.
 fn wears(app: &mut App, row_id: &str) -> bool {
     let mut query = app

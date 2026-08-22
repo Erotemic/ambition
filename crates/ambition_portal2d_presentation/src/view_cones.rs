@@ -1,40 +1,12 @@
-//! Through-portal **view windows**: each placed portal shows a slice of the
-//! world in front of its partner, set into its host surface — you look "through
-//! the portal a little bit" — rendered live by an offscreen capture camera.
+//! Live through-portal view windows.
 //!
-//! ## Viewer-dependent visibility
-//! By default the window is the wedge the **controlled character** sees through
-//! the aperture, from a host-supplied [`PortalViewer`]. The viewpoint set is
-//! the character's four real AABB corners PLUS, for any corner that has crossed
-//! the partner plane, its sprite-trick SHADOW (the body-map image) — so a
-//! straddling viewer's presence at both ends feeds one continuous wedge
-//! (`aperture_wedge_multi` unions them), with no abrupt flip at the midpoint of
-//! a pair. Depth scales with proximity to the nearer aperture; line of sight is
-//! a 4-corner × aperture-sample raycast fraction (partial cover ⇒ partial
-//! window). If LOS admits no viewer sample, the live window is hidden; the rim
-//! stays visible. Set [`PortalViewConeConfig::mode`] to [`PortalViewConeMode::Static`] to use
-//! the static, always-on `view_cone`, or [`PortalViewConeMode::Off`] to hide
-//! view windows entirely.
-//!
-//! ## How a rig works Per placed portal with a placed partner, a **rig**: one offscreen image,
-//! a capture `Camera2d` framing the partner-side source rect, and a window `Mesh2d` set into
-//! the entry's surface. The window source wedge comes from
-//! [`view::view_cone`](ambition_portal2d::view::view_cone) (the body map, same as the transit
-//! sprite copy) so the window and the copy read as one continuous image; its rotation/mirror
-//! lives entirely in the per-vertex **UV mapping** (computed inline below), and the capture
-//! camera stays axis-aligned.
-//!
-//! Because the cone follows a moving viewer, rigs are **updated in place every
-//! frame** (mesh attributes + camera transform/projection + visibility) and
-//! only spawned/despawned when the set of portal pairs — or the world size /
-//! capture resolution — changes. No per-frame texture or entity churn.
-//!
-//! ## 1-frame-lag recursion
-//! Window meshes live on a dedicated render layer. The main camera sees that
-//! layer; capture cameras include it only when
-//! [`PortalViewConeConfig::recursion_depth`] is positive. That makes `0` a clean
-//! "world only" capture and positive values keep the existing one-frame-lag
-//! recursive feedback path.
+//! Each paired portal owns an offscreen capture camera and a window mesh. In
+//! viewer mode, the visible wedge is derived from the viewer's body corners and
+//! partner mapping, with line-of-sight sampling controlling visibility; static
+//! and off modes bypass that calculation. Rigs update mesh/camera state in place
+//! and are recreated only when pair topology or capture dimensions change.
+//! Dedicated render layers prevent a capture from sampling its own window;
+//! positive recursion depth permits one-frame-lag views of other windows.
 
 #![allow(unused_imports)]
 use bevy::asset::RenderAssetUsages;
@@ -470,7 +442,7 @@ pub struct PortalViewConeConfig {
     /// visible wedge (per second, exponential approach) — the temporal half of
     /// the smooth blend; the spatial half is the 4-corner visibility fraction.
     pub blend_rate: f32,
-    /// The **minimum cone** shown once LOS admits the window (depth into the
+    /// The minimum cone shown once LOS admits the window (depth into the
     /// surface, world px). Blocked LOS hides the capture window instead of
     /// drawing the minimum through walls.
     pub min_depth: f32,
@@ -490,7 +462,7 @@ pub struct PortalViewConeConfig {
     /// long (lateral) axis. The wedge runs to the half-plane (clipped only by
     /// the world bounds), so the texture's long side is sized from the WORLD
     /// extent × this density, capped by `max_resolution`. The short side
-    /// covers the window depth. 1.0 ⇒ pixel-perfect up to the cap.
+    /// covers the window depth. 1.0  pixel-perfect up to the cap.
     pub texels_per_world_px: f32,
     /// Hard cap on the capture texture's long side (GPU memory guard; a
     /// 2048×256 RGBA capture is ~2 MB per portal).
@@ -508,7 +480,7 @@ pub struct PortalViewConeConfig {
     /// still occludes it. Above world blocks (0).
     pub z: f32,
     /// Tint multiplied over the capture (opaque — the window draws over what it
-    /// is in front of). This is ALSO the **recursion attenuator**: a capture
+    /// is in front of). This is ALSO the recursion attenuator: a capture
     /// sees other portals' windows, so two facing/door portals recurse with one
     /// frame of lag. A tint slightly below white makes each nested level
     /// `tint × tint × …` → the infinite recursion CONVERGES to dark (a fading

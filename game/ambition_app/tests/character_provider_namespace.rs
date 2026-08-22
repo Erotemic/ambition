@@ -1,5 +1,5 @@
-//! **A character definition's provider and its catalog fragment's provider are
-//! ONE identifier.**
+//! A character definition's provider and its catalog fragment's provider are
+//! ONE identifier.
 //!
 //! Two registries name providers. `CharacterCatalogRegistry` keys fragments by
 //! provider and namespaces every brain preset as `provider::name`;
@@ -50,7 +50,7 @@ fn character_definitions_and_catalog_fragments_share_one_provider_namespace() {
         prepared.len(),
     );
 
-    // **the membership test must be able to say NO.** Without this the
+    // the membership test must be able to say NO. Without this the
     // assertion below is only as strong as the set being non-empty, and a set
     // that answered `true` for everything would look identical.
     assert!(

@@ -42,7 +42,7 @@ type CombatSide<'w> = (
     Option<&'w crate::combat::targeting::MatchTeam>,
 );
 
-/// **May this attacker's hit damage this boss?**
+/// May this attacker's hit damage this boss?
 ///
 /// Named and free-standing so the policy can be stated and tested rather than
 /// inferred from the shape of a closure — and so it is visibly the SAME
@@ -106,14 +106,14 @@ pub struct FeatureHitWriters<'w, 's> {
     /// Captured gameplay-session owner for loot, minions, and death effects.
     pub active_session:
         Option<Res<'w, ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
-    /// **Whose cues each body emits** (A13). Read-only, looked up by entity.
+    /// Whose cues each body emits (A13). Read-only, looked up by entity.
     ///
     /// Bundled here rather than added to five helper signatures: every hit-feedback
     /// caller already takes `writers`, and hit feedback is exactly where attribution
     /// matters most — an authored strike sound belongs to the ATTACKER's bank and
     /// the hurt fallback to the VICTIM's, so the emitter needs both.
     pub body_sources: Query<'w, 's, &'static ambition_sfx::BodyPresentationSource>,
-    /// **Whose death a drop fell out of.** Read-only, looked up by entity, and
+    /// Whose death a drop fell out of. Read-only, looked up by entity, and
     /// bundled here for the same reason `body_sources` is: all three drop sites
     /// (actor, boss, breakable) already take `writers`, and a coin, a heart and
     /// an ability pickup each have to state their parent's identity or no render
@@ -141,7 +141,7 @@ impl FeatureHitWriters<'_, '_> {
     /// Owned for the same reason [`Self::source_of`] is owned: the drop sites
     /// need it alongside `&mut writers.commands`.
     ///
-    /// **read, never spelled.** `SimId::placement(feature_id)` would reproduce
+    /// read, never spelled. `SimId::placement(feature_id)` would reproduce
     /// today's value for every drop parent in the shipped game, and that is
     /// exactly the shortcut `SimId::as_str`'s doc forbids — provenance is a
     /// component the entity carries so that changing the id grammar cannot
@@ -168,7 +168,7 @@ impl FeatureHitWriters<'_, '_> {
 
 /// Resolve the identity a drop will descend from, or refuse the drop loudly.
 ///
-/// **a drop that cannot name its parent must not spawn** — the same rule `apply_summon_effects`
+/// a drop that cannot name its parent must not spawn — the same rule `apply_summon_effects`
 /// applies to a summon, and here it is not even a trade. `rebuild_dynamic_feature_views` selects
 /// loot by provenance, so an unprovenanced coin is a coin NO render family claims: the player walks
 /// over `draw_unclaimed_feature_views`' magenta diagnostic box, and the room-transition cover —
@@ -376,16 +376,16 @@ pub fn apply_feature_hit_events(
     // projectile spawn does; it is a menu-side (non-rollback) setting, constant
     // across a rollback window, so reading it here is deterministic.
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
-    // **Which bodies hit HEAVY.** A filter-only query: it reads no components, so
+    // Which bodies hit HEAVY. A filter-only query: it reads no components, so
     // it conflicts with nothing here, including the mutable boss query above.
-    // **Two questions about the ATTACKER**, both filter-only so they read no
+    // Two questions about the ATTACKER, both filter-only so they read no
     // components and conflict with nothing here, including the mutable boss
     // query above. Bundled into one param because this system is at Bevy's
     // 16-param ceiling.
     (heavy_attackers, controlled_attackers, combat_sides): (
         Query<(), With<ambition_boss_encounter::BossConfig>>,
         Query<(), With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>,
-        // **Whose side each body is on**, read for the boss scan's relationship
+        // Whose side each body is on, read for the boss scan's relationship
         // check. Read-only and looked up by entity, so it may overlap the
         // mutable actor and boss queries freely.
         //
@@ -470,7 +470,7 @@ pub fn apply_feature_hit_events(
             crate::combat::events::HitTarget::Body(entity) => Some(entity),
             _ => None,
         };
-        // **The bodies in this strike are already resolved.** A body-owned melee
+        // The bodies in this strike are already resolved. A body-owned melee
         // names every combat body it hits, by entity, in the shared resolver; what
         // it cannot name is a breakable or a boss encounter, and THAT is what this
         // event carries. Scanning actors for it would damage each body a second
@@ -482,7 +482,7 @@ pub fn apply_feature_hit_events(
             event.target,
             crate::combat::events::HitTarget::UnresolvedFeatures
         );
-        // **Is the attacker a HEAVY body?** — asked of the attacker entity, which
+        // Is the attacker a HEAVY body? — asked of the attacker entity, which
         // the event already names, rather than pattern-matched out of the cause
         // vocabulary. A boss launches harder and stuns longer; that is a fact
         // about the striker, not about the word its hit happens to be filed
@@ -532,11 +532,11 @@ pub fn apply_feature_hit_events(
                     continue;
                 }
             }
-            // **IDENTITY BEATS EVERY RELATIONSHIP RULE** — the body resolver's
+            // IDENTITY BEATS EVERY RELATIONSHIP RULE — the body resolver's
             // first line, and this scan did not have it. A broadcast that
             // overlaps its own emitter damaged it.
             //
-            // **the DIRECTION words were doing this job**, which is why nobody
+            // the DIRECTION words were doing this job, which is why nobody
             // noticed: a body-contact hit was filed victim-side, the drain
             // skipped every victim-side broadcast, and the self-hit could not
             // arise. Fold the direction out of the vocabulary and the protection
@@ -607,11 +607,11 @@ pub fn apply_feature_hit_events(
             }
         }
         let mut boss_hit_this_event = false;
-        // **May this attacker hurt this boss?** — the same relational question,
+        // May this attacker hurt this boss? — the same relational question,
         // answered by the same function, that the body resolver asks of every
         // other victim.
         //
-        // **this scan asked nothing at all.** It damaged any boss an
+        // this scan asked nothing at all. It damaged any boss an
         // attacker-side volume reached, and got away with it because only the
         // player was allowed to broadcast one — so a boss's "who may hurt me"
         // rule was encoded as *who is permitted to emit a broadcast*, in another
@@ -682,14 +682,14 @@ pub fn apply_feature_hit_events(
             }
         }
 
-        // **WHO STRUCK, asked ONCE per event** (AC7, probe B). The rule
+        // WHO STRUCK, asked ONCE per event (AC7, probe B). The rule
         // below stood here and again 150 lines down, and the two copies did not
         // agree: this one refuses to guess unless the event is an unresolved
         // BROADCAST from a victim-seeking source, and the breakable fold simply
         // wrote `event.attacker.or_else(|| primary_q.single().ok())` — any melee
         // with no attacker credited whichever body happens to be the home avatar.
         //
-        // **the reasoning is this copy's own and it is the correct one**: *"We do not know who
+        // the reasoning is this copy's own and it is the correct one: *"We do not know who
         // did this" is true of a broadcast and of nothing else.
         let unresolved_broadcast = matches!(
             event.target,
@@ -703,8 +703,8 @@ pub fn apply_feature_hit_events(
                 .flatten()
         });
         if actor_hit_this_event || boss_hit_this_event {
-            // **an UNRESOLVED broadcast may fall back to the primary; a hit
-            // that named its victim may not.** This used to ask
+            // an UNRESOLVED broadcast may fall back to the primary; a hit
+            // that named its victim may not. This used to ask
             // `source.defaults_to_primary_attacker()` — a list of the
             // player-spelled causes — which is the same question asked through
             // the vocabulary, and it gives the wrong answer the moment one
@@ -732,8 +732,8 @@ pub fn apply_feature_hit_events(
                     if entity != attacker {
                         continue;
                     }
-                    // Now the feel field is authoritative. **the attacker freezes for exactly
-                    // as long as its victim**, from the one hitlag law, scaled by the hit it
+                    // Now the feel field is authoritative. the attacker freezes for exactly
+                    // as long as its victim, from the one hitlag law, scaled by the hit it
                     // just landed.
                     combat.hitstop_timer = combat.hitstop_timer.max(
                         ambition_platformer2d_core::hit_response::hitlag_duration(

@@ -1,10 +1,7 @@
 //! Compatibility visuals for Ambition's portal-gun workflow.
 //!
-//! These visuals are deliberately kept out of `visuals.rs`, which should remain
-//! about portal apertures, body pieces, and other portal-seam presentation. A
-//! standalone portal presentation crate should not require a gun: hosts may open
-//! portals from authored level data, scripts, moving emitters, or any other
-//! control authority.
+//! TODO(compat-remove): move gun-specific presentation to the Ambition host and delete this
+//! module from the generic portal presentation crate.
 
 use bevy::prelude::*;
 use bevy::sprite_render::MeshMaterial2d;

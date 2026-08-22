@@ -73,7 +73,7 @@ pub(crate) const PANE_DOMINANCE_BAND: f32 = 6.0;
 ///   pairs, where dominance is identically zero) the nearer window still
 ///   draws over farther ones, as before.
 ///
-/// No viewer ⇒ base z, previous winner kept.
+/// No viewer  base z, previous winner kept.
 pub(crate) fn pane_z(
     config: &PortalViewConeConfig,
     viewer: Option<&PortalViewer>,

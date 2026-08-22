@@ -1,4 +1,4 @@
-//! **Worn equipment → granted actions**, reconciled continuously.
+//! Worn equipment → granted actions, reconciled continuously.
 //!
 //! A row may GRANT an action verb ([`EquipmentGrant`]), and a grant has to be revocable: a row that
 //! is consumed, downgraded, or unequipped must take its verb with it.

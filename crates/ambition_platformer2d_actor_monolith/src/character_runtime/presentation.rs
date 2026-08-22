@@ -1,4 +1,4 @@
-//! **A staged cast authorizes its own presentation sources.** (§4.5, §4.7)
+//! A staged cast authorizes its own presentation sources. (§4.5, §4.7)
 //!
 //! §7.7 gave the engine the vocabulary for several providers emitting cues in one
 //! session: a request carries a [`PresentationSourceId`](ambition_sfx::PresentationSourceId), and
@@ -9,7 +9,7 @@
 //! Nothing in production called it. The only non-unit-test caller was a rendered
 //! test, which means the vocabulary existed and the sentence was never spoken: a
 //! secondary provider's correctly-tagged cue reached the audio authority, found no
-//! authorization for its source, and was **denied**. A cue that is silently
+//! authorization for its source, and was denied. A cue that is silently
 //! dropped is worse than one that plays the wrong sound, because nothing reports
 //! it — the request was well-formed and the refusal was invisible.
 //!
@@ -110,7 +110,7 @@ pub fn authorize_staged_character_presentation_sources(
     }
 }
 
-/// **Publish each body's presentation source, once per SIM tick.**
+/// Publish each body's presentation source, once per SIM tick.
 ///
 /// Published once per FRAME it would be a tick stale for every resimulated tick, and absent
 /// entirely for a body that is spawned and strikes before the next frame boundary — which is
@@ -178,7 +178,7 @@ pub fn publish_body_presentation_sources(
     }
 }
 
-/// **The BACKSTOP for a projectile that reached the world without a source.**
+/// The BACKSTOP for a projectile that reached the world without a source.
 ///
 /// The bolt is the emitter: it is the entity that owns the impact and the
 /// detonation, and it routinely outlives the body that fired it. So the source is
@@ -218,48 +218,22 @@ pub fn inherit_projectile_presentation_sources(
     }
 }
 
-/// Which registered character's definition is currently projected onto a body.
+/// Character definition currently projected onto a body, including the catalog
+/// generation that produced it so stale projections can be detected.
 ///
-/// Knowing which definition is on the body is what makes the removal computable — the same
-/// reason [`IdentityKit`](ambition_characters::brain::action_set::IdentityKit) records what
-/// identity alone derived, so an equipment grant stays revocable.
-///
-/// It records the id, not the DISPLACED value. So a body whose spawn seeded an archetype
-/// moveset, then wore a registered character that authored one, then wore one that authors
-/// none, ends with no moveset rather than its archetype's. Fixing that means storing the
-/// displaced value here — `IdentityKit`'s exact pattern — and no character needs it yet.
-///
-/// `CharacterCatalogGeneration` existed for a day with no production reader: X4
-/// was marked done on the strength of a counter nothing compared against. This
-/// component recorded only the id, and the projection early-exits when the id is
-/// unchanged — so replacing the CAST underneath a body left it wearing the
-/// previous cast's kit, with every check green, because the id it wore was still
-/// the id it wore. The most expensive kind of stale: correct-looking.
-///
-/// Stamping the generation makes "this body was built from a cast that no longer
-/// exists" a question the code can ASK, rather than one it answers by comparing
-/// values and guessing.
+/// TODO(character-projection): record displaced moveset values as well as granted
+/// values so removing an authored moveset can restore the body's prior one.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct ProjectedCharacterKit {
     pub id: String,
     /// The cast this body's projected kit was derived from.
     pub generation: super::definition::CharacterCatalogGeneration,
-    /// **What was actually GRANTED, recorded rather than re-derived.**
-    ///
-    /// That cannot work, and fails in the two cases most worth handling:
-    ///
-    /// * the same id becomes UNAUTHORED in a new cast — the lookup returns the
-    ///   new definition, whose fields are `None`, so the old components are left
-    ///   standing and the body keeps a retired hurtbox document forever;
-    /// * the character LEAVES the cast — the lookup returns nothing at all, and
-    ///   nothing is retracted.
-    ///
-    /// Historical ownership is not a property of the new authority. So it is
-    /// written down at grant time.
+    /// Facts granted by the projected character, recorded so they can be
+    /// retracted even if the character changes or leaves the catalog.
     pub granted: GrantedBodyFacts,
 }
 
-/// **What the projection put on a body**, so it can take exactly that back.
+/// What the projection put on a body, so it can take exactly that back.
 ///
 /// `retract` DESTRUCTURES this struct, so adding a fact here is a COMPILE ERROR
 /// until it is retracted too. That is the whole reason it is a struct rather than
@@ -341,39 +315,12 @@ fn posed_body_for(
     }
 }
 
-/// **C3: a registered character's authored fight reaches a spawned BODY.**
+/// Project prepared character-authored combat/presentation facts onto bodies.
 ///
-/// §4.1's end state is that the prepared registry replaces the old seams; A1 built
-/// the DECLARATION half (sheets, cue authorization, presentation source) and left
-/// construction reading `CharacterCatalog`. So registering a character with a
-/// moveset and a silhouette produced a definition nothing spawned ever consulted —
-/// the §7.10 fight test had to project it onto its own bodies by hand, which proved
-/// the projection works and not that registration reaches production.
-///
-/// This is that projection, once, in the engine. It runs on the same identity chain
-/// as [`publish_body_presentation_sources`] — the worn character, falling back to
-/// the sprite character its combat tuning names — because a body's identity must
-/// mean the same thing to every derivation that reads it. In practice that reaches
-/// both the player (which carries `WornCharacter`) and every spawned actor (which
-/// carries only `CombatTuning`).
-///
-/// **The registry wins where it authored something**, matching `provider_of_character`
-/// and `sheet_for_declared_character`: a character that exists in both authorities
-/// is the registry's. Where the definition authored `None` the catalog's value
-/// stands untouched, which is the ordinary migration state and not a conflict —
-/// `audit_character_authority_parity` reports the case where the two disagree.
-///
-/// Triggered by change detection rather than an already-projected marker,
-/// deliberately:
-/// a marker would be one more component to register for rollback, and bevy_ggrs
-/// recreating an entity re-inserts its components, so the same edge that fires at
-/// spawn fires again after a load. Wearing a different character (a power-up tier,
-/// a super form) re-projects for free.
-///
-/// Vitals are NOT projected. Health is live state, and writing a definition's max
-/// HP onto a body mid-fight would heal it on every transformation — a spawn-time
-/// concern that belongs to whatever constructs the body, not to a per-tick
-/// derivation.
+/// Identity follows worn character first, then combat tuning. Prepared registry
+/// values override older catalog-derived facts where authored. Change detection
+/// makes the projection replay safely after rollback recreation and character
+/// replacement. Live vitals are intentionally not projected here.
 pub fn project_prepared_character_definitions(
     mut commands: Commands,
     registry: Option<Res<PreparedCharacterRegistry>>,
@@ -389,12 +336,12 @@ pub fn project_prepared_character_definitions(
             Added<crate::combat::CombatTuning>,
         )>,
     >,
-    // **The bodies a CAST REPLACEMENT invalidates.** (H6)
+    // The bodies a CAST REPLACEMENT invalidates. (H6)
     //
     // A new cast changes nothing on a body, so the change-detection query above
     // cannot see one — the worn id is still the worn id. That is exactly how a
     // body kept a retired cast's moves with every check green. This query is
-    // **The bodies `apply_worn_character_gameplay` can actually see.**
+    // The bodies `apply_worn_character_gameplay` can actually see.
     //
     // Its required columns, spelled out, because "does the derive match this
     // entity" has no shorter honest form. `WornCharacter` looks like the answer
@@ -463,7 +410,7 @@ pub fn project_prepared_character_definitions(
             }
             continue;
         };
-        // **this marker records what THIS system granted, and nothing else.**
+        // this marker records what THIS system granted, and nothing else.
         //
         // The body recorded that it was up to date and no later pass revisited it, which is worse
         // than a missed update.
@@ -481,7 +428,7 @@ pub fn project_prepared_character_definitions(
             } else {
                 KitOwnership::Grant
             },
-            // **This body answers to no match**, so the character's own feel is
+            // This body answers to no match, so the character's own feel is
             // the whole answer. A SEAT resolves the same question against its
             // match's rules and hands the result in — see
             // `MatchRules::body_over`, which is the only place the two are
@@ -491,7 +438,7 @@ pub fn project_prepared_character_definitions(
     }
 }
 
-/// **Who writes this body's action set and moves** — the one axis on which
+/// Who writes this body's action set and moves — the one axis on which
 /// projecting a definition differs between its two callers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum KitOwnership {
@@ -500,26 +447,26 @@ pub enum KitOwnership {
     Grant,
     /// `apply_worn_character_gameplay` owns it.
     PersonaDerive,
-    /// **The CALLER already resolved this body's kit and inserted it** — a match
+    /// The CALLER already resolved this body's kit and inserted it — a match
     /// seat, whose repertoire is the character's overlaid with the match's own
     /// override and so cannot be read off the definition alone.
     ///
-    /// **everything else is granted, and BOTH applied-template records are stamped.** That is
+    /// everything else is granted, and BOTH applied-template records are stamped. That is
     /// the difference from [`Self:PersonaDerive`], which leaves the gameplay baseline to the
     /// derive because the derive is coming.
     CallerResolved,
 }
 
-/// **Put every fact a prepared character owns onto a body, as ONE batch.**
+/// Put every fact a prepared character owns onto a body, as ONE batch.
 ///
-/// **the ONE place a prepared definition becomes a body**, and that is the
+/// the ONE place a prepared definition becomes a body, and that is the
 /// point of extracting it. Two callers:
 ///
-/// * **CONSTRUCTION**, so a normal character actor is COMPLETE on the frame it
+/// * CONSTRUCTION, so a normal character actor is COMPLETE on the frame it
 /// is built. This is the fix and it is the architecture the rule asked for (§3): *"There should be no next-tick persona grant required for correctness."* A body built this way carries the memo already, so the re-template pass below sees it as current and never touches it.
-/// * **RE-TEMPLATING** — a cast hot reload, a deliberate runtime re-wear — which is what [`project_prepared_character_definitions`] is FOR once ordinary spawning stops depending on it.
+/// * RE-TEMPLATING — a cast hot reload, a deliberate runtime re-wear — which is what [`project_prepared_character_definitions`] is FOR once ordinary spawning stops depending on it.
 ///
-/// **the memo goes in the same batch as the grants, deliberately.** Splitting them is the shape
+/// the memo goes in the same batch as the grants, deliberately. Splitting them is the shape
 /// investigation kept circling: a save taken between the two restores a world claiming to be
 /// projected and missing what the projection grants. One batch, one archetype move, one tick.
 pub fn grant_prepared_character_body(
@@ -528,9 +475,9 @@ pub fn grant_prepared_character_body(
     prepared: &super::PreparedCharacterDefinition,
     generation: super::definition::CharacterCatalogGeneration,
     kit: KitOwnership,
-    // **THE BODY THIS ENTITY PLAYS WITH, already resolved by the caller.**
+    // THE BODY THIS ENTITY PLAYS WITH, already resolved by the caller.
     //
-    // **NOT read off `prepared` here, and that is the whole point.** A seat
+    // NOT read off `prepared` here, and that is the whole point. A seat
     // in a match answers to the MATCH's body as well as its character's, and
     // that weighing belongs in one place (`MatchRules::body_over`) rather than
     // in the materializer, which would then be a second authority on it — the
@@ -539,20 +486,20 @@ pub fn grant_prepared_character_body(
     movement_tuning: Option<ambition_platformer2d_core::MovementTuning>,
 ) {
     {
-        // **THE APPLIED-TEMPLATE STAMP FOR GAMEPLAY, written at CONSTRUCTION**
+        // THE APPLIED-TEMPLATE STAMP FOR GAMEPLAY, written at CONSTRUCTION
         // .
         //
-        // **without it the contract was a lie, and I asserted otherwise.** The persona derive
+        // without it the contract was a lie, and I asserted otherwise. The persona derive
         // re-applies a body whenever `stale_cast = PersonaBaseline.is_none_or(..)`, and
         // construction wrote only `ProjectedCharacterKit` — so a body built COMPLETE had no
         // baseline, `stale_cast` was true, and the character was applied a second time on the
         // next pass.
         //
-        // **`displaced` is EMPTY, and that is the Construction boundary's whole
-        // meaning**: nothing was taken from this body, because the body was BUILT
+        // `displaced` is EMPTY, and that is the Construction boundary's whole
+        // meaning: nothing was taken from this body, because the body was BUILT
         // as this character. A replacement records what it displaced so it can
         // retract to it; a construction has nothing to retract to.
-        // **the gate is "is a derive coming", not "who writes the kit".** Those
+        // the gate is "is a derive coming", not "who writes the kit". Those
         // are two different questions and this asked one of them: a caller that
         // resolves its own kit (a match seat) still needs the gameplay baseline,
         // because nothing else is going to write it.
@@ -570,7 +517,7 @@ pub fn grant_prepared_character_body(
             generation,
             granted: GrantedBodyFacts::of(prepared, movement_tuning),
         });
-        // **THE KIT, for the bodies the persona derive cannot see.**
+        // THE KIT, for the bodies the persona derive cannot see.
         //
         // `apply_worn_character_gameplay` is the ONE writer that turns a `WornCharacter` into a
         // persona. This system wrote seated bodies' kits too, on the belief that seated bodies
@@ -624,7 +571,7 @@ pub fn grant_prepared_character_body(
                 crate::combat::components::DamageableVolumes::default(),
             ));
         }
-        // **THE AUTHORED BODY, which had no consumer at all.**
+        // THE AUTHORED BODY, which had no consumer at all.
         //
         // `CharacterDefinition.body` has existed since §4.11 and nothing read it:
         // a provider could author `SpriteAuthored { world_per_pixel }` and receive
@@ -640,7 +587,7 @@ pub fn grant_prepared_character_body(
         if let Some(posed) = posed_body_for(prepared) {
             commands.entity(entity).insert(posed);
         }
-        // **The MOTION MODEL, on the same path and for the X9 reason.**
+        // The MOTION MODEL, on the same path and for the X9 reason.
         //
         // The worn-player path resolves this in `apply_worn_character_kit`;
         // wiring only that one is exactly the mistake the action set made — a

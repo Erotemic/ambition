@@ -1,66 +1,12 @@
-//! Faithful Bevy scene capture for a camera-follow snapshot.
-//!
-//! This is the render-stack counterpart to
-//! `ambition_platformer2d::actors/examples/render_room_geometry.rs capture`: it runs
-//! the real presentation plugins, forces the main camera to the same
-//! `CameraSnapshot2d` policy for an arbitrary focus point, renders into an
-//! offscreen image target, and asks Bevy's screenshot pipeline to write that
-//! render target to disk. It intentionally knows nothing about portals; portals
-//! can later reuse the same "snapshot -> render target" seam.
-//!
-//! **ONE APP, built by [`ambition_app::app::build_visible_app_with`]** — the
-//! same function the desktop binary and every rendered test call. A room and a
-//! route differ by the INITIAL ROUTE and by which capture systems get installed,
-//! and by nothing else. Read `build_capture_app` before adding anything to this
-//! file that sounds like composition.
+//! Render a room or route into an offscreen screenshot using the production app
+//! composition and camera policy.
 //!
 //! Usage:
-//!   cargo run -p ambition_app_tools --bin capture_scene -- <ROOM_ID> <X,Y|player> [OUT.png] [WIDTHxHEIGHT] [--warmup N] [--character ID] [--include-ui]
-//!   cargo run -p ambition_app_tools --bin capture_scene -- c136 1200,480 /tmp/c136_game.png 1280x720
-//!   # center on the player, spawned AS the pirate admiral:
-//!   cargo run -p ambition_app_tools --bin capture_scene -- central_hub_main player /tmp/p.png --character npc_pirate_admiral --warmup 40
+//! `cargo run -p ambition_app_tools --bin capture_scene -- <ROOM_ID> <X,Y|player> [OUT.png] [WIDTHxHEIGHT] [--warmup N] [--character ID] [--include-ui]`
 //!
-//! **A TWO-FIGHTER CPU-vs-CPU SMASH MATCH, from the lobby.** The state this
-//! tool exists to photograph is usually behind a lobby, and a lobby steered by
-//! a CURSOR cannot be worked by key edges alone — see [`PressStep::Touch`]. The
-//! taps below are the select screen's own rectangles at 1280x720, in order:
-//! both role buttons twice (absent → controller → CPU), then token, portrait,
-//! token, portrait, then START.
-//!
-//!   cargo run --release -p ambition_app_tools --bin capture_scene -- \
-//!       --route smash_select /tmp/match.png 1280x720 --warmup 420 --include-ui \
-//!       --press touch:167x523,touch:167x523,touch:482x523,touch:482x523,\
-//! touch:559x446,touch:479x121,touch:613x446,touch:801x121,touch:1191x446
-//!
-//! ```text
-//!            x=425          x=532        x=640        x=747       x=855
-//!   y=120    Player Robot   George       Mary-O       Sanic       Pirate
-//!            v3             Booul                                 Admiral
-//!   y=243    Shadow Oni     Alice        Bob          Oiler       Perfect Cellular
-//!            Leader                                               Automaton
-//!   y=367    Goblin         Emmy         Carl         Patent      RANDOM
-//!                           Ethereal     Stargan      Clerk
-//! ```
-//!
-//! ⇒ so seating a DIFFERENT pair is one coordinate each, and a recipe that has
-//! rotted announces itself as a match that never starts rather than as a wrong
-//! fighter.
-//! `smash_in_the_host::the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters`
-//! drives exactly these numbers through the real host and fails when one stops
-//! landing on the widget it names.
-//!
-//! **THEY HAD ROTTED, AND FOR MONTHS, AND THE GUARD STAYED GREEN** . They read `747x121` and
-//! `425x121` — grid cells 3 and 0, **Sanic and Player Robot v3** — and the guard only asserted
-//! the two picks DIFFER, which stays true however far the grid slides under them. So the one
-//! command this repo points at to ask *"do the two AUTHORED kits read differently on screen"*
-//! seated Sanic, who has no authored repertoire at all, and two capture passes answered that
-//! question against the wrong match. The guard now asserts both seats wear a fighter with an
-//! `authored_moveset`, which is the property the command exists to photograph.
-//!
-//! the current cells: `479x121` is **George Booul** (cell 1, the demo's own
-//! fighter) and `801x121` is the **Pirate Admiral** (cell 4, Ambition's). With
-//! those two seated a watcher sees two mechanically different bodies inside four
-//! seconds — different silhouettes, different effects, 36% traded.
+//! For Smash captures, `--press touch:XxY,...` can drive the select screen before
+//! capture; keep coordinate recipes covered by host tests because the UI layout can
+//! move.
 
 use std::path::PathBuf;
 
@@ -90,7 +36,7 @@ struct SceneCaptureConfig {
     size: UVec2,
     warmup_frames: u32,
     include_ui: bool,
-    /// **Frame the whole ROOM instead of a point** (`--fit-room`).
+    /// Frame the whole ROOM instead of a point (`--fit-room`).
     ///
     /// the focus positional answers *"what is happening here"*; this answers *"what does this room
     /// LOOK like"*, which is a different question and the one a scale problem is visible in.
@@ -129,13 +75,13 @@ struct SceneCaptureConfig {
     /// Deliberately a generic input vocabulary rather than a `--smash-cpu`
     /// flag, so any route with a lobby gets it for free.
     ///
-    /// They are not**. `smash_in_the_host.rs` seats a fighter with `click(app, rect)`, which is
+    /// They are not. `smash_in_the_host.rs` seats a fighter with `click(app, rect)`, which is
     /// `SelectCursor::move_to(rect.center())` and THEN `tap(Enter)` — the POSITION is the
     /// load-bearing half. A bare `Enter` from here commits wherever the cursor happens to sit, so
     /// `--press Down,Enter,Enter` left all four slots reading `NOT PLAYING` and `--route
     /// smash_gameplay` photographed an empty stage.
     ///
-    /// **`touch:X x Y` is the step that carries a position**, and it carries
+    /// `touch:X x Y` is the step that carries a position, and it carries
     /// it down the road a phone uses: two real `TouchInput` messages folded by
     /// Bevy's own `touch_screen_input_system`. `select_screen::touch_tests`
     /// already pins that road, so the tool and the suite drive the same seam
@@ -195,7 +141,7 @@ struct SceneCaptureRuntime {
     /// How many cameras the route capture has adopted, so the count is
     /// announced when it CHANGES rather than once per frame.
     cameras_adopted: usize,
-    /// **Has the world this capture photographs finished being BUILT?**
+    /// Has the world this capture photographs finished being BUILT?
     ///
     /// So `--warmup 60` meant "sixty frames after BOOT", of which an unpredictable number happened
     /// before there was anything to simulate. The body ended up on a slightly different tick of its
@@ -243,11 +189,11 @@ fn main() {
     app.run();
 }
 
-/// **THE ONE APP THIS TOOL BUILDS.**
+/// THE ONE APP THIS TOOL BUILDS.
 ///
 /// There was no moment to insert them in, so the tool built its own app instead, and that copy
 /// silently lost the `--route` positional, the headless display surface, `--dev-overlays`,
-/// `--combat-overlay`, and — for two days — **the entire room**, because nothing added
+/// `--combat-overlay`, and — for two days — the entire room, because nothing added
 /// `install_ambition_shell_visuals` to it.
 ///
 /// `build_visible_app_with` is the moment that did not exist. With it, a ROOM and a ROUTE
@@ -284,7 +230,7 @@ fn build_capture_app(config: &SceneCaptureConfig) -> App {
             }
         },
     );
-    // **THE SURFACE THIS RUN DRAWS TO.** (queue Z′8)
+    // THE SURFACE THIS RUN DRAWS TO. (queue Z′8)
     //
     // A capture that cannot show a layout is worse than no capture, because it
     // shows a DIFFERENT layout convincingly.
@@ -296,7 +242,7 @@ fn build_capture_app(config: &SceneCaptureConfig) -> App {
             ),
         ),
     );
-    // **THE ENGINE'S OWN LOG, which every windowless host disables.**
+    // THE ENGINE'S OWN LOG, which every windowless host disables.
     //
     // `build_visible_app` drops `LogPlugin` from `NoWindow` and `OffscreenGpu`
     // for a reason that is true of tests and false of this binary: *"tests build
@@ -348,18 +294,18 @@ enum PressStep {
     Hold(KeyCode),
     /// Let go of a key an earlier `hold:` is still holding (`release:up`).
     Release(KeyCode),
-    /// **Tap the glass at a point** (`touch:167x523`), in LOGICAL window pixels
+    /// Tap the glass at a point (`touch:167x523`), in LOGICAL window pixels
     /// with a top-left origin — the space `HitRect` and `Node { left, top }`
     /// are already in, and the space a capture's own pixels are in at scale 1.
     ///
-    /// **this is the step that can work a POINTER screen, and a key tap
-    /// cannot.** A key is an EDGE with no position, so `Enter` commits wherever
+    /// this is the step that can work a POINTER screen, and a key tap
+    /// cannot. A key is an EDGE with no position, so `Enter` commits wherever
     /// the cursor already sits; the select screen's headless drivers commit at
     /// a rectangle's centre, and the position is the load-bearing half. A
     /// finger carries both, which is why one step type reaches every widget
     /// while no number of arrow taps reliably does.
     ///
-    /// **a real `TouchInput` message, not a poke at `Touches`** — the same
+    /// a real `TouchInput` message, not a poke at `Touches` — the same
     /// pair of messages winit emits, folded by Bevy's own
     /// `touch_screen_input_system`. So this drives the phone road the product
     /// ships, and any route that answers a finger gets it for free.
@@ -436,9 +382,9 @@ fn parse_key(name: &str) -> Result<KeyCode, String> {
         "z" => Ok(KeyCode::KeyZ),
         "x" => Ok(KeyCode::KeyX),
         "c" => Ok(KeyCode::KeyC),
-        // **the rest of the default preset's action row, and its absence had a cost.** `z`/`x`/`c`
+        // the rest of the default preset's action row, and its absence had a cost. `z`/`x`/`c`
         // are jump/attack/dash; the preset also binds secondary=A, quick_action=E, special=G and
-        // **interact=F**.
+        // interact=F.
         //
         // So the repo's only way to LOOK at a visual change could not reach the one screen most in
         // need of looking at.
@@ -566,7 +512,7 @@ impl SceneCaptureConfig {
         // would mean inventing values that are then ignored, which is how a
         // flag ends up documented as "pass anything here".
         if let Some(route) = route.clone() {
-            // **A ROUTE'S POSITIONALS ARE CLASSIFIED, NOT COUNTED.**
+            // A ROUTE'S POSITIONALS ARE CLASSIFIED, NOT COUNTED.
             //
             // Classifying instead of counting means an unexpected argument is
             // NAMED, and named before any work happens rather than after.
@@ -657,7 +603,7 @@ impl SceneCaptureConfig {
 /// wait for a route ("warmup is a duration, readiness is a FACT"), and the deadline is
 /// recomputed with it rather than eaten by it.
 ///
-/// **this lived inside the deferred-release branch of a TAP**, so it ran only
+/// this lived inside the deferred-release branch of a TAP, so it ran only
 /// when the last step was a tap. `Hold`, `Release` and `Wait` advance the cursor
 /// through a different path and none of them completed the sequence — and BOTH
 /// shaped-volume examples this tool ships end in `release:`, so neither ever got
@@ -805,7 +751,7 @@ fn install_route_capture(app: &mut App, route_id: String) {
     );
 }
 
-/// Drive the shell to the requested route — **unless it is already there.**
+/// Drive the shell to the requested route — unless it is already there.
 ///
 /// Found while instrumenting rebuild counts for an unrelated question.
 ///
@@ -976,7 +922,7 @@ fn apply_capture_snapshot(
     // global — a capture app stages exactly one view, so this writes the one it
     // staged rather than a resource every consumer shared.
     mut view_states: Query<&mut CameraViewState, With<ambition_platformer2d::sim_view::LocalView>>,
-    // **THE SIM BODY, not the render visual.**
+    // THE SIM BODY, not the render visual.
     //
     // This queried `BodyKinematics` `With<PlayerVisual>`, and `PlayerVisual` is a
     // RENDER-side marker on a by-id render entity that carries no kinematics. So
@@ -1005,7 +951,7 @@ fn apply_capture_snapshot(
     // can produce this — the resolver below clamps to the room and to camera
     // zones, so asking it for a wide shot gives back a gameplay shot.
     if config.fit_room {
-        // **the projection's own SCALING MODE, not a multiplier on the base view.** The first
+        // the projection's own SCALING MODE, not a multiplier on the base view. The first
         // version computed `scale = max(room / base_view)` and framed the hall at about a fifth
         // of the image: `scale` multiplies an extent that depends on the mode and on the
         // viewport's aspect, so the arithmetic only holds when those agree.
@@ -1084,10 +1030,10 @@ const ROUTE_CAMERA_GRACE_FRAMES: u32 = 600;
 ///
 /// Two conditions, and the second one is the interesting half.
 ///
-/// **The body exists.** A player-focused capture waits for the body it is going
+/// The body exists. A player-focused capture waits for the body it is going
 /// to centre on; a coordinate-focused one has nothing specific to wait for.
 ///
-/// **Its ART has a terminal answer.** A decoded sheet RESIZES the body it
+/// Its ART has a terminal answer. A decoded sheet RESIZES the body it
 /// belongs to — `SpritePosedBody` derives the collision box from the art — so a
 /// sheet that lands on frame 7 in one run and frame 11 in another gives the body
 /// a different shape for a different number of ticks while it is still falling
@@ -1139,7 +1085,7 @@ fn request_capture(
         }
         return;
     }
-    // **WARMUP COUNTS FROM A READY WORLD, not from boot.**
+    // WARMUP COUNTS FROM A READY WORLD, not from boot.
     //
     // Same distinction the route-camera check below draws — warmup is a
     // duration, readiness is a fact — applied to the other end of the capture.
@@ -1156,9 +1102,9 @@ fn request_capture(
     if runtime.frames < config.warmup_frames.max(1) {
         return;
     }
-    // **Drive the route's own lobby before the shutter.**
+    // Drive the route's own lobby before the shutter.
     //
-    // **`press_wait` belongs in this condition.** Without it a trailing `wait:N` left the
+    // `press_wait` belongs in this condition. Without it a trailing `wait:N` left the
     // sequence "inactive" the moment its cursor passed the last step, so the wait was never
     // counted down and never completed — a step type that silently did nothing when it happened
     // to be last.
@@ -1257,7 +1203,7 @@ fn request_capture(
             kin.pos.x, kin.pos.y, runtime.frames
         );
     } else {
-        // **SEAT ORDER, not query order.** Bevy iterates by archetype, so an
+        // SEAT ORDER, not query order. Bevy iterates by archetype, so an
         // unsorted list would compare two captures of the same match and find
         // them different because the rows moved.
         let mut seated: Vec<_> = seated_q
@@ -1283,7 +1229,7 @@ fn request_capture(
             }
         }
     }
-    // **A ROUTE CAPTURE WAITS FOR A CAMERA, not for a clock.**
+    // A ROUTE CAPTURE WAITS FOR A CAMERA, not for a clock.
     //
     // Warmup is a duration; readiness is a fact. With only the duration, a route
     // that is slow, broken, or never builds a camera at all let this tool read

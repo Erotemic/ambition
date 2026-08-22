@@ -87,7 +87,7 @@ pub struct BodyAnimView {
     pub dead: bool,
     pub hit: bool,
     pub dodge_roll: bool,
-    /// **The AERIAL evade**, distinct from the ground roll on purpose: it picks the `Roll` row,
+    /// The AERIAL evade, distinct from the ground roll on purpose: it picks the `Roll` row,
     /// whose own fallback is `DodgeRoll`, so a sheet with one curl still animates and a sheet with
     /// two shows two maneuvers.
     pub air_dodge: bool,
@@ -103,7 +103,7 @@ pub struct BodyAnimView {
     pub special: bool,
     pub shooting: bool,
     /// The melee row to play while mid-swing (directional for the player,
-    /// Punch/Slash for actors). `None` ⇒ not attacking.
+    /// Punch/Slash for actors). `None`  not attacking.
     pub melee_attack: Option<CharacterAnim>,
     pub aiming: bool,
     pub wall_jump: bool,
@@ -128,7 +128,7 @@ pub struct BodyAnimView {
     pub wall_grab: bool,
     pub gliding: bool,
     pub airborne: bool,
-    /// Only read while `airborne`: up ⇒ Jump, else Fall.
+    /// Only read while `airborne`: up  Jump, else Fall.
     pub moving_up: bool,
     /// `Some(hard)` while a landing-recovery pose is held (grounded only).
     pub landing: Option<bool>,
@@ -143,15 +143,15 @@ pub struct BodyAnimView {
     /// gravity is vertical — see [`body_view_from_body`] for the wall case that
     /// exposed it.
     pub speed: f32,
-    /// Grounded: `speed < idle_below` ⇒ Idle.
+    /// Grounded: `speed < idle_below`  Idle.
     pub idle_below: f32,
-    /// **Grounded: this body is in a RUN** (`BodyMotionFacts::running`).
+    /// Grounded: this body is in a RUN (`BodyMotionFacts::running`).
     ///
-    /// **this replaces a `run_above: Option<f32>` whose two setters
-    /// DISAGREED, along the player/actor line.** `pick_player_anim` set
+    /// this replaces a `run_above: Option<f32>` whose two setters
+    /// DISAGREED, along the player/actor line. `pick_player_anim` set
     /// `Some(220.0)` and `pick_actor_anim` set `None`, and `None` means
-    /// *cap at Walk* — so the protagonist could run and **every CPU fighter in
-    /// the game was capped at a walk**, drawing `walk` at full sprint. The `run`
+    /// *cap at Walk* — so the protagonist could run and every CPU fighter in
+    /// the game was capped at a walk, drawing `walk` at full sprint. The `run`
     /// row every fighter sheet draws was unreachable for the bodies that do most
     /// of the running.
     ///
@@ -160,7 +160,7 @@ pub struct BodyAnimView {
     /// always running. A gait is speed against THIS body's own top speed, which
     /// is what `MovementTuning::run_commit_frac` asks and the kernel publishes.
     pub running: bool,
-    /// Aerial: `speed > fly_above` ⇒ Fly, else Idle (hover).
+    /// Aerial: `speed > fly_above`  Fly, else Idle (hover).
     pub fly_above: f32,
 }
 
@@ -170,7 +170,7 @@ pub struct BodyAnimView {
 /// Punch swing row) folded in at their priorities. Inert states (a `None`
 /// ledge, `false` flags) fall straight through, so a sparse actor view lands on
 /// the shared locomotion tail.
-/// **The two fighter facts that are not the movement kernel's**, taken beside
+/// The two fighter facts that are not the movement kernel's, taken beside
 /// [`BodyMotionFacts`](ambition_platformer2d_core::BodyMotionFacts) by
 /// [`body_state_clip`].
 ///
@@ -178,14 +178,14 @@ pub struct BodyAnimView {
 /// capture relation mirrored onto `BodyAnimFacts`, and `guard_break` is the
 /// shield cluster's. Neither is something the movement kernel publishes about
 /// itself, and folding them into the motion facts would say it does.
-/// **Which beat of a shield break a body is in.**
+/// Which beat of a shield break a body is in.
 ///
 /// the genre draws a break as a SEQUENCE — launched off the ground, falling,
 /// collapsed, recovering — and the simulation publishes ONE countdown. The beat
 /// is derived from that countdown and the length it started at
 /// (`BodyShieldState::break_phase`), so four poses cost no new state.
 ///
-/// **the boundaries live HERE and nowhere else.** They are presentation
+/// the boundaries live HERE and nowhere else. They are presentation
 /// timing, not feel: a sheet that draws the four rows wants them apportioned the
 /// way the art was drawn, and a sheet that draws none is unaffected because
 /// every chain falls back to `dizzy`.
@@ -254,12 +254,12 @@ pub struct FighterClipFacts {
     /// This body's guard TOOK a hit and is paying shieldstun for it
     /// (`BodyShieldState::stun_timer`).
     ///
-    /// **not [`Self::guard_break`]** — the shield HELD. A break is the
+    /// not [`Self::guard_break`] — the shield HELD. A break is the
     /// floor game; this is the beat a blocked hit costs a defender.
     pub guard_stunned: bool,
 }
 
-/// **The authored ROW a body's fighter state asks to be drawn as**, when the new
+/// The authored ROW a body's fighter state asks to be drawn as, when the new
 /// sheets have one, with the fallback chain for the sheets that do not.
 ///
 /// sprite redirect P2. The engine already produces these states and
@@ -269,16 +269,16 @@ pub struct FighterClipFacts {
 /// / `LandRecovery`. The new fighter sheets draw them separately. This is the
 /// same clip-request seam a MOVE uses, for a state that has no `MoveSpec`.
 ///
-/// **the facts are READ, never inferred.** No velocity heuristics, no
+/// the facts are READ, never inferred. No velocity heuristics, no
 /// "it looks airborne so it must be tumbling" — every term here is a flag the
 /// movement kernel publishes about itself.
 ///
-/// **the priority order mirrors `pick_body_anim`'s exactly**, and that is not
+/// the priority order mirrors `pick_body_anim`'s exactly, and that is not
 /// tidiness: a knocked-down body is still inside its hitstun, so answering the
 /// tumble first would draw the launched pose through the whole prone beat and
 /// the knockdown would never be seen.
 ///
-/// **`tech` / `tech_roll` / `getup_roll` are NOT distinguished here**, and the
+/// `tech` / `tech_roll` / `getup_roll` are NOT distinguished here, and the
 /// reason is honest: the simulation publishes ONE `getup_invulnerable` flag, so
 /// telling a tech from an ordinary getup would mean inventing a distinction the
 /// sim has not made. That fact belongs to the subsystem that knows which
@@ -327,7 +327,7 @@ pub fn body_state_clip(
     if facts.spot_dodging {
         return Some(&["spot_dodge", "crouch", "roll", "idle"]);
     }
-    // **THE PERFECT SHIELD, and it is a REFINEMENT of the block** — the same
+    // THE PERFECT SHIELD, and it is a REFINEMENT of the block — the same
     // shape as `spot_dodge` refining the roll above. `pick_body_anim` answers
     // every guarding body with one `Block`, so a guard merely held and a guard
     // that caught something perfectly drew the identical pose. The sheets have
@@ -359,7 +359,7 @@ pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
     if v.dead {
         return Death;
     }
-    // **the floor game outranks the hit flash.** A knocked-down body is still inside its
+    // the floor game outranks the hit flash. A knocked-down body is still inside its
     // hitstun, so reading `hit` first would draw the struck pose for the whole prone beat and
     // the knockdown would be invisible. ABOVE the floor game and the hit flash: a body in
     // somebody's hands is not doing anything else, and its velocity is the captor's.
@@ -475,7 +475,7 @@ pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
 }
 
 /// Resolve the published ledge facts ([`ae::LedgeFacts`]) into the visual ledge
-/// read (`None` ⇒ not on a ledge): a held hang is `Grab`; once committed the
+/// read (`None`  not on a ledge): a held hang is `Grab`; once committed the
 /// getup-kind selects the climb / roll / attack getup. SHARED by every body —
 /// the player and any actor that grows a ledge-grab limb route through this one
 /// mapping.
@@ -531,8 +531,8 @@ pub fn body_view_from_body(
     frame: ae::AccelerationFrame,
 ) -> BodyAnimView {
     use ambition_platformer2d_core::player_state::BodyMode;
-    // **THE THREE READS BELOW ARE FRAME-RELATIVE, AND EACH WAS A WORLD-AXIS
-    // TEST THAT ONLY LOOKED RIGHT UNDER VERTICAL GRAVITY.**
+    // THE THREE READS BELOW ARE FRAME-RELATIVE, AND EACH WAS A WORLD-AXIS
+    // TEST THAT ONLY LOOKED RIGHT UNDER VERTICAL GRAVITY.
     //
     // row never played — but upside-down on a ceiling it did. Turn gravity sideways and the run
     // axis becomes world-y: a body at full sprint reads `|vel.x| ≈ 0`, lands under `idle_below`,
@@ -790,37 +790,9 @@ pub fn pick_actor_anim(
 mod state_clip_tests {
     use ambition_platformer2d_core::BodyMotionFacts;
 
-    /// **A FIGHTER STATE ASKS FOR ITS OWN ROW, IN THE LADDER'S ORDER.**
-    ///
-    /// sprite redirect P2. These four states existed and were drawn already —
-    /// as `Roll`, `Hit`, `LandHard` and `LandRecovery`, because `CharacterAnim`
-    /// has no variant for any of them. The new sheets draw them separately.
-    ///
-    /// **THE GUARD HAS THREE POSES, NOT ONE.**
-    ///
-    /// `pick_body_anim` answers every guarding body with a single `Block`, so
-    /// a guard merely held, a guard that caught a hit perfectly, and a guard
-    /// that took one and held drew the identical frame. The sheets have drawn
-    /// all three apart the whole time — Carl's has `parry`, `shield_hit` and
-    /// `block` — and nothing asked for two of them.
-    ///
-    /// **the last assertion is the floor and the test is worthless without
-    /// it**: a body merely holding its guard must still get `None` here, so the
-    /// ordinary block keeps falling through to `CharacterAnim::Block`. A pair of
-    /// rows that also answered the plain case would silently take the block away
-    /// from every non-fighter sheet in the game.
-    /// **FOUR BEATS OUT OF ONE TIMER, AND NO NEW SIMULATION STATE.**
-    ///
-    /// Every fighter sheet in the repo draws `shield_break_launch`, `_fall`,
-    /// `_collapse` and `_recover`; the sim publishes one `break_timer` and the
-    /// picker answered all four with `dizzy`. `BodyShieldState::break_total`
-    /// stamps how long THIS break was, so the phase — and the beat — is derived.
-    ///
-    /// **the last assertion is the one that makes this safe to ship**: every
-    /// chain still ends at `dizzy`, so a sheet that draws NONE of the four rows
-    /// resolves exactly as it did before the sequence existed. Without it this
-    /// change would take the dizzy pose away from every character that has one
-    /// and no break art.
+    /// Fighter-specific guard and shield-break clips precede generic animation
+    /// fallbacks. Shield-break beat is derived from the existing timer, and every
+    /// beat chain ends in `dizzy` so sheets without fighter rows retain fallback art.
     #[test]
     fn a_shield_break_is_four_beats_that_all_fall_back_to_dizzy() {
         use super::GuardBreakBeat;
@@ -840,7 +812,7 @@ mod state_clip_tests {
         assert_eq!(first(0.5), Some("shield_break_collapse".to_string()));
         assert_eq!(first(0.95), Some("shield_break_recover".to_string()));
 
-        // **NON-VACUITY: the four must be DISTINCT.** A `from_phase` that
+        // NON-VACUITY: the four must be DISTINCT. A `from_phase` that
         // returned one beat for everything would satisfy "it returns something"
         // at every phase above, and this is a sequence or it is nothing.
         let beats: std::collections::BTreeSet<String> = [0.0, 0.2, 0.5, 0.95]
@@ -849,7 +821,7 @@ mod state_clip_tests {
             .collect();
         assert_eq!(beats.len(), 4, "the four beats collapsed onto {beats:?}");
 
-        // **THE FLOOR.** A sheet with no break art must still reach `dizzy`,
+        // THE FLOOR. A sheet with no break art must still reach `dizzy`,
         // which is what every chain ends at.
         for phase in [0.0, 0.2, 0.5, 0.95] {
             let chain = super::body_state_clip(
@@ -895,7 +867,7 @@ mod state_clip_tests {
             Some("shield_hit".to_string()),
         );
 
-        // **the poison, and it is the REAL case rather than a contrived one:**
+        // the poison, and it is the REAL case rather than a contrived one:
         // a perfect shield that catches a hit has a live parry window AND the
         // shieldstun that hit costs, on the same tick. The parry is what the
         // player did, so it has to win.
@@ -931,7 +903,7 @@ mod state_clip_tests {
         );
     }
 
-    /// **the ORDER is the assertion that matters.** A knocked-down body is
+    /// the ORDER is the assertion that matters. A knocked-down body is
     /// still inside its hitstun, so `tumbling` and `knocked_down` are true
     /// together — answering the tumble first would draw the launched pose for
     /// the whole prone beat and the knockdown would never be seen. That is the
@@ -1057,7 +1029,7 @@ mod state_clip_tests {
         );
     }
 
-    /// **EVERY CHAIN ENDS SOMEWHERE A LEAN SHEET CAN REACH.**
+    /// EVERY CHAIN ENDS SOMEWHERE A LEAN SHEET CAN REACH.
     ///
     /// expressiveness is opt-in: a character with only `idle`, `walk`, `slash`
     /// and `hit` must still draw something for every one of these states, or the

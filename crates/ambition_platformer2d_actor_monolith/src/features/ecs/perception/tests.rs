@@ -566,7 +566,7 @@ fn corridor_world(gap: f32) -> ae::World {
     )
 }
 
-/// **The stage is not viewport-clipped.** A fighter can see the blastzones;
+/// The stage is not viewport-clipped. A fighter can see the blastzones;
 /// L1's `Recovery`/`EdgeGuard` are undecidable otherwise. The viewport here is
 /// far smaller than the room.
 #[test]
@@ -637,7 +637,7 @@ impl<T> CountOrNone for Option<T> {
     }
 }
 
-/// **Two seats on different teams are foes even when they share a faction.**
+/// Two seats on different teams are foes even when they share a faction.
 ///
 /// `damage_lands_between` gives the TEAM relation precedence over factions;
 /// perception did not, so it disagreed with the damage rule about who the enemy

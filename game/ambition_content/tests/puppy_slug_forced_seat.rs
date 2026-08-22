@@ -1,11 +1,11 @@
-//! **FORCE A PUPPY SLUG INTO SMASH AND YOU GET A PUPPY SLUG** — the real
+//! FORCE A PUPPY SLUG INTO SMASH AND YOU GET A PUPPY SLUG — the real
 //! creature, not a fixture shaped like the answer.
 //!
 //! Smash … movement input → uses Puppy Slug's actual authored locomotion. Jump →
 //! no jump if its body cannot jump. Smash must not silently give it a generic
 //! swipe, a generic humanoid jump, a generic dash."*
 //!
-//! **the seam version of this exists and is not this test.**
+//! the seam version of this exists and is not this test.
 //! `a_crawler_seated_as_a_fighter_keeps_its_own_locomotion` (in the monolith)
 //! registers a definition it names "crawler" and authors 36px/s and Slither on.
 //! It proves the SEAM carries authored locomotion; it cannot prove that the
@@ -103,7 +103,7 @@ fn seat_the_cast(participants: Vec<MatchParticipant>) -> Vec<Seat> {
     rows
 }
 
-/// **THE CREATURE THE GAME SHIPS KEEPS ITS OWN BODY IN A FIGHTER SEAT.**
+/// THE CREATURE THE GAME SHIPS KEEPS ITS OWN BODY IN A FIGHTER SEAT.
 ///
 /// the control is the point of the pair: `npc_carl_stargan` is registered and
 /// authors no body at all, so he receives whatever the stage gives an unmigrated
@@ -158,7 +158,7 @@ fn the_shipped_puppy_slug_is_seated_as_itself() {
     );
 }
 
-/// **JUMP → NO JUMP, BECAUSE ITS BODY CANNOT JUMP.**
+/// JUMP → NO JUMP, BECAUSE ITS BODY CANNOT JUMP.
 ///
 /// Smash must not silently give it a generic swipe, a generic humanoid jump, a generic dash"* — and
 /// it FAILED when this file was written.
@@ -179,7 +179,7 @@ fn the_shipped_puppy_slug_is_seated_as_itself() {
 /// already refused to GRANT a verb a character lacks — now has something to
 /// intersect.
 ///
-/// **the control is doing double duty.** Stargan still comes out with the stage's humanoid mask,
+/// the control is doing double duty. Stargan still comes out with the stage's humanoid mask,
 /// which is correct: he authors no body, and an unmigrated fighter must still be given something or
 /// every one of them is a statue. This one says the shipped slug asks for no jump; that one says
 /// asking is what decides.

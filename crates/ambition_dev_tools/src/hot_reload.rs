@@ -1,5 +1,5 @@
-//! **A debounced mtime watch over the authored world file, and the
-//! transactional reload it offers the developer controls.**
+//! A debounced mtime watch over the authored world file, and the
+//! transactional reload it offers the developer controls.
 //!
 //! This watcher is format-agnostic. It lives here because its consumers are
 //! the developer controls: the
@@ -9,7 +9,7 @@
 //! crate's. The APPLY half — parse the file, validate the room graph, commit or
 //! reject — stays with the game that knows the format.
 //!
-//! ⚠ **the watcher does not resolve its own path.** Resolution needs the asset
+//!  the watcher does not resolve its own path. Resolution needs the asset
 //! catalog and the world manifest, which are the composing game's; a
 //! constructor that took both is what put an asset-profile decision inside a
 //! format adapter. [`WorldSourceHotReload::watching`] takes the path the caller

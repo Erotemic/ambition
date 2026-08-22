@@ -1,9 +1,9 @@
-//! **Alice's repertoire** — the cryptographer, and the one who SENDS.
+//! Alice's repertoire — the cryptographer, and the one who SENDS.
 //!
 //! ## The character, from her own name
 //!
 //! Alice and Bob are the two names cryptography uses for the two ends of a
-//! channel, and the split is the design: **Alice sends, Bob receives.** So her
+//! channel, and the split is the design: Alice sends, Bob receives. So her
 //! kit is about GETTING SOMETHING ACROSS — the longest reach among the Hall's
 //! people, the quickest recovery on a whiff, and a side special that is
 //! literally a key exchange: she crosses the gap and arrives already having
@@ -36,7 +36,7 @@ const SEAL_FX: f32 = 1.15;
 
 /// See the module doc. Sixteen presses.
 pub fn alice_moveset() -> MovesetContract {
-    // **JAB — `challenge`.** She asks a question. Quick, short, and it is not
+    // JAB — `challenge`. She asks a question. Quick, short, and it is not
     // meant to end anything.
     let jab = strike(
         "challenge",
@@ -55,7 +55,7 @@ pub fn alice_moveset() -> MovesetContract {
     let jab = vfx_at(jab, 0.05, "four_point_glint", (24.0, 0.0), GLYPH_FX);
     let jab = on_contact(jab, "player.hit");
 
-    // **FORWARD TILT — `cipher_sweep`.** The reach the module doc claims, spent
+    // FORWARD TILT — `cipher_sweep`. The reach the module doc claims, spent
     // on the press that uses it most.
     let f_tilt = strike(
         "cipher_sweep",
@@ -74,7 +74,7 @@ pub fn alice_moveset() -> MovesetContract {
     let f_tilt = vfx_at(f_tilt, 0.08, "rune_burst", (32.0, -2.0), GLYPH_FX);
     let f_tilt = on_contact(f_tilt, "player.hit");
 
-    // **UP TILT — `nonce_flick`.** A number used once, thrown straight up.
+    // UP TILT — `nonce_flick`. A number used once, thrown straight up.
     let u_tilt = strike(
         "nonce_flick",
         "attack_up",
@@ -92,7 +92,7 @@ pub fn alice_moveset() -> MovesetContract {
     let u_tilt = vfx_at(u_tilt, 0.07, "pickup_twinkle", (8.0, -26.0), GLYPH_FX);
     let u_tilt = on_contact(u_tilt, "player.hit");
 
-    // **DOWN TILT — `padding_oracle`.** She asks the floor one bit at a time.
+    // DOWN TILT — `padding_oracle`. She asks the floor one bit at a time.
     let d_tilt = strike(
         "padding_oracle",
         "attack_down",
@@ -110,7 +110,7 @@ pub fn alice_moveset() -> MovesetContract {
     let d_tilt = vfx_at(d_tilt, 0.07, "phase_ripple", (26.0, 13.0), GLYPH_FX);
     let d_tilt = on_contact(d_tilt, "player.hit");
 
-    // **FORWARD SMASH — `brute_force`.** Every key in order until one opens.
+    // FORWARD SMASH — `brute_force`. Every key in order until one opens.
     let f_smash = strike(
         "brute_force",
         "smash_forward",
@@ -129,7 +129,7 @@ pub fn alice_moveset() -> MovesetContract {
     let f_smash = sfx(f_smash, 0.17, "player.attack.charge");
     let f_smash = on_contact(f_smash, "player.hit");
 
-    // **UP SMASH — `birthday_attack`.** Two of them meet overhead, which is more
+    // UP SMASH — `birthday_attack`. Two of them meet overhead, which is more
     // likely than anybody expects.
     let u_smash = strike(
         "birthday_attack",
@@ -148,7 +148,7 @@ pub fn alice_moveset() -> MovesetContract {
     let u_smash = vfx_at(u_smash, 0.16, "rune_circle", (4.0, -32.0), SEAL_FX);
     let u_smash = on_contact(u_smash, "player.hit");
 
-    // **DOWN SMASH — `side_channel`.** She does not read the message; she reads
+    // DOWN SMASH — `side_channel`. She does not read the message; she reads
     // what leaked out either side of it.
     let d_smash = strike(
         "side_channel",
@@ -168,7 +168,7 @@ pub fn alice_moveset() -> MovesetContract {
     let d_smash = vfx_at(d_smash, 0.17, "phase_ripple", (28.0, 17.0), GLYPH_FX);
     let d_smash = on_contact(d_smash, "player.hit");
 
-    // **NEUTRAL AIR — `entropy_pool`.** Noise, all around her.
+    // NEUTRAL AIR — `entropy_pool`. Noise, all around her.
     let n_air = strike(
         "entropy_pool",
         "air_neutral",
@@ -186,7 +186,7 @@ pub fn alice_moveset() -> MovesetContract {
     let n_air = vfx_at(n_air, 0.06, "rune_burst", (0.0, 0.0), GLYPH_FX);
     let n_air = on_contact(n_air, "player.hit");
 
-    // **FORWARD AIR — `signature`.** She signs it on the way past.
+    // FORWARD AIR — `signature`. She signs it on the way past.
     let f_air = strike(
         "signature",
         "air_forward",
@@ -204,7 +204,7 @@ pub fn alice_moveset() -> MovesetContract {
     let f_air = vfx_at(f_air, 0.08, "four_point_glint", (30.0, -4.0), GLYPH_FX);
     let f_air = on_contact(f_air, "player.hit");
 
-    // **BACK AIR — `revocation`.** The key is withdrawn behind her, hard.
+    // BACK AIR — `revocation`. The key is withdrawn behind her, hard.
     let b_air = strike(
         "revocation",
         "air_back",
@@ -222,7 +222,7 @@ pub fn alice_moveset() -> MovesetContract {
     let b_air = vfx_at(b_air, 0.09, "magic_seal_break", (-30.0, -2.0), GLYPH_FX);
     let b_air = on_contact(b_air, "player.hit");
 
-    // **UP AIR — `public_key`.** Held up where anyone may take it.
+    // UP AIR — `public_key`. Held up where anyone may take it.
     let u_air = strike(
         "public_key",
         "air_up",
@@ -240,7 +240,7 @@ pub fn alice_moveset() -> MovesetContract {
     let u_air = vfx_at(u_air, 0.07, "pickup_twinkle", (2.0, -26.0), GLYPH_FX);
     let u_air = on_contact(u_air, "player.hit");
 
-    // **DOWN AIR — `known_plaintext`.** She already knows what is under you.
+    // DOWN AIR — `known_plaintext`. She already knows what is under you.
     let d_air = strike(
         "known_plaintext",
         "air_down",
@@ -258,7 +258,7 @@ pub fn alice_moveset() -> MovesetContract {
     let d_air = vfx_at(d_air, 0.11, "rune_burst", (2.0, 24.0), GLYPH_FX);
     let d_air = on_contact(d_air, "player.hit");
 
-    // **NEUTRAL — `one_time_pad`.** Used once and never again: her single
+    // NEUTRAL — `one_time_pad`. Used once and never again: her single
     // hardest hit, with the recovery to match.
     let n_b = strike(
         "one_time_pad",
@@ -279,7 +279,7 @@ pub fn alice_moveset() -> MovesetContract {
     let n_b = sfx(n_b, 0.18, "player.directional_special");
     let n_b = on_contact(n_b, "player.hit");
 
-    // **SIDE — `key_exchange`.** She crosses the gap and arrives having already
+    // SIDE — `key_exchange`. She crosses the gap and arrives having already
     // agreed the terms. `Set`, so the distance is the move's and not her
     // momentum's.
     let side_b = strike(
@@ -302,7 +302,7 @@ pub fn alice_moveset() -> MovesetContract {
     let side_b = sfx(side_b, 0.13, "player.blink");
     let side_b = on_contact(side_b, "player.hit");
 
-    // **UP — `elliptic_curve`. THE RECOVERY.** She rides the curve up. Cheap to
+    // UP — `elliptic_curve`. THE RECOVERY. She rides the curve up. Cheap to
     // land, because her whole design is that a whiff does not end her.
     let mut up_b = strike(
         "elliptic_curve",
@@ -325,7 +325,7 @@ pub fn alice_moveset() -> MovesetContract {
     let up_b = sfx(up_b, 0.07, "player.double_jump");
     let up_b = on_contact(up_b, "player.hit");
 
-    // **DOWN — `hash_collision`.** Two inputs, one output, on the floor either
+    // DOWN — `hash_collision`. Two inputs, one output, on the floor either
     // side of her.
     let down_b = strike(
         "hash_collision",
@@ -356,7 +356,7 @@ pub fn alice_moveset() -> MovesetContract {
     // player pressing down-B in the air got the neutral-B. `special_air_down`
     // sits ahead of `special_down` in that chain and has the whole time; this is
     // the two-form move it exists for.
-    // **DOWN, IN THE AIR — `collision_dive`.** Two inputs meeting at one output
+    // DOWN, IN THE AIR — `collision_dive`. Two inputs meeting at one output
     // still works with no floor under it; she just arrives at the output.
     let mut air_down_b = strike(
         "collision_dive",
@@ -376,7 +376,7 @@ pub fn alice_moveset() -> MovesetContract {
     let air_down_b = impulse(air_down_b, 0.10, (0.0, 1180.0), ImpulseMode::Set);
     let air_down_b = vfx_at(air_down_b, 0.10, "magic_seal_break", (0.0, 20.0), GLYPH_FX);
     let air_down_b = on_contact(air_down_b, "player.hit");
-    // **ALICE'S CAPTURE KIT.** Quick and low-committal: the shortest startup on the
+    // ALICE'S CAPTURE KIT. Quick and low-committal: the shortest startup on the
     // roster and a middling pummel. Her throw stays flat-ish and pushes for stage
     // control rather than for a kill.
     // the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
@@ -463,7 +463,7 @@ pub fn alice_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: up_b,
-        // **AUTHORED, at the rule that every fighter in the smash roster have a grab.** The
+        // AUTHORED, at the rule that every fighter in the smash roster have a grab. The
         // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
         // the whole point of proving it was to stop being the only two.
         //
@@ -500,7 +500,7 @@ mod tests {
     // `ambition_characters::smash_repertoire`, and by the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
-    /// **Alice is not Bob with different names.** The pair's split is the
+    /// Alice is not Bob with different names. The pair's split is the
     /// design: she reaches further and recovers sooner, he hits harder and
     /// commits longer. A table copied between them would pass every other test.
     #[test]

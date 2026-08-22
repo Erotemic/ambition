@@ -212,7 +212,7 @@ impl RoomConstructionPlan {
         self.features.expected_authoritative_ids()
     }
 
-    /// **The occurrence dispositions this plan was prepared against.**
+    /// The occurrence dispositions this plan was prepared against.
     ///
     /// A plan is frozen against a world that remembered exactly this much. A
     /// cached plan prepared while an authored object was in somebody's hands
@@ -221,7 +221,7 @@ impl RoomConstructionPlan {
     /// short. Anything that holds a plan across frames compares this before
     /// promoting it.
     ///
-    /// **it is the whole outlook, not a set of suppressed identities.** A plan
+    /// it is the whole outlook, not a set of suppressed identities. A plan
     /// that placed a relocated object at one position is not the plan a world
     /// wants once that object rests at another, and an identity set cannot tell
     /// those two apart.
@@ -261,7 +261,7 @@ impl RoomConstructionPlan {
     /// Enqueue the prepared room contents without changing active-room
     /// resources. Session startup uses this after those resources are installed.
     ///
-    /// **This is the room transaction boundary.** Everything the room is made of is queued
+    /// This is the room transaction boundary. Everything the room is made of is queued
     /// between [`transaction::open`] and [`transaction::close`], so the verification that
     /// publishes `RoomLoaded` runs after ALL of it: the feature families, the planned roots,
     /// the planned relationships, the moving-platform bodies, and the last-commit receipt.
@@ -284,7 +284,7 @@ impl RoomConstructionPlan {
             self.predicted_authoritative_ids(),
             "room construction execution diverged from its prepared root roster",
         );
-        // **no platform VISUAL is spawned here any more.** The commit installs
+        // no platform VISUAL is spawned here any more. The commit installs
         // platform STATE (the receipt below counts it); the picture is
         // reconciled by a render family from `MovingPlatformSet`, like every
         // other room feature. That is what let the visual adapter leave the
@@ -395,7 +395,7 @@ mod tests {
         )
     }
 
-    /// **THE FIXTURE CAST**, because every body is built from a character (AC6)
+    /// THE FIXTURE CAST, because every body is built from a character (AC6)
     /// and a placement that names none is refused at construction.
     ///
     /// `'static`: `ActorConstructionContext` BORROWS the cast, so a per-test
@@ -507,7 +507,7 @@ mod tests {
     /// As [`prepare`], but with an explicit CAST and content epoch — the two
     /// preparation inputs OUTSIDE the `RoomSpec` that shape the derived plan.
     ///
-    /// **it took a `&CharacterRoster`** and the giant tests below handed it
+    /// it took a `&CharacterRoster` and the giant tests below handed it
     /// rows declaring `mount_class: Some("giant")`. A character states its mount
     /// now (AC6), so the cast is the input that decides whether a placement
     /// lowers to a limbed host.
@@ -577,8 +577,8 @@ mod tests {
         giant_spec_sized(id, 60.0)
     }
 
-    /// **The plan id tracks the DERIVED construction surface, not just the
-    /// authored spec.** Two rosters that differ only in the giant's body size
+    /// The plan id tracks the DERIVED construction surface, not just the
+    /// authored spec. Two rosters that differ only in the giant's body size
     /// produce byte-identical `RoomSpec`s but different hand `home_offset`
     /// relation payloads — materially different prepared worlds. The previous id
     /// (spec JSON + authored id set) collided them.
@@ -663,7 +663,7 @@ mod tests {
         assert_ne!(bare.id(), pathed.id());
     }
 
-    /// **One giant, every roster surface, one answer.** The prepared plan, the
+    /// One giant, every roster surface, one answer. The prepared plan, the
     /// predicted outer roster, the commit receipt, and the boundary verifier all
     /// name the same three-cluster — and the hands are welcome plan rows, not
     /// unexpected or legacy findings.
@@ -759,7 +759,7 @@ mod tests {
         ));
     }
 
-    /// **`RoomLoaded` is published only after the WHOLE room is applied.**
+    /// `RoomLoaded` is published only after the WHOLE room is applied.
     ///
     /// The transaction boundary is `spawn_contents`, not the feature plan. An observer reads
     /// the world the instant `RoomLoaded` is delivered and proves the platforms, the commit
@@ -967,8 +967,8 @@ mod tests {
             })
     }
 
-    /// **A ROOM REBUILDS AN OCCURRENCE WHOSE RECORD LIVES NEXT DOOR — and the
-    /// room that owns the record does NOT rebuild it. One row, both halves.**
+    /// A ROOM REBUILDS AN OCCURRENCE WHOSE RECORD LIVES NEXT DOOR — and the
+    /// room that owns the record does NOT rebuild it. One row, both halves.
     ///
     /// This is room construction ceasing to be a pure function of one
     /// `RoomSpec`: what a room owes the world is its current RESIDENCY, derived

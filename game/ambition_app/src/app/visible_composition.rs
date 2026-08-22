@@ -1,37 +1,9 @@
-//! **The ONE visible Ambition composition**, shared by every platform host.
+//! Shared visible Ambition composition used by every platform host.
 //!
-//! A visible Ambition build is two things stacked:
-//!
-//! ```text
-//! platform host foundation   ← DIFFERS: a desktop window, a no-window render
-//!                              graph, an offscreen GPU surface, a browser
-//!                              `<canvas>`. Arg parsing, asset roots, the
-//!                              persistence/clock/audio policy of a non-session
-//!                              host — all of it is host business.
-//!             ↓
-//! THIS MODULE                ← IDENTICAL EVERYWHERE: engine states, the
-//!                              simulation host, the game plugins, the shell
-//!                              host and its initial route, the shell visuals,
-//!                              the asset source.
-//!             ↓
-//! platform run               ← DIFFERS: `App::run()` in a binary, `app.update()`
-//!                              in a test, the browser's own loop on wasm.
-//! ```
-//!
-//! **THIS MODULE EXISTS BECAUSE THE MIDDLE LAYER WAS SPELLED OUT BY HAND
-//! THREE TIMES, AND EACH COPY SILENTLY LOST SOMETHING.**
-//!
-//! - `capture_scene` hand-spelled it and lost the `--route` positional, the headless display surface, `--dev-overlays`, `--combat-overlay`, and — for
-//! two days, → 08-08 — *the entire room*, because `install_ambition_shell_visuals` was never added to its copy.
-//! - `run_web` hand-spelled it and lost `AmbitionShellHosted`, the shell host, the initial route, and `install_ambition_shell_visuals`. The browser therefore loaded, linked, initialized wgpu, painted a canvas, and showed
-//! **nothing at all** — no launcher, no room, no error.
-//! it is the same defect as the one above, in a second builder.
-//!
-//! Both copies passed every gate they had. A build gate proves *links*; a link
-//! proves nothing about *composes*. The structural answer is that there is one
-//! function and the platform hosts call it — so a composition input added here
-//! reaches every platform, and one that cannot be added here is, by
-//! construction, a genuine platform difference.
+//! Platform-specific code owns foundation/run-loop details; this module owns the
+//! common engine, game, shell, presentation, route, and asset composition.
+//! Keeping that middle layer single-sourced prevents desktop, capture, and web
+//! hosts from drifting into different game compositions.
 
 use bevy::prelude::*;
 
@@ -43,7 +15,7 @@ use super::plugins::{
 
 /// The few genuine choices a platform host makes about the game it composes.
 ///
-/// **every field here is a thing hosts really differ on.** Anything a host
+/// every field here is a thing hosts really differ on. Anything a host
 /// merely *happens* to do differently belongs in [`compose_ambition_visible_game`]
 /// instead — that is the whole point of the split. The test of a candidate field
 /// is whether two hosts would answer it differently *for a reason*.
@@ -52,7 +24,7 @@ pub struct VisibleGameSpec {
     /// Which route the shell host boots into: `true` → the multi-game launcher,
     /// `false` → straight to gameplay.
     ///
-    /// **the name is historical and kept on purpose.** Since K2b BOTH arms are
+    /// the name is historical and kept on purpose. Since K2b BOTH arms are
     /// shell-hosted; this only chooses the initial route, which is what
     /// `--direct` and every `--start-room` alias mean. Renaming it would touch
     /// 33 call sites to restate a boolean whose two values are unchanged.
@@ -77,7 +49,7 @@ pub struct VisibleGameSpec {
 }
 
 impl VisibleGameSpec {
-    /// **The browser persona**, named here rather than spelled inline in
+    /// The browser persona, named here rather than spelled inline in
     /// `run_web` so it is a value a test can hold and compare instead of a
     /// passage a reader has to re-derive.
     ///
@@ -106,7 +78,7 @@ impl VisibleGameSpec {
 /// already installed Bevy's plugin foundation (`DefaultPlugins`, or a modified
 /// group, with its window/render/asset settings already chosen).
 ///
-/// `compose_inputs` is **the pre-simulation hook** — the one moment a caller can
+/// `compose_inputs` is the pre-simulation hook — the one moment a caller can
 /// reach: after the App exists, before the simulation plugin builds.
 ///
 /// `StartRoomOverride`, `StartRoomMustResolve`, `StartingCharacterOverride` and
@@ -114,7 +86,7 @@ impl VisibleGameSpec {
 /// them while the simulation plugin builds, so a caller that wants to set one must write it
 /// into a world that already exists and has not yet built that plugin.
 ///
-/// **a closure rather than a struct of known inputs.** A struct would have to
+/// a closure rather than a struct of known inputs. A struct would have to
 /// enumerate the composition inputs, and the fifth one added elsewhere would not
 /// be reachable here — the same "a caller cannot say this" hole, one release
 /// later. The hook says *when*; the resources say *what*.
@@ -135,7 +107,7 @@ pub fn compose_ambition_visible_game(
     ambition_platformer2d::runtime::serialize_frame_schedules(app);
 
     {
-        // **NOT GATED ON `dev_tools`, AND THE SAME HOST ON EVERY PLATFORM.**
+        // NOT GATED ON `dev_tools`, AND THE SAME HOST ON EVERY PLATFORM.
         // Bevy seals `SimSchedule` when the first simulation plugin registers,
         // so the host is chosen here for the whole build — which is why this
         // sits above the plugins below rather than beside its documentation.
@@ -167,7 +139,7 @@ pub fn compose_ambition_visible_game(
     // roots and a panic on the first read.
     app.insert_resource(super::shell_host::AmbitionShellHosted);
 
-    // **THE PRE-SIMULATION HOOK** — the last instruction before the simulation
+    // THE PRE-SIMULATION HOOK — the last instruction before the simulation
     // plugin builds, which is the deadline every composition input has.
     compose_inputs(app);
 
@@ -181,7 +153,7 @@ pub fn compose_ambition_visible_game(
         app.add_plugins((AmbitionGameSimulationPlugin, AmbitionGamePresentationPlugin));
     }
 
-    // **K2b: the shell host is composed EITHER WAY**, and the mode only
+    // K2b: the shell host is composed EITHER WAY, and the mode only
     // decides which route it boots into. Direct entry stops being a second way
     // to build a game and becomes what `tracks.md` says it should be — *a shell
     // host whose initial route is the gameplay route*, the recipe
@@ -194,7 +166,7 @@ pub fn compose_ambition_visible_game(
             super::shell_host::AMBITION_GAMEPLAY_ROUTE,
         );
     }
-    // **NO ROOM WITHOUT THIS.** Losing this one line is what made the
+    // NO ROOM WITHOUT THIS. Losing this one line is what made the
     // browser show a blank canvas, and what made `capture_scene` photograph an
     // empty world for two days. It is not a decoration pass — it is how an
     // activated session's world becomes visible at all.

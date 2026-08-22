@@ -1,4 +1,4 @@
-//! **BD4's oracle: the seed library describes the roster it claims to describe.**
+//! BD4's oracle: the seed library describes the roster it claims to describe.
 //!
 //! `docs/planning/engine/boss-design.md` §2 asks for a catalog that "starts from
 //! the existing bosses' moves (extract → generalize → document), and grows by
@@ -6,14 +6,14 @@
 //! a boss is retuned, and an authoring agent that trusts a rotted catalog authors
 //! a rotted fight. These tests are what make the library load-bearing:
 //!
-//! 1. **Coverage** — every `BossAttackProfile` key the roster uses belongs to
+//! 1. Coverage — every `BossAttackProfile` key the roster uses belongs to
 //!    exactly one seed. A new boss move fails the build until it is classified.
-//! 2. **The bands are the measurement.** Every occurrence lies inside its seed's
+//! 2. The bands are the measurement. Every occurrence lies inside its seed's
 //!    band, AND every band's endpoints are achieved by some occurrence. Together
 //!    those two say `band == observed envelope`, with no padding. Retuning a boss
 //!    therefore updates `boss_seeds.ron` — which is the accretion discipline,
 //!    enforced.
-//! 3. **BD5's preconditions** — no seed ships with an empty `fair_counters` (rule
+//! 3. BD5's preconditions — no seed ships with an empty `fair_counters` (rule
 //!    2 would flag it as a diagnostic error) and the union across a fight is
 //!    inspectable.
 
@@ -171,7 +171,7 @@ fn every_shipped_boss_attack_key_belongs_to_exactly_one_seed() {
     );
 }
 
-/// (2) **The bands ARE the measurement.** Not "roughly cover", not "were true once".
+/// (2) The bands ARE the measurement. Not "roughly cover", not "were true once".
 #[test]
 fn boss_seeds_bands_are_the_measured_envelope() {
     let lib = library();
@@ -284,7 +284,7 @@ fn every_recipe_lies_inside_its_seeds_bands() {
 }
 
 /// The whole roster's counter coverage, as BD5 will compute it per fight. Today it
-/// exercises five of the seven verbs — **`Parry` appears nowhere**, and `Shield`
+/// exercises five of the seven verbs — `Parry` appears nowhere, and `Shield`
 /// only through `spread_volley`. That is a finding about the shipped bosses, not
 /// about this test, and it is exactly the "forced-movement variety" gap §3 rule 2
 /// exists to name. Pinned so the day a fight adds a parry-answerable attack, this

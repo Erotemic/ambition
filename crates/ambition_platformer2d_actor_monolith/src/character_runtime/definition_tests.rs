@@ -13,7 +13,7 @@ use ambition_platformer2d_shared_tangle::app_finalization::finalize;
 use ambition_platformer2d_shared_tangle::binding::Namespace;
 use bevy::prelude::App;
 
-/// **Registration DECLARES. It does not load.**
+/// Registration DECLARES. It does not load.
 ///
 /// Loading is driven by what a session STAGES (`StagesCharacters` — a room plan,
 /// a match roster, a startup spec, a worn identity), never by what exists.
@@ -38,7 +38,7 @@ fn registration_declares_without_demanding_art() {
     );
 }
 
-/// **Preparation provenance survives registration.** (A5)
+/// Preparation provenance survives registration. (A5)
 ///
 /// Those must never read the same; that confusion is the whole reason the binding boundary exists,
 /// and a distinction that survives only until the value is stored is not a distinction.
@@ -152,7 +152,7 @@ fn two_providers_cannot_author_the_same_stable_id() {
 /// was `None` everywhere and preparation's honest *"we did not look"* was the
 /// permanent answer.
 ///
-/// **this asserts the SEAM, not the resolver.** It goes through
+/// this asserts the SEAM, not the resolver. It goes through
 /// `try_register_character`, which is where `with_engine_vocabularies` is
 /// applied — a test that passed the resolver by hand would prove the check works
 /// while leaving it disconnected, which is exactly the state this replaces.
@@ -193,8 +193,8 @@ fn a_portrait_target_nobody_authored_is_named_at_registration() {
     );
 }
 
-/// **THE POISON for the portrait check: a target that DOES exist resolves
-/// clean.**
+/// THE POISON for the portrait check: a target that DOES exist resolves
+/// clean.
 ///
 /// without this, the test above passes on a vocabulary that rejects
 /// everything — including a build where `available_portrait_targets()` came back
@@ -234,7 +234,7 @@ fn a_portrait_target_the_engine_bakes_resolves_clean() {
     );
 }
 
-/// **A display name is an addressing key whether or not it was meant to be one.**
+/// A display name is an addressing key whether or not it was meant to be one.
 ///
 /// Rooms author `enemy.name`, interactables author `character_id`, rosters author
 /// labels — and three authorities resolve those labels independently:

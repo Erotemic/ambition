@@ -1,10 +1,10 @@
-//! **A DEMO MAY NOT ALSO WRITE THE VIEWPORT ITS HOST OWNS.**
+//! A DEMO MAY NOT ALSO WRITE THE VIEWPORT ITS HOST OWNS.
 //!
 //! `apply_gameplay_camera_viewport` owns `Camera::viewport` for every `MainCamera` that presents a
 //! `LocalView`, and TwinTrack's own pane cameras ARE such cameras — `spawn_pane_camera` gives each
 //! one `MainCamera` and a `PresentsView` link.
 //!
-//! **why this test lives HERE and not in either obvious place.** TwinTrack's
+//! why this test lives HERE and not in either obvious place. TwinTrack's
 //! own integration suite is headless: with no `PrimaryWindow` the applier
 //! returns before it reads anything, and with no `visible` feature the pane
 //! cameras are never spawned at all. The host crate's presentation tests have
@@ -13,7 +13,7 @@
 //! builds the windowed host — so this is where a COMPOSITION adding a second
 //! writer becomes visible.
 //!
-//! **the generic owner is already guarded**
+//! the generic owner is already guarded
 //! (`each_camera_renders_into_the_rectangle_of_the_view_it_names`). What had no
 //! test, and what this is, is a composition fighting it.
 
@@ -95,7 +95,7 @@ fn twintracks_two_panes_keep_two_distinct_viewports() {
          a second writer clearing it produces",
     );
 
-    // **and they must be DIFFERENT rectangles that do not overlap.** Two
+    // and they must be DIFFERENT rectangles that do not overlap. Two
     // cameras both left full-screen would also be "two viewports" in a weaker
     // assertion, and that is the failure being guarded.
     let (left_origin, left_size) = rects[0];

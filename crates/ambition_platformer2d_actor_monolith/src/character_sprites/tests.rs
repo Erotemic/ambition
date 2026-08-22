@@ -72,7 +72,7 @@ fn scaled_variant_specs_pair_smaller_geometry_when_generated() {
     let _ = checked; // zero is acceptable (no variants generated in this build)
 }
 
-/// **The quad puts the sheet's own body on the collision box.**
+/// The quad puts the sheet's own body on the collision box.
 #[test]
 fn sprite_render_size_draws_the_body_at_the_collision_box() {
     let spec = robot_sheet();
@@ -561,13 +561,13 @@ fn an_authored_standing_height_is_the_height_the_body_derives() {
 ///     list_what_each_character_derives_for_its_body -- --ignored --nocapture
 /// ```
 ///
-/// **the question is narrower than "is it the right size".** A height applies
+/// the question is narrower than "is it the right size". A height applies
 /// only when the sheet publishes `body_metrics.body_pixel_bbox`; without one the
 /// derivation returns `None` and the LDtk spawn box decides, whatever the
 /// catalog says. So the useful column is not the number — it is whether there IS
 /// one.
 ///
-/// **and `collision_scale` is IRRELEVANT on this path**, which is worth seeing
+/// and `collision_scale` is IRRELEVANT on this path, which is worth seeing
 /// rather than being told: when a standing height applies, `render` is rebuilt
 /// from `height / body_h` and the hand-tuned scale never enters. Two `Standard`
 /// characters whose sheets disagree about `collision_scale` still land on the

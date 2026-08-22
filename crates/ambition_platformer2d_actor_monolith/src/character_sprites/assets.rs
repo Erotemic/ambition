@@ -58,10 +58,10 @@ use ambition_sprite_sheet::PortraitSheetRegistry;
 ///
 /// Precedence and why it is this way round:
 ///
-/// * the **registered target** decides WHICH sheet. The definition is the
+/// * the registered target decides WHICH sheet. The definition is the
 ///   authority §4.1 is building toward, and a provider that names a sheet in the
 ///   call it makes should not be overruled by a fragment it may not own.
-/// * the **catalog row** still supplies resolution-independent TUNING
+/// * the catalog row still supplies resolution-independent TUNING
 ///   (`collision_scale`, `frame_sample_inset`, `feet_anchor_y`) and the scaled
 ///   variant lookup, because that is where quality tiers are authored. Taking the
 ///   target from one place and the tuning from the other is deliberate, not a
@@ -102,12 +102,12 @@ pub fn sheet_for_declared_character(
         .or_else(|| sheets::try_load_spec_for_character_id(character_id))
 }
 
-/// **Resolve a character's PORTRAIT, with the registered definition winning.**
+/// Resolve a character's PORTRAIT, with the registered definition winning.
 ///
 /// The registry is optional; compositions may use the catalog convention or provide their own portrait path.
 ///
-/// **`CharacterDefinition.portrait` was carried faithfully through preparation
-/// and read by NOTHING** for as long as it existed, because there was no
+/// `CharacterDefinition.portrait` was carried faithfully through preparation
+/// and read by NOTHING for as long as it existed, because there was no
 /// target → art resolver for it to resolve through. Its own doc named the two
 /// honest ways out — build this, or delete the field — and named the third as
 /// forbidden: the definition must not become a COPY of the catalog's concrete
@@ -116,16 +116,16 @@ pub fn sheet_for_declared_character(
 ///
 /// So the roads stay separate and end at one type:
 ///
-/// * a **registered target** names a portrait PRODUCT (`"alice"`), resolved
+/// * a registered target names a portrait PRODUCT (`"alice"`), resolved
 ///   through the manifests' own `target` field. A provider that registers a
 ///   character in Rust can give it a face without editing anybody's catalog.
-/// * the **catalog row** derives concrete paths from the gameplay sheet's name,
+/// * the catalog row derives concrete paths from the gameplay sheet's name,
 ///   which is how all 144 of today's portraits resolve and will keep resolving.
 /// * a disagreement is LOGGED rather than silently resolved — same argument as
 ///   the sheet road: it means two declarations of one character exist and one of
 ///   them is stale.
 ///
-/// **`None` for the registry is the opt-out, not an error.** A composition that
+/// `None` for the registry is the opt-out, not an error. A composition that
 /// installs no `PortraitSheetRegistry` falls straight through to the catalog
 /// convention, which is what "possible to ignore" has to mean in code. An
 /// unresolved TARGET does the same rather than failing: the sheet road's answer
@@ -172,7 +172,7 @@ pub fn portrait_for_declared_character(
             );
         }
     }
-    // **the manifest's `image` is a BARE FILENAME** (`"alice_portraits.png"`) while every loader
+    // the manifest's `image` is a BARE FILENAME (`"alice_portraits.png"`) while every loader
     // speaks asset-relative paths.
     let directory = manifest_path
         .rsplit_once('/')
@@ -204,7 +204,7 @@ pub fn sheet_for_character_id_in(
 
 /// The manifest target + resolution-independent tuning for a catalog `cid`,
 /// when it has a catalog row that names a sheet. This is what
-/// [`build_optional_via_catalog`] needs to fetch the **scaled-variant** record
+/// [`build_optional_via_catalog`] needs to fetch the scaled-variant record
 /// keyed `<target>.<suffix>`. `None` for ids resolved through the manifest-by-id
 /// fallback (they stay at base resolution — acceptable, they render fine).
 fn character_variant_tuning<'a>(
@@ -288,7 +288,7 @@ pub fn all_character_sprite_filenames_in(
     all_character_sprite_filenames_from_data(character_catalog.data())
 }
 
-/// **the tier vocabulary exists twice** — `ambition_persistence` owns the one
+/// the tier vocabulary exists twice — `ambition_persistence` owns the one
 /// a setting is written in, `ambition_sprite_sheet` owns the one a sheet lookup
 /// speaks — and these two functions are the whole bridge. They are written
 /// adjacent so a tier added to one enum and not the other stops compiling here
@@ -382,7 +382,7 @@ pub fn materialize_declared_character_sprite(
     token: &str,
 ) -> SpriteMaterialization {
     let cid = match sprites.sheet_state(token) {
-        // **THE RE-ENTRY CACHE, and it is this line.** A character another room already
+        // THE RE-ENTRY CACHE, and it is this line. A character another room already
         // prepared costs nothing to stage again: no sheet lookup, no atlas build, no handle
         // request. Pinned by `re_demanding_a_resident_character_repeats_no_preparation`, which
         // counts atlas layouts and goes 1 → 2 the moment this returns early no longer.
@@ -469,15 +469,15 @@ pub fn load_character_sprites_in(
 /// `try_path_for_load`, and call `asset_server.load(...)` if the gate
 /// passes. Logs a single line to `stderr` when a labeled sprite is
 /// missing (matches the prior loader's noise level).
-/// Choose the (spec, image id, **tier that image is**) triple under the quality
-/// budget. Upgrades to a scaled variant **only when both** the variant record
+/// Choose the (spec, image id, tier that image is) triple under the quality
+/// budget. Upgrades to a scaled variant only when both the variant record
 /// was baked *and* the variant image resolves under the active asset profile —
 /// so the atlas rects (from the spec) always address the PNG that actually
 /// loads. Returns the base pair otherwise (and always for props /
 /// `variant: None`). Gameplay collision is untouched; it reads the base record
 /// separately.
 ///
-/// **the third element is the RESOLVED tier and it is not derivable from the budget**: only
+/// the third element is the RESOLVED tier and it is not derivable from the budget: only
 /// this function knows whether the upgrade happened, and both ways of failing it — no baked
 /// record, no image under the profile — land on the authored full-resolution PNG.
 fn resolve_variant_pair(
@@ -514,7 +514,7 @@ fn resolve_variant_pair(
     )
 }
 
-/// **The tier a character sheet realizes FOR under `quality`.**
+/// The tier a character sheet realizes FOR under `quality`.
 ///
 /// The one authority for the REQUEST: the materializer stamps every realization
 /// with it as [`CharacterSpriteAsset::requested_tier`] and the quality
@@ -525,7 +525,7 @@ fn resolve_variant_pair(
 /// it ANSWERS makes the transition idempotent by construction: whatever the materializer
 /// produces is, by definition, this tier's answer, so the next comparison is equal.
 ///
-/// **the fact about the pixels is not discarded, it is recorded separately** —
+/// the fact about the pixels is not discarded, it is recorded separately —
 /// [`resolve_variant_pair`] returns it and it becomes
 /// [`CharacterSpriteAsset::resolved_tier`], which is what residency reporting
 /// reads. Two questions, two fields; this function answers only the first.
@@ -673,7 +673,7 @@ pub fn build_npc_sprite_asset(
 /// content plugins reading from `INTRO_PROP_REGISTRY` (or future
 /// equivalents) clearly distinguish prop-table inserts from NPC-table
 /// inserts.
-/// Build a prop's sprite asset from the quality-tiered **shared sprite pack**
+/// Build a prop's sprite asset from the quality-tiered shared sprite pack
 /// (`assets/sprite_packs/<tier>/`) instead of its per-target sheet.
 ///
 /// The pack tier follows the active quality budget (mirroring
@@ -731,11 +731,11 @@ pub fn build_prop_sprite_asset(
     build_optional_via_catalog(catalog, asset_server, layouts, id, spec, None, None, None)
 }
 
-/// **Decode the effect sheets the ENGINE itself draws** — every entry of
+/// Decode the effect sheets the ENGINE itself draws — every entry of
 /// [`ambition_sprite_sheet::fx::FX_SHEETS`], with no content, catalog or LDtk
 /// prop involved.
 ///
-/// **this is the registration that did not exist.** `spawn_effect` reaches
+/// this is the registration that did not exist. `spawn_effect` reaches
 /// for FX art from `ambition_render`, but until now the only way that art got
 /// loaded was for a GAME to declare it: Ambition's intro listed
 /// `generic_explosions` in its LDtk-prop table, and nothing else in the
@@ -866,7 +866,7 @@ mod sprite_body_collision_tests {
         );
     }
 
-    /// **A consumer's own art survives catalog assembly.**
+    /// A consumer's own art survives catalog assembly.
     ///
     /// The engine's convention is a basename under the shared sprite folder, and
     /// every path went through it: `game://sprites/mine.png` had no `sprites/`
@@ -1024,7 +1024,7 @@ mod sprite_body_collision_tests {
         assert_eq!(resolved.default_clip, "default");
     }
 
-    /// **A registered TARGET outranks the convention**, which is the whole
+    /// A registered TARGET outranks the convention, which is the whole
     /// feature: a character registered in Rust can bring its own face without
     /// editing anybody's catalog.
     #[test]
@@ -1044,7 +1044,7 @@ mod sprite_body_collision_tests {
         assert_eq!(resolved.manifest, "sprites/borrowed_face_portraits.ron");
     }
 
-    /// **Both ways of having no resolver fall through, rather than failing.**
+    /// Both ways of having no resolver fall through, rather than failing.
     ///
     /// A composition with no `PortraitSheetRegistry` is the opt-out, and a target
     /// nothing claims is an authoring mistake — neither should cost a character

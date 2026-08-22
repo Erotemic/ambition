@@ -1,45 +1,10 @@
-//! **The asset install a visible game needs before anything draws.**
+//! Install the asset resources required by generic platformer presentation.
 //!
-//! [`PlatformerPresentationPlugin`](crate::presentation::PlatformerPresentationPlugin) draws a
-//! room from two resources it does not build:
-//! [`Platformer2dAssetCatalog`](ambition_platformer2d_actor_monolith::assets::platformer_assets::Platformer2dAssetCatalog)
-//! (every asset path/source policy) and
-//! [`GameAssets`](ambition_sprite_sheet::game_assets::GameAssets) (the decoded sheets).
-//!
-//! > the in-repo demo shells each hand-roll a standalone asset-resource install
-//! > that no umbrella helper offers, so this binary ships WITHOUT it and draws
-//! > the world as colored primitives — a faithful record of what a third party
-//! > gets today, not a bug in this fixture.
-//!
-//! A stranger who clones this engine, follows the demos doctrine, and runs their
-//! game sees untextured rectangles. That is the single most visible way "an
-//! engine another game can be built on" fails, and it failed for want of a
-//! function.
-//!
-//! ## Why it lives in the umbrella
-//!
-//! It spans two layers that may not depend on each other: the catalog builders
-//! are `ambition_platformer2d_actor_monolith`, the `Startup` ordering anchor
-//! ([`PlatformerPresentationSetupSet`](crate::presentation::PlatformerPresentationSetupSet))
-//! is `ambition_render`, and `ambition_platformer2d_host` — the obvious home — is forbidden
-//! from naming `ambition_platformer2d_actor_monolith` at all (its own module docs say so, and
-//! `host_names_no_content.rs` enforces it). The umbrella is the assembly surface
-//! that may see both, which is what an umbrella is for.
-//!
-//! ## Usage
-//!
-//! Added AFTER the content/provider plugins, because it reads the catalogs they
-//! register:
-//!
-//! ```ignore
-//! app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick());
-//! app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
-//! my_game::compose(&mut app);                              // registers catalogs
-//! app.add_plugins(ambition_platformer2d::game_assets::PlatformerAssetsPlugin::for_experience(
-//!     my_game::MY_EXPERIENCE,
-//! ));
-//! app.add_plugins(ambition_platformer2d::presentation::PlatformerPresentationPlugin);
-//! ```
+//! [`PlatformerAssetsPlugin`] bridges provider/content catalogs to the decoded
+//! [`GameAssets`] and asset catalog consumed by presentation. Add it after content
+//! providers are registered and before [`PlatformerPresentationPlugin`](crate::presentation::PlatformerPresentationPlugin).
+//! The umbrella crate owns this composition because the lower host/presentation layers
+//! intentionally do not depend on the actor/content catalogs.
 
 use bevy::prelude::*;
 

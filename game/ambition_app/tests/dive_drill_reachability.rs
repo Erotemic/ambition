@@ -1,4 +1,4 @@
-//! **The dive is a gap-closer that HURTS what it passes through.**
+//! The dive is a gap-closer that HURTS what it passes through.
 //!
 //! Two claims, and they need different things. That the dive carries a body
 //! across a hazard gap is about the ROOM — `dive_drill` has the pickup, the gap
@@ -6,7 +6,7 @@
 //! body it lunges through is about the ENGINE, and it needs a body, not a
 //! particular authored one.
 //!
-//! ⇒ **more appropriate is right here.** A test that spawns the body it measures
+//!  more appropriate is right here. A test that spawns the body it measures
 //! states its own preconditions; the old one asserted an engine property and
 //! depended on a room's furniture to hold it up. `spawn_enemy_character_at`
 //! names a real character, so the target is a body the game can actually build
@@ -18,8 +18,8 @@ use ambition_app::{AgentAction, Platformer2dSimHarness};
 
 /// Current HP of each target (enemies carry `BodyHealth`; the player carries player-side
 /// health, so this is the target line). Dead-but-not-despawned targets show `current <= 0`, so
-/// HP distinguishes "killed" from "survived". **this counted the PLAYER too, and that made the
-/// test unsatisfiable.** It queried every `BodyHealth` in the world, so its readout was
+/// HP distinguishes "killed" from "survived". this counted the PLAYER too, and that made the
+/// test unsatisfiable. It queried every `BodyHealth` in the world, so its readout was
 /// `[player, target]` — and the assertion below demands `after_alive == 0`, i.e. NO living
 /// body, while the assertion above it demands `resets == 0`, i.e. Both cannot hold. The name
 /// said `enemy_hps` and the query said "everything with health".
@@ -31,7 +31,7 @@ fn enemy_hps(sim: &mut Platformer2dSimHarness) -> Vec<i32> {
     q.iter(sim.world()).map(|h| h.health.current).collect()
 }
 
-// The 4-HP target **died**. Nothing about the kill outcome had moved.
+// The 4-HP target died. Nothing about the kill outcome had moved.
 //
 // What was actually broken was this file. `enemy_hps` queried every `BodyHealth` in the world
 // including the PLAYER's, so `after_alive == 0` demanded that the player be dead as well —

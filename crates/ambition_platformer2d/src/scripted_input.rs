@@ -1,60 +1,24 @@
-//! **Drive the local participant from a script, through the production input
-//! pipeline.**
+//! Drive scripted local input through the production participant pipeline.
 //!
-//! **THIS EXISTS BECAUSE EIGHT FIXTURES INDEPENDENTLY LEARNED THE SAME
-//! ORDERING, AND FIVE OF THEM LEARNED IT THE HARD WAY.** A scripted control
-//! frame written in `PreUpdate` is overwritten by the participant pipeline in
-//! `Update` — the pipeline lives behind `ambition_platformer2d/input`, which
-//! workspace feature unification turns on from `ambition_app`'s defaults
-//! whatever the test's own crate asked for. So the fixtures compiled, the
-//! script ran, and the body never moved.
-//!
-//! The dangerous half was not the tests that went red. It was the NEGATIVE
-//! ones: a test asserting *"this ability is not available"* stayed green
-//! because the button never reached the simulation at all, which is a proof
-//! that nobody pressed anything dressed up as a proof that pressing did
-//! nothing.
-//!
-//! **so the ordering is stated ONCE, against the authority rather than
-//! against a guess:**
-//!
-//! ```text
-//! after   InputSet::Route              where the participant pipeline declares
-//!                                      its raw-frame writers
-//! before  PrimarySlotInputCommit      the publication boundary every host
-//!                                      has — a write that misses it never
-//!                                      reaches gameplay however late in
-//!                                      `Update` it lands
-//! ```
-//!
-//! ordering against a set or system nobody composed is a no-op, so a headless
-//! frame-stepped composition (which has no latch) is unaffected by both edges.
-//!
-//! ⚠ **the local participant, singular — and it now says WHICH seat rather than
-//! implying one.** This writes
-//! [`PlayerSlot::PRIMARY`](ambition_characters::control::PlayerSlot::PRIMARY)'s row
-//! of [`SeatRawFrames`](ambition_characters::control::SeatRawFrames), the seat every
-//! one of these fixtures scripts. It used to write the global `ControlFrame`,
-//! where "the primary seat" was not stated anywhere — it was what that resource
-//! happened to mean. Scripting a second seat is one line from here the day a
-//! fixture wants it; until then the limit is visible instead of structural.
+//! Scripted input runs after `InputSet::Route` and before
+//! `PrimarySlotInputCommit`, so routed input cannot overwrite the script and the
+//! script reaches the same publication boundary as live input. Ordering against
+//! sets absent from a headless composition is a no-op.
 
 use bevy::prelude::*;
 
 use ambition_characters::control::{PlayerSlot, SeatRawFrames, SlotControls};
 use ambition_platformer2d_core::ControlFrame;
 
-/// **What the fixture wants the local participant to be holding.**
+/// What the fixture wants the local participant to be holding.
 ///
 /// Written every frame, so a script that stops setting it holds the last frame
 /// — the same thing a person holding a stick does.
 #[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct ScriptedControls(pub ControlFrame);
 
-/// **What the SIMULATION actually received** — the other half of the pair, and
-/// the reason a false-green negative test is harder to write now.
-///
-/// it counts what the sim's own slot table carried, not what the fixture asked for.
+/// Counts scripted input requested by the fixture and actually delivered by
+/// the simulation's slot table.
 #[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct ScriptedControlsObserved {
     /// Frames on which the script asked for something other than neutral.
@@ -70,16 +34,8 @@ impl ScriptedControlsObserved {
         self.delivered > 0
     }
 
-    /// **Positive evidence to pair with a negative assertion.**
-    ///
-    /// call this in any test whose claim is that something did NOT happen.
-    /// Without it, "the ability never fired" and "the button never arrived" are
-    /// the same green.
-    ///
-    /// Asserting it immediately after the first scripted press reports `1 requested, 0
-    /// delivered` on a perfectly healthy pipeline — which is how it was first misused, and the
-    /// reason the contract is written down here rather than left for each caller to rediscover.
-    /// For the same-frame question ("did my write survive routing?"), read `ControlFrame` right
+    /// Assert positive evidence that at least one scripted press reached the
+    /// simulation. For same-frame routing checks, inspect `ControlFrame` directly
     /// after the update.
     #[track_caller]
     pub fn assert_the_script_reached_the_simulation(&self) {
@@ -95,7 +51,7 @@ impl ScriptedControlsObserved {
     }
 }
 
-/// **Install the scripted participant stream on `app`.**
+/// Install the scripted participant stream on `app`.
 ///
 /// Idempotent in the sense that matters: it inserts both resources with their
 /// defaults, so a fixture may call it before or after it knows what the script
@@ -117,7 +73,7 @@ pub fn drive_the_local_participant(app: &mut App) {
                 ambition_platformer2d_runtime::host_input::publish_seat_controls_when_nobody_else_does,
             ),
     );
-    // **`Last`, and it reads the SLOT TABLE.** The observation has to come
+    // `Last`, and it reads the SLOT TABLE. The observation has to come
     // from the far side of the pipeline or it would only be restating the write
     // — and the slot table is what the brains read, so a frame counted here is
     // a frame gameplay could act on.

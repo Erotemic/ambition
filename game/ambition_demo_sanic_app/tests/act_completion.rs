@@ -1,4 +1,4 @@
-//! **The act can actually be finished.** One scripted headless run to the goal.
+//! The act can actually be finished. One scripted headless run to the goal.
 //!
 //! This is Sanic's completion proof, and it exists because nothing else could
 //! give it. The goal, the results capture, and the act cycle each have focused
@@ -48,7 +48,7 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
-    // **the ordering lives in ONE place now** — after the participant pipeline's routing stage and
+    // the ordering lives in ONE place now — after the participant pipeline's routing stage and
     // before the frame→tick latch.
     ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
     for _ in 0..8 {
@@ -147,7 +147,7 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
     eprintln!("sanic completed the act at frame {frame} in {time:.2}s with {rings} rings");
 }
 
-/// **He must survive his own results card.**
+/// He must survive his own results card.
 ///
 /// Room-replay triage §1: `GOAL_X` sits 400px from the right edge and clearing
 /// the act neither braked him nor closed the course, so he crossed the line at
@@ -159,7 +159,7 @@ fn clearing_the_act_does_not_kill_him_before_the_card_retires() {
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
-    // **the ordering lives in ONE place now** — after the participant pipeline's routing stage and
+    // the ordering lives in ONE place now — after the participant pipeline's routing stage and
     // before the frame→tick latch.
     ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
     for _ in 0..8 {

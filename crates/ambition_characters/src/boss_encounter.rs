@@ -1,23 +1,8 @@
-//! Boss encounter state machine.
+//! Boss phase schema and trigger-driven progression.
 //!
-//! Composes `BossPatternSchedule` (per-phase attack data) with a
-//! coarse phase progression: Dormant → Intro → Phase1 → Transition →
-//! Phase2 → Stagger → Enrage → Death. Each phase has an HP threshold
-//! that fires the next transition; the runtime walks through them
-//! deterministically based on the boss's current health fraction.
-//!
-//! This module owns the *phase logic* only — how the boss attacks in
-//! each phase lives in `BossPatternSchedule`, and how the boss
-//! actually moves / hits the player lives in the sandbox's
-//! `BossRuntime`. Keeping these layered means a future enemy boss can
-//! reuse the phase machinery with different patterns.
-//!
-//! The phase enum is also surfaced game-side as a seldom_state
-//! component so HUD / debug overlays read from one source of truth.
-//!
-//! The GAME's boss roster (the named `BossEncounterSpec` constructors)
-//! lives in `ambition_boss_encounter::roster` — machinery
-//! owns the schema + state machine; the game owns the data.
+//! Attack selection belongs to `BossPatternSchedule`; movement and combat live
+//! in their runtime systems. This module owns only phase state and transition
+//! rules. Game-specific boss specs live in `ambition_boss_encounter::roster`.
 
 use serde::{Deserialize, Serialize};
 
@@ -69,30 +54,8 @@ pub struct BossEncounterSpec {
     pub extra_phase_triggers: Vec<PhaseTrigger>,
 }
 
-// ===========================================================================
-// Entity-local phase mechanism (boss-entity-local refactor, Stage R1)
-//
-// The trigger-driven replacement for the monolithic, registry-owned phase
-// machine above. Where `BossEncounterState` bundles HP + phase + per-phase
-// music + stagger + display thresholds into one blob keyed in a global map,
-// this splits the ENTITY half out as its own mechanism:
-//
-//   * HP lives on the body's shared `BodyHealth` component (entity, §A1).
-//   * Phase progression lives in `ActorPhaseState` (entity) and is driven by a
-//     `Vec<PhaseTrigger>` of intrinsic, *optional* DATA — empty ⇒ the boss
-//     never phases up and just fights to death (a boss reused as a plain
-//     enemy); non-empty ⇒ it phases up on its own, with or without an
-//     encounter wrapping it.
-//   * Per-phase music / lock-walls / HUD / display thresholds stay encounter
-//     concerns (the data catalog now; the encounter entity in R2).
-//
-// Phase transitions are their OWN parallel mechanism, deliberately NOT the
-// hitstun/recoil code: a trigger fires → a brief
-// invulnerable `transition_lock` "tell/scream" beat → the exposed phase swaps.
-// They merely *resemble* the "event → locked beat → controls change" shape.
-//
-// See `docs/systems/boss-encounter-architecture.md` ("Phase model" + R1).
-// ===========================================================================
+// Entity-local phase state. Health stays on `BodyHealth`; phase progression
+// stays on `ActorPhaseState`; encounter presentation remains outside both.
 
 /// The condition under which a [`PhaseTrigger`] fires.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -100,9 +63,8 @@ pub enum PhaseTriggerCondition {
     /// Fire once the boss's HP fraction is at or below `frac` (the common
     /// "phase up at 66% / 20% HP" case).
     HpBelow(f32),
-    /// Fire after `secs` spent in the current phase (the opt-in intro "tell";
-    /// any timed beat). Replaces the old *forced* Intro invulnerability — a
-    /// boss only gets an intro if it authors a `TimeInPhase` trigger.
+    /// Fire after `secs` spent in the current phase. Timed intro beats are
+    /// opt-in through this trigger.
     TimeInPhase(f32),
     /// Fire when a named external `gate` message arrives (room switch, "all
     /// adds dead", a scripted cutscene cue). This is the gauntlet / scripted
@@ -117,13 +79,13 @@ pub enum PhaseTriggerCondition {
 pub struct PhaseTrigger {
     /// The condition that fires this trigger.
     pub when: PhaseTriggerCondition,
-    /// Only evaluate while the boss is in one of these phases. Empty ⇒ any
+    /// Only evaluate while the boss is in one of these phases. Empty  any
     /// non-dormant, non-dead phase. Keeps a `Phase2 → Enrage` HP trigger from
     /// firing back in `Phase1`.
     pub from: Vec<BossEncounterPhase>,
     /// The phase to enter when the trigger fires.
     pub to: BossEncounterPhase,
-    /// `0.0` ⇒ swap instantly.
+    /// `0.0`  swap instantly.
     pub lock: f32,
 }
 
@@ -175,21 +137,11 @@ impl PhaseTrigger {
         self.from.is_empty() || self.from.contains(&phase)
     }
 
-    /// Derive the intrinsic phase-up triggers a legacy authored
-    /// [`BossEncounterSpec`] implies, so existing bosses keep their phases as
-    /// pure DATA once the registry-driven machine is retired (R3).
+    /// Derive intrinsic triggers from a [`BossEncounterSpec`].
     ///
-    /// The old forced `Intro` / `Transition` invulnerable beats become opt-in:
-    ///   * `Intro` is authored only when `intro_seconds > 0` (a `TimeInPhase`
-    ///     trigger out of `Intro`); a spec with `intro_seconds == 0` starts
-    ///     fighting immediately.
-    ///   * The old explicit `Transition` phase collapses into the
-    ///     `Phase1 → Phase2` trigger's `lock` (the same invulnerable tell beat,
-    ///     now `transition_lock`).
-    ///
-    /// Stagger (the damage-pressure beat) is intentionally NOT modelled here —
-    /// it is a combat-feel / encounter concern, not part of the HpBelow /
-    /// TimeInPhase / External trigger vocabulary.
+    /// A positive `intro_seconds` authors a timed intro; the phase-1 transition
+    /// duration becomes the trigger lock. Stagger remains an encounter/combat
+    /// concern rather than an intrinsic phase trigger.
     pub fn intrinsic_from_spec(spec: &BossEncounterSpec) -> Vec<PhaseTrigger> {
         use BossEncounterPhase::{Enrage, Intro, Phase1, Phase2};
         let mut triggers = Vec::new();
@@ -253,7 +205,7 @@ pub struct ActorPhaseState {
     /// combat-feel code. While `> 0` the boss is invulnerable and `pending`
     /// holds the phase entered on expiry.
     pub transition_lock: f32,
-    /// Intrinsic phase triggers as DATA. Empty ⇒ the boss never phases up; it
+    /// Intrinsic phase triggers as DATA. Empty  the boss never phases up; it
     /// fights until `health == 0` (a boss reused as a plain enemy).
     pub triggers: Vec<PhaseTrigger>,
     /// The phase entered on [`wake`]: `Intro` when an intro tell is authored,

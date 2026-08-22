@@ -1,26 +1,8 @@
-//! **`RoomContentStagingRegistry` — the open seam for content-staged room
-//! occupants** (N3.2b closeout).
+//! Pure content staging for snapshot-authoritative room occupants.
 //!
-//! 1. **The occupants were invisible to room construction.** A snapshot restore
-//!    that stages a room (netcode.md N3.2b) rebuilds exactly what construction
-//!    builds; an occupant created only by a future-frame notification consumer
-//!    came back as a bare identity with no authored components.
-//! 2. **The staging tick was not a sim fact.** The consumers ran on the
-//!    presentation schedule (`Update`), so *when* the occupants appeared,
-//!    relative to sim ticks, was a function of frame rate.
-//!
-//! This registry closes both: providers/content register a **pure** stager —
-//! `RoomSpec` in, [`SpawnActorRequest`]s out — and room construction
-//! ([`RoomFeatureConstructionPlan`](super::RoomFeatureConstructionPlan))
-//! drains every registered stager for the room being staged, on the sim side,
-//! in both the normal load path and the restore staging path. `RoomLoaded`
-//! remains a pure downstream notification (resource re-arms, presentation
-//! beats); it no longer creates snapshot-authoritative entities.
-//!
-//! Purity is what makes the seam preflightable: a stager must be a function of
-//! the `RoomSpec` alone, so a mutation-free caller
-//! (`RoomConstructionPlan::prepare_from_parts`, a
-//! roster preflight) can ask "what WOULD this room stage?" without staging it.
+//! Providers map `RoomSpec` to [`SpawnActorRequest`] values. Construction drains
+//! the same stagers for normal loads and restores on the simulation side;
+//! `RoomLoaded` remains notification-only. Purity keeps staging preflightable.
 
 use std::sync::Arc;
 

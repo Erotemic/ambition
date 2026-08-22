@@ -42,9 +42,9 @@ fn entity_aabbs(room: &sb::rooms::RoomSpec) -> Vec<(&'static str, ae::Aabb)> {
     v
 }
 
-/// **The controller gallery demonstrates both directions of composition.**
+/// The controller gallery demonstrates both directions of composition.
 ///
-/// **this replaces the one-of-each-archetype museum** at sandbox placements
+/// this replaces the one-of-each-archetype museum at sandbox placements
 /// `EnemySpawn-0140`..`0146`, which was a row of six bodies whose only reason to exist was that the
 /// old ontology made body and AI one thing. This asserts the recast still says that.
 ///
@@ -108,11 +108,11 @@ fn the_controller_gallery_shows_one_policy_on_many_bodies_and_many_on_one() {
 // Its own note said the guard "stays true at zero — where the whole guard becomes vacuous on
 // purpose, because there is nothing left to place".
 //
-// ⇒ what replaced it is not another sweep but a REFUSAL: construction panics on
+//  what replaced it is not another sweep but a REFUSAL: construction panics on
 // a placement that names no buildable character, so an unplaceable body cannot
 // reach a level to be swept for.
 
-/// **A creature that is not your enemy says so on its PLACEMENT.**
+/// A creature that is not your enemy says so on its PLACEMENT.
 ///
 /// The giant GNU was the field's motivating case — a mount whose RIDER is the threat — so the
 /// moment it is gone, the giant's placement is the only thing standing between a lumbering prop and

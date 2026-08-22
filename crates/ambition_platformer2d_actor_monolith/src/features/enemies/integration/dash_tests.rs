@@ -209,7 +209,7 @@ fn a_staggered_body_loses_input_authority_like_the_player() {
         },
         12,
     );
-    // ** third half, guarded here**: LANDING LAG alone must lock an actor exactly as recoil
+    //  third half, guarded here: LANDING LAG alone must lock an actor exactly as recoil
     // does.
     let landing_lagged = walk_run_staggered(
         BodyCombat {
@@ -345,11 +345,11 @@ fn an_aerial_body_steers_toward_its_velocity_target_through_the_flight_limb() {
     assert!(!em.ground.on_ground, "a flying body is never grounded");
 }
 
-/// **A GROUNDED body with the fly kit takes to the air when it asks to** — the
+/// A GROUNDED body with the fly kit takes to the air when it asks to — the
 /// claim `duel_arena`'s `fly_frames > 0` currently bets on emergently.
 ///
-/// ⛔ **distinct from `an_aerial_body_steers_toward_its_velocity_target…`
-/// directly above**, which flies a body that is aerial by construction
+///  distinct from `an_aerial_body_steers_toward_its_velocity_target…`
+/// directly above, which flies a body that is aerial by construction
 /// (`is_aerial`, gravity off, already airborne). This is the GROUNDED-BASE
 /// hybrid: a fighter standing on a floor under full gravity that toggles flight
 /// and leaves the ground. Different limb, different failure.
@@ -368,7 +368,7 @@ fn fly_toggle_run(can_fly: bool, ticks: u32) -> (bool, f32) {
     seed.kin.vel = ae::Vec2::ZERO;
     seed.kin.facing = 1.0;
     seed.surface.gravity_scale = 1.0;
-    // ⚠ **`fly_toggle` as well as `fly`**: the toggle limb requires BOTH
+    //  `fly_toggle` as well as `fly`: the toggle limb requires BOTH
     // (`apply_fly_toggle`), and a kit with only `fly` is how an aerial body is
     // built — `from_kit` sets `fly_enabled` outright for that case, which would
     // make this test pass without the press doing anything.
@@ -391,7 +391,7 @@ fn fly_toggle_run(can_fly: bool, ticks: u32) -> (bool, f32) {
         // The toggle is a rising EDGE, so it is pressed on the first tick only;
         // afterwards the body climbs on its locomotion intent.
         frame.fly_toggle_pressed = tick == 0;
-        // ⚠ **`velocity_target`, not the locomotion axes** — and finding that
+        //  `velocity_target`, not the locomotion axes — and finding that
         // out is half of what this test is for. A grounded-base flyer that
         // toggles into flight is steered by the free-mover limb, exactly like a
         // born-aerial body; driving `locomotion` upward instead moved it 0.2px

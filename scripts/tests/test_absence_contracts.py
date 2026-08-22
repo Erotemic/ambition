@@ -95,13 +95,13 @@ def confirm_patterns(contract: dict) -> list[re.Pattern]:
 # AGENTS.md names this class by name: *"Poison tests are for realistic harmful states, not for
 # proving that every scanner detects its own fixture."*
 #
-# That is not covered by the live run — only **3 of the 17** contracts have any text in the tree
+# That is not covered by the live run — only 3 of the 17 contracts have any text in the tree
 # that their grep prefilter hits and the comment-stripper then discards, so 14 of them have never
 # had their prose path exercised by anything but this.
 @pytest.mark.parametrize("contract", ABSENCE_CONTRACTS, ids=lambda c: c["id"])
 def test_no_contract_fires_on_prose_describing_the_removal(contract):
     """Documenting a removal must not break the guard that verified it."""
-    # **a contract with no fixture is SKIPPED, not a failure** — that tax is what made this file
+    # a contract with no fixture is SKIPPED, not a failure — that tax is what made this file
     # red. Adding an architectural contract must not require writing prose for a meta-test
     # first; what a fixture buys, when somebody writes one, is the check below.
     line = VIOLATING_LINE.get(contract["id"])

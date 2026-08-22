@@ -694,14 +694,14 @@ fn drive_basic_sequence_card(
     }
 }
 
-/// **Move the launcher highlight in place.**
+/// Move the launcher highlight in place.
 ///
 /// The rows already carry their selection index — `BasicLauncherAction(i)`, put
 /// there so pointer activation lands in the same command the cursor produces —
 /// so nothing new has to be tracked. This writes `MenuVisualState`, and the
 /// menu crate's `restyle_bevy_ui_menu_controls` recolours what changed.
 ///
-/// **writes only on a real change.** Bevy stamps the change tick on any `&mut`
+/// writes only on a real change. Bevy stamps the change tick on any `&mut`
 /// deref, so touching every row every frame would defeat the `Changed<..>` query
 /// this is paired with and restore the churn in a quieter form.
 fn follow_the_launcher_cursor(
@@ -751,7 +751,7 @@ fn shell_frame_key(
     sequence: &ActiveShellSequence,
 ) -> String {
     if launcher.active {
-        // **`launcher.selected` is DELIBERATELY not here.** It was, and an
+        // `launcher.selected` is DELIBERATELY not here. It was, and an
         // arrow press therefore despawned and respawned every node in the
         // launcher — throwing away hover state and any per-frame animation, and
         // making a one-frame text defect visible as a whole-UI blink.
@@ -1217,7 +1217,7 @@ mod cursor_moves_without_a_rebuild_tests {
             .selected
     }
 
-    /// **The cursor moves and the rows are the SAME entities.**
+    /// The cursor moves and the rows are the SAME entities.
     ///
     /// this is the whole row.
     ///
@@ -1242,7 +1242,7 @@ mod cursor_moves_without_a_rebuild_tests {
         assert!(app.world().get::<MenuVisualState>(second).is_some());
     }
 
-    /// **And the REBUILD is what actually went away.**
+    /// And the REBUILD is what actually went away.
     ///
     /// If it comes back, the in-place path still works and the churn returns silently — so the key
     /// itself is the assertion.

@@ -95,7 +95,7 @@ fn views(app: &mut App) -> Vec<(LocalViewId, ViewPlacement, Option<Entity>)> {
     rows
 }
 
-/// **WHERE A PANE ACTUALLY POINTED**, read off the snapshot the camera resolve
+/// WHERE A PANE ACTUALLY POINTED, read off the snapshot the camera resolve
 /// published for that view.
 fn pane_follow_point(app: &mut App, id: LocalViewId) -> Option<Vec2> {
     let mut query = app.world_mut().query_filtered::<(
@@ -273,7 +273,7 @@ fn complete_light_tag(app: &mut App) {
     for expected_hit in 1..=LIGHT_TAG_ROUNDS {
         wait_for_transmitter(app);
         idle(app, 3);
-        // **the TRAVELER's aim, named.** The targeting view holds one row per
+        // the TRAVELER's aim, named. The targeting view holds one row per
         // observer, and reading it through `Deref` takes the first row in label
         // order — which is the LABORATORY twin's, since Emmy became an observer
         // too. She stands at the other end of the plaza, so her intercept
@@ -756,7 +756,7 @@ fn dual_observer_view(app: &mut App) -> TwinTrackDualObserverView {
 /// Pin the traveler onto the beacons' midpoint with a chosen velocity and run
 /// until both observers have a reading of the same flash pair.
 ///
-/// **re-pinned every tick on purpose.** Free flight drags the velocity down
+/// re-pinned every tick on purpose. Free flight drags the velocity down
 /// and carries the body off the midpoint, and both of those would quietly turn
 /// this into a test about distance instead of a test about frames.
 fn settle_dual_observer(app: &mut App, velocity: Vec2) -> TwinTrackDualObserverView {
@@ -765,7 +765,7 @@ fn settle_dual_observer(app: &mut App, velocity: Vec2) -> TwinTrackDualObserverV
         set_traveler_state(app, beacon_midpoint(), velocity);
         idle(app, 1);
         last = dual_observer_view(app);
-        // **both panes must be reading ONE pair of events.** Two panes
+        // both panes must be reading ONE pair of events. Two panes
         // comparing two different flash pairs would "disagree" for a reason
         // that has nothing to do with relativity, so this is a precondition of
         // the measurement rather than part of it.
@@ -877,7 +877,7 @@ fn light_pulse_view(app: &mut App) -> TwinTrackLightPulseView {
 /// Pin the traveler onto the emitter with a chosen velocity and run until both
 /// observers are reading the SAME flare.
 ///
-/// **re-pinned every tick for the same reason `settle_dual_observer` is.**
+/// re-pinned every tick for the same reason `settle_dual_observer` is.
 /// Free flight drags the velocity down, and a decayed velocity would turn a
 /// test about the second postulate into a test about a slow observer.
 fn settle_light_pulse(app: &mut App, velocity: Vec2) -> TwinTrackLightPulseView {
@@ -1014,14 +1014,14 @@ fn the_two_observers_time_one_light_cone_arrival_differently() {
     );
 }
 
-/// **TWO PARTICIPANTS, TWO BODIES, ONE SIMULATION — and each seat moves
-/// only its own.**
+/// TWO PARTICIPANTS, TWO BODIES, ONE SIMULATION — and each seat moves
+/// only its own.
 ///
 /// The exhibit's whole claim is that two observers of one Minkowski simulation
 /// disagree, and until only one of those observers was a person: the
 /// laboratory twin was a bare entity with a clock and no way to be driven.
 ///
-/// **the falsifier is the OTHER body in every direction.** A composition that
+/// the falsifier is the OTHER body in every direction. A composition that
 /// routed both seats through one control frame — which is what a second
 /// participant that never got its own `InputParticipant` would degrade to —
 /// passes "the twin moved" and fails here, because the traveler moves with her.
@@ -1090,14 +1090,14 @@ fn each_seat_moves_its_own_body_and_leaves_the_others_alone() {
     );
 }
 
-/// **THE SPLIT IS THE SHAPE OF THE GAME, not a view mode you have to find.**
+/// THE SPLIT IS THE SHAPE OF THE GAME, not a view mode you have to find.
 ///
 /// existed, as `TwinTrackViewMode::SplitObservers`, reachable only by walking to
 /// an in-world console and cycling it — and even then it was an opaque diagram
 /// over the top of one gameplay camera, not two gameplay views.
 ///
-/// **the two placements must be DISJOINT, which is the part a shared rectangle
-/// passes.** Two views both claiming the whole display draw on top of each other
+/// the two placements must be DISJOINT, which is the part a shared rectangle
+/// passes. Two views both claiming the whole display draw on top of each other
 /// and look, from any single-view assertion, entirely healthy.
 #[test]
 fn the_plaza_opens_split_between_its_two_participants() {
@@ -1164,15 +1164,15 @@ fn the_plaza_opens_split_between_its_two_participants() {
     );
 }
 
-/// **ONE CONTROLLER IS A COMPLETE, SUPPORTED SESSION.**
+/// ONE CONTROLLER IS A COMPLETE, SUPPORTED SESSION.
 ///
 /// do nothing and have the character be uncontrolled"* — and then *"it will
 /// still be useful to watch it as an observer."* Both sentences are asserted
 /// here: nothing is driving the twin, so she does not move, and her pane keeps
 /// framing her regardless.
 ///
-/// **the failure this forbids is a seat with no pad reading somebody ELSE's
-/// pad.** `assign_local_seat_devices` clears an association it cannot satisfy
+/// the failure this forbids is a seat with no pad reading somebody ELSE's
+/// pad. `assign_local_seat_devices` clears an association it cannot satisfy
 /// rather than falling back to any-pad, which is exactly the leafwing default
 /// that would have made player one's stick move both bodies.
 #[test]
@@ -1201,9 +1201,9 @@ fn with_nobody_in_the_second_seat_the_twin_stands_still_and_stays_watched() {
     );
 }
 
-/// **A PANE BELONGS TO A PERSON, NOT TO A BODY.**
+/// A PANE BELONGS TO A PERSON, NOT TO A BODY.
 ///
-/// **the seat is moved directly rather than through a possession**, because
+/// the seat is moved directly rather than through a possession, because
 /// what is under test is the VIEW's resolution, not any particular way of
 /// changing who drives what. `DrivingParticipant` is the one authority either
 /// road goes through.
@@ -1263,9 +1263,9 @@ fn the_second_pane_follows_its_participant_to_a_new_body() {
     );
 }
 
-/// **A SEAT COUNT WITHOUT AN ASSIGNMENT POLICY IS A DEAD SECOND SEAT.**
+/// A SEAT COUNT WITHOUT AN ASSIGNMENT POLICY IS A DEAD SECOND SEAT.
 ///
-/// **this asserts the DECLARATION, and says so.** The integration suite builds
+/// this asserts the DECLARATION, and says so. The integration suite builds
 /// without the `input` feature: there are no `InputParticipant`s, no gamepads and
 /// no device-assignment pass here, so it cannot watch a pad reach Emmy. What it
 /// can do is refuse to let the declaration go missing again. The mechanism the
@@ -1314,7 +1314,7 @@ fn the_plaza_declares_two_seats_and_a_couch_policy_only_while_it_is_live() {
     );
 }
 
-/// **THE PLAZA HAS TWO OBSERVERS, AND THEY SEE DIFFERENT SKIES.**
+/// THE PLAZA HAS TWO OBSERVERS, AND THEY SEE DIFFERENT SKIES.
 ///
 /// The per-observer optical and targeting views landed with ZERO adopters —
 /// every consumer read the first row through `Deref`, which is one observer's

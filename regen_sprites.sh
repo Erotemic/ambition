@@ -189,7 +189,7 @@ run_renderer_python() {
         fi
         return "$rc"
     else
-        # **every renderer subprocess is TIMED**, profiler or not.
+        # every renderer subprocess is TIMED, profiler or not.
         #
         # A number costs one `date` call per subprocess and turns both questions into arithmetic.
         local started_at finished_at rc
@@ -208,7 +208,7 @@ run_renderer_python() {
 # `<seconds> <label>` for every renderer subprocess this run has finished.
 regen_timings=()
 
-# **checks RECORD here; only the end of the script exits.** A postcondition that exits where it
+# checks RECORD here; only the end of the script exits. A postcondition that exits where it
 # stands cancels every stage after it, and this pipeline's most expensive stages — ultrapack, and
 # now the quality variants — are last. Failures are printed where they are found, the remaining
 # stages still run, and the exit code is settled at the bottom.
@@ -348,7 +348,7 @@ if [ "${#target_names[@]}" -gt 0 ]; then
 fi
 
 # --- Publish roster -------------------------------------------------------
-# **ONE list of what this script publishes, and it is a list of TARGETS.**
+# ONE list of what this script publishes, and it is a list of TARGETS.
 #
 # In the other direction `patent_clerk` was published and never listed, so a run whose patent-clerk
 # render failed reported every expected file present.
@@ -382,8 +382,8 @@ tackon_targets=(
     # That file is deleted; this line is what keeps her published.
     noether
     oiler
-    # **The two Fighting Polygons are named here because a `--target` render is
-    # not a PUBLISH ROSTER.** Both were rendered into this checkout one target at
+    # The two Fighting Polygons are named here because a `--target` render is
+    # not a PUBLISH ROSTER. Both were rendered into this checkout one target at
     # a time (`regen_sprites.sh --target <name>`), which works and is the right
     # surgical tool — but generated art is gitignored, so a target that no batch
     # names exists only on the machine that once rendered it and is ABSENT from a
@@ -394,7 +394,7 @@ tackon_targets=(
     # only by accident of local history.
     pointed_polygon
     pugnacious_polygon
-    # **NAMED HERE, not only reachable by `--target`.** The game loads
+    # NAMED HERE, not only reachable by `--target`. The game loads
     # `sprites/hud_stock_icon.png` by path from `STOCK_ICON_ASSET`, so a clone
     # that cannot produce it has a match HUD with holes where the stocks go —
     # the same trap the two polygons hit, one comment down.
@@ -971,7 +971,7 @@ publish_cached_batch() {
 }
 
 # --- Reduced-resolution quality variants ----------------------------------
-# **a sprite regen that does not run this leaves the phone on full-res art.**
+# a sprite regen that does not run this leaves the phone on full-res art.
 # The half / quarter / potato roots are what the runtime loads under the Low /
 # Medium / Potato quality profiles, and a sheet with no variant silently falls
 # back to full resolution. `regen_assets.sh` chained backgrounds → sprites →

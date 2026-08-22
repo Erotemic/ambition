@@ -1,4 +1,4 @@
-//! **The GGRS half of the presentation/camera handoff.**
+//! The GGRS half of the presentation/camera handoff.
 //!
 //! Under rollback the simulation advances inside `GgrsSchedule`, which
 //! `bevy_ggrs` drives from `PreUpdate`. Ordering edges declared between the
@@ -201,8 +201,8 @@ fn the_camera_resolve_is_not_inside_the_rollback_schedule() {
          frame would integrate presentation easing again",
     );
 
-    // **counting the SET was a proxy, and it broke the first time the set
-    // legitimately grew** (the camera-frame setting's applier joined it, which
+    // counting the SET was a proxy, and it broke the first time the set
+    // legitimately grew (the camera-frame setting's applier joined it, which
     // has to be in this set to inherit the not-in-rollback guarantee). The
     // condition was never "the set has one member" — it is that the ONE writer of
     // `CameraEaseState` runs once per rendered frame. So name it.

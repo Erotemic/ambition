@@ -299,7 +299,7 @@ fn a_player_can_possess_drive_and_release_an_actor_end_to_end() {
     );
 }
 
-/// **A possessed body goes through the door, and arrives.**
+/// A possessed body goes through the door, and arrives.
 ///
 /// The two halves were only ever inferred to compose.
 #[test]
@@ -376,7 +376,7 @@ fn a_possessed_body_is_carried_through_a_room_transition() {
              that leaves it behind"
         );
     };
-    // **a LARGE displacement, not merely a nonzero one.** The body falls a few
+    // a LARGE displacement, not merely a nonzero one. The body falls a few
     // pixels under gravity across the commit window, so `> 0` would pass on a
     // transition that carried nothing. An arrival is a jump into the target
     // room's coordinates — this one crosses ~2000 px into `vertical_shaft`.

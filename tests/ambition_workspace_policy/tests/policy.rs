@@ -548,7 +548,7 @@ fn allow_marker_suppresses_a_line() {
 
 // ── Playable-persona architecture guards (S3/S4) ─────────────────────────────
 
-/// **S3 ownership guard.** The reusable `ambition_render` binder
+/// S3 ownership guard. The reusable `ambition_render` binder
 /// (`bind_worn_character_presentation`) is the SOLE authority that resolves the selected/worn
 /// character's sprite from the catalog.
 #[test]
@@ -570,7 +570,7 @@ fn app_layer_does_not_bind_the_selected_character_sprite() {
     );
 }
 
-/// **S4 demo-independence guard.** A standalone demo consumes the SAME engine
+/// S4 demo-independence guard. A standalone demo consumes the SAME engine
 /// persona path as the app; it must never depend on `ambition_app`. This pins the
 /// boundary for both the Sanic content crate and its shell.
 #[test]

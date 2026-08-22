@@ -1,13 +1,13 @@
-//! **ONE BODY MAY NOT MOVE FREELY THROUGH ANOTHER** — an opt-in constraint on
+//! ONE BODY MAY NOT MOVE FREELY THROUGH ANOTHER — an opt-in constraint on
 //! PROPOSED motion, applied before integration.
 //!
-//! ⭐ **it constrains, it never separates.** AVOID PUSHOUT is about GEOMETRY
+//!  it constrains, it never separates. AVOID PUSHOUT is about GEOMETRY
 //! REPAIR — nothing teleports out of an overlap it is already in — so a body
 //! moving deeper into another simply gets less of the motion it asked for. Every
 //! function here is monotone: the returned motion is never larger than the
 //! motion proposed and never has the opposite sign.
 //!
-//! ⚠ **the vocabulary is deliberately genre-free.** This is not jostle, not
+//!  the vocabulary is deliberately genre-free. This is not jostle, not
 //! pushback and not a fighting-game term: it is one body's motion constrained by
 //! the bodies it is touching. A platform fighter opts its cast into it and calls
 //! the result jostle; a co-op platformer might opt two partners into it so they
@@ -15,10 +15,10 @@
 
 use crate::{Aabb, AabbExt};
 
-/// **THE OTHER BODIES THIS STEP MAY NOT MOVE FREELY THROUGH**, and how hard they
+/// THE OTHER BODIES THIS STEP MAY NOT MOVE FREELY THROUGH, and how hard they
 /// resist.
 ///
-/// ⚠ **`Default` is the identity and that is load-bearing.** Every body that
+///  `Default` is the identity and that is load-bearing. Every body that
 /// never opted in carries an empty field, so the constraint below returns the
 /// proposed motion unchanged and the kernel behaves byte-for-byte as it did.
 /// Body contact is a capability a composition grants, never a term every body in
@@ -60,7 +60,7 @@ pub struct BodyContactField<'a> {
     /// The OTHER opted-in bodies, sampled from a COMMON pre-integration
     /// snapshot.
     ///
-    /// ⛔ **the snapshot is why this is a slice and not a query.** Two bodies
+    ///  the snapshot is why this is a slice and not a query. Two bodies
     /// resolved in sequence would each see the other at a different pose — the
     /// first at its entry pose and the second at the first's already-integrated
     /// one — so who moved first would decide who won. Sampling once, before any
@@ -68,7 +68,7 @@ pub struct BodyContactField<'a> {
     pub blockers: &'a [BodyContactBlocker],
     /// How hard they resist, `0.0` (not at all) to `1.0` (a solid wall).
     ///
-    /// ⭐ **the knob is here because the GENRE differs and the games differ**:
+    ///  the knob is here because the GENRE differs and the games differ:
     /// Smash-like fighters push through each other slowly, a beat-em-up may want
     /// a hard stop, and neither is more correct. `1.0` stops the body at contact;
     /// `0.25` lets it keep a quarter of the motion that would take it deeper.
@@ -87,7 +87,7 @@ impl<'a> BodyContactField<'a> {
         own_entry_velocity: crate::Vec2::ZERO,
     };
 
-    /// **THE FIELD A BODY IS RESOLVED AGAINST**: who is in its way, how hard
+    /// THE FIELD A BODY IS RESOLVED AGAINST: who is in its way, how hard
     /// they resist, and the velocity the snapshot recorded for the body itself.
     ///
     /// It has no production caller and never had one (`delta_along` is `vel * dt`, so a body
@@ -115,7 +115,7 @@ impl<'a> BodyContactField<'a> {
 /// Two boxes overlap on the axis this motion is NOT along, so motion along it
 /// can actually reach one from the other.
 ///
-/// ⚠ **`>` not `>=`**: two bodies standing exactly edge to edge on the cross
+///  `>` not `>=`: two bodies standing exactly edge to edge on the cross
 /// axis are not in each other's way, which is the same strict-overlap rule
 /// `AabbExt::strict_intersects` states for the world.
 fn overlaps_across(mover: Aabb, blocker: Aabb, horizontal: bool) -> bool {
@@ -152,16 +152,9 @@ fn overlap_along(mover: Aabb, blocker: Aabb, horizontal: bool) -> f32 {
     (mover_high.min(blocker_high) - mover_low.max(blocker_low)).max(0.0)
 }
 
-/// **IS THIS DIRECTION GOING DEEPER INTO THAT BODY?**
-///
-/// ⛔⛔ **it does not have to GUESS which way "out" is**, which is the objection
-/// the first version conceded to by resisting every direction: an infinitesimal
-/// step either increases the axis overlap or it does not. Without this,
-/// four fighters spawning on one point could not walk apart.
-///
-/// ⚠ **and declining to resist a body that is LEAVING is not a pushout.** Nothing
-/// here moves anybody. It only stops taking motion away from a body that is
-/// already resolving the situation itself.
+/// Whether an infinitesimal step in this direction increases overlap with `blocker`.
+/// Motion that is already leaving an overlap is not resisted; this function never moves
+/// either body.
 fn deepens(mover: Aabb, blocker: Aabb, horizontal: bool, moving_positive: bool) -> bool {
     const PROBE: f32 = 1.0e-3;
     let step = if moving_positive { PROBE } else { -PROBE };
@@ -173,57 +166,22 @@ fn deepens(mover: Aabb, blocker: Aabb, horizontal: bool, moving_positive: bool) 
     overlap_along(moved, blocker, horizontal) > overlap_along(mover, blocker, horizontal)
 }
 
-/// **THE CONSTRAINT.** Return the motion this body is actually allowed along
-/// `delta` this step, given the bodies it may not move freely through.
+/// Constrain one axis of walking motion against body-contact blockers.
 ///
-/// The rule, once, for both cases the pass has to survive:
-///
-/// - **not walking** — a step longer than one tick of this body's own walk is a
-///   launch, a blink, a scripted throw; it passes through untouched. See
-///   `walk_budget`.
-/// - **approaching** — the body travels its SHARE of the free gap at full speed
-///   and keeps only `1 - resistance` of whatever is left over. At
-///   `resistance == 1.0` it stops exactly at contact, which is a solid.
-/// - **already overlapping and going DEEPER** — the free gap is zero, so the
-///   whole motion is scaled. Going the other way is not resisted at all: a body
-///   resolving an overlap itself is not something this pass has any business
-///   slowing down, and declining to resist it moves nobody, so it is not a
-///   pushout. ⛔ what the rule forbids is TELEPORTING bodies apart, and nothing
-///   here ever writes a position.
-///
-/// ⛔ **it never returns more motion than it was given and never flips the
-/// sign.** That property is what makes this composable with the world sweep that
-/// runs after it: shortening a proposed delta can only ever produce a pose the
-/// world sweep would already have accepted.
-///
-/// ⛔⛔ **TWO MOVERS MAY NOT BOTH SPEND ONE GAP.** ⇒ the gap is DIVIDED, in
-/// proportion to how fast each body is closing it, so the shares sum to the gap
-/// across the pair — for two movers and for four — and a body whose neighbours
-/// are all standing still has the whole of it.
-///
-/// ⛔ **not by halving.** Halving looks equivalent and is not: it takes half the
-/// gap from a body walking at a stationary neighbour, who should have all of it.
-/// Proportion collapses to that answer; halving does not.
-///
-/// ⚠ **both halves divide by SNAPSHOT velocities, never by their own proposed
-/// step.** Two bodies deriving shares from figures the other cannot read
-/// produce two shares that do not add up to the gap — the same order-dependence
-/// the snapshot exists to remove, wearing arithmetic instead of query order.
-///
-/// ⛔⛔ **AND SILENCE IS NOT PERMISSION.** The snapshot precedes every
-/// controller, so two bodies that both begin walking on one tick read zero for
-/// each other AND for themselves; granting the whole gap on no evidence let each
-/// spend all of it, permanently. An equal share is the only division that cannot
-/// over-spend when nobody has evidence, and it costs one tick to a body starting
-/// from rest already within a step of a neighbour.
+/// Non-walking displacement (launches/blinks/scripted throws) passes through unchanged.
+/// Approaching walkers spend their share of the free gap, then apply contact resistance
+/// to any remaining motion. Existing overlap is resisted only when motion deepens it.
+/// Two moving bodies divide a shared gap in proportion to snapshot closing velocities;
+/// when neither has velocity evidence they divide it equally. The result never exceeds or
+/// reverses the proposed motion.
 pub fn constrain_motion(
     mover: Aabb,
     delta_along: f32,
     horizontal: bool,
-    // **ONE TICK OF THIS BODY'S OWN WALK**, and the rule is not a budget — it is
+    // ONE TICK OF THIS BODY'S OWN WALK, and the rule is not a budget — it is
     // a QUESTION: is this body walking?
     //
-    // ⛔⛔ **WITHOUT IT, BODY CONTACT EATS A KNOCKBACK LAUNCH**, and a
+    //  WITHOUT IT, BODY CONTACT EATS A KNOCKBACK LAUNCH, and a
     // "take at most a walk's worth per tick" version does not fix it. Two
     // fighters walking into each other stall where they meet; a launched fighter
     // passes through everybody, which is also the genre's answer. Held by
@@ -238,7 +196,7 @@ pub fn constrain_motion(
     if field.is_inert() || delta_along == 0.0 || !delta_along.is_finite() {
         return delta_along;
     }
-    // Faster than this body can walk ⇒ it is not walking. See `walk_budget`.
+    // Faster than this body can walk  it is not walking. See `walk_budget`.
     if delta_along.abs() > walk_budget.max(0.0) {
         return delta_along;
     }
@@ -261,18 +219,18 @@ pub fn constrain_motion(
             continue;
         }
         let gap = gap_along(mover, blocker.aabb, horizontal, moving_positive).max(0.0);
-        // **HOW MUCH OF THAT GAP IS THIS BODY'S TO SPEND.** The other body is
+        // HOW MUCH OF THAT GAP IS THIS BODY'S TO SPEND. The other body is
         // closing too, and the two shares must sum to the gap rather than each
         // being the whole of it.
         //
-        // ⚠ **NO EVIDENCE MEANS AN EQUAL SHARE, and it may not mean the whole
-        // gap.** A snapshot in which neither body was moving carries nothing to
+        //  NO EVIDENCE MEANS AN EQUAL SHARE, and it may not mean the whole
+        // gap. A snapshot in which neither body was moving carries nothing to
         // divide by — and both bodies read that same nothing, so granting each
         // the whole gap let a pair starting from REST spend it twice. Halves are
         // the only division that cannot over-spend when the evidence is absent.
         //
-        // ⭐ **this costs one tick and only to a body that starts from rest
-        // already within one step of a neighbour.** Further away, the whole step
+        //  this costs one tick and only to a body that starts from rest
+        // already within one step of a neighbour. Further away, the whole step
         // fits in the gap and nothing here is consulted; and from the second
         // tick the mover's own velocity is evidence, so a body walking at
         // somebody merely standing there gets the whole gap exactly as before.
@@ -289,7 +247,7 @@ pub fn constrain_motion(
         // Already in contact and heading OUT: this body is resolving the overlap
         // itself and nothing here has any business slowing it down.
         //
-        // ⚠ **asked of the real GAP, not of this body's share.** A share can be
+        //  asked of the real GAP, not of this body's share. A share can be
         // zero with daylight still between the boxes, and reading that as
         // "already overlapping" would send a body that is merely being out-paced
         // down the leaving-an-overlap path.

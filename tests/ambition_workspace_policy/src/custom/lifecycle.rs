@@ -1,4 +1,4 @@
-//! **The raw-spawn allowlist gate** (custom scanner). Room-authored spawn modules
+//! The raw-spawn allowlist gate (custom scanner). Room-authored spawn modules
 //! under `features/ecs/spawn*.rs` must not add raw `commands.spawn(...)` sites
 //! beyond a per-file allowlist — use `SpawnScopedExt` lifecycle helpers instead.
 //! The allowlist (path=count) is `docs/architecture/architecture-boundary-allowlist.txt`.

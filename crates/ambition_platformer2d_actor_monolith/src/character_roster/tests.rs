@@ -66,7 +66,7 @@ fn brain_preset_resolves_to_valid_variant_for_each_entry() {
             entry.default_brain,
         );
     }
-    // ⛔ and the skip cannot hollow the test out: if every row stopped naming a
+    //  and the skip cannot hollow the test out: if every row stopped naming a
     // preset this loop would pass over an empty set and report success.
     assert!(
         checked > 0,

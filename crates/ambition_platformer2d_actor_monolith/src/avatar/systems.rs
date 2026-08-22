@@ -45,7 +45,7 @@ pub fn sync_player_actor_poses(
     }
 }
 
-/// **The set [`tick_controlled_brains`] runs in — the controlled-decision phase.**
+/// The set [`tick_controlled_brains`] runs in — the controlled-decision phase.
 ///
 /// FOUR consumers pinned this function by name: both Mary-O rows, one Sanic row,
 /// and the causal movement-intent observer. It was recorded for a while as the
@@ -66,7 +66,7 @@ pub fn sync_player_actor_poses(
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ControlledBrainTick;
 
-/// **Translate participant control into `ActorControl`, for ANY controlled body.**
+/// Translate participant control into `ActorControl`, for ANY controlled body.
 ///
 /// The INPUT AUTHORITY is [`SlotControls`], keyed by the
 /// [`DrivingParticipant`]`(slot)` the body itself carries — never an entity-local
@@ -75,7 +75,7 @@ pub struct ControlledBrainTick;
 /// somebody possessed. Body mechanics consume the translated [`ActorControl`]
 /// written here.
 ///
-/// ⇒ the one fact that WAS actor-specific is the movement scale, and it does not
+///  the one fact that WAS actor-specific is the movement scale, and it does not
 /// need actor configuration to state it. `velocity_target` is an absolute
 /// world-space command, so the translation needs the body's own top speed;
 /// [`MotionModel::commanded_top_speed`] is that number, on the one movement-policy
@@ -88,8 +88,8 @@ pub struct ControlledBrainTick;
 /// A body nobody is driving is skipped for the same reason: its `ActorControl`
 /// belongs to an AI producer.
 ///
-/// **one filter is deliberately NOT inherited from the actor tick:
-/// `Without<Dormant>`.** Dormancy sleeps a BRAIN — *"only the brain sleeps: the
+/// one filter is deliberately NOT inherited from the actor tick:
+/// `Without<Dormant>`. Dormancy sleeps a BRAIN — *"only the brain sleeps: the
 /// body still integrates"* — and a participant is not an AI to be optimised away.
 /// A human pressing right on a body that has gone dormant must move it.
 pub fn tick_controlled_brains(
@@ -163,12 +163,12 @@ pub fn tick_controlled_brains(
             health_fraction: 1.0,
             sim_time: 0.0,
             dt: 0.0,
-            // **The body's own top speed, from its own movement policy.** The
+            // The body's own top speed, from its own movement policy. The
             // grounded integrators scale the normalized `locomotion` stick
             // themselves and ignore this; a FREE-MOVER is steered by the absolute
             // `velocity_target` the translator derives from it, which is how a
             // possessed flyer moves at ITS speed with no possession-specific
-            // plumbing. Absent policy ⇒ 0.0, the value the home avatar stated
+            // plumbing. Absent policy  0.0, the value the home avatar stated
             // explicitly when this system only ever saw home avatars.
             max_run_speed: motion_model.map_or(0.0, |model| model.commanded_top_speed()),
             // The player brain does not predict; it translates a stick. Nothing

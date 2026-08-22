@@ -214,8 +214,8 @@ fn an_unknown_preset_is_rejected() {
     );
 }
 
-/// **A brain command during POSSESSION applies LIVE, because possession
-/// displaces nothing.**
+/// A brain command during POSSESSION applies LIVE, because possession
+/// displaces nothing.
 ///
 /// A driven body keeps its own policy now, so the live brain IS the autonomous selection and there
 /// is nothing to defer.
@@ -368,7 +368,7 @@ fn release_provocation_pacifies_and_restores_default() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// **The character-first road**: a body whose autonomous default is its own
+// The character-first road: a body whose autonomous default is its own
 // character's authored policy rather than a catalog preset.
 //
 // every fixture above is preset- or catalog-default-based, and that is why
@@ -387,7 +387,7 @@ fn character_policy() -> ambition_characters::brain::BrainProfile {
 /// The policy PROVOCATION installs — deliberately a different template, so the
 /// two are told apart by `Brain::label()` and not by a float comparison.
 ///
-/// **AND DELIBERATELY NOT A `MeleeBrute`**, which is what `BrainProfile`'s
+/// AND DELIBERATELY NOT A `MeleeBrute`, which is what `BrainProfile`'s
 /// own `Default` is. A provoked fixture built from the default template makes
 /// "the release left the provoked policy in place" and "the release zeroed the
 /// policy to one nobody authored" print the identical failure — two different
@@ -475,7 +475,7 @@ fn spawn_provoked_character_first(app: &mut App, sim: &str) -> Entity {
         .id()
 }
 
-/// **"YOU ARE FREE" MUST MEAN IT.**
+/// "YOU ARE FREE" MUST MEAN IT.
 #[test]
 fn a_released_character_returns_to_its_own_policy_not_the_provoked_one() {
     let mut app = app_with_cast();
@@ -526,7 +526,7 @@ fn a_released_character_returns_to_its_own_policy_not_the_provoked_one() {
     );
 }
 
-/// **A CONTROLLER CHANGE IS NOT A BODY CHANGE.**
+/// A CONTROLLER CHANGE IS NOT A BODY CHANGE.
 ///
 /// `apply_catalog_mode` reconstructs the generic peaceful-NPC seed —
 /// `MAX_RUN_SPEED`, default capabilities. That is right for a catalog NPC whose
@@ -544,7 +544,7 @@ fn releasing_a_character_first_body_leaves_the_body_its_character_built() {
     );
     app.update();
 
-    // **THE POOL HALF OF THIS TEST IS NOW STRUCTURAL** (AC6.2). `ActorTuning` states no pool
+    // THE POOL HALF OF THIS TEST IS NOW STRUCTURAL (AC6.2). `ActorTuning` states no pool
     // now, so a controller change has nothing to downgrade: the run speed below is the
     // surviving number this road can still get wrong.
     let tuning = &app.world().get::<ActorConfig>(e).unwrap().tuning;
@@ -555,7 +555,7 @@ fn releasing_a_character_first_body_leaves_the_body_its_character_built() {
     );
 }
 
-/// **A RELEASE THAT ARRIVES DURING POSSESSION IS STILL A RELEASE.**
+/// A RELEASE THAT ARRIVES DURING POSSESSION IS STILL A RELEASE.
 ///
 /// `resolve_command_preset` answers *not mine* for a character-first
 /// default, and `update_source_only` read that `None` as *unresolvable* and
@@ -589,8 +589,8 @@ fn a_release_during_temporary_control_still_changes_the_source() {
     );
 }
 
-/// **A CHARACTER-FIRST DEFAULT THAT CANNOT BE RESOLVED IS REJECTED, NOT
-/// COVERED FOR.**
+/// A CHARACTER-FIRST DEFAULT THAT CANNOT BE RESOLVED IS REJECTED, NOT
+/// COVERED FOR.
 ///
 /// `ActorConfig::brain_profile` is the policy the body is running NOW and provocation writes it, so
 /// on a body whose `WornCharacter` or prepared cast went missing, "ask the character, and otherwise

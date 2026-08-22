@@ -22,7 +22,7 @@ pub enum MovementOp {
     Dash,
     DoubleDash,
     DodgeRoll,
-    /// **The GROUNDED evade IN PLACE** — down on the stick instead of a
+    /// The GROUNDED evade IN PLACE — down on the stick instead of a
     /// direction. Distinct from [`Self::DodgeRoll`] for the same reason
     /// [`Self::AirDodge`] is: a body that stood its ground and a body that rolled
     /// out of the way are different reads, and a sheet that draws them the same

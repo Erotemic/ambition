@@ -48,7 +48,7 @@ const STOMP_BAND: f32 = 16.0;
 /// Which monitors are broken this run. A Vec, not a HashSet: the overlay
 /// contribution iterates it every frame and the sim determinism contract bans
 /// std-hash iteration order.
-/// **`Clone` because it is ROLLBACK STATE**, for the same reason Mary-O's
+/// `Clone` because it is ROLLBACK STATE, for the same reason Mary-O's
 /// broken bricks are: the overlay subtracts these names from collision every
 /// frame, so a rewind that does not restore the set disagrees with the world
 /// about which monitors are still solid.
@@ -56,9 +56,9 @@ const STOMP_BAND: f32 = 16.0;
 pub struct SpentMonitors(pub Vec<String>);
 
 impl SpentMonitors {
-    /// **A checksum over WHICH monitors are spent.**
+    /// A checksum over WHICH monitors are spent.
     ///
-    /// **order-independent even though this is a `Vec`.** The vector's order is
+    /// order-independent even though this is a `Vec`. The vector's order is
     /// the order they broke in, which is genuine information — but two peers
     /// running identical simulations break them in the same order anyway, so
     /// XORing per-name hashes loses nothing a desync check needs and survives a
@@ -87,7 +87,7 @@ pub struct SpeedShoes {
     saved_ground_accel: f32,
 }
 
-/// **The break.** A falling player whose feet land on a monitor's lid, or a
+/// The break. A falling player whose feet land on a monitor's lid, or a
 /// rolling player overlapping it, breaks it once: burst + cue + the grant.
 ///
 /// Every monitor pops on a roll-through, the classic Sonic feel.

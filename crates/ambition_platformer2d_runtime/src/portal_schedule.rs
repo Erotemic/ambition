@@ -1,17 +1,10 @@
-//! Portal simulation assembly (E5 step 5, behind the `portal` feature):
-//! [`ambition_portal2d::PortalPlugin`] plus the schedule
-//! placement for portal's internal sets — each mapped to its sandbox phase,
-//! cross-set ordering edge, and gameplay run condition.
+//! Portal simulation assembly and schedule placement.
 //!
-//! ORDERING LANDMINES (the feel/correctness contract; moved verbatim from
-//! `ambition_app::app::plugins::wire_portal_schedule`). The portal-continuity,
-//! gravity-room, and projectile-transit app suites are the parity harness —
-//! any break here goes RED there, not silently wrong:
-//! - **Carves** publish after gravity-zone collection, before core simulation.
-//! - **InputWarp** rewrites input after `interaction_input_system` and before
-//!   the primary `ControlFrame` is committed to `SlotControls` (the Move-axis-fix window).
-//! - **Transit** teleports after body + ground-item integration so THIS
-//!   frame's integrated positions are what cross the portal.
+//! Required ordering:
+//! - Carves publish after gravity-zone collection and before core simulation.
+//! - Input warp runs after interaction input and before the primary frame is committed to
+//!   `SlotControls`.
+//! - Transit runs after body and ground-item integration so current-frame positions cross.
 
 use bevy::prelude::*;
 
@@ -103,54 +96,16 @@ impl Plugin for PortalSchedulePlugin {
     }
 }
 
-/// **Why the portal-gun CONSTRUCTION LANE and the portal-gun SCHEMA cannot
-/// disagree about whether the capability is installed**.
-///
-/// The two facts have different owners, and that is the thing worth writing
-/// down rather than assuming:
-///
-/// ```text
-/// the executable lane   `#[cfg(feature = "portal")]` in the actor monolith's
-///                       room planner — a COMPILE-TIME decision. The lane's
-///                       registry is built inline and its domain's
-///                       `Services = ()`, so nothing it constructs needs a
-///                       plugin to have run.
-/// the schema entry      `PortalGunPlugin::build` contributes the gun's
-///                       registry dump to `ConstructionSchemaCatalog` — a
-///                       RUNTIME composition decision, and the only thing
-///                       prepared-content fingerprinting sees.
-/// ```
-///
-/// **so a composition that compiled `portal` and installed only
-/// [`PortalSimulationPlugin`](ambition_portal2d::PortalSimulationPlugin) would
-/// fingerprint content as gun-less while its rooms still built authored gun
-/// pickups.** `PortalSimulationPlugin` is public and its own doc invites
-/// exactly that ("Portal-only consumers may install `PortalSimulationPlugin`
-/// directly"), and it cannot be reached without the `portal` feature, because
-/// the whole `ambition_portal2d` dependency is optional and that feature is what
-/// turns it on. The invitation and the lane are therefore inseparable.
-///
-/// **what actually prevents the divergence is one line in this file**: this
-/// plugin installs `PortalPlugin`, which is simulation PLUS gun, and it is the
-/// only place in the workspace that installs portal simulation at all
-/// (`PlatformerEnginePlugins` adds this plugin, unconditionally, under the same
-/// `portal` feature that compiles the lane). No engine composition can express
-/// "portal simulation, no portal gun" today.
-///
-/// **that is a coincidence of composition, not a type**, which is why the
-/// test below exists instead of an abstraction. Threading a runtime capability
-/// token into room planning would mean a seventh authority on
-/// `ActorConstructionContext::for_room_construction` and a new parameter on the
-/// six systems that call it — one of which already sits at Bevy's 16-parameter
-/// ceiling — to defend a state no composition can currently reach. The test is
-/// the cheap half: the day somebody swaps this line for `PortalSimulationPlugin`
-/// and makes that state reachable, it goes red and says what else must move.
+/// Keep portal construction capability and its schema installed by the same engine
+/// composition. The room planner's portal-gun lane is compile-time feature gated, while
+/// prepared-content fingerprinting reads runtime schema registration; `PortalSchedulePlugin`
+/// must therefore install the full `PortalPlugin`, not simulation alone.
 #[cfg(test)]
 mod tests {
     use super::PortalSchedulePlugin;
     use ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog;
 
-    /// **One decision, two consequences.** If this app can plan the portal-gun
+    /// One decision, two consequences. If this app can plan the portal-gun
     /// construction lane — and it can, because this module only compiles under
     /// the same feature — then the schema catalog must already know the domain.
     #[test]

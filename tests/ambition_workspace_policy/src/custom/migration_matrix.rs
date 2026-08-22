@@ -1,16 +1,11 @@
-//! Completeness checker for the architecture_boundaries.rs migration matrix.
+//! Validate the temporary migration matrix for `architecture_boundaries.rs`.
 //!
-//! `migration_matrix.toml` maps every #[test] that was in the legacy
-//! architecture_boundaries.rs to exactly one disposition. This asserts:
-//!   * a bijection between the matrix and the frozen canonical name list;
-//!   * every `declarative`/`custom` destination resolves to a real policy ID;
-//!   * `removed`/`retained` carry a justification note;
-//!   * the matrix cannot lie — a `legacy-pending` entry's fn still lives in the
-//!     legacy file, and a migrated/removed/retained entry's fn is gone from it.
+//! The matrix must map each frozen legacy test exactly once, resolve migrated
+//! policy IDs, justify removed/retained entries, and agree with which tests
+//! still exist in the legacy file.
 //!
-//! When the legacy file is finally deleted (Task 9), the "still in file" set is
-//! empty, so any remaining `legacy-pending` entry fails — the campaign is only
-//! done when the matrix has zero pending entries.
+//! TODO(compat-remove): migrate every `legacy-pending` entry, then delete the
+//! legacy file, migration matrix, frozen-name fixture, and this checker.
 
 use std::collections::BTreeSet;
 
@@ -52,7 +47,7 @@ fn frozen_names(ws: &Workspace) -> BTreeSet<String> {
 fn legacy_fn_names(ws: &Workspace) -> BTreeSet<String> {
     let path = ws.abs(LEGACY_FILE);
     let Ok(text) = std::fs::read_to_string(&path) else {
-        return BTreeSet::new(); // file deleted (Task 9) — nothing is legacy-pending anymore
+        return BTreeSet::new(); // A deleted legacy file has no pending functions.
     };
     let mut out = BTreeSet::new();
     for line in text.lines() {

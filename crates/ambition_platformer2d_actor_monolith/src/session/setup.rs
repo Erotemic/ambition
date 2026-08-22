@@ -188,7 +188,7 @@ pub fn simulation_world(
     // the untouched canonical path; any other selected character overlays its
     // moveset + name onto the same box (its sprite is bound presentation-side).
     //
-    // **What the body physically IS travels with the worn character**, through
+    // What the body physically IS travels with the worn character, through
     // the same resolver a seated fighter uses. How fragile it is, how much it
     // weighs, and how big its box is are one statement made once — a
     // classic-platformer character authors `max_health: 1` (armor absorbs, then
@@ -218,7 +218,7 @@ pub fn simulation_world(
         initial_scratch.kinematics.size = size;
         initial_scratch.base_size.base_size = size;
     }
-    // **HOW THIS BODY FIRES**, resolved by the overlay the bundle already runs
+    // HOW THIS BODY FIRES, resolved by the overlay the bundle already runs
     // and kept rather than discarded — see below.
     let mut ranged = ambition_characters::brain::RangedExecution::ChargedProjectile;
     let player_bundle = if starting_character.is_default() {

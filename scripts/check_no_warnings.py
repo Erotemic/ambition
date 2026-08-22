@@ -12,7 +12,7 @@ This closes the asymmetry from the local side.
 
 ## why it does NOT set `RUSTFLAGS=-D warnings`, which is the obvious fix
 
-**`RUSTFLAGS` is part of cargo's fingerprint.** Setting it — in
+`RUSTFLAGS` is part of cargo's fingerprint. Setting it — in
 `.cargo/config.toml`, or per-invocation here — invalidates every artifact built
 without it and forces a full rebuild of the workspace. This target directory has
 carried ~300 GB of `debug/deps` and has filled the volume to 100% three times

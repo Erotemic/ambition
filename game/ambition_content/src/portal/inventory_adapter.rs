@@ -105,7 +105,7 @@ pub fn drop_portal_gun_system(
 /// On a [`PickUpPortalGun`] intent, grant the player an (active) `PortalGun` if
 /// they overlap an armed `PortalGunPickup`, consume the pickup, stash the melee
 /// (so `Attack` fires portals), and reflect the grant into [`OwnedItems`]. The
-/// gun is a **single item**: it doesn't exist until you pick it up — picking up
+/// gun is a single item: it doesn't exist until you pick it up — picking up
 /// the one world item *is* getting the portal gun. Emits [`PortalGunEquipped`].
 pub fn pickup_portal_gun_system(
     mut picks: MessageReader<PickUpPortalGun>,

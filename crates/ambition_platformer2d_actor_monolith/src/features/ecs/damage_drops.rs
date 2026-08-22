@@ -15,7 +15,7 @@ use bevy::prelude::{Commands, Entity};
 use super::{CenteredAabb, FeatureId, FeatureName, FeatureSimEntity, PickupFeature};
 use ambition_platformer2d_core as ae;
 
-/// **Which of a body's death drops this is** — the `sequence` half of the drop's
+/// Which of a body's death drops this is — the `sequence` half of the drop's
 /// [`SpawnOrigin::Dynamic`].
 ///
 /// DERIVED, not counted, and for the same reason `SimId::strike_volume` is
@@ -36,9 +36,9 @@ const DROP_SEQUENCE_ABILITY: u64 = 2;
 /// stays a derivation like its siblings above.
 const DROP_SEQUENCE_WEAPON: u64 = 3;
 
-/// **A drop states the body it fell out of.**
+/// A drop states the body it fell out of.
 ///
-/// **without this a drop is never DRAWN.** `rebuild_dynamic_feature_views` discovers loot the
+/// without this a drop is never DRAWN. `rebuild_dynamic_feature_views` discovers loot the
 /// running simulation minted by construction PROVENANCE — "this pickup was not in the room spec" is
 /// exactly the condition under which the room-load visual pass could not have seen it. An authored
 /// pickup carries [`SpawnOrigin::Authored`] and is filtered out there; these carried NO provenance
@@ -114,7 +114,7 @@ const EXPLODER_BLAST_KNOCKBACK: f32 = 1.6;
 /// A brief flash — the box exists just long enough to register one hit.
 const EXPLODER_BLAST_LIFETIME_S: f32 = 0.14;
 
-/// Spawn the death blast of a volatile mite: a one-shot **Enemy-faction**
+/// Spawn the death blast of a volatile mite: a one-shot Enemy-faction
 /// [`Hitbox`](crate::features::Hitbox) centered on the corpse. Enemy faction, so
 /// `apply_hitbox_damage` routes it at the *player* (not other enemies — the blast
 /// doesn't chain), and the player's shield/parry can still negate it. `owner` is
@@ -158,14 +158,14 @@ const SPLIT_OFFSPRING_HALF: ae::Vec2 = ae::Vec2::new(15.0, 20.0);
 /// is exactly one level deep: no runaway recursion, just "kill the slow parent,
 /// then handle two quick children."
 ///
-/// **THE CHILDREN ARE PUPPY SLUGS**. Skitters are Puppy Slug."*
+/// THE CHILDREN ARE PUPPY SLUGS. Skitters are Puppy Slug."*
 ///
-/// **the repo had already answered this once**: the proving grounds' placement
+/// the repo had already answered this once: the proving grounds' placement
 /// literally named `pg_skitter` is cast as `npc_puppy_slug` today. The split was
 /// the site that had not caught up.
 ///
-/// **an engine module still names an Ambition creature, and that is AC5.4's
-/// remainder rather than this line's.** What a character splits into is a CONTENT
+/// an engine module still names an Ambition creature, and that is AC5.4's
+/// remainder rather than this line's. What a character splits into is a CONTENT
 /// fact and belongs on the parent's definition; casting it correctly first is
 /// what makes moving it a move rather than a decision.
 pub(super) fn spawn_split_offspring(
@@ -291,8 +291,8 @@ pub fn drop_ability_pickup(
 ///                    parent is a drop nothing can say where it came from
 /// ```
 ///
-/// **provenance, NOT identity — deliberately, and for the same reason the
-/// coin gives**: no `SimId` is minted here. Giving death drops durable identity
+/// provenance, NOT identity — deliberately, and for the same reason the
+/// coin gives: no `SimId` is minted here. Giving death drops durable identity
 /// is a step of the reconstruction migration and this is not it.
 pub fn drop_held_weapon(
     commands: &mut Commands,
@@ -319,8 +319,8 @@ pub fn drop_held_weapon(
             dynamic_drop_origin(parent, DROP_SEQUENCE_WEAPON),
             // The attempt produced it; the attempt's reset takes it back.
             //
-            // **the boss's gauntlet did NOT carry this and its sibling reward
-            // did.** Both fall out of one death, and an attempt reset that
+            // the boss's gauntlet did NOT carry this and its sibling reward
+            // did. Both fall out of one death, and an attempt reset that
             // un-fights the boss while leaving half its loot on the floor is two
             // answers to one question. They agree now.
             super::reset::SpawnedThisAttempt,

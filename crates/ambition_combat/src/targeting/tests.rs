@@ -11,12 +11,12 @@ use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 #[test]
 fn effective_faction_maps_a_driven_body_to_the_player_side() {
     let driven = DrivingParticipant(PlayerSlot::PRIMARY);
-    // A possessed enemy: authored Enemy, but participant-driven ⇒ Player.
+    // A possessed enemy: authored Enemy, but participant-driven  Player.
     assert_eq!(
         effective_faction(ActorFaction::Enemy, Some(&driven)),
         ActorFaction::Player,
     );
-    // Nobody drives it ⇒ keeps authored Enemy, whatever its AI policy is.
+    // Nobody drives it  keeps authored Enemy, whatever its AI policy is.
     assert_eq!(
         effective_faction(ActorFaction::Enemy, None),
         ActorFaction::Enemy,

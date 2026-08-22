@@ -1,4 +1,4 @@
-//! **The `FeatureInteraction` cross-domain order, asserted as the app composes it.**
+//! The `FeatureInteraction` cross-domain order, asserted as the app composes it.
 //!
 //! This phase was ONE anonymous `.chain()` of ten systems spanning four domains
 //! (`conversation`, the interaction features, the NPC cast, `encounter`), and
@@ -7,8 +7,8 @@
 //! systems without naming anything in `features` — but a vocabulary only helps
 //! if the edges are really there.
 //!
-//! **these read the SCHEDULE GRAPH the real plugin built, not a list retyped
-//! from the plugin.** A test that hand-lists a chain pins the function, not the
+//! these read the SCHEDULE GRAPH the real plugin built, not a list retyped
+//! from the plugin. A test that hand-lists a chain pins the function, not the
 //! wiring: if it asserted "these ten systems appear in this order" by observing
 //! an execution, an unordered pair could satisfy it by luck of the topological
 //! sort. `.chain()` between sets materialises directed edges in
@@ -81,13 +81,8 @@ fn composed_app() -> App {
     app
 }
 
-/// The seven phases are chained head to tail, as SEVEN individually asserted
-/// edges.
-///
-/// the distinction this pins is the one `(A, B).before(C)` gets wrong:
-/// that form orders A before C and B before C and says NOTHING about A vs B.
-/// Six consecutive edges is the total order; anything weaker would let the
-/// cut bark run before the break rule that decided who speaks.
+/// Assert every consecutive phase edge; `(A, B).before(C)` would not order
+/// `A` relative to `B` and therefore would not prove the required total order.
 #[test]
 fn the_feature_interaction_phases_are_chained_head_to_tail() {
     let mut app = composed_app();
@@ -208,7 +203,7 @@ fn every_feature_interaction_system_is_in_its_named_phase() {
     }
 }
 
-/// **the plugin schedules NOTHING into the phase outside a named set.**
+/// the plugin schedules NOTHING into the phase outside a named set.
 ///
 /// The whole point of the vocabulary is that no interleave is positional any
 /// more. A system added straight to

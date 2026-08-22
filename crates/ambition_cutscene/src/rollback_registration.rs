@@ -13,7 +13,7 @@ pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
 {
-    // ⚠ **OPTIONAL-canonical, not canonical.** `CutscenePlugin` is installed by
+    //  OPTIONAL-canonical, not canonical. `CutscenePlugin` is installed by
     // compositions that HAVE cutscenes; a bare oracle harness or a demo without
     // scripted beats carries no `ActiveCutscene`, and the plain canonical form
     // installs a checksum system taking `Res<T>` that panics on every frame the

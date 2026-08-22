@@ -63,7 +63,7 @@ fn go(app: &mut App, route: &str, experience: &str) {
     release_departed_experience_state(app.world_mut());
 }
 
-/// **The leak this exists for.** A resource a provider published survived the
+/// The leak this exists for. A resource a provider published survived the
 /// route that published it, and the next experience inherited it — which is how
 /// picking Oni Leader in the smash lobby redressed the body Ambition controls.
 #[test]
@@ -90,7 +90,7 @@ fn state_a_provider_published_leaves_with_it() {
     );
 }
 
-/// **A provider's own screens are not a departure.**
+/// A provider's own screens are not a departure.
 ///
 /// The select screen and the match are two experiences of one provider, and the
 /// roster is published by the first FOR the second. A scope that released on any
@@ -109,7 +109,7 @@ fn moving_between_a_providers_own_experiences_releases_nothing() {
     );
 }
 
-/// **A route waiting on its load barrier has not left yet.**
+/// A route waiting on its load barrier has not left yet.
 ///
 /// The premise the release rule is allowed to be this simple on: `activate`
 /// takes the old activation and installs the new one in one call, so while the
@@ -134,7 +134,7 @@ fn a_route_waiting_on_its_barrier_has_not_left_its_experience() {
     );
 }
 
-/// **Cleanup removes what this owner published, not what the resource is.**
+/// Cleanup removes what this owner published, not what the resource is.
 ///
 /// The roster is a global another experience also publishes into. Releasing it
 /// by type would be one game deleting another's match.
@@ -182,7 +182,7 @@ use bevy::ecs::system::RunSystemOnce;
 #[derive(Resource, Debug, PartialEq)]
 struct Activation(u8);
 
-/// **A witnessed release leaves a stranger's state alone, and takes its own.**
+/// A witnessed release leaves a stranger's state alone, and takes its own.
 ///
 /// The shape `ActiveMatch` needs: rollback state that deliberately carries no
 /// identity, released on the word of the plan it came from.
@@ -228,8 +228,8 @@ fn a_witnessed_release_asks_the_witness_who_owns_it() {
     );
 }
 
-/// **a witness released before the thing that reads it is a release that
-/// silently stops working**, so declaring them in that order is refused where
+/// a witness released before the thing that reads it is a release that
+/// silently stops working, so declaring them in that order is refused where
 /// the mistake is made rather than discovered later as a leak.
 #[test]
 #[should_panic(expected = "already released earlier in this scope")]

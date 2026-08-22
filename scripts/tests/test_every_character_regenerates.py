@@ -13,7 +13,7 @@ developer who could notice already has the file.
 * `mary_o_v2` and its two forms, 2026-08-05, found because six portraits were
   blank in a new character-select grid — four separate surfaces named that sheet
   family and none of them published it;
-* and then **twenty-six more the same day**, when Jon asked the obvious next
+* and then twenty-six more the same day, when Jon asked the obvious next
   question: *"Are there other characters that don't regen? If there are we need
   to fix that."* Almost all of them were one cast — the Hall's mathematician and
   scientist NPCs.
@@ -87,7 +87,7 @@ MAIN_CONFIGS = (
     REPO / "tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/configs"
 )
 
-# **THE SECOND DIRECTORY SURFACE, and this census could not see it.**
+# THE SECOND DIRECTORY SURFACE, and this census could not see it.
 # `regen_sprites.sh` builds `rig_targets` by globbing exactly this:
 #
 #     for rig in "$renderer_dir"/…/targets/characters/rigged/*.rig.json
@@ -97,7 +97,7 @@ MAIN_CONFIGS = (
 # `configs/*.yaml`, which this file already handles two lines below. Missing it
 # reported `pointed_polygon` as an orphan while the glob published it.
 #
-# **TOP-LEVEL ONLY, mirroring the script's glob exactly.** A rig that moved
+# TOP-LEVEL ONLY, mirroring the script's glob exactly. A rig that moved
 # into `rigged/<name>/` is NOT matched by `*.rig.json` and must be named in the
 # roster — that is why `noether` and `oiler` are listed there by hand, and
 # claiming coverage for a subdirectory here would re-open the exact gap that
@@ -112,11 +112,11 @@ RIGGED_TARGETS = (
 def _published_by_regen() -> str:
     """`regen_sprites.sh` with comments stripped, plus what `draw-all` covers.
 
-    ⚠ comments matter: the first run of this census counted a stem mentioned
+     comments matter: the first run of this census counted a stem mentioned
     only in a comment as covered, and reported `player_robot_v3` as fine when
     nothing publishes it.
 
-    ⚠ **THREE surfaces publish by DIRECTORY, not by name.** `draw-all` renders
+     THREE surfaces publish by DIRECTORY, not by name. `draw-all` renders
     every `configs/*.yaml` unconditionally and `rig_targets` globs every
     top-level `rigged/*.rig.json`, so those targets are covered without the
     script ever spelling them. They used to be spelled anyway, incidentally,
@@ -181,7 +181,7 @@ def test_every_catalog_character_names_a_sheet_regen_publishes():
 def test_the_scan_would_notice_an_orphan():
     """The poison: a stem nothing publishes has to be reported.
 
-    ⚠ without this the check above is one broken regex away from being a test
+     without this the check above is one broken regex away from being a test
     that passes because it found nothing to look at — which is exactly how the
     26 stayed invisible while a portrait checker sat next to them.
     """

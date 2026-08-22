@@ -528,8 +528,8 @@ fn translate_shell_session_lifecycle(
                     // next match built its fighters, seated them, framed them and never advanced a
                     // tick — bodies hanging in the air with a menu that still answered.
                     //
-                    // **the pause menu already handed the sim back on its way
-                    // out, and that is exactly the problem**: `QuitToHome` has
+                    // the pause menu already handed the sim back on its way
+                    // out, and that is exactly the problem: `QuitToHome` has
                     // four writers (the pause menu, the F10 developer hotkey, the
                     // in-world system menu, the scripted route sweep) and only
                     // one of them remembered. A rule every caller must obey is a

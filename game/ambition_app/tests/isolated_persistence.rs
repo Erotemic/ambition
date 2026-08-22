@@ -1,11 +1,11 @@
-//! **A test is not a player, and must not write a player's files.**
+//! A test is not a player, and must not write a player's files.
 //!
 //! `PersistenceRoot` made that path App state instead of an ambient process fact,
 //! and windowless hosts insert `PersistenceRoot::isolated()` beside
 //! `AudioOutputMode::Recording` — the same rule for the other side effect a
 //! non-session App should not have.
 //!
-//! **this file exists because that is exactly the kind of fix that rots.** The
+//! this file exists because that is exactly the kind of fix that rots. The
 //! isolation is one `insert_resource` inside a `matches!` on the render mode; the
 //! `Default` impl is still the real platform directory, so anything that stops
 //! taking that branch silently goes back to writing `~/.local/share/ambition/`
@@ -44,7 +44,7 @@ fn a_windowless_host_does_not_write_the_players_directory() {
     );
 }
 
-/// **Two Apps in one process must not share a root either.**
+/// Two Apps in one process must not share a root either.
 #[test]
 fn two_isolated_roots_in_one_process_are_different_directories() {
     let first = PersistenceRoot::isolated();
@@ -56,16 +56,16 @@ fn two_isolated_roots_in_one_process_are_different_directories() {
     );
 }
 
-/// **A windowless host arrives with its clock PINNED.**
+/// A windowless host arrives with its clock PINNED.
 ///
 /// Stating a lesson is what a rule does instead of enforcing it.
 ///
-/// **the same rot risk as the persistence guard above**, and the same answer:
+/// the same rot risk as the persistence guard above, and the same answer:
 /// the pin is one `insert_resource` inside a `matches!` on the render mode, the
 /// Bevy default is still `Automatic`, and anything that stops taking that branch
 /// silently goes back to a wall-clock frame with every test still passing.
 ///
-/// **it asserts the DEFAULT is not what we get**, rather than a specific duration, so a host
+/// it asserts the DEFAULT is not what we get, rather than a specific duration, so a host
 /// that pins a different dt on purpose stays green while a host that pins nothing does not.
 #[test]
 fn a_windowless_host_does_not_advance_its_clock_by_wall_clock() {
@@ -85,12 +85,12 @@ fn a_windowless_host_does_not_advance_its_clock_by_wall_clock() {
     );
 }
 
-/// **A HEADLESS COMPOSITION CAN PERSIST — and it writes to a root of its own.**
+/// A HEADLESS COMPOSITION CAN PERSIST — and it writes to a root of its own.
 ///
 /// The durable horizon is SIM state — its own row says *"the on-disk form IS the checkpoint's own
 /// description, serialized"* — so a composition that simulates should be able to persist.
 ///
-/// **and the root matters as much as the plugin.** `PersistenceRoot::default()`
+/// and the root matters as much as the plugin. `PersistenceRoot::default()`
 /// is the PLAYER's platform data dir; installing the writer without an isolated
 /// root would point every headless run at the user's real save. Both halves are
 /// asserted here, because installing one without the other is worse than

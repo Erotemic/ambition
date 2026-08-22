@@ -1,51 +1,10 @@
-//! The deterministic sand grid — FS2/FS3's substrate, sand only.
+//! Deterministic bounded sand cellular automaton.
 //!
-//! `falling-sand.md` §1 demands the falling-sand room be a **bounded,
-//! deterministic cellular automaton with an explicit conservation law**, driven
-//! one solver step per simulation tick. `bevy_falling_sand` cannot honor that
-//! contract structurally (§4 of the plan doc records the evidence: private
-//! movement systems pinned to `PostUpdate`, a step signal visible for two
-//! frames, parallel chunk iteration + per-particle RNG), so SAND — the material
-//! whose settled state becomes world geometry — runs on this grid instead.
-//! Water and oil stay on the external crate until their own slice.
-//!
-//! # The two owners and the law between them
-//!
-//! Matter lives in exactly one of two places (§1's single-owner rule, extended
-//! by FS3's transfer):
-//!
-//! - **Loose** sand: a [`SandCell::Sand`] cell in the grid, moved by [`SandGrid::step`].
-//! - **Settled** sand: mass recorded in the [`SettledSandLedger`], which owns
-//!   the persistent collision contribution. Its grid cell becomes
-//!   [`SandCell::Settled`] — geometry from the CA's point of view, exactly like
-//!   a wall, so later sand piles on top of it. The cell is no longer matter;
-//!   the ledger's count is.
-//!
-//! [`SandGrid::settle_into`] is the ONLY door between the owners, and it is
-//! atomic per cell: flip the cell to `Settled`, decrement `loose`, increment
-//! the ledger — one function, same tick, no state in which the grain is in
-//! both owners or neither. The conservation law is therefore an equality over
-//! counters, checked by [`SandGrid::conserved_with`] and asserted every tick
-//! by the driving system:
-//!
-//! ```text
-//! loose(grid) + total(ledger) == emitted
-//! ```
-//!
-//! # Determinism (ADR 0023)
-//!
-//! No RNG, no entity iteration, no hash maps. The step scans rows bottom-up
-//! (a falling column moves as a unit); within a row the scan direction
-//! alternates by `(tick + row)` parity and the diagonal preference by
-//! `(tick ^ x ^ y)` parity, so streams don't drift sideways yet every choice
-//! is a pure function of (state, tick). The ledger is a `BTreeMap`. Two grids
-//! fed the same emissions are equal cell-for-cell — pinned by a test.
-//!
-//! # Finite settling
-//!
-//! Gravity is +y (this codebase's world convention: y grows downward). The
-//! symmetry-room C4 generalization (gravity from `GravityCtx`) is future work;
-//! this room authors normal gravity.
+//! Loose matter is owned by [`SandGrid`]; settled matter is owned by
+//! [`SettledSandLedger`]. [`SandGrid::settle_into`] atomically transfers one grain, so
+//! `loose + settled == emitted` remains the conservation law. Stepping uses no RNG or
+//! entity/hash iteration: row/parity rules derive every movement choice from state and
+//! tick. Gravity is currently fixed to +y for this room.
 
 use std::collections::BTreeMap;
 
@@ -123,7 +82,7 @@ impl SettledSandLedger {
     }
 
     /// The persistent collision contribution: one one-way block per dense
-    /// tile, **bottom-aligned and proportional to fill** — a quarter-full tile
+    /// tile, bottom-aligned and proportional to fill — a quarter-full tile
     /// yields a 4-px platform at the tile's bottom, so the standable surface
     /// tracks the sand's actual height instead of floating at the tile top.
     pub fn blocks(&self) -> impl Iterator<Item = ae::Block> + '_ {
@@ -145,7 +104,7 @@ impl SettledSandLedger {
 /// The loose owner: a bounded, deterministic sand CA over world-pixel cells.
 ///
 /// Coordinates are the room's world pixels directly — `(0, 0)` top-left,
-/// x right, y **down** (gravity) — so tile keys and block AABBs need no
+/// x right, y down (gravity) — so tile keys and block AABBs need no
 /// conversion.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SandGrid {
@@ -268,7 +227,7 @@ impl SandGrid {
         self.row_loose[to.1 as usize] += 1;
     }
 
-    /// **One solver step.** Exactly one per simulation tick, called by the
+    /// One solver step. Exactly one per simulation tick, called by the
     /// sim-schedule system — never by a render-frame schedule. Returns how
     /// many grains moved, so a caller can observe quiescence.
     ///
@@ -327,7 +286,7 @@ impl SandGrid {
         None
     }
 
-    /// **FS3's atomic ownership transfer.** A grain whose three lower
+    /// FS3's atomic ownership transfer. A grain whose three lower
     /// neighbors (below, below-left, below-right) are all static can never
     /// move again by the CA's own rules — so it stops being a grain: the cell
     /// becomes [`SandCell::Settled`] geometry and its mass moves into the

@@ -1,44 +1,8 @@
 #!/usr/bin/env python3
-"""Add World 1-2 to game/ambition_demo_mary_o/assets/worlds/mary_o.ldtk.
+"""Author World 1-2 into the Mary-O LDtk project through `ambition_ldtk_tools`.
 
-Jon, 2026-08-04: *"we need to build a real world 1-2."* 1-2 already existed and
-played — it was a `RoomSpec` built from constants in `src/level_1_2.rs`, so Jon
-could lay out one of his two levels and not the other. This is the bootstrap that
-closes that asymmetry.
-
-⛔ **ADDITIVE, unlike `author_mary_o_ldtk.py`.** That script DELETES the file and
-rebuilds 1-1 from scratch; this one appends an area to a file Jon may already have
-edited, and refuses if `mary_o_1_2` is already in it. Run once from the repo root:
-
-    python3 game/ambition_demo_mary_o/tools/author_mary_o_1_2_ldtk.py
-
-⛔ **THE CONSTANTS BELOW ARE A ONE-TIME MIRROR OF `level_1_2.rs`, NOT A SECOND
-AUTHORITY** — the same rule the 1-1 generator states, for the same reason. Once
-the area is in the file, **the .ldtk file is the level**. Do not keep these in
-sync; the Rust that mirrored them is deleted in the same commit.
-
-## Why the room got 4 tiles wider
-
-The Rust room was 56x14 tiles with its two end walls sitting OUTSIDE that
-rectangle (`x = -2 tiles` and `x = 56 tiles`), which a `World` tolerates and a
-level file cannot: an LDtk level's geometry lives inside its own px rect. So the
-level is 60 tiles wide, the walls occupy the outermost two tiles at each end, and
-everything between them is shifted right by `X0`. The playable corridor is the
-same 56 tiles it always was, and every feature keeps its column measured from the
-inside face of the left wall.
-
-## The two zones this also buys
-
-1-1's `descent_to_1_2` and `surface_return_from_1_2` were the last coordinates in
-Rust. They are authored here — the descent as an EXIT naming 1-2's arrival, the
-surface return as a LANDING PAD naming nothing.
-
-⚠ **a landing pad must NOT name a target.** The body arrives standing inside the
-zone it arrived through, so a pad with an outgoing link fires the moment the
-transition cooldown lapses and bounces you straight back. The validator used to
-demand a target on every zone, which is the other half of why these two could not
-be authored; it understands both shapes now.
-"""
+The script applies the declared entity-definition/spec edits and delegates final
+project normalization to the shared LDtk tooling."""
 
 from __future__ import annotations
 

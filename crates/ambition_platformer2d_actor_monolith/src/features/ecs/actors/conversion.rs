@@ -31,7 +31,7 @@ pub fn actor_component_snapshot(
     ActorDisposition,
     BodyCombat,
 ) {
-    // **THE SEED'S OWN, not a rebuild** (AC6.2). This constructed a fresh
+    // THE SEED'S OWN, not a rebuild (AC6.2). This constructed a fresh
     // `BodyCombat` and filled its one authored flag from
     // `ActorTuning::is_sandbag` — a copy of the character's `practice_target`
     // made at spawn so it could be copied AGAIN here. The seed decides a body's
@@ -73,10 +73,10 @@ pub fn enemy_component_snapshot(
 /// of truth — "enemy" is just hostile disposition now). An already-hostile actor
 /// just re-derives its aggressive brain (escalation). Shared by the runtime
 /// stimulus and save-load provoke paths.
-/// **Rebuild the driver from the policy the config now carries**, for a body
+/// Rebuild the driver from the policy the config now carries, for a body
 /// whose CHARACTER answered the provocation question.
 ///
-/// **the action set is untouched, and that is the difference.** The archetype
+/// the action set is untouched, and that is the difference. The archetype
 /// path swaps a body's kit because the archetype IS the kit; a character-first
 /// body already fights with what its character authored, and provocation has no
 /// business editing it. All that changes is who is deciding.
@@ -126,17 +126,17 @@ pub(crate) fn provoke_actor_in_place(
     held_item: Option<&HeldItem>,
     // It existed so a provoked body could be recognised by its encounter's dialogue id — one of
     // three prose spellings `hostile_brain_id_for_actor` guessed at — and a creature that publishes
-    // its own provoked policy needs none of them. **WHICH CHARACTER THIS BODY IS — the GAMEPLAY
-    // identity.**
+    // its own provoked policy needs none of them. WHICH CHARACTER THIS BODY IS — the GAMEPLAY
+    // identity.
     worn_character: Option<&str>,
-    // **WHAT THE BODY'S OWN CHARACTER SAYS ABOUT BEING PROVOKED**, if it says
+    // WHAT THE BODY'S OWN CHARACTER SAYS ABOUT BEING PROVOKED, if it says
     // anything — see `CharacterDefinition::provoked_profile_ref`. `Option`
     // because most compositions register no cast, and no character today states
     // one.
     prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
     chase: bool,
 ) {
-    // **THE CREATURE'S OWN ANSWER, when it has one**.
+    // THE CREATURE'S OWN ANSWER, when it has one.
     //
     // A peaceful pirate that gets struck is given a different BODY rather than a different
     // attitude, which is the fused ontology at its most literal, and it is the only thing
@@ -179,7 +179,7 @@ pub(crate) fn provoke_actor_in_place(
         return;
     }
     if disposition.is_peaceful() {
-        // **THE LIVE PROVOKE PATH NO LONGER ASKS THE ROSTER.**
+        // THE LIVE PROVOKE PATH NO LONGER ASKS THE ROSTER.
         //
         // this looked `combatant` up with `spec_for_brain` to get a
         // `BrainProfile` and an HP pool — the last reason provocation knew the
@@ -207,7 +207,7 @@ pub(crate) fn provoke_actor_in_place(
             held_item,
             em.abilities.abilities,
         );
-        // **THE MIND CHANGES. THE BODY DOES NOT.**
+        // THE MIND CHANGES. THE BODY DOES NOT.
         //
         // A struck villager did not become an angry villager, it became a `combatant` wearing a
         // villager's name, and the paragraph above this branch has always said otherwise.
@@ -220,7 +220,7 @@ pub(crate) fn provoke_actor_in_place(
         // handed already knows it flies. A provoked parrot is an angry parrot.
         em.config.brain_profile = proj.brain_profile;
         em.config.brain = proj.config_brain;
-        // **AND THE LAST BODY FACT WENT WITH IT.** This was
+        // AND THE LAST BODY FACT WENT WITH IT. This was
         // `*em.health = fresh_health_pool(DEFAULT_PROVOKED_HEALTH)` — a struck
         // body's entire `BodyHealth` replaced by a fresh 4-point pool, current
         // damage and all, because a peaceful placement spawned at `max_health: 1`
@@ -234,7 +234,7 @@ pub(crate) fn provoke_actor_in_place(
         // (`ActorAggression::grudge`, set by `apply_actor_stimuli`): targeting treats
         // the grudge entity as a foe, and the victim-side damage gate is `can_damage`
         // (different-faction), which an Npc-vs-Player hit already passes.
-        // **PROVOCATION CHANGES WHAT A BODY IS, NEVER WHO DRIVES IT.**
+        // PROVOCATION CHANGES WHAT A BODY IS, NEVER WHO DRIVES IT.
         //
         // Measured: both seats opened as `Player(0)`/`Player(1)` and seat one flipped 28 frames
         // after its pad went quiet, which is when it traded its first blows.

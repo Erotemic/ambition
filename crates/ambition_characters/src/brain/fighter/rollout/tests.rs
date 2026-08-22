@@ -577,7 +577,7 @@ fn the_same_walk_ends_in_a_ko_and_the_old_infinite_plane_never_does() {
     // 160 px/s) and fall the 284 px to the bottom of the envelope; SHORT enough
     // that a body strolling at platform height reaches only x=640, well inside
     // the envelope's x=800 wall. So the KO below can only have come from falling.
-    // **60 ticks, not 90, and the number is load-bearing.** A one-second walk
+    // 60 ticks, not 90, and the number is load-bearing. A one-second walk
     // at `ground_speed` covers 270px from x=400, which stays inside the 800-wide
     // fixture stage; ninety ticks covers 405 and leaves it, so the INFINITE-plane
     // control KO'd on the horizontal blastzone and the test reported *"the
@@ -711,7 +711,7 @@ fn a_shadow_body_that_jumps_while_driving_lands_where_it_drifted_to() {
     );
 }
 
-/// **A body ALREADY offstage is not already dead, and the shadow says it is.**
+/// A body ALREADY offstage is not already dead, and the shadow says it is.
 ///
 /// `shadow_step` KOs anything outside the stage envelope on the tick it looks,
 /// on the argument that *"on a platform stage the envelope IS the blast zone"*.
@@ -756,7 +756,7 @@ fn a_body_recovering_from_offstage_is_not_scored_as_already_dead() {
     );
 }
 
-/// **The shadow's movement numbers ARE the engine's, not a copy of them.**
+/// The shadow's movement numbers ARE the engine's, not a copy of them.
 ///
 /// A second table looks maintained, which is why nobody checked it for weeks. This asserts the
 /// identity rather than the values — a table that drifts cannot drift past it.
@@ -774,7 +774,7 @@ fn the_default_shadow_is_the_engines_own_movement_law() {
     assert_eq!(shadow.slash_recoil, engine.slash_recoil);
 }
 
-/// **A body that authors its own movement is PREDICTED as that body.**
+/// A body that authors its own movement is PREDICTED as that body.
 ///
 /// The reason a copied table would still have been wrong even if every number
 /// had been right: a heavier fighter's gravity or a faster one's run speed
@@ -810,7 +810,7 @@ fn an_authored_body_is_predicted_with_its_own_movement_law() {
     assert_eq!(folded.response.hitstun_time, 1.25);
 }
 
-/// **And it arrives through the world-in port**, which is the only channel the
+/// And it arrives through the world-in port, which is the only channel the
 /// brain has. A snapshot that carries no law leaves the config's tuning alone.
 #[test]
 fn a_snapshot_without_a_movement_law_changes_nothing() {
@@ -862,16 +862,16 @@ fn lens_for(
     .expect("the fixture stage is known and gravity is non-zero")
 }
 
-/// **THE SELF-KO STOPS BEING ATTRACTIVE, AND THE REASON IS THE BODY.**
+/// THE SELF-KO STOPS BEING ATTRACTIVE, AND THE REASON IS THE BODY.
 ///
 /// One trajectory, three verdicts. The shadow line is byte-identical in all
 /// three — same start, same sustained verb, same foe — so nothing about the
 /// POSITION distinguishes them:
 ///
-/// * no lens ⇒ the shadow's own answer, which is "this kills you", because its
+/// * no lens  the shadow's own answer, which is "this kills you", because its
 ///   line HOLDS after `commit_ticks` and it has no notion of coming back;
-/// * a lens over a body with no mid-air jump ⇒ the real kernel agrees;
-/// * a lens over a body that owns one ⇒ the kernel drives it back onto the
+/// * a lens over a body with no mid-air jump  the real kernel agrees;
+/// * a lens over a body that owns one  the kernel drives it back onto the
 ///   platform and the verb is reprieved.
 ///
 /// `decide` picks the first movement option the veto did not name, so an
@@ -937,7 +937,7 @@ fn the_same_falling_line_is_condemned_or_reprieved_by_the_bodys_own_kit() {
     );
 }
 
-/// **An UNMODELLED verb stays unjudged, lens or no lens.**
+/// An UNMODELLED verb stays unjudged, lens or no lens.
 ///
 /// `movement_intent` returns `None` for a verb the shadow cannot simulate, and
 /// "unmodelled means unjudged, in both directions" is a rule the lens must not
@@ -977,7 +977,7 @@ fn an_unmodelled_verb_is_still_unjudged_with_a_lens_attached() {
     );
 }
 
-/// **The kernel path is as deterministic as the shadow path** (ADR 0023).
+/// The kernel path is as deterministic as the shadow path (ADR 0023).
 ///
 /// A rollback-resimulated decision tick has to reproduce its original answer bit-for-bit, and
 /// the lens is the first thing in this module that leaves it — it clones a body and drives
@@ -1038,8 +1038,8 @@ fn view_standing_at_the_lip() -> WorldView {
     view
 }
 
-/// **THE SHADOW MUST LET GO OF THE FLOOR WHERE THE KERNEL DOES, NOT A
-/// HALF-EXTENT EARLIER.**
+/// THE SHADOW MUST LET GO OF THE FLOOR WHERE THE KERNEL DOES, NOT A
+/// HALF-EXTENT EARLIER.
 ///
 /// `refine_by_rollout` captures `left_the_ground` from this exact transition and
 /// hands the position to the real movement kernel. The kernel's support test is
@@ -1091,8 +1091,8 @@ fn the_shadow_lets_go_of_the_lip_where_the_kernel_does() {
     );
 }
 
-/// **AND THE VETO SURVIVES THE TRANSITION: a body that walks off the lip with
-/// nothing to get back on is condemned.**
+/// AND THE VETO SURVIVES THE TRANSITION: a body that walks off the lip with
+/// nothing to get back on is condemned.
 ///
 /// The line is the same walk as above. The kit owns no mid-air jump, no wall
 /// verb and no ledge grab, and the query carries zero unspent air jumps, so once

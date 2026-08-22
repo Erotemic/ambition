@@ -69,7 +69,7 @@ fn stage(app: &mut App, character_id: &str) {
         .request(character_id);
 }
 
-/// **The gap this closes.** A secondary provider's cue was DENIED in production.
+/// The gap this closes. A secondary provider's cue was DENIED in production.
 ///
 /// `write_from` tags a request with the emitting character's provider, and
 /// `authorize_sfx_source` is what makes that tag resolvable.
@@ -127,7 +127,7 @@ fn a_registered_only_character_still_names_its_provider() {
         .is_sfx_source_authorized(&PresentationSourceId::new("sanic_demo")),);
 }
 
-/// **A room stages a display name, and the right provider is authorized.**
+/// A room stages a display name, and the right provider is authorized.
 ///
 /// Rooms author characters by the name a designer typed — `demand_room_character_sheets` pushes
 /// `enemy.name` and an interactable's `character_id` straight through — while every provider
@@ -159,7 +159,7 @@ fn staging_a_character_by_display_name_authorizes_its_provider() {
     );
 }
 
-/// **A later session does not authorize the previous session's cast.**
+/// A later session does not authorize the previous session's cast.
 ///
 /// The load ledger is append-only across rooms AND across sessions, so reading the
 /// cast off it meant every character the process had ever loaded was authorized in
@@ -217,7 +217,7 @@ fn an_unclaimed_character_authorizes_nothing() {
         .is_none());
 }
 
-/// **A13.** A body's cues are attributed to ITS character's provider.
+/// A13. A body's cues are attributed to ITS character's provider.
 ///
 /// `write_from` had exactly one caller — the moveset timeline — so jump, dash,
 /// damage and death all took their source from the single global
@@ -304,8 +304,8 @@ fn changing_worn_identity_changes_the_bodys_source() {
     );
 }
 
-/// **G1: a projectile lands in the voice of whoever fired it — including after
-/// that body is gone.**
+/// G1: a projectile lands in the voice of whoever fired it — including after
+/// that body is gone.
 ///
 /// The impact and the detonation are emitted by the BOLT, so an attribution that
 /// chased the owner back through `ProjectileOwner` at impact time attributed every
@@ -353,7 +353,7 @@ fn a_projectile_keeps_its_firers_source_after_the_firer_is_gone() {
     );
 }
 
-/// **G5: within one session the cast ACCUMULATES, and that is the contract.**
+/// G5: within one session the cast ACCUMULATES, and that is the contract.
 ///
 /// Pinned rather than left to be inferred, because "this session's cast" reads like
 /// a live roster and is not one. `ActiveAudioSelection` has no revoke — a source is
@@ -387,7 +387,7 @@ fn a_second_room_in_one_session_adds_to_the_cast_rather_than_replacing_it() {
     assert!(is_authorized(&app, "mary_o_demo") && is_authorized(&app, "sanic_demo"));
 }
 
-/// **C3: registering a character reaches a body that never wore anything.**
+/// C3: registering a character reaches a body that never wore anything.
 ///
 /// A spawned actor carries no `WornCharacter` — production inserts that only for the
 /// player. Its identity is the sprite character its `CombatTuning` names, which is
@@ -477,14 +477,8 @@ fn an_unregistered_character_leaves_the_body_as_its_spawn_built_it() {
         .is_none());
 }
 
-/// **A form change must not leave the previous character's fight behind.**
-///
-/// Insert-only projection kept the old moveset, the old silhouette, and the old
-/// `MovesetMelee` routing marker whenever the new definition was quieter than the
-/// old one. That is not hypothetical: Sanic's super form and
-/// Mary-O's power tiers are exactly this — one body, a new worn character — and a
-/// stale melee marker keeps diverting attacks into a move timeline the new form
-/// does not have.
+/// Recharacterization retracts moveset and melee-routing state that the new
+/// character does not author.
 #[test]
 fn wearing_a_quieter_character_retracts_the_previous_ones_moves() {
     use ambition_entity_catalog::{ClipBinding, MoveGates, MoveSpec, MovesetContract};
@@ -571,7 +565,7 @@ fn wearing_a_quieter_character_retracts_the_previous_ones_moves() {
     );
 }
 
-/// **The routing markers follow the moveset, whoever wrote it.**
+/// The routing markers follow the moveset, whoever wrote it.
 ///
 /// Driven by writing the moveset directly, which is exactly what an unknown
 /// third writer would do.
@@ -728,7 +722,7 @@ fn replacing_the_cast_reprojects_a_body_wearing_the_same_character() {
     );
 }
 
-/// **A character that becomes UNAUTHORED in a new cast loses what it granted.**
+/// A character that becomes UNAUTHORED in a new cast loses what it granted.
 ///
 /// For a same-id replacement whose new definition authors nothing, the lookup returns the new,
 /// empty definition — so nothing is retracted and the body keeps the retired hurtbox document

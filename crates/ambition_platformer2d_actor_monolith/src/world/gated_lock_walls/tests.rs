@@ -1,5 +1,5 @@
-//! **the App-level test below builds its own world, which is the shape that
-//! can pass with production wiring absent.** It is here because the invariant it
+//! the App-level test below builds its own world, which is the shape that
+//! can pass with production wiring absent. It is here because the invariant it
 //! pins is a *cache invalidation* one, and provoking a hot-reload against a live
 //! host is a much worse test than provoking it against three resources.
 
@@ -107,7 +107,7 @@ fn room_with_one_wall(
         })
 }
 
-/// **The walk finds an authored gated wall, with its footprint.**
+/// The walk finds an authored gated wall, with its footprint.
 #[test]
 fn an_authored_gated_wall_is_found_with_its_footprint() {
     let walls = authored_gated_lock_walls(&room_with_one_wall(Some(FLAG), "alice_relay"));
@@ -124,7 +124,7 @@ fn an_authored_gated_wall_is_found_with_its_footprint() {
     );
 }
 
-/// **A `LockWall` with no `gated_by` is not this system's business.**
+/// A `LockWall` with no `gated_by` is not this system's business.
 ///
 /// Encounter walls — the other consumer of `LockWall` — are exactly the walls that carry no
 /// `gated_by`, and they must keep working.
@@ -133,7 +133,7 @@ fn a_wall_with_no_authored_gate_is_left_to_its_other_consumer() {
     assert!(authored_gated_lock_walls(&room_with_one_wall(None, "alice_relay")).is_empty());
 }
 
-/// **Only the active room's walls.**
+/// Only the active room's walls.
 #[test]
 fn walls_in_another_room_are_not_found() {
     assert!(authored_gated_lock_walls(&room_with_one_wall(Some(FLAG), "drain_alley")).is_empty());
@@ -179,7 +179,7 @@ fn standing(app: &App) -> usize {
         .len()
 }
 
-/// **THE WALL STANDS UNTIL ITS CONDITION IS SATISFIED, AND THEN IT IS GONE.**
+/// THE WALL STANDS UNTIL ITS CONDITION IS SATISFIED, AND THEN IT IS GONE.
 ///
 /// nothing here reads a flag. The system asks `world.flag_set`, the world-fact
 /// domain answers, and the wall follows — which is the whole reason this stopped
@@ -198,9 +198,9 @@ fn the_wall_stands_until_its_authored_condition_is_satisfied() {
     assert_eq!(standing(&app), 0, "the condition is satisfied; the wall opens");
 }
 
-/// **A REPLACED ROOM SET INVALIDATES THE CACHE.**
+/// A REPLACED ROOM SET INVALIDATES THE CACHE.
 ///
-/// **this is the regression the original cache shipped WITHOUT**, and it is
+/// this is the regression the original cache shipped WITHOUT, and it is
 /// carried across deliberately: a hot reload that swaps the authored source
 /// under an unchanged room id and save state kept serving walls computed from
 /// data that is no longer loaded.

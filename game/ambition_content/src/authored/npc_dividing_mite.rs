@@ -1,11 +1,11 @@
 //! The splitter: four hit points, slower and tankier, and it becomes two
 //! Puppy Slugs on death.
 //!
-//! **it names its own offspring now** (AC5.4, closing engine half). A reusable platformer has
+//! it names its own offspring now (AC5.4, closing engine half). A reusable platformer has
 //! no business knowing what an Ambition mite becomes: any other game linking it inherited the
 //! creature name, and changing the answer meant editing the engine.
 //!
-//! ⇒ the parent states it, the engine reads it, and the split path names no
+//!  the parent states it, the engine reads it, and the split path names no
 //! creature at all.
 
 use ambition_characters::actor::CharacterDeathTraits;

@@ -248,7 +248,7 @@ impl LdtkProject {
                         lock_walls.extend(emission.lock_walls);
                         switch_commands.extend(emission.switch_commands);
                     }
-                    // **name the LEVEL.** An iid is not something an author can
+                    // name the LEVEL. An iid is not something an author can
                     // search for; the level is what they open to fix it, and
                     // every other diagnostic on this path already says which one.
                     Err(error) => errors.push(format!(
@@ -660,7 +660,7 @@ fn entity_display_name(entity: &LdtkEntityInstance) -> String {
 /// Every `KinematicPath` in an active area, by LDtk `iid` → the lookup id its
 /// [`KinematicPathSpec`] will carry.
 ///
-/// **this is what makes a native `EntityRef` to a path resolvable at all.** A
+/// this is what makes a native `EntityRef` to a path resolvable at all. A
 /// ref stores the target's `iid`; the room's path table is keyed by the lookup
 /// id. Resolving one to the other needs the TARGET entity, which a per-entity
 /// converter does not have, so the area builds the index once and the ref is
@@ -722,8 +722,8 @@ impl LdtkEntityCtx<'_> {
     ///
     /// `Ok(None)` = the field is unset, which is authoring nothing. An `Err` is
     /// a ref that names something this area has no path for — a dangling or
-    /// mistyped link, which is content the author must fix. **it is refused
-    /// rather than dropped**: a path reference that silently resolves to nothing
+    /// mistyped link, which is content the author must fix. it is refused
+    /// rather than dropped: a path reference that silently resolves to nothing
     /// degrades to "the body does not move", and a level that looks finished
     /// while an actor stands still is the exact failure this repo has paid for
     /// on this relationship twice.
@@ -752,7 +752,7 @@ impl LdtkEntityCtx<'_> {
 /// authored fields (the ctx), never from ambient state.
 pub type LdtkEntityConverter = fn(&LdtkEntityCtx<'_>) -> Result<RoomEmission, String>;
 
-/// **The LDtk nouns one conversion understands**: the engine's standard
+/// The LDtk nouns one conversion understands: the engine's standard
 /// vocabulary, plus whatever the caller's game adds.
 ///
 /// The reason given for the global was real: conversion runs from pure non-system code
@@ -760,7 +760,7 @@ pub type LdtkEntityConverter = fn(&LdtkEntityCtx<'_>) -> Result<RoomEmission, St
 /// it. But "no `World`" argues for a PARAMETER, not for ambient state — and a value passed in is
 /// exactly as reachable from a tool as from a system.
 ///
-/// **the vocabulary is now part of the question.** Asking "what rooms does
+/// the vocabulary is now part of the question. Asking "what rooms does
 /// this project describe?" without saying which nouns you understand was always
 /// an incomplete question; it only looked complete because one answer was
 /// installed behind everyone's back.
@@ -778,7 +778,7 @@ impl LdtkVocabulary {
 
     /// The engine's vocabulary plus a game's own converters.
     ///
-    /// **a game cannot override a standard identifier.** The engine's table
+    /// a game cannot override a standard identifier. The engine's table
     /// wins on lookup, which keeps `Solid` meaning `Solid` in every world file
     /// anyone loads. Extending the vocabulary and redefining it are different
     /// permissions, and only the first is on offer.
@@ -999,7 +999,7 @@ mod tests {
         }
     }
 
-    /// **A stage authors where it ends.**
+    /// A stage authors where it ends.
     ///
     /// `World::blast_margin` was a `200.0` literal inside the movement kernel —
     /// duplicated across two copies of the out-of-bounds gate — so no room could
@@ -1043,17 +1043,17 @@ mod tests {
         assert_eq!(room_set.rooms[0].metadata.blast_margin, None);
     }
 
-    /// **A level authors where finishing it leads.**
+    /// A level authors where finishing it leads.
     ///
-    /// **this was an if/else chain in a game crate, and it was the LAST Rust
-    /// cost of authoring a level.** Mary-O's `exit_for_room` read
+    /// this was an if/else chain in a game crate, and it was the LAST Rust
+    /// cost of authoring a level. Mary-O's `exit_for_room` read
     /// *"1-1 → 1-2, else if 1-2 → 1-3, else if 1-3 → 1-1, else replay"*: every
     /// other property of a level — geometry, blocks, enemies, links, goal pole,
     /// roster entry — came off the LDtk file, and the successor did not. It had
     /// already cost a test, which had pinned *"finishing 1-2 returns to 1-1"* —
     /// true only while 1-2 was the last level authored.
     ///
-    /// **the id is NOT resolved here, and that is the design.** A level states
+    /// the id is NOT resolved here, and that is the design. A level states
     /// a name; only the loaded `RoomSet` knows which rooms a session holds, so
     /// refusing an unknown id at conversion would refuse a room that names a
     /// sibling living in another world file. The consumer warns.
@@ -1145,8 +1145,8 @@ mod tests {
         assert_eq!(room.world.side_blast_margin, Some(0.0));
     }
 
-    /// **A stage can declare that its SIDES are a blast zone, and a corridor
-    /// can decline.** The fall direction always kills — every room has a pit
+    /// A stage can declare that its SIDES are a blast zone, and a corridor
+    /// can decline. The fall direction always kills — every room has a pit
     /// whether it wanted one or not — but the sides mean opposite things in
     /// the two genres this engine serves, so they are `Option` and absent by
     /// default.
@@ -1184,7 +1184,7 @@ mod tests {
         assert_eq!(room.world.ceiling_blast_margin, None);
     }
 
-    /// **A level can declare its game mode.** `RoomMetadata::mode` documented
+    /// A level can declare its game mode. `RoomMetadata::mode` documented
     /// itself as "authored as the LDtk level string field `mode`" while no
     /// project declared the field and no level set it — every mode in the repo
     /// is assigned in Rust. The doc was describing a channel that did not
@@ -1247,7 +1247,7 @@ mod tests {
     /// A `PickupSpawn` may author an optional animated sprite sheet: the reward
     /// stays on `kind`, and the presentation override rides `PickupSpec.sprite`
     /// (the pickup renderer binds it as a looping character sheet). Absent field
-    /// ⇒ `None` ⇒ the static per-kind sprite.
+    ///  `None`  the static per-kind sprite.
     #[test]
     fn pickup_spawn_carries_an_optional_animated_sprite() {
         use ambition_entity_catalog::placements::PlacementSchema;
@@ -1378,14 +1378,14 @@ mod tests {
         assert_eq!(twin_set.active_spec().id, "sanic_sandbox");
     }
 
-    /// **An author can NAME a moving platform, and gets the iid when they do
-    /// not.**
+    /// An author can NAME a moving platform, and gets the iid when they do
+    /// not.
     ///
-    /// **this converter went straight to the iid**, alone among the ones that take an identity:
+    /// this converter went straight to the iid, alone among the ones that take an identity:
     /// `LoadingZone`, `CameraZone`, `Portal` and `ShrineSpawn` all read `field_string(entity,
     /// "id")` first.
     ///
-    /// **both halves, because the fallback is what keeps it additive.** No
+    /// both halves, because the fallback is what keeps it additive. No
     /// world authors an `id` on a `MovingPlatform` today, so every existing
     /// platform has to keep the iid it already had — a test that only checked
     /// the new field would pass over a change that broke every current level.
@@ -1439,9 +1439,9 @@ mod tests {
         );
     }
 
-    /// **An enemy's BEHAVIOUR and its ART are authored separately — both roads.**
+    /// An enemy's BEHAVIOUR and its ART are authored separately — both roads.
     ///
-    /// **the ABSENT case is the one that matters.** Every world authored
+    /// the ABSENT case is the one that matters. Every world authored
     /// before the field existed names no `character_id`, and a test that only
     /// checked the new field would sail past a change that broke all of them —
     /// the lesson the sibling `MovingPlatform` id row wrote down. So both roads
@@ -1537,7 +1537,7 @@ mod tests {
             "a misspelled orientation must refuse rather than silently choose a direction: {bad_facing}"
         );
 
-        // **the display-name road is REFUSED, not defaulted**. With the field required an authored
+        // the display-name road is REFUSED, not defaulted. With the field required an authored
         // entity that names no creature cannot be lowered at all, and the conversion says which
         // entity and why.
         let missing = convert_err(&enemy(vec![named("brain", "mary_o_snake")]));
@@ -1672,7 +1672,7 @@ mod tests {
         ])
     }
 
-    /// **A native `path_ref` names the path the room actually built.**
+    /// A native `path_ref` names the path the room actually built.
     ///
     /// this is the migration's whole claim. An `EntityRef` names the ENTITY, and conversion
     /// resolves it through the same `kinematic_path_lookup_id` that minted the target's own id, so
@@ -1733,7 +1733,7 @@ mod tests {
         );
     }
 
-    /// **The retired string spelling is refused, not reinterpreted.** With the
+    /// The retired string spelling is refused, not reinterpreted. With the
     /// `Patrol:` branch deleted, an un-migrated placement would otherwise parse
     /// as `CharacterBrain::Custom("Patrol:…")` and look exactly like a healthy
     /// one — which is the same silence the migration exists to end.

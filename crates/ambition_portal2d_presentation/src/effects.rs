@@ -1,5 +1,5 @@
-//! Runtime selection between the compiled-in portal transit **visual
-//! effects**, for live A/B comparison and profiling (the view windows cost
+//! Runtime selection between the compiled-in portal transit visual
+//! effects, for live A/B comparison and profiling (the view windows cost
 //! extra render passes; on constrained targets the host needs to measure that
 //! against the bare baseline, in the SAME session).
 //!
@@ -63,7 +63,7 @@ impl Default for PortalEffectSelection {
 }
 
 impl PortalEffectSelection {
-    /// Advance to the next/previous compiled effect (`dir < 0` ⇒ previous) —
+    /// Advance to the next/previous compiled effect (`dir < 0`  previous) —
     /// the dev-menu cycle.
     pub fn cycle(&mut self, dir: i32) {
         let all = PortalVisualEffect::compiled();

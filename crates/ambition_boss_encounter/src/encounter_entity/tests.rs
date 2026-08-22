@@ -88,7 +88,7 @@ fn progress_reflects_member_hp_and_phase() {
     assert!(!progress.complete, "a living boss ⇒ objective not met");
 }
 
-/// **The wrap persists; the fight resets** (netcode.md N3.2b /
+/// The wrap persists; the fight resets (netcode.md N3.2b /
 /// ). A room change removes the boss BODY, never the encounter
 /// authority: the wrap keeps its durable member id (relation, not live-list),
 /// resets its in-flight lifecycle through the one ingress, and re-arms with a

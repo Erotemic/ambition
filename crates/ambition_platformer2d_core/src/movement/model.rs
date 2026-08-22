@@ -97,7 +97,7 @@ pub struct AxisManeuverState {
     pub wall_climbing: bool,
     pub pre_wall_vel: Vec2,
     pub pre_wall_vel_age: f32,
-    /// **How long this body has been OFF a ledge**, in seconds, clamped at
+    /// How long this body has been OFF a ledge, in seconds, clamped at
     /// [`crate::ledge_grab::LEDGE_INVULN_FULL_AIRTIME`].
     ///
     /// what a fresh grab's intangibility is bought with — see
@@ -108,8 +108,8 @@ pub struct AxisManeuverState {
     /// Buffered MOVEMENT actions (jump/burst/blink press windows). Combat
     /// buffers (attack/pogo/projectile) stay on the shared BodyActionBuffer.
     ///
-    /// **that second sentence describes WHERE they would live, not that they
-    /// exist.** `BodyActionBuffer` is declared and rollback-registered and
+    /// that second sentence describes WHERE they would live, not that they
+    /// exist. `BodyActionBuffer` is declared and rollback-registered and
     /// nothing writes it — so the movement buffers here
     /// are real and their combat counterparts are not. Reading this line as a
     /// statement that combat input leniency ships is the mistake it caused
@@ -134,7 +134,7 @@ pub struct AxisManeuverState {
     pub blink_aim_offset: Vec2,
     pub blink_grace_timer: f32,
     pub dodge_roll_timer: f32,
-    /// **The window on [`Self::dodge_roll_timer`] is a SPOT DODGE, not a roll.**
+    /// The window on [`Self::dodge_roll_timer`] is a SPOT DODGE, not a roll.
     ///
     /// one timer, two verbs, and the flag is what tells them apart — the
     /// i-frames are the same term the damage rule reads either way, so splitting
@@ -142,9 +142,9 @@ pub struct AxisManeuverState {
     /// What differs is only what it is DRAWN as, and that is a presentation
     /// fact.
     pub spot_dodging: bool,
-    /// **The AIR dodge's own clock** — seconds of the committed aerial evade.
+    /// The AIR dodge's own clock — seconds of the committed aerial evade.
     ///
-    /// **not `dodge_roll_timer`, and the separation is the design.** Both
+    /// not `dodge_roll_timer`, and the separation is the design. Both
     /// grant i-frames, and reusing the roll's timer would have been the cheap
     /// road; they are different maneuvers with different commitments, and a
     /// body cannot animate, debug or tune them apart if the simulation cannot
@@ -154,10 +154,10 @@ pub struct AxisManeuverState {
     pub air_dodge_timer: f32,
     /// Endlag after an air dodge: control is back, the evade is not.
     pub air_dodge_endlag_timer: f32,
-    /// **Tumble, the helpless part**: launched with no control at all, scaled by
+    /// Tumble, the helpless part: launched with no control at all, scaled by
     /// how hard the launch was. See [`super::knockdown`].
     pub tumble_timer: f32,
-    /// **Tumble, the part that outlives the helplessness**: this body is still
+    /// Tumble, the part that outlives the helplessness: this body is still
     /// falling out of a launch, so its next landing is a knockdown unless it is
     /// teched.
     ///
@@ -167,7 +167,7 @@ pub struct AxisManeuverState {
     /// short and a launch that peaks high lands on its feet as if nothing
     /// happened, too long and the body is helpless for the whole arc.
     pub tumble_until_landing: bool,
-    /// **A launch began a tumble and the frame has not reported it yet.**
+    /// A launch began a tumble and the frame has not reported it yet.
     ///
     /// A resimulation that replays the launch replays this with it.
     pub tumble_unannounced: bool,
@@ -175,19 +175,19 @@ pub struct AxisManeuverState {
     pub tech_press_timer: f32,
     /// No teching until this runs out — the cost of a mistimed one.
     pub tech_lockout_timer: f32,
-    /// **Knockdown**: prone on the floor, with getup options.
+    /// Knockdown: prone on the floor, with getup options.
     pub knockdown_timer: f32,
     /// Invulnerability from a tech or a getup.
     pub getup_invuln_timer: f32,
     pub ledge_grab: Option<crate::LedgeGrabState>,
     pub gliding: bool,
     pub fast_falling: bool,
-    /// **This body is in a RUN** — grounded, steering the way it is travelling,
+    /// This body is in a RUN — grounded, steering the way it is travelling,
     /// at or above [`crate::MovementTuning::run_commit_frac`] of its own top
     /// speed. Written once at the end of the integration step and projected as
     /// `BodyMotionFacts::running`.
     ///
-    /// **not the traversal dash** ([`Self::dash_timer`]), which is a discrete
+    /// not the traversal dash ([`Self::dash_timer`]), which is a discrete
     /// charge-gated burst a platform-fighter kit deliberately switches OFF. The
     /// running attack reads THIS.
     ///
@@ -292,16 +292,16 @@ impl SurfaceMomentumMotion {
     /// A fresh surface-momentum body begins `Airborne` on the unchanged pose
     /// and velocity; it may attach only through its normal same-tick
     /// contact/sweep rules.
-    /// **Set the tangential speed of a riding body.** Returns `false` when the
+    /// Set the tangential speed of a riding body. Returns `false` when the
     /// body is airborne and there is no tangent to set.
     ///
-    /// **the SIGN CONVENTION lives here now, not in each caller.** The kernel
+    /// the SIGN CONVENTION lives here now, not in each caller. The kernel
     /// integrates `v_t += run * accel * dt` with `run = locomotion.x`, so `v_t`
     /// and facing share a sign — a fact Sanic's ball dash had written out in
     /// three separate comments because it was reaching into
     /// [`SurfaceMotion::Riding`] itself.
     ///
-    /// **returning `false` rather than doing nothing quietly is the point.** A
+    /// returning `false` rather than doing nothing quietly is the point. A
     /// caller that must also handle the airborne case (the ball dash's launch
     /// writes `BodyKinematics::vel` instead) is made to say so; one that has no
     /// airborne answer, like a brake, may ignore it.
@@ -315,7 +315,7 @@ impl SurfaceMomentumMotion {
         }
     }
 
-    /// **Scale the tangential speed of a riding body** — a brake or a boost.
+    /// Scale the tangential speed of a riding body — a brake or a boost.
     /// Returns `false` when airborne, for the reason above.
     ///
     /// Separate from [`Self::set_tangential_speed`] because scaling preserves
@@ -393,7 +393,7 @@ impl MotionModel {
         }
     }
 
-    /// **Has this body caught hold of a ledge?** `false` for a policy that has
+    /// Has this body caught hold of a ledge? `false` for a policy that has
     /// no such thing. The sibling of [`Self::jump_squat_remaining`], and it
     /// exists for the same reason: a hang holds a body against its frame's pull
     /// WITHOUT producing a contact, so `SupportFact` cannot see it, and
@@ -407,7 +407,7 @@ impl MotionModel {
         }
     }
 
-    /// **This body's shield resource**, or [`ShieldTuning::OFF`] for a policy
+    /// This body's shield resource, or [`ShieldTuning::OFF`] for a policy
     /// that has no guard. The sibling of [`Self::jump_squat_remaining`]: the
     /// damage resolver has to spend the guard it just granted, and matching the
     /// variant at that call site is how one rule ends up spelled twice.
@@ -418,7 +418,7 @@ impl MotionModel {
         }
     }
 
-    /// **This body's footstool rules**, or [`FootstoolTuning::OFF`] for a policy
+    /// This body's footstool rules, or [`FootstoolTuning::OFF`] for a policy
     /// that has none. The sibling of [`Self::shield_tuning`].
     pub fn footstool_tuning(&self) -> crate::FootstoolTuning {
         match self {
@@ -427,7 +427,7 @@ impl MotionModel {
         }
     }
 
-    /// **What a full-deflection direct command means for this body**, in px/s.
+    /// What a full-deflection direct command means for this body, in px/s.
     ///
     /// The projection a CONTROLLER wants, and the sibling of
     /// [`Self::jump_squat_remaining`]: `ActorControlFrame::velocity_target` is an
@@ -519,7 +519,7 @@ pub fn switch_motion_model(model: &mut MotionModel, spec: MotionModelSpec) {
 /// control, because the floor game neutralizes input for as long as it runs and
 /// a second lock beside it would only disagree with it.
 ///
-/// **the split is the mechanic.** Ultimate footstools two different things:
+/// the split is the mechanic. Ultimate footstools two different things:
 /// a GROUNDED victim has nowhere to be shoved and takes a brief flinch — which
 /// is what makes a grounded footstool a combo starter rather than a punish —
 /// while an AIRBORNE one is driven down into a tumble it cannot cancel early.
@@ -747,7 +747,7 @@ mod tangential_op_tests {
         m
     }
 
-    /// **Setting replaces, scaling preserves direction** — the reason these are
+    /// Setting replaces, scaling preserves direction — the reason these are
     /// two operations rather than one. A brake routed through the setter would
     /// have to read the sign back out, which is the reach-in they exist to
     /// remove.
@@ -764,7 +764,7 @@ mod tangential_op_tests {
         assert_eq!(m.tangential_speed(), Some(120.0));
     }
 
-    /// **the property the typed op ADDS: an airborne body says so.**
+    /// the property the typed op ADDS: an airborne body says so.
     ///
     /// The launch has an answer (write the kinematic velocity along the local side axis); the
     /// brake does not, and silently doing nothing is correct for it. Both are now a visible

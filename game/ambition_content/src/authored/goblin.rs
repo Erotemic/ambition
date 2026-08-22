@@ -1,8 +1,8 @@
-//! **THE GOBLIN BAND.** Five sandbox placements (`annex_goblin_a/b`,
+//! THE GOBLIN BAND. Five sandbox placements (`annex_goblin_a/b`,
 //! `pg_goblin_a/b/c`) that have been wearing the `medium_striker`
 //! ARCHETYPE — a whole body, borrowed for its fighting style.
 //!
-//! **it NAMES its policy rather than carrying one**, which is the
+//! it NAMES its policy rather than carrying one, which is the
 //! Group-B/Group-C split arriving: the archetype's controller half is now
 //! `autonomous_profiles: { "medium_striker": .. }` in the catalog, and any
 //! number of creatures may point at it while keeping their own bodies. A
@@ -31,7 +31,7 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
         })
         // `BrainProfileRef` resolves it against this definition's own provider.
         .with_autonomous_profile_named("medium_striker")
-        // **AND ITS OWN MOVES**. Every
+        // AND ITS OWN MOVES. Every
         // seated fighter whose character says nothing takes
         // `smash_fighter_kit()` — one generic swipe — and that floor's
         // goal is DELETION, one adopter at a time. The goblin is the

@@ -3,16 +3,16 @@
 //! Every production write to authoritative body pose/velocity belongs to
 //! exactly one named authority:
 //!
-//! 1. **Continuous integration** — [`super::step_motion`], the movement kernel.
-//! 2. **Discrete transit** — [`transit_body`]: blink and dive arrivals, recall,
+//! 1. Continuous integration — [`super::step_motion`], the movement kernel.
+//! 2. Discrete transit — [`transit_body`]: blink and dive arrivals, recall,
 //!    portal exits, respawns, room placement, scripted teleports. A transit is
 //!    NOT a fake physics tick; it deliberately reconciles contact, attachment,
 //!    and model-private state (semantics below).
-//! 3. **External kinematic constraint** — [`carry_body`] (parent-frame carry:
+//! 3. External kinematic constraint — [`carry_body`] (parent-frame carry:
 //!    moving-platform ledge carry, attractor pull, straddle eviction) and
 //!    [`constrain_body_pose`] (absolute pin: a mount's saddle, a scripted
 //!    flagpole slide).
-//! 4. **Impulses** — typed velocity operations that consume the body's resolved
+//! 4. Impulses — typed velocity operations that consume the body's resolved
 //!    frame: [`super::set_jump_velocity`],
 //!    [`AccelerationFrame::launch`](crate::AccelerationFrame::launch), and
 //!    frame-rotated `vel +=` writes at combat/ability seams.
@@ -26,7 +26,7 @@ use crate::{SweepSample, Vec2};
 
 /// What a ROOM ARRIVAL does to the body's incoming velocity.
 ///
-/// ⛔ **this exists because the follow-up-call defect regrew.**
+///  this exists because the follow-up-call defect regrew.
 /// [`crate::reset_body_clusters`]'s own doc records the lesson in as many words —
 /// *"An authority that requires a follow-up call is not an authority — it is a
 /// two-step ritual, and the second step is the one people forget"* — and then two
@@ -77,7 +77,7 @@ pub fn arrive_body_in_room(
         fly_enabled && abilities.fly
     };
     if momentum == ArrivalMomentum::Preserve {
-        // ⛔ **AND THE RITUAL REGREW INSIDE THE FUNCTION WRITTEN TO KILL IT.**
+        //  AND THE RITUAL REGREW INSIDE THE FUNCTION WRITTEN TO KILL IT.
         //
         // `reset_body_clusters` transits at `TransitVelocity:Zero`, and a transit rebuilds the
         // collapsed `SweepSample` FROM the velocity it sees — so restoring `kinematics.vel`
@@ -109,17 +109,17 @@ pub enum TransitVelocity {
 /// every fact that was true only of the departure point.
 ///
 /// Reconciliation semantics (deliberate, documented, uniform):
-/// - **Contacts are invalidated**: support (`on_ground`), wall contact, and any
+/// - Contacts are invalidated: support (`on_ground`), wall contact, and any
 ///   in-flight wall cling/climb are cleared — they described surfaces at the
 ///   departure point. The destination re-acquires them through the ordinary
 ///   same-tick contact rules of the active policy, never by nearest-surface
 ///   guessing here.
-/// - **A ledge grab is released**: its anchor is positional.
-/// - **Model-private attachment is invalidated**: a riding momentum body
+/// - A ledge grab is released: its anchor is positional.
+/// - Model-private attachment is invalidated: a riding momentum body
 ///   arrives `Airborne`; an attached crawler arrives detached. Axis maneuver
 ///   state (coyote, buffers, dash timers) is deliberately KEPT — those are
 ///   time facts, not place facts.
-/// - **The §3.1 motion record collapses** to a zero-length sample at the
+/// - The §3.1 motion record collapses to a zero-length sample at the
 ///   arrival: a transit is never a swept path (CC2 — a blink over spikes is
 ///   not a graze), and post-transit observers must not see the stale departure
 ///   segment.
@@ -193,7 +193,7 @@ pub fn constrain_body_pose(
     kinematics.vel = vel;
 }
 
-/// **THE FROZEN TICK** — the fifth authority: what may change a body the kernel
+/// THE FROZEN TICK — the fifth authority: what may change a body the kernel
 /// is about to step with `dt == 0`, where nothing integrates and nothing sweeps.
 ///
 /// Clear the body's velocity because it has left play. Cleared rather than
@@ -204,7 +204,7 @@ pub fn halt_body(kinematics: &mut crate::body_clusters::BodyKinematics) {
     kinematics.vel = Vec2::ZERO;
 }
 
-/// **SDI: the one thing a body may still do while frozen in hitlag.**
+/// SDI: the one thing a body may still do while frozen in hitlag.
 ///
 /// Hitlag is a WINDOW rather than merely a pause, and this is what makes it one
 /// — the victim shifts itself out of the next hit's way while the current one is
@@ -316,7 +316,7 @@ mod tests {
         );
     }
 
-    /// **AND IT MAY NOT CROSS A THIN ONE.** The tunnelling case: a wall thinner
+    /// AND IT MAY NOT CROSS A THIN ONE. The tunnelling case: a wall thinner
     /// than the requested shift is exactly what an unswept `pos +=` steps over.
     #[test]
     fn a_frozen_shift_cannot_tunnel_a_thin_wall() {
@@ -333,7 +333,7 @@ mod tests {
         );
     }
 
-    /// **REPEATED HITLAG TICKS DO NOT ACCUMULATE THROUGH IT EITHER.** One tick
+    /// REPEATED HITLAG TICKS DO NOT ACCUMULATE THROUGH IT EITHER. One tick
     /// stopping short is not the claim; a hitlag window is many ticks long.
     #[test]
     fn many_frozen_shifts_never_add_up_to_entering_the_wall() {
@@ -357,7 +357,7 @@ mod tests {
         );
     }
 
-    /// **AND UNDER SIDEWAYS GRAVITY the body's box is oriented before it sweeps.**
+    /// AND UNDER SIDEWAYS GRAVITY the body's box is oriented before it sweeps.
     /// The frame is not decoration here: an oriented body is 40 wide rather than
     /// 20, so a shift that fits under down-gravity does not under wall-gravity.
     #[test]
@@ -398,7 +398,7 @@ mod tests {
 
     /// A PRESERVED arrival leaves every motion fact telling the same story.
     ///
-    /// ⚠ **testing `transit_body` proves nothing about this.** The transit is
+    ///  testing `transit_body` proves nothing about this. The transit is
     /// coherent on its own; the disagreement was manufactured one layer up, by
     /// `arrive_body_in_room` restoring the velocity AFTER the reset had already
     /// collapsed the sweep at zero. So this drives the wrapper and asserts the

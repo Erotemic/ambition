@@ -15,7 +15,7 @@ ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 # The binding-resolution boundary (`Resolver` / `BindingReport` / `Namespace`),
 # which is what character PREPARATION is written in terms of.
-# **the BOUNDARY, not the platformer.** This named
+# the BOUNDARY, not the platformer. This named
 # `ambition_platformer2d_shared_tangle` for one item (`Namespace`) and got 18k
 # lines of platformer lifecycle, camera, transit and schedules underneath the
 # canonical character domain for it. The edge was LEGAL — the absence contracts
@@ -45,8 +45,8 @@ ron = { workspace = true }
 serde = { workspace = true }
 
 [features]
-# **TEST FIXTURES ONLY, and it must never be enabled by a production
-# dependency.** It exposes `prepare_and_finalize_for_test` and
+# TEST FIXTURES ONLY, and it must never be enabled by a production
+# dependency. It exposes `prepare_and_finalize_for_test` and
 # `PreparedCharacterRegistry::insert_prepared`, both of which BYPASS the
 # finalization barrier — folding a character against whatever catalog happens to
 # exist at that moment, which is the ordering hazard `CharacterPreparationPlugin`

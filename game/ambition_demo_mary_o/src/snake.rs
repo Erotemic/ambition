@@ -1,44 +1,11 @@
-//! Mary-O's Solid Snake — the Koopa-equivalent walker, authored as pure content.
+//! Mary-O's Solid Snake walker and shell state machine.
 //!
-//! Replaces the earlier `ai_slop` "crony". A Solid Snake paces the flats; a
-//! head-stomp makes it withdraw INTO ITS SHELL *in place* (the SAME body), sit as
-//! a kickable shell, and — if left alone — peek and climb back out to a walker.
-//! Kicked, the shell slides down the line of other snakes. Every stage plays the
-//! matching row of the `solid_snake` sheet (walk / retreat / boxed_idle / peek /
-//! emerge / death) through the engine's animation-override seam
-//! ([`ActorAnimOverride`]).
-//!
-//! ## Why the shell needs no brain swap, and never "dies"
-//!
-//! A stomp does NOT hurt the snake — it CHANGES ITS STATE. The body stays alive
-//! (full HP) the whole time, so it is never hidden by the engine's "a dead hostile
-//! actor is invisible" render rule; a shelled snake is always on screen. "Shelled"
-//! is composed from two real engine levers, re-held on the SAME body each frame it
-//! is withdrawn:
-//!   * **Frozen in place** — its [`BodyCombat::recoil_lock_timer`] is refreshed:
-//!     the engine's "carried, can't steer" gate hard-zeros movement input, so the
-//!     Wanderer brain can't walk it while gravity still settles it on the ground.
-//!   * **Inert (harmless)** — its [`ActorConfig`] `body_contact_damage` tuning is
-//!     turned off, so the shared body-contact pass deals no damage: a resting shell
-//!     is safe to walk up to and kick.
-//!
-//! Emerging clears both and the snake is a live, threatening walker again — there
-//! is no revive-from-death, because it never died. Sliding is driven by writing the
-//! body's horizontal velocity each tick, exactly as the old shell prop did.
-//!
-//! ## Standing on a snake is ALWAYS safe
-//!
-//! Every player contact is classified once by the shared [`crate::stomp`] rule.
-//! From the TOP it is a stomp, and a stomp pre-empts every phase — walking, boxed,
-//! running, peeking, emerging — so the body under the player's feet is inert this
-//! tick and the bounce carries them off it. Only a SIDE contact with a running
-//! shell (past its post-kick grace) can hurt them.
-//!
-//! The phase logic is a pure function ([`step_snake_shell`]) with the ECS system a
-//! thin shell over it, mirroring `flag.rs` — so the choreography is unit-tested
-//! even though its LOOK is not visible headlessly.
-//!
-//! Every type it names comes through the `ambition_platformer2d` umbrella — the E9 oracle.
+//! A stomp changes the same live body into an inert shell rather than killing
+//! or replacing it. While withdrawn, steering is suppressed and contact damage
+//! is disabled; emerging restores walker behavior. A kicked shell drives its
+//! horizontal velocity directly. Shared stomp classification makes top contact
+//! safe in every phase, while side contact with a running shell can damage the
+//! player. [`step_snake_shell`] contains the pure phase logic.
 
 use bevy::prelude::*;
 
@@ -117,7 +84,7 @@ pub enum SnakeShell {
         /// hurt the PLAYER (it is still inside the person who kicked it). Enemies
         /// it runs down are hit from the first tick.
         ///
-        /// **Spent immediately by a wall bounce**, not only by the clock: a shell
+        /// Spent immediately by a wall bounce, not only by the clock: a shell
         /// that turns around is coming back at the player, and that is a hit
         /// however recently they kicked it.
         grace: f32,
@@ -170,7 +137,7 @@ pub struct ShellInputs {
     pub blocked: bool,
 }
 
-/// **The whole shell choreography, as a pure function.** Given the current phase,
+/// The whole shell choreography, as a pure function. Given the current phase,
 /// the tick length, and what happened to the body, return the next phase and the
 /// presentation/physics the ECS should apply. No world access, so it is exhaustively
 /// unit-tested below.
@@ -185,7 +152,7 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
         just_squashed: false,
         just_kicked: false,
     };
-    // **A stomp pre-empts every phase.** It is the one input that always means "be
+    // A stomp pre-empts every phase. It is the one input that always means "be
     // in the shell", and it always bounces the stomper. That is what makes standing
     // over ANY snake safe: whatever the body under the player's feet was doing —
     // walking, running as a kicked shell, peeking back out — this tick it is inert,
@@ -195,7 +162,7 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
             just_squashed: true,
             ..shelled(Boxed(BOXED_S), CharacterAnim::ShellIdle)
         };
-        // **Landing on a RESTING shell kicks it**, exactly as a side bump does. The classic never
+        // Landing on a RESTING shell kicks it, exactly as a side bump does. The classic never
         // does that — you land on a still shell and it shoots out from under you.
         //
         // Only a RESTING shell. A shell already running is stopped by a stomp
@@ -287,7 +254,7 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
         // damage pipeline while the shell keeps going. (The stop-it-dead branch is
         // the stomp pre-emption above.)
         Sliding { dir, grace } => {
-            // **A wall ARMS it.** The grace exists for one reason — the shell is
+            // A wall ARMS it. The grace exists for one reason — the shell is
             // still inside the body that just kicked it, and a shell you cannot
             // get off is not a mechanic. A shell that has hit a wall and turned
             // around is not that shell any more: it is coming BACK at you, which
@@ -341,41 +308,11 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
 /// enemy render resolves for a Solid Snake.
 pub const SNAKE_SHEET_TARGET: &str = "solid_snake";
 
-/// **World units per sheet pixel — the snake's ENTIRE authored geometry.**
-///
-/// A Solid Snake changes SHAPE, not just pose: sprawled it is a long low serpent,
-/// withdrawn it is a small cardboard cube. One hand-authored rectangle cannot be
-/// right for both, so the body's collision box, hurt box, sprite quad and quad
-/// placement all come from the sheet's per-animation body rectangles, scaled by
-/// this. Everything else about its size is READ OFF THE ART — including the fact
-/// that stomping it shrinks its box, which is the whole point.
-///
-/// > `0.5` draws the 128px frame two tiles across, which puts the walker at
-/// > about 1.8 tiles long and the kickable box at about three quarters of a
-/// > tile: a snake you jump on, and a shell you kick down a line of them.
-///
-/// (The paragraph above is the ORIGINAL, kept because its intent is right.)
-///
-/// Mary-O's world is full of green warp PIPES; the sample had swallowed one. Halving the
-/// constant on that basis produced a snake visibly smaller than the crate beside it — which is
-/// what LOOKING at the render showed immediately and the arithmetic never would have. A colour
-/// filter is not an instrument for "how big is that thing" in a scene containing other things
-/// of that colour.
-///
-/// **and the SECOND measurement was no better.** A snake has two bodies — the sprawled walker
-/// and the withdrawn box — and captures taken at different moments catch different ones, so
-/// "how long is the snake on screen" answered 213px, then 53px, then 230px across three runs at
-/// three different constants. None of those comparisons was like-for-like.
-///
-/// **it is no longer the knob**. Turning a pixel scale is a taste
-/// call expressed in the wrong unit: nobody looking at the running game thinks
-/// *"that should be 0.31 world units per sheet pixel"*, they think *"that is too
-/// wide"*. [`snake_body_width`] is that sentence, and this is derived from it —
-/// so the taste call is a one-line edit in the unit the complaint arrives in,
-/// and a regen that moves the crop by a pixel no longer resizes the creature.
+/// World units per sheet pixel, derived from the authored snake body width and
+/// the idle sheet collision width. Per-animation body rectangles then determine
+/// collision, hurtbox, sprite size, and placement for each shape.
 pub fn snake_world_per_pixel() -> f32 {
-    // No baked art (a headless fixture, `--no-assets`): the value this replaced,
-    // so a composition with no sheets behaves exactly as it did.
+    // Stable fallback for headless/no-asset compositions.
     const NO_SHEET: f32 = 0.35;
     ambition_platformer2d::character_sprites::posed_body_geometry(
         SNAKE_SHEET_TARGET,
@@ -387,7 +324,7 @@ pub fn snake_world_per_pixel() -> f32 {
     .map_or(NO_SHEET, |sheet_width| snake_body_width() / sheet_width)
 }
 
-/// **WIDTH, not height, and that is the whole point of restating it.** The snake is a 2.25:1
+/// WIDTH, not height, and that is the whole point of restating it. The snake is a 2.25:1
 /// animal, so a scale that preserves its width fixes the only dimension a corridor cares about.
 ///
 /// ```text
@@ -396,18 +333,18 @@ pub fn snake_world_per_pixel() -> f32 {
 /// now 08-18       0.182           21.3 x 9.5         0.30
 /// ```
 ///
-/// **that is the derivation working, not breaking** — a snake occupies the
+/// that is the derivation working, not breaking — a snake occupies the
 /// corridor width she does, and she got narrower. But nobody chose "a third of
 /// a tile tall", and whether an enemy this flat still reads as an enemy is a
-/// look-at-it call. ⇒ **do not re-tune this constant to restore the old
-/// number**; the number to change, if any, is hers.
+/// look-at-it call.  do not re-tune this constant to restore the old
+/// number; the number to change, if any, is hers.
 ///
-/// **the reusable half: a value DERIVED from another character moves when
-/// that character does, and no test says so** — the ratchet beside this one
+/// the reusable half: a value DERIVED from another character moves when
+/// that character does, and no test says so — the ratchet beside this one
 /// pins the quad/body RATIO, which is scale-invariant and therefore silent
 /// about a halving.
 ///
-/// **AND IT IS DERIVED FROM MARY-O, not chosen**. A snake
+/// AND IT IS DERIVED FROM MARY-O, not chosen. A snake
 /// occupies the same corridor width she does — which is what a Koopa does beside
 /// Mario, and the answer stays right when either sheet is regenerated.
 pub fn snake_body_width() -> f32 {
@@ -424,7 +361,7 @@ pub fn snake_body_width() -> f32 {
 /// standing beside it would be a difference with no reason behind it.
 pub const SNAKE_WAKE_RADIUS: f32 = crate::ai_slop::AI_SLOP_WAKE_RADIUS;
 
-/// **Ensure the `solid_snake` sheet is drawable**, keyed by BOTH its catalog id
+/// Ensure the `solid_snake` sheet is drawable, keyed by BOTH its catalog id
 /// and its display name, so the enemy render's `npc_asset_for_name` finds it
 /// instead of falling back to the generic goblin sheet.
 ///
@@ -477,7 +414,7 @@ pub fn register_solid_snake_character(app: &mut App) {
     register_mary_o_enemy_character(app, SNAKE_SHEET_TARGET, SNAKE_DISPLAY_NAME, 46.0);
 }
 
-/// **Register AI Slop as a CHARACTER.** Same shape, one creature over: a plain
+/// Register AI Slop as a CHARACTER. Same shape, one creature over: a plain
 /// stomp-and-die walker whose only offense is the body it walks into you with.
 pub fn register_ai_slop_character(app: &mut App) {
     register_mary_o_enemy_character(
@@ -515,7 +452,7 @@ fn register_mary_o_enemy_character(app: &mut App, id: &str, display: &str, run_s
             template: CharacterBrainTemplate::Wanderer,
             aggro_radius: 0.0,
             attack_range: 0.0,
-            // **the deleted row's own pace.** A snake PACES at full speed —
+            // the deleted row's own pace. A snake PACES at full speed —
             // it is walking its line, not patrolling — and `BrainProfile`'s
             // default is the ordinary half-speed amble. Without this the
             // fragment's deletion would have halved every snake in the demo.
@@ -548,32 +485,10 @@ fn snake_half_size() -> ae::Vec2 {
     })
 }
 
-/// **Is this actor a snake?** The one question every snake system asks.
+/// Identify snakes by their authored `CharacterBrain` archetype key.
 ///
-/// **identity is the ARCHETYPE, not a name and not an id prefix.** This
-/// answer has now been wrong twice, each time because it was reading something
-/// that merely correlated with being a snake.
-///
-/// The first version matched `name.0 == SNAKE_DISPLAY_NAME`, and `FeatureName`'s
-/// own doc says what that is: *"human-facing authored name for debug overlays /
-/// inspectors."* Renaming the character in the catalog would have silently
-/// stopped every stomp.
-///
-/// The second matched a `FeatureId` PREFIX — `mary_o_snake_<n>` — which was stable, but only
-/// because this crate minted the id itself in a staging closure. Every snake existed twice: one
-/// under the raw placement id with no shell and no stomp, one under the prefixed id with both. A
-/// prefix is only identity while you control who mints it, and by then nobody did.
-///
-/// `ActorConfig.brain` is the authored placement's `CharacterBrain` carried onto
-/// the entity verbatim, whichever path built it. That is the archetype key
-/// itself rather than a string that happens to contain it.
-///
-/// **it is a read-model, not an authority.** `ActorConfig`'s doc calls it a
-/// projection, and the reconcile paths in `autonomous_reconcile.rs` do write it
-/// back — but only for actors carrying a `BrainBinding`, which the peaceful-NPC
-/// and provocation paths attach and authored enemies never get. True today,
-/// unprotected structurally, and worth knowing if a snake is ever provoked into
-/// a rebuilt brain.
+/// `ActorConfig.brain` is a read-model of authored identity, so callers should
+/// not substitute display names or generated feature-id conventions.
 pub fn is_snake_brain(brain: &CharacterBrain) -> bool {
     matches!(brain, CharacterBrain::Custom(key) if key == SNAKE_BRAIN_KEY)
 }
@@ -582,11 +497,11 @@ pub fn is_snake_brain(brain: &CharacterBrain) -> bool {
 /// finds its own) and with `SpritePosedBody` (so its body geometry comes from
 /// the sheet, per pose — the box a stomp shrinks).
 ///
-/// **and give it the sheet's box on the spot**, which is not redundant with `SpritePosedBody`.
+/// and give it the sheet's box on the spot, which is not redundant with `SpritePosedBody`.
 /// The authored placement's rectangle is what the engine spawns a body at, and a snake's LDtk
 /// rect is one tile-ish while its sheet body is more than twice as wide.
 ///
-/// **the rule is unchanged**: how big a snake is comes from its sheet, where
+/// the rule is unchanged: how big a snake is comes from its sheet, where
 /// it patrols comes from the level. This is only the sheet answering sooner.
 pub fn tag_mary_o_snakes(
     mut commands: Commands,
@@ -601,7 +516,7 @@ pub fn tag_mary_o_snakes(
                     SNAKE_SHEET_TARGET,
                     snake_world_per_pixel(),
                 ),
-                // **a kicked shell is unaffected, which is why this is safe.**
+                // a kicked shell is unaffected, which is why this is safe.
                 // Dormancy sleeps the BRAIN and clears the control frame;
                 // `run_snake_shells` propels a slide by writing the body's
                 // horizontal velocity directly, on a different channel. A shell
@@ -613,7 +528,7 @@ pub fn tag_mary_o_snakes(
     }
 }
 
-/// **A reset snake is a WALKER again.**
+/// A reset snake is a WALKER again.
 ///
 /// The engine's reset restores what the ENGINE owns — position, HP, disposition,
 /// the pose pin — but a shell is composed from state the engine cannot know
@@ -651,7 +566,7 @@ pub fn reset_snakes_on_room_reset(
     }
 }
 
-/// **The Solid Snake shell mechanic**, the thin ECS wrapper over [`step_snake_shell`].
+/// The Solid Snake shell mechanic, the thin ECS wrapper over [`step_snake_shell`].
 ///
 /// Reads what happened to each snake this tick (stomp / kick / wall-block),
 /// advances its phase, and reflects the result: bounce the stomper, pin the pose
@@ -659,7 +574,7 @@ pub fn reset_snakes_on_room_reset(
 /// threat off — or slide it — and let it walk and threaten again when it finishes
 /// emerging.
 ///
-/// **A moving shell is a kinetic hazard.** Each tick it is sliding, it broadcasts a
+/// A moving shell is a kinetic hazard. Each tick it is sliding, it broadcasts a
 /// lethal hit over its own AABB through the SHARED damage pipeline ([`HitEvent`]),
 /// so it kills every ENEMY it runs down (other snakes, AI Slop, anything) with the
 /// same death/drops/reaction any other kill produces — no bespoke chain. The enemy
@@ -672,7 +587,7 @@ pub fn reset_snakes_on_room_reset(
 /// Ordered BEFORE the shared contact-damage pass so a stomp makes the snake inert
 /// that frame, before that pass could hurt the stomper.
 ///
-/// **A snake that is actually DEAD leaves the machine entirely.** A shell can kill
+/// A snake that is actually DEAD leaves the machine entirely. A shell can kill
 /// other snakes now, and the engine HIDES a dead hostile actor — so a corpse that
 /// kept stepping would slide on invisibly, dealing hits nothing on screen explains.
 #[allow(clippy::too_many_arguments)]

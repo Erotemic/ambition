@@ -28,23 +28,23 @@ pub struct LedgeFacts {
 pub struct BodyMotionFacts {
     /// An active dash is in flight.
     ///
-    /// **this is the TRAVERSAL dash** — Ambition's discrete, charge-gated
+    /// this is the TRAVERSAL dash — Ambition's discrete, charge-gated
     /// burst. A platform fighter's kit switches it off, so nothing that means
     /// *"is this body running"* may read it. That is [`Self::running`].
     pub dashing: bool,
-    /// **This body is in a RUN**: grounded, steering the way it travels, at or
+    /// This body is in a RUN: grounded, steering the way it travels, at or
     /// above [`crate::MovementTuning::run_commit_frac`] of its top speed. The
     /// gait the genre's running attack comes out of.
     pub running: bool,
     pub jump_squatting: bool,
     /// Dodge-roll i-frames are active.
     pub dodge_rolling: bool,
-    /// **The grounded evade is a SPOT DODGE, not a roll.** A refinement OF
+    /// The grounded evade is a SPOT DODGE, not a roll. A refinement OF
     /// [`Self::dodge_rolling`] rather than a sibling: both are true together,
     /// because the i-frames are the same and only the pose differs. Everything
     /// asking *"is this body evading?"* keeps reading [`Self::evading`].
     pub spot_dodging: bool,
-    /// **Air-dodge i-frames are active** — a separate fact from
+    /// Air-dodge i-frames are active — a separate fact from
     /// [`Self::dodge_rolling`] on purpose, so animation and debugging can tell
     /// the aerial evade from the grounded one. Everything that only asks *"is
     /// this body evading?"* should read [`Self::evading`] instead, which is the
@@ -80,24 +80,24 @@ pub struct BodyMotionFacts {
     pub skidding: bool,
     /// Ledge engagement, if any.
     pub ledge: Option<LedgeFacts>,
-    /// **This body crawls along surfaces** rather than walking a gravity axis —
+    /// This body crawls along surfaces rather than walking a gravity axis —
     /// the `AdhesiveCrawler` policy, published as a FACT.
     ///
-    /// **ADR 0024 §8 forbids reading `ActorTuning::surface_walker` at
-    /// runtime**, because that boolean is spawn-time SELECTION: it chooses the
+    /// ADR 0024 §8 forbids reading `ActorTuning::surface_walker` at
+    /// runtime, because that boolean is spawn-time SELECTION: it chooses the
     /// motion model once and is then a stale copy of a decision the body already
     /// carries explicitly. One consumer still read it — the brain snapshot's
     /// `turns_at_walls`, where "does a wall mean turn around" is genuinely
     /// different for a body whose whole locomotion is walls. It reads this now.
     ///
-    /// **a FACT, not the model**: consumers outside the kernel ask what is
+    /// a FACT, not the model: consumers outside the kernel ask what is
     /// true of the body, never which enum variant produced it. That is the same
     /// rule the animation layer follows for `tumbling` and `knocked_down`.
     pub adhesive_crawling: bool,
 }
 
 impl BodyMotionFacts {
-    /// **Is this body inside an evade's invulnerable window?** — the ONE term
+    /// Is this body inside an evade's invulnerable window? — the ONE term
     /// the damage rule takes, so a maneuver added later cannot grant i-frames at
     /// five emit sites and miss the sixth. Adding an evade means extending this
     /// method, not auditing every caller of `body_vulnerable`.
@@ -108,7 +108,7 @@ impl BodyMotionFacts {
     /// Project the active policy's semantic facts. Non-axis policies have no
     /// axis maneuvers by construction — their projection is the default.
     pub fn from_model(model: &MotionModel) -> Self {
-        // **the crawler is answered BEFORE the early return.** Every fact below
+        // the crawler is answered BEFORE the early return. Every fact below
         // is axis-swept state, so the old `else { return default() }` gave a
         // crawler a facts block claiming it was not crawling — which is the exact
         // reason its one consumer went on reading the spawn-time flag instead.

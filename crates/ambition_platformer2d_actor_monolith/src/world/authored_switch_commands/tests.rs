@@ -1,4 +1,4 @@
-//! **the App-level tests build their own world**, the shape that can pass with
+//! the App-level tests build their own world, the shape that can pass with
 //! production wiring absent. What they own is the seam: authored text → a
 //! prepared call → a request. That the shipped world actually SAYS it is pinned
 //! in `ambition_content`, and that the whole chain runs in the composed game is
@@ -115,7 +115,7 @@ fn room_with_one_switch(
         })
 }
 
-/// **The walk finds an authored switch verb.**
+/// The walk finds an authored switch verb.
 #[test]
 fn an_authored_switch_verb_is_found_with_its_switch_id() {
     let found = authored_switch_commands(&room_with_one_switch(Some(LINE), "symmetry_room"));
@@ -128,7 +128,7 @@ fn an_authored_switch_verb_is_found_with_its_switch_id() {
     );
 }
 
-/// **A `Switch` with no `on_activate` is not this system's business.**
+/// A `Switch` with no `on_activate` is not this system's business.
 ///
 /// every switch shipped before this field existed is one of these — the
 /// encounter arming gate, the reset path, the sand sim — and they must keep
@@ -138,7 +138,7 @@ fn a_switch_with_no_authored_verb_is_left_to_its_other_consumers() {
     assert!(authored_switch_commands(&room_with_one_switch(None, "symmetry_room")).is_empty());
 }
 
-/// **Only the active room's switches.**
+/// Only the active room's switches.
 ///
 /// this is what the deleted const table's comment worried about — *"a gravity
 /// switch authored in some other room must not count"* — and the authored form
@@ -150,8 +150,8 @@ fn switches_in_another_room_are_not_found() {
 
 // ── the seam ────────────────────────────────────────────────────────────────
 
-/// The verb the test's own domain publishes. **a domain the engine has never
-/// heard of**, so nothing below can be passing because it named something real.
+/// The verb the test's own domain publishes. a domain the engine has never
+/// heard of, so nothing below can be passing because it named something real.
 #[derive(Resource, Default)]
 struct Bell(Vec<String>);
 
@@ -219,10 +219,10 @@ fn rung(app: &App) -> &[String] {
     &app.world().resource::<Bell>().0
 }
 
-/// **PRESSING AN AUTHORED SWITCH ASKS FOR THE VERB THE LEVEL NAMED — AND NOTHING
-/// IN THIS FILE NAMES IT.**
+/// PRESSING AN AUTHORED SWITCH ASKS FOR THE VERB THE LEVEL NAMED — AND NOTHING
+/// IN THIS FILE NAMES IT.
 ///
-/// **both terms are observed**: the bell is silent on a frame with no
+/// both terms are observed: the bell is silent on a frame with no
 /// activation, and rings on the frame with one. A version asserting only the end
 /// state would pass with the activation channel ignored entirely.
 #[test]
@@ -253,7 +253,7 @@ fn pressing_an_authored_switch_asks_for_the_verb_the_level_named() {
     );
 }
 
-/// **A SWITCH THE LEVEL DID NOT GIVE A VERB ASKS FOR NOTHING.**
+/// A SWITCH THE LEVEL DID NOT GIVE A VERB ASKS FOR NOTHING.
 #[test]
 fn pressing_a_switch_with_no_authored_verb_asks_for_nothing() {
     let mut app = world_with_one_authored_switch(None);
@@ -263,16 +263,16 @@ fn pressing_a_switch_with_no_authored_verb_asks_for_nothing() {
     assert!(app.world().resource::<AuthoredSwitchCommands>().is_empty());
 }
 
-/// **AN UNPERFORMABLE LINE IS REFUSED WHEN THE ROOM IS PREPARED, NOT WHEN THE
-/// SWITCH IS PRESSED.**
+/// AN UNPERFORMABLE LINE IS REFUSED WHEN THE ROOM IS PREPARED, NOT WHEN THE
+/// SWITCH IS PRESSED.
 ///
-/// **this is the acceptance clause "validation occurs before runtime", stated
-/// as a behaviour rather than as a claim.** The line below names a verb no
+/// this is the acceptance clause "validation occurs before runtime", stated
+/// as a behaviour rather than as a claim. The line below names a verb no
 /// composition publishes. It is rejected while the room's rules are read — so it
 /// is never in the prepared set at all, and the press finds nothing rather than
 /// discovering the problem mid-tick.
 ///
-/// **the good line is exercised in the same test**, because a preparer that
+/// the good line is exercised in the same test, because a preparer that
 /// prepared NOTHING would pass the negative half and be just as broken.
 #[test]
 fn a_line_no_composition_can_perform_never_reaches_the_prepared_set() {
@@ -305,7 +305,7 @@ fn an_argument_the_descriptor_does_not_declare_is_refused_when_the_room_is_read(
     assert!(rung(&app).is_empty());
 }
 
-/// **A REPLACED ROOM SET INVALIDATES THE PREPARED CALLS.**
+/// A REPLACED ROOM SET INVALIDATES THE PREPARED CALLS.
 ///
 /// carried across from the sibling system, which shipped without it once: a
 /// hot reload that swaps the authored source under an unchanged room id kept

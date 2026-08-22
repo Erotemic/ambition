@@ -346,8 +346,8 @@ fn launch_is_away_from_feet() {
 
 // ── CAMERA FRAME × INPUT FRAME ───────────────────────────────────────────────
 //
-// ⭐⭐ **the claim these pin is that a player-relative VIEW makes the input-frame setting inert,
-// and that this is an IDENTITY rather than a tuned approximation.** `ScreenRelative` resolves
+//  the claim these pin is that a player-relative VIEW makes the input-frame setting inert,
+// and that this is an IDENTITY rather than a tuned approximation. `ScreenRelative` resolves
 // by projecting the stick onto `side`/`down`, which are the body basis *expressed in world
 // coordinates* — so "screen" silently means "world", correct only while no view rotates.
 
@@ -379,7 +379,7 @@ const ALL_MODES: [InputFrameMode; 3] = [
     InputFrameMode::BodyRelativeStrict,
 ];
 
-/// **Under a player-relative view every input mode resolves identically.**
+/// Under a player-relative view every input mode resolves identically.
 ///
 /// This is the whole reason the movement/aim options can read as inactive
 /// instead of being force-written: there is nothing left for them to select.
@@ -409,7 +409,7 @@ fn a_player_relative_view_collapses_every_input_mode() {
 /// ordinary down gravity with an unrotated camera. This says a player-relative
 /// view reproduces exactly that, whatever gravity is doing.
 ///
-/// ⭐ stated in LOCAL axes on purpose: it needs no render-space sign convention,
+///  stated in LOCAL axes on purpose: it needs no render-space sign convention,
 /// so it cannot pass for the wrong reason if the roll's sign is ever redefined.
 #[test]
 fn player_relative_at_any_gravity_matches_world_fixed_at_normal_gravity() {
@@ -435,7 +435,7 @@ fn player_relative_at_any_gravity_matches_world_fixed_at_normal_gravity() {
     }
 }
 
-/// ⛔ **the poison for the above**: a world-fixed view must keep the modes
+///  the poison for the above: a world-fixed view must keep the modes
 /// distinct, or the two tests above would pass on a `under_camera` that always
 /// returned `BodyRelativeStrict` and the setting would be dead everywhere.
 #[test]

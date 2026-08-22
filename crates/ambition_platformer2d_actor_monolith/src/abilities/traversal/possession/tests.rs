@@ -18,7 +18,7 @@ fn trigger_app() -> App {
         scaled_dt: 1.0,
     });
     app.init_resource::<PossessionState>();
-    // ⚠ **the PROJECTION is part of the mechanic, not decoration.** The custody
+    //  the PROJECTION is part of the mechanic, not decoration. The custody
     // marker a driven body wears is derived from `PossessionState` every tick —
     // see `project_possession_onto_custody` for the rollback reason it is a
     // derive rather than a write at the possess site — so a harness without it
@@ -30,7 +30,7 @@ fn trigger_app() -> App {
             possession_trigger_system,
             release_possession_if_target_lost,
             crate::body_custody::project_body_custody,
-            // ⚠ **the SEAT is part of the mechanic too**, for the same reason the
+            //  the SEAT is part of the mechanic too, for the same reason the
             // custody projection is: `possession_trigger_system` states the
             // decision and this is the one system that moves
             // `DrivingParticipant` onto the driven body and back.
@@ -197,7 +197,7 @@ fn possession_transfers_the_seat_and_release_hands_it_back() {
     assert_eq!(home_pos, vec2(80.0, 0.0));
 }
 
-/// **POSSESSION SUSPENDS RESIDENCY AND LEAVES THE LIFETIME ALONE.**
+/// POSSESSION SUSPENDS RESIDENCY AND LEAVES THE LIFETIME ALONE.
 ///
 /// `InCustodyOf`'s doc states the rule the promotion broke: *"the LIFETIME is unchanged, and that
 /// is deliberate … no query that requires the scope silently loses sight of it"*. The query that
@@ -206,14 +206,14 @@ fn possession_transfers_the_seat_and_release_hands_it_back() {
 /// occurrence ledger and its home room AUTHORED A SECOND COPY behind the same
 /// `SimId::placement(..)`.
 ///
-/// ⭐ the retirement the old assertion worried about ("so a room load can't
+///  the retirement the old assertion worried about ("so a room load can't
 /// despawn it") needs no promotion: `RoomResident` is
 /// `(With<RoomScopedEntity>, Without<InCustodyOf>)`, so the custody marker
 /// already excludes a driven body from the sweep a room change runs — which
 /// `a_possessed_body_is_carried_through_a_room_transition` proves against the
 /// real transition.
 ///
-/// ⚠ and a body that IS destroyed while driven is separately handled:
+///  and a body that IS destroyed while driven is separately handled:
 /// [`losing_the_target_hands_control_back_to_home`] returns control to the home
 /// avatar, which is what makes a new-game reset (a sweep of `RoomScopedEntity`
 /// that deliberately does NOT exempt custody) safe.
@@ -466,14 +466,14 @@ fn possession_finds_no_target_in_a_world_of_only_corpses() {
     );
 }
 
-/// **A MOUNT TRAVELS WITH A PILOTED RIDER AND STAYS PUT UNDER AN AI ONE.**
+/// A MOUNT TRAVELS WITH A PILOTED RIDER AND STAYS PUT UNDER AN AI ONE.
 ///
-/// ⭐ the transitive link, and both terms. A mount is in its rider's custody
+///  the transitive link, and both terms. A mount is in its rider's custody
 /// exactly while that rider is itself travelling — so possessing the rider
 /// carries the mount through a door, and an AI-piloted sky rider patrolling its
 /// own room keeps its mount as room furniture.
 ///
-/// ⛔ **the negative half is the one that matters.** A rule that gave every
+///  the negative half is the one that matters. A rule that gave every
 /// mount to its rider would pass the positive assertion and would quietly stop
 /// every authored mount in the game from ever being retired with its room.
 #[test]
@@ -535,10 +535,10 @@ fn a_mount_travels_with_a_piloted_rider_and_not_with_an_ai_one() {
     );
 }
 
-/// **THE CUSTODY MARKER COMES BACK — it is DERIVED, and a rewind is what proves
-/// it.**
+/// THE CUSTODY MARKER COMES BACK — it is DERIVED, and a rewind is what proves
+/// it.
 ///
-/// ⛔⛔ `InCustodyOf` is registered to rollback as a DERIVED component, excused
+///  `InCustodyOf` is registered to rollback as a DERIVED component, excused
 /// from the snapshot by one sentence: *"room residency reprojected from
 /// `ItemCustody` every tick"*. A possessed body has no `ItemCustody`, so writing
 /// the marker at the possess site would have created the one population nothing
@@ -546,7 +546,7 @@ fn a_mount_travels_with_a_piloted_rider_and_not_with_an_ai_one() {
 /// put it back, leaving the driven body a `RoomResident` again and retiring it at
 /// the next door.
 ///
-/// ⭐ so this deletes the marker the way a rollback restore would and asserts the
+///  so this deletes the marker the way a rollback restore would and asserts the
 /// next tick rebuilds it from `PossessionState`, which IS snapshot state. A
 /// version that only checked "the marker exists after possessing" would pass
 /// against a plain insert and prove nothing about the rewind.
@@ -583,7 +583,7 @@ fn the_driven_bodys_custody_marker_is_rederived_after_a_rewind_drops_it() {
     );
 }
 
-/// **The projection does not touch an ITEM's custody**, which the item domain
+/// The projection does not touch an ITEM's custody, which the item domain
 /// owns and reprojects from its own authority. A blanket retraction would fight
 /// `project_custody_onto_residency` every tick.
 #[test]
@@ -623,7 +623,7 @@ fn the_possession_projection_leaves_item_custody_alone() {
     );
 }
 
-/// **A candidate that was ALREADY session-scoped keeps that scope exactly.**
+/// A candidate that was ALREADY session-scoped keeps that scope exactly.
 ///
 /// Nothing promotes now, so the interesting claim is the stronger one: the scope is never written
 /// at all, in either direction. That is the poison for reintroducing a promotion, because a
@@ -679,7 +679,7 @@ fn a_session_scoped_candidate_keeps_its_own_scope_through_possession() {
     assert!(app.world().get::<InCustodyOf>(actor).is_none());
 }
 
-/// **An UNSCOPED candidate stays unscoped.** Possession invents no lifetime for
+/// An UNSCOPED candidate stays unscoped. Possession invents no lifetime for
 /// a body that had none, and release invents no room ownership either.
 #[test]
 fn an_unscoped_candidate_is_never_given_a_lifetime_by_possession() {

@@ -1,22 +1,8 @@
-//! **The spikes cost rings, not the run** — driven through the real headless
-//! demo, on the real speedway geometry.
+//! Verify Sanic's authored spike strip through the real headless speedway.
 //!
-//! should hurt him and knock out his rings. Sanic should only die after getting
-//! hit with 0 rings."*
-//!
-//! **the ring shield was never the broken part.** It is implemented and
-//! pinned (`ambition_demo_sanic::tests` — a hit with rings never reaches HP, it
-//! costs every ring, and they scatter as real collectible pickups). What did not
-//! happen was the HIT: the mid-course strip was authored as a `HazardBlock`,
-//! which has exactly one outcome — teleport to spawn — so a runner carrying 40
-//! rings was returned to the start line with his purse intact and the shield
-//! never heard about it. The strip is a `DamageVolume` now.
-//!
-//! **this asserts the four cases as a SET, and each one poisons a different
-//! wrong fix.** Making the pit hurt instead of reset passes the first case and
-//! fails the third. Removing the strip passes the first two and fails all four
-//! by making them vacuous, which is why every case also proves the strip was
-//! reached. Dropping the super form's exemption passes three and fails the last.
+//! Contact with the strip must deal damage, spend and scatter rings before HP,
+//! kill only at zero rings, and preserve the super-form exemption. Each case also
+//! proves the body reached the strip so missing geometry cannot pass vacuously.
 
 use ambition_demo_sanic::{PIT_LEFT_X, SUPER_SANIC_CHARACTER_ID};
 use ambition_demo_sanic_app::build_demo_app;
@@ -40,19 +26,11 @@ struct Outcome {
     hp: i32,
     rings: i32,
     scattered: usize,
-    /// True once the body has been put back at the act's spawn — the observable
-    /// a reset and a death share, and the one the spikes must NOT produce while
-    /// the player still has rings.
+    /// Whether the body was returned to the act spawn by reset or death.
     sent_home: bool,
-    /// How many times the engine published its authoritative *"the local
-    /// player's attempt ended"* fact. this is what separates the two ways of
-    /// being sent home: the pit's reset and a lethal hit both move the body, and
-    /// only [`ActorDiedMessage`] says the difference out loud.
+    /// Death messages observed, distinguishing lethal hits from non-death resets.
     deaths: usize,
-    /// Furthest right the body's leading EDGE got, so a case cannot pass by
-    /// never arriving. the edge, not the centre: a 30px-wide body touches the
-    /// strip with 15px still to go, and a centre-based check called the
-    /// zero-ring death "vacuous" at max_x=5640 of a strip starting at 5648.
+    /// Furthest right edge reached, used to prove the body contacted the strip.
     max_right: f32,
 }
 
@@ -124,18 +102,18 @@ fn displace(app: &mut App, to: Vec2) {
     );
 }
 
-/// **Hold Right, in a way that does not depend on which composition this is.**
+/// Hold Right, in a way that does not depend on which composition this is.
 ///
-/// **THIS WAS A TWO-ARM `#[cfg(feature = "input")]` FORK, AND THE CFG READ THE WRONG CRATE'S
-/// FEATURE.** The arm that writes `ControlFrame` directly was selected by THIS crate's `input`
+/// THIS WAS A TWO-ARM `#[cfg(feature = "input")]` FORK, AND THE CFG READ THE WRONG CRATE'S
+/// FEATURE. The arm that writes `ControlFrame` directly was selected by THIS crate's `input`
 /// flag, while the thing that overwrites such a write is `ambition_platformer2d/input` — the
 /// participant pipeline in the dependency, which workspace feature unification turns on regardless.
 /// So the file compiled either way and the two arms did not correspond to the two compositions at
 /// all: under `-p ambition_demo_sanic_app -p ambition_app`, all four cases walked to x=5615 of the
 /// strip at x=5648 and reported themselves vacuous.
 ///
-/// **there is one seam now and it is composition-independent by
-/// construction**: `scripted_input` writes after the pipeline's routing stage
+/// there is one seam now and it is composition-independent by
+/// construction: `scripted_input` writes after the pipeline's routing stage
 /// and before the frame→tick latch, so it wins under a build that HAS a
 /// device bridge and works unchanged under one that does not. No cfg, no arms,
 /// nothing for a feature flag to select wrongly.
@@ -223,10 +201,10 @@ fn walk_right_into(from_x: f32, rings: i32, super_form: bool, frames: usize) -> 
             out.sent_home = true;
             break;
         }
-        // **stop at the FIRST thing that happens to him.** Running on past a successful hit
+        // stop at the FIRST thing that happens to him. Running on past a successful hit
         // re-collects the rings he just dropped (they are real pickups and he is still holding
         // Right), and the first draft of this read 14 rings back at the finish line and called the
-        // spend a failure. **unless he DIED, in which case keep going** (ADR 0033). The
+        // spend a failure. unless he DIED, in which case keep going (ADR 0033). The
         // ring-recollection hazard this break exists for cannot bite on a death: he is out of play
         // and the level is about to be put back.
         if out.deaths == 0 && (out.rings != rings || out.hp != hp0) {

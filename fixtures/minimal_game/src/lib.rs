@@ -1,4 +1,4 @@
-//! **The smallest game this engine can stand up.**
+//! The smallest game this engine can stand up.
 //!
 //! The smallest external consumer used by the current SDK and capability-
 //! composition programs (`docs/planning/engine/public-sdk-1.0.md` and
@@ -73,7 +73,7 @@ impl GameModule for MinimalModule {
 // audio fragment, and now nothing: `playable()` declares the experience and
 // `no_audio()` declares the silence.
 //
-// **The whole game is now a declaration.** It installs no plugin, spawns no system, and touches no
+// The whole game is now a declaration. It installs no plugin, spawns no system, and touches no
 // `App`.
 
 pub mod minimal_experience;

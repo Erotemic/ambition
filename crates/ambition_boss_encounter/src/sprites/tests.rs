@@ -259,7 +259,7 @@ fn boss_atlas_falls_back_when_record_rows_dont_line_up() {
 
 #[test]
 fn mockingbird_flips_to_face_the_player_unlike_right_facing_sheets() {
-    // Player to the right ⇒ facing > 0.
+    // Player to the right  facing > 0.
     assert!(MOCKINGBIRD_SHEET.authored_faces_left);
     assert!(!BOSS_SHEET.authored_faces_left);
     assert!(!GIANT_GNU_SHEET.authored_faces_left);

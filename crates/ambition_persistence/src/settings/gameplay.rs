@@ -146,7 +146,7 @@ pub struct GameplaySettings {
     /// precision aiming points where the stick points on screen at any gravity.
     #[serde(default = "default_aim_frame_mode")]
     pub aim_frame_mode: InputFrameMode,
-    /// **it also decides the frame the sticks resolve in**, because a
+    /// it also decides the frame the sticks resolve in, because a
     /// player-relative view makes screen axes *be* body axes and collapses every
     /// [`InputFrameMode`] onto `BodyRelativeStrict` — see
     /// [`InputFrameMode::under_camera`] for why that is an identity. Read
@@ -220,7 +220,7 @@ impl GameplaySettings {
     /// The pair of control-authority frame policies these settings express, for
     /// the gameplay verbs that resolve input by source ([`ae::ControlFrameModes`]).
     ///
-    /// **resolved against the camera frame, not the raw stored fields** — this
+    /// resolved against the camera frame, not the raw stored fields — this
     /// is one of the two doors onto the frame modes, and both apply the collapse
     /// so no caller can reach an un-resolved mode by picking the wrong one.
     pub fn control_frame_modes(&self) -> ambition_platformer2d_core::ControlFrameModes {
@@ -230,7 +230,7 @@ impl GameplaySettings {
         }
     }
 
-    /// **The locomotion frame mode that actually applies**, given the camera frame.
+    /// The locomotion frame mode that actually applies, given the camera frame.
     ///
     /// read this, never `self.movement_frame_mode`. See [`InputFrameMode::under_camera`].
     pub fn resolved_movement_frame_mode(&self) -> InputFrameMode {
@@ -238,7 +238,7 @@ impl GameplaySettings {
             .under_camera(self.camera_reference_frame)
     }
 
-    /// **The precision-aim frame mode that actually applies**, given the camera
+    /// The precision-aim frame mode that actually applies, given the camera
     /// frame. Same collapse as [`Self::resolved_movement_frame_mode`]: aiming at a
     /// screen point and aiming in the body frame are the same gesture once the
     /// screen IS the body frame.
@@ -283,7 +283,7 @@ impl GameplaySettings {
         self.camera_reference_frame = frames[(((cur + step) % n + n) % n) as usize];
     }
 
-    /// **Whether the locomotion/aim frame options still mean anything.**
+    /// Whether the locomotion/aim frame options still mean anything.
     ///
     /// False under a player-relative camera, where every mode collapses. The menu
     /// uses this to say so rather than letting the player cycle a dead option.
@@ -421,7 +421,7 @@ mod tests {
         assert!(s.player_damage_multiplier >= 0.25 - 1e-6);
     }
 
-    /// **The camera setting never rewrites the input setting.**
+    /// The camera setting never rewrites the input setting.
     ///
     /// this is the property that made resolve-at-read-time worth the extra
     /// method over simply forcing the stored field: a player who tries

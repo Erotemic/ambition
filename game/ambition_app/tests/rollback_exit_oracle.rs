@@ -1,4 +1,4 @@
-//! **The track-0 exit oracle: cross-feature state survives forced rollback.**
+//! The track-0 exit oracle: cross-feature state survives forced rollback.
 //!
 //! The scenario runs in `combat_calibration_lab` — the combat-verb calibration room — which authors
 //! a patrol enemy, a striker pair, a breakable brick, and the classify-console switch along one
@@ -114,7 +114,7 @@ impl OracleEvents {
     }
 }
 
-/// **The exact props the route is supposed to act on, by authored id.**
+/// The exact props the route is supposed to act on, by authored id.
 ///
 /// Pinned by [`FeatureId`] rather than by `Entity`: bevy_ggrs DESTROYS and recreates
 /// rollback entities, so a handle captured at calibration names nothing after the
@@ -346,25 +346,9 @@ fn target_positions(
     (enemies, brick, switch)
 }
 
-/// **Every registration that carries state across a rollback owns a probe.**
-///
-/// The localizer's promise, as written in `probes.rs`, is that "a component cannot be
-/// rollback-registered and remain invisible to localization", and the planning notes turned
-/// that into "all 99 registered components and resources were probed". Neither was true.
-/// `RoomSet`, `LdtkRuntimeIndex`, `EncounterParticipants`, `PendingPlayerHitEvents` and —
-/// pointedly — `ProjectileOwner`, whose remap is the fix the equipment divergence turned on,
-/// were all invisible to the tool built to find exactly that.
-///
-/// The diagnostic below asserted only `probes > 0`, which cannot tell the difference
-/// between full coverage and 5%. So its green result could not support the
-/// conclusion the triage report drew from it — "every registered component and
-/// resource came back identical" — and that conclusion was withdrawn.
-///
-/// This test is the forcing function. It is NOT `#[ignore]`d and it walks no route:
-/// it builds the sim, then compares the rollback registry's state-bearing
-/// descriptors against the probe set. A new registration arm that forgets its probe
-/// fails here, at the point the coverage is lost, instead of silently narrowing
-/// every future localizer run.
+/// Every state-bearing rollback registration must have a localization probe.
+/// The test compares the registry directly with the probe vocabulary so adding
+/// registered state without a probe fails immediately.
 #[test]
 fn every_state_bearing_rollback_registration_owns_a_localization_probe() {
     let sim = oracle_sim();
@@ -416,7 +400,7 @@ fn every_state_bearing_rollback_registration_owns_a_localization_probe() {
     );
 }
 
-/// **Every probe that can see only PRESENCE is written down, with a reason.**
+/// Every probe that can see only PRESENCE is written down, with a reason.
 ///
 /// The test above compares type NAMES, which a presence-only probe satisfies while
 /// reporting nothing about the value. So "254 of 254 probed"
@@ -878,7 +862,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         entity_mapped.len()
     );
 
-    // **NO entity-mapped type may be presence-only.**
+    // NO entity-mapped type may be presence-only.
     //
     // A type holds remappable handles exactly when something registers an entity
     // mapping for it, and every one of those now has a projection through the
@@ -1027,7 +1011,7 @@ fn the_calibration_lab_is_checksum_stable_at_rest() {
 /// `frames_run` and the observed events come back on both paths: a divergence
 /// still wants to say what the route had achieved when it hit.
 ///
-/// The fourth return is a **per-frame** union of unaccounted components. A
+/// The fourth return is a per-frame union of unaccounted components. A
 /// one-shot sweep at failure time cannot see TRANSIENT sim entities — an attack's
 /// hit volume, a projectile, a debris chunk — because they live for a handful of
 /// frames and are gone by the time anyone samples. Those are exactly the entities
@@ -1078,15 +1062,15 @@ fn walk_the_combat_route(sim: &mut Platformer2dSimHarness) -> RouteWalk {
 
 /// The route, against targets somebody else already identified.
 ///
-/// **the population sweep could not use `walk_the_combat_route`, and that is
-/// why it could never finish.** The sweep's whole question is *"does the
+/// the population sweep could not use `walk_the_combat_route`, and that is
+/// why it could never finish. The sweep's whole question is *"does the
 /// divergence still need this class?"*, so it DESPAWNS a class and re-runs — and
 /// the route's first act was to assert that class is present. `no_brick` removed
 /// every `BreakableFeature` and then the calibration refused to proceed with
 /// *"the calibration lab must author a breakable named `calibration_brick` …
 /// Present: []"*, which reads as a broken room and was a broken question.
 ///
-/// **the guard is right and stays** — a fixture's health belongs in its own assertion, three
+/// the guard is right and stays — a fixture's health belongs in its own assertion, three
 /// times over in this ledger. So the sweep calibrates the intact world, despawns, and walks
 /// with the ids it already has; every consumer of `OracleTargets` is an `.any()` or a
 /// `.find().map()` and tolerates a target that is now gone.
@@ -1175,7 +1159,7 @@ fn walk_the_combat_route_with(
             .map(|stats| stats.advance_runs)
             .unwrap_or(0);
         sim.step(action);
-        // **Did the step actually DRIVE the rollback session?**
+        // Did the step actually DRIVE the rollback session?
         //
         // A harness step advances `SimTick` whether or not GGRS is running, so a
         // session that stops being driven is invisible: the route keeps walking,
@@ -1253,24 +1237,8 @@ fn walk_the_combat_route_with(
     }
 }
 
-/// **Track 0's exit criterion, in one run.** All four events, checksum-identical.
-///
-/// This was `#[ignore]`d and red for a long time, and the history is worth keeping
-/// because two different failures were tangled together in it:
-///
-/// * a genuine **value divergence** at frames ~[149, 150, 151] —
-/// `docs/archive/planning-superseded//triage/rollback-equipment-oracle-divergence.md` records the
-///   bisection. `IdentityKit` and `PlayerVisual` were found and fixed on the way;
-///   the actual cause was `ProjectileOwner` declared rollback-DERIVED on the
-///   promise of a system whose query could not see enemy projectiles. Fixed, and
-///   the quarantine lifted;
-/// * a **route** that never touched either prop. Hidden by the first failure — the
-///   checksum blew up at frame ~153, so nobody saw how far the walker got. It
-///   steered at the brick's centre, climbed the block, and swung over it. Fixed by
-///   standing off the face and not hopping while the brick is the objective.
-///
-/// The order matters for anyone reading the git history: the determinism fix made the route's
-/// silence visible, and only then could the two prop assertions be restored.
+/// Exercise melee, armor, a breakable, and a switch through forced rollback.
+/// All four effects must occur while the replay remains checksum-identical.
 #[test]
 fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
     let mut sim = oracle_sim();
@@ -1347,7 +1315,7 @@ fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
     let stats = sim
         .rollback_execution_stats()
         .expect("GGRS instrumentation is installed");
-    // **LIFETIME, not per-session, and that distinction is the whole of AC18.**
+    // LIFETIME, not per-session, and that distinction is the whole of AC18.
     //
     // This route can produce a confirmed Track-B lifecycle commit, which rebases
     // the GGRS session — atomically, deliberately, correctly. A rebase installs
@@ -1368,58 +1336,10 @@ fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
          harness steps, or the same frames were never replayed: {stats:?}"
     );
 
-    // ── COVERAGE, PINNED rather than left to the content (AC22) ──
-    //
-    // AC18 stopped a content edit from BREAKING this oracle. What it did not
-    // stop is a content edit changing what the oracle COVERS: the authored
-    // enemy set decides whether a confirmed Track-B lifecycle commit lands
-    // inside the rollback window, and a run that crosses a mid-window session
-    // rebase proves something different from one that does not. Both were green
-    // and nothing said which had happened — *a proof whose coverage moves when
-    // a designer edits a room is a weaker proof than it looks.*
-    //
-    // This run is the NO-REBASE walk: one session, rewound and resimulated for
-    // its whole length. The crossed-rebase case is covered deliberately and far
-    // more thoroughly by
-    // `rollback_room_transition::a_transition_intent_is_recorded_then_committed_exactly_once`,
-    // which walks a body through an `EdgeExit`, proves the intent is recorded
-    // while predicted and committed exactly once on confirmation, and keeps
-    // running checksum-clean past the rebase.
-    //
-    // **a fixture room of the oracle's own was the other option and is not taken.** It would be a
-    // second copy of authored content to keep alive, and it does not buy what it looks like it
-    // buys: this route's four objectives are already asserted by AUTHORED ID, so a content edit
-    // that moves them fails loudly at `calibrate_targets` either way. Nothing broke: the checksum
-    // identity above still holds frame for frame. What changed is the COVERAGE, and this pin is
-    // what said so instead of letting it pass.
-    //
-    // **and it is pinned rather than restored, after three attempts to restore
-    // it failed.** The walk's stats are byte-identical (`advance_runs: 770`,
-    // `last_simulated_frame: 158`) whether the fixture pins the player's
-    // `ActionSet`, its derived `ActorMoveset`, its `IdentityKit`, or the lab's
-    // enemy health pools — so whatever the faster swing changes, it is not
-    // reachable by mutating this sim at frame zero. A pin that cannot be restored
-    // from the test is a pin whose subject lives in the engine, and pretending
-    // otherwise with a no-op helper would be worse than saying so.
-    //
-    // Checked before re-pinning rather than after: the crossed-rebase claim this
-    // count was standing in for is owned by
-    // `rollback_room_transition::a_transition_intent_is_recorded_then_committed_exactly_once`,
-    // and all four tests in that module pass. The checksum identity this oracle
-    // exists for is unaffected — only the coverage narrative was.
-    //
-    // ⇥ **THE THIRD MOVE, AND THE RULE ABOVE SAID WHAT TO DO ABOUT IT.**
-    //
-    // ⇒ **the exact pin is retired, deliberately and per its own pre-registered
-    // rule**: assert the checksum identity (which this file exists for, and
-    // which is asserted above and passed), and REPORT the session count instead
-    // of pinning it. What remains is a CEILING, so a genuine runaway — a route
-    // that starts installing sessions every few frames — still fails, while a
-    // one-commit drift caused by feel tuning does not cost a fourth
-    // investigation.
-    //
-    // do not restore the exact equality. If the count is wanted exactly,
-    // the route needs a timing-independent length first.
+    // This oracle proves checksum identity over the no-rebase walk. Crossed-rebase
+    // behavior is covered by `rollback_room_transition`. Session count is reported
+    // with a small ceiling rather than pinned exactly because feel tuning may shift a
+    // lifecycle commit without changing this oracle's invariant.
     let further = stats.sessions_installed as i64 - sessions_at_the_start as i64;
     println!(
         "[oracle-coverage] the walk installed {further} further session(s) on top \
@@ -1435,7 +1355,7 @@ fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
     );
 }
 
-/// **Which population does the divergence need?** — the localizer, opt-in.
+/// Which population does the divergence need? — the localizer, opt-in.
 ///
 /// When the oracle above goes red it names a frame and nothing else: a GGRS sync-test reports
 /// one aggregate checksum, so "frames [149, 150, 151] differ" is the whole story it can tell. A
@@ -1457,7 +1377,7 @@ fn which_population_does_the_rollback_divergence_need() {
         let mut sim = oracle_sim();
         wear_oracle_armor(&mut sim);
         stage_player_on_arena_floor(&mut sim);
-        // **calibrate the INTACT world, before anything is removed.** See
+        // calibrate the INTACT world, before anything is removed. See
         // `walk_the_combat_route_with`.
         let targets = calibrate_targets(&mut sim);
         {
@@ -1520,8 +1440,8 @@ fn which_population_does_the_rollback_divergence_need() {
             Err(report) => findings.push(format!("  {variant:<12} DIVERGED — {report}")),
         }
     }
-    // **THIS PANICKED UNCONDITIONALLY, and it made `--heavy` structurally
-    // red.** `run_tests.py`'s heavy pass runs `--include-ignored`, so the ONLY
+    // THIS PANICKED UNCONDITIONALLY, and it made `--heavy` structurally
+    // red. `run_tests.py`'s heavy pass runs `--include-ignored`, so the ONLY
     // mode that executes ignored tests contained a guaranteed failure — which
     // turns its output into noise, which is precisely why three rotted
     // `#[ignore]`s sat unnoticed for weeks behind it. A suite mode nobody can
@@ -1539,7 +1459,7 @@ fn which_population_does_the_rollback_divergence_need() {
     );
 }
 
-/// **Which COMPONENT does the divergence live in?** — per-component localization.
+/// Which COMPONENT does the divergence live in? — per-component localization.
 ///
 /// The sibling localizer above answers "which entity class", by bisection over
 /// five sim boots. This answers the sharper question directly, in one run: for
@@ -1608,7 +1528,7 @@ fn which_component_does_the_rollback_divergence_live_in() {
     println!("[localizer] {}", audit.coverage());
 }
 
-/// **A14: every gameplay message channel is either rewound or named.**
+/// A14: every gameplay message channel is either rewound or named.
 ///
 /// A `MessageReader<T>` reads through a `Local<MessageCursor<T>>`. `Local` is system
 /// state, GGRS does not rewind it, and so any gameplay fact derived from `.read()`
@@ -1631,7 +1551,7 @@ fn every_gameplay_message_channel_is_rewound_on_rollback_or_named() {
     // A new gameplay channel lands here as a failure, and its author has to decide
     // rather than inherit silence.
     const NOT_REWOUND: &[(&str, &str)] = &[
-        // **sixteen are answered STRUCTURALLY rather than one at a time.** The
+        // sixteen are answered STRUCTURALLY rather than one at a time. The
         // checker asks whether a stale reader cursor can change the simulation. A
         // sim crate that cannot NAME the message type cannot hold a cursor into
         // its channel, and the dependency graph settles that without reading a

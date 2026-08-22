@@ -36,9 +36,9 @@ const SYMMETRY_ROOM_ID: &str = "symmetry_room";
 /// Save flag remembering a completed attunement across save/load.
 pub const SYMMETRY_ATTUNEMENT_FLAG: &str = "symmetry_attunement_complete";
 
-/// **The four kernel-face facts the puzzle's win condition is made of.**
+/// The four kernel-face facts the puzzle's win condition is made of.
 ///
-/// **what survived is an encounter stating its own win condition**, which is
+/// what survived is an encounter stating its own win condition, which is
 /// legitimate and is a different sentence from *"this switch does that"*: the
 /// puzzle is complete when all four symmetries have been visited, and only the
 /// puzzle knows that.
@@ -93,7 +93,7 @@ pub fn spawn_symmetry_attunement(
 /// through the authored-command contract, so there is no adapter here at all — the level talks
 /// to the encounter domain directly.
 ///
-/// **what is left is room ENTRY**, which is a genuinely different shape: it is
+/// what is left is room ENTRY, which is a genuinely different shape: it is
 /// a level-triggered condition on the active room rather than an edge on a
 /// placement, and no authored surface expresses it yet. Naming that limit is
 /// better than inventing a second one to hide it.

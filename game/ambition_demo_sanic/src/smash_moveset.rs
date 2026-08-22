@@ -1,11 +1,11 @@
-//! **Sanic's repertoire, for the stage he visits rather than the one he lives
-//! on.**
+//! Sanic's repertoire, for the stage he visits rather than the one he lives
+//! on.
 //!
 //! A move table is *what the attack IS*; the ability is *whether this body may attack at all*. At
 //! home the answer is no and these sixteen moves are unreachable; on a stage that GRANTS the verb
 //! (`MatchAbilities::levelled`) they are what he swings.
 //!
-//! **and it is not his spin dash.** `declare_sanic_techniques` puts spin dash
+//! and it is not his spin dash. `declare_sanic_techniques` puts spin dash
 //! and the transform on his body as TECHNIQUES — named actions his own game
 //! resolves Attack and Utility onto — and they stay exactly where they are. The
 //! side special below is a different object that happens to look like one, which
@@ -37,7 +37,7 @@ const BOOM_FX: f32 = 1.2;
 
 /// See the module doc. Sixteen presses.
 pub fn sanic_moveset() -> MovesetContract {
-    // **JAB — `quick_jab`.** Four frames. It is not meant to do anything except
+    // JAB — `quick_jab`. Four frames. It is not meant to do anything except
     // arrive before yours.
     let jab = strike(
         "quick_jab",
@@ -56,7 +56,7 @@ pub fn sanic_moveset() -> MovesetContract {
     let jab = vfx_at(jab, 0.04, "air_slice", (22.0, 0.0), RUSH_FX);
     let jab = on_contact(jab, "player.hit");
 
-    // **FORWARD TILT — `run_up_kick`.** He is already moving; this is what that
+    // FORWARD TILT — `run_up_kick`. He is already moving; this is what that
     // looks like when it hits something.
     let f_tilt = strike(
         "run_up_kick",
@@ -75,7 +75,7 @@ pub fn sanic_moveset() -> MovesetContract {
     let f_tilt = vfx_at(f_tilt, 0.06, "dash_streak", (28.0, 2.0), RUSH_FX);
     let f_tilt = on_contact(f_tilt, "player.hit");
 
-    // **UP TILT — `heel_flick`.** Up and behind, off the run.
+    // UP TILT — `heel_flick`. Up and behind, off the run.
     let u_tilt = strike(
         "heel_flick",
         "attack_up",
@@ -93,7 +93,7 @@ pub fn sanic_moveset() -> MovesetContract {
     let u_tilt = vfx_at(u_tilt, 0.06, "wind_curl", (4.0, -24.0), RUSH_FX);
     let u_tilt = on_contact(u_tilt, "player.hit");
 
-    // **DOWN TILT — `skid`.** He stops, briefly, and the ground does not.
+    // DOWN TILT — `skid`. He stops, briefly, and the ground does not.
     let d_tilt = strike(
         "skid",
         "attack_down",
@@ -111,7 +111,7 @@ pub fn sanic_moveset() -> MovesetContract {
     let d_tilt = vfx_at(d_tilt, 0.05, "skid_puff", (26.0, 14.0), RUSH_FX);
     let d_tilt = on_contact(d_tilt, "player.hit");
 
-    // **FORWARD SMASH — `sonic_boom`.** The one moment he stops being quick and
+    // FORWARD SMASH — `sonic_boom`. The one moment he stops being quick and
     // becomes hard. still the second-weakest forward smash on the grid.
     let f_smash = strike(
         "sonic_boom",
@@ -131,7 +131,7 @@ pub fn sanic_moveset() -> MovesetContract {
     let f_smash = sfx(f_smash, 0.15, "player.attack.charge");
     let f_smash = on_contact(f_smash, "player.hit");
 
-    // **UP SMASH — `updraft`.** A vertical burst off a standing start.
+    // UP SMASH — `updraft`. A vertical burst off a standing start.
     let u_smash = strike(
         "updraft",
         "smash_up",
@@ -149,7 +149,7 @@ pub fn sanic_moveset() -> MovesetContract {
     let u_smash = vfx_at(u_smash, 0.14, "wind_curl", (2.0, -30.0), BOOM_FX);
     let u_smash = on_contact(u_smash, "player.hit");
 
-    // **DOWN SMASH — `split_kick`.** Both directions at once, low.
+    // DOWN SMASH — `split_kick`. Both directions at once, low.
     let d_smash = strike(
         "split_kick",
         "smash_down",
@@ -167,7 +167,7 @@ pub fn sanic_moveset() -> MovesetContract {
     let d_smash = vfx_at(d_smash, 0.15, "sonic_ripple", (0.0, 18.0), BOOM_FX);
     let d_smash = on_contact(d_smash, "player.hit");
 
-    // **NEUTRAL AIR — `air_spin`.** The ball, in the air, around him.
+    // NEUTRAL AIR — `air_spin`. The ball, in the air, around him.
     let n_air = strike(
         "air_spin",
         "air_neutral",
@@ -185,7 +185,7 @@ pub fn sanic_moveset() -> MovesetContract {
     let n_air = vfx_at(n_air, 0.05, "sonic_ripple", (0.0, 0.0), RUSH_FX);
     let n_air = on_contact(n_air, "player.hit");
 
-    // **FORWARD AIR — `homing_cut`.** He arrives at you rather than swinging at
+    // FORWARD AIR — `homing_cut`. He arrives at you rather than swinging at
     // where you are.
     let f_air = strike(
         "homing_cut",
@@ -204,7 +204,7 @@ pub fn sanic_moveset() -> MovesetContract {
     let f_air = vfx_at(f_air, 0.07, "dash_streak", (28.0, 0.0), RUSH_FX);
     let f_air = on_contact(f_air, "player.hit");
 
-    // **BACK AIR — `trailing_heel`.** What is behind him is behind him because
+    // BACK AIR — `trailing_heel`. What is behind him is behind him because
     // he already passed it.
     let b_air = strike(
         "trailing_heel",
@@ -223,7 +223,7 @@ pub fn sanic_moveset() -> MovesetContract {
     let b_air = vfx_at(b_air, 0.08, "air_slice", (-28.0, 0.0), RUSH_FX);
     let b_air = on_contact(b_air, "player.hit");
 
-    // **UP AIR — `corkscrew`.** Straight up, spinning.
+    // UP AIR — `corkscrew`. Straight up, spinning.
     let u_air = strike(
         "corkscrew",
         "air_up",
@@ -241,7 +241,7 @@ pub fn sanic_moveset() -> MovesetContract {
     let u_air = vfx_at(u_air, 0.06, "wind_curl", (2.0, -26.0), RUSH_FX);
     let u_air = on_contact(u_air, "player.hit");
 
-    // **DOWN AIR — `drill_dive`.** Straight down, and he keeps going.
+    // DOWN AIR — `drill_dive`. Straight down, and he keeps going.
     let d_air = strike(
         "drill_dive",
         "air_down",
@@ -259,7 +259,7 @@ pub fn sanic_moveset() -> MovesetContract {
     let d_air = vfx_at(d_air, 0.09, "sonic_ripple", (0.0, 25.0), RUSH_FX);
     let d_air = on_contact(d_air, "player.hit");
 
-    // **NEUTRAL — `spin_charge`.** He winds up in place and the release is the
+    // NEUTRAL — `spin_charge`. He winds up in place and the release is the
     // only real commitment in his kit.
     let n_b = strike(
         "spin_charge",
@@ -275,7 +275,7 @@ pub fn sanic_moveset() -> MovesetContract {
         Some((0.9, -0.40)),
         None,
     );
-    // **either posture, and it has to be**: gated to the ground, an airborne
+    // either posture, and it has to be: gated to the ground, an airborne
     // neutral-B walked the chain past it and found NOTHING — the last candidate
     // for `special_air` is `special` itself. A spin charge in the air is a spin
     // charge; there is nothing about it that needs a floor.
@@ -285,7 +285,7 @@ pub fn sanic_moveset() -> MovesetContract {
     let n_b = vfx_at(n_b, 0.18, "sonic_ripple", (26.0, 6.0), BOOM_FX);
     let n_b = on_contact(n_b, "player.hit");
 
-    // **SIDE — `blue_streak`.** The fastest crossing on the grid, and the tail
+    // SIDE — `blue_streak`. The fastest crossing on the grid, and the tail
     // barely damps: he can still steer out of it, which is the whole difference
     // between him and the engineer's piston.
     let side_b = strike(
@@ -308,7 +308,7 @@ pub fn sanic_moveset() -> MovesetContract {
     let side_b = sfx(side_b, 0.09, "player.dash");
     let side_b = on_contact(side_b, "player.hit");
 
-    // **UP — `spring_launch`. THE RECOVERY.** The springs his own course is full
+    // UP — `spring_launch`. THE RECOVERY. The springs his own course is full
     // of, carried. The highest lift on the grid and the cheapest landing, which
     // is what the lightest, fastest fighter's way home should be.
     let mut up_b = strike(
@@ -332,7 +332,7 @@ pub fn sanic_moveset() -> MovesetContract {
     let up_b = sfx(up_b, 0.05, "player.double_jump");
     let up_b = on_contact(up_b, "player.hit");
 
-    // **DOWN — `ball_drop`.** He curls and drops. Airborne-only: on the ground
+    // DOWN — `ball_drop`. He curls and drops. Airborne-only: on the ground
     // it would be a worse down smash, and the move is the fall.
     let mut down_b = strike(
         "ball_drop",
@@ -372,7 +372,7 @@ pub fn sanic_moveset() -> MovesetContract {
         Some((0.0, 1.0)),
         None,
     );
-    // **`Add` for the hop, `Set` for the slam** — the same split George's
+    // `Add` for the hop, `Set` for the slam — the same split George's
     // grounded down-B needs and for the same reason: `lift_speed` is derived
     // from `Set` impulses, so a hop written that way would advertise this move
     // to the recovery policy as a way home. `spring_launch` is his way home.
@@ -384,7 +384,7 @@ pub fn sanic_moveset() -> MovesetContract {
     let ground_down_b = vfx_at(ground_down_b, 0.18, "sonic_ripple", (0.0, 16.0), RUSH_FX);
     let ground_down_b = on_contact(ground_down_b, "player.hit");
 
-    // **SANIC'S CAPTURE KIT.** Fastest startup, shortest reach, weakest throw and the
+    // SANIC'S CAPTURE KIT. Fastest startup, shortest reach, weakest throw and the
     // longest recovery. He gets there first and cannot do much with it, which is the
     // joke and also the balance.
     // the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
@@ -472,7 +472,7 @@ pub fn sanic_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: up_b,
-        // **AUTHORED, at the rule that every fighter in the smash roster have a grab.** The
+        // AUTHORED, at the rule that every fighter in the smash roster have a grab. The
         // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
         // the point of proving it was to stop being the only two.
         capture: SmashCaptureRepertoire {
@@ -507,7 +507,7 @@ mod tests {
     // `ambition_characters::smash_repertoire`, and by the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
-    /// **SPEED IS THE WHOLE CHARACTER, and it is checkable.** Every one of his
+    /// SPEED IS THE WHOLE CHARACTER, and it is checkable. Every one of his
     /// grounded normals starts in under seven frames at 60Hz. A retune that made
     /// him ordinary would pass every other test in this file.
     #[test]

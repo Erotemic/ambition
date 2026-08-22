@@ -5,13 +5,13 @@
 //! Resolves the platform-correct user data root, falling back to the
 //! current working directory when no env var is set (tests, CI).
 //!
-//! - **Linux**: `$XDG_DATA_HOME` or `$HOME/.local/share`.
-//! - **macOS**: `$HOME/Library/Application Support`.
-//! - **Windows**: `%APPDATA%`.
-//! - **Android**: `/data/data/<app_id>/files`. App ID comes from
+//! - Linux: `$XDG_DATA_HOME` or `$HOME/.local/share`.
+//! - macOS: `$HOME/Library/Application Support`.
+//! - Windows: `%APPDATA%`.
+//! - Android: `/data/data/<app_id>/files`. App ID comes from
 //!   `AMBITION_ANDROID_APP_ID` at compile time
 //!   (default: `org.erotemic.ambition.sandbox`).
-//! - **`AMBITION_DATA_DIR` override**: tests / sandbox sessions can
+//! - `AMBITION_DATA_DIR` override: tests / sandbox sessions can
 //!   set this env var to force a known directory. Always wins.
 
 use std::path::PathBuf;

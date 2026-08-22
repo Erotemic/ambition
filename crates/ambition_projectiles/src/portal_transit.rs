@@ -1,4 +1,4 @@
-//! The core ([`try_projectile_portal_transit`]) is **pure + deterministic** —
+//! The core ([`try_projectile_portal_transit`]) is pure + deterministic —
 //! no Bevy, no RNG — so the transit geometry (does it cross? where does it pop
 //! out? which way does momentum rotate?) is headless-testable. The unified
 //! projectile stepper calls it BEFORE world collision: if it transited, the

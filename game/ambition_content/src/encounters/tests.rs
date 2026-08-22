@@ -1,4 +1,4 @@
-//! **the engine tests pin the FUNCTION; this pins the WIRING**, and that
+//! the engine tests pin the FUNCTION; this pins the WIRING, and that
 //! distinction has cost this project a session before: enemy facing was plumbed,
 //! tested and green the entire time enemies walked the wrong way, because
 //! nothing asserted the authored world ever *said* which way.
@@ -15,8 +15,8 @@
 
 use super::{KERNEL_SIGNALS, SYMMETRY_ATTUNEMENT_ID};
 
-/// **THE SANDBOX WORLD SAYS WHAT EACH KERNEL FACE DOES — in the level, not in
-/// Rust.**
+/// THE SANDBOX WORLD SAYS WHAT EACH KERNEL FACE DOES — in the level, not in
+/// Rust.
 ///
 /// and it says it in the vocabulary the shared contract publishes: a command
 /// id, a prepared `encounter:` reference, and the signal key the encounter's own

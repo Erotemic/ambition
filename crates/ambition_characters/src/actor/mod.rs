@@ -18,7 +18,7 @@ pub mod attack_gesture;
 pub mod character_catalog;
 pub mod control;
 pub mod death_traits;
-/// **The authored character** — see the module doc for why it lives here now.
+/// The authored character — see the module doc for why it lives here now.
 pub mod definition;
 pub use death_traits::CharacterDeathTraits;
 /// The pool an undescribed body gets — surfaced flat because its two consumers
@@ -73,7 +73,7 @@ impl Actor {
     }
 }
 
-/// **Why a body cannot be hurt right now — a SET, not a flag.**
+/// Why a body cannot be hurt right now — a SET, not a flag.
 ///
 /// More than one thing can be true at once (a transformation is playing AND a star is burning), and
 /// each owner has to be able to stop being true without deciding for the others. A bool cannot
@@ -221,7 +221,7 @@ mod tests {
         assert_eq!(health.current, 5);
     }
 
-    /// **Percent is not health, and the meter can exceed the pool.** (S4)
+    /// Percent is not health, and the meter can exceed the pool. (S4)
     ///
     /// Lives here rather than beside the damage systems because `BodyHealth` is
     /// here: this is the authority's own contract, and a consumer crate asserting

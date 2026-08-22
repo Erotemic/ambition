@@ -9,7 +9,7 @@
 //! The measurement that decided the shape: every system that consumes the index for real work lives
 //! in `ambition_platformer2d_ldtk` and reads it through a `SessionWorldRef`, the monolith's
 //! `SimulationSetup::ldtk_index` was dead (`let _ = ldtk_index;`), and exactly ONE site in the
-//! workspace ever built a non-default index. ⇒ the index is state a FORMAT INSTALLS — see
+//! workspace ever built a non-default index.  the index is state a FORMAT INSTALLS — see
 //! [`PreparedPlatformerSource::with_installed_ldtk_index`] — not a field every game owes.
 
 use bevy::prelude::*;
@@ -48,11 +48,11 @@ pub struct PreparedPlatformerSource {
     geometry: RoomGeometry,
     active_room: ActiveRoomMetadata,
     starting_character: StartingCharacter,
-    /// **Whether this session builds a home body at all.** See
+    /// Whether this session builds a home body at all. See
     /// [`InitialBodyPolicy`]; a match experience declares
     /// [`InitialBodyPolicy::NoInitialBody`] and realizes its own cast.
     initial_body: InitialBodyPolicy,
-    /// **The active-area index an authoring FORMAT installed, if any.** `None`
+    /// The active-area index an authoring FORMAT installed, if any. `None`
     /// for every RON-authored game, which is what makes this optional rather
     /// than a field they fill with an empty value — see the module header.
     #[cfg(feature = "ldtk")]
@@ -80,7 +80,7 @@ impl PreparedPlatformerSource {
         }
     }
 
-    /// **A session that builds NO home body**, because the experience realizes
+    /// A session that builds NO home body, because the experience realizes
     /// its own cast.
     ///
     /// this is the constructor a MATCH wants, and until it existed the engine
@@ -112,7 +112,7 @@ impl PreparedPlatformerSource {
         }
     }
 
-    /// **Install an authoring format's active-area index onto this definition.**
+    /// Install an authoring format's active-area index onto this definition.
     ///
     /// The one road that calls this is the LDtk one — initial preparation and
     /// hot reload, both in the LDtk-authored game. A RON-authored game never
@@ -230,7 +230,7 @@ pub struct PlatformerSessionRequests {
 /// Mutable components owned by the canonical live session root. This bundle is
 /// constructed only by lowering an immutable [`PreparedPlatformerSource`].
 ///
-/// **every field here is something EVERY platformer session has.** An authoring format's own state
+/// every field here is something EVERY platformer session has. An authoring format's own state
 /// — the LDtk active-area index is the only current example — is installed as a SEPARATE component
 /// on the same root by the road that installed the format, so a game that uses no such format
 /// carries nothing for it.

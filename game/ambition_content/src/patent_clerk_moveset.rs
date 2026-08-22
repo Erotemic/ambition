@@ -1,47 +1,9 @@
-//! **The Patent Clerk's repertoire** — the heavyweight, written from the row's own
-//! `gameplay_description` rather than from taste.
+//! Patent Clerk's authored Smash repertoire.
 //!
-//! **the third adopter removed from `smash_fighter_kit()`**.
-//!
-//! **the character had already been designed and nobody had read it back.** Its
-//! catalog row carries a `gameplay_description` in full:
-//!
-//! > *A high-mastery heavyweight controller who classifies bodies as MASS,
-//! > ENERGY, MOVING, or AT REST; manipulates relative velocity and local reference
-//! > frames; and turns careful observation into unusually strong parries and
-//! > finishers.*
-//!
-//! Three words in that decide this table — **heavyweight**, **controller**,
-//! **finishers** — and they are not mine:
-//!
-//! * *heavyweight* → the slowest startups in the game and the largest volumes.
-//!   Every swing here is a commitment; the clerk does not poke.
-//! * *controller* → the tilts SET UP rather than kill. The down-tilt sends along
-//!   the floor, the up-tilt pops straight up: both leave the opponent somewhere
-//!   the clerk chose, which is what a controller trades damage for.
-//! * *finishers* → and then the smashes are the hardest in the game, because a
-//!   body this slow only ever gets the one.
-//!
-//! **the CLASSIFICATION mechanic is NOT in here** — MASS/ENERGY/MOVING/AT REST, the
-//! reference-frame manipulation. Those are systems, not swings. A moveset says what a hit IS; a
-//! mechanic that changes what a body's velocity MEANS belongs to the character's abilities and
-//! the ruleset.
-//!
-//! **that does not reopen the paragraph above.** An elevator that RISES is a
-//! swing with an authored impulse — the vocabulary every recovery in this repo
-//! is built from. What stays out is the part that would redefine velocity for
-//! everybody: `reference_frame` here displaces HIM, and says nothing about what
-//! anybody else's motion means.
-//!
-//! **the eleven original moves are untouched.** Their damage, timing, volumes
-//! and launch angles are exactly as the heavyweight/controller/finisher reading
-//! set them; a retune riding a "make it complete" commit is how a design gets
-//! lost. What they gained is their own art: fourteen rendered effects that were
-//! bound to nothing.
-//!
-//! three cues carry a `.loop` suffix their sprite rows do not
-//! (`reference_frame_grid`, `proper_time_tick`, `simultaneity_slice`), so the
-//! derived `vfx.<family>.<row>` name misses the bank for those three.
+//! The kit is a heavyweight/control-oriented set of strikes and recoveries. The
+//! MASS/ENERGY/MOVING/AT REST classification and reference-frame mechanics remain
+//! character/system abilities rather than move-table effects. Character-specific VFX
+//! cue overrides live here with the authored moves.
 
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
@@ -317,8 +279,8 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     let d_air = on_contact(d_air, "player.hit");
 
 
-    // **a forward tilt, because without one the commonest press in the genre
-    // falls down the directional chain to the jab.** The same hole George Booul
+    // a forward tilt, because without one the commonest press in the genre
+    // falls down the directional chain to the jab. The same hole George Booul
     // and Oiler both had. A margin correction: he reaches out and rewrites what
     // you just did.
     let f_tilt = strike(
@@ -338,7 +300,7 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     let f_tilt = vfx_at(f_tilt, 0.12, "stamp_moving", (34.0, -4.0), SWING_FX);
     let f_tilt = on_contact(f_tilt, "player.hit");
 
-    // **NEUTRAL — `light_argument`.** The speed of light is the same in every
+    // NEUTRAL — `light_argument`. The speed of light is the same in every
     // frame: no impulse, no drift, a fixed cone that does not care what he was
     // doing when he threw it.
     let n_b = strike(
@@ -359,7 +321,7 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     let n_b = vfx_at(n_b, 0.22, "light_cone", (36.0, -6.0), PROOF_FX);
     let n_b = on_contact(n_b, "player.hit");
 
-    // **SIDE — `reference_frame`.** He declares a frame and moves in it. the
+    // SIDE — `reference_frame`. He declares a frame and moves in it. the
     // impulse fires on the ACTIVE frame rather than the press, and the tail is
     // fully locked, so the pass goes exactly as far as it was going to — which
     // is the heavyweight's version of a dash: no take-backs.
@@ -399,8 +361,8 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     );
     let side_b = on_contact(side_b, "player.hit");
 
-    // **UP — `elevator_thought`. THE RECOVERY, and it is the equivalence
-    // principle**: a man in a rising lift cannot tell it from gravity. He does
+    // UP — `elevator_thought`. THE RECOVERY, and it is the equivalence
+    // principle: a man in a rising lift cannot tell it from gravity. He does
     // not jump; his frame accelerates and he is in it.
     let mut up_b = strike(
         "elevator_thought",
@@ -437,7 +399,7 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     );
     let up_b = on_contact(up_b, "player.hit");
 
-    // **DOWN — `synchronize_clocks`.** Two clocks, one slice: a wide flat window
+    // DOWN — `synchronize_clocks`. Two clocks, one slice: a wide flat window
     // on the floor either side of him, and the stamp that says it is settled.
     let down_b = strike(
         "synchronize_clocks",
@@ -470,7 +432,7 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     // player pressing down-B in the air got the neutral-B. `special_air_down`
     // sits ahead of `special_down` in that chain and has the whole time; this is
     // the two-form move it exists for.
-    // **DOWN, IN THE AIR — `falling_simultaneity`.** Two clocks still slice one
+    // DOWN, IN THE AIR — `falling_simultaneity`. Two clocks still slice one
     // moment with no floor between them; he brings the slice down.
     let mut air_down_b = strike(
         "falling_simultaneity",
@@ -491,7 +453,7 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     let air_down_b = vfx_at(air_down_b, 0.12, "clock_sync", (0.0, 20.0), SWING_FX);
     let air_down_b = on_contact(air_down_b, "player.hit");
 
-    // **CLERK'S CAPTURE KIT.** Unassuming and competent, which is the character.
+    // CLERK'S CAPTURE KIT. Unassuming and competent, which is the character.
     // the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
     // and each table's own `every_clip_names_a_row_..._sheet_carries` guard says
     // so. `ClipBinding`'s fallbacks would have covered it at runtime, but a move
@@ -575,7 +537,7 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: up_b,
-        // **AUTHORED, at the rule that every fighter in the smash roster have a grab.** The
+        // AUTHORED, at the rule that every fighter in the smash roster have a grab. The
         // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
         // the whole point of proving it was to stop being the only two.
         //
@@ -646,7 +608,7 @@ mod tests {
     // `ambition_characters::smash_repertoire`, and by the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
-    /// **The row said HEAVYWEIGHT and FINISHERS, and the table has to mean it.**
+    /// The row said HEAVYWEIGHT and FINISHERS, and the table has to mean it.
     #[test]
     fn the_clerk_is_slower_and_hits_harder_than_the_admiral() {
         let clerk = patent_clerk_moveset();
@@ -666,7 +628,7 @@ mod tests {
         );
     }
 
-    /// **CONTROLLER: the tilts set up, they do not finish.**
+    /// CONTROLLER: the tilts set up, they do not finish.
     ///
     /// the word in the row that is easiest to lose while writing numbers. A
     /// tilt that launches as hard as a smash makes the smash pointless and the

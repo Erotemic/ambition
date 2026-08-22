@@ -200,7 +200,7 @@ pub trait ContentSchemaHandler: Send + Sync {
     /// Read one facet: declare what it defines, what it references, what assets
     /// and capabilities it needs, and what is wrong with it.
     ///
-    /// ⚠ a handler MUST report an authored field it does not consume
+    ///  a handler MUST report an authored field it does not consume
     /// ([`DiagnosticCode::UnknownField`]). Serde's `deny_unknown_fields` is the
     /// cheapest way to get this right; rolling your own field walk and
     /// forgetting is how a typo becomes a mechanic that silently never fires.

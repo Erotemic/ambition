@@ -84,14 +84,14 @@ impl Default for AttackGestureTuning {
     }
 }
 
-/// **How far the brain pushes the stick for a move that is NOT a smash.**
+/// How far the brain pushes the stick for a move that is NOT a smash.
 ///
 /// between the body's `directional_deadzone` (0.5) and its `flick_threshold`
 /// (0.8), and both halves are load-bearing: below the deadzone the direction
 /// does not register at all and the press falls back to the neutral move; at or
 /// above the flick threshold [`crate::actor::attack_gesture::resolve_attack_gesture`]
-/// records a FLICK, and a press inside the flick window is a **smash whatever
-/// the strength hint says** (`strong_hint || recent_matches`).
+/// records a FLICK, and a press inside the flick window is a smash whatever
+/// the strength hint says (`strong_hint || recent_matches`).
 ///
 /// the numbers it sits between are `AttackGestureTuning`'s DEFAULTS, and the
 /// brain cannot see a body's tuning. A body that retunes them far enough to

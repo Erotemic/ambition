@@ -899,24 +899,9 @@ fn reset_face_transform(face: &CubeFace, transform: &mut Transform) {
     transform.scale = face.base_scale;
 }
 
-/// Generalized port of the demo's `apply_oot_open_fold`.
-///
-/// The demo's n=4 cardinal mapping folds each face about a horizontal axis in
-/// *ring space* (the parent frame), pinning the face's bottom edge as a hinge:
-///
-/// | page   | ring angle θ | demo fold axis | `(cosθ, 0, -sinθ)` |
-/// |--------|--------------|----------------|---------------------|
-/// | Items  | 0°           | +X             | (1, 0, 0)           |
-/// | Map    | 90°          | -Z             | (0, 0, -1)          |
-/// | Quest  | 180°         | -X             | (-1, 0, 0)          |
-/// | System | 270°         | +Z             | (0, 0, 1)           |
-///
-/// So the fold axis is exactly the ring-space tangent `(cosθ, 0, -sinθ)` — the
-/// horizontal direction along the bottom edge of the face — with a single
-/// positive `fold`. This reproduces the demo for n=4 AND generalizes to any N
-/// (the axis is derived from the face's own ring angle, not a hardcoded enum).
-/// The fold is pre-multiplied (`fold_rotation * base_rotation`) so it acts in
-/// ring space, exactly like the demo.
+/// Fold a face around its bottom-edge tangent in ring space.
+/// The tangent is `(cos(theta), 0, -sin(theta))`; pre-multiplying the fold
+/// rotation applies it in the parent ring frame for any face count.
 fn apply_face_fold(face: &CubeFace, fold: f32, transform: &mut Transform) {
     let axis = Vec3::new(face.angle.cos(), 0.0, -face.angle.sin());
     let fold_rotation = Quat::from_axis_angle(axis, fold);
@@ -991,28 +976,9 @@ fn fade_kaleidoscope_materials(
         return;
     }
     *last_amount = amount;
-    // Restore the proven pre-Feature-B per-element alpha scheme once the fold is
-    // fully open, so the cube stops z-fighting WITHOUT turning text/icons into
-    // squares:
-    //   * SOLID planes (panels, lines, borders, selection corners, scrollbar) ->
-    //     `Opaque`. Opaque writes depth, so the per-face depth bands
-    //     (DEPTH_BACKGROUND..DEPTH_SELECTION) are resolved by the GPU depth test
-    //     instead of an unstable back-to-front transparent sort — no flicker.
-    //   * TEXTURED planes (the Text3d glyph atlas, item icons — anything with a
-    //     `base_color_texture`) -> `Blend`, alpha = `base_alpha * amount` so they
-    //     cross-fade with the fold. Their texture is mostly transparent; drawing it
-    //     Opaque renders the transparent texels as the base-colour box (the "text is
-    //     just squares" / "icons look weird" regression). They stay Blend and
-    //     depth-TEST against the opaque panels behind them (Bevy's transparent pass
-    //     tests depth even though it doesn't write it), so the few transparent layers
-    //     sort correctly over the solid background.
-    // Fix 3 (open/close flicker): the per-element rule applies at ALL amounts — there
-    // is no "everything Blend while folding" branch any more. During the open/close
-    // fold, coplanar SOLID panels/lines drawn Blend z-fight as the cube rotates in
-    // (the remaining flicker). Keeping solids Opaque (depth-writing) the WHOLE time
-    // resolves the depth bands by the GPU depth test, so they never z-fight. Solids
-    // therefore do NOT fade — they pop in/out with the fold geometry + the scrim,
-    // which already carry the transition. Only TEXTURED planes cross-fade by `amount`.
+    // Solid planes remain opaque so depth bands resolve without z-fighting.
+    // Textured planes remain blended so transparent glyph/icon texels stay
+    // transparent; only those planes cross-fade with `amount`.
     for (fade, material) in &faded {
         // Copy the few fields out so the immutable read ends before any get_mut.
         let Some((textured, cur_mode, cur_alpha)) = materials.get(&material.0).map(|m| {

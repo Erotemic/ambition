@@ -95,7 +95,7 @@ pub(crate) use ecs::{
     spawn_boss_with_overrides_into, spawn_enemy_with_faction_into,
 };
 pub(crate) use ecs::{spawn_runtime_minion, spawn_runtime_minion_into};
-// **the CAST half of the conversation port**: a bark line for a character in
+// the CAST half of the conversation port: a bark line for a character in
 // a situation. Named explicitly rather than opening the whole `npcs` module,
 // because when the conversation module is carved out this single function is
 // what answers its `ConversationCutBark`, and a `pub(crate) mod` would have
@@ -287,7 +287,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // this tick's damage outcome rather than producing it", which is exactly what this is —
         // the KO was decided in Resolve, and spending is bookkeeping over it.
         app.init_resource::<crate::features::stocks_match::StocksMatchSettled>();
-        // **the same rule as `BodyHitResolved` below, applied to the clock.**
+        // the same rule as `BodyHitResolved` below, applied to the clock.
         // `state_the_matchs_pace` writes a `ClockScaleRequest` and this plugin
         // is what schedules it, so this plugin registers it — a fixture that
         // composes the ruleset without the runtime's time-control assembly
@@ -299,7 +299,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_message::<crate::features::ecs::damage_apply::BodyHitResolved>();
         #[cfg(feature = "causal")]
         app.add_message::<crate::causal::BodyMovementOps>();
-        // **AN INSTRUMENT REGISTERS WHAT IT READS.**
+        // AN INSTRUMENT REGISTERS WHAT IT READS.
         //
         // found by running `ladder_probe --features causal`, which panicked on the first tick
         // with "Message not initialized". The inspector could not be enabled for the game it
@@ -492,8 +492,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // mirror, and contact-damage observer, as four explicit phases. Registered separately
         // from the big WorldPrep tuple, which is at Bevy's chain-length ceiling.
         app.init_resource::<ActorSteering>();
-        // **Every solid body's contact box, resampled before every movement
-        // phase.** Empty in every composition that grants no body the
+        // Every solid body's contact box, resampled before every movement
+        // phase. Empty in every composition that grants no body the
         // capability, and an empty snapshot answers `BodyContactField::NONE`
         // for every body — so this resource existing changes nothing on its own.
         app.init_resource::<ambition_platformer2d_shared_tangle::body::BodyContactSnapshot>();
@@ -520,7 +520,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // marker is applied by `Commands` and must be flushed before the
                 // query that filters on it runs.
                 crate::features::ecs::dormancy::assess_dormancy,
-                // **THE GAME'S RUNGS, applied before the first decision.** A
+                // THE GAME'S RUNGS, applied before the first decision. A
                 // fighter is constructed with the engine FLOOR because the
                 // authored ladder lives in the content pack, above this crate and
                 // out of reach of the spawn tree's many roots. This rewrites a
@@ -532,8 +532,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // brain that ticks below is the one this wrote.
                 crate::features::ecs::project_authored_fighter_ladder,
                 tick_actor_brains,
-                // **IMMEDIATELY after the writer, and that placement is the
-                // whole correctness of the instrument.**
+                // IMMEDIATELY after the writer, and that placement is the
+                // whole correctness of the instrument.
                 //
                 // it was first registered in `PlayerInputSet::Brain`, after
                 // `tick_controlled_brains` — a WHOLE PHASE EARLIER than this one. So for every
@@ -553,38 +553,16 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // `ambition_geometry`.
                 #[cfg(feature = "causal")]
                 crate::causal::record_movement_operations,
-                // The SECOND blanking position, and the one that makes
-                // `ScriptedControl` mean the same thing for every body.
-                //
-                // The first is in `PlayerInputSet:ControlGate`, immediately after
-                // `tick_controlled_brains` — "the only position where blanking is observable",
-                // which was true of the writer it was placed against and false of this one.
-                // Actor brains write `ActorControl` HERE, in `WorldPrep`, a whole phase after
-                // that gate, so a CPU-driven body under a scripted beat had its frame blanked
-                // and then immediately refilled with the brain's own decision.
-                //
-                // Before `steer_mount_from_rider` deliberately: a scripted rider
-                // must not steer its mount either.
-                // **A CAPTIVE'S STRUGGLE IS READ HERE, one line before the
-                // blanking erases it.** The same argument as the blanking's own
-                // second position, run one line earlier: an actor brain writes
-                // `ActorControl` in this phase, so this is where a CPU captive's
-                // mash is observable, and after the line below it is zeros.
+                // Actor brains write control in WorldPrep, so captive escape is
+                // sampled here before scripted-control blanking. Blanking precedes
+                // mount steering so a scripted rider cannot steer its mount.
                 ambition_combat::capture::systems::sample_capture_escape,
                 crate::avatar::blank_scripted_control_frames,
-                // **A CAPTOR IS RESTRICTED HERE, for the same reason the line
-                // above blanks a scripted body here and not a phase earlier.**
-                // Actor brains write `ActorControl` in this phase, so a gate
-                // placed before them restricts a frame that is about to be
-                // overwritten. Immediately after the blanking so the two control
-                // gates are adjacent and read as the pair they are.
-                //
-                // a captor is NOT blanked — it keeps its attack press and
-                // direction, which is how a pummel and a throw are chosen. See
-                // `restrict_captor_control`.
+                // Restrict captor movement after actor brains publish control;
+                // preserve attack/direction so pummel and throw choices remain.
                 ambition_combat::capture::systems::restrict_captor_control,
-                // **The hold's own clock, after this tick's struggle has been
-                // credited.** A capture that reaches its ceiling — or a captive
+                // The hold's own clock, after this tick's struggle has been
+                // credited. A capture that reaches its ceiling — or a captive
                 // that mashed its way out — ends here rather than waiting for a
                 // throw its captor may never throw.
                 ambition_combat::capture::systems::tick_capture_holds,
@@ -602,7 +580,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 snapshot_body_contact,
                 integrate_sim_bodies.in_set(crate::schedule::WorldPrepSet::Integrate),
                 sync_actor_read_model,
-                // **THE CAPTIVE IS PUT BACK AFTER IT MOVED**, exactly as
+                // THE CAPTIVE IS PUT BACK AFTER IT MOVED, exactly as
                 // `sync_riders_to_mounts` describes for a rider: integration has
                 // just advanced it under its own velocity, and the hold is an
                 // external constraint that wins. After `sync_actor_read_model`
@@ -703,14 +681,14 @@ impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
 }
 
 /// Schedules `FeatureInteraction`: switches, chests, breakables, save sync,
-/// and encounter switch-index rebuild — and **declares the cross-domain order
-/// the phase runs in.**
+/// and encounter switch-index rebuild — and declares the cross-domain order
+/// the phase runs in.
 ///
 /// That is how `conversation` — 1,836 lines with zero `crate::` imports in either direction —
 /// stayed pinned inside the monolith while every import measure said it was free.
 ///
-/// **the order is now
-/// [`FeatureInteractionSet`](crate::schedule::FeatureInteractionSet)**, and each
+/// the order is now
+/// [`FeatureInteractionSet`](crate::schedule::FeatureInteractionSet), and each
 /// prose rationale lives on the variant it explains rather than beside the
 /// system it happened to precede. This plugin declares the total order ONCE and
 /// each domain only says which phase it is in — `conversation` says so from
@@ -723,26 +701,26 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         use crate::schedule::FeatureInteractionSet;
         use bevy::prelude::IntoScheduleConfigs;
 
-        // **the conversation domain installs itself**: the authority, the
+        // the conversation domain installs itself: the authority, the
         // cut-bark port channel, its own narrative payload, its presentation
         // pair, and its three sim systems placed by PHASE. Nothing about
         // conversation is registered here any more.
         app.add_plugins(ambition_conversation::ConversationPlugin);
-        // **the ledger payloads that are NOT conversation's.** The ledger is
+        // the ledger payloads that are NOT conversation's. The ledger is
         // the record of what the narrative — which runs outside the simulation —
         // told the simulation, stamped with the tick it applies from. A rewind
         // restores what the simulation DECIDED; erasing what it was TOLD is how
         // the replay reaches a different answer.
         //
-        // **one per payload, and the list IS the classification** — the
+        // one per payload, and the list IS the classification — the
         // counterpart to the table in `crate::dialog::yarn_bindings`. A
         // gameplay-bearing Yarn command has a ledger here or it has no replay
         // story; a presentation-facing one must NOT be here, because deferring
         // a sound to a simulation tick would delay it for no reason. Content
         // registers its own vocabulary the same way, so this names no content.
         //
-        // **these stay here on purpose, and it is a seam rather than a
-        // leftover.** A payload belongs to whoever CONSUMES it: three of these
+        // these stay here on purpose, and it is a seam rather than a
+        // leftover. A payload belongs to whoever CONSUMES it: three of these
         // are `features` types that a carved-out conversation crate could not
         // name at all, and the other three are applied by `features::bus` and
         // `crate::items::narrative`. Conversation provides the ledger MECHANISM
@@ -760,16 +738,16 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             ambition_conversation::NarrativeInputPlugin::<ambition_items::shop::ShopTransactionRequested>::default(),
         ));
 
-        // **THE ORDER, SAID OUT LOUD.** Every reason each boundary exists is
+        // THE ORDER, SAID OUT LOUD. Every reason each boundary exists is
         // on the `FeatureInteractionSet` variant; the shape of the statement is
         // the part that belongs here.
         //
-        // **`.chain()` over the whole list, deliberately** — `(A, B).before(C)`
+        // `.chain()` over the whole list, deliberately — `(A, B).before(C)`
         // would order both A and B before C and say nothing about A vs B, which
         // is exactly the gap that let ten systems look ordered while three of the
         // eleven pairwise contracts were unstated. A chain is a total order.
         //
-        // **the `ApplyDeferred` boundaries survive.** The old per-system chain inserted a sync
+        // the `ApplyDeferred` boundaries survive. The old per-system chain inserted a sync
         // point between every pair; Bevy inserts sync points on dependency edges after sets are
         // flattened to their members, so the set-level chain reproduces them at every phase
         // boundary.

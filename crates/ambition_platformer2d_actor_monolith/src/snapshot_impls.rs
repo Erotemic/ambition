@@ -94,7 +94,7 @@ impl SnapshotState for crate::character_runtime::ActiveMatch {
     }
 }
 
-/// **The stocks ruleset's verdict, and WHICH MATCH it is about**.
+/// The stocks ruleset's verdict, and WHICH MATCH it is about.
 impl SnapshotState for crate::features::stocks_match::StocksMatchSettled {
     fn encode(&self, out: &mut Vec<u8>) {
         match self.decided_match() {
@@ -223,7 +223,7 @@ impl SnapshotState for crate::features::ecs::perception::PerceptionMemory {
     }
 }
 
-/// **Temporary-control state**: whether an autonomous body is masked by a player
+/// Temporary-control state: whether an autonomous body is masked by a player
 /// possession or a mount, by STABLE `SimId`. Registered so a rewind restores the
 /// control MODE across time (not just avoids clobbering a live one): the `Brain`
 /// cursor is a no-op for a body nobody drives, and possession/mount relationships were
@@ -263,7 +263,7 @@ impl SnapshotState for crate::features::TemporaryControl {
     }
 }
 
-/// **An accumulating sim clock**, and netcode.md's N3.1 checklist names it: *"`WorldTime`
+/// An accumulating sim clock, and netcode.md's N3.1 checklist names it: *"`WorldTime`
 /// + every sim clock"*. A brain stamps `RememberedActor.last_seen` with it, so a rewind
 /// that leaves it running makes every memory look older than it is — which is exactly
 /// how `gnu_ton_arena` diverged on `perception_memory` and nothing else.
@@ -286,7 +286,7 @@ impl SnapshotState for crate::avatar::PlayerSafetyState {
     }
 }
 
-/// **A shot's own side of the fight**.
+/// A shot's own side of the fight.
 ///
 /// The stamp is taken from the firer the first tick the bolt flies; after the firer is gone
 /// there is nothing left to re-derive it from, so a rewind that dropped it would restore a shot

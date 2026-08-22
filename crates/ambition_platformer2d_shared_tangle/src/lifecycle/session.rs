@@ -1,4 +1,4 @@
-//! **Session scope** — activation-owned entity lifetime.
+//! Session scope — activation-owned entity lifetime.
 //!
 //! A *session* is one activated gameplay experience: a launched Sanic run, a
 //! launched Mary-O run, or the main game entered from a launcher. Every entity
@@ -310,25 +310,10 @@ pub fn session_world_entity(world: &World) -> Option<Entity> {
     Some(entity)
 }
 
-/// **Advance an app until its session world exists.**
+/// Advance until [`session_world_entity`] resolves, returning the frame count.
 ///
-/// **direct entry and shell entry disagree about WHEN a world is there, and
-/// that disagreement is the whole of K2b's risk 1.** A direct-entry host spawns
-/// its root at PLUGIN-BUILD time, so `App::new(); …; update(); read_the_world()`
-/// works — and roughly thirty-five integration files, the RL harness and
-/// `run_headless` are written that way. A shell-routed host activates
-/// ASYNCHRONOUSLY: the root appears only once the load barrier reaches `Ready`
-/// and every preparation work item has completed, which takes several frames.
-///
-/// So migrating those callers to the shell is not a call-site edit; it is a
-/// change in when the answer exists. This helper is that change, written down
-/// once: it advances the app until [`session_world_entity`] answers, and returns
-/// how many frames that took.
-///
-/// **it returns `Err` with the budget rather than panicking**, so a caller can say what it was
-/// waiting for.
-///
-/// That is what makes the migration stageable.
+/// Shell-routed hosts may need several updates before the prepared session root
+/// exists. Returns `Err(max_frames)` instead of panicking when the budget expires.
 pub fn settle_until_session_world(app: &mut App, max_frames: u32) -> Result<u32, u32> {
     for frame in 0..=max_frames {
         if session_world_entity(app.world()).is_some() {
@@ -339,19 +324,10 @@ pub fn settle_until_session_world(app: &mut App, max_frames: u32) -> Result<u32,
     Err(max_frames)
 }
 
-/// **Advance until the session has a CONTROLLED SUBJECT, not just a world.**
+/// Advance until the session has both a world and a controlled subject.
 ///
-/// **a world and a body are two different arrivals**, and a harness whose
-/// callers immediately drive an actor needs the second one. Settling on the
-/// world alone and then reading
-/// `ControlledSubject` is how the desync canary reported *"the sandbox session
-/// has a controlled subject"* as a panic when the sim harness was first pointed
-/// at a shell-routed host: the root was there, the body was not, and one frame
-/// separated them.
-///
-/// **it does not replace [`settle_until_session_world`].** A caller that only
-/// inspects room geometry should wait for the cheaper fact; requiring a body
-/// would make a world-only fixture hang for a reason it does not care about.
+/// Use [`settle_until_session_world`] when the caller only needs room state;
+/// controlled-body materialization may complete on a later frame.
 pub fn settle_until_controlled_subject(app: &mut App, max_frames: u32) -> Result<u32, u32> {
     for frame in 0..=max_frames {
         let seated = session_world_entity(app.world()).is_some()
@@ -579,7 +555,7 @@ mod settle_tests {
     use super::*;
     use crate::lifecycle::markers::RoomVisual;
 
-    /// **A world that is already there settles in ZERO frames.**
+    /// A world that is already there settles in ZERO frames.
     ///
     /// They disagree only about when.
     #[test]
@@ -590,7 +566,7 @@ mod settle_tests {
         assert_eq!(session_world_entity(app.world()), Some(entity));
     }
 
-    /// **A world that never arrives is an ERROR, not a hang and not a panic.**
+    /// A world that never arrives is an ERROR, not a hang and not a panic.
     ///
     /// the caller this replaces reads `.expect("active session RoomSet")`
     /// three lines after its update loop, so a session that never activated
@@ -602,7 +578,7 @@ mod settle_tests {
         assert_eq!(settle_until_session_world(&mut app, 4), Err(4));
     }
 
-    /// **A LATE root is found, which is the whole point.**
+    /// A LATE root is found, which is the whole point.
     #[test]
     fn a_root_that_appears_on_a_later_frame_is_waited_for() {
         #[derive(Resource, Default)]

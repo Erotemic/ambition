@@ -1,8 +1,8 @@
-//! **The catalog row → sheet join**: given a character catalog and the sheets a
+//! The catalog row → sheet join: given a character catalog and the sheets a
 //! provider authored, which manifest does an id render from, and how big is the
 //! body inside it.
 //!
-//! ⚠ **this is the one place in the crate that names `ambition_characters`**, and
+//!  this is the one place in the crate that names `ambition_characters`, and
 //! the whole `ambition_characters` edge in `Cargo.toml` exists for it. The join
 //! is still content-free — it reads a `CharacterCatalogData` it is handed and
 //! owns no catalog of its own — but it does know that a *character* is the thing
@@ -128,7 +128,7 @@ pub fn sprite_body_collision_for_character_id_from_data(
     let (body_w, body_h) = body_pixel_extent(metrics)?;
     let frame_w = record.frame_width.max(1) as f32;
     let frame_h = record.frame_height.max(1) as f32;
-    // ⭐ **an authored STANDING HEIGHT overrides the room's spawn box.** Without
+    //  an authored STANDING HEIGHT overrides the room's spawn box. Without
     // one, size is `LDtk box x collision_scale x (body / frame)` — two
     // per-character guesses and a rectangle drawn in a level editor, none of
     // which is a claim about how tall anybody is. With one, the height IS the
@@ -136,7 +136,7 @@ pub fn sprite_body_collision_for_character_id_from_data(
     // visible body measures `height`, and keep the frame's aspect so the art is
     // never stretched.
     //
-    // ⚠ the LDtk box still decides where a character STANDS and how much room a
+    //  the LDtk box still decides where a character STANDS and how much room a
     // level reserved for it; it stops deciding how big the character is.
     let standing_height = entry
         .standing_height

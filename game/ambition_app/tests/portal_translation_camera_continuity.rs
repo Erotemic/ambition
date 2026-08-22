@@ -41,8 +41,8 @@ impl CameraSample {
     }
 }
 
-/// **The portal's roll still reaches the camera, now that it arrives by a
-/// different road.**
+/// The portal's roll still reaches the camera, now that it arrives by a
+/// different road.
 ///
 /// It is now an INPUT to the resolve (`CameraPresentationInputs`), composed with the view's own
 /// observer roll — which is what lets the clamp know the view's real orientation.
@@ -73,7 +73,7 @@ impl HeadlessCameraHarness {
         app.insert_resource(TimeUpdateStrategy::ManualDuration(
             std::time::Duration::from_secs_f32(1.0 / 60.0),
         ));
-        // **K2b edit 2: the shell host, booted to gameplay.** This composed the
+        // K2b edit 2: the shell host, booted to gameplay. This composed the
         // simulation plugin alone and inherited the `SessionRoot` it published at
         // plugin-build time; that publisher is gone. `StartRoomOverride` survives
         // the change — it is consumed while the prepared content is assembled, so
@@ -98,7 +98,7 @@ impl HeadlessCameraHarness {
         // the rig composes the render-side apply after it, exactly like the real
         // host.
         //
-        // **and it registers no `CameraViewState`**: the state is a COMPONENT on the view,
+        // and it registers no `CameraViewState`: the state is a COMPONENT on the view,
         // spawned with it by `CameraObservationPlugin`.
         app.add_systems(
             Update,

@@ -20,14 +20,14 @@ pub struct ActorPlacementContext {
     /// its collision box is, so lowering needs it exactly where it needs the
     /// catalog.
     pub sheets: ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    /// **The prepared characters this host can build**, so lowering can ask what a character's
+    /// The prepared characters this host can build, so lowering can ask what a character's
     /// own DEFAULT autonomous profile is.
     ///
     /// cloned like its three neighbours, and for the same reason: lowering runs
     /// against a snapshot of authored content taken when staging was requested,
     /// not against live resources that may change mid-commit.
     pub prepared: crate::character_runtime::PreparedCharacterRegistry,
-    /// **The shared controller policies this host published**, so a PLACEMENT
+    /// The shared controller policies this host published, so a PLACEMENT
     /// may name one (`EnemySpawnSpec::brain_profile`).
     ///
     /// a separate authority from the catalog beside it, deliberately: a
@@ -40,11 +40,11 @@ pub struct ActorPlacementContext {
 }
 
 impl ActorPlacementContext {
-    /// **Supply the prepared cast**, so lowering can read a character's own default autonomous
+    /// Supply the prepared cast, so lowering can read a character's own default autonomous
     /// profile.
     ///
-    /// **a builder rather than a fourth constructor argument, and that is a
-    /// judgement not a shortcut.** Two of the four construction sites have the
+    /// a builder rather than a fourth constructor argument, and that is a
+    /// judgement not a shortcut. Two of the four construction sites have the
     /// registry to hand and two do not (a summon system and a pair of
     /// construction fixtures), and an EMPTY registry is already a meaningful,
     /// correct value here — it means "no character states a default", which is
@@ -59,7 +59,7 @@ impl ActorPlacementContext {
         self
     }
 
-    /// **Supply the published controller policies**, so a placement may name
+    /// Supply the published controller policies, so a placement may name
     /// one. A builder for the same reason `with_prepared` is: an empty registry
     /// is a meaningful value, and the sites that have none should not have to
     /// write one.

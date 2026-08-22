@@ -42,7 +42,7 @@ pub(crate) struct RoomConstructionAuthorities<'w> {
     recipes: Res<'w, ambition_platformer2d::actors::construction::ActorConstructionRegistry>,
 }
 
-/// **Who this app's characters ARE**, in one parameter.
+/// Who this app's characters ARE, in one parameter.
 ///
 /// The catalog is the legacy cast's authority, the prepared registry is the
 /// registered cast's, the sheets say what art they may reach, and the roster
@@ -310,7 +310,7 @@ pub(crate) fn setup_host_presentation_system(
 /// Rebuild the asset families that have no residency model of their own —
 /// entity sprites, boss sheets, parallax layers — for a confirmed quality change.
 ///
-/// **the CHARACTER sheet table is deliberately NOT rebuilt here.** It has an
+/// the CHARACTER sheet table is deliberately NOT rebuilt here. It has an
 /// owner: the engine's character runtime retires each stale realization back to
 /// `Declared` and re-demands it
 /// (`character_runtime::converge_character_residency_to_active_quality`), which

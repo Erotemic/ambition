@@ -5,7 +5,7 @@
 //! `CharacterBodyBlueprint`, its `BrainProfile`, or its placement. What survives of the old
 //! sentence is the SHAPE: this is mostly a projection, written once at construction.
 //!
-//! **MOSTLY, and the exception is load-bearing**: `body_contact_damage` is toggled per tick by
+//! MOSTLY, and the exception is load-bearing: `body_contact_damage` is toggled per tick by
 //! Mary-O's snake shells, so this type does carry one fact whose previous value decides the
 //! next frame.
 //!
@@ -39,7 +39,7 @@ pub struct ActorTuning {
     pub contact_strength: f32,
     /// Damage dealt by an attack / body contact.
     pub damage_amount: i32,
-    /// **Does this body's driver seek the player.** Hostile bodies track and
+    /// Does this body's driver seek the player. Hostile bodies track and
     /// publish contact damage; peaceful patrollers are false. A PLACEMENT
     /// decision (`SpawnDisposition`), not a body fact — the same creature is
     /// ambient wildlife in one room and a threat in another.
@@ -137,10 +137,10 @@ impl ActorTuning {
 /// renderer.
 pub use ambition_characters::brain::CharacterBrainTemplate;
 
-/// **The reusable autonomous-controller profile** — DEFINED in
+/// The reusable autonomous-controller profile — DEFINED in
 /// `ambition_characters::brain::profile`, and it is not this crate's type.
 ///
-/// **it replaced `BrainProfile` outright**.
+/// it replaced `BrainProfile` outright.
 pub use ambition_characters::brain::BrainProfile;
 
 impl ActorTuning {
@@ -172,13 +172,13 @@ impl ActorTuning {
 mod authority_split_tests {
     use super::*;
 
-    /// **EVERY FIELD OF `ActorTuning` HAS A DECLARED AUTHORITY**, and the
+    /// EVERY FIELD OF `ActorTuning` HAS A DECLARED AUTHORITY, and the
     /// compiler is what holds it rather than a number in a document.
     ///
-    /// **the columns are the CAMPAIGN's six, not the three this test was born with** (AC6.2).
+    /// the columns are the CAMPAIGN's six, not the three this test was born with (AC6.2).
     /// The plan's taxonomy has a column for them, so they sit in it.
     ///
-    /// **an exhaustive destructure does not rot.** Add a field and this stops
+    /// an exhaustive destructure does not rot. Add a field and this stops
     /// COMPILING until somebody puts it in a column; remove one and the same.
     /// There is no number to edit and no census to redo.
     #[test]
@@ -196,7 +196,7 @@ mod authority_split_tests {
             flight_direct_velocity: _,
             // ── CONTROLLER POLICY, RESOLVED AGAINST THE BODY ────────────────
             //
-            // **both are PROJECTIONS, not a second authority.** `ActorClusterSeed` computes
+            // both are PROJECTIONS, not a second authority. `ActorClusterSeed` computes
             // `patrol_speed = run_speed * brain_profile.patrol_effort` and the same for chase,
             // so the authority is `BrainProfile`'s normalized effort and these are what it
             // looks like once a body has been named.
@@ -219,14 +219,14 @@ mod authority_split_tests {
             ranged_visual: _,
             // ── RUNTIME STATE — one entry, and I claimed there were none ────
             //
-            // **`body_contact_damage` IS MUTATED PER TICK BY A SHIPPED GAME**,
+            // `body_contact_damage` IS MUTATED PER TICK BY A SHIPPED GAME,
             // and this column said "deliberately empty" until somebody read
             // Mary-O. `step_snake_shell` clears it when a stomped snake becomes a
             // shell and sets it again when the shell walks — *a shell is
             // harmless to touch* — so its PREVIOUS value decides whether the next
             // frame's contact hurts.
             //
-            // **legal, and only because `ActorConfig` is rollback-registered**
+            // legal, and only because `ActorConfig` is rollback-registered
             // (`actor.config`, component-clone). A mutable gameplay fact on a
             // component that did NOT rewind would be a desync waiting for a
             // rollback; check that before adding a second one.

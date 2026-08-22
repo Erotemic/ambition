@@ -1,50 +1,12 @@
-//! Ambition's gameplay-systems ("machinery") layer.
+//! Gameplay-system assembly layer for platformer actors, world interaction, abilities,
+//! items, sessions, and related Bevy plugins.
 //!
-//! This crate owns the reusable game SYSTEMS — world/rooms, actors & brains,
-//! player clusters, abilities, combat, items/inventory, dialog, menu, music,
-//! persistence — assembled into Bevy plugins. It is the middle of the stack:
-//!
-//! - below it, `ambition_platformer2d_core` is the pure (Bevy-free) movement model
-//!   and `ambition_platformer2d_shared_tangle` holds content-free Bevy primitives
-//!   (kinematic body, gravity, projectile, lifecycle, schedule). Both are
-//!   imported directly by their canonical crate paths.
-//! - above it, `ambition_content` provides the named game DATA (rooms, bosses,
-//!   rosters) and `ambition_app` does final wiring + the binaries.
-//!
-//! Despite the historical `ambition_platformer2d_actor_monolith` name, it is content-light:
-//! concrete content has been migrated out to `ambition_content`.
-//!
-//! # The ENDPOINT: what is still here when the carve is done
-//!
-//! An inventory cannot refuse anything: every gameplay-systems-shaped thing matches it, which
-//! is how this crate gained 49 files in the fourteen days it was being carved.
-//!
-//! **what this crate is FINISHED as is the ASSEMBLY.** The schedule, the host, the session, the
-//! module graph, and the cross-cutting types submodules reference through it.
-//!
-//! ⇒ so every DOMAIN named above — `world`, `abilities`, `combat`, `gravity`,
-//! `items`, `music`, `quest`, actors and brains — is a carve CANDIDATE rather
-//! than a resident, and the test for a new file is: *is this assembly, or is it a
-//! domain that has not been given its crate yet?* a domain answer means it is
-//! arriving in a waiting room, and it should say so.
-//!
-//! A slice that moves 2,000 lines and leaves the concept split across two crates is worth less
-//! than one that moves 200 and makes a domain whole.
-//!
-//! This crate owns the module graph and the cross-cutting types (`RoomGeometry`,
-//! `RoomTransitionCooldown`) that submodules reference through the actor crate.
-//! It is a library only; the playable app, the headless entry point
-//! (`run_headless`), and all binaries live in `ambition_app`.
-//!
-//! Player state is authoritative on the 18 player cluster components
-//! (`BodyKinematics`, `BodyGroundState`, …, `BodyComboTrace`).
-//! Do not introduce a god-object runtime resource; add narrow resources or ECS
-//! components instead.
-//!
-//! See `docs/systems/headless-simulation.md` for the sim/presentation contract this
-//! library is being shaped toward, and `docs/adr/0012-sim-presentation-split-and-events-refactor.md` for the
-//! longer-term events refactor that will let the player tick itself run
-//! headless.
+//! Pure movement lives below this crate in `ambition_platformer2d_core`; content-free
+//! Bevy primitives live in `ambition_platformer2d_shared_tangle`; named game content
+//! lives above it. This crate is intended to converge on assembly/cross-domain wiring,
+//! with coherent gameplay domains carved into their own crates rather than growing new
+//! resident subsystems here. Player simulation remains component-authoritative; do not
+//! introduce a replacement god-object runtime resource.
 
 // External API surface — bins, tests, and Android/wasm entry points reach
 // into these modules. Everything else stays `pub(crate)` so the compiler
@@ -97,8 +59,7 @@ pub mod enemy_projectile;
 pub mod items;
 // Stable facade for dialogue shop bindings.
 pub use items::shop;
-// The combat kit is its own crate post-E2; the alias keeps `crate::combat::`
-// paths resolving until the features hub dissolves (E7/E8 repoints consumers).
+// TODO(compat-remove): migrate monolith callers to `ambition_combat`, then remove this crate alias.
 pub use ambition_combat as combat;
 pub mod gravity;
 pub mod music;
@@ -155,14 +116,14 @@ use bevy::prelude::{Message, Resource};
 /// (`SfxMessage` / `VfxMessage` / `DebrisBurstMessage`).
 #[derive(Message, Clone, Debug)]
 pub struct ActorDiedMessage {
-    /// **WHO died.**
+    /// WHO died.
     ///
-    /// **this message carried no victim at all**, so a consumer could only take the last death
+    /// this message carried no victim at all, so a consumer could only take the last death
     /// and assume it was theirs. Mary-O does exactly that — reads the latest message and
     /// applies it to the current `ControlledSubject` — and it works only because emission is
     /// effectively restricted to the one controlled body today.
     ///
-    /// **an `Entity` is a SAME-FRAME identity, not a durable one.** Bevy
+    /// an `Entity` is a SAME-FRAME identity, not a durable one. Bevy
     /// recycles indices, so this is right for a consumer filtering "was that my
     /// body, this tick" and wrong for a replay or a peer. A durable
     /// victim identity — participant, or the body's stable
@@ -243,11 +204,11 @@ pub const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;
 /// Holds values that belong to the simulation, not to
 /// developer/debug tools or presentation state.
 ///
-/// **Multiplayer caveat:** each field has different per-player vs.
+/// Multiplayer caveat: each field has different per-player vs.
 /// shared semantics for a future co-op build:
 /// - Per-player "last safe position" lives on each player entity as
 ///   `crate::avatar::PlayerSafetyState`.
-/// - `remaining` — **global shared-world** today
+/// - `remaining` — global shared-world today
 ///   because the whole party shares one active room. If a future
 ///   build splits rooms per-player this would need to move per-room
 ///   or per-player.

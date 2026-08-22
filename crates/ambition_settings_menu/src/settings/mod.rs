@@ -138,7 +138,7 @@ pub enum SettingsOptionId {
     /// controlled body's local frame. Independent of [`Self::MovementFrameMode`];
     /// defaults to screen-directed.
     AimFrameMode,
-    /// ⭐ it also decides what the sticks mean: a player-relative view collapses
+    ///  it also decides what the sticks mean: a player-relative view collapses
     /// [`Self::MovementFrameMode`] and [`Self::AimFrameMode`] onto body-relative,
     /// which is why both read as inactive while it is on.
     CameraReferenceFrame,

@@ -1,6 +1,6 @@
 //! Motion-input gesture recognition: a rolling directional buffer, a generic
 //! ordered-subsequence matcher ([`MotionInputBuffer::detect_sequence`]), and an
-//! **open, content-owned** [`MotionTechniqueCatalog`] of named techniques.
+//! open, content-owned [`MotionTechniqueCatalog`] of named techniques.
 //!
 //! The reusable input crate owns no named technique. A game registers its own
 //! motion techniques (a quarter-circle, a half-circle, a dragon-punch, …) from

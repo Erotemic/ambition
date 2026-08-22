@@ -34,7 +34,7 @@ impl Platformer2dSimHarness {
     ///
     /// The harness owns the *engine* half: it builds the `App`, adds the shared
     /// headless foundation (`add_headless_foundation`), and — when `fixed_tick`
-    /// is set — chooses the sim schedule **before any sim plugin builds** (a
+    /// is set — chooses the sim schedule before any sim plugin builds (a
     /// content plugin registers into `SimSchedule` too, so a late choice would
     /// split the sim graph across two schedules, which `set_sim_schedule` panics
     /// on). It then hands the App to `compose`, which installs *that game's*
@@ -121,7 +121,7 @@ impl Platformer2dSimHarness {
         // session root and exact content identity exist.
         app.update();
 
-        // **the SUBJECT, not just the world.** Every caller of this
+        // the SUBJECT, not just the world. Every caller of this
         // constructor drives a body on the next line; a world without one is a
         // world they cannot use, and the desync canary reported exactly that as
         // `"the sandbox session has a controlled subject"` the first time the
@@ -144,12 +144,12 @@ impl Platformer2dSimHarness {
             players,
         } = rollback
         {
-            // **DECLARE THE SEAT COUNT BEFORE THE SESSION, not after.**
+            // DECLARE THE SEAT COUNT BEFORE THE SESSION, not after.
             //
             // `with_rollback_players(n)` is a statement about how many people are playing, and
             // it has to reach the seat topology or nothing else agrees with it.
             //
-            // **`capture_for_roster`, not `capture`.** The separate entry point
+            // `capture_for_roster`, not `capture`. The separate entry point
             // exists precisely so that "nobody declared a seat count" cannot look
             // like a decision somebody made — and here somebody did decide, in
             // the harness options.
@@ -165,7 +165,7 @@ impl Platformer2dSimHarness {
                         .unwrap_or_default(),
                 );
                 if let Some(mut topology) = world.get_resource_mut::<LocalSeatTopology>() {
-                    // **the harness declares the IDENTITY mapping**: seat `n`
+                    // the harness declares the IDENTITY mapping: seat `n`
                     // plays on pad `n`. A headless run has no devices at all and
                     // drives its seats through the latches, so any plan of the
                     // right SIZE would size the session correctly — but the plan
@@ -197,8 +197,8 @@ impl Platformer2dSimHarness {
         // A shell-composed host activates asynchronously, so the same read would find nothing
         // until the load barrier reaches `Ready`.
         //
-        // **best-effort, deliberately, while the build-time root still
-        // exists.** It returns `Ok(0)` on every path today, so this changes
+        // best-effort, deliberately, while the build-time root still
+        // exists. It returns `Ok(0)` on every path today, so this changes
         // nothing and cannot break a harness whose world genuinely arrives on a
         // later frame under rollback. It becomes a hard error in K2b.2, when the
         // build-time root is deleted and "no world" stops being a possible
@@ -467,7 +467,7 @@ impl Platformer2dSimHarness {
     /// hazards / encounters cleanly; an RL "episode reset" should
     /// usually go through this path rather than rebuilding the App.
     ///
-    /// **this is the IN-PLACE room reset, not a new game.** The host turns the
+    /// this is the IN-PLACE room reset, not a new game. The host turns the
     /// pressed edge into `reset_sandbox` plus a room-feature reset: the body
     /// returns to spawn and the room's feature state is restored where it stands.
     /// It does NOT sweep room-scoped entities, empty a hand, wipe the save, or

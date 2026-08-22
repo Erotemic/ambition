@@ -27,8 +27,8 @@ pub use ambition_characters::brain::boss_pattern::profile::{
 
 /// The `BossCatalog` lookups for a [`BossBehaviorProfile`].
 ///
-/// **an extension TRAIT, not inherent methods, and that is the orphan rule
-/// speaking rather than a style choice.** The profile type lives in
+/// an extension TRAIT, not inherent methods, and that is the orphan rule
+/// speaking rather than a style choice. The profile type lives in
 /// `ambition_characters` now; an inherent `impl` for it can only be written
 /// there, and `BossCatalog` — which these need — lives HERE. The trait is the
 /// only shape that lets the lookup stay next to the catalog it reads.
@@ -192,7 +192,7 @@ pub fn canonical_boss_id_from(
 
 /// Live boss state owned by the simulation: body, HP, alive flag,
 /// encounter-phase mirror, and a few cosmetic-timer scalars.
-/// **Attack policy and attack execution state live elsewhere:** the
+/// Attack policy and attack execution state live elsewhere: the
 /// brain layer's `BossPatternState` owns the cursor / clocks and the
 /// `BossAttackState` component owns the live telegraph/active
 /// profile. `BossRuntime` carries body fields only.

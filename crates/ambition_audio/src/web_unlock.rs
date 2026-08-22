@@ -10,13 +10,13 @@
 //!
 //! The fix has two halves:
 //!
-//! 1. **JS-side resume** — `game/ambition_app/web/index.html`
+//! 1. JS-side resume — `game/ambition_app/web/index.html`
 //!    patches `window.AudioContext` to track every context cpal
 //!    creates, then resumes them all from a real DOM gesture handler
 //!    (`pointerdown` / `keydown` / `touchstart` / `click`). This is
 //!    the half that actually unblocks playback.
 //!
-//! 2. **Rust-side gating** — this module observes the *first* Bevy
+//! 2. Rust-side gating — this module observes the *first* Bevy
 //!    input event and flips [`AudioUnlockState::unlocked`] to `true`.
 //!    Music + SFX startup gates itself on that flag so we don't fire
 //!    a `play()` against a context the JS hook hasn't had a chance

@@ -41,7 +41,7 @@ pub fn break_dialogue_on_hit_or_separation(
         return;
     };
 
-    // ⚠ KNOCKBACK, not damage. The reason a hit ends a conversation is that it
+    //  KNOCKBACK, not damage. The reason a hit ends a conversation is that it
     // MOVES you, so the signal is the recoil/hitstun control lock rather than
     // any health change: a poison tick or a chip of environmental damage leaves
     // both bodies standing where they were and leaves them talking.
@@ -55,13 +55,13 @@ pub fn break_dialogue_on_hit_or_separation(
         return;
     };
 
-    // ⛔ only for the break that has no voice yet. A conversation broken by a
+    //  only for the break that has no voice yet. A conversation broken by a
     // HIT already barks — `npc_hit_bark_line` fires on every strike and falls
     // back to a generic line when a character authored none — so adding a second
     // bubble for one event would be worse than none. `wants_its_own_bark` is
     // where that lives, beside the reason it is about.
     //
-    // **and this ASKS rather than answers.** Which line, from which pool, with which fallback, is a
+    // and this ASKS rather than answers. Which line, from which pool, with which fallback, is a
     // CAST question; see [`ConversationCutBark`].
     if reason.wants_its_own_bark() {
         barks.write(ConversationCutBark { speaker: *b });

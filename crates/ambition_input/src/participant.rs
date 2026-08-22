@@ -86,7 +86,7 @@ pub const GAMEPLAY_CONTEXT: InputContextId = InputContextId("gameplay");
 // These sit BETWEEN the shell and gameplay: they appear while a session is
 // live, and a shell overlay still outranks them.
 //
-// **an in-session surface is not the same fact as a stopped world.** Pausing
+// an in-session surface is not the same fact as a stopped world. Pausing
 // stops the world — global, `GameMode`, every seat. A surface owning a seat's
 // input does not: one player reading a dialogue box while another keeps
 // running is the ordinary state of a couch, and it is the thing this engine
@@ -105,7 +105,7 @@ pub const INVENTORY_CONTEXT: InputContextId = InputContextId("inventory");
 /// reached FROM a launcher row and is a question, not a game.
 pub const SELECT_CONTEXT: InputContextId = InputContextId("select");
 
-/// **The universal pause menu owns input while it is open.**
+/// The universal pause menu owns input while it is open.
 ///
 /// Neither could consume the other's edge because they read different channels (`MenuControlFrame`
 /// and `SeatMenuFrames`), and a demo cannot even NAME `ShellPauseMenu` (`basic_shell_presentation`
@@ -128,7 +128,7 @@ pub mod context_priority {
     pub const DEBUG: i32 = 195;
     /// Above dialogue: a cutscene that starts mid-conversation is the thing on
     /// screen.
-    /// **A pause menu opens OVER everything an experience is doing.**
+    /// A pause menu opens OVER everything an experience is doing.
     ///
     /// Above cutscene, dialogue, select and gameplay — all four are things a
     /// player pauses out of — and below `DEBUG`, because an inspector that a
@@ -248,31 +248,10 @@ impl ActiveInputContext {
 /// couch.
 static NO_CONTEXT: ActiveInputContext = ActiveInputContext { open: Vec::new() };
 
-/// Every participant's resolved context, keyed by seat.
+/// Resolved input context for each participant seat.
 ///
-/// ## Why this is keyed and the old resource was not
-///
-/// `ParticipantContexts` has always been per-participant — a component, on the
-/// participant entity, declared and retracted by the surface that owns it. The
-/// RESOLVED answer was not: it was one global `ActiveInputContext` resource
-/// computed from `ParticipantId::PRIMARY` alone. So two shipped authorities
-/// disagreed about whether input ownership is a per-seat fact, and the global
-/// one is the one every router read.
-///
-/// What that made inexpressible (not merely wrong — inexpressible):
-///
-/// * a seat browsing a character-select screen while another seat plays;
-/// * a seat with no controlled body owning a context distinct from seat 0's;
-/// * any per-seat surface at all, since seat N's claim could not reach a router.
-///
-/// **pause is NOT the counterexample it looks like.** "Seat 0 pauses, seat 1
-/// keeps playing" would be wrong, and this change does not cause it: pausing is
-/// a `GameMode` transition, and every router already gates on
-/// `mode.allows_gameplay()` independently of context. A claim here answers *who
-/// is this seat's input FOR*, not *is the world running*.
-///
-/// This is the same seam `SeatMenuFrames` already established one layer down,
-/// for the same reason and with the same shape.
+/// Context answers where a seat's input routes; `GameMode` independently gates
+/// whether gameplay runs. An unresolved seat owns no context.
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct SeatInputContexts {
     seats: std::collections::BTreeMap<u8, ActiveInputContext>,

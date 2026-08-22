@@ -1,9 +1,9 @@
-//! **Per-component checksum localization across the save/load boundary.**
+//! Per-component checksum localization across the save/load boundary.
 //!
 //! ## What it measures, and why that is the right question
 //!
 //! Not "do two runs agree" — that reproduces the aggregate's blindness with more
-//! steps. It measures the **restore** directly: for each registered rollback
+//! steps. It measures the restore directly: for each registered rollback
 //! component, take a census immediately before bevy_ggrs saves frame `F`, and take
 //! it again immediately after bevy_ggrs loads frame `F`. A component whose census
 //! changed across that boundary is a component the snapshot did not put back, and
@@ -45,7 +45,7 @@ pub struct ComponentCensus {
     pub xor: u64,
 }
 
-/// **How much of a component's state a probe can actually see.**
+/// How much of a component's state a probe can actually see.
 ///
 /// `ProjectileOwner` is the case that matters — snapshotted by clone, remapped as an entity
 /// reference, and probed by counting carriers. A restore that put back the right NUMBER of owners
@@ -360,27 +360,11 @@ where
     fold_resource(world, projection)
 }
 
-/// **Census a component holding an ENTITY REFERENCE, through stable sim identity.**
+/// Census entity references through stable [`SimId`](ambition_platformer2d_shared_tangle::sim_id::SimId) identity.
 ///
-/// A raw `Entity` cannot be folded into a census: bevy_ggrs destroys and recreates
-/// rollback entities, so the index and generation both change across a load and a
-/// value probe over them would report a difference on every restore — all noise. That
-/// is the honest reason `ProjectileOwner` shipped with a presence-only probe.
-///
-/// The projection that DOES survive is the referenced entity's authored identity:
-/// [`SimId`](ambition_platformer2d_shared_tangle::sim_id::SimId) is a stable string minted
-/// from a placement, a player slot, or a summoner, and a correct remap points at the
-/// same one. So this folds `hash(SimId of the target)` per carrier, and a distinct
-/// sentinel for a target that carries no `SimId` or no longer exists — which still
-/// distinguishes "remapped to a body with no identity" from "remapped to nothing".
-///
-/// The census folds `(carrier identity, target identity)` PAIRS rather than targets
-/// alone, so it catches a permutation as well as a redirect: swapping two bolts'
-/// owners leaves the multiset of targets untouched and would have matched.
-///
-/// This is the strength difference in one function: a restore that puts back the right
-/// NUMBER of references and points one of them at a different body changes this census
-/// and does not change a presence count.
+/// Raw Bevy entity ids change across rollback restores. Folding carrier/target
+/// identity pairs detects redirects and permutations while remaining stable across
+/// entity recreation; missing or unidentified targets use distinct sentinels.
 pub fn census_entity_reference<T>(
     world: &mut World,
     referenced: fn(&T) -> Entity,
@@ -439,7 +423,7 @@ fn stable_identity(world: &World, entity: Entity) -> u64 {
     }
 }
 
-/// **Census a component holding a SET of entity references.**
+/// Census a component holding a SET of entity references.
 ///
 /// The multi-handle twin of [`census_entity_reference`]: `HitboxHits` holds the
 /// victims a strike has already hit, and a restore that put back the right NUMBER
@@ -477,7 +461,7 @@ where
     ComponentCensus { count, xor: sum }
 }
 
-/// **Census a component holding a KEYED MAP of entity references.**
+/// Census a component holding a KEYED MAP of entity references.
 ///
 /// ```text
 /// hand_left → limb A          hand_left → limb B
@@ -525,7 +509,7 @@ where
     ComponentCensus { count, xor: sum }
 }
 
-/// **Census a RESOURCE holding entity references, through stable sim identity.**
+/// Census a RESOURCE holding entity references, through stable sim identity.
 ///
 /// The resource twin of [`census_entity_set`]. A resource has no carrier entity
 /// to pair against, so the ORDER of the projected handles is the pairing: the
@@ -866,7 +850,7 @@ mod tests {
     #[derive(Component, Clone)]
     struct Owner(Entity);
 
-    /// **A value probe over an entity reference actually sees a wrong target.**
+    /// A value probe over an entity reference actually sees a wrong target.
     ///
     /// The claim `ProbeStrength::Value` makes is falsifiable only if a mis-mapped
     /// reference changes the census, so this asserts it directly rather than trusting
@@ -895,7 +879,7 @@ mod tests {
         );
     }
 
-    /// **H4: a PERMUTATION is a wrong restore too.**
+    /// H4: a PERMUTATION is a wrong restore too.
     #[test]
     fn swapping_two_carriers_owners_changes_the_census() {
         let mut world = World::new();

@@ -13,7 +13,7 @@ fn frames(startup_s: f32, reach: f32, recovery_s: f32) -> MoveFrameData {
         cancel_windows: Vec::new(),
         reach,
         ignores_guard: false,
-        // ⚠ **the fixture's move is a FORWARD POKE, and now it says so.** `reach`
+        //  the fixture's move is a FORWARD POKE, and now it says so. `reach`
         // is only the `+x` face of the authored volumes, so a fixture that set it
         // alone described a move with no hittable region at all once the scorer
         // started reading the region. This is the box a poke of that length
@@ -83,12 +83,12 @@ fn view_with(me_x: f32, foe_x: f32) -> WorldView {
 
 // ── the features ─────────────────────────────────────────────────────────
 
-/// **The feature that makes the brain understand a new character.** The hittable
+/// The feature that makes the brain understand a new character. The hittable
 /// region comes from CM7's frame data, so a brain handed an unfamiliar moveset
 /// prices its jab as a jab without anyone typing a table.
 ///
-/// ⛔⛔ **and it prices an ANTI-AIR as an anti-air, which is the whole reason this
-/// feature stopped being a scalar**. Its predecessor compared
+///  and it prices an ANTI-AIR as an anti-air, which is the whole reason this
+/// feature stopped being a scalar. Its predecessor compared
 /// `reach` — the `+x` face alone — against `(foe.pos - me.pos).length()`, so a
 /// move whose volume sits above the shoulder was indistinguishable from a poke
 /// of the same length and the vertical half of every authored kit was never
@@ -132,7 +132,7 @@ fn coverage_fit_peaks_where_the_move_can_actually_hit() {
     // A move that lands no volume (a buff, a summon) has no fit anywhere.
     assert_eq!(coverage_fit(None, (50.0, 0.0), point), 0.0);
 
-    // ── ⭐⭐ THE CLAIM THE SCALAR COULD NOT MAKE ──────────────────────────
+    // ──  THE CLAIM THE SCALAR COULD NOT MAKE ──────────────────────────
     //
     // One opponent 100px AHEAD and one 100px ABOVE are the SAME `gap`, and the
     // old feature scored them identically for every move in every kit. The two
@@ -148,7 +148,7 @@ fn coverage_fit_peaks_where_the_move_can_actually_hit() {
         "an anti-air rates an opponent in front of it as well as one overhead — \
          which is the measured defect, not a hypothetical one"
     );
-    // ⛔ **and the poison for the pair: the two moves are the SAME SIZE.** If the
+    //  and the poison for the pair: the two moves are the SAME SIZE. If the
     // anti-air simply had more extent it would win everywhere and the two
     // assertions above would be measuring a bigger hitbox rather than a
     // direction.
@@ -205,7 +205,7 @@ fn the_best_attack_is_the_one_whose_reach_fits_the_gap() {
     assert_eq!(far.best_attack().unwrap().move_id, "lunge");
 }
 
-/// **A committed opponent is what makes a slow attack viable at all.**
+/// A committed opponent is what makes a slow attack viable at all.
 ///
 /// Note what this does NOT assert: that the smash BEATS the jab on a punish.
 /// It should — but none of §1's four features reads a move's POWER, so at v1
@@ -264,7 +264,7 @@ fn kill_potential_reads_the_victims_meter() {
     assert_eq!(ripe.best_attack().unwrap().features.kill_potential, 0.9);
 }
 
-/// **Stage risk is a COST.** Committing near a blastzone is how a level-9 CPU
+/// Stage risk is a COST. Committing near a blastzone is how a level-9 CPU
 /// dies to a level-3 one, and the weight is negative so it can never be bought
 /// back by kill potential alone.
 #[test]
@@ -287,11 +287,11 @@ fn committing_near_a_blastzone_costs_score() {
     assert!(w.stage_risk < 0.0);
 }
 
-/// **A body past the blastzone has exactly one problem, and a kit of swings is
-/// not an answer to it.** No offensive attack is offered at all — not a
+/// A body past the blastzone has exactly one problem, and a kit of swings is
+/// not an answer to it. No offensive attack is offered at all — not a
 /// low-scoring one, none. `Recovery` is not a preference.
 ///
-/// ⚠ **the rule is about the REPERTOIRE, not about the situation.** These two
+///  the rule is about the REPERTOIRE, not about the situation. These two
 /// moves lift nobody (`lift_speed: 0.0`), which is why nothing is offered; the
 /// pair below shows what happens when one of them does.
 #[test]
@@ -320,9 +320,9 @@ fn lifting_candidate(id: &str, lift_speed: f32, lift_at_s: f32) -> AttackCandida
     c
 }
 
-/// **A RECOVERING BODY IS OFFERED THE MOVE THAT LIFTS IT, AND ONLY THAT MOVE.**
+/// A RECOVERING BODY IS OFFERED THE MOVE THAT LIFTS IT, AND ONLY THAT MOVE.
 ///
-/// ⭐ **and the selection is geometric.** Nothing here names a character, a verb
+///  and the selection is geometric. Nothing here names a character, a verb
 /// or a move id — the jab and the smash are excluded because they command no
 /// against-gravity speed, and `ascend` is offered because it commands one. Give
 /// a second body a rising move and it is understood by the same line.
@@ -356,7 +356,7 @@ fn a_recovering_body_is_offered_the_move_that_lifts_it() {
     );
 }
 
-/// **THE STRONGEST LIFT LEADS, AND A TIE BREAKS ON THE MOVE ID.** Two ways home
+/// THE STRONGEST LIFT LEADS, AND A TIE BREAKS ON THE MOVE ID. Two ways home
 /// is a legal repertoire, and which one the brain reaches for must be a function
 /// of the numbers rather than of the kit's declaration order (ADR 0023).
 #[test]
@@ -381,7 +381,7 @@ fn the_strongest_lift_leads_and_ties_do_not_depend_on_kit_order() {
     assert_eq!(opts(&forward), opts(&reversed));
 }
 
-/// **A BODY WITH A REAL RECOVERY MOVE STOPS BEING OFFERED THE TRAVERSAL VERB.**
+/// A BODY WITH A REAL RECOVERY MOVE STOPS BEING OFFERED THE TRAVERSAL VERB.
 ///
 /// Blink is a general-purpose way of being somewhere else; leaning on it to get
 /// home is what a fighter does when its repertoire has no answer. Both halves
@@ -417,7 +417,7 @@ fn an_authored_lift_displaces_the_traversal_verb_in_recovery() {
     );
 }
 
-/// **A LIFTING MOVE IS STILL AN ORDINARY ATTACK EVERYWHERE ELSE.** The affordance
+/// A LIFTING MOVE IS STILL AN ORDINARY ATTACK EVERYWHERE ELSE. The affordance
 /// changes what `Recovery` offers and nothing else — in neutral, `ascend` is
 /// scored against the foe by the same five features as every other move, so a
 /// recovery special that happens to be a good anti-air stays one.
@@ -440,7 +440,7 @@ fn a_lifting_move_is_scored_as_an_ordinary_attack_in_neutral() {
     assert!(opts.attacks.iter().any(|a| a.move_id == "jab"));
 }
 
-/// **`lifting_candidates` reads the number and nothing else.** The unit under
+/// `lifting_candidates` reads the number and nothing else. The unit under
 /// every rule above, on its own, so a failure says which half broke.
 #[test]
 fn lifting_candidates_selects_on_commanded_lift_alone() {
@@ -488,7 +488,7 @@ fn each_situation_has_its_obligation() {
     }
 }
 
-/// **A shield is a reaction to a SWING, not a stance for being cornered.**
+/// A shield is a reaction to a SWING, not a stance for being cornered.
 ///
 /// The half that keeps the change above honest: with a hostile actually
 /// attacking, the guard is still the best answer in `Disadvantage`. Without one
@@ -545,15 +545,15 @@ fn the_capability_mask_gates_every_verb() {
     assert_eq!(opts.best_movement().unwrap().verb, MovementVerb::Retreat);
 }
 
-/// **THE EVADE VERB IS WHICHEVER MANEUVER THE PRESS ACTUALLY PRODUCES.**
+/// THE EVADE VERB IS WHICHEVER MANEUVER THE PRESS ACTUALLY PRODUCES.
 ///
-/// ⛔ `apply_dodge` claims the dash buffer before `apply_dash` can see it, so on
+///  `apply_dodge` claims the dash buffer before `apply_dash` can see it, so on
 /// a dodge-capable body the press is a roll. The Smash fighters author
 /// `dash: true` AND `dodge: true`, which made every burst this brain chose on
 /// that stage a maneuver it had not named and the shadow rollout had not
 /// modelled.
 ///
-/// ⛔⛔ **AND THE FIRST REPAIR WAS STILL WRONG**, which is why this test now
+///  AND THE FIRST REPAIR WAS STILL WRONG, which is why this test now
 /// varies a resolved maneuver rather than two capability flags. `can_dodge` says
 /// the body OWNS a dodge; on cooldown, `apply_dodge` declines without consuming
 /// the press and `apply_dash` performs a dash. A test that varies capabilities
@@ -598,10 +598,10 @@ fn the_evade_verb_is_whichever_maneuver_the_dash_button_actually_produces() {
     );
 }
 
-/// **A roll is worth more against a swing than a dash is** — the defensive slot
+/// A roll is worth more against a swing than a dash is — the defensive slot
 /// prices the maneuver, not the button.
 ///
-/// ⚠ comparative on purpose: pinning `0.75` would go green on a build where
+///  comparative on purpose: pinning `0.75` would go green on a build where
 /// every score had drifted together, and what matters is that i-frames outrank
 /// plain travel while both stay below the guard.
 #[test]
@@ -629,7 +629,7 @@ fn the_evade_outscores_a_plain_dash_when_something_is_swinging() {
     );
 }
 
-/// **Determinism.** Two attacks that score identically are ordered by move id,
+/// Determinism. Two attacks that score identically are ordered by move id,
 /// not by the kit's declaration order. Otherwise `best_attack` depends on how a
 /// content author sorted a RON file (ADR 0023).
 #[test]
@@ -693,7 +693,7 @@ fn the_score_is_exactly_the_weighted_features() {
 
 /// FB2 recorded the gap; FB6a closes it, and this is the recorded scenario:
 /// a punish window both a jab and a smash fit. Without `expected_payoff` the
-/// jab always won (faster ⇒ more frame advantage, nothing priced power). With
+/// jab always won (faster  more frame advantage, nothing priced power). With
 /// it, the smash that out-damages the jab — and still lands inside the
 /// window — outbids it. In NEUTRAL the payoff is zero for everyone and the
 /// jab keeps winning, which is the feature gating on a plausible landing
@@ -823,7 +823,7 @@ fn approaching_off_the_edge_of_a_platform_scores_worse_than_approaching_inward()
     );
 }
 
-/// **A body with no perceived terrain is not penalised.** An airborne fighter,
+/// A body with no perceived terrain is not penalised. An airborne fighter,
 /// or a view whose terrain was never filled, is not a ledge question — and
 /// treating "I cannot see the floor" as "the floor ends here" would freeze every
 /// brain in a composition that does not build terrain.
@@ -886,13 +886,13 @@ fn a_body_with_no_jumps_left_is_not_offered_a_jump() {
     );
 }
 
-/// **An attack that cannot reach is not offered at all.**
+/// An attack that cannot reach is not offered at all.
 ///
 /// `reach_fit` priced a hopeless swing at zero and left it in the list, and the
 /// consumer takes `attacks.first()` whenever L3 names nothing — so the list
 /// being non-empty IS the decision. Scoring it low was never going to be enough.
 ///
-/// ⚠ a zero-reach move (a buff, a summon) stays: reach is not its question, and
+///  a zero-reach move (a buff, a summon) stays: reach is not its question, and
 /// dropping it would delete a whole class of move from every kit that has one.
 #[test]
 fn an_attack_that_cannot_span_the_gap_is_not_offered() {
@@ -948,7 +948,7 @@ fn grab_candidate(reach: f32) -> AttackCandidate {
         min: (0.0, -12.0),
         max: (reach, 12.0),
     });
-    // ⛔ the two facts that make a grab a grab and not a weak poke.
+    //  the two facts that make a grab a grab and not a weak poke.
     frames.max_damage = 0;
     frames.ignores_guard = true;
     AttackCandidate {
@@ -970,10 +970,10 @@ fn guarding(mut view: WorldView) -> WorldView {
     view
 }
 
-/// **A hold is worth most against a raised guard** — the third leg of the
+/// A hold is worth most against a raised guard — the third leg of the
 /// triangle `rollout.rs` already writes down, now visible to L2.
 ///
-/// ⚠ L2 is the layer that matters here: L3's rollout has known "grab beats
+///  L2 is the layer that matters here: L3's rollout has known "grab beats
 /// shield" since a shielding opponent made the whole kit worth zero, but
 /// `attacks.first()` is what answers whenever L3 names nothing.
 #[test]
@@ -989,7 +989,7 @@ fn a_hold_is_worth_more_against_a_guard_than_against_a_free_body() {
         "a grab is the genre's answer to a shield, but it priced a guarding \
          body at {against_guard} and a free one at {against_free}"
     );
-    // ⛔ the zero floor: if BOTH were zero the comparison above would be
+    //  the zero floor: if BOTH were zero the comparison above would be
     // vacuous, and a policy that never fires is the state this replaced.
     assert!(
         against_guard > 0.0,
@@ -997,7 +997,7 @@ fn a_hold_is_worth_more_against_a_guard_than_against_a_free_body() {
     );
 }
 
-/// **A body already in hitstun is the WRONG grab, and it is refused explicitly.**
+/// A body already in hitstun is the WRONG grab, and it is refused explicitly.
 ///
 /// It is the case a naive "they cannot answer, so grab" rule scores HIGHEST —
 /// they are maximally helpless — and it is the case where spending the grab's
@@ -1014,11 +1014,8 @@ fn a_reeling_body_is_not_worth_grabbing() {
     );
 }
 
-/// **⛔⛔ THE REVERTED BUG, PINNED: no amount of hold value buys a grab thrown
-/// from outside its own reach.**
-///
-/// The fault was that the number was UNCONDITIONAL, so this fixes the opponent at every fact that
-/// makes a hold most valuable — guarding AND at high percent — and puts them out of reach anyway.
+/// Grab value is zero outside the body's authored grab reach, even against a
+/// high-value guarding opponent.
 #[test]
 fn a_hold_is_never_worth_a_grab_the_body_cannot_reach() {
     let mut view = guarding(view_with(300.0, 410.0));
@@ -1044,8 +1041,8 @@ fn a_hold_is_never_worth_a_grab_the_body_cannot_reach() {
     );
 }
 
-/// **And the converse, so the guard above is not satisfied by a policy that
-/// never fires**: in reach and against a shield, the grab DOES win.
+/// And the converse, so the guard above is not satisfied by a policy that
+/// never fires: in reach and against a shield, the grab DOES win.
 #[test]
 fn in_reach_and_against_a_guard_the_grab_wins() {
     let view = guarding(view_with(300.0, 330.0));
@@ -1065,7 +1062,7 @@ fn in_reach_and_against_a_guard_the_grab_wins() {
     );
 }
 
-/// **The feature is zero for every move that is not a capture**, asserted at the
+/// The feature is zero for every move that is not a capture, asserted at the
 /// scorer rather than at `capture_value`, because the call site is where it
 /// could quietly start pricing ordinary swings.
 #[test]
@@ -1094,8 +1091,8 @@ fn only_a_capture_carries_capture_value() {
     assert!(saw_grab, "the grab was filtered out, so this measured nothing");
 }
 
-/// **⛔⛔ A HOLD ON AN AIRBORNE BODY IS WORTH NOTHING, because the rules refuse
-/// to sell it.**
+///  A HOLD ON AN AIRBORNE BODY IS WORTH NOTHING, because the rules refuse
+/// to sell it.
 ///
 /// `acquire_captures` skips any victim whose `ground.on_ground` is false, so a
 /// grab thrown at a body in the air plays, costs its recovery and catches
@@ -1125,9 +1122,9 @@ fn an_airborne_body_is_worth_nothing_to_hold() {
 
 // ── legality: can this action begin at all? ──────────────────────────────
 
-/// **⛔⛔ AN ATTACK THE BODY CANNOT BEGIN IS NOT AN OPTION.**
+///  AN ATTACK THE BODY CANNOT BEGIN IS NOT AN OPTION.
 ///
-/// ⚠ **the sibling filter cannot catch it.** "An attack that cannot REACH is not
+///  the sibling filter cannot catch it. "An attack that cannot REACH is not
 /// an option" refuses a move that cannot touch the foe; this one is in reach and
 /// still cannot happen.
 #[test]
@@ -1145,7 +1142,7 @@ fn an_attack_the_body_cannot_begin_is_not_offered() {
         &UtilityWeights::v1(),
     );
 
-    // ⛔ the zero floor: a run that offered NOTHING would satisfy "the blocked
+    //  the zero floor: a run that offered NOTHING would satisfy "the blocked
     // move is absent" while proving the filter deletes everything.
     assert!(
         !opts.attacks.is_empty(),
@@ -1162,7 +1159,7 @@ fn an_attack_the_body_cannot_begin_is_not_offered() {
     );
 }
 
-/// **Legality is a FILTER, not a penalty — asserted where the difference shows.**
+/// Legality is a FILTER, not a penalty — asserted where the difference shows.
 ///
 /// The blocked move here is the BEST option in the kit by every feature: it
 /// reaches perfectly and the alternative barely reaches at all. Scoring it low
@@ -1173,7 +1170,7 @@ fn a_blocked_move_loses_even_when_it_is_the_best_one() {
     let view = view_with(300.0, 340.0);
     let mut best = candidate("perfect", 0.05, 40.0);
     best.legality = ActionLegality::BlockedByPlayback;
-    // ⚠ it must REACH, just badly. An 8px reach against a 40px gap is filtered
+    //  it must REACH, just badly. An 8px reach against a 40px gap is filtered
     // by the *sibling* ("cannot reach") rule, which would leave the kit empty
     // and make this test pass for the wrong reason — it did, on the first draft.
     let poor = candidate("stubby", 0.3, 20.0);
@@ -1192,7 +1189,7 @@ fn a_blocked_move_loses_even_when_it_is_the_best_one() {
     );
 }
 
-/// **A lifting move the body cannot begin does not answer `Recovery` either.**
+/// A lifting move the body cannot begin does not answer `Recovery` either.
 ///
 /// A body past the blastzone has exactly one problem, which is what makes this
 /// the tempting place to skip the check — but a route the press cannot take is

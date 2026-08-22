@@ -6,15 +6,15 @@
 //! shares these systems; the provider contributes only its session-world
 //! source. The answers to the lifecycle questions live here:
 //!
-//! - **What does a provider prepare?** A [`PreparedPlatformerSource`], validated
+//! - What does a provider prepare? A [`PreparedPlatformerSource`], validated
 //!   against its [`AuthoredCatalogFragments`](crate::authoring::AuthoredCatalogFragments)
 //!   into a [`PlatformerPreparationReport`].
-//! - **What identity proves activation matches preparation?** The
+//! - What identity proves activation matches preparation? The
 //!   [`PreparedSessionIdentity`] published through the shell's
 //!   [`PreparedSessionRegistry`].
-//! - **Who owns the prepared value?** [`PreparedPlatformerSessions`], keyed by
+//! - Who owns the prepared value? [`PreparedPlatformerSessions`], keyed by
 //!   the load transaction.
-//! - **When is live session state created?** Preparation owns the validated
+//! - When is live session state created? Preparation owns the validated
 //!   world value; activation consumes it by exact identity and creates the live
 //!   session root and scoped entities through [`PlatformerSessionBuilder::build`].
 
@@ -225,7 +225,7 @@ pub(crate) struct PlatformerPreparation<'w> {
     >,
     content_staging:
         Option<Res<'w, ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>>,
-    // ⚠ This brings the struct to Bevy's 16-parameter `SystemParam` ceiling.
+    //  This brings the struct to Bevy's 16-parameter `SystemParam` ceiling.
     // The next field added here must bundle something first.
     construction_schema_catalog: Option<
         Res<'w, ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog>,
@@ -977,14 +977,14 @@ pub fn prepare_platformer_content(
     // one is not safe to restore under the other. It was documented as
     // contributing to the fingerprint well before it actually did.
     //
-    // ⚠ Only what the dump carries is hashed: for a recipe, its id + owner +
+    //  Only what the dump carries is hashed: for a recipe, its id + owner +
     // source + schema id; for a relation, its kind + owner + source + schema id.
     //
     // Neither the wiring function nor the postcondition verifier is hashed, and
     // neither can be: a `fn` address is process-local, so hashing one would make
-    // the fingerprint differ between two runs of the same binary. **Bumping the
+    // the fingerprint differ between two runs of the same binary. Bumping the
     // schema id is therefore the ONLY way a behaviour change reaches the
-    // fingerprint**, which is the same rule that governs relation registration
+    // fingerprint, which is the same rule that governs relation registration
     // identity — see `try_register_relation`, which deliberately does not
     // compare function addresses either. Postcondition verification exists
     // partly because of this gap: a relation whose wiring silently stopped
@@ -1158,8 +1158,8 @@ impl PlatformerSessionBuilder<'_, '_> {
         default_character_id: &str,
     ) -> SessionBuildResult {
         let live_world: PlatformerSessionWorld = prepared_content.source().instantiate_live();
-        // **The authoring format's own session state, installed beside the
-        // canonical bundle rather than inside it.** `None` for every
+        // The authoring format's own session state, installed beside the
+        // canonical bundle rather than inside it. `None` for every
         // RON-authored game, and the component is then simply ABSENT from the
         // session root — which is what the LDtk systems' `SessionWorldRef`
         // reads as "no LDtk world here", instead of an empty index that made
@@ -1190,7 +1190,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                 // Activation is the one place that holds the exact prepared
                 // definition, so it is the one place a construction plan can
                 // state a REAL activation generation rather than defaulting.
-                // ⛔ **the cast was two lines away and not handed over.**
+                //  the cast was two lines away and not handed over.
                 // Planning asks the CHARACTER whether a placement is a limbed
                 // `"giant"`-class host before it asks the roster, and with no
                 // cast it can only ask the roster — so the shipped sandbox's
@@ -1235,9 +1235,9 @@ impl PlatformerSessionBuilder<'_, '_> {
             )
             .expect("provider activation still owns the session it is constructing");
 
-        // **SESSION INPUT OWNERSHIP GOES ON THE WORLD, NOT ON A BODY.**
+        // SESSION INPUT OWNERSHIP GOES ON THE WORLD, NOT ON A BODY.
         //
-        // ⛔ `GameplayInputOwner` documents itself as *"Marker and exact owner
+        //  `GameplayInputOwner` documents itself as *"Marker and exact owner
         // facts on the canonical live gameplay-world entity"* and was then
         // inserted onto the player. Nothing read it for routing — its only
         // consumer counts instances — so the disagreement was invisible right up
@@ -1494,7 +1494,7 @@ mod tests {
         .unwrap()
     }
 
-    /// **Choosing a character other than the default is not a content error.**
+    /// Choosing a character other than the default is not a content error.
     ///
     /// `capture_scene --character <id>` has a usage example in its own header — `--character
     /// npc_pirate_admiral` — and it had never worked for any id, that one included (found by

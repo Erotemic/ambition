@@ -109,7 +109,7 @@ impl ActionRegistry {
         self.actions.values()
     }
 
-    /// **What can be pressed in this context?** The question a prompt, a help
+    /// What can be pressed in this context? The question a prompt, a help
     /// screen and a rebind UI all ask, answered once.
     pub fn for_context(
         &self,
@@ -139,7 +139,7 @@ impl ActionRegistry {
     }
 }
 
-/// **The composition's action vocabulary, as a resource.**
+/// The composition's action vocabulary, as a resource.
 ///
 /// A registry is a value; this is where the running app keeps one. Built by the
 /// facade's assembly pass from the engine's actions plus whatever the mounted
@@ -181,7 +181,7 @@ const fn engine(
     }
 }
 
-/// **The engine's vocabulary, and the whole of it.**
+/// The engine's vocabulary, and the whole of it.
 ///
 /// One entry per `Platformer2dInputActionMonolith`. `every_device_action_is_registered` fails when
 /// a variant is added without one, so this cannot quietly fall behind the enum —
@@ -410,7 +410,7 @@ mod tests {
         assert!(menu.contains(&"menu_select") && !menu.contains(&"jump"));
     }
 
-    /// **A capability adds an action without editing the engine.**
+    /// A capability adds an action without editing the engine.
     ///
     /// The whole point of the row: `Platformer2dInputActionMonolith` is a closed enum a capability
     /// cannot extend, and this is the half that is open.
@@ -466,7 +466,7 @@ mod tests {
         );
     }
 
-    /// ⛔ **The registry must not fall behind the enum.**
+    ///  The registry must not fall behind the enum.
     ///
     /// This is what makes it the vocabulary rather than a description of one. A
     /// `Platformer2dInputActionMonolith` added without a semantic entry would be invisible to

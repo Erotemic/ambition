@@ -85,12 +85,12 @@ pub(crate) fn draw_unauthored_attack_volumes(
             continue;
         }
         let Ok((presented, attack_vfx)) = owners.get(strike.owner) else {
-            // **SILENT WAS THE PROBLEM, not the skip**. Skipping is right — the alternative is the
+            // SILENT WAS THE PROBLEM, not the skip. Skipping is right — the alternative is the
             // world-origin draw that cost an investigation on the slash path. Two silent skips make
             // that a decision procedure with no output: whichever one is happening, the log says
             // nothing and the repro is spent for nothing.
             //
-            // ⚠ `warn_once`, because this runs per strike per frame and a live
+            //  `warn_once`, because this runs per strike per frame and a live
             // swing would otherwise fill the log with the same line — which is
             // its own way of being unreadable.
             bevy::log::warn_once!(

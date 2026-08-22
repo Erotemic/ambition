@@ -1,4 +1,4 @@
-//! **Every character this provider AUTHORS, one file each.**
+//! Every character this provider AUTHORS, one file each.
 //!
 //! A creature's facts and the reasons for them belong with the creature, and a match that long
 //! is a file every migration has to edit.
@@ -42,7 +42,7 @@ mod sandbag_infinite;
 mod special_patent_clerk;
 mod stochastic_parrot;
 
-/// **Which ids each authoring module speaks for.**
+/// Which ids each authoring module speaks for.
 ///
 /// A slice of ids rather than one, because a few creatures are genuinely the
 /// same authored body under two names — the two cellular automatons, the two

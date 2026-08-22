@@ -230,7 +230,7 @@ fn live_boss_spritesheet_ron_round_trips() {
     );
 }
 
-/// ⚠ the assertion is about the SURVIVOR, not about the log line: a test that
+///  the assertion is about the SURVIVOR, not about the log line: a test that
 /// captured the warning would be checking that a scanner sees its own fixture.
 /// What matters is that last-wins still resolves (so the seventeen legitimate
 /// archetype-sharers keep working) while the geometry mismatch is the condition
@@ -572,8 +572,8 @@ fn body_extent_rejects_degenerate_box() {
     assert_eq!(m.body_pixel_extent(character::CharacterAnim::Idle), None);
 }
 
-/// **A file root that names several records is refused, not truncated to the
-/// first one.**
+/// A file root that names several records is refused, not truncated to the
+/// first one.
 #[test]
 fn a_multi_record_file_root_is_refused_rather_than_silently_truncated() {
     let rec = |t: &str, img: &str| {
@@ -621,7 +621,7 @@ fn a_multi_record_file_root_is_refused_rather_than_silently_truncated() {
 /// The refusal reaches the real baked table without taking the one key this
 /// index exists to answer.
 ///
-/// ⛔ **it deliberately does NOT assert that no CHARACTER was refused**, though
+///  it deliberately does NOT assert that no CHARACTER was refused, though
 /// an earlier draft's name claimed to: this crate has no catalog, so it cannot
 /// tell a packed prop atlas from a character's sheet — the same gap
 /// `shadowed_targets` documents. That assertion lives in `ambition_app`, which

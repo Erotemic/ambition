@@ -11,8 +11,8 @@ use super::*;
 /// intro.
 ///
 /// Three conditions trigger a restart, all preserving the invariant
-/// that **simple base track and adaptive layers cannot remain
-/// audible at the same time**:
+/// that simple base track and adaptive layers cannot remain
+/// audible at the same time:
 ///
 /// 1. A different cue is taking over (the obvious case).
 /// 2. The director's mode says a simple base track is playing

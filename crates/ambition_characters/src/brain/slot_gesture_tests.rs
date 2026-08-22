@@ -1,4 +1,4 @@
-//! **An invalid participant identifier cannot write to a real participant.**
+//! An invalid participant identifier cannot write to a real participant.
 //!
 //! The old `get_mut` clamped an out-of-range [`crate::control::PlayerSlot`] onto the LAST valid
 //! one, so `crate::control::PlayerSlot(9)` and `crate::control::PlayerSlot(3)` were the same controller. This
@@ -23,14 +23,14 @@ fn distinctly_filled() -> SlotInteractionState {
     state
 }
 
-/// **THE INVARIANT.** An out-of-range slot resolves to nothing, and nothing in
+/// THE INVARIANT. An out-of-range slot resolves to nothing, and nothing in
 /// the array moves.
 #[test]
 fn an_invalid_slot_cannot_alter_any_real_participant() {
     let before = distinctly_filled();
     let mut after = before;
 
-    // **the zero floor**: a `MAX_SLOTS` of 0 would make the loop below empty
+    // the zero floor: a `MAX_SLOTS` of 0 would make the loop below empty
     // and every assertion vacuous, and the fixture above would have written
     // nothing to compare.
     assert!(

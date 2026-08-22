@@ -1,59 +1,10 @@
-//! **The item domain's share of the reset baseline: how to rebuild an instance
-//! the SIMULATION minted, which no authored record can describe.**
+//! Durable description for runtime-minted item instances.
 //!
-//! The custody baseline
-//! ([`CustodyBaseline`](ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline))
-//! says *which body was carrying which occurrence* at the checkpoint, in
-//! identities, and the restore puts an occurrence whose entity is gone back by
-//! MATERIALIZING it from the record that minted it. That closes the AUTHORED
-//! case and names its own boundary: materialization is bounded by *"some room
-//! authors a record with this id"*, and a runtime-minted instance —
-//! [`SpawnOrigin::Dynamic`] — has no record anywhere. It is room-scoped and
-//! carryable, so it can enter the custody baseline, and nothing could rebuild
-//! it.
-//!
-//! ⇒ this is the description that closes that gap, and it is the item domain's
-//! because only the item domain knows what an item IS.
-//!
-//! # WHAT THE MINIMAL DURABLE DESCRIPTION TURNED OUT TO BE
-//!
-//! ```text
-//! identity     the occurrence's own SimId          — the map key
-//! provenance   SpawnOrigin::Dynamic { parent, .. } — what makes it re-mintable AGAIN
-//! definition   the held item's authored spec id    — what it IS
-//! ```
-//!
-//! **and nothing else — no position, no velocity, no components.** A held
-//! object has no place in the world: the hand supplies its position, and
-//! `ground_item_physics` refuses to step anything whose custody is not
-//! `InWorld`, so `GroundItem::pos` is not read at all while it is carried. That
-//! is the whole reason a description this small is enough, and it is a claim
-//! about restoring into a HAND specifically — restoring one into the WORLD would
-//! owe a position, and a position is a fact nothing in a checkpoint currently
-//! remembers for a minted instance.
-//!
-//! **the PROVENANCE is not decoration, and leaving it out was the tempting shortcut.** Without
-//! it the rebuilt occurrence would be a dynamic instance that cannot say which spawner it
-//! descends from — exactly the state [`SpawnOrigin::Dynamic`]'s own doc refuses to let anyone
-//! spell — and it would therefore be invisible to the NEXT capture.
-//!
-//! **and the definition is a REFERENCE, never a copy.** The row stores the spec's authored id
-//! and the item domain resolves it back through [`held_spec_by_id`](super::held_spec_by_id).
-//!
-//! # IT IS A SNAPSHOT AT COMMIT TIME, NOT A REGISTRY OF EVERY MINT
-//!
-//! **the description never decides residency.** This map answers *how* to
-//! rebuild a runtime mint. The custody baseline decides whether a held instance
-//! is owed and into whose hand; an `OccurrenceWhereabouts::Placed` row decides
-//! whether a resting instance is owed in a room. Description and disposition are
-//! separate facts, so neither becomes a universal instance registry.
-//!
-//! `AmbitionGameSaveData::minted_items` is [`MintedItemDescription`] field for
-//! field — provenance and a spec-id reference — because the durable horizon asked
-//! the same question this one did (*how would you make this again?*) and got the
-//! same answer. **that the on-disk form needed no fourth field is the
-//! measurement**, not a convenience: the description this file settled on was the
-//! minimal one, and a save is where "minimal" gets tested.
+//! Authored placements can be rebuilt from room content; dynamically minted items
+//! cannot. [`MintedItemDescription`] stores the occurrence's dynamic [`SpawnOrigin`]
+//! and authored item-spec id so checkpoint/save restoration can mint the same kind of
+//! instance again. Custody or whereabouts decide whether/where it should exist; this
+//! description only answers how to reconstruct it.
 
 use std::collections::BTreeMap;
 
@@ -74,7 +25,7 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
 use super::{GroundItem, ItemCustody};
 
-/// **Everything a restore needs to make one runtime-minted instance again**, and
+/// Everything a restore needs to make one runtime-minted instance again, and
 /// deliberately nothing more. See the module docs for why each of the two fields
 /// is load-bearing and why there is no third.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -87,8 +38,8 @@ pub struct MintedItemDescription {
     pub held_item: String,
 }
 
-/// **How to rebuild each runtime-minted instance remembered at the last
-/// committed checkpoint**, keyed by the occurrence's own identity.
+/// How to rebuild each runtime-minted instance remembered at the last
+/// committed checkpoint, keyed by the occurrence's own identity.
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct MintedItemBaseline {
     /// occurrence → how to make it again.
@@ -112,21 +63,21 @@ impl MintedItemBaseline {
         self.minted.len()
     }
 
-    /// **Every description, in identity order** — for the writer that puts this
+    /// Every description, in identity order — for the writer that puts this
     /// value on disk.
     pub fn rows(&self) -> impl Iterator<Item = (&SimId, &MintedItemDescription)> {
         self.minted.iter()
     }
 
-    /// **Adopt a set of descriptions** — the one road that writes this outside a
+    /// Adopt a set of descriptions — the one road that writes this outside a
     /// [`CheckpointCommitted`].
     ///
-    /// **its single caller is a durable LOAD.** A fresh process has no
+    /// its single caller is a durable LOAD. A fresh process has no
     /// checkpoint history, so what the save file described IS what a first death
     /// can rebuild; without this the shipped restore would find a custody row it
     /// has no recipe for and warn instead of putting the object back.
     ///
-    /// **whole-value, and still not a registry.** Adopting a file's rows is
+    /// whole-value, and still not a registry. Adopting a file's rows is
     /// the same snapshot semantics the capture has — the map is replaced, never
     /// accumulated.
     pub fn adopt(&mut self, minted: BTreeMap<SimId, MintedItemDescription>) {
@@ -135,7 +86,7 @@ impl MintedItemBaseline {
         }
     }
 
-    /// **The desync checksum** — identities, a canonical provenance rendering,
+    /// The desync checksum — identities, a canonical provenance rendering,
     /// and an authored id. No `Entity` appears in any of them, so this is
     /// comparable between peers without a mapping pass.
     pub fn checksum(&self) -> u64 {
@@ -154,19 +105,19 @@ impl MintedItemBaseline {
     }
 }
 
-/// **Record how to remake what the simulation minted, at the instant a
-/// checkpoint commits.**
+/// Record how to remake what the simulation minted, at the instant a
+/// checkpoint commits.
 ///
-/// **the population is `SpawnOrigin::Dynamic` AND in custody.** Dynamic,
+/// the population is `SpawnOrigin::Dynamic` AND in custody. Dynamic,
 /// because an authored occurrence is rebuilt by its record and a second
 /// description of it here would be a competing authority. In custody, because
 /// that is the only question this value serves — a minted object lying in a
 /// loaded room is answered by the object itself, and one in an unloaded room is
 /// beyond what a checkpoint remembers at all.
 ///
-/// **it reads [`ItemCustody`], the item domain's own authority, rather than
+/// it reads [`ItemCustody`], the item domain's own authority, rather than
 /// the [`InCustodyOf`](ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf)
-/// projection the custody capture reads.** Each domain captures from what it
+/// projection the custody capture reads. Each domain captures from what it
 /// owns. The projection drops a row for a room-fixture hand, so this map can
 /// carry a description the custody baseline has no row for; a surplus
 /// description is never consulted, whereas a missing one would lose an object.
@@ -190,9 +141,9 @@ pub fn capture_minted_item_baseline(
     }
 }
 
-/// **WHAT THE PLAYER WAS ENTITLED TO AT THE LAST COMMITTED CHECKPOINT.**
+/// WHAT THE PLAYER WAS ENTITLED TO AT THE LAST COMMITTED CHECKPOINT.
 ///
-/// **rollback state with a real VALUE, exactly like its three siblings.**
+/// rollback state with a real VALUE, exactly like its three siblings.
 /// Nothing republishes it, and a commit happens mid-frame at a shrine, so a
 /// rewind across the commit must restore it or the world keeps an entitlement
 /// from a future that was un-happened.
@@ -212,7 +163,7 @@ impl OwnedItemsBaseline {
         self.0 = owned;
     }
 
-    /// **Entity-free VALUE projection**, like its three siblings: two peers that
+    /// Entity-free VALUE projection, like its three siblings: two peers that
     /// disagree about what the player was entitled to at the last checkpoint
     /// have diverged, and a checksum is how they find out.
     ///
@@ -408,18 +359,18 @@ where
     );
 }
 
-/// **How to remake every runtime mint that exists RIGHT NOW — in a hand or
-/// lying where somebody dropped it.**
+/// How to remake every runtime mint that exists RIGHT NOW — in a hand or
+/// lying where somebody dropped it.
 ///
 /// The population rule — `SpawnOrigin::Dynamic` — is stated once, so a second describer cannot
 /// start describing authored occurrences by accident.
 ///
-/// **the two halves are exact complements, which is why the filter read as
-/// correct for a year.** An in-custody mint is DESCRIBED and unplaced, because
+/// the two halves are exact complements, which is why the filter read as
+/// correct for a year. An in-custody mint is DESCRIBED and unplaced, because
 /// the hand supplies where it is. An in-world mint is PLACED and, until now,
 /// undescribed. Neither half ever covered the other's case.
 ///
-/// **this widens a POPULATION, not a format.** `MintedItemDescription` is unchanged, so the
+/// this widens a POPULATION, not a format. `MintedItemDescription` is unchanged, so the
 /// baseline's codec, the three rollback baselines and the save version are all untouched by it
 /// — the reason recorded cause (*"the description remembers no position"*) mattered is that it
 /// implied the opposite.
@@ -487,8 +438,8 @@ mod tests {
             .id()
     }
 
-    /// **A carried runtime mint is described; a carried AUTHORED occurrence is
-    /// not.**
+    /// A carried runtime mint is described; a carried AUTHORED occurrence is
+    /// not.
     ///
     /// both terms are observed, because the failure that matters is a capture
     /// that describes everything: an authored occurrence with a row here would be
@@ -538,7 +489,7 @@ mod tests {
             .is_none());
     }
 
-    /// **A mint that appears AFTER the commit is not in the baseline.**
+    /// A mint that appears AFTER the commit is not in the baseline.
     ///
     /// Such a map grows forever, and it would describe an object the checkpoint never saw.
     #[test]
@@ -570,7 +521,7 @@ mod tests {
         );
     }
 
-    /// **A later commit with nothing minted overwrites an earlier one's rows.**
+    /// A later commit with nothing minted overwrites an earlier one's rows.
     ///
     /// Dropping is now correctly a no-op for this row: the object still exists and still has to be
     /// describable. So the fixture states the case the test is actually about — the occurrence

@@ -461,7 +461,7 @@ fn cross_policy_switches_preserve_shared_state_and_initialize_only_destination_s
     assert_eq!(crawler.state, CrawlerState::DETACHED);
 }
 
-/// **The adhesive crawler now SAYS when it attaches and detaches.**
+/// The adhesive crawler now SAYS when it attaches and detaches.
 ///
 /// the edge is derived in `step_adhesive_crawler` from the attachment either
 /// side of the step, NOT pushed at the eight sites inside `step_crawler` that
@@ -941,8 +941,8 @@ fn rider_on_a_long_floor() -> (World, BodyClusterScratch, MotionModel) {
     (world, scratch, model)
 }
 
-/// **The reader's half of the knockback seam, entered where production enters
-/// it.**
+/// The reader's half of the knockback seam, entered where production enters
+/// it.
 ///
 /// `BodyFlightState::pending_launch` is written by a damage reaction that holds
 /// no world and no `MotionModel`; `step_motion` is the one place that can hand it
@@ -982,7 +982,7 @@ fn a_pending_launch_takes_a_rider_off_the_floor_through_step_motion() {
     );
 }
 
-/// **The channel is DRAINED, not merely read.** A launch that stayed set would
+/// The channel is DRAINED, not merely read. A launch that stayed set would
 /// re-fire every tick and a body would never come down — the failure mode of a
 /// one-shot written into persistent state.
 #[test]
@@ -1028,13 +1028,13 @@ fn the_launch_channel_is_emptied_by_the_step_that_consumes_it() {
     );
 }
 
-/// **THE CAPABILITY REACHES THE REAL SWEEP — through `step_motion`, with the
-/// real controller running.**
+/// THE CAPABILITY REACHES THE REAL SWEEP — through `step_motion`, with the
+/// real controller running.
 ///
 /// So this enters through `step_motion`, holds RIGHT for a full second of ticks
 /// against the controller that would overwrite a force, and measures the body.
 ///
-/// **the A/B is the assertion.** The same run happens twice — once with the
+/// the A/B is the assertion. The same run happens twice — once with the
 /// body's contact field populated and once with `NONE`, the documented identity
 /// — and the free body must travel measurably further. No distance in this test
 /// is chosen; both are measured, and if the constraint were inert they would be
@@ -1104,15 +1104,15 @@ fn a_grounded_body_walking_into_another_one_is_stopped_by_the_real_sweep() {
     );
 }
 
-/// **TWO BODIES, STEPPED THE WAY THE SCHEDULE STEPS THEM.** One snapshot of both
+/// TWO BODIES, STEPPED THE WAY THE SCHEDULE STEPS THEM. One snapshot of both
 /// poses and both velocities taken before either resolves its controller — what
 /// `snapshot_body_contact` does immediately before the integration phase — and
 /// then each body driven through the real kernel against it.
 ///
-/// **the fixture may not manufacture the velocities, and that is the whole point of it.** Every
+/// the fixture may not manufacture the velocities, and that is the whole point of it. Every
 /// number the constraint divides by here is one the controller produced from input this tick.
 ///
-/// **it lands the pair before it drives them.** Body contact is a grounded
+/// it lands the pair before it drives them. Body contact is a grounded
 /// capability by construction, so a fixture that starts walking on tick zero
 /// measures two bodies drifting through each other in mid-air and blames the
 /// constraint for it.
@@ -1204,7 +1204,7 @@ fn overlap_of(bodies: &[BodyClusterScratch; 2], down: Vec2) -> f32 {
     separation_of(bodies, down).max(0.0)
 }
 
-/// **TWO BODIES STARTING FROM REST MAY NOT BOTH SPEND ONE GAP.**
+/// TWO BODIES STARTING FROM REST MAY NOT BOTH SPEND ONE GAP.
 ///
 /// The proportional split divides by snapshot velocities, and a snapshot taken before either
 /// controller has run reads zero for both bodies, so each was told the gap was entirely its own.
@@ -1223,7 +1223,7 @@ fn two_bodies_that_begin_walking_at_each_other_on_one_tick_never_overlap() {
                  resistance 1.0 they are solids and may not be inside each \
                  other at all",
             );
-            // **and they must actually MEET.** Halving the gap unconditionally
+            // and they must actually MEET. Halving the gap unconditionally
             // would also score zero overlap while quietly stopping the pair
             // short of each other, which is the failure this catches.
             assert!(
@@ -1236,12 +1236,12 @@ fn two_bodies_that_begin_walking_at_each_other_on_one_tick_never_overlap() {
     }
 }
 
-/// **AND THE SNAPSHOT IS WRONG ABOUT THIS TICK EVERY TIME EITHER BODY CHANGES
-/// ITS MIND**, not only when both start from rest — so one body is held against
+/// AND THE SNAPSHOT IS WRONG ABOUT THIS TICK EVERY TIME EITHER BODY CHANGES
+/// ITS MIND, not only when both start from rest — so one body is held against
 /// the other while the second starts, stops and reverses at every phase relative
 /// to the moment they touch.
 ///
-/// **a swept pattern rather than three hand-timed scenarios.** Timing a stop
+/// a swept pattern rather than three hand-timed scenarios. Timing a stop
 /// to land exactly on the tick of contact by hand is a fixture that passes
 /// because the collision missed it; varying the period walks the change across
 /// every offset, contact included.
@@ -1282,8 +1282,8 @@ fn a_pair_whose_motion_changes_this_tick_still_never_overlaps() {
     }
 }
 
-/// **AND A BODY WALKING AT SOMEBODY MERELY STANDING THERE STILL GETS THE WHOLE
-/// GAP.** The falsifier for the no-evidence share: dividing the gap evenly
+/// AND A BODY WALKING AT SOMEBODY MERELY STANDING THERE STILL GETS THE WHOLE
+/// GAP. The falsifier for the no-evidence share: dividing the gap evenly
 /// whenever the snapshot is silent would score zero overlap everywhere and still
 /// be wrong, because a lone mover would lose half of every approach to a
 /// neighbour that is not contesting it. It costs exactly one tick — the one on
@@ -1301,7 +1301,7 @@ fn a_lone_mover_is_not_charged_for_a_neighbour_that_never_moves() {
     );
 }
 
-/// **A BODY SET DOWN EXACTLY ON THE GROUND CAN STILL WALK.**
+/// A BODY SET DOWN EXACTLY ON THE GROUND CAN STILL WALK.
 ///
 /// A respawn, a room placement or a scripted warp arrives at rest
 /// ([`TransitVelocity::Zero`]), and a caller that reuses the body's own resting

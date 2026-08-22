@@ -1,13 +1,13 @@
 //! One pulse at the invariant speed, measured by two observers.
 //!
-//! This is TwinTrack's **second-postulate** instrument. A lab-rest emitter at
+//! This is TwinTrack's second-postulate instrument. A lab-rest emitter at
 //! the beacon midpoint fires a three-ray flare on a laboratory-time schedule;
 //! each ray is a null worldline, and every observer that measures it gets `c`.
 //!
-//! **a light pulse is not a fast projectile.** Nothing here carries a
+//! a light pulse is not a fast projectile. Nothing here carries a
 //! velocity that anything integrates. A ray's laboratory position is
 //! `emission_position + c * (t - emission_time) * direction` — derived from the
-//! **emission event** and the invariant speed and nothing else — and every
+//! emission event and the invariant speed and nothing else — and every
 //! observer-frame quantity below is an exact Lorentz transform of that null
 //! displacement. Give a normal projectile a big velocity instead and the
 //! traveler would measure it at `c - v`, which is the one number this exhibit
@@ -15,18 +15,18 @@
 //!
 //! Three facts a viewer can read off two panes at once:
 //!
-//! 1. **the speed is invariant** — the traveler flying at 0.9c does *not* watch
+//! 1. the speed is invariant — the traveler flying at 0.9c does *not* watch
 //!    the forward ray crawl away at 0.1c. Both panes print `1.000 c`;
-//! 2. **aberration** — the crosswise ray leaves the laboratory at 90° and the
+//! 2. aberration — the crosswise ray leaves the laboratory at 90° and the
 //!    traveler measures it arriving from far ahead instead; and
-//! 3. **Doppler** — the ray the traveler chases is deeply redshifted, the one it
+//! 3. Doppler — the ray the traveler chases is deeply redshifted, the one it
 //!    meets head-on is blueshifted, and (exactly) the two factors multiply to 1.
 //!
 //! Plus the light cone: the toward-Omega ray reaches the Omega beacon at one
-//! laboratory time, and the two observers put **different own-frame times** on
+//! laboratory time, and the two observers put different own-frame times on
 //! that same arrival while both agreeing that it happened.
 //!
-//! **derived, no entities, no rollback state**, in the same shape as
+//! derived, no entities, no rollback state, in the same shape as
 //! `dual_observer`. Everything is recomputed from `SpacetimeCoordinateTime2d`
 //! and canonical `BodyKinematics`, so a rewound simulation republishes the
 //! identical value on the next pass and no schema had to move.
@@ -47,7 +47,7 @@ pub const PULSE_PERIOD_SECONDS: f64 = 2.4;
 
 /// How long after emission a pane still draws the moving front.
 ///
-/// **shorter than the period on purpose.** At `INVARIANT_SPEED` a front
+/// shorter than the period on purpose. At `INVARIANT_SPEED` a front
 /// leaves the drawn pane after about this long, and a dot pinned to the pane
 /// edge would read as a pulse that stopped.
 pub const PULSE_VISIBLE_SECONDS: f64 = 1.7;
@@ -62,9 +62,9 @@ pub const SPEED_INVARIANCE_TOLERANCE: f64 = 1.0e-6;
 /// Below this the two panes' apparent angles are reported as agreeing.
 pub const ABERRATION_EPSILON_DEGREES: f32 = 0.5;
 
-/// One ray of the flare, named by where it goes **in the laboratory**.
+/// One ray of the flare, named by where it goes in the laboratory.
 ///
-/// **named for the laboratory, not for the traveler.** "Chased" and
+/// named for the laboratory, not for the traveler. "Chased" and
 /// "head-on" are facts about an observer, and the traveler may fly either way
 /// along the axis; naming the ray by its own frame-independent laboratory
 /// direction keeps the pane honest when the traveler turns around.
@@ -122,7 +122,7 @@ pub fn latest_pulse_index(coordinate_time: f64) -> Option<u64> {
 
 /// Laboratory position of one ray's front.
 ///
-/// **this is the whole definition of the projectile.** There is no stored
+/// this is the whole definition of the projectile. There is no stored
 /// position and no integrator: the front is wherever the emission event plus
 /// `c` times the elapsed coordinate time puts it. `None` before emission.
 pub fn pulse_front_position(
@@ -185,14 +185,14 @@ pub struct PulseObserverReport {
     /// Both observers agree this event happened and agree on this number,
     /// because it is a laboratory-chart fact.
     pub omega_arrival_coordinate_time: f64,
-    /// The **same arrival**, timed on this observer's own clock relative to its
+    /// The same arrival, timed on this observer's own clock relative to its
     /// own now. The two observers disagree about this and agree about whether
     /// it happened — which is what a light cone buys you.
     pub omega_arrival_frame_seconds: f64,
 }
 
 impl PulseObserverReport {
-    /// **an exhaustive match, not a search.** `rays` is filled in
+    /// an exhaustive match, not a search. `rays` is filled in
     /// [`PulseRay::ALL`]'s order; a new variant breaks this match at compile
     /// time, and `every_ray_lands_in_its_own_slot` pins the two orders together.
     pub fn ray(&self, ray: PulseRay) -> &PulseRayMeasurement {
@@ -212,7 +212,7 @@ impl PulseObserverReport {
 
 /// The light-pulse read model: what each of the two panes is showing.
 ///
-/// **not rollback state and deliberately not registered**, for the same
+/// not rollback state and deliberately not registered, for the same
 /// reason as `TwinTrackDualObserverView`: every field is a pure function of
 /// coordinate time and canonical kinematics.
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
@@ -234,7 +234,7 @@ impl TwinTrackLightPulseView {
             .is_some_and(|(lab, traveler)| lab.pulse_index == traveler.pulse_index)
     }
 
-    /// **The postulate.** Both observers measured every ray at the invariant
+    /// The postulate. Both observers measured every ray at the invariant
     /// speed, however fast they are moving relative to each other.
     pub fn speed_is_invariant_for_both(&self) -> bool {
         self.both().is_some_and(|(lab, traveler)| {
@@ -284,7 +284,7 @@ impl TwinTrackLightPulseView {
 /// separation's size cancels, so this is genuinely `dx'/dt'` and not a
 /// normalization dressed up as one.
 ///
-/// **the naive answer is `c - v` and it is wrong.** For an observer flying at
+/// the naive answer is `c - v` and it is wrong. For an observer flying at
 /// `0.9c` alongside the toward-Omega ray the boost returns `dt' = 0.229 s` and
 /// `dx' = 0.229 c*s`, not `dt' = 1 s` and `dx' = 0.1 c*s`. The observer's own
 /// clock and ruler shrink by exactly the amount that keeps the ratio at `c`.
@@ -393,7 +393,7 @@ pub fn aberrated_direction(
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PulseFrameSample {
     /// Laboratory time of the pulse event this observer calls simultaneous with
-    /// its own current event. It is **not** the laboratory's now: that is the
+    /// its own current event. It is not the laboratory's now: that is the
     /// relativity of simultaneity acting on the pulse itself.
     pub coordinate_time: f64,
     /// Offset from the observer to that event, in the observer's own frame.
@@ -404,9 +404,9 @@ pub struct PulseFrameSample {
     pub frame_time: f64,
 }
 
-/// Where an observer says a ray's front is **at one instant of its own time**.
+/// Where an observer says a ray's front is at one instant of its own time.
 ///
-/// **this is not `observer_frame_offset`.** That function length-contracts a
+/// this is not `observer_frame_offset`. That function length-contracts a
 /// rod at rest in the laboratory. A pulse front is not at rest, so contracting
 /// its laboratory-now position would answer a different question and be wrong by
 /// exactly the term that carries the lesson. What happens here instead: solve

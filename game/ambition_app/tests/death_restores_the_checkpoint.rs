@@ -1,5 +1,5 @@
-//! **The checkpoint decides what a death takes back — not what kind of thing it
-//! is.**
+//! The checkpoint decides what a death takes back — not what kind of thing it
+//! is.
 //!
 //! ```text
 //! C0: a reward is authored on its pedestal
@@ -8,8 +8,8 @@
 //!   after C1 pick up something else, die   → you still have the first, the second went back
 //! ```
 //!
-//! **the third line is the whole test, and it is why `KeyItem => survives
-//! death` is the wrong shape.** An item-kind rule satisfies the first two lines
+//! the third line is the whole test, and it is why `KeyItem => survives
+//! death` is the wrong shape. An item-kind rule satisfies the first two lines
 //! and fails the third: the thing that decides is WHEN the acquisition happened
 //! relative to the last committed checkpoint, and the kind of object never enters
 //! the question. Encoding a kind rule would put a second authority beside the
@@ -19,8 +19,8 @@
 //!
 //! Every beat goes through an ordinary road: the authored LDtk ground item, the
 //! real pressed pickup, a real `HealShrine` touched with a real `Interact`, and
-//! a real death report. **nothing here writes `CheckpointCommitted`,
-//! `ResetToCheckpoint`, `OccurrenceBaseline` or `CustodyBaseline` directly.**
+//! a real death report. nothing here writes `CheckpointCommitted`,
+//! `ResetToCheckpoint`, `OccurrenceBaseline` or `CustodyBaseline` directly.
 //! Writing the baseline by hand and then asserting the baseline would be a test
 //! of `clone()`; the claim under test is that the death road and the checkpoint
 //! road MEET, and only production wiring can be wrong about that.
@@ -60,7 +60,7 @@ type Ground = ambition_platformer2d::actors::items::pickup::GroundItem;
 
 /// Every live occurrence of `authored`, and whether each is in a hand.
 ///
-/// **a COUNT, never a lookup.** "Do I still have the key" is answered by the
+/// a COUNT, never a lookup. "Do I still have the key" is answered by the
 /// entity in your hand and says nothing about the copy the pedestal may have
 /// minted beside it — and a duplicate is one of the two ways this can fail.
 fn occurrences(sim: &mut Platformer2dSimHarness, authored: &SimId) -> Vec<(Entity, Custody)> {
@@ -175,7 +175,7 @@ fn pick_up(sim: &mut Platformer2dSimHarness, at: (f32, f32), authored: &SimId) {
 /// Rest at a shrine: spawn one where the body stands, press Interact, and let
 /// the commit land.
 ///
-/// **the shrine is despawned again afterwards.** It is a fixture prop, and one
+/// the shrine is despawned again afterwards. It is a fixture prop, and one
 /// left standing would re-commit a checkpoint every time a later beat presses
 /// Interact for some other reason.
 fn commit_a_checkpoint(sim: &mut Platformer2dSimHarness) {
@@ -216,9 +216,9 @@ fn die(sim: &mut Platformer2dSimHarness) {
     sim.step_n(base(), 240);
 }
 
-/// **THE FIXTURE. Seven beats, in the order the rule states them.**
+/// THE FIXTURE. Seven beats, in the order the rule states them.
 ///
-/// **one test rather than seven, because the beats are a HISTORY.** Beat 6's
+/// one test rather than seven, because the beats are a HISTORY. Beat 6's
 /// claim ("still held") is only meaningful given beat 5 happened, and splitting
 /// them would need each to reconstruct the world state of the last — which is
 /// precisely the direct state-writing this file refuses.
@@ -295,7 +295,7 @@ fn a_death_returns_what_was_not_banked_and_keeps_what_was() {
         "the temporary object was acquired AFTER C1 and never banked, so the \
          same death that keeps the reward must take this one back",
     );
-    // **AND THE REWARD IS BACK IN THE HAND, not merely still one object.**
+    // AND THE REWARD IS BACK IN THE HAND, not merely still one object.
     // Putting it down happened AFTER C1 and was never banked, so it is undone by
     // exactly the same rule that takes the temporary object back — the reset
     // restores the state at C1, and at C1 this was in a hand.
@@ -345,7 +345,7 @@ fn walk_to(sim: &mut Platformer2dSimHarness, target: &str) {
             .unwrap_or_else(|| panic!("'{before}' has no door to '{target}'"))
     };
     let center = zone.aabb.center();
-    // **STEP OUT OF THE ZONE FIRST.** Arriving through a door leaves the body
+    // STEP OUT OF THE ZONE FIRST. Arriving through a door leaves the body
     // standing INSIDE the return zone, and a transition that fired the moment
     // you landed in it would ping-pong; so the crossing wants the player to
     // enter the zone rather than to already be in it. Without this the return
@@ -356,15 +356,15 @@ fn walk_to(sim: &mut Platformer2dSimHarness, target: &str) {
     sim.step_n(base(), 10);
     sim.teleport_player((center.x, center.y));
     for frame in 0..90 {
-        // **RE-PLACED EVERY FRAME, because gravity takes the body straight
-        // back out of the zone.** A single teleport plus ninety frames of
+        // RE-PLACED EVERY FRAME, because gravity takes the body straight
+        // back out of the zone. A single teleport plus ninety frames of
         // Interact never fired the return crossing and produced no diagnostic
         // either — the system's own `warn_once` is for a body TOUCHING a zone,
         // and this body was not touching it after the first frame. Standing
         // still in the zone is also the discrete case the swept test preserves
         // exactly: a zero-length delta degrades to the overlap it always was.
         sim.teleport_player((center.x, center.y));
-        // **the press is an EDGE, so it is released between attempts.**
+        // the press is an EDGE, so it is released between attempts.
         // `wants_interact` reads `slot_gestures.primary().buffered()`; holding
         // Interact down forever arms the gesture once and never again, which is
         // why ninety frames of a held button crossed nothing while the body was
@@ -385,8 +385,8 @@ fn walk_to(sim: &mut Platformer2dSimHarness, target: &str) {
     panic!("held Interact in the '{before}' door to '{target}' for 90 frames and never crossed");
 }
 
-/// **A BANKED OBJECT WHOSE ENTITY THE WORLD DESTROYED COMES BACK INTO THE HAND
-/// THAT BANKED IT — the same occurrence, MATERIALIZED, not re-authored.**
+/// A BANKED OBJECT WHOSE ENTITY THE WORLD DESTROYED COMES BACK INTO THE HAND
+/// THAT BANKED IT — the same occurrence, MATERIALIZED, not re-authored.
 ///
 /// The player lost the "still acquired" property they had banked — recoverable, and wrong. What
 /// closed it is materialization: the reset now reaches the record BY IDENTITY, wherever in the
@@ -401,7 +401,7 @@ fn walk_to(sim: &mut Platformer2dSimHarness, target: &str) {
 /// not annihilated   the count is one rather than zero
 /// ```
 ///
-/// **the NON-VACUITY guard is load-bearing and is asserted, not assumed**: the
+/// the NON-VACUITY guard is load-bearing and is asserted, not assumed: the
 /// occurrence's entity really is gone before the death. Without it the whole
 /// scenario can pass while the ordinary re-assignment arm does all the work and
 /// materialization is never exercised at all.
@@ -495,7 +495,7 @@ fn a_banked_object_whose_room_unloaded_returns_to_the_hand_that_banked_it() {
 // side: a RUNTIME-MINTED instance. It is room-scoped and carryable, so it can
 // enter the custody baseline, and no record anywhere can rebuild it.
 //
-// **the production road that mints one is the inventory leg.** `OwnedItems`
+// the production road that mints one is the inventory leg. `OwnedItems`
 // is a COUNT TABLE — a quantity, not an object — and the inventory menu equips
 // straight out of it, so the body ends up holding a spec with no world instance
 // behind it. Throwing that turns the quantity into an INSTANCE, and
@@ -513,7 +513,7 @@ const MINTED_ITEM: Item = Item::Javelin;
 
 /// Every live occurrence the SIMULATION minted, by identity.
 ///
-/// **it asks the `SpawnOrigin`, never the spelling of the id.** `SimId`'s own
+/// it asks the `SpawnOrigin`, never the spelling of the id. `SimId`'s own
 /// doc is explicit that the string is a legibility convenience and that nothing
 /// may recover a fact from it — provenance is a component precisely so a change
 /// to the id grammar cannot silently change what reconstruction believes. A test
@@ -529,7 +529,7 @@ fn dynamic_occurrences(sim: &mut Platformer2dSimHarness) -> Vec<SimId> {
     found
 }
 
-/// **Turn a QUANTITY into an INSTANCE on the production road**, and return the
+/// Turn a QUANTITY into an INSTANCE on the production road, and return the
 /// identity the simulation minted for it.
 ///
 /// Three beats, all of them the game's own:
@@ -542,16 +542,16 @@ fn dynamic_occurrences(sim: &mut Platformer2dSimHarness) -> Vec<SimId> {
 ///                                       behind the hand and mints one
 /// ```
 ///
-/// **beat 2 calls the production verb directly rather than driving the menu
-/// UI**, for the same reason this file constructs the shrine: the claim under
+/// beat 2 calls the production verb directly rather than driving the menu
+/// UI, for the same reason this file constructs the shrine: the claim under
 /// test is what the CHECKPOINT does with a minted instance, and the inventory
 /// grid's cursor navigation is a different subsystem that no other test here
 /// drives. `equip_held_spec` is not a test shim — `menu::effects` reaches this
 /// exact function with these exact arguments, and it is the one place a body
 /// comes to hold anything.
 ///
-/// **beat 3 is NOT called directly, and that is the part that must not be
-/// faked.** The mint is the thing under test.
+/// beat 3 is NOT called directly, and that is the part that must not be
+/// faked. The mint is the thing under test.
 fn mint_a_dynamic_item(sim: &mut Platformer2dSimHarness) -> SimId {
     use ambition_platformer2d::actors::items::{ItemGrantRequested, OwnedItems};
     use bevy::ecs::system::RunSystemOnce;
@@ -638,8 +638,8 @@ fn equip_the_minted_item(
     );
 }
 
-/// **A: A RUNTIME-MINTED INSTANCE BANKED AT A CHECKPOINT COMES BACK TO THE HAND,
-/// EVEN AFTER THE WORLD DESTROYED IT.**
+/// A: A RUNTIME-MINTED INSTANCE BANKED AT A CHECKPOINT COMES BACK TO THE HAND,
+/// EVEN AFTER THE WORLD DESTROYED IT.
 ///
 /// The authored twin of this scenario is
 /// `a_banked_object_whose_room_unloaded_returns_to_the_hand_that_banked_it`, and
@@ -729,7 +729,7 @@ fn a_banked_runtime_mint_returns_to_the_hand_that_banked_it() {
         live[0].1.held_by(custodian),
         "and back into the hand the checkpoint NAMED"
     );
-    // **AND IT COMES BACK RECONSTRUCTABLE.** A rebuilt instance that stated
+    // AND IT COMES BACK RECONSTRUCTABLE. A rebuilt instance that stated
     // no provenance would be invisible to the NEXT capture — it would survive
     // exactly one death and then be unrecoverable — and `SpawnOrigin::Dynamic`'s
     // own doc refuses to let "dynamic, parent unknown" be spelled at all.
@@ -740,8 +740,8 @@ fn a_banked_runtime_mint_returns_to_the_hand_that_banked_it() {
     );
 }
 
-/// **B1: A RUNTIME-MINTED INSTANCE STILL IN THE HAND AT DEATH, ACQUIRED AFTER
-/// THE CHECKPOINT, IS TAKEN BACK.**
+/// B1: A RUNTIME-MINTED INSTANCE STILL IN THE HAND AT DEATH, ACQUIRED AFTER
+/// THE CHECKPOINT, IS TAKEN BACK.
 ///
 /// The ordinary retraction arm, reached by an object that has no authored record
 /// behind it — so the despawn cannot be softened into "let the room re-author
@@ -792,8 +792,8 @@ fn a_runtime_mint_acquired_after_the_checkpoint_is_gone_after_a_death() {
     );
 }
 
-/// **this is the half that stops the cheap wrong answer, and B1 above does
-/// NOT stop it.** In B1 the object is still a live entity when the death lands,
+/// this is the half that stops the cheap wrong answer, and B1 above does
+/// NOT stop it. In B1 the object is still a live entity when the death lands,
 /// so the ordinary retraction arm despawns it and any implementation passes.
 /// Here the entity is already gone — destroyed with the room it was left in —
 /// which is precisely the state that made fixture A need materialization at all.
@@ -855,109 +855,13 @@ fn a_runtime_mint_the_checkpoint_never_saw_is_not_resurrected_by_a_death() {
     );
 }
 
-/// **B: A RUNTIME-MINTED INSTANCE BANKED WHERE IT FELL COMES BACK THERE —
-/// the complement of A, and the case that was silently lost.**
+/// A runtime-minted item that was present at the checkpoint is rebuilt at its
+/// recorded resting place after its room entity is destroyed.
 ///
-/// ```text
-/// mint      throw a javelin on the production road; it lands and stays there
-/// bank      a real shrine rest, with it lying in the room and in NOBODY's hand
-/// destroy   walk next door so the room unloads and the object is destroyed
-/// die       and it is back, same identity, exactly once, where it fell
-/// ```
-///
-/// **A and B are exact complements, and only A worked.** An in-custody mint is DESCRIBED
-/// (`live_minted_descriptions`) and unplaced, because the hand supplies where it is.
-///
-/// That is not expressible while the only mints that survive a death are the ones somebody was
-/// holding.
-///
-/// **the room unload is load-bearing, not scene-setting.** Without it the
-/// object is never destroyed, the restore has nothing to rebuild, and this test
-/// passes while measuring nothing — the same vacuity A avoids the same way.
-///
-/// **it dies WITHOUT LEAVING, and that is the whole trick.** The death road
-/// writes `ResetToCheckpoint`, and the room is torn down and rebuilt around the
-/// body (`room-reset reasons=[Manual]`) — which is exactly the rebuild whose
-/// reinstatement debt the arm settles. An earlier draft walked next door and
-/// back to force the same rebuild, and could not: the return crossing is refused
-/// for a reason six measurements did not find. Staying put needs no door at all.
-///
-/// **the eliminations are kept anyway**, because the return trip is a real
-/// harness gap that the next fixture to need it will hit:
-///
-/// ```text
-/// room=central_hub_complex  owed=["slot:0/0"]  minted_present=true
-/// settling "slot:0/0": described=true
-/// pushing a rebuild request for "slot:0/0" at Vec2(1323.3, 954.8)
-/// [world-event] room-reset reasons=[Manual]
-/// [game-mode]   request playing <- room_transition_abandoned
-/// ```
-///
-/// So the reinstatement produces the right request, at the position the object
-/// fell, for the right room.
-///
-/// * **a death does not return the player to the checkpoint's ROOM.** Test A can
-///   assert from anywhere because a HAND travels with the body; an object lying
-///   on a floor is visible only from the room it is in, and after the death
-///   `duel_arena` is still the loaded room. Asserting there asserts that a room
-///   nobody is in has not been rebuilt.
-/// * **`walk_to` cannot come BACK, and five hypotheses are eliminated.** Going
-///   ROOM → NEIGHBOUR works and has always been the only direction any test
-///   used. The return crossing never fires in 90 frames, and the body is
-///   demonstrably standing in the right zone while it does not:
-///
-/// ```text
-///   zone  Aabb2d { min: (16, 592), max: (64, 688) }   in `duel_arena`,
-///                                                     targeting the hub
-///   body  (40.0, 640.6)                               inside it, every frame
-/// ```
-///
-///   Ruled out, each by measurement: the ACTIVATION kind (`is_ready` accepts a
-///   held Interact for all three variants); an anti-ping-pong LATCH (stepping
-///   out of the zone and back in changes nothing); the body FALLING out under
-///   gravity (it is re-placed every frame now, and stays); the interact EDGE
-///   never re-arming (the press is released between attempts now); and a
-///   missing DIAGNOSTIC — the system's own `warn_once` for "touching a zone and
-///   still refused" is silent because it already fired on the outward trip.
-///
-///   **and a SIXTH: it is not the activation asymmetry either.** Both seams
-///   are `Door`, measured — so the outward trip is not succeeding because it
-///   needs no press while the return does:
-///
-/// ```text
-///   central_hub_complex -> duel_arena          activation=Door   fires
-///   duel_arena          -> central_hub_complex activation=Door   refused
-/// ```
-///
-///   ⇒ two identical-looking Doors, one of which works. `transition_from_zone`
-///   resolves for BOTH (`walk_to`'s own discovery calls it and gets `Some`), so
-///   the graph edge exists in both directions and the remaining suspect is the
-///   state the system reads that the discovery does not: `wants_interact` from
-///   `slot_gestures.primary().buffered()`, or an early return above it
-///   (`sim_state.remaining > 0.0`). Finding it wants a look at the gesture
-///   buffer after a crossing, not more fixture attempts.
-///
-/// ⇒ the honest state: the debt is now settleable and the request is correct;
-/// the round trip that would SHOW it needs a fixture that can walk back. The arm
-/// is worth keeping regardless — without it the debt could never be settled at
-/// all, and the warn it replaces was the object being lost.
-///
-/// one resolver detail worth keeping, because it cost a measurement: a mint that came out of the
-/// INVENTORY resolves through `held_spec_by_id` (the item catalog), not
-/// `ambition_characters::brain::held_item_by_id` (the brain registry). The narrow lookup answers
-/// `None` for a javelin and sent it down the "no item spec answers to that id" arm — losing it a
-/// second time, in the code written to stop losing it.
-///
-/// What is missing is the REBUILD, and measuring it corrected where the fix
-/// goes. Putting a second materializer in `restore_custody_to_checkpoint` does
-/// not work: `ResetToCheckpoint` is processed while the active room is still the
-/// one the player died in (measured: `duel_arena`), so the row's room is not
-/// loaded and nothing can be spawned into it. ⇒ the debt belongs to the ROOM
-/// BUILD, which already settles exactly this obligation via
-/// `outlook.reinstatements()` by relocating an AUTHORED record — and a runtime
-/// mint falls through to a warn because no room authors a record for it. The
-/// remaining work is a describer arm there, which needs the minted baseline
-/// threaded into the room-construction context.
+/// The room unload is required so this exercises reconstruction rather than an
+/// already-resident entity. Runtime mints resolve through the item catalog, and
+/// reinstatement is settled during room construction because the checkpoint reset
+/// may run while a different room is active.
 #[test]
 fn a_mint_banked_where_it_fell_comes_back_where_it_fell() {
     let mut sim = fixed_60hz_room_sim(ROOM);
@@ -965,7 +869,7 @@ fn a_mint_banked_where_it_fell_comes_back_where_it_fell() {
 
     let minted = mint_a_dynamic_item(&mut sim);
 
-    // **PICKED UP AND PUT DOWN AGAIN, and that is not ceremony.** The whereabouts ledger tracks
+    // PICKED UP AND PUT DOWN AGAIN, and that is not ceremony. The whereabouts ledger tracks
     // only occurrences it ALREADY remembers — the condition is `remembers(sim_id)`, so the
     // population is exactly "things somebody carried", never "every object in the room". Its own
     // doc refuses to be the universal instance registry that would take.
@@ -989,7 +893,7 @@ fn a_mint_banked_where_it_fell_comes_back_where_it_fell() {
     // custody and must still be able to describe it.
     commit_a_checkpoint(&mut sim);
 
-    // **DIE WITHOUT LEAVING, so the room resets IN PLACE.** The death road
+    // DIE WITHOUT LEAVING, so the room resets IN PLACE. The death road
     // writes `ResetToCheckpoint` and the room is torn down and rebuilt around
     // the body — `room-reset reasons=[Manual]` — which is exactly the rebuild
     // whose reinstatement debt this arm settles. Walking next door and back
@@ -1014,7 +918,7 @@ fn a_mint_banked_where_it_fell_comes_back_where_it_fell() {
     );
 }
 
-/// **ONE ENTITLEMENT MUST NOT MANIFEST TWO OBJECTS.**
+/// ONE ENTITLEMENT MUST NOT MANIFEST TWO OBJECTS.
 ///
 /// What that could not reach is an entitlement that never had an object behind it: a granted
 /// quantity is `stored`, the throw mints an INSTANCE, and nothing spends the row.
@@ -1041,8 +945,8 @@ fn one_granted_quantity_mints_exactly_one_object() {
     // Try to spend it TWICE, the way the grid would: the menu offers an item the
     // player owns, so a round is attempted only while the entitlement is there.
     //
-    // **the ownership check is the menu's rule, restated — it is not this test
-    // being polite.** `equip_held_spec` is the take-custody verb and equips
+    // the ownership check is the menu's rule, restated — it is not this test
+    // being polite. `equip_held_spec` is the take-custody verb and equips
     // whatever it is handed; what decides that a row is offerable is the grid,
     // and the whole point of spending the row at the mint is that the grid stops
     // offering it. A round that equipped regardless would be measuring a
@@ -1081,8 +985,8 @@ fn one_granted_quantity_mints_exactly_one_object() {
     );
 }
 
-/// **AND A DEATH PUTS THE ENTITLEMENT BACK — the half that makes spending it
-/// safe.**
+/// AND A DEATH PUTS THE ENTITLEMENT BACK — the half that makes spending it
+/// safe.
 ///
 /// The throw's own comment said exactly that, and it is why the gate stood.
 ///

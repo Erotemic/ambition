@@ -75,7 +75,7 @@ fn a_gap_above_the_head_is_not_a_stomp() {
     );
 }
 
-/// **RUNNING INTO A SHORT ENEMY ON FLAT GROUND IS A SIDE HIT, NOT A STOMP.**
+/// RUNNING INTO A SHORT ENEMY ON FLAT GROUND IS A SIDE HIT, NOT A STOMP.
 ///
 /// hit instead of her."*
 ///

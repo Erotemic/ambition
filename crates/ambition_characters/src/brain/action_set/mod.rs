@@ -44,7 +44,7 @@ pub struct ActionSet {
     pub special: Option<SpecialActionSpec>,
 }
 
-/// **A body's kit before equipment** — what its IDENTITY alone grants.
+/// A body's kit before equipment — what its IDENTITY alone grants.
 ///
 /// Worn equipment may grant action verbs, and a grant has to be revocable: a row
 /// that is consumed, downgraded, or unequipped must take its verb with it. That is
@@ -69,7 +69,7 @@ pub struct IdentityKit {
 }
 
 impl IdentityKit {
-    /// **Publish what identity alone derived**, from the pair it derived.
+    /// Publish what identity alone derived, from the pair it derived.
     ///
     /// Both construction paths built this struct literally — the spawn bundle and the persona
     /// derive — which is two places deciding what "the baseline" contains.
@@ -99,13 +99,13 @@ impl ActionSet {
         self.melee.is_some() || self.ranged.is_some()
     }
 
-    /// **This repertoire, narrowed to what the body may currently do.**
+    /// This repertoire, narrowed to what the body may currently do.
     ///
     /// Splitting them is what lets a character AUTHOR its canonical repertoire
     /// and progression filter it: the definition says the robot has a swipe, a
     /// bolt and a bubble shield; this says today it has two of them.
     ///
-    /// **`ranged` is deliberately ungated**, and that is inherited rather than
+    /// `ranged` is deliberately ungated, and that is inherited rather than
     /// chosen: there is no projectile ability in `AbilitySet`, so gating it here
     /// would silently disarm every ranged character. When such a flag exists this
     /// is the one place that changes.
@@ -125,7 +125,7 @@ impl ActionSet {
 /// What a plain `Attack` does to / with a held item — authored on the spec
 /// instead of a hardcoded id-chain in `item_pickup::throw_held_item_system`
 /// (Refactor 5). The narrow vocabulary the "Pick-up / throw held items" item
-/// named; **not** a generic plugin system.
+/// named; not a generic plugin system.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Deserialize)]
 pub enum HeldUseBehavior {
     /// Derive from the verbs: an item WITH a melee/ranged verb keeps on use
@@ -418,7 +418,7 @@ pub fn held_item_ids() -> Vec<String> {
 }
 
 /// Concrete melee actions an actor can perform. Each variant carries
-/// its **own** animation timing (windup → active → recover) — there
+/// its own animation timing (windup → active → recover) — there
 /// is no separate `TelegraphSpec`.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
 #[allow(
@@ -668,7 +668,7 @@ pub enum MoveStyleSpec {
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum SpecialActionSpec {
     /// An open, content-defined special. The `String` is the special
-    /// **key** (snake_case, e.g. `"overfit_volley"`); the matching
+    /// key (snake_case, e.g. `"overfit_volley"`); the matching
     /// content-owned *Technique* reads its own params + emits the
     /// effects. The brain emits this when a `BossAttackProfile::Special`
     /// beat strikes (see `BossAttackProfile::special_key`). The old
@@ -791,7 +791,7 @@ pub enum ActionRequest {
         spec: MeleeActionSpec,
         origin: ae::Vec2,
         facing: f32,
-        /// **body-LOCAL**, and typed so the request cannot lose the frame the
+        /// body-LOCAL, and typed so the request cannot lose the frame the
         /// control frame already established. It was `Vec2`, so the resolver had
         /// to call `.vec()` on a typed field and hand the request a vector that
         /// no longer said which space it was in — a round trip through an
@@ -994,7 +994,7 @@ pub fn resolve(
 #[cfg(test)]
 mod tests;
 
-// **THE ONE FIELD TYPE THAT KEPT `CharacterDefinition` IN THE MONOLITH.**
+// THE ONE FIELD TYPE THAT KEPT `CharacterDefinition` IN THE MONOLITH.
 //
 // Asking it once, the answer was short: every other field on that struct is already an
 // `ambition_characters`, `ambition_platformer2d_core` or `ambition_entity_catalog` type — and
@@ -1024,7 +1024,7 @@ mod tests;
 /// exactly as it was; this is the derivation-time decision that installs it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum RangedExecution {
-    /// **A CHARGEABLE PROJECTILE owns the ranged press** — hold to build, release
+    /// A CHARGEABLE PROJECTILE owns the ranged press — hold to build, release
     /// to fire.
     ///
     /// its ranged verb is NOT a moveset move — folding one in would make one

@@ -1,48 +1,14 @@
-//! **Who owns the local GGRS session** — the engine, not a developer tool.
+//! Engine ownership of the local GGRS session.
 //!
-//! A GGRS host advances the simulation only while a `Session` resource exists: with none,
-//! `GgrsSchedule` runs zero times and the app composes, boots, renders and never simulates.
-//!
-//! **and until this module the ONLY thing that installed one was
-//! `RollbackObservatoryPlugin`, behind `#[cfg(feature = "dev_tools")]`.** That is
-//! why `build_visible_app` chose the GGRS host inside the same `cfg`: not a
-//! developer convenience, but a coupling — the host choice depended on the only
-//! thing that could supply a session, so a build without dev tooling could not
-//! safely pick it. It is also why the shipped rollback schema was exercised by
-//! nothing outside the test harnesses.
-//!
-//! # The split this module is
-//!
-//! The dev observatory did two jobs in one 120-line function. They are different
-//! jobs and only one of them is a developer's:
-//!
-//! | | owns | lives |
-//! |---|---|---|
-//! | **the session OWNER** (here) | whether a session exists at all, and for how many players | the engine |
-//! | **the proof instrument** (`dev::rollback_observatory`) | how many frames it verifies, on request | dev tooling |
-//!
-//! So the observatory is now a KNOB on this owner rather than a second owner —
-//! it raises [`LocalSessionPolicy::check_distance`] for a pulse and lowers it
-//! again. two owners of one session is the shape this repo has been bitten by
-//! before (three sites learned a roster's `published_by` separately), and a
-//! relocation avoids it by construction: there is still exactly one owner.
-//!
-//! **a session this module did not start is never replaced.** A future
-//! Matchbox/P2P session is authoritative; the owner steps aside for it, which is
-//! the same rule the observatory had and the reason `install_session` exists as a
-//! separate seam.
-//!
-//! **and a composition may reserve the START for its caller** —
-//! [`LocalSessionPolicy::autostart`]. "Step aside for a session I did not start"
-//! is only half a rule: it cannot fire before the other session EXISTS, and a
-//! caller that has to construct a world first (`ambition_platformer2d::rollback::start`
-//! activates, settles, and only then rebases frame zero) has no session to be
-//! deferred to during exactly the window where the owner would install one.
+//! A GGRS host simulates only while a session resource exists. This module owns
+//! the default local session; developer verification only adjusts its policy.
+//! Sessions installed by another owner are never replaced. Compositions that
+//! construct and install their own session can disable autostart through
+//! [`LocalSessionPolicy::autostart`].
 
 use bevy::prelude::*;
 
-/// Where the local session is decided, so a developer instrument can order its
-/// policy write BEFORE the owner acts on it in the same frame.
+/// Ordering point for policy writers before the local session owner runs.
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum LocalSessionSet {
     /// [`maintain_local_session`] runs here.
@@ -51,12 +17,11 @@ pub enum LocalSessionSet {
 
 use super::session::{AmbitionGgrsSession, SyncTestSettings};
 
-// **the declaration is the INPUT layer's** — a host consumes who is playing, it
+// the declaration is the INPUT layer's — a host consumes who is playing, it
 // does not define it. See `ambition_input::seating`.
 use ambition_input::SessionSeatingSource;
 
-/// How the local session is configured. The OWNER reads it; a developer
-/// instrument may write it to ask for deeper verification.
+/// Configuration read by the local session owner and writable by verification tools.
 #[derive(Resource, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct LocalSessionPolicy {
     /// Frames of resimulation the session verifies each tick. `0` = rollback
@@ -64,13 +29,8 @@ pub struct LocalSessionPolicy {
     pub check_distance: usize,
     /// The furthest the session may speculate ahead of confirmation.
     pub max_prediction_window: usize,
-    /// Whether the owner may start a session ITSELF once gameplay is active.
-    ///
-    /// `true` — the default — is what a shipped app wants: nothing else is
-    /// going to install one, and a GGRS host without a session never simulates.
-    ///
-    /// **`false` means the CALLER starts it**, and it exists because "somebody else's session
-    /// outranks mine" cannot arbitrate a session that does not exist yet.
+    /// Whether this owner may start a session once gameplay is active. Disable
+    /// this when the composition installs its own session.
     pub autostart: bool,
 }
 
@@ -88,51 +48,28 @@ impl Default for LocalSessionPolicy {
 /// from "the policy changed" from "somebody else's session".
 #[derive(Resource, Default, Debug)]
 pub struct LocalSessionOwnership {
-    /// The policy the live session was started WITH — a memo, not a claim.
-    ///
-    /// That is the precise thing the module's own comment says must never happen .
-    ///
-    /// [`RollbackSessionOwnership`] is the single authority now. This answers
-    /// only *"with which policy"*, and is read ONLY once that resource has
-    /// already said the live session is locally owned.
+    /// Policy used to start the live locally owned session. Ownership itself is
+    /// authoritative in [`RollbackSessionOwnership`].
     started: Option<LocalSessionPolicy>,
     pub last_error: Option<String>,
 }
 
 impl LocalSessionOwnership {
-    /// The policy the live session was started with. **not an ownership
-    /// test** — ask [`locally_owned`] first.
+    /// The policy the live session was started with. not an ownership
+    /// test — ask [`locally_owned`] first.
     pub fn running_policy(&self) -> Option<LocalSessionPolicy> {
         self.started
     }
 
-    /// Forget which policy the live session was started with, so the maintainer
-    /// rebuilds it on the next frame.
-    ///
-    /// For a caller that has just invalidated the world under the session — a
-    /// content hot-reload — and needs it rebased. it does NOT touch the frozen
-    /// seating: a reload changes the level, not who is playing.
-    ///
-    /// **this now actually rebuilds.** While `started` was the ownership test,
-    /// clearing it made the session look externally owned, and the maintainer
-    /// stepped aside instead of rebasing — the opposite of what this method's
-    /// name and its callers intend.
+    /// Force the locally owned session to rebuild on the next frame without
+    /// changing frozen seating, for example after world content is invalidated.
     pub fn release(&mut self) {
         self.started = None;
     }
 }
 
-/// The live session's settings **if it is a sync-test session at all**.
-///
-/// Match activation starts its own sync-test session with the decided roster's player count.
-/// Treating that as "mine" made the maintainer stop a two-player match session and rebuild it with
-/// its own count — `two_local_seats_drive_independently_under_a_rollback_host` went red with *"seat
-/// two authored 40 frames of right and its fighter moved 0.00px"*.
-///
-/// **that residue is CLOSED**: the enum names the OWNER now
-/// (`SyncTestOwner::{LocalMaintainer, Caller}`), so this asks for the
-/// maintainer's own sessions specifically and an `External` veto is no longer a
-/// separate check — a peer's session is simply not `LocalMaintainer`.
+/// Return settings only for sync-test sessions owned by the local maintainer.
+/// Caller- or peer-owned sessions are not eligible for maintenance here.
 fn maintained_settings(world: &World) -> Option<super::session::SyncTestSettings> {
     match world.get_resource::<super::session::RollbackSessionOwnership>() {
         Some(super::session::RollbackSessionOwnership::LocalSyncTest {
@@ -173,8 +110,8 @@ fn decided_or_device_seating(world: &mut World) -> usize {
                     topology.capture_for_roster(&order, plan);
                     topology.generation()
                 });
-            // **the topology the session was frozen from, recorded ON the
-            // claim.** Without it "the roster decided two seats" and "the
+            // the topology the session was frozen from, recorded ON the
+            // claim. Without it "the roster decided two seats" and "the
             // session is running two handles" are two assertions that usually
             // agree; with it they are one fact anything can cite.
             if let Some(SessionSeatingSource::Decided {
@@ -195,10 +132,10 @@ pub fn maintain_local_session(world: &mut World) {
     let gameplay_active =
         ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(world).is_some();
     let session_live = world.contains_resource::<AmbitionGgrsSession>();
-    // **ONE authority.** `RollbackSessionOwnership` says whose session this is;
+    // ONE authority. `RollbackSessionOwnership` says whose session this is;
     // `LocalSessionOwnership.started` only says which policy it was started with,
     // and is meaningless unless the first has already said "mine".
-    // **ONE authority, at last.** `RollbackSessionOwnership` now names the
+    // ONE authority, at last. `RollbackSessionOwnership` now names the
     // OWNER, not just the session kind, so "is this mine" is a question the
     // authority can answer — and `LocalSessionOwnership.started` is free to be
     // what it always should have been: the POLICY memo, read only once ownership
@@ -210,7 +147,7 @@ pub fn maintain_local_session(world: &mut World) {
             .and_then(|state| state.started),
     );
 
-    // **THE CALLER STARTS THIS ONE, so this owner must not.** `PlatformerApp::rollback(n)` sets
+    // THE CALLER STARTS THIS ONE, so this owner must not. `PlatformerApp::rollback(n)` sets
     // `autostart = false` because its own contract says it does not start a session — the
     // caller does, with `rollback::start`, which activates, settles and THEN rebases frame
     // zero. It cost the external consumer one tick — gate opened on 179 against 180 — which is
@@ -231,8 +168,8 @@ pub fn maintain_local_session(world: &mut World) {
             super::session::stop_session(world);
         }
         if owned_settings.is_some() {
-            // **THE TOPOLOGY BELONGS TO THE GAMEPLAY SESSION, so it ends with
-            // it.** Left standing it is the previous match's seating presented to
+            // THE TOPOLOGY BELONGS TO THE GAMEPLAY SESSION, so it ends with
+            // it. Left standing it is the previous match's seating presented to
             // the next one as a frozen fact — and the versus roster reads any
             // frozen topology without asking whether a session owns it, so two
             // people who played, quit and came back with one controller would
@@ -245,7 +182,7 @@ pub fn maintain_local_session(world: &mut World) {
         return;
     }
 
-    // **a session this module did not start is AUTHORITATIVE.** A Matchbox/P2P
+    // a session this module did not start is AUTHORITATIVE. A Matchbox/P2P
     // session installed through `install_session` outranks the local one; the
     // owner inspects and steps aside rather than replacing it.
     if session_live && owned_settings.is_none() {
@@ -259,7 +196,7 @@ pub fn maintain_local_session(world: &mut World) {
     // Already running exactly what is asked for — and "exactly" includes HOW
     // MANY PEOPLE.
     //
-    // **the policy alone was not enough.** The roster-aware seating freeze and this maintainer both
+    // the policy alone was not enough. The roster-aware seating freeze and this maintainer both
     // run in `Update` with no ordering contract between them, so on the first gameplay frame this
     // could freeze a topology from connected DEVICES before the roster published its decided
     // PARTICIPANTS — which differ for a keyboard seat, a spare pad, or a CPU seat.
@@ -277,7 +214,7 @@ pub fn maintain_local_session(world: &mut World) {
         super::session::stop_session(world);
     }
 
-    // **HOW MANY PEOPLE ARE PLAYING, asked once and frozen.**
+    // HOW MANY PEOPLE ARE PLAYING, asked once and frozen.
     //
     // The roster and the session both need to agree. Sampling `LocalDeviceOrder`
     // independently means a controller connecting between the two samples makes
@@ -290,7 +227,7 @@ pub fn maintain_local_session(world: &mut World) {
     // lasts — a policy change restarts the GGRS session but must NOT recapture,
     // or the topology would be stable only per sub-session, which is not the
     // lifetime anything else uses.
-    // **A HOST THAT WILL DECIDE A ROSTER MUST SAY SO, AND WAIT.**
+    // A HOST THAT WILL DECIDE A ROSTER MUST SAY SO, AND WAIT.
     //
     // `freeze_local_seating` captures from connected DEVICES, and devices are not participants: a
     // keyboard seat has no controller entity, a spare pad may not be playing, a CPU seat has no
@@ -355,7 +292,7 @@ mod seating_readiness_tests {
     use super::*;
     use bevy::prelude::World;
 
-    /// **A host that says nothing seats from devices — the common case.**
+    /// A host that says nothing seats from devices — the common case.
     ///
     /// this is asserted FIRST because it is what the gate must not break.
     #[test]
@@ -373,7 +310,7 @@ mod seating_readiness_tests {
         assert_eq!(decided_or_device_seating(&mut world), 1);
     }
 
-    /// **A claim with no decision yet HOLDS the session.**
+    /// A claim with no decision yet HOLDS the session.
     ///
     /// this gate shipped disarmed: `SeatingComesFromARoster` was defined and
     /// never inserted anywhere, so every roster-driven host still raced its own
@@ -391,7 +328,7 @@ mod seating_readiness_tests {
         );
     }
 
-    /// **A claim is released by the experience that made it, and by nobody else.**
+    /// A claim is released by the experience that made it, and by nobody else.
     #[test]
     fn only_the_owner_releases_its_claim() {
         let mut seating = SessionSeatingSource::decided(
@@ -410,7 +347,7 @@ mod seating_readiness_tests {
         );
     }
 
-    /// **A DECIDED seat count wins over what is plugged in.**
+    /// A DECIDED seat count wins over what is plugged in.
     ///
     /// devices are not participants: a keyboard seat has no controller
     /// entity, a spare pad may not be playing, a CPU seat has none at all. A

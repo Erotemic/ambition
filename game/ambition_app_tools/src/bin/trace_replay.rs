@@ -1,37 +1,10 @@
-//! Replay a recorded `GameplayTraceBuffer` JSON dump through a fresh
-//! `Platformer2dSimHarness` and compare the resulting trajectory to the recorded
-//! one.
+//! Replay a `GameplayTraceBuffer` JSON dump through a fresh
+//! `Platformer2dSimHarness` and report trajectory divergence.
 //!
-//! Use cases:
-//!
-//! - **Bug repro from production** — drop a `ambition_gameplay_trace_*.json`
-//!   from a player's machine into the repo, run `cargo run --bin
-//!   trace_replay -- path.json`, and watch where the live sim
-//!   diverges from the recorded state. The first non-trivial
-//!   position delta is usually adjacent to the bug.
-//! - **Determinism validation** — after a refactor that should be
-//!   behavior-preserving, replay an old trace; if every frame matches,
-//!   the change is verified determinism-preserving.
-//! - **Foundation for CI guardrails** — an in-tree fixture trace can
-//!   become a regression test ("this 600-frame replay must match
-//!   exactly" pins all the gameplay invariants in one shot).
-//!
-//! Wall-clock-recorded traces will diverge by construction (the original wasn't deterministic)
-//! — the binary still prints the divergence point so the tail of the trace can be visually
-//! compared.
-//!
-//! Usage:
-//!
-//! ```bash
-//! cargo run -p ambition_app_tools --bin trace_replay -- path/to/trace.json
-//! cargo run -p ambition_app_tools --bin trace_replay -- path/to/trace.json --tolerance 0.5
-//! ```
-//!
-//! The binary reads only the `frames[*].controls` array from the JSON
-//! dump (plus `frames[*].player.pos` for divergence reporting). The
-//! rest of the recorded state is informational; we don't try to
-//! restore world/encounter snapshots, since the Platformer2dSimHarness starts at
-//! the canonical embedded LDtk world spawn.
+//! The replay consumes recorded controls and player positions; other trace state
+//! remains informational because the harness starts from the canonical embedded
+//! world. Wall-clock traces may diverge, while deterministic traces can serve as
+//! behavior-preservation checks.
 
 use std::fs;
 use std::path::PathBuf;

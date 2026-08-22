@@ -5,7 +5,7 @@
 //! must scale with bullet-time / hitstop / pause. In the sandbox that scaled dt
 //! is `ambition_time::WorldTime::sim_dt`, but the runtime crate cannot
 //! depend on the sandbox. [`SimDt`] is the inversion seam: a content-free
-//! resource the runtime reads, which the **host** mirrors from its own clock
+//! resource the runtime reads, which the host mirrors from its own clock
 //! each frame BEFORE any system that reads it.
 //!
 //! In the sandbox, `mirror_sim_dt`-style host system copies

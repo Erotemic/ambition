@@ -110,7 +110,7 @@ fn timeline(id: &str, grounded: Option<bool>) -> MoveSpec {
 
 /// A wearer whose own repertoire answers Attack on the ground AND in the air.
 ///
-/// **the aerial verb is the poison**, and it is the direction the ranged
+/// the aerial verb is the poison, and it is the direction the ranged
 /// precedent (`revoke_host_owned_ranged`) says shipped broken once already: a
 /// guard that took `attack` and left `attack_air` gives the jab straight back
 /// the moment the wearer leaves the ground.
@@ -198,7 +198,7 @@ fn played_id(played: &Option<MoveSpec>) -> Option<&str> {
     played.as_ref().map(|m| m.id.as_str())
 }
 
-/// **A plain Attack with the gun-sword shoots, and does NOT also jab.**
+/// A plain Attack with the gun-sword shoots, and does NOT also jab.
 #[test]
 fn the_gunsword_owns_the_attack_press_on_the_ground() {
     let (bolts, played) = attack_while_holding(gunsword_spec(), true);
@@ -234,7 +234,7 @@ fn a_thrown_item_owns_the_attack_press_too() {
     );
 }
 
-/// **An item that authors its OWN melee answers with THAT swing**, not with the wearer's jab and
+/// An item that authors its OWN melee answers with THAT swing, not with the wearer's jab and
 /// not with silence.
 ///
 /// asserted on the swing's DAMAGE, not on a move id: the wearer's fixture jab
@@ -613,7 +613,7 @@ fn javelin_is_thrown_on_plain_attack_use() {
     );
 }
 
-/// **THE ITEM YOU THROW IS THE ITEM YOU PICKED UP.**
+/// THE ITEM YOU THROW IS THE ITEM YOU PICKED UP.
 ///
 /// The invariant: a custody change moves an item between world and hand without
 /// destroying it, so its identity — the `SimId` an authored ground item is
@@ -727,29 +727,9 @@ fn throwing_a_menu_equipped_item_mints_an_identity_under_the_thrower() {
     );
 }
 
-/// `unequip_held` is what the menu's Stow (and its equip-SWAP) calls to empty a
-/// hand. It removes `HeldItem` and touches nothing else — so a picked-up axe was
-/// left recording `ItemCustody::Held` by a body with an empty hand: not in the
-/// world (physics, pickup and the drawn view all skip it) and not in any hand
-/// (the throw cannot find it). An authored axe carrying `SimId::placement(..)`
-/// silently ceased to exist, through the menu, which is the exact loss
-/// `ItemCustody` was introduced to prevent at the despawn.
-///
-/// So this walks the whole round trip: take it, stow it, take it again, and demand it is the SAME
-/// object.
-///
-/// **AND THE PRODUCTION PLUGIN ACTUALLY REGISTERS IT.**
-///
-/// Recorded, not answered with a registration assertion."*). This is that assertion.
-///
-/// **a schedule must be INITIALIZED before its systems are enumerable**, which
-/// is why the graph is built explicitly rather than after an `update()` — this
-/// plugin's schedule is the sim one, and a bare `App` never runs it.
-///
-/// matched on the system's own NAME rather than on a set or a node, because
-/// naming a graph NODE walks the hierarchy and can panic on an app whose graph
-/// still references removed systems (see `update_schedule_census`, which
-/// documents that trap).
+/// The production pickup plugin must register custody release for stow/equip
+/// so a held authored item can round-trip through inventory without losing its
+/// identity. The schedule is initialized explicitly before enumerating systems.
 #[test]
 fn the_production_plugin_registers_the_custody_release() {
     let mut app = App::new();
@@ -758,10 +738,7 @@ fn the_production_plugin_registers_the_custody_release() {
         use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
         app.sim_schedule()
     };
-    // initialized against the APP's OWN world, not a fresh one: a schedule
-    // built against an empty world has no systems to enumerate, which reads
-    // exactly like a missing registration. The first draft did that and reported
-    // "0 systems" for a system that is registered.
+    // Initialize the schedule against the app's world before enumeration.
     let names: Vec<String> = app
         .world_mut()
         .resource_scope::<bevy::ecs::schedule::Schedules, Vec<String>>(|world, mut schedules| {
@@ -940,7 +917,7 @@ fn is_resident(app: &App, item: Entity) -> bool {
         .is_none()
 }
 
-/// **The invariant, both terms.** An object in a travelling body's custody is
+/// The invariant, both terms. An object in a travelling body's custody is
 /// NOT a resident of the room, and the moment custody returns it to the world it
 /// IS one again — while never losing the room SCOPE that a reset sweeps on.
 #[test]
@@ -981,7 +958,7 @@ fn custody_suspends_and_restores_room_residency() {
     );
 }
 
-/// **A holder that is room-scoped AND ITSELF IN CUSTODY is travelling.**
+/// A holder that is room-scoped AND ITSELF IN CUSTODY is travelling.
 ///
 /// this is the case possession creates: a possessed body keeps
 /// `RoomScopedEntity` and suspends its own residency with `InCustodyOf`, so the
@@ -1022,7 +999,7 @@ fn an_item_held_by_a_possessed_body_travels_with_it() {
     );
 }
 
-/// **A ROOM FIXTURE's hand is still the room.** An unpossessed NPC carries
+/// A ROOM FIXTURE's hand is still the room. An unpossessed NPC carries
 /// `RoomScopedEntity`; the object it holds dies with the room exactly as the NPC
 /// does. Nothing here asks whether a holder is the player — it asks where the
 /// holder lives.
@@ -1045,7 +1022,7 @@ fn an_item_held_by_a_room_fixture_stays_resident() {
     );
 }
 
-/// **A holder that no longer EXISTS confers no residency.** `ItemCustody` keeps
+/// A holder that no longer EXISTS confers no residency. `ItemCustody` keeps
 /// naming a dead body on purpose (the death drop owns that question), and an
 /// orphan that also escaped every room sweep would leak for the rest of the
 /// process — the exact hazard of expressing "not here" by removing a scope.

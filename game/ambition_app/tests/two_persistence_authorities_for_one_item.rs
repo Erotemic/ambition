@@ -1,4 +1,4 @@
-//! **ONE ITEM, TWO PERSISTENCE AUTHORITIES, ASKED TO AGREE FOR THE FIRST TIME.**
+//! ONE ITEM, TWO PERSISTENCE AUTHORITIES, ASKED TO AGREE FOR THE FIRST TIME.
 //!
 //! ```text
 //! DURABLE SAVE   items::persist mirrors OwnedItems (the 24-slot catalog) into
@@ -10,7 +10,7 @@
 //!                -> restores an INSTANCE into a specific hand
 //! ```
 //!
-//! **the same physical object crosses between them, by design.** The
+//! the same physical object crosses between them, by design. The
 //! inventory menu equips straight out of the count table; throwing what it
 //! equipped mints an instance. So one javelin is a row in `OwnedItems` and an
 //! occurrence in the custody baseline at the same time.
@@ -19,7 +19,7 @@
 //! take-custody operation the menu calls, a pressed throw, a pressed pickup, a
 //! real shrine rest, a real death report, and the two production persist systems.
 //!
-//! **the only manufactured trigger is the LOAD.** The restore is latched by
+//! the only manufactured trigger is the LOAD. The restore is latched by
 //! `SaveRestored`, which a fresh process starts `false`; clearing the latch
 //! in-process is what "the game booted and read the file" looks like from inside
 //! one App.
@@ -81,7 +81,7 @@ fn body_pos(sim: &mut Platformer2dSimHarness) -> (f32, f32) {
 
 /// Every live occurrence of one identity, and whether each is in a hand.
 ///
-/// **a COUNT, never a lookup** — a duplicate is one of the ways this fails.
+/// a COUNT, never a lookup — a duplicate is one of the ways this fails.
 fn occurrences(sim: &mut Platformer2dSimHarness, id: &SimId) -> Vec<(Entity, Custody)> {
     let mut query = sim.world_mut().query::<(Entity, &SimId, &Custody)>();
     query
@@ -213,14 +213,14 @@ fn die(sim: &mut Platformer2dSimHarness) {
     sim.step_n(base(), 240);
 }
 
-/// **THE SAVE.** Step a frame, which is all it takes now: the shipped
+/// THE SAVE. Step a frame, which is all it takes now: the shipped
 /// `persist_inventory_to_save` runs every `Update` and mirrors the live catalog +
 /// wallet into `AmbitionGameSave` for the autosave to write out.
 fn save_the_inventory(sim: &mut Platformer2dSimHarness) {
     sim.step(base());
 }
 
-/// **THE LOAD.** Clear the "already applied" latch and step, which is precisely
+/// THE LOAD. Clear the "already applied" latch and step, which is precisely
 /// what a fresh boot does with the latch starting `false`.
 fn load_the_save(sim: &mut Platformer2dSimHarness) {
     sim.world_mut().resource_mut::<SaveRestored>().0 = false;
@@ -260,9 +260,9 @@ fn equip_the_counted_item(
 // FIXTURE 1 — THE BRIEF'S SCENARIO, END TO END.
 // ───────────────────────────────────────────────────────────────────────────
 
-/// **Save a COUNT of one, load it, equip it, throw it (which MINTS an instance),
+/// Save a COUNT of one, load it, equip it, throw it (which MINTS an instance),
 /// pick it up, bank it at a shrine, die — and ask both authorities what the
-/// player has.**
+/// player has.
 ///
 /// The three questions this exists to answer, with assertions rather than prose:
 ///
@@ -432,32 +432,11 @@ fn a_saved_count_becomes_an_instance_and_the_two_authorities_are_compared() {
 // FIXTURE 2 — THE CROSSING THE FIRST ONE DOES NOT REACH.
 // ───────────────────────────────────────────────────────────────────────────
 
-/// **A DEATH THAT PUTS THE OBJECT BACK ON ITS PEDESTAL LEAVES NOTHING IN THE
-/// CATALOG CLAIMING IT.**
-///
-/// fixture 1 banks the object, so both authorities happen to answer "1" and
-/// the accident is invisible. This is the history where they have to answer
-/// DIFFERENTLY: the acquisition happens AFTER the checkpoint, so the reset owes
-/// the object back to the world — and `OwnedItems` is not checkpoint state, so
-/// anything the pickup wrote there survives a death that undid the pickup.
-///
-/// The player kept owning a gun-sword that was lying back on its shelf; the inventory menu equips
-/// straight out of the count table, so throwing the phantom MINTED a second gun-sword while the
-/// first was still authored in the room. That write is deleted: the object is the record, and the
-/// catalog PROJECTS the hand.
-///
-/// # The three claims, and why each is a different way to fail
-///
-/// ```text
-/// projected     while it is HELD the grid shows it — count is 1 with no row
-/// not a row     the durable save writes 0, because a hand is not a quantity
-/// retracted     the death returns the object AND the count goes back to 0
-/// ```
-///
-/// **the non-vacuity is in the shape of the scenario, not bolted on.** The
-/// count is asserted 0 before the pickup, 1 while held, and 0 after the death, so
-/// the final claim cannot be satisfied by a catalog that was empty all along —
-/// and the body dies HOLDING the object, so the retraction arm really runs.
+/// If death restores an authored object to the world, the inventory catalog
+/// must stop claiming it. The fixture checkpoints before acquisition, then
+/// verifies the held object projects as owned without becoming a durable count,
+/// and that death retracts the projected count when the same object returns to
+/// its authored placement.
 #[test]
 fn a_death_that_returns_the_object_leaves_nothing_in_the_catalog_claiming_it() {
     let mut sim = fixed_60hz_room_sim(ROOM);
@@ -541,17 +520,17 @@ fn a_death_that_returns_the_object_leaves_nothing_in_the_catalog_claiming_it() {
     );
 }
 
-/// **THE POISON: A GRANTED QUANTITY SURVIVES THE SAME DEATH THAT RETRACTS
-/// THE OBJECT MINTED OUT OF IT.**
+/// THE POISON: A GRANTED QUANTITY SURVIVES THE SAME DEATH THAT RETRACTS
+/// THE OBJECT MINTED OUT OF IT.
 ///
-/// **this is what stops the cheap wrong answer, and fixture 2 above does NOT stop it.** The
+/// this is what stops the cheap wrong answer, and fixture 2 above does NOT stop it. The
 /// obvious way to make fixture 2 green is to have `restore_custody_to_checkpoint`'s retraction
 /// arm call `owned.take(item, 1)` beside the despawn — a reconciliation step between two
 /// stores, which is a bigger problem wearing a smaller one's clothes. It passes fixture 2
 /// exactly.
 ///
-/// **the state this reaches is one where only the wrong implementation can
-/// act.** The object really is retracted — asserted, not assumed — so the
+/// the state this reaches is one where only the wrong implementation can
+/// act. The object really is retracted — asserted, not assumed — so the
 /// retraction arm ran to completion; the granted row is the only thing left for
 /// it to be wrong about.
 #[test]
@@ -630,14 +609,14 @@ fn a_granted_quantity_survives_the_death_that_retracts_the_instance_minted_from_
     );
 }
 
-/// **A LOAD THEN A DEATH MUST NOT EMPTY THE BAG.**
+/// A LOAD THEN A DEATH MUST NOT EMPTY THE BAG.
 ///
 /// But a fresh process starts with the DEFAULT baseline, an empty bag, and the durable load
 /// adopted only three of the four baselines. So the first death after a load restored *nothing*
 /// over everything the file remembered.
 ///
-/// **this now also pins the ordering that the original version accidentally
-/// hid.** Reloading inside one process leaves the live bag equal to the file, so
+/// this now also pins the ordering that the original version accidentally
+/// hid. Reloading inside one process leaves the live bag equal to the file, so
 /// a baseline captured BEFORE the restore looks correct. The second harness below
 /// starts from a deliberately different bag; only post-load adoption can pass.
 #[test]

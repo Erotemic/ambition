@@ -42,7 +42,7 @@ pub const MARY_O_VICTORY_MUSIC_TRACK: &str = "mary_o_flag_victory";
 /// Declaring it here is what AUTHORIZES the session to select it.
 pub const MARY_O_STAR_MUSIC_TRACK: &str = "invincible_maryo";
 
-/// **The coin-collect ding — an id this crate DECLARES but never EMITS.**
+/// The coin-collect ding — an id this crate DECLARES but never EMITS.
 ///
 /// Every other id in [`mary_o_sfx_specs`] is written by Mary-O's own code. This
 /// one is written by the engine: her coins are authored as `currency:1` pickups,
@@ -50,12 +50,12 @@ pub const MARY_O_STAR_MUSIC_TRACK: &str = "invincible_maryo";
 /// [`ids::WORLD_COIN_PICKUP`](ambition_platformer2d::sfx::ids::WORLD_COIN_PICKUP)
 /// when one is collected, with no demo-side collection code at all.
 ///
-/// **so the sound was never missing — the AUTHORIZATION was.** The emit has always fired; under
+/// so the sound was never missing — the AUTHORIZATION was. The emit has always fired; under
 /// provider-relative audio a session plays only the cues its own fragment declares, and an
 /// undeclared id is dropped on the floor. Sanic's rings ride the identical path and its provider
 /// declares the identical id (`demo_sanic`'s `SFX_RING`).
 ///
-/// **voicing a PRIVATE `mary_o.coin` id here would be silence**, because the
+/// voicing a PRIVATE `mary_o.coin` id here would be silence, because the
 /// gate compares against what the engine emits, not against what reads well.
 /// [`the_coin_collect_cue_is_the_shared_currency_pickup_id`] pins this constant
 /// to that engine id so a rename on either side cannot silently re-mute the coin.
@@ -71,7 +71,7 @@ pub struct MaryOSessionWorld {
     pub starting_character: StartingCharacter,
 }
 
-/// **Which room a session starts in.**
+/// Which room a session starts in.
 ///
 /// The source is installed as a SYSTEM and its own doc says it *"may read the provider's own
 /// resources"*, so this is the seam that was already there.
@@ -87,13 +87,13 @@ impl Default for MaryOEntryRoom {
     }
 }
 
-/// **Every room a session can be asked to enter.**
+/// Every room a session can be asked to enter.
 ///
 /// One answer, because three things need it and were each spelling it out:
 /// [`mary_o_session_world_entering`] builds the set, `capture_mary_o` validates
 /// `--room` against it, and the probe that every id reaches its own geometry
-/// loops over it. **that last one is why this is one function rather than a
-/// doc sentence** — a room added here is a room the probe immediately demands,
+/// loops over it. that last one is why this is one function rather than a
+/// doc sentence — a room added here is a room the probe immediately demands,
 /// instead of one that quietly inherits 1-1's world the way 1-2 did.
 ///
 /// The areas are read off the file now.
@@ -111,10 +111,10 @@ pub fn mary_o_session_world() -> MaryOSessionWorld {
     mary_o_session_world_entering(LEVEL_1_1_ROOM_ID)
 }
 
-/// **The same world, started in `entry`** — and now that is true of all three
+/// The same world, started in `entry` — and now that is true of all three
 /// room ids rather than of two.
 ///
-/// **this was a FORK wearing that doc comment.** The body branched on the test
+/// this was a FORK wearing that doc comment. The body branched on the test
 /// course and built 1-1 for everything else, while `entry` went straight to
 /// [`RoomSet::from_parts`] — so a session entering 1-2 had 1-2 as its ACTIVE room
 /// and 1-1's `geometry` and `metadata`. Two of the three ids worked and the third
@@ -122,14 +122,14 @@ pub fn mary_o_session_world() -> MaryOSessionWorld {
 /// level loaded"* rather than as a refusal. It is the reason nobody could look at
 /// 1-2.
 ///
-/// **the room list is built once and the active room is READ BACK OUT of the
-/// set**, so the geometry cannot describe a room the set is not in. Selecting the
+/// the room list is built once and the active room is READ BACK OUT of the
+/// set, so the geometry cannot describe a room the set is not in. Selecting the
 /// entry room separately and appending the rest is what made the disagreement
 /// expressible in the first place — and the obvious repair (pick `level_1_2()`
 /// for a 1-2 entry, keep the existing `vec![room, level_1_2()]`) would have put
 /// 1-2 in the graph twice.
 ///
-/// **an id in NO list still answers, with the set's own fallback room**
+/// an id in NO list still answers, with the set's own fallback room
 /// (`from_parts` activates index 0). That stays a silent fallback rather than a
 /// panic because this is called from a system on a resource a host inserts — but
 /// the pair is consistent now: whatever room the set activated is the room the
@@ -422,14 +422,14 @@ fn card_text(
     (level.intro_card > 0.0).then(|| format!("WORLD 1-1    MARY-O x{}", level.lives))
 }
 
-/// **The whole Mary-O SFX table.** Every entry here is both an AUTHORIZATION
+/// The whole Mary-O SFX table. Every entry here is both an AUTHORIZATION
 /// and a voice: under provider-relative audio a session only plays cues its
 /// own fragment declares, so a cue that is emitted but not listed here is
 /// gated to silence. (An undeclared `player.jump` is exactly that, which is
 /// why the Jump cue below is what makes her jump audible at all.) All of
 /// these are procedurally synthesized from the spec; no asset file needed.
 ///
-/// **the emitter is not always Mary-O.** Most rows voice a cue this crate
+/// the emitter is not always Mary-O. Most rows voice a cue this crate
 /// writes, but [`COIN_PICKUP_SFX`] voices one the ENGINE writes on her
 /// behalf — see its doc. Declaring it is the only thing this crate does about
 /// it, and it is the whole difference between a coin that dings and one that
@@ -494,8 +494,8 @@ fn mary_o_sfx_specs() -> Vec<ambition_platformer2d::audio::spec::SfxSpec> {
         // not fatigue. Retune freely — the emit site names the
         // id, not the timbre.
         //
-        // **unlike every other row here, MARY-O DOES NOT EMIT
-        // THIS.** The engine's `collect_ecs_pickups` does, on her
+        // unlike every other row here, MARY-O DOES NOT EMIT
+        // THIS. The engine's `collect_ecs_pickups` does, on her
         // behalf, because her coins are authored as `currency:1`
         // pickups. So this entry is pure AUTHORIZATION: the cue
         // was already firing and being discarded by the
@@ -624,9 +624,9 @@ mod tests {
         )
     }
 
-    /// **Every room id boots into ITS OWN geometry, not into 1-1's.**
+    /// Every room id boots into ITS OWN geometry, not into 1-1's.
     ///
-    /// **this went red on `mary_o_1_2`.** The seam branched on the test course and built 1-1
+    /// this went red on `mary_o_1_2`. The seam branched on the test course and built 1-1
     /// for everything else, while handing `entry` straight to `RoomSet::from_parts` — so asking
     /// for 1-2 produced a world whose active room WAS 1-2 and whose `geometry`/`metadata` were
     /// 1-1's.
@@ -694,8 +694,8 @@ mod tests {
         }
     }
 
-    /// **The coin ding must voice the id the ENGINE emits, and the registry must
-    /// authorize it.**
+    /// The coin ding must voice the id the ENGINE emits, and the registry must
+    /// authorize it.
     ///
     /// Two assertions, and they fail for different reasons on purpose. The first catches a
     /// rename: [`COIN_PICKUP_SFX`] is a string literal in this crate standing in for a constant

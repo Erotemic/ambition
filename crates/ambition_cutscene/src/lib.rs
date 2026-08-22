@@ -20,12 +20,12 @@ pub enum CutsceneBeat {
     Dialogue { speaker: String, text: String },
     /// Pan the camera to a world-space point over `seconds`. The
     /// presentation layer applies easing.
-    /// ⛔ **UNFINISHED**: advances its timer, moves no camera. Nothing consumes
+    ///  UNFINISHED: advances its timer, moves no camera. Nothing consumes
     /// [`CutscenePresentation::camera_target`]. See that field.
     CameraPan { target: [f32; 2], seconds: f32 },
     /// Fade screen to `alpha` (0.0 = clear, 1.0 = solid black) over
     /// `seconds`.
-    /// ⛔ **UNFINISHED**: advances its timer, draws no fade. Nothing consumes
+    ///  UNFINISHED: advances its timer, draws no fade. Nothing consumes
     /// [`CutscenePresentation::fade_alpha`]. See that field.
     Fade { to_alpha: f32, seconds: f32 },
     /// Set a save-game world flag. Useful for one-shot triggers
@@ -37,7 +37,7 @@ pub enum CutsceneBeat {
     Banner { text: String, seconds: f32 },
 }
 
-/// **Everything a cutscene is SHOWING right now, derived from where it is.**
+/// Everything a cutscene is SHOWING right now, derived from where it is.
 ///
 /// This projection is a pure function of `(script, beat_index, elapsed)`, the
 /// state already carried by the rollback snapshot. Recomputing the whole
@@ -63,7 +63,7 @@ pub struct CutscenePresentation {
 }
 
 impl CutsceneRuntime {
-    /// **What this cutscene is showing, from where it is.** See
+    /// What this cutscene is showing, from where it is. See
     /// [`CutscenePresentation`].
     ///
     /// A finished runtime or an out-of-range beat index has no presentation.
@@ -249,7 +249,7 @@ pub enum CutsceneEvent {
 // these are the running-cutscene state the presentation player mutates each frame
 // and gameplay/HUD systems read. Kept here so the cutscene runtime is one crate.
 
-/// **Which room this trigger last saw — ROLLBACK STATE, not a system local.**
+/// Which room this trigger last saw — ROLLBACK STATE, not a system local.
 ///
 /// This must be rollback state: a non-rewound last-room value can suppress the
 /// trigger during resimulation and skip the cutscene entirely.
@@ -713,7 +713,7 @@ mod snapshot {
             );
         }
 
-        /// **A rollback into the MIDDLE of a beat restores its picture.**
+        /// A rollback into the MIDDLE of a beat restores its picture.
         ///
         /// Rebuild presentation from decoded runtime state and require it to
         /// match mid-beat, where no `BeatEntered` event will fire again.
@@ -805,7 +805,7 @@ mod snapshot {
             assert_eq!(after.camera_target, Some([10.0, 20.0]));
         }
 
-        /// **Every beat variant survives**, because a codec that silently loses
+        /// Every beat variant survives, because a codec that silently loses
         /// one plays a different cutscene after a rewind.
         #[test]
         fn a_playing_cutscene_survives_the_wire() {

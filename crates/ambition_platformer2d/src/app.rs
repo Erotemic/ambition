@@ -24,7 +24,7 @@ use crate::world::rooms::RoomMetadata;
 
 /// Curated imports for a game's `main`.
 ///
-/// **A domain prelude, not the root one.** `ambition_platformer2d::prelude` re-exports
+/// A domain prelude, not the root one. `ambition_platformer2d::prelude` re-exports
 /// twenty-five crate mirrors; an agent told to import all of them has been told
 /// nothing about which four matter. Campaign §A2: one enormous root prelude is
 /// a discovery problem, not a convenience.
@@ -43,7 +43,7 @@ pub mod prelude {
     pub use crate::world::rooms::{RoomMetadata, RoomSpec};
 }
 
-/// **Did my game actually start?**
+/// Did my game actually start?
 ///
 /// The one question a consumer could not ask. Every consumer would have invented that same smoke
 /// test, badly.
@@ -69,7 +69,7 @@ pub enum HostStatus {
     Refused { reasons: Vec<String> },
     /// A route is live.
     ///
-    /// ⚠ `prepared == false` is the quiet failure: the router is pointing at a
+    ///  `prepared == false` is the quiet failure: the router is pointing at a
     /// route and no prepared session sits behind it, so the world is empty and
     /// nothing says why.
     Running {
@@ -147,14 +147,14 @@ pub fn host_status(app: &App) -> HostStatus {
 
 /// A named asset tree the game owns, layered over the engine's own.
 ///
-/// Carried as **data** rather than applied as a call, because the moment it
+/// Carried as data rather than applied as a call, because the moment it
 /// must be applied is a moment only the engine knows (rule 1) — and because a
 /// declaration can be CHECKED in the one composition shape where the engine
 /// cannot apply it. See [`PlatformerApp::install_into`].
 #[derive(Clone, Debug)]
 pub struct AssetSource {
     name: String,
-    // ⚠ read by the native installer, which builds a layered filesystem reader
+    //  read by the native installer, which builds a layered filesystem reader
     // from it. A browser build declares the same source and reads it over HTTP
     // from the page origin, so it never consults the root — but the DECLARATION
     // must still carry it, which is the whole point of checking declarations in
@@ -184,7 +184,7 @@ pub enum SessionMode {
     FixedStep,
 }
 
-/// What a module needs the engine to know **before** the Bevy foundation
+/// What a module needs the engine to know before the Bevy foundation
 /// builds.
 ///
 /// Separate from [`ModuleDraft`] because it is needed EARLIER, not because two
@@ -250,9 +250,9 @@ struct ExperienceDefinition {
     starting_room: String,
 }
 
-/// **A roster with ONE character** — the case a game actually starts from.
+/// A roster with ONE character — the case a game actually starts from.
 ///
-/// ⚠ Published because [`EMPTY_CHARACTER_ROSTER_RON`] solved the case nobody needs. It gave up
+///  Published because [`EMPTY_CHARACTER_ROSTER_RON`] solved the case nobody needs. It gave up
 /// after four cycles and opened a fixture — which is the SDK's acceptance test failing by the
 /// SDK's own remedy.
 ///
@@ -289,20 +289,8 @@ pub const MINIMAL_CHARACTER_ROSTER_RON: &str = r#"(
     },
 )"#;
 
-/// One experience, as declared by one module.
-///
-/// ⚠ **A composition holds MANY of these, and it did not until slice D.** The
-/// draft carried a single global `experience`, so mounting two games side by
-/// side was impossible — the second module's `experience()` collided with the
-/// first instead of sitting beside it. That blocked two consumer-matrix rows at
-/// once: `module-standalone-and-embedded` (embedded MEANS coexisting) and
-/// `ambition-itself` (the shipped host registers four).
-///
-/// The shell was never the limitation. `ShellRouteCatalog` and
-/// `ShellExperienceRegistry` already hold many, and `game/ambition_app`
-/// composes four by hand today. The limitation was this struct being a set of
-/// loose fields on the draft, written in slice A when one experience was the
-/// only case that existed.
+/// One experience declaration owned by one module. A composition may contain
+/// multiple independent drafts before they are validated and published.
 struct ExperienceDraft {
     /// Which module declared it, so a collision can name both sides.
     owner: String,
@@ -332,7 +320,7 @@ type RollbackContribution = Box<dyn FnOnce(&mut App) + Send + Sync>;
 
 /// The inert accumulation a module writes into.
 ///
-/// **Nothing here is live when `define` returns.** ADR 0032 decision 1: the
+/// Nothing here is live when `define` returns. ADR 0032 decision 1: the
 /// engine — which calls `define` — seals the draft, validates it, and only then
 /// installs anything. That is what makes "is the declaration complete?" an
 /// answerable question, and it is why this is not `&mut App`.
@@ -367,37 +355,10 @@ pub struct ModuleDraft {
 impl ModuleDraft {
     /// Begin declaring an experience. Subsequent calls apply to it.
     ///
-    /// A composition may hold several. Declaring the SAME id twice is a
-    /// conflict naming both modules; declaring a different one starts a new
-    /// experience beside the first.
-    ///
-    /// ⚠ **A secondary experience launches, and its ASSET POLICY is the
-    /// primary's.** Measured, not reasoned — `the_second_mounted_experience_
-    /// launches_and_its_asset_policy_is_the_primarys` mounts two shipped games
-    /// and routes into the second. What works: the route activates under the
-    /// second experience's own id with a prepared session, and its cast is
-    /// drawn correctly, because character catalog fragments MERGE. What follows
-    /// the primary instead of the caller:
-    ///
-    /// * the music registry folded into the asset catalog, so a secondary
-    ///   experience's declared tracks have no entry there. ⚠ **this is not
-    ///   silence** — `AudioLibrary` falls back to the track's own `asset_path`,
-    ///   or to the `audio/music/generated/{id}/full.ogg` convention, so what is
-    ///   lost is the catalog's PATH POLICY (asset-source prefixes, quality
-    ///   variants), not the audio;
-    /// * the published `SfxBankAssetPath`, attributed to the primary's id.
-    ///   Bank playback resolves through the ACTIVE audio context's provider and
-    ///   never a process-global current bank, so a secondary experience does not
-    ///   see a bank published this way and must register its own;
-    /// * the startup room theme (block and biome art) from [`Self::room`] — the
-    ///   one with a visible consequence, since a secondary experience's room
-    ///   draws with the primary's blocks.
-    ///
-    /// Repairing it means per-experience asset virtualization, and no consumer is blocked on it
-    /// today — the shipped host and both demos launch their primary, and the shipped host folds
-    /// one provider's music for the same reason. If your game needs a secondary experience with
-    /// its own art, install its assets through a capability rather than expecting this to
-    /// resolve them.
+    /// A composition may declare several distinct experience ids; redeclaring an
+    /// id is a conflict. Secondary experiences currently inherit primary asset
+    /// policy for music catalogs, SFX bank publication, and startup room theme.
+    /// TODO(experience-assets): virtualize those asset policies per experience.
     pub fn experience(&mut self, id: impl Into<String>) -> &mut Self {
         let id = id.into();
         let owner = self.defining.clone();
@@ -447,9 +408,9 @@ impl ModuleDraft {
         })
     }
 
-    /// Declare, explicitly, that this experience authors **no** characters.
+    /// Declare, explicitly, that this experience authors no characters.
     ///
-    /// ⚠ Instead of a silent default. `PlatformerAssetsPlugin` refuses to
+    ///  Instead of a silent default. `PlatformerAssetsPlugin` refuses to
     /// substitute an empty catalog — *"silently substituting an empty catalog
     /// is how a game ships with its bosses drawn as the fallback body and
     /// nobody notices"* — and that judgement is right. What this changes is WHO
@@ -465,7 +426,7 @@ impl ModuleDraft {
         self.on_current("room", move |e| e.room = Some(room))
     }
 
-    /// Declare, explicitly, that this experience authors **no sound**.
+    /// Declare, explicitly, that this experience authors no sound.
     ///
     /// Preparation REFUSES an experience whose provider registered no audio
     /// fragment, so silence has always been mandatory paperwork — there was
@@ -504,7 +465,7 @@ impl ModuleDraft {
     /// Capabilities belong to the COMPOSITION rather than to one experience: a
     /// plugin installs systems into an `App`, and an App has one schedule.
     ///
-    /// ⚠ **PROVISIONAL, and deliberately under-promised.** A capability is an
+    ///  PROVISIONAL, and deliberately under-promised. A capability is an
     /// opaque closure: the engine can run it, and cannot ask it what it
     /// provides, needs, or conflicts with. So there is no dependency
     /// resolution, no conflict detection, and no claim that two modules
@@ -518,7 +479,7 @@ impl ModuleDraft {
         self
     }
 
-    /// **Declare what a mounted capability needs REWOUND**, so the composition
+    /// Declare what a mounted capability needs REWOUND, so the composition
     /// refuses rather than desyncing.
     ///
     /// A capability offers its rollback state and the composition installs it —
@@ -533,13 +494,13 @@ impl ModuleDraft {
     ///       .requires_rollback(capability_demo::REQUIRED_ROLLBACK);
     /// ```
     ///
-    /// ⚠ **declared by the MODULE, not carried by the capability**, because a
+    ///  declared by the MODULE, not carried by the capability, because a
     /// capability is deliberately an opaque closure with no identity here (see
     /// [`Self::capability`]). Giving capabilities metadata to carry this would
     /// be inventing the identity model that method's own docs refuse to guess
     /// at — so the module that knows it mounted the thing says what it needs.
     ///
-    /// ⚠ **checked only when a rollback registry exists.** A composition with
+    ///  checked only when a rollback registry exists. A composition with
     /// no rollback host has nothing to desync, and demanding registrations from
     /// it would refuse a headless game for a hazard it cannot have.
     pub fn requires_rollback(
@@ -550,7 +511,7 @@ impl ModuleDraft {
         self
     }
 
-    /// **Provide the rollback registration a required state needs.**
+    /// Provide the rollback registration a required state needs.
     ///
     /// The other half of [`Self::requires_rollback`], and without it a module could DECLARE
     /// what must rewind and had no supported way to supply it — so a rollback-enabled game
@@ -567,12 +528,12 @@ impl ModuleDraft {
     ///     );
     /// ```
     ///
-    /// ⚠ **the owner and name must MATCH the requirement**, and the composition
+    ///  the owner and name must MATCH the requirement, and the composition
     /// checks that after applying every contribution — a registration under
     /// another owner satisfies nothing, which is what makes the pair a contract
     /// rather than two lists.
     ///
-    /// ⚠ **it is the MODULE that provides this, not the capability.** A
+    ///  it is the MODULE that provides this, not the capability. A
     /// capability that registered its own rollback state would have to link the
     /// simulation to reach the trait — `capability_demo` did, and cost 133
     /// crates. Declaring here keeps that closure at 8.
@@ -593,7 +554,7 @@ impl ModuleDraft {
         self
     }
 
-    /// **Declare the semantic actions a mounted capability contributes.**
+    /// Declare the semantic actions a mounted capability contributes.
     ///
     /// `Platformer2dInputActionMonolith` is a closed leafwing enum a capability cannot extend, so
     /// the OPEN half is `ambition_platformer2d::input::SemanticActionId` and the registry
@@ -608,7 +569,7 @@ impl ModuleDraft {
     /// help screen or a rebind UI can ask one `ActionRegistry` what may be
     /// pressed in a context and get the game's actions beside the engine's.
     ///
-    /// ⚠ **two owners for one action id is a composition REFUSAL**, for the same
+    ///  two owners for one action id is a composition REFUSAL, for the same
     /// reason an ambiguous content schema is: letting it through means the
     /// winner is decided by iteration order.
     pub fn actions(&mut self, actions: &'static [ambition_input::SemanticActionDef]) -> &mut Self {
@@ -646,7 +607,7 @@ impl ModuleDraft {
 pub trait GameModule {
     fn manifest(&self) -> ModuleManifest;
 
-    /// Accumulate into the draft. **Never touches `App`.**
+    /// Accumulate into the draft. Never touches `App`.
     fn define(&self, module: &mut ModuleDraft);
 }
 
@@ -662,7 +623,7 @@ pub struct CompositionError {
     pub stage: CompositionStage,
 }
 
-/// **Which pass of composition refused.**
+/// Which pass of composition refused.
 ///
 /// ADR 0032's promise — *"a draft yields one build error listing every conflict
 /// in the experience"* — is true WITHIN a pass and cannot be true across them:
@@ -729,8 +690,8 @@ impl std::error::Error for CompositionError {}
 
 /// Where the host lands when it starts.
 ///
-/// ⚠ **Two policies, because there are two real hosts and the builder offered
-/// only one.** against `game/ambition_app`: it boots into a
+///  Two policies, because there are two real hosts and the builder offered
+/// only one. against `game/ambition_app`: it boots into a
 /// LAUNCHER listing every registered experience, and had to configure that by
 /// hand — registering a shell experience as its home route and writing
 /// `ShellHostConfiguration.spec` itself — because `ShellComposition` boots into
@@ -779,7 +740,7 @@ impl Plugin for DeclaredCapabilities {
     }
 }
 
-/// **The composition.** State policy; the engine states the order.
+/// The composition. State policy; the engine states the order.
 pub struct PlatformerApp {
     face: Face,
     session: SessionMode,
@@ -836,7 +797,7 @@ impl PlatformerApp {
 
     /// Mount a module: fold in its manifest, and let it define itself.
     ///
-    /// `define` runs **now**, into an inert draft. Nothing is live.
+    /// `define` runs now, into an inert draft. Nothing is live.
     ///
     /// A module may only modify an experience it declared during its own `define`; anything
     /// cross-module has to name its target, and nothing does yet.
@@ -877,8 +838,8 @@ impl PlatformerApp {
     /// ADR 0031 decision 5 — a studio must be able to add this without
     /// surrendering its `App`.
     ///
-    /// ⚠ **A failed installation is FATAL to that `App`, and retrying is not a
-    /// supported operation.** Everything decidable from the declaration is
+    ///  A failed installation is FATAL to that `App`, and retrying is not a
+    /// supported operation. Everything decidable from the declaration is
     /// decided before the first mutation — a `CompositionStage::Declaration`
     /// refusal has touched nothing, and there is a test that asks the `App`
     /// rather than trusting the stage. An `Assembly` refusal is the other case
@@ -888,7 +849,7 @@ impl PlatformerApp {
     ///
     /// This is a stated limit rather than a plan.
     ///
-    /// ⚠ **This form cannot honor rule 1, and says so instead of pretending.**
+    ///  This form cannot honor rule 1, and says so instead of pretending.
     /// Asset sources must be registered before `AssetPlugin` builds; an `App`
     /// that already has `DefaultPlugins` is past that point, and no ordering
     /// inside this call fixes it. What the engine can still do is *notice*: a
@@ -999,7 +960,7 @@ impl PlatformerApp {
 
         // ── Rule 1 ── before any AssetPlugin, in every face.
         //
-        // ⚠ desktop only. `consumer_source` LAYERS a game's asset tree over the
+        //  desktop only. `consumer_source` LAYERS a game's asset tree over the
         // engine's by reading both from disk, and `#[cfg(not(wasm32))]` says so
         // at its definition — on the web there is no engine root to layer under,
         // because the served bundle already IS the merged tree. The refusal
@@ -1206,21 +1167,21 @@ impl PlatformerApp {
 
         // ── What the mounted capabilities need REWOUND ──
         //
-        // ⚠ Checked AFTER the capabilities built, for the same reason the cast
+        //  Checked AFTER the capabilities built, for the same reason the cast
         // check below is: a capability registers its rollback state while it
         // installs, so asking the draft would always report everything missing.
         //
-        // ⚠ FIRST among the post-capability checks, and deliberately: it is the
+        //  FIRST among the post-capability checks, and deliberately: it is the
         // only one here whose failure is SILENT at runtime. An unregistered
         // route refuses to activate immediately and loudly; missing rollback
         // state produces a desync much later and far from its cause, so a
         // composition carrying both should hear about this one.
         //
-        // ⚠ Only when this composition ASKED FOR a rollback session.
+        //  Only when this composition ASKED FOR a rollback session.
         //
         // What distinguishes them is the DECLARATION — `rollback(n)` — not the presence of a
-        // registry the engine installs either way. **APPLY WHAT THE MODULE PROVIDED, then check
-        // what it required.**
+        // registry the engine installs either way. APPLY WHAT THE MODULE PROVIDED, then check
+        // what it required.
         if rollback_participants.is_some() {
             for contribute in draft.provided_rollback {
                 contribute(app);
@@ -1303,7 +1264,7 @@ impl PlatformerApp {
 
         // ── A cast must EXIST by now, and "nobody said" is the failure ──
         //
-        // ⚠ Checked AFTER the capabilities built, not against the draft. A
+        //  Checked AFTER the capabilities built, not against the draft. A
         // module may legitimately register its roster through a capability —
         // Outlander does, and an earlier version of this rewrite moved the
         // check to draft-declaration and broke it. What must fail is a
@@ -1341,7 +1302,7 @@ impl PlatformerApp {
                     app.init_asset::<Image>();
                     app.init_asset::<TextureAtlasLayout>();
                 }
-                // ⚠ **The PRIMARY's policy, for every mounted experience**, and
+                //  The PRIMARY's policy, for every mounted experience, and
                 // that is a stated limit rather than an oversight — see
                 // `ModuleDraft::experience`. The plugin resolves three things
                 // per experience id (the music fold, the SFX bank attribution,
@@ -1368,7 +1329,7 @@ impl PlatformerApp {
 
         // ── Rule 8 ── one update is one tick.
         if matches!(face, Face::Headless) {
-            // ⚠ The two hosts need DIFFERENT dt values, and the difference is
+            //  The two hosts need DIFFERENT dt values, and the difference is
             // one nanosecond. `Time::<Fixed>::from_hz(60.0)` rounds to
             // 16_666_667ns; GGRS wants the truncated 16_666_666. Feeding a GGRS
             // host the rounded value cost the fixture's parity walk 192
@@ -1401,7 +1362,7 @@ impl PlatformerApp {
 
     /// Decode and publish this game's art even with no display.
     ///
-    /// ⚠ It is a POLICY knob rather than a face, and the difference is load-bearing. That was a
+    ///  It is a POLICY knob rather than a face, and the difference is load-bearing. That was a
     /// misreading — the criterion is about content identity in slice B, not about which plugins
     /// a display-less host installs — and the fixture's rollback parity test caught it: under
     /// GGRS the sim advances only through session requests, so extra asset frames are frames
@@ -1412,7 +1373,7 @@ impl PlatformerApp {
         self
     }
 
-    /// **Compose this host for rollback**, seating `participants` local
+    /// Compose this host for rollback, seating `participants` local
     /// players.
     ///
     /// ADR 0031 deferred rollback-as-a-public-knob deliberately: it is "a far
@@ -1427,7 +1388,7 @@ impl PlatformerApp {
     /// rebases frame zero onto a world that has to be CONSTRUCTED first. Call
     /// [`crate::rollback::start`] on the built app.
     ///
-    /// ⚠ `participants` is asked for rather than defaulted. Every path that
+    ///  `participants` is asked for rather than defaulted. Every path that
     /// guessed it guessed ONE, and the engine ran a rollback oracle over a
     /// single input stream for the week its couch versus mode seated four.
     ///
@@ -1618,7 +1579,7 @@ fn install_windowed_foundation(app: &mut App, title: &str, gpu: bool) {
                 ..Default::default()
             })
             .disable::<bevy::winit::WinitPlugin>();
-        // ⚠ desktop only: there is no terminal, and no such plugin, on the web.
+        //  desktop only: there is no terminal, and no such plugin, on the web.
         // `disable` on a plugin that does not exist for the target is a COMPILE
         // error, not a no-op, so the cfg has to move the call and not the type.
         #[cfg(not(target_arch = "wasm32"))]
@@ -1631,7 +1592,7 @@ fn install_windowed_foundation(app: &mut App, title: &str, gpu: bool) {
     crate::engine::init_engine_states(app);
 }
 
-/// **Declaration-time refusals that no consumer crate can reach.**
+/// Declaration-time refusals that no consumer crate can reach.
 ///
 /// These live here rather than in `fixtures/external_consumer` for the reason
 /// that fixture states about itself: a consumer test proves what a third party
@@ -1667,7 +1628,7 @@ mod tests {
         }
     }
 
-    /// **A module cannot modify the experience the PREVIOUS module declared.**
+    /// A module cannot modify the experience the PREVIOUS module declared.
     ///
     /// Deterministic, and with no diagnostic anywhere.
     #[test]
@@ -1687,7 +1648,7 @@ mod tests {
             message.contains("`second` declared a gameplay route before naming an experience"),
             "the refusal must name the module that forgot: {message}"
         );
-        // ⚠ Non-vacuity: the FIRST module's identical call is fine, so the
+        //  Non-vacuity: the FIRST module's identical call is fine, so the
         // refusal is about the boundary rather than about the method.
         assert!(
             !message.contains("`first` declared"),
@@ -1695,7 +1656,7 @@ mod tests {
         );
     }
 
-    /// **A roster that does not parse is refused BEFORE the `App` is touched.**
+    /// A roster that does not parse is refused BEFORE the `App` is touched.
     ///
     /// The prepare step moved to the declaration pass.
     ///
@@ -1733,7 +1694,7 @@ mod tests {
             refused.to_string().contains("did not parse"),
             "the refusal must say what was wrong with the roster: {refused}"
         );
-        // ⚠ the half that makes the stage mean anything. A `Declaration`
+        //  the half that makes the stage mean anything. A `Declaration`
         // refusal claims nothing was installed; this asks the `App`.
         assert!(
             !app.is_plugin_added::<bevy::asset::AssetPlugin>(),
@@ -1759,7 +1720,7 @@ mod tests {
         );
     }
 
-    /// **A capability's semantic action reaches the composition's registry**,
+    /// A capability's semantic action reaches the composition's registry,
     /// beside the engine's own vocabulary and without editing a closed enum.
     ///
     /// `Platformer2dInputActionMonolith` is leafwing's concrete `Actionlike` and cannot grow a
@@ -1825,7 +1786,7 @@ mod tests {
         );
     }
 
-    /// ⚠ **two owners for one action id is a composition refusal**, for the same
+    ///  two owners for one action id is a composition refusal, for the same
     /// reason an ambiguous content schema is: letting it through means the
     /// winner is decided by iteration order.
     #[test]
@@ -1868,8 +1829,8 @@ mod tests {
         );
     }
 
-    /// **A capability whose required rollback state nobody installed is REFUSED
-    /// at assembly, not left to desync at the first rewind.**
+    /// A capability whose required rollback state nobody installed is REFUSED
+    /// at assembly, not left to desync at the first rewind.
     ///
     /// A capability offers its rollback state and the composition installs it —
     /// which keeps the capability's dependency closure to foundations, and left
@@ -1905,7 +1866,7 @@ mod tests {
         let mut app = App::new();
         app.init_resource::<crate::runtime::rollback::RollbackRegistry>();
         let refused = PlatformerApp::headless()
-            // ⚠ the composition must ASK for rollback. A game that never
+            //  the composition must ASK for rollback. A game that never
             // rewinds cannot desync, so the check is gated on the declaration
             // rather than on the registry — which the headless foundation
             // installs either way.
@@ -1926,7 +1887,7 @@ mod tests {
         );
     }
 
-    /// ⚠ **and it does NOT refuse a composition with no rollback host.**
+    ///  and it does NOT refuse a composition with no rollback host.
     ///
     /// A headless game with no session cannot desync, and a check that refused
     /// it would be the thing that breaks compositions rather than the thing
@@ -1955,7 +1916,7 @@ mod tests {
             }
         }
 
-        // No `rollback(..)` declared: nothing rewinds here. ⚠ the registry
+        // No `rollback(..)` declared: nothing rewinds here.  the registry
         // still EXISTS — the headless foundation installs one unconditionally,
         // which is exactly why gating on its presence was wrong.
         let mut app = App::new();
@@ -1969,7 +1930,7 @@ mod tests {
         );
     }
 
-    /// **A participant count no session can seat is refused at composition.**
+    /// A participant count no session can seat is refused at composition.
     #[test]
     fn a_participant_count_the_session_cannot_seat_is_refused() {
         let seats = crate::characters::control::SlotControls::MAX_SLOTS;

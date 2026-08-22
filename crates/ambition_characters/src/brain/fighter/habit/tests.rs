@@ -21,7 +21,7 @@ fn the_model_is_bounded_by_the_product_of_two_closed_enums() {
     assert_eq!(m.len(), 5 * Choice::ALL.len());
 }
 
-/// **Ignorance is not knowledge of absence.** An unseen situation reads as the
+/// Ignorance is not knowledge of absence. An unseen situation reads as the
 /// uniform prior, not as zero — otherwise a level-9 brain would conclude that
 /// its opponent will never shield out of a juggle, on the evidence of never
 /// having juggled them.
@@ -36,7 +36,7 @@ fn an_unseen_situation_reads_as_the_uniform_prior() {
     assert_eq!(m.read_bonus(Situation::Recovery, Choice::Jump, 1.0), 0.0);
 }
 
-/// **Decay is what makes it a read rather than a census.** An opponent who
+/// Decay is what makes it a read rather than a census. An opponent who
 /// spot-dodged nine times and then stopped is not a spot-dodger.
 #[test]
 fn a_habit_fades_when_the_opponent_changes_their_mind() {
@@ -111,7 +111,7 @@ fn a_perfectly_random_opponent_is_worth_no_read() {
     }
 }
 
-/// **Determinism.** Rows walk in a stable order and ties break on the `Choice`
+/// Determinism. Rows walk in a stable order and ties break on the `Choice`
 /// enum, so a read is a function of the evidence and never of insertion history
 /// (ADR 0023 — the counts are a `BTreeMap`, not the sketch's `HashMap`).
 #[test]

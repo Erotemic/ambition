@@ -25,7 +25,7 @@ fn test_room_with_platforms(
     world: ae::World,
     platforms: Vec<MovingPlatformState>,
 ) -> crate::rooms::RoomSpec {
-    // ⚠ **built through the constructor, not spelled field by field.** The
+    //  built through the constructor, not spelled field by field. The
     // exhaustive literal this replaces had to be edited every time the room IR
     // grew a family, and it says nothing about platforms by listing fifteen
     // empty vectors — the ONE field this fixture cares about was buried among
@@ -266,7 +266,7 @@ fn a_two_point_looping_path_circulates_instead_of_spinning() {
 /// `Loop` closes the circuit as `p0 → p1 → p2 → p0`, rather than retracing the
 /// last open segment.
 ///
-/// ⚠ the tolerance is one FRAME of travel, not a hair: the platform moves in
+///  the tolerance is one FRAME of travel, not a hair: the platform moves in
 /// 10px steps and will step straight past a waypoint rather than land on it. An
 /// earlier version of this test used `< 1.0` and reported "never returned" for a
 /// platform that was passing through the corner every lap.
@@ -310,7 +310,7 @@ fn loop_mode_closes_the_circuit_back_to_its_first_point() {
     );
 }
 
-/// **A wrapping platform must not fling whoever is standing on it.**
+/// A wrapping platform must not fling whoever is standing on it.
 ///
 /// The wrap teleport is a position change, not rider movement. `last_delta` is
 /// exactly the quantity the
@@ -319,7 +319,7 @@ fn loop_mode_closes_the_circuit_back_to_its_first_point() {
 /// rider the whole span in one frame — the height of the shaft, in one tick, in
 /// the direction opposite to travel.
 ///
-/// ⭐ **the honest test of a wrap is the frame it happens on**, not the frames
+///  the honest test of a wrap is the frame it happens on, not the frames
 /// either side, and it is a frame the naive implementation gets wrong while
 /// looking completely correct in a position trace: the platform IS where it
 /// should be. Only the carried rider reveals it.
@@ -362,13 +362,13 @@ fn a_wrapping_platform_carries_a_rider_by_its_travel_not_by_its_teleport() {
     );
 }
 
-/// **A looping platform never turns around.**
+/// A looping platform never turns around.
 ///
-/// ⚠ reads as "rising" in the assertions below only in the +y sense; +y is DOWN
+///  reads as "rising" in the assertions below only in the +y sense; +y is DOWN
 /// on screen. What is being pinned is that the sign never changes, not which way
 /// the player sees it go.
 ///
-/// ⛔ the poison for the variant existing at all: if it reversed it would be a
+///  the poison for the variant existing at all: if it reversed it would be a
 /// `Sweep` on the other axis, and the elevator effect — step off the top, the
 /// next one arrives from below — would not exist. Two full spans of travel must
 /// leave the direction unchanged.
@@ -404,12 +404,12 @@ fn a_looping_platform_keeps_going_the_same_way_forever() {
     );
 }
 
-/// **An authored `loop_dy` produces a platform that WRAPS.**
+/// An authored `loop_dy` produces a platform that WRAPS.
 ///
-/// The authoring half of the elevator. ⛔ the tell that it is wired is not that
+/// The authoring half of the elevator.  the tell that it is wired is not that
 /// the platform moves vertically — a `Path` does that, and so would a sweep on
-/// the wrong axis — it is that the platform **comes back to where it started
-/// while still travelling the same way**. A reversing platform also returns to
+/// the wrong axis — it is that the platform comes back to where it started
+/// while still travelling the same way. A reversing platform also returns to
 /// its start, so the direction check is what separates the two.
 #[test]
 fn an_authored_vertical_loop_wraps_instead_of_reversing() {
@@ -428,7 +428,7 @@ fn an_authored_vertical_loop_wraps_instead_of_reversing() {
     let mut platform = spec.resolve(&[]).expect("a loop spec resolves");
     assert!(platform.direction() > 0.0, "a positive loop_dy rises");
 
-    // ⚠ **the wrap is a DROP in y on a platform that is rising**, not a return
+    //  the wrap is a DROP in y on a platform that is rising, not a return
     // below the start: the shaft here begins at its own floor, so a wrap lands
     // just above where it began. Comparing against `start` would never fire, and
     // the test would pass a platform that ran off up the shaft forever.
@@ -462,12 +462,12 @@ fn an_authored_vertical_loop_wraps_instead_of_reversing() {
     );
 }
 
-/// **A staggered run of platforms shares ONE shaft.**
+/// A staggered run of platforms shares ONE shaft.
 ///
-/// ⛔ this is the difference between a conveyor and three unrelated lifts, and it is invisible
+///  this is the difference between a conveyor and three unrelated lifts, and it is invisible
 /// on the first frame.
 ///
-/// ⭐ **the assertion is that every platform stays inside the SHARED shaft**, not
+///  the assertion is that every platform stays inside the SHARED shaft, not
 /// that they are evenly spaced. Even spacing is what the author wrote; staying
 /// in one shaft is what makes it stay true.
 #[test]
@@ -523,7 +523,7 @@ fn a_staggered_run_of_looping_platforms_shares_one_shaft() {
     }
 }
 
-/// **Every motion an author can write reaches exactly one variant.**
+/// Every motion an author can write reaches exactly one variant.
 ///
 /// The two shapes at the top are the ones content actually authors today (a
 /// swept platform in the sandbox, an anchored conveyor in Mary-O 1-2); the rest

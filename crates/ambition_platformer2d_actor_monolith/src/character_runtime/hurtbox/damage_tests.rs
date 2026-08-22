@@ -152,7 +152,7 @@ fn spawn_authored_body(app: &mut App, player: bool) -> Entity {
     body.id()
 }
 
-/// **A3 + A7.** The primary player is hit on its AUTHORED silhouette.
+/// A3 + A7. The primary player is hit on its AUTHORED silhouette.
 ///
 /// Two independent reasons the same feature could not work for the most important body in the
 /// game.

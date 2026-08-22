@@ -1,43 +1,10 @@
-//! `WorldView` + `WorldMemory` — the **world-out** port (architecture roadmap S4).
+//! Controller-neutral per-body perception.
 //!
-//! The unified-control architecture
-//! (`docs/concepts/one-body-one-path.md`) gives every body
-//! two ports: **intent-in** (a controller attempts an `ActorControlFrame`, the
-//! body enforces) and **world-out** (the body produces a controller-neutral,
-//! *headless* view of what it can perceive). This module is the world-out port.
-//!
-//! Two values:
-//!
-//! - [`WorldView`] — everything in the body's **viewport** this tick: other
-//!   actors (pos / vel / facing / disposition / body-state), projectiles
-//!   (pos / vel / threat), local terrain / solids, and `self` (kinematics +
-//!   per-capability availability). The AI analogue of the human's screen
-//!   (invariant I5), built **per body, any faction** — the same construction for
-//!   the player-robot body as for the Perfect Cell-ular Automaton (guardrail #1).
-//! - [`WorldMemory`] — the per-controller belief that **outlives the viewport**
-//!   (invariant I6): last-known positions of actors that have left view, with a
-//!   confidence that decays over time, so a controller can pursue a target that
-//!   went off-screen instead of forgetting it the instant it leaves the frame.
-//!
-//! ### Why these types live here (and not in the gameplay crate)
-//!
-//! `WorldView` is what a **brain consumes**, exactly like [`crate::brain::BrainSnapshot`]:
-//! the type belongs next to the brains, the *construction* (which reads the ECS
-//! world) belongs in the gameplay layer. So this module owns the headless,
-//! controller-neutral **value** and its pure tactical queries (line-of-fire,
-//! reachability); `ambition_platformer2d_actor_monolith` owns the body-generic **builder** that
-//! fills it from real solids / actors / projectiles. Zero rendering dependency
-//! (invariant I5) and zero Bevy-world dependency here — just plain data over
-//! [`ambition_platformer2d_core`] geometry, so it is replay-deterministic and trivially
-//! assertable in a headless harness.
-//!
-//! ### Frame-agnostic (invariant I10)
-//!
-//! The viewport is an axis-aligned world-space region, so it is gravity-independent
-//! by construction. Tactical queries are world-space segment/sweep tests over the
-//! same solids the body physically collides against — no `-y`-is-up assumption.
-//! `self`'s gravity direction is carried in [`SelfView::gravity_down`] so a brain
-//! that wants body-local reasoning can project into the acceleration frame.
+//! [`WorldView`] contains the body's current visible world; [`WorldMemory`]
+//! retains decaying last-known observations outside the viewport. The value
+//! types live with brains while ECS construction lives in the gameplay layer.
+//! Geometry is world-space and gravity-independent; [`SelfView::gravity_down`]
+//! lets brains project into a body-local frame when needed.
 
 use ae::AabbExt;
 use ambition_platformer2d_core as ae;
@@ -138,7 +105,7 @@ pub struct StageView {
 }
 
 impl Default for StageView {
-    /// The **empty** stage (inverted bounds), so every point is offstage. That is
+    /// The empty stage (inverted bounds), so every point is offstage. That is
     /// the honest reading of "no stage was supplied": a brain classifying
     /// `Recovery` from it is not lulled into thinking it is standing on ground.
     /// A zero-size box at the origin would have been subtly worse — the origin,
@@ -184,8 +151,8 @@ impl StageView {
     }
 }
 
-/// One **other** actor perceived in the viewport. Controller-neutral: just the
-/// facts a brain needs to decide, with hostility already resolved **relationally**
+/// One other actor perceived in the viewport. Controller-neutral: just the
+/// facts a brain needs to decide, with hostility already resolved relationally
 /// (non-player-centric) at build time, so the brain reads `hostile_to_self`
 /// instead of pattern-matching factions.
 #[derive(Clone, Debug, Default)]
@@ -199,7 +166,7 @@ pub struct PerceivedActor {
     /// Half-extent of the perceived body's collision box (world px).
     pub half_extent: ae::Vec2,
     pub faction: ActorFaction,
-    /// True iff the **viewing** body's faction is hostile to this actor's faction
+    /// True iff the viewing body's faction is hostile to this actor's faction
     /// (resolved against `FactionRelations` at build time). The relational,
     /// non-player-centric "is this a target" signal (invariants behind S3e).
     pub hostile_to_self: bool,
@@ -240,7 +207,7 @@ pub struct PerceivedProjectile {
     pub pos: ae::Vec2,
     pub vel: ae::Vec2,
     pub damage: i32,
-    /// True iff this projectile's firing faction is hostile to the **viewer**
+    /// True iff this projectile's firing faction is hostile to the viewer
     /// (i.e. it can hurt me). Resolved relationally at build time.
     pub hostile_to_self: bool,
 }
@@ -281,7 +248,7 @@ impl SolidKind {
 }
 
 /// A solid block clipped into the viewport — the local terrain a brain reasons
-/// over. Carries the **same** `ae::Aabb` the body physically collides against, so
+/// over. Carries the same `ae::Aabb` the body physically collides against, so
 /// tactical queries reuse the real geometry rather than a parallel sensor.
 #[derive(Clone, Copy, Debug)]
 pub struct PerceivedSolid {
@@ -290,7 +257,7 @@ pub struct PerceivedSolid {
 }
 
 /// A portal aperture perceived in the viewport — the data a brain needs to
-/// **route through it** (invariant I10 / S5's portal navigation). Plain data: no
+/// route through it (invariant I10 / S5's portal navigation). Plain data: no
 /// dependency on the portal crate, so the perception value stays headless and
 /// the builder (gameplay layer) converts the live `PlacedPortal` into this.
 #[derive(Clone, Copy, Debug)]
@@ -307,7 +274,7 @@ pub struct PerceivedPortal {
     pub channel_key: u64,
 }
 
-/// The viewing body's own state — kinematics plus **per-capability availability**
+/// The viewing body's own state — kinematics plus per-capability availability
 /// (what it can actually do right now, the body-enforced floor of invariant I3).
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SelfView {
@@ -327,7 +294,7 @@ pub struct SelfView {
     pub can_fire: bool,
     /// Blink available this tick (capability + cooldown).
     pub can_blink: bool,
-    /// **WHAT THE SHARED BURST BUTTON WOULD DO IF PRESSED THIS TICK.**
+    /// WHAT THE SHARED BURST BUTTON WOULD DO IF PRESSED THIS TICK.
     ///
     /// Dodge and dash are ONE input; which one a press produces is decided by the body's
     /// current state — grounded or not, dodge cooldown, air-dodge budget and endlag, dash
@@ -335,7 +302,7 @@ pub struct SelfView {
     /// WITHOUT consuming the buffered press, so `apply_dash` takes it: a brain reading
     /// capabilities decides *I am dodging* and the body dashes.
     ///
-    /// ⇒ [`ambition_platformer2d_core::resolve_burst_maneuver`] is the one rule,
+    ///  [`ambition_platformer2d_core::resolve_burst_maneuver`] is the one rule,
     /// and this field is its answer. The brain is handed a fact.
     pub burst: ambition_platformer2d_core::BurstManeuver,
     /// `0` on the ground is normal — the count refreshes on landing.
@@ -352,17 +319,17 @@ pub struct SelfView {
     pub damage_taken: i32,
     /// Self's max health. `0` = unknown.
     pub health_max: i32,
-    /// **Somebody is holding this body.** Its ordinary options are gone; what it
+    /// Somebody is holding this body. Its ordinary options are gone; what it
     /// can do about that is escape, which does not exist yet.
     ///
-    /// **a READ MODEL, not the authority.** `CapturedBy` is the relationship
+    /// a READ MODEL, not the authority. `CapturedBy` is the relationship
     /// and it lives in combat; a brain that queried it directly would be a
     /// second reader of ECS state from inside a pure decision, which is the
     /// thing this whole perception layer exists to prevent.
     pub captured: bool,
     /// How long it has been held, in scaled seconds. `0.0` when free.
     pub captured_for: f32,
-    /// **This body is holding somebody.** Its ordinary options are gone too, and
+    /// This body is holding somebody. Its ordinary options are gone too, and
     /// the ones it has instead are the capture context: pummel, or throw.
     pub holding_captive: bool,
     /// `0` when it holds nobody. The capture policy's whole input today.
@@ -405,7 +372,7 @@ pub struct WorldView {
 }
 
 impl WorldView {
-    /// **How much floor is left in a direction, from the solid underfoot.**
+    /// How much floor is left in a direction, from the solid underfoot.
     ///
     /// `None` means no supporting solid was perceived — an AIRBORNE body, or a
     /// view whose terrain was never built. Neither is a ledge question, and
@@ -431,12 +398,12 @@ impl WorldView {
         })
     }
 
-    /// **The solid I am standing on**, as its full box — the authority behind
+    /// The solid I am standing on, as its full box — the authority behind
     /// [`Self::floor_ahead`], exposed because a body's *simulated* future needs
     /// the floor's EXTENT and not just the distance to one of its edges (the
     /// fighter brain's rollout walks a shadow body around and has to know when it
     /// has run out of ground).
-    /// **The floor a body would land on, standing or not.**
+    /// The floor a body would land on, standing or not.
     ///
     /// [`Self::supporting_floor`] answers only within about a body-height of
     /// the feet, because its question is *"what am I standing on"*. An AIRBORNE
@@ -471,7 +438,7 @@ impl WorldView {
             .iter()
             .filter(|solid| matches!(solid.kind, SolidKind::Solid | SolidKind::OneWay))
             .filter(|solid| {
-                // **the body's FOOTPRINT, not its centre.** This compared
+                // the body's FOOTPRINT, not its centre. This compared
                 // `me.pos.x` against the solid's span, so a body standing on the
                 // very lip of a platform — centre a few px past the edge, feet
                 // still on it, `on_ground` still true — matched NO solid, and
@@ -499,7 +466,7 @@ impl WorldView {
         Some(support.aabb)
     }
 
-    /// **Is there anything below me to land on?**
+    /// Is there anything below me to land on?
     ///
     /// The top of the highest solid under the body's footprint, or `None` when
     /// there is nothing under it at all. Unlike [`Self::supporting_floor`] this
@@ -507,7 +474,7 @@ impl WorldView {
     /// platform, and a body that has walked off the lip is over nothing, and
     /// those are different situations no matter what height either is at.
     ///
-    /// **it exists because "offstage" was a question about the ROOM.**
+    /// it exists because "offstage" was a question about the ROOM.
     /// `StageView` is the room box, so on a platform stage a fighter that walked
     /// off the lip was still *inside the stage* for another hundred pixels of
     /// falling — L1 kept classifying `Neutral`, kept offering `Retreat`, and the
@@ -647,7 +614,7 @@ pub struct RememberedActor {
 /// it is replay-deterministic and assertable headless without a running app.
 #[derive(Clone, Debug, Default)]
 pub struct WorldMemory {
-    /// **`BTreeMap`, not `HashMap`** (ADR 0023). [`WorldMemory::last_known_hostile`]
+    /// `BTreeMap`, not `HashMap` (ADR 0023). [`WorldMemory::last_known_hostile`]
     /// takes the `max_by` confidence over these, and two hostiles both in view are
     /// both at confidence `1.0` — so the tie is broken by iteration order. Under
     /// `RandomState` that is the process seed, and the enemy chases a different
@@ -701,7 +668,7 @@ impl WorldMemory {
         self.actors.get(id)
     }
 
-    /// The most-confident remembered **hostile** — the target a brain pursues when
+    /// The most-confident remembered hostile — the target a brain pursues when
     /// none is currently in view (invariant I6: "move towards the last known
     /// position of the player to look for them").
     /// The most-confidently-remembered hostile. Ties break on the greatest actor id
@@ -745,7 +712,7 @@ impl WorldMemory {
     }
 }
 
-/// **A view a brain is allowed to read.** The no-cheat contract, made a type.
+/// A view a brain is allowed to read. The no-cheat contract, made a type.
 ///
 /// `docs/planning/engine/fighter-brain.md` §3's humanity checks ask for a test
 /// that *"the delay buffer is on the ONLY read path"*. A test can be forgotten,
@@ -778,7 +745,7 @@ impl<'a> Perceived<'a> {
     }
 }
 
-/// **The perception delay-buffer** — the no-cheat contract's reaction latency,
+/// The perception delay-buffer — the no-cheat contract's reaction latency,
 /// made structural (`docs/planning/engine/fighter-brain.md` §1.3, §5).
 ///
 /// A brain that reads the live view reacts in zero milliseconds, which no human
@@ -787,7 +754,7 @@ impl<'a> Perceived<'a> {
 /// gameplay layer `observe`s each tick's fresh view, and every L1/L2/L3 code path
 /// reads `perceive()`.
 ///
-/// **Warm-up is deliberately stale, never fresh.** Before the buffer fills, it returns the oldest
+/// Warm-up is deliberately stale, never fresh. Before the buffer fills, it returns the oldest
 /// view it holds — so a brain spawned mid-fight reacts *more* slowly than its profile for a few
 /// ticks, never faster.
 ///

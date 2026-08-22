@@ -98,8 +98,8 @@ pub(super) fn push_unique_animation_key(keys: &mut Vec<String>, key: &str) {
     }
 }
 
-/// The animation keys a runtime lookup will try, **with their two provenances
-/// kept apart**.
+/// The animation keys a runtime lookup will try, with their two provenances
+/// kept apart.
 ///
 /// Removing the push left all 21 derivation tests green, which is how the gap was found.
 ///
@@ -142,7 +142,7 @@ impl RuntimeAnimationKeys {
         keys
     }
 
-    /// **The circularity, as a predicate.** True when the sample's own key is the
+    /// The circularity, as a predicate. True when the sample's own key is the
     /// only thing naming a row — i.e. this profile's rows are found only because
     /// the sample rescued it, and a key-based rule would miss and fall back to
     /// elapsed-time sampling.

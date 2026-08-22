@@ -30,8 +30,8 @@ pub const ENCOUNTER_WAVES_VERSION: SchemaVersion = SchemaVersion(1);
 /// The identity kind a mob's `character` names — minted by `character_catalog`,
 /// which lives in `ambition_characters`.
 ///
-/// ⭐ **a cross-schema reference is by SCHEMA ID, so this crate needs no
-/// dependency on the one that owns the family.** `boss_encounter` names a
+///  a cross-schema reference is by SCHEMA ID, so this crate needs no
+/// dependency on the one that owns the family. `boss_encounter` names a
 /// `music_track` across exactly the same kind of boundary. What resolves the
 /// name is the pack: every identity it defines is matched by
 /// `<namespace>:<schema>/<name>`, and a character the pack never defined is an
@@ -71,7 +71,7 @@ impl ContentSchemaHandler for EncounterWavesSchema {
 }
 
 fn declare(facet: &FacetSource<'_>, book: &EncounterWaveBook, out: &mut FacetOutcome) {
-    // ⚠ iterate SORTED. A `HashMap`'s order is not defined, and a diagnostic list
+    //  iterate SORTED. A `HashMap`'s order is not defined, and a diagnostic list
     // whose order changes between runs is one nobody can diff.
     let mut ids: Vec<&String> = book.keys().collect();
     ids.sort();
@@ -104,7 +104,7 @@ fn declare(facet: &FacetSource<'_>, book: &EncounterWaveBook, out: &mut FacetOut
         // Define every encounter that contributes runtime content so wave edits
         // also change the pack fingerprint used for compatibility checks.
         //
-        // ⚠ `Debug` is canonical for THIS vocabulary and it is worth saying why,
+        //  `Debug` is canonical for THIS vocabulary and it is worth saying why,
         // because it is not canonical in general: `EncounterWaveSpec` and
         // `EncounterMobSpec` are plain fields and ordered `Vec`s all the way
         // down, with no map to randomise its iteration. A map anywhere under
@@ -112,7 +112,7 @@ fn declare(facet: &FacetSource<'_>, book: &EncounterWaveBook, out: &mut FacetOut
         // `BossBehaviorProfile::strike_geometry` already fell into.
         out.define(facet.content_id(trimmed), format!("{waves:?}"));
 
-        // ⛔ the invariant a serde parse cannot see.
+        //  the invariant a serde parse cannot see.
         if waves.is_empty() {
             out.report(
                 facet
@@ -129,8 +129,8 @@ fn declare(facet: &FacetSource<'_>, book: &EncounterWaveBook, out: &mut FacetOut
         }
 
         for (index, wave) in waves.iter().enumerate() {
-            // ⛔ **the character a mob names must EXIST, and a compiler is the
-            // only place that can say so.** The runtime cannot: an unresolvable
+            //  the character a mob names must EXIST, and a compiler is the
+            // only place that can say so. The runtime cannot: an unresolvable
             // character resolves to no sheet, and §4.10's ruling is that there
             // is no fallback sheet — the body draws the placeholder rectangle
             // and the game keeps running. A misspelling therefore looks exactly

@@ -150,7 +150,7 @@ fn the_resize_holds_the_feet() {
     );
 }
 
-/// **A crouching body stays crouched.**
+/// A crouching body stays crouched.
 ///
 /// The stance is applied ONCE, on the tick the mode changes: the crouch
 /// mechanics `continue` when the body is already in the target mode, so nothing

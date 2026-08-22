@@ -138,13 +138,13 @@ pub fn first_floor_authored_portal_pair(
         .expect("room has a linked floor-to-floor authored portal pair")
 }
 
-/// **Drive `vertical_shaft`'s authored enemy, and return the body and the
-/// identity its room minted it under.**
+/// Drive `vertical_shaft`'s authored enemy, and return the body and the
+/// identity its room minted it under.
 ///
 /// It lives here rather than in one of them because `carried_item_crosses_rooms` and
 /// `a_save_remembers_where_you_left_things` are siblings, not a hierarchy.
 ///
-/// **the possession is asserted here, once.** A test whose setup silently
+/// the possession is asserted here, once. A test whose setup silently
 /// failed to possess anything measures a body nobody is driving, and every
 /// assertion about custody below would pass for the wrong reason.
 pub fn possess_the_authored_enemy(sim: &mut Platformer2dSimHarness) -> (Entity, SimId) {

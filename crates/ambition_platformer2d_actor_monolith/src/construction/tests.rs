@@ -1,4 +1,4 @@
-//! **The Phase-3 exit criteria, proven against the three real families.**
+//! The Phase-3 exit criteria, proven against the three real families.
 //!
 //! The pure planner's own properties are proven in
 //! `ambition_platformer2d_shared_tangle::construction`.
@@ -26,7 +26,7 @@ fn empty_room(id: &str) -> crate::rooms::RoomSpec {
     )
 }
 
-/// **THE FIXTURE CAST every construction test builds bodies from.**
+/// THE FIXTURE CAST every construction test builds bodies from.
 ///
 /// `'static` because `ActorConstructionContext` BORROWS the cast, and a
 /// per-test local would not outlive the plan it is handed to.
@@ -365,7 +365,7 @@ fn an_authored_ground_item_naming_an_unknown_held_item_fails_the_plan() {
     );
 }
 
-/// **THE TWO SIDES OF ONE LIST.**
+/// THE TWO SIDES OF ONE LIST.
 ///
 /// [`reinstatable_authored_requests`] is what a room hands to a NEIGHBOUR that
 /// has to rebuild an occurrence lying in it, and [`relocate_request`] is what
@@ -745,7 +745,7 @@ fn summon_spec(id: &str) -> ambition_vfx::SummonSpec {
     }
 }
 
-/// **The summoner is built by the REAL construction executor, not by hand.**
+/// The summoner is built by the REAL construction executor, not by hand.
 ///
 /// Every other test in this section spawns it as
 /// `(SimId::placement(..), SimIdCounter::default())` — the fixture hand-supplying
@@ -901,7 +901,7 @@ fn a_summon_from_an_unidentified_emitter_is_refused() {
 /// The duellists' grudge is a planned relation, so rebuilding one of them alone
 /// would put the fighter back without it — a body that looks right in the roster
 /// and no longer hunts its rival. `respawn_authoritative_entity` rebuilds the
-/// RELATION CLOSURE, so asking for one duellist rebuilds **both** and the grudge
+/// RELATION CLOSURE, so asking for one duellist rebuilds both and the grudge
 /// is wired.
 ///
 /// Rebuilding the closure is the better contract: it is the only way to bring a related row back
@@ -1077,7 +1077,7 @@ fn every_parameter_variant_constructs_its_root() {
 /// it found it, and the very next summon takes the identity the refused batch
 /// had reserved.
 ///
-/// **Demonstrated against the pre-repair implementation** (which called
+/// Demonstrated against the pre-repair implementation (which called
 /// `counter.next()` while assembling requests): it failed there with `Some(1)`
 /// where the contract requires `Some(0)`.
 #[test]
@@ -1110,7 +1110,7 @@ fn a_rejected_summon_batch_spends_no_identity() {
     );
 }
 
-/// **the state is now UNREACHABLE by ordinary means**: `SimId` requires
+/// the state is now UNREACHABLE by ordinary means: `SimId` requires
 /// `SimIdCounter`, so an identified entity is born able to be descended from.
 /// It is stripped explicitly here because the refusal is still the correct
 /// answer if something ever tears the pair apart, and a branch nothing can enter
@@ -1300,10 +1300,10 @@ fn room_loaded_count(app: &mut App) -> usize {
         .count()
 }
 
-/// **The room is not published when its relations did not land.**
+/// The room is not published when its relations did not land.
 ///
-/// **A room that fails verification does not publish, and does not write
-/// `RoomLoaded`.**
+/// A room that fails verification does not publish, and does not write
+/// `RoomLoaded`.
 ///
 /// Nothing test-only is wired into the construction path to produce it.
 ///
@@ -1530,7 +1530,7 @@ fn a_limb_relation_wires_the_limb_and_the_hosts_rig() {
     assert_eq!(verify_bare(&mut world, &plan, &receipt, &baseline), Ok(()));
 }
 
-/// **A limb the host's rig does not contain is inert but looks attached.**
+/// A limb the host's rig does not contain is inert but looks attached.
 ///
 /// `fan_out_limb_intents` iterates the RIG, so a limb missing from it receives
 /// nothing — while `Limb.of` still names the right host and every forward-only
@@ -1663,7 +1663,7 @@ fn a_mount_relation_wires_the_rider_and_the_mounts_slot() {
     assert_eq!(verify_bare(&mut world, &plan, &receipt, &baseline), Ok(()));
 }
 
-/// **The half-write that exists in the tree today.**
+/// The half-write that exists in the tree today.
 ///
 /// `attach_mount_role` never inserts `MountSlot`, and
 /// `reconcile_autonomous_actors` re-establishes the link with
@@ -1722,8 +1722,8 @@ fn a_mount_holding_a_different_rider_is_detected() {
     );
 }
 
-/// **A limb wired into the wrong slot is detected — the slot is verified on
-/// both sides.**
+/// A limb wired into the wrong slot is detected — the slot is verified on
+/// both sides.
 #[test]
 fn a_limb_filed_under_the_wrong_slot_is_detected() {
     let plan = related_actor_plan(
@@ -1755,7 +1755,7 @@ fn a_limb_filed_under_the_wrong_slot_is_detected() {
     );
 }
 
-/// **A limb whose home offset was overwritten after wiring is detected.**
+/// A limb whose home offset was overwritten after wiring is detected.
 ///
 /// The offset is the limb's entire idle behaviour; a corrupted one station-keeps to the wrong
 /// place forever, which no structural check would ever notice.
@@ -1788,7 +1788,7 @@ fn a_limb_with_a_corrupted_home_offset_is_detected() {
     );
 }
 
-/// **A mount link missing `Mounted` is detected.**
+/// A mount link missing `Mounted` is detected.
 ///
 /// `steer_mount_from_rider` queries `With<Mounted>`, so a rider linked without it
 /// sits on a mount that never receives its intent. Every `RidingOn`/`MountSlot`
@@ -1819,7 +1819,7 @@ fn a_mount_link_missing_the_mounted_marker_is_detected() {
     );
 }
 
-/// **A mount link whose rider cannot pilot the mount's class is detected.**
+/// A mount link whose rider cannot pilot the mount's class is detected.
 ///
 /// The preflight rejects this before construction; this is the runtime
 /// counterpart, for a pair that somehow reached the world incompatible.
@@ -2039,7 +2039,7 @@ fn giant_room() -> crate::rooms::RoomSpec {
     room
 }
 
-/// **A CHARACTER can make a limbed host, with no archetype row saying so.**
+/// A CHARACTER can make a limbed host, with no archetype row saying so.
 ///
 /// the fixture's roster deliberately answers `combatant` for this brain, so
 /// the ONLY thing that can produce three rows here is the character.
@@ -2092,8 +2092,8 @@ fn a_character_that_authors_a_giant_mount_plans_its_hands_without_a_row() {
     );
 }
 
-/// **The giant host and both hands are explicit plan rows joined by limb
-/// relations.** They used to be minted inside the enemy spawn helper as
+/// The giant host and both hands are explicit plan rows joined by limb
+/// relations. They used to be minted inside the enemy spawn helper as
 /// authoritative roots no plan named — the last legacy family.
 #[test]
 fn a_giant_enemy_becomes_a_host_row_and_two_hand_rows() {
@@ -2171,8 +2171,8 @@ fn a_committed_giant_has_a_verified_two_hand_rig() {
     assert_eq!(verify_bare(&mut world, &plan, &receipt, &baseline), Ok(()));
 }
 
-/// **Reconstruction closure: asking to rebuild any one of the three rebuilds all
-/// three.** The giant host is a relation target and each hand a source, so no
+/// Reconstruction closure: asking to rebuild any one of the three rebuilds all
+/// three. The giant host is a relation target and each hand a source, so no
 /// one of them can be rebuilt alone — the closure holds the cluster together.
 #[test]
 fn the_giant_reconstruction_closure_is_the_whole_cluster() {
@@ -2218,8 +2218,8 @@ fn staged_giant(id: &str) -> SpawnActorRequest {
     }
 }
 
-/// **A provider-staged giant lowers to the SAME three-row cluster an authored
-/// one does.** Before this, `staged_actor_requests` emitted a single
+/// A provider-staged giant lowers to the SAME three-row cluster an authored
+/// one does. Before this, `staged_actor_requests` emitted a single
 /// `StagedActor` row whose recipe routed through the enemy spawn helper — which
 /// no longer spawns hands — so a staged giant was a handless host.
 #[test]
@@ -2319,7 +2319,7 @@ fn a_staged_giant_commits_into_a_published_room_with_a_wired_rig() {
     assert_eq!(rig.get(LimbSlot::HAND_RIGHT), Some(hand_r));
 }
 
-/// **The authored giant host carries the room's frozen kinematic paths** — the
+/// The authored giant host carries the room's frozen kinematic paths — the
 /// same seed data an ordinary authored enemy receives. The first migration
 /// passed `Vec::new()`, silently un-pathing every giant.
 #[test]
@@ -2367,7 +2367,7 @@ fn a_runtime_minion_giant_is_refused_before_it_spawns() {
             &mut commands,
             &catalog,
             &Default::default(),
-            // **the giant IS in the cast**, so the refusal under test is the
+            // the giant IS in the cast, so the refusal under test is the
             // limb-rig one rather than "this names no character" (AC6).
             fixture_cast(),
             SessionSpawnScope::UNSCOPED,
@@ -2561,8 +2561,8 @@ fn a_stale_limb_host_pointer_is_fatal() {
 
 // ── Reconstruction from a stable identity ─────────────────────────────────────
 
-/// **Production reconstruction can start from ANY cluster member — host, left
-/// hand, or right hand.** The authored-id entry point spells only
+/// Production reconstruction can start from ANY cluster member — host, left
+/// hand, or right hand. The authored-id entry point spells only
 /// `SimId::placement`, which can never name a hand; the `SimId` entry point can.
 /// Each rebuild produces three FRESH bodies with the rig and both forward limb
 /// pointers rewired onto the new generation.
@@ -2671,7 +2671,7 @@ fn mounted_pair_room() -> crate::rooms::RoomSpec {
     room
 }
 
-/// **An authored mount link is a planned relation between two plan rows.** The
+/// An authored mount link is a planned relation between two plan rows. The
 /// deleted resolver matched the pair by `FeatureId` a frame after spawn; here
 /// both actors are pulled into the planner and the rider row declares
 /// `ambition.mount` before anything exists.
@@ -2750,7 +2750,7 @@ fn a_committed_mount_pair_is_welded_both_ways_and_published() {
     );
 }
 
-/// **The gnu_ton_rider pattern: a BOSS rider on a giant mount.** The boss
+/// The gnu_ton_rider pattern: a BOSS rider on a giant mount. The boss
 /// becomes a planned row (`AuthoredBoss`, CanPilot from its profile), its
 /// relation targets the giant HOST row the giant expansion already planned —
 /// one row per identity, no duplicate.
@@ -2910,7 +2910,7 @@ fn the_mount_pair_reconstruction_closure_is_both_actors() {
 
 // ── Phase 4a/4b: the enemy and boss FAMILIES are plan rows ────────────────────
 
-/// **Every authored enemy and boss is a plan row.** Ordinary enemy →
+/// Every authored enemy and boss is a plan row. Ordinary enemy →
 /// `AuthoredEnemy`; giant → host + two hands; boss → `AuthoredBoss`. The family
 /// loops are deleted, so this is the only way a room's actors exist.
 #[test]
@@ -3135,7 +3135,7 @@ fn prepare_with_placements(
     )
 }
 
-/// **A spawning placement is a plan row; an inert one (a Door) is not.** The
+/// A spawning placement is a plan row; an inert one (a Door) is not. The
 /// row carries the frozen interpreter; the Door record keeps its historical
 /// no-entity behavior instead of becoming a fatal missing row.
 #[test]
@@ -3217,7 +3217,7 @@ fn a_placement_respawns_through_the_planner() {
 /// Shrines and gravity zones always had stable authored iids; the entities now
 /// wear them as plan rows, verified at the boundary like everything else.
 ///
-/// **and they are now plan rows in DIFFERENT LANES**, which is the whole
+/// and they are now plan rows in DIFFERENT LANES, which is the whole
 /// point of the second extraction: the shrine is actor-domain vocabulary and the
 /// gravity zone is the gravity capability's. One room, two independently typed
 /// lanes, one transaction — so this test asks each lane for its own row rather
@@ -3282,7 +3282,7 @@ fn shrines_and_gravity_zones_are_stamped_plan_rows() {
         "identity and the populated shrine are the SAME entity"
     );
 
-    // **the other lane actually BUILT something**, checked the same way: the
+    // the other lane actually BUILT something, checked the same way: the
     // identity and the populated zone are one entity. A lane that planned a row
     // and constructed nothing would satisfy every assertion above.
     let mut zones = world.query::<(
@@ -3362,7 +3362,7 @@ fn a_plan_matching_the_live_binding_publishes() {
 /// The room sweep is not merely available — the REAL prepare path runs it, on
 /// both channels, and hands the result to the plan.
 ///
-/// **The patrol path is the one reference with no failure mode of its own**: an
+/// The patrol path is the one reference with no failure mode of its own: an
 /// authored path that matches nothing leaves the enemy passive, silently, and
 /// nothing else objects. That is what the sweep is for.
 ///
@@ -3403,7 +3403,7 @@ fn prepare_hands_the_plan_what_the_room_could_not_bind() {
     let plan = prepare(&room, &staging, &engine_construction_registry())
         .expect("an unbound reference is a content defect, not a reason to refuse the room");
 
-    // **ONE channel now** (AC6). Construction now REFUSES an identifier that names no
+    // ONE channel now (AC6). Construction now REFUSES an identifier that names no
     // character, which is a stronger statement than a report — so the patrol path is the
     // namespace this sweep still owns, and it is the one whose failure mode is still silent (a
     // bad path goes passive).
@@ -3433,9 +3433,9 @@ fn prepare_hands_the_plan_what_the_room_could_not_bind() {
     );
 }
 
-/// **A body nothing can build REFUSES THE PLAN — it does not panic mid-commit.**
+/// A body nothing can build REFUSES THE PLAN — it does not panic mid-commit.
 ///
-/// **the half AC6 left late.** Deleting the archetype ontology made an
+/// the half AC6 left late. Deleting the archetype ontology made an
 /// unresolvable character honest: there is no generic body left to settle for.
 /// But the refusal it became lived inside `spawn_enemy_with_faction_into`, which
 /// runs as a construction RECIPE — so the honest answer arrived as a panic after
@@ -3475,8 +3475,8 @@ fn an_unbuildable_body_refuses_the_plan_before_anything_is_built() {
         )
     };
 
-    // **the first of the three shapes is GONE, and that is the point of the change rather than
-    // a hole in this test.** It asserted that a placement naming NO character was refused with
+    // the first of the three shapes is GONE, and that is the point of the change rather than
+    // a hole in this test. It asserted that a placement naming NO character was refused with
     // `BodyNamesNoCharacter`; `EnemySpawnSpec::character_id` is required now, so that placement
     // cannot be constructed at all, and the LDtk lowering refuses the authored entity by name
     // (`convert_enemy_spawn`, pinned in `conversion::mod`'s tests).
@@ -3528,7 +3528,7 @@ fn an_unbuildable_body_refuses_the_plan_before_anything_is_built() {
     );
 }
 
-/// **A STAGED actor takes its mount facts from its CHARACTER**, exactly as an
+/// A STAGED actor takes its mount facts from its CHARACTER, exactly as an
 /// authored one does.
 ///
 /// `SpawnActorKind: Enemy` has carried a `character` since P1.12 and its own doc names the

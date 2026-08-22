@@ -1,4 +1,4 @@
-//! **The sentinel's own proof.**
+//! The sentinel's own proof.
 //!
 //! Each test below is one of the four halves of the capability contract, and
 //! the point of every one is what it did NOT have to touch.
@@ -81,7 +81,7 @@ fn compile_pack(
     compile(&draft, &registry, &AssetsUnchecked).map_err(|f| f.render())
 }
 
-/// **HALF 1 — an authored schema, registered by the capability that owns it.**
+/// HALF 1 — an authored schema, registered by the capability that owns it.
 ///
 /// `ambition_content_pack` has no pulse knowledge. No central content enum was
 /// edited to make this compile.
@@ -111,7 +111,7 @@ fn the_capabilitys_schema_refuses_its_own_nonsense() {
     assert!(failure.contains("unknown-field"), "{failure}");
 }
 
-/// **HALF 2 — a semantic action, beside the engine's own vocabulary.**
+/// HALF 2 — a semantic action, beside the engine's own vocabulary.
 ///
 /// `Platformer2dInputActionMonolith` is a closed enum and was not touched.
 #[test]
@@ -133,7 +133,7 @@ fn the_capability_registers_its_own_semantic_action() {
     );
 }
 
-/// **HALF 3 — rollback state the capability OFFERS and a composition installs.**
+/// HALF 3 — rollback state the capability OFFERS and a composition installs.
 ///
 /// the capability does not register it itself, and that is deliberate: the
 /// registration trait lives in `ambition_platformer2d_runtime`, so self-registering would
@@ -174,7 +174,7 @@ fn a_composition_installs_the_rollback_state_the_capability_offers() {
     );
 }
 
-/// **and the plugin alone must NOT register it**, or the offer is a lie and
+/// and the plugin alone must NOT register it, or the offer is a lie and
 /// the dependency it was meant to avoid comes back the first time somebody
 /// assumes the plugin is enough.
 #[test]
@@ -193,7 +193,7 @@ fn the_plugin_alone_registers_no_rollback_state() {
     );
 }
 
-/// **HALF 4 — causal facts, quoting the authored content that supplied them.**
+/// HALF 4 — causal facts, quoting the authored content that supplied them.
 #[test]
 fn the_capability_publishes_its_own_causal_facts() {
     let mut app = App::new();
@@ -264,7 +264,7 @@ fn the_capability_publishes_its_own_causal_facts() {
     );
 }
 
-/// **"I pressed it and nothing happened" is a fact, not a silence.**
+/// "I pressed it and nothing happened" is a fact, not a silence.
 #[test]
 fn a_refused_pulse_says_why() {
     let mut app = App::new();
@@ -336,7 +336,7 @@ fn firing_arms_the_cooldown_and_it_ages() {
     );
 }
 
-/// **A composition that skips the offer is CAUGHT, not left to desync.**
+/// A composition that skips the offer is CAUGHT, not left to desync.
 ///
 /// The offer keeps this capability's closure to foundations, and the price was
 /// that nothing forced a host to accept it. `REQUIRED_ROLLBACK` is the
@@ -396,7 +396,7 @@ fn a_composition_that_forgets_the_rollback_state_is_told_which_and_why() {
         .is_empty());
 }
 
-/// **the OWNER is part of the requirement.** Two capabilities may both
+/// the OWNER is part of the requirement. Two capabilities may both
 /// reasonably want a `cooldown`; a name registered by somebody else is not this
 /// capability's state, and treating it as satisfied would be the worst kind of
 /// pass — one that reports safety while the desync is still there.
@@ -430,11 +430,11 @@ fn another_capabilitys_registration_does_not_satisfy_this_one() {
     );
 }
 
-/// **The capability runs in the HOST'S schedule, not in `Update`.**
+/// The capability runs in the HOST'S schedule, not in `Update`.
 ///
-/// * **render-rate coupled** under a fixed-tick host — cooldowns aged once per
+/// * render-rate coupled under a fixed-tick host — cooldowns aged once per
 ///   frame instead of once per tick;
-/// * **not resimulated** under a rollback host — GGRS replays the SIM schedule,
+/// * not resimulated under a rollback host — GGRS replays the SIM schedule,
 ///   so a rewind restored `PulseCooldown` without re-running the behaviour that
 ///   produced the surrounding result. Snapshotting state does not help when the
 ///   systems that move it never replay.
@@ -490,8 +490,8 @@ fn the_capability_runs_in_the_hosts_schedule_rather_than_in_update() {
     );
 }
 
-/// **The same input over the same number of SIM TICKS gives the same result,
-/// whichever schedule the host picked.**
+/// The same input over the same number of SIM TICKS gives the same result,
+/// whichever schedule the host picked.
 ///
 /// The equivalence the review asked for, expressed without standing up two real
 /// hosts: one app leaves the sim schedule at its `Update` default, the other
@@ -558,15 +558,15 @@ fn the_result_is_a_function_of_sim_ticks_not_of_which_schedule_runs_them() {
     );
 }
 
-/// **AUTHORED NUMBERS REACH A FIRED PULSE.**
+/// AUTHORED NUMBERS REACH A FIRED PULSE.
 ///
 /// the review's second finding, and the authority split the content-compiler
 /// program exists to remove: the schema was registered, packs validated and
 /// LOWERED correctly, and `PulsePlugin` then called
 /// `init_resource::<PulseProfiles>()` — the built-in defaults. A game could
 /// author a radius, watch the compiler accept it, mount the capability, and
-/// pulse at the default radius forever. **The compiler was validating content
-/// the runtime ignored**, which is worse than not validating it.
+/// pulse at the default radius forever. The compiler was validating content
+/// the runtime ignored, which is worse than not validating it.
 ///
 /// So this test does not inspect the lowered artifact — that passed the whole
 /// time. It authors profiles that differ from the defaults in every field,
@@ -642,7 +642,7 @@ fn authored_profile_values_reach_a_fired_pulse_not_just_the_lowered_artifact() {
     );
 }
 
-/// **A pack that prepared no profiles is a REFUSAL, not a silent default.**
+/// A pack that prepared no profiles is a REFUSAL, not a silent default.
 ///
 /// The other half of the seam: a composition that asked for authored tuning and
 /// got none must hear about it. Silently running the defaults is exactly the
@@ -674,8 +674,8 @@ fn a_pack_without_pulse_profiles_refuses_rather_than_defaulting() {
     );
 }
 
-/// **The active profile is FROZEN at composition, so a rewind cannot disagree
-/// about which one was live.**
+/// The active profile is FROZEN at composition, so a rewind cannot disagree
+/// about which one was live.
 ///
 /// That made the active selection MUTABLE SIMULATION STATE which nothing rewound and which the
 /// rollback contract never mentioned — so the radius, force and cooldown a pulse used could differ
@@ -714,8 +714,8 @@ fn the_active_profile_is_chosen_before_the_resource_exists_not_during_the_sim() 
     );
 }
 
-/// **The rollback contract names every piece of authoritative state the
-/// mechanic introduces**, which is the property the contract exists to have.
+/// The rollback contract names every piece of authoritative state the
+/// mechanic introduces, which is the property the contract exists to have.
 ///
 /// A checkable restatement of: enumerate what `fire_pulses` reads or writes that can differ
 /// between an original tick and its resimulation, and require each to appear in
@@ -755,8 +755,8 @@ fn every_piece_of_authoritative_pulse_state_is_in_the_contract() {
     }
 }
 
-/// **Reordering the profiles changes the pack's identity, because it changes
-/// which pulse the game fires.**
+/// Reordering the profiles changes the pack's identity, because it changes
+/// which pulse the game fires.
 ///
 /// A fingerprint that cannot tell those two packs apart is useless for the four things it exists
 /// for: cache invalidation, packaging, session compatibility, and telling two peers apart.

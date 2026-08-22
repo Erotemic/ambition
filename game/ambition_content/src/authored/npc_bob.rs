@@ -1,4 +1,4 @@
-//! **BOB'S BODY, now that bob has answers.**
+//! BOB'S BODY, now that bob has answers.
 //!
 //! bob leaves [`super::hall_humanoids`] under that file's own rule: *"one file for the rest...
 //! If one of them grows a moveset or a distinct build, it earns its own file that day."* This

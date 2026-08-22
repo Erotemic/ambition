@@ -1,4 +1,4 @@
-//! **these tests build their own `App`**, which is exactly the shape that can
+//! these tests build their own `App`, which is exactly the shape that can
 //! pass with the production wiring absent. They are about the CONTRACT — its
 //! privacy, its one road, its arity checking, its refusals. The claim that real
 //! domains publish real commands is proved by the integration fixture that
@@ -50,17 +50,17 @@ fn request(app: &mut App, id: &CommandId, args: Vec<AuthoredArg>) {
         .write_message(RunAuthoredCommand::new(id.clone(), args));
 }
 
-/// **A CRATE THAT IS NOT THE ENGINE CAN PUBLISH A COMMAND, AND THE ONLY ROAD TO
-/// PERFORMING ONE IS THE REQUEST CHANNEL.**
+/// A CRATE THAT IS NOT THE ENGINE CAN PUBLISH A COMMAND, AND THE ONLY ROAD TO
+/// PERFORMING ONE IS THE REQUEST CHANNEL.
 ///
-/// **this is the milestone's behavioural acceptance for the command half,
+/// this is the milestone's behavioural acceptance for the command half,
 /// and it is two claims in one test because the second is what makes the first
-/// mean anything.**
+/// mean anything.
 ///
 /// 1. This module names no other domain, edits no enum and touches no
 ///    registration table — it calls `publish_command` and nothing else. If a
 ///    central list of command kinds existed, this could not compile.
-/// 2. **and the test cannot pass by accident**: it asserts the bell is silent
+/// 2. and the test cannot pass by accident: it asserts the bell is silent
 ///    while the request is only WRITTEN, and rings only once the dispatcher has
 ///    run. Both terms are observed. A version of this that asserted only the
 ///    end state would still pass if `run_requested_authored_commands` were
@@ -86,7 +86,7 @@ fn a_provider_that_names_no_other_domain_can_publish_and_be_performed() {
     assert_eq!(app.world().resource::<Bell>().0, ["C"]);
 }
 
-/// **A COMMAND HAPPENS ONCE PER REQUEST.**
+/// A COMMAND HAPPENS ONCE PER REQUEST.
 ///
 /// A grant is not idempotent.
 #[test]
@@ -109,7 +109,7 @@ fn a_request_is_performed_once_and_leaves_the_buffer_empty() {
     );
 }
 
-/// **TWO domains coexist and each is discoverable on its own.**
+/// TWO domains coexist and each is discoverable on its own.
 #[test]
 fn the_catalog_composes_domains_without_either_naming_the_other() {
     let mut app = App::new();
@@ -129,7 +129,7 @@ fn the_catalog_composes_domains_without_either_naming_the_other() {
     assert_eq!(catalog.describe_domain("weather").count(), 1);
 }
 
-/// **AN UNPUBLISHED COMMAND IS REFUSED WITH A COUNT, NOT SILENTLY DROPPED.**
+/// AN UNPUBLISHED COMMAND IS REFUSED WITH A COUNT, NOT SILENTLY DROPPED.
 ///
 /// the count is the sentence that tells an author whether they typo'd a verb
 /// or forgot a plugin.
@@ -149,8 +149,8 @@ fn asking_for_an_unpublished_command_is_refused_with_a_reason() {
     assert!(reason.contains("knows 1 others"), "{reason}");
 }
 
-/// **ARITY AND KIND ARE CHECKED ONCE, CENTRALLY, AND THE REASON NAMES THE
-/// PARAMETER.**
+/// ARITY AND KIND ARE CHECKED ONCE, CENTRALLY, AND THE REASON NAMES THE
+/// PARAMETER.
 #[test]
 fn a_mistyped_argument_is_refused_with_a_reason_an_author_can_act_on() {
     let mut app = App::new();
@@ -177,7 +177,7 @@ fn a_mistyped_argument_is_refused_with_a_reason_an_author_can_act_on() {
     );
 }
 
-/// **A DOMAIN THAT CANNOT PERFORM ITS OWN VERB REFUSES RATHER THAN PANICKING.**
+/// A DOMAIN THAT CANNOT PERFORM ITS OWN VERB REFUSES RATHER THAN PANICKING.
 ///
 /// a composition without the state a command needs is a real composition — a
 /// headless fixture, a menu route — not a broken one.
@@ -194,7 +194,7 @@ fn a_composition_missing_the_domains_state_refuses() {
     assert!(app.world().get_resource::<Bell>().is_none());
 }
 
-/// **TWO DOMAINS CANNOT OWN ONE ID, AND IT FAILS AT STARTUP.**
+/// TWO DOMAINS CANNOT OWN ONE ID, AND IT FAILS AT STARTUP.
 #[test]
 #[should_panic(expected = "already published")]
 fn publishing_one_id_twice_panics_rather_than_letting_the_last_plugin_win() {
@@ -203,7 +203,7 @@ fn publishing_one_id_twice_panics_rather_than_letting_the_last_plugin_win() {
     app.publish_command(descriptor("world", "ring"), ring);
 }
 
-/// **AN ID CANNOT BE SPELLED TWO WAYS**, and the panic says `command`/`verb`
+/// AN ID CANNOT BE SPELLED TWO WAYS, and the panic says `command`/`verb`
 /// rather than a generic complaint about segments.
 #[test]
 #[should_panic(expected = "a command id's segments")]
@@ -211,8 +211,8 @@ fn a_dot_inside_a_segment_is_refused() {
     let _ = CommandId::new("world", "set.flag");
 }
 
-/// **AUTHORED CONTENT NAMES A COMMAND BY STRING, AND A TYPO IS A DIAGNOSTIC
-/// RATHER THAN A PANIC.**
+/// AUTHORED CONTENT NAMES A COMMAND BY STRING, AND A TYPO IS A DIAGNOSTIC
+/// RATHER THAN A PANIC.
 #[test]
 fn an_id_read_back_from_authored_text_refuses_instead_of_panicking() {
     assert_eq!(

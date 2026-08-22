@@ -1,4 +1,4 @@
-//! **Tumble → knockdown → tech → getup**: what happens to a body between the
+//! Tumble → knockdown → tech → getup: what happens to a body between the
 //! hit that launched it and the moment it is standing again.
 //!
 //! Every established platform fighter builds its neutral out of exactly the states below, and the
@@ -17,7 +17,7 @@
 //!   a mistimed tech                        ── lockout ──  no tech for a while
 //! ```
 //!
-//! **body-generic and AUTHORED, exactly like the air dodge.** A body whose
+//! body-generic and AUTHORED, exactly like the air dodge. A body whose
 //! tuning leaves [`crate::movement::TraversalAbilityTuning::tumble_speed`] at
 //! `0.0` never tumbles, which is every body in the game until one says
 //! otherwise — a wandering enemy that got knocked down and had to stand up would
@@ -50,7 +50,7 @@ pub const TECH_LOCKOUT: f32 = 40.0 / 60.0;
 pub const GETUP_INVULN: f32 = 0.30;
 /// A teched landing keeps you moving if you were holding a direction.
 pub const TECH_ROLL_SPEED: f32 = 360.0;
-/// **A WALL TECH's push off the surface**, px/s along the wall's own normal.
+/// A WALL TECH's push off the surface, px/s along the wall's own normal.
 ///
 /// its own number rather than [`TECH_ROLL_SPEED`]'s, because the two are
 /// different motions: a tech roll RUNS ALONG the floor it kept its feet on, and
@@ -61,7 +61,7 @@ pub const KNOCKDOWN_TIME: f32 = 0.55;
 /// A getup roll's travel speed.
 pub const GETUP_ROLL_SPEED: f32 = 320.0;
 
-/// **Launch this body into tumble** — the ONE entry point, called by whoever
+/// Launch this body into tumble — the ONE entry point, called by whoever
 /// resolved the knockback.
 ///
 /// maneuver state is model-private (ADR 0024), so the combat side cannot
@@ -82,7 +82,7 @@ pub fn launch_into_tumble(
     true
 }
 
-/// **A footstool put this body into tumble** — the same helplessness, with no
+/// A footstool put this body into tumble — the same helplessness, with no
 /// launch behind it.
 ///
 /// separate from [`launch_into_tumble`] because a footstool's tumble is not
@@ -119,7 +119,7 @@ fn enter_tumble(state: &mut AxisManeuverState, seconds: f32) {
     state.tumble_unannounced = true;
 }
 
-/// **Is the floor game holding the controller this tick?** The simulation half
+/// Is the floor game holding the controller this tick? The simulation half
 /// asks this so both phases neutralize the same input; the control half learns
 /// it from [`tick_knockdown`]'s return, which is the same answer computed once.
 pub(super) fn owns_control(state: &AxisManeuverState) -> bool {
@@ -144,7 +144,7 @@ pub(super) fn tick_knockdown(
     kinematics: &mut BodyKinematics,
     state: &mut AxisManeuverState,
     ground: &BodyGroundState,
-    // **The surface a WALL TECH is taken off**, from the previous tick's
+    // The surface a WALL TECH is taken off, from the previous tick's
     // contact pass. A body slammed into a wall is against it for several ticks,
     // so the frame of latency costs the read nothing.
     wall: &crate::body_clusters::BodyWallState,
@@ -199,13 +199,13 @@ pub(super) fn tick_knockdown(
     }
 
     if !ground.on_ground {
-        // **THE WALL TECH — the floor is not the only thing you can catch
-        // yourself on.** A launch into a wall was a free continuation for the
+        // THE WALL TECH — the floor is not the only thing you can catch
+        // yourself on. A launch into a wall was a free continuation for the
         // attacker: the victim kept tumbling, hit the ground still helpless, and
         // the wall it slammed into was worth nothing to it. Ultimate lets that
         // press land on the surface.
         //
-        // **above the helpless gate on purpose.** Being helpless is exactly
+        // above the helpless gate on purpose. Being helpless is exactly
         // the state a tech exists to escape, and putting this below `!helpless`
         // would make the wall tech reachable only once the tumble had already
         // let go — which is the tick nobody needs it.
@@ -221,12 +221,12 @@ pub(super) fn tick_knockdown(
             events.op_clusters(combo_trace, MovementOp::Tech);
             return without_evade(input);
         }
-        // **control comes back before the tumble does.** Once the helpless
+        // control comes back before the tumble does. Once the helpless
         // window has passed, a jump / attack / evade press ACTS OUT of the
         // tumble — the escape that makes a launch a situation rather than a
         // sentence — and the landing that follows is an ordinary one.
         if !helpless {
-            // **not the evade button.** While tumbling that press already
+            // not the evade button. While tumbling that press already
             // MEANS tech, and letting it also mean "act out of tumble" would
             // make the tech unreachable: every timed press would cancel the
             // tumble it was trying to survive, so the landing it was aimed at
@@ -244,7 +244,7 @@ pub(super) fn tick_knockdown(
 
     // Touched down while still tumbling — the moment the floor game is decided.
     //
-    // **and the input buffers do not survive it.** Measured: a tech press
+    // and the input buffers do not survive it. Measured: a tech press
     // that missed its window still sat in `buffer_burst`, so the body that hit
     // the floor emitted `[DodgeRoll, Knockdown]` on the same tick — it dodge
     // rolled out of a knockdown it was simultaneously entering. Neutralizing the

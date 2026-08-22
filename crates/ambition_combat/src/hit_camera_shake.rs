@@ -16,7 +16,7 @@ use ambition_platformer2d_shared_tangle::camera_ease::{hit_shake_amplitude, Came
 /// Runs in `CombatSet::Settle` — the phase that reads the frame's resolved
 /// damage — so the hitstop it reads is this frame's.
 ///
-/// ⚠ **kicked every frame the freeze is live, deliberately.** `kick` is
+///  kicked every frame the freeze is live, deliberately. `kick` is
 /// strongest-wins, so re-asserting needs no edge detection and no `Local`
 /// remembering last frame's timer (which would be cross-frame state in a
 /// rollback schedule, for an effect that is already idempotent). It does NOT
@@ -28,7 +28,7 @@ use ambition_platformer2d_shared_tangle::camera_ease::{hit_shake_amplitude, Came
 /// resources are: a headless fixture that installed no route still runs the
 /// combat schedule, and a missing one means no shake rather than a panic.
 ///
-/// ⛔ **it publishes an INTENT and touches no presentation state.** The cap, the
+///  it publishes an INTENT and touches no presentation state. The cap, the
 /// clamp and the live amplitude belong to `apply_camera_shake_requests` on the
 /// far side of the confirmed-frame boundary; see the module docs for why the
 /// earlier in-place kick could not be made correct by any guard living here.
@@ -62,7 +62,7 @@ mod tests {
     /// The fixture a home avatar CANNOT satisfy: bodies with no `PlayerEntity`
     /// and no `PrimaryPlayer` at all, which is what a CPU-versus-CPU match is.
     ///
-    /// ⚠ **the applier is installed too, deliberately.** These tests measure the
+    ///  the applier is installed too, deliberately. These tests measure the
     /// amplitude a hit produces, which is a claim about the whole seam; a fixture
     /// that only counted the request would go green on a request nobody applies.
     /// This models the ordinary NON-ROLLBACK host, where no quarantine exists and
@@ -94,9 +94,9 @@ mod tests {
             .hitlag_time
     }
 
-    /// **A hit between two bodies nobody is playing shakes the screen.**
+    /// A hit between two bodies nobody is playing shakes the screen.
     ///
-    /// ⭐ this is the assertion the app-side version could not make: there is no
+    ///  this is the assertion the app-side version could not make: there is no
     /// `PlayerEntity` and no `PrimaryPlayer` in this world, and the camera still
     /// answers.
     #[test]
@@ -149,7 +149,7 @@ mod tests {
         );
     }
 
-    /// **The LOUDEST hit in the world wins, whichever body is serving it.** A
+    /// The LOUDEST hit in the world wins, whichever body is serving it. A
     /// system that read only the first body it found would pass the two tests
     /// above and still show the wrong hit here.
     #[test]
@@ -183,8 +183,8 @@ mod tests {
         assert!(solo > 0.0, "the smash itself shook nothing");
     }
 
-    /// **The simulation half writes an INTENT and touches nothing the player can
-    /// see.** (P0.1)
+    /// The simulation half writes an INTENT and touches nothing the player can
+    /// see. (P0.1)
     ///
     /// this is the property that makes the quarantine capable of holding the shake at all. Here the
     /// applier is deliberately NOT installed: an armed hit runs the producer alone, and the camera

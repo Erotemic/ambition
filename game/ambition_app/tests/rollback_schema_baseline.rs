@@ -1,4 +1,4 @@
-//! **The rollback schema, written down.**
+//! The rollback schema, written down.
 //!
 //! domain-owned adapters, and its rule for each move is: *"record the existing
 //! descriptor list and fingerprint; move registrations to the domain adapter;
@@ -13,16 +13,16 @@
 //! The whole point during a migration is to see WHICH line, so the baseline is the readable
 //! form and the fingerprint is derived from it.
 //!
-//! **`schema_dump`, not `deterministic_dump`.** The latter carries the
+//! `schema_dump`, not `deterministic_dump`. The latter carries the
 //! registration OWNER, which is an organisational label nothing reads — and
 //! owner column would go red on every relocation and be worthless for the one
 //! question it exists to answer: did the SCHEMA move?
 //!
-//! **a change here is a WIRE-FORMAT change.** The fingerprint is part of content identity; two
+//! a change here is a WIRE-FORMAT change. The fingerprint is part of content identity; two
 //! peers whose schemas differ cannot agree about a snapshot.
 //!
-//! So the version constant is not redundant bookkeeping beside this file — **it is the only
-//! signal for a whole class of wire change**, and bumping it by hand is what makes that class
+//! So the version constant is not redundant bookkeeping beside this file — it is the only
+//! signal for a whole class of wire change, and bumping it by hand is what makes that class
 //! visible at all. A commit that changes an encoding and does not bump it produces two peers
 //! that disagree about a snapshot while every test here is green.
 
@@ -46,8 +46,8 @@ fn the_rollback_schema_matches_its_recorded_baseline() {
         .expect("rollback registry is installed by the engine plugins")
         .schema_dump();
 
-    // **THE INSTRUMENT'S CHANNELS ARE ADDITIVE, and the schema is a claim
-    // about STATE.** Building with `causal` registers three message-clear rows
+    // THE INSTRUMENT'S CHANNELS ARE ADDITIVE, and the schema is a claim
+    // about STATE. Building with `causal` registers three message-clear rows
     // for the causal recorders' own channels. They encode nothing — clearing a
     // channel carries no bytes into a snapshot — so two peers that differ only
     // in whether the instrument is compiled still agree about every value in the
@@ -95,7 +95,7 @@ fn the_rollback_schema_matches_its_recorded_baseline() {
     }
 }
 
-/// **The schema does not depend on how the app was composed.**
+/// The schema does not depend on how the app was composed.
 #[test]
 fn the_schema_is_the_same_from_a_second_build() {
     let dump = |room: Option<&str>| {

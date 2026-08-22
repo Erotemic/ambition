@@ -98,7 +98,7 @@ pub enum LedgeCarry {
     KnockOff,
 }
 
-/// **The one contact rule for a ledge hang on moving geometry**, phrased exactly
+/// The one contact rule for a ledge hang on moving geometry, phrased exactly
 /// like the grounded ride: *a body attached to a moving solid is carried by that
 /// solid's [`crate::world::Block::velocity`].* Static geometry carries `ZERO`, so
 /// a hang on an ordinary wall is the degenerate case rather than a separate road.
@@ -106,7 +106,7 @@ pub enum LedgeCarry {
 /// Reading `Block::velocity` off the collision world instead removes the parameter, and with it the
 /// reason the rule could only run on one body.
 ///
-/// **the carrier is excluded from the wall test by IDENTITY, not by kind.** The
+/// the carrier is excluded from the wall test by IDENTITY, not by kind. The
 /// old site passed the *base* world, relying on the platform being composited in
 /// separately; that is an accident of composition order, and it would have
 /// started knocking every rider off the first time a moving solid was authored
@@ -280,8 +280,8 @@ pub fn probe_ledge_grab_in_frame(
     best
 }
 
-/// Down-gravity compatibility wrapper for tests / call sites that still probe
-/// legacy vertical ledges explicitly.
+/// TODO(compat-remove): migrate callers to [`probe_ledge_grab_in_frame`] and delete this
+/// down-gravity wrapper.
 pub fn probe_ledge_grab(
     player_pos: Vec2,
     player_size: Vec2,
@@ -533,7 +533,8 @@ pub fn classify_ledge_grab_in_frame(
     }
 }
 
-/// Down-gravity compatibility wrapper for tests / legacy callers.
+/// TODO(compat-remove): migrate callers to [`classify_ledge_grab_in_frame`] and delete this
+/// down-gravity wrapper.
 pub fn classify_ledge_grab(
     player_pos: Vec2,
     player_size: Vec2,
@@ -676,10 +677,10 @@ const FALL_SNAP_MIN_VY: f32 = 45.0;
 ///
 /// Two snap paths:
 ///
-/// - **Intentional snap**: the player is wall-clinging or actively
+/// - Intentional snap: the player is wall-clinging or actively
 ///   moving toward a wall (local side input non-zero while airborne).
 ///   `requested_wall_normal` returns the side to probe.
-/// - **Falling-into-ledge snap**: the player is falling fast and a
+/// - Falling-into-ledge snap: the player is falling fast and a
 ///   grabbable ledge sits within reach on either side. Mirrors
 ///   Smash's auto-snap on a descending recovery — you don't have
 ///   to hold a stick into the wall to catch the lip you're already
@@ -773,7 +774,7 @@ pub fn try_start_ledge_grab_clusters_in_frame(
     // grab. Reuses `dodge_roll_timer` because that field already gates
     // damage — same pipeline, single source of truth.
     //
-    // **and it is EARNED, not flat.** The window is bought with the time this
+    // and it is EARNED, not flat. The window is bought with the time this
     // body spent off a ledge, so a fighter that was knocked away and recovered
     // gets all of it and one that drops and instantly re-catches gets the floor.
     // A flat grant made the edge a free reset you could hold forever.

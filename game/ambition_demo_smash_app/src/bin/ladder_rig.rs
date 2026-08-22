@@ -1,34 +1,34 @@
-//! **Does a higher rung beat a lower one?** (FB6e — the ladder rig)
+//! Does a higher rung beat a lower one? (FB6e — the ladder rig)
 //!
 //! `cargo run -p ambition_demo_smash_app --bin ladder_rig`
 //!
-//! **the measurement `ladder_probe` could not make.** That probe seats ONE
+//! the measurement `ladder_probe` could not make. That probe seats ONE
 //! fighter against a human seat with no controller — a body that never acts — so
 //! every stock lost is a self-KO. That makes its number unusually clean (*"did it
 //! kill itself"*) and makes a FIGHT impossible to observe. FB6e's
 //! `l3_earns_its_depth` and §8's survival/damage ratios both need two fighters,
 //! and until `smash_roster_at_levels` no roster could express one.
 //!
-//! **THE LADDER IS SPARSE.** `SMASH_ROSTER_RON` registers
+//! THE LADDER IS SPARSE. `SMASH_ROSTER_RON` registers
 //! `duelist_l{1,3,5,6,9}` and nothing between, so "N vs N−1" over the registered
-//! rungs is **(3,1), (5,3), (6,5), (9,6)** — four pairs, not eight. Asking for an
+//! rungs is (3,1), (5,3), (6,5), (9,6) — four pairs, not eight. Asking for an
 //! unregistered rung does not error: `spec_for_brain` hands back a generic row,
 //! so the fighter is a statue and the rig would report a landslide as a finding.
 //! `a_ladder_roster_seats_two_cpus_at_two_different_levels` is the guard.
 //!
 //! ## What it reports, and what each column cannot say
 //!
-//! * **time to elimination** for each seat — the outcome, and the column that
+//! * time to elimination for each seat — the outcome, and the column that
 //!   discriminates. The seat that lasts longer won.
-//! * **stocks left**, because a seat that survives the clock with three is a
+//! * stocks left, because a seat that survives the clock with three is a
 //!   different result from one that survives with one, and time cannot tell
 //!   those apart.
 //!
-//! **pair every "it won" with "and it engaged"**, exactly as `ladder_probe`'s
+//! pair every "it won" with "and it engaged", exactly as `ladder_probe`'s
 //! own header does. A fighter that stands still beats one that walks off the
 //! stage, and this repository has already read that as a 3× improvement once.
 //!
-//! **the median over seeds, never one run.** The brain's noise stream is
+//! the median over seeds, never one run. The brain's noise stream is
 //! seeded, and `ladder_probe` reported single samples as answers for a week.
 
 use ambition_demo_smash_app::build_demo_app;
@@ -52,7 +52,7 @@ const DEFAULT_SEEDS: usize = 15;
 
 /// What one match said.
 ///
-/// **TIME, not stocks — and the first draft of this file got it wrong.**
+/// TIME, not stocks — and the first draft of this file got it wrong.
 /// `ladder_probe`'s own header records the lesson: *"it was stocks until
 /// and stocks turned out to be a saturated metric: every level lost
 /// all three, so the column read `3 3 3 3 3` and could not have reported an
@@ -70,13 +70,13 @@ struct Bout {
     stocks: [u32; 2],
     /// Highest damage each seat ever carried, as a RATIO of its pool.
     ///
-    /// **`1.69` is 169%, not 1.69%** — exactly what
+    /// `1.69` is 169%, not 1.69% — exactly what
     /// `BodyHealth::damage_percent` documents. The `×100` lives at the one print
     /// site. Reading this as a percentage is what made the column report a 169%
     /// duel as `1.69%` for its whole life, and what made the row marker below
     /// call real fights unfought.
     ///
-    /// **the column that says whether the other two mean anything.** This
+    /// the column that says whether the other two mean anything. This
     /// file's own header demands it — *"pair every 'it won' with 'and it
     /// engaged'. A fighter that stands still beats one that walks off the
     /// stage"* — and it went a week reporting outlast times with no way to tell
@@ -106,7 +106,7 @@ fn main() {
 
 /// Give BOTH fighters distinct noise streams derived from one seed.
 ///
-/// **distinct, not shared.** Two brains stepping the same stream would make
+/// distinct, not shared. Two brains stepping the same stream would make
 /// the higher rung's jitter a function of the lower one's, which is a
 /// correlation no real match has — and it would hide exactly the kind of
 /// difference this rig exists to find.
@@ -126,24 +126,9 @@ fn force_noise_seed(app: &mut bevy::app::App, seed: u64) -> bool {
     applied
 }
 
-/// **Every rung pair, in every §8 situation a PLACEMENT reproduces.**
-///
-/// **this rig places two bodies and starts the clock. That is all it does.**
-/// It does not apply velocity, hitstun, a body phase, a projectile or a damage
-/// total, so a fixture whose premise is made of any of those is not reproduced
-/// by running it here — `juggle_escape` came up with nobody in hitstun,
-/// `projectile_camper` with no projectile, `edgeguard_window` against a
-/// motionless opponent. Three tactical names over three positional fixtures,
-/// reported in the same table as the ones that were real.
-///
-/// **so it runs the positional ones and says out loud what it skipped**, with the state each
-/// skipped fixture needed. `Scenario::unreproduced_by_placement` derives that from the fixture
-/// itself, so nothing here has a list to keep in step.
-///
-/// **a ledge trap is not a neutral start, and that is the point.** The whole
-/// reason `l3_earns_its_depth` asks for this suite is that a rollout should pay
-/// for itself where the options are commitments — backed against the blastzone,
-/// recovering from offstage — and nowhere else.
+/// Run rung pairs through scenarios reproducible by body placement alone.
+/// Scenarios requiring velocity, phases, projectiles, or other explicit state are
+/// skipped using `Scenario::unreproduced_by_placement`.
 fn run_scenarios(seeds: usize) {
     let suite = ambition_platformer2d::characters::brain::fighter::scenarios::suite();
     let playable: Vec<_> = suite
@@ -206,10 +191,10 @@ fn flag_value(name: &str) -> Option<String> {
     None
 }
 
-/// **WHO IS FIGHTING — and it is a flag because the answer changes the reading
-/// of every column.**
+/// WHO IS FIGHTING — and it is a flag because the answer changes the reading
+/// of every column.
 ///
-/// **the ladder's own fighters are the demo's STAND-INS**, and this rig had no way to say
+/// the ladder's own fighters are the demo's STAND-INS, and this rig had no way to say
 /// otherwise.
 ///
 /// Two instruments, one nominal subject, two orders of magnitude. A rig that cannot change who is
@@ -238,7 +223,7 @@ fn secs(ticks: f32) -> String {
 
 /// `median [min-max]`, or just the median when every seed agreed.
 ///
-/// **the SPREAD is what says whether a difference is a difference.** The two
+/// the SPREAD is what says whether a difference is a difference. The two
 /// top rungs here separate by a couple of seconds on medians whose seeds range
 /// over tens — a gap a median alone reports as a verdict.
 fn span(values: &[f32]) -> String {
@@ -274,7 +259,7 @@ fn report_row(label: &str, bouts: &[Bout]) {
     } else {
         "both die together"
     };
-    // **a verdict inside the seeds' own spread is not a verdict.** Reported
+    // a verdict inside the seeds' own spread is not a verdict. Reported
     // rather than suppressed: the reader should see the overlap and discount the
     // word, not be handed a cleaner-looking table.
     let overlaps = (hi_out - lo_out).abs()
@@ -292,24 +277,8 @@ fn report_row(label: &str, bouts: &[Bout]) {
     };
     let hi_peak = median(bouts.iter().map(|b| b.peak_percent[0]).collect());
     let lo_peak = median(bouts.iter().map(|b| b.peak_percent[1]).collect());
-    // **an unfought row is not a result.** Two fighters that never damaged
-    // each other produce an outlast time made of walking, and the verdict column
-    // would still name a winner. Say so on the row rather than in a footnote
-    // nobody reads next to the number.
-    //
-    // **AND THIS COLUMN WAS OFF BY 100× FOR ITS WHOLE LIFE, WHICH TURNED A
-    // HARD-FOUGHT DUEL INTO A DOCUMENTED FINDING THAT THE CPUs NEVER HIT EACH
-    // OTHER**. `BodyHealth:damage_percent` returns a RATIO —
-    // its own doc says *"`1.88` is a legal answer and is how a HUD prints
-    // `188%`"* — and this printed it under a literal `%`. So a fighter at 169%
-    // was reported as `1.69%`.
-    //
-    // **the threshold was then chosen to fit the misreading**, which is how a unit error survives
-    // review: the paragraph that stood here reasoned *"a Smash KO lands north of 80%, so anything
-    // under one percent is incidental contact"* and set the constant to `1.0`.
-    //
-    // The number below is the original sentence's intent in the column's actual
-    // units: under one percent of a pool is incidental contact.
+    // Damage percent is represented as a ratio, so 0.01 means one percent.
+    // Rows below that threshold for both fighters are reported as unfought.
     const FOUGHT_AT_ALL: f32 = 0.01;
     let verdict = if hi_peak < FOUGHT_AT_ALL && lo_peak < FOUGHT_AT_ALL {
         format!("{verdict} — BUT NEITHER LANDED A HIT")
@@ -320,7 +289,7 @@ fn report_row(label: &str, bouts: &[Bout]) {
         "[ladder_rig]   {label:<26} {:>20} : {:<20} {hi_stocks:>3.0} : {lo_stocks:<3.0}          {:>6.1}% : {:<6.1}%  {verdict}",
         span(&hi_all),
         span(&lo_all),
-        // **×100 HERE and nowhere else.** The ratio is what every other reader
+        // ×100 HERE and nowhere else. The ratio is what every other reader
         // of `damage_percent` wants; a percentage is a display concern, and
         // baking it into the stored column is how the threshold above came to be
         // written in the wrong units.
@@ -344,7 +313,7 @@ fn stage_bounds(app: &mut bevy::app::App) -> Option<ae::Aabb> {
 
 /// Put the two seated bodies where a scenario says they stand.
 ///
-/// **AFTER seating, and only once both seats exist.** A roster cannot say
+/// AFTER seating, and only once both seats exist. A roster cannot say
 /// where its fighters stand — the stage decides — so this is a measurement
 /// binary reaching into the sim. It is deliberate and it is not a seam to
 /// promote: a game that placed fighters this way would be fighting its own
@@ -367,7 +336,7 @@ fn place_at(app: &mut bevy::app::App, me: ae::Vec2, foe: ae::Vec2) -> bool {
     for (seat, mut cluster_item, mut model) in q.iter_mut(world) {
         let target = if seat.0 == 0 { me } else { foe };
         let mut clusters = cluster_item.as_clusters_mut();
-        // **`transit_body`, not `body.pos = ..`.** ADR 0024 routes every pose
+        // `transit_body`, not `body.pos = ..`. ADR 0024 routes every pose
         // and velocity write through the movement authority, and
         // `engine.pose-writes-are-authority-only` caught the bare version of
         // this — with a rationale naming the TwinTrack demo, which *"relocated a
@@ -418,14 +387,14 @@ fn run_bout_at(
     let mut stocks = [ambition_demo_smash::STARTING_STOCKS; 2];
     let mut eliminated = [TICKS; 2];
     let mut peak_percent = [0.0f32; 2];
-    // **a seat that has not ARRIVED yet is not an eliminated one, and the
-    // first draft could not tell them apart.** Seating is a transaction that
+    // a seat that has not ARRIVED yet is not an eliminated one, and the
+    // first draft could not tell them apart. Seating is a transaction that
     // takes frames, so both seats are absent on tick 0 — and reading absence as
     // elimination reported every rung dying at 0.0s, which looks like a finding
     // and is a fixture that never started.
     let mut appeared = [false; 2];
-    // **the seed has to be WRITTEN, and the first draft took it and dropped
-    // it.** `run_bout(_seed)` ignored its argument, so "median of 7 seeds" was
+    // the seed has to be WRITTEN, and the first draft took it and dropped
+    // it. `run_bout(_seed)` ignored its argument, so "median of 7 seeds" was
     // one deterministic match reported seven times — and the giveaway was that
     // 3 seeds and 7 seeds printed byte-identical columns. `ladder_probe` seeds
     // the same way: the noise stream lives on the live `FighterState`, so it can
@@ -439,7 +408,7 @@ fn run_bout_at(
         }
         if !placed {
             if let Some(scenario) = start.as_ref() {
-                // **mapped onto the RUNNING stage, not pasted.** The fixture's
+                // mapped onto the RUNNING stage, not pasted. The fixture's
                 // numbers describe an 800x600 stage of its own; the smash stage
                 // is a different size in a different place. Pasting them put
                 // every recovery quadrant far outside any platform, where the

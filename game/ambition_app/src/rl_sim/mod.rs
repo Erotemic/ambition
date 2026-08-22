@@ -87,7 +87,7 @@ pub fn ambition_sim_composition(
     // on-disk form IS the checkpoint's own description, serialized"*), so a composition that
     // simulates should be able to persist.
     //
-    // **`isolated()` is not optional here.** `PersistenceRoot::default()` is
+    // `isolated()` is not optional here. `PersistenceRoot::default()` is
     // the PLAYER's platform data dir, so installing the writer without a root of
     // its own would point every headless run at the user's real save. The
     // windowless CLI host already redirects the same way, for the same reason

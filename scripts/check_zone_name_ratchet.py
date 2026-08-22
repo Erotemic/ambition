@@ -131,7 +131,7 @@ def main() -> int:
 
     counts, total, id_shaped = measure()
 
-    # **A CHECK THAT OBSERVED NOTHING IS NOT A PERFECT SCORE.** A moved
+    # A CHECK THAT OBSERVED NOTHING IS NOT A PERFECT SCORE. A moved
     # directory, a renamed entity, or a parse error all produce zero rows, which
     # would otherwise read as "every zone is authored" and pass forever.
     if total == 0:

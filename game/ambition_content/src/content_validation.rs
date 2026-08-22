@@ -326,7 +326,7 @@ fn validate_quest_conditions(
         .map(|track| track.id.as_str())
         .collect::<BTreeSet<_>>();
 
-    // **the same book the plugin installs**, read from the prepared pack rather
+    // the same book the plugin installs, read from the prepared pack rather
     // than from a process-global the validator happens to share with whatever
     // App ran first. That sharing is exactly what made the old seam look
     // provider-local while not being.
@@ -422,7 +422,7 @@ fn validate_quest_conditions(
     }
 }
 
-/// **The content compiler now checks this too, for pack-supplied content.**
+/// The content compiler now checks this too, for pack-supplied content.
 /// `boss_encounter` emits a `music_track` reference per non-empty phase field,
 /// so an unknown track in Ambition's own encounters is refused at reference
 /// resolution — before startup, with the field named.

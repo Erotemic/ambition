@@ -262,7 +262,7 @@ def main() -> int:
     print(f"{len(freed)} of {len(_members()) - 1} build WITHOUT it in their closure\n")
 
     if args.cuts:
-        # **the actual planning question**, and the one a shortest-path list
+        # the actual planning question, and the one a shortest-path list
         # answers WRONGLY. Reading the `--paths` column, seven crates looked like
         # they reached core only through `ambition_input`; simulating the cut says
         # THREE. The others have additional core-carrying dependencies that a

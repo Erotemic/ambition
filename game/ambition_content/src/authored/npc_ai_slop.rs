@@ -1,4 +1,4 @@
-//! **The Hall's AI Slop, as a placed enemy.** One spawn in the sandbox,
+//! The Hall's AI Slop, as a placed enemy. One spawn in the sandbox,
 //! one archetype row, and the same creature already standing on a Hall
 //! pedestal — which is the ontology this campaign is about: one
 //! character, two contexts.

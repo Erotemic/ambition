@@ -20,7 +20,7 @@ use bevy::prelude::*;
 /// own state-mirror refresh through `ambition_dialog::YarnContentBindings` and
 /// `YarnStateMirrorRefreshed`; this plugin only guarantees both seams exist.
 ///
-/// **it does register exactly one ENGINE verb**, [`authored_conditions`]'s
+/// it does register exactly one ENGINE verb, [`authored_conditions`]'s
 /// `condition(…)`, which names no game content and no particular question — it
 /// forwards whatever authored dialogue asks to whichever domain published the
 /// answer. See that module for why one generic verb is not the same kind of
@@ -54,7 +54,7 @@ impl Plugin for YarnBindingsPlugin {
                 )
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
         );
-        // **no GAME installer is pushed from here any more.** A game's
+        // no GAME installer is pushed from here any more. A game's
         // vocabulary arrives through `YarnContentBindings` from the crate that
         // owns the content — see `ambition_content::yarn_vocabulary`.
         //
@@ -65,7 +65,7 @@ impl Plugin for YarnBindingsPlugin {
         // but it names no question, so a domain publishing a new one never
         // touches this line. See [`authored_conditions`].
         //
-        // **and its COMMAND twin, pushed the same way.** Between them,
+        // and its COMMAND twin, pushed the same way. Between them,
         // authored dialogue can ask any published question and ask for any
         // published verb — two lines here, forever, however many either domain
         // grows.

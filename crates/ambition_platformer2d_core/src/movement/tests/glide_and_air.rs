@@ -821,7 +821,7 @@ fn an_airborne_fling_above_run_speed_is_preserved_while_holding_into_it() {
     );
 }
 
-/// **A launched body travels the distance its launch describes.** (queue F0e)
+/// A launched body travels the distance its launch describes. (queue F0e)
 ///
 /// The assertion is deliberately loose — this is not a tuning lock. It says the
 /// body goes somewhere *on the order of* what its launch describes, so the next
@@ -857,7 +857,7 @@ fn a_launched_body_keeps_its_launch_for_the_window_it_cannot_act() {
     );
 }
 
-/// **And it gives the launch back the moment it can act.**
+/// And it gives the launch back the moment it can act.
 ///
 /// The other half, and the reason the first attempt at this was reverted: with
 /// no bound, one hit made a body coast at its launch speed for the rest of its

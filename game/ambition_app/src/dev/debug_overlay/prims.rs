@@ -12,7 +12,7 @@ use super::*;
 // label layer fixes that: draw calls push a `DebugLabel` per box, and
 // `render_debug_overlay_labels` materializes them as world-space `Text2d`.
 
-/// Font size (world units) for every debug-box label. **THIS IS THE SIZE KNOB**
+/// Font size (world units) for every debug-box label. THIS IS THE SIZE KNOB
 /// — bump it up for bigger text, down for smaller, no other change needed.
 /// Labels are world-space `Text2d`, so the size scales with camera zoom (this
 /// default reads well at the usual boss-fight zoom).

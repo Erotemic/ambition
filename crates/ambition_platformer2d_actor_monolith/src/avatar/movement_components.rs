@@ -1,21 +1,7 @@
-//! Re-export facade for the player's authoritative ECS movement-state
-//! components, under their original (un-prefixed) names.
+//! Compatibility re-exports for body movement-state components.
 //!
-//! The 18 cluster types live in
-//! [`ambition_platformer2d_core::body_clusters`] and `#[derive(Component)]`
-//! directly (engine is Bevy-native per ADR 0002). The sandbox just
-//! re-exports them under their original names — every consumer that
-//! imports `crate::actor::BodyKinematics` etc. keeps working.
-//!
-//! NOTE: [`BodyKinematics`] is re-exported here for player convenience
-//! but is the UNIVERSAL actor body (pos/size/vel/facing) — enemies,
-//! NPCs, bosses, and projectiles all use the same type. It is NOT
-//! player-specific; only the other 17 `Player*` clusters here are.
-
-// The shared body movement-cluster components now live on the neutral actor
-// vocabulary (`crate::actor`) under the `Body*` convention — they are not
-// player-specific. This facade re-exports them for player-internal convenience;
-// non-player code imports them straight from `crate::actor`.
+//! TODO(compat-remove): migrate player-internal callers to `crate::actor`, then delete this
+//! path-preservation module.
 pub use crate::actor::{
     BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState, BodyComboTrace, BodyDashState,
     BodyDodgeState, BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState,

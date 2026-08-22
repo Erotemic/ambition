@@ -59,7 +59,7 @@ pub use camera::{camera_follow, CameraViewState};
 /// The presentation FLOOR's marker: a feature the sim published that no render
 /// family has drawn, and that has stayed that way long enough to be a bug.
 ///
-/// ⛔ **it is a DIAGNOSTIC only.** "Is this room presentable yet" is
+///  it is a DIAGNOSTIC only. "Is this room presentable yet" is
 /// [`UnclaimedFeatureViews`], which answers immediately where this one answers
 /// late — see that type for why one entity could not do both.
 pub use features::UnclaimedBodyPlaceholder;
@@ -69,7 +69,7 @@ pub use label_layout::{
     layout_world_labels,
     mirror_static_world_labels_per_view,
     MirroredWorldLabel,
-    // ⚠ the MARKER is part of the seam, not an internal detail: a game that
+    //  the MARKER is part of the seam, not an internal detail: a game that
     // spawns its own static world text has to be able to say "one of these per
     // view, please" — without it the mirror leaves the label as a single shared
     // entity that a second view would fight over.
@@ -96,7 +96,7 @@ pub use parallax::{
     // beside the marker for the same reason: a consumer asking "is my sky
     // drawn" in a two-view session has to be able to tell a ROOT from a COPY.
     MirroredParallaxLayer,
-    // ⚠ the MARKER, not just the systems. A consumer could install the whole
+    //  the MARKER, not just the systems. A consumer could install the whole
     // parallax family and had no way to ask whether a backdrop existed — the
     // component was behind a private module, so "is my sky drawn" was a question
     // only this crate could answer. `fixtures/external_consumer` asks it now,
@@ -136,11 +136,11 @@ pub struct ActorOverlaySet;
 ///
 /// Each of those finds its own subject and no-ops without it.
 ///
-/// ⚠ it was never a deliberate precondition. The session identity that translation was
+///  it was never a deliberate precondition. The session identity that translation was
 /// protecting is entirely carried by the `SessionRoot` + `ActiveSessionScope` check below.
 ///
-/// ⭐ the invariant to hold this to: **presentation must not demand more of a
-/// session than SIMULATION does.** `simulation_authorized` — the gate on the
+///  the invariant to hold this to: presentation must not demand more of a
+/// session than SIMULATION does. `simulation_authorized` — the gate on the
 /// gameplay sim itself — asks for exactly one `SessionRoot` naming the active
 /// scope and nothing more. Anything stricter here means a session the engine
 /// agreed to simulate is one it refuses to draw.
@@ -349,7 +349,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         app.add_systems(
             Update,
             (
-                // ⛔ **I claimed in `632ecf1b4` that an edge here would be a vacuous
+                //  I claimed in `632ecf1b4` that an edge here would be a vacuous
                 // cross-schedule `.after`.
                 //
                 // Head of the chain, beside the other spawner, because the room
@@ -445,7 +445,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
 mod schedule_tests {
     use super::*;
 
-    /// **The room's visuals must be SPAWNED inside the ordered visual chain**,
+    /// The room's visuals must be SPAWNED inside the ordered visual chain,
     /// not floating unordered in `Update`.
     ///
     /// `632ecf1b4` recorded that an ordering edge here would be a vacuous cross-schedule
@@ -461,14 +461,14 @@ mod schedule_tests {
         use bevy::ecs::schedule::{Schedules, SystemSet};
         use bevy::prelude::{App, Update};
 
-        // ⚠ the plugin installs a `Material2dPlugin`, so a bare `App` panics
+        //  the plugin installs a `Material2dPlugin`, so a bare `App` panics
         // inside `bevy_asset`. Minimal + asset infrastructure is enough to build
         // the schedule, which is all this test reads.
         let mut app = App::new();
         app.add_plugins((bevy::MinimalPlugins, bevy::asset::AssetPlugin::default()));
         app.add_plugins(PresentationVisualAnimationPlugin);
 
-        // **systems cannot be identified by NAME here.** Bevy compiles system names out unless its
+        // systems cannot be identified by NAME here. Bevy compiles system names out unless its
         // `debug` feature is on, so every one of them reports `<Enable the debug feature to see the
         // name>`; a name-matching pin silently matches nothing. The mirror image of a check that
         // cannot fail, and just as worthless.)

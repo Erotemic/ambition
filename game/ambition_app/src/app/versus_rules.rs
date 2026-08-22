@@ -1,40 +1,10 @@
-//! **Rounds, KOs, and a scoreboard.**
+//! Versus rounds, KOs, and scoreboard rules.
 //!
-//! Slices 1–6 built a stage and deliberately gave it no rules: a stage has to be
-//! right before rules can be written, and inventing a ruleset over a stage where
-//! the CPU could not move would have been ruling on a fight that was not
-//! happening. It happens now — two people, two controllers, two fighters who can
-//! damage each other — so the missing piece is the only one that makes it a
-//! GAME rather than a sandbox: a way to win.
-//!
-//! ## The smallest honest ruleset
-//!
-//! KO at zero health, best of three, and a scoreboard. No timer, no ring-out, no
-//! stocks, no stage hazards. Each of those is a real design decision with a real
-//! feel cost, and shipping four of them at once means none of them was chosen —
-//! it means a genre was copied. What is here is the minimum under which the
-//! sentence "I won" is true.
-//!
-//! ## The scoring unit is a TEAM
-//!
-//! Not a seat. The first version scored `1 - loser.min(1)`, which reads as "the other one" and
-//! is only "the other one" when there are exactly two bodies. A 2v2 is not a bigger 1v1; the
-//! relation between fighters is a TEAM, it is declared on the roster and carried by the body,
-//! and the rules read it rather than re-deriving it from an index.
-//!
-//! A team loses the round when every one of its members is down, which
-//! degenerates to the obvious thing at 1v1 and is the real rule at 2v2. Both
-//! sides falling in the same tick is a DRAW: nobody scores, the round still
-//! ends, and one branch buys a case a fighting game genuinely has.
-//!
-//! ## Why the rules live in the app and not the engine
-//!
-//! A round is not a simulation primitive. Health, damage, bodies and seats are;
-//! "best of three" is a statement about a particular game, and an engine that
-//! knew about it would be a fighting-game engine rather than an engine a fighting
-//! game can be built on. Everything below reads engine facts (`MatchSeat`,
-//! `MatchTeam`, `BodyHealth`) and writes engine verbs (`transit_body`,
-//! `ClockResetRequest`), and no engine crate knows it exists.
+//! A team loses a round when all of its members are down; simultaneous defeat
+//! is a draw. The match is best of three with no timer, ring-out, stocks, or
+//! stage-hazard rules. These rules remain app-owned because rounds and victory
+//! conditions are game policy built from engine facts rather than simulation
+//! primitives.
 
 use std::collections::BTreeMap;
 
@@ -71,24 +41,9 @@ const FIGHT_CALL_TICKS: u32 = 30;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum MatchPhase {
-    /// The round is READY and not yet live.
-    ///
-    /// Fighters are reset, healed, placed and VISIBLE — the point of a countdown
-    /// is that you can see what you are about to fight — but nothing they or the
-    /// CPU decides can affect the fight: control is suspended for the whole
-    /// phase, so there is no input, no brain decision, no move trigger, no
-    /// projectile and no damage.
-    ///
-    /// **The clock keeps running.** This is not the KO freeze. Animation, the
-    /// HUD and the countdown itself all advance at full pace; what is suspended
-    /// is authority over the fight, not time. Freezing here would reintroduce
-    /// exactly the stutter the old presentation-only card existed to avoid, and
-    /// a countdown over stopped animation reads as a hang.
-    ///
-    /// This replaces a card that faded while play was ALREADY LIVE. That was a
-    /// defensible feel call with the fight running under it, and it was also the
-    /// only moment in a match where the two players did not start equal: one of
-    /// them was reading the card.
+    /// Fighters are reset, visible, and control-suspended during the countdown.
+    /// Simulation time continues so animation, HUD, and countdown presentation
+    /// advance normally while no fighter can affect the round.
     Starting { ticks_remaining: u32 },
     /// The round is live.
     Fighting,
@@ -168,7 +123,7 @@ fn team_of(seat: usize, team: Option<&MatchTeam>) -> String {
 
 /// Who, if anyone, took the round.
 ///
-/// **the predicate itself lives in the engine now**
+/// the predicate itself lives in the engine now
 /// (`ambition_combat::stocks::last_side_standing`, S4), because a stocks match
 /// asks the identical question with a different liveness input: a round asks
 /// "is this fighter's health above zero", a stocks match asks "does this
@@ -200,23 +155,9 @@ type FighterQuery<'w, 's> = Query<
     ),
 >;
 
-/// **The whole ruleset, on the sim schedule.**
-///
-/// * The `Update` half MUTATED `VersusMatch`, which is rollback-registered
-///   simulation state. A resimulation replays sim steps, not render frames with
-///   their original durations, so the restored score and phase depended on
-///   presentation history that resimulation does not have. Calling one half
-///   "presentation" does not make the resource it writes presentational.
-/// * The freeze and its release were emitted in the same frame, both as
-///   `ClockScaleRequest`. The clock reducer resolves competing scale requests by
-///   `min` — deliberately, so the strongest slow wins regardless of order — so a
-///   0.0 and a 1.0 in one frame resolve to 0.0 and the release was a no-op. The
-///   clock recovered only because an unrelated system asks for full pace every
-///   frame, and then by RAMPING, so round two opened in slow motion.
-///
-/// So there is one system, and the hold is counted on `WorldTime::wall_dt` — unscaled, because
-/// the hold is the thing that zeroed the scaled clock and a hold counted on that clock would
-/// never end.
+/// Run the versus ruleset entirely on the simulation schedule.
+/// Round-hold timing uses unscaled `WorldTime::wall_dt` because the hold itself
+/// may freeze scaled simulation time.
 #[allow(clippy::too_many_arguments)]
 /// Whether the starting countdown may tick down.
 ///
@@ -257,7 +198,7 @@ pub fn settle_versus_round(
 
     let (winner, remaining_s) = match state.phase.clone() {
         MatchPhase::Starting { ticks_remaining } => {
-            // **THE COUNTDOWN WAITS FOR THE ROSTER.**
+            // THE COUNTDOWN WAITS FOR THE ROSTER.
             //
             // This arm decremented as soon as the roster resource and the room
             // geometry existed, and neither of those means a fighter has a
@@ -304,7 +245,7 @@ pub fn settle_versus_round(
 
             // GO.
             //
-            // **THE ROUND'S LIFETIME OPENS HERE**, at the one place a round
+            // THE ROUND'S LIFETIME OPENS HERE, at the one place a round
             // actually goes live, and not in `begin_round` — which runs at a
             // TRANSITION and therefore never ran for the first round at all. A
             // scope minted only on transitions leaves round one unscoped, so its
@@ -482,7 +423,7 @@ fn take_the_controls(
     hold: ambition_platformer2d::characters::control::ControlHold,
 ) {
     for fighter in fighters {
-        // **which hold, said at the call site.** The countdown and the KO card
+        // which hold, said at the call site. The countdown and the KO card
         // are two different authorities that happen to want the same thing, and
         // a capture can be holding one of these same fighters besides. Whoever
         // releases first must not free a body another still holds, and that is
@@ -491,9 +432,9 @@ fn take_the_controls(
     }
 }
 
-/// **GO: every ceremony hold this stage is responsible for ends here.**
+/// GO: every ceremony hold this stage is responsible for ends here.
 ///
-/// **BOTH bits, and leaving one out froze the stage solid.** Two ceremonies
+/// BOTH bits, and leaving one out froze the stage solid. Two ceremonies
 /// converge on this instant: the countdown this stage runs, and the OPENING the
 /// ruleset declared with `opens_suspended`. The engine's own
 /// `release_the_opening_hold` deliberately declines the second — *"a ceremony
@@ -527,7 +468,7 @@ fn request_freeze(
     );
 }
 
-/// **Put the fighters back, and leave the last round behind with them.**
+/// Put the fighters back, and leave the last round behind with them.
 ///
 /// The other half is that a KO pause FREEZES the world rather than emptying it: the smash that
 /// was mid-swing, the box it had spawned, the shot crossing the stage and the hitstun on the
@@ -552,7 +493,7 @@ fn begin_round(
     commands: &mut Commands,
     rounds: &mut ambition_platformer2d::platformer::lifecycle::ActiveRoundScope,
 ) {
-    // **NOTHING IN FLIGHT CROSSES THE ROUND BOUNDARY**, and this function no
+    // NOTHING IN FLIGHT CROSSES THE ROUND BOUNDARY, and this function no
     // longer knows what "in flight" is made of.
     //
     // Every family added after it needed another query HERE, and forgetting one fails silently:
@@ -750,7 +691,7 @@ pub fn publish_versus_hud(
 mod tests {
     use super::*;
 
-    /// **The countdown waits for the roster.**
+    /// The countdown waits for the roster.
     ///
     /// It decremented as soon as the roster resource and the room geometry
     /// existed, and neither means a fighter has a BODY. Seating retries until
@@ -786,7 +727,7 @@ mod tests {
         MatchTeam::new(name)
     }
 
-    /// **A fighter's defeat must never score for its own side.**
+    /// A fighter's defeat must never score for its own side.
     ///
     /// The old rule was `1 - loser.min(1)`: "the other index", which is only the
     /// other side when there are exactly two bodies. Seat 2 is on blue, so blue

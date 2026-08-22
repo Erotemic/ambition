@@ -7,12 +7,12 @@
 //!
 //! # What belongs here, and what this crate REFUSES
 //!
-//! **It owns the SHAPE of a hit and what a hit MEANS**: hitboxes and authored
+//! It owns the SHAPE of a hit and what a hit MEANS: hitboxes and authored
 //! volumes, movesets and move playback, capture/pummel/throws, targeting,
 //! on-hit reactions, staleness, stocks, hazards, footstools, death rules, and
 //! the feel numbers those rules read.
 //!
-//! **it REFUSES presentation, and that is enforced rather than promised**:
+//! it REFUSES presentation, and that is enforced rather than promised:
 //! `bevy` is taken with `default-features = false`, so no render, window or
 //! text feature is reachable from here. A thing that must DRAW cannot compile in
 //! this crate. What it does instead is NAME cues — `ambition_sfx` / `ambition_vfx`

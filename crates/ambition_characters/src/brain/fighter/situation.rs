@@ -1,43 +1,9 @@
-//! **FB3 — L1, the situation classifier.**
+//! Pure fighter tactical-state classifier.
 //!
-//! `docs/planning/engine/fighter-brain.md` §1:
-//!
-//! > *"L1 — Situation classifier (cheap, every tick): derives the tactical state
-//! > from the view — `Neutral`, `Advantage` (opponent in hitstun/landing),
-//! > `Disadvantage` (self in hitstun/shield-broken/cornered), `Recovery`
-//! > (offstage/knocked out of arena), `EdgeGuard` (opponent recovering). Pure
-//! > function of the view; unit-tested per scenario fixture."*
-//!
-//! It is a pure function of a [`Perceived`] view and nothing else. That is the no-cheat
-//! contract's first clause, and it is why FB1's audit had to come first: before
-//! it, the view carried no move phase, no damage meter, and no stage geometry, so
-//! three of these five states were not derivable at all.
-//!
-//! ## Precedence, and why it is not a scoring function
-//!
-//! Two facts can hold at once — you can be offstage AND in hitstun, or juggling an
-//! opponent while cornered. L1 answers ONE question: *what is this tick about?*
-//! So the states are ranked, and the rank is the design:
-//!
-//! 1. [`Recovery`](Situation::Recovery) — **self is offstage.** Nothing else
-//!    matters; a stock lost to the blastzone is not repaid by a punish.
-//! 2. [`Disadvantage`](Situation::Disadvantage) — **self is in hitstun, or
-//!    cornered.** You are the one who has to solve something.
-//! 3. [`EdgeGuard`](Situation::EdgeGuard) — **the opponent is offstage.** The
-//!    single highest-value window in the game, and it expires.
-//! 4. [`Advantage`](Situation::Advantage) — the opponent is punishable: in
-//!    hitstun, in an attack's startup or recovery, or committed to a landing.
-//! 5. [`Neutral`](Situation::Neutral) — nobody has anything.
-//!
-//! Disadvantage outranks EdgeGuard on purpose: a player who chases an offstage
-//! opponent while himself in hitstun is not edge-guarding, he is being carried.
-//!
-//! ## What "cornered" and "landing" mean, concretely
-//!
-//! Both are thresholds, and both are here rather than in a profile, because they
-//! are facts about the STAGE and the KIT, not about difficulty. A level-1 CPU and
-//! a level-9 CPU agree about whether they are cornered; they disagree about what
-//! to do next, and that is L2's job (§1).
+//! Classification uses only [`Perceived`] state. Precedence is `Recovery > Disadvantage
+//! > EdgeGuard > Advantage > Neutral`, so self-preservation outranks punish windows.
+//! Corner and landing thresholds describe stage/kit facts and do not vary by CPU
+//! difficulty; difficulty affects later option selection.
 
 use ambition_platformer2d_core as ae;
 
@@ -94,7 +60,7 @@ pub fn is_punishable(actor: &PerceivedActor, gravity_down: ae::Vec2) -> bool {
     actor.alive && (actor.phase.is_punishable() || is_landing(actor, gravity_down))
 }
 
-/// **L1.** Classify the tick from this view's own point of view.
+/// L1. Classify the tick from this view's own point of view.
 ///
 /// The opponent is the nearest hostile, which is the same body every other layer
 /// of the brain targets — L1 does not get a private query, and a body with no
@@ -106,7 +72,7 @@ pub fn classify(view: Perceived<'_>) -> Situation {
 
     // 1. Self offstage. Nothing else matters.
     //
-    // **"offstage" is TWO facts on a platform stage, and this asked one.**
+    // "offstage" is TWO facts on a platform stage, and this asked one.
     // `StageView` is the ROOM, so a fighter that walked off the lip of a 420px
     // platform in a 640px room was still *inside the stage* for another hundred
     // pixels of falling: L1 answered `Neutral`, L2 kept offering `Retreat` — the
@@ -117,7 +83,7 @@ pub fn classify(view: Perceived<'_>) -> Situation {
     // LAND. A body with the room around it and nothing underneath it is
     // recovering, whatever the room says.
     //
-    // **and it asks whether terrain was BUILT first.** A view with no solids
+    // and it asks whether terrain was BUILT first. A view with no solids
     // at all is not a body over an abyss, it is a composition that does not
     // publish terrain — the `juggle_escape` scenario fixture is exactly that,
     // and without this clause it read as `Recovery` the moment this landed.
@@ -143,7 +109,7 @@ pub fn classify(view: Perceived<'_>) -> Situation {
 
     // 2. Self is the one with a problem.
     //
-    // **cornered is about the FLOOR as well as the room**. It was
+    // cornered is about the FLOOR as well as the room. It was
     // only ever asked of `stage.distance_to_edge`, and on an enclosed room the
     // room's edge and the floor's edge are the same line — which is why nothing
     // needed the distinction until the smash stage, the first room in this

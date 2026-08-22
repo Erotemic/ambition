@@ -1,61 +1,8 @@
 #!/usr/bin/env python3
-"""**How many tests does `cargo test -p <crate>` NOT run?**
+"""Measure tests hidden behind Cargo feature gates.
 
-*"The suite is green"* is not a complete sentence. A crate that gates test code
-behind a feature runs a SUBSET under a bare `cargo test -p <crate>` and reports
-`ok` for it — `ambition_input` runs 55 of 84, `ambition_touch_input` 4 of 45, and
-the sanic spike tests passed 4/4 for a day in the one configuration where input
-does not exist (queue D57).
-
-Queue D57 recorded a 23-crate table by hand and said what it could not do:
-
-> ⚠ this is a STATIC scan and it UNDER-COUNTS by construction … treat a crate's
-> absence from this table as "not proven complete", not as "runs everything."
-
-⭐ **this makes that table regenerable and gives it the number it was missing.**
-The hand table names WHICH features gate a crate; it never says HOW MANY tests
-are behind them, which is the figure that decides whether a bare run is
-worthless or merely incomplete.
-
-# # What it counts, exactly
-
-Every `#[test]` (and `#[tokio::test]`) in a crate's `src/` and `tests/`, split by
-whether it is reachable without extra features:
-
-* a test whose own attributes include `#[cfg(feature = "x")]`;
-* a test inside a `mod` declared or opened under such a `cfg`;
-* every test in a file whose inner attributes include `#![cfg(feature = "x")]`,
-  which is how a whole integration-test file opts itself out.
-
-⛔ **it does NOT resolve default features or feature unification.** A feature in
-a crate's `default = [...]` list is ON for a bare `cargo test`, so a test gated
-behind one is counted as gated here and is actually run. That over-counts, which
-is the safe direction for this tool: the failure it exists to prevent is
-believing a bare run covered everything.
-
-
-⭐ **an estimate nobody checked against the real thing is the same species of
-claim this tool exists to correct.** Measured 2026-08-10, scan vs
-`cargo test -p <crate> -- --list`:
-
-| crate | this scan | cargo |
-|---|---|---|
-| `ambition_touch_input` | 4 of 45 | **4 of 45** |
-| `ambition_causal` | 21 of 22 | **21 of 22** |
-| `ambition_input` | 54 of 115 | 55 of 117 |
-
-⛔ **the first draft said 10 of 45 for `ambition_touch_input`** — it over-stated
-bare coverage by six, which is the UNSAFE direction. Two causes, both fixed:
-`#[cfg(feature)] mod x;` declarations were not followed into their files, and the
-brace tracker never counted the brace that `mod x {` swallows, so a gate closed
-on the first `}` and every test after the first in a gated block read as
-ungated.
-
-⚠ the residual on `ambition_input` is two tests the regex does not see as tests
-at all, and it now errs toward reporting FEWER as bare — the safe direction. It
-is still an estimate. `--verify` asks cargo and prints the exact pair; the survey
-says which crate is worth spending two compiles on.
-"""
+The script compares default and feature-enabled test discovery so `cargo test -p
+<crate>` cannot appear comprehensive while gated tests are absent from the run."""
 
 from __future__ import annotations
 

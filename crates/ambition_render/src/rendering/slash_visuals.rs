@@ -199,7 +199,7 @@ pub(crate) fn spawn_slash_effects(
         else {
             continue;
         };
-        // **A character either names its sheet or gets no sprite at all.**
+        // A character either names its sheet or gets no sprite at all.
         // Falling back to somebody else's art is what this whole change exists
         // to stop; the unauthored-volume pass makes the silence visible.
         let Some(sheet) = attack_vfx
@@ -307,7 +307,7 @@ fn spawn_one(
 /// a body that looks perfectly stable. Where the swinging body is drawn, or `None` if it cannot be
 /// found.
 ///
-/// **an absent owner is now an absent slash** — nothing drawn, one warning naming the entity.
+/// an absent owner is now an absent slash — nothing drawn, one warning naming the entity.
 ///
 /// The fix stands on its own: a fallback that invents an answer is wrong whether or not it is
 /// currently firing.
@@ -318,7 +318,7 @@ fn owner_pos(owners: &Query<&PresentedPose>, owner: Entity) -> Option<ae::Vec2> 
         .map(|presented| presented.presented())
 }
 
-/// **Keep every live slash on the body that is swinging it.**
+/// Keep every live slash on the body that is swinging it.
 ///
 /// The hitbox is `HitboxAnchor::FollowOwner` and re-resolves from the owner
 /// every tick; this is the presentation half of the same rule. Without it the

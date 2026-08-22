@@ -3,8 +3,8 @@
 use bevy::prelude::*;
 
 /// Assemble the demo: foundation + the engine group + the host group + the Sanic
-/// experience under a standalone shell host. **Zero engine edits, zero
-/// `ambition_app`.**
+/// experience under a standalone shell host. Zero engine edits, zero
+/// `ambition_app`.
 ///
 /// The shell owns entry: `initial_route = sanic_gameplay` (direct standalone
 /// entry) and `home_route = sanic_launcher`, so a `QuitToHome` returns to a
@@ -78,7 +78,7 @@ fn compose_sanic_shell(app: &mut App, home_route: &str) {
 /// starts this demo's authored soundtrack when it owns a real window.
 ///
 /// `render` decides whether a rasterizer is created. `RenderMode::Headless` builds
-/// the full render graph against **no wgpu backend** and opens no window — the
+/// the full render graph against no wgpu backend and opens no window — the
 /// standard Bevy recipe for exercising presentation in CI. The entities, the
 /// camera, and the schedule are identical either way, which is what makes
 /// `tests/ov1_draws_the_world.rs` meaningful without a GPU.
@@ -89,7 +89,7 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
 
 /// The windowed host with an explicitly named home route.
 ///
-/// **a capture needs the GAMEPLAY route, not the launcher** — booting the
+/// a capture needs the GAMEPLAY route, not the launcher — booting the
 /// default home and counting frames photographs a menu. Mary-O's binary learned
 /// this by writing a blank file first.
 #[cfg(all(feature = "visible", not(target_arch = "wasm32")))]
@@ -126,7 +126,7 @@ pub fn build_windowed_demo_app_with_home(render: RenderMode, home_route: &str) -
         });
     match render {
         RenderMode::Windowed => app.add_plugins(plugins),
-        // **`winit` is also the RUNNER.** Without it Bevy's default runner
+        // `winit` is also the RUNNER. Without it Bevy's default runner
         // performs ONE update and returns, so a capture exits 0 having rendered
         // nothing. Mary-O's binary found that the hard way.
         RenderMode::OffscreenGpu => app
@@ -253,7 +253,7 @@ pub enum RenderMode {
     Windowed,
     /// The render graph, no backend, no window. What CI wants.
     Headless,
-    /// **No window and a REAL backend** — the mode that produces pixels without
+    /// No window and a REAL backend — the mode that produces pixels without
     /// a display. `Headless` cannot: it sets `backends: None`, so there is no
     /// RenderApp and nothing to read a texture out of. See
     /// `ambition_render::capture` and Mary-O's identical variant.

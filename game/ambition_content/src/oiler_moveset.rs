@@ -1,52 +1,9 @@
-//! **Oiler's repertoire** — the maintenance mechanic, as a fighter.
+//! Oiler's authored Smash repertoire.
 //!
-//! new vfx and sfx to pull from... Especially oil geyser."*
-//!
-//! Oiler stood on the Super Smash Siblings grid with a `peaceful` catalog row — no melee at all
-//! — while twenty-three of his own effects sat rendered and unbound on
-//! `oiler_vfx_spritesheet.ron` and twenty-four matching cues sat in the packed bank. This table
-//! is the wire between them.
-//!
-//! ## The character, from his own row
-//!
-//! > *"Quit messing with my tools!"* — *"Lubrication is 90% of uptime."*
-//!
-//! An Euler parody who fixes machines for a living. Two ideas run the table:
-//!
-//! ```text
-//!   TOLERANCE   every move holds its hitbox out ≥ 0.10s   he is forgiving
-//!   TORQUE      exactly ONE move is torqued to kill       he is not scary
-//! ```
-//!
-//! A mechanic works to a tolerance band: near enough is the job. So every one
-//! of Oiler's sixteen moves keeps a box in the world for at least
-//! [`TOLERANCE_S`] — the widest timing windows on the grid — and in exchange his
-//! knockback GROWTH stays inside [`WITHIN_TOLERANCE_GROWTH`] everywhere except
-//! the forward smash, the one bolt he takes to spec. That is a fighter who is
-//! very hard to whiff with and very hard to close a stock with: he racks damage
-//! all match and then has to land one specific move.
-//!
-//! **not the goblin's table renumbered**, and both claims above are tested
-//! COMPARATIVELY against it for exactly that reason — the goblin is the other
-//! fighter this crate authors from the same [`crate::moveset_authoring`]
-//! primitives, so a table copied and retuned would pass everything else here.
-//!
-//! ## The effects are the move, not decoration
-//!
-//! **an effect is a NAME.** `oil_geyser_emerge` addresses a row on a shipped
-//! FX sheet and needs no table, enum or registry to reach the screen; the
-//! authored string goes on the wire as its hash and presentation resolves it
-//! against the rows the art actually carries. Every effect this table names is
-//! one of Oiler's own twenty-three.
-//!
-//! `dispatch_move_events` asks for a paired `FxRequest`, and presentation resolves the cue the
-//! effect's own name addresses — so a burst here states the art and nothing else.
-//!
-//! **one cue carries a `.loop` suffix the row name does not**
-//! (`vfx.oiler.oil_geyser_stream.loop`), because the sound was rendered as a
-//! loop and the sprite row was not. The derived `vfx.<family>.<row>` cue misses
-//! the bank for that row, so the geyser's sustained column names its cue on the
-//! burst itself through `vfx_cued` — the override arm, one authored thing.
+//! Oiler's moves favor wide active windows: every striking move meets
+//! [`TOLERANCE_S`], while knockback growth stays within the normal tolerance band
+//! except for the forward smash. VFX rows normally derive their cue name; the oil
+//! geyser stream names its `.loop` cue explicitly with `vfx_cued`.
 
 use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX};
 use ambition_characters::smash_capture::{
@@ -63,7 +20,7 @@ use ambition_characters::moveset_authoring::{
     committed_tail, impulse, on_contact, strike, strike_tag, vfx, vfx_cued,
 };
 
-/// **The tolerance band**: the least time any Oiler move keeps a hitbox in the
+/// The tolerance band: the least time any Oiler move keeps a hitbox in the
 /// world, summed over its active windows.
 ///
 /// this is the character, not a tuning constant that happens to bracket the
@@ -72,7 +29,7 @@ use ambition_characters::moveset_authoring::{
 /// goblin.
 pub const TOLERANCE_S: f32 = 0.10;
 
-/// **The one bolt torqued to spec.** No move but the forward smash may grow
+/// The one bolt torqued to spec. No move but the forward smash may grow
 /// harder than this with the victim's damage.
 pub const WITHIN_TOLERANCE_GROWTH: f32 = 2.10;
 
@@ -80,7 +37,7 @@ pub const WITHIN_TOLERANCE_GROWTH: f32 = 2.10;
 /// whole reason Oiler has to land a specific move to take a stock.
 pub const TORQUE_GROWTH: f32 = 3.30;
 
-/// **The rise the geyser commands**, engine units per second against gravity.
+/// The rise the geyser commands, engine units per second against gravity.
 ///
 /// authored as a SPEED and applied with [`ImpulseMode::Set`], which is what
 /// makes it a recovery: an Oiler pressing this while falling at terminal
@@ -102,7 +59,7 @@ pub const GEYSER_ENDS_S: f32 = 1.20;
 pub fn oiler_moveset() -> MovesetContract {
     // ── the ground game: a spanner at arm's length ────────────────────────────
     //
-    // **every clip name here is a row the rig actually publishes.** Oiler's
+    // every clip name here is a row the rig actually publishes. Oiler's
     // sheet grew `attack_side` / `attack_up` / `attack_down` / `smash_forward` /
     // `special` alongside `idle`/`walk`/`talk`/`interact` for this table; the
     // structural fallback chain (`attack_side` → `attack` → `slash` → `idle`) is
@@ -132,8 +89,8 @@ pub fn oiler_moveset() -> MovesetContract {
     let jab = strike_tag(jab, SLASH_POKE_VFX);
     let jab = vfx(jab, 0.06, "friction_tick");
 
-    // **a forward tilt, because without one the commonest press in the genre
-    // falls down the directional chain to the jab** — the hole George Booul's
+    // a forward tilt, because without one the commonest press in the genre
+    // falls down the directional chain to the jab — the hole George Booul's
     // table had for a week. A stride and a flat swing.
     let mut f_tilt = strike(
         "tilt_forward",
@@ -196,7 +153,7 @@ pub fn oiler_moveset() -> MovesetContract {
 
     // ── the smashes ──────────────────────────────────────────────────────────
 
-    // **THE ONE BOLT TORQUED TO SPEC.** The only move in this table whose
+    // THE ONE BOLT TORQUED TO SPEC. The only move in this table whose
     // knockback grows past [`WITHIN_TOLERANCE_GROWTH`], and therefore the only
     // one that closes a stock. Everything else Oiler does is damage he then has
     // to convert with this, once, correctly — which is what makes a fighter who
@@ -369,16 +326,16 @@ pub fn oiler_moveset() -> MovesetContract {
 
     // ── THE FOUR SPECIALS ────────────────────────────────────────────────────
     //
-    // **four MECHANISMS, and none of them is another one rotated.** One lands
+    // four MECHANISMS, and none of them is another one rotated. One lands
     // three times on one press and never moves him; one commands a slide he can
     // still steer; one commands a rise he cannot; one adds to whatever he was
     // already doing, at the press. `the_four_specials_are_four_mechanisms`
     // asserts each of those four properties and that no two moves share one.
 
-    // **NEUTRAL — `convergence`.** Three taps at closing intervals, each harder
+    // NEUTRAL — `convergence`. Three taps at closing intervals, each harder
     // than the last, and the error term collapses on the third.
     //
-    // **it genuinely multi-hits, and the reason is a GAP.** The move runtime
+    // it genuinely multi-hits, and the reason is a GAP. The move runtime
     // hands a hit set forward between windows that touch, precisely so a swing
     // sampled at keyframes cannot bill a victim once per segment — and a window
     // that starts after a gap is a box that went away and came back, which
@@ -431,10 +388,10 @@ pub fn oiler_moveset() -> MovesetContract {
     let convergence = vfx(convergence, 0.36, "error_term_collapse");
     let convergence = on_contact(convergence, "player.robot.slash.impact.metal.chink");
 
-    // **SIDE — `slick_dash`.** He oils the floor under himself and goes.
+    // SIDE — `slick_dash`. He oils the floor under himself and goes.
     //
-    // **the tail does NOT lock his steering, and that inversion is the
-    // move.** Every other committed charge in this repo ends in a
+    // the tail does NOT lock his steering, and that inversion is the
+    // move. Every other committed charge in this repo ends in a
     // `motion_scale: 0.0` tail — *you decided, now live with it*. Oil is the
     // opposite failure: you keep every bit of input authority you had and none
     // of your ability to STOP. So the tail runs long and leaves `motion_scale`
@@ -470,15 +427,15 @@ pub fn oiler_moveset() -> MovesetContract {
     // [`GEYSER_AT_S`], after a windup you can see, so a falling Oiler gets
     // exactly the climb a standing one does.
     //
-    // **the three-row set is one staged effect and it plays in order**:
+    // the three-row set is one staged effect and it plays in order:
     // `oil_geyser_emerge` while the ground swells (the tell, and the other
     // player's cue to go edgeguard), `oil_geyser_stream` three times over the
     // climb so the column reads as continuous rather than as one puff, and
     // `oil_geyser_impact` at the crest. Those three rows were authored as a
     // sequence; this is the sequence.
     //
-    // **it is not flight, and the arithmetic is the reason rather than a
-    // cooldown.** No `Cancelable` window means he cannot re-press until the move
+    // it is not flight, and the arithmetic is the reason rather than a
+    // cooldown. No `Cancelable` window means he cannot re-press until the move
     // ends, and the move outlasts its own arc — so repeated use LOSES height.
     // That is a property of the numbers, held by a test, and it costs no
     // rollback state at all.
@@ -521,7 +478,7 @@ pub fn oiler_moveset() -> MovesetContract {
     let up_b = vfx(up_b, 0.88, "oil_geyser_impact");
     let up_b = on_contact(up_b, "player.hit");
 
-    // **DOWN — `pressure_vent`.** He cracks a valve and everything in the seal
+    // DOWN — `pressure_vent`. He cracks a valve and everything in the seal
     // goes at once.
     //
     // the only move in the table displaced by `start_impulse`: it fires at the
@@ -549,7 +506,7 @@ pub fn oiler_moveset() -> MovesetContract {
     let down_b = vfx(down_b, 0.12, "brass_spark");
     let down_b = on_contact(down_b, "player.robot.slash.impact.metal.gong");
 
-    // **OILER'S CAPTURE KIT.** Middle of the roster on every axis, with a slightly
+    // OILER'S CAPTURE KIT. Middle of the roster on every axis, with a slightly
     // taller box: he grabs with the arms his rig actually has.
     // his sheet publishes NO grab family and no plain `attack`, so all three beats draw `attack_side`, the reaching row he does have. A move naming a row nobody publishes is what his own clip guard refuses.
     let grab = author_standing_grab(
@@ -610,7 +567,7 @@ pub fn oiler_moveset() -> MovesetContract {
     );
     let repertoire = SmashRepertoire {
         taunt: ambition_characters::moveset_authoring::taunt("oiler_taunt", 0.9),
-        // **0.11 active, not the genre's 0.09** — Oiler's whole design is that
+        // 0.11 active, not the genre's 0.09 — Oiler's whole design is that
         // every move that reaches holds its box for `TOLERANCE_S`, and his own
         // `debug_assert` says so at the bottom of this function. The widest catch
         // window on the grid is what he trades his growth ceiling for.
@@ -638,7 +595,7 @@ pub fn oiler_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(convergence),
         side_special: side_b,
         up_special: up_b,
-        // **AUTHORED, at the rule that every fighter in the smash roster have a grab.** The
+        // AUTHORED, at the rule that every fighter in the smash roster have a grab. The
         // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
         // the whole point of proving it was to stop being the only two.
         //
@@ -663,11 +620,11 @@ pub fn oiler_moveset() -> MovesetContract {
     }
     .into_contract();
 
-    // **the tolerance band is checked WHERE IT IS AUTHORED**, not only in the
+    // the tolerance band is checked WHERE IT IS AUTHORED, not only in the
     // test module. A move edited under it stops being Oiler's before anything
     // else notices, and this is the last place that still holds the whole table
     // at once.
-    // **the band is a claim about moves that HOLD A BOX**, and it is scoped to
+    // the band is a claim about moves that HOLD A BOX, and it is scoped to
     // say so now that he has a capture kit. A pummel and a throw have no Active
     // window at all by construction — `capture_beat`'s doc: *"Neither reaches
     // for anybody… so neither has an Active window or a volume"* — so asking
@@ -764,20 +721,20 @@ mod tests {
     // `ambition_characters::smash_repertoire`, and by the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
-    /// **THE TOLERANCE BAND, AS AN ASSERTION.**
+    /// THE TOLERANCE BAND, AS AN ASSERTION.
     ///
     /// the claim the module doc makes and the first thing a careless retune
     /// would take away: no Oiler move closes its window inside
     /// [`TOLERANCE_S`]. A move that drifted under it would be a perfectly
     /// reasonable poke and would quietly make him somebody else.
     ///
-    /// **the poison is the GOBLIN**, the other fighter this crate authors
+    /// the poison is the GOBLIN, the other fighter this crate authors
     /// from the same primitives. If its windows were this wide too, the band
     /// would be describing the helper rather than the character.
     #[test]
     fn every_move_holds_its_hitbox_for_the_tolerance_band() {
         let oiler = oiler_moveset();
-        // **scoped to moves that HOLD A BOX**, exactly like the assertion the
+        // scoped to moves that HOLD A BOX, exactly like the assertion the
         // builder itself carries. A pummel and a throw have no Active window by
         // construction (`capture_beat`: *"Neither reaches for anybody… so
         // neither has an Active window or a volume"*), so asking them to keep a
@@ -819,14 +776,14 @@ mod tests {
         );
     }
 
-    /// **EXACTLY ONE BOLT IS TORQUED TO SPEC.**
+    /// EXACTLY ONE BOLT IS TORQUED TO SPEC.
     ///
     /// the other half of the character: forgiving everywhere, lethal in one
     /// place. The forward smash grows at [`TORQUE_GROWTH`] and nothing else may
     /// pass [`WITHIN_TOLERANCE_GROWTH`], so Oiler racks damage all match and
     /// then has to land one specific move to convert it.
     ///
-    /// **the poison is the goblin again**, which has FOUR moves above the
+    /// the poison is the goblin again, which has FOUR moves above the
     /// same line — an ordinary fighter's spread. Without it "one kill move" is
     /// just a description of a low table.
     #[test]
@@ -860,10 +817,10 @@ mod tests {
         );
     }
 
-    /// **THE GEYSER IS A SAVE, NOT A FLIGHT — and the arithmetic is the reason.**
+    /// THE GEYSER IS A SAVE, NOT A FLIGHT — and the arithmetic is the reason.
     ///
-    /// this is what lets the Up-B exist with **no cooldown, no per-airtime
-    /// counter and no new rollback state**. He cannot re-press while the move is
+    /// this is what lets the Up-B exist with no cooldown, no per-airtime
+    /// counter and no new rollback state. He cannot re-press while the move is
     /// playing (no `Cancelable` window), so the only question is whether one full
     /// cycle gains height. It cannot: the move outlasts its own arc, so by the
     /// time he may press again he has fallen back through everything the column
@@ -890,7 +847,7 @@ mod tests {
         );
     }
 
-    /// **THE RISE IS COMMANDED, NOT CONTRIBUTED — and it is the only one.**
+    /// THE RISE IS COMMANDED, NOT CONTRIBUTED — and it is the only one.
     ///
     /// the whole difference between a recovery and a hop. Under
     /// `ImpulseMode::Add` an Oiler falling at terminal velocity would climb at
@@ -919,7 +876,7 @@ mod tests {
         assert_eq!(frames.lift_speed, GEYSER_SPEED);
         assert_eq!(frames.lift_at_s, GEYSER_AT_S);
 
-        // **the poison: nothing ELSE advertises a lift.** A table where every
+        // the poison: nothing ELSE advertises a lift. A table where every
         // move looked like a recovery would satisfy the assertion above and tell
         // a policy layer nothing.
         let others: Vec<&str> = set
@@ -934,7 +891,7 @@ mod tests {
         );
     }
 
-    /// **THE GEYSER PLAYS ALL THREE OF ITS AUTHORED ROWS, IN ORDER.**
+    /// THE GEYSER PLAYS ALL THREE OF ITS AUTHORED ROWS, IN ORDER.
     ///
     /// `oil_geyser_{emerge,stream,impact}` were rendered as a staged effect
     /// and this is the move that stages them: the ground swells before the
@@ -976,7 +933,7 @@ mod tests {
         );
     }
 
-    /// **FOUR SPECIALS, FOUR MECHANISMS.**
+    /// FOUR SPECIALS, FOUR MECHANISMS.
     ///
     /// four specials built out of the same strike with different offsets would
     /// be one move rotated four ways. So the assertion is about MECHANISM: one
@@ -1078,12 +1035,12 @@ mod tests {
     // A burst is heard on its own now: `dispatch_move_events` asks for a paired `FxRequest` and
     // presentation resolves the cue the effect's name addresses.
     //
-    // **what guards it instead**: `a_paired_burst_is_heard_exactly_once`
+    // what guards it instead: `a_paired_burst_is_heard_exactly_once`
     // (`src/moveset_sound.rs`) runs these tables through the real dispatcher and
     // the real fan-out and counts what reaches the SFX channel — the silence
     // this test caught, plus the double-play it was structurally unable to.
 
-    /// **THE ART IS OILER'S OWN, AND IT ALL EXISTS.**
+    /// THE ART IS OILER'S OWN, AND IT ALL EXISTS.
     ///
     /// Two claims that fail together: a table naming an effect no shipped sheet
     /// carries has feedback that silently never plays, and a table drawing
@@ -1136,7 +1093,7 @@ mod tests {
         assert!(heavy_hit("jab").is_none(), "a knuckle-rap does not clang");
     }
 
-    /// **EVERY PRESS A BODY CAN MAKE REACHES A MOVE, IN BOTH POSTURES.**
+    /// EVERY PRESS A BODY CAN MAKE REACHES A MOVE, IN BOTH POSTURES.
     ///
     /// this is what the CPU's kit builder enumerates and what a human's stick
     /// resolves — the same function, so a repertoire that answers here answers
@@ -1183,7 +1140,7 @@ mod tests {
         );
     }
 
-    /// **EVERY MOVE NAMES A CLIP THE SHEET ACTUALLY DRAWS.**
+    /// EVERY MOVE NAMES A CLIP THE SHEET ACTUALLY DRAWS.
     ///
     /// the reason this table exists at all: Oiler's sheet published four rows
     /// (`idle`, `walk`, `talk`, `interact`), so every swing he could have thrown

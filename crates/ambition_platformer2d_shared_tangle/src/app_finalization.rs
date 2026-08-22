@@ -24,7 +24,7 @@ use bevy::prelude::App;
 /// Bring a hand-driven `App` to the state a runner would leave it in, then run
 /// one update.
 ///
-/// **NOT idempotent on Bevy's behalf.** `App::finish` walks the ENTIRE plugin
+/// NOT idempotent on Bevy's behalf. `App::finish` walks the ENTIRE plugin
 /// registry every time it is called and re-runs each plugin's `finish` — it does
 /// not remember which ones already ran. A plugin whose `finish` CONSUMES
 /// something must guard itself; character preparation republished an empty
@@ -64,7 +64,7 @@ mod tests {
         }
     }
 
-    /// **`App::update` does not finalize plugins**, and this repository drives
+    /// `App::update` does not finalize plugins, and this repository drives
     /// `update` by hand nearly everywhere.
     ///
     /// Pinned as a TEST rather than trusted as a comment because the whole
@@ -96,7 +96,7 @@ mod tests {
         );
     }
 
-    /// **`App::finish` re-runs every plugin's `finish`, every time.**
+    /// `App::finish` re-runs every plugin's `finish`, every time.
     ///
     /// The dangerous half of this helper, pinned as a test because the obvious
     /// assumption is the opposite one and it cost real debugging: character

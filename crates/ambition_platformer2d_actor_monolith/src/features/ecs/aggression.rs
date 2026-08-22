@@ -20,7 +20,7 @@ use crate::features::ActorStimulus;
 /// archetype), and an already-hostile actor re-derives its aggressive brain.
 pub fn apply_actor_stimuli(
     mut commands: Commands,
-    // **The prepared cast**, so a provoked body can take its own CHARACTER's
+    // The prepared cast, so a provoked body can take its own CHARACTER's
     // answer instead of one matched out of its display name.
     prepared: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
     mut stimuli: MessageReader<ActorStimulus>,
@@ -34,7 +34,7 @@ pub fn apply_actor_stimuli(
             &mut ActorIdentity,
             &mut ActorDisposition,
             super::actor_clusters::ActorClusterQueryData,
-            // **WHICH CHARACTER THIS BODY IS** — the gameplay identity, not
+            // WHICH CHARACTER THIS BODY IS — the gameplay identity, not
             // the sprite's. See `provoke_actor_in_place`.
             Option<&ambition_characters::actor::WornCharacter>,
         ),
@@ -124,8 +124,8 @@ pub const CHALLENGE_GRACE_S: f32 = 2.0;
 /// Without the delay the actor turned hostile mid-dialog while the player was still reading the
 /// box and overlapping its body — and because the victim-side damage system is gated off during
 /// dialog, the player's post-hit i-frame never got set, so the actor's body-contact FX streamed
-/// every frame with no separation. The grace gives the player a chance to move away. **rollback
-/// state, and it was not** — `<<challenge>>` inserted it from `Update` while
+/// every frame with no separation. The grace gives the player a chance to move away. rollback
+/// state, and it was not — `<<challenge>>` inserted it from `Update` while
 /// [`tick_pending_challenges`] removes it in the sim schedule. It rewinds now, and the insert
 /// is a simulation decision like every other.
 #[derive(Component, Clone, Copy, Debug)]
@@ -142,7 +142,7 @@ impl bevy::ecs::entity::MapEntities for PendingChallenge {
     }
 }
 
-/// **A conversation asked for a fight, by stable identity.**
+/// A conversation asked for a fight, by stable identity.
 ///
 /// The `SimId` routing is the one [`crate::features::BrainCommand`] already uses, and for the same
 /// stated reason — *"so the runtime switch is deterministic and snapshot-safe"*.
@@ -154,7 +154,7 @@ pub struct ChallengeRequested {
     pub challenger: Option<ambition_platformer2d_shared_tangle::sim_id::SimId>,
 }
 
-/// **Arm a challenge the narrative asked for.** (sim)
+/// Arm a challenge the narrative asked for. (sim)
 ///
 /// ARMS rather than flips: the player is still in the dialog box (and likely
 /// overlapping the NPC) when `<<challenge>>` fires, so

@@ -1,10 +1,10 @@
-//! **THE SHARK RIDERS.** Two creatures, one policy, different numbers —
+//! THE SHARK RIDERS. Two creatures, one policy, different numbers —
 //! the case the archetype file answered with two nearly-identical rows
 //! (`pirate_shark_rider`, `pirate_heavy_shark_rider`) whose only real
 //! differences are health, weight, reach and which gun-sword they hold.
 //!
-//! **`body_contact_damage: false` on both rows, so neither authors
-//! `contact_damage`.** The rows carried a `contact_strength` and a
+//! `body_contact_damage: false` on both rows, so neither authors
+//! `contact_damage`. The rows carried a `contact_strength` and a
 //! `damage_amount` beside a flag that turned them off — numbers that
 //! described nothing. A character says what is true: touching a raider
 //! does not hurt; its gun-sword does.

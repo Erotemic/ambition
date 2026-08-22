@@ -72,7 +72,7 @@ impl CharacterSheetSpec {
         }
     }
 
-    /// **How long one pass of `anim` takes to draw**, in the clock the animator
+    /// How long one pass of `anim` takes to draw, in the clock the animator
     /// is ticked by ([`super::super::animator::CharacterAnimator::tick`]).
     ///
     /// Resolved through the sheet's anim set exactly like the drawing is, so
@@ -122,14 +122,14 @@ impl CharacterSheetSpec {
         self.record.flat_index_in_page(self.record_row(anim), frame)
     }
 
-    /// **The row slot an authored CLIP CHAIN resolves to on this sheet.**
+    /// The row slot an authored CLIP CHAIN resolves to on this sheet.
     ///
-    /// **the row-keyed half of the drawing path** (sprite redirect P0). Every lookup above is
+    /// the row-keyed half of the drawing path (sprite redirect P0). Every lookup above is
     /// keyed by [`CharacterAnim`], a 56-variant vocabulary — and the new fighter sheets carry
     /// rows it has no variant for at all: `smash_forward`, `air_dodge`, `tumble`, `knockdown`,
     /// `tech_roll`.
     ///
-    /// **`CharacterAnim` is not replaced.** It stays the semantic body-state
+    /// `CharacterAnim` is not replaced. It stays the semantic body-state
     /// vocabulary and the structural fallback: a caller asks for a clip, and when
     /// the sheet has none of the chain it asks for a pose instead.
     pub fn clip_slot<'a>(&self, chain: impl IntoIterator<Item = &'a str>) -> Option<usize> {
@@ -152,7 +152,7 @@ impl CharacterSheetSpec {
 
     /// Trim geometry for a slot resolved by [`Self::clip_slot`].
     ///
-    /// **the row-keyed twin of [`Self::frame_trim`], and its absence was a live defect.**
+    /// the row-keyed twin of [`Self::frame_trim`], and its absence was a live defect.
     /// `CharacterAnimator::current_render` had only the [`CharacterAnim`]-keyed form, so while an
     /// authored CLIP was playing it drew the clip's atlas cell (via [`Self::flat_index_at`]) at the
     /// size and anchor of whatever SEMANTIC pose `current` still held.

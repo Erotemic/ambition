@@ -289,8 +289,8 @@ fn cleanup_scoped_entities(
 /// developer detail reaches the log wherever the sim runs. The reasons routing has refused this
 /// host, kept where a consumer can READ them.
 ///
-/// **These reasons already existed and already reached the log. That was not enough, and slice
-/// B paid for finding out.** A movement-only game composed, booted, and sat in `Activating` for
+/// These reasons already existed and already reached the log. That was not enough, and slice
+/// B paid for finding out. A movement-only game composed, booted, and sat in `Activating` for
 /// 600 ticks: preparation had refused it over a missing audio fragment, `log_shell_rejection`
 /// said so at `error!`, and the consumer — a headless test with no log subscriber — saw a host
 /// that simply never started. `ShellCommandRejection::LoadFailed`'s own doc comment already

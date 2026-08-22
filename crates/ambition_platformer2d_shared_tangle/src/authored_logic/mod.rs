@@ -22,11 +22,11 @@ pub use commands::{
 };
 pub use prepared::{PreparationError, PreparedCommand, PreparedCondition};
 
-/// **The one spelling rule both halves obey**: `<domain>.<leaf>`, exactly one
+/// The one spelling rule both halves obey: `<domain>.<leaf>`, exactly one
 /// dot, neither side empty.
 ///
-/// ⚠ **it lives here once because a condition id and a command id are the same
-/// SHAPE with different meanings.** Two copies would be two chances to disagree
+///  it lives here once because a condition id and a command id are the same
+/// SHAPE with different meanings. Two copies would be two chances to disagree
 /// about whether `a.b.c` is legal — and the day they disagreed, an id that
 /// parsed on one side and not the other would look like a missing registration.
 fn split_namespaced(raw: &str) -> Option<(&str, &str)> {
@@ -39,7 +39,7 @@ fn split_namespaced(raw: &str) -> Option<(&str, &str)> {
 
 /// Build a namespaced id, asserting the spelling rule.
 ///
-/// ⛔ **panics**, and the two nouns exist so the panic names the caller's world:
+///  panics, and the two nouns exist so the panic names the caller's world:
 /// a provider that spelled its own id wrongly is a bug in the engine, and the
 /// message should say `condition`/`question` or `command`/`verb` rather than a
 /// generic complaint about segments.
@@ -56,7 +56,7 @@ fn join_namespaced(noun: &str, leaf_noun: &str, domain: &str, leaf: &str) -> Str
     format!("{domain}.{leaf}")
 }
 
-/// **A namespaced identifier for one condition a domain can answer.**
+/// A namespaced identifier for one condition a domain can answer.
 ///
 /// The namespace is the owning domain (`custody.is_held`, `world.flag_set`), and
 /// it is a convention this type enforces rather than merely documents: two
@@ -68,7 +68,7 @@ pub struct ConditionId(String);
 impl ConditionId {
     /// Build an id from its domain and its question.
     ///
-    /// ⛔ **panics on a segment containing `.`**, because an id that can be
+    ///  panics on a segment containing `.`, because an id that can be
     /// spelled two ways is an id that can be registered twice.
     pub fn new(domain: &str, question: &str) -> Self {
         Self(join_namespaced("condition", "question", domain, question))
@@ -76,15 +76,15 @@ impl ConditionId {
 
     /// Read an id back out of one authored string (`"world.flag_set"`).
     ///
-    /// ⭐⭐ **this exists because [`ConditionId::new`] PANICS, and authored
-    /// content is exactly the caller that must never be able to do that.** A
+    ///  this exists because [`ConditionId::new`] PANICS, and authored
+    /// content is exactly the caller that must never be able to do that. A
     /// `.yarn` line asking `condition("worldflag_set", …)` is a typo in content,
     /// not a broken invariant in the engine — the right answer is a diagnostic
     /// and an unsatisfied gate, not a crashed game. So the fallible road in and
     /// the asserting road in are two functions rather than one function with a
     /// mode.
     ///
-    /// ⚠ **it never repairs.** No trimming, no case folding, no "did you mean".
+    ///  it never repairs. No trimming, no case folding, no "did you mean".
     pub fn parse(raw: &str) -> Option<Self> {
         split_namespaced(raw)?;
         Some(Self(raw.to_string()))
@@ -106,21 +106,21 @@ impl std::fmt::Display for ConditionId {
     }
 }
 
-/// **What kind of value one condition argument carries.**
+/// What kind of value one condition argument carries.
 ///
-/// Deliberately tiny. ⚠ this is the *scalar* vocabulary, not the operation
+/// Deliberately tiny.  this is the *scalar* vocabulary, not the operation
 /// vocabulary — see this module's header on why extending it is not the thing
 /// the no-central-enum rule forbids.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ParamKind {
     /// A prepared reference to a runtime occurrence.
     ///
-    /// ⭐ **a [`SimId`], never a raw string and never an `Entity`.** A string
+    ///  a [`SimId`], never a raw string and never an `Entity`. A string
     /// makes the rule un-renameable and un-validatable; an `Entity` is a slot in
     /// an allocator that does not survive the thing it names.
     Reference,
     /// A short authored name that is not a reference — a save flag id, a
-    /// mechanism channel. ⚠ this is the escape hatch, and every use of it is a
+    /// mechanism channel.  this is the escape hatch, and every use of it is a
     /// small bet that the thing named will never need renaming.
     Name,
     Number,
@@ -137,7 +137,7 @@ pub struct ParamSpec {
     pub summary: &'static str,
 }
 
-/// **A prepared argument value.** Prepared, so nothing here is parsed on a tick.
+/// A prepared argument value. Prepared, so nothing here is parsed on a tick.
 #[derive(Clone, Debug, PartialEq)]
 pub enum AuthoredArg {
     Reference(SimId),
@@ -171,7 +171,7 @@ impl AuthoredArg {
     }
 }
 
-/// **What a domain publishes about one question it can answer.**
+/// What a domain publishes about one question it can answer.
 #[derive(Clone, Debug)]
 pub struct ConditionDescriptor {
     pub id: ConditionId,
@@ -180,10 +180,10 @@ pub struct ConditionDescriptor {
     pub params: &'static [ParamSpec],
 }
 
-/// **The answer, and there are THREE of them.**
+/// The answer, and there are THREE of them.
 ///
-/// ⭐⭐ **`Unanswerable` is not a failure mode; it is the reason this is an enum and not a
-/// `bool`.** *"Is the key held?"* asked about an occurrence that does not exist is not false —
+///  `Unanswerable` is not a failure mode; it is the reason this is an enum and not a
+/// `bool`. *"Is the key held?"* asked about an occurrence that does not exist is not false —
 /// false would mean "it exists and nobody has it", and a gate that opens on the negation would
 /// swing open for a world that never authored the key at all.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -196,7 +196,7 @@ pub enum ConditionOutcome {
 }
 
 impl ConditionOutcome {
-    /// ⚠ **an unanswerable condition is NOT satisfied**, and callers that want
+    ///  an unanswerable condition is NOT satisfied, and callers that want
     /// the opposite must say so. Folding the third answer into `false` silently
     /// is exactly what the enum exists to prevent.
     pub fn is_satisfied(&self) -> bool {
@@ -218,16 +218,16 @@ impl ConditionOutcome {
 
 /// How a domain answers its own question.
 ///
-/// ⚠ **a plain `fn`, not a boxed closure, and that is deliberate**: it keeps the
+///  a plain `fn`, not a boxed closure, and that is deliberate: it keeps the
 /// catalog `Clone` and captures nothing, so a registration cannot smuggle state
 /// into a value that is supposed to be immutable for the whole run.
 ///
 /// Answer a question about identities, not about a sequence.
 ///
-/// ⭐ **`&World` and not `&mut World`, which a first draft assumed was
-/// impossible.** `World::try_query` builds a `QueryState` from a shared
+///  `&World` and not `&mut World`, which a first draft assumed was
+/// impossible. `World::try_query` builds a `QueryState` from a shared
 /// reference, so an evaluator can query without the exclusive access that would
-/// make every condition serialise against every other. ⚠ and its `None` arm is
+/// make every condition serialise against every other.  and its `None` arm is
 /// meaningful rather than a nuisance: a domain asking about a component no
 /// installed plugin registered is genuinely *unanswerable*, not false — which is
 /// the same distinction [`ConditionOutcome`] exists to keep.
@@ -239,16 +239,16 @@ struct Registered {
     evaluate: ConditionEvaluator,
 }
 
-/// **The composed, read-only catalog of every condition the installed engine can
-/// answer.**
+/// The composed, read-only catalog of every condition the installed engine can
+/// answer.
 ///
-/// ⭐⭐ **derived and read-only is the whole point, and this project has confused
-/// this axis before.** A central *authoritative* census that every new domain
+///  derived and read-only is the whole point, and this project has confused
+/// this axis before. A central *authoritative* census that every new domain
 /// must edit is the thing to avoid; a central *derived index* that domains
 /// contribute to is required — it is how an agent finds out what it can ask
 /// without reading the engine's source.
 ///
-/// ⚠ **not rollback state, and the reason is structural rather than a promise.**
+///  not rollback state, and the reason is structural rather than a promise.
 /// Every row is written during plugin build and nothing mutates it afterwards;
 /// there is no `&mut` accessor to mutate one with. A rewind that restored it
 /// would restore an identical value.
@@ -258,16 +258,16 @@ pub struct ConditionCatalog {
 }
 
 impl ConditionCatalog {
-    /// Publish one condition. ⛔ **panics on a duplicate id**, at startup, by
+    /// Publish one condition.  panics on a duplicate id, at startup, by
     /// design: the alternative is that the winner is whichever plugin happened
     /// to build last, which is a bug that only appears when a host changes its
     /// plugin order.
     ///
-    /// ⭐⭐ **PRIVATE ON PURPOSE, and that privacy is what earns this value its
-    /// rollback waiver.** The only way in is [`PublishCondition`] on `App`, and
+    ///  PRIVATE ON PURPOSE, and that privacy is what earns this value its
+    /// rollback waiver. The only way in is [`PublishCondition`] on `App`, and
     /// a simulation tick holds a `World`, never an `App` — so "immutable once
     /// the simulation starts" is a property of the type rather than a promise in
-    /// a comment. ⛔ making this `pub` for convenience would silently convert the
+    /// a comment.  making this `pub` for convenience would silently convert the
     /// waiver into a lie.
     fn publish(&mut self, descriptor: ConditionDescriptor, evaluate: ConditionEvaluator) {
         let id = descriptor.id.clone();
@@ -282,7 +282,7 @@ impl ConditionCatalog {
 
     /// Every published condition, in id order.
     ///
-    /// ⭐ ordered because this is what a diagnostic prints and what a test
+    ///  ordered because this is what a diagnostic prints and what a test
     /// compares; an unordered listing would be a flaky snapshot.
     pub fn describe_all(&self) -> impl Iterator<Item = &ConditionDescriptor> {
         self.rows.values().map(|row| &row.descriptor)
@@ -309,9 +309,9 @@ impl ConditionCatalog {
         self.rows.is_empty()
     }
 
-    /// **Ask the owning domain.**
+    /// Ask the owning domain.
     ///
-    /// ⚠ **arity and kinds are checked HERE rather than in each evaluator.** An
+    ///  arity and kinds are checked HERE rather than in each evaluator. An
     /// evaluator that had to validate its own arguments would be fifty domains
     /// each writing the same four lines, and the day one of them wrote them
     /// differently the catalog's schema would stop meaning anything.
@@ -351,7 +351,7 @@ impl ConditionCatalog {
 
 /// Publish a condition from a domain's own plugin.
 ///
-/// ⭐ **this trait is the entire contract surface a provider needs**, which is
+///  this trait is the entire contract surface a provider needs, which is
 /// what makes the no-central-enum claim testable: a crate that can call this can
 /// publish a condition, and it never names another domain to do so.
 pub trait PublishCondition {

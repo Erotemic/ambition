@@ -1,60 +1,11 @@
-//! **An authored `LockWall` decides for itself what opens it.**
+//! Authored flag-gated lock walls.
 //!
-//! This was `sync_intro_flag_gated_lock_walls` in `ambition_content`, and the
-//! fact that gates it read from a Rust const table:
-//!
-//! ```ignore
-//! pub const INTRO_FLAG_GATED_LOCK_WALLS: &[(&str, &str)] = &[
-//!     ("alice_private_return_lock", "bob_field_survey_received"),
-//!     ("gate_alice_private_lock", "bob_field_survey_received"),
-//! ];
-//! ```
-//!
-//! **the wall was in the level and the reason it opened was in the
-//! compiler.** An author adding a gated wall had to edit Rust, in another crate,
-//! in a table whose two halves are matched by string; an agent reading the level
-//! could see a `LockWall` and no way to find out what it was waiting for. The
-//! table is gone and the answer lives on the entity, as a `gated_by` field.
-//!
-//! **and the capability generalised on the way out.** This was Ambition intro
-//! content; it is now an engine system, so Mary-O, Sanic and anything else built
-//! on this engine author a flag-gated wall the same way, with no Rust at all.
-//!
-//! # The condition is asked, not read
-//!
-//! The obvious shortcut is to read the save flag here. It would be shorter and
-//! it would put the engine's collision layer in the business of knowing what a
-//! save flag is. Instead the wall's gate is a **condition** —
-//! `world.flag_set(<gated_by>)` — asked through
-//! [`ConditionCatalog`](ambition_platformer2d_shared_tangle::authored_logic::ConditionCatalog),
-//! so the day a wall wants to be gated on something else (an item held, a
-//! mechanism powered, an encounter cleared) the answer is a different condition
-//! id and not a different system.
-//!
-//! **`gated_by` names a FLAG rather than a whole condition, and that is a
-//! deliberate narrowing of the authored surface.** The mechanism is general; the
-//! spelling is not, because no customer yet needs a wall gated on anything else
-//! and an authored surface is much harder to take back than to widen.
-//!
-//! # Why this system is EXCLUSIVE, and what to do when that stops being fine
-//!
-//! Evaluating a condition needs `&World` — a domain answers by looking at
-//! whatever state it owns, and the catalog cannot know in advance which. A
-//! system that took `&World` could not also take `ResMut` on the overlay it
-//! writes, so this takes `&mut World` and does both.
-//!
-//! ⇒ **that is one schedule sync point in `WorldPrep`, and it is the price of
-//! one rule.** the shape to reach for when there are MANY rules is different
-//! and is worth writing down now: **evaluate every live condition once in a
-//! single exclusive pass, publish the outcomes into a resource, and let ordinary
-//! parallel systems read them.** do not instead give each rule its own
-//! exclusive system — that is the version of this that gets slow without anybody
-//! noticing which change did it.
-//!
-//! # The cache is inherited, not invented
-//!
-//! The cache and its three invalidation inputs — the save, the active room, and **the project
-//! itself** — come across unchanged.
+//! Each `LockWall` may author `gated_by`; this system evaluates
+//! `world.flag_set(<gated_by>)` through the shared [`ConditionCatalog`] rather than
+//! reading save data directly. The current authored field intentionally names only
+//! a flag even though the condition mechanism is extensible. Evaluation is exclusive
+//! because condition callbacks receive `&World`; if this grows to many independent
+//! rules, evaluate conditions once and publish outcomes for parallel readers.
 
 use bevy::prelude::*;
 
@@ -62,7 +13,7 @@ use ambition_platformer2d_shared_tangle::authored_logic::{
     AuthoredArg, ConditionCatalog, ConditionId,
 };
 
-/// **The block-name prefix a gated wall contributes under.**
+/// The block-name prefix a gated wall contributes under.
 pub const GATED_LOCK_BLOCK_PREFIX: &str = "gated_lock:";
 
 /// One authored wall that is waiting on something.
@@ -74,9 +25,9 @@ pub struct GatedLockWall {
     pub size: ambition_platformer2d_core::Vec2,
 }
 
-/// **Every `LockWall` in `room` that authors a `gated_by`.**
+/// Every `LockWall` in `room` that authors a `gated_by`.
 ///
-/// **pure, and takes the ROOM rather than the world**, so the selection policy
+/// pure, and takes the ROOM rather than the world, so the selection policy
 /// stays testable without an ECS. That separation is inherited from the content
 /// system this replaces and was the good part of it.
 pub fn authored_gated_lock_walls(
@@ -114,7 +65,7 @@ pub struct GatedLockWallCache {
 /// Contribute a solid for every authored gated wall whose condition is not yet
 /// satisfied.
 ///
-/// **`is_satisfied()` and not "not unsatisfied"**: an unanswerable condition
+/// `is_satisfied()` and not "not unsatisfied": an unanswerable condition
 /// leaves the wall STANDING, which is the safe direction. A gate that opened
 /// because nobody could answer its question would open in exactly the situations
 /// where the world is least well understood.

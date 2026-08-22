@@ -1,4 +1,4 @@
-//! **Two characters authored to fight.**
+//! Two characters authored to fight.
 //!
 //! Couch versus works: two controllers, two bodies, each driving only its own.
 //! It is two people walking into each other, because neither `mary_o` nor
@@ -125,7 +125,7 @@ pub fn duelist_moveset(numbers: DuelistNumbers) -> MovesetContract {
     MovesetContract { verbs, moves }
 }
 
-/// **What a fighter is HITTABLE through, and when it changes.**
+/// What a fighter is HITTABLE through, and when it changes.
 ///
 /// The `HurtboxDoc` seam has existed since A7 and no character authored one, so
 /// every body in the game was damageable through a box derived from its sprite —
@@ -135,12 +135,12 @@ pub fn duelist_moveset(numbers: DuelistNumbers) -> MovesetContract {
 ///
 /// Three rules, and each is a decision rather than a number:
 ///
-/// * **Standing** is a torso — narrower than the sprite quad, because a swing
+/// * Standing is a torso — narrower than the sprite quad, because a swing
 ///   that clips the empty air beside a fighter should miss. The old
 ///   sprite-derived box made every character as wide as its widest frame.
-/// * **Hitstun** is BIGGER. A fighter already being hit is easier to keep
+/// * Hitstun is BIGGER. A fighter already being hit is easier to keep
 ///   hitting, which is what makes a combo a combo instead of a coincidence.
-/// * **A committed smash EXTENDS it** for the length of the move. This is the
+/// * A committed smash EXTENDS it for the length of the move. This is the
 ///   whole point of a per-move timeline: the fighter leans in, and the reach
 ///   that makes the smash dangerous is also what makes whiffing it punishable.
 ///   Jab and the tilts do not extend — they are the safe options, and they are
@@ -200,11 +200,11 @@ pub const CLOSE_GUARD: DuelistNumbers = DuelistNumbers {
     smash_windup_s: 0.17,
 };
 
-/// **WHAT A DUELIST'S BODY CAN DO, authored on the fighter rather than inherited
-/// from the stage's ceiling.**
+/// WHAT A DUELIST'S BODY CAN DO, authored on the fighter rather than inherited
+/// from the stage's ceiling.
 ///
-/// **this is the kit both duelists ALREADY had; naming it changes nothing
-/// today, and that is the point.** `versus.rs` declares
+/// this is the kit both duelists ALREADY had; naming it changes nothing
+/// today, and that is the point. `versus.rs` declares
 /// `MatchAbilities::at_most(…)` — a ceiling and no floor, meaning *"a character
 /// keeps what it authored, minus what this duel forbids"*. Neither duelist
 /// authored anything, so `MatchAbilities::apply(None)` took its `unwrap_or`
@@ -332,7 +332,7 @@ pub const VERSUS_CATALOG_RON: &str = r#"(
         // IS, and publishing it is what lets `seat_brain_profile` stop having a
         // second authority to fall through to.
         //
-        // **the numbers are the row's controller half verbatim** — template,
+        // the numbers are the row's controller half verbatim — template,
         // both radii and both efforts. Its BODY half went nowhere because it was
         // already dead: `max_health`, `run_speed`, `melee`, `move_style` and
         // `respawn` stopped being read the day a seat was built from its
@@ -481,8 +481,8 @@ mod tests {
              character wearing two names"
         );
     }
-    /// **DRESSING THE DUELISTS CHANGED NOTHING, and that is what makes it safe to retire the
-    /// bridge afterwards.**
+    /// DRESSING THE DUELISTS CHANGED NOTHING, and that is what makes it safe to retire the
+    /// bridge afterwards.
     ///
     /// the arm being retired is `MatchAbilities::apply`'s
     /// `authored.unwrap_or(self.permitted)` — an unauthored character receives

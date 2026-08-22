@@ -1,11 +1,11 @@
-//! **The engine draws its effects from art the ENGINE ships.**
+//! The engine draws its effects from art the ENGINE ships.
 //!
 //! Ambition's intro prop table listed `generic_explosions` beside a cart and a piano; nothing else
 //! in the workspace listed any FX sheet at all. So in Smash, Sanic and Mary-O every effect degraded
 //! to one particle burst, forever, while 189 authored effect rows sat on disk unreachable. An
 //! engine that draws an asset has to be able to ship it.
 //!
-//! **asserted on the composed SHIPPED host**, not a hand-built App: "the
+//! asserted on the composed SHIPPED host, not a hand-built App: "the
 //! engine ships it" is a claim about the composition, and a fixture that
 //! inserted the sheets itself would prove nothing about what a player gets.
 
@@ -23,7 +23,7 @@ fn booted() -> App {
     app
 }
 
-/// **AN AUTHORED EFFECT DRAWS FROM A REAL SHEET, AND NO GAME REGISTERED IT.**
+/// AN AUTHORED EFFECT DRAWS FROM A REAL SHEET, AND NO GAME REGISTERED IT.
 ///
 /// The assertion runs through `resolve_drawable`, the exact decision
 /// `spawn_effect` makes: `Some` is art, `None` is the particle fallback. Asking

@@ -35,7 +35,7 @@ pub struct PortalPresentationPlugin {
     /// still calls sequestered gun helpers for in-flight shot and pickup
     /// markers; split that flag after behavior is stable.
     pub portal_quads: bool,
-    /// The mid-transit **body pieces** over the host-tagged
+    /// The mid-transit body pieces over the host-tagged
     /// [`crate::PortalSceneBody`] ([`visuals::sync_portal_body_pieces`]):
     /// while the body straddles a pair its sprite draws as two texture-clipped
     /// charts (here-slice at the entry, emerged slice at the exit), rebuilt
@@ -119,7 +119,7 @@ impl Plugin for PortalPresentationPlugin {
             app.init_resource::<view_cones::PortalViewConeConfig>();
             app.init_resource::<view_cones::PortalCaptureQualityBudget>();
             app.init_resource::<view_cones::PortalViewConeDebugDumpRequest>();
-            // The viewer seam (host-synced each frame); empty/absent ⇒ static
+            // The viewer seam (host-synced each frame); empty/absent  static
             // window fallback. Init here so the host can `ResMut` it.
             app.init_resource::<view_cones::PortalViewer>();
             app.init_resource::<PortalDebugOverlay>();

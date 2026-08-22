@@ -117,7 +117,7 @@ impl From<RoundScopeId> for RoundSpawnScope {
 /// belonged to the round that just ended" and the entities answer, instead of
 /// the boundary listing the kinds of thing that might exist.
 ///
-/// ⚠ compares against the CURRENT id rather than despawning everything scoped,
+///  compares against the CURRENT id rather than despawning everything scoped,
 /// so an entity spawned during the same frame the round turned over — a
 /// projectile fired on the KO frame — carries the OLD id and is culled, while
 /// one spawned by the new round's opening is not. Despawning "all scoped

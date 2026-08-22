@@ -196,7 +196,7 @@ impl LdtkProject {
                         // outgoing edge — so the arrival end of a one-way trip was expressible at
                         // runtime and unauthorable in a file.
                         //
-                        // ⚠ **a landing pad that names a target is a BOUNCE.**
+                        //  a landing pad that names a target is a BOUNCE.
                         // The body arrives standing inside the zone it arrived
                         // through (`door_arrival` = zone centre, 26px off its
                         // floor), so the moment the transition cooldown lapses
@@ -218,7 +218,7 @@ impl LdtkProject {
                                 entity.iid
                             ));
                         }
-                        // ⛔ **ONE parse, not a second copy of the token set.**
+                        //  ONE parse, not a second copy of the token set.
                         // This read `== "EdgeExit"` while the converter matched
                         // its own list — two spellings of one vocabulary, free
                         // to disagree. An unrecognised value is reported below
@@ -256,15 +256,15 @@ impl LdtkProject {
                                     ));
                                 }
                             }
-                            // ⛔⛔ **AND THE COLLISION GRID, which is what a body
-                            // actually collides with.** The rule above scans
+                            //  AND THE COLLISION GRID, which is what a body
+                            // actually collides with. The rule above scans
                             // entities named `Solid`; these levels paint their
                             // floors and walls into the Collision IntGrid, so the
                             // reachability rule could not fire on the case it was
                             // written for. Five of twenty-four authored EdgeExits
                             //
-                            // ⛔⛔ **AND THE FIRST REPLACEMENT ASKED A PROXY
-                            // TOO.** It counted solid cells inside the zone and
+                            //  AND THE FIRST REPLACEMENT ASKED A PROXY
+                            // TOO. It counted solid cells inside the zone and
                             // warned on any, which flagged five of twenty-four
                             // exits — and three of those five were correct
                             // authoring: their bottom row is solid because that
@@ -272,7 +272,7 @@ impl LdtkProject {
                             // zone stopping above the floor could never be
                             // touched by a body standing on it.
                             //
-                            // ⇒ the question is whether the ground INSIDE is
+                            //  the question is whether the ground INSIDE is
                             // higher than the ground you walk in from. See
                             // `edge_exit_step_up_px`. It answers 0 for every
                             // authored EdgeExit now that the hub's two sills are
@@ -325,7 +325,7 @@ impl LdtkProject {
             }
         }
 
-        // ⭐ **the typo the blanket rule used to catch, kept.** A landing pad
+        //  the typo the blanket rule used to catch, kept. A landing pad
         // nothing arrives through is dead geometry, and an exit whose target
         // fields were never filled in reads exactly like one.
         if !landing_pads.is_empty() {

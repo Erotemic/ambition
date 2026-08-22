@@ -1,4 +1,4 @@
-//! **WHO IS CARRYING WHOM, for BODIES** — the one owner of
+//! WHO IS CARRYING WHOM, for BODIES — the one owner of
 //! [`InCustodyOf`](ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf)
 //! on everything that is not an item.
 //!
@@ -7,21 +7,21 @@
 //! Leaving it in the possession ability meant every one of those had to modify possession in order
 //! to participate, which is feature-centric ownership of a body-generic fact.
 //!
-//! ⇒ **possession supplies one INPUT here; it does not own the law.** The roots
+//!  possession supplies one INPUT here; it does not own the law. The roots
 //! are read at the top of [`project_body_custody`] and the closure below them is
 //! shared. Adding a second root is a few lines *in this file*, beside the first,
 //! rather than an edit to somebody's ability.
 //!
-//! **deliberately concrete and typed.** There is no registry, no erased
+//! deliberately concrete and typed. There is no registry, no erased
 //! callback and no generic attachment graph: the engine has exactly two
 //! attachment relations (`RidingOn`, `Limb`) and one root (`PossessionState`),
 //! and a framework for three facts is harder to read than the three facts. When a
 //! third relation arrives it joins the `edges` list; when the list stops being
 //! legible, that is the evidence for abstracting it.
 //!
-//! **the schedule reads
+//! the schedule reads
 //! [`BodyCustodySettled`](ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled),
-//! not this module.** The item road's residency projection depends on this
+//! not this module. The item road's residency projection depends on this
 //! having run, and it says so by ordering against the set the system carries —
 //! so this move cost no reader an edit.
 
@@ -30,18 +30,18 @@ use bevy::prelude::*;
 
 use crate::abilities::traversal::possession::PossessionState;
 
-/// **Re-derive, every tick, which bodies are in whose custody.**
+/// Re-derive, every tick, which bodies are in whose custody.
 ///
 /// The ROOTS are read first (today: [`PossessionState`] — possession is custody
 /// of a body, and it is one reason a body travels rather than the definition of
 /// one), and everything after them is the shared closure.
 ///
-/// **possession is custody of a body**, so it uses the same vocabulary a carried object does —
+/// possession is custody of a body, so it uses the same vocabulary a carried object does —
 /// `InCustodyOf`, whose own doc says *"the LIFETIME is unchanged, and that is deliberate"* and
 /// names *"a possessed actor"* among the custodians.
 ///
-/// **AND THE RULE IS TRANSITIVE, WHICH IS WHY THIS IS ONE SYSTEM AND NOT
-/// TWO** — and, why it is not an ability's either.** A mount is in its RIDER's custody exactly while that rider is itself
+/// AND THE RULE IS TRANSITIVE, WHICH IS WHY THIS IS ONE SYSTEM AND NOT
+/// TWO — and, why it is not an ability's either. A mount is in its RIDER's custody exactly while that rider is itself
 /// travelling, so a piloted mount rides through a door with its pilot while an
 /// AI-piloted one stays room furniture. it was two systems for one afternoon
 /// and they FOUGHT: the mount's projection granted the marker in `WorldPrep` and
@@ -49,10 +49,10 @@ use crate::abilities::traversal::possession::PossessionState;
 /// `InCustodyOf` has no field saying who granted it and no structural
 /// discriminator separates the populations — every actor carries
 /// `TemporaryControl`, and a mount carries `MountSlot` whether ridden or not.
-/// ⇒ **one component, one owner**: the whole non-item body population is decided
+///  one component, one owner: the whole non-item body population is decided
 /// here, in one pass, and the retraction cannot disagree with the grant.
 ///
-/// **IT IS A DERIVE AND NOT A FOLLOW-UP CALL, for a rollback reason.**
+/// IT IS A DERIVE AND NOT A FOLLOW-UP CALL, for a rollback reason.
 /// `InCustodyOf` is registered as a DERIVED component on the strength of one
 /// sentence — *"room residency reprojected from `ItemCustody` every tick"* — and
 /// that sentence is what excuses it from the snapshot. A possessed body has no
@@ -61,10 +61,10 @@ use crate::abilities::traversal::possession::PossessionState;
 /// with nothing to put it back. Reading `PossessionState`, which IS rollback
 /// state, keeps the excuse true.
 ///
-/// **the retraction arm is scoped by `Without<GroundItem>`**, because the item
+/// the retraction arm is scoped by `Without<GroundItem>`, because the item
 /// domain owns the marker on objects and reprojects it from its own authority.
 ///
-/// **compared before writing**, like its item sibling: an unconditional insert
+/// compared before writing, like its item sibling: an unconditional insert
 /// would mark the component changed on every tick of a possession, and change
 /// ticks do not rewind.
 pub fn project_body_custody(
@@ -72,7 +72,7 @@ pub fn project_body_custody(
     state: Res<PossessionState>,
     riders: Query<(Entity, &crate::features::RidingOn)>,
     limbs: Query<(Entity, &Limb)>,
-    // **`RoomScopedEntity`, NOT `RoomResident`, and the difference is a TICK.** `RoomResident`
+    // `RoomScopedEntity`, NOT `RoomResident`, and the difference is a TICK. `RoomResident`
     // excludes anything wearing `InCustodyOf` — the very marker this system writes — so reading it
     // here makes the rule depend on its own previous output. Asking whether the rider is
     // room-SCOPED is the same question with none of the feedback: a room-scoped rider travels only
@@ -105,19 +105,19 @@ pub fn project_body_custody(
             wanted.insert(possessed, home);
         }
     }
-    // **EVERYTHING ATTACHED TO A TRAVELLER TRAVELS, TO ANY DEPTH.** The
+    // EVERYTHING ATTACHED TO A TRAVELLER TRAVELS, TO ANY DEPTH. The
     // attachments are edges `(attachment → anchor)`; an attachment travels when
     // its anchor does, and an anchor travels when it is already in this pass's
     // set or has no room scope at all (the session-scoped home avatar).
     //
-    // **a FIXPOINT and not an ordered pass, because the depth is content's to
-    // choose.** `gnu_ton_arena` authors a boss riding a mount that has hands —
+    // a FIXPOINT and not an ordered pass, because the depth is content's to
+    // choose. `gnu_ton_arena` authors a boss riding a mount that has hands —
     // three links — and an ordered pass encodes the depth it happened to be
     // written for. Iterating until nothing changes cannot be wrong about a chain
     // somebody authors later. Bounded by the edge count, so it terminates
     // whatever the content says; a cycle simply stops adding.
     //
-    // **`CapturedBy` is deliberately NOT an edge here.** A captive is attached
+    // `CapturedBy` is deliberately NOT an edge here. A captive is attached
     // to its captor by exactly this rule, but no composition can express a
     // captor carrying one through a door — capture is the platform fighter's,
     // and a versus stage has no room changes. Adding the edge would be a rule

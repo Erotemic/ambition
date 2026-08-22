@@ -617,8 +617,8 @@ fn crossing_a_visible_distance_marker_emits_the_standard_sfx_message() {
     assert_eq!(q.single(app.world()).unwrap().next_milestone, 1);
 }
 
-/// **The transformation fires from the DECLARED Utility technique, and the
-/// declaration is what consumes the raw verb.**
+/// The transformation fires from the DECLARED Utility technique, and the
+/// declaration is what consumes the raw verb.
 ///
 /// Both halves are the engine's now: because the body declares `transform` on
 /// `ControlSlot::Utility`, `resolve_control_slots` routes the press to the sanctioned edge AND
@@ -696,7 +696,7 @@ fn the_declared_utility_technique_toggles_both_forms_and_eats_the_fly_verb() {
     assert_eq!(worn(&app), SANIC_CHARACTER_ID);
 }
 
-/// **H2: Sanic's transformation sounds like Sanic, not like the host.**
+/// H2: Sanic's transformation sounds like Sanic, not like the host.
 ///
 /// The engine's attribution sweep converted every ability, damage path and projectile impact, which
 /// made the infrastructure look finished while the flagship character content was still writing
@@ -755,7 +755,7 @@ fn the_super_transformation_sounds_like_sanic_and_not_like_the_session_owner() {
     );
 }
 
-/// **I3: the course's own sound belongs to the course, not to the host.**
+/// I3: the course's own sound belongs to the course, not to the host.
 ///
 /// H2 classified every call site as body-owned or world-owned, and the
 /// world-owned half was still wrong: `write_global`
@@ -805,7 +805,7 @@ fn a_distance_marker_sounds_like_the_course_and_not_like_the_host() {
     );
 }
 
-/// **The D-C pattern, end to end.** `SanicRulesPlugin::hosted()` ticks the act
+/// The D-C pattern, end to end. `SanicRulesPlugin::hosted()` ticks the act
 /// timer only inside the Sanic rooms; `::global()` ticks it everywhere. The
 /// mode-owner entity is `spawn_mode_scoped`, so the engine tears it down when
 /// the active room leaves the mode — this demo writes no teardown code.
@@ -1359,7 +1359,7 @@ fn the_speedway_tags_every_ring_with_the_animated_sprite() {
     }
 }
 
-/// **Rings are a life, not a score.** A hit taken holding rings is survived and
+/// Rings are a life, not a score. A hit taken holding rings is survived and
 /// costs the rings; a hit taken holding none lands normally.
 ///
 /// Feed the Sanic presentation boundary directly. Shared-resolver tests pin
@@ -1887,7 +1887,7 @@ fn overlapping_ring_bursts_never_reuse_a_dropped_ring_id() {
     }
 }
 
-/// **Going fast has to PAY, and rings have to cost something to keep.**
+/// Going fast has to PAY, and rings have to cost something to keep.
 ///
 /// The act score is the only place the demo's premise is expressed as a number,
 /// and it is pure arithmetic that reads correctly while being backwards: swap
@@ -1929,7 +1929,7 @@ fn the_act_score_pays_for_speed_and_for_rings_kept() {
     assert_eq!(act_time_text(83.0), "1:23");
 }
 
-/// **The splash is wide enough to be a scramble.**
+/// The splash is wide enough to be a scramble.
 ///
 /// opportunity to recollect some of them after his hitstun wears off and before
 /// they disappear."*
@@ -1991,7 +1991,7 @@ fn the_ring_splash_is_wide_enough_to_be_a_scramble() {
     );
 }
 
-/// **The sign at the start line names the keys the player actually has.**
+/// The sign at the start line names the keys the player actually has.
 ///
 /// it did not. The generated text is the honest default; the presentation pass replaces it once a
 /// seat exists.
@@ -2065,12 +2065,12 @@ fn the_start_line_legend_follows_the_seats_real_bindings() {
     );
 }
 
-/// **Losing your rings buys you a few seconds, the way it always has.**
+/// Losing your rings buys you a few seconds, the way it always has.
 ///
 /// iframes. He should also have some hitstun and be knocked back a bit, and then
 /// have a few second of recovery iframes."*
 ///
-/// **the i-frames were never missing — they were 0.75s**, the engine's
+/// the i-frames were never missing — they were 0.75s, the engine's
 /// `knockback_invulnerability_time`, whose own comment calls it "the longest window in the game".
 /// It is, for Ambition.
 ///
@@ -2151,7 +2151,7 @@ fn losing_the_purse_buys_a_classic_length_recovery() {
     );
 }
 
-/// **but nothing pinned the LABEL**, which is the half he could actually see. The two are
+/// but nothing pinned the LABEL, which is the half he could actually see. The two are
 /// independent: the technique could keep routing correctly while an authored `display_name`, or
 /// the engine's `fly_toggle` reclaiming the slot, put "Fly" back on the button — and every
 /// existing test would stay green.

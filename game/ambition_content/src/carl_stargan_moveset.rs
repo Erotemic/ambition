@@ -1,4 +1,4 @@
-//! **Carl Stargan's repertoire** — cosmic perspective, as a fighter.
+//! Carl Stargan's repertoire — cosmic perspective, as a fighter.
 //!
 //! Twelve of his effects were rendered and bound to nothing.
 //!
@@ -16,19 +16,19 @@
 //! stage is also the thing you can see coming, and his jab is instant because it
 //! barely leaves his sleeve.
 //!
-//! **that discipline is not his alone** — I tried to poison it against Oiler
+//! that discipline is not his alone — I tried to poison it against Oiler
 //! and the poison failed, because his forward line is monotonic too. Recorded
 //! rather than quietly dropped: it is a property of tables authored with care,
 //! not a distinguishing trait.
 //!
-//! **the SPREAD is what is his.** `billions_and_billions` reaches
+//! the SPREAD is what is his. `billions_and_billions` reaches
 //! [`FURTHEST_REACH`] against a jab at [`NEAREST_REACH`] — over four times, where
 //! the other authored fighters sit far below that — which is "the very small and
 //! the very large" stated in hitboxes, and it carries its own comparison.
 //!
 //! ## Effects sit on the box that throws them
 //!
-//! **one cue carries a `.loop` suffix its row does not**
+//! one cue carries a `.loop` suffix its row does not
 //! (`vfx.carl_stargan.nebula_breath.loop`), so the derived `vfx.<family>.<row>`
 //! name misses the bank for that one.
 
@@ -51,10 +51,10 @@ const POKE_FX: f32 = 0.55;
 const SWING_FX: f32 = 0.80;
 const COSMIC_FX: f32 = 1.45;
 
-/// **The far end of his reach**, in world units from his centre — the leading
+/// The far end of his reach, in world units from his centre — the leading
 /// edge of `billions_and_billions`.
 pub const FURTHEST_REACH: f32 = 96.0;
-/// **The near end** — the jab, which barely leaves his sleeve.
+/// The near end — the jab, which barely leaves his sleeve.
 pub const NEAREST_REACH: f32 = 22.0;
 
 /// The rise `starstuff` commands. Authored as a SPEED and applied with
@@ -80,7 +80,7 @@ pub fn reach_of(spec: &MoveSpec) -> f32 {
         .fold(0.0_f32, f32::max)
 }
 
-/// **Does this move reach FORWARD?** A volume centred ahead of him, rather than
+/// Does this move reach FORWARD? A volume centred ahead of him, rather than
 /// above or below.
 ///
 /// the distinction is what makes [`reach_of`] comparable between moves: an
@@ -187,12 +187,12 @@ pub fn carl_stargan_moveset() -> MovesetContract {
 
     // ── far, and slow ────────────────────────────────────────────────────────
 
-    // **`billions_and_billions`.** The furthest anything reaches in this repo,
+    // `billions_and_billions`. The furthest anything reaches in this repo,
     // and the longest anyone has to watch it coming.
     let mut f_smash = strike(
         "smash_forward",
         "billions_and_billions",
-        // **0.34, and it has to be the largest startup in his forward line** —
+        // 0.34, and it has to be the largest startup in his forward line —
         // `cosmic_calendar` takes 0.30 and reaches 70. A move that reached
         // further AND arrived sooner would break the one rule this table is
         // authored under, and `reach_is_monotonic_in_startup` caught exactly
@@ -362,7 +362,7 @@ pub fn carl_stargan_moveset() -> MovesetContract {
 
     // ── THE FOUR SPECIALS ────────────────────────────────────────────────────
 
-    // **NEUTRAL — `cosmic_calendar`.** Fourteen billion years on one page: the
+    // NEUTRAL — `cosmic_calendar`. Fourteen billion years on one page: the
     // slowest sweep in the table, and it covers the whole page.
     let n_b = strike(
         "cosmic_calendar",
@@ -382,7 +382,7 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     let n_b = vfx_at(n_b, 0.30, "perspective_shift", (36.0, -4.0), SWING_FX);
     let n_b = on_contact(n_b, "player.hit");
 
-    // **SIDE — `planetary_orbit`.** A slingshot: he commits to a pass and comes
+    // SIDE — `planetary_orbit`. A slingshot: he commits to a pass and comes
     // out of it moving. the impulse fires on the ACTIVE frame, not the press,
     // so the swing carries him THROUGH rather than launching him at nothing.
     let side_b = strike(
@@ -405,7 +405,7 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     let side_b = vfx_at(side_b, 0.36, "orbit_lock", (0.0, 0.0), SWING_FX);
     let side_b = on_contact(side_b, "player.hit");
 
-    // **UP — `starstuff`. THE RECOVERY.** We are made of it, and it goes up.
+    // UP — `starstuff`. THE RECOVERY. We are made of it, and it goes up.
     let mut up_b = strike(
         "starstuff",
         "starstuff",
@@ -438,7 +438,7 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     );
     let up_b = on_contact(up_b, "player.hit");
 
-    // **DOWN — `pale_blue_dot`.** A pixel, at distance. The SMALLEST box in the
+    // DOWN — `pale_blue_dot`. A pixel, at distance. The SMALLEST box in the
     // table on the end of the second-longest reach: it hits almost nothing, and
     // it hits it from over there.
     let down_b = strike(
@@ -470,7 +470,7 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     // player pressing down-B in the air got the neutral-B. `special_air_down`
     // sits ahead of `special_down` in that chain and has the whole time; this is
     // the two-form move it exists for.
-    // **DOWN, IN THE AIR.** The grounded form works the floor; with none under
+    // DOWN, IN THE AIR. The grounded form works the floor; with none under
     // him he takes it down with him instead.
     let mut air_down_b = strike(
         "falling_horizon",
@@ -492,11 +492,11 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     // heard. The dot he points at is under him now.
     let air_down_b = vfx_at(air_down_b, 0.11, "pale_blue_dot_ping", (0.0, 22.0), POKE_FX);
     let air_down_b = on_contact(air_down_b, "player.hit");
-    // **CARL'S CAPTURE KIT.** Deliberately unremarkable in its numbers — the
+    // CARL'S CAPTURE KIT. Deliberately unremarkable in its numbers — the
     // roster needs a baseline to read the others against, and Carl is it.
     //
-    // **but his capture moves carry ART, because his table requires it of
-    // every move.** `none_of_his_bursts_sit_on_his_navel` asserts that each move
+    // but his capture moves carry ART, because his table requires it of
+    // every move. `none_of_his_bursts_sit_on_his_navel` asserts that each move
     // throws an effect at all, and it was written over a population with no
     // capture in it. Honouring it is right rather than scoping it away: a silent
     // grab would be the one mute beat in a kit whose whole idea is that every
@@ -597,7 +597,7 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     );
 
     SmashRepertoire {
-        // **his taunt throws a burst like everything else he does**, which is
+        // his taunt throws a burst like everything else he does, which is
         // both his character and what `none_of_his_bursts_sit_on_his_navel`
         // asks of every move in this table. A cosmic sweep over the head: he is
         // not threatening you, he is showing you the scale of the thing.
@@ -608,8 +608,8 @@ pub fn carl_stargan_moveset() -> MovesetContract {
             (0.0, -26.0),
             SWING_FX,
         ),
-        // **CARL'S DASH ATTACK IS A SHOULDER CHECK, and his own law decided
-        // that.** `reach_is_monotonic_in_startup` says a longer reach must never
+        // CARL'S DASH ATTACK IS A SHOULDER CHECK, and his own law decided
+        // that. `reach_is_monotonic_in_startup` says a longer reach must never
         // be quicker, and a dash attack is his QUICKEST move — so it has to be
         // his SHORTEST. The genre's 40px lunge reaches 70 at 0.05s and would
         // undercut `pale_blue_dot`, which reaches 69 and takes 0.24s. the law
@@ -647,7 +647,7 @@ pub fn carl_stargan_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: up_b,
-        // **AUTHORED, at the rule that every fighter in the smash roster have a grab.** The
+        // AUTHORED, at the rule that every fighter in the smash roster have a grab. The
         // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
         // the whole point of proving it was to stop being the only two.
         //
@@ -699,11 +699,11 @@ mod tests {
     // `ambition_characters::smash_repertoire`, and by the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
-    /// **REACH IS BOUGHT WITH TIME, AS AN ASSERTION.**
+    /// REACH IS BOUGHT WITH TIME, AS AN ASSERTION.
     ///
     /// Sort his FORWARD line by reach and the startup must never go down.
     ///
-    /// **forward, not every move**, and the distinction is real rather than a
+    /// forward, not every move, and the distinction is real rather than a
     /// convenience: an up-smash's x-reach is small because it points UP, so
     /// including it would be comparing a vertical move's horizontal extent
     /// against a horizontal move's. The claim is about the line a player spaces
@@ -742,7 +742,7 @@ mod tests {
             );
         }
 
-        // **NO POISON HERE, and that is a finding rather than an omission.**
+        // NO POISON HERE, and that is a finding rather than an omission.
         // I wrote one — "Oiler's table must violate this, or the rule is about
         // fighters rather than about Carl" — and it FAILED: his forward line is
         // monotonic too. So this is a discipline the authored tables share, not
@@ -750,7 +750,7 @@ mod tests {
         // carries its own comparison in the test below.
     }
 
-    /// **The spread is the widest on the grid** — the very small and the very
+    /// The spread is the widest on the grid — the very small and the very
     /// large, in hitboxes.
     #[test]
     fn his_reach_spans_further_than_anybody_elses() {
@@ -794,7 +794,7 @@ mod tests {
         }
     }
 
-    /// **`starstuff` is a save, not flight** — arithmetic, not a cooldown.
+    /// `starstuff` is a save, not flight — arithmetic, not a cooldown.
     #[test]
     fn the_recovery_outlasts_its_own_arc() {
         const G: f32 = 2200.0;
@@ -806,7 +806,7 @@ mod tests {
             .all(|w| !matches!(w.tag, WindowTag::Cancelable { .. })));
     }
 
-    /// **NONE OF HIS BURSTS SIT ON HIS NAVEL.**
+    /// NONE OF HIS BURSTS SIT ON HIS NAVEL.
     ///
     /// what guards the sound instead — and catches the double-play the paired form could not —
     /// is `a_paired_burst_is_heard_exactly_once` in `src/moveset_sound.rs`, which drives this
@@ -835,7 +835,7 @@ mod tests {
         assert!(placed >= 12, "only {placed} bursts are placed on their box");
     }
 
-    /// **THE ART IS HIS, AND IT ALL SHIPS.**
+    /// THE ART IS HIS, AND IT ALL SHIPS.
     #[test]
     fn the_kit_looks_like_carl_and_the_art_all_ships() {
         let set = carl_stargan_moveset();
@@ -864,7 +864,7 @@ mod tests {
         }
     }
 
-    /// **Every clip he names is a row his sheet carries.**
+    /// Every clip he names is a row his sheet carries.
     #[test]
     fn every_clip_names_a_row_his_sheet_carries() {
         let set = carl_stargan_moveset();

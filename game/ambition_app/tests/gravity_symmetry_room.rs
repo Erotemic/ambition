@@ -585,7 +585,7 @@ fn symmetry_room_one_way_drop_through_is_c4_symmetric() {
 /// A wall-walking body must choose locomotion animation from gravity-relative speed, not
 /// world-x velocity.
 ///
-/// **this is the WIRING half and it is not redundant with the unit test.**
+/// this is the WIRING half and it is not redundant with the unit test.
 /// `a_grounded_body_walks_in_every_gravity_not_just_the_vertical_ones` pins the picker as a
 /// FUNCTION. Only driving the real room proves the frame arrives.
 #[test]
@@ -638,7 +638,7 @@ fn the_walk_row_plays_on_every_arms_floor_including_the_walls() {
     }
 
     // and the stronger claim the room exists to make: the walls are not a
-    // special case. Same local input, same local speed ⇒ same drawn row, in every
+    // special case. Same local input, same local speed  same drawn row, in every
     // arm. This is what fails if only SOME rotation is handled.
     let (first_name, first_anim, _) = drawn[0];
     for (name, anim, _) in &drawn {

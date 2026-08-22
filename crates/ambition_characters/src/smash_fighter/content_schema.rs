@@ -1,14 +1,14 @@
 //! The `smash_fighter` authored-content schema, owned by the platform-fighter
 //! capability.
 //!
-//! **one file per character, merged into one book.** The aggregate exists
+//! one file per character, merged into one book. The aggregate exists
 //! because the runtime looks a fighter up by id and must find exactly one
 //! answer; without it, two packs (or one pack with a copy-pasted file) would
 //! give a character two capture kits and the winner would be map iteration
 //! order.
 //!
-//! **this schema does NOT emit a reference to the character it names, and the
-//! omission is deliberate.** A `PendingRef` resolves against identities the same
+//! this schema does NOT emit a reference to the character it names, and the
+//! omission is deliberate. A `PendingRef` resolves against identities the same
 //! pack defines, and the demo that authors the first facet registers its cast in
 //! Rust rather than in a `character_catalog` source — so a reference would
 //! refuse content that is entirely correct. The place "no such character" is
@@ -101,7 +101,7 @@ impl ContentSchemaHandler for SmashFighterSchema {
             else {
                 continue;
             };
-            // **not last-wins.** Two files claiming one fighter is a question
+            // not last-wins. Two files claiming one fighter is a question
             // with two answers, and picking one silently is how a character
             // quietly swings with the values somebody meant to delete.
             if let Some(first) = source_of.get(&facet.character) {

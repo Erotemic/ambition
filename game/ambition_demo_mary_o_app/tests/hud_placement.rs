@@ -1,4 +1,4 @@
-//! **Where the HUD actually lands**, at a real display size.
+//! Where the HUD actually lands, at a real display size.
 //!
 //! This exists because two placement bugs shipped that no other test could see.
 //! The declaration was right, the slot count was right, the text was right — and

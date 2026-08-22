@@ -29,7 +29,7 @@ fn outlander_boots_activates_and_walks_the_ridge_gate() {
     );
 }
 
-/// **Task 1's exit criterion, answered from outside the engine.**
+/// Task 1's exit criterion, answered from outside the engine.
 ///
 /// *"A feature-owned authoritative component and system are mechanically
 /// accounted, run under the simulation gate, and survive real
@@ -86,7 +86,7 @@ fn consumer_owned_authoritative_state_survives_real_resimulation() {
     );
 }
 
-/// **A third party gets REAL ART, not coloured rectangles.** (Phase 6, the
+/// A third party gets REAL ART, not coloured rectangles. (Phase 6, the
 /// visible-shell half)
 ///
 /// A stranger cloning this engine and running their game saw untextured boxes — the most visible
@@ -138,7 +138,7 @@ fn the_umbrella_asset_install_gives_an_external_consumer_real_sprites() {
     );
 }
 
-/// **A consumer's OWN art has a home.** (Phase 6, recorded SDK leak #3)
+/// A consumer's OWN art has a home. (Phase 6, recorded SDK leak #3)
 ///
 /// The visible binary's second recorded finding read: "the AssetServer file root
 /// must be pointed at the ENGINE's asset tree … consumer-owned art still has no
@@ -190,7 +190,7 @@ fn a_consumer_owns_its_own_asset_tree_and_still_sees_the_engines() {
     );
 }
 
-/// **A third party who authors bad content is TOLD WHAT IS WRONG.** (Phase 6,
+/// A third party who authors bad content is TOLD WHAT IS WRONG. (Phase 6,
 /// Milestone E's remaining clause)
 ///
 /// The campaign doc lists this one as open: "deliberate authoring failures
@@ -260,7 +260,7 @@ fn authoring_mistakes_name_the_thing_the_author_must_fix() {
          difference between a typo and a rule the author has to look up: {message}"
     );
 
-    // **WHICH FILE.** The clause this test is named after asks for file, id and field. The id
+    // WHICH FILE. The clause this test is named after asks for file, id and field. The id
     // and the field were always there (the validator says `character 'x' has empty spritesheet
     // path`); the FILE could not be, because both seams took an anonymous `&str` and there was
     // nothing in the API to report.
@@ -289,7 +289,7 @@ fn authoring_mistakes_name_the_thing_the_author_must_fix() {
     );
 }
 
-/// **A third party can author an autonomous creature without the deleted roster.**
+/// A third party can author an autonomous creature without the deleted roster.
 #[test]
 fn a_consumer_authors_an_enemy_through_the_character_definition_seam() {
     use ambition_platformer2d::character::{
@@ -297,8 +297,8 @@ fn a_consumer_authors_an_enemy_through_the_character_definition_seam() {
     };
 
     let mut app = outlander::build_outlander_app();
-    // **`build()` does not publish the registry, and this test asserted that it
-    // did.** `stage_authored_character` only STAGES; the cast is folded and
+    // `build()` does not publish the registry, and this test asserted that it
+    // did. `stage_authored_character` only STAGES; the cast is folded and
     // inserted by `CharacterPreparationPlugin`, whose triggers are `App::finish`
     // and a `PreStartup` backstop — both of which a `PlatformerApp` reaches on
     // its first update, not at build time. Reading the resource off the freshly
@@ -333,7 +333,7 @@ fn a_consumer_authors_an_enemy_through_the_character_definition_seam() {
     assert_eq!(profile.attack_range, 0.0);
 }
 
-/// **A third party can say what its own character LOOKS LIKE.**
+/// A third party can say what its own character LOOKS LIKE.
 ///
 /// Owning the art was two gaps, not one. The first was addressing — a catalog
 /// path was reduced to a basename and rebuilt under the engine's sprite folder,
@@ -395,7 +395,7 @@ fn a_consumer_authors_the_sheet_its_own_character_renders_from() {
     );
 }
 
-/// **The art this crate owns is a real image, and the engine reaches it.**
+/// The art this crate owns is a real image, and the engine reaches it.
 ///
 /// U1 made a consumer able to ADDRESS its art (`game://sprites/outlander.png`
 /// survives catalog assembly) and DESCRIBE it (`register_character_sheet_ron`).
@@ -452,7 +452,7 @@ fn the_consumers_own_art_is_a_real_png_matching_the_sheet_it_authored() {
     );
 }
 
-/// **And the engine's own asset source reads it**, through the consumer's
+/// And the engine's own asset source reads it, through the consumer's
 /// `game://` scheme rather than a filesystem path this test invented.
 ///
 /// The sibling reader test proves a marker TEXT file resolves. This proves the
@@ -490,7 +490,7 @@ fn the_engine_reads_the_consumers_generated_art_through_its_own_source() {
     );
 }
 
-/// **A third party's character can reach for NOTHING, and the engine honours it.**
+/// A third party's character can reach for NOTHING, and the engine honours it.
 ///
 /// The character-definition seam — what a character can DO, as opposed to the
 /// catalog row saying it exists — had every one of its callers inside the engine

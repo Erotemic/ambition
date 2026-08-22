@@ -113,7 +113,7 @@ fn three_real_providers_compose_independent_of_registration_order() {
         .combined_music_registry("ambition")
         .expect("real provider music ids must compose without collision");
 
-    // **THERE IS NO HOSTILE-ROSTER LIST TO LEAVE ANY MORE** (AC6). Every creature in every provider
+    // THERE IS NO HOSTILE-ROSTER LIST TO LEAVE ANY MORE (AC6). Every creature in every provider
     // is a CHARACTER, so the composition property this test exists for is asserted against the
     // authority they actually live in: the owners map.
     assert_eq!(
@@ -169,7 +169,7 @@ fn separate_apps_select_independent_provider_sets() {
         .expect("Sanic content publishes its own catalog");
     assert_eq!(sanic_owners.provider_for("sanic"), Some("sanic"));
 
-    // **Mary-O's every enemy is a character too**: the plane
+    // Mary-O's every enemy is a character too: the plane
     // swarms — her last rows, kept as a standalone-build fallback — are her own
     // registered characters, like the snake and the slop before them.
     let mary_o_owners = mary_o

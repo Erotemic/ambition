@@ -13,14 +13,14 @@ const OWNER: &str = env!("CARGO_PKG_NAME");
 
 /// Register the LDtk runtime index's rollback row.
 ///
-/// **the ROW is behind `ldtk_runtime`; the FUNCTION is not.** `LdtkRuntimeIndex`
+/// the ROW is behind `ldtk_runtime`; the FUNCTION is not. `LdtkRuntimeIndex`
 /// lives in `bevy_runtime`, which only exists when that feature supplies
 /// `bevy_ecs_ldtk` — so a composition without the backend has no such component
 /// and nothing to rewind. Gating the function instead would break every host's
 /// call site over a state that is simply absent; gating the ROW says the true
 /// thing, which is that this domain contributes nothing here.
 ///
-/// **this is a rollback-schema FORK and it is stated rather than discovered.**
+/// this is a rollback-schema FORK and it is stated rather than discovered.
 /// A build without `ldtk_runtime` registers one row fewer, so its schema
 /// fingerprint differs from the shipped one. Every shipping composition has the
 /// backend, which is why the recorded baselines are the with-runtime set.

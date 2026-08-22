@@ -273,7 +273,7 @@ pub fn handle_jump_buffer_clusters(
             );
         }
     } else if jump_state.footstool_claimed && tuning.abilities.footstool.is_enabled() {
-        // **AHEAD OF THE AIR JUMP, and that ordering IS the mechanic.** The
+        // AHEAD OF THE AIR JUMP, and that ordering IS the mechanic. The
         // press resolves as a footstool and costs nothing: a body that has spent
         // every midair jump can still bounce off a head, which is the genre's
         // rule. When this was applied AFTER the kernel by overwriting velocity,

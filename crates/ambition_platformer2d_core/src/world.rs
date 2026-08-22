@@ -26,25 +26,25 @@ pub enum BlockKind {
     BlinkWall { tier: BlinkWallTier },
     /// Landing platform: only solid when the player crosses from above.
     OneWay,
-    /// **The mirror of [`BlockKind::OneWay`]: only solid when struck from
-    /// BELOW.** A body falls through it, walks through it, and stands where it
+    /// The mirror of [`BlockKind::OneWay`]: only solid when struck from
+    /// BELOW. A body falls through it, walks through it, and stands where it
     /// is as if it were not there — and a head that comes up into it hits it.
     ///
-    /// **and it is not "no collision".** A head-bonk is a CONTACT the
+    /// and it is not "no collision". A head-bonk is a CONTACT the
     /// collision system produces, so a block with no collision cannot be struck
     /// at all and the reward would vanish with the floor. One-sided solidity is
     /// the only shape that keeps both.
     BonkOnly,
     /// Reset surface. Hitting this returns the player to spawn.
     ///
-    /// **It is not a damage surface, and the name invites reading it as one.**
+    /// It is not a damage surface, and the name invites reading it as one.
     /// Touching this flags [`crate::ResetCause::Hazard`] and the body's owner
     /// teleports it home; no health, currency, or i-frame is consulted anywhere
     /// on the road. That is exactly right for a pit floor — falling out is not
     /// something that HIT you — and exactly wrong for a row of spikes, which is
     /// what an author reaching for the word "hazard" usually means.
     ///
-    /// ⇒ **a hazard that HURTS is an authored damage volume**
+    ///  a hazard that HURTS is an authored damage volume
     /// (`PlacementSchema::Hazard` → `ambition_combat::hazards`), which publishes
     /// an ordinary hit and therefore behaves like every other hit in the game.
     /// A whole demo's spike strip was drawn on this variant by mistake; see
@@ -87,10 +87,10 @@ pub struct Block {
     ///
     /// The two quantities are:
     ///
-    /// For a moving platform these are the same vector. For a **conveyor belt** they are not:
+    /// For a moving platform these are the same vector. For a conveyor belt they are not:
     /// displacement is `ZERO` and drag is not.
     pub velocity: Vec2,
-    /// **Placeholder art override.** `None` (the default) draws the block through
+    /// Placeholder art override. `None` (the default) draws the block through
     /// the shared per-`BlockKind` art.
     ///
     /// That shared art assumes a block's footprint roughly matches its texture's aspect ratio,
@@ -200,7 +200,7 @@ impl Block {
         }
     }
 
-    /// A solid surface drawn from the shared **tiled block-art path** (32px tiles
+    /// A solid surface drawn from the shared tiled block-art path (32px tiles
     /// that repeat to fill the footprint) rather than a single stretched sprite.
     ///
     /// This is the constructor a game should reach for when authoring real

@@ -4,7 +4,7 @@
 //! snapshot implementation with either the trait or the type, so moving a type
 //! forces its codec to move with it.
 //!
-//! ⚠ A field added to an encoded type is a WIRE FORMAT change. Encode and
+//!  A field added to an encoded type is a WIRE FORMAT change. Encode and
 //! decode must stay in the same order, and `snapshot_unit_enum!` codes are
 //! authored per variant so inserting one never renumbers the rest.
 
@@ -106,7 +106,7 @@ impl SnapshotResolve for crate::EncounterWaves {
         put_u32(out, self.run.pending.len() as u32);
         for mob in &self.run.pending {
             put_str(out, &mob.kind);
-            // ⚠ **VERBATIM means every field.** `character` is authored content
+            //  VERBATIM means every field. `character` is authored content
             // and cannot diverge between peers, so omitting it would not have
             // desynced anything — but the comment above promises the whole mob,
             // and a field added to `EncounterMobSpec` that this loop silently

@@ -1,30 +1,8 @@
-//! Ordinary room transitions, end to end — the ENGINE's copy.
+//! Engine-owned room-transition orchestration.
 //!
-//! Detection (`detect_room_transition_system`) and the per-room feature reset have always been
-//! engine-side. That made room transitions a GAME capability: no demo host could change rooms,
-//! which is why Super Mary-O's secret vault had to be dug into the same `RoomSpec` as the surface
-//! instead of being a second room.
-//!
-//! The blocker was never a dependency. It was one call: the commit drew the new
-//! room itself (`spawn_room_visuals`), which named `ambition_render`. Now it
-//! writes `RespawnRoomVisualsRequested` like every other room-changing path, and
-//! the whole chain names nothing an engine crate may not.
-//!
-//! ## What a host still owns
-//!
-//! Two OPTIONAL contributors, both marker-gated so absence is honest rather than
-//! silent:
-//!
-//! - [`RoomTransitionAssetContributor`] — "has the destination room's art
-//!   arrived". Needs a sprite catalog, an asset server, and resolved visual
-//!   quality; a headless host has none and its work item is `Skipped`.
-//! - [`RoomTransitionPresentationAvailable`] — "a cover has survived a
-//!   presentation frame", so a visible host never exposes a partially built
-//!   room. A headless host commits as soon as readiness is authorized.
-//!
-//! Plus [`RoomConstructionPlanPrefetch`], which the host FILLS and the
-//! transition READS: deciding when to prepare a neighbor is host policy, but a
-//! prepared plan is an engine artifact and promoting one is engine identity.
+//! Detection, readiness, commit, and feature reset live here. Hosts may contribute
+//! destination-asset readiness, presentation-cover readiness, and prefetched
+//! construction plans; headless hosts may omit the presentation contributors.
 
 mod commit;
 mod loading;
@@ -52,7 +30,7 @@ pub use prefetch::RoomConstructionPlanPrefetch;
 /// anything. Registering a second copy is a hard schedule error in a host that
 /// carries an ordering edge against these systems, and a silent double-execution
 /// in one that does not; do not.
-/// **The host-side readiness phase** — begin the transaction, preflight the
+/// The host-side readiness phase — begin the transaction, preflight the
 /// destination, gather asset readiness, authorize the commit. Never rewound, and
 /// never a room mutation.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -73,7 +51,7 @@ impl Plugin for RoomTransitionComposerPlugin {
             .init_resource::<RoomTransitionLoadState>()
             .init_resource::<RoomConstructionPlanPrefetch>();
         let sim = app.sim_schedule();
-        // **READINESS IS HOST-SIDE; THE ROOM CHANGE IS SIMULATION**.
+        // READINESS IS HOST-SIDE; THE ROOM CHANGE IS SIMULATION.
         //
         // These four ask a question — is the destination prepared, are its assets
         // accounted for, is the cover up, may this commit — and answering it
@@ -107,7 +85,7 @@ impl Plugin for RoomTransitionComposerPlugin {
                 // THE transaction phase — detection has run, the reset has not.
                 .in_set(ambition_platformer2d_shared_tangle::schedule::RoomTransitionSet::Apply),
         );
-        // **STATED, not inferred.** On a host whose sim IS `Update` all three
+        // STATED, not inferred. On a host whose sim IS `Update` all three
         // phases share one graph, and leaving Bevy's parameter-conflict
         // resolution to order them would be luck wearing a deterministic face. On
         // a `FixedUpdate` or GGRS host the sim runs in its own schedule and

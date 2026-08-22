@@ -41,7 +41,7 @@ pub struct GravityFlipSwitch {
 // component + `gravity_flip_switch_system` below remain only for the unit test
 // + any future overlap-style gravity plate; nothing spawns one in-game.
 
-/// Flip the room's **ambient** gravity ([`crate::physics::BaseGravity`]) up↔down
+/// Flip the room's ambient gravity ([`crate::physics::BaseGravity`]) up↔down
 /// when the player steps into a [`GravityFlipSwitch`] (rising-edge latched by
 /// `armed`). Flipping the ambient (not the live `GravityField` directly) lets
 /// gravity zones override locally while the switch sets the room default.

@@ -1,4 +1,4 @@
-//! **Three ways to stage a cast, one projection.** (§4.8)
+//! Three ways to stage a cast, one projection. (§4.8)
 //!
 //! A room, a match, and a direct startup are semantically different things and
 //! keep their own schemas — a room places NPCs at coordinates, a match seats
@@ -66,7 +66,7 @@ impl StagesCharacters for RoomStagingPlan {
 pub struct MatchParticipant {
     /// The stable `CharacterDefinitionId` this seat wears.
     ///
-    /// **typed, so a seat cannot be handed a display name** (P0.3). It was a
+    /// typed, so a seat cannot be handed a display name (P0.3). It was a
     /// bare `String` for as long as the roster existed, which made
     /// `MatchParticipant::new("Iron Mary", ..)` — a display name where an id
     /// belongs — a thing the compiler had no opinion about.
@@ -79,14 +79,14 @@ pub struct MatchParticipant {
     /// exists so this type is usable as the real roster rather than a stub that
     /// gets replaced.
     pub team: Option<String>,
-    /// **The kit this MATCH gives this fighter**, outranking the character's own
+    /// The kit this MATCH gives this fighter, outranking the character's own
     /// catalog row.
     ///
     /// `None` keeps the authored persona, which is every existing roster and the
     /// right answer for a scripted encounter or a boss.
     ///
-    /// **per SEAT, where `fighter_abilities` is per MATCH, and the difference is the whole
-    /// point.** An ability is *may this body attack* and levelling it is fairness; a moveset is
+    /// per SEAT, where `fighter_abilities` is per MATCH, and the difference is the whole
+    /// point. An ability is *may this body attack* and levelling it is fairness; a moveset is
     /// *what the attack IS* and levelling it would erase the character.
     pub action_set: Option<ambition_characters::brain::ActionSet>,
 }
@@ -95,7 +95,7 @@ impl MatchParticipant {
     pub fn new(character: impl Into<ambition_entity_catalog::CharacterId>) -> Self {
         Self {
             character: character.into(),
-            // **the first PAD, not "seat zero".** A roster that seats two of
+            // the first PAD, not "seat zero". A roster that seats two of
             // these without saying otherwise is two people on one controller,
             // and preparation refuses it by name — which is the honest outcome:
             // whoever built that roster has not said who is holding what.
@@ -125,7 +125,7 @@ impl MatchParticipant {
     }
 }
 
-/// **Who drives a body.** (§4.7)
+/// Who drives a body. (§4.7)
 ///
 /// Not on the character definition. A definition describes physical limits,
 /// vitals, moves, abilities, and hurt behaviour — a BODY — and the same body must
@@ -161,17 +161,17 @@ impl ControllerBinding {
         }
     }
 
-    /// **The LOCAL INPUT SOURCE this binding occupies, if any.**
+    /// The LOCAL INPUT SOURCE this binding occupies, if any.
     ///
     /// A one-human-one-CPU match therefore built a two-handle session whose second handle nothing
     /// ever wrote.
     ///
-    /// **a participant is not a channel.** A CPU is a full participant with a
+    /// a participant is not a channel. A CPU is a full participant with a
     /// body, a team and a stock count, and it occupies no channel at all; a
     /// spectator would be a participant with no body. Those are only sayable
     /// once the two counts are allowed to differ.
     ///
-    /// **and a source is not a channel either** — see
+    /// and a source is not a channel either — see
     /// [`MatchParticipantRoster::local_channel_plan`], which is what turns these
     /// into dense channels.
     pub fn local_source(&self) -> Option<ambition_input::LocalInputSource> {
@@ -182,8 +182,8 @@ impl ControllerBinding {
     }
 }
 
-/// **Normalized exertion, the only thing locomotion intent may cross the seam
-/// as.** (§4.7)
+/// Normalized exertion, the only thing locomotion intent may cross the seam
+/// as. (§4.7)
 ///
 /// A brain says how hard to try; the BODY turns that into its own acceleration,
 /// speed cap, and traction. `patrol_speed` / `chase_speed` / `aggro_radius` /
@@ -193,7 +193,7 @@ impl ControllerBinding {
 /// what their bodies are.
 ///
 /// A heavy at `0.9` and a light at `0.35` sometimes reaching the same absolute
-/// speed is **not** wrong — effort is relative exertion, not a cross-character
+/// speed is not wrong — effort is relative exertion, not a cross-character
 /// ranking. Navigation that must reach a point by a deadline is a separate
 /// concern and may legitimately use world-space constraints.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
@@ -231,7 +231,7 @@ impl NormalizedEffort {
 #[derive(Resource, Debug, Clone, Default, PartialEq)]
 pub struct MatchParticipantRoster {
     pub participants: Vec<MatchParticipant>,
-    /// **Whether a seated fighter may act on the tick it appears.**
+    /// Whether a seated fighter may act on the tick it appears.
     ///
     /// A ruleset that opens on a countdown wants `true`: the fighters are reset,
     /// placed and VISIBLE through "3, 2, 1" and none of them — human or CPU —
@@ -243,19 +243,19 @@ pub struct MatchParticipantRoster {
     /// Taken off by whoever put the countdown up — for versus, the `Starting`
     /// arm reaching zero, which is the one place a round goes live.
     pub opens_suspended: bool,
-    /// **How long the opening ceremony holds the cast**, in simulation ticks.
+    /// How long the opening ceremony holds the cast, in simulation ticks.
     ///
     /// Meaningless without [`Self::opens_suspended`] — there is nothing to hold
     /// — and `0` there means the hold ends on the tick the cast is built, which
     /// is what every roster did before a countdown existed.
     ///
-    /// **the hold is RELEASED by the engine now**, keyed on this number and the sim clock.
+    /// the hold is RELEASED by the engine now, keyed on this number and the sim clock.
     pub opening_countdown_ticks: u32,
-    /// **How long the match runs before the clock decides it**, in sim ticks.
+    /// How long the match runs before the clock decides it, in sim ticks.
     /// `0` (the default) is a match with no clock, which is what every roster
     /// had before one existed.
     ///
-    /// **it is TICKS and it is DERIVED, so nothing counts down.** The phase is
+    /// it is TICKS and it is DERIVED, so nothing counts down. The phase is
     /// `now - ActiveMatch::activated_on` against this number — the same shape
     /// [`opening_countdown_ticks`](Self::opening_countdown_ticks) already uses —
     /// which means a match clock costs no new mutable state inside the rollback
@@ -264,10 +264,10 @@ pub struct MatchParticipantRoster {
     /// On the roster for the same reason as `fighter_stocks`: the engine does
     /// not get an opinion about what a match's economy is.
     pub time_limit_ticks: u32,
-    /// **Whether anybody has agreed to seat this roster yet.** See
+    /// Whether anybody has agreed to seat this roster yet. See
     /// [`RosterSeating`].
     pub seating: RosterSeating,
-    /// **What every fighter in this match may do, physically.**
+    /// What every fighter in this match may do, physically.
     ///
     /// `None` leaves each body with whatever it already had — the right answer
     /// for a roster that is not a fair fight (a scripted encounter, a boss).
@@ -282,7 +282,7 @@ pub struct MatchParticipantRoster {
     /// same reason `opens_suspended` is: the engine does not get an opinion about
     /// what a fighter may do.
     pub fighter_abilities: Option<ambition_platformer2d_core::MatchAbilities>,
-    /// **THE BODY A FIGHTER PLAYS THIS MATCH WITH** — the movement feel a mode
+    /// THE BODY A FIGHTER PLAYS THIS MATCH WITH — the movement feel a mode
     /// supplies to a character that authored none.
     ///
     /// `None` leaves every seat on whatever its character has, which is right
@@ -294,7 +294,7 @@ pub struct MatchParticipantRoster {
     /// from every exploration body in the game — so a stage that GRANTS `dodge` to a cast it did
     /// not author hands out a verb whose window never opens.
     ///
-    /// **it is NOT a whole `MovementTuning`, and that is the design** — see
+    /// it is NOT a whole `MovementTuning`, and that is the design — see
     /// [`MatchBody`](ambition_platformer2d_core::MatchBody). A mode states the
     /// handful of numbers a MODE owns and composes them over the body each
     /// fighter brought, so a gait, a jump arc and a gravity nobody asked it
@@ -305,8 +305,8 @@ pub struct MatchParticipantRoster {
     /// On the roster for the same reason as `fighter_abilities`: the engine does
     /// not get an opinion about what a fighter on this stage feels like.
     pub fighter_body: Option<ambition_platformer2d_core::MatchBody>,
-    /// **How many stocks each fighter starts with, if this match runs on
-    /// stocks.** (S4)
+    /// How many stocks each fighter starts with, if this match runs on
+    /// stocks. (S4)
     ///
     /// `None` is a match with no stock economy — every existing roster, and the
     /// right answer for a scripted encounter or a boss.
@@ -321,7 +321,7 @@ pub struct MatchParticipantRoster {
     /// `fighter_abilities` and `opens_suspended`: the engine does not get an
     /// opinion about what a match's economy is.
     pub fighter_stocks: Option<u32>,
-    /// **The health pool every fighter in this match plays with**, whatever
+    /// The health pool every fighter in this match plays with, whatever
     /// its character authored.
     ///
     /// `None` leaves each seat with its CHARACTER's authored pool — the right
@@ -330,7 +330,7 @@ pub struct MatchParticipantRoster {
     ///
     /// Nothing was accruing on a clock; four fighters were being divided by 1, 1, 60 and 100.
     ///
-    /// **it is the POOL, not a display scale**, and that is deliberate: under
+    /// it is the POOL, not a display scale, and that is deliberate: under
     /// [`fighter_stocks`](Self::fighter_stocks) the pool never drains
     /// (`DeathPolicy::Unbounded`) so it is purely what 100% means, while a match
     /// with no stock economy would be declaring literal hit points. One field
@@ -342,11 +342,11 @@ pub struct MatchParticipantRoster {
     /// `fighter_stocks`: the engine does not get an opinion about a match's
     /// economy, and a CHARACTER does not get an opinion about somebody else's.
     pub fighter_health_pool: Option<i32>,
-    /// **Which experience published this roster.**
+    /// Which experience published this roster.
     ///
     /// The versus stage's exit rule read *"not on my route and a roster exists → remove it"*,
-    /// which was exactly right while it was the only publisher and became **"delete the other
-    /// game's match"** the day the smash demo's character select published one from a different
+    /// which was exactly right while it was the only publisher and became "delete the other
+    /// game's match" the day the smash demo's character select published one from a different
     /// route.
     ///
     /// `None` is an unowned roster — a fixture, a scripted encounter, anything
@@ -355,27 +355,27 @@ pub struct MatchParticipantRoster {
     pub published_by: Option<String>,
 }
 
-/// **Whether anybody has agreed to seat a [`MatchParticipantRoster`].**
+/// Whether anybody has agreed to seat a [`MatchParticipantRoster`].
 ///
 /// One field, two meanings, and the difference is exactly whether a session is allowed to have
 /// an opinion.
 ///
 /// The reconciler compensated by gating on `published_by`.
 ///
-/// **`Default` is `Activated`, and that is the load-bearing choice.** Every
+/// `Default` is `Activated`, and that is the load-bearing choice. Every
 /// fixture, every `MatchParticipantRoster::of(..)`, every scripted encounter
 /// keeps seating exactly as it does today without naming this type at all. Only
 /// a route that builds a roster from live devices opts into [`Self::Proposed`],
 /// and only that route pays for the extra step.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RosterSeating {
-    /// **Nobody has agreed to seat this roster.** `seat_match_participants`
+    /// Nobody has agreed to seat this roster. `seat_match_participants`
     /// refuses it, so the route that proposed it must activate it first.
     ///
     /// This is what closes the window `status.md` calls *"MECHANISMS DONE, ACTIVATION OPEN"*.
     /// Refusing is the only way to be first.
     Proposed,
-    /// **This roster may seat.** `seat_topology` records which frozen seat
+    /// This roster may seat. `seat_topology` records which frozen seat
     /// topology agreed to it, when one did.
     ///
     /// `None` there is an honest `None`: nothing had an opinion. The roster, the
@@ -386,7 +386,7 @@ pub enum RosterSeating {
 }
 
 impl Default for RosterSeating {
-    /// **`Activated`, and the reason is in [`RosterSeating`]'s own doc.**
+    /// `Activated`, and the reason is in [`RosterSeating`]'s own doc.
     /// Every roster that existed before this type did seats on publication, and
     /// a `Proposed` default would have made all of them stop.
     fn default() -> Self {
@@ -428,7 +428,7 @@ impl MatchParticipantRoster {
         self.seating.seat_topology()
     }
 
-    /// **Agree to seat this roster**, recording the frozen topology that decided
+    /// Agree to seat this roster, recording the frozen topology that decided
     /// it (`None` when nothing had an opinion).
     ///
     /// one call, not a stamp applied after a separate "allow it" step —
@@ -436,14 +436,14 @@ impl MatchParticipantRoster {
     /// where a roster is seatable and unstamped, which is the shape this type
     /// exists to remove.
     ///
-    /// **unvalidated.** Use [`Self::activate_if_seatable`] where an archetype
+    /// unvalidated. Use [`Self::activate_if_seatable`] where an archetype
     /// table is in hand; this exists for the callers that have none (a rebuild
     /// carrying a decision already made, a test).
     pub fn activate(&mut self, seat_topology: Option<u64>) {
         self.seating = RosterSeating::Activated { seat_topology };
     }
 
-    /// **Validate every participant AND activate, or neither.**
+    /// Validate every participant AND activate, or neither.
     ///
     /// `status.md`'s activation row asks for *"validate every participant,
     /// activate the roster atomically, publish it, start the countdown from
@@ -454,7 +454,7 @@ impl MatchParticipantRoster {
     /// fill. Seating then refuses, publishes `MatchSeatingRefused`, and the
     /// stage sits on a roster that will never seat.
     ///
-    /// **the validation is INSIDE the activation, not a call before it.**
+    /// the validation is INSIDE the activation, not a call before it.
     /// An authority that needs a FOLLOW-UP CALL has the wrong shape: a separate
     /// `check_then_activate` leaves a window where a caller did the second half
     /// and not the first, and this repo has paid for that shape more than once.
@@ -492,9 +492,9 @@ impl MatchParticipantRoster {
         }
     }
 
-    /// **Which local source drives which control channel**, in seat order.
+    /// Which local source drives which control channel, in seat order.
     ///
-    /// **this was a COUNT, and a count is not enough.** It answered *"how many
+    /// this was a COUNT, and a count is not enough. It answered *"how many
     /// local input channels does this match need"* — the number that sizes a
     /// rollback session and picks solo-versus-couch input assignment — and threw
     /// away the half that says whose controller feeds each one. Everything
@@ -503,11 +503,11 @@ impl MatchParticipantRoster {
     /// second produced one handle and a fighter reading `PlayerSlot(1)`, so
     /// nobody could move.
     ///
-    /// **seat order is the channel order**, and that is the whole definition.
+    /// seat order is the channel order, and that is the whole definition.
     /// Channel `n` is the `n`-th human seat in the roster, whatever source it
     /// holds — so `[CPU, human on pad 1]` is one channel listening to pad 1.
     ///
-    /// **the ONE place the correspondence is decided.** `prepare_match` reads
+    /// the ONE place the correspondence is decided. `prepare_match` reads
     /// it rather than counting again, the session is sized from
     /// `plan.channels()`, and the frozen topology stores the plan itself; three
     /// consumers citing one fact instead of three derivations that agree by
@@ -535,7 +535,7 @@ impl MatchParticipantRoster {
         self.published_by.as_deref() == Some(experience_id)
     }
 
-    /// **Whether `experience_id` may write over this roster.**
+    /// Whether `experience_id` may write over this roster.
     ///
     /// The rule this answers has been learned three times and stated in three
     /// different places, and the third site did not have it: Versus's
@@ -544,7 +544,7 @@ impl MatchParticipantRoster {
     /// then deleted it, correctly, on a route that was not Versus; and Smash's
     /// match opened with one fighter instead of two.
     ///
-    /// **an UNOWNED roster is writable.** A roster stamped `None` predates the
+    /// an UNOWNED roster is writable. A roster stamped `None` predates the
     /// ownership rule or came from a fixture, and refusing to touch it would
     /// strand it forever with no way to clear it. "Nobody claimed this" and
     /// "somebody else claimed this" are different answers and only the second is
@@ -557,7 +557,7 @@ impl MatchParticipantRoster {
     }
 }
 
-/// **What a roster asked for that its composition cannot provide.**
+/// What a roster asked for that its composition cannot provide.
 ///
 /// One entry per unsatisfiable seat, phrased for a human reading a refusal.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -574,29 +574,11 @@ impl std::fmt::Display for RosterProblem {
 }
 
 impl MatchParticipantRoster {
-    /// **Can this roster actually be seated by this composition?** (API 1.0
-    /// row (g))
+    /// Return seats whose requested controller policy this composition cannot resolve.
     ///
-    /// `seat_match_participants` refuses an unresolvable profile, and a refusal at that point
-    /// is a half-built match in a release build and a panic in a debug one.
-    ///
-    /// Both shipped, both looked composed, and both were fights against a statue.
-    ///
-    /// Character ids are NOT checked here: `PreparedCharacterRegistry` answers that, refuses on
-    /// its own, and asking twice would put two authorities on one question. Then it asked BOTH,
-    /// which was right while a policy had two possible homes. Since P2.18 `seat_brain_profile`
-    /// has ONE arm, and a checker that still consulted the archetype table would be the other
-    /// failure — approving a seat that seating then refuses, which is the shape
-    /// `ambition_combat::content_schema` names: the compiler must not approve what the runtime
-    /// refuses.
-    ///
-    /// The check's INTENT — a composition must not declare a seat it cannot
-    /// fill — has been right throughout; only its instrument moved.
-    ///
-    /// **the published registry is `Option`** because a composition may have
-    /// none. That is a real state rather than an error, and it is now an
-    /// ANSWER: a seat naming a policy in a composition that publishes nothing is
-    /// unsatisfiable, because seating will refuse it too.
+    /// Character ids are validated separately by `PreparedCharacterRegistry`; this
+    /// check uses the same brain-profile authority as match seating. A composition
+    /// with no published profile registry cannot satisfy a named profile.
     pub fn unsatisfiable_seats(
         &self,
         // The published controller policies, resolved exactly as
@@ -677,7 +659,7 @@ mod tests {
     use super::*;
     use crate::character_runtime::CharacterLoadDemand;
 
-    /// **§4.8's one shared projection.** Two semantically different stagings that
+    /// §4.8's one shared projection. Two semantically different stagings that
     /// name the same cast must produce the same demand, or "the room worked and the
     /// match did not" becomes a real bug class again.
     #[test]
@@ -794,7 +776,7 @@ mod roster_validation_tests {
     use super::*;
     use crate::character_runtime::ControllerBinding;
 
-    /// **The policies a composition PUBLISHES**, keyed the way assembly keys
+    /// The policies a composition PUBLISHES, keyed the way assembly keys
     /// them.
     ///
     /// It knows the only one now (P2.18).

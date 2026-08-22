@@ -1,4 +1,4 @@
-//! **X0 — the full multi-game host lifecycle, headless.**
+//! X0 — the full multi-game host lifecycle, headless.
 //!
 //! Drives the REAL Ambition shell-host composition (the same
 //! `compose_ambition_shell_host` the visible binary uses) through the whole
@@ -213,7 +213,7 @@ fn launch_entry(app: &mut App, index: usize) {
     settle(app);
 }
 
-/// **Launch the row with this LABEL.**
+/// Launch the row with this LABEL.
 ///
 /// A label is what the walk actually means, it survives reordering, and it makes
 /// the panic name the game somebody was looking for.
@@ -458,7 +458,7 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         );
     }
 
-    // **A ROW MAY LEAD TO A QUESTION RATHER THAN TO A GAME.** Smash is the first
+    // A ROW MAY LEAD TO A QUESTION RATHER THAN TO A GAME. Smash is the first
     // one that does: its entry opens character select, and the stage route it
     // reaches afterwards is a different route entirely. A launcher that could
     // only address gameplay routes would have had to drop a lone duelist onto the
@@ -778,7 +778,7 @@ fn encounter_authorities(app: &mut App) -> Vec<(String, Option<SessionScopeId>)>
     rows
 }
 
-/// **A GGRS session contract never survives session retirement.**
+/// A GGRS session contract never survives session retirement.
 ///
 /// The shell does not start networking by default, but the exact content/schema
 /// contract is session-scoped. Retiring the canonical root removes the only

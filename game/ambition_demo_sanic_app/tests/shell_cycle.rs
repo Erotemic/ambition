@@ -1,4 +1,4 @@
-//! **The real Sanic lifecycle, gate-enforced.**
+//! The real Sanic lifecycle, gate-enforced.
 //!
 //! The first required campaign milestone: Sanic is a real composable experience
 //! with direct standalone entry, host-relative Quit to Home, complete

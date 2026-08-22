@@ -243,7 +243,7 @@ fn any_body_reconciles_not_only_a_player() {
     );
 }
 
-/// **X11: an identity swap under worn equipment does not resurrect the old kit.**
+/// X11: an identity swap under worn equipment does not resurrect the old kit.
 ///
 /// `live identity = resolved character baseline + equipment grants` is only true
 /// if BOTH halves re-derive when the baseline moves. The revoke tests above all

@@ -144,8 +144,8 @@ pub(crate) fn apply_menu_action(
                 // Clear whatever weapon is currently held (a held item OR the
                 // portal gun) so we re-stash the true base, then equip the new one.
                 //
-                // **the catalog's equipped slot rides along inside these
-                // calls** rather than being set once at the end. `OwnedItems::
+                // the catalog's equipped slot rides along inside these
+                // calls rather than being set once at the end. `OwnedItems::
                 // equipped` and the body's `HeldItem`/`PortalGun` are one fact
                 // stored twice, and every site that wrote only one of them
                 // drifted. The release clears the slot, the take names the new

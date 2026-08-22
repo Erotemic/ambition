@@ -1,11 +1,11 @@
-//! **THE SALVAGE GUARD.** The intro raid corridor's two `EnemySpawn`s,
+//! THE SALVAGE GUARD. The intro raid corridor's two `EnemySpawn`s,
 //! which have been wearing `gradient_seeker` — an archetype whose whole
 //! population is those two placements, both literally named "Salvage
 //! Guard". A generic role with exactly one creature in it was never a
 //! role; it was that creature's body filed under a different name.
 //!
-//! **its policy is INLINE, and the goblin's is NAMED, and the
-//! difference is the P2.16 rule rather than an inconsistency.** A shared
+//! its policy is INLINE, and the goblin's is NAMED, and the
+//! difference is the P2.16 rule rather than an inconsistency. A shared
 //! `autonomous_profiles` entry earns its indirection when several
 //! creatures point at it — `medium_striker` has a goblin band. This
 //! policy has one adopter, so naming it would publish a shared thing

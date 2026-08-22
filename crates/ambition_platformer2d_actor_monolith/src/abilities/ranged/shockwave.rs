@@ -1,4 +1,4 @@
-//! Shockwave Slam — a boss-style ground-slam AOE the **player** can wield.
+//! Shockwave Slam — a boss-style ground-slam AOE the player can wield.
 //!
 //! The first "player wields a boss attack" slice, now expressed on the effect
 //! seam: `Attack` while holding the shockwave gauntlet emits a generic
@@ -32,7 +32,7 @@ const SHOCKWAVE_LIFETIME_S: f32 = 0.18;
 const SHOCKWAVE_KNOCKBACK: f32 = 1.3;
 
 /// `Attack` while holding the shockwave gauntlet emits a `DamageBox` effect from
-/// the **wielding body**. Plain Attack only — `Shield + Attack` is the throw/drop
+/// the wielding body. Plain Attack only — `Shield + Attack` is the throw/drop
 /// gesture (handled by `item_pickup::throw_held_item_system`, which excludes
 /// this id from throw-on-plain-Attack).
 ///

@@ -1,24 +1,6 @@
-//! **FB3's scenario fixture suite.**
-//!
-//! `docs/planning/engine/fighter-brain.md` §3: *"Scenario suite: fixture
-//! situations (ledge trap, juggle escape, recovery from each offstage quadrant,
-//! projectile camping opponent) with pass metrics (survival %, damage ratio) per
-//! difficulty."*
-//!
-//! A scenario is a named [`WorldView`] plus the one fact everyone can agree on
-//! before any brain runs: **which [`Situation`] it is.** That is what L1 owes, and
-//! it is what this module asserts.
-//!
-//! ## Why the fixtures live here and not in a test file
-//!
-//! FB4's ladder rig needs the same eight situations to score survival % and damage
-//! ratio against; §3's *"pass metrics per difficulty"* is a measurement OVER these
-//! fixtures, not a different set of them. A fixture suite that only a `#[cfg(test)]`
-//! module can see gets rebuilt, slightly differently, by the next slice.
-//!
-//! **The metrics half is not here.** Survival % and damage ratio need a brain to
-//! survive and deal damage, and no brain exists above L1. FB4 brings the profiles
-//! and the rig; these scenarios are what it will run.
+//! Shared tactical fixtures for fighter classification and evaluation.
+//! Each scenario pairs a [`WorldView`] with the expected [`Situation`] so tests
+//! and measurement tools use the same setup.
 
 use ambition_platformer2d_core as ae;
 
@@ -76,54 +58,20 @@ pub struct Scenario {
     pub expect: Situation,
 }
 
-/// The suite. Eight fixtures: §3's four named ones, plus recovery from each of the
-/// four offstage quadrants (§3 asks for exactly that, and it is four fixtures, not
-/// one — a body knocked off the top has different options from one knocked off the
-/// side, and a classifier that conflates them will not be caught by one of them).
+/// Eight tactical fixtures, including distinct recovery cases for each offstage quadrant.
 impl Scenario {
-    /// **Where the two bodies stand — the half of a fixture that can be PLAYED.**
-    ///
-    /// **these were classification fixtures only.** Each `Scenario` states a `WorldView` and the
-    /// `Situation` L1 must read out of it, and every test over this suite asks the classifier a
-    /// question.
-    ///
-    /// `(me, foe)` in stage coordinates. `None` when a scenario names no
-    /// opponent — a fixture about terrain alone cannot be a two-fighter bout,
-    /// and returning a default position would put a body somewhere the premise
-    /// never described.
-    ///
-    /// **the caller must place the bodies AFTER seating.** A roster cannot say
-    /// where its fighters stand — the stage decides — so a harness writes their
-    /// positions once both seats exist. That is a measurement binary reaching
-    /// into the sim, and it is not something to promote into the engine without
-    /// a reason.
+    /// Stage positions for scenarios that include an opponent. Harnesses apply
+    /// these after seating, because the stage owns fighter placement.
     pub fn starting_positions(&self) -> Option<(ae::Vec2, ae::Vec2)> {
         let foe = self.view.actors.first()?;
         Some((self.view.self_view.pos, foe.pos))
     }
 
-    /// **What a harness that can only PLACE BODIES fails to reproduce here.**
+    /// Scenario state that a position-only harness cannot reproduce.
     ///
-    /// **a placement is not a scenario.** `starting_positions_on` puts two
-    /// bodies where the fixture says and stops there, so a rig that ran the
-    /// whole suite through it was running `juggle_escape` with nobody in
-    /// hitstun, `projectile_camper` with no projectile, and `edgeguard_window`
-    /// against an opponent with no velocity. Those runs are not those scenarios,
-    /// and reporting them as evidence about a recovery rollout was reporting
-    /// three positional fixtures under three tactical names.
-    ///
-    /// **derived from the fixture, not from a hand-kept list.** A scenario that
-    /// gains a velocity or a projectile tomorrow drops out of a positional
-    /// harness the same day, instead of quietly starting to lie.
-    ///
-    /// **`on_ground` is deliberately NOT in here.** It is the one piece of
-    /// state a placement does carry: a body put over the platform lands on it
-    /// within a few ticks and a body put past a blastzone stays airborne,
-    /// because gravity is running. Velocity, body phase and projectiles have no
-    /// such route — nothing about standing somewhere produces them.
-    ///
-    /// Empty means the premise IS the geometry, and placing the bodies is the
-    /// whole setup.
+    /// Derived from the fixture itself. Grounded state is excluded because normal
+    /// simulation can establish it from placement; velocity, phases, and projectiles
+    /// require explicit setup.
     pub fn unreproduced_by_placement(&self) -> Vec<&'static str> {
         let mut missing = Vec::new();
         let me = &self.view.self_view;
@@ -160,30 +108,11 @@ impl Scenario {
         self.unreproduced_by_placement().is_empty()
     }
 
-    /// **The same two points, placed on somebody else's stage.**
+    /// Map fixture-relative starting positions onto `stage`. Points outside the fixture
+    /// remain outside so recovery scenarios preserve their offstage premise.
     ///
-    /// **[`Self::starting_positions`] is in FIXTURE coordinates and pasting
-    /// them into a real world is meaningless.** These fixtures describe an
-    /// 800x600 stage ([`STAGE_SIZE`]) centred on (400, 300); a running smash
-    /// stage is a different size in a different place. `ladder_rig` placed the
-    /// raw numbers first and the giveaway was two recovery scenarios printing
-    /// byte-identical columns — `recovery_right` puts a body at x=840 and
-    /// `recovery_below` at y=640, both far outside any real platform, so both
-    /// were instantly taken by the blastzone and respawned into the same state.
-    ///
-    /// **so the fixture's geometry is RELATIVE and this is the conversion.**
-    /// A point is mapped by its fraction of the fixture stage onto the same
-    /// fraction of `stage` — which preserves *"backed against the left
-    /// blastzone"* and *"offstage below"* as the premises they are, on a stage
-    /// of any size.
-    ///
-    /// a scenario that puts a body OUTSIDE the fixture stage stays outside
-    /// this one, deliberately: the four recovery quadrants are offstage by
-    /// definition, and clamping them into the platform would answer a different
-    /// question from the one they ask.
-    ///
-    /// **and this is PLACEMENT ONLY** — see [`Self::unreproduced_by_placement`]
-    /// for what a caller that stops here is not reproducing.
+    /// This maps placement only; see [`Self::unreproduced_by_placement`] for additional
+    /// scenario state a caller must reproduce.
     pub fn starting_positions_on(&self, stage: ae::Aabb) -> Option<(ae::Vec2, ae::Vec2)> {
         use ae::AabbExt;
         let (me, foe) = self.starting_positions()?;
@@ -305,7 +234,7 @@ pub fn suite() -> Vec<Scenario> {
 #[cfg(test)]
 mod tests {
 
-    /// **No two scenarios start from the same two points.**
+    /// No two scenarios start from the same two points.
     ///
     /// found by running them: `ladder_rig --scenarios` printed
     /// byte-identical columns for `recovery_right` and `recovery_below`, which
@@ -335,14 +264,14 @@ mod tests {
         }
     }
 
-    /// **Which fixtures a placement-only harness may report results for.**
+    /// Which fixtures a placement-only harness may report results for.
     ///
     /// the ladder rig ran all eight through `starting_positions_on` and
     /// printed a row per name, so `juggle_escape` ran with nobody in hitstun,
     /// `projectile_camper` with no projectile and `edgeguard_window` against a
     /// motionless opponent. Three tactical names over three positional fixtures.
     ///
-    /// **the membership is asserted BOTH WAYS.** A one-sided check ("the three
+    /// the membership is asserted BOTH WAYS. A one-sided check ("the three
     /// are refused") stays green if the derivation starts refusing everything,
     /// which would silently empty the ladder while looking stricter.
     #[test]
@@ -382,7 +311,7 @@ mod tests {
         }
     }
 
-    /// **Every scenario that names an opponent can be PLAYED.**
+    /// Every scenario that names an opponent can be PLAYED.
     ///
     /// the suite was classification-only: eight `WorldView` fixtures the
     /// classifier is asked about and no fighter has ever stood in. A ladder
@@ -428,7 +357,7 @@ mod tests {
     use crate::brain::fighter::situation::classify;
     use crate::perception::Perceived;
 
-    /// **The suite, classified.** Every fixture reads out as the situation its name
+    /// The suite, classified. Every fixture reads out as the situation its name
     /// claims. A failure here is a disagreement about the GAME, not about the CPU.
     #[test]
     fn l1_reads_every_scenario_the_way_its_name_says() {

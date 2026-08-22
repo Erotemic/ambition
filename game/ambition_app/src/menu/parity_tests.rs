@@ -7,17 +7,17 @@
 //! dispatched through ONE [`crate::menu::dispatch::dispatch_menu_action`]. The
 //! tests here LOCK that the two presentations can never silently drift:
 //!
-//! 1. **No-drift exhaustiveness** — every [`SettingsOptionId`] is surfaced by the
+//! 1. No-drift exhaustiveness — every [`SettingsOptionId`] is surfaced by the
 //!    settings IR (`settings_menu_model`), and every [`SystemMenuEntryId`] is
 //!    surfaced by the System model (`SystemMenuModel::build`). The match/iteration
 //!    is EXHAUSTIVE over the enums, so adding a new variant fails compilation (the
 //!    match arm) or the test (the surfaced-set assertion) until it is wired into a
 //!    presentation — the test is a living inventory, not a silent gap.
-//! 2. **Dispatch parity** — for a representative set of actions (equip an item,
+//! 2. Dispatch parity — for a representative set of actions (equip an item,
 //!    change page, toggle a setting, drill a System entry), the GRID's real
 //!    pointer-release path and the CUBE's real pointer-release path produce the
 //!    SAME observable effect, because both route through the one dispatcher.
-//! 3. **Content parity** — for each [`MenuPage`] at a fixed state, the actionable
+//! 3. Content parity — for each [`MenuPage`] at a fixed state, the actionable
 //!    controls the GRID renders equal what the CUBE renders, EXCEPT the cube's
 //!    `MenuPageAction::ChangePage` edge page-turn controls which the Grid strips.
 
@@ -281,7 +281,7 @@ fn every_system_menu_entry_is_surfaced_by_the_system_model() {
     }
 }
 
-/// **The Rebind screen appears only where there is something to rebind.**
+/// The Rebind screen appears only where there is something to rebind.
 ///
 /// the capability gate, pinned from both sides. `build` alone must not
 /// surface it (the sibling assertion above), and attaching rows must — because
@@ -545,7 +545,7 @@ mod dispatch_parity {
         app.add_message::<PlayerHealRequested>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.add_message::<bevy::app::AppExit>();
-        // **both backends now dispatch from the SAME message**, which is what
+        // both backends now dispatch from the SAME message, which is what
         // makes this a parity harness rather than two harnesses in a trench coat:
         // the cube's 3D press/release observers and the flat Grid's `Interaction`
         // bridge both publish `MenuActionActivated`, and each backend's consumer

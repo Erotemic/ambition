@@ -31,7 +31,7 @@ SERVER_NAME="${SERVER_NAME:-rust-analyzer}"
 MCP_BIN="${MCP_BIN:-rust-analyzer-mcp}"
 CARGO_PACKAGE="${CARGO_PACKAGE:-rust-analyzer-mcp}"
 
-# **The server's cargo work MUST NOT share the project's target directory.**
+# The server's cargo work MUST NOT share the project's target directory.
 #
 # `rust-analyzer-mcp` hardcodes `checkOnSave.enable = true` and `allTargets =
 # true`, sends that config at initialize AND again via

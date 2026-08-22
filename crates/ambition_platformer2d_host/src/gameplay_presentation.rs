@@ -8,7 +8,7 @@
 //! viewport. It resolves ONE layout per frame and publishes it; the camera
 //! observation seam and every presentation consumer read that one product.
 //!
-//! **The host must not know the names Ambition, Sanic, or Mary O** — it cannot
+//! The host must not know the names Ambition, Sanic, or Mary O — it cannot
 //! even see a route. The provider layer selects
 //! [`ActiveGameplayPresentationProfiles`]; this module only asks that resource
 //! what policy is in force.
@@ -67,7 +67,7 @@ impl Plugin for HostGameplayPresentationPlugin {
             // the pure resolver, so no host->touch dependency appears.
             .init_resource::<ControlFootprints>()
             .insert_resource(resolve_presentation_environment());
-        // **no `init_resource` here any more, and none is possible.** These
+        // no `init_resource` here any more, and none is possible. These
         // are components on a local view now, spawned by `CameraObservationPlugin`
         // at plugin build time — so "somewhere to write" is a row in a query, and
         // a host with no view writes to nobody instead of to a global nobody
@@ -146,59 +146,13 @@ fn resolve_presentation_environment() -> PresentationEnvironment {
     }
 }
 
-/// Gather every published [`ScreenOccluder`] into one ordered list.
+/// Gather visible [`ScreenOccluder`] UI nodes into logical-screen rectangles.
 ///
-/// Occupancy for an ordinary `bevy_ui` producer is READ OFF ITS LAYOUT rather
-/// than restated: `ComputedNode` plus `UiGlobalTransform` already account for
-/// percentage sizing, parent constraints, flex reflow, safe-area shifts and
-/// compact fallback layouts, so a HUD panel that moves or resizes changes its
-/// occupancy with no second descriptor to keep in sync. `ComputedNode` is in
-/// PHYSICAL pixels; `inverse_scale_factor` converts to the logical space the
-/// rest of the layout uses, so this is DPI-correct without a window read.
-///
-/// # Lifecycle: collected after layout AND visibility, consumed next frame
-///
-/// `bevy_ui` computes `ComputedNode` and `UiGlobalTransform` in `PostUpdate`
-/// (`UiSystems::Layout`), so this runs there too — reading them from `Update`
-/// would silently return the PREVIOUS frame's geometry while looking like a
-/// same-frame read. The resolve in `Update` therefore composes against
-/// occupancy collected at the end of the previous frame, and that is stated
-/// rather than papered over.
-///
-/// Ordering against layout ALONE was not enough. `InheritedVisibility` is
-/// propagated by a different `PostUpdate` system
-/// (`VisibilitySystems::VisibilityPropagate`), which Bevy schedules *after*
-/// `TransformSystems::Propagate` while `ui_layout_system` runs *before* it — so
-/// `.after(Layout)` permitted this to run with current geometry and STALE
-/// visibility. Hiding a parent during `Update` could then still collect its
-/// child's occupancy, and the framing would reserve space for a panel nobody
-/// could see. Both edges are declared; neither implies the other.
-///
-/// One frame is the right trade for a GENERIC occluder: a HUD panel or dialogue
-/// box is authored `bevy_ui`, its geometry is only knowable after taffy has
-/// run, and the framing region eases toward its target at
-/// `SoftFramingProfile::region_ease_hz` (~4 Hz) anyway, so a single frame is
-/// well inside the hysteresis that already exists.
-///
-/// It is NOT the right trade for on-screen controls, which is why they are not
-/// here: the resolver places them, so it can publish their occupancy in the
-/// same pass with no round trip at all. See
-/// [`ResolvedControlRegions::occlusions`].
-///
-/// [`ResolvedControlRegions::occlusions`]:
-///     ambition_platformer2d_shared_tangle::gameplay_presentation::ResolvedControlRegions::occlusions
-///
-/// An entity that is not actually displayed contributes nothing:
-///
-/// - `InheritedVisibility` false (this is the propagated hierarchy answer, so
-///   an invisible PARENT suppresses its children too);
-/// - `Display::None`, which taffy also collapses to a zero-sized node;
-/// - a zero-sized layout, which cannot occlude anything by definition.
-///
-/// `ViewVisibility` is deliberately NOT consulted: it is computed per render
-/// view for entities the visibility system culls, and `bevy_ui` nodes are not
-/// among them, so it stays false on every control forever. Reading it would
-/// publish no occupancy at all while every test still passed.
+/// Geometry is collected after Bevy UI layout and inherited-visibility propagation,
+/// then consumed by framing on the next frame. Hidden hierarchy, `Display::None`, and
+/// zero-size nodes contribute nothing. `ViewVisibility` is not used for Bevy UI nodes.
+/// On-screen controls publish same-frame occupancy separately because their resolver
+/// already owns those rectangles.
 pub fn collect_screen_occupancy(
     windows: Query<&Window, With<PrimaryWindow>>,
     occluders: Query<(
@@ -256,7 +210,7 @@ pub fn collect_screen_occupancy(
     }
 }
 
-/// **The surface a windowless composition draws to.**
+/// The surface a windowless composition draws to.
 ///
 /// A capture tool, an offscreen render, a headless acceptance run: each has a
 /// real pixel rectangle and no `Window`. Without this the layout resolver below
@@ -400,10 +354,10 @@ pub fn describe_resolved_layout(
 /// Publish the GAMEPLAY viewport — not the window — into the sim's camera
 /// observation input.
 ///
-/// **one display resolve, N views.** `ResolvedGameplayPresentation` describes
+/// one display resolve, N views. `ResolvedGameplayPresentation` describes
 /// the physical screen; each local view is told the rectangle it presents into.
 ///
-/// **and each view may take a FRACTION of it** — `ambition_sim_view::ViewPlacement`,
+/// and each view may take a FRACTION of it — `ambition_sim_view::ViewPlacement`,
 /// absent on every single-view composition and therefore the whole rectangle.
 /// This is where a split layout becomes real: the placement is the composition's
 /// data, this system is the one place the display rect and that fraction meet,
@@ -475,13 +429,13 @@ fn publish_one_views_screen_framing(
     };
 }
 
-/// Apply **each view's** rectangle to the physical viewport of **the camera that
-/// presents it**, leaving the front HUD camera full-screen.
+/// Apply each view's rectangle to the physical viewport of the camera that
+/// presents it, leaving the front HUD camera full-screen.
 ///
 /// Each camera now resolves its OWN view through `PresentsView`, by the same binding rule
 /// `camera_follow` uses, and takes that view's rectangle.
 ///
-/// **the single-view case is unchanged, deliberately.**
+/// the single-view case is unchanged, deliberately.
 /// `publish_camera_viewport` writes the whole gameplay rectangle onto any view
 /// that declares no `ambition_sim_view::ViewPlacement`, so the "full-bleed needs
 /// no viewport at all" test below still compares exactly the same two rectangles

@@ -206,20 +206,20 @@ pub enum VfxMessage {
     Impact {
         pos: ae::Vec2,
     },
-    /// **A coin popping out of a struck block.**
+    /// A coin popping out of a struck block.
     ///
     /// The block credits the wallet separately; this only draws the coin pop and
     /// never creates a collectible or collidable entity.
     ///
-    /// ⭐ its own variant rather than a one-particle `Burst`, because a burst
+    ///  its own variant rather than a one-particle `Burst`, because a burst
     /// fans its particles around a circle: a single one leaves at whatever angle
     /// index zero lands on, which is sideways. "Out of the block" means UP.
     CoinPop {
         pos: ae::Vec2,
     },
-    /// **Draw the authored effect `fx`, at `pos`.**
+    /// Draw the authored effect `fx`, at `pos`.
     ///
-    /// ⭐ the whole vocabulary is the name: presentation resolves [`FxId`] to
+    ///  the whole vocabulary is the name: presentation resolves [`FxId`] to
     /// the sheet that holds that row and draws it. Any of the 189 shipped rows
     /// is reachable, and adding art adds looks with no engine edit — which is
     /// why this is not `kind: ExplosionKind` any more.
@@ -270,11 +270,11 @@ pub enum VfxMessage {
 }
 
 /// A reusable effect CUE request: a sim system writes this to ask for an
-/// effect's visual **and its paired sound**, without depending on the renderer.
+/// effect's visual and its paired sound, without depending on the renderer.
 /// The presentation `process_fx_requests` fans it out to [`VfxMessage`] + the
 /// SFX channel.
 ///
-/// **`sfx` is an OVERRIDE, and `None` is the interesting case.** The shipped bank carries one
+/// `sfx` is an OVERRIDE, and `None` is the interesting case. The shipped bank carries one
 /// `vfx.<family>.<row>` cue for every authored row, so the effect's own sound is a property of the
 /// NAME and presentation resolves it — there is nothing for a caller to remember. Set `sfx` only to
 /// say something other than what the art already says. Effect orientation in the emitter's frame.
@@ -353,7 +353,7 @@ impl FxRequest {
         self
     }
 
-    /// **Say something other than what the art says.** The override arm of
+    /// Say something other than what the art says. The override arm of
     /// [`sfx`](Self::sfx) — a sustained effect asking for the looping variant of
     /// its own row's cue is the case that makes it real, and the only one the
     /// shipped fighter tables use.

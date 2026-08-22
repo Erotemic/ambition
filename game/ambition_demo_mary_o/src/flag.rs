@@ -1,9 +1,9 @@
-//! ** — the flagpole sequence.**
+//!  — the flagpole sequence.
 //!
 //! `docs/planning/demos/super-mary-o.md`: *" level-end sequencing: flagpole grab → slide →
 //! walk-off → score tally."*
 //!
-//! Content-side, and it adds **zero engine code**. The whole sequence is a state
+//! Content-side, and it adds zero engine code. The whole sequence is a state
 //! machine over a clock plus one authored geometry fact (where the pole is), and
 //! the only thing it does to the body is write its position and suppress its
 //! controls — both of which any content plugin may do.
@@ -111,7 +111,7 @@ pub struct FlagSequence {
     pub phase: FlagPhase,
     /// Where the sequence has driven the body to, once it has taken over.
     ///
-    /// **This is what makes the sequence immune to system ordering.** If each tick
+    /// This is what makes the sequence immune to system ordering. If each tick
     /// re-read the body's live position, a gravity step landing between this system
     /// and the next would accumulate into the slide. Once the flag is grabbed, the
     /// body's own position stops being an input.
@@ -135,14 +135,14 @@ impl FlagSequence {
     }
 }
 
-/// **The whole sequence, as a pure function of `(state, pole, body, dt)`.**
+/// The whole sequence, as a pure function of `(state, pole, body, dt)`.
 ///
 /// Returns where the body should be this tick. `None` in `Idle` — the player is still playing, and
 /// the sequence has no opinion about where they are. `body_half_height` is what turns the pole's
 /// base — a GROUND LINE — into a body CENTRE. A scripted pose overrules physics by design (that is
 /// the point of `constrain_body_pose`), so nothing downstream was ever going to lift her back out —
 /// and nothing should: this project does not shove bodies out of geometry, it puts them in the
-/// right place to begin with. **What the sequence is doing to the body this tick** — where it puts
+/// right place to begin with. What the sequence is doing to the body this tick — where it puts
 /// her, how fast she is going, and whether she is on the pole.
 ///
 /// `constrain_body_pose` already takes an imposed velocity — its own doc names
@@ -229,7 +229,7 @@ fn step_phase(
             let step = WALK_OFF_SPEED * dt;
             if step >= remaining {
                 seq.phase = FlagPhase::Tallied { score };
-                // **she is still WALKING on this tick** — it is the stride that
+                // she is still WALKING on this tick — it is the stride that
                 // covers the last `remaining` px. Reporting zero here was the same
                 // untruth in miniature: the frame she arrives on would animate as
                 // a stand while she was still crossing ground. She stops in
@@ -294,13 +294,13 @@ mod tests {
         );
     }
 
-    /// **THE SEQUENCE SAYS WHAT SHE IS DOING, SO THE ANIMATION FOLLOWS.**
+    /// THE SEQUENCE SAYS WHAT SHE IS DOING, SO THE ANIMATION FOLLOWS.
     ///
     /// climb animation to slide down the pole and then the walk animation to move
     /// after … we should not hack these in … so we get these animations for
     /// free."*
     ///
-    /// **the clip was never the thing to fix.** The sequence imposed
+    /// the clip was never the thing to fix. The sequence imposed
     /// `Vec2::ZERO` as her velocity, so every reader of her motion was told she
     /// stood still while her position jumped — and the animation picker, which
     /// reads exactly those facts, correctly chose Idle. This asserts the facts
@@ -395,7 +395,7 @@ mod tests {
         assert!(seq.active());
     }
 
-    /// **The score is a fact about the GRAB.** A slow slide and a fast one from the
+    /// The score is a fact about the GRAB. A slow slide and a fast one from the
     /// same height pay the same, because the score was decided on contact.
     #[test]
     fn the_score_is_decided_at_the_moment_of_contact() {
@@ -502,7 +502,7 @@ mod tests {
     }
 
     /// Once tallied, the sequence is inert: it holds the body and changes nothing.
-    /// **Why [`FlagSequence::driven`] exists.** Once the flag is grabbed, a physics
+    /// Why [`FlagSequence::driven`] exists. Once the flag is grabbed, a physics
     /// step that moves the body between ticks must not move the slide. We simulate
     /// the worst case: gravity yanks the body a full tile every frame, and the
     /// sequence still lands the same slide, the same walk-off, the same score.
@@ -628,7 +628,7 @@ pub fn run_flag_sequence(
     // The scripted end-of-level slide is an external kinematic constraint
     // (ADR 0024 authority): the sequence owns the pose while it plays.
     //
-    // **AND THE VELOCITY IT IMPOSES IS THE TRUE ONE.** This passed
+    // AND THE VELOCITY IT IMPOSES IS THE TRUE ONE. This passed
     // `Vec2::ZERO`, so every reader of her motion was told she was standing
     // still while her position jumped — which is why she appeared to translate
     // rather than slide and walk. `constrain_body_pose` has taken an imposed
@@ -638,7 +638,7 @@ pub fn run_flag_sequence(
     if drive.vel.x.abs() > f32::EPSILON {
         kin.facing = drive.vel.x.signum();
     }
-    // **being on the pole is a BODY MODE, not a clip.** The animation picker
+    // being on the pole is a BODY MODE, not a clip. The animation picker
     // turns `Climbing` into the climb clip on its own — the same road a ladder
     // takes — so the slide animates because the body says what it is doing, and
     // this file names no clip at all.
@@ -657,7 +657,7 @@ pub fn run_flag_sequence(
 /// This sequence's claim on the encounter layer's priority music tier.
 const VICTORY_MUSIC_OWNER: &str = "mary_o_flag";
 
-/// **Clearing the course has its own music.**
+/// Clearing the course has its own music.
 ///
 /// The same priority-tier claim her death uses, for the same reason: it is the
 /// one tier that outranks the room's own theme, and claiming rather than

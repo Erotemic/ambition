@@ -77,10 +77,10 @@ fn talking(app: &App) -> bool {
     app.world().resource::<ActiveConversation>().is_live()
 }
 
-/// **Open a conversation the way the interaction system opens one**, with the
+/// Open a conversation the way the interaction system opens one, with the
 /// initiator wearing `worn`, and hand back the instance id it minted.
 ///
-/// **through [`super::DialogueDispatch`], not by hand.** The whole subject
+/// through [`super::DialogueDispatch`], not by hand. The whole subject
 /// below is what the OPENING derives, and a fixture that minted an id itself
 /// would be asserting about its own arguments. So the speaker id comes from
 /// `speaker_id()` — which, for a body with neither an `ActorInteraction` nor an
@@ -135,8 +135,8 @@ fn instance_wearing(worn: &str) -> super::ConversationInstanceId {
         .clone()
 }
 
-/// **A corrected timeline that re-wears the initiator is a DIFFERENT
-/// conversation.**
+/// A corrected timeline that re-wears the initiator is a DIFFERENT
+/// conversation.
 ///
 /// `WornCharacter` is rollback-owned and runtime-mutable — the rollback registration's own docs
 /// discuss *"a rewind that restores an EARLIER `WornCharacter`"* — and it is what decides the
@@ -152,7 +152,7 @@ fn instance_wearing(worn: &str) -> super::ConversationInstanceId {
 ///   a grant or an ending observed under the old identity matched the corrected
 ///   conversation.
 ///
-/// **the invariant**: if two authoritative openings can make Yarn observe
+/// the invariant: if two authoritative openings can make Yarn observe
 /// different narrative semantics, they must not have the same instance identity.
 #[test]
 fn two_worn_characters_are_two_conversations() {
@@ -167,7 +167,7 @@ fn two_worn_characters_are_two_conversations() {
     );
 }
 
-/// **And the round trip still holds**: a resimulation of the opening tick, with
+/// And the round trip still holds: a resimulation of the opening tick, with
 /// the restored `WornCharacter`, re-mints an EQUAL id.
 ///
 /// Without it every record from the original run stops matching its own conversation on the
@@ -185,7 +185,7 @@ fn re_minting_from_the_restored_identity_is_equal() {
 /// An app with the narrative-end half of the seam wired as the sim wires it:
 /// the ledger releases at the head, the closer reads what it released.
 ///
-/// **the release is a real system, not a hand-poked resource.** The whole
+/// the release is a real system, not a hand-poked resource. The whole
 /// claim these tests make is about WHEN a record reaches the simulation, and a
 /// fixture that reached into the ledger directly would be testing the container
 /// rather than the seam.
@@ -224,18 +224,18 @@ fn set_tick(app: &mut App, tick: u64) {
     app.world_mut().resource_mut::<ambition_time::SimTick>().0 = tick;
 }
 
-/// **A resimulated tick does not close a conversation on the strength of a text
-/// box from another timeline.**
+/// A resimulated tick does not close a conversation on the strength of a text
+/// box from another timeline.
 ///
 /// `DialogState` is not rewound — deliberately, because rewinding a typewriter would stutter the
 /// box — so on a resimulated tick that read returned the LIVE runner rather than the runner as it
 /// was. A rewind to before the conversation ended would close it again immediately, and the
 /// resimulation would not reproduce the history it exists to reproduce.
 ///
-/// **the end is a STAMPED RECORD now**: presentation observes the runner finishing once and
+/// the end is a STAMPED RECORD now: presentation observes the runner finishing once and
 /// writes down which conversation instance ended and the tick it applies from.
 ///
-/// **what this does NOT claim**: that the Yarn runner is deterministic. It is
+/// what this does NOT claim: that the Yarn runner is deterministic. It is
 /// content running outside the simulation, so WHICH tick it finishes on is still
 /// presentation's answer. What is now true is that every replay of that tick
 /// agrees with the original run.
@@ -269,17 +269,9 @@ fn a_conversation_survives_a_tick_before_the_narrative_end_applies() {
     );
 }
 
-/// **THE REWIND, both halves.**
-///
-/// the message this replaced was cleared on rollback, and the system that
-/// wrote it — presentation, watching the live runner — does not execute between
-/// resimulated ticks. So a rewind across the end tick DROPPED it: every replayed
-/// tick after it ran with a conversation the original timeline had already
-/// finished, holding a body and capturing a seat, and presentation re-observed
-/// the end afterwards at a different simulation time.
-///
-/// the record is not rollback state, so the replay is told the same thing the
-/// original run was told, and reaches the same answer on the same tick.
+/// Rewinding across a recorded conversation end must replay that end on the
+/// same simulation tick. The end record persists outside rollback while the
+/// conversation authority itself rewinds.
 #[test]
 fn a_rewind_past_the_end_replays_it_at_the_same_tick() {
     let mut app = narrative_app(10);
@@ -315,13 +307,13 @@ fn a_rewind_past_the_end_replays_it_at_the_same_tick() {
     );
 }
 
-/// **An end from the previous conversation does not close the next one.**
+/// An end from the previous conversation does not close the next one.
 ///
 /// the poison. A bare marker would close whatever is live when it happens to
 /// be read, so a player who finished one conversation and immediately started
 /// another could have the second one closed by the first one's ending.
 ///
-/// **and the node id alone is not enough**, which is why the record names the
+/// and the node id alone is not enough, which is why the record names the
 /// tick the conversation OPENED on: talk to the same NPC twice and both
 /// conversations are `"chat"`.
 #[test]
@@ -352,7 +344,7 @@ fn an_end_from_the_previous_conversation_does_not_close_the_next_one() {
     );
 }
 
-/// **A REWIND DOES NOT RESTART THE TEXT BOX.**
+/// A REWIND DOES NOT RESTART THE TEXT BOX.
 ///
 /// the projection recognises the conversation it already opened, because a
 /// restored authority carries the same `opened_at`. A conversation opened on a
@@ -411,15 +403,15 @@ fn replaying_the_opening_tick_does_not_reopen_the_box() {
     );
 }
 
-/// **TWO conversations finish inside the window, and a rewind replays BOTH.**
+/// TWO conversations finish inside the window, and a rewind replays BOTH.
 ///
-/// **the record was DEPTH ONE, and the argument for it was about how fast a
-/// human reads.** The second end overwrote the first, so a rewind reaching back
+/// the record was DEPTH ONE, and the argument for it was about how fast a
+/// human reads. The second end overwrote the first, so a rewind reaching back
 /// past both replayed only the later one: the earlier conversation was restored
 /// live and stayed live for the rest of the replayed branch, holding a body and
 /// capturing a seat that the original timeline had already released.
 ///
-/// **"a player has to read the first one" is not an engine invariant.**
+/// "a player has to read the first one" is not an engine invariant.
 /// Dialogue can be scripted, system-started, one line long, or auto-advancing;
 /// the cut-rope room reaches `<<reset_cut_rope_room>>` before the player has
 /// dismissed the line it is on. Correctness cannot rest on reading speed.
@@ -435,7 +427,7 @@ fn two_narrative_ends_in_one_window_both_replay() {
     record_end(&mut app, &first, 103);
     record_end(&mut app, &second, 106);
 
-    // **THE REWIND** to 101, which restores the authority to the conversation
+    // THE REWIND to 101, which restores the authority to the conversation
     // that was live then — A.
     app.world_mut()
         .resource_mut::<ActiveConversation>()
@@ -454,11 +446,11 @@ fn two_narrative_ends_in_one_window_both_replay() {
     );
 }
 
-/// **A conversation whose authority disappears and comes back gets its box
-/// back.**
+/// A conversation whose authority disappears and comes back gets its box
+/// back.
 ///
-/// **the presentation memo said "I projected this once", and what a
-/// repairable projection needs is "I am currently attached to this instance".**
+/// the presentation memo said "I projected this once", and what a
+/// repairable projection needs is "I am currently attached to this instance".
 /// Reachable under prediction: a predicted remote hit breaks the conversation,
 /// presentation closes the box at the end of that frame, the real input arrives
 /// and the correction restores the SAME conversation — and the memo, which is
@@ -496,7 +488,7 @@ fn a_conversation_restored_after_its_authority_vanished_is_projected_again() {
         "precondition: the box closed with the conversation"
     );
 
-    // **THE CORRECTION.** The real input said the hit never landed, so the SAME
+    // THE CORRECTION. The real input said the hit never landed, so the SAME
     // conversation instance is authoritative again.
     app.world_mut()
         .resource_mut::<ActiveConversation>()
@@ -512,7 +504,7 @@ fn a_conversation_restored_after_its_authority_vanished_is_projected_again() {
     );
 }
 
-/// **A conversation the world keeps running through can be broken.**
+/// A conversation the world keeps running through can be broken.
 ///
 /// the struck case is driven from the NPC's body, not the player's. The rule
 /// is symmetric — *"both characters"* — and a test that only ever hits the
@@ -559,7 +551,7 @@ fn a_conversation_breaks_on_knockback_or_on_the_bodies_separating() {
     );
 }
 
-/// **A conversation holds the body it is talking to, and lets go afterwards.**
+/// A conversation holds the body it is talking to, and lets go afterwards.
 ///
 /// the release is the half that bites: a stranded `ScriptedControl` is a
 /// permanently frozen NPC, and a conversation can end in more ways than the
@@ -594,7 +586,7 @@ fn a_conversation_blanks_the_npcs_brain_and_releases_it_when_it_ends() {
     );
 }
 
-/// **A rewind must not be able to strand the hold half-applied.**
+/// A rewind must not be able to strand the hold half-applied.
 ///
 /// Both run in `sim_schedule()`, which under a rollback host IS the GGRS schedule, so both
 /// resimulate.
@@ -605,7 +597,7 @@ fn a_conversation_blanks_the_npcs_brain_and_releases_it_when_it_ends() {
 /// then sees is a body that is already "held" — and an insert gated on that
 /// marker declines to restore the control override it stands for.
 ///
-/// **the assertion is about the PAIR, not about either component.** A hold
+/// the assertion is about the PAIR, not about either component. A hold
 /// that is a marker plus an override has to move as one thing or it is not one
 /// thing.
 #[test]
@@ -618,7 +610,7 @@ fn a_rewind_cannot_leave_a_conversation_holding_a_body_it_no_longer_controls() {
         "precondition: the conversation took the hold in the first place"
     );
 
-    // **THE REWIND.** Not a simulated one — this is precisely what a GGRS
+    // THE REWIND. Not a simulated one — this is precisely what a GGRS
     // `LoadWorld` does with a snapshot taken before the insert: every
     // rollback-registered component is restored to its snapshot state (so the
     // override goes away), and everything else is left exactly as the abandoned
@@ -642,7 +634,7 @@ fn a_rewind_cannot_leave_a_conversation_holding_a_body_it_no_longer_controls() {
     );
 }
 
-/// **The conversation's reconcile never strips another claimant's control.**
+/// The conversation's reconcile never strips another claimant's control.
 ///
 /// `ScriptedControl` has six owners now — the death beat, the flagpole, act
 /// clear, versus, seating, and this. The projection sweeps bodies it does not
@@ -651,8 +643,8 @@ fn a_rewind_cannot_leave_a_conversation_holding_a_body_it_no_longer_controls() {
 ///
 /// It does not, because the sweep is scoped by [`HeldByConversation`] and only
 /// this module ever writes that — and because the release clears one bit of
-/// [`ControlHolds`] and cannot clear another. **the second half is the
-/// poison**: a body wearing a STALE conversation marker — the exact thing a
+/// [`ControlHolds`] and cannot clear another. the second half is the
+/// poison: a body wearing a STALE conversation marker — the exact thing a
 /// rewind leaves behind — alongside another claimant's live hold is the case
 /// where a marker-blind sweep would do damage, and it is the case a test written
 /// only from the happy path would never construct.

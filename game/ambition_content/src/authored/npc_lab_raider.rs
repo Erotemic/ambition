@@ -1,4 +1,4 @@
-//! **THE LAB RAIDER.** The intro raid corridor's other spawn, and the
+//! THE LAB RAIDER. The intro raid corridor's other spawn, and the
 //! SECOND creature to point at the shared `medium_striker` policy — which
 //! is what makes that entry a role rather than the goblin's private
 //! profile under a general name. The campaign named this one explicitly:

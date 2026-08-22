@@ -34,7 +34,7 @@ def default_field_value(field_def: dict[str, Any]) -> Any:
 # ---------------------------------------------------------------------------
 # Native `EntityRef` relationships.
 #
-# **the registry is here because there are TWO of them now.** `mounted_on` (ADR 0020, rider →
+# the registry is here because there are TWO of them now. `mounted_on` (ADR 0020, rider →
 # mount) was the first and its field-def synthesis lived in `mount_split`, the one command that
 # needed it. One synthesizer, one table of what each relationship MEANS.
 #

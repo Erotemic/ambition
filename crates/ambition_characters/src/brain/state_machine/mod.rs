@@ -66,7 +66,7 @@ pub enum StateMachineCfg {
     /// only when the caller threads the ActionSet in. See
     /// [`tick_state_machine_with_actions`] below.
     Smash { cfg: SmashCfg, state: SmashState },
-    /// **The fighter brain that PLAYS** (FB4b §13). L1 classify → L2 options →
+    /// The fighter brain that PLAYS (FB4b §13). L1 classify → L2 options →
     /// L3 rollout → a held control frame, on a human cadence with an APM ceiling
     /// and execution noise.
     ///

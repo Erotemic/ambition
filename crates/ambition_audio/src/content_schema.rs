@@ -12,11 +12,11 @@
 //!
 //! What migrating buys, then, is not "validation where there was none":
 //!
-//! * the same rules run **without building an App** — in the CLI, in CI, in
+//! * the same rules run without building an App — in the CLI, in CI, in
 //!   milliseconds, with the file's name and a fix line attached;
 //! * `deny_unknown_fields`, which `validate()` cannot see because serde has
 //!   already dropped an unknown field by the time it runs;
-//! * **asset provenance** — every track's OGG becomes a declared requirement,
+//! * asset provenance — every track's OGG becomes a declared requirement,
 //!   which nothing checked before. `AudioCatalogFragment` validates the shape of
 //!   the registry and never asks whether the files it points at exist;
 //! * `music_track` identities, so a future room-music reference can RESOLVE
@@ -87,7 +87,7 @@ impl ContentSchemaHandler for MusicRegistrySchema {
             );
         }
 
-        // **REGISTRY-LEVEL STATE MUST REACH THE FINGERPRINT.** The pack
+        // REGISTRY-LEVEL STATE MUST REACH THE FINGERPRINT. The pack
         // fingerprint is taken over `out.define(...)` entries only — not the
         // lowered artifact, not the source bytes. Defining one entry per TRACK
         // therefore left `default_track` and the track ORDER contributing
@@ -96,7 +96,7 @@ impl ContentSchemaHandler for MusicRegistrySchema {
         // (`AudioLibrary` resolves the default at startup and indexes
         // `music_tracks[next]` for next/prev).
         out.define(facet.content_id_in(MUSIC_REGISTRY_SCHEMA, "registry"), {
-            // **serialized, not `join(",")`.** A track id is only required
+            // serialized, not `join(",")`. A track id is only required
             // to be non-empty and unique — commas are legal — so an
             // unescaped delimiter let two different orders encode
             // identically: `["a", "b,c", "a,b", "c"]` and

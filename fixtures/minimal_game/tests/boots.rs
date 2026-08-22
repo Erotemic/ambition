@@ -1,4 +1,4 @@
-//! **The smallest game stands up — on both faces, from one module.**
+//! The smallest game stands up — on both faces, from one module.
 //!
 //! Consumer-matrix row 2. Outlander already proves external composition, so
 //! what these add is the part one consumer cannot: that the API works for a
@@ -16,7 +16,7 @@ fn the_one_module() -> MinimalModule {
     MinimalModule
 }
 
-/// **It boots headless.**
+/// It boots headless.
 #[test]
 fn the_minimal_game_boots_headless() {
     let app = PlatformerApp::headless()
@@ -32,7 +32,7 @@ fn the_minimal_game_boots_headless() {
     );
 }
 
-/// **The SAME module reaches the windowed face.**
+/// The SAME module reaches the windowed face.
 ///
 /// This is the slice-B leak, as a test. Before slice B the visible face installed
 /// `PlatformerAssetsPlugin`, which panics without a `CharacterCatalog`, and a minimal module had no
@@ -52,7 +52,7 @@ fn the_minimal_game_boots_windowed() {
     );
 }
 
-/// **A composition that prepares art and declares no cast is REFUSED.**
+/// A composition that prepares art and declares no cast is REFUSED.
 ///
 /// The counterpart to the test above, and the reason slice B did not simply
 /// make the engine invent an empty catalog. `PlatformerAssetsPlugin`'s refusal
@@ -105,8 +105,8 @@ fn preparing_art_with_no_declared_cast_is_refused_and_names_both_fixes() {
     );
 }
 
-/// **Declaring no cast AND a starting character is a contradiction, and it is
-/// caught.**
+/// Declaring no cast AND a starting character is a contradiction, and it is
+/// caught.
 ///
 /// It also surfaced a real limitation, recorded rather than papered over: a
 /// genuinely CASTLESS game — a menu-only app — cannot be expressed today.
@@ -155,7 +155,7 @@ fn declaring_no_cast_and_a_starting_character_is_refused() {
     );
 }
 
-/// **A game that will never start says WHY, instead of hanging.**
+/// A game that will never start says WHY, instead of hanging.
 ///
 /// This is slice B's failure, turned into the check that should have caught it.
 ///
@@ -229,7 +229,7 @@ fn a_game_that_will_never_start_reports_why() {
     );
 }
 
-/// **A starting character nobody authored is refused at BUILD, not at tick 600.**
+/// A starting character nobody authored is refused at BUILD, not at tick 600.
 ///
 /// Blind run 2 found this and named it exactly: "the exact
 /// silent-failure shape slice A closed for routes, left open for characters."
@@ -283,7 +283,7 @@ fn a_starting_character_no_roster_contains_is_refused_at_build() {
     );
 }
 
-/// **The prelude carries the types its own signatures demand.**
+/// The prelude carries the types its own signatures demand.
 ///
 /// `ModuleDraft::playable` takes `Vec<RoomSpec>`; `ModuleDraft::room` takes
 /// `RoomMetadata`. Blind run 2 had to open `crates/ambition_platformer2d_world/src/lib.rs`
@@ -300,7 +300,7 @@ fn the_app_prelude_carries_the_room_types_its_signatures_require() {
     let _ = PlatformerApp::headless();
 }
 
-/// **The game reports that it started — without counting raw Bevy entities.**
+/// The game reports that it started — without counting raw Bevy entities.
 ///
 /// The affordance blind run 1 went looking for and did not find; it fell back
 /// to `app.world().entities().len()`, which is raw Bevy and says nothing about
@@ -336,7 +336,7 @@ fn the_minimal_game_reports_that_it_started() {
     );
 }
 
-/// **`is_running` is not satisfied by a route with nothing behind it.**
+/// `is_running` is not satisfied by a route with nothing behind it.
 #[test]
 fn a_route_with_no_prepared_session_does_not_count_as_running() {
     let live = HostStatus::Running {
@@ -358,7 +358,7 @@ fn a_route_with_no_prepared_session_does_not_count_as_running() {
     assert_eq!(hollow.route(), Some("r"));
 }
 
-/// **The actor is NOT secretly combat-shaped.** (consumer-matrix row 3)
+/// The actor is NOT secretly combat-shaped. (consumer-matrix row 3)
 ///
 /// The row asks whether the ENGINE forces combat state onto a body regardless
 /// of what its content declared — which would make `actor` a combat concept
@@ -368,7 +368,7 @@ fn a_route_with_no_prepared_session_does_not_count_as_running() {
 /// It does not. This game's walker carries 60+ components and not one of them
 /// is melee, combat, hitbox, health or moveset state.
 ///
-/// **Ask this on COMPONENTS, not on the ability mask.** An earlier version
+/// Ask this on COMPONENTS, not on the ability mask. An earlier version
 /// asserted `AbilityBase.attack == false`, failed, and I recorded the category
 /// as FAILING. That was the wrong question, and `actor_clusters.rs` says so
 /// directly: *"A combat body HAS the attack verb (capability); WHETHER it
@@ -439,7 +439,7 @@ fn a_noncombat_character_gets_no_combat_state() {
     );
 }
 
-/// **Two modules with DISTINCT experiences COEXIST.** (slice D)
+/// Two modules with DISTINCT experiences COEXIST. (slice D)
 ///
 /// The composition half of consumer-matrix row 4, and the thing that blocked it
 /// and `ambition-itself` together: until slice D a draft held ONE experience, so
@@ -503,7 +503,7 @@ fn two_modules_with_distinct_experiences_compose_together() {
     );
 }
 
-/// **Two modules claiming the SAME experience id are refused, naming both.**
+/// Two modules claiming the SAME experience id are refused, naming both.
 ///
 /// The conflict half. `ModuleDraft::experience` keys by id, so coexistence and
 /// collision are now different outcomes rather than the same one — before slice
@@ -542,7 +542,7 @@ fn two_modules_claiming_one_experience_id_conflict_and_the_error_names_both() {
 /// Blind run 3 found it by copying this fixture verbatim, which `docs/sdk/README.md` tells
 /// third parties to do.
 ///
-/// **`host_status` cannot see this and was never going to.** It answers "did
+/// `host_status` cannot see this and was never going to. It answers "did
 /// the engine start", which is exactly what it was built for and what slice C
 /// needed. "Is the game playable" is a different question and needs a different
 /// assertion: a POSITION, settling. A suite that only ever asks the engine about
@@ -584,7 +584,7 @@ fn the_walker_lands_on_the_floor_instead_of_falling_through_it() {
     );
 }
 
-/// **The published one-character roster actually composes.**
+/// The published one-character roster actually composes.
 ///
 /// `MINIMAL_CHARACTER_ROSTER_RON` exists because blind run 3 could not derive
 /// the non-empty schema: the parser names one missing field per build cycle and
@@ -643,7 +643,7 @@ fn the_published_one_character_roster_composes_and_runs() {
     );
 }
 
-/// **A multi-game host boots into its LAUNCHER, not into one of its games.**
+/// A multi-game host boots into its LAUNCHER, not into one of its games.
 ///
 /// Slice E. `PlatformerApp` could only boot into the primary experience's
 /// gameplay route — which is right for a single game and wrong for a host that
@@ -728,7 +728,7 @@ fn a_multi_game_host_can_start_at_its_launcher() {
     );
 }
 
-/// **The SDK's worked room example compiles and runs.**
+/// The SDK's worked room example compiles and runs.
 ///
 /// This test exists because the SDK has now gone stale in the expensive
 /// direction THREE times, and each time prose was the only thing holding it
@@ -854,7 +854,7 @@ fn a_declaration_refusal_says_the_later_checks_have_not_run() {
     );
 }
 
-/// **A consumer can drive two INDEPENDENT seats through the SDK.** (finding (g),
+/// A consumer can drive two INDEPENDENT seats through the SDK. (finding (g),
 /// input half)
 ///
 /// Blind run 7 recorded that no public seam drove input to a named seat, so couch-versus was not
@@ -892,7 +892,7 @@ fn a_consumer_can_name_both_input_seams_without_leaving_the_sdk() {
     // A test whose whole content is "the call does not panic" agrees with a function that does
     // nothing.
     //
-    // **asked of the app, not of the branch.** Which resource the frame lands
+    // asked of the app, not of the branch. Which resource the frame lands
     // in is the composition's business — a latching host folds it into a latch,
     // a headless one writes the frame — so this drives the two seams into two
     // identical games and holds them to the same OBSERVABLE, rather than

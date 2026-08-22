@@ -147,7 +147,7 @@ pub struct TouchPresentationPlugin;
 
 impl bevy::prelude::Plugin for TouchPresentationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        // **A SURFACE IS BORN HIDDEN.**
+        // A SURFACE IS BORN HIDDEN.
         //
         // The module docs above already name the symptom: "one visible frame at the joystick
         // crate's own corner position, over gameplay, whatever the touch-controls setting
@@ -456,7 +456,7 @@ mod tests {
         );
     }
 
-    /// **A VISIBLE touch stick is drawn at the bottom-left, and drawn at all.**
+    /// A VISIBLE touch stick is drawn at the bottom-left, and drawn at all.
     ///
     /// The companion to `an_unplaced_surface_leaves_the_layout`, and the half
     /// that keeps that fix honest. Hiding an unplaced surface is only correct if
@@ -525,7 +525,7 @@ mod tests {
         assert_eq!(node.top, Val::Px(movement.min.y));
     }
 
-    /// **A surface is HIDDEN the moment it is created, before placement runs.**
+    /// A surface is HIDDEN the moment it is created, before placement runs.
     /// (Z′6)
     ///
     /// The module docs name the symptom: one visible frame at the joystick crate's own corner

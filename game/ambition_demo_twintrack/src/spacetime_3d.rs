@@ -173,15 +173,15 @@ fn translucent_material(
     })
 }
 
-/// **`Option<ResMut<Assets<..>>>`, NOT `ResMut`, and this is not a style
-/// preference.** A plain `ResMut<Assets<Mesh>>` is a system-parameter VALIDATION
+/// `Option<ResMut<Assets<..>>>`, NOT `ResMut`, and this is not a style
+/// preference. A plain `ResMut<Assets<Mesh>>` is a system-parameter VALIDATION
 /// failure in any app without the render plugins — and under Bevy 0.18 that is a
 /// panic through `Main::run_main`, not a skipped system. Every headless test in
 /// the workspace that steps the schedule dies, whatever it was about: fifteen
 /// boss, actor-phase and reachability tests went down together, none of them
 /// twintrack's.
 ///
-/// **the same shape the presentation crates already use** —
+/// the same shape the presentation crates already use —
 /// `ambition_render::rendering::unauthored_volumes` and
 /// `ambition_portal2d_presentation::visuals` both take the assets optionally for
 /// this reason. A 3D overlay is presentation; a simulation test must be able to
@@ -410,7 +410,7 @@ fn spawn_spacetime_3d(
     }
 }
 
-/// **`Option<Res<ButtonInput<..>>>`** — a headless app installs no input
+/// `Option<Res<ButtonInput<..>>>` — a headless app installs no input
 /// plugin, and under Bevy 0.18 a missing `Res` is a system-parameter validation
 /// failure that panics through `Main::run_main` rather than skipping the system.
 /// The KEYBOARD shortcut is a convenience beside the traveler's own `special`

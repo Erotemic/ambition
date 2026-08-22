@@ -205,7 +205,7 @@ impl SnapshotState for OverfitVolleyState {
     }
 }
 
-/// **`SaddlePointState` holds two `Option<Entity>` hitbox handles**, which N3.1
+/// `SaddlePointState` holds two `Option<Entity>` hitbox handles, which N3.1
 /// decision (2) forbids in sim state — the fourth such reference in the tree, after
 /// `ActorTarget`, the mount cluster, and `MovePlayback.live_boxes`.
 ///

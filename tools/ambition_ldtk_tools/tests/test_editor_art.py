@@ -4,12 +4,12 @@
 Two things in that tool can be wrong while everything still runs, validates and
 writes a plausible-looking `.ldtk` — so they are the two things pinned here.
 
-* **The quadrant phase.** Engine tile art is 32px and collision is authored on a
+* The quadrant phase. Engine tile art is 32px and collision is authored on a
   16px grid, so one texture is four cells and four rules, one per quadrant. Get
   a modulo or an offset backwards and the editor still draws masonry — just
   masonry whose mortar lines do not join up, which reads as "the art is a bit
   off" rather than as a bug.
-* **Where a character's frame IS on its sheet.** A published sheet is
+* Where a character's frame IS on its sheet. A published sheet is
   atlas-packed, so `frame_width` is the DESIGN size and not the packing pitch.
   Multiplying an index by it lands on some other frame, which is exactly the
   bug that shipped a strip of three overlapping robots as the player's icon.

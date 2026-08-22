@@ -1,9 +1,9 @@
-//! **Shield+Attack, when a portal adapter and a held item both want it.**
+//! Shield+Attack, when a portal adapter and a held item both want it.
 //!
 //! So a body holding a laser sword lost the press to an action that was then refused, and the axe
 //! could not be thrown at all.
 //!
-//! ⇒ the fix is the rule, not an ordering: **an action spends the input edge where it COMMITS**,
+//!  the fix is the rule, not an ordering: an action spends the input edge where it COMMITS,
 //! never in a producer whose consumer may reject it.
 
 use bevy::prelude::*;
@@ -140,7 +140,7 @@ fn shield_attack_throws_a_held_item_with_the_portal_adapter_installed() {
     );
 }
 
-/// **The portal gun still drops, and still spends the press.** Moving the
+/// The portal gun still drops, and still spends the press. Moving the
 /// consumption to the commit site must not have taken the behaviour with it.
 #[test]
 fn shield_attack_drops_the_portal_gun_when_that_is_all_the_body_holds() {
@@ -152,7 +152,7 @@ fn shield_attack_drops_the_portal_gun_when_that_is_all_the_body_holds() {
     );
 }
 
-/// **Both in hand: the ITEM's throw wins**, which is the precedence
+/// Both in hand: the ITEM's throw wins, which is the precedence
 /// `drop_portal_gun_system`'s `Without<HeldItem>` filter already declared and
 /// its comment already stated. Pinned here because nothing enforced it across
 /// the two systems.

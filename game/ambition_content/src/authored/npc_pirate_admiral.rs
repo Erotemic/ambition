@@ -1,4 +1,4 @@
-//! **THE PIRATE ADMIRAL'S CUTLASS.** The second adopter removed from
+//! THE PIRATE ADMIRAL'S CUTLASS. The second adopter removed from
 //! `smash_fighter_kit()` (P3.24), and the character was already telling us
 //! what its moves are: its row says `default_action_set: "pirate_pistol"`,
 //! the roster comment beside its id reads "pistol + cutlass", and its
@@ -9,7 +9,7 @@
 
 use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
 
-/// **AC5: it authors its LOCOMOTION too**, which is the one fact that stood
+/// AC5: it authors its LOCOMOTION too, which is the one fact that stood
 /// between this character and building its own body. It ships as
 /// `melee_brute_striker` (chase 110), and that preset's speed is absolute, so
 /// stating the body's run speed here changes nothing a player sees today — it

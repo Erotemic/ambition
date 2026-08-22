@@ -1,6 +1,6 @@
 //! Historical slot-0/home-body and protagonist integration.
 //!
-//! This module is **not** a permanent actor-domain boundary. `ControlledSubject`
+//! This module is not a permanent actor-domain boundary. `ControlledSubject`
 //! answers which body currently has control authority; `PrimaryPlayer` answers a
 //! different, narrower question about slot 0's own body. The engine may eventually
 //! retain little or no privileged home-body policy at all.

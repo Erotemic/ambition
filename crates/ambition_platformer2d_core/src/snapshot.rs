@@ -1,4 +1,4 @@
-//! **The deterministic snapshot vocabulary.**
+//! The deterministic snapshot vocabulary.
 //!
 //! Lives in the FLOOR — `ambition_platformer2d_core` depends on no workspace crate, which is what
 //! lets every domain implement [`SnapshotState`] for its OWN types. The tree recorded that cost as
@@ -308,14 +308,14 @@ macro_rules! snapshot_marker {
     };
 }
 
-/// **What a capability REQUIRES rewound**, declared where it can be read without
+/// What a capability REQUIRES rewound, declared where it can be read without
 /// linking a rollback host.
 ///
 /// A capability offers its rollback state and a composition installs it (see
 /// `capability_demo` for the worked example). That split keeps a mechanic's
 /// dependency closure to foundations — and leaves a hole: nothing makes the
-/// composition actually install the offer, and **omitting one is a DESYNC, not
-/// a missing feature**. A cooldown that is not rewound lets its action fire
+/// composition actually install the offer, and omitting one is a DESYNC, not
+/// a missing feature. A cooldown that is not rewound lets its action fire
 /// twice from one charge on a resimulated frame.
 ///
 /// So a capability also declares what it needs, and a host can check.
@@ -332,20 +332,20 @@ pub struct RequiredRollbackState {
     pub owner: &'static str,
     /// The registration name, e.g. `"pulse.cooldown"`.
     pub name: &'static str,
-    /// **What breaks if it is missing.** Not decoration: a host that hits this
+    /// What breaks if it is missing. Not decoration: a host that hits this
     /// needs to know whether it is looking at a desync or at an optional extra,
     /// and only the capability knows.
     pub why: &'static str,
 }
 
-/// **The backend-neutral registration vocabulary a domain speaks to install its
-/// own rollback state.**
+/// The backend-neutral registration vocabulary a domain speaks to install its
+/// own rollback state.
 ///
 /// [`RequiredRollbackState`] lets a domain DECLARE what it needs rewound.
 /// This lets it DO the registering — without naming a rollback backend, and
 /// without a crate above it holding a list of its types.
 ///
-/// **why this closes the argument that kept the census central.** Every
+/// why this closes the argument that kept the census central. Every
 /// `bevy_ggrs` registration entry point is generic over the concrete type, so
 /// something must monomorphize it — but the monomorphizing call site can be a
 /// TRAIT METHOD the domain invokes, not a line in the netcode crate. The
@@ -354,13 +354,13 @@ pub struct RequiredRollbackState {
 /// list of `T`s: `ambition_platformer2d_rollback_ggrs::AmbitionRollbackApp`
 /// already demonstrated the typed façade, one crate too high up.
 ///
-/// **methods are generic, so this trait is NOT object-safe, and must not
-/// become so.** A domain takes `&mut impl RollbackRegistrar`; monomorphisation
+/// methods are generic, so this trait is NOT object-safe, and must not
+/// become so. A domain takes `&mut impl RollbackRegistrar`; monomorphisation
 /// happens where the host constructs the concrete registrar. Type-erasing it
 /// would mean an Ambition-owned snapshot layer — a second rollback
 /// implementation, not a seam.
 ///
-/// **the FLOOR is the only place it can live.** A domain crate below the
+/// the FLOOR is the only place it can live. A domain crate below the
 /// runtime cannot depend on the runtime, and the orphan rule forbids the runtime
 /// implementing a floor trait for foreign `bevy_app::App` — so the implementor
 /// is a runtime-owned WRAPPER around `App`, which is orphan-clean and costs the

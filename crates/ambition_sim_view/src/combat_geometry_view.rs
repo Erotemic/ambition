@@ -1,8 +1,8 @@
 //! Body-generic combat geometry for observers.
 //!
 //! This read-model answers the two questions a combat debugger needs without
-//! asking who controls a body: **where can this body be struck?** and **where
-//! are live strikes right now?**  The extraction mirrors the combat resolver's
+//! asking who controls a body: where can this body be struck? and where
+//! are live strikes right now?  The extraction mirrors the combat resolver's
 //! geometry rule: an unpublished/missing `DamageableVolumes` falls back to the
 //! coarse body box, a published empty list is intangible, and a published list
 //! is used verbatim.
@@ -44,7 +44,7 @@ pub struct CombatBodyGeometryView {
     pub body: bevy::prelude::Entity,
     pub collision: ae::Aabb,
     pub hurtboxes: Vec<ae::CombatVolume>,
-    /// **Accumulated damage — "percent".** The number every knockback
+    /// Accumulated damage — "percent". The number every knockback
     /// calculation in the game reads, and the one a tuner is watching.
     pub damage_taken: i32,
     /// The body's LIVE locomotion facing. Compare with
@@ -85,7 +85,7 @@ pub struct CombatStrikeGeometryView {
     /// The live strike entity, so an observer can tie a per-strike visual to
     /// the volume that owns it and retire the visual when the strike ends.
     ///
-    /// **an identity, not a handle to reach back through.** An observer may
+    /// an identity, not a handle to reach back through. An observer may
     /// compare it and key on it; it must not use it to `get::<Hitbox>()` and
     /// read the authoritative component, which is the coupling this row exists
     /// to remove.
@@ -308,7 +308,7 @@ mod tests {
         assert!(effective_hurtboxes(collision, Some(&intangible)).is_empty());
     }
 
-    /// **The tuning readout is a projection, and it needs no protagonist.**
+    /// The tuning readout is a projection, and it needs no protagonist.
     ///
     /// percent, hitstop and hitstun, semantic contact — is what a designer reads
     /// INSTEAD of a log while dialling combat. This asserts the read model
@@ -387,7 +387,7 @@ mod tests {
             "the phase is the authored window the clock is inside"
         );
         assert!(move_state.duration_s > 0.0);
-        // **the disagreement is the point.** The body faces +1 and the move
+        // the disagreement is the point. The body faces +1 and the move
         // committed to -1; an instrument that showed only one of them could not
         // explain why the strike is on the far side.
         assert_eq!(move_state.attack_facing, -1.0);

@@ -375,9 +375,9 @@ struct PlayerProjectileTickInfo {
 /// the global [`ProjectileSeq`], routing behavior by the shot's frozen
 /// [`ProjectileAllegiance`]:
 ///
-/// - **Player-faction** shots damage enemies / bosses / breakables (one hit =
+/// - Player-faction shots damage enemies / bosses / breakables (one hit =
 ///   one despawn) and bounce on solids per `WorldHitPolicy::Bouncing`.
-/// - **Enemy-faction** shots can be parried (flip to Player-faction + reflect),
+/// - Enemy-faction shots can be parried (flip to Player-faction + reflect),
 ///   else damage the first vulnerable overlapping player, and expire on any
 ///   solid contact.
 ///
@@ -386,14 +386,14 @@ struct PlayerProjectileTickInfo {
 /// charge / fire policy stays in [`charge_projectile_input`], which emits the
 /// same `ProjectileSpawnRequest` as every other projectile producer.
 #[allow(clippy::too_many_arguments)]
-/// **The set `step_projectiles` runs in.**
+/// The set `step_projectiles` runs in.
 ///
-/// ⛔ `ambition_platformer2d_host` orders two RENDER passes against this function by name —
+///  `ambition_platformer2d_host` orders two RENDER passes against this function by name —
 /// `sync_projectile_visuals` and `sync_projectile_charge_visuals`, both
 /// `.after(projectile_schedule::step_projectiles)` — so presentation reaches through the
 /// runtime's re-export into a monolith leaf to place itself.
 ///
-/// ⚠ ONE member. The two systems beside it in the tuple —
+///  ONE member. The two systems beside it in the tuple —
 /// `charge_projectile_input` and `materialize_projectiles_for_next_tick` — are
 /// deliberately AFTER the step ("so the new body first ticks next frame"), so a
 /// set spanning them would push presentation past a spawn it is not waiting for.
@@ -437,12 +437,12 @@ pub fn step_projectiles(
     // because the boss-facing hit path is `ecs_bosses` below; including them would
     // double-damage.
     //
-    // **Now the SAME NAMED ROLE melee uses** — [`StrikeVictim`], owned by `ambition_combat::hitbox`
+    // Now the SAME NAMED ROLE melee uses — [`StrikeVictim`], owned by `ambition_combat::hitbox`
     // beside the victim-geometry rule. Sharing the type makes the claim checkable — and it exposed
     // a bolt landing on a body a sword passes through. The INTANGIBILITY half of that is closed in
     // the loop below; the precision half is still open, and says so there.
     //
-    // ⚠ NO `With` filter on the vulnerability cluster, deliberately, and unlike melee: a shot
+    //  NO `With` filter on the vulnerability cluster, deliberately, and unlike melee: a shot
     // must be able to hit any body with a hurtbox and a faction, including a simple feature
     // body carrying no shield/dodge state at all.
     victims: Query<
@@ -451,7 +451,7 @@ pub fn step_projectiles(
     >,
     mut feature_damage: MessageWriter<HitEvent>,
     ecs_breakables: Query<(&FeatureId, &CenteredAabb, &BreakableFeature), With<FeatureSimEntity>>,
-    // ⛔ **the actor hit PREDICTION is gone with the fork that needed it.** It
+    //  the actor hit PREDICTION is gone with the fork that needed it. It
     // existed so a Player-faction shot could decide whether its `Volume`
     // broadcast would land on anything before emitting one; the victim loop
     // names those bodies directly now, and re-asking here would be the second
@@ -492,7 +492,7 @@ pub fn step_projectiles(
     //   firer feuds with (an `Npc` duelist's bolt). Read-only, so it may overlap
     //   `victims`.
     //
-    // ⛔⛔ **THE TEAM JOINED IT, and its absence was the rule**: *"PCA's glider doesn't do any damage or hit anyone."* Measured on the shipped stage, both seats come back `ActorFaction:Player` with teams `seat 1` and `seat 2` — melee asks `team_allows_damage` and lands, this loop asked `damage_lands` and spared every shot as an ally. It was never about the glider: NO projectile from ANY fighter could hit anybody on a crossover grid, because a Hall NPC and a demo protagonist are not enemies of each other outside the match. `StrikeVictim` has carried the victim's `team` the whole time — *"Outranks faction for 'may this land'"* — and this was the one caller that never asked for it.
+    //  THE TEAM JOINED IT, and its absence was the rule: *"PCA's glider doesn't do any damage or hit anyone."* Measured on the shipped stage, both seats come back `ActorFaction:Player` with teams `seat 1` and `seat 2` — melee asks `team_allows_damage` and lands, this loop asked `damage_lands` and spared every shot as an ally. It was never about the glider: NO projectile from ANY fighter could hit anybody on a crossover grid, because a Hall NPC and a demo protagonist are not enemies of each other outside the match. `StrikeVictim` has carried the victim's `team` the whole time — *"Outranks faction for 'may this land'"* — and this was the one caller that never asked for it.
     // - `boss_catalog` — App-local authored boss geometry used by the hit predicate.
     // - `visual_catalog` — the open, content-owned projectile art registry; the detonation-FX pick resolves a shot's visual id through it.
     (owner_combat, boss_catalog, visual_catalog): (
@@ -547,7 +547,7 @@ pub fn step_projectiles(
         //
         // A shot does not become neutral because the body that fired it stopped being resident.
         //
-        // ⚠ **freezing is not memoising a lookup** — the stamp is the AUTHORITY
+        //  freezing is not memoising a lookup — the stamp is the AUTHORITY
         // from here on, which is what lets a parry deliberately REWRITE it
         // (`reflect_parried_shot`) instead of reaching for whoever the owner
         // handle now points at. It is registered rollback state for the same
@@ -568,45 +568,14 @@ pub fn step_projectiles(
                 fresh
             }
         };
-        // The firer's personal grudge — the per-entity damage override (a duelist's
-        // shot lands on the rival it feuds with even at the same faction).
-        //
-        // A grudge is a feud the firer holds *now*, not a side the shot was launched on, and
-        // `dissolve_settled_grudges` already gives it a semantic end (either body reaching zero
-        // health) that has nothing to do with residency. So the live read is the right read.
-        //
-        // ⛔ **but it was only defensible once the line below stopped inverting.**
-        // A missing owner made the shot INDISCRIMINATE, so "the firer is gone, so
-        // there is no feud" silently became "the firer is gone, so hit everyone
-        // including the people the feud was meant to spare" — the grudge's
-        // narrowing turned into the broadest possible permission. With
-        // `indiscriminate` now requiring that no owner was ever NAMED, losing the
-        // grudge costs the shot one same-faction target and nothing else, which
-        // is what dropping a feud should cost.
-        //
-        // ⇒ **not stamped, on purpose, and that is a DECISION with a condition
-        // attached**: it holds while the grudge's own lifecycle is health-keyed.
-        // If a grudge ever becomes something a body can hold past death, or the
-        // launch itself starts meaning "I aimed this AT you", the durable form
-        // belongs on the shot — as the target's `SimId`, never an `Entity`
-        // (N3.1 forbids entity handles in rollback blobs; see
-        // `heal_projectile_owners` for the healed-handle pattern that costs).
+        // A grudge is live firer state, not launch provenance, so resolve it
+        // from the current owner. If grudges gain a lifetime beyond the firer,
+        // stamp the target's `SimId` on the projectile rather than an `Entity`.
         let firer_grudge: Option<Entity> = owner_combat_data
             .and_then(|(_, agg, _)| agg)
             .and_then(|a| a.grudge);
-        // A truly ownerless volley — environmental damage that hurts every body
-        // it overlaps, friend or foe, because there is no one to be friendly to.
-        //
-        // A named firer that could not be resolved was therefore promoted to environmental
-        // hazard: hostile to its own team, permanently.
-        //
-        // ⇒ **an owner NAMED is the disqualifier, not an owner RESOLVED.**
-        // `ProjectileOwner` is healed across a rewind from durable provenance,
-        // so its presence is the stable fact here; what it points at may be
-        // absent for a tick without changing whether this shot was somebody's.
-        // A named-but-unresolved shot goes INERT rather than indiscriminate,
-        // which is the safe direction: failing to damage is recoverable, hitting
-        // your own team because a lookup missed is not.
+        // Only a projectile with no named owner is indiscriminate. A temporarily
+        // unresolved named owner must not turn a team-owned shot into a hazard.
         let indiscriminate = allegiance.is_none() && owner_entity.is_none();
 
         // Tick + lifetime. A dead lasersword detonates; everything else logs an
@@ -640,7 +609,7 @@ pub fn step_projectiles(
         // the shot: a shot lands on a faction-foe, on a same-faction body its
         // firer holds a grudge against, or — if it is OWNERLESS and therefore
         // indiscriminate — on everyone, because there is no ally to spare.
-        // ⭐⭐ **ONE victim loop, whoever fired.** The player is not a special
+        //  ONE victim loop, whoever fired. The player is not a special
         // case; it is a body that happens to carry `PlayerEntity`. This mirrors
         // the unified melee victim loop (`ambition_combat::hitbox`, §A2): the
         // SAME relational rule (`damage_lands`), the SAME published hurtbox,
@@ -770,14 +739,14 @@ pub fn step_projectiles(
                 continue;
             }
 
-            // **The strike's UNRESOLVED half**, exactly as a body-owned melee
+            // The strike's UNRESOLVED half, exactly as a body-owned melee
             // publishes it. The loop above named every combat body this shot
             // reaches; it cannot name a breakable, or a boss whose HP and phase
             // live on an encounter rather than on a body carrying the combat
             // cluster — neither matches `StrikeVictim`, and the query excludes
             // `BossConfig` outright.
             //
-            // ⛔ `UnresolvedFeatures`, NOT `Volume`: `Volume` means "scan
+            //  `UnresolvedFeatures`, NOT `Volume`: `Volume` means "scan
             // everything" and would damage every body a second time on top of
             // the identified hit it just took. The consumer skips its actor scan
             // on this target for that reason.
@@ -898,7 +867,7 @@ mod parry_tests {
         }
     }
 
-    /// **H7: a reflected shot keeps its firer's voice; the clang is the parrier's.**
+    /// H7: a reflected shot keeps its firer's voice; the clang is the parrier's.
     ///
     /// The re-own is a COMBAT fact — damage routes off the parrier's faction from the next
     /// tick.

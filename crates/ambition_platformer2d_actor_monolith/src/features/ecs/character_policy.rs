@@ -1,4 +1,4 @@
-//! **What a body's own CHARACTER says about driving itself** — the one lookup,
+//! What a body's own CHARACTER says about driving itself — the one lookup,
 //! asked by IDENTITY.
 //!
 //! [`AutonomousDefault::CharacterProfile`] is deliberately PAYLOADLESS. It
@@ -21,7 +21,7 @@
 //! it. A released villager keeps hunting you, permanently, and the state that
 //! says so is self-consistent.
 //!
-//! **the field is not being retired** — `ActorConfig::brain_profile` remains
+//! the field is not being retired — `ActorConfig::brain_profile` remains
 //! the CURRENT policy, which is a real thing a body needs and what the lowering
 //! reads. It stops being the answer to a question about the character's default,
 //! which was never its meaning.

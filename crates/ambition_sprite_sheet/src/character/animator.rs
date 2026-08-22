@@ -28,7 +28,7 @@ pub struct CharacterAnimator {
     /// common single-PNG sheet (the renderer then never swaps).
     pub pages: Vec<CharacterSpritePage>,
     pub current: CharacterAnim,
-    /// **An authored CLIP the sheet actually has, when one was requested.**
+    /// An authored CLIP the sheet actually has, when one was requested.
     ///
     /// sprite redirect P0. `current` is a [`CharacterAnim`] — 56 semantic body
     /// states — and the new fighter sheets carry rows it has no variant for
@@ -134,13 +134,13 @@ impl CharacterAnimator {
         self.clip_held = false;
     }
 
-    /// **Play an authored CLIP if this sheet has one of `chain`; otherwise the
-    /// semantic pose.**
+    /// Play an authored CLIP if this sheet has one of `chain`; otherwise the
+    /// semantic pose.
     ///
     /// the whole of P0's preference rule in one call: the exact row, then the author's
     /// fallbacks, then [`Self::request`]'s structural pose ladder.
     ///
-    /// **no `unwrap_or(0)`.** An unresolvable chain must fall to the SEMANTIC
+    /// no `unwrap_or(0)`. An unresolvable chain must fall to the SEMANTIC
     /// ladder, never to row zero — drawing idle for a missing attack row looks
     /// like a character that does not swing.
     pub fn request_clip<'a>(
@@ -194,7 +194,7 @@ impl CharacterAnimator {
 
     /// [`Self::tick`] for an authored clip, keyed by its resolved row slot.
     ///
-    /// **an authored clip never loops.** A move's timeline owns how long it
+    /// an authored clip never loops. A move's timeline owns how long it
     /// runs; the drawing holds its last frame rather than restarting, which is
     /// what `non_looping` says about every attack pose in the semantic
     /// vocabulary too.

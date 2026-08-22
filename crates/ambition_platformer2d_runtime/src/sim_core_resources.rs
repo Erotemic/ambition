@@ -176,13 +176,13 @@ impl Plugin for SimCoreResourcesPlugin {
             ambition_platformer2d_actor_monolith::time::time_control::report_sim_clock_changes,
         );
 
-        // **The presentation half of the camera shake** (P0.1). The simulation
+        // The presentation half of the camera shake (P0.1). The simulation
         // publishes a `CameraShakeRequest`; this is the only thing that turns one
         // into a screen the player sees, which is what lets the confirmed-frame
         // quarantine hold a predicted hit's shake back until the host settles the
         // frame that produced it.
         //
-        // **in the ENGINE group, not the windowed host.** `tick_camera_shake`
+        // in the ENGINE group, not the windowed host. `tick_camera_shake`
         // and `camera_follow` are the host's because a headless run has no camera
         // to move — but a headless run still ASKS for shakes and still has the
         // amplitude read off it (`app_it::hit_shakes_the_camera` watches a duel

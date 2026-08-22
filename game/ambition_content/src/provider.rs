@@ -20,7 +20,7 @@ pub struct AmbitionPreparedWorld {
     /// [`Self::builds_a_home_body`] says: a worn fighter still needs a fallback
     /// id even in a session that lowers no avatar of its own.
     pub starting_character: ambition_platformer2d_actor_monolith::avatar::StartingCharacter,
-    /// **Whether this composition lowers Ambition's home avatar.**
+    /// Whether this composition lowers Ambition's home avatar.
     ///
     /// True for every ordinary entry — the world is an exploration world and the
     /// player has a body in it. A composition that instead SEATS A MATCH into

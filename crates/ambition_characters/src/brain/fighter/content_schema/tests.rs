@@ -47,7 +47,7 @@ fn a_well_formed_ladder_has_nothing_to_report() {
     assert_eq!(ladder.rungs().len(), 9);
 }
 
-/// **the case that looks fine row by row.** A ladder whose level 5 reacts
+/// the case that looks fine row by row. A ladder whose level 5 reacts
 /// SLOWER than level 4 parses cleanly — every row is a valid profile — and is
 /// nonsense as a ladder. This is what the schema exists to say at load, in one
 /// place, instead of as "the levels do not order correctly" after hours of

@@ -88,7 +88,7 @@ pub fn install_unified_menu_shared(app: &mut App) {
         // nothing had inserted, and Bevy killed the app on the first menu tick: `Parameter
         // MenuDispatchParams::system failed validation: Resource does not exist`.
         //
-        // **that is a BLANK SCREEN, and it is what the browser was showing.** Startup completes and
+        // that is a BLANK SCREEN, and it is what the browser was showing. Startup completes and
         // assets begin loading — which is why the server log looked healthy — and then the first
         // `Update` panics and the app is dead. Nothing about it is web-specific; the web persona
         // was simply the only shipped build with the cube feature off.
@@ -306,7 +306,7 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                 kaleidoscope_focus_nav
                     .run_if(kaleidoscope_menu_visible)
                     .in_set(ambition_platformer2d::actors::schedule::MenuNavConsume),
-                // **between nav and republish, deliberately.** Nav and the
+                // between nav and republish, deliberately. Nav and the
                 // pointer-release observer both PUBLISH the chosen action; this
                 // dispatches it. Running it after republish would draw the menu a
                 // frame before the equip it just performed.
@@ -425,9 +425,9 @@ pub(crate) struct KaleidoscopePointerPress(
     pub(crate) ambition_platformer2d::ui_nav::PressArm<MenuPageAction>,
 );
 
-/// **A rebind row is armed, waiting for the next physical press.**
+/// A rebind row is armed, waiting for the next physical press.
 ///
-/// **the capture cannot happen where the row is selected.** Selecting runs
+/// the capture cannot happen where the row is selected. Selecting runs
 /// inside the menu's own dispatch, and the whole point of a rebind is to see a
 /// control the menu's bindings do not route — a key no preset uses reaches no
 /// action and therefore no dispatch. So selection arms, and a separate system
@@ -440,7 +440,7 @@ pub(crate) struct KaleidoscopePointerPress(
 #[derive(Resource, Default)]
 pub(crate) struct RebindCapture {
     armed_row: Option<usize>,
-    /// **the frame that ARMED it must not also capture it.** Selecting a row
+    /// the frame that ARMED it must not also capture it. Selecting a row
     /// is itself a key press, and it is still in `get_just_pressed` when the
     /// capture runs later the same frame — so without this, confirming a rebind
     /// row would bind that action to the confirm key, and every action in the
@@ -480,9 +480,9 @@ impl RebindCapture {
 }
 
 #[cfg(feature = "kaleidoscope_menu")]
-/// **Resolve an armed rebind: the next physical press becomes the binding.**
+/// Resolve an armed rebind: the next physical press becomes the binding.
 ///
-/// **this cannot live in the menu's dispatch**, which is why arming and
+/// this cannot live in the menu's dispatch, which is why arming and
 /// capturing are two steps. Dispatch runs off routed ACTIONS, and the whole
 /// point of a rebind is to bind a control that routes to nothing — a key no
 /// preset uses reaches no action and therefore no dispatch. So the capture reads
@@ -928,7 +928,7 @@ fn kaleidoscope_focus_nav(
     // Single mutable access to the overlay state — also read `.visible` from it (a
     // separate `Res<InventoryUiState>` would be a B0002 conflict with this `ResMut`).
     mut overlay: ResMut<ambition_platformer2d::inventory_ui::InventoryUiState>,
-    // **the game mode is GONE from nav.** It was here only so a close-via-action
+    // the game mode is GONE from nav. It was here only so a close-via-action
     // (Reset Sandbox) could unpause exactly like an Esc-close — and that close
     // travels with the dispatch, into `kaleidoscope_menu_action_activated`. Nav
     // announces; it does not act.
@@ -1123,9 +1123,9 @@ fn kaleidoscope_focus_nav(
 }
 
 #[cfg(feature = "kaleidoscope_menu")]
-/// **The cube's ONE dispatcher for a chosen action.**
+/// The cube's ONE dispatcher for a chosen action.
 ///
-/// **the cube had no consumer at all**, which is the asymmetry this closes.
+/// the cube had no consumer at all, which is the asymmetry this closes.
 /// The grid published `MenuActionActivated` from its pointer bridge and
 /// dispatched it in one system; the cube dispatched inline from THREE places —
 /// its keyboard nav, `system_focus_nav`, and the `Pointer<Release>` observer —
@@ -1234,7 +1234,7 @@ pub(crate) fn system_focus_nav(
     settings: &mut UserSettings,
     quality_confirm: &mut VisualQualityConfirmState,
     active_page: MenuPage,
-    // **the ONE activation event, in place of the five dispatch parameters.**
+    // the ONE activation event, in place of the five dispatch parameters.
     // This function is SHARED by both inventory frontends, so it was carrying
     // `owned` / `commands` / `players` / `mana_q` / `heals` purely to call
     // `dispatch_menu_action` itself — five parameters that existed to say a
@@ -1597,7 +1597,7 @@ enum EdgeInward {
     /// The opposite edge button. Placeholder faces (Map/Quest) have no centre content,
     /// so stepping in from one edge crosses straight to the other.
     ///
-    /// **NOT gated, though only cube code constructs it.** `edge_button_nav`
+    /// NOT gated, though only cube code constructs it. `edge_button_nav`
     /// MATCHES on it in backend-neutral code, so removing the variant removes an
     /// arm the flat backend still compiles. `#[allow]` on the variant would be the
     /// wrong tool too — the variant is not dead, it is unreachable in one

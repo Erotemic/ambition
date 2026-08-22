@@ -10,7 +10,7 @@ use ambition_platformer2d_core::BodyKinematics;
 use super::body::ProjectileGameplay;
 
 /// How a projectile interacts with world geometry — a property of the
-/// projectile (its ability/spec), **not** of who fired it: the same shot
+/// projectile (its ability/spec), not of who fired it: the same shot
 /// behaves identically whether the player, an enemy, or the player-robot boss
 /// fires it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

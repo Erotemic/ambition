@@ -30,10 +30,10 @@ impl Plugin for DevToolsPlugin {
     }
 }
 
-/// **A developer typing into an inspector is not steering the character.**
+/// A developer typing into an inspector is not steering the character.
 ///
-/// **the condition is "egui WANTS the keyboard", not "the inspector is
-/// visible".** Watching values while playing is the normal way to use an
+/// the condition is "egui WANTS the keyboard", not "the inspector is
+/// visible". Watching values while playing is the normal way to use an
 /// inspector; capturing input for the whole time a panel is up would break the
 /// thing the panel is there to observe. egui already answers the narrower
 /// question, and only while a text field actually holds focus.

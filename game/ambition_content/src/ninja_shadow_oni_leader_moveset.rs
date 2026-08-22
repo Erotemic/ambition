@@ -1,4 +1,4 @@
-//! **The Shadow Oni Leader's repertoire** — the counter-puncher, written from
+//! The Shadow Oni Leader's repertoire — the counter-puncher, written from
 //! his own barks.
 //!
 //! His catalog row carries no design note; it carries five lines, and they are a design note:
@@ -10,13 +10,13 @@
 //! Three of those decide this table and none of them is mine:
 //!
 //! * *the shadow ANSWERS* → he does not open. He replies, and he replies
-//!   **faster than anybody on the grid** — the quickest startups in the game.
-//! * *one breath left* → and the reply is a single instant. His **active
-//!   windows are the shortest in the game**: you have to be exactly there,
+//!   faster than anybody on the grid — the quickest startups in the game.
+//! * *one breath left* → and the reply is a single instant. His active
+//!   windows are the shortest in the game: you have to be exactly there,
 //!   exactly then, or the answer passes through empty air.
 //! * *the order obeyed instantly* → an order cannot be recalled. Every one of
-//!   his moves carries **recovery of more than three times its own active
-//!   window**, which is the longest commitment-to-payoff ratio on the grid.
+//!   his moves carries recovery of more than three times its own active
+//!   window, which is the longest commitment-to-payoff ratio on the grid.
 //!
 //! ```text
 //!               startup   active   recovery      the trade
@@ -24,7 +24,7 @@
 //!   oni leader   0.03      0.04      0.20         faster, and it COSTS
 //! ```
 //!
-//! **this is a different AXIS, not a fifth set of numbers.** The four tables
+//! this is a different AXIS, not a fifth set of numbers. The four tables
 //! that exist vary reach, damage and speed together — a goblin is smaller and
 //! quicker and weaker, an admiral longer and slower and harder. The oni varies
 //! the SHAPE of a swing: same reach band as a striker, and a window you either
@@ -32,7 +32,7 @@
 //! the previous table renumbered, which is what the comparative tests below
 //! exist to refuse.
 //!
-//! **the ninja fantasy is NOT in here** — no teleport, no clone, no smoke. Those are abilities
+//! the ninja fantasy is NOT in here — no teleport, no clone, no smoke. Those are abilities
 //! and techniques; a moveset says what a hit IS.
 
 use ambition_characters::smash_capture::{
@@ -102,7 +102,7 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
 
     // ── smashes ──────────────────────────────────────────────────────────────
     //
-    // **the FASTEST smashes on the grid and the most punishing to miss**, which
+    // the FASTEST smashes on the grid and the most punishing to miss, which
     // is the whole character in one pair of numbers. Everybody else's kill move
     // is slow to start; his is slow to *end*. A goblin that eats it was caught
     // reacting; a goblin that saw it coming gets 0.44s to answer.
@@ -234,11 +234,11 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     // vfx ready for it."* He does: fourteen authored rows on his own FX sheet,
     // and this table had never named ONE of them. Every effect below is his.
     //
-    // **the axis holds through all five.** Fastest to start, shortest active
+    // the axis holds through all five. Fastest to start, shortest active
     // window, recovery of more than three times it — a special that opened
     // slowly or lingered would be a different character wearing the mask.
 
-    // **the forward tilt, which fell down the chain to the jab.** `missed_
+    // the forward tilt, which fell down the chain to the jab. `missed_
     // answer_cut` is the row for it: the answer that goes through where you were.
     let f_tilt = strike(
         "tilt_forward",
@@ -279,7 +279,7 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     let n_b = sfx(n_b, 0.06, "enemy.shadow_oni.slash");
     let n_b = on_contact(n_b, "player.hit");
 
-    // **SIDE — `iaijutsu`.** The draw and the cut are one motion, so the impulse
+    // SIDE — `iaijutsu`. The draw and the cut are one motion, so the impulse
     // and the active window are the same instant. He crosses the distance
     // already having swung.
     let side_b = strike(
@@ -303,7 +303,7 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     let side_b = sfx(side_b, 0.05, "enemy.shadow_oni.slash");
     let side_b = on_contact(side_b, "player.hit");
 
-    // **UP — `smoke_fold`. THE RECOVERY**, and the reason this batch is not
+    // UP — `smoke_fold`. THE RECOVERY, and the reason this batch is not
     // cosmetic: with no special at all he had a double jump and nothing else.
     // He does not climb — he leaves, and arrives. the hit is on the ARRIVAL,
     // not the departure, so covering the spot he left is not a punish.
@@ -331,7 +331,7 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     let up_b = vfx_at(up_b, 0.10, "blink_arrive", (0.0, -8.0), 1.0);
     let up_b = on_contact(up_b, "player.hit");
 
-    // **DOWN — `command_seal`.** *"A leader's hardest order is the one obeyed
+    // DOWN — `command_seal`. *"A leader's hardest order is the one obeyed
     // instantly."* He plants a seal and the ring closes on it: no displacement,
     // no reach, and the longest tail he owns. The order is given; standing there
     // while it is obeyed is the cost.
@@ -367,7 +367,7 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     // player pressing down-B in the air got the neutral-B. `special_air_down`
     // sits ahead of `special_down` in that chain and has the whole time; this is
     // the two-form move it exists for.
-    // **DOWN, IN THE AIR — `falling_seal`.** The order is given on the way
+    // DOWN, IN THE AIR — `falling_seal`. The order is given on the way
     // down. Same seal, no floor to plant it on, so it closes around him as he
     // drops — and he arrives with it.
     let mut air_down_b = strike(
@@ -391,7 +391,7 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     let air_down_b = sfx(air_down_b, 0.05, "faction.ninja.parry_flash");
     let air_down_b = on_contact(air_down_b, "player.hit");
 
-    // **ONI'S CAPTURE KIT.** The FASTEST grab in the game and the longest recovery
+    // ONI'S CAPTURE KIT. The FASTEST grab in the game and the longest recovery
     // behind it — a read, not a poke. Whiffing this is the punish window his whole kit
     // is balanced around.
     // the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
@@ -456,7 +456,7 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     );
     SmashRepertoire {
         taunt: ambition_characters::moveset_authoring::taunt("ninja_shadow_oni_leader_taunt", 0.9),
-        // **0.30 recovery, not the genre's 0.26** — nothing he swings recovers
+        // 0.30 recovery, not the genre's 0.26 — nothing he swings recovers
         // in under 3x its active window, which is what stops any of it being
         // thrown casually. 0.09 active buys 0.27, and his law wants MORE.
         dash_attack: ambition_characters::moveset_authoring::dash_attack(
@@ -483,7 +483,7 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: up_b,
-        // **AUTHORED, at the rule that every fighter in the smash roster have a grab.** The
+        // AUTHORED, at the rule that every fighter in the smash roster have a grab. The
         // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
         // the whole point of proving it was to stop being the only two.
         //
@@ -519,7 +519,7 @@ mod tests {
             .clone()
     }
 
-    /// **only a STRIKE has one.** A pummel and a throw are timelines with no
+    /// only a STRIKE has one. A pummel and a throw are timelines with no
     /// Active window at all, so the swing tests below iterate `strikes()` rather
     /// than every move the contract carries — asking a throw for its startup is
     /// asking about a window it never has.
@@ -561,8 +561,8 @@ mod tests {
     // `ambition_characters::smash_repertoire`, and by the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
-    /// **THE SHADOW ANSWERS: he is quicker to start than the quickest body that
-    /// already had a table, and quicker to finish answering than any of them.**
+    /// THE SHADOW ANSWERS: he is quicker to start than the quickest body that
+    /// already had a table, and quicker to finish answering than any of them.
     ///
     /// Comparative against the GOBLIN, which is the fast one — measuring against
     /// the admiral or the clerk would make "fast" mean "not a heavyweight" and
@@ -592,15 +592,15 @@ mod tests {
         );
     }
 
-    /// **THE ORDER OBEYED INSTANTLY CANNOT BE RECALLED: every move recovers for
-    /// more than three times its own active window.**
+    /// THE ORDER OBEYED INSTANTLY CANNOT BE RECALLED: every move recovers for
+    /// more than three times its own active window.
     ///
     /// this is the axis, and it is what stops the table being the goblin's
     /// with smaller numbers. A fighter can be given fast startups by typing
     /// smaller floats; a fighter whose every swing costs more than triple what it
     /// buys has a different relationship to committing.
     ///
-    /// **the poison is that the GOBLIN must fail this**, or the ratio is a
+    /// the poison is that the GOBLIN must fail this, or the ratio is a
     /// property of `strike`'s shape rather than a property of him.
     #[test]
     fn every_swing_costs_more_than_three_times_the_moment_it_buys() {
@@ -638,7 +638,7 @@ mod tests {
         );
     }
 
-    /// **And he is not simply BETTER.** The fast answer is paid for: his kill
+    /// And he is not simply BETTER. The fast answer is paid for: his kill
     /// move commits longer after the fact than the admiral's does, and the
     /// admiral is the slow one.
     #[test]

@@ -59,14 +59,14 @@ pub fn seed_library() -> &'static ambition_characters::brain::boss_pattern::seed
     .expect("the seed schema lowers its library for every pack that compiles")
 }
 
-/// Embedded encounter rows contributed by the Ambition provider: **each source's
-/// path and its bytes, together, once.**
+/// Embedded encounter rows contributed by the Ambition provider: each source's
+/// path and its bytes, together, once.
 ///
 /// Reordering either list attached a file's contents to the wrong diagnostic path and fingerprint
 /// while the runtime went on resolving rows by their internal ids — so nothing would fail, and a
 /// compile error would point at the wrong file forever.
 ///
-/// **positional coupling across two files is the shape**, not the count. It
+/// positional coupling across two files is the shape, not the count. It
 /// was maintainable at nine and would have been silently wrong at ten.
 pub const BOSS_ENCOUNTERS: &[(&str, &str)] = &[
     (
@@ -169,8 +169,8 @@ fn special_animation_keys() -> std::collections::BTreeMap<String, Vec<String>> {
 
 /// Ambition's immutable App-local boss contribution.
 ///
-/// **NOT all of this is compiled content, and the pack fingerprint does not
-/// cover the rest.** In the pack: the roster (`boss_profiles.ron`), the nine
+/// NOT all of this is compiled content, and the pack fingerprint does not
+/// cover the rest. In the pack: the roster (`boss_profiles.ron`), the nine
 /// encounter files, the seed library and the calibration. NOT in the pack, and
 /// therefore changeable without moving the fingerprint:
 ///
@@ -283,7 +283,7 @@ impl Plugin for AmbitionBossContentPlugin {
         app.init_resource::<CutRopeBossArenaState>();
         app.init_resource::<CutRopeHeavyObjectCycle>();
         app.init_resource::<PendingCutRopeRoomReplay>();
-        // **Content's own narrative vocabulary**, registered the same way the
+        // Content's own narrative vocabulary, registered the same way the
         // engine registers its own — which is the whole reason the ledger is
         // generic. `<<reset_cut_rope_room>>` is a gameplay-bearing choice
         // (a room replay despawns the world), so it crosses the boundary with a
@@ -410,8 +410,8 @@ impl Plugin for AmbitionBossContentPlugin {
 mod apple_rain_animation_key_tests {
     use ambition_characters::brain::BossAttackProfile;
 
-    /// **`apple_rain`'s hurtbox row is reachable ONLY through the profile
-    /// identity, and that is what blocks the boss-animator fold.**
+    /// `apple_rain`'s hurtbox row is reachable ONLY through the profile
+    /// identity, and that is what blocks the boss-animator fold.
     ///
     /// The fold's first slice wants to replace four
     /// `sample.profile == Some(profile)` checks with a key comparison, so
@@ -420,8 +420,8 @@ mod apple_rain_animation_key_tests {
     /// key still lands inside the profile's own key list, so the swap would be
     /// safe (`every_hardcoded_sample_key_names_a_row_its_profile_claims`).
     ///
-    /// **`apple_rain` is the exception, and it is CONTENT, which is why the
-    /// engine could not answer it.** It is a `Special`, so its key list comes
+    /// `apple_rain` is the exception, and it is CONTENT, which is why the
+    /// engine could not answer it. It is a `Special`, so its key list comes
     /// from this crate's `special_animation_keys()` — and it is not in that map.
     /// The profile therefore claims NOTHING, while
     /// `boss_animation_key_for_sample` emits `"head_down"` for it.
@@ -455,12 +455,12 @@ mod apple_rain_animation_key_tests {
 
 #[cfg(test)]
 mod encounter_book_tests {
-    /// **The nine encounter files reach the runtime through the COMPILER.**
+    /// The nine encounter files reach the runtime through the COMPILER.
     ///
     /// This is the probe that the merged book is what the catalog actually holds.
     ///
-    /// **it asserts the ARTIFACT and the CATALOG agree, not just that both
-    /// exist.** "The book has nine entries" would pass over a builder that
+    /// it asserts the ARTIFACT and the CATALOG agree, not just that both
+    /// exist. "The book has nine entries" would pass over a builder that
     /// ignored it and reparsed, which is the exact defect being closed.
     #[test]
     fn the_encounter_book_the_runtime_loads_is_the_one_the_compiler_merged() {

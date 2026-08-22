@@ -179,7 +179,7 @@ pub fn compile(
     let mut prepared_sources: Vec<Source> = Vec::new();
     let mut facet_requirements: BTreeSet<CapabilityId> = BTreeSet::new();
     let mut defining_schemas: BTreeSet<SchemaId> = BTreeSet::new();
-    // ⚠ EVERY fragment, in DECLARED order — not the first, and not the last.
+    //  EVERY fragment, in DECLARED order — not the first, and not the last.
     // Which of them becomes the runtime artifact is the aggregation stage's
     // question, and it cannot be answered while only one source has been read.
     let mut fragments: BTreeMap<SchemaId, Vec<(String, std::sync::Arc<dyn std::any::Any + Send + Sync>)>> =
@@ -257,7 +257,7 @@ pub fn compile(
         });
     }
 
-    // ⛔ **A `Runtime` schema must PRODUCE a runtime artifact.**
+    //  A `Runtime` schema must PRODUCE a runtime artifact.
     //
     // Otherwise a pack compiles while carrying authored runtime content that
     // has no runtime representation — "validated and then ignored", which is the
@@ -291,8 +291,8 @@ pub fn compile(
         }
     }
 
-    // ⛔⛔ **WHAT A SCHEMA LOWERS MUST ALSO BE DEFINED, or it is invisible to the
-    // pack's IDENTITY.**
+    //  WHAT A SCHEMA LOWERS MUST ALSO BE DEFINED, or it is invisible to the
+    // pack's IDENTITY.
     //
     // `canonical_bytes` is built from `define`d rows, so a schema that lowers a
     // runtime artifact and declares no content contributes NOTHING to the
@@ -300,7 +300,7 @@ pub fn compile(
     // pack reports the same identity. That defeats cache invalidation, packaging,
     // session compatibility, and peer-content comparison.
     //
-    // ⚠ this checks the LINK, not the CONTENT of the canonical form. A handler
+    //  this checks the LINK, not the CONTENT of the canonical form. A handler
     // can still define a row whose canonical string omits the field it lowered,
     // and no compiler check can see that. What this removes is the whole silent
     // CLASS — lowering with no identity at all — so the remaining mistake has to
@@ -373,7 +373,7 @@ pub fn compile(
 
     // ── aggregation ──────────────────────────────────────────────────────
     //
-    // ⛔ **NEVER last-wins.** Overwriting silently means the content INDEX knows
+    //  NEVER last-wins. Overwriting silently means the content INDEX knows
     // about both sources while the runtime artifact holds only the last one —
     // validation and the running game seeing different content.
     //
@@ -397,7 +397,7 @@ pub fn compile(
         let mut outcome = schema::AggregateOutcome::default();
         match registration.handler.aggregate(&borrowed, &mut outcome) {
             schema::Aggregation::Defined => {
-                // ⚠ ask THIS handler whether it refused, before its diagnostics
+                //  ask THIS handler whether it refused, before its diagnostics
                 // join the pile — `aggregation_failures` already holds every
                 // earlier schema's, so testing that would let one schema's
                 // refusal hide the next one's missing artifact.

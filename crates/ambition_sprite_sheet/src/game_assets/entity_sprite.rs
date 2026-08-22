@@ -51,7 +51,7 @@ pub enum EntitySprite {
     // instead of stretching one sprite across the whole footprint.
     /// A LIVE bonus block — warm plate, rivets, interrobang glyph.
     ///
-    /// **not reachable from `BlockKind`, and that is the point.** Bonus blocks
+    /// not reachable from `BlockKind`, and that is the point. Bonus blocks
     /// are `BlockKind::Solid` like every wall, so no kind-derived lookup can
     /// tell them apart; a game names this through the `BlockArt` component
     ///. The USED state needs no art of its own — a spent block drops
@@ -60,7 +60,7 @@ pub enum EntitySprite {
     BonusBlockTile,
     /// A USED bonus block — the same plate and rivets, drained and glyphless.
     ///
-    /// **a spent block does NOT fall back to `SolidTile`**, which was the first design. A used
+    /// a spent block does NOT fall back to `SolidTile`, which was the first design. A used
     /// block that looks like a wall hides its own history: a player deciding whether a block is
     /// worth hitting cannot tell it from masonry.
     SpentBlockTile,

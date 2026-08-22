@@ -92,7 +92,7 @@ pub struct PreparedContentPack {
     /// Schema versions this pack was compiled against. A runtime that installs
     /// a different version must recompile, not adapt.
     pub schemas: BTreeMap<SchemaId, SchemaVersion>,
-    /// **Canonical content ordering.** `BTreeMap<ContentId, _>` by construction.
+    /// Canonical content ordering. `BTreeMap<ContentId, _>` by construction.
     pub content: BTreeMap<ContentId, PreparedContent>,
     pub assets: BTreeMap<String, AssetProvenance>,
     pub resolved_references: Vec<ResolvedReference>,

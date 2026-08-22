@@ -1,4 +1,4 @@
-//! (ADR 0020 §4) — **player-piloting a mount works END-TO-END through the real headless sim.**
+//! (ADR 0020 §4) — player-piloting a mount works END-TO-END through the real headless sim.
 //!
 //! The payoff of the two-linked-actors mount model: a human drives a VEHICLE
 //! through the exact same control seam that drives every other body. The rider

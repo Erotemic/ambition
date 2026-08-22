@@ -5,14 +5,14 @@
 //! that reach for `single_mut()` are implicitly relying on that fact.
 //! These helpers give contributors obvious APIs to pick between:
 //!
-//! - **`PrimaryPlayerOnly`** — filter type usable on any `Query`
+//! - `PrimaryPlayerOnly` — filter type usable on any `Query`
 //!   (immutable or mutable component access) when the system genuinely
 //!   wants the camera/HUD/dev-tool target. In Bevy the same filter
 //!   works for both read and write queries, so there is no separate
 //!   `…Mut` variant.
-//! - **`primary_player_entity`** — finds the primary player's `Entity`
+//! - `primary_player_entity` — finds the primary player's `Entity`
 //!   from any `Query<Entity, With<PrimaryPlayer>>` without panicking.
-//! - **`sort_players_by_slot`** — collects player entities ordered by
+//! - `sort_players_by_slot` — collects player entities ordered by
 //!   `PlayerSlot` so future iteration is deterministic.
 //!
 //! Use these *only* where the singleton intent matters. The bulk of
@@ -59,7 +59,7 @@ where
     out
 }
 
-/// **THE BODY DRIVING A SEAT**: the entity carrying `DrivingParticipant(slot)`.
+/// THE BODY DRIVING A SEAT: the entity carrying `DrivingParticipant(slot)`.
 ///
 /// ⛔⛔ **there were THREE hand-written copies of this loop and they disagreed
 /// about the error case.** `resolve_controlled_subject` counted holders,
@@ -116,9 +116,9 @@ pub fn body_driving_seat(
     first
 }
 
-/// **THIS SEAT'S INPUT FOR THIS TICK, whichever clock the composition runs on.**
+/// THIS SEAT'S INPUT FOR THIS TICK, whichever clock the composition runs on.
 ///
-/// **TWO CLOCKS, and one source is wrong on one of them.** A gesture stage
+/// TWO CLOCKS, and one source is wrong on one of them. A gesture stage
 /// runs inside `InputSet::Route`, and at that moment:
 ///
 /// ```text
@@ -129,7 +129,7 @@ pub fn body_driving_seat(
 ///                 assembled now, and the publish that copies it runs after Route
 /// ```
 ///
-/// **reading the raw row on a latch host drops sub-tick taps.**
+/// reading the raw row on a latch host drops sub-tick taps.
 /// `interact_pressed` is OR-accumulated by `ControlFrameLatch`, so a press that
 /// opens and closes between two ticks lives in the latch and in no single
 /// sample — which is the entire reason the latch exists.
@@ -147,10 +147,10 @@ pub fn seat_frame_this_tick(
     }
 }
 
-/// **SHAPE THIS SEAT'S FRAME FOR THIS TICK**, wherever this composition keeps it.
+/// SHAPE THIS SEAT'S FRAME FOR THIS TICK, wherever this composition keeps it.
 ///
-/// **READ through the predicate, WRITE to both, and that asymmetry is the
-/// point.** Which table holds the tick's input depends on the host
+/// READ through the predicate, WRITE to both, and that asymmetry is the
+/// point. Which table holds the tick's input depends on the host
 /// ([`seat_frame_this_tick`]); which table a shaped value must reach does not.
 /// The slot is what the body reads this tick; the raw row is what the next fold
 /// carries into the encoded rollback input. Writing the table that is not
@@ -173,7 +173,7 @@ pub fn shape_seat_frame(
     raw.set(slot, frame);
 }
 
-/// **DOES SOMETHING ELSE ALREADY OWN THIS SEAT'S PUBLISHED FRAME THIS TICK?**
+/// DOES SOMETHING ELSE ALREADY OWN THIS SEAT'S PUBLISHED FRAME THIS TICK?
 pub fn another_authority_publishes(
     latches: Option<&ambition_characters::control::SlotControlLatches>,
     rollback: Option<&ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>,
@@ -181,11 +181,11 @@ pub fn another_authority_publishes(
     latches.is_some() || rollback.is_some()
 }
 
-/// **THE FRAME ONE SEAT'S GESTURES ARE INTERPRETED IN** — the resolved "down"
+/// THE FRAME ONE SEAT'S GESTURES ARE INTERPRETED IN — the resolved "down"
 /// (ADR 0024) of whichever body is driving that seat.
 ///
-/// **the generalisation of [`controlled_frame_down`], which asks this for
-/// slot zero only.** A double-tap means *down* relative to the body the person
+/// the generalisation of [`controlled_frame_down`], which asks this for
+/// slot zero only. A double-tap means *down* relative to the body the person
 /// is steering, and on a couch that is a different body per seat — so a seat's
 /// gesture cannot be resolved against the primary's gravity without giving
 /// player two player one's idea of down.

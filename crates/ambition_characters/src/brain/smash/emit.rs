@@ -66,7 +66,7 @@ pub fn emit_inputs(
             }
         }
         SpecificAction::Sprint { dir } => {
-            // **CLOSING IS LOCOMOTION.** Full throttle against the body's own top
+            // CLOSING IS LOCOMOTION. Full throttle against the body's own top
             // speed — the same surface `Walk` uses at a partial throttle, and the
             // whole difference between the two.
             //
@@ -144,7 +144,7 @@ pub fn emit_inputs(
             // that reached for a capture-specific verb here would be the
             // CPU-only road this design exists without.
             out.melee_pressed = true;
-            // **MIRRORED BY FACING, and it was not.** `attack_axis` is a
+            // MIRRORED BY FACING, and it was not. `attack_axis` is a
             // STICK — `attack_dir_from_axis` computes `axis.x * facing` — so a
             // bare `+x` means *forward* only while the body faces right. A
             // left-facing captor asking for a forward throw was asking for a

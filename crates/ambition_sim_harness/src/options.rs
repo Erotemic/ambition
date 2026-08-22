@@ -11,16 +11,16 @@ pub struct Platformer2dSimHarnessOptions {
     /// `RoomSet::room_index_by_id`; if not found, a warning is printed
     /// and the LDtk-authored start room stays active.
     pub start_room: Option<String>,
-    /// **Does [`Self::start_room`] have to EXIST?**
+    /// Does [`Self::start_room`] have to EXIST?
     ///
-    /// ⛔⛔ **`false` is not an oversight — it is a PROMISE, and there is a test
-    /// named after it** (`unknown_start_room_does_not_panic_or_error`). A library
+    ///  `false` is not an oversight — it is a PROMISE, and there is a test
+    /// named after it (`unknown_start_room_does_not_panic_or_error`). A library
     /// caller may legitimately name a room outside the composition it is
     /// building, and falling back to the authored start is the tolerant, correct
     /// answer for that caller. The CLI flag is already strict for the opposite
     /// reason: somebody typed it, just now, meaning that room.
     ///
-    /// **so this is the CALLER stating which of the two it is**, rather than the verb changing
+    /// so this is the CALLER stating which of the two it is, rather than the verb changing
     /// meaning underneath both.
     pub start_room_must_resolve: bool,
     /// The schedule GRAPH is identical either way — every sim plugin registers
@@ -32,8 +32,8 @@ pub struct Platformer2dSimHarnessOptions {
     /// deterministic harness mode: GGRS repeatedly saves, rewinds, and
     /// resimulates the real game schedule while comparing checksums.
     pub rollback: RollbackMode,
-    /// **Compose the session the way a MATCH experience is composed: with no
-    /// home avatar.**
+    /// Compose the session the way a MATCH experience is composed: with no
+    /// home avatar.
     ///
     /// The default (`false`) is an ordinary exploration session, which lowers
     /// the experience's home body. Set it when the harness is going to publish a
@@ -41,7 +41,7 @@ pub struct Platformer2dSimHarnessOptions {
     /// cast, and a home avatar would be a second claimant on the session's
     /// control channel — which match preparation refuses by name.
     ///
-    /// ⚠ the composition, not the roster, has to say this. By the time a roster
+    ///  the composition, not the roster, has to say this. By the time a roster
     /// is published the avatar has already been built.
     pub seats_a_match: bool,
 }

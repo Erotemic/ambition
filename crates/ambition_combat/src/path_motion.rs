@@ -23,7 +23,7 @@ impl PathMotion {
         }
     }
 
-    /// **The mutable half of this component**, for `SnapshotState` (netcode.md N3.1).
+    /// The mutable half of this component, for `SnapshotState` (netcode.md N3.1).
     ///
     /// `path` is authored content and never changes; `(segment, dir)` is a cursor the
     /// sim advances. A rollback must rewind the cursor and must not re-serialize the
@@ -71,8 +71,8 @@ impl PathMotion {
             let to_target = target - pos;
             let distance = to_target.length();
             if distance <= 0.001 {
-                // **A CURSOR THAT DOES NOT MOVE ENDS THE FRAME, or this spins
-                // forever.** This branch consumes no `remaining`, so it is only
+                // A CURSOR THAT DOES NOT MOVE ENDS THE FRAME, or this spins
+                // forever. This branch consumes no `remaining`, so it is only
                 // safe while every advance changes where the mover is heading. A
                 // two-point `Loop` path breaks that: `last_segment` is
                 // `len.saturating_sub(2)` = 0, so arriving at the second point
@@ -257,8 +257,8 @@ mod path_motion_tests {
         assert_eq!(dir, 1, "reverse at 0 flips to forward");
     }
 
-    /// **The same two-point `Loop` spin the platform stepper had, and the same
-    /// closed circuit that fixes it.**
+    /// The same two-point `Loop` spin the platform stepper had, and the same
+    /// closed circuit that fixes it.
     ///
     /// Found in the platform copy, where it hung a test binary outright; this asserts that a spike
     /// ball or patrol dummy on a two-waypoint looping path both RETURNS from its frame and goes

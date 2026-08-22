@@ -1,4 +1,4 @@
-//! Player-emitted **trail** mechanics.
+//! Player-emitted trail mechanics.
 //!
 //! The trail is not a grapple/pull rope. It is the topological breadcrumb the
 //! player chooses to emit: while emission is ON, the trail samples the player's

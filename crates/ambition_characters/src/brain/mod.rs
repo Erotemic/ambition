@@ -62,7 +62,7 @@ pub use state_machine::{
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-/// Identifies which **autonomous policy** drives an actor when no participant is.
+/// Identifies which autonomous policy drives an actor when no participant is.
 ///
 /// ⭐⭐ **a `Brain` is an AI backend and nothing else.** It used to carry a
 /// `Player(crate::control::PlayerSlot)` variant, so every exhaustive match over it had an arm for
@@ -141,7 +141,7 @@ impl Brain {
     /// actor a threat right now" queries use this. State-machine
     /// brains delegate to their cfg.
     ///
-    /// ⚠ **this answers a question about a POLICY.** Whether a body a person is
+    ///  this answers a question about a POLICY. Whether a body a person is
     /// driving is a threat is a question about the person, and the honest place
     /// to ask it is [`crate::control::DrivingParticipant`] on the body — a driven body's
     /// autonomous policy has no opinion about what its driver is about to do.
@@ -264,7 +264,7 @@ impl bevy::app::Plugin for BrainPlugin {
         // The slot-based controller input model. One entry per participant
         // slot; the body carrying `DrivingParticipant(slot)` reads its frame.
         app.init_resource::<crate::control::SlotControls>();
-        // ⭐ **and the table it is committed FROM.** Beside its destination
+        //  and the table it is committed FROM. Beside its destination
         // rather than in the host, because a composition that has slots has
         // somewhere for their raw frames to be shaped — the two are one model,
         // and installing them apart is how seat zero ended up with a shaping bus
@@ -487,7 +487,7 @@ mod tests;
 /// (provoke-to-hostile, dismount) must reconstruct a brain from projected data without naming the
 /// content archetype enum. Authored per archetype in `character_archetypes.ron` and projected onto
 /// [`BrainProfile`] at spawn.
-// ⚠ `Serialize` because a `BrainProfile` carrying one is now authorable in the
+//  `Serialize` because a `BrainProfile` carrying one is now authorable in the
 // character catalog, and `CharacterCatalogData` round-trips through serde for
 // the content pack. Deserialize alone would have made the new map write-only.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
@@ -515,7 +515,7 @@ pub enum CharacterBrainTemplate {
     /// recover). Shares its code with the peaceful catalog `Aerial` bird via
     /// `StateMachineCfg::Aerial` — hostility is just `aggressiveness > 0`.
     Aerial,
-    /// **The FB4b fighter brain**: L1 classify → L2 options → L3 rollout, on a
+    /// The FB4b fighter brain: L1 classify → L2 options → L3 rollout, on a
     /// human cadence with an APM ceiling and execution noise.
     ///
     /// A match seat travels the archetype path, so a rig reachable only from the catalog was

@@ -5,7 +5,7 @@
 //! UnresolvedContentRef<T> → ResolvedContentRef<T>   for tools, authored data, mods
 //! ```
 //!
-//! **raw runtime string lookup must not become gameplay authority.** A
+//! raw runtime string lookup must not become gameplay authority. A
 //! `HashMap<String, _>` consulted during a tick is a reference that was never
 //! validated, and its failure mode is a silent default — which this repo has
 //! now paid for twice in one week (a CPU seat naming a brain profile the
@@ -216,7 +216,7 @@ pub trait AssetSource: Send + Sync {
 
     /// How hard a missing asset is.
     ///
-    /// **this is a real choice, not a knob.** AGENTS.md's stance is that
+    /// this is a real choice, not a knob. AGENTS.md's stance is that
     /// binary payloads are git-ignored but present, and that a feature owes
     /// only "degrade visibly when a file is absent" — so on a fresh clone,
     /// missing art is a DOCUMENTED state, not a broken pack. A compiler that
@@ -243,7 +243,7 @@ impl AssetSource for NoAssets {
     }
 }
 
-/// Asset checks are not performed. **Explicit**, so a pack prepared this way is
+/// Asset checks are not performed. Explicit, so a pack prepared this way is
 /// visibly not making a claim about its assets.
 pub struct AssetsUnchecked;
 

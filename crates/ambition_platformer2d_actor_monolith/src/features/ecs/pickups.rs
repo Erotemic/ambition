@@ -4,54 +4,20 @@ use super::*;
 use crate::features::SetFlagRequested;
 use ambition_sfx::{SfxMessage, SfxWriter};
 
-/// **THE BODIES THAT COLLECT WHAT THEY TOUCH — one population, three systems.**
+/// Bodies eligible for passive touch collection.
 ///
-/// Touch-collection existed twice with two different answers to "who collects",
-/// and the two were wrong in OPPOSITE directions:
-///
-/// * `collect_ecs_pickups` / [`magnetize_pickups`] claimed `With<PlayerEntity>`
-///   — every body in the player population, which is right for a couch (four
-///   seats, four collectors, each credited on its own wallet) and **excludes a
-///   possessed body**, because possession moves the primary seat onto an ACTOR
-///   and an actor carries no `PlayerEntity`. A possessed body walked through
-///   coins.
-/// * [`collect_world_items`](crate::items::world_item::collect_world_items)
-///   read the `ControlledSubject` resource — ONE body — which includes the
-///   possessed body and **excludes couch seats 2..N**. Seat two walked through
-///   mushrooms. That half was not in the report; it is the same defect seen
-///   from the other side, and it is why "just unify onto `ControlledSubject`"
-///   would have been a regression.
-///
-/// Neither existing population is the right one, so the union is spelled once
-/// here and read by all three systems. It is a strict SUPERSET of both: no body
-/// that collected before stops collecting.
-///
-/// **the filter is only half of the answer.** `TemporaryControl` rides on
-/// EVERY autonomous actor (its `Default` is `Autonomous`), so `With` it selects
-/// the whole cast; [`body_collects_on_touch`] applies the value test. The filter
-/// exists to keep the iteration off bodies that can never qualify, not to decide
-/// anything.
-///
-/// **`pickup_held_item_system` is deliberately NOT in this population**, and
-/// grouping it with these was the report's third mis-reading. Grabbing a weapon
-/// off the floor SPENDS AN ATTACK PRESS on one body's `ActorControl`; walking
-/// into a coin spends nothing. Its `ControlledSubject` is "the body whose press
-/// this is", which is a different question from "who is standing on the loot".
+/// This includes all `PlayerEntity` bodies and actors currently driven through
+/// `TemporaryControl::Player`. [`body_collects_on_touch`] performs the value
+/// check because every autonomous actor also carries `TemporaryControl`.
+/// Action-driven held-item pickup uses a separate control path.
 pub type TouchCollectorFilter = bevy::prelude::Or<(
     bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     bevy::prelude::With<crate::features::TemporaryControl>,
 )>;
 
-/// The value half of [`TouchCollectorFilter`]: a body collects on touch if it is
-/// in the player population, or if a player is currently driving it through
-/// possession.
-///
-/// **a home avatar whose brain has been vacated keeps collecting**, because it
-/// keeps `PlayerEntity`. That is deliberate and is NOT the possession case
-/// leaking: possession is scoped to slot 0, and narrowing this to "carries a
-/// live player brain" would silently drop any body whose brain arrives later
-/// than its markers do. Widening is safe here; narrowing is what costs a game
-/// its coins.
+/// A body collects on touch when it belongs to the player population or is
+/// currently driven through possession. `PlayerEntity` remains sufficient even
+/// while that body's brain is temporarily absent.
 pub fn body_collects_on_touch(
     in_player_population: bool,
     control: Option<&crate::features::TemporaryControl>,
@@ -63,11 +29,7 @@ pub fn body_collects_on_touch(
         )
 }
 
-/// **and the old rule named the PLAYER** (`With<PrimaryPlayer>`), which is the
-/// first core value inverted: on a couch, every coin in the room flew at seat
-/// one. The attraction is toward the NEAREST collector now — the same population
-/// `collect_ecs_pickups` already claims with — so four players work without this
-/// module knowing what a protagonist is.
+/// Attraction targets the nearest eligible touch collector.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq)]
 pub struct PickupMagnet {
     /// Distance within which this pickup starts drifting toward a collector.
@@ -111,7 +73,7 @@ pub struct PickupCollectLock;
 #[derive(bevy::prelude::Component, Debug, Clone)]
 pub struct PickupArt(pub String);
 
-/// **The set [`magnetize_pickups`] runs in — loot is pulled here.**
+/// The set [`magnetize_pickups`] runs in — loot is pulled here.
 ///
 /// The opening half of the pickup window; see [`PickupCollect`] for what the
 /// pair is for. ONE member: this is the whole of the attract step.
@@ -167,7 +129,7 @@ pub fn magnetize_pickups(
     }
 }
 
-/// **The set [`collect_ecs_pickups`] runs in — loot is claimed here.**
+/// The set [`collect_ecs_pickups`] runs in — loot is claimed here.
 ///
 /// The closing half of the pickup window. Together with [`PickupMagnetize`] it
 /// names the gap a game inserts custom loot motion into: after the magnet has
@@ -266,14 +228,14 @@ pub fn collect_ecs_pickups(
     }
 }
 
-/// **Give `collector` what this pickup is worth.** THE grant authority for a
+/// Give `collector` what this pickup is worth. THE grant authority for a
 /// [`PickupKind`](ambition_interaction::PickupKind), for every road that hands
 /// one to somebody.
 ///
-/// **it exists because a SECOND road had the payload and no way to spend
-/// it.** `ChestFeature::reward()` — an `Option<PickupKind>` filled by all three
+/// it exists because a SECOND road had the payload and no way to spend
+/// it. `ChestFeature::reward()` — an `Option<PickupKind>` filled by all three
 /// chest authors (LDtk's `spawn_static`, the mob encounter's reward chest, and
-/// the boss's `DropChest` profile) — had **zero callers**. Every chest in the
+/// the boss's `DropChest` profile) — had zero callers. Every chest in the
 /// game opened, sparked, played its sound and announced *"opened X"*, and the
 /// authored reward was parsed, lowered onto the live component, and never
 /// granted to anybody.
@@ -281,7 +243,7 @@ pub fn collect_ecs_pickups(
 /// Lifting the arm out is what makes "a chest's reward is a pickup" true in the code rather
 /// than only in the data.
 ///
-/// **grant only — no banner, no spark, no sound.** Those belong to the road
+/// grant only — no banner, no spark, no sound. Those belong to the road
 /// the reward arrived by, and a chest already has its own.
 pub fn grant_pickup(
     kind: &ambition_interaction::PickupKind,
@@ -325,7 +287,7 @@ pub fn grant_pickup(
                 on: true,
             });
         }
-        // **A PAYLOAD THIS CANNOT SPEND IS A LOUD FAILURE, NOT A NO-OP.** `PickupKind::Custom` is
+        // A PAYLOAD THIS CANNOT SPEND IS A LOUD FAILURE, NOT A NO-OP. `PickupKind::Custom` is
         // an opaque authored string with no reader anywhere in the engine, so reaching here means
         // somebody authored a reward that is granted to nobody — and a silent `_ => {}` is how the
         // eight shipped boss chests came to be authored `Custom("pirate_hoard")`,

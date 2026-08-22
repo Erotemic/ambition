@@ -1,11 +1,11 @@
-//! **The acceptance tests ADR 0031 required before rollback could be public.**
+//! The acceptance tests ADR 0031 required before rollback could be public.
 //!
 //! Its Deferred section named six properties and reserved rollback for "its own
 //! slice, its own acceptance tests". This is that file. One test per property,
 //! named for the property, so a reader can check the promise against the list
 //! rather than against a paragraph.
 //!
-//! **They live in the CONSUMER, not the engine.** Every one of these is a
+//! They live in the CONSUMER, not the engine. Every one of these is a
 //! claim about what a third party can and cannot do, and an engine-side test
 //! would be the engine asking itself. Outlander is a real external crate whose
 //! only dependency is `ambition_platformer2d`; if a property here needed an engine internal
@@ -16,7 +16,7 @@
 
 use ambition_platformer2d::rollback::{RollbackPlan, RollbackRefused};
 
-/// Property 4: **deterministic activation.**
+/// Property 4: deterministic activation.
 ///
 /// A session rebases frame zero onto the live world, so the world has to be built first. The
 /// consumer cannot get it wrong now because the consumer no longer performs it.
@@ -62,7 +62,7 @@ fn a_host_that_never_activates_names_what_it_was_doing() {
     );
 }
 
-/// Property 3: **stable participants.**
+/// Property 3: stable participants.
 ///
 /// The count is declared at composition and cannot be re-passed per session, so a restart reuses
 /// it.
@@ -106,7 +106,7 @@ fn a_fixed_step_host_refuses_rather_than_pretending() {
     );
 }
 
-/// Property 2: **complete authoritative baseline.**
+/// Property 2: complete authoritative baseline.
 ///
 /// A session over an empty registry saves nothing, rewinds nothing and compares
 /// nothing — and passes. This repo has a name for that shape: an instrument
@@ -147,7 +147,7 @@ fn the_baseline_includes_state_the_engine_never_heard_of() {
     );
 }
 
-/// Property 5: **lifecycle rebasing.**
+/// Property 5: lifecycle rebasing.
 ///
 /// Proof pulses, hot-reload rebases and lifecycle commits are all the same
 /// session RESTARTED. A restart rebases frame zero onto the CURRENT live world;
@@ -200,7 +200,7 @@ fn a_restarted_session_rebases_onto_the_live_world() {
     );
 }
 
-/// Property 6: **confirmation boundaries.**
+/// Property 6: confirmation boundaries.
 ///
 /// Seating completes on the session's first frame, so an unsettled start lands
 /// activation on GGRS frame 1 — where nothing can rewind across it. `start`
@@ -230,7 +230,7 @@ fn the_plan_settles_past_activation_before_frame_zero() {
     assert!(ambition_platformer2d::app::host_status(&app).is_running());
 }
 
-/// Property 1: **frozen schema.**
+/// Property 1: frozen schema.
 ///
 /// ENFORCED elsewhere, and this test says where: `rollback-wire-format-is-frozen`
 /// in `scripts/check_absence_contracts.py` freezes all 63 encoded types across
@@ -260,7 +260,7 @@ fn the_schema_is_identical_across_two_compositions() {
     );
 }
 
-/// **A started session is not a running one.** (Blind run 7, finding c)
+/// A started session is not a running one. (Blind run 7, finding c)
 ///
 /// The run watched `host_status` report `Running { prepared: true }` for 4300
 /// updates while its sim was frozen. `RollbackSession` reports startup facts
@@ -308,7 +308,7 @@ fn a_consumer_can_ask_whether_its_session_is_still_healthy() {
     );
 }
 
-/// **The control run: prove re-simulation is HAPPENING, not just agreeing.**
+/// The control run: prove re-simulation is HAPPENING, not just agreeing.
 ///
 /// Blind run 8 built this and it is a better proof than anything I wrote for
 /// this file. Its shape: a counter that ticks once per sim tick either tracks

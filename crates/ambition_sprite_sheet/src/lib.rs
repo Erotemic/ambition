@@ -78,7 +78,7 @@ pub struct SheetRecord {
     /// page images so each PNG stays within the limit. Each [`SheetRow::page`]
     /// indexes into this list, and that row's `rects` are in that page image's
     /// own coordinate space (each page starts at y=0). Empty (the common case)
-    /// ⇒ the whole sheet is the single `image` and every row is page 0.
+    ///  the whole sheet is the single `image` and every row is page 0.
     #[serde(default)]
     pub images: Vec<String>,
     pub label_width: u32,
@@ -99,8 +99,8 @@ pub struct SheetRecord {
     /// callers use their Rust fallback tuning.
     #[serde(default)]
     pub tuning: Option<SheetTuningSpec>,
-    /// **Which way this sheet's ART WAS DRAWN** — `true` when the generator
-    /// rendered the neutral pose facing **left** (−x), the opposite of the
+    /// Which way this sheet's ART WAS DRAWN — `true` when the generator
+    /// rendered the neutral pose facing left (−x), the opposite of the
     /// renderer's standing assumption that art faces +x (right).
     ///
     /// It is a fact about the ARTWORK, not about the character, which is why it
@@ -110,7 +110,7 @@ pub struct SheetRecord {
     /// `flip_x = (facing < 0) XOR authored_faces_left` — rather than
     /// `facing < 0`.
     ///
-    /// **`false` is the whole population minus a handful**, so the default
+    /// `false` is the whole population minus a handful, so the default
     /// keeps every sheet that never mentions the field byte-identical. The
     /// generator only emits it when it is `true`, which today means an
     /// SVG-rigged sheet whose rig declares `features.facing: "west"` (the
@@ -209,12 +209,12 @@ pub struct SheetTuningSpec {
 /// (player, goblins, small bosses).
 ///
 /// `body_pixel_parts` is the multi-rect representation for
-/// **disjointed-piece characters** — giant bosses with head + body
+/// disjointed-piece characters — giant bosses with head + body
 /// + arms + legs that the gameplay code wants to address
 /// individually. Each part carries a `name` so consumers can target
 /// "head" vs "left_hand" by string. Defaults to empty.
 ///
-/// `animations` carries **per-animation** hurtbox + hitbox data
+/// `animations` carries per-animation hurtbox + hitbox data
 /// keyed by animation name (e.g. `"floor_slam"`, `"side_sweep"`).
 /// Each entry overrides the static body bbox for that animation
 /// so a boss whose arms extend out only during attack frames gets
@@ -247,8 +247,8 @@ pub struct BodyMetrics {
     pub feet_pixel: Option<PixelPoint>,
     #[serde(default)]
     pub feet_anchor_norm: Option<NormPoint>,
-    /// **`body_pixel_bbox` is this character's GAMEPLAY BODY, not the extent of
-    /// its art.**
+    /// `body_pixel_bbox` is this character's GAMEPLAY BODY, not the extent of
+    /// its art.
     ///
     /// The two rectangles were sharing one field. Nothing distinguished them, so a consumer asking
     /// "how big is this character's body" could be handed a drawing, and the only way to scale a
@@ -348,7 +348,7 @@ impl AnimationBoxFrame {
 }
 
 impl BodyMetrics {
-    /// **The pose's body rectangle, in sheet-frame pixels** — the sprite
+    /// The pose's body rectangle, in sheet-frame pixels — the sprite
     /// author's answer to "where is this character, in the frame, right now".
     ///
     /// A body whose silhouette changes shape between poses (a snake that
@@ -382,7 +382,7 @@ impl BodyMetrics {
             .filter(|bbox| bbox.w > 0 && bbox.h > 0)
     }
 
-    /// **How big this character IS in its own frame, for one pose** — the
+    /// How big this character IS in its own frame, for one pose — the
     /// extent, in frame pixels, of everything the sheet calls its body.
     ///
     /// A disjoint-piece character (a boss with a head, a torso and two hands)
@@ -524,12 +524,12 @@ pub struct FrameRect {
 #[derive(Resource, Debug, Default)]
 pub struct SheetRegistry {
     sheets: HashMap<String, SheetRecord>,
-    /// **Targets a later record took from an earlier one with a DIFFERENT frame
-    /// grid** — recorded rather than warned about here. See
+    /// Targets a later record took from an earlier one with a DIFFERENT frame
+    /// grid — recorded rather than warned about here. See
     /// [`Self::shadowed_targets`].
     shadowed: Vec<ShadowedTarget>,
-    /// **File roots a file-root-keyed build REFUSED for holding more than one
-    /// record** — see [`Self::ambiguous_file_roots`]. Empty for a target-keyed
+    /// File roots a file-root-keyed build REFUSED for holding more than one
+    /// record — see [`Self::ambiguous_file_roots`]. Empty for a target-keyed
     /// registry, which has no such notion.
     ambiguous_roots: Vec<AmbiguousFileRoot>,
 }
@@ -537,7 +537,7 @@ pub struct SheetRegistry {
 /// One `*_spritesheet.ron` holding SEVERAL records, seen through a file-root
 /// key that can only name one of them.
 ///
-/// **the file root stops identifying a sheet the moment the file holds two.** `creator_lab_props`
+/// the file root stops identifying a sheet the moment the file holds two. `creator_lab_props`
 /// packs 8 props into one PNG, so `creator_lab_props` names eight records and no single one of
 /// them.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -601,10 +601,10 @@ impl SheetRegistry {
         self.sheets.get(target)
     }
 
-    /// **Every target a later manifest took from an earlier one with a different
-    /// grid**, in insertion order.
+    /// Every target a later manifest took from an earlier one with a different
+    /// grid, in insertion order.
     ///
-    /// **the caller decides which of these MATTER**, because only it knows
+    /// the caller decides which of these MATTER, because only it knows
     /// which targets something resolves art by — see [`ShadowedTarget`]. A
     /// consumer that reports all of them reproduces the ~30-per-boot Android
     /// noise this replaced; one that reports none re-opens the day-long bisect.
@@ -612,7 +612,7 @@ impl SheetRegistry {
         &self.shadowed
     }
 
-    /// **Every file root a file-root-keyed build refused as ambiguous.**
+    /// Every file root a file-root-keyed build refused as ambiguous.
     ///
     /// Same division of labour as [`Self::shadowed_targets`]: this crate can see
     /// that a root names several records, but not whether anything resolves art
@@ -674,7 +674,7 @@ impl SheetRegistry {
             match ron::from_str::<Vec<SheetRecord>>(text) {
                 Ok(records) => {
                     for record in records {
-                        // **a blanket collision warn would be noise**, which is
+                        // a blanket collision warn would be noise, which is
                         // why this sat: sheets legitimately share a target
                         // (`toon` x17, `robot` x18, `goblin` x9 — see the
                         // file-root index below). What is NEVER legitimate is two
@@ -689,7 +689,7 @@ impl SheetRegistry {
                         // described by two different grids — so the sharers differ in IMAGE, every
                         // one of them.
                         //
-                        // ⇒ recorded, not reported. The collision is visible only
+                        //  recorded, not reported. The collision is visible only
                         // here; whether the loser is RESOLVABLE is visible only to
                         // a caller with a catalog, and this crate's whole claim is
                         // to be a content-free sprite-sheet vocabulary.
@@ -723,29 +723,9 @@ impl SheetRegistry {
         for (file, err) in failed {
             warn!("SheetRegistry: failed to parse baked {file}: {err}");
         }
-        // **NOT silenced, and the row says why not**: the case underneath is
-        // real — a May-dated manifest won `pirate_heavy_broadside_bess`, so she
-        // loaded the right image and cropped it with a dead grid, found by
-        // bisecting the asset tree. What is wrong with the old warning is that it
-        // cannot tell that from 17 characters legitimately sharing a rig, and the
-        // fact it needs — *is this target one a reader resolves art by* — belongs
-        // to a caller with a catalog, not to this crate.
-        //
-        // ⇒ so: one summary here, the detail on [`Self::shadowed_targets`], and
-        // the catalog-aware filter is a separate slice that consumes it.
-        //
-        // ✔✔ **THAT SLICE EXISTS NOW, AND THIS LINE IS NO LONGER THE ALARM.**
-        // `report_shadowed_character_sheets` (in `ambition_app`) reads `shadowed_targets`
-        // against the character catalog and warns only when a shadowed target is a character id
-        // — the case that cost a day.
-        //
-        // **so this summary was shouting on EVERY boot about a condition a better-informed
-        // reader had already cleared** — *"39 target(s) claimed twice"* on a line that then
-        // explains it is probably fine.
-        //
-        // A composition with no catalog (a headless tool, a demo mounting no cast) still gets the
-        // whole list one log level away, which is exactly the *"say nothing rather than report
-        // every rig target as suspicious"* policy the consumer states.
+        // Shared rig targets may legitimately have conflicting frame geometry.
+        // This crate records them at debug level; the catalog-aware consumer
+        // warns only when a shadowed target is an actual character id.
         if !registry.shadowed.is_empty() {
             debug!(
                 "SheetRegistry: {} target(s) claimed twice with different frame \
@@ -761,7 +741,7 @@ impl SheetRegistry {
         registry
     }
 
-    /// Like [`from_baked_table`], but keys each sheet by its **file root**
+    /// Like [`from_baked_table`], but keys each sheet by its file root
     /// (the table's first tuple element) instead of `record.target`.
     ///
     /// Several sheets legitimately share one `target` — e.g. `robot` and
@@ -772,7 +752,7 @@ impl SheetRegistry {
     /// need a specific sheet variant (the player's `player_robot_v3`, not the
     /// enemy `robot`).
     ///
-    /// **this is the posture the crate already had, joined late.**
+    /// this is the posture the crate already had, joined late.
     /// `AuthoredSheets::insert_ron` refuses a multi-record sheet outright rather
     /// than leaving its earlier records installed — *"a provider told 'rejected'
     /// and handed a half-populated registry is worse off than one told
@@ -836,7 +816,7 @@ pub struct SheetRegistryPlugin;
 struct SheetRegistryInstalled;
 
 impl Plugin for SheetRegistryPlugin {
-    /// **Idempotent, because more than one plugin legitimately NEEDS this.**
+    /// Idempotent, because more than one plugin legitimately NEEDS this.
     /// Sprite metadata is not a game's choice — a render system that draws from
     /// a sheet cannot run without it — so any plugin that installs such a system
     /// installs this too, and the composition that already had it must not

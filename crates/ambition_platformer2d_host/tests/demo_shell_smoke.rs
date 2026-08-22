@@ -137,10 +137,10 @@ fn fixture_setup(
     );
 }
 
-/// **A SHELL WITH NO ENCOUNTER CONTENT BOOTS.**
+/// A SHELL WITH NO ENCOUNTER CONTENT BOOTS.
 ///
-/// **the run's gate is `cargo check -p ambition_app --all-targets` plus
-/// `app_it`, and neither builds this crate's tests.** A whole crate went red and
+/// the run's gate is `cargo check -p ambition_app --all-targets` plus
+/// `app_it`, and neither builds this crate's tests. A whole crate went red and
 /// stayed green to the campaign. That is the finding; the panic is only how it
 /// showed up.
 ///

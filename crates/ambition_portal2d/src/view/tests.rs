@@ -103,7 +103,7 @@ fn view_preserves_front_depth() {
 
 /// Pin the floor→right-wall map numerically: 10px above the floor portal
 /// at lateral +s shows the point 10px left of the wall portal at lateral
-/// -s along the wall's tangent (t_out = (0,-1) ⇒ world offset (0,-s)).
+/// -s along the wall's tangent (t_out = (0,-1)  world offset (0,-s)).
 #[test]
 fn floor_to_wall_view_pinned() {
     let enter = floor(Vec2::new(100.0, 300.0));
@@ -156,7 +156,7 @@ fn view_cone_source_geometry() {
     }
 }
 
-/// Behind BOTH ends, in neither doorway ⇒ `None` (two floors, eye well
+/// Behind BOTH ends, in neither doorway  `None` (two floors, eye well
 /// below both planes).
 #[test]
 fn visible_cone_none_behind_both_ends() {
@@ -167,7 +167,7 @@ fn visible_cone_none_behind_both_ends() {
 }
 
 /// The wormhole: standing in front of the PARTNER opens this end's window
-/// even though the eye is behind this surface (above purple ⇒ yellow shows).
+/// even though the eye is behind this surface (above purple  yellow shows).
 #[test]
 fn visible_cone_opens_from_the_partner_side() {
     let enter = floor(Vec2::new(100.0, 300.0));
@@ -359,7 +359,7 @@ fn visible_cone_head_on_is_symmetric_and_depth_clamped() {
     // Far corners sit exactly `depth` behind (into the floor, +y).
     assert!((f0.y - (300.0 + depth)).abs() < 1e-3, "{f0:?}");
     assert!((f1.y - (300.0 + depth)).abs() < 1e-3, "{f1:?}");
-    // Head-on ⇒ far edge centered on the aperture center (x=100) and wider
+    // Head-on  far edge centered on the aperture center (x=100) and wider
     // than the aperture by (1 + depth/front).
     let h = enter.half_length;
     assert!(((f0.x + f1.x) * 0.5 - 100.0).abs() < 1e-3, "centered");
@@ -378,7 +378,7 @@ fn visible_cone_head_on_is_symmetric_and_depth_clamped() {
 /// way the surface faces — a ceiling never inverts.
 #[test]
 fn visible_cone_skews_away_from_viewer_floor_and_ceiling() {
-    // Floor (normal up): eye up-and-LEFT ⇒ far edge to the RIGHT.
+    // Floor (normal up): eye up-and-LEFT  far edge to the RIGHT.
     let enter = floor(Vec2::new(100.0, 300.0));
     let exit = right_wall(Vec2::new(400.0, 200.0));
     let cone = visible_cone(&enter, &exit, Vec2::new(40.0, 220.0), 80.0, 400.0).unwrap();
@@ -388,7 +388,7 @@ fn visible_cone_skews_away_from_viewer_floor_and_ceiling() {
         "floor: off-left viewer ⇒ far edge right, got {}",
         (f0.x + f1.x) * 0.5
     );
-    // Ceiling (normal DOWN, +y): eye BELOW and to the LEFT ⇒ far edge still
+    // Ceiling (normal DOWN, +y): eye BELOW and to the LEFT  far edge still
     // to the RIGHT (consistent — no ceiling-specific inversion).
     let ceil = frame(Vec2::new(100.0, 300.0), Vec2::new(0.0, 1.0));
     let cone = visible_cone(&ceil, &exit, Vec2::new(40.0, 380.0), 80.0, 400.0).unwrap();

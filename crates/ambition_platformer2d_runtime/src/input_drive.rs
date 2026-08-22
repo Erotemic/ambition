@@ -21,7 +21,7 @@ pub fn drive_control_frame(world: &mut World, frame: ControlFrame) {
     );
 }
 
-/// **ANY seat's input, delivered to whichever surface this composition has.**
+/// ANY seat's input, delivered to whichever surface this composition has.
 ///
 /// this was TWO functions with the same shape, differing only in which resource each arm named
 /// — and seat zero's latch has since become row zero of the same table every other seat uses.
@@ -42,7 +42,7 @@ pub fn drive_slot_frame(
     // It is that seat's output mirror now, so writing it would deliver a press to nobody — the
     // silent no-op this whole seam exists to prevent.
     //
-    // **BOTH surfaces, and that is the helper's whole contract.** A driver
+    // BOTH surfaces, and that is the helper's whole contract. A driver
     // says *this seat is holding this frame* and must not have to know how the
     // composition was assembled. The RAW row is what a shaping stage reads — a
     // scripted reset has to reach the reset stage, a scripted stick the portal

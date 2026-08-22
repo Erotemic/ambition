@@ -326,13 +326,13 @@ pub enum Relativity2dSet {
 /// Composition may run this once for schema metadata and again through a concrete
 /// rollback backend without the domain depending on that backend.
 pub fn register_rollback_state(registrar: &mut impl RollbackRegistrar) {
-    // ⭐ **DERIVED, not snapshot state.** `publish_clock_view` clears the map
+    //  DERIVED, not snapshot state. `publish_clock_view` clears the map
     // and rebuilds every entry each tick out of `RelativityState2d` and
     // `ProperTimeElapsed`, both registered below — so a rewind that restores
     // those restores this on the next publish, and snapshotting it would
     // store a second copy of state the schema already owns.
     //
-    // ⚠ this is the shape worth being careful about: a "derived" resource
+    //  this is the shape worth being careful about: a "derived" resource
     // that also carried an accumulator or an already-applied gate would be
     // rollback state wearing a cache's name. This one has neither — the
     // first statement in its writer is `clocks.clear()`, and the only other

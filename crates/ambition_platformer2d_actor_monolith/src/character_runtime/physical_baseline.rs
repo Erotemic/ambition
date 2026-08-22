@@ -1,4 +1,4 @@
-//! **What a prepared character says about a BODY, applied one way everywhere.**
+//! What a prepared character says about a BODY, applied one way everywhere.
 //!
 //! A character's kit was unified at the finalization barrier: one fold, one
 //! answer, every construction path reading the same value. Its *physical*
@@ -22,7 +22,7 @@
 //!
 //! # What this does NOT do, deliberately
 //!
-//! **It does not run per tick.** These are construction facts. A projection that
+//! It does not run per tick. These are construction facts. A projection that
 //! rewrote a live body's health would delete the damage it had taken, and one
 //! that rewrote its size every frame would be a second geometry authority beside
 //! the transit seam (ADR 0024). [`BaselineBoundary`] names the two moments a body
@@ -33,7 +33,7 @@ use bevy::ecs::system::EntityCommands;
 use super::{BodySource, PreparedCharacterDefinition};
 use ambition_platformer2d_core::Vec2;
 
-/// **The moment a body is being told what it physically is.**
+/// The moment a body is being told what it physically is.
 ///
 /// Not a verbosity knob — the two boundaries genuinely differ about current
 /// health, and being explicit is what keeps a re-wear from healing a fighter
@@ -47,41 +47,19 @@ pub enum BaselineBoundary {
     /// its own and survives; only the maximum moves, and the current value is
     /// clamped under it.
     ///
-    /// **geometry does not apply here**, and that is a narrowing rather than an omission. A
+    /// geometry does not apply here, and that is a narrowing rather than an omission. A
     /// character whose silhouette must follow it onto every body authors
     /// [`BodySource::SpriteAuthored`], whose per-pose projection already reaches every body on
     /// every path; [`BodySource::Explicit`] is a construction-time size and says so.
     Replacement,
 }
 
-/// **What a persona DISPLACED on this body, and therefore what a later silent
-/// persona has to put back.**
+/// Values displaced by character replacement and eligible for later retraction.
 ///
-/// The retraction half of [`BaselineBoundary:Replacement`]. It exists because absence had two
-/// plausible readings and the wrong one was implemented: `apply_to_body` wrote a value only
-/// when the incoming character authored one, so a character that authored nothing INHERITED the
-/// outgoing character's numbers.
-///
-/// **a field no persona has EVER written stays `None` here and is never
-/// retracted**, and that narrowing is load-bearing rather than tidy. The first
-/// version of this fix recorded the body's values wholesale and restored them
-/// whenever the incoming character was silent — which quietly made this path a
-/// second authority over `max_health`, fighting every other writer of it. It
-/// desynced `rollback_lifecycle_reset` within the hour: that test stages a 3-HP
-/// player by writing `health.max` directly, this derive is gated on Bevy change
-/// detection, and **change ticks are not rollback state**. So the derive fired on
-/// resimulated frames it had not fired on live, and a write that had always been
-/// a no-op became a checksum divergence.
-///
-/// The rule that falls out is worth more than the fix, and generalises past this
-/// module: *a write gated on `is_changed()` inside a rollback body must be
-/// idempotent with respect to every other writer of that field.* Forcing a field
-/// back to a captured constant is not. Writing back only what this path itself
-/// displaced is.
-///
-/// **captured once PER FIELD, at the first persona that overrides it.**
-/// Re-capturing on each re-wear would record the outgoing persona's grant as
-/// "what was there", which is the original bug with an extra step.
+/// Capture each field only when a character first overrides it. A field no
+/// character has displaced stays `None` and must not be restored by this path.
+/// This keeps change-detected rollback writes idempotent with respect to other
+/// authorities over the same body fields.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct DisplacedPhysicals {
     /// The pool a persona overwrote. `None` = no persona has ever set
@@ -95,7 +73,7 @@ pub struct DisplacedPhysicals {
     /// The knockback weight a persona overwrote. `None` = no persona has ever
     /// set one, so nothing here may write it.
     ///
-    /// **a plain `Option`, not the nested one `mass` needs**, and the
+    /// a plain `Option`, not the nested one `mass` needs, and the
     /// difference is real rather than an inconsistency: weight lives on
     /// `CombatTuning`, which a clustered body always carries and which this path
     /// must never remove — removing it would take the body out of the actor
@@ -178,7 +156,7 @@ impl PhysicalRetraction {
     }
 }
 
-/// **The physical facts a prepared character states, resolved.**
+/// The physical facts a prepared character states, resolved.
 ///
 /// Every field is an `Option` carrying the same meaning it has on the
 /// definition: `None` is *the author said nothing*, so whatever the body's own
@@ -241,7 +219,7 @@ impl PhysicalBaseline {
         self.knockback_weight
     }
 
-    /// **Apply to a body that already exists.**
+    /// Apply to a body that already exists.
     ///
     /// The live-body half of the seam. `health` and `size` are optional because
     /// not every body carries them in the caller's query — `None` is "this path
@@ -254,7 +232,7 @@ impl PhysicalBaseline {
     /// caller with nowhere to transit to passes `None` and gets
     /// [`BaselineBoundary::Replacement`]'s narrowing.
     ///
-    /// **both, or the size does not survive the first lifecycle transition.** This wrote only the
+    /// both, or the size does not survive the first lifecycle transition. This wrote only the
     /// live collider. `BodyBaseSize` is the identity-derived canonical shape: a round reset
     /// restores the collider FROM it, and every body-mode transition (crouch, stand, morph)
     /// computes its target shape FROM it. The two seats diverged again one lifecycle transition
@@ -262,7 +240,7 @@ impl PhysicalBaseline {
     ///
     /// Match activation is a CONSTRUCTION boundary, and at a construction
     /// boundary an explicit identity size IS the body's new base.
-    /// **`retraction` is what this character's SILENCE puts back**, and passing
+    /// `retraction` is what this character's SILENCE puts back, and passing
     /// it is the difference between replacement and accumulation. See
     /// [`PhysicalRetraction`]; [`PhysicalRetraction::NONE`] is the construction
     /// reading.
@@ -293,7 +271,7 @@ impl PhysicalBaseline {
                 }
             }
         }
-        // **the weight is WRITTEN IN PLACE, never inserted or removed.**
+        // the weight is WRITTEN IN PLACE, never inserted or removed.
         // `CombatTuning` is part of `ActorClusterQueryData`; a body without it
         // leaves the actor cluster query entirely and stops being simulated.
         // Only the field moves.

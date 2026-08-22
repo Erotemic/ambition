@@ -4,7 +4,7 @@
 //! character art needs to be rescaled (probably at the generator level, not via
 //! some post-hoc fix)."*
 //!
-//! **and the exception is in the same paragraph**: *"Note the player robot v3
+//! and the exception is in the same paragraph: *"Note the player robot v3
 //! is supposed to be chibi and short compared to other humanoids."* So the rule
 //! is NOT "everyone is the same height", and no ratchet here can be written
 //! until somebody says which characters are meant to be alike. That decision is
@@ -47,7 +47,7 @@ fn measured_bodies() -> Vec<(String, f32, f32)> {
     rows
 }
 
-/// **The instrument.** Prints every character's baked body, tallest first.
+/// The instrument. Prints every character's baked body, tallest first.
 #[test]
 #[ignore]
 fn print_how_tall_every_character_stands() {
@@ -69,7 +69,7 @@ fn print_how_tall_every_character_stands() {
     }
 }
 
-/// **The instrument cannot rot silently.**
+/// The instrument cannot rot silently.
 ///
 /// it deliberately does NOT bound the spread.
 #[test]

@@ -95,7 +95,7 @@ pub struct CombatCapabilities {
 }
 
 impl From<&ambition_characters::actor::CharacterDeathTraits> for CombatCapabilities {
-    /// **The one lowering from authored death traits to the runtime component.**
+    /// The one lowering from authored death traits to the runtime component.
     ///
     /// A character definition states what it does when it dies as plain data in
     /// the character domain; construction turns that into the live component.
@@ -155,7 +155,7 @@ impl BodyMovementTuning {
         double_jump_speed: 430.0,
     };
 
-    /// Build the engine `MovementTuning` the grounded **spine** runs on for this
+    /// Build the engine `MovementTuning` the grounded spine runs on for this
     /// body: the composed gravity/run/fall knobs over the bare default, with the
     /// body's run cap and gravity frame, frictionless (a grounded actor carries no
     /// friction limbs — friction lives in the rich pipeline this body adopts next).
@@ -174,7 +174,7 @@ impl BodyMovementTuning {
         }
     }
 
-    /// Build the engine `MovementTuning` the **full player pipeline** runs on for
+    /// Build the engine `MovementTuning` the full player pipeline runs on for
     /// this body. Extends [`Self::spine_tuning`] with the body's jump speeds (the
     /// rich pipeline owns jumping, where the bare spine left it to the caller), so
     /// a body routed through `update_body_*_with_clusters` jumps with its OWN

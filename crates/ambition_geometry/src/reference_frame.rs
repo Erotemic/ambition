@@ -4,12 +4,12 @@
 //! [`AccelerationFrame`] makes the frames and the transforms explicit so being gravity-aware is
 //! "you hold a `AccelerationFrame`", not "you remembered to multiply by `gravity_dir`".
 //!
-//! - **Input frame** — the controller: `axis_x` right-positive, `axis_y`
+//! - Input frame — the controller: `axis_x` right-positive, `axis_y`
 //!   screen-down-positive. Raw, never rotated.
-//! - **Local body frame** — relative to the controlled body: `+x` is the run / side
+//! - Local body frame — relative to the controlled body: `+x` is the run / side
 //!   axis, `+y` is *toward the feet* (the body's own "down"). Combat geometry,
 //!   impulses, and gates are authored here, in the upright (normal-gravity) pose.
-//! - **World frame** — engine coordinates (`+y` screen-down).
+//! - World frame — engine coordinates (`+y` screen-down).
 //!
 //! Under normal gravity the local body frame *equals* the world frame, so every
 //! transform below is the identity and play is byte-identical.
@@ -94,9 +94,9 @@ impl LocalAxes {
     }
 }
 
-// **the rule these operators encode: scaling, adding and negating a vector
+// the rule these operators encode: scaling, adding and negating a vector
 // cannot change which frame it is in, so they are available on the typed value;
-// anything that DOES change frame has to go through `to_world` / `to_local`.**
+// anything that DOES change frame has to go through `to_world` / `to_local`.
 // That is the whole distinction, and it is what makes the type cheap to live
 // with — a caller only reaches for a conversion at the moments a conversion is
 // actually the point.
@@ -244,11 +244,11 @@ impl InputFrameMode {
     /// where the stick points on screen at any gravity. Single source of truth.
     pub const DEFAULT_AIM: Self = Self::ScreenRelative;
 
-    /// **The mode that actually applies once the observing view's frame is known.**
+    /// The mode that actually applies once the observing view's frame is known.
     ///
-    /// **under [`CameraReferenceFrame::SubjectFrame`] every mode collapses to
+    /// under [`CameraReferenceFrame::SubjectFrame`] every mode collapses to
     /// [`Self::BodyRelativeStrict`], and that is an IDENTITY rather than a
-    /// preference.** A subject-frame view rolls until screen-down *is* the body's
+    /// preference. A subject-frame view rolls until screen-down *is* the body's
     /// `down` and screen-right *is* its `side`. Feed a stick `(sx, sy)` through
     /// [`AccelerationFrame::resolve_input`] under that roll and
     /// `ScreenRelative` computes `((sx·side + sy·down)·side, (…)·down)`, which is
@@ -258,8 +258,8 @@ impl InputFrameMode {
     /// hard to map", and a body that never *appears* flipped has nothing to
     /// accommodate.
     ///
-    /// **this is why `ScreenRelative` must not be read raw once a view can
-    /// roll.** `side`/`down` are the body basis *expressed in world coordinates*
+    /// this is why `ScreenRelative` must not be read raw once a view can
+    /// roll. `side`/`down` are the body basis *expressed in world coordinates*
     /// (see [`AccelerationFrame`]), so reading the stored mode directly means
     /// "screen" silently means "world" — correct only while no view rotates.
     ///
@@ -275,15 +275,15 @@ impl InputFrameMode {
     }
 }
 
-/// **Which frame a view presents the world in.**
+/// Which frame a view presents the world in.
 ///
 /// A presentation policy and nothing else: gravity, collision and body
 /// integration are the same simulation facts whichever frame observes them. It
 /// belongs to a VIEW, so when views become indexed this moves with them rather
 /// than becoming a process-global mode.
 ///
-/// **it lives beside [`InputFrameMode`] because they are one question asked
-/// twice** — "which frame is this human operating in?" — and
+/// it lives beside [`InputFrameMode`] because they are one question asked
+/// twice — "which frame is this human operating in?" — and
 /// [`InputFrameMode::under_camera`] is the rule that keeps the two answers
 /// consistent. Splitting them across crates is what let `ScreenRelative` mean
 /// "world-relative" without anything noticing.
@@ -306,7 +306,7 @@ pub enum CameraReferenceFrame {
     /// Screen orientation follows the view subject's resolved body frame, so a
     /// gravity change presents as the world rotating around an upright body.
     ///
-    /// **the subject is a view's subject, not a protagonist.** The resolver
+    /// the subject is a view's subject, not a protagonist. The resolver
     /// takes a direction, never an entity, so a spectator, a replay or a second
     /// local view can orient on whatever body it is watching.
     SubjectFrame,
@@ -701,11 +701,11 @@ impl AccelerationFrame {
     /// held-shot aim) into the controlled body's LOCAL frame, choosing the frame
     /// policy by INPUT SOURCE per [`ControlFrameModes`]:
     ///
-    /// - **aim stick engaged** → precision aiming, resolved through `modes.aim`
+    /// - aim stick engaged → precision aiming, resolved through `modes.aim`
     ///   (the "precision blink");
-    /// - **else movement stick engaged** → locomotion, resolved through
+    /// - else movement stick engaged → locomotion, resolved through
     ///   `modes.movement` (the "quick blink");
-    /// - **else** → body-local facing (`+x`), no mode needed.
+    /// - else → body-local facing (`+x`), no mode needed.
     ///
     /// `aim` and `movement` are raw INPUT-frame sticks (`+x` screen-right, `+y`
     /// screen-down); `facing` is the body's screen-space facing sign. The result

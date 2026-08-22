@@ -287,7 +287,7 @@ fn brain_npc_patrol_ctor_inherits_spawn_and_radius() {
     assert!(!b.is_hostile());
 }
 
-/// **A `Brain` cannot say who drives a body, and that is the point.**
+/// A `Brain` cannot say who drives a body, and that is the point.
 ///
 /// ⛔ this used to assert `is_player()` / `player_slot()` — an AI-policy enum
 /// answering a question about a person. The answer lives on the body as

@@ -145,7 +145,7 @@ fn bake_pack_catalogs(asset_owner_dir: &Path, out_dir: &Path) {
     }
     tiers.sort_by(|a, b| a.0.cmp(&b.0));
 
-    // **WHETHER THIS TREE HAS AN ULTRAPACK AT ALL, as a compile-time fact.**
+    // WHETHER THIS TREE HAS AN ULTRAPACK AT ALL, as a compile-time fact.
     //
     // two tests in this crate need it and both got it wrong. Pack output is
     // gitignored, so on a fresh checkout the table below is empty and

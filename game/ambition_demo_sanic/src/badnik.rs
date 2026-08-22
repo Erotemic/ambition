@@ -1,13 +1,13 @@
 //! The speedway badnik — a stompable, roll-through-able walker, pure content.
 //!
-//! The Mary-O crony pattern applied to Sanic's verbs, with **zero engine
-//! edits**:
+//! The Mary-O crony pattern applied to Sanic's verbs, with zero engine
+//! edits:
 //!
-//! - **Placement** comes from the demo's LDtk file: `EnemySpawn` entities
+//! - Placement comes from the demo's LDtk file: `EnemySpawn` entities
 //!   carrying `brain: "sanic_badnik"` lower into `RoomSpec::enemy_spawns` and
 //!   the engine's room staging spawns them — no demo staging system at all.
-//! - **Body + walk + contact damage** **DO NOT come from what this said they
-//!   did.** It claimed "a demo-owned roster archetype (`sanic_badnik`, a 1-HP
+//! - Body + walk + contact damage DO NOT come from what this said they
+//!   did. It claimed "a demo-owned roster archetype (`sanic_badnik`, a 1-HP
 //!   `Wanderer` that paces and reverses at walls)", and there is no such row —
 //!   not in this crate, not in Ambition's `character_archetypes.ron`, and not in
 //! its history. `spec_for_brain` answers
@@ -17,7 +17,7 @@
 //!
 //! The 1-HP wanderer is not implemented; making it authoritative requires a `sanic_badnik`
 //! character definition because health and movement are character facts.
-//! - **The defeat** is Sanic's, not Mary-O's: a descending bounce on the head (classic stomp, with the bounce) OR any overlap while ROLLING (the ball dash / crouch-roll is the weapon — rolling through a badnik at speed is the Sonic fantasy). Both despawn the badnik the same frame so the shared contact-damage pass never bills the attacker.
+//! - The defeat is Sanic's, not Mary-O's: a descending bounce on the head (classic stomp, with the bounce) OR any overlap while ROLLING (the ball dash / crouch-roll is the weapon — rolling through a badnik at speed is the Sonic fantasy). Both despawn the badnik the same frame so the shared contact-damage pass never bills the attacker.
 //!
 //! Every type it names comes through the `ambition_platformer2d` umbrella — the E9 oracle.
 
@@ -37,7 +37,7 @@ pub const BADNIK_DISPLAY_NAME: &str = "Sanic Badnik";
 /// The roster brain key the LDtk `EnemySpawn` entities reference.
 pub const BADNIK_BRAIN_KEY: &str = "sanic_badnik";
 
-/// **How near Sanic has to be for a badnik to keep thinking.**
+/// How near Sanic has to be for a badnik to keep thinking.
 ///
 /// So this is derived rather than borrowed: the same 2.4s of lead against
 /// Sanic's fastest tuning (`top_speed: 2000.0`).
@@ -46,9 +46,9 @@ pub const BADNIK_BRAIN_KEY: &str = "sanic_badnik";
 /// engine seam's units.
 pub const BADNIK_WAKE_RADIUS: f32 = 4800.0;
 
-/// **Badniks stop thinking when Sanic is nowhere near them.**
+/// Badniks stop thinking when Sanic is nowhere near them.
 ///
-/// **declared per character, never inherited.** An actor with no
+/// declared per character, never inherited. An actor with no
 /// `DormancyPolicy` is always awake, which is what makes "not inherent" the
 /// default rather than an opt-out.
 pub fn tag_sanic_badniks(
@@ -81,7 +81,7 @@ const BOUNCE_SPEED: f32 = 460.0;
 /// Vertical tolerance (px) for "feet on the badnik's head".
 const STOMP_BAND: f32 = 16.0;
 
-/// **Register the badnik as a CHARACTER** — the body its deleted row described.
+/// Register the badnik as a CHARACTER — the body its deleted row described.
 ///
 /// A 1-HP wanderer that paces and reverses at walls, with no melee: its only
 /// offense is the body it walks into you with, which is what makes it a
@@ -125,7 +125,7 @@ pub fn register_badnik_character(app: &mut App) {
     app.register_character(definition);
 }
 
-/// **The defeat rule.** A player descending onto a badnik's head bounces up
+/// The defeat rule. A player descending onto a badnik's head bounces up
 /// and squashes it; a ROLLING player squashes it on any overlap and keeps its
 /// speed (rolling through a line of badniks is the point of rolling); a SUPER
 /// player squashes it on any overlap, full stop (the classic invincible-form
@@ -162,7 +162,7 @@ pub fn defeat_badniks(
     let Ok((mut player, rolling, empowered)) = players.single_mut() else {
         return;
     };
-    // **Squashing on touch is a TRAIT the body holds, not a name it wears.**
+    // Squashing on touch is a TRAIT the body holds, not a name it wears.
     //
     // Rolling joins it for the kill condition but not for the bounce: a super
     // stomp still bounces like any stomp.
@@ -296,7 +296,7 @@ mod tests {
         );
     }
 
-    /// **A body that HARMS ON CONTACT squashes on any touch** — un-rolled, not
+    /// A body that HARMS ON CONTACT squashes on any touch — un-rolled, not
     /// falling, a plain walk-into.
     #[test]
     fn a_body_that_harms_on_contact_squashes_a_badnik_on_any_touch() {

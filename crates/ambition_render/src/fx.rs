@@ -24,10 +24,10 @@ use ambition_vfx::FxId;
 // paths keep resolving.
 pub use ambition_vfx::vfx::{FireworksRequest, FxRequest, ParticleKind, SlashKind, VfxMessage};
 
-/// **What an [`FxId`] names**: the authored row, the sheet holding it, and the
+/// What an [`FxId`] names: the authored row, the sheet holding it, and the
 /// packed cue that ships with it.
 ///
-/// **this index IS the engine's effect vocabulary, and nothing declares it.**
+/// this index IS the engine's effect vocabulary, and nothing declares it.
 /// It is built by walking the FX sheets' own baked records and hashing each row
 /// name — so the set of drawable effects is the set of shipped rows, by
 /// construction. That is what replaced `move_vfx_kind` (name→enum),
@@ -56,14 +56,14 @@ pub fn authored_effect_for(fx: FxId) -> Option<&'static AuthoredEffect> {
     effect_index().by_id.get(&fx).map(|(effect, _)| *effect)
 }
 
-/// **The sound `fx` makes.** A property of the NAME, not of the call site: the
+/// The sound `fx` makes. A property of the NAME, not of the call site: the
 /// bank ships one `vfx.<family>.<row>` cue for every authored row, so an
 /// emitter that says which effect has already said which sound.
 pub fn effect_cue(fx: FxId) -> Option<SfxId> {
     effect_index().by_id.get(&fx).map(|(_, cue)| *cue)
 }
 
-/// **Say once, per id, that an effect named nothing.**
+/// Say once, per id, that an effect named nothing.
 ///
 /// SFX's policy, for SFX's reason: the vocabulary is open (a game may author
 /// effects the engine never heard of), so a miss is a report rather than a
@@ -394,7 +394,7 @@ pub fn vfx_spawn_messages(
     }
 }
 
-/// **Can `fx` be drawn as ART right now, and from what?**
+/// Can `fx` be drawn as ART right now, and from what?
 ///
 /// The decision `spawn_effect` makes, factored out so a test can ask the engine
 /// rather than re-derive it: `None` here IS the particle fallback. Two ways to
@@ -414,9 +414,9 @@ pub fn resolve_drawable(
     Some((effect, asset, slot))
 }
 
-/// **How big an unscaled authored effect is drawn, in world units.**
+/// How big an unscaled authored effect is drawn, in world units.
 ///
-/// **the number is now the DEFAULT, not the answer.** A move authors
+/// the number is now the DEFAULT, not the answer. A move authors
 /// `Vfx { scale }` (see `MoveEventKind::Vfx`), so a flourish asks for less and a
 /// super asks for more — which is the expressive range the constant took away.
 /// This value is a little under a fighter's height on purpose: an effect the
@@ -424,7 +424,7 @@ pub fn resolve_drawable(
 /// is.
 pub const FX_DEFAULT_WORLD_SIZE: f32 = 56.0;
 
-/// **Draw the authored effect `fx`, or say why not.**
+/// Draw the authored effect `fx`, or say why not.
 ///
 /// Three ways this ends, and they are different facts: the id names no shipped row (a counted miss
 /// — the authored id is wrong or the art was never made); the sheet holding the row is not decoded
@@ -473,26 +473,26 @@ fn spawn_effect(
     );
 }
 
-/// **The generic hit marker: what an ordinary impact looks like.**
+/// The generic hit marker: what an ordinary impact looks like.
 ///
-/// **the art was already shipped and nothing asked for it.** The engine's
+/// the art was already shipped and nothing asked for it. The engine's
 /// own `generic_action_fx` sheet carries `hit_soft`, `hit_hard`, `hit_metal` and
 /// `hit_energy`; the marker is simply a consumer that never joined — the same
 /// shape as the 189-rows-on-disk / 5-reachable-from-Rust finding that
 /// `ambition_sprite_sheet::fx` was built to close.
 ///
-/// **`hit_soft` for every impact, deliberately.** [`ambition_vfx:ImpactMaterial`] already
+/// `hit_soft` for every impact, deliberately. [`ambition_vfx:ImpactMaterial`] already
 /// distinguishes flesh / robot / metal, and the sheet already draws all three — but the
 /// material lives on the VICTIM's `HurtFeedback` and `VfxMessage:Impact` carries a position and
 /// nothing else, so joining those two vocabularies is a message change and a taste call, not
 /// part of giving the marker art.
 pub const GENERIC_HIT_FX: FxId = FxId::from_static("hit_soft");
 
-/// **How big a generic hit draws**, as a multiple of [`FX_DEFAULT_WORLD_SIZE`].
+/// How big a generic hit draws, as a multiple of [`FX_DEFAULT_WORLD_SIZE`].
 ///
-/// **MEASURED, not reasoned.** The first attempt read the sheet's
+/// MEASURED, not reasoned. The first attempt read the sheet's
 /// `body_pixel_bbox` (48 of a 128px frame) and predicted that `0.9` would draw a
-/// 19-unit spark. Photographed, its solid core came out **51 x 56 world units**:
+/// 19-unit spark. Photographed, its solid core came out 51 x 56 world units:
 /// the bbox describes ONE rect of the opening frame, and the clip's later frames
 /// fill the square. So the drawn size is the frame size, `0.9 x 56 = 50` — as
 /// tall as the 46-unit fighter being hit.
@@ -533,7 +533,7 @@ fn spawn_hit_marker(
     );
 }
 
-/// **Spawn one resolved effect clip.** The half of [`spawn_effect`] that runs
+/// Spawn one resolved effect clip. The half of [`spawn_effect`] that runs
 /// once the art is in hand, shared with [`spawn_hit_marker`] so the two cannot
 /// drift in how an effect is sized, posed, animated or scoped.
 #[allow(clippy::too_many_arguments)]
@@ -621,8 +621,8 @@ fn speech_bubble_alpha(age: f32, duration: f32) -> f32 {
     alpha.clamp(0.0, 1.0)
 }
 
-/// **Say where the line wants to be and how strongly it wants to be seen — and
-/// stop there.**
+/// Say where the line wants to be and how strongly it wants to be seen — and
+/// stop there.
 ///
 /// it writes neither the `Transform` nor the `TextColor`. The placement pass
 /// is the single writer of both for every [`WorldLabel`], and two writers
@@ -754,7 +754,7 @@ pub fn update_impacts(
     }
 }
 
-/// **How wide a bark may be, in world units.**
+/// How wide a bark may be, in world units.
 const SPEECH_BUBBLE_MAX_WIDTH: f32 = 120.0;
 
 pub fn spawn_speech_bubble(
@@ -793,7 +793,7 @@ pub fn spawn_speech_bubble(
                 font_size: 18.0,
                 ..font.clone()
             },
-            // **width only.** `TextBounds`' own doc says characters outside
+            // width only. `TextBounds`' own doc says characters outside
             // the bounds after wrapping are TRUNCATED, so a height bound would
             // silently eat the end of a long bark — the one thing worse than a
             // wide one.
@@ -965,12 +965,12 @@ pub fn spawn_burst(
     }
 }
 
-/// **One coin, up and back down** — the acknowledgement a struck coin block owes.
+/// One coin, up and back down — the acknowledgement a struck coin block owes.
 ///
 /// A single ballistic particle rather than a burst: the coin leaves straight up, gravity brings
 /// it back, and it is gone inside a third of a second.
 ///
-/// **the four numbers are the whole feel and they are together on purpose.**
+/// the four numbers are the whole feel and they are together on purpose.
 /// Rise, gravity, size and colour are the dials worth turning; everything else
 /// about the effect follows from them.
 pub fn spawn_coin_pop(
@@ -1162,12 +1162,12 @@ pub fn update_blink_preview(
 mod tests {
     use super::*;
 
-    /// **The generic hit marker names a row the art actually ships.**
+    /// The generic hit marker names a row the art actually ships.
     ///
     /// The only thing that would notice is somebody photographing a match, which is how it was
     /// found the first time.
     ///
-    /// **the id is a one-way hash**, so this asks the index rather than
+    /// the id is a one-way hash, so this asks the index rather than
     /// comparing strings: `authored_effect_for` answers only for a name the
     /// shipped sheets carry.
     #[test]
@@ -1180,8 +1180,8 @@ mod tests {
         assert_eq!(effect.sheet, "generic_action_fx");
     }
 
-    /// **Every shipped effect row is addressable by its hashed name, and the
-    /// sound comes with it.**
+    /// Every shipped effect row is addressable by its hashed name, and the
+    /// sound comes with it.
     ///
     /// The index is the whole vocabulary now, so its size is the number of rows
     /// the art actually ships — not a number anyone typed. Asserting both
@@ -1219,7 +1219,7 @@ mod tests {
         }
     }
 
-    /// **The old five are ordinary rows now.**
+    /// The old five are ordinary rows now.
     ///
     /// `ExplosionKind`'s variants were the five rows of one sheet, reached
     /// through three tables. They resolve through exactly the same path as the
@@ -1254,7 +1254,7 @@ mod tests {
         assert!(authored_effect_for(FxId::new("kaboom")).is_none());
         assert!(effect_cue(FxId::new("kaboom")).is_none());
     }
-    /// **A request's SOURCE survives the fan-out.**
+    /// A request's SOURCE survives the fan-out.
     ///
     /// `dispatch_move_events` scopes its `Sfx` arm by the event's presentation source, and its
     /// `Vfx` arm writes a bare `VfxMessage::Effect` — going around the pairing.
@@ -1382,7 +1382,7 @@ mod tests {
             ));
         }
 
-        /// **`app.update()` is NOT a tick of sim time**, so the clock is
+        /// `app.update()` is NOT a tick of sim time, so the clock is
         /// advanced explicitly. Ageing is what makes "the older line" mean
         /// anything, and it is what moves a line's anchor as it floats.
         fn tick(&mut self, secs: f32) {
@@ -1439,7 +1439,7 @@ mod tests {
     const TAUNT: &str = "Either you are on the stage or you are not.";
     const BELAY: &str = "Belay that, ye barnacle!";
 
-    /// **Two lines from two speakers never print through each other.**
+    /// Two lines from two speakers never print through each other.
     ///
     /// The pass has no per-speaker offset to be right about: it compares the BOXES the lines land
     /// in, in one space.
@@ -1489,7 +1489,7 @@ mod tests {
         }
     }
 
-    /// **A line already on screen and a line born this frame are placed together.**
+    /// A line already on screen and a line born this frame are placed together.
     ///
     /// The behavioural half. What the two deleted make-room routines could not
     /// give was that each swept its own population, so a bubble cleared every
@@ -1511,7 +1511,7 @@ mod tests {
         assert_no_overlap(&lines);
     }
 
-    /// **Four fighters all get a line, and a fifth speaker never costs legibility.**
+    /// Four fighters all get a line, and a fifth speaker never costs legibility.
     ///
     /// A four-fighter free-for-all is the widest supported match, so four lines
     /// at four heights is the load the placement budget is sized for. The
@@ -1552,7 +1552,7 @@ mod tests {
         assert_no_overlap(&lines);
     }
 
-    /// **A name plate and a speech bubble at one anchor do not print through each other.**
+    /// A name plate and a speech bubble at one anchor do not print through each other.
     #[test]
     fn a_name_plate_and_a_speech_bubble_do_not_print_through_each_other() {
         let speaker = ae::Vec2::new(150.7, 225.44);
@@ -1570,7 +1570,7 @@ mod tests {
         assert_no_overlap(&drawn);
     }
 
-    /// **The plate holds its ground and the LINE moves.**
+    /// The plate holds its ground and the LINE moves.
     ///
     /// The ranking argument, asserted rather than described: a plate is
     /// permanent furniture on a body the eye is tracking, so displacing it

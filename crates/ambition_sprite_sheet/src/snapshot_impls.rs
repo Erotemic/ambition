@@ -8,7 +8,7 @@
 
 use ambition_platformer2d_core::snapshot::{put_bool, put_f32, put_u32, put_u8, SnapshotCursor};
 
-/// **The boss's animation cursor** — sim-owned, and gameplay geometry reads it.
+/// The boss's animation cursor — sim-owned, and gameplay geometry reads it.
 ///
 /// A cursor projection: `spec` is the authored sheet contract and never changes
 /// during a session, while `current` / `drive_phase` / `frame` / `elapsed` /

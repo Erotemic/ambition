@@ -1,4 +1,4 @@
-//! The character a body **wears** — the canonical playable-persona identity.
+//! The character a body wears — the canonical playable-persona identity.
 //!
 //! A player entity is a *control box*: it carries `DrivingParticipant(slot)`, the
 //! movement clusters, and the player markers. WHICH catalog character that box
@@ -19,39 +19,13 @@
 
 use bevy::ecs::component::Component;
 
-/// The catalog `character_id` a body currently wears.
+/// Catalog character template instantiated by this body.
 ///
-/// **A STABLE STATEMENT OF WHICH TEMPLATE THIS BODY INSTANTIATES**, and nothing
-/// more.
-///
-/// The second meaning was carried by Bevy's change tick — a body was populated because its worn id
-/// had just been WRITTEN — which made ordinary construction depend on an observation edge. Two
-/// consequences, and the second is the one that cost sessions: a body was incomplete for a tick by
-/// design, and change ticks do not rewind, so a rollback could restore a body whose population had
-/// been driven by an edge that would never fire again.
-///
-/// Asking for the template to be applied is now an explicit
-/// [`RecharacterizeBody`] request. Carrying this component, or changing it,
-/// populates nothing on its own.
-///
-/// presentation still reads it with `Changed<WornCharacter>`, and that is
-/// fine: re-binding a sprite when the identity changes is an observation, not a
-/// construction.
-///
-/// Requires [`IdentityKit`]: the identity derivation writes what this worn id
-/// alone produced into it, and the equipment reconcile re-derives the live kit
-/// from it. Requiring it means a body that can change identity can never be
-/// missing the baseline — a missing one would silently skip both systems rather
-/// than fail loudly.
-///
-/// [`IdentityKit`]: crate::brain::action_set::IdentityKit
-/// **the inner value is a typed [`CharacterId`], not a `String`** — which
-/// character template this body instantiates, in the same type every placement
-/// and spawn plan names it by. A body's runtime identity is its `SimId`; two
-/// bodies wearing one `CharacterId` are two instances of one template, which is
-/// the ordinary case rather than a collision.
-///
-/// [`CharacterId`]: ambition_entity_catalog::CharacterId
+/// This component is stable identity only; applying the template requires an
+/// explicit [`RecharacterizeBody`] request. Presentation may observe identity
+/// changes independently. [`IdentityKit`](crate::brain::action_set::IdentityKit)
+/// is required so equipment reconciliation always has the character-derived
+/// baseline. Runtime instance identity remains separate in `SimId`.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 #[require(crate::brain::action_set::IdentityKit)]
 pub struct WornCharacter(pub ambition_entity_catalog::CharacterId);
@@ -73,19 +47,7 @@ impl WornCharacter {
     }
 }
 
-/// **An explicit request to (re)apply this body's character template.**
-///
-/// A normal character actor is built COMPLETE and never carries this; what needs it is a genuine
-/// re-template:
-///
-/// ```text
-/// a transformation that changes which character a body IS   (Mary-O's powerups)
-/// character-select adoption onto a live body
-/// a cast hot reload
-/// any deliberate runtime re-wear
-/// ```
-///
-/// **it is CONSUMED**, so a request is one application rather than a state a
-/// body can get stuck in. A writer that wants it again asks again.
+/// One-shot request to reapply a body's character template after a deliberate
+/// runtime identity change. The request is consumed after application.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct RecharacterizeBody;

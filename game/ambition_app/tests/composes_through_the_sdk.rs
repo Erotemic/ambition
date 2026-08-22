@@ -1,26 +1,13 @@
-//! **Consumer-matrix row 6: Ambition itself, composed through the public API.**
+//! Verify that the shipped game experiences compose through the public SDK.
 //!
-//! The last matrix row not gated on deferred rollback, and the one the campaign
-//! kept arriving at from other directions. Twice the shipped host turned out to
-//! need something the SDK did not express:
-//!
-//! * it registers FOUR experiences and a draft held one (closed in slice D);
-//! * it boots into a LAUNCHER and the builder only booted into a game (slice E).
-//!
-//! Both are closed, so this asks the question directly: can the host this
-//! engine actually ships be described by the API a third party gets?
-//!
-//! **This composes the shipped host's EXPERIENCES, not the shipped binary.** `ambition_app`'s
-//! real composer also installs dev tools, a settings menu, kaleidoscope menus, load
-//! presentation and the versus stage — a whole app shell around the games. What is proven here
-//! is that the four games it ships compose and route through `PlatformerApp`; the surrounding
-//! shell is named in the row's record as what remains.
+//! The test covers experience registration, launcher startup, and gameplay-route
+//! reachability through `PlatformerApp`. App-shell facilities such as developer
+//! tools, settings, menus, load presentation, and the versus stage are outside
+//! this consumer-matrix row.
 
 use ambition_platformer2d::app::prelude::*;
 
-/// One shipped game, declared. Each existing provider plugin already registers
-/// its own catalogs, session construction and rules — the module says who it is
-/// and hands the plugin over as a capability.
+/// Declare one shipped game's manifest, routes, and provider capability.
 macro_rules! shipped_game {
     ($name:ident, $id:expr, $route:expr, $plugin:expr) => {
         struct $name;
@@ -52,8 +39,8 @@ shipped_game!(
     ambition_demo_mary_o::MaryOExperiencePlugin
 );
 
-/// **The shipped games compose through the SDK and the host boots to its
-/// launcher.**
+/// The shipped games compose through the SDK and the host boots to its
+/// launcher.
 #[test]
 fn the_shipped_games_compose_through_the_public_api() {
     let mut app = PlatformerApp::headless()
@@ -94,7 +81,7 @@ fn the_shipped_games_compose_through_the_public_api() {
     }
 }
 
-/// **Can the SECOND mounted experience be launched, with its own content?**
+/// Can the SECOND mounted experience be launched, with its own content?
 ///
 /// The suspicion it tests is specific — the facade installs
 /// `PlatformerAssetsPlugin::for_experience(experiences[0])` and `.with_room(experiences[0].room)`,
@@ -108,7 +95,7 @@ fn the_shipped_games_compose_through_the_public_api() {
 ///   secondary experience's declared tracks have no entry in it;
 /// * the SFX bank is published attributed to the PRIMARY's id.
 ///
-/// **the music limit is a PATH POLICY limit, not silence**, and the difference
+/// the music limit is a PATH POLICY limit, not silence, and the difference
 /// is worth stating where the assertion is: `AudioLibrary` resolves a track the
 /// catalog does not carry through the track's own `asset_path`, or the
 /// `audio/music/generated/{id}/full.ogg` convention. What a secondary experience
@@ -183,7 +170,7 @@ fn the_second_mounted_experience_launches_and_its_asset_policy_is_the_primarys()
          route and id"
     );
 
-    // **BOTH GAMES' CASTS ARE PUBLISHED**.
+    // BOTH GAMES' CASTS ARE PUBLISHED.
     //
     // asserted for BOTH games on purpose.
     {
@@ -249,10 +236,10 @@ fn the_second_mounted_experience_launches_and_its_asset_policy_is_the_primarys()
     );
 }
 
-/// **WHAT CAST DOES A TWO-DEMO HOST ACTUALLY PUBLISH?** — the measurement ledger row named,
+/// WHAT CAST DOES A TWO-DEMO HOST ACTUALLY PUBLISH? — the measurement ledger row named,
 /// taken out of the finished world instead of inferred from a silent log.
 ///
-/// ⇒ so this asks the registry directly.
+///  so this asks the registry directly.
 #[test]
 fn a_two_demo_host_publishes_exactly_the_cast_its_demos_register() {
     use ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry;

@@ -1,15 +1,15 @@
-//! **FLY TO A NAMED DOOR, PRESS INTERACT, LAND IN THAT ROOM.**
+//! FLY TO A NAMED DOOR, PRESS INTERACT, LAND IN THAT ROOM.
 //!
 //! the hall of characters door and press interact and check if it loads into the
 //! new room?"*
 //!
-//! **this names its DESTINATION, which the sibling door tests do not.** They
+//! this names its DESTINATION, which the sibling door tests do not. They
 //! take whichever `Door` zone is nearest and assert the room merely CHANGED —
 //! true of a door that leads somewhere wrong, and true of a door that leads back
 //! where you started. This one asks for `hall_of_characters` by name, walks to
 //! that specific zone, and asserts she arrives THERE.
 //!
-//! **and she FLIES, which is a different road through the movement kernel.**
+//! and she FLIES, which is a different road through the movement kernel.
 //! A walked approach is carried by the grounded integrator; flight is free
 //! motion with drag and no ground contact, so the two reach a zone by different
 //! code. `walking_into_a_loading_zone` covers the walk; this covers the flight,
@@ -43,10 +43,10 @@ fn body_pos(sim: &mut Platformer2dSimHarness) -> ambition_platformer2d::engine_c
     q.single(world).expect("a controlled body").pos
 }
 
-/// **The authored `Door` zone that leads to `DESTINATION`, asked of the room
-/// graph rather than of the zone.**
+/// The authored `Door` zone that leads to `DESTINATION`, asked of the room
+/// graph rather than of the zone.
 ///
-/// **a `LoadingZone` does not carry its destination** — the edge does, keyed
+/// a `LoadingZone` does not carry its destination — the edge does, keyed
 /// by zone id — so the honest way to ask "where does this door go" is the
 /// production road itself: stand a probe rect inside the zone and let
 /// `transition_for_player` answer. A test that matched on the zone's NAME would
@@ -120,8 +120,8 @@ fn flying_to_the_hall_of_characters_door_and_pressing_interact_loads_the_hall() 
         let here = body_pos(&mut sim);
         closest = closest.min((target - here).length());
         let to = target - here;
-        // **INTERACT ONLY INSIDE THE TARGET ZONE, and the first version of this test got it
-        // wrong in an instructive way.** Holding interact for the whole flight means "enter the
+        // INTERACT ONLY INSIDE THE TARGET ZONE, and the first version of this test got it
+        // wrong in an instructive way. Holding interact for the whole flight means "enter the
         // first door I brush past": the hub authors eighteen of them, and she took
         // `pirate_cove` on the way to the hall.
         let inside = here.x >= door.aabb.min.x

@@ -179,7 +179,7 @@ impl BodyMode {
             },
             BodyMode::Crouching => BodyShape {
                 mode: self,
-                // **Crouch is HALF height, width unchanged** — the platformer
+                // Crouch is HALF height, width unchanged — the platformer
                 // standard, and it is a standard because it is what makes a
                 // crouch-slide under a one-tile gap work: a two-tile body
                 // crouches to exactly one tile.

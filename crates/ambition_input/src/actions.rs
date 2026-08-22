@@ -48,24 +48,24 @@ pub enum Platformer2dInputActionMonolith {
     Special,
     /// One cannot accidentally masquerade as the other."*).
     ///
-    /// **this was `QuickAction`** — a generic name for an action every
+    /// this was `QuickAction` — a generic name for an action every
     /// producer and consumer already treated as the shield (the touch overlay's
     /// Shield button maps here, every keyboard preset's `shield` key binds it,
     /// and `read_gameplay_control_frame` reads it straight into `shield_held`).
     ///
     /// It is migrated on load by `ControlSettings::clamp_all`; see `RENAMED_ACTIONS` there.
     Shield,
-    /// **GRAB — press to attempt a capture.** Starts an authored grab move; if
+    /// GRAB — press to attempt a capture. Starts an authored grab move; if
     /// that move's active window acquires a body, the two enter a capture
     /// relationship the grab move itself does not own and does not end.
     ///
-    /// **an independent action, not a variant of [`Self::Attack`]**, for the
+    /// an independent action, not a variant of [`Self::Attack`], for the
     /// same reason Shield is not a variant of Special: a grab beats a guard that
     /// stops an attack, and it establishes something that outlives the press.
     /// Binding it onto the attack button would make "may this body grab" and
     /// "may this body swing" the same permission.
     Grab,
-    /// **TAUNT — press to express, at the cost of standing still.** Its own
+    /// TAUNT — press to express, at the cost of standing still. Its own
     /// action rather than a modifier on Attack, because a taunt is not a swing
     /// and a body that has one is not thereby more dangerous.
     Taunt,
@@ -123,7 +123,7 @@ pub enum Platformer2dInputActionMonolith {
 
 #[cfg(feature = "input")]
 impl Platformer2dInputActionMonolith {
-    /// **Is this action read ONLY while a menu surface is up?**
+    /// Is this action read ONLY while a menu surface is up?
     ///
     /// The pad deliberately SHARES physical buttons between gameplay and menus
     /// — `MenuSelect` sits on South beside Jump, `MenuBack` on East beside
@@ -134,7 +134,7 @@ impl Platformer2dInputActionMonolith {
     /// able to take Jump off South without taking confirm off South with it.
     /// This is the line it cuts on.
     ///
-    /// **exhaustive on purpose.** A new action must decide which side it is
+    /// exhaustive on purpose. A new action must decide which side it is
     /// on, at the compiler's insistence, rather than falling through a `_` arm
     /// into whichever answer the author of this function happened to prefer.
     pub fn is_menu_only(self) -> bool {

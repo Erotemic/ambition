@@ -1,18 +1,18 @@
-//! **Whether a body's character authors its own attack art** — resolved
+//! Whether a body's character authors its own attack art — resolved
 //! sim-side, so presentation never asks the catalog.
 //!
 //! `engine.character-authority-is-app-local` forbids exactly that shape, and the reason is not
 //! tidiness:
 //!
-//! **an ABSENT catalog read as an EMPTY one.** `Option<Res<_>>` is `None` in
+//! an ABSENT catalog read as an EMPTY one. `Option<Res<_>>` is `None` in
 //! every headless and test composition that does not install the catalog — the
 //! compositions the `Option` was added for — and `None.and_then(…)` is
 //! indistinguishable from *"this character authors no attack VFX"*. So
 //! `attack_vfx` returned `None`, `authored` was false, and a stand-in volume was
-//! drawn over **every** attack, including the ones whose characters author their
+//! drawn over every attack, including the ones whose characters author their
 //! own art. Silent, and backwards.
 //!
-//! It is that **presentation should not consult the catalog at all**: *does this character
+//! It is that presentation should not consult the catalog at all: *does this character
 //! author its own attack VFX* is a static per-character fact, and a static per-body fact is
 //! what this read-model is for. It already carries the sprite quad for the same reason.
 //!
@@ -45,7 +45,7 @@ impl AttackVfxView {
 
 /// Publish [`AttackVfxView`] for every body that can swing.
 ///
-/// **the catalog is `Res`, not `Option<Res>`, and that is deliberate**: a
+/// the catalog is `Res`, not `Option<Res>`, and that is deliberate: a
 /// composition without a catalog must leave the component ABSENT rather than
 /// write `None` into it, because `None` is a positive claim that the character
 /// authors nothing. Bevy skips a system whose required resource is missing,

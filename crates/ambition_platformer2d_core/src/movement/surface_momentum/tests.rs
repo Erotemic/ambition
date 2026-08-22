@@ -903,7 +903,7 @@ fn rotated_gravity_lands_on_the_gravity_side_face_of_a_block() {
     );
 }
 
-/// **Air control must push the way the stick points.** `tangent_of` is the ONE
+/// Air control must push the way the stick points. `tangent_of` is the ONE
 /// handedness definition in the engine: the along-surface axis of a FLOOR is
 /// `tangent_of(floor_normal)`, and a floor's normal is `-gravity`. The airborne
 /// branch built its side axis from `tangent_of(gravity)` instead — the exact
@@ -976,7 +976,7 @@ fn airborne_air_control_is_gravity_relative() {
     );
 }
 
-/// **A body that runs off the end of a flat chain must FALL, not hover.**
+/// A body that runs off the end of a flat chain must FALL, not hover.
 ///
 /// The launch places it exactly at the end vertex, one radius above the surface, moving
 /// horizontally. `project` clamps arc length to the chain, so the next airborne sweep
@@ -1176,7 +1176,7 @@ fn zero_speed_at_a_joint_chooses_support_and_keeps_jump_and_walk_available() {
     );
 }
 
-/// **A body must be able to cross a joint anywhere on a long chain.**
+/// A body must be able to cross a joint anywhere on a long chain.
 ///
 /// `advance_riding` nudges past a joint so `frame_at` resolves the segment it entered. On a
 /// long chain the nudge rounded back to the joint, `to_join` stayed 0, and the bounded walk
@@ -2037,7 +2037,7 @@ fn writing_velocity_on_a_riding_body_does_not_launch_it() {
     );
 }
 
-/// ⭐ The same launch through the model's own channel does what a hit should.
+///  The same launch through the model's own channel does what a hit should.
 #[test]
 fn an_external_launch_takes_a_riding_body_off_the_surface() {
     let (world, mut body) = running_on_flat();
@@ -2057,8 +2057,8 @@ fn an_external_launch_takes_a_riding_body_off_the_surface() {
     );
 }
 
-/// ⚠ **The rule that makes this a sibling of `apply_pad_impulse` and not the same
-/// function.** A pad's tangent-dominant case replaces `v_t` only when that makes
+///  The rule that makes this a sibling of `apply_pad_impulse` and not the same
+/// function. A pad's tangent-dominant case replaces `v_t` only when that makes
 /// the body FASTER — a booster declines to slow you. A hit must not decline, or
 /// being shoved while sprinting does nothing at all.
 #[test]

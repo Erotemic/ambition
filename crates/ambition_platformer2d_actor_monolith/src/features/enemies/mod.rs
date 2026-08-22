@@ -3,7 +3,7 @@
 //! grounded, aerial, and the adhesive crawler, integrates through the one
 //! shared movement kernel (`ae::step_motion`).
 //!
-//! **THE ENEMY-ARCHETYPE ONTOLOGY WAS HERE AND IS DELETED** (AC6,
+//! THE ENEMY-ARCHETYPE ONTOLOGY WAS HERE AND IS DELETED (AC6,
 //! ): `CharacterRoster` and its fragments/registry/assembly errors,
 //! the `OpenCastingDecision` waiver, `GENERIC_BODY_ROW`, the `ArchetypeSpecExt`
 //! projections into this crate's runtime shapes, and the fixture rosters — about

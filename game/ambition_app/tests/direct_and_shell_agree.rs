@@ -1,6 +1,6 @@
-//! **K2b's evidence, and then its epitaph.**
+//! K2b's evidence, and then its epitaph.
 //!
-//! **so its original assertion is now unwritable, and that is the point.**
+//! so its original assertion is now unwritable, and that is the point.
 //! There is no second path to compare against. What survives is the property the
 //! comparison was standing in for: `compose_ambition_gameplay_host` produces a
 //! live gameplay world, and it is the only thing that does.

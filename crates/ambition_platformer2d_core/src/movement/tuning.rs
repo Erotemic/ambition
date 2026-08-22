@@ -26,7 +26,7 @@ fn default_air_stop_assist() -> f32 {
     AIR_STOP_ASSIST
 }
 
-/// **Where a walk becomes a RUN**, as a fraction of the body's own top speed.
+/// Where a walk becomes a RUN, as a fraction of the body's own top speed.
 ///
 /// Above a half separates a held walk (analog stick part-way, settling near its
 /// own lower target) from a committed run, and the genre's running attack is the
@@ -117,7 +117,7 @@ pub const DODGE_ROLL_TIME: f32 = 0.22;
 pub const DODGE_ROLL_SPEED: f32 = 530.0;
 /// Cooldown after a dodge roll before the next one may start.
 pub const DODGE_ROLL_COOLDOWN: f32 = 0.42;
-/// **Spot dodge** — the grounded evade IN PLACE, held down instead of a
+/// Spot dodge — the grounded evade IN PLACE, held down instead of a
 /// direction. Shorter than the roll's window because it covers no distance: the
 /// roll's commitment is where it takes you, and the spot dodge's is only the
 /// time, so a spot dodge that lasted as long would be strictly better.
@@ -126,7 +126,7 @@ pub const SPOT_DODGE_TIME: f32 = 0.16;
 /// dodge rather than a roll. Above the roll's own `0.1` sideways threshold so a
 /// diagonal reads as the roll it looks like.
 pub const SPOT_DODGE_STICK: f32 = 0.5;
-/// **Air dodge** — the aerial evade's invulnerable window (seconds).
+/// Air dodge — the aerial evade's invulnerable window (seconds).
 ///
 /// Shorter than the ground roll's: the roll ends on its feet and pays a
 /// cooldown, while the air dodge is spent for the whole trip through the air,
@@ -142,7 +142,7 @@ pub const AIR_DODGE_ENDLAG: f32 = 0.16;
 /// Parry window: full invulnerability during the first moments of shield activation.
 pub const PARRY_WINDOW_TIME: f32 = 0.15;
 
-/// **WHEN THE PERFECT-SHIELD WINDOW OPENS** — and the two settings are two
+/// WHEN THE PERFECT-SHIELD WINDOW OPENS — and the two settings are two
 /// GAMES, not two candidates.
 ///
 /// ```text
@@ -154,7 +154,7 @@ pub enum ParryTiming {
     /// The default, so no existing body's feel changes.
     #[default]
     OnRaise,
-    /// **The window opens when the guard COMES DOWN.** Makes the shield a
+    /// The window opens when the guard COMES DOWN. Makes the shield a
     /// two-decision object — you raise it under pressure and then time the drop
     /// — so a defender inside a multi-hit string is choosing every beat rather
     /// than once at the start. Ultimate's stated reason for moving it.
@@ -310,13 +310,13 @@ pub struct MovementTuning {
     #[serde(default)]
     pub carried_decay: f32,
     pub max_run_speed: f32,
-    /// **air ACCELERATION was authored and air TOP SPEED was not**, so a
+    /// air ACCELERATION was authored and air TOP SPEED was not, so a
     /// body's ground run cap governed its drift — the accidental reuse of
     /// ground locomotion the combat campaign names. In a platform fighter air
     /// speed is a per-character stat and a slow-running heavy can still drift
     /// fast; expressing that was impossible.
     ///
-    /// **the sentinel is deliberate, not laziness.** `Option<f32>` would cost
+    /// the sentinel is deliberate, not laziness. `Option<f32>` would cost
     /// a bool in the motion codec's frozen wire layout for a value whose
     /// "unset" case is exactly "the other number"; `0.0` is not a meaningful
     /// air speed (a body that cannot drift at all authors its `air_accel` to
@@ -324,11 +324,11 @@ pub struct MovementTuning {
     /// [`Self::air_speed_cap`], never raw.
     #[serde(default)]
     pub max_air_speed: f32,
-    /// **The gait line: what fraction of [`Self::max_run_speed`] counts as a
-    /// RUN.** Published every tick as `BodyMotionFacts::running`, and read by
+    /// The gait line: what fraction of [`Self::max_run_speed`] counts as a
+    /// RUN. Published every tick as `BodyMotionFacts::running`, and read by
     /// the move selector so an Attack press while running is the running attack.
     ///
-    /// **this is NOT the traversal dash.** `AbilitySet::dash` is a discrete
+    /// this is NOT the traversal dash. `AbilitySet::dash` is a discrete
     /// charge-gated burst that REPLACES the velocity vector; a platform
     /// fighter's dash attack comes out of ordinary grounded locomotion and a
     /// fighter kit that switches the burst off still has one.
@@ -409,7 +409,7 @@ pub struct MovementTuning {
     pub dodge_roll_time: f32,
     pub dodge_roll_speed: f32,
     pub dodge_roll_cooldown: f32,
-    /// **The aerial evade**: how long the i-frames last, how fast the body
+    /// The aerial evade: how long the i-frames last, how fast the body
     /// travels along the stick, and the endlag it owes on the far side.
     ///
     /// `#[serde(default)]` so tuning files baked before the air dodge existed
@@ -421,26 +421,26 @@ pub struct MovementTuning {
     pub air_dodge_speed: f32,
     #[serde(default)]
     pub air_dodge_endlag: f32,
-    /// **The launch speed at which a hit sends this body into TUMBLE**, px/s.
+    /// The launch speed at which a hit sends this body into TUMBLE, px/s.
     /// `0.0` (the default) = this body never tumbles and never gets knocked
     /// down, which is every body until one authors a fighter's floor game.
     #[serde(default)]
     pub tumble_speed: f32,
-    /// **SPOT DODGE** — the grounded evade IN PLACE's invulnerable window, in
+    /// SPOT DODGE — the grounded evade IN PLACE's invulnerable window, in
     /// seconds. `0.0` (the default) means a grounded evade is always the roll,
     /// which is what every body had before a fighter wanted the other option.
     #[serde(default)]
     pub spot_dodge_time: f32,
-    /// **When this body's perfect-shield window opens.** See [`ParryTiming`] —
+    /// When this body's perfect-shield window opens. See [`ParryTiming`] —
     /// the two settings are Smash 4's and Ultimate's.
     #[serde(default)]
     pub parry_timing: ParryTiming,
-    /// **SMASH DIRECTIONAL INFLUENCE** — how far this body may shift itself per
+    /// SMASH DIRECTIONAL INFLUENCE — how far this body may shift itself per
     /// tick of HITLAG, in px. `0.0` (the default) = no SDI, which is every body
     /// until one authors a fighter.
     ///
-    /// **the defensive half of a mechanic whose offensive half already
-    /// ships.** DI ([`crate::hit_response::di_adjust`]) bends the launch you are
+    /// the defensive half of a mechanic whose offensive half already
+    /// ships. DI ([`crate::hit_response::di_adjust`]) bends the launch you are
     /// about to take; SDI moves you out of the NEXT hit's way while the current
     /// one is still frozen, and it is what makes a combo answerable rather than
     /// a sentence.
@@ -467,7 +467,7 @@ pub struct MovementTuning {
 }
 
 impl AxisLocomotion {
-    /// **The top horizontal speed this body may reach in the AIR.**
+    /// The top horizontal speed this body may reach in the AIR.
     ///
     /// The one reader of [`Self::max_air_speed`]. Every airborne speed target
     /// goes through here so the inherit sentinel cannot be forgotten at one
@@ -704,7 +704,7 @@ pub struct TraversalAbilityTuning {
     pub ledge_momentum: LedgeMomentumTuning,
 }
 
-/// **The shield as a RESOURCE** — integrity that drains while held, regenerates
+/// The shield as a RESOURCE — integrity that drains while held, regenerates
 /// while down, is spent by blocked hits, and breaks the guard when exhausted.
 ///
 /// Set [`Self::max_health`] to `0.0` (the default) to leave a body's shield an
@@ -724,7 +724,7 @@ pub struct ShieldTuning {
     /// Seconds of shieldstun the defender owes per point of damage it blocks.
     /// `0.0` makes blocking free, which is what it was.
     pub stun_per_damage: f32,
-    /// **How much of the body a SPENT guard still covers**, as a fraction of
+    /// How much of the body a SPENT guard still covers, as a fraction of
     /// its half-height, at zero integrity. `1.0` (the default) means the guard
     /// never shrinks and a body behind it is never poked; Smash's shield sinks
     /// until it exposes the head and the feet, and that is what makes chip
@@ -773,7 +773,7 @@ impl ShieldTuning {
         self.max_health > 0.0
     }
 
-    /// **How much of the body the guard covers at `integrity`** (1.0 whole, 0.0
+    /// How much of the body the guard covers at `integrity` (1.0 whole, 0.0
     /// about to break), as a fraction of its half-height. Full coverage for a
     /// guard that is not a resource, so an exploration body is never poked.
     pub fn coverage_at(self, integrity: f32) -> f32 {
@@ -785,7 +785,7 @@ impl ShieldTuning {
     }
 }
 
-/// **THE FOOTSTOOL** — jumping off another body's head.
+/// THE FOOTSTOOL — jumping off another body's head.
 ///
 /// Set [`Self::rise_speed`] to `0.0` (the default) and no body can be stood on,
 /// which is what every body in the game had.
@@ -1047,8 +1047,8 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     dodge_roll_time: DODGE_ROLL_TIME,
     dodge_roll_speed: DODGE_ROLL_SPEED,
     dodge_roll_cooldown: DODGE_ROLL_COOLDOWN,
-    // **ZERO in the default tuning, and that is the decision, not an
-    // oversight.** An airborne dash press already MEANS something for a body
+    // ZERO in the default tuning, and that is the decision, not an
+    // oversight. An airborne dash press already MEANS something for a body
     // with the dash ability — it is the protagonist's air dash, a traversal
     // move — and a default-on air dodge would quietly take that press away from
     // every exploration body in the game. The maneuver is body-generic in the
@@ -1079,12 +1079,12 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
 mod air_speed_tests {
     use super::*;
 
-    /// **Air acceleration was authored and air TOP SPEED was not**, so a
+    /// Air acceleration was authored and air TOP SPEED was not, so a
     /// body's ground run cap governed its drift — accidental reuse of ground
     /// locomotion, and the reason a slow-running heavy that drifts fast could
     /// not be expressed.
     ///
-    /// **the poison is the inherit case**, and it is the one that matters:
+    /// the poison is the inherit case, and it is the one that matters:
     /// every body in the game authors nothing here, so an accessor that failed
     /// to fall back would silently pin the whole cast to zero air speed.
     #[test]

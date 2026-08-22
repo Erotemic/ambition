@@ -1,16 +1,16 @@
-//! **A struck block flinches** — the presentation half of hitting one.
+//! A struck block flinches — the presentation half of hitting one.
 //!
 //! distinguishable. They also need a small animation (probably an in-code position
 //! nudge up and back into place) when they are hit."*
 //!
-//! **PRESENTATION ONLY, and that is the whole design decision.** The nudge must
+//! PRESENTATION ONLY, and that is the whole design decision. The nudge must
 //! not move the collision box: a body standing on a bonked block would be lifted by
 //! it, a body beside it shoved, and a rollback would have to rewind an animation.
 //! The block's geometry stays authoritative and static; what moves is the drawn
 //! quad. Nothing in this module is sim state and nothing here is rewound.
 //!
-//! **keyed by block NAME, because that is the identity both halves already
-//! share.** `FeatureEcsWorldOverlay::removed_block_names` and the renderer's
+//! keyed by block NAME, because that is the identity both halves already
+//! share. `FeatureEcsWorldOverlay::removed_block_names` and the renderer's
 //! `BlockVisual { block_name }` are name-keyed for the same reason — a block is
 //! authored geometry, not an entity the sim owns, so the name is the only handle
 //! that survives the trip.
@@ -32,7 +32,7 @@ impl BlockStruck {
 
 /// How far the flinch travels, in world px, and how long it takes.
 ///
-/// **against gravity, not "up"** — the renderer resolves the direction from the
+/// against gravity, not "up" — the renderer resolves the direction from the
 /// gravity frame, so a block struck in a flipped room flinches the way that room
 /// means it. Naming it `RISE` rather than `UP` is the same relativity rule the
 /// engine applies to feet and jumps.

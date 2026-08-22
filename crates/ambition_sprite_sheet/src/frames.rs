@@ -91,7 +91,7 @@ pub fn trimmed_render(trim: &FrameTrim, base_render_size: Vec2, base_anchor: Vec
 
 impl SheetRow {
     /// True when this row carries explicit, non-negative per-frame rects (the
-    /// packed / padded path). False ⇒ the caller derives cells from grid stride
+    /// packed / padded path). False  the caller derives cells from grid stride
     /// (`label_width + col*frame_width`, `y_offset + row_index*frame_height`).
     ///
     /// A row with any negative / zero-area rect is treated as grid (the rect

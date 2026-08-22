@@ -215,7 +215,7 @@ fn a_zero_tick_rate_is_refused() {
     );
 }
 
-/// **A fingerprint that moves between processes is not a fingerprint.**
+/// A fingerprint that moves between processes is not a fingerprint.
 ///
 /// `canonical` is derived `Debug`, which follows iteration order, so any map in
 /// a canonicalized type must be ORDERED. `strike_geometry` was a `HashMap`:
@@ -249,16 +249,8 @@ fn seeds_with_overrides(keys: [&str; 4]) -> String {
     format!("{map:?}")
 }
 
-/// A shipped encounter's SHAPE as the fixture — a probe whose fixture drifts
-/// from the authored shape stops testing the real schema.
-///
-/// **the id and display name are deliberately generic, and that costs nothing.**
-/// This fixture proves the SCHEMA — which fields exist, their types, and what the
-/// validator says about them — and a schema is its field set, not its values. The
-/// shape below is still the shipped one, field for field. Naming the actual boss
-/// here made an ENGINE crate name Ambition content, which is what
-/// `engine.combat-kit-content-free`'s sibling policy forbids and what this
-/// fixture was tripping.
+/// Generic fixture with the same field shape as a production encounter. It
+/// tests the engine schema without coupling the engine crate to game content ids.
 const ENCOUNTER: &str = r#"(
     id: "probe_encounter",
     name: "Clockwork Warden",
@@ -302,7 +294,7 @@ fn encounter_music_diagnostics(name: &str, text: &str) -> Vec<String> {
         .collect()
 }
 
-/// **A whitespace-only music field is a REQUEST, not an absence.**
+/// A whitespace-only music field is a REQUEST, not an absence.
 #[test]
 fn a_whitespace_only_music_field_is_refused_not_skipped() {
     let text = ENCOUNTER.replace(
@@ -373,8 +365,8 @@ fn refuse_encounters(name: &str, files: &[(&str, &str)]) -> CompileFailure {
         .expect_err("no boss profiles in these drafts, so they always refuse eventually")
 }
 
-/// **Two files claiming one encounter id, caught where only the MERGE can see
-/// it.** A per-facet handler reads one file and cannot know another named the
+/// Two files claiming one encounter id, caught where only the MERGE can see
+/// it. A per-facet handler reads one file and cannot know another named the
 /// same encounter; the runtime resolves by id and would simply have used
 /// whichever won.
 #[test]

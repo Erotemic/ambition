@@ -31,7 +31,7 @@ fn the_one_module() -> OutlanderModule {
     OutlanderModule
 }
 
-/// **Headless composes, and one update is one sim tick.**
+/// Headless composes, and one update is one sim tick.
 ///
 /// `try_build` rather than `build`: a panic tells a reader that something failed,
 /// while a [`CompositionError`] tells them WHICH rule — and A3's whole subject is
@@ -50,7 +50,7 @@ fn platformer_app_composes_the_fixture_headless() {
     );
 }
 
-/// **The windowed face composes the same module, with no GPU.**
+/// The windowed face composes the same module, with no GPU.
 ///
 /// `without_gpu` is the engine owning rule 3 — the five plugin disables a
 /// display-less window needs. A consumer re-deriving them was recorded leak
@@ -73,7 +73,7 @@ fn platformer_app_composes_the_fixture_windowed_without_a_gpu() {
     );
 }
 
-/// **`without_gpu` on a headless face is a stated conflict, not a silent no-op.**
+/// `without_gpu` on a headless face is a stated conflict, not a silent no-op.
 ///
 /// The builder collects reasons and reports all of them, which is the affordance
 /// that makes `try_build` worth having over a panic. A headless face has no
@@ -93,7 +93,7 @@ fn a_face_that_cannot_honor_a_request_says_so() {
     );
 }
 
-/// **A declared route nothing registers is REFUSED, not silently empty.**
+/// A declared route nothing registers is REFUSED, not silently empty.
 ///
 /// It declared a gameplay route no experience registered and got a host that built clean, ran 60
 /// ticks, and spawned zero entities — while `ambition_platformer2d::app`'s own module docs claimed

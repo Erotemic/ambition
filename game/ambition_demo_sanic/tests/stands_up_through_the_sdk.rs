@@ -1,5 +1,5 @@
-//! **Consumer-matrix row 4, standalone half: a module that PREDATES the SDK
-//! stands up through it.**
+//! Consumer-matrix row 4, standalone half: a module that PREDATES the SDK
+//! stands up through it.
 //!
 //! Sanic was not.
 //!
@@ -37,7 +37,7 @@ impl GameModule for SanicModule {
     }
 }
 
-/// **It boots, and it REACHES A RUNNING HOST.**
+/// It boots, and it REACHES A RUNNING HOST.
 ///
 /// Not "it composes". Slice B learned that lesson expensively: its first boot
 /// tests asserted `try_build` succeeded and never ran a tick, and the host they
@@ -74,13 +74,13 @@ fn sanic_stands_up_standalone_through_the_public_api() {
     );
 }
 
-/// **Sanic standalone and Sanic embedded produce the SAME identities.**
+/// Sanic standalone and Sanic embedded produce the SAME identities.
 ///
 /// Two identities, because they can fail independently:
 ///
-/// * the **authored content** registry's deterministic dump — what Sanic
+/// * the authored content registry's deterministic dump — what Sanic
 ///   declared;
-/// * the **rollback schema** fingerprint — what a session would snapshot.
+/// * the rollback schema fingerprint — what a session would snapshot.
 ///
 /// Compared for SANIC specifically, not for the whole composition. The
 /// embedded app legitimately contains more (the other module's content, its

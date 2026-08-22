@@ -1,4 +1,4 @@
-//! **Input-stream capture** (netcode N0.2) — the one place a session's input is
+//! Input-stream capture (netcode N0.2) — the one place a session's input is
 //! recorded.
 //!
 //! The artifact is [`ambition_platformer2d_core::InputStream`]; this is the sim-side

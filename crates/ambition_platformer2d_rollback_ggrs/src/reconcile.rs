@@ -3,40 +3,13 @@
 //! Raw entity/component restoration is owned by GGRS; this repair therefore
 //! belongs beside the backend load schedule rather than in the generic runtime.
 
-/// Post-restore reconcile: rebuild an AUTONOMOUS catalog-backed NPC's live `Brain`
-/// from its restored [`BrainBinding`] **only when its authored configuration
-/// diverged** — i.e. a rewind crossed a runtime brain switch, so the live brain no
-/// longer matches the restored selection.
+/// Reconcile autonomous catalog-backed brains after GGRS restores their bindings.
 ///
-/// The `Brain` cursor is a no-op for the peaceful/patrol NPC brains (their kind was
-/// authored-immutable before runtime switching existed), so it cannot restore a
-/// switched kind. Left unreconciled, the next re-simulated tick would drive the
-/// wrong brain — a desync.
-///
-/// Correctness details:
-/// - **Configuration equality, not the label.** We compare via
-///   [`Brain::same_authored_configuration`], not `label()`: two presets in the same
-///   family (`wanderer_slow` / `wanderer_fast`) share a label but differ here, so a
-///   rewind across such a switch is caught. Same config → leave the live brain
-///   untouched, preserving the state the `Brain` cursor already restored (this is
-///   also the RESTORE ORDER guarantee: the cursor runs first, and reconcile only
-///   overwrites when the preset genuinely differs — in which case the cursor state
-///   was for the wrong brain anyway).
-/// - **Authored home.** A rebuild uses the actor's restored [`AuthoredBrainContext`]
-///   (its spawn anchor + patrol radius), not its current pose, so a restored patrol
-///   brain recenters where it was authored.
-/// - **A DISPLACED brain is untouchable.** A body under mount control
-///   (`Mounted`) is skipped — its live brain is the controller's, not its
-///   autonomous selection, and reconciling would clobber it.
-///   **possession is no longer on that list.** A possessed body keeps its own
-///   policy the whole time (the seat moved, the brain did not), so its live brain
-///   IS its autonomous selection and reconciling it is exactly right.
-/// - **Externally-owned brains are left to their authority.** A binding whose
-///   selection is `External` (provoke/challenge installed a non-catalog hostile
-///   brain) has no `active_preset()` — reconcile skips it, so the disposition/provoke
-///   authority owns that brain across the rewind, never the catalog default.
-///
-/// Skips gracefully when the world has no `CharacterCatalog` (headless fixtures).
+/// Rebuild only when the restored preset differs by authored configuration, not
+/// merely by label. Rebuild from restored [`AuthoredBrainContext`], preserving the
+/// authored home. Mounted bodies and externally-owned bindings are excluded; their
+/// current brain belongs to another authority. A missing catalog is valid for
+/// headless fixtures and leaves the world unchanged.
 pub fn reconcile_brain_bindings(world: &mut bevy::ecs::world::World) {
     use ambition_characters::actor::character_catalog::{
         AuthoredBrainContext, BrainBinding, BrainBuildContext,

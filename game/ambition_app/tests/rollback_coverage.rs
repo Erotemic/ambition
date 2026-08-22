@@ -1,42 +1,10 @@
-//! **The rollback coverage forcing function.**
+//! Runtime census for rollback coverage.
 //!
-//! GGRS (ADR 0027) can only rewind state it was told about, and nothing in the
-//! type system says "this component is authoritative simulation truth". So
-//! coverage rots silently: someone adds a component to a simulated body, never
-//! registers it, and a rewind quietly keeps the predicted value. That is a
-//! desync in netplay and a wrong outcome in resimulation — with no compile error
-//! and no failing test.
-//!
-//! This is the replacement, and it is COMPUTED rather than checked in: it boots the real sim, looks
-//! at what is actually ON the simulated entities, and requires every component found there to be
-//! accounted for. A stale ledger cannot drift out from under it, and a new component on a body
-//! cannot slip through unnoticed.
-//!
-//! ## Why entity composition rather than system access
-//!
-//! Asking "which components do sim systems write" would be the other natural
-//! shape, but Bevy 0.18 does not expose per-system `FilteredAccessSet` through
-//! any public API (it lives on the crate-private `SystemWithAccess`). Entity
-//! composition is public, and is arguably the better question anyway: it asks
-//! what state a simulated body actually CARRIES, which is exactly what a
-//! rollback has to reproduce. It also catches state parked on an entity by a
-//! `Commands` insert, which a system-access walk would miss entirely.
-//!
-//! Resources are covered by the sibling forcing function below — same
-//! contract, over `World::iter_resources` instead of entity composition.
-//!
-//! ## When this fails
-//!
-//! You put new state on a simulated entity. Pick one, deliberately:
-//!
-//! 1. **Register it** in `register_engine_rollback_state` — the default for
-//!    anything gameplay-authoritative.
-//! 2. **Declare it derived** (`declare_rollback_derived`) if it is recomputed
-//!    from authoritative state every frame before anyone reads it.
-//! 3. **Waive it below**, with a reason, if it is genuinely not simulation truth
-//!    (presentation, dev tooling, device input, host bookkeeping).
-//!
-//! Do not waive to get green. A wrong choice here is a desync later.
+//! The test boots the real simulation and requires authoritative component and
+//! resource state to be registered, explicitly derived, or narrowly waived.
+//! Entity composition catches state inserted through `Commands` as well as
+//! ordinary system writes. New simulation state should normally be registered;
+//! derived state must be rebuilt before use after rewind.
 
 #![cfg(feature = "rl_sim")]
 
@@ -114,14 +82,14 @@ const WAIVED: &[(&str, &str)] = &[
         "ambition_platformer2d_runtime::session_world::PlatformerSessionCatalogs",
         "which providers this session composed; fixed at activation",
     ),
-    // ⭐ **arrived with K2b edit 2, and it belongs to the group above it.**
+    //  arrived with K2b edit 2, and it belongs to the group above it.
     // The build-time root spawned four things — `SessionRoot`, the live world,
     // prepared content and its identity — and never stamped an epoch, because a
     // root that exists before tick 0 has no activation to be a generation OF.
     // A shell activation does stamp one, so deleting the build-time publisher
     // put it on the census.
     //
-    // ⚠ **measured, not assumed**: it sits on the SESSION ROOT, in the same
+    //  measured, not assumed: it sits on the SESSION ROOT, in the same
     // archetype as `PreparedContent`, `PreparedContentIdentity` and
     // `PlatformerSessionCatalogs`, all waived here for this reason already. An
     // epoch changing mid-session does not mean "rewind it" — it means the
@@ -160,13 +128,13 @@ const WAIVED: &[(&str, &str)] = &[
     ),
     // ── An EXTERNAL INPUT to the simulation ──────────────────────────────────
     //
-    // ⛔ **the one category on this list where rewinding would be actively
-    // harmful rather than merely meaningless**, and it is the same category as
+    //  the one category on this list where rewinding would be actively
+    // harmful rather than merely meaningless, and it is the same category as
     // the device input stream the `ambition_input::` waiver above already
     // covers: a rewind restores what the simulation DECIDED, never what it was
     // TOLD. Erasing an input is how the replay reaches a different decision.
     //
-    // ⚠ the waiver names the LEDGER, not one payload: every narrative-input
+    //  the waiver names the LEDGER, not one payload: every narrative-input
     // family a game registers is the same category, and a waiver that had to be
     // re-typed per payload would go stale the first time content added one.
     (
@@ -195,26 +163,10 @@ fn rollback_vocabulary(sim: &mut Platformer2dSimHarness) -> BTreeSet<String> {
         .collect()
 }
 
-/// **The population a rewind has to reproduce.**
-///
-/// Three sources, unioned, and each was added because the previous set produced a
-/// confident empty result about something it never looked at:
-///
-/// * `FeatureSimEntity` — the original set. The PLAYER does not carry it
-///   (`PlayerBundle` never inserts it), so the single most heavily-mutated body in
-///   the game went uninspected while the rollback oracle was diverging on it.
-/// * `BodyKinematics` — anything the sim integrates every tick. That covers the
-///   player and every other body regardless of how it was spawned.
-/// * **anything carrying a type the rollback vocabulary names.** This is the
-///   mechanism's own answer, and it is not a list anyone maintains: if the rollback
-///   registers, anchors, or declares-derived even one component on an entity, that
-///   entity is in the rollback's world and all of its state is in scope.
-///
-/// The third source is what reaches the TRANSIENT families. A moveset strike volume
-/// carries `Hitbox`, `HitboxHits` and `StrikeVolume` and neither of the two tags
-/// above, so for as long as the population was those tags, new state on a live
-/// strike volume was outside this instrument no matter how many rooms were added —
-/// adding rooms cannot reach a family that exists for six frames.
+/// Entities whose state a rewind must reproduce: feature-sim entities, bodies
+/// integrated by the simulation, and any entity carrying a type named by the
+/// rollback vocabulary. The last group includes transient rollback state such as
+/// strike volumes that carry neither of the broader entity markers.
 fn simulated_population(sim: &mut Platformer2dSimHarness) -> Vec<Entity> {
     let vocabulary = rollback_vocabulary(sim);
     let world = sim.world_mut();
@@ -245,7 +197,7 @@ fn simulated_population(sim: &mut Platformer2dSimHarness) -> Vec<Entity> {
             found.insert(entity);
         }
     }
-    // ⛔ **ANTI-VACUITY, and it is load-bearing for NINETEEN tests.** Every sweep
+    //  ANTI-VACUITY, and it is load-bearing for NINETEEN tests. Every sweep
     // in this file runs `unaccounted_components` over this population and passes
     // when the result is empty — which is also what an EMPTY POPULATION produces.
     // A fixture that booted no bodies, or a filter that stopped matching after a
@@ -277,8 +229,8 @@ fn simulated_population(sim: &mut Platformer2dSimHarness) -> Vec<Entity> {
 /// only exist where a room authors them — so callers sweep representative
 /// rooms, not just the boot default.
 ///
-/// ⚠ **it walks the entities PRESENT in a booted room, so state that only exists
-/// after an EVENT is structurally invisible to it.** An item spat out by a
+///  it walks the entities PRESENT in a booted room, so state that only exists
+/// after an EVENT is structurally invisible to it. An item spat out by a
 /// struck block, a projectile in flight, a pickup mid-arc: none of them are in a
 /// world nobody has played yet, and no amount of sweeping more rooms reaches
 /// them. This is a property of a one-shot census, not a gap to be waived, and it
@@ -365,7 +317,7 @@ pub(crate) fn waived_components(
     waived
 }
 
-/// **Print the shipped composition's remaining unaccounted resources.**
+/// Print the shipped composition's remaining unaccounted resources.
 ///
 /// The sibling of the waiver listing below, for the other sweep. Not an
 /// assertion — the ceiling test is the assertion; this is how you READ what the
@@ -375,7 +327,7 @@ pub(crate) fn waived_components(
 /// honestly swallow: a mix of provider-lifecycle catalogs, session-scope markers, authored art
 /// manifests and a few genuinely ambiguous ones.
 ///
-/// ⚠ **read them one at a time and register or waive INDIVIDUALLY.** Both bugs
+///  read them one at a time and register or waive INDIVIDUALLY. Both bugs
 /// this sweep has caught — `BrokenBricks` and `SpentMonitors` — were in a demo
 /// provider's namespace, which is precisely where a broad new family waiver would
 /// hide the next one.
@@ -471,7 +423,7 @@ fn every_component_in_the_combat_calibration_lab_is_registered_derived_or_waived
     assert_components_accounted(&mut sim, "combat_calibration_lab");
 }
 
-/// **The same sweep over a BOSS population, which nothing swept before.**
+/// The same sweep over a BOSS population, which nothing swept before.
 ///
 /// The two rooms above contain no boss, so every boss-only component — the
 /// animation cursor, the pattern timer, the death animation, the encounter
@@ -502,7 +454,7 @@ fn every_component_in_a_boss_arena_is_registered_derived_or_waived() {
     assert_components_accounted(&mut sim, "mockingbird_arena");
 }
 
-/// **Populations no sweep had ever visited.** (A19)
+/// Populations no sweep had ever visited. (A19)
 ///
 /// This instrument is POPULATION-driven: it can only report on components that
 /// exist in the rooms it boots. It has now been confidently empty three times
@@ -635,7 +587,7 @@ fn every_component_on_a_live_strike_volume_is_registered_derived_or_waived() {
     );
 }
 
-/// **The MOUNT population, which authors no LDtk room.** (A20)
+/// The MOUNT population, which authors no LDtk room. (A20)
 ///
 /// ADR 0020's mount model is two linked actors with two HP pools, welded by
 /// `RidingOn` / `Mounted` / `MountSlot`. No swept room authors a mounted pair, so
@@ -743,7 +695,7 @@ fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
 /// wearing the right character. A seat that silently fails to adopt is how a
 /// match sweep ends up inspecting an empty roster and reporting success.
 ///
-/// ⚠ the robot lineage, not the arena duelists. A plain `Platformer2dSimHarness` prepares
+///  the robot lineage, not the arena duelists. A plain `Platformer2dSimHarness` prepares
 /// exactly `["player_robot_v2", "player_robot_v3", "robot"]` — the duelists are
 /// versus-ROUTE content — and `seat_character` returns `None` for an unprepared
 /// id, silently. The vacuity guard is what said so; the first version of this
@@ -800,10 +752,10 @@ fn seat_a_two_cpu_match(sim: &mut Platformer2dSimHarness) -> usize {
     );
 }
 
-/// **A LIVE MATCH, which nothing swept.** (AA2 / AC2)
+/// A LIVE MATCH, which nothing swept. (AA2 / AC2)
 ///
-/// What is worth recording is why neither this instrument nor any other caught it first: **no swept
-/// population contained a match.** That is the exact shape A19 already hit —
+/// What is worth recording is why neither this instrument nor any other caught it first: no swept
+/// population contained a match. That is the exact shape A19 already hit —
 /// `PogoTargetContributor`, `ChestFeature` and `PortalHostScanned` were not
 /// unregistered-and-missed, they were never in the population — and the lesson evidently did not
 /// generalise on its own. A sweep answers only the question its population asks.
@@ -838,7 +790,7 @@ fn every_component_in_a_live_match_is_registered_derived_or_waived() {
     }
 }
 
-/// **The falling-sand room, which nothing swept.** (A20)
+/// The falling-sand room, which nothing swept. (A20)
 ///
 /// The sand grid itself is deliberately outside rollback (see the
 /// `::falling_sand_sim::` waiver, which carries its own in-code guard), but the
@@ -891,30 +843,30 @@ fn every_component_in_the_falling_sand_room_is_registered_derived_or_waived() {
 /// would be meaningless or harmful, with the reason. Crate-prefix waivers from
 /// [`WAIVED`] apply here too; this list holds the resource-specific remainder.
 const RESOURCE_WAIVED: &[(&str, &str)] = &[
-    // **The condition catalog**: which questions the installed domains can
+    // The condition catalog: which questions the installed domains can
     // answer, and the function that answers each.
     //
-    // ⭐ IMMUTABLE ONCE THE SIMULATION STARTS, AND STRUCTURALLY SO. `publish` is
+    //  IMMUTABLE ONCE THE SIMULATION STARTS, AND STRUCTURALLY SO. `publish` is
     // private to its module; the only way in is `PublishCondition` on `App`, and
     // a tick holds a `World`, never an `App`. So a rewind restoring this would
     // restore a byte-identical value — there is no timeline in which the set of
     // questions the engine can answer differs.
     //
-    // ⚠ this waiver is about the CATALOG, not about answers.
+    //  this waiver is about the CATALOG, not about answers.
     (
         "ambition_platformer2d_shared_tangle::authored_logic::ConditionCatalog",
         "published during plugin build only; `publish` is private and a tick has no `App`",
     ),
-    // **The command catalog**: which verbs the installed domains can perform,
+    // The command catalog: which verbs the installed domains can perform,
     // and the function that performs each.
     //
-    // ⭐ THE SAME STRUCTURAL ARGUMENT, and this is the half where it had to be
+    //  THE SAME STRUCTURAL ARGUMENT, and this is the half where it had to be
     // made before anything was built. `publish` is private, the only way in is
-    // `PublishCommand` on `App`, and a tick holds a `World`. ⛔ a command
+    // `PublishCommand` on `App`, and a tick holds a `World`.  a command
     // registry a system could write to IS rollback state, and then every
     // authored verb in the game joins the snapshot.
     //
-    // ⚠ and `run` is private too, which is a different claim from this waiver
+    //  and `run` is private too, which is a different claim from this waiver
     // but the reason the waiver is not merely true: nothing can perform a
     // command out of `AuthoredCommandSet`, so there is no timeline in which the
     // catalog and the world disagree about what happened.
@@ -922,7 +874,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_platformer2d_shared_tangle::authored_logic::commands::CommandCatalog",
         "published during plugin build only; `publish` is private and a tick has no `App`",
     ),
-    // **Every game's death rules** (ADR 0033): how long a death holds, and the
+    // Every game's death rules (ADR 0033): how long a death holds, and the
     // roster question that decides a level reset — one declaration per game,
     // keyed by the rooms that game governs.
     //
@@ -953,7 +905,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_platformer2d_rollback_ggrs::probes::",
         "rollback diagnostics: measures the rewind, is not reproduced by it",
     ),
-    // **Whether the twintrack spacetime MINIMAP is showing.** A viewer's toggle
+    // Whether the twintrack spacetime MINIMAP is showing. A viewer's toggle
     // over a 3D diagram of worldlines the simulation already computed — the
     // diagram READS the experiment, and nothing in the experiment reads the
     // diagram.
@@ -967,14 +919,14 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_demo_twintrack::spacetime_3d::SpacetimeMinimapState",
         "presentation toggle for a read-only diagram; rewinding it would fight the viewer",
     ),
-    // ⭐ **The two relativity READ MODELS, and the reason is not "presentation"
-    // but REPUBLICATION.** Both are recomputed every frame in `Update` from
+    //  The two relativity READ MODELS, and the reason is not "presentation"
+    // but REPUBLICATION. Both are recomputed every frame in `Update` from
     // `SpacetimeCoordinateTime2d` and canonical `BodyKinematics` — no
     // accumulator, no entity, nothing carried between frames. A restored value
     // is overwritten before anything reads it, so rewinding them is not harmful,
     // it is a no-op with a cost.
     //
-    // ⚠ **waived rather than DECLARED DERIVED, deliberately.** A derived
+    //  waived rather than DECLARED DERIVED, deliberately. A derived
     // declaration's reason string is hashed into `schema_fingerprint`, so it
     // would put a demo's exhibit into the engine's wire format and owe a version
     // bump every time somebody reworded it. `RelativisticOpticalView2d` is
@@ -1019,7 +971,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "prepared authored definitions; immutable within a session and bound by PreparedContentIdentity",
     ),
     (
-        // ⚠ ALSO REPATHED, and by the same crate move as the entry above — the
+        //  ALSO REPATHED, and by the same crate move as the entry above — the
         // staging lifecycle followed the fold down to `ambition_characters` so
         // the fold could stop being public. The
         // resource and its reason are unchanged; only its address is.
@@ -1092,8 +1044,8 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "::features::banter::CombatBanterRegistry",
         "authored banter registry",
     ),
-    // ⛔ **`CharacterRoster` and `CharacterRosterRegistry` WERE WAIVED HERE and
-    // the types are DELETED** (AC6.1). A waiver answers a checker's question
+    //  `CharacterRoster` and `CharacterRosterRegistry` WERE WAIVED HERE and
+    // the types are DELETED (AC6.1). A waiver answers a checker's question
     // about something that exists; two entries naming nothing answered nothing,
     // and this list is exactly where that goes unnoticed.
     (
@@ -1124,7 +1076,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // The phase now lives in `GatePortalPhases`, registered as
     // `resource.gate_portal_phases`. What is left here really is authored: it is
     // written once by the content plugin that authors a portal and never again.
-    // ⚠ and it must NOT be registered — that plugin runs in `Update` behind a
+    //  and it must NOT be registered — that plugin runs in `Update` behind a
     // one-shot `installed` flag that is itself waived, so a rewind past the
     // populate would restore an empty registry nothing ever refills.
     (
@@ -1281,8 +1233,8 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // two REAL bugs (`BrokenBricks`, `SpentMonitors`, both registered now). What
     // is left sorts into a small number of categories, and these are them.
     //
-    // ⚠ **each is a MODULE family, which is the widest form this file allows and
-    // the one that most easily rots.** The test is whether a sim-authoritative
+    //  each is a MODULE family, which is the widest form this file allows and
+    // the one that most easily rots. The test is whether a sim-authoritative
     // resource could plausibly be added to that module later. For a menu, a
     // developer overlay or a file path, no — the module name IS the argument. Any
     // family where the answer is "maybe" is deliberately absent below and stays
@@ -1474,7 +1426,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // nudge is a drawn offset. A rewound-or-not flinch changes no simulation
     // state a checksum can see.
     //
-    // ⚠ the matching entry in `rollback_exit_oracle`'s `NOT_REWOUND` argues the
+    //  the matching entry in `rollback_exit_oracle`'s `NOT_REWOUND` argues the
     // stale-CURSOR half (what a reader resumes from). This one argues the
     // stale-BUFFER half (what the resource holds). Same subject, two instruments,
     // and each states its own question rather than pointing at the other.
@@ -1482,14 +1434,14 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_platformer2d_shared_tangle::block_nudge::",
         "a struck block's flinch is a drawn offset: one render-plugin reader on          the wall clock, writing only presentation components, over geometry          that is authoritative and static by design",
     ),
-    // ⭐ **AUTHORED CONTENT, written once and never by a system.** The game's
+    //  AUTHORED CONTENT, written once and never by a system. The game's
     // fighter difficulty rungs, lowered from the compiled content pack and
     // inserted at plugin build. No system mutates it; there is no tick at which
     // its value differs from the tick before, so there is nothing for a rewind to
     // restore. What a rewind DOES restore is the brains built from it, and those
     // are ordinary rollback state.
     //
-    // ⚠ the question this answers is not "is it important" — it is very
+    //  the question this answers is not "is it important" — it is very
     // important, and a fighter reads it on the frame it spawns. It is whether a
     // REWIND can observe it changing, and it cannot: the only writer is
     // `AmbitionContentPlugin`, before any frame runs.
@@ -1589,11 +1541,11 @@ fn the_resource_sweep_actually_catches_an_unregistered_resource() {
     );
 }
 
-/// **The same sweep, over the composition that actually ships.**
+/// The same sweep, over the composition that actually ships.
 ///
-/// ⛔ **the sweep above boots `Platformer2dSimHarness` — the Ambition sandbox —
+///  the sweep above boots `Platformer2dSimHarness` — the Ambition sandbox —
 /// so a resource that only exists in a DEMO PROVIDER's composition is invisible
-/// to it.** `SpentPowerBlocks` (Mary-O's spent ?-blocks) lived unregistered for
+/// to it. `SpentPowerBlocks` (Mary-O's spent ?-blocks) lived unregistered for
 /// as long as both existed, and no sweep could have said so: the world it walks
 /// never had Mary-O's plugin in it.
 ///
@@ -1602,18 +1554,18 @@ fn the_resource_sweep_actually_catches_an_unregistered_resource() {
 /// process sees. `NoWindow` keeps it headless (and, writes its
 /// own state directory rather than the user's).
 ///
-/// ⚠ this is the SECOND of the two blind spots B3b names; the first — transient
+///  this is the SECOND of the two blind spots B3b names; the first — transient
 /// entities spawned and despawned inside a route — is covered by
 /// `rollback_exit_oracle`'s per-frame census, which caught two regressions the
 /// day it was pointed at them.
 ///
-/// ⛔ **AND IT HAS A BLIND SPOT OF ITS OWN, this fixture
-/// never runs the simulation.** `build_visible_app` seats no session, and in
+///  AND IT HAS A BLIND SPOT OF ITS OWN, this fixture
+/// never runs the simulation. `build_visible_app` seats no session, and in
 /// rollback mode there deliberately is none until one is, so `GgrsSchedule` never
 /// advances a frame — `the_shipped_fixture_does_not_advance_the_simulation`
 /// prints the witness (0 of 255 snapshot stores written across 30 updates).
 ///
-/// So this sweep enumerates the world **as COMPOSED, not as PLAYED**, and any resource the
+/// So this sweep enumerates the world as COMPOSED, not as PLAYED, and any resource the
 /// running simulation creates is invisible to it. A green result here means *composed clean* —
 /// it is not, and must not be cited as, a statement about a session in progress.
 #[test]
@@ -1626,7 +1578,7 @@ fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
         app.update();
     }
 
-    // ⚠ **message channels are somebody else's job.**
+    //  message channels are somebody else's job.
     // `Messages<T>` is a resource, so a naive sweep counts ~240 of them here —
     // and `rollback_exit_oracle::every_gameplay_message_channel_is_rewound_on_rollback_or_named`
     // already owns that question, with its own named list and its own reasoning
@@ -1644,47 +1596,8 @@ fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
         .filter(|name| name.starts_with("ambition_"))
         .collect();
 
-    // ⚠ **A RATCHET, not a pass/fail — and the number is a debt, not a target.**
-    //
-    // The shipped composition has 66 resources this sweep cannot account for.
-    // Classifying them is real work and most are presentation, dev tooling or
-    // host bookkeeping that the sandbox sweep's own WAIVED list already justifies
-    // by category — but "most" is not "all", and this file's header is explicit:
-    // *do not waive to get green, a wrong choice here is a desync later.* Waiving
-    // 66 in one pass at the speed they were discovered is exactly that mistake.
-    //
-    // So the sweep lands as a ceiling. It cannot go UP — a new unaccounted
-    // resource in any provider fails here immediately, which is the property the
-    // blind spot never had — and every classification lowers it. When it reaches
-    // the point where the remainder is a short justified list, this becomes the
-    // plain assertion its sibling above already is.
-    // 66 → 64 the same day it was set, by registering `BrokenBricks` and
-    // `SpentMonitors`. Both halves of the ratchet were exercised doing it: the
-    // sweep FOUND them, and the staleness assert REFUSED to let the ceiling stay
-    // at 66 once they were gone.
-    //
-    // 64 → 25 by classifying eight CATEGORIES into `RESOURCE_WAIVED` — menus,
-    // developer instruments, transition presentation, asset staging, content
-    // presentation, the presentation-profile stack, persistence paths, and the
-    // rollback driver's own state. Each is a module family whose NAME is the
-    // argument. The staleness assert fired again on the way (`only 25 unaccounted
-    // now`), which is the second time in one day it has stopped a ratchet from
-    // quietly going slack.
-    //
-    // Do not reach for a wider waiver to finish the job — the two bugs this sweep has already
-    // caught were both in a demo provider's own namespace, exactly the kind of place a broad
-    // family waiver would have swallowed.
-    //
-    // 24 → 23 by DECLARING `FallingSandProjectionReport` derived — the same
-    // shape as `ActiveRoundScope` (mutated by a system in the sim schedule) but
-    // wholly overwritten each tick rather than accumulated, which is the whole
-    // difference between derived state and a memo.
-    //
-    // ⚠ **zero is the number this can now hold, and it is the number that will
-    // hurt.** Every future resource that is mutated in the sim schedule and not
-    // registered lands here with nothing to hide behind. That is the point; the
-    // staleness assert below is what made lowering it safe, and it fired on this
-    // change exactly as designed.
+    // No simulation-mutated resource may remain unclassified. Register it,
+    // declare it derived, or add a narrowly justified waiver.
     const UNACCOUNTED_CEILING: usize = 0;
     if unaccounted.len() > UNACCOUNTED_CEILING {
         let mut report = format!(
@@ -1699,9 +1612,7 @@ fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
         }
         panic!("{report}");
     }
-    // ⚠ and it must be able to go DOWN without anybody noticing by accident:
-    // a classification pass that lowers the real number and forgets the ceiling
-    // leaves a check that has stopped constraining anything.
+    // Keep the ceiling exact so classifications cannot make this guard slack.
     assert!(
         unaccounted.len() >= UNACCOUNTED_CEILING,
         "the ceiling is stale: only {} unaccounted now, so lower \
@@ -1849,35 +1760,11 @@ fn the_render_frame_sweep_actually_catches_a_write_from_outside_the_sim() {
     );
 }
 
-/// **No render frame writes state the simulation owns.**
-///
-/// The two sweeps above ask *"is this state registered?"*. This asks the
-/// question they cannot: *"is registered state being written from the wrong
-/// schedule?"* Both answers can be yes at once, and that combination is what
-/// shipped — `VersusMatch` was properly rollback-registered AND advanced by a
-/// system in `Update` counting on the render clock.
-///
-/// That is a subtle desync rather than a loud one. Resimulation replays sim
-/// steps; it does not replay render frames with their original durations. So
-/// the restored value depends on presentation history the rewind does not have,
-/// and the two peers disagree about a scoreboard neither of them wrote wrongly.
-/// Nothing in the registry, the type system, or the other two sweeps notices —
-/// registering the resource is exactly what makes it look correct.
-///
-/// The instrument is a frame in which the SIM CANNOT RUN. Anything rollback-registered that
-/// changes during such a frame was written by something that is not the simulation.
-///
-/// ## What this covers, and what its sibling covers
-///
-/// It watches the 29 restored resources the RL-sim composition installs — the
-/// engine and its content. It does not see resources that only the shell app
-/// registers, and `VersusMatch` is one of them.
-///
-/// Only `Derived` declarations are excluded, and deliberately: a derived
-/// resource is one republished every frame before anyone reads it, so writing it
-/// off the sim schedule is exactly its job. `ControlFrame` — the input the
-/// harness hands in per frame — is the honest example, and it is the one entry
-/// the first draft flagged.
+/// Verify that rollback-restored resources are not written from render-only
+/// frames. A frame where the simulation cannot run isolates writes outside the
+/// sim schedule; any restored resource that changes is invalid. Derived
+/// resources are excluded because republishing them outside rollback is their
+/// contract.
 #[test]
 fn no_render_only_frame_writes_a_rollback_registered_resource() {
     let mut sim = sim_with_a_stopped_clock();
@@ -1925,7 +1812,7 @@ fn no_render_only_frame_writes_a_rollback_registered_resource() {
 // runs over the SAME real populations the sweeps above build, and asks the co-occurrence
 // question directly.
 
-/// **Archetypes deliberately OUTSIDE the rollback envelope**, keyed by a
+/// Archetypes deliberately OUTSIDE the rollback envelope, keyed by a
 /// component whose presence identifies them, with the reason.
 ///
 /// A waiver here is a CLAIM: *this entity's registered components never change
@@ -1933,7 +1820,7 @@ fn no_render_only_frame_writes_a_rollback_registered_resource() {
 /// narrower statement than "this entity does not matter", and it is the only one
 /// that makes an unanchored registration harmless rather than silently broken.
 ///
-/// ⚠ each of these earns its place by being IMMUTABLE-after-construction, not by
+///  each of these earns its place by being IMMUTABLE-after-construction, not by
 /// being unimportant. `SpawnOrigin`, `TransactionId` and `SimId` are construction
 /// provenance (ADR 0030) — written once when the entity is built and never
 /// again — so a rewind that does not restore them restores the same values they
@@ -1955,7 +1842,7 @@ const INERT_WAIVED: &[(&str, &str)] = &[
     ),
 ];
 
-/// **Construction provenance is written ONCE and never again** (ADR 0030), so an
+/// Construction provenance is written ONCE and never again (ADR 0030), so an
 /// entity whose only snapshot-registered components are provenance is outside
 /// the envelope by construction rather than by exception: a rewind that does not
 /// restore them restores exactly the values they already hold.
@@ -2052,7 +1939,7 @@ fn inert_registrations(sim: &mut Platformer2dSimHarness) -> BTreeMap<String, BTr
         let key = stranded.iter().cloned().collect::<Vec<_>>().join(" + ");
         // The failure named a shape and could never name a thing.
         //
-        // ⭐ the entity's NAME is what an investigation actually needs, and
+        //  the entity's NAME is what an investigation actually needs, and
         // `tracks.md` says so in its own words: *"the next investigation should
         // probe inside `Platformer2dSimHarness` … and print the entity's `Name`,
         // rather than re-deriving that the shell is involved."* Putting it in the
@@ -2081,7 +1968,7 @@ fn assert_no_inert_registrations(sim: &mut Platformer2dSimHarness, room: &str) {
     );
 }
 
-/// **The boot world's snapshot registrations all actually apply.**
+/// The boot world's snapshot registrations all actually apply.
 #[test]
 fn no_snapshot_registration_is_inert_in_the_boot_world() {
     let mut sim = Platformer2dSimHarness::new().expect("sandbox sim boots");
@@ -2097,7 +1984,7 @@ fn no_snapshot_registration_is_inert_in_a_live_match() {
     // seating retry to completion and the default timestep does not reach it.
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
         .expect("sandbox sim builds");
-    // ⚠ the helper returns the TICK the match activated, not a seat count — and
+    //  the helper returns the TICK the match activated, not a seat count — and
     // with the S2 transaction that tick is 0, because every seat now resolves
     // and commits together. Count the bodies, like the sibling sweep does.
     seat_a_two_cpu_match(&mut sim);
@@ -2114,7 +2001,7 @@ fn no_snapshot_registration_is_inert_in_a_live_match() {
     assert_no_inert_registrations(&mut sim, "a live match");
 }
 
-/// **The instrument itself goes red**, which is the only reason to trust the two
+/// The instrument itself goes red, which is the only reason to trust the two
 /// tests above. Spawn a body-shaped entity carrying a snapshot-registered
 /// component and NO anchor — exactly the mistake — and confirm it is named.
 #[test]
@@ -2138,16 +2025,16 @@ fn the_inert_sweep_actually_catches_an_unanchored_registration() {
     );
 }
 
-/// **The shipped sweep, AS PLAYED** — B9's blind spot, closed.
+/// The shipped sweep, AS PLAYED — B9's blind spot, closed.
 ///
-/// ⚠ **a DIFFERENCE ratchet, not a count.** The absolute unaccounted number is
+///  a DIFFERENCE ratchet, not a count. The absolute unaccounted number is
 /// the other sweep's job and its ceiling; what only this fixture can see is the
 /// set that appears *because the world played*. Two are known and read clean:
 ///
 /// | `ConfirmedFrameBoundary` | *"published once per simulated frame by the rollback bridge, from the GGRS session's own frame counters"* — re-derived every frame, so a rewind has nothing to put back. The same category as `PendingSeatInputs` and `RollbackExecutionStats`, which the shipped ceiling already waives as the machinery doing the rewinding. |
 /// | `bevy_ggrs::Session<…>` | the session itself. |
 ///
-/// ⛔ **anything else appearing here is the interesting case** and is why this is
+///  anything else appearing here is the interesting case and is why this is
 /// an assertion rather than a print: it is a resource the simulation brought into
 /// existence, which no other sweep in this file can reach.
 #[test]

@@ -1,4 +1,4 @@
-//! **Which authored world documents a game ships, and where play starts.**
+//! Which authored world documents a game ships, and where play starts.
 //!
 //! A [`WorldManifest`] is a game's declaration of its authored world payload:
 //! a list of [`WorldSource`] rows (one per authored world document, each with
@@ -10,7 +10,7 @@
 //! read a manifest; none owns it, and consumers can use the manifest without
 //! depending on a particular world backend.
 //!
-//! **There is no install seam and no process global.** A manifest is an
+//! There is no install seam and no process global. A manifest is an
 //! ordinary owned value that boot preparation constructs and hands to every
 //! reader: the asset-catalog rows, a backend loader's disk/embedded fallback
 //! chain, the Bevy `EmbeddedAssetRegistry` registration, the hot-reload
@@ -155,7 +155,7 @@ mod tests {
         );
     }
 
-    /// **A manifest row's embedded copy WINS over its authored asset path.**
+    /// A manifest row's embedded copy WINS over its authored asset path.
     ///
     /// The bundled/web profiles register the embedded bytes under
     /// `embedded_bevy_path` and the loader must reach those rather than the

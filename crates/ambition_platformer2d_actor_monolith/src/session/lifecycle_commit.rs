@@ -1,34 +1,10 @@
-//! Confirmed-frame lifecycle commitment (Track B, Piece 1).
+//! Confirmed-frame lifecycle commitment.
 //!
-//! A room-lifecycle operation — a same-room reset (death / manual / replay), a
-//! room transition, or a full sandbox reset — despawns and/or rebuilds the
-//! authoritative room. Under a rollback host it must NOT run on a speculative
-//! frame: the transition transaction machinery is not rollback-registered, so a
-//! reconstruction executed on a predicted frame cannot resimulate identically and
-//! the sync-test checksum diverges (see
-//! `app_it::rollback_room_transition`).
-//!
-//! Instead of executing, the lifecycle consumer RECORDS a [`PendingLifecycleCommit`] and
-//! returns. This resource is **rollback-registered state** — unlike [`crate`]'s external-effect
-//! journal, whose consumers live outside the sim — so:
-//!
-//! * resimulation reproduces the intent deterministically (the consumer re-reads
-//!   the same trigger and re-records the same intent);
-//! * a corrected input that erases the trigger (the death never happened) rewinds
-//!   the intent away with the rest of the world;
-//! * repeated prediction cannot accumulate duplicates — it is idempotent STATE,
-//!   not a command stream.
-//!
-//! A host-side system (Track B, Piece 2, `PreUpdate` after the GGRS advances,
-//! gated on `ConfirmedFrameBoundary`) then executes the transaction in an
-//! exclusive world once the originating frame can never be simulated again, and
-//! **rebases the session** so no earlier snapshot can restore the pre-op room.
-//!
-//! It is no longer true of a transition: a crossing is described ONCE, here, on every host, and
-//! the readiness transaction is its only consumer. What still differs is WHEN the intent may be
-//! acted on — an eager host has no speculative frames, so it stamps frame `0` and its intent is
-//! confirmed on arrival, while a rollback host stamps the recording frame and waits for it. Two
-//! confirmation adapters, one description.
+//! Room resets and transitions rebuild authoritative world state and therefore
+//! cannot execute on speculative rollback frames. Simulation records a
+//! rollback-registered [`PendingLifecycleCommit`]; host code executes it only
+//! after its originating frame is confirmed, then rebases the rollback session.
+//! Eager and rollback hosts share the same intent and differ only in confirmation.
 
 use bevy::prelude::*;
 
@@ -63,17 +39,9 @@ pub enum LifecycleIntent {
     FullReset,
 }
 
-/// **WHAT A ROOM TRANSITION IS**, stated once and independently of how any host
-/// waits for it to be safe.
-///
-/// Two descriptions of one event that disagreed about the body is what let the eager commit
-/// transit whoever happened to be driving several frames later. This is the surviving one; the
-/// hosts differ only in WHEN they hand it to the readiness transaction — immediately, or once
-/// its originating frame is confirmed.
-///
-/// **every field must encode deterministically**, because the enclosing
-/// [`PendingLifecycleCommit`] is rollback state: the room is named by its authored
-/// id and the body by its [`SimId`], never by an index or an `Entity`.
+/// Deterministic description of a room transition, independent of host
+/// confirmation timing. Because it is rollback state, identities use authored
+/// room ids and [`SimId`] rather than transient entities or query positions.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RoomTransitionIntent {
     /// The body that CROSSED. Never re-resolved from live control at commit
@@ -88,13 +56,8 @@ pub struct RoomTransitionIntent {
     /// `RoomTransitionApplication::apply`. An `EdgeExit` crossing feels different
     /// from a door, and the zone that knew which is long out of reach by commit.
     pub edge_exit: bool,
-    /// The door / portal cue this crossing owes, resolved from the zone's
-    /// activation at DETECTION time.
-    ///
-    /// **it has to ride the intent.** The commit runs long after the zone that named it is out
-    /// of reach, and the intent deliberately stores no zone.
-    ///
-    /// a `String`, like `target_room` beside it, because this is rollback state.
+    /// Door/portal cue resolved when the crossing is detected, before the
+    /// originating zone is no longer available at commit time.
     pub zone_sfx: Option<String>,
 }
 
@@ -110,8 +73,8 @@ pub struct PendingIntent {
 
 /// The single pending confirmed-frame lifecycle commit (Track B, Piece 1).
 ///
-/// **Rollback-registered** (`rollback/mod.rs`), so the intent rewinds with the world. One slot,
-/// **earliest-sticky**: a consumer records only via [`Self::record`], which keeps the intent
+/// Rollback-registered (`rollback/mod.rs`), so the intent rewinds with the world. One slot,
+/// earliest-sticky: a consumer records only via [`Self::record`], which keeps the intent
 /// already present.
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct PendingLifecycleCommit {

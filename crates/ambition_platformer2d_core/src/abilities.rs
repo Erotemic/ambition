@@ -118,11 +118,11 @@ pub struct AbilitySet {
     /// (projectile reflection, counter stun).
     #[serde(default)]
     pub shield: bool,
-    /// **May this body CAPTURE another one.** The grab verb: a body that has it
+    /// May this body CAPTURE another one. The grab verb: a body that has it
     /// can establish a capture relationship, hold a captive across several of
     /// its own moves, and end the hold with a throw.
     ///
-    /// **deliberately NOT folded under [`Self:attack`].** A grab is not a kind of slash: it
+    /// deliberately NOT folded under [`Self:attack`]. A grab is not a kind of slash: it
     /// beats a shield rather than being stopped by one, it selects a counterpart instead of
     /// damaging everything it overlaps, and it outlives the move that started it.
     ///
@@ -131,23 +131,23 @@ pub struct AbilitySet {
     /// granting a fighter kit cannot invent a grab for a character that has never
     /// authored one.
     ///
-    /// **not [`Self::ledge_grab`]**, thirty lines up in this same struct.
+    /// not [`Self::ledge_grab`], thirty lines up in this same struct.
     /// That one is a body catching a LEDGE — traversal geometry. This one is a
     /// body catching another BODY. They share an English word and nothing else.
     #[serde(default)]
     pub grab: bool,
-    /// **World interaction: talk, open, read.** Resolved against nearby
+    /// World interaction: talk, open, read. Resolved against nearby
     /// interactables at press time, so this flag is only "does this body have the
     /// verb at all" — the world half was always handled downstream.
     ///
-    /// **absent from [`Self::NONE`] on purpose, which is what makes a
-    /// restricted kit restrictive.** `compose` folds grants from `NONE`, so a
+    /// absent from [`Self::NONE`] on purpose, which is what makes a
+    /// restricted kit restrictive. `compose` folds grants from `NONE`, so a
     /// character authoring a grant list gets exactly what it asked for — and
     /// [`AbilityGrant::RunJump`], "the minimal kit a platformer protagonist
     /// needs", carries no talk verb, faithfully to the game it is named after.
     /// `basic` / `sane_subset` / `sandbox_all` all keep it.
     ///
-    /// **`serde` default is TRUE, not `bool::default()`.** Authored data that
+    /// `serde` default is TRUE, not `bool::default()`. Authored data that
     /// predates this field (the shipped `platformer_defaults.ron`, a save, an
     /// authored spec) must keep the verb it had — a missing field meaning "no
     /// interact" would silently take talking away from every body loaded from
@@ -157,21 +157,21 @@ pub struct AbilitySet {
     pub interact: bool,
 }
 
-/// **Can this body STAY WHERE IT IS, without being carried off?**
+/// Can this body STAY WHERE IT IS, without being carried off?
 ///
 /// Conversation continuity uses this authority: a conversation asks its
 /// participants to hold a conversational stance, they comply if they can, and
 /// the ones that cannot are carried away by ordinary physics — at which point
 /// the conversation breaks.
 ///
-/// **derived, not a new flag.** Holding station is not a capability anybody
+/// derived, not a new flag. Holding station is not a capability anybody
 /// authors; it is what being grounded OR being able to fly already means. A body
 /// standing on a floor holds station by standing still, and a body that can fly
 /// holds station by hovering. Adding a `can_hover` bool beside `fly` would be a
 /// second authority for one fact, and content would eventually set them
 /// disagreeing.
 ///
-/// **symmetric on purpose.** This takes a body's own facts and knows nothing about players —
+/// symmetric on purpose. This takes a body's own facts and knows nothing about players —
 /// the flying parrot and the flying player answer it the same way, and a caller that asks it of
 /// only one of them has reintroduced the player-centrism the design is written against.
 pub fn can_hold_station(abilities: &AbilitySet, grounded: bool) -> bool {
@@ -591,7 +591,7 @@ impl AbilityGrant {
     }
 }
 
-/// **WHAT A MATCH SAYS ITS FIGHTERS MAY DO**, as two statements rather than one.
+/// WHAT A MATCH SAYS ITS FIGHTERS MAY DO, as two statements rather than one.
 ///
 /// A mode has two different things to say about a body's verbs, and the day they
 /// were one field only one of them could be true at a time:
@@ -601,7 +601,7 @@ impl AbilityGrant {
 ///   permitted  and no fighter has anything OUTSIDE these
 /// ```
 ///
-/// ⇒ `effective = (authored ∪ granted) ∩ permitted`, which is
+///  `effective = (authored ∪ granted) ∩ permitted`, which is
 /// [`Self::apply`] and is the whole rule.
 ///
 /// Every character that gains an authored kit is one more chance at that, and the count of
@@ -615,18 +615,18 @@ impl AbilityGrant {
 /// says which it means with [`Self::levelled`] or [`Self::at_most`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MatchAbilities {
-    /// **Every fighter has these**, whatever its character authored. The floor a
+    /// Every fighter has these, whatever its character authored. The floor a
     /// mode guarantees — for a platform fighter, the verbs without which a body
     /// is not playable on the stage at all.
     pub granted: AbilitySet,
-    /// **And nothing outside these.** The ceiling a mode permits — for a
+    /// And nothing outside these. The ceiling a mode permits — for a
     /// platform fighter, the reason an exploration protagonist's flight and
     /// blink do not come to the fight.
     pub permitted: AbilitySet,
 }
 
 impl MatchAbilities {
-    /// **One kit, for everybody.** `granted == permitted`, so every fighter in
+    /// One kit, for everybody. `granted == permitted`, so every fighter in
     /// the match has precisely this set and a character's own kit changes
     /// nothing — which is what a levelled versus stage means and says.
     ///
@@ -640,7 +640,7 @@ impl MatchAbilities {
         }
     }
 
-    /// **A ceiling only** — grant nothing, permit `kit`. The behaviour a lone
+    /// A ceiling only — grant nothing, permit `kit`. The behaviour a lone
     /// mask had: a character keeps what it authored, minus anything this mode
     /// forbids.
     pub const fn at_most(kit: AbilitySet) -> Self {
@@ -652,7 +652,7 @@ impl MatchAbilities {
 
     /// The verbs a body seated under these rules actually has.
     ///
-    /// **why that was worse than it looked.** It is most damaging in exactly
+    /// why that was worse than it looked. It is most damaging in exactly
     /// the use these docs propose: `granted = the common kit`,
     /// `permitted = the common kit + wall jump`, meaning *"the one character who
     /// authored a wall jump keeps it"*. Under the old default every character
@@ -660,14 +660,14 @@ impl MatchAbilities {
     /// be widened for one fighter without widening it for everybody who had not
     /// spoken.
     ///
-    /// **`levelled` is unaffected, and that is what made the change safe.**
+    /// `levelled` is unaffected, and that is what made the change safe.
     /// Its `granted == permitted`, so `NONE ∪ granted ∩ permitted` is still the
     /// whole kit — the smash stage seats fourteen fighters through it and not
     /// one of them moves. Only `at_most` changes, and its single adopter's two
     /// fighters were dressed first (`a480c1381`) precisely so this could land
     /// without costing anybody a verb.
     ///
-    /// ⇒ a CEILING-ONLY mode now promises nothing, which is what a ceiling
+    ///  a CEILING-ONLY mode now promises nothing, which is what a ceiling
     /// means. A mode that wants every fighter to have a floor says so with
     /// [`Self::levelled`].
     pub fn apply(self, authored: Option<AbilitySet>) -> AbilitySet {
@@ -677,7 +677,7 @@ impl MatchAbilities {
             .intersect(self.permitted)
     }
 
-    /// **Is the declaration coherent — is everything GRANTED also PERMITTED?**
+    /// Is the declaration coherent — is everything GRANTED also PERMITTED?
     ///
     /// A mode that guarantees a verb it also forbids is a contradiction nothing
     /// downstream can act on: [`Self::apply`] intersects last, so the verb is
@@ -690,7 +690,7 @@ impl MatchAbilities {
     }
 }
 
-/// **WHAT A MATCH SAYS ABOUT ITS FIGHTERS' BODIES** — the small set of numbers
+/// WHAT A MATCH SAYS ABOUT ITS FIGHTERS' BODIES — the small set of numbers
 /// a MODE owns, composed over whatever body each fighter brings.
 ///
 /// [`DEFAULT_TUNING`](crate::DEFAULT_TUNING) holds `air_dodge_time`, `tumble_speed` and
@@ -701,12 +701,12 @@ impl MatchAbilities {
 /// That is the same trap [`MatchAbilities`] names on the grant side (*"the Puppy Slug jumping
 /// and dashing like a humanoid"*), and the same body found it.
 ///
-/// ⇒ **a mode states THESE and nothing else**, and everything else about a body
+///  a mode states THESE and nothing else, and everything else about a body
 /// — its gait, its jump arc, its gravity, its air control — stays the
 /// character's. Mary-O keeps her SMB1 convergence on a platform-fighter stage
 /// and gets an air dodge; the crawler keeps its crawl.
 ///
-/// **the list is meant to be short and every entry is a decision.** Adding a
+/// the list is meant to be short and every entry is a decision. Adding a
 /// field here is declaring that a MODE owns that number for every fighter alive,
 /// which is exactly the claim that must not be made casually — and it is why
 /// this is a narrow struct rather than a partial `MovementTuning`, which would
@@ -714,7 +714,7 @@ impl MatchAbilities {
 /// carries.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MatchBody {
-    /// **How far a melee press shoves its own owner backwards** (px/s).
+    /// How far a melee press shoves its own owner backwards (px/s).
     ///
     /// A mode owns it because a fighting game's attack economy is nothing like
     /// an exploration game's: a fighter brain presses
@@ -722,11 +722,11 @@ pub struct MatchBody {
     /// 310, 420, 530 px/s in exact 110 steps against a 270 px/s run — and every
     /// CPU on a platform-fighter stage swung itself off the edge, backwards.
     pub slash_recoil: f32,
-    /// **Grounded crouch before takeoff** (seconds). A fighter's jump is
+    /// Grounded crouch before takeoff (seconds). A fighter's jump is
     /// COMMITTAL and an explorer's is not; three frames is the universal jump
     /// squat in the genre, and it is what makes an opponent's jump a READ.
     pub jump_squat_time: f32,
-    /// **How long an airborne evade lasts** (seconds). `0.0` — the engine
+    /// How long an airborne evade lasts (seconds). `0.0` — the engine
     /// default — is no air dodge at all, which is what makes this the field the
     /// whole type was written for.
     pub air_dodge_time: f32,
@@ -735,37 +735,37 @@ pub struct MatchBody {
     /// Recovery on the far side of it (seconds), so it is a read rather than a
     /// panic button.
     pub air_dodge_endlag: f32,
-    /// **Launch speed above which a hit sends a body TUMBLING** (px/s), and the
+    /// Launch speed above which a hit sends a body TUMBLING (px/s), and the
     /// landing that follows is a knockdown unless it is teched. `0.0` is no
     /// floor game — right for a wandering enemy, wrong for a fighter.
     pub tumble_speed: f32,
-    /// **The grounded evade IN PLACE's invulnerable window** (s) — the spot
+    /// The grounded evade IN PLACE's invulnerable window (s) — the spot
     /// dodge. `0.0` means a grounded evade is always the roll, which is what an
     /// exploration body wants: the press is already spoken for.
     pub spot_dodge_time: f32,
-    /// **WHICH GAME'S PERFECT SHIELD this mode plays with** — Smash 4 opens the
+    /// WHICH GAME'S PERFECT SHIELD this mode plays with — Smash 4 opens the
     /// window on the press, Ultimate on the release. See
     /// [`crate::ParryTiming`]; the two are settings a stage declares, not a
     /// choice the engine makes once.
     pub parry_timing: crate::ParryTiming,
-    /// **How far a frozen body may shift itself per tick of hitlag** (px) —
+    /// How far a frozen body may shift itself per tick of hitlag (px) —
     /// SMASH DIRECTIONAL INFLUENCE. `0.0` is no SDI, which is right for a body
     /// that is not in a combo game and wrong for a fighter. See
     /// [`crate::hit_response::smash_di_shift`].
     pub sdi_step: f32,
-    /// **The guard as a resource**: integrity that drains while held and breaks
+    /// The guard as a resource: integrity that drains while held and breaks
     /// when spent. [`crate::ShieldTuning::OFF`] — the engine default — is the
     /// unlimited guard an exploration body keeps.
     pub shield: crate::ShieldTuning,
-    /// **Whether a body may be stood on**, and what it costs both parties.
+    /// Whether a body may be stood on, and what it costs both parties.
     /// [`crate::FootstoolTuning::OFF`] — the engine default — is a world where
     /// heads are not platforms.
     pub footstool: crate::FootstoolTuning,
 }
 
 impl MatchBody {
-    /// **The body a fighter actually plays with: this mode's numbers over the
-    /// body the fighter brought.**
+    /// The body a fighter actually plays with: this mode's numbers over the
+    /// body the fighter brought.
     ///
     /// One `..base` spread, so a field this type does not name cannot be
     /// disturbed by a mode — no per-field merge, no reconstruction of anybody's
@@ -795,7 +795,7 @@ impl MatchBody {
 mod tests {
     use super::*;
 
-    /// **A MODE STATES ITS OWN NUMBERS AND DISTURBS NOTHING ELSE.**
+    /// A MODE STATES ITS OWN NUMBERS AND DISTURBS NOTHING ELSE.
     #[test]
     fn a_match_body_states_its_own_fields_over_the_one_a_fighter_brought() {
         let brought = crate::movement::MovementTuning {
@@ -852,7 +852,7 @@ mod tests {
         }
     }
 
-    /// **A LEVELLING GRANTS WHAT A CHARACTER LACKS AND FORBIDS WHAT IT ADDS.**
+    /// A LEVELLING GRANTS WHAT A CHARACTER LACKS AND FORBIDS WHAT IT ADDS.
     /// Both halves in one assertion, because a `granted` that worked while
     /// `permitted` did nothing would pass half of this.
     #[test]
@@ -882,7 +882,7 @@ mod tests {
         );
     }
 
-    /// **A CEILING CAN ONLY EVER TAKE AWAY** — the behaviour a lone mask had,
+    /// A CEILING CAN ONLY EVER TAKE AWAY — the behaviour a lone mask had,
     /// and the one the versus stage still wants.
     #[test]
     fn a_ceiling_only_rule_never_manufactures_a_verb() {
@@ -901,8 +901,8 @@ mod tests {
     /// It reads harmless while a mode's floor and ceiling are the same set; it bites the moment
     /// they differ, which is exactly the use the type's own docs propose.
     ///
-    /// **the two halves differ now, and that difference IS the type's
-    /// point**: `levelled` promises its kit to everybody, so an unauthored
+    /// the two halves differ now, and that difference IS the type's
+    /// point: `levelled` promises its kit to everybody, so an unauthored
     /// fighter still receives it — which is why the smash stage's fourteen
     /// fighters did not move when this changed. `at_most` promises nothing, so
     /// an unauthored fighter receives nothing, loudly, instead of silently
@@ -951,7 +951,7 @@ mod tests {
         );
     }
 
-    /// **A VERB GRANTED BUT NOT PERMITTED IS A CONTRADICTION**, and `apply`
+    /// A VERB GRANTED BUT NOT PERMITTED IS A CONTRADICTION, and `apply`
     /// resolves it silently in favour of the ceiling — so the declaration has to
     /// be checkable before anybody seats a body under it.
     #[test]
@@ -1113,7 +1113,7 @@ mod tests {
         assert!(kit.compatibility_warnings().is_empty());
     }
 
-    /// **Granting `fly` through a `..NONE` spread grants PERMANENT flight**, and
+    /// Granting `fly` through a `..NONE` spread grants PERMANENT flight, and
     /// the trap is that it reads as "this body can fly".
     ///
     /// two shipped kits did exactly that when `fly_toggle` was introduced —
@@ -1193,8 +1193,8 @@ mod tests {
         );
     }
 
-    /// **A grounded body and a flying body both hold station; a falling one
-    /// does not.**
+    /// A grounded body and a flying body both hold station; a falling one
+    /// does not.
     #[test]
     fn holding_station_is_being_grounded_or_being_able_to_fly() {
         let grounded_walker = AbilitySet::basic();

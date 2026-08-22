@@ -76,7 +76,7 @@ fn an_original_tick_and_a_resimulated_one_are_different_facts() {
     assert_no_offthread_loss();
 }
 
-/// **THE PARALLEL-SCHEDULE PROOF.**
+/// THE PARALLEL-SCHEDULE PROOF.
 ///
 /// The concern is real and was worth proving rather than reasoning about:
 /// `ambition_causal`'s thread-local sink cannot collect from Bevy's worker
@@ -150,7 +150,7 @@ fn facts_survive_a_parallel_schedule() {
     assert_no_offthread_loss();
 }
 
-/// **THE COMPOSITION CLAIM: several domains, ONE explanation.**
+/// THE COMPOSITION CLAIM: several domains, ONE explanation.
 ///
 /// Every publisher has its own test proving it publishes. None of them
 /// proved they COMPOSE — that a movement fact, a damage fact and a
@@ -275,7 +275,7 @@ fn the_tick_the_host_stamps_is_the_tick_the_facts_carry() {
     );
 }
 
-/// **The brain's question and the body's answer land under ONE subject.**
+/// The brain's question and the body's answer land under ONE subject.
 ///
 /// The instrument this pins exists because the fighter recovery thread reached
 /// "the brain emits full left for three decisions and the body accelerates
@@ -283,7 +283,7 @@ fn the_tick_the_host_stamps_is_the_tick_the_facts_carry() {
 /// point: one `explain(tick, subject)` has to return both sides, or the
 /// discrepancy stays invisible and the next fix edits the brain again.
 ///
-/// **the seated body must NOT appear here.** `record_player_movement_intent`
+/// the seated body must NOT appear here. `record_player_movement_intent`
 /// already publishes it under its SEAT — the better key there, since a seat
 /// survives death and respawn and an actor id does not — and the same body
 /// under two subjects is two half-answers instead of one.

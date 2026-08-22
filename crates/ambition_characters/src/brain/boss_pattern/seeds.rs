@@ -1,41 +1,9 @@
-//! **The boss seed library** — attack archetypes as documented, validated data.
+//! Boss attack archetypes as validated authored data.
 //!
-//! `docs/planning/engine/boss-design.md` §2: *"A content-side catalog of
-//! parameterized building blocks, each a `MoveSpec`/pattern prefab with named
-//! params and a written design intent … The library starts from the existing
-//! bosses' moves (extract → generalize → document), and grows by accretion."*
-//! This module is the vocabulary; the catalog itself is content
-//! (`game/ambition_content/assets/data/boss_seeds.ron`).
-//!
-//! ## Why a seed is data and not a doc
-//!
-//! Three consumers, and only the first is human:
-//!
-//! 1. **An authoring agent** reads [`MoveSeed::intent`] and [`MoveSeed::recipes`]
-//!    to compose a fight from 4–7 seeds plus one bespoke move.
-//! 2. **BD5's fight validator** reads [`MoveSeed::fair_counters`] (rule 2:
-//!    *"across the fight every core movement verb must appear in some attack's
-//!    counter set"*) and [`MoveSeed::threat`] (rule 1: telegraph proportionality).
-//!    Those rules cannot run against prose.
-//! 3. **BD6's playtester** buckets `damage_sources` by seed to check that no
-//!    archetype supplies more than half a fight's damage.
-//!
-//! ## The bands are MEASURED, not invented
-//!
-//! [`MoveSeed::telegraph`] and [`MoveSeed::active`] are the observed envelope of
-//! every instance in the shipped roster, widened to nothing. The content test
-//! `boss_seeds_bands_are_the_measured_envelope` re-derives them from
-//! `boss_profiles.ron` and fails if a seed's band drifts off its own instances.
-//! A band that cannot be violated by the data it describes is a comment; this one
-//! is a fixture.
-//!
-//! ## What a seed does NOT carry
-//!
-//! **Recovery.** §3's commitment rule wants a punish window per attack, and there
-//! is no per-attack recovery in `BossPatternStep` today — the punish window is the
-//! `Rest` beat that FOLLOWS a `Strike`, which is a property of the occurrence, not
-//! of the move. BD5 must measure it per beat. Recording that here rather than
-//! inventing a `recovery` field that nothing would fill.
+//! Seeds expose design intent for authors and structured telegraph, threat, and
+//! counter data for validators/playtesting. Timing bands are checked against
+//! shipped boss profiles. Recovery remains occurrence-level because the current
+//! pattern model expresses it through following rest beats, not `MoveSeed`.
 
 use std::collections::BTreeMap;
 

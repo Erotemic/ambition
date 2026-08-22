@@ -44,9 +44,9 @@ fn field_y(
     BodyContactField::moving(blockers, resistance, Vec2::new(0.0, delta_along))
 }
 
-/// **THE IDENTITY, and it is the one every body in the engine gets.**
+/// THE IDENTITY, and it is the one every body in the engine gets.
 ///
-/// ⛔ body contact is a capability a composition grants.
+///  body contact is a capability a composition grants.
 #[test]
 fn a_body_nobody_resists_keeps_every_bit_of_its_motion() {
     let mover = body(0.0, 0.0);
@@ -62,9 +62,9 @@ fn a_body_nobody_resists_keeps_every_bit_of_its_motion() {
     );
 }
 
-/// **A SOLID STOPS THE BODY AT CONTACT — and exactly at contact.**
+/// A SOLID STOPS THE BODY AT CONTACT — and exactly at contact.
 ///
-/// ⚠ the number is DERIVED from the two boxes, not copied from a run: the mover
+///  the number is DERIVED from the two boxes, not copied from a run: the mover
 /// spans ±10 about x=0 and the blocker ±10 about x=40, so 20 units of free space
 /// lie between them. Asking for 30 must yield 20.
 #[test]
@@ -95,7 +95,7 @@ fn full_resistance_spends_the_gap_and_stops() {
     );
 }
 
-/// **PARTIAL RESISTANCE IS THE SMASH-LIKE FEEL: you push through, slowly.**
+/// PARTIAL RESISTANCE IS THE SMASH-LIKE FEEL: you push through, slowly.
 ///
 /// Where the genres differ, ship the knob. Ultimate's fighters displace each
 /// other rather than colliding; a beat-em-up may want the wall. Neither is more
@@ -117,15 +117,15 @@ fn partial_resistance_keeps_a_share_of_the_motion_that_goes_deeper() {
     );
 }
 
-/// **⛔⛔ A PRE-EXISTING OVERLAP IS NEVER TELEPORTED APART — AND THE WAY OUT IS
-/// NEVER RESISTED.**
+///  A PRE-EXISTING OVERLAP IS NEVER TELEPORTED APART — AND THE WAY OUT IS
+/// NEVER RESISTED.
 ///
 /// It can: an infinitesimal step either increases the axis overlap or it does not, and that is
 /// arithmetic rather than a guess. With the symmetric version, four fighters spawning on one point
 /// could not walk apart — every step out of the pile was cut to a fraction and a free-for-all never
 /// resolved.
 ///
-/// ⚠ **declining to resist a body that is leaving is not a pushout**, because
+///  declining to resist a body that is leaving is not a pushout, because
 /// nothing moves it. It is only this pass keeping its hands off a body that is
 /// already resolving the situation itself.
 #[test]
@@ -149,9 +149,9 @@ fn an_overlap_resists_going_deeper_and_never_resists_coming_out() {
     );
 }
 
-/// **A BODY THAT IS NOT IN THE WAY IS NOT IN THE WAY.**
+/// A BODY THAT IS NOT IN THE WAY IS NOT IN THE WAY.
 ///
-/// ⛔ the falsifier for a pass that tests only the axis it is resolving: two
+///  the falsifier for a pass that tests only the axis it is resolving: two
 /// fighters on different platforms are a hundred units apart vertically and
 /// perfectly aligned horizontally, and a cross-axis-blind constraint would have
 /// them shoving each other through the floor.
@@ -171,7 +171,7 @@ fn a_body_that_does_not_overlap_across_the_axis_constrains_nothing() {
     );
 }
 
-/// **EDGE TO EDGE IS NOT IN THE WAY**, the same strict-overlap rule the world
+/// EDGE TO EDGE IS NOT IN THE WAY, the same strict-overlap rule the world
 /// sweep states.
 #[test]
 fn boxes_touching_exactly_on_the_cross_axis_do_not_block() {
@@ -193,9 +193,9 @@ fn boxes_touching_exactly_on_the_cross_axis_do_not_block() {
     );
 }
 
-/// **THE NEAREST BLOCKER WINS, whatever order the snapshot lists them in.**
+/// THE NEAREST BLOCKER WINS, whatever order the snapshot lists them in.
 ///
-/// ⛔ order-independence is the whole reason the blockers come from a snapshot;
+///  order-independence is the whole reason the blockers come from a snapshot;
 /// a pass whose answer depended on iteration order would make "who moved first"
 /// decide who won, which is a desync under rollback and unfairness on a couch.
 #[test]
@@ -224,7 +224,7 @@ fn the_answer_does_not_depend_on_the_order_of_the_snapshot() {
     assert_eq!(a, 20.0, "the nearest blocker decides");
 }
 
-/// **THE VERTICAL AXIS IS THE SAME RULE**, because gravity is cardinal and may
+/// THE VERTICAL AXIS IS THE SAME RULE, because gravity is cardinal and may
 /// point along either one — the side axis under wall gravity is Y.
 #[test]
 fn the_constraint_is_axis_symmetric() {
@@ -243,7 +243,7 @@ fn the_constraint_is_axis_symmetric() {
     );
 }
 
-/// **MONOTONE, AND NEVER SIGN-FLIPPING.** The property the whole design rests
+/// MONOTONE, AND NEVER SIGN-FLIPPING. The property the whole design rests
 /// on: shortening a proposed delta can only produce a pose the world sweep after
 /// it would already have accepted.
 #[test]
@@ -271,7 +271,7 @@ fn the_constraint_never_adds_motion_and_never_reverses_it() {
     }
 }
 
-/// **⛔⛔ CONTACT IS ABOUT WALKING — a knockback launch ploughs through it.**
+///  CONTACT IS ABOUT WALKING — a knockback launch ploughs through it.
 ///
 /// A fighter launched sideways at 2400 px/s past a body standing 8px away lost a slice of every
 /// tick it stayed in contact; the slices compounded against the controller's own decay, and the
@@ -279,7 +279,7 @@ fn the_constraint_never_adds_motion_and_never_reverses_it() {
 /// flew, and far enough that the match never ended. The capability had quietly become a way to
 /// survive a knockout by standing next to somebody.
 ///
-/// ⭐ **so the rule is a QUESTION, not a budget: is this body walking?** Two
+///  so the rule is a QUESTION, not a budget: is this body walking? Two
 /// fighters walking into each other stall where they meet; a launched fighter
 /// goes through everybody. One number decides both, and it is the walking body's
 /// own top speed.
@@ -308,7 +308,7 @@ fn contact_only_resists_a_body_that_is_walking() {
         -40.0
     );
 
-    // ⚠ and the budget is a FLOOR, never a boost: a step the constraint would
+    //  and the budget is a FLOOR, never a boost: a step the constraint would
     // not have touched is not lengthened by having a budget.
     let far = [still(400.0, 0.0)];
     assert_eq!(
@@ -317,9 +317,9 @@ fn contact_only_resists_a_body_that_is_walking() {
     );
 }
 
-/// **TWO MOVERS MAY NOT BOTH SPEND ONE GAP.**
+/// TWO MOVERS MAY NOT BOTH SPEND ONE GAP.
 ///
-/// ⚠ **resistance did not save it and could not.** The free-gap part of a step
+///  resistance did not save it and could not. The free-gap part of a step
 /// is granted at full speed by construction, so this happened at `1.0` — the
 /// value whose entire promise is that it stops a body exactly at contact.
 #[test]
@@ -355,7 +355,7 @@ fn two_bodies_closing_on_one_gap_divide_it_instead_of_each_taking_it() {
         "two solids closed {closed} across a gap of 5 — each was granted the \
          whole of it",
     );
-    // ⚠ **and they must MEET**, not stop short: a pass that solved the overlap
+    //  and they must MEET, not stop short: a pass that solved the overlap
     // by refusing both bodies would satisfy the line above and be a worse bug.
     assert!(
         closed >= 5.0 - 1.0e-4,
@@ -370,7 +370,7 @@ fn two_bodies_closing_on_one_gap_divide_it_instead_of_each_taking_it() {
     );
 }
 
-/// **A BODY WALKING AT A STATIONARY ONE STILL GETS THE WHOLE GAP.**
+/// A BODY WALKING AT A STATIONARY ONE STILL GETS THE WHOLE GAP.
 ///
 /// Halving passes the pair case and fails this one — a fighter walking at somebody standing
 /// still would stop half a gap short of them for no reason a player could see.
@@ -392,7 +392,7 @@ fn a_lone_mover_is_not_made_to_share_a_gap_with_a_body_that_is_standing_still() 
     );
 }
 
-/// **A BLOCKER LEAVING DOES NOT TAKE A SHARE OF THE GAP.**
+/// A BLOCKER LEAVING DOES NOT TAKE A SHARE OF THE GAP.
 ///
 /// The split counts CLOSING speed only. A body walking away is not spending the
 /// space between them, and charging it for the space anyway would slow a chase
@@ -414,9 +414,9 @@ fn a_blocker_travelling_away_is_not_counted_as_spending_the_gap() {
     );
 }
 
-/// **FOUR BODIES CLOSING ON ONE POINT STILL DIVIDE WHAT IS THERE.**
+/// FOUR BODIES CLOSING ON ONE POINT STILL DIVIDE WHAT IS THERE.
 ///
-/// ⚠ the pair case generalises because the share is computed per BLOCKER: each
+///  the pair case generalises because the share is computed per BLOCKER: each
 /// neighbour's own closing speed decides how much of the gap to that neighbour
 /// belongs to this body, and the minimum over neighbours is what the body gets.
 #[test]

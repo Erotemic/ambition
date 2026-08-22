@@ -10,7 +10,7 @@ description = "The binding resolution boundary: an authored reference resolves t
 crate-type = ["rlib"]
 
 [dependencies]
-# **the whole dependency list, and it is the point of this crate.** The
+# the whole dependency list, and it is the point of this crate. The
 # boundary is generic Rust — `PhantomData`, `Arc`, a `BTreeMap` — plus one line
 # of reporting. It carried an 18k-line platformer utility crate underneath it for
 # no reason but where the file happened to live.

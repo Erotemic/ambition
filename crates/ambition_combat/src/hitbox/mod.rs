@@ -72,7 +72,7 @@ pub struct LandedBodyHit {
 /// evaluated here because it depends on the struck body's accumulated damage
 /// and weight; the resulting event no longer carries unresolved growth.
 ///
-/// **`ruleset_growth` is what a stage says when the MOVE says nothing.** An
+/// `ruleset_growth` is what a stage says when the MOVE says nothing. An
 /// authored volume's own `knockback_growth` wins outright; a swing derived from the
 /// `simple_melee` prefab carries `0.0`, which is every basic attack in the game,
 /// and without this every one of them launched a 150% opponent exactly as far as
@@ -103,7 +103,7 @@ fn resolved_hitbox_knockback_magnitude(
 
 /// Does this strike reach the volumes the victim actually published?
 ///
-/// **The one victim-geometry rule**, shared by every family. A body that
+/// The one victim-geometry rule, shared by every family. A body that
 /// publishes [`DamageableVolumes`](super::components::DamageableVolumes) is hit on
 /// exactly those volumes; a body that publishes none falls back to its coarse
 /// box.
@@ -143,7 +143,7 @@ pub fn strike_reaches_victim(
     }
 }
 
-/// **The body a strike lands on** — one entity role, named once.
+/// The body a strike lands on — one entity role, named once.
 ///
 /// Every damage family asks the same questions of the thing it hit: where is it, whose side is
 /// it on, may it be struck at all, what silhouette does it present, and which way does *its*
@@ -153,8 +153,8 @@ pub fn strike_reaches_victim(
 /// * `apply_feature_hit_events` could not — its tuple was at the ARITY ceiling, so
 ///   the silhouette rode a second `Query<&DamageableVolumes>` beside it;
 /// * `step_projectiles` had neither, and its comment nonetheless claimed "the SAME
-///   published hurtbox" as melee. It tests the coarse box. **The prose was the only
-///   place the parity existed.**
+///   published hurtbox" as melee. It tests the coarse box. The prose was the only
+///   place the parity existed.
 ///
 /// That drift is the argument for the type. A role spelled three ways cannot be
 /// diffed; a role spelled once has one answer, and [`Self::reached_by`] is it.
@@ -179,15 +179,13 @@ pub struct StrikeVictim {
     /// Authored allegiance. Run it through [`StrikeVictimItem::effective_faction`]
     /// rather than reading it raw — a possessed body fights as its driver's side.
     pub faction: &'static ActorFaction,
-    /// **Who drives this body**, if anybody. The one input to effective
-    /// allegiance; it used to be `Option<&Brain>` back when a driver could only
-    /// be named by swapping the body's AI policy for one.
+    /// Who drives this body, if anybody.
     pub driver: Option<&'static ambition_characters::control::DrivingParticipant>,
     /// The published silhouette, when this body publishes one. See
     /// [`strike_reaches_victim`] for why absent and empty mean opposite things.
     pub volumes: Option<&'static super::components::DamageableVolumes>,
     pub health: Option<&'static ambition_characters::actor::BodyHealth>,
-    /// Knockback weight (CM1). Absent ⇒ the reference weight `1.0`.
+    /// Knockback weight (CM1). Absent  the reference weight `1.0`.
     pub tuning: Option<&'static super::components::CombatTuning>,
     /// Outranks faction for "may this land": two humans share a faction, so a
     /// match could not otherwise let them hit each other.
@@ -198,7 +196,7 @@ pub struct StrikeVictim {
     pub voice: Option<&'static ambition_sfx::BodyPresentationSource>,
     /// The victim's own resolved motion frame (ADR 0024).
     ///
-    /// **A field, not a `Query<&ResolvedMotionFrame>` beside the victim query.**
+    /// A field, not a `Query<&ResolvedMotionFrame>` beside the victim query.
     /// Both damage families looked this up by victim entity, through byte-identical
     /// `.map(|f| f.basis()).unwrap_or(default)` ladders — a per-victim component
     /// reached by a second lookup only because the victim tuple had run out of
@@ -221,7 +219,7 @@ impl StrikeVictimItem<'_, '_> {
         crate::util::body_is_corpse(self.health)
     }
 
-    /// **This body published NO hurtbox: nothing can reach it.**
+    /// This body published NO hurtbox: nothing can reach it.
     ///
     /// For a family that has not adopted [`Self::reached_by`] — a consumer whose
     /// strike geometry is still its own — this is the part of the shared rule it
@@ -279,8 +277,8 @@ pub fn apply_hitbox_damage(
     // (fall back to the default: friendly fire OFF — same-faction allies safe).
     // AE6: resolved match rules, not the world's baseline toggle.
     tuning: Option<Res<crate::rules::ResolvedCombatTuning>>,
-    // **The vulnerability cluster is a FILTER here, and it is now spelled as
-    // one.** It was four REQUIRED members of the data tuple bound to `_vuln` and
+    // The vulnerability cluster is a FILTER here, and it is now spelled as
+    // one. It was four REQUIRED members of the data tuple bound to `_vuln` and
     // never read — since §A2 i-frames are consumed by `resolve_body_hit` on the
     // victim side, never decided here. Its remaining job is to say "only real
     // combat bodies are victims of hostile melee", which is a `With` claim. As
@@ -423,11 +421,11 @@ pub fn apply_hitbox_damage(
                     victim_weight,
                     ruleset_growth,
                 );
-                // **RAGE, and it is the mirror of the percent mechanic.** The
+                // RAGE, and it is the mirror of the percent mechanic. The
                 // victim's damage already scaled that launch; without this the
                 // fighter behind is punished twice — easier to launch and no
                 // harder to launch with. `1.0` in a game that declares no rage.
-                // **RAGE and STALING are one multiplier, applied once.** They
+                // RAGE and STALING are one multiplier, applied once. They
                 // pull opposite ways on purpose — a hurt fighter hits harder, a
                 // repeated move hits softer — and a game that declares neither
                 // gets exactly `1.0` from both.
@@ -496,7 +494,7 @@ pub fn apply_hitbox_damage(
             // used to gate this emit — a read-model must never decide whether a
             // strike can damage, and that projection is rebuilt every frame.
             //
-            // **EVERY body-owned melee publishes it, not just the player's.**
+            // EVERY body-owned melee publishes it, not just the player's.
             // The gate here was `matches!(source_kind, PlayerSlash)`, and that
             // one permission was standing in for a rule nobody had written down:
             // the boss scan applied no relationship policy, so "only the player

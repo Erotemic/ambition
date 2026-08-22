@@ -8,7 +8,7 @@
 # `worlds:tests:only_the_uncast_placements_still_ride_ the_display_name_fallback` counted it as
 # the whole remainder.
 #
-# **the TARGET goes and the ROOM stays**, and the conditional in his sentence is
+# the TARGET goes and the ROOM stays, and the conditional in his sentence is
 # why: removing the Target is what simplifies the migration, and removing the room
 # adds nothing to that while requiring surgery on the `portal_bridge` LoadingZone
 # that reaches it. The drill still teaches the dive — pickup, gap, label, far

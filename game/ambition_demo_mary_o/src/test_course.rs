@@ -1,4 +1,4 @@
-//! **A level for the TESTS to play, which nobody authors.**
+//! A level for the TESTS to play, which nobody authors.
 //!
 //! modify level 1. We should probably ensure there is a fixture for the test
 //! that won't change as we modify the level itself."*
@@ -12,7 +12,7 @@
 //! the playthrough existed for: she walks, she bonks a reactive block and takes what pops out,
 //! she stomps an enemy, she reaches the goal.
 //!
-//! **it is Rust-built on purpose**, which is the opposite of the rule for a real level. A fixture
+//! it is Rust-built on purpose, which is the opposite of the rule for a real level. A fixture
 //! that lives in the editor is a fixture one drag away from being a different test.
 
 use ambition_platformer2d::engine_core as ae;

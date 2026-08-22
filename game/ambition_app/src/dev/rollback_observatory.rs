@@ -256,8 +256,8 @@ impl Plugin for RollbackObservatoryPlugin {
 /// host itself had to be gated on the same feature and a shipped build without dev tooling could
 /// not use one.
 ///
-/// What is left here is the part that really is a developer's: **how many frames the session
-/// should verify**, raised for a proof pulse and dropped back afterwards. The owner notices the
+/// What is left here is the part that really is a developer's: how many frames the session
+/// should verify, raised for a proof pulse and dropped back afterwards. The owner notices the
 /// policy changed and restarts.
 ///
 /// the frozen seating went with the lifecycle, deliberately — capturing it is
@@ -266,7 +266,7 @@ fn request_session_mode(world: &mut World) {
     let control = *world.resource::<RollbackObservatoryControl>();
     let settings = *world.resource::<RollbackProofSettings>();
     let handled_request = world.resource::<RollbackProofState>().handled_request;
-    // **asked of the ownership AUTHORITY, not of the policy memo.**
+    // asked of the ownership AUTHORITY, not of the policy memo.
     // `LocalSessionOwnership::owns_session` used to answer this from
     // `started.is_some()`, which stayed `Some` after an external session was
     // installed over a local one — so the observatory would have believed it
@@ -676,7 +676,7 @@ mod tests {
         assert!(settings.check_distance < settings.max_prediction_window);
     }
 
-    /// **The session seats every controller, not just the first.**
+    /// The session seats every controller, not just the first.
     ///
     /// The production builder used `..Default::default()`, whose player count is
     /// ONE — so the multi-handle session API, the per-seat latches and the

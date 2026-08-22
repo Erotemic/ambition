@@ -4,7 +4,7 @@
 use super::*;
 
 impl CharacterSheetSpec {
-    /// **Where this sheet's character actually is inside its frame**, in frame
+    /// Where this sheet's character actually is inside its frame, in frame
     /// pixels — the rectangle the generator measured (or the target authored)
     /// for `anim`, `None` for a sheet that publishes no body at all.
     ///
@@ -33,11 +33,11 @@ pub fn sprite_render_size(spec: &CharacterSheetSpec, collision: Vec2) -> Vec2 {
     sprite_render_size_scaled(spec, collision, 1.0)
 }
 
-/// **The quad is the FRAME at the scale that fits the sheet's BODY into the
-/// collision box** — one uniform scale, so the art is never stretched and the
+/// The quad is the FRAME at the scale that fits the sheet's BODY into the
+/// collision box — one uniform scale, so the art is never stretched and the
 /// drawn character is the size of the thing it collides with.
 ///
-/// **the scale is computable, which is why nothing authors it any more.** A sheet publishes
+/// the scale is computable, which is why nothing authors it any more. A sheet publishes
 /// `body_pixel_bbox` (184 of 190 do — the generator measures the alpha bbox on every
 /// regeneration), so `world_per_pixel = fit(collision, body)` is arithmetic.
 ///
@@ -46,7 +46,7 @@ pub fn sprite_render_size(spec: &CharacterSheetSpec, collision: Vec2) -> Vec2 {
 /// * `collision_scale` corrected frame padding per sheet. The resulting figure scale varied by
 ///   10.9x across baked sheets; deriving scale from the body bbox makes it 1.0 by construction.
 ///
-/// **the whole frame is still drawn, not a crop of it.** `Sprite::custom_size`
+/// the whole frame is still drawn, not a crop of it. `Sprite::custom_size`
 /// scales the entire atlas frame into the quad per axis, so sizing the quad to
 /// the BODY while still sampling the frame divides the padding into the
 /// character — measured, first try, at a 2.20x vertical squash on the snake and

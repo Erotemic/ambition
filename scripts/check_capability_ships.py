@@ -235,7 +235,7 @@ def main() -> int:
         )
         return 1
 
-    # **the counts are on the SUCCESS line, not behind `--verbose`.** They were
+    # the counts are on the SUCCESS line, not behind `--verbose`. They were
     # behind it when this script was written earlier today, which meant its
     # ordinary output — "every Option-read capability has at least one shipping
     # writer" — was indistinguishable from a run that scanned nothing. A crate

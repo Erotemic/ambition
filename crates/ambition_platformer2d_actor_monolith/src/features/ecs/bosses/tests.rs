@@ -6,7 +6,7 @@ use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 use ambition_platformer2d_core as ae;
 
 /// It pins a non-obvious structural fact discovered while extracting it: GNU-ton's combat
-/// geometry comes entirely from its **per-animation hurtboxes** (the `animations` map), not
+/// geometry comes entirely from its per-animation hurtboxes (the `animations` map), not
 /// from static `body_pixel_parts`/`bbox` — so the derivation finds no body bbox, leaves
 /// `combat_offset` at zero, and derives no combat size. A subtly-broken wiring (no move, wrong
 /// faction, no geometry) would deal no strike damage and escape the contact-only

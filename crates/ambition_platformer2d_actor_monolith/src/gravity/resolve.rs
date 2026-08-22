@@ -22,9 +22,9 @@ use crate::features::ActorSurfaceState;
 
 /// Resolve and publish the frame for every integrated body.
 ///
-/// - **Player bodies** (primary, clones, demo avatars): the authored gravity
+/// - Player bodies (primary, clones, demo avatars): the authored gravity
 ///   response is the live movement tuning's `gravity`.
-/// - **Actors and bosses** (both carry the unified actor cluster): the response
+/// - Actors and bosses (both carry the unified actor cluster): the response
 ///   is `config.tuning.movement.gravity × surface.gravity_scale` — an aerial or
 ///   mounted body's 0 scale is the zero-acceleration-with-retained-orientation
 ///   case.

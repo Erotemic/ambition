@@ -1,18 +1,18 @@
 //! Ambition host adapter for portal presentation.
 //!
-//! The portal **mechanic** (the portal gun place/replace/channel, the one
+//! The portal mechanic (the portal gun place/replace/channel, the one
 //! generic aperture transit over `PortalBody` + `PortalPolicy`, placement +
 //! transit math, carve publishing, pieces geometry, lifecycle, the pure shot
 //! helper over `SolidWorldQuery`, the portal events + `PortalPlugin`) lives in
 //! the standalone, content-free crate
 //! [`ambition_portal2d`](https://docs.rs/ambition_portal2d) (Stage 19; ADR 0019),
-//! and the portal **visuals** (placed-portal quads + labels, the held / pickup
+//! and the portal visuals (placed-portal quads + labels, the held / pickup
 //! gun sprite, mid-transit body pieces, the disorientation indicator, the
 //! through-portal view cones) live in its reusable default renderer
 //! [`ambition_portal2d_presentation`]. This module contains only the
 //! Ambition-specific glue that is NOT reusable:
 //!
-//! - the **presentation host adapter** (render-gated): sync the crate-owned
+//! - the presentation host adapter (render-gated): sync the crate-owned
 //!   [`PortalWorldFrame`] from [`RoomGeometry`], tag [`PortalSceneBody`] on the
 //!   player's visual entity, tag [`PortalAffordanceBody`] on the CONTROLLED
 //!   body, publish [`PortalBodyView`] pose facts for both, and load
@@ -54,7 +54,7 @@ mod host_adapter {
     /// the body holding `DrivingParticipant(PRIMARY)`, i.e. the possessed actor while
     /// possessing (the view follows the body you're driving), else the home
     /// avatar. `occluders` is a snapshot of the world's solid blocks for the
-    /// line-of-sight test. Absent controlled body ⇒ `present = false`, and the
+    /// line-of-sight test. Absent controlled body  `present = false`, and the
     /// renderer falls back to the static window.
     pub fn sync_portal_viewer(
         world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>,
@@ -213,7 +213,7 @@ mod host_adapter {
         }
     }
 
-    /// **The set [`tag_portal_camera_continuity_camera`] runs in.**
+    /// The set [`tag_portal_camera_continuity_camera`] runs in.
     ///
     /// The debug overlay draws after the continuity camera is tagged, so its
     /// labels track a camera that already has its final identity this frame.
@@ -251,7 +251,7 @@ mod host_adapter {
         host_view: Option<Res<PortalCameraContinuityHostView>>,
         world_frame: Option<Res<PortalWorldFrame>>,
         state: Option<ResMut<PortalCameraContinuityState>>,
-        // **THE EASING STATE OF EVERY LOCAL VIEW.** A portal maps the world, so every observer
+        // THE EASING STATE OF EVERY LOCAL VIEW. A portal maps the world, so every observer
         // of that world has to carry its own smoothed target through the same map
         mut view_ease: Query<&mut CameraEaseState, With<ambition_sim_view::LocalView>>,
         mut transited: MessageReader<ambition_portal2d::PortalBodyTransited>,

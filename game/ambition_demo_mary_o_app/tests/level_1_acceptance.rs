@@ -1,38 +1,10 @@
-//! **The level-1 acceptance run.** She plays it. Nothing is placed.
+//! End-to-end Mary-O level-1 acceptance run.
 //!
-//! The scripted SEAM run (`scripted_level_run.rs`) proves the seams connect, but
-//! sets her position at three beats — the pipe, the vault exit, and the pole —
-//! which between them skip every pit, the pipe wall, the bricks, all three
-//! ?-blocks and the stair pyramid. So nothing proved the level was traversable,
-//! and the only pickups it took were coins, which go through the shared ECONOMY
-//! rather than the equipment path.
-//!
-//! This is that proof. One state-aware controller (read the body, choose this
-//! frame's input) drives the whole thing with no positional set-up anywhere:
-//!
-//! spawn -> bonk ?-block 0 -> mount it and take the wand -> cross pit A ->
-//! climb the secret pipe -> vault -> bank all 8 coins -> climb the return pipe
-//! -> surface -> re-power at ?-block 1 -> cross pits B and C -> up the stair
-//! pyramid -> the pole -> tally -> a real replay back to spawn.
-//!
-//! It finishes with all three lives, which is the point: a run that spends
-//! lives has shown the level is survivable, not that it is traversable.
-//!
-//! ## What writing it found
-//!
-//! Three bugs, none of which any existing test could see, because every
-//! existing proof either set her position past the terrain or asserted a value
-//! the emitter wrote rather than the effect:
-//!
-//! - **The vault had no working exit.** The return pipe's BLOCK was derived
-//!   from its interact BAND rather than from the vault floor, floating it 48px
-//!   clear and leaving its top face above its own band. A body standing on the
-//!   pipe spanned 544..592 against a band at 624..656, so Interact could never
-//!   fire. The demo's own `the_pipe_leads_into_a_sealed_vault_and_back_out`
-//!   stayed green because it checked a body at the band's CENTRE — a point
-//!   inside solid rock that no player can occupy — and `scripted_level_run`
-//!   stayed green because it teleports her to exactly that point. Fixed, and
-//!   that test now stands her on the authored block's real top face.
+//! A state-aware controller traverses the real level without positional setup,
+//! exercises a question-block powerup through the shared pickup/equipment path,
+//! visits the pipe secret, banks the vault coins, reaches the goal, completes
+//! tally, and verifies the resulting room replay. Direct body observations are
+//! limited to information a player could infer from the rendered state.
 
 //! The scripted stick goes through `scripted_input` now, which writes after `InputSet::Route` and
 //! is therefore the last writer under a composed participant pipeline as well as the only one
@@ -76,8 +48,8 @@ impl Body {
     fn feet(&self) -> f32 {
         self.pos.y + self.size.y * 0.5
     }
-    /// The top of her head. ⚠ **derived from her SIZE, never from the small
-    /// form's half-height**: a grown Mary-O's head is 8px higher than a small
+    /// The top of her head.  derived from her SIZE, never from the small
+    /// form's half-height: a grown Mary-O's head is 8px higher than a small
     /// one's, and a bonk beat that steers off a hardcoded `pos.y - 24` keeps the
     /// jump button down for 8px after her head has already reached the block.
     fn head(&self) -> f32 {
@@ -342,8 +314,8 @@ fn block_of(name: &str) -> ae::world::Block {
 /// The three bottomless gaps, as (left lip, right lip), derived from the ground
 /// slabs rather than restated.
 fn pits() -> Vec<(f32, f32)> {
-    // ⚠ **the ground runs are painted into an IntGrid and carry no authored
-    // name.** This named `ground_open_teach` and its three siblings — how the
+    //  the ground runs are painted into an IntGrid and carry no authored
+    // name. This named `ground_open_teach` and its three siblings — how the
     // level was BUILT. A pit is a gap in the slab she walks on, which is what it
     // always meant and what survives repainting.
     //
@@ -362,7 +334,7 @@ fn pits() -> Vec<(f32, f32)> {
         })
         .expect("the level has ground");
     let row = (widest.aabb.min.y + widest.aabb.max.y) * 0.5;
-    // ⛔ **exact spans, not samples.** A 32px sampler reports the first EMPTY
+    //  exact spans, not samples. A 32px sampler reports the first EMPTY
     // sample as the lip, so every pit's left edge came back 32px late — and this
     // list is what the scripted run uses to time its jumps, so she jumped late
     // and fell in. Merge the solid spans at `row` and the gaps between them are
@@ -466,35 +438,35 @@ fn boot() -> App {
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
-    // **the ordering lives in ONE place now** — after the participant pipeline's routing stage and
+    // the ordering lives in ONE place now — after the participant pipeline's routing stage and
     // before the frame→tick latch.
     ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
     app
 }
 
-/// **Assert that a scripted press actually reaches the simulation.**
+/// Assert that a scripted press actually reaches the simulation.
 ///
-/// ⛔⛔ **THIS RETURNED `bool` AND ITS CALLERS USED IT TO `return` EARLY**,
+///  THIS RETURNED `bool` AND ITS CALLERS USED IT TO `return` EARLY,
 /// printing `SKIP: a participant pipeline owns ControlFrame in this build`. A
 /// test that returns early is a test that PASSES — so the proof evaporated in
 /// exactly the composition it most needed to hold, and the run summary said
 /// nothing. The guard correctly detected that the press was being erased and
 /// then reported the situation as fine.
 ///
-/// ⚠ the ORIGINAL diagnosis is kept, because it is why the guard existed: a
+///  the ORIGINAL diagnosis is kept, because it is why the guard existed: a
 /// crate-level `cfg(not(feature = "input"))` reads THIS crate's flag, while the
 /// thing that erases a scripted write is `ambition_platformer2d/input` in the
 /// DEPENDENCY. Under `cargo test --workspace` cargo unifies features across the
 /// graph, so `ambition_platformer2d` builds WITH `input` while this crate's flag
 /// stays off. Ask the composition, not the feature flag.
 ///
-/// ⚠ **the probe is `ControlFrame` right after the update, deliberately.**
+///  the probe is `ControlFrame` right after the update, deliberately.
 /// `scripted_input`'s own delivery counter observes the SLOT TABLE, which
 /// Bevy publishes from `FixedUpdate` — a frame BEHIND the `Update` that
 /// wrote the press — so it reads `0 delivered` on the first press of a
 /// healthy run. It is an end-of-run check; this is a precondition.
 ///
-/// ⭐ the condition is unreachable now rather than merely detected: `scripted_input` writes
+///  the condition is unreachable now rather than merely detected: `scripted_input` writes
 /// after `InputSet::Route`, so it is the last writer under a composed pipeline and the only
 /// writer without one.
 #[track_caller]
@@ -516,7 +488,7 @@ fn assert_scripted_input_reaches_the_sim(app: &mut App) {
     );
 }
 
-/// ⚠ **what it uniquely covered is real and is NOT covered elsewhere**: a whole
+///  what it uniquely covered is real and is NOT covered elsewhere: a whole
 /// playthrough, spawn to flagpole, on the production schedule. The mechanics it
 /// touches are covered against the authored level by unit probes (the bonk, the
 /// stomp, the brick break, the warp), and 1-1's SHAPE is covered by invariants
@@ -558,7 +530,7 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
     // * There is a Solid Snake just past the block. With no armor yet, touching
     //   its side ends the run, so stomp it when it closes.
     let bonk_x = block0.center().x;
-    // **How high does she actually get?** The bonk beat asserts only that it
+    // How high does she actually get? The bonk beat asserts only that it
     // did not end early, so "she jumped and missed" and "she never jumped" look
     // identical from outside.
     let mut apex_y = f32::MAX;
@@ -566,7 +538,7 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
     let mut frames_under = 0usize;
     let took_off = drive(&mut app, 400, |b| {
         apex_y = apex_y.min(b.pos.y);
-        // ⚠ apex alone is NOT a jump-height measurement — over 400 frames she
+        //  apex alone is NOT a jump-height measurement — over 400 frames she
         // can jump from elevated ground. The question is whether her HEAD ever
         // reached the block's underside WHILE HORIZONTALLY UNDER IT.
         {
@@ -595,13 +567,13 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
         if b.on_ground {
             return Some(move_x(toward, false));
         }
-        // **RELEASE while airborne — a bonk is a SHORT HOP.** Holding jump here is what made this
+        // RELEASE while airborne — a bonk is a SHORT HOP. Holding jump here is what made this
         // beat unable to bonk anything: her classic jump is `jump_speed 450` under `gravity 2250`
         // with `held_rise_gravity_scale 0.2`, so a HELD press rises ~145 px while the ?-block's
         // underside is only 48 px above her head. Tapping is how the game this converges on hits a
         // row-4 block, and the variable jump is what makes the difference expressible at all.
         //
-        // ⭐ **hold only until her HEAD reaches the underside, then release.** A
+        //  hold only until her HEAD reaches the underside, then release. A
         // bare tap rises 32.6 px and the underside is 48 px up — 15 px short — so
         // "tap" and "hold" are both wrong and the right answer is the one the
         // variable jump exists to express. Steering off the measurement rather
@@ -1023,7 +995,7 @@ fn some_snake(
     found.into_iter().next()
 }
 
-/// **Landing on a Solid Snake is a STOMP, never a hit.**
+/// Landing on a Solid Snake is a STOMP, never a hit.
 ///
 /// The shell rule classifies from body positions; the contact pass is documented to read
 /// post-movement positions. Order the shell rule before the movement phase and the two disagree by
@@ -1080,7 +1052,7 @@ fn landing_on_a_snake_stomps_it_instead_of_hurting_her() {
     );
 }
 
-/// **A small Mary-O dies to one hit, and the level restarts.**
+/// A small Mary-O dies to one hit, and the level restarts.
 ///
 /// Every part of that was unreachable: her body carried the host's twenty-point
 /// pool, so a contact hit cost 5% of a life bar; and her `Death` row was bound
@@ -1156,7 +1128,7 @@ fn a_small_mary_o_dies_to_one_hit_and_the_level_restarts() {
 
 /// The ?-blocks that level TOWARD the lantern, left to right.
 ///
-/// ⚠ **asked of the CONTENTS, not the look.** 1-1 authors five blocks wearing
+///  asked of the CONTENTS, not the look. 1-1 authors five blocks wearing
 /// the ?-look and two of them hold `AlwaysQuasar`, which is not on the ladder at
 /// all (any form takes a quasar). [`first_power_block`] matches the LOOK, so
 /// which block it names depends on the order the converter emits entities in;
@@ -1196,7 +1168,7 @@ fn item_at(app: &mut App, sprite: &str) -> Option<ae::Vec2> {
         .map(|(_, pos)| pos)
 }
 
-/// **Stand under a block and head-bonk it.**
+/// Stand under a block and head-bonk it.
 ///
 /// She jumps only from directly beneath the column and steers nothing while
 /// airborne, which is what makes the strike inevitable rather than tuned: the
@@ -1239,7 +1211,7 @@ fn bonk_from_beneath(app: &mut App, block: &ae::world::Block, frames: usize) -> 
     is_spent(app, block)
 }
 
-/// **Walk into a travelling pickup until it equips.** The wand walks and turns
+/// Walk into a travelling pickup until it equips. The wand walks and turns
 /// at walls, so this steers at wherever it has got to — clamped short of
 /// `limit_x`, because the pickup will happily walk into a pit and following it
 /// there is not what is being tested.
@@ -1270,7 +1242,7 @@ fn chase_until_worn(
     wears(app, row_id)
 }
 
-/// **A moving jump onto the block itself.**
+/// A moving jump onto the block itself.
 ///
 /// `mount` above launches from a STANDSTILL and steers in the air, which is
 /// right for the pipe (a 64px rise onto a 64px-wide mouth) and cannot work here,
@@ -1315,7 +1287,7 @@ fn hop_onto(b: Body, block: ae::Aabb, launch_gap: f32, side: f32, backing: bool)
     }
 }
 
-/// **Climb onto the block to take what is sitting on it.** The beacon is
+/// Climb onto the block to take what is sitting on it. The beacon is
 /// `ItemMotionPlan::still()` — it waits on its block like the classic flower —
 /// so unlike the wand it never comes to her and there is nothing to chase.
 ///
@@ -1352,21 +1324,21 @@ fn mount_until_worn(app: &mut App, block: &ae::world::Block, row_id: &str, frame
     wears(app, row_id)
 }
 
-/// **A GROWN Mary-O bonks a ?-block and ends up wearing the fire flower.**
+/// A GROWN Mary-O bonks a ?-block and ends up wearing the fire flower.
 ///
 /// This is the decision procedure for that report, and either result closes it: if it passes, the
 /// level CAN hand it over and nothing in the game says so; if it fails, the level cannot.
 ///
 /// The three claims it makes, in the order they can fail:
 ///
-/// 1. **1-1 authors more than one ladder block.** Nothing pays the beacon to a
+/// 1. 1-1 authors more than one ladder block. Nothing pays the beacon to a
 ///    small Mary-O, so a level with one ?-block can never produce one however
 ///    well it is played.
-/// 2. **A block struck by a GROWN body pays the BEACON, not another wand.** That
+/// 2. A block struck by a GROWN body pays the BEACON, not another wand. That
 ///    is `next_rung_toward` seen from outside — the rung is chosen from what she
 ///    wears, and nothing had ever asked it that question through the real
 ///    movement kernel.
-/// 3. **She can reach what it paid.** The beacon does not travel; it waits on
+/// 3. She can reach what it paid. The beacon does not travel; it waits on
 ///    the block that produced it, so collecting it is a second platforming act
 ///    and the one the report is most likely to have been about.
 #[test]

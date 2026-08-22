@@ -41,7 +41,7 @@ impl Plugin for GravityPlugin {
         app.init_resource::<crate::physics::GravityZones>();
         app.init_resource::<ambition_platformer2d_shared_tangle::frame_env::ForceZones>();
 
-        // **the gravity capability publishes its own construction schema**, exactly as the portal
+        // the gravity capability publishes its own construction schema, exactly as the portal
         // gun does — metadata only, so prepared-content fingerprinting names the domain while the
         // executable constructor stays the closed `GravityZoneConstruction` dispatch.
         app.init_resource::<

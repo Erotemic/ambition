@@ -105,7 +105,7 @@ impl Plugin for AmbitionContentPlugin {
         // Install authored encounter wave timelines (goblin mob-lab, …) into the
         // machinery lib's wave book before the encounter loader runs — the engine
         // hard-codes no encounter's waves.
-        // **from the PREPARED PACK, not a second parse of the same file.**
+        // from the PREPARED PACK, not a second parse of the same file.
         // This was `ron::from_str(include_str!(..)).expect(..)` — so the pack
         // could validate bytes the runtime never consulted, and a malformed file
         // reached a player as a serde panic at startup instead of a compile
@@ -119,7 +119,7 @@ impl Plugin for AmbitionContentPlugin {
                 .expect("the encounter schema lowers its book for every pack that compiles"),
         );
 
-        // **THE GAME'S OWN DIFFICULTY RUNGS, handed to the sim.** Nine rows
+        // THE GAME'S OWN DIFFICULTY RUNGS, handed to the sim. Nine rows
         // authored in July that nothing had ever read: `FighterBrainProfile::for_level`
         // documents itself as "a FLOOR … a game that cares ships its own nine rows
         // and this is never consulted", and every call site consulted it anyway.
@@ -155,7 +155,7 @@ impl Plugin for AmbitionContentPlugin {
                 .resource_mut::<ambition_dialog::YarnContentBindings>()
                 .installers
                 .push(super::duel_arena::install_duel_yarn_binding);
-            // **the game's OWN vocabulary**, pushed through the same seam as the two content
+            // the game's OWN vocabulary, pushed through the same seam as the two content
             // installers beside it.
             app.world_mut()
                 .resource_mut::<ambition_dialog::YarnContentBindings>()

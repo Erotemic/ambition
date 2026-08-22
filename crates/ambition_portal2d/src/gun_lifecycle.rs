@@ -13,7 +13,7 @@ use super::gun_projectile::PortalShot;
 use super::types::PlacedPortal;
 
 /// The gun's portals must not outlive the gun that made them: despawn the
-/// gun-pair portals plus in-flight shots when **no** portal gun is present in
+/// gun-pair portals plus in-flight shots when no portal gun is present in
 /// the room — neither held ([`PortalGun`]) nor lying as a [`PortalGunPickup`].
 ///
 /// FIXME(portal-api): this should become a host-installed policy plugin or a

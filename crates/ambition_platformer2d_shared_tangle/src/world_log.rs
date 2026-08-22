@@ -19,7 +19,7 @@
 //!
 //! [`bevy::diagnostic::FrameCount`] is that source, [`mirror_frame_count`] projects
 //! it into a process-global so a log site deep inside a helper function needs no
-//! `Res<FrameCount>` plumbing (owned at a root, read at leaves ⇒ projection). The
+//! `Res<FrameCount>` plumbing (owned at a root, read at leaves  projection). The
 //! mirror runs in `First`, so every line emitted during frame N reads N — the same
 //! value an `Update` system sees, because `FrameCount` is incremented in `Last`.
 //!
@@ -124,7 +124,7 @@ pub fn sim_clock(body: Arguments<'_>) {
     log_line("sim-clock", body);
 }
 
-/// **The cause half of `[game-mode]`.** Call immediately beside a
+/// The cause half of `[game-mode]`. Call immediately beside a
 /// `NextState<GameMode>::set`, naming the system that asked.
 ///
 /// `Playing -> Paused` on its own does not say who asked for it; this does, and

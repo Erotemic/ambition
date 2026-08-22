@@ -80,28 +80,16 @@ pub struct MenuFramePopulate;
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MenuFrameCutsceneSkip;
 
-/// **Everything that READS [`MenuControlFrame`], under one name.**
+/// Umbrella for all [`MenuControlFrame`] consumers in this schedule.
 ///
-/// The umbrella over [`MenuFrameCutsceneSkip`] and [`MenuNavConsume`].
-///
-/// **an umbrella over sets in DIFFERENT schedules would be silently vacuous.** A Bevy set node
-/// belongs to one schedule, so a `.before` against a set with no members here constrains nothing
-/// and says nothing.
+/// Bevy set ordering is schedule-local, so all member sets must live here.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MenuFrameConsume;
 
-/// The menu-nav CONSUMERS of [`MenuControlFrame`].
+/// Directional navigation consumers of [`MenuControlFrame`].
 ///
-/// Both inventory backends' directional nav — the bevy_ui Grid
-/// (`grid_menu_nav`) and the 3D cube (`kaleidoscope_focus_nav`) — join
-/// this set so any writer that must land in the frame BEFORE it is
-/// consumed (notably the remaining pointer-gesture scroll adapter) can pin
-/// `.before(MenuNavConsume)` without naming each backend's private system.
-/// Touch stick navigation itself now arrives through the participant's
-/// virtual-device binding before `MenuControlFrame` is populated.
-///
-/// **pin against this only when you mean NAV specifically** — the menu-backend switch does,
-/// because it must not act until the nav that may have chosen it has run.
+/// Writers that must precede navigation can order against this set without
+/// naming backend-private systems. Use [`MenuFrameConsume`] for all consumers.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MenuNavConsume;
 
@@ -150,7 +138,7 @@ pub fn spawn_primary_input_participant(
         ActionState::<Platformer2dInputActionMonolith>::default(),
         recipe.build(),
         recipe,
-        // **seat zero carries its own burst edge like every other seat.** It
+        // seat zero carries its own burst edge like every other seat. It
         // used to keep one in a `PlayerBurstTriggerState` RESOURCE, which is
         // correct for exactly one seat; the merged producer reads the component
         // for everybody, and a participant without it drops out of the query
@@ -170,7 +158,7 @@ pub fn spawn_primary_input_participant(
 /// change reach nobody — and it shipped only in Ambition's own app, so no demo
 /// composition had a rebuild path at all.
 ///
-/// **One path for both halves.** Changing a preset and changing a single
+/// One path for both halves. Changing a preset and changing a single
 /// binding are the same operation on the recipe, so a remap reaches behaviour,
 /// glyphs (`SeatBindings` projects the rebuilt map) and the touch overlay
 /// (its `Changed<InputMap>` hook) in the same frame, through the machinery a
@@ -228,7 +216,7 @@ pub fn seat_input_participants_for_roster(
     offer: Option<Res<ambition_input::LocalSeatOffer>>,
     existing: Query<(Entity, &InputParticipant)>,
 ) {
-    // **CHANNELS, not the SOURCES the roster names.** This collected each
+    // CHANNELS, not the SOURCES the roster names. This collected each
     // human seat's `device_slot`, which is a lobby source number and is
     // deliberately sparse — so a couch of two people on pads 1 and 2 spawned
     // participants 1 and 2 beside the boot-time primary, three seats for two
@@ -245,7 +233,7 @@ pub fn seat_input_participants_for_roster(
                 .collect()
         })
         .unwrap_or_default();
-    // **AND the seats a LOBBY is offering.** A character select produces the
+    // AND the seats a LOBBY is offering. A character select produces the
     // roster, so it cannot be seated from one: without this, only the primary
     // participant exists while the screen is up and every other panel is a chair
     // nobody can reach. The declaration is a frontend surface's, held only while
@@ -317,7 +305,7 @@ pub fn declare_gameplay_input_context(
     }
 }
 
-/// **Declare the in-session UI surfaces as context claims.**
+/// Declare the in-session UI surfaces as context claims.
 ///
 /// `participant.rs` has always stated the rule — *"nothing derives input ownership from
 /// `GameMode` or from the presence of a controlled body"* — and until now this crate derived
@@ -326,19 +314,19 @@ pub fn declare_gameplay_input_context(
 ///
 /// So the surfaces DECLARE, and the routers read one resolved answer.
 ///
-/// **the owner is asked, never inferred.** A conversation declares whose it is
+/// the owner is asked, never inferred. A conversation declares whose it is
 /// when it opens (`ConversationInputOwner`), derived from the initiator's
 /// `DrivingParticipant(slot)`. There is deliberately no "nobody said, so capture
 /// everybody" arm — that was the behaviour, and an absence of attribution is
 /// exactly when claiming the whole couch is least defensible.
 ///
-/// **it reads the AUTHORITY, not `GameMode`.** `GameMode::Dialogue` still
+/// it reads the AUTHORITY, not `GameMode`. `GameMode::Dialogue` still
 /// stops the world for the things that are genuinely global, but it cannot name
 /// a seat, so it could never have answered this. One consequence worth knowing:
 /// capture now begins on the frame the conversation OPENS rather than the frame
 /// the mode transition lands, because `next_mode` applies a frame later.
 ///
-/// **pause is deliberately NOT here.** `GameMode::Paused` stops the world,
+/// pause is deliberately NOT here. `GameMode::Paused` stops the world,
 /// which is not a per-seat fact, and the paused path does something a context
 /// claim cannot express: it writes a MENU frame into `ControlFrame` rather than
 /// a neutral one, so a paused seat can still navigate. Folding it in would
@@ -427,23 +415,23 @@ pub fn toggle_player_trail_emission_from_actions(
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct SeatBurstTriggerState(pub ambition_persistence::settings::TriggerEdgeState);
 
-/// **EVERY SEAT'S CONTROL FRAME, DECIDED IN ONE PLACE.** (C4 couch versus)
+/// EVERY SEAT'S CONTROL FRAME, DECIDED IN ONE PLACE. (C4 couch versus)
 ///
-/// **there were TWO of these and they had drifted six ways** — seat zero's own producer and
+/// there were TWO of these and they had drifted six ways — seat zero's own producer and
 /// this one, registered adjacently under a comment claiming they were interchangeable.
 ///
-/// **the FILTERS row moved seat zero, deliberately.** Filtering is per PAD and
+/// the FILTERS row moved seat zero, deliberately. Filtering is per PAD and
 /// bindings are shared — a deadzone is a fact about the stick in somebody's
 /// hands — and seat zero predated that rule. `filters_for_seat` falls back to
 /// the machine-wide sliders when no device detector exists, so a headless
 /// fixture is unchanged.
 ///
-/// **the WORLD-STOPPED row is preserved rather than harmonised**, because the
+/// the WORLD-STOPPED row is preserved rather than harmonised, because the
 /// field it turns on — `start_pressed` — is read by the trace codec and by
 /// nothing in gameplay. Changing it would change the recorded input stream for
 /// no gameplay reason.
 ///
-/// ✔ **Latched.** Every seat's frame folds into `SlotControlLatches` on the FEEL clock and drains
+/// ✔ Latched. Every seat's frame folds into `SlotControlLatches` on the FEEL clock and drains
 /// on the TICK clock, so a tap that opens and closes between two ticks reaches the sim.
 pub fn populate_seat_control_frames(
     mode: Res<State<GameMode>>,
@@ -462,24 +450,19 @@ pub fn populate_seat_control_frames(
         &ActionState<Platformer2dInputActionMonolith>,
         &mut SeatBurstTriggerState,
     )>,
-    // **EVERY SEAT'S DESTINATION, and there is only one now.** A raw frame goes
-    // here to be shaped; the commit stage folds it into that seat's latch after
-    // every shaping stage has run. Seat zero used to land in the global
-    // `ControlFrame` instead, which is how the shapers became its alone.
+    // EVERY SEAT'S DESTINATION, and there is only one now. A raw frame goes here to be shaped;
+    // the commit stage folds it into that seat's latch after every shaping stage has run.
     mut raw: ResMut<ambition_characters::control::SeatRawFrames>,
     mut latches: Option<ResMut<ambition_characters::control::SlotControlLatches>>,
-    // ⛔⛔ **THE UNFOCUS GUARD, whose absence was a real defect.** The rule was
-    // already ONE function — `input_suppressed_by_unfocus` — and only one of the
-    // two roads that needed it ever asked, because the other took no window
-    // query at all. That is the shape this fork kept producing: not two
-    // implementations, one implementation with one caller.
+    // That is the shape this fork kept producing: not two implementations, one implementation
+    // with one caller.
     windows: Query<&Window>,
 ) {
     // THIS SEAT'S context, not the primary's. Reading one folded answer here is what made a
     // per-seat surface inexpressible: seat N declaring a claim could not reach this router, and
     // seat 0 declaring one silently took gameplay away from everybody else. `mode` stays global on
-    // purpose — the world being paused is not a per-seat fact. **`stops_the_world`, not
-    // `allows_gameplay`.** Whether this seat's input routes is the CONTEXT's answer, checked per
+    // purpose — the world being paused is not a per-seat fact. `stops_the_world`, not
+    // `allows_gameplay`. Whether this seat's input routes is the CONTEXT's answer, checked per
     // seat below; this asks only whether the world is running at all.
     let world_running = !mode
         .get()
@@ -497,8 +480,8 @@ pub fn populate_seat_control_frames(
             // Neutral, and RESET the edge, so the post-pause re-press starts from
             // a clean Released state.
             burst.0 = ambition_persistence::settings::TriggerEdgeState::default();
-            // **seat zero is handed `read_menu_control_frame`, which sets
-            // exactly one field: `start_pressed`.** Nothing in gameplay reads it
+            // seat zero is handed `read_menu_control_frame`, which sets
+            // exactly one field: `start_pressed`. Nothing in gameplay reads it
             // — `brain/player.rs` destructures it away and says why: *"pause and
             // reset belong to the session, and a body that could read them could
             // act on somebody else's menu."* Its only readers are the trace codec
@@ -521,7 +504,7 @@ pub fn populate_seat_control_frames(
             }
             continue;
         }
-        // **NOT the machine-wide sliders.** A couch seat cannot reach the settings screen — it
+        // NOT the machine-wide sliders. A couch seat cannot reach the settings screen — it
         // belongs to the primary — so reading their hand-tuned deadzone here meant player two's
         // drifty 360 pad ran on whatever suited player one's DualSense. A deadzone is a fact
         // about the stick in somebody's hands.
@@ -529,18 +512,18 @@ pub fn populate_seat_control_frames(
         let (next_frame, next) =
             read_gameplay_control_frame_with_settings(actions, filters, burst.0);
         burst.0 = next;
-        // **THE ASYMMETRY IS GONE: every seat's raw frame lands in one table**, and the shaping
+        // THE ASYMMETRY IS GONE: every seat's raw frame lands in one table, and the shaping
         // stages run over it before anything is committed.
         raw.set(slot, next_frame);
     }
 }
 
-/// **COMMIT EVERY SEAT'S SHAPED FRAME, once the shaping stages have all run.**
+/// COMMIT EVERY SEAT'S SHAPED FRAME, once the shaping stages have all run.
 ///
 /// Anything that ran after it would be shaping the frame the latch has already taken, which
 /// under GGRS means each peer deriving a flag from its own wall clock.
 ///
-/// **it replaces `accumulate_control_frame_latch`**, which folded exactly one
+/// it replaces `accumulate_control_frame_latch`, which folded exactly one
 /// seat's shaped frame in — because exactly one seat had anywhere for shaping to
 /// happen.
 #[cfg(feature = "input")]
@@ -559,9 +542,9 @@ pub fn commit_seat_raw_frames(
     }
 }
 
-/// **THE COMMIT FOR A COMPOSITION NOBODY ELSE PUBLISHES FOR.**
+/// THE COMMIT FOR A COMPOSITION NOBODY ELSE PUBLISHES FOR.
 ///
-/// **THREE hosts publish a seat's frame and only one of them is this.**
+/// THREE hosts publish a seat's frame and only one of them is this.
 ///
 /// ```text
 /// fixed-tick  a latch bridges frame→tick; publish_latched_slot_controls drains it
@@ -569,12 +552,12 @@ pub fn commit_seat_raw_frames(
 /// frame-step  neither exists — a frame IS a tick — so this copies raw → slots
 /// ```
 ///
-/// **guarding on the latch ALONE is not enough, and that cost 22 app_it tests.** A rollback
+/// guarding on the latch ALONE is not enough, and that cost 22 app_it tests. A rollback
 /// harness has no latch (it drives `PendingSeatInputs` directly), so a latch-only guard let
 /// this run there and overwrite the session's confirmed input with a neutral raw row — both
 /// seats went silent through a rewind.
 ///
-/// **the predecessor got this for free and that is why it never noticed.**
+/// the predecessor got this for free and that is why it never noticed.
 /// `populate_slot_controls` copied the global `ControlFrame`, which under both
 /// other hosts had ALREADY been written by whichever authority owned
 /// publication — so running it a second time copied the right answer twice. This
@@ -596,7 +579,7 @@ pub fn publish_seat_controls_when_nobody_else_does(
 
 /// TICK clock: publish EVERY seat's latched frame.
 ///
-/// **Not during a REPLAY pass.** Under a rollback host the sim schedule is the
+/// Not during a REPLAY pass. Under a rollback host the sim schedule is the
 /// GGRS schedule, and a resimulated tick re-runs it. Draining a latch there
 /// would CONSUME fresh device input on a frame that is supposed to be replaying
 /// history — the second drain finds it empty and the seat goes neutral on the
@@ -620,7 +603,7 @@ pub fn publish_latched_slot_controls(
     }
 }
 
-/// **MIRROR SEAT ZERO'S CONFIRMED FRAME INTO THE GLOBAL `ControlFrame`.**
+/// MIRROR SEAT ZERO'S CONFIRMED FRAME INTO THE GLOBAL `ControlFrame`.
 ///
 /// Shaping happens in `SeatRawFrames` now; what is left of this resource is a READ-ONLY MIRROR of
 /// what seat zero actually received, for the consumers that legitimately want it: the forensic
@@ -673,8 +656,8 @@ pub fn populate_menu_control_frame_from_actions(
     // went neutral for everybody: two people at a couch, one presses Start, and the pause menu does
     // not open.
     //
-    // The policy is now stated rather than emergent: **the primary seat owns
-    // the global shell controls.** `SeatMenuFrames` is where a per-seat surface
+    // The policy is now stated rather than emergent: the primary seat owns
+    // the global shell controls. `SeatMenuFrames` is where a per-seat surface
     // (a select screen, four cursors) reads instead, and this resource stays the
     // one global answer a pause menu wants.
     if let Some(actions) = player_input
@@ -703,7 +686,7 @@ pub fn populate_menu_control_frame_from_actions(
     *menu_frame = next;
 }
 
-/// **Which filters apply to the stick in THIS seat's hands.**
+/// Which filters apply to the stick in THIS seat's hands.
 ///
 /// `None` — a headless fixture with no device tracking — reads the machine-wide
 /// sliders, which is the honest answer when nothing is known about the device.
@@ -722,13 +705,13 @@ fn filters_for_seat(
     }
 }
 
-/// **One decode, so the global menu frame and every seat's frame agree.**
+/// One decode, so the global menu frame and every seat's frame agree.
 #[cfg(feature = "input")]
 pub fn decode_menu_frame(
     actions: &ActionState<Platformer2dInputActionMonolith>,
     menu_input_state: &mut MenuInputState,
     user_settings: &ambition_persistence::settings::UserSettings,
-    // **RESOLVED by the caller, which is the only place that knows the seat.**
+    // RESOLVED by the caller, which is the only place that knows the seat.
     // Passing `UserSettings` alone is what made every seat share one deadzone:
     // this function cannot ask "whose stick is this" and should not try.
     filters: ambition_input::ControlFilters,
@@ -776,17 +759,17 @@ pub fn decode_menu_frame(
     // turns exactly one page, independent of the arrow/d-pad item cursor.
     next.page_left = actions.just_pressed(&Platformer2dInputActionMonolith::MenuPageLeft);
     next.page_right = actions.just_pressed(&Platformer2dInputActionMonolith::MenuPageRight);
-    // **THE HELD NAVIGATION VECTOR** — see `MenuControlFrame::nav`. Everything
+    // THE HELD NAVIGATION VECTOR — see `MenuControlFrame::nav`. Everything
     // above is an EDGE, which is what a list wants and what a free cursor
     // cannot be built from; this is the same stick, undecided, so a screen that
     // wants to roam can integrate it.
     //
-    // **the deadzoned pair, not the raw one.** `sx`/`sy` have already been
+    // the deadzoned pair, not the raw one. `sx`/`sy` have already been
     // through the SEAT's own deadzone a few lines up, so a drifting stick that
     // cannot pick a `MenuDir` cannot creep a cursor either — one filter, one
     // answer, and the two can never disagree about whether the stick is idle.
     //
-    // **`sy` is negated.** A stick reports `+y` UP and `nav` is screen space,
+    // `sy` is negated. A stick reports `+y` UP and `nav` is screen space,
     // where `+y` is DOWN.
     let held_x = f32::from(actions.pressed(&Platformer2dInputActionMonolith::MenuNavigateRight))
         - f32::from(actions.pressed(&Platformer2dInputActionMonolith::MenuNavigateLeft));
@@ -797,7 +780,7 @@ pub fn decode_menu_frame(
     next
 }
 
-/// **Fill one menu frame PER SEAT.**
+/// Fill one menu frame PER SEAT.
 ///
 /// The global [`MenuControlFrame`] folds every participant into one answer via
 /// `single()`, which is right for a pause menu and useless for a character
@@ -868,7 +851,7 @@ fn update_cutscene_request_from_menu(
     wall_dt: f32,
     is_playing: bool,
     request: &mut ambition_cutscene::CutsceneAdvanceRequest,
-    // **the accumulator is INPUT-LOCAL and the request is the crossing.** Only
+    // the accumulator is INPUT-LOCAL and the request is the crossing. Only
     // the completed edge (`skip_cutscene`) reaches the sim; the partial hold
     // stays here and is drawn by the HUD. See `CutsceneSkipHold`.
     hold: &mut ambition_cutscene::CutsceneSkipHold,
@@ -1012,8 +995,8 @@ mod focus_gate_tests {
         }
     }
 
-    /// **Changing ONE binding reaches behaviour and glyphs in the same frame,
-    /// and only the seat that changed it.**
+    /// Changing ONE binding reaches behaviour and glyphs in the same frame,
+    /// and only the seat that changed it.
     ///
     /// `F13` is deliberate: no preset binds it, so this cannot pass on a map
     /// nobody overrode.
@@ -1172,7 +1155,7 @@ mod focus_gate_tests {
         );
     }
 
-    /// **A LOBBY seats its pads before any roster exists.**
+    /// A LOBBY seats its pads before any roster exists.
     ///
     /// The roster is the authority on who is PLAYING, and a character select is
     /// what produces the roster — so the screen that asks the question cannot be
@@ -1258,8 +1241,8 @@ mod focus_gate_tests {
         }
     }
 
-    /// **A COUCH SEATS ONE PARTICIPANT PER PERSON, not one per controller
-    /// NUMBER.**
+    /// A COUCH SEATS ONE PARTICIPANT PER PERSON, not one per controller
+    /// NUMBER.
     ///
     /// the shipped Smash couch, exactly: under `JoinToClaim` the select
     /// screen offers the keyboard as source 0 and each pad after it, so two
@@ -1306,7 +1289,7 @@ mod focus_gate_tests {
         );
     }
 
-    /// **Each seat routes through ITS OWN context.**
+    /// Each seat routes through ITS OWN context.
     ///
     /// The claims were always per-participant; the resolved answer was one
     /// global fold of `ParticipantId::PRIMARY`, and every router read the fold.
@@ -1347,7 +1330,7 @@ mod focus_gate_tests {
         let mut app = App::new();
         app.init_resource::<SeatInputContexts>();
         app.init_resource::<SlotControls>();
-        // **and the table it is committed FROM.** These are one model:
+        // and the table it is committed FROM. These are one model:
         // `BrainPlugin` installs both, and a hand-built fixture that takes
         // only the destination is describing a composition that cannot exist.
         app.init_resource::<ambition_characters::control::SeatRawFrames>();
@@ -1370,7 +1353,7 @@ mod focus_gate_tests {
             (
                 resolve_active_input_context,
                 super::populate_seat_control_frames,
-                // **the COMMIT, because the producer no longer publishes.**
+                // the COMMIT, because the producer no longer publishes.
                 // It fills every seat's raw row and one stage commits them;
                 // a fixture that ran only the producer and then read
                 // `SlotControls` would be asserting against a table nothing
@@ -1408,7 +1391,7 @@ mod focus_gate_tests {
         );
     }
 
-    /// **ALT-TAB STOPS EVERY SEAT, NOT JUST SEAT ZERO.**
+    /// ALT-TAB STOPS EVERY SEAT, NOT JUST SEAT ZERO.
     ///
     /// `pause_input_when_unfocused` is an opt-in that clears the device-agnostic
     /// frames while no window reports focus. Seat zero's producer applied it;
@@ -1417,10 +1400,10 @@ mod focus_gate_tests {
     /// window loses focus, and player one freezes while player two keeps walking
     /// on a held stick.
     ///
-    /// **the existing unfocus tests could not see this** and were right not to: they exercise
+    /// the existing unfocus tests could not see this and were right not to: they exercise
     /// `input_suppressed_by_unfocus` as a pure predicate, which was always correct.
     ///
-    /// **the control is inside the test**: with the setting OFF, the same
+    /// the control is inside the test: with the setting OFF, the same
     /// unfocused window must leave the seat driving, or this would pass against a
     /// build that had simply stopped seat one for some other reason.
     #[test]
@@ -1434,7 +1417,7 @@ mod focus_gate_tests {
             let mut app = App::new();
             app.init_resource::<SeatInputContexts>();
             app.init_resource::<SlotControls>();
-            // **and the table it is committed FROM.** These are one model:
+            // and the table it is committed FROM. These are one model:
             // `BrainPlugin` installs both, and a hand-built fixture that takes
             // only the destination is describing a composition that cannot exist.
             app.init_resource::<ambition_characters::control::SeatRawFrames>();
@@ -1475,7 +1458,7 @@ mod focus_gate_tests {
                     resolve_active_input_context,
                     super::populate_seat_control_frames,
                     super::publish_seat_controls_when_nobody_else_does,
-                    // **the COMMIT, because the producer no longer publishes.**
+                    // the COMMIT, because the producer no longer publishes.
                     // It fills every seat's raw row and one stage commits them;
                     // a fixture that ran only the producer and then read
                     // `SlotControls` would be asserting against a table nothing
@@ -1512,7 +1495,7 @@ mod focus_gate_tests {
         );
     }
 
-    /// **A UI surface is a CLAIM now, not a `GameMode` match in every router.**
+    /// A UI surface is a CLAIM now, not a `GameMode` match in every router.
     ///
     /// `participant.rs` has always said *"nothing derives input ownership from
     /// `GameMode`"*, and this crate derived exactly that in two places. The
@@ -1546,7 +1529,7 @@ mod focus_gate_tests {
         let mut app = App::new();
         app.init_resource::<SeatInputContexts>();
         app.init_resource::<SlotControls>();
-        // **and the table it is committed FROM.** These are one model:
+        // and the table it is committed FROM. These are one model:
         // `BrainPlugin` installs both, and a hand-built fixture that takes
         // only the destination is describing a composition that cannot exist.
         app.init_resource::<ambition_characters::control::SeatRawFrames>();
@@ -1566,7 +1549,7 @@ mod focus_gate_tests {
                 declare_in_session_input_contexts,
                 resolve_active_input_context,
                 super::populate_seat_control_frames,
-                // **the COMMIT, because the producer no longer publishes.**
+                // the COMMIT, because the producer no longer publishes.
                 // It fills every seat's raw row and one stage commits them;
                 // a fixture that ran only the producer and then read
                 // `SlotControls` would be asserting against a table nothing
@@ -1610,8 +1593,8 @@ mod focus_gate_tests {
             "and the router honours it without knowing what dialogue is"
         );
 
-        // 2. **What the move buys, proved on a running world through the
-        //    PRODUCTION declarer.** Seat 0 is in the conversation, seat 1 is not,
+        // 2. What the move buys, proved on a running world through the
+        //    PRODUCTION declarer. Seat 0 is in the conversation, seat 1 is not,
         //    and seat 1 keeps driving its body.
         //
         // The whole chain runs now, and the conversation's own owner is what makes seat 1 keep
@@ -1643,7 +1626,7 @@ mod focus_gate_tests {
         );
     }
 
-    /// ✔ **The split is DONE, and this is the half that was left.**
+    /// ✔ The split is DONE, and this is the half that was left.
     ///
     /// The context claim carries ownership; `stops_the_world` carries the clock; and dialogue now
     /// says only the first.
@@ -1669,7 +1652,7 @@ mod focus_gate_tests {
         let mut app = App::new();
         app.init_resource::<SeatInputContexts>();
         app.init_resource::<SlotControls>();
-        // **and the table it is committed FROM.** These are one model:
+        // and the table it is committed FROM. These are one model:
         // `BrainPlugin` installs both, and a hand-built fixture that takes
         // only the destination is describing a composition that cannot exist.
         app.init_resource::<ambition_characters::control::SeatRawFrames>();
@@ -1692,7 +1675,7 @@ mod focus_gate_tests {
             (
                 resolve_active_input_context,
                 super::populate_seat_control_frames,
-                // **the COMMIT, because the producer no longer publishes.**
+                // the COMMIT, because the producer no longer publishes.
                 // It fills every seat's raw row and one stage commits them;
                 // a fixture that ran only the producer and then read
                 // `SlotControls` would be asserting against a table nothing
@@ -1751,7 +1734,7 @@ mod focus_gate_tests {
         );
     }
 
-    /// **A SECOND PLAYER MUST NOT SILENCE THE PAUSE MENU.**
+    /// A SECOND PLAYER MUST NOT SILENCE THE PAUSE MENU.
     ///
     /// `populate_menu_control_frame_from_actions` folded participants with `single()`, which
     /// returns `Err` the moment there are two — so the global `MenuControlFrame` went neutral
@@ -1804,19 +1787,19 @@ mod focus_gate_tests {
         }
     }
 
-    /// **A seat's MENU deadzone comes from the pad in that seat's hands.**
+    /// A seat's MENU deadzone comes from the pad in that seat's hands.
     ///
     /// So one couch seat could have its own calibration while driving and player one's while
     /// navigating — the same stick answering two ways depending on which screen is up.
     ///
-    /// **the magnitude is CHOSEN, not guessed.** After the deadzone rescale
+    /// the magnitude is CHOSEN, not guessed. After the deadzone rescale
     /// `(m - d) / (1 - d)`, a direction needs to clear 0.5. At `m = 0.58`:
     /// PlayStation (`d = 0.14`) gives 0.512 and registers; the Xbox/baseline
     /// table (`d = 0.18`) gives 0.488 and does not. Both sides sit off the
     /// threshold by more than 1%, so this is a real discrimination rather than a
     /// float coin-flip.
     ///
-    /// **`controller_profile` MUST stay `Default` or this test proves nothing.**
+    /// `controller_profile` MUST stay `Default` or this test proves nothing.
     /// `ControlFilters::for_pad` returns the machine values unchanged when somebody has
     /// explicitly picked a profile — an explicit choice is a decision, and detection does not
     /// overrule it.
@@ -2043,7 +2026,7 @@ mod focus_gate_tests {
     }
 }
 
-/// **Freeze the local seating once a MATCH has been decided.**
+/// Freeze the local seating once a MATCH has been decided.
 ///
 /// Nothing in a shipped build has ever created [`ambition_input::LocalSeatTopology`]. The only
 /// non-test caller is the rollback observatory, behind `#[cfg(feature = "dev_tools")]` — a feature
@@ -2070,7 +2053,7 @@ pub fn freeze_local_seating_for_the_decided_match(
         }
         return;
     };
-    // **HUMANS, not participants.** This counted every seat in the roster,
+    // HUMANS, not participants. This counted every seat in the roster,
     // CPUs included, and `declared_seats` is read for two things that both mean
     // "how many people are playing on this machine":
     //
@@ -2085,8 +2068,8 @@ pub fn freeze_local_seating_for_the_decided_match(
     // A CPU seat needs a body and a brain. It does not need a device or a
     // rollback handle, and counting it as though it did is what made the two
     // authorities that size a session disagree.
-    // **through the roster's own accessor, so this and the session's handle
-    // count are ONE definition rather than two that agree by inspection.** They
+    // through the roster's own accessor, so this and the session's handle
+    // count are ONE definition rather than two that agree by inspection. They
     // did not agree: this counted humans and `SessionSeatingSource::decided` was
     // handed `participants.len()`.
     let plan = roster.local_channel_plan();
@@ -2097,7 +2080,7 @@ pub fn freeze_local_seating_for_the_decided_match(
     // recapture would advance the generation and every consumer that keys off it
     // would rebuild for no reason.
     //
-    // **the whole PLAN, not its size.** Two rosters can want the same number
+    // the whole PLAN, not its size. Two rosters can want the same number
     // of channels and a different controller behind each: flip seat one from a
     // pad to a CPU and seat two from a CPU to a pad and the count never moves,
     // while every seat's device does.
@@ -2107,7 +2090,7 @@ pub fn freeze_local_seating_for_the_decided_match(
     {
         return;
     }
-    // **CARRY THE GENERATION FORWARD, do not restart it.** This built a fresh
+    // CARRY THE GENERATION FORWARD, do not restart it. This built a fresh
     // `LocalSeatTopology::default()`, so its counter began at 0 and reached 1 on
     // capture — colliding with the generation the session maintainer had already
     // published from its own device-derived capture. `generation` exists so a

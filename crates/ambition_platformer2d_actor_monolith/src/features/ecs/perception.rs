@@ -3,16 +3,16 @@
 //!
 //! [`ambition_characters::perception`] owns the headless, controller-neutral
 //! *value* ([`WorldView`] / [`WorldMemory`]) and its pure tactical queries; this
-//! module owns the **construction** — reading real solids, other actor bodies, and
+//! module owns the construction — reading real solids, other actor bodies, and
 //! live projectiles out of the gameplay world and packing them into the view.
 //!
 //! ### Body-generic by construction (guardrail #1)
 //!
 //! [`build_world_view`] takes a [`PerceptionBody`] — the minimal description of
-//! **any** body (player-robot, Perfect Cell-ular Automaton, NPC, boss) — never an
+//! any body (player-robot, Perfect Cell-ular Automaton, NPC, boss) — never an
 //! `CharacterBrain`-keyed or `"player"`-keyed input. Perception "for the player" is a
 //! brain driving the player-robot body through this same function, so when S5/S6
-//! land there is no enemy-only path to undo. Hostility is resolved **relationally**
+//! land there is no enemy-only path to undo. Hostility is resolved relationally
 //! against [`FactionRelations`] (the S3e seam), not by a player-vs-enemy branch.
 //!
 //! The peer / projectile lists are pre-collected before the per-body loop (the
@@ -99,7 +99,7 @@ pub struct PerceptionBody {
     /// The smash-percent axis (CM1) and its denominator.
     pub damage_taken: i32,
     pub health_max: i32,
-    /// **The capture relationship, as a fact rather than a component.** Read off
+    /// The capture relationship, as a fact rather than a component. Read off
     /// `CapturedBy` by the system that holds the queries and handed to the brain
     /// — the same shape `grudge` beside it takes, and for the same reason: a
     /// pure decision must not reach into the ECS to ask.
@@ -197,7 +197,7 @@ pub struct PerceptionPeers(pub Vec<PerceptionPeer>);
 /// `ActorTarget`). Each peer carries its source `Entity` so a viewer excludes ITSELF
 /// and resolves a per-entity grudge. `on_ground` / `shield_raised` are left `false`
 /// for now (no consumer reads them; wire them when a brain needs them).
-/// Read a body's **move phase** off its live combat state — the one place the
+/// Read a body's move phase off its live combat state — the one place the
 /// perception vocabulary ([`BodyPhase`]) is mapped from the sim's.
 ///
 /// The `ambition_combat` swing clock is the authority while a swing is in flight;
@@ -348,8 +348,8 @@ pub struct PerceptionMemory(pub ambition_characters::perception::WorldMemory);
 /// lose sight of a foe, and give up. Everything WITHOUT a [`Perception`] component
 /// defaults to [`Perception::Omniscient`] (the basic mode), which is documented
 /// POLICY, not a parallel-system carve-out (§A7):
-/// - the **player** brain steers from controller input and never perceive-targets;
-/// - a **boss** is relentless — it knows where you are in its arena (omniscience is
+/// - the player brain steers from controller input and never perceive-targets;
+/// - a boss is relentless — it knows where you are in its arena (omniscience is
 ///   its perception, the `ActorTarget` read every body carries), so it needs no
 ///   viewport or belief store. A boss that wanted bounded, juke-able senses would drop
 ///   this `Without<BossConfig>` exclusion and be granted `Sighted` + memory here;
@@ -386,7 +386,7 @@ pub fn ensure_perception(
 /// Build the headless [`WorldView`] for `body` from real world geometry, the
 /// pre-collected peers/projectiles, and the relational faction matrix.
 ///
-/// The terrain carried into the view is clipped from the **same** `world.blocks`
+/// The terrain carried into the view is clipped from the same `world.blocks`
 /// the body physically collides against (caller passes the derived collision
 /// world — moving platforms + ECS overlays already folded in), so the view's
 /// line-of-fire / reachability queries reuse the real geometry, never a parallel
@@ -451,7 +451,7 @@ pub fn build_world_view(
             // this exact body — the SAME two-part rule `select_actor_targets` uses, so
             // `nearest_hostile` sees a same-faction grudge-duel opponent (which faction
             // hostility alone would miss).
-            // **THE SAME PRECEDENCE `damage_lands_between` USES**, through the
+            // THE SAME PRECEDENCE `damage_lands_between` USES, through the
             // same `team_allows_damage` authority: when both bodies are seated,
             // the team relation decides and factions have nothing to say. A
             // grudge still overrides, exactly as it does for damage.
@@ -539,7 +539,7 @@ fn perceived_solid_kind(kind: ae::BlockKind) -> Option<SolidKind> {
         ae::BlockKind::BlinkWall { .. } => Some(SolidKind::BlinkWall),
         ae::BlockKind::OneWay => Some(SolidKind::OneWay),
         ae::BlockKind::Hazard => Some(SolidKind::Hazard),
-        // **a bonk-only block is not terrain to a brain.** It blocks neither
+        // a bonk-only block is not terrain to a brain. It blocks neither
         // sight nor a straight path — nothing can walk into it or stand on it —
         // so perceiving it as ground would route a patrol over a surface that
         // will not hold it.
@@ -553,7 +553,7 @@ mod tests;
 /// Project a live actor body into the perception input its own world view is
 /// built from.
 ///
-/// **the projection belongs beside the type, not inside the tick.** This was
+/// the projection belongs beside the type, not inside the tick. This was
 /// sixty lines of struct literal in the middle of `tick_actor_brains`, between a
 /// snapshot build and a brain call, which is what made "what does a body know
 /// about itself" a question you answered by reading a decision loop. Every field
@@ -570,13 +570,13 @@ pub(crate) fn perception_body_for(
     // more precisely than its opponents know it.
     self_peer: Option<&PerceptionPeer>,
     aggression: Option<&crate::features::components::ActorAggression>,
-    // **NOT `Option`, per ADR 0024 §1** ("absence is never a policy and no outer
+    // NOT `Option`, per ADR 0024 §1 ("absence is never a policy and no outer
     // query may interpret a missing component as axis-swept"). The `None` arm of
     // the old signature did precisely that, and it was invisible to
     // `engine.movement-model-is-never-optional` because that rule matches the
     // spelling `Option<&MotionModel>`, not `Option<&ae::MotionModel>`.
     motion_model: &ae::MotionModel,
-    // **The capture relationship, resolved by the caller.** Passed rather than
+    // The capture relationship, resolved by the caller. Passed rather than
     // queried for the reason the whole signature is passed: this function reads
     // authorities the caller already holds, and a lookup here would be a second
     // reader of a relationship the combat layer owns.
@@ -618,8 +618,8 @@ pub(crate) fn perception_body_for(
         // `AbilitySet` — the single authority every body
         // shares — not a parallel `CombatCapabilities` mirror.
         can_blink: body.abilities.abilities.blink,
-        // **THIS WAS `abilities.dash` / `abilities.dodge`,
-        // AND A CAPABILITY IS NOT AN AVAILABILITY.** Dodge and
+        // THIS WAS `abilities.dash` / `abilities.dodge`,
+        // AND A CAPABILITY IS NOT AN AVAILABILITY. Dodge and
         // dash are one button; which maneuver a press produces
         // is decided by the body's live state, and `apply_dodge`
         // declines on cooldown WITHOUT consuming the buffered
@@ -651,7 +651,7 @@ pub(crate) fn perception_body_for(
     }
 }
 
-/// **Where this body BELIEVES its target is, after seeing and remembering.**
+/// Where this body BELIEVES its target is, after seeing and remembering.
 ///
 /// Sight and memory are one answer, so they are one call: the belief store is
 /// updated from what the body just saw, and the target it then reports may come
@@ -683,7 +683,7 @@ pub(crate) fn believed_target(
     }
 }
 
-/// **What a body can perceive this tick, as one parameter.**
+/// What a body can perceive this tick, as one parameter.
 ///
 /// The three channels a brain's world-out view needs are collected by three
 /// systems that run before it: [`PerceptionPeers`] (the other bodies),

@@ -1,6 +1,6 @@
-//! **How much of `Update` is even addressable by set-level gating.**
+//! How much of `Update` is even addressable by set-level gating.
 //!
-//! **311 counted CALL SITES, and one `add_systems` registers many systems.**
+//! 311 counted CALL SITES, and one `add_systems` registers many systems.
 //! The runtime population is what the executor pays for, so that is what this
 //! measures.
 //!
@@ -40,7 +40,7 @@ fn set_membership(
                 .systems()
                 .expect("initialized above, so the systems are enumerable")
             {
-                // **EXCLUDE `SystemTypeSet`.** Bevy puts every system into an
+                // EXCLUDE `SystemTypeSet`. Bevy puts every system into an
                 // automatic per-system-type set so that `.after(my_system)` can
                 // resolve. Counting those made the first draft of this census
                 // report 97% "in a set" — a measure of Bevy's own bookkeeping,
@@ -96,7 +96,7 @@ fn set_membership(
         })
 }
 
-/// **The census, on the shipped composition rather than a fixture.**
+/// The census, on the shipped composition rather than a fixture.
 ///
 /// Printed rather than pinned to an exact number: this is a MEASUREMENT that
 /// should move, and a test that fails whenever a system is added would be
@@ -141,25 +141,9 @@ fn census_of_how_much_of_update_is_inside_a_set() {
     );
 }
 
-/// **Every set that READS `MenuControlFrame` lives in the SAME schedule.**
-///
-/// A writer that has to land before every reader pins `.before` each reader set
-/// by name — `ambition_touch_input`'s `fold_touch_gestures` does it twice, once
-/// for `MenuFrameCutsceneSkip` and once for `MenuNavConsume`.
-///
-/// **a cross-schedule `.before` is SILENTLY VACUOUS.** A Bevy set node belongs
-/// to one schedule; pinning against a set that has no members here constrains
-/// nothing and reports nothing. Both configuration sites already know this — the
-/// host's says the chain is *"LOAD-BEARING ONLY under the `RenderFrame` host,
-/// where the sim schedule IS `Update` … under `Fixed60Hz`/`Ggrs` this creates an
-/// empty node here"*. So "the set exists in this schedule" is NOT the question;
-/// "does it have members here" is, and an empty node is a thing this app really
-/// produces.
-///
-/// this is a PREREQUISITE for the open `MenuFrameConsume` decision:
-/// folding the reader sets into one umbrella, or adding one over both, is only
-/// meaningful if they are co-scheduled. If they are not, the honest finding is
-/// that one of the touch adapter's two pins is already doing nothing.
+/// Every set that reads `MenuControlFrame` must have members in the same schedule.
+/// A `.before` edge to a set in another schedule is vacuous, so set existence
+/// alone is insufficient.
 #[test]
 fn the_menu_frame_reader_sets_are_co_scheduled() {
     use ambition_platformer2d::actors::schedule::{
@@ -249,7 +233,7 @@ fn the_menu_frame_reader_sets_are_co_scheduled() {
     );
 }
 
-/// **A `.before` pinned against an umbrella orders EVERY member.**
+/// A `.before` pinned against an umbrella orders EVERY member.
 ///
 /// The property `MenuFrameConsume` rests on, proven on a three-system app rather than assumed from
 /// Bevy's docs.

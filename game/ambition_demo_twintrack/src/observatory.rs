@@ -684,15 +684,15 @@ DIRECTIONS AROUND YOU",
     ));
 }
 
-/// **WHICH OF THIS DEMO'S CAMERAS ARE DRAWING.**
+/// WHICH OF THIS DEMO'S CAMERAS ARE DRAWING.
 ///
-/// **`is_active` ONLY — the physical VIEWPORT is not this demo's to write.**
+/// `is_active` ONLY — the physical VIEWPORT is not this demo's to write.
 /// `apply_gameplay_camera_viewport` owns `Camera::viewport` for every `MainCamera` that presents a
 /// `LocalView`, and TwinTrack's own pane cameras ARE such cameras: `spawn_pane_camera` gives each
 /// one `MainCamera` and a `PresentsView` link.
 ///
-/// **and the observatory camera's clear went too, though nothing contended
-/// for it.** It is not a `MainCamera`, so the generic pass never sees it and it
+/// and the observatory camera's clear went too, though nothing contended
+/// for it. It is not a `MainCamera`, so the generic pass never sees it and it
 /// keeps the `None` it was spawned with; a line restating a default nobody
 /// writes is a second writer waiting for somebody to add the first.
 fn sync_view_cameras(
@@ -1142,7 +1142,7 @@ fn update_doppler_music_visuals(
         &TwinTrackCharacter,
         &ambition_platformer2d::engine_core::BodyKinematics,
     )>,
-    // **the three marker sets are disjoint, and Bevy needs to be TOLD.** All
+    // the three marker sets are disjoint, and Bevy needs to be TOLD. All
     // three take `&mut Visibility`, and a `With<..>` marker does not prove
     // exclusivity — nothing stops an entity carrying two of them, so parameter
     // validation panics at first run rather than at compile time. The
@@ -1270,7 +1270,7 @@ fn update_light_tag_guides(
         return;
     };
     let active = experiment.phase == TwinTrackPhase::LightTag;
-    // **the TRAVELER's aim, named.** The targeting view holds one row per
+    // the TRAVELER's aim, named. The targeting view holds one row per
     // observer; these are the traveler's own guides, and reading the resource
     // through `Deref` would take the first row in label order — the laboratory
     // twin's, since she became an observer too.
@@ -1448,7 +1448,7 @@ fn update_optical_observer_marker(
 
 fn update_observatory_stars(
     optical: Res<RelativisticOpticalView2d>,
-    // **the TRAVELER's sky, named.** The optical view holds one image per
+    // the TRAVELER's sky, named. The optical view holds one image per
     // observer, and reading it through `Deref` takes the first row in label
     // order — the laboratory twin's, since she became an observer too. The
     // observatory is the instrument the traveler is looking through.
@@ -1759,7 +1759,7 @@ fn beacon_map_color(beacon: TwinTrackBeacon) -> Color {
 /// The two beacons flash TOGETHER on the laboratory map, because in the
 /// laboratory frame they do.
 ///
-/// **this is the flash EVENT, not its arrival.** A laboratory map draws
+/// this is the flash EVENT, not its arrival. A laboratory map draws
 /// laboratory coordinate time, so lighting these on the light's arrival at any
 /// particular observer would smuggle one observer's perception into the frame
 /// that is supposed to be the shared reference. The split-observer panes are

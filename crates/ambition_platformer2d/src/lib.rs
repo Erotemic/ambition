@@ -22,7 +22,7 @@ pub mod session_world;
 /// the `ambition_platformer2d::provider::…` path.
 pub use ambition_platformer2d_provider as provider;
 
-/// **The causal inspector** — "why did this actor change on this tick".
+/// The causal inspector — "why did this actor change on this tick".
 ///
 /// Behind the `causal` feature, default-OFF, for the reason every instrument in
 /// this engine is: a game that never opens one must not link one. Turning it on
@@ -56,7 +56,7 @@ pub mod causal {
     };
 }
 
-/// **The content compiler** — author, validate, prepare, without a Rust rebuild.
+/// The content compiler — author, validate, prepare, without a Rust rebuild.
 ///
 /// Behind the `content_pack` feature, default-OFF, because a game that ships its
 /// content embedded and never validates at runtime should not link a compiler.
@@ -144,7 +144,7 @@ pub mod content {
 
 pub use ambition_asset_manager as asset_manager;
 pub use ambition_audio as audio;
-/// **Derivations from a character sheet** — the animation-row pickers, the
+/// Derivations from a character sheet — the animation-row pickers, the
 /// sheet-authored body geometry, the manifest attack hitbox.
 pub use ambition_character_sprites as character_sprites;
 pub use ambition_characters as characters;
@@ -208,7 +208,7 @@ pub use ambition_touch_input as touch_input;
 pub use ambition_ui_nav as ui_nav;
 #[cfg(feature = "ambition_vfx")]
 pub use ambition_vfx as vfx;
-/// **Bodies: what a game queries, moves and transits.**
+/// Bodies: what a game queries, moves and transits.
 ///
 /// A curated domain module, second of the set ADR 0031's decision 1 lists. It
 /// exists because the two sentinel consumers had to reach into
@@ -226,7 +226,7 @@ pub mod actor {
     /// needs to re-dress it — see `WornCharacter` and the seating contract.
     pub use ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly;
 
-    /// **Which seat of the match a body is.**
+    /// Which seat of the match a body is.
     ///
     /// The answer to "who is player two?", and the only correct one — the
     /// engine's own docs say every other way to identify a fighter is a guess:
@@ -239,7 +239,7 @@ pub mod actor {
     /// gamepads seats two — so a consumer needs this to check that the match it asked for is
     /// the match it got.
     ///
-    /// **the input half is CLOSED **:
+    /// the input half is CLOSED :
     /// `ambition_platformer2d::sim::drive_slot_frame` drives any seat, beside
     /// `drive_control_frame` naming the primary. The seam had existed in
     /// `ambition_platformer2d_runtime` since and was simply never re-exported — so
@@ -247,8 +247,8 @@ pub mod actor {
     /// embarrassing of the two and the harder one to notice.
     pub use ambition_platformer2d_actor_monolith::character_runtime::MatchSeat;
 
-    /// **Declaring a MATCH: who is in it, who drives them, and what it costs to
-    /// lose.**
+    /// Declaring a MATCH: who is in it, who drives them, and what it costs to
+    /// lose.
     ///
     /// That is the leak `minimal-game-names-only-the-public-sdk` exists to catch, and the only
     /// reason it went uncaught is that no consumer had ever declared a match: the shipped versus
@@ -261,14 +261,14 @@ pub mod actor {
         MatchPreparationProblems, PreparedMatch, RosterProblem, RosterSeating,
     };
 
-    /// **What a human seat is playing ON**, and the map from those sources to
+    /// What a human seat is playing ON, and the map from those sources to
     /// the dense channels a rollback session opens.
     ///
     /// Re-exported beside the roster because a composition that names
     /// `ControllerBinding::Human` cannot say who is holding what without it.
     pub use ambition_input::{LocalChannelPlan, LocalInputSource};
 
-    /// **The stocks economy**: the count on a body, the fact that it is out, and
+    /// The stocks economy: the count on a body, the fact that it is out, and
     /// the two messages a ruleset acts on.
     ///
     /// The engine owns the COUNT — spend one, decide whether it was the last,
@@ -309,7 +309,7 @@ pub mod actor {
     pub use ambition_platformer2d_core::body_clusters::{AbilityBase, BodyAbilities};
 }
 
-/// **Characters: the cast, its art, and what it can do.**
+/// Characters: the cast, its art, and what it can do.
 ///
 /// The fourth curated domain module, and the one that absorbs the largest remaining spread.
 ///
@@ -344,7 +344,7 @@ pub mod character {
     pub use ambition_characters::brain::ActionSet;
     pub use ambition_entity_catalog::placements::CharacterBrain;
 
-    /// **WHICH character a placement is**, and it is authoring vocabulary rather than a mirror
+    /// WHICH character a placement is, and it is authoring vocabulary rather than a mirror
     /// of our crate list.
     pub use ambition_entity_catalog::CharacterId;
 
@@ -363,7 +363,7 @@ pub mod character {
     pub use ambition_sprite_sheet::{PortraitSheetRegistry, PortraitSheetRegistryPlugin};
 }
 
-/// **The simulation schedule a game joins its own systems to.**
+/// The simulation schedule a game joins its own systems to.
 pub mod sim {
     pub use ambition_platformer2d_shared_tangle::schedule::{
         GameMode, Platformer2dSimulationPhaseMonolith, SimSchedule, SimScheduleExt,
@@ -379,7 +379,7 @@ pub mod sim {
     #[cfg(not(feature = "rollback"))]
     pub use ambition_platformer2d_runtime::input_drive::drive_control_frame;
 
-    /// **Drive input to ANY seat**, and the half blind run 7's finding (g)
+    /// Drive input to ANY seat, and the half blind run 7's finding (g)
     /// recorded as missing.
     ///
     /// That is a worse shape than a missing feature: the capability was built, tested, and
@@ -397,7 +397,7 @@ pub mod sim {
     /// wants.
     pub use ambition_characters::control::PlayerSlot;
 
-    /// **WHO DRIVES THIS BODY.** A body wearing one is steered by that seat's
+    /// WHO DRIVES THIS BODY. A body wearing one is steered by that seat's
     /// `SlotControls` frame; a body without one is left to its own `Brain`.
     ///
     /// Exported beside [`PlayerSlot`] because a composition that seats a second
@@ -407,7 +407,7 @@ pub mod sim {
     /// with that reconcile.
     pub use ambition_characters::control::DrivingParticipant;
 
-    /// **EVERY SEAT'S RAW FRAME, before any shaping stage has run** — the table
+    /// EVERY SEAT'S RAW FRAME, before any shaping stage has run — the table
     /// a stage that refines input writes into.
     ///
     /// ⛔ **the global `ControlFrame` is NOT that table any more.** It was, and
@@ -417,7 +417,7 @@ pub mod sim {
     /// that shapes input names the seat it shapes now.
     pub use ambition_characters::control::SeatRawFrames;
 
-    /// **WHAT EACH SEAT ACTUALLY RECEIVED** — the committed frame every body
+    /// WHAT EACH SEAT ACTUALLY RECEIVED — the committed frame every body
     /// reads through its `DrivingParticipant(slot)`.
     ///
     /// the read side of [`SeatRawFrames`]: that table is what the local device
@@ -425,7 +425,7 @@ pub mod sim {
     /// rollback host are different frames on a resimulated tick.
     pub use ambition_characters::control::SlotControls;
 
-    /// **THE FRAME→TICK LATCH, one row per seat.** A tap that opens and closes
+    /// THE FRAME→TICK LATCH, one row per seat. A tap that opens and closes
     /// between two ticks folds in here and drains on the tick, so a fixed-tick
     /// or rollback host never swallows it.
     pub use ambition_characters::control::SlotControlLatches;
@@ -435,7 +435,7 @@ pub mod sim {
     pub use ambition_platformer2d_runtime::input_drive::drive_slot_frame;
 }
 
-/// **What is drawn, as a game observes it.**
+/// What is drawn, as a game observes it.
 ///
 /// Deliberately thin. A consumer reads the presented world; it does not own the
 /// render path.
@@ -463,14 +463,14 @@ pub mod view {
     pub use ambition_render::rendering::ParallaxLayerVisual;
 }
 
-/// **Rollback, as a supported session mode.**
+/// Rollback, as a supported session mode.
 ///
 /// The six properties ADR 0031 required before this could be a promise, and a
 /// test for each — see the module docs.
 #[cfg(feature = "rollback")]
 pub mod rollback;
 
-/// **The authored world: rooms, geometry, placements, collision.**
+/// The authored world: rooms, geometry, placements, collision.
 ///
 /// A CURATED MODULE, not a crate mirror — and the difference is the whole
 /// point of ADR 0031. `pub use ambition_platformer2d_world as world` made the compatibility
@@ -553,7 +553,7 @@ pub mod presentation {
     pub use ambition_render::hud::declared::{DeclaredHudPlugin, DeclaredHudRoot, DeclaredHudSlot};
 }
 
-/// **The SDK claim about the inspector, tested.**
+/// The SDK claim about the inspector, tested.
 ///
 /// The program this belongs to says an agent should be able to *"inspect why the
 /// resulting actor moved, attacked, took damage, or changed lifecycle state …
@@ -612,7 +612,7 @@ mod causal_sdk_tests {
         );
     }
 
-    /// **the tick is the HOST's**, even for a consumer's own fact. A game that
+    /// the tick is the HOST's, even for a consumer's own fact. A game that
     /// had to stamp its own would be a second clock nothing could join against.
     #[test]
     fn a_consumers_fact_carries_the_hosts_tick_without_being_told_it() {
@@ -640,7 +640,7 @@ mod causal_sdk_tests {
     }
 }
 
-/// **The SDK claim about authoring, tested.**
+/// The SDK claim about authoring, tested.
 ///
 /// The program says an agent should *"add or modify a character and validate it
 /// without rebuilding Rust"* and do so *"without importing internal-shaped

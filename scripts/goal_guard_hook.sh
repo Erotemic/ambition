@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# **WHICH TREE THE GOAL GUARD JUDGES**, resolved once for both hooks.
+# WHICH TREE THE GOAL GUARD JUDGES, resolved once for both hooks.
 #
 # The guard itself is right: `goal_guard.py::repo_root()` resolves through `__file__`, so a
 # worktree's own copy resolves to the worktree and reads the worktree's `.goal/`.
 #
-# **TWO OPPOSITE TRAPS, and a fix for either one alone re-opens the other.**
+# TWO OPPOSITE TRAPS, and a fix for either one alone re-opens the other.
 #
 # `$CLAUDE_PROJECT_DIR` only — the shape this replaces. A session that started in the main checkout
 # and then entered a worktree still carries it pointing at MAIN, so the hook ran main's copy and
@@ -12,7 +12,7 @@
 #
 # `$PWD` only — worse, and it has already happened.
 #
-# **the discriminator is the COMMON GIT DIR.** A worktree of this repository
+# the discriminator is the COMMON GIT DIR. A worktree of this repository
 # shares one with the main checkout; a nested repository does not. So `$PWD` wins
 # when it is the same repository, and `$CLAUDE_PROJECT_DIR` wins otherwise — the
 # worktree case is served without giving a stray `cd` any authority at all.
@@ -43,7 +43,7 @@ root="$declared"
 if [ -n "$here" ] && [ -n "$declared" ] && [ "$here" != "$declared" ]; then
     mine="$(common_git_dir "$here")"
     theirs="$(common_git_dir "$declared")"
-    # Same repository, different checkout ⇒ a worktree, and its own tree is the
+    # Same repository, different checkout  a worktree, and its own tree is the
     # one this session is working in.
     if [ -n "$mine" ] && [ "$mine" = "$theirs" ]; then
         root="$here"

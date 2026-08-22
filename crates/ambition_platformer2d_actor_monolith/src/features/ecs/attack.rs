@@ -38,8 +38,8 @@ use ambition_sfx::SfxMessage;
 ///
 /// Two post-hit gates apply to the FINAL `InputState`:
 /// - `hard_lock_timer`: every verb, including the movement/flight steering
-///   axis, is zeroed so the body cannot act at all. **two different facts
-///   produce it** and the caller takes the longer: the brief recoil throw at
+///   axis, is zeroed so the body cannot act at all. two different facts
+///   produce it and the caller takes the longer: the brief recoil throw at
 ///   the front of a knockback (`recoil_lock_timer`), and the authored landing
 ///   lag an aerial owes for touching down mid-move (`landing_lag_timer`). They
 ///   are kept as separate fields on purpose — a trace that cannot tell "thrown"
@@ -141,14 +141,10 @@ pub fn apply_post_hit_input_gates(
     }
 }
 
-/// Tick every body's `BodyMelee` cooldown floors on the sim clock. The melee
-/// swing itself lives on the moveset runtime (`advance_move_playback` +
-/// `project_moveset_melee_to_body_melee`); what remains on `BodyMelee` is the
-/// body-side ranged refire floor (`ranged_cooldown`, invariant I3) armed by
-/// `try_fire_ranged`, and the legacy melee-recovery floor (`cooldown`) the AI
-/// telegraph reads. Both must keep counting down or a ranged body freezes after
-/// one shot. This REPLACES the cooldown-decrement that rode the deleted flat
-/// `advance_body_melee`.
+/// Tick the remaining `BodyMelee` cooldown floors on simulation time.
+/// `ranged_cooldown` gates refire; `cooldown` still feeds the AI telegraph.
+/// TODO(compat-remove): move the remaining melee recovery floor off `BodyMelee`
+/// once all telegraph readers use moveset playback state.
 pub fn tick_body_melee_cooldowns(
     world_time: Res<ambition_time::WorldTime>,
     mut bodies: Query<&mut BodyMelee>,

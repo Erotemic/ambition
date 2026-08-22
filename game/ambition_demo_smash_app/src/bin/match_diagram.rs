@@ -1,4 +1,4 @@
-//! **Draw a RUNNING match.**
+//! Draw a RUNNING match.
 //!
 //! `cargo run -p ambition_demo_smash_app --bin match_diagram -- [OUT.png]`
 //!
@@ -23,7 +23,7 @@ fn main() {
     for _ in 0..30 {
         app.update();
     }
-    // **CPU seats, not the select screen's.** `SmashSelect::roster` makes every
+    // CPU seats, not the select screen's. `SmashSelect::roster` makes every
     // locked seat a HUMAN — which is right for a couch game and is why a diagram
     // driven through it shows two fighters that never move: nobody is pressing
     // anything. To watch the fighter BRAIN, the roster has to ask for it.
@@ -42,7 +42,7 @@ fn main() {
         app.update();
     }
 
-    // **Hurt somebody**, so the picture shows the thing the stocks loop is
+    // Hurt somebody, so the picture shows the thing the stocks loop is
     // about. A match at 0% looks identical whether the meter works or not.
     let damage: i32 = std::env::args()
         .nth(2)
@@ -78,7 +78,7 @@ fn main() {
         .map(|(now, then)| (now - then).abs())
         .collect::<Vec<_>>();
     println!("[match_diagram] travel over 180 ticks: {moved:?}");
-    // **Does a real fight ever produce a KO?** Run it long and report the peak
+    // Does a real fight ever produce a KO? Run it long and report the peak
     // percent and any stock spent. If damage climbs and nothing is ever launched
     // off, the knockback curve does not reach this stage's blast line — which is
     // a tuning fact no unit test can hold an opinion about.

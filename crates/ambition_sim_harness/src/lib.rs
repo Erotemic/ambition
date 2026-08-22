@@ -9,7 +9,7 @@
 //! [`random_policy`] fuzz driver) — so RL agents, fuzz harnesses, scripted-replay
 //! tools, and future Python bindings build on ONE shared seam.
 //!
-//! **It composes below the product shell.** The harness builds the engine
+//! It composes below the product shell. The harness builds the engine
 //! foundation (`add_headless_foundation`) and the sim-schedule choice, then hands
 //! the App to a caller-supplied `compose` closure that installs *that game's*
 //! content + sim plugins. So a demo/test runs a sim through the harness WITHOUT

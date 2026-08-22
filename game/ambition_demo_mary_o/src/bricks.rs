@@ -6,10 +6,10 @@
 //! A brick reuses that exact seam for the OPPOSITE effect — where the ?-block ADDS a
 //! wand pickup, a bonked brick SUBTRACTS itself from the world. Two consumers, one
 //! primitive, add vs subtract: the engine-for-other-games oracle wants a second user
-//! to prove the primitive generalizes past the powerup, and this is it, with **zero
-//! engine edits** beyond the render reconcile the subtraction always wanted.
+//! to prove the primitive generalizes past the powerup, and this is it, with zero
+//! engine edits beyond the render reconcile the subtraction always wanted.
 //!
-//! The removal is a mid-run **World-mutation** done the elegant way: the authored
+//! The removal is a mid-run World-mutation done the elegant way: the authored
 //! [`RoomGeometry`](ae::RoomGeometry) stays immutable (it is swapped at room
 //! boundaries, never edited mid-room), and a broken brick's name is contributed to
 //! the collision overlay's per-frame `removed_block_names` — the SAME immutable-base
@@ -31,22 +31,22 @@ use ambition_platformer2d::platformer::lifecycle::SessionWorldRef;
 use crate::ldtk_vocabulary::{block_of, MaryOBlockLook};
 use ambition_platformer2d::actors::session::reset::RoomReplayRequested;
 
-/// Which bricks are broken this run, **by their authored NAME**.
+/// Which bricks are broken this run, by their authored NAME.
 ///
-/// **this was a `u32` bitset over brick INDICES.** An index is a position in a
+/// this was a `u32` bitset over brick INDICES. An index is a position in a
 /// Rust column array, and the level is authored now — there is no array, the
 /// author can add a tenth brick, and inserting one would have renumbered every
 /// brick after it *including the ones already recorded broken*. The name is what
 /// the collision overlay subtracts anyway (`removed_block_names`), so storing
 /// anything else meant converting on the way out.
 ///
-/// **`BTreeSet`, not `HashSet`, and that is the determinism contract.**
+/// `BTreeSet`, not `HashSet`, and that is the determinism contract.
 /// [`contribute_broken_bricks_to_overlay`] ITERATES this every frame, and
 /// std-hash iteration order is seeded per process — two peers would subtract the
 /// same blocks in different orders. A `BTreeSet` iterates in name order,
 /// everywhere, always.
 ///
-/// **`Clone` because it is ROLLBACK STATE.** Which bricks are broken decides
+/// `Clone` because it is ROLLBACK STATE. Which bricks are broken decides
 /// what the room is made of — the overlay subtracts them from collision every
 /// frame — so a rewind across a bonk that does not restore this leaves a wall
 /// with a hole in it, or a hole with a wall in it.
@@ -54,9 +54,9 @@ use ambition_platformer2d::actors::session::reset::RoomReplayRequested;
 pub struct BrokenBricks(std::collections::BTreeSet<String>);
 
 impl BrokenBricks {
-    /// **A checksum over WHICH bricks are broken, order-independent.**
+    /// A checksum over WHICH bricks are broken, order-independent.
     ///
-    /// **XOR of per-name hashes, not a hash of the iteration.** The set is a
+    /// XOR of per-name hashes, not a hash of the iteration. The set is a
     /// `BTreeSet` so its order is already deterministic — but the projection is
     /// what two peers compare, and making it independent of container choice
     /// means a later switch to a `HashSet` cannot turn a matching pair of
@@ -92,10 +92,10 @@ impl BrokenBricks {
     }
 }
 
-/// **The brick-break.** A head contact (`ContactKind::Head`) against a brick —
+/// The brick-break. A head contact (`ContactKind::Head`) against a brick —
 /// identified by the durable `GeoId` the engine carries on `ContactSource::Block`,
-/// NOT by point-matching — marks that brick broken and shatters it once, **and
-/// only if she is big enough to**. The SAME contact seam
+/// NOT by point-matching — marks that brick broken and shatters it once, and
+/// only if she is big enough to. The SAME contact seam
 /// [`crate::powerups::bonk_power_blocks`] reads; a bonk resolves to a ?-block OR
 /// a brick (their `GeoId` base indices are disjoint), never both.
 ///
@@ -108,7 +108,7 @@ pub fn break_bricks(
     mut broken: ResMut<BrokenBricks>,
     mut vfx: MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
-    // **her FORM rides the same query**, `Option` because a body with no
+    // her FORM rides the same query, `Option` because a body with no
     // equipment component at all is small — that is what small IS, not a bug.
     players: Query<(&PlayerBodyFrameOutput, Option<&WornEquipment>), With<PrimaryPlayer>>,
     // A `GeoId` names a block; only the room can say which one.
@@ -117,7 +117,7 @@ pub fn break_bricks(
     let Ok((frame, worn)) = players.single() else {
         return;
     };
-    // **a system-wide `return`, and here that is honest.** Guarding a whole
+    // a system-wide `return`, and here that is honest. Guarding a whole
     // system on a singleton is usually a smell — the guarded value normally
     // feeds one call among several — but breaking masonry is the ENTIRE body of
     // this function. There is no other effect for a small Mary-O to still get,
@@ -137,7 +137,7 @@ pub fn break_bricks(
         let ContactSource::Block { id, .. } = &contact.source else {
             continue;
         };
-        // **ask the ROOM, then ask the BLOCK what it is.** This looked the id
+        // ask the ROOM, then ask the BLOCK what it is. This looked the id
         // up in a table of ids reconstructed from a column array, so an authored
         // brick was simply not in it.
         let Some(block) = crate::authored_block_by_id(&geometry.0, id) else {
@@ -180,7 +180,7 @@ pub fn break_bricks(
     }
 }
 
-/// Re-arm every brick when the room (re)loads **or replays**, so the next lap —
+/// Re-arm every brick when the room (re)loads or replays, so the next lap —
 /// and the next LIFE — starts against a whole wall. Mirrors
 /// [`crate::powerups::rearm_power_blocks_for_a_fresh_attempt`].
 ///
@@ -189,7 +189,7 @@ pub fn break_bricks(
 /// events on purpose, and per-attempt CONTENT state has to answer the replay — that is what
 /// `ContentRoomReplayResetSet` is for, and the bosses were already using it.
 ///
-/// **the `room_id == LEVEL_1_1_ROOM_ID` gate is gone too.** It predates 1-2,
+/// the `room_id == LEVEL_1_1_ROOM_ID` gate is gone too. It predates 1-2,
 /// and it meant a wall smashed in 1-2 stayed smashed through every reload of it.
 /// Broken names are per-room authored and you can only stand in one room, so
 /// "any room boundary re-arms everything" is both simpler and correct.
@@ -230,7 +230,7 @@ mod tests {
 
     /// Two bricks the LEVEL authors — the population `break_bricks` serves.
     ///
-    /// **breakable bricks, not brick-LOOKING blocks**, and the difference is
+    /// breakable bricks, not brick-LOOKING blocks, and the difference is
     /// now load-bearing: 1-1 authors a `Brick` holding a quasar (the folded
     /// stack at px 1600,288), which by design does not shatter. Selecting on the
     /// look alone picked it as a victim and this test failed the moment the
@@ -268,7 +268,7 @@ mod tests {
             .clone()
     }
 
-    /// **The form every "a bonk breaks it" fixture below must wear.**
+    /// The form every "a bonk breaks it" fixture below must wear.
     ///
     /// `a_head_bonk_on_a_non_brick_breaks_nothing` is the sharpest case: it would have passed
     /// for the wrong reason forever.
@@ -305,7 +305,7 @@ mod tests {
         app.init_resource::<BrokenBricks>();
         app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
-        // **the REAL level, because `break_bricks` asks the room what it hit.**
+        // the REAL level, because `break_bricks` asks the room what it hit.
         // A fixture with no room answers nothing, which is a green test about an
         // empty world rather than a test about bricks.
         ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
@@ -356,9 +356,9 @@ mod tests {
         );
     }
 
-    /// **A LOADED brick does not break.**
+    /// A LOADED brick does not break.
     ///
-    /// **breakability is DERIVED from the contents**
+    /// breakability is DERIVED from the contents
     /// (`MaryOBlockContents::breaks_when_empty`), so the author never has to
     /// keep two fields agreeing. `bonk_power_blocks` takes the loaded brick and
     /// `break_bricks` declines it, off the same authored field.
@@ -415,7 +415,7 @@ mod tests {
             "a brick that holds a lantern must survive the bonk that pops it"
         );
 
-        // **and the empty one still breaks**, in the same world and off the
+        // and the empty one still breaks, in the same world and off the
         // same code path — without this the test would pass over a
         // `break_bricks` that had simply stopped working at all.
         *app.world_mut()
@@ -431,13 +431,13 @@ mod tests {
         );
     }
 
-    /// Only tall or fire should be able to."**
+    /// Only tall or fire should be able to."
     ///
-    /// **`break_bricks` did not take her form at all** — it gated on the
+    /// `break_bricks` did not take her form at all — it gated on the
     /// contact being a `Head` and the block being an empty `Brick`, and there
     /// was no third condition. A small Mary-O smashed masonry with her scalp.
     ///
-    /// **TWO-SIDED on purpose, and the second half is the load-bearing one.**
+    /// TWO-SIDED on purpose, and the second half is the load-bearing one.
     /// "Small cannot break" passes trivially against a `break_bricks` that has
     /// stopped breaking anything at all — a form gate written slightly wrong
     /// (reading the beacon only, or inverting the rank test) would look green
@@ -448,7 +448,7 @@ mod tests {
         use crate::powerups::{cinder_beacon, star_wand};
         use ambition_platformer2d::characters::equipment::WornEquipment;
 
-        // **ONE brick, three forms, three FRESH worlds.** 1-1 authors exactly
+        // ONE brick, three forms, three FRESH worlds. 1-1 authors exactly
         // two breakable bricks, so a form-per-brick fixture would have had to
         // invent a third — and it would also have left "did the right brick get
         // picked" as a live confound. Each `strike` builds its own `App` with
@@ -490,7 +490,7 @@ mod tests {
         );
     }
 
-    /// **she is TALL here on purpose.** A small Mary-O breaks nothing for a
+    /// she is TALL here on purpose. A small Mary-O breaks nothing for a
     /// reason that has nothing to do with the block not being a brick, so this
     /// test would still pass while having stopped testing its own claim.
     #[test]
@@ -509,7 +509,7 @@ mod tests {
         );
     }
 
-    /// **END TO END: a broken brick is gone from the world a sweep reads.**
+    /// END TO END: a broken brick is gone from the world a sweep reads.
     #[test]
     fn a_broken_brick_leaves_the_collision_world_the_body_reads() {
         let room = crate::level_1_1();

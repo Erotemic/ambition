@@ -39,7 +39,7 @@ pub struct WorldItem {
     /// `None` keeps the draw-blind quad.
     pub sprite: Option<String>,
 
-    // **`emerging: bool` LIVED HERE and is GONE.** Mary-O set it `true` when a ?-block popped a
+    // `emerging: bool` LIVED HERE and is GONE. Mary-O set it `true` when a ?-block popped a
     // reward and nothing ever set it back — the comment named a `clear_emerged_powerups` that
     // was never written — so an item finished rising, began its ordinary arc, and stayed drawn
     // BEHIND the world for the rest of its life ( of `1a05b98`, ).
@@ -84,7 +84,7 @@ pub enum WorldItemPayload {
 /// Spawn a `WorldItem` into the active session, room-scoped so it despawns with
 /// the room (never leaks across a reload) — the same scoping a thrown
 /// [`GroundItem`](super::pickup::GroundItem) uses.
-/// **returns the entity so the caller can SCOPE what it spawned.** Room-scoping
+/// returns the entity so the caller can SCOPE what it spawned. Room-scoping
 /// is this function's business; whether the item is also residue of one ATTEMPT is
 /// the caller's, and it could not say so while this returned `()`. See
 /// `SpawnedThisAttempt` — *"one scope cannot answer both"*.
@@ -114,29 +114,11 @@ pub fn spawn_moving_world_item(
         .id()
 }
 
-/// **Touch-to-collect.** A body in the touch-collect population
-/// ([`TouchCollectorFilter`]) collects a `WorldItem` it overlaps: the item's row
-/// is equipped into [`WornEquipment`] (inserted if the body wore none), and the
-/// item is despawned. Granted verbs are reconciled from the worn set, not
-/// applied here.
-///
-/// A coin was collectible by all four couch seats and not by a possessed body; a mushroom was
-/// collectible by a possessed body and not by seat two. One population now answers both, and it
-/// is a superset of each. The reasoning and the counter-example are on
-/// [`TouchCollectorFilter`].
-///
-/// **the item is DESPAWNED, and that is not the destroy-and-recreate this
-/// slice removed elsewhere.** A `WorldItem` is a CONSUMABLE: its payload
-/// transfers into the collector's worn set and the object genuinely ends. A
-/// [`GroundItem`](super::pickup::GroundItem) is an INSTANCE that changes hands,
-/// which is why that one keeps its entity and its `SimId` —
-/// see [`ItemCustody`](super::pickup::ItemCustody).
-///
-/// At most one item per body per frame (a body that has collected is `spent`
-/// for the rest of the tick — with several collectors the old `break` would
-/// have stopped the whole loop rather than that one body); the demo's items are
-/// spatially separated, so "which one, if several overlap" — the only
-/// query-order dependence here — never arises in practice.
+/// Collect overlapping consumable `WorldItem`s for bodies in
+/// [`TouchCollectorFilter`]. The payload is added to [`WornEquipment`] and the
+/// consumable entity ends; durable [`GroundItem`](super::pickup::GroundItem)
+/// instances instead preserve identity through [`ItemCustody`](super::pickup::ItemCustody).
+/// Each body collects at most one world item per frame.
 pub fn collect_world_items(
     mut commands: Commands,
     mut bodies: Query<
@@ -155,9 +137,7 @@ pub fn collect_world_items(
     >,
     items: Query<(Entity, &WorldItem)>,
 ) {
-    // The eligible collectors and their boxes, read once. Taken as a snapshot so
-    // the equip below can take the body mutably without the read still borrowing
-    // the query — and so a body's own box cannot shift under it mid-loop.
+    // Snapshot eligible collector boxes before mutating equipment.
     let collectors: Vec<(Entity, ae::Aabb)> = bodies
         .iter()
         .filter(|(_, _, is_player, control, _)| {
@@ -333,14 +313,14 @@ mod tests {
         assert!(worn.wears("spark"), "the granting row is worn");
     }
 
-    /// **BOTH sides of the fork this system was on, in one test.**
+    /// BOTH sides of the fork this system was on, in one test.
     ///
     /// The invariant: the population that collects a touched item is the union
     /// of the player population and any body a player is currently driving —
     /// not one body, and not `PlayerEntity` alone.
     ///
-    /// **it is a paired assertion because either half alone passes on the
-    /// broken code.** A test with only the second couch seat is green under the
+    /// it is a paired assertion because either half alone passes on the
+    /// broken code. A test with only the second couch seat is green under the
     /// old `PlayerEntity`-filtered `collect_ecs_pickups`; a test with only the
     /// possessed body is green under the old `ControlledSubject` lookup. What
     /// neither population can do is BOTH, and that is what is asserted.

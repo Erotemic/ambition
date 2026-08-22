@@ -1,4 +1,4 @@
-//! **Two humans, two pads, and a rewind between them.**
+//! Two humans, two pads, and a rewind between them.
 //!
 //! The couch-multiplayer question has two halves that had never been asked in
 //! one App. `rollback_match_activation.rs` covers the SIM half — two seats whose
@@ -41,7 +41,7 @@ use leafwing_input_manager::prelude::InputMap;
 /// Frames the sandbox needs before a roster inserted into it means anything.
 const FRAMES_BEFORE_THE_ROSTER: usize = 20;
 
-/// A sync-test harness carrying TWO rollback players **and** the host's
+/// A sync-test harness carrying TWO rollback players and the host's
 /// device→seat layer.
 ///
 /// The four systems are the host's own, in the host's own order
@@ -149,7 +149,7 @@ fn pad_per_seat(sim: &mut Platformer2dSimHarness) -> Vec<(u8, Option<Entity>)> {
     seats
 }
 
-/// **the extra frames are the point, not padding.** Seats are created in
+/// the extra frames are the point, not padding. Seats are created in
 /// `Update` (`seat_input_participants_for_roster`) and devices are assigned in
 /// `PreUpdate` (`assign_local_seat_devices`) — the host's own split, because an
 /// association made after leafwing resolves is read a frame late. So on the
@@ -200,7 +200,7 @@ fn two_pads_own_two_seats_and_keep_them_across_every_rewind() {
     let assigned = pad_per_seat(&mut sim);
     assert_eq!(assigned.len(), 2, "two humans seated {assigned:?}");
 
-    // **Distinct pads.** Two seats sharing one pad is the couch-multiplayer bug
+    // Distinct pads. Two seats sharing one pad is the couch-multiplayer bug
     // in its purest form: both fighters answer to one controller, which looks
     // exactly like "player two does not work".
     let owned: Vec<Entity> = assigned.iter().filter_map(|(_, pad)| *pad).collect();
@@ -219,7 +219,7 @@ fn two_pads_own_two_seats_and_keep_them_across_every_rewind() {
     got.sort();
     assert_eq!(got, expected, "the seats own pads nobody plugged in");
 
-    // **And the assignment survives resimulation.** Under a sync test the frames
+    // And the assignment survives resimulation. Under a sync test the frames
     // below are each saved, rewound and replayed; ownership that were rebuilt
     // per-frame from a changing device order would drift here and nowhere else.
     for tick in 0..40 {
@@ -258,7 +258,7 @@ fn unplugging_one_pad_leaves_the_other_seat_alone_and_the_reconnect_goes_back() 
     let seat_on_one = seat_of(&before, pad_one).expect("pad one owns a seat");
     let seat_on_two = seat_of(&before, pad_two).expect("pad two owns a seat");
 
-    // **Unplug pad two.** Somebody's batteries died mid-match.
+    // Unplug pad two. Somebody's batteries died mid-match.
     sim.world_mut().entity_mut(pad_two).despawn();
     sim.rebase_rollback_history()
         .expect("the unplug becomes the rollback baseline");
@@ -276,7 +276,7 @@ fn unplugging_one_pad_leaves_the_other_seat_alone_and_the_reconnect_goes_back() 
         "unplugging seat {seat_on_two}'s pad moved seat {seat_on_one}'s: {after_unplug:?}"
     );
 
-    // **Plug it back in.** A new entity with the same identity — which is what a
+    // Plug it back in. A new entity with the same identity — which is what a
     // reconnect IS; the old `Entity` is gone and cannot come back.
     let pad_two_again = plug_in_a_pad(&mut sim, "pad two");
     sim.rebase_rollback_history()

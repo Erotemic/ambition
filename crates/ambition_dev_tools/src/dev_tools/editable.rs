@@ -289,7 +289,7 @@ impl EditableMovementTuning {
             tumble_speed: self.tumble_speed,
             sdi_step: self.sdi_step,
             spot_dodge_time: self.spot_dodge_time,
-            // ⚠ NOT editable: a parry-timing swap is a rules DECLARATION about
+            //  NOT editable: a parry-timing swap is a rules DECLARATION about
             // which game a stage reproduces, not a slider to drag mid-session.
             parry_timing: ae::ParryTiming::default(),
             parry_window_time: self.parry_window_time,

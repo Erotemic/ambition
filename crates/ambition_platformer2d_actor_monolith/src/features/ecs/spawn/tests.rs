@@ -13,7 +13,7 @@ use ambition_characters::control::{ActorControl};
 use ambition_platformer2d_core as ae;
 use bevy::prelude::{App, Commands, Update};
 
-/// **A BODY REMEMBERS WHICH CHARACTER IT IS**, which is the precondition the
+/// A BODY REMEMBERS WHICH CHARACTER IT IS, which is the precondition the
 /// character-first provocation branch keys on.
 ///
 /// If a peaceful NPC built by the archetype road did not carry that field, every pirate's
@@ -48,7 +48,7 @@ fn a_body_built_from_a_named_character_remembers_which_one() {
 
 /// A body whose CHARACTER declares `template` as its controller policy.
 ///
-/// **`make_enemy(brain_key)` stood here** and built through an archetype row
+/// `make_enemy(brain_key)` stood here and built through an archetype row
 /// resolved from the key, so a test named a creature-ish string and got whatever
 /// the fixture roster said that creature was. The rows are deleted (AC6) and a
 /// body's policy comes from the character that states it — which is what these
@@ -577,7 +577,7 @@ fn authored_npc_takes_its_label_from_the_catalog_display_name() {
     );
 }
 
-/// **The caller-level guard for identity inversion.**
+/// The caller-level guard for identity inversion.
 ///
 /// Reading a body's health off that chain infers gameplay identity from presentation identity,
 /// which is the arrow the character-template campaign exists to reverse. Nothing in the tree
@@ -594,7 +594,7 @@ mod authored_enemy_reads_its_character {
     /// `npc_busy_beaver` is a REAL catalog row with the real display name
     /// "Busy Beaver", authoring 9 HP as a character. Using a real row is what
     /// makes the name-fallback case in the second test reachable at all.
-    /// **A CATALOG-BACKED NPC WEARS ITS CHARACTER**, which is what makes
+    /// A CATALOG-BACKED NPC WEARS ITS CHARACTER, which is what makes
     /// provocation able to ask what it becomes.
     ///
     /// the anonymous case is asserted too. A synthetic placement names no
@@ -632,13 +632,13 @@ mod authored_enemy_reads_its_character {
         );
     }
 
-    /// **A CONSTRUCTED CHARACTER IS STAMPED AS APPLIED ON ITS OWN FRAME.**
+    /// A CONSTRUCTED CHARACTER IS STAMPED AS APPLIED ON ITS OWN FRAME.
     ///
     /// Construction wrote only `ProjectedCharacterKit`, so a body built COMPLETE still had no
     /// baseline, `stale_cast` was true, and the character was applied a SECOND time on the next
     /// pass.
     ///
-    /// **this fixture cannot lie about it**, which is why it lives here: the
+    /// this fixture cannot lie about it, which is why it lives here: the
     /// app it builds registers the spawn system and NOTHING ELSE.
     /// `apply_worn_character_gameplay` is not in it, so a `PersonaBaseline` on
     /// the body can only have come from construction.
@@ -780,7 +780,7 @@ mod authored_enemy_reads_its_character {
         );
     }
 
-    /// **THE SAME BODY, TWO PLACEMENTS, TWO DRIVERS.**
+    /// THE SAME BODY, TWO PLACEMENTS, TWO DRIVERS.
     ///
     /// Two terms, both observed: the placement's policy REACHES the body's
     /// tuning, and a placement that names nothing keeps the character's own — so
@@ -802,7 +802,7 @@ mod authored_enemy_reads_its_character {
         );
     }
 
-    /// **A placement that names a policy nobody published is a REFUSAL.**
+    /// A placement that names a policy nobody published is a REFUSAL.
     ///
     /// the same contract `CharacterDefinition::autonomous_profile_ref`
     /// carries, one authority over: an explicit reference that misses must never
@@ -944,7 +944,7 @@ mod authored_enemy_reads_its_character {
         registry
     }
 
-    /// **A CHARACTER-FIRST BODY CARRIES THE WEAPON ITS CHARACTER HOLDS.**
+    /// A CHARACTER-FIRST BODY CARRIES THE WEAPON ITS CHARACTER HOLDS.
     ///
     /// the spawn plan resolves a held item from `enemy.spec`, and a
     /// character-first seed's spec is INERT — so a migrated raider spawned
@@ -1042,7 +1042,7 @@ mod authored_enemy_reads_its_character {
         q.iter(world).next().map(|held| held.spec.id.clone())
     }
 
-    /// **A COMPLETE character is BUILT, not patched.**
+    /// A COMPLETE character is BUILT, not patched.
     ///
     /// the difference this asserts is the campaign's central one. Both spawns
     /// below name the same character; the first is half-migrated and receives
@@ -1072,13 +1072,13 @@ mod authored_enemy_reads_its_character {
         // build its own body, so the state that control modelled cannot occur.
     }
 
-    /// **A SPAWN NOTHING CAN BUILD IS REFUSED, LOUDLY.**
+    /// A SPAWN NOTHING CAN BUILD IS REFUSED, LOUDLY.
     ///
     /// authored `character_id = IronMary` must never silently produce a
     /// shark-rider body because Iron Mary was accidentally omitted from some
     /// registration list."*
     ///
-    /// **the condition WAS "nothing can build it", and is now simply "it cannot be built"**
+    /// the condition WAS "nothing can build it", and is now simply "it cannot be built"
     /// (AC6). The distinction existed because a demo that BORROWS another provider's character
     /// could legitimately run without it, falling back to a roster row that still described the
     /// body — Mary-O's plane swarms were the case.
@@ -1103,7 +1103,7 @@ mod authored_enemy_reads_its_character {
     // deletable rather than merely unused.
 
 
-    /// **A PLACEMENT DECIDES WHEN ITS BODY COMES BACK.**
+    /// A PLACEMENT DECIDES WHEN ITS BODY COMES BACK.
     ///
     /// ADR 0022's rule, finally authorable where it belongs. Respawn is the
     /// one fact in an enemy archetype row that is neither the character's nor
@@ -1117,8 +1117,8 @@ mod authored_enemy_reads_its_character {
     fn a_placement_authors_its_own_respawn_and_outranks_the_default() {
         use ambition_entity_catalog::placements::RespawnPolicy;
 
-        // **the two answers must DIFFER, or neither assertion can tell "the
-        // placement was read" from "the default stood".** The unauthored answer
+        // the two answers must DIFFER, or neither assertion can tell "the
+        // placement was read" from "the default stood". The unauthored answer
         // is `UNDESCRIBED_BODY_RESPAWN` — the engine's stated policy for a body
         // nobody described — so the placement asks for the opposite.
         let authored = spawn_respawn(Some(RespawnPolicy::DeadStaysDead));
@@ -1318,7 +1318,7 @@ mod authored_enemy_reads_its_character {
         // The display name is deliberately NOT the character's, so the only
         // route to 9 HP is the authored id.
         //
-        // **the fixture registers a body-COMPLETE character now** (AC5): the
+        // the fixture registers a body-COMPLETE character now (AC5): the
         // health arrives because the body is BUILT from the definition, not
         // because a patch corrected an archetype's. That is what production does
         // — every registered character can build its own body — and a fixture

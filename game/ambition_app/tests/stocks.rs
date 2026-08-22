@@ -1,4 +1,4 @@
-//! **Stocks are a real loop: spend, respawn, eliminate, end the match.** (S4)
+//! Stocks are a real loop: spend, respawn, eliminate, end the match. (S4)
 //!
 //! `FighterStocks` was vocabulary with no consumer. This drives the whole loop through the
 //! SHIPPED composition — `AmbitionGameSimulationPlugin`, the real `CombatSet::Settle` ordering,
@@ -44,14 +44,14 @@ fn composed_app() -> App {
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
     app.insert_resource(StartRoomOverride("portal_lab".to_string()));
-    // **K2b edit 2: the shell host, booted to gameplay.** This added the
+    // K2b edit 2: the shell host, booted to gameplay. This added the
     // simulation plugin alone and inherited the `SessionRoot` it published at
     // plugin-build time; that publisher is gone, so the composition is the one
     // a player runs. `StartRoomOverride` survives it — it is consumed while the
     // prepared content is assembled, before any activation.
     ambition_app::app::shell_host::compose_ambition_gameplay_host(&mut app);
     app.finish();
-    // **one update is no longer enough**: activation is asynchronous, behind a
+    // one update is no longer enough: activation is asynchronous, behind a
     // load barrier and eight preparation work items, and the sim schedule is
     // gated on a session existing — so without this the stocks systems never run
     // and every assertion below reads an empty message buffer.
@@ -103,7 +103,7 @@ fn decided(app: &App) -> Vec<StocksMatchDecided> {
     cursor.read(messages).cloned().collect()
 }
 
-/// **The whole loop, in the order a match runs it.**
+/// The whole loop, in the order a match runs it.
 #[test]
 fn a_stocks_match_spends_respawns_eliminates_and_ends() {
     let mut app = composed_app();
@@ -173,8 +173,8 @@ fn a_stocks_match_spends_respawns_eliminates_and_ends() {
     assert_eq!(app.world().get::<FighterStocks>(red).unwrap().remaining, 2);
 }
 
-/// **Both sides going out together is a DRAW, not a win for whoever the query
-/// happened to reach last.**
+/// Both sides going out together is a DRAW, not a win for whoever the query
+/// happened to reach last.
 #[test]
 fn a_stocks_match_that_empties_both_sides_is_a_draw() {
     let mut app = composed_app();
@@ -204,7 +204,7 @@ fn a_stocks_match_that_empties_both_sides_is_a_draw() {
     );
 }
 
-/// **A match that is not running cannot end**, which is what stops the sweep
+/// A match that is not running cannot end, which is what stops the sweep
 /// deciding against a cast that is still being seated.
 #[test]
 fn a_stage_with_no_live_match_is_never_decided() {

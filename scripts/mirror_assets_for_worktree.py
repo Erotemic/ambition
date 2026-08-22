@@ -256,7 +256,7 @@ def main(argv: List[str] | None = None) -> int:
         )
         return 2
 
-    # **submodules FIRST.** A worker's first LDtk command is what discovers
+    # submodules FIRST. A worker's first LDtk command is what discovers
     # this gap today, and it discovers it as a traceback rather than as advice.
     submodule_problems: list[str] = []
     if not args.no_submodules:

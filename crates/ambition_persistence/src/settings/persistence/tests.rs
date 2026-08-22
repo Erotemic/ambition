@@ -178,7 +178,7 @@ fn startup_with_an_unchanged_file_does_not_rewrite_it() {
     let _ = fs::remove_dir_all(&root);
 }
 
-/// **A settings file written before the BURST rename still loads, whole.**
+/// A settings file written before the BURST rename still loads, whole.
 ///
 /// It has to be: the field carries no `#[serde(default)]` and `ControlSettings` has no
 /// container default, so a key this struct cannot find is a deserialize error for the WHOLE
@@ -186,8 +186,8 @@ fn startup_with_an_unchanged_file_does_not_rewrite_it() {
 /// returning `UserSettings::default()`. Video, audio, gameplay, the keyboard preset and every
 /// binding override would go with it, on a warning line nobody reads.
 ///
-/// ⚠ **the assertions below are why `save_clamps_values_back_into_range_on_load`
-/// does not cover this.** That test feeds a file of the same vintage and then
+///  the assertions below are why `save_clamps_values_back_into_range_on_load`
+/// does not cover this. That test feeds a file of the same vintage and then
 /// asserts only `master_volume <= 1.0` and `music_volume >= 0.0` — both of which
 /// the DEFAULTS satisfy. It reports green on a total wipe. So this one asserts
 /// the poison too: a value that is not the default, read back as itself.

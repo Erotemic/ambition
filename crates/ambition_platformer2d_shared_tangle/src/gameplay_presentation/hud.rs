@@ -1,37 +1,10 @@
-//! **Declared HUD readouts** — a game says what its HUD shows; the engine
-//! never learns what any of it means.
+//! Game-declared HUD readouts with engine-owned placement.
 //!
-//! The engine already owned WHERE a HUD may live
-//! ([`ResolvedGameplayPresentation::hud_region`](super::ResolvedGameplayPresentation::hud_region)
-//! and the surround/occupancy vocabulary).
-//!
-//! This module is that seam, and it is deliberately two halves:
-//!
-//! * a **declaration** ([`HudDeclaration`]) — the slots a game's HUD has, in
-//!   what order, preferring which surround region. Declared once at
-//!   plugin-build time through the provider's authoring builder, exactly like
-//!   presentation profiles and loading specs; and
-//! * a **live value** ([`HudReadouts`]) — what each slot currently reads,
-//!   written every frame by a system the GAME owns, from whatever state the
-//!   game considers authoritative.
-//!
-//! The engine matches on neither. A [`HudSlotId`] is an opaque string it uses
-//! only as a map key and a spawn identity; "RINGS", "SCORE", "TIME" are values a
-//! game writes into [`HudReadout::label`]. That is the whole point — a second
-//! game gets a HUD by declaring slots and writing readouts, with no core edit,
-//! which is the same rule the presentation profiles follow.
-//!
-//! # What this deliberately is not
-//!
-//! Not a layout engine. A declaration names a preferred [`SurroundRegion`] and a
-//! minimum size; the renderer asks [`hud_region`] for it and falls back to
-//! overlaying gameplay when this profile and display leave none — the same
-//! ladder the built-in player HUD already walks. Slots stack in `order` within
-//! their region and size themselves to their text. A game that wants real
-//! layout builds its own HUD; this covers the readout row that every one of
-//! them wants first.
-//!
-//! [`hud_region`]: super::ResolvedGameplayPresentation::hud_region
+//! [`HudDeclaration`] defines opaque slots, order, and preferred surround
+//! regions. Games publish live [`HudReadouts`] from their own authoritative
+//! state. The engine never interprets slot ids or labels; it only chooses a
+//! region and stacks readouts. Games needing richer layout remain free to own a
+//! custom HUD.
 
 use std::collections::BTreeMap;
 
@@ -219,7 +192,7 @@ pub struct HudReadout {
     pub figure: Option<HudFigure>,
 }
 
-/// **The non-textual VALUE a readout carries.**
+/// The non-textual VALUE a readout carries.
 ///
 /// The split this type defends is the one the gauge already stated in prose and
 /// nothing enforced: a readout publishes a VALUE, and how that value is drawn —
@@ -240,7 +213,7 @@ pub enum HudFigure {
     /// game computing `current / max` with a max of zero should get an empty bar
     /// rather than a NaN that propagates into a layout.
     Gauge(f32),
-    /// **A fighter's standing in a stocks match**: who they are and how many
+    /// A fighter's standing in a stocks match: who they are and how many
     /// lives they have left.
     ///
     /// What that LOOKS like is entirely the renderer's: how big the portrait is, how many icons are
@@ -249,12 +222,12 @@ pub enum HudFigure {
     Standing(HudStanding),
 }
 
-/// **What a fighter's standing IS** — see [`HudFigure::Standing`].
+/// What a fighter's standing IS — see [`HudFigure::Standing`].
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct HudStanding {
     /// The portrait image's ASSET PATH, resolved by the GAME.
     ///
-    /// **a path and not a character id, deliberately.** The variants of
+    /// a path and not a character id, deliberately. The variants of
     /// [`HudFigure`] are presentation PRIMITIVES rather than content vocabulary,
     /// and "which character" is content — an engine that took an id here would
     /// have to learn what a roster is to draw a HUD. A path is a thing a
@@ -293,7 +266,7 @@ impl HudReadout {
         }
     }
 
-    /// **A STANDING**: a label, the percent text, and the stocks behind it.
+    /// A STANDING: a label, the percent text, and the stocks behind it.
     pub fn standing(
         label: impl Into<String>,
         value: impl Into<String>,

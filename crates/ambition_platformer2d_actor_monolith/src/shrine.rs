@@ -1,7 +1,7 @@
 //! Healing / save-point shrine.
 //!
-//! An interactable shrine that, on a single `Interact`, **heals the player to
-//! full** (health + mana) and acts as a **save point** (decided: one Interact
+//! An interactable shrine that, on a single `Interact`, heals the player to
+//! full (health + mana) and acts as a save point (decided: one Interact
 //! does both).
 //!
 //! The autosave compares values, so the marker wrote nothing; and there was no checkpoint field
@@ -39,7 +39,7 @@ pub struct HealShrine {
 /// (health + mana) and writes a save checkpoint. `interact_pressed` is an edge,
 /// so one press = one heal.
 ///
-/// Acts on the **controlled subject** — the body the player is driving — reading
+/// Acts on the controlled subject — the body the player is driving — reading
 /// its body-generic [`ActorControl`] interact intent (populated for any body
 /// holding the primary seat) and healing THAT body. So a possessed actor resting
 /// at a shrine heals itself, not the vacated home avatar. The intent belongs to
@@ -67,7 +67,7 @@ pub fn heal_save_shrine_system(
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
     >,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
-    // **THE INSTANT, which is the half a `PersistedCheckpoint` cannot carry.**
+    // THE INSTANT, which is the half a `PersistedCheckpoint` cannot carry.
     // That value says WHERE the body comes back; this says WHEN the rest of the
     // world was last agreed, and every domain that has reset-relevant state
     // snapshots itself off it. `Option` so a narrow fixture with no horizon
@@ -118,7 +118,7 @@ pub fn heal_save_shrine_system(
             save.data_mut().checkpoint = Some(checkpoint);
         }
     }
-    // **RAISED UNCONDITIONALLY, and NOT inside the change guard above.**
+    // RAISED UNCONDITIONALLY, and NOT inside the change guard above.
     // Resting twice at the same shrine writes the same position, so that guard
     // is right about the FILE and would be badly wrong about the horizon: the
     // second rest is a real checkpoint at which the player may be carrying
@@ -142,7 +142,7 @@ pub fn heal_save_shrine_system(
     );
 }
 
-/// **Resume where the player last rested.**
+/// Resume where the player last rested.
 ///
 /// A checkpoint you cannot return to is a number in a file. This is the other
 /// half: once per constructed session, if the save names a checkpoint in the room
@@ -278,7 +278,7 @@ pub fn restore_checkpoint_on_session_start(
     );
 }
 
-/// **Resume at the checkpoint because the player DIED** — the placement domain's
+/// Resume at the checkpoint because the player DIED — the placement domain's
 /// leg of the reset horizon.
 ///
 /// `RoomReplayRequested` is NOT that road — its own consumer's doc says so in as many words: it
@@ -286,14 +286,14 @@ pub fn restore_checkpoint_on_session_start(
 /// construction. Driving it and asserting "the room came back" is measuring a road you did not
 /// take.
 ///
-/// **so a death is a checkpoint RESUME**, and it records the same description
+/// so a death is a checkpoint RESUME, and it records the same description
 /// [`restore_checkpoint_on_session_start`] records — a body, a destination, an
 /// arrival. That the two triggers reach one operation is the point: a session
 /// opening at a checkpoint and a death returning to one are the same question
 /// asked twice.
 ///
-/// **with no checkpoint recorded, it rebuilds the ACTIVE room at its authored
-/// spawn.** That is the empty-baseline case rather than a missing one: a game
+/// with no checkpoint recorded, it rebuilds the ACTIVE room at its authored
+/// spawn. That is the empty-baseline case rather than a missing one: a game
 /// with no checkpoints restores every authored occurrence to where its record
 /// puts it, which is exactly what a sandbox reset means.
 pub fn resume_at_checkpoint_on_reset(

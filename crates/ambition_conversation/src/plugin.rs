@@ -1,19 +1,19 @@
-//! **What `conversation` registers, owned by `conversation`.**
+//! What `conversation` registers, owned by `conversation`.
 //!
 //! It was not: `features::FeatureInteractionSchedulePlugin` held [`ActiveConversation`],
 //! [`ConversationCutBark`], seven `NarrativeInputPlugin` installs, and three of this module's
 //! systems wedged into ONE anonymous `.chain()` between `interact_ecs_actors_and_switches` and the
 //! chest systems.
 //!
-//! **the generalisable lesson: a module with zero inward imports can still be
-//! pinned by the SCHEDULE.** Count the registrations, not only the paths.
+//! the generalisable lesson: a module with zero inward imports can still be
+//! pinned by the SCHEDULE. Count the registrations, not only the paths.
 //!
 //! [`ConversationPlugin`] is the answer to the first half — the state, the port channel, the
 //! payload this module itself defines, and its own systems now belong to it. The total order is
 //! declared once, by the owner of the phase.
 //!
-//! **the vocabulary deliberately lives in
-//! `ambition_platformer2d_shared_tangle`, a crate BELOW the monolith.** A set
+//! the vocabulary deliberately lives in
+//! `ambition_platformer2d_shared_tangle`, a crate BELOW the monolith. A set
 //! enum defined in `features` would have re-pinned this module to `features` by
 //! the schedule the moment it stopped importing it — the exact bug, one level up.
 //!
@@ -39,7 +39,7 @@ use super::ui_bridge::{
     publish_the_narrative_end, ConversationEnded,
 };
 
-/// **Everything the conversation domain installs into an `App`.**
+/// Everything the conversation domain installs into an `App`.
 ///
 /// Placement only: the cross-domain order it participates in is declared by
 /// whoever owns
@@ -57,14 +57,14 @@ impl Plugin for ConversationPlugin {
         // already watched close.
         app.init_resource::<ActiveConversation>();
         app.init_resource::<crate::NarrativeMusicRequest>();
-        // **REGISTER THE CHANNEL THE PORT ASKS THROUGH.** The break rule
+        // REGISTER THE CHANNEL THE PORT ASKS THROUGH. The break rule
         // writes it and the cast answers it — the cast lives in `features::npcs`
         // and the channel is this module's, so this plugin owns the
         // registration. Leaving it to whoever else wanted the message is how the
         // effect quarantine once worked in a shipped app and nowhere else; here
         // it failed parameter validation on frame one of the sandbox harness.
         app.add_message::<ConversationCutBark>();
-        // **the ledger is NOT rollback state, and that is the whole design.**
+        // the ledger is NOT rollback state, and that is the whole design.
         // It is the record of what the narrative — which runs outside the
         // simulation — told the simulation, stamped with the tick it applies
         // from. A rewind restores what the simulation DECIDED; erasing what it
@@ -72,13 +72,13 @@ impl Plugin for ConversationPlugin {
         // brings the ledger, its release at the head of the sim frame, and the
         // prune that ages a record out once its tick can never be replayed.
         //
-        // **only the payload this module DEFINES.** The other six live with
+        // only the payload this module DEFINES. The other six live with
         // the domains that consume them — see this file's header.
         app.add_plugins(NarrativeInputPlugin::<ConversationEnded>::default());
 
-        // **and the AUTHORED-COMMAND request, which is the one exception to
+        // and the AUTHORED-COMMAND request, which is the one exception to
         // the "the consumer owns the install" rule above — because its consumer
-        // structurally CANNOT own it.** `RunAuthoredCommand` is performed by
+        // structurally CANNOT own it. `RunAuthoredCommand` is performed by
         // `shared_tangle::authored_logic`, a crate below this one that cannot
         // name a narrative ledger at all. What this module owns is the
         // `<<command …>>` verb that produces it — the only narrative writer this
@@ -93,7 +93,7 @@ impl Plugin for ConversationPlugin {
         // is what keeps a rewind from replaying a side effect onto state it does
         // not rewind.
         //
-        // **`.chain()`, and the order is load-bearing.** "The runner is not active" is how the
+        // `.chain()`, and the order is load-bearing. "The runner is not active" is how the
         // second one recognises a finished conversation — and on the frame a conversation OPENS
         // that is also true until the first one has run.
         //

@@ -1,4 +1,4 @@
-//! **WHAT DOES `pirate_sky_lookout` ACTUALLY ASK THE SFX CHANNEL FOR?**
+//! WHAT DOES `pirate_sky_lookout` ACTUALLY ASK THE SFX CHANNEL FOR?
 //!
 //! He refused the reading: *"there must be sounds in the pirate sky. they fire their gun
 //! swords… I'm just giving you an example of something obvious the instrument should be able to
@@ -12,7 +12,7 @@
 //! ticks with any audio             12/1800
 //! ```
 //!
-//! ⇒ **eight awake, targeted pirates fire nothing at all in the headless sim.**
+//!  eight awake, targeted pirates fire nothing at all in the headless sim.
 //! Whatever makes them shoot in the running game is not reaching this
 //! composition, so a census built on it cannot hear the scene it is pointed at —
 //! and neither can any other test built on this harness that concludes
@@ -46,7 +46,7 @@ fn pirate_sky_sfx_census() {
     let mut fx_channel_missing = false;
 
     for tick in 0..1800 {
-        // Jump repeatedly and hold up. **GO AT THEM.** The riders are dormancy-gated on observers
+        // Jump repeatedly and hold up. GO AT THEM. The riders are dormancy-gated on observers
         // (`AwakeNearObservers`), so an idle or stationary player never wakes them and the room
         // measures as silent.
         let action = ambition_app::AgentAction {
@@ -70,7 +70,7 @@ fn pirate_sky_sfx_census() {
                 })
                 .collect()
         };
-        // **IS THE INSTRUMENT DEAF?** Count the UPSTREAM channel too. If
+        // IS THE INSTRUMENT DEAF? Count the UPSTREAM channel too. If
         // `FxRequest`s are plentiful while `OwnedSfxMessage`s are scarce, the
         // fan-out that turns one into the other is not installed here and the
         // census is measuring its own composition, not the game.
@@ -138,7 +138,7 @@ fn pirate_sky_sfx_census() {
         }
         println!("[sky-census] actors in the room: {}", brains.values().sum::<usize>());
         {
-            // **PARITY WITH THE REAL HOST.** The shell host boots with 780
+            // PARITY WITH THE REAL HOST. The shell host boots with 780
             // systems across visible schedules (printed by the same census in
             // `smash_in_the_host`). If this composition carries materially
             // fewer, every headless test is measuring a smaller game.

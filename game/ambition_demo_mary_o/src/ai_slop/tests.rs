@@ -120,8 +120,8 @@ fn the_stomp_never_squashes_a_non_ai_slop() {
 
 // ── Dormancy ( content half) ───────────────────────────────────────────
 
-// **`a_staged_ai_slop_is_given_its_dormancy_policy` MOVED, it did not go
-// away.** It lives in `ambition_demo_mary_o_app`'s `one_placement_one_actor`
+// `a_staged_ai_slop_is_given_its_dormancy_policy` MOVED, it did not go
+// away. It lives in `ambition_demo_mary_o_app`'s `one_placement_one_actor`
 // now, and the move was forced rather than chosen: the tag pass reads
 // `ActorConfig.brain`, and a game crate cannot BUILD an `ActorConfig`. It has no
 // `Default`, its `tuning`/`brain_profile` come from an `ArchetypeSpec`, and
@@ -133,7 +133,7 @@ fn the_stomp_never_squashes_a_non_ai_slop() {
 // version asserts every slop the REAL construction path builds, from the real authored level,
 // gets its policy — and that nothing else does.
 
-/// **The radius is DERIVED, and this is what makes that claim checkable.**
+/// The radius is DERIVED, and this is what makes that claim checkable.
 ///
 /// `AI_SLOP_WAKE_RADIUS` was chosen to clear the half-width of the widest view a
 /// PLAYER can select, so an actor is never popped into frame already moving. That

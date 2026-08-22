@@ -1,5 +1,5 @@
 //! The portal-clip material: a `Material2d` that draws one texture-accurate
-//! **piece** of a sprite mid-portal-transit, discarding every fragment behind
+//! piece of a sprite mid-portal-transit, discarding every fragment behind
 //! a world-space clip half-plane.
 //!
 //! This is the render-side realization of the Core invariant in

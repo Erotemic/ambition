@@ -45,7 +45,7 @@ impl ItemCategory {
 }
 
 /// The complete, finite set of pickup items, in OoT grid order (row-major:
-/// slot index = `row * 6 + col`). The discriminant order **is** the grid order;
+/// slot index = `row * 6 + col`). The discriminant order is the grid order;
 /// do not reorder without updating saves/authoring that key off the index.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[repr(usize)]
@@ -83,11 +83,11 @@ pub enum Item {
 /// Per-item metadata, one row per catalog slot (Refactor 1). Replaces the five
 /// parallel 24-arm `match self` functions (`category` / `display_name` /
 /// `description` / `held_item_id` / `dialog_id`), so
-/// adding or renaming an item is **one row** here, not edits scattered across
+/// adding or renaming an item is one row here, not edits scattered across
 /// several functions with nothing stopping a forgotten arm. Row order must
 /// match the [`Item`] discriminants (pinned by `item_meta_table_is_index_aligned`).
 ///
-/// **Owned + serde-authorable (C1):** the fields are owned + `serde`-round-trippable, so a
+/// Owned + serde-authorable (C1): the fields are owned + `serde`-round-trippable, so a
 /// content game authors its item flavor/wiring as DATA in `items.ron` (installed via
 /// [`install_item_catalog`], the [`ItemCatalog`] override) — the same "content out of core"
 /// pattern as `boss_profiles.ron` / boss sheets (C6). The `item_catalog` schema maps the
@@ -508,8 +508,8 @@ impl Item {
         None
     }
 
-    // ⛔ **`legacy_dialog_alias` was here and had ZERO production adopters after
-    // the Yarn inventory mirror went away.** Its one caller rebuilt a snapshot of
+    //  `legacy_dialog_alias` was here and had ZERO production adopters after
+    // the Yarn inventory mirror went away. Its one caller rebuilt a snapshot of
     // the bag keyed under both the catalog id and the alias so a synchronous
     // `<<if>>` could look it up; authored dialogue now asks the item domain's
     // `inventory.holds` condition, which resolves loose spelling through
@@ -520,15 +520,15 @@ impl Item {
 /// The player's 24 catalog rows: a QUANTITY per slot, plus which slot is in the
 /// body's hand.
 ///
-/// `counts[i]` is how many of [`Item::from_index(i)`] the player owns **as a
-/// quantity, with no object behind it** — a `<<give_item>>` grant, a shop
+/// `counts[i]` is how many of [`Item::from_index(i)`] the player owns as a
+/// quantity, with no object behind it — a `<<give_item>>` grant, a shop
 /// purchase, a stack of health cells. For unique items it is 0 or 1, for
 /// [`ItemCategory::Consumable`] it is a stack size. `equipped` is the slot the
 /// body is currently holding, written by the ONE take-custody operation.
 ///
-/// # ⭐⭐ WHAT THIS TABLE IS NOT AN AUTHORITY FOR
+/// #  WHAT THIS TABLE IS NOT AN AUTHORITY FOR
 ///
-/// **A held object is NOT a row here.** Nine of the 24 slots
+/// A held object is NOT a row here. Nine of the 24 slots
 /// ([`Item::held_item_id`] is `Some`) can be an INSTANCE in the world as well as
 /// a quantity in this table, and while both stored the same acquisition they
 /// disagreed: a death that returned a picked-up weapon to its pedestal retracted
@@ -538,13 +538,13 @@ impl Item {
 /// inventory menu would happily equip it and MINT a second one on the next
 /// throw.
 ///
-/// ⇒ so the object side is the authority and this table PROJECTS it:
-/// [`Self::count`] reports the stored quantity **or** the hand, and the pressed
+///  so the object side is the authority and this table PROJECTS it:
+/// [`Self::count`] reports the stored quantity or the hand, and the pressed
 /// pickup no longer grants at all. The two populations are now disjoint — a row
 /// is an entitlement with no object; an object is an occurrence the checkpoint
 /// owns — and the disagreement has nowhere to live.
 ///
-/// ⚠ [`Self::to_persisted`] therefore writes the STORED quantity, never [`Self::count`].
+///  [`Self::to_persisted`] therefore writes the STORED quantity, never [`Self::count`].
 #[derive(Resource, Clone, Debug, PartialEq, Eq)]
 pub struct OwnedItems {
     counts: [u32; ITEM_COUNT],
@@ -560,7 +560,7 @@ impl Default for OwnedItems {
     }
 }
 
-/// **Somebody asked for an item to be granted; the simulation grants it.**
+/// Somebody asked for an item to be granted; the simulation grants it.
 ///
 /// A rewind restored the bag and did not re-run the command — the Yarn runner is not rewound, and
 /// it does not execute between resimulated ticks — so the grant silently un-happened, leaving the
@@ -576,10 +576,10 @@ pub struct ItemGrantRequested {
 }
 
 impl OwnedItems {
-    /// **How many of `item` the player has: the stored quantity, OR the one in
-    /// the body's hand.**
+    /// How many of `item` the player has: the stored quantity, OR the one in
+    /// the body's hand.
     ///
-    /// ⭐ **the second term is a PROJECTION, not a row** — see the type's docs.
+    ///  the second term is a PROJECTION, not a row — see the type's docs.
     /// A weapon picked up off the floor has no quantity at all; the object is the
     /// record that you have it, and `equipped` is that object's presence in the
     /// hand as the catalog sees it. `max` rather than `+` because these are two
@@ -590,7 +590,7 @@ impl OwnedItems {
 
     /// The stored quantity ALONE — an entitlement with no object behind it.
     ///
-    /// ⛔ the durable save's view ([`Self::to_persisted`]) and every mutation
+    ///  the durable save's view ([`Self::to_persisted`]) and every mutation
     /// ([`Self::grant`] / [`Self::take`]) go through this rather than through
     /// [`Self::count`]: writing the projected hand back into the table is exactly
     /// the double-claim the projection exists to remove.
@@ -660,7 +660,7 @@ impl OwnedItems {
     /// a non-zero STORED count, keyed by stable `dialog_id`). Equipped state is
     /// not persisted yet — re-equip from the grid on load (handoff).
     ///
-    /// ⛔⛔ **[`Self::stored`], never [`Self::count`].** The projected hand is an
+    ///  [`Self::stored`], never [`Self::count`]. The projected hand is an
     /// OBJECT, and an object written into the save as a quantity comes back on
     /// the next load as a row while the room that authors it re-authors the
     /// object — one weapon saved, two loaded. What the save does not describe it

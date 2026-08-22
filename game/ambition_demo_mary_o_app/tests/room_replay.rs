@@ -1,4 +1,4 @@
-//! **A replay request actually replays the room** — in the standalone binary.
+//! A replay request actually replays the room — in the standalone binary.
 //!
 //! `RoomReplayRequested` is the engine's generic "replay the active room" request, and Mary-O
 //! emits it from two beats: the flag tally cycling the level, and the clock running out.
@@ -25,7 +25,7 @@ fn count_room_resets(
 
 /// Every death the app published this run, as (victim, why).
 ///
-/// **the CAUSE is the anti-fake guard.** A fixture that claims to drive one
+/// the CAUSE is the anti-fake guard. A fixture that claims to drive one
 /// death route and actually drives another is green for the wrong reason, and
 /// the cause is the only thing in the world that can tell them apart:
 /// `HitSource::LeftTheWorld` on the controlled body is written by exactly one
@@ -112,7 +112,7 @@ fn displace(app: &mut App, to: Vec2) {
     );
 }
 
-/// **The seam itself.** One request in, and the body comes home.
+/// The seam itself. One request in, and the body comes home.
 ///
 /// Deliberately emits the message directly rather than playing to a beat that
 /// emits it: this is the HOST-side half of the contract, and it should hold in
@@ -147,7 +147,7 @@ fn a_replay_request_returns_the_body_to_spawn() {
     );
 }
 
-/// **One request, one replay.** The consumer moved crates; it must not now be
+/// One request, one replay. The consumer moved crates; it must not now be
 /// registered twice (once by the engine group, once by a host that kept its
 /// own copy).
 ///
@@ -186,7 +186,7 @@ fn one_replay_request_is_processed_exactly_once() {
     );
 }
 
-/// **The clock running out replays the room.** Mary-O's timeout beat, end to
+/// The clock running out replays the room. Mary-O's timeout beat, end to
 /// end: `spend_lives_on_death` spends the life and asks for a replay, and the
 /// room actually rebuilds under her.
 ///
@@ -276,7 +276,7 @@ fn the_level_timeout_actually_replays_the_room() {
 /// above proves the TIMEOUT death end to end; this is the fatal-hit death, which
 /// is the one the complaint is about.
 ///
-/// **she has to die AWAY from spawn or a green here means nothing** — dying on
+/// she has to die AWAY from spawn or a green here means nothing — dying on
 /// the spot is satisfied by standing still. Both terms are observed: she is
 /// asserted to be held away from spawn while the beat plays, and home when it
 /// ends.
@@ -325,55 +325,17 @@ fn a_fatal_hit_returns_her_to_spawn_when_the_beat_ends() {
     );
 }
 
-/// **THE THIRD DEATH ROUTE: A PIT.** The kernel resets her, and the room has to
-/// come back — the body AND the per-attempt block state.
-///
-/// Three systems in the whole app write `ActorDiedMessage`, and until now only two of them were
-/// proven to replay the room end to end: `death_respawn_player` (a fatal hit, the sibling above)
-/// and the level timeout. The third is `publish_kernel_reset_death` — *a pit, a spike, any hazard,
-/// the reset verb* — which reads `PlayerBodyFrameOutput.reset` and never touches health at all.
-///
-/// ## How she is killed, and why it is not the obvious way
-///
-/// Writing the reset flag by hand would be worse: the flag IS the thing under test.
-///
-/// So she is **dropped into the pit and left to fall.** The fixture relocates
-/// her below the room floor — through `transit_body`, the engine's own
-/// relocation authority — and then only steps frames. Gravity carries her past
-/// `World::blast_margin`, the movement kernel's out-of-bounds gate raises
-/// `ResetCause::LeftTheWorld`, `integrate_home_body` turns that into
-/// `BodyReset`, and `publish_kernel_reset_death` publishes the death. Nothing in
-/// this test writes a death, a reset, a health value or a replay request.
-///
-/// **and the CAUSE is asserted**, because "I drove the route I meant to" is
-/// exactly the claim a fixture fakes by accident. `HitSource::LeftTheWorld`
-/// charged to the controlled body has one writer in the entire app, and it is
-/// the system this test exists for.
-///
-/// Deleting `restart_level_after_death`'s `replay.write(..)` — the same poison
-/// the fatal-hit sibling uses — turns this red with
-///
-/// ```text
-/// SHE DIED IN A PIT AND maryo_block:Question:TowardLantern:MaryOBlock-106885
-/// IS STILL SPENT: the room was put back 0 time(s), she is at
-/// Vec2(78.0, 973.375) and spawn is Vec2(78.0, 375.0)
-/// ```
-///
-/// It does not — under the poison she is still in the pit when the window closes. Both terms
-/// are real here; the block is stated first because it is the one nothing but the replay can
-/// restore.
-///
-/// **it names a SPECIFIC block** rather than asserting the set is empty — `rearm_all` empties
-/// its own set trivially, so an emptiness check is green by construction. The block is taken
-/// from the LIVE room's geometry, and it is marked spent through the same public write
-/// `bonk_power_blocks` performs.
+/// A kernel out-of-bounds reset must follow the same room-replay path as other
+/// deaths: the controlled body returns to spawn and a specifically spent live
+/// room block is rearmed. The test causes the reset by dropping the body through
+/// the real movement kernel and asserts the `LeftTheWorld` cause.
 #[test]
 fn a_pit_death_returns_her_to_spawn_and_rearms_a_spent_block() {
     use ambition_demo_mary_o::powerups::SpentPowerBlocks;
 
     let mut app = boot();
     settle_until_playable(&mut app);
-    // **the room is still arriving when the body first exists.** Activation
+    // the room is still arriving when the body first exists. Activation
     // emits `RoomLoaded` for two or three more frames and a `Manual` room reset
     // after it, and BOTH re-arm the blocks — so a block spent the frame she
     // becomes queryable is wiped by the load that was still finishing, and the
@@ -420,7 +382,7 @@ fn a_pit_death_returns_her_to_spawn_and_rearms_a_spent_block() {
             .expect("gameplay has a primary player")
     };
 
-    // **the pit.** Below the room floor but INSIDE the blast margin, so the
+    // the pit. Below the room floor but INSIDE the blast margin, so the
     // fall itself is what takes her out of the world — this hands the kernel a
     // body in a pit, not a body already past the edge.
     displace(
@@ -441,7 +403,7 @@ fn a_pit_death_returns_her_to_spawn_and_rearms_a_spent_block() {
          — the fixture killed nothing, so everything it measures next is vacuous",
     );
 
-    // **WHICH death, asserted before anything is concluded from it.** A hit,
+    // WHICH death, asserted before anything is concluded from it. A hit,
     // a timeout and a kernel reset all arm the same beat; only the cause says
     // which system published it.
     let deaths = app.world().resource::<DeathsSeen>().0.clone();

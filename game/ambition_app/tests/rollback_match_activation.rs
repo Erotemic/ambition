@@ -1,57 +1,9 @@
-//! **A match that activates INSIDE a rollback window survives being rewound.**
+//! Rollback coverage for match activation state.
 //!
-//! Neither were `MatchSeat` (which seat a body is), `MatchTeam` (who may hit whom), or
-//! `RulesetOwnsDeath` (who owns a KO).
-//!
-//! A rewind across activation therefore restored the fighters — or un-spawned
-//! them — while the latch kept pointing at a future in which they existed:
-//! seating refused to rebuild the roster it had just lost, and the countdown
-//! carried on against whatever remained.
-//!
-//! ## Why no instrument caught it
-//!
-//! The rollback coverage sweep exists precisely to name unregistered simulation
-//! state, and it reported green over all four for as long as they existed. Two
-//! separate blindnesses, both worth recording because both are recurring:
-//!
-//! * **no swept population contained a match**, so the component sweep never saw
-//!   a body wearing `MatchSeat`. Same shape as A19 (`PogoTargetContributor`, `ChestFeature`,
-//!   `PortalHostScanned` were never in the population, not missed within it);
-//! * **a MODULE-FAMILY waiver swallowed the resource.** `ActiveMatch` lives in
-//!   `ambition_platformer2d_actor_monolith::character_runtime::`, which carried a blanket waiver
-//!   reading *"character art load bookkeeping; decoded-ness has no simulation
-//!   consequence"* — written when that module held only art loading, and still
-//!   in force after the module grew seating. Third instance of that class after
-//!   `BossAnimFrame` (A9/A18) and `CharacterRoster`/`CharacterRosterRegistry`.
-//!
-//! ## What the tests in THIS file do and do not establish
-//!
-//! They are corroborating, not load-bearing, and saying so is the point: both
-//! were checked with the registrations REMOVED and both still passed. Do not
-//! read a green run here as evidence that the rewind hole is closed.
-//!
-//! The reason is a fixture limit, established by probe rather than argued:
-//!
-//! * seating completes on the session's FIRST simulated frame, so activation is
-//!   always GGRS frame 1;
-//! * a sync test with `check_distance: 4` issues its first load at frame 6, of
-//!   frame ~1 — it never restores frame 0.
-//!
-//! So no rewind in this fixture ever restores a PRE-activation world, which is
-//! the only state in which the unregistered latch could strand a roster. The
-//! scenario that reaches it needs activation delayed past `check_distance`,
-//! which is what the shipped versus route does naturally (a body is constructed
-//! several ticks after the route is entered). That fixture is queue row AC24.
-//!
-//! What they DO check, and what they would catch: that a match's roster and
-//! teams survive ordinary resimulation, and that the activation count never
-//! disagrees with the number of bodies wearing a seat.
-//!
-//! **and none of this makes activation a transaction.** Fighters are still
-//! constructed seat by seat over several ticks; only the latch is published
-//! atomically. A rewind landing between two seats leaves a body that exists and
-//! a roster that is incomplete — legal today, retried by seating, and the reason
-//! AA2's lifecycle half stays open.
+//! These tests verify that match roster/team state survives ordinary resimulation and
+//! that activation counts agree with seated bodies. The fixture activates on the first
+//! simulated frame, so it does not exercise rewinding to a pre-activation world; that
+//! boundary requires a route whose activation occurs after rollback history exists.
 
 #![cfg(feature = "rl_sim")]
 
@@ -125,16 +77,16 @@ fn seats(sim: &mut Platformer2dSimHarness) -> Vec<(usize, String)> {
 /// under test is a settled one rather than a boot frame.
 const FRAMES_BEFORE_THE_ROSTER: usize = 20;
 
-/// **Put the roster in, and make THAT the rollback baseline.**
+/// Put the roster in, and make THAT the rollback baseline.
 ///
 /// The two obvious arrangements are both wrong, and each was written first:
 ///
-/// * **roster as frame-zero setup.** Then seating activates on tick 0 — probed,
+/// * roster as frame-zero setup. Then seating activates on tick 0 — probed,
 ///   not assumed — and GGRS cannot rewind to before its own frame zero. Nothing
 ///   ever resimulates across the activation boundary, and the test passes with
 ///   the registrations REMOVED. It was checking that a match survives a rewind
 ///   window it was never inside.
-/// * **roster inserted mid-run without rebasing.** That is a direct `world_mut`
+/// * roster inserted mid-run without rebasing. That is a direct `world_mut`
 ///   mutation behind the rollback cursor, and the harness contract says so:
 ///   resimulating frames 18–20 replays a world with no roster in it, and the
 ///   sync test reports the mismatch immediately (it did).
@@ -149,7 +101,7 @@ fn introduce_the_roster(sim: &mut Platformer2dSimHarness) {
 
 /// A match's roster and teams survive ordinary resimulation, checksum-clean.
 ///
-/// **not** the reviews' acceptance condition (*rewinding around the first
+/// not the reviews' acceptance condition (*rewinding around the first
 /// active frame reconstructs the identical roster*) — see the module header for
 /// why this fixture cannot reach that frame, and AC24 for the one that would.
 #[test]
@@ -279,7 +231,7 @@ use bevy::prelude::{Commands, IntoScheduleConfigs, Res, ResMut, Resource};
 
 /// How far past the first OBSERVED rewind the roster is scheduled to appear.
 ///
-/// **not a `SimTick` constant, and the constant is what broke.** This was
+/// not a `SimTick` constant, and the constant is what broke. This was
 /// `const ROSTER_ARRIVES_AT: SimTick = 12` — "well past `check_distance: 4`" —
 /// and the arithmetic was about the wrong clock. `SimTick` counts every frame
 /// the session world has simulated, including the ~240 the shell spends
@@ -296,15 +248,15 @@ use bevy::prelude::{Commands, IntoScheduleConfigs, Res, ResMut, Resource};
 /// about.
 const ROSTER_ARRIVES_AFTER_THE_WINDOW_OPENS: u64 = 8;
 
-/// **The tick the roster is due on, decided once the window is known to be
-/// live.** Deliberately NOT rollback state: a rewind must not un-decide when the
+/// The tick the roster is due on, decided once the window is known to be
+/// live. Deliberately NOT rollback state: a rewind must not un-decide when the
 /// roster was scheduled, or the replay would disagree with the original run
 /// about a fact that is not simulation.
 #[derive(Resource, Default)]
 struct RosterDueAt(Option<u64>);
 
-/// **Every frame that was simulated, and whether the match was live at the end
-/// of it.**
+/// Every frame that was simulated, and whether the match was live at the end
+/// of it.
 ///
 /// Deliberately NOT rollback state, which is what makes it an instrument: it
 /// keeps the entries a rewind erases from the world, so the log is a record of
@@ -362,8 +314,8 @@ fn late_arriving_roster_sim() -> Platformer2dSimHarness {
     .expect("Ambition GGRS sync-test harness builds")
 }
 
-/// **Step until the rollback window is DEMONSTRABLY open, then schedule the
-/// roster just past that point.**
+/// Step until the rollback window is DEMONSTRABLY open, then schedule the
+/// roster just past that point.
 ///
 /// the thing this replaces was a constant, and the constant was about the
 /// wrong clock — see [`ROSTER_ARRIVES_AFTER_THE_WINDOW_OPENS`]. What proves the
@@ -407,8 +359,8 @@ fn schedule_the_roster_once_the_window_is_open(sim: &mut Platformer2dSimHarness)
     );
 }
 
-/// **A rewind that lands BEFORE the activation reconstructs the identical
-/// match.**
+/// A rewind that lands BEFORE the activation reconstructs the identical
+/// match.
 ///
 /// This is the reviews' acceptance condition, and the first fixture in the
 /// repository that can state it honestly. The proof is not arithmetic about
@@ -509,7 +461,7 @@ fn rewinds_across_the_activation_frame_and_reconstructs_the_same_match() {
     );
 }
 
-/// **A stocks fighter's PERCENT and death policy survive a real rewind.**
+/// A stocks fighter's PERCENT and death policy survive a real rewind.
 ///
 /// `CanonicalCodecStrategy` uses that encoding for the STORED value, so this was not a checksum
 /// omission: a fighter at 188% came back from any rewind as a fresh one, its knockback scaling
@@ -540,7 +492,7 @@ fn a_fighters_percent_and_policy_survive_a_rewind() {
             .next()
             .expect("the roster seated at least one fighter");
         health.set_policy(DeathPolicy::Unbounded);
-        // **A POOL THE NUMBER CAN BE READ AGAINST.** The seeded fighter's pool
+        // A POOL THE NUMBER CAN BE READ AGAINST. The seeded fighter's pool
         // is tiny, so `damage(188)` against it reported *3760%* — correct for
         // what this asserts (percent is preserved, and percent is NOT health)
         // and nonsense to anybody who opens the file. 188 over 100 is a Smash
@@ -601,7 +553,7 @@ fn a_fighters_percent_and_policy_survive_a_rewind() {
     );
 }
 
-/// **Two LOCAL SEATS under a rollback host, driven independently.**
+/// Two LOCAL SEATS under a rollback host, driven independently.
 ///
 /// under a sync test EVERY frame is saved, rewound and resimulated, so this is
 /// not "two seats moved": it is two seats whose inputs survive being replayed.
@@ -616,7 +568,7 @@ fn two_local_seats_drive_independently_under_a_rollback_host() {
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10)
-            // **THE MATCH OWNS THE STAGE.** Without this the composition also lowers Ambition's
+            // THE MATCH OWNS THE STAGE. Without this the composition also lowers Ambition's
             // home avatar, and that avatar already holds the session's control channel — so a LOCAL
             // seat asking for one is a second claimant and `prepare_match` refuses the roster by
             // name.
@@ -681,7 +633,7 @@ fn two_local_seats_drive_independently_under_a_rollback_host() {
         seated.len()
     );
 
-    // **THE SEAT SET SURVIVES RESIMULATION.** Every frame here is saved, rewound
+    // THE SEAT SET SURVIVES RESIMULATION. Every frame here is saved, rewound
     // and resimulated, and activation is inside that window because the roster
     // insert was rebased — so this is the two-human form of *"rewinding around
     // the first active frame reconstructs the identical roster"*, checked on
@@ -796,8 +748,8 @@ fn human_roster(count: usize) -> MatchParticipantRoster {
     }
 }
 
-/// **SEATING IS ONE-SHOT, and this fixture exists in the shape it does
-/// because of that.**
+/// SEATING IS ONE-SHOT, and this fixture exists in the shape it does
+/// because of that.
 ///
 /// The first version of this test grew the roster from one seat to two mid-session and asserted
 /// the rewind reconstructed TWO. Growing a match mid-fight is not a thing the engine does, and
@@ -823,7 +775,7 @@ fn late_arriving_human_roster_sim() -> Platformer2dSimHarness {
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10)
-            // **THE MATCH OWNS THE STAGE.** Without this the composition also lowers Ambition's
+            // THE MATCH OWNS THE STAGE. Without this the composition also lowers Ambition's
             // home avatar, and that avatar already holds the session's control channel — so a LOCAL
             // seat asking for one is a second claimant and `prepare_match` refuses the roster by
             // name.
@@ -853,8 +805,8 @@ fn late_arriving_human_roster_sim() -> Platformer2dSimHarness {
     .expect("Ambition GGRS sync-test harness builds")
 }
 
-/// **A rewind across the activation of a TWO-HUMAN match reconstructs both
-/// seats.** AC24's shape, one seat further.
+/// A rewind across the activation of a TWO-HUMAN match reconstructs both
+/// seats. AC24's shape, one seat further.
 ///
 /// `rewinds_across_the_activation_frame_and_reconstructs_the_same_match` proves
 /// this for two CPU participants. Human seats are the interesting case and the
@@ -897,7 +849,7 @@ fn rewinds_across_a_two_human_activation_and_reconstructs_both_seats() {
          session that was seated from tick zero"
     );
 
-    // **The SLOTS, not the count.** A resimulation that rebuilt two seats both
+    // The SLOTS, not the count. A resimulation that rebuilt two seats both
     // numbered 0 keeps the count and loses the match.
     assert_eq!(
         seat_slots(&mut sim),

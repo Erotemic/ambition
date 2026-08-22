@@ -1,44 +1,10 @@
-//! **Motion quality** — how a trajectory READS, as numbers.
+//! Numeric diagnostics for the shape of an authoritative per-tick trajectory.
 //!
-//! A body can be perfectly correct on every invariant an assertion normally
-//! checks — inside the world, never inside a wall, health intact, arriving where
-//! it was sent — and still look broken. "Stuck on a corner and jerking around
-//! wildly" is not a violated bound; it is a trajectory whose *shape* is wrong.
-//! This module turns that shape into a handful of scalars a test can assert on,
-//! so "it looks bad" becomes a number with a threshold.
-//!
-//! # What it measures, and why these quantities
-//!
-//! Given a body's position sampled once per tick, the interesting facts are all
-//! differences:
-//!
-//! * the FIRST difference is the per-tick step — how far it travelled;
-//! * the SECOND difference is the JERK — how much that travel CHANGED. Smooth
-//!   motion has a near-zero second difference at every sample; a body that
-//!   snaps, stalls, or gets flung has a large one. This is the quantity the eye
-//!   actually judges, which is why it is the headline metric;
-//! * a sign flip between consecutive steps is a REVERSAL. One is a turn; a
-//!   sustained rate of them is an oscillation — the signature of two rules
-//!   fighting over the same body, e.g. a corner that each tick decides belongs
-//!   to a different surface.
-//!
-//! # Absolute or relative
-//!
-//! Both, because neither alone is portable. A puppy slug crawls 0.67 px/tick and
-//! a dashing player covers 12; a 3 px jerk is catastrophic for the first and
-//! invisible on the second. [`MotionQuality::jerk_ratio`] divides by the mean
-//! step so ONE threshold can be stated for every character, while the absolute
-//! figures stay available for the cases where pixels are what matter.
-//!
-//! # Which track to feed it
-//!
-//! **The authoritative per-tick positions**, not the presented ones. This
-//! measures the SIMULATION's motion; presentation smoothing (see
-//! `ambition_sim_view::presented_pose`) is a separate layer with its own
-//! failure modes, and extrapolation AMPLIFIES a sim-side oscillation rather
-//! than hiding it — a body that reverses every tick is drawn leading whichever
-//! way it just went. Measuring the sim track first is what keeps a diagnosis
-//! from blaming the wrong layer.
+//! [`measure_motion`] summarizes step distance, changes in step (jerk), reversals, path
+//! length, and net displacement. Ratio metrics normalize jerk against mean movement so
+//! thresholds can be compared across slow and fast bodies. Feed simulation positions,
+//! not presentation-smoothed positions, so the measurement identifies simulation motion
+//! rather than camera/render behavior.
 
 use crate::Vec2;
 
@@ -61,7 +27,7 @@ pub struct MotionQuality {
     pub max_step: f32,
     /// Mean change in per-tick travel — the average jerk.
     pub mean_jerk: f32,
-    /// **The headline.** Largest change in per-tick travel across the track: the
+    /// The headline. Largest change in per-tick travel across the track: the
     /// worst single discontinuity in the motion.
     pub max_jerk: f32,
     /// Tick index (into the track) where [`Self::max_jerk`] occurred, so a

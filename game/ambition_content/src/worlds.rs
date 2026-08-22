@@ -103,14 +103,14 @@ pub fn world_manifest() -> WorldManifest {
 mod tests {
     use super::*;
 
-    /// **EVERY SHIPPED `EnemySpawn` CAN BE BUILT** — the invariant that stands between the
+    /// EVERY SHIPPED `EnemySpawn` CAN BE BUILT — the invariant that stands between the
     /// refusal and a panic in a room nobody tests.
     ///
     /// Three things can resolve one — a COMPLETE character (one whose prepared definition yields a
     /// body blueprint), an archetype ROW under the placement's brain key, or the provider's own
     /// `with_open_casting_decision` waiver. A placement with none of the three panics at spawn.
     ///
-    /// **and that is not covered by the lowering tests beside this one.**
+    /// and that is not covered by the lowering tests beside this one.
     /// `the_pirate_sky_riders_lower_into_authored_mount_links` proves
     /// `pirate_sky_lookout` LOWERS; nothing built its bodies. The two are
     /// different failures — lowering reads the LDtk file, construction asks the
@@ -150,7 +150,7 @@ mod tests {
                     if complete {
                         continue;
                     }
-                    // **there is no second road left to check** (AC6). This
+                    // there is no second road left to check (AC6). This
                     // then asked whether the brain key named an archetype ROW or
                     // this provider's declared casting waiver, because either
                     // would have built the body. Both are deleted: a placement
@@ -194,16 +194,16 @@ mod tests {
     // 22"* — and that is what this slice did. The file, the resource, the asking
     // arms and this countdown all went together.
 
-    /// **"CHANGING THE CONTROLLER DOES NOT CHANGE THE BODY" — ASSERTED OF
-    /// SHIPPED CONTENT**, not of a fixture.
+    /// "CHANGING THE CONTROLLER DOES NOT CHANGE THE BODY" — ASSERTED OF
+    /// SHIPPED CONTENT, not of a fixture.
     ///
-    /// **this is the campaign's central proposition standing up in a room a
-    /// player can walk into**: one body wearing three different controllers, and
+    /// this is the campaign's central proposition standing up in a room a
+    /// player can walk into: one body wearing three different controllers, and
     /// one controller worn by four different bodies. A demo that shows six
     /// archetypes proves nothing about composition; this one cannot be authored
     /// at all unless body and controller are genuinely separable.
     ///
-    /// **both directions, because either alone is satisfiable by accident.**
+    /// both directions, because either alone is satisfiable by accident.
     /// Several bodies under one controller is just "a shared policy"; several
     /// controllers on one body is just "a versatile creature". Only the two
     /// together say the axes are independent.
@@ -272,7 +272,7 @@ mod tests {
         );
     }
 
-    /// **HOW MANY NPC PLACEMENTS A CHARACTER-FIRST ROAD WOULD ACTUALLY CHANGE** —
+    /// HOW MANY NPC PLACEMENTS A CHARACTER-FIRST ROAD WOULD ACTUALLY CHANGE —
     /// checklist items 6 and 7, which had no number.
     ///
     /// The item calls the NPC road *"wide, mechanical, wants its own slice"* and
@@ -280,12 +280,12 @@ mod tests {
     /// population: of the shipped `NpcSpawn` placements, how many name a
     /// character the road could build a body FROM?
     ///
-    /// **the fallback still carries the trunk** — 137 placements keep today's
+    /// the fallback still carries the trunk — 137 placements keep today's
     /// construction, because their character is unregistered (109) or registered
     /// without a body (28). That is the opposite of the enemy road, where the
     /// fallback carries the tail, and it is why this wants its own slice.
     ///
-    /// ⇒ **a FLOOR, so the number only grows**: every character that becomes
+    ///  a FLOOR, so the number only grows: every character that becomes
     /// body-complete moves placements from the fallback onto the character-first
     /// road, and this says so instead of somebody re-running the census.
     #[test]
@@ -352,12 +352,12 @@ mod tests {
              {total}) — the fallback road has no traffic left, so checklist item \
              6 is a deletion rather than a migration, and this ratchet goes with it"
         );
-        // **EVERY REGISTERED NPC CHARACTER IS BODY-COMPLETE**, so this flipped from a poison into
+        // EVERY REGISTERED NPC CHARACTER IS BODY-COMPLETE, so this flipped from a poison into
         // the invariant it was counting toward. None can fail it now, and the body-assist seam that
         // corrected those bodies is deleted.
         //
-        // **`complete < total` above is the honest remainder and it is a
-        // different gap**: placements that name no character at all, or name one
+        // `complete < total` above is the honest remainder and it is a
+        // different gap: placements that name no character at all, or name one
         // this provider does not register. That is checklist item 6's road, and
         // it is not the same as a character being half-migrated.
         assert_eq!(
@@ -375,8 +375,8 @@ mod tests {
     // A census of a state the type cannot hold measures nothing, and the refusal it was watching
     // for is pinned where it now happens — `convert_enemy_spawn`, in `conversion::mod`'s tests.
 
-    /// **the boss side of this chain was already pinned and the ENEMY side
-    /// was not.** `bosses::gnu_ton::tests::arena_spawns_the_adr0020_linked_pair`
+    /// the boss side of this chain was already pinned and the ENEMY side
+    /// was not. `bosses::gnu_ton::tests::arena_spawns_the_adr0020_linked_pair`
     /// covers `convert_boss_spawn`; `convert_enemy_spawn` carries its own copy
     /// of the same four lines (`entity_converters.rs`) and nothing exercised it
     /// against a real world file. This does, off the shipped `sandbox.ldtk`.

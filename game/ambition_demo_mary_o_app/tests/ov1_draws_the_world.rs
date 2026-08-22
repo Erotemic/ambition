@@ -1,4 +1,4 @@
-//! **Oracle-violation OV1, closed and gate-enforced.**
+//! Oracle-violation OV1, closed and gate-enforced.
 //!
 //! > *"A demo cannot DRAW its own world."* — `docs/planning/tracks.md`, OV1
 //!
@@ -13,7 +13,7 @@
 //! Bevy recipe). The camera exists, the blocks exist as `RoomVisual` entities, and
 //! the sprite chain is scheduled. A real window changes one enum value.
 //!
-//! **The presentation face needs a renderer foundation**, which is why it is NOT
+//! The presentation face needs a renderer foundation, which is why it is NOT
 //! in `build_demo_app` (that one is `add_headless_foundation` + no rasterizer, for
 //! the sim-only shell and `tests/exit_3.rs`). Discovering that was worth the split:
 //! a demo that wants to draw says `--features visible`, and one that only wants to
@@ -120,8 +120,8 @@ fn the_demo_spawns_the_rooms_static_visuals() {
     );
 }
 
-/// **The world-label placement pass is part of the GENERIC face, not of
-/// Ambition's composition.**
+/// The world-label placement pass is part of the GENERIC face, not of
+/// Ambition's composition.
 ///
 /// `spawn_room_visuals` — engine code, called by the plugin under test — spawns
 /// `WorldLabel` components for authored signage and fixture plates. For one
@@ -327,7 +327,7 @@ fn visible_mary_o_presentation_retires_and_relaunches_with_the_session() {
     );
 }
 
-/// **A `VfxMessage` this demo writes must be DRAWN by this demo.**
+/// A `VfxMessage` this demo writes must be DRAWN by this demo.
 ///
 /// This demo composes `PlatformerEnginePlugins` + `PlatformerHostPlugins` and no `ambition_app`, so
 /// the message went into a queue with no reader.

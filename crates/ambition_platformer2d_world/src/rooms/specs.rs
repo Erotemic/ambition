@@ -135,7 +135,7 @@ pub struct PortalSpec {
     /// Explicit link id (LDtk `link` field). When set, the portal pairs with
     /// the OTHER portal carrying the same link — overriding the complementary-
     /// color pairing — and a link that is not exactly two members is closed.
-    /// `None` ⇒ legacy color pairing.
+    /// `None`  legacy color pairing.
     pub link: Option<String>,
     /// Authored along-surface half-length (opening size) from the LDtk box. Both ends of a pair
     /// shrink to the minimum.
@@ -185,7 +185,7 @@ pub struct SwitchCommandSpec {
     pub line: String,
 }
 
-/// **An authored encounter's lock wall**, in the room IR. One per area at most.
+/// An authored encounter's lock wall, in the room IR. One per area at most.
 ///
 /// See [`EncounterTriggerSpec`] for why this lives here rather than being read
 /// off the project, and for why it is not `ambition_encounter::LockWallSpec`.
@@ -195,7 +195,7 @@ pub struct EncounterLockWallSpec {
     /// reader needs it — an encounter's own wall is identified by its area.
     pub id: String,
     /// The authored `gated_by` condition, when this wall is a gate rather than
-    /// an encounter's. ⚠ absent is meaningful and common: a `LockWall` with no
+    /// an encounter's.  absent is meaningful and common: a `LockWall` with no
     /// `gated_by` belongs to the encounter whose phase drives it, or is inert.
     pub gated_by: Option<String>,
     /// World-space minimum corner of the wall.
@@ -282,17 +282,17 @@ impl SpawnFacing {
     }
 }
 
-/// **An authored enemy's BEHAVIOUR and its ART are two different identities.**
+/// An authored enemy's BEHAVIOUR and its ART are two different identities.
 ///
 /// `brain` selects behavior while `character_id` selects the body. Gameplay
 /// identity never depends on the editor-facing display name.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct EnemySpawnSpec {
     /// What it DOES: which driver policy plays this placement of the character.
-    /// ⚠ it selects nothing about the BODY — that is [`Self::character_id`]'s
+    ///  it selects nothing about the BODY — that is [`Self::character_id`]'s
     /// job, and was the archetype road's confusion.
     pub brain: ambition_entity_catalog::placements::CharacterBrain,
-    /// **Which `CharacterDefinition` this spawn instantiates** — the body's
+    /// Which `CharacterDefinition` this spawn instantiates — the body's
     /// gameplay identity.
     ///
     /// A character is a reusable authored template (body, vitals, movement,
@@ -301,7 +301,7 @@ pub struct EnemySpawnSpec {
     ///
     /// Required: every enemy placement names the character it instantiates.
     ///
-    /// ⛔ the lowering REFUSES an authored entity with no id rather than
+    ///  the lowering REFUSES an authored entity with no id rather than
     /// defaulting one. Defaulting is what made "which character is this" a
     /// question with two answers, and the point of the type is that absence
     /// stops being representable.
@@ -322,7 +322,7 @@ pub struct EnemySpawnSpec {
     /// this occurrence.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disposition: Option<ambition_entity_catalog::placements::SpawnDisposition>,
-    /// **WHO DRIVES THIS ONE** — the shared controller policy this placement
+    /// WHO DRIVES THIS ONE — the shared controller policy this placement
     /// wants, by provider-relative name.
     ///
     /// This separates body identity from controller policy: the same character
@@ -330,7 +330,7 @@ pub struct EnemySpawnSpec {
     /// drive different characters.
     ///
     /// `None` = the character's own profile, which is every level authored so
-    /// far. ⛔ a name that resolves to nothing is a construction ERROR, the same
+    /// far.  a name that resolves to nothing is a construction ERROR, the same
     /// contract `CharacterDefinition::autonomous_profile_ref` carries — an
     /// explicit reference that misses must never read as silence.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -338,7 +338,7 @@ pub struct EnemySpawnSpec {
 }
 
 impl EnemySpawnSpec {
-    /// ⛔ **the character is a CONSTRUCTOR argument, not something added later.**
+    ///  the character is a CONSTRUCTOR argument, not something added later.
     /// This took only a brain and left `character_id: None`, so every call site
     /// was one `.with_character_id(..)` away from a placement that names no
     /// creature — and forgetting it compiled. Taking it here is what makes the
@@ -357,7 +357,7 @@ impl EnemySpawnSpec {
         }
     }
 
-    /// **The PRESENTATION identity this spawn wears** — which sheet, portrait
+    /// The PRESENTATION identity this spawn wears — which sheet, portrait
     /// and animation set the renderer should bind.
     ///
     /// Presentation resolves from the required character id; display names are
@@ -370,7 +370,7 @@ impl EnemySpawnSpec {
         self.character_id.as_str()
     }
 
-    /// **Which `CharacterDefinition` this spawn instantiates.**
+    /// Which `CharacterDefinition` this spawn instantiates.
     ///
     /// No fallback and no `Option`: every placement states its character.
     pub fn gameplay_character_id(&self) -> &ambition_entity_catalog::CharacterId {

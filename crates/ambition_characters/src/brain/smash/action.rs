@@ -38,7 +38,7 @@ pub enum SpecificAction {
     Idle,
     /// Walk along the x-axis. `dir` is signed `[-1, 1]`.
     Walk { dir: f32 },
-    /// **Close hard** — the same direction as `Walk`, at FULL locomotion
+    /// Close hard — the same direction as `Walk`, at FULL locomotion
     /// throttle instead of the walk's partial one.
     Sprint { dir: f32 },
     /// Press jump (single press edge). Vertical motion handled by
@@ -59,14 +59,14 @@ pub enum SpecificAction {
     /// Trigger the actor's special. Resolved by the actor's
     /// `SpecialActionSpec`.
     Special,
-    /// **Raise a guard and stand ground.** The brain's OWN way of asking for the same thing a
+    /// Raise a guard and stand ground. The brain's OWN way of asking for the same thing a
     /// person's shield button asks for — `emit_inputs` writes `shield_held`, the body's
     /// `AbilitySet:shield` decides whether that means anything, and no physical control name
     /// appears anywhere in the policy.
     ///
     /// It commits THIS now.
     Shield,
-    /// **Reach out and catch somebody** — the brain's own way of asking for the
+    /// Reach out and catch somebody — the brain's own way of asking for the
     /// same thing a person's Grab button asks for.
     ///
     /// it writes `grab_pressed` and nothing else. There is deliberately no
@@ -74,7 +74,7 @@ pub enum SpecificAction {
     /// requests a grab the way a human does, and everything downstream —
     /// eligibility, arbitration, the relationship — reads one answer.
     Grab,
-    /// **Act on the body already held**: neutral is a pummel, forward is a
+    /// Act on the body already held: neutral is a pummel, forward is a
     /// throw. Carries no capture reference, because the relationship decides
     /// who: this is only the press and its direction.
     ///
@@ -82,7 +82,7 @@ pub enum SpecificAction {
     /// pummel is the CONTEXT, resolved by `trigger_moveset_moves` — which is
     /// exactly the property that keeps a CPU and a human on one road.
     CaptureAttack { forward: bool },
-    /// **Struggle out of somebody's grip** — the captive's half of a capture,
+    /// Struggle out of somebody's grip — the captive's half of a capture,
     /// and the only thing a held body can ask for.
     ///
     /// it writes an ordinary attack press, exactly as a person mashing buttons would. So a CPU
@@ -157,7 +157,7 @@ pub fn choose_action(
                 //   - I'm above the target, airborne: down-air (toward `down`).
                 //   - Otherwise: forward swing along the gravity-perpendicular
                 //     side axis toward the target.
-                // `to_target_up > 0` ⇒ target above; `< 0` ⇒ target below.
+                // `to_target_up > 0`  target above; `< 0`  target below.
                 let up_amt = obs.to_target_up();
                 let i_am_above_target = up_amt < -28.0 && !obs.self_on_ground;
                 let target_above = up_amt > 28.0;

@@ -35,7 +35,7 @@ fn horizon_app() -> App {
 fn every_whereabouts_survives_the_write_and_the_read() {
     let mut app = horizon_app();
     app.world_mut().resource_mut::<SaveRestored>().0 = true;
-    // **the carried occurrence needs a LIVE, DURABLY-RESTORABLE custody behind it**, because the
+    // the carried occurrence needs a LIVE, DURABLY-RESTORABLE custody behind it, because the
     // mirror will only put an `InCustody` claim on disk for a hand the load can rebuild — see
     // `persist_occurrence_horizon_to_save`. The row it wrote was the possessed-body shape, and that
     // is precisely the claim the horizon now declines to make.
@@ -95,7 +95,7 @@ fn every_whereabouts_survives_the_write_and_the_read() {
     );
 }
 
-/// **A CUSTODY CLAIM THE LOAD COULD NOT REBUILD DOES NOT REACH THE FILE.**
+/// A CUSTODY CLAIM THE LOAD COULD NOT REBUILD DOES NOT REACH THE FILE.
 ///
 /// The mirror's population is everything wearing `InCustodyOf`, and that
 /// component has two owners: the item road derives it from `ItemCustody`, which
@@ -107,7 +107,7 @@ fn every_whereabouts_survives_the_write_and_the_read() {
 /// Driven end to end by `a_save_taken_mid_possession_does_not_delete_the_enemy_in_a_fresh_process`;
 /// this is the same rule at the translation layer, where it is one assertion.
 ///
-/// **both terms.** The `Placed` row proves the mirror ran and wrote SOMETHING,
+/// both terms. The `Placed` row proves the mirror ran and wrote SOMETHING,
 /// so "no custody row" cannot pass by the file being empty.
 #[test]
 fn an_in_custody_row_with_no_restorable_hand_behind_it_stays_out_of_the_file() {

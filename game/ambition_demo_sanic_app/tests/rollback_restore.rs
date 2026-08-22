@@ -1,4 +1,4 @@
-//! **Behavioral restore proof for Sanic's demo sim state (Phase 5b).**
+//! Behavioral restore proof for Sanic's demo sim state (Phase 5b).
 
 use ambition_demo_sanic::{SanicActState, SanicExperiencePlugin, SANIC_GAMEPLAY_ROUTE};
 use ambition_platformer2d::game_shell::{

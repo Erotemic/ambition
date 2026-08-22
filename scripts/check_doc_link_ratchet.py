@@ -1,37 +1,8 @@
 #!/usr/bin/env python3
-"""**A ratchet on broken intra-doc links** — ledger D103.
+"""Ratchet broken intra-document links.
 
-This repository's doc comments are load-bearing. They carry the ⛔ notes that say
-why a thing is the way it is, and a campaign that deletes a type every few hours
-turns every reference to it into a sentence describing a world that stopped
-existing. Two examples, both made and repaired on 2026-08-12: a module doc that
-still described a rewind "rerunning the roster archetype construction … tuning /
-capabilities from the archetype id the binding retained" — three nouns, none of
-which survived — and a note calling its counterpart the one that "rebuilds a
-whole body because an archetype IS the creature", which was the DEFECT, fixed
-that same day.
-
-⛔⛔ **THE PROJECT GATE CANNOT SEE THIS CLASS.** The gate is
-``cargo check -p ambition_app --all-targets``; an unresolved ``[`Item`]`` is a
-RUSTDOC lint. So the entire class rots in the space between two commands, and
-nothing has ever failed because of it. First measured 2026-08-12: **199**.
-
-**A ratchet, not a sweep.** Fixing 199 links with nothing behind them is 199
-links again by September. This records the count per crate and fails when one
-RISES. Lowering a number is always allowed and the baseline is meant to be
-updated downward in the same commit that earns it.
-
-⚠ **it fails when it observes NOTHING, too.** A `cargo doc` that errors, or a
-crate name that stops existing, produces zero warnings — which reads as a perfect
-score. A check that cannot fail is worse than no check, so a crate that reports
-no output at all is a failure rather than a triumph.
-
-Usage::
-
-    python3 scripts/check_doc_link_ratchet.py            # report
-    python3 scripts/check_doc_link_ratchet.py --check    # exit 1 on a rise
-    python3 scripts/check_doc_link_ratchet.py --update   # rewrite the baseline
-"""
+Known broken anchors are tolerated only while they remain in the baseline; newly
+broken links fail the check and repaired links reduce the baseline."""
 
 from __future__ import annotations
 
@@ -45,17 +16,15 @@ import sys
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BASELINE = os.path.join(REPO, "dev", "doc_link_ratchet_baseline.json")
 
-# The crates whose doc comments carry architectural reasoning. Not every crate:
-# a ratchet over the whole workspace is a slow check that nobody runs, and these
-# four hold the character/actor/combat model this campaign is rewriting.
+# Keep the ratchet on crates whose doc comments define the main runtime model;
+# scanning the whole workspace would make the check too expensive for routine use.
 CRATES = [
     "ambition_platformer2d_actor_monolith",
     "ambition_characters",
     "ambition_platformer2d_core",
     "ambition_combat",
-    # Banking 109 without this line would have recorded a 13-link improvement nobody earned. ⇒
-    # **when a carve leaves one of these crates, the destination joins the list in the same
-    # commit.**
+    # When architecture moves out of a tracked crate, add its destination in the
+    # same change so the ratchet does not mistake reduced coverage for improvement.
     "ambition_conversation",
     # The destination joins the list here, in the carve's own commit.
     "ambition_boss_encounter",

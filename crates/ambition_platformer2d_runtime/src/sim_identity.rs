@@ -6,7 +6,7 @@
 ///
 /// Two facts exist today, and this system reads exactly those two: an authored
 /// placement's `FeatureId` (the LDtk iid a save file already keys on) and the
-/// primary player's slot. **Dynamically-spawned entities are NOT covered** —
+/// primary player's slot. Dynamically-spawned entities are NOT covered —
 /// N3.1's pin says they get `(spawner SimId, per-spawner counter)`, which the
 /// spawn sites must mint at spawn (they know their spawner; this system does not).
 /// `unidentified_bodies` counts what is left, so the migration has a number.

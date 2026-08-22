@@ -485,7 +485,7 @@ fn an_unregistered_relation_kind_is_rejected() {
     );
 }
 
-/// **The kind/payload mismatch is unrepresentable.**
+/// The kind/payload mismatch is unrepresentable.
 ///
 /// This is a compile-shape test, and deliberately so: there is nothing to assert
 /// at runtime because the illegal state cannot be constructed. A
@@ -541,7 +541,7 @@ fn a_duplicate_relation_is_refused_before_ordering() {
 }
 
 /// Request arrival order reaches neither the dump nor the execution sequence,
-/// **including for relations**.
+/// including for relations.
 ///
 /// Relations sort by `(from, kind, to)`, which is a TOTAL order only because
 /// duplicates are refused above — with duplicates admitted, two rows could sort
@@ -572,7 +572,7 @@ fn relation_request_order_does_not_change_the_plan() {
     );
 }
 
-/// **Registration order cannot change committed behaviour.**
+/// Registration order cannot change committed behaviour.
 ///
 /// The registry holds no function pointers at all now, so there is no
 /// implementation for a second registration to install or to lose a race to:
@@ -1059,13 +1059,13 @@ fn each_planned_row_gets_its_own_fresh_root() {
 //
 // They are restored and extended here, and the load-bearing one is called out below.
 
-/// **The poison test.** A relation is an `Entity` handle, so rebuilding the
+/// The poison test. A relation is an `Entity` handle, so rebuilding the
 /// TARGET of one is not a private matter for the target's row: `a` grudges `b`,
 /// and if `b` is despawned and rebuilt alone then `a` still holds the dead
 /// handle. The roster looks right — both identities present — and only the
 /// wiring is silently wrong.
 ///
-/// **Demonstrated against `896bfb1`**, which permitted this case on the reasoning that the relation
+/// Demonstrated against `896bfb1`, which permitted this case on the reasoning that the relation
 /// belonged to the untouched source. It failed there with `left: Some(Grudge(1v0))` (the corpse)
 /// against `right: Some(Grudge(1v1))` (the rebuilt target).
 #[test]
@@ -1370,7 +1370,7 @@ mod drifting {
     }
 }
 
-/// **Preparation freezes the executable decision, not just its label.**
+/// Preparation freezes the executable decision, not just its label.
 ///
 /// This fails against that implementation: it builds `BuiltByB` while every canonical surface
 /// says `drift.a`.
@@ -1523,7 +1523,7 @@ fn relation_metadata_conflicts_are_rejected_and_identical_ones_are_idempotent() 
     );
 }
 
-/// **A registration cannot supply executable behaviour at all.**
+/// A registration cannot supply executable behaviour at all.
 ///
 /// The first-wins hazard this replaces was concrete: `try_register_relation`
 /// took a `RelationOps` and decided idempotence on METADATA alone, so two
@@ -1740,7 +1740,7 @@ fn verify_under_both(
     verify_committed_roster(plan, &receipt, &baseline, &scope, &world)
 }
 
-/// **A planned relation the executor never wired is a failure, not a skip.**
+/// A planned relation the executor never wired is a failure, not a skip.
 ///
 /// Which relations were OWED is now derived from the identities actually committed.
 ///
@@ -1841,7 +1841,7 @@ fn a_duplicated_planned_identity_is_detected() {
 }
 
 /// An authoritative root wearing this transaction's ownership that no plan row
-/// named. **The caller never mentions it** — the scope is read from the world.
+/// named. The caller never mentions it — the scope is read from the world.
 #[test]
 fn an_unplanned_authoritative_root_is_detected() {
     let violations = verify_under(Sabotage::SpawnExtraAuthoritativeRoot, &sabotage_plan())
@@ -1854,8 +1854,8 @@ fn an_unplanned_authoritative_root_is_detected() {
     );
 }
 
-/// **An arbitrary identity-bearing entity with no ownership stamp refuses the
-/// transaction.** Every production room-construction family now uses the plan,
+/// An arbitrary identity-bearing entity with no ownership stamp refuses the
+/// transaction. Every production room-construction family now uses the plan,
 /// so there is no legacy exemption for an unowned authoritative identity.
 #[test]
 fn an_arbitrary_unowned_identity_is_fatal() {
@@ -1868,7 +1868,7 @@ fn an_arbitrary_unowned_identity_is_fatal() {
     assert_eq!(unowned.len(), 1, "got {violations:?}");
 }
 
-/// **A planned root that lost its ownership stamp is FATAL.**
+/// A planned root that lost its ownership stamp is FATAL.
 ///
 /// The executor stamps identity, provenance, and ownership in one insert, and
 /// verification checked the first two. The third is the one that DRIVES scope
@@ -1978,7 +1978,7 @@ fn a_second_entity_wearing_a_baseline_identity_is_detected() {
     );
 }
 
-/// **Exactly one occupant, exactly the right identity, wrong body.** This is the case an
+/// Exactly one occupant, exactly the right identity, wrong body. This is the case an
 /// identity-only baseline is structurally blind to.
 #[test]
 fn a_baseline_entity_replaced_by_a_look_alike_is_detected() {

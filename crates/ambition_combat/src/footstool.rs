@@ -12,7 +12,7 @@ use bevy::prelude::*;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
-/// **What a body must BE to take either end of a footstool.**
+/// What a body must BE to take either end of a footstool.
 ///
 /// Narrower than a capture's participant list on purpose: a footstool is over
 /// inside the tick that starts it, so it needs the two bodies' geometry, the
@@ -42,16 +42,16 @@ impl FootstoolBodyItem<'_, '_> {
     }
 }
 
-/// **Two bodies agree which way is down**, closely enough to say whose head is
+/// Two bodies agree which way is down, closely enough to say whose head is
 /// whose. A pair under materially different gravity is refused rather than
 /// judged in one of the two frames.
 fn frames_agree(a: ae::Vec2, b: ae::Vec2) -> bool {
     a.dot(b) > 0.999
 }
 
-/// **May `stomper` stand on `victim`?** — the TEAM question, asked directly.
+/// May `stomper` stand on `victim`? — the TEAM question, asked directly.
 ///
-/// ⛔ deliberately not `damage_lands_between`. What the genre gates a teammate
+///  deliberately not `damage_lands_between`. What the genre gates a teammate
 /// footstool on is Team Attack, which is this same flag; asking the damage
 /// question instead would make a mechanic that deals no damage depend on a
 /// policy about dealing it.
@@ -66,7 +66,7 @@ fn team_permits(
     }
 }
 
-/// **Claim the press for every footstool that is about to happen.**
+/// Claim the press for every footstool that is about to happen.
 ///
 /// # Why the order is spelled out
 ///
@@ -173,19 +173,19 @@ pub fn claim_footstools(
     let mut spent: Vec<Entity> = Vec::new();
     let mut effects = bodies.p1();
 
-    // ⛔⛔ **THE CLAIM IS THIS TICK'S JUMP EDGE, and clearing it HERE is the only
-    // thing that makes that true.** The kernel spends the claim inside its
+    //  THE CLAIM IS THIS TICK'S JUMP EDGE, and clearing it HERE is the only
+    // thing that makes that true. The kernel spends the claim inside its
     // footstool branch — but that branch is not first: a wall jump, a ground
     // jump, a coyote jump, a ladder jump and the one-way drop-through all
     // resolve the same press ahead of it. A body that qualified for a footstool
     // and whose press went to a wall jump instead kept the claim, and the NEXT
     // airborne press spent it with nobody underneath.
     //
-    // ⭐ clearing before the accepted pairs are stamped makes the lifetime
+    //  clearing before the accepted pairs are stamped makes the lifetime
     // structural instead of a discipline: a claim that loses input arbitration
     // cannot outlive the tick that made it, whatever new branch is added above.
     //
-    // ⚠ guarded rather than written flat, because an unconditional `false` would
+    //  guarded rather than written flat, because an unconditional `false` would
     // mark every body's `BodyJumpState` changed every tick.
     for (_, mut jump, _, _) in effects.iter_mut() {
         if jump.footstool_claimed {
@@ -194,7 +194,7 @@ pub fn claim_footstools(
     }
 
     for (_, _, stomper, victim, rules, gravity_dir, victim_grounded, victim_mid_move) in pairs {
-        // ⛔ BOTH ends. A stomper over two heads takes ONE footstool, and a head
+        //  BOTH ends. A stomper over two heads takes ONE footstool, and a head
         // under two stompers is jumped off ONCE. The first version spent only
         // the victim, so one press shoved every body it happened to overlap.
         if spent.contains(&stomper) || spent.contains(&victim) {
@@ -205,7 +205,7 @@ pub fn claim_footstools(
 
         // The stomper's half is a CLAIM on its own jump press. The kernel writes
         // the rise, ahead of the air jump, and emits the op.
-        // ⭐ and the bounce carries i-frames. Ultimate gives four frames, and
+        //  and the bounce carries i-frames. Ultimate gives four frames, and
         // they are what make a footstool an ESCAPE from disadvantage rather than
         // only a way to gain height — without them the body that just committed
         // to standing on somebody is a stationary target at head height.
@@ -217,7 +217,7 @@ pub fn claim_footstools(
         // tick rather than a tick late. The reaction itself is the movement
         // side's — a shove plus a tumble is model-private state, and the split
         // between a grounded flinch and an airborne tumble is a movement fact.
-        // ⛔ the PHANTOM footstool: a committed body follows through. The
+        //  the PHANTOM footstool: a committed body follows through. The
         // stomper's claim above still stands — that is the whole point of the
         // technique — so this skips the reaction and not the pair.
         if victim_mid_move {
@@ -227,7 +227,7 @@ pub fn claim_footstools(
             let flinch =
                 ae::footstool_victim(&mut model, &mut kin, victim_grounded, gravity_dir, rules);
             // A HARD lock rather than hitstun: being stood on is not being hit,
-            // and what makes it dangerous is that you cannot answer it. ⚠ zero
+            // and what makes it dangerous is that you cannot answer it.  zero
             // when a tumble started, which owns control for longer than this
             // would have.
             combat.recoil_lock_timer = combat.recoil_lock_timer.max(flinch);

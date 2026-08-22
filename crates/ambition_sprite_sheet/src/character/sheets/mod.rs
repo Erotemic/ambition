@@ -67,13 +67,13 @@ pub struct CharacterSheetSpec {
     /// its [`ambition_sprite_sheet`] frame algebra, so the character path shares
     /// one implementation with the boss, prop, and projectile readers.
     record: SheetRecord,
-    /// **Vestigial for any sheet that publishes a body** (181 of 183 baked),
+    /// Vestigial for any sheet that publishes a body (181 of 183 baked),
     /// and read only by the fallback in [`sprite_render_size_scaled`].
     ///
     /// It multiplied the collision box's max dimension to get the rendered
     /// sprite's height, with the width taken from the padded frame's aspect — so
     /// it was a per-sheet correction for how much empty space the generator's
-    /// crop happened to leave, and the 180 baked sheets spanned **10.9x** in how
+    /// crop happened to leave, and the 180 baked sheets spanned 10.9x in how
     /// big a character was drawn against its own box. The quad now comes from the
     /// sheet's own body rectangle, which makes that ratio 1.0 by construction.
     pub collision_scale: f32,
@@ -127,7 +127,7 @@ impl CharacterSheetSpec {
             .with_feet_anchor_y(self.feet_anchor_y)
     }
 
-    /// **Which way this sheet's art was DRAWN** — see
+    /// Which way this sheet's art was DRAWN — see
     /// [`SheetRecord::authored_faces_left`]. Read straight off the published
     /// record rather than copied into a field, so the spec cannot disagree with
     /// the manifest it was built from.
@@ -282,7 +282,7 @@ pub fn try_load_spec_for_target_authored(
 /// PNGs key each record by its own target.
 ///
 /// §5 classification (per the old restructuring blueprint, folded into
-/// `docs/planning/engine/architecture.md`): **immutable asset cache** —
+/// `docs/planning/engine/architecture.md`): immutable asset cache —
 /// derived once from the compile-time `BAKED_SHEET_RONS` table, pure and
 /// override-free. Correctly a process-global `OnceLock`; not a content
 /// registry, so it has no `install_*` seam.
@@ -338,7 +338,7 @@ pub fn record_for_target(target: &str) -> Option<&'static SheetRecord> {
     record_index().get(target)
 }
 
-/// **This body's geometry is authored by its spritesheet, per pose.**
+/// This body's geometry is authored by its spritesheet, per pose.
 ///
 /// Presence is the opt-in: a body without it keeps whatever collision box its
 /// spawn authored, exactly as before. Opting in hands the box to the art, which
@@ -347,7 +347,7 @@ pub fn record_for_target(target: &str) -> Option<&'static SheetRecord> {
 /// this degenerates to "size the body to its art", which is still an improvement
 /// on a hand-guessed rectangle but is not why the seam exists.
 ///
-/// ⭐ **the DECLARATION lives here and the per-tick derivation does not.** This
+///  the DECLARATION lives here and the per-tick derivation does not. This
 /// is two facts about a sheet — which [`record_for_target`] key the boxes come
 /// from, and how many world units one of its pixels covers — so it belongs to
 /// the crate that owns sheet targets. The pass that resolves the pose and writes
@@ -395,8 +395,8 @@ pub fn try_load_spec_for_target(target: &str, tuning: &SheetTuning) -> Option<Ch
 
 /// A spec for a sheet whose rows are addressed by NAME rather than by pose.
 ///
-/// ⛔ **the difference from [`try_load_spec_for_target`] is the `idle` refusal,
-/// and it is deliberate on both sides.** That one refuses a sheet with no idle
+///  the difference from [`try_load_spec_for_target`] is the `idle` refusal,
+/// and it is deliberate on both sides. That one refuses a sheet with no idle
 /// row because the character path indexes through [`CharacterAnim`] and would
 /// panic asking such a sheet for a pose. A sheet of EFFECTS has no poses at all
 /// — eleven of the twelve shipped FX sheets have no row `CharacterAnim` names —
@@ -412,7 +412,7 @@ pub fn try_load_row_addressed_spec(
         .map(|r| spec_from_record(r, tuning))
 }
 
-/// Load the **scaled-variant** spec for a manifest target, when its variant
+/// Load the scaled-variant spec for a manifest target, when its variant
 /// record was baked (the generator produced `sprites_<suffix>/…` and `build.rs`
 /// embedded it). Returns `None` for `Full` or when no variant record exists, so
 /// the caller falls back to the base spec — keeping the atlas rects matched to
@@ -452,13 +452,13 @@ pub fn try_load_pack_spec_for_target(
 ) -> Option<(CharacterSheetSpec, &'static str)> {
     let (tier, catalog) = crate::sprite_packs::catalog_for_scale(scale)?;
     let mut record = catalog.to_sheet_record(target)?;
-    // **A pack is STORAGE for the same drawing, so the drawing's own facing
-    // rides along.** The synthesized record describes where the pixels sit in
+    // A pack is STORAGE for the same drawing, so the drawing's own facing
+    // rides along. The synthesized record describes where the pixels sit in
     // the atlas; it cannot know which way the body in them points, and
     // repacking a sheet does not redraw it. Inherited from the base manifest
     // for exactly the reason the caller inherits `tuning` from the base spec.
     //
-    // ⚠ without this the Patent Clerk faced the right way from his own sheet
+    //  without this the Patent Clerk faced the right way from his own sheet
     // and backwards again from the ultrapack — and he is packed at all four
     // tiers, so that is the path most devices actually take.
     record.authored_faces_left = record_for_target(target)
@@ -548,220 +548,6 @@ fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterShee
     }
 }
 
-/// Player-specific compact robot sheet. Rendered from
-/// `tools/ambition_sprite2d_renderer/configs/player_robot_v3.yaml`
-/// (`archetype: player_compact`). Shares the same row order as
-/// `ROBOT_SHEET` so animation indexing is identical — only the
-/// per-frame geometry + anchor differ to match the shrunk
-/// silhouette.
-
-/// Absurd General — military-faction NPC sheet. Generated by
-/// `tools/ambition_sprite2d_renderer` (archetype: `absurd_general`).
-///
-/// The generator emits 6 row bands (idle, walk, talk, interact,
-/// celebrate, hit) on a 1108×720 sheet with a 4px border between
-/// frame cells (frame content 120×116, row pitch 120, column pitch
-/// 124). We only declare the `Idle` row here for the stationary
-/// faction-leader use case; future work that gives the General
-/// animations (talk during dialog, celebrate on encounter clear)
-/// will extend `CharacterAnim` and append rows in PNG order so the
-/// atlas y-stride stays aligned with the generator output.
-
-// Only prop/story statics consumed by content code remain below.
-
-// ─────────────────────────────────────────────────────────────────
-// Toon-target NPC sheets — share the generator's 4-px inter-frame
-// padding (col_pitch = content_w + 4, row_pitch = content_h + 4) and
-// `feet_anchor_norm.y ≈ -0.47` from `body_metrics`. We declare only
-// `Idle` here; rows added later (Walk/Talk) need to land at PNG row
-// indices 1, 2, … in order, since `build_atlas` walks rows
-// sequentially. `collision_scale ≈ 1 / (body_h / row_pitch)` keeps
-// the silhouette scaled to the LDtk collision box.
-// ─────────────────────────────────────────────────────────────────
-
-/// Burning Flying Shark — wide 192×128 frames, 4 rows
-/// (idle / fly / chomp / dive). Mapped through CharacterAnim as:
-/// Idle row → Idle, fly row → Walk (the enemy picker uses Walk when
-/// vel.x is non-zero, which is the right choice for an always-moving
-/// flyer), chomp row → Slash (attack picker), dive row → Dash. There
-/// is no hit / death row in this generated sheet; the resolver falls
-/// back to Idle for those animations.
-///
-/// collision_scale chosen so the visible shark body (160×66 px of
-/// the 192×128 frame, per `burning_flying_shark_actor.ron`'s
-/// `body_pixel_bbox`) fits the AABB tightly. With cs=0.8 and an
-/// authored AABB of (126, 52):
-///   render = 126*0.8 = 100.8 tall, 151.2 wide
-///   visible body inside render = 151.2 * (160/192) = 126.0 wide,
-///   100.8 * (66/128) = 52.0 tall → matches AABB exactly.
-///
-/// Pre-fix this was 1.4, which gave a 151×101 render with the
-/// visible body at ~126×52 inside a (72, 56) AABB — the shark was
-/// drawn ~75% wider than its hitbox so player hits at the visible
-/// silhouette missed.
-
-/// Puppy slug — a small ground-walker (Crawlid analogue). Generator
-/// emits 128×95 frames with rows `idle / walk / wall_walk /
-/// ceiling_walk / hurt / death`. Only `idle / walk / hurt / death`
-/// are picked up by `CharacterAnim::from_name`; the two surface-
-/// variant rows are kept in the sheet for a future wall-wrapping
-/// brain.
-
-/// Pirate heavy bruiser — three named variants (Broadside Bess,
-/// Iron Mary, Salt Annet) sharing the same row layout (idle / walk
-/// / slash / taunt / hurt / death) but with palette + proportion
-/// differences that auto-crop into slightly different frame sizes
-/// per variant. Each variant therefore declares its own spec.
-
-/// Standard pirate sheets. They share the same high-level row layout, but
-/// each generated RON owns its own body metrics / feet anchor. Keep raider
-/// separate from the admiral so a dismounted shark raider lands with her
-/// feet on the floor instead of inheriting the admiral's anchor.
-
-/// Architect — hub research / ADR-explainer NPC.
-
-/// Kernel Guide — onboarding NPC at the hub spawn area.
-
-/// Vault Keeper — persistence / save-seed NPC in the basement.
-
-/// Interdimensional gate ring — the standing stone arch that frames
-/// a portal. Two authored rows in
-/// `interdimensional_gate_ring_spritesheet.yaml`:
-/// - Row 0 = `idle` (8 frames × 140ms) — the always-on slow rotation
-/// - Row 1 = `spin` (12 frames × 85ms) — the faster boot-spin
-///
-/// We borrow `CharacterAnim::Walk` as the semantic slot for the
-/// `spin` row (same pattern as [`GATE_PORTAL_SHEET`]). The
-/// [`crate::rooms::sync_portal_ring_rotation_system`] requests
-/// `Walk` while `GatePortalPhase::Opening` is active and falls back to
-/// `Idle` otherwise.
-
-/// Interdimensional gate portal — the shimmering surface inside the
-/// ring. Three rows authored in the source PNG
-/// (`interdimensional_gate_portal_spritesheet.yaml`): `opening`
-/// (8 frames × 80ms = 640ms one-shot), `stable` (8 × 110ms looping),
-/// `closing` (8 × 80ms one-shot). The portal's [`crate::rooms::GatePortalPhase`]
-/// state machine drives which row to play; this spec borrows
-/// existing `CharacterAnim` variants as semantic slots
-/// (Idle=opening so the default boot is visible, Walk=stable for
-/// the steady "ready" loop, Run=closing for the shutdown
-/// one-shot). The runtime's
-/// [`crate::rooms::sync_portal_sprite_animation`] system calls
-/// `CharacterAnimator::request(...)` with the right variant on
-/// phase change.
-
-// ───────────────────────────────────────────────────────────────────
-// Lab props — shared `creator_lab_props_spritesheet.png`.
-//
-// One 128×128 frame per prop; 4 frames per row (subtle idle anim).
-// 8 props stacked vertically; each spec below picks its row by
-// setting `y_offset = row_index * 128`. The label column on the
-// left is 160 px wide. See `assets/sprites/creator_lab_props_spritesheet.yaml`
-// for the canonical frame coordinates this matches.
-//
-// All 8 are pre-registered so authors can drop any of them into a
-// scene without touching this file. Place via `NpcSpawn` with
-// `name: "Genesis Vat"` (etc.) + `prompt: ""` so the prop renders
-// but never opens a dialogue panel.
-// ───────────────────────────────────────────────────────────────────
-
-// Lab-prop sheets share one PNG (`creator_lab_props_spritesheet.png`):
-// 8 props stacked vertically with row pitch = frame_height. Each prop
-// is its own `SheetRecord` in `creator_lab_props_spritesheet.ron`
-// (target ids: `genesis_vat`, `specimen_jar`, …) with `y_offset` set
-// to `prop_index * frame_height`. From the runtime's perspective they
-// are 8 ordinary specs that happen to dereference the same PNG.
-
-/// Diagnostic Cart — the rail / gurney the player wakes on. Rendered
-/// by the dedicated `intro_cart` tack-on target. 3 rows ship on disk
-/// (idle / roll / jolt); only Idle wires here today. Frame size is
-/// 192×128 (wider than tall — the cart is a prop, not a humanoid).
-/// The cart authors as an NpcSpawn with `name: "Diagnostic Cart"` so
-/// it picks up its sprite from `INTRO_NPC_SPRITE_REGISTRY` — same
-/// path the other intro characters use. A dedicated `Prop` entity
-/// type lands in a follow-up; for the v1 slice the NpcSpawn slot is
-/// the lightest way to get a visible cart without engine churn.
-
-/// News board — wall-mounted bulletin board prop rendered by the
-/// `news_board` tack-on target. Single Idle row (6 frames @ 165 ms)
-/// for the LED blink + sticky-note flutter. Sheet is 64×96 per
-/// frame after the renderer's label column (104 px wide).
-///
-/// `collision_scale: 1.50` makes the board render visibly bigger
-/// than its 32×48 LDtk collision box so the art reads as a
-/// proper bulletin board rather than a thumbnail. `feet_anchor_y`
-/// pins the board's bottom row against the collision-box bottom
-/// (no baked drop shadow — see the project rule on no shadows).
-
-/// Cut-rope arena rope prop. Authored as a narrow LDtk `Prop` above
-/// the anvil; the art fills the authored hitbox so the cuttable area
-/// matches the visible rope.
-
-/// Cut-rope arena anvil trap. Runtime code moves the authored prop
-/// when the rope is cut; this sheet supplies the visible heavy anvil.
-
-/// Cut-rope arena piano trap. Shares the same authored LDtk prop slot as
-/// the anvil; the cut-rope arena system swaps the prop sprite based on the
-/// replay cycle's selected heavy-object kind.
-
-
-/// Creator — the researcher who wakes the player. Rendered by the
-/// dedicated `creator` tack-on target (not the toon-side adapter), so
-/// the sheet is wider (160×192) and starts after a 108px label column.
-/// 4 animation rows ship on disk (idle/speak/gesture/walk); only Idle
-/// is wired here today — when CharacterAnim grows a Talk variant,
-/// the speak row at index 1 lands automatically because the renderer
-/// looks the row up by enum discriminant.
-
-/// Raid Enforcer — uniformed later-game raid grunt. Toon-side
-/// adapter render; the dedicated `raid_enforcer` archetype reads
-/// as "officer cap + storm uniform + rifle" and also serves as a
-/// temporary generic raid silhouette until more specific art lands.
-
-/// Oiler — street mechanic / Eulerian gate-keeper NPC who finds the
-/// player in the drain alley after the intro escape. Toon-side adapter
-/// render; matches the Oiler review config (configs/review/oiler.yaml).
-
-/// Erdish — wandering graph-theory eccentric. Bespoke prop-free scholar
-/// render; matches the Erdish review config (configs/review/erdish.yaml).
-
-/// Alice — unofficial cartographer. Toon-side adapter render; the
-/// `alice_cryptographer` archetype reads as "cautious local with a
-/// scarf and a sealed envelope". Matches the Alice review config
-/// (configs/review/alice.yaml) and the
-/// `alice_spritesheet.yaml`/`.png` pair that ships in
-/// `crates/ambition_platformer2d_actor_monolith/assets/sprites/`.
-
-/// Bob — field cartographer. Toon-side adapter render; the
-/// `bob_engineer` archetype is wider in the shoulders (engineer
-/// silhouette) so the frame is correspondingly wider than Alice's.
-/// Matches the Bob review config (configs/review/bob.yaml).
-
-/// Merchant Prototype — placeholder shopkeeper NPC.
-
-// ─────────────────────────────────────────────────────────────────
-// Robot-target faction-leader sheets. Tightly packed (no inter-frame
-// padding), `feet_anchor_norm.y ≈ -0.328`, body fills ~83% of the
-// row pitch → `collision_scale ≈ 1.20`.
-// ─────────────────────────────────────────────────────────────────
-
-/// Fretjaw — Goblin Cantina chieftain (faction leader of the
-/// rowdy training-pit faction). Goblin-target generator output:
-/// label_w=120, no inter-frame padding, body fills ~86% of the
-/// 128-tall row.
-
-/// Captain Pulse — Pulse Voyagers faction leader.
-
-/// Chadwick Disruptor III — Tech-Bros Basement faction leader.
-
-/// Shadow Oni Leader / Shadow Duelist — both ship the same generator
-/// layout (idle / walk / run / jump / fall / slash / hit / death /
-/// blink_out / blink_in / dash; 128×128 frames, no inter-frame
-/// padding, label_width = 100). Mirrors the PIRATE_SHEET pattern:
-/// two filenames, one indexing contract. We load `ninja_shadow_duelist`
-/// as the representative — both ninja manifests report
-/// `feet_anchor_norm.y = -0.4921875` and identical row layout, so the
-/// pair stays interchangeable.
 mod atlas;
 mod geometry;
 pub use atlas::*;

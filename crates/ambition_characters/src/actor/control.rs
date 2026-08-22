@@ -19,7 +19,7 @@ use ambition_platformer2d_core::{
 
 /// The body→controller half of the intent-in seam.
 ///
-/// A controller only *attempts* inputs; the **body** enforces its own physics
+/// A controller only *attempts* inputs; the body enforces its own physics
 /// (cooldown / stun / resource / which abilities exist) and reports, per intent,
 /// whether the attempt was accepted (and applied) or blocked, naming the reason.
 /// This is the floor that makes a spam controller and a human produce the *same*
@@ -66,26 +66,11 @@ pub enum BlockReason {
     Dead,
 }
 
-/// A request from a brain to fire a projectile this tick. Mirrors the
-/// existing `ChoreographyAction::FireProjectile { dir, speed }` but
-/// lives on the control-frame side of the seam so a future
-/// non-choreography brain (RL policy, dialogue-scripted skirmish,
-/// remote player) can emit one without going through the
-/// choreography path.
+/// Projectile-fire intent emitted by a brain. The direction carries an explicit
+/// [`GameplayFramePolicy`] so consumers can resolve it in the active movement frame.
 ///
-/// The launch direction carries an explicit frame policy. Do not infer
-/// "local" from `x/y` names or "world" from the current implementation's
-/// cardinal gravity cases: callers should choose a constructor that says what
-/// frame authored the vector, and the consumer should convert at its own
-/// simulation seam. That keeps arbitrary-angle acceleration frames (and future
-/// non-Euclidean/Lorentz-like motion policies) from inheriting a hidden
-/// axis-aligned assumption.
-///
-/// **Current convention:** ActionSet-driven consumers read projectile
-/// speed from the resolved `RangedActionSpec`; player/projectile legacy
-/// paths may still carry `speed` here while migration is in progress.
-/// New brain backends should prefer `speed = 0.0` and let the actor's
-/// capability choose the launch speed.
+/// TODO(compat-remove): migrate remaining callers that author `speed` here to the resolved
+/// `RangedActionSpec`, then remove the redundant speed authority from this request.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ActorFireRequest {
     /// Launch direction in the frame named by [`Self::dir_policy`] (unit vector
@@ -179,7 +164,7 @@ pub struct ActorControlFrame {
     /// [`crate::brain::BrainSnapshot::locomotion_for`]. Human input must resolve
     /// raw device axes before writing this.
     ///
-    /// **the type is the contract, because the prose was not enough.** This
+    /// the type is the contract, because the prose was not enough. This
     /// field was a bare `Vec2` and two shipped brains got its frame wrong in
     /// opposite directions (S48): the fighter brain wrote raw world `x` into it,
     /// and `brain/player.rs` wrote this body-local vector into the WORLD-space
@@ -197,13 +182,13 @@ pub struct ActorControlFrame {
     /// Deliberately distinct from locomotion (a different control modality, not a
     /// different actor type), so it does not reintroduce a player/enemy split.
     ///
-    /// **[`WorldVec2`] because "world-space" was already written here and a
-    /// brain still wrote a body-local vector into it.** A possessed flyer flew
+    /// [`WorldVec2`] because "world-space" was already written here and a
+    /// brain still wrote a body-local vector into it. A possessed flyer flew
     /// world-UP when the player pushed right; see the note on
     /// [`Self::locomotion`]. The wrapper is what makes the two fields refuse to
     /// be assigned to each other.
     pub velocity_target: WorldVec2,
-    // **THERE IS NO `drop_through` FIELD, AND ITS ABSENCE IS THE DESIGN**
+    // THERE IS NO `drop_through` FIELD, AND ITS ABSENCE IS THE DESIGN
     // . It sat here for months documented as
     // "suppress the OneWay vertical block this tick", and every part of that
     // sentence was true of the ENGINE and false of this struct: no brain ever
@@ -276,14 +261,14 @@ pub struct ActorControlFrame {
     /// bubble shield up keep this true; release triggers shield-
     /// down behavior in the integration.
     pub shield_held: bool,
-    /// **Rising edge: this body wants to CAPTURE somebody this tick.**
+    /// Rising edge: this body wants to CAPTURE somebody this tick.
     ///
     /// the human's Grab button and a CPU's decision write this SAME field.
     /// There is deliberately no `cpu_wants_grab` beside it — the whole point of
     /// the semantic control surface is that a brain asks for a grab the way a
     /// person does, and everything downstream reads one answer.
     pub grab_pressed: bool,
-    /// **Rising edge: this body wants to TAUNT this tick.** The human's Taunt
+    /// Rising edge: this body wants to TAUNT this tick. The human's Taunt
     /// button and a brain's decision write this SAME field, for the reason
     /// stated above.
     pub taunt_pressed: bool,
@@ -304,7 +289,7 @@ pub struct ActorControlFrame {
     /// Rising edge on the MODE-SWITCH verb — [`ControlSlot::Utility`]'s device
     /// edge on this frame.
     ///
-    /// **not "the fly button", despite the name.** Flight was the first thing
+    /// not "the fly button", despite the name. Flight was the first thing
     /// to claim the slot, so the field wears its verb; what the press MEANS is
     /// whatever the body's action scheme puts there. A body that declares a
     /// technique on Utility (Sanic's transformation) has this routed to its
@@ -526,7 +511,7 @@ mod tests {
         assert!(input.attack_pressed, "melee_pressed → attack_pressed");
     }
 
-    /// **A brain CAN ask for a drop-through, and this is how** — the two ingredients of the
+    /// A brain CAN ask for a drop-through, and this is how — the two ingredients of the
     /// engine's derived gesture (`wants_drop_through` = descend toward the feet + jump) both
     /// survive the brain→engine bridge in ONE frame.
     ///

@@ -3,7 +3,7 @@
 //! … Give it an explicit complete character definition/body rather than retaining `combatant` as an
 //! unresolved casting fallback."*
 //!
-//! **"not an alias for an existing named goblin" is the load-bearing clause.**
+//! "not an alias for an existing named goblin" is the load-bearing clause.
 //! The cheap close was `large_brute → goblin` — the goblin already exists, it
 //! already fights, and three encounter waves would have stopped drawing magenta
 //! boxes immediately. That would have made the lab's heavy the same creature as
@@ -13,7 +13,7 @@
 //! However, its sprite must have a SEPARATE Python sprite generator/target, even if that
 //! generator initially shares helpers or visual vocabulary with the ordinary goblin.
 //!
-//! **the numbers preserve the `large_brute` waves**, per *"the brute's initial
+//! the numbers preserve the `large_brute` waves, per *"the brute's initial
 //! gameplay/body values may preserve the current `large_brute` behavior closely;
 //! exact balance is tunable later."* Its policy is the `melee_brute_brute`
 //! preset the generator config already names — aggro 240, reach 44, chase 75 —
@@ -43,7 +43,7 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             strength: 0.85,
             amount: 1,
         })
-        // **its own swing, not `medium_striker`'s.** The goblin band NAMES a
+        // its own swing, not `medium_striker`'s. The goblin band NAMES a
         // shared policy because several creatures point at it; the brute's
         // numbers are its own and are stated inline, which is the P2.16 rule —
         // an indirection earns itself when it has adopters.

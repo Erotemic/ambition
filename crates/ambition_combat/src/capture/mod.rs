@@ -1,4 +1,4 @@
-//! **CAPTURE — one body holding another, as a relationship rather than a hit.**
+//! CAPTURE — one body holding another, as a relationship rather than a hit.
 //!
 //! ```text
 //! a HIT       spatial overlap → damage → knockback → over, inside one move
@@ -32,7 +32,7 @@ use bevy::prelude::{Component, Entity, Message, Query};
 
 use ambition_platformer2d_core as ae;
 
-/// **Who is holding this body.** The one authority on a capture relationship.
+/// Who is holding this body. The one authority on a capture relationship.
 ///
 /// To ask *"who am I holding?"*, use [`captive_of`]: a scan over a handful of fighters is not a
 /// performance problem, and a wrong answer would be.
@@ -57,7 +57,7 @@ pub struct CapturedBy {
     /// captor's live facing and motion frame every tick, so a capture survives
     /// the captor turning around and survives arbitrary gravity.
     pub hold_offset_local: ae::Vec2,
-    /// **What capture SUSPENDED and release must give back.**
+    /// What capture SUSPENDED and release must give back.
     ///
     /// not assumed to be `1.0`.
     pub prior_gravity_scale: f32,
@@ -74,12 +74,12 @@ impl bevy::ecs::entity::MapEntities for CapturedBy {
     }
 }
 
-/// **Who is `captor` holding, if anyone?** The inverse of [`CapturedBy`].
+/// Who is `captor` holding, if anyone? The inverse of [`CapturedBy`].
 ///
 /// The deliberate answer to not mirroring the relation on the captor. Linear in
 /// captives — of which there are at most one per captor and a handful per stage.
 ///
-/// **deterministic by construction**: at most one body may name a given
+/// deterministic by construction: at most one body may name a given
 /// captor, so there is no iteration-order question to get wrong. The runtime
 /// that establishes a capture is what upholds that, by refusing to acquire for a
 /// captor that already holds somebody.
@@ -90,7 +90,7 @@ pub fn captive_of(captor: Entity, captives: &Query<(Entity, &CapturedBy)>) -> Op
         .map(|(entity, _)| entity)
 }
 
-/// **A grab's active window is asking to catch somebody this tick.**
+/// A grab's active window is asking to catch somebody this tick.
 ///
 /// Written every frame the window is live (see `smash_capture`'s
 /// `CAPTURE_ATTEMPT`), so the handler acquires on the first frame an eligible
@@ -111,7 +111,7 @@ pub struct CaptureAttemptRequested {
     pub hold_offset: ae::Vec2,
 }
 
-/// **A pummel's impact frame, landing on whoever this body already holds.**
+/// A pummel's impact frame, landing on whoever this body already holds.
 ///
 /// it names no victim, and that is the point: the target was selected when
 /// the capture was established, so a pummel does not reacquire anybody through
@@ -123,7 +123,7 @@ pub struct CapturePummelRequested {
     pub damage: i32,
 }
 
-/// **A throw's authored release frame.**
+/// A throw's authored release frame.
 ///
 /// Damage, launch, and the END of the relationship, at one instant chosen by the
 /// timeline rather than by the press that started the move.
@@ -146,7 +146,7 @@ mod tests {
     use super::*;
     use bevy::prelude::*;
 
-    /// **THE INVERSE QUERY IS THE CAPTOR-SIDE ANSWER, AND IT IS THE ONLY ONE.**
+    /// THE INVERSE QUERY IS THE CAPTOR-SIDE ANSWER, AND IT IS THE ONLY ONE.
     ///
     /// The whole argument for not mirroring the relation on the captor is that
     /// this scan is cheap and cannot disagree with itself. If it ever stopped
@@ -179,7 +179,7 @@ mod tests {
         );
     }
 
-    /// **THE CAPTOR HANDLE SURVIVES A REWIND.**
+    /// THE CAPTOR HANDLE SURVIVES A REWIND.
     ///
     /// bevy_ggrs destroys and recreates rollback entities, so a stored `Entity`
     /// points at nothing after a restore unless it is remapped. An unremapped

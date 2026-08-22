@@ -1,42 +1,10 @@
-//! **The level-1 SEAM run** — not the level-1 acceptance run. See the caveat
-//! below before citing this as the gate.
+//! Deterministic seam test for Mary-O level 1.
 //!
-//! One deterministic scripted play-through of the real demo app, through the
-//! real control seam. It is deliberately not a unit test of anything: every
-//! piece it touches already has its own focused coverage. What it proves is that
-//! the pieces are CONNECTED — that a player holding right actually moves, that
-//! the pipe actually drops her into the vault, that the vault's coins are
-//! actually collectable by the shared economy, and that the tally actually
-//! reaches the HUD. Each of those is a seam between two systems owned by
-//! different crates, and a seam is exactly what a focused test cannot see.
-//!
-//! It drives `ControlFrame` — the sim's input seam — for the great majority of
-//! its frames. Where it places her directly it says so and explains why, and it
-//! does so through `transit_body` (the ADR 0024 authority) rather than by poking
-//! `BodyKinematics`, so a beat never starts with stale departure state.
-//!
-//! # What this run does NOT prove
-//!
-//! `docs/planning/demos/super-mary-o.md` states the acceptance contract as a
-//! scripted headless run that "completes the first level, reaches the pipe
-//! secret, **uses a powerup through the real pickup/equipment path**". This run
-//! never collects or uses a powerup — the only pickups it takes are coins, which
-//! are currency, not equipment. It also sets her position at three beats (pipe,
-//! vault exit, flag) rather than traversing to them, so it does not prove the
-//! level is playable end to end.
-//!
-//! Those two clauses are the open remainder of the level-1 gate. Do not read a
-//! green run here as the gate being closed; the gate is PARTIAL until a run
-//! exists that traverses under its own input and takes a powerup through the
+//! The run drives the real control seam and verifies movement, pipe travel,
+//! coin collection, and HUD tally integration. It uses `transit_body` for a few
+//! direct placements, so it is not the full level-1 acceptance gate: it does
+//! not traverse the whole level under input or exercise a powerup through the
 //! shared pickup/equipment path.
-//!
-//! **and a whole-file `cfg` is the worst way to express a limit even while
-//! it holds.** It does not skip the proof, it DELETES it: `--features input`
-//! compiled this file down to nothing and reported no tests, no skips, and no
-//! warning. Three of Mary-O's proofs vanished that way, and the cfg read THIS
-//! crate's feature while the behaviour it feared belonged to
-//! `ambition_platformer2d/input` in the dependency — so it was not even guarding
-//! the composition it named.
 
 use ambition_demo_mary_o::MaryOLevelState;
 use ambition_demo_mary_o_app::build_demo_app;
@@ -151,9 +119,9 @@ fn settle(app: &mut App) {
     }
 }
 
-/// **Assert that a scripted press actually reaches the simulation.**
+/// Assert that a scripted press actually reaches the simulation.
 ///
-/// **THIS RETURNED `bool` AND ITS CALLERS USED IT TO `return` EARLY**,
+/// THIS RETURNED `bool` AND ITS CALLERS USED IT TO `return` EARLY,
 /// printing `SKIP: a participant pipeline owns ControlFrame in this build`. A
 /// test that returns early is a test that PASSES — so the proof evaporated in
 /// exactly the composition it most needed to hold, and the run summary said
@@ -167,7 +135,7 @@ fn settle(app: &mut App) {
 /// graph, so `ambition_platformer2d` builds WITH `input` while this crate's flag
 /// stays off. Ask the composition, not the feature flag.
 ///
-/// **the probe is `ControlFrame` right after the update, deliberately.**
+/// the probe is `ControlFrame` right after the update, deliberately.
 /// `scripted_input`'s own delivery counter observes the SLOT TABLE, which
 /// Bevy publishes from `FixedUpdate` — a frame BEHIND the `Update` that
 /// wrote the press — so it reads `0 delivered` on the first press of a
@@ -228,7 +196,7 @@ fn settle_until_playable(app: &mut App) {
     panic!("the demo never reached a playable level with a running clock");
 }
 
-/// **what it uniquely covered is real and is NOT covered elsewhere**: a whole
+/// what it uniquely covered is real and is NOT covered elsewhere: a whole
 /// playthrough, spawn to flagpole, on the production schedule. The mechanics it
 /// touches are covered against the authored level by unit probes (the bonk, the
 /// stomp, the brick break, the warp), and 1-1's SHAPE is covered by invariants
@@ -246,7 +214,7 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
-    // **the ordering lives in ONE place now** — after the participant pipeline's routing stage and
+    // the ordering lives in ONE place now — after the participant pipeline's routing stage and
     // before the frame→tick latch.
     ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
     settle_until_playable(&mut app);
@@ -423,7 +391,7 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     panic!("the flag sequence never settled into a level cycle within 10 seconds");
 }
 
-/// **A spawned snake is really RECOGNISED by the demo that owns its shell.**
+/// A spawned snake is really RECOGNISED by the demo that owns its shell.
 ///
 /// The shell mechanic shipped broken once and every focused test was green,
 /// because the fixtures hand-built a `Name` while the production spawner writes

@@ -38,14 +38,14 @@ use bevy_yarnspinner::prelude::DialogueRunner;
 ///
 /// The mirror was a workaround for a limit that is not there.
 ///
-/// ⇒ **anything the engine's condition catalog can answer must be ASKED, never
-/// mirrored here.** A fact with a published condition and a mirror slice has two
+///  anything the engine's condition catalog can answer must be ASKED, never
+/// mirrored here. A fact with a published condition and a mirror slice has two
 /// definition sites that can disagree, which is the second-authority shape this
 /// project refuses elsewhere; the `flags` slice was exactly that and is gone. See
 /// `docs/planning/engine/authored-gameplay-logic-and-orchestration.md` and
 /// `ambition_conversation::dialog::authored_conditions`.
 ///
-/// **what is left is the remainder, and it is legitimate.** Encounter/quest
+/// what is left is the remainder, and it is legitimate. Encounter/quest
 /// state, per-node visit counts, wallet and content `extras` have no published
 /// condition, and a `f32`-returning function (`visit_count`, `wallet_balance`)
 /// could not use a boolean condition verb even if one existed. Closures over this
@@ -89,7 +89,7 @@ pub struct YarnPresentationCue {
     pub whisper: bool,
 }
 
-/// **The set the yarn STATE MIRROR runs in — the mirror is current.**
+/// The set the yarn STATE MIRROR runs in — the mirror is current.
 ///
 /// The middle link of the yarn pipeline, and the vocabulary lives HERE rather
 /// than beside the system that joins it. The engine's
@@ -109,7 +109,7 @@ pub struct YarnPresentationCue {
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct YarnStateMirrorRefreshed;
 
-/// **The set [`clear_yarn_presentation_cue`] runs in — the cue is reset.**
+/// The set [`clear_yarn_presentation_cue`] runs in — the cue is reset.
 ///
 /// The first link in a three-layer yarn pipeline that, until now, each layer
 /// addressed by naming the layer below it: this crate clears the cue, the

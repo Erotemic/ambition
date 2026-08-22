@@ -60,13 +60,13 @@ pub struct FeatureView {
     /// Actor rows only: the sandbag/training-dummy depiction flag the debug
     /// health overlay colors by.
     pub training_dummy: bool,
-    /// `Some` ⇒ this body PUBLISHES where its sprite quad goes relative to
+    /// `Some`  this body PUBLISHES where its sprite quad goes relative to
     /// `pos` (see `ActorSpriteOffset`), and that placement is authoritative:
     /// the renderer centres the quad and shifts it by this, instead of using
     /// the sheet's one static feet anchor. The two are alternatives, never
     /// summed — a per-pose placement already accounts for the feet.
     ///
-    /// `None` (every other feature, and every actor that doesn't opt in) ⇒ the
+    /// `None` (every other feature, and every actor that doesn't opt in)  the
     /// legacy placement, unchanged.
     pub sprite_offset: Option<ae::Vec2>,
 }
@@ -130,7 +130,7 @@ impl FeatureViewIndex {
     ///
     /// A same-generation entry is kept (first wins); a stale prior-frame entry
     /// is refreshed in place; only a genuinely new id allocates a `String`.
-    /// **Build an index from explicit rows.**
+    /// Build an index from explicit rows.
     ///
     /// The per-frame rebuild is the only writer in production, and its inserts
     /// are private so nothing can slip a row into a live read-model out of band.

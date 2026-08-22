@@ -212,7 +212,7 @@ fn step_past_side(world: &World, past: f32) -> Option<ResetCause> {
     .reset
 }
 
-/// **The sides are opt-in, and that is the whole point.**
+/// The sides are opt-in, and that is the whole point.
 ///
 /// A platformer walking off the left edge of a room is transitioning to the
 /// next room; killing there would break every corridor in the game. A platform

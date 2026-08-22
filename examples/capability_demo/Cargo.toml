@@ -5,7 +5,7 @@ version = "0.1.0"
 edition = "2024"
 description = "A SENTINEL capability: one self-contained mechanic that contributes an authored schema, a semantic action, rollback state and causal facts without editing any central enum or the actor crate."
 
-# **its OWN workspace root**, like `examples/portal_tutorial` and
+# its OWN workspace root, like `examples/portal_tutorial` and
 # `fixtures/minimal_game`. That is not tidiness: a capability that proves an
 # OUTSIDE author can write one must be built the way an outsider builds it —
 # resolving `ambition_*` as ordinary path dependencies, with its own lock and no
@@ -34,7 +34,7 @@ ambition_content_pack = { path = "../../crates/ambition_content_pack" }
 ambition_causal = { path = "../../crates/ambition_causal", features = ["bevy"] }
 ambition_input = { path = "../../crates/ambition_input" }
 ambition_platformer2d_core = { path = "../../crates/ambition_platformer2d_core" }
-# **the SIM SCHEDULE seam, and it costs exactly ONE crate** (7 → 8 in the
+# the SIM SCHEDULE seam, and it costs exactly ONE crate (7 → 8 in the
 # closure). `SimScheduleExt` lives here and this crate depends only on
 # `ambition_platformer2d_core`, which was already present.
 #
@@ -44,7 +44,7 @@ ambition_platformer2d_core = { path = "../../crates/ambition_platformer2d_core" 
 # capability rather than claiming to be.
 ambition_platformer2d_shared_tangle = { path = "../../crates/ambition_platformer2d_shared_tangle" }
 bevy = { version = "0.18.1", default-features = false }
-# **declared explicitly, not inherited.** Outside the engine's workspace there
+# declared explicitly, not inherited. Outside the engine's workspace there
 # is no `workspace.dependencies` to inherit from — which is the point: this is
 # what an outside capability author's manifest actually looks like.
 ron = "0.11"

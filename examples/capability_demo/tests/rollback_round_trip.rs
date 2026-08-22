@@ -1,4 +1,4 @@
-//! **The GGRS round-trip the review asked for and the sentinel could not run.**
+//! The GGRS round-trip the review asked for and the sentinel could not run.
 //!
 //! Every other proof in this crate checks that the capability OFFERS its four
 //! halves and that a composition installs them. None of them proved the offer
@@ -13,11 +13,11 @@
 //! — which is answered by `Platformer2dSimHarness::app_mut()`: a fixture can
 //! now install systems onto a rollback session instead of a crate having to
 //! become a host. And the sentinel is untouched, because this arrives as a
-//! **dev-dependency**. The footprint ratchet reads `cargo tree --edges normal`,
+//! dev-dependency. The footprint ratchet reads `cargo tree --edges normal`,
 //! so the capability's own closure is exactly what it was; the same reasoning
 //! `ambition_platformer2d_runtime` and the SDK already sit here under.
 //!
-//! **a sync test is not a flavour of "run it twice".** Every frame is saved,
+//! a sync test is not a flavour of "run it twice". Every frame is saved,
 //! rewound and resimulated, and `rollback_health` compares the checksums. So an
 //! assertion here is not about one frame's value — it is that the value is
 //! reconstructible from the snapshot on every frame it existed.
@@ -66,7 +66,7 @@ fn compose(
     insert_session_world_component(app.world_mut(), set);
     app.insert_resource(ControlFrame::default());
 
-    // **the HOST half, which the harness does not supply.** Choosing the GGRS
+    // the HOST half, which the harness does not supply. Choosing the GGRS
     // schedule is not the same as installing GGRS: `AmbitionRollbackPlugin` is
     // what adds `GgrsPlugin`, the snapshot storage and `RollbackOrdered`.
     // Without it, `require_rollback` still fires its hook and the first
@@ -160,7 +160,7 @@ fn the_cooldown_the_profile_and_the_velocity_survive_a_real_rewind() {
     sim.step(AgentAction::default());
     sim.rollback_health().expect("the firing frame is clean");
 
-    // **The profile reached the runtime.** A default profile arms 45 ticks; the
+    // The profile reached the runtime. A default profile arms 45 ticks; the
     // authored one arms COOLDOWN_TICKS, so this number IS the profile.
     let armed = cooldown_of(&mut sim, firer);
     assert_eq!(
@@ -169,7 +169,7 @@ fn the_cooldown_the_profile_and_the_velocity_survive_a_real_rewind() {
          the runtime — the compiler would be validating content nothing reads"
     );
 
-    // **The velocity a pulse imparted is rollback state too.** Read it before
+    // The velocity a pulse imparted is rollback state too. Read it before
     // the rewinds so a later drift is visible as a change rather than as an
     // absence.
     let pushed = sim
@@ -184,7 +184,7 @@ fn the_cooldown_the_profile_and_the_velocity_survive_a_real_rewind() {
          only that zero survives a rewind"
     );
 
-    // **Every frame from here is saved, rewound and resimulated.** The cooldown
+    // Every frame from here is saved, rewound and resimulated. The cooldown
     // must age by exactly one per tick across all of it: a gate that failed to
     // rewind would age twice on a resimulated frame, and one that failed to
     // save would snap back.

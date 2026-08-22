@@ -1,7 +1,7 @@
-//! **Mary-O's repertoire, for the stage she visits rather than the one she
-//! lives on.**
+//! Mary-O's repertoire, for the stage she visits rather than the one she
+//! lives on.
 //!
-//! **AND IT CHANGES NOTHING IN HER OWN GAME**, which is the only reason this
+//! AND IT CHANGES NOTHING IN HER OWN GAME, which is the only reason this
 //! file is allowed to exist. Her catalog row authors `abilities: Some([RunJump])`
 //! — *"Mary-O Classic is deliberately only the run/jump floor"* — and `RunJump`
 //! does not include `attack`. A move table is *what the attack IS*; the ability
@@ -9,11 +9,11 @@
 //! moves are unreachable at home and reach a body the moment a stage GRANTS the
 //! verb, which the smash stage does (`MatchAbilities::levelled`).
 //!
-//! ⇒ that split is what makes "a classic platformer protagonist on a fighting
+//!  that split is what makes "a classic platformer protagonist on a fighting
 //! grid" expressible instead of a contradiction. Her jump physics, her one-hit
 //! death and her two on-screen buttons are untouched.
 //!
-//! **THE PARAGRAPH ABOVE WAS AN INTENT, NOT AN IMPLEMENTATION, FOR ITS FIRST DAY.** Nothing read
+//! THE PARAGRAPH ABOVE WAS AN INTENT, NOT AN IMPLEMENTATION, FOR ITS FIRST DAY. Nothing read
 //! the ability: `combat_actions` derived the Attack and Special slots from the MOVESET alone, so
 //! attaching this table put all twenty-three of her swings on a press in her own platformer. The
 //! guard is behavioural — `ambition_demo_mary_o_app`'s `mary_o_at_home_can_only_run_and_jump`
@@ -43,7 +43,7 @@ const FLAME_FX: f32 = 1.1;
 
 /// See the module doc. Sixteen presses.
 pub fn mary_o_moveset() -> MovesetContract {
-    // **JAB — `hop_kick`.** A quick boot. She does not have a punch.
+    // JAB — `hop_kick`. A quick boot. She does not have a punch.
     let jab = strike(
         "hop_kick",
         "jab",
@@ -61,7 +61,7 @@ pub fn mary_o_moveset() -> MovesetContract {
     let jab = vfx_at(jab, 0.05, "poof_small", (22.0, 2.0), STEP_FX);
     let jab = on_contact(jab, "player.hit");
 
-    // **FORWARD TILT — `sweep_kick`.** Low and out, at the height a goomba is.
+    // FORWARD TILT — `sweep_kick`. Low and out, at the height a goomba is.
     let f_tilt = strike(
         "sweep_kick",
         "attack_side",
@@ -79,7 +79,7 @@ pub fn mary_o_moveset() -> MovesetContract {
     let f_tilt = vfx_at(f_tilt, 0.07, "skid_puff", (28.0, 6.0), STEP_FX);
     let f_tilt = on_contact(f_tilt, "player.hit");
 
-    // **UP TILT — `header`.** The brick-breaking motion, aimed at a person.
+    // UP TILT — `header`. The brick-breaking motion, aimed at a person.
     let u_tilt = strike(
         "header",
         "attack_up",
@@ -97,7 +97,7 @@ pub fn mary_o_moveset() -> MovesetContract {
     let u_tilt = vfx_at(u_tilt, 0.07, "four_point_glint", (4.0, -26.0), STEP_FX);
     let u_tilt = on_contact(u_tilt, "player.hit");
 
-    // **DOWN TILT — `slide`.** The crouch-slide, which in her game is how you
+    // DOWN TILT — `slide`. The crouch-slide, which in her game is how you
     // get under things.
     let d_tilt = strike(
         "slide",
@@ -116,7 +116,7 @@ pub fn mary_o_moveset() -> MovesetContract {
     let d_tilt = vfx_at(d_tilt, 0.06, "skid_puff", (26.0, 14.0), STEP_FX);
     let d_tilt = on_contact(d_tilt, "player.hit");
 
-    // **FORWARD SMASH — `shell_kick`.** She kicks something that is not there
+    // FORWARD SMASH — `shell_kick`. She kicks something that is not there
     // and it goes anyway. the weakest forward smash on the grid: she is the
     // lightest fighter on it and the numbers say so rather than a comment.
     let f_smash = strike(
@@ -137,7 +137,7 @@ pub fn mary_o_moveset() -> MovesetContract {
     let f_smash = sfx(f_smash, 0.16, "player.attack.charge");
     let f_smash = on_contact(f_smash, "player.hit");
 
-    // **UP SMASH — `block_punch`.** Straight up into where the block would be.
+    // UP SMASH — `block_punch`. Straight up into where the block would be.
     let u_smash = strike(
         "block_punch",
         "smash_up",
@@ -155,7 +155,7 @@ pub fn mary_o_moveset() -> MovesetContract {
     let u_smash = vfx_at(u_smash, 0.15, "starburst", (2.0, -32.0), STEP_FX);
     let u_smash = on_contact(u_smash, "player.hit");
 
-    // **DOWN SMASH — `ground_pound`.** Both feet, once, hard.
+    // DOWN SMASH — `ground_pound`. Both feet, once, hard.
     let d_smash = strike(
         "ground_pound",
         "smash_down",
@@ -174,7 +174,7 @@ pub fn mary_o_moveset() -> MovesetContract {
     let d_smash = vfx_at(d_smash, 0.17, "landing_puff", (0.0, 22.0), STEP_FX);
     let d_smash = on_contact(d_smash, "player.hit");
 
-    // **NEUTRAL AIR — `tumble`.** The somersault her jump already does.
+    // NEUTRAL AIR — `tumble`. The somersault her jump already does.
     let n_air = strike(
         "tumble",
         "air_neutral",
@@ -192,7 +192,7 @@ pub fn mary_o_moveset() -> MovesetContract {
     let n_air = vfx_at(n_air, 0.06, "wind_curl", (0.0, 0.0), STEP_FX);
     let n_air = on_contact(n_air, "player.hit");
 
-    // **FORWARD AIR — `drop_kick`.** Both feet, forward and down.
+    // FORWARD AIR — `drop_kick`. Both feet, forward and down.
     let f_air = strike(
         "drop_kick",
         "air_forward",
@@ -210,7 +210,7 @@ pub fn mary_o_moveset() -> MovesetContract {
     let f_air = vfx_at(f_air, 0.08, "poof_small", (28.0, 2.0), STEP_FX);
     let f_air = on_contact(f_air, "player.hit");
 
-    // **BACK AIR — `mule_kick`.** She does not turn round.
+    // BACK AIR — `mule_kick`. She does not turn round.
     let b_air = strike(
         "mule_kick",
         "air_back",
@@ -228,7 +228,7 @@ pub fn mary_o_moveset() -> MovesetContract {
     let b_air = vfx_at(b_air, 0.09, "poof_small", (-28.0, 0.0), STEP_FX);
     let b_air = on_contact(b_air, "player.hit");
 
-    // **UP AIR — `flip_kick`.** Over the top, at whatever is above her.
+    // UP AIR — `flip_kick`. Over the top, at whatever is above her.
     let u_air = strike(
         "flip_kick",
         "air_up",
@@ -246,7 +246,7 @@ pub fn mary_o_moveset() -> MovesetContract {
     let u_air = vfx_at(u_air, 0.07, "wind_curl", (2.0, -26.0), STEP_FX);
     let u_air = on_contact(u_air, "player.hit");
 
-    // **DOWN AIR — `stomp`. THE MOVE SHE COMES FROM.** The hardest down-air on
+    // DOWN AIR — `stomp`. THE MOVE SHE COMES FROM. The hardest down-air on
     // the grid, because landing on things is the entire genre she is a
     // protagonist of. Everything else in her kit is light; this is not.
     let d_air = strike(
@@ -267,7 +267,7 @@ pub fn mary_o_moveset() -> MovesetContract {
     let d_air = sfx(d_air, 0.09, "player.land");
     let d_air = on_contact(d_air, "player.hit");
 
-    // **NEUTRAL — `fireball`.** The power-up her game is built around, thrown
+    // NEUTRAL — `fireball`. The power-up her game is built around, thrown
     // rather than carried. a swung volume rather than a spawned projectile:
     // spawning one would be a second authority on a pattern her own game already
     // owns.
@@ -290,7 +290,7 @@ pub fn mary_o_moveset() -> MovesetContract {
     let n_b = sfx(n_b, 0.14, "player.directional_special");
     let n_b = on_contact(n_b, "player.hit");
 
-    // **SIDE — `cape_spin`.** She turns once and whatever was next to her is on
+    // SIDE — `cape_spin`. She turns once and whatever was next to her is on
     // the other side of the argument.
     let side_b = strike(
         "cape_spin",
@@ -311,7 +311,7 @@ pub fn mary_o_moveset() -> MovesetContract {
     let side_b = vfx_at(side_b, 0.12, "wind_curl", (0.0, 0.0), FLAME_FX);
     let side_b = on_contact(side_b, "player.hit");
 
-    // **UP — `spring_jump`. THE RECOVERY**, and it is a JUMP, which is the only
+    // UP — `spring_jump`. THE RECOVERY, and it is a JUMP, which is the only
     // shape her recovery could honestly take. High and cheap to land: the
     // lightest fighter's way home.
     let mut up_b = strike(
@@ -335,7 +335,7 @@ pub fn mary_o_moveset() -> MovesetContract {
     let up_b = sfx(up_b, 0.06, "player.double_jump");
     let up_b = on_contact(up_b, "player.hit");
 
-    // **DOWN — `pipe_drop`.** She goes down and the floor objects. Grounded-only
+    // DOWN — `pipe_drop`. She goes down and the floor objects. Grounded-only
     // — the joke needs a pipe to be standing on.
     let down_b = strike(
         "pipe_drop",
@@ -366,7 +366,7 @@ pub fn mary_o_moveset() -> MovesetContract {
     // player pressing down-B in the air got the neutral-B. `special_air_down`
     // sits ahead of `special_down` in that chain and has the whole time; this is
     // the two-form move it exists for.
-    // **DOWN, IN THE AIR — `pipe_dive`.** No pipe up here, so she brings the
+    // DOWN, IN THE AIR — `pipe_dive`. No pipe up here, so she brings the
     // drop instead of the pipe. The genre's own move, and the one press of hers
     // that should never have been missing in the air.
     let mut air_down_b = strike(
@@ -388,7 +388,7 @@ pub fn mary_o_moveset() -> MovesetContract {
     let air_down_b = vfx_at(air_down_b, 0.09, "smoke_puff", (0.0, 22.0), STEP_FX);
     let air_down_b = on_contact(air_down_b, "player.hit");
 
-    // **MARY_O'S CAPTURE KIT.** The smallest capture box on the roster, because she is
+    // MARY_O'S CAPTURE KIT. The smallest capture box on the roster, because she is
     // the smallest body on it. Everything else is deliberately ordinary.
     // the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
     // and each table's own `every_clip_names_a_row_..._sheet_carries` guard says
@@ -474,7 +474,7 @@ pub fn mary_o_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: up_b,
-        // **AUTHORED, at the rule that every fighter in the smash roster have a grab.** The
+        // AUTHORED, at the rule that every fighter in the smash roster have a grab. The
         // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
         // the point of proving it was to stop being the only two.
         capture: SmashCaptureRepertoire {
@@ -508,7 +508,7 @@ mod tests {
     // `ambition_characters::smash_repertoire`, and by the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
-    /// **THE STOMP IS HER HARDEST HIT**, which is the identity claim the module
+    /// THE STOMP IS HER HARDEST HIT, which is the identity claim the module
     /// doc makes and the one a retune would quietly lose.
     #[test]
     fn the_down_air_hits_harder_than_anything_else_she_has() {

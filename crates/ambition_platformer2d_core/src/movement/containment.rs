@@ -1,4 +1,4 @@
-//! **Does this movement policy stay inside a room?**
+//! Does this movement policy stay inside a room?
 //!
 //! A motion model and a level are each correct alone and can be broken together. That is not a
 //! hypothesis: the surface-momentum solver had no horizontal collision on its riding arm for

@@ -126,7 +126,7 @@ impl GatePortalPhases {
         self.phases.entry(zone_id.to_owned()).or_default()
     }
 
-    /// ⛔ **`false` for an unknown zone**, because the caller has already asked
+    ///  `false` for an unknown zone, because the caller has already asked
     /// [`GatePortalRegistry::is_portal`]: a zone that IS a portal and has no
     /// phase yet has not booted, and an unbooted gate is shut.
     pub fn allows_traversal(&self, zone_id: &str) -> bool {
@@ -134,8 +134,8 @@ impl GatePortalPhases {
     }
 }
 
-/// **The value projection behind the `resource.gate_portal_phases` rollback
-/// registration** — the checksum a GGRS host folds into its per-frame desync
+/// The value projection behind the `resource.gate_portal_phases` rollback
+/// registration — the checksum a GGRS host folds into its per-frame desync
 /// detector, and the census a restore audit compares across a rewind.
 ///
 /// Every field that decides when `Opening` becomes `On` is projected here.
@@ -304,7 +304,7 @@ mod tests {
         assert!(!GatePortalPhase::Closing { elapsed: 0.0 }.allows_traversal());
     }
 
-    /// ⭐ **the phase is not recoverable from the switch** — which is the whole
+    ///  the phase is not recoverable from the switch — which is the whole
     /// argument for [`GatePortalPhases`] being rollback state.
     ///
     /// Two timelines that agree exactly on the switch (on, the entire time) but
@@ -314,7 +314,7 @@ mod tests {
     /// left the phase alone reproduces exactly this disagreement — six ticks of
     /// divergence is well inside an ordinary rollback depth.
     ///
-    /// ⚠ both terms are observed: the test fails if the ahead timeline is NOT
+    ///  both terms are observed: the test fails if the ahead timeline is NOT
     /// traversable, and fails if the behind timeline IS.
     #[test]
     fn the_phase_is_not_a_function_of_the_switch_alone() {
@@ -374,11 +374,11 @@ mod tests {
         phases
     }
 
-    /// ⛔ **a presence-only projection would agree with the bug.** The registration
+    ///  a presence-only projection would agree with the bug. The registration
     /// this backs exists because an `elapsed` timer ran ahead of the switch that
     /// drove it, and every zone stayed present the whole time.
     ///
-    /// ⚠ both terms are observed: identical states must AGREE, and a one-tick
+    ///  both terms are observed: identical states must AGREE, and a one-tick
     /// difference in `elapsed` — plus a variant change carrying no payload at all
     /// — must DISAGREE. A projection that hashed only the key set passes the
     /// first assertion and fails the rest.
@@ -454,7 +454,7 @@ mod tests {
         );
     }
 
-    /// **A registrar that records what it was handed, and nothing else.**
+    /// A registrar that records what it was handed, and nothing else.
     ///
     /// It has no rollback backend and no `App` — which is the point: the
     /// registration this domain performs is expressible against the floor
@@ -483,14 +483,14 @@ mod tests {
         }
     }
 
-    /// ⛔⛔ **the registration must hand over the VALUE projection, not a
-    /// presence probe.** `the_phase_projection_sees_the_elapsed_timer_and_the_variant`
+    ///  the registration must hand over the VALUE projection, not a
+    /// presence probe. `the_phase_projection_sees_the_elapsed_timer_and_the_variant`
     /// proves the projection is value-sensitive; it says nothing about whether the
     /// registration actually uses it. This closes that gap from the domain side —
     /// the function under test is the whole registration, and the checksum it
     /// registered is pulled back out and fed diverging states.
     ///
-    /// ⚠ both terms are observed: the call is asserted to have happened at all (an empty
+    ///  both terms are observed: the call is asserted to have happened at all (an empty
     /// `calls` fails), AND the registered function is asserted to separate two states that
     /// differ only in `elapsed`.
     #[test]

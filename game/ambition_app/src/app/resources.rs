@@ -21,7 +21,7 @@ use super::cli::cli_start_room_arg;
 #[derive(Resource, Clone, Debug)]
 pub struct StartRoomOverride(pub String);
 
-/// **Treat an unresolvable [`StartRoomOverride`] as FATAL.**
+/// Treat an unresolvable [`StartRoomOverride`] as FATAL.
 ///
 /// The ordinary behaviour is a warning and the authored start room, which is
 /// right for the game: a stale `--start-room` in someone's shell history should
@@ -42,8 +42,8 @@ pub struct StartRoomMustResolve;
 #[derive(Resource, Clone, Debug, Default)]
 pub struct StartingCharacterOverride(pub ambition_platformer2d::actors::avatar::StartingCharacter);
 
-/// **Host composition input: this composition SEATS A MATCH into Ambition's
-/// world, so it must not also lower a home avatar.**
+/// Host composition input: this composition SEATS A MATCH into Ambition's
+/// world, so it must not also lower a home avatar.
 ///
 /// Same shape and same lifetime as [`StartingCharacterOverride`] — consumed
 /// during preparation, never gameplay authority — and it answers the other half
@@ -107,7 +107,7 @@ pub fn init_sandbox_resources(app: &mut App) {
                 .clone(),
         )
     };
-    // **K2b edit 4: the direct-entry AUDIO branch is gone with its host.**
+    // K2b edit 4: the direct-entry AUDIO branch is gone with its host.
     //
     // It selected the active audio authority statically at composition, on the
     // argument that a direct-entry process runs exactly one provider. There is
@@ -225,7 +225,7 @@ pub fn init_sandbox_resources(app: &mut App) {
         .world_mut()
         .remove_resource::<StartRoomOverride>()
         .map(|r| r.0);
-    // **A FLAG A HUMAN TYPED IS A REQUEST, NOT A PREFERENCE.**
+    // A FLAG A HUMAN TYPED IS A REQUEST, NOT A PREFERENCE.
     //
     // * a PROGRAMMATIC override comes from a library caller (`Platformer2dSimHarness`, the RL
     //   harness) that may legitimately name a room outside this composition;
@@ -301,7 +301,7 @@ pub fn init_sandbox_resources(app: &mut App) {
         builds_a_home_body,
     });
 
-    // **the watcher does not resolve its own path any more**. The catalog, the manifest and this
+    // the watcher does not resolve its own path any more. The catalog, the manifest and this
     // binary's `dev_hot_reload` feature all live HERE, so the resolution does too.
     //
     // and the feature check is only truthful here.

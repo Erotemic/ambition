@@ -1,4 +1,4 @@
-//! **Consumer-matrix row 5: Smash.**
+//! Consumer-matrix row 5: Smash.
 //!
 //! Smash proves "participants, character selection, atomic match lifecycle,
 //! scoped rules, rollback".
@@ -36,7 +36,7 @@ impl ambition_platformer2d::bevy::prelude::Plugin for VersusCapability {
     }
 }
 
-/// **A two-participant stage composes through the SDK and seats its cast.**
+/// A two-participant stage composes through the SDK and seats its cast.
 #[test]
 fn the_versus_stage_composes_and_seats_two_participants() {
     let mut app = PlatformerApp::headless()
@@ -83,7 +83,7 @@ fn the_versus_stage_composes_and_seats_two_participants() {
     );
 }
 
-/// **The fifth property: rollback, with TWO participants.**
+/// The fifth property: rollback, with TWO participants.
 ///
 /// Two is the number that matters, and one would have been the easy version of this test. A
 /// single-participant Smash proof would reproduce exactly that blind spot in the test that exists
@@ -167,14 +167,14 @@ fn the_versus_stage_rolls_back_with_two_participants() {
     );
 }
 
-/// **The match has two distinct seated bodies, and it simulates with both.**
+/// The match has two distinct seated bodies, and it simulates with both.
 ///
 /// The gamepads were theatre.
 ///
 /// Deleting the theatre leaves a sharper statement of blind run 7's finding (g)
 /// than the run made. It reported "N participants get one body". The truth is
-/// worse in a more useful way: **`RollbackSession::participants()` and the
-/// seating are independent facts and nothing reconciles them.** The count
+/// worse in a more useful way: `RollbackSession::participants()` and the
+/// seating are independent facts and nothing reconciles them. The count
 /// reaches GGRS (how many input streams are checksum-compared); the seating
 /// comes from the stage and its devices. A composition can declare four and
 /// seat two, and no error says so.
@@ -236,10 +236,10 @@ fn the_match_has_two_distinct_seats_and_simulates_with_both() {
     );
 }
 
-/// **The versus stage's CPU roster is seatable by the composition the SDK
-/// builds.** (API 1.0 row (g))
+/// The versus stage's CPU roster is seatable by the composition the SDK
+/// builds. (API 1.0 row (g))
 ///
-/// **it has to run against THIS composition, not the full app.** Written first against
+/// it has to run against THIS composition, not the full app. Written first against
 /// `versus_app()` — the whole game, which composes `ambition_content` and therefore does have
 /// `medium_striker` — and it stayed green with the original bug put back.
 #[test]

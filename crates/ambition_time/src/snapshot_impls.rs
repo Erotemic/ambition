@@ -34,7 +34,7 @@ impl SnapshotState for crate::WorldTime {
     }
 }
 
-/// **A body's proper-time dilation** (ADR 0011): hitstop, bullet-time, a boss's slow.
+/// A body's proper-time dilation (ADR 0011): hitstop, bullet-time, a boss's slow.
 /// Every move clock and every brain timer advances on `world_time.entity_dt(scale)`, so
 /// a stale scale makes a rewound body live in a differently-paced universe.
 impl SnapshotState for crate::ProperTimeScale {

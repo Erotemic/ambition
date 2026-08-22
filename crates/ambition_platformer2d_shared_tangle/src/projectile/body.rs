@@ -95,8 +95,8 @@ impl ProjectileGameplay {
         true
     }
 
-    /// Compatibility seam for legacy call sites/tests that only model vertical
-    /// gravity. New code should call [`Self::tick`] with a full direction.
+    /// TODO(compat-remove): migrate callers to [`Self::tick`] with a full gravity direction,
+    /// then delete this scalar-gravity wrapper.
     pub fn tick_with_gravity_sign(
         &mut self,
         body: &mut BodyKinematics,

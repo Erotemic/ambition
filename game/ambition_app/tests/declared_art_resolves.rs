@@ -1,22 +1,5 @@
-//! **Every declared art id must name a file that exists.**
-//!
-//! > Every row in the table above was found by a player noticing something
-//! > missing, not by a test.
-//!
-//! Content declares a `sprite` id, the resolution returns `None`, the caller treats it as an
-//! art-free build, and the pickup **simulates perfectly while producing nothing at all**. No
-//! warning, no log line, no failing test.
-//!
-//! *"it puts the cost on every launch forever to catch a class of mistake that is
-//! made at authoring time."* The triage's recommendation is a TEST as the gate,
-//! which costs the shipped binary nothing, and it named the direction that was
-//! missing: the existing `every_*` tests check target → catalog, and every one of
-//! those five bugs was the other way round, a declared id → a target that does
-//! not exist.
-//!
-//! This asserts against the composed SHIPPED host, not against a fixture. A
-//! provider that declares art nobody generated is exactly the case, and only the
-//! real composition knows which providers are in the build.
+//! Every art path declared by the assembled host must resolve to a mounted file.
+//! This checks declaration-to-file resolution across the real provider composition.
 
 use std::path::{Path, PathBuf};
 
@@ -46,15 +29,7 @@ fn resolves(declared: &str, roots: &[PathBuf]) -> bool {
     roots.iter().any(|root| root.join(relative).is_file())
 }
 
-/// **The poison.** Every check in this file spells its success as "the set of
-/// unresolved paths is EMPTY", which is the strongest assertion available and
-/// also the one that goes green forever the moment `resolves` starts answering
-/// `true` unconditionally — a one-character edit, or an asset root that grows a
-/// catch-all. Nothing here would notice.
-///
-/// every other census in this repo grew a poison after being caught measuring
-/// nothing: the regen orphan scan, the catalog placement scan, the hall pedestal
-/// pairing. This file's checks are older than that lesson.
+/// Non-vacuity control: a path that does not exist must fail resolution.
 #[test]
 fn the_resolver_can_actually_report_a_missing_file() {
     let roots = asset_roots();
@@ -220,13 +195,13 @@ fn every_declared_music_track_path_names_a_file_that_exists() {
     );
 }
 
-/// **A character's FACE, which is the fourth member of this family and the one
-/// a select screen found.**
+/// A character's FACE, which is the fourth member of this family and the one
+/// a select screen found.
 ///
 /// `CharacterCatalog::portrait_ref` derives `sprites/<stem>_portraits.png` from
 /// the gameplay spritesheet's own name. That convention is good — a character
 /// gets a portrait for free — and it has the exact failure this file exists for:
-/// **a derived path is not a promise that the art was generated.** The path
+/// a derived path is not a promise that the art was generated. The path
 /// resolves, the asset server fails the load asynchronously, the `ImageNode`
 /// draws nothing, and every layer below is silent.
 ///
@@ -235,7 +210,7 @@ fn every_declared_music_track_path_names_a_file_that_exists() {
 fn every_catalog_character_that_derives_a_portrait_has_the_art() {
     use ambition_platformer2d::character::CharacterCatalog;
 
-    /// **Characters whose portrait art was never generated.**
+    /// Characters whose portrait art was never generated.
     ///
     /// One missing generator target, six blank faces, no error anywhere.
     ///
@@ -246,7 +221,7 @@ fn every_catalog_character_that_derives_a_portrait_has_the_art() {
     /// `super_mary_o_portraits.png` sat next door looking like coverage. The
     /// sheet name diverged; the pipeline never broke.
     ///
-    /// **asserted as a SET, so it holds in both directions.** A new character
+    /// asserted as a SET, so it holds in both directions. A new character
     /// with no art fails here, and so does an entry left behind after its art
     /// arrives — the same staleness the rollback resource ratchet had to grow a
     /// second assert to prevent.
@@ -291,13 +266,13 @@ fn every_catalog_character_that_derives_a_portrait_has_the_art() {
     );
 }
 
-/// **The SHEET, which is the stronger form of the question above.**
+/// The SHEET, which is the stronger form of the question above.
 ///
 /// A portrait is a face; the spritesheet is the character. Generated art is gitignored, so a
 /// sheet nobody's batch produces exists only on the machine that once rendered it, and the
 /// failure shows up as a clone with no character in it.
 ///
-/// **and it CANNOT answer the fresh-clone question, which is the one that bites.** Generated art is
+/// and it CANNOT answer the fresh-clone question, which is the one that bites. Generated art is
 /// gitignored, so this test sees whatever the machine running it happens to have rendered — a sheet
 /// that no batch publishes but that was made by hand a year ago passes here and is absent on a
 /// clone. What it does catch is a catalog row naming art that is nowhere at all, which is the typo

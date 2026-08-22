@@ -63,7 +63,7 @@ pub struct PlayerSimulationBundle {
     pub safety: PlayerSafetyState,
     pub faction: ActorFaction,
     pub name: Name,
-    /// **Who drives this body.** The home avatar is spawned already seated:
+    /// Who drives this body. The home avatar is spawned already seated:
     /// `DrivingParticipant(PRIMARY)` is what `tick_controlled_brains` keys on to
     /// turn `SlotControls[PRIMARY]` into this body's `ActorControl`. No input
     /// frame is copied onto the body.
@@ -71,7 +71,7 @@ pub struct PlayerSimulationBundle {
     /// this replaced `brain: Brain::Player(slot)` — the seat is a fact about a
     /// PERSON, and it never belonged inside an AI-policy enum.
     pub driver: DrivingParticipant,
-    /// **What this body does when NOBODY is driving it**, which for the home
+    /// What this body does when NOBODY is driving it, which for the home
     /// avatar is: nothing.
     ///
     /// it is a real answer, not a placeholder.
@@ -140,7 +140,7 @@ impl PlayerSimulationBundle {
         health: ambition_characters::actor::Health,
     ) -> Self {
         let action_set = default_player_action_set(scratch.abilities.abilities);
-        // **ONE construction for the host code kit's moves.**
+        // ONE construction for the host code kit's moves.
         //
         // This built them inline — `build_actor_moveset(None, melee, None,
         // special)` then the robot-blade SFX stamp — and so does the persona
@@ -218,7 +218,7 @@ impl PlayerSimulationBundle {
 
     /// Like [`from_scratch`](Self::from_scratch), but the player spawns *as* the
     /// catalog character `character_id`: its display name becomes the entity
-    /// [`Name`], and its authored ActionSet **IS the kit** — wearing is a full
+    /// [`Name`], and its authored ActionSet IS the kit — wearing is a full
     /// re-parametrisation of the one control box (possession semantics: a
     /// goblin swipes, a pirate fires a pistol, a peaceful character does not
     /// secretly shoot the robot's fireballs). Slots the character leaves empty
@@ -240,7 +240,7 @@ impl PlayerSimulationBundle {
         scratch: ae::BodyClusterScratch,
         health: ambition_characters::actor::Health,
         character_id: &str,
-        // **THE PREPARED CAST**, when the caller has one.
+        // THE PREPARED CAST, when the caller has one.
         //
         // this parameter did not exist and the call below passed `None` with
         // the comment *"a from-scratch bundle predates the world it will live in,
@@ -252,7 +252,7 @@ impl PlayerSimulationBundle {
         // the protagonist's own repertoire was invisible on the one path that
         // spawns the protagonist.
         prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
-        // **HOW THIS BODY FIRES, handed back to the caller**.
+        // HOW THIS BODY FIRES, handed back to the caller.
         ranged: &mut ambition_characters::brain::RangedExecution,
     ) -> Self {
         // The body's code-side capability set — the source of the protagonist's
@@ -312,7 +312,7 @@ pub(crate) fn default_player_action_set(abilities: ae::AbilitySet) -> ActionSet 
         melee: abilities
             .attack
             .then_some(MeleeActionSpec::Swipe(SwipeSpec {
-                // **NO WINDUP. The player's attack comes out on the press.**
+                // NO WINDUP. The player's attack comes out on the press.
                 // get a yellow hitbox — before it turns into a gray hitbox that
                 // activates with the vfx. I think this is supposed to be a
                 // telegraph, but the player robot shouldn't have that. The attack

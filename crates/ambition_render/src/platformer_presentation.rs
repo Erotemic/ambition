@@ -1,41 +1,11 @@
-//! **The presentation face a demo can add** — [`PlatformerPresentationPlugin`].
+//! Generic platformer room presentation.
 //!
-//! Filed as oracle-violation **OV1** (`docs/planning/tracks.md`) and closed here.
-//!
-//! ## Why this exists
-//!
-//! `docs/planning/demos/README.md` says a demo's app shell is "~100 lines:
-//! foundation + engine group + host group + content". The shell built at playbook
-//! exit 3 (`game/ambition_demo_sanic_app`) proved that assembles and steps the
-//! real sim — and then drew nothing, because **drawing a room was app-local**:
-//! `ambition_app` spawned the main camera itself, called `spawn_room_visuals`
-//! itself, and assembled the sprite pipeline from a dozen private `install_*`
-//! helpers. Drawing a room is not content. Every demo would have copied the code.
-//!
-//! Everything this plugin needs already lived in this crate. That is all OV1 ever was.
-//!
-//! ## What it does, and what it deliberately does not
-//!
-//! Adds the generic platformer presentation:
-//! - the main `Camera2d` (gameplay layer + the parallax background layer), bound to the local view it presents. (It also publishes the `MainCameraEntity` spawn record; nothing in production reads it — `camera_follow` resolves each camera through its own `PresentsView` link, and has since.);
-//! - the active room's static visuals — blocks, grid, water, ladders, props — spawned at `Startup`. Room transitions rebuild them through `respawn_room_visuals_on_request`, which the animation plugin already registers and the sim already drives, so a demo gets room changes for free;
-//! - the per-frame sprite/animation chain ([`PresentationVisualAnimationPlugin`]) and the player-visual schedule ([`PlayerVisualSchedulePlugin`]).
-//!
-//! It does NOT add Ambition's HUD, its menus, its dev overlays, its audio, its
-//! portal-window render, or its kaleidoscope cube. Those are the GAME's, and
-//! `ambition_app` keeps assembling them on top. A demo that wants a HUD builds its
-//! own — that is what "owns" means in the demos doctrine.
-//!
-//! ```ignore
-//! app.add_plugins(ambition_platformer2d_runtime::PlatformerEnginePlugins::fixed_tick());
-//! app.add_plugins(ambition_platformer2d_host::PlatformerHostPlugins);
-//! app.add_plugins(ambition_render::PlatformerPresentationPlugin); // ← this
-//! app.add_plugins(MyDemoContentPlugin);
-//! ```
-//!
-//! Without a `GameAssets` resource every block draws as a colored rectangle,
-//! which is exactly what a demo with no art should see, and exactly what
-//! `spawn_block` already does.
+//! [`PlatformerPresentationPlugin`] installs the gameplay camera, room/parallax
+//! visuals, sprite animation, and player-visual scheduling. Session room visuals
+//! can also be installed independently by hosts with their own camera stack.
+//! HUD, menus, audio, dev overlays, and game-specific presentation remain host
+//! responsibilities. Missing art falls back to the renderer's ordinary block
+//! representation.
 
 use bevy::prelude::*;
 
@@ -89,7 +59,7 @@ impl Plugin for SessionRoomVisualsPlugin {
             Update,
             sync_session_room_visuals.in_set(SessionScopeSet::Presentation),
         );
-        // **the per-block art override, beside the pass that spawns blocks.**
+        // the per-block art override, beside the pass that spawns blocks.
         // `spawn_room_visuals` resolves a block's texture from its `BlockKind`
         // alone, so every solid in a room is one picture; `BlockArt` is how a
         // game says otherwise, and `apply_block_art` is what makes saying it
@@ -98,7 +68,7 @@ impl Plugin for SessionRoomVisualsPlugin {
         // it, or the seam exists everywhere and functions in the shipped app
         // only.
         app.add_systems(Update, crate::rendering::apply_block_art);
-        // **the same lesson as the label pass above, one family over.** The
+        // the same lesson as the label pass above, one family over. The
         // parallax THEME load lived in `game/ambition_app`'s room-transition
         // machinery, so a room in a second biome had a backdrop in the shipped
         // host and none anywhere else — silently, because `spawn_parallax_layers`
@@ -118,40 +88,10 @@ impl Plugin for SessionRoomVisualsPlugin {
                 .chain()
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
         );
-        // **and the layers have to MOVE.** `sync_parallax_layers` was
-        // app-local too, which is the same class one step further along: in
-        // every other composition the backdrop spawned at the world origin and
-        // stayed there, so it slid out of frame as the camera walked away and
-        // the one thing a parallax layer is for — moving at its own rate —
-        // never happened. `camera_follow` is DEFINED in this crate and
-        // REGISTERED by `ambition_platformer2d_host`, so ordering against it here is legal
-        // and is a no-op in a composition that has no camera follow.
-        //
-        // **and each LIVE VIEW gets its own set of them, then each set is
-        // placed against its own camera.** A panel's offset is a function of
-        // where its camera stands and its size a function of that camera's
-        // viewport rectangle, so one shared panel cannot serve two views — the
-        // same reason world labels and nameplates became per-view projections.
-        // The mirror claims the room's panel for the lowest-id view and copies
-        // it for the rest; the sync places every copy against the camera that
-        // draws it.
-        //
-        // **`chain()` is load-bearing for its SYNC POINT**, exactly as it is in
-        // `WorldLabelLayoutPlugin`: the mirror spawns copies and re-keys the
-        // roots through `Commands`, and the sync immediately after selects panels
-        // BY that key. Ordered without the flush between them, every copy would
-        // be placed one frame after it appeared — one frame of a screen-sized sky
-        // at the world origin, which is the picture this whole family exists to
-        // stop drawing.
-        //
-        // **and it runs after the refresh**, so a quality change that despawns
-        // and respawns the whole backdrop has flushed before the mirror counts
-        // what is mirrored; otherwise the mirror would copy roots that are
-        // already condemned and leave the copies orphaned for a frame.
-        //
-        // No `session_world_exists` guard: it reads camera transforms, view
-        // components and layer transforms, all of which exist or do not on their
-        // own.
+        // Each live view owns its own parallax layers because placement depends on that view's
+        // camera and viewport. Chain mirror -> sync so spawned/re-keyed copies flush before sync,
+        // and run after refresh so quality-driven respawns have settled. No session-world guard is
+        // needed; these systems operate only on the view/layer entities that exist.
         app.add_systems(
             Update,
             (
@@ -211,8 +151,8 @@ fn spawn_main_camera(
 ) {
     let layers = bevy::camera::visibility::RenderLayers::layer(0)
         .with(ambition_platformer2d_shared_tangle::camera_layers::PARALLAX_BACKGROUND_LAYER);
-    // **this read `views.iter().next()`, which is the take this whole seam
-    // exists to delete.** With one view it is right; with two it silently binds
+    // this read `views.iter().next()`, which is the take this whole seam
+    // exists to delete. With one view it is right; with two it silently binds
     // this rig to whichever view the archetype happened to yield first, and every
     // downstream resolve then faithfully honours a link that was a coin flip —
     // the process-global "the gameplay view" restored as a spawn-time guess, and
@@ -226,12 +166,12 @@ fn spawn_main_camera(
     // link off makes every consumer decline loudly rather than present the wrong
     // view, which is the standard the rest of this seam already holds.
     //
-    // **and "binds them itself" is now a call, not an instruction to copy this
-    // wiring**: `ambition_sim_view::compose_local_views` spawns N views with
+    // and "binds them itself" is now a call, not an instruction to copy this
+    // wiring: `ambition_sim_view::compose_local_views` spawns N views with
     // exactly the facts the engine's single-view path spawns, binds one camera to
     // each, and takes a `ViewPlacement` to lay them out.
     //
-    // **AND THE UNBINDABLE RIG IS NOT SPAWNED AT ALL.** Declining only the
+    // AND THE UNBINDABLE RIG IS NOT SPAWNED AT ALL. Declining only the
     // LINK left a full-screen `MainCamera` in the world that every consumer
     // refused — so a split-screen composition got its two correct panes plus a
     // third camera drawing the world at the origin over the top of them, and the
@@ -251,8 +191,8 @@ fn spawn_main_camera(
                     Name::new("Main Camera"),
                 ))
                 .id();
-            // **published through the shared writer, which refuses a SECOND rig
-            // instead of letting the last one win.** `MainCameraEntity` is a
+            // published through the shared writer, which refuses a SECOND rig
+            // instead of letting the last one win. `MainCameraEntity` is a
             // single-camera spawn record with no production reader — a full-screen
             // UI node that wants the whole display targets a display-scoped
             // camera, not whichever gameplay rig this happens to be.

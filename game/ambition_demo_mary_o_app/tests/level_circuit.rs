@@ -1,17 +1,6 @@
-//! **1-1 leads to 1-2, and 1-2 leads back — on the real schedule.**
-//!
-//! **the unit tests for this were green while the return leg was broken.** `exit_for_room`
-//! answered correctly for both rooms and every wiring assertion passed, but the resource
-//! carrying that answer was installed ONCE at Startup from `MaryOEntryRoom` — the room the
-//! session STARTS in.
-//!
-//! **`install_goal_pole`'s own comment warns about exactly this** — *"a goal
-//! you can reach in a room whose exit belongs to another one"* — and it shipped
-//! anyway, because a question answered once is a question whose two halves can
-//! drift. This test is the one that rode it.
-//!
-//! **it drives the schedule and reads the ROOM**, rather than asserting on the resource. A test
-//! that checked `exit_for_room` again would have stayed green.
+//! Verify the authored Mary-O level circuit through the real schedule: 1-1
+//! leads to 1-2 and 1-2 leads back. The tests assert the authoritative active
+//! room rather than only checking the exit lookup that feeds the transition.
 
 use bevy::prelude::*;
 
@@ -22,15 +11,10 @@ use ambition_platformer2d::actors::actor::PrimaryPlayer;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::world::rooms::RoomSet;
 
-/// a liveness backstop, not a measurement: it exists so a broken transition fails with a message
-/// instead of hanging, and the assertion below is about WHICH room, never about when.
+/// Liveness cap only; transition timing is not part of the assertion.
 const COMMIT_CAP: usize = 600;
 
-/// The id of the room that is AUTHORITATIVE right now.
-///
-/// Both levels are authored areas now and the composer names a world after its area id (`"Ambition:
-/// mary o 1 2"`), so the substring stopped meaning anything. The ROOM ID is the fact the transition
-/// changes; ask for it.
+/// Authoritative active room id.
 fn room_id(app: &mut App) -> Option<String> {
     let mut q = app.world_mut().query::<&RoomSet>();
     q.iter(app.world())
@@ -60,14 +44,9 @@ fn finish_the_level(app: &mut App, from: &str) -> String {
     panic!("finishing `{from}` never changed the room within {COMMIT_CAP} frames");
 }
 
-/// **Walk into the pole the LEVEL authors, and leave the level.**
-///
-/// **it PLACES the body at the pole rather than walking to it.** The two tests
-/// that walked 1-1 for real are `#[ignore]`d — *"route tuned to 1-1's old
-/// arrangement"* — which is the honest fate of a route test: it rots every time
-/// the level moves, and then it is switched off and covers nothing. What must
-/// not rot is that touching the authored pole ends the level, so the pole's
-/// position is read from the level and only the arrival is faked.
+/// Place the body at the level's authored pole and verify that contact exits
+/// the level. The pole position comes from content so geometry changes do not
+/// invalidate the mechanism test.
 #[test]
 fn grabbing_the_authored_pole_carries_you_out_of_the_level() {
     let mut app = ambition_demo_mary_o_app::build_demo_app();
@@ -92,7 +71,7 @@ fn grabbing_the_authored_pole_carries_you_out_of_the_level() {
     let mut released_before_leaving = false;
     for _ in 0..COMMIT_CAP {
         app.update();
-        // **the ROOM is read first, and that ordering is the test.** Arriving rearms the sequence
+        // the ROOM is read first, and that ordering is the test. Arriving rearms the sequence
         // to `Idle` on purpose — that is the next lap being armed, not a release. Checking `Idle`
         // before the room flagged the arrival frame itself and failed against the CORRECT
         // behaviour.
@@ -111,7 +90,7 @@ fn grabbing_the_authored_pole_carries_you_out_of_the_level() {
                      changing afterwards only hides it when nothing drops the request."
                 );
                 assert_eq!(id, LEVEL_1_2_ROOM_ID, "1-1's goal names 1-2");
-                // **AND IT HAS TO STAY THERE.** The first version of the keep-asking fix remembered
+                // AND IT HAS TO STAY THERE. The first version of the keep-asking fix remembered
                 // only THAT it had asked, not WHERE, so the arrival test compared the active room
                 // against a destination re-derived this tick — which, on arriving in 1-2, is
                 // already 1-2's own exit back to 1-1.
@@ -145,20 +124,20 @@ fn grabbing_the_authored_pole_carries_you_out_of_the_level() {
     );
 }
 
-/// **The circuit: finishing every authored level eventually comes home.**
+/// The circuit: finishing every authored level eventually comes home.
 ///
-/// **this asserted the LENGTH of the chain, and a third level broke it.**
+/// this asserted the LENGTH of the chain, and a third level broke it.
 /// It hard-coded *"finishing 1-2 returns to 1-1"* — true only while 1-2 was the
 /// last level. Authoring `mary_o_1_3` in LDtk cost no Rust to describe and still
 /// reddened this file, because the test had pinned the shape of the world
 /// instead of the property being claimed.
 ///
-/// **the property is "a circuit, not a dead end", and it does not mention a
-/// count.** So walk until the entry comes back around, and let the roster say
+/// the property is "a circuit, not a dead end", and it does not mention a
+/// count. So walk until the entry comes back around, and let the roster say
 /// how long that takes: a fourth level authored tomorrow extends the walk rather
 /// than failing it.
 ///
-/// **and the walk is still bounded.** A dead end or a short loop that never
+/// and the walk is still bounded. A dead end or a short loop that never
 /// reaches the entry must FAIL rather than hang, so the cap is one hop per
 /// authored area plus one — enough for the real circuit, never enough to hide a
 /// broken one.

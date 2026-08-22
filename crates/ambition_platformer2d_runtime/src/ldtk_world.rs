@@ -4,7 +4,7 @@
 
 use bevy::app::{App, Plugin};
 
-/// **A game with an LDtk world adds this; nothing else does.**
+/// A game with an LDtk world adds this; nothing else does.
 ///
 /// Installs the LDtk runtime spine (index rebuild chain + its index resources)
 /// and registers the LDtk runtime index's rollback row. Deliberately NOT part

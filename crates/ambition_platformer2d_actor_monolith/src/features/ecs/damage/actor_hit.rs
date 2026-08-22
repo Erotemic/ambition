@@ -114,7 +114,7 @@ pub(crate) fn apply_actor_hit(
     // the ENEMY default today). The victim owns its spray/debris; the attack owns
     // only the strike sound.
     hurt: ambition_vfx::HurtFeedback,
-    // **Does this hit come off a HEAVY attacker?** — the heavier launch and the
+    // Does this hit come off a HEAVY attacker? — the heavier launch and the
     // longer hitstun (`feel.boss_*`).
     //
     // That is a source-specific formula for a fact about the ATTACKER, and it could only ever be
@@ -125,7 +125,7 @@ pub(crate) fn apply_actor_hit(
     writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
     let session_scope = writers.session_spawn_scope();
-    // **THE QUESTION IS COMBAT STANDING, NOT SOCIAL MOOD.** This asked
+    // THE QUESTION IS COMBAT STANDING, NOT SOCIAL MOOD. This asked
     // `disposition.is_peaceful()`, which made
     // `ActorDisposition` answer two things at once: *how does this actor regard
     // combat* and *may this body be hurt*. A fighter somebody entered into a
@@ -137,7 +137,7 @@ pub(crate) fn apply_actor_hit(
     // body's brain currently thinks. The provoke-before-damage behaviour a town
     // NPC needs is unchanged, because a town NPC is in no fight.
     //
-    // **and it is `ActiveCombatant`, not `RulesetOwnsDeath`** — this asked the
+    // and it is `ActiveCombatant`, not `RulesetOwnsDeath` — this asked the
     // death-ownership marker, which correlates and does not mean the same thing.
     // An eliminated fighter's body keeps standing, its death still belongs to
     // the match, and it is not fighting; the correlation breaks exactly there.
@@ -238,7 +238,7 @@ pub(crate) fn apply_actor_hit(
             .surface_normal
             .normalize_or(ae::Vec2::new(0.0, -1.0));
         let caps = em.caps.clone();
-        // **What the body is actually holding**, captured beside `caps` and for
+        // What the body is actually holding, captured beside `caps` and for
         // the same reason: the death branch below runs after the resolver has
         // borrowed `em` mutably, and this is a read of pre-death state.
         let held_at_death = em.held_item.map(|held| held.spec.clone());
@@ -464,7 +464,7 @@ pub(crate) fn apply_actor_hit(
             }
         }
         if killed && ruleset_owns_death {
-            // **THE KO, announced** (S4). This branch is exactly where a match
+            // THE KO, announced (S4). This branch is exactly where a match
             // rather than the world takes over, so it is where the stocks loop
             // is told. Health is the wrong signal for it: an `Unbounded`
             // fighter's pool is FULL at the moment it is thrown off the stage,

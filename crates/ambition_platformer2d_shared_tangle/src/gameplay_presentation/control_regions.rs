@@ -394,8 +394,8 @@ enum Corner {
 
 /// The pre-existing behavior: full-size, anchored to a device-safe corner.
 ///
-/// **"full-size" was UNCONDITIONAL, and the whole scaling ladder beside it applied only to the
-/// surround rungs.** `place_in_column` asks `scale_within` — the largest uniform scale that still
+/// "full-size" was UNCONDITIONAL, and the whole scaling ladder beside it applied only to the
+/// surround rungs. `place_in_column` asks `scale_within` — the largest uniform scale that still
 /// clears `minimum` — and this rung asked nothing, so a cluster larger than the safe rect got `min
 /// = safe.max - size`, which is a corner OUTSIDE the safe area. Controls placed off the edge of the
 /// screen are not merely ugly, they are unreachable, and the fallback ladder that exists to prevent

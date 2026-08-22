@@ -22,7 +22,7 @@ pub enum ConversationInputOwner {
 
 /// The live conversation's deterministic facts. Nothing presentational.
 ///
-/// ⚠ **"deterministic" is the test, not "the simulation branches on it".** The
+///  "deterministic" is the test, not "the simulation branches on it". The
 /// display name below is here because it is DECIDED by the simulation — read off
 /// the two bodies at the tick somebody pressed Interact — and because the text
 /// box has to be able to open from this and nothing else. The alternative is the
@@ -36,7 +36,7 @@ pub struct LiveConversation {
     /// The body that walked up and started it. `None` for a scripted
     /// conversation with no in-world initiator.
     ///
-    /// ⚠ **a handle, not an identity.** GGRS remaps it on `LoadWorld` (see the
+    ///  a handle, not an identity. GGRS remaps it on `LoadWorld` (see the
     /// [`bevy::ecs::entity::MapEntities`] impl below); the identity that survives
     /// that is the `SimId` inside [`Self::instance`]. Both are here because the
     /// continuity rules need to ASK things of the live body — how far away is it,
@@ -90,9 +90,9 @@ impl LiveConversation {
         self.instance.node()
     }
 
-    /// **The identity context Yarn is entered with.**
+    /// The identity context Yarn is entered with.
     ///
-    /// ⭐ read back out of [`Self::instance`], because it is part of what makes
+    ///  read back out of [`Self::instance`], because it is part of what makes
     /// this conversation this conversation — see that type's docs.
     pub fn context(&self) -> ambition_dialog::DialogueContext {
         self.instance.context()
@@ -111,15 +111,15 @@ pub struct ActiveConversation {
 }
 
 impl ActiveConversation {
-    /// **Open a conversation in ONE call.**
+    /// Open a conversation in ONE call.
     ///
-    /// ⛔ the shape this replaces was `start()`, then `set_speaker_entity()`,
+    ///  the shape this replaces was `start()`, then `set_speaker_entity()`,
     /// then `set_initiator_entity()` — three calls to establish one fact, where
     /// the second and third are the ones a new call site forgets. An authority
     /// that needs a follow-up call has a window in which it is wrong, and here
     /// that window was a tick of the simulation schedule.
-    /// ⚠ **the whole value, so the COMPILER enumerates what a conversation
-    /// is.** It took four positional arguments and grew two more; a struct
+    ///  the whole value, so the COMPILER enumerates what a conversation
+    /// is. It took four positional arguments and grew two more; a struct
     /// literal makes a new fact break every call site, which is the only way a
     /// conversation opened somewhere else keeps saying everything the projection
     /// needs.
@@ -164,7 +164,7 @@ impl ActiveConversation {
 
     /// Both in-world bodies.
     ///
-    /// ⭐ **the continuity questions are about the PAIR** — how far apart are they, was either
+    ///  the continuity questions are about the PAIR — how far apart are they, was either
     /// one hit — and a caller that reaches for [`Self:talker`] alone has already made the rule
     /// player-centric in the way the rule says it must not be (*"both characters should
     /// hover"*).

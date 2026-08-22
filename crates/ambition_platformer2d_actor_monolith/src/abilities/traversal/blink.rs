@@ -35,7 +35,7 @@ const BLINK_SHOCKWAVE_DAMAGE: i32 = 2;
 /// short of the first solid so the body never embeds, with a safety net that
 /// falls back to `from` if the landing box would still overlap a solid.
 ///
-/// This is the **one teleport rule** shared by every controller: the player's
+/// This is the one teleport rule shared by every controller: the player's
 /// held-item blink and any actor body that resolves a `blink` intent from its
 /// `ActorControlFrame` call the same function (invariants I2/I7 — a possessed or
 /// AI body blinks exactly as the player does, against the same collision world it

@@ -1,4 +1,4 @@
-//! **D-B's module-size gate** (custom scanner half of the module-size policy).
+//! D-B's module-size gate (custom scanner half of the module-size policy).
 //!
 //! The scanner is Rust; the limit + waivers are DATA in
 //! `policies/module_size.toml`. It counts every PRODUCTION `.rs` under

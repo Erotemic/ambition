@@ -68,18 +68,10 @@ pub fn sync_portal_sprite_visibility(
 /// read, slow enough not to disorient. Tuneable if the boot beat lengthens.
 const RING_OPENING_SPIN_RAD_PER_SEC: f32 = 8.0;
 
-/// Drive the portal sprite's animation row from its phase. Borrows
-/// existing CharacterAnim variants as semantic slots — see
-/// `GATE_PORTAL_SHEET` for the mapping:
-/// - Phase::Opening → request(Idle)  [row 0 = opening one-shot]
-/// - Phase::On      → request(Walk)  [row 1 = stable loop]
-/// - Phase::Closing → request(Run)   [row 2 = closing one-shot]
-/// - Phase::Off     → sprite is hidden; no work to do
-///
-/// The portal's `PortalSprite` marker excludes it from
-/// `animate_characters`/`animate_props`, so this system is the sole owner
-/// of the portal entity's animator state — it also ticks the animator and
-/// writes the resulting frame into the sprite atlas.
+/// Drive gate-portal animation from its phase using the row mapping in
+/// `GATE_PORTAL_SHEET`. `PortalSprite` excludes these entities from generic
+/// character/prop animation, so this system exclusively owns their animator and
+/// atlas frame.
 pub fn sync_portal_sprite_animation(
     presentation_time: PresentationTime,
     portals: Res<GatePortalRegistry>,

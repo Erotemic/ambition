@@ -37,10 +37,10 @@ fn cpu_fighter(character: &str) -> MatchParticipant {
     })
 }
 
-/// **The policy authority this fixture's composition publishes**, keyed exactly
+/// The policy authority this fixture's composition publishes, keyed exactly
 /// as assembly keys one.
 ///
-/// **one entry per provider these fixtures register characters under**
+/// one entry per provider these fixtures register characters under
 /// (`demo`, `mary_o_demo`, `sanic_demo`, `arena`), because `seat_brain_profile`
 /// resolves a bare key in the CHARACTER's provider when the roster names none.
 /// The names are pre-qualified, which `from_catalog_for_test` honours verbatim —
@@ -60,7 +60,7 @@ fn fixture_policies() -> ambition_characters::actor::character_catalog::BrainPro
             "mary_o_demo::cpu_policy": (template: StandStill),
             "sanic_demo::cpu_policy": (template: StandStill),
             "arena::cpu_policy": (template: StandStill),
-            // **ADDITIVE, under its own key**, so the StandStill rows above keep
+            // ADDITIVE, under its own key, so the StandStill rows above keep
             // seating exactly what they always did. The mirror-symmetry tests need
             // a policy that actually instantiates a FIGHTER brain, because that is
             // the only template with a cognitive stream to share.
@@ -84,7 +84,7 @@ fn seating_app() -> App {
     // Seating sizes each body from its sheet (U1 stage B), so the authored
     // registry is authority the system requires. A fixture authors none.
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
-    // **THE POLICY AUTHORITY, published like a composition publishes it.** A
+    // THE POLICY AUTHORITY, published like a composition publishes it. A
     // CPU seat's controller question is answered here and nowhere else since
     // P2.18 deleted `seat_brain_profile`'s archetype arm.
     app.insert_resource(fixture_policies());
@@ -127,7 +127,7 @@ fn seating_app() -> App {
     app
 }
 
-/// **The verb C4 was missing.** A roster could say who was in a match and could
+/// The verb C4 was missing. A roster could say who was in a match and could
 /// demand their art; nothing turned a participant into a body, so the closest
 /// thing to a versus mode was a test that hand-assembled two fighters.
 #[test]
@@ -245,15 +245,15 @@ fn seating_runs_once_however_many_ticks_pass() {
     );
 }
 
-/// **An unbuildable character is REFUSED BY NAME, not waited on.**
+/// An unbuildable character is REFUSED BY NAME, not waited on.
 ///
 /// Preparation's predecessor resolved this seat with `registry.get(id)` and returned from the whole
-/// system on `None` — no log, no record, and because the pass was all-or-nothing, **every other
-/// seat went unbuilt too**. A player picking one of eight catalog-only portraits in the smash grid
+/// system on `None` — no log, no record, and because the pass was all-or-nothing, every other
+/// seat went unbuilt too. A player picking one of eight catalog-only portraits in the smash grid
 /// got a stage with nobody on it and nothing anywhere saying why.
 ///
-/// **and this is the DURABLE guard, which is why it names a character nothing
-/// will ever register.** The host-level reproduction uses `npc_emmy_noether`, a real
+/// and this is the DURABLE guard, which is why it names a character nothing
+/// will ever register. The host-level reproduction uses `npc_emmy_noether`, a real
 /// grid fighter that is unbuildable *today* — and registering the Hall cast is a
 /// planned step that will quietly turn that test into a check that a working
 /// thing works. A guard that content can repair is not defending the gap. This
@@ -282,7 +282,7 @@ fn an_unbuildable_character_is_refused_by_name() {
         "a match that built nobody must not ACTIVATE"
     );
 
-    // **THE POINT.** A permanent failure must not present as a wait.
+    // THE POINT. A permanent failure must not present as a wait.
     let problems = app
         .world()
         .get_resource::<crate::character_runtime::MatchPreparationProblems>()
@@ -304,12 +304,12 @@ fn an_unbuildable_character_is_refused_by_name() {
     );
 }
 
-/// **A match builds its OWN cast and touches nothing else.**
+/// A match builds its OWN cast and touches nothing else.
 ///
 /// The duplicate is prevented at the other end now: a MATCH experience declares
 /// no session body at all, so there is nothing to adopt, nothing to re-dress,
 /// and no handshake to deadlock on. What is worth pinning is the invariant that
-/// replaced them — **the match's cast is exactly its seats**, and a body that
+/// replaced them — the match's cast is exactly its seats, and a body that
 /// was already standing there is none of the match's business.
 #[test]
 fn a_match_builds_its_own_cast_and_leaves_other_bodies_alone() {
@@ -379,7 +379,7 @@ fn a_match_builds_its_own_cast_and_leaves_other_bodies_alone() {
     );
 }
 
-/// **Couch versus: two human seats, two bodies, two slots.**
+/// Couch versus: two human seats, two bodies, two slots.
 ///
 /// The engine has been ready for this for a while and nobody had asked it: `SlotControls` holds
 /// four slots and `tick_controlled_brains` drives any body whose `DrivingParticipant(slot)`
@@ -479,7 +479,7 @@ fn a_local_human_body_keeps_local_source_identity_on_the_slot_model() {
     );
 }
 
-/// **A SPARSE source does not make a sparse channel.**
+/// A SPARSE source does not make a sparse channel.
 ///
 /// One person is playing, so the session opens one GGRS handle — and the human is holding the
 /// second controller, so the roster says source `Pad(1)`. Nothing errored; the human simply could
@@ -536,7 +536,7 @@ fn a_human_behind_a_cpu_seat_still_lands_on_channel_zero() {
     );
 }
 
-/// **Holes in the sources close in the channels, in seat order.**
+/// Holes in the sources close in the channels, in seat order.
 ///
 /// The select screen's own case — three people holding pads 0, 1 and 3, which
 /// its test pins because renumbering them hands somebody the wrong controller.
@@ -585,7 +585,7 @@ fn three_people_on_pads_zero_one_and_three_get_channels_zero_one_and_two() {
     );
 }
 
-/// **One controller cannot drive two fighters, and preparation says so.**
+/// One controller cannot drive two fighters, and preparation says so.
 ///
 /// the ordinary way to arrive here is two seats built with
 /// `MatchParticipant::new`, whose default is the first pad. Refused rather than
@@ -622,7 +622,7 @@ fn two_seats_on_one_controller_are_refused_by_name() {
     );
 }
 
-/// **A 2v2: teammates cannot hit each other, opponents can.**
+/// A 2v2: teammates cannot hit each other, opponents can.
 ///
 /// This seats four fighters on two teams and asks the real damage relation about each pair.
 ///
@@ -714,7 +714,7 @@ fn four_fighters_on_two_teams_can_hit_their_opponents_and_not_their_partners() {
         }
     }
 
-    // ⇒ every seat is one faction now, so the faction rule has exactly one
+    //  every seat is one faction now, so the faction rule has exactly one
     // answer for every pair in this match: ALLY. Anything the loop found that
     // differs from "nobody can hit anybody" is therefore the team rule, in both
     // directions at once. That is the same guard, and it no longer needs a
@@ -726,7 +726,7 @@ fn four_fighters_on_two_teams_can_hit_their_opponents_and_not_their_partners() {
     );
 }
 
-/// **A seated fighter must receive its character's ACTION SET.**
+/// A seated fighter must receive its character's ACTION SET.
 ///
 /// Seating writes `ActionSet::default()` and leaves a comment saying the derive
 /// overwrites it "on the tick the worn character lands". The derive it means is
@@ -784,7 +784,7 @@ fn a_seated_fighter_receives_its_definitions_action_set() {
     );
 }
 
-/// **FORCING A CRAWLER INTO A FIGHTER SEAT GIVES YOU A CRAWLER.**
+/// FORCING A CRAWLER INTO A FIGHTER SEAT GIVES YOU A CRAWLER.
 ///
 /// a Puppy Slug into Smash … movement input → uses Puppy Slug's actual authored
 /// locomotion. Jump → no jump if its body cannot jump. Smash must not silently
@@ -873,7 +873,7 @@ fn a_crawler_seated_as_a_fighter_keeps_its_own_locomotion() {
     assert!(!duelist_clings);
 }
 
-/// **A MATCH GRANT COVERS THE ACTION SET, NOT THE MOVES.**
+/// A MATCH GRANT COVERS THE ACTION SET, NOT THE MOVES.
 ///
 /// So a character that authored eleven move timelines was seated with one derived swipe, and the
 /// timelines had no reader on the only path that seats a fighter.
@@ -974,7 +974,7 @@ fn a_match_grant_does_not_overwrite_a_characters_authored_moves() {
     );
 }
 
-/// **A seated fighter moves the way its DEFINITION says.** (campaign R-a)
+/// A seated fighter moves the way its DEFINITION says. (campaign R-a)
 ///
 /// A character whose definition says "momentum" and whose catalog row says nothing should not
 /// move like a swept-axis walker because it happens to be seated rather than worn.
@@ -1019,7 +1019,7 @@ fn a_seated_fighter_moves_by_its_definitions_motion_model() {
     );
 }
 
-/// **Movement FEEL reaches a seated fighter, and an unauthored one is left alone.**
+/// Movement FEEL reaches a seated fighter, and an unauthored one is left alone.
 ///
 /// The last kit-adjacent field, and the one whose `None` is an ANSWER rather
 /// than a default: `AuthoredMovementTuning`'s presence means "this body's tuning
@@ -1083,7 +1083,7 @@ fn a_seated_fighter_gets_authored_movement_feel_and_only_when_authored() {
     }
 }
 
-/// **A MATCH STATES ITS OWN NUMBERS ON EVERY SEAT'S BODY, AND DISTURBS NOTHING ELSE.** ( slice
+/// A MATCH STATES ITS OWN NUMBERS ON EVERY SEAT'S BODY, AND DISTURBS NOTHING ELSE. ( slice
 /// 1b)
 ///
 /// `DEFAULT_TUNING` leaves `air_dodge_time` at `0.0` deliberately (a default-on air dodge would
@@ -1153,7 +1153,7 @@ fn a_match_states_its_own_body_numbers_on_every_seat_and_disturbs_nothing_else()
         let tuning = tuning.unwrap_or_else(|| {
             panic!("`{id}` was seated with no body at all, in a match that declares one")
         });
-        // **EVERY seat, whatever its character brought.** This is the whole
+        // EVERY seat, whatever its character brought. This is the whole
         // fix: the window the stage's granted verbs run on reaches the fighter
         // that authored a body and the one that authored none alike.
         assert_eq!(
@@ -1204,8 +1204,8 @@ fn a_roster_that_opens_suspended_seats_fighters_that_cannot_act_yet() {
     }
 }
 
-/// **3 — 2 — 1 — GO: the cast is held for the whole ceremony and freed on ONE
-/// tick.**
+/// 3 — 2 — 1 — GO: the cast is held for the whole ceremony and freed on ONE
+/// tick.
 ///
 /// remain held before GO and release at the transition"* — and the property it
 /// pins is the one a per-fighter timer would lose: not "everybody is eventually
@@ -1237,7 +1237,7 @@ fn a_declared_countdown_holds_every_seat_until_it_ends() {
     }
 
     finalize_and_update(&mut app);
-    // **both terms must be OBSERVED.** The first version of this loop ran to
+    // both terms must be OBSERVED. The first version of this loop ran to
     // `TICKS` and every iteration took the "still held" branch — the release
     // assertion was never evaluated once, and it passed.
     let (mut saw_held, mut saw_released) = (false, false);
@@ -1270,7 +1270,7 @@ fn a_declared_countdown_holds_every_seat_until_it_ends() {
     );
 }
 
-/// **And a LOCAL-INPUT seat is suspended on that tick too.**
+/// And a LOCAL-INPUT seat is suspended on that tick too.
 ///
 /// The seat worth asking about is the one a person is holding a direction on when the round
 /// opens.
@@ -1308,7 +1308,7 @@ fn a_local_input_seat_is_also_suspended_on_the_tick_it_joins() {
     );
 }
 
-/// **A seated fighter's DURABLE capability baseline matches its identity.**
+/// A seated fighter's DURABLE capability baseline matches its identity.
 ///
 /// `ActionSet` is the hot per-frame resolver; `CombatKit` is the durable source
 /// of the same capability — its own doc calls it "what the actor can do
@@ -1371,7 +1371,7 @@ fn a_seated_fighter_keeps_one_capability_baseline_not_two() {
     );
 }
 
-/// **The same character is the same BODY in either seat.** (mirror match)
+/// The same character is the same BODY in either seat. (mirror match)
 ///
 /// A spawned seat sized itself from `BodySource::Explicit` and took `prepared.vitals.mass`; the
 /// adopted primary player kept whatever box and weight its session gave it.
@@ -1527,7 +1527,7 @@ fn a_seated_fighter_inherits_the_kit_its_catalog_row_authors() {
     }
 }
 
-/// **A new cast generation must reach the PERSONA writer, not just the stamp.**
+/// A new cast generation must reach the PERSONA writer, not just the stamp.
 ///
 /// The first H6 probe replaced a cast under a hand-spawned body. That body did
 /// not carry the persona writer's full column set, so it took the projection's
@@ -1610,7 +1610,7 @@ fn a_new_cast_generation_refreshes_a_seated_fighters_kit() {
     );
 }
 
-/// **The authored maximum health applies to the ADOPTED seat too.**
+/// The authored maximum health applies to the ADOPTED seat too.
 ///
 /// A spawned seat took `prepared.vitals.max_health` from its seed. The adopted
 /// primary player did not — it kept whatever maximum its session established from
@@ -1670,11 +1670,11 @@ fn an_adopted_seat_takes_its_characters_authored_maximum_health() {
     );
 }
 
-/// **A match that DECLARES a pool overrules what each character authored — and
-/// a match that declares none does not.**
+/// A match that DECLARES a pool overrules what each character authored — and
+/// a match that declares none does not.
 ///
-/// **both terms are asserted, and the second is what makes the first mean
-/// anything.** The declared arm alone would pass in a world where seating had
+/// both terms are asserted, and the second is what makes the first mean
+/// anything. The declared arm alone would pass in a world where seating had
 /// stopped reading authored vitals at all, which is a different bug wearing the
 /// same green tick — so the undeclared arm pins that the two characters really
 /// do bring 1 and 100 down this exact road.
@@ -1751,7 +1751,7 @@ fn a_declared_match_pool_levels_two_fighters_their_home_games_sized_differently(
 /// about it because nothing had thought to ask, which is the argument for looking
 /// at the screen and not only at the suite.
 ///
-/// **the CARRIER of that unfairness is gone**: nothing adopts a body that has
+/// the CARRIER of that unfairness is gone: nothing adopts a body that has
 /// been living in a session, so no seat can arrive holding a kit the match did
 /// not grant. What still needs asserting is the other half — that the roster's
 /// declared set actually REACHES every seat, and that equalising does not
@@ -1812,7 +1812,7 @@ fn the_matchs_declared_abilities_reach_every_seat() {
     }
 }
 
-/// **A MATCH THAT FORBIDS A VERB FORBIDS IT ON THE CONSTRUCTION FRAME.**
+/// A MATCH THAT FORBIDS A VERB FORBIDS IT ON THE CONSTRUCTION FRAME.
 ///
 /// With that pass gone, a kit derived against verbs the match forbids is what the fighter
 /// KEEPS.
@@ -1867,7 +1867,7 @@ fn a_match_mask_reaches_the_kit_and_no_later_pass_restores_it() {
          back to it next tick by a system behaving correctly"
     );
 
-    // **and nothing comes back to undo it.** Before this was true only because a repair pass
+    // and nothing comes back to undo it. Before this was true only because a repair pass
     // happened to agree; now it has to be true because preparation resolved the mask BEFORE
     // deriving anything from it.
     app.update();
@@ -1879,19 +1879,19 @@ fn a_match_mask_reaches_the_kit_and_no_later_pass_restores_it() {
     );
 }
 
-/// **A SEATED FIGHTER IS COMPLETE ON ITS CONSTRUCTION FRAME.**
+/// A SEATED FIGHTER IS COMPLETE ON ITS CONSTRUCTION FRAME.
 ///
 /// The seat did, because five things the persona derive supplied could only be derived where
 /// the catalog was in scope — the match kit, the death traits, the identity kit, the moveset
 /// and the motion model.
 ///
-/// **the stamp is the assertion, not the absence of the request.** A seat with
+/// the stamp is the assertion, not the absence of the request. A seat with
 /// neither would look identical to one that simply never got either — so this
 /// checks the body carries a CURRENT stamp, which only construction can have
 /// written, and that it displaced nothing, which is what distinguishes building
 /// a body as a character from replacing one.
 ///
-/// **AND IT IS STILL NOT SUFFICIENT — MEASURED.** With the seat's
+/// AND IT IS STILL NOT SUFFICIENT — MEASURED. With the seat's
 /// `grant_prepared_character_body` call disabled, this test STAYS GREEN: the
 /// persona derive runs on the unstamped body and writes a baseline that looks
 /// exactly like construction's. Only
@@ -1940,16 +1940,16 @@ fn a_seated_fighter_carries_its_applied_template_and_asks_for_nothing() {
     );
 }
 
-/// **AND NEITHER TEMPLATE OBSERVER HAS WORK TO DO ON THE NEXT PASS.**
+/// AND NEITHER TEMPLATE OBSERVER HAS WORK TO DO ON THE NEXT PASS.
 ///
-/// **the test above is not sufficient, and believing it was is the mistake
-/// this one exists for**. Removing `RecharacterizeBody`
+/// the test above is not sufficient, and believing it was is the mistake
+/// this one exists for. Removing `RecharacterizeBody`
 /// silences the PERSONA derive. `project_prepared_character_definitions` is a
 /// SECOND observer, it fires on `Changed<WornCharacter>`, and a seated body with
 /// no `ProjectedCharacterKit` was still being finished by it a tick after
 /// construction — hurtboxes, posed body, movement tuning, motion model.
 ///
-/// **so this asserts the OTHER record too, and then asserts nothing moves.** Both stamps
+/// so this asserts the OTHER record too, and then asserts nothing moves. Both stamps
 /// current on the construction frame is the claim; a second update with no hot reload and no
 /// re-template request changing nothing is the proof.
 #[test]
@@ -2001,7 +2001,7 @@ fn a_seated_fighter_is_complete_and_the_next_pass_changes_nothing() {
     assert_eq!(projected.generation, generation);
     assert_eq!(projected.id, "duelist");
 
-    // **the proof.** No hot reload, no `RecharacterizeBody`: a template system
+    // the proof. No hot reload, no `RecharacterizeBody`: a template system
     // that still had work would do it here.
     app.update();
     let (persona_after, projected_after, model_after) = read(&mut app);
@@ -2022,8 +2022,8 @@ fn a_seated_fighter_is_complete_and_the_next_pass_changes_nothing() {
     );
 }
 
-/// **A CPU SEAT'S POLICY COMES FROM THE PUBLISHED REGISTRY, AND FROM NOWHERE
-/// ELSE.**
+/// A CPU SEAT'S POLICY COMES FROM THE PUBLISHED REGISTRY, AND FROM NOWHERE
+/// ELSE.
 ///
 /// this was `a_cpu_seat_prefers_a_published_policy_over_an_archetype_of_the_same_name`,
 /// and its subject — the PREFERENCE between two authorities — is gone with the
@@ -2064,7 +2064,7 @@ fn a_cpu_seats_policy_resolves_in_a_provider_or_not_at_all() {
         );
     assert_eq!(published.aggro_radius, 1.0);
 
-    // **THE POISON.** A policy published by a DIFFERENT provider must not
+    // THE POISON. A policy published by a DIFFERENT provider must not
     // answer this seat: that is the bare-key match that made this arm vacuous,
     // and it would also let one game's `duelist` silently drive another's
     // fighter.
@@ -2082,8 +2082,8 @@ fn a_cpu_seats_policy_resolves_in_a_provider_or_not_at_all() {
     );
 }
 
-/// **A MATCH THAT DECLARES A CEILING CANNOT HAND A BODY A VERB IT DOES NOT
-/// HAVE.**
+/// A MATCH THAT DECLARES A CEILING CANNOT HAND A BODY A VERB IT DOES NOT
+/// HAVE.
 ///
 /// into Smash gives you Puppy Slug, even if Puppy Slug is a terrible fighter …
 /// Jump → no jump if its body cannot jump."* The character here authors a
@@ -2159,7 +2159,7 @@ fn a_match_cannot_grant_a_verb_the_character_does_not_have() {
     );
 }
 
-/// **AND A MATCH THAT LEVELS HANDS IT ONE ANYWAY — deliberately.**
+/// AND A MATCH THAT LEVELS HANDS IT ONE ANYWAY — deliberately.
 ///
 /// The other half of the pair above, and the reason `MatchAbilities` has two
 /// fields. Same crawler, same kit, same declared verbs — the only difference is
@@ -2169,7 +2169,7 @@ fn a_match_cannot_grant_a_verb_the_character_does_not_have() {
 /// stage that seats fourteen games' worth of cast cannot discover that one of them was authored
 /// somewhere with no double jump.
 ///
-/// **the cost is stated rather than hidden**: forcing a Puppy Slug onto a
+/// the cost is stated rather than hidden: forcing a Puppy Slug onto a
 /// levelling stage gives you a Puppy Slug that jumps. That is the trade a stage
 /// makes when it writes `levelled`, and the stage next door (`versus`) writes
 /// `at_most` and does not make it.
@@ -2222,7 +2222,7 @@ fn a_levelling_match_hands_every_fighter_the_kit_it_declares() {
         "a levelling match seated a fighter with something other than the kit it \
          declared, so the guarantee is not a guarantee"
     );
-    // **the BASE too, not only the effective set.** The effective set is
+    // the BASE too, not only the effective set. The effective set is
     // recomputed every frame against the editable mask for a player-driven body,
     // so a guarantee written only to `BodyAbilities` is undone next tick by a
     // system behaving correctly.
@@ -2233,7 +2233,7 @@ fn a_levelling_match_hands_every_fighter_the_kit_it_declares() {
     );
 }
 
-/// **An authored EXPLICIT body box is the seated fighter's box.** (Y″5)
+/// An authored EXPLICIT body box is the seated fighter's box. (Y″5)
 ///
 /// `BodySource::Explicit` had no consumer anywhere: a provider could author
 /// half-extents and receive `SEAT_BODY_PX`, the placeholder constant, instead.
@@ -2274,7 +2274,7 @@ fn a_seated_fighter_gets_the_body_box_its_definition_authors() {
     );
 }
 
-/// **A participant that CANNOT seat holds the latch open.** (H5's missing half)
+/// A participant that CANNOT seat holds the latch open. (H5's missing half)
 ///
 /// `MatchSeated` is what the versus countdown waits on, and the predicate test
 /// beside that countdown records why the real scenario had never been driven:
@@ -2288,7 +2288,7 @@ fn a_seated_fighter_gets_the_body_box_its_definition_authors() {
 /// state the countdown must refuse to advance through, and the state a fighter
 /// arriving late would otherwise join a live round from.
 ///
-/// **the second assertion was REVERSED when activation became a transaction**, and the reversal
+/// the second assertion was REVERSED when activation became a transaction, and the reversal
 /// is the finding, not a weakened test. That is exactly what an incomplete roster must now
 /// mean. A body staged for a match that never activates is an ORPHAN: the latch never closes,
 /// so no ruleset ever owns it, and it stands in the arena at full health for the rest of the
@@ -2327,12 +2327,12 @@ fn a_roster_with_an_unseatable_participant_never_latches() {
     );
 }
 
-/// **Activation names WHICH bodies are in the match, in seat order.** (Z′7)
+/// Activation names WHICH bodies are in the match, in seat order. (Z′7)
 ///
 /// The thing a `MatchSeated(bool)` could never say.
 ///
 /// It also has to be published in ONE insert, on the tick the last seat fills.
-/// **A PROPOSED roster does not seat, and an activated one does.**
+/// A PROPOSED roster does not seat, and an activated one does.
 ///
 /// The activation authority `status.md` calls for: *"validate every participant, activate the
 /// roster atomically, publish it, start the countdown from that.
@@ -2340,7 +2340,7 @@ fn a_roster_with_an_unseatable_participant_never_latches() {
 /// A route builds its roster from live device discovery on entry; the rollback session freezes its
 /// topology afterwards. Refusing is the only way to be first.
 ///
-/// **the two halves are ONE test on purpose.** A refusal test alone passes
+/// the two halves are ONE test on purpose. A refusal test alone passes
 /// against a seating pass that is simply broken; an activation test alone passes
 /// against one that ignores the lifecycle. What has to be true is that the same
 /// app, the same roster and the same participants seat when and only when the
@@ -2464,7 +2464,7 @@ fn activation_publishes_every_seated_body_in_seat_order() {
     );
 }
 
-/// **A seated fighter carries the mass its character authored.** (Y″4)
+/// A seated fighter carries the mass its character authored. (Y″4)
 ///
 /// `features::Mass` is rollback-registered and drives the mount pair's mass-weighted centre of
 /// gravity (ADR 0020): a heavy mount keeps the COG near itself, so the lighter rider orbits it
@@ -2509,7 +2509,7 @@ fn a_seated_fighter_carries_its_authored_mass() {
     );
 }
 
-/// **A seated fighter whose character takes the HOST kit still gets one.**
+/// A seated fighter whose character takes the HOST kit still gets one.
 /// (Phase B remainder)
 ///
 /// `PreparedKit::Unauthored` is the one case a per-character value cannot hold: the
@@ -2559,7 +2559,7 @@ fn a_seated_fighter_on_the_host_kit_is_not_left_empty_handed() {
     );
 }
 
-/// **A seated body carries every column the persona writer requires.**
+/// A seated body carries every column the persona writer requires.
 ///
 /// This is the guard that would have caught H1, and it is deliberately a
 /// STRUCTURAL assertion rather than a behavioural one: it does not ask whether
@@ -2606,7 +2606,7 @@ fn a_seated_body_matches_every_column_the_persona_writer_requires() {
     );
 }
 
-/// **A CPU seat naming a brain the roster does not have is REFUSED.**
+/// A CPU seat naming a brain the roster does not have is REFUSED.
 ///
 /// `spec_for_brain` falls back to the `combatant` row for an unknown key, and its own doc says
 /// a provider that misspells an archetype "gets a generic enemy instead of an error". For a
@@ -2653,7 +2653,7 @@ fn a_seat_naming_an_unknown_brain_profile_is_not_seated() {
     );
 }
 
-/// **Activation is a TRANSACTION: resolve every seat, then build every seat.**
+/// Activation is a TRANSACTION: resolve every seat, then build every seat.
 /// (S2 / AA2's lifecycle half)
 ///
 /// So seat 0 could be re-pooled, resized and teleported to its mark on a tick where seat 1 then
@@ -2703,7 +2703,7 @@ mod activation_transaction {
         )
     }
 
-    /// **A roster that cannot complete leaves the world exactly as it found it.**
+    /// A roster that cannot complete leaves the world exactly as it found it.
     ///
     /// Seat 1 names a character nothing registered, which is `seat_character`'s only failure mode,
     /// so the roster can never complete and the retry runs forever.
@@ -2756,7 +2756,7 @@ mod activation_transaction {
         );
     }
 
-    /// **When every seat CAN be satisfied, they all arrive on one tick.**
+    /// When every seat CAN be satisfied, they all arrive on one tick.
     ///
     /// The counterpart assertion, and the one that would catch a "fix" that
     /// simply refused to build anything.
@@ -2801,7 +2801,7 @@ mod activation_transaction {
     }
 }
 
-/// **The refusal is a fact in the world, not a debug-only panic.** (API (g))
+/// The refusal is a fact in the world, not a debug-only panic. (API (g))
 ///
 /// A guard whose build configuration decides whether it guards is not one.
 ///
@@ -2848,7 +2848,7 @@ fn an_unseatable_brain_profile_publishes_a_refusal_that_names_it() {
     );
 }
 
-/// **ONE DEFINITION, TWO INDEPENDENT INSTANCES** — the invariant rests on.
+/// ONE DEFINITION, TWO INDEPENDENT INSTANCES — the invariant rests on.
 ///
 /// singleton person … `spawn Fretjaw` twice → two independent Fretjaw actors."*
 /// A mirror match is that sentence expressed in the one construction path a
@@ -2908,7 +2908,7 @@ fn one_character_definition_seats_two_independent_fighters() {
         "two Fretjaws stand in two places, not one"
     );
 
-    // **the assertion that catches a SHARED per-character value**, which is the
+    // the assertion that catches a SHARED per-character value, which is the
     // real risk when construction is unified: hurt one and the other must not
     // feel it. A memoized definition-keyed health would pass every line above.
     let (first, second) = (seated[0].0, seated[1].0);
@@ -2938,12 +2938,12 @@ fn one_character_definition_seats_two_independent_fighters() {
     );
 }
 
-/// **A character can author what happens when it dies** —.
+/// A character can author what happens when it dies —.
 ///
 /// A registered character could not declare that it splits, explodes, or refuses to die, and a
 /// seated fighter therefore had no death traits at all whatever it was.
 ///
-/// **and absence RETRACTS**, which is the half worth testing: a persona that
+/// and absence RETRACTS, which is the half worth testing: a persona that
 /// authors nothing must leave a body with no traits rather than inheriting the
 /// previous character's. That rule already governs health, mass and the feel
 /// marker; death traits now ride it too.
@@ -2991,7 +2991,7 @@ fn a_character_authors_its_own_death_traits_and_absence_retracts_them() {
         "the duelist authored no death traits and must have none: {seen:?}"
     );
 
-    // **THE RETRACTION.** Re-wear the sandbag's body as the duelist: the
+    // THE RETRACTION. Re-wear the sandbag's body as the duelist: the
     // trait must LEAVE. A derive that only ever inserts passes every assertion
     // above and makes a character swap permanently immortalising.
     let sandbag_body = seen[1].0;
@@ -2999,14 +2999,14 @@ fn a_character_authors_its_own_death_traits_and_absence_retracts_them() {
         .get_mut::<ambition_characters::actor::WornCharacter>(sandbag_body)
         .expect("the seated body wears its character") =
         ambition_characters::actor::WornCharacter::new("duelist");
-    // **AND ASK FOR IT.** Writing the identity stopped rebuilding the body
+    // AND ASK FOR IT. Writing the identity stopped rebuilding the body
     // : a re-wear is an explicit request now, the way
     // Mary-O's powerup already made it.
     app.world_mut()
         .entity_mut(sandbag_body)
         .insert(ambition_characters::actor::RecharacterizeBody);
     finalize_and_update(&mut app);
-    // **PRESENT AND DEFAULT, not absent** — and the difference cost sixteen
+    // PRESENT AND DEFAULT, not absent — and the difference cost sixteen
     // integration tests. `CombatCapabilities` is a required member of
     // `ActorClusterQueryData`, so a body without it drops out of the actor
     // cluster query and stops being simulated as an actor: versus reported
@@ -3029,7 +3029,7 @@ fn a_character_authors_its_own_death_traits_and_absence_retracts_them() {
     );
 }
 
-/// **A character authors how hard it is to LAUNCH** —, and the second half of the knockback
+/// A character authors how hard it is to LAUNCH —, and the second half of the knockback
 /// loop.
 ///
 /// `CombatTuning::weight` divides the growth term (`scaled_knockback`), so it is
@@ -3081,14 +3081,14 @@ fn a_seated_fighter_carries_its_authored_knockback_weight() {
     );
 }
 
-/// **A PLAN CAN TELL WHEN THE CAST MOVED ON UNDER IT — and still builds the cast
-/// it was made from.**
+/// A PLAN CAN TELL WHEN THE CAST MOVED ON UNDER IT — and still builds the cast
+/// it was made from.
 ///
 /// Its own doc calls it *"a staleness ASSERTION, never a re-resolution trigger"*, and nothing
 /// asserted it — the shape named: ceremonial data flowing through a constructor with no
 /// consumer.
 ///
-/// **the obvious consumer is the one this module exists to prevent.**
+/// the obvious consumer is the one this module exists to prevent.
 /// Re-preparing on a generation change is refused fifteen lines from the field
 /// by `prepare_the_match`'s own comment: re-resolving a live plan against a
 /// republished registry is authority-in-activation. A plan is FROZEN against its
@@ -3187,10 +3187,10 @@ fn seated_fighter_streams(app: &mut App) -> Vec<(usize, u64)> {
     streams
 }
 
-/// **A SAME-CHARACTER CPU MIRROR MATCH IS NOT TWO COPIES OF ONE MIND**, driven
+/// A SAME-CHARACTER CPU MIRROR MATCH IS NOT TWO COPIES OF ONE MIND, driven
 /// end to end through real seating.
 ///
-/// **through `MatchParticipantRoster` and activation**, not by calling the seed
+/// through `MatchParticipantRoster` and activation, not by calling the seed
 /// helper — so it constrains what a real match produces rather than what one
 /// function returns.
 #[test]
@@ -3217,15 +3217,15 @@ fn two_cpu_seats_of_one_character_are_not_the_same_mind() {
     );
 }
 
-/// **EMMY'S AUTHORED EXCEPTION, END TO END: her twins ARE one mind, and the
-/// character asked for it.**
+/// EMMY'S AUTHORED EXCEPTION, END TO END: her twins ARE one mind, and the
+/// character asked for it.
 ///
 /// The same roster shape as the test above, differing only in that the character
-/// authors [`CharacterDefinition::preserving_mirror_symmetry`]. ⇒ so this pins the
+/// authors [`CharacterDefinition::preserving_mirror_symmetry`].  so this pins the
 /// trait as the *whole* cause: nothing about the seating, the policy or the stage
 /// changed, and the streams collapse.
 ///
-/// **it does NOT assert that two Emmys act alike.** Sharing a stream is where
+/// it does NOT assert that two Emmys act alike. Sharing a stream is where
 /// the mirror comes FROM; it is not the mirror itself. Two Emmys observing
 /// different worlds must be free to decide differently, which
 /// [`an_emmy_whose_world_differs_may_decide_differently`] pins from the other

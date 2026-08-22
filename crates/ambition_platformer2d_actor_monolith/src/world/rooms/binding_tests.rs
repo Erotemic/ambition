@@ -98,7 +98,7 @@ fn room_with_two_typos() -> RoomSpec {
 /// comes back naming what declared it, and the good references — including the
 /// one that addresses a path by display name rather than id — do not appear.
 ///
-/// **the CHARACTER namespace left this sweep with the archetype roster** (AC6).
+/// the CHARACTER namespace left this sweep with the archetype roster (AC6).
 #[test]
 fn construction_reports_every_unresolved_ref() {
     let room = room_with_two_typos();
@@ -241,8 +241,8 @@ fn hazard_placement(id: &str, path_id: Option<&str>) -> PlacementRecord {
     )
 }
 
-/// **THE INVARIANT: every reference that SHRUGS is named, not just the enemy
-/// brain.** Three roads resolve a path id by string equality and all three fall
+/// THE INVARIANT: every reference that SHRUGS is named, not just the enemy
+/// brain. Three roads resolve a path id by string equality and all three fall
 /// through to `None` in silence; the sweep decided one of them, so an NPC or a
 /// moving hazard pointing at nothing was a clean report and a dead feature.
 ///

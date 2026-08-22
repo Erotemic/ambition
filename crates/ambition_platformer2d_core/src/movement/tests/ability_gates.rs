@@ -10,7 +10,7 @@ fn scratch_with(abilities: AbilitySet, spawn: bevy_math::Vec2) -> BodyClusterScr
     BodyClusterScratch::new_with_abilities(spawn, abilities)
 }
 
-/// **A BODY THAT CANNOT JUMP DOES NOT JUMP WHEN THE BUTTON IS PRESSED.**
+/// A BODY THAT CANNOT JUMP DOES NOT JUMP WHEN THE BUTTON IS PRESSED.
 ///
 /// Its gate is one `&&` in `apply_intent`, and one `&&` is exactly the kind of thing a refactor
 /// drops without a compiler error.
@@ -20,7 +20,7 @@ fn scratch_with(abilities: AbilitySet, spawn: bevy_math::Vec2) -> BodyClusterScr
 /// only worth having if the engine HONOURS the mask, and this is the half that says so. Neither
 /// test is the claim on its own.
 ///
-/// **both directions, and the grounded control is not decoration**: a gate
+/// both directions, and the grounded control is not decoration: a gate
 /// that refused every jump would satisfy the first half perfectly, and a body
 /// that cannot jump is indistinguishable from a body nobody asked to jump
 /// unless the same fixture jumps when it is allowed to.
@@ -149,13 +149,13 @@ fn wall_climb_requires_wall_cling() {
         .any(|w| w.contains("wall_climb")));
 }
 
-/// **A BODY THAT CANNOT DASH STILL RUNS**, and the dash attack's whole
+/// A BODY THAT CANNOT DASH STILL RUNS, and the dash attack's whole
 /// reachability rests on that being two different facts.
 ///
 /// Every test of the selector passed, because each told the selector the body was dashing; none
 /// could ask whether a fighter ever is.
 ///
-/// **the second assertion is the poison, not decoration.** A `running` that
+/// the second assertion is the poison, not decoration. A `running` that
 /// was merely an alias for `dashing` would satisfy "it runs" on a dash-capable
 /// body and fail here; a `running` wired to any ability bit would fail here too.
 /// The body below has NO dash ability and reaches the gait anyway.

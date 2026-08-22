@@ -1,12 +1,12 @@
-//! **A CHARACTER'S SHEET MUST NOT BE FILED UNDER A NAME THAT MEANS EIGHT
-//! THINGS.**
+//! A CHARACTER'S SHEET MUST NOT BE FILED UNDER A NAME THAT MEANS EIGHT
+//! THINGS.
 //!
 //! `SheetRegistry::from_baked_table_by_file_root` keys sheets by file root so
 //! the player's `player_robot_v3` stays distinct from the enemy `robot`. A file
 //! root only identifies a sheet while the file holds ONE record; `creator_lab_props`
 //! packs 8 props into one, so that root names all eight and therefore none.
 //!
-//! **THIS IS THE HALF THE SPRITE CRATE CANNOT WRITE.** It can see that a root
+//! THIS IS THE HALF THE SPRITE CRATE CANNOT WRITE. It can see that a root
 //! is ambiguous; it cannot see whether anything resolves art by that root,
 //! because it has no catalog — the same split `shadowed_targets` documents, and
 //! the same reason `report_shadowed_character_sheets` lives here. A refusal that
@@ -40,7 +40,7 @@ fn no_composed_character_resolves_its_sheet_by_a_refused_file_root() {
         "the composed catalog is empty, so sweeping it proves nothing"
     );
 
-    // **POSITIVE CONTROL: the two names must live in the same namespace.** The sweep below compares
+    // POSITIVE CONTROL: the two names must live in the same namespace. The sweep below compares
     // `entry.manifest_target()` against a refused file root. If those were different spellings — a
     // path against a stem, say — nothing could ever match and this test would pass forever while
     // blind.

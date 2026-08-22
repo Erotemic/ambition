@@ -1,4 +1,4 @@
-//! **A live quality change must reach the bodies already on screen.**
+//! A live quality change must reach the bodies already on screen.
 //!
 //! The engine's side of this — retiring a stale realization and re-materializing
 //! it at the applied tier — is guarded in
@@ -7,7 +7,7 @@
 //! realization has to end up bound to the new one, on the same entity, without
 //! losing its identity, and the old image has to die.
 //!
-//! **a rebind that only works on the frame `GameAssets` changed is not convergence.** The new
+//! a rebind that only works on the frame `GameAssets` changed is not convergence. The new
 //! sheet's pages are `asset_server.load`ed, so they land some frames LATER — after the one-frame
 //! `is_changed()` window has closed.
 
@@ -41,7 +41,7 @@ fn quality(profile: VisualQualityProfile) -> ResolvedVisualQuality {
     }
 }
 
-/// A realization at `tier` whose page-0 image is **reserved but not present**.
+/// A realization at `tier` whose page-0 image is reserved but not present.
 ///
 /// That is what a fresh `asset_server.load` looks like for the frames before the
 /// decode finishes, and every binder here skips a sheet whose texture has not
@@ -104,7 +104,7 @@ fn a_feature_view() -> ambition_sim_view::FeatureView {
     }
 }
 
-/// **An actor body converges to the realization the table now holds.**
+/// An actor body converges to the realization the table now holds.
 ///
 /// Medium (Half) → High (Full): the SAME entity, still naming the same feature
 /// and the same actor identity, ends up drawn from the Full realization — and
@@ -266,7 +266,7 @@ fn the_player_body_converges_to_the_new_tier_and_the_old_image_dies() {
     );
 }
 
-/// **A profile change that keeps the tier must not thrash the sprite.**
+/// A profile change that keeps the tier must not thrash the sprite.
 ///
 /// `Low` and `Medium` realize the same `Half` pixels. A binder that keyed on the
 /// active PROFILE — or on "`GameAssets` changed" — would rebuild the sprite and
@@ -316,7 +316,7 @@ fn a_profile_change_that_keeps_the_tier_does_not_rebind() {
     );
 }
 
-/// **a spawn's ART IDENTITY names its art**.
+/// a spawn's ART IDENTITY names its art.
 ///
 /// the sheet was the ONE thing bound off presentation: everything else about
 /// an actor — barks, hurt feedback, sprite-derived collision, authored attack
@@ -418,10 +418,10 @@ fn an_actor_without_a_character_id_still_resolves_by_its_display_name() {
     );
 }
 
-/// **a prop's quality stamp is the tier of the ASSET IT WAS BUILT FROM,
-/// never the tier that was requested**.
+/// a prop's quality stamp is the tier of the ASSET IT WAS BUILT FROM,
+/// never the tier that was requested.
 ///
-/// **an honest stamp is not a current prop.** Props still carry no rematerialization recipe, so
+/// an honest stamp is not a current prop. Props still carry no rematerialization recipe, so
 /// the table keeps the old asset — this pins that the staleness stays VISIBLE, which is the
 /// whole difference bought.
 #[test]
@@ -472,7 +472,7 @@ fn a_prop_is_stamped_with_the_tier_it_was_actually_built_from() {
     );
 }
 
-/// **THE DISCRIMINATOR: who owns the handle decides which question is asked.**
+/// THE DISCRIMINATOR: who owns the handle decides which question is asked.
 ///
 /// `texture_is_ready` replaced `Assets<Image>::get(..).is_some()` at four
 /// binders, and the whole point is that it stops conflating "the asset loaded"

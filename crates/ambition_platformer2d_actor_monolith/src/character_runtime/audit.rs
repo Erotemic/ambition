@@ -1,4 +1,4 @@
-//! **The readiness invariant, and the backstop that names an omission.** (§4.9)
+//! The readiness invariant, and the backstop that names an omission. (§4.9)
 //!
 //! ## Why not "compare two apps' resources"
 //!
@@ -9,8 +9,8 @@
 //!
 //! The invariant that actually matters is about outcomes:
 //!
-//! > **Every staged character reaches `Ready` or a named terminal `Failed` state
-//! > before the reveal barrier opens.**
+//! > Every staged character reaches `Ready` or a named terminal `Failed` state
+//! > before the reveal barrier opens.
 //!
 //! Note what it forbids: not failure — a missing sheet in an art-free build is
 //! legitimate — but SILENCE. A character that is neither ready nor failed is one
@@ -122,7 +122,7 @@ pub fn audit_character_capabilities(world: &World) -> Vec<CharacterCapabilityGap
     gaps
 }
 
-/// **Two declaration authorities disagreeing about one character.**
+/// Two declaration authorities disagreeing about one character.
 ///
 /// The prepared registry and the assembled catalog are both real authorities during
 /// the migration, and every lookup in the engine prefers one or the other by rule:
@@ -157,7 +157,7 @@ pub enum CharacterAuthorityConflict {
     },
     /// One id declared by both authorities, with different art.
     ///
-    /// **both sheets are the CANONICAL sheet target**, never the raw strings
+    /// both sheets are the CANONICAL sheet target, never the raw strings
     /// the two authorities happen to store. A registry names a target (`robot`);
     /// a catalog names files (`sprites/robot_spritesheet.png` +
     /// `sprites/robot_spritesheet.ron`). Comparing those as strings reported a
@@ -299,7 +299,7 @@ pub fn audit_character_authority_parity(world: &World) -> Vec<CharacterAuthority
     // actually named a sheet: a registration that names none is deferring to the
     // catalog on purpose, which is agreement, not conflict.
     //
-    // **compared as sheet TARGETS, not as the strings each side stores.** The
+    // compared as sheet TARGETS, not as the strings each side stores. The
     // two authorities write the same logical asset in two different vocabularies
     // — a registry `with_sheet` names the baked manifest target (`robot`), a
     // catalog row names its files (`sprites/robot_spritesheet.png` and
@@ -419,7 +419,7 @@ mod authority_parity_tests {
         app
     }
 
-    /// **The migration hazard, named.** Both authorities declare `mary_o`, with
+    /// The migration hazard, named. Both authorities declare `mary_o`, with
     /// different art. Every resolver in the engine prefers the registry, so the
     /// catalog's sheet is dead content that still reads as authoritative — and
     /// anything consulting the catalog directly disagrees with what is drawn.
@@ -453,7 +453,7 @@ mod authority_parity_tests {
         assert_eq!(audit_character_authority_parity(app.world()), Vec::new());
     }
 
-    /// **H3: the field with teeth.** Two authorities, two different AUTHORS for
+    /// H3: the field with teeth. Two authorities, two different AUTHORS for
     /// one character.
     ///
     /// Sharper than the sheet disagreement, because the provider is what
@@ -527,7 +527,7 @@ mod authority_parity_tests {
         );
     }
 
-    /// **The inverse question, which was never asked.** (AF4b residue,
+    /// The inverse question, which was never asked. (AF4b residue,
     /// )
     ///
     /// The test above asks whether one NAME belongs to several characters. This

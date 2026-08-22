@@ -1,4 +1,4 @@
-//! Authoritative **body** cluster types — the movement aggregate every actor
+//! Authoritative body cluster types — the movement aggregate every actor
 //! carries, the player included (NOT player-specific).
 //!
 //! Each Bevy `Component` carries one tightly related slice of body state
@@ -231,20 +231,12 @@ impl BodyKinematics {
     }
 }
 
-/// The canonical per-tick MOTION RECORD (collision doctrine §3.1) — the
-/// simulation phase's own integration segment, written by the kernel at
-/// the end of `update_body_simulation_with_clusters` (both endpoints
-/// captured INSIDE the kernel). Because `prev` is the position at
-/// sim-phase ENTRY, every teleport in the engine — blink (control
-/// phase), the player respawn wrapper (after sim), portal transfer /
-/// room transition / scripted warps (other systems) — is excluded from
-/// the record BY CONSTRUCTION: a position change outside the sim phase
-/// simply never becomes path. No reset protocol exists or is needed.
+/// Canonical per-tick integration segment, captured entirely inside the
+/// simulation kernel from phase entry (`prev`) to phase exit (`curr`). Teleports
+/// outside the simulation phase therefore never become swept motion.
 ///
-/// Swept readers (hazard touch, CC6's relative portal sweep) consume
-/// `prev → curr`; bodies without the component (legacy spawns, scratch
-/// tests, movers not yet writing it) fall back to the historical
-/// `vel·dt` approximation at the read site.
+/// TODO(compat-remove): require `SweepSample` on swept movers and remove reader
+/// fallbacks that reconstruct motion from `vel * dt`.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct SweepSample {
     /// Position at simulation-phase entry (the TRUE segment start).
@@ -344,10 +336,10 @@ pub struct BodyWallState {
 /// ([`crate::movement::AxisManeuverState::buffer_jump`]). This component owns
 /// `air_jumps_available` — a PRESERVED body resource, not maneuver state —
 /// plus the transient ladder-jump boost / ladder drop-through timers, which
-/// **AN ACTOR'S SURFACE-CLING GEOMETRY** — the surface-walker's normal, and how
+/// AN ACTOR'S SURFACE-CLING GEOMETRY — the surface-walker's normal, and how
 /// much gravity it feels.
 ///
-/// **the rollback identity does not move with it.** The wire name is the
+/// the rollback identity does not move with it. The wire name is the
 /// stable id `actor.surface_state`, registered by whoever owns the component's
 /// registration; no baseline records a crate path, so relocating the definition
 /// is not a schema change.
@@ -367,8 +359,8 @@ pub struct ActorSurfaceState {
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyJumpState {
     pub air_jumps_available: u8,
-    /// **A head is under this body's feet, and the next jump press belongs to
-    /// it.** Written by the pair pass BEFORE the kernel runs and consumed by
+    /// A head is under this body's feet, and the next jump press belongs to
+    /// it. Written by the pair pass BEFORE the kernel runs and consumed by
     /// [`crate::movement`]'s jump chain AHEAD of the air jump, so one press has
     /// one meaning: a footstool costs no air jump, and a body with none left can
     /// still take one — which is the genre's rule and was not true when the
@@ -403,7 +395,7 @@ pub struct BodyFlightState {
     /// World-imparted (written by the portal adapter and by knockback) —
     /// SHARED, not policy-private.
     pub carried_run: f32,
-    /// **How long this carry is still OWED to the body**, in seconds.
+    /// How long this carry is still OWED to the body, in seconds.
     ///
     /// The floor exists because momentum the world imparted must not bleed away
     /// under the hands-off air stop assist. But that argument has an expiry: it
@@ -417,10 +409,10 @@ pub struct BodyFlightState {
     /// this at zero deliberately — a fling is a change of reference frame, not a
     /// reaction you are locked out of, and it has always decayed that way.
     pub carried_hold: f32,
-    /// **A world-space launch an external reaction imparted, not yet handed to
-    /// the motion model.** `Vec2::ZERO` between hits, which is almost always.
+    /// A world-space launch an external reaction imparted, not yet handed to
+    /// the motion model. `Vec2::ZERO` between hits, which is almost always.
     ///
-    /// **why this exists at all**: writing a launch into
+    /// why this exists at all: writing a launch into
     /// `BodyKinematics::vel` is only authoritative for a model that OWNS `vel`.
     /// A surface-momentum body that is `Riding` does not — its `vel` is
     /// documented as *"DERIVED (published for observers)"*, computed from the
@@ -429,20 +421,20 @@ pub struct BodyFlightState {
     /// The impulse has to reach the model, and only the model can decide what a
     /// launch MEANS to it (leave the surface, or override the run).
     ///
-    /// **drained by [`step_motion`](crate::movement::step_motion), the single
-    /// movement gateway, and by nothing else.** Putting the drain there rather
+    /// drained by [`step_motion`](crate::movement::step_motion), the single
+    /// movement gateway, and by nothing else. Putting the drain there rather
     /// than asking each writer to also call the model is deliberate: this repo
     /// has repeatedly been bitten by an authority that needs a follow-up call,
     /// and a launch that silently did nothing is exactly that failure.
     ///
-    /// **it rides on `BodyFlightState` because that cluster is ALREADY the
-    /// world-imparted momentum channel** (see `carried_run` above, written by
+    /// it rides on `BodyFlightState` because that cluster is ALREADY the
+    /// world-imparted momentum channel (see `carried_run` above, written by
     /// the portal adapter and by knockback) and is already rollback-registered
     /// as `body.flight`. A pending launch that did not rewind would be a phantom
     /// hit on the resimulated timeline; here it rewinds with everything else and
     /// needs no new registration.
     ///
-    /// **`Vec2::ZERO` is the empty state rather than an `Option`**, for the
+    /// `Vec2::ZERO` is the empty state rather than an `Option`, for the
     /// snapshot's sake: the encoder has a `vec2` primitive and no `Option<Vec2>`
     /// one, and inventing an option encoding to express "no launch" would put a
     /// new shape in the wire format for a case that already has a harmless
@@ -478,7 +470,7 @@ pub const LEDGE_KNOCK_OFF_COOLDOWN: f32 = 0.35;
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyDodgeState {
     pub cooldown: f32,
-    /// **The air dodge has been spent in this airtime.**
+    /// The air dodge has been spent in this airtime.
     ///
     /// Cleared where every other aerial resource is — on ground contact and on a ledge grab —
     /// rather than by a timer, because "one per trip through the air" is the rule players learn.
@@ -490,7 +482,7 @@ pub struct BodyDodgeState {
 pub struct BodyShieldState {
     pub active: bool,
     pub parry_window_timer: f32,
-    /// **Integrity SPENT**, not integrity left — so the derived `Default` (a
+    /// Integrity SPENT, not integrity left — so the derived `Default` (a
     /// fresh, undamaged guard) is right for every body, including the bodies
     /// whose [`crate::ShieldTuning`] leaves the shield unlimited.
     pub depleted: f32,
@@ -500,10 +492,10 @@ pub struct BodyShieldState {
     /// Shieldstun: the defender owes this after blocking, and it is what makes
     /// a blocked hit cost the blocker tempo instead of nothing.
     pub stun_timer: f32,
-    /// **How long THIS break was**, stamped when the guard shatters, so
+    /// How long THIS break was, stamped when the guard shatters, so
     /// [`Self::break_phase`] can say how far through it the body is.
     ///
-    /// **not a derive memo.** The phase needs
+    /// not a derive memo. The phase needs
     /// `break_timer / ShieldTuning::break_stun_time`, and the tuning is not
     /// available where the phase is READ — both presentation sites hold this
     /// component and no tuning, and reaching for `MotionModel::shield_tuning()`
@@ -517,9 +509,9 @@ pub struct BodyShieldState {
 }
 
 impl BodyShieldState {
-    /// **Is this body inside its perfect-shield window?**
+    /// Is this body inside its perfect-shield window?
     ///
-    /// **the timer ALONE, and dropping `active` was the point.** Under
+    /// the timer ALONE, and dropping `active` was the point. Under
     /// Ultimate's release-timed parry ([`crate::ParryTiming::OnRelease`]) the
     /// window is live while the guard is DOWN, so an `active &&` term would make
     /// that setting unreachable. The term is not lost: `resolve_shield` is the
@@ -535,7 +527,7 @@ impl BodyShieldState {
         self.break_timer > 0.0
     }
 
-    /// **How far through the break this body is**: `0.0` the instant the guard
+    /// How far through the break this body is: `0.0` the instant the guard
     /// shatters, approaching `1.0` as it recovers. `None` when no break runs.
     ///
     /// the genre draws a break as a SEQUENCE — launched, falling, collapsed,
@@ -557,7 +549,7 @@ impl BodyShieldState {
     }
 }
 
-/// **Break the guard**: spend it to the last point, drop it, and start the dizzy.
+/// Break the guard: spend it to the last point, drop it, and start the dizzy.
 pub fn break_shield(shield: &mut BodyShieldState, tuning: crate::ShieldTuning) {
     shield.depleted = tuning.max_health;
     shield.break_timer = tuning.break_stun_time;
@@ -566,7 +558,7 @@ pub fn break_shield(shield: &mut BodyShieldState, tuning: crate::ShieldTuning) {
     shield.parry_window_timer = 0.0;
 }
 
-/// **Spend the guard on a blocked hit**, breaking it if that empties it.
+/// Spend the guard on a blocked hit, breaking it if that empties it.
 ///
 /// Called from the damage resolver's block branch so the block and the cost it
 /// carries are one step, not a decision plus a follow-up nobody owes.
@@ -586,7 +578,7 @@ pub fn spend_shield_on_block(
     }
 }
 
-/// **The shield resource's whole clock**: the dizzy, the drain while held, and
+/// The shield resource's whole clock: the dizzy, the drain while held, and
 /// the regeneration while down.
 ///
 /// A break restores full integrity when the dizzy ends, so recovery is one
@@ -623,60 +615,21 @@ pub fn tick_shield_resource(
     freshly_broken
 }
 
-/// **"This body starts again."** — the half of a reset the engine cannot perform.
+/// Announces that a body has restarted.
 ///
-/// [`reset_body_clusters`] clears every cluster the ENGINE owns, and a ruleset
-/// that calls it can honestly say the movement, ability, shield and dodge state
-/// are gone. It cannot say the body is clean, because a character provider may
-/// attach authoritative state of its own — Sanic's ball-dash charge and his
-/// `Rolling` marker, Mary-O's spark cadence — and a generic rule knows neither
-/// the types nor what resetting them means. The versus round boundary claimed
-/// "the whole movement/ability cluster set", which was true, and read as "the
-/// fighter starts clean", which was not.
-///
-/// So the reset ANNOUNCES itself and each provider answers for its own state.
-///
-/// Observing it costs a provider one line and is inert for any body that lacks
-/// its components:
-///
-/// ```ignore
-/// app.add_observer(|restart: On<BodyRestarted>, mut dashes: Query<&mut BallDash>| {
-///     if let Ok(mut dash) = dashes.get_mut(restart.entity) {
-///         *dash = BallDash::default();
-///     }
-/// });
-/// ```
-///
-/// ## Every reset, not just the polite ones
-///
-/// This shipped as a versus-only event: `begin_round` triggered it by hand and
-/// the seven other production callers of [`reset_body_clusters`] — death
-/// respawn, safe respawn, room arrival, sandbox reset, lifecycle commit — did
-/// not, so ordinary play recreated exactly the leak the event was added to
-/// close. Sanic could respawn holding a ball-dash charge; the observers existed
-/// and nothing invoked them.
-///
-/// A doc comment cannot make seven call sites remember. So the announcement is
-/// DERIVED: [`reset_body_clusters`] raises [`BodyLifetime::restart_pending`] on
-/// state it already owns, and [`announce_body_restarts`] turns that into this
-/// trigger once per tick. A caller that has never heard of this type announces
-/// correctly, and a caller added next year does too.
+/// [`reset_body_clusters`] clears engine-owned state. Providers observe this
+/// event to reset authoritative state they own. The event is derived from
+/// [`BodyLifetime::restart_pending`] so every reset path announces once.
 #[derive(bevy_ecs::event::EntityEvent, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BodyRestarted {
     /// The body starting again.
     pub entity: bevy_ecs::entity::Entity,
 }
 
-/// Turn every pending restart into a [`BodyRestarted`] trigger, once.
+/// Turn pending restarts into [`BodyRestarted`] triggers.
 ///
-/// Registered at the FRONT of the sim tick, so a reset performed anywhere —
-/// mid-tick in a combat phase, or outside the sim schedule entirely by a room
-/// load — is announced before any system acts on that body again. The flag is
-/// cleared here and nowhere else, so the announcement happens exactly once per
-/// reset however many phases the reset passed through.
-///
-/// Ordinary `Commands`, so the observers run at the next command flush rather
-/// than reentrantly inside this query.
+/// This runs at the front of the sim tick and clears each pending flag exactly
+/// once. Observers run at the next command flush rather than reentrantly.
 pub fn announce_body_restarts(
     mut commands: bevy_ecs::system::Commands,
     mut bodies: bevy_ecs::system::Query<(bevy_ecs::entity::Entity, &mut BodyLifetime)>,
@@ -712,8 +665,8 @@ pub fn announce_body_restarts(
 /// ```
 ///
 /// Every other caller did not, and got default air jumps after a reset with
-/// nothing saying so. **An authority that requires a follow-up call is not an
-/// authority** — it is a two-step ritual, and the second step is the one people
+/// nothing saying so. An authority that requires a follow-up call is not an
+/// authority — it is a two-step ritual, and the second step is the one people
 /// forget. Now the question is asked at the call site, where the answer is.
 pub fn reset_body_clusters(
     model: &mut crate::movement::MotionModel,
@@ -797,7 +750,7 @@ pub fn reset_body_clusters(
 /// Refresh every AERIAL resource — dash charges, air jumps, and the air dodge —
 /// from the active `BodyAbilities` + the caller's authored base air-jump count.
 ///
-/// **the air dodge joined this function rather than getting a reset of its own**, and that
+/// the air dodge joined this function rather than getting a reset of its own, and that
 /// placement is the point: "restores on landing" is a rule about a class of resource, not about one
 /// maneuver, and eighteen call sites already know this function is where that class comes back.
 pub fn refresh_movement_resources_clusters(
@@ -861,7 +814,7 @@ impl Default for BodyOffense {
 /// The three windows are always `0.0` on every live body, so an early press is dropped exactly as
 /// if the buffer did not exist.
 ///
-/// **the absence is the surprising fact, which is why it is stated here.**
+/// the absence is the surprising fact, which is why it is stated here.
 /// This is a registered rollback row carried in all three baselines
 /// (`body.action_buffer`, canonical codec), and `AxisManeuverState`'s own doc
 /// names `BodyActionBuffer` as the combat counterpart to its movement buffers —
@@ -1005,12 +958,12 @@ impl BodyClusterScratch {
         }
     }
 
-    /// **Born moving.** [`Self::new_with_abilities`] constructs a body at rest;
+    /// Born moving. [`Self::new_with_abilities`] constructs a body at rest;
     /// a caller assembling a hypothetical — a recovery probe reconstructing "the
     /// body as this line left it", a fixture starting mid-fall — states its
     /// velocity here instead of reaching into `kinematics` afterwards.
     ///
-    /// **this is a CONSTRUCTION seam, not an authority.** ADR 0024's velocity
+    /// this is a CONSTRUCTION seam, not an authority. ADR 0024's velocity
     /// authority governs a simulated body being changed under a resolved frame;
     /// a `BodyClusterScratch` is an owned bag with no entity, no frame and no
     /// integrator, so there is no authority to route through — only the question
@@ -1175,7 +1128,7 @@ mod reset_tests {
         assert_eq!(scratch.base_size.base_size, default);
     }
 
-    /// **A reset restores the LIVE air-jump count, not the engine default.**
+    /// A reset restores the LIVE air-jump count, not the engine default.
     ///
     /// This was `DEFAULT_TUNING.air_jumps` inside the function, so a body under
     /// non-default tuning came back from every reset with default jumps. Four of
@@ -1200,7 +1153,7 @@ mod reset_tests {
         );
     }
 
-    /// **Any reset announces itself.** The seven production callers of
+    /// Any reset announces itself. The seven production callers of
     /// `reset_body_clusters` do not know `BodyRestarted` exists, and must not
     /// have to: the flag is raised by the reset, not by the caller.
     #[test]
@@ -1277,7 +1230,7 @@ mod shield_resource_tests {
         }
     }
 
-    /// **HOLDING THE GUARD SPENDS IT, AND SPENDING IT ALL BREAKS IT.**
+    /// HOLDING THE GUARD SPENDS IT, AND SPENDING IT ALL BREAKS IT.
     #[test]
     fn a_held_guard_drains_until_it_breaks() {
         let mut shield = guarding();
@@ -1305,7 +1258,7 @@ mod shield_resource_tests {
         );
     }
 
-    /// **A BROKEN GUARD CANNOT COME BACK UP, AND COMES BACK WHOLE.**
+    /// A BROKEN GUARD CANNOT COME BACK UP, AND COMES BACK WHOLE.
     #[test]
     fn a_break_locks_the_guard_out_and_then_restores_it_fully() {
         let mut shield = guarding();
@@ -1332,7 +1285,7 @@ mod shield_resource_tests {
         );
     }
 
-    /// **A BLOCKED HIT COSTS INTEGRITY, AND A BIG ENOUGH ONE BREAKS THE GUARD.**
+    /// A BLOCKED HIT COSTS INTEGRITY, AND A BIG ENOUGH ONE BREAKS THE GUARD.
     #[test]
     fn blocking_spends_the_guard_in_proportion_to_the_damage() {
         let mut small = guarding();
@@ -1353,7 +1306,7 @@ mod shield_resource_tests {
         );
     }
 
-    /// **A BODY WITH NO SHIELD RESOURCE IS UNTOUCHED BY ALL OF IT.**
+    /// A BODY WITH NO SHIELD RESOURCE IS UNTOUCHED BY ALL OF IT.
     ///
     /// the poison this pins: every body in the game carries a
     /// `BodyShieldState` and almost none authors a [`ShieldTuning`], so a rule
@@ -1372,7 +1325,7 @@ mod shield_resource_tests {
         assert_eq!(shield.integrity_fraction(ShieldTuning::OFF), 1.0);
     }
 
-    /// **LETTING GO REGENERATES, AND ONLY UP TO WHOLE.**
+    /// LETTING GO REGENERATES, AND ONLY UP TO WHOLE.
     #[test]
     fn a_dropped_guard_regenerates_and_stops_at_full() {
         let mut shield = guarding();
@@ -1395,7 +1348,7 @@ mod shieldstun_tests {
     use super::*;
     use crate::ShieldTuning;
 
-    /// **BLOCKING COSTS THE BLOCKER TIME, IN PROPORTION TO WHAT IT BLOCKED.**
+    /// BLOCKING COSTS THE BLOCKER TIME, IN PROPORTION TO WHAT IT BLOCKED.
     ///
     /// without this a guard is free: the defender eats a smash attack and acts
     /// on the next frame, so there is nothing to punish and no reason to swing.
@@ -1429,7 +1382,7 @@ mod shieldstun_tests {
         assert_eq!(heavy.stun_timer, 0.0, "shieldstun never expired");
     }
 
-    /// **AND A BODY WITH NO SHIELD RESOURCE STILL BLOCKS FOR FREE.**
+    /// AND A BODY WITH NO SHIELD RESOURCE STILL BLOCKS FOR FREE.
     #[test]
     fn an_unlimited_guard_owes_no_shieldstun() {
         let mut shield = BodyShieldState {

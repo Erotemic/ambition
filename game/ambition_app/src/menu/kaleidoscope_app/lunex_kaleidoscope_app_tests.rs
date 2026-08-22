@@ -2379,7 +2379,7 @@ fn game_cube_configuration_overlays_the_live_world_camera() {
     );
 }
 
-/// **A rebind row arms, then the NEXT press becomes the binding.**
+/// A rebind row arms, then the NEXT press becomes the binding.
 ///
 /// the trap this pins: selecting the row is itself a key press, and it is
 /// still in `get_just_pressed` when the capture runs later the same frame. The

@@ -1,13 +1,13 @@
-//! **Explicit spawn provenance and the one construction plan.**
+//! Explicit spawn provenance and the one construction plan.
 //!
 //! `docs/planning/engine/immutable-content-and-transactional-construction.md`
 //! §6.2–6.3 and Phase 3. Two rules drive everything here:
 //!
-//! > **Plan before mutation.** Construction is decided as a pure value first;
+//! > Plan before mutation. Construction is decided as a pure value first;
 //! > execution consumes that value instead of rediscovering authoritative
 //! > decisions while the live world is already half-replaced.
 //!
-//! > **Provenance is data.** Who requested an entity, and how to rebuild it, is
+//! > Provenance is data. Who requested an entity, and how to rebuild it, is
 //! > a component you can read — never a fact recovered by parsing the identity
 //! > string the sim happened to generate.
 //!
@@ -79,7 +79,7 @@ impl std::fmt::Display for RecipeId {
 /// something a provider staged into a room, and something the running
 /// simulation minted.
 ///
-/// **The recipe is deliberately not repeated here.** The doc's sketch carried a
+/// The recipe is deliberately not repeated here. The doc's sketch carried a
 /// `RecipeId` inside two of the variants, but the planned row already names the
 /// recipe; storing it twice creates a state where the two can disagree and
 /// nothing says which wins.
@@ -99,7 +99,7 @@ pub enum SpawnOrigin {
     },
     /// The running simulation minted this: a projectile, a summoned minion, a dropped item.
     ///
-    /// **`parent` is not optional.** A dynamic entity states which spawner it
+    /// `parent` is not optional. A dynamic entity states which spawner it
     /// descends from or it is unreconstructable, so "dynamic, parent unknown"
     /// is not a state worth being able to spell. A spawn site that cannot name
     /// its spawner's identity must refuse to spawn rather than mint a
@@ -154,7 +154,7 @@ impl SpawnOrigin {
 pub trait ConstructionDomain: Send + Sync + 'static + Sized {
     /// What one planned row carries into its recipe.
     type Parameters: Clone + Send + Sync + 'static;
-    /// **What one declared RELATION is** — its kind and everything the pairing
+    /// What one declared RELATION is — its kind and everything the pairing
     /// carries, as ONE value.
     ///
     /// Some relationships are pure adjacency — a grudge is fully described by
@@ -173,8 +173,8 @@ pub trait ConstructionDomain: Send + Sync + 'static + Sized {
     /// lookup left.
     type Services;
 
-    /// Resolve what builds this row: **its recipe identity and its executor,
-    /// from one exhaustive match**.
+    /// Resolve what builds this row: its recipe identity and its executor,
+    /// from one exhaustive match.
     ///
     /// Returning both together is the point. This started as two methods — one
     /// deriving a `RecipeId`, one performing construction — and two matches over
@@ -188,13 +188,13 @@ pub trait ConstructionDomain: Send + Sync + 'static + Sized {
     /// lookup that could miss resolved in the request builder.
     fn dispatch(parameters: &Self::Parameters) -> RecipeDispatch<Self>;
 
-    /// Resolve what a declared relation IS: **its stable kind, its wiring, and
-    /// its postcondition check, from one exhaustive match**.
+    /// Resolve what a declared relation IS: its stable kind, its wiring, and
+    /// its postcondition check, from one exhaustive match.
     ///
     /// The relation counterpart of [`Self::dispatch`], and it exists for the
     /// same reason plus one more. The same one: a kind chosen in one place and
     /// behaviour chosen in another can drift while still compiling. The extra
-    /// one: this is also what makes relation wiring **engine-owned**. Ops are
+    /// one: this is also what makes relation wiring engine-owned. Ops are
     /// resolved here rather than looked up in the registry, so there is no table
     /// an outside plugin can register executable behaviour into — and therefore
     /// no insertion-order race deciding which implementation of a kind runs.
@@ -255,8 +255,8 @@ pub type ConstructFn<D> = for<'w, 's, 'a> fn(
 /// parent deliberate child entities — but only [`ConstructionPlan`] can mint
 /// one, so a recipe cannot nominate a pre-existing entity as a row's root.
 ///
-/// **This is the executor invariant, and it is narrower than "one planned
-/// row, one authoritative root".** What is mechanically guaranteed is that the
+/// This is the executor invariant, and it is narrower than "one planned
+/// row, one authoritative root". What is mechanically guaranteed is that the
 /// executor allocates each nominal planned root and freezes its constructor.
 /// What is NOT guaranteed is that the recipe leaves that root alone or refrains
 /// from creating authoritative entities beside it: it holds raw `Commands`, so
@@ -276,7 +276,7 @@ impl ConstructionRoot {
 
 /// What one plan describes: which content generation, and which room.
 ///
-/// **Session ownership is deliberately absent.** It is a commit-time fact — one
+/// Session ownership is deliberately absent. It is a commit-time fact — one
 /// prepared room plan is committed by whichever activation requested it, which
 /// is why `PlacementLoweringPlan` also takes its `SessionSpawnScope` at
 /// `lower_all` rather than at `plan_room`. A domain that needs it carries it in
@@ -292,8 +292,8 @@ pub struct ConstructionScope {
 
 /// Whether a plan is bound to a generation of prepared content, and which.
 ///
-/// **This replaces a bare `ContentEpoch` whose zero value meant three different
-/// things**: "a fixture stated nothing", "a reset rebuilds the content already
+/// This replaces a bare `ContentEpoch` whose zero value meant three different
+/// things: "a fixture stated nothing", "a reset rebuilds the content already
 /// active so states no new generation", and "a summon is not content at all".
 /// Only the last is genuinely not content-bound; the other two were content-
 /// bound plans that had simply lost track of which generation they belonged to,
@@ -341,7 +341,7 @@ impl ConstructionScope {
     /// simulation requires, and what makes a same-room reconstruction recognise
     /// its own previous roots instead of calling them foreign.
     ///
-    /// **The session is part of the key, and it has to be.** This was
+    /// The session is part of the key, and it has to be. This was
     /// `binding + room` alone, which is a CONSTRUCTION-SCOPE identity, not a
     /// transaction identity: the shell host runs two gameplay sessions in one
     /// process, so two sessions committing the same room at the same content
@@ -436,7 +436,7 @@ impl Default for ConstructionLane {
 
 /// Which construction transaction owns an authoritative root.
 ///
-/// **Stamped by the executor, on every root it allocates.** This is what lets
+/// Stamped by the executor, on every root it allocates. This is what lets
 /// verification ask the WORLD which roots are in scope instead of trusting a
 /// caller to list them — a caller that forgets the root a recipe invented is
 /// exactly the caller whose transaction most needs checking.
@@ -475,12 +475,12 @@ pub struct PresentationOnly;
 
 /// One requested entity, before validation.
 ///
-/// **There is no `recipe` field either.** Which recipe builds a row is derived
+/// There is no `recipe` field either. Which recipe builds a row is derived
 /// from its parameters by [`ConstructionDomain::dispatch`], so a request that
 /// names one recipe while carrying another's payload is not a thing that can be
 /// written down.
 ///
-/// **There is no `parent` field.** The spawner an entity descends from is
+/// There is no `parent` field. The spawner an entity descends from is
 /// already stated by [`SpawnOrigin::Dynamic`], and a request that carried it
 /// twice would have a state where the validated parent and the recorded
 /// provenance disagree — with nothing to say which one reconstruction should
@@ -497,7 +497,7 @@ pub struct ConstructionRequest<D: ConstructionDomain> {
 
 /// A declared relation from the requesting entity onto another identity.
 ///
-/// **There is no `kind` field.** It is derived from `relation` by
+/// There is no `kind` field. It is derived from `relation` by
 /// [`ConstructionDomain::dispatch_relation`], for the same reason [`ConstructionRequest`] has no
 /// `recipe`: a request that names one kind while carrying another's facts is not a thing that can
 /// be written down.
@@ -527,7 +527,7 @@ pub struct PlannedEntity<D: ConstructionDomain> {
     /// Resolved once at preparation via [`ConstructionDomain::dispatch`], and
     /// what the dump, the registry check, and the fingerprint all name.
     recipe: RecipeId,
-    /// **The resolved constructor, frozen beside its identity.**
+    /// The resolved constructor, frozen beside its identity.
     ///
     /// Commit runs THIS, and never asks the domain again. `dispatch` is
     /// expected to be a pure function of the parameters, but nothing in the
@@ -577,7 +577,7 @@ impl<D: ConstructionDomain> PlannedEntity<D> {
     }
 }
 
-/// One validated relation with **both** its wiring function and its
+/// One validated relation with both its wiring function and its
 /// postcondition check already resolved.
 ///
 /// Frozen at preparation for the same reason [`PlannedEntity::construct`] is: commit runs what
@@ -667,7 +667,7 @@ pub enum ConstructionError {
     /// A partial commit would have cut a relation: exactly one of its two ends
     /// is being rebuilt.
     ///
-    /// **Both directions are refused, and the reason is that a relation is an `Entity` handle.**
+    /// Both directions are refused, and the reason is that a relation is an `Entity` handle.
     /// Rebuilding the SOURCE alone leaves it unwired, which is obvious. Rebuilding the TARGET alone
     /// is worse and was briefly allowed here on the reasoning that the relation "belongs to" the
     /// untouched source: it does, but what the source holds is a handle to the entity that just
@@ -964,7 +964,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
 
     /// The identities this plan NOMINATES.
     ///
-    /// **Not "the exact committed roster".** It is what the plan asked for,
+    /// Not "the exact committed roster". It is what the plan asked for,
     /// which is a different thing from what the world ends up holding: a recipe
     /// can despawn its root, duplicate an identity onto a second body, or spawn
     /// authoritative entities of its own, and none of that moves this set.
@@ -1055,7 +1055,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
     /// Construct the named rows, and wire exactly the relations that lie wholly
     /// within them.
     ///
-    /// **This is the only executor.** A full commit is this over every row; a
+    /// This is the only executor. A full commit is this over every row; a
     /// single-entity rebuild is this over one. Ordinary construction and
     /// reconstruction cannot drift because there is nothing for them to drift
     /// between.
@@ -1206,15 +1206,15 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
 
 /// Check that the world a commit produced is the world the plan described.
 ///
-/// **This is a detector, not a preventer, and the distinction is the whole
-/// point of having it.** The executor allocates each row's root, but a recipe
+/// This is a detector, not a preventer, and the distinction is the whole
+/// point of having it. The executor allocates each row's root, but a recipe
 /// receives raw `Commands` and the root `Entity`, so it can despawn that root,
 /// strip or rewrite its `SimId`/`SpawnOrigin`, stamp a second entity with a
 /// planned identity, or spawn further authoritative entities of its own — the
 /// giant hand limbs already do the last of these. None of that is structurally
 /// prevented today, so a transaction that intends to publish a room must ask.
 ///
-/// **Bevy commands do not roll back.** By the time this can run, the
+/// Bevy commands do not roll back. By the time this can run, the
 /// construction commands have applied. A violation here therefore cannot be
 /// undone — it can only stop the transaction being PUBLISHED as successful, and
 /// leaves the world in whatever state the offending recipe produced. That is
@@ -1222,7 +1222,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
 /// worse than the structural fix (every authoritative root an explicit plan
 /// row), which is Phase-4 work.
 ///
-/// **The scope is read from the world, not supplied.** An earlier version took
+/// The scope is read from the world, not supplied. An earlier version took
 /// a caller-curated `&[(SimId, Entity)]`, which made the check exactly as
 /// complete as the caller's imagination: the roots most worth catching are the
 /// ones nobody thought to list. [`AuthoritativeScope::gather`] queries instead,
@@ -1474,8 +1474,8 @@ pub fn verify_committed_roster<D: ConstructionDomain>(
 pub enum RosterViolation {
     /// A planned row produced no live entity carrying its identity.
     Missing { sim_id: SimId },
-    /// More than one live entity carries one identity. **This is the case a
-    /// `BTreeSet<SimId>` comparison cannot see**: the set of identities looks
+    /// More than one live entity carries one identity. This is the case a
+    /// `BTreeSet<SimId>` comparison cannot see: the set of identities looks
     /// exactly right while two bodies answer to one of them.
     Duplicated { sim_id: SimId, count: usize },
     /// The identity exists, but not on the entity the executor allocated for
@@ -1517,7 +1517,7 @@ pub enum RosterViolation {
     /// A baseline identity the transaction did not declare it was touching is
     /// no longer in the world.
     BaselineLost { sim_id: SimId },
-    /// A baseline identity survived, **on a different entity**. Something
+    /// A baseline identity survived, on a different entity. Something
     /// despawned the original and minted a replacement wearing its name. The
     /// roster is exactly the right length and every identity is present, which
     /// is why identity-only comparison is not enough.
@@ -1552,7 +1552,7 @@ pub enum RosterViolation {
     },
     /// The wiring function ran and the world does not hold the relation.
     ///
-    /// **The receipt cannot see this.** It records that a function was called,
+    /// The receipt cannot see this. It records that a function was called,
     /// which a no-op, a write to the wrong entity, and a later overwrite all
     /// satisfy identically.
     RelationNotEstablished {
@@ -1563,7 +1563,7 @@ pub enum RosterViolation {
         check: RelationCheck,
     },
     /// The plan was prepared against a content generation that is not the one the session is
-    /// live under. **Fatal.** Detected at the room boundary because commit cannot be prevented
+    /// live under. Fatal. Detected at the room boundary because commit cannot be prevented
     /// yet (no staging world); the room is refused publication instead.
     ContentBindingMismatch {
         planned: ContentBinding,
@@ -1572,7 +1572,7 @@ pub enum RosterViolation {
     /// A host's committed rig does not match the exact composition the plan
     /// described for it.
     ///
-    /// **The per-relation postcondition pass cannot see this.** That pass asks,
+    /// The per-relation postcondition pass cannot see this. That pass asks,
     /// for each planned limb relation, "did MY relation land" — a question a host
     /// whose rig gained an EXTRA limb from a second intent stream answers yes to
     /// for every planned limb while carrying a rig the plan never described. This
@@ -1580,7 +1580,7 @@ pub enum RosterViolation {
     /// planned identity, nothing more. `detail` names the specific fault (an
     /// extra slot, a missing slot, a wrong or duplicated occupant, a reverse
     /// disagreement); the domain that owns the rig components composes it, so the
-    /// primitive stays free of `LimbRig`/`LimbSlot`. **Fatal.**
+    /// primitive stays free of `LimbRig`/`LimbSlot`. Fatal.
     RigComposition { host: SimId, detail: String },
 }
 
@@ -1715,8 +1715,8 @@ pub struct BaselineEntry {
     pub origin: Option<SpawnOrigin>,
 }
 
-/// The world a transaction opened against: which identities were live, **on
-/// which entities**, carrying which provenance — plus what the transaction
+/// The world a transaction opened against: which identities were live, on
+/// which entities, carrying which provenance — plus what the transaction
 /// declared it was going to do to them.
 ///
 /// Explicit rather than inferred: nothing here parses a `SimId`. And permission
@@ -1872,7 +1872,7 @@ pub struct ScopeMember {
 /// Every identity-bearing entity in the world, classified against one
 /// transaction.
 ///
-/// **Gathered by querying, never curated.** The whole point of reading the
+/// Gathered by querying, never curated. The whole point of reading the
 /// world is that the roots most worth catching are the ones a caller would not
 /// have thought to list — a recipe that invents an authoritative entity does
 /// not also add itself to the caller's array.

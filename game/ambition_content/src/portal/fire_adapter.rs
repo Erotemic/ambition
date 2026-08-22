@@ -137,7 +137,7 @@ mod tests {
         );
     }
 
-    /// **THE FIRE SPENDS THE ATTACK PRESS — HERE, WHERE IT IS ACCEPTED.**
+    /// THE FIRE SPENDS THE ATTACK PRESS — HERE, WHERE IT IS ACCEPTED.
     #[test]
     fn an_accepted_fire_spends_the_press_and_a_refused_one_does_not() {
         use ambition_characters::control::ActorControl;

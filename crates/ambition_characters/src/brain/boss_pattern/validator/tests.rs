@@ -77,7 +77,7 @@ fn beats(pattern: &BossAttackPattern) -> Vec<Beat> {
     fight_beats(pattern, &[], 0.0, 0.0, 0.0)
 }
 
-/// **BD4's finding, made mechanical.** There is no per-attack recovery; the
+/// BD4's finding, made mechanical. There is no per-attack recovery; the
 /// punish window is the `Rest` that follows. A slam with a generous rest is
 /// fair; the SAME slam chained straight into the next telegraph is not.
 #[test]
@@ -265,7 +265,7 @@ fn telegraphed(id: &str, pose: &str, cue: &str) -> Vec<BossPatternStep> {
     ]
 }
 
-/// **The rule 5 that a duration cannot express.** Two attacks wind up for the
+/// The rule 5 that a duration cannot express. Two attacks wind up for the
 /// same 1.0s and look identical: nothing on screen tells them apart. A
 /// telegraph DURATION says how long the player has; a telegraph IDENTITY says
 /// what they are looking at.
@@ -353,7 +353,7 @@ fn unidentified_telegraphs_are_reported_once_per_fight_not_once_per_beat() {
     assert_eq!(warns[0].severity, Severity::Warning);
 }
 
-/// **BD3 byte-parity.** A pre-BD3 `Telegraph` row parses with no `telegraph`
+/// BD3 byte-parity. A pre-BD3 `Telegraph` row parses with no `telegraph`
 /// field and behaves exactly as before.
 #[test]
 fn a_pre_bd3_telegraph_row_still_parses() {

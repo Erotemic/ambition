@@ -7,8 +7,8 @@
 //! ## The roster only became ownable when its type moved
 //!
 //! A schema must be registered by the crate owning its type, and the validator has to link that
-//! crate — so a boss-profile schema meant the CLI linking the monolith: **708 crates against its
-//! 239, and a renderer**, destroying the property that justifies the compiler at all.
+//! crate — so a boss-profile schema meant the CLI linking the monolith: 708 crates against its
+//! 239, and a renderer, destroying the property that justifies the compiler at all.
 //!
 //! It now lives in [`super::profile`], the actor crate re-exports it, and the `BossCatalog`
 //! lookups became `BossBehaviorProfileExt` there because the orphan rule does not let an
@@ -54,8 +54,8 @@ pub const BOSS_ENCOUNTER_VERSION: SchemaVersion = SchemaVersion(1);
 /// are read from authored RON and never written back. Debug is derived on all of
 /// them and moves when a value moves.
 ///
-/// **but Debug follows ITERATION ORDER, so every container reaching this must
-/// be ordered.** I wrote "gives stable field order" here and it was only true of
+/// but Debug follows ITERATION ORDER, so every container reaching this must
+/// be ordered. I wrote "gives stable field order" here and it was only true of
 /// the fields: `BossBehaviorProfile::strike_geometry` was a `HashMap`, whose
 /// order is randomised per instance (measured: six constructions of one
 /// four-key map, six different orders, same process). Two identical rosters
@@ -79,7 +79,7 @@ fn code_for(error: &ron::error::SpannedError) -> DiagnosticCode {
 /// One encounter file, of nine — the family the aggregation contract was built
 /// for.
 ///
-/// **the schema now says how they combine** ([`Self::aggregate`]): each file
+/// the schema now says how they combine ([`Self::aggregate`]): each file
 /// lowers one [`BossEncounterSpec`], and the merge is the
 /// `BTreeMap<String, BossEncounterSpec>` the boss catalog already holds. The
 /// compiler's copy IS the runtime's copy.
@@ -111,7 +111,7 @@ impl ContentSchemaHandler for BossEncounterSchema {
             "id",
         ));
 
-        // **AND ITS MUSIC, because both sides are in the pack now.** These four fields name
+        // AND ITS MUSIC, because both sides are in the pack now. These four fields name
         // `music_registry` tracks. Empty means "no swap for this phase" and is not a reference.
         for (field, track) in [
             ("music_intro", &spec.music_intro),
@@ -119,7 +119,7 @@ impl ContentSchemaHandler for BossEncounterSchema {
             ("music_phase2", &spec.music_phase2),
             ("music_enrage", &spec.music_enrage),
         ] {
-            // **EXACTLY empty, not `trim().is_empty()`.** `phase_music`
+            // EXACTLY empty, not `trim().is_empty()`. `phase_music`
             // gates on `!track.is_empty()`, so `"   "` is a REAL music request
             // at runtime — one that matches no track and silently falls through
             // to another candidate. Skipping it here (and in the startup
@@ -157,8 +157,8 @@ impl ContentSchemaHandler for BossEncounterSchema {
             let Some(spec) = fragment.get::<BossEncounterSpec>() else {
                 continue;
             };
-            // **checked here even though `define` already makes two encounter
-            // files with one id a `DuplicateIdentity`.** The merge must not
+            // checked here even though `define` already makes two encounter
+            // files with one id a `DuplicateIdentity`. The merge must not
             // depend on another stage having caught it: a silent `insert` that
             // returns `Some` is exactly the last-wins the compiler refuses, and
             // it would be one refactor of `check` away from being the only
@@ -437,7 +437,7 @@ impl ContentSchemaHandler for BossProfilesSchema {
                 "id",
             ));
 
-            // **the key IS the lookup, and the row states its own id.** Every
+            // the key IS the lookup, and the row states its own id. Every
             // runtime path resolves a boss by MAP KEY (`catalog.behavior(key)`)
             // and then reads `profile.id` for its sheet target, its music, its
             // bark pool. When the two disagree the boss is looked up under one

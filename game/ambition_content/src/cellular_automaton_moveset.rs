@@ -1,6 +1,6 @@
-//! **The Perfect Cellular Automaton's signature move**, authored as data.
+//! The Perfect Cellular Automaton's signature move, authored as data.
 //!
-//! **the vocabulary is Conway's, because the character is.** A cellular
+//! the vocabulary is Conway's, because the character is. A cellular
 //! automaton does not punch — it applies a rule and the neighbourhood changes.
 //! Every move names a pattern, and its shape is the pattern's shape: a still
 //! life is a small stable block, an oscillator flips in place, a glider leaves
@@ -8,7 +8,7 @@
 //! Its FOURTEEN authored effect rows were already rendered and, apart from the
 //! pulse's cue, not one of them was named by anything.
 //!
-//! **boss-grade telegraphs, kept.** The pulse's 0.40s tell is what makes it
+//! boss-grade telegraphs, kept. The pulse's 0.40s tell is what makes it
 //! fair; the new moves are quicker but every one of them is slower to start than
 //! the equivalent on a fighter built for this — it is a boss standing in a
 //! platform fighter, and the numbers say so.
@@ -45,7 +45,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         sustain_effect: None,
     };
 
-    // **VERBATIM, and hand-built rather than passed through `strike`.** The
+    // VERBATIM, and hand-built rather than passed through `strike`. The
     // helper would give it a slash arc and a different window shape; this move's
     // numbers came off an archetype row and the migration that brought them here
     // promised not to retune them. Everything after it uses the helper.
@@ -101,7 +101,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
 
     // ── grounded ─────────────────────────────────────────────────────────────
 
-    // **JAB — `still_life`.** A block appears where its hand would be and does
+    // JAB — `still_life`. A block appears where its hand would be and does
     // not change. The fastest thing it owns, and the only one with no telegraph.
     let jab = strike(
         "still_life",
@@ -120,7 +120,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     let jab = vfx_at(jab, 0.06, "still_life_lock", (26.0, 0.0), CELL_FX);
     let jab = on_contact(jab, "player.hit");
 
-    // **FORWARD TILT — `rule_front`.** The rule advances one cell into you.
+    // FORWARD TILT — `rule_front`. The rule advances one cell into you.
     // without this the commonest press in the genre fell to the jab.
     let f_tilt = strike(
         "rule_front",
@@ -139,7 +139,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     let f_tilt = vfx_at(f_tilt, 0.09, "rule_front", (32.0, -2.0), PATTERN_FX);
     let f_tilt = on_contact(f_tilt, "player.hit");
 
-    // **UP TILT — `cell_birth`.** A neighbourhood above it reaches three live
+    // UP TILT — `cell_birth`. A neighbourhood above it reaches three live
     // neighbours and something is born there. Anti-air.
     let u_tilt = strike(
         "cell_birth",
@@ -158,7 +158,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     let u_tilt = vfx_at(u_tilt, 0.09, "cell_birth", (8.0, -28.0), CELL_FX);
     let u_tilt = on_contact(u_tilt, "player.hit");
 
-    // **DOWN TILT — `phase_boundary`.** The edge between two rules, at ankle
+    // DOWN TILT — `phase_boundary`. The edge between two rules, at ankle
     // height, where standing on the wrong side of it costs.
     let d_tilt = strike(
         "phase_boundary",
@@ -179,11 +179,11 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
 
     // ── smashes ──────────────────────────────────────────────────────────────
     //
-    // **it had NONE.** Three presses that resolved to nothing at all, on the
+    // it had NONE. Three presses that resolved to nothing at all, on the
     // fighter with the highest health pool on the grid — a boss that could not
     // kill. These are its heaviest reads and they telegraph like the pulse.
 
-    // **FORWARD — `generation_wipe`.** One step of the rule applied to the whole
+    // FORWARD — `generation_wipe`. One step of the rule applied to the whole
     // row in front of it. Everything in that row is in the next generation or it
     // is not.
     let f_smash = strike(
@@ -204,7 +204,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     let f_smash = sfx(f_smash, 0.32, "pca.cellular_pulse");
     let f_smash = on_contact(f_smash, "player.hit");
 
-    // **UP — `causal_cone_expand`.** The light cone of one changed cell, opening
+    // UP — `causal_cone_expand`. The light cone of one changed cell, opening
     // upward. Tall and narrow at the base, which is what makes it an anti-air
     // rather than a second forward smash.
     let u_smash = strike(
@@ -231,7 +231,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     let u_smash = sfx(u_smash, 0.18, "pca.cellular_pulse");
     let u_smash = on_contact(u_smash, "player.hit");
 
-    // **DOWN — `garden_growth`.** A garden of Eden has no predecessor: it can
+    // DOWN — `garden_growth`. A garden of Eden has no predecessor: it can
     // only be placed. It places one, either side of itself, along the floor.
     let d_smash = strike(
         "garden_growth",
@@ -254,7 +254,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
 
     // ── aerials ──────────────────────────────────────────────────────────────
 
-    // **NEUTRAL AIR — `oscillator_pulse`.** A blinker, around itself, flipping
+    // NEUTRAL AIR — `oscillator_pulse`. A blinker, around itself, flipping
     // through both of its states.
     let n_air = strike(
         "oscillator_pulse",
@@ -290,7 +290,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     let f_air = vfx_at(f_air, 0.09, "glider_impact", (30.0, -4.0), CELL_FX);
     let f_air = on_contact(f_air, "player.hit");
 
-    // **BACK AIR — `cell_death`.** Underpopulation, behind it. The hardest
+    // BACK AIR — `cell_death`. Underpopulation, behind it. The hardest
     // single hit in its aerial game, because it cannot see it coming either.
     let b_air = strike(
         "cell_death",
@@ -309,7 +309,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     let b_air = vfx_at(b_air, 0.10, "cell_death", (-30.0, -2.0), CELL_FX);
     let b_air = on_contact(b_air, "player.hit");
 
-    // **UP AIR — `fixed_point_acquire`.** It finds the state that maps to
+    // UP AIR — `fixed_point_acquire`. It finds the state that maps to
     // itself, directly overhead, and holds it there.
     let u_air = strike(
         "fixed_point_acquire",
@@ -328,7 +328,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     let u_air = vfx_at(u_air, 0.08, "fixed_point_acquire", (2.0, -28.0), CELL_FX);
     let u_air = on_contact(u_air, "player.hit");
 
-    // **DOWN AIR — `corruption_seed`.** It drops a seed and the rule below it
+    // DOWN AIR — `corruption_seed`. It drops a seed and the rule below it
     // stops being the rule. Straight down and hard.
     let d_air = strike(
         "corruption_seed",
@@ -349,7 +349,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
 
     // ── the three specials the pulse was standing in for ─────────────────────
 
-    // **SIDE — `glider_launch`.** A glider leaves and does not come back. the
+    // SIDE — `glider_launch`. A glider leaves and does not come back. the
     // move DISPLACES the automaton rather than spawning a projectile: its ranged
     // glider already exists on its action set, and a second spawner here would
     // be two authorities on one pattern.
@@ -372,7 +372,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     let side_b = vfx_at(side_b, 0.16, "glider_launch", (30.0, 0.0), PATTERN_FX);
     let side_b = on_contact(side_b, "player.hit");
 
-    // **UP — `spaceship_ascent`. THE RECOVERY.** A lightweight spaceship
+    // UP — `spaceship_ascent`. THE RECOVERY. A lightweight spaceship
     // translates itself one cell per generation, forever, in whatever direction
     // it was built pointing. This one points up.
     let mut up_b = strike(
@@ -396,7 +396,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     let up_b = vfx_at(up_b, 0.22, "cell_birth", (0.0, -14.0), CELL_FX);
     let up_b = on_contact(up_b, "player.hit");
 
-    // **DOWN — `generation_collapse`.** It runs the rule BACKWARDS: the cone
+    // DOWN — `generation_collapse`. It runs the rule BACKWARDS: the cone
     // closes instead of opening, and everything inside it arrives at the same
     // cell. No displacement, the longest tail it has, and grounded-only.
     let down_b = strike(
@@ -430,7 +430,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     // player pressing down-B in the air got the neutral-B. `special_air_down`
     // sits ahead of `special_down` in that chain and has the whole time; this is
     // the two-form move it exists for.
-    // **DOWN, IN THE AIR — `collapse_dive`.** The cone closes downward instead
+    // DOWN, IN THE AIR — `collapse_dive`. The cone closes downward instead
     // of around it: every cell under it arrives at the same one, and so does it.
     let mut air_down_b = strike(
         "collapse_dive",
@@ -456,7 +456,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         CELL_FX,
     );
     let air_down_b = on_contact(air_down_b, "player.hit");
-    // **CELLULAR'S CAPTURE KIT.** TALLER than it is wide, which is the automaton's
+    // CELLULAR'S CAPTURE KIT. TALLER than it is wide, which is the automaton's
     // silhouette. The fastest pummel on the roster for the least damage each, and a
     // near-vertical throw: it does not carry you away, it stacks you.
     // the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
@@ -543,7 +543,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(cellular_pulse),
         side_special: side_b,
         up_special: up_b,
-        // **AUTHORED, at the rule that every fighter in the smash roster have a grab.** The
+        // AUTHORED, at the rule that every fighter in the smash roster have a grab. The
         // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
         // the whole point of proving it was to stop being the only two.
         //
@@ -580,7 +580,7 @@ mod tests {
     // `ambition_characters::smash_repertoire`, and by the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
-    /// **THE PULSE IS UNTOUCHED.** Fifteen moves were written around it and the
+    /// THE PULSE IS UNTOUCHED. Fifteen moves were written around it and the
     /// one that came off the archetype row still carries the row's numbers —
     /// a 0.40s tell, a 0.14s window, 3 damage, 140 flat knockback.
     #[test]
@@ -605,7 +605,7 @@ mod tests {
         );
     }
 
-    /// **A BOSS TELEGRAPHS.** Its heaviest reads start slower than the goblin's
+    /// A BOSS TELEGRAPHS. Its heaviest reads start slower than the goblin's
     /// whole jab — the identity claim the module doc makes, pinned against a
     /// fighter built for this stage rather than against a constant.
     #[test]

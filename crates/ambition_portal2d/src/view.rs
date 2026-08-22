@@ -1,10 +1,10 @@
-//! Pure through-portal **view** geometry — what a viewer looking into one
+//! Pure through-portal view geometry — what a viewer looking into one
 //! portal sees of the world at its partner.
 //!
 //! Two display models, sharing the same source region (the world in FRONT of
 //! the exit portal):
 //!
-//! - **Window** ([`ViewCone`] / [`view_cone`] — what the default renderer
+//! - Window ([`ViewCone`] / [`view_cone`] — what the default renderer
 //!   ships): the view recedes INTO the entry's host surface, like glass set in
 //!   the wall — you see "through the portal a little bit." A window's display
 //!   map is the BODY map ([`map_point`]) — the same map transit uses for
@@ -14,7 +14,7 @@
 //!   is det −1 and factors as a rotation plus one texture flip. Sprites realize
 //!   that exact factorization via [`copy_transform`], so window, copy, and
 //!   transit are ONE map.
-//! - **Projection** ([`PortalViewMap`] / [`view_point`]): the view protrudes
+//! - Projection ([`PortalViewMap`] / [`view_point`]): the view protrudes
 //!   into the room in front of the entry, hologram-style. Its map is the body
 //!   map composed with a reflection across the entry plane, so its parity is the
 //!   opposite of the body map. [`PortalViewMap`] stores the same rotation/flip
@@ -173,7 +173,7 @@ pub fn map_viewpoint_frame(
     }
 }
 
-/// The view cone of one portal, **window semantics**: a trapezoid receding
+/// The view cone of one portal, window semantics: a trapezoid receding
 /// from the entry face INTO the host surface (you look "through" the portal a
 /// little way), displaying the world in front of the exit via the body
 /// [`map_point`] (the transit map, so the window agrees with where bodies
@@ -347,12 +347,12 @@ fn resolve_end_front(end: &PortalAperture, eye: Vec2) -> Option<Vec2> {
 ///
 /// When only one end resolves, it wins outright. When the eye is in front of BOTH ends — e.g.
 /// two floor portals share one plane, so a viewer above the partner is "in front of" this end
-/// too, but 250px to the side — the ends' resolutions are combined **nearest-weighted**:
+/// too, but 250px to the side — the ends' resolutions are combined nearest-weighted:
 /// outside the [`EYE_HANDOFF_BAND`] around the equidistance midpoint that is exactly the nearer
 /// end (the honest window comes from the partner-side image right above the aperture, not from
 /// the grazing direct ray), and inside the band the two resolved eyes crossfade.
 ///
-/// **In-doorway grace:** while transiting, the eye dips just BEHIND the plane
+/// In-doorway grace: while transiting, the eye dips just BEHIND the plane
 /// of the end it is passing through; visually the character is *in* the
 /// window, which should read as a (near) half-plane, not vanish. An eye within
 /// the aperture span (+[`DOORWAY_LATERAL_GRACE`]) and within

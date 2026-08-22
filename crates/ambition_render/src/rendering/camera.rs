@@ -97,7 +97,7 @@ pub fn publish_portal_camera_clamp(
 /// them through the view it names — layering the presentation-only deltas
 /// (portal camera continuity, shake) onto a COPY.
 pub fn camera_follow(
-    // **THE VIEWS, read through each camera's own link.** This was a
+    // THE VIEWS, read through each camera's own link. This was a
     // `Single<…, With<LocalView>>` beside a query for the main camera — two
     // uniqueness assumptions pretending to be a pairing, which held only because
     // there happened to be one of each. A camera now NAMES the view it presents
@@ -170,7 +170,7 @@ pub fn camera_follow(
         #[cfg(feature = "portal_render")]
         let _ = &mut presentation; // written pre-resolve by publish_portal_camera_clamp
 
-        // **portal camera continuity is still ONE global for the whole process.**
+        // portal camera continuity is still ONE global for the whole process.
         // `PortalCameraContinuityState`/`HostView` are `Resource`s, so the writes below are
         // last-camera-wins once a composition really has two.
         #[cfg(feature = "portal_render")]
@@ -347,18 +347,18 @@ mod two_views_one_simulation_tests {
         (presented, view_states)
     }
 
-    /// **EACH MAIN CAMERA PRESENTS THE VIEW IT NAMES — NOT THE FIRST
-    /// CAMERA'S VIEW.**
+    /// EACH MAIN CAMERA PRESENTS THE VIEW IT NAMES — NOT THE FIRST
+    /// CAMERA'S VIEW.
     ///
     /// `camera_follow` read `query.iter.next`'s `PresentsView`, resolved that ONE view, and
     /// then wrote that one view's transform and projection onto EVERY main camera.
     ///
-    /// **the assertion is on the VALUES, not on inequality.** "the two
+    /// the assertion is on the VALUES, not on inequality. "the two
     /// cameras differ" would pass for a pair that differ and are both wrong.
     /// Each camera is checked against the framing derived from the view it
     /// names.
     ///
-    /// **and the falsifier is inside the test.** The second run swaps only
+    /// and the falsifier is inside the test. The second run swaps only
     /// the two `PresentsView` links — same spawn order, same entities, same
     /// snapshots — and the two cameras must swap with them. A `camera_follow`
     /// that keys off camera iteration order instead of the link passes the

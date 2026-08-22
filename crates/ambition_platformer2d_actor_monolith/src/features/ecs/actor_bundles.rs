@@ -52,8 +52,7 @@ impl FeatureRenderedBundle {
     }
 }
 
-/// Backwards-compatible alias for [`FeatureRenderedBundle`]. New code should
-/// pick the explicit `Lifecycle` or `Rendered` bundle.
+/// TODO(compat-remove): migrate callers to [`FeatureRenderedBundle`], then delete this alias.
 pub type FeatureBaseBundle = FeatureRenderedBundle;
 
 /// Bundle for pickup feature entities.

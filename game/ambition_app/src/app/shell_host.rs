@@ -1,4 +1,4 @@
-//! **The Ambition multi-game shell host** — title screen, provider
+//! The Ambition multi-game shell host — title screen, provider
 //! composition, and the Ambition game as one provider among equals.
 //!
 //! `compose_ambition_shell_host` turns the visible Ambition app into a
@@ -9,7 +9,7 @@
 //! shell/session/load lifecycle; `QuitToHome` retires the exact session and
 //! resumes the launcher; Exit leaves the process.
 //!
-//! **a row need not lead to GAMEPLAY.** Smash's entry opens its character
+//! a row need not lead to GAMEPLAY. Smash's entry opens its character
 //! select — a frontend route the provider registers itself — and the stage
 //! arrives when that screen has decided. The host knows nothing about it: the
 //! row is derived from the registration like every other, and the registration
@@ -49,7 +49,7 @@ pub const AMBITION_LAUNCHER_ROUTE: &str = "ambition_launcher";
 #[derive(Resource, Default, Debug, Clone, Copy)]
 pub struct AmbitionShellHosted;
 
-// **`direct_entry` was deleted with the path it gated (K2b edit 3).**
+// `direct_entry` was deleted with the path it gated (K2b edit 3).
 //
 // It answered "is `AmbitionShellHosted` absent", and every composition inserts
 // it now — so the run condition was permanently false and the four startup
@@ -72,10 +72,10 @@ pub use ambition_content::provider::{
 ///
 /// This is the parameter that lets a caller say so, and lets a test build BOTH paths and compare
 /// their worlds, which is the evidence the deletion stage needs. `compose_ambition_shell_host`
-/// keeps its launcher default, so nothing that exists today changes. **The ONE way to compose a
-/// playable Ambition, in three ordered steps.**
+/// keeps its launcher default, so nothing that exists today changes. The ONE way to compose a
+/// playable Ambition, in three ordered steps.
 ///
-/// **the ORDER is load-bearing and not obvious**, which is the other reason
+/// the ORDER is load-bearing and not obvious, which is the other reason
 /// for a function:
 /// 1. [`AmbitionShellHosted`] goes in FIRST. Composing without it left the app
 ///    carrying the build-time root AND the activation's — two canonical roots,

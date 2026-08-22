@@ -12,26 +12,26 @@ use bevy::prelude::*;
 /// on this layer; the front camera only carries UI.)
 pub const FRONT_HUD_LAYER: usize = 1;
 
-/// `RenderLayers` index for camera-relative parallax panels — **the layer the
-/// backdrop RESTS on while a session has one view.**
+/// `RenderLayers` index for camera-relative parallax panels — the layer the
+/// backdrop RESTS on while a session has one view.
 ///
 /// Portal capture cameras intentionally do not render this layer: a parallax
 /// panel is placed against the eye of the camera that draws it, so rendering the
 /// main view's panel into a capture rig samples the background from the wrong
 /// eye. Rigs get their own copies on their own private layers instead.
 ///
-/// **a session with several views does not draw its backdrop here.** Every
+/// a session with several views does not draw its backdrop here. Every
 /// main camera renders this layer, so two views sharing it would each draw both
 /// views' panels; `ambition_render::rendering::view_isolation` moves each view's
 /// set onto that view's own band and restores this layer — declared as the
 /// panels' `ProjectionRestingLayers` — when the split collapses.
 pub const PARALLAX_BACKGROUND_LAYER: usize = 2;
 
-/// **Base of the per-LOCAL-VIEW band**, the layers a second observer's drawn
+/// Base of the per-LOCAL-VIEW band, the layers a second observer's drawn
 /// projections live on so one view's nameplates and label copies stay out of the
 /// other view's picture.
 ///
-/// **this is a LEDGER entry, not a policy.** Which entity gets which layer is
+/// this is a LEDGER entry, not a policy. Which entity gets which layer is
 /// decided by the render side (`ambition_render::rendering::view_isolation`);
 /// what lives here is the reservation, because a layer collision is silent — two
 /// tenants on one index simply draw into each other's cameras and no test asks.
@@ -41,7 +41,7 @@ pub const PARALLAX_BACKGROUND_LAYER: usize = 2;
 /// 512+slot the per-portal window self-layers. 1024 clears all of them with room
 /// for the portal bands to grow.
 ///
-/// **and it grows UPWARD without a ceiling, deliberately.** `RenderLayers` is a
+/// and it grows UPWARD without a ceiling, deliberately. `RenderLayers` is a
 /// growable bitset, so `BASE + n` costs a longer mask and nothing else — the
 /// renderer therefore imposes no maximum on how many local views a session may
 /// have, which is the property that keeps this an implementation detail rather
@@ -50,7 +50,7 @@ pub const LOCAL_VIEW_RENDER_LAYER_BASE: usize = 1024;
 
 /// The layer reserved for the `ordinal`-th local view.
 ///
-/// **the argument is an ORDINAL AMONG THE LIVE VIEWS, never a `LocalViewId`.**
+/// the argument is an ORDINAL AMONG THE LIVE VIEWS, never a `LocalViewId`.
 /// The id is a stable human-meaningful name a game chooses (`LocalViewId(7)` is
 /// legal on its own), and binding it to a bit index would make a semantic
 /// identity mean a GPU visibility mask. The caller sorts the live views by id and
@@ -63,7 +63,7 @@ pub fn local_view_render_layer(ordinal: usize) -> usize {
 /// Marks the main gameplay camera (order 0) — the rig that draws the world for
 /// one local view.
 ///
-/// **it is a marker, not a singleton.** A split composition has one per view,
+/// it is a marker, not a singleton. A split composition has one per view,
 /// and every consumer that needs to know WHICH one pairs this with the camera's
 /// `ambition_sim_view::PresentsView` link rather than assuming uniqueness.
 #[derive(Component)]
@@ -73,7 +73,7 @@ pub struct MainCamera;
 #[derive(Component)]
 pub struct FrontHudCamera;
 
-/// **THE MAIN CAMERA A SINGLE-CAMERA COMPOSITION SPAWNED** — a spawn record, not
+/// THE MAIN CAMERA A SINGLE-CAMERA COMPOSITION SPAWNED — a spawn record, not
 /// an answer to "where is the screen".
 ///
 /// That reader is gone: a full-screen scrim now targets its own display-scoped UI camera
@@ -85,7 +85,7 @@ pub struct FrontHudCamera;
 /// must cover exactly what the gameplay camera does not, carry no `UiTargetCamera` at all) or
 /// on a dedicated camera of its own.
 ///
-/// **and it is not "the" camera under several.** Both writers go through
+/// and it is not "the" camera under several. Both writers go through
 /// [`publish_main_camera`], which publishes the FIRST and complains about a
 /// second rather than letting the last writer win in silence. A composition with
 /// two rigs must address them by [`MainCamera`] + the view each one presents
@@ -96,7 +96,7 @@ pub struct MainCameraEntity(pub Entity);
 
 /// Publish the composition's main camera as [`MainCameraEntity`].
 ///
-/// **first writer wins, loudly.** Both shipped camera-spawn sites inserted the
+/// first writer wins, loudly. Both shipped camera-spawn sites inserted the
 /// resource unconditionally, so a composition that installed two of them got
 /// whichever insert happened to be applied last, with nothing in the log. First
 /// is no less arbitrary than last — the point is that the SECOND one is now an

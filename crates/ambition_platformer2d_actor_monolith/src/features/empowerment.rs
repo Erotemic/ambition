@@ -1,51 +1,9 @@
-//! **An empowerment** — a body holding a SET of super-state traits, for a while
-//! or for as long as whoever granted them keeps them.
+//! Composable temporary body empowerment traits.
 //!
-//! and I hurt everything I touch and compose those together for the
-//! COSMIC_QUASAR_SUPER_STATE."*
-//!
-//! So there is no "super mode" here, and deliberately no Mary-O in it. There are
-//! independent TRAITS ([`Empowerment`]) and a duration, and a game composes the
-//! ones it wants:
-//!
-//! ```ignore
-//! const COSMIC_QUASAR: Empowerment =
-//!     Empowerment::UNTOUCHABLE.with(Empowerment::HARMS_ON_CONTACT);
-//! ```
-//!
-//! ## Each trait delegates to a seam that already exists
-//!
-//! Nothing here implements invulnerability or damage resolution. `UNTOUCHABLE`
-//! takes the `EMPOWERED` reason in the body's [`Invulnerability`] set — the same
-//! set a transformation beat takes `TRANSFORMING` in — so the two overlap
-//! without either cancelling the other. `HARMS_ON_CONTACT` writes an ordinary
-//! [`HitEvent`], so the struck body's own victim consumer applies it: i-frames,
-//! knockback, hurt feedback, death, all of it, none of it re-implemented.
-//!
-//! ## Why this is NOT a `Hitbox`
-//!
-//! "My body harms what it touches" is body-vs-body contact, which the engine
-//! already models for the other direction (`apply_actor_contact_damage`, an
-//! enemy's body hurting what it walks into). This is that rule, pointed outward,
-//! and it is the same rule Sanic's badniks were resolving by hand against a
-//! character id. A transient attack volume would encode the wrong primitive even
-//! though a live `Hitbox` is now correctly sufficient authority to deal damage.
-//!
-//! Historically this distinction was accidentally enforced by a bad gameplay
-//! dependency: Player `FollowOwner` hitboxes were dropped unless the owner's
-//! `BodyMelee.swing` read-model was populated. That made correctly materialized
-//! strike geometry silently inert and contradicted the moveset contract that
-//! `BodyMelee` is presentation/read-model only. The damage resolver no longer
-//! consults that projection; contact harm stays here because contact is what the
-//! mechanic MEANS.
-//!
-//! ## Hitting once is the VICTIM's rule, not ours
-//!
-//! There is no hit-memory here and deliberately none: a body struck this tick
-//! takes i-frames from its own consumer, and running through it keeps producing
-//! events that its i-frames eat. Keeping a per-empowerment `hit` set would be a
-//! second dedup authority that rollback would have to carry, disagreeing with
-//! the first the moment one of them rewound.
+//! [`Empowerment::UNTOUCHABLE`] delegates to the body's invulnerability-reason set.
+//! [`Empowerment::HARMS_ON_CONTACT`] emits ordinary [`HitEvent`]s for body overlap, so
+//! victim-side i-frames, knockback, feedback, and death remain under the normal combat
+//! consumer. Contact harm intentionally has no separate hit-memory authority.
 
 use bevy::prelude::*;
 
@@ -94,7 +52,7 @@ impl Empowerment {
     }
 }
 
-/// **A body currently empowered**, and for how much longer — if that is even a
+/// A body currently empowered, and for how much longer — if that is even a
 /// question.
 ///
 /// Snapshot state by the strictest reading: it gates whether hits land AND
@@ -149,7 +107,7 @@ impl Default for ContactHarm {
     }
 }
 
-/// **Run every empowerment**: hold its traits while it lasts, release them when
+/// Run every empowerment: hold its traits while it lasts, release them when
 /// it ends.
 ///
 /// Traits are re-asserted every tick rather than set once at the start. That is
@@ -158,7 +116,7 @@ impl Default for ContactHarm {
 /// consulted by everything that might overwrite it. Re-stating is what makes the
 /// claim true independently of who else writes.
 ///
-/// **do not add this to a game's schedule.** [`EmpowermentLifecyclePlugin`]
+/// do not add this to a game's schedule. [`EmpowermentLifecyclePlugin`]
 /// installs it in [`EmpowermentExpiry`], and a second registration would tick
 /// `remaining` twice per frame — a two-second grant lasting one. Order against
 /// the SET instead.
@@ -195,7 +153,7 @@ pub fn run_empowerments(
     }
 }
 
-/// **Everything an empowered body touches takes the hit.**
+/// Everything an empowered body touches takes the hit.
 ///
 /// The `HARMS_ON_CONTACT` half, and the mirror of `apply_actor_contact_damage`:
 /// that one is an actor's body hurting what it walks into, this is a body
@@ -315,65 +273,15 @@ pub fn apply_contact_harm(
 #[cfg(test)]
 mod tests;
 
-/// **When an empowerment's clock advances**, as one named slot the engine fills
-/// and a game can order against.
-///
-/// Ticking `remaining`, deciding `live` and releasing the projection is not a policy any game
-/// gets to hold an opinion about — it is what `Empowered::for_seconds(…, 2.0)` MEANS.
-///
-/// So the engine installs [`run_empowerments`] here, and a game says only what
-/// it wants ORDERED against it — `apply_contact_harm` after expiry, a grant
-/// before it. Contact harm stays entirely optional; forgetting the lifecycle
-/// stops being possible.
-///
-/// **the placement is `GameplayEffects`, and it could not be all three.** The
-/// five hand-installations sat in three mutually exclusive phases
-/// (`CombatSet::Settle` ⊂ `Combat` ⊂ `CoreSimulation` for Smash,
-/// `FeatureInteraction` for Mary-O, `GameplayEffects` for Sanic), and the hosted
-/// Ambition app builds all three plugins at once — so one set cannot occupy the
-/// literal slot each of them used, and per-game re-placement of a SHARED set is
-/// a schedule cycle, not an escape. `GameplayEffects` is the LAST of the three,
-/// which is what makes the choice ordering-preserving rather than arbitrary:
-///
-/// * every grant site (`place_respawning_fighters`, `begin_star_power`,
-///   `sync_super_form_traits`) is at or before it, so a grant still gets its
-///   projection stamped on the frame it is made;
-/// * every consumer of what this system WRITES — `Invulnerability` — reads it
-///   from `CombatSet::Resolve`, inside `CoreSimulation`, which precedes all
-///   three phases. So the grant→read latency is one frame from any of them, and
-///   moving between them changes nothing a body can observe.
-///
-/// What DID have to move is the one thing a game deliberately ordered AFTER
-/// expiry: Mary-O's `apply_contact_harm` and her star music, which now say so
-/// against this set instead of by adjacency in a chain.
+/// Schedule slot for [`run_empowerments`]. The engine owns expiry semantics; games order grants
+/// before this set and effects that must observe expiry after it. It runs in `GameplayEffects`,
+/// after grant sites and with the same one-frame latency to combat consumers.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct EmpowermentExpiry;
 
-/// **The empowerment lifecycle**: the clock that ends a timed grant, and the
-/// release that follows the component out of the world.
-///
-/// **this existed as a ritual, and the ritual was already being performed by
-/// hand.** `run_empowerments` writes `Invulnerability::EMPOWERED` from the
-/// component, and it can only write it for bodies that still HAVE the component
-/// — so a granter that takes the empowerment back (Sanic dropping its super
-/// form) left the reason set forever, and Sanic worked around it with a second
-/// call beside the removal:
-///
-/// ```ignore
-/// commands.entity(body).remove::<Empowered>();
-/// health.health.invulnerable.set(Invulnerability::EMPOWERED, false);
-/// ```
-///
-/// Two steps, and the second is the one people forget — the shape this
-/// repository has a standing rule about. An observer makes removal complete
-/// however it happens: expiry, a granter taking it back, a despawn, or a
-/// rollback restoring a frame where the body was never empowered.
-///
-/// **and the SAME argument applies one level up**, which is what this plugin
-/// gained: an empowerment whose expiry depends on each composition remembering
-/// to schedule a system is a two-step ritual with the scheduling as step two.
-/// The clock is installed here now, in [`EmpowermentExpiry`] — read that set's
-/// docs for why the order is still each game's and where it sits.
+/// Installs empowerment ticking and removal cleanup. Removing [`Empowered`] clears the
+/// `Invulnerability::EMPOWERED` projection regardless of whether removal came from expiry, a
+/// granter, despawn, or rollback restoration.
 pub struct EmpowermentLifecyclePlugin;
 
 impl Plugin for EmpowermentLifecyclePlugin {

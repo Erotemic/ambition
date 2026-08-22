@@ -1,24 +1,7 @@
-//! **The pocket quasar** — Mary-O's super-star.
+//! Mary-O's pocket-quasar super state.
 //!
-//! star' invincibility music track ready to go. We need to use a shader for her
-//! invisible mode. … Her super star equivalent prop will be the 'cosmic quasar'
-//! or 'pocket quasar' or something like a big bright galaxy."*
-//!
-//! ## Untouchable is a SET, so the star does not have to know about beats
-//!
-//! Damage gates on `Health::invulnerable`, which is an
-//! [`Invulnerability`](ambition_platformer2d::characters::actor::Invulnerability)
-//! — a set of REASONS rather than a bool. The star takes `EMPOWERED` while it burns
-//! and releases `EMPOWERED` when it ends, and that is the whole of its concern: a
-//! transformation beat overlapping it holds `TRANSFORMING` independently, and
-//! neither can strip the other by finishing first.
-//!
-//! This module was written against the bool first, and the difference is worth
-//! recording. With one flag it needed a local precedence rule — assert the flag
-//! every tick so a beat's restore could not eat it, and yield on expiry only if
-//! no beat was running — which is a rule that has to be re-derived every time a
-//! third writer appears. With a reason set there is no rule, because there is
-//! nothing to coordinate.
+//! The effect claims its own invulnerability reason while active, so overlapping
+//! transformation or other invulnerability claims compose independently.
 
 use bevy::prelude::*;
 
@@ -63,16 +46,11 @@ pub fn pocket_quasar() -> EquipmentRow {
     }
 }
 
-/// **The cosmic quasar super state**, composed rather than named: untouchable,
-/// and harming what she touches. The engine knows both traits and neither knows
-/// about Mary-O.
-///
-/// and I hurt everything I touch and compose those together." This line is that
-/// — adding a third trait later is a `.with()`, not a new mode.
+/// Cosmic-quasar traits: untouchable and harmful on contact.
 pub const COSMIC_QUASAR_SUPER_STATE: Empowerment =
     Empowerment::UNTOUCHABLE.with(Empowerment::HARMS_ON_CONTACT);
 
-/// **Collecting the quasar lights the super state.**
+/// Collecting the quasar lights the super state.
 ///
 /// Reads the worn set rather than a collect message, for the same reason
 /// `sync_grown_form` does: the worn set is the one place "what does she have"
@@ -160,7 +138,7 @@ mod tests {
         (app, body)
     }
 
-    /// **The quasar is the only thing that has ever written `invincible`.** The
+    /// The quasar is the only thing that has ever written `invincible`. The
     /// shader has read that fact since it landed and no producer existed, so the
     /// overlay could not have drawn once; this is the assertion that it can.
     #[test]
@@ -240,7 +218,7 @@ mod tests {
         );
     }
 
-    /// **Damage actually stops**, through the real gate rather than by reading
+    /// Damage actually stops, through the real gate rather than by reading
     /// the flag back. A test that only asserted the bool would pass even if
     /// `Health::damage` ignored it.
     #[test]

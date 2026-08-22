@@ -171,9 +171,9 @@ fn momentum_home_body_rides_ordinary_block_floors() {
     );
 }
 
-/// **Falling out REPORTS, and does not relocate** (ADR 0033).
+/// Falling out REPORTS, and does not relocate (ADR 0033).
 ///
-/// ⭐ **and the new assertion is the one that earns its keep.** "She dies where
+///  and the new assertion is the one that earns its keep. "She dies where
 /// she died" was a 300-line death beat in Mary-O — a pose pinned every frame,
 /// re-armed against a respawn that had already happened — and the pin, being
 /// outside the world, re-fired this very gate 192 times per death. Nothing moves
@@ -310,7 +310,7 @@ fn a_body_that_cannot_be_hurt_runs_straight_over_a_hazard_tile() {
     );
 }
 
-/// ⚠ **and the void still wins**, which is the line this change must not cross.
+///  and the void still wins, which is the line this change must not cross.
 /// `resolve_body_hit` already states it for damage — *"you cannot be invulnerable
 /// to the edge of the world"* — and the reset seam has to agree: leaving the
 /// world is not damage, so no reason set exempts a body from it.

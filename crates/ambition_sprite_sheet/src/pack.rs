@@ -24,8 +24,8 @@
 //!
 //! This is JSON, not RON, on purpose: the packer is a Python tool and JSON is the drift-free
 //! interchange (Python-authored RON parses looser than Rust's `ron`). The catalog is a
-//! staging/build artifact — nothing bakes it into the binary yet. This type is the **runtime
-//! loader**: parse the JSON, then `resolve(target, animation, frame) → placement`. It deliberately
+//! staging/build artifact — nothing bakes it into the binary yet. This type is the runtime
+//! loader: parse the JSON, then `resolve(target, animation, frame) → placement`. It deliberately
 //! does not replace the [`SheetRegistry`](crate::SheetRegistry) path; it is the schema a future
 //! consumer migrates onto once the tiered packs install into a runtime root.
 
@@ -53,7 +53,7 @@ pub struct PackFrame {
     pub h: i32,
     /// Trim offset `(off_x, off_y)`: where the trimmed rect's top-left sat
     /// inside the full logical frame. Add it back so trimmed pixels draw exactly
-    /// where the untrimmed frame did. `(0, 0)` ⇒ untrimmed.
+    /// where the untrimmed frame did. `(0, 0)`  untrimmed.
     #[serde(default)]
     pub off: (i32, i32),
     /// Logical (untrimmed) frame size `(w, h)` — the gameplay coordinate space,
@@ -90,7 +90,7 @@ pub struct SpritePackCatalog {
     pub pages: Vec<String>,
     /// Locality group of each page (parallel to `pages`, from the PackPlan):
     /// a group's frames pack only onto its own pages so a zone's visuals can
-    /// be loaded/unloaded as a unit. Empty (older catalogs) ⇒ all `"shared"`.
+    /// be loaded/unloaded as a unit. Empty (older catalogs)  all `"shared"`.
     #[serde(default)]
     pub page_groups: Vec<String>,
     /// `target → animations`.
@@ -334,7 +334,7 @@ impl SpritePackCatalog {
     /// Structural validation against the catalog's own declared geometry: every
     /// frame must reference an existing page, fit inside the page bounds, and
     /// carry a positive logical size. When `page_groups` is present it must be
-    /// parallel to `pages`. Returns every violation (empty ⇒ sound).
+    /// parallel to `pages`. Returns every violation (empty  sound).
     pub fn validate(&self) -> Vec<PackCatalogError> {
         let mut errors = Vec::new();
         if !self.page_groups.is_empty() && self.page_groups.len() != self.pages.len() {

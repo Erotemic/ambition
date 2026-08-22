@@ -1,4 +1,4 @@
-//! **The acceptance criterion for the whole content-compiler program:**
+//! The acceptance criterion for the whole content-compiler program:
 //!
 //! > valid character addition → validates without rebuilding Rust
 //!
@@ -187,7 +187,7 @@ fn the_shipped_pack_has_no_schema_reference_or_conflict_errors() {
     // pack in place: every preset reference resolves, no identity is defined
     // twice, no display name has two owners, no authored field is unconsumed.
     //
-    // ⚠ assets are ADVISORY here and that is deliberate, not a loophole.
+    //  assets are ADVISORY here and that is deliberate, not a loophole.
     // AGENTS.md: binary payloads are git-ignored but present, and a feature
     // owes only "degrade visibly when a file is absent" — so on a fresh clone
     // missing art is a documented state. Making it fatal here would contradict

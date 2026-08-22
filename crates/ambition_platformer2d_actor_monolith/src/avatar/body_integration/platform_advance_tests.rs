@@ -26,7 +26,7 @@ fn platform_x(app: &App) -> f32 {
     app.world().resource::<MovingPlatformSet>().0[0].pos.x
 }
 
-/// **A session with no `PrimaryPlayer` still advances its platforms.**
+/// A session with no `PrimaryPlayer` still advances its platforms.
 ///
 /// No body is spawned here at all, which is the condition under test.
 #[test]
@@ -52,7 +52,7 @@ fn platforms_advance_in_a_world_with_no_player_body() {
     );
 }
 
-/// **The world's own clock is what stops them** — the poison half.
+/// The world's own clock is what stops them — the poison half.
 ///
 /// A zero `sim_dt` is how hitstop, pause and bullet-time all reach this system,
 /// because the primary body's hitstop already drives the global clock to zero.

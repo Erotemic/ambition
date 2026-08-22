@@ -455,8 +455,8 @@ pub fn solve_null_intercept_constant_velocity(
 
 /// Rapidity corresponding to one signed collinear velocity.
 ///
-/// **`atanh`/`tanh` are libm, and libm is not bit-identical across
-/// platforms.** Nothing in the simulation calls this today — the rollback path
+/// `atanh`/`tanh` are libm, and libm is not bit-identical across
+/// platforms. Nothing in the simulation calls this today — the rollback path
 /// runs through [`minkowski_clock_rate`], whose only transcendental is `sqrt`,
 /// which IEEE-754 pins exactly. If a future mechanic composes velocities inside
 /// the sim, this becomes a determinism decision under ADR 0023 rather than a

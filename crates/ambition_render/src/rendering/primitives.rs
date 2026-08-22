@@ -75,17 +75,17 @@ pub struct BlockVisual {
     pub geo_id: ambition_platformer2d_core::GeoId,
 }
 
-/// **This block's art, said by the game rather than inherited from its
-/// `BlockKind`.**
+/// This block's art, said by the game rather than inherited from its
+/// `BlockKind`.
 ///
-/// **every block of a kind drew the same picture, and nothing could say
-/// otherwise.** `spawn_block` resolves art from `BlockKind` alone —
+/// every block of a kind drew the same picture, and nothing could say
+/// otherwise. `spawn_block` resolves art from `BlockKind` alone —
 /// `block_tile_sprite(Solid) -> SolidTile` for every code-authored solid in the
 /// room — so a bonus block, a used bonus block and a wall were one texture.
 /// `art_color` was the only per-block lever and it can only say "no art yet"
 /// (a flat quad), which is a statement about ABSENCE, not identity.
 ///
-/// **and the identity a game needs is DYNAMIC.** A `?`-block becomes a used block mid-play; a
+/// and the identity a game needs is DYNAMIC. A `?`-block becomes a used block mid-play; a
 /// spawn-time field on `ae::Block` could never express that.
 ///
 /// Presentation only. Collision never reads it, exactly as `art_color` does not.

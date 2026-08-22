@@ -1,4 +1,4 @@
-//! **The archetype-free enemy-config gate** (custom scanner). The DURABLE enemy
+//! The archetype-free enemy-config gate (custom scanner). The DURABLE enemy
 //! structs — `ActorConfig` (persisted) and `ActorMut` (per-frame view) — must
 //! carry projected generic kit data (tuning / brain_spec / caps), never the named
 //! roster enum `CharacterArchetype`. That is what lets the roster leave the

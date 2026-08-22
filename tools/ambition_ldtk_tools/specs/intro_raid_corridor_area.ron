@@ -107,7 +107,7 @@
             ],
             fields: (
                 name: "Lab Raider",
-                // ⭐ the CHARACTER, since 2026-08-12. `medium_striker`'s
+                //  the CHARACTER, since 2026-08-12. `medium_striker`'s
                 // controller half is a SHARED policy the definition names, and
                 // this placement is its second adopter beside the goblin band —
                 // which is what makes that entry a role rather than the goblin's
@@ -144,7 +144,7 @@
             ],
             fields: (
                 name: "Salvage Guard",
-                // ⭐ the CHARACTER, since 2026-08-12 — `gradient_seeker` was an
+                //  the CHARACTER, since 2026-08-12 — `gradient_seeker` was an
                 // archetype whose whole population was this one placement, and
                 // its row is deleted. The `brain` key is kept because the
                 // placement's spawn vocabulary still carries one; it now

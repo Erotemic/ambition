@@ -93,7 +93,7 @@ pub mod presentation;
 pub mod projectiles;
 pub mod quest;
 pub mod quests;
-/// **This game's Yarn vocabulary** — `<<give_item>>`, `<<buy_item>>`,
+/// This game's Yarn vocabulary — `<<give_item>>`, `<<buy_item>>`,
 /// `<<challenge>>` and the save-state mirror its `<<if>>` functions read.
 ///
 /// it lived in the ENGINE crate until. `ambition_dialog` exposes

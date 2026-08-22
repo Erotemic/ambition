@@ -4,7 +4,7 @@
 //! save overlays, and debug traces? `Block.name` is an informal display string; this is the
 //! stable identity.
 //!
-//! **This is the identity SUBSTRATE only.** The types exist so `Block` can carry
+//! This is the identity SUBSTRATE only. The types exist so `Block` can carry
 //! an id and the emission paths can assign real sources incrementally; no delta
 //! or portal consumer is implemented here (that is CC6 / W-c). Fixture/test
 //! geometry uses [`GeoId::anon`]; only the authored IR emission paths assign real

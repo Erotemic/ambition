@@ -1,17 +1,17 @@
-//! **Transactional construction owned by the gravity capability.**
+//! Transactional construction owned by the gravity capability.
 //!
 //! An authored gravity zone is not an actor, and it never was: its constructor lowers a
 //! resolved region and direction into [`GravityZone`] plus an optional [`OscillatingZone`],
 //! both of which are defined one module up.
 //!
-//! **this module adds no dependency edge.** The construction machinery
+//! this module adds no dependency edge. The construction machinery
 //! ([`crate::construction`]), the session-scoped spawn extension
 //! ([`crate::lifecycle::SpawnSessionScopedExt`]) and the components being
 //! constructed all already live in this crate, so the domain lands beside the
 //! runtime capability it builds rather than beside a crate that had to grow an
 //! edge to reach it.
 //!
-//! **the parameters are RESOLVED, not the room's spec.** `GravityZoneSpec`
+//! the parameters are RESOLVED, not the room's spec. `GravityZoneSpec`
 //! lives in `ambition_platformer2d_world`, which depends on this crate — taking
 //! it here would invert that. The room adapter translates instead, which is the
 //! same shape the portal-gun lane uses and the same reason.
@@ -42,7 +42,7 @@ pub struct GravityZoneConstructionParams {
     pub half_extent: Vec2,
     /// Gravity direction inside the region.
     pub dir: Vec2,
-    /// Horizontal slide amplitude in px. **Zero means a static column** — the
+    /// Horizontal slide amplitude in px. Zero means a static column — the
     /// zone is built without an [`OscillatingZone`] at all, which is the
     /// difference between a wall of gravity and one riding a platform.
     pub oscillate_amplitude: f32,

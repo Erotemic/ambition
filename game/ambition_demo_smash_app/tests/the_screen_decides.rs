@@ -1,4 +1,4 @@
-//! **The select screen has to be drivable by a controller, not only by a test.**
+//! The select screen has to be drivable by a controller, not only by a test.
 //!
 //! `SmashSelect` shipped fully unit-tested and completely inert: every state
 //! transition was covered, and nothing in the app ever WROTE to it, so the
@@ -56,7 +56,7 @@ fn plug_in(app: &mut App, count: usize) {
 #[derive(Resource, Default, Clone)]
 struct Held(Vec<(u8, MenuControlFrame)>);
 
-/// **Put the press into the port AFTER the host has rebuilt it.**
+/// Put the press into the port AFTER the host has rebuilt it.
 ///
 /// writing `SeatMenuFrames` and calling `update()` is not enough under `--features input`:
 /// `populate_seat_menu_frames` CLEARS that resource and refills it from the live participants
@@ -115,7 +115,7 @@ fn arrow(direction: &str) -> MenuControlFrame {
 
 /// A portrait index this composition actually has.
 ///
-/// **the STANDALONE demo's grid is short**, because the crossover roster is
+/// the STANDALONE demo's grid is short, because the crossover roster is
 /// Ambition's own cast and this app composes none of it — `SMASH_ROSTER` is
 /// filtered to what the catalog carries, and here that is the one fighter this
 /// demo declares. So these tests pick by "the nth fighter, or the last one",
@@ -197,10 +197,10 @@ fn card_text(app: &mut App) -> Vec<(String, String)> {
         .collect()
 }
 
-/// **Two people take controllers, drag a fighter each, and click START.**
+/// Two people take controllers, drag a fighter each, and click START.
 ///
 /// The whole loop, through the only surface a player has.
-/// **A PAD THAT IS PLUGGED IN GETS A HAND BEFORE IT GETS A SEAT.**
+/// A PAD THAT IS PLUGGED IN GETS A HAND BEFORE IT GETS A SEAT.
 ///
 /// at all, so a game pad cannot join, unless player 1 lets them in."* The
 /// cursor was drawn only for a seat that already PARTICIPATED, and the way in
@@ -217,7 +217,7 @@ fn a_plugged_in_pad_has_a_cursor_before_anybody_admits_it() {
     app.update();
     app.update();
 
-    // **the premise, asserted.** If plugging a pad in also SEATED it, every
+    // the premise, asserted. If plugging a pad in also SEATED it, every
     // assertion below would pass on the old rule too and this test would be
     // checking nothing.
     assert_eq!(
@@ -285,7 +285,7 @@ fn two_players_take_controllers_pick_fighters_and_the_battle_starts() {
     assert_eq!(slot(&app, 0).pick, Some(SlotPick::Fighter(nth(&app, 0))));
     assert_eq!(slot(&app, 1).pick, Some(SlotPick::Fighter(nth(&app, 1))));
 
-    // **it must NOT have started yet.** A screen that launches the instant
+    // it must NOT have started yet. A screen that launches the instant
     // the last token lands is the one nobody can look at.
     assert!(
         app.world()
@@ -318,7 +318,7 @@ fn two_players_take_controllers_pick_fighters_and_the_battle_starts() {
     );
 }
 
-/// **A PLAYER WHO NEVER TOUCHED THE GRID STILL STARTS THE MATCH — ON RANDOM.**
+/// A PLAYER WHO NEVER TOUCHED THE GRID STILL STARTS THE MATCH — ON RANDOM.
 #[test]
 fn a_player_who_never_touched_the_grid_starts_on_random() {
     let mut app = build_demo_app();
@@ -412,7 +412,7 @@ fn a_carried_token_stays_in_hand_until_it_reaches_a_selection() {
     );
 }
 
-/// **A screen that works and cannot be seen is the same bug one layer up.**
+/// A screen that works and cannot be seen is the same bug one layer up.
 ///
 /// Asserting the cards EXIST would pass over four empty boxes, so this asserts
 /// what they SAY — and says it by reading the same text the player reads.
@@ -458,7 +458,7 @@ fn the_cards_say_what_each_slot_has_decided() {
     assert_eq!(decided[3].0, "NOT PLAYING");
 }
 
-/// **A participating slot's token is ON SCREEN**, because the token is the only
+/// A participating slot's token is ON SCREEN, because the token is the only
 /// thing tying a card to the grid and an invisible one is an unplayable screen.
 #[test]
 fn a_participating_slot_puts_a_visible_token_on_the_grid() {
@@ -493,7 +493,7 @@ fn a_participating_slot_puts_a_visible_token_on_the_grid() {
     );
 }
 
-/// **One person, one keyboard, a fight.**
+/// One person, one keyboard, a fight.
 ///
 /// The screen offered one seat per PAD with a floor of one, every decided seat
 /// was a human, and a match needed two — so alone, at a keyboard, there was no
@@ -544,7 +544,7 @@ fn a_player_alone_can_add_a_cpu_and_start_the_match() {
     );
 }
 
-/// **The arrows alone can work the whole screen.**
+/// The arrows alone can work the whole screen.
 ///
 /// the piece with no precedent in this repo, and the one a mouse would hide.
 /// Every stop is on something clickable, so a pad reaches the cards, the grid,
@@ -609,7 +609,7 @@ fn slot_participates(app: &App, index: usize) -> bool {
         .participates()
 }
 
-/// **The select screen's own score plays in the STANDALONE demo too.**
+/// The select screen's own score plays in the STANDALONE demo too.
 ///
 /// The companion to `shell_host_rendered::a_providers_own_frontend_route_plays_the_score_written_for_it`,
 /// and it is the half that already worked: before the select theme

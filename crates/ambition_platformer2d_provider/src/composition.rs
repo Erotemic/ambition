@@ -1,47 +1,9 @@
-//! **Hosting an experience: the seven steps, minus the six that are not
-//! decisions.**
+//! Shared shell-host composition for one platformer experience.
 //!
-//! [`crate::PlatformerExperienceAuthoring`] is the AUTHORING half — what a
-//! provider declares about itself. This is the HOSTING half: what an app has to
-//! do to put that provider on screen. Until now every host wrote it out by
-//! hand, and three of them agree line for line: the shipped app's standalone
-//! demo shells and `fixtures/external_consumer`, which is a third party outside
-//! the workspace and is therefore the only honest witness to what the seam
-//! actually costs a stranger.
-//!
-//! What it cost, gathered from the consumer side:
-//!
-//! ```text
-//! MinimalShellPlugins → frontend audio → AmbitionLoadPlugin →
-//! MinimalShellLoadPresentationPlugins → the experience plugin →
-//! ShellRouteSpec into ShellRouteCatalog → ShellHostSpec into
-//! ShellHostConfiguration
-//! ```
-//!
-//! Seven steps whose ORDER is enforced by a resource-missing panic rather than
-//! by a type, and two of whose omissions are silent: no frontend audio and this
-//! composition's routes are silent; no host spec and the app boots to a router
-//! pointing nowhere.
-//!
-//! ## Why this is a struct and not a plugin group
-//!
-//! Because it is not only plugins. Two of the steps write RESOURCES that
-//! `MinimalShellPlugins` inserts, so they must run after it — which is exactly
-//! the ordering a plugin group cannot express and a caller cannot see.
-//!
-//! ## What it deliberately does NOT do
-//!
-//! The risk written down with this row was that a builder swallowing everything
-//! makes composition unreadable and turns every deviation into a feature
-//! request. So this takes the three ids and the experience plugin and stops
-//! there. The foundation, the engine group, the host group, the asset source,
-//! the renderer and any extra routes stay in the caller's hands, because those
-//! are the parts a host can get wrong in an INTERESTING way — the parts worth
-//! reading in a composition function.
-//!
-//! Everything here is also still expressible by hand: `install` writes ordinary
-//! resources, so a caller who wants different frontend audio calls
-//! `set_host_frontend_audio` afterwards and the later write wins.
+//! [`ShellComposition`] installs the provider plugin plus its launcher/gameplay routes,
+//! host configuration, and optional frontend audio after the shell foundation exists.
+//! Engine, renderer, asset-source, and extra-route choices remain explicit at the call
+//! site. Every installed resource can still be overridden by a later caller write.
 
 use bevy::app::{App, Plugins};
 
@@ -90,7 +52,7 @@ impl ShellComposition {
         }
     }
 
-    /// **Boot into a route that is neither the gameplay nor the launcher one.**
+    /// Boot into a route that is neither the gameplay nor the launcher one.
     ///
     /// The smash demo is the consumer. It opens on CHARACTER SELECT, because a
     /// platform fighter that boots onto the stage has already decided who you
@@ -110,7 +72,7 @@ impl ShellComposition {
     /// on the experience id — is the answer for a provider that authors no
     /// frontend sound, which is most of them.
     ///
-    /// **this is the DEFAULT for the routes this composition owns**, not a
+    /// this is the DEFAULT for the routes this composition owns, not a
     /// declaration about any one screen. A composition is one app hosting one
     /// experience, so its default is the honest scope. A provider that wants a
     /// particular screen to sound like itself IN ANY HOST declares that beside
@@ -250,7 +212,7 @@ mod tests {
         );
     }
 
-    /// **a route's own declaration outranks the composition's default**, and a route without one
+    /// a route's own declaration outranks the composition's default, and a route without one
     /// still gets the default.
     #[test]
     fn a_route_that_declares_its_own_sound_is_not_overruled_by_the_default() {

@@ -14,9 +14,9 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt as _;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
-/// **What a body must BE to take part in a capture, at either end of it.**
+/// What a body must BE to take part in a capture, at either end of it.
 ///
-/// **acquisition asks for what the whole LIFECYCLE needs, and this is that list.** A capture is not
+/// acquisition asks for what the whole LIFECYCLE needs, and this is that list. A capture is not
 /// one moment. It is a hold, then pummels, then a throw or a release, and each beat reaches for
 /// different body state. Stating the requirement once, and asking it at the one moment where
 /// refusing is still free, is what makes an established capture mean "every beat of this
@@ -31,7 +31,7 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 /// ActorSurfaceState   gravity suspended at acquisition, restored at release
 /// ```
 ///
-/// ⚠ **it is deliberately not `CenteredAabb`.** The coarse box is victim-side
+///  it is deliberately not `CenteredAabb`. The coarse box is victim-side
 /// geometry, already required by [`StrikeVictim`] where the overlap is asked; a
 /// captor needs none. This type is the BODY ROLE the relationship operates on,
 /// not everything either end happens to carry.
@@ -56,7 +56,7 @@ pub struct CaptorView {
     frame: Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
 }
 
-/// **Acquire a captive for every live grab attempt that reaches one.**
+/// Acquire a captive for every live grab attempt that reaches one.
 ///
 /// # Eligibility, stated rather than discovered
 ///
@@ -64,17 +64,17 @@ pub struct CaptorView {
 /// victim must be a different body, alive, grounded, held by nobody, driving
 /// itself, and someone this captor is allowed to damage.
 ///
-/// ⭐ **and BOTH must be a [`CaptureParticipant`]** — a body the hold, the
+///  and BOTH must be a [`CaptureParticipant`] — a body the hold, the
 /// pummel, the throw and the release can all actually operate on. That is asked
 /// here, at the only moment where refusing costs nothing, rather than discovered
 /// three beats later by a step that finds half a body.
 ///
-/// ⚠ **`damage_lands_between`, the SAME relational rule a strike asks.** A grab
+///  `damage_lands_between`, the SAME relational rule a strike asks. A grab
 /// that could take a teammate would be a different game; routing it through the
 /// hostility question every other offensive road asks is what keeps friendly
 /// fire, teams and factions answering once.
 ///
-/// ⛔ **v1 refuses an airborne victim, and refuses an airborne captor.** Aerial
+///  v1 refuses an airborne victim, and refuses an airborne captor. Aerial
 /// grabs, tether grabs and command grabs are named future techniques, and a
 /// standing grab that happened to answer an airborne press would be a bad one of
 /// them by accident rather than a designed one on purpose.
@@ -92,17 +92,17 @@ pub fn acquire_captures(
     captors: Query<CaptorView, Without<ambition_characters::control::ScriptedControl>>,
     victims: Query<StrikeVictim, Without<ambition_characters::control::ScriptedControl>>,
     captives: Query<(Entity, &CapturedBy)>,
-    // ⭐ **the ONE eligibility question, asked of the victim too.** Not a
+    //  the ONE eligibility question, asked of the victim too. Not a
     // convenience join: a body the rest of the lifecycle could not operate on is
     // refused here rather than captured and then stranded.
     participants: Query<CaptureParticipant>,
     identities: Query<&SimId>,
-    // **The captive's in-flight move, so capture can END it.** See the note at
+    // The captive's in-flight move, so capture can END it. See the note at
     // the insertion below for why this is not optional.
     mut playbacks: Query<&mut crate::moveset::MovePlayback>,
     tuning: Option<Res<crate::rules::ResolvedCombatTuning>>,
 ) {
-    // ⚠ the WHOLE resolved row, not just the friendly-fire flag: a hold's
+    //  the WHOLE resolved row, not just the friendly-fire flag: a hold's
     // deadline is a declared rule too, and it is decided at acquisition.
     let rules = tuning.map(|t| *t).unwrap_or_default();
     let friendly_fire = rules.friendly_fire();
@@ -116,7 +116,7 @@ pub fn acquire_captures(
         if !captor.body.ground.on_ground {
             continue;
         }
-        // ⚠ **a captor already holding somebody is not a captor twice.** This is
+        //  a captor already holding somebody is not a captor twice. This is
         // where the "one captor, one captive" half of the invariant is upheld;
         // the other half is upheld by skipping a victim that is already held.
         if captive_of(attempt.captor, &captives).is_some() {
@@ -138,12 +138,12 @@ pub fn acquire_captures(
         let reach_centre = captor.body.kin.pos + placed.world_offset;
         let reach = ae::CenteredAabb::new(reach_centre, placed.half_extent).aabb();
 
-        // ⚠ built ONCE, not asked per candidate: `captives` is the authority on
+        //  built ONCE, not asked per candidate: `captives` is the authority on
         // who is already held, and the other half of "one captive, one captor".
         let already_held: std::collections::HashSet<Entity> =
             captives.iter().map(|(entity, _)| entity).collect();
 
-        // Gather, then rank. ⛔ never "take the first overlap": see the doc.
+        // Gather, then rank.  never "take the first overlap": see the doc.
         let mut candidates: Vec<(f32, &SimId, Entity)> = Vec::new();
         for victim in &victims {
             if victim.entity == attempt.captor {
@@ -152,7 +152,7 @@ pub fn acquire_captures(
             if victim.is_corpse() || victim.is_intangible() {
                 continue;
             }
-            // ⛔ the same role the captor had to satisfy. A body with no health,
+            //  the same role the captor had to satisfy. A body with no health,
             // no combat state or no surface can be reached by a grab volume and
             // still cannot be pummelled, thrown or released — so it is not a
             // victim, it is a bystander.
@@ -182,7 +182,7 @@ pub fn acquire_captures(
             if !reach.intersects(&body) {
                 continue;
             }
-            // ⚠ a body with no `SimId` cannot participate in the deterministic
+            //  a body with no `SimId` cannot participate in the deterministic
             // tie-break, so it cannot be captured. That is a fixture shape, not
             // a live one: every constructed body has an identity.
             let Ok(id) = identities.get(victim.entity) else {
@@ -203,21 +203,21 @@ pub fn acquire_captures(
             continue;
         };
 
-        // ⛔⛔ **THE CAPTIVE'S MOVE ENDS HERE, AND ITS VOLUMES WITH IT.**
+        //  THE CAPTIVE'S MOVE ENDS HERE, AND ITS VOLUMES WITH IT.
         //
-        // ⭐ through the ONE teardown path (`cancel_move_playback`), which is why
+        //  through the ONE teardown path (`cancel_move_playback`), which is why
         // that was extracted from its four hand-copies first rather than becoming
         // a fifth here.
         if let Ok(mut playback) = playbacks.get_mut(victim) {
             crate::moveset::cancel_move_playback(&mut commands, victim, &mut playback);
         }
-        // **The captive's control projection.** `CapturedBy` stays the authority;
+        // The captive's control projection. `CapturedBy` stays the authority;
         // this is only what it means for input, and it is CLAIMED rather than
         // inserted: a KO card or a round break can legitimately hold this same
         // body while the grab lasts, and a release that removed the marker
         // outright would take their hold off with its own.
         //
-        // ⚠ **it is a PROJECTION, and that is the shape escape needs later**: a
+        //  it is a PROJECTION, and that is the shape escape needs later: a
         // mash-to-escape read samples the captive's raw participant input into a
         // restricted capture channel, and would be impossible if capture meant
         // "this body's input ceases to exist".
@@ -229,20 +229,20 @@ pub fn acquire_captures(
         commands.entity(victim).insert(CapturedBy {
             captor: attempt.captor,
             hold_offset_local: attempt.hold_offset,
-            // ⚠ REMEMBERED, not assumed: a flying body's scale is not 1.0, and a
+            //  REMEMBERED, not assumed: a flying body's scale is not 1.0, and a
             // release that wrote a constant would land it on the floor.
             prior_gravity_scale: participants
                 .get(victim)
                 .map(|body| body.surface.gravity_scale)
                 .unwrap_or(1.0),
         });
-        // ⭐ **the RULESET's half of the hold, inserted beside the relation.**
+        //  the RULESET's half of the hold, inserted beside the relation.
         // Pummel count, hold age and escape progress are platform-fighter
         // policy; `CapturedBy` is the relation and answers none of them. A hold
         // without this component is one this ruleset has no opinion about.
         //
-        // ⭐ **and its deadline is decided HERE, once, from the captive's damage
-        // at the moment it was caught.** That is the genre's rule — a hold does
+        //  and its deadline is decided HERE, once, from the captive's damage
+        // at the moment it was caught. That is the genre's rule — a hold does
         // not grow because its captor pummelled — and it is why the seconds are
         // stored rather than asked for again every tick.
         commands.entity(victim).insert(
@@ -258,15 +258,15 @@ pub fn acquire_captures(
     }
 }
 
-/// **What a brain is told about this body's place in a capture.**
+/// What a brain is told about this body's place in a capture.
 ///
-/// ⛔ **a struct rather than the `(bool, bool, u8)` it replaces, and the tuple's
-/// own comment is the argument**: *"inserting it mid-list silently shifted two
+///  a struct rather than the `(bool, bool, u8)` it replaces, and the tuple's
+/// own comment is the argument: *"inserting it mid-list silently shifted two
 /// positional arguments into the wrong slots and the compiler reported it as a
 /// type error three parameters away"*. Giving a brain the hold's AGE would have
 /// been that edit a second time.
 ///
-/// ⭐ it also deletes the two byte-identical inline resolutions that stood at
+///  it also deletes the two byte-identical inline resolutions that stood at
 /// the snapshot's two call sites.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct CaptureFacts {
@@ -283,8 +283,8 @@ pub struct CaptureFacts {
 impl CaptureFacts {
     /// Read both ends of the relationship out of the one table that records it.
     ///
-    /// ⚠ **the RELATION answers who, and the RULESET's state answers how long
-    /// and how many.** `SmashHoldState` is `Option` because a hold this ruleset
+    ///  the RELATION answers who, and the RULESET's state answers how long
+    /// and how many. `SmashHoldState` is `Option` because a hold this ruleset
     /// has no opinion about is a real thing — a game that constrains bodies
     /// without pummelling them has the relation and not the policy — and
     /// `unwrap_or_default` reads that as "no pummels, no age", which is true.
@@ -314,11 +314,11 @@ impl CaptureFacts {
 }
 
 
-/// **The captive's restricted channel: a mash reaches the hold, and nothing
-/// else does.**
+/// The captive's restricted channel: a mash reaches the hold, and nothing
+/// else does.
 ///
-/// ⭐⭐ **placed where the frame is still LIVE, and that placement IS the
-/// design.** A captive carries `ScriptedControl`, and blanking is what makes
+///  placed where the frame is still LIVE, and that placement IS the
+/// design. A captive carries `ScriptedControl`, and blanking is what makes
 /// that marker mean something — so a reader placed after the blanking samples
 /// zeros and would conclude that captives never struggle. This runs immediately
 /// before each blanking, which is why it is scheduled TWICE: human input is
@@ -328,12 +328,12 @@ impl CaptureFacts {
 /// reason, and neither placement double-counts the other: whichever writer is
 /// live for a body, the other position sees the zeros the first blanking left.
 ///
-/// ⛔ **it reads the frame and writes nothing back to it.** The captive still
+///  it reads the frame and writes nothing back to it. The captive still
 /// cannot walk, jump or attack — the press is credited to an escape and then
 /// blanked exactly as before. That is what a restricted context means here: the
 /// input exists, and there is precisely one thing it can do.
 ///
-/// ⚠ **one credit per tick, not one per button.** Otherwise a chord of six
+///  one credit per tick, not one per button. Otherwise a chord of six
 /// buttons would be six presses, and escape would reward a control-scheme trick
 /// rather than a mash.
 pub fn sample_capture_escape(
@@ -342,7 +342,7 @@ pub fn sample_capture_escape(
             &mut ambition_characters::smash_capture::SmashHoldState,
             &ambition_characters::control::ActorControl,
         ),
-        // ⇒ without this filter every body that has ever been captured keeps accumulating
+        //  without this filter every body that has ever been captured keeps accumulating
         // escape progress from ordinary play, forever — a write to ROLLBACK STATE every tick,
         // churning the checksum for a hold that ended.
         bevy::prelude::With<CapturedBy>,
@@ -367,14 +367,14 @@ pub fn sample_capture_escape(
     }
 }
 
-/// **A hold ages, and ends when its clock runs out or its captive gets out.**
+/// A hold ages, and ends when its clock runs out or its captive gets out.
 ///
 /// The third and fourth ways a capture can end, beside the throw and the
 /// interruption — and like both of those, through the ONE
 /// [`release_capture`], so gravity, the relationship and the control claim come
 /// back together however the hold ended.
 ///
-/// ⚠ **scaled seconds, so a hold does not age during hitstop.** A pummel's own
+///  scaled seconds, so a hold does not age during hitstop. A pummel's own
 /// freeze frames would otherwise buy the captor time it did not earn.
 pub fn tick_capture_holds(
     mut commands: Commands,
@@ -382,8 +382,8 @@ pub fn tick_capture_holds(
     mut captives: Query<(
         Entity,
         &CapturedBy,
-        // ⚠ **the clock and the escape are the RULESET's, so this system asks
-        // for them explicitly.** A hold with no `SmashHoldState` is one this
+        //  the clock and the escape are the RULESET's, so this system asks
+        // for them explicitly. A hold with no `SmashHoldState` is one this
         // ruleset does not time out or let anybody mash out of — which is the
         // correct behaviour for a game that constrains bodies under different
         // rules, and is why the query REQUIRES it rather than treating absence
@@ -410,22 +410,22 @@ pub fn tick_capture_holds(
     }
 }
 
-/// **A captive is DRAWN as held.**
+/// A captive is DRAWN as held.
 ///
-/// ⛔ **a mirror, not a latch, and that is the whole implementation note.** It
+///  a mirror, not a latch, and that is the whole implementation note. It
 /// writes `held` for EVERY body with animation facts, from that body's own
 /// `CapturedBy` — so a released body is drawn free on the next frame without
 /// anybody remembering to clear it. Writing `true` on captives alone would leave
 /// the last-held body stuck in the pose forever, which is the shape
 /// `release_interrupted_captures` would then have had to know about.
 ///
-/// ⭐ **and it is why the anim layer does not query `CapturedBy` itself.** The
+///  and it is why the anim layer does not query `CapturedBy` itself. The
 /// relation belongs to combat and the pose to presentation; a render system
 /// reaching across for a gameplay component is how the two stop agreeing about
 /// when a hold ended. The sim publishes the fact here, and every picker — the
 /// controlled road and the actor road alike — reads the same one.
 pub fn mirror_capture_into_anim_facts(
-    // ⚠ a SECOND read of the same relation, because the captor is not reachable
+    //  a SECOND read of the same relation, because the captor is not reachable
     // from its own row: `CapturedBy` lives on the CAPTIVE and names the captor,
     // so the only way to ask "is anybody holding me... or am I holding anybody"
     // is to read every hold once.
@@ -439,7 +439,7 @@ pub fn mirror_capture_into_anim_facts(
     let captors: Vec<Entity> = holds.iter().map(|hold| hold.captor).collect();
     for (entity, mut anim, held) in &mut bodies {
         let now = held.is_some();
-        // ⚠ `is_changed()` writes must be idempotent under rollback, so only
+        //  `is_changed()` writes must be idempotent under rollback, so only
         // touch the component when the answer actually moved.
         if anim.held != now {
             anim.held = now;
@@ -458,7 +458,7 @@ mod tests {
 
     /// A body standing on the floor that is a complete [`CaptureParticipant`].
     ///
-    /// ⚠ **complete on purpose.** Acquisition requires the body role the whole
+    ///  complete on purpose. Acquisition requires the body role the whole
     /// lifecycle needs, so a fixture that spawned half a body would be refused —
     /// and a fixture that was refused for a reason the test did not name is how
     /// the end-to-end acceptance came to be misdiagnosed. A test that wants an
@@ -502,7 +502,7 @@ mod tests {
     }
 
     /// A hold built the way `acquire_captures` builds one, for a fixture that
-    /// hands a body its relation directly. ⛔ NOT `SmashHoldState::default()`:
+    /// hands a body its relation directly.  NOT `SmashHoldState::default()`:
     /// that row's `escape_seconds` is `0.0`, which is a hold already over.
     fn fresh_hold() -> ambition_characters::smash_capture::SmashHoldState {
         ambition_characters::smash_capture::SmashHoldState::lasting(
@@ -526,12 +526,12 @@ mod tests {
         }
     }
 
-    /// **BOTH ENDS OF A HOLD ARE DRAWN, AND BOTH ARE RELEASED.**
+    /// BOTH ENDS OF A HOLD ARE DRAWN, AND BOTH ARE RELEASED.
     ///
-    /// ⛔ the mirror is what lets the anim layer stay out of `CapturedBy`, so the
+    ///  the mirror is what lets the anim layer stay out of `CapturedBy`, so the
     /// captor half has to come from the same pass — the relation lives on the
     /// CAPTIVE and names its captor, so nothing on the captor's own row says it
-    /// is holding anybody. ⚠ and the release half is the assertion that matters:
+    /// is holding anybody.  and the release half is the assertion that matters:
     /// a `holding` flag set on acquisition and never cleared would leave the last
     /// captor stuck in the hold pose for the rest of the match, which is exactly
     /// the latch shape this system was written as a mirror to avoid.
@@ -575,7 +575,7 @@ mod tests {
         );
     }
 
-    /// **A HURT CAPTIVE IS HELD LONGER, AND THE HOLD DOES NOT GROW UNDER IT.**
+    /// A HURT CAPTIVE IS HELD LONGER, AND THE HOLD DOES NOT GROW UNDER IT.
     #[test]
     fn a_hold_is_measured_from_the_damage_the_captive_had_when_it_was_caught() {
         let rules = crate::rules::ResolvedCombatTuning {
@@ -589,7 +589,7 @@ mod tests {
             app.insert_resource(rules);
             let captor = grounded_body(&mut app, "captor", ae::Vec2::ZERO);
             let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
-            // ⚠ a DIFFERENT faction: `grounded_body` makes everybody an enemy,
+            //  a DIFFERENT faction: `grounded_body` makes everybody an enemy,
             // and a captor may not grab its own side with friendly fire off.
             app.world_mut()
                 .entity_mut(victim)
@@ -623,7 +623,7 @@ mod tests {
         assert_eq!(fresh, 1.0);
         assert_eq!(hurt, 2.0, "the captive's damage did not lengthen the hold");
 
-        // ⛔ and now hurt it FURTHER, mid-hold. The deadline must not move.
+        //  and now hurt it FURTHER, mid-hold. The deadline must not move.
         app.world_mut()
             .get_mut::<ambition_characters::actor::BodyHealth>(victim)
             .expect("the captive kept its health")
@@ -640,7 +640,7 @@ mod tests {
         );
     }
 
-    /// **⭐ A SHIELD DOES NOT STOP A GRAB — the third leg of the triangle.**
+    ///  A SHIELD DOES NOT STOP A GRAB — the third leg of the triangle.
     ///
     /// attack beats grab, grab beats shield, shield beats attack. If a capture
     /// ever consults `BodyShieldState`, that cycle collapses into "shield beats
@@ -667,7 +667,7 @@ mod tests {
         );
     }
 
-    /// **⛔⛔ A FREED BODY STOPS ACCUMULATING ESCAPE PROGRESS.**
+    ///  A FREED BODY STOPS ACCUMULATING ESCAPE PROGRESS.
     ///
     /// `release_capture` removes the RELATION and leaves `SmashHoldState` on the
     /// body — which is fine, because a fresh capture overwrites it. What is not
@@ -731,13 +731,13 @@ mod tests {
         );
     }
 
-    /// **⛔⛔ A HOLD IS TWO COMPONENTS, AND ACQUIRING ONE INSERTS BOTH.**
+    ///  A HOLD IS TWO COMPONENTS, AND ACQUIRING ONE INSERTS BOTH.
     ///
-    /// A body carrying only the first is held by somebody with **no clock and nothing to mash out
-    /// of**: `tick_capture_holds` requires the state, so such a hold would never time out, and
+    /// A body carrying only the first is held by somebody with no clock and nothing to mash out
+    /// of: `tick_capture_holds` requires the state, so such a hold would never time out, and
     /// `sample_capture_escape` would never credit a press.
     ///
-    /// ⚠ **pinned because the pairing is a convention, not a type.** Nothing
+    ///  pinned because the pairing is a convention, not a type. Nothing
     /// stops a future site inserting the relation alone, and there is exactly
     /// ONE production site that establishes a hold — precisely the situation
     /// where a second one lands later and nobody notices.
@@ -752,7 +752,7 @@ mod tests {
         app.world_mut().write_message(attempt(captor));
         app.update();
 
-        // ⛔ the zero floor: no capture at all would satisfy "no unpaired hold"
+        //  the zero floor: no capture at all would satisfy "no unpaired hold"
         // by having no hold, which is the vacuous pass this must not take.
         assert!(
             app.world().get::<CapturedBy>(victim).is_some(),
@@ -768,7 +768,7 @@ mod tests {
         );
     }
 
-    /// **AN AIRBORNE VICTIM IS NOT CAPTURED BY A STANDING GRAB (v1).**
+    /// AN AIRBORNE VICTIM IS NOT CAPTURED BY A STANDING GRAB (v1).
     ///
     /// Aerial grabs are a named future technique. A standing grab that happened
     /// to catch a jumping body would be a bad aerial grab nobody designed.
@@ -791,7 +791,7 @@ mod tests {
         assert!(app.world().get::<CapturedBy>(victim).is_none());
     }
 
-    /// **THE CAPTIVE IS HELD AT THE CAPTOR'S ANCHOR, MIRRORED BY ITS FACING.**
+    /// THE CAPTIVE IS HELD AT THE CAPTOR'S ANCHOR, MIRRORED BY ITS FACING.
     ///
     /// The anchor is captor-body-local, so a captor that turns around swings its
     /// captive across rather than leaving it behind — which is what makes a
@@ -805,7 +805,7 @@ mod tests {
         app.world_mut()
             .entity_mut(victim)
             .insert(surface_state(1.0));
-        // ⚠ a hold is TWO components: the relation, and this ruleset's half.
+        //  a hold is TWO components: the relation, and this ruleset's half.
         app.world_mut().entity_mut(victim).insert((
             CapturedBy {
                 captor,
@@ -844,7 +844,7 @@ mod tests {
         );
     }
 
-    /// **A CAPTOR KEEPS ITS ATTACK PRESS AND LOSES EVERYTHING ELSE.**
+    /// A CAPTOR KEEPS ITS ATTACK PRESS AND LOSES EVERYTHING ELSE.
     ///
     /// Both halves matter and they fail in opposite directions: strip the attack
     /// and a captor can hold a body and do nothing to it forever; keep the rest
@@ -865,7 +865,7 @@ mod tests {
         app.world_mut()
             .entity_mut(captor)
             .insert(ambition_characters::control::ActorControl(frame));
-        // ⚠ a hold is TWO components: the relation, and this ruleset's half.
+        //  a hold is TWO components: the relation, and this ruleset's half.
         app.world_mut().entity_mut(victim).insert((
             CapturedBy {
                 captor,
@@ -889,9 +889,9 @@ mod tests {
         );
     }
 
-    /// **A HIT ON EITHER BODY ENDS THE HOLD, AND GIVES BACK WHAT IT SUSPENDED.**
+    /// A HIT ON EITHER BODY ENDS THE HOLD, AND GIVES BACK WHAT IT SUSPENDED.
     ///
-    /// ⚠ the restored gravity is the body's OWN prior value, not `1.0`. This
+    ///  the restored gravity is the body's OWN prior value, not `1.0`. This
     /// captive was floating at `0.25` before it was grabbed, which is the case a
     /// constant would silently break.
     #[test]
@@ -955,13 +955,13 @@ mod tests {
         );
     }
 
-    /// **⛔⛔ AN EXISTING CAPTOR MISSING COMBAT STATE IS NOT A DESPAWNED ONE.**
+    ///  AN EXISTING CAPTOR MISSING COMBAT STATE IS NOT A DESPAWNED ONE.
     ///
     /// The invariant, not the fix. The interruption rule asked `combat.get(captor).is_err()`
     /// and read the answer as *"the captor is gone"*. That misreading is what kept the
     /// end-to-end acceptance red, and what got it diagnosed wrong.
     ///
-    /// ⚠ **built by hand ON PURPOSE.** Acquisition now refuses such a captor
+    ///  built by hand ON PURPOSE. Acquisition now refuses such a captor
     /// outright, so a grab press can no longer reach this state — which is
     /// exactly why the guard must construct it. The rule is *existence is asked
     /// of the world, never inferred from a component*, and it has to hold for
@@ -977,7 +977,7 @@ mod tests {
         app.world_mut()
             .entity_mut(captor)
             .remove::<ambition_characters::actor::BodyCombat>();
-        // ⚠ a hold is TWO components: the relation, and this ruleset's half.
+        //  a hold is TWO components: the relation, and this ruleset's half.
         app.world_mut().entity_mut(victim).insert((
             CapturedBy {
                 captor,
@@ -996,7 +996,7 @@ mod tests {
         );
     }
 
-    /// **A captor that really is gone frees its captive.**
+    /// A captor that really is gone frees its captive.
     ///
     /// The other direction of the same predicate, and the reason the guard above
     /// is not vacuous: after teaching the rule to stop treating a missing
@@ -1016,7 +1016,7 @@ mod tests {
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 0.75,
             },
-            // ⚠ the ruleset's half of the hold: without it there is no
+            //  the ruleset's half of the hold: without it there is no
             // clock and nothing to mash out of.
             fresh_hold(),
         ));
@@ -1039,11 +1039,11 @@ mod tests {
         );
     }
 
-    /// **⛔⛔ NOBODY IS HELD FOREVER, AND STRUGGLING BEATS NOT STRUGGLING.**
+    ///  NOBODY IS HELD FOREVER, AND STRUGGLING BEATS NOT STRUGGLING.
     ///
     /// An unbounded relationship is a gameplay bug rather than a missing feature.
     ///
-    /// ⭐ **the two halves are one test on purpose.** A hold that ended on its
+    ///  the two halves are one test on purpose. A hold that ended on its
     /// clock but ignored the captive would pass a mash test that only asserted
     /// "it ends"; a hold that freed anybody who touched a button would pass a
     /// timeout test that only asserted "it ends". Measuring BOTH escapes against
@@ -1073,8 +1073,8 @@ mod tests {
                     hold_offset_local: ae::Vec2::new(16.0, 0.0),
                     prior_gravity_scale: 1.0,
                 },
-                // ⚠ the ruleset's half of the hold: without it there is no
-                // clock and nothing to mash out of. ⛔ built the way acquisition
+                //  the ruleset's half of the hold: without it there is no
+                // clock and nothing to mash out of.  built the way acquisition
                 // builds it — this app installs no `ResolvedCombatTuning`, so
                 // the deadline is the undeclared world's flat hold.
                 ambition_characters::smash_capture::SmashHoldState::lasting(
@@ -1120,7 +1120,7 @@ mod tests {
              {waited}) — the captive's input never reached the relationship, \
              which is the whole claim the restricted channel makes"
         );
-        // ⚠ this app installs no `ResolvedCombatTuning`, so the ceiling is the
+        //  this app installs no `ResolvedCombatTuning`, so the ceiling is the
         // undeclared world's — asked of the same value the system asks, rather
         // than of a constant a reader would have to trust still matches it.
         let ceiling = crate::rules::ResolvedCombatTuning::default().grab_hold_max_seconds;
@@ -1130,7 +1130,7 @@ mod tests {
         );
     }
 
-    /// **⛔⛔ A RELEASE ENDS THE CAPTURE'S HOLD AND NOBODY ELSE'S.**
+    ///  A RELEASE ENDS THE CAPTURE'S HOLD AND NOBODY ELSE'S.
     ///
     /// A capture is the first authority that can legitimately hold a body while
     /// ANOTHER one does — a KO card, a round break, a countdown all claim the
@@ -1139,7 +1139,7 @@ mod tests {
     /// frozen fighter back its controls in the middle of somebody else's
     /// ceremony, and nothing at either end recorded that it had happened.
     ///
-    /// ⭐ **both directions, because one alone proves nothing.** A release that
+    ///  both directions, because one alone proves nothing. A release that
     /// never freed anybody would pass the first half; a release that freed
     /// everybody would pass the second.
     #[test]
@@ -1164,7 +1164,7 @@ mod tests {
                     hold_offset_local: ae::Vec2::new(16.0, 0.0),
                     prior_gravity_scale: 1.0,
                 },
-                // ⚠ the ruleset's half of the hold: without it there is no
+                //  the ruleset's half of the hold: without it there is no
                 // clock and nothing to mash out of.
                 fresh_hold(),
             ));
@@ -1197,8 +1197,8 @@ mod tests {
         }
     }
 
-    /// **⭐ A BODY THE REST OF THE LIFECYCLE COULD NOT OPERATE ON IS NOT
-    /// CAPTURED.**
+    ///  A BODY THE REST OF THE LIFECYCLE COULD NOT OPERATE ON IS NOT
+    /// CAPTURED.
     #[test]
     fn a_body_the_lifecycle_could_not_operate_on_is_never_captured() {
         for (label, strip_captor) in [("captor", true), ("victim", false)] {
@@ -1226,7 +1226,7 @@ mod tests {
         }
     }
 
-    /// **⛔ A PUMMEL DAMAGES ITS CAPTIVE AND DOES NOT BREAK THE HOLD.**
+    ///  A PUMMEL DAMAGES ITS CAPTIVE AND DOES NOT BREAK THE HOLD.
     ///
     /// The one that would catch the whole category error. If a pummel were
     /// routed through the ordinary hit path it would arm `hitstun_timer`,
@@ -1261,7 +1261,7 @@ mod tests {
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 1.0,
             },
-            // ⚠ the ruleset's half of the hold: without it there is no
+            //  the ruleset's half of the hold: without it there is no
             // clock and nothing to mash out of.
             fresh_hold(),
         ));
@@ -1333,7 +1333,7 @@ mod tests {
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 1.0,
             },
-            // ⚠ the ruleset's half of the hold: without it there is no
+            //  the ruleset's half of the hold: without it there is no
             // clock and nothing to mash out of.
             fresh_hold(),
         ));
@@ -1350,7 +1350,7 @@ mod tests {
         }
     }
 
-    /// **A THROW ENDS THE HOLD, HURTS, AND LAUNCHES — in that order.**
+    /// A THROW ENDS THE HOLD, HURTS, AND LAUNCHES — in that order.
     ///
     /// All three at once because the order is the mechanic: the damage has to
     /// land before the launch reads the meter, and the release has to land
@@ -1399,7 +1399,7 @@ mod tests {
         );
     }
 
-    /// **A THROW GETS THE PERCENT SCALING EVERY OTHER LAUNCHER GETS.**
+    /// A THROW GETS THE PERCENT SCALING EVERY OTHER LAUNCHER GETS.
     ///
     /// The proof that this rides the shared knockback law rather than a second
     /// launch engine: the same throw on a hurt body sends it farther. If throws
@@ -1429,7 +1429,7 @@ mod tests {
         );
     }
 
-    /// **A CAPTOR ALREADY HOLDING SOMEBODY TAKES NOBODY ELSE.**
+    /// A CAPTOR ALREADY HOLDING SOMEBODY TAKES NOBODY ELSE.
     ///
     /// Half of the "one captor, one captive" invariant. Without it a grab whose
     /// window is still live would keep acquiring, and `captive_of` — which
@@ -1446,7 +1446,7 @@ mod tests {
                 .entity_mut(body)
                 .insert(crate::components::ActorFaction::Player);
         }
-        // ⚠ a hold is TWO components: the relation, and this ruleset's half.
+        //  a hold is TWO components: the relation, and this ruleset's half.
         app.world_mut().entity_mut(first).insert((
             CapturedBy {
                 captor,
@@ -1464,14 +1464,14 @@ mod tests {
     }
 }
 
-/// **Hold the captive where its captor holds it.**
+/// Hold the captive where its captor holds it.
 ///
 /// The same physical mechanism the saddle pin uses —
 /// [`constrain_body_pose`](ae::movement::constrain_body_pose) — and deliberately
 /// NOT the mount relationship. A rider steers its mount and a captive does not
 /// steer its captor; unifying them would make one of those two false.
 ///
-/// ⚠ **velocity follows the CAPTOR's, not `ZERO`.** A body released or
+///  velocity follows the CAPTOR's, not `ZERO`. A body released or
 /// interrupted mid-carry then inherits the motion of the thing that was carrying
 /// it, which is what a person expects to see. Zeroing it would make every
 /// release look like the captive hit an invisible wall.
@@ -1481,7 +1481,7 @@ mod tests {
 /// it back. It also runs once more immediately after acquisition, so a grab that
 /// lands this tick attaches this tick rather than a frame later.
 pub fn constrain_captive_bodies(
-    // ⭐ **`Without<CapturedBy>` is a SEMANTIC claim, not a borrow trick** — though
+    //  `Without<CapturedBy>` is a SEMANTIC claim, not a borrow trick — though
     // Bevy asking for it is what made the claim explicit. A captive can never be
     // a captor: acquisition refuses a captor already under `ScriptedControl`, and
     // every captive carries it, so a chain A-holds-B-holds-C cannot form. The two
@@ -1527,7 +1527,7 @@ pub fn constrain_captive_bodies(
         // holds what to give back.
         surface.gravity_scale = 0.0;
         ground.on_ground = false;
-        // ⚠ the coarse-box mirror moves in the SAME tick, exactly as the mount's
+        //  the coarse-box mirror moves in the SAME tick, exactly as the mount's
         // does: combat and presentation both read it, and a captive whose damage
         // box stayed where it was grabbed could be hit in mid-air by a strike
         // aimed at the floor.
@@ -1537,18 +1537,18 @@ pub fn constrain_captive_bodies(
     }
 }
 
-/// **A captor is restricted, not blanked.**
+/// A captor is restricted, not blanked.
 ///
 /// While holding somebody a body may not walk, jump, dodge, shield, blink,
 /// special, or shoot — but it MUST still be able to feed an attack press and its
 /// direction, because that is how a pummel and a throw are chosen.
 ///
-/// ⛔ **deliberately not `ScriptedControl`.** That marker means *"normal input
+///  deliberately not `ScriptedControl`. That marker means *"normal input
 /// does not drive this body"*, and it is what the CAPTIVE gets. A captor still
 /// has meaningful agency; it is in a restricted action context, which is a
 /// different thing and stays a different thing.
 ///
-/// ⚠ a future carry relationship may permit locomotion — cargo throws exist in
+///  a future carry relationship may permit locomotion — cargo throws exist in
 /// the genre. That is a property of the RELATIONSHIP, so it belongs on whatever
 /// component expresses it, not baked in here.
 pub fn restrict_captor_control(
@@ -1583,20 +1583,20 @@ pub fn restrict_captor_control(
         frame.fly_toggle_pressed = false;
         frame.fast_fall_pressed = false;
         frame.interact_pressed = false;
-        // ⛔ a second grab while already holding somebody is not a thing.
+        //  a second grab while already holding somebody is not a thing.
         frame.grab_pressed = false;
-        // ⭐ PRESERVED: `melee_pressed`, `melee_held`, `melee_released` and
+        //  PRESERVED: `melee_pressed`, `melee_held`, `melee_released` and
         // `attack_axis`. Those four ARE the capture-context vocabulary — strip
         // them and a captor can hold a body and do nothing to it forever.
     }
 }
 
-/// **THE one release.** Every path out of a capture goes through it.
+/// THE one release. Every path out of a capture goes through it.
 ///
 /// Making that impossible is the entire reason this is a function rather than three lines
 /// repeated at each exit.
 ///
-/// ⭐ **this is also what makes escape cheap.** Mash-to-escape, when it lands,
+///  this is also what makes escape cheap. Mash-to-escape, when it lands,
 /// is another caller: it decides WHEN, and this decides what release means.
 pub fn release_capture(
     commands: &mut Commands,
@@ -1606,7 +1606,7 @@ pub fn release_capture(
     holds: Option<&mut ambition_characters::control::ControlHolds>,
 ) {
     commands.entity(victim).try_remove::<CapturedBy>();
-    // ⛔ ONLY the hold this relationship claimed. The body may be held by a
+    //  ONLY the hold this relationship claimed. The body may be held by a
     // ruleset's KO freeze at the same time — the throw that ends the grab does
     // not end the fight's hold on the fighter it just threw.
     ambition_characters::control::release_control_hold(
@@ -1616,22 +1616,22 @@ pub fn release_capture(
         ambition_characters::control::ControlHold::Relationship,
     );
     if let Some(surface) = surface {
-        // ⚠ what it WAS, not `1.0`. A flying body's scale is not the reference
+        //  what it WAS, not `1.0`. A flying body's scale is not the reference
         // one, and a release that wrote a constant would land it on the floor.
         surface.gravity_scale = held.prior_gravity_scale;
     }
 }
 
-/// **A capture ends when either body takes a real hit, or the captor stops
-/// existing.**
+/// A capture ends when either body takes a real hit, or the captor stops
+/// existing.
 ///
 /// The interruption is the hit reaction the engine already agreed happened.
 ///
-/// ⛔ **hitstop alone does NOT break it.** A pummel may deliberately produce a
+///  hitstop alone does NOT break it. A pummel may deliberately produce a
 /// little hitstop while preserving the hold; breaking on that would make the
 /// mechanic destroy itself on its own second beat.
 ///
-/// ⛔⛔ **EXISTENCE IS ASKED OF THE WORLD, NEVER INFERRED FROM A COMPONENT.** This read
+///  EXISTENCE IS ASKED OF THE WORLD, NEVER INFERRED FROM A COMPONENT. This read
 /// `combat.get(captor).is_err()` and called that "the captor is gone". It is not: it is "the
 /// captor has no combat state", and the two answers differ for every body that is alive without
 /// one. `bodies` answers only the existence question, and answers nothing else.
@@ -1669,29 +1669,11 @@ pub fn release_interrupted_captures(
     }
 }
 
-/// **A pummel lands on the body this captor already holds.**
+/// Apply pummel damage directly to the body already held by the captor.
 ///
-/// ⛔⛔ **NOT through the ordinary hit path, and that is a correctness claim
-/// rather than a shortcut.** An ordinary hit consults the shield, the post-hit
-/// invulnerability window and spatial strike ownership, then arms `hitstun` and
-/// a recoil lock. Every one of those is wrong here:
-///
-/// * the defensive question was ALREADY ANSWERED when the capture was
-///   established — asking it again would let a shield that could not stop the
-///   grab stop the pummel;
-/// * there is no volume to own: the target was selected, not reacquired;
-/// * ⛔ and arming `hitstun_timer` would trip
-///   [`release_interrupted_captures`], so the pummel would release the very
-///   grab it belongs to. **A pummel that breaks its own hold is the symptom
-///   that says the wrong semantic path was used**, and it would look like a
-///   flaky mechanic rather than a category error.
-///
-/// ⇒ so: damage, meter, and nothing else. No knockback, no hitstun, no recoil
-/// lock, no i-frames, and the relationship untouched.
-///
-/// ⭐ [`BodyHealth::damage`] is reused rather than reimplemented — it already
-/// advances the unbounded percent meter a platform fighter launches off, and a
-/// second damage road would be a second answer to "how hurt is this body".
+/// Capture already resolved targeting and defense, so pummels do not reacquire a
+/// target, consult shields/i-frames, or arm knockback, hitstun, or recoil. Health
+/// damage still uses the canonical `BodyHealth::damage` path.
 pub fn apply_capture_pummels(
     mut requests: MessageReader<crate::capture::CapturePummelRequested>,
     mut captives: Query<(
@@ -1714,13 +1696,13 @@ pub fn apply_capture_pummels(
         // Saturating: a hold long enough to overflow a u8 has other problems,
         // and wrapping to zero would tell a CPU policy the hold just started.
         //
-        // ⚠ the count is the RULESET's, not the relation's: "how many pummels"
+        //  the count is the RULESET's, not the relation's: "how many pummels"
         // is a question only a game with pummels can ask.
         state.pummels_landed = state.pummels_landed.saturating_add(1);
     }
 }
 
-/// **A throw's authored release frame: the hold ends and the body leaves.**
+/// A throw's authored release frame: the hold ends and the body leaves.
 ///
 /// Order is the whole content of this function, and it is the order the plan
 /// states because each step depends on the last:
@@ -1732,7 +1714,7 @@ pub fn apply_capture_pummels(
 /// launch        an ORDINARY hit reaction on a body that is now ordinary
 /// ```
 ///
-/// ⭐ **the launch is not "throw velocity".** It is
+///  the launch is not "throw velocity". It is
 /// [`scaled_knockback`](crate::util::scaled_knockback) folded onto the
 /// same [`HitKnockback`] every authored launcher builds, handed to the same
 /// reaction road. So a throw inherits weight, percent scaling, DI, arbitrary
@@ -1740,7 +1722,7 @@ pub fn apply_capture_pummels(
 /// from a second launch engine, and all of which a platform fighter's throws are
 /// expected to have.
 ///
-/// ⛔ **release BEFORE launch, not after.** The launch arms hitstun, and hitstun
+///  release BEFORE launch, not after. The launch arms hitstun, and hitstun
 /// is what `release_interrupted_captures` reads: launching first would leave the
 /// interruption rule to do the releasing on the following tick, which is a
 /// different code path reaching the same state by accident — and one frame late.
@@ -1831,13 +1813,13 @@ pub fn apply_capture_throws(
             gravity_dir,
             false,
             Some(&knockback),
-            // ⚠ no DI on a throw's release frame: the captive had no control to
+            //  no DI on a throw's release frame: the captive had no control to
             // hold. Smash DI on throws is a real mechanic and it belongs with
             // the escape work, where a captive's restricted input channel exists.
             ae::Vec2::ZERO,
-            // ⚠ a thrown body is AIRBORNE by construction — the hold suspended
+            //  a thrown body is AIRBORNE by construction — the hold suspended
             // its gravity and the release hands it back — so a downward throw is
-            // eligible for the meteor lock exactly like a spike is. ⚠ and it is
+            // eligible for the meteor lock exactly like a spike is.  and it is
             // not crouching: a captive has no stance of its own, and letting a
             // thrown body crouch-cancel its own throw would refund the captor
             // the only beat a grab is paid for.

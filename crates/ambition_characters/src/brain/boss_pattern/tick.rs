@@ -146,19 +146,11 @@ impl PatternRng {
 /// hang the sim, not because 65 would be wrong.
 const MAX_CURSOR_STEPS_PER_TICK: u32 = 64;
 
-/// Scripted-pattern cursor advancement, with BD1's control flow.
+/// Advance the resolved scripted-pattern timeline.
 ///
-/// The cursor walks `state.timeline` — the RESOLVED step list, every `Select`
-/// already rolled away. Three things happen here that did not before BD1:
-///
-/// - **Interrupts fire before the cursor moves**, so a rule triggered this tick
-///   enters its stance on this tick's beat rather than one late.
-/// - **`Stance` markers are consumed as jumps**, never advanced-past by time. A
-///   zero-duration step at the cursor would otherwise spin against
-///   `duration.max(0.01)`.
-/// - **Running off the end pops a stance, or re-resolves the phase's timeline.**
-///   Re-resolution is what makes a `Select` roll once per pass of a looping
-///   script — which is what "roll once when reached" means for a loop.
+/// Interrupts run before cursor movement, stance markers are control-flow jumps,
+/// and reaching the end either returns from a stance or re-resolves the phase so
+/// `Select` choices are rolled once per loop pass.
 fn advance_scripted(
     cfg: &BossPatternCfg,
     state: &mut BossPatternState,
@@ -335,23 +327,11 @@ fn clamp_world_lateral_approach_to_front_wall(
     }
 }
 
-/// Cycle-mode (legacy rhythm) advancement. The brain here is PURE decision
-/// policy: it decides WHEN to request the next attack (the rest clock) and
-/// WHICH profile (the rotation); the requested move's own windows are the one
-/// windup→strike execution timeline. The brain observes that live move back
-/// through [`BossPatternContext::live_attack`] (the projected read-model)
-/// instead of running the old parallel `CyclePhase` windup/active clock:
+/// Advance cycle-mode attack policy while the move runtime owns attack timing.
 ///
-/// - While the observed move WINDS UP, the request is sustained — the trigger
-///   treats a vanished intent as abandonment and aborts the windup, so every
-///   upstream suppression (phase change, macro movement, aggressiveness)
-///   still interrupts a telegraph exactly as before.
-/// - Once the observed move STRIKES it is committed (the Smash convention)
-///   and needs no further intent.
-/// - While ANY move is observed, the rest clock stays armed at its full
-///   duration; it drains only between moves, so the cadence is
-///   `move duration + rest` — the same rhythm the deleted three-phase clock
-///   produced, now with the move as the only timing authority.
+/// Sustain intent during windup so upstream suppression can still cancel it;
+/// clear intent once the move strikes. The rest clock drains only while no move
+/// is active, yielding `move duration + rest` cadence.
 fn advance_cycle(
     cfg: &BossPatternCfg,
     state: &mut BossPatternState,
@@ -374,12 +354,8 @@ fn advance_cycle(
         return;
     }
 
-    // Rested and idle: request the rotation's current profile FROM ITS WINDUP
-    // (a telegraph edge). Matches the historic
-    // `BossRuntime::cycle_pattern_volumes` rotation math
-    // `(pattern_timer / attack_cooldown).floor() % attacks.len()` — preserved
-    // for parity. Cfg with an empty `cycle_attacks` (defensively) falls back
-    // to the `full_body_pulse` strike.
+    // Rested and idle: request the rotation's current profile from windup.
+    // An empty attack list falls back to `full_body_pulse`.
     let profile = if cfg.cycle_attacks.is_empty() {
         BossAttackProfile::Strike("full_body_pulse".to_string())
     } else {
@@ -404,7 +380,7 @@ fn front_wall_standoff_reached(tuning: &BossMacroTuning, ctx: &BossPatternContex
 /// skin on a real separation, not a stand-in for the bodies' own size.
 const CONTACT_SKIN: f32 = 4.0;
 
-/// **Lateral separation between the two BODY SURFACES**, negative once the
+/// Lateral separation between the two BODY SURFACES, negative once the
 /// boxes overlap.
 ///
 /// this is what "body contact" always meant and never measured. The wider the body, the more

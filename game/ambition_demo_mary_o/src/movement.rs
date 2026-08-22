@@ -50,7 +50,7 @@ pub struct MaryOGait {
     pub skidding: bool,
 }
 
-/// **Authoritative** spark cadence — sim state, not presentation.
+/// Authoritative spark cadence — sim state, not presentation.
 ///
 /// This gates whether a press FIRES, so two sims that disagree about it are in
 /// different states: a rewind that restored input and projectiles but left this
@@ -67,7 +67,7 @@ pub struct MaryOSparkCooldown {
     pub remaining: f32,
 }
 
-/// **Mary-O's answer to "this body starts again".**
+/// Mary-O's answer to "this body starts again".
 ///
 /// The cadence is authoritative sim state that GATES a press, so a body
 /// restarted mid-cooldown comes back unable to fire for up to
@@ -103,7 +103,7 @@ pub fn ensure_gait(
     }
 }
 
-/// **The policy.** Scale the body-local locomotion throttle down to a walk unless
+/// The policy. Scale the body-local locomotion throttle down to a walk unless
 /// the modifier slot is sustained.
 ///
 /// Runs after the brain has produced this tick's `ActorControl` and before the
@@ -159,7 +159,7 @@ pub fn tick_spark_cooldown(
     }
 }
 
-/// **The same button's press edge fires a spark**, while its held level keeps
+/// The same button's press edge fires a spark, while its held level keeps
 /// meaning run.
 ///
 /// This is the dual-purpose half of the classic grammar, and it only works because
@@ -204,7 +204,7 @@ pub fn fire_spark_on_run_press(
     }
 }
 
-/// **The slot's label follows what it currently does.**
+/// The slot's label follows what it currently does.
 ///
 /// One button, two roles, and the prompt says so: `Run` on its own, `Run / Spark`
 /// once the beacon is worn. Declaring it as a technique on the modifier slot is

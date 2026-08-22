@@ -1,10 +1,7 @@
 //! Compatibility facade for game-asset resources and loaders.
 //!
-//! Canonical render-facing asset vocabulary now lives in
-//! `ambition_sprite_sheet::game_assets` so `ambition_render` can consume
-//! `GameAssets` without depending on `ambition_platformer2d_actor_monolith`. The full loader remains
-//! here because it joins App-local character and boss catalogs before building
-//! the shared resource.
+//! TODO(compat-remove): move `load_game_assets` out of the actor monolith, migrate callers to
+//! `ambition_sprite_sheet::game_assets`, then delete this module.
 
 pub use ambition_sprite_sheet::game_assets::*;
 

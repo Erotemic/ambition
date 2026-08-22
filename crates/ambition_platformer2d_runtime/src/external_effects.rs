@@ -1,86 +1,12 @@
-//! Holding external effects at the confirmed-frame boundary.
+//! Defers presentation-only simulation effects until their producing frame is confirmed.
 //!
-//! A rollback host simulates the same frame more than once. Gameplay is
-//! *supposed* to run again — that is what makes rollback correct — but a sound
-//! that already reached the speakers cannot be unplayed, and a particle that
-//! already spawned cannot be unspawned. Those effects leave the process, so
-//! they must be keyed to the timeline the host has actually settled rather than
-//! to whatever the simulation currently believes.
+//! Each simulation advance swaps the live message channel for an empty outbox, journals the
+//! resulting intents by frame, replaces that frame's journal entry on resimulation, releases
+//! confirmed frames in order, and discards intents from abandoned future frames on load.
+//! Swapping the entire `Messages` value preserves non-simulation writers and reader cursors.
 //!
-//! The earlier [`ambition_sfx::SfxEmissionGate`] answered *"has this frame been
-//! simulated before?"* and dropped the emission if so. That kills the duplicate
-//! a local rollback produces, but under predicted remote input it is wrong in a
-//! second way: the predicted pass emits sound A and A reaches the speakers; the
-//! real input arrives and forces a rollback; the corrected pass emits sound B —
-//! and the gate suppresses B, because the frame ran before. The duplicate is
-//! gone, the phantom is kept, and the correction is lost.
-//!
-//! This module is the different mechanism that was owed. Nothing is suppressed
-//! and nothing is decided at emit time. Effects are *deferred*.
-//!
-//! # The mechanism
-//!
-//! Each advance runs with the effect channel **swapped out for an empty one**:
-//!
-//! 1. **Open an outbox** at the start of each advance: the live channel is
-//!    lifted out whole and replaced with a fresh empty one, so anything the sim
-//!    writes lands in isolation.
-//! 2. **Journal** at the end of each advance: the outbox is drained, stamped
-//!    with the frame that produced it, and stored under that frame — *replacing*
-//!    any intents an earlier pass recorded for it. Re-simulating a frame that
-//!    now produces nothing therefore erases the phantom, which is the half a
-//!    boolean gate structurally cannot do. The lifted channel is then put back
-//!    exactly as it was.
-//! 3. **Release** once the frame is confirmed: the intents are written into
-//!    that same restored channel, where the ordinary presentation consumers read
-//!    them, unchanged and unaware any of this happened.
-//! 4. **Discard** on load: intents for frames after the one being restored came
-//!    from a timeline that has been abandoned, so they are dropped rather than
-//!    left to be released.
-//!
-//! Frames are released in ascending order, so effects reach presentation in
-//! simulation order even when several frames confirm at once.
-//!
-//! # Why swap rather than clear
-//!
-//! The first version of this cleared the channel at the start of each advance
-//! instead, which is simpler and wrong. **The sim is not the only writer.** Menu
-//! and shell SFX, and the render-side explosion/fireworks fan-out, write the
-//! same channels from `Update`; a clear at the next advance discarded whatever
-//! they had queued, so a rollback host silently swallowed menu sounds. The
-//! shipped test that caught it —
-//! `app_it::shell_host_rendered::provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work`
-//! — writes a message directly and asserts the consumer counted it.
-//!
-//! Draining and restoring the contents would not work either: a message already
-//! *consumed* by a reader is still physically present in Bevy's older buffer,
-//! and re-writing it hands it to that reader a second time. Only the reader's
-//! own cursor knows what it has seen. Lifting the whole [`Messages`] value —
-//! counters and both buffers together — and putting it back untouched is what
-//! keeps every reader's cursor meaningful, because from their side nothing
-//! happened at all.
-//!
-//! # Cost, honestly
-//!
-//! An effect is delayed by however far confirmation lags simulation — bounded by GGRS's
-//! prediction window, and zero when nothing is predicted.
-//!
-//! A released effect is an ordinary message in the ordinary channel, so it keeps
-//! Bevy's usual two-frame lifetime and reaches a consumer that happened not to
-//! run this frame. Deferral changes *when* an effect is handed over, and nothing
-//! else about it.
-//!
-//! # What does NOT belong here
-//!
-//! Only effects whose consumer lives **outside** the simulation. Deferring a
-//! message the sim itself reads would break the simulation: the consumer would
-//! not see it on the pass that produced it, and would see it again on a later
-//! frame it does not belong to. In particular [`ambition_vfx::EffectRequest`] is
-//! *not* quarantined despite its name and its listing in the quarantine
-//! work-list — its remaining readers (`apply_effects` spawning hitboxes and
-//! `apply_summon_effects` spawning minions) are sim-side. Projectile spawning now
-//! has its own simulation-side `ProjectileSpawnRequest` channel. The test
-//! `only_presentation_facing_effects_are_quarantined` pins the distinction.
+//! This mechanism is only for effects consumed outside the simulation. Messages read by the
+//! simulation must remain on the simulation path and must not be quarantined.
 
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
@@ -107,7 +33,7 @@ pub enum ExternalEffectSet {
 /// Effect intents produced by the simulation, held by the frame that produced
 /// them until that frame can never be simulated again.
 ///
-/// Deliberately **not** rollback state, and it must never be registered as
+/// Deliberately not rollback state, and it must never be registered as
 /// such. This is host bookkeeping *about* the simulation, like
 /// `RollbackExecutionStats`: rewinding it would restore a `released` count and
 /// a pending set from before the effects were handed over, and every one of
@@ -320,7 +246,7 @@ pub fn quarantine_discard_on_load<M: Message>(app: &mut App, load_schedule: impl
 
 /// Quarantine every effect family whose consumer lives outside the simulation.
 ///
-/// **This list is the classification.** A message belongs here when its reader
+/// This list is the classification. A message belongs here when its reader
 /// is presentation, persistence, or anything else the player observes directly;
 /// it must stay out when the simulation itself reads it, because deferring such
 /// a message would change what the simulation computes. The distinction is

@@ -1,4 +1,4 @@
-//! **Authored projectile intent — content-free spawn data, and nothing else.**
+//! Authored projectile intent — content-free spawn data, and nothing else.
 //!
 //! Lower authored-intent vocabulary consumed by the projectile domain and
 //! re-exported by the shared projectile primitive. It intentionally has no

@@ -233,7 +233,7 @@ use super::staging::{
     DirectStartupSpec, MatchParticipantRoster, RoomStagingPlan, StagesCharacters,
 };
 
-/// **The composition-parity test.** Three semantically different entry routes,
+/// The composition-parity test. Three semantically different entry routes,
 /// one materialized result.
 ///
 /// This is deliberately NOT "boot two apps and diff their resources". That test asserts
@@ -404,7 +404,7 @@ fn an_app_that_stages_no_characters_reports_no_gaps() {
     finalize_and_update(&mut app);
 }
 
-/// **A1.** A character declared ONLY through `register_character` is known to the
+/// A1. A character declared ONLY through `register_character` is known to the
 /// art pipeline.
 ///
 /// `register_character` accepted a `sheet`, published a `PreparedCharacterDefinition`, and then
@@ -474,7 +474,7 @@ fn a_character_registered_only_through_register_character_gets_art() {
     );
 }
 
-/// **The same frame it was registered in.**
+/// The same frame it was registered in.
 ///
 /// The test above deliberately spends one whole update letting
 /// `declare_registered_characters` run before it demands anything, so it says
@@ -655,14 +655,14 @@ mod live_quality_apply {
         finalize_and_update(app);
     }
 
-    /// **A body already on screen must converge to the applied quality.**
+    /// A body already on screen must converge to the applied quality.
     ///
     /// Not "the profile changed" and not "`load_game_assets` ran" — both are
     /// already true while the feature is broken. This asks the only question
     /// that matters: after Apply, do the pixels behind a character that was
     /// ALREADY resident come from the new tier?
     ///
-    /// **the red, before the fix:**
+    /// the red, before the fix:
     /// ```text
     /// assertion `left != right` failed: the running game must converge to the
     /// applied quality: `goblin` is still drawn from
@@ -727,7 +727,7 @@ mod live_quality_apply {
         );
     }
 
-    /// **And downward, which is the direction memory behaves differently in.**
+    /// And downward, which is the direction memory behaves differently in.
     ///
     /// Full -> Half has to actually release the big pixels, not merely stop
     /// growing: the half realization replaces the full one under every token.
@@ -753,8 +753,8 @@ mod live_quality_apply {
         );
     }
 
-    /// **A DIFFERENT PROFILE IS NOT A DIFFERENT TIER, and this is the guard
-    /// that says so.**
+    /// A DIFFERENT PROFILE IS NOT A DIFFERENT TIER, and this is the guard
+    /// that says so.
     ///
     /// `Low` and `Medium` both realize sheets at `Half`. A transition keyed on "the participant
     /// applied something" would retire and re-decode the whole cast to arrive at byte-identical
@@ -793,8 +793,8 @@ mod live_quality_apply {
         );
     }
 
-    /// **The invariant: after Apply completes there is exactly ONE active
-    /// quality generation across the live residency set** — including a
+    /// The invariant: after Apply completes there is exactly ONE active
+    /// quality generation across the live residency set — including a
     /// character that was materialized only AFTER the transition.
     ///
     /// A survivor and a newcomer sharing one tier is the whole claim. Two tiers
@@ -851,8 +851,8 @@ mod live_quality_apply {
         }
     }
 
-    /// **`resident_tiers()` answers PHYSICAL residency, and a fallback is
-    /// the only case it exists for.**
+    /// `resident_tiers()` answers PHYSICAL residency, and a fallback is
+    /// the only case it exists for.
     ///
     /// Its own docstring promises that more than one tier in the set means
     /// *"some body on screen is being drawn from pixels the user stopped asking
@@ -862,8 +862,8 @@ mod live_quality_apply {
     ///
     /// Two characters, one budget. One has a baked half variant and holds half
     /// pixels; the other's variant lookup cannot resolve and it holds FULL
-    /// pixels. **the image paths are the second, independent route to the same
-    /// fact** — the test reads them and asserts the tier set agrees with them,
+    /// pixels. the image paths are the second, independent route to the same
+    /// fact — the test reads them and asserts the tier set agrees with them,
     /// so it cannot pass by the two answers being wrong together.
     #[test]
     fn resident_tiers_names_the_tier_of_the_pixels_not_the_request() {
@@ -900,7 +900,7 @@ mod live_quality_apply {
             "the fallback half of the cast must hold FULL pixels (got `{fallback_path}`)"
         );
 
-        // ⇒ two physical tiers ARE resident. The set must say so.
+        //  two physical tiers ARE resident. The set must say so.
         let tiers = app
             .world()
             .resource::<GameAssets>()
@@ -942,7 +942,7 @@ mod live_quality_apply {
         ambition_characters::actor::character_catalog::CharacterCatalog::from_data(data)
     }
 
-    /// **A TIER WITH NO BAKED VARIANT MUST SETTLE, NOT THRASH.**
+    /// A TIER WITH NO BAKED VARIANT MUST SETTLE, NOT THRASH.
     ///
     /// Not every sheet has every variant generated, so a `Half` budget legitimately loads the
     /// authored full-res PNG for some characters.
@@ -1003,7 +1003,7 @@ mod live_quality_apply {
         }
     }
 
-    /// **Art the engine did not build is not the engine's to delete.**
+    /// Art the engine did not build is not the engine's to delete.
     ///
     /// A host that publishes its own realization
     /// ([`CharacterSpriteAssets::publish_under`]) leaves no declaration behind,
@@ -1060,13 +1060,13 @@ mod live_quality_apply {
         out
     }
 
-    /// **THE CACHE ALREADY EXISTS, AND THIS IS WHERE THAT IS WRITTEN DOWN.**
+    /// THE CACHE ALREADY EXISTS, AND THIS IS WHERE THAT IS WRITTEN DOWN.
     ///
     /// The answer is no: `materialize_declared_character_sprite` opens with
     /// `CharacterSheetState:Ready(_) => return`, before any sheet lookup, atlas build or handle
     /// request.
     ///
-    /// **counted in ATLAS LAYOUTS, not in wall time.** A timing assertion here
+    /// counted in ATLAS LAYOUTS, not in wall time. A timing assertion here
     /// would be a flaky performance test; a layout that gets built twice is the
     /// actual work, and it is countable. If a future change reintroduces repeat
     /// preparation this grows and says so.

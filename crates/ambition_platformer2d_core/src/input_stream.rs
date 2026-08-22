@@ -1,12 +1,12 @@
-//! **The input stream** (netcode N0.2) — the per-tick input artifact.
+//! The input stream (netcode N0.2) — the per-tick input artifact.
 //!
 //! One type serves four jobs that were each about to grow their own format:
 //!
-//! - **replay fixtures** — record a session, replay it, assert zero divergence;
-//! - **RL trajectories** — the action sequence half of `(observation, action)`;
-//! - **desync forensics** — the input both peers agreed on, so a divergence can
+//! - replay fixtures — record a session, replay it, assert zero divergence;
+//! - RL trajectories — the action sequence half of `(observation, action)`;
+//! - desync forensics — the input both peers agreed on, so a divergence can
 //!   be blamed on the sim rather than the input;
-//! - **the wire format**, later — N2 lockstep peers exchange exactly this.
+//! - the wire format, later — N2 lockstep peers exchange exactly this.
 //!
 //! Because the same bytes must eventually cross a network, the encoding obeys
 //! the Q4 guardrails (see `docs/adr/0023-same-build-determinism.md`): explicit

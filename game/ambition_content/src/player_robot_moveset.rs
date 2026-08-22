@@ -1,10 +1,10 @@
-//! **The player robot's canonical move repertoire** — the moves that ARE the
+//! The player robot's canonical move repertoire — the moves that ARE the
 //! protagonist, wherever it is seated.
 //!
 //! Move/refactor the canonical move data into the reusable Robot character provider and have both
 //! compositions reference it."* This is that move.
 //!
-//! **a move states what it IS, never what a mode does with it.** Startup,
+//! a move states what it IS, never what a mode does with it. Startup,
 //! active frames, recovery, hitbox geometry, damage, base launch, growth,
 //! landing lag and auto-cancel are properties of the swing. Percent, stocks,
 //! blast zones, DI and the strength of knockback growth are the RULESET's, and
@@ -31,7 +31,7 @@ use ambition_characters::moveset_authoring::{
 };
 use ambition_platformer2d::entity_catalog::ImpulseMode;
 
-/// **The fighter repertoire**, as one authored contract.
+/// The fighter repertoire, as one authored contract.
 ///
 /// Shared by this demo's three fighters today. That is a content decision, not
 /// an architectural one: the moveset rides the CHARACTER, so giving George a
@@ -91,7 +91,7 @@ pub fn player_robot_moveset() -> MovesetContract {
 
     // ── the smashes ──────────────────────────────────────────────────────────
     //
-    // **the move the demo did not have.** A forward smash is eighteen frames
+    // the move the demo did not have. A forward smash is eighteen frames
     // of startup you cannot take back, and the reason anybody accepts that is
     // the launch at the end of it: three times the jab's, growing with the
     // victim's percent, so at 120% it is the thing that ends the stock. The
@@ -153,7 +153,7 @@ pub fn player_robot_moveset() -> MovesetContract {
 
     // ── aerials ──────────────────────────────────────────────────────────────
     //
-    // **landing lag and auto-cancel are what make an aerial a DECISION**, and
+    // landing lag and auto-cancel are what make an aerial a DECISION, and
     // both were engine features with no adopter. The pair reads: throw this one
     // early in a jump and land clean; throw it late and pay for it.
     let mut n_air = strike(
@@ -254,11 +254,11 @@ pub fn player_robot_moveset() -> MovesetContract {
     // four directions, because the Hadouken arrives from the DERIVED kit (the
     // action set's ranged spec) and nothing had ever authored the other three.
     //
-    // **authored moves overlay the derived kit, they do not replace it**, so
+    // authored moves overlay the derived kit, they do not replace it, so
     // the Hadouken stays exactly where it is and keeps `special`. These three
     // take the directions it was standing in for.
 
-    // **the forward tilt.** Without one the commonest press in the genre falls
+    // the forward tilt. Without one the commonest press in the genre falls
     // down the directional chain to the jab — the hole five of the ten authored
     // tables had. A straight servo-driven extension: longer than the jab, slower,
     // and it moves you.
@@ -280,7 +280,7 @@ pub fn player_robot_moveset() -> MovesetContract {
     let f_tilt = sfx(f_tilt, 0.07, "player.directional_primary");
     let f_tilt = on_contact(f_tilt, "player.hit");
 
-    // **SIDE — `rocket_dash`.** The dash it has at home, spent as one committed
+    // SIDE — `rocket_dash`. The dash it has at home, spent as one committed
     // pass instead of a movement option. `Set`, so it crosses the same
     // distance whatever it was doing — a recovery mix-up rather than a
     // momentum bonus.
@@ -304,7 +304,7 @@ pub fn player_robot_moveset() -> MovesetContract {
     let side_b = sfx(side_b, 0.12, "player.dash");
     let side_b = on_contact(side_b, "player.hit");
 
-    // **UP — `thruster_climb`. THE RECOVERY.** At home this body can FLY; a
+    // UP — `thruster_climb`. THE RECOVERY. At home this body can FLY; a
     // platform fighter does not get flight, so the thrusters get one burst and
     // then it is falling again. That is the same fact stated under two rulesets,
     // which is what the ability mask is for.
@@ -330,7 +330,7 @@ pub fn player_robot_moveset() -> MovesetContract {
     let up_b = vfx_at(up_b, 0.19, "energy_release", (0.0, -12.0), 0.9);
     let up_b = on_contact(up_b, "player.hit");
 
-    // **DOWN — `stabilizer_slam`.** It drops its weight through its stabilizers
+    // DOWN — `stabilizer_slam`. It drops its weight through its stabilizers
     // and the floor answers. Wide, flat, grounded-only, and slow enough that
     // whiffing it is the whole risk.
     let down_b = strike(
@@ -364,7 +364,7 @@ pub fn player_robot_moveset() -> MovesetContract {
     // player pressing down-B in the air got the neutral-B. `special_air_down`
     // sits ahead of `special_down` in that chain and has the whole time; this is
     // the two-form move it exists for.
-    // **DOWN, IN THE AIR — `stabilizer_dive`.** The same stabilizers, with no
+    // DOWN, IN THE AIR — `stabilizer_dive`. The same stabilizers, with no
     // floor to put them through: it drives them downward and brings the floor
     // to them.
     let mut air_down_b = strike(
@@ -387,7 +387,7 @@ pub fn player_robot_moveset() -> MovesetContract {
     let air_down_b = sfx(air_down_b, 0.10, "player.fast_fall");
     let air_down_b = on_contact(air_down_b, "player.hit");
 
-    // **ROBOT'S CAPTURE KIT.** The reference body: if a grab feels wrong on the robot
+    // ROBOT'S CAPTURE KIT. The reference body: if a grab feels wrong on the robot
     // it is the mechanic, not the character.
     // the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
     // and each table's own `every_clip_names_a_row_..._sheet_carries` guard says
@@ -474,7 +474,7 @@ pub fn player_robot_moveset() -> MovesetContract {
         },
         side_special: side_b,
         up_special: up_b,
-        // **AUTHORED, at the rule that every fighter in the smash roster have a grab.** The
+        // AUTHORED, at the rule that every fighter in the smash roster have a grab. The
         // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
         // the whole point of proving it was to stop being the only two.
         //
@@ -511,19 +511,19 @@ mod tests {
     // `ambition_characters::smash_repertoire`, and by the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
-    /// **The protagonist states its own verbs, so a match stops guessing.**
+    /// The protagonist states its own verbs, so a match stops guessing.
     ///
-    /// **it authored none**, and an unauthored character takes the migration
+    /// it authored none, and an unauthored character takes the migration
     /// bridge in `seat_abilities`: the MODE's declared set, stamped on verbatim.
     /// That bridge exists because almost nothing in the repo authors verbs yet,
     /// and it is documented as meant to shrink — this is the first character out
     /// of it, and the right first, because it is the one body both games share.
     ///
-    /// **`reset` is deliberately absent**, and asserting that is the point:
+    /// `reset` is deliberately absent, and asserting that is the point:
     /// it is a debug affordance, and a character that authored it would hand
     /// every game that seats the robot a way to teleport home.
     ///
-    /// **`fly` is PRESENT, and my first pass had that wrong** — see the note
+    /// `fly` is PRESENT, and my first pass had that wrong — see the note
     /// at the authoring site. It reads like a dev toggle from the player's side
     /// and is not: the robot is a grounded-base hybrid that takes to the air for
     /// vertical space, and the duel arena's exhibition robot uses it.
@@ -540,7 +540,7 @@ mod tests {
              seats the robot now receives a way to teleport home"
         );
 
-        // **a RETIRED incarnation shares the VERBS and not the MOVES**, and
+        // a RETIRED incarnation shares the VERBS and not the MOVES, and
         // the split is the point: v0, v2 and v3 are one robot at three ages, so
         // what its body can do is the lineage's — the duel arena fields v2 and
         // it has to blink and dash like the robot it is. The current frame data
@@ -566,7 +566,7 @@ mod tests {
         );
     }
 
-    /// **A MOVE CAN BE A COMBO, as data.**
+    /// A MOVE CAN BE A COMBO, as data.
     ///
     /// the second hit has to HURT MORE, or the pair is a stutter rather than a
     /// chain.
@@ -596,7 +596,7 @@ mod tests {
         );
     }
 
-    /// **The robot's projectile has its own look, stated by the character.**
+    /// The robot's projectile has its own look, stated by the character.
     ///
     /// this was `ranged_visual` on the archetype row, and the character-first
     /// constructor wrote an empty string — so a migrated robot fired an
@@ -614,7 +614,7 @@ mod tests {
         }
     }
 
-    /// **The repertoire is a SMASH table, and it says so in its d-air.**
+    /// The repertoire is a SMASH table, and it says so in its d-air.
     ///
     /// Same press, same geometry, two readings, and only the mode can choose between them.
     ///
@@ -642,13 +642,13 @@ mod tests {
     }
 }
 
-/// **THEOREM CHAIN — the robot's two-hit signature**, a light poke into a
+/// THEOREM CHAIN — the robot's two-hit signature, a light poke into a
 /// heavier follow-up on ONE timeline.
 ///
-/// **the only proof in the repo that a moveset expresses multi-hit combos as DATA across
-/// characters** rather than as a boss one-off.
+/// the only proof in the repo that a moveset expresses multi-hit combos as DATA across
+/// characters rather than as a boss one-off.
 ///
-/// **v2's, not v3's.** The duel arena fields Robot v2 against the PCA, and v3
+/// v2's, not v3's. The duel arena fields Robot v2 against the PCA, and v3
 /// carries the platform-fighter table instead. Two incarnations of one robot
 /// with different repertoires is what a lineage IS — the same reason v0 and v2
 /// keep their own silhouettes.
@@ -735,13 +735,13 @@ pub fn theorem_chain_moveset() -> MovesetContract {
 
 #[cfg(test)]
 mod clip_binding_tests {
-    /// **EVERY CANONICAL ROBOT MOVE ASKS FOR ITS OWN ROW.**
+    /// EVERY CANONICAL ROBOT MOVE ASKS FOR ITS OWN ROW.
     ///
     /// sprite redirect P1. All eleven passed `"attack"` as their clip, so a
     /// 132-row sheet drew ONE animation for a jab, three smashes and five
     /// aerials. The gameplay was already distinct; only the picture was not.
     ///
-    /// **this asserts the REQUEST, not the drawing.** Whether a row exists is
+    /// this asserts the REQUEST, not the drawing. Whether a row exists is
     /// a question about a particular sheet and belongs to
     /// `SheetRecord::first_bound_row`; what a character ASKS FOR is a fact about
     /// the character, and it is the half that was missing.
@@ -781,7 +781,7 @@ mod clip_binding_tests {
     }
 }
 
-/// **THE ROBOT'S CANONICAL REPERTOIRE — what actions it intrinsically HAS.**
+/// THE ROBOT'S CANONICAL REPERTOIRE — what actions it intrinsically HAS.
 ///
 /// This lived in `default_player_action_set(abilities)`, a Rust function that built the
 /// protagonist's kit from scratch on every call and gated it by the live `AbilitySet` in the same

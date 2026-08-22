@@ -1,46 +1,14 @@
-//! **A drop belongs to the room it fell in, and states the body it fell out
-//! of** — the class guard for everything the damage path drops.
+//! Guard the room ownership and source identity of every death drop.
 //!
-//! **this deliberately does NOT assert "the drop functions insert
-//! `RoomScopedEntity`".** That check goes green the day a further drop is added
-//! without the marker, which is exactly how `drop_ability_pickup` was shipped
-//! session-scoped for months while its two siblings carried the fix and a
-//! 19-line comment stating the rule. The guard is therefore two halves that
-//! only work together:
-//!
-//! 1. [`every_death_drop_is_room_scoped_and_states_its_parent`] — the
-//!    INVARIANT. It spawns the drops into a real `World` and asks the World, not
-//!    the source, what each one carries. asking the World is the point:
-//!    `RoomVisual` reaches `RoomScopedEntity` through `#[require]`, so a
-//!    component can be present without its name appearing at the spawn site, and
-//!    a grep-shaped guard would false-accuse the day a drop acquires it that
-//!    way.
-//! 2. [`the_death_drop_table_is_complete`] — the COVERAGE. It scans the whole
-//!    damage path for every function that spawns a collectible and fails if one
-//!    is missing from the table half 1 drives.
-//!
-//! ⇒ **a further drop cannot be added quietly.** Adding one turns half 2 red on
-//! the day it is written; the only way back to green is to put it in the table,
-//! at which point half 1 starts checking what it carries. Neither half survives
-//! on its own — half 1 alone is blind to new functions, half 2 alone never looks
-//! at a component.
-//!
-//! **AND HALF 2's SUBJECT WAS NARROWER THAN THE RULE IT PROTECTS, WHICH IS HOW TWO DROPS
-//! ESCAPED IT ENTIRELY.** It scanned ONE FILE for ONE SPELLING — `PickupFeature::new(` in
-//! `damage_drops.rs` — while the class is *everything a death drops*.
-//!
-//! the two are ALSO now spawned by one function rather than three copies of a
-//! comment, so the file-scoped half of that lesson is structural: there is one
-//! place a drop can be spelled.
+//! One test checks the spawned components in a real `World`; another scans the
+//! full damage path to ensure every collectible-spawning function is included in
+//! that invariant table. Both are required: component checks need coverage, and
+//! coverage alone does not validate the spawned state.
 
 use super::*;
 use bevy::prelude::{App, Commands, Entity, Name, Or, Update, With};
 
-/// **Every function in the damage path that spawns a collectible.**
-///
-/// Kept in sync with the code by [`the_death_drop_table_is_complete`] rather
-/// than by discipline — see the module comment for why a hand-maintained list is
-/// safe here and would not be on its own.
+/// Every collectible-spawning function covered by the death-drop invariant.
 const DEATH_DROPS_UNDER_GUARD: &[&str] = &[
     "drop_currency_coin",
     "drop_health_pickup",
@@ -48,15 +16,8 @@ const DEATH_DROPS_UNDER_GUARD: &[&str] = &[
     "drop_held_weapon",
 ];
 
-/// **The whole damage path's source, read at COMPILE time** so the coverage scan
-/// cannot drift from the code that actually compiled.
-///
-/// **four files, not one.** The two drops this guard missed for months were
-/// spawned in the damage systems rather than in the drop module, so scanning
-/// only the drop module asked "are the drops I already know about covered?" —
-/// a question that cannot fail. Listing the files here is a hand-kept set of
-/// its own; it is the smallest one available, and a drop spawned outside the
-/// damage path is a different class with a different owner.
+/// Damage-path sources scanned at compile time for coverage of collectible
+/// spawns. Drops outside this path belong to a different owner.
 const DAMAGE_PATH_SRC: &[(&str, &str)] = &[
     ("damage_drops.rs", include_str!("../damage_drops.rs")),
     ("damage/mod.rs", include_str!("../damage/mod.rs")),
@@ -110,7 +71,7 @@ fn spawn_every_death_drop(mut commands: Commands) {
     );
 }
 
-/// **THE INVARIANT: a death drop is room-scoped and names its parent.**
+/// THE INVARIANT: a death drop is room-scoped and names its parent.
 ///
 /// Neither failure is tidiness, and they are different failures:
 ///
@@ -126,7 +87,7 @@ fn every_death_drop_is_room_scoped_and_states_its_parent() {
     app.update();
 
     let world = app.world_mut();
-    // **the population is BOTH collectible spellings**, because the class is
+    // the population is BOTH collectible spellings, because the class is
     // "what a death drops" and not "what carries a `PickupFeature`" — the two
     // `GroundItem` drops are precisely the ones that were never checked.
     let mut drops = world.query_filtered::<(Entity, Option<&FeatureId>, Option<&Name>), Or<(
@@ -153,7 +114,7 @@ fn every_death_drop_is_room_scoped_and_states_its_parent() {
         "expected one drop per function in DEATH_DROPS_UNDER_GUARD, found {dropped:?}"
     );
 
-    // **ASK THE ROSTER, do not restate it.** The question is not "does this
+    // ASK THE ROSTER, do not restate it. The question is not "does this
     // carry `RoomScopedEntity`" — it is *would a room change retire this?*, and
     // `RoomResident` is the production type the transition's own query is built
     // from. Naming the marker here would have been a second spelling of the rule
@@ -190,15 +151,15 @@ fn every_death_drop_is_room_scoped_and_states_its_parent() {
     );
 }
 
-/// **THE COVERAGE HALF: the table names every function in the damage path that
-/// drops a collectible.**
+/// THE COVERAGE HALF: the table names every function in the damage path that
+/// drops a collectible.
 ///
 /// Red the moment a further drop function is written, whatever it is called,
 /// wherever in the damage path it lives, and whichever collectible it spawns. It
 /// says nothing about components — it only refuses to let the invariant above go
 /// stale.
 ///
-/// **it reports the enclosing TOP-LEVEL function**, so an inline drop written
+/// it reports the enclosing TOP-LEVEL function, so an inline drop written
 /// back into a damage system surfaces as `apply_actor_hit` rather than as a name
 /// that could be added to the table. That is intended: the fix for one is to
 /// move it beside its siblings, not to widen the table.
@@ -234,7 +195,7 @@ fn the_death_drop_table_is_complete() {
 /// helpers that drop, this scan reports the enclosing top-level function, which
 /// is still the right unit for the table.
 ///
-/// **two spellings, because a collectible has two shapes.** A `PickupFeature`
+/// two spellings, because a collectible has two shapes. A `PickupFeature`
 /// is walked over and granted; a `GroundItem` is picked up and wielded. Watching
 /// only the first is what let two drops sit outside this guard.
 fn collectible_drop_fns(src: &str) -> Vec<String> {

@@ -578,7 +578,7 @@ fn scrollbar_fraction_maps_pointer_into_track() {
     assert_eq!(scrollbar_fraction_from_rect(0.0, 0.0, 50.0), None);
 }
 
-/// **A CENTRED line is centred on its container, not anchored at the centre.**
+/// A CENTRED line is centred on its container, not anchored at the centre.
 ///
 /// A text node with no width shrinks to its content, so `left: Percent(50)` puts
 /// the node's LEFT EDGE at the middle and the line runs off to the right —
@@ -610,8 +610,8 @@ fn a_centred_text_node_spans_its_container_instead_of_starting_at_the_anchor() {
     assert_eq!(left.left, Val::Percent(12.0));
 }
 
-/// **The size a menu is SPAWNED at is never the size it is presented at, and
-/// the gap has to close inside one frame.**
+/// The size a menu is SPAWNED at is never the size it is presented at, and
+/// the gap has to close inside one frame.
 ///
 /// This asserts the closing, not the schedule: one update, spawned and
 /// corrected, whatever set it ends up in.

@@ -1,4 +1,4 @@
-//! **Draw the stage, including the thing that kills you.**
+//! Draw the stage, including the thing that kills you.
 //!
 //! `cargo run -p ambition_demo_smash_app --bin stage_diagram -- [OUT.png]`
 //!

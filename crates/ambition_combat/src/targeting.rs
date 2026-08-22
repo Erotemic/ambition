@@ -33,7 +33,7 @@ const FACTION_COUNT: usize = 5;
 /// hostile to the player, an alliance clears two factions' mutual hostility — all
 /// without touching the brains or the actor spawn path.
 ///
-/// The default encodes the **combat baseline**: Player ↔ Enemy and Player ↔ Boss
+/// The default encodes the combat baseline: Player ↔ Enemy and Player ↔ Boss
 /// are mutually hostile (the player and the hostile world fight), and nothing else
 /// is — Npc / Neutral are peaceful, and same-faction actors don't fight. This is
 /// the single source of truth the damage paths consult (melee + projectile),
@@ -84,7 +84,7 @@ impl FactionRelations {
 ///
 /// Damage is physical: a hit damages any body it overlaps that is NOT the
 /// attacker (self is excluded at every call site by entity). The one default
-/// exclusion is **same-faction allies** — friendly fire is OFF by default, so a
+/// exclusion is same-faction allies — friendly fire is OFF by default, so a
 /// pirate's stray shot can't hurt another pirate. A different-faction bystander
 /// (e.g. the player observing a duel) IS hit by strays; that's deliberate.
 /// Set `enabled = true` to opt INTO friendly fire (free-for-all): same-faction
@@ -186,9 +186,9 @@ pub fn team_allows_damage(
     }
 }
 
-/// **How two bodies stand to each other. ONE answer, for every consumer.**
+/// How two bodies stand to each other. ONE answer, for every consumer.
 ///
-/// **there were two, and they disagreed.** "May this damage land" read faction difference plus
+/// there were two, and they disagreed. "May this damage land" read faction difference plus
 /// a team override; "is this a target worth chasing" read the `FactionRelations` hostility
 /// matrix and had never heard of a team. That is the hack this type exists to delete.
 ///
@@ -197,8 +197,8 @@ pub fn team_allows_damage(
 /// * [`Self::Foe`] — go after it, and hit it. A different team, a hostile
 ///   faction relation, or a personal grudge.
 /// * [`Self::Ally`] — same team, or same faction. Spared unless friendly fire.
-/// * [`Self::Neutral`] — a different faction this one is not hostile TO. **Not
-///   a target, but not protected either**, which is the distinction a single
+/// * [`Self::Neutral`] — a different faction this one is not hostile TO. Not
+///   a target, but not protected either, which is the distinction a single
 ///   boolean could never carry: damage is physical (a swing that reaches a
 ///   bystander hurts it) while targeting is relational (nobody goes hunting a
 ///   bystander). Collapsing the two is how a stray hit stopped landing, or a
@@ -229,26 +229,26 @@ impl CombatRelation {
     }
 }
 
-/// **THE combat-relationship policy.** Both "may I damage this" and "should I
+/// THE combat-relationship policy. Both "may I damage this" and "should I
 /// chase this" resolve through here, so they cannot drift again.
 ///
 /// Precedence, highest first:
 ///
-/// 1. **A grudge** — a per-entity feud, deliberately stronger than any group
+/// 1. A grudge — a per-entity feud, deliberately stronger than any group
 ///    rule, so two teammates can settle something the ruleset did not
 ///    anticipate.
-/// 2. **A team** — when BOTH bodies are in a match. Match rules outrank
+/// 2. A team — when BOTH bodies are in a match. Match rules outrank
 ///    authored world allegiance, which is the whole point of a crossover stage:
 ///    a Hall NPC and a boss can be seated as opponents without either
 ///    character's authored row being edited.
-/// 3. **Authored faction**, through the [`FactionRelations`] matrix and then
+/// 3. Authored faction, through the [`FactionRelations`] matrix and then
 ///    plain sameness.
 ///
 /// Allegiance is EFFECTIVE on both sides: a possessed body fights as its
 /// driver's side without its authored faction being mutated.
 #[allow(clippy::too_many_arguments)]
 pub fn combat_relation(
-    // `None` = **no matrix opinion**, which is what the DAMAGE side passes. Damage is physical:
+    // `None` = no matrix opinion, which is what the DAMAGE side passes. Damage is physical:
     // a swing that reaches a different-faction body hurts it whether or not the two are
     // declared enemies, so the matrix arm is skipped and such a pair resolves
     // [`CombatRelation::Neutral`] — hittable, not huntable.
@@ -308,11 +308,11 @@ pub fn damage_lands_between(
     attacker_grudge: Option<Entity>,
     victim_entity: Entity,
 ) -> bool {
-    // **the damage side of [`combat_relation`], and it must not grow a second
-    // opinion.** Callers pass ALREADY-EFFECTIVE factions here (the policy
+    // the damage side of [`combat_relation`], and it must not grow a second
+    // opinion. Callers pass ALREADY-EFFECTIVE factions here (the policy
     // re-resolves them, which is idempotent), so this stays a projection.
     //
-    // **one behaviour deliberately changed**: friendly fire now also frees
+    // one behaviour deliberately changed: friendly fire now also frees
     // same-TEAM damage. The old team arm returned a bare "different team?" and
     // ignored the toggle, so a teams match could never enable friendly fire —
     // which is a real platform-fighter setting, and the flag says what it means.
@@ -478,7 +478,7 @@ pub fn select_actor_targets(
             if *entity == self_entity {
                 continue;
             }
-            // **THE one relationship policy**, the same call the damage side makes.
+            // THE one relationship policy, the same call the damage side makes.
             //
             // `has_allegiance` still gates the matrix arm: a body with neither an
             // authored faction nor player control has no faction-relational foes
@@ -533,12 +533,12 @@ pub fn select_actor_targets(
 /// END once it's decided. Two rules, both keyed off the one uniform liveness
 /// authority ([`BodyHealth`]):
 ///
-/// - **You forget a slain foe.** When a body's grudge target is no longer alive, the
+/// - You forget a slain foe. When a body's grudge target is no longer alive, the
 ///   grudge clears. The targeting filter already drops a dead foe so the holder stands
 ///   down ([`select_actor_targets`]); clearing the grudge too means it won't re-aggro
 ///   if that foe later revives — the duel survivor settles into a normal NPC for good.
-/// - **A defeated body forgets its feud.** When a body itself is down (health 0,
-///   awaiting respawn), its own grudge clears, so it **revives grudgeless** — a
+/// - A defeated body forgets its feud. When a body itself is down (health 0,
+///   awaiting respawn), its own grudge clears, so it revives grudgeless — a
 ///   defeated duel fighter comes back behaving like a normal NPC, exactly as a loser
 ///   should, rather than resuming the fight the instant it's back on its feet.
 ///

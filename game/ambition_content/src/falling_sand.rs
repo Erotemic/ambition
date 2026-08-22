@@ -8,7 +8,7 @@
 //! sim tick and testable headless. THIS module is what remains on the external
 //! `bevy_falling_sand` crate and the render side:
 //!
-//! - the particle CA bridge for **water and oil** (their FS slice has not
+//! - the particle CA bridge for water and oil (their FS slice has not
 //!   landed; sand no longer touches the external crate),
 //! - the liquid projection into temporary water regions (excluding tiles the
 //!   settled-sand ledger owns — single owner per tile),
@@ -101,7 +101,7 @@ impl Plugin for FallingSandRoomPlugin {
                     .with_map_size(32),
             )
             .add_systems(Startup, setup_particle_types)
-            // **DERIVED, and said so rather than left on the sweep's ceiling.**
+            // DERIVED, and said so rather than left on the sweep's ceiling.
             // `project_particles_to_movement_world` runs in the SIM schedule and
             // takes `ResMut` of this, which is the exact shape that made
             // `ActiveRoundScope` a real rollback defect — a resource
@@ -330,8 +330,8 @@ fn seed_falling_sand_room_boundaries(
     // (material rests at the surface), which keeps the particle count
     // bounded even for big floor blocks.
     //
-    // Only solid blocks (`Solid` / `BlinkWall`) get seeded as particle walls. **One-way
-    // platforms are deliberately skipped** — the user expects falling material to PASS THROUGH
+    // Only solid blocks (`Solid` / `BlinkWall`) get seeded as particle walls. One-way
+    // platforms are deliberately skipped — the user expects falling material to PASS THROUGH
     // platforms (the way the player drops through them with the down-press), so seeding wall
     // particles on top would trap material on every mid-height platform and never let it reach
     // the actual floor.
@@ -510,7 +510,7 @@ fn sync_falling_sand_spout_nozzles(
     }
 }
 
-/// Emit into **the grid, and only the grid** (FS1's single-owner rule).
+/// Emit into the grid, and only the grid (FS1's single-owner rule).
 ///
 /// They fell on their own hardcoded gravity, ignored every block in the room, and despawned at an
 /// invented `world.size.y - 64` floor — so they poured straight THROUGH the platforms the real
@@ -625,7 +625,7 @@ impl ProjectionScratch {
     }
 }
 
-/// **The conservation ledger for one projection pass** (`falling-sand.md` §1:
+/// The conservation ledger for one projection pass (`falling-sand.md` §1:
 /// *"total matter per material = spawned − despawned, every tick"*).
 ///
 /// The projection is a READ-MODEL over the grid — it must neither create matter

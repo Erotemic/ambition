@@ -52,7 +52,7 @@ pub struct CharacterSpritePage {
     pub layout: Handle<TextureAtlasLayout>,
 }
 
-/// **One physical realization of a character's art.**
+/// One physical realization of a character's art.
 ///
 /// The handles are STRONG: while this value is alive the images it names cannot
 /// be freed, and dropping it is the whole eviction mechanism — Bevy reclaims an
@@ -76,7 +76,7 @@ pub struct CharacterSpritePage {
 ///   full-resolution pixels, which is exactly the number an Android memory
 ///   budget is decided from.
 ///
-/// **they are not derivable from each other**, in either direction: nothing
+/// they are not derivable from each other, in either direction: nothing
 /// but the loader knows which variants were baked, and nothing but the settings
 /// know what was asked for. Both are recorded here, by the one function that
 /// builds a realization, because that is the only place both are in hand.
@@ -86,7 +86,7 @@ pub struct CharacterSpriteAsset {
     pub layout: Handle<TextureAtlasLayout>,
     pub spec: CharacterSheetSpec,
     pub pages: Vec<CharacterSpritePage>,
-    /// **The quality tier this realization ANSWERS.**
+    /// The quality tier this realization ANSWERS.
     ///
     /// A realization is not just "the art for character X", it is "the art for
     /// character X at tier T" — the spec's frame rects and the pages' pixels
@@ -95,7 +95,7 @@ pub struct CharacterSpriteAsset {
     /// rather than a guess: a resident realization whose requested tier is not
     /// the active one is stale, and the return edge remakes it.
     ///
-    /// **the TIER, not the profile and not a monotonic counter.** `Low` and
+    /// the TIER, not the profile and not a monotonic counter. `Low` and
     /// `Medium` both realize sheets at `Half`, so a profile id (or a generation
     /// bumped on every Apply) would evict and re-decode the whole cast to arrive
     /// at byte-identical pixels. The tier is also directly comparable against
@@ -103,7 +103,7 @@ pub struct CharacterSpriteAsset {
     /// which means "is everything resident at the active tier?" needs no second
     /// authority holding a current generation number.
     ///
-    /// **ANSWERS, not "was loaded from" — that is [`Self::resolved_tier`].**
+    /// ANSWERS, not "was loaded from" — that is [`Self::resolved_tier`].
     /// Not every sheet has every variant baked, so a `Half` budget legitimately
     /// loads a full-res PNG for some characters; keying the transition on the
     /// bytes would leave such a realization permanently unequal to the active
@@ -111,20 +111,20 @@ pub struct CharacterSpriteAsset {
     /// produces for a tier IS that tier's answer, which makes the transition
     /// idempotent by construction.
     pub requested_tier: ambition_persistence::settings::TextureResolutionScale,
-    /// **The quality tier the bytes in memory actually came from.**
+    /// The quality tier the bytes in memory actually came from.
     ///
     /// Equal to [`Self::requested_tier`] whenever the requested variant existed;
     /// coarser when it did not — a `Half` request against a sheet with no baked
     /// half variant resolves `Full`, because the authored full-resolution PNG is
     /// what got decoded.
     ///
-    /// **this is the residency truth, and it is the only one worth reporting
-    /// to a memory budget.** [`CharacterSpriteAssets::resident_tiers`] is built
+    /// this is the residency truth, and it is the only one worth reporting
+    /// to a memory budget. [`CharacterSpriteAssets::resident_tiers`] is built
     /// from it, and a presentation binder compares against it, because both are
     /// asking about pixels: *what is in memory* and *which generation of the art
     /// is this body showing*. Neither is asking whether a setting was honoured.
     ///
-    /// **never key the return edge on this.** See [`Self::requested_tier`] —
+    /// never key the return edge on this. See [`Self::requested_tier`] —
     /// a fallback realization is stale against the active tier forever, and
     /// retiring it rebuilds byte-identical pixels at 60Hz.
     pub resolved_tier: ambition_persistence::settings::TextureResolutionScale,

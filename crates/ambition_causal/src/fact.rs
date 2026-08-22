@@ -51,7 +51,7 @@ pub enum SubjectKey {
     Sim(String),
     /// A seat / participant slot, for facts about a person rather than a body.
     Seat(u8),
-    /// An opaque index, for a domain that has no stable id yet. **Say so** —
+    /// An opaque index, for a domain that has no stable id yet. Say so —
     /// this variant is a recorded API leak, not a design.
     Unstable(u64),
 }
@@ -101,8 +101,8 @@ pub enum FactValue {
     Int(i64),
     Float(f64),
     Text(String),
-    /// A prepared content identity (`ambition:character/goblin`). **Quote the
-    /// compiler's identity**; never reconstruct a name from a runtime internal.
+    /// A prepared content identity (`ambition:character/goblin`). Quote the
+    /// compiler's identity; never reconstruct a name from a runtime internal.
     Content(String),
 }
 
@@ -165,7 +165,7 @@ pub struct FactDetail {
     /// The fact kind, e.g. `"movement_verb_chosen"`. A `&'static str` so a
     /// capability mints its own; stable, because tools and tests match on it.
     pub kind: &'static str,
-    /// One line for a human. **Never the only place a value appears** — if a
+    /// One line for a human. Never the only place a value appears — if a
     /// tool would have to parse this to learn something, that something belongs
     /// in `fields`.
     pub summary: String,
@@ -212,7 +212,7 @@ pub struct CausalFact {
     /// the same reason `RollbackHealth` had to start carrying one.
     pub generation: u32,
     pub execution: Execution,
-    /// **Which ATTEMPT at this tick.** Rollback can execute one tick more than
+    /// Which ATTEMPT at this tick. Rollback can execute one tick more than
     /// once within a generation, and two attempts can produce different facts —
     /// that is the whole reason to look. Without this the inspector groups them
     /// into one explanation and cannot say which attempt produced a result

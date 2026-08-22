@@ -1,4 +1,4 @@
-//! **the pair is the point.** A body that never moves passes the first test
+//! the pair is the point. A body that never moves passes the first test
 //! for the wrong reason, so the second is its non-vacuity control: the SAME
 //! body, the SAME step, hitlag cleared, must travel. Measuring only the freeze
 //! is how you ship a body that is frozen forever.
@@ -97,7 +97,7 @@ fn stepped(
     body.kinematics.pos - before
 }
 
-/// **SDI IS THE ONE THING A FROZEN BODY MAY STILL DO.**
+/// SDI IS THE ONE THING A FROZEN BODY MAY STILL DO.
 ///
 /// three assertions and each kills a different wrong version: a body with no
 /// authored budget must not move (every body in Ambition), one with a budget and
@@ -190,7 +190,7 @@ fn and_the_same_body_travels_once_the_freeze_clears() {
     );
 }
 
-/// **A DEAD BODY STOPS WHERE IT DIED — velocity cleared, not merely unread.**
+/// A DEAD BODY STOPS WHERE IT DIED — velocity cleared, not merely unread.
 ///
 /// death should stop her velocity to play her death animation, so the camera
 /// should stop too as a side effect."*

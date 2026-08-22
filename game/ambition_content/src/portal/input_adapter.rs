@@ -111,7 +111,7 @@ pub fn portal_input_adapter_system(
             // correct answer — found `melee_pressed == false` and did nothing. The item could not
             // be thrown at all.
             //
-            // ⇒ the press is spent where the action COMMITS. That also removes
+            //  the press is spent where the action COMMITS. That also removes
             // an ordering question rather than answering it: the drop and the
             // throw are mutually exclusive by `Without<HeldItem>`, so whichever
             // runs first, only the one that actually acts consumes the edge.
@@ -121,12 +121,12 @@ pub fn portal_input_adapter_system(
             fire.write(FirePortalGun {
                 aim: pick_aim(control, kin.facing),
             });
-            // **the press IS spent for a fire — but at the seam that accepts it.** A weapon in
+            // the press IS spent for a fire — but at the seam that accepts it. A weapon in
             // hand owns the Attack press, and `trigger_moveset_moves` arbitrates that from
             // `HeldItem` — which the portal gun is not, and must not become (its own component
             // is the right shape).
             //
-            // **but not HERE.** `resolve_portal_fire_intent` refuses a gun
+            // but not HERE. `resolve_portal_fire_intent` refuses a gun
             // that is not `active`, so spending the press in this branch spent it
             // for fires that never happened, exactly as the drop branch above
             // did. It is consumed there, after the gun has actually answered.
@@ -143,7 +143,7 @@ pub fn portal_input_adapter_system(
             // Plain Attack while NOT holding the gun is a pickup attempt
             // (consumed only if overlapping an armed pickup).
             //
-            // **NOT consumed here.** The grant path clears the press itself
+            // NOT consumed here. The grant path clears the press itself
             // when it actually picks something up (`items::pickup`), and a press
             // that grabs nothing must still reach the wearer's jab — swinging at
             // empty air is the correct answer to "Attack while holding nothing".
@@ -189,7 +189,7 @@ mod tests {
         }
         let body = body.id();
         app.insert_resource(ControlledSubject(Some(body)));
-        // **the COMPOSED path, not the adapter alone.** The adapter is a read-only intent producer
+        // the COMPOSED path, not the adapter alone. The adapter is a read-only intent producer
         // now; the press is spent by whichever system ACCEPTS the action.
         app.add_message::<ambition_portal2d::PortalFireIntent>();
         app.add_systems(
@@ -211,13 +211,13 @@ mod tests {
             .melee_pressed
     }
 
-    /// **the gun answers the press, so the jab must not**.
+    /// the gun answers the press, so the jab must not.
     ///
     /// `trigger_moveset_moves` arbitrates the Attack press from `HeldItem`, and the portal gun
     /// is its own component — so the arbiter cannot see it and the wearer's jab answered the
     /// same press.
     ///
-    /// **this now runs the adapter AND the resolver**, because the press is
+    /// this now runs the adapter AND the resolver, because the press is
     /// spent where the fire is accepted rather than where it is requested. The
     /// outcome is identical for a real fire; what changed is that a REFUSED
     /// action can no longer eat the press.

@@ -50,7 +50,7 @@ impl std::fmt::Display for FxId {
 /// `FxId(0x9f3c…)` and nothing else. One declaration emits the constant AND the
 /// `(id, name)` row beside it, so the two cannot drift.
 ///
-/// ⚠ **this is not the vocabulary.** The vocabulary is the shipped sheets; this
+///  this is not the vocabulary. The vocabulary is the shipped sheets; this
 /// is the subset that Rust call sites name, so they name a constant instead of a
 /// string literal. Declaring a row here neither creates nor blesses it — a name
 /// with no row on any registered sheet is a counted miss at draw time, which is
@@ -72,7 +72,7 @@ macro_rules! fx_ids {
 
 /// The effect ids the engine's own Rust names.
 ///
-/// ⚠ deliberately short. Content names its effects as authored strings (a move's
+///  deliberately short. Content names its effects as authored strings (a move's
 /// `Vfx { effect }` comes out of RON), and 189 rows ship; a constant here earns
 /// its place only when engine code — not content — has to say the name.
 pub mod ids {

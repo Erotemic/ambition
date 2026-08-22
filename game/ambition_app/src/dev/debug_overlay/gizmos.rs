@@ -10,8 +10,8 @@
 use super::*;
 
 /// Draw each in-flight held-item shot (gun-sword bolt / Fireball): its solid
-/// **contact box** (the box that registers a hit — `HeldProjectile::contact_aabb`)
-/// and, for a Fireball, the fainter **splash box** it detonates with on contact.
+/// contact box (the box that registers a hit — `HeldProjectile::contact_aabb`)
+/// and, for a Fireball, the fainter splash box it detonates with on contact.
 #[cfg(feature = "input")]
 pub(crate) fn draw_held_projectiles<'a>(
     gizmos: &mut Gizmos,
@@ -128,7 +128,7 @@ pub struct FeatureDebugQueries<'w, 's> {
     /// hurtboxes are extracted once from simulation truth and shared by every
     /// host; this richer overlay consumes the same rows as standalone games.
     pub combat_geometry: Res<'w, ambition_platformer2d::sim_view::CombatGeometryView>,
-    /// **This frame's presentation translation for each body.** Authoritative
+    /// This frame's presentation translation for each body. Authoritative
     /// combat geometry is tick-clock, and the body beside it is resampled on the
     /// frame clock, so every row of that body has to take the same translation
     /// or the overlay reports attachment it does not have —
@@ -243,7 +243,7 @@ pub(crate) fn draw_player_debug(
     authored_attack_volumes: &ambition_platformer2d::actors::combat::authored_volumes::AuthoredAttackVolumeResolver,
     worn_character_id: &str,
     clusters: &ae::BodyClustersMut<'_>,
-    // **Where the body is DRAWN this frame** — the frame-clock presented
+    // Where the body is DRAWN this frame — the frame-clock presented
     // position, not `clusters.kinematics.pos`.
     //
     // The overlay is drawn through a camera that eases every RENDERED frame, while the cluster pose
@@ -563,21 +563,21 @@ pub(crate) fn draw_feature_debug(
     // Boss debug colors — each color answers a distinct question
     // the player might ask while reading the overlay:
     //
-    // - **orange** (`boss_color`, `boss.aabb()`): the combat-collision
+    // - orange (`boss_color`, `boss.aabb()`): the combat-collision
     //   envelope. The boss uses this for kinematic step / world-bounds
     //   clamp. Does NOT, by itself, deal damage.
-    // - **cyan** (`hurtbox_color`, `damageable_volumes`): where the
+    // - cyan (`hurtbox_color`, `damageable_volumes`): where the
     //   *player's* attacks register hits on the boss. With the
     //   sprite-metadata-driven derivation, this can be one rect
     //   (single-piece boss) or many (multi-part body — head + body
     //   + arms).
-    // - **magenta** (`body_contact_color`, `body_damage_aabb`): the
+    // - magenta (`body_contact_color`, `body_damage_aabb`): the
     //   boss's body-contact damage zone. Touching this when
     //   `BossBehaviorProfile::body_damage > 0` hurts the player
     //   (e.g. clockwork_warden has body_damage=1). Drawn separately
     //   so the player can answer "why did I get hit by just touching
     //   the boss?" without source-diving.
-    // - **red** (`active_color`, `active_attack_volumes`): live
+    // - red (`active_color`, `active_attack_volumes`): live
     //   strike volumes. These are also the source of `boss_attack_damage`.
     //
     // Special attack profiles (PitTrap, RotatingCross, HazardColumn,

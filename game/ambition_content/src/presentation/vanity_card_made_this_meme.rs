@@ -1,40 +1,10 @@
-//! The startup vanity card: the authored comic beat, PLAYED in the engine.
+//! Programmatic startup vanity-card segment.
 //!
-//! The card is a robot walking on with a handheld, saying *I made this.*; the
-//! author asking *You made this?*; taking it; and saying *I made this.* It is
-//! animated with the real rigs — the actual `player_robot_v3` and the author
-//! paper-doll — solved with IK.
-//!
-//! ## Why this module is dumb on purpose
-//!
-//! None of that solving happens here. The rigs, the IK and the choreography
-//! live in `tools/ambition_sprite2d_renderer`, which BAKES where every part
-//! ended up on every frame:
-//! `scripts/export_author_vanity_card.py` → `assets/data/vanity_card_rig.ron`.
-//! This module reads that table and places quads. There is no skeleton, no
-//! solver and no animation system in the engine for the sake of one screen, and
-//! re-timing or re-posing the card is a Python re-run rather than a code change.
-//!
-//! That split is the point.
-//!
-//! ## What it costs at boot, since this is the first thing the game shows
-//!
-//! One texture — 41 parts are packed into a single 309 KB sheet, so the card is
-//! *one* asset load rather than 41, and fewer than the nine-frame sequence it
-//! replaces. The per-frame work is setting a transform on ~40 nodes.
-//!
-//! Every part is baked several times denser than the 640x360 canvas it is placed
-//! on, because the card plays full-screen: a part's sheet rect is its detail, and
-//! its `w`/`h` here are canvas units. The two are not the same number, and the
-//! one time they were — the gamepad, alone, at 1:1 — that prop was the only thing
-//! on the card that looked soft on a device.
-//!
-//! It is a shell SEGMENT, not a special case: the host registers
-//! [`MADE_THIS_MEME_CARD_SEGMENT_KIND`] as one card in the startup run-in, this
-//! module spawns the scene when that segment becomes current, and reports
-//! `ProgrammaticSegmentCompleted` when the beat is done. Skip, route replacement
-//! and failure tear the scene down through `ShellSegmentScopedEntity`, which the
-//! sequence plugin already owns.
+//! Rig solving and choreography are baked offline into
+//! `assets/data/vanity_card_made_this_meme.ron`; runtime code only places baked
+//! parts from one packed texture. The scene is scoped to its shell segment and
+//! reports `ProgrammaticSegmentCompleted` when finished, so ordinary shell
+//! teardown handles skip, route replacement, and failure.
 
 use std::time::Duration;
 

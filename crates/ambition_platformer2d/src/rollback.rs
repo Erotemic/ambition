@@ -1,37 +1,10 @@
-//! **Rollback, as a supported promise.**
+//! Supported rollback session entry points.
 //!
-//! ADR 0031 deferred this deliberately, and the campaign's Deferred section
-//! says why: rollback is "a far larger promise than a clock: frozen schema,
-//! complete authoritative baseline, stable participants, deterministic
-//! activation, lifecycle rebasing, confirmation boundaries. Its own slice, its
-//! own acceptance tests."
-//!
-//! This is that slice.
-//!
-//! | Property | How this module keeps it |
-//! |---|---|
-//! | frozen schema | `rollback-wire-format-is-frozen` in `check_absence_contracts.py`; 81 encoded types across 11 crates, and a type joining or leaving is a ratchet failure |
-//! | complete authoritative baseline | [`start`] refuses a host whose registry is empty — see [`RollbackRefused::NoAuthoritativeState`] |
-//! | stable participants | the count is declared at COMPOSITION and cannot be passed per-session, so a restart reuses it — see [`crate::app::PlatformerApp::rollback`] |
-//! | deterministic activation | [`start`] drives the host to `Running` itself; a consumer cannot begin before construction finishes |
-//! | lifecycle rebasing | the session rebases onto the CURRENT live world as frame zero |
-//! | confirmation boundaries | [`start`] settles past activation before frame zero, because activation completing is not the same fact as the next tick being quiet |
-//!
-//! ## Why a function and not a builder flag
-//!
-//! The composition half IS a builder flag — [`crate::app::PlatformerApp::rollback`].
-//! But a session cannot be started at build time: the world has to be
-//! CONSTRUCTED first. Preparation and the session-world commit build the room
-//! and the body through `Commands`, and a rollback cannot undo construction —
-//! rewinding across it is a guaranteed divergence, and a sync test reports it
-//! immediately and correctly.
-//!
-//! The engine's own fixture learned that by starting the session on update #1
-//! and watching GGRS report a checksum mismatch on frames 2, 3 and 4 forever.
-//! That is why the entry point is a function that takes a built `App`: the step
-//! it performs — construct, settle, then rebase frame zero onto the result —
-//! cannot be expressed as a flag, and a flag that pretended otherwise would
-//! hand every consumer the same three-frame mismatch.
+//! Rollback requires a frozen registration schema, complete authoritative state,
+//! a composition-owned participant count, deterministic activation, lifecycle
+//! rebasing, and confirmed-frame effects. [`start`] operates on a constructed
+//! app, drives the host to `Running`, settles activation, then rebases the live
+//! world as frame zero so construction is never inside the rewind window.
 
 use bevy::prelude::App;
 
@@ -58,18 +31,10 @@ pub use ambition_platformer2d_runtime::rollback::{
     RollbackEntryKind, RollbackRegistrationDescriptor, RollbackRegistry,
 };
 
-/// How a rollback session should be brought up.
+/// Per-session rollback startup tuning.
 ///
-/// **The participant count is deliberately NOT here.** It is declared at
-/// composition, by [`crate::app::PlatformerApp::rollback`], because a restart
-/// must reuse the frozen value rather than re-sample it: proof pulses,
-/// hot-reload rebases and lifecycle commits are all the same session
-/// RESTARTED, and a count that moved between them would seat a different
-/// number of players into what claims to be the same match. Putting it on the
-/// plan would make it an argument to every restart — three chances to disagree
-/// where the engine went to some trouble to have one answer.
-///
-/// A desync in seat two had nowhere to show up.
+/// Participant count is composition-owned by [`crate::app::PlatformerApp::rollback`]
+/// so every restart reuses the same frozen value.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct RollbackPlan {
     check_distance: usize,
@@ -116,14 +81,10 @@ impl RollbackPlan {
     }
 
     /// How many quiet ticks to run after activation before frame zero.
+    /// This must cover all activation-time state publication that rollback cannot
+    /// safely place inside the rewind window.
     ///
-    /// Lowering this to zero is how a consumer reintroduces the hazard the
-    /// campaign names: seating completes on the session's first frame, so
-    /// activation would land on GGRS frame 1 where nothing can rewind across
-    /// it. The knob exists because a game with a different activation shape
-    /// may need MORE, not because zero is a supported choice.
-    ///
-    /// **and a tick count is not a readiness CONTRACT.** No number here
+    /// and a tick count is not a readiness CONTRACT. No number here
     /// proves a host is settled; it buys frames, and the default buys enough
     /// for every activation shape in this repo. Do not read a passing run as
     /// "eight ticks is the requirement", do not tune it to make a flaky test
@@ -157,13 +118,13 @@ pub struct DeclaredParticipants(pub usize);
 ///
 /// Every variant names the thing the author must change.
 ///
-/// **that is no longer true.** `freeze_local_seating_for_the_decided_match`
+/// that is no longer true. `freeze_local_seating_for_the_decided_match`
 /// is registered by `PlatformerHostPlugins`, which this builder adds
 /// unconditionally, so a topology IS frozen here the moment a match publishes a
 /// roster — which is precisely the situation the refusal was about. The reason
 /// for deleting it has expired even though the deletion may still be right.
 ///
-/// **so this is a live question, not a settled one**, and it is recorded
+/// so this is a live question, not a settled one, and it is recorded
 /// rather than acted on: restoring a refusal is a design decision, and the
 /// original argument for removing it ("an unreachable refusal reads as
 /// protection") no longer applies to a reachable one. What has NOT changed is
@@ -195,7 +156,7 @@ pub enum RollbackRefused {
     /// Under a shell-routed host it is not true: the root arrives several frames in, behind a
     /// load barrier and eight preparation work items.
     ///
-    /// **so the fix is not a longer budget, it is a stated precondition.** A
+    /// so the fix is not a longer budget, it is a stated precondition. A
     /// session that begins over a world that does not exist yet is measuring
     /// construction; refusing is the honest answer, and it names the thing to
     /// wait for.
@@ -456,7 +417,7 @@ pub fn start(app: &mut App, plan: RollbackPlan) -> Result<RollbackSession, Rollb
         app.update();
     }
 
-    // **the world must EXIST before the session does.** See
+    // the world must EXIST before the session does. See
     // [`RollbackRefused::NoSessionWorld`]: a rollback session opened over an
     // unbuilt world compares activation rather than gameplay, and the checksum
     // mismatch that produces reads as a desync in the game.

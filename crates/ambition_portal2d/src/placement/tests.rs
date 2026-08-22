@@ -527,22 +527,22 @@ fn swept_tier_transfers_a_stopped_body_with_its_entry_momentum() {
     }
 }
 
-/// **The transit follows the TUNING's convention, not a process global.**
+/// The transit follows the TUNING's convention, not a process global.
 ///
-/// ⛔ **the convention is a simulation rule that lives outside session
-/// authority.** `ambition_platformer2d_shared_tangle::math` holds
+///  the convention is a simulation rule that lives outside session
+/// authority. `ambition_platformer2d_shared_tangle::math` holds
 /// `static PORTAL_MAP_ROTATION: AtomicBool`; `tuning.rs` writes it from live
 /// tuning, and `somersault_roll` / `portal_facing_flips` /
 /// `portal_input_warp_flips_horizontal` read it. So two Apps in one process
 /// cannot choose independent conventions, and a test that sets it changes what
 /// every other test in the binary computes.
 ///
-/// ⭐ **and the value is already in the right place.** `PortalTuning::convention`
+///  and the value is already in the right place. `PortalTuning::convention`
 /// exists, `transfer_step` already receives `&PortalTuning`, and the pure layer
 /// already exposes `*_for_convention` variants taking it explicitly. The global
 /// is a detour around a value that is right there.
 ///
-/// ⚠ this probe leaves the process global at its DEFAULT and disagrees with it
+///  this probe leaves the process global at its DEFAULT and disagrees with it
 /// through tuning. Writing the global is the contamination the finding is about.
 #[test]
 fn a_transit_takes_its_convention_from_tuning_not_the_process_global() {
@@ -554,7 +554,7 @@ fn a_transit_takes_its_convention_from_tuning_not_the_process_global() {
          the global, which is itself the contamination this is about"
     );
 
-    // ⚠ **two SAME-facing walls**, computed rather than guessed:
+    //  two SAME-facing walls, computed rather than guessed:
     // `portal_transit_roll` maps `into_render = (-n_in.x, n_in.y)` against
     // `out_render = (n_out.x, -n_out.y)`, so a pair of walls both facing -x gives
     // `atan2(0, -1) = π` — while Reflection's wall↔wall short-circuit returns

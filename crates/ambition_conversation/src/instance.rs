@@ -28,28 +28,28 @@ pub struct ConversationInstanceId {
     initiator: Option<SimId>,
     /// The body being talked TO.
     talker: Option<SimId>,
-    /// **Who Yarn is told is speaking** — published as `$speaker_id`. Empty for
+    /// Who Yarn is told is speaking — published as `$speaker_id`. Empty for
     /// a scripted conversation with no in-world speaker.
     ///
-    /// ⚠ **not the same question as [`Self::initiator`].** That names a BODY;
+    ///  not the same question as [`Self::initiator`]. That names a BODY;
     /// this names the character that body is being at the opening tick, which for
     /// a body with no authored identity is its `WornCharacter` — rollback-owned
     /// and runtime-mutable.
     speaker: String,
-    /// **Who Yarn is told is being spoken to** — published as `$listener_id`.
+    /// Who Yarn is told is being spoken to — published as `$listener_id`.
     listener: String,
 }
 
 impl ConversationInstanceId {
     /// Mint the id for a conversation opening now.
     ///
-    /// ⚠ **every argument is read off the world at the opening tick**, which is
+    ///  every argument is read off the world at the opening tick, which is
     /// what makes a resimulation of that tick mint an equal id. A caller that
     /// reaches for anything else — a counter, a frame number, a wall clock — has
     /// broken the contract in the module docs.
     ///
-    /// ⭐ **it takes the whole [`ambition_dialog::DialogueContext`], not two
-    /// strings**, so the identity is minted from the very value that will be
+    ///  it takes the whole [`ambition_dialog::DialogueContext`], not two
+    /// strings, so the identity is minted from the very value that will be
     /// published to Yarn. A caller cannot mint an id for one context and enter
     /// the runner with another.
     pub fn mint(
@@ -69,10 +69,10 @@ impl ConversationInstanceId {
         }
     }
 
-    /// **The identity context Yarn is entered with**, rebuilt from the identity
+    /// The identity context Yarn is entered with, rebuilt from the identity
     /// that decided it.
     ///
-    /// ⭐ **rebuilt, not stored a second time.** `speaker_is_self` is a function
+    ///  rebuilt, not stored a second time. `speaker_is_self` is a function
     /// of the two ids — [`ambition_dialog::DialogueContext::between`] is the one
     /// place that comparison is made — so keeping the built value alongside these
     /// fields would be a second answer that could drift from them.
@@ -82,8 +82,8 @@ impl ConversationInstanceId {
 
     /// The `SimTick` this conversation opened on.
     ///
-    /// ⚠ **a composition whose clock never advances cannot tell two visits
-    /// apart**, and that is a degenerate clock rather than a hole in this type:
+    ///  a composition whose clock never advances cannot tell two visits
+    /// apart, and that is a degenerate clock rather than a hole in this type:
     /// every shipped composition gets `SimTick` from
     /// `ambition_platformer2d_runtime`'s sim core and advances it once per step.
     /// A unit fixture that opens two conversations between the same two bodies,
@@ -108,7 +108,7 @@ impl std::fmt::Display for ConversationInstanceId {
         if let Some(talker) = &self.talker {
             write!(f, " to {talker}")?;
         }
-        // ⚠ the identities Yarn sees, printed only when there are any: a scripted
+        //  the identities Yarn sees, printed only when there are any: a scripted
         // conversation has none, and an empty `as ->` in a desync report is
         // noise a reader has to learn to skip.
         if !self.speaker.is_empty() || !self.listener.is_empty() {
@@ -130,14 +130,14 @@ mod tests {
         ambition_dialog::DialogueContext::between(speaker, listener)
     }
 
-    /// **The review's counterexample**: a corrected branch replaces the body
+    /// The review's counterexample: a corrected branch replaces the body
     /// being talked to, and everything else about the opening is identical.
     ///
-    /// ⛔ `(node, opened_at)` reports these as one conversation, so the abandoned
+    ///  `(node, opened_at)` reports these as one conversation, so the abandoned
     /// branch's narrative end would close the corrected branch's conversation —
     /// a different conversation, with a different body, that nobody has finished.
     ///
-    /// ⚠ **the two talkers wear the same character**, which is the point: this is
+    ///  the two talkers wear the same character, which is the point: this is
     /// the case the dialogue ids cannot separate, so it is what the `SimId`s are
     /// for. The mirror case is
     /// [`two_speakers_at_one_tick_through_one_node_are_two_conversations`].
@@ -150,7 +150,7 @@ mod tests {
             ConversationInstanceId::mint(100, "chat", placement("player"), placement("b"), &twins);
         assert_ne!(to_a, to_b);
 
-        // ⭐ and the INITIATOR separates them too: two seats at the couch can
+        //  and the INITIATOR separates them too: two seats at the couch can
         // reach the same NPC on the same tick, and whose conversation it is is
         // part of what it is.
         let by_other =
@@ -158,7 +158,7 @@ mod tests {
         assert_ne!(to_a, by_other);
     }
 
-    /// **The mirror**: the same two BODIES, and a different `$speaker_id`.
+    /// The mirror: the same two BODIES, and a different `$speaker_id`.
     ///
     /// A body with no authored identity speaks as the `WornCharacter` it currently wears —
     /// rollback-owned and runtime-mutable — so a correction can leave the tick, the node and
@@ -195,7 +195,7 @@ mod tests {
         assert_ne!(as_mary, to_someone_else);
     }
 
-    /// **The context comes back out of the id**, so nothing has to keep a second
+    /// The context comes back out of the id, so nothing has to keep a second
     /// copy of it in step — including the derived self flag.
     #[test]
     fn the_context_round_trips_through_the_id() {
@@ -215,7 +215,7 @@ mod tests {
         assert_eq!(id.context(), scripted);
     }
 
-    /// **A resimulated opening mints the SAME id**, which is the half that makes
+    /// A resimulated opening mints the SAME id, which is the half that makes
     /// a record from the original run still apply to its own conversation.
     #[test]
     fn re_minting_the_same_opening_is_equal() {
@@ -247,8 +247,8 @@ mod tests {
         assert_ne!(original, next_visit);
     }
 
-    /// **A body with no `SimId` degrades to a weaker id rather than to a wrong
-    /// one.** `None` is a distinct value, so an anonymous talker is separated
+    /// A body with no `SimId` degrades to a weaker id rather than to a wrong
+    /// one. `None` is a distinct value, so an anonymous talker is separated
     /// from a named one — what it cannot do is separate two anonymous talkers,
     /// and the honest place for that to be visible is here.
     #[test]
@@ -270,7 +270,7 @@ mod tests {
         assert_ne!(anonymous, named);
     }
 
-    /// **A desync report still reads as a sentence**, which is the whole reason
+    /// A desync report still reads as a sentence, which is the whole reason
     /// this is a struct of readable parts rather than a hash.
     #[test]
     fn it_prints_who_is_speaking() {

@@ -144,7 +144,7 @@ def main() -> int:
         print("a run is IN PROGRESS; this is not a verdict yet.")
         return 2
 
-    # **THE CHECK THAT ACTUALLY CATCHES IT, and the age check does not.**
+    # THE CHECK THAT ACTUALLY CATCHES IT, and the age check does not.
     #
     # Being honest about the motivating case: the stale run that fooled me was
     # ~10 minutes old, so any sane `--max-age` would have waved it through. Age

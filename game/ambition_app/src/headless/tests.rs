@@ -1,14 +1,14 @@
 
 use super::*;
 use ambition_platformer2d::input::ControlFrame;
-// **presses go through the SEAM, not at the resource.** `ControlFrame` is seat zero's OUTPUT
+// presses go through the SEAM, not at the resource. `ControlFrame` is seat zero's OUTPUT
 // mirror since; assigning it delivers a press to nobody and a fixture doing so asserts its way
 // to a green run against a simulation that never received an input.
 use ambition_platformer2d::sfx::SfxMessage;
 use ambition_platformer2d::sim::drive_control_frame;
 use bevy::ecs::message::Messages;
 
-/// **K2b edit 2: the ONE composition, shell and all.**
+/// K2b edit 2: the ONE composition, shell and all.
 fn sandbox_sim_app() -> App {
     let mut app = App::new();
     ambition_platformer2d::runtime::add_headless_foundation(&mut app);

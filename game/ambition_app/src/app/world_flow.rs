@@ -13,7 +13,7 @@ pub(crate) use room_transition_assets::{
     RoomAssetManifest,
 };
 pub(crate) use room_transition_presentation::install_room_transition_presentation;
-/// **public because a SCHEDULE SEAM has to be nameable to be checkable.**
+/// public because a SCHEDULE SEAM has to be nameable to be checkable.
 /// The set carries the one ordering edge the room-transition cover's
 /// correctness rests on, and Bevy compiles system NAMES out — so a test cannot
 /// find the system any other way, and `RoomTransitionCoverRoot`'s precedent

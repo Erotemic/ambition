@@ -1,4 +1,4 @@
-//! **The effect sheets the ENGINE ships, and the one mapping it owes them.**
+//! The effect sheets the ENGINE ships, and the one mapping it owes them.
 //!
 //! Twelve FX spritesheets are published beside the character art, and the
 //! packed SFX bank carries one `vfx.<family>.<row>` cue for every one of their
@@ -6,7 +6,7 @@
 //! together, in the data. What the engine owes is a single mapping — *which
 //! sheet holds the row called `sonic_boom`* — and [`authored_effect`] is it.
 //!
-//! **the engine could not ship the art it draws.** `spawn_explosion` reached
+//! the engine could not ship the art it draws. `spawn_explosion` reached
 //! for `GameAssets.characters.props["generic_explosions"]` — a map keyed by the
 //! LDtk `Prop.kind` field — and the only things that ever populated it were
 //! *game* systems (Ambition's intro table, Sanic's one ring sheet). An FX sheet
@@ -16,7 +16,7 @@
 //! declared HERE, loaded by the engine's own `load_game_assets`, and stored in
 //! their own [`GameAssets`](crate::game_assets::GameAssets) slot.
 //!
-//! **the index is built from the BAKED records, not from loaded assets.**
+//! the index is built from the BAKED records, not from loaded assets.
 //! `build.rs` embeds every `*_spritesheet.ron` into the binary, so "which
 //! effects exist" is answerable with no Bevy world, no asset server and no
 //! decode — which is what lets a roster validator that runs at install time ask
@@ -40,7 +40,7 @@ pub struct FxSheet {
     pub cue_family: &'static str,
 }
 
-/// **The effect art the engine ships.** Four generic sheets plus the per-
+/// The effect art the engine ships. Four generic sheets plus the per-
 /// character effect sheets, in the order they are searched.
 ///
 /// generic first: a name that appears on a generic sheet and on a character
@@ -166,7 +166,7 @@ pub fn authored_effect(name: &str) -> Option<&'static AuthoredEffect> {
     authored_effects().get(name)
 }
 
-/// **Is `name` an effect the shipped art can draw?**
+/// Is `name` an effect the shipped art can draw?
 ///
 /// The oracle a content validator wants: pure, world-free, and answered by the
 /// sheets themselves rather than by a Rust table transcribed from them.
@@ -176,7 +176,7 @@ pub fn is_authored_effect(name: &str) -> bool {
 
 /// The sheet spec for an FX target, addressed by ROW rather than by pose.
 ///
-/// **not [`try_load_spec_for_target`](crate::character::sheets::try_load_spec_for_target)**,
+/// not [`try_load_spec_for_target`](crate::character::sheets::try_load_spec_for_target),
 /// which refuses a sheet with no `idle` row — correctly, because the character
 /// path indexes by [`CharacterAnim`](crate::character::CharacterAnim) and a
 /// sheet it cannot ask for an idle pose is one it cannot draw. Eleven of the
@@ -192,8 +192,8 @@ pub fn fx_sheet_spec(target: &str) -> Option<CharacterSheetSpec> {
 mod tests {
     use super::*;
 
-    /// **Every row of every shipped FX sheet is reachable by its own name, and
-    /// nothing else is.**
+    /// Every row of every shipped FX sheet is reachable by its own name, and
+    /// nothing else is.
     ///
     /// Set equality BOTH ways against the baked records: a row the index cannot
     /// reach is art that ships and cannot be drawn (the defect this module
@@ -234,7 +234,7 @@ mod tests {
         );
     }
 
-    /// **The name addresses the sound too.** One example spelled out, because
+    /// The name addresses the sound too. One example spelled out, because
     /// the pairing is the whole reason the vocabulary can be a single string.
     #[test]
     fn an_effect_name_addresses_its_paired_cue() {

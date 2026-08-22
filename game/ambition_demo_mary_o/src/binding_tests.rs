@@ -115,7 +115,7 @@ fn mary_o_binds_every_ref_it_declares() {
     );
 }
 
-/// **An authored enemy must be named something Mary-O publishes a sheet under.**
+/// An authored enemy must be named something Mary-O publishes a sheet under.
 ///
 /// Every enemy in both levels drew that way between `07f0fc7cc` and this test, because the LDtk
 /// `EnemySpawn` entities carry no name and the converter falls back to the LDtk identifier —
@@ -155,9 +155,9 @@ fn every_authored_enemy_is_named_something_that_has_a_sheet() {
     );
 }
 
-/// **The snake-plane swarms are registered characters, and they FLY.**
+/// The snake-plane swarms are registered characters, and they FLY.
 ///
-/// **the STANDALONE road is what this defends** — the reason the pair's
+/// the STANDALONE road is what this defends — the reason the pair's
 /// roster rows survived two migrations. Mary-O is their ONE provider now
 /// she registers
 /// `npc_snakes_on_a_*` in every composition, so a standalone 1-2 builds the

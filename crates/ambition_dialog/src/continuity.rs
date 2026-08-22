@@ -1,4 +1,4 @@
-//! **What ends a conversation that the world keeps running through.**
+//! What ends a conversation that the world keeps running through.
 //!
 //! > "if you get hit in dialog, dialog needs to be interrupted I think. Or say
 //! > you are falling and you talk to a the flying parrot, if you fall away from
@@ -24,7 +24,7 @@
 pub enum DialogueBreak {
     /// A participant was knocked about.
     ///
-    /// **knockback, not damage.** The reason a hit ends a conversation is
+    /// knockback, not damage. The reason a hit ends a conversation is
     /// that it MOVES you — so a poison tick, a chip of environmental damage, or
     /// anything else that leaves both bodies standing where they were does not.
     /// The signal is the recoil/hitstun lock, which is exactly "something took
@@ -43,7 +43,7 @@ pub enum DialogueBreak {
 impl DialogueBreak {
     /// Whether this break deserves a bark of its own.
     ///
-    /// **`Struck` does NOT**, and that is the finding rather than an
+    /// `Struck` does NOT, and that is the finding rather than an
     /// omission: a body knocked about already barks through
     /// `npc_hit_bark_line`, which fires on every strike and falls back to a
     /// generic line when a character authored none. A second bubble for one

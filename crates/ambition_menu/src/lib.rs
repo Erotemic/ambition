@@ -596,7 +596,7 @@ pub struct MenuVisualState {
     /// The control's authored emphasis, carried here so the RUNTIME state is
     /// sufficient to recompute the control's colour.
     ///
-    /// ⚠ it is not runtime state and it is here anyway, on purpose. Without it
+    ///  it is not runtime state and it is here anyway, on purpose. Without it
     /// a restyle has to reach back into the page data that spawned the node,
     /// which is exactly the coupling that forced a full rebuild for a cursor
     /// move. One component holding everything `control_bg` needs is what makes
@@ -1094,7 +1094,7 @@ mod tests {
                 (1.0 - MenuCubeGeometry::TARGET_FACE_FILL) * 100.0,
             );
         }
-        // 0.80 fill ⇒ a 20%-of-half-height margin, as requested.
+        // 0.80 fill  a 20%-of-half-height margin, as requested.
         assert!((MenuCubeGeometry::TARGET_FACE_FILL - 0.80).abs() < 1.0e-6);
     }
 

@@ -1,4 +1,4 @@
-//! **The one body step.** Every controllable body — the home avatar, an AI
+//! The one body step. Every controllable body — the home avatar, an AI
 //! actor, a seated fighter, a boss — reaches the movement kernel through
 //! [`step_body`], so a rule about how a body integrates cannot reach one road
 //! and miss another.
@@ -7,7 +7,7 @@
 //! connect, and an exchange between two AI bodies froze neither of them. On a platform fighter that
 //! is every CPU match and every seat past the first.
 //!
-//! ⭐ so this function exists to make the rule structural rather than
+//!  so this function exists to make the rule structural rather than
 //! remembered. It lives here, in the actor-behaviour crate, because this crate's
 //! stated job is *"the same brain + control-frame contract drives players, NPCs,
 //! enemies, and bosses"* — and because the rule needs [`BodyCombat`], which
@@ -15,7 +15,7 @@
 //! contract is *"model dispatch happens inside the trusted kernel, while
 //! body/controller identity remains outside."* A body's hitlag is body identity.
 //!
-//! ⚠ **what stays with the CALLER, on purpose**: resolving which
+//!  what stays with the CALLER, on purpose: resolving which
 //! [`MovementTuning`] this body moves under (authored feel, a live inspector
 //! slider, a flyer's derived chase speed), and building the [`InputState`]. Those
 //! differ legitimately between roads. What must not differ is what happens once
@@ -27,13 +27,13 @@ use super::BodyCombat;
 
 /// Step one body through the movement kernel, spending whatever hitlag it is in.
 ///
-/// ⭐ **`axis_tuning` is applied here rather than by the caller** because the
+///  `axis_tuning` is applied here rather than by the caller because the
 /// live-tuning refresh and the step are one operation in practice: a caller that
 /// steps without refreshing runs a body on last session's authored feel, and a
 /// caller that refreshes without stepping has done nothing. Both roads already
 /// wrote these two lines adjacent; this is that pair, named once.
 ///
-/// ⚠ the refresh touches ONLY the axis policy's parameters. The environmental
+///  the refresh touches ONLY the axis policy's parameters. The environmental
 /// acceleration frame rides `ctx.frame` and cannot be frozen into, or reset
 /// with, movement-model configuration.
 pub fn step_body(
@@ -41,7 +41,7 @@ pub fn step_body(
     clusters: &mut ae::BodyClustersMut<'_>,
     combat: &BodyCombat,
     axis_tuning: ae::MovementTuning,
-    // **Has this body's attempt already ended?** (`OutOfPlay`, ADR 0033.) A bool
+    // Has this body's attempt already ended? (`OutOfPlay`, ADR 0033.) A bool
     // for the same reason the caller takes one: the rule is applied HERE so a
     // second road cannot invent a slightly different "does a dead body move".
     out_of_play: bool,
@@ -50,7 +50,7 @@ pub fn step_body(
     if let ae::movement::MotionModel::AxisSwept(axis) = model {
         axis.params = axis_tuning.axis_swept_params();
     }
-    // ⛔ **`OutOfPlay`'s own doc already CLAIMED this** — *"it makes 'she dies
+    //  `OutOfPlay`'s own doc already CLAIMED this — *"it makes 'she dies
     // where she died' free … nothing moves her now, so there is nothing to
     // pin"* — while the flag only ever gated a `BodyReset`. Gravity and carried
     // momentum went on integrating, so she slid or fell through her own death

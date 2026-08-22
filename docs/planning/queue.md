@@ -2139,7 +2139,7 @@ wanted  a character DECLARES its height in one shared unit; render size derives
    to five times larger than the size it draws at. A tolerance around 1.0 warns
    on 100% of the cast, the mirror of a check that cannot fail. ⇒ what the spread
    really says is that the cast shares no art RESOLUTION, which is worth warning
-   about but is a different comparison. Filed as **decision 28** in
+   about but is a different comparison. Filed as **decision 30** in
    `awaiting-maintainer-decision.md` with the three options; the tolerance cannot
    be chosen before it is answered.
 3. **landmarks are OPTIONAL SLOTS** — head/feet/hands/sockets authored where

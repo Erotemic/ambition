@@ -36,7 +36,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 13 (§1, §6, §7, §9, §10, §11, §12, §13, §21, §22, §23, §25 and §27 are ANSWERED; §8 is DEFERRED)
+## Open decisions — 13, numbered to 30 (§1, §6, §7, §9, §10, §11, §12, §13, §21, §22, §23, §25 and §27 are ANSWERED; §8 is DEFERRED)
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
@@ -1504,7 +1504,7 @@ by rolling the superproject pointer back. The superproject commits depend on the
 submodule content; the pointer is the symptom, the credential is the cause.
 
 
-### 28. The height contract's WARN has a false premise — what should it compare?
+### 30. ▢ NEW 2026-08-22 — the height contract's WARN has a false premise; what should it compare?
 
 D165's ruling 2 (yours, 2026-08-17) says height is a contract, *"a tight
 tolerance **WARNS** when the resulting scale drifts far from 1.0"*, with the

@@ -253,11 +253,16 @@ These cards are capability fronts, not a serial mega-campaign.
   survival/damage/recovery evidence. Use
   [`engine/fighter-brain.md`](engine/fighter-brain.md).
 
-- ▢ **Projectile contact against published body geometry.** Correctness for
-  intangible/no-hurtbox bodies exists; ordinary projectile feel still needs the
-  maintainer decision on authored silhouette/parts versus coarse body AABB.
-  Keep it in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md)
-  until that decision is made.
+- ✔ **Projectile contact against published body geometry — CLOSED 2026-08-22.**
+  Both halves are in. Intangible/no-hurtbox bodies were already correct; the
+  ordinary-feel half needed decision 1, Jon ruled it 2026-08-17 (*"the projectile
+  respects the AUTHORED HURT VOLUME — the same geometry melee uses"*), and
+  `step_projectiles` now asks `victim.reached_by(&kin.aabb().into())` — the same
+  `strike_reaches_victim` rule melee and feature hits ask. Pinned by
+  `a_bolt_misses_the_gap_in_an_authored_silhouette`.
+  ⛔ it is a real feel change on shipped content and it is the intended one: a
+  shot that used to land on a body whose authored volume is tighter than its box
+  now misses, and one that grazes an edge now connects.
 
 - ▢ **Boss animation vocabulary fold.** Converge remaining boss animation/frame
   projection onto shared character semantics without reopening boss body

@@ -109,6 +109,8 @@
 
 
 * When I have the laser sword in ambition and I use it, I incorrectly still use my normal jab attack. Holding an item should reroute normal attack actions to the item action, which might be like throw for bombs or fire for the gun sword. Some items may do different things depending on if your attack is a directioned tilt or airial or neutral, but the default for the gun sword is they all route to the one action the item has: shoot (I guess direction does change which way it shoots).
+  * ✔ ALREADY FIXED, and now pinned. The press was claimed by two authorities — equipping cleared the item's melee out of your `ActionSet`, but your MOVESET still bound `attack`, and the Attack slot is their union — so `trigger_moveset_moves` arbitrates by what is in the hand: a weapon with a swing answers with its own, a weapon without one leaves the press to `fire_held_ranged_system`, which shoots along your aim.
+  * ⊙ so the gun-sword routes Attack to the bolt today; say if the DIRECTIONAL half you described (a tilt or aerial doing something different from neutral) is still wanted, because every direction currently routes to the one shot.
 
 * In the ambition game, when I move from one room to another that is separated in LDTK, the camera moved as if there is a pan that should be happening. The camera room transition pans are just wrong.
 

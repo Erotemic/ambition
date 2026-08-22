@@ -3149,3 +3149,86 @@ fn a_captor_cannot_reach_its_ordinary_special() {
         "the fixture is wrong: this press must reach the special when free"
     );
 }
+
+// ── A weapon in hand owns the Attack press ────────────────────────────────
+//
+// Jon: *"When I have the laser sword in ambition and I use it, I incorrectly
+// still use my normal jab attack."* The `ActionSet` and the moveset are a UNION
+// for the Attack slot, and equipping only ever displaced the `ActionSet` half —
+// so the wearer's own `attack` verb kept answering beside the weapon.
+
+/// A body with its own `attack` verb, pressing it, nothing playing.
+fn spawn_pressing_body(app: &mut App) -> Entity {
+    app.world_mut()
+        .spawn((
+            ActorMoveset(swat_moveset()),
+            pressing_attack(),
+            ae::BodyKinematics {
+                pos: ae::Vec2::new(100.0, 100.0),
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(15.0, 24.0),
+                facing: 1.0,
+            },
+        ))
+        .id()
+}
+
+fn playing_id(app: &App, body: Entity) -> Option<String> {
+    app.world()
+        .get::<MovePlayback>(body)
+        .map(|pb| pb.spec.id.clone())
+}
+
+/// The gun-sword's one verb is a shot, so the press leaves this seam entirely
+/// (`fire_held_ranged_system` answers it) — and crucially the wearer's jab does
+/// NOT run beside it.
+#[test]
+fn a_ranged_weapon_in_hand_silences_the_wearers_jab() {
+    let mut app = trigger_app();
+    let bare = spawn_pressing_body(&mut app);
+    let armed = spawn_pressing_body(&mut app);
+    app.world_mut()
+        .entity_mut(armed)
+        .insert(crate::held_items::HeldItem::new(
+            ambition_characters::brain::held_item_by_id("gun_sword")
+                .expect("gun_sword is a built-in held item"),
+        ));
+    app.update();
+
+    assert_eq!(
+        playing_id(&app, bare).as_deref(),
+        Some("swat"),
+        "the control: an empty hand still swings the wearer's own attack"
+    );
+    assert_eq!(
+        playing_id(&app, armed),
+        None,
+        "the jab ran while the gun-sword was held — two claimants on one press"
+    );
+}
+
+/// A weapon that DOES author a swing answers with its own, not the wearer's.
+#[test]
+fn a_melee_weapon_in_hand_answers_with_its_own_swing() {
+    let mut app = trigger_app();
+    let armed = spawn_pressing_body(&mut app);
+    app.world_mut()
+        .entity_mut(armed)
+        .insert(crate::held_items::HeldItem::new(
+            ambition_characters::brain::HeldItemSpec {
+                id: "test_axe".into(),
+                melee: Some(ambition_characters::brain::MeleeActionSpec::Swipe(
+                    ambition_characters::brain::SwipeSpec::STRIKER_DEFAULT,
+                )),
+                ranged: None,
+                use_behavior: ambition_characters::brain::HeldUseBehavior::Auto,
+            },
+        ));
+    app.update();
+
+    let played = playing_id(&app, armed).expect("a weapon with a swing answers the press");
+    assert_ne!(
+        played, "swat",
+        "the wearer's own repertoire answered while a weapon was in hand"
+    );
+}

@@ -15,7 +15,8 @@ For each NpcSpawn in `hall_of_characters`:
   - "ok"          — catalog entry + manifest on disk (sheet will load)
   - "no_manifest" — catalog entry exists but `<target>_spritesheet.ron` is missing
   - "no_idle"     — manifest exists but lacks an Idle-equivalent row
-  - "no_catalog"  — character_id isn't in the catalog (LDtk drift)
+  - "provider_owned" — character is intentionally owned by another game provider
+  - "no_catalog"     — character_id is in neither the catalog nor provider list (LDtk drift)
 
 Useful for: confirming what should render in the Hall after a regen,
 diagnosing placeholder pedestals, and producing a per-character
@@ -48,6 +49,16 @@ from .ldtk import (
 CATALOG_PATH = default_character_catalog()
 LDTK_PATH = default_hall_ldtk()
 SPRITES_DIR = default_sprite_assets_dir()
+
+# The Hall deliberately exhibits a few characters owned by sibling game
+# providers. They are absent from Ambition's catalog by design and resolve
+# against the assembled runtime catalog. Share the generator's declaration so
+# this diagnostic does not report those intentional entries as LDtk drift.
+from .generate_hall_of_characters import PROVIDER_HALL_ENTRIES
+
+PROVIDER_HALL_IDS = {
+    character_id for character_id, _tier, _dialogue in PROVIDER_HALL_ENTRIES
+}
 
 # Mirror of the Rust `CharacterAnim::from_name` Idle-equivalent
 # aliases. Keep in sync with
@@ -104,7 +115,12 @@ def manifest_has_idle(manifest_path: Path) -> bool:
 def classify(character_id: str, catalog: dict, sprites_dir: Path) -> tuple[str, str]:
     """Return (status_code, detail_message)."""
     if character_id not in catalog["characters"]:
-        return ("no_catalog", "character_id not in catalog")
+        if character_id in PROVIDER_HALL_IDS:
+            return (
+                "provider_owned",
+                "owned by another game provider; resolved by the assembled runtime catalog",
+            )
+        return ("no_catalog", "character_id not in catalog or provider Hall entries")
     entry = catalog["characters"][character_id]
     spritesheet = entry["spritesheet"]
     png_path = sprites_dir / spritesheet.removeprefix("sprites/")
@@ -145,12 +161,13 @@ def main(argv: list[str] | None = None) -> int:
         "no_png": 0,
         "no_idle": 0,
         "no_catalog": 0,
+        "provider_owned": 0,
     }
     for spawn in sorted(spawns, key=lambda s: s.get("character_id", "")):
         cid = spawn.get("character_id", "")
         status, detail = classify(cid, catalog, args.sprites_dir)
         counts[status] += 1
-        if args.only_issues and status == "ok":
+        if args.only_issues and status in {"ok", "provider_owned"}:
             continue
         line = f"  [{status:<11}] {cid:40s}"
         if detail:

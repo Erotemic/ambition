@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Modal CLI for editing, validating, and repairing the Ambition sandbox.ldtk"
 requires-python = ">=3.10"
 dependencies = [
+  "Pillow>=9",
   "PyYAML",
   "jsonschema",
   "requests",

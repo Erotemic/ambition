@@ -134,6 +134,9 @@ ambition_require_python_module \
 ambition_require_python_module \
     "$ldtk_python" ambition_ldtk_tools \
     "run ./run_developer_setup.sh or set AMBITION_LDTK_PYTHON=/path/to/python"
+ambition_require_python_module \
+    "$ldtk_python" PIL \
+    "run ./run_developer_setup.sh so the LDtk tool installs its Pillow dependency"
 
 shell_value_is_true() {
     case "${1,,}" in
@@ -693,9 +696,10 @@ construction_prop_map=(
     "super_mary_o_flag:mary_o_flag"
 )
 
-# Every registered target this script publishes. `draw-all`'s main configs are
-# NOT here: they are rendered unconditionally from configs/*.yaml, so the
-# helper below adds them from the renderer's own view of that directory.
+# Every registered target this script publishes. `draw-all` owns a declared
+# runtime subset of the main CharacterJob configs; the expected-file helper below
+# imports that SAME renderer contract rather than assuming every configs/*.yaml
+# document is a runtime publication.
 publish_targets=(
     entities
     "${review_cues[@]}"
@@ -722,7 +726,11 @@ declare_expected_files() {
 import sys
 from pathlib import Path
 
-from ambition_sprite2d_renderer.registry import discover_all_targets, load_jobs
+from ambition_sprite2d_renderer.registry import (
+    RUNTIME_ADAPTER_CONFIG_STEMS,
+    discover_all_targets,
+    load_jobs,
+)
 
 DIAGNOSTIC_SUFFIXES = (
     "_canonical.png",
@@ -749,6 +757,7 @@ names = list(sys.argv[1:])
 names += [
     job.output_stem(path)
     for path, job in load_jobs(Path("ambition_sprite2d_renderer/configs"))
+    if path.stem in RUNTIME_ADAPTER_CONFIG_STEMS
 ]
 
 unknown = sorted({n for n in names if n not in report.targets})

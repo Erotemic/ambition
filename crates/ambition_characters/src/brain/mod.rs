@@ -209,6 +209,9 @@ pub struct SlotGestures {
     pub double_tap_down_pending: bool,
     /// A double-tap-up edge, awaiting its consumer.
     pub double_tap_up_pending: bool,
+    /// How long Up has been held without interruption. Crossing the hold
+    /// threshold is an alternative way to interact; releasing resets it.
+    pub up_hold_timer: f32,
 }
 
 impl SlotGestures {
@@ -242,6 +245,19 @@ impl SlotGestures {
             self.up_tap_timer = window;
             false
         }
+    }
+
+    /// Advance the Up hold and return `true` on the single frame it crosses
+    /// `threshold` — an EDGE, so a player who keeps holding Up interacts once
+    /// rather than every frame after the second.
+    pub fn held_up_interact(&mut self, up_held: bool, frame_dt: f32, threshold: f32) -> bool {
+        if !up_held {
+            self.up_hold_timer = 0.0;
+            return false;
+        }
+        let before = self.up_hold_timer;
+        self.up_hold_timer += frame_dt;
+        before < threshold && self.up_hold_timer >= threshold
     }
 
     /// Update the interact buffer and return whether the buffer is live.

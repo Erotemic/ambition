@@ -296,6 +296,54 @@ fn a_deliberate_double_tap_up_opens_a_door_and_one_press_does_not() {
     );
 }
 
+/// **The third way in: hold Up.**
+///
+/// Jon asked for a hands-free way into a door. The gesture is deliberately the
+/// slow one — as long as a possession takes — so it cannot fire while somebody
+/// is jumping past, and the one-second guard below is what pins that: the press
+/// and the double-tap both open in a handful of ticks, so a door that opens
+/// early has been opened by one of them and not by this.
+///
+/// ⛔ **A HOLD SENDS THE EDGE ONCE.** `AgentAction::up_pressed` is the rising
+/// edge, not the level, and re-sending it every tick is a machine-gun
+/// double-tap that opened the door in FOUR ticks — the first draft of this test
+/// passed with the hold entirely unwired. The level is `move_y`.
+#[test]
+fn holding_up_opens_a_door_and_a_short_hold_does_not() {
+    let mut sim = fixed_60hz_sim();
+    for _ in 0..10 {
+        sim.step(base());
+    }
+    let before = active_room(&mut sim);
+    let door = stand_in_a_door(&mut sim)
+        .unwrap_or_else(|| panic!("the start room '{before}' authors no `Door` loading zone"));
+
+    let hold = AgentAction {
+        move_y: -1.0,
+        ..base()
+    };
+
+    for _ in 0..60 {
+        sim.step(hold);
+        assert_eq!(
+            active_room(&mut sim),
+            before,
+            "one second of Up opened the `{door}` door. The hold is two seconds              so that holding a direction while climbing or aiming cannot enter              a room"
+        );
+    }
+
+    for _ in 0..180 {
+        sim.step(hold);
+        if active_room(&mut sim) != before {
+            return;
+        }
+    }
+
+    panic!(
+        "holding Up in the `{door}` door of '{before}' did not open it. The          press and the double-tap are covered above, so what this names is          `held_up_interact` crossing `interaction_hold_time` and reaching the          interact buffer"
+    );
+}
+
 /// **A DOOR under a ROLLBACK host — the combination nothing covered.**
 ///
 /// ⛔ this is one of the un-ruled-out candidates in S26 item 2 ("Jon cannot

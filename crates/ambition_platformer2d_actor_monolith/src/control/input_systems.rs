@@ -180,9 +180,9 @@ pub fn input_timer_system(
     }
 }
 
-/// Fold the explicit `Interact` action together with the
-/// `double_tap_up_pending` gesture, gate the result on the CONTROLLED body's
-/// hit-stun, and advance the per-frame interact buffer on the primary
+/// Fold the three ways to interact — the explicit `Interact` action, a
+/// double-tap up, and a sustained Up hold — gate the result on the CONTROLLED
+/// body's hit-stun, and advance the per-frame interact buffer on each
 /// controller's slot (`SlotInteractionState`).
 ///
 /// Downstream consumers read the buffered signal from
@@ -279,10 +279,21 @@ pub fn interaction_input_system(
             gravity_dir,
             movement_mode,
         );
+        // Holding Up is a third way in, beside the press and the double-tap:
+        // the same gravity-resolved axis, past the same deflection, held for
+        // as long as a possession takes.
+        let up_held = crate::abilities::traversal::possession::holding_ascend(
+            frame.axis_x,
+            frame.axis_y,
+            gravity_dir,
+            movement_mode,
+        );
+        let held_up_interact =
+            interaction.held_up_interact(up_held, frame_dt, feel.interaction_hold_time);
         let raw_interact_pressed = if hitstun > 0.0 {
             false
         } else {
-            (frame.interact_pressed && !down_held) || door_double_tap_up
+            (frame.interact_pressed && !down_held) || door_double_tap_up || held_up_interact
         };
         let _live = interaction.buffered_interact(
             raw_interact_pressed,

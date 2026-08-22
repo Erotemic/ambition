@@ -154,6 +154,25 @@ pub fn holding_descend(
         > POSSESS_DOWN_THRESHOLD
 }
 
+/// True iff the stick is held "up" in the GRAVITY-resolved frame past
+/// [`POSSESS_DOWN_THRESHOLD`]. Held Up is an alternative interact (a hands-free
+/// way into a door); it shares this module's threshold and resolution so up and
+/// down mean opposite things under any gravity rather than merely similar ones.
+pub fn holding_ascend(
+    axis_x: f32,
+    axis_y: f32,
+    gravity_dir: ambition_platformer2d_core::Vec2,
+    movement_mode: ambition_platformer2d_core::InputFrameMode,
+) -> bool {
+    ambition_platformer2d_core::AccelerationFrame::new(gravity_dir)
+        .resolve_input(
+            movement_mode,
+            ambition_platformer2d_core::ScreenAxes::new(axis_x, axis_y),
+        )
+        .y
+        < -POSSESS_DOWN_THRESHOLD
+}
+
 /// `Down + Interact` controls possession: **hold ~2s** (with a candidate in
 /// range) to transfer your controller brain onto the nearest non-boss actor;
 /// press it again to release. `Down` is the gravity-resolved descend axis past

@@ -93,7 +93,7 @@ impl LoadingZone {
             }
             LoadingZoneActivation::Door => {
                 format!(
-                    "{}: {} (Interact / double-tap up)",
+                    "{}: {} (Interact / double-tap or hold up)",
                     self.activation.label(),
                     self.name
                 )

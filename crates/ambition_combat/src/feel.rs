@@ -58,6 +58,10 @@ pub struct Platformer2dFeelTuningMonolith {
     pub down_double_tap_window: f32,
     pub up_double_tap_window: f32,
     pub interaction_buffer_time: f32,
+    /// How long Up must be held to count as an interact — the hands-free way
+    /// into a door. Matches the possession hold, which is the game's other
+    /// hold-a-direction gesture.
+    pub interaction_hold_time: f32,
     /// **Hitlag at a reference-strength connect** — the freeze BOTH bodies take
     /// when a strike lands, scaled by how hard it landed.
     ///
@@ -138,6 +142,7 @@ impl Default for Platformer2dFeelTuningMonolith {
             down_double_tap_window: 0.24,
             up_double_tap_window: 0.30,
             interaction_buffer_time: 0.120,
+            interaction_hold_time: 2.0,
             hitlag_time: 0.070,
             reset_flash_time: 0.18,
             edge_transition_cooldown: 0.14,

@@ -998,6 +998,7 @@ impl SnapshotState for crate::brain::SlotInteractionState {
             put_f32(out, gestures.interact_buffer_timer);
             put_bool(out, gestures.double_tap_down_pending);
             put_bool(out, gestures.double_tap_up_pending);
+            put_f32(out, gestures.up_hold_timer);
         }
     }
 
@@ -1014,6 +1015,7 @@ impl SnapshotState for crate::brain::SlotInteractionState {
                     interact_buffer_timer: r.f32()?,
                     double_tap_down_pending: r.bool()?,
                     double_tap_up_pending: r.bool()?,
+                    up_hold_timer: r.f32()?,
                 };
         }
         Some(state)

@@ -146,6 +146,8 @@
 
 
 * Holding up for 2 seconds should be an alternative way of entering a door or interacting with an object.
+  * ✔ SHIPPED 2026-08-22. Two seconds of Up buffers an interact, beside the press and the double-tap; the door prompt says so and the hold matches the possession gesture's length.
+  * ⊙ ⛔ **a warning for whoever tests input next:** `AgentAction::up_pressed` is the rising EDGE, not the level. Re-sending it every tick is a machine-gun double-tap that opens a door in four ticks, and it made the first draft of the regression pass with the feature unwired.
 
 
 * There isn't a quit to title option in the smash menu selection.

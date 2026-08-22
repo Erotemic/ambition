@@ -5,8 +5,8 @@
 //! pins the replacement: invalidity is `None`, and every real slot is left
 //! exactly as it was.
 
-use super::{SlotGestures, SlotInteractionState};
 use super::{PlayerSlot, SlotControls};
+use super::{SlotGestures, SlotInteractionState};
 
 /// A gesture state that is visibly non-default in every slot, so a stray write
 /// anywhere shows up as a difference rather than as a value that happened to
@@ -91,4 +91,57 @@ fn the_last_valid_slot_is_not_a_dumping_ground_for_bad_indices() {
         "a write addressed to a slot that does not exist landed on the last valid \
          participant"
     );
+}
+
+// ── Holding Up as an alternative interact ─────────────────────────────────
+
+const HOLD: f32 = 2.0;
+
+/// Holding Up interacts ONCE, not on every frame after the threshold.
+#[test]
+fn a_sustained_up_hold_interacts_exactly_once() {
+    let mut gestures = SlotGestures::default();
+    let mut fired = 0;
+    for _ in 0..240 {
+        if gestures.held_up_interact(true, 1.0 / 60.0, HOLD) {
+            fired += 1;
+        }
+    }
+    assert_eq!(
+        fired, 1,
+        "four seconds of holding Up opened the door {fired} times"
+    );
+}
+
+/// Letting go restarts the hold — two short holds are not one long one.
+#[test]
+fn releasing_up_restarts_the_hold() {
+    let mut gestures = SlotGestures::default();
+    for _ in 0..100 {
+        assert!(!gestures.held_up_interact(true, 1.0 / 60.0, HOLD));
+    }
+    assert!(!gestures.held_up_interact(false, 1.0 / 60.0, HOLD));
+    for _ in 0..100 {
+        assert!(
+            !gestures.held_up_interact(true, 1.0 / 60.0, HOLD),
+            "the second hold resumed the first instead of starting over"
+        );
+    }
+}
+
+/// The hold survives the wire: it is rollback state like every other timer here.
+#[test]
+fn the_up_hold_survives_a_snapshot() {
+    let mut state = SlotInteractionState::default();
+    let slot = PlayerSlot(2);
+    state
+        .get_mut(slot)
+        .expect("slot 2 is valid")
+        .held_up_interact(true, 1.5, HOLD);
+
+    let bytes = ambition_platformer2d_core::snapshot::encode_state(&state);
+    let restored =
+        ambition_platformer2d_core::snapshot::decode_state::<SlotInteractionState>(&bytes)
+            .expect("the encoding decodes");
+    assert_eq!(restored.get(slot).up_hold_timer, 1.5);
 }

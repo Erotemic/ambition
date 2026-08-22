@@ -3870,6 +3870,59 @@ this measurement produces — nothing in the monolith would notice them leaving:
   of its own — ⛔ check that destination's stated contract first, which is the
   rule D136 yields.
 
+⭐⭐⭐ **THE MONOLITH MEASURED TO THREE LEVELS — 2026-08-22, and it names the
+subject this row has never had.** The row asks for current dependency
+measurements; here is the whole tree, by production lines:
+
+```text
+module              lines   out→sibling modules      module              lines
+features           44,940   441 refs / 20 modules    projectile          2,253
+character_runtime  13,983    84 / 11                 encounter           2,183
+avatar              7,783   172 /  9                 dev                 2,006
+construction        5,895   232 /  5                 character_sprites   1,828
+items               5,482    87 / 13                 control             1,676
+world               5,145    50 /  9                 audio               1,377
+abilities           5,109   156 / 12                 enemy_projectile    1,278
+session             3,252    94 / 12                 body_mode             875
+schedule            2,551    12 /  5                 time                  821
+```
+
+⇒ **`features` is 45% of the crate, and `features/ecs` is 79% of THAT** — 35,417
+lines, 22,879 of them production, across 45 children. Its mass is two domains:
+
+```text
+features/ecs/…      prod    features/ecs/…      prod
+actors/            3,271    damage_apply       1,396
+spawn_actors       2,607    bosses/            1,214
+spawn/             2,326    brain_builders     1,082
+damage/            2,016    perception           754
+actor_clusters     1,622    mount/               641
+```
+
+⇒ ~15,500 of 22,879 in eight children, clustering as **SPAWN** and **DAMAGE**.
+
+⭐⭐ **AND THE DAMAGE FAMILY'S COUPLING IS RE-EXPORT LAUNDERING TOO — the same
+finding as `body_mode` and `time_control`, now at scale.** `damage/` +
+`damage_apply` + `damage_drops` is 3,788 production lines naming
+`crate::features` 94 times and `crate::combat` 72 times. Resolved:
+
+```text
+crate::combat            = `pub use ambition_combat as combat`  ⇒ not monolith at all
+crate::actor             = a 182-line re-export shell (5 `pub use ambition_*`, 1 own item)
+crate::features::MotionModel / ActorSurfaceState   → ambition_platformer2d_core
+crate::features::ActorFaction / BossBehaviorProfile → ambition_characters
+crate::features::ActorStimulus / HitKnockback       → ambition_combat / core
+crate::features::ecs (41 of the 94)                 → intra-family paths, not coupling
+```
+
+⇒ **the monolith's biggest domain is held by far less than its reference counts
+suggest**, and the residue is small and nameable (`banter`,
+`damageable_volumes`, `BossVolumeContext`, `BossAnimationFrameSample`,
+`ActorAggression`). ⛔ **so stop pricing carves from `crate::` counts on this
+crate entirely** — three modules measured this way in one day and all three were
+mostly laundering. Resolve every name to its defining crate first; the count that
+matters is the one left over.
+
 ⭐⭐ **`body_mode` MEASURED, AND ITS COUPLING WAS RE-EXPORT LAUNDERING — 2026-08-22.**
 The table above prices `body_mode` at 8 outbound `crate::` references. Reading
 what those 8 references NAME: 11 of the 12 symbols already live outside the

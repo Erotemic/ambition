@@ -93,7 +93,16 @@ impl Plugin for PlayerSchedulePlugin {
             (
                 // Input timers and interaction consume the `WorldTime` snapshot refreshed at the
                 // head of this schedule, then feed the normal input routing window.
-                ambition_platformer2d_actor_monolith::control::input_timer_system
+                // THREE systems, one set. They share the refreshed `WorldTime` and
+                // nothing else -- a room cooldown, the home body's reaction
+                // timers, and each seat's direction gestures have different
+                // owners. `InputTimersAdvanced` is what the sandbox reset orders
+                // against, so it stays the dependency whatever it contains.
+                (
+                    ambition_platformer2d_actor_monolith::control::tick_room_transition_cooldown,
+                    ambition_platformer2d_actor_monolith::control::tick_home_body_reaction_timers,
+                    ambition_platformer2d_actor_monolith::control::derive_slot_direction_gestures,
+                )
                     .in_set(ambition_platformer2d_actor_monolith::control::InputTimersAdvanced)
                     .run_if(gameplay_allowed)
                     .after(ambition_time::refresh_world_time)

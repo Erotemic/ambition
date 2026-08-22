@@ -9,39 +9,84 @@
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-/// The set [`input_timer_system`] runs in — this tick's input timers advance.
+/// The set this tick's input timers advance in.
 ///
 /// A reset that must be seen by the timers (the app's player-reset input) lands
 /// before it.
 ///
-///  ONE member, nested inside `PlayerInputSet::Device`. The parent also holds
-/// the slot publish and the frame commit, both of which the reset must NOT
-/// precede — it needs to beat the timer decrement, not the whole device phase.
+/// Nested inside `PlayerInputSet::Device`. The parent also holds the slot
+/// publish and the frame commit, both of which the reset must NOT precede — it
+/// needs to beat the timer decrement, not the whole device phase.
+///
+/// ⭐ THE SET IS THE DEPENDENCY, not any one system in it. It held one member
+/// for a while, and the sandbox reset's `.before(..)` was written against that
+/// member's NAME. Depending on the set instead is what let that member become
+/// three without touching the reset.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct InputTimersAdvanced;
 
-/// Tick per-frame gameplay timers and publish the primary controller's slot
-/// gestures from the local device.
+/// Decay the cooldown that keeps a body from re-entering the door it just used.
 ///
-/// Two concerns, deliberately separated by ownership:
-/// - Home-body reaction timers (`hitstun` / `hitstop` / `damage-invuln` /
-///   `recoil`): the home/player body isn't in the actor tick, so it ticks its OWN
-///   reaction timers here. This is the home body's own state, NOT authority over the
-///   controlled subject — a possessed actor ticks its own timers in the actor path.
-/// - Slot gestures (double-tap down/up): derived from each seat's row of
-///   `SlotControls` into `SlotInteractionState`, for EVERY slot. Body mode /
-///   interaction consume that (keyed by the acting body's slot), never a
-///   per-body component.
+/// A whole-world timer with one owner, sharing nothing with the two systems
+/// below but the clock.
+pub fn tick_room_transition_cooldown(
+    world_time: Res<ambition_time::WorldTime>,
+    mut sim_state: ResMut<crate::RoomTransitionCooldown>,
+) {
+    sim_state.remaining = (sim_state.remaining - world_time.wall_dt()).max(0.0);
+}
+
+/// Decay the home body's own reaction timers (`hitstun` / `hitstop` /
+/// `damage-invuln` / `recoil`).
+///
+/// The home/player body is not in the actor tick, so it ticks its OWN timers
+/// here. This is the home body's state, NOT authority over the controlled
+/// subject — a possessed actor ticks its own timers in the actor path. Every
+/// player body iterates, so a co-op or clone body ticks its own.
+///
+/// ⭐ i-frames are a promise to the PLAYER in real seconds — a bullet-time
+/// moment must not hand out longer invulnerability — which is the same reason
+/// the double-tap windows below are unscaled. What was once wrong here is the
+/// WAIVER, not the clock: the `Res<Time>` allowlist entry for this file claimed
+/// "the reaction timers still compute their own scaled dt manually", and no such
+/// scaling exists or should.
+pub fn tick_home_body_reaction_timers(
+    world_time: Res<ambition_time::WorldTime>,
+    mut home_feel_q: Query<
+        &mut ambition_characters::actor::BodyCombat,
+        With<crate::actor::PlayerEntity>,
+    >,
+) {
+    //  ONE decay, called — not a fourth spelling of it (AC3.3). Two lists for
+    // one rule, disagreeing in both directions.
+    let frame_dt = world_time.wall_dt();
+    for mut combat in &mut home_feel_q {
+        combat.decay_reaction_timers(frame_dt);
+    }
+}
+
+/// Derive each seat's DIRECTION gestures — double-tap down (fast-fall) and
+/// double-tap up (doors) — from that seat's own input row.
+///
+/// Derived from each seat's row of `SlotControls` into `SlotInteractionState`,
+/// for EVERY slot. Body mode / interaction consume that keyed by the acting
+/// body's slot, never a per-body component.
 ///
 /// The host registers this with `run_if(gameplay_allowed)` so it only runs in
-/// `GameMode::Playing`. Writes `fast_fall_pressed` back into each seat's row of
-/// `SlotControls`.
+/// `GameMode::Playing`. Writes `fast_fall_pressed` back into each seat's row.
 ///
 ///  it is NOT in `InputSet::Route` any more, and that is by the set's own
 /// definition: Route is every system that writes the global `ControlFrame`,
 /// and nothing in this file holds that resource now. It runs after the
 /// publication boundary instead, on the table the bodies actually read.
-pub fn input_timer_system(
+///
+/// ⛔ THIS WAS ONE SYSTEM WITH THE TWO ABOVE, at thirteen parameters and
+/// climbing. They share a clock and nothing else: a room cooldown, a body's
+/// reaction timers, and a seat's gesture history have different owners and
+/// different reasons to run. This repo has reached Bevy's parameter ceiling
+/// before and answered it by packing unrelated resources into tuples; splitting
+/// on the ownership seam is the answer that does not end there.
+pub fn derive_slot_direction_gestures(
     // ⭐ the UNSCALED SIM step, by its name. These windows are a promise to the
     // player in real seconds, and `WorldTime::wall_dt` is exactly that value —
     // the same number `Res<Time>` gave here, with the authority stated. Ordered
@@ -55,7 +100,6 @@ pub fn input_timer_system(
     frames: Query<&crate::physics::ResolvedMotionFrame>,
     primary_q: Query<Entity, crate::actor::PrimaryPlayerOnly>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
-    mut sim_state: ResMut<crate::RoomTransitionCooldown>,
     //  the SLOT TABLE, not the global frame. The derivation refines the
     // frame each body is about to read, and every body reads its own slot.
     mut slots: ResMut<ambition_characters::control::SlotControls>,
@@ -71,29 +115,9 @@ pub fn input_timer_system(
     latches: Option<Res<ambition_characters::control::SlotControlLatches>>,
     rollback: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
     mut slot_gestures: ResMut<ambition_characters::control::SlotInteractionState>,
-    // Home/player bodies tick their OWN reaction timers here (they aren't in the
-    // actor tick). Iterates every player body so a co-op / clone body ticks its own.
-    mut home_feel_q: Query<
-        &mut ambition_characters::actor::BodyCombat,
-        With<crate::actor::PlayerEntity>,
-    >,
 ) {
     let frame_dt = world_time.wall_dt();
     let feel = *feel_tuning;
-    sim_state.remaining = (sim_state.remaining - frame_dt).max(0.0);
-    //  ONE decay, called — not a fourth spelling of it (AC3.3). Two lists for one rule,
-    // disagreeing in both directions.
-    //
-    //  i-frames are a promise to the PLAYER in real seconds — a bullet-time
-    // moment must not hand out longer invulnerability — which is the same
-    // reason the double-tap windows below are unscaled.
-    //
-    //  what WAS wrong is the waiver, not the clock. The `Res<Time>` allowlist entry for
-    // this file claimed *"the reaction timers still compute their own scaled dt manually"*, and
-    // no such scaling exists or should.
-    for mut combat in &mut home_feel_q {
-        combat.decay_reaction_timers(frame_dt);
-    }
     let movement_mode = user_settings
         .as_deref()
         .map_or(ae::InputFrameMode::DEFAULT_MOVEMENT, |s| {
@@ -173,7 +197,7 @@ pub struct InteractionInputBuffered;
 /// Fold explicit Interact, double-tap Up, and held Up into each controller slot's
 /// buffered interaction, gated by gameplay state and the driven body's hit stun.
 pub fn interaction_input_system(
-    // Unscaled sim step — see `input_timer_system`.
+    // Unscaled sim step — see `derive_slot_direction_gestures`.
     world_time: Res<ambition_time::WorldTime>,
     feel_tuning: Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>,
     // Proposal-side input for this frame; confirmed simulation input is in `slots`.
@@ -273,7 +297,7 @@ pub fn interaction_input_system(
 /// gameplay. Owns: real-time decay of `hit_flash`, `preset_flash`,
 /// `slash_anim_timer`, `blink_in_timer`, `camera_snap_timer`. New
 /// presentation-flash timers belong here; gameplay timers belong in
-/// `input_timer_system`.
+/// `derive_slot_direction_gestures`.
 pub fn cleanup_timers_system(
     time: Res<Time>,
     mut dev_state: ResMut<ambition_dev_tools::DeveloperRuntimeState>,
@@ -291,7 +315,8 @@ pub fn cleanup_timers_system(
         return;
     };
     //  `hit_flash` is NOT decayed here any more (AC3.3). It is a body-generic
-    // reaction timer and it decays with the rest of them in `input_timer_system`,
+    // reaction timer and it decays with the rest of them in
+    // `tick_home_body_reaction_timers`,
     // which iterates every `PlayerEntity` rather than the home avatar alone —
     // this system's query could not see a second player body at all.
     dev_state.preset_flash = (dev_state.preset_flash - frame_dt).max(0.0);
@@ -323,7 +348,6 @@ mod per_seat_gesture_tests {
         let mut app = App::new();
         app.insert_resource(Time::<()>::default());
         app.insert_resource(Platformer2dFeelTuningMonolith::default());
-        app.init_resource::<crate::RoomTransitionCooldown>();
         app.init_resource::<SlotInteractionState>();
         app.init_resource::<SlotControls>();
         app.init_resource::<SeatRawFrames>();
@@ -331,7 +355,7 @@ mod per_seat_gesture_tests {
             app.world_mut().spawn(DrivingParticipant(PlayerSlot(slot)));
         }
         app.init_resource::<ambition_time::WorldTime>();
-        app.add_systems(Update, input_timer_system);
+        app.add_systems(Update, derive_slot_direction_gestures);
 
         // A tap arms the window; the second tap inside it IS the double-tap. Both
         // seats press on the same two frames, which is the couch case.
@@ -377,7 +401,6 @@ mod per_seat_gesture_tests {
         let mut app = App::new();
         app.insert_resource(Time::<()>::default());
         app.insert_resource(Platformer2dFeelTuningMonolith::default());
-        app.init_resource::<crate::RoomTransitionCooldown>();
         app.init_resource::<SlotInteractionState>();
         app.init_resource::<SlotControls>();
         app.init_resource::<SeatRawFrames>();
@@ -385,7 +408,7 @@ mod per_seat_gesture_tests {
             app.world_mut().spawn(DrivingParticipant(PlayerSlot(slot)));
         }
         app.init_resource::<ambition_time::WorldTime>();
-        app.add_systems(Update, input_timer_system);
+        app.add_systems(Update, derive_slot_direction_gestures);
 
         let tap = ControlFrame {
             down_pressed: true,

@@ -210,7 +210,7 @@ impl Plugin for RoomReplaySchedulePlugin {
                 .in_set(RoomReplayApplied)
                 .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
                 .after(ambition_dev_tools::DevEditApplySet)
-                // EXACTLY equivalent to the `.before(input_timer_system)` this
+                // EXACTLY equivalent to the `.before(InputTimersAdvanced)` this
                 // replaces, not merely stricter: that system is the FIRST element
                 // of the tuple that gets `.chain().in_set(PlayerInputSet::Device)`,
                 // so being before it is being before all of Device.

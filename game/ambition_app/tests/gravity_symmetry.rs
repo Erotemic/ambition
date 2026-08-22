@@ -245,7 +245,7 @@ fn drop_through_one_way_is_gravity_symmetric_full_app() {
 // NOTE: fast-fall's gravity-relativity has two parts, both verified outside this
 // flaky room: (a) the engine fast-fall accel already projects onto `gravity_dir`
 // (it was always gravity-aware); (b) the NEW piece is the double-tap EDGE flip in
-// `input_timer_system` (screen-down tap normally, screen-up tap past ±90°). A
+// `derive_slot_direction_gestures` (screen-down tap normally, screen-up tap past ±90°). A
 // harness test here is flaky because the player can't stay airborne long enough
 // under inverted gravity in `central_hub_complex` (it falls into the ceiling, and
 // grounding clears `fast_falling` the same frame). The edge-flip is a direct

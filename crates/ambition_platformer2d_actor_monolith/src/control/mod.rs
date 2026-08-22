@@ -16,7 +16,8 @@ pub use acting::ActingParticipant;
 pub use authority::{project_driving_participant, DrivingParticipant};
 pub use components::{LocalPlayer, PlayerSlot};
 pub use input_systems::{
-    cleanup_timers_system, input_timer_system, interaction_input_system, InputTimersAdvanced,
+    cleanup_timers_system, derive_slot_direction_gestures, interaction_input_system,
+    tick_home_body_reaction_timers, tick_room_transition_cooldown, InputTimersAdvanced,
     InteractionInputBuffered,
 };
 pub use queries::{

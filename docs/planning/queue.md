@@ -372,74 +372,53 @@ chase 18   item (208.0, 280.4)    body (201.1302, 400.0)
 chase 54   item (235.5, 272.5)    body (201.1302, 400.0)   ← unchanged
 ```
 
-⇒ **she is stopped dead just short of the block, on the floor at y=400** — the
-same standstill D182 records from the other direction, and by the same unknown
-mechanism. ⛔ it is NOT a step in the terrain: 1-1's collision layer is flat at
-`surface_y = 416` across x=160..272, and at the pinned pose her box overlaps
-zero blocks.
+⇒ **her x does not change across the chase**, which looked like a standstill and
+is not: a body at that pose walks and jumps normally (see D182's differential).
+What the chase actually shows is that she never gains the height to follow, and
+D182 records the head contact at that spot failing to register at all.
 
-⇒ **so D181 and D182 are ONE defect seen twice**: a body at x≈200-208 under
-that block cannot move, however it got there. ⛔ do NOT "fix" the test by
-teaching it to jump — that would assert a game nobody can play, and it would
-hide the standstill.
+⇒ **so D181 and D182 are probably ONE defect seen twice**: a head contact under
+that block not registering. ⛔ do NOT "fix" the test by teaching it to jump onto
+the block — that would assert a game nobody can play.
 
-⭐ **next step, and it is a measurement**: the ground profile is already ruled
-out, so instrument what the movement kernel is told at that pose — the proposed
-delta, the sweep result and the ground/wall facts — for x=208 against x=508. One
-of them differs and that difference is the bug.
+⭐ **next step is D182's probe**, since both rows now point at the same head
+contact.
 
 ⭐ the sibling defect in the same area is FIXED and is the reason this one is
 now visible — see D182.
 
-- ◐ **D182 — A BODY SET DOWN UNDER 1-1's FIRST ?-BLOCK IS INERT, AND WHY IS
-  STILL UNKNOWN.** (found 2026-08-22; the test is fixed, the mechanism is not)
+- ◐ **D182 — A BODY SET DOWN UNDER 1-1's FIRST ?-BLOCK RISES THROUGH IT WITHOUT
+  STRIKING IT.** (2026-08-22; the test is fixed, the mechanism is not)
 
-`two_rooms::she_crosses_wearing_the_form_she_earned` had been red long enough to
-read as background. The body was grounded, at rest, correctly seated, in
-`Playing`, with the jump arriving in `SlotControls[PRIMARY]` — and did not move
-for 200 frames.
+`two_rooms::she_crosses_wearing_the_form_she_earned` was long red. It is green
+now because the fixture DROPS her in and lets her land instead of setting her
+down at her own resting height. The fix is verified both ways; the mechanism is
+not understood, and this row exists so the next reader does not inherit a story.
 
-⭐ **the eliminations are the durable output**, because every one of them looked
-like the answer:
-
-```text
-seat            DrivingParticipant(PlayerSlot(0)) present      ✖
-game mode       Playing                                        ✖
-session roots   exactly 1, so no skipped Single                ✖
-control holds   none; hitstun 0.0                              ✖
-ground state    on_ground = true, vel = ZERO                   ✖
-input arrival   jump_pressed/held true in the slot             ✖
-movement kernel a core repro of a flush transit WALKS FINE     ✖
-```
-
-⇒ **the discriminator is the x, not the y.** Placed under the block she is
-pinned; placed 300px to the right at the SAME height she walks immediately.
-
-⛔⛔ **AND THE FIRST EXPLANATION OF THAT WAS WRONG — I committed it, then
-measured it false.** I wrote that the ground under the block is higher and she
-was inserted INSIDE the terrain. Two measurements refute it:
+⛔⛔ **I PUBLISHED TWO WRONG MECHANISMS FOR THIS BEFORE MEASURING, AND THAT IS
+THE LESSON WORTH MORE THAN THE BUG.** First: *the ground under the block is
+higher and she is embedded in terrain* — the collision layer is flat at
+`surface_y = 416` across x=160..272 and her box overlaps ZERO blocks. Second:
+*she is pinned and cannot move* — a differential probe at the same height,
+x=208 against x=508, holding right and then holding jump:
 
 ```text
-Collision IntGrid, x = 160..272   surface_y = 416 at EVERY column — flat
-her box at the pinned pose        (197.3, 384)..(218.7, 416), overlapping
-                                  0 blocks in RoomGeometry
+dx=0    frame 2   pos 208.0 → 208.109   vel.x 6.56    loco 0.6
+dx=300  frame 2   pos 508.0 → 508.109   vel.x 6.56    loco 0.6
+dx=0    frame 2   y 400 → 393.1         vel.y -412.5  airborne
+dx=300  frame 2   y 400 → 393.1         vel.y -412.5  airborne
 ```
 
-Her feet rest exactly on the surface and she is embedded in nothing. ⇒ **the
-mechanism is still unexplained**, and the honest record is the discriminator
-plus the eliminations, not a story that fits them.
+**Identical.** She walks and jumps the same at both. The "pin" was the two-tick
+input latency read off frames 0–1 of a probe that printed before stepping.
 
-⭐ **the FIX is sound independently of the mechanism**: she is dropped from
-`DROP_HEIGHT_PX` above and lands, which is how a player arrives at a spot and
-needs no theory about why that spot is special. ⚠ this is exactly the
-right-number-wrong-sentence trap — the repro was solid and the explanation
-attached to it was invented.
-
-⚠ **the engine is NOT at fault and the new kernel regression says so** —
-`a_body_transited_flush_with_the_ground_can_still_walk` transits a body to
-exactly its own resting pose and walks it. It passes, and it is worth keeping:
-`transit_body` is the authority behind respawns, room placement and portal
-exits.
+⇒ **what IS measured, and all that is:** with the flush placement the run fails
+at `head_best = 288.2` — the block spans y 288..320, so her head rises THROUGH
+its whole span without a strike registering. With the drop-in placement the same
+head contact strikes and pays. ⭐ **the open question is why a landed body bonks
+and a set-down body passes through**, and the next probe is the head-contact arm
+itself (`ContactSource::Block`, the `BonkOnly` mirror) at both placements — not
+another theory about geometry.
 
 - ▢ **D180 — THE PRESENTATION/AUTHORITY BOUNDARY AND THE IDENTITY VOCABULARY.**
   (found 2026-08-21, by GPT review of `f3b4b83a1`)

@@ -175,12 +175,10 @@ impl Plugin for PlayerSchedulePlugin {
                 // a warp may not rewrite the axes until the interact press has
                 // been buffered against the UNWARPED ones.
                 //
-                // ⇒ finishing D175 means moving BOTH into the device window
-                // beside the producer, which is a `SlotGestures` split (window
-                // timers are device-clock state like the latch; the pending flags
-                // and the interact buffer are sim state a rollback must restore).
-                // Named here so the next reader finds the constraint rather than
-                // the cycle.
+                // ⛔ **these belong in the SIM schedule, not the device window.**
+                // They derive from confirmed input and `SlotInteractionState`,
+                // which is canonical rollback state, on a clock the rollback host
+                // rewinds. `Update` is where the wall clock lives.
                 ambition_platformer2d_actor_monolith::control::input_timer_system
                     .in_set(ambition_platformer2d_actor_monolith::control::InputTimersAdvanced)
                     .run_if(gameplay_allowed)

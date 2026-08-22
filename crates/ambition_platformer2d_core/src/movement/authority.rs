@@ -195,22 +195,13 @@ pub fn constrain_body_pose(
     kinematics.vel = vel;
 }
 
-/// **THE FROZEN TICK: what may still change a body the kernel is about to step
-/// with `dt == 0`.**
+/// **THE FROZEN TICK** — the fifth authority: what may change a body the kernel
+/// is about to step with `dt == 0`, where nothing integrates and nothing sweeps.
 ///
-/// ⭐ **a fifth authority, and it earned the name rather than a waiver.** Two
-/// production sites wrote `kinematics` directly here and the policy called both
-/// leaks — correctly, by the shape of the check. They are not leaks, and they
-/// are not ordinary integration either: the kernel IS invoked immediately after,
-/// with a zero step, so nothing integrates what these set. They state what the
-/// frozen body starts from.
-///
-/// Clear the body's velocity because it has left play.
-///
-/// ⚠ **cleared rather than merely frozen, and that is deliberate**: the window
-/// ends in a respawn or a level reset, and a retained velocity would be spent
-/// the instant the body came back. Idempotent, so it is safe to re-run under
-/// rollback re-simulation.
+/// Clear the body's velocity because it has left play. Cleared rather than
+/// frozen: the window ends in a respawn or reset, and a retained velocity would
+/// be spent the instant the body came back. Idempotent, so a rollback may re-run
+/// it.
 pub fn halt_body(kinematics: &mut crate::body_clusters::BodyKinematics) {
     kinematics.vel = Vec2::ZERO;
 }
@@ -222,14 +213,44 @@ pub fn halt_body(kinematics: &mut crate::body_clusters::BodyKinematics) {
 /// still stopped. Its offensive twin, DI, rides the launch the same freeze
 /// precedes.
 ///
-/// ⚠ **a POSE write, because `dt` is about to be zero and nothing will integrate
-/// a velocity.** The shift is small and bounded (pixels per tick), so the
-/// kernel's own contact correction resolves it out the near face on the next
-/// moving tick — which is also the honest answer to *can I SDI through a wall*:
-/// no.
-pub fn shift_frozen_body(kinematics: &mut crate::body_clusters::BodyKinematics, shift: Vec2) {
-    kinematics.pos += shift;
+/// A pose write, and a SWEPT one: the frozen tick calls the kernel with
+/// `dt == 0` and the kernel returns before its collision pass, so this is the
+/// only place the displacement meets the world. An unswept shift lets a body
+/// walk into or through geometry over a hitlag window.
+pub fn shift_frozen_body(
+    world: &crate::World,
+    kinematics: &mut crate::body_clusters::BodyKinematics,
+    gravity_dir: Vec2,
+    shift: Vec2,
+) {
+    if shift == Vec2::ZERO {
+        return;
+    }
+    let body = kinematics.aabb_oriented(gravity_dir);
+    // Only FULL solids stop a frozen nudge. One-way and bonk-only blocks are
+    // directional by definition — a body standing on a platform may still SDI
+    // sideways along it — and a blink wall is solid to a body that is not
+    // blinking.
+    let blocked = world.first_body_sweep(body, shift, |block| {
+        matches!(
+            block.kind,
+            crate::BlockKind::Solid | crate::BlockKind::BlinkWall { .. }
+        )
+    });
+    let allowed = match blocked {
+        // Stop just short of the face rather than exactly on it, so the next
+        // moving tick starts outside the block and its own sweep has a path to
+        // resolve rather than a zero-length one from inside.
+        Some(hit) => shift * (hit.time_of_impact - SKIN).max(0.0),
+        None => shift,
+    };
+    kinematics.pos += allowed;
 }
+
+/// How far short of a contact face a frozen shift stops, in units of the
+/// requested displacement. Small enough not to be seen, large enough that the
+/// body is outside the block when the next tick sweeps.
+const SKIN: f32 = 1.0e-3;
 
 #[cfg(test)]
 mod tests {
@@ -253,6 +274,120 @@ mod tests {
         assert_eq!(kin.vel, Vec2::ZERO, "and it is idempotent under a rewind");
     }
 
+    /// A wall whose NEAR FACE is at `wall_x` — `Block::solid` takes min + size,
+    /// so the face a body approaches from the left is the min.
+    fn walled_world(wall_x: f32, thickness: f32) -> crate::World {
+        crate::World::new(
+            "frozen_shift",
+            Vec2::new(2000.0, 1000.0),
+            Vec2::new(100.0, 100.0),
+            vec![crate::Block::solid(
+                "wall",
+                Vec2::new(wall_x, 0.0),
+                Vec2::new(thickness, 1000.0),
+            )],
+        )
+    }
+
+    fn body_at(x: f32) -> crate::body_clusters::BodyKinematics {
+        crate::body_clusters::BodyKinematics {
+            pos: Vec2::new(x, 500.0),
+            size: Vec2::new(20.0, 40.0),
+            ..Default::default()
+        }
+    }
+
+    /// **SDI MAY NOT ENTER A WALL.**
+    ///
+    /// ⛔⛔ **it could, and the comment claiming otherwise was the tell.** This
+    /// authority was a bare `pos +=` whose doc said the kernel's own contact
+    /// correction would resolve the overlap on the next moving tick. It cannot:
+    /// the frozen tick calls `step_motion` with `dt == 0`, and the kernel returns
+    /// before it sweeps anything. Nothing ever saw the displacement.
+    #[test]
+    fn a_frozen_shift_stops_at_a_wall_instead_of_entering_it() {
+        let world = walled_world(600.0, 40.0);
+        let wall_near_face = 600.0;
+        let mut kin = body_at(wall_near_face - 10.0 - 3.0);
+        let before = kin.pos.x;
+
+        shift_frozen_body(&world, &mut kin, Vec2::new(0.0, 1.0), Vec2::new(8.0, 0.0));
+
+        assert!(
+            kin.pos.x > before,
+            "the shift moved nothing ({before} -> {}), so this proves nothing \
+             about where it stopped",
+            kin.pos.x
+        );
+        assert!(
+            kin.pos.x + 10.0 <= wall_near_face,
+            "SDI put the body's right edge at {}, past the wall face at \
+             {wall_near_face} — a frozen displacement is not exempt from the world",
+            kin.pos.x + 10.0
+        );
+    }
+
+    /// **AND IT MAY NOT CROSS A THIN ONE.** The tunnelling case: a wall thinner
+    /// than the requested shift is exactly what an unswept `pos +=` steps over.
+    #[test]
+    fn a_frozen_shift_cannot_tunnel_a_thin_wall() {
+        let world = walled_world(600.0, 4.0);
+        let mut kin = body_at(600.0 - 10.0 - 1.0);
+
+        shift_frozen_body(&world, &mut kin, Vec2::new(0.0, 1.0), Vec2::new(40.0, 0.0));
+
+        assert!(
+            kin.pos.x + 10.0 <= 600.0,
+            "the body ended at {} with its right edge past a 4px wall it should \
+             have hit — the shift crossed the geometry without sweeping it",
+            kin.pos.x
+        );
+    }
+
+    /// **REPEATED HITLAG TICKS DO NOT ACCUMULATE THROUGH IT EITHER.** One tick
+    /// stopping short is not the claim; a hitlag window is many ticks long.
+    #[test]
+    fn many_frozen_shifts_never_add_up_to_entering_the_wall() {
+        let world = walled_world(600.0, 40.0);
+        let wall_near_face = 600.0;
+        let mut kin = body_at(500.0);
+
+        for _ in 0..60 {
+            shift_frozen_body(&world, &mut kin, Vec2::new(0.0, 1.0), Vec2::new(3.0, 0.0));
+        }
+
+        assert!(
+            kin.pos.x + 10.0 <= wall_near_face,
+            "sixty 3px SDI ticks put the body's edge at {}, past the face at \
+             {wall_near_face}",
+            kin.pos.x + 10.0
+        );
+        assert!(
+            kin.pos.x > 500.0,
+            "the body never advanced at all, so the bound above is vacuous"
+        );
+    }
+
+    /// **AND UNDER SIDEWAYS GRAVITY the body's box is oriented before it sweeps.**
+    /// The frame is not decoration here: an oriented body is 40 wide rather than
+    /// 20, so a shift that fits under down-gravity does not under wall-gravity.
+    #[test]
+    fn a_frozen_shift_sweeps_the_oriented_box() {
+        let world = walled_world(600.0, 40.0);
+        let mut kin = body_at(560.0);
+        let sideways = Vec2::new(1.0, 0.0);
+
+        shift_frozen_body(&world, &mut kin, sideways, Vec2::new(30.0, 0.0));
+
+        let half_width = kin.aabb_oriented(sideways).max.x - kin.pos.x;
+        assert!(
+            kin.pos.x + half_width <= 600.0 + 1.0e-3,
+            "the oriented body ({half_width} half-width) ended overlapping the \
+             wall at {}",
+            kin.pos.x
+        );
+    }
+
     #[test]
     fn a_frozen_shift_moves_the_pose_and_leaves_the_velocity_alone() {
         let mut kin = crate::body_clusters::BodyKinematics {
@@ -260,7 +395,8 @@ mod tests {
             vel: Vec2::new(300.0, -120.0),
             ..Default::default()
         };
-        shift_frozen_body(&mut kin, Vec2::new(-2.0, 0.5));
+        let open = crate::World::new("open", Vec2::splat(2000.0), Vec2::splat(100.0), Vec::new());
+        shift_frozen_body(&open, &mut kin, Vec2::new(0.0, 1.0), Vec2::new(-2.0, 0.5));
         assert_eq!(kin.pos, Vec2::new(8.0, 20.5));
         assert_eq!(
             kin.vel,

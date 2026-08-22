@@ -385,6 +385,32 @@ optimising anything that touches this room.
   2026-07-31). Better still, don't poll — a backgrounded command reports its
   exit. Details in the recipe linked above.
 
+## Comments
+
+**Concise, substantive, and unlikely to go stale** (Jon, 2026-08-22 — comments
+had become "excessive and unprofessional"). Every comment earns its lines or is
+deleted; trim overlong ones whenever you pass through a file, as ordinary work
+rather than a campaign.
+
+What belongs where:
+
+| production source | the invariant that holds now, who owns it, a non-obvious ordering reason, what breaks if violated |
+| test | the concrete regression scenario |
+| commit message / `docs/planning` | investigation history, measurements, failed theories, dates, quotes, review provenance |
+
+- **Do not narrate the past in source.** Dates, ticket ids, "this used to be…",
+  which tests went red, who suggested it. A historical explanation outlives the
+  architecture it describes, and the next reader treats a confident stale
+  sentence as current and "corrects" working code back toward it.
+- **Do not argue with the comment you replaced.** State the rule that holds.
+- **Do not restate the code.** If a line's comment is its own signature in
+  prose, delete the comment.
+- **Keep a warning that names a non-obvious invariant** — the trap, the
+  consequence, one line. That is substance, not history.
+- Comments are read by agents on every pass, so length is a recurring cost: a
+  small function must not need several hundred tokens of prose before its
+  contract is reachable.
+
 ## Push what you commit
 
 **Always push to GitHub when credentials exist** (Jon, 2026-08-11). A long

@@ -1206,7 +1206,7 @@ fn walk_a_pair(
                     contact: crate::movement::BodyContactField::moving(
                         &blockers,
                         1.0,
-                        snapshot[which].velocity,
+                        snapshot[which].entry_velocity,
                     ),
                 },
             );

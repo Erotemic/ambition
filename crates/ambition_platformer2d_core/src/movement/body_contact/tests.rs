@@ -25,9 +25,15 @@ fn closing(center_x: f32, center_y: f32, speed: f32) -> BodyContactBlocker {
 }
 
 /// **A FIELD FOR A MOVER PROPOSING `delta_along`, whose velocity and step
-/// AGREE.** Production always hands the constraint a pair that agrees —
-/// `delta_along` IS `vel * dt` — and `dt` is `1.0` throughout this file, so the
-/// two numbers are the same one.
+/// AGREE.** `dt` is `1.0` throughout this file, so the two numbers are the same
+/// one.
+///
+/// ⚠ **that agreement is this FIXTURE's, not production's.** The snapshot is
+/// sampled before any controller runs, so a body starting, stopping or reversing
+/// this tick carries an ENTRY velocity that did not produce the step being
+/// constrained. What the fixture must not do is claim a stationary body is
+/// proposing motion — see below — but neither should it be read as saying
+/// production always agrees.
 ///
 /// ⛔⛔ **there is no way to build a field here that claims a stationary body is
 /// proposing motion, and that is deliberate.** The constructor that did

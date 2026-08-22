@@ -179,7 +179,7 @@ impl BodyContactSnapshot {
         ambition_platformer2d_core::movement::BodyContactField::moving(
             out,
             resistance,
-            own.velocity,
+            own.entry_velocity,
         )
     }
 }

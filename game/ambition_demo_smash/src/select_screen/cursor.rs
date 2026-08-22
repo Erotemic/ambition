@@ -238,12 +238,32 @@ pub struct SelectCursors {
 }
 
 impl SelectCursors {
+    /// ⛔ **an out-of-range seat is a bug, not a neighbour.** A seat is an
+    /// identity; clamping it hands one person another's cursor and surfaces
+    /// downstream as UI weirdness. Loud in debug, survivable in release — the
+    /// shape `body_driving_seat` uses for its own invariant.
+    fn checked(seat: usize) -> usize {
+        debug_assert!(
+            seat < crate::select::MAX_SMASH_SEATS,
+            "seat {seat} is out of range ({} seats): an input seat is an \
+             IDENTITY, and clamping it hands one person another's cursor",
+            crate::select::MAX_SMASH_SEATS,
+        );
+        if seat >= crate::select::MAX_SMASH_SEATS {
+            bevy::log::error!(
+                "select cursor asked for seat {seat} of {}; using the last seat",
+                crate::select::MAX_SMASH_SEATS,
+            );
+        }
+        seat.min(crate::select::MAX_SMASH_SEATS - 1)
+    }
+
     pub fn seat(&self, seat: usize) -> &SelectCursor {
-        &self.seats[seat.min(crate::select::MAX_SMASH_SEATS - 1)]
+        &self.seats[Self::checked(seat)]
     }
 
     pub fn seat_mut(&mut self, seat: usize) -> &mut SelectCursor {
-        &mut self.seats[seat.min(crate::select::MAX_SMASH_SEATS - 1)]
+        &mut self.seats[Self::checked(seat)]
     }
 
     /// Every seat's cursor, in seat order — the order a reader must draw and

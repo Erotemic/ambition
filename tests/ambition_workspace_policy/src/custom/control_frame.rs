@@ -71,9 +71,6 @@ enum Bridge {
     SlotToFrame,
     /// frame ↔ an adapter's intent struct, in the input phase.
     IntentBridge,
-    /// A SIM system reading the device frame, slot-0-only by design — a named
-    /// multiplayer TODO.
-    Slot0Gesture,
 }
 
 #[derive(Debug, Deserialize)]
@@ -380,14 +377,6 @@ pub fn allowlist_is_justified() {
             a.func,
             a.bridge
         );
-        if a.bridge == Bridge::Slot0Gesture {
-            assert!(
-                a.why.contains("MULTIPLAYER TODO"),
-                "{}::{} is a Slot0Gesture; its reason must open with MULTIPLAYER TODO so N1 can grep it",
-                a.file,
-                a.func
-            );
-        }
     }
 }
 

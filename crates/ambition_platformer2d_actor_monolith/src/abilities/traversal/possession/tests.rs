@@ -16,7 +16,7 @@ fn vec2(x: f32, y: f32) -> ambition_platformer2d_core::Vec2 {
 /// App with the trigger + 1s/frame real time, so 2 held frames clear the 2s hold.
 fn trigger_app() -> App {
     let mut app = App::new();
-    app.insert_resource(ambition_input::ControlFrame::default());
+    app.init_resource::<ambition_characters::brain::SlotControls>();
     app.insert_resource(ambition_time::WorldTime {
         raw_dt: 1.0,
         scaled_dt: 1.0,
@@ -96,11 +96,14 @@ fn faction_of(app: &App, e: Entity) -> ActorFaction {
 }
 
 fn hold_down_interact(app: &mut App, held: bool) {
-    let mut control = app
+    let slot = ambition_characters::brain::PlayerSlot::PRIMARY;
+    let mut slots = app
         .world_mut()
-        .resource_mut::<ambition_input::ControlFrame>();
-    control.axis_y = if held { 1.0 } else { 0.0 };
-    control.interact_held = held;
+        .resource_mut::<ambition_characters::brain::SlotControls>();
+    let mut frame = slots.get(slot);
+    frame.axis_y = if held { 1.0 } else { 0.0 };
+    frame.interact_held = held;
+    slots.set(slot, frame);
 }
 
 #[test]

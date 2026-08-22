@@ -34,31 +34,36 @@ use crate::{Aabb, AabbExt};
 pub struct BodyContactBlocker {
     /// Where this body is, in the common pre-integration snapshot.
     pub aabb: Aabb,
-    /// **How fast it was travelling in that same snapshot** — the evidence that
-    /// it is coming the other way, and the only thing that lets a mover tell
-    /// "the gap is mine to spend" from "we are both spending it".
+    /// **How fast it was travelling as the snapshot was taken** — the evidence
+    /// that it is coming the other way, and the only thing that lets a mover
+    /// tell "the gap is mine to spend" from "we are both spending it".
     ///
-    /// ⚠ **its ENTRY velocity, and it is not a proposed step.** The snapshot is
-    /// taken before any body has resolved its controller, so this is last
-    /// tick's answer: exact for a body already walking, and silent about a body
-    /// that is about to start. What makes that safe is that BOTH halves of a
-    /// pair read the same silence, so [`constrain_motion`] can answer it
-    /// symmetrically rather than guess.
-    pub velocity: crate::Vec2,
+    /// ⛔ **ENTRY velocity, and the name says so because it is NOT the step
+    /// being constrained.** The snapshot precedes every controller, so a body
+    /// that starts, stops, accelerates or reverses this tick is described here
+    /// by its previous state. The division is therefore an APPROXIMATION, and a
+    /// conservative one: both halves of a pair read the same stale pair of
+    /// numbers, so their shares still sum to the gap, and a start or a reversal
+    /// costs one tick of approach rather than an overlap. See
+    /// [`constrain_motion`].
+    pub entry_velocity: crate::Vec2,
 }
 
 impl BodyContactBlocker {
-    pub fn new(aabb: Aabb, velocity: crate::Vec2) -> Self {
-        Self { aabb, velocity }
+    pub fn new(aabb: Aabb, entry_velocity: crate::Vec2) -> Self {
+        Self {
+            aabb,
+            entry_velocity,
+        }
     }
 
     /// This body's snapshot speed along one axis, counted only when it points
     /// the way the mover is going — a blocker fleeing is not spending the gap.
     fn approach(&self, horizontal: bool, moving_positive: bool) -> f32 {
         let along = if horizontal {
-            self.velocity.x
+            self.entry_velocity.x
         } else {
-            self.velocity.y
+            self.entry_velocity.y
         };
         // The mover travels `moving_positive`; a blocker CLOSING on it travels
         // the other way.
@@ -85,14 +90,14 @@ pub struct BodyContactField<'a> {
     /// a hard stop, and neither is more correct. `1.0` stops the body at contact;
     /// `0.25` lets it keep a quarter of the motion that would take it deeper.
     pub resistance: f32,
-    /// **THIS body's own velocity in that same snapshot.**
+    /// **THIS body's own ENTRY velocity from that same snapshot.**
     ///
     /// ⛔⛔ **both halves of a pair must divide one gap the same way, and that
     /// is only possible from numbers they both see.** Splitting by each body's
     /// ACTUAL proposed step would have each computing its share from a figure
     /// the other cannot read, and two shares derived from different arithmetic
     /// do not add up to the gap. See [`constrain_motion`].
-    pub own_velocity: crate::Vec2,
+    pub own_entry_velocity: crate::Vec2,
 }
 
 impl<'a> BodyContactField<'a> {
@@ -101,7 +106,7 @@ impl<'a> BodyContactField<'a> {
     pub const NONE: Self = Self {
         blockers: &[],
         resistance: 0.0,
-        own_velocity: crate::Vec2::ZERO,
+        own_entry_velocity: crate::Vec2::ZERO,
     };
 
     /// **THE FIELD A BODY IS RESOLVED AGAINST**: who is in its way, how hard
@@ -119,12 +124,12 @@ impl<'a> BodyContactField<'a> {
     pub fn moving(
         blockers: &'a [BodyContactBlocker],
         resistance: f32,
-        own_velocity: crate::Vec2,
+        own_entry_velocity: crate::Vec2,
     ) -> Self {
         Self {
             blockers,
             resistance,
-            own_velocity,
+            own_entry_velocity,
         }
     }
 
@@ -270,9 +275,9 @@ pub fn constrain_motion(
     // This body's own closing speed in the SAME snapshot both halves read.
     let mine = {
         let along = if horizontal {
-            field.own_velocity.x
+            field.own_entry_velocity.x
         } else {
-            field.own_velocity.y
+            field.own_entry_velocity.y
         };
         let toward = if moving_positive { along } else { -along };
         toward.max(0.0) * dt

@@ -128,13 +128,15 @@ impl SlotControls {
 /// other seat had one at all, so the shapers were its by construction and
 /// **player two could not fast-fall** (D175). This is that place, for everybody.
 ///
-/// ⛔⛔ **PRE-LATCH IS NOT A DETAIL, IT IS THE WHOLE PLACEMENT.**
-/// `fast_fall_pressed` is packed into the encoded rollback input, and the
-/// derivation runs on the FEEL clock against frame `dt`. Shaped BEFORE the latch
-/// it is input — every peer receives the same flag. Shaped after publication,
-/// each peer computes it from its own wall clock, which is a desync rather than
-/// a red test. Anything that reads a wall clock and writes a frame belongs here
-/// and nowhere later.
+/// ⛔⛔ **THIS TABLE IS THE PROPOSAL, NOT THE AGREEMENT.** A stage whose input is
+/// the local device or a wall clock belongs here, before the latch and before any
+/// peer has agreed to anything.
+///
+/// ⚠ **a stage that derives from CONFIRMED input does not.** `fast_fall_pressed`
+/// is derived in the sim schedule from `SlotInteractionState`, which is canonical
+/// rollback state, on a clock the rollback host rewinds; moving it here would put
+/// it on the wall clock. `seat_frame_this_tick` decides which table a stage
+/// reads.
 ///
 /// ⚠ **not the same table as [`SlotControls`], and merging them would undo
 /// this.** `SlotControls` is what the simulation READS — confirmed, post-latch,

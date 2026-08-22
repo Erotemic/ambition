@@ -160,8 +160,8 @@ pub fn holding_descend(
 /// [`POSSESS_DOWN_THRESHOLD`]. The hold runs on real time (`raw_dt`) so
 /// bullet-time doesn't change the feel.
 ///
-/// The gesture belongs to slot 0, so it reads the local device frame
-/// (`Res<ControlFrame>`) directly rather than any body's input — the home avatar
+/// The gesture belongs to slot 0, so it reads that seat's published frame
+/// (`SlotControls[PRIMARY]`) rather than any body's input — the home avatar
 /// is inert (neutral input) while vacated, but the local device still drives the
 /// release.
 ///
@@ -175,7 +175,7 @@ pub fn holding_descend(
 /// it is deferred rather than hidden.
 #[allow(clippy::too_many_arguments)]
 pub fn possession_trigger_system(
-    control: Res<ambition_input::ControlFrame>,
+    slots: Res<ambition_characters::brain::SlotControls>,
     controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
     frames: Query<&crate::physics::ResolvedMotionFrame>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
@@ -230,6 +230,10 @@ pub fn possession_trigger_system(
         ambition_platformer2d_core::InputFrameMode::DEFAULT_MOVEMENT,
         |s| s.gameplay.resolved_movement_frame_mode(),
     );
+    // The acting seat's published frame. Possession is primary-seat by GAMEPLAY
+    // POLICY; naming the slot keeps that policy the only thing holding it to one
+    // seat, rather than the global output mirror.
+    let control = slots.get(ambition_characters::brain::PlayerSlot::PRIMARY);
     let down = holding_descend(control.axis_x, control.axis_y, gravity_dir, movement_mode);
     // The gesture is a HOLD, so it accumulates on the interact button being
     // HELD — not the single-frame `interact_pressed` edge (which doors / the

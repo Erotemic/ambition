@@ -91,12 +91,12 @@ pub fn step_body(
         // one is still stopped. Its offensive twin, DI, already rides the launch
         // this same freeze precedes.
         //
-        // ⚠ **through the FROZEN-TICK authority, not a bare field write.** Both
-        // of this function's writes were authority leaks by the policy's own
-        // measure and neither was one; naming them is what made the difference
-        // sayable — see `movement::authority`.
+        // ⛔ **swept, because this tick's `step_motion` will not sweep it** —
+        // `dt` is zeroed below and the kernel returns before its collision pass.
         ae::movement::shift_frozen_body(
+            ctx.world,
             clusters.kinematics,
+            ctx.frame.down(),
             ae::hit_response::smash_di_shift(
                 ctx.input.axes.vec(),
                 ctx.frame.down(),

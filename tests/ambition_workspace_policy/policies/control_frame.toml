@@ -75,7 +75,7 @@ path = "game/ambition_content"
 scope = "game"
 
 # ── the justified global-ControlFrame holders ─────────────────────────────────
-# bridge ∈ { device-to-frame, latch, slot-to-frame, intent-bridge, slot0-gesture }
+# bridge ∈ { device-to-frame, latch, slot-to-frame, intent-bridge }
 
 [[allow]]
 file = "crates/ambition_platformer2d_rollback_ggrs/src/session.rs"
@@ -88,12 +88,6 @@ file = "crates/ambition_platformer2d_rollback_ggrs/src/session.rs"
 func = "report_input_written_to_the_wrong_seam"
 bridge = "device-to-frame"
 why = "READS it as EVIDENCE, routes nothing. This rule exists because a sim holder is silently slot-0-only and so breaks possession and co-op; this system does not route input to anybody — it compares ControlFrame against PendingLocalInput to detect a consumer writing the seam a GGRS host does not read, which is silently discarded today. It is the diagnostic FOR this rule's failure mode one layer down, and it cannot do its job without holding the resource it is reporting on."
-
-[[allow]]
-file = "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/possession.rs"
-func = "possession_trigger_system"
-bridge = "slot0-gesture"
-why = "MULTIPLAYER TODO (N1). A SIM system reading the device frame directly. The possession gesture (hold Down+Interact ~2s) is authored as slot 0's, which makes possession local-player-only: a second player could never possess anything. The fix is to read SlotInteractionState/SlotControls for the acting slot, exactly as interaction_input_system already does. Left as-is because rewriting the gesture is a behavior change, not a refactor; enumerated here so N1 has a checklist entry instead of a surprise."
 
 [[allow]]
 file = "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs"

@@ -15,11 +15,8 @@ use bevy::prelude::*;
 
 use crate::fx::FxId;
 
-// The kernel, not the platformer. This crate takes `Vec2`, `Aabb`,
-// `CombatVolume` and `VolumeShape` — shapes and boxes, nothing with a
-// genre in it — and used to reach them through
-// `ambition_platformer2d_core`, which made a presentation-neutral VFX
-// vocabulary declare a platformer dependency it did not have.
+// VFX depends on generic geometry only; the message vocabulary has no
+// platformer dependency.
 use ambition_geometry as ae;
 
 /// Particle flavour for a [`VfxMessage::Burst`].
@@ -63,9 +60,7 @@ pub struct HitBurst {
 }
 
 impl HitBurst {
-    /// The red shard spray a damaged body throws — historically the player's
-    /// "you got hurt" burst, now the reusable solid-hit spray any body's
-    /// reaction can claim.
+    /// Reusable red shard spray for a solid body hit.
     pub const HURT: Self = Self {
         count: 14,
         speed: 300.0,
@@ -216,11 +211,8 @@ pub enum VfxMessage {
     },
     /// **A coin popping out of a struck block.**
     ///
-    /// Jon, on the multi-coin block: *"It just visually pops out a coin when you
-    /// jump up into it. It's not a real coin entity, just a vfx and your coin
-    /// count directly goes up by 1."* The wallet is credited by the block's own
-    /// payout; this draws the acknowledgement and nothing else — one coin that
-    /// rises and falls, never something a body can collect or collide with.
+    /// The block credits the wallet separately; this only draws the coin pop and
+    /// never creates a collectible or collidable entity.
     ///
     /// ⭐ its own variant rather than a one-particle `Burst`, because a burst
     /// fans its particles around a circle: a single one leaves at whatever angle
@@ -238,10 +230,8 @@ pub enum VfxMessage {
         pos: ae::Vec2,
         fx: FxId,
         scale: f32,
-        /// ⭐ **added by D154, and every construction site had to answer it** —
-        /// which is the point. An emitter that draws unrotated says
-        /// [`FxPose::UPRIGHT`] out loud instead of inheriting the world's
-        /// orientation by omission.
+        /// Explicit orientation; use [`FxPose::UPRIGHT`] when no mirroring or
+        /// rotation is intended.
         pose: FxPose,
     },
     BlinkEffects {
@@ -257,22 +247,14 @@ pub enum VfxMessage {
     /// presentation matches the move's real strike silhouette instead of
     /// rotating one generic arc for every attack.
     ///
-    /// ⚠ This carried `center` + a single `size: f32` until 2026-08-01, and the
-    /// renderer splatted that scalar into a SQUARE. The emit site had the
-    /// strike's convex hull in hand and reduced it to its bounding box, then to
-    /// that box's longer side, then doubled it — so the drawn quad had no
-    /// relation to the swing's shape and could not be fitted to it by any
-    /// amount of work on the art side. See [`ae::SwingShape`].
+    /// Preserve the swing shape through the message so presentation can fit the
+    /// effect to the actual strike geometry. See [`ae::SwingShape`].
     Slash {
         /// The swing, in the STRIKING BODY'S frame — origin relative to the
         /// attacker, not to the world.
         ///
-        /// ⚠ It was world-space, and a melee effect placed in the world stays
-        /// where it was placed. The damage box does not: it is
-        /// `HitboxAnchor::FollowOwner` and re-resolves from the owner every
-        /// tick. So for the 100ms a swing is live, a moving attacker's hitbox
-        /// tracked the body while the drawn blade stayed behind — and attacking
-        /// while running is the common case, not an edge one.
+        /// Owner-local so presentation can follow the body for the full swing,
+        /// matching the hitbox's owner anchoring.
         shape: ae::SwingShape,
         /// Who is swinging. Presentation re-places the effect on this body every
         /// frame, which is the same anchoring rule the hitbox already uses.
@@ -300,21 +282,10 @@ pub enum VfxMessage {
 /// effect's own sound is a property of the NAME and presentation resolves it —
 /// there is nothing for a caller to remember. Set `sfx` only to say something
 /// other than what the art already says.
-/// **HOW an effect is oriented, in the frame of whatever asked for it.**
-///
-/// ⛔⛔ **authored move effects were HALF body-local, and that is why this
-/// exists** (D154). `build_move_events` mirrors an authored `at` by the move's
-/// committed facing and rotates it into the owner's gravity frame — so the
-/// effect appeared in exactly the right PLACE — and then the artwork was drawn
-/// with the world's own orientation regardless. A left-facing fighter's
-/// `air_slice` landed at the correct left-hand spot pointing right.
-///
-/// ⭐ **the two fields are the two authorities the POSITION already used**, and
-/// deliberately not a third: a pose derived from anywhere else can disagree with
-/// the offset it decorates.
-///
-/// [`Self::UPRIGHT`] is the identity and the default, so an emitter that has no
-/// opinion — a hazard, a pickup, a bomb — draws exactly as it always did.
+/// Effect orientation in the emitter's frame. Mirroring follows committed
+/// facing and rotation follows the owner's gravity frame, matching the
+/// authorities used to place authored effect offsets. [`Self::UPRIGHT`] is the
+/// identity/default pose.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct FxPose {
     /// Mirror horizontally: the move's committed facing pointed left.
@@ -349,18 +320,9 @@ pub struct FxRequest {
     pub scale: f32,
     /// Play THIS cue instead of the effect's own paired one.
     pub sfx: Option<ambition_sfx::SfxId>,
-    /// **WHOSE effect this is**, for the same reason every other sound carries
-    /// it: a seat's cues belong to that seat.
-    ///
-    /// ⭐ **added so authored MOVE effects can come through here at all** (D149).
-    /// `dispatch_move_events` already scopes its `Sfx` arm by the event's
-    /// `presentation_source` and writes `VfxMessage::Effect` directly for its
-    /// `Vfx` arm — going around the pairing this type exists to provide. It
-    /// could not route through here while this dropped the scoping on the floor,
-    /// so the fix to the pairing had to start by teaching this the question.
-    ///
-    /// [`PresentationSourceId::unscoped`] is the default and means what it
-    /// always did: the active context's primary source decides.
+    /// Presentation source that owns the effect and its paired audio.
+    /// [`PresentationSourceId::unscoped`] delegates to the active context's
+    /// primary source.
     pub source: ambition_sfx::PresentationSourceId,
     /// How the art is oriented — see [`FxPose`]. [`FxPose::UPRIGHT`] by default.
     pub pose: FxPose,

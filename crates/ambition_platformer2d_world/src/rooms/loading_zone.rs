@@ -1,7 +1,4 @@
 //! Loading zones — activation rules + readiness.
-//!
-//! Split out of the former 823-line `rooms/mod.rs` (2026-06-15); the
-//! parent re-exports every type so `rooms::*` paths are unchanged.
 
 use ambition_platformer2d_core as ae;
 
@@ -27,27 +24,9 @@ pub enum LoadingZoneActivation {
 }
 
 impl LoadingZoneActivation {
-    /// **THE AUTHORED SPELLING → THIS ENUM, and the ONE place that mapping
-    /// lives.** `None` means the author wrote something this engine does not
-    /// support.
-    ///
-    /// ⛔⛔ **it returns `Option` because the two call sites it replaced both
-    /// GUESSED.** The LDtk converter matched `"EdgeExit"`, `"Walk" | "walk"`,
-    /// and `_ => Door` — so every typo silently became an interact door. A zone
-    /// an author meant as walk-off-the-edge then needs a button press, which
-    /// reads to a player as *"I cannot get out of this room by walking"*, and
-    /// nothing anywhere said a word. The validator had its own second copy of
-    /// the token set (`== "EdgeExit"`), free to disagree with the converter.
-    ///
-    /// ⚠ **the field is FREE TEXT, which is why this matters.** LDtk types
-    /// `LoadingZone.activation` as `String` with default `"Door"`, not as an
-    /// enum, so an author spells it from memory with no list to pick from. That
-    /// is also why the shipped worlds read 127 `Door` / 24 `EdgeExit` / 0
-    /// `Walk`: `Door` is the default and everything else must be typed exactly.
-    ///
-    /// ⚠ **case tolerance is deliberately UNIFORM now.** The old match accepted
-    /// `"walk"` but not `"edgeexit"` — one variant forgiving, its sibling not,
-    /// for no reason anybody authored.
+    /// Canonical parser for authored activation strings. Returns `None` for an
+    /// unsupported token so validation can report it instead of guessing a
+    /// fallback. Matching is case-insensitive for all variants.
     pub fn from_authored(text: &str) -> Option<Self> {
         match text.trim().to_ascii_lowercase().as_str() {
             "door" => Some(Self::Door),

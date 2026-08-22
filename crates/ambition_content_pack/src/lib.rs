@@ -14,24 +14,10 @@
 //! PreparedContentPack
 //! ```
 //!
-//! ## Why this exists
+//! Adding or editing ordinary content must not require rebuilding Rust.
 //!
-//! Adding or editing ordinary content should not require rebuilding Rust.
-//! Before this crate, Ambition's content reached the runtime through
-//! `include_str!` and its validator was a fixed-arity function over three
-//! hardcoded content families with one `#[cfg(test)]` caller. Both are fine
-//! shapes for a shipped binary; neither is a shape an author can iterate in.
-//!
-//! ADR 0032's public facade already named `ContentPackDraft` as its next slice
-//! and deferred it *"because nothing can yet validate it"*. This is that
-//! validator.
-//!
-//! ## The one implementation rule
-//!
-//! [`compile`] is the ONLY validator. The standard test, CI, the CLI,
-//! development reload, and packaging all call it. A second implementation —
-//! "the quick check the CLI does" — is how a pack passes one gate and fails
-//! another, and the two disagreeing is worse than either being wrong.
+//! [`compile`] is the single validation implementation used by tests, CI, the
+//! CLI, development reload, and packaging.
 //!
 //! ## Foundations only
 //!
@@ -277,7 +263,7 @@ pub fn compile(
     // has no runtime representation — "validated and then ignored", which is the
     // one thing a content compiler must not certify. `AuthoringOnly` is the way
     // to say a schema deliberately reaches no runtime, and saying it explicitly
-    // is the point. (GPT 5.6 review, finding 2.)
+    // is the point.
     for schema in schemas.keys() {
         let Some(registration) = registry.get(schema) else {
             continue;
@@ -311,10 +297,8 @@ pub fn compile(
     // `canonical_bytes` is built from `define`d rows, so a schema that lowers a
     // runtime artifact and declares no content contributes NOTHING to the
     // fingerprint: its authored values can change the running game while the
-    // pack reports the same identity. That defeats every use the fingerprint
-    // has — cache invalidation, packaging, session compatibility, and telling
-    // two peers apart. `encounter_waves` shipped exactly that shape for five
-    // commits (GPT 5.6 review of `1a05b98`, finding 1).
+    // pack reports the same identity. That defeats cache invalidation, packaging,
+    // session compatibility, and peer-content comparison.
     //
     // ⚠ this checks the LINK, not the CONTENT of the canonical form. A handler
     // can still define a row whose canonical string omits the field it lowered,
@@ -391,14 +375,11 @@ pub fn compile(
     //
     // ⛔ **NEVER last-wins.** Overwriting silently means the content INDEX knows
     // about both sources while the runtime artifact holds only the last one —
-    // validation and the running game seeing different content, which is the
-    // exact split this compiler exists to close. (GPT 5.6 review, finding 3.)
+    // validation and the running game seeing different content.
     //
-    // So a schema lowered by several sources must SAY how its fragments
-    // combine, because only it knows whether two of them union, override, or
-    // conflict. A generic merge here would be the compiler guessing. What
-    // changed on 2026-08-04 is that saying so is now possible: before, refusal
-    // was the whole contract and nine boss encounters had to be AuthoringOnly.
+    // A schema lowered by several sources must define how its fragments combine,
+    // because only it knows whether they union, override, or conflict. A generic
+    // merge here would make the compiler guess.
     let mut lowered: BTreeMap<SchemaId, std::sync::Arc<dyn std::any::Any + Send + Sync>> =
         BTreeMap::new();
     let mut aggregation_failures: Vec<Diagnostic> = Vec::new();

@@ -6,15 +6,9 @@
 //! baked [`RonRoomSource`] docs appended beside them, and the entry room a
 //! fresh session starts in.
 //!
-//! ⭐ **it is an asset catalog, not an authoring format's vocabulary.** It
-//! lived in `ambition_platformer2d_ldtk` until 2026-08-16 and named nothing
-//! from that crate — every field is `AssetId`, a path, a `&'static str` or a
-//! bool, and its `ron_rooms` field already pointed at THIS crate's
-//! [`RonRoomSource`]. A format adapter reads a manifest; it does not own one.
-//! Sitting in the LDtk crate is what made `ambition_platformer2d`'s own LDtk
-//! dependency unconditional — `game_assets` takes a `WorldManifest` in an
-//! ungated public signature — so a movement-only game linked an authoring
-//! backend to say which files it ships.
+//! This is an asset catalog, not an authoring-format vocabulary. Format adapters
+//! read a manifest; none owns it, and consumers can use the manifest without
+//! depending on a particular world backend.
 //!
 //! **There is no install seam and no process global.** A manifest is an
 //! ordinary owned value that boot preparation constructs and hands to every

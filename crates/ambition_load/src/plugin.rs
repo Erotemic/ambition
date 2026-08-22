@@ -103,11 +103,8 @@ impl Plugin for AmbitionLoadPlugin {
     /// conditional. Whether an app crashed therefore depended on which groups it
     /// composed and in what order — an unwritten rule enforced by a hard panic.
     ///
-    /// Both in-repo demos were edited when the ownership moved. The external
-    /// consumer fixture, outside the workspace and invisible to a repo grep, was
-    /// not: it sat red until somebody read the panic (Phase-6 leak, restated by
-    /// the 2026-07-27 presentation audit). An engine a stranger composes cannot
-    /// have composition rules that are only discoverable by crashing.
+    /// Duplicate composition must not depend on plugin-group ordering or fail with
+    /// Bevy's duplicate-plugin panic.
     ///
     /// So the plugin is not unique and `build` is idempotent. The guard is a
     /// marker resource rather than `is_plugin_added::<Self>()`, because Bevy has

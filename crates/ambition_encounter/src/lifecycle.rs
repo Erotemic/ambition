@@ -1,23 +1,12 @@
-//! The ONE encounter lifecycle authority (E8/E9).
+//! Generic encounter lifecycle authority.
 //!
-//! Every encounter entity — a wave arena, a boss wrap, a signal-driven puzzle —
-//! carries an [`EncounterLifecycle`] and moves through the same generic phases:
-//! `Inactive → Starting → Active → Completed | Failed`. Transitions come from
-//! exactly two places:
+//! Every encounter uses the same `Inactive → Starting → Active → Completed |
+//! Failed` state machine. Adapters request transitions through
+//! [`EncounterCommand`]; while active, generic objectives evaluate participants,
+//! elapsed time, and received signals. Adapters do not mutate phases directly.
 //!
-//! 1. **Commands** ([`EncounterCommand`], the generic ingress): adapters — the
-//!    wave trigger, the boss wrap, content — request `Start`, `Complete`,
-//!    `Fail`, `Signal`, or `Reset`. No adapter mutates the phase directly.
-//! 2. **Objectives** ([`EncounterObjective`](crate::EncounterObjective),
-//!    evaluated by the reducer): while `Active`, the win (and optional fail)
-//!    objective is evaluated against participants, elapsed time, and received
-//!    signals. Completion is a generic decision, never wave- or boss-specific
-//!    code.
-//!
-//! The reducer ([`EncounterLifecycle::reduce`]) is pure and headless-testable;
-//! [`reduce_encounter_lifecycles`] is its one ECS registration (in
-//! [`EncounterLifecycleSet`], ordered by the runtime after the adapters that
-//! refresh participant liveness and emit commands).
+//! [`EncounterLifecycle::reduce`] is the pure reducer and
+//! [`reduce_encounter_lifecycles`] is its ECS registration.
 
 use std::collections::BTreeSet;
 

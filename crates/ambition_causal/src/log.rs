@@ -208,29 +208,11 @@ impl CausalLog {
         self.facts.iter()
     }
 
-    /// **Why did this subject change on this tick?**
+    /// Explain the latest execution for `subject` on `tick`, including global facts.
     ///
-    /// Everything about `subject` on `tick`, plus facts on that tick with no
-    /// subject at all — a session rebase or a rules change is about the world
-    /// and still explains a body.
-    ///
-    /// ⛔ **ONE execution, never a merge of several.** A tick number is not
-    /// unique: frames restart at zero on every session, so generation 1 tick 20
-    /// and generation 2 tick 20 are different moments; and under a rollback host
-    /// the same tick runs ORIGINALLY and then again as resimulation. Merging
-    /// those into one chain would mislabel the explanation and make
-    /// "was this original or a replay?" — a required question — unanswerable.
-    /// (GPT 5.6 review, finding 6.)
-    ///
-    /// This returns the LATEST execution recorded for that tick, which is what
-    /// an investigation almost always wants. [`Self::explanations`] returns
-    /// every one, and it is the call to reach for when the question is about the
-    /// rewind itself.
-    ///
-    /// ⚠ two resimulations of one tick within one generation still group
-    /// together, because nothing publishes an ATTEMPT counter. Recorded rather
-    /// than hidden: when a domain needs to tell them apart, the counter is what
-    /// it must publish, and `ExecutionKey` is where it lands.
+    /// Generation and original/resimulated execution are distinct keys. Multiple
+    /// resimulations within one generation still group together because no attempt
+    /// counter is recorded; use [`Self::explanations`] to retrieve every keyed execution.
     pub fn explain(&self, tick: u64, subject: &SubjectKey) -> Explanation {
         self.explanations(tick, subject)
             .pop()
@@ -332,7 +314,7 @@ pub struct ExecutionKey {
     /// times inside a generation, and those attempts can produce different
     /// facts — which is exactly when somebody looks. Without this they grouped
     /// into one explanation and the inspector could not say which attempt
-    /// produced a result (GPT 5.6, 2026-08-01, finding 6).
+    /// produced a result
     ///
     /// `0` is the original execution; the host bumps it per rollback.
     pub attempt: u32,

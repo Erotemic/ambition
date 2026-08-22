@@ -38,13 +38,8 @@ pub fn visible_window_start(selected: usize, total: usize, capacity: usize) -> u
 /// **Scroll the window only as far as it must to show `selected`** — the
 /// alternative to recentering, and the one a finger can use.
 ///
-/// ⛔ [`visible_window_start`] is a pure function of `selected`, so it recenters
-/// on EVERY selection change: touch a row, and the list rebuilds around it and
-/// the row you touched moves to a different screen position. On Android, where
-/// a menu press selects before it confirms, the second press then lands on a
-/// NEIGHBOUR — Jon reported exactly this on a Pixel 5 ("users may repeatedly
-/// chase an option as it moves", and the behaviour looks random while being
-/// perfectly deterministic).
+/// Re-centering on every selection change moves a touched row between presses.
+/// Keep the existing window whenever the selected row is already visible.
 ///
 /// This keeps `previous_start` whenever the selection is already visible, and
 /// otherwise moves by the minimum needed to bring it to the near edge. A row

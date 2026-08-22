@@ -10,25 +10,9 @@ use serde::{Deserialize, Serialize};
 
 use ambition_platformer2d_core as ae;
 
-/// **Authored encounter wave timelines, keyed by trigger id — an App RESOURCE.**
+/// App-owned authored encounter wave timelines keyed by trigger id.
 ///
-/// The LDtk adapter asks for an authored multi-wave sequence before falling back
-/// to marker-derived enemy spawns. Keeping the vocabulary here rather than in an
-/// actor-crate facade is unchanged; what changed is WHO OWNS THE VALUE.
-///
-/// ⛔ **it was a process-global `OnceLock` and "first install wins".** A second,
-/// DIFFERENT wave book was swallowed with an error log, so the first provider in
-/// a process defined encounters for every App built after it — two games, or a
-/// game and a tool, silently sharing one game's content. The seam looked
-/// provider-local and was not.
-///
-/// ⭐ **and unlike the item catalog, this one was CHEAP to fix.** That row says
-/// the two are "the same shape" and they are not: `Item::display_name` and its
-/// siblings are methods on a plain enum returning `&'static str` — a borrow only
-/// possible BECAUSE the storage is global — consumed at 59 sites. This book has
-/// ONE reader, it already returns an owned `Vec`, and that reader's production
-/// caller is a Bevy system with a `World` in hand. Measuring the read surface is
-/// what separated them; assuming the shape would have left this one global too.
+/// The LDtk adapter uses these before falling back to marker-derived enemy spawns.
 #[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq)]
 pub struct EncounterWaveBook(pub HashMap<String, Vec<EncounterWaveSpec>>);
 
@@ -45,10 +29,7 @@ pub fn install_encounter_waves(
     app: &mut bevy::prelude::App,
     book: HashMap<String, Vec<EncounterWaveSpec>>,
 ) {
-    // ⭐ **the App owns it now**, so two Apps in one process carry two books and
-    // neither has to win. The loud "a SECOND, DIFFERENT wave book was installed
-    // and was IGNORED" error this replaced was the best a process-global could
-    // do: report the collision it could not avoid.
+    // Each App owns its encounter wave book independently.
     app.insert_resource(EncounterWaveBook(book));
 }
 
@@ -64,63 +45,25 @@ pub fn authored_encounter_waves(
 }
 
 /// One mob to spawn during a wave.
-// ⛔ **`deny_unknown_fields` is the CONTRACT, not a nicety.**
-// `ContentSchemaHandler::check`'s own doc: *"a handler MUST report an authored
-// field it does not consume … rolling your own field walk and forgetting is how
-// a typo becomes a mechanic that silently never fires."* This type had no such
-// guard, and an audit measured the consequence by authoring
-// `favourite_snack: "worms"` into a real file: the pack compiled CLEAN, and the
-// field reached neither the runtime nor the fingerprint. A misspelled tuning
-// value is exactly that shape, and it looks identical to authoring nothing.
+// Refuse unknown authored fields so misspelled mechanics do not disappear during decode.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EncounterMobSpec {
     /// `CharacterBrain::Custom(kind)` payload — **what this mob DOES**, i.e.
     /// which controller its body is driven by.
     ///
-    /// ⛔ **it no longer picks a body** (AC6, 2026-08-13). It named an archetype
-    /// row — `small_skitter`, `medium_striker`, `large_brute` — and those rows,
-    /// the file they lived in and the lookup that read them are deleted. Three
-    /// waves of a shipped goblin fight named `large_brute` against a row that
-    /// had already been removed, the lookup answered the generic `combatant`,
-    /// and nothing failed because a fallback IS a body (ledger D93). The body
-    /// comes from [`Self::character`]; this is the brain key beside it.
+    /// This selects the controller only. The body comes from
+    /// [`Self::character`].
     pub kind: String,
     /// **WHICH CHARACTER THIS MOB IS** — a catalog character id, and the thing
     /// its body is built from.
     ///
-    /// ⭐ **THE MIGRATION THIS DOC PREDICTED HAS HAPPENED** (AC6, 2026-08-13).
-    /// It used to say *"WHAT IT LOOKS LIKE … this field means exactly that and
-    /// no more: the sheet, the sprite-derived collision box, hurt feedback, the
-    /// catalog bark pool, and the display label"*, and closed with *"when it is
-    /// [migrated], this field becomes the character the mob instantiates and
-    /// `kind` stops deciding the body."* That is now the state:
     /// `spawn_encounter_mob` resolves this id against the prepared cast and
-    /// builds the body through `ActorClusterSeed::new_character_in`, one of the
-    /// five production roads onto the single constructor.
+    /// builds the body from that character. A named character that cannot be
+    /// built is an error rather than an archetype fallback.
     ///
-    /// ⛔ **and a wave that names no buildable character REFUSES.** The arm that
-    /// used to fall through to an archetype panics instead — a wave "used to
-    /// fill with generic `combatant` bodies and read as a working encounter",
-    /// which is what cost a shipped goblin fight three waves of real enemies.
-    ///
-    /// ⚠ two stale citations went with the rewrite: this paragraph pointed at an
-    /// `art_identity()` accessor that no longer exists anywhere in the
-    /// workspace, and at an "archetype roster" that `kind` supposedly *"keeps
-    /// answering through"*. A doc that cites a deleted function sends the next
-    /// reader looking for it.
-    ///
-    /// ⭐ **three fields, three questions** — and two of them were one field
-    /// until 2026-08-09. The spawner passed the wave director's minted
-    /// `encounter:<id>:w<n>:<n>` as the actor's name as well as its id, so the
-    /// art lookup asked the catalog for a character called
-    /// `encounter:goblin_encounter:w0:1`, no sheet resolved, and every mob in
-    /// the goblin lab drew the unclaimed-body placeholder.
-    ///
-    /// ⚠ `Option`, and that is not laziness — the same call `EnemySpawnSpec`
-    /// made. An encounter with no entry in the wave book is assembled from its
-    /// level's LDtk `EnemySpawn` markers, so `None` must keep resolving exactly
-    /// as it did.
+    /// `None` is valid because encounters without wave-book entries are assembled
+    /// from the level's authored `EnemySpawn` markers.
     #[serde(default)]
     pub character: Option<String>,
     /// Spawn position in active-area-local coordinates (the mob's
@@ -286,22 +229,7 @@ mod wave_book_tests {
         EncounterWaveBook(map)
     }
 
-    /// **Two Apps in one process carry two different wave books.**
-    ///
-    /// ⛔ **this test could not have been written before.** The book was a
-    /// process-global `OnceLock` whose contract was "first install wins": a
-    /// second, DIFFERENT book was rejected with an error log, so the first
-    /// provider built in a process defined encounters for every App after it.
-    /// Two games, or a game and a tool, in one binary silently shared one game's
-    /// content — and a test binary builds Apps constantly.
-    ///
-    /// ⭐ **and unlike the item catalog, this was CHEAP.** The carried row calls
-    /// them "the same shape" and they are not: `Item::display_name` and its
-    /// siblings are methods on a plain enum returning `&'static str` — a borrow
-    /// only possible BECAUSE the storage is global — consumed at 59 sites. This
-    /// book had ONE reader, already returned an owned `Vec`, and its production
-    /// caller is a Bevy system. Measuring the read surface is what separated
-    /// them; assuming the shape would have left this global too.
+    /// Separate Apps own independent encounter wave books.
     #[test]
     fn two_apps_in_one_process_carry_different_wave_books() {
         let mut first = bevy::prelude::App::new();

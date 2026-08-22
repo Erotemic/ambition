@@ -5,12 +5,6 @@
 //! store is the `OwnedItems` catalog in `ambition_items`; this struct just
 //! tracks where the cursor is in the unified menu's inventory view.
 
-// The legacy adventure-menu UI that consumed the per-entity inventory component
-// markers was deleted in Phase D2; the unified menu reads the data model
-// (`InventoryUiState`) + the `OwnedItems` catalog (`ambition_items`) directly. The
-// dead markers and the legacy 3-kind `ItemKind`/`PlayerInventory` bag were
-// removed once `OwnedItems` became the single item store. What remains is the
-// live menu-navigation state.
 #![allow(dead_code)]
 
 use bevy::prelude::*;

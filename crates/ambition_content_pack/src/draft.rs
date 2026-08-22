@@ -112,20 +112,10 @@ impl ContentPackDraft {
         Self::read_manifest(root, manifest)
     }
 
-    /// A draft from sources already in memory — a shipped binary's
-    /// `include_str!`s, an editor's unsaved buffers, a test's literals.
-    ///
-    /// ⚠ **this is what keeps ONE validator honest across two source origins.**
-    /// A shipped binary genuinely must embed its content (there is no asset
-    /// directory next to a wasm bundle), and a CLI genuinely must read a
-    /// directory. What must NOT differ is the pipeline that judges them — a
-    /// "quick check for the embedded case" is how a pack passes one gate and
-    /// fails the other.
-    ///
-    /// No canonicalisation happens here, so alias collapsing does not apply:
-    /// two embedded sources with one declared path are a caller bug, not a
-    /// filesystem accident, and the duplicate-identity check catches the
-    /// consequence.
+    /// Build a draft from in-memory sources such as embedded content, editor
+    /// buffers, or test literals. These sources enter the same compiler as
+    /// filesystem content. No filesystem canonicalization or alias collapsing
+    /// occurs on this path.
     pub fn from_sources(
         manifest: ContentPackManifest,
         sources: impl IntoIterator<Item = (String, String)>,
@@ -167,15 +157,8 @@ impl ContentPackDraft {
         })
     }
 
-    /// **Read an EMBEDDED pack: the manifest text plus every source's text.**
-    ///
-    /// The shipped-binary road. Every pack owner used to spell this as
-    /// `ron::from_str(MANIFEST).expect("…")` followed by [`Self::from_sources`],
-    /// which had two costs: a malformed manifest PANICKED where every other
-    /// content fault is a diagnostic, and parsing it needed a `ron` dependency
-    /// at the call site — which for a game reaching the compiler through the
-    /// `ambition_platformer2d` facade is a dependency the facade deliberately
-    /// does not re-export.
+    /// Parse an embedded manifest and build a draft from the supplied source
+    /// texts, reporting malformed manifests through normal compiler diagnostics.
     pub fn from_manifest_ron(
         manifest_ron: &str,
         sources: impl IntoIterator<Item = (String, String)>,

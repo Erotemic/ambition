@@ -1,13 +1,7 @@
-//! The log as a Bevy resource.
+//! The causal log as a Bevy resource.
 //!
-//! ⚠ **this is the SOUND way to record from an ECS**, and the thread-local sink
-//! is not: Bevy runs systems across worker threads, so a system publishing
-//! through the sink publishes into nothing (see
-//! [`crate::facts_lost_offthread`]). A system takes `ResMut<CausalRecording>`.
-//!
-//! It lives here rather than in a host crate so that ANY domain can publish
-//! without depending on a host — which is the property that lets an explanation
-//! survive a composition with movement and no combat.
+//! ECS systems should record through `ResMut<CausalRecording>` because the generic
+//! sink is thread-local and Bevy may schedule systems on worker threads.
 
 use bevy_ecs::prelude::Resource;
 
@@ -31,25 +25,10 @@ impl std::ops::DerefMut for CausalRecording {
 }
 
 impl CausalRecording {
-    /// **Lend this log to the calling thread for the duration of `body`**, so
-    /// code that cannot take a resource can still publish soundly.
+    /// Lend this resource's log to the calling thread while `body` runs.
     ///
-    /// The module note above says a system must take `ResMut<CausalRecording>`,
-    /// and that stays true for anything that CAN. This is for the case it
-    /// cannot: a pure library — a brain, a solver, a scoring pass — that a host
-    /// calls from inside a system. Threading a recorder through such a call
-    /// would put the log on the simulation's own signatures, and the repo has
-    /// already refused that once: the movement observer runs AFTER the brain
-    /// tick precisely so "a system that only reads cannot be the thing that
-    /// broke the tick".
-    ///
-    /// So the HOST opens the sink on whichever worker thread it happens to be
-    /// on, the library keeps its plain [`crate::record`] call, and the facts
-    /// land in this resource instead of in nothing.
-    ///
-    /// ⚠ **it is not a license to publish from an ECS system through the
-    /// sink.** A system that could have taken the resource and reached for this
-    /// instead has bought a thread-local swap and lost the compiler's help.
+    /// Use this for pure library code invoked by an ECS system that cannot accept a
+    /// Bevy resource directly. ECS systems themselves should take `ResMut<CausalRecording>`.
     pub fn lend_to_thread<T>(&mut self, body: impl FnOnce() -> T) -> T {
         let lent = std::mem::take(&mut self.0);
         let (returned, value) = crate::with_sink(lent, body);
@@ -63,16 +42,10 @@ mod tests {
     use super::*;
     use crate::{CausalFact, FactDetail, RecordingPolicy, SubjectKey, domains};
 
-    /// **A library that cannot take a resource still publishes into one.**
-    ///
-    /// The case this exists for: a brain, five hops below the ECS, calling
-    /// [`crate::record`]. Without the lend, that write goes to a thread-local
-    /// sink the host never opened — and Bevy runs systems across worker threads,
-    /// so it goes nowhere and [`crate::facts_lost_offthread`] counts it.
+    /// A plain library `record` call lands in a temporarily lent resource log.
     #[test]
     fn a_lent_log_collects_what_a_plain_record_call_publishes() {
-        // Opening a sink is global state; see the lock's docs. This test does
-        // not read the counters, but it MAKES them wrong for anything that does.
+        // Sink state affects process-global diagnostics, so serialize sink tests.
         let _serialised = crate::sink::global_sink_test_lock();
         let mut recording = CausalRecording::default();
         recording.set_policy(RecordingPolicy::only([domains::BRAIN]));
@@ -88,13 +61,7 @@ mod tests {
         });
 
         assert_eq!(returned, "the body's own return value");
-        // ⚠ deliberately NOT asserted here: `facts_lost_offthread()` is a
-        // process-global counter, and `a_fact_published_off_thread_is_counted_
-        // rather_than_vanishing` in `tests.rs` already owns that claim — in
-        // more detail, including that a miss with NO sink open anywhere is the
-        // shipped path and must not inflate it. A second test racing it on the
-        // same global made that one fail (2 where it expected 1), which is the
-        // counter doing its job about the wrong subject.
+        // The process-global off-thread counter is tested separately.
         assert!(
             recording
                 .explain(9, &SubjectKey::Sim("fighter_left".into()))

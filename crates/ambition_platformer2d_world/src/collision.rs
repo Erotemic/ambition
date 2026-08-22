@@ -197,10 +197,9 @@ pub fn world_with_sandbox_solids(
     collision_world
 }
 
-/// The room world with ONLY the portal apertures carved out — no moving-platform
-/// or ECS-overlay solids added. Projectiles historically collided against the raw
-/// room world (they pass through moving platforms); this preserves that exactly
-/// while letting a shot sink into a portal opening and transit.
+/// The room world with only portal apertures carved out. Projectiles do not use
+/// moving-platform or ECS-overlay solids, but must be able to enter portal
+/// openings.
 ///
 /// Returns `Cow::Borrowed(world)` when there are no active carves — the common
 /// case (no body in a portal opening, or no portals at all) — so the per-frame

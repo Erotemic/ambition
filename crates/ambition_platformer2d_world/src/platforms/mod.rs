@@ -265,10 +265,8 @@ enum MovingPlatformMotion {
     },
     /// **A one-way vertical loop — the paternoster / "infinite elevator".**
     ///
-    /// Jon, on Mary-O 1-2: *"moving platforms that move vertically down and up
-    /// like an elevator. When they go OOB (far enough so they are off screen of
-    /// the player in normal gameplay) they can teleport to the top / bottom of
-    /// the screen to make an infinite elevator effect."*
+    /// Moves continuously in one vertical direction and wraps to the opposite
+    /// end instead of reversing.
     ///
     /// ⛔ **it WRAPS where the other two REVERSE**, and that is the whole reason
     /// it is a third variant rather than a `Sweep` with the axis swapped. A
@@ -487,8 +485,7 @@ impl MovingPlatformState {
 
     /// The collision face this platform presents to the world this frame.
     ///
-    /// ⚠ **the `kind` below is not authorable, and the reason is a real open
-    /// question rather than an oversight** (measured D126.4, 2026-08-15). Every
+    /// The `kind` below is not authorable. Every
     /// moving platform is a `BlinkWall{Soft}` — solid on both axes — so a moving
     /// platform cannot be authored ONE-WAY even though `BlockKind::OneWay` is a
     /// first-class kind the shared sweep already resolves for static geometry.
@@ -568,15 +565,6 @@ impl MovingPlatformState {
         self.is_supporting_body(player_box, on_ground, ae::Vec2::new(0.0, 1.0))
     }
 
-    // ⭐ **the ledge-contact matcher moved to `ae::ledge_grab` (K4).** It inverted
-    // `probe_ledge_grab_in_frame`'s anchor/climb formulas from another crate,
-    // which made a copy of the probe's face offsets that nothing kept honest —
-    // and, phrased over a `MovingPlatformState`, it could only be reached by a
-    // caller holding the platform SET. That caller was the home body's
-    // integration, and it is why riding a ledge was the one contact rule an
-    // enemy could not get. The rule now reads the carrying solid's
-    // `Block::velocity` off the collision world like the grounded ride does, so
-    // it needs neither this type nor a platform list.
 }
 
 fn projected_half(half: ae::Vec2, axis: ae::Vec2) -> f32 {
@@ -623,19 +611,9 @@ fn advance_path_position(
         let to_target = target - pos;
         let distance = to_target.length();
         if distance <= 0.001 {
-            // ⛔ **A CURSOR THAT DOES NOT MOVE ENDS THE FRAME, or this spins
-            // forever.** This branch consumes no `remaining`, so it is only safe
-            // while every advance changes where the platform is heading. A
-            // two-point `Loop` path breaks that: `last_segment` is
-            // `len.saturating_sub(2)` = 0, so arriving at the second point
-            // "wraps" to segment 0 — whose target is the point the platform is
-            // already standing on. Zero distance, cursor unchanged, `continue`,
-            // forever. It hung a test binary for five minutes before this guard
-            // existed, and it would have hung the GAME the first time a
-            // two-waypoint looping platform was authored.
-            //
-            // ⚠ this is a TERMINATION guard, not a fix for `Loop` — see the
-            // tests, and queue D12. It makes a broken mode stop instead of hang.
+            // This branch consumes no `remaining`; if advancing leaves the cursor
+            // unchanged, stop rather than spinning forever on a zero-distance
+            // target.
             let before = (*segment, *dir);
             advance_path_segment(path, segment, dir);
             if (*segment, *dir) == before {
@@ -655,12 +633,8 @@ fn advance_path_position(
 
 /// The waypoint a cursor is heading for.
 ///
-/// ⭐ **`Loop` closes the circuit, which is the whole difference between it and
-/// `PingPong`.** A path of `n` points has `n - 1` open segments; a CLOSED one has
-/// `n`, the last of which runs `p[n-1] → p[0]`. Without that wrap-around index
-/// the cursor returned to segment 0 while the POSITION was still at the final
-/// point, so the mover travelled BACKWARDS over the last leg and never revisited
-/// the first — a `Loop` that never looped. (Queue D12.)
+/// `Loop` closes the circuit: a path of `n` points has `n` segments, including
+/// the closing leg `p[n-1] → p[0]`.
 ///
 /// ⚠ reverse (`dir < 0`) is left un-wrapped deliberately: nothing sets a
 /// backwards direction under `Loop` — only `PingPong` flips `dir` — so a modulo

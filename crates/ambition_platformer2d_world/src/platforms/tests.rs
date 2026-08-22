@@ -218,24 +218,11 @@ fn projected_half_for_test(half: ae::Vec2, axis: ae::Vec2) -> f32 {
     half.x * axis.x.abs() + half.y * axis.y.abs()
 }
 
-// ── Looping paths (queue D12) ──────────────────────────────────────────────
+// ── Looping paths ─────────────────────────────────────────────────────────
 
-/// ⛔ **A TWO-POINT `Loop` PATH USED TO HANG THE SIMULATION, and this is how it
-/// was found: the test binary never returned.**
-///
-/// `advance_path_segment` computed `last_segment` as `points.len() - 2`, which is
-/// **0** for two points. Arriving at the second point "wrapped" the cursor to
-/// segment 0 — whose target was the point the platform was already standing on.
-/// Distance zero, cursor unchanged, `continue`, forever, consuming no `dt`.
-///
-/// ⭐ **this is the engine half of Jon's world 1-2** — *"vertical elevator
-/// platforms that wrap when they leave the view"* — and a two-waypoint vertical
-/// `Loop` is exactly how anyone would author it. No shipped content used `Loop`,
-/// which is the only reason a hang sat here unnoticed.
-///
-/// Two guards now stand behind this: `advance_path_position` breaks when an
-/// advance leaves the cursor unmoved (termination, whatever the mode does), and
-/// `Loop` closes its circuit so the cursor genuinely moves.
+/// A two-point `Loop` must keep circulating without stalling on a zero-distance
+/// target. `advance_path_position` terminates if an advance leaves the cursor
+/// unchanged, and loop indexing closes the circuit back to the first point.
 #[test]
 fn a_two_point_looping_path_circulates_instead_of_spinning() {
     let bottom = ae::Vec2::new(0.0, 400.0);
@@ -276,13 +263,8 @@ fn a_two_point_looping_path_circulates_instead_of_spinning() {
     );
 }
 
-/// ⭐ **`Loop` closes the CIRCUIT: `p0 → p1 → p2 → p0`, not a retrace.**
-///
-/// Before D12 the cursor wrapped to segment 0 while the POSITION was still at the
-/// last point, so segment 0's target (`p1`) was reached by travelling BACKWARDS
-/// over the final leg, and the first point was never revisited. A path of `n`
-/// points has `n - 1` open segments and `n` closed ones; the closing leg is what
-/// was missing.
+/// `Loop` closes the circuit as `p0 → p1 → p2 → p0`, rather than retracing the
+/// last open segment.
 ///
 /// ⚠ the tolerance is one FRAME of travel, not a hair: the platform moves in
 /// 10px steps and will step straight past a waypoint rather than land on it. An
@@ -330,9 +312,8 @@ fn loop_mode_closes_the_circuit_back_to_its_first_point() {
 
 /// **A wrapping platform must not fling whoever is standing on it.**
 ///
-/// Jon asked for an infinite elevator: platforms that run one way and teleport
-/// back to the far end rather than reversing. ⛔ **the teleport is a position
-/// change that is NOT a movement**, and `last_delta` is exactly the quantity the
+/// The wrap teleport is a position change, not rider movement. `last_delta` is
+/// exactly the quantity the
 /// per-body tick adds to a rider (`body_integration.rs` reads it for
 /// platform-ride and ledge-carry). Reporting `pos - old` across a wrap hands the
 /// rider the whole span in one frame — the height of the shaft, in one tick, in
@@ -617,14 +598,8 @@ fn authored_motion_fields_classify_to_exactly_one_motion() {
     );
 }
 
-/// **Ambiguous authoring is REFUSED, where it used to be ranked in silence.**
-///
-/// ⛔ the old model read these fields by precedence — path beat loop beat sweep
-/// — so a platform authoring two motions ran one of them and never said which,
-/// and an anchor written without a span was simply dropped. A precedence rule is
-/// invisible from inside LDtk: the author sees a field they filled in and a
-/// platform that ignores it. Each message names the fields, because the message
-/// is the whole diagnostic an author gets.
+/// Ambiguous motion authoring is refused rather than resolved by precedence;
+/// diagnostics name the conflicting fields.
 #[test]
 fn authoring_two_motions_at_once_is_refused_rather_than_ranked() {
     let both = AuthoredPlatformMotion {

@@ -1,11 +1,7 @@
 //! Generic room-object label for debug overlays and editor selection.
 //!
-//! DebugLabel is a sandbox concern — rendering of labels lives in the
-//! Bevy adapter, and the meaning is authored with the room data so
-//! debug overlays, inspectors, and future editor tools share the same
-//! source of truth. (Moved here from the engine when the
-//! former `ambition_engine` workspace crate was collapsed into
-//! `ambition_platformer2d_core` on 2026-05-28.)
+//! Rendering lives in the Bevy adapter; the label meaning stays with authored
+//! room data so debug overlays, inspectors, and editor tools share one source.
 
 use ambition_platformer2d_core::Vec2;
 

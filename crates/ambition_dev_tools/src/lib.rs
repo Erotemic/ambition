@@ -1,7 +1,6 @@
-//! Reusable developer-tooling state + logic (E1d carve out of
-//! `ambition_platformer2d_actor_monolith`).
+//! Reusable developer-tooling state and simulation-side logic.
 //!
-//! Owns the content-free half of the old `dev/` module:
+//! Owns:
 //!
 //! - [`dev_tools`] — the [`DeveloperTools`](dev_tools::DeveloperTools) debug/
 //!   gizmo toggle resource, the reflected editable player-tuning / ability /
@@ -14,13 +13,8 @@
 //! - [`sync_live_player_dev_edits_system`] — the host-scheduled system that
 //!   applies live ability/tuning edits to the player each frame.
 //!
-//! ## What stays elsewhere
-//!
-//! The egui overlay UI (`DevToolsPlugin`, the F3 inspector, fps + debug
-//! overlays, portal inspector) is app-level presentation and stays in
-//! `ambition_app`. The gameplay `trace` recorder samples live sim state
-//! (`player`/`features`/`rooms`/`portal`/`game_mode`) and stays sim-side in
-//! `ambition_platformer2d_actor_monolith::dev::trace`.
+//! Presentation UI remains in `ambition_app`; gameplay tracing remains with the
+//! simulation state it samples.
 
 pub mod dev_tools;
 /// The authored world file's mtime watch + reload status — the state half of
@@ -106,14 +100,8 @@ pub fn sync_live_player_dev_edits_system(
     );
 }
 
-/// Developer/debug state: debug flags and the HUD flash timer.
-///
-/// The keyboard preset index deliberately does NOT live here. It once did, as
-/// a second authority beside `UserSettings.controls.keyboard_preset_index` —
-/// with no writer, so the settings-menu selector was a silent no-op for
-/// keyboard input and HUD glyphs while touch read the real setting. The
-/// persisted setting is the ONE authority; input-owning callers map it through
-/// `ambition_input::KeyboardPreset::by_index`.
+/// Developer/debug state: debug flags and the HUD flash timer. Keyboard preset
+/// selection is owned by persisted user settings, not duplicated here.
 #[derive(Resource)]
 pub struct DeveloperRuntimeState {
     pub debug: bool,

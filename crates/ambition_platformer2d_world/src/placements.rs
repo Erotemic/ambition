@@ -1,14 +1,9 @@
-//! Authored placement RECORDS on the room IR — the [W-b] shape
-//! (decomposition.md, W-track ruling; architecture.md §4b).
+//! Authored placement records on the room IR.
 //!
-//! A record joins the spatial footprint (record-level: `id` + `aabb`, owned
-//! by the space IR) to the CLOSED Tier-0 authored schema
-//! ([`ambition_entity_catalog::placements::PlacementSchema`] — what the
-//! author SAID). Backend converters (LDtk today) parse entities into
-//! records; a lowering registry (W-queue step 3) maps each record → live
-//! entities at room load. This module is the space IR's half only — it
-//! lives in `gameplay_core::world` today and moves whole to
-//! `ambition_platformer2d_world` at W3.
+//! A record joins its spatial footprint (`id` + `aabb`) to the closed authored
+//! [`ambition_entity_catalog::placements::PlacementSchema`]. Backend converters
+//! parse authored entities into records; lowering maps each record to live
+//! entities at room load.
 
 use ambition_platformer2d_core as ae;
 use ambition_entity_catalog::placements::{PlacementKind, PlacementSchema};

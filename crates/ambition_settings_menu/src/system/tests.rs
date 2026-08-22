@@ -221,8 +221,8 @@ fn system_screens_surface_every_player_facing_setting() {
         &RadioSnapshot::default(),
         &DevSnapshot::default(),
     );
-    // Video: the full basic player-facing set (display/camera/accessibility/FPS)
-    // — every row the old pause-menu Video page shows (shaders ride after).
+    // Video exposes the complete player-facing display/camera/accessibility/FPS
+    // set; shader rows follow these basic settings.
     let video = screen_ids(&model, SystemMenuEntryId::Video);
     for id in [
         SettingsOptionId::DisplayMode,

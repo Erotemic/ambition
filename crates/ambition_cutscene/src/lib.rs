@@ -1,14 +1,7 @@
 //! Cutscene scripting primitives.
 //!
-//! A cutscene is an ordered list of timed beats (`CutsceneBeat`) the
-//! sandbox plays back: wait, show a line of dialogue, pan the camera,
-//! fade in/out, set a world flag. Player input is suppressed for the
-//! duration; canceling is allowed (defaulted to "skip" via a button).
-//!
-//! This module is Bevy-free so the same scripts can be tested
-//! deterministically in headless and authored from data. Presentation
-//! lives in the sandbox: rendering the dialogue text, easing the
-//! camera target, drawing the fade overlay.
+//! A cutscene is an ordered list of timed beats. The runtime owns playback
+//! state; presentation consumes its derived dialogue, banner, camera, and fade state.
 
 use std::collections::BTreeMap;
 
@@ -46,53 +39,26 @@ pub enum CutsceneBeat {
 
 /// **Everything a cutscene is SHOWING right now, derived from where it is.**
 ///
-/// ⛔⛔ **this exists because "derived" was a claim nobody implemented.**
-/// `ActiveCutscene` carried four presentation fields, its rollback snapshot
-/// encoded none of them, and the doc said the next simulation tick would
-/// republish. It could not: `CutsceneRuntime::tick` emits `BeatEntered` only
-/// when `elapsed == 0.0`, so a rollback landing MID-BEAT never saw the entry
-/// event again and the banner, the camera target and the fade were gone for the
-/// rest of that beat. (GPT 5.6, review through `32eb27a`, finding 1 — correct.)
-///
-/// ⛔ **and the same shape was visible without any rollback at all.** The fields
-/// were mutated one at a time by whichever beat happened to use them, so a
-/// `CameraPan` following a dialogue set `camera_target` and left
-/// `current_dialogue` standing — the overlay kept showing a line nobody was
-/// saying. (Finding 2.) A projection cannot do that: it is one beat's whole
-/// answer, replaced every tick, so *dialogue from beat 3 during beat 4* stopped
-/// being representable rather than stopping by convention.
-///
-/// ⭐ **it is a pure function of `(script, beat_index, elapsed)`**, which is
-/// exactly the state the snapshot already carries. That is what makes the
-/// snapshot honest rather than lucky.
+/// This projection is a pure function of `(script, beat_index, elapsed)`, the
+/// state already carried by the rollback snapshot. Recomputing the whole
+/// presentation avoids stale fields between beats and restores mid-beat state
+/// without relying on `BeatEntered` firing again.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct CutscenePresentation {
     /// `(speaker, text)` while a dialogue beat is current.
     pub dialogue: Option<(String, String)>,
     /// `(text, seconds_remaining)` while a banner beat is current.
     ///
-    /// ⭐ the countdown is `authored − elapsed`, not a separately ticked timer.
-    /// A timer would be a second authority on the same clock and is precisely
-    /// what could not survive a restore.
+    /// The countdown is `authored - elapsed`; it is not separate state.
     pub banner: Option<(String, f32)>,
     /// Where a camera-pan beat is pointing.
     ///
-    /// ⛔ **NOTHING READS THIS, and `CameraPan` is therefore UNFINISHED.**
-    /// Grepped 2026-08-06: the only `camera_target` in the tree outside this
-    /// file is `ambition_sim_view`'s unrelated `clamp_camera_target`. A
-    /// `CameraPan` beat advances its timer and the camera does not move.
-    /// (GPT 5.6 through `32eb27a`, finding 2 — correct.)
-    ///
-    /// ⚠ **stated here rather than removed**, because the beat is authored in
-    /// scripts and deleting the field would make the projection lie in the other
-    /// direction. What is wrong is claiming it works; a reader looking for why
-    /// their pan does nothing should find this line.
+    /// `CameraPan` is currently incomplete: no presentation consumer reads this
+    /// field, so the beat advances without moving the camera.
     pub camera_target: Option<[f32; 2]>,
     /// The fade a fade beat is holding, `0.0` when no fade beat is current.
     ///
-    /// ⛔ **NOTHING READS THIS EITHER — `Fade` is UNFINISHED.** Same grep, same
-    /// date. The overlay draws dialogue and banners and nothing else, so a fade
-    /// beat is a wait with a number attached.
+    /// `Fade` is currently incomplete: no presentation consumer reads this field.
     pub fade_alpha: f32,
 }
 
@@ -100,9 +66,7 @@ impl CutsceneRuntime {
     /// **What this cutscene is showing, from where it is.** See
     /// [`CutscenePresentation`].
     ///
-    /// ⚠ a FINISHED runtime shows nothing, and so does one whose index has run
-    /// off the end — both are "no beat is current", which is a state the caller
-    /// reaches by advancing rather than by an event it might have missed.
+    /// A finished runtime or an out-of-range beat index has no presentation.
     pub fn presentation(&self) -> CutscenePresentation {
         if self.finished {
             return CutscenePresentation::default();
@@ -287,37 +251,17 @@ pub enum CutsceneEvent {
 
 /// **Which room this trigger last saw — ROLLBACK STATE, not a system local.**
 ///
-/// ⛔ **it was a `Local<Option<String>>`, and Bevy system locals are not
-/// rewound.** The failure is a cutscene that never plays: enter room B, the
-/// local moves A→B and the cutscene is queued; a rollback restores a frame in
-/// room A; the local STAYS at B because nothing rewinds it; resimulation enters
-/// B again and the trigger sees `last_room == B` and emits nothing. With
-/// `ActiveCutscene` restored to its pre-trigger state, the cutscene is skipped
-/// entirely.
-///
-/// ⛔ **and the coverage waiver said the save-game seen flag would deduplicate a
-/// re-fire** — which assumes the trigger re-fires. It cannot deduplicate one
-/// that never happens. (GPT 5.6 through `32eb27a`, finding 3 — correct.)
+/// This must be rollback state: a non-rewound last-room value can suppress the
+/// trigger during resimulation and skip the cutscene entirely.
 #[derive(Resource, Debug, Default, Clone, PartialEq, Eq)]
 pub struct LastCutsceneRoom(pub Option<String>);
 
-/// Live cutscene playback state. `runtime` is `Some` while a cutscene is running.
-///
-/// ⭐ **ONE authoritative field.** `runtime` is the whole state; everything a
-/// consumer draws is [`CutsceneRuntime::presentation`], recomputed from it. The
-/// four presentation fields that used to live here were mutated one at a time by
-/// whichever beat used them and dropped entirely by the rollback snapshot, which
-/// made *"derived, republished next tick"* a claim rather than a mechanism — see
-/// [`CutscenePresentation`] for the two ways that failed.
+/// Live cutscene playback state. `runtime` is authoritative while a cutscene is running;
+/// `presentation` is a cache derived from it.
 #[derive(Resource, Default)]
 pub struct ActiveCutscene {
     pub runtime: Option<CutsceneRuntime>,
-    /// The current beat's whole picture, republished every tick from `runtime`.
-    ///
-    /// ⚠ **stored rather than computed on read for ONE reason**: consumers are
-    /// Bevy systems that take `Res<ActiveCutscene>` and cannot allocate a
-    /// projection per reader per frame. It is a cache of a pure function, and
-    /// the tick that advances `runtime` is the only writer.
+    /// Current presentation, republished each tick from `runtime` for Bevy readers.
     pub presentation: CutscenePresentation,
 }
 
@@ -336,31 +280,17 @@ impl ActiveCutscene {
 /// scripted content.
 pub const SKIP_HOLD_THRESHOLD_SECS: f32 = 1.2;
 
-/// The input layer's advance/skip signal for the active cutscene (kept off the
-/// gameplay `ControlFrame` so the sim half doesn't import keyboard state).
-/// ⭐ **TWO EDGES, and nothing else crosses.** Each field is a decision the
-/// participant made this frame, consumed by the sim with `mem::take`. The
-/// partially-held skip lives in [`CutsceneSkipHold`] instead: it is an
-/// accumulator the INPUT layer keeps and the HUD draws, and the sim never reads
-/// it. Keeping it here made the crossing structure carry presentation state, and
-/// a rewind that ever registered this request would have rewound a half-pressed
-/// button along with the decisions.
+/// Per-frame input decisions for the active cutscene. Only completed dismiss
+/// and skip edges cross into simulation; partial skip-hold progress stays in
+/// [`CutsceneSkipHold`].
 #[derive(Resource, Default)]
 pub struct CutsceneAdvanceRequest {
     pub dismiss_dialogue: bool,
     pub skip_cutscene: bool,
 }
 
-/// **How long the skip button has been held — input-local, never simulation.**
-///
-/// ⛔ this was a field on [`CutsceneAdvanceRequest`], the structure that crosses
-/// into the sim. It is not a decision: it is the accumulation on the way to one,
-/// which the HUD draws as a progress ring and which the sim has never read. The
-/// cutscene-authority split (`tracks.md`) puts the completed EDGE on the
-/// crossing and the accumulator on this side of it.
-///
-/// ⚠ it accumulates WALL time on purpose. A player holding a button for 1.2
-/// seconds means 1.2 seconds of their life, not of a slow-motion world's.
+/// Input-local skip-hold duration used by the HUD and threshold logic. It uses
+/// wall time rather than simulation time and never enters simulation state.
 #[derive(Resource, Default)]
 pub struct CutsceneSkipHold {
     pub seconds: f32,
@@ -559,20 +489,10 @@ mod tests {
     }
 }
 
-/// **The rollback wire format for playback state.**
+/// Rollback wire format for playback state.
 ///
-/// ⛔ **`ActiveCutscene` is not presentation, and `rollback_coverage` waives the
-/// whole `ambition_cutscene::` namespace as if it were.** `is_playing()` drives a
-/// CAPTURING input-context claim, so while a cutscene plays the participant's
-/// gameplay input is suppressed — whether the player can act is gameplay truth.
-/// A rewind into a playing frame that did not restore this would let the
-/// resimulation act through beats the original could not.
-///
-/// ⚠ **the SCRIPT is encoded, not looked up.** `SnapshotState::decode` has no
-/// world, so resolving an id against `CutsceneLibrary` would need a follow-up
-/// system — and "an authority that needs a second call" is a shape this repo has
-/// been bitten by. A script is a handful of beats with short strings; paying
-/// those bytes per snapshot buys a decode that is total.
+/// Playback state affects input suppression, so it is rollback state. The script is
+/// encoded directly because decoding has no `CutsceneLibrary` or world lookup.
 mod snapshot {
     use super::*;
     use ambition_platformer2d_core::snapshot::{
@@ -647,9 +567,7 @@ mod snapshot {
                     text: reader.str()?.to_owned(),
                     seconds: reader.f32()?,
                 },
-                // ⚠ an unknown tag is a REFUSAL, not a default beat: a snapshot
-                // written by a different build must not decode into a cutscene
-                // that plays something else.
+                // Refuse unknown tags rather than decoding a different beat.
                 _ => return None,
             })
         }
@@ -673,17 +591,7 @@ mod snapshot {
 
         fn decode(reader: &mut Reader<'_>) -> Option<Self> {
             let id = reader.str()?.to_owned();
-            // ⛔⛔ **this was `reader.bool()?.then(|| reader.str().map(str::to_owned))?`,
-            // and it REFUSED every script without a seen flag.** `bool::then`
-            // yields `None` when the bool is false, and the trailing `?` returns
-            // that `None` from `decode` — so "this script has no seen flag"
-            // decoded as "this snapshot is corrupt", and the whole cutscene was
-            // dropped on restore rather than the flag being absent.
-            //
-            // ⚠ **found by writing the test the review asked for, not by the
-            // review.** Every existing snapshot fixture happened to call
-            // `.with_seen_flag(..)`, so the false branch had never been decoded
-            // — a codec whose only tests exercise one side of its only branch.
+            // Decode absence as `None`; it is valid for a script to have no seen flag.
             let seen_flag = if reader.bool()? {
                 Some(reader.str()?.to_owned())
             } else {
@@ -714,11 +622,7 @@ mod snapshot {
         }
 
         fn decode(reader: &mut Reader<'_>) -> Option<Self> {
-            // ⚠ written the long way ON PURPOSE. The sibling codec below had
-            // `reader.bool()?.then(|| reader.str().map(str::to_owned))?` here and
-            // it refused every absent value, because `bool::then` yields `None`
-            // for false and the `?` returns it from the function. The absent case
-            // is the COMMON one for this resource — no room entered yet.
+            // `false` is a valid absent room, not a decode failure.
             Some(Self(if reader.bool()? {
                 Some(reader.str()?.to_owned())
             } else {
@@ -742,12 +646,7 @@ mod snapshot {
         }
 
         fn decode(reader: &mut Reader<'_>) -> Option<Self> {
-            // ⭐ **only `runtime` crosses, and the rest is DERIVED.** The
-            // dialogue line, banner, camera target and fade alpha are what the
-            // current beat has emitted — presentation the tick re-publishes as
-            // beats enter. Encoding them would put four copies of the same fact
-            // in every snapshot and invite them to disagree with the beat index
-            // that produced them.
+            // Presentation is derived from the restored runtime and is not encoded.
             if !reader.bool()? {
                 return Some(Self::default());
             }
@@ -775,17 +674,7 @@ mod snapshot {
             ActiveCutscene::decode(&mut reader).expect("a snapshot this crate wrote decodes")
         }
 
-        /// **The room a trigger last saw REWINDS with everything else.**
-        ///
-        /// ⛔ this was a `Local<Option<String>>` on a SIM-schedule system, and
-        /// Bevy locals are not rewound. The failure is a cutscene that never
-        /// plays: enter room B, the local moves A→B and the cutscene is queued;
-        /// a rollback restores a frame in room A; the local stays at B;
-        /// resimulation enters B again and the trigger sees no change.
-        ///
-        /// ⚠ the ABSENT case is the one that matters here and is the common one
-        /// — "no room entered yet" — which is exactly the branch the sibling
-        /// script codec got wrong.
+        /// The trigger's last room is rollback state; both present and absent values round-trip.
         #[test]
         fn the_last_triggered_room_survives_the_wire_including_absent() {
             for room in [None, Some("intro_wake_room".to_string())] {
@@ -804,19 +693,7 @@ mod snapshot {
             }
         }
 
-        /// **A script with NO seen flag decodes.**
-        ///
-        /// ⛔ **it did not, and the bug shipped.** `decode` read the flag as
-        /// `reader.bool()?.then(|| reader.str().map(str::to_owned))?` —
-        /// `bool::then` yields `None` when the bool is false and the trailing `?`
-        /// returns it from the function, so *"this script has no seen flag"* was
-        /// indistinguishable from *"this snapshot is corrupt"* and the whole
-        /// cutscene was dropped on restore.
-        ///
-        /// ⚠ **every other fixture in this module calls `.with_seen_flag(..)`**,
-        /// so the false branch of the only branch in this codec had never once
-        /// been decoded. That is the shape to look for elsewhere: a test suite
-        /// that exercises one side of a two-sided decision.
+        /// A missing `seen_flag` is valid and must survive decoding.
         #[test]
         fn a_script_without_a_seen_flag_still_decodes() {
             let script = CutsceneScript::new("no_flag", vec![CutsceneBeat::Wait { seconds: 0.25 }]);
@@ -838,19 +715,8 @@ mod snapshot {
 
         /// **A rollback into the MIDDLE of a beat restores its picture.**
         ///
-        /// ⛔ **this is the test that was missing, and its absence let a false
-        /// claim ship.** The snapshot encodes `runtime` only, and the four
-        /// presentation fields it dropped were documented as *"derived, the next
-        /// simulation tick republishes them"*. It could not:
-        /// `CutsceneRuntime::tick` emits `BeatEntered` only when
-        /// `elapsed == 0.0`, so a restore landing mid-beat never saw the entry
-        /// event again — the banner, the camera target and the fade were gone
-        /// for the rest of that beat. The old test round-tripped `runtime` and
-        /// proved exactly that much. (GPT 5.6 through `32eb27a`, finding 1.)
-        ///
-        /// ⭐ **so this asserts the DERIVATION, not the encoding**: rebuild the
-        /// picture from the decoded state and require it to equal the original's,
-        /// mid-beat, where the event-driven version could not.
+        /// Rebuild presentation from decoded runtime state and require it to
+        /// match mid-beat, where no `BeatEntered` event will fire again.
         #[test]
         fn a_restore_mid_beat_restores_the_picture_it_was_showing() {
             let script = CutsceneScript::new(
@@ -897,9 +763,7 @@ mod snapshot {
                  and the banner did not come back, because `BeatEntered` only \
                  fires on the tick a beat begins"
             );
-            // ⚠ and the countdown is DERIVED, not a separately ticked timer —
-            // 4.0 authored minus 1.5 elapsed. A timer would be a second
-            // authority on the same clock and is exactly what could not survive.
+            // Countdown is derived from authored duration minus restored elapsed time.
             let (_, remaining) = restored.banner.expect("a banner beat is current");
             assert!(
                 (remaining - 2.5).abs() < 1e-4,
@@ -908,13 +772,7 @@ mod snapshot {
             );
         }
 
-        /// **A beat that shows nothing does not leave the last beat's picture up.**
-        ///
-        /// ⛔ finding 2, and it needed no rollback to see: the presentation
-        /// fields were mutated one at a time by whichever beat used them, so a
-        /// `CameraPan` following a `Dialogue` set `camera_target` and left
-        /// `dialogue` standing — the overlay kept showing a line nobody was
-        /// saying. A projection cannot: it is one beat's whole answer.
+        /// Advancing to a beat with no dialogue clears the previous dialogue presentation.
         #[test]
         fn advancing_off_a_dialogue_takes_the_dialogue_with_it() {
             let script = CutsceneScript::new(
@@ -996,9 +854,7 @@ mod snapshot {
             assert!(round_trip(&before).runtime.is_none());
         }
 
-        /// ⛔ **an unknown beat tag REFUSES.** A snapshot from a build with a
-        /// seventh variant must not decode into a cutscene that plays something
-        /// else; `None` makes the mismatch visible instead of plausible.
+        /// Unknown beat tags are refused rather than defaulted.
         #[test]
         fn an_unknown_beat_tag_is_refused_rather_than_defaulted() {
             let mut bytes = Vec::new();

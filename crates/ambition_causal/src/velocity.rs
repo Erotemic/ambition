@@ -1,10 +1,7 @@
 //! **Who wrote this body's velocity.**
 //!
-//! ⛔ The causal log answered "what is the velocity" and never "who set it", and
-//! that gap cost six rebuild-and-print cycles on a single twelve-tick window
-//! (queue S51) — eight candidates eliminated one at a time, none of them the
-//! cause, because a body moved and nothing that published a fact admitted to
-//! moving it.
+//! The causal log needs to identify velocity writers, not only report the
+//! resulting velocity.
 //!
 //! A velocity write OUTSIDE the integrator is the interesting kind: knockback, a
 //! move's lunge, ranged recoil, a launch, a pushout. Each one is a place where
@@ -13,12 +10,7 @@
 //!
 //! ## Why this is a helper and not a pattern
 //!
-//! The first two writers were instrumented by hand and came out subtly
-//! different — different field names, one carrying the move id, one not. That
-//! is the same divergence the log exists to prevent: two writers describing the
-//! same event in two vocabularies makes them uncomparable in the one place they
-//! are meant to be compared. **One constructor, so every writer's story has the
-//! same shape**, and instrumenting the next one costs a line instead of thirty.
+//! Use one constructor so every velocity writer emits the same fact shape.
 //!
 //! ⚠ the caller resolves its OWN subject. Subject choice is
 //! crate-specific (seat first, actor id second — see each domain's

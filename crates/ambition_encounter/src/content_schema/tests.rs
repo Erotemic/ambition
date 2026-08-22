@@ -177,16 +177,8 @@ fn a_padded_trigger_id_is_refused_because_the_lookup_is_verbatim() {
     assert!(format!("{failure:?}").contains("whitespace"), "{failure:?}");
 }
 
-/// ⛔⛔ **Editing a wave must MOVE THE PACK'S IDENTITY.**
-///
-/// This schema lowered its book and defined nothing, and `canonical_bytes` is
-/// built from defined rows — so changing a mob's delay, its archetype, or the
-/// wave ORDER changed what the game runs and left the fingerprint byte-identical.
-/// Two peers could carry different encounters and agree they had the same
-/// content (GPT 5.6 review of `1a05b98`, finding 1).
-///
-/// ⚠ the probe varies a field that is NOT part of any content id, which is the
-/// whole point: an id change would move the fingerprint even under the bug.
+/// Runtime-significant wave edits must change the pack fingerprint even when
+/// content ids are unchanged.
 #[test]
 fn changing_a_wave_moves_the_pack_fingerprint() {
     let book = |delay: &str| {
@@ -216,20 +208,8 @@ fn changing_a_wave_moves_the_pack_fingerprint() {
     );
 }
 
-/// **A field nobody consumes is a REFUSAL, not a shrug.**
-///
-/// ⛔ **it was a shrug, and an audit measured it.** `EncounterWaveSpec` and
-/// `EncounterMobSpec` had no `deny_unknown_fields`, so authoring
-/// `favourite_snack: "worms"` into a real wave file compiled CLEAN — the field
-/// reached neither the runtime nor the pack's fingerprint. That is the exact
-/// shape `ContentSchemaHandler::check`'s own doc forbids: *"a handler MUST
-/// report an authored field it does not consume … rolling your own field walk
-/// and forgetting is how a typo becomes a mechanic that silently never fires."*
-///
-/// ⚠ **a misspelling looks identical to authoring nothing**, which is what makes
-/// it worth a test rather than a comment: `dely: 2.0` for `delay` gives a mob
-/// that spawns instantly, an author who is sure they set it, and nothing
-/// anywhere that says otherwise.
+/// Unknown authored fields are refused at every nested schema level so typos
+/// cannot be accepted and then ignored.
 #[test]
 fn a_field_the_schema_does_not_know_is_refused_at_every_level() {
     // On the MOB, the innermost authored shape.
@@ -264,21 +244,8 @@ fn a_field_the_schema_does_not_know_is_refused_at_every_level() {
     );
 }
 
-/// ⛔ **A MOB NAMING A CHARACTER NOBODY DEFINES IS REFUSED AT LOAD.**
-///
-/// A wave mob answers three separate questions — `character` (who it is), the
-/// minted instance id (which body), `kind` (how it thinks) — and until
-/// `character` existed the first had nowhere to live. The goblin encounter
-/// therefore spawned bodies whose only identity was
-/// `encounter:goblin_encounter:w0:1`, no sheet resolved, and every mob drew the
-/// unclaimed-body placeholder.
-///
-/// ⭐ **the invariant is the MISSPELLING, not the fix.** "the goblins resolve
-/// now" is true forever once the RON is right and defends nothing; a character
-/// the pack does not define looks exactly like a character it does, right up
-/// until a magenta box appears in a room nobody re-tested.
-/// A guard that pins the fix defends the gap: it asserts the INVARIANT, and a
-/// poison would fail it.
+/// A mob whose character reference does not resolve is refused during content
+/// compilation.
 #[test]
 fn a_mob_naming_a_character_the_pack_does_not_define_is_refused() {
     let book = |character: &str| {

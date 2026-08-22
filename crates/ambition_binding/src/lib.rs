@@ -1,85 +1,18 @@
-//! The binding resolution boundary: authored references resolve through the
-//! authority that knows, and what fails to resolve is named out loud.
+//! Binding resolution for authored cross-layer references.
 //!
-//! Ambition is full of cross-layer references authored as strings — an anim row
-//! (`"death"`), a world-item sprite id (`"spark_blossom"`), an sfx cue, a recipe,
-//! a brain, a music track. Historically each was looked up at USE time, by the
-//! consumer, through a fallible map:
+//! A [`Resolver<N>`] built from the ids an authority actually owns is the only
+//! way to mint a [`Bound<N>`]. Failures and duplicate declarations accumulate in
+//! a [`BindingLedger`] and close into a deterministic [`BindingReport`] with
+//! namespace, declarer, available ids, and a nearby-id suggestion when possible.
 //!
-//! ```ignore
-//! let Some(row) = sheet.row_index_of(name) else { return };   // and nothing draws
-//! ```
+//! A non-empty report does not itself refuse construction; the construction
+//! rule that owns the reference decides whether degradation is acceptable.
+//! Resolution also proves only that an id exists in a resolver, not that a
+//! backing asset exists, and a namespace marker does not distinguish two
+//! authorities in the same family.
 //!
-//! That shape has one failure mode and it is always the same one: the reference
-//! misses, the consumer degrades to silence, and the defect ships. It cost this
-//! project an unreachable death animation (the sheet spelled it `death`, the
-//! policy said `dead`), invisible rings, and a character that shipped as a fully
-//! transparent sprite sheet.
-//!
-//! The spark blossom is NOT on that list, though it was cited here for a while.
-//! Its id was registered correctly; the PNG behind it did not exist. That is a
-//! different bug, and this module does not catch it — see "What this is NOT".
-//!
-//! # The boundary
-//!
-//! 1. A [`Resolver<N>`], built from the ids that actually exist, is the only
-//!    thing that can mint a [`Bound<N>`]. `Bound` has no public constructor, so
-//!    a consumer CANNOT hold one it did not resolve.
-//! 2. Whatever fails lands in a [`BindingLedger`], which closes into a
-//!    [`BindingReport`] naming the namespace, the id, WHO declared it, and what
-//!    ids were actually available — with a did-you-mean when one is close.
-//! 3. An id declared twice is reported too ([`AmbiguousRef`]), because "resolves
-//!    to the first of two" is a silence of its own.
-//!
-//! The point is not that resolution can never fail. Content has typos; that is
-//! normal. The point is that a failure is a *value someone holds*, not an early
-//! `return` nobody sees.
-//!
-//! # What this is NOT
-//!
-//! Read this before treating a resolved reference as a guarantee.
-//!
-//! - **Most content still stores `String`.** [`Ref<N>`] is the authoring-seam
-//!   vocabulary, and the sweeps construct one at the boundary rather than the
-//!   authored types carrying it. Content that holds a `Ref` cannot be
-//!   *addressed* without a resolver; content that holds a `String` merely tends
-//!   to be resolved through one, by convention.
-//! - **`Bound<N>` proves that SOME resolver had the id, not WHICH.** The
-//!   namespace marker names a family (`anim row`), and two sprite sheets are two
-//!   authorities in the same family. `sheet_b.row(&sheet_a_bound)` type-checks;
-//!   it is caught by a runtime assertion in the consumer, not by construction.
-//! - **Resolution is not always once.** Room construction resolves once, into a
-//!   report carried on the plan. Presentation resolves per frame, because what
-//!   it draws changes per frame — see [`ReportedOnce`], which makes that cheap
-//!   AND quiet after the first complaint rather than pretending it is a
-//!   construction-time question.
-//! - **There is no single global report.** A report is per-pass: one for a
-//!   room's construction, one per presentation consumer, and audio keeps its own
-//!   vocabulary entirely. `absorb` unifies the passes that CAN be unified.
-//! - **A non-empty report does not block publication.** A room with an
-//!   unresolvable patrol path still constructs, on purpose: the alternative is a
-//!   blind run that shows nothing at all. The report is what makes the
-//!   degradation loud, not what prevents it. Where a defect genuinely should
-//!   refuse — a ground item naming an unregistered held item — that refusal
-//!   lives in construction and raises an [`UnresolvedRef`] of its own.
-//! - **An id that binds says nothing about whether an ASSET exists.** A resolver
-//!   proves content agrees with content. The Mary-O spark blossom was registered
-//!   correctly and pointed at a PNG no generator produced — a failure this
-//!   module cannot see. Whoever loads the file has to check the load, which is
-//!   what `render::item_visuals::report_unloadable_item_art` is for.
-//!
-//! # Draw blind, but say so
-//!
-//! A non-empty report does not mean "draw nothing". Presentation keeps its
-//! visible fallback (the magenta placeholder quad) so a blind run still shows
-//! that something is wrong on screen. The report is the other half: the run also
-//! *says* what is wrong, in a form a headless test can assert on.
-//!
-//! # Determinism
-//!
-//! `Resolver` is a sorted `Vec` and the report is sorted by
-//! `(namespace, declared_by, id)`, so two runs over the same content produce a
-//! byte-identical report regardless of iteration order upstream (ADR 0023).
+//! Resolvers and reports use stable sorted order so identical content produces
+//! identical diagnostics regardless of upstream iteration order.
 
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -643,12 +576,9 @@ impl BindingLedger {
 /// Empty means every authored reference in scope found its target. That is the
 /// assertion a headless test makes.
 ///
-/// It is NOT a precondition for publishing a room. A room whose patrol path does
-/// not resolve still constructs — the enemy goes passive, which is what it did
-/// before this module existed, and a blind run showing a passive enemy beats a
-/// blind run showing nothing. The report changes whether the degradation is
-/// SAID, not whether it happens. Refusal is a separate decision, made by
-/// whichever construction rule considers the defect fatal.
+/// It is not a precondition for publishing a room. Unresolved references may
+/// degrade construction while still being reported; the construction rule that
+/// owns a reference decides whether the defect is fatal.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct BindingReport {
     unresolved: Vec<UnresolvedRef>,
@@ -765,38 +695,15 @@ impl std::fmt::Display for BindingReport {
     }
 }
 
-/// Remembers which unresolved references have already been reported, so a
-/// consumer that resolves EVERY FRAME says each one once.
+/// Deduplicates unresolved-reference diagnostics for repeated resolution passes.
 ///
-/// Presentation is the case that needs this: the item-visual sync clears and
-/// rebuilds its sprites each frame, so a single missing art id would otherwise
-/// emit sixty identical lines a second and bury everything else. Keep one in a
-/// `Local<ReportedOnce>` beside the system that resolves.
-///
-/// It deliberately does NOT suppress across contexts — the same missing sprite
-/// reported by two different visuals is two different facts about the content.
-///
-/// # Ask it BEFORE doing the work
-///
-/// [`Self::first_sight`] is a set probe. Explaining a failure — cloning every
-/// available id, running a did-you-mean over all of them — is the expensive
-/// part, and a permanently missing id would otherwise pay it every frame
-/// forever just to have the log line thrown away. Gate first, explain second.
-///
-/// # It goes stale, so clear it
-///
-/// The memory is a `Local`, and it outlives the content it describes: a
-/// manifest replaced by a room reload, a provider swapped by a shell
-/// transition. A failure suppressed because "we already said that" about
-/// content that no longer exists is a lie. Consumers call [`Self::clear`] when
-/// the resource they resolve against changes.
+/// Probe with [`Self::first_sight`] before building an expensive diagnostic. Keep
+/// separate instances per reporting context, and call [`Self::clear`] whenever the
+/// content being resolved changes.
 #[derive(Debug, Default, Clone)]
 pub struct ReportedOnce {
-    /// A `Vec` rather than a set on purpose. What lands here is one entry per
-    /// DISTINCT content defect, which is nought to a handful; a linear scan of
-    /// borrowed `&str`s beats a set whose keys can only be probed by building
-    /// them, and the repeat path — the one that runs every frame — then costs
-    /// no allocation at all.
+    /// Expected to contain only a few distinct defects; linear probing avoids
+    /// allocating a set key on the repeated path.
     seen: Vec<(&'static str, String, String)>,
 }
 

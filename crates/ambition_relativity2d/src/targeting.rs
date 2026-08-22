@@ -51,21 +51,8 @@ pub struct RelativisticTargetObservation2d {
     pub apparent_to_intercept_angle: Option<f32>,
 }
 
-/// **ONE OBSERVER'S causal targeting facts**, rebuilt every simulation tick.
-///
-/// ⛔⛔ **this row left the resource for the reason the optical one did, and it
-/// was the SAME `single()`.** `publish_targeting_view` resolved its observer
-/// with `observers.single()`, so a second [`RelativisticObserver2d`] did not
-/// produce a second set of intercepts — it made that call `Err` and BLANKED the
-/// only set there was. The system's own comment said as much
-/// (*"targeting itself is still single-observer… this is the join being correct
-/// in advance, not that gap being closed"*), and it was measured live the day a
-/// second observer arrived.
-///
-/// Two observers of one world aim differently: a null intercept is solved from
-/// the observer's own position and velocity, and its emission direction is
-/// aberrated into that observer's frame. That disagreement is the physics, not
-/// a duplication.
+/// One observer's causal targeting facts, rebuilt every simulation tick. Each
+/// observer has an independent intercept solution and observer-frame direction.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ObserverTargetingView2d {
     pub model_id: Option<&'static str>,
@@ -92,20 +79,10 @@ static NO_OBSERVER_TARGETING_VIEW: ObserverTargetingView2d = ObserverTargetingVi
     targets: Vec::new(),
 };
 
-/// Observer-relative causal targeting facts: **one set per observer**.
-///
-/// ⭐ **keyed by the OBSERVER ENTITY**, for the reasons
-/// [`RelativisticOpticalView2d`] states at length — this is rollback-derived
-/// SIMULATION state built from canonical bodies, and an observer is a
-/// simulation fact while a presentation view id is not. It is the sibling of
-/// that resource and deliberately the same shape: a consumer that draws one
-/// pane per observer holds an entity and asks both of them the same question.
+/// Observer-relative targeting facts, one set per simulation observer entity.
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct RelativisticTargetingView2d {
-    /// ⚠ **ordered, not a `HashMap`**, and sorted by the authored observer
-    /// label with entity bits breaking a duplicate-label tie — the identical
-    /// rule the optical view publishes under, so the two resources iterate in
-    /// the SAME order and a per-pane consumer can zip them.
+    /// Ordered by the same deterministic observer key as the optical view.
     views: Vec<(Entity, ObserverTargetingView2d)>,
 }
 
@@ -412,15 +389,7 @@ mod tests {
             .expect("the target is reachable from both observers")
     }
 
-    /// **⛔⛔ A SECOND OBSERVER USED TO BLANK THE ONLY AIM THERE WAS.**
-    ///
-    /// `publish_targeting_view` resolved its observer with `observers.single()`,
-    /// so a second [`RelativisticObserver2d`] made that call `Err` and the whole
-    /// resource went back to `default()` — no model, no observer, no targets.
-    /// The system's own comment admitted the gap in advance
-    /// (*"targeting itself is still single-observer… this is the join being
-    /// correct in advance, not that gap being closed"*), and TwinTrack's split
-    /// screen is what needed it closed.
+    /// Each observer retains an independent targeting view.
     #[test]
     fn two_observers_aim_in_opposite_directions_instead_of_blanking() {
         let (app, spawned) = publish_with(&[OBSERVER_ALPHA, OBSERVER_BETA]);

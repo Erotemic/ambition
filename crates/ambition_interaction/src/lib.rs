@@ -103,11 +103,9 @@ impl Pickup {
 
 /// The reward/effect represented by a pickup or chest.
 ///
-/// ⚠ **DEFINED in `ambition_entity_catalog`** (the floor) since 2026-08-03, and
-/// re-exported here because this is where every existing caller names it. It
-/// moved down so the boss-profile vocabulary — which authors a post-defeat
-/// reward — could live in `ambition_characters` without the cycle this crate's
-/// dependency on `ambition_characters` would otherwise create.
+/// Defined in `ambition_entity_catalog` and re-exported here for callers that
+/// name rewards through the interaction API. Keeping the type below both
+/// interaction and character domains avoids a dependency cycle.
 pub use ambition_entity_catalog::PickupKind;
 
 /// Treasure chest state and reward. Chests are interactables plus persistence.

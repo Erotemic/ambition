@@ -353,7 +353,7 @@ pub fn register_rollback_state(registrar: &mut impl RollbackRegistrar) {
             "provider-authored spacetime model and invariant-speed fingerprint",
             active_spacetime_checksum,
         )
-        // ⭐ **a value probe over the LABEL** (2026-08-06). The label is the whole
+        // A value probe over the LABEL. The label is the whole
         // component and the identity a clock readout is joined by; a presence
         // probe saw none of it.
         .rollback_component_clone_probed::<RelativityClockLabel>(

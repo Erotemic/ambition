@@ -51,8 +51,7 @@ pub enum Ownership {
 ///
 /// Either way, the end RELEASES spawned participants from the relation: an
 /// ended encounter owns nothing it spawned, so `Keep` is an explicit ownership
-/// handoff to the world, never a silently still-owned leftover (GPT-5.6
-/// review, 2026-07-16).
+/// handoff to the world.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SpawnedCleanup {
     /// Release AND despawn spawned participants on any end (complete / fail /

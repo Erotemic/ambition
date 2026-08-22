@@ -1,41 +1,17 @@
-//! The SYSTEM-menu intermediate representation (IR).
+//! Renderer-agnostic SYSTEM-menu intermediate representation.
 //!
-//! [`SystemMenuModel`] is the renderer-agnostic description of the broadened
-//! SYSTEM face: a flat, ordered list of top-level [`SystemMenuEntry`]s, each of
-//! which drills into one *screen* (a curated settings category, the radio
-//! station list, a language picker, or the developer toggles) or fires an
-//! immediate [`SystemMenuAction`] (Reset Sandbox).
+//! [`SystemMenuModel`] composes the shared settings IR with host-facing screens
+//! such as Radio, Language, Developer, and reset actions. Settings screens reuse
+//! [`super::settings::SettingsOption`] and the same mutation path as every other
+//! settings renderer; non-settings screens use the small vocabularies defined
+//! here.
 //!
-//! It sits ON TOP of the existing [`super::settings::SettingsMenuModel`]: settings
-//! screens reuse that IR's [`SettingsOption`]s and [`apply_settings_option`]
-//! verbatim, so the cube and the pause menu can never drift on a setting's value
-//! label / control kind / mutation. The new screens (Radio / Language /
-//! Developer) add their own small option vocabularies that live here.
-//!
-//! ## Why a second IR layer
-//!
-//! The cube's System face needs more than the four settings categories: a radio
-//! station audition list, a language stub, developer toggles, and a one-shot
-//! sandbox reset — none of which are `UserSettings` fields. Rather than teach the
-//! settings IR about resources it has no business touching, [`SystemMenuModel`]
-//! composes the settings IR with those host screens into ONE tree the renderer
-//! walks. The cube renders the flat top level as drill-in rows and each screen as
-//! the same touch-styled option column.
-//!
-//! ## Dev-build gating
-//!
-//! The Developer and Reset Sandbox entries appear ONLY in dev builds, gated on
-//! `cfg!(feature = "dev_tools")` — the same gate the rest of the sandbox's dev
-//! tooling uses (`DeveloperTools` inspector, F-key dev hotkeys). In a non-dev
-//! build [`SystemMenuModel::build`] omits them entirely, so there are no dead
-//! rows and no references to dev-only code.
+//! Developer-only entries are omitted when the `dev_tools` feature is absent.
 
 use super::settings::{settings_menu_model, SettingsOption, SettingsOptionId, SettingsOptionKind};
 use ambition_persistence::settings::UserSettings;
 
-/// True in builds that ship the developer tooling. Matches the gate used by the
-/// rest of the sandbox dev surface (`DeveloperTools` inspector, dev hotkeys), so
-/// the Developer / Reset Sandbox entries appear in exactly the same builds.
+/// True in builds that ship developer tooling; gates Developer and reset rows.
 pub const DEV_BUILD: bool = cfg!(feature = "dev_tools");
 
 /// One developer toggle/cycle surfaced by the Developer screen. Each id maps to a
@@ -480,11 +456,7 @@ impl DevSnapshot {
 /// pause menu is deleted.
 fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
     match id {
-        // Video carries its basic rows PLUS the whole shader subpage appended
-        // after them — shaders live UNDER Video (the cube's single-level System
-        // drill surfaces them flat in this one screen, mirroring the pause menu's
-        // `Video > Shaders` subpage). Every shader the pause menu's Shaders page
-        // exposes is reachable here.
+        // Video includes the basic rows followed by all shader controls.
         SystemMenuEntryId::Video => &[
             SettingsOptionId::VisualQuality,
             SettingsOptionId::DisplayMode,

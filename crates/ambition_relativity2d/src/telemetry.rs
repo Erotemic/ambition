@@ -18,22 +18,11 @@ pub const DEFAULT_WORLDLINE_HISTORY_SAMPLES: usize = 720;
 
 /// **A track's stable identity — never displayed.**
 ///
-/// ⛔ **the history used to be keyed by the DISPLAY LABEL**, and the warning
-/// beside the duplicate check said so in as many words: *"a label is a display
-/// name, not an identity"* — while the label remained the map key. Four things
-/// followed, and three of them are gone with this type: two entities could not
-/// legitimately share a display name; renaming a label moved its authoritative
-/// history to a different address; and a duplicate silently received no
-/// telemetry at all. (GPT 5.6 through `32eb27a`, finding 5 — correct, and
-/// correct that requiring `WorldlineTracked2d` on an optical source was only a
-/// partial repair.)
+/// This is separate from the display label so renaming presentation does not
+/// move telemetry history and two bodies may share the same caption.
 ///
-/// ⚠ **still a `String`, and deliberately.** The reviewer suggested `SimId`; not
-/// every tracked body has one (TwinTrack's traveler and passband are demo-spawned
-/// without), so keying on it would silently drop tracks. What matters is that
-/// this is a SEPARATE authored value that nothing draws — so a label may change
-/// freely, and two bodies colliding here is a genuine identity clash rather than
-/// two people choosing the same caption.
+/// It remains a `String` because not every tracked body has a `SimId`; the
+/// requirement is a stable, non-presentational track key.
 #[derive(Component, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct WorldlineTrackId(pub String);
 
@@ -167,20 +156,9 @@ fn publish_worldline_history(
     }
     let capacity = history.capacity_per_track.max(2);
 
-    // ⛔ **A TRACK HAS ONE OWNER, and it used to have whoever ran last.** Two
-    // entities sharing a label wrote into one history: the same-tick rewind
-    // below pops the previous writer's sample and replaces it, so which body's
-    // worldline survived was decided by QUERY ITERATION ORDER — the
-    // deterministically-wrong shape this repo has been bitten by before, here
-    // producing one entity's past light cone attributed to another.
-    //
-    // ⭐ the first claimant by (track id, entity) owns the track and the rest are
-    // refused. Sorted, so the owner is the same on every peer and every replay
-    // rather than the same only by luck.
-    //
-    // ⚠ **this now sorts by the TRACK ID, not the label** — which is what makes
-    // the refusal below a real collision report rather than a complaint about
-    // two bodies sharing a caption.
+    // A track has one deterministic owner. Sort by stable track id and entity,
+    // then accept the first claimant and refuse duplicates so query iteration
+    // order cannot choose which worldline survives.
     let mut rows: Vec<_> = tracked.iter().collect();
     rows.sort_by(|(lhs_entity, lhs, ..), (rhs_entity, rhs, ..)| {
         lhs.track
@@ -234,13 +212,8 @@ mod tests {
 
     /// **Renaming what a body is CALLED does not move its history.**
     ///
-    /// ⛔ it did. `WorldlineTracked2d` was a bare `String` and the history was a
-    /// `BTreeMap<String, _>` keyed by it, so the display caption WAS the
-    /// authoritative address: renaming a body on screen re-pointed its history
-    /// at a track nobody had written, and two bodies could not legitimately
-    /// share a caption. The duplicate warning said *"a label is a display name,
-    /// not an identity"* while the label was the identity. (GPT 5.6 through
-    /// `32eb27a`, finding 5.)
+    /// The display label is independent of the stable track id used as the
+    /// history address.
     #[test]
     fn a_label_is_presentation_and_the_track_id_is_the_address() {
         let before = WorldlineTracked2d::new("traveler");

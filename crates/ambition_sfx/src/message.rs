@@ -217,26 +217,10 @@ pub struct OwnedSfxMessage {
     pub request: SfxMessage,
 }
 
-/// Mechanics-facing writer that captures exact audio ownership without adding
-/// another system parameter at every call site.
+/// Mechanics-facing writer that captures audio ownership at emission time.
 ///
-/// A missing context is retained as `None` for narrow unit fixtures. Real shell
-/// and direct compositions install an explicit context; playback rejects an
-/// unowned request whenever an owned context is active.
-///
-/// # Rollback is not this crate's problem
-///
-/// This writer once carried an `SfxEmissionGate` that dropped the request
-/// outright while a rollback host re-simulated a frame. That was removed with
-/// the confirmed-frame quarantine (`ambition_platformer2d_runtime::external_effects`), and
-/// the removal is load-bearing rather than tidying: suppressing at emit time
-/// destroys the corrected sound before anything can decide whether the
-/// prediction it replaces was ever heard. A speculating host now defers this
-/// message instead, which it can only do if the message is actually written.
-///
-/// So: always write. Deciding when a sound is allowed to reach the speakers
-/// belongs to the host that knows which frames are settled, not to the mechanic
-/// that knows a sword swung.
+/// A missing context is retained as `None` for narrow unit fixtures. Rollback hosts
+/// quarantine or defer emitted messages; mechanics always write the request.
 #[derive(SystemParam)]
 pub struct SfxWriter<'w> {
     messages: MessageWriter<'w, OwnedSfxMessage>,
@@ -258,14 +242,7 @@ impl SfxWriter<'_> {
         });
     }
 
-    /// Emit a cue attributed to a BODY, when that body has a known source.
-    ///
-    /// The `Option` is the whole point, and it is deliberately not hidden behind a
-    /// default: `None` means "this body has no presentation source", which falls
-    /// back to the session context exactly as `write` does. Collapsing the two
-    /// would silently attribute every character cue to the session provider — which
-    /// is precisely the state §7.7 shipped in, where `write_from` existed and one
-    /// caller used it.
+    /// Emit a body cue. `None` falls back to the session presentation source.
     pub fn write_for_body(&mut self, source: Option<&PresentationSourceId>, request: SfxMessage) {
         match source {
             Some(source) => self.write_from(source.clone(), request),
@@ -288,35 +265,11 @@ impl SfxWriter<'_> {
     }
 }
 
-/// **A writer that can attribute a cue to the body that caused it.**
+/// SFX writer that resolves presentation provenance from the emitting entity.
 ///
-/// [`SfxWriter::write_for_body`] takes the source, which means every caller that
-/// wanted to use it had to grow a `Query<&BodyPresentationSource>` and thread the
-/// lookup down to the emit site. That cost is why §7.7 shipped with one
-/// source-qualified caller and eighty-six plain ones: the mechanism existed and
-/// using it was a refactor per call site.
-///
-/// This does the lookup, so a call site names the emitting entity — which it always
-/// has, since it just resolved that entity to read its position — and the choice at
-/// each site becomes the honest one: is this sound made BY something, or by the
-/// world?
-///
-/// - [`write_for`](Self::write_for): a body's own cue. Its death, its block, its
-///   ability, its footfall. Falls back to the session context when the entity has no
-///   source, which is what an unworn body or a hazard should do.
-/// - [`write_global`](Self::write_global): owned by the SESSION's world. A menu
-///   blip, a room transition, a checkpoint chime. Identical to
-///   [`SfxWriter::write`], named differently so that reading the call tells you
-///   the site was CLASSIFIED rather than merely not converted.
-/// - [`write_from`](Self::write_from): owned by a named content PROVIDER. A
-///   course's own furniture — a monitor, a breakable brick, a distance marker —
-///   makes sound no body caused, and it is the course's sound, not the host's.
-///   Two cases were never enough: `write_global` reaches for the session context,
-///   so under a shell host every course cue was attributed to the launcher.
-///
-/// Any emitting entity may carry the source, not just a worn body: a projectile
-/// inherits its firer's at spawn, so a bolt that outlives its owner still impacts in
-/// its own character's voice.
+/// `write_for` uses the entity source and falls back to the session source;
+/// `write_global` uses the session source; `write_from` names a content provider.
+/// Any emitting entity may carry `BodyPresentationSource`, including projectiles.
 #[derive(SystemParam)]
 pub struct BodySfxWriter<'w, 's> {
     sfx: SfxWriter<'w>,

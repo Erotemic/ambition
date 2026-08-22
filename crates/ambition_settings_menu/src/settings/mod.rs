@@ -9,13 +9,8 @@
 //!
 //! [`kind`]: SettingsOption::kind
 //!
-//! ## Why an IR
-//!
-//! The settings menu used to be re-authored independently by each surface (a
-//! since-removed bevy-UI pause menu and the OoT cube's System face), so the two
-//! drifted. This IR is now the single source of truth every renderer reads from
-//! — the cube's System face (the `system` module) and the bevy-UI grid
-//! both build from this one model, so they cannot drift again.
+//! Every settings renderer reads this model, keeping option identity, values,
+//! and behavior shared across presentation surfaces.
 //!
 //! ## Persistence
 //!
@@ -284,9 +279,7 @@ pub(super) fn shader_percent_label(value: f32) -> String {
     )
 }
 
-/// A 0..=1 shader-strength slider row. Replicates the pause menu's
-/// `format_shader_percent` value label and the `nudge_unit` (clamp 0..1) step,
-/// so the migrated `Shader*` rows behave identically in both frontends.
+/// A 0..=1 shader-strength slider using the shared percent label and clamped step.
 pub(super) fn shader_unit_slider(
     id: SettingsOptionId,
     label: &str,

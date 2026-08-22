@@ -1,31 +1,9 @@
-//! **An effect is a NAME.**
+//! Authored visual effects are named rows.
 //!
-//! The shipped art already carries the vocabulary: twelve FX spritesheets whose
-//! rows are named (`sonic_boom`, `shield_break`, `reductio_impact`), and one
-//! `vfx.<family>.<row>` cue in the packed bank for every one of those rows —
-//! 189 ↔ 189, no sheet off by one. So the name addresses the clip AND its
-//! paired sound together, in the data, and the engine owes exactly one mapping
-//! (name → which sheet holds that row), not a Rust enum per look.
-//!
-//! [`FxId`] is that name on the wire: an FNV-1a hash of the authored row name,
-//! the same shape as [`ambition_sfx::SfxId`], so a message stays `Copy` and
-//! allocation-free on the RL-hot path. Resolution back to a sheet + row + cue
-//! is a presentation job and lives there ([`ambition_sprite_sheet::fx`] holds
-//! the authored index, the render layer keys it by hash).
-//!
-//! ⛔ **this replaced `ExplosionKind`**, a five-variant enum that was a
-//! transliteration of the five rows of `generic_explosions` — reconstructed by
-//! three hand-kept tables (`move_vfx_kind` name→enum, `explosion_anim`
-//! enum→`CharacterAnim`, `explosion_sfx` enum→cue) plus five aliases inside
-//! `CharacterAnim::from_name` that spelled effect rows *Idle/Walk/Run/Hit/Slash*.
-//! Every one of those tables existed only to get back to the string the content
-//! already had.
+//! [`FxId`] is the FNV-1a hash of that authored name, matching the shape of
+//! [`ambition_sfx::SfxId`]. Presentation resolves the id to its sheet, row, and cue.
 
-/// ⭐ **the SAME hash [`ambition_sfx::SfxId`] uses, borrowed rather than
-/// re-typed.** These two id spaces name the two halves of one authored thing —
-/// a clip and the cue packed beside it — so a second copy of FNV-1a here would
-/// be a place for them to silently disagree, and there is no version of that
-/// disagreement anyone wants.
+/// Use the same hash implementation as [`ambition_sfx::SfxId`].
 use ambition_sfx::fnv1a_64_str;
 
 /// A stable id for one authored visual effect, hashed from its row name.

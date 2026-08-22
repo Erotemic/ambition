@@ -1551,10 +1551,10 @@ pub fn activate_the_prepared_match(
             //
             // deferred like everything else in this flush, so it is written
             // through `commands` rather than the `entity` builder above.
-            ambition_characters::brain::claim_control_hold(
+            ambition_characters::control::claim_control_hold(
                 &mut commands,
                 *body,
-                ambition_characters::brain::ControlHold::Opening,
+                ambition_characters::control::ControlHold::Opening,
             );
         }
     }
@@ -1597,7 +1597,7 @@ pub fn release_the_opening_hold(
     active: Option<Res<super::ActiveMatch>>,
     prepared: Option<Res<PreparedMatch>>,
     mut held: Query<
-        (Entity, &mut ambition_characters::brain::ControlHolds),
+        (Entity, &mut ambition_characters::control::ControlHolds),
         With<super::MatchSeat>,
     >,
     tick: Option<Res<ambition_time::SimTick>>,
@@ -1629,11 +1629,11 @@ pub fn release_the_opening_hold(
         // ONLY the opening's hold. A fighter this ceremony never suspended,
         // or one a capture is holding when the countdown ends, keeps whatever
         // else has a claim on it.
-        ambition_characters::brain::release_control_hold(
+        ambition_characters::control::release_control_hold(
             &mut commands,
             body,
             Some(&mut holds),
-            ambition_characters::brain::ControlHold::Opening,
+            ambition_characters::control::ControlHold::Opening,
         );
     }
 }

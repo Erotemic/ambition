@@ -89,8 +89,8 @@ pub struct CaptorView {
 pub fn acquire_captures(
     mut commands: Commands,
     mut attempts: MessageReader<CaptureAttemptRequested>,
-    captors: Query<CaptorView, Without<ambition_characters::brain::ScriptedControl>>,
-    victims: Query<StrikeVictim, Without<ambition_characters::brain::ScriptedControl>>,
+    captors: Query<CaptorView, Without<ambition_characters::control::ScriptedControl>>,
+    victims: Query<StrikeVictim, Without<ambition_characters::control::ScriptedControl>>,
     captives: Query<(Entity, &CapturedBy)>,
     // ⭐ **the ONE eligibility question, asked of the victim too.** Not a
     // convenience join: a body the rest of the lifecycle could not operate on is
@@ -221,10 +221,10 @@ pub fn acquire_captures(
         // mash-to-escape read samples the captive's raw participant input into a
         // restricted capture channel, and would be impossible if capture meant
         // "this body's input ceases to exist".
-        ambition_characters::brain::claim_control_hold(
+        ambition_characters::control::claim_control_hold(
             &mut commands,
             victim,
-            ambition_characters::brain::ControlHold::Relationship,
+            ambition_characters::control::ControlHold::Relationship,
         );
         commands.entity(victim).insert(CapturedBy {
             captor: attempt.captor,
@@ -390,7 +390,7 @@ pub fn tick_capture_holds(
         // as zero and releasing everybody on the first tick.
         &mut ambition_characters::smash_capture::SmashHoldState,
         Option<&mut ae::ActorSurfaceState>,
-        Option<&mut ambition_characters::brain::ControlHolds>,
+        Option<&mut ambition_characters::control::ControlHolds>,
     )>,
 ) {
     let dt = time.scaled_dt;
@@ -914,11 +914,11 @@ mod tests {
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 0.25,
             },
-            ambition_characters::brain::ScriptedControl,
+            ambition_characters::control::ScriptedControl,
             // The hold as a CLAIM: a bare marker is nobody's, and the release
             // deliberately leaves what it did not claim.
-            ambition_characters::brain::ControlHolds::only(
-                ambition_characters::brain::ControlHold::Relationship,
+            ambition_characters::control::ControlHolds::only(
+                ambition_characters::control::ControlHold::Relationship,
             ),
         ));
 
@@ -940,7 +940,7 @@ mod tests {
         );
         assert!(
             app.world()
-                .get::<ambition_characters::brain::ScriptedControl>(victim)
+                .get::<ambition_characters::control::ScriptedControl>(victim)
                 .is_none(),
             "the captive is free and still cannot move — the control projection \
              outlived the relationship it projects"
@@ -1061,9 +1061,9 @@ mod tests {
             let captor = grounded_body(&mut app, "captor", ae::Vec2::ZERO);
             let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
             app.world_mut().entity_mut(victim).insert((
-                ambition_characters::brain::ScriptedControl,
-                ambition_characters::brain::ControlHolds::only(
-                    ambition_characters::brain::ControlHold::Relationship,
+                ambition_characters::control::ScriptedControl,
+                ambition_characters::control::ControlHolds::only(
+                    ambition_characters::control::ControlHold::Relationship,
                 ),
                 ambition_characters::control::ActorControl(
                     ambition_characters::actor::control::ActorControlFrame::neutral(),
@@ -1104,7 +1104,7 @@ mod tests {
             }
             assert!(
                 app.world()
-                    .get::<ambition_characters::brain::ScriptedControl>(victim)
+                    .get::<ambition_characters::control::ScriptedControl>(victim)
                     .is_none(),
                 "freed and still unable to move: the release did not go through \
                  the one that gives the control claim back"
@@ -1144,7 +1144,7 @@ mod tests {
     /// everybody would pass the second.
     #[test]
     fn a_release_ends_this_holds_claim_and_leaves_the_others() {
-        use ambition_characters::brain::{ControlHold, ControlHolds, ScriptedControl};
+        use ambition_characters::control::{ControlHold, ControlHolds, ScriptedControl};
 
         for also_held_by_the_stage in [true, false] {
             let mut app = App::new();
@@ -1322,11 +1322,11 @@ mod tests {
                 invulnerable: Default::default(),
             }),
             surface_state(0.0),
-            ambition_characters::brain::ScriptedControl,
+            ambition_characters::control::ScriptedControl,
             // The hold as a CLAIM: a bare marker is nobody's, and the release
             // deliberately leaves what it did not claim.
-            ambition_characters::brain::ControlHolds::only(
-                ambition_characters::brain::ControlHold::Relationship,
+            ambition_characters::control::ControlHolds::only(
+                ambition_characters::control::ControlHold::Relationship,
             ),
             CapturedBy {
                 captor,
@@ -1368,7 +1368,7 @@ mod tests {
         );
         assert!(
             app.world()
-                .get::<ambition_characters::brain::ScriptedControl>(victim)
+                .get::<ambition_characters::control::ScriptedControl>(victim)
                 .is_none(),
             "thrown and still unable to move"
         );
@@ -1603,17 +1603,17 @@ pub fn release_capture(
     victim: Entity,
     held: &CapturedBy,
     surface: Option<&mut ae::ActorSurfaceState>,
-    holds: Option<&mut ambition_characters::brain::ControlHolds>,
+    holds: Option<&mut ambition_characters::control::ControlHolds>,
 ) {
     commands.entity(victim).try_remove::<CapturedBy>();
     // ⛔ ONLY the hold this relationship claimed. The body may be held by a
     // ruleset's KO freeze at the same time — the throw that ends the grab does
     // not end the fight's hold on the fighter it just threw.
-    ambition_characters::brain::release_control_hold(
+    ambition_characters::control::release_control_hold(
         commands,
         victim,
         holds,
-        ambition_characters::brain::ControlHold::Relationship,
+        ambition_characters::control::ControlHold::Relationship,
     );
     if let Some(surface) = surface {
         // ⚠ what it WAS, not `1.0`. A flying body's scale is not the reference
@@ -1643,7 +1643,7 @@ pub fn release_interrupted_captures(
     bodies: Query<Entity>,
     combat: Query<&ambition_characters::actor::BodyCombat>,
     mut surfaces: Query<&mut ae::ActorSurfaceState>,
-    mut holds: Query<&mut ambition_characters::brain::ControlHolds>,
+    mut holds: Query<&mut ambition_characters::control::ControlHolds>,
 ) {
     let reacted = |body: Entity| {
         combat
@@ -1757,7 +1757,7 @@ pub fn apply_capture_throws(
         &mut ambition_characters::actor::BodyHealth,
         &mut ae::ActorSurfaceState,
         Option<&crate::components::CombatTuning>,
-        Option<&mut ambition_characters::brain::ControlHolds>,
+        Option<&mut ambition_characters::control::ControlHolds>,
     )>,
     gravity: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     feel: Option<Res<crate::feel::Platformer2dFeelTuningMonolith>>,

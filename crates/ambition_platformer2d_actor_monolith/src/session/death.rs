@@ -149,10 +149,10 @@ pub fn open_death_interlude(
         // slide, a goal brake, an act clear — are states the SAME body cannot
         // also be in. A second bit is what two OVERLAPPING owners need, and
         // these do not overlap.
-        ambition_characters::brain::claim_control_hold(
+        ambition_characters::control::claim_control_hold(
             &mut commands,
             victim,
-            ambition_characters::brain::ControlHold::Sequence,
+            ambition_characters::control::ControlHold::Sequence,
         );
     }
 }
@@ -270,6 +270,6 @@ pub fn clear_out_of_play_on_restart(
         // a RESET, not a release: a body that restarted cannot still be
         // mid-sequence for anybody, so the whole claim set goes rather than one
         // bit of it.
-        ambition_characters::brain::clear_control_holds(&mut commands, restart.entity);
+        ambition_characters::control::clear_control_holds(&mut commands, restart.entity);
     }
 }

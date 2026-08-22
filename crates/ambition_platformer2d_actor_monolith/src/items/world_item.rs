@@ -149,7 +149,7 @@ pub fn collect_world_items(
         ),
         (
             // A body the game is driving does not shop.
-            Without<ambition_characters::brain::ScriptedControl>,
+            Without<ambition_characters::control::ScriptedControl>,
             TouchCollectorFilter,
         ),
     >,

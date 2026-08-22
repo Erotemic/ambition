@@ -70,7 +70,7 @@ where
     );
     registrar.rollback_component_canonical::<crate::actor::BodyWallet>(OWNER, "body.wallet");
     registrar
-        .rollback_component_clone::<crate::brain::ScriptedControl>(OWNER, "actor.scripted_control");
+        .rollback_component_clone::<crate::control::ScriptedControl>(OWNER, "actor.scripted_control");
     // the declaration's own justification was *"reprojected every tick from `Brain::Player` —
     // which IS registered, above"*, and that upstream is GONE: `Brain` is AI policy only now,
     // and the seat a participant drives from is authored onto the body at its spawn/seat site
@@ -103,7 +103,7 @@ where
         |driver| u64::from(driver.0 .0),
     );
     // `ScriptedControl` is the projection; this set records which authority owns it.
-    registrar.rollback_component_clone_probed::<crate::brain::ControlHolds>(
+    registrar.rollback_component_clone_probed::<crate::control::ControlHolds>(
         OWNER,
         "actor.control_holds",
         |holds| u64::from(holds.bits()),

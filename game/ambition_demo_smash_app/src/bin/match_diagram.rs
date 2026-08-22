@@ -105,7 +105,8 @@ fn main() {
     }
     {
         use ambition_platformer2d::actor::MatchSeat;
-        use ambition_platformer2d::characters::brain::{Brain, ScriptedControl};
+        use ambition_platformer2d::characters::brain::{Brain};
+use ambition_platformer2d::characters::control::{ScriptedControl};
         let world = app.world_mut();
         let mut q = world.query::<(
             &MatchSeat,

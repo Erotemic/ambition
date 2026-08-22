@@ -10,9 +10,7 @@
 
 use bevy::prelude::*;
 
-use ambition_characters::brain::{
-    claim_control_hold, release_control_hold, ControlHold, ControlHolds, ScriptedControl,
-};
+use ambition_characters::control::{claim_control_hold, release_control_hold, ControlHold, ControlHolds, ScriptedControl};
 
 use super::authority::ActiveConversation;
 

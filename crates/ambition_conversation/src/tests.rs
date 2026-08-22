@@ -4,11 +4,11 @@
 use bevy::prelude::*;
 
 use ambition_characters::actor::BodyCombat;
-use ambition_characters::brain::ScriptedControl;
+use ambition_characters::control::ScriptedControl;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::CenteredAabb;
 
-use ambition_characters::brain::{ControlHold, ControlHolds};
+use ambition_characters::control::{ControlHold, ControlHolds};
 
 use super::{
     break_dialogue_on_hit_or_separation, project_conversation_hold, ActiveConversation,

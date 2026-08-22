@@ -1188,7 +1188,7 @@ fn a_roster_that_opens_suspended_seats_fighters_that_cannot_act_yet() {
     let world = app.world_mut();
     let mut bodies = world.query::<(
         &ambition_characters::actor::WornCharacter,
-        Option<&ambition_characters::brain::ScriptedControl>,
+        Option<&ambition_characters::control::ScriptedControl>,
     )>();
     let seated: Vec<_> = bodies
         .iter(world)
@@ -1230,7 +1230,7 @@ fn a_declared_countdown_holds_every_seat_until_it_ends() {
     fn held(app: &mut App) -> (usize, usize) {
         let world = app.world_mut();
         let mut q = world
-            .query_filtered::<Option<&ambition_characters::brain::ScriptedControl>, With<MatchSeat>>(
+            .query_filtered::<Option<&ambition_characters::control::ScriptedControl>, With<MatchSeat>>(
             );
         let seats: Vec<bool> = q.iter(world).map(|scripted| scripted.is_some()).collect();
         (seats.iter().filter(|held| **held).count(), seats.len())
@@ -1297,7 +1297,7 @@ fn a_local_input_seat_is_also_suspended_on_the_tick_it_joins() {
 
     let world = app.world_mut();
     let mut seated = world
-        .query_filtered::<Option<&ambition_characters::brain::ScriptedControl>, With<MatchSeat>>();
+        .query_filtered::<Option<&ambition_characters::control::ScriptedControl>, With<MatchSeat>>();
     let suspended: Vec<bool> = seated.iter(world).map(|s| s.is_some()).collect();
     assert_eq!(
         suspended,
@@ -1446,7 +1446,7 @@ fn an_ordinary_roster_seats_fighters_that_can_act() {
     let world = app.world_mut();
     let mut bodies = world.query::<(
         &ambition_characters::actor::WornCharacter,
-        Option<&ambition_characters::brain::ScriptedControl>,
+        Option<&ambition_characters::control::ScriptedControl>,
     )>();
     let suspended: Vec<_> = bodies.iter(world).map(|(_, s)| s.is_some()).collect();
     assert_eq!(

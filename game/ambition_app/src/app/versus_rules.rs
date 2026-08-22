@@ -240,7 +240,7 @@ pub fn settle_versus_round(
     mut rounds: ResMut<ambition_platformer2d::platformer::lifecycle::ActiveRoundScope>,
     mut fighters: FighterQuery,
     mut reactions: Query<&mut BodyCombat, With<MatchSeat>>,
-    mut holds: Query<&mut ambition_platformer2d::characters::brain::ControlHolds>,
+    mut holds: Query<&mut ambition_platformer2d::characters::control::ControlHolds>,
     mut firing: Query<
         &mut ambition_platformer2d::projectiles::PlayerProjectileState,
         With<MatchSeat>,
@@ -285,7 +285,7 @@ pub fn settle_versus_round(
             take_the_controls(
                 &mut commands,
                 fighters.iter().map(|(entity, ..)| entity),
-                ambition_platformer2d::characters::brain::ControlHold::Opening,
+                ambition_platformer2d::characters::control::ControlHold::Opening,
             );
 
             if !everybody_is_here {
@@ -385,7 +385,7 @@ pub fn settle_versus_round(
             take_the_controls(
                 &mut commands,
                 fighters.iter().map(|(entity, ..)| entity),
-                ambition_platformer2d::characters::brain::ControlHold::Interlude,
+                ambition_platformer2d::characters::control::ControlHold::Interlude,
             );
             return;
         }
@@ -479,7 +479,7 @@ pub fn settle_versus_round(
 fn take_the_controls(
     commands: &mut Commands,
     fighters: impl Iterator<Item = Entity>,
-    hold: ambition_platformer2d::characters::brain::ControlHold,
+    hold: ambition_platformer2d::characters::control::ControlHold,
 ) {
     for fighter in fighters {
         // **which hold, said at the call site.** The countdown and the KO card
@@ -487,7 +487,7 @@ fn take_the_controls(
         // a capture can be holding one of these same fighters besides. Whoever
         // releases first must not free a body another still holds, and that is
         // arithmetic now rather than an argument about which features overlap.
-        ambition_platformer2d::characters::brain::claim_control_hold(commands, fighter, hold);
+        ambition_platformer2d::characters::control::claim_control_hold(commands, fighter, hold);
     }
 }
 
@@ -505,9 +505,9 @@ fn take_the_controls(
 fn hand_back_the_controls(
     commands: &mut Commands,
     fighter: Entity,
-    holds: &mut Query<&mut ambition_platformer2d::characters::brain::ControlHolds>,
+    holds: &mut Query<&mut ambition_platformer2d::characters::control::ControlHolds>,
 ) {
-    use ambition_platformer2d::characters::brain::{release_control_hold, ControlHold};
+    use ambition_platformer2d::characters::control::{release_control_hold, ControlHold};
     let mut held = holds.get_mut(fighter).ok();
     for hold in [ControlHold::Opening, ControlHold::Interlude] {
         release_control_hold(commands, fighter, held.as_deref_mut(), hold);

@@ -310,7 +310,7 @@ fn capture_context_frame(snapshot: &BrainSnapshot) -> Option<ActorControlFrame> 
         // **no APM token.** Mashing out of a grab is the one thing a person
         // really does at machine speed, and spending the decision budget on it
         // would make a fighter's escape compete with its next attack.
-        if crate::brain::struggling_this_tick(snapshot.captured_for, snapshot.dt) {
+        if crate::control::struggling_this_tick(snapshot.captured_for, snapshot.dt) {
             frame.melee_pressed = true;
         }
         return Some(frame);

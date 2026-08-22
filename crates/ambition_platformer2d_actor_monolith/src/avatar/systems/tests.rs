@@ -485,7 +485,7 @@ fn a_possessed_actor_is_driven_by_the_controlled_brain_producer() {
 /// one back across the other turns this red.
 #[test]
 fn a_scripted_sequence_silences_a_possessed_body() {
-    use ambition_characters::brain::{ScriptedControl};
+    use ambition_characters::control::{ScriptedControl};
 use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 
     let mut app = App::new();

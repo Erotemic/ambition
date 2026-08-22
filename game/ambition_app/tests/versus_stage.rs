@@ -1038,7 +1038,7 @@ fn a_decided_round_takes_the_controls_away() {
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::characters::actor::control::ActorControlFrame;
     use ambition_platformer2d::characters::actor::BodyHealth;
-    use ambition_platformer2d::characters::brain::{ScriptedControl};
+    use ambition_platformer2d::characters::control::{ScriptedControl};
 use ambition_platformer2d::characters::control::{ActorControl};
 
     let mut app = versus_app();

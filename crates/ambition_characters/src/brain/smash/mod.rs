@@ -524,7 +524,7 @@ pub fn tick_smash(
         // note that stood here said escape did not exist yet and that this would
         // be its arm when it did; it does, and this is.
         state.mode = BroadMode::Idle;
-        if super::struggling_this_tick(snapshot.captured_for, snapshot.dt) {
+        if crate::control::struggling_this_tick(snapshot.captured_for, snapshot.dt) {
             emit_inputs(SpecificAction::CaptureStruggle, &obs, out);
         }
         return;

@@ -570,7 +570,7 @@ fn an_adopted_seat_and_a_spawned_seat_agree_on_every_roster_declared_field() {
             &MatchSeat,
             &ambition_platformer2d::engine_core::BodyAbilities,
             Option<&ambition_platformer2d::actor::FighterStocks>,
-            Option<&ambition_platformer2d::characters::brain::ScriptedControl>,
+            Option<&ambition_platformer2d::characters::control::ScriptedControl>,
         )>();
         let mut rows: Vec<(usize, String, Option<u32>, bool)> = q
             .iter(world)
@@ -1879,9 +1879,9 @@ fn a_respawning_fighter_is_briefly_untouchable_and_an_eliminated_one_is_not() {
             // marker is nobody's hold, and the next release would have nothing
             // to clear.
             world.entity_mut(other).insert((
-                ambition_platformer2d::characters::brain::ScriptedControl,
-                ambition_platformer2d::characters::brain::ControlHolds::only(
-                    ambition_platformer2d::characters::brain::ControlHold::Interlude,
+                ambition_platformer2d::characters::control::ScriptedControl,
+                ambition_platformer2d::characters::control::ControlHolds::only(
+                    ambition_platformer2d::characters::control::ControlHold::Interlude,
                 ),
             ));
         }
@@ -1942,7 +1942,7 @@ fn wait_for_the_round_to_go_live(app: &mut App) {
             let world = app.world_mut();
             let mut q = world.query_filtered::<
                 &ambition_platformer2d::actors::character_runtime::MatchSeat,
-                With<ambition_platformer2d::characters::brain::ScriptedControl>,
+                With<ambition_platformer2d::characters::control::ScriptedControl>,
             >();
             q.iter(world).count()
         };

@@ -9,7 +9,7 @@
 use std::collections::BTreeMap;
 
 use ambition_platformer2d_core as ae;
-use bevy::prelude::Resource;
+use bevy::prelude::{Rect, Resource};
 
 use super::SurroundRegion;
 
@@ -231,11 +231,24 @@ pub struct HudStanding {
     /// [`HudFigure`] are presentation PRIMITIVES rather than content vocabulary,
     /// and "which character" is content — an engine that took an id here would
     /// have to learn what a roster is to draw a HUD. A path is a thing a
-    /// renderer can already load. Games resolve it with
-    /// `CharacterCatalog::portrait_image_path`, which existed for this.
+    /// renderer can already load. Games resolve it beside the frame below,
+    /// through the engine's portrait road.
     ///
     /// `None` draws no portrait, which is what a fighter with no art gets.
     pub portrait: Option<String>,
+    /// WHICH PART of that image is the face.
+    ///
+    /// A portrait sheet is a page of frames, so the path alone is not enough:
+    /// drawing the whole image puts a strip of eight tiny faces in a 56px box.
+    /// The game resolves this beside the path, from the same portrait manifest,
+    /// by asking for a STILL.
+    ///
+    /// A sub-rectangle is a presentation primitive for the same reason the field
+    /// above is a path and not a character id — a renderer can already crop an
+    /// image, and it still needs to learn nothing about rosters. `None` means the
+    /// whole image, which is right for a single-frame portrait and for any art
+    /// that is not a sheet.
+    pub portrait_frame: Option<Rect>,
     /// The image ONE stock is drawn as. The game's asset, for the same reason.
     pub stock_icon: Option<String>,
     /// Lives left. `0` is a fighter who is out, not an error.

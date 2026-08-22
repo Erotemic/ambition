@@ -683,11 +683,10 @@ pub fn update_declared_hud_panels(
 
     // ── the portraits ────────────────────────────────────────────────────
     for (portrait, mut image, mut visibility) in &mut portraits {
-        let path = readouts
+        let standing = readouts
             .get(&portrait.0)
-            .and_then(|readout| readout.standing_of())
-            .and_then(|standing| standing.portrait.clone());
-        match path {
+            .and_then(|readout| readout.standing_of());
+        match standing.and_then(|standing| standing.portrait.clone()) {
             //  a fighter with no portrait draws none rather than a blank box:
             // an empty rectangle reads as art that failed to load.
             None => set_hidden(&mut visibility),
@@ -696,6 +695,14 @@ pub fn update_declared_hud_panels(
                 let handle: Handle<Image> = asset_server.load(path);
                 if image.image != handle {
                     image.image = handle;
+                }
+                // The FACE out of the page. A portrait sheet holds every clip
+                // this character can wear, so drawing the whole image squeezes
+                // the lot into this box. `None` is the whole image, which is
+                // what a single-frame portrait wants.
+                let frame = standing.and_then(|standing| standing.portrait_frame);
+                if image.rect != frame {
+                    image.rect = frame;
                 }
             }
         }

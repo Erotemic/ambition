@@ -746,6 +746,45 @@ pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::De
     }
 }
 
+/// One fighter panel's face: the page, and which frame of it to draw.
+#[derive(Clone, Debug)]
+struct HudFace {
+    image: String,
+    /// `None` where nothing could crop it — see `HudStanding::portrait_frame`.
+    frame: Option<bevy::prelude::Rect>,
+}
+
+/// Resolve a worn character's HUD face through the engine's portrait road.
+///
+/// A STILL, explicitly: this panel never ticks a frame. Asking for one is also
+/// what keeps the page from being drawn whole — a portrait sheet holds every
+/// clip the character can wear, and 56 pixels of eight-frame strip is nothing.
+fn hud_face(
+    catalog: &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
+    portraits: Option<&ambition_platformer2d::character::PortraitSheetRegistry>,
+    declared: Option<&ambition_platformer2d::character::PreparedCharacterRegistry>,
+    character_id: &str,
+) -> Option<HudFace> {
+    let target = declared
+        .and_then(|registry| registry.get(character_id))
+        .and_then(|prepared| prepared.portrait.as_deref());
+    let reference = ambition_platformer2d::character::portrait_for_declared_character(
+        portraits,
+        catalog,
+        target,
+        character_id,
+    )?;
+    let frame = portraits
+        .and_then(|registry| {
+            registry.resolve_still(&reference.manifest, None, Some(&reference.still_clip))
+        })
+        .map(|(_, frame)| bevy::prelude::Rect::from(frame));
+    Some(HudFace {
+        image: reference.image,
+        frame,
+    })
+}
+
 pub fn publish_smash_hud(
     fighters: bevy::prelude::Query<(
         &ambition_platformer2d::actors::character_runtime::MatchSeat,
@@ -756,7 +795,7 @@ pub fn publish_smash_hud(
         // is a display string; a portrait is resolved from the character id.
         Option<&ambition_platformer2d::characters::actor::WornCharacter>,
     )>,
-    // the GAME resolves the portrait path, not the renderer. `HudFigure`'s
+    // the GAME resolves the portrait, not the renderer. `HudFigure`'s
     // variants are presentation primitives and "which character" is content —
     // see the note on `HudStanding::portrait`. This is the side that knows.
     catalog: Option<
@@ -764,20 +803,31 @@ pub fn publish_smash_hud(
             ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
         >,
     >,
+    // A panel wants ONE FACE, so this asks the portrait manifests for a STILL.
+    // Both are optional for the same reason the select screen's are: a
+    // composition that installs neither still draws a portrait, just an
+    // uncropped one.
+    portraits: Option<bevy::prelude::Res<ambition_platformer2d::character::PortraitSheetRegistry>>,
+    declared: Option<bevy::prelude::Res<ambition_platformer2d::character::PreparedCharacterRegistry>>,
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
-    let mut rows: Vec<(usize, String, f32, Option<(u32, u32)>, Option<String>)> = fighters
+    let mut rows: Vec<(usize, String, f32, Option<(u32, u32)>, Option<HudFace>)> = fighters
         .iter()
         .map(|(seat, health, stocks, name, worn)| {
-            let portrait = worn
-                .zip(catalog.as_deref())
-                .and_then(|(worn, catalog)| catalog.portrait_image_path(worn.id()));
+            let face = worn.zip(catalog.as_deref()).and_then(|(worn, catalog)| {
+                hud_face(
+                    catalog,
+                    portraits.as_deref(),
+                    declared.as_deref(),
+                    worn.id(),
+                )
+            });
             (
                 seat.0,
                 name.as_str().to_string(),
                 health.damage_percent(),
                 stocks.map(|s| (s.remaining, s.started_with)),
-                portrait,
+                face,
             )
         })
         .collect();
@@ -786,7 +836,7 @@ pub fn publish_smash_hud(
     rows.sort_by_key(|(seat, ..)| *seat);
 
     let mut written = [false; FIGHTER_HUD_SLOTS.len()];
-    for (seat, _name, percent, stocks, portrait) in &rows {
+    for (seat, _name, percent, stocks, face) in &rows {
         let Some(slot) = FIGHTER_HUD_SLOTS.get(*seat) else {
             continue;
         };
@@ -807,7 +857,8 @@ pub fn publish_smash_hud(
                 String::new(),
                 value,
                 ambition_platformer2d::presentation::HudStanding {
-                    portrait: portrait.clone(),
+                    portrait: face.as_ref().map(|face| face.image.clone()),
+                    portrait_frame: face.as_ref().and_then(|face| face.frame),
                     stock_icon: Some(STOCK_ICON_ASSET.to_string()),
                     remaining,
                     started,

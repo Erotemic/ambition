@@ -4766,3 +4766,78 @@ fn no_single_cue_is_asked_for_twice_in_one_tick_during_a_grab() {
         );
     }
 }
+
+/// THE PROBE. A FIGHTER'S HUD PANEL DRAWS ONE FACE, NOT THE WHOLE PORTRAIT PAGE.
+///
+/// `HudStanding` used to carry an image path and nothing else, so the renderer
+/// loaded a portrait sheet whole into a 56px box. Oiler's page is 2048x320 —
+/// eight frames — and it drew as a strip of eight tiny faces. The select grid
+/// had already hit this and cropped by hand; the HUD had no way to, because a
+/// path cannot say which frame it means.
+///
+/// The invariant is the one that outlives the fix: whatever the panel draws, it
+/// is at most ONE frame of the page. A sheet wider than its own frame must come
+/// back cropped, and the crop must be that frame's size — an assertion that the
+/// rect merely EXISTS would pass on a rect covering the whole strip.
+#[test]
+fn a_fighter_with_a_multi_frame_portrait_gets_one_frame_on_the_hud() {
+    use ambition_platformer2d::character::{
+        portrait_for_declared_character, CharacterCatalog, PortraitSheetRegistry,
+    };
+    use ambition_platformer2d::presentation::HudReadouts;
+
+    // Oiler is the character the select screen's own note names, and he is on
+    // the grid, so this is the shipped population rather than a fixture.
+    const MULTI_FRAME_FIGHTER: &str = "npc_oiler";
+    let (mut app, _body) = a_person_fighting_as(MULTI_FRAME_FIGHTER);
+    app.update();
+
+    // NON-VACUITY, first: a single-frame sheet would pass every assertion below
+    // while proving nothing, so establish that this fighter's page really is
+    // wider than one frame before reading the HUD at all.
+    let (frame_width, page_frames) = {
+        let world = app.world();
+        let registry = world.resource::<PortraitSheetRegistry>();
+        let catalog = world.resource::<CharacterCatalog>();
+        let reference =
+            portrait_for_declared_character(Some(registry), catalog, None, MULTI_FRAME_FIGHTER)
+                .expect("the seated fighter resolves a portrait");
+        let manifest = registry
+            .get(&reference.manifest)
+            .expect("its manifest is baked");
+        let frames: usize = manifest.clips.values().map(|clip| clip.frames.len()).sum();
+        (manifest.frame_width as f32, frames)
+    };
+    assert!(
+        page_frames > 1,
+        "{MULTI_FRAME_FIGHTER}'s portrait page holds {page_frames} frame(s), so this test \
+         cannot tell a crop from no crop. Point it at a fighter whose portraits animate."
+    );
+
+    let standing = {
+        let world = app.world();
+        let readouts = world.resource::<HudReadouts>();
+        // SEAT ZERO's panel, not "whichever panel has a portrait" — the person
+        // is the one fighting as the multi-frame character, and the CPU beside
+        // them is not. A search would silently read the wrong panel the day the
+        // opponent's art changes.
+        let slot = ambition_demo_smash::FIGHTER_HUD_SLOTS[0].into();
+        readouts
+            .get(&slot)
+            .and_then(|readout| readout.standing_of())
+            .cloned()
+            .expect("a live match published no standing for the person's own panel")
+    };
+
+    let frame = standing.portrait_frame.expect(
+        "the HUD published a portrait path with no frame, so the renderer will draw the \
+         whole page — every clip this character owns — inside one 56px panel",
+    );
+    assert_eq!(
+        frame.width(),
+        frame_width,
+        "the HUD's crop is {} wide but one portrait frame is {frame_width}; a crop that \
+         spans more than one frame is the same bug wearing a rect",
+        frame.width(),
+    );
+}

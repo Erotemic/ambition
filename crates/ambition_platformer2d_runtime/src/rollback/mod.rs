@@ -49,6 +49,12 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     ambition_platformer2d_shared_tangle::register_rollback_state(registrar);
     ambition_vfx::register_rollback_state(registrar);
     ambition_items::register_rollback_state(registrar);
+    // ⚠ **the ROW is behind `portal`, the same shape and for the same reason as
+    // `ambition_platformer2d_ldtk`'s: a composition without portals has no such
+    // state to rewind, and gating the row says that rather than registering an
+    // empty one. It is a stated schema fork — the recorded baselines are the
+    // with-portal set, which every shipping composition is.
+    #[cfg(feature = "portal")]
     ambition_portal2d::register_rollback_state(registrar);
     ambition_cutscene::register_rollback_state(registrar);
     ambition_projectiles::register_rollback_state(registrar);

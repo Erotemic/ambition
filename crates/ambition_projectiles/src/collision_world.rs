@@ -15,7 +15,9 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
 use bevy::ecs::system::SystemParam;
-use bevy::prelude::{Query, Res};
+#[cfg(feature = "portal")]
+use bevy::prelude::Query;
+use bevy::prelude::Res;
 
 /// The portal-carved collision world a projectile collides against. Bundled as a
 /// [`SystemParam`] so the stepper can build the carved world without adding two
@@ -32,6 +34,7 @@ pub struct ProjectileCollisionWorld<'w, 's> {
     overlay: Res<'w, FeatureEcsWorldOverlay>,
     // Folded in here (rather than as its own top-level param) because the stepper
     // is already at Bevy's 16-param ceiling.
+    #[cfg(feature = "portal")]
     portals: Query<'w, 's, &'static ambition_portal2d::PlacedPortal>,
 }
 
@@ -51,6 +54,7 @@ impl ProjectileCollisionWorld<'_, '_> {
     }
 
     /// Snapshot the placed portals for the per-projectile transit test.
+    #[cfg(feature = "portal")]
     pub fn portal_list(&self) -> Vec<ambition_portal2d::PlacedPortal> {
         self.portals.iter().cloned().collect()
     }

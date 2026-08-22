@@ -41,7 +41,9 @@ ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_combat = { path = "../ambition_combat" }
 ambition_encounter = { path = "../ambition_encounter" }
 ambition_characters = { path = "../ambition_characters" }
-ambition_portal2d = { path = "../ambition_portal2d" }
+# Optional for the same reason the LDtk edge above is: a portal is a
+# capability a game HAS. The monolith and the host already declare it this way.
+ambition_portal2d = { path = "../ambition_portal2d", optional = true }
 ambition_sim_view = { path = "../ambition_sim_view", features = ["input"] }
 # The combat-phase chain's effect seam (`EffectRequest`/`apply_effects`) —
 # sim-side effect vocabulary, not presentation.
@@ -103,7 +105,7 @@ causal = ["dep:ambition_causal", "ambition_platformer2d_actor_monolith/causal", 
 # Forward the sim-relevant feature gates so a consumer can opt into the same
 # optional subsystems the plugin group conditionally bundles. Kept minimal for
 # the first assembly; widened as more plugins migrate in.
-portal = ["ambition_platformer2d_actor_monolith/portal"]
+portal = ["dep:ambition_portal2d", "ambition_platformer2d_actor_monolith/portal"]
 # The LDtk runtime spine and its rollback row, offered to a game that has an
 # LDtk world. Default-OFF: see the dependency's own note.
 ldtk = ["dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/ldtk_runtime"]

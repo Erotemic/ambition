@@ -8,17 +8,17 @@ use bevy::prelude::*;
 use super::allegiance::ProjectileAllegiance;
 use super::diagnostics::log_press_diagnostics;
 use super::entity::{LiveProjectile, ProjectileOwner, ProjectileSeq};
-use super::{ProjectileSpawnRequest, ProjectileStart};
 use super::state::{PlayerProjectileState, ProjectileTraceEvent};
 use super::{resolve_world_collision, WorldHitOutcome};
+use super::{ProjectileSpawnRequest, ProjectileStart};
 use crate::actor::BodyKinematics;
-use ambition_boss_encounter::{BossClusterRef, BossConfig};
 use crate::features::{
     ActorAggression, ActorFaction, BreakableFeature, CenteredAabb, FeatureId, FeatureSimEntity,
     HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget,
 };
 use crate::projectile::ProjectileGameplay;
 use crate::trace::GameplayTraceBuffer;
+use ambition_boss_encounter::{BossClusterRef, BossConfig};
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_vfx::vfx::VfxMessage;
 
@@ -531,6 +531,9 @@ pub fn step_projectiles(
     let dt = world_time.sim_dt();
     let friendly_fire = tuning.map(|t| t.friendly_fire()).unwrap_or_default();
     let collision_world = carved.solids();
+    // Without the portal capability there are no apertures to thread, so the
+    // list is empty by construction and the transit check below is skipped.
+    #[cfg(feature = "portal")]
     let portal_list = carved.portal_list();
     let tick = trace.current_tick();
 
@@ -543,17 +546,8 @@ pub fn step_projectiles(
     ordered.sort_by_key(|(_, seq)| *seq);
 
     for (proj_entity, _) in ordered {
-        let Ok((
-            _,
-            mut kin,
-            mut game,
-            owner,
-            stamped_allegiance,
-            _,
-            kind,
-            visual_id,
-            bolt_source,
-        )) = projectiles.get_mut(proj_entity)
+        let Ok((_, mut kin, mut game, owner, stamped_allegiance, _, kind, visual_id, bolt_source)) =
+            projectiles.get_mut(proj_entity)
         else {
             continue;
         };
@@ -679,6 +673,7 @@ pub fn step_projectiles(
         }
 
         // Portal transit: thread the aperture instead of hitting the wall.
+        #[cfg(feature = "portal")]
         if !portal_list.is_empty()
             && crate::projectile::try_projectile_portal_transit(&mut kin, &portal_list)
         {

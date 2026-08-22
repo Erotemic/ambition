@@ -61,7 +61,6 @@
     "ambition_platformer2d_runtime",
     "ambition_platformer2d_shared_tangle",
     "ambition_platformer2d_world",
-    "ambition_portal2d",
     "ambition_projectile_spec",
     "ambition_projectiles",
     "ambition_render",
@@ -74,7 +73,7 @@
     "ambition_ui_nav",
     "ambition_vfx"
   ],
-  "closure_size": 43,
+  "closure_size": 42,
   "never_asked_for": [
     "ambition_audio",
     "ambition_boss_encounter",
@@ -85,7 +84,6 @@
     "ambition_items",
     "ambition_menu",
     "ambition_persistence",
-    "ambition_portal2d",
     "ambition_projectiles",
     "ambition_settings_menu",
     "ambition_sfx",
@@ -93,7 +91,7 @@
     "ambition_ui_nav",
     "ambition_vfx"
   ],
-  "never_asked_for_count": 16,
+  "never_asked_for_count": 15,
   "reachable_via_ambition_platformer2d_actor_monolith_alone": [
     "ambition_audio",
     "ambition_boss_encounter",
@@ -152,6 +150,7 @@
     "what": "ambition_platformer2d_ldtk (and third-party bevy_ecs_ldtk) left the movement-only sentinel's closure: 44 -> 43, never_asked_for 17 -> 16.",
     "how": "Three edges, not one. The runtime named the LDtk crate UNCONDITIONALLY (its own `LdtkWorldPlugin` and one `Option<LdtkRuntimeIndex>` slot on PreparedPlatformerSource) -- that edge is `optional` now behind a `ldtk` feature forwarded through the provider and the facade, and folded into `all_capabilities`. The other two were the hard-coded monolith feature lists this file's row already named: ambition_sim_view asked for `ldtk_runtime`+`portal` and ambition_platformer2d_runtime for `portal_ldtk`, and the monolith's ldtk dep is optional-but-enabled by exactly those.",
     "why_it_could_be_done_now_and_not_in_august": "D136 probed dropping those two lists on 2026-08-18 and recorded that the MONOLITH itself did not build without `ldtk_runtime`. Re-probed 2026-08-22: it does (`--no-default-features --features visible`, zero errors). The cfg-gating landed in between; the recorded blocker outlived it.",
-    "\u26a0_the_content_fingerprint_did_not_move": "The provider writes `world.runtime-index` from the installed index; without the capability a game has none, and an absent index writes byte-for-byte what a RON-authored game already wrote (one `area\\t<id>\\t\\t-` row per room). That equality is stated in the provider's own comment and is why this is a link-closure change, not a content-identity change."
+    "\u26a0_the_content_fingerprint_did_not_move": "The provider writes `world.runtime-index` from the installed index; without the capability a game has none, and an absent index writes byte-for-byte what a RON-authored game already wrote (one `area\\t<id>\\t\\t-` row per room). That equality is stated in the provider's own comment and is why this is a link-closure change, not a content-identity change.",
+    "portal_followed_the_same_day": "ambition_portal2d left too: 43 -> 42, never_asked_for 16 -> 15. FOUR unconditional edges (monolith, runtime, sim_view, and ambition_projectiles) plus the runtime's ungated `ambition_portal2d::register_rollback_state`, which is now behind `portal` exactly as the LDtk row is. The portal CODE was already cfg-gated everywhere; only the manifests said otherwise. \u26a0 and making the dep optional exposed a feature-unification lean: `ambition_projectiles::diagnostics` uses `bevy::prelude::info` and was getting `bevy_log` through ambition_portal2d's bevy features. It names the feature itself now \u2014 a crate that needs a feature declares it."
   }
 }

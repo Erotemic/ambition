@@ -6908,7 +6908,8 @@ not a wasted step**: with it unconditional the counter could not move no matter
 what those two did.
 
 ✔✔ **AND THEY CAN NOW — AND THEY ARE GONE (2026-08-22). `ambition_platformer2d_ldtk`
-LEFT THE MOVEMENT-ONLY CLOSURE: 44 → 43, `never_asked_for` 17 → 16**, and
+AND `ambition_portal2d` LEFT THE MOVEMENT-ONLY CLOSURE: 44 → 42, `never_asked_for`
+17 → 15**, and
 third-party `bevy_ecs_ldtk` went with it. The ratchet is re-frozen at the new
 floor, so a regression back cannot pass silently.
 
@@ -6938,6 +6939,25 @@ link-closure change rather than a content-identity one.
 no longer hard-codes the features"* off a single-line grep. It does — the list is
 a multi-line TOML array, and `grep 'features.*ldtk'` cannot see it. The row's
 original diagnosis was right all along.
+
+⭐ **PORTAL FOLLOWED THE SAME DAY, and it was the same shape four more times.**
+`ambition_portal2d` was named UNCONDITIONALLY by the monolith, the runtime,
+`ambition_sim_view` and `ambition_projectiles`, and the runtime registered its
+rollback row ungated — while the portal CODE was already `#[cfg(feature)]`d
+everywhere. Only the manifests said otherwise. ⇒ **when a capability has a
+feature and the code obeys it, check whether the DEPENDENCY does.**
+
+⚠ **and making the dep optional exposed a lean nobody could see while it was
+on**: `ambition_projectiles::diagnostics` uses `bevy::prelude::info` and was
+getting `bevy_log` through `ambition_portal2d`'s bevy features. It names the
+feature itself now. **Feature unification is not a dependency** — it is a crate
+borrowing a neighbour's manifest, and it only shows up when the neighbour leaves.
+
+⛔ **the counter moving is NOT the whole acceptance test — the sentinel has to
+BUILD.** It did not, for two call sites in the monolith
+(`try_projectile_portal_transit`, `portal_list`) that the earlier probe could not
+reach because they only fail once `ambition_projectiles`' own surface is gated.
+`cargo check` the sentinel, and run its tests, before believing a shrink.
 
 ⚠ price: two tracked lockfiles (`minimal_game`, `capability_demo`) and one
 gitignored one (`external_consumer`) — regenerate all of them, and Outlander

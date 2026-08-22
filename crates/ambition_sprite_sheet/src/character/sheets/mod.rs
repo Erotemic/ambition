@@ -204,29 +204,12 @@ struct AuthoredRecord {
 }
 
 impl AuthoredSheets {
-    /// Parse one sheet RON and index every record it declares.
+    /// Parse one sheet RON and atomically index every record it declares.
     ///
-    /// `file_root` is the name a catalog row's `manifest` field reduces to —
-    /// `manifest: "outlander_spritesheet.ron"` is target `outlander` — and it
-    /// keys single-record files for exactly the reason the baked index does:
-    /// a file's own name is what the catalog can name.
-    ///
-    /// **A target is claimed once.** This used to `insert` over whatever was
-    /// there while the type's doc comment claimed collisions were logged, so two
-    /// providers registering one target resolved by PLUGIN ORDER and said
-    /// nothing — the exact failure mode the authored registry exists to remove
-    /// (GPT 5.6 review, 2026-07-28). Re-registering the identical declaration
-    /// from the same file is a no-op, because a provider whose plugin is built
-    /// twice in one process has not made a decision; anything else is two
-    /// authorities for one character and only the provider can resolve it.
-    ///
-    /// Validation runs over the whole file BEFORE anything is indexed: a
-    /// multi-record sheet whose fourth record collides must not leave the first
-    /// three installed under an error return.
-    ///
-    /// Returns how many records were indexed (0 when every record was an exact
-    /// re-registration), or the parse error verbatim; a provider registering a
-    /// broken sheet gets told which file and why.
+    /// Single-record files use `file_root` as their target. A target may be
+    /// claimed once; an identical re-registration from the same declaration is a
+    /// no-op, while a conflicting claim is an error. Validation completes before
+    /// any record is inserted.
     pub fn insert_ron(&mut self, file_root: &str, ron: &str) -> Result<usize, String> {
         let records: Vec<SheetRecord> = ron::from_str(ron)
             .map_err(|error| format!("authored sheet '{file_root}' is malformed RON: {error}"))?;

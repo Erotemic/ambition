@@ -1,10 +1,3 @@
-//! Unit tests for the parent module, extracted from an inline
-//! `#[cfg(test)] mod boss_reward_sync_tests` block (test-organization campaign, 2026-07-10).
-//! Pure move: same test names + logic, now an adjacent child module (a direct
-//! sibling, so `super` path depth is unchanged) with `use super::*;`.
-//! Followed its subject from `features::ecs::encounter_rewards` into
-//! `boss_encounter::rewards` (D33).
-
 //! sync_boss_reward_chests_ecs drops a boss's reward chest once the
 //! boss reads Cleared in the save and a spawn anchor is known. The
 //! non-ECS world/anchors params are carried in test-only resources so

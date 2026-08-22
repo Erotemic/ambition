@@ -229,36 +229,9 @@ fn control_bg(kind: MenuControlKind, focused: bool, selected: bool, important: b
 /// the model's authored layout, while the tab bar uses flex so tabs share the
 /// panel width evenly. A high [`GlobalZIndex`] keeps the menu on top so its
 /// `bevy_ui` buttons receive `Interaction`/picking before anything underneath.
-/// **The font every menu surface draws with.**
-///
-/// ⛔ Bevy's `TextFont::default()` resolves `Handle::<Font>::default()`, which is
-/// the engine's built-in `FiraMono-subset.ttf`. This crate set a font size and
-/// nothing else, so every menu in every game rendered through that handle and
-/// drew a hollow box for `·` (U+00B7) and `—` (U+2014) in a launcher footer,
-/// invisibly, until somebody photographed it.
-///
-/// **Probed 2026-08-01**: forcing the default handle back at every menu text
-/// spawn and re-capturing `--route ambition_launcher` reproduces the hollow box
-/// exactly; restoring the resolved handle removes it. The fix is the handle.
-///
-/// ⚠ **the mechanism is only half known.** "That subset has no U+00B7" is the
-/// obvious explanation and it is WRONG on its own: `ambition_demo_smash`'s
-/// select screen spawns `Text` with no `TextFont` at all — the same default
-/// handle — and renders `·`, `—` and `…` correctly at 1280x720. Same codepoint,
-/// same font asset, different outcome, so something about the menu's text path
-/// (its `MenuTextHeightFraction` resize, its node layout) is the other half.
-/// Do not repeat the glyph-coverage claim as if it were established.
-///
-/// ⚠ **ten hypotheses died before this one**, and they died because everyone
-/// checked the fonts the REPOSITORY ships — `JetBrainsMono-Regular.ttf` and
-/// `InterDisplay-Regular.otf` both carry the glyphs — and nobody asked what
-/// `Handle::default()` actually points at. The elimination list is the Z1 row of
-/// `queue-24h-2026-07-26.md`.
-///
-/// ⚠ this is a HANDLE, not a path. `ambition_menu` is renderer-agnostic and must
-/// not know where a font lives; the host fills this from whatever its asset
-/// authority resolved. `None` keeps Bevy's default, which is the correct
-/// behaviour for a composition that never loaded a font at all.
+/// Font handle used by all menu surfaces. The renderer-agnostic menu crate does
+/// not own an asset path; the host supplies the resolved handle. `None` uses
+/// Bevy's default font.
 #[derive(bevy::prelude::Resource, Default, Clone, Debug)]
 pub struct MenuFont(pub Option<bevy::prelude::Handle<bevy::text::Font>>);
 
@@ -711,25 +684,9 @@ fn publish_bevy_ui_menu_actions<Action>(
     }
 }
 
-/// Translate HOVER into the neutral preview message.
-///
-/// `MenuActionPreviewed` has existed on this crate since the menu seam was
-/// built, documented as "a host-defined action is currently hovered or focused",
-/// and until 2026-07-28 NOTHING WROTE IT and nothing read it. The visible
-/// consequence was the one Jon reported: moving the mouse over the game-select
-/// rows on the title screen did nothing at all, because the only interaction the
-/// renderer translated was `Pressed`. A vocabulary with no emitter is not a
-/// seam, it is a plan.
-///
-/// Hover is a PREVIEW, deliberately distinct from activation: it says which row
-/// the pointer is over and leaves what that means to the host. The launcher
-/// moves its selection cursor; a host that wanted a tooltip instead is not
-/// arguing with this system about it.
-///
-/// Only the FIRST hovered row is published. Overlapping pickable rows are a
-/// layout bug rather than a state the host should have to arbitrate, and
-/// publishing both would make the cursor depend on query order — which is not
-/// an order.
+/// Publish hover as a preview, distinct from activation. Only the first hovered
+/// row is emitted; overlapping pickable rows are treated as a layout error rather
+/// than exposing query order to the host.
 fn publish_bevy_ui_menu_previews<Action>(
     rows: Query<(&Interaction, &AmbitionMenuControl<Action>), With<Button>>,
     mut previewed: MessageWriter<crate::MenuActionPreviewed<Action>>,
@@ -913,33 +870,10 @@ impl bevy::prelude::Plugin for BevyUiMenuRestylePlugin {
     }
 }
 
-/// Convert every menu text node's height fraction into a pixel font size.
-///
-/// Runs every frame rather than on resize, deliberately: nodes are spawned by
-/// page rebuilds at arbitrary times, and a resize-only system would leave any
-/// menu opened after the last resize at the reference size. A menu has tens of
-/// text nodes and the write is change-detected, so steady-state frames touch
-/// nothing.
-///
-/// ⚠ **and it runs in `PostUpdate`, which is the difference between a menu and
-/// a menu that FLASHES.** (Jon, 2026-07-31: *"the 'Ambition' and 'Arrow keys
-/// select' text flashes by growing and then shrinking"* on every arrow press
-/// and every mouse hover, on the title screen and in Sanic's pause menu.)
-///
-/// A text node is SPAWNED at [`MENU_REFERENCE_VIEWPORT_HEIGHT`] pixels — the
-/// spawner has no window — and this system is what makes it the window's size.
-/// In `Update` those are two different frames: the launcher rebuilds its whole
-/// tree whenever the cursor moves, so every keypress presented one frame of
-/// 1080p-sized text on a shorter window before this corrected it. In
-/// `PostUpdate`, before [`UiSystems::Content`], the commands that spawned the
-/// nodes have already been applied and the corrected size is what
-/// `measure_text_system` measures — the wrong size is never presented at all.
-///
-/// [`MENU_REFERENCE_VIEWPORT_HEIGHT`]: crate::MENU_REFERENCE_VIEWPORT_HEIGHT
-///
-/// With no primary window — headless tests, and any composition that never
-/// added `WindowPlugin` — the reference height stands and the sizes are exactly
-/// what they were before this existed.
+/// Convert menu text height fractions to pixel font sizes. This runs in
+/// `PostUpdate` before [`UiSystems::Content`] so newly rebuilt text is corrected
+/// before layout/measurement and never presents a reference-size frame. Without
+/// a primary window, the reference viewport height is used.
 pub fn resolve_menu_text_size(
     windows: Query<&bevy::window::Window, With<bevy::window::PrimaryWindow>>,
     mut text: Query<(&crate::MenuTextHeightFraction, &mut TextFont)>,

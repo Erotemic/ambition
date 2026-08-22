@@ -140,49 +140,14 @@ impl ViewPlacement {
     }
 }
 
-/// **THE BODY THIS VIEW FRAMES**, when it is not the session's controlled one.
-///
-/// ⭐ **a view's subject is a policy layered on the participant projection, not
-/// a second copy of it.** `ControlledSubject` answers *which body is the primary
-/// participant driving* and its fifty readers all mean PARTICIPANT — a blink, an
-/// interact, a HUD meter. Exactly one of them means VIEW: the camera resolve,
-/// where it is the DEFAULT framing policy (*this view watches the local
-/// participant*). This component is how a view says otherwise, and a view that
-/// carries none keeps that default.
-///
-/// ⚠ **it may name a body nobody drives** — a spectated fighter, a second local
-/// participant's body, a cutscene subject. Framing is not authority.
-///
-/// ⛔ **presentation only.** A view is not a rollback participant (it carries no
-/// `Name` for exactly that reason), so this `Entity` never crosses the durable
-/// horizon and needs no authority travelling with it.
+/// Explicit body framed by a view. This is presentation policy, not control
+/// authority, and may name an undriven or spectated body.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ViewSubject(pub Entity);
 
-/// **THE SEAT THIS VIEW FOLLOWS**, wherever the body driving it currently is.
-///
-/// ⛔⛔ **an entity is the wrong thing for a person's own pane to name, and
-/// TwinTrack proved it.** Its second pane wrote `ViewSubject(laboratory_twin)`,
-/// which follows EMMY — so the moment participant one possessed something else,
-/// or transferred, or was handed a different body, the pane stayed on a body
-/// nobody was driving while its person walked away off-camera. A pane belongs to
-/// the PERSON; which body they are in is a fact that changes.
-///
-/// ⚠ **it holds a `PlayerSlot`, and the doc used to say PERSON while the field
-/// said SEAT** (GPT review, 2026-08-21). The seat is what it can honestly hold:
-/// the fact it resolves against is `DrivingParticipant(PlayerSlot)`, so nothing
-/// here does participant↔seat arithmetic and no new equality assumption is
-/// added — which is the rule `participant_seat` states for new code. ⛔ when the
-/// `ParticipantId` / `PlayerSlot` split does land, this type and
-/// `DrivingParticipant` move TOGETHER: a pane following a person through a seat
-/// that has been reassigned is one question, not two, and changing only this one
-/// would put the hop on the wrong side of the boundary.
-///
-/// ⭐ **and the default view already worked this way, for exactly one slot.**
-/// A view naming no subject frames `ControlledSubject`, which is derived as *the
-/// entity holding `DrivingParticipant(PRIMARY)`* — so seat zero has always had a
-/// participant-following pane and nobody else had a way to say it. This is that
-/// sentence, said for any slot.
+/// Seat followed by a view. The body is resolved dynamically through
+/// `DrivingParticipant`, so the view follows control transfers instead of a
+/// fixed entity. Keep this type aligned with the identifier used there.
 ///
 /// ⚠ **[`ViewSubject`] still wins where both are present, and still exists.**
 /// Following one named body is a real policy and not a mistake: spectator

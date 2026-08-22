@@ -361,22 +361,8 @@ impl ShellRouter {
         let snapshot = loads.snapshot(&pending.barrier.load_id, &pending.barrier.barrier_id);
         let readiness = snapshot.as_ref().map(|snapshot| snapshot.readiness);
 
-        // ⚠ A HOLD DELAYS ACTIVATION. IT DOES NOT SUPPRESS A FAILURE.
-        //
-        // This check used to sit above the snapshot and return early for any
-        // held route, which meant a held route whose barrier had already FAILED
-        // was never reported at all: `terminal_reported` stayed false, no
-        // `CommandRejected` was written, and the host waited forever on a
-        // decision the coordinator had already made.
-        //
-        // Found 2026-07-30 by the campaign's second consumer. A movement-only
-        // game that declared no audio sat in `Activating` for 600 ticks; the
-        // barrier was `Failed` with one well-worded failure the entire time.
-        // The reasons were carried, logged and correct — and unreachable,
-        // because the router never looked.
-        //
-        // Holding a route that is still preparing is the point of a hold.
-        // Holding one that has already failed is just silence.
+        // A hold delays activation but never suppresses a terminal barrier
+        // result; failed/cancelled/superseded routes must still be reported.
         if holds.is_held(&pending.route_id)
             && !matches!(
                 readiness,

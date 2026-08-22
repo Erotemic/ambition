@@ -141,20 +141,8 @@ fn a_hurtbox_override_for_an_undeclared_move_is_named() {
     assert!(report.contains("nonexistent_move"), "{report}");
 }
 
-/// §4.7: a definition describes a BODY. **The CURRENT controller is a session
-/// binding**, so there is nowhere on this type to put one — asserted structurally
-/// by the fact that a full definition is constructible without one.
-///
-/// ⚠ **the invariant was narrowed by Jon on 2026-08-10, and this doc used to
-/// state the wider one.** It said a definition may carry no brain at all. His
-/// character-template ruling distinguishes the two: a definition MAY name a
-/// default autonomous PROFILE — what this character normally does when nothing
-/// overrides it — and may not name who is driving right now. *"Possessing a
-/// Goblin changes who drives the Goblin. It does not change what a Goblin is."*
-/// ⇒ the seam for that default is `resolve_initial_brain`'s
-/// `definition_default` parameter (queue D73 phase 1); when the field lands on
-/// this type, add it to the destructure with that reasoning rather than
-/// deleting this test — the rule it guards, no CURRENT controller, still holds.
+/// A character definition may name default autonomous policy, but it does not
+/// store the session's current controller binding.
 #[test]
 fn a_definition_carries_no_controller_binding() {
     let def = mary_o();
@@ -549,37 +537,8 @@ fn the_cast_generation_advances_on_every_published_change() {
     );
 }
 
-/// **SEVERAL BODIES, ONE POLICY — which is the sentence Group B and Group C
-/// were missing.** (ledger D80)
-///
-/// A character could carry a `BrainProfile` by VALUE, or name a catalog
-/// `BrainPreset` by key — two vocabularies read by two different roads, so
-/// "these five creatures fight alike" was expressible for the NPC road and not
-/// for the enemy road. That is why `medium_striker` exists as a whole-BODY
-/// archetype worn by five goblins, a lab raider and a skitter: sharing the
-/// decision-making meant sharing the body too.
-///
-/// ⚠ the fixture gives the two characters DIFFERENT bodies and the same policy,
-/// **A prepared character already knows whether it flies.**
-///
-/// ⛔ the constructor used to ask `catalog.body_kind(id)` for this, which is a
-/// constructor rediscovering what the character IS (Jon's redirect §14) — and
-/// the fact was fully determined at preparation, which holds the catalog anyway.
-/// A "prepared" definition that still needs a second lookup to answer a body
-/// question is partly prepared, and every caller has to remember the second
-/// half.
-///
-/// ⛔⛔ **AND THE CATALOG NO LONGER FILLS IT** (ledger D89, 2026-08-11). This
-/// test used to assert *fill-never-overrule*: `body_kind: Floating` supplied
-/// flight for a character that "did not say". That fold is DELETED, because
-/// `body_kind` is presentation/footprint vocabulary — it answers *how tall is
-/// this* (`default_standing_height`), and a `Floating` row was quietly deciding
-/// that a body ignores gravity as well.
-///
-/// ⚠ **the §14 intent it was written for is unchanged and is what this still
-/// pins**: a PREPARED character carries one concrete answer, so no constructor
-/// asks the catalog a second time. Only the source of the answer moved — from
-/// the catalog row to the character itself.
+/// Preparation resolves gravity freedom into the prepared character. Runtime
+/// construction must not re-query catalog body-kind metadata to decide it.
 #[test]
 fn gravity_freedom_is_resolved_at_preparation_rather_than_at_construction() {
     use crate::actor::character_catalog::CharacterCatalog;

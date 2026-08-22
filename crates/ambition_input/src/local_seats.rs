@@ -87,54 +87,18 @@ impl LocalDeviceOrder {
 /// everything that must agree about it.
 ///
 /// [`LocalDeviceOrder`] is LIVE: a controller connecting mid-match changes it.
-/// Several consumers need to agree about how many people are playing — the
-/// match roster, the rollback session's player count, the handle→device
-/// mapping, the per-seat input latches — and each of them sampling the live
-/// resource independently means a connection landing between two samples makes
-/// them disagree while both read "the same source". The roster would seat three
-/// fighters into a two-handle session and nothing would say so.
+/// Frozen local-device topology for one gameplay session.
 ///
-/// So the topology is decided ONCE **per GAMEPLAY session** — not per GGRS
-/// session — and every consumer reads the snapshot. Baseline starts, proof
-/// pulses and hot-reload rebases are all the same gameplay session RESTARTED and
-/// reuse the frozen value; recapturing for one of them would make the topology
-/// stable only for a rollback sub-session, which is not the lifetime the roster
-/// or the latches use. It is REMOVED when gameplay ends, because a topology that
-/// outlives its session is the previous match's seating presented to the next one
-/// as a frozen fact.
-///
-/// `generation` exists so a consumer can notice it was rebuilt rather than
-/// compare vectors (GPT 5.6, 2026-07-28; lifetime corrected 2026-07-29).
+/// Roster sizing, rollback handles, and input latches read the same snapshot so a
+/// connection change cannot make them disagree mid-session. `generation` changes
+/// on each recapture so consumers can invalidate cached assignments.
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct LocalSeatTopology {
     generation: u64,
     seats: Vec<Entity>,
-    /// **Which source drives which channel**, as the ROSTER declared it.
-    ///
-    /// ⛔ **Two authorities used to answer "how many people are playing" and they
-    /// contradicted each other** (queue S34). `seat_input_participants_for_roster`
-    /// says the roster decides, in as many words: *"Deriving seats from connected
-    /// HARDWARE instead would mean a controller left plugged into a machine
-    /// silently becomes a second player in every game on it."* And [`Self::players`]
-    /// was `seats.len()` — the connected PADS — which is exactly that, one layer
-    /// below the rule.
-    ///
-    /// Wrong in both directions, which is why neither symptom found it alone: a
-    /// spare controller inflated the roster, and a keyboard player beside one pad
-    /// player DEFLATED to a single player, because the keyboard is not a device
-    /// row. The second is Jon's couch milestones 1, 2 and 5, and no assignment
-    /// policy can repair it from above — the count is already wrong before any
-    /// policy is consulted.
-    ///
-    /// ⛔ **and a COUNT was still not enough** (GPT 5.6, 2026-08-07). It answers
-    /// how many handles to open and says nothing about whose controller feeds
-    /// each one, so a lobby that seats the human holding pad 1 against a CPU
-    /// froze *"one seat"* and then handed that seat pad 0 — the pad nobody was
-    /// touching. The declaration is the whole map now; see
-    /// [`crate::channels`].
-    ///
-    /// `None` means no roster spoke, and the device count still answers. That
-    /// keeps every existing caller and every existing test on the old path.
+    /// Roster-declared mapping from input sources to local channels.
+    /// `None` means no roster has declared a plan and device discovery supplies
+    /// the fallback topology.
     declared: Option<LocalChannelPlan>,
 }
 
@@ -1129,21 +1093,8 @@ mod tests {
         );
     }
 
-    /// Without a frozen topology, live discovery still DISCOVERS — a seat that
-    /// has no pad takes a free one — but it does not REDISTRIBUTE.
-    ///
-    /// ⛔ this asserted the opposite until 2026-08-01: *"with no session owning
-    /// the seating, the live order is the authority"*, i.e. unplugging pad A
-    /// promoted pad B into seat one. That is the exact hazard the frozen test
-    /// directly above forbids in its own words — *"silently hand seat one's
-    /// confirmed GGRS inputs to seat two's physical controller"* — and the two
-    /// tests differed only in whether a topology happened to be frozen.
-    ///
-    /// ⚠ **and the unfrozen case is the SHIPPED case**: the only thing that
-    /// freezes a `LocalSeatTopology` is the rollback observatory, behind
-    /// `#[cfg(feature = "dev_tools")]` (queue S35). So the branch this test
-    /// blessed was the one every player runs, and it is Jon's couch milestone 6
-    /// — *"A disconnect must not reorder participants or transfer ownership."*
+    /// Without a frozen topology, discovery may fill an empty seat but must not
+    /// redistribute an existing controller assignment after a disconnect.
     #[test]
     fn an_unfrozen_seat_keeps_its_pad_and_a_free_one_still_finds_an_empty_seat() {
         let mut app = seat_app();

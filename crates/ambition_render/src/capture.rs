@@ -1,26 +1,7 @@
-//! **Photograph a composed app, whatever game it is.**
-//!
-//! On a machine with no display this is the entire visual channel: nothing here
-//! can be looked at except by rendering it offscreen and writing a PNG.
-//!
-//! ⛔ **and until 2026-08-04 that channel reached ONE of five games.** All of it
-//! lived inside `capture_scene`, a binary in `ambition_app_tools` that composes
-//! `ambition_app` — so Mary-O, Sanic, Smash and Pocket could not be photographed
-//! at all, and every visual claim about a demo was argued instead of seen. Two
-//! things landed unlooked-at that same day for exactly this reason (queue D20).
-//!
-//! ⭐ **the split is WHAT versus WHEN.** Making a render target, pointing the
-//! cameras at it, reading the texture back, writing the PNG and exiting are the
-//! same in every game and live here. Deciding a world is *ready* to be
-//! photographed — which body must exist, which art must have loaded, whether a
-//! route ever produced a camera — is game- and mode-specific, needs the caller's
-//! own queries, and deliberately stays with the caller: [`request_capture`] is a
-//! plain call it makes when it is satisfied.
-//!
-//! ⚠ **a caller must still refuse to shoot a blank frame.** Nothing here can
-//! tell an empty scene from a legitimately dark one, and *"a blank PNG reported
-//! as success"* is the failure mode this whole path exists to avoid. Readiness is
-//! the caller's contract precisely because only the caller can check it.
+//! Generic offscreen capture plumbing for composed apps. This module owns the
+//! render target, camera adoption, readback, file write, and exit. The caller
+//! owns scene-readiness policy and must not request capture before its required
+//! presentation state exists.
 
 use std::path::PathBuf;
 
@@ -64,17 +45,8 @@ pub struct CaptureProgress {
     pub failed: bool,
 }
 
-/// Build the offscreen texture the cameras will be pointed at.
-///
-/// Run this once, after the presentation has built its cameras — the caller owns
-/// that ordering because it owns the schedule the cameras appear in.
-///
-/// ⚠ **it does NOT touch cameras**, despite what its name and its old doc said.
-/// Adopting them moved to [`adopt_cameras_into_capture_target`] when it turned
-/// out a demo builds its cameras well after `Startup`, and the two camera
-/// queries were left behind here — unused, and warning only under `--features
-/// capture`, which the workspace no-warnings gate does not build. So they sat
-/// unread until a capture fix made someone compile this path on purpose.
+/// Build the offscreen texture. Camera adoption is a separate step and may
+/// happen after cameras are created.
 pub fn setup_capture_target(
     mut commands: Commands,
     settings: Res<CaptureSettings>,
@@ -103,9 +75,6 @@ pub fn setup_capture_target(
     );
     capture_image.texture_descriptor.usage |= TextureUsages::COPY_SRC;
     let image = images.add(capture_image);
-    // ⚠ the `RenderTarget` built here was the LAST piece of the old one-shot
-    // adoption, left behind with the queries when that moved out. Building it is
-    // `adopt_cameras_into_capture_target`'s job now, once per camera it finds.
     commands.insert_resource(CaptureTarget { image, adopted: 0 });
 }
 

@@ -1,8 +1,3 @@
-//! Unit tests for the parent module, extracted from an inline
-//! `#[cfg(test)] mod chest_tests` block (test-organization campaign, 2026-07-10).
-//! Pure move: same test names + logic, now an adjacent child module (a direct
-//! sibling, so `super` path depth is unchanged) with `use super::*;`.
-
 //! The player -> static-chest open path as a minimal-App harness:
 //! a buffered interact over an overlapping, unopened chest inserts
 //! `Opened`; an unbuffered player or a non-overlapping chest does not.

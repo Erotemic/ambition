@@ -1,8 +1,3 @@
-//! Unit tests for the parent module, extracted from an inline
-//! `#[cfg(test)] mod reward_sync_tests` block (test-organization campaign, 2026-07-10).
-//! Pure move: same test names + logic, now an adjacent child module (a direct
-//! sibling, so `super` path depth is unchanged) with `use super::*;`.
-
 //! sync_encounter_reward_chests_ecs drops one reward chest per Cleared
 //! encounter and is idempotent (no duplicate on re-tick). Wrapped in a
 //! thin system so the minimal App can drive the &Commands/&save/&registry

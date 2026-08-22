@@ -1,35 +1,10 @@
-//! **THE PREFAB REGISTRY** — `key + params -> MoveSpec`, expanded at roster
-//! install, with its authored presentation ids validated against what renderers
-//! can actually draw.
+//! Move-prefab registry: `key + params -> MoveSpec` at roster installation.
 //!
-//! ⛔⛔ **this was the last thing keeping `prefabs.rs` in this crate** (campaign
-//! P1.7, 2026-08-12). That module is the build-time half of the Smash model —
-//! `attack_move_from_melee`, `directional_attack_variants`, `build_actor_moveset`
-//! — and character PREPARATION calls it, so it has to sit at or below
-//! `ambition_characters`. Every type it touches already does, with ONE
-//! exception: this registry's `expand` validated a move's presentation ids
-//! through `ambition_vfx::move_vfx_kind`, and reaching a render-adjacent crate
-//! from the character domain is the wrong direction.
-//!
-//! ⭐ so the registry moved rather than the validation being dropped. Building a
-//! move from a spec and EXPANDING an authored prefab key are different jobs; the
-//! second is the one that needs to know what a renderer can draw, and it belongs
-//! up here with the rest of the combat runtime.
-//!
-//! ⭐⭐ **and then the vocabulary stopped being a Rust table.** `move_vfx_kind`
-//! was five names transliterated from the five rows of one spritesheet; what a
-//! renderer can draw is now *the rows of the shipped FX sheets*
-//! (`ambition_sprite_sheet::fx`), read off the baked manifests. That answer is
-//! pure and world-free — it needs no App and no loaded assets — but it lives in
-//! a presentation-asset crate that combat must not link, and a headless RL build
-//! has no business pulling an image decoder to expand a prefab. So `expand`
-//! takes the oracle instead of naming one, which is the shape
-//! `MoveSpec::presentation_problems` already had one level down: whoever knows
-//! what art shipped says so.
-//!
-//! ⚠ the engine prefabs it seeds itself with (`simple_melee` / `simple_ranged` /
-//! `simple_charge`) stay in `prefabs.rs` and are called from here — a downward
-//! call, which is the direction that was already fine.
+//! Expansion validates authored presentation ids through a caller-supplied
+//! oracle, keeping combat independent of presentation assets and usable in
+//! headless builds. Engine-provided prefab builders remain in the lower
+//! character authoring layer and are registered here.
+
 use super::*;
 use ambition_characters::moveset_prefabs::{simple_charge, simple_melee, simple_ranged};
 

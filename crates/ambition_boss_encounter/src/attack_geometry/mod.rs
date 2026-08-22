@@ -1,31 +1,9 @@
-//! Pure attack/body volume math (no ECS, no mutation).
+//! Pure authored attack/body volume math; no ECS access or mutation.
 //!
-//! ⛔⛔ **THIS HEADER USED TO SAY "boss-attack-specific geometry only" AND THAT
-//! WAS FALSE — measured 2026-08-18, and it had already misdirected one move.**
-//! [`collision_aabb`] and [`SimpleActorGeometry`] have **no boss caller in
-//! production at all**: their three call sites are the home body's footprint
-//! publish, the actor body's footprint publish, and the debug overlay. The
-//! sentence read like a stated boundary refusing a shared body helper, which is
-//! exactly the kind of contract this repository trusts — so it has to be true.
-//!
-//! ⚠ **the honest shape, so the next reader does not re-derive it**:
-//! [`CombatGeometry`] is UNIVERSAL body geometry with two implementors, one of
-//! which ([`BossVolumeContext`]) is the boss-specific one. The universal half
-//! wants to live below this crate, beside the other body vocabulary — but
-//! `ActorSpriteMetrics` and `AnimationSelection` are boss-crate types the trait
-//! names, so moving it is a carve rather than a file move, and it is filed as
-//! one (queue D117/D33) rather than half-done here.
-//!
-//! Free functions that derive world-space AABBs for a boss's active strike,
-//! telegraph, damageable hurtbox, and body-contact zone, then resolve the
-//! per-tick boss -> player `HitEvent`. Inputs are bundled in
-//! [`BossVolumeContext`] (body fields + `BossAttackState` + optional
-//! [`ActorSpriteMetrics`] + an optional [`BossAnimationFrameSample`]); helpers
-//! prefer sprite-author-declared hit/hurtboxes and fall back to
-//! `volumes_for_profile`'s hardcoded geometry per `BossAttackProfile`.
-//! Submodules: `aabb` (pixel-rect -> world-AABB derivation), `frame`
-//! (animation-frame sampling). Distinct from the engine's collision system —
-//! this is authored attack/body volume math, not world collision.
+//! [`CombatGeometry`] is shared body geometry. [`BossVolumeContext`] adds the
+//! boss-specific state needed to derive strike, telegraph, hurtbox, and contact
+//! volumes. Sprite-authored hit/hurt boxes are preferred; profile geometry is
+//! the fallback.
 
 use ambition_platformer2d_core as ae;
 

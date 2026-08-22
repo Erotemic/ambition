@@ -1,56 +1,10 @@
-//! **A GAME's gamepad layout — what each physical button MEANS in this mode.**
+//! Game/mode-specific gamepad binding profiles.
 //!
-//! The seam the whole input stack is built to have:
-//!
-//! ```text
-//! physical device -> game/application binding profile -> semantic participant actions -> game rules
-//! ```
-//!
-//! [`crate::BindingRecipe`] already owned the first and last of those. This
-//! module is the middle one, and it exists because Jon's smash layout
-//! (*"a=normal, x=special, b=jump, y=grab, left trigger is shield"*) is a
-//! PROFILE CHOICE, not a new universal default: **A=Jump stays right for
-//! Ambition.** He said so in the same breath — *"B=jump is the way I like my
-//! smash controller, it's probably non standard. Will need to have control
-//! profiles eventually."* Editing the shared preset would have made one game's
-//! taste every game's default, which is the one regression this module is
-//! shaped to prevent.
-//!
-//! ## Why not a `Vec<BindingOverride>`
-//!
-//! [`crate::BindingOverride`] is a SETTINGS type: it is what a USER remap
-//! persists, keyed by the action's `Debug` spelling so a file outlives the
-//! build that wrote it. Reusing it verbatim for a mode's shipped layout would
-//! conflate *"the player rebound this"* with *"this mode ships this"* — and
-//! those two have different PRECEDENCE, which is the whole reason to keep them
-//! apart. A layout is also a different SHAPE: an override can only move an
-//! action ONTO a control, and can never say *"under this profile that action
-//! has no pad button at all"*, which a permutation of a fully-assigned pad
-//! necessarily has to say.
-//!
-//! ## Keyed by BUTTON, so nothing can double-bind
-//!
-//! A layout is a table of PHYSICAL BUTTONS, each naming at most one gameplay
-//! action. Applying it clears every gameplay action off the buttons the layout
-//! claims, then installs what the layout declared. Two consequences fall out by
-//! construction rather than by a hand-kept list:
-//!
-//! * **no button fires two actions.** The base pad is FULLY assigned — every
-//!   face, shoulder, trigger and stick button already means something — so a
-//!   permutation that only ADDED bindings would leave B meaning Jump AND Blink.
-//!   That is exactly the hazard `presets.rs` refused to accept when it left
-//!   gamepad-Special unbound rather than double-binding a button.
-//! * **an action the layout displaces and does not re-home ends up with no pad
-//!   button**, silently and correctly. In a fighting game Blink (teleport),
-//!   Utility (fly toggle) and Projectile have no business on a face button; the
-//!   layout does not have to enumerate their removal, it just does not name
-//!   them.
-//!
-//! ⚠ **MENU actions are exempt from the clear.** `MenuSelect` shares South with
-//! Jump, `MenuBack` shares East with Blink, and the page turns share the
-//! bumpers — deliberately, since a paged menu only reads them while it is open.
-//! A layout re-homes GAMEPLAY; confirm and cancel stay where every other screen
-//! in the game put them.
+//! A layout remaps gameplay buttons without changing the shared default or the
+//! user's persisted binding overrides. Layout rows are keyed by physical button,
+//! so each claimed button maps to at most one gameplay action; displaced actions
+//! may intentionally become unbound. Menu bindings are preserved because they
+//! are interpreted only while menu contexts are active.
 
 use bevy::prelude::{GamepadButton, Query, Res, Resource};
 use leafwing_input_manager::prelude::InputMap;

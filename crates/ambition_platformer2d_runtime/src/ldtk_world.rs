@@ -1,27 +1,6 @@
-//! **The LDtk world's runtime install — offered by the engine, accepted by a
-//! game that HAS an LDtk world.**
-//!
-//! ⭐ **a format installs its own spine.** Until 2026-08-16
-//! [`crate::PlatformerEnginePlugins`] added
-//! `ambition_platformer2d_ldtk::LdtkRuntimeSpinePlugin` unconditionally and
-//! `register_engine_rollback_state` registered `root.ldtk_runtime_index` in the
-//! actors domain, so five RON-authored games — Sanic, Mary-O, Twintrack, Smash,
-//! the versus stage — installed six LDtk index resources, a six-system sim
-//! chain, and one LDtk row in their wire format for an authoring format none of
-//! them uses.
-//!
-//! D135 got half of this: the index became optional session state, which made
-//! `run_if(ldtk_world_installed)` statable and stopped the chain EXECUTING in
-//! those games. ⛔ but a plugin that is added and then declines to run is still
-//! added — its resources are still initialized, its systems are still in the
-//! schedule graph, and its component is still in the snapshot schema. This is
-//! the other half: the composition never mentions LDtk unless the game has one.
-//!
-//! ⚠ **why this plugin still lives in the runtime crate.** The LDtk crate now
-//! owns the rollback declaration itself through the backend-neutral
-//! `RollbackRegistrar`; this plugin owns only host composition. A game adds one
-//! thing to say *"I have an LDtk world"*: install the runtime spine, borrow the
-//! host's rollback registrar, and hand it to the format-owned declaration.
+//! Opt-in host composition for games that use an LDtk world. Installs the LDtk
+//! runtime spine and its format-owned rollback registration; it is not part of
+//! the default engine plugin group.
 
 use bevy::app::{App, Plugin};
 

@@ -77,27 +77,9 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
         return;
     }
 
-    // ⭐⭐ **A ROOM CHANGE WAITS FOR ITS ROOM** (D71). A transition intent is
-    // handed to the SAME readiness transaction an eager host uses, and may only
-    // commit once that transaction authorizes it: the destination prepared, its
-    // assets accounted for, the opaque cover proven up. Until 2026-08-14 this
-    // committed the instant the frame confirmed — no transaction ever opened on
-    // this route — so the SHIPPED game rebuilt every destination room the moment
-    // it was confirmed, uncovered, with the theme's parallax still lazy-loading
-    // behind it and no way to report a failure.
-    //
-    // ⚠ **returning is not dropping.** The intent stays pending and this runs
-    // again next frame; the transaction is progressing in `Update` in between.
-    // The other lifecycle variants open no transaction and are unaffected.
-    //
-    // ⛔⛔ **AND IT COMMITS THE PLAN THE TRANSACTION AUTHORIZED, NOT A FRESH
-    // ONE.** Waiting for `CommitAuthorized` and then calling
-    // `RoomConstructionPlan::prepare_from_parts` again would use the transaction
-    // as a permission BIT and start construction over — so the readiness could
-    // authorize a plan built under content epoch E while the world got built from
-    // E+1, with the assets accounted for on the wrong one. `authorized_plan`
-    // hands over the exact `Arc<RoomConstructionPlan>` the transaction prepared,
-    // or refuses.
+    // A confirmed room transition still waits for the readiness transaction.
+    // Commit the exact construction plan that transaction authorized; re-preparing
+    // here could build against a different content epoch than the assets checked.
     let authorized = match &kind {
         LifecycleIntent::Transition(intent) => match authorized_plan(world, intent) {
             AuthorizedPlan::Ready(plan) => Some(plan),
@@ -504,40 +486,14 @@ fn execute_lifecycle_commit(
     }
 }
 
-/// Apply an authorized transition on a CONFIRMED frame, from the exclusive
-/// world.
+/// Apply an authorized transition from the exclusive world on a confirmed frame.
 ///
-/// ⭐⭐ **THE APPLICATION ITSELF IS NOT HERE, AND THAT IS THE WHOLE POINT**
-/// (D71, 2026-08-14). This function used to be a second implementation of the
-/// room commit (the since-deleted `commit_room_transition_geometry`) + the
-/// cross-domain resets, declaring itself
-/// a mirror *"kept in sync by the line comments below"*. It was not in sync:
-/// measured the day it was replaced, the copy never called `clear_carryover`, so
-/// on the shipped rollback host a door carried every in-flight enemy projectile
-/// into the next room and left a room-modified ambient gravity in force — and it
-/// never recorded the Class-B transit either. Nobody wrote those omissions. They
-/// are what a second implementation becomes.
-///
-/// What remains here is the only thing that is genuinely different about a
-/// confirmed commit: it runs OUTSIDE the rewound schedule, so its commands must
-/// be applied synchronously rather than at the frame's flush, and the spawn
-/// requests the plan enqueues must be drained before this returns.
-///
-/// ⚠ **`SystemState`, deliberately, and not a callback or a context bag.** The
-/// eager side is a system with `SystemParam`s and this side is `&mut World`;
-/// `SystemState` is Bevy's bridge between exactly those two, and it keeps the
-/// shared operation a plain `SystemParam` that the eager system can take
-/// directly. A callback would have inverted control to hide a borrow, and a
-/// context bag would have re-listed every param — which is the thing being
-/// deleted.
+/// Shared room-transition application stays in the common application path. This
+/// wrapper bridges `&mut World` through `SystemState`, applies deferred commands
+/// synchronously, and drains spawn requests before returning.
 fn commit_transition(
     world: &mut World,
-    // ⭐⭐ **THE PLAN THE READINESS TRANSACTION AUTHORIZED** (D71, 2026-08-14).
-    // This function used to prepare a `RoomConstructionPlan` ITSELF, which
-    // made the transaction a permission bit: readiness accounted for the assets
-    // of one plan and the world was built from another, prepared a frame later
-    // and possibly under different content. The transaction's own plan is the
-    // only one whose assets were proven present.
+    // Use the exact plan whose readiness and assets were authorized.
     plan: &RoomConstructionPlan,
     subject: &ambition_platformer2d_shared_tangle::sim_id::SimId,
     target_room: &str,
@@ -629,26 +585,10 @@ mod tests {
     use ambition_platformer2d_runtime::room_transition::{
         ActiveRoomTransitionLoad, RoomTransitionLoadPhase, RoomTransitionLoadState,
     };
-    /// GPT review #1/#2: the deferred transition transports the body that CROSSED
-    /// the exit — resolved by its recorded, rollback-stable `SimId` — and NEVER
-    /// substitutes another body. A recorded id that has since despawned resolves
-    /// to `None` (a cancelled crossing), NOT the home player: substituting the
-    /// primary teleports a body that never touched the exit into the target room.
-    /// The home player right next to the triggerer is the tempting wrong answer
-    /// this pins against.
-    ///
-    /// The third historical case — an *unstamped* trigger — is no longer
-    /// representable: `LifecycleIntent::Transition.subject` is a `SimId`, not an
-    /// `Option<SimId>`, so a body without stable identity cannot produce a
-    /// deferred intent at all. The type is the proof; there is nothing left to
-    /// assert.
-    ///
-    /// ⭐ **asked of the ONE resolver, which is the point** (D71, 2026-08-14).
-    /// This used to call `resolve_transition_subject`, a private twin of
-    /// `TransitBodies::subject_entity` that documented itself as mirroring it.
-    /// Both are gone into `RoomTransitionApplication::subject_entity`, so this
-    /// invariant is now asserted about the resolver BOTH hosts use rather than
-    /// about one host's copy of it.
+    /// Deferred transitions resolve the recorded `SimId` of the crossing body.
+    /// If that body no longer exists, the crossing is cancelled; another body is
+    /// never substituted. The assertion exercises the shared resolver used by
+    /// both transition hosts.
     use ambition_platformer2d_actor_monolith::session::lifecycle_commit::RoomTransitionIntent;
 
     fn intent_to(target_room: &str, subject: SimId) -> RoomTransitionIntent {

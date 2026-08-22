@@ -307,17 +307,8 @@ pub fn touch_bindings() -> Vec<(
         // below (`every_button_the_overlay_can_draw_can_also_be_pressed`) is
         // what caught this line missing the first time it was written.
         (A::Grab, TouchVirtualButton(B::Grab)),
-        // ⛔ **`Modifier` was MISSING here until 2026-08-04, and the button was
-        // drawn the whole time.** `touch_button_slot` maps it to
-        // `ControlSlot::Modifier`, so a scheme carrying that slot made the button
-        // available, labelled from the scheme, and hit-testable — with nothing to
-        // send. Keyboard binds it (`presets.rs`, X on the default preset) and
-        // gamepad binds it (LeftTrigger2); touch bound nothing.
-        //
-        // ⭐ **that is Mary-O's RUN button.** Her published prompt is exactly
-        // `Jump`, `Modifier` "Run", `Interact` (queue D15c), so on a phone she
-        // could not run — the one verb a Mario-like is unplayable without. Jon
-        // plays on a Pixel 5.
+        // Modifier is a gameplay slot exposed by the touch overlay, so it must
+        // have a virtual-device binding just like keyboard and gamepad input.
         (A::Modifier, TouchVirtualButton(B::Modifier)),
         (A::Start, TouchVirtualButton(B::Start)),
         (A::Reset, TouchVirtualButton(B::Reset)),

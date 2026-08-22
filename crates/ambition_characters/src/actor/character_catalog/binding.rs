@@ -197,43 +197,15 @@ pub enum AutonomousSource {
     /// distinction the two variants exist to keep, and the reason this one can
     /// be payloadless without losing anything.
     ProvokedDefault,
-    /// **A provoked CHARACTER's own combat policy**, carried by value.
-    ///
-    /// ⭐ **the character-first half of provocation** (Jon's second redirect,
-    /// P1). `Provoked` above reconstructs a body ARCHETYPE — new tuning, new HP
-    /// pool, new capabilities — which is the fused ontology and is wrong for a
-    /// creature that states what it becomes: the body does not change, only the
-    /// mind. This variant records the mind.
-    ///
-    /// ⚠ **by canonical NAME, like the three variants above it.** A source is a
-    /// stable id that a rebuild resolves — `Provoked` names a roster archetype,
-    /// `Boss` names a boss row, and this names a published profile. Carrying the
-    /// `BrainProfile` by value was the first shape and it was worse in two ways:
-    /// it costs `Eq` on this enum (a profile holds `f32`s) and it puts a dozen
-    /// tuned floats into the rollback codec, where a string already suffices.
+    /// A provoked character's autonomous policy, named by stable profile id.
+    /// The body remains unchanged; rollback stores the resolvable id rather than
+    /// embedding the profile's tuning values.
     ProvokedProfile {
         profile: ambition_entity_catalog::BrainProfileId,
     },
-    /// **THE CHARACTER'S OWN AUTHORED POLICY IS THE DEFAULT** — no catalog
-    /// preset is involved at any point.
-    ///
-    /// ⭐⭐ **the seam this campaign left half-crossed** (GPT 5.6, 2026-08-12).
-    /// A migrated character states its normal behaviour as a `BrainProfile` on
-    /// its definition, and its catalog `default_brain` was emptied so one
-    /// authority decides. But the NPC road only spoke the PRESET vocabulary, so
-    /// its default resolved to the empty string: two shipped sandbox placements
-    /// (`pirate_cove`'s parrot, `gravity_lab`'s puppy slug) name no
-    /// `brain_override` and PANICKED at spawn, and twenty-one Hall placements
-    /// spawned fine carrying `default_preset: Some("")` — so `RestoreDefault`
-    /// after a possession was rejected with *"unknown brain preset ``"* and the
-    /// body silently kept whatever mind it had.
-    ///
-    /// ⚠ **this variant carries nothing, and that is deliberate.** The other
-    /// four name a thing to look up; this one says *the character already told
-    /// you*, and the character is reachable from the body's own identity. What a
-    /// profile lowers to depends on the BODY (§4.7 — a policy states normalized
-    /// effort, the body states the speed), so the lowering belongs where the
-    /// body is known and cannot be done here.
+    /// Use the character's own authored autonomous profile as the default.
+    /// Carries no payload: body identity identifies the character, and lowering
+    /// the profile requires that body's capabilities and movement parameters.
     CharacterProfile,
     /// A boss's authored autonomous mode. The live brain is a `BossPattern`
     /// rebuilt from the boss catalog by this id (never a catalog preset). A boss
@@ -242,28 +214,10 @@ pub enum AutonomousSource {
     Boss { archetype: BossAutonomyId },
 }
 
-/// Runtime record of an actor's autonomous brain choice: its character-default
-/// preset and which [`AutonomousSource`] is currently live.
+/// Runtime source to restore when temporary control ends.
 ///
-/// This is the authoritative simulation state for "which autonomous actor mode
-/// should exist when no temporary controller masks it". The live [`Brain`]
-/// component is the instantiated, mutable state machine; runtime switches
-/// (`BrainCommand`) and provocation mutate this binding + rebuild the coupled
-/// autonomous state together, and snapshot reconciliation uses this binding to
-/// reconstruct both after a rewind that crossed a switch or a provocation.
-/// **WHAT A BODY GOES BACK TO** when its autonomous default is restored.
-///
-/// ⭐⭐ **this was `Option<BrainPresetId>`, and the `Option` could not tell two
-/// different things apart** (GPT 5.6, 2026-08-12). `None` meant *"no catalog
-/// default — a boss, rebuilt from its own authority"*, and a migrated character
-/// whose policy is a `BrainProfile` needs the same absence to mean *"ask the
-/// character"*. The old code avoided the collision by never producing `None` for
-/// a character at all: it built `BrainPresetId::new("")` instead, which read as
-/// a present answer everywhere and resolved to nothing at the one moment it
-/// mattered.
-///
-/// Three distinct facts, three variants, and `RestoreDefault` can finally tell
-/// which one it is holding.
+/// Preset-backed, character-profile, and absent defaults are distinct so restore
+/// logic never encodes one source as an empty id or guesses which authority to use.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AutonomousDefault {
     /// Nothing to restore. A boss rebuilds its autonomous mode from its own

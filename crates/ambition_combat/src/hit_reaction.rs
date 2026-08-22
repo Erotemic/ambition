@@ -1,24 +1,5 @@
-//! **THE HIT REACTION A BODY HAS — knockback, DI, and what the launch wrote.**
-//!
-//! ⭐⭐ **carved out of `ambition_platformer2d_actor_monolith` on 2026-08-21
-//! (D33).** `apply_body_hit_reaction` names exactly one path that is not a
-//! primitive — `HitKnockback`, this crate's own — and takes only
-//! `ae::Vec2`, `ae::BodyFlightState`, `BodyCombat` (`ambition_characters`), a
-//! position, a facing and a gravity direction. It is body-generic by
-//! construction: nothing in it knows what an avatar is.
-//!
-//! ⛔ **it was `pub(crate)`, and THAT is what held the capture systems in the
-//! monolith.** `apply_capture_throws` calls it, so capture could not leave the
-//! crate this function happened to live in — a domain pinned in place by a
-//! visibility modifier rather than by any real coupling.
-//!
-//! ⚠ **the rest of `damage_apply` did NOT come with it, deliberately.** That
-//! module also holds `apply_player_hit_events`, `publish_kernel_reset_death` and
-//! `void_pending_player_hits_at_lifecycle_boundaries`, all of which take
-//! `PlayerSafetyState` / `PlayerBodyFrameOutput` — avatar concepts that belong
-//! where the avatar is. The carve boundary runs THROUGH damage application, not
-//! around it: applying a hit to any body is combat's, applying one to the
-//! player's avatar is the game's.
+//! Body-generic hit reaction: knockback, directional influence, and reaction
+//! timers. Avatar-specific damage application remains outside this module.
 
 use crate::feel::Platformer2dFeelTuningMonolith;
 use ambition_characters::actor::BodyCombat;
@@ -64,13 +45,7 @@ pub type BodyReactionOutcome = ();
 
 pub fn apply_body_hit_reaction(
     vel: &mut ae::Vec2,
-    // **The carried-momentum channel.** The launch is momentum the WORLD
-    // imparted, and the hands-off air stop assist is required not to bleed that
-    // away — `carried_run`'s own doc names knockback as one of the two cases it
-    // exists for. Only the portal adapter ever wrote it, so a launched body's
-    // floor was zero and `AIR_STOP_ASSIST` erased a 420px/s smash in seven
-    // frames: 15.5px of travel out of the ~210px the launch describes
-    // (measured, queue F0e).
+    // Preserve launch momentum against hands-off air-stop assist.
     flight: &mut ae::BodyFlightState,
     combat: &mut BodyCombat,
     body_pos: ae::Vec2,
@@ -87,11 +62,7 @@ pub fn apply_body_hit_reaction(
     // ONE tuning row for the whole reaction, so the launch and the hitstun
     // cannot disagree about which feel numbers this hit uses (FB6b).
     let response = hit_response_tuning(&feel, boss_hit);
-    // ⭐ **CROUCH CANCEL** — a crouching body takes less of the launch, so
-    // ducking is a defensive READ at low percent rather than only a shorter
-    // hurtbox. ⚠ flat, with no percent threshold, because the threshold is
-    // emergent: 85% of a kill move is still a kill, and the option stops
-    // mattering by itself exactly where the genre stops using it.
+    // Crouching reduces launch magnitude; no separate damage threshold applies.
     let launch = ae::hit_response::knockback_velocity(
         body_pos,
         body_facing,

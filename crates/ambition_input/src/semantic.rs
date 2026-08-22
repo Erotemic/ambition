@@ -1,72 +1,10 @@
-//! **Semantic actions: the open vocabulary between a device and a consumer.**
+//! Open semantic action vocabulary between physical bindings and consumers.
 //!
-//! ```text
-//! physical input → participant bindings → ordered contexts → SEMANTIC ACTIONS → consumers
-//! ```
-//!
-//! `Platformer2dInputActionMonolith` is leafwing's concrete `Actionlike` enum, and it has to be
-//! concrete — leafwing needs a real type to key an `InputMap`. That makes it a
-//! closed vocabulary: a capability cannot add a variant without editing the
-//! engine, which is the one central closed enum the content compiler exists to
-//! avoid, one layer over.
-//!
-//! This is the open half. A [`SemanticActionId`] is a `&'static str` like
-//! [`crate::InputContextId`] and like the content compiler's `SchemaId`, for the
-//! same reason: a capability mints its own and nobody edits an enum.
-//!
-//! ## The registry is the VOCABULARY, not a description of it
-//!
-//! Every engine `Platformer2dInputActionMonolith` is registered here. That is what makes this
-//! authoritative rather than a parallel list somebody has to remember to update
-//! — and `every_device_action_is_registered` fails if one is added without a
-//! semantic entry, so the two cannot drift.
-//!
-//! ## What is NOT here yet
-//!
-//! A capability-owned action can be DECLARED and looked up, and it can ride an
-//! existing device action. It cannot yet have a device binding of its own,
-//! because that needs `InputMap<SemanticActionId>` in place of
-//! `InputMap<Platformer2dInputActionMonolith>`.
-//!
-//! ⛔ **and the blocker is NOT the call-site count, which is what this paragraph
-//! used to say.** Measured 2026-08-02: 348 lines across 35 files name the device
-//! enum, but only **21 `InputMap<…>` + 25 `ActionState<…>`** are structural — the
-//! other ~225 are variant references that follow mechanically once the target
-//! type exists. ~46 hard sites, not "hundreds".
-//!
-//! ⭐ **the real blocker is one line of leafwing's trait.** `Actionlike` requires
-//! `Debug + Eq + Hash + Send + Sync + Clone + Reflect + Typed + TypePath +
-//! FromReflect + 'static`, and [`SemanticActionId`] satisfies every one of them —
-//! `bevy_reflect` implements `Reflect`/`Typed`/`FromReflect` for `&'static str`,
-//! so a `#[derive(Reflect)]` newtype is enough. What it cannot satisfy is the
-//! trait's single METHOD:
-//!
-//! ```ignore
-//! fn input_control_kind(&self) -> InputControlKind;
-//! ```
-//!
-//! It takes `&self` and nothing else, so an action must be **self-describing**
-//! about whether it is a button, an axis or a dual axis. This design deliberately
-//! puts that in the REGISTRY instead — [`SemanticActionDef::kind`] — where a
-//! composition can own it. An id alone cannot answer, and a global lookup inside
-//! the impl would reintroduce exactly the central mutable table the open
-//! vocabulary exists to avoid.
-//!
-//! ▢ **and the registry already settles it.** `ActionRegistry` is
-//! `BTreeMap<SemanticActionId, SemanticActionDef>` and [`ActionConflict`] refuses
-//! a second owner for the same id — so **an id has exactly one kind, by
-//! construction**. The "two ids with the same string, different kinds" worry
-//! cannot arise here.
-//!
-//! ⭐ so the shape is: keep [`SemanticActionId`] as the identity and the registry
-//! key, unchanged, and give leafwing a SEPARATE `SemanticAction { id, kind }`
-//! that is only ever built by looking an id up in the registry. It cannot be
-//! minted with a kind the registry disagrees with, and the docs' own wording —
-//! `InputMap<SemanticAction>`, not `InputMap<SemanticActionId>` — was already
-//! pointing at exactly that.
-//!
-//! ⚠ NOT built here. An unused type is a hypothetical; this belongs in the commit
-//! that does the rename, which now has one fewer decision to make.
+//! [`SemanticActionId`] lets capabilities register actions without extending the
+//! closed leafwing device-action enum. [`ActionRegistry`] is authoritative for
+//! each id and its control kind. Capability actions can currently be declared
+//! and routed through existing device actions; independent leafwing bindings
+//! still use the concrete device-action type.
 
 use std::collections::BTreeMap;
 

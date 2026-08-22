@@ -359,24 +359,8 @@ pub fn rebuild_shield_rings_view(
     bodies: Query<(
         &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
         &ambition_platformer2d_actor_monolith::actor::BodyShieldState,
-        // ⛔ **THE DRAWN POSE, NOT THE SIMULATED ONE.** This query used to read
-        // `kin.pos` alone, and the ring was then drawn where the body IS rather
-        // than where it is SHOWN — Jon, 2026-08-08: *"The main character shield
-        // sprite has the bubble in the wrong place, just kinda to the upper
-        // left."* Measured off a capture 2026-08-09: the ring sat **31 px left
-        // and 39 px up** of the robot, over the door and the health bar.
-        //
-        // ⭐ **the two sibling systems already do this and say why.**
-        // `rendering/unauthored_volumes.rs:140` — *"The DRAWN position, not the
-        // simulated one — the same reason the slash visual samples it. A
-        // stand-in placed on the sim pose shudders against a body drawn from the
-        // presented one."* — and `slash_visuals.rs:359`. This was the third
-        // presentation overlay and the only one reading the sim pose.
-        //
-        // ⚠ it belongs HERE rather than in the consumer because
-        // `sync_bubble_shield_visual` reads a POOLED, positional view and has no
-        // entity to look the pose up from. `ShieldRingsView` is the presentation
-        // read-model, so publishing presentation truth is its job.
+        // Publish the presented pose because pooled shield rendering has no
+        // owner entity left with which to resolve presentation offsets.
         Option<&crate::presented_pose::PresentedPose>,
         // The body's own shield tuning, so the ring can SHOW the resource
         // draining. A body with no motion model draws a whole ring.

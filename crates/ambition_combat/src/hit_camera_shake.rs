@@ -1,77 +1,13 @@
-//! ⭐ **carved out of `ambition_platformer2d_actor_monolith` on 2026-08-21
-//! (D33).** The CAUSE is a landed hit and combat owns hits; the EFFECT is a
-//! `CameraShakeRequest` that `shared_tangle::camera_ease` consumes, and combat
-//! already depends on that crate. Putting it the other way round — camera easing
-//! reaching for combat's hit state — would invert the dependency.
+//! Camera-shake intents derived from landed hits.
 //!
-//! ⚠ its last tie to the monolith was the feel tuning, which moved to
-//! `crate::feel` earlier the same day. The `ambition_platformer2d_runtime`
-//! mention below is PROSE, not a dependency: it names a failure this module
-//! avoids, and runtime sits above this crate.
-
-//! **A landed hit shakes the screen — for whichever BODY landed it.** (P4.37)
+//! The system is body-generic: it uses each body's hitstop and publishes the
+//! strongest request for the frame. Taking the maximum keeps the result independent
+//! of query iteration order.
 //!
-//! ⛔⛔ **the first version of this shipped as home-avatar presentation, and that
-//! was the defect wearing the fix's clothes.** It lived in the app's
-//! `sync_player_presentation`, whose query is `With<PlayerEntity>` and whose
-//! kick was gated again on `PrimaryPlayer`. Three consequences, each fatal on its
-//! own:
-//!
-//! 1. `PrimaryPlayer` names the HOME AVATAR, not the controlled body — the
-//!    marker's own docs say so, and `time_control` carries Jon's freeze from
-//!    2026-08-07 as the standing proof: *"start a CPU-versus-CPU match. There is
-//!    no `PrimaryPlayer` in it"*. A match under `InitialBodyPolicy::NoInitialBody`
-//!    legitimately has ZERO. So the shake was silent in exactly the fight
-//!    P4.37 was written for.
-//! 2. `sync_player_presentation` is registered by `ambition_app` ALONE. The
-//!    standalone smash binary (`ambition_demo_smash_app`) composes
-//!    `PlatformerEnginePlugins` + `PlatformerHostPlugins` and never installs it,
-//!    so the feature could not fire in the proving-ground binary at all.
-//! 3. it read one body's `hitstop_timer` — the home avatar's — so a hit between
-//!    two seated fighters moved nothing even where a `PrimaryPlayer` existed.
-//!
-//! ⭐ **the severity is already resolved, and it is already body-generic.** The
-//! hit resolver arms `BodyCombat::hitstop_timer` on EVERY body it touches (see
-//! the note in `features/ecs/actors/update.rs`), written from
-//! `ae::hit_response::hitlag_duration` = `hitlag_time × reaction_scale(knockback)`.
-//! So the camera needs no move ids, no per-character table and no notion of who
-//! is playing: it asks every body how hard it was just frozen and takes the
-//! loudest answer. A character that authors a heavier launch gets a heavier
-//! camera for free, and a CPU hitting a CPU gets the same camera a human would.
-//!
-//! ⚠ **max, not sum, and order-independent** — `kick` is strongest-wins anyway,
-//! but folding with `max` here keeps the result independent of query iteration
-//! order, which is the determinism rule this repository has been bitten by more
-//! than once.
-//!
-//! ⛔⛔ **AND IT REACHES PRESENTATION FROM INSIDE THE SIMULATION, WHICH IS THE
-//! HAZARD BEING BODY-GENERIC PUT IT IN REACH OF.** This runs in the SIMULATION
-//! schedule, which a rollback host executes more than once per frame;
-//! `CameraShakeState` is PRESENTATION state and is not rollback-registered, so
-//! it is not rewound between those passes.
-//!
-//! ⛔ **the first fix for that was a `replaying_history` guard, and it was half
-//! the answer.** It removed the duplicate a local rollback produces and kept the
-//! PHANTOM: under predicted remote input the FIRST execution of a frame is not a
-//! replay, so it passed the guard and kicked the live camera — and when the real
-//! input arrived and erased the hit, nothing could unkick it. A shake with no hit
-//! under it, arriving exactly when the network hiccups, which is precisely the
-//! failure `ambition_platformer2d_runtime::external_effects` exists to end.
-//!
-//! ⭐ **so this publishes a [`CameraShakeRequest`] and lets the existing
-//! confirmed-frame quarantine decide when it is real.** The mechanism was already
-//! built and already carries sound, VFX, explosions, fireworks and debris: the
-//! frame's intents are journalled, a re-simulation REPLACES that frame's batch
-//! (an empty batch erases the phantom — the half a boolean gate structurally
-//! cannot do), and release happens once the host confirms the frame. There is no
-//! replay guard here any more because there is nothing left to guard: the system
-//! writes a message, and a message from an abandoned branch is discarded rather
-//! than suppressed.
-//!
-//! ⚠ **and it stays free where nothing is predicted.** Every non-rollback host
-//! installs no quarantine at all, so the request is read by
-//! `apply_camera_shake_requests` in the same frame it was written, exactly as the
-//! direct kick was.
+//! This code runs in simulation and must not mutate presentation state directly.
+//! Requests cross the confirmed-frame effect boundary so discarded predicted hits
+//! cannot leave presentation artifacts. Non-rollback hosts consume the request in
+//! the same frame.
 
 use bevy::prelude::*;
 

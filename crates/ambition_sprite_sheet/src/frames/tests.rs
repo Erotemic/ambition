@@ -1,8 +1,3 @@
-//! Unit tests for the parent module, extracted from an inline
-//! `#[cfg(test)] mod tests` (test-organization campaign, 2026-07-10). Pure move:
-//! same test names + logic, now an adjacent child module with private access via
-//! `use super::*;`.
-
 use super::*;
 
 fn rect(x: i32, y: i32, w: i32, h: i32, page: u32, off: (i32, i32)) -> FrameRect {

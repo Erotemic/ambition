@@ -1,33 +1,6 @@
-//! **An unauthored attack is VISIBLE, not silent.**
-//!
-//! A character that names no `attack_vfx` draws its live hit volume directly, as
-//! a translucent red shape, for exactly as long as that volume can hurt someone.
-//! Jon, 2026-08-02:
-//!
-//! > have the concept of a character with an unauthored attack vfx. If that is
-//! > the case and they don't have one associated with them the default vfx
-//! > should be something that generates a transparent red polygon exactly over
-//! > the hitpoly or hitbox so its clear where the attack is landing in the game
-//! > even if the vfx hasn't been properly authored yet.
-//!
-//! ## Why this is not a placeholder sprite
-//!
-//! A stand-in swoosh would be a third thing that can disagree with the volume.
-//! This draws the volume — the same `Hitbox` entity the damage resolver tests
-//! against, at the same position, with the same shape — so it cannot drift, and
-//! reading it tells you exactly what the game thinks it is doing.
-//!
-//! It also earns its keep in the other direction: incomplete content becomes
-//! LOUD. A body whose attack was never authored used to swing an invisible box,
-//! or worse, wear the protagonist's blade and look finished.
-//!
-//! ## Product-facing, on purpose
-//!
-//! This is not the debug overlay. The overlay draws every volume in the game
-//! through gizmos, is off by default, and is developer tooling; this draws only
-//! the volumes nobody authored art for, always, through the ordinary 2D mesh
-//! path a player's machine already runs. The cost of an unfinished attack being
-//! obviously unfinished is much lower than the cost of it being invisible.
+//! Product-facing fallback visualization for attacks with no authored VFX.
+//! Draws the exact presented live strike volume through the normal 2D mesh path
+//! for the lifetime of the strike; the developer debug overlay is separate.
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_FX};
@@ -60,37 +33,19 @@ pub(crate) struct UnauthoredVolumeVisual {
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn draw_unauthored_attack_volumes(
     mut commands: Commands,
-    // ⚠ OPTIONAL. Mesh and material stores belong to the render plugins, and
-    // this system is registered in a presentation set that also runs under
-    // headless and test compositions where those plugins are absent. Taking
-    // them unconditionally makes Bevy's error handler panic before the system
-    // body runs — 20 app integration tests, all with the same handler frame and
-    // nothing in common but this.
+    // Render assets are optional because this presentation system also runs in
+    // headless/test compositions without render plugins.
     meshes: Option<ResMut<Assets<Mesh>>>,
     materials: Option<ResMut<Assets<ColorMaterial>>>,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,
-    // ⛔ **the OBSERVATION, not the authoritative component.** This used to hold
-    // `Query<(Entity, &Hitbox)>` — a render system naming live simulation state,
-    // which `engine.render-never-names-live-sim-state` exists to forbid and
-    // which kept `Hitbox` stranded in `ambition_vfx`: moving it to
-    // `ambition_combat` where it belongs would have forced a render→combat
-    // dependency. The strike rows carry everything this needs.
+    // Presentation reads the combat observation rather than live simulation
+    // strike components.
     combat_geometry: Res<ambition_sim_view::CombatGeometryView>,
-    // ⚠ the READ-MODEL facts, not the sim's `BodyKinematics`. Presentation reads
-    // `ambition_sim_view` (E4) and `engine.render-never-names-live-sim-state`
-    // enforces it; this system named the live cluster and the policy went red on
-    // 2026-08-02.
-    //
-    // ⛔⛔ this required a `BodyPoseView` and claimed *"the population is
-    // identical — every body this used to match has a view"*. It is not: that
-    // view is rebuilt `With<PlayerVisual>`, so EVERY boss and actor failed the
-    // `get` below and its unauthored attack drew no stand-in at all — the warn
-    // arm fired for a population that was never going to be there. All this
-    // needs from the owner is its presentation delta, which every body
-    // publishes, and the read-model's authored/unauthored verdict.
+    // Owner presentation facts come from the read model. PresentedPose is
+    // optional because not every strike owner has a player-specific pose view.
     owners: Query<(
         Option<&ambition_sim_view::presented_pose::PresentedPose>,
         // The READ-MODEL fact, not the catalog — see the read below.

@@ -1,8 +1,3 @@
-//! Unit tests for the parent module, extracted from an inline
-//! `#[cfg(test)] mod tests` (test-organization campaign, 2026-07-10). Pure move:
-//! same test names + logic, now an adjacent child module with private access via
-//! `use super::*;`.
-
 use super::*;
 
 /// A split (multi-page) sheet round-trips: the generator emits an
@@ -407,12 +402,8 @@ fn unpacked_rows_fall_back_to_the_row_page() {
     );
 }
 
-/// Two providers registering one sheet target used to resolve by plugin-build
-/// order, silently: `insert_ron` overwrote the map entry while the type's own
-/// doc comment claimed collisions were logged. A stranger's game whose sheet
-/// target happened to match an engine one would draw the wrong character with
-/// nothing in the log, and swapping two `add_plugins` lines would change which.
-/// So a second, different claim on one target is refused (GPT 5.6, 2026-07-28).
+/// A second, different declaration for one sheet target is rejected rather than
+/// resolving by plugin order.
 #[test]
 fn two_providers_cannot_silently_claim_one_sheet_target() {
     use crate::character::sheets::AuthoredSheets;

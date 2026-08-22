@@ -1,32 +1,16 @@
-//! **What the simulation believes about the live conversation.**
-//!
-//! Rollback-owned, and it reads nothing — every other trace of a conversation in
-//! the world is derived from this.
-//!
-//! ⚠ **`DialogState` keeps everything else, and keeps owning it.** Nothing here
-//! is a second copy of the typewriter reveal, the option list or the pointer arm:
-//! those are presentation facts, they are deliberately NOT rewound (rewinding
-//! them would stutter the text box under a rollback), and no simulation system
-//! may branch on them.
+//! Rollback-owned authority for the live conversation. Presentation state such
+//! as reveal progress, option layout, and pointer interaction stays in
+//! `DialogState` and is never a simulation branch input.
 
 use bevy::prelude::*;
 
 use super::instance::ConversationInstanceId;
 
-/// **Who owns input while a conversation is live.**
-///
-/// ⛔ **no `Default`, deliberately.** "Nobody said whose conversation this is, so
-/// capture everybody" is the behaviour this replaces — one seat talking to an
-/// NPC took gameplay away from every other seat at the couch. A conversation
-/// that cannot say whose it is still has to answer the question, and answering
-/// it in a `Default` impl is how it stops being answered at the call site.
+/// Who owns input while a conversation is live. There is no default; callers
+/// must choose ownership explicitly.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ConversationInputOwner {
-    /// The seat driving the initiator — somebody walked up and pressed Interact.
-    ///
-    /// ⭐ read off that body's `DrivingParticipant(slot)`, which is the one fact
-    /// that answers "who drives this body". ⛔ not an entity index, and
-    /// not a device slot that happens to share a number with a seat.
+    /// Participant driving the initiator, resolved from `DrivingParticipant`.
     Participant(ambition_input::ParticipantId),
     /// The primary seat only. A scripted conversation nobody in the world
     /// started, where the shell's owner advances the box.
@@ -46,30 +30,8 @@ pub enum ConversationInputOwner {
 /// presentation side effect inside a replayable system.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LiveConversation {
-    /// **WHICH conversation this is** — see [`ConversationInstanceId`].
-    ///
-    /// ⛔ **WHEN and WHO are part of the fact, and leaving them out is the same
-    /// determinism hole `PreparedMatch::effective_from` was written to close.**
-    /// Two things need this. A narrative record crossing back from the
-    /// non-rewound runner has to name the conversation it belongs to, or a
-    /// finished conversation's ending closes a fresh one. And the presentation
-    /// projection has to know whether the box it is showing is THIS conversation
-    /// — a rewind restores the authority unchanged, and a projection that could
-    /// not tell would restart the runner under a player who is mid-sentence.
-    ///
-    /// ⚠ **the Yarn node lives in here**, not beside it. It is one of the facts
-    /// that make a conversation that conversation, and a second copy on this
-    /// struct would be a second answer to keep in step.
-    ///
-    /// ⛔ **and so does the [`ambition_dialog::DialogueContext`], which used to
-    /// be a SIBLING of this field** (GPT 5.6 review, D29). It is not decoration:
-    /// the bridge publishes it as `$speaker_id`, `$listener_id` and
-    /// `$speaker_is_self`, and the speaker resolves from the initiator's
-    /// `WornCharacter` — rollback-owned and runtime-mutable. So two corrected
-    /// timelines could differ in what Yarn observes and still mint the same
-    /// instance id, which made the projection's attachment memo and every
-    /// instance-gated ledger record wrong at once. Identity is this field's whole
-    /// job; the fact belongs IN it, and [`Self::context`] reads it back out.
+    /// Deterministic conversation identity, including the opening tick, Yarn
+    /// node, participants, and dialogue context used by the runner.
     pub instance: ConversationInstanceId,
     /// The body that walked up and started it. `None` for a scripted
     /// conversation with no in-world initiator.
@@ -83,21 +45,11 @@ pub struct LiveConversation {
     /// The body being talked TO — the one a hold applies to. Same handle-vs-identity
     /// split as [`Self::initiator`].
     pub talker: Option<Entity>,
-    /// **Who owns input while this is live** — see [`ConversationInputOwner`].
-    ///
-    /// ⚠ **deliberately NOT part of [`Self::instance`].** It publishes nothing
-    /// into Yarn and selects no node; `declare_in_session_input_contexts`
-    /// re-reads it off this rollback-owned authority every tick, so a correction
-    /// repairs it without identity's help. Keying on it would make "somebody
-    /// possessed the body mid-sentence" a different conversation and restart the
-    /// runner from the top. The reasoning is in [`ConversationInstanceId`]'s
-    /// module docs, with the presentation field below.
+    /// Input ownership. This is rollback state but not conversation identity;
+    /// changing the driver does not restart the narrative instance.
     pub input_owner: ConversationInputOwner,
-    /// The display name the box shows when a line carries no speaker prefix.
-    ///
-    /// ⛔ **PRESENTATION, and the one field here that is.** A localization
-    /// changing it is not a different conversation and Yarn never sees it, so it
-    /// is out of the instance id and out of the desync fingerprint alike.
+    /// Presentation-only fallback speaker name; excluded from instance identity
+    /// and desync fingerprints.
     pub speaker_name: String,
 }
 

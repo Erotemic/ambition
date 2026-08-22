@@ -1,8 +1,3 @@
-//! Unit tests for the parent module, extracted from an inline
-//! `#[cfg(test)] mod tests` (test-organization campaign, 2026-07-10). Pure move:
-//! same test names + logic, now an adjacent child module with private access via
-//! `use super::*;`.
-
 // The catalog<->sheet integration tests (boss subdir manifests, Idle-row
 // policy, loader coverage) live in `presentation::character_sprites::tests`
 // — they pin SHEET resolution, which is presentation's contract.

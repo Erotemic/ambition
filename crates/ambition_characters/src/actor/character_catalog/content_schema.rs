@@ -62,15 +62,9 @@ impl ContentKind for Character {
     const NOUN: &'static str = "character";
 }
 
-/// ⚠ **RENAMED from `BrainPresetRef` on 2026-08-11** — that name now belongs to
-/// the authored REFERENCE type in `binding`, which used to be called
-/// `BrainProfileRef` and collided with the new profile reference in
-/// `ambition_entity_catalog`. Three concepts, two names, one of them meaning
-/// something different in each place (Jon's second redirect, P3).
-///
-/// This one is a facet CHECKER: a zero-sized marker the content-pack validator
-/// resolves preset names through. The `Facet` suffix says which of the three it
-/// is at every use site.
+/// Zero-sized schema marker used by content-pack validation to resolve brain
+/// preset references. `Facet` distinguishes this checker from authored reference
+/// value types.
 pub struct BrainPresetRefFacet;
 impl ContentKind for BrainPresetRefFacet {
     const SCHEMA: &'static str = BRAIN_PRESET_SCHEMA;

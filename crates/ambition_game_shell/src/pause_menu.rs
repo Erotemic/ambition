@@ -148,20 +148,8 @@ fn audio_value(
 pub struct ShellPauseMenu {
     pub open: bool,
     cursor: usize,
-    /// **WHICH SEAT opened it, and therefore whose presses drive it.**
-    ///
-    /// ⛔ before this, player two could neither pause nor navigate: the menu
-    /// read `MenuControlFrame`, which `populate_menu_control_frame_from_actions`
-    /// fills from the PRIMARY seat alone. On a couch that reads as the Start
-    /// button being broken.
-    ///
-    /// Jon's ruling (2026-08-06): any seat may pause, and the seat that paused
-    /// drives the menu. Not "the primary navigates" — you pressed the button, so
-    /// the cursor answers to you.
-    ///
-    /// ⚠ the world still stops for EVERYONE. Pausing is a `GameMode` transition
-    /// and that is global; what is per-seat is who the menu is FOR. `None` while
-    /// closed, and while open in a composition with no per-seat frames at all.
+    /// Seat that opened the pause menu and therefore drives it. Pause itself is
+    /// global; only menu input ownership is per-seat. `None` while unowned.
     owner: Option<u8>,
 }
 
@@ -171,13 +159,7 @@ impl ShellPauseMenu {
         self.owner
     }
 
-    /// Fold the menu shut.
-    ///
-    /// ⚠ **releasing the owner is IN here, not beside it.** There are four
-    /// places that close this menu — the suppression yield and three of the
-    /// entries — and a seat left owning a closed menu would silently keep the
-    /// next player from opening one. A second step somebody has to remember is
-    /// the failure; this is the first step containing it.
+    /// Fold the menu shut and release its input owner.
     pub fn close(&mut self) {
         self.open = false;
         self.cursor = 0;

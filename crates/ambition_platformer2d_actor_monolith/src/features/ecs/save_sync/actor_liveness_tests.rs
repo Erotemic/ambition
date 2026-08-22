@@ -1,8 +1,3 @@
-//! Unit tests for the parent module, extracted from an inline
-//! `#[cfg(test)] mod actor_liveness_tests` block (test-organization campaign, 2026-07-10).
-//! Pure move: same test names + logic, now an adjacent child module (a direct
-//! sibling, so `super` path depth is unchanged) with `use super::*;`.
-
 //! ADR 0022: a persisted death flag zeroes HP on load for EVERY
 //! persistent actor — including a killed but NEVER-PROVOKED peaceful
 //! NPC, the exact case that used to fall through both branches of

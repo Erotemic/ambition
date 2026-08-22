@@ -58,10 +58,10 @@ unblock a ledger row:
 
 | § | ruling | unblocks |
 | --- | --- | --- |
-| 26 | **Full rename**: `World.edges: WorldEdgeMargins { fall, side, rise }`, Rust + LDtk keys in ONE change; no content migration (zero levels author a value). ⛔ `BlockKind` not in scope | D169 |
-| 19 | **Sheet registry keys by FILE ROOT.** A renderer target string may not be a durable engine identity | D162 |
+| 26 | ✔ **BUILT** `2211d62a2` + map-assets `71f1738`. `World.edges: WorldEdgeMargins { fall, side, rise }`, Rust + LDtk keys in one change, gate destructures exhaustively. ⛔ `BlockKind` still not in scope | D169 |
+| 19 | ✔ **BUILT** `1e6f8f815`. One `index_baked_table`; `record_index` already had the rule and the three copies disagreed | D162 |
 | 31 | **`SeatRawFrames` stays RAW.** Split is SOURCE-LOCAL vs WORLD-DEPENDENT — portal transforms go AFTER the boundary, beside fast-fall. ⛔ post-boundary table is NOT "confirmed" (GGRS predicts): `CanonicalSeatInput` / `TickSeatInput` | D175 · D180 |
-| 30 | **DELETE the 1.0 height warn; do not replace it with a median.** Density becomes a separately DECLARED authoring profile | D165 |
+| 30 | ▢ **DELETE the 1.0 height warn; do not replace it with a median.** Density becomes a separately DECLARED authoring profile | D165 |
 | 29 | **Sweep the crates a CARVE touches**, not the workspace. ⛔ never `--workspace --tests` | D33 |
 | 16 | **The layout tool owns a level's position, and ownership FOLLOWS THE LAYOUT MODE.** ⛔ do not bulk-rewrite the 52 specs | D163 residue |
 | 18 | **A hit's art follows BOTH** the victim's material and the blow's strength — a ~10-emitter message change | D128 residue |
@@ -1264,7 +1264,23 @@ until that room unloads, after which its authored record recreates it at home.
 *"Leave this actor permanently where I released it"* would need body `Placed`
 whereabouts plus reconstruction relocation support.
 
-- ▢ **D169 — EVERY GAME BUILT ON THIS ENGINE CARRIES A PLATFORM-FIGHTER NOUN.**
+- ✔ **D169 — EVERY GAME BUILT ON THIS ENGINE CARRIED A PLATFORM-FIGHTER NOUN.**
+  CLOSED 2026-08-22 by `2211d62a2` + map-assets `71f1738`, on Jon's §26 ruling.
+  `World { blast_margin, side_blast_margin, ceiling_blast_margin }` became
+  `World { edges: WorldEdgeMargins { fall, side: Option, rise: Option } }`, and
+  the LDtk keys became `fall_out_margin` / `side_out_margin` / `rise_out_margin`
+  in all six shipped worlds — one change, because the converter reads the
+  authored key BY NAME and a mapping is the shim this project refuses. Zero
+  content migration: 18 schema entries and no level authored a value.
+  `apply_world_hazard_gate` DESTRUCTURES the struct, so a fourth axis is a
+  compile error at the gate. ⛔ **`BlockKind` is the plan's other half and its
+  trigger still has not fired** — the diagnosis (one enum mixing contact law,
+  traversal permission, world consequence and contact affordance) was re-measured
+  as correct and is NOT closed by this. ⛔ the LDtk field-def test was scanning
+  sibling agents' worktrees and reported their branch state as this one's
+  failure; `.worktrees` is excluded now.
+
+- ⏸ **D169-HISTORY — the original row, kept for the measurement only.**
 
 Design in
 [`engine/world-geometry-and-spatial-semantics.md`](engine/world-geometry-and-spatial-semantics.md).
@@ -2396,6 +2412,37 @@ UNTRIMMED sheets   63   quad is the WHOLE frame — the legacy path
 of why they measured differently: `snakes_on_a_cartesian_plane` publishes ZERO
 per-frame rects, while `ai_slop` publishes 44, every one with a non-zero offset.
 Nothing needs building.
+
+⭐⭐⭐ **AND THE CAUSE IS NOT "THESE SHEETS ARE OLD" — MEASURED 2026-08-22.** The
+untrimmed sheets are untrimmed because their TARGET MODULES SAY SO:
+
+```text
+38  targets pass `trim=False` to `build_sheet`, and NOT ONE states a reason
+ 9  more pass `trim=True`, which is already the default
+ 5  targets legitimately opt out, and they are in `registry/pack_groups.py`
+    (shrine, robot_slash, glider, lasersword, lasersword_with_guns) because
+    their runtimes sample a fixed grid with no per-frame anchor compensation
+```
+
+⛔⛔ `registry/pack_groups.py` says of itself that *"all adapter, tack-on, and
+rig-document build paths ask `policy_for(target)` for layout policy instead of
+carrying independent defaults"* — and 38 targets carry an independent default
+that contradicts it, silently, with no rationale anywhere. ⇒ **a regen alone
+changes nothing for those 38**: `publish carl_stargan` was run first and produced
+zero trim offsets, which is what pointed at the flag.
+
+✔ **CARL IS DONE** (renderer `36d6863`): the argument is deleted rather than
+flipped, so he takes the central policy. 0 → **953 per-frame trim offsets**.
+
+⛔⛔ **SANDBAG IS A DIFFERENT DEFECT AND MUST NOT BE PRICED AS A FLAG.** It
+hand-rolls its own sheet image and manifest in `targets/characters/sandbag.py`
+and never calls the shared `build_sheet` at all, so it reaches neither the packer
+nor the policy. Its 4.0x is a PORT.
+
+⇒ the remaining sweep is: delete the reasonless `trim=False` from the other 37,
+regen, and LOOK at the output — ⛔ not flipped blind in one commit, because a
+trim-aware runtime bug shows up as a mis-anchored character rather than as a
+failure.
 
 The 61 untrimmed sheets that publish a body bbox, worst frame-vs-body area
 first — the regeneration queue:
@@ -6766,6 +6813,38 @@ ResMut<CharacterCatalog | PreparedCharacter* | CharacterDefinition>  0 hits
 
 ⇒ **games already consume prepared data.** The immutability the review asks for
 is enforced by the type, not by convention, so that half of the ask is done.
+
+⭐⭐⭐ **RE-MEASURED AGAINST HEAD 2026-08-22, AND IT FALSIFIES THIS ROW'S REASON
+FOR WAITING.** The row says the capture kit was promotable because it *"came out
+as pure VALUES — six numbers of geometry, four timings, three payloads, no helper
+composition in the middle of them"*, and implies the repertoire is a different
+shape. It is not. Counted across all 17 fighters:
+
+```text
+294  strike(...) call sites
+ 13  positional arguments each — id, clip, 3 timings, 2 geometry pairs,
+     damage, knockback, growth, launch_dir, landing effect
+  2  decorators applied after: vfx_at(...) and on_contact(...)
+```
+
+⇒ **a strike is already a fixed-arity record of pure values with a name.** It maps
+one-to-one onto serde; the facet does not need it to be redesigned first. What
+genuinely carries structure is the SPECIALS —
+`NeutralSpecial::Authored(..)` and `DownSpecial::ByPosture { grounded, airborne }`
+— and those are four slots of sixteen.
+
+⛔⛔ **and the 13 positional arguments are a live defect on their own.** Alice's
+jab reads `strike("challenge", "jab", 0.05, 0.05, 0.13, (24.0, 0.0), (17.0, 13.0),
+3, 48.0, 1.05, None, None)`. Two transposed numbers there change a fighter's feel
+and NOTHING catches it — not the type system, since the timings are all `f32`,
+and not a test, since no fighter's numbers are asserted individually.
+
+⇒ **the enabling slice is therefore named and is NOT the facet**: give `strike` a
+named-field record with a `Default`, migrate the 294 sites, and the serde facet
+becomes a derive on a struct that already exists. ⚠ price it honestly — 294 sites
+across 17 files, and a mis-ordered field is a SILENT feel change, which is the
+worst failure mode this migration has. A mechanical rewrite wants a per-move
+before/after `MoveSpec` equality check, not eyes.
 
 ▢ **what is genuinely open, then:** a fighter's `SmashRepertoire` is authored as
 a game-side Rust literal — `george_booul_moveset.rs:556`,

@@ -54,13 +54,17 @@ pub fn input_timer_system(
     // ⭐ **the SLOT TABLE, not the global frame.** The derivation refines the
     // frame each body is about to read, and every body reads its own slot.
     mut slots: ResMut<ambition_characters::brain::SlotControls>,
-    // ⛔⛔ **READ from here, and WRITE to both, because the global `ControlFrame`
-    // used to be both.** The derived flag reached the body this tick (the
-    // frame→slot copy read that resource after this system ran) AND the encoded
-    // rollback input (the latch folded the same resource). Writing only the slot
-    // loses the second; writing only the raw row loses the first on a latch
-    // host, where the drain has already happened by the time this runs.
+    // ⛔⛔ **WRITE to BOTH, because the global `ControlFrame` used to be both.**
+    // The derived flag reached the body this tick (the frame→slot copy read that
+    // resource after this system ran) AND the encoded rollback input (the latch
+    // folded the same resource). Writing only the slot loses the second; writing
+    // only the raw row loses the first on a latch host, where the drain has
+    // already happened by the time this runs.
     mut raw: ResMut<ambition_characters::brain::SeatRawFrames>,
+    // Which of those two is THIS TICK's input depends on the clock — see
+    // `seat_frame_this_tick`.
+    latches: Option<Res<ambition_characters::brain::SlotControlLatches>>,
+    rollback: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
     mut slot_gestures: ResMut<crate::control::SlotInteractionState>,
     // Home/player bodies tick their OWN reaction timers here (they aren't in the
     // actor tick). Iterates every player body so a co-op / clone body ticks its own.
@@ -124,11 +128,13 @@ pub fn input_timer_system(
         let Some(interaction) = slot_gestures.get_mut(slot) else {
             continue;
         };
-        // ⚠ **the RAW row, which is what this system always read.** It held
-        // `Res<ControlFrame>` — the device sample as it stood BEFORE the
-        // frame→slot copy — so reading the published slot instead would shift
-        // every gesture a tick late on a latchless host.
-        let mut frame = raw.get(slot);
+        let mut frame = crate::control::seat_frame_this_tick(
+            latches.as_deref(),
+            rollback.as_deref(),
+            &slots,
+            &raw,
+            slot,
+        );
         // Fast-fall = double-tap local-down for the body driving THIS seat. Raw
         // cardinal edges are resolved through the same input mapping policy as
         // locomotion, so ScreenDirected sideways gravity can map raw-right /
@@ -155,11 +161,14 @@ pub fn input_timer_system(
         let ascend_pressed = resolved.local_up_pressed(raw_edges);
         let double_tap_down =
             interaction.register_down_tap(descend_pressed, frame_dt, feel.down_double_tap_window);
-        frame.fast_fall_pressed = double_tap_down;
-        slots.set(slot, frame);
-        raw.shape(slot, |raw_frame| {
-            raw_frame.fast_fall_pressed = double_tap_down;
-        });
+        crate::control::shape_seat_frame(
+            latches.as_deref(),
+            rollback.as_deref(),
+            &mut slots,
+            &mut raw,
+            slot,
+            |frame| frame.fast_fall_pressed = double_tap_down,
+        );
         if double_tap_down {
             interaction.double_tap_down_pending = true;
         }
@@ -201,9 +210,13 @@ pub struct InteractionInputBuffered;
 pub fn interaction_input_system(
     time: Res<Time>,
     feel_tuning: Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>,
-    // The pre-publish device sample, which is what this read as
-    // `Res<ControlFrame>` before that resource became an output mirror.
+    // This seat's input for THIS TICK, which is what this read as
+    // `Res<ControlFrame>` before that resource became an output mirror — and
+    // which of the two tables holds it depends on the clock.
     raw: Res<ambition_characters::brain::SeatRawFrames>,
+    slots: Res<ambition_characters::brain::SlotControls>,
+    latches: Option<Res<ambition_characters::brain::SlotControlLatches>>,
+    rollback: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
     drivers: Query<(Entity, &crate::control::DrivingParticipant)>,
     frames: Query<&crate::physics::ResolvedMotionFrame>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
@@ -240,7 +253,13 @@ pub fn interaction_input_system(
         let hitstun = body
             .and_then(|body| combat_q.get(body).ok())
             .map_or(0.0, |combat| combat.hitstun_timer);
-        let frame = raw.get(slot);
+        let frame = crate::control::seat_frame_this_tick(
+            latches.as_deref(),
+            rollback.as_deref(),
+            &slots,
+            &raw,
+            slot,
+        );
         let Some(interaction) = slot_gestures.get_mut(slot) else {
             continue;
         };
@@ -452,6 +471,11 @@ mod interaction_suppression_tests {
             },
         );
         app.insert_resource(raw);
+        // ⚠ no latch: this is a frame-stepped composition, so the RAW row above
+        // is this tick's input and the slot table is the empty destination it
+        // will be published into. Both exist in any real composition —
+        // `BrainPlugin` installs the pair.
+        app.init_resource::<ambition_characters::brain::SlotControls>();
         app.world_mut()
             .spawn((PlayerEntity, PrimaryPlayer, BodyCombat::default()));
         app.add_systems(Update, interaction_input_system);
@@ -460,6 +484,50 @@ mod interaction_suppression_tests {
             .resource::<SlotInteractionState>()
             .primary()
             .buffered()
+    }
+
+    /// **A TAP THAT ONLY EVER EXISTED IN THE LATCH STILL REACHES THE BUFFER.**
+    ///
+    /// ⛔⛔ **the regression this exists to prevent, and I wrote it.** D175 moved
+    /// this system off the global `ControlFrame` and onto the per-seat RAW row.
+    /// On a LATCH host that is the wrong table: `ControlFrameLatch` OR-accumulates
+    /// edges across every sub-tick sample, so a press that opens and closes
+    /// between two ticks lives in the drained frame and in NO single raw sample
+    /// — which is the entire reason the latch exists. The fixture puts the press
+    /// only where the latch would have left it.
+    #[test]
+    fn a_sub_tick_press_survives_on_a_latching_host() {
+        let mut app = App::new();
+        app.insert_resource(Time::<()>::default());
+        app.insert_resource(Platformer2dFeelTuningMonolith::default());
+        app.init_resource::<SlotInteractionState>();
+        // The latch's presence is what says which clock this composition runs on.
+        app.init_resource::<ambition_characters::brain::SlotControlLatches>();
+        // The raw row is NEUTRAL — the tap was never in one sample.
+        app.init_resource::<ambition_characters::brain::SeatRawFrames>();
+        let mut slots = ambition_characters::brain::SlotControls::default();
+        slots.set(
+            ambition_characters::brain::PlayerSlot::PRIMARY,
+            ControlFrame {
+                interact_pressed: true,
+                ..Default::default()
+            },
+        );
+        app.insert_resource(slots);
+        app.world_mut()
+            .spawn((PlayerEntity, PrimaryPlayer, BodyCombat::default()));
+        app.add_systems(Update, interaction_input_system);
+        app.update();
+
+        assert!(
+            app.world()
+                .resource::<SlotInteractionState>()
+                .primary()
+                .buffered(),
+            "the press was in the drained frame and not in any raw sample, and \
+             the buffer never saw it — a sub-tick tap on a fixed-tick or rollback \
+             host reaches the sim through the latch or not at all",
+        );
     }
 
     /// A plain Interact (no Down) registers a normal interaction.

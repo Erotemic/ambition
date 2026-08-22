@@ -7,7 +7,7 @@
 // tests drive the player tick THROUGH it so they exercise the same slot-owned
 // authority as production rather than stamping body-local input state.
 use super::*;
-use crate::schedule::publish_seat_controls_without_a_latch;
+use crate::schedule::publish_seat_controls_when_nobody_else_does;
 use ambition_characters::brain::ActorControl;
 use ambition_characters::brain::{PlayerSlot, SeatRawFrames};
 
@@ -193,7 +193,7 @@ fn player_projectile_release_emits_ranged_bolt_action_message_end_to_end() {
     app.add_systems(
         Update,
         (
-            publish_seat_controls_without_a_latch,
+            publish_seat_controls_when_nobody_else_does,
             tick_controlled_brains,
             emit_brain_action_messages,
         )
@@ -281,7 +281,7 @@ fn player_attack_press_emits_swipe_action_message_end_to_end() {
     app.add_systems(
         Update,
         (
-            publish_seat_controls_without_a_latch,
+            publish_seat_controls_when_nobody_else_does,
             tick_controlled_brains,
             emit_brain_action_messages,
         )
@@ -351,7 +351,7 @@ fn player_brain_seam_translates_control_frame_to_actor_control() {
     app.add_systems(
         Update,
         (
-            publish_seat_controls_without_a_latch,
+            publish_seat_controls_when_nobody_else_does,
             tick_controlled_brains,
         )
             .chain(),
@@ -420,7 +420,7 @@ fn a_possessed_actor_is_driven_by_the_controlled_brain_producer() {
     app.add_systems(
         Update,
         (
-            publish_seat_controls_without_a_latch,
+            publish_seat_controls_when_nobody_else_does,
             tick_controlled_brains,
         )
             .chain(),
@@ -512,7 +512,7 @@ fn a_scripted_sequence_silences_a_possessed_body() {
     app.add_systems(
         Update,
         (
-            publish_seat_controls_without_a_latch,
+            publish_seat_controls_when_nobody_else_does,
             tick_controlled_brains,
             blank_scripted_control_frames,
         )

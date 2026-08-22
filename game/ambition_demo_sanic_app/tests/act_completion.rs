@@ -77,9 +77,21 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
         frame.right_pressed = true;
         frame
     };
-    app.update();
+    // ⚠ **ARRIVAL TAKES A TICK, not a frame.** `ControlFrame` is seat zero's
+    // OUTPUT mirror since D175, so this finally measures what it says — and on a
+    // host whose sim schedule runs ahead of `Update`, a stick written in `Update`
+    // is committed on the following tick. One `app.update()` was enough only
+    // while this read the resource the scripted stage writes directly.
+    let mut arrived = false;
+    for _ in 0..20 {
+        app.update();
+        if app.world().resource::<ControlFrame>().axis_x >= 0.5 {
+            arrived = true;
+            break;
+        }
+    }
     assert!(
-        app.world().resource::<ControlFrame>().axis_x >= 0.5,
+        arrived,
         "the scripted stick must survive into the sim's `ControlFrame`; if this \
          fails the ordering above no longer reaches the authority that writes it"
     );

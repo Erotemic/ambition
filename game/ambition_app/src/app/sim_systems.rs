@@ -59,7 +59,13 @@ pub fn apply_player_reset_input_system(
     // stated — it was what that resource happened to mean. Reset belongs to the
     // SESSION rather than to a seat, so the seat named here is the one whose
     // button the shell listens to, not a limit on who may reset.
+    // ⛔ read and cleared through `shape_seat_frame`, because WHICH table holds
+    // this tick's press depends on the host: a rollback session publishes into
+    // the slot, a frame-stepped composition assembles the raw row.
     mut raw: ResMut<SeatRawFrames>,
+    mut slots: ResMut<ambition_platformer2d::sim::SlotControls>,
+    latches: Option<Res<ambition_platformer2d::sim::SlotControlLatches>>,
+    rollback: Option<Res<ambition_platformer2d::platformer::schedule::SimulationReplayState>>,
     world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<Platformer2dFeelTuningMonolith>,
@@ -86,7 +92,15 @@ pub fn apply_player_reset_input_system(
     // sanctioned PrimaryPlayer concern).
     mut slot_gestures: ResMut<ambition_platformer2d::actors::control::SlotInteractionState>,
 ) {
-    if !raw.get(PlayerSlot::PRIMARY).reset_pressed {
+    let pressed = ambition_platformer2d::actors::control::seat_frame_this_tick(
+        latches.as_deref(),
+        rollback.as_deref(),
+        &slots,
+        &raw,
+        PlayerSlot::PRIMARY,
+    )
+    .reset_pressed;
+    if !pressed {
         return;
     }
     let Ok((
@@ -105,11 +119,14 @@ pub fn apply_player_reset_input_system(
     // Clear the press immediately so the inline engine update in
     // `player_control_phase` doesn't trigger a redundant `player.reset_to`
     // followed by another sandbox-side reset later this frame.
-    // ⛔ cleared BEFORE the commit, so the engine path inside
-    // `update_player_control_with_clusters` cannot re-trigger on the same frame.
-    raw.shape(PlayerSlot::PRIMARY, |frame| {
-        frame.reset_pressed = false;
-    });
+    ambition_platformer2d::actors::control::shape_seat_frame(
+        latches.as_deref(),
+        rollback.as_deref(),
+        &mut slots,
+        &mut raw,
+        PlayerSlot::PRIMARY,
+        |frame| frame.reset_pressed = false,
+    );
 
     let mut clusters = cluster_item.as_clusters_mut();
     ambition_platformer2d::runtime::reset_sandbox(

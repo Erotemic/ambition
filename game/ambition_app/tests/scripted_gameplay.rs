@@ -55,8 +55,12 @@ fn build_minimal_sim_app() -> App {
     app
 }
 
+/// ⛔ **through the SEAM, not at the resource.** `ControlFrame` is seat zero's
+/// OUTPUT mirror since D175; assigning it delivers a press to nobody, and a
+/// fixture that does so asserts against a simulation that never received an
+/// input.
 fn write_control_frame(app: &mut App, frame: ControlFrame) {
-    *app.world_mut().resource_mut::<ControlFrame>() = frame;
+    ambition_platformer2d::sim::drive_control_frame(app.world_mut(), frame);
 }
 
 fn count_reset_messages(app: &App) -> usize {

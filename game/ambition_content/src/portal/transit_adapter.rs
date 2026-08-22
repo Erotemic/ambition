@@ -24,8 +24,10 @@
 
 use bevy::prelude::*;
 
-use ambition_characters::brain::{PlayerSlot, SeatRawFrames};
+use ambition_characters::brain::{PlayerSlot, SeatRawFrames, SlotControlLatches, SlotControls};
+use ambition_platformer2d_actor_monolith::control::{seat_frame_this_tick, shape_seat_frame};
 use ambition_platformer2d_actor_monolith::items::pickup::GroundItem;
+use ambition_platformer2d_shared_tangle::schedule::SimulationReplayState;
 use ambition_portal2d::{PlayerMovementIntent, PortalTransitable};
 
 /// Copy the transiting seat's held movement axes into the portal-core
@@ -42,12 +44,22 @@ use ambition_portal2d::{PlayerMovementIntent, PortalTransitable};
 /// stop the limit from being invisible.
 pub fn sync_movement_intent_from_control(
     raw: Option<Res<SeatRawFrames>>,
+    slots: Option<Res<SlotControls>>,
+    latches: Option<Res<SlotControlLatches>>,
+    rollback: Option<Res<SimulationReplayState>>,
     mut intent: ResMut<PlayerMovementIntent>,
 ) {
-    if let Some(raw) = raw {
-        let frame = raw.get(PlayerSlot::PRIMARY);
-        intent.dir = Vec2::new(frame.axis_x, frame.axis_y);
-    }
+    let (Some(raw), Some(slots)) = (raw, slots) else {
+        return;
+    };
+    let frame = seat_frame_this_tick(
+        latches.as_deref(),
+        rollback.as_deref(),
+        &slots,
+        &raw,
+        PlayerSlot::PRIMARY,
+    );
+    intent.dir = Vec2::new(frame.axis_x, frame.axis_y);
 }
 
 /// Copy the (possibly warped) portal-core [`PlayerMovementIntent`] back into
@@ -62,13 +74,24 @@ pub fn sync_movement_intent_from_control(
 pub fn apply_movement_intent_to_control(
     intent: Res<PlayerMovementIntent>,
     raw: Option<ResMut<SeatRawFrames>>,
+    slots: Option<ResMut<SlotControls>>,
+    latches: Option<Res<SlotControlLatches>>,
+    rollback: Option<Res<SimulationReplayState>>,
 ) {
-    if let Some(mut raw) = raw {
-        raw.shape(PlayerSlot::PRIMARY, |frame| {
+    let (Some(mut raw), Some(mut slots)) = (raw, slots) else {
+        return;
+    };
+    shape_seat_frame(
+        latches.as_deref(),
+        rollback.as_deref(),
+        &mut slots,
+        &mut raw,
+        PlayerSlot::PRIMARY,
+        |frame| {
             frame.axis_x = intent.dir.x;
             frame.axis_y = intent.dir.y;
-        });
-    }
+        },
+    );
 }
 
 /// Attach the portal-core [`PortalTransitable`] marker to any [`GroundItem`] that

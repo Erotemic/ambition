@@ -1,25 +1,18 @@
 //! **WHERE A SESSION'S LOCAL SEATS COME FROM, and whose answer that is.**
 //!
-//! ⛔⛔ **this lived in the GGRS backend until 2026-08-20, and that placement WAS
-//! a bug.** How many people are playing is a fact about INPUT — it is decided by
-//! a lobby, a roster, or an experience that simply is two-player — and a host
-//! merely consumes it. Keeping the declaration inside `ambition_platformer2d_rollback_ggrs`
-//! meant only a rollback host could hear one, so a surface that wanted to say
-//! *"two seats, always"* had to reach into a backend to say it, and any surface
-//! that did not reach in was silently seated from connected DEVICES.
+//! ⛔⛔ **HOW MANY PEOPLE ARE PLAYING IS A FACT ABOUT INPUT**, decided by a
+//! lobby, a roster, or an experience that simply is two-player — never by a
+//! backend. This declaration lived inside `ambition_platformer2d_rollback_ggrs`,
+//! so only a rollback host could hear one and every other surface was silently
+//! seated from connected DEVICES. A composition could then declare two seats,
+//! receive its second `InputParticipant`, receive the pad — and still not move
+//! the second body, because the session had opened one handle from the device
+//! count and is never resized.
 //!
-//! Measured: TwinTrack declared two seats and a couch policy through
-//! [`crate::LocalSeatOffer`], got its second `InputParticipant`, got the only
-//! pad assigned to it — and the laboratory twin never moved, because the GGRS
-//! session had already opened ONE handle from the device count and is never
-//! resized. Every headless test passed; the shipped binary is the rollback host.
-//! (Jon, 2026-08-20: *"in twin track I still cannot control emmy with the game
-//! pad."*)
-//!
-//! ⚠ **the vocabulary moved with it.** The variants were `RosterPending` and
-//! `RosterDecided`, and a roster is one decider among several — TwinTrack's
-//! plaza has no roster and is still two-player by construction. What the type
-//! always meant is *somebody has claimed local seating and here is their answer*.
+//! ⚠ **a ROSTER is one decider among several**, which is why the variants are
+//! not named for one: a plaza with no roster can still be two-player by
+//! construction. What this type means is *somebody has claimed local seating,
+//! and here is their answer*.
 
 use bevy::prelude::Resource;
 

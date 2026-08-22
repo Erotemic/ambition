@@ -130,7 +130,7 @@ pub fn drive_the_local_participant(app: &mut App) {
             // is vacuous exactly where the other applies.
             .before(ambition_platformer2d_runtime::host_input::commit_seat_raw_frames)
             .before(
-                ambition_platformer2d_runtime::host_input::publish_seat_controls_without_a_latch,
+                ambition_platformer2d_runtime::host_input::publish_seat_controls_when_nobody_else_does,
             ),
     );
     // ⚠ **`Last`, and it reads the SLOT TABLE.** The observation has to come

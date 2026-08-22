@@ -147,7 +147,10 @@ impl HeadlessCameraHarness {
     }
 
     fn step(&mut self, action: AgentAction) -> CameraSample {
-        *self.app.world_mut().resource_mut::<ControlFrame>() = action.into();
+        // ⛔ through the SEAM: `ControlFrame` is seat zero's OUTPUT mirror since
+        // D175, so assigning it delivers the press to nobody and every assertion
+        // after it would measure a body nothing was driving.
+        ambition_platformer2d::sim::drive_control_frame(self.app.world_mut(), action.into());
         self.app.update();
         self.sample()
     }

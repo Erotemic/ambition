@@ -1,23 +1,18 @@
 //! **ONE BODY MAY NOT MOVE FREELY THROUGH ANOTHER** — an opt-in constraint on
 //! PROPOSED motion, applied before integration.
 //!
-//! ⭐ **it constrains, it never separates.** Jon's ruling (2026-08-20) on the
-//! AVOID PUSHOUT rule: *"The no pushout rule I think is for portals… For bodies
-//! I think it might be ok. This isn't a hack, it is a game feel feature… It
-//! should never be a mandatory part of the movement kernel though. It should be
-//! composable and not add to tech debt."* So the rule that stands is about
-//! GEOMETRY REPAIR — nothing teleports out of an overlap it is already in — and
-//! a body that is trying to move deeper into another one simply gets less of the
-//! motion it asked for. Every function here is monotone: the returned motion is
-//! never larger than the motion proposed, and never has the opposite sign.
+//! ⭐ **it constrains, it never separates.** AVOID PUSHOUT is about GEOMETRY
+//! REPAIR — nothing teleports out of an overlap it is already in — so a body
+//! moving deeper into another simply gets less of the motion it asked for. Every
+//! function here is monotone: the returned motion is never larger than the
+//! motion proposed and never has the opposite sign.
 //!
-//! ⛔⛔ **AN ACCELERATION TERM CANNOT DO THIS, AND THAT IS MEASURED.** A previous
-//! attempt added a force beside the controller and had eight passing tests;
-//! `bbbc5e46c` deleted it. The axis-swept kernel treats `vel.x` as a velocity
-//! TARGET — `approach(along, run * max_run_speed, …)` overwrites it every tick —
-//! so anything summed into it is erased before integration. The tests passed
-//! because the fixture had no movement kernel in it. **The only place a body can
-//! be told about another body is where its motion is already being resolved.**
+//! ⛔⛔ **AN ACCELERATION TERM CANNOT DO THIS.** The axis-swept kernel treats
+//! `vel.x` as a velocity TARGET and overwrites it every tick, so anything summed
+//! into it is erased before integration. **The only place a body can be told
+//! about another body is where its motion is already being resolved.** (The
+//! deleted force version and its eight vacuous tests are recorded where they can
+//! still fail: `kernel::tests::a_grounded_body_walking_into_another_one_is_stopped_by_the_real_sweep`.)
 //!
 //! ⚠ **the vocabulary is deliberately genre-free.** This is not jostle, not
 //! pushback and not a fighting-game term: it is one body's motion constrained by
@@ -181,13 +176,10 @@ fn overlap_along(mover: Aabb, blocker: Aabb, horizontal: bool) -> f32 {
 
 /// **IS THIS DIRECTION GOING DEEPER INTO THAT BODY?**
 ///
-/// ⛔⛔ **the discriminator this had to gain, and the reason is measured.** The
-/// first version resisted an overlapping body in EVERY direction, on the honest
-/// argument that a constraint must not guess which way "out" is. It does not
-/// have to guess: an infinitesimal step either increases the axis overlap or it
-/// does not, and that is not an opinion. Without this, four fighters spawning on
-/// one point could not walk apart — each step out of the pile was cut to a
-/// fraction and a free-for-all never resolved.
+/// ⛔⛔ **it does not have to GUESS which way "out" is**, which is the objection
+/// the first version conceded to by resisting every direction: an infinitesimal
+/// step either increases the axis overlap or it does not. Without this,
+/// four fighters spawning on one point could not walk apart.
 ///
 /// ⚠ **and declining to resist a body that is LEAVING is not a pushout.** Nothing
 /// here moves anybody. It only stops taking motion away from a body that is
@@ -226,57 +218,39 @@ fn deepens(mover: Aabb, blocker: Aabb, horizontal: bool, moving_positive: bool) 
 /// runs after it: shortening a proposed delta can only ever produce a pose the
 /// world sweep would already have accepted.
 ///
-/// ⛔⛔ **TWO MOVERS MAY NOT BOTH SPEND ONE GAP, and they used to.** Each body
-/// resolved its own motion against the others' snapshot poses, so with 5 units
-/// between them and 4 asked each, BOTH passed the "it fits in the gap" test and
-/// both took all 4 — closing 8 across a gap of 5. ⚠ **and resistance did not
-/// save it**: the free-gap part of a step is granted at full speed by
-/// construction, so a pair of solids overlapped by up to one walk-tick on the
-/// tick they met, which is exactly what `resistance == 1.0` promises not to do.
+/// ⛔⛔ **TWO MOVERS MAY NOT BOTH SPEND ONE GAP.** ⇒ the gap is DIVIDED, in
+/// proportion to how fast each body is closing it, so the shares sum to the gap
+/// across the pair — for two movers and for four — and a body whose neighbours
+/// are all standing still has the whole of it.
 ///
-/// ⇒ **the gap is DIVIDED, in proportion to how fast each body is closing it.**
-/// The share sums to the gap across the pair, so the invariant holds for two
-/// movers and for four; and a body whose neighbours are all standing still has
-/// the whole gap to itself, which is the old arithmetic exactly.
-///
-/// ⛔ **not by halving.** Halving is the fix that looks equivalent and is not:
-/// it takes half the gap away from a body walking at a stationary neighbour,
-/// who should have all of it. Proportion collapses to the old answer in that
-/// case; halving does not.
+/// ⛔ **not by halving.** Halving looks equivalent and is not: it takes half the
+/// gap from a body walking at a stationary neighbour, who should have all of it.
+/// Proportion collapses to that answer; halving does not.
 ///
 /// ⚠ **both halves divide by SNAPSHOT velocities, never by their own proposed
 /// step.** Two bodies deriving shares from figures the other cannot read
 /// produce two shares that do not add up to the gap — the same order-dependence
 /// the snapshot exists to remove, wearing arithmetic instead of query order.
 ///
-/// ⛔⛔ **AND SILENCE IS NOT PERMISSION.** The snapshot is taken before any
-/// controller has run, so two bodies that both begin walking on the same tick
-/// read zero for each other AND for themselves. Granting the whole gap on no
-/// evidence let each spend all of it: measured 2026-08-21, a pair starting from
-/// rest anywhere under about three pixels apart ended permanently interpenetrated
-/// — at `resistance == 1.0`, whose whole promise is that it does not. An equal
-/// share is the only division that cannot over-spend when nobody has evidence,
-/// and it costs one tick to a body that starts from rest already within a step
-/// of a neighbour.
+/// ⛔⛔ **AND SILENCE IS NOT PERMISSION.** The snapshot precedes every
+/// controller, so two bodies that both begin walking on one tick read zero for
+/// each other AND for themselves; granting the whole gap on no evidence let each
+/// spend all of it, permanently. An equal share is the only division that cannot
+/// over-spend when nobody has evidence, and it costs one tick to a body starting
+/// from rest already within a step of a neighbour.
 pub fn constrain_motion(
     mover: Aabb,
     delta_along: f32,
     horizontal: bool,
-    // **ONE TICK OF THIS BODY'S OWN WALK.** A step longer than this is not a
-    // walk, and this pass is about walking.
+    // **ONE TICK OF THIS BODY'S OWN WALK**, and the rule is not a budget — it is
+    // a QUESTION: is this body walking?
     //
-    // ⛔⛔ **WITHOUT IT, BODY CONTACT EATS A KNOCKBACK LAUNCH.** Measured
-    // 2026-08-20 and it took two shapes to get right. A fighter launched
-    // sideways at 2400 px/s past a body standing 8px away lost a slice of every
-    // tick while in contact; the slices compounded against the controller's own
-    // decay, and the body came down about eighty pixels short of the blast
-    // margin — close enough to look like it flew and far enough that the match
-    // never ended. Three `smash_it` guards about matches ENDING went red, and a
-    // "take at most a walk's worth per tick" version fixed only two of them.
-    //
-    // ⇒ the rule is not a budget, it is a QUESTION: is this body walking? Two
-    // fighters walking into each other stall where they meet, and a launched
-    // fighter passes through everybody — which is also the genre's answer.
+    // ⛔⛔ **WITHOUT IT, BODY CONTACT EATS A KNOCKBACK LAUNCH**, and a
+    // "take at most a walk's worth per tick" version does not fix it. Two
+    // fighters walking into each other stall where they meet; a launched fighter
+    // passes through everybody, which is also the genre's answer. Held by
+    // `tests::contact_only_resists_a_body_that_is_walking`, which carries the
+    // measurement.
     walk_budget: f32,
     // The step this tick spans, so a snapshot VELOCITY can be compared against a
     // proposed DISTANCE. See [`BodyContactBlocker::velocity`].

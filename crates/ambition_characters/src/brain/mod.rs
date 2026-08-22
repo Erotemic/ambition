@@ -122,16 +122,11 @@ impl SlotControls {
 /// **EVERY SEAT'S RAW FRAME, BEFORE ANY SHAPING STAGE HAS RUN.**
 ///
 /// ⭐ **the stage that had to exist for a seat other than zero to have
-/// semantics.** A device sample is not yet a control frame: a double-tap has to
-/// become `fast_fall_pressed`, a portal has to warp the axes, a scripted driver
-/// has to substitute its own. Seat zero had a place for all of that to happen —
-/// the global `ControlFrame`, written by four systems between the device read
-/// and the latch — and every other seat went from `ActionState` straight into
-/// its latch with no stage in between. So the shapers were seat zero's by
-/// construction, and **player two could not fast-fall** (D175).
-///
-/// ⇒ this is that place, for everybody. The producer fills a row per seat, the
-/// shapers run over the table, and one commit folds every row into its latch.
+/// semantics.** A device sample is not yet a control frame: a double-tap becomes
+/// `fast_fall_pressed`, a portal warps the axes, a scripted driver substitutes
+/// its own. Seat zero had a place for that — the global `ControlFrame` — and no
+/// other seat had one at all, so the shapers were its by construction and
+/// **player two could not fast-fall** (D175). This is that place, for everybody.
 ///
 /// ⛔⛔ **PRE-LATCH IS NOT A DETAIL, IT IS THE WHOLE PLACEMENT.**
 /// `fast_fall_pressed` is packed into the encoded rollback input, and the
@@ -195,22 +190,15 @@ impl SeatRawFrames {
 /// fixed-tick host folds device samples on the FEEL clock and drains them on the
 /// TICK clock. That is what a latch is.
 ///
-/// ⛔⛔ **seat zero used to have its OWN spelling of this and it was a FORK, not
-/// a design.** `ControlFrameLatch` was a standalone `Resource`; this array
-/// covered slots 1.. and its own doc said *"slot 0 is deliberately NOT latched
-/// here: it already goes through `ControlFrameLatch`"*. A type whose doc says it
-/// mirrors another type is a fork with a note attached — and every consumer paid
-/// for it twice: two driver seams, two `init_resource` calls, two reset blocks
-/// in the GGRS session, two capture blocks. The pairs are gone; seat zero is row
-/// zero, and `drive_slot_frame` takes every slot.
+/// ⛔⛔ **seat zero used to have its OWN spelling of this and it was a FORK.**
+/// `ControlFrameLatch` was a standalone `Resource` beside an array covering
+/// slots 1.., whose doc said *"slot 0 is deliberately NOT latched here"* — a type
+/// whose doc says it mirrors another type is a fork with a note attached, and
+/// every consumer paid for it twice. Seat zero is row zero now.
 ///
-/// ⚠ **the ELEMENT type survives and is still `ControlFrameLatch`** — it was
+/// ⚠ **the ELEMENT type survives and is still `ControlFrameLatch`**: it was
 /// always the right thing, it was just also a resource. What is deleted is the
 /// second home for one seat's copy of it.
-///
-/// ⭐ the asymmetry that made the fork visible was a FAIRNESS bug: two people on
-/// two pads and only one of them forgiving, most visible in the first frames of
-/// a versus round where the countdown hands control back.
 #[derive(bevy::ecs::resource::Resource, Clone, Copy, Debug, Default)]
 pub struct SlotControlLatches {
     slots: [ambition_platformer2d_core::ControlFrameLatch; SlotControls::MAX_SLOTS],

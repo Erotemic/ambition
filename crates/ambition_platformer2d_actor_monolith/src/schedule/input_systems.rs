@@ -470,29 +470,17 @@ pub struct SeatBurstTriggerState(pub ambition_persistence::settings::TriggerEdge
 
 /// **EVERY SEAT'S CONTROL FRAME, DECIDED IN ONE PLACE.** (C4 couch versus)
 ///
-/// ⛔⛔ **there were TWO of these and they had drifted six ways.** Seat zero had
-/// `populate_control_frame_from_actions` and everybody else had this; the host
-/// registered them adjacently in the same set, with a comment saying *"both are
-/// device→control translation, and neither reads the other's output"*. What that
-/// arrangement actually produced:
+/// ⛔⛔ **there were TWO of these and they had drifted six ways** — seat zero's
+/// own producer and this one, registered adjacently under a comment claiming
+/// they were interchangeable. One difference was a live defect: only seat zero's
+/// asked about window focus, so alt-tab froze player one and left player two
+/// walking on a held stick. (D175 in the ledger carries the table.)
 ///
-/// ```text
-/// gate           the PRIMARY's context     │ this seat's context
-/// unfocus guard  applied                    │ never asked — no window query
-/// world stopped  read_menu_control_frame    │ neutral
-/// filters        the machine's sliders      │ per-pad filters_for_seat
-/// burst edge     a RESOURCE                 │ a component on the participant
-/// ```
-///
-/// The unfocus row was a live defect: alt-tab froze player one and left player
-/// two walking on a held stick. The rest are now one answer each.
-///
-/// ⭐ **the FILTERS row moved seat zero, deliberately.** Jon, 2026-08-06:
-/// *filtering per pad, bindings shared — a deadzone is a fact about the stick in
-/// somebody's hands.* Seat zero predates that rule and was still reading the
-/// machine-wide sliders; `filters_for_seat` falls back to exactly those when no
-/// device detector exists, so a headless fixture is unchanged and a windowed
-/// build finally gives seat zero its own pad's deadzone.
+/// ⭐ **the FILTERS row moved seat zero, deliberately.** Filtering is per PAD and
+/// bindings are shared — a deadzone is a fact about the stick in somebody's
+/// hands — and seat zero predated that rule. `filters_for_seat` falls back to
+/// the machine-wide sliders when no device detector exists, so a headless
+/// fixture is unchanged.
 ///
 /// ⭐ **the WORLD-STOPPED row is preserved rather than harmonised**, because the
 /// field it turns on — `start_pressed` — is read by the trace codec and by
@@ -527,17 +515,11 @@ pub fn populate_seat_control_frames(
     // `ControlFrame` instead, which is how the shapers became its alone.
     mut raw: ResMut<ambition_characters::brain::SeatRawFrames>,
     mut latches: Option<ResMut<ambition_characters::brain::SlotControlLatches>>,
-    // ⛔⛔ **THE UNFOCUS GUARD, and its absence was a real defect rather than a
-    // simplification.** `pause_input_when_unfocused` clears the device-agnostic
-    // frames while no window reports focus; seat zero's own producer applied it
-    // and the one every other seat used never took a window query at all, so it
-    // could not have. Two people on a couch, the window loses focus,
-    // and player one freezes while player two keeps walking on a held stick.
-    //
-    // ⚠ **the rule was already ONE function** — `input_suppressed_by_unfocus` —
-    // and only one of the two roads that need it ever asked. That is the shape
-    // this whole fork keeps producing: not two implementations, one
-    // implementation with one caller.
+    // ⛔⛔ **THE UNFOCUS GUARD, whose absence was a real defect.** The rule was
+    // already ONE function — `input_suppressed_by_unfocus` — and only one of the
+    // two roads that needed it ever asked, because the other took no window
+    // query at all. That is the shape this fork kept producing: not two
+    // implementations, one implementation with one caller.
     windows: Query<&Window>,
 ) {
     // ⚠ THIS SEAT'S context, not the primary's. Reading one folded answer here
@@ -628,7 +610,7 @@ pub fn commit_seat_raw_frames(
 ) {
     // ⚠ `Option`, because the host registers this unconditionally and a
     // frame-stepped composition installs no latch. There it is
-    // `publish_seat_controls_without_a_latch` in the sim that commits.
+    // `publish_seat_controls_when_nobody_else_does` in the sim that commits.
     let Some(mut latches) = latches else {
         return;
     };
@@ -637,30 +619,36 @@ pub fn commit_seat_raw_frames(
     }
 }
 
-/// **THE SAME COMMIT, for a composition with no latch at all.**
+/// **THE COMMIT FOR A COMPOSITION NOBODY ELSE PUBLISHES FOR.**
 ///
-/// ⛔⛔ **there are TWO clocks here and one system cannot serve both.** A latch
-/// host folds device samples on the FEEL clock ([`commit_seat_raw_frames`],
-/// registered in `Update`) and drains them on the TICK clock, so a tap that
-/// opens and closes between two ticks still reaches the sim. A frame-stepped
-/// composition has no gap to bridge — a frame IS a tick — so it publishes
-/// straight through, in the SIM schedule, where every composition has a place to
-/// put it whether or not it installed the device host.
+/// ⛔⛔ **THREE hosts publish a seat's frame and only one of them is this.**
 ///
-/// ⚠ **the `latches.is_some()` guard is the whole of the split, and dropping it
-/// double-commits.** A latch host runs both systems; without the guard this one
-/// would accumulate every seat a second time, and a rollback host would consume
-/// live device input on a tick GGRS is supposed to own. That guard is why the
-/// predecessor pair (`accumulate_control_frame_latch` in the host,
-/// `populate_slot_controls` in the sim) could be two systems that never noticed
-/// each other: one copied a resource the other had already drained.
+/// ```text
+/// fixed-tick  a latch bridges frame→tick; publish_latched_slot_controls drains it
+/// rollback    the SESSION publishes, from the input GGRS confirmed
+/// frame-step  neither exists — a frame IS a tick — so this copies raw → slots
+/// ```
+///
+/// ⚠ **guarding on the latch ALONE is not enough, and that cost 22 app_it
+/// tests.** A rollback harness has no latch (it drives `PendingSeatInputs`
+/// directly), so a latch-only guard let this run there and overwrite the
+/// session's confirmed input with a neutral raw row — both seats went silent
+/// through a rewind. The rollback marker is the other half of the question; its
+/// own doc says ordinary render-frame and fixed-tick hosts leave it absent.
+///
+/// ⭐ **the predecessor got this for free and that is why it never noticed.**
+/// `populate_slot_controls` copied the global `ControlFrame`, which under both
+/// other hosts had ALREADY been written by whichever authority owned
+/// publication — so running it a second time copied the right answer twice. This
+/// copies a table that authority does not write, so it has to ask.
 #[cfg(feature = "input")]
-pub fn publish_seat_controls_without_a_latch(
+pub fn publish_seat_controls_when_nobody_else_does(
     latches: Option<Res<ambition_characters::brain::SlotControlLatches>>,
+    rollback: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
     raw: Res<ambition_characters::brain::SeatRawFrames>,
     mut slots: ResMut<ambition_characters::brain::SlotControls>,
 ) {
-    if latches.is_some() {
+    if crate::control::another_authority_publishes(latches.as_deref(), rollback.as_deref()) {
         return;
     }
     for (slot, frame) in raw.seats() {
@@ -1500,7 +1488,7 @@ mod focus_gate_tests {
                 // a fixture that ran only the producer and then read
                 // `SlotControls` would be asserting against a table nothing
                 // had written this frame.
-                super::publish_seat_controls_without_a_latch,
+                super::publish_seat_controls_when_nobody_else_does,
             )
                 .chain(),
         );
@@ -1602,13 +1590,13 @@ mod focus_gate_tests {
                 (
                     resolve_active_input_context,
                     super::populate_seat_control_frames,
-                    super::publish_seat_controls_without_a_latch,
+                    super::publish_seat_controls_when_nobody_else_does,
                     // ⚠ **the COMMIT, because the producer no longer publishes.**
                     // It fills every seat's raw row and one stage commits them;
                     // a fixture that ran only the producer and then read
                     // `SlotControls` would be asserting against a table nothing
                     // had written this frame.
-                    super::publish_seat_controls_without_a_latch,
+                    super::publish_seat_controls_when_nobody_else_does,
                 )
                     .chain(),
             );
@@ -1699,7 +1687,7 @@ mod focus_gate_tests {
                 // a fixture that ran only the producer and then read
                 // `SlotControls` would be asserting against a table nothing
                 // had written this frame.
-                super::publish_seat_controls_without_a_latch,
+                super::publish_seat_controls_when_nobody_else_does,
             )
                 .chain(),
         );
@@ -1833,7 +1821,7 @@ mod focus_gate_tests {
                 // a fixture that ran only the producer and then read
                 // `SlotControls` would be asserting against a table nothing
                 // had written this frame.
-                super::publish_seat_controls_without_a_latch,
+                super::publish_seat_controls_when_nobody_else_does,
             )
                 .chain(),
         );

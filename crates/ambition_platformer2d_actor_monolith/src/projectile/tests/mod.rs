@@ -131,7 +131,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
         (
             // Commit every seat's shaped raw frame into SlotControls, then let
             // the player brain translate that canonical slot (production order).
-            crate::schedule::publish_seat_controls_without_a_latch,
+            crate::schedule::publish_seat_controls_when_nobody_else_does,
             crate::avatar::tick_controlled_brains,
             ambition_characters::brain::emit_player_projectile_tick_messages,
             // Mirror production order: the unified stepper advances existing

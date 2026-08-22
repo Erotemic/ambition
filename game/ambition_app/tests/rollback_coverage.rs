@@ -1468,6 +1468,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the shared PREPARED-CONTENT store: immutable content plus the report from          the validation transaction that produced it. Preparation happens BEFORE a          session simulates, and the content is immutable by construction — the          rollback contract already fingerprints this content as part of session          identity, which is the stronger statement that it cannot drift",
     ),
     (
+        "ambition_characters::brain::SeatRawFrames",
+        "the DEVICE side of the input boundary, one row per seat, holding what the          local device PROPOSED this frame before any shaping stage has run. It is          rewritten from scratch every frame by the producer and consumed by the          commit, so a rewind has nothing to put back — and restoring it would feed          a resimulation a stale proposal in place of the confirmed input it is          replaying. Same argument as `SlotControlLatches` below; the two are one          model, and D175 added this half so every seat has somewhere for a gesture,          a portal warp or a scripted substitution to happen",
+    ),
+    (
         "ambition_characters::brain::SlotControlLatches",
         "the DEVICE side of the input boundary, for EVERY seat including zero: it          folds device samples between ticks and drains on the tick clock. A rollback resimulates from STORED          INPUTS and never by re-reading a latch, so this is input TO the rollback          rather than state inside it — restoring it would feed the resimulation a          second copy of what it is already replaying",
     ),

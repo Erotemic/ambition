@@ -39,7 +39,7 @@ pub use input_systems::{
     InteractionInputBuffered,
 };
 pub use queries::{
-    body_driving_seat, controlled_frame_down, primary_player_entity, seat_frame_down,
-    sort_players_by_slot,
+    another_authority_publishes, body_driving_seat, controlled_frame_down, primary_player_entity,
+    seat_frame_down, seat_frame_this_tick, shape_seat_frame, sort_players_by_slot,
 };
 pub use slots::PrimarySlotInputCommit;

@@ -98,6 +98,94 @@ pub fn body_driving_seat(
     first
 }
 
+/// **THIS SEAT'S INPUT FOR THIS TICK, whichever clock the composition runs on.**
+///
+/// ⛔⛔ **TWO CLOCKS, and one source is wrong on one of them.** A gesture stage
+/// runs inside `InputSet::Route`, and at that moment:
+///
+/// ```text
+/// latch host      SlotControls already holds the DRAINED latch —
+///                 publish_latched_slot_controls ran .before(Route) — so it is
+///                 this tick's input, edges from every sub-tick sample included
+/// latchless host  SlotControls is LAST frame's; the raw row is the sample being
+///                 assembled now, and the publish that copies it runs after Route
+/// ```
+///
+/// ⚠ **reading the raw row on a latch host drops sub-tick taps.**
+/// `interact_pressed` is OR-accumulated by `ControlFrameLatch`, so a press that
+/// opens and closes between two ticks lives in the latch and in no single
+/// sample — which is the entire reason the latch exists.
+///
+/// ⭐ **the global `ControlFrame` used to answer this for both hosts**, because
+/// it was written by whichever path was live: the drained latch on one, the raw
+/// device write on the other. That dual meaning is what made it a bus, and is
+/// why removing it (D175) needs the question asked explicitly instead.
+pub fn seat_frame_this_tick(
+    latches: Option<&ambition_characters::brain::SlotControlLatches>,
+    rollback: Option<&ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>,
+    slots: &ambition_characters::brain::SlotControls,
+    raw: &ambition_characters::brain::SeatRawFrames,
+    slot: PlayerSlot,
+) -> ambition_platformer2d_core::ControlFrame {
+    if another_authority_publishes(latches, rollback) {
+        slots.get(slot)
+    } else {
+        raw.get(slot)
+    }
+}
+
+/// **SHAPE THIS SEAT'S FRAME FOR THIS TICK**, wherever this composition keeps it.
+///
+/// ⭐ **READ through the predicate, WRITE to both, and that asymmetry is the
+/// point.** Which table holds the tick's input depends on the host
+/// ([`seat_frame_this_tick`]); which table a shaped value must reach does not.
+/// The slot is what the body reads this tick; the raw row is what the next fold
+/// carries into the encoded rollback input. Writing the table that is not
+/// authoritative is harmless — it is overwritten by the authority that owns it —
+/// and writing only one loses a host.
+///
+/// ⛔ this is the seam the global `ControlFrame` used to be. It answered for
+/// every host by being written by whichever authority was live, which is what
+/// made it a bus and what made every shaping stage seat zero's.
+pub fn shape_seat_frame(
+    latches: Option<&ambition_characters::brain::SlotControlLatches>,
+    rollback: Option<&ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>,
+    slots: &mut ambition_characters::brain::SlotControls,
+    raw: &mut ambition_characters::brain::SeatRawFrames,
+    slot: PlayerSlot,
+    edit: impl FnOnce(&mut ambition_platformer2d_core::ControlFrame),
+) {
+    let mut frame = seat_frame_this_tick(latches, rollback, slots, raw, slot);
+    edit(&mut frame);
+    slots.set(slot, frame);
+    raw.set(slot, frame);
+}
+
+/// **DOES SOMETHING ELSE ALREADY OWN THIS SEAT'S PUBLISHED FRAME THIS TICK?**
+///
+/// ⛔⛔ **THREE hosts, and asking about only one of them cost 20 app_it tests.**
+/// The first version of this predicate asked `latches.is_some()`, which is true
+/// on a fixed-tick host and false on BOTH of the others — so under a rollback
+/// host the gesture stage read a neutral raw row and wrote it back over the
+/// input GGRS had just confirmed, and every rollback fixture went still.
+///
+/// ```text
+/// fixed-tick  a latch exists; publish_latched_slot_controls drained it before Route
+/// rollback    the SESSION published, from the input GGRS confirmed
+/// frame-step  neither — the raw row IS this tick's input, being assembled now
+/// ```
+///
+/// ⚠ **the rollback marker is a PRESENCE question, not a value one.** Its own
+/// doc: *"ordinary render-frame and fixed-tick hosts leave this resource
+/// absent"* — `replaying_history` says whether THIS pass is a replay, which is a
+/// different question and the wrong one here.
+pub fn another_authority_publishes(
+    latches: Option<&ambition_characters::brain::SlotControlLatches>,
+    rollback: Option<&ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>,
+) -> bool {
+    latches.is_some() || rollback.is_some()
+}
+
 /// **THE FRAME ONE SEAT'S GESTURES ARE INTERPRETED IN** — the resolved "down"
 /// (ADR 0024) of whichever body is driving that seat.
 ///

@@ -208,7 +208,7 @@ impl Plugin for PlayerSchedulePlugin {
                     // `populate_slot_controls` used to stand, and registered here
                     // for the same reason it was: every composition has a sim
                     // schedule, and not every one installs the device host.
-                    ambition_platformer2d_actor_monolith::schedule::publish_seat_controls_without_a_latch
+                    ambition_platformer2d_actor_monolith::schedule::publish_seat_controls_when_nobody_else_does
                         .in_set(ambition_platformer2d_actor_monolith::control::PrimarySlotInputCommit),
                     // ⭐ **and the MIRROR, once, for every host.** `ControlFrame`
                     // is seat zero's output now; the forensic trace codec and the

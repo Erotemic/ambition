@@ -1,4 +1,4 @@
-//! The external consumer's own acceptance gate (Phase-6 / GPT 5.6 review:
+//! The external consumer's own acceptance gate (Phase-6 /:
 //! "the fixture should contain integration tests rather than relying only on
 //! binaries that print success"). Run from the engine repo with
 //! `cargo test --manifest-path fixtures/external_consumer/Cargo.toml` — the
@@ -42,12 +42,10 @@ fn outlander_boots_activates_and_walks_the_ridge_gate() {
 /// registered by this crate through `ambition_platformer2d::runtime::rollback`, and named in
 /// no engine file.
 ///
-/// The rewind is REAL, not simulated: a GGRS sync-test session resimulates every
-/// frame from a restored snapshot and compares checksums, so a component that
-/// failed to round-trip — or an encoder that dropped `ticks` while keeping
-/// `seconds` — panics inside the engine before this test's own assertions run.
-/// What the assertions add is the part a checksum cannot see: that the state was
-/// non-trivial, and that it landed on the same value the fixed-tick host reached.
+/// The rewind is REAL, not simulated: a GGRS sync-test session resimulates every frame from a
+/// restored snapshot and compares checksums, so a component that failed to round-trip — or an
+/// encoder that dropped `ticks` while keeping `seconds` — panics inside the engine before this
+/// test's own assertions run.
 #[test]
 fn consumer_owned_authoritative_state_survives_real_resimulation() {
     let mut app = outlander::build_outlander_rollback_app()
@@ -91,26 +89,17 @@ fn consumer_owned_authoritative_state_survives_real_resimulation() {
 /// **A third party gets REAL ART, not coloured rectangles.** (Phase 6, the
 /// visible-shell half)
 ///
-/// The visible binary's own comment used to record the gap: the in-repo demo
-/// shells each hand-rolled a ~90-line asset-resource install that no umbrella
-/// helper offered, so a consumer following the demos doctrine drew the world as
-/// primitives. A stranger cloning this engine and running their game saw
-/// untextured boxes — the most visible way "an engine another game can be built
-/// on" can fail, and it failed for want of a function.
+/// A stranger cloning this engine and running their game saw untextured boxes — the most visible
+/// way "an engine another game can be built on" can fail, and it failed for want of a function.
 ///
 /// `ambition_platformer2d::game_assets::PlatformerAssetsPlugin` is that function, and this is
 /// the test that it works from OUTSIDE the workspace: the fixture resolves its
 /// own dependency graph, so this is the build a third party gets.
 ///
-/// Asserts the two resources the generic presentation actually reads. A
-/// compile-only proof would say nothing — the failure being closed here is
-/// precisely "it composes and draws nothing".
+/// Asserts the two resources the generic presentation actually reads.
 #[test]
 fn the_umbrella_asset_install_gives_an_external_consumer_real_sprites() {
-    // The REAL composition, not a hand-rolled subset of it. This used to
-    // reassemble eleven lines of "the visible binary's composition minus the
-    // window", which is a test asserting that a composition only the test knows
-    // works — and it drifted from the binary the moment either changed.
+    // The REAL composition, not a hand-rolled subset of it.
     //
     // `with_game_assets` because that is exactly the subject: a display-less
     // host that still prepares art. It is policy rather than a face, and the
@@ -158,10 +147,7 @@ fn the_umbrella_asset_install_gives_an_external_consumer_real_sprites() {
 /// own to live, because the two-root reader that lets Ambition's content crate
 /// own a world tree lived inside `ambition_app`'s CLI module.
 ///
-/// It is `ambition_asset_manager::consumer_source` now. This asserts BOTH
-/// directions, because either alone is a different bug: a consumer file must win
-/// over the engine tree, and a file the consumer never authored must still
-/// resolve out of the engine's.
+/// It is `ambition_asset_manager::consumer_source` now.
 #[test]
 fn a_consumer_owns_its_own_asset_tree_and_still_sees_the_engines() {
     use bevy::prelude::*;
@@ -256,9 +242,6 @@ fn authoring_mistakes_name_the_thing_the_author_must_fix() {
         );
     }
 
-    // Syntactically broken RON. The author needs to know it was THEIR fragment
-    // and that the failure was a parse, not a validation rule they can argue
-    // with.
     let malformed = CharacterCatalogFragment::from_ron(
         "outlander",
         None::<String>,
@@ -277,12 +260,10 @@ fn authoring_mistakes_name_the_thing_the_author_must_fix() {
          difference between a typo and a rule the author has to look up: {message}"
     );
 
-    // **WHICH FILE.** The clause this test is named after asks for file, id and
-    // field. The id and the field were always there (the validator says
-    // `character 'x' has empty spritesheet path`); the FILE could not be, because
-    // both seams took an anonymous `&str` and there was nothing in the API to
-    // report (GPT 5.6, 2026-07-28). `from_ron_at` is where an author says where
-    // its text came from, and the diagnostic repeats it back.
+    // **WHICH FILE.** The clause this test is named after asks for file, id and field. The id
+    // and the field were always there (the validator says `character 'x' has empty spritesheet
+    // path`); the FILE could not be, because both seams took an anonymous `&str` and there was
+    // nothing in the API to report.
     {
         let source = "assets/data/outlander_catalog.ron";
         let mistyped = CharacterCatalogFragment::from_ron_at(
@@ -309,11 +290,6 @@ fn authoring_mistakes_name_the_thing_the_author_must_fix() {
 }
 
 /// **A third party can author an autonomous creature without the deleted roster.**
-///
-/// D73 split the old row into body, controller, and placement authorities. This
-/// fixture is the public-SDK witness: all of the sentry facts it used to carry in
-/// `CharacterRosterFragment` are now reachable through `ambition_platformer2d`
-/// alone, and preparation produces a complete body.
 #[test]
 fn a_consumer_authors_an_enemy_through_the_character_definition_seam() {
     use ambition_platformer2d::character::{
@@ -321,7 +297,7 @@ fn a_consumer_authors_an_enemy_through_the_character_definition_seam() {
     };
 
     let mut app = outlander::build_outlander_app();
-    // ⚠ **`build()` does not publish the registry, and this test asserted that it
+    // **`build()` does not publish the registry, and this test asserted that it
     // did.** `stage_authored_character` only STAGES; the cast is folded and
     // inserted by `CharacterPreparationPlugin`, whose triggers are `App::finish`
     // and a `PreStartup` backstop — both of which a `PlatformerApp` reaches on
@@ -357,7 +333,7 @@ fn a_consumer_authors_an_enemy_through_the_character_definition_seam() {
     assert_eq!(profile.attack_range, 0.0);
 }
 
-/// **A third party can say what its own character LOOKS LIKE.** (queue U1)
+/// **A third party can say what its own character LOOKS LIKE.**
 ///
 /// Owning the art was two gaps, not one. The first was addressing — a catalog
 /// path was reduced to a basename and rebuilt under the engine's sprite folder,
@@ -420,7 +396,6 @@ fn a_consumer_authors_the_sheet_its_own_character_renders_from() {
 }
 
 /// **The art this crate owns is a real image, and the engine reaches it.**
-/// (queue T2, the half U1 left open)
 ///
 /// U1 made a consumer able to ADDRESS its art (`game://sprites/outlander.png`
 /// survives catalog assembly) and DESCRIBE it (`register_character_sheet_ron`).
@@ -529,9 +504,6 @@ fn the_engine_reads_the_consumers_generated_art_through_its_own_source() {
 /// "authored as empty" into "authored nothing" would fall through to its own row
 /// and hand a third party's wanderer the `drifter` kit it declined.
 ///
-/// ⚠ **this used to cite `playable_kit: HostCode`, which rebuilt the HOST
-/// PROTAGONIST's kit; that variant is DELETED** (2026-08-11 — the robot authors
-/// its own kit, so no row may say another crate owns its playable repertoire).
 /// The fall-through is smaller now and the claim is the same one.
 ///
 /// That is the same distinction Sanic needs in-workspace (his kit is the

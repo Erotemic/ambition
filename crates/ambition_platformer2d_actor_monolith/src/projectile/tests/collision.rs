@@ -20,10 +20,6 @@ fn fireball_damages_enemy_on_intersect() {
     let mut app = min_app();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
-    // ⭐ **the mob is a registered CHARACTER**, because construction refuses a
-    // wave `kind` that names anything else (AC6). It used to name the
-    // `medium_striker` archetype row and take whatever body the fixture roster
-    // answered with.
     app.add_systems(
         Startup,
         |mut commands: Commands,
@@ -186,12 +182,8 @@ fn fireball_bounces_off_one_way_platform_in_system() {
     assert_eq!(body.game.bounces_remaining, starting_bounces - 1);
 }
 
-/// A fireball flying horizontally beneath a thin one-way platform
-/// (or rising up into one from below) must NOT be stopped by it —
-/// the platform is non-solid from below. Pin the "fireballs pass
-/// through one-ways unless they land on top" rule at the system
-/// level so a future regression that treats one-ways like solid
-/// walls breaks the test.
+/// A fireball flying horizontally beneath a thin one-way platform (or rising up into one from
+/// below) must NOT be stopped by it — the platform is non-solid from below.
 #[test]
 fn fireball_passes_through_one_way_from_below_in_system() {
     let world = ae::World::new(

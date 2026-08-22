@@ -1,6 +1,3 @@
-//! The contact vocabulary through the PLAYER sweep (fable review 2026-07-05
-//! AJ10 / R8.1): `FrameEvents.contacts` reports what the body touched, with
-//! surface-outward normals, without changing resolution.
 
 use super::*;
 use crate::collision_semantics::ContactSource;
@@ -74,16 +71,16 @@ fn running_into_a_wall_reports_a_side_contact_with_the_surface_normal() {
 
 /// **A rising head into a hidden block is a CONTACT, not just a stop.**
 ///
-/// ⛔ **it was only a stop.** `BlockKind::BonkOnly` exists to be solid against a
+/// **it was only a stop.** `BlockKind::BonkOnly` exists to be solid against a
 /// rising head and air to everything else, and the swept resolution truncated
 /// the motion correctly — but then took a `BonkOnly`-only arm of an `if / else
 /// if` chain whose comment claimed it "falls through to the ordinary face
 /// resolution below". It does not; the head-contact arm was skipped. So the body
 /// stopped dead under an invisible block and `FrameEvents.contacts` was empty,
 /// which is indistinguishable from never having touched it. Mary-O's hidden
-/// block in 1-2 could not be bonked at all (found by D67's probe, 2026-08-09).
+/// block in 1-2 could not be bonked at all.
 ///
-/// ⭐ **both terms are OBSERVED**: her head is asserted to have actually reached
+/// **both terms are OBSERVED**: her head is asserted to have actually reached
 /// the block's underside before the contact is demanded, so a jump that fell
 /// short accuses the probe rather than the engine.
 #[test]
@@ -157,9 +154,7 @@ fn rising_into_a_bonk_only_block_reports_a_head_contact() {
             }
             match contact.kind {
                 ContactKind::Head => head_kind = Some(contact.normal),
-                // ⚠ **the poison.** Fixing the contact must not make a hidden
-                // block a floor: Jon's *"you should not be able to stand on an
-                // invisible block"* is the reason the kind exists.
+                // A hidden block must not become standing support when its head contact is fixed.
                 ContactKind::Support => stood_on_it = true,
                 _ => {}
             }
@@ -190,7 +185,6 @@ fn rising_into_a_bonk_only_block_reports_a_head_contact() {
 
 /// **A BODY HELD AGAINST GEOMETRY MUST NOT RE-LAND EVERY TICK.**
 ///
-/// ⛔⛔ Jon, playing, 2026-08-19: *"in the pirate sky in ambition there is also
 /// an sfx flurry that is loud and off-putting… I think the pirate sky issue is
 /// collision into the ceiling causing the sfx"* — and, on the grab: *"I don't
 /// think it's the grab with the noise, I think it causes the noise via world
@@ -198,15 +192,7 @@ fn rising_into_a_bonk_only_block_reports_a_head_contact() {
 /// something other than its own motion — a flyer pressed into a ceiling, a
 /// captive whose position is forced by its captor.
 ///
-/// ⭐ **why a re-entry is a NOISE bug and not merely a bookkeeping one.**
-/// `emit_movement_fx` writes one `SfxMessage::Land` per
-/// [`GroundContactTransition::Landed`], for EVERY body, and nothing between that
-/// write and the audio backend caps or dedupes voices. A body that re-lands on
-/// alternate ticks therefore asks for the same cue thirty times a second; four
-/// of them in one room ask a hundred and twenty times. That is not loud, it is a
-/// comb filter.
-///
-/// ⚠ this asserts a CONTACT-STATE property, not an audio one, because that is
+/// this asserts a CONTACT-STATE property, not an audio one, because that is
 /// where the fault would be: the emitter is correct to voice a landing, so the
 /// only wrong thing available is a landing that did not happen.
 #[test]
@@ -242,7 +228,7 @@ fn a_body_pressed_into_the_ceiling_does_not_re_land_every_tick() {
         }
     }
 
-    // ⛔ **the zero floor.** A run that never reached the ceiling would report
+    // **the zero floor.** A run that never reached the ceiling would report
     // zero landings and pass while measuring nothing at all.
     assert!(
         head_contacts > 0,
@@ -259,14 +245,10 @@ fn a_body_pressed_into_the_ceiling_does_not_re_land_every_tick() {
 /// **A BODY WHOSE POSITION IS WRITTEN BY ANOTHER BODY MUST NOT RE-LAND EVERY
 /// TICK EITHER.**
 ///
-/// ⭐ **this is the shape both of Jon's reports actually share**, and it is not
-/// the ceiling by itself — its sibling above proves a plain flyer pressed into a
-/// ceiling never re-lands. What the pirate sky and the grab have in common is a
-/// body being *carried*: `pirate_sky_lookout`'s riders are mounted on sharks and
-/// a captive's pose is written by its captor, so in both cases something other
-/// than the body's own motion decides where it is, every tick. Jon: *"I don't
-/// think it's the grab with the noise, I think it causes the noise via world
-/// interaction."*
+/// What the pirate sky and the grab have in common is a body being *carried*:
+/// `pirate_sky_lookout`'s riders are mounted on sharks and a captive's pose is written by its
+/// captor, so in both cases something other than the body's own motion decides where it is, every
+/// tick.
 ///
 /// The fixture is that forcing, reduced to its essential: re-place the body on
 /// the floor line every tick and step it normally, which is exactly what a

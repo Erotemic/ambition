@@ -2,10 +2,9 @@
 //!
 //! Design of record: `docs/planning/triage/gameplay-presentation-profiles.md`.
 //!
-//! Every other presentation test either checks the pure resolver or hands the
-//! host a hand-written `ComputedNode`. Both prove arithmetic. Neither proves
-//! the thing that actually decides whether a participant sees a correct frame:
-//! **when** the numbers are available relative to Bevy's own UI layout pass.
+//! Both prove arithmetic. Neither proves the thing that actually decides whether a participant
+//! sees a correct frame: **when** the numbers are available relative to Bevy's own UI layout
+//! pass.
 //!
 //! `bevy_ui` computes `ComputedNode` and `UiGlobalTransform` in `PostUpdate`
 //! (`UiSystems::Layout`). Anything reading them from `Update` is reading the
@@ -164,12 +163,6 @@ fn approx(a: ScreenRect, b: ScreenRect) -> bool {
 }
 
 /// ONE frame after the display changes, everything describes the NEW layout.
-///
-/// This is the regression the review asked for. Before it existed, control
-/// occupancy was read off the previous frame's `ComputedNode`, so a resize left
-/// the camera protecting the rectangles the controls used to occupy for one
-/// visible frame — and every existing test passed, because they all wrote
-/// `ComputedNode` by hand and never exercised the real `PostUpdate` layout.
 #[test]
 fn one_frame_after_a_resize_the_layout_and_its_occupancy_agree() {
     let mut app = app(ae::Vec2::new(1600.0, 900.0));
@@ -506,8 +499,7 @@ fn the_real_joystick_is_placed_on_its_first_frame() {
         ae::Vec2::new(1600.0, 900.0),
         profiles::adaptive_platformer(),
     );
-    // Exactly one frame. Startup spawns the joystick; Update must discover,
-    // publish, resolve and place it before this returns.
+    // Exactly one frame.
     app.update();
 
     let root = joystick_root(&mut app);

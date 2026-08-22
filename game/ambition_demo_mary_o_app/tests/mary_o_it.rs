@@ -7,7 +7,7 @@
 //! unchanged; filter a former target with
 //! `--test mary_o_it -- <module_name>`.
 //!
-//! ⚠ `autotests = false` makes a forgotten `mod` line silently skip a whole
+//! `autotests = false` makes a forgotten `mod` line silently skip a whole
 //! file — `mary_o_it_sync` is the guard that turns that into a failure.
 
 mod enemy_quad_matches_its_box;

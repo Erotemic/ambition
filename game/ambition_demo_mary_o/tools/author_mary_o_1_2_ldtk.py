@@ -173,8 +173,6 @@ def fixtures() -> list[dict]:
             sweep_dx=float((CHASM[1] - CHASM[0]) * T - ferry[0]),
             speed=FERRY_SPEED,
         ),
-        # The shaft you arrive out of. A LANDING PAD: it names no target, so
-        # nothing fires on the body that just landed on it.
         rect(
             "LoadingZone",
             (corridor(ARRIVAL_COLUMN) - zone[0] // 2, FLOOR_TOP - zone[1]),
@@ -296,7 +294,7 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         area = Path(tmp) / "mary_o_1_2_area.json"
         area.write_text(json.dumps(area_spec(), indent=2))
-        # ⛔ `--no-repair` on every step but the last. Each tool step otherwise
+        # `--no-repair` on every step but the last. Each tool step otherwise
         # ends in a full-project validate, and the file is only consistent once
         # BOTH ends of both trips exist: 1-2's exit names a zone in 1-1 that this
         # script has not added yet, and 1-1's descent names one in 1-2.

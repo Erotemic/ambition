@@ -55,7 +55,7 @@ MAP_ASSETS = REPO / "game" / "ambition_map_assets"
 #: authored values are `pirate_shark_rider`, `pirate_heavy_shark_rider`,
 #: `PhaseScript:gnu_ton_rider`, and the pre-`5e4d6448e` fused spellings were
 #: `pirate_on_shark` / `pirate_heavy_on_shark`.
-#: ⚠ matching the CAPABILITY the name claims, not an enumerated list, so a new
+#: matching the CAPABILITY the name claims, not an enumerated list, so a new
 #: rider archetype is covered the day it is authored.
 RIDER_MARKERS = ("_rider", "_on_shark")
 
@@ -222,7 +222,7 @@ def test_every_mount_ref_lands_on_a_body_the_rider_is_touching(
     assert not broken, "a mount ref does not land on its mount:\n  " + "\n  ".join(
         broken
     )
-    # ⚠ THE FLOOR, and it is derived rather than typed in. A "for every ref …"
+    # THE FLOOR, and it is derived rather than typed in. A "for every ref …"
     # check reads exactly like a pass when there are no refs, which is precisely
     # the state the editor left `sandbox.ldtk` in for a month. Every rider brain
     # carries one ref, so the number of refs this loop saw can never honestly be

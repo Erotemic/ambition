@@ -7,15 +7,6 @@
 //! near_w, far_w)`), and until this type existed there was no way to carry them
 //! from the damage volume to the effect that draws it.
 //!
-//! ## What this replaces
-//!
-//! The melee slash cue used to be emitted as a single scalar:
-//! `((volume.bounds().half_size() * 2.0).max_element() * 2.0).max(24.0)`, drawn
-//! as a square. Three lossy steps — hull to bounding box, box to its longer
-//! side, side to a square — and for the protagonist's `attack_side` the result
-//! was a 205x205 quad over a hull occupying about 13% of it. The swing's shape
-//! was known at the emit site and thrown away one line later.
-//!
 //! ## Why a projection and not the hull itself
 //!
 //! The renderer draws a sprite, and a sprite is a quad; handed a hull it would
@@ -175,7 +166,7 @@ impl CombatVolume {
     /// a sweep along attacker → volume, which is the axis the authored volumes
     /// are built on (`cone()`'s `(dx, dy)` is always cardinal in the body's
     /// frame).
-    /// ⛔ THE AXIS IS THE ATTACKER'S, AND THAT IS A KNOWN LIMIT.
+    /// THE AXIS IS THE ATTACKER'S, AND THAT IS A KNOWN LIMIT.
     ///
     /// Taking it from `attacker → volume centroid` means a swing authored above
     /// the body — a slash across the chest rather than the navel, which is what
@@ -184,22 +175,16 @@ impl CombatVolume {
     /// degrees for a rise of 0.10 body-heights, polygon level, art alone
     /// leaning. `SLASH_RISE` is 0 in the generator for exactly that reason.
     ///
-    /// ⚠ Inferring the axis FROM THE VOLUME does not fix it, and I tried three
-    /// ways. Nearest-vertex-to-farthest puts both ends on corners, arbitrarily,
-    /// because a symmetric edge has two of them. Averaging a slice at each end
-    /// recovers the midpoints only if the provisional axis is already level —
-    /// and the tilt is precisely what makes the two corners of one edge project
-    /// differently, so it converges on the tilt it was given. Both measured
-    /// worse than this: 30+ degrees of false tilt on a level polygon, and a
-    /// third of the drawn slash outside its own hitbox.
+    /// Inferring the axis FROM THE VOLUME does not fix it, and I tried three ways.
+    /// Nearest-vertex-to-farthest puts both ends on corners, arbitrarily, because a symmetric edge
+    /// has two of them. Averaging a slice at each end recovers the midpoints only if the
+    /// provisional axis is already level — and the tilt is precisely what makes the two corners of
+    /// one edge project differently, so it converges on the tilt it was given.
     ///
-    /// The reason inference keeps failing is that it is re-deriving something
-    /// the AUTHORING KNEW. `cone()` and `half_disc()` take a cardinal `(dx, dy)`
-    /// and the volume drops it on the way out — the same class of loss as the
-    /// `.bounds()` call this type was created to remove. The fix is to carry the
-    /// swing's direction on the `Hitbox` beside its shape, and to read it here
-    /// rather than guess. That is a real change to the strike-spawn path and it
-    /// is not this commit.
+    /// The reason inference keeps failing is that it is re-deriving something the AUTHORING
+    /// KNEW. `cone()` and `half_disc()` take a cardinal `(dx, dy)` and the volume drops it on
+    /// the way out — the same class of loss as the `.bounds()` call this type was created to
+    /// remove. That is a real change to the strike-spawn path and it is not this commit.
     pub fn swing_shape(&self, from: Vec2) -> SwingShape {
         if let CombatVolume::Circle { center, radius } = self {
             return SwingShape::Radial {
@@ -252,7 +237,6 @@ impl CombatVolume {
     }
 
     /// World-space outline points — the corners a projection measures against.
-    /// A circle never reaches here (it is radial before this is called).
     fn outline(&self) -> Vec<Vec2> {
         match self {
             CombatVolume::Aabb(a) => {
@@ -365,9 +349,7 @@ mod tests {
 
     #[test]
     fn the_quad_takes_the_swings_height_not_its_length() {
-        // The square could only ever be as tall as the swing is LONG. The whole
-        // visible symptom — art sprawling far above and below the blade — is
-        // that one substitution.
+        // The square could only ever be as tall as the swing is LONG.
         let hull = CombatVolume::convex(attack_side_hull());
         let half = hull.swing_shape(Vec2::new(-9.18, -41.84)).oriented_bounds();
         assert!(

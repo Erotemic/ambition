@@ -184,7 +184,7 @@ fn startup_cards_and_launcher_run_on_the_participant_with_no_actor() {
     // Tap-anywhere: TAPPING the card's full-screen surface advances ONE
     // card through the same semantic command keyboard confirm uses.
     //
-    // ⚠ a tap is down THEN up. The menu bridge activates on the way up, so a
+    // a tap is down THEN up. The menu bridge activates on the way up, so a
     // finger that lands on the card and slides away has not chosen anything —
     // Bevy reports a pointer that comes up still over the control as a return
     // to `Interaction::Hovered`.

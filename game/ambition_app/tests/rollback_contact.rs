@@ -1,13 +1,8 @@
 //! **Contact survives a rewind** — Task 2's fourth scenario family.
 //!
-//! The roadmap asks that "representative damage, transition, action, and contact
-//! scenarios can be stepped, rewound, checksum-compared, and asserted through the
-//! real schedule". Three of those had rewound scenarios and contact did not, which
-//! the 2026-07-27 status audit found by reading the one file that owns contact:
-//! `collision_invariant_oracle` builds every one of its sims with
-//! `Platformer2dSimHarnessOptions::default()` with a timestep and a start room, and no
-//! rollback settings anywhere in it. It walks contact invariants hard and never
-//! rewinds one.
+//! The roadmap asks that "representative damage, transition, action, and contact scenarios can be
+//! stepped, rewound, checksum-compared, and asserted through the real schedule". It walks contact
+//! invariants hard and never rewinds one.
 //!
 //! That gap is not academic. Contact state is where path-dependence lives — ground
 //! and wall flags come out of the swept kernel, and they feed coyote windows, wall

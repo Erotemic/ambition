@@ -17,7 +17,7 @@ use super::{LdtkEntityInstance, LdtkFieldInstance, LdtkLevel};
 /// engine's standard nouns plus whatever game extended them, so a
 /// game-registered entity passes validation like a built-in one.
 ///
-/// ⚠ the vocabulary is a parameter because validation's answer DEPENDS on it:
+/// the vocabulary is a parameter because validation's answer DEPENDS on it:
 /// `MaryOBlock` is a real entity to Mary-O and an unknown one to the sandbox,
 /// and both answers are correct.
 pub(super) fn known_entity(
@@ -173,7 +173,7 @@ pub(super) fn parse_pickup_kind(value: &str) -> ambition_platformer2d_world::roo
     }
 }
 
-/// ⛔ **there is no `Patrol:` prefix here, and its absence is the point.** A
+/// **there is no `Patrol:` prefix here, and its absence is the point.** A
 /// patrol's path was authored as a reference hidden inside this string field —
 /// nothing about the field's name or its `String` type said a reference was in
 /// there, so no tool could see it, three resolvers grew private spellings of it,
@@ -232,12 +232,6 @@ mod tests;
 /// **HOW FAR A BODY MUST STEP UP TO WALK INTO THIS RECT**, in px. `0` when the
 /// ground inside it is level with the ground just outside.
 ///
-/// ⛔⛔ **the reachability rule beside this one COULD NOT FIRE — measured, not
-/// suspected.** `EdgeExit LoadingZone ... overlaps solid X; ... so the exit is
-/// physically reachable` scans entities named `Solid` on the Ambition layer,
-/// and the geometry a body actually collides with in these levels is the
-/// **Collision IntGrid**. Across every shipped world (2026-08-21):
-///
 /// ```text
 /// levels with an EdgeExit    15
 /// levels with a Solid ENTITY  4   (mary_o_1_1, mary_o_1_3,
@@ -249,22 +243,16 @@ mod tests;
 /// ever run against — *a check that cannot fail is worse than no check, because
 /// it spends the credibility of the ones that can.*
 ///
-/// ⛔⛔ **AND ITS REPLACEMENT ASKED A PROXY.** The first fix counted SOLID CELLS
-/// inside the zone and warned on any, which flagged five of twenty-four exits.
-/// Three of those five were correct authoring: their zone's bottom row is solid
-/// because that row IS THE FLOOR, running unbroken across the level, and a zone
-/// stopping one row above the floor could never be touched by a body standing on
-/// it. The number was right and the sentence after it was wrong.
+/// Three of those five were correct authoring: their zone's bottom row is solid because that
+/// row IS THE FLOOR, running unbroken across the level, and a zone stopping one row above the
+/// floor could never be touched by a body standing on it.
 ///
-/// ⇒ **the question is not "is there anything solid in here", it is "is the
-/// ground in here HIGHER than the ground out there".** Only `central_hub_main`'s
-/// two exits were: their openings are holes in a three-cell-thick wall whose
-/// bottom rows were still solid, so the opening sat 32px above the floor — a
-/// window, not a door, and a walking body stalled against the sill at x=1841
-/// (Jon, 2026-08-20: *"I cannot go through contact doors"*). Fixed in content;
-/// this now answers `0` for every authored `EdgeExit`.
+/// ⇒ **the question is not "is there anything solid in here", it is "is the ground in here HIGHER
+/// than the ground out there".** Only `central_hub_main`'s two exits were: their openings are holes
+/// in a three-cell-thick wall whose bottom rows were still solid, so the opening sat 32px above the
+/// floor — a window, not a door, and a walking body stalled against the sill at x=1841 .
 ///
-/// ⚠ `0` for a level with no Collision IntGrid, and for a zone with no ground
+/// `0` for a level with no Collision IntGrid, and for a zone with no ground
 /// under it at all — both honest: a level that paints no collision blocks
 /// nobody, and a doorway over a void is a different complaint with a different
 /// rule.

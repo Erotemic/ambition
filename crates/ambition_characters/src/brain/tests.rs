@@ -286,10 +286,8 @@ fn brain_npc_patrol_ctor_inherits_spawn_and_radius() {
 
 /// **A `Brain` cannot say who drives a body, and that is the point.**
 ///
-/// ⛔ this used to assert `is_player()` / `player_slot()` — an AI-policy enum
-/// answering a question about a person. The answer lives on the body as
-/// [`DrivingParticipant`], so a driven body keeps its own policy and gets it back
-/// by never having lost it.
+/// The answer lives on the body as [`DrivingParticipant`], so a driven body keeps its own policy
+/// and gets it back by never having lost it.
 #[test]
 fn the_driving_participant_is_a_component_on_the_body_not_a_brain_variant() {
     let mut world = bevy::prelude::World::new();
@@ -483,17 +481,11 @@ fn emit_brain_action_messages_writes_one_message_per_request() {
     }
 }
 
-/// End-to-end ranged path: a Skirmisher brain ticking past its
-/// fire cooldown inside aggro range produces `frame.fire`, and
-/// the resolver translates that — gated by the actor's ranged
-/// `ActionSet` — into a concrete `ActionRequest::Ranged`. Pins
-/// the seam shark-rider archetypes rely on: without it, the
-/// `ranged: Some(Bolt(...))` row in `character_archetypes.ron` is
-/// silently inert. This test was added when the legacy
-/// choreography path was deleted (which previously kept
-/// shark-riders firing even though their `MeleeBrute` brain
-/// only emitted melee intent — the brain template was switched
-/// to `Skirmisher` in the same wave).
+/// End-to-end ranged path: a Skirmisher brain ticking past its fire cooldown inside aggro range
+/// produces `frame.fire`, and the resolver translates that — gated by the actor's ranged
+/// `ActionSet` — into a concrete `ActionRequest::Ranged`. Pins the seam shark-rider archetypes rely
+/// on: without it, the `ranged: Some(Bolt(...))` row in `character_archetypes.ron` is silently
+/// inert.
 #[test]
 fn skirmisher_brain_resolves_through_action_set_to_ranged_request() {
     // Inside aggro radius, past cooldown.
@@ -600,12 +592,6 @@ fn melee_brute_brain_resolves_through_action_set() {
     }
 }
 
-/// **Player two's sub-tick tap survives.** (queue Y2)
-///
-/// The primary seat has had `ControlFrameLatch` since netcode N0.1; a secondary
-/// seat had nothing, which was recorded as a bounded known limit — *"on a
-/// fixed-tick host a very short player-two tap can be missed."*
-///
 /// It is a FAIRNESS asymmetry, not a rounding error. Two people, two pads, one
 /// couch match, and only one of them gets a press that lands between two ticks.
 #[test]
@@ -639,8 +625,6 @@ fn a_secondary_seats_sub_tick_tap_is_not_swallowed() {
     );
 }
 
-/// Slots do not leak into each other. Four pads means four independent latches,
-/// and the bug this forbids would be player two's jump firing player three's.
 #[test]
 fn each_seats_latch_is_its_own() {
     use crate::brain::{PlayerSlot, SlotControlLatches};
@@ -668,9 +652,7 @@ fn each_seats_latch_is_its_own() {
     );
 }
 
-/// A pause CLEARS rather than drains: a seat that stopped being driven must not
-/// hand a held direction to the tick after the pause, and an edge accumulated
-/// before it must not survive it. The primary seat follows the same rule.
+/// The primary seat follows the same rule.
 #[test]
 fn resetting_a_seat_drops_its_held_levels_not_just_its_edges() {
     use crate::brain::{PlayerSlot, SlotControlLatches};

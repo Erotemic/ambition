@@ -263,9 +263,7 @@ struct DialogLayoutProfile {
 impl DialogLayoutProfile {
     fn for_viewport(viewport: Vec2) -> Self {
         if viewport.y < 480.0 {
-            // Phone landscape / short embedded windows. Keep only one large
-            // choice row visible so the body and controls retain their full
-            // measured height above the lower touch-control region.
+            // Phone landscape / short embedded windows.
             Self {
                 option_capacity: 1,
                 panel_max_width: 940.0,
@@ -443,12 +441,10 @@ fn sync_ambition_dialog_ui(
     }
 
     let profile = DialogLayoutProfile::for_viewport(viewport);
-    // ⛔ **the window used to RECENTER on every selection change**, which on a
-    // phone is a moving target: touching a row selects it, the list rebuilds
-    // around it, and the row you touched is now somewhere else — so the second
-    // press Android's tap-mode needs lands on a NEIGHBOUR. Jon reported exactly
-    // that on a Pixel 5, and it looks random while being perfectly
-    // deterministic.
+    // **the window used to RECENTER on every selection change**, which on a phone is a moving
+    // target: touching a row selects it, the list rebuilds around it, and the row you touched
+    // is now somewhere else — so the second press Android's tap-mode needs lands on a
+    // NEIGHBOUR.
     //
     // Scrolling only as far as it must keeps a row's screen position stable for
     // as long as the selection stays visible, which is what makes touching one
@@ -554,10 +550,7 @@ fn sync_ambition_dialog_ui(
                     width: Val::Percent(96.0),
                     min_width: Val::Px(0.0),
                     max_width: Val::Px(profile.panel_max_width),
-                    // The selected choice window bounds normal panel growth. Do
-                    // not cap or clip the panel itself: body text and the footer
-                    // must keep their measured height, while only the choice list
-                    // is windowed when there are too many options.
+                    // The selected choice window bounds normal panel growth.
                     padding: UiRect::all(Val::Px(profile.panel_padding)),
                     flex_direction: FlexDirection::Column,
                     row_gap: Val::Px(profile.panel_gap),
@@ -967,7 +960,7 @@ fn resolve_portrait_visual(
             });
     }
 
-    // ⭐ **through the engine's resolver rather than straight to the catalog.**
+    // **through the engine's resolver rather than straight to the catalog.**
     // The precedence above and below is untouched — Ambition's own per-character
     // override still wins, and the placeholder monogram still catches a miss —
     // and in between, a character that REGISTERED a portrait target now gets it.
@@ -1349,9 +1342,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
         slots.sort_unstable();
-        // ⚠ **re-baselined 2026-08-03 from the centered `[4..8]`**, and the
-        // SUBJECT of this test is unchanged: only a window renders, and its
-        // slots carry ABSOLUTE list indices. What moved is where the window sits.
+        // What moved is where the window sits.
         //
         // Selecting option 7 from a fresh window scrolls it to the NEAR EDGE
         // (start 3) instead of recentering on the selection (start 4), because

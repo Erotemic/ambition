@@ -55,12 +55,7 @@ pub enum ControlSlot {
     Interact,
     /// Utility slot — fly toggle / form toggle and similar mode switches.
     Utility,
-    /// **Shield slot — the guard.** Holding it raises a guard; releasing it drops
-    /// one. It is not a flavour of [`Self::Special`], and a body's shield does not
-    /// depend on which special that body carries (D146, Jon: *"Shield is not a
-    /// special move. It is an independent participant control/action."*).
-    ///
-    /// ⚠ **this was `QuickAction`, and the generic name was the lie.** Every other
+    /// **this was `QuickAction`, and the generic name was the lie.** Every other
     /// slot here is named for its DEFAULT action — Jump, Attack, Special,
     /// Projectile, Burst, Blink, Interact — and each of them still hosts a content
     /// technique without the name misleading anybody. `QuickAction` was the one
@@ -70,7 +65,7 @@ pub enum ControlSlot {
     /// and every consumer (the touch overlay's Shield button, `shield_held`, the
     /// gamepad preset comment) already called it the shield.
     ///
-    /// ⛔ [`Self::Modifier`] and [`Self::Utility`] keep their generic names for the
+    /// [`Self::Modifier`] and [`Self::Utility`] keep their generic names for the
     /// opposite reason, and that contrast is the rule: those two genuinely carry
     /// more than one content meaning (Utility holds the engine fly toggle AND
     /// Sanic's transformation), so naming either for one occupant would be the
@@ -80,7 +75,7 @@ pub enum ControlSlot {
     /// move; if that move's active window acquires a body, the two enter a
     /// CAPTURE RELATIONSHIP that outlives the move which made it.
     ///
-    /// ⛔ **it is not a flavour of [`Self::Attack`], and the difference is
+    /// **it is not a flavour of [`Self::Attack`], and the difference is
     /// structural rather than cosmetic.** An attack resolves as spatial overlap →
     /// damage → knockback → done; the relationship ends inside the same move. A
     /// grab establishes a relationship that PERSISTS: later authored moves

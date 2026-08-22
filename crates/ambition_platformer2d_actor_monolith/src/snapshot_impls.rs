@@ -1,14 +1,11 @@
 //! `SnapshotState` for this crate's own types — the rollback wire format.
 //!
-//! ⚠ These impls live HERE, beside the types they encode, because
-//! `ambition_platformer2d_core::snapshot` owns the trait and the orphan rule binds an
-//! impl to the crate owning the trait OR the type. Until 2026-07-30 the trait
-//! sat in `ambition_platformer2d_runtime`, above every domain crate, so the only place all
-//! ~100 of them could compile was one 2688-line file in `ambition_platformer2d_runtime`. The
-//! orphan rule is what proves this file is in the right crate: if a type moves,
-//! this stops compiling rather than drifting.
+//! These impls live HERE, beside the types they encode, because
+//! `ambition_platformer2d_core::snapshot` owns the trait and the orphan rule binds an impl to the
+//! crate owning the trait OR the type. The orphan rule is what proves this file is in the right
+//! crate: if a type moves, this stops compiling rather than drifting.
 //!
-//! ⚠ A field added to an encoded type is a WIRE FORMAT change. Encode and
+//! A field added to an encoded type is a WIRE FORMAT change. Encode and
 //! decode must stay in the same order, and `snapshot_unit_enum!` codes are
 //! authored per variant so inserting one never renumbers the rest.
 
@@ -16,8 +13,6 @@ use ambition_platformer2d_core::snapshot::{
     put_bool, put_f32, put_i32, put_str, put_u32, put_u64, put_u8, put_vec2, Reader,
     SnapshotCursor, SnapshotState,
 };
-// ⚠ `snapshot_pod` is no longer imported: the last user in this crate was
-// `ActorSurfaceState`, whose impl left with its type on 2026-08-21 (D33).
 
 impl SnapshotState for crate::features::ActorStatus {
     fn encode(&self, out: &mut Vec<u8>) {
@@ -73,11 +68,6 @@ impl SnapshotState for crate::character_runtime::ActiveMatch {
                 put_u64(out, session.0);
             }
         }
-        // ⛔ **WHEN the cast was built travels too, and leaving it out would be
-        // a rollback bug with a visible symptom.** The opening ceremony is
-        // derived as `now - activated_on`, so a rewind that restored the receipt
-        // without the stamp would restart the countdown from whatever tick the
-        // rewind landed on — the cast held again, mid-match, for three beats.
         match self.activated_on() {
             None => put_bool(out, false),
             Some(tick) => {
@@ -104,11 +94,7 @@ impl SnapshotState for crate::character_runtime::ActiveMatch {
     }
 }
 
-/// **The stocks ruleset's verdict, and WHICH MATCH it is about** (D147).
-///
-/// ⚠ the stamp travels, and leaving it out would put the D140 defect back: a
-/// rewind that restored "decided" without restoring which match it was decided
-/// for would be restoring a process-global bool again.
+/// **The stocks ruleset's verdict, and WHICH MATCH it is about**.
 impl SnapshotState for crate::features::stocks_match::StocksMatchSettled {
     fn encode(&self, out: &mut Vec<u8>) {
         match self.decided_match() {
@@ -152,16 +138,9 @@ impl SnapshotState for crate::features::stocks_match::StocksMatchSettled {
     }
 }
 
-// ✔ `ActorSurfaceState`'s pod impl LEFT with its type 2026-08-21 (D33) and now
-// lives in `ambition_platformer2d_core::snapshot_impls` beside the body clusters
-// its own doc always pointed at. The orphan rule forced it the moment the type
-// moved down: `SnapshotState` is core's and the type is core's, so this crate
-// may implement neither. Same shape as `BossEncounter` immediately below.
+// The orphan rule forced it the moment the type moved down: `SnapshotState` is core's and the type
+// is core's, so this crate may implement neither. Same shape as `BossEncounter` immediately below.
 
-// ✔ `BossEncounter`'s cursor impl LEFT with its type 2026-08-17 (D33) and now
-// lives in `ambition_boss_encounter::clusters`. The orphan rule is what forced
-// the move, exactly as this file's header says it should: the impl stopped
-// compiling here the moment the type crossed the crate line.
 
 impl SnapshotCursor for crate::features::ActorMotionPath {
     fn encode_cursor(&self, out: &mut Vec<u8>) {
@@ -204,9 +183,8 @@ impl SnapshotState for crate::features::ecs::perception::Perception {
     }
 }
 
-/// The brain's memory of what it has seen — FB5's habit model reads it, and FB6's
-/// rollouts cannot run until it rewinds. Ordered by actor id, because `WorldMemory`
-/// is a `BTreeMap` (ADR 0023, and a real bug: see `last_known_hostile`).
+/// The brain's memory of what it has seen — FB5's habit model reads it, and FB6's rollouts
+/// cannot run until it rewinds.
 impl SnapshotState for crate::features::ecs::perception::PerceptionMemory {
     fn encode(&self, out: &mut Vec<u8>) {
         let rows: Vec<_> = self.0.entries().collect();
@@ -308,13 +286,12 @@ impl SnapshotState for crate::avatar::PlayerSafetyState {
     }
 }
 
-/// **A shot's own side of the fight** (D150).
+/// **A shot's own side of the fight**.
 ///
-/// ⚠ it is state, not a memo, and the difference is exactly the bug it fixes.
-/// The stamp is taken from the firer the first tick the bolt flies; after the
-/// firer is gone there is nothing left to re-derive it from, so a rewind that
-/// dropped it would restore a shot that had forgotten whose attack it is —
-/// indiscriminate, hitting its own team, which is the state D150 closed.
+/// The stamp is taken from the firer the first tick the bolt flies; after the firer is gone
+/// there is nothing left to re-derive it from, so a rewind that dropped it would restore a shot
+/// that had forgotten whose attack it is — indiscriminate, hitting its own team, which is the
+/// state closed.
 impl SnapshotState for crate::projectile::ProjectileAllegiance {
     fn encode(&self, out: &mut Vec<u8>) {
         self.faction.encode(out);

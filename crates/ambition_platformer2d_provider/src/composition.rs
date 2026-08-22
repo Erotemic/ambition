@@ -9,7 +9,7 @@
 //! the workspace and is therefore the only honest witness to what the seam
 //! actually costs a stranger.
 //!
-//! What it cost, gathered from the consumer side (queue R4):
+//! What it cost, gathered from the consumer side:
 //!
 //! ```text
 //! MinimalShellPlugins → frontend audio → AmbitionLoadPlugin →
@@ -92,12 +92,6 @@ impl ShellComposition {
 
     /// **Boot into a route that is neither the gameplay nor the launcher one.**
     ///
-    /// ⚠ added 2026-07-31, and it is the FOURTH time this exact shape has been
-    /// recorded: the SDK expressed the options its first consumer needed, and a
-    /// later real host needed another. `StartAt` in the facade already names the
-    /// first three (*"one face, one experience, one start policy"*); this is the
-    /// same note one layer down.
-    ///
     /// The smash demo is the consumer. It opens on CHARACTER SELECT, because a
     /// platform fighter that boots onto the stage has already decided who you
     /// are — and that is neither `PrimaryGameplay` nor `Launcher`, so a
@@ -116,7 +110,7 @@ impl ShellComposition {
     /// on the experience id — is the answer for a provider that authors no
     /// frontend sound, which is most of them.
     ///
-    /// ⚠ **this is the DEFAULT for the routes this composition owns**, not a
+    /// **this is the DEFAULT for the routes this composition owns**, not a
     /// declaration about any one screen. A composition is one app hosting one
     /// experience, so its default is the honest scope. A provider that wants a
     /// particular screen to sound like itself IN ANY HOST declares that beside
@@ -140,22 +134,15 @@ impl ShellComposition {
     /// registers into it" is the one this type is here to own.
     pub fn install<M>(self, app: &mut App, experience: impl Plugins<M>) {
         app.add_plugins(ambition_game_shell::MinimalShellPlugins);
-        // The silent one. An app that skips this does not fail — its frontend
-        // routes simply have nothing to play. (Before 2026-08-07 it was worse
-        // than silent: the profile was one process-global resource, so skipping
-        // this played whichever provider's frontend audio was installed last.)
         {
             use ambition_audio::selection::FrontendAudioAppExt;
             app.set_host_frontend_audio(self.frontend_audio.clone().unwrap_or_else(|| {
                 ambition_audio::selection::FrontendAudioProfile::new(self.experience_id.clone())
             }));
         }
-        // Stated rather than inherited. `AmbitionLoadPlugin` is idempotent, so
-        // a host may add it, omit it, or add it twice; adding it here means a
-        // consumer never has to know which engine group already satisfied the
-        // dependency. (It was a hard Bevy panic until 2026-07-27, and the rule
-        // "which group owes the load coordinator" was documented only in the
-        // comments of the hosts that had already been bitten.)
+        // Stated rather than inherited. `AmbitionLoadPlugin` is idempotent, so a host may add it,
+        // omit it, or add it twice; adding it here means a consumer never has to know which engine
+        // group already satisfied the dependency.
         app.add_plugins(ambition_load::AmbitionLoadPlugin);
         app.add_plugins(ambition_load_presentation::MinimalShellLoadPresentationPlugins);
         app.add_plugins(experience);
@@ -263,10 +250,8 @@ mod tests {
         );
     }
 
-    /// ⭐ **a route's own declaration outranks the composition's default**, and
-    /// a route without one still gets the default. This is the whole key change:
-    /// before 2026-08-07 there was one answer per PROCESS, so the first of these
-    /// two assertions could not be written down.
+    /// **a route's own declaration outranks the composition's default**, and a route without one
+    /// still gets the default.
     #[test]
     fn a_route_that_declares_its_own_sound_is_not_overruled_by_the_default() {
         use ambition_audio::selection::{FrontendAudioAppExt, FrontendAudioProfile};

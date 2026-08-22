@@ -35,7 +35,7 @@ pub struct PrimaryBody;
 /// foot in an authored mini-phase (ADR 0020; Q19). Any other system may
 /// subscribe to the same message later without touching this one.
 ///
-/// ⭐ **it lives HERE, below the domains, because two of them share it.** The
+/// **it lives HERE, below the domains, because two of them share it.** The
 /// writer is the mount coupling in the actor monolith and the reader is
 /// `ambition_boss_encounter`; a message owned by one of the two would make the
 /// other depend on it for a type carrying nothing but a pair of entities. Same
@@ -49,22 +49,18 @@ pub struct MountDied {
 
 /// **THIS BODY IS SOLID TO OTHER BODIES THAT ARE ALSO SOLID.**
 ///
-/// ⭐ **presence is the whole opt-in.** A body without this component is not
-/// resisted and does not resist, and the movement kernel resolves it byte for
-/// byte as it did before body contact existed
-/// (`ambition_platformer2d_core::movement::body_contact`). That is Jon's
-/// constraint stated as a type: *"It should never be a mandatory part of the
-/// movement kernel… It should be composable and not add to tech debt."*
+/// **presence is the whole opt-in.** A body without this component is not resisted and does not
+/// resist, and the movement kernel resolves it byte for byte as it did before body contact existed
+/// (`ambition_platformer2d_core::movement::body_contact`).
 ///
-/// ⛔ **it is not jostle, and it must not be renamed to that.** A platform
+/// **it is not jostle, and it must not be renamed to that.** A platform
 /// fighter grants it to its cast and calls the result jostle; a co-op platformer
 /// might grant it so two partners cannot stand at the same point on a switch.
 /// The mechanism is *one body's motion constrained by the bodies it is touching*
 /// and nothing about that sentence is a genre.
 ///
-/// ⚠ **the number is a KNOB because the GAMES differ.** Smash-likes let fighters
-/// squeeze past each other; a beat-em-up may want a wall. Neither is parity and
-/// neither is a bug.
+/// **the number is a KNOB because the GAMES differ.** Smash-likes let fighters squeeze past
+/// each other; a beat-em-up may want a wall.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct BodyContact {
     /// How hard OTHER bodies resist this one, `0.0` (not at all) to `1.0` (a
@@ -86,21 +82,16 @@ impl Default for BodyContact {
 
 /// **EVERY SOLID BODY'S CONTACT BOX, SAMPLED ONCE BEFORE ANY OF THEM MOVES.**
 ///
-/// ⛔⛔ **the snapshot is the fairness argument, not an optimisation.** Two
+/// **the snapshot is the fairness argument, not an optimisation.** Two
 /// bodies resolved in sequence against each other's LIVE poses would each see
 /// the other somewhere different — the first at its entry pose, the second at
 /// the first's already-integrated one — so whichever the query yielded first
 /// would win the contest. Under rollback that is a desync; on a couch it is one
 /// player being harder to push than the other for no reason anybody authored.
 ///
-/// ⚠ **grounded bodies only, first slice.** An airborne fighter passing over
+/// **grounded bodies only, first slice.** An airborne fighter passing over
 /// another one is not in its way, and STANDING on a body is `footstool`, which
 /// already exists and means something else.
-///
-/// ⚠ **order is not significant and is deliberately not fixed.** The constraint
-/// is a minimum over the blockers, which is commutative, and the unit
-/// `the_answer_does_not_depend_on_the_order_of_the_snapshot` pins that — so this
-/// needs no sort, and adding one would imply a dependence that must not exist.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct BodyContactSnapshot {
     bodies: Vec<(
@@ -115,7 +106,7 @@ impl BodyContactSnapshot {
         self.bodies.clear();
     }
 
-    /// ⚠ **the VELOCITY is not decoration.** It is what lets two bodies closing
+    /// **the VELOCITY is not decoration.** It is what lets two bodies closing
     /// on one gap divide it instead of each spending all of it; see
     /// `constrain_motion`. Sampled from the same pre-integration pass as the
     /// pose, because a split derived from two different instants is the
@@ -145,12 +136,12 @@ impl BodyContactSnapshot {
     /// **THIS BODY'S CONTACT FIELD**: the boxes of every OTHER solid body, and
     /// this body's own resistance to them.
     ///
-    /// ⭐ **a body that is not in the snapshot gets an INERT field**, which is
+    /// **a body that is not in the snapshot gets an INERT field**, which is
     /// the whole opt-in expressed once. It is not in the snapshot because it
     /// carries no [`BodyContact`], or because it is airborne — and neither of
     /// those needs a second question at the call site.
     ///
-    /// ⚠ **a caller-owned scratch buffer, not a returned `Vec`.** This runs per
+    /// **a caller-owned scratch buffer, not a returned `Vec`.** This runs per
     /// body per tick inside the integrator; allocating there would be a
     /// per-frame allocation for a capability most bodies do not have.
     pub fn field_for<'s>(
@@ -173,7 +164,7 @@ impl BodyContactSnapshot {
                 .filter(|(other, _, _)| *other != body)
                 .map(|(_, blocker, _)| *blocker),
         );
-        // ⭐ **this body's own snapshot velocity travels with the field**, so
+        // **this body's own snapshot velocity travels with the field**, so
         // both halves of a contacting pair divide one gap by the same two
         // numbers. See `constrain_motion`.
         ambition_platformer2d_core::movement::BodyContactField::moving(

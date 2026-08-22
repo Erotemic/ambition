@@ -6,21 +6,15 @@
 //!
 //! ## The roster only became ownable when its type moved
 //!
-//! ⛔ `BossBehaviorProfile` lived in `ambition_platformer2d_actor_monolith` until
-//! 2026-08-03, and that BLOCKED this schema. A schema must be registered by the
-//! crate owning its type, and the validator has to link that crate — so a
-//! boss-profile schema meant the CLI linking the monolith: **708 crates against
-//! its 239, and a renderer**, destroying the property that justifies the
-//! compiler at all.
+//! A schema must be registered by the crate owning its type, and the validator has to link that
+//! crate — so a boss-profile schema meant the CLI linking the monolith: **708 crates against its
+//! 239, and a renderer**, destroying the property that justifies the compiler at all.
 //!
-//! The fix was not a workaround, it was the placement being wrong: nothing in
-//! that vocabulary ever needed the actor crate (`cargo check -p
-//! ambition_characters` passed the moment it moved, unchanged). It now lives in
-//! [`super::profile`], the actor crate re-exports it, and the `BossCatalog`
-//! lookups became `BossBehaviorProfileExt` there because the orphan rule does
-//! not let an inherent `impl` follow a type across a crate boundary.
+//! It now lives in [`super::profile`], the actor crate re-exports it, and the `BossCatalog`
+//! lookups became `BossBehaviorProfileExt` there because the orphan rule does not let an
+//! inherent `impl` follow a type across a crate boundary.
 //!
-//! ⚠ `PickupKind` moved DOWN to `ambition_entity_catalog` in the same change —
+//! `PickupKind` moved DOWN to `ambition_entity_catalog` in the same change —
 //! `BossRewardProfile` names it and `ambition_interaction` depends on THIS
 //! crate, so it was a cycle.
 
@@ -56,11 +50,11 @@ pub const BOSS_ENCOUNTER_VERSION: SchemaVersion = SchemaVersion(1);
 
 /// The canonical form an entry contributes to the pack fingerprint.
 ///
-/// ⚠ `Debug`, not `ron::ser`, because these types are `Deserialize`-only — they
+/// `Debug`, not `ron::ser`, because these types are `Deserialize`-only — they
 /// are read from authored RON and never written back. Debug is derived on all of
 /// them and moves when a value moves.
 ///
-/// ⛔ **but Debug follows ITERATION ORDER, so every container reaching this must
+/// **but Debug follows ITERATION ORDER, so every container reaching this must
 /// be ordered.** I wrote "gives stable field order" here and it was only true of
 /// the fields: `BossBehaviorProfile::strike_geometry` was a `HashMap`, whose
 /// order is randomised per instance (measured: six constructions of one
@@ -68,7 +62,6 @@ pub const BOSS_ENCOUNTER_VERSION: SchemaVersion = SchemaVersion(1);
 /// therefore fingerprinted differently the moment a boss authored a second
 /// strike override. It is a `BTreeMap` now, and
 /// `the_canonical_form_does_not_depend_on_map_construction_order` is the guard.
-/// (GPT 5.6 review, finding 4.)
 fn canonical<T: std::fmt::Debug>(value: &T) -> String {
     format!("{value:?}")
 }
@@ -86,15 +79,7 @@ fn code_for(error: &ron::error::SpannedError) -> DiagnosticCode {
 /// One encounter file, of nine — the family the aggregation contract was built
 /// for.
 ///
-/// ⛔ **this was `AuthoringOnly` until 2026-08-04, and that was a real
-/// limitation stated rather than hidden.** [`compile`] refused a schema lowered
-/// by more than one source, because merge semantics is the handler's question
-/// and a generic merge would have been the compiler guessing. So the nine files
-/// reached the fingerprint and took part in reference resolution, and the
-/// runtime **parsed all nine a second time** — compiler on one path, loading on
-/// another, which is the split this crate exists to close.
-///
-/// ⭐ **the schema now says how they combine** ([`Self::aggregate`]): each file
+/// **the schema now says how they combine** ([`Self::aggregate`]): each file
 /// lowers one [`BossEncounterSpec`], and the merge is the
 /// `BTreeMap<String, BossEncounterSpec>` the boss catalog already holds. The
 /// compiler's copy IS the runtime's copy.
@@ -126,20 +111,15 @@ impl ContentSchemaHandler for BossEncounterSchema {
             "id",
         ));
 
-        // ⛔ **AND ITS MUSIC, because both sides are in the pack now.** These
-        // four fields name `music_registry` tracks. Until this, an encounter
-        // could name a track that does not exist, compile clean, and be caught
-        // only by `content_validation.rs` at app startup — a second validator
-        // doing what reference resolution is FOR, on content the compiler can
-        // already see. Empty means "no swap for this phase" and is not a
-        // reference. (GPT 5.6 review, finding 2.)
+        // **AND ITS MUSIC, because both sides are in the pack now.** These four fields name
+        // `music_registry` tracks. Empty means "no swap for this phase" and is not a reference.
         for (field, track) in [
             ("music_intro", &spec.music_intro),
             ("music_phase1", &spec.music_phase1),
             ("music_phase2", &spec.music_phase2),
             ("music_enrage", &spec.music_enrage),
         ] {
-            // ⛔ **EXACTLY empty, not `trim().is_empty()`.** `phase_music`
+            // **EXACTLY empty, not `trim().is_empty()`.** `phase_music`
             // gates on `!track.is_empty()`, so `"   "` is a REAL music request
             // at runtime — one that matches no track and silently falls through
             // to another candidate. Skipping it here (and in the startup
@@ -147,18 +127,11 @@ impl ContentSchemaHandler for BossEncounterSchema {
             // acts on, which is the same compiler-vs-runtime rule mismatch as
             // the padded case one line below, in its emptiness predicate.
             // Whitespace-only now becomes an unresolved exact reference and is
-            // refused. (GPT 5.6 review, this round.)
+            // refused.
             if track.is_empty() {
                 continue;
             }
-            // ⛔ **the EXACT authored string, not a trimmed copy.** Startup
-            // validation compares the raw value against the track set and
-            // `phase_music` hands the raw value to playback, so trimming here
-            // made `" fast_paced_violin_boss "` resolve in the compiler and fail
-            // at startup — the compiler and the runtime applying different
-            // rules, which is the precise defect this reference was added to
-            // remove. Resolve what the runtime will actually ask for.
-            // (GPT 5.6 review, finding 3.)
+            // Resolve what the runtime will actually ask for.
             out.refer(PendingRef::new(
                 SchemaId::new("music_track"),
                 track.as_str(),
@@ -184,7 +157,7 @@ impl ContentSchemaHandler for BossEncounterSchema {
             let Some(spec) = fragment.get::<BossEncounterSpec>() else {
                 continue;
             };
-            // ⚠ **checked here even though `define` already makes two encounter
+            // **checked here even though `define` already makes two encounter
             // files with one id a `DuplicateIdentity`.** The merge must not
             // depend on another stage having caught it: a silent `insert` that
             // returns `Some` is exactly the last-wins the compiler refuses, and
@@ -464,7 +437,7 @@ impl ContentSchemaHandler for BossProfilesSchema {
                 "id",
             ));
 
-            // ⛔ **the key IS the lookup, and the row states its own id.** Every
+            // **the key IS the lookup, and the row states its own id.** Every
             // runtime path resolves a boss by MAP KEY (`catalog.behavior(key)`)
             // and then reads `profile.id` for its sheet target, its music, its
             // bark pool. When the two disagree the boss is looked up under one

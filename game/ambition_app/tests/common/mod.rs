@@ -58,23 +58,19 @@ pub fn hold_right() -> AgentAction {
     }
 }
 
-/// Fixed-60Hz options in the default start room.
 pub fn fixed_60hz_options() -> Platformer2dSimHarnessOptions {
     Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz())
 }
 
-/// Fixed-60Hz options for a named start room.
 pub fn fixed_60hz_room_options(room: &str) -> Platformer2dSimHarnessOptions {
     fixed_60hz_options().with_required_start_room(room)
 }
 
-/// Fixed-60Hz simulation in the default start room.
 pub fn fixed_60hz_sim() -> Platformer2dSimHarness {
     Platformer2dSimHarness::new_with_options(fixed_60hz_options())
         .expect("Platformer2dSimHarness::new")
 }
 
-/// Fixed-60Hz simulation for a named start room.
 pub fn fixed_60hz_room_sim(room: &str) -> Platformer2dSimHarness {
     Platformer2dSimHarness::new_with_options(fixed_60hz_room_options(room))
         .expect("Platformer2dSimHarness::new")
@@ -145,15 +141,10 @@ pub fn first_floor_authored_portal_pair(
 /// **Drive `vertical_shaft`'s authored enemy, and return the body and the
 /// identity its room minted it under.**
 ///
-/// Four tests across two files are about what a POSSESSED body's custody does to
-/// something else — the checkpoint baseline, the occurrence ledger, the tick the
-/// ledger sees it, the save file — and each one needs the same thirty lines: let
-/// the room settle, find the placement, walk the home avatar onto it and hold
-/// Down+Interact until the mechanic commits. It lives here rather than in one of
-/// them because `carried_item_crosses_rooms` and
+/// It lives here rather than in one of them because `carried_item_crosses_rooms` and
 /// `a_save_remembers_where_you_left_things` are siblings, not a hierarchy.
 ///
-/// ⚠ **the possession is asserted here, once.** A test whose setup silently
+/// **the possession is asserted here, once.** A test whose setup silently
 /// failed to possess anything measures a body nobody is driving, and every
 /// assertion about custody below would pass for the wrong reason.
 pub fn possess_the_authored_enemy(sim: &mut Platformer2dSimHarness) -> (Entity, SimId) {

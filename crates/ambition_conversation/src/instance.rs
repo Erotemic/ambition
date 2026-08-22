@@ -160,12 +160,11 @@ mod tests {
 
     /// **The mirror**: the same two BODIES, and a different `$speaker_id`.
     ///
-    /// ⛔ the D29 defect. A body with no authored identity speaks as the
-    /// `WornCharacter` it currently wears — rollback-owned and runtime-mutable —
-    /// so a correction can leave the tick, the node and both `SimId`s untouched
-    /// while Yarn is entered as somebody else. The behavioural half of this,
-    /// driven through the real opening, is
-    /// `conversation::tests::two_worn_characters_are_two_conversations`.
+    /// A body with no authored identity speaks as the `WornCharacter` it currently wears —
+    /// rollback-owned and runtime-mutable — so a correction can leave the tick, the node and
+    /// both `SimId`s untouched while Yarn is entered as somebody else. The behavioural half of
+    /// this, driven through the real opening, is
+    /// `conversation:tests:two_worn_characters_are_two_conversations`.
     #[test]
     fn two_speakers_at_one_tick_through_one_node_are_two_conversations() {
         let as_mary = ConversationInstanceId::mint(

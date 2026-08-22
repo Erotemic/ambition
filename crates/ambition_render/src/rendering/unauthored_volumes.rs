@@ -85,14 +85,10 @@ pub(crate) fn draw_unauthored_attack_volumes(
             continue;
         }
         let Ok((presented, attack_vfx)) = owners.get(strike.owner) else {
-            // ⚠ **SILENT WAS THE PROBLEM, not the skip** (queue D54). Skipping is
-            // right — the alternative is the world-origin draw that cost an
-            // investigation on the slash path. But D54 names THIS site as the
-            // other candidate for Jon's top-left VFX and its test is *"if the
-            // slash warn never fires, check the unauthored-volume stand-in"*.
-            // Two silent skips make that a decision procedure with no output:
-            // whichever one is happening, the log says nothing and the repro is
-            // spent for nothing.
+            // **SILENT WAS THE PROBLEM, not the skip**. Skipping is right — the alternative is the
+            // world-origin draw that cost an investigation on the slash path. Two silent skips make
+            // that a decision procedure with no output: whichever one is happening, the log says
+            // nothing and the repro is spent for nothing.
             //
             // ⚠ `warn_once`, because this runs per strike per frame and a live
             // swing would otherwise fill the log with the same line — which is
@@ -106,13 +102,7 @@ pub(crate) fn draw_unauthored_attack_volumes(
             );
             continue;
         };
-        // ⛔ **UNKNOWN IS NOT UNAUTHORED, and conflating them drew a stand-in
-        // over every attack in the game.** This used to ask
-        // `Option<Res<CharacterCatalog>>` directly: absent in every composition
-        // that installs no catalog, so `attack_vfx` was `None`, so `authored`
-        // was false, so a placeholder volume covered even the characters that
-        // author their own art. `engine.character-authority-is-app-local` names
-        // that shape for this reason.
+        // `engine.character-authority-is-app-local` names that shape for this reason.
         //
         // The read-model separates the two. No component = the resolver has not
         // spoken, and the honest response to not knowing is to draw NOTHING —
@@ -135,9 +125,7 @@ pub(crate) fn draw_unauthored_attack_volumes(
             .iter()
             .find(|(_, mark)| mark.hitbox == hitbox_entity)
             .map(|(entity, _)| entity);
-        // The volume is anchored to the owner, so its SHAPE is fixed for the
-        // window and only the placement moves. Rebuild the mesh once; move it
-        // every frame.
+        // Rebuild the mesh once; move it every frame.
         if let Some(visual) = already {
             if let Ok(mut transform) = transforms.get_mut(visual) {
                 let centre = strike.volume.bounds().center() + to_drawn;

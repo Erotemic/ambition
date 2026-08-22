@@ -21,7 +21,7 @@ use crate::features::ActorStimulus;
 pub fn apply_actor_stimuli(
     mut commands: Commands,
     // **The prepared cast**, so a provoked body can take its own CHARACTER's
-    // answer instead of one matched out of its display name (ledger D84).
+    // answer instead of one matched out of its display name.
     prepared: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
     mut stimuli: MessageReader<ActorStimulus>,
     mut actors: Query<
@@ -34,7 +34,7 @@ pub fn apply_actor_stimuli(
             &mut ActorIdentity,
             &mut ActorDisposition,
             super::actor_clusters::ActorClusterQueryData,
-            // ⭐ **WHICH CHARACTER THIS BODY IS** — the gameplay identity, not
+            // **WHICH CHARACTER THIS BODY IS** — the gameplay identity, not
             // the sprite's. See `provoke_actor_in_place`.
             Option<&ambition_characters::actor::WornCharacter>,
         ),
@@ -55,10 +55,6 @@ pub fn apply_actor_stimuli(
             mut aggression,
             combat_kit,
             held_item,
-            // ⚠ the INTERACTION is no longer read here: it existed to fetch a
-            // dialogue node for the provoked-archetype matcher, which is deleted
-            // (ledger D89). Left in the query rather than removed because the
-            // tuple's shape is shared with the sibling systems below.
             _interaction,
             mut identity,
             mut disposition,
@@ -80,10 +76,8 @@ pub fn apply_actor_stimuli(
                 AggressionMode::RetaliatesWhenHit { strike_threshold } => {
                     aggression.strikes >= i32::from(strike_threshold)
                 }
-                // Already hostile (incl. a faction-feud fighter that stood down to
-                // peaceful once its foe died): a landed hit re-engages it + records a
-                // grudge against the attacker. With friendly-fire off, only a real
-                // foe's hit lands here, so this never spuriously re-aggros on an ally.
+                // With friendly-fire off, only a real foe's hit lands here, so this never
+                // spuriously re-aggros on an ally.
                 AggressionMode::Hostile => true,
                 AggressionMode::Passive => false,
             };
@@ -125,19 +119,15 @@ pub fn apply_actor_stimuli(
 /// the NPC's body before the fight starts.
 pub const CHALLENGE_GRACE_S: f32 = 2.0;
 
-/// An ARMED `<<challenge>>`: the player consented to fight this actor, but the
-/// hostile flip is deferred until the dialog box has closed AND `grace` seconds
-/// of gameplay have elapsed. Without the delay the actor turned hostile mid-dialog
-/// while the player was still reading the box and overlapping its body — and
-/// because the victim-side damage system is gated off during dialog, the player's
-/// post-hit i-frame never got set, so the actor's body-contact FX streamed every
-/// frame with no separation. The grace gives the player a chance to move away.
-/// ⚠ **rollback state, and it was not** — `<<challenge>>` inserted it from
-/// `Update` while [`tick_pending_challenges`] removes it in the sim schedule. A
-/// rewind restored the simulation to before the removal and left the removal
-/// standing, which is the `SaveRestored` latch failure in another domain:
-/// the flag that says work is done outlives the work. It rewinds now, and the
-/// insert is a simulation decision like every other.
+/// An ARMED `<<challenge>>`: the player consented to fight this actor, but the hostile flip is
+/// deferred until the dialog box has closed AND `grace` seconds of gameplay have elapsed.
+/// Without the delay the actor turned hostile mid-dialog while the player was still reading the
+/// box and overlapping its body — and because the victim-side damage system is gated off during
+/// dialog, the player's post-hit i-frame never got set, so the actor's body-contact FX streamed
+/// every frame with no separation. The grace gives the player a chance to move away. **rollback
+/// state, and it was not** — `<<challenge>>` inserted it from `Update` while
+/// [`tick_pending_challenges`] removes it in the sim schedule. It rewinds now, and the insert
+/// is a simulation decision like every other.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PendingChallenge {
     pub challenger: Option<Entity>,
@@ -154,12 +144,8 @@ impl bevy::ecs::entity::MapEntities for PendingChallenge {
 
 /// **A conversation asked for a fight, by stable identity.**
 ///
-/// ⛔ **`<<challenge>>` used to INSERT [`PendingChallenge`] from `Update`**,
-/// which is two defects at once: a structural write into the simulation from
-/// outside it, and an entity handle captured on the presentation side of a
-/// boundary that remaps handles. The `SimId` routing is the one
-/// [`crate::features::BrainCommand`] already uses, and for the same stated
-/// reason — *"so the runtime switch is deterministic and snapshot-safe"*.
+/// The `SimId` routing is the one [`crate::features::BrainCommand`] already uses, and for the same
+/// stated reason — *"so the runtime switch is deterministic and snapshot-safe"*.
 #[derive(Message, Clone, Debug, PartialEq, Eq)]
 pub struct ChallengeRequested {
     /// The body being challenged.

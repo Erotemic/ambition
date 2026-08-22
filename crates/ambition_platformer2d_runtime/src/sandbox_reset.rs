@@ -1,23 +1,19 @@
 //! The sandbox reset authority and its room-replay consumer.
 //!
-//! Moved out of `ambition_app` (2026-07-21, tracks §2.5). It lived there
-//! because `reset_sandbox` sat in `app::world_flow::room_flow`, a module that
-//! also composes `load_room` and therefore imports `ambition_render` — a
-//! dependency this crate must never take. Nothing about the RESET half needed
-//! render: it names only `ambition_platformer2d_core`, `ambition_platformer2d_actor_monolith`,
-//! `ambition_characters`, `ambition_sfx`, and `ambition_vfx`, all of which
-//! `ambition_platformer2d_runtime` already depends on. Splitting the reset out of that
-//! module is the whole reason it could not move earlier.
+//! It lived there because `reset_sandbox` sat in `app::world_flow::room_flow`, a module that also
+//! composes `load_room` and therefore imports `ambition_render` — a dependency this crate must
+//! never take. Nothing about the RESET half needed render: it names only
+//! `ambition_platformer2d_core`, `ambition_platformer2d_actor_monolith`, `ambition_characters`,
+//! `ambition_sfx`, and `ambition_vfx`, all of which `ambition_platformer2d_runtime` already depends
+//! on. Splitting the reset out of that module is the whole reason it could not move earlier.
 //!
-//! **Why it had to move.** [`ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested`]
-//! is the engine's generic "replay the active room" request, and content emits
-//! it from three places today (Mary-O's flag completion and timeout, Sanic's
-//! act clear, Ambition's cut-rope "try again"). Its only consumer used to be
-//! registered by `ambition_app`, and neither demo app depends on
-//! `ambition_app` — that IS the demo gate. So in the shipped standalone
-//! Mary-O and Sanic binaries the message was written into a registered channel
-//! that nothing drained: the player was not returned to spawn, the room was not
-//! rebuilt, and pickups and enemies did not come back. Carrying the consumer in
+//! **Why it had to move.**
+//! [`ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested`] is the engine's
+//! generic "replay the active room" request, and content emits it from three places today (Mary-O's
+//! flag completion and timeout, Sanic's act clear, Ambition's cut-rope "try again"). So in the
+//! shipped standalone Mary-O and Sanic binaries the message was written into a registered channel
+//! that nothing drained: the player was not returned to spawn, the room was not rebuilt, and
+//! pickups and enemies did not come back. Carrying the consumer in
 //! [`crate::PlatformerEnginePlugins`] gives all three hosts one consumer.
 
 use bevy::prelude::*;
@@ -46,13 +42,8 @@ use ambition_vfx::VfxMessage;
 /// melee swing, anim, combat, gesture, and blink-camera state. Emits the reset
 /// SFX/VFX pair from the before/after positions.
 ///
-/// ⭐ **the health restore and the respawn i-frames arrived here from
-/// `death_respawn_player`** when that was deleted (ADR 0033). Jon asked a level
-/// reset to be *"a mostly complete level reset"*, and a body put back at spawn
-/// still holding the zero HP that killed it is not a respawn — it is a corpse at
-/// the start of the level. The one reset authority owes the whole answer;
-/// `health` is `Option` only because a scratch body without a meter is a valid
-/// thing to reset.
+/// The one reset authority owes the whole answer; `health` is `Option` only because a scratch
+/// body without a meter is a valid thing to reset.
 #[allow(clippy::too_many_arguments)]
 pub fn reset_sandbox(
     world: &ae::World,
@@ -113,12 +104,7 @@ pub struct RoomReplayApplied;
 /// [`RoomReplayRequested`](ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested)
 /// — a level restart, a death, a "try again" dialogue beat.
 ///
-/// Engine-generic: this returns the primary body to spawn and requests the room
-/// feature reset. Any CONTENT-named per-attempt state (a boss's persisted
-/// "cleared" record, its music) is reset by content systems in
-/// [`ContentRoomReplayResetSet`](ambition_platformer2d_actor_monolith::session::reset::ContentRoomReplayResetSet),
-/// which [`RoomReplaySchedulePlugin`] anchors before this consumer — so this
-/// system names no content.
+/// Engine-generic: this returns the primary body to spawn and requests the room feature reset.
 ///
 /// This intentionally mirrors the host's reset-input system instead of driving
 /// `ControlFrame::reset_pressed`: the request can arrive while gameplay input
@@ -224,7 +210,7 @@ impl Plugin for RoomReplaySchedulePlugin {
                 .in_set(RoomReplayApplied)
                 .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
                 .after(ambition_dev_tools::DevEditApplySet)
-                // ⭐ EXACTLY equivalent to the `.before(input_timer_system)` this
+                // EXACTLY equivalent to the `.before(input_timer_system)` this
                 // replaces, not merely stricter: that system is the FIRST element
                 // of the tuple that gets `.chain().in_set(PlayerInputSet::Device)`,
                 // so being before it is being before all of Device.
@@ -235,17 +221,11 @@ impl Plugin for RoomReplaySchedulePlugin {
         //   emit the request  →  clear the per-attempt state it invalidates
         //                     →  rebuild the room
         //
-        // ⛔⛔ **THESE TWO SETS USED TO BE A BARE TUPLE, WHICH IS NO EDGE AT
-        // ALL.** The comment here already claimed *"content's replay-reset
-        // systems run before it too, so a named boss's per-attempt state is
-        // cleared the same frame the room replays"* — true of the consumer, and
-        // silent about each other. So `ContentRoomReplayResetSet` could run
-        // FIRST, read no request (the dialogue followup had not written it yet),
-        // and do nothing; the followup then emitted; and the generic consumer,
-        // correctly after both, rebuilt the room from state that was still
-        // persisted as cleared. The reset sees the message on a later frame,
-        // when the reconstruction it was supposed to precede has already
-        // happened.
+        // So `ContentRoomReplayResetSet` could run FIRST, read no request (the dialogue followup
+        // had not written it yet), and do nothing; the followup then emitted; and the generic
+        // consumer, correctly after both, rebuilt the room from state that was still persisted as
+        // cleared. The reset sees the message on a later frame, when the reconstruction it was
+        // supposed to precede has already happened.
         //
         // ⇒ the Smirking Behemoth's "press reset and start again" rebuilt the
         // room with the boss still recorded defeated. `.chain()` is the whole

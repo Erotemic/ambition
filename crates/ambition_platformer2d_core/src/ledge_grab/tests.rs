@@ -90,12 +90,9 @@ fn rejects_zero_wall_normal() {
     assert!(contact.is_none());
 }
 
-/// Regression: a ledge whose top sits near the world's ceiling
-/// must be rejected — climbing onto it would put the player
-/// out of bounds. This was the May 2026 mob_lab teleport-loop
-/// bug: a ceiling tile near y=0 produced a climb_target above
-/// the world, the climb-up snapped the player OOB, and the
-/// engine's collision-correction yanked them back, looping.
+/// This was the May 2026 mob_lab teleport-loop bug: a ceiling tile near y=0 produced a climb_target
+/// above the world, the climb-up snapped the player OOB, and the engine's collision-correction
+/// yanked them back, looping.
 #[test]
 fn rejects_ledge_when_player_would_land_above_world_top() {
     // Ceiling block: top edge at y=1 (world ranges y=0..600).
@@ -165,8 +162,6 @@ fn finds_ledge_when_player_is_slightly_off_wall() {
         Vec2::new(200.0, 200.0),
     )]);
     let player_size = Vec2::new(28.0, 46.0);
-    // Player's right edge is x=92, 8px short of the wall face at
-    // x=100. That used to miss because the face tolerance was 4px.
     let player_pos = Vec2::new(78.0, 110.0);
     let contact = probe_ledge_grab(player_pos, player_size, -1.0, &world);
     assert!(
@@ -387,11 +382,8 @@ fn rejects_when_lock_door_blocks_pull_up_space() {
     );
 }
 
-/// Regression: two adjacent solid blocks forming a continuous
-/// vertical wall must still surface a grabbable ledge at the
-/// topmost block's top edge. Tests that the probe's "find the
-/// closest block to the chin band" logic doesn't snag on the
-/// lower block and miss the actual ledge above it.
+/// Tests that the probe's "find the closest block to the chin band" logic doesn't snag on the lower
+/// block and miss the actual ledge above it.
 #[test]
 fn finds_ledge_at_top_of_stacked_solid_wall() {
     // Two stacked 200×100 solids form a continuous wall from
@@ -433,11 +425,6 @@ fn finds_ledge_at_top_of_stacked_solid_wall() {
     assert!(contact.climb_target.x > 100.0);
 }
 
-/// Regression: an L-shaped corner geometry (lower block extending
-/// further right than the upper block, leaving a shelf at the
-/// upper block's right edge). The ledge should be the upper
-/// block's top corner, NOT the inner corner where the two blocks
-/// meet.
 #[test]
 fn finds_ledge_at_l_corner_when_clinging_to_upper_block() {
     // Upper block: x=[100, 200], y=[100, 200].
@@ -534,10 +521,6 @@ fn ledge_jump_away_launches_player_outward() {
 
 #[test]
 fn jump_toward_platform_now_hops_up_not_climbs() {
-    // Smash-style split: pressing Jump from a ledge is the
-    // "ledge jump" option (vertical hop with control). It used
-    // to trigger a climb instead. The climb is now reserved
-    // for Up / Into / Interact.
     let contact = LedgeContact {
         wall_normal_x: -1.0,
         anchor: Vec2::new(86.0, 110.0),
@@ -578,10 +561,6 @@ fn jump_toward_platform_now_hops_up_not_climbs() {
     assert!(!scratch.wall.on_wall);
 }
 
-/// Pure jump from the ledge with NO horizontal input also hops
-/// UP. This was the case the old code mapped to "climb" because
-/// jump was a confirm cue; now the player gets a vertical hop
-/// they can air-control.
 #[test]
 fn jump_with_no_horizontal_input_hops_up() {
     let contact = LedgeContact {
@@ -644,7 +623,6 @@ fn up_alone_still_starts_a_climb() {
 /// player's position should be much closer to the bend (above
 /// the anchor on the wall) than to the midpoint of a straight
 /// line between anchor and climb_target. This is the curved-feel
-/// Jon asked for; the straight-diagonal was the old behavior.
 #[test]
 fn climb_path_curves_up_before_going_over() {
     let contact = LedgeContact {
@@ -906,10 +884,8 @@ fn voluntary_drop_arms_a_regrab_cooldown() {
     );
 }
 
-/// While the regrab cooldown is live, `try_start_ledge_grab` must
-/// return false even if the player is falling fast past the same
-/// ledge. This is the actual fix for Jon's 2026-05-23 instant-
-/// regrab bug.
+/// While the regrab cooldown is live, `try_start_ledge_grab` must return false even if the player
+/// is falling fast past the same ledge.
 #[test]
 fn regrab_cooldown_blocks_auto_snap_on_fall() {
     let world = world_with(vec![Block::solid(
@@ -1045,12 +1021,12 @@ fn ledge_grab_arms_intangibility_window() {
 
 /// **A LEDGE YOU JUST LEFT IS WORTH LESS THAN ONE YOU FELL BACK TO.**
 ///
-/// ⛔ the ledge-camping rule, and both ends of it are the assertion: a fresh
+/// the ledge-camping rule, and both ends of it are the assertion: a fresh
 /// body earns the FULL window (the test above), and one that let go a moment ago
 /// earns near the floor. Asserting only the second would also pass if grabbing
 /// had stopped granting anything at all.
 ///
-/// ⚠ the mechanism is AIRTIME, not a regrab counter — a counter would punish a
+/// the mechanism is AIRTIME, not a regrab counter — a counter would punish a
 /// fighter who was knocked away and recovered exactly as hard as one stalling on
 /// the edge, and only the second is the behaviour anybody wants to discourage.
 #[test]
@@ -1071,7 +1047,7 @@ fn a_regrab_earns_less_intangibility_than_a_recovery() {
             try_start_ledge_grab_scratch(&world, &mut scratch, InputState::default(), &mut events),
             "expected ledge grab to latch, so this measured nothing"
         );
-        // ⚠ and the clock is SPENT by the grab: the next one starts from zero.
+        // and the clock is SPENT by the grab: the next one starts from zero.
         assert_eq!(scratch.axis().time_off_ledge, 0.0);
         scratch.axis().dodge_roll_timer
     };
@@ -1092,7 +1068,7 @@ fn a_regrab_earns_less_intangibility_than_a_recovery() {
     );
 }
 
-// ---- Momentum-carry boost tests (Jon 2026-05-23 feature) ----
+// ---- Momentum-carry boost tests ----
 //
 // Invariants under test:
 // 1. The boost is captured at grab time and rides the LedgeGrabState.
@@ -1391,11 +1367,8 @@ fn climb_finish_carries_momentum_when_grabbed_with_speed() {
     );
 }
 
-/// Regression for Jon's "horizontal getup shouldn't be adding
-/// vertical boost" — the player just got placed standing on the
-/// platform; a residual upward vel.y would relaunch them off
-/// it. Climb / roll / attack finish must zero the Y component
-/// of the boost; ledge-jump (a vertical hop) still keeps both.
+/// Climb / roll / attack finish must zero the Y component of the boost; ledge-jump (a vertical hop)
+/// still keeps both.
 #[test]
 fn climb_finish_does_not_carry_vertical_boost() {
     let contact = rightward_ledge_contact();
@@ -1488,13 +1461,6 @@ fn getup_transition_completes_faster_with_momentum_carry() {
     );
 }
 
-/// `try_start_ledge_grab` now prefers `pre_wall_vel` over
-/// `scratch.kinematics.vel` when the snapshot is fresh — because wall-cling
-/// and wall-collision shred the actual approach velocity by the
-/// time the grab fires. This was Jon's "I don't feel the boost
-/// on jump option at all, even with gain > 1 and caps in
-/// thousands" bug: vel was 0 at capture time, so any gain
-/// multiplied to zero.
 #[test]
 fn grab_prefers_pre_wall_vel_when_fresh() {
     let world = world_with(vec![Block::solid(

@@ -63,13 +63,10 @@ impl Plugin for CombatSchedulePlugin {
         app.add_message::<ambition_platformer2d_actor_monolith::combat::hitbox::LandedBodyHit>();
         app.add_message::<ambition_platformer2d_actor_monolith::combat::on_hit::OnHitEffectMessage>();
         // **A BODY REACHING ZERO SAYS SO, WHETHER OR NOT A RULESET IS LISTENING.**
-        // `apply_player_hit_events` and `apply_actor_hit` both write
-        // `BodyKnockedOut`, so the message has to exist wherever they run — not
-        // wherever the STOCKS rules happen to be installed. It was registered
-        // only in test fixtures, so `mary_o`'s power loop (damage pipeline, no
-        // stocks) panicked with "Message not initialized" the moment a knockout
-        // landed. A writer whose message is registered by a different plugin is
-        // a composition that works until somebody composes differently.
+        // `apply_player_hit_events` and `apply_actor_hit` both write `BodyKnockedOut`, so the
+        // message has to exist wherever they run — not wherever the STOCKS rules happen to be
+        // installed. A writer whose message is registered by a different plugin is a composition
+        // that works until somebody composes differently.
         app.add_message::<ambition_platformer2d_actor_monolith::combat::stocks::BodyKnockedOut>();
         // Programmatic actor-spawn seam: scenario tests and RL/agent scene setup
         // emit `SpawnActorRequest`; `apply_spawn_actor_requests` materializes each
@@ -109,11 +106,9 @@ impl Plugin for CombatSchedulePlugin {
                 // in the live pass and not in resimulation). Same-frame
                 // consumption is the rollback doctrine (deep review §2.2).
                 //
-                // Data-driven move TRIGGER: a body carrying an `ActorMoveset`
-                // repertoire whose control frame presses a verb edge starts the
-                // matching move (inserts `MovePlayback`). Before `advance` so a move
-                // triggered this tick advances the same frame (fable review §A1,
-                // Path B — the production insert the moveset runtime was missing).
+                // Data-driven move TRIGGER: a body carrying an `ActorMoveset` repertoire whose
+                // control frame presses a verb edge starts the matching move (inserts
+                // `MovePlayback`).
                 (
                     ambition_platformer2d_actor_monolith::combat::moveset::resolve_attack_gestures,
                     ambition_platformer2d_actor_monolith::combat::moveset::trigger_moveset_moves,
@@ -134,18 +129,14 @@ impl Plugin for CombatSchedulePlugin {
         app.add_systems(
             sim,
             (
-                // Data-driven move playback (Smash-model timelines, W9):
-                // advances each playing MoveSpec on its OWNER'S proper time,
-                // manages window-scoped hit volumes, fires MoveEventMessages.
-                // Before apply_hitbox_damage so a window entered this tick
-                // resolves its hits this tick.
-                // A strike volume's existence is DERIVED from `(owner's move clock,
-                // window)`. This enforces that against the world before the clock
-                // moves — a no-op every ordinary frame, and the thing that keeps a
-                // rollback from stranding the boxes it rewound past.
+                // Before apply_hitbox_damage so a window entered this tick resolves its hits
+                // this tick. A strike volume's existence is DERIVED from `(owner's move clock,
+                // window)`. This enforces that against the world before the clock moves — a
+                // no-op every ordinary frame, and the thing that keeps a rollback from
+                // stranding the boxes it rewound past.
                 (
                     ambition_platformer2d_actor_monolith::combat::moveset::retire_orphaned_strike_volumes,
-                    // ⚠ **BEFORE the advance, deliberately.** A move that landed
+                    // **BEFORE the advance, deliberately.** A move that landed
                     // this frame is over, and running the advance first would
                     // open its next window — spawning a strike volume for a
                     // move that has already been cancelled by the ground.
@@ -162,13 +153,7 @@ impl Plugin for CombatSchedulePlugin {
                 // frame's events dispatch this frame — and before every consumer
                 // below, so what it dispatches is also CONSUMED this frame.
                 ambition_platformer2d_actor_monolith::combat::moveset::dispatch_move_events.run_if(gameplay_allowed),
-                // Melee subsumption read-model (§A1 / §3a): a body whose melee is a
-                // moveset `"attack"` move has its `BodyMelee` swing PROJECTED from the
-                // live `MovePlayback` here (after `advance_move_playback` set/cleared
-                // it this frame), so the actor anim index, telegraph/view index, HUD,
-                // and melee tests keep reading the same read-model the flat swing used
-                // to publish. Writes no gameplay — the real strike is the move's own
-                // hitbox.
+                // Writes no gameplay — the real strike is the move's own hitbox.
                 ambition_platformer2d_actor_monolith::combat::moveset::project_moveset_melee_to_body_melee
                     .run_if(gameplay_allowed),
                 // Boss strike read-model PROJECTION (E53 Slice B+C): while a boss move
@@ -188,34 +173,12 @@ impl Plugin for CombatSchedulePlugin {
             (
                 // ── EFFECTS-stage consumers: drain this frame's messages ──
                 //
-                // EFFECTS-stage consumer: reads ActorActionMessage::Ranged —
-                // emitted upstream by `emit_brain_action_messages` (PlayerInput
-                // set) for flat-ranged bodies, and by `dispatch_move_events`
-                // ABOVE for moveset-ranged bodies — and emits open projectile
-                // requests. Runs BEFORE the projectile step
-                // so projectiles spawned this tick already advance one step
-                // this frame, matching the pre-migration latency.
+                // EFFECTS-stage consumer: reads ActorActionMessage::Ranged — emitted upstream
+                // by `emit_brain_action_messages` (PlayerInput set) for flat-ranged bodies, and
+                // by `dispatch_move_events` ABOVE for moveset-ranged bodies — and emits open
+                // projectile requests.
                 ambition_platformer2d_actor_monolith::features::spawn_projectiles_from_brain_actions
                     .run_if(gameplay_allowed),
-                // The 11 per-boss special-attack Techniques (apple rain,
-                // eye beam, the Gradient Sentinel barrage family, …) used
-                // to sit inline here. They are now content-owned and run
-                // in `CombatSet::ContentSpecials`, configured below to slot
-                // in at exactly this point — AFTER the enemy-action
-                // consumers, BEFORE the effect/projectile executors that
-                // drain their `ProjectileSpawnRequest` / `EffectRequest` output.
-                // Registration lives in
-                // `ambition_content::bosses::specials::BossSpecialContentPlugin`.
-                // Generic effect executor: drains `EffectRequest` (boss OR
-                // player emitted) and makes each effect happen — currently the
-                // `DamageBox` AOE (shockwave gauntlet + boss phase-transition
-                // slam), faction-tagged at the emitter, resolved by
-                // `apply_hitbox_damage` below. Runs at the position the bespoke
-                // shockwave consumer used, so spawn timing is unchanged.
-                // Box + Summon executors, nested into one chained group (keeps
-                // the outer tuple within Bevy's 20-system limit). Summon stays
-                // lib-side (the enemy roster) so `apply_effects` is substrate-free;
-                // same slot as before, so minion spawn timing is unchanged.
                 (
                     ambition_combat::strike::apply_effects
                         .in_set(ambition_combat::strike::EffectExecutionSet)
@@ -230,13 +193,7 @@ impl Plugin for CombatSchedulePlugin {
                 // authoritative spawning through the VFX effect enum.
                 crate::projectile_schedule::materialize_projectiles_for_this_tick
                     .run_if(gameplay_allowed),
-                // ⭐ **WHOSE SHOT THIS IS, FROZEN BEFORE ANYTHING STEPS IT.**
-                // The stamp used to be taken lazily on a bolt's first step, which
-                // left a window where it existed unstamped — and a firer
-                // eliminated inside that window took the answer with them, so the
-                // shot spent its life re-asking a body that was gone.
-                //
-                // ⛔⛔ **TWICE, and the second one is not redundant.** The first
+                // **TWICE, and the second one is not redundant.** The first
                 // draft put this here alone, reasoning that a player bolt
                 // materializes after the step below and so first ticks next frame,
                 // when this has already run. That is true about STEPPING and false
@@ -247,16 +204,11 @@ impl Plugin for CombatSchedulePlugin {
                 // and reaches this system next frame with nothing to read. The
                 // window is bounded by the DESPAWN, not by the step.
                 //
-                // ⛔ not `run_if(gameplay_allowed)` — a bolt that materialized
+                // not `run_if(gameplay_allowed)` — a bolt that materialized
                 // before a pause must not lose its side by being skipped, and
                 // stamping is not gameplay progress.
                 crate::projectile_schedule::stamp_new_projectile_allegiance,
-                // Unified projectile step (player + enemy, faction-routed). Runs
-                // AFTER the immediate materializer (so a StepThisTick shot spawned
-                // this tick advances one step this frame) and BEFORE named body-fire
-                // input + delayed materialization below (so a StepNextTick shot fired
-                // this frame first advances next frame — the old timing distinction,
-                // preserved as request data rather than producer identity).
+                // Unified projectile step (player + enemy, faction-routed).
                 crate::projectile_schedule::step_projectiles
                     .in_set(crate::projectile_schedule::ProjectileStepSet)
                     .run_if(gameplay_allowed),
@@ -295,10 +247,6 @@ impl Plugin for CombatSchedulePlugin {
                 )
                     .chain()
                     .run_if(gameplay_allowed),
-                // Authored on-hit techniques consume the SAME landed-body fact
-                // emitted by `apply_hitbox_damage`; there is no second overlap or
-                // relationship pass. `apply_pogo_bounce` then interprets the authored
-                // effect against the victim's pogo policy.
                 ambition_platformer2d_actor_monolith::combat::on_hit::dispatch_landed_hit_effects.run_if(gameplay_allowed),
                 ambition_platformer2d_actor_monolith::combat::on_hit::apply_pogo_bounce.run_if(gameplay_allowed),
                 // Genuine WORLD pogo surfaces have no victim entity, so they stay a
@@ -314,19 +262,13 @@ impl Plugin for CombatSchedulePlugin {
                 // hits (strikes, FX) on it — the dialog half of the "continuous hit"
                 // report. No combat lands in any non-`Playing` mode now.
                 ambition_platformer2d_actor_monolith::features::apply_feature_hit_events.run_if(gameplay_allowed),
-                // Cut-rope flavor (rope-cut detection → gate, hazard→visual
-                // mirror + impact flavor, prop visuals) used to sit inline
-                // here. It is now content-owned and runs in
-                // `CombatSet::ContentFlavor`, configured below to slot in at
-                // exactly this point — AFTER the feature-hit resolution so
-                // it observes this frame's alive-flag transitions, BEFORE
-                // the mount/rider bookkeeping. Registration lives in
-                // `ambition_content::bosses::AmbitionBossContentPlugin`.
-                // Mount/rider link bookkeeping. Runs after damage so
-                // it observes the alive flag transition for either
-                // side; a dead mount releases its rider (gravity on,
-                // solo brain restored) and a dead rider clears the
-                // mount's MountSlot back-reference.
+                // It is now content-owned and runs in `CombatSet::ContentFlavor`, configured below
+                // to slot in at exactly this point — AFTER the feature-hit resolution so it
+                // observes this frame's alive-flag transitions, BEFORE the mount/rider bookkeeping.
+                // Registration lives in `ambition_content::bosses::AmbitionBossContentPlugin`.
+                // Mount/rider link bookkeeping. Runs after damage so it observes the alive flag
+                // transition for either side; a dead mount releases its rider (gravity on, solo
+                // brain restored) and a dead rider clears the mount's MountSlot back-reference.
             )
                 .chain()
                 .in_set(CombatSet::Resolve),
@@ -338,19 +280,12 @@ impl Plugin for CombatSchedulePlugin {
                 .in_set(CombatSet::Settle),
         );
 
-        // **A landed hit shakes the screen** (P4.37). In `Settle` because that
-        // is the phase that reads the frame's resolved damage, and in the
-        // ENGINE group because the standalone smash binary composes this and
-        // not `ambition_app` — the first version of this lived in the app's
-        // home-avatar presentation system and so could not fire in the proving
-        // ground at all. Body-generic by construction: see the module docs.
-        //
-        // ⛔ **it is the one system in this schedule that writes non-rollback
+        // **it is the one system in this schedule that writes non-rollback
         // PRESENTATION state**, so it carries its own authoritative-pass guard
         // as a parameter rather than a `run_if` here — a replayed frame kicking
         // the live camera is a ghost shake, and the guard must survive anyone
         // else registering it. Do not "fix" that by adding a run condition
-        // here; read the module's second ⛔⛔ block first.
+        // here; read the module's second block first.
         app.add_systems(
             sim,
             ambition_platformer2d_actor_monolith::features::ecs::shake_camera_on_landed_hits
@@ -369,8 +304,6 @@ impl Plugin for CombatSchedulePlugin {
             sim,
             ambition_platformer2d_actor_monolith::features::ecs::damage_apply::stage_player_victim_hit_events
                 .run_if(gameplay_allowed)
-                // The PHASE, not the two leaves it used to sit between: this
-                // reads the frame's resolved damage, which is what `Settle` is.
                 .in_set(CombatSet::Settle)
                 .before(ambition_platformer2d_actor_monolith::features::MountRiderLinkEnforced),
         );
@@ -392,13 +325,8 @@ impl Plugin for CombatSchedulePlugin {
         // global phase); the content plugins own the systems that hang on
         // each slot. Both slots live in `Platformer2dSimulationPhaseMonolith::Combat`.
         //
-        // `ContentSpecials` slots in where the inline boss-special block
-        // Both slots' PLACEMENT is `configure_platformer2d_simulation_phases`' job now — the phase
-        // chain puts `ContentSpecials` inside `Materialize` and `ContentFlavor`
-        // between `Resolve` and `Settle`, which is exactly where the two
-        // leaf-named edges used to put them. What remains here is the one edge
-        // the phase order cannot express: a boss special must reach its content
-        // technique BEFORE the effect executors that drain its output, and both
+        // What remains here is the one edge the phase order cannot express: a boss special must
+        // reach its content technique BEFORE the effect executors that drain its output, and both
         // live in `Materialize`.
         app.configure_sets(
             sim,
@@ -419,13 +347,9 @@ mod tests {
     /// float unordered relative to the projectile/effect executors that drain
     /// their output — a silent spawn-timing regression with no compile error.
     ///
-    /// ⚠ The composition matters and this test used to get it wrong. It built
-    /// `CombatSchedulePlugin` alone, because that plugin used to configure both
-    /// slots itself with leaf-named edges (`.after(spawn_enemy_projectiles…)`,
-    /// `.before(enforce_mount_rider_link)`). Placement now belongs to
-    /// `configure_platformer2d_simulation_phases`, which owns the phase chain — so a test that adds
-    /// only the combat plugin is asserting about a composition no app ships.
-    /// Both authorities participate here for the same reason production has both.
+    /// Placement now belongs to `configure_platformer2d_simulation_phases`, which owns the phase
+    /// chain — so a test that adds only the combat plugin is asserting about a composition no app
+    /// ships. Both authorities participate here for the same reason production has both.
     #[test]
     fn content_combat_slots_are_registered_in_the_combat_chain() {
         let mut app = App::new();

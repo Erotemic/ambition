@@ -1,4 +1,4 @@
-//! ⚠ these build a bare `App` with this domain's plugin and nothing else, which
+//! these build a bare `App` with this domain's plugin and nothing else, which
 //! is the point: the verb has to be reachable from a composition that knows
 //! about encounters and nothing about switches, dialogue or LDtk.
 
@@ -29,7 +29,7 @@ fn prepare(app: &App, line: &str) -> Result<PreparedCommand, String> {
         .map_err(|error| error.to_string())
 }
 
-/// ⚠ **through `RunAuthoredCommand::prepared`**, so the arguments these tests
+/// **through `RunAuthoredCommand::prepared`**, so the arguments these tests
 /// perform are the ones a real request would carry rather than a hand-built
 /// vector that could disagree with preparation.
 fn perform(app: &mut App, call: &PreparedCommand) -> CommandOutcome {
@@ -40,7 +40,7 @@ fn perform(app: &mut App, call: &PreparedCommand) -> CommandOutcome {
 /// **AN AUTHORED LINE SIGNALS A LIVE ENCOUNTER, AND THE REDUCER RECEIVES THE
 /// OCCURRENCE'S OWN ID.**
 ///
-/// ⚠ both terms are observed: the command bus is empty before the verb runs and
+/// both terms are observed: the command bus is empty before the verb runs and
 /// carries exactly one signal after, so this cannot pass with `signal` gutted.
 #[test]
 fn an_authored_line_signals_the_encounter_it_references() {
@@ -73,7 +73,7 @@ fn an_authored_line_signals_the_encounter_it_references() {
 
 /// **A REFERENCE THAT NAMES NO LIVE OCCURRENCE IS REFUSED WITH A SENTENCE.**
 ///
-/// ⭐ this is the whole reason the parameter is a reference rather than a name.
+/// this is the whole reason the parameter is a reference rather than a name.
 /// A name would have produced a perfectly well-formed `EncounterCommand`
 /// addressed to nothing, and the reducer would have dropped it in silence.
 #[test]
@@ -97,7 +97,7 @@ fn a_reference_to_no_live_occurrence_is_refused_rather_than_addressed_to_nothing
 
 /// **THE PLACEMENT NAMESPACE IS NOT THE ENCOUNTER NAMESPACE.**
 ///
-/// ⚠ a boss WRAP's encounter id is also its body's placement id, so these two
+/// a boss WRAP's encounter id is also its body's placement id, so these two
 /// spellings of the same word name two different rows — which is exactly why the
 /// authored surface makes the author say which.
 #[test]

@@ -556,8 +556,6 @@ fn a_dead_foe_is_dropped_so_the_fighter_goes_target_less() {
     );
 }
 
-/// **A team outranks faction for "may this hit land".** (queue L9)
-///
 /// `effective_faction` maps ANY participant-driven body to `Player`, which is
 /// load-bearing for possession and fatal for a match: two humans are always the
 /// same faction no matter what the roster declared. A versus stage got around

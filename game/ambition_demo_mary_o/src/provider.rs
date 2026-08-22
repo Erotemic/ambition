@@ -37,7 +37,6 @@ pub const MARY_O_VICTORY_MUSIC_TRACK: &str = "mary_o_flag_victory";
 
 /// The star's theme, played while the pocket quasar burns.
 ///
-/// Jon: "We already have a 'super star' invincibility music track ready to go" —
 /// this is it, the authored `invincible_maryo` score, resolved by the ordinary
 /// `audio/music/generated/<id>/full.ogg` convention like the other two stings.
 /// Declaring it here is what AUTHORIZES the session to select it.
@@ -51,14 +50,12 @@ pub const MARY_O_STAR_MUSIC_TRACK: &str = "invincible_maryo";
 /// [`ids::WORLD_COIN_PICKUP`](ambition_platformer2d::sfx::ids::WORLD_COIN_PICKUP)
 /// when one is collected, with no demo-side collection code at all.
 ///
-/// ⛔ **so the sound was never missing — the AUTHORIZATION was.** The emit has
-/// always fired; under provider-relative audio a session plays only the cues its
-/// own fragment declares, and an undeclared id is dropped on the floor. That is
-/// the failure mode that reads as *"we never wrote that sound"* and is really
-/// *"we play it and then throw it away"*. Sanic's rings ride the identical path
-/// and its provider declares the identical id (`demo_sanic`'s `SFX_RING`).
+/// **so the sound was never missing — the AUTHORIZATION was.** The emit has always fired; under
+/// provider-relative audio a session plays only the cues its own fragment declares, and an
+/// undeclared id is dropped on the floor. Sanic's rings ride the identical path and its provider
+/// declares the identical id (`demo_sanic`'s `SFX_RING`).
 ///
-/// ⚠ **voicing a PRIVATE `mary_o.coin` id here would be silence**, because the
+/// **voicing a PRIVATE `mary_o.coin` id here would be silence**, because the
 /// gate compares against what the engine emits, not against what reads well.
 /// [`the_coin_collect_cue_is_the_shared_currency_pickup_id`] pins this constant
 /// to that engine id so a rename on either side cannot silently re-mute the coin.
@@ -76,13 +73,10 @@ pub struct MaryOSessionWorld {
 
 /// **Which room a session starts in.**
 ///
-/// ⛔ the entry was hardcoded to `LEVEL_1_1_ROOM_ID`, so a test could not boot
-/// into anything else — which is why the playthrough tests had to walk the real
-/// level and went stale the moment it was authored (Jon, 2026-08-04). The
-/// source is installed as a SYSTEM and its own doc says it *"may read the
-/// provider's own resources"*, so this is the seam that was already there.
+/// The source is installed as a SYSTEM and its own doc says it *"may read the provider's own
+/// resources"*, so this is the seam that was already there.
 ///
-/// ⚠ absent means 1-1: a shipped game must not depend on a resource a test
+/// absent means 1-1: a shipped game must not depend on a resource a test
 /// inserts.
 #[derive(bevy::prelude::Resource, Clone, Debug)]
 pub struct MaryOEntryRoom(pub String);
@@ -98,19 +92,13 @@ impl Default for MaryOEntryRoom {
 /// One answer, because three things need it and were each spelling it out:
 /// [`mary_o_session_world_entering`] builds the set, `capture_mary_o` validates
 /// `--room` against it, and the probe that every id reaches its own geometry
-/// loops over it. ⚠ **that last one is why this is one function rather than a
+/// loops over it. **that last one is why this is one function rather than a
 /// doc sentence** — a room added here is a room the probe immediately demands,
-/// instead of one that quietly inherits 1-1's world the way 1-2 did (queue D65).
+/// instead of one that quietly inherits 1-1's world the way 1-2 did.
 ///
-/// ⛔ **IT WAS `const MARY_O_ROOM_IDS: [&str; 3]`, AND THE `3` WAS THE POINT
-/// (2026-08-15).** A hand-kept list of the rooms an already-authored file
-/// already contains is a second authority: authoring `mary_o_1_3` in LDtk left
-/// it invisible to all three consumers until somebody edited an array length in
-/// Rust, and nothing anywhere said so — `capture_mary_o --room mary_o_1_3`
-/// answered *"unknown room"* about a room that was right there in the world.
 /// The areas are read off the file now.
 ///
-/// ⚠ the fixture course is appended rather than read, because it is genuinely
+/// the fixture course is appended rather than read, because it is genuinely
 /// not in the file: a Rust-built probe room a session carries INSTEAD of the
 /// shipped levels.
 pub fn mary_o_room_ids() -> Vec<String> {
@@ -126,53 +114,33 @@ pub fn mary_o_session_world() -> MaryOSessionWorld {
 /// **The same world, started in `entry`** — and now that is true of all three
 /// room ids rather than of two.
 ///
-/// ⛔ **this was a FORK wearing that doc comment.** The body branched on the test
+/// **this was a FORK wearing that doc comment.** The body branched on the test
 /// course and built 1-1 for everything else, while `entry` went straight to
 /// [`RoomSet::from_parts`] — so a session entering 1-2 had 1-2 as its ACTIVE room
 /// and 1-1's `geometry` and `metadata`. Two of the three ids worked and the third
 /// returned a world that disagreed with itself, which presents as *"the wrong
 /// level loaded"* rather than as a refusal. It is the reason nobody could look at
-/// 1-2 (queue D65).
+/// 1-2.
 ///
-/// ⭐ **the room list is built once and the active room is READ BACK OUT of the
+/// **the room list is built once and the active room is READ BACK OUT of the
 /// set**, so the geometry cannot describe a room the set is not in. Selecting the
 /// entry room separately and appending the rest is what made the disagreement
 /// expressible in the first place — and the obvious repair (pick `level_1_2()`
 /// for a 1-2 entry, keep the existing `vec![room, level_1_2()]`) would have put
 /// 1-2 in the graph twice.
 ///
-/// ⚠ **an id in NO list still answers, with the set's own fallback room**
+/// **an id in NO list still answers, with the set's own fallback room**
 /// (`from_parts` activates index 0). That stays a silent fallback rather than a
 /// panic because this is called from a system on a resource a host inserts — but
 /// the pair is consistent now: whatever room the set activated is the room the
 /// geometry describes.
 pub fn mary_o_session_world_entering(entry: &str) -> MaryOSessionWorld {
-    // TWO rooms, linked both ways. The demo could not express this until the
-    // room-transition transaction became engine-side (2026-07-25): its consumer
-    // lived in `ambition_app`, which no demo depends on, so a second room would
-    // have been unreachable in this binary.
-    //
-    // ⭐ **the LINKS are read, not written (2026-08-05).** They were two
-    // `RoomLink`s spelled out here, and the reason was structural rather than
-    // lazy: a link needs both ends, and 1-2 was a Rust room that no world file
-    // contained, so its half could not be authored. Both levels are areas of
-    // `mary_o.ldtk` now and every zone names its partner in
-    // `target_room`/`target_zone`, so retargeting the shaft is an editor edit.
-    //
     // The fixture course is neither of them: it is a self-contained probe room
     // with no loading zones that loops on its own goal (`exit_for_room`), so a
     // session running it carries it INSTEAD of the shipped levels. Its links go
     // with its rooms — an edge naming a room the set does not hold is a
     // `from_parts` warning on stderr and nothing else, which is how the course
     // has been printing two of them.
-    //
-    // ⭐ **the ROOMS are read too, since 2026-08-15.** This was
-    // `vec![level_1_1(), level_1_2()]` — a hand-listed pair beside the links it
-    // already reads off the same file — so an area authored in LDtk was not in
-    // the `RoomSet` at all, and `from_parts` silently activates room 0 for an
-    // entry id it does not hold. A new level therefore did not fail to load: it
-    // loaded 1-1 and reported success. Every authored area is a room now, and
-    // the list and the links come from one read of one file.
     let (rooms, links) = if entry == crate::test_course::TEST_COURSE_ROOM_ID {
         (vec![crate::test_course::test_course()], Vec::new())
     } else {
@@ -257,13 +225,8 @@ impl Plugin for MaryOExperiencePlugin {
                     source: ProjectileArtSource::EnergyTinted {
                         rgba: [1.0, 0.62, 0.16, 0.96],
                     },
-                    // ⚠ **`min: 0.0` on purpose — the BODY is the size
-                    // authority.** This used to be 7.0, the same number as the
-                    // flight half-extent, maintained in two files: growing the
-                    // shot in one place would have left the drawn quad clamped at
-                    // the old size, which is the failure the pickup probes just
-                    // had in another form. The floor exists to keep a sub-pixel
-                    // projectile visible; a spark is 20 px and does not need one.
+                    // The floor exists to keep a sub-pixel projectile visible; a spark is 20 px and
+                    // does not need one.
                     size: ProjectileRenderSize::Body {
                         min: 0.0,
                         scale: 1.0,
@@ -466,7 +429,7 @@ fn card_text(
 /// why the Jump cue below is what makes her jump audible at all.) All of
 /// these are procedurally synthesized from the spec; no asset file needed.
 ///
-/// ⚠ **the emitter is not always Mary-O.** Most rows voice a cue this crate
+/// **the emitter is not always Mary-O.** Most rows voice a cue this crate
 /// writes, but [`COIN_PICKUP_SFX`] voices one the ENGINE writes on her
 /// behalf — see its doc. Declaring it is the only thing this crate does about
 /// it, and it is the whole difference between a coin that dings and one that
@@ -531,7 +494,7 @@ fn mary_o_sfx_specs() -> Vec<ambition_platformer2d::audio::spec::SfxSpec> {
         // not fatigue. Retune freely — the emit site names the
         // id, not the timbre.
         //
-        // ⭐ **unlike every other row here, MARY-O DOES NOT EMIT
+        // **unlike every other row here, MARY-O DOES NOT EMIT
         // THIS.** The engine's `collect_ecs_pickups` does, on her
         // behalf, because her coins are authored as `currency:1`
         // pickups. So this entry is pure AUTHORIZATION: the cue
@@ -643,12 +606,6 @@ mod tests {
     /// The room `id` names, built WITHOUT going through the provider — so this
     /// test's expectation comes from the level builder rather than from the seam
     /// it is checking.
-    ///
-    /// ⛔ **the `else` arm used to be `level_1_1()`**, which made the whole
-    /// probe vacuous for any room nobody had added an arm for: it compared the
-    /// provider's answer against 1-1 and the provider was ALSO serving 1-1, so
-    /// two bugs agreed and the test went green. It names the course and asks
-    /// the builder about everything else now.
     fn room_named(id: &str) -> ambition_platformer2d::world::rooms::RoomSpec {
         if id == crate::test_course::TEST_COURSE_ROOM_ID {
             crate::test_course::test_course()
@@ -669,23 +626,18 @@ mod tests {
 
     /// **Every room id boots into ITS OWN geometry, not into 1-1's.**
     ///
-    /// ⛔ **this went red on `mary_o_1_2`.** The seam branched on the test course
-    /// and built 1-1 for everything else, while handing `entry` straight to
-    /// `RoomSet::from_parts` — so asking for 1-2 produced a world whose active
-    /// room WAS 1-2 and whose `geometry`/`metadata` were 1-1's. A caller got a
-    /// world that disagreed with itself instead of an error, and the symptom is
-    /// "the wrong level loaded", not "that level does not exist".
+    /// **this went red on `mary_o_1_2`.** The seam branched on the test course and built 1-1
+    /// for everything else, while handing `entry` straight to `RoomSet::from_parts` — so asking
+    /// for 1-2 produced a world whose active room WAS 1-2 and whose `geometry`/`metadata` were
+    /// 1-1's.
     ///
-    /// ⚠ **all three ids, deliberately.** A probe that only asked about 1-2
-    /// would go green again the moment someone special-cased 1-2 the way the
-    /// test course was special-cased — the same defect one room along. The loop
-    /// asks the same question of every room the demo has, and the distinctness
-    /// guard above it means a future room that is a copy of another cannot make
-    /// the comparison vacuous.
+    /// The loop asks the same question of every room the demo has, and the distinctness guard
+    /// above it means a future room that is a copy of another cannot make the comparison
+    /// vacuous.
     #[test]
     fn every_room_id_starts_in_its_own_geometry() {
         let ids = mary_o_room_ids();
-        // ⚠ the roster is READ from the world file now, so a file that authored
+        // the roster is READ from the world file now, so a file that authored
         // nothing would make every loop below vacuous.
         assert!(
             ids.len() >= 2,
@@ -724,7 +676,7 @@ mod tests {
                 "a session entering `{id}` got another room's metadata"
             );
 
-            // ⚠ and the entry room is in the set ONCE. The obvious fix for the
+            // and the entry room is in the set ONCE. The obvious fix for the
             // above — select 1-2 as the entry room and keep appending it to the
             // room list — puts it in the graph twice, which is a second node
             // with the same id and a transition that can resolve to either.
@@ -745,16 +697,9 @@ mod tests {
     /// **The coin ding must voice the id the ENGINE emits, and the registry must
     /// authorize it.**
     ///
-    /// Two assertions, and they fail for different reasons on purpose. The first
-    /// catches a rename: [`COIN_PICKUP_SFX`] is a string literal in this crate
-    /// standing in for a constant in another, and nothing but this line joins
-    /// them. The second catches the actual bug this test was written for — the
-    /// id being named but never DECLARED, which is silence.
-    ///
-    /// ⛔ **this went red before it went green.** Mary-O's registry authorized
-    /// nine cues and this was not one of them, so every coin in 1-1's vault and
-    /// 1-2's shelf was collected in silence while the engine dutifully emitted
-    /// the cue. Jon: *"In mary-o we need an SFX for when you collect coins."*
+    /// Two assertions, and they fail for different reasons on purpose. The first catches a
+    /// rename: [`COIN_PICKUP_SFX`] is a string literal in this crate standing in for a constant
+    /// in another, and nothing but this line joins them.
     #[test]
     fn the_coin_collect_cue_is_the_shared_currency_pickup_id() {
         assert_eq!(

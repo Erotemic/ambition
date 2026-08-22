@@ -8,14 +8,14 @@
 //! combat/body runtime CaptureAttemptRequested / Pummel / Throw
 //! ```
 //!
-//! ⛔ **the generic body runtime never matches `"smash.capture_throw"`**, and
+//! **the generic body runtime never matches `"smash.capture_throw"`**, and
 //! this adapter never touches body ECS state. Each half does the thing it is the
 //! right place for: a ruleset knows what its own authored strings mean, and a
 //! body runtime knows how to hold and launch a body. Collapsing them would put
 //! Smash vocabulary in the engine or body surgery in the game, and both are the
 //! dependency this split exists to avoid.
 //!
-//! ⚠ an unrecognised key falls through untouched — other techniques ride the
+//! an unrecognised key falls through untouched — other techniques ride the
 //! same channel, and a `continue` here is how they stay unaffected.
 
 use bevy::prelude::*;
@@ -42,7 +42,7 @@ pub fn translate_smash_capture_effects(
         let ActionRequest::Special { spec, params } = &message.request else {
             continue;
         };
-        // ⚠ **irrefutable today, and destructured anyway.** `SpecialActionSpec`
+        // **irrefutable today, and destructured anyway.** `SpecialActionSpec`
         // has exactly one variant since the per-boss variants collapsed onto the
         // keyed effect seam. Naming it means the day a second variant arrives,
         // this becomes a compile error at the one place that has to decide
@@ -51,7 +51,7 @@ pub fn translate_smash_capture_effects(
         let SpecialActionSpec::Special(key) = spec;
         match key.as_str() {
             CAPTURE_ATTEMPT => {
-                // ⚠ a params typo is a STARTUP error, not a silent default: the
+                // a params typo is a STARTUP error, not a silent default: the
                 // key registers `check_hydrates` with the param-schema registry,
                 // so a fighter's bad grab data fails the content pass. Reaching
                 // here with unhydratable params means the registration is
@@ -141,10 +141,8 @@ mod tests {
                 trigger_moveset_moves,
                 advance_move_playback,
                 dispatch_move_events,
-                // ⭐ **THE FAN-OUT, so this fixture HEARS what a match hears.**
-                // `dispatch_move_events` only writes `FxRequest`s; the cue is
-                // decided here. Without it the chain was silent and could not
-                // have seen an audio defect at all.
+                // **THE FAN-OUT, so this fixture HEARS what a match hears.**
+                // `dispatch_move_events` only writes `FxRequest`s; the cue is decided here.
                 ambition_platformer2d::render::fx::process_fx_requests,
                 translate_smash_capture_effects,
                 acquire_captures,
@@ -181,7 +179,7 @@ mod tests {
                         on_ground: true,
                         contact_initialized: true,
                     },
-                    // ⭐⭐ **A COMPLETE `CaptureParticipant`, at BOTH ends.**
+                    // **A COMPLETE `CaptureParticipant`, at BOTH ends.**
                     // Acquisition requires the body role the whole lifecycle
                     // operates on, so half a body is refused — and this fixture
                     // built its captor without combat state, which the
@@ -214,7 +212,7 @@ mod tests {
             ambition_platformer2d::characters::brain::ActorControl(ActorControlFrame::neutral()),
         ));
         app.world_mut().entity_mut(victim).insert(
-            // ⭐ SHIELDING, and it changes nothing — the third leg of the
+            // SHIELDING, and it changes nothing — the third leg of the
             // triangle, asserted in the real chain rather than in isolation.
             ambition_platformer2d::engine_core::BodyShieldState::default(),
         );
@@ -235,7 +233,7 @@ mod tests {
     /// Run ticks until `done`, or panic. Moves take tenths of a second and the
     /// clock is 1/60, so a bounded loop is what "play this move out" means here.
     ///
-    /// ⚠ it presses NOTHING. An edge re-sent every tick would re-trigger the
+    /// it presses NOTHING. An edge re-sent every tick would re-trigger the
     /// move under test, and the chain would be measuring a held button rather
     /// than a timeline playing out.
     fn run_until(app: &mut App, captor: Entity, label: &str, mut done: impl FnMut(&App) -> bool) {
@@ -243,13 +241,10 @@ mod tests {
             if done(app) {
                 return;
             }
-            // ⛔⛔ **THE EDGE MUST BE CLEARED, and forgetting it cost a debug
-            // cycle.** In production the control pipeline consumes an edge once
-            // (`ActorControlFrame::clear_edges`); a fixture that leaves
-            // `grab_pressed` true re-triggers the grab EVERY tick, restarting it
-            // at t=0 so it never reaches its own Active window at 0.16s. The
-            // symptom is "the grab never catches anybody", which reads exactly
-            // like a broken acquisition.
+            // **THE EDGE MUST BE CLEARED, and forgetting it cost a debug cycle.** In production
+            // the control pipeline consumes an edge once (`ActorControlFrame::clear_edges`); a
+            // fixture that leaves `grab_pressed` true re-triggers the grab EVERY tick,
+            // restarting it at t=0 so it never reaches its own Active window at 0.16s.
             if let Some(mut control) =
                 app.world_mut()
                     .get_mut::<ambition_platformer2d::characters::brain::ActorControl>(captor)
@@ -261,13 +256,12 @@ mod tests {
         panic!("{label} never happened within 2 seconds of sim time");
     }
 
-    /// **⭐⭐ THE ACCEPTANCE SEQUENCE, END TO END, THROUGH THE REAL SYSTEMS.**
+    /// **THE ACCEPTANCE SEQUENCE, END TO END, THROUGH THE REAL SYSTEMS.**
     ///
-    /// Every stage of this was pinned in isolation as it landed. This is the one
-    /// that would catch them being individually right and jointly wrong — an
-    /// ordering that works in a hand-built app and not in the chain, an authored
-    /// timing that never reaches its own event, a relationship that survives its
-    /// unit test and not a real move ending.
+    /// This is the one that would catch them being individually right and jointly wrong — an
+    /// ordering that works in a hand-built app and not in the chain, an authored timing that never
+    /// reaches its own event, a relationship that survives its unit test and not a real move
+    /// ending.
     ///
     /// ```text
     /// Grab            → the authored grab plays, catches a SHIELDING opponent
@@ -276,7 +270,7 @@ mod tests {
     /// Attack          → pummel again; hold survives
     /// Forward+Attack  → throw; the authored release ends the hold exactly once
     /// ```
-    /// ⛔⛔ **IT WAS RED, AND THE FIRST DIAGNOSIS OF WHY WAS WRONG.**
+    /// **IT WAS RED, AND THE FIRST DIAGNOSIS OF WHY WAS WRONG.**
     ///
     /// A tick-by-tick probe showed the grab reaching its own effect at exactly
     /// the authored frame (t=0.167 against an authored 0.16) and the adapter
@@ -287,16 +281,13 @@ mod tests {
     /// fixture's captor carried no `BodyCombat`, and that rule asked
     /// `combat.get(captor).is_err()` as though it meant *the captor is gone*.
     ///
-    /// ⭐ the lesson is in where the evidence pointed. Every observation was
+    /// the lesson is in where the evidence pointed. Every observation was
     /// accurate and the conclusion drawn from them was not: a state observed
     /// only BETWEEN systems is invisible to a test that looks after the whole
     /// update, so "never established" and "established and destroyed" produce
     /// identical evidence at the only place anyone was looking.
     ///
-    /// The fix was the architecture, not this fixture: acquisition now requires
-    /// a `CaptureParticipant` of both ends, and existence is asked of the world
-    /// rather than inferred from a component. The fixture builds whole bodies
-    /// because a fighter is one.
+    /// The fixture builds whole bodies because a fighter is one.
     #[test]
     fn george_grabs_pummels_twice_and_throws() {
         let mut app = chain_app();
@@ -341,8 +332,8 @@ mod tests {
             run_until(&mut app, captor, "the pummel finishes", |app| {
                 app.world().get::<MovePlayback>(captor).is_none()
             });
-            // ⚠ the RELATION must still be there, and the COUNT is the
-            // ruleset's — two components since the 2026-08-19 split.
+            // the RELATION must still be there, and the COUNT is the
+            // ruleset's — two components since the split.
             app.world()
                 .get::<CapturedBy>(victim)
                 .expect("the pummel released the hold it belongs to");

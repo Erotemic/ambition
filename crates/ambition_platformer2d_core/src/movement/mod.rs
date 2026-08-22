@@ -130,7 +130,7 @@ pub(crate) fn update_body_control_in_frame(
     // before any maneuver, because a helpless or prone body is not choosing
     // anything.
     //
-    // ⛔ **in the CONTROL phase, and that placement was measured.** It first sat
+    // **in the CONTROL phase, and that placement was measured.** It first sat
     // in the simulation phase, one phase too late: the control phase had already
     // read the same press, so a tech attempt mid-tumble came out as an AIR DASH
     // that zeroed the launch's velocity and stalled the body in mid-air, and a
@@ -138,7 +138,7 @@ pub(crate) fn update_body_control_in_frame(
     // down (`[DodgeRoll, Knockdown]`, measured). A state that takes the
     // controller away has to take it away where the controller is read.
     //
-    // ⚠ it does NOT short-circuit the step: a knocked-down body still
+    // it does NOT short-circuit the step: a knocked-down body still
     // integrates, still resolves contacts, and still falls if the floor under it
     // is removed. It loses its input, not its physics.
     let input = knockdown::tick_knockdown(
@@ -297,22 +297,13 @@ fn update_body_simulation_inner(
 
     // Ledge carry on moving geometry, BEFORE anything reads the body's pose.
     //
-    // ⭐ **the same rule as the grounded ride, one step earlier in the frame.** A
-    // body resting on a moving solid is carried by `Block::velocity` down in
-    // `integrate_velocity_clusters`; a body HANGING on one cannot be, because the
-    // active-hang tick below short-circuits the whole simulation phase and
-    // `integrate_velocity_clusters` never runs. So the hang's carry is applied
-    // here — the same position in the frame the old player-only site occupied
-    // (it ran before `step_motion` entirely), which is what keeps the behaviour
-    // identical rather than merely similar.
+    // **the same rule as the grounded ride, one step earlier in the frame.** A body resting on
+    // a moving solid is carried by `Block::velocity` down in `integrate_velocity_clusters`; a
+    // body HANGING on one cannot be, because the active-hang tick below short-circuits the
+    // whole simulation phase and `integrate_velocity_clusters` never runs.
     //
-    // ⛔ **this is where a player/actor FORK was deleted.** The carry lived in the
-    // monolith's `integrate_home_body`, fed by a `&[MovingPlatformState]`
-    // parameter `integrate_actor_body` never had — yet `ledge_grab` is kernel
-    // state with no player marker, so an enemy could latch onto a moving
-    // platform and be left behind by it. Nothing about the rule was
-    // player-specific; only its ingredients were, and reading the solid's own
-    // velocity off the collision world removes them.
+    // Nothing about the rule was player-specific; only its ingredients were, and reading the
+    // solid's own velocity off the collision world removes them.
     if let Some(grab) = state.ledge_grab {
         match crate::ledge_grab::ledge_carry_for_frame(
             world,
@@ -404,10 +395,8 @@ fn update_body_simulation_inner(
         if state.wall_clinging || clusters.ground.on_ground {
             state.pre_wall_vel_age += dt;
         }
-        // **Time NOT spent hanging**, which is what the next grab's
-        // intangibility is bought with. ⚠ clamped rather than unbounded: a body
-        // that never sees a ledge would otherwise carry a float that grows for
-        // the whole match, and the curve saturates long before that matters.
+        // **Time NOT spent hanging**, which is what the next grab's intangibility is bought
+        // with.
         if state.ledge_grab.is_none() {
             state.time_off_ledge =
                 (state.time_off_ledge + dt).min(crate::ledge_grab::LEDGE_INVULN_FULL_AIRTIME);
@@ -494,10 +483,7 @@ fn update_body_simulation_inner(
         &mut events,
     );
 
-    // Hazard / out-of-bounds gate — body flags the cause; the owner applies its
-    // policy. This is the KERNEL's gate, called rather than copied: the
-    // axis-swept policy used to keep its own transcription of it, so the two
-    // policies each owned a private opinion about where the world ends.
+    // Hazard / out-of-bounds gate — body flags the cause; the owner applies its policy.
     kernel::apply_world_hazard_gate(world, clusters, frame, &mut events);
 
     events
@@ -524,10 +510,8 @@ pub(crate) fn update_body_with_frame_clusters(
 ) -> FrameEvents {
     let tuning = axis.params;
     let state = &mut axis.state;
-    // A body may be freshly constructed, or the control phase may perform a
-    // discrete transit (blink) that invalidates the departure contact. Sample
-    // the entry pose before control so first-tick jumps see real support, then
-    // re-sample only if control moved the body discontinuously.
+    // A body may be freshly constructed, or the control phase may perform a discrete transit
+    // (blink) that invalidates the departure contact.
     let entry_baseline = kernel::establish_axis_ground_contact_baseline(world, clusters, frame);
     let control_dt = if input.control_dt > 0.0 {
         input.control_dt

@@ -1,22 +1,15 @@
 #![cfg(all(feature = "input", feature = "visible"))]
 
-//! **THE LAP, IN THE HOST JON ACTUALLY PLAYS — launcher, shell, rollback.**
-//!
-//! Jon, 2026-08-20: *"In maryo finishing 1-1 sends you back to 1-1."* The lap
 //! test that answers this in `ambition_demo_mary_o_app` is GREEN: warped to each
 //! authored pole it goes 1-1 → 1-2 → 1-3 → 1-1, right level every leg. So does
 //! every other Mary-O test. And he sees 1-1 → 1-1.
 //!
-//! ⛔⛔ **because none of them build the composition that ships.** He reaches
-//! Mary-O through `run_game.sh` → the launcher → the shell host, and
-//! `build_visible_app` sets `SimulationHost::Rollback` for every route. The
-//! standalone demo binary is `PlatformerEnginePlugins::fixed_tick()`. Those are
-//! different simulation hosts running different schedules, and the difference
-//! has already cost one live bug tonight: TwinTrack's second seat was inert in
-//! the game and drove fine in its own binary, because a GGRS session publishes
-//! what a fixed-tick host publishes for itself.
+//! **because none of them build the composition that ships.** He reaches Mary-O through
+//! `run_game.sh` → the launcher → the shell host, and `build_visible_app` sets
+//! `SimulationHost::Rollback` for every route. The standalone demo binary is
+//! `PlatformerEnginePlugins::fixed_tick()`.
 //!
-//! ⚠ **a demo binary is not a coverage argument for the game.** That is the
+//! **a demo binary is not a coverage argument for the game.** That is the
 //! lesson this file exists to hold, and it is worth more than the assertion
 //! below: whenever a road is "tested" only by `build_demo_app()`, the shipped
 //! path through the launcher is untested no matter how green the suite is.
@@ -49,7 +42,7 @@ fn host_app() -> App {
     app.add_plugins(StatesPlugin);
     app.init_state::<ambition_platformer2d::platformer::schedule::GameMode>();
     app.insert_resource(shell_host::AmbitionShellHosted);
-    // ⛔ **the whole point of this file.** Without it the test falls to the
+    // **the whole point of this file.** Without it the test falls to the
     // render-frame default and stops being the shipped composition.
     use ambition_platformer2d::runtime::SimulationHostAppExt as _;
     app.set_simulation_host(ambition_platformer2d::runtime::SimulationHost::Rollback);
@@ -57,7 +50,7 @@ fn host_app() -> App {
     ambition_app::app::add_simulation_plugins(&mut app);
     app.add_plugins(ambition_platformer2d::host::PlatformerHostPlugins);
     shell_host::compose_ambition_shell_host(&mut app);
-    // ⚠ **and the clock has to move.** Under GGRS the simulation advances on the
+    // **and the clock has to move.** Under GGRS the simulation advances on the
     // fixed timestep; a test that calls `update()` inside a millisecond of real
     // time runs the GGRS schedule zero times and every reading is the boot state.
     let timestep = app.world().resource::<Time<Fixed>>().timestep();
@@ -175,11 +168,6 @@ fn finishing_the_first_level_in_the_host_lands_in_the_second() {
     );
 }
 
-/// **SEAT 0'S INPUT REACHES HER BODY IN THE HOST JON PLAYS.**
-///
-/// ⛔⛔ **FOUR WAYS TO PRESS A BUTTON HERE THAT DO NOTHING**, all measured
-/// against this exact composition, because the first three each looked right:
-///
 /// ```text
 ///   write ControlFrame between update()s   ran, ignored — device systems rewrite it
 ///   a system .before(PrimarySlotInputCommit)  ran 5062x, slot 0 still read 0.0
@@ -187,16 +175,11 @@ fn finishing_the_first_level_in_the_host_lands_in_the_second() {
 ///   drive_control_frame(world, frame)      slot 0 reads 1.0, and she MOVES
 /// ```
 ///
-/// ⭐ **the reason is stated in the engine and is worth knowing before writing
-/// any input test**: under a fixed-tick host `ControlFrame` is the input the sim
-/// reads, but under GGRS it is an **output** — `publish_ggrs_input` rewrites it
-/// from the session's confirmed inputs every advance, so a driver writing it is
-/// feeding resimulated input back in as new input. `PendingLocalInput` is the
-/// input side there, and `drive_control_frame` picks whichever the host wants.
-/// The latch is consulted only `if latch.is_device_authority()`, which is false
+/// `PendingLocalInput` is the input side there, and `drive_control_frame` picks whichever the
+/// host wants. The latch is consulted only `if latch.is_device_authority()`, which is false
 /// with no device wired — so a headless press into it is dropped.
 ///
-/// ⚠ **this does NOT walk her to the pole**, and an earlier draft that tried was
+/// **this does NOT walk her to the pole**, and an earlier draft that tried was
 /// dishonest: holding right with a hop every 24 frames is not platforming, and
 /// she got 750 of 3144 units before the cap. Completing 1-1 blind is not
 /// something a test can claim. What IS worth guarding is the road — that a press
@@ -237,7 +220,7 @@ fn a_press_on_seat_zero_moves_her_in_the_shell_host() {
     let end_x = body_x(&mut app).expect("she still has a body");
     let seen = *app.world().resource::<HeldPress>();
 
-    // ⛔ THE PRECONDITIONS, because each one silently empties the assertion.
+    // THE PRECONDITIONS, because each one silently empties the assertion.
     assert_eq!(
         seen.driving_bodies, 1,
         "no body is driven by a participant, so nothing could have read the press"
@@ -270,7 +253,7 @@ fn body_x(app: &mut App) -> Option<f32> {
 
 /// What the in-sim probe saw, recorded from inside the sim schedule.
 ///
-/// ⚠ read there rather than from the test loop on purpose: `SlotControls` can be
+/// read there rather than from the test loop on purpose: `SlotControls` can be
 /// session-scoped, so a top-level `get_resource` may answer about a different
 /// instance than the one the bodies read.
 #[derive(Resource, Default, Clone, Copy)]

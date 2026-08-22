@@ -110,7 +110,7 @@ pub fn run(ws: &Workspace, report: &mut Report) {
     );
 
     // Waiver reasons are config sanity — a bare path is a silent allowlist, the
-    // count-only-false-green shape audit M10 warns against.
+    // count-only-false-green shape audit warns against.
     for w in &cfg.waiver {
         assert!(
             w.reason.trim().len() > 20,

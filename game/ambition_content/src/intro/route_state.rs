@@ -75,12 +75,6 @@ pub fn emit_intro_flag_chains(
     }
 }
 
-// ⭐⭐ **THE FLAG-GATED LOCK WALLS LEFT THIS FILE, AND THE TABLE THEY READ WENT
-// WITH THEM** (2026-08-15). `INTRO_FLAG_GATED_LOCK_WALLS` paired two lock-wall
-// ids with the flag that opened them, in Rust, in this crate — so the wall was
-// in the level and the reason it opened was in the compiler. An agent reading
-// the level saw a `LockWall` and no way to find out what it was waiting for.
-//
 // The pair now lives on the LDtk entity as a `gated_by` field, and the system
 // that reads it is `ambition_platformer2d_actor_monolith::world::gated_lock_walls`
 // — an ENGINE system, so every game gets flag-gated walls without Rust. It asks
@@ -88,7 +82,7 @@ pub fn emit_intro_flag_chains(
 // the save, which is what lets a later wall be gated on something that is not a
 // flag at all.
 //
-// ⛔ do not reintroduce a table here. Adding a gated wall is an LDtk edit.
+// do not reintroduce a table here. Adding a gated wall is an LDtk edit.
 
 #[cfg(test)]
 mod tests;

@@ -31,12 +31,8 @@ PKG_DIR = Path(__file__).resolve().parent
 DEFAULT_SCHEMA_PATH = PKG_DIR.parent / "schemas" / "ldtk" / "JSON_SCHEMA.json"
 OFFICIAL_SCHEMA_URL = "https://ldtk.io/files/JSON_SCHEMA.json"
 
-# ⛔ **this was a hand-typed set, and it had already drifted.** `SurfaceRamp` —
-# the engine's own floor-to-wall fillet, registered in `standard_converters()`
-# since Q27 — was missing from it, so authoring the engine's own entity failed a
-# check whose whole job is to describe the engine. The list now comes from the
-# LDtk authoring contract, which the Rust `contract::prover` pins against the
-# converter registry in both directions.
+# The list now comes from the LDtk authoring contract, which the Rust `contract::prover` pins
+# against the converter registry in both directions.
 KNOWN_ENTITIES = contract_identifiers()
 GRID = 16
 AMBITION_LAYER = "Ambition"
@@ -586,8 +582,8 @@ def game_entity_manifest_for(path: Path) -> Path:
     return path.with_suffix("").with_name(path.stem + GAME_ENTITY_MANIFEST_SUFFIX)
 
 
-#: Where games mount their world files. Small and known, so the search below is
-#: bounded rather than a walk of the tree.
+# : Where games mount their world files. Small and known, so the search below is
+# : bounded rather than a walk of the tree.
 GAME_ASSET_WORLD_GLOB = "game/*/assets/worlds"
 
 
@@ -697,7 +693,7 @@ def validate(
     except Exception as ex:  # noqa: BLE001 - command line validator should print parser details
         return [f"failed to parse JSON: {ex}"], []
 
-    # ⭐ **THE GAME'S VOCABULARY IS DECLARED, NEVER INFERRED.** A game registers
+    # **THE GAME'S VOCABULARY IS DECLARED, NEVER INFERRED.** A game registers
     # nouns of its own through `install_ldtk_entity_converters`, and validation
     # has to know about them or every Mary-O level is "unsupported". The first
     # attempt read them out of the project's own `defs.entities` — which is
@@ -731,7 +727,7 @@ def validate(
     # secondary targets (would require importing the full per-level
     # bounds + solid set from the secondary file); secondary-bound
     # zones get a single existence check instead.
-    # ⭐⭐ `None` means DISCOVER; an explicit `[]` means "validate this file
+    # `None` means DISCOVER; an explicit `[]` means "validate this file
     # truly alone". Every entry point — `validate`, `repair`, and the write-side
     # `repair_and_validate` that every `entity`/`level` edit runs — reaches this
     # one line, which is why the default lives here and not in one CLI's
@@ -863,17 +859,13 @@ def validate(
         field_def.get("identifier"): field_def.get("uid")
         for field_def in defs.get("levelFields") or []
     }
-    # ⚠ **a WARNING, and it used to be an error.** This asks "can an author place
+    # **a WARNING, and it used to be an error.** This asks "can an author place
     # every engine entity from this file's editor palette", which is ergonomics —
     # unlike `missing_defs` below, which asks whether an entity this world already
     # PLACES has a definition, and stays an error because it is a broken file.
     #
-    # The list stopped being hand-typed the day it came from the authoring
-    # contract, and that changed what a hard error would mean: registering a new
-    # engine converter would instantly fail every world in the repo, which is a
-    # rule that punishes the engine for growing and teaches people to skip the
-    # check. `SurfaceRamp` is exactly that case — a real engine entity since Q27
-    # whose editor defs have never been rolled out to any of the six worlds.
+    # `SurfaceRamp` is exactly that case — a real engine entity since Q27 whose editor defs have
+    # never been rolled out to any of the six worlds.
     missing_known_defs = sorted(KNOWN_ENTITIES - entity_defs)
     if missing_known_defs:
         warnings.append(
@@ -1116,17 +1108,10 @@ def validate(
                 validate_field_instance_editor_value(
                     errors, f"level {identifier!r} entity {entity_name(entity)}", field
                 )
-            # ⛔ **the per-entity field rules that used to live here are GONE, and
-            # deleting them was the point.** `BlinkWall.tier`, `ReboundPad`'s
-            # impulses, `DebugLabel.text`, `KinematicPath`'s points/speed/mode,
-            # `DamageVolume`'s path fields and both `Breakable*` respawn grammars
-            # were transcriptions of Rust parsers — a second authority, kept by
-            # hand, beside the one that decides. It had drifted in both
-            # directions: it demanded a `DebugLabel.text` the converter is happy
-            # without, and knew nothing of the twelve refusals the converter
-            # really has, which is how six `EnemySpawn`s with no `character_id`
-            # walked past three green checks. They are one table now
-            # (`validate_rules.entity_contract`), and the Rust `contract::prover`
+            # It had drifted in both directions: it demanded a `DebugLabel.text` the converter is
+            # happy without, and knew nothing of the twelve refusals the converter really has, which
+            # is how six `EnemySpawn`s with no `character_id` walked past three green checks. They
+            # are one table now (`validate_rules.entity_contract`), and the Rust `contract::prover`
             # runs every claim in it against the real converters.
             if ident == "PlayerStart":
                 starts_by_area[area] += 1
@@ -1159,16 +1144,9 @@ def validate(
                                 f"EdgeExit LoadingZone {entity.get('iid')} in {identifier!r} overlaps solid {entity_name(solid)}; "
                                 "split the wall or move the zone so the exit is physically reachable"
                             )
-                # ⛔ **A ZONE IS EITHER AN EXIT OR A LANDING PAD, and this used
-                # to demand that every one of them be an exit.** The runtime has
-                # always had both shapes — `collect_room_links` skips a zone that
-                # names no target, and `transition_from_zone` only fires on a
-                # zone with an outgoing edge — but a level file could not SAY the
-                # second one, so the arrival end of every one-way trip had to be
-                # built in Rust. That is exactly what kept Mary-O's two 1-1 zones
-                # out of `mary_o.ldtk`.
+                # That is exactly what kept Mary-O's two 1-1 zones out of `mary_o.ldtk`.
                 #
-                # ⚠ **and a landing pad that names a target is not merely
+                # **and a landing pad that names a target is not merely
                 # redundant, it is a bounce.** The body arrives standing INSIDE
                 # the target zone (`door_arrival` = zone centre, 26px off its
                 # floor), so the moment the 0.16s transition cooldown lapses the
@@ -1269,7 +1247,7 @@ def validate(
                 )
                 break
 
-    # ⭐ **the typo check the blanket rule used to buy, kept.** A zone that names
+    # **the typo check the blanket rule used to buy, kept.** A zone that names
     # no target is a landing pad, and a landing pad nothing arrives through is
     # dead geometry — an exit whose fields were never filled in reads exactly
     # like one, so this is where that mistake still gets caught.
@@ -1292,7 +1270,7 @@ def validate(
     if include_authoring_hygiene:
         _check_intro_authoring_hygiene(project, warnings)
 
-    # ⭐ **the runtime's own refusals, reachable without a compiler.** `repair` and
+    # **the runtime's own refusals, reachable without a compiler.** `repair` and
     # `roundtrip` call this string-shaped entry point rather than
     # `validate_issues`, and it was the three of them agreeing that made
     # `mary_o_1_3` look finished — so the contract has to land HERE, not only in

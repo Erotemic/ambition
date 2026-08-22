@@ -1,7 +1,5 @@
 //! Cube-menu pointer interaction: press/move/release for picking a face cell,
 //! including the drag-vs-click discrimination.
-//!
-//! Split out of the kaleidoscope menu host (2026-06-15).
 
 use super::*;
 
@@ -92,8 +90,6 @@ pub(crate) fn kaleidoscope_pointer_move(
                 system_nav.open_entry,
                 quality_confirm.pending(),
             );
-            // The pointer hasn't moved to a new control (same logical focus as the
-            // previous move event): do nothing.
             if cursor.last_pointer_focus == Some(next) {
                 return;
             }
@@ -101,8 +97,6 @@ pub(crate) fn kaleidoscope_pointer_move(
             if cursor.focus != next {
                 cursor.focus = next;
                 cursor.owner = FocusSource::Pointer;
-                // The move landed on a genuinely different control: play the move
-                // sound, matching the keyboard nav path.
                 play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_MOVE);
             }
         }
@@ -123,12 +117,6 @@ pub(crate) fn kaleidoscope_pointer_release(
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
     quality_confirm: Res<VisualQualityConfirmState>,
-    // ⭐ **the release ANNOUNCES the action now.** It used to dispatch inline,
-    // which is why an observer needed the whole effect stack — `owned`,
-    // `commands`, `players`, `mana_q`, `heals` — plus `GameModeIo` bundled to
-    // stay under Bevy's 16-parameter ceiling, to unpause on a close-via-action.
-    // All of that lives in `kaleidoscope_menu_action_activated`, once, shared
-    // with the keyboard route.
     mut activated: MessageWriter<MenuActionActivated<MenuPageAction>>,
     // Still needed for the focus resolve below (`system.model`), not for dispatch.
     system: SystemMenuParams,
@@ -145,7 +133,7 @@ pub(crate) fn kaleidoscope_pointer_release(
     // release with no armed press, or a drag-away cancel, falls through to "no
     // activation".
     //
-    // ⚠ `release_anywhere`, not `release` — the cube respawns its cells under the
+    // `release_anywhere`, not `release` — the cube respawns its cells under the
     // finger, so which control is under the pointer NOW is not evidence about which
     // one the press began on. The press already captured that. A flat list has that
     // evidence and uses the stricter form.
@@ -165,8 +153,5 @@ pub(crate) fn kaleidoscope_pointer_release(
         cursor.owner = FocusSource::Pointer;
         cursor.last_pointer_focus = Some(next);
     }
-    // A release and a controller submit are the SAME event, so they say it the
-    // same way. The dispatch — and the close-via-action unpause that used to be
-    // copied here — belong to `kaleidoscope_menu_action_activated`.
     activated.write(MenuActionActivated { action });
 }

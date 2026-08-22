@@ -5,7 +5,7 @@
 //! engine graph from every `cargo test` of it. Which tests run is unchanged;
 //! filter a former target with `--test smash_it -- <module_name>`.
 //!
-//! ⚠ `autotests = false` makes a forgotten `mod` line silently skip a whole
+//! `autotests = false` makes a forgotten `mod` line silently skip a whole
 //! file — `smash_it_sync` is the guard that turns that into a failure.
 
 mod smash_it_sync;

@@ -173,22 +173,12 @@ fn bounding_aabb_returns_none_for_empty_input() {
     assert!(bounding_aabb(&[]).is_none());
 }
 
-/// Doubling the spawn size doubles the derived world AABB on
-/// both axes (with identical sprite metadata). Pins the
-/// "boss in the intro is 2× larger" change — the intro arena's
-/// BossSpawn went from 64×80 → 128×160 and the runtime's
-/// combat_size derived from the SAME `body_pixel_bbox` MUST
-/// scale 2× in both dimensions. If this test breaks the
-/// sprite-metadata-driven body math diverged from the spawn
-/// AABB.
-/// End-to-end pin: `damageable_volumes` MUST return the
-/// per-animation hurtbox when the boss's sprite metrics
-/// carries one for the current animation. If a future change
-/// breaks the wire (derive doesn't copy `animations`, the
-/// consumer's lookup falls through silently, the
-/// boss_animation_for_profile mapping drops, etc.) the cyan
-/// debug box stops growing during attacks — which is the
-/// exact regression the user just reported.
+/// Doubling the spawn size doubles the derived world AABB on both axes (with identical sprite
+/// metadata). Pins the "boss in the intro is 2× larger" change — the intro arena's BossSpawn went
+/// from 64×80 → 128×160 and the runtime's combat_size derived from the SAME `body_pixel_bbox` MUST
+/// scale 2× in both dimensions. If this test breaks the sprite-metadata-driven body math diverged
+/// from the spawn AABB. End-to-end pin: `damageable_volumes` MUST return the per-animation hurtbox
+/// when the boss's sprite metrics carries one for the current animation.
 ///
 /// Builds a fake `ActorSpriteMetrics` with a clearly-distinct
 /// per-animation hurtbox for `side_sweep`, sets
@@ -467,12 +457,6 @@ fn animation_frame_sample_overrides_elapsed_frame_for_authored_boxes() {
 
 #[test]
 fn idle_rest_hurtbox_follows_the_live_animation_frame() {
-    // Regression for the "GNU-ton head hurtbox locks to frame 0
-    // while idle" bug. At rest there is no active/telegraph
-    // profile, so `damageable_volumes` used to sample the rest
-    // animation at elapsed 0 → frame 0 forever, even as the
-    // rendered breathing pose bobbed. An idle `BossAnimationFrameSample`
-    // (`profile: None`) now feeds the live frame index through.
     use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
     use ambition_characters::brain::BossAttackState;
     use ambition_sprite_sheet::{
@@ -852,14 +836,9 @@ fn world_space_body_aabbs_scales_with_world_size() {
 
 // ============================================================
 // "Attack inside the boss doesn't connect" investigation
-// (Jon's mockingbird report, 2026-06-21).
+// .
 // ============================================================
 
-/// Hypothesis check: "when the attack hitbox is completely inside the
-/// enemy hurtbox the intersection isn't flagged." It IS flagged — the hit
-/// path uses `strict_intersects`, which accepts full containment (see also
-/// `geometry::strict_intersects_accepts_full_containment`). So containment
-/// is NOT where the bug lives; this pins that at the damageable-volume level.
 #[test]
 fn attack_fully_inside_boss_volume_still_registers() {
     use crate::behavior::BossBehaviorProfile;
@@ -889,12 +868,10 @@ fn attack_fully_inside_boss_volume_still_registers() {
     );
 }
 
-/// The actual bug: a boss with NO authored `body_metrics` (the mockingbird)
-/// falls back to the bare `combat_size` box. That box is SMALLER than the
-/// visible sprite and carries no alignment offset, so attacks that visually
-/// connect with the sprite but land outside the smaller combat box miss.
-/// Mockingbird: `combat_size (500x185)` but the sprite frame is `576x216`.
-/// An authored hurtbox covering the visible sprite (as GNU-ton has) fixes it.
+/// That box is SMALLER than the visible sprite and carries no alignment offset, so attacks that
+/// visually connect with the sprite but land outside the smaller combat box miss. Mockingbird:
+/// `combat_size (500x185)` but the sprite frame is `576x216`. An authored hurtbox covering the
+/// visible sprite (as GNU-ton has) fixes it.
 #[test]
 fn mockingbird_combat_size_fallback_undershoots_the_visible_sprite() {
     use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
@@ -997,7 +974,7 @@ fn mirror_x_if_flipped_reflects_about_axis_only_when_facing_left() {
 /// **When the sample's PROFILE and its ANIMATION KEY disagree, the profile
 /// wins** — pinned before the boss-animator fold moves the type.
 ///
-/// ⛔ this is the one risk in that fold, and it is stated by the field's own
+/// this is the one risk in that fold, and it is stated by the field's own
 /// doc. `BossAnimationFrameSample.profile` is never read as data: it appears
 /// exactly twice, both times as an identity check —
 /// `sample.profile.as_ref() == Some(profile)` — asking "is the row being
@@ -1015,7 +992,7 @@ fn mirror_x_if_flipped_reflects_about_axis_only_when_facing_left() {
 /// controls: with a matching profile the sample's `frame_index` is honoured, and
 /// a mismatched KEY does not stop that.
 ///
-/// ⚠ **it guards the HURTBOX path only** — `damageable_volumes` →
+/// **it guards the HURTBOX path only** — `damageable_volumes` →
 /// `AnimationSelection::live_frame_index` (`mod.rs`). There are THREE identity
 /// checks, not the two a first survey found:
 ///
@@ -1232,11 +1209,9 @@ fn the_hitbox_path_also_takes_its_frame_from_the_profile_not_the_key() {
 /// hurtbox bob with the breathing animation instead of locking to frame 0 — the
 /// sample's own doc says so.
 ///
-/// ⛔ **an absent `animation_key` is a different fact**: it means the renderer
-/// could not resolve one. So a key-only sample cannot distinguish "this is the
-/// rest pose" from "I don't know what row this is", and the fold's clean design
-/// (`animation_key: Option<String>`) silently loses the idle case. Slice 1 needs
-/// a three-state identity — `Idle | Row(key) | Unresolved`.
+/// **an absent `animation_key` is a different fact**: it means the renderer could not resolve one.
+/// So a key-only sample cannot distinguish "this is the rest pose" from "I don't know what row this
+/// is", and the fold's clean design (`animation_key: Option<String>`) silently loses the idle case.
 ///
 /// This pins the behaviour that would be lost.
 #[test]
@@ -1341,9 +1316,8 @@ fn an_idle_sample_carries_its_frame_and_an_absent_key_cannot_say_that() {
 /// `runtime_animation_keys` pushes the SAMPLE's own key into that list when the
 /// sample's profile matches.
 ///
-/// ⛔ **that push is the circularity blocking the boss-animator fold**, and
-/// removing it left all 21 derivation tests green — which is how this gap was
-/// found. A behaviour a whole design decision turns on had no test at all.
+/// **that push is the circularity blocking the boss-animator fold**, and removing it left all
+/// 21 derivation tests green — which is how this gap was found.
 ///
 /// PROBED: with the push deleted, this fails — the empty key list finds no
 /// authored row and the hurtbox falls back to the body box.
@@ -1355,14 +1329,12 @@ fn an_idle_sample_carries_its_frame_and_an_absent_key_cannot_say_that() {
 /// precisely the condition under which a key-based rule would miss and fall back
 /// to elapsed-time sampling — a different hurtbox on a live boss.
 ///
-/// ⭐ **why this is worth a second test.** The fold's precondition was written
-/// down in two doc comments and one planning row, and nothing evaluated it. Now
-/// it is a predicate: when the content decision lands and `apple_rain` gets its
-/// rows in `special_animation_keys()`, this assertion flips, and the fold's
-/// precondition is a test result rather than an argument. It should be INVERTED
-/// then, not deleted — the same evidence, pointing the other way.
+/// **why this is worth a second test.** The fold's precondition was written down in two doc
+/// comments and one planning row, and nothing evaluated it. Now it is a predicate: when the
+/// content decision lands and `apple_rain` gets its rows in `special_animation_keys()`, this
+/// assertion flips, and the fold's precondition is a test result rather than an argument.
 ///
-/// ⚠ this is the engine-side reproduction (an unregistered `Special`), so it
+/// this is the engine-side reproduction (an unregistered `Special`), so it
 /// cannot see the shipped catalog. The content-side pin is
 /// `apple_rain_claims_no_animation_rows_which_is_why_the_fold_is_blocked`.
 #[test]

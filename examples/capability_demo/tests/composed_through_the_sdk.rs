@@ -6,7 +6,7 @@
 //! actually does — write ONE module that mounts the capability and declares
 //! what it brings, and have the composition install all of it.
 //!
-//! ⚠ **`ambition_platformer2d` is a DEV-dependency.** A mechanic must not depend on the
+//! **`ambition_platformer2d` is a DEV-dependency.** A mechanic must not depend on the
 //! facade that mounts it; the capability's real closure is still EIGHT
 //! foundation crates. This file is the consumer, not the capability.
 
@@ -16,7 +16,7 @@ use bevy::prelude::*;
 
 /// One character, so the composition has somebody to start as.
 ///
-/// ⚠ a `playable(..)` whose starting character names nobody is refused with
+/// a `playable(..)` whose starting character names nobody is refused with
 /// *"the host would prepare NOTHING and wait forever"* — which is the assembly
 /// check doing its job and is why this constant exists rather than an empty
 /// roster and a hopeful string.
@@ -46,10 +46,6 @@ const ROSTER: &str = r#"(
 )"#;
 
 /// A room to stand in, so the module below is a GAME rather than a fragment.
-///
-/// The composition refuses a mounted experience with no gameplay route, and it
-/// is right to — but that refusal is what the rollback test used to trip over,
-/// leaving it asserting on a rejected app.
 fn a_room_to_stand_in() -> ambition_platformer2d::world::rooms::RoomSpec {
     use ambition_platformer2d::world::prelude::*;
     let size = Vec2::new(640.0, 360.0);
@@ -58,7 +54,7 @@ fn a_room_to_stand_in() -> ambition_platformer2d::world::rooms::RoomSpec {
         "Pulse Room",
         size,
         Vec2::new(64.0, floor_top - 64.0),
-        // ⚠ `Block::solid(name, MIN, size)` takes a MIN CORNER, not a centre —
+        // `Block::solid(name, MIN, size)` takes a MIN CORNER, not a centre —
         // the reference fixture shipped a centre here for months and its walker
         // fell through the floor forever while the host reported Running.
         vec![Block::solid(
@@ -102,13 +98,13 @@ impl GameModule for GameWithPulse {
             // + AND the registration that satisfies it. Without this half the
             //   module could say what must rewind and had no supported way to
             //   supply it, so a rollback game mounting this capability could not
-            //   be composed at all (GPT 5.6, 2026-08-01, finding 3).
+            //   be composed at all.
             .provides_rollback::<capability_demo::PulseCooldown>(
                 capability_demo::PULSE_CAPABILITY,
                 capability_demo::ROLLBACK_STATE,
                 |cooldown| u64::from(cooldown.remaining_ticks),
             )
-            // ⚠ and the BODY. The mechanic's whole observable effect is a
+            // and the BODY. The mechanic's whole observable effect is a
             // velocity change, so a rewind that restored only the cooldown
             // would resimulate from a body still carrying the old push.
             .provides_rollback::<capability_demo::PulseBody>(
@@ -121,13 +117,6 @@ impl GameModule for GameWithPulse {
 
 /// **All FOUR contributions arrive from one declaration, and the composition
 /// SUCCEEDS.**
-///
-/// ⛔ this test used to assert on a REJECTED app. It mounted the module,
-/// expected `install_into` to fail for missing rollback registration, and then
-/// read the resources that the failed installation had already written —
-/// treating those as proof the capability composed. That proves two things
-/// neither of which is the claim: that composition detects the omission, and
-/// that installation mutates before it refuses (GPT 5.6, 2026-08-01, finding 3).
 ///
 /// It could not do better, because there was no supported way for a module to
 /// PROVIDE the registration it declared as required. `provides_rollback` is that

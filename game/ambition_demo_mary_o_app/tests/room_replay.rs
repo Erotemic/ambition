@@ -1,19 +1,10 @@
 //! **A replay request actually replays the room** — in the standalone binary.
 //!
-//! This is the proof that was missing (tracks §2.5). `RoomReplayRequested` is
-//! the engine's generic "replay the active room" request, and Mary-O emits it
-//! from two beats: the flag tally cycling the level, and the clock running out.
-//! Until 2026-07-21 its only consumer was registered by `ambition_app`, and
-//! this crate depends on `ambition_platformer2d`, never on `ambition_app` — so in the
-//! shipped standalone binary the message went into a registered channel that
-//! nothing drained.
+//! `RoomReplayRequested` is the engine's generic "replay the active room" request, and Mary-O
+//! emits it from two beats: the flag tally cycling the level, and the clock running out.
 //!
-//! Nothing caught it because every existing proof observed the EMIT rather
-//! than the effect: the content-crate unit test asserts the clock refill that
-//! `cycle_level_on_flag_tally` writes one line before the message, and the
-//! scripted run returns the instant it sees that same refill. Both are green
-//! whether or not a consumer exists anywhere. The assertions below are about
-//! the BODY, which only moves if something drained the request.
+//! Both are green whether or not a consumer exists anywhere. The assertions below are about the
+//! BODY, which only moves if something drained the request.
 
 use ambition_demo_mary_o_app::build_demo_app;
 use ambition_platformer2d::engine_core as ae;
@@ -34,7 +25,7 @@ fn count_room_resets(
 
 /// Every death the app published this run, as (victim, why).
 ///
-/// ⭐ **the CAUSE is the anti-fake guard.** A fixture that claims to drive one
+/// **the CAUSE is the anti-fake guard.** A fixture that claims to drive one
 /// death route and actually drives another is green for the wrong reason, and
 /// the cause is the only thing in the world that can tell them apart:
 /// `HitSource::LeftTheWorld` on the controlled body is written by exactly one
@@ -71,10 +62,6 @@ fn player_pos(app: &mut App) -> Option<Vec2> {
     query.iter(app.world()).next().map(|k| k.pos)
 }
 
-/// The room she is actually standing in — spawn, size, blast margin and the
-/// authored block list, all read from the LIVE session rather than from the
-/// level constructor, so every coordinate below follows the room if Jon moves
-/// it.
 fn room(app: &mut App) -> ae::World {
     let mut query = app
         .world_mut()
@@ -267,9 +254,7 @@ fn the_level_timeout_actually_replays_the_room() {
         ambition_demo_mary_o::STARTING_TIME
     );
 
-    // The part no existing test reached: the fresh attempt actually starts at
-    // spawn. Every previous proof stopped at the clock refill above, which is
-    // written one line before the replay request.
+    // The part no existing test reached: the fresh attempt actually starts at spawn.
     let home = player_pos(&mut app).expect("she is still in the world");
     assert!(
         home.distance(spawn) < 64.0,
@@ -278,9 +263,6 @@ fn the_level_timeout_actually_replays_the_room() {
     );
 }
 
-/// **DYING RESTARTS THE LEVEL** — the death Jon actually dies, composed.
-///
-/// Jon, from play: *"when you die the level doesn't restart, you just stay right
 /// where you were."*
 ///
 /// Every link in that chain was verified present by READING it — the beat's
@@ -294,7 +276,7 @@ fn the_level_timeout_actually_replays_the_room() {
 /// above proves the TIMEOUT death end to end; this is the fatal-hit death, which
 /// is the one the complaint is about.
 ///
-/// ⚠ **she has to die AWAY from spawn or a green here means nothing** — dying on
+/// **she has to die AWAY from spawn or a green here means nothing** — dying on
 /// the spot is satisfied by standing still. Both terms are observed: she is
 /// asserted to be held away from spawn while the beat plays, and home when it
 /// ends.
@@ -346,22 +328,14 @@ fn a_fatal_hit_returns_her_to_spawn_when_the_beat_ends() {
 /// **THE THIRD DEATH ROUTE: A PIT.** The kernel resets her, and the room has to
 /// come back — the body AND the per-attempt block state.
 ///
-/// Three systems in the whole app write `ActorDiedMessage`, and until now only
-/// two of them were proven to replay the room end to end: `death_respawn_player`
-/// (a fatal hit, the sibling above) and the level timeout. The third is
-/// `publish_kernel_reset_death` — *a pit, a spike, any hazard, the reset verb*
-/// — which reads `PlayerBodyFrameOutput.reset` and never touches health at all.
-/// If Jon's *"when you die the level doesn't restart"* and *"some blocks from
-/// the last run remain spent"* have one cause, the untested route is it.
+/// Three systems in the whole app write `ActorDiedMessage`, and until now only two of them were
+/// proven to replay the room end to end: `death_respawn_player` (a fatal hit, the sibling above)
+/// and the level timeout. The third is `publish_kernel_reset_death` — *a pit, a spike, any hazard,
+/// the reset verb* — which reads `PlayerBodyFrameOutput.reset` and never touches health at all.
 ///
-/// ## ⛔ How she is killed, and why it is not the obvious way
+/// ## How she is killed, and why it is not the obvious way
 ///
-/// **`BodyHealth.health.current = 0` does NOT kill her.** Nothing polls the
-/// controlled body's health for death; measured 2026-08-09, a hand-zeroed
-/// Mary-O walked this room at `hp = 0` for 120 frames and the beat never armed
-/// (`death_reset_timing::deal_a_lethal_hit` and `versus_stage.rs:784` both
-/// record it). Writing the reset flag by hand would be worse: the flag IS the
-/// thing under test.
+/// Writing the reset flag by hand would be worse: the flag IS the thing under test.
 ///
 /// So she is **dropped into the pit and left to fall.** The fixture relocates
 /// her below the room floor — through `transit_body`, the engine's own
@@ -371,12 +345,10 @@ fn a_fatal_hit_returns_her_to_spawn_when_the_beat_ends() {
 /// `BodyReset`, and `publish_kernel_reset_death` publishes the death. Nothing in
 /// this test writes a death, a reset, a health value or a replay request.
 ///
-/// ⚠ **and the CAUSE is asserted**, because "I drove the route I meant to" is
+/// **and the CAUSE is asserted**, because "I drove the route I meant to" is
 /// exactly the claim a fixture fakes by accident. `HitSource::LeftTheWorld`
 /// charged to the controlled body has one writer in the entire app, and it is
 /// the system this test exists for.
-///
-/// ## ✔ POISONED, not trusted — and the red is BOTH of Jon's reports
 ///
 /// Deleting `restart_level_after_death`'s `replay.write(..)` — the same poison
 /// the fatal-hit sibling uses — turns this red with
@@ -387,32 +359,21 @@ fn a_fatal_hit_returns_her_to_spawn_when_the_beat_ends() {
 /// Vec2(78.0, 973.375) and spawn is Vec2(78.0, 375.0)
 /// ```
 ///
-/// ⭐ **both of his sentences at once, from one deleted line**: a block from the
-/// last run still spent, and a body 598 px from spawn after a death. Measured
-/// 2026-08-09.
-///
-/// ⚠ **that the POSITION term survives the poison had to be measured, not
-/// assumed.** A kernel reset teleports the body to `world.spawn` by itself
-/// (`reset_body_clusters` in `integrate_home_body`) and she is held over the
-/// void, so the honest expectation was that the void would carry her home and
-/// leave only the block state discriminating. It does not — under the poison
-/// she is still in the pit when the window closes. Both terms are real here;
-/// the block is stated first because it is the one nothing but the replay can
+/// It does not — under the poison she is still in the pit when the window closes. Both terms
+/// are real here; the block is stated first because it is the one nothing but the replay can
 /// restore.
 ///
-/// ⚠ **it names a SPECIFIC block** rather than asserting the set is empty —
-/// `rearm_all` empties its own set trivially, so an emptiness check is green by
-/// construction. The block is taken from the LIVE room's geometry, and it is
-/// marked spent through the same public write `bonk_power_blocks` performs.
-/// ⛔ this does NOT claim there is no third kind of per-attempt block state;
-/// that is D70's open question and this fixture is not its answer.
+/// **it names a SPECIFIC block** rather than asserting the set is empty — `rearm_all` empties
+/// its own set trivially, so an emptiness check is green by construction. The block is taken
+/// from the LIVE room's geometry, and it is marked spent through the same public write
+/// `bonk_power_blocks` performs.
 #[test]
 fn a_pit_death_returns_her_to_spawn_and_rearms_a_spent_block() {
     use ambition_demo_mary_o::powerups::SpentPowerBlocks;
 
     let mut app = boot();
     settle_until_playable(&mut app);
-    // ⚠ **the room is still arriving when the body first exists.** Activation
+    // **the room is still arriving when the body first exists.** Activation
     // emits `RoomLoaded` for two or three more frames and a `Manual` room reset
     // after it, and BOTH re-arm the blocks — so a block spent the frame she
     // becomes queryable is wiped by the load that was still finishing, and the
@@ -459,7 +420,7 @@ fn a_pit_death_returns_her_to_spawn_and_rearms_a_spent_block() {
             .expect("gameplay has a primary player")
     };
 
-    // ⭐ **the pit.** Below the room floor but INSIDE the blast margin, so the
+    // **the pit.** Below the room floor but INSIDE the blast margin, so the
     // fall itself is what takes her out of the world — this hands the kernel a
     // body in a pit, not a body already past the edge.
     displace(
@@ -480,7 +441,7 @@ fn a_pit_death_returns_her_to_spawn_and_rearms_a_spent_block() {
          — the fixture killed nothing, so everything it measures next is vacuous",
     );
 
-    // ⛔ **WHICH death, asserted before anything is concluded from it.** A hit,
+    // **WHICH death, asserted before anything is concluded from it.** A hit,
     // a timeout and a kernel reset all arm the same beat; only the cause says
     // which system published it.
     let deaths = app.world().resource::<DeathsSeen>().0.clone();
@@ -516,7 +477,7 @@ fn a_pit_death_returns_her_to_spawn_and_rearms_a_spent_block() {
         .is_spent(&question.0);
     let home = player_pos(&mut app).expect("she is still in the world");
 
-    // ⭐ the strong term first: only a replay puts this block back.
+    // the strong term first: only a replay puts this block back.
     assert!(
         !still_spent,
         "SHE DIED IN A PIT AND {} IS STILL SPENT: the room was put back {resets} \

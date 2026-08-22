@@ -1,11 +1,9 @@
 //! `DialogView` — the dialogue overlay's per-frame read-model (recon C3).
 //!
-//! The render layer's dialog UI used to read `ambition_dialog::DialogState`
-//! live — the renderer's only reason to depend on the dialogue runtime. This
-//! row snapshots presentation-neutral dialogue facts (visibility, dialogue id,
-//! stable speaker identity, portrait clip, speaker / conversation labels, body,
-//! options, and selection), rebuilt sim-side in the FeatureViewSync tail like
-//! every other read-model; presentation is a pure consumer.
+//! This row snapshots presentation-neutral dialogue facts (visibility, dialogue id, stable speaker
+//! identity, portrait clip, speaker / conversation labels, body, options, and selection), rebuilt
+//! sim-side in the FeatureViewSync tail like every other read-model; presentation is a pure
+//! consumer.
 
 use ambition_dialog::DialogState;
 use bevy::prelude::{DetectChanges, Res, ResMut, Resource};

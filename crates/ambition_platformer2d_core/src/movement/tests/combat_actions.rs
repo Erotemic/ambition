@@ -425,9 +425,8 @@ fn the_air_dodge_window_grants_i_frames_and_its_endlag_does_not() {
     assert!(endlag_seen, "the endlag state was reached at all");
 }
 
-/// **A body that authors NO window does not air dodge** — its airborne dash
-/// press stays the air dash it always was. This is the regression that keeps
-/// the maneuver from being a silent, game-wide change of what a button means.
+/// **A body that authors NO window does not air dodge** — its airborne dash press stays the air
+/// dash it always was.
 #[test]
 fn a_body_without_an_authored_window_has_no_air_dodge() {
     let world = test_world();
@@ -454,16 +453,14 @@ fn a_body_without_an_authored_window_has_no_air_dodge() {
 
 // ── The floor game: tumble / knockdown / tech / getup ───────────────────────
 //
-// A body used to fly, land, and be running again in the same tick, so a big hit
-// and a small one differed only in distance. These pin the four states and the
-// two ways out of the last one.
+// These pin the four states and the two ways out of the last one.
 
 use crate::movement::knockdown;
 
 fn floor_game_tuning() -> crate::test_support::TestTuning {
     let mut tuning = crate::test_support::TEST_TUNING;
     tuning.tumble_speed = 420.0;
-    // ⚠ a fighter's floor: the engine default is `0.0`, which means the grounded
+    // a fighter's floor: the engine default is `0.0`, which means the grounded
     // evade is always the roll. A fixture that left it there would measure the
     // absence rather than the option.
     tuning.spot_dodge_time = crate::movement::tuning::SPOT_DODGE_TIME;
@@ -526,27 +523,20 @@ fn only_a_launch_over_the_authored_threshold_tumbles() {
     );
 }
 
-/// ⛔⛔ **A LAUNCH OFF THE FLOOR IS NOT A LANDING** (D155, Jon playing: *"alice is
-/// at 1427% and Booul is hitting her, but she's not going anywhere"*).
+/// Every other case above launches a body that is ALREADY AIRBORNE — they each set `on_ground =
+/// false` first — so the one situation a platform fighter is actually in when it gets hit, standing
+/// on the stage, was never stepped. A launched body carried its stale resting contact into the same
+/// step's `tick_knockdown`, which read `on_ground == true`, called that *touched down while still
+/// tumbling*, and resolved it to a KNOCKDOWN: `vel = ZERO` on the tick the launch was applied.
 ///
-/// Every other case above launches a body that is ALREADY AIRBORNE — they each
-/// set `on_ground = false` first — so the one situation a platform fighter is
-/// actually in when it gets hit, standing on the stage, was never stepped. A
-/// launched body carried its stale resting contact into the same step's
-/// `tick_knockdown`, which read `on_ground == true`, called that *touched down
-/// while still tumbling*, and resolved it to a KNOCKDOWN: `vel = ZERO` on the
-/// tick the launch was applied. Measured in the live host: a standing fighter at
-/// 1427% took a `3269 px/s` launch and moved **zero pixels**.
-///
-/// ⭐ the reason it hid for so long is the threshold. A hit UNDER
-/// `tumble_speed` never armed the tumble, so it launched correctly — which is
-/// every hit in Ambition and every weak hit in smash. Only a launch big enough
-/// to be worth watching was deleted.
+/// the reason it hid for so long is the threshold. A hit UNDER `tumble_speed` never armed the
+/// tumble, so it launched correctly — which is every hit in Ambition and every weak hit in
+/// smash.
 #[test]
 fn a_launch_that_tumbles_a_standing_body_throws_it_instead_of_knocking_it_down() {
     let world = test_world();
     let mut scratch = scratch_at(world.spawn);
-    // ⚠ RESTING, not merely near the floor: loop on the property.
+    // RESTING, not merely near the floor: loop on the property.
     let mut standing = false;
     for _ in 0..600 {
         step_fighter(&world, &mut scratch, InputState::default());
@@ -655,7 +645,6 @@ fn a_tech_on_the_landing_skips_the_knockdown_entirely() {
         ),
         ..Default::default()
     };
-    // Fall until one frame before contact, then press.
     let mut teched = false;
     for _ in 0..200 {
         // Press only once the body is genuinely about to touch down: falling,
@@ -689,7 +678,7 @@ fn a_tech_on_the_landing_skips_the_knockdown_entirely() {
 
 /// **DOWN ON THE STICK EVADES IN PLACE.**
 ///
-/// ⛔ the pair is the assertion: the same press with a SIDEWAYS stick must still
+/// the pair is the assertion: the same press with a SIDEWAYS stick must still
 /// roll, or this is not a second option — it is the first one renamed. And the
 /// spot dodge must not travel, which is the whole reason a cornered fighter
 /// wants it.
@@ -739,12 +728,9 @@ fn down_on_the_stick_spot_dodges_instead_of_rolling() {
 
 /// **A WALL IS SOMETHING YOU CAN CATCH YOURSELF ON TOO.**
 ///
-/// ⛔ before this, a launch into a wall was a free continuation for the
-/// attacker: the victim kept tumbling, slid down the surface it slammed into,
-/// and hit the floor still helpless. ⚠ both halves — the tech FIRES while the
-/// body is still airborne, and the velocity it leaves with points AWAY from the
-/// wall. A version that only cleared the tumble would leave the body pinned to
-/// the surface it just teched off.
+/// both halves — the tech FIRES while the body is still airborne, and the velocity it leaves
+/// with points AWAY from the wall. A version that only cleared the tumble would leave the body
+/// pinned to the surface it just teched off.
 #[test]
 fn a_tumbling_body_can_tech_off_a_wall() {
     let world = test_world();

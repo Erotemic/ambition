@@ -292,11 +292,8 @@ mod restart_tests {
 
     #[test]
     fn should_restart_adaptive_when_mode_says_simple_track_playing() {
-        // Defensive: if anything leaves the director in mode=SimpleTrack
-        // while still claiming an active adaptive cue, the new directive
-        // must stop the base channel before the adaptive layers ramp up.
-        // (The primary fix prevents this state from being created, but
-        // the predicate is robust against other code paths.)
+        // (The primary fix prevents this state from being created, but the predicate is robust
+        // against other code paths.)
         assert!(should_restart_adaptive(
             Some("first_goblin_tune_v2"),
             MusicDirectorMode::SimpleTrack,
@@ -320,12 +317,6 @@ mod restart_tests {
 
     #[test]
     fn should_restart_adaptive_when_outro_returns_to_active_state() {
-        // The Jon-2026-05-09 race: encounter cleared → outro tail
-        // playing AND base lofi playing (overlap), then encounter
-        // restarts → directive points to a non-outro state. Without
-        // this guard, the same-cue match would skip the
-        // stop-base-channel path and lofi + adaptive layers play
-        // simultaneously.
         assert!(should_restart_adaptive(
             Some("first_goblin_tune_v2"),
             MusicDirectorMode::AdaptiveOutro,

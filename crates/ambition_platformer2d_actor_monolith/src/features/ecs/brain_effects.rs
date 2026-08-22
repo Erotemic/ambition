@@ -40,14 +40,11 @@ const RANGED_RECOIL_DEFAULT: f32 = 60.0;
 const PROJECTILE_HALF_EXTENT: ae::Vec2 = ae::Vec2::new(10.0, 8.0);
 const PROJECTILE_MAX_LIFETIME: f32 = 2.4;
 
-/// Body-side ranged refire interval (s) — the floor on every ranged-capable
-/// body's fire rate (invariant I3). The controller (AI brain, possessing human,
-/// or future RL policy) may attempt `fire` every tick; the body accepts a shot
-/// at most once per this interval. This was previously a *brain*-side cadence
-/// (`SmashState::ranged_cooldown_remaining`), which leaked the physical limit
-/// into the controller — a human could spam past it. It now lives on the body.
-/// Per-archetype tempos will move this onto an `ActionSet`-derived parameter,
-/// like the projectile envelope above.
+/// Body-side ranged refire interval (s) — the floor on every ranged-capable body's fire rate
+/// (invariant I3). The controller (AI brain, possessing human, or future RL policy) may attempt
+/// `fire` every tick; the body accepts a shot at most once per this interval. It now lives on the
+/// body. Per-archetype tempos will move this onto an `ActionSet`-derived parameter, like the
+/// projectile envelope above.
 const RANGED_REFIRE_S: f32 = 1.1;
 
 /// How long the actor's post-fire Shoot overlay pose holds — matches the player's
@@ -59,13 +56,10 @@ const SHOOT_ANIM_HOLD_SECS: f32 = 0.18;
 /// Read every `ActorActionMessage::Ranged` and spawn the matching projectile.
 /// Applies recoil to the firing body's velocity.
 ///
-/// BODY-GENERIC. This used to demand the full actor cluster, so a body without an
-/// `ActorConfig` — every home/player body — silently fell through and its ranged
-/// move spawned nothing, which is why player shots needed their own path. The
-/// query now names only what firing actually needs: kinematics, the body's melee
-/// state (which owns the shared refire floor), its surface frame, and an OPTIONAL
-/// archetype config for the per-archetype default look. Any body that emits
-/// `ActionRequest::Ranged` now fires through this one consumer.
+/// BODY-GENERIC. The query now names only what firing actually needs: kinematics, the body's melee
+/// state (which owns the shared refire floor), its surface frame, and an OPTIONAL archetype config
+/// for the per-archetype default look. Any body that emits `ActionRequest::Ranged` now fires
+/// through this one consumer.
 pub fn spawn_projectiles_from_brain_actions(
     mut messages: MessageReader<ActorActionMessage>,
     mut projectiles: MessageWriter<ProjectileSpawnRequest>,
@@ -82,13 +76,13 @@ pub fn spawn_projectiles_from_brain_actions(
     // aliasing. Arms the Shoot pose on the frame the body accepts a shot.
     mut anim_facts: Query<&mut crate::actor::BodyAnimFacts>,
     held_items: Query<&super::HeldItem>,
-    // ⛔ **WHO WROTE THIS BODY'S VELOCITY.** The causal log answers "what is the
+    // **WHO WROTE THIS BODY'S VELOCITY.** The causal log answers "what is the
     // velocity" and never "who set it", so a body that moves without asking to
     // costs a survey of all 70 velocity writers to explain — measured, six
-    // rebuild-and-print cycles on one 12-tick window (queue S51). Recoil is one
+    // rebuild-and-print cycles on one 12-tick window. Recoil is one
     // of those writers and the first to say so out loud.
     //
-    // ⚠ `Option`, because the FEATURE and the PLUGIN are two switches: a host
+    // `Option`, because the FEATURE and the PLUGIN are two switches: a host
     // may compile the publishers without installing an inspector.
     #[cfg(feature = "causal")] log: Option<ResMut<ambition_causal::CausalRecording>>,
     #[cfg(feature = "causal")] identities: Query<&crate::combat::components::ActorIdentity>,
@@ -246,14 +240,11 @@ pub fn spawn_projectiles_from_brain_actions(
     }
 }
 
-// Melee is a moveset move for EVERY body — there is no actor-specific (or
-// player-specific) melee driver. A body's melee capability (`ActionSet.melee`)
-// is folded into a `"attack"`-verb move at spawn (`build_actor_moveset`); the
-// brain's `melee_pressed` edge starts it via `combat::moveset::trigger_moveset_moves`
-// and `advance_move_playback` spawns the active-window strike. The old
-// `start_enemy_melee_from_brain_actions` / `ActorMut::begin_melee_attack` actor
-// pair AND the flat `start_body_melee` / `advance_body_melee` are all deleted —
-// one melee lifecycle.
+// Melee is a moveset move for EVERY body — there is no actor-specific (or player-specific)
+// melee driver. A body's melee capability (`ActionSet.melee`) is folded into a `"attack"`-verb
+// move at spawn (`build_actor_moveset`); the brain's `melee_pressed` edge starts it via
+// `combat::moveset::trigger_moveset_moves` and `advance_move_playback` spawns the active-window
+// strike.
 
 /// Helper: combat-tuning lookup. Lives on the test side to make
 /// the helper available to the unit tests below without leaking

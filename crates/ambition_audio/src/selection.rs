@@ -119,9 +119,6 @@ impl SfxAuthority {
 /// menu-SFX allowlist. The provider supplies the actual source definitions; the
 /// declaration chooses which subset belongs to that screen.
 ///
-/// ⚠ **not a `Resource`, deliberately.** It was one until 2026-08-07, which made
-/// frontend sound a fact about the PROCESS: the last composition to install it
-/// won, so a host composing seven providers could honour exactly one of them.
 /// Declarations now live in [`FrontendAudioRegistry`], keyed by route.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FrontendAudioProfile {
@@ -170,12 +167,6 @@ impl FrontendAudioProfile {
 /// Every frontend audio DECLARATION in this App, keyed by the route that owns
 /// it — plus the one profile currently in effect.
 ///
-/// ⭐ **the key is the ROUTE, not the experience.** (Jon, 2026-08-07: *"Yes, per
-/// route."*) One experience is routinely reached by several routes — the basic
-/// launcher experience is reached by five — so keying by experience would have
-/// meant five screens sharing one answer, a smaller copy of the singleton this
-/// type replaces.
-///
 /// Two kinds of entry, because there are two honest claims:
 ///
 /// * a **route declaration** — "this screen sounds like this", made by whoever
@@ -197,28 +188,10 @@ pub struct FrontendAudioRegistry {
     /// it first looks, and the difference is worth stating because the obvious
     /// justification is wrong.
     ///
-    /// `crate::music::title_theme_keeps_playing` decides whether the title theme
-    /// survives a screen handoff, and its doc rested on a property of the
-    /// singleton this type replaced: the profile *"does not blink out between
-    /// two of its screens"*. Keying by route looks like exactly what would take
-    /// that away, so this field was written to preserve it.
-    ///
-    /// ⚠ **measured 2026-08-07, and the concern did not reproduce.** With the
-    /// value force-cleared on every deactivation, a startup→launcher handoff
-    /// showed `in_effect` absent on 0 of 24 frames and the audio owner absent on
-    /// 0 as well: `select_shell_audio_context` drains deactivation and
-    /// activation in ONE run, so no reader observes anything between them. The
-    /// continuity guard
-    /// (`shell_host_startup::the_title_music_survives_the_handoff_from_the_cards_to_the_launcher`)
-    /// stayed green either way.
-    ///
-    /// So this is a cheap precaution, NOT a demonstrated fix, and it is written
-    /// down that way rather than as a claim a test backs. Clearing here would be
-    /// the only way to open the window the 2026-08-03 restart bug came through;
-    /// not clearing costs nothing and closes it by construction. If a route
-    /// change ever does span frames — a frontend route behind a real load
-    /// barrier is the candidate — this is already correct and no test had to
-    /// predict it.
+    /// So this is a cheap precaution, NOT a demonstrated fix, and it is written down that way
+    /// rather than as a claim a test backs. If a route change ever does span frames — a frontend
+    /// route behind a real load barrier is the candidate — this is already correct and no test had
+    /// to predict it.
     in_effect: Option<FrontendAudioProfile>,
 }
 
@@ -325,14 +298,8 @@ pub struct ActiveAudioSelection {
     current: Option<ActiveAudioAuthority>,
     /// Presentation sources two different providers both tried to claim.
     ///
-    /// Recorded rather than fatal. This used to `panic!` — "authorized twice with
-    /// different definitions" — which killed a running game over a content
-    /// misconfiguration whose worst honest outcome is one provider's cues not
-    /// resolving. It also could not tell that case apart from the ROUTINE one: the
-    /// same provider re-authorizing its own source as asynchronously-loaded bank
-    /// ids arrive. Conflating them is why the one production caller had to skip
-    /// re-authorizing entirely, and why a source authorized before its bank landed
-    /// was never refreshed by that path.
+    /// Recorded rather than fatal. It also could not tell that case apart from the ROUTINE one: the
+    /// same provider re-authorizing its own source as asynchronously-loaded bank ids arrive.
     sfx_source_conflicts: Vec<SfxSourceClaimConflict>,
 }
 
@@ -538,7 +505,7 @@ impl ActiveAudioSelection {
         // is what the accessor's own documentation promises — so carrying them
         // across a selection change turns a live diagnostic into historical
         // residue, and every later clean session reports the first bad one
-        // forever (GPT 5.6, 2026-07-27).
+        // forever.
         self.sfx_source_conflicts.clear();
         self.current = Some(ActiveAudioAuthority {
             owner,
@@ -653,12 +620,9 @@ impl ActiveAudioSelection {
         let provider_id = provider_id.into();
         let candidate = ActiveSfxSource::new(provider_id, sfx, bank_ids, None);
         match current.sfx_sources.get_mut(&source) {
-            // The SAME provider authorizing its own source again. Legitimate and
-            // routine: bank ids arrive asynchronously, so two callers on two ticks
-            // hold two honest views of the same source. This used to PANIC on any
-            // difference, which forced the one production caller to skip
-            // re-authorizing entirely — and that skip is why a source authorized
-            // before its bank arrived was never refreshed by that path.
+            // The SAME provider authorizing its own source again. Legitimate and routine: bank ids
+            // arrive asynchronously, so two callers on two ticks hold two honest views of the same
+            // source.
             //
             // Merged, not replaced, and that is the load-bearing choice: the
             // authorized set only GROWS within a session, so the outcome does not
@@ -887,11 +851,8 @@ mod tests {
 
     /// **§4.5, and §3.5's single point of loss.**
     ///
-    /// The bug this closes: `audio_play_sfx_messages` took the provider from
-    /// `selection.provider_id()` -- the ONE active provider -- rather than from the
-    /// request. `ProviderSfxHandleCache` was already keyed `(provider_id, SfxId)`,
-    /// so the resolution table was source-qualified the whole time and only the
-    /// emission had lost the emitter.
+    /// `ProviderSfxHandleCache` was already keyed `(provider_id, SfxId)`, so the resolution table
+    /// was source-qualified the whole time and only the emission had lost the emitter.
     ///
     /// So the sharp case is ONE logical cue id emitted from two sources. Under the
     /// old routing both resolved to the session's primary provider and Sanic's dash
@@ -999,11 +960,8 @@ mod source_claim_tests {
 
     /// **The routine case that used to be a panic.**
     ///
-    /// Bank ids load asynchronously, so two callers on two ticks hold two honest
-    /// views of one source. `authorize_sfx_source` used to panic on ANY
-    /// difference, which forced the production authorizer to skip re-authorizing
-    /// entirely — and that skip is why a source authorized before its bank
-    /// arrived was never refreshed by that path.
+    /// Bank ids load asynchronously, so two callers on two ticks hold two honest views of one
+    /// source.
     #[test]
     fn a_later_view_of_the_same_source_adds_cues_rather_than_crashing() {
         let mut selection = gameplay();

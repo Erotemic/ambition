@@ -1,16 +1,15 @@
 //! **A struck block flinches** — the presentation half of hitting one.
 //!
-//! Jon: *"in mary-o blocks that are used need a new texture so they are visually
 //! distinguishable. They also need a small animation (probably an in-code position
 //! nudge up and back into place) when they are hit."*
 //!
-//! ⛔ **PRESENTATION ONLY, and that is the whole design decision.** The nudge must
+//! **PRESENTATION ONLY, and that is the whole design decision.** The nudge must
 //! not move the collision box: a body standing on a bonked block would be lifted by
 //! it, a body beside it shoved, and a rollback would have to rewind an animation.
 //! The block's geometry stays authoritative and static; what moves is the drawn
 //! quad. Nothing in this module is sim state and nothing here is rewound.
 //!
-//! ⭐ **keyed by block NAME, because that is the identity both halves already
+//! **keyed by block NAME, because that is the identity both halves already
 //! share.** `FeatureEcsWorldOverlay::removed_block_names` and the renderer's
 //! `BlockVisual { block_name }` are name-keyed for the same reason — a block is
 //! authored geometry, not an entity the sim owns, so the name is the only handle
@@ -18,8 +17,7 @@
 
 use bevy::prelude::Message;
 
-/// A block was struck and should flinch. Emitted by whatever decides a hit
-/// landed; consumed by the render layer, which owns the motion.
+/// A block was struck and should flinch.
 #[derive(Message, Clone, Debug, PartialEq, Eq)]
 pub struct BlockStruck {
     /// Durable geometry identity, matching `BlockVisual::geo_id`.
@@ -34,7 +32,7 @@ impl BlockStruck {
 
 /// How far the flinch travels, in world px, and how long it takes.
 ///
-/// ⚠ **against gravity, not "up"** — the renderer resolves the direction from the
+/// **against gravity, not "up"** — the renderer resolves the direction from the
 /// gravity frame, so a block struck in a flipped room flinches the way that room
 /// means it. Naming it `RISE` rather than `UP` is the same relativity rule the
 /// engine applies to feet and jumps.
@@ -71,7 +69,7 @@ mod tests {
             nudge_fraction(NUDGE_SECONDS * 0.35) > 0.99,
             "it reaches full rise at the turn"
         );
-        // ⚠ the property that matters is not the curve's shape but that it is
+        // the property that matters is not the curve's shape but that it is
         // BOUNDED: an offset that overshot would push the drawn block through the
         // one above it, which on a shelf of blocks reads as the row breaking apart.
         for i in 0..=100 {

@@ -81,7 +81,7 @@ impl fmt::Display for CompileStage {
 
 /// What went wrong, as a code a tool can branch on.
 ///
-/// ⚠ **`UnknownField` is an ERROR, not a warning.** Silently ignoring an
+/// **`UnknownField` is an ERROR, not a warning.** Silently ignoring an
 /// unconsumed authored field is how a typo becomes a mechanic that never fires,
 /// which is the single most expensive class of content bug: everything looks
 /// authored and nothing happens.

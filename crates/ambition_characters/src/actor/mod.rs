@@ -75,14 +75,10 @@ impl Actor {
 
 /// **Why a body cannot be hurt right now — a SET, not a flag.**
 ///
-/// More than one thing can be true at once (a transformation is playing AND a
-/// star is burning), and each owner has to be able to stop being true without
-/// deciding for the others. A bool cannot express that: the second writer to
-/// finish decides, so the loser is either left invincible forever or stripped
-/// early. The transformation beat used to carry a `was_invulnerable` field for
-/// exactly this reason — a save-and-restore is what a missing union looks like
-/// from inside one of its writers, and it only ever handled the orderings its
-/// author thought of.
+/// More than one thing can be true at once (a transformation is playing AND a star is burning), and
+/// each owner has to be able to stop being true without deciding for the others. A bool cannot
+/// express that: the second writer to finish decides, so the loser is either left invincible
+/// forever or stripped early.
 ///
 /// Reasons are bits so the whole set is one `Copy` word, which keeps
 /// [`Health`] snapshot-encodable as it was.
@@ -98,8 +94,6 @@ impl Invulnerability {
     /// rather than for the object that caused it: "star" is one game's word for
     /// one of its pickups, and the engine has no business knowing it.
     pub const EMPOWERED: u32 = 1 << 1;
-    /// A game or scripted sequence asserting it directly. The catch-all for
-    /// callers that used to write the bool and have no finer reason to give.
     pub const SCRIPTED: u32 = 1 << 2;
 
     /// Nothing is holding it.
@@ -249,10 +243,8 @@ mod tests {
         );
     }
 
-    /// The meter does not stop where the pool does — the defect S4 exists for.
-    /// `Health::damage` returns early on `!alive()`, so a hit landing on an empty
-    /// pool was DROPPED rather than clamped, and knockback growth (which scales
-    /// off this meter) flatlined at 100%.
+    /// `Health::damage` returns early on `!alive()`, so a hit landing on an empty pool was DROPPED
+    /// rather than clamped, and knockback growth (which scales off this meter) flatlined at 100%.
     #[test]
     fn damage_percent_keeps_climbing_past_a_full_pool() {
         let mut body = BodyHealth::new(Health::new(20));

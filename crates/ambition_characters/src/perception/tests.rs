@@ -275,11 +275,9 @@ fn a_warm_buffer_shows_the_world_exactly_delay_ticks_late() {
     assert_eq!(d.buffered(), 4);
 }
 
-/// **The failure direction that matters.** While filling, the buffer returns
-/// the STALEST view it holds, never a fresher one. A brain spawned mid-fight
-/// reacts more slowly than its profile for a few ticks — it never gets a
-/// same-tick perceive→act cheat at the exact moment a fight begins, which is
-/// the moment FB4's humanity check is watching.
+/// A brain spawned mid-fight reacts more slowly than its profile for a few ticks — it never gets a
+/// same-tick perceive→act cheat at the exact moment a fight begins, which is the moment FB4's
+/// humanity check is watching.
 #[test]
 fn warming_up_is_stale_never_fresh() {
     let mut d = DelayedPerception::new(5);
@@ -308,7 +306,6 @@ fn reaction_ms_converts_at_the_sim_rate() {
         DelayedPerception::from_reaction_ms(500.0, 60.0).delay_ticks(),
         30
     );
-    // A frame-perfect brain is a legal profile (RL rigs, regression fixtures).
     assert_eq!(
         DelayedPerception::from_reaction_ms(0.0, 60.0).delay_ticks(),
         0
@@ -495,10 +492,7 @@ fn a_tie_between_two_remembered_hostiles_breaks_the_same_way_every_time() {
 /// still true — matched nothing and `floor_ahead` answered `None`, which every
 /// ledge question in the brain reads as *"no ledge here"*.
 ///
-/// Traced in `ladder_probe` (`AMBITION_FIGHTER_TRACE=1`) on the frame before a
-/// level-9 self-KO: `x=496 floor_edge=Some(34)` and then, at `x=537` on a
-/// platform ending at 530, `floor_edge=None`. Blind at the one position where
-/// the edge is the only thing that matters.
+/// Blind at the one position where the edge is the only thing that matters.
 #[test]
 fn a_body_on_the_lip_reports_the_edge_it_is_standing_on() {
     // A platform spanning x 110..530, top at y=300 — the smash stage's.

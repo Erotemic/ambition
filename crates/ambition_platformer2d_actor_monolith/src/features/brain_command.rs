@@ -17,7 +17,7 @@
 //! - **A DISPLACED brain is untouchable.** An actor under mount control
 //!   (`Mounted`) is skipped: the mount cached its policy and put a controller's
 //!   in its place, so switching the live one would corrupt live control.
-//!   ⭐ **possession is no longer on that list, and that is the point of the
+//!   **possession is no longer on that list, and that is the point of the
 //!   `Brain::Player` deletion.** A possessed body keeps its own policy the whole
 //!   time — the seat moved, the brain did not — so a switch mid-possession
 //!   applies LIVE, and release resumes it because it was never displaced. This
@@ -30,12 +30,9 @@
 //! engine's default, or one the creature authored — which lets snapshot
 //! reconciliation rebuild that mode rather than the catalog default over it.
 //!
-//! ⚠ this said "installs a hostile ROSTER brain" and "RERUN the roster
-//! construction", naming a variant that carried an archetype id. Neither is true
-//! since 2026-08-12: provocation states a policy and rebuilds no body.
-//! Ordinary gameplay never replaces a character-backed NPC's `Brain` directly;
-//! it emits a `BrainCommand` (autonomous catalog change) or routes through the
-//! provoke authority (disposition change).
+//! Ordinary gameplay never replaces a character-backed NPC's `Brain` directly; it emits a
+//! `BrainCommand` (autonomous catalog change) or routes through the provoke authority
+//! (disposition change).
 
 use crate::combat::CombatCapabilities;
 use crate::features::ecs::actor_clusters::ActorConfig;
@@ -144,7 +141,7 @@ fn resolve_command_preset(
             ambition_characters::actor::character_catalog::AutonomousDefault::Preset(default) => {
                 Some(default.clone())
             }
-            // ⭐ **NOT A PRESET AND NOT A FAILURE.** A character whose default is
+            // **NOT A PRESET AND NOT A FAILURE.** A character whose default is
             // its own authored `BrainProfile` is restored by the profile road in
             // `apply_brain_selection`, which has the body this lowering needs;
             // this function only answers the preset question, so it says *not
@@ -193,13 +190,7 @@ fn apply_brain_selection(
     character_profile: Option<ambition_characters::brain::BrainProfile>,
     abilities: ambition_platformer2d_core::AbilitySet,
 ) -> bool {
-    // ⭐⭐ **RESTORING A CHARACTER'S OWN POLICY IS NOT A PRESET LOOKUP.**
-    //
-    // ⛔ before this arm, a body whose default was its character's authored
-    // `BrainProfile` carried `default_preset: Some("")`, and every
-    // `RestoreDefault` — every possession release, every "you are free" — landed
-    // on *"unknown brain preset ``"* and was REJECTED. The body kept whichever
-    // mind it happened to have, silently, for the rest of the session.
+    // **RESTORING A CHARACTER'S OWN POLICY IS NOT A PRESET LOOKUP.**
     //
     // The lowering is the same one the spawn road and the rewind road use, and
     // it reads the profile off the body's own config, so all three agree by
@@ -218,16 +209,13 @@ fn apply_brain_selection(
             );
             return false;
         };
-        // ⛔⛔ **THE POLICY COMES FROM THE CHARACTER, NOT FROM THE BODY'S CURRENT
+        // **THE POLICY COMES FROM THE CHARACTER, NOT FROM THE BODY'S CURRENT
         // ONE.** This lowered `config.brain_profile` directly, and provocation
         // WRITES that field — so "you are free" rebuilt the provoked mind and
         // then labelled the binding `CharacterProfile`. The body kept hunting
         // you while every piece of state agreed it had been released.
         //
-        // ⛔ **and there is no fallback to that field.** A binding saying
-        // `default = CharacterProfile` is a claim the character can answer;
-        // falling back to the live policy when it cannot is the same bug with a
-        // longer fuse. Reject, loudly, like every other unresolvable command.
+        // Reject, loudly, like every other unresolvable command.
         let Some(profile) = character_profile else {
             warn!(
                 target: "ambition_platformer2d_actor_monolith::brain_command",
@@ -313,11 +301,6 @@ pub fn apply_brain_commands(
         return;
     }
     for (
-        // ⚠ **the entity handle is no longer read**, and the reason is the
-        // `Brain::Player` deletion: this used to compare it against
-        // `PossessionState::possessed` to decide whether to refresh a resume
-        // brain. Nothing is displaced by a possession any more, so there is
-        // nothing to refresh and nobody to identify.
         _entity,
         sim_id,
         mut brain,
@@ -357,22 +340,17 @@ pub fn apply_brain_commands(
         // mount cache (that is the MOUNTED mode, not the autonomous resume mode)
         // — the suspended-autonomous-runtime pass owns resumption.
         //
-        // ⭐⭐ **POSSESSION IS NOT HERE ANY MORE.** It used to share this arm
-        // because possession moved `Brain::Player` onto the body and destroyed
-        // whatever policy was there, so the only honest thing a switch could do
-        // was update the source and re-derive `PossessionState::restore_brain`.
-        // A possessed body keeps its own brain now: the switch applies LIVE
-        // below, the human's input still drives the body through its seat, and
-        // the release resumes the switched policy because it was never displaced.
-        // The `restore_brain` re-derivation that made a provoke → possess →
-        // release-provocation → release sequence resume the PROVOKED mind cannot
-        // exist, because there is no cached mind.
+        // A possessed body keeps its own brain now: the switch applies LIVE below, the human's
+        // input still drives the body through its seat, and the release resumes the switched policy
+        // because it was never displaced. The `restore_brain` re-derivation that made a provoke →
+        // possess → release-provocation → release sequence resume the PROVOKED mind cannot exist,
+        // because there is no cached mind.
         if mounted {
             let mut changed = false;
             for kind in kinds {
                 changed |= update_source_only(&catalog, sim_id, &mut binding, kind);
             }
-            // ⚠ the return value is the "did anything actually change" signal the
+            // the return value is the "did anything actually change" signal the
             // resume-brain refresh consumed; nothing consumes it on this arm.
             let _ = changed;
             continue;
@@ -432,23 +410,14 @@ fn apply_catalog_mode(
     // its own BODY too, and this reconstruction is not for it.
     character_profile: Option<ambition_characters::brain::BrainProfile>,
 ) {
-    // ⭐⭐ **A CHARACTER-FIRST BODY IS RESTORED IN THE MIND ONLY.**
+    // **A CHARACTER-FIRST BODY IS RESTORED IN THE MIND ONLY.**
     //
-    // ⛔ the projection below is the peaceful-NPC seed: default capabilities and
+    // the projection below is the peaceful-NPC seed: default capabilities and
     // `brain_profile: BrainProfile::default()`. It is the correct answer for a
     // catalog-default NPC, whose whole body IS that seed. Over a body whose
     // character authored its kit it is a silent downgrade wearing a controller
     // change — and the policy it zeroed was the field the CharacterProfile
     // restoration then read back as the character's default.
-    //
-    // ⚠ **it said `max_health: 1, max_run_speed: MAX_RUN_SPEED` here and neither
-    // is true any more.** The `1` moved to `DEFAULT_UNAUTHORED_BODY_HEALTH` at
-    // the spawn seeds (D101), and `peaceful_config` reads the prepared
-    // character's blueprint for BOTH numbers since 2026-08-13 (P2.19) — because
-    // this guard keys on the character's POLICY while the downgrade was to its
-    // BODY, so a character that authored locomotion and no profile fell straight
-    // through it. That population is empty today and the trap is closed at the
-    // projection, which is the layer that can see the character.
     if let Some(profile) = character_profile {
         if let Some(mut config) = config {
             config.brain_profile = profile;
@@ -529,10 +498,10 @@ fn update_source_only(
     binding: &mut BrainBinding,
     kind: &BrainCommandKind,
 ) -> bool {
-    // ⭐⭐ **A CHARACTER-FIRST DEFAULT HAS NO PRESET TO VALIDATE, AND THAT IS NOT
+    // **A CHARACTER-FIRST DEFAULT HAS NO PRESET TO VALIDATE, AND THAT IS NOT
     // A REJECTION.**
     //
-    // ⛔ `resolve_command_preset` answers *not mine* for `CharacterProfile`, and
+    // `resolve_command_preset` answers *not mine* for `CharacterProfile`, and
     // this read that `None` as *unresolvable* and left the binding untouched. So
     // a `RestoreDefault` arriving while the body was possessed or mounted was
     // silently dropped: provoke → possess → release-provocation → release

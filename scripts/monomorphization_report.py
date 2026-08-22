@@ -29,7 +29,6 @@ Examples, from the repository root::
     python3 scripts/monomorphization_report.py capture \
         --package ambition_platformer2d_runtime --lib
 
-    # Parse a previously captured rustc log without compiling.
     python3 scripts/monomorphization_report.py mono-log path/to/capture.log
 
 Reports are JSON plus Markdown under ``target/monomorphization_reports`` unless
@@ -330,10 +329,8 @@ def symbols_for_artifact(path: Path, nm: str | None = None) -> tuple[list[Symbol
     if nm is None:
         return [], "neither nm nor llvm-nm is installed"
 
-    # File names are normally enough to identify llvm-nm. A wrapper or renamed
-    # binary can defeat that, so retry with the other public demangle spelling
-    # before reporting an error. This retry is cheap compared with scanning the
-    # artifact and makes the reader robust to distro alternatives/symlinks.
+    # File names are normally enough to identify llvm-nm. This retry is cheap compared with
+    # scanning the artifact and makes the reader robust to distro alternatives/symlinks.
     first_flavor = _nm_flavor(nm)
     flavors = (first_flavor, "gnu" if first_flavor == "llvm" else "llvm")
     failures: list[str] = []

@@ -41,8 +41,7 @@ fn withdrawing_into_the_shell_shrinks_the_body() {
 
 #[test]
 fn the_sprite_quad_is_the_same_frame_in_every_pose() {
-    // Only the BOX moves between poses; the drawn frame is fixed. Otherwise the
-    // sprite would visibly pulse as the state machine advanced, and the renderer
+    // Otherwise the sprite would visibly pulse as the state machine advanced, and the renderer
     // would rebind its atlas on every pose change.
     let quads: Vec<_> = [
         CharacterAnim::Idle,
@@ -184,9 +183,7 @@ fn a_stance_survives_the_per_tick_resync() {
         ))
         .id();
     app.add_systems(bevy::prelude::Update, sync_sprite_posed_bodies);
-    // Twice: once to settle, once to prove it is not a first-tick effect. The
-    // defect this pins is a per-tick overwrite, so a single step could pass by
-    // accident on a system that happens to run before the stance is applied.
+    // Twice: once to settle, once to prove it is not a first-tick effect.
     app.update();
     app.update();
 

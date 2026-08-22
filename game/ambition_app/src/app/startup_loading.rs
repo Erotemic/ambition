@@ -102,7 +102,7 @@ struct StartupAssetInputs<'w, 's> {
     content_staging: Res<'w, RoomContentStagingRegistry>,
     character_load_states:
         ResMut<'w, ambition_platformer2d::actors::character_runtime::CharacterLoadStates>,
-    /// Sheets this app's providers authored (queue U1) — the other real source
+    /// Sheets this app's providers authored — the other real source
     /// of sheet metadata, and the only one a game outside this workspace can
     /// write to.
     authored_sheets:
@@ -354,9 +354,8 @@ fn drive_direct_startup_loading(
         return;
     }
 
-    // The all-ready state has survived one complete update/render boundary
-    // while the opaque cover remained present. Open simulation first, then
-    // retire the cover so the first exposed world is also the first live tick.
+    // Open simulation first, then retire the cover so the first exposed world is also the first
+    // live tick.
     gameplay.mark_ready();
     for entity in &ui.roots {
         commands.entity(entity).despawn();

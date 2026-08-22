@@ -1,16 +1,9 @@
 //! **WHAT A FIGHTER'S TABLE SOUNDS LIKE, ASKED OF THE REAL SEAM.**
 //!
-//! ⭐⭐ **the one claim here is that an authored burst is heard EXACTLY ONCE**,
-//! and it is a claim no per-table test could make. Until D149 a `Vfx` event
-//! wrote a bare `VfxMessage::Effect` and made no sound at all, so every table
-//! hand-wrote an `Sfx` event beside every burst and three characters grew a test
-//! asserting they had. Those tests could only ever check for the MISSING half.
-//! The moment `dispatch_move_events` started asking for a paired
-//! [`ambition_vfx::FxRequest`], the surviving hand-written cue became a SECOND
-//! play of the same sound — individually correct, jointly a doubled jab — and
-//! nothing in the build could see it.
+//! **the one claim here is that an authored burst is heard EXACTLY ONCE**, and it is a claim no
+//! per-table test could make. Those tests could only ever check for the MISSING half.
 //!
-//! ⛔ **it is not a data test.** The oracle is the running pair of systems the
+//! **it is not a data test.** The oracle is the running pair of systems the
 //! game installs: `ambition_combat::moveset::dispatch_move_events` writing onto
 //! the request channel, and `ambition_render::fx::process_fx_requests` fanning
 //! it into the effect plus the cue the effect's own name addresses. Modelling
@@ -65,13 +58,6 @@ fn tables() -> Vec<(&'static str, MovesetContract)> {
 
 /// **Drive one authored INSTANT of one move through the real seam** and report
 /// every cue that reached the SFX channel.
-///
-/// ⛔ one instant at a time, because the doubling IS a coincidence in time: a
-/// burst and a hand-written restatement of its own cue authored at the same
-/// `at_s`. `which` selects half of that instant, so a caller can ask what the
-/// BURSTS say and what the hand-written EVENTS say and compare the two — every
-/// answer coming out of `dispatch_move_events` + `process_fx_requests`
-/// themselves, never out of a model of them.
 fn cues_at_one_instant(
     spec: &MoveSpec,
     at_s: f32,
@@ -83,7 +69,7 @@ fn cues_at_one_instant(
     app.add_message::<ambition_vfx::VfxMessage>();
     app.add_message::<ambition_vfx::FxRequest>();
     app.add_message::<ambition_characters::brain::ActorActionMessage>();
-    // ⚠ `.chain()` inserts the `ApplyDeferred` that makes the fan-out see what
+    // `.chain()` inserts the `ApplyDeferred` that makes the fan-out see what
     // the dispatcher just wrote — the two really do run in this order in the
     // host (`ambition_platformer2d_host`).
     app.add_systems(Update, (dispatch_move_events, process_fx_requests).chain());
@@ -160,23 +146,16 @@ fn name_of(id: SfxId) -> String {
 
 /// **A BURST'S OWN CUE IS NOT ALSO WRITTEN BY HAND — IT IS HEARD ONCE.**
 ///
-/// ⛔⛔ **the regression this exists for shipped green.** `1e2aa6337` routed the
-/// `Vfx` arm through `FxRequest` — correct on its own — while 74 authored `Sfx`
-/// events across four tables still restated the very cue the request now
-/// derives. Every jab, tilt and smash in those tables played its sound twice,
-/// 412 app tests stayed green, and the only instrument that could have caught it
-/// was a fighter's ears.
+/// Every jab, tilt and smash in those tables played its sound twice, 412 app tests stayed green,
+/// and the only instrument that could have caught it was a fighter's ears.
 ///
-/// ⭐ the two halves of one instant are each run through the real dispatcher and
+/// the two halves of one instant are each run through the real dispatcher and
 /// the real fan-out and then INTERSECTED, so what a burst "already says" is
 /// answered by the engine rather than by a table transcribed from it.
 ///
-/// ⚠ **two mirrored pairs deliberately fall outside this**, measured 2026-08-17:
-/// Alice's `side_channel` and the cellular automaton's `garden_growth` each
-/// throw the SAME effect at `±x` on the same frame, so each is heard twice —
-/// two spatialised bursts, two spatialised sounds. That is a burst count, not a
-/// restatement, and the `silent` arm of the vocabulary is what would answer it
-/// if Jon ever hears it as one sound too many.
+/// **two mirrored pairs deliberately fall outside this**, Alice's `side_channel` and the
+/// cellular automaton's `garden_growth` each throw the SAME effect at `±x` on the same frame,
+/// so each is heard twice — two spatialised bursts, two spatialised sounds.
 #[test]
 fn a_paired_burst_is_heard_exactly_once() {
     fn is_burst(k: &MoveEventKind) -> bool {
@@ -215,10 +194,8 @@ fn a_paired_burst_is_heard_exactly_once() {
             }
         }
     }
-    // ⛔ the non-vacuity, all three halves: the sweep has to have RUN, the bursts
-    // have to have MADE SOUND on their own, and the hand-written events have to
-    // still be firing. A fixture that dispatched nothing satisfies the loop above
-    // perfectly, and so does one where the fan-out never ran.
+    // A fixture that dispatched nothing satisfies the loop above perfectly, and so does one
+    // where the fan-out never ran.
     assert!(
         instants > 150,
         "only {instants} authored instants swept — the tables did not load"
@@ -237,7 +214,7 @@ fn a_paired_burst_is_heard_exactly_once() {
 
 /// **A SUSTAINED BURST STILL PLAYS ITS LOOPING VARIANT, NOT THE PLAIN ROW CUE.**
 ///
-/// ⭐ ten of the shipped effect rows pack their sound as `vfx.<family>.<row>.loop`
+/// ten of the shipped effect rows pack their sound as `vfx.<family>.<row>.loop`
 /// and ship no plain `vfx.<family>.<row>` at all — a stream, an orbit, a held
 /// field. They are the reason the override arm is not speculative, and the
 /// reason deleting the restatements wholesale would have been wrong: for these
@@ -289,11 +266,9 @@ fn a_sustained_burst_keeps_its_looping_cue() {
 
 /// **A MOVE'S INDEPENDENT SOUNDS STILL FIRE.**
 ///
-/// ⚠ 50 of the 145 authored cues were never a restatement of anything — a grunt,
-/// a charge whine, a metal chink. They are `Sfx` events in their own right and
-/// the D149 deletion had no business near them, so this says what they are: not
-/// `vfx.*`, and audible. A future sweep that mistakes one for ceremony trips
-/// here rather than in a match.
+/// 50 of the 145 authored cues were never a restatement of anything — a grunt, a charge whine,
+/// a metal chink. A future sweep that mistakes one for ceremony trips here rather than in a
+/// match.
 #[test]
 fn a_moves_own_voice_is_not_ceremony() {
     fn is_hand_written(k: &MoveEventKind) -> bool {

@@ -87,7 +87,7 @@ pub struct BossEncounterSpec {
 //     concerns (the data catalog now; the encounter entity in R2).
 //
 // Phase transitions are their OWN parallel mechanism, deliberately NOT the
-// hitstun/recoil code (Jon's decision #2): a trigger fires → a brief
+// hitstun/recoil code: a trigger fires → a brief
 // invulnerable `transition_lock` "tell/scream" beat → the exposed phase swaps.
 // They merely *resemble* the "event → locked beat → controls change" shape.
 //
@@ -113,7 +113,6 @@ pub enum PhaseTriggerCondition {
 /// A pluggable, data-driven phase transition. Intrinsic triggers live as DATA
 /// on the boss (a `Vec<PhaseTrigger>`), so flipping a boss between "has phases"
 /// and "no phases" is editing data, never code — the key requirement from
-/// Jon's resolved decisions.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PhaseTrigger {
     /// The condition that fires this trigger.
@@ -124,8 +123,7 @@ pub struct PhaseTrigger {
     pub from: Vec<BossEncounterPhase>,
     /// The phase to enter when the trigger fires.
     pub to: BossEncounterPhase,
-    /// A brief invulnerable "tell/scream" beat (seconds) inserted before the
-    /// new phase's controls go live. `0.0` ⇒ swap instantly.
+    /// `0.0` ⇒ swap instantly.
     pub lock: f32,
 }
 

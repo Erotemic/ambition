@@ -88,10 +88,9 @@ pub fn update_ecs_breakables(
 
 #[cfg(test)]
 mod breakable_tests {
-    //! Stand-to-break collapse as a minimal-App harness: a player standing
-    //! on a Solid/OnStand breakable accumulates its StandTimer and, once
-    //! past BREAK_ON_STAND_SECONDS, collapses it; standing elsewhere does
-    //! not. Drives sim time via a fixed WorldTime::scaled_dt.
+    //! Stand-to-break collapse as a minimal-App harness: a player standing on a Solid/OnStand
+    //! breakable accumulates its StandTimer and, once past BREAK_ON_STAND_SECONDS, collapses
+    //! it; standing elsewhere does not.
     use super::*;
     use ambition_platformer2d_core::BodyBaseSize;
     use ambition_platformer2d_core::BodyKinematics;

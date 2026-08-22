@@ -297,7 +297,7 @@ def format_listing(rows: list[dict], *, verbose_docs: bool) -> str:
             lines.append(head)
             if field["enum"]:
                 lines.append(f"        one of: {' | '.join(field['enum'])}")
-            # ⭐ the contract's grammar, which is what the CONVERTER accepts —
+            # the contract's grammar, which is what the CONVERTER accepts —
             # the census below it is only what this world happens to say.
             if field.get("grammar"):
                 lines.append(f"        contract: {field['grammar']}")
@@ -307,7 +307,7 @@ def format_listing(rows: list[dict], *, verbose_docs: bool) -> str:
                     "a fixed default, so a typo here is invisible in play"
                 )
             elif field.get("on_invalid") == "open" and field.get("grammar"):
-                # ⚠ only worth saying when there IS a list to be outside of. A
+                # only worth saying when there IS a list to be outside of. A
                 # field with no grammar at all (`Prop.kind`, `character_id`) has
                 # nothing to extend, and printing this there reads as though the
                 # engine knows values it does not.

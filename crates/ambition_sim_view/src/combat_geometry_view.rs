@@ -60,15 +60,12 @@ pub struct CombatBodyGeometryView {
     /// and reads identically on screen unless the instrument distinguishes them.
     pub landing_lag_s: f32,
     /// Seconds of jump-squat left — the body is CROUCHING, on purpose, before a
-    /// leap it already committed to. ⚠ on screen this is indistinguishable from
+    /// leap it already committed to. on screen this is indistinguishable from
     /// "the jump input did nothing", which is exactly why the instrument names
     /// it separately.
     pub jump_squat_s: f32,
-    /// **The body's velocity.** During hitstun this IS the launch it took — the
-    /// launch vector Jon asked the instrument to show, read where it lives
-    /// rather than stored a second time as a display-only fact. ⚠ outside
-    /// hitstun it is ordinary locomotion; the observer pairs it with
-    /// [`Self::hitstun_s`].
+    /// outside hitstun it is ordinary locomotion; the observer pairs it with
+    /// [`Self:hitstun_s`].
     pub velocity: ae::Vec2,
     /// Semantic contact facts, so "why did it not turn / not jump" is visible.
     pub grounded: bool,
@@ -88,28 +85,16 @@ pub struct CombatStrikeGeometryView {
     /// The live strike entity, so an observer can tie a per-strike visual to
     /// the volume that owns it and retire the visual when the strike ends.
     ///
-    /// ⭐ **an identity, not a handle to reach back through.** An observer may
-    /// compare it and key on it; ⛔ it must not use it to `get::<Hitbox>()` and
+    /// **an identity, not a handle to reach back through.** An observer may
+    /// compare it and key on it; it must not use it to `get::<Hitbox>()` and
     /// read the authoritative component, which is the coupling this row exists
     /// to remove.
     pub strike: bevy::prelude::Entity,
     /// The body whose strike this is.
     pub owner: bevy::prelude::Entity,
-    /// Is this strike anchored to its owner's BODY (a character's move), as
-    /// opposed to fixed in the world (an arena hazard, a wielded AOE)?
-    ///
     /// The distinction presentation actually needs: only a body-tracking strike
     /// stands in for somebody's attack, and only a body-tracking strike takes
     /// its owner's presentation translation.
-    ///
-    /// ⚠ this row used to also publish `owner_anchor`, the owner position the
-    /// volume was resolved against, so an observer could re-place the geometry
-    /// by `presented - owner_anchor`. That was one lookup per STRIKE, and a
-    /// body's collision envelope and hurtboxes had no equivalent — so the
-    /// overlay smoothed strikes alone and mixed clocks in one picture. The
-    /// translation is now `PresentedPose::delta()`, asked once per BODY and
-    /// applied to every row of it, and the field had no consumer left. It was
-    /// also `ZERO` for a world-anchored strike, which is not an anchor.
     pub anchored_to_body: bool,
 }
 
@@ -323,9 +308,8 @@ mod tests {
         assert!(effective_hurtboxes(collision, Some(&intangible)).is_empty());
     }
 
-    /// ⭐⭐ **The tuning readout is a projection, and it needs no protagonist.**
+    /// **The tuning readout is a projection, and it needs no protagonist.**
     ///
-    /// Jon's list for F1 — move and phase, facing versus attack orientation,
     /// percent, hitstop and hitstun, semantic contact — is what a designer reads
     /// INSTEAD of a log while dialling combat. This asserts the read model
     /// carries all of it for a body with no `PrimaryPlayerOnly`, no controller
@@ -363,7 +347,7 @@ mod tests {
                 pos: center,
                 vel: ae::Vec2::new(220.0, -180.0),
                 size: ae::Vec2::new(12.0, 24.0),
-                // ⭐ the body has TURNED since its move committed.
+                // the body has TURNED since its move committed.
                 facing: 1.0,
             },
             ae::BodyGroundState::default(),
@@ -403,7 +387,7 @@ mod tests {
             "the phase is the authored window the clock is inside"
         );
         assert!(move_state.duration_s > 0.0);
-        // ⭐ **the disagreement is the point.** The body faces +1 and the move
+        // **the disagreement is the point.** The body faces +1 and the move
         // committed to -1; an instrument that showed only one of them could not
         // explain why the strike is on the far side.
         assert_eq!(move_state.attack_facing, -1.0);

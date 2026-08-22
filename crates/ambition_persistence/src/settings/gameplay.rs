@@ -103,11 +103,8 @@ impl AssistMode {
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GameplaySettings {
     pub difficulty: Difficulty,
-    /// Damage assist (accessibility): `On` halves damage the controlled body
-    /// TAKES (`incoming_player_damage_multiplier`). That is its whole effect —
-    /// owner decision 2026-07-19 ("honest rename"): the UI says "Damage
-    /// assist — take half damage"; aim/traversal assists, if ever built, get
-    /// their own settings.
+    /// Damage assist (accessibility): `On` halves damage the controlled body TAKES
+    /// (`incoming_player_damage_multiplier`).
     pub assist: AssistMode,
     /// Multiplier for outgoing player damage (projectiles, melee).
     pub player_damage_multiplier: f32,
@@ -149,17 +146,13 @@ pub struct GameplaySettings {
     /// precision aiming points where the stick points on screen at any gravity.
     #[serde(default = "default_aim_frame_mode")]
     pub aim_frame_mode: InputFrameMode,
-    /// Which frame the local view presents the world in — world-fixed (the world
-    /// stays upright and the body rotates) or player-relative (the body stays
-    /// upright and the world rotates around it).
-    ///
-    /// ⭐⭐ **it also decides the frame the sticks resolve in**, because a
+    /// **it also decides the frame the sticks resolve in**, because a
     /// player-relative view makes screen axes *be* body axes and collapses every
     /// [`InputFrameMode`] onto `BodyRelativeStrict` — see
     /// [`InputFrameMode::under_camera`] for why that is an identity. Read
     /// [`Self::resolved_movement_frame_mode`] rather than the stored field.
     ///
-    /// ⛔ the stored [`Self::movement_frame_mode`] is deliberately NOT rewritten
+    /// the stored [`Self::movement_frame_mode`] is deliberately NOT rewritten
     /// when this changes: clobbering it would lose the player's choice for when
     /// they switch back, and `camera-reference-frame-policy.md` rules out camera
     /// policy mutating input state. The collapse happens at the point of use.
@@ -207,10 +200,9 @@ impl Default for GameplaySettings {
 impl GameplaySettings {
     pub const DAMAGE_STEP: f32 = 0.10;
 
-    /// The frame modes surfaced to the user — the two Jon asked for. The engine's
-    /// third mode (`InputFrameMode::BodyRelativeStrict`, fully body-relative with no
-    /// accommodation) stays dev-only and is reachable through the F3 tuning editor.
-    /// Shared by both the locomotion and the precision-aim cycle.
+    /// The engine's third mode (`InputFrameMode::BodyRelativeStrict`, fully body-relative with no
+    /// accommodation) stays dev-only and is reachable through the F3 tuning editor. Shared by both
+    /// the locomotion and the precision-aim cycle.
     pub const FRAME_MODES: [InputFrameMode; 2] = [
         InputFrameMode::BodyRelativeAssist,
         InputFrameMode::ScreenRelative,
@@ -228,7 +220,7 @@ impl GameplaySettings {
     /// The pair of control-authority frame policies these settings express, for
     /// the gameplay verbs that resolve input by source ([`ae::ControlFrameModes`]).
     ///
-    /// ⭐ **resolved against the camera frame, not the raw stored fields** — this
+    /// **resolved against the camera frame, not the raw stored fields** — this
     /// is one of the two doors onto the frame modes, and both apply the collapse
     /// so no caller can reach an un-resolved mode by picking the wrong one.
     pub fn control_frame_modes(&self) -> ambition_platformer2d_core::ControlFrameModes {
@@ -240,9 +232,7 @@ impl GameplaySettings {
 
     /// **The locomotion frame mode that actually applies**, given the camera frame.
     ///
-    /// ⛔ read this, never `self.movement_frame_mode`. The stored field is the
-    /// player's preference for world-fixed viewing; under a player-relative view
-    /// it is not what the stick means. See [`InputFrameMode::under_camera`].
+    /// read this, never `self.movement_frame_mode`. See [`InputFrameMode::under_camera`].
     pub fn resolved_movement_frame_mode(&self) -> InputFrameMode {
         self.movement_frame_mode
             .under_camera(self.camera_reference_frame)
@@ -433,7 +423,7 @@ mod tests {
 
     /// **The camera setting never rewrites the input setting.**
     ///
-    /// ⭐ this is the property that made resolve-at-read-time worth the extra
+    /// this is the property that made resolve-at-read-time worth the extra
     /// method over simply forcing the stored field: a player who tries
     /// player-relative and goes back gets their locomotion preference intact.
     #[test]
@@ -492,10 +482,9 @@ mod tests {
         assert_eq!(g.resolved_aim_frame_mode(), g.aim_frame_mode);
         assert!(g.frame_modes_are_live());
 
-        // A save written before this field existed: the real blob minus the one
-        // new key. ⛔ not `{}` — most fields here carry no `#[serde(default)]`, so
-        // an empty object fails for reasons that have nothing to do with this
-        // setting and would let the test pass while proving nothing.
+        // not `{}` — most fields here carry no `#[serde(default)]`, so an empty object fails
+        // for reasons that have nothing to do with this setting and would let the test pass
+        // while proving nothing.
         let mut blob = serde_json::to_value(GameplaySettings {
             movement_frame_mode: InputFrameMode::BodyRelativeAssist,
             ..Default::default()

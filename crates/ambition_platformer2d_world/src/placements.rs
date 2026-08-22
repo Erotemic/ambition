@@ -58,13 +58,9 @@ pub struct LoweringCtx<'w, 's, 'a, C: ?Sized = ()> {
     pub paths: &'a [(String, ae::KinematicPath)],
     /// Gameplay-session ownership captured when room staging was requested.
     pub session_scope: SessionSpawnScope,
-    /// The entity this placement POPULATES. Allocated by the caller — the
-    /// construction executor for planned rows — so identity, provenance, and
-    /// transaction ownership are stamped on the same body the interpreter
-    /// builds. Interpreters must insert onto this root rather than spawning a
-    /// primary entity of their own; before this field existed every
-    /// interpreter allocated internally, which is exactly why placements were
-    /// invisible to the construction roster.
+    /// The entity this placement POPULATES. Allocated by the caller — the construction executor
+    /// for planned rows — so identity, provenance, and transaction ownership are stamped on the
+    /// same body the interpreter builds.
     pub root: bevy_ecs::entity::Entity,
     /// Runtime context supplied by the simulation layer. The world IR remains
     /// generic and content-free; callers choose the context type needed by
@@ -174,9 +170,7 @@ impl<C: Send + Sync + 'static> PlacementLoweringPlan<C> {
 
 /// Mutation-free placement-lowering preflight failure.
 ///
-/// Normal construction still treats a missing interpreter as a programmer/content
-/// installation bug and panics at the final lowering seam. Room-transition
-/// preparation uses this error before touching the live room so an incomplete
+/// Room-transition preparation uses this error before touching the live room so an incomplete
 /// target never tears down the source room first.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PlacementLoweringError {

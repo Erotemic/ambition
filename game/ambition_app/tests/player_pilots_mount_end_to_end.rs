@@ -1,5 +1,4 @@
-//! M5 (ADR 0020 §4) — **player-piloting a mount works END-TO-END through the
-//! real headless sim.**
+//! (ADR 0020 §4) — **player-piloting a mount works END-TO-END through the real headless sim.**
 //!
 //! The payoff of the two-linked-actors mount model: a human drives a VEHICLE
 //! through the exact same control seam that drives every other body. The rider
@@ -69,8 +68,8 @@ fn a_player_pilots_a_mount_end_to_end() {
     let p = pos_of(sim.world_mut(), home);
     let mount_pos = (p.x + 120.0, p.y);
     let rider_pos = (p.x + 120.0, p.y - 66.0); // ~saddle, above the mount
-                                               // ⭐ the mount NAMES ITS CHARACTER. `burning_flying_shark` stopped being an
-                                               // archetype row on 2026-08-11 — the shark authors its own body, including
+                                               // the mount NAMES ITS CHARACTER. `burning_flying_shark` stopped being an
+                                               // archetype row — the shark authors its own body, including
                                                // that it is rideable — so a request naming only the brain key would resolve
                                                // the `combatant` fallback: not a mount, not a flyer, and this test would
                                                // watch it fall.
@@ -82,10 +81,9 @@ fn a_player_pilots_a_mount_end_to_end() {
         CharacterBrain::Custom("burning_flying_shark".to_string()),
         "npc_burning_flying_shark",
     );
-    // ⭐ **and so does the RIDER** (D102). The mount named its character three
-    // lines up and the pilot beside it did not, so the pair under test was half
-    // migrated: the raider's `CanPilot(["shark"])` comes from the character, and
-    // a generic `combatant` cannot pilot anything.
+    // The mount named its character three lines up and the pilot beside it did not, so the pair
+    // under test was half migrated: the raider's `CanPilot(["shark"])` comes from the
+    // character, and a generic `combatant` cannot pilot anything.
     sim.spawn_enemy_character_at(
         RIDER_ID,
         "Pirate Raider",
@@ -106,11 +104,6 @@ fn a_player_pilots_a_mount_end_to_end() {
         .entity_mut(rider)
         .insert(Brain::stand_still());
 
-    // Weld the pair — both ends, the same components the planned
-    // `ambition.mount` relation wiring installs for a room-authored pair. (The
-    // frame-later `PendingMountLinks` resolver this test used to exercise is
-    // deleted; authored links are planned relations now, and this runtime pair
-    // is welded directly so the test keeps isolating PILOTING.)
     sim.world_mut()
         .entity_mut(rider)
         .insert((RidingOn { mount }, Mounted));
@@ -130,7 +123,7 @@ fn a_player_pilots_a_mount_end_to_end() {
     //    place it on the RIDER (exactly what possession does; done directly
     //    here). The control invariant — exactly one body holds
     //    `DrivingParticipant(PRIMARY)` — is preserved: home loses it, the rider
-    //    gains it. ⭐ neither body's `Brain` is touched, which is the whole point
+    //    gains it. neither body's `Brain` is touched, which is the whole point
     //    of the seat being its own component.
     sim.world_mut()
         .entity_mut(home)
@@ -162,13 +155,6 @@ fn a_player_pilots_a_mount_end_to_end() {
         "the MOUNT travels right under player input (piloting through the control seam): \
          {mount_before:?} -> {mount_after:?}",
     );
-    // ⚠ **the assertion is about DIRECTION, not stillness** (2026-08-11). It
-    // read `.abs() < 1.0` while the shark was an archetype that authored no
-    // contact damage worth feeling; the shark is a CHARACTER now and authors
-    // 1.1 knockback on touch, so a body parked in the flight path gets shoved —
-    // 113px to the LEFT, measured. That is the shark working, not the control
-    // seam leaking.
-    //
     // What this test is actually about is whether DRIVE INPUT reaches the
     // vacated avatar, and the input is rightward: any leftward travel is
     // somebody else's physics.

@@ -13,7 +13,7 @@
 //! let mut app = App::new();
 //! ambition_platformer2d_runtime::add_headless_foundation(&mut app); // or DefaultPlugins + init_engine_states
 //! app.add_plugins(ambition_platformer2d_runtime::PlatformerEnginePlugins::default())
-//!    .add_plugins(my_content::MyGameContentPlugin);
+//! .add_plugins(my_content::MyGameContentPlugin);
 //! ```
 //!
 //! This is **the demo gate**: a demo app depends on `ambition_platformer2d_runtime`, never
@@ -32,11 +32,6 @@
 //! (`load_room` + render spawns), and the catalog/roster content installs. Each
 //! pins itself into a documented ordering SLOT between engine systems (see
 //! `player_schedule` / `room_schedule` module docs).
-//!
-//! The room-REPLAY consumer used to be on that list and no longer is (see
-//! [`sandbox_reset`]): content in every host emits `RoomReplayRequested`, so
-//! leaving the only consumer in `ambition_app` meant the standalone demo
-//! binaries drained nothing.
 //!
 //! Presentation, audio, windowing, dev tools, and CONTENT are never in this
 //! group — [the windowed host] (`ambition_platformer2d_host`) and the game's app own those.
@@ -140,16 +135,13 @@ pub mod host_input {
     // beside the system that carries it, so the host installs the pipeline
     // through one path rather than depending on the monolith directly.
     pub use ambition_platformer2d_actor_monolith::control::PrimarySlotInputCommit;
-    // The frame→tick latch (queue Y2). Re-exported beside the system that drains
+    // The frame→tick latch. Re-exported beside the system that drains
     // it for the same reason — the host does not depend on `ambition_characters`
     // directly.
     pub use ambition_characters::brain::SlotControlLatches;
     pub use ambition_dialog::dialog_pointer_input;
 }
 
-/// Host-facing presentation seams that still originate in lower sim/foundation
-/// crates. This records the intentional runtime facade used to keep the windowed
-/// host out of the actor-systems crate.
 pub mod host_seams {
     pub use ambition_dev_tools::DeveloperRuntimeState;
 }
@@ -165,8 +157,8 @@ pub mod demo_fixture {
     pub use ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry;
     pub use ambition_platformer2d_actor_monolith::features::ActorConstructionContext;
     pub use ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry;
-    // ⛔ `LdtkRuntimeIndex` is deliberately NOT re-exported here (removed
-    // 2026-08-16). A demo shell is a RON-authored consumer; it existed in this
+    // `LdtkRuntimeIndex` is deliberately NOT re-exported here (removed
+    // ). A demo shell is a RON-authored consumer; it existed in this
     // list only so such a consumer could hand an empty index to a constructor
     // that demanded one, which is a fixture module laundering a format
     // dependency into games that have none.
@@ -208,9 +200,7 @@ impl SimulationHost {
 /// Marker installed by a concrete rollback backend once it has selected its
 /// schedule and installed the host machinery the generic engine relies on.
 ///
-/// This is composition state, not simulation state. It lets the runtime refuse a
-/// semantic `SimulationHost::Rollback` declaration that forgot to install an
-/// actual backend, without naming that backend or its schedule label.
+/// This is composition state, not simulation state.
 #[derive(Resource, Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct RollbackHostReady;
 
@@ -248,9 +238,7 @@ impl SimulationHostAppExt for App {
         let same_schedule = match host {
             SimulationHost::RenderFrame => self.sim_is(Update),
             SimulationHost::Fixed60Hz => self.sim_is(FixedUpdate),
-            // A concrete rollback backend owns its schedule label. The generic
-            // runtime only requires that the backend chose one before this
-            // foundation is assembled.
+            // A concrete rollback backend owns its schedule label.
             SimulationHost::Rollback => rollback_backend_ready,
         };
         if !same_host || !same_schedule {
@@ -300,15 +288,7 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
             );
         }
         if self.host == SimulationHost::Fixed60Hz {
-            // `set_simulation_host` committed FixedUpdate before
-            // `configure_platformer2d_simulation_phases` can seal the schedule. Bevy's default
-            // `Time<Fixed>` is 64 Hz; the sim
-            // timeline is 60. `run_fixed_main_schedule` swaps the generic
-            // `Time` to this clock for the duration of each tick, which is why
-            // `refresh_world_time` needs no fixed-tick special case: inside the
-            // tick it reads TICK_DT, and `scaled_dt = TICK_DT × time_scale`
-            // falls out. Bullet-time therefore composes INSIDE the tick and
-            // never touches the accumulator.
+            // Bullet-time therefore composes INSIDE the tick and never touches the accumulator.
             app.insert_resource(Time::<Fixed>::from_hz(SIM_TICK_HZ));
             // NOTE: the frame→tick input LATCH is NOT installed here. It is the
             // DEVICE layer's bridge (`ambition_platformer2d_host`), because only a device
@@ -392,8 +372,7 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
 /// than naming a schedule, so the host choice threads through the whole group
 /// and through content plugins that ask `app.sim_schedule()` the same way.
 ///
-/// Content plugins are sometimes added before this group. Such an app must set
-/// the construction-time host before its first simulation/content plugin:
+/// Such an app must set the construction-time host before its first simulation/content plugin:
 ///
 /// ```ignore
 /// app.set_simulation_host(SimulationHost::Fixed60Hz);
@@ -413,8 +392,7 @@ impl PlatformerEnginePlugins {
         Self { host }
     }
 
-    /// The fixed-tick engine: `Time<Fixed>` at [`SIM_TICK_HZ`], presentation
-    /// interpolating in `Update`. See the type docs for the ordering rule.
+    /// See the type docs for the ordering rule.
     pub fn fixed_tick() -> Self {
         Self::new(SimulationHost::Fixed60Hz)
     }
@@ -443,16 +421,9 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(ambition_menu::map::MapStatePlugin)
             // The world-prep phase (body integration, gravity collection, etc.).
             .add(ambition_platformer2d_actor_monolith::features::WorldPrepSchedulePlugin)
-            // A sheet-authored body adopts the box for the pose it is showing,
-            // in `WorldPrepSet::BeforeIntegrate`. Registered from its own crate
-            // rather than inside `WorldPrepSchedulePlugin` (where it lived until
-            // 2026-08-09) so the actor crate does not depend on the derivation:
-            // the system and the set are unchanged, only who names them moved.
+            // A sheet-authored body adopts the box for the pose it is showing, in
+            // `WorldPrepSet::BeforeIntegrate`.
             .add(ambition_character_sprites::SpritePosedBodyPlugin)
-            // Turning a declared character into loaded art. Added here,
-            // unconditionally, so NO application can compose the engine without
-            // it — the step used to live in `ambition_app`, which is why Mary-O
-            // rendered as a rectangle standalone and Sanic hand-rolled a copy.
             .add(ambition_platformer2d_actor_monolith::character_runtime::CharacterRuntimePlugin)
             // Universal-brain messages/resources (player/NPC/enemy/boss).
             .add(ambition_characters::brain::BrainPlugin)
@@ -467,15 +438,6 @@ impl PluginGroup for PlatformerEnginePlugins {
             // Feature (room-entity) collection + interaction schedules.
             .add(ambition_platformer2d_actor_monolith::features::FeatureCollectionSchedulePlugin)
             .add(ambition_platformer2d_actor_monolith::features::FeatureInteractionSchedulePlugin)
-            // ⛔ **the LDtk runtime spine is NOT here any more** (2026-08-16).
-            // It was added unconditionally, so five RON-authored games carried
-            // six LDtk index resources, a six-system sim chain in their
-            // schedule graph, and an LDtk component in their wire format for an
-            // authoring format none of them uses. D135 made the chain decline
-            // to RUN there; a plugin that is added and then declines to run is
-            // still added. A game with an LDtk world adds
-            // [`crate::LdtkWorldPlugin`] after this group.
-            // Encounter + cutscene simulation schedules.
             .add(ambition_platformer2d_actor_monolith::encounter::EncounterSimulationSchedulePlugin)
             .add(ambition_platformer2d_actor_monolith::cutscene::CutsceneSchedulePlugin)
             // Gameplay effects + feature view-sync schedules.
@@ -533,9 +495,6 @@ impl PluginGroup for PlatformerEnginePlugins {
                 ambition_platformer2d_actor_monolith::features::empowerment::EmpowermentLifecyclePlugin,
             )
             .add(RoomTransitionSchedulePlugin)
-            // The readiness transaction + authorized commit that sits in the gap
-            // `RoomTransitionSchedulePlugin` documents. Engine-side since
-            // 2026-07-25 so a demo host can change rooms at all.
             .add(RoomTransitionComposerPlugin)
             // The one `RoomReplayRequested` consumer + the two content slots
             // that must precede it. In the group because content in EVERY host
@@ -547,31 +506,28 @@ impl PluginGroup for PlatformerEnginePlugins {
             // ordered against that consumer's set, and the two are one
             // transaction: put the world back, then rebuild the room from it.
             .add(checkpoint_horizon::CheckpointHorizonPlugin)
-            // The DURABLE horizon, immediately after the checkpoint one because
-            // it is a serialization of the same three values and its load is a
-            // checkpoint resume. ⛔ it used to be installed from the visible
-            // app's presentation assembly, so no headless composition saved or
-            // loaded anything at all — see the plugin's own header.
+            // The DURABLE horizon, immediately after the checkpoint one because it is a
+            // serialization of the same three values and its load is a checkpoint resume.
             .add(durable_save_horizon::DurableSaveHorizonPlugin)
             // The world-fact domain's authored-condition provider. Added here
-            // because composition is where plugins are chosen — ⛔ NOT because
+            // because composition is where plugins are chosen — NOT because
             // anything central knows what conditions exist. The item domain
             // publishes its own from `ItemPickupSimulationPlugin`, and neither
             // names the other.
             // The authored-COMMAND machinery: the request channel, the one set
             // authored verbs happen in, and the one system that performs them.
-            // ⭐ it publishes no command — a domain adds its verbs from its own
+            // it publishes no command — a domain adds its verbs from its own
             // plugin, exactly as it adds its questions.
             .add(ambition_platformer2d_shared_tangle::authored_logic::AuthoredCommandPlugin)
             // The first authored-command CONSUMER: a `Switch` that names a verb
-            // in the level instead of in a const table. ⭐ it publishes nothing
+            // in the level instead of in a const table. it publishes nothing
             // and names no domain — it performs whatever the composed catalog
             // happens to know, which is why it can live here beside the
             // machinery rather than inside whichever domain a level asks for.
             .add(ambition_platformer2d_actor_monolith::world::authored_switch_commands::AuthoredSwitchCommandPlugin)
             .add(ambition_platformer2d_actor_monolith::world_facts::WorldFactConditionsPlugin)
             // The inventory domain's provider, added for the same reason and in
-            // the same way. ⭐ it is the THIRD provider and it cost one line of
+            // the same way. it is the THIRD provider and it cost one line of
             // composition — which is the acceptance clause, restated as code.
             .add(ambition_platformer2d_actor_monolith::items::conditions::InventoryConditionsPlugin)
             // The engine progression chain (boss encounters, save mirrors,
@@ -603,10 +559,6 @@ pub fn init_engine_states(app: &mut App) {
 /// replay, demo smoke shells): schedules/time via `MinimalPlugins`, asset +
 /// image registries (bevy_ecs_ldtk touches `Image` handles even with no
 /// renderer), transforms, states, and the engine states.
-///
-/// Visible apps use `DefaultPlugins` instead and call [`init_engine_states`]
-/// themselves; everything else converges here (this block was previously
-/// copy-pasted across the headless binary, its tests, and the RL runtime).
 pub fn add_headless_foundation(app: &mut App) {
     app.add_plugins(bevy::MinimalPlugins);
     app.add_plugins(bevy::asset::AssetPlugin::default());

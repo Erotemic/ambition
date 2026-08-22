@@ -3,9 +3,9 @@
 # Run from the repo root or from this directory.
 #
 # Usage:
-#   ./run.sh           — spritesheet cutout animation  (requires display)
-#   ./run.sh panels    — extract_panels → compose → demo (old 4-panel flow)
-#   ./run.sh preview   — extract_panels → compose → static PNGs (no display)
+# ./run.sh           — spritesheet cutout animation  (requires display)
+# ./run.sh panels    — extract_panels → compose → demo (old 4-panel flow)
+# ./run.sh preview   — extract_panels → compose → static PNGs (no display)
 
 set -e
 cd "$(dirname "$0")"

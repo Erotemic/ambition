@@ -1,9 +1,4 @@
-//! ⭐ **these came from `ambition_content` with the capability they cover**
-//! (2026-08-15). Same invariants, restated against the authored field rather
-//! than the Rust const table that used to hold the pairing — which is exactly
-//! the change under test.
-//!
-//! ⚠ **the App-level test below builds its own world, which is the shape that
+//! **the App-level test below builds its own world, which is the shape that
 //! can pass with production wiring absent.** It is here because the invariant it
 //! pins is a *cache invalidation* one, and provoking a hot-reload against a live
 //! host is a much worse test than provoking it against three resources.
@@ -55,9 +50,8 @@ fn project_with_one_wall(gated_by: Option<&str>) -> LdtkProject {
                 c_hei: 48,
                 grid_size: 16,
                 entity_instances: vec![
-                    // ⚠ a real level has one and the converter REFUSES an area
-                    // without it ("no PlayerStart"). The fixture used to be read
-                    // by a hand-walk that never asked, so it could omit one.
+                    // a real level has one and the converter REFUSES an area without it ("no
+                    // PlayerStart").
                     LdtkEntityInstance {
                         iid: "PlayerStart-test-alice".into(),
                         identifier: "PlayerStart".into(),
@@ -86,11 +80,7 @@ fn project_with_one_wall(gated_by: Option<&str>) -> LdtkProject {
 
 /// The fixture project, CONVERTED — the road production takes.
 ///
-/// ⭐ **the fixture stays an `LdtkProject` on purpose.** The walls come off the
-/// room IR now (D136), and a test that hand-built a `RoomSpec` would prove the
-/// reader while skipping the part that moved: `LockWall` becoming an emission
-/// that carries `id` and `gated_by`. Converting here means a converter that
-/// stops emitting either field fails in these tests.
+/// Converting here means a converter that stops emitting either field fails in these tests.
 fn room_with_one_wall(
     gated_by: Option<&str>,
     room_id: &str,
@@ -136,10 +126,7 @@ fn an_authored_gated_wall_is_found_with_its_footprint() {
 
 /// **A `LockWall` with no `gated_by` is not this system's business.**
 ///
-/// ⭐ this is the old *"ignores unregistered ids"* test, and the migration
-/// improved it: membership of a Rust table became the presence of an authored
-/// field, so the same invariant now says something an author can see. Encounter
-/// walls — the other consumer of `LockWall` — are exactly the walls that carry no
+/// Encounter walls — the other consumer of `LockWall` — are exactly the walls that carry no
 /// `gated_by`, and they must keep working.
 #[test]
 fn a_wall_with_no_authored_gate_is_left_to_its_other_consumer() {
@@ -158,7 +145,7 @@ fn world_with_one_gated_wall() -> App {
     app.insert_resource(ActiveLdtkProject(project_with_one_wall(Some(FLAG))));
     app.insert_resource(ambition_persistence::save::AmbitionGameSave::default());
     app.insert_resource(FeatureEcsWorldOverlay::default());
-    // ⭐ the world-fact domain's own condition, published exactly as its plugin
+    // the world-fact domain's own condition, published exactly as its plugin
     // publishes it. The system under test never names a flag.
     app.publish_condition(
         crate::world_facts::flag_set_descriptor(),
@@ -166,9 +153,6 @@ fn world_with_one_gated_wall() -> App {
     );
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
-        // ⭐ **the wall lives in the ROOM now, not in a project beside it.** The
-        // fixture used to hold both — a bare room plus an `ActiveLdtkProject`
-        // the system walked — which is exactly the split this change removed.
         crate::rooms::RoomSet::from_parts(
             "alice_relay",
             vec![room_with_one_wall(Some(FLAG), "alice_relay")],
@@ -197,7 +181,7 @@ fn standing(app: &App) -> usize {
 
 /// **THE WALL STANDS UNTIL ITS CONDITION IS SATISFIED, AND THEN IT IS GONE.**
 ///
-/// ⭐ nothing here reads a flag. The system asks `world.flag_set`, the world-fact
+/// nothing here reads a flag. The system asks `world.flag_set`, the world-fact
 /// domain answers, and the wall follows — which is the whole reason this stopped
 /// being a const table.
 #[test]
@@ -216,15 +200,10 @@ fn the_wall_stands_until_its_authored_condition_is_satisfied() {
 
 /// **A REPLACED ROOM SET INVALIDATES THE CACHE.**
 ///
-/// ⛔⛔ **this is the regression the original cache shipped WITHOUT**, and it is
+/// **this is the regression the original cache shipped WITHOUT**, and it is
 /// carried across deliberately: a hot reload that swaps the authored source
 /// under an unchanged room id and save state kept serving walls computed from
 /// data that is no longer loaded.
-///
-/// ⚠ **the input it watches MOVED with the data** (D136). It used to be
-/// `ActiveLdtkProject::is_changed()`; the walls come off the room set now, so
-/// that is what the cache watches, and this test is what says the signal
-/// followed the data instead of being dropped on the way.
 #[test]
 fn swapping_the_room_set_alone_invalidates_the_cached_walls() {
     let mut app = world_with_one_gated_wall();

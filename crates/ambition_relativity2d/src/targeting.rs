@@ -1,10 +1,6 @@
 //! Causal targeting read models for constant-velocity compact targets.
 //!
-//! This module does not aim or fire for a controller. It publishes the exact
-//! Minkowski null-intercept direction from the current observer event alongside
-//! the target's retarded optical direction, so game rules and instruments can
-//! expose the difference between "where the light came from" and "where a new
-//! light signal must be sent".
+//! This module does not aim or fire for a controller.
 
 use ambition_platformer2d_core::snapshot::{put_str, Reader, SnapshotState};
 use ambition_platformer2d_core::BodyKinematics;

@@ -9,7 +9,7 @@
 //!   CLOSURE-shaped Yarn `library` functions read from. The *shape* is generic
 //!   (bosses / quests / visit counts / wallet / an open-ended
 //!   `extras` map); the per-frame *refresh* that fills it from a particular
-//!   game's save is host-side. ⚠ it is a PROJECTION — read its type doc before
+//!   game's save is host-side. it is a PROJECTION — read its type doc before
 //!   adding a slice, because a fact the condition catalog can answer belongs in
 //!   the catalog and nowhere else.
 //! - [`YarnPresentationCue`] / [`clear_yarn_presentation_cue`] — the markup
@@ -34,14 +34,9 @@ use bevy_yarnspinner::prelude::DialogueRunner;
 /// `Arc<RwLock<...>>` so a closure registered on the runner's `Library` (which
 /// captures by move) can read it without taking a Bevy resource.
 ///
-/// # ⛔ This is a PROJECTION, not a place where a fact is decided
+/// # This is a PROJECTION, not a place where a fact is decided
 ///
-/// **This type's doc used to say Yarn functions *"can't take a `Res<...>` like a
-/// Bevy system can"*, and that is FALSE of the crate in the lockfile.** A
-/// `SystemId<In<P>, O>` implements `YarnFn`, and `bevy_yarnspinner` threads the
-/// interpreter's `&mut World` down to it — so a Yarn function CAN be a Bevy
-/// system and CAN read live state. The mirror was a workaround for a limit that
-/// is not there.
+/// The mirror was a workaround for a limit that is not there.
 ///
 /// ⇒ **anything the engine's condition catalog can answer must be ASKED, never
 /// mirrored here.** A fact with a published condition and a mirror slice has two
@@ -50,7 +45,7 @@ use bevy_yarnspinner::prelude::DialogueRunner;
 /// `docs/planning/engine/authored-gameplay-logic-and-orchestration.md` and
 /// `ambition_conversation::dialog::authored_conditions`.
 ///
-/// ⚠ **what is left is the remainder, and it is legitimate.** Encounter/quest
+/// **what is left is the remainder, and it is legitimate.** Encounter/quest
 /// state, per-node visit counts, wallet and content `extras` have no published
 /// condition, and a `f32`-returning function (`visit_count`, `wallet_balance`)
 /// could not use a boolean condition verb even if one existed. Closures over this
@@ -101,19 +96,15 @@ pub struct YarnPresentationCue {
 /// `refresh_yarn_state_mirror` is the member; a game's content systems wait on
 /// this set to read the refreshed mirror.
 ///
-/// ⛔ that placement is not stylistic — `engine.dialog-vocab-dialog-crate`
-/// enforces it, and it fired the moment this set was first defined in
-/// `ambition_platformer2d_actor_monolith`. Reusable dialog vocabulary belongs in
-/// this crate; a game reaching for a dialog NAME must not have to name the
-/// monolith to get it. The old leaf pin slipped the rule on a technicality —
-/// the forbidden token is a type name and `refresh_yarn_state_mirror` is a
-/// lowercase function — so naming the boundary is what surfaced the dependency
-/// the policy was written to prevent.
+/// that placement is not stylistic — `engine.dialog-vocab-dialog-crate` enforces it, and it
+/// fired the moment this set was first defined in `ambition_platformer2d_actor_monolith`.
+/// Reusable dialog vocabulary belongs in this crate; a game reaching for a dialog NAME must not
+/// have to name the monolith to get it.
 ///
-/// ⚠ ONE member. A game adding its own mirror joins the CONSUMER side, after
+/// ONE member. A game adding its own mirror joins the CONSUMER side, after
 /// this set; it does not belong inside the refresh.
 ///
-/// ⚠ named `...Refreshed`, not `...Mirrored`, because [`YarnStateMirror`] is
+/// named `...Refreshed`, not `...Mirrored`, because [`YarnStateMirror`] is
 /// already a type in this crate and the two would read as the same thing.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct YarnStateMirrorRefreshed;
@@ -125,7 +116,7 @@ pub struct YarnStateMirrorRefreshed;
 /// engine's `YarnStateMirrorRefreshed` refreshes the mirror from it, and a game's
 /// content systems read the mirror. Three crates, two leaf pins.
 ///
-/// ⚠ ONE member — clearing the cue IS the whole step.
+/// ONE member — clearing the cue IS the whole step.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct YarnPresentationCueCleared;
 

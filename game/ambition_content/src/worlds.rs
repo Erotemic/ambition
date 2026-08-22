@@ -63,8 +63,8 @@ pub fn world_manifest() -> WorldManifest {
     };
     WorldManifest {
         entry_room: "central_hub_complex".to_string(),
-        // No baked ron-rooms shipped yet: generated rooms land here when a
-        // bake tool emits them (W2 loader is live; see world::ron_room).
+        // No baked ron-rooms shipped yet: generated rooms land here when a bake tool emits them
+        // ( loader is live; see world:ron_room).
         ron_rooms: Vec::new(),
         worlds: vec![
             source(
@@ -103,23 +103,20 @@ pub fn world_manifest() -> WorldManifest {
 mod tests {
     use super::*;
 
-    /// **EVERY SHIPPED `EnemySpawn` CAN BE BUILT** — the invariant that stands
-    /// between the D102 refusal and a panic in a room nobody tests.
+    /// **EVERY SHIPPED `EnemySpawn` CAN BE BUILT** — the invariant that stands between the
+    /// refusal and a panic in a room nobody tests.
     ///
-    /// ⛔⛔ **construction refuses an identifier nothing can resolve** (D102, and
-    /// deliberately: an unresolvable spawn used to become a silent generic). Three
-    /// things can resolve one — a COMPLETE character (one whose prepared
-    /// definition yields a body blueprint), an archetype ROW under the placement's
-    /// brain key, or the provider's own `with_open_casting_decision` waiver. A
-    /// placement with none of the three panics at spawn.
+    /// Three things can resolve one — a COMPLETE character (one whose prepared definition yields a
+    /// body blueprint), an archetype ROW under the placement's brain key, or the provider's own
+    /// `with_open_casting_decision` waiver. A placement with none of the three panics at spawn.
     ///
-    /// ⚠ **and that is not covered by the lowering tests beside this one.**
+    /// **and that is not covered by the lowering tests beside this one.**
     /// `the_pirate_sky_riders_lower_into_authored_mount_links` proves
     /// `pirate_sky_lookout` LOWERS; nothing built its bodies. The two are
     /// different failures — lowering reads the LDtk file, construction asks the
     /// cast — and a room can pass the first and panic on the second.
     ///
-    /// ⭐ asked of every world this provider ships, so a new room is covered the
+    /// asked of every world this provider ships, so a new room is covered the
     /// day it is authored rather than the day somebody remembers to list it.
     #[test]
     fn every_shipped_enemy_placement_can_be_built() {
@@ -134,7 +131,7 @@ mod tests {
             .resource::<ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry>()
             .clone();
 
-        // ⚠ ONE manifest, every world: `world_manifest()` declares the sandbox
+        // ONE manifest, every world: `world_manifest()` declares the sandbox
         // plus the story side-worlds, so this covers a new room the day it is
         // authored rather than the day somebody remembers to list it here.
         let manifest = world_manifest();
@@ -153,13 +150,13 @@ mod tests {
                     if complete {
                         continue;
                     }
-                    // ⛔ **there is no second road left to check** (AC6). This
+                    // **there is no second road left to check** (AC6). This
                     // then asked whether the brain key named an archetype ROW or
                     // this provider's declared casting waiver, because either
                     // would have built the body. Both are deleted: a placement
                     // that names no complete character is refused.
                     //
-                    // ⚠ a brain that names no identifier at all states a POLICY,
+                    // a brain that names no identifier at all states a POLICY,
                     // and construction builds it a plain body — nothing to get
                     // wrong.
                     if !matches!(
@@ -184,16 +181,14 @@ mod tests {
         );
     }
 
-    // ⛔⛔ **`what_still_needs_an_archetype_row` WAS HERE AND IS DELETED — IT
-    // REACHED ZERO** (AC6). It was P2.22's acceptance signal as a countdown: it
-    // rebuilt every shipped placement's resolution against an EMPTY roster and
-    // listed what stopped resolving, so the distance to deleting
-    // `character_archetypes.ron` was a number somebody could read. Its last
-    // entries were four uncast identifiers, and each left by a DECISION rather
-    // than a deletion (skitters are Puppy Slug; `large_brute` is the authored
-    // Goblin Brute; `small_lurker` cast provisionally as `npc_ai_slop`).
+    // It was P2.22's acceptance signal as a countdown: it rebuilt every shipped placement's
+    // resolution against an EMPTY roster and listed what stopped resolving, so the distance to
+    // deleting `character_archetypes.ron` was a number somebody could read. Its last entries
+    // were four uncast identifiers, and each left by a DECISION rather than a deletion
+    // (skitters are Puppy Slug; `large_brute` is the authored Goblin Brute; `small_lurker` cast
+    // provisionally as `npc_ai_slop`).
     //
-    // ⚠ its own note said the empty list did NOT license the deletion —
+    // its own note said the empty list did NOT license the deletion —
     // *"`spawn_actors` still ASKS the roster; with no row left those arms answer
     // `None` forever and become dead code to delete, which is checklist item
     // 22"* — and that is what this slice did. The file, the resource, the asking
@@ -202,20 +197,13 @@ mod tests {
     /// **"CHANGING THE CONTROLLER DOES NOT CHANGE THE BODY" — ASSERTED OF
     /// SHIPPED CONTENT**, not of a fixture.
     ///
-    /// The `basement_enemies` gallery used to be a row of one-of-each ARCHETYPE
-    /// — `patrol cutter`, `small skitter`, `guard striker`, `medium striker`,
-    /// `gradient seeker`, `large brute` — six slots with no creature identity,
-    /// which left the campaign a product question: invent characters for them,
-    /// or delete the row. Neither was needed. Once the archetypes separated into
-    /// a body and a controller policy, the same six slots became a MATRIX.
-    ///
-    /// ⭐ **this is the campaign's central proposition standing up in a room a
+    /// **this is the campaign's central proposition standing up in a room a
     /// player can walk into**: one body wearing three different controllers, and
     /// one controller worn by four different bodies. A demo that shows six
     /// archetypes proves nothing about composition; this one cannot be authored
     /// at all unless body and controller are genuinely separable.
     ///
-    /// ⚠ **both directions, because either alone is satisfiable by accident.**
+    /// **both directions, because either alone is satisfiable by accident.**
     /// Several bodies under one controller is just "a shared policy"; several
     /// controllers on one body is just "a versatile creature". Only the two
     /// together say the axes are independent.
@@ -292,12 +280,7 @@ mod tests {
     /// population: of the shipped `NpcSpawn` placements, how many name a
     /// character the road could build a body FROM?
     ///
-    /// ⭐ **26 of 163 — 16%, not a blanket change**, and that matters because
-    /// P2.20 records the campaign already paying for a ~100-NPC regression from
-    /// "exactly that shape of blanket change". A migration that touches 26
-    /// enumerable placements is a different bet from one that touches 163.
-    ///
-    /// ⚠ **the fallback still carries the trunk** — 137 placements keep today's
+    /// **the fallback still carries the trunk** — 137 placements keep today's
     /// construction, because their character is unregistered (109) or registered
     /// without a body (28). That is the opposite of the enemy road, where the
     /// fallback carries the tail, and it is why this wants its own slice.
@@ -369,15 +352,11 @@ mod tests {
              {total}) — the fallback road has no traffic left, so checklist item \
              6 is a deletion rather than a migration, and this ratchet goes with it"
         );
-        // ⭐⭐ **EVERY REGISTERED NPC CHARACTER IS BODY-COMPLETE** (2026-08-13),
-        // so this flipped from a poison into the invariant it was counting
-        // toward. It used to assert `registered > complete` — proof that
-        // `body_blueprint` still distinguished, i.e. that some registered
-        // character could not state its own body. None can fail it now, and
-        // the body-assist seam that corrected those bodies is
-        // deleted.
+        // **EVERY REGISTERED NPC CHARACTER IS BODY-COMPLETE**, so this flipped from a poison into
+        // the invariant it was counting toward. None can fail it now, and the body-assist seam that
+        // corrected those bodies is deleted.
         //
-        // ⚠ **`complete < total` above is the honest remainder and it is a
+        // **`complete < total` above is the honest remainder and it is a
         // different gap**: placements that name no character at all, or name one
         // this provider does not register. That is checklist item 6's road, and
         // it is not the same as a character being half-migrated.
@@ -391,35 +370,18 @@ mod tests {
         );
     }
 
-    // ⛔⛔ **`only_the_uncast_placements_still_ride_the_display_name_fallback`
-    // is DELETED, on its own instruction.** It censused which shipped
-    // `EnemySpawn` rows resolved art by display name, reached empty on
-    // 2026-08-13, and said what to do next: *"⚠ it unblocks checklist item 15 —
-    // deleting the `presentation_identity` name fallback and making
-    // `EnemySpawnSpec::character_id` required — and that is the thing to do
-    // next, not another entry here. When the type makes the absence
-    // unrepresentable, delete this test with the fallback."*
+    // When the type makes the absence unrepresentable, delete this test with the fallback."*
     //
-    // Done 2026-08-14: the field is required, `presentation_identity` takes no
-    // name to fall back to, and the LDtk lowering refuses an authored entity
-    // that names no creature. A census of a state the type cannot hold measures
-    // nothing, and the refusal it was watching for is pinned where it now
-    // happens — `convert_enemy_spawn`, in `conversion::mod`'s tests.
+    // A census of a state the type cannot hold measures nothing, and the refusal it was watching
+    // for is pinned where it now happens — `convert_enemy_spawn`, in `conversion::mod`'s tests.
 
-    /// **The authored `mounted_on` refs have to survive all the way to a
-    /// `RoomSpec`, and for a month they did not.** Jon, 2026-08-08: *"The
-    /// pirates in the pirate sky no longer ride their sharks."* An LDtk editor
-    /// session (`6e48e5988`) rewrote `sandbox.ldtk` while a different level was
-    /// open and brought every `EntityRef` in the file back as `null`; the four
-    /// refs were restored from the `5e4d6448e` blob on 2026-08-09.
-    ///
-    /// ⭐ **the boss side of this chain was already pinned and the ENEMY side
+    /// **the boss side of this chain was already pinned and the ENEMY side
     /// was not.** `bosses::gnu_ton::tests::arena_spawns_the_adr0020_linked_pair`
     /// covers `convert_boss_spawn`; `convert_enemy_spawn` carries its own copy
     /// of the same four lines (`entity_converters.rs`) and nothing exercised it
     /// against a real world file. This does, off the shipped `sandbox.ldtk`.
     ///
-    /// ⚠ scoped to the one level, exactly as the GNU-ton test is: composing the
+    /// scoped to the one level, exactly as the GNU-ton test is: composing the
     /// whole sandbox pulls in portal entities whose feature is off in this test
     /// build. `pirate_sky_lookout` authors none.
     #[test]

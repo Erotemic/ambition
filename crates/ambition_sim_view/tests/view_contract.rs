@@ -44,14 +44,10 @@ fn ambition_boss_catalog() -> ambition_boss_encounter::BossCatalog {
 #[test]
 fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
     let boss_catalog = ambition_boss_catalog();
-    // Regression: bosses carry the shared actor read-models (`ActorDisposition`,
-    // `BodyCombat`, …) synced by `sync_boss_actor_components`. The
-    // view-index `actors` query keys on those, so without a
-    // `Without<BossConfig>` exclusion a boss matches the actor family — which is
-    // inserted BEFORE the boss family (first-wins priority) — and renders as the
-    // generic enemy fallback sprite (a big goblin), invisible, instead of its
-    // boss sheet. This pins the exclusion that the deleted `ActorRuntime` tag
-    // used to provide implicitly.
+    // The view-index `actors` query keys on those, so without a `Without<BossConfig>` exclusion a
+    // boss matches the actor family — which is inserted BEFORE the boss family (first-wins
+    // priority) — and renders as the generic enemy fallback sprite (a big goblin), invisible,
+    // instead of its boss sheet.
     let boss_body = ae::Aabb::new(ae::Vec2::new(500.0, 500.0), ae::Vec2::new(80.0, 120.0));
     let boss = ambition_boss_encounter::BossClusterScratch::new(
         &boss_catalog,
@@ -95,13 +91,8 @@ fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
     );
 }
 
-/// A same-frame pickup collection (drops the pickup entity into
-/// the `Collected` state) must be reflected in `FeatureViewIndex`
-/// in that same `app.update()`. Regression guard for the
-/// previously-stale index that lived in `PresentationSync` —
-/// pickups, switches, and encounter mobs all mutate in sets that
-/// run AFTER `CoreSimulation`, so a rebuild in `PresentationSync`
-/// would have published last frame's view.
+/// A same-frame pickup collection (drops the pickup entity into the `Collected` state) must be
+/// reflected in `FeatureViewIndex` in that same `app.update()`.
 #[test]
 fn feature_view_index_reflects_same_frame_pickup_collection() {
     let center = ae::Vec2::new(64.0, 64.0);
@@ -186,15 +177,6 @@ fn feature_view_index_first_write_wins_on_duplicate_ids() {
     );
 }
 
-/// Regression for the `ResetProcessing` ordering bug:
-/// `process_new_game_reset_request` despawns every feature entity
-/// and spawns the start room's feature set. If `ResetProcessing`
-/// runs unordered relative to `FeatureViewSync`, the cache on the
-/// reset frame can either still hold the pre-reset id (stale) or
-/// miss the post-reset id entirely (empty). Joining
-/// `ResetProcessing` into the chain BEFORE `FeatureViewSync`
-/// guarantees same-frame consistency.
-///
 /// The test stands in a minimal reset-shaped system that despawns
 /// the pre-reset pickup and spawns a new one, then asserts the
 /// FeatureViewIndex reflects the new id after `app.update()`. The

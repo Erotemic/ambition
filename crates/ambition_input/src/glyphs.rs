@@ -49,14 +49,7 @@ pub fn glyph_for(
 
 /// The physical control of a kind this seat has bound to `action`.
 ///
-/// ⭐ **a thin alias over [`ActionBindings::control_for`], which is now THE
-/// selection primitive.** This logic used to live here and only here, while the
-/// text-label path picked `.first()` regardless of device — so a glyph and a
-/// prompt for one physical button could disagree on one frame, and did: a mixed
-/// keyboard+gamepad map showed the pad glyph beside the label `Z`. Sharing the
-/// primitive is what makes that unrepresentable rather than merely fixed.
-///
-/// ⚠ **an action bound to nothing of this kind yields nothing**, and the caller
+/// **an action bound to nothing of this kind yields nothing**, and the caller
 /// renders an empty glyph. That is the honest answer for a GLYPH — a picture of
 /// a button nobody has bound is a lie, where the text label can fall back and be
 /// understood. The two miss policies differ on purpose and are stated at each
@@ -117,13 +110,8 @@ fn keyboard_glyph(
 
 /// Gamepad glyph for an action under the given vendor style.
 ///
-/// ⛔ **this used to be a static table that answered TWO questions**, and its
-/// own comment named the hazard: the table promised to match the bindings
-/// authored in `KeyboardPreset::input_map`, never followed them, and the
-/// failure mode is a prompt telling a player to press a button that does
-/// nothing — indistinguishable, from the player's side, from a broken
-/// binding. WHICH control now comes from the binding projection; only the
-/// vendor's SPELLING of it is a table, and that is a real presentation fact.
+/// WHICH control now comes from the binding projection; only the vendor's SPELLING of it is a
+/// table, and that is a real presentation fact.
 fn gamepad_glyph(
     action: Platformer2dInputActionMonolith,
     style: GamepadStyle,
@@ -164,11 +152,7 @@ fn gamepad_glyph(
 /// How this pad's vendor draws a button. Presentation only — WHICH button is
 /// pressed is the binding's answer, not this function's.
 ///
-/// THE one gamepad-button label table. `PhysicalControl::label` renders
-/// through it too (Xbox style when no seat style is known) — it used to have
-/// its own vendor-blind copy, and the two disagreed: the prompt said
-/// "Select" where the touch glyph said "Back", for one physical button on
-/// one frame.
+/// THE one gamepad-button label table.
 pub(crate) fn button_label(button: GamepadButton, style: GamepadStyle) -> &'static str {
     match button {
         GamepadButton::South => match style {

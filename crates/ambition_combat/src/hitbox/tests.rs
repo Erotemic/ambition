@@ -190,11 +190,8 @@ impl CapturedHits {
             .collect()
     }
 
-    /// ⛔ **the poison.** `HitTarget::Volume` makes the downstream consumer scan
-    /// every actor, which is exactly how a body took a second, anonymous copy of
-    /// a hit it had already been named for — and how a strike used to reach its
-    /// own owner. A body-owned melee must never emit one; the wielded world-AOE
-    /// primitive is a different anchor and has its own tests.
+    /// A body-owned melee must never emit one; the wielded world-AOE primitive is a different
+    /// anchor and has its own tests.
     fn assert_no_body_scanning_broadcast(&self) {
         assert!(
             !self
@@ -223,15 +220,10 @@ fn capture_landed_hits(
     cap.0.extend(reader.read().cloned());
 }
 
-/// Structural tangibility gate (Jon 2026-07-22): a dead body is an intangible
-/// corpse — a swing passes through it, producing NO hit event. A live body in
-/// the exact same spot IS struck and emits one, so the silence is the
-/// tangibility gate, not the geometry. Since CM8 moved hit FEEDBACK downstream
-/// of the event (the ONE victim-side reaction fires only on a landed hit), "no
-/// event" now transitively means "no impact / sound presented" — a dead thing
-/// neither interacts nor presents. Removing the `body_is_corpse` skip in
-/// `apply_hitbox_damage` reintroduces the phantom hit (and, through it, the
-/// corpse flash).
+/// Structural tangibility gate: a dead body is an intangible corpse — a swing passes through it,
+/// producing NO hit event. A live body in the exact same spot IS struck and emits one, so the
+/// silence is the tangibility gate, not the geometry. Removing the `body_is_corpse` skip in
+/// `apply_hitbox_damage` reintroduces the phantom hit (and, through it, the corpse flash).
 #[test]
 fn a_dead_victim_is_intangible_to_a_swing() {
     use ambition_characters::actor::{BodyHealth, Health};
@@ -260,7 +252,7 @@ fn a_dead_victim_is_intangible_to_a_swing() {
     );
 
     // Corpse: HP 0 → intangible. No hit ON THE BODY, so nothing downstream
-    // presents an impact at it. ⚠ the swing itself still occurs and still
+    // presents an impact at it. the swing itself still occurs and still
     // publishes its unresolved half — intangibility is a property of the corpse,
     // not a cancellation of the attack.
     let (dead, _) = arena_with_victim_hp(0);
@@ -373,8 +365,6 @@ fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -
         .spawn((
             ae::CenteredAabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(14.0, 20.0)),
             victim_faction,
-            // Every body carries the vulnerability trio (§A1 slice 3) — the
-            // victim query is no longer `Option` over them.
             ambition_platformer2d_core::BodyOffense::default(),
             ambition_platformer2d_core::BodyMotionFacts::default(),
             ambition_platformer2d_core::BodyShieldState::default(),
@@ -421,10 +411,6 @@ fn enemy_hitbox_ignores_a_same_faction_actor() {
         captured.body_hits().is_empty(),
         "no friendly fire — an Enemy is not hostile to another Enemy"
     );
-    // ⚠ **the swing still HAPPENS.** Relationship policy spares the BODY, not
-    // the strike — a crate in the same arc is nobody's ally — so the unresolved
-    // half is published even though this victim is off limits. An ENEMY's, which
-    // is the half that used to be gated away entirely.
     assert_eq!(
         captured.unresolved_feature_hits().len(),
         1,
@@ -621,11 +607,6 @@ fn armed_player_melee() -> crate::BodyMelee {
     }
 }
 
-/// Smash regression: the attacking body may itself satisfy the universal victim
-/// query. Even with friendly fire enabled and the strike overlapping its whole
-/// hurtbox, identity excludes the owner before any relationship rule can admit
-/// damage. Before the one-body resolver, this Player-side strike emitted a
-/// broadcast `Volume` event and the downstream actor scan could hit its owner.
 #[test]
 fn player_melee_never_targets_its_owner() {
     let mut app = App::new();
@@ -703,10 +684,6 @@ fn player_melee_never_targets_its_owner() {
     );
 }
 
-/// Smash regression: a Player-effective melee strike resolves its victim in the
-/// same hitbox loop as every other body, so the authored launch-speed payload is
-/// converted against that victim instead of being discarded by a broadcast
-/// `PlayerSlash` event.
 #[test]
 fn player_melee_resolves_a_targeted_victim_with_authored_knockback() {
     let mut app = App::new();
@@ -795,10 +772,8 @@ fn player_melee_resolves_a_targeted_victim_with_authored_knockback() {
     assert_eq!(knockback.launch_dir, Some(ae::Vec2::new(0.6, -0.8)));
 }
 
-/// Smash FFA regression: match-team identity, not the shared Player faction,
-/// decides that two fighters may hit each other. The contact resolver stamps the
-/// already-selected player-marked victim explicitly so downstream routing never
-/// falls back to a broadcast scan.
+/// The contact resolver stamps the already-selected player-marked victim explicitly so downstream
+/// routing never falls back to a broadcast scan.
 #[test]
 fn player_melee_targets_a_player_marked_opponent_on_another_match_team() {
     let mut app = App::new();
@@ -971,20 +946,14 @@ fn player_followowner_strike_does_not_require_a_body_melee_projection() {
     cap.assert_no_body_scanning_broadcast();
 }
 
-/// ⭐⭐ **The regression three app-level tests caught at once (2026-08-09): after
-/// the melee unification, a body-owned swing reached NOTHING that is not a
-/// combat body.** The boss test measured zero connects in 300 frames, the
-/// rollback oracle never broke its brick, and the death-reset test never got a
-/// player killed — one cause behind all three. A boss keeps its HP and phase on
-/// an encounter and a breakable is a feature; neither matches `StrikeVictim`, so
-/// neither can be resolved by identity, and when the strike stopped broadcasting
+/// A boss keeps its HP and phase on an encounter and a breakable is a feature; neither matches
+/// `StrikeVictim`, so neither can be resolved by identity, and when the strike stopped broadcasting
 /// they stopped being hittable.
 ///
-/// The fix is not a second melee path. The strike publishes its unresolved half
-/// as [`HitTarget::UnresolvedFeatures`], and this pins BOTH halves plus the
-/// poison: the resolved body hit still names its victim, the unresolved half is
-/// still published for the things that have no name, and neither is a
-/// body-scanning `Volume` broadcast that would damage the victim twice.
+/// The strike publishes its unresolved half as [`HitTarget::UnresolvedFeatures`], and this pins
+/// BOTH halves plus the poison: the resolved body hit still names its victim, the unresolved
+/// half is still published for the things that have no name, and neither is a body-scanning
+/// `Volume` broadcast that would damage the victim twice.
 #[test]
 fn a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hit() {
     let mut app = App::new();
@@ -1002,11 +971,7 @@ fn a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hi
                 ae::Vec2::new(100.0, 100.0),
                 ae::Vec2::new(20.0, 40.0),
             ),
-            // The move's own authoritative per-strike accumulator. The ignore list
-            // must come from HERE and not from the `BodyMelee.swing` projection
-            // that used to gate this emit: the projection is rebuilt every frame,
-            // so a dedup key parked in it was wiped and every active tick
-            // re-smashed the same crate.
+            // The move's own authoritative per-strike accumulator.
             {
                 let mut playback = crate::moveset::MovePlayback::new(
                     crate::moveset::simple_melee(
@@ -1143,15 +1108,8 @@ fn the_authored_strike_sound_rides_the_overlap_onto_the_hit_event() {
     assert!(matches!(body_hits[0].target, HitTarget::Body(_)));
 }
 
-/// **A stage can make knockback grow with percent without authoring a number on
-/// every move** — queue D75, and Jon's *"in smash there does not seem to be any
-/// knockback."*
-///
-/// Every basic swing in the game is derived from the `simple_melee` prefab, and
-/// a prefab swing carries `knockback_growth: 0.0`. `scaled_knockback` returns the base
-/// immediately when growth is zero, so before this the Smash duelists launched a
-/// 150% opponent exactly as far as a fresh one: percent accumulated and moved
-/// nothing. The engine had the whole mechanism and no content reached it.
+/// Every basic swing in the game is derived from the `simple_melee` prefab, and a prefab swing
+/// carries `knockback_growth: 0.0`.
 mod ruleset_knockback_growth {
     use super::*;
 
@@ -1170,7 +1128,7 @@ mod ruleset_knockback_growth {
         }
     }
 
-    /// ⛔ **PARITY FIRST.** An undeclared world is every Ambition room, and
+    /// **PARITY FIRST.** An undeclared world is every Ambition room, and
     /// nothing there may start launching further because this seam exists.
     #[test]
     fn a_world_that_declares_no_growth_is_still_flat() {
@@ -1193,7 +1151,7 @@ mod ruleset_knockback_growth {
         assert_eq!(launch(0.0, 0.01, 200), 360.0);
     }
 
-    /// ⭐ **an authored move still wins.** The ruleset speaks for the swings that
+    /// **an authored move still wins.** The ruleset speaks for the swings that
     /// author nothing; a move with its own growth is a deliberate statement and
     /// must not be scaled twice.
     #[test]
@@ -1202,7 +1160,7 @@ mod ruleset_knockback_growth {
         assert_eq!(launch(2.0, 0.01, 100), 120.0 + 200.0);
     }
 
-    /// ⚠ weight still divides, and it must keep doing so through the new path —
+    /// weight still divides, and it must keep doing so through the new path —
     /// a heavy body is the reason growth is per-victim rather than per-hit.
     #[test]
     fn a_heavy_body_still_resists_a_grown_launch() {

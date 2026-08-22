@@ -12,12 +12,6 @@ use ambition_platformer2d_core::Vec2;
 use super::spec::ProjectileSpec;
 use ambition_platformer2d_core::{Aabb, AabbExt};
 
-/// One prepared projectile: the kinematic [`BodyKinematics`] plus the
-/// projectile [`ProjectileGameplay`] state. This is the single in-flight value
-/// used to prepare every projectile before ECS materialization, so named body fire and open authored
-/// volleys share the same kinematic/gameplay representation regardless of who
-/// fired.
-///
 /// Ownership is deliberately absent here. Before ECS materialization the body is
 /// just projectile state; `ProjectileSpawnRequest.owner` is the authoritative
 /// firing occurrence, and materialization stamps that as `ProjectileOwner`.

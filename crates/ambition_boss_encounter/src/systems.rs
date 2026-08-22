@@ -1,14 +1,11 @@
 //! Boss-encounter Bevy systems — the per-frame driver.
 //!
-//! `populate_boss_encounter_registry` (startup) loads the read-only profile
-//! catalog. `update_boss_encounters` (per sim-tick) seeds + wakes bosses in the
-//! active room, ticks each phase machine, publishes events, mirrors phase
-//! HP/phase onto the boss ECS clusters, manages the adaptive-music request
-//! lifetime, and syncs reward chests.
-//! `boss_phase_transition_feedback` CONSUMES the `BossPhaseChanged` edge that
-//! driver announces, firing camera shake + a `DamageBox` shockwave + scream VFX
-//! on dramatic transitions. It used to re-derive the edge from a `Local`
-//! snapshot, which rollback does not restore — see `BossPhaseChanged`.
+//! `populate_boss_encounter_registry` (startup) loads the read-only profile catalog.
+//! `update_boss_encounters` (per sim-tick) seeds + wakes bosses in the active room, ticks each
+//! phase machine, publishes events, mirrors phase HP/phase onto the boss ECS clusters, manages the
+//! adaptive-music request lifetime, and syncs reward chests. `boss_phase_transition_feedback`
+//! CONSUMES the `BossPhaseChanged` edge that driver announces, firing camera shake + a `DamageBox`
+//! shockwave + scream VFX on dramatic transitions.
 
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
@@ -202,7 +199,7 @@ pub fn update_boss_encounters(
         }
         for ev in &phase_events {
             publish_events(&archetype_id, ev, &mut cutscene_queue, &mut banner);
-            // ⭐ **the transition edge, from the authority that commits it**
+            // **the transition edge, from the authority that commits it**
             // (P0.2). Every consumer of "this boss just changed phase" reads
             // this rather than diffing state against a memory of its own; see
             // `BossPhaseChanged` for what the `Local` diff cost on a rollback.
@@ -356,29 +353,16 @@ fn phase_music_track(
 /// [`CameraShakeState::kick`].
 const BOSS_PHASE_SHAKE_PX: f32 = 11.0;
 
-/// Boss phase-transition feedback (Jon: a boss should "scream" / "feel loud" on
-/// a phase change "without breaking the player's ears"). On a transition INTO a
-/// dramatic phase (Transition / Phase2 / Enrage / Stagger) we kick the camera
-/// shake and play a placeholder "cry" SFX — a feel layer that works for every
-/// boss. The dedicated per-boss scream SPRITE animation + a bespoke quiet "cry"
-/// SFX are follow-ups; this reuses the existing shake + a soft impact sound as
-/// placeholders.
+/// **it CONSUMES the transition edge; it does not re-derive one** (P0.2). Because a transition here
+/// emits a `DamageBox` — real, dodge-able gameplay, not just feel — that made a gameplay
+/// consequence depend on non-rollback memory: after a rollback the map already held the new phase,
+/// the re-simulated frame saw no change, and the shockwave vanished from the timeline the session
+/// settled on. [`BossPhaseChanged`](super::events::BossPhaseChanged) is written by
+/// `update_boss_encounters` at the moment the phase machine commits the swap, in the same frame and
+/// the same schedule, so a re-simulation re-produces it from restored authoritative state exactly
+/// when the corrected timeline really crosses the threshold.
 ///
-/// ⛔⛔ **it CONSUMES the transition edge; it does not re-derive one** (P0.2).
-/// This used to diff each boss's phase against a
-/// `Local<HashMap<String, BossEncounterPhase>>`, which is not rollback state and
-/// is therefore not restored when the host rewinds. Because a transition here
-/// emits a `DamageBox` — real, dodge-able gameplay, not just feel — that made a
-/// gameplay consequence depend on non-rollback memory: after a rollback the map
-/// already held the new phase, the re-simulated frame saw no change, and the
-/// shockwave vanished from the timeline the session settled on.
-/// [`BossPhaseChanged`](super::events::BossPhaseChanged) is written by
-/// `update_boss_encounters` at the moment the phase machine commits the swap, in
-/// the same frame and the same schedule, so a re-simulation re-produces it from
-/// restored authoritative state exactly when the corrected timeline really
-/// crosses the threshold.
-///
-/// ⚠ **the first-observation special case is gone with the diff**, and that is a
+/// **the first-observation special case is gone with the diff**, and that is a
 /// simplification rather than a behaviour change: a freshly-seeded boss produced
 /// no `PhaseChanged` to skip. `wake()`'s Dormant → start transition DOES announce
 /// itself, and lands on `Intro`/`Phase1`, neither of which is dramatic.
@@ -549,12 +533,8 @@ mod phase_feedback_tests {
     /// **A boss standing in a dramatic phase, with nothing announced, does
     /// nothing.**
     ///
-    /// ⛔ the level-versus-edge poison. The old system read the boss's CURRENT
-    /// phase and compared it to a remembered one; anything that perturbed that
-    /// memory — a rollback, a re-seed, a second registration — turned a standing
-    /// phase into a fresh transition. There is no phase-reading left to perturb:
-    /// the system cannot see `Enrage` at all, only the announcement of entering
-    /// it.
+    /// the level-versus-edge poison. There is no phase-reading left to perturb: the system cannot
+    /// see `Enrage` at all, only the announcement of entering it.
     #[test]
     fn a_boss_already_standing_in_a_dramatic_phase_fires_nothing() {
         let mut app = test_app();
@@ -570,7 +550,7 @@ mod phase_feedback_tests {
 
     /// **THE ROLLBACK FALSIFIER.** (P0.2)
     ///
-    /// ⛔⛔ this is the case the `Local<HashMap<..>>` got wrong, and it is a
+    /// this is the case the `Local<HashMap<..>>` got wrong, and it is a
     /// GAMEPLAY loss rather than a cosmetic one: the shockwave is a `DamageBox`
     /// the player is meant to dodge.
     ///
@@ -582,7 +562,7 @@ mod phase_feedback_tests {
     /// the diff compares `Enrage` to a remembered `Enrage`, finds no change, and
     /// the transition produces NOTHING on the timeline the session settled on.
     ///
-    /// ⚠ **the fixture reproduces the rewind, not a mock of it**: the same system
+    /// **the fixture reproduces the rewind, not a mock of it**: the same system
     /// instance — so it keeps whatever memory it has — sees the same transition
     /// announced twice, which is exactly what a re-simulated frame does. A system
     /// carrying non-rollback memory answers the second one with silence.

@@ -1,21 +1,9 @@
 //! Boss MOTION + FLOAT parity net for the §A1 slice-3 driver fold.
 //!
-//! The slice-3 fold dissolves the boss island: `update_ecs_bosses` (which
-//! integrates the boss body through the floating integrator `step_floating_body`)
-//! folds into the shared actor `integrate_sim_bodies`, with the boss carried as an
-//! actor archetype whose flight limb replaces the bespoke float. That swap is the
-//! single biggest regression risk of the whole fold: an actor body integrates
-//! under gravity, so if the boss doesn't come across as a genuine free-flyer it
-//! will either PLUMMET (gravity leaks in) or FREEZE (the pattern's `desired_vel`
-//! stops reaching the integrator).
-//!
-//! These tests pin exactly those two invariants — a boss FLOATS (never falls) and,
-//! once woken, MOVES — as ranges, not exact trajectories. Per the project's
-//! "behavior is not sacred" stance the fold may perturb the precise flight path
-//! (the flight limb is not bit-identical to `step_floating_body`); what it must
-//! NOT do is turn the boss into a rock or a brick. If either of these fails after
-//! the fold, the boss stopped being a real floating actor — a true regression, not
-//! a cosmetic drift.
+//! These tests pin exactly those two invariants — a boss FLOATS (never falls) and, once woken,
+//! MOVES — as ranges, not exact trajectories. Per the project's "behavior is not sacred" stance the
+//! fold may perturb the precise flight path (the flight limb is not bit-identical to
+//! `step_floating_body`); what it must NOT do is turn the boss into a rock or a brick.
 //!
 //! Run with `cargo test -p ambition_app --test boss_motion_parity -- --nocapture`
 //! to see the per-frame float/altitude trace.
@@ -88,11 +76,8 @@ fn dormant_boss_floats_and_does_not_fall() {
     );
 }
 
-/// Over a longer run a woken boss must (a) still be afloat — never plummeting far
-/// below its spawn — and (b) actually MOVE (its pattern steers it around its
-/// anchor). Guards the two opposite failure modes of the integration fold: gravity
-/// leaking in (fall) and the pattern's `desired_vel` no longer reaching the body
-/// (freeze).
+/// Over a longer run a woken boss must (a) still be afloat — never plummeting far below its
+/// spawn — and (b) actually MOVE (its pattern steers it around its anchor).
 #[test]
 fn woken_boss_moves_and_stays_afloat() {
     const FRAMES: usize = 300;

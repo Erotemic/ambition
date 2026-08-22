@@ -42,7 +42,7 @@ fn fighter_on_team(
 ) -> Entity {
     let mut tuning = ae::DEFAULT_TUNING;
     tuning.footstool = rules;
-    // ⚠ a body whose `tumble_speed` is 0.0 never tumbles, and every body in
+    // a body whose `tumble_speed` is 0.0 never tumbles, and every body in
     // Ambition is that body. A fighter is not, so the fixture says so — without
     // it these tests would measure only the no-tumble fallback.
     tuning.tumble_speed = 500.0;
@@ -108,9 +108,9 @@ fn claimed(app: &App, entity: Entity) -> bool {
 
 /// **A PRESSED JUMP ON A HEAD CLAIMS THE PRESS AND BURIES THE STOMPED.**
 ///
-/// ⛔ both halves, because either alone is a different mechanic: a claim with no
+/// both halves, because either alone is a different mechanic: a claim with no
 /// shove is a free extra jump, and a shove with no claim is a spike you deliver
-/// by falling. ⚠ the stomper's RISE is the kernel's — it reads the claim ahead
+/// by falling. the stomper's RISE is the kernel's — it reads the claim ahead
 /// of the air jump — so what this asserts here is the claim, not a velocity.
 #[test]
 fn a_footstool_claims_the_press_and_drives_the_stomped_down() {
@@ -158,7 +158,7 @@ fn a_footstool_claims_the_press_and_drives_the_stomped_down() {
 
 /// **A CLAIM THE KERNEL NEVER SPENT IS GONE BY THE NEXT TICK.**
 ///
-/// ⛔⛔ **`footstool_claimed` means "THIS tick's jump edge was claimed", and
+/// **`footstool_claimed` means "THIS tick's jump edge was claimed", and
 /// nothing but this clear makes that true.** The kernel spends the claim inside
 /// its footstool branch — and that branch is not first. A wall jump, a ground
 /// jump, a coyote jump, a ladder jump and the one-way drop-through all resolve
@@ -166,7 +166,7 @@ fn a_footstool_claims_the_press_and_drives_the_stomped_down() {
 /// whose press went to a wall jump instead KEPT the claim, and the next airborne
 /// press spent it over empty air: a free jump nobody stood on.
 ///
-/// ⭐ **the second half is the poison and the test is worthless without it.** A
+/// **the second half is the poison and the test is worthless without it.** A
 /// clear that ran unconditionally after arbitration — or one that erased the
 /// claim it had just granted — would satisfy the first assertion perfectly while
 /// deleting the mechanic. The same tick has to do both.
@@ -215,10 +215,9 @@ fn a_claim_the_kernel_never_spent_is_gone_by_the_next_tick() {
 
 /// **A GROUNDED VICTIM FLINCHES; IT IS NOT SHOVED AND IT DOES NOT TUMBLE.**
 ///
-/// ⛔ the half the first version was missing — every victim took the same shove
-/// and the same lock. A body standing on a floor has nowhere to be driven, and
-/// Ultimate's grounded footstool is a brief beat you follow up on, which is a
-/// different mechanic from the airborne tumble above and not a shorter one.
+/// A body standing on a floor has nowhere to be driven, and Ultimate's grounded footstool is a
+/// brief beat you follow up on, which is a different mechanic from the airborne tumble above
+/// and not a shorter one.
 #[test]
 fn a_grounded_victim_flinches_instead_of_tumbling() {
     let mut app = app();
@@ -258,7 +257,7 @@ fn a_grounded_victim_flinches_instead_of_tumbling() {
 
 /// **A BODY THAT NEVER TUMBLES STILL OWES THE SHOVE A BEAT.**
 ///
-/// ⚠ `tumble_speed` is `0.0` for every body in Ambition, so without this
+/// `tumble_speed` is `0.0` for every body in Ambition, so without this
 /// fallback an airborne victim there would be shoved with no lock at all — the
 /// tumble branch returning zero would silently mean *no reaction*.
 #[test]
@@ -319,7 +318,7 @@ fn standing_over_somebody_without_pressing_jump_does_nothing() {
 
 /// **A BODY WHOSE RULES ARE `OFF` IS NOT A PLATFORM, AT EITHER END.**
 ///
-/// ⛔ this is the floor that keeps the exploration game unchanged: every body in
+/// this is the floor that keeps the exploration game unchanged: every body in
 /// it carries the default tuning, and a footstool that ignored it would make
 /// every enemy's head a platform on the day this system was registered.
 #[test]
@@ -384,10 +383,7 @@ fn a_head_is_spent_by_the_first_body_to_stand_on_it() {
 
 /// **ONE PRESS, ONE FOOTSTOOL — even standing over two heads.**
 ///
-/// ⛔ the mirror of the test above and the half the first version was missing:
-/// it spent only the VICTIM, so a stomper whose feet reached two bodies shoved
-/// them both and took two combo marks off one jump press. An accepted pair
-/// spends both ends.
+/// An accepted pair spends both ends.
 #[test]
 fn a_stomper_over_two_heads_takes_exactly_one_of_them() {
     let mut app = app();
@@ -418,7 +414,7 @@ fn a_stomper_over_two_heads_takes_exactly_one_of_them() {
 
 /// **THE PHANTOM FOOTSTOOL: A COMMITTED VICTIM FOLLOWS THROUGH.**
 ///
-/// ⛔ both halves, and the pair of them is the whole rule: the stomper still
+/// both halves, and the pair of them is the whole rule: the stomper still
 /// gets the bounce (that is what the technique is FOR — farming height off a
 /// committed opponent to escape disadvantage) while the victim's move is not
 /// interrupted. Asserting only the second half would also pass if the footstool
@@ -472,11 +468,6 @@ fn swing() -> crate::AttackSpec {
 }
 
 /// **A TEAMMATE IS NOT A PLATFORM UNTIL THE MATCH SAYS SO.**
-///
-/// ⛔ the genre gates a teammate footstool on Team Attack, and the first version
-/// asked NO team question at all — it had asked `damage_lands_between`, found
-/// that wrong (a footstool is not damage), and removed the question instead of
-/// replacing it.
 #[test]
 fn a_teammate_cannot_be_stood_on_while_team_attack_is_off() {
     let mut app = app();
@@ -529,7 +520,7 @@ fn team_attack_lets_a_teammate_be_stood_on() {
 
 /// **TWO BODIES UNDER DIFFERENT GRAVITY HAVE NO SHARED "HEAD".**
 ///
-/// ⛔ the first version read the VICTIM's box in the STOMPER's frame, so under
+/// the first version read the VICTIM's box in the STOMPER's frame, so under
 /// mixed gravity it judged a head that the victim does not have. Refused, rather
 /// than answered in one of the two frames.
 #[test]

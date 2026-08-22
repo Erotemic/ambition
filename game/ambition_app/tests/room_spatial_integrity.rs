@@ -44,15 +44,11 @@ fn entity_aabbs(room: &sb::rooms::RoomSpec) -> Vec<(&'static str, ae::Aabb)> {
 
 /// **The controller gallery demonstrates both directions of composition.**
 ///
-/// ⭐ **this replaces the one-of-each-archetype museum** at sandbox placements
-/// `EnemySpawn-0140`..`0146`, which was a row of six bodies whose only reason to
-/// exist was that the old ontology made body and AI one thing. Jon's decision
-/// (redirect §13) was: delete it, or recast it as a gallery over REAL characters
-/// showing that *the same controller policy can drive distinct bodies, and the
-/// same body can use distinct policies*. This asserts the recast still says
-/// that.
+/// **this replaces the one-of-each-archetype museum** at sandbox placements
+/// `EnemySpawn-0140`..`0146`, which was a row of six bodies whose only reason to exist was that the
+/// old ontology made body and AI one thing. This asserts the recast still says that.
 ///
-/// ⛔ both directions, because either alone is the museum again: six bodies each
+/// both directions, because either alone is the museum again: six bodies each
 /// with its own policy proves nothing about reuse, and one body with six
 /// policies proves nothing about portability.
 #[test]
@@ -109,17 +105,8 @@ fn the_controller_gallery_shows_one_policy_on_many_bodies_and_many_on_one() {
     );
 }
 
-// ⛔⛔ **`every_archetype_row_is_placed_somewhere_or_deliberately_code_selected`
-// WAS HERE AND IS DELETED (AC6, 2026-08-13) — its subject reached zero, which
-// was always the plan.**
-//
-// It swept `character_archetypes.ron` for rows no level placed, and it caught
-// two real ones (`small_lurker`, `large_colossus` — authored, validated,
-// iterated by two key lists, asserted about by three tests, placed in zero
-// levels). Its own note said the guard "stays true at zero — where the whole
-// guard becomes vacuous on purpose, because there is nothing left to place".
-// The file is deleted, so it is vacuous, and a vacuous guard is worse than
-// none: it reads as coverage.
+// Its own note said the guard "stays true at zero — where the whole guard becomes vacuous on
+// purpose, because there is nothing left to place".
 //
 // ⇒ what replaced it is not another sweep but a REFUSAL: construction panics on
 // a placement that names no buildable character, so an unplaceable body cannot
@@ -127,13 +114,9 @@ fn the_controller_gallery_shows_one_policy_on_many_bodies_and_many_on_one() {
 
 /// **A creature that is not your enemy says so on its PLACEMENT.**
 ///
-/// ⛔ **the guard that replaces a deleted field.** `BrainProfile.attacks_player`
-/// came across from `ArchetypeSpec` and was removed 2026-08-11 (Jon's redirect
-/// §6): a controller policy answers *how do I play this body*, never *who are my
-/// enemies*, and it must not carry player-centric vocabulary at all. The giant
-/// GNU was the field's motivating case — a mount whose RIDER is the threat — so
-/// the moment it is gone, the giant's placement is the only thing standing
-/// between a lumbering prop and a hostile one.
+/// The giant GNU was the field's motivating case — a mount whose RIDER is the threat — so the
+/// moment it is gone, the giant's placement is the only thing standing between a lumbering prop and
+/// a hostile one.
 ///
 /// Two terms, both OBSERVED, because either alone passes for the wrong reason:
 /// the placement must EXIST (a rename or a lost `character_id` would otherwise

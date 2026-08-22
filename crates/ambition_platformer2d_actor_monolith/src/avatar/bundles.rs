@@ -66,17 +66,13 @@ pub struct PlayerSimulationBundle {
     /// turn `SlotControls[PRIMARY]` into this body's `ActorControl`. No input
     /// frame is copied onto the body.
     ///
-    /// ⭐ this replaced `brain: Brain::Player(slot)` — the seat is a fact about a
+    /// this replaced `brain: Brain::Player(slot)` — the seat is a fact about a
     /// PERSON, and it never belonged inside an AI-policy enum.
     pub driver: DrivingParticipant,
     /// **What this body does when NOBODY is driving it**, which for the home
     /// avatar is: nothing.
     ///
-    /// ⭐ it is a real answer, not a placeholder. Possession redirects the seat
-    /// and leaves every body's own policy alone, so a vacated home avatar falls
-    /// back to its policy exactly as a released NPC falls back to its own — and
-    /// standing still is what the home avatar did while vacated before, when the
-    /// vacate REMOVED its `Brain` outright.
+    /// it is a real answer, not a placeholder.
     pub brain: Brain,
     pub action_set: ActionSet,
     /// The player's melee as DATA (fable review R2.5 / I7): the controlled
@@ -115,11 +111,6 @@ pub struct PlayerSimulationBundle {
     /// Explicit swappable movement policy. Every integrated body owns one;
     /// absence is never interpreted as the axis-swept default.
     pub motion_model: crate::features::MotionModel,
-    /// The body's published combat footprint, ORIENTED to its gravity frame —
-    /// the SAME single-source-of-truth component every actor publishes
-    /// (fable review 2026-07-02 §A6: consumers used to rebuild the player
-    /// hurtbox per-site, and the rebuilds had diverged). Written each tick by
-    /// `integrate_home_body`.
     pub hurtbox: CenteredAabb,
     /// Body-generic strike/pogo publication state. The home body carries the
     /// same components as every actor, so changing controller kind never changes
@@ -128,10 +119,6 @@ pub struct PlayerSimulationBundle {
     pub pogo_policy: PogoPolicy,
     pub pogo_target_volumes: PogoTargetVolumes,
     pub movement: AncillaryMovementBundle,
-    /// Per-player projectile state — spawner cooldowns, charge timer,
-    /// motion-input buffer, in-flight body list. Was previously a
-    /// global `Res<PlayerProjectileState>`; per-actor migration so
-    /// co-op / possession builds get one independent set per player.
     pub projectile: crate::projectile::PlayerProjectileState,
 }
 
@@ -161,7 +148,7 @@ impl PlayerSimulationBundle {
         // and applies the same overlay."* An agreement asserted in prose is one
         // that diverges the first time either side learns something — a ranged
         // rule, a second cue family — and this campaign is otherwise about
-        // removing exactly that (2026-07-29).
+        // removing exactly that.
         let moveset = crate::combat::moveset::ActorMoveset(
             crate::avatar::starting_character::derive_persona_moveset(
                 &action_set,
@@ -253,7 +240,7 @@ impl PlayerSimulationBundle {
         character_id: &str,
         // **THE PREPARED CAST**, when the caller has one.
         //
-        // ⛔ this parameter did not exist and the call below passed `None` with
+        // this parameter did not exist and the call below passed `None` with
         // the comment *"a from-scratch bundle predates the world it will live in,
         // so there is no registry to consult here"* — a claim about the CALLER
         // that stopped being true. `session::setup` holds
@@ -261,14 +248,9 @@ impl PlayerSimulationBundle {
         // later. The cost was concrete: a character whose kit is authored on its
         // DEFINITION rather than its catalog row was built with the row's kit, so
         // the protagonist's own repertoire was invisible on the one path that
-        // spawns the protagonist (GPT 5.6 §5).
+        // spawns the protagonist.
         prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
-        // ⭐ **HOW THIS BODY FIRES, handed back to the caller** (Jon's second
-        // redirect, P0). The overlay resolves it and this used to DISCARD it —
-        // which is why the protagonist needed a `RecharacterizeBody` on ordinary
-        // construction: the two projectile markers a `Bundle` cannot
-        // conditionally omit were the derive's only remaining job, and the
-        // answer they need was computed right here and thrown away.
+        // **HOW THIS BODY FIRES, handed back to the caller**.
         ranged: &mut ambition_characters::brain::RangedExecution,
     ) -> Self {
         // The body's code-side capability set — the source of the protagonist's
@@ -329,7 +311,6 @@ pub(crate) fn default_player_action_set(abilities: ae::AbilitySet) -> ActionSet 
             .attack
             .then_some(MeleeActionSpec::Swipe(SwipeSpec {
                 // **NO WINDUP. The player's attack comes out on the press.**
-                // (Jon, 2026-07-31: *"there are a few frames — in debug mode you
                 // get a yellow hitbox — before it turns into a gray hitbox that
                 // activates with the vfx. I think this is supposed to be a
                 // telegraph, but the player robot shouldn't have that. The attack
@@ -408,7 +389,7 @@ mod tests {
         );
         assert_eq!(bundle.name.as_str(), "Player Robot v3");
         assert_eq!(bundle.driver.0, PlayerSlot::PRIMARY);
-        // ⚠ the ROW's kit, which for this character is its Hall pedestal face —
+        // the ROW's kit, which for this character is its Hall pedestal face —
         // `default_action_set: "peaceful"`. Its playable repertoire is authored on
         // its definition and reaches a body through the PREPARED cast, which this
         // catalog-only fixture deliberately does not have.

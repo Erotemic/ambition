@@ -1,9 +1,6 @@
 //! Straddle eviction — the ONE sanctioned pushout.
 //!
-//! **JON'S RULE: AVOID PUSHOUT.** A transited body emerges right at the exit
-//! face ([`map_point`](crate::pieces::map_point)) and lets velocity carry it
-//! clear — it is never artificially shoved out of geometry. Pushout corrupts
-//! position/reversibility and papers over real bugs.
+//! Pushout corrupts position/reversibility and papers over real bugs.
 //!
 //! The lone exception is here: a portal **moves, closes, or teleports while a
 //! body straddles its plane** (re-firing the gun to reposition a portal out
@@ -99,7 +96,6 @@ fn evict_for_plane(
         // centroid's side.
         let d = pp::front_distance(kin.pos, &plane.frame);
         let half_n = (kin.size * 0.5).dot(n.abs());
-        // Jon's ONE pushout exception, expressed as the external-constraint
         // authority (ADR 0024): the closing portal carries the straddling body
         // clear of the plane.
         if d >= 0.0 {

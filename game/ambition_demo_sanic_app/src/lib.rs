@@ -1,6 +1,3 @@
-//! The Sanic demo's shell, as a function — so the binary and the exit-3
-//! regression test assemble the SAME app.
-//!
 //! See `main.rs` for the doctrine this file encodes.
 
 use bevy::prelude::*;
@@ -92,7 +89,7 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
 
 /// The windowed host with an explicitly named home route.
 ///
-/// ⚠ **a capture needs the GAMEPLAY route, not the launcher** — booting the
+/// **a capture needs the GAMEPLAY route, not the launcher** — booting the
 /// default home and counting frames photographs a menu. Mary-O's binary learned
 /// this by writing a blank file first.
 #[cfg(all(feature = "visible", not(target_arch = "wasm32")))]
@@ -129,7 +126,7 @@ pub fn build_windowed_demo_app_with_home(render: RenderMode, home_route: &str) -
         });
     match render {
         RenderMode::Windowed => app.add_plugins(plugins),
-        // ⛔ **`winit` is also the RUNNER.** Without it Bevy's default runner
+        // **`winit` is also the RUNNER.** Without it Bevy's default runner
         // performs ONE update and returns, so a capture exits 0 having rendered
         // nothing. Mary-O's binary found that the hard way.
         RenderMode::OffscreenGpu => app
@@ -172,10 +169,6 @@ pub fn build_windowed_demo_app_with_home(render: RenderMode, home_route: &str) -
     // The provider installs Sanic's content definitions before the shared asset
     // catalog is assembled below.
     compose_sanic_shell(&mut app, home_route);
-    // The UMBRELLA install, not a copy of it (2026-07-27). See the twin comment
-    // in the Mary-O shell: these two demos ARE the regression test for the
-    // helper an external consumer now depends on.
-    //
     // Sanic owns procedural/self-contained rooms and ships no `.ldtk` file, so
     // no world manifest: a world-less catalog contributes no world rows and
     // every other entry still lands.
@@ -198,10 +191,8 @@ pub fn build_windowed_demo_app_with_home(render: RenderMode, home_route: &str) -
     // Shapes only — no dev HUD. Starts OFF; press F1 in-game.
     app.add_plugins(ambition_platformer2d::render::rendering::debug_viz::DebugVizPlugin::default());
 
-    // Windowed hosts use the physical Kira backend; headless presentation
-    // hosts select the device-free recording backend before this shared audio
-    // composition is installed. Both paths therefore exercise the same
-    // provider resolver, ownership, bank, and playback-evidence systems.
+    // Both paths therefore exercise the same provider resolver, ownership, bank, and
+    // playback-evidence systems.
     install_sanic_audio(&mut app);
     app
 }
@@ -263,7 +254,7 @@ pub enum RenderMode {
     /// The render graph, no backend, no window. What CI wants.
     Headless,
     /// **No window and a REAL backend** — the mode that produces pixels without
-    /// a display. ⛔ `Headless` cannot: it sets `backends: None`, so there is no
+    /// a display. `Headless` cannot: it sets `backends: None`, so there is no
     /// RenderApp and nothing to read a texture out of. See
     /// `ambition_render::capture` and Mary-O's identical variant.
     OffscreenGpu,
@@ -339,21 +330,13 @@ mod tests {
         // coverage lives in the integration tests, while this test stays focused
         // on PNG+RON -> GameAssets binding.
         //
-        // ⚠ this comment used to say Startup "owns `load_sanic_game_assets`". It
-        // did not: that function was defined and registered NOWHERE, deleted
-        // 2026-08-03. The binding this test asserts comes from the PROVIDER's
-        // `register_character` (each form publishes its definition and demands
-        // its art in one call), which is why the test passes without it.
+        // The binding this test asserts comes from the PROVIDER's `register_character` (each form
+        // publishes its definition and demands its art in one call), which is why the test passes
+        // without it.
         app.finish();
         app.cleanup();
         app.world_mut().run_schedule(bevy::app::Startup);
         // Both forms must be DECLARED, then materialize through the ENGINE.
-        //
-        // This test used to hand-roll the decode itself, calling the engine's
-        // internal materializer directly with resources it scraped out of the
-        // world — a duplicate of the step that lived in `ambition_app`. That
-        // duplication is the defect §7.1 removes, so the test now does what a
-        // provider actually does: submit DEMAND and let the engine decode it.
         let declared: Vec<String> = {
             let assets = app
                 .world()

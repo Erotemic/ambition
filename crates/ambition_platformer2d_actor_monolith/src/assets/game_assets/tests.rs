@@ -185,10 +185,8 @@ fn catalog_paths_match_legacy_loader_paths_under_desktop_dev_loose() {
     }
 }
 
-/// `--sprite-folder custom_sprites` propagates through the catalog
-/// so the resolved entity-sprite paths point at the override
-/// directory. Parallax layers live under a fixed `backgrounds/`
-/// path independent of `--sprite-folder` and must not move.
+/// `--sprite-folder custom_sprites` propagates through the catalog so the resolved
+/// entity-sprite paths point at the override directory.
 #[test]
 fn sprite_folder_flag_propagates_through_catalog() {
     let catalog = build_sandbox_image_catalog("custom_sprites");

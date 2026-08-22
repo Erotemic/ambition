@@ -22,10 +22,10 @@
 //! Now there is one verb. A domain publishes a command from its own plugin — the
 //! same three-line surface `world.set_flag` uses — and authored dialogue can ask
 //! for it **with no edit here, in `ambition_dialog`, or in any game's vocabulary
-//! module**. ⚠ this file names no command, no domain and no flag; grep it and
+//! module**. this file names no command, no domain and no flag; grep it and
 //! see.
 //!
-//! # ⛔ Why this is not the condition verb with a different name
+//! # Why this is not the condition verb with a different name
 //!
 //! Three differences, all forced:
 //!
@@ -43,7 +43,7 @@
 //! registered parameter count. A **command** is dispatched by name with its
 //! parameters as a list (`yarnspinner_runtime::command::Command::parse`), no
 //! arity assertion anywhere, and `Option` parameters retrieve `None` when the
-//! list runs out. ⚠ **so the cap here is this file's own** — three arguments,
+//! list runs out. **so the cap here is this file's own** — three arguments,
 //! which is one more than any published command takes. Widening it is adding an
 //! `Option` to a tuple, and nothing else.
 //!
@@ -51,19 +51,17 @@
 //! arguments; it does not type a command's — `Command::parse` splits the line
 //! and maps every component through `YarnValue::from(String)`, so `true` reaches
 //! this file as the string `"true"`. ⇒ this file parses, and it parses **against
-//! the published descriptor's declared kind**. ⛔ the alternative — guess the
+//! the published descriptor's declared kind**. the alternative — guess the
 //! kind from the text — is the lossy conversion that silently turns a flag named
 //! `"1"` into a number.
 //!
-//! # ⛔ A prepared REFERENCE is refused, on purpose
+//! # A prepared REFERENCE is refused, on purpose
 //!
-//! Same rule as the condition verb, same reason: a
-//! [`ParamKind::Reference`] is a `SimId`, a `.yarn` literal is a string, and
-//! coercing one into the other would perform a verb confidently against
-//! whichever occurrence happens to share the spelling. Prepared references from
-//! authored source are D127 M2's job. ⚠ **and the stake is higher on this side**
-//! — a condition that guesses returns a wrong answer, a command that guesses
-//! changes the wrong thing.
+//! Same rule as the condition verb, same reason: a [`ParamKind:Reference`] is a `SimId`, a
+//! `.yarn` literal is a string, and coercing one into the other would perform a verb
+//! confidently against whichever occurrence happens to share the spelling. **and the stake is
+//! higher on this side** — a condition that guesses returns a wrong answer, a command that
+//! guesses changes the wrong thing.
 
 use bevy::prelude::*;
 use bevy_yarnspinner::prelude::DialogueRunner;
@@ -80,14 +78,14 @@ pub const YARN_COMMAND_NAME: &str = "command";
 
 /// How many arguments one authored call may carry after the id.
 ///
-/// ⚠ **a limit of this file, not of Yarn** — see the header. Stated as a
+/// **a limit of this file, not of Yarn** — see the header. Stated as a
 /// constant so the refusal message and the tuple below cannot disagree.
 pub const MAX_AUTHORED_ARGS: usize = 3;
 
 /// Install the one generic command verb on a freshly built runner.
 ///
 /// Pushed into [`ambition_dialog::YarnContentBindings`] beside the condition
-/// verb. ⚠ the mirror argument is unused, for the same reason it is unused
+/// verb. the mirror argument is unused, for the same reason it is unused
 /// there: nothing here reads a projection of the world.
 pub fn install_command_binding(
     commands: &mut Commands,
@@ -100,7 +98,7 @@ pub fn install_command_binding(
 
 /// `<<command "domain.verb" arg…>>` — ask whichever domain published the verb.
 ///
-/// ⚠ **every refusal is a `warn!` and nothing happening.** A Yarn command has no
+/// **every refusal is a `warn!` and nothing happening.** A Yarn command has no
 /// return value, so there is nowhere for an outcome to go; the alternative to
 /// logging is a silent no-op, which is how an author spends an afternoon on a
 /// typo.
@@ -124,7 +122,7 @@ fn request_authored_command(
         );
         return;
     };
-    // ⚠ **an unpublished id is refused HERE rather than passed through**, which
+    // **an unpublished id is refused HERE rather than passed through**, which
     // is the opposite of what the condition verb does — and the difference is
     // the ledger. A condition's refusal is produced by the catalog at the moment
     // it is asked, so passing through gets the catalog's own better message. A
@@ -153,7 +151,7 @@ fn request_authored_command(
 /// Turn the authored text into the [`AuthoredArg`]s the published descriptor
 /// declares, or refuse with a reason an author can act on.
 ///
-/// ⭐⭐ **the descriptor decides the kind; the authored text only has to fit.**
+/// **the descriptor decides the kind; the authored text only has to fit.**
 /// See the module header: Yarn hands a command its parameters untyped, so there
 /// is no value-side type to infer from even if inferring were a good idea.
 fn prepare_arguments(
@@ -200,7 +198,7 @@ fn prepare_one(id: &CommandId, param: &ParamSpec, text: &str) -> Result<Authored
                 param.name
             )
         }),
-        // ⚠ **exactly `true` / `false`, with no `1`, `yes` or `on`.** A verb that
+        // **exactly `true` / `false`, with no `1`, `yes` or `on`.** A verb that
         // accepted four spellings of truth would accept a fifth by accident, and
         // a mistyped one would read as `false` — which is a flag being CLEARED
         // when the author meant to set it.

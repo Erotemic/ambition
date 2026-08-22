@@ -195,7 +195,7 @@ impl ActorNameplateSettings {
 
 /// **ONE SET OF PLATES PER VIEW.**
 ///
-/// ⛔⛔ **WHICH PLATES ARE ON SCREEN IS A PROPERTY OF THE VIEW, NOT OF THE
+/// **WHICH PLATES ARE ON SCREEN IS A PROPERTY OF THE VIEW, NOT OF THE
 /// ROOM.** The policy ranks every candidate by distance to the camera's focus,
 /// draws the nearest few, fades the next and hides the rest — so two views
 /// looking at opposite ends of one room legitimately want two disjoint sets of
@@ -203,23 +203,14 @@ impl ActorNameplateSettings {
 /// entity per labelled source could not express that; a second view would have
 /// silently re-ranked the first view's plates out from under it.
 ///
-/// ⭐ **so the plates are keyed by view, and a second view is a COUNT.** A
+/// **so the plates are keyed by view, and a second view is a COUNT.** A
 /// one-view game builds exactly the plates it built before — same candidates,
 /// same ranking, same anchors, same entity per visible source.
 ///
-/// ⚠ **what is duplicated is the PLATE, never the thing it names.** The
+/// **what is duplicated is the PLATE, never the thing it names.** The
 /// `NameplateIndex` row and the `DoorNameplateSource` on a room visual stay
 /// singular — one authoritative source, N projections of it. Two views produce
 /// two pictures of one door, never two doors.
-///
-/// ⛔ **AND THE `Vec2::ZERO` FOCUS IS GONE.** The focus used to come from a
-/// lookup that refuses to answer when several main cameras exist, falling back to
-/// the WORLD ORIGIN — so the first composition to add a second camera would have
-/// ranked every plate in the game by its distance to the origin and looked
-/// merely odd. Silently drawing at the origin is strictly worse than declining:
-/// iterating views means every iteration holds a real `CameraViewState`, there is
-/// no branch left in which a focus is invented, and a session with NO view
-/// retires its plates rather than inventing a focus to rank them by.
 #[allow(clippy::type_complexity)]
 pub fn sync_actor_nameplates(
     mut commands: Commands,
@@ -231,10 +222,9 @@ pub fn sync_actor_nameplates(
     active_metadata: Option<
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ActiveRoomMetadata>,
     >,
-    // ⭐ **THE VIEWS THEMSELVES** (D116 M2), not "the presented view". A draw
-    // system owes every view a picture, so it iterates them; `PresentedViewState`
-    // answers the different question of which single view one camera shows, and
-    // refuses when there are several.
+    // A draw system owes every view a picture, so it iterates them; `PresentedViewState`
+    // answers the different question of which single view one camera shows, and refuses when
+    // there are several.
     views: Query<(Entity, &ambition_sim_view::CameraViewState), With<ambition_sim_view::LocalView>>,
     // Sim-built nameplate read-model (E4 slices 5+16): label / geometry /
     // liveness / controlled-body facts per actor id. Doors stay render-side
@@ -333,11 +323,6 @@ pub fn sync_actor_nameplates(
         let mut nameplates = nameplate_queries.p1();
         for (entity, plate, key, mut label) in &mut nameplates {
             let Some(view_wanted) = wanted.get(&key.0) else {
-                // ⛔ **THE VIEW IS GONE, SO ITS PLATES GO WITH IT — despawned as
-                // a SET.** Clearing the key instead would leave a plate that
-                // still draws while falling out of every query that selects by
-                // view, and the test asserting the key was gone would agree with
-                // the bug.
                 commands.entity(entity).despawn();
                 continue;
             };
@@ -492,7 +477,7 @@ fn nameplate_font(ui_fonts: Option<&UiFonts>, font_size: f32) -> TextFont {
 
 /// Build one plate, for ONE view.
 ///
-/// ⛔ **it carries no `Name`, and that is deliberate.** `entity.name` is
+/// **it carries no `Name`, and that is deliberate.** `entity.name` is
 /// registered for rollback, and the coverage contract derives its swept
 /// population from *"an entity carrying even one type the rollback knows about
 /// participates in rollback"* — so a debug label here would enlist every plate of
@@ -617,11 +602,8 @@ mod tests {
 
     /// **TWO VIEWS, ONE ROOM, ONE SIMULATION — TWO SETS OF PLATES.**
     ///
-    /// ⚠ **the two-view split below is a FIXTURE, not a policy.** It is the
-    /// smallest world that can tell a per-view projection from a shared one. It
-    /// does not say Ambition is split-screen, and it does not choose between the
-    /// shared, fixed-split and adaptive layouts — that is the maintainer's call
-    /// and is open.
+    /// **the two-view split below is a FIXTURE, not a policy.** It is the smallest world that
+    /// can tell a per-view projection from a shared one.
     mod two_views_one_room_tests {
         use super::*;
         use ambition_sim_view::{CameraViewState, LocalView, LocalViewId, PresentedForView};
@@ -639,7 +621,7 @@ mod tests {
             ))
         }
 
-        /// ⭐ **ONE door entity per door.** The authoritative object stays
+        /// **ONE door entity per door.** The authoritative object stays
         /// singular; what the views get is one PROJECTION of it each.
         fn spawn_door(world: &mut World, id: &str, center: ae::Vec2) {
             world.spawn(DoorNameplateSource::new(
@@ -714,22 +696,17 @@ mod tests {
             })
         }
 
-        /// **⛔⛔ EACH VIEW RANKS THE ROOM AGAINST ITS OWN FOCUS.**
+        /// **EACH VIEW RANKS THE ROOM AGAINST ITS OWN FOCUS.**
         ///
-        /// The policy draws the nearest few plates and fades the rest, ranked by
-        /// distance to the camera's focus — so two views at opposite ends of one
-        /// room want opposite answers. The focus used to come from a lookup that
-        /// refuses when several main cameras exist and then fell back to
-        /// `Vec2::ZERO`, which would have ranked every plate in the game by its
-        /// distance to the world origin: plausible-looking, and ordered by
-        /// nothing.
+        /// The policy draws the nearest few plates and fades the rest, ranked by distance to the
+        /// camera's focus — so two views at opposite ends of one room want opposite answers.
         ///
-        /// ⭐ **the assertion is on VALUES, not on inequality.** "the two views
+        /// **the assertion is on VALUES, not on inequality.** "the two views
         /// differ" would pass for a pair that differ and are both wrong. Each view
         /// is checked against the opacity the rank policy gives the door it is
         /// actually looking at.
         ///
-        /// ⚠ **and the falsifier is inside the test.** The second run swaps only
+        /// **and the falsifier is inside the test.** The second run swaps only
         /// the two views' camera targets — same doors, same spawn order, same
         /// settings — and the two answers must swap with them. A sync that keys
         /// off view or door iteration order passes the first run and fails this.
@@ -760,13 +737,7 @@ mod tests {
             );
         }
 
-        /// **⛔ A RETIRED VIEW TAKES ITS PLATES WITH IT — DESPAWNED AS A SET.**
-        ///
-        /// Retiring the second projection has to be as ordinary as creating it,
-        /// because that is what an adaptive layout does while the room stays
-        /// loaded. Clearing the key instead would leave a `Text2d` the renderer
-        /// still draws while it falls out of every query that selects by view —
-        /// and the test asserting the key was gone would agree with the bug.
+        /// **A RETIRED VIEW TAKES ITS PLATES WITH IT — DESPAWNED AS A SET.**
         #[test]
         fn a_retired_view_takes_its_plates_with_it() {
             let mut world = World::new();

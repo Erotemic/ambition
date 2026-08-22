@@ -82,13 +82,8 @@ pub struct LdtkRuntimeIndex {
 
 /// The "no LDtk world installed" index: no areas, no levels.
 ///
-/// ⚠ **this is a starting point for a world being BUILT, not a value a game
-/// without an LDtk world should hold.** Until 2026-08-16 it was the latter: the
-/// index was a mandatory member of `PlatformerSessionWorld`, so five
-/// RON-authored games constructed one of these to satisfy a constructor and the
-/// spine then rebuilt against it every tick, finding nothing. Those sessions
-/// now carry NO index at all and [`ldtk_world_installed`] skips the spine
-/// outright. Reach for this only where an index will actually be filled.
+/// Those sessions now carry NO index at all and [`ldtk_world_installed`] skips the spine outright.
+/// Reach for this only where an index will actually be filled.
 impl Default for LdtkRuntimeIndex {
     fn default() -> Self {
         Self {

@@ -347,16 +347,7 @@ pub struct BodyWallState {
 /// **AN ACTOR'S SURFACE-CLING GEOMETRY** — the surface-walker's normal, and how
 /// much gravity it feels.
 ///
-/// ⭐ **it lives HERE because its siblings already do.** Its own doc has said
-/// since the cluster migration that ground contact and the air-jump budget moved
-/// to [`BodyGroundState::on_ground`] and [`BodyJumpState::air_jumps_available`] —
-/// "the SAME components the player carries, so there is one ground/jump
-/// authority for every body". This was the one piece of that sentence still
-/// living in the actor monolith, which made every crate that needs a body's
-/// surface reach up into a game-behaviour crate for it (`ambition_sim_view`
-/// already did).
-///
-/// ⚠ **the rollback identity does not move with it.** The wire name is the
+/// **the rollback identity does not move with it.** The wire name is the
 /// stable id `actor.surface_state`, registered by whoever owns the component's
 /// registration; no baseline records a crate path, so relocating the definition
 /// is not a schema change.
@@ -429,7 +420,7 @@ pub struct BodyFlightState {
     /// **A world-space launch an external reaction imparted, not yet handed to
     /// the motion model.** `Vec2::ZERO` between hits, which is almost always.
     ///
-    /// ⭐ **why this exists at all**: writing a launch into
+    /// **why this exists at all**: writing a launch into
     /// `BodyKinematics::vel` is only authoritative for a model that OWNS `vel`.
     /// A surface-momentum body that is `Riding` does not — its `vel` is
     /// documented as *"DERIVED (published for observers)"*, computed from the
@@ -438,20 +429,20 @@ pub struct BodyFlightState {
     /// The impulse has to reach the model, and only the model can decide what a
     /// launch MEANS to it (leave the surface, or override the run).
     ///
-    /// ⚠ **drained by [`step_motion`](crate::movement::step_motion), the single
+    /// **drained by [`step_motion`](crate::movement::step_motion), the single
     /// movement gateway, and by nothing else.** Putting the drain there rather
     /// than asking each writer to also call the model is deliberate: this repo
     /// has repeatedly been bitten by an authority that needs a follow-up call,
     /// and a launch that silently did nothing is exactly that failure.
     ///
-    /// ⚠ **it rides on `BodyFlightState` because that cluster is ALREADY the
+    /// **it rides on `BodyFlightState` because that cluster is ALREADY the
     /// world-imparted momentum channel** (see `carried_run` above, written by
     /// the portal adapter and by knockback) and is already rollback-registered
     /// as `body.flight`. A pending launch that did not rewind would be a phantom
     /// hit on the resimulated timeline; here it rewinds with everything else and
     /// needs no new registration.
     ///
-    /// ⚠ **`Vec2::ZERO` is the empty state rather than an `Option`**, for the
+    /// **`Vec2::ZERO` is the empty state rather than an `Option`**, for the
     /// snapshot's sake: the encoder has a `vec2` primitive and no `Option<Vec2>`
     /// one, and inventing an option encoding to express "no launch" would put a
     /// new shape in the wire format for a case that already has a harmless
@@ -489,11 +480,8 @@ pub struct BodyDodgeState {
     pub cooldown: f32,
     /// **The air dodge has been spent in this airtime.**
     ///
-    /// ⭐ the explicit refresh rule Jon's brief asks for: *"cannot be spammed
-    /// infinitely in one airtime … refreshes according to an explicit
-    /// landing/ledge/lifecycle rule"*. Cleared where every other aerial resource
-    /// is — on ground contact and on a ledge grab — rather than by a timer,
-    /// because "one per trip through the air" is the rule players learn.
+    /// Cleared where every other aerial resource is — on ground contact and on a ledge grab —
+    /// rather than by a timer, because "one per trip through the air" is the rule players learn.
     pub air_dodge_spent: bool,
 }
 
@@ -515,7 +503,7 @@ pub struct BodyShieldState {
     /// **How long THIS break was**, stamped when the guard shatters, so
     /// [`Self::break_phase`] can say how far through it the body is.
     ///
-    /// ⛔ **not a derive memo.** The phase needs
+    /// **not a derive memo.** The phase needs
     /// `break_timer / ShieldTuning::break_stun_time`, and the tuning is not
     /// available where the phase is READ — both presentation sites hold this
     /// component and no tuning, and reaching for `MotionModel::shield_tuning()`
@@ -531,7 +519,7 @@ pub struct BodyShieldState {
 impl BodyShieldState {
     /// **Is this body inside its perfect-shield window?**
     ///
-    /// ⛔ **the timer ALONE, and dropping `active` was the point.** Under
+    /// **the timer ALONE, and dropping `active` was the point.** Under
     /// Ultimate's release-timed parry ([`crate::ParryTiming::OnRelease`]) the
     /// window is live while the guard is DOWN, so an `active &&` term would make
     /// that setting unreachable. The term is not lost: `resolve_shield` is the
@@ -550,7 +538,7 @@ impl BodyShieldState {
     /// **How far through the break this body is**: `0.0` the instant the guard
     /// shatters, approaching `1.0` as it recovers. `None` when no break runs.
     ///
-    /// ⭐ the genre draws a break as a SEQUENCE — launched, falling, collapsed,
+    /// the genre draws a break as a SEQUENCE — launched, falling, collapsed,
     /// recovering — and the sim publishes one countdown. This is the whole
     /// distinction, derived rather than stored: four beats out of one timer and
     /// the length it started at.
@@ -644,13 +632,9 @@ pub fn tick_shield_resource(
 /// `Rolling` marker, Mary-O's spark cadence — and a generic rule knows neither
 /// the types nor what resetting them means. The versus round boundary claimed
 /// "the whole movement/ability cluster set", which was true, and read as "the
-/// fighter starts clean", which was not (GPT 5.6, 2026-07-27).
+/// fighter starts clean", which was not.
 ///
 /// So the reset ANNOUNCES itself and each provider answers for its own state.
-/// An entity event rather than a message: it fires at the command flush inside
-/// the tick that reset the body, so no provider has to find a schedule slot
-/// between "the round restarted" and "my systems run again" — the ordering bug
-/// this would otherwise hand to every character author in turn.
 ///
 /// Observing it costs a provider one line and is inert for any body that lacks
 /// its components:
@@ -670,7 +654,7 @@ pub fn tick_shield_resource(
 /// respawn, safe respawn, room arrival, sandbox reset, lifecycle commit — did
 /// not, so ordinary play recreated exactly the leak the event was added to
 /// close. Sanic could respawn holding a ball-dash charge; the observers existed
-/// and nothing invoked them (GPT 5.6, 2026-07-28).
+/// and nothing invoked them.
 ///
 /// A doc comment cannot make seven call sites remember. So the announcement is
 /// DERIVED: [`reset_body_clusters`] raises [`BodyLifetime::restart_pending`] on
@@ -718,10 +702,6 @@ pub fn announce_body_restarts(
 ///
 /// `air_jumps_default` is the mid-air jump count to restore when the body's own
 /// `BodyAbilities` does not name one.
-///
-/// ⚠ **it is a PARAMETER because it used to be `DEFAULT_TUNING.air_jumps`**, and
-/// that made this function quietly wrong for anybody running non-default tuning.
-/// The sandbox reset knew, and carried a follow-up call:
 ///
 /// ```ignore
 /// ae::reset_body_clusters(..);
@@ -801,13 +781,9 @@ pub fn reset_body_clusters(
     *clusters.action_buffer = BodyActionBuffer::default();
     *clusters.lifetime = BodyLifetime {
         resets: new_resets,
-        // The announcement is DERIVED from the reset, not asked of the caller.
-        // Seven production call sites reset a body — death, safe respawn, room
-        // arrival, sandbox reset, lifecycle commit, a versus round — and exactly
-        // one of them remembered to tell the providers, which is the natural
-        // outcome of a contract that lives in a doc comment (GPT 5.6,
-        // 2026-07-28). A flag on state this function already owns cannot be
-        // forgotten by a caller that does not know it exists.
+        // The announcement is DERIVED from the reset, not asked of the caller. A flag on state
+        // this function already owns cannot be forgotten by a caller that does not know it
+        // exists.
         restart_pending: true,
         ..Default::default()
     };
@@ -821,14 +797,9 @@ pub fn reset_body_clusters(
 /// Refresh every AERIAL resource — dash charges, air jumps, and the air dodge —
 /// from the active `BodyAbilities` + the caller's authored base air-jump count.
 ///
-/// ⭐ **the air dodge joined this function rather than getting a reset of its
-/// own**, and that placement is the point: "restores on landing" is a rule about
-/// a class of resource, not about one maneuver, and eighteen call sites already
-/// know this function is where that class comes back. A separate
-/// `dodge.air_dodge_spent = false` next to each of them is exactly the
-/// follow-up-call shape the [`a_reset_restores_the_air_jumps_the_caller_names`]
-/// regression exists to forbid — four of five sites remembered, one did not, and
-/// nothing said so.
+/// **the air dodge joined this function rather than getting a reset of its own**, and that
+/// placement is the point: "restores on landing" is a rule about a class of resource, not about one
+/// maneuver, and eighteen call sites already know this function is where that class comes back.
 pub fn refresh_movement_resources_clusters(
     abilities: &BodyAbilities,
     dash: &mut BodyDashState,
@@ -887,24 +858,15 @@ impl Default for BodyOffense {
 /// The MOVEMENT buffers (jump / dash / blink) are axis-policy maneuver state
 /// ([`crate::movement::AxisManeuverState::buffer_jump`] and siblings).
 ///
-/// ⛔⛔ **DECLARED BUT UNFED — NOTHING IN PRODUCTION WRITES THIS, AND NOTHING
-/// CALLS [`Self::tick`].** Measured 2026-08-19: zero production writes, zero
-/// production field reads, zero `tick` callers. The three windows are always
-/// `0.0` on every live body, so an early press is dropped exactly as if the
-/// buffer did not exist.
+/// The three windows are always `0.0` on every live body, so an early press is dropped exactly as
+/// if the buffer did not exist.
 ///
-/// ⚠ **the absence is the surprising fact, which is why it is stated here.**
+/// **the absence is the surprising fact, which is why it is stated here.**
 /// This is a registered rollback row carried in all three baselines
 /// (`body.action_buffer`, canonical codec), and `AxisManeuverState`'s own doc
 /// names `BodyActionBuffer` as the combat counterpart to its movement buffers —
 /// so every signal a reader has says this is live machinery. It is a reserved
 /// slot with a schema, not a feature.
-///
-/// ⭐ **kept deliberately.** Jon ruled on 2026-08-19 to document rather than
-/// retire it: the combat input buffer it was declared for is still wanted, and
-/// retiring the row costs three baseline re-records to buy nothing while that
-/// is true. ⇒ do not "fix" this by deleting it, and do not read its presence as
-/// evidence that combat input leniency exists.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyActionBuffer {
     pub attack: f32,
@@ -1048,12 +1010,12 @@ impl BodyClusterScratch {
     /// body as this line left it", a fixture starting mid-fall — states its
     /// velocity here instead of reaching into `kinematics` afterwards.
     ///
-    /// ⚠ **this is a CONSTRUCTION seam, not an authority.** ADR 0024's velocity
+    /// **this is a CONSTRUCTION seam, not an authority.** ADR 0024's velocity
     /// authority governs a simulated body being changed under a resolved frame;
     /// a `BodyClusterScratch` is an owned bag with no entity, no frame and no
     /// integrator, so there is no authority to route through — only the question
     /// of whether the initial state is said at construction or patched on after.
-    /// ⛔ `engine.velocity-writes-are-authority-only` matches the receiver's NAME
+    /// `engine.velocity-writes-are-authority-only` matches the receiver's NAME
     /// and so cannot tell those apart; see that policy's rationale.
     #[must_use]
     pub fn with_velocity(mut self, vel: Vec2) -> Self {
@@ -1150,18 +1112,12 @@ mod reset_tests {
     /// A reset RESTORES the body to its base size; it does not REDEFINE what
     /// the base is.
     ///
-    /// `base_size` is identity-derived — a worn form, a mount, a boss phase —
-    /// and only the authority owning that identity may write it. This used to
-    /// hardcode `default_player_body_size()` into both fields, which silently
-    /// unmade any identity-driven size on every reset.
+    /// `base_size` is identity-derived — a worn form, a mount, a boss phase — and only the
+    /// authority owning that identity may write it.
     ///
-    /// The bug that found this: a grown Super Mary-O who fell in a pit came
-    /// back with a SMALL collider while still wearing the cap and still
-    /// presenting the tall sprite. Her own `sync_grown_form` could not repair
-    /// it, because it decides "am I in sync" by comparing worn equipment
-    /// against `WornCharacter` — both of which the reset left tall — and never
-    /// looks at the collider. Hitbox and identity disagreed, invisibly, until
-    /// the next hit landed on a body half the size of the one on screen.
+    /// Her own `sync_grown_form` could not repair it, because it decides "am I in sync" by
+    /// comparing worn equipment against `WornCharacter` — both of which the reset left tall — and
+    /// never looks at the collider.
     #[test]
     fn a_reset_restores_the_bodys_own_base_size_not_the_global_default() {
         let grown = Vec2::new(30.0, 72.0);
@@ -1399,7 +1355,7 @@ mod shield_resource_tests {
 
     /// **A BODY WITH NO SHIELD RESOURCE IS UNTOUCHED BY ALL OF IT.**
     ///
-    /// ⛔ the poison this pins: every body in the game carries a
+    /// the poison this pins: every body in the game carries a
     /// `BodyShieldState` and almost none authors a [`ShieldTuning`], so a rule
     /// that ran on the DEFAULT tuning would break every exploration guard in the
     /// game on its first frame.
@@ -1441,7 +1397,7 @@ mod shieldstun_tests {
 
     /// **BLOCKING COSTS THE BLOCKER TIME, IN PROPORTION TO WHAT IT BLOCKED.**
     ///
-    /// ⛔ without this a guard is free: the defender eats a smash attack and acts
+    /// without this a guard is free: the defender eats a smash attack and acts
     /// on the next frame, so there is nothing to punish and no reason to swing.
     #[test]
     fn a_blocked_hit_charges_shieldstun_and_it_runs_out() {

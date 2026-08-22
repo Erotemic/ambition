@@ -14,7 +14,7 @@
 //! Two witnesses keep it closed:
 //!
 //! - `a_manual_reset_restores_a_damaged_enemy_and_a_broken_brick_under_forced_rollback`
-//!   is the LOAD-BEARING behavioral proof (GPT 5.6): it folds a KNOWN damaged
+//!   is the LOAD-BEARING behavioral proof: it folds a KNOWN damaged
 //!   enemy and a KNOWN broken brick into the rollback baseline, drives a manual
 //!   reset inside a live sync-test window, and asserts the reset genuinely
 //!   RESTORED the enemy to spawn HP and the brick to intact — not merely that
@@ -185,11 +185,6 @@ fn living_enemies(sim: &mut Platformer2dSimHarness) -> Vec<(f32, f32)> {
 /// `rollback_exit_oracle`'s localizer uses, pointed at the lifecycle-reset
 /// route instead of the combat one.
 ///
-/// Standing use: run it whenever this module goes red. It was written for the
-/// body-generic broadcast blocker recorded in
-/// `docs/planning/smash-body-generic-combat-2026-08-09.md`, which desyncs
-/// exactly here.
-///
 /// `#[ignore]` for cost.
 #[test]
 #[ignore = "diagnostic: per-component restore census on every save/load; run when this module is red"]
@@ -318,18 +313,8 @@ fn a_player_death_reset_survives_the_rollback_window() {
         // Walk toward the nearest living enemy and STAND THERE, inside the melee
         // strikers' reach, until they whittle the 3 HP down.
         //
-        // ⛔ **it used to swing back, and that stopped killing the player on
-        // 2026-08-11.** The protagonist gained its canonical repertoire (ledger
-        // D82) — a jab with ~3 frames of startup where the old prefab swipe had
-        // ~17 — so the same loop now clears the room before the strikers land
-        // three hits, and the death this test is ABOUT never happened.
-        //
-        // ⚠ **the fixture is repaired rather than the assertion weakened.** What
-        // this regression witnesses is that a death reset survives the rollback
-        // window while enemies are mid-brawl; the player's damage output was
-        // never part of that, it was just how the setup got there. Standing in
-        // reach is the same situation with the incidental half removed — and it
-        // no longer re-breaks every time the robot's frame data is retuned.
+        // Standing in reach is the same situation with the incidental half removed — and it no
+        // longer re-breaks every time the robot's frame data is retuned.
         let px = {
             let world = sim.world_mut();
             let mut q = world.query_filtered::<&ambition_platformer2d::platformer::body::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
@@ -373,11 +358,7 @@ fn a_player_death_reset_survives_the_rollback_window() {
 ///     probe_what_a_rollback_frame_costs -- --ignored --nocapture
 /// ```
 ///
-/// Release, 2026-08-03, `combat_calibration_lab`, 300 steady-state frames:
-/// 2.17 ms plain / 4.32 ms at distance 1 / 6.94 at 2 / 11.92 at 4 — linear at
-/// ~2.5 ms per resimulated frame over a ~1.8 ms fixed floor.
-///
-/// ⚠ the floor is save PLUS checksum, and the checksum is sync-test-only, so the
+/// the floor is save PLUS checksum, and the checksum is sync-test-only, so the
 /// floor a shipped netplay session pays is strictly smaller and is not separated
 /// by this probe. What IS separated: a resimulated frame costs 2.5 ms against a
 /// 2.17 ms plain step, so save+restore is ~0.35 ms — **the cost of a rollback is
@@ -406,10 +387,6 @@ fn probe_what_a_rollback_frame_costs() {
             .with_required_start_room("combat_calibration_lab")
     };
     run("fixed60 no rollback", base().with_fixed_tick(true));
-    // ⭐ **d=0 is what the SHIPPED build runs**, and B9 counted `SaveWorld` 0×
-    // over 120 frames there. If that is right, this line lands on the
-    // no-rollback baseline and the shipped floor is literally zero — measured by
-    // a second route rather than inferred from a schedule census.
     run(
         "synctest dist=0 (shipped)",
         base().with_sync_test_rollback_settings(0, 10),
@@ -427,17 +404,14 @@ fn probe_what_a_rollback_frame_costs() {
         base().with_sync_test_rollback_settings(4, 10),
     );
 
-    // ⭐ **POPULATION vs SCHEMA, the whole point of this addition.** Same
-    // rollback settings, same frame count, different amounts of world to
-    // snapshot. A floor that barely moves is fixed per-registration cost and the
-    // schema IS the lever; one that tracks the body count is snapshot volume and
-    // the schema is not.
+    // **POPULATION vs SCHEMA, the whole point of this addition.** Same rollback settings, same
+    // frame count, different amounts of world to snapshot.
     let empty = || {
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room("tiny_chamber")
     };
-    // ⚠ **the knob is the ROOM, not a body count.** `stage_on_floor`'s second
+    // **the knob is the ROOM, not a body count.** `stage_on_floor`'s second
     // argument is HP — I read it as a population and nearly ran an experiment
     // that varied nothing while appearing to vary the thing under test. The
     // population difference that exists is between rooms: the calibration lab is

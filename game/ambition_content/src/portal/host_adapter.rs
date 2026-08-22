@@ -110,7 +110,7 @@ pub fn refresh_hosted_portal_frames(
     }
 }
 
-// ⛔ `hostable_view` stood here and is DELETED. "The uncarved authored + movers
+// `hostable_view` stood here and is DELETED. "The uncarved authored + movers
 // view portals may anchor to" is a real and distinct question — and it is named
 // on the collision API now, as `CollisionWorld::hostable_surfaces`, so no
 // consumer composes a collision world by hand.

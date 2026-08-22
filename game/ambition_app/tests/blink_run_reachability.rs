@@ -12,8 +12,6 @@ use crate::common::{base, fixed_60hz_room_sim};
 
 use ambition_app::{AgentAction, Platformer2dSimHarness};
 
-/// Walk right until at least `edge`, then fire a blink aimed right and let it land
-/// (the idle tail also covers the blink cooldown before the next gap).
 fn walk_to_then_blink(sim: &mut Platformer2dSimHarness, edge: f32) {
     for _ in 0..80 {
         if sim

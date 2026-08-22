@@ -1,7 +1,5 @@
-//! Actor-side room-graph behavior tests: possession-aware room transitions and
-//! fast-body walk-zone tunneling. The pure gate-portal PHASE-transition unit
-//! tests moved to `ambition_platformer2d_world::rooms::gate_portal` (fable audit F5.4
-//! test-travel — they exercise world-owned vocabulary, so they belong there).
+//! Actor-side room-graph behavior tests: possession-aware room transitions and fast-body
+//! walk-zone tunneling.
 
 use super::*;
 
@@ -28,11 +26,10 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
     #[derive(Resource, Default)]
     struct Captured(Option<String>);
 
-    // ⭐ **observe the INTENT, which is what detection produces on every host**
-    // (D71). This read a `RoomTransitionRequested` message, which only an eager
-    // host ever wrote — so these fixtures were checking the half of a fork that
-    // the shipped game does not take. The intent names its destination by
-    // authored id, so the room is asserted by NAME rather than by index.
+    // This read a `RoomTransitionRequested` message, which only an eager host ever wrote — so
+    // these fixtures were checking the half of a fork that the shipped game does not take. The
+    // intent names its destination by authored id, so the room is asserted by NAME rather than
+    // by index.
     fn capture(
         pending: Res<crate::session::lifecycle_commit::PendingLifecycleCommit>,
         mut out: ResMut<Captured>,
@@ -79,7 +76,7 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
     app.insert_resource(crate::RoomTransitionCooldown::default());
     app.insert_resource(GatePortalRegistry::default());
     // The live phase is its own resource (rollback state) since
-    // 2026-08-15; `detect_room_transition_system` reads it.
+    // `detect_room_transition_system` reads it.
     app.init_resource::<GatePortalPhases>();
     app.init_resource::<SlotInteractionState>();
     app.init_resource::<Captured>();
@@ -89,7 +86,7 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
 
     // The vacated home avatar, far from the zone.
     //
-    // ⚠ **the `SimId`s below are what CONSTRUCTION would have given these
+    // **the `SimId`s below are what CONSTRUCTION would have given these
     // bodies**, not decoration: `ensure_sim_id` runs in the sim schedule on every
     // host and files a `PrimaryPlayer` under `player_slot(0)` and an authored body
     // under `placement(feature_id)`. These fixtures build their bodies by hand and
@@ -168,11 +165,10 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
     #[derive(Resource, Default)]
     struct Captured(Option<String>);
 
-    // ⭐ **observe the INTENT, which is what detection produces on every host**
-    // (D71). This read a `RoomTransitionRequested` message, which only an eager
-    // host ever wrote — so these fixtures were checking the half of a fork that
-    // the shipped game does not take. The intent names its destination by
-    // authored id, so the room is asserted by NAME rather than by index.
+    // This read a `RoomTransitionRequested` message, which only an eager host ever wrote — so
+    // these fixtures were checking the half of a fork that the shipped game does not take. The
+    // intent names its destination by authored id, so the room is asserted by NAME rather than
+    // by index.
     fn capture(
         pending: Res<crate::session::lifecycle_commit::PendingLifecycleCommit>,
         mut out: ResMut<Captured>,
@@ -221,7 +217,7 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
     app.insert_resource(crate::RoomTransitionCooldown::default());
     app.insert_resource(GatePortalRegistry::default());
     // The live phase is its own resource (rollback state) since
-    // 2026-08-15; `detect_room_transition_system` reads it.
+    // `detect_room_transition_system` reads it.
     app.init_resource::<GatePortalPhases>();
     app.init_resource::<SlotInteractionState>();
     app.init_resource::<Captured>();
@@ -269,7 +265,6 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
 /// **A body that WALKED into an edge exit and was stopped by the boundary still
 /// transitions — even though its velocity is now zero.**
 ///
-/// ⭐⭐ Jon, 2026-08-12: *"I moved into a loading zone and the room didn't change.
 /// that is not a key binding issue."* He was right, and the two zone tests above
 /// are why nobody found it: **both hand the detector a velocity chosen to make
 /// the answer come out.** The tunnel test computes `vel = (end - start) / dt`
@@ -289,12 +284,6 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
 /// so the segment that proves the body entered the zone was being discarded on
 /// exactly the frame it mattered. A body left TOUCHING the band rather than
 /// strictly inside it then never transitions, however long it stands there.
-///
-/// ⛔ the fixture models step 2 rather than pretending it away: `vel` is ZERO and
-/// the sample carries the travelled segment, which is what a body stopped by a
-/// wall actually looks like. The second half is the poison — the identical body
-/// with no sample falls back to `vel · dt` and does NOT fire, which is the bug
-/// this test exists to keep out.
 #[test]
 fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
     use crate::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
@@ -304,11 +293,10 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
     #[derive(Resource, Default)]
     struct Captured(Option<String>);
 
-    // ⭐ **observe the INTENT, which is what detection produces on every host**
-    // (D71). This read a `RoomTransitionRequested` message, which only an eager
-    // host ever wrote — so these fixtures were checking the half of a fork that
-    // the shipped game does not take. The intent names its destination by
-    // authored id, so the room is asserted by NAME rather than by index.
+    // This read a `RoomTransitionRequested` message, which only an eager host ever wrote — so
+    // these fixtures were checking the half of a fork that the shipped game does not take. The
+    // intent names its destination by authored id, so the room is asserted by NAME rather than
+    // by index.
     fn capture(
         pending: Res<crate::session::lifecycle_commit::PendingLifecycleCommit>,
         mut out: ResMut<Captured>,
@@ -362,7 +350,7 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
         app.insert_resource(crate::RoomTransitionCooldown::default());
         app.insert_resource(GatePortalRegistry::default());
         // The live phase is its own resource (rollback state) since
-        // 2026-08-15; `detect_room_transition_system` reads it.
+        // `detect_room_transition_system` reads it.
         app.init_resource::<GatePortalPhases>();
         app.init_resource::<SlotInteractionState>();
         app.init_resource::<Captured>();
@@ -375,7 +363,7 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
 
         let body = BodyKinematics {
             pos: stopped_at,
-            // ⛔ ZERO, and that is the whole point: the wall took it.
+            // ZERO, and that is the whole point: the wall took it.
             vel: ae::Vec2::ZERO,
             size: body_half * 2.0,
             facing: 1.0,
@@ -409,7 +397,7 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
          read the kernel's segment, not the velocity collision just zeroed",
     );
 
-    // ⛔ THE POISON, and it is the shipped bug: same body, same position, no
+    // THE POISON, and it is the shipped bug: same body, same position, no
     // sample ⇒ the reader falls back to `vel · dt`, which is zero, and the zone
     // it is standing against goes unnoticed.
     assert_eq!(
@@ -840,10 +828,7 @@ fn kinematic_path_spec_matches_id_accepts_the_name_slug() {
     // reachable by that name's slug — the alias exists for rooms built
     // in Rust, which may carry any id they like (or none).
     //
-    // ⚠ `enemy_patrol_a` is a hand-written id here, not a derived one.
-    // Conversion used to mint it from this name via a second slug rule
-    // that collapsed `_path_` away; that rule is deleted, and the id it
-    // produced survives only as this fixture's arbitrary choice.
+    // `enemy_patrol_a` is a hand-written id here, not a derived one.
     let spec = KinematicPathSpec::new(
         "enemy_patrol_a",
         "enemy patrol path A",
@@ -871,11 +856,9 @@ fn kinematic_path_spec_matches_id_accepts_the_name_slug() {
 /// **The MOVEMENT KERNEL walks a body into a wall on an exit band, and the
 /// transition fires from the sample the kernel actually published.**
 ///
-/// ⛔⛔ **the sibling test above MANUFACTURES its `SweepSample`, and that is the
-/// hole this one closes.** It proves the detector reads a sample correctly; it
-/// cannot prove the kernel still WRITES one, or writes one whose `prev` is the
-/// pre-collision position. A change to sweep publication would leave that test
-/// green and the game broken — the exact shape of the bug it was written for.
+/// **the sibling test above MANUFACTURES its `SweepSample`, and that is the hole this one closes.**
+/// It proves the detector reads a sample correctly; it cannot prove the kernel still WRITES one, or
+/// writes one whose `prev` is the pre-collision position.
 ///
 /// Nothing is hand-built here but the room: the floor and wall are real
 /// geometry, the body accelerates under the real movement model, the stop is the
@@ -1013,7 +996,7 @@ fn the_real_kernel_publishes_a_sample_that_crosses_the_zone_it_was_stopped_on() 
         sample.curr
     );
 
-    // ⛔ THE POISON: the fallback the detector uses when no sample exists. The
+    // THE POISON: the fallback the detector uses when no sample exists. The
     // solver zeroed the axis, so this describes movement that never reaches the
     // band the body is touching.
     assert!(
@@ -1024,16 +1007,8 @@ fn the_real_kernel_publishes_a_sample_that_crosses_the_zone_it_was_stopped_on() 
     );
 }
 
-/// ⭐ **a rewind must put the portal's PHASE back, not just the switch that
+/// **a rewind must put the portal's PHASE back, not just the switch that
 /// drives it.**
-///
-/// `tick_portal_phases_system` runs in the sim schedule — `GgrsSchedule` under
-/// the shipped rollback host — and integrates a per-portal timer forward by
-/// `WorldTime::scaled_dt`. The switch it reads lives in `AmbitionGameSave`,
-/// which is rollback-registered; until 2026-08-15 the phase it produced was NOT,
-/// because it sat in `GatePortalRegistry` behind a waiver that called the whole
-/// resource "authored". So a rewind restored the input and left the integrator
-/// holding the speculative timeline's elapsed.
 ///
 /// This runs the shipped system over a real rollback shape: snapshot the phase
 /// resource at frame 10 (a clone, which is exactly what
@@ -1041,7 +1016,7 @@ fn the_real_kernel_publishes_a_sample_that_crosses_the_zone_it_was_stopped_on() 
 /// frames 11..=16 from the snapshot and compare against a timeline that reached
 /// frame 16 without ever rewinding.
 ///
-/// ⚠ frame 16 is chosen to land INSIDE the ~38-tick opening window — the test
+/// frame 16 is chosen to land INSIDE the ~38-tick opening window — the test
 /// asserts that first, because once the portal reaches `On` both timelines
 /// agree again and the fixture would prove nothing.
 #[test]
@@ -1103,7 +1078,7 @@ fn a_rewind_across_the_portal_opening_window_restores_the_confirmed_phase() {
     tick_n(&mut speculative_app, 12);
     let speculative_at_frame_22 = phases(&speculative_app);
 
-    // ⛔ **THE POISON** — the defect's own behaviour: resimulate frames 11..=16
+    // **THE POISON** — the defect's own behaviour: resimulate frames 11..=16
     // with the phase NOT restored, exactly as an unregistered resource behaves
     // while everything around it rewinds.
     let mut unrestored_app = portal_app();
@@ -1116,7 +1091,7 @@ fn a_rewind_across_the_portal_opening_window_restores_the_confirmed_phase() {
          cannot distinguish the defect from the fix"
     );
 
-    // ⭐ the registered behaviour: the phase comes back with the frame, and
+    // the registered behaviour: the phase comes back with the frame, and
     // resimulation lands where the confirmed timeline stood.
     let mut restored_app = portal_app();
     restored_app.insert_resource(snapshot_at_frame_10);

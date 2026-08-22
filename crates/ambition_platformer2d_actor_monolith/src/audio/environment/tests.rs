@@ -63,11 +63,8 @@ fn underwater_attenuation_is_strictly_below_dry() {
     assert!(env.music_attenuation() < env.sfx_attenuation());
 }
 
-/// Guardrail: the combined output volume must respect the user's
-/// mixer settings even while the underwater effect is active. If
-/// this ever inverts (e.g. environment writes a fixed dB instead
-/// of multiplying the mixer level), every "mute"/"music=0"
-/// preference would leak audio while submerged.
+/// Guardrail: the combined output volume must respect the user's mixer settings even while the
+/// underwater effect is active. If this ever inverts (e.g.
 #[test]
 fn underwater_composes_with_user_settings() {
     use ambition_persistence::settings::AudioSettings;

@@ -5,16 +5,13 @@
 //! and switch-activation interactions that share the
 //! `PlayerInteractionState` buffered-press contract.
 //!
-//! ⚠ **the DIALOGUE half moved to `ambition_conversation::opening`.** This module
-//! owns the interaction facts — a body, a reach box, a buffered press — and the
-//! world-side consequences of a conversation starting (the banner, the flags,
-//! the quest pump, the mode flip). Deciding whether the pair has anything to say
-//! and what the conversation IS belongs to the dialogue domain, and keeping it
-//! here was the last thing pinning `ambition_dialog` into `features`.
+//! Deciding whether the pair has anything to say and what the conversation IS belongs to the
+//! dialogue domain, and keeping it here was the last thing pinning `ambition_dialog` into
+//! `features`.
 
 use super::*;
 
-// ⭐ the ONLY dialogue name this module has left, and it is a port rather than a
+// the ONLY dialogue name this module has left, and it is a port rather than a
 // type from `ambition_dialog`. See `ambition_conversation::opening`.
 use ambition_conversation::DialogueDispatch;
 
@@ -35,7 +32,7 @@ pub fn interact_ecs_actors_and_switches(
     mut next_mode: ResMut<NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
     mut banner: ResMut<GameplayBanner>,
     controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
-    // ⭐ **the buffered interact belongs to the SEAT DRIVING THE ACTING BODY**,
+    // **the buffered interact belongs to the SEAT DRIVING THE ACTING BODY**,
     // not to slot 0. Under possession those are different controllers, and
     // reading slot 0 meant a possessed body's interaction spent — and was gated
     // by — the home seat's press.
@@ -130,7 +127,7 @@ pub fn interact_ecs_actors_and_switches(
             break;
         };
         // A hostile actor gates dialogue off; a dead one is an intangible corpse
-        // and cannot be talked to (Jon 2026-07-22 — one tangibility policy).
+        // and cannot be talked to.
         if disposition.is_hostile() || crate::combat::util::body_is_corpse(health) {
             continue;
         }
@@ -149,18 +146,11 @@ pub fn interact_ecs_actors_and_switches(
         // system owns the INTERACTION facts (a body, a reach box, a buffered
         // press) and the world-side consequences below.
         //
-        // ⚠ `continue`, not `return`: another body in reach may still be
-        // talkable, and the buffered press has not been consumed. An
-        // interaction that does not happen must leave no trace — no banner, no
-        // flags, no quest pump, no mode flip.
-        // **WHOSE conversation this is**, decided here because the
-        // `ParticipantId` ↔ `PlayerSlot` correspondence lives in exactly one
-        // place (`crate::participant_seat`) and that place is this crate. ⚠ the
-        // non-player arm is a DECISION, not a fallback: a body with no player
-        // brain cannot have pressed Interact under its own steam, so the primary
-        // seat owns the box — somebody has to be able to advance it, and
-        // capturing the whole couch for a conversation nobody at it started is
-        // the behaviour that was removed.
+        // `continue`, not `return`: another body in reach may still be talkable, and the
+        // buffered press has not been consumed. An interaction that does not happen must leave
+        // no trace — no banner, no flags, no quest pump, no mode flip. **WHOSE conversation
+        // this is**, decided here because the `ParticipantId` ↔ `PlayerSlot` correspondence
+        // lives in exactly one place (`crate::participant_seat`) and that place is this crate.
         let input_owner = dialogue.driving_slot(subject).map_or(
             ambition_conversation::ConversationInputOwner::Primary,
             |slot| {
@@ -242,12 +232,6 @@ pub fn interact_ecs_actors_and_switches(
 mod tests;
 
 /// **Play the interact gesture on the body that ACTED.**
-///
-/// ⛔ this used to be an unconditional write to the entity carrying
-/// `PrimaryPlayer`, which under possession is the body standing still somewhere
-/// else. A body with no `BodyAnimFacts` — a possessed prop, a headless fixture —
-/// simply has no pose to play, which is a silent no-op rather than a reason to
-/// fall back to somebody else's animation.
 pub(crate) fn pose_interact(
     anims: &mut Query<&mut crate::actor::BodyAnimFacts>,
     body: Entity,

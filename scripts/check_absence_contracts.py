@@ -44,7 +44,7 @@ changes. That is not a failure of the guard — a red line here is a conversatio
 about whether the absence is still wanted, and answering "no, we want the thing
 now" is a legitimate answer that ends with this row removed in the same commit.
 
-## The second table: dependency edges
+# # The second table: dependency edges
 
 ``DEPENDENCY_CONTRACTS`` guards the half a grep CANNOT express. "Crate A must not
 depend on crate B" is a fact about the manifest graph, not about any line of
@@ -78,7 +78,7 @@ from pathlib import Path
 # production source; `patterns` are Python regexes matched against comment-
 # stripped lines. Keep patterns narrow — see the module docstring.
 #
-# ⚠ CONFINEMENT, NOT SINGULARITY — and the names now say so.
+# CONFINEMENT, NOT SINGULARITY — and the names now say so.
 #
 # A contract that excludes the one allowed file proves "no reference exists
 # OUTSIDE this file". It does not prove that exactly one call exists inside it,
@@ -86,12 +86,8 @@ from pathlib import Path
 # beside the first. `provider_of_character` already has TWO calls inside
 # `presentation.rs` and satisfies its guard.
 #
-# These were originally named `one-caller-of-*` / `one-reader-of-*`, and
-# Campaign 1 then cited them as evidence of exact single authority — which they
-# never were (GPT 5.6, 2026-07-28). Confinement is genuinely valuable: it is
-# what stops a SECOND file growing its own opinion, which is how every
-# split-authority bug in this campaign started. It is just not the stronger
-# claim, so the ids no longer imply it.
+# These were originally named `one-caller-of-*` / `one-reader-of-*`, and never were. It is just
+# not the stronger claim, so the ids no longer imply it.
 #
 # If exact singularity ever matters for one of these, add a positive count
 # assertion INSIDE the allowed file rather than renaming it back.
@@ -103,16 +99,9 @@ ABSENCE_CONTRACTS: list[dict] = [
             # the codec that rewinds the brain, outside `brain/` and named the
             # fighter's fields by hand — see the pattern note below.
             "crates/ambition_characters/src/snapshot_impls.rs",
-            # ⭐ THE PLATFORM-FIGHTER BRAIN ITSELF. `brain/fighter/` is the
+            # THE PLATFORM-FIGHTER BRAIN ITSELF. `brain/fighter/` is the
             # capability; it is allowed to know what it is.
             ":(exclude)crates/ambition_characters/src/brain/fighter",
-            # ⛔⛔ THE THREE EDGES THAT BLOCK THE CARVE, measured 2026-08-19.
-            # Each is a place the GENERIC brain names the platform-fighter one,
-            # and each has to go before `brain/fighter` can become a capability
-            # crate. They are excluded so this contract pins the boundary where
-            # it is today; ⛔ **growing this list IS the review**, and shrinking
-            # it is the work.
-            #
             # 1. the generic `BrainSnapshot` carries `attack_kit:
             #    Vec<fighter::options::AttackCandidate>` — every brain in the
             #    game pays for a field only one of them reads, in a type only
@@ -126,23 +115,15 @@ ABSENCE_CONTRACTS: list[dict] = [
             ":(exclude)crates/ambition_characters/src/brain/state_machine/mod.rs",
             # 4. `Brain`'s rollback cursor codec encodes the fighter's own state
             #    fields. The capability owes its own rollback row before this can
-            #    go — the pattern `SmashHoldState` proved on 2026-08-19.
+            # go — the pattern `SmashHoldState` proved.
             ":(exclude)crates/ambition_characters/src/snapshot_impls.rs",
             # 5. `brain/mod.rs` maps the variant to the string `"fighter"` for
             #    diagnostics. The SMALLEST edge and the one a registration seam
             #    answers for free: a registered brain carries its own name, so
             #    the generic side stops enumerating names it does not own.
             ":(exclude)crates/ambition_characters/src/brain/mod.rs",
-            # ✔ **3 IS CLOSED, 2026-08-19 — the list shrank, which is the work.**
-            # `smash/emit.rs` reached across for `fighter::decision::TILT_DEFLECTION`.
-            # That constant says how far a stick is pushed to mean a TILT rather
-            # than a SMASH, which is attack-gesture vocabulary and not a fact
-            # about the fighter brain; it now lives in
-            # `crate::actor::attack_gesture` beside `AttackGestureTuning`, whose
-            # deadzone and flick threshold it sits between. Both brains read it
-            # from there and neither names the other.
         ],
-        # ⛔⛔ **TWO PATTERNS, because ONE MISSED AN EDGE (2026-08-19).** The
+        # **TWO PATTERNS, because ONE MISSED AN EDGE.** The
         # first version watched `fighter::` under `brain/` only, and the fourth
         # edge is `Brain`'s rollback CURSOR CODEC in `snapshot_impls.rs`: it
         # hand-writes a per-variant tag and encodes `state.ticks_until_decision`,
@@ -186,26 +167,10 @@ ABSENCE_CONTRACTS: list[dict] = [
             # becomes active - and RETIRED by the versus stage's ownership-gated
             # teardown.
             #
-            # This path was `seating.rs` until 2026-08-07, when `ef28aea6f` split
-            # preparation out of seating and the publisher moved with it. The
-            # contract went red pointing at the LEGITIMATE writer, which is what
-            # a genuine second writer looks like too.
+            # HOW TO TELL THEM APART, when this next goes red: grep the path this list already
+            # names for the write.
             #
-            # HOW TO TELL THEM APART, when this next goes red: grep the path this
-            # list already names for the write. If the old site no longer has it,
-            # the publisher MOVED and this path follows it. If the old site still
-            # writes, a second writer really did appear and growing this list IS
-            # the review the reason below describes.
-            #
-            # ⭐ **and that review happened, on the same landing.** It tried to
-            # RETIRE a stale receipt from `prepare_the_match`, and this contract
-            # went red on it, correctly: a second writer had no way to answer
-            # whose receipt it was deleting. Activation stayed the one writer.
-            # It first derived staleness from the WORLD — a receipt whose seats
-            # nobody wears — and that was wrong for a platform fighter, where a
-            # finished match legitimately has no bodies left; the receipt names
-            # its `SessionScopeId` now, so the one writer can say whose paperwork
-            # it is replacing.
+            # Activation stayed the one writer.
             ":(exclude)crates/ambition_platformer2d_actor_monolith/src/character_runtime/prepared_match.rs",
             ":(exclude)game/ambition_app/src/app/versus.rs",
         ],
@@ -259,7 +224,7 @@ ABSENCE_CONTRACTS: list[dict] = [
             # it may not be the only one that does.
             ":(exclude)game/ambition_app/src/dev/rollback_observatory.rs",
         ],
-        # ⚠ `commands.` is the SYSTEM spelling. The checker excludes test PATHS
+        # `commands.` is the SYSTEM spelling. The checker excludes test PATHS
         # and cannot see an inline `#[cfg(test)]` module, and `versus.rs` has one
         # that inserts a topology by hand to drive the reconciler. Keying on
         # `commands.` separates a system from a fixture's `app.insert_resource`
@@ -295,19 +260,16 @@ ABSENCE_CONTRACTS: list[dict] = [
             ":(exclude)game/ambition_app/src/app/versus.rs",
             ":(exclude)game/ambition_demo_smash/src/lib.rs",
         ],
-        # `commands.remove_resource` is the SYSTEM spelling; the checker excludes
-        # test PATHS but cannot see an inline `#[cfg(test)]` module, and
-        # `input_systems.rs` has one that retires a roster to prove a seat is
-        # retired with it. Keying on `commands.` separates a system from a test's
-        # `app.world_mut()` without excluding a production file wholesale.
-        # ⚠ an exclusive system using `world.remove_resource` would slip; if one
-        # ever appears, this pattern grows rather than the exclusion list.
-        # ⚠ ERE, not PCRE — `git grep -E`. A `(?:…)` group makes git exit 2 with
-        # "Invalid preceding regular expression", which the harness turns into a
-        # crash whose exit code 1 looks EXACTLY like the contract firing. Both
-        # probes "passed" against a broken pattern before that was noticed.
+        # `commands.remove_resource` is the SYSTEM spelling; the checker excludes test PATHS but
+        # cannot see an inline `#[cfg(test)]` module, and `input_systems.rs` has one that
+        # retires a roster to prove a seat is retired with it. Keying on `commands.` separates a
+        # system from a test's `app.world_mut()` without excluding a production file wholesale.
+        # an exclusive system using `world.remove_resource` would slip; if one ever appears,
+        # this pattern grows rather than the exclusion list. ERE, not PCRE — `git grep -E`. A
+        # `(?:…)` group makes git exit 2 with "Invalid preceding regular expression", which the
+        # harness turns into a crash whose exit code 1 looks EXACTLY like the contract firing.
         #
-        # ⚠ the module path is OPTIONAL. The first draft matched only the bare
+        # the module path is OPTIONAL. The first draft matched only the bare
         # type name, and a probe using
         # `remove_resource::<crate::character_runtime::MatchParticipantRoster>`
         # sailed straight through — a contract that only sees one spelling of the
@@ -401,12 +363,9 @@ ABSENCE_CONTRACTS: list[dict] = [
     },
     {
         "id": "registration-does-not-demand-art",
-        # ⚠ **BOTH halves of registration, since the P1.7 split** (2026-08-12).
-        # `try_register_character` stayed in `definition.rs`, but preparation —
-        # which is the half that actually knows a character's sheet — moved to
-        # `ambition_characters::prepared`. A guard scoped to the file that kept
-        # the seam would have watched the wrong half of its own subject, which is
-        # the "instrument that measures nothing" shape this file's header names.
+        # **BOTH halves of registration, since the P1.7 split**. A guard scoped to the file that
+        # kept the seam would have watched the wrong half of its own subject, which is the
+        # "instrument that measures nothing" shape this file's header names.
         "paths": [
             "crates/ambition_platformer2d_actor_monolith/src/character_runtime/definition.rs",
             "crates/ambition_characters/src/prepared.rs",
@@ -461,7 +420,6 @@ ABSENCE_CONTRACTS: list[dict] = [
         ),
     },
     {
-        # Campaign A4's GUARD leg. A slice ends with one path, not two — and
         # "migrated" is a claim about what no longer exists, which is exactly the
         # kind of claim this file is for.
         "id": "outlander-does-not-hand-order-its-own-composition",
@@ -475,13 +433,7 @@ ABSENCE_CONTRACTS: list[dict] = [
         # the second path this forbids, not an exemption from it.
         "include_tests": True,
         "patterns": [
-            # The engine ordering rules `ambition_platformer2d::app` now owns. Each of these
-            # names is one rule a consumer used to have to know and get right:
-            # engine foundation before the groups, engine before host before
-            # shell, assets after the content that registers the catalogs and
-            # before the presentation that draws them. Between them the fixture's
-            # three hand-rolled builders encoded EIGHT such rules, four of which
-            # failed SILENTLY when wrong (see `lib.rs`'s builder docs).
+            # The engine ordering rules `ambition_platformer2d::app` now owns.
             r"\badd_headless_foundation\b",
             r"\binit_engine_states\b",
             r"\bPlatformerEnginePlugins\b",
@@ -621,22 +573,13 @@ ABSENCE_CONTRACTS: list[dict] = [
         ),
     },
     {
-        # C3.7 / campaign X14. The catalog's `default_action_set` is the value a
-        # `CharacterDefinition`'s authored action set OUTRANKS, and precedence
-        # between them is decided in exactly one function. A second reader is a
-        # second answer to "what can this body reach for", which is the identity
-        # split Campaign 1 exists to close.
         "id": "the-catalog-default-action-set-is-confined-to-one-file",
         "paths": [
             "crates/",
             "game/",
             "fixtures/",
-            # The FOLD, the wear-time path for ids nothing registered, and the
-            # catalog method being read.
-            # ⚠ **the fold moved CRATE on 2026-08-12, not just file** (P1.7):
-            # `finalize_character` is `ambition_characters::prepared` now. The
-            # exemption is the same ONE file it always was; only its address
-            # changed, and this guard catching the move is the guard working.
+            # The exemption is the same ONE file it always was; only its address changed, and this
+            # guard catching the move is the guard working.
             ":!crates/ambition_characters/src/prepared.rs",
             ":!crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs",
             ":!crates/ambition_characters/src/actor/character_catalog/mod.rs",
@@ -662,11 +605,6 @@ ABSENCE_CONTRACTS: list[dict] = [
         ),
     },
     {
-        # C3.6 / campaign X12. Every remaining prepared-vs-catalog decision is a
-        # NAMED resolver with a documented precedence rule, each called from one
-        # file. That is what "no runtime arbitration" means in a tree that still
-        # has a legacy catalog as a preparation input: not zero decisions, but no
-        # decision made in a second place.
         "id": "the-provider-resolver-is-confined-to-one-file",
         "paths": [
             "crates/",
@@ -694,10 +632,8 @@ ABSENCE_CONTRACTS: list[dict] = [
         # forbidding a provider to know what it authored.
         "paths": [
             "crates/",
-            # ⚠ **the fold moved CRATE on 2026-08-12, not just file** (P1.7):
-            # `finalize_character` is `ambition_characters::prepared` now. The
-            # exemption is the same ONE file it always was; only its address
-            # changed, and this guard catching the move is the guard working.
+            # The exemption is the same ONE file it always was; only its address changed, and this
+            # guard catching the move is the guard working.
             ":!crates/ambition_characters/src/prepared.rs",
             ":!crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs",
             ":!crates/ambition_characters/src/actor/character_catalog/mod.rs",
@@ -803,11 +739,9 @@ SELF_REFERENTIAL = {"scripts/check_absence_contracts.py"}
 
 # Dependency-edge contracts, read from `cargo metadata` rather than from text.
 #
-# A grep cannot express "crate A must not depend on crate B". It can find the
-# `use` that proves it, and miss the one added through a re-export tomorrow; it
-# cannot see a dependency introduced through an intermediary at all. The manifest
-# graph is the fact, so this asks the manifest (GPT 5.6's W1 note, 2026-07-28:
-# "use Cargo metadata for dependency edges").
+# A grep cannot express "crate A must not depend on crate B". It can find the `use` that proves
+# it, and miss the one added through a re-export tomorrow; it cannot see a dependency introduced
+# through an intermediary at all.
 #
 # `forbidden` is checked TRANSITIVELY. The claim being guarded is never "no
 # direct dependency line" — it is that a foundation crate cannot REACH gameplay,
@@ -815,10 +749,6 @@ SELF_REFERENTIAL = {"scripts/check_absence_contracts.py"}
 # an extra hop. A layering inversion almost never arrives as a direct edge.
 DEPENDENCY_CONTRACTS: list[dict] = [
     {
-        # The REAL floor since 2026-08-01: shapes, boxes and reference frames,
-        # with no genre in them. Carved out of the platformer core because
-        # general-named crates were taking a genre-named dependency to reach
-        # `Vec2`, `Aabb`, `CombatVolume` and `VolumeShape`.
         "id": "geometry-is-the-floor",
         "crate": "ambition_geometry",
         "forbidden": "*",
@@ -832,10 +762,6 @@ DEPENDENCY_CONTRACTS: list[dict] = [
         ),
     },
     {
-        # A SECOND floor, added 2026-08-02. Authored projectile intent, carved
-        # out of `ambition_platformer2d_shared_tangle` because `ambition_vfx`
-        # imported exactly one type from it and that edge was the last path from
-        # a presentation-neutral crate to the platformer core.
         "id": "projectile-spec-is-a-floor",
         "crate": "ambition_projectile_spec",
         "forbidden": "*",
@@ -853,7 +779,7 @@ DEPENDENCY_CONTRACTS: list[dict] = [
         "id": "engine-core-is-the-floor",
         "crate": "ambition_platformer2d_core",
         "forbidden": "*",
-        # ⛔ the ONE edge, named. Core sits on the geometry kernel and on
+        # the ONE edge, named. Core sits on the geometry kernel and on
         # nothing else; `ambition_geometry` carries `forbidden: "*"` above, so
         # the chain still bottoms out with no outward edge. Widening this list
         # is how "the floor" becomes "roughly the floor".
@@ -924,7 +850,7 @@ DEPENDENCY_CONTRACTS: list[dict] = [
 # twelve leaks still open, which is worse than no contract, because a green
 # contract is believed.
 #
-# ⚠ TWO invariants, and the second is what makes this a RATCHET rather than a
+# TWO invariants, and the second is what makes this a RATCHET rather than a
 # count. the archived API campaign method: *"a ratchet on a COUNT is not one, because a
 # count permits deleting one entry and adding another. Freeze the SET."*
 #
@@ -932,22 +858,15 @@ DEPENDENCY_CONTRACTS: list[dict] = [
 #   2. `baseline ⊆ named`           — the baseline may not keep an entry the
 #                                     consumer has stopped naming.
 #
-# Invariant 2 is the one people leave out. Without it the baseline is a budget:
-# migrate `time` away, leave `time` in the list, and the eighteenth slot is now
-# free for something else to occupy silently. With it, a migration MUST prune
-# its entry in the same commit — and a pruned entry can never come back, because
-# invariant 1 then rejects it. That is the ratchet: monotone, per-member, and
-# it closes at zero.
+# Invariant 2 is the one people leave out. Without it the baseline is a budget: migrate `time`
+# away, leave `time` in the list, and the eighteenth slot is now free for something else to
+# occupy silently. That is the ratchet: monotone, per-member, and it closes at zero.
 #
-# `allowed` is EMPTY on purpose. It holds the reviewed public SDK surface, and
-# campaign §A1 says the exact public module names stay provisional until A2 is
-# accepted. An allowlist populated with guesses before the call sites are
-# written would be the campaign designing the API from the module list, which is
-# precisely the sequencing ADR 0031 rejects.
+# `allowed` is EMPTY on purpose.
 MODULE_ALLOWLISTS: list[dict] = [
     {
         "id": "outlander-names-only-the-public-sdk",
-        # Slice A is BOUNDED to the external fixture (Jon, 2026-07-30).
+        # Slice A is BOUNDED to the external fixture.
         # `game/ambition_content` also depends on the facade, and ADR 0031's
         # dependency contract deliberately records that as a MEASUREMENT
         # question the campaign defers rather than a rule. Widening these paths
@@ -969,7 +888,7 @@ MODULE_ALLOWLISTS: list[dict] = [
         # reach for that is a PROMISE rather than a mirror of our crate list —
         # which is the whole distinction this contract measures.
         #
-        # ⚠ Adding a name here is a compatibility commitment, not a way to make
+        # Adding a name here is a compatibility commitment, not a way to make
         # the ratchet green. The test that reads this table cannot tell the two
         # apart, so the review is the gate: a module belongs here only once
         # `docs/sdk/api-prototype.md` names it as SDK surface.
@@ -989,7 +908,7 @@ MODULE_ALLOWLISTS: list[dict] = [
         # it), and `actor`/`sim`/`view` (slice C) — each a CLOSED list, not a
         # crate re-export. `bevy` is the facade's documented re-export.
         #
-        # ⚠ `rollback` (slice F) is the one name here that ADR 0031 explicitly
+        # `rollback` (slice F) is the one name here that ADR 0031 explicitly
         # REFUSED to let arrive this way. Its Deferred section reserved
         # rollback-as-a-public-knob for "its own slice, its own acceptance
         # tests", calling it "a far larger promise than a clock: frozen schema,
@@ -1013,41 +932,20 @@ MODULE_ALLOWLISTS: list[dict] = [
             "view",
             "world",
         },
-        # Measured 2026-07-30 by this script, not transcribed from the campaign.
-        # ⚠ The campaign and ADR 0031 both said NINETEEN while listing eighteen
-        # names. There are eighteen. Both documents were corrected in the commit
-        # that added this table; the instrument is the authority for its own
-        # baseline, because a baseline copied out of prose is a ratchet nobody
-        # measured.
-        # ⚠ MEASURED after each migration, never edited to make a run green.
-        # Slice A4 retired exactly the four `docs/sdk/api-prototype.md` §5
-        # predicted — `engine`, `game_assets`, `presentation`, `windowed_host` —
-        # taking 18 to 14. The prediction was written down BEFORE A4 ran and the
-        # instrument reported the same number, which is the only version of that
-        # exercise worth anything: 14 against a remembered guess of 12 would have
-        # taught nothing.
+        # There are eighteen.
         #
-        # Six of `asset_manager`'s eight uses closed and the module STAYS, because
-        # module granularity is a coarse unit that reports progress late. That is
-        # the right direction for a gate to err in; §2a of the growth method
-        # carries the per-path counts beside it for the finer picture.
-        # ⚠ 14 -> 11, slice C. `engine_core` and `platformer` RETIRED into the
-        # curated `actor`/`sim`/`view` modules; `world` moved to `allowed` once
-        # the facade stopped mirroring the crate. Pruned in the migrating
-        # commit, because invariant 2 went STALE-red and named both.
+        # Six of `asset_manager`'s eight uses closed and the module STAYS, because module
+        # granularity is a coarse unit that reports progress late. That is the right direction
+        # for a gate to err in; §2a of the growth method carries the per-path counts beside it
+        # for the finer picture. 14 -> 11, slice C. Pruned in the migrating commit, because
+        # invariant 2 went STALE-red and named both.
         #
-        # What is left is not composition. `runtime` is 13 uses of
-        # `rollback::*` — the session knob ADR 0031 defers to its own slice —
-        # and the rest is content and gameplay vocabulary that needs its own
-        # derivation rather than the same treatment applied eleven times.
-        # ⚠ 11 -> 7. `actors`, `characters`, `sprite_sheet` and `entity_catalog`
-        # RETIRED into the curated `character`/`actor`/`view` modules. Authoring
-        # ONE character used to mean naming four mirrored crates — the catalog
-        # in one, its runtime load state in another, its art in a third, its
-        # brain in a fourth — because those are the engine's internal
-        # boundaries and the facade published them.
-        # ⚠ 18 -> 1 across slices A-C. What is left is `ambition_platformer2d::runtime`, and
-        # every one of its ten uses is `rollback::*`.
+        # What is left is not composition. `runtime` is 13 uses of `rollback::*` — the session knob
+        # ADR 0031 defers to its own slice — and the rest is content and gameplay vocabulary that
+        # needs its own derivation rather than the same treatment applied eleven times. 11 -> 7.
+        # `actors`, `characters`, `sprite_sheet` and `entity_catalog` RETIRED into the curated
+        # `character`/`actor`/`view` modules. 18 -> 1 across slices A-C. What is left is
+        # `ambition_platformer2d::runtime`, and every one of its ten uses is `rollback::*`.
         #
         # It stays. ADR 0031's Deferred section is explicit that rollback as a
         # public knob is "a far larger promise than a clock — frozen schema,
@@ -1061,17 +959,7 @@ MODULE_ALLOWLISTS: list[dict] = [
         # This is the one entry that must NOT be closed by the technique that
         # closed the other seventeen.
         #
-        # ⚠ 1 -> 0, slice F, 2026-07-30 — and NOT by that technique. The
-        # paragraph above stands as written: curating `ambition_platformer2d::rollback` and
-        # pruning this entry would have taken the ratchet to zero in an
-        # afternoon, at any point over the previous four slices, and it would
-        # have been wrong every time. What closed it is the slice ADR 0031
-        # reserved. `SnapshotState` moved to the floor so a consumer's own
-        # types can implement it without naming `ambition_platformer2d_runtime`
-        # (`ambition_platformer2d_core::snapshot`, part 1); `ambition_platformer2d::rollback`
-        # publishes the six properties with a test each; and Outlander's
-        # forty-line hand-ordered startup — activate, settle, rebase, all
-        # hazards it had hit — collapsed to one call.
+        # What closed it is the slice ADR 0031 reserved.
         #
         # The distinction is not ceremony. The rejected shortcut publishes the
         # SAME module name over the SAME implementation; what it omits is the
@@ -1099,21 +987,14 @@ MODULE_ALLOWLISTS: list[dict] = [
         "paths": ["fixtures/minimal_game/"],
         "include_tests": True,
         "facade": "ambition_platformer2d",
-        # `app` is the SDK. `bevy` is the facade's deliberate re-export — its
-        # own doc comment commits to it ("so a game can name bevy TYPES through
-        # `ambition_platformer2d::bevy`"), and this game proves the commitment is worth
-        # something: it needs NO `bevy` entry in its manifest at all, because it
-        # derives nothing. Outlander does. That difference is only visible with
-        # two consumers.
-        # `world` JOINED 2026-07-30, and only after the facade stopped mirroring
-        # it. `pub use ambition_platformer2d_world as world` published every submodule the
-        # crate happened to have; `pub mod world { ... }` publishes a CLOSED
-        # list, so a new submodule is an internal change until somebody adds it
-        # on purpose. That is the difference between a promise and an accident,
-        # and it is what makes this entry honest rather than a way to make the
-        # number smaller.
+        # `app` is the SDK. `bevy` is the facade's deliberate re-export — its own doc comment
+        # commits to it ("so a game can name bevy TYPES through `ambition_platformer2d::bevy`"), and
+        # this game proves the commitment is worth something: it needs NO `bevy` entry in its
+        # manifest at all, because it derives nothing. Outlander does. That is the difference
+        # between a promise and an accident, and it is what makes this entry honest rather than a
+        # way to make the number smaller.
         "allowed": {"actor", "app", "bevy", "character", "sim", "view", "world"},
-        # Measured 2026-07-30 against the crate as first written. FOUR, against
+        # against the crate as first written. FOUR, against
         # Outlander's fourteen — and the four are not a smaller sample of the
         # same problem, they are one specific hole: `PlatformerExperienceAuthoring`
         # + `PreparedPlatformerSource` + `RoomSpec` + the `engine_core` geometry
@@ -1121,46 +1002,28 @@ MODULE_ALLOWLISTS: list[dict] = [
         # cannot DECLARE a room or an experience through it. That is a measured
         # leak with a named boundary, which is exactly what §3 wants for
         # selecting the next slice.
-        # ⚠ FIVE, not the four first recorded — and the correction is the finding.
+        # FIVE, not the four first recorded — and the correction is the finding.
         #
-        # The first baseline was measured against a game that COMPILED. It did
-        # not RUN: the host sat in `HostStatus::Activating` for 600 ticks and
-        # never started, because preparation validation refuses an experience
-        # whose provider registered no explicit audio fragment. A movement-only
-        # game with no sound must still DECLARE its silence, so `ambition_platformer2d::audio`
-        # is a fifth module every game names no matter how small.
+        # It did not RUN: the host sat in `HostStatus::Activating` for 600 ticks and never started,
+        # because preparation validation refuses an experience whose provider registered no explicit
+        # audio fragment. A movement-only game with no sound must still DECLARE its silence, so
+        # `ambition_platformer2d::audio` is a fifth module every game names no matter how small.
         #
-        # The lesson is about the instrument, not the number: a consumer's
-        # baseline must be measured against a WORKING consumer. Measured against
-        # a compiling one it reads low, and reads low in the flattering
-        # direction. The ratchet caught the growth on its first live use, which
-        # is the only reason this is a corrected number rather than a wrong one.
-        # 5 -> 3. `provider` and `runtime` retired when `ModuleDraft::playable`
-        # absorbed the experience declaration: the engine assembles the
-        # `PreparedPlatformerSource` and installs the authoring, so a game no
-        # longer writes `ambition_platformer2d::runtime::demo_fixture` into its own imports.
-        # (A module literally named `demo_fixture` in a shipped game's
-        # dependency list is the namespace mirror confessing.)
+        # The ratchet caught the growth on its first live use, which is the only reason this is
+        # a corrected number rather than a wrong one. 5 -> 3. (A module literally named
+        # `demo_fixture` in a shipped game's dependency list is the namespace mirror
+        # confessing.)
         #
-        # PRUNED IN THE MIGRATING COMMIT, which is invariant 2's whole point —
-        # it went STALE-red and named both, so the slots cannot be reoccupied
-        # silently.
-        # 3 -> 2. `engine_core` retired when `ambition_platformer2d::world::prelude` landed:
-        # a game describing a floor no longer reaches into an implementation
-        # crate named `engine_core` for `Vec2`/`Block`.
+        # PRUNED IN THE MIGRATING COMMIT, which is invariant 2's whole point — it went STALE-red and
+        # named both, so the slots cannot be reoccupied silently.
         #
-        # ⚠ `world` is deliberately STILL BASELINE, not promoted to `allowed`.
-        # ADR 0031's public module list does name `ambition_platformer2d::world`, and this
-        # game now touches only its curated prelude — but the facade still
-        # re-exports the WHOLE crate (`pub use ambition_platformer2d_world as world`), so
-        # blessing the name would commit us to every path under it, which is
-        # exactly the namespace mirror the campaign exists to end. It moves to
-        # `allowed` when the facade turns it into a curated module. Making a
-        # number smaller is not a reason to promise something.
-        # 2 -> 1. `audio` retired with `ModuleDraft::no_audio()`: declaring
-        # silence is a word on the draft now, not a hand-registered fragment.
+        # `world` is deliberately STILL BASELINE, not promoted to `allowed`. It moves to
+        # `allowed` when the facade turns it into a curated module. Making a number smaller is
+        # not a reason to promise something. 2 -> 1. `audio` retired with
+        # `ModuleDraft::no_audio()`: declaring silence is a word on the draft now, not a
+        # hand-registered fragment.
         #
-        # ⚠ EMPTY. The movement-only minimal game names ONLY reviewed SDK
+        # EMPTY. The movement-only minimal game names ONLY reviewed SDK
         # surface: `ambition_platformer2d::app`, `ambition_platformer2d::world`, and the facade's
         # documented `bevy` re-export.
         #
@@ -1169,10 +1032,6 @@ MODULE_ALLOWLISTS: list[dict] = [
         # four consumer-matrix categories are unproven — but it is the first
         # evidence that "consumers name only the SDK" is a reachable state
         # rather than an aspiration.
-        #
-        # Zero here means the ratchet now guards a PROPERTY instead of tracking
-        # a migration: any new `ambition_platformer2d::` module this game names is a
-        # regression, full stop.
         "baseline": set(),
         "reason": (
             "The movement-only minimal game is the consumer-matrix row Outlander "
@@ -1188,9 +1047,8 @@ MODULE_ALLOWLISTS: list[dict] = [
 
 # ── The campaign's SECOND ratchet: central rollback ownership ────────────────
 #
-# api-1.0-campaign.md §Ratchets specified this when the campaign was written and
-# it was never built. Slice F needs it, because federating rollback ownership
-# without a ratchet is a migration with nothing watching it.
+# Slice F needs it, because federating rollback ownership without a ratchet is a migration with
+# nothing watching it.
 #
 # Same two invariants as the module allowlist, for the same reason:
 #
@@ -1199,26 +1057,13 @@ MODULE_ALLOWLISTS: list[dict] = [
 #   2. frozen ⊆ current  — a name that has left must be PRUNED, or the baseline
 #                          is a budget and the vacated slot fills silently.
 #
-# ⚠ Frozen as a SET, never as a count. The campaign's own words: "Freezing only
-# the NUMBER of central rollback registrations permits deleting one and adding
-# another." Zero means `ambition_platformer2d_runtime` is no longer the implementation owner
-# of every domain's snapshot — the state
-# `impl SnapshotState for ambition_platformer2d_actor_monolith::…::MatchSeat` describes today.
-# ── The capability-footprint ratchet ─────────────────────────────────────────
+# Frozen as a SET, never as a count.
 #
-# §2e's subject, made non-increasing. A clean facade can hide this entirely: no
-# consumer names a forbidden path and the footprint is still wrong, because
-# depending on `ambition_platformer2d` used to link 41 crates when a movement-only game asked
-# for 22 of them. Slice H made the facade's edges optional features and the
-# sentinel's measured closure is now the baseline; the 15 crates still unwanted
-# arrive through `ambition_platformer2d_actor_monolith` and wait on the §4 carve, not on a manifest.
+# §2e's subject, made non-increasing.
 #
-# ⚠ ONE invariant, not two, and the asymmetry is deliberate. The set may not
-# GROW. It does NOT require pruning as it shrinks, because unlike a module
-# allowlist there is no vacated SLOT here — a crate leaving the closure cannot
-# be silently replaced by a different one without the count moving. The other
-# two ratchets need both halves; copying that here would add a rule with no
-# failure behind it, which is how a guard becomes ceremony.
+# ONE invariant, not two, and the asymmetry is deliberate. The set may not GROW. The other two
+# ratchets need both halves; copying that here would add a rule with no failure behind it, which is
+# how a guard becomes ceremony.
 CAPABILITY_FOOTPRINT_BASELINE = (
     "scripts/baselines/capability-footprint-baseline.json"
 )
@@ -1311,33 +1156,30 @@ def rollback_schema_usage(root: Path) -> dict[str, list[str]]:
     """
     # The central runtime-adjacent registrations plus domain-owned offers.
     #
-    # ⚠ this read one file until 2026-07-31. Campaign 2 first moved registrations
-    # into `runtime/rollback/domains/`, then the domain-owned registrar migration
-    # removed that directory entirely: the concrete declarations now live with
-    # their types. The wire format was never a synonym for either central path.
+    # The wire format was never a synonym for either central path.
     #
     # Deliberately NOT a glob over the whole `rollback/` directory: `codec.rs`,
     # `session.rs` and friends contain dotted string literals that are not
     # registration names, and a ratchet that swallows them measures noise.
     registration_paths = [root / "crates/ambition_platformer2d_runtime/src/rollback/mod.rs"]
-    # ⛔⛔ AND IT HAPPENED AGAIN, ONE LEVEL FURTHER OUT (2026-08-15). The two
+    # AND IT HAPPENED AGAIN, ONE LEVEL FURTHER OUT. The two
     # paragraphs above describe registrations leaving one FILE. They have now
     # left the runtime CRATE: `RollbackRegistrar` lets a domain register its own
     # state, so `resource.gate_portal_phases` reported as having left the schema
     # while it was still very much in the wire format.
     #
-    # ⭐ so stop hand-listing places and follow the MARKER instead, the same
+    # so stop hand-listing places and follow the MARKER instead, the same
     # lesson `encoded_types` learned by following the types. A federated
     # registration site is exactly a file whose function takes the registrar:
     # `&mut impl RollbackRegistrar`. Nothing else spells that, the trait's own
     # definition does not, and a domain that starts registering is picked up
     # without editing this script — which is the whole point, since a guard that
     # needs an edit per domain is the census it exists to prevent.
-    # ⚠ the marker is the TRAIT NAME, not one spelling of the bound: the first
+    # the marker is the TRAIT NAME, not one spelling of the bound: the first
     # federated domain writes `<R>(registrar: &mut R) where R: RollbackRegistrar`,
     # and a scanner keyed to `&mut impl RollbackRegistrar` matched none of it.
     #
-    # ⛔ and the DEFINING crate is excluded on purpose — the trait's own doc
+    # and the DEFINING crate is excluded on purpose — the trait's own doc
     # examples spell registration names that were never in the wire format, which
     # is precisely the "swallows noise" failure the paragraph above warns about.
     registration_paths.extend(
@@ -1345,7 +1187,7 @@ def rollback_schema_usage(root: Path) -> dict[str, list[str]]:
             path
             for path in root.glob("crates/*/src/**/*.rs")
             if not is_test_path(str(path))
-            # ⛔ the BOUND, not a mention. `RollbackRegistrar` also appears in
+            # the BOUND, not a mention. `RollbackRegistrar` also appears in
             # imports, prose and a test-only `impl`, and matching those swallowed
             # `ability.cooldown` and the trait's own doc examples — names that
             # were never registrations. A federated registration site is a
@@ -1362,16 +1204,7 @@ def rollback_schema_usage(root: Path) -> dict[str, list[str]]:
         the wire format. Cut the file at its test module.
         """
         text = path.read_text(errors="replace")
-        # ⚠ a test MODULE, not any `#[cfg(test)]` — several domain files gate a
-        # helper that way with real registrations after it, and cutting at the
-        # attribute reported `actor.body_mode` and `actor.centered_aabb` as
-        # having left a registry they never left.
-        # ⛔⛔ and it must be an INLINE module (`mod tests {`), never a
-        # declaration (`#[cfg(test)] mod host_invariant_tests;`) — `rollback/mod.rs`
-        # declares two of those at the top, so cutting there deleted the whole of
-        # `register_engine_rollback_state` and reported the entire actor domain as
-        # having left the wire format. A declaration's file is excluded by
-        # `is_test_path` already.
+        # A declaration's file is excluded by `is_test_path` already.
         match = re.search(r"#\[cfg\(test\)\]\s*mod\s+\w+\s*\{", text)
         return text if match is None else text[: match.start()]
 
@@ -1386,20 +1219,12 @@ def rollback_schema_usage(root: Path) -> dict[str, list[str]]:
         if is_test_path(str(source)):
             continue
         text = source.read_text(errors="replace")
-        # ⛔⛔ **AND IT HAPPENED A THIRD TIME (2026-08-19), which is why this
-        # condition is gone.** The scan used to skip any file without the literal
-        # `SnapshotState for`, then match `impl SnapshotState for X`. Both
-        # `snapshot_pod!` and `snapshot_unit_enum!` GENERATE that impl inside the
-        # macro body, and the macro's own definition spells it
-        # `impl $crate::snapshot::SnapshotState for $ty` — so every type encoded
-        # through either macro was invisible.
+        # Both `snapshot_pod!` and `snapshot_unit_enum!` GENERATE that impl inside the macro body,
+        # and the macro's own definition spells it `impl $crate::snapshot::SnapshotState for $ty` —
+        # so every type encoded through either macro was invisible.
         #
-        # Measured when `SmashHoldState` joined the wire format and the ratchet
-        # stayed green: **35 macro-encoded types against 84 hand-written impls**,
-        # a 29% hole in a guard whose one claim is that a type joining or leaving
-        # the wire format has to be seen. Exactly the failure this function's own
-        # header describes twice already — an instrument that measures less than
-        # it says and reports the success condition.
+        # Exactly the failure this function's own header describes twice already — an instrument
+        # that measures less than it says and reports the success condition.
         crate = source.relative_to(root).parts[1]
         for match in re.findall(
             r"impl SnapshotState for ([A-Za-z0-9_:<>]+)", text
@@ -1407,7 +1232,7 @@ def rollback_schema_usage(root: Path) -> dict[str, list[str]]:
             # `crate::Foo` inside `ambition_platformer2d_actor_monolith` IS `ambition_platformer2d_actor_monolith::Foo`;
             # collapse the doubled prefix so the frozen name reads like a path.
             encoded.add(f"{crate}::{match}".replace("::crate::", "::"))
-        # ⚠ the macro takes a `$ty:path` first, so the type is everything up to
+        # the macro takes a `$ty:path` first, so the type is everything up to
         # the opening brace. Both macros are matched by ONE pattern on purpose: a
         # second pattern is a second thing to forget when a third macro lands.
         for match in re.findall(
@@ -1732,7 +1557,7 @@ def dependency_violations(contract: dict, graph: dict[str, set[str]]) -> list[st
     reached = reachable(graph, crate)
     forbidden = contract["forbidden"]
     targets = sorted(reached) if forbidden == "*" else forbidden
-    # ⚠ an `allowed` entry is a NAMED edge, never a category. A floor crate that
+    # an `allowed` entry is a NAMED edge, never a category. A floor crate that
     # sits on a smaller floor is still a floor; a floor with an open-ended
     # exception list is not. Each name here has to be a crate that itself
     # carries a `forbidden: "*"` contract, or the invariant has just moved
@@ -1774,15 +1599,11 @@ def main() -> int:
         # module named: a new module is invariant 1's problem and this number
         # must not be able to rise when one appears. It only ever falls.
         #
-        # ⚠ **BOTH ALLOWLISTS READ `0 of 0` TODAY, AND THAT IS A FINISHED
-        # RATCHET, NOT A DEAD CHECK** — audited 2026-08-21 by POISON, because
-        # `0 of 0` is exactly what an instrument that measures nothing also
-        # prints. Adding a private-module `use` to
-        # `fixtures/external_consumer/src/lib.rs` turns
-        # `outlander-names-only-the-public-sdk` RED, so invariant 1 still fires;
-        # what fell to zero is the campaign's backlog, not the guard.
+        # Adding a private-module `use` to `fixtures/external_consumer/src/lib.rs` turns
+        # `outlander-names-only-the-public-sdk` RED, so invariant 1 still fires; what fell to zero
+        # is the campaign's backlog, not the guard.
         #
-        # ⛔ do not "clean up" these two contracts for reading empty. The same
+        # do not "clean up" these two contracts for reading empty. The same
         # audit found a rule one crate over that genuinely could not fire — the
         # LDtk `EdgeExit ... overlaps solid X` reachability check scanned an
         # entity kind that no level carrying an EdgeExit places (15 levels vs 4,

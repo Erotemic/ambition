@@ -3,14 +3,10 @@
 //! character trait, so "the same dummy, invincible in this room" is not a
 //! thing the model can say. The combat-feel lab's two spawns are this.
 //!
-//! ⚠ **9999 health AND `never_dies`, which is one fact stated twice and
-//! both halves are carried across on purpose.** The pool is what the
-//! damage numbers and any health readout see; `never_dies` is what the
-//! resolver checks before it kills. Dropping either changes what a lab
-//! dummy looks like under a hit, and a migration is the wrong place to
-//! find that out.
+//! Dropping either changes what a lab dummy looks like under a hit, and a migration is the
+//! wrong place to find that out.
 //!
-//! ⛔ no contact damage: the row authored `body_contact_damage: false`
+//! no contact damage: the row authored `body_contact_damage: false`
 //! beside a `contact_strength`, which is the archetype format's way of
 //! saying the numbers are inert. A character says it by not speaking.
 

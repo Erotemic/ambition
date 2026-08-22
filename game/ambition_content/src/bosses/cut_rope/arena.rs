@@ -8,9 +8,6 @@
 //! generic `FallingHazard`), the hazard fires `Gate("cut_rope_impact")` on
 //! contact, and the script `ForceKill`s the behemoth. This file no longer
 //! contains any anvil physics or boss steering — those are reusable mechanics.
-//!
-//! Split out of the former 793-line `cut_rope.rs` (2026-06-15); the bespoke
-//! physics was lifted into the generic encounter mechanic (2026-06-23).
 
 use super::*;
 

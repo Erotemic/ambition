@@ -1,24 +1,16 @@
 //! Aggregated integration tests for `ambition_platformer2d_runtime`'s causal recording.
 //!
-//! ⚠ **these were inline `#[cfg(test)]` and were moved OUT**, because the
-//! agent-KB instrument flagged the module at 261 test lines and the honest
-//! answer to "does it need to be inline" was no: every item they touch is
-//! `pub`. The repo's own rule puts assembled behaviour in `tests/` and reserves
-//! inline modules for tests that reach private items — marking this
-//! `behavioral-local` to keep it where it was would have been a false claim
-//! about why it was there.
+//! The repo's own rule puts assembled behaviour in `tests/` and reserves inline modules for tests
+//! that reach private items — marking this `behavioral-local` to keep it where it was would have
+//! been a false claim about why it was there.
 //!
-//! ⚠ named `causal_it` so further causal tests land in THIS binary rather than
+//! named `causal_it` so further causal tests land in THIS binary rather than
 //! adding another link step per file. Rust links one integration-test
 //! executable per top-level `tests/*.rs`, and four crates in this workspace
 //! were paying that per file until earlier today.
 
-// ⚠ **gated on the feature these tests are ABOUT.** They were inline in a
-// module that carried `#[cfg(feature = "causal")]`, and moving them to `tests/`
-// left the gate behind — so this file compiled only when something else in the
-// workspace happened to unify the feature on, and broke the default-features
-// job the moment that stopped being true. An integration test's `cfg(feature)`
-// reads the features of the crate under test, which is exactly what is wanted.
+// An integration test's `cfg(feature)` reads the features of the crate under test, which is
+// exactly what is wanted.
 #![cfg(feature = "causal")]
 
 use ambition_causal::{
@@ -34,9 +26,6 @@ fn app() -> App {
     let mut app = App::new();
     app.add_plugins(CausalPlugin);
     app.insert_resource(ambition_time::SimTick(0));
-    // The head-of-schedule stamp, exactly where `player_schedule` installs
-    // it in a real host: BEFORE anything publishes. Putting it after was the
-    // bug the parallel proof caught.
     app.add_systems(Update, stamp_causal_frame.before(RecordingSet::Publish));
     app.configure_sets(Update, RecordingSet::Publish);
     app
@@ -87,7 +76,7 @@ fn an_original_tick_and_a_resimulated_one_are_different_facts() {
     assert_no_offthread_loss();
 }
 
-/// **THE PARALLEL-SCHEDULE PROOF.** (GPT 5.6 review, requested explicitly.)
+/// **THE PARALLEL-SCHEDULE PROOF.**
 ///
 /// The concern is real and was worth proving rather than reasoning about:
 /// `ambition_causal`'s thread-local sink cannot collect from Bevy's worker
@@ -248,9 +237,7 @@ fn three_domains_answer_one_question_about_one_body_on_one_tick() {
         "and the world's own answer about whether this tick was a replay"
     );
 
-    // ⚠ ONE tick and ONE execution across all of them. Domains that stamped
-    // their own clock would produce four explanations of four moments, which
-    // is the failure that makes a multi-domain log unreadable.
+    // ONE tick and ONE execution across all of them.
     assert!(
         why.facts().iter().all(|fact| fact.tick == 60),
         "every domain used the tick the HOST stamped: {:?}",
@@ -296,7 +283,7 @@ fn the_tick_the_host_stamps_is_the_tick_the_facts_carry() {
 /// point: one `explain(tick, subject)` has to return both sides, or the
 /// discrepancy stays invisible and the next fix edits the brain again.
 ///
-/// ⚠ **the seated body must NOT appear here.** `record_player_movement_intent`
+/// **the seated body must NOT appear here.** `record_player_movement_intent`
 /// already publishes it under its SEAT — the better key there, since a seat
 /// survives death and respawn and an actor id does not — and the same body
 /// under two subjects is two half-answers instead of one.

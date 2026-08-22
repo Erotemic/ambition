@@ -1,5 +1,5 @@
 //! Probe: can a BRAIN drive a full player body through the player's own
-//! movement integration? (Jon's "an NPC that is a copy of the player".)
+//! movement integration?
 //!
 //! This is the headless proof of the universal-brain seam for the PLAYER path
 //! specifically. We assemble the 18 player movement clusters

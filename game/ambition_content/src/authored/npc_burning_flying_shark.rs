@@ -1,13 +1,9 @@
 //! **The burning flying shark** — the first MOUNT to become a character.
 //!
-//! ⭐ its rideability is a character fact (ADR 0020, and Jon's own list
-//! puts "mount/pilot body capabilities" under the definition): a shark is
-//! rideable because of what a shark IS, not because of where it was
-//! placed or who is steering it. `mass: 6.0` is the other half — the pair
-//! rolls around a centre of gravity near the heavier body — and it rides
-//! on `vitals`, which already carried mass.
+//! `mass: 6.0` is the other half — the pair rolls around a centre of gravity near the heavier
+//! body — and it rides on `vitals`, which already carried mass.
 //!
-//! ⚠ `is_aerial` and `default_size` do NOT come across: the catalog says
+//! `is_aerial` and `default_size` do NOT come across: the catalog says
 //! `body_kind: Floating`, and a named character sizes its body to its
 //! authored sprite, which is the same silhouette the row was restating.
 
@@ -25,7 +21,7 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
         .with_locomotion(CharacterLocomotion {
             run_speed: 260.0,
             move_style: MoveStyleSpec::Float,
-            // ⭐ see the parrot: a flying MOUNT states its own flight
+            // see the parrot: a flying MOUNT states its own flight
             // rather than inheriting it from a body-kind enum.
             baseline_free_flight: Some(true),
             ..Default::default()

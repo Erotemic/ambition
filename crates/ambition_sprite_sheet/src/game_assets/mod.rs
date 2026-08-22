@@ -352,14 +352,10 @@ pub struct GameAssets {
     /// **The effect sheets the ENGINE draws from**, keyed by sheet manifest
     /// target (`generic_exotic_fx`).
     ///
-    /// ⭐ its own slot, and that is the point. These used to be parked in
-    /// `characters.props` — *a map keyed by the LDtk `Prop.kind` field* — which
-    /// meant the only way an engine renderer could reach the art it itself
-    /// draws was for some GAME to have declared it as a level prop. Ambition's
-    /// intro did; Smash, Sanic and Mary-O did not, so `spawn_effect` took its
-    /// no-asset particle branch in all three, always. An FX sheet is neither a
-    /// character nor an LDtk prop, and the engine's own `load_game_assets`
-    /// fills this from [`crate::fx::FX_SHEETS`] with no content involved.
+    /// its own slot, and that is the point. Ambition's intro did; Smash, Sanic and Mary-O did not,
+    /// so `spawn_effect` took its no-asset particle branch in all three, always. An FX sheet is
+    /// neither a character nor an LDtk prop, and the engine's own `load_game_assets` fills this
+    /// from [`crate::fx::FX_SHEETS`] with no content involved.
     pub fx: FxSheetAssets,
     /// Generic boss spritesheet — the fallback the renderer uses for any boss
     /// without a dedicated sheet in `boss_sprites`. Separate from `characters`
@@ -367,12 +363,8 @@ pub struct GameAssets {
     /// (rest/floor_slam/side_sweep/spike_halo/dash_echo/hit/death) that don't fit
     /// `CharacterAnim`. `None` falls back to the static `EntitySprite::BossCore`.
     pub boss: Option<BossSpriteAsset>,
-    /// Dedicated per-boss spritesheets, keyed by the boss's lowercased behavior
-    /// id (`boss_key`) — the renderer looks up `boss_sprites.get(&boss_key)` and
-    /// falls back to `boss`. This replaced a hand-maintained set of named fields
-    /// (`giant_gnu`, `mockingbird`, `trex_boss`, …) + a per-boss if-else chain in
-    /// the render layer, so the MACHINERY no longer names any boss: adding a boss
-    /// sheet is a provider catalog row plus an asset-manifest entry, not a struct edit.
+    /// Dedicated per-boss spritesheets, keyed by the boss's lowercased behavior id (`boss_key`)
+    /// — the renderer looks up `boss_sprites.get(&boss_key)` and falls back to `boss`.
     ///
     /// Multi-part bosses store their pieces under suffixed keys: GNU-ton's split
     /// body/hands render reads `"gnu_ton_body"` / `"gnu_ton_hands"`.
@@ -437,13 +429,7 @@ pub fn load_entity_sprites(
     quality: Option<&VisualQualityBudget>,
 ) -> EntitySpriteSet {
     let mut handles = HashMap::with_capacity(EntitySprite::ALL.len());
-    // ⛔ **an unresolved sprite used to `continue` in silence.** The feature it
-    // belongs to then draws as a colour fallback or as nothing at all, and the
-    // only way to learn which one went missing was to notice the picture. That
-    // is the same failure mode as an unclaimed feature view, and this layer had
-    // no equivalent of the floor's warning.
-    //
-    // ⚠ **a TALLY, not a warning per key.** `character_sprites` already reports
+    // **a TALLY, not a warning per key.** `character_sprites` already reports
     // this way — *"5/5 catalog entries declared, 0 decoded at startup"* — and it
     // is the right shape: a headless fixture with no asset root misses every
     // sprite, and forty separate warnings would train everyone to filter the
@@ -466,14 +452,10 @@ pub fn load_entity_sprites(
         };
         handles.insert(key, asset_server.load(path));
     }
-    // ⚠ **what this catches, precisely — measured, and narrower than my first
-    // wording claimed.** `try_path_for_load` returns `None` when the CATALOG
-    // refuses an id (no manifest entry, or a quality profile that excludes it).
-    // It does NOT catch a manifest entry whose FILE is missing: probed by
-    // renaming an asset id to `chest_open_PROBE_MISSING`, and the catalog
-    // happily synthesized a path from the new name, so nothing was reported
-    // here — the asset server complains later, about a load, in its own words.
-    // Two different failures, and this is the one that had no voice at all.
+    // **what this catches, precisely — measured, and narrower than my first wording claimed.**
+    // `try_path_for_load` returns `None` when the CATALOG refuses an id (no manifest entry, or
+    // a quality profile that excludes it). Two different failures, and this is the one that had
+    // no voice at all.
     if !missing.is_empty() {
         bevy::log::warn!(
             target: "ambition_sprite_sheet::entity_sprites",
@@ -537,12 +519,5 @@ pub fn ensure_parallax_layers_for_room(
 // packaging, web/static profiles skip optional PNGs, and headless/no-assets have
 // already returned `None` upstream.
 
-// NOTE (fable audit follow-up): the game-assets unit tests were NOT carved over
-// from `ambition_platformer2d_actor_monolith` in cdf21e0b — the monolithic test file spanned code
-// that the carve split across `ambition_asset_manager` (config/profile/sandbox
-// catalog) and this crate (entity sprites), and it still lives (compiled) at
-// `ambition_platformer2d_actor_monolith::assets::game_assets::tests`. The dangling `mod tests;`
-// placeholder pointed at a `game_assets/tests.rs` that never existed and left
-// this crate's lib-test target uncompilable; removed here. Splitting
-// sprite-side coverage into this crate is a separate opportunity
+// Splitting sprite-side coverage into this crate is a separate opportunity
 // (dev/journals/code_smells.md).

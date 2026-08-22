@@ -43,10 +43,6 @@ pub(crate) fn spawn_test_projectile(
     ));
 }
 
-/// Spawn an OWNERLESS in-flight projectile (no `ProjectileOwner`) — an orphaned /
-/// truly-ownerless shot. Damage routing treats it as INDISCRIMINATE (it hurts every
-/// body it overlaps, friend or foe), since there is no firer faction to be friendly
-/// to. Used to pin that behavior distinct from a faction-owned shot.
 pub(crate) fn spawn_ownerless_projectile(app: &mut App, request: ProjectileSpawn) {
     let projectile = build_in_flight_projectile(request);
     let seq = {

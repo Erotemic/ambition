@@ -1,8 +1,4 @@
-# **The movement-only minimal game** — the smallest external consumer used to
-# pressure-test the current SDK and capability-composition programs
-# (`docs/planning/engine/public-sdk-1.0.md` and
-# `docs/planning/engine/capability-and-runtime-composition.md`). It originated as
-# consumer-matrix row 2 of the archived API 1.0 campaign.
+# It originated as consumer-matrix row 2 of the archived API 1.0 campaign.
 #
 # Outlander proves external composition. It cannot prove what this one is for:
 # *optional-capability closure* — does a SMALL game still link menus,
@@ -35,14 +31,10 @@ default = []
 visible = ["ambition_platformer2d/visible", "ambition_platformer2d/basic_shell_presentation"]
 
 [dependencies]
-# Slice H: the facade's edges are capabilities, and this game names the ONE it
-# uses. `ambition_render` is here because this game's own slice-B exit
-# criterion composes the windowed face (`the_minimal_game_boots_windowed`), and
-# the windowed face draws. Per the slice-H spec's own honesty clause: a feature
-# `minimal_game` needs to keep passing its tests IS NOT OPTIONAL for it, and
-# this line is that fact written down — the render edge stays in this game's
-# measured closure because the game asks for it, not because the facade forces
-# it. A game with no windowed face drops this line and the render chain with it.
+# Slice H: the facade's edges are capabilities, and this game names the ONE it uses.
+# `ambition_render` is here because this game's own slice-B exit criterion composes the windowed
+# face (`the_minimal_game_boots_windowed`), and the windowed face draws. A game with no windowed
+# face drops this line and the render chain with it.
 ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = [
     "ambition_render",
 ] }

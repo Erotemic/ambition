@@ -119,10 +119,6 @@ CATEGORY: dict[str, str] = {
     "le_beast": "peaceful",
     "richard_duckling": "peaceful",
     "mami_marzakhani": "peaceful",
-    # ===== Mathematician parodies (2026-07-20 sprite generators).
-    # Peaceful exhibits: they argue rather than swing. The two
-    # kernel-raiders below are the exception — they are written as
-    # would-be thieves of Oiler's Kernel, so they get a striker kit.
     "carl_runga": "enemy_swipe",
     "martin_cutta": "enemy_swipe",
     "carl_stargan": "peaceful",
@@ -257,11 +253,6 @@ def character_id_for(target: str) -> str:
     `_boss` so the id reads naturally.
     """
     if target in ("player_robot_v3",):
-        # The sheet target and the catalog id are the SAME STRING now, so this
-        # is an identity and the alias is gone. It existed because the sheet was
-        # `player_robot` and the character was `player` -- two names for one
-        # thing, which is exactly what versioning the incarnations removed
-        # (2026-07-29).
         return target
     if target == "absurd_general":
         return "npc_general"

@@ -11,7 +11,7 @@ because prose failed three times in four blind runs. The others check that named
 modules exist and that promised modules are documented; this one checks the
 methods.
 
-## Why the reference exists at all
+# # Why the reference exists at all
 
 ADR 0031's gate is that an author never opens a file under `crates/`. The SDK
 was recommending `cargo doc -p ambition_platformer2d -p ambition_platformer2d_world`, so its own advice
@@ -39,13 +39,6 @@ ROLLBACK_RS = REPO / "crates/ambition_platformer2d/src/rollback.rs"
 REFERENCE = REPO / "docs/sdk/api-reference.md"
 
 # Every public type the reference documents, and the file it is defined in.
-#
-# ⚠ This used to be a hardcoded read of `app.rs` alone. Slice F published
-# `ambition_platformer2d::rollback`, and the both-ways check immediately reported its methods
-# as invented — correctly, since it could not see them. The fix is to teach the
-# guard the file, NOT to waive the names: a waiver would have turned the sharper
-# half of this test (the reference naming something that does not exist) off for
-# the newest surface, which is the one most likely to drift.
 DOCUMENTED_TYPES = {
     "PlatformerApp": APP_RS,
     "ModuleDraft": APP_RS,
@@ -57,7 +50,7 @@ DOCUMENTED_TYPES = {
 
 # Methods deliberately absent from the reference, each with a reason. Anything
 # not listed here must be documented — the default is "public means documented".
-# ⚠ EMPTY as of slice F. Its one entry was `unstable_rollback_session`, hidden
+# EMPTY as of slice F. Its one entry was `unstable_rollback_session`, hidden
 # because documenting it would have made the promise ADR 0031 reserved for its
 # own slice. Slice F made that promise properly and the method is gone, so the
 # waiver went with it — a waiver outliving its subject is the stale entry this
@@ -153,18 +146,9 @@ def test_the_reference_names_no_method_that_does_not_exist():
 
 # Public enums the SDK reference names variants of, and where they are defined.
 #
-# ⚠ Added 2026-07-30, after `RollbackRefused::ParticipantsDisagree` was deleted
-# from the code and stayed in the reference. Every method check in this file
-# passed: the method guards read `pub fn`, and a variant is not a function. The
-# defect was caught by a grep that happened to be run for another reason, which
-# is not a control.
-#
-# This is the FOURTH instance of the family's founding failure — a document
-# describing something that does not exist — and the third syntactic category
-# it has appeared in (module paths, methods, now variants). The lesson the first
-# three were supposed to teach was "check it mechanically", and each time the
-# check was written narrowly enough that the next instance slipped past a
-# different edge.
+# This is the FOURTH instance of the family's founding failure — a document describing something
+# that does not exist — and the third syntactic category it has appeared in (module paths,
+# methods, now variants).
 DOCUMENTED_ENUMS = {
     "RollbackRefused": ROLLBACK_RS,
     "RollbackHealth": ROLLBACK_RS,

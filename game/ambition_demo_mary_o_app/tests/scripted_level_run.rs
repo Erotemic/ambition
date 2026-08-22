@@ -30,17 +30,7 @@
 //! exists that traverses under its own input and takes a powerup through the
 //! shared pickup/equipment path.
 //!
-//! # It used to be gated off the `input` feature, and the reason expired
-//!
-//! ⛔ the gate said: *"Under `input` the participant pipeline OWNS
-//! `ControlFrame`: it repopulates it from device state every frame, so a
-//! scripted write is erased before the sim sees it … scripting at this seam is
-//! only meaningful in the headless sim composition."* The first sentence was
-//! true and the conclusion no longer follows — `scripted_input` writes AFTER
-//! `InputSet::Route`, so it is the last writer under a composed pipeline and the
-//! only writer without one.
-//!
-//! ⛔⛔ **and a whole-file `cfg` is the worst way to express a limit even while
+//! **and a whole-file `cfg` is the worst way to express a limit even while
 //! it holds.** It does not skip the proof, it DELETES it: `--features input`
 //! compiled this file down to nothing and reported no tests, no skips, and no
 //! warning. Three of Mary-O's proofs vanished that way, and the cfg read THIS
@@ -54,9 +44,7 @@ use ambition_platformer2d::input::ControlFrame;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use bevy::prelude::*;
 
-/// The scripted stick. Republished every frame in `PreUpdate`, because Bevy
-/// runs the fixed-timestep loop BEFORE `Update` — intent written any later is
-/// not seen by the tick it was meant to drive.
+/// The scripted stick.
 
 /// Drive one frame with the given control frame.
 fn step(app: &mut App, frame: ControlFrame) {
@@ -74,7 +62,7 @@ fn hold_right() -> ControlFrame {
 }
 
 /// Press DOWN (screen-down = `axis_y > 0`): the verb that drops you INTO the entry
-/// pipe. The warp is directional (Jon bug #8), so a plain Interact never warps.
+/// pipe. The warp is directional, so a plain Interact never warps.
 fn press_down() -> ControlFrame {
     let mut frame = ControlFrame::default();
     frame.axis_y = 1.0;
@@ -165,42 +153,31 @@ fn settle(app: &mut App) {
 
 /// **Assert that a scripted press actually reaches the simulation.**
 ///
-/// ⛔⛔ **THIS RETURNED `bool` AND ITS CALLERS USED IT TO `return` EARLY**,
+/// **THIS RETURNED `bool` AND ITS CALLERS USED IT TO `return` EARLY**,
 /// printing `SKIP: a participant pipeline owns ControlFrame in this build`. A
 /// test that returns early is a test that PASSES — so the proof evaporated in
 /// exactly the composition it most needed to hold, and the run summary said
 /// nothing. The guard correctly detected that the press was being erased and
 /// then reported the situation as fine.
 ///
-/// ⚠ the ORIGINAL diagnosis is kept, because it is why the guard existed: a
+/// the ORIGINAL diagnosis is kept, because it is why the guard existed: a
 /// crate-level `cfg(not(feature = "input"))` reads THIS crate's flag, while the
 /// thing that erases a scripted write is `ambition_platformer2d/input` in the
 /// DEPENDENCY. Under `cargo test --workspace` cargo unifies features across the
 /// graph, so `ambition_platformer2d` builds WITH `input` while this crate's flag
 /// stays off. Ask the composition, not the feature flag.
 ///
-/// ⚠ **the probe is `ControlFrame` right after the update, deliberately.**
+/// **the probe is `ControlFrame` right after the update, deliberately.**
 /// `scripted_input`'s own delivery counter observes the SLOT TABLE, which
 /// Bevy publishes from `FixedUpdate` — a frame BEHIND the `Update` that
 /// wrote the press — so it reads `0 delivered` on the first press of a
 /// healthy run. It is an end-of-run check; this is a precondition.
 ///
-/// ⭐ the condition is unreachable now rather than merely detected:
-/// `scripted_input` writes after `InputSet::Route`, so it is the last writer
-/// under a composed pipeline and the only writer without one. If this fires
-/// again the ordering broke — a defect, not a composition to step around.
+/// the condition is unreachable now rather than merely detected: `scripted_input` writes after
+/// `InputSet::Route`, so it is the last writer under a composed pipeline and the only writer
+/// without one.
 #[track_caller]
 fn assert_scripted_input_reaches_the_sim(app: &mut App) {
-    // ⛔⛔ **THIS USED TO ASSERT THE WRITER, NOT THE READER** — see the twin of
-    // this function in `course_playthrough`. It read `ControlFrame` one update
-    // after the scripted stage wrote that same resource, so it could not fail
-    // for the reason it names. The resource is seat zero's output mirror now,
-    // and arrival takes a TICK rather than a frame on a fixed-tick host.
-    // ⚠ a SHORT cap, and a neutral step on the way out — arrival is one tick.
-    // ⚠ **AIM, not a direction, and that is the point of the probe.** The press
-    // has to be detectable on the far side without MOVING her: these fixtures
-    // walk an authored route measured in pixels, and a liveness check that holds
-    // right until the press arrives shifts every beat after it.
     let probe = ControlFrame {
         aim_x: 1.0,
         ..ControlFrame::default()
@@ -224,8 +201,6 @@ fn assert_scripted_input_reaches_the_sim(app: &mut App) {
     );
 }
 
-/// Step until the demo is actually PLAYABLE, rather than a fixed frame count.
-///
 /// `ManualDuration` pins the sim clock, which makes the sim deterministic — but
 /// it does NOT pin boot. Session activation and asset loading advance on real
 /// I/O over a variable number of frames, so "8 frames is enough to be playing"
@@ -253,47 +228,26 @@ fn settle_until_playable(app: &mut App) {
     panic!("the demo never reached a playable level with a running clock");
 }
 
-/// The run: boot into gameplay, walk, take the secret pipe, bank its coins,
-/// surface, and finish on the flag.
-/// ⛔ **IGNORED — this test is tuned to a level that is now AUTHORED, and Jon is
-/// about to start editing it.** Jon, 2026-08-04: *"the plays level1 test might
-/// get stale awfully quick if I modify level 1. We should probably ensure there
-/// is a fixture for the test that won't change as we modify the level itself."*
-///
-/// He is right, and this is what being right looks like: the script walks a
-/// ROUTE — stand here, jump now, the wand needs ~2.9s to reach the pit — and
-/// every one of those numbers was measured against one arrangement of 1-1.
-/// Moving the enemies into the level file was enough to desynchronise it.
-///
-/// ⚠ **what it uniquely covered is real and is NOT covered elsewhere**: a whole
+/// **what it uniquely covered is real and is NOT covered elsewhere**: a whole
 /// playthrough, spawn to flagpole, on the production schedule. The mechanics it
 /// touches are covered against the authored level by unit probes (the bonk, the
 /// stomp, the brick break, the warp), and 1-1's SHAPE is covered by invariants
 /// (`the pit rhythm must widen`, `every authored enemy has ground under it`).
 /// The gap is the end-to-end run, and it stays a gap until the fixture lands.
 ///
-/// ▢ **the replacement**: a small fixture course owned by the test — one pit,
-/// one ?-block, one snake, a flag — that Jon never authors, so the route can be
-/// tuned once and stay true. Queue row `G1 PICK 11`.
+/// Queue row `G1 PICK 11`.
 ///
-/// ⚠ same cause as `she_plays_level_one_from_spawn_to_the_pole_and_it_replays`.
+/// same cause as `she_plays_level_one_from_spawn_to_the_pole_and_it_replays`.
 #[ignore = "route tuned to 1-1's old arrangement; replaced by a fixture course (queue G1 PICK 11)"]
 #[test]
 fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     let mut app = build_demo_app();
-    // DETERMINISM, and the reason this run is worth anything. The demo is a
-    // fixed-tick host, so without a manual clock the number of sim ticks per
-    // `app.update()` depends on how fast the test machine got round the loop —
-    // the same script then walks a different distance on every run, and the
-    // suite fails only sometimes. One tick per update, always.
+    // DETERMINISM, and the reason this run is worth anything. One tick per update, always.
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
-    // ⭐ **the ordering lives in ONE place now** — after the participant
-    // pipeline's routing stage and before the frame→tick latch. Eight
-    // fixtures each carried their own copy of that knowledge, and five of
-    // them were still guessing `PreUpdate` on 2026-08-19, where the
-    // pipeline overwrote every scripted write before the sim saw it.
+    // **the ordering lives in ONE place now** — after the participant pipeline's routing stage and
+    // before the frame→tick latch.
     ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
     settle_until_playable(&mut app);
 
@@ -391,20 +345,9 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     // draws — so this covers the whole chain from placement to screen.
     // Walk only as far as the COINS, and stop short of the vault's far wall.
     //
-    // ⛔ **the vault's far end USED to be a hole**: a walk-activated descent
-    // shaft sat on its floor near `vault.max.x`, and holding right for a flat
-    // 240 frames walked her straight through it into World 1-2 around frame 135.
-    // The wallet assertion below still passed (the coins are collected long
-    // before the shaft), so the run went green here and failed three beats later
-    // in a room where `vault_exit()` and `goal_pole()` mean nothing — which read
-    // as a broken return pipe and was nothing of the kind.
-    //
-    // ⭐ **the shaft is GONE as of 2026-08-06** (Jon: *"she doesn't just get to
-    // go there in the middle of 1-1"*), so walking into the far end is now
-    // walking into masonry. The stop line stays anyway, and still comes from the
-    // ROOM rather than a tile count — `vault_wall_1` is the authored block that
-    // closes the vault, and stopping one body-width short of it keeps this beat
-    // measuring the coins rather than a collision.
+    // The wallet assertion below still passed (the coins are collected long before the shaft), so
+    // the run went green here and failed three beats later in a room where `vault_exit()` and
+    // `goal_pole()` mean nothing — which read as a broken return pipe and was nothing of the kind.
     let before = wallet(&mut app);
     let surface = ambition_demo_mary_o::level_1_1();
     let far_wall = surface
@@ -488,10 +431,6 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
 /// `FeatureName`. The tag never fired, so the enemy spawned inert. This drives
 /// the REAL spawn path — request in, engine spawns, demo tags — which is the
 /// only thing that would have caught it.
-///
-/// (It used to spawn the `crony`'s separate shell PROP. That entity is gone: a
-/// stomp now changes the SAME body's state instead of swapping it for a prop,
-/// so the thing to prove is that the walker itself gets tagged.)
 #[test]
 fn a_spawned_snake_is_tagged_by_the_demo_that_owns_its_shell() {
     use ambition_demo_mary_o::snake::{
@@ -512,11 +451,6 @@ fn a_spawned_snake_is_tagged_by_the_demo_that_owns_its_shell() {
     // Ask the engine for a snake exactly as the level's staging does.
     app.world_mut()
         .write_message(ambition_platformer2d::actors::features::SpawnActorRequest {
-            // ⭐ **the id is free now, and that is the point.** It used to have
-            // to be minted by the demo, because the tag pass read an id PREFIX
-            // and an arbitrary id produced an enemy with no shell. The tag reads
-            // `ActorConfig.brain` now — the archetype this request already names
-            // below — so any unique id spawns a real snake.
             id: "scripted_snake".to_string(),
             name: SNAKE_DISPLAY_NAME.to_string(),
             pos: Vec2::new(600.0, 300.0),
@@ -527,13 +461,8 @@ fn a_spawned_snake_is_tagged_by_the_demo_that_owns_its_shell() {
                 brain: ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom(
                     SNAKE_BRAIN_KEY.to_string(),
                 ),
-                // ⭐ the character, exactly as 1-1's placements author it. This
-                // said "names only a brain, which is exactly the case the road
-                // still has to serve" — and that stopped being true when the
-                // snake's roster row died (2026-08-11): a spawn resolving
-                // neither a character nor a row is a construction ERROR now,
-                // by D102's design. The subject under test is the demo's TAG
-                // pass, and it reads `ActorConfig.brain` either way.
+                // the character, exactly as 1-1's placements author it. The subject under test
+                // is the demo's TAG pass, and it reads `ActorConfig.brain` either way.
                 character: SNAKE_SHEET_TARGET.into(),
             },
         });

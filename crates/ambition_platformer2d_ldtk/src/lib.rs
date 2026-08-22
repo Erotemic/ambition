@@ -191,13 +191,10 @@ impl LdtkProject {
                                 entity.iid
                             ));
                         }
-                        // ⛔ **A ZONE IS EITHER AN EXIT OR A LANDING PAD**, and
-                        // this used to demand that every one of them be an exit.
-                        // Conversion has always had both shapes — a zone with no
-                        // target contributes no `RoomLink`, and
-                        // `transition_from_zone` only fires on a zone with an
-                        // outgoing edge — so the arrival end of a one-way trip
-                        // was expressible at runtime and unauthorable in a file.
+                        // Conversion has always had both shapes — a zone with no target contributes
+                        // no `RoomLink`, and `transition_from_zone` only fires on a zone with an
+                        // outgoing edge — so the arrival end of a one-way trip was expressible at
+                        // runtime and unauthorable in a file.
                         //
                         // ⚠ **a landing pad that names a target is a BOUNCE.**
                         // The body arrives standing inside the zone it arrived

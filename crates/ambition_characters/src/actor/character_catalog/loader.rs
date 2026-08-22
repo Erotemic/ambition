@@ -7,9 +7,7 @@ use super::entry::CharacterCatalogData;
 
 /// Parse a catalog RON string without panicking.
 ///
-/// Provider registration is a transactional build-time boundary. Malformed
-/// authored data must therefore become a structured registration error instead
-/// of unwinding before the previous valid App-local assembly can be preserved.
+/// Provider registration is a transactional build-time boundary.
 pub fn try_parse_catalog(ron_text: &str) -> Result<CharacterCatalogData, String> {
     ron::from_str(ron_text).map_err(|error| error.to_string())
 }

@@ -47,9 +47,6 @@ fn live_session_scope(app: &App) -> Option<SessionScopeId> {
     app.world().resource::<ActiveSessionScope>().current()
 }
 
-/// Pump enough frames that a shell command's route change, the follow-on session
-/// (de)activation, and its deferred spawns/despawns have all landed (the launcher
-/// has a known one-frame command latency; the retire sweep is deferred too).
 fn settle(app: &mut App) {
     for _ in 0..4 {
         app.update();
@@ -127,10 +124,6 @@ fn sanic_launch_quit_relaunch_is_leak_free() {
     );
 }
 
-/// W1: at the launcher there is no gameplay session, and the SIMULATION —
-/// its tick timeline included — sleeps. Not a shell-only claim: this drives
-/// the real fixed-tick host and reads the real `SimTick`.
-///
 /// The poison this guards: an ungated sim at the frontend keeps ticking a
 /// stale or placeholder world under the menu (burning time, mutating state,
 /// and re-arming the exact class of stale-authority bugs the session model
@@ -141,7 +134,6 @@ fn simulation_sleeps_at_the_launcher_and_wakes_per_session() {
     settle(&mut app);
     assert_eq!(active_route(&app), Some("sanic_gameplay".to_owned()));
 
-    // In-session the timeline advances: one update == one fixed tick.
     let in_session = app.world().resource::<ambition_platformer2d::runtime::SimTick>().0;
     app.update();
     app.update();

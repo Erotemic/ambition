@@ -11,11 +11,6 @@
 //! | adopted match fighter | `prepared.vitals` | `prepared.vitals` | yes |
 //! | worn exploration player | the CATALOG row | never set | no |
 //!
-//! So the same character was a different physical object depending on how it got
-//! its body — and the versus duelists, who author 60 and 52 as a deliberate
-//! trade, simply did not have those numbers outside a match (GPT 5.6,
-//! 2026-07-29). This module is the one path all three now go through.
-//!
 //! # Why the numbers and the WRITE are separate
 //!
 //! [`PhysicalBaseline`] resolves *what the values are*. That is the part that has
@@ -25,7 +20,7 @@
 //! mutates a live one. A single `fn(&mut World)` would have to pretend those are
 //! the same operation.
 //!
-//! # ⚠ What this does NOT do, deliberately
+//! # What this does NOT do, deliberately
 //!
 //! **It does not run per tick.** These are construction facts. A projection that
 //! rewrote a live body's health would delete the damage it had taken, and one
@@ -52,30 +47,22 @@ pub enum BaselineBoundary {
     /// its own and survives; only the maximum moves, and the current value is
     /// clamped under it.
     ///
-    /// ⚠ **geometry does not apply here**, and that is a narrowing rather than an
-    /// omission. Resizing a body that is standing on a floor has to re-resolve
-    /// its pose against the world, which is the transit seam's job and only its
-    /// job (ADR 0024) — and Jon's standing rule is that nothing may shove a body
-    /// out of geometry. A character whose silhouette must follow it onto every
-    /// body authors [`BodySource::SpriteAuthored`], whose per-pose projection
-    /// already reaches every body on every path; [`BodySource::Explicit`] is a
-    /// construction-time size and says so.
+    /// **geometry does not apply here**, and that is a narrowing rather than an omission. A
+    /// character whose silhouette must follow it onto every body authors
+    /// [`BodySource::SpriteAuthored`], whose per-pose projection already reaches every body on
+    /// every path; [`BodySource::Explicit`] is a construction-time size and says so.
     Replacement,
 }
 
 /// **What a persona DISPLACED on this body, and therefore what a later silent
 /// persona has to put back.**
 ///
-/// The retraction half of [`BaselineBoundary::Replacement`]. It exists because
-/// absence had two plausible readings and the wrong one was implemented:
-/// `apply_to_body` wrote a value only when the incoming character authored one,
-/// so a character that authored nothing INHERITED the outgoing character's
-/// numbers. Wear a 2.0-mass, 60-health duelist, then a persona that authors
-/// neither, and the body stays at 2.0 and 60 — not because anything decided
-/// that, but because nothing had recorded what to go back to (GPT 5.6,
-/// 2026-07-30).
+/// The retraction half of [`BaselineBoundary:Replacement`]. It exists because absence had two
+/// plausible readings and the wrong one was implemented: `apply_to_body` wrote a value only
+/// when the incoming character authored one, so a character that authored nothing INHERITED the
+/// outgoing character's numbers.
 ///
-/// ⚠ **a field no persona has EVER written stays `None` here and is never
+/// **a field no persona has EVER written stays `None` here and is never
 /// retracted**, and that narrowing is load-bearing rather than tidy. The first
 /// version of this fix recorded the body's values wholesale and restored them
 /// whenever the incoming character was silent — which quietly made this path a
@@ -92,7 +79,7 @@ pub enum BaselineBoundary {
 /// back to a captured constant is not. Writing back only what this path itself
 /// displaced is.
 ///
-/// ⚠ **captured once PER FIELD, at the first persona that overrides it.**
+/// **captured once PER FIELD, at the first persona that overrides it.**
 /// Re-capturing on each re-wear would record the outgoing persona's grant as
 /// "what was there", which is the original bug with an extra step.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -108,7 +95,7 @@ pub struct DisplacedPhysicals {
     /// The knockback weight a persona overwrote. `None` = no persona has ever
     /// set one, so nothing here may write it.
     ///
-    /// ⚠ **a plain `Option`, not the nested one `mass` needs**, and the
+    /// **a plain `Option`, not the nested one `mass` needs**, and the
     /// difference is real rather than an inconsistency: weight lives on
     /// `CombatTuning`, which a clustered body always carries and which this path
     /// must never remove — removing it would take the body out of the actor
@@ -214,9 +201,6 @@ impl PhysicalBaseline {
     /// Read one prepared character's physical identity.
     pub fn of(prepared: &PreparedCharacterDefinition) -> Self {
         Self {
-            // Clamped once, here, rather than at each of the four call sites that
-            // used to write `.max(1)` — a body with a zero maximum is dead before
-            // its first frame and no author means that.
             max_health: prepared.vitals.max_health.map(|max| max.max(1)),
             mass: prepared.vitals.mass,
             knockback_weight: prepared.vitals.knockback_weight,
@@ -270,19 +254,15 @@ impl PhysicalBaseline {
     /// caller with nowhere to transit to passes `None` and gets
     /// [`BaselineBoundary::Replacement`]'s narrowing.
     ///
-    /// ⚠ **both, or the size does not survive the first lifecycle transition.**
-    /// This wrote only the live collider (GPT 5.6, 2026-07-29). `BodyBaseSize` is
-    /// the identity-derived canonical shape: a round reset restores the collider
-    /// FROM it, and every body-mode transition (crouch, stand, morph) computes
-    /// its target shape FROM it. So an adopted fighter began round one at its
-    /// authored size and reverted to the exploration player's shape at the first
-    /// reset or crouch — while a spawned opponent, whose bundle establishes both,
-    /// kept its own. The two seats diverged again one lifecycle transition after
-    /// the seam that exists to stop them diverging.
+    /// **both, or the size does not survive the first lifecycle transition.** This wrote only the
+    /// live collider. `BodyBaseSize` is the identity-derived canonical shape: a round reset
+    /// restores the collider FROM it, and every body-mode transition (crouch, stand, morph)
+    /// computes its target shape FROM it. The two seats diverged again one lifecycle transition
+    /// after the seam that exists to stop them diverging.
     ///
     /// Match activation is a CONSTRUCTION boundary, and at a construction
     /// boundary an explicit identity size IS the body's new base.
-    /// ⚠ **`retraction` is what this character's SILENCE puts back**, and passing
+    /// **`retraction` is what this character's SILENCE puts back**, and passing
     /// it is the difference between replacement and accumulation. See
     /// [`PhysicalRetraction`]; [`PhysicalRetraction::NONE`] is the construction
     /// reading.
@@ -313,7 +293,7 @@ impl PhysicalBaseline {
                 }
             }
         }
-        // ⛔ **the weight is WRITTEN IN PLACE, never inserted or removed.**
+        // **the weight is WRITTEN IN PLACE, never inserted or removed.**
         // `CombatTuning` is part of `ActorClusterQueryData`; a body without it
         // leaves the actor cluster query entirely and stops being simulated.
         // Only the field moves.
@@ -353,9 +333,6 @@ impl PhysicalBaseline {
     }
 }
 
-/// The two sizes a body carries, passed together because writing one without
-/// the other is the defect this type exists to prevent.
-///
 /// `live` is the collider the movement seam sweeps this frame. `base` is the
 /// IDENTITY size a reset restores to and a body-mode transition derives from.
 /// They are separate fields on purpose — a crouching body's live size is

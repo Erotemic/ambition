@@ -228,7 +228,7 @@ fn a_witnessed_release_asks_the_witness_who_owns_it() {
     );
 }
 
-/// ⛔ **a witness released before the thing that reads it is a release that
+/// **a witness released before the thing that reads it is a release that
 /// silently stops working**, so declaring them in that order is refused where
 /// the mistake is made rather than discovered later as a leak.
 #[test]

@@ -2,7 +2,7 @@
 //! the open map when its `MapMenuRoot` node is clicked/tapped. No-op stub when
 //! the `input` feature is off.
 
-// ⚠ all three are used only by the `input`-gated system below; same gate, same
+// all three are used only by the `input`-gated system below; same gate, same
 // reason as `input.rs`.
 #[cfg(feature = "input")]
 use bevy::prelude::*;

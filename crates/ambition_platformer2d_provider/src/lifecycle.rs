@@ -135,10 +135,9 @@ impl Plugin for PlatformerProviderRuntimePlugin {
                         .before(
                             ambition_platformer2d_shared_tangle::gameplay_presentation::GameplayPresentationSet,
                         ),
-                    // The camera's ease and shake follow the route too (D14).
-                    // After the profile SELECTION rather than before the layout
-                    // resolve: it reads what that system just published, and the
-                    // camera resolve it feeds runs on its own schedule.
+                    // After the profile SELECTION rather than before the layout resolve: it
+                    // reads what that system just published, and the camera resolve it feeds
+                    // runs on its own schedule.
                     crate::authoring::publish_active_camera_feel
                         .after(crate::authoring::select_active_presentation_profiles),
                 ),
@@ -419,25 +418,13 @@ impl PlatformerPreparation<'_> {
         }
         self.complete(transaction, PREPARE_ADAPTIVE_WORK_ID);
 
-        // **A SELECTION IS NOT A DEFAULT — and this is the SECOND site that had
-        // to learn it.** (2026-08-08)
+        // So `AMBITION_START_CHARACTER=<anything but the default>` failed this work item,
+        // preparation returned before publishing anything, and the session NEVER ACTIVATED — no
+        // world, no body, no error a player sees.
         //
-        // This used to also require the session's effective starting character to
-        // EQUAL the provider's authored default, with `retryable(false)`. So
-        // `AMBITION_START_CHARACTER=<anything but the default>` failed this work
-        // item, preparation returned before publishing anything, and the session
-        // NEVER ACTIVATED — no world, no body, no error a player sees. Jon
-        // reported it as "sanic grants the wrong verbs and can't move"; sanic was
-        // only the id he happened to type, and the observable was a game that
-        // does not start.
-        //
-        // ⚠ **the identical check was already deleted from
-        // [`prepare_platformer_content`] on 2026-07-29**, under a comment that
-        // says exactly this, because `capture_scene --character <id>` had never
-        // worked for any id. Two sites asked one question; one was corrected and
-        // the other kept the conflation for ten days — and the corrected one runs
-        // at PREPARE_SESSION, downstream of this early `return`, so it could
-        // never be reached by the case it was written for.
+        // Two sites asked one question; one was corrected and the other kept the conflation for ten
+        // days — and the corrected one runs at PREPARE_SESSION, downstream of this early `return`,
+        // so it could never be reached by the case it was written for.
         //
         // The two facts, and who owns each now:
         // * the provider's DEFAULT must exist — `AuthoredCatalogFragments::validate`,
@@ -810,15 +797,7 @@ pub fn prepare_platformer_content(
             "active room and provider identities must not be empty",
         ));
     }
-    // **A SELECTION IS NOT A DEFAULT.** (2026-07-29)
-    //
-    // This used to require the effective starting character to EQUAL the
-    // provider's authored default, which made choosing any other character a
-    // fatal content error. `--character` has a usage example on
-    // `capture_scene` — `--character npc_pirate_admiral` — and it had never
-    // worked for any id: every one of them panicked here, including that one.
-    // Found by trying to photograph the player wearing an older incarnation of
-    // itself.
+    // Found by trying to photograph the player wearing an older incarnation of itself.
     //
     // Two different facts were wearing one check. The provider's DEFAULT is an
     // authoring fact and is still validated: it must be non-empty and must name
@@ -827,18 +806,10 @@ pub fn prepare_platformer_content(
     // runtime choice, and the whole point of a playable cast is that it may be
     // any member of it.
     //
-    // What is checked now is the property that actually matters — the effective
-    // character RESOLVES. A selection that names nothing is still fatal here,
-    // which is the failure this check was reaching for. **This function is the
-    // SOLE owner of that question**; the barrier deliberately no longer re-asks it.
+    // What is checked now is the property that actually matters — the effective character RESOLVES.
     //
-    // ⛔ **and fixing it here fixed nothing for ten days.** The same equality
-    // check also stood in `PlatformerPreparation::prepare` at
-    // `PREPARE_DEFAULTS_WORK_ID`, which runs FIRST and returns before this
-    // function is ever called — so `--character` and `AMBITION_START_CHARACTER`
-    // stayed dead in every composed App while this comment claimed otherwise
-    // (repaired 2026-08-08). One question at two sites is the shape; if a third
-    // site ever needs it, route it through here instead of copying the test.
+    // One question at two sites is the shape; if a third site ever needs it, route it through
+    // here instead of copying the test.
     let effective_character = source
         .starting_character()
         .effective_id(authored.starting_character.as_str());
@@ -1173,11 +1144,7 @@ pub struct PlatformerSessionBuilder<'w, 's> {
 pub struct SessionBuildResult {
     /// The session's home body, when the experience declared one.
     ///
-    /// ⚠ **`Option` since 2026-08-06.** "Every session has exactly one primary
-    /// player" was an engine-wide assumption with no counterexample until a MATCH
-    /// experience needed to be one: it realizes its own cast from a roster, and a
-    /// privileged avatar beside that cast is an actor nobody owns. See
-    /// `InitialBodyPolicy`.
+    /// See `InitialBodyPolicy`.
     pub player: Option<Entity>,
     pub world: Entity,
 }
@@ -1529,12 +1496,9 @@ mod tests {
 
     /// **Choosing a character other than the default is not a content error.**
     ///
-    /// Preparation used to require the effective starting character to EQUAL the
-    /// provider's authored default, so every alternative selection panicked the
-    /// direct-entry boot. `capture_scene --character <id>` has a usage example
-    /// in its own header — `--character npc_pirate_admiral` — and it had never
-    /// worked for any id, that one included (found 2026-07-29 by trying to
-    /// photograph the player wearing an older incarnation of itself).
+    /// `capture_scene --character <id>` has a usage example in its own header — `--character
+    /// npc_pirate_admiral` — and it had never worked for any id, that one included (found by
+    /// trying to photograph the player wearing an older incarnation of itself).
     ///
     /// What preparation legitimately owns is that the selection RESOLVES, which
     /// the second half of this asserts.

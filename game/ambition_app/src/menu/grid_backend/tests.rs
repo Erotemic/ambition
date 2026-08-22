@@ -81,13 +81,13 @@ fn grid_app() -> App {
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<bevy::app::AppExit>();
     app.add_observer(grid_menu_pointer_hover);
-    // ⚠ nav PUBLISHES activations now, so a harness that registers nav without
+    // nav PUBLISHES activations now, so a harness that registers nav without
     // the consumer would silently swallow every keyboard select — the exact
     // failure the one-event convergence exists to make impossible. Chained, so
     // an activation published this frame is dispatched this frame.
     app.add_message::<ambition_platformer2d::menu::MenuActionActivated<MenuPageAction>>();
     app.add_systems(Update, (grid_menu_open_routing, grid_menu_nav).chain());
-    // ⛔ registered ONCE, here, and pinned by ORDER rather than by chaining —
+    // registered ONCE, here, and pinned by ORDER rather than by chaining —
     // `render_app` builds on this harness, and re-registering the consumer there
     // gave the message two independent readers. Both dispatched, so a pointer
     // click equipped and then unequipped the same item and the test read `None`.
@@ -167,11 +167,7 @@ fn bumper_reaches_system_tab() {
     assert_eq!(active_tab(&app), MenuPage::System);
 }
 
-/// Regression: on the System tab, hammering LEFT/RIGHT must NEVER turn the cube's
-/// page or land the shared cursor on a page-turn edge. The Grid switches pages via
-/// the tab bar only; previously LEFT/RIGHT on a non-value System row walked onto
-/// `EdgeLeft`/`EdgeRight` and the next press fired the cube's `turn_page`
-/// (rotate-SFX + a one-frame face flip leaking into Grid mode). `allow_page_turn=false`.
+/// `allow_page_turn=false`.
 #[test]
 fn system_tab_left_right_never_turns_the_page() {
     let mut app = grid_app();
@@ -250,13 +246,9 @@ fn selecting_an_item_dispatches_equip() {
 
 /// **A controller submit and a tap are ONE event, not two code paths.**
 ///
-/// `selecting_an_item_dispatches_equip` above proves the keyboard route still
-/// reaches the dispatcher — it passed before this convergence and after it,
-/// because both spellings ended at `dispatch_menu_action`. What it cannot see is
-/// WHICH spelling ran. This asserts the event itself: a keyboard select
-/// publishes the same `MenuActionActivated` the renderer's pointer bridge
-/// publishes, so the re-pin, the republish invalidation and the close handling
-/// exist once instead of twice.
+/// What it cannot see is WHICH spelling ran. This asserts the event itself: a keyboard select
+/// publishes the same `MenuActionActivated` the renderer's pointer bridge publishes, so the
+/// re-pin, the republish invalidation and the close handling exist once instead of twice.
 #[test]
 fn a_keyboard_select_publishes_the_same_activation_a_tap_does() {
     use ambition_platformer2d::menu::MenuActionActivated;
@@ -415,11 +407,8 @@ fn back_closes_and_respects_opened_from_pause() {
     );
 }
 
-/// CROSS-BACKEND CONTENT PARITY: the active tab's `MenuPageModel` is built from
-/// the SAME backend-agnostic builders regardless of which backend renders it.
-/// We build the page set the way both backends do (`build_inventory_pages`) for a
-/// fixed state and confirm the Inventory + System tab models are byte-identical —
-/// the grid and cube draw the same content because there is one model.
+/// CROSS-BACKEND CONTENT PARITY: the active tab's `MenuPageModel` is built from the SAME
+/// backend-agnostic builders regardless of which backend renders it.
 #[test]
 fn cross_backend_model_parity_inventory_and_system() {
     let owned = OwnedItems::starter();
@@ -598,7 +587,6 @@ fn up_from_non_top_row_stays_in_body() {
     );
 }
 
-// ----- Pointer bug-fix coverage -----------------------------------------
 
 use crate::menu::test_support::{spawn_control, trigger_over};
 use ambition_platformer2d::menu::render::bevy_ui::BevyUiMenuTab;
@@ -606,7 +594,7 @@ use ambition_platformer2d::menu::AmbitionMenuControl;
 
 /// A complete TAP: down, then up still over the control.
 ///
-/// ⚠ two steps because the bevy_ui bridges activate on the way UP. Bevy reports
+/// two steps because the bevy_ui bridges activate on the way UP. Bevy reports
 /// a pointer that comes up still over a control as a return to
 /// `Interaction::Hovered`, which is what makes a release distinguishable from
 /// the pointer wandering off (`Interaction::None`).
@@ -628,7 +616,7 @@ fn render_app() -> App {
     let mut app = grid_app();
     install_bevy_ui_menu_actions::<MenuPageAction>(&mut app);
     install_bevy_ui_menu_tabs(&mut app);
-    // ⚠ ONE registration each. The action consumer is already registered by
+    // ONE registration each. The action consumer is already registered by
     // `grid_app`, so it gets the pointer path's ordering PINS here rather than a
     // second copy of the system — the bridge publishes in
     // `BevyUiMenuInteractionSet`, so it has to run first or a click is dispatched
@@ -836,8 +824,7 @@ fn interaction_press_switches_tab_and_dispatches_item() {
     );
 }
 
-/// BUG 5: an Esc open→close is exactly ONE toggle — no immediate reopen. Drive
-/// the routing with two SEPARATE Esc rising edges and assert open then closed.
+/// Drive the routing with two SEPARATE Esc rising edges and assert open then closed.
 #[test]
 fn esc_open_then_close_is_one_toggle() {
     let mut app = grid_app();
@@ -902,11 +889,8 @@ fn hover_control(app: &mut App, action: MenuPageAction) {
     trigger_over(app, entity);
 }
 
-/// Bug 1 (snap-back): `grid_menu_pointer_hover` must IGNORE a `Pointer<Over>`
-/// (the event a republish fires under a stationary mouse) while the active
-/// input source is NOT the mouse, and HONOR it once a genuine mouse move has
-/// mark `Mouse`. Without the gate, every arrow-key move
-/// rebuilt the menu → fired `Over` → snapped the cursor back to the mouse.
+/// Without the gate, every arrow-key move rebuilt the menu → fired `Over` → snapped the cursor
+/// back to the mouse.
 #[test]
 fn hover_is_gated_on_active_input_being_mouse() {
     use ambition_platformer2d::input::{ActiveDevice, SeatActiveDevices};

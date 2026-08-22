@@ -105,10 +105,7 @@ fn a_move_override_is_sampled_on_the_move_clock() {
 /// headless rollout and a windowed playtest compute the same volumes by
 /// construction rather than by care.
 ///
-/// This is the disease that produced the rollback divergence recorded in
-/// `docs/archive/planning-superseded/2026-08-13/triage/rollback-equipment-oracle-divergence.md`: simulation
-/// geometry derived from a presentation-adjacent path. Hurtboxes do not get to
-/// repeat it.
+/// Hurtboxes do not get to repeat it.
 #[test]
 fn hurtboxes_exist_headless_without_a_decoded_sheet() {
     let doc = full_doc();
@@ -204,7 +201,7 @@ fn unauthored_is_not_the_same_as_authored_empty() {
     assert!(authored_empty.volumes.is_empty());
 }
 
-/// ⭐⭐ **every documented pose must be REACHABLE, and every reachable pose
+/// **every documented pose must be REACHABLE, and every reachable pose
 /// documented.** The trap this pins is not a crash: a pose id that appears in
 /// the vocabulary but that no simulation fact can produce lets content author a
 /// profile for it, pass validation, and be silently ignored forever. Four ids
@@ -232,9 +229,8 @@ fn the_pose_vocabulary_is_exactly_what_the_engine_can_write() {
     );
 }
 
-/// The pose a crouched body is in — Jon's named gap, and the reason the
-/// vocabulary check above exists. ⛔ POISON: a body doing nothing must NOT read
-/// as crouching, or every idle silhouette in the game changes.
+/// POISON: a body doing nothing must NOT read as crouching, or every idle silhouette in the game
+/// changes.
 #[test]
 fn a_crouched_body_selects_its_crouch_profile() {
     assert_eq!(body_pose(false, true, false), POSE_CROUCH);

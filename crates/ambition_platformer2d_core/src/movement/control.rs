@@ -28,7 +28,7 @@ pub fn handle_blink_clusters(
 ) {
     // "Forward along facing" is a LOCAL-side direction; every world-space
     // default derived from it must go through the body frame (fable review
-    // 2026-07-02 §B9 — the world-X fallback broke sideways gravity).
+    // §B9 — the world-X fallback broke sideways gravity).
     let facing_aim_offset = frame.side() * (tuning.abilities.blink_distance * kinematics.facing);
 
     if !abilities.abilities.blink {
@@ -119,14 +119,10 @@ pub fn handle_blink_clusters(
 
 /// Cluster-ref attack handler used by `update_player_control_with_clusters`.
 ///
-/// Pogo (the dedicated button AND the air down-attack) is owned by the moveset
-/// down-air: the resolved-hit pogo technique for body victims and
-/// `pogo_moveset_off_world_orbs` for genuine world `PogoOrb` blocks,
-/// both bouncing gravity-relatively off the move's real hitbox. The engine here
-/// only applies the slash recoil + records the combo op for a plain melee press. The old
-/// probe-based `try_pogo_clusters` was a redundant second pogo mechanism (same
-/// `world.blocks` check, same `set_jump_velocity`, same `PogoBounce` event) and
-/// was removed (2026-06-16).
+/// Pogo (the dedicated button AND the air down-attack) is owned by the moveset down-air: the
+/// resolved-hit pogo technique for body victims and `pogo_moveset_off_world_orbs` for genuine
+/// world `PogoOrb` blocks, both bouncing gravity-relatively off the move's real hitbox. The
+/// engine here only applies the slash recoil + records the combo op for a plain melee press.
 pub fn handle_attacks_clusters(
     kinematics: &mut crate::body_clusters::BodyKinematics,
     abilities: &crate::body_clusters::BodyAbilities,
@@ -140,9 +136,6 @@ pub fn handle_attacks_clusters(
         return;
     }
     if input.attack_pressed {
-        // Recoil opposes facing along the body's LOCAL side axis (fable review
-        // 2026-07-02 §B4 — the raw `vel.x` form shoved sideways-gravity bodies
-        // along their gravity axis).
         kinematics.vel -= frame.side() * (kinematics.facing * tuning.abilities.slash_recoil);
         events.op_clusters(combo_trace, MovementOp::Slash);
     }

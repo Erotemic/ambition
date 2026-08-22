@@ -271,10 +271,8 @@ fn from_entry_quad(
     }
 }
 
-/// Build the static [`ViewCone`] for a linked pair: a fixed symmetric trapezoid
-/// receding `depth` into the entry's host surface, widening by `spread` per px
-/// of depth. Viewer-independent — the "always show this much" baseline (also
-/// the minimum-cone floor; see [`blend_cones`]).
+/// Viewer-independent — the "always show this much" baseline (also the minimum-cone floor; see
+/// [`blend_cones`]).
 pub fn view_cone(
     enter: &PortalAperture,
     exit: &PortalAperture,
@@ -347,19 +345,12 @@ fn resolve_end_front(end: &PortalAperture, eye: Vec2) -> Option<Vec2> {
 /// in front of this end; the eye's image is the front-preserving
 /// [`view_point`], never the front-flipping body map).
 ///
-/// When only one end resolves, it wins outright. When the eye is in front of
-/// BOTH ends — e.g. two floor portals share one plane, so a viewer above the
-/// partner is "in front of" this end too, but 250px to the side — the ends'
-/// resolutions are combined **nearest-weighted**: outside the
-/// [`EYE_HANDOFF_BAND`] around the equidistance midpoint that is exactly the
-/// nearer end (the honest window comes from the partner-side image right above
-/// the aperture, not from the grazing direct ray), and inside the band the two
-/// resolved eyes crossfade. A hard nearest-pick jumped discontinuously the
-/// frame the nearer end flipped (thin-wall crossing, walking between a
-/// same-plane pair) and the whole wedge popped with it; the face-continuity of
-/// the doorway lift means the two resolutions nearly coincide at a thin wall's
-/// midpoint, so the crossfade removes the pop (review Q10.2). The reported
-/// wormhole flag stays the discrete nearest end.
+/// When only one end resolves, it wins outright. When the eye is in front of BOTH ends — e.g.
+/// two floor portals share one plane, so a viewer above the partner is "in front of" this end
+/// too, but 250px to the side — the ends' resolutions are combined **nearest-weighted**:
+/// outside the [`EYE_HANDOFF_BAND`] around the equidistance midpoint that is exactly the nearer
+/// end (the honest window comes from the partner-side image right above the aperture, not from
+/// the grazing direct ray), and inside the band the two resolved eyes crossfade.
 ///
 /// **In-doorway grace:** while transiting, the eye dips just BEHIND the plane
 /// of the end it is passing through; visually the character is *in* the
@@ -396,17 +387,13 @@ pub fn window_eye(
 /// crosses it, so the region is the wedge bounded by the rays from `eye`
 /// through the aperture endpoints, clipped to `max_depth` deep.
 ///
-/// In the (normal, tangent) frame each far corner sits at depth exactly
-/// `max_depth` with lateral offset `lat_A + (lat_A − lat_eye)·(max_depth/front)`.
-/// As `front → 0` that diverges. If the eye is laterally inside the aperture
-/// span, the limit shape is the full half-plane strip of depth `max_depth`.
-/// If the eye is off to the side, the limit is a one-sided grazing cone, not a
-/// full strip. So the near-plane branch only switches to the half-plane for
-/// eyes inside the finite aperture; other eyes use the projective formula with
-/// a minimum denominator and clamp the lateral offset to ±`max_lateral`. The
-/// wedge therefore grows smoothly into the bounded half-plane only as the
-/// viewer reaches the portal opening — no blow-up, no NaN, and a capture rect a
-/// fixed-size texture can actually frame.
+/// In the (normal, tangent) frame each far corner sits at depth exactly `max_depth` with
+/// lateral offset `lat_A + (lat_A − lat_eye)·(max_depth/front)`. As `front → 0` that diverges.
+/// If the eye is laterally inside the aperture span, the limit shape is the full half-plane
+/// strip of depth `max_depth`. If the eye is off to the side, the limit is a one-sided grazing
+/// cone, not a full strip. So the near-plane branch only switches to the half-plane for eyes
+/// inside the finite aperture; other eyes use the projective formula with a minimum denominator
+/// and clamp the lateral offset to ±`max_lateral`.
 ///
 /// `None` if `eye` is behind the plane. Pure geometry — line-of-sight
 /// occlusion is the caller's check.

@@ -1,23 +1,15 @@
 //! **Mary-O at home has RUN and JUMP, and nothing else.**
 //!
-//! Jon, playing, 2026-08-16: *"So maryo seems to have gotten a bunch of moves
 //! from smash in her game, and its messing things up there. She should only have
 //! the run and jump in her game. And the run should double as the fireball
 //! button when she has the lantern."*
 //!
-//! She authors a full sixteen-move smash repertoire — a crossover ruleset needs
-//! something to consume, and `docs/planning/queue.md` D146 records Jon's ruling
-//! that a character authors its fighter self. What kept that off her own
-//! speedway was supposed to be her `abilities: Some([RunJump])` row, and it did
-//! not: `combat_actions` derived the Attack / Special slots from the MOVESET
-//! alone, so every press answered. Measured on this exact harness before the
-//! fix: **twenty-three distinct swings** across her four combat buttons.
+//! What kept that off her own speedway was supposed to be her `abilities: Some([RunJump])` row, and
+//! it did not: `combat_actions` derived the Attack / Special slots from the MOVESET alone, so every
+//! press answered.
 //!
-//! ⭐ so this asserts on the TRIGGERABLE SET — what a move playback actually
-//! starts when the device layer presses every combat button in every aim — and
-//! not on any field. And on both halves of Jon's sentence: the swings are gone
-//! AND the run and the jump still work, because a gate that took everything away
-//! would satisfy the first half on its own.
+//! so this asserts on the TRIGGERABLE SET — what a move playback actually starts when the device
+//! layer presses every combat button in every aim — and not on any field.
 
 use bevy::prelude::*;
 
@@ -30,13 +22,10 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::input::ControlFrame;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 
-/// ⛔ `app.update()` is a FRAME, not a tick — every loop here runs to a
+/// `app.update()` is a FRAME, not a tick — every loop here runs to a
 /// condition under a ceiling rather than for a fixed count.
 const LIVENESS_CAP: usize = 600;
 
-/// The scripted stick, written where the participant pipeline has finished
-/// writing `ControlFrame` and before the fixed-tick latch reads it. See `boot`
-/// for why `PreUpdate` — what this used to say — could not work.
 
 /// Her real host, entering the fixture course (flat ground, no timing to go
 /// stale) rather than 1-1.
@@ -45,11 +34,8 @@ fn boot() -> App {
     app.insert_resource(ambition_demo_mary_o::provider::MaryOEntryRoom(
         TEST_COURSE_ROOM_ID.to_string(),
     ));
-    // ⭐ **the ordering lives in ONE place now** — after the participant
-    // pipeline's routing stage and before the frame→tick latch. Eight
-    // fixtures each carried their own copy of that knowledge, and five of
-    // them were still guessing `PreUpdate` on 2026-08-19, where the
-    // pipeline overwrote every scripted write before the sim saw it.
+    // **the ordering lives in ONE place now** — after the participant pipeline's routing stage and
+    // before the frame→tick latch.
     ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
     for _ in 0..LIVENESS_CAP {
         app.update();
@@ -238,7 +224,6 @@ fn mary_o_at_home_can_only_run_and_jump() {
 
 /// **The run button doubles as the fireball button, and ONLY with the lantern.**
 ///
-/// Jon: *"the run should double as the fireball button when she has the
 /// lantern."* The classic grammar — one button, two roles, the sustain still
 /// meaning run. What arms it is the WORN cinder beacon, not an ability: the
 /// beacon grants a `ranged` verb, so her fists stay empty while her hands are

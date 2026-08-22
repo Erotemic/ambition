@@ -1,8 +1,6 @@
 //! Backend-neutral stable simulation identity maintenance.
 //!
-//! These systems run in every simulation host. They used to live under the
-//! rollback backend because rollback first required stable identity; identity is
-//! now a simulation invariant in its own right.
+//! These systems run in every simulation host.
 
 /// Give every body the sim can identify a [`SimId`], once.
 ///
@@ -36,11 +34,8 @@ pub fn ensure_sim_id(
             // Not identifiable from an authored fact. Its spawn site must mint it.
             (None, None) => continue,
         };
-        // The `SimIdCounter` rides along: every identified body is a potential
-        // spawner (a boss summons, a player fires), so `SimId` REQUIRES it. This
-        // used to insert the pair by hand, which is why the construction executor
-        // — the other place an authored body gets its id — could ship a boss that
-        // could not summon.
+        // The `SimIdCounter` rides along: every identified body is a potential spawner (a boss
+        // summons, a player fires), so `SimId` REQUIRES it.
         commands.entity(entity).insert(id);
     }
 }
@@ -143,12 +138,7 @@ pub fn mint_spawned_sim_ids(
 /// Scheduled with the identity pair (head and tail of the sim tick), so an
 /// owner is healed before anything reads it.
 ///
-/// **This used to read the parent out of the id string** (`rsplit_once('/')` on
-/// `placement:duel_pca/0`). That worked only for as long as every dynamic
-/// entity's id was spelled by `SimId::spawned` — it silently produced no parent
-/// for any dynamic body whose id came from somewhere else, and it welded
-/// reconstruction to an id grammar that is supposed to be a human-readable
-/// convenience. Provenance is data now; the spelling is free to change.
+/// Provenance is data now; the spelling is free to change.
 pub fn heal_projectile_owners(
     mut commands: bevy::ecs::system::Commands,
     projectiles: bevy::ecs::system::Query<

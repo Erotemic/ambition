@@ -2,15 +2,15 @@
 # Regenerate all generated runtime assets for the sandbox crate.
 #
 # Usage:
-#   ./regen_assets.sh                    # backgrounds, sprites, quality variants, music, sfx
-#   ./regen_assets.sh sprites music      # selected categories, in the given order
+# ./regen_assets.sh                    # backgrounds, sprites, quality variants, music, sfx
+# ./regen_assets.sh sprites music      # selected categories, in the given order
 #
 # Category-specific options live on the category scripts:
-#   ./regen_backgrounds.sh --help
-#   ./regen_sprites.sh --help
-#   ./regen_visual_quality_variants.sh --help
-#   ./regen_music.sh --help
-#   ./regen_sfx.sh --help
+# ./regen_backgrounds.sh --help
+# ./regen_sprites.sh --help
+# ./regen_visual_quality_variants.sh --help
+# ./regen_music.sh --help
+# ./regen_sfx.sh --help
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

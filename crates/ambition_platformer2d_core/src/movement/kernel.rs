@@ -31,7 +31,7 @@ pub struct MotionStepContext<'a> {
     pub dt: f32,
     /// **THE OTHER BODIES THIS STEP MAY NOT MOVE FREELY THROUGH.**
     ///
-    /// ⚠ **`BodyContactField::NONE` is the default and the identity** — every
+    /// **`BodyContactField::NONE` is the default and the identity** — every
     /// composition that has not granted the capability resolves exactly as it
     /// did. See [`super::body_contact`] for why an acceleration term cannot do
     /// this job and why the field is a snapshot rather than a query.
@@ -110,7 +110,7 @@ pub fn step_motion(
     clusters: &mut BodyClustersMut<'_>,
     ctx: MotionStepContext<'_>,
 ) -> MotionStepResult {
-    // ⭐ **THE launch drain, and it is here because here is the only gateway.**
+    // **THE launch drain, and it is here because here is the only gateway.**
     //
     // An external reaction (knockback, a fling) writes a world-space launch into
     // `BodyFlightState::pending_launch` and cannot apply it itself: it holds a
@@ -120,14 +120,11 @@ pub fn step_motion(
     // from `v_t` and republished every step — which is why Sanic took knockback
     // with every number non-zero and never moved.
     //
-    // ⚠ draining BEFORE the step, so the launch is honoured by this tick rather
+    // draining BEFORE the step, so the launch is honoured by this tick rather
     // than by the next one. That matches the jump path inside the surface kernel,
     // which sets the velocity, goes airborne, and then takes its substep.
     //
-    // ⛔ and it is drained in ONE place on purpose. The alternative — every
-    // reaction calling the model after writing the velocity — is the
-    // authority-that-needs-a-follow-up-call shape this repo keeps paying for, and
-    // the failure mode is a launch that silently does nothing.
+    // and it is drained in ONE place on purpose.
     let launch = std::mem::replace(&mut clusters.flight.pending_launch, crate::Vec2::ZERO);
     accept_external_launch(model, clusters, &ctx, launch);
     match model {
@@ -243,14 +240,12 @@ fn accept_external_launch(
         return;
     }
     match model {
-        // `vel` IS the authority for an axis-swept body, so the reaction's own
-        // write already landed. Assigning again is deliberate rather than
-        // redundant: it makes the launch channel the single story for every
-        // model, so a reader does not have to know which arm secretly relies on
-        // a second write somewhere else.
+        // Assigning again is deliberate rather than redundant: it makes the launch channel the
+        // single story for every model, so a reader does not have to know which arm secretly relies
+        // on a second write somewhere else.
         MotionModel::AxisSwept(axis) => {
             clusters.kinematics.vel = launch;
-            // ⭐ **and the floor game starts HERE, for the same reason the drain
+            // **and the floor game starts HERE, for the same reason the drain
             // is here.** "Was this launch big enough to send the body tumbling"
             // is a question only the model can answer — the threshold is authored
             // per body, and maneuver state is model-private (ADR 0024) — and the
@@ -258,25 +253,12 @@ fn accept_external_launch(
             // the one gateway every launch already passes through is what keeps
             // it from being a follow-up call some caller forgets.
             if super::knockdown::launch_into_tumble(&mut axis.state, axis.params, launch.length()) {
-                // ⛔⛔ **A THROWN BODY IS NOT RESTING ON ANYTHING, AND SAYING SO
-                // HERE IS THE OTHER HALF OF D155.** This arm answered only half
-                // of the question this function's own doc poses — *"only the
-                // model knows whether a launch means LEAVE THE SURFACE or
-                // override the run"* — and the surface-momentum arm below
-                // answers both. Without it a launched body carried its stale
-                // resting contact into the same step's `tick_knockdown`, which
-                // read `on_ground == true`, called that a landing *while still
-                // tumbling*, and resolved the whole thing to a KNOCKDOWN —
+                // Without it a launched body carried its stale resting contact into the same
+                // step's `tick_knockdown`, which read `on_ground == true`, called that a
+                // landing *while still tumbling*, and resolved the whole thing to a KNOCKDOWN —
                 // `kinematics.vel = ZERO` on the tick the launch was applied.
                 //
-                // ⭐ measured (D155): a standing fighter at 1427% took a
-                // `3269 px/s` launch, moved ZERO pixels, and lay prone for
-                // `KNOCKDOWN_TIME`. Jon, playing: *"alice is at 1427% and Booul
-                // is hitting her, but she's not going anywhere."* A hit below
-                // the tumble threshold was launched correctly the whole time,
-                // which is exactly why this only ever showed up at high percent.
-                //
-                // ⚠ gated on the tumble answer rather than on the launch's
+                // gated on the tumble answer rather than on the launch's
                 // direction on purpose: a shove that does not throw you leaves
                 // you planted, and a body whose authored `tumble_speed` is `0.0`
                 // — every body in Ambition today — is byte-identical to before.
@@ -298,11 +280,6 @@ fn accept_external_launch(
             momentum.state = body.motion;
             momentum.occlusions = body.occlusions;
         }
-        // ⚠ the crawler keeps its ATTACHMENT. An adhesive body is glued to its
-        // surface by the thing that makes it a crawler, and whether a hit should
-        // peel one off is a design question Jon has open (the puppy-slug contact
-        // row) — not something to answer as a side effect of routing knockback.
-        // Its velocity still takes the launch, so the impulse is not lost.
         MotionModel::AdhesiveCrawler(_) => {
             clusters.kinematics.vel = launch;
         }
@@ -373,12 +350,7 @@ fn step_adhesive_crawler(
 ) -> MotionStepResult {
     let sweep_entry = (clusters.kinematics.pos, clusters.kinematics.vel);
     let mut events = FrameEvents::default();
-    // ⛔ **this policy published NOTHING to the operations channel before
-    // 2026-08-02.** Nine velocity writes and a whole attachment lifecycle, and
-    // the causal instrument that answered the ladder question could not see any
-    // of it — while the open contact bug in this very mode is about attachment.
-    //
-    // ⭐ the edge is derived HERE, from the attachment either side of the step,
+    // the edge is derived HERE, from the attachment either side of the step,
     // rather than pushed at the eight places inside `step_crawler` that detach or
     // re-attach. Those eight are the "second step every call site has to
     // remember" shape this engine keeps paying for, and `step_crawler` has
@@ -423,15 +395,7 @@ fn write_sweep_sample(clusters: &mut BodyClustersMut<'_>, entry: (Vec2, Vec2)) {
     }
 }
 
-/// The ONE hazard/out-of-bounds gate every policy publishes through: hazard
-/// touch plus the frame-relative "fell out of the world" test (distance past
-/// the world AABB measured ALONG the fall direction, compared against the
-/// stage's authored `blast_margin`). Policies flag; the body's owner applies
-/// its reset policy.
-///
-/// "ONE" is now true. The axis-swept policy used to carry its own copy of this
-/// gate, literal `200.0` and all, so the two policies could silently disagree
-/// about where a world ends — and a stage could not move that edge for either.
+/// "ONE" is now true.
 pub(crate) fn apply_world_hazard_gate(
     world: &World,
     clusters: &mut BodyClustersMut<'_>,

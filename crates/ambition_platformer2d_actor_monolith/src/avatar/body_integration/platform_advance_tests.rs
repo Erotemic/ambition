@@ -28,11 +28,7 @@ fn platform_x(app: &App) -> f32 {
 
 /// **A session with no `PrimaryPlayer` still advances its platforms.**
 ///
-/// ⛔ this is the whole defect: the system asked a `PrimaryPlayerOnly` query for
-/// the home avatar's hitstop and returned when there was none, so every match —
-/// where `InitialBodyPolicy::NoInitialBody` means zero primary players is the
-/// ordinary steady state — ran with its moving geometry frozen solid. No body is
-/// spawned here at all, which is the condition under test.
+/// No body is spawned here at all, which is the condition under test.
 #[test]
 fn platforms_advance_in_a_world_with_no_player_body() {
     let mut app = app_with_one_platform(1.0 / 60.0);

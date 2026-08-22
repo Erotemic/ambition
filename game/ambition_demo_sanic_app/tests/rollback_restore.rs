@@ -1,13 +1,4 @@
 //! **Behavioral restore proof for Sanic's demo sim state (Phase 5b).**
-//!
-//! The pin test proves the NAMES reach the registry; this proves the
-//! machinery: the demo boots under the ROLLBACK engine host, a real GGRS
-//! sync-test session drives it, and a dirty out-of-band mutation of
-//! [`SanicActState`] is OVERWRITTEN by the next rollback's restore. The
-//! Mary-O twin of this test caught exactly the failure it guards against:
-//! state registered for restore but carried by an entity no rollback anchor
-//! reached, so the registration was theater until `entity:sanic_mode_owner`
-//! anchored the owner.
 
 use ambition_demo_sanic::{SanicActState, SanicExperiencePlugin, SANIC_GAMEPLAY_ROUTE};
 use ambition_platformer2d::game_shell::{
@@ -85,8 +76,6 @@ fn a_dirty_act_state_mutation_is_rolled_back_by_restore() {
         ambition_platformer2d::rollback::SyncTestSettings {
             check_distance: 4,
             max_prediction_window: 10,
-            // Sanic's demo is single-player, and now says so rather than
-            // inheriting a guess (2026-07-29).
             ..ambition_platformer2d::rollback::SyncTestSettings::for_players(1)
         },
     )

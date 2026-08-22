@@ -35,7 +35,7 @@ bevy = { version = "0.18.1", default-features = false }
 name = "twintrack_it"
 path = "tests/twintrack_it.rs"
 
-# ⚠ `required-features`, or `cargo check --all-targets` builds this against a
+# `required-features`, or `cargo check --all-targets` builds this against a
 # crate whose windowed builder is behind `visible`.
 [[bin]]
 name = "capture_twintrack"

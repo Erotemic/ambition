@@ -1,7 +1,5 @@
 //! **What ends a conversation that the world keeps running through.**
 //!
-//! Jon, 2026-08-06 (design: `docs/planning/engine/dialogue-continuity.md`):
-//!
 //! > "if you get hit in dialog, dialog needs to be interrupted I think. Or say
 //! > you are falling and you talk to a the flying parrot, if you fall away from
 //! > them dialog should also break … A broken dialog can have some bark to
@@ -26,7 +24,7 @@
 pub enum DialogueBreak {
     /// A participant was knocked about.
     ///
-    /// ⚠ **knockback, not damage.** The reason a hit ends a conversation is
+    /// **knockback, not damage.** The reason a hit ends a conversation is
     /// that it MOVES you — so a poison tick, a chip of environmental damage, or
     /// anything else that leaves both bodies standing where they were does not.
     /// The signal is the recoil/hitstun lock, which is exactly "something took
@@ -34,7 +32,7 @@ pub enum DialogueBreak {
     Struck,
     /// The participants stopped being close enough to talk.
     ///
-    /// The falling-past-a-parrot case. ⭐ note what does NOT need to be checked
+    /// The falling-past-a-parrot case. note what does NOT need to be checked
     /// here: whether either body can hold station. A participant that CAN hold
     /// station does not drift out of range, so the hold keeps this arm from
     /// firing without this arm knowing the hold exists. The two rules compose
@@ -45,7 +43,7 @@ pub enum DialogueBreak {
 impl DialogueBreak {
     /// Whether this break deserves a bark of its own.
     ///
-    /// ⛔ **`Struck` does NOT**, and that is the finding rather than an
+    /// **`Struck` does NOT**, and that is the finding rather than an
     /// omission: a body knocked about already barks through
     /// `npc_hit_bark_line`, which fires on every strike and falls back to a
     /// generic line when a character authored none. A second bubble for one
@@ -58,11 +56,6 @@ impl DialogueBreak {
     }
 
     /// Which break, if any, ends a conversation in this state.
-    ///
-    /// `any_struck` is true when EITHER participant was knocked about — the
-    /// symmetry Jon's design insists on. A conversation is between two bodies,
-    /// so "was the player hit" is the wrong question; an NPC knocked off a ledge
-    /// mid-sentence has ended the conversation just as surely.
     ///
     /// `in_reach` is the same proximity that STARTED the conversation, not a
     /// second authored range. You stay in talking range or you stop talking, and
@@ -92,7 +85,7 @@ mod tests {
 
     #[test]
     fn either_participant_being_struck_ends_it() {
-        // ⭐ symmetric by construction: the caller folds both bodies into one
+        // symmetric by construction: the caller folds both bodies into one
         // flag, so there is no place for "was the PLAYER hit" to creep in.
         assert_eq!(
             DialogueBreak::evaluate(true, true),
@@ -102,7 +95,6 @@ mod tests {
 
     #[test]
     fn falling_out_of_range_ends_it() {
-        // Jon's parrot: you are falling, you talk to it, you fall away.
         assert_eq!(
             DialogueBreak::evaluate(false, false),
             Some(DialogueBreak::Separated)

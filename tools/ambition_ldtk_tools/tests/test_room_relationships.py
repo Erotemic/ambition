@@ -29,7 +29,7 @@ def _project(target_iid: str) -> dict:
                     "identifier": "Gizmo",
                     "fieldDefs": [
                         {"identifier": "label", "__type": "String"},
-                        # ⚠ NOT `mounted_on`, and not in any table the module
+                        # NOT `mounted_on`, and not in any table the module
                         # ships: discovery has to come from the schema.
                         {"identifier": "tethered_to", "__type": "EntityRef"},
                     ],
@@ -98,14 +98,12 @@ def test_a_dangling_native_reference_names_the_offending_entity():
 # ---------------------------------------------------------------------------
 # A prefix convention is reported with ITS OWN resolver owner.
 #
-# ⛔ this is a real defect, fixed here, not test-the-tests machinery. The report
-# site spelled `KinematicPathSpec::matches_id` for every prefix row, so
-# `BossSpawn.brain = "PhaseScript:<id>"` — a boss phase script, resolved by
-# `parse_boss_brain`, with no relationship to kinematic paths whatsoever — was
-# attributed to the resolver that owns `EnemySpawn`'s `Patrol:` references. The
-# entire value of this half of the diagnostic is telling an author WHICH
-# authority to go read, so naming the wrong one is worse than saying nothing.
-# ---------------------------------------------------------------------------
+# The report site spelled `KinematicPathSpec::matches_id` for every prefix row, so
+# `BossSpawn.brain = "PhaseScript:<id>"` — a boss phase script, resolved by `parse_boss_brain`,
+# with no relationship to kinematic paths whatsoever — was attributed to the resolver that owns
+# `EnemySpawn`'s `Patrol:` references. The entire value of this half of the diagnostic is
+# telling an author WHICH authority to go read, so naming the wrong one is worse than saying
+# nothing. ---------------------------------------------------------------------------
 
 
 def _entity_with_field(kind: str, iid: str, field: str, value: str) -> dict:

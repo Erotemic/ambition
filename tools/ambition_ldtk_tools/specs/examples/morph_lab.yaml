@@ -39,10 +39,6 @@ fill_collision: empty
 biome: lab
 connect_to:
   - target_room: central_hub_basement
-    # Lab door slot in the basement corridor (gap between
-    # basement_hazards at x=348 and basement_enemies at x=576).
-    # Doors were re-spaced 2026-05-07 to give each lab room some
-    # breathing room.
     px: [470, 832]
     size: [48, 96]
     id: morph_lab_door

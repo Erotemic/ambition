@@ -1,13 +1,10 @@
 //! The home/player body and actor bodies share ONE movement integration phase —
 //! this pins the unification through the real headless schedule.
 //!
-//! `player_body_tick` used to move the home body in its own `PlayerSimulation`
-//! route, separate from the actor `integrate_actor_bodies` route in `WorldPrep`.
-//! Both are gone: there is now a SINGLE scheduled system, `integrate_sim_bodies`
-//! (WorldPrep), that integrates every non-boss sim body — home and actor — through
-//! the same engine entry. These tests prove (1) both species move under their
-//! `ActorControl` through the real schedule, (2) the old `player_body_tick` route
-//! is not registered, and (3) real participant input reaches the home body
+//! Both are gone: there is now a SINGLE scheduled system, `integrate_sim_bodies` (WorldPrep), that
+//! integrates every non-boss sim body — home and actor — through the same engine entry. These tests
+//! prove (1) both species move under their `ActorControl` through the real schedule, (2) the old
+//! `player_body_tick` route is not registered, and (3) real participant input reaches the home body
 //! through the canonical slot-owned control path.
 
 #![cfg(feature = "rl_sim")]
@@ -50,7 +47,7 @@ fn home_body_and_actor_body_move_through_the_same_integration_phase() {
             .query_filtered::<&BodyKinematics, PrimaryPlayerOnly>();
         q.single(sim.world_mut()).expect("primary player").pos
     };
-    // ⭐ **it NAMES its character** (D102). This said only
+    // This said only
 
     // `Custom("cellular_automaton_fighter")`, and that archetype row was
 
@@ -104,9 +101,7 @@ fn home_body_and_actor_body_move_through_the_same_integration_phase() {
     );
 }
 
-/// Structural: the old `player_body_tick` / `player_body_phase` movement route is
-/// no longer registered, and the unified `integrate_sim_bodies` phase IS. Inspects
-/// the real Update schedule after a step (so it's initialized). Fails the moment a
+/// Inspects the real Update schedule after a step (so it's initialized). Fails the moment a
 /// separate player movement system is reintroduced.
 #[test]
 fn player_body_tick_is_not_the_gameplay_movement_route() {

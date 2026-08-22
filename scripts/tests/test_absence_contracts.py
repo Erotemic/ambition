@@ -34,8 +34,6 @@ VIOLATING_LINE = {
     "the-generic-brain-does-not-grow-new-platform-fighter-edges":
         "    let cfg: fighter::FighterCfg = todo!();",
     "player-input-frame-mirror-does-not-return": "pub struct PlayerInputFrame;",
-    # The shortest path back to a 1,870-line function: adding a registration
-    # where all the others used to be. Campaign 2 R5.
     "central-rollback-does-not-enumerate-domains":
         '    app.rollback_component_clone::<ambition_portal2d::PortalBody>(ENGINE, "portal.body");',
     "the-global-roster-is-retired-only-by-its-owner":
@@ -71,7 +69,7 @@ VIOLATING_LINE = {
 # The language each contract's subject is written in, which decides what a
 # COMMENT looks like when the prose check strips one. Rust unless stated: the
 # harness assumed Rust everywhere until the first Python contract arrived
-# (2026-07-28), and a prose check that only ever tested `//` would have proved
+# and a prose check that only ever tested `//` would have proved
 # nothing about a `#`.
 CONTRACT_LANGUAGE = {
     "the-worlds-path-is-confined-to-ldtk-paths": "py",
@@ -94,30 +92,18 @@ def confirm_patterns(contract: dict) -> list[re.Pattern]:
     return compiled
 
 
-# ⛔⛔ **`test_each_contract_matches_a_real_violation` WAS HERE AND IS DELETED**
-# (2026-08-14, Jon: *"be careful with the python test scripts that are testing
-# policy instead of behavior"*). It fed each contract a line hand-written to
-# match it and asserted the match — proving that a regex matches a string
-# somebody wrote to be matched by that regex. AGENTS.md names this class by
-# name: *"Poison tests are for realistic harmful states, not for proving that
-# every scanner detects its own fixture."*
+# AGENTS.md names this class by name: *"Poison tests are for realistic harmful states, not for
+# proving that every scanner detects its own fixture."*
 #
-# ⭐ **the half below is NOT the same thing and was MEASURED before deciding.**
-# It guards a false-POSITIVE the repo has had three times: somebody documents a
-# removal, the contract fires on the comment, and a green guard goes red for
-# writing about it. That is not covered by the live run — only **3 of the 17**
-# contracts have any text in the tree that their grep prefilter hits and the
-# comment-stripper then discards, so 14 of them have never had their prose path
-# exercised by anything but this.
+# That is not covered by the live run — only **3 of the 17** contracts have any text in the tree
+# that their grep prefilter hits and the comment-stripper then discards, so 14 of them have never
+# had their prose path exercised by anything but this.
 @pytest.mark.parametrize("contract", ABSENCE_CONTRACTS, ids=lambda c: c["id"])
 def test_no_contract_fires_on_prose_describing_the_removal(contract):
     """Documenting a removal must not break the guard that verified it."""
-    # ⚠ **a contract with no fixture is SKIPPED, not a failure** — that tax is
-    # what made this file red. Two contracts were added with real patterns and
-    # no hand-written violating line, and the whole repo-tooling job went red
-    # over a missing test fixture. Adding an architectural contract must not
-    # require writing prose for a meta-test first; what a fixture buys, when
-    # somebody writes one, is the check below.
+    # **a contract with no fixture is SKIPPED, not a failure** — that tax is what made this file
+    # red. Adding an architectural contract must not require writing prose for a meta-test
+    # first; what a fixture buys, when somebody writes one, is the check below.
     line = VIOLATING_LINE.get(contract["id"])
     if line is None:
         pytest.skip(f"{contract['id']} states no violating line to comment out")

@@ -14,12 +14,6 @@ bevy_ui_menu = ["bevy/ui_picking"]
 # `ambition_dialog`'s.
 input = ["ambition_input/input"]
 # The LDtk backend supplies the room RECTANGLES `populate_map_rooms` draws.
-# Optional because the visited-room list needs no backend at all.
-# ⛔ `ldtk_runtime` is NOT optional for this feature and the omission never
-# built: `populate_map_rooms` reads `ActiveLdtkProject`, which lives in the
-# backend's `bevy_runtime` module. `cargo check -p ambition_menu --features ldtk`
-# failed outright until 2026-08-18 — the workspace only ever built because
-# feature unification turned the runtime on from somewhere else.
 ldtk = ["dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/ldtk_runtime"]
 kaleidoscope_menu = []
 
@@ -49,7 +43,7 @@ bevy = { version = "0.18.1", default-features = false, features = [
 # drift this renderer's bridge exists to prevent.
 ambition_ui_nav = { path = "../ambition_ui_nav" }
 # The Map tab's own three edges, arriving with it from the actor monolith
-# (D33, 2026-08-17). ⚠ none of them widens what an edit rebuilds: this crate
+# . none of them widens what an edit rebuilds: this crate
 # already sat downstream of `ambition_platformer2d_core` through
 # `ambition_ui_nav -> ambition_input`.
 # `MenuControlFrame` — the hotkey/pointer frame the map input systems read.

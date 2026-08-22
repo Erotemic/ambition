@@ -48,7 +48,7 @@ pub(crate) struct RoomConstructionAuthorities<'w> {
 /// registered cast's, the sheets say what art they may reach, and the roster
 /// says what a hostile one is built from. Four questions about the same subject,
 /// and grouping them is what keeps this system under Bevy's 16-parameter limit —
-/// which it went over the moment the prepared registry joined (2026-07-29).
+/// which it went over the moment the prepared registry joined.
 #[derive(SystemParam)]
 pub(crate) struct CharacterAuthorities<'w> {
     catalog: Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
@@ -58,11 +58,6 @@ pub(crate) struct CharacterAuthorities<'w> {
         Res<'w, ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>,
     >,
     sheets: Res<'w, ambition_platformer2d::character::AuthoredSheets>,
-    /// **The published controller policies**, so a placement that names a
-    /// `brain_profile` resolves it on the DIRECT-ENTRY road too. Direct entry
-    /// held the cast and handed the construction context neither it nor these —
-    /// one of four roads that were incomplete when they were counted
-    /// (2026-08-15).
     brain_profiles: Option<
         Res<'w, ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry>,
     >,
@@ -219,14 +214,11 @@ pub(crate) fn setup_host_presentation_system(
 /// Once the resident SFX bank is loaded, publish its ids as Ambition's
 /// provider-relative SFX authority.
 ///
-/// The bank is process-wide *storage*; authority is provider-relative. This
-/// registers the bank's ids in the App-local [`SfxBankRegistry`] under the
-/// owning provider (Ambition — the superset that packs every shared asset), so
-/// the session bridge authorizes an Ambition session over the whole bank while
-/// other providers get none of it. For a direct-entry host that statically
-/// selected Ambition *before* the bank finished loading, it also folds the ids
-/// into the live selection so Ambition's open-ended `Play { id }` sounds
-/// resolve. Retries until it succeeds once (the bank may land asynchronously).
+/// The bank is process-wide *storage*; authority is provider-relative. This registers the
+/// bank's ids in the App-local [`SfxBankRegistry`] under the owning provider (Ambition — the
+/// superset that packs every shared asset), so the session bridge authorizes an Ambition
+/// session over the whole bank while other providers get none of it. Retries until it succeeds
+/// once (the bank may land asynchronously).
 #[cfg(feature = "audio")]
 pub(crate) fn publish_resident_sfx_bank_authority(
     bank: Option<Res<ambition_platformer2d::audio::SfxBankResource>>,
@@ -318,7 +310,7 @@ pub(crate) fn setup_host_presentation_system(
 /// Rebuild the asset families that have no residency model of their own —
 /// entity sprites, boss sheets, parallax layers — for a confirmed quality change.
 ///
-/// ⛔ **the CHARACTER sheet table is deliberately NOT rebuilt here.** It has an
+/// **the CHARACTER sheet table is deliberately NOT rebuilt here.** It has an
 /// owner: the engine's character runtime retires each stale realization back to
 /// `Declared` and re-demands it
 /// (`character_runtime::converge_character_residency_to_active_quality`), which
@@ -327,11 +319,8 @@ pub(crate) fn setup_host_presentation_system(
 /// 140 declarations and zero residents, so there is nothing left to *notice* is
 /// stale and nothing re-demands anything.
 ///
-/// ⭐ and it took two other things with it that nobody ever put back: the
-/// per-`Prop.kind` sheets and the realizations a host published itself
-/// (`publish_under`, the intro's NPCs). Both installers are one-shot, so before
-/// this every quality change silently deleted the intro's faces and props for
-/// the rest of the process.
+/// and it took two other things with it that nobody ever put back: the per-`Prop.kind` sheets
+/// and the realizations a host published itself (`publish_under`, the intro's NPCs).
 pub(crate) fn reload_visual_quality_assets_on_scale_change(
     quality: Res<ambition_platformer2d::render::quality::ResolvedVisualQuality>,
     asset_config: Res<GameAssetConfig>,

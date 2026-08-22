@@ -12,11 +12,11 @@
 # coverage.
 #
 # Usage:
-#   ./tools/test_coverage_report.sh           # all three domains
-#   ./tools/test_coverage_report.sh all       # same as the default
-#   ./tools/test_coverage_report.sh engine    # crates/
-#   ./tools/test_coverage_report.sh game      # game/
-#   ./tools/test_coverage_report.sh tests     # tests/
+# ./tools/test_coverage_report.sh           # all three domains
+# ./tools/test_coverage_report.sh all       # same as the default
+# ./tools/test_coverage_report.sh engine    # crates/
+# ./tools/test_coverage_report.sh game      # game/
+# ./tools/test_coverage_report.sh tests     # tests/
 #
 # Output contains:
 #   1. a detailed Rust file list sorted by test count and line count;

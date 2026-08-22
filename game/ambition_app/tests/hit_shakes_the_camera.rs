@@ -1,27 +1,5 @@
 #![cfg(feature = "rl_sim")]
-//! **A LANDED HIT SHAKES THE SCREEN — WITH NO HOME AVATAR IN THE WORLD.** (P4.37)
-//!
-//! ⛔⛔ **the first version of this test agreed with the bug.** It booted the
-//! Hall, found the home avatar, ASSIGNED `combat.hitstop_timer` by hand and
-//! stepped one frame. That proves manually arming the home avatar's hitstop can
-//! shake the exploration camera, which is not the claim P4.37 makes. The system
-//! it was testing queried `With<PlayerEntity>` and gated its kick on
-//! `PrimaryPlayer` — the HOME AVATAR marker, of which a match under
-//! `InitialBodyPolicy::NoInitialBody` has ZERO — and it was registered by
-//! `ambition_app` alone, so the standalone smash binary could not have shaken at
-//! all. Injecting the hitstop into the one body that still worked hid every bit
-//! of that.
-//!
-//! ⭐ **so this earns the hit and removes the home avatar.** `duel_arena` stages
-//! two NPCs who fight each other for real — a Perfect Cell-ular Automaton and a
-//! robot copy, holding a mutual grudge, already swinging the instant the room
-//! exists. Stripping `PrimaryPlayer` before the bout makes the world the exact
-//! shape Jon's 2026-08-07 freeze names — *"start a CPU-versus-CPU match. There
-//! is no `PrimaryPlayer` in it"* — while leaving the fight itself untouched.
-//! Under the old seam this world could not shake the camera however hard the two
-//! fighters hit each other.
-//!
-//! ⚠ **nothing here is injected.** The hits are the duel's own, at the strength
+//! **nothing here is injected.** The hits are the duel's own, at the strength
 //! the authored movesets produce; the only edit is the removal, and the test
 //! asserts the removal took before it believes anything else.
 
@@ -43,8 +21,6 @@ const BOUT_FRAMES: usize = 600;
 struct Bout {
     /// The hardest freeze any body served.
     hardest_hitstop: f32,
-    /// Frames on which some body was frozen at all: the witness that real hits
-    /// landed rather than the fixture staging a silent standoff.
     frames_with_a_connect: u32,
     /// The loudest the camera got.
     peak_shake_px: f32,
@@ -65,7 +41,7 @@ fn watch_a_duel_with_no_home_avatar() -> (Bout, f32) {
         sim.step(AgentAction::default());
     }
 
-    // ⭐ **make it a fight nobody is watching from a home body.** Removing the
+    // **make it a fight nobody is watching from a home body.** Removing the
     // marker is the whole edit: the bodies, the brains, the grudge and the
     // movesets are the room's own.
     let world = sim.world_mut();
@@ -102,7 +78,7 @@ fn watch_a_duel_with_no_home_avatar() -> (Bout, f32) {
             .max(world.resource::<CameraShakeState>().amplitude_px);
     }
 
-    // ⚠ read from the running app rather than restated: a route that retunes its
+    // read from the running app rather than restated: a route that retunes its
     // hitlag retunes what counts as a hard hit, and a literal here would be a
     // second number agreeing with the first by coincidence.
     let reference = sim
@@ -114,16 +90,6 @@ fn watch_a_duel_with_no_home_avatar() -> (Bout, f32) {
 }
 
 /// **Two fighters nobody is playing shake the screen when they connect.**
-///
-/// ⭐ the four clauses are one claim, and dropping any of them lets the old bug
-/// back through:
-///
-/// - no home avatar existed for the duration (the shape of a CPU-versus-CPU
-///   match, and the shape the old seam could not serve),
-/// - hits LANDED (otherwise a silent room passes by having nothing to report),
-/// - they were harder than the weakest connect the hitlag law admits (below
-///   that the dead zone is supposed to swallow them), and
-/// - the camera moved (the seam is wired, in a schedule every host composes).
 #[test]
 fn a_fight_between_two_bodies_nobody_is_playing_shakes_the_camera() {
     let (bout, reference) = watch_a_duel_with_no_home_avatar();

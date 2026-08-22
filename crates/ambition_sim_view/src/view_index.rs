@@ -15,10 +15,7 @@ use ambition_platformer2d_actor_monolith::features::{
 };
 use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
 
-/// One feature's per-frame render snapshot — THE read-model row of
-/// [`FeatureViewIndex`]. Moved here from `ambition_combat::events` (recon C2):
-/// the row is read-model vocabulary, not combat model, and it was the only
-/// reason the renderer depended on the combat crate.
+/// One feature's per-frame render snapshot — THE read-model row of [`FeatureViewIndex`].
 #[derive(Clone, Copy, Debug)]
 pub struct FeatureView {
     pub pos: ae::Vec2,
@@ -50,10 +47,7 @@ pub struct FeatureView {
     /// reports 0.0 and renders axis-aligned. Uses the engine → Bevy
     /// rotation mapping shared by actor rendering.
     pub rotation_rad: f32,
-    /// Liveness fact (E4 slice 5): actors/bosses read their combat/health
-    /// clusters (+ boss defeat), breakables `!broken`, hazards `active`;
-    /// state-less kinds (pickup/chest/switch) report `true`. Presentation
-    /// (nameplates, debug bars) reads THIS, never the live clusters.
+    /// Presentation (nameplates, debug bars) reads THIS, never the live clusters.
     pub alive: bool,
     /// Seconds remaining on the damage flash (actors + live bosses; `0.0`
     /// for everything else, including a boss corpse — death rows are
@@ -79,14 +73,6 @@ pub struct FeatureView {
 
 /// Per-frame snapshot of every ECS-owned feature's `FeatureView`, keyed
 /// by [`FeatureId`].
-///
-/// Rebuilt once per frame by [`rebuild_feature_view_index`] from the
-/// pickup / chest / breakable / switch / actor / hazard / boss queries.
-/// Presentation code (`sync_visuals`, `upgrade_actor_sprites`) used to
-/// call into per-id helpers that
-/// re-scanned every one of those queries on every visual every frame —
-/// quadratic in the number of features. With the index, each scan is
-/// O(features) once per frame and per-id lookup is O(1).
 #[derive(Resource, Default, Clone, Debug)]
 pub struct FeatureViewIndex {
     /// `(view, generation)` per id. The generation lets the per-frame rebuild
@@ -156,14 +142,9 @@ impl FeatureViewIndex {
     /// Constructs a NEW index rather than mutating an existing one, so it cannot
     /// be misused to edit the live one mid-frame.
     ///
-    /// The parameter is `entries` rather than `rows` because the determinism
-    /// lint matches std-hash bindings by NAME across the whole file, and
-    /// `NameplateIndex` further down owns a `rows: HashMap`. A generic
-    /// `IntoIterator` is not a hash container and its order cannot matter here
-    /// (the destination is itself a map keyed by id), so this is a false
-    /// positive — renamed rather than marked reviewed, because a review marker
-    /// on this line would suppress every determinism check on it, not the one
-    /// that misfired.
+    /// The parameter is `entries` rather than `rows` because the determinism lint matches
+    /// std-hash bindings by NAME across the whole file, and `NameplateIndex` further down owns
+    /// a `rows: HashMap`.
     pub fn from_rows(entries: impl IntoIterator<Item = (String, FeatureView)>) -> Self {
         let mut index = Self::default();
         for (id, view) in entries {
@@ -215,14 +196,12 @@ pub fn rebuild_feature_view_index(
             // centred in its frame. Absent for every ordinary actor.
             Option<&ambition_platformer2d_actor_monolith::features::ActorSpriteOffset>,
         ),
-        // Bosses carry the shared actor read-models (`ActorDisposition` etc., synced
-        // by `sync_boss_actor_components`) but are their OWN feature family below.
-        // Without this exclusion a boss matches here too and — because the actor
-        // family is inserted before the boss family (first-wins priority) — it gets
-        // classified as an invisible generic `Actor` (its `ActorStatus`/`ActorConfig`
-        // are absent), shadowing the boss view → the boss renders as the generic
-        // fallback sprite instead of its sheet. This is the boss-exclusion the
-        // deleted `ActorRuntime` tag used to provide implicitly.
+        // Bosses carry the shared actor read-models (`ActorDisposition` etc., synced by
+        // `sync_boss_actor_components`) but are their OWN feature family below. Without this
+        // exclusion a boss matches here too and — because the actor family is inserted before the
+        // boss family (first-wins priority) — it gets classified as an invisible generic `Actor`
+        // (its `ActorStatus`/`ActorConfig` are absent), shadowing the boss view → the boss renders
+        // as the generic fallback sprite instead of its sheet.
         Without<ambition_boss_encounter::BossConfig>,
     >,
     hazards: Query<(&FeatureId, &CenteredAabb, &HazardFeature)>,
@@ -230,10 +209,8 @@ pub fn rebuild_feature_view_index(
         &FeatureId,
         ambition_boss_encounter::BossClusterRef,
         &ambition_characters::brain::BossAttackState,
-        // Shared combat read-model, synced from the boss runtime by
-        // `sync_boss_actor_components` (WorldPrep, before this rebuild).
-        // Presentation reads alive / hit-flash from here instead of the
-        // BossRuntime fields, the same component enemies/NPCs expose.
+        // Presentation reads alive / hit-flash from here instead of the BossRuntime fields, the
+        // same component enemies/NPCs expose.
         &ambition_characters::actor::BodyCombat,
         Option<&ambition_characters::actor::BodyHealth>,
         Option<&BossDeathAnimation>,
@@ -391,10 +368,7 @@ pub fn rebuild_feature_view_index(
                 fighting: hostile,
                 switch_on: false,
                 rotation_rad,
-                // Liveness for presentation (nameplates, debug bars), from the
-                // AUTHORITY. This used to ask `BodyCombat.alive` as well — a
-                // belt-and-braces read of a mirror written from this very field,
-                // which could only ever disagree by being a frame stale. An actor
+                // Liveness for presentation (nameplates, debug bars), from the AUTHORITY. An actor
                 // with no pool reads alive (it has nothing to die from).
                 alive: !health.is_some_and(|h| !h.alive()),
                 hit_flash_secs: combat.map_or(0.0, |c| c.hit_flash),
@@ -472,14 +446,10 @@ pub fn rebuild_feature_view_index(
     index.end_rebuild();
 }
 
-/// Materialized per-actor identity facts the renderer needs to BIND and SIZE an
-/// actor sprite, keyed by [`FeatureId`] — the STATIC half of the actor
-/// read-model (display name, sprite-override label, sandbag flag, explicit
-/// render-quad size). It lets `upgrade_actor_sprites` resolve a sprite WITHOUT
-/// borrowing gameplay_core's live actor clusters (`ActorSpriteData`): the sim
-/// produces this snapshot, presentation consumes it — the read-model seam the D3
-/// render→gameplay_core cut needs. These facts are static per actor, so the
-/// rebuild re-clones only on a genuine change (otherwise it just refreshes the
+/// Materialized per-actor identity facts the renderer needs to BIND and SIZE an actor sprite,
+/// keyed by [`FeatureId`] — the STATIC half of the actor read-model (display name,
+/// sprite-override label, sandbag flag, explicit render-quad size). These facts are static per
+/// actor, so the rebuild re-clones only on a genuine change (otherwise it just refreshes the
 /// mark-and-sweep generation — no per-`String` churn as the sim steps).
 #[derive(Clone, Debug, PartialEq)]
 pub struct ActorRenderView {
@@ -490,9 +460,6 @@ pub struct ActorRenderView {
     pub sprite_override_name: Option<String>,
     pub is_sandbag: bool,
     pub render_size: Option<ae::Vec2>,
-    /// Authored deep-dream participation seed (`ActorTuning.dream_seed`) —
-    /// the surreal-overlay pass reads this identity fact by id instead of
-    /// borrowing the live actor clusters (E4 slice 2).
     pub dream_seed: Option<f32>,
 }
 
@@ -829,11 +796,6 @@ impl NameplateIndex {
     }
 }
 
-/// Rebuild [`NameplateIndex`] from every identity-bearing sim actor — the
-/// same query + liveness rules render's nameplate pass used to declare,
-/// moved sim-side. Chains AFTER [`rebuild_feature_view_index`] (it prefers
-/// the view row's geometry/visibility over the raw AABB, exactly like the
-/// old render read).
 #[allow(clippy::type_complexity)]
 pub fn rebuild_nameplate_index(
     mut index: ResMut<NameplateIndex>,

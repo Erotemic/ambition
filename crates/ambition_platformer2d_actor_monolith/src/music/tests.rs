@@ -194,28 +194,11 @@ fn resolver_iterates_multiple_bindings() {
 
 // ---- should_restart_adaptive: encounter-restart-during-outro race ----
 //
-// Jon's 2026-05-09 report: "started the goblin encounter, beat it,
 // but also died at the same time, which reset me back to the start.
 // I reset and restarted the goblin encounter, so maybe the timed
 // trigger to restart the lofi music happened and then the trigger
 // to start the goblin music happened (because i reset the
 // encounter), so they both played at the same time."
-//
-// The race is in `drive_adaptive_cue_state`: when the encounter
-// restarts during the outro overlap window (after `drive_outro_tail`
-// has started the base lofi channel for the return-to-room overlap
-// but before the outro's full duration expires), the director still
-// has `active_cue_id = Some(goblin)` and the cue id matches the
-// new directive. The pre-fix predicate skipped the
-// stop-base-channel + restart-adaptive path on a same-cue match,
-// leaving lofi playing alongside the rebuilt adaptive layers.
-//
-// The fix preserves the invariant
-//   `simple base track playing ⇒ no adaptive layers audible`
-// by additionally restarting the adaptive cue from its intro when
-// the mode says a simple base track is currently audible OR the
-// director is in `AdaptiveOutro` and the directive's target state
-// is no longer the outro section.
 
 // ── The simple-track priority list ────────────────────────────────────────
 

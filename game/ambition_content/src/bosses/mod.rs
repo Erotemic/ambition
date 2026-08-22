@@ -5,12 +5,6 @@
 //! boss machinery (profiles, specs, encounter registry/system, patterns) still
 //! lives in `ambition_boss_encounter`; this module owns the bespoke per-boss
 //! *behavior* and *bark content* that names individual bosses:
-//!
-//! - [`gnu_ton`] — GNU-ton's bespoke arena gating (retreat-ladder reveal +
-//!   floor-gate) and head-hurtbox regression coverage.
-//! - [`banter`] — boss combat-banter lines + the idle-bark ticker
-//!   ([`banter::install_boss_banter`] / [`banter::tick_boss_idle_barks`]),
-//!   installed next to its dialogue registration.
 
 use ambition_platformer2d_shared_tangle::schedule::gameplay_allowed;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
@@ -35,14 +29,8 @@ pub use cut_rope::{
 };
 pub use gnu_ton::gate_gnu_ton_arena_ladder;
 
-/// The authored boss-behavior roster, verbatim. Exposed so the seed-library test
-/// can re-derive each seed's duration bands from the same bytes the game loads —
-/// a band measured against a copy is not a measurement.
 pub const BOSS_PROFILES_RON: &str = include_str!("../../assets/data/boss_profiles.ron");
 
-/// The boss SEED LIBRARY (`boss-design.md` §2, slice BD4): nine attack archetypes
-/// extracted from the roster above, each with its design intent, fair-counter set,
-/// and measured telegraph/active bands.
 pub const BOSS_SEEDS_RON: &str = include_str!("../../assets/data/boss_seeds.ron");
 
 /// BD5's per-game fairness calibration (`boss-design.md` §3). One RON per game, so
@@ -51,12 +39,6 @@ pub const BOSS_VALIDATOR_BANDS_RON: &str =
     include_str!("../../assets/data/boss_validator_bands.ron");
 
 /// The validator bands the fight validator judges against.
-///
-/// ⛔ **THROUGH THE COMPILER, not beside it.** This used to be
-/// `ValidatorBands::from_ron(BOSS_VALIDATOR_BANDS_RON)` — a second reader of a
-/// file the pack already validates. The schema additionally refuses a `tick_hz`
-/// of zero, which `from_ron` accepted and which converts every authored duration
-/// to zero ticks silently.
 pub fn validator_bands(
 ) -> &'static ambition_characters::brain::boss_pattern::validator::ValidatorBands {
     ambition_characters::brain::boss_pattern::content_schema::lowered_validator_bands(
@@ -67,7 +49,7 @@ pub fn validator_bands(
 
 /// The boss seed library.
 ///
-/// ⛔ Same move as the bands: the compiler's lowered artifact, not a re-parse.
+/// Same move as the bands: the compiler's lowered artifact, not a re-parse.
 /// The schema refuses an inverted duration band (which matches nothing, so every
 /// instance silently falls outside it) and an attack claimed by two seeds.
 pub fn seed_library() -> &'static ambition_characters::brain::boss_pattern::seeds::SeedLibrary {
@@ -80,15 +62,11 @@ pub fn seed_library() -> &'static ambition_characters::brain::boss_pattern::seed
 /// Embedded encounter rows contributed by the Ambition provider: **each source's
 /// path and its bytes, together, once.**
 ///
-/// ⛔ **these used to be two lists joined by INDEX.** The bytes lived here as a
-/// bare `&[&str]`, and `pack.rs` separately wrote nine literal paths beside
-/// `BOSS_ENCOUNTER_RONS[0]`…`[8]`. Reordering either list attached a file's
-/// contents to the wrong diagnostic path and fingerprint while the runtime went
-/// on resolving rows by their internal ids — so nothing would fail, and a
-/// compile error would point at the wrong file forever (GPT 5.6 review,
-/// 2026-08-04).
+/// Reordering either list attached a file's contents to the wrong diagnostic path and fingerprint
+/// while the runtime went on resolving rows by their internal ids — so nothing would fail, and a
+/// compile error would point at the wrong file forever.
 ///
-/// ⚠ **positional coupling across two files is the shape**, not the count. It
+/// **positional coupling across two files is the shape**, not the count. It
 /// was maintainable at nine and would have been silently wrong at ten.
 pub const BOSS_ENCOUNTERS: &[(&str, &str)] = &[
     (
@@ -129,8 +107,8 @@ pub const BOSS_ENCOUNTERS: &[(&str, &str)] = &[
     ),
 ];
 
-// ⭐ `boss_encounter_rons()` — "just the bytes, for the catalog builder" — is
-// GONE (2026-08-04). It existed to hand nine raw files to a builder that parsed
+// `boss_encounter_rons()` — "just the bytes, for the catalog builder" — is
+// GONE. It existed to hand nine raw files to a builder that parsed
 // them itself; the builder now takes the compiler's merged book, so the only
 // consumer of those bytes is the pack. [`BOSS_ENCOUNTERS`] still carries them,
 // because the pack is where they belong.
@@ -191,7 +169,7 @@ fn special_animation_keys() -> std::collections::BTreeMap<String, Vec<String>> {
 
 /// Ambition's immutable App-local boss contribution.
 ///
-/// ⚠ **NOT all of this is compiled content, and the pack fingerprint does not
+/// **NOT all of this is compiled content, and the pack fingerprint does not
 /// cover the rest.** In the pack: the roster (`boss_profiles.ron`), the nine
 /// encounter files, the seed library and the calibration. NOT in the pack, and
 /// therefore changeable without moving the fingerprint:
@@ -205,14 +183,9 @@ fn special_animation_keys() -> std::collections::BTreeMap<String, Vec<String>> {
 ///
 /// Stated here rather than left implied, because "the boss content goes through
 /// the compiler" is the kind of half-true claim this whole effort exists to stop
-/// making. (GPT 5.6 review, finding 2.)
+/// making.
 pub fn boss_catalog_fragment(
 ) -> ambition_boss_encounter::BossCatalogFragment {
-    // ⛔ **THROUGH THE COMPILER, not beside it.** This used to pass
-    // `BOSS_PROFILES_RON` to `from_ron`, which re-parsed bytes the pack had
-    // already read and judged — the two-readers split the content pack exists to
-    // close. The roster now arrives as the compiler's lowered artifact.
-    //
     // The schema additionally refuses what `from_ron` accepted: a row whose `id`
     // disagrees with its map KEY. Every runtime path looks a boss up by key and
     // then reads `profile.id` for its sheet, music and barks — so a mismatch
@@ -224,10 +197,6 @@ pub fn boss_catalog_fragment(
         )
         .expect("the boss-profile schema lowers its roster for every pack that compiles")
         .clone();
-    // ⛔ **and the nine encounters, for the same reason and by the same route.**
-    // Until the compiler could merge a schema lowered by several sources, these
-    // were `AuthoringOnly`: validated by the pack and then parsed AGAIN, nine
-    // times, inside the catalog builder. One reader now (2026-08-04).
     let encounters =
         ambition_characters::brain::boss_pattern::content_schema::lowered_boss_encounters(
             crate::pack::prepared(),
@@ -451,7 +420,7 @@ mod apple_rain_animation_key_tests {
     /// key still lands inside the profile's own key list, so the swap would be
     /// safe (`every_hardcoded_sample_key_names_a_row_its_profile_claims`).
     ///
-    /// ⛔ **`apple_rain` is the exception, and it is CONTENT, which is why the
+    /// **`apple_rain` is the exception, and it is CONTENT, which is why the
     /// engine could not answer it.** It is a `Special`, so its key list comes
     /// from this crate's `special_animation_keys()` — and it is not in that map.
     /// The profile therefore claims NOTHING, while
@@ -486,14 +455,11 @@ mod apple_rain_animation_key_tests {
 
 #[cfg(test)]
 mod encounter_book_tests {
-    /// ⛔ **The nine encounter files reach the runtime through the COMPILER.**
+    /// **The nine encounter files reach the runtime through the COMPILER.**
     ///
-    /// Until 2026-08-04 the `boss_encounter` schema was `AuthoringOnly` — the
-    /// pack validated all nine and the catalog builder parsed all nine again,
-    /// so the compiler could bless a file the game never consulted. This is the
-    /// probe that the merged book is what the catalog actually holds.
+    /// This is the probe that the merged book is what the catalog actually holds.
     ///
-    /// ⚠ **it asserts the ARTIFACT and the CATALOG agree, not just that both
+    /// **it asserts the ARTIFACT and the CATALOG agree, not just that both
     /// exist.** "The book has nine entries" would pass over a builder that
     /// ignored it and reparsed, which is the exact defect being closed.
     #[test]

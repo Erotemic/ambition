@@ -63,8 +63,6 @@ pub use camera::{camera_follow, CameraViewState};
 /// [`UnclaimedFeatureViews`], which answers immediately where this one answers
 /// late — see that type for why one entity could not do both.
 pub use features::UnclaimedBodyPlaceholder;
-/// **"This room is not drawn yet", as a number the room-transition cover can
-/// read.** The honest settle signal, split out of the magenta diagnostic above.
 pub use features::UnclaimedFeatureViews;
 pub use health::{sync_boss_health_bar_overlay, sync_health_overlays};
 pub use label_layout::{
@@ -136,23 +134,10 @@ pub struct ActorOverlaySet;
 /// During startup, loading, and the launcher there is deliberately no gameplay
 /// session, so the complete per-frame presentation graph must stay dormant.
 ///
-/// ⛔ **THE SUBJECT IS THE SESSION, NEVER A BODY IN IT.** This condition used to
-/// end in `&& !primary_player.is_empty()`, and that one clause turned the
-/// ENTIRE per-frame presentation graph off for any session with no home avatar:
-/// a match experience declaring `InitialBodyPolicy::NoInitialBody` seated two
-/// fighters, ticked their brains, resolved their combat — and drew nothing at
-/// all, not even the stage. It is the same shape as the three system-wide
-/// `let Some(..) else { return }` guards this campaign already removed, one
-/// level coarser: the guarded value was consulted by the run condition and by
-/// NOT ONE system in the sets it gates. Each of those finds its own subject and
-/// no-ops without it.
+/// Each of those finds its own subject and no-ops without it.
 ///
-/// ⚠ it was never a deliberate precondition. It arrived as a mechanical
-/// translation when `SceneEntities` — a process-global handle bag — was
-/// deleted (`ed5e2f50a`): the bag's player handle became a `PrimaryPlayer`
-/// query, and "a session's scene exists" quietly became "a session's home
-/// avatar exists". The session identity that translation was protecting is
-/// entirely carried by the `SessionRoot` + `ActiveSessionScope` check below.
+/// ⚠ it was never a deliberate precondition. The session identity that translation was
+/// protecting is entirely carried by the `SessionRoot` + `ActiveSessionScope` check below.
 ///
 /// ⭐ the invariant to hold this to: **presentation must not demand more of a
 /// session than SIMULATION does.** `simulation_authorized` — the gate on the
@@ -250,12 +235,8 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     slash_visuals::follow_slash_owner.after(slash_visuals::spawn_slash_effects),
                     slash_visuals::animate_slash,
                     mark_beacon::sync_mark_beacon_visual.after(actors::sync_visuals),
-                    // ⭐ **the moving platform, drawn like every other feature.**
-                    // Its picture used to be spawned inside the room-construction
-                    // transaction, by the actor monolith, which is why the visual
-                    // adapter could not follow the state into the world crate.
-                    // Reconciled from `MovingPlatformSet` here, it derives and
-                    // never writes — see `moving_platforms`.
+                    // Reconciled from `MovingPlatformSet` here, it derives and never writes — see
+                    // `moving_platforms`.
                     moving_platforms::sync_moving_platform_visuals,
                 )
                     .after(item_visuals::report_unloadable_item_art)
@@ -273,15 +254,9 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
         {
             use ambition_portal2d_presentation::{PortalPresentationPlugin, PortalPresentationSet};
             app.add_plugins(PortalPresentationPlugin::default());
-            // The Ambition host-adapter glue (world-frame/viewer/focus/debug
-            // seam publishers, scene-body tagging, dev toggles, gun art) is
-            // `PortalObservationPlugin`, added by the HOST (E4 slice 20) —
-            // render holds exactly ONE label dependency on its set below,
-            // never a system registration.
-            // Portal body-copy visuals must run after the player animator, not
-            // only after `sync_visuals`: trimmed sprites can update
-            // `Sprite::custom_size` and `Anchor` during animation, and the
-            // portal exit copy must clone that final per-frame render basis.
+            // Portal body-copy visuals must run after the player animator, not only after
+            // `sync_visuals`: trimmed sprites can update `Sprite::custom_size` and `Anchor` during
+            // animation, and the portal exit copy must clone that final per-frame render basis.
             app.configure_sets(
                 Update,
                 PortalPresentationSet
@@ -374,26 +349,8 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         app.add_systems(
             Update,
             (
-                // ⭐ **THE ROOM'S OWN VISUALS FIRST.** This was registered on
-                // its own, in bare `Update`, in no set and with no edges at all
-                // — so "the destination room's visuals exist" and "the floor
-                // checks whether anything is undrawn" had no ordering between
-                // them, and the spawner's `Commands` might or might not be
-                // flushed before the floor read. After a room-transition commit
-                // the destination's authored features are already in
-                // `FeatureViewIndex` while their visuals sit unflushed, so the
-                // floor drew a stand-in for every one of them; those stand-ins
-                // then held the transition cover to its 8-second deadline and
-                // Jon's screen was black (2026-08-05).
-                //
-                // ⛔ **I claimed in `632ecf1b4` that an edge here would be a
-                // vacuous cross-schedule `.after`. That was wrong.**
-                // `PresentationVisualSync` is a sim-phase-NAMED set that is
-                // configured and populated in `Update` (see `configure_sets`
-                // above), and this system was in `Update` too — one schedule,
-                // ordinary edge. I read the set's NAME instead of where its
-                // members were registered, and the warning I left in the ledger
-                // pointed the next person away from the actual fix.
+                // ⛔ **I claimed in `632ecf1b4` that an edge here would be a vacuous
+                // cross-schedule `.after`.
                 //
                 // Head of the chain, beside the other spawner, because the room
                 // has to be drawn before `sync_visuals` reads positions for it —
@@ -465,7 +422,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // binder, the player fallback, the sprite upgrades and the boss
                 // pass — while claiming to run "after every family", and it was
                 // ALSO registered a second time outside the chain, ungated by
-                // `session_presentation_is_ready` (GPT 5.6, 2026-07-27). Two
+                // `session_presentation_is_ready`. Two
                 // copies of a spawner is one copy too many, and the ungated one
                 // could draw a stand-in before the intended family was even
                 // allowed to run.
@@ -491,19 +448,14 @@ mod schedule_tests {
     /// **The room's visuals must be SPAWNED inside the ordered visual chain**,
     /// not floating unordered in `Update`.
     ///
-    /// ⛔ this pins a fix whose first diagnosis was wrong in a way that would
-    /// have stopped anyone else fixing it. `632ecf1b4` recorded that an ordering
-    /// edge here would be a vacuous cross-schedule `.after` — reasoning from the
-    /// SET'S NAME (`Platformer2dSimulationPhaseMonolith::PresentationVisualSync`
-    /// reads like a simulation phase) instead of from where its members are
-    /// registered. They are registered in `Update`, the set is configured in
-    /// `Update`, and the respawn was in `Update`: one schedule, ordinary edge.
+    /// `632ecf1b4` recorded that an ordering edge here would be a vacuous cross-schedule
+    /// `.after` — reasoning from the SET'S NAME
+    /// (`Platformer2dSimulationPhaseMonolith::PresentationVisualSync` reads like a simulation
+    /// phase) instead of from where its members are registered. They are registered in
+    /// `Update`, the set is configured in `Update`, and the respawn was in `Update`: one
+    /// schedule, ordinary edge.
     ///
-    /// Membership is the assertion because membership is exactly what changed —
-    /// the system was in NO set and had NO edges, so it could be scheduled
-    /// before or after the floor that counts undrawn features, and its
-    /// `Commands` might not be flushed when the floor read. That is how a room
-    /// transition left every authored feature wearing a stand-in.
+    /// That is how a room transition left every authored feature wearing a stand-in.
     #[test]
     fn the_room_visual_respawn_is_inside_the_presentation_chain() {
         use bevy::ecs::schedule::{Schedules, SystemSet};
@@ -516,19 +468,13 @@ mod schedule_tests {
         app.add_plugins((bevy::MinimalPlugins, bevy::asset::AssetPlugin::default()));
         app.add_plugins(PresentationVisualAnimationPlugin);
 
-        // ⚠ **systems cannot be identified by NAME here.** Bevy compiles system
-        // names out unless its `debug` feature is on, so every one of them
-        // reports `<Enable the debug feature to see the name>`; a name-matching
-        // pin silently matches nothing. (My first draft also looked them up
-        // AFTER `initialize`, where they have been moved out of the graph
-        // entirely — 21 members, 0 resolvable, an assertion that could not pass.
-        // The mirror image of a check that cannot fail, and just as worthless.)
+        // **systems cannot be identified by NAME here.** Bevy compiles system names out unless its
+        // `debug` feature is on, so every one of them reports `<Enable the debug feature to see the
+        // name>`; a name-matching pin silently matches nothing. The mirror image of a check that
+        // cannot fail, and just as worthless.)
         //
-        // So the assertion is a COUNT, and it is the better one anyway: every
-        // system this plugin puts in `Update` must be inside the ordered set.
-        // That is the actual invariant — an unordered visual system in this
-        // plugin is the defect class, whichever system it happens to be — and it
-        // survives people adding more systems to the chain.
+        // So the assertion is a COUNT, and it is the better one anyway: every system this plugin
+        // puts in `Update` must be inside the ordered set.
         let total = {
             let schedules = app.world().resource::<Schedules>();
             schedules

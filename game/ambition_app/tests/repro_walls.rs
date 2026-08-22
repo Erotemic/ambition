@@ -48,13 +48,7 @@ fn step_axis_for_test(
     .events
 }
 
-/// Principled replacement for the old `dy < 50.0` magic threshold:
-/// assert one step's position change stays within the physically
-/// justifiable budget (intended velocity displacement + bounded
-/// depenetration). A snap to a far block blows past this by hundreds of
-/// pixels. `pre_vel` is the velocity *before* the step (the intended
-/// displacement); the 16 px margin absorbs the small gravity/​collision
-/// velocity change across one frame.
+/// A snap to a far block blows past this by hundreds of pixels.
 fn assert_within_displacement_budget(
     label: &str,
     initial: ae::Vec2,
@@ -355,8 +349,6 @@ fn square_arena_wall_cling_full_world_does_not_teleport() {
     );
 }
 
-/// Same pose, but step many times. Live trace had ~150 frames of
-/// wall-cling before the teleport — maybe the bug needs accumulation.
 #[test]
 fn square_arena_wall_cling_full_world_steps_many_times() {
     let project = load_project_for_test().expect("sandbox LDtk should load");
@@ -520,24 +512,9 @@ fn wall_cling_displacement_budget_holds_across_pose_sweep() {
     }
 }
 
-/// Regression guard for the mob_lab lock-wall teleport documented in
-/// `dev/journals/code_smells.md` (HIGH).
-///
-/// Geometry mirrors the runtime: the runtime-inserted
-/// `lockwall:mob_lab` block sits at LDtk px (480, 400) size (224, 208),
-/// with an arena ceiling above (top at y=0). Wall-clinging on the
-/// lock wall's right edge previously snapped the player to the
-/// arena_ceiling top (`y = ceiling_top - half_height = -23`).
-///
-/// In this minimal geometry the existing `body_is_side_contact`
-/// predicate (added by the wall-jump OOB fix, commit 4002b4d) already
-/// rejects the bogus far-block hit, so the test currently passes.
-/// Keeping it here as a regression guard — if a future change to the
-/// snap-direction logic re-introduces the teleport, this test fires.
-/// The full production trigger may need additional context (encounter
-/// running, lock wall hot-inserted) that this minimal fixture
-/// deliberately omits; that's tracked separately under the parry
-/// contact-normal fix (path_forward step D1).
+/// The full production trigger may need additional context (encounter running, lock wall
+/// hot-inserted) that this minimal fixture deliberately omits; that's tracked separately under
+/// the parry contact-normal fix (path_forward step ).
 #[test]
 fn mob_lab_lock_wall_cling_does_not_teleport() {
     let world = World::new(
@@ -614,9 +591,6 @@ fn mob_lab_lock_wall_cling_does_not_teleport() {
     );
 }
 
-/// Full-world regression guard + reproduction attempt for the
-/// goblin_encounter lock-wall teleport (tech-debt-log HIGH).
-///
 /// Unlike `mob_lab_lock_wall_cling_does_not_teleport` (a 3-block subset),
 /// this loads the REAL goblin_encounter world — all its LDtk blocks in
 /// production order — and APPENDS the runtime lock wall last, exactly as
@@ -624,15 +598,6 @@ fn mob_lab_lock_wall_cling_does_not_teleport() {
 /// the body off the lock-wall edge with a strong upward velocity (the
 /// post-wall-jump state the trace blames) through the x=704..720 top-wall
 /// corner.
-///
-/// **Result (2026-06-02):** this does NOT reproduce the production
-/// teleport — the upward sweep correctly stops the body just below the
-/// top wall (top≈401 vs wall bottom 400, vel.y zeroed). So the full block
-/// set + append order is NOT sufficient; the production trigger needs the
-/// exact trace state that synthetic fixtures don't capture (the
-/// control-phase wall-jump velocity, sub-pixel x/penetration config, or
-/// accumulated multi-frame history). Kept as a passing regression guard:
-/// the budget assertion fires if a future change reintroduces the snap.
 #[test]
 fn goblin_encounter_full_world_lock_wall_cling_repro() {
     let project = load_project_for_test().expect("sandbox LDtk should load");

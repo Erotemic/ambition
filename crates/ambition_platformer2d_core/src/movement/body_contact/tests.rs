@@ -46,10 +46,7 @@ fn field_y(
 
 /// **THE IDENTITY, and it is the one every body in the engine gets.**
 ///
-/// ⛔ body contact is a capability a composition grants. A body that never opted
-/// in must be resolved byte-for-byte as it was before this module existed, and
-/// the two ways that can fail — no blockers, or blockers with no resistance —
-/// are both here.
+/// ⛔ body contact is a capability a composition grants.
 #[test]
 fn a_body_nobody_resists_keeps_every_bit_of_its_motion() {
     let mover = body(0.0, 0.0);
@@ -123,18 +120,10 @@ fn partial_resistance_keeps_a_share_of_the_motion_that_goes_deeper() {
 /// **⛔⛔ A PRE-EXISTING OVERLAP IS NEVER TELEPORTED APART — AND THE WAY OUT IS
 /// NEVER RESISTED.**
 ///
-/// The first half is Jon's ruling and is not negotiable: AVOID PUSHOUT is about
-/// geometry REPAIR, and a constraint that separated overlapping bodies would be
-/// exactly the thing the rule forbids wearing a new name. Nothing in this module
-/// ever writes a position.
-///
-/// ⛔⛔ **the second half was WRONG for a day, and it was measured.** This test
-/// used to assert that motion is slowed in BOTH directions while overlapping, on
-/// the argument that the pass cannot know which way "out" is. It can: an
-/// infinitesimal step either increases the axis overlap or it does not, and that
-/// is arithmetic rather than a guess. With the symmetric version, four fighters
-/// spawning on one point could not walk apart — every step out of the pile was
-/// cut to a fraction and a free-for-all never resolved.
+/// It can: an infinitesimal step either increases the axis overlap or it does not, and that is
+/// arithmetic rather than a guess. With the symmetric version, four fighters spawning on one point
+/// could not walk apart — every step out of the pile was cut to a fraction and a free-for-all never
+/// resolved.
 ///
 /// ⚠ **declining to resist a body that is leaving is not a pushout**, because
 /// nothing moves it. It is only this pass keeping its hands off a body that is
@@ -284,15 +273,11 @@ fn the_constraint_never_adds_motion_and_never_reverses_it() {
 
 /// **⛔⛔ CONTACT IS ABOUT WALKING — a knockback launch ploughs through it.**
 ///
-/// Measured 2026-08-20, and it took two attempts to get right. A fighter
-/// launched sideways at 2400 px/s past a body standing 8px away lost a slice of
-/// every tick it stayed in contact; the slices compounded against the
-/// controller's own decay, and the body came down about eighty pixels short of
-/// the blast margin — close enough to look like it flew, and far enough that the
-/// match never ended. THREE `smash_it` guards about matches ENDING went red, and
-/// a "take at most a walk's worth per tick" version fixed only two of them. The
-/// capability had quietly become a way to survive a knockout by standing next to
-/// somebody.
+/// A fighter launched sideways at 2400 px/s past a body standing 8px away lost a slice of every
+/// tick it stayed in contact; the slices compounded against the controller's own decay, and the
+/// body came down about eighty pixels short of the blast margin — close enough to look like it
+/// flew, and far enough that the match never ended. The capability had quietly become a way to
+/// survive a knockout by standing next to somebody.
 ///
 /// ⭐ **so the rule is a QUESTION, not a budget: is this body walking?** Two
 /// fighters walking into each other stall where they meet; a launched fighter
@@ -333,13 +318,6 @@ fn contact_only_resists_a_body_that_is_walking() {
 }
 
 /// **TWO MOVERS MAY NOT BOTH SPEND ONE GAP.**
-///
-/// ⛔⛔ the defect this file had no test for. Every case above is ONE mover
-/// against bodies that are standing still, including the order-reversal one —
-/// and a snapshot fixes *who sees whom where*, which is a different question
-/// from *how much of the gap is each of them allowed*. With 5 units between two
-/// solids and 4 asked each, both passed the "it fits in the gap" test and both
-/// took all 4: they closed 8 across a gap of 5 and ended 3 deep in each other.
 ///
 /// ⚠ **resistance did not save it and could not.** The free-gap part of a step
 /// is granted at full speed by construction, so this happened at `1.0` — the
@@ -394,10 +372,8 @@ fn two_bodies_closing_on_one_gap_divide_it_instead_of_each_taking_it() {
 
 /// **A BODY WALKING AT A STATIONARY ONE STILL GETS THE WHOLE GAP.**
 ///
-/// ⛔ the falsifier for the test above, and the reason the fix is PROPORTION
-/// rather than halving. Halving passes the pair case and fails this one — a
-/// fighter walking at somebody standing still would stop half a gap short of
-/// them for no reason a player could see.
+/// Halving passes the pair case and fails this one — a fighter walking at somebody standing
+/// still would stop half a gap short of them for no reason a player could see.
 #[test]
 fn a_lone_mover_is_not_made_to_share_a_gap_with_a_body_that_is_standing_still() {
     let blockers = [still(40.0, 0.0)];

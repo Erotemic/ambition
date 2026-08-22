@@ -1,8 +1,4 @@
 //! Probes for the `item_catalog` schema.
-//!
-//! Each negative case names the CODE and the failure it prevents, not the prose
-//! of the message — a diagnostic's wording is a rendering detail and pinning it
-//! makes these tests fail on a reworded fix line.
 
 use super::*;
 use ambition_content_pack::{
@@ -81,7 +77,7 @@ fn a_compiled_pack_carries_the_item_catalog_the_runtime_will_load() {
     );
 }
 
-/// ⛔ **The motivating case.** `items.ron` is positional, so a deleted row does
+/// **The motivating case.** `items.ron` is positional, so a deleted row does
 /// not remove one item — it shifts every later row up a slot and silently
 /// re-authors the wrong ones, with the tail falling back to built-in defaults so
 /// the grid still looks full. `ItemCatalog::from_ron` accepted this happily.
@@ -110,9 +106,7 @@ fn a_long_grid_is_refused_too() {
     );
 }
 
-/// An authored field nothing consumes is the most expensive content bug there
-/// is: the row looks authored and the mechanic silently never fires. This is
-/// what `deny_unknown_fields` on `ItemMeta` buys.
+/// This is what `deny_unknown_fields` on `ItemMeta` buys.
 #[test]
 fn an_unknown_authored_field_is_an_error_and_not_a_shrug() {
     let mut rows: Vec<String> = (0..ITEM_COUNT).map(row).collect();
@@ -147,8 +141,7 @@ fn two_rows_sharing_a_dialog_id_are_a_conflict() {
     );
 }
 
-/// `None` means "not equippable" and is a decision. `Some("")` is a half-edit
-/// that equips nothing and, before this, reported nothing.
+/// `None` means "not equippable" and is a decision.
 #[test]
 fn a_half_wired_held_item_is_refused() {
     let mut rows: Vec<String> = (0..ITEM_COUNT).map(row).collect();
@@ -201,13 +194,13 @@ fn a_refused_pack_hands_out_no_runtime_value() {
     assert!(failure.is_err(), "a short grid is refused");
 }
 
-/// ⛔ **Swapping two rows changes which metadata belongs to which `Item`, so it
+/// **Swapping two rows changes which metadata belongs to which `Item`, so it
 /// must change the fingerprint.**
 ///
 /// The pack fingerprint sorts definitions by content id, so a canonical form
 /// keyed only by `dialog_id` made a full row swap invisible — the same set of
 /// `(dialog_id, row)` pairs, a different game. Exactly the hole the music track
-/// ORDER had. (GPT 5.6 review, finding 1.)
+/// ORDER had.
 #[test]
 fn swapping_two_item_rows_moves_the_fingerprint() {
     let mut rows: Vec<String> = (0..ITEM_COUNT).map(row).collect();
@@ -254,10 +247,10 @@ fn reformatting_the_item_grid_does_not_move_the_fingerprint() {
 /// **An id no script can reach is unreachable content.** `Item::from_dialog_id`
 /// normalizes the QUERY (lowercase, alphanumerics only) and compares it to the
 /// stored spelling verbatim, so an un-normalized authored id silently never
-/// resolves. (GPT 5.6 review, finding 3.)
+/// resolves.
 #[test]
 fn a_dialog_id_the_runtime_lookup_can_never_resolve_is_refused() {
-    // ⚠ leading/trailing whitespace is IN this list because the first version of
+    // leading/trailing whitespace is IN this list because the first version of
     // the check trimmed before comparing and therefore could not see it.
     for spelling in [
         "PortalGun",

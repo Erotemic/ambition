@@ -1,14 +1,8 @@
-//! **The actor road spends hitlag** (ledger D114, closed 2026-08-17).
+//! So the freeze was a property of WHO GOT HIT rather than of the hit: a player felt every connect,
+//! and a hit whose two parties were both actors froze neither of them. On a platform-fighter stage
+//! that is every CPU-versus-CPU exchange, and every seat past slot 0.
 //!
-//! ⛔ **what these pin, and why nothing caught it for so long.** Hitstop is armed
-//! on the victim AND the attacker — the damage path states it as *"a landed hit
-//! is one event"* — but only `integrate_player_body` ever branched on it. So the
-//! freeze was a property of WHO GOT HIT rather than of the hit: a player felt
-//! every connect, and a hit whose two parties were both actors froze neither of
-//! them. On a platform-fighter stage that is every CPU-versus-CPU exchange, and
-//! every seat past slot 0.
-//!
-//! ⭐ these drive the REAL actor spine (`ActorMut::update` → `integrate_body`),
+//! these drive the REAL actor spine (`ActorMut::update` → `integrate_body`),
 //! the same road `dash_tests` uses, so they measure what a body DOES rather than
 //! which field is set. `BodyCombat` is a parameter of that call already — the
 //! freeze had a seat at the table and nobody sat in it.
@@ -74,14 +68,7 @@ fn walk_distance_with_hitstop(hitstop: f32, ticks: u32) -> f32 {
     frame.facing = 1.0;
     let dt = 1.0 / 60.0;
     for _ in 0..ticks {
-        // ⚠ **the decay is the SCHEDULE's, not the body call's** — `update.rs`
-        // runs `decay_reaction_timers(world_time.sim_dt())` for every actor each
-        // tick, before the body integrates, and `em.update` takes `&BodyCombat`
-        // immutably. A fixture that omitted this froze the body FOREVER and read
-        // as a product defect; mirroring the real order is what makes the
-        // recovery assertion below mean anything.
-        //
-        // ⭐ it also pins that the freeze is fed by WORLD time, not by the
+        // it also pins that the freeze is fed by WORLD time, not by the
         // per-body `sim_dt` the hitlag branch zeroes — those being the same value
         // would be a deadlock, and this is where that would show.
         combat.decay_reaction_timers(dt);
@@ -105,16 +92,13 @@ fn walk_distance_with_hitstop(hitstop: f32, ticks: u32) -> f32 {
 
 /// **A struck actor stops, and an unstruck one does not.**
 ///
-/// ⚠ **both terms are asserted, and that is deliberate.** A gate that froze
+/// **both terms are asserted, and that is deliberate.** A gate that froze
 /// every body — or a fixture whose actor could not walk in the first place —
 /// would satisfy "the frozen one did not move" on its own. The moving arm is
 /// what makes the frozen arm mean something.
 #[test]
 fn a_hit_between_two_actors_freezes_them_both() {
-    // 20 ticks ≈ 0.33s. The frozen arm carries more hitstop than the window, so
-    // it is still frozen on the last tick — measured from a standing start, a
-    // free walk covers ~14px in 12 ticks, so the window has to be long enough
-    // that "did not move" and "has not accelerated yet" cannot be confused.
+    // 20 ticks ≈ 0.33s.
     let free = walk_distance_with_hitstop(0.0, 20);
     let frozen = walk_distance_with_hitstop(0.50, 20);
 

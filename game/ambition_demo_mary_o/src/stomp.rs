@@ -5,11 +5,8 @@
 //! squashes, and the player is ALWAYS safe. From a side it is a threat — contact
 //! damage, or a running shell.
 //!
-//! That question is answered here, once, so the two enemies can never disagree
-//! about the same contact. Both hand-rolled copies of the geometry had the same
-//! bug: they demanded a *falling* player (`vel.y > 0`), so a player who came to
-//! rest ON a body was classified as touching it from the SIDE — and the body under
-//! their feet hurt them for as long as they stood there.
+//! That question is answered here, once, so the two enemies can never disagree about the same
+//! contact.
 //!
 //! Mary-O runs under screen gravity, so `+y` is DOWN: the player's feet are its
 //! `max.y`, and a body's head is its `min.y`.
@@ -42,17 +39,7 @@ pub fn player_touch(body: ae::Aabb, player: ae::Aabb, player_vel: ae::Vec2) -> O
     // reached the head plane. Allowing `head - STOMP_BAND` classified a player
     // hovering up to sixteen pixels above an enemy as a stomp.
     //
-    // ⛔⛔ **AND IT IS CLAMPED TO HALF THE BODY, because a fixed band is a
-    // function of the ENEMY'S HEIGHT** (Jon, 2026-08-21: *"if she runs into
-    // solid snake from the side, the snake gets hit instead of her"*). On flat
-    // ground both bodies' feet sit on the same line, so the player's feet are
-    // exactly `enemy_height` below its head. For any enemy `STOMP_BAND` tall or
-    // shorter that lands INSIDE the band, and running into it from the side
-    // classified as a stomp — the snake shelled instead of hurting her.
-    //
-    // ⭐ **MEASURED, not inferred**: the shipped snake's authored collision box is
-    // 21.33 x 9.48, so its whole body is barely half the old band. Her feet on
-    // the same ground sat 9.48 below its head — comfortably inside 16 — and every
+    // Her feet on the same ground sat 9.48 below its head — comfortably inside 16 — and every
     // side run-in read as a stomp.
     //
     // Half the body is the rule every game of this kind actually uses: feet above

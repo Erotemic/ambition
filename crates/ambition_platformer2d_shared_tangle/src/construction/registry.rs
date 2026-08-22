@@ -32,8 +32,6 @@ pub type RelationFn<D> = for<'w, 's, 'a> fn(
     &mut ConstructionExecCtx<'w, 's, 'a, D>,
 );
 
-/// Proves, against the committed world, that a wired relation actually landed.
-///
 /// The counterpart to [`RelationFn`], and deliberately its twin: a relation is
 /// two facts — how to install it and what installed looks like — and splitting
 /// them across unrelated functions is how the earlier duplicated-fact bugs in
@@ -83,8 +81,6 @@ pub enum RelationCheck {
     DuplicateMembership { count: usize },
 }
 
-/// The two frozen halves of one relation kind: how to install it, and how to
-/// prove it landed.
 pub struct RelationOps<D: ConstructionDomain> {
     pub wire: RelationFn<D>,
     pub verify: RelationVerifyFn<D>,
@@ -195,10 +191,9 @@ impl std::error::Error for ConstructionRegistrationError {}
 /// ownership, idempotent re-registration, conflict rejection, and an ordered
 /// contribution to the prepared-content fingerprint.
 ///
-/// This used to hold a `RecipeFn` plus an `AcceptsFn`. That stored the same
-/// variant-compatibility fact twice and then called the result proved, which it
-/// was not: the two could disagree, and an acceptance function that wrongly
-/// returned `true` still reached the constructor's `unreachable!` mid-commit.
+/// That stored the same variant-compatibility fact twice and then called the result proved, which
+/// it was not: the two could disagree, and an acceptance function that wrongly returned `true`
+/// still reached the constructor's `unreachable!` mid-commit.
 struct RecipeEntry {
     owner: String,
     source: String,
@@ -206,15 +201,6 @@ struct RecipeEntry {
 }
 
 /// What a registered relation declares about itself.
-///
-/// **There are no function pointers here, and that is the fix for a real
-/// ordering hazard.** This used to store a [`RelationOps`] beside the metadata,
-/// with idempotence decided by the metadata alone — so two registrations with
-/// identical owner/source/schema and DIFFERENT wiring functions were accepted as
-/// "the same registration", and whichever plugin ran first won. The registry
-/// dump and the prepared-content fingerprint were byte-identical either way, so
-/// two builds could execute different construction behaviour while claiming the
-/// same content identity.
 ///
 /// Executable behaviour now comes from [`ConstructionDomain::dispatch_relation`]
 /// — one exhaustive match in the domain that owns the relation enum — so there
@@ -235,7 +221,7 @@ struct RelationEntry {
 /// fingerprint, and a fingerprint sensitive to plugin insertion order would be
 /// unusable.
 ///
-/// ⚠ Recipes here are METADATA ONLY. Whether a domain is extensible by an
+/// Recipes here are METADATA ONLY. Whether a domain is extensible by an
 /// outside provider is the domain's business: the actor domain is closed, so
 /// registering a recipe id there does not make it executable.
 #[derive(Resource)]
@@ -312,17 +298,6 @@ impl<D: ConstructionDomain> ConstructionRegistry<D> {
 
     /// Register a relation kind's IDENTITY. Re-registering byte-identical
     /// ownership is idempotent; anything else conflicts.
-    ///
-    /// **This no longer takes a [`RelationOps`], and that is deliberate.** It
-    /// used to, with idempotence decided on metadata alone, which made the table
-    /// first-wins: two registrations agreeing on owner/source/schema and
-    /// disagreeing on the wiring function were "identical", so plugin insertion
-    /// order silently chose which one executed — under a dump and a fingerprint
-    /// that could not tell the two apart. An earlier version compared
-    /// `std::ptr::fn_addr_eq` instead, which is not a property a registry
-    /// contract can rest on either: the compiler may merge identical functions
-    /// to one address and emit one function at several addresses, so the same
-    /// registration could conflict or not depending on optimisation level.
     ///
     /// Neither is needed now. Executable behaviour is resolved by
     /// [`ConstructionDomain::dispatch_relation`], one exhaustive match owned by

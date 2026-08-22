@@ -144,8 +144,6 @@ pub fn attach_puppy_slug_deep_dream_overlays(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<PuppySlugDeepDreamMaterial>>,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
-    // Actor identity read-model (E4 slice 2): dream participation + name
-    // ride `ActorRenderView`, no live cluster reads.
     actor_render: Res<ambition_sim_view::ActorRenderIndex>,
     candidates: Query<
         (
@@ -183,17 +181,9 @@ pub fn attach_puppy_slug_deep_dream_overlays(
         });
         let mesh = meshes.add(Rectangle::default());
         let overlay_transform = overlay_transform_from_source(transform, anchor, render_size);
-        // Let Bevy's required-component machinery insert Transform's
-        // GlobalTransform and Visibility's InheritedVisibility +
-        // ViewVisibility with their proper defaults. Inserting them
-        // explicitly here was a stealth bug: `InheritedVisibility::default()`
-        // is `Self(false)` (HIDDEN), and once a tuple-insert assigns it,
-        // the visibility propagator's PostUpdate pass on the *same* tick
-        // can't override it before the render extraction reads
-        // `view_visibility.get()` and skips the entity. With the explicit
-        // default removed, the auto-inserted InheritedVisibility starts
-        // unset and the propagator computes it from `Visibility::Visible`
-        // immediately. Same reasoning for ViewVisibility.
+        // Let Bevy's required-component machinery insert Transform's GlobalTransform and
+        // Visibility's InheritedVisibility + ViewVisibility with their proper defaults. Same
+        // reasoning for ViewVisibility.
         let session_scope = SessionSpawnScope::new(session_owner.map(|owner| owner.0));
         let overlay_entity = commands
             .spawn_session_scoped(
@@ -360,13 +350,13 @@ fn puppy_slug_seed(id: &str, actor_render: &ambition_sim_view::ActorRenderIndex)
     }
 }
 
-/// ⭐ **NO `Assets<Image>`.** The image was fetched for one value —
+/// **NO `Assets<Image>`.** The image was fetched for one value —
 /// `texture_descriptor.size` — and `TextureAtlasLayout::size` already carries
 /// it. Every main-world reader of a loaded sheet is one more thing standing
 /// between the game and dropping `MAIN_WORLD` from the image loader, which is
 /// what keeps 1803 MB of decoded RGBA resident entering Hall of Characters.
 ///
-/// ⚠ **this is the second of three copies of this computation** — see
+/// **this is the second of three copies of this computation** — see
 /// `ambition_render::rendering::hit_flash::current_sprite_uv_rect` (byte-identical
 /// intent) and `ambition_portal2d_presentation::clip_material::sprite_frame_basis`
 /// (a superset that also returns the quad size). All three agree; converging them

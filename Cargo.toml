@@ -97,13 +97,11 @@ license = "Apache-2.0"
 authors = ["Jon Crall + ChatGPT + Claude"]
 description = "Ambition: a code-generated endgame movement sandbox for a mathematical AI-first platformer."
 
-# The browser must DOWNLOAD and COMPILE the whole module before one line of Rust
-# runs, so wasm size is a boot-latency budget rather than a disk concern. A plain
-# `--release` build of this app is ~220 MB, which can take a browser a minute to
-# compile and presents as "the page loads and nothing happens" — the same symptom
-# as a panic, which is why it is worth being able to rule out.
+# A plain `--release` build of this app is ~220 MB, which can take a browser a minute to compile
+# and presents as "the page loads and nothing happens" — the same symptom as a panic, which is
+# why it is worth being able to rule out.
 #
-# ⚠ opt-in (`./build_for_web.sh --optimize`), because fat LTO + one codegen unit
+# opt-in (`./build_for_web.sh --optimize`), because fat LTO + one codegen unit
 # turns a ~6 minute build into a much longer one, and the ordinary web dev loop
 # wants the fast build.
 [profile.ship]
@@ -184,11 +182,9 @@ opt-level = 0
 [profile.dev.package.ambition_render]
 opt-level = 0
 
-# `ambition_app` joins them (2026-08-03, queue C3 / Front 3c). It is the SECOND
+# `ambition_app` joins them. It is the SECOND
 # most-edited crate in the repo and it is composition — plugin wiring, CLI, menu
 # assembly — with no per-tick numeric kernel of its own.
-#
-# ⭐ MEASURED BOTH WAYS, on the shipped headless driver, before applying:
 #
 #   | config              | 3000-tick sim | build after an app-source edit |
 #   |---------------------|---------------|--------------------------------|
@@ -198,7 +194,7 @@ opt-level = 0
 #
 # So the app pays 28% of the edit loop back and costs NOTHING to run.
 #
-# ⛔ **and the actor monolith is deliberately NOT here.** It is the single
+# **and the actor monolith is deliberately NOT here.** It is the single
 # most-edited crate, so it is the obvious next candidate, and it is the wrong one:
 # at opt-0 the simulation runs **1.6x slower** (4.08s against 2.57s over the same
 # 3000 ticks, tight variance across repeats) while doing nothing at all for an
@@ -222,16 +218,11 @@ codegen-units = 256
 # Pinned by `rev`, never by branch: a branch would drift silently under
 # `cargo update` and make builds unreproducible.
 [patch.crates-io]
-# Backports a first-class `GgrsFrameTiming` accessor (timestep / overstep /
-# overstep_fraction) onto the v0.21.0 line so presentation can read the
-# intra-tick phase under rollback via a supported API — no reaching into
-# driver internals. `Time<Fixed>::overstep_fraction()` answers this for the
-# plain fixed-tick host; bevy_ggrs banks its own time instead, which is why the
-# driver's own timing is the only truthful source under rollback.
-# Branched from the v0.21.0 tag so it stays semver-compatible with the
-# `bevy_ggrs = "0.21"` requirement AND on bevy 0.18 — upstream main carries the
-# same commit at 0.22 / bevy 0.19, which we are not on.
-# Consumer is tagged FORK(ggrs-frame-timing). RETIRE when the accessor ships in
-# a released bevy_ggrs: drop this entry, bump the requirement, use the released
-# API.
+# Backports a first-class `GgrsFrameTiming` accessor (timestep / overstep / overstep_fraction)
+# onto the v0.21.0 line so presentation can read the intra-tick phase under rollback via a
+# supported API — no reaching into driver internals. Branched from the v0.21.0 tag so it stays
+# semver-compatible with the `bevy_ggrs = "0.21"` requirement AND on bevy 0.18 — upstream main
+# carries the same commit at 0.22 / bevy 0.19, which we are not on. Consumer is tagged
+# FORK(ggrs-frame-timing). RETIRE when the accessor ships in a released bevy_ggrs: drop this
+# entry, bump the requirement, use the released API.
 bevy_ggrs = { git = "https://github.com/Erotemic/bevy_ggrs", rev = "4d2eff2a89f00c127e17fd26dd3f25d3a1113fa2" }

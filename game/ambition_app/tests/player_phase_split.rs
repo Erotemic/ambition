@@ -1,15 +1,5 @@
 //! The home/player body runs the SAME decomposed phase pipeline as actors — this
 //! pins the player movement→presentation seam through the real schedule.
-//!
-//! `player_body_tick` used to fuse movement integration and presentation. It is now
-//! two scheduled phases: the MOVEMENT phase integrates through the LITERAL same
-//! engine entry actors use (`ae::step_motion`) and writes a
-//! `PlayerBodyFrameOutput` hand-off; the separate PRESENTATION phase
-//! (`sync_player_presentation`, the player counterpart of `sync_actor_read_model`)
-//! reads that hand-off to emit anim/SFX/VFX/screen-shake. This drives real input
-//! and asserts the movement phase publishes its `FrameEvents` into the hand-off the
-//! presentation phase consumes — i.e. player movement and presentation are separate
-//! phases joined by an explicit seam, not one fused tick.
 
 #![cfg(feature = "rl_sim")]
 
@@ -31,7 +21,6 @@ fn primary_player(world: &mut World) -> Entity {
 /// the two player phases are joined by an explicit seam, not fused.
 ///
 /// **This is half of netcode N0.1's exit check** — see `actor_phase_split.rs`.
-/// The body runs both frame-stepped (`Update`) and fixed-tick (`FixedUpdate`).
 fn player_handoff_seam_holds(fixed_tick: bool) {
     let mut sim = Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()

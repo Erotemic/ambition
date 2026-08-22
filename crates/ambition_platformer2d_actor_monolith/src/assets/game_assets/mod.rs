@@ -20,9 +20,7 @@ use ambition_persistence::settings::VisualQualityBudget;
 pub fn load_game_assets(
     config: &GameAssetConfig,
     character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
-    // Provider-authored sheets (U1). Beside the catalog because it is the same
-    // kind of authority — what this app's providers declared — and a character
-    // whose sheet came from one needs the other to size its body.
+    // Provider-authored sheets (U1).
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     boss_catalog: &ambition_boss_encounter::BossCatalog,
     catalog: &crate::assets::platformer_assets::Platformer2dAssetCatalog,
@@ -80,13 +78,12 @@ pub fn load_game_assets(
             None => boss_sheets_missed.push(key.to_string()),
         }
     }
-    // The diagnostic tracks.md's boss-sprite bug asked for, made permanent. A boss
-    // renders the provider-selected fallback body exactly when its `boss_key` (its
-    // lowercased behavior id) is absent from this map — `upgrade_boss_sprites`
-    // warns once per such boss. Printing the map's contents here says whether the
-    // key was never LOADED (an asset/catalog problem, listed below) or never
-    // LOOKED UP under that name (a key-agreement problem, and the disproven
-    // `sprite_target` dispatch is not the fix — the render keys on `behavior.id`).
+    // A boss renders the provider-selected fallback body exactly when its `boss_key` (its
+    // lowercased behavior id) is absent from this map — `upgrade_boss_sprites` warns once per
+    // such boss. Printing the map's contents here says whether the key was never LOADED (an
+    // asset/catalog problem, listed below) or never LOOKED UP under that name (a key-agreement
+    // problem, and the disproven `sprite_target` dispatch is not the fix — the render keys on
+    // `behavior.id`).
     {
         let mut keys: Vec<&str> = boss_sprites.keys().map(String::as_str).collect();
         keys.sort_unstable();

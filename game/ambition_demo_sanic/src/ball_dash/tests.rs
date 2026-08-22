@@ -1,7 +1,3 @@
-//! Unit tests for the parent module, extracted from an inline
-//! `#[cfg(test)] mod tests` (test-organization campaign, 2026-07-10). Pure move:
-//! same test names + logic, now an adjacent child module with private access via
-//! `use super::*;`.
 
 use super::*;
 
@@ -69,8 +65,7 @@ fn releasing_the_crouch_launches_once_and_only_once() {
     assert_eq!(s.charge, 0.0);
 }
 
-/// A bare crouch-and-stand is standing, not a limp dash. Without this floor
-/// the verb fires on every duck and reads as a bug.
+/// A bare crouch-and-stand is standing, not a limp dash.
 #[test]
 fn a_crouch_below_the_launch_floor_just_stands_up() {
     let t = BallDashTuning {

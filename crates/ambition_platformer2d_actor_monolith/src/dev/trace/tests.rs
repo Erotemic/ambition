@@ -328,10 +328,6 @@ fn synthesizes_input_edge_event_on_button_press() {
     );
 }
 
-/// P2 — an unexplained position delta (much larger than the velocity
-/// budget) should produce a `CollisionCorrection` event so the
-/// trace surfaces teleports of the kind that landed in
-/// `debug_traces/ambition_gameplay_trace_1777902031_*.json`.
 #[test]
 fn synthesizes_collision_correction_on_unexplained_teleport() {
     let mut buf = GameplayTraceBuffer::with_capacity(16, 16);
@@ -389,11 +385,10 @@ fn synthesizes_collision_correction_on_unexplained_teleport() {
     );
 }
 
-/// A portal transit opens a suppression WINDOW (`teleport_suppress_ticks`); while
-/// it is open, the same big unexplained position delta as
-/// `synthesizes_collision_correction_on_unexplained_teleport` must NOT request a
-/// TeleportAuto dump — a normal crossing should never spam a trace dump (Jon,
-/// 2026-06-09 "nearly every time I transit a portal it dumps a trace").
+/// A portal transit opens a suppression WINDOW (`teleport_suppress_ticks`); while it is open,
+/// the same big unexplained position delta as
+/// `synthesizes_collision_correction_on_unexplained_teleport` must NOT request a TeleportAuto
+/// dump — a normal crossing should never spam a trace dump.
 #[test]
 fn portal_transit_window_suppresses_teleport_autodump() {
     let mut buf = GameplayTraceBuffer::with_capacity(16, 16);
@@ -551,12 +546,6 @@ fn body_mode_reads_authoritative_field() {
 // ---------------------------------------------------------------------------
 // The forensic-trace rollback policy.
 //
-// Two options were open (deep review §3): record only confirmed frames, or key
-// rows by simulation frame and let a correction replace a prediction. The
-// second is what shipped, because a ring buffer that waits for confirmation
-// loses exactly the tail — the last few frames before the anomaly — that a
-// dump exists to show.
-//
 // What the old gate did was neither. `simulation_pass_is_authoritative` means
 // FIRST PASS, not confirmed; a first pass can be a prediction, and skipping the
 // corrected re-simulation left the guess in the record permanently.
@@ -688,9 +677,8 @@ fn without_frame_identity_every_row_appends() {
     assert_eq!(buf.frame_count(), 4);
 }
 
-/// A rollback-host anomaly is not externally reported until the corrected
-/// frame becomes confirmed. Re-simulating the same OOB replaces the pending
-/// assessment and produces one event/dump when the confirmation line reaches it.
+/// Re-simulating the same OOB replaces the pending assessment and produces one event/dump when
+/// the confirmation line reaches it.
 #[test]
 fn a_resimulated_anomaly_is_reported_once_when_confirmed() {
     let mut buf = GameplayTraceBuffer::with_capacity(8, 8);

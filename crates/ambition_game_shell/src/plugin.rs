@@ -281,29 +281,21 @@ fn cleanup_scoped_entities(
 
 /// Surface every terminal shell-routing failure to the log, in ANY host.
 ///
-/// A windowed shell renders load failures through `ambition_load_presentation`,
-/// but a headless host — a scripted test, a CI gate, an out-of-tree consumer's
-/// binary — has no presentation layer. Before this, a failed route preparation
-/// stalled with its cause discarded (Phase 6 task-7 finding: an external
-/// consumer's content-load refusal "surfaced NOWHERE — the route just sat
-/// pending forever"). The router now carries the coordinator's well-worded
-/// [`LoadFailure`] reasons through [`ShellCommandRejection::LoadFailed`]; this
-/// system is what makes them observable. Logging is purely additive: it never
-/// suppresses the user-facing presentation, it only guarantees the developer
-/// detail reaches the log wherever the sim runs.
-/// The reasons routing has refused this host, kept where a consumer can READ
-/// them.
+/// A windowed shell renders load failures through `ambition_load_presentation`, but a headless
+/// host — a scripted test, a CI gate, an out-of-tree consumer's binary — has no presentation
+/// layer. The router now carries the coordinator's well-worded [`LoadFailure`] reasons through
+/// [`ShellCommandRejection::LoadFailed`]; this system is what makes them observable. Logging is
+/// purely additive: it never suppresses the user-facing presentation, it only guarantees the
+/// developer detail reaches the log wherever the sim runs. The reasons routing has refused this
+/// host, kept where a consumer can READ them.
 ///
-/// ⚠ **These reasons already existed and already reached the log. That was not
-/// enough, and slice B paid for finding out.** A movement-only game composed,
-/// booted, and sat in `Activating` for 600 ticks: preparation had refused it
-/// over a missing audio fragment, `log_shell_rejection` said so at `error!`,
-/// and the consumer — a headless test with no log subscriber — saw a host that
-/// simply never started. `ShellCommandRejection::LoadFailed`'s own doc comment
-/// already recorded the shape of this: without the carried failures "the route
-/// appeared to stall forever with no diagnosable cause". Carrying them into a
-/// message and logging them fixed the *engine's* view; a consumer polling for
-/// "did my game start" still had nothing.
+/// **These reasons already existed and already reached the log. That was not enough, and slice
+/// B paid for finding out.** A movement-only game composed, booted, and sat in `Activating` for
+/// 600 ticks: preparation had refused it over a missing audio fragment, `log_shell_rejection`
+/// said so at `error!`, and the consumer — a headless test with no log subscriber — saw a host
+/// that simply never started. `ShellCommandRejection::LoadFailed`'s own doc comment already
+/// recorded the shape of this: without the carried failures "the route appeared to stall
+/// forever with no diagnosable cause".
 ///
 /// A log line is an operator affordance. This is the API one.
 #[derive(bevy::prelude::Resource, Default, Debug, Clone)]
@@ -333,10 +325,7 @@ impl ShellFailureLog {
 
 /// One reader of `ShellEvent` for failures, recording AND logging.
 ///
-/// Deliberately not two systems. A second `MessageReader<ShellEvent>` would
-/// have its own cursor, and the failure mode of two cursors over one stream is
-/// that they silently disagree about what happened — which is precisely the
-/// class of bug this whole recorder exists to surface.
+/// Deliberately not two systems.
 fn log_shell_routing_failures(
     mut events: MessageReader<ShellEvent>,
     mut failures: ResMut<ShellFailureLog>,

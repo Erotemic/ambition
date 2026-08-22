@@ -16,12 +16,8 @@
 //!   become a regression test ("this 600-frame replay must match
 //!   exactly" pins all the gameplay invariants in one shot).
 //!
-//! The replay drives the same fixed-60Hz timestep the determinism
-//! test in `game/ambition_app/src/rl_sim/` uses, so live-sim
-//! divergence on a deterministic-mode trace localizes a behavior
-//! change. Wall-clock-recorded traces will diverge by construction
-//! (the original wasn't deterministic) — the binary still prints the
-//! divergence point so the tail of the trace can be visually
+//! Wall-clock-recorded traces will diverge by construction (the original wasn't deterministic)
+//! — the binary still prints the divergence point so the tail of the trace can be visually
 //! compared.
 //!
 //! Usage:
@@ -155,7 +151,7 @@ fn parse_trace_json(text: &str) -> Result<Vec<RecordedFrame>, String> {
                 jump_pressed: bool_field(controls, "jump_pressed"),
                 jump_held: bool_field(controls, "jump_held"),
                 jump_released: bool_field(controls, "jump_released"),
-                // ⚠ the RECORDED key stays `dash_pressed`: renaming the Rust channel to
+                // the RECORDED key stays `dash_pressed`: renaming the Rust channel to
                 // BURST did not rewrite traces already on disk.
                 burst_pressed: bool_field(controls, "dash_pressed"),
                 left_pressed: bool_field(controls, "left_pressed"),
@@ -221,13 +217,9 @@ fn replay(path: &PathBuf, tolerance: f32) -> Result<(), String> {
     let mut first_divergence: Option<(usize, f32, f32)> = None;
     let mut diverged_frames = 0usize;
 
-    // Trace dump convention: frames[i] is the state AFTER step i+1
-    // (the dump records each frame after stepping, not before). So
-    // the replay applies frames[i].controls and expects the
-    // post-step `live.player_pos` to match `frames[i].player_pos`.
-    // The off-by-one in the original implementation (skip(1)) was
-    // applying the wrong controls to each step. Fix: loop from i=0
-    // and align controls + position with the recorded shape.
+    // So the replay applies frames[i].controls and expects the post-step `live.player_pos` to
+    // match `frames[i].player_pos`. The off-by-one in the original implementation (skip(1)) was
+    // applying the wrong controls to each step.
     for (i, frame) in frames.iter().enumerate() {
         let action = AgentAction::from(frame.controls);
         let live = sim.step(action);

@@ -193,10 +193,8 @@ impl Invocation {
         let assets: Box<dyn AssetSource> = if self.skip_asset_check {
             Box::new(AssetsUnchecked)
         } else {
-            // No `--asset-root` means the pack's own directory, which is the
-            // right default: a pack's assets live in the pack. An EMPTY root
-            // list would silently pass every asset check, which is the failure
-            // mode this whole tool exists to make impossible.
+            // No `--asset-root` means the pack's own directory, which is the right default: a
+            // pack's assets live in the pack.
             let roots = if self.asset_roots.is_empty() {
                 vec![self.pack_root.clone()]
             } else {

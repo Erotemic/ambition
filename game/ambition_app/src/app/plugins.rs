@@ -1,18 +1,12 @@
-// ⛔ **NOT `#[cfg(feature = "ui")]`.** It was, while its three use sites were
-// not — so `--no-default-features --features web` had the uses without the
-// import and the web build did not compile. `Platformer2dStartupAssets` is an
-// asset collection and has nothing to do with the UI feature; the gate was on
-// the wrong half of the pair. Found 2026-08-03 by running the web check, which
-// only the exhaustive plan runs — the same way this target sat broken for four
-// days once before.
+// **NOT `#[cfg(feature = "ui")]`.** It was, while its three use sites were not — so
+// `--no-default-features --features web` had the uses without the import and the web build did not
+// compile. `Platformer2dStartupAssets` is an asset collection and has nothing to do with the UI
+// feature; the gate was on the wrong half of the pair.
 //
-// ⭐ **AND SINCE 2026-08-18 THE MODULE ITSELF IS BEHIND `ldtk_runtime`** (the
-// monolith's, not this crate's), because it holds a typed LDtk handle. That is
-// safe here for a reason worth stating rather than re-deriving: `ldtk_map` on
-// the line below is ALREADY unconditional, so this file has never been able to
-// compile without an LDtk runtime. The two imports stand or fall together, and
-// the warning above still applies to both — gate the USES and the IMPORT as one
-// pair, or neither.
+// That is safe here for a reason worth stating rather than re-deriving: `ldtk_map` on the line
+// below is ALREADY unconditional, so this file has never been able to compile without an LDtk
+// runtime. The two imports stand or fall together, and the warning above still applies to both —
+// gate the USES and the IMPORT as one pair, or neither.
 use ambition_platformer2d::actors::assets::loading;
 use ambition_platformer2d::actors::rooms;
 use ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith;
@@ -65,14 +59,10 @@ use super::sim_systems::apply_player_reset_input_system;
 /// `register_*_systems` helper rather than back into this orchestrator.
 pub fn add_simulation_plugins(app: &mut App) {
     app.add_message::<ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction>();
-    // AmbitionPhysicsPlugin (Avian2D) is intentionally NOT here. Per
-    // ADR 0007 Avian is secondary physics for debris/ragdoll visuals;
-    // the player controller is custom via parry2d in ambition_platformer2d::engine_core.
-    // Avian's collider backend needs `SceneSpawner` (from ScenePlugin in
-    // DefaultPlugins), which headless doesn't have. Until Avian's debris
-    // role is migrated to presentation events end-to-end (or Avian gains
-    // a headless-friendly init path), it lives in
-    // `add_presentation_plugins`.
+    // AmbitionPhysicsPlugin (Avian2D) is intentionally NOT here. Per ADR 0007 Avian is
+    // secondary physics for debris/ragdoll visuals; the player controller is custom via parry2d
+    // in ambition_platformer2d::engine_core. Avian's collider backend needs `SceneSpawner`
+    // (from ScenePlugin in DefaultPlugins), which headless doesn't have.
 
     // Room transitions are load transactions in both direct-entry and shell
     // hosts. Install the contributor-neutral coordinator at the simulation
@@ -132,11 +122,8 @@ pub fn add_simulation_plugins(app: &mut App) {
         simulation_host,
     ));
 
-    // ⭐ **Ambition is the game that HAS an LDtk world, so Ambition says so.**
-    // The spine and its rollback row used to ride the engine group, which meant
-    // every RON-authored demo installed an authoring format it never uses. This
-    // is the composition statement that replaced it; it must come after the
-    // group, which is what sets `SimulationHost` for the rollback registrar.
+    // This is the composition statement that replaced it; it must come after the group, which is
+    // what sets `SimulationHost` for the rollback registrar.
     app.add_plugins(ambition_platformer2d::runtime::LdtkWorldPlugin);
 
     // Ambition-specific content and the selected LDtk backend live above the
@@ -165,26 +152,12 @@ pub fn add_simulation_plugins(app: &mut App) {
     // PROBE-K2B-EDIT2: deleted
 }
 
-/// The app-LOCAL per-frame systems, pinned into the ordering SLOTS the engine
-/// chains leave for the host (E5 step 5). Everything engine-generic that used
-/// to be registered here lives in `ambition_platformer2d::runtime::{PlayerSchedulePlugin,
-/// RoomTransitionSchedulePlugin, PortalSchedulePlugin,
-/// ProgressionSchedulePlugin}`.
 fn register_app_local_sim_systems(app: &mut App) {
     let sim = app.sim_schedule();
     // ── The PlayerInput gap: Ambition's reset-INPUT consumer ──────────────
     //
-    // Ambition's own "the player pressed Reset" path, slotted after the
-    // dev-edit sync and before the input timer (the exact position it held in
-    // the old inline chain). It stays app-side because the button binding is
-    // Ambition's; the reset it performs is the engine's `reset_sandbox`.
-    //
-    // Its former chain partner, the `RoomReplayRequested` consumer, is now
-    // engine-side in `RoomReplaySchedulePlugin` (tracks §2.5), along with the
-    // two content slot edges the app used to anchor. Keep the explicit
-    // ordering edge to it: both systems reset the same body, so without one
-    // they are ambiguous, and this preserves the exact order they ran in when
-    // they were chained here.
+    // It stays app-side because the button binding is Ambition's; the reset it performs is the
+    // engine's `reset_sandbox`.
     app.add_systems(
         sim,
         apply_player_reset_input_system
@@ -197,22 +170,11 @@ fn register_app_local_sim_systems(app: &mut App) {
 
     // ── Brain-driven player clone (press K) ────────────────────────────────
     //
-    // A `PlayerEntity` body driven by a PlayerDemo brain through the SAME
-    // shared player systems as the human player. Spawn lands in `WorldPrep`
-    // (the earliest set) so the new body exists before the PlayerInput/
-    // PlayerSimulation phases pick it up the same frame; the brain tick
-    // produces its `ActorControl` in `PlayerInput` (before the control phase
-    // consumes it); the transform sync runs in `PresentationSync` after the
-    // shared simulation has moved it.
-    // **Ambition's own death rules** (ADR 0033). Exploration's answer: no
-    // interlude, and the room goes back when nobody is left in play. That is
-    // exactly what `apply_home_reset_policy` used to do by reflex — a pit fall
-    // returns you to spawn with the room's features restored — except that it is
-    // now stated rather than assumed, it happens ONCE rather than on every frame
-    // the gate re-fires, and it travels through the same road every other host
-    // uses.
+    // A `PlayerEntity` body driven by a PlayerDemo brain through the SAME shared player systems
+    // as the human player. **Ambition's own death rules** (ADR 0033). Exploration's answer: no
+    // interlude, and the room goes back when nobody is left in play.
     //
-    // ⚠ **`UntaggedRooms`, not the whole binary.** This function is composed
+    // **`UntaggedRooms`, not the whole binary.** This function is composed
     // into the multi-game shell host beside Sanic, Mary-O and Smash, and every
     // one of those tags its rooms with its own mode. Ambition's own rooms carry
     // no tag, so `UntaggedRooms` is exactly the set of rooms these rules are
@@ -260,16 +222,6 @@ fn register_app_local_sim_systems(app: &mut App) {
     //
     // Slotted between the possession release and the hit-event drain (the
     // exact position it held in the old inline chain).
-    //
-    // ⛔ **`apply_home_reset_policy` is GONE** (ADR 0033), and this app is why
-    // the defect it caused was invisible: it lived HERE and not in the demo
-    // binaries, so the hosted app and the standalone Mary-O disagreed about what
-    // a pit death does. It turned every frame of `PlayerBodyFrameOutput.reset`
-    // into a `ResetRoomFeaturesEvent { PlayerDeath }`, and a death beat that
-    // pinned the body outside the world re-flagged that gate for its whole
-    // dwell — 192 full room resets per death, while the death music played.
-    // What it did is now a CONSEQUENCE the game authors through `DeathRules`,
-    // delivered once through the one shared road (`RoomReplayRequested`).
     app.add_systems(
         sim,
         (
@@ -278,10 +230,6 @@ fn register_app_local_sim_systems(app: &mut App) {
             sync_player_presentation.run_if(gameplay_allowed),
         )
             .chain()
-            // The engine's named slot for exactly this: after control has
-            // settled, before the frame's damage lands. It used to be two leaf
-            // names a host had to trust stayed true — the position was documented
-            // in the engine's module docs and enforced nowhere.
             .in_set(
                 ambition_platformer2d::platformer::schedule::PlayerSimulationSet::PostPossession,
             ),
@@ -322,7 +270,7 @@ pub fn add_ldtk_runtime_plugin(app: &mut App) {
         .add_plugins(ldtk_world::AmbitionLdtkRegistrationPlugin)
         .add_systems(
             Startup,
-            // ⭐ **K2b edit 3: the direct-entry world-spine spawn is GONE.**
+            // **K2b edit 3: the direct-entry world-spine spawn is GONE.**
             // It ran only when `AmbitionShellHosted` was absent, and every
             // composition inserts it now — so it was dead code that looked
             // live. The shell spawns SESSION-scoped roots per activation
@@ -454,38 +402,27 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     app.add_plugins(ambition_platformer2d::render::screen_effects::ScreenEffectsPlugin);
     // Loads baked `*_spritesheet.ron` manifests for runtime sheet metadata.
     app.add_plugins(ambition_platformer2d::sprite_sheet::SheetRegistryPlugin);
-    // ⭐ **THE HALF THE SHEET CRATE CANNOT DO** (ledger D36). It records every
-    // target a later manifest took from an earlier one with a different frame
-    // grid, and reports the count once; deciding which of those MATTER needs to
-    // know which targets something resolves art by, and that is a catalog fact.
-    // This is the caller that owns both, so the filter lives here.
-    // ⛔⛔ **`PostStartup`, and `Startup` was a CHECK THAT COULD NOT FIRE.**
-    // `init_sheet_registry` is itself a `Startup` system, and Startup systems
-    // are UNORDERED — so this ran with `Res<SheetRegistry>` absent, took the
-    // `else { return; }` on its `Option`, and said nothing on every route.
-    // Measured: instrumented to print one line per shadowed target, it printed
-    // ZERO on both `mary_o_gameplay` and `ambition_gameplay` while the registry
-    // itself was logging 39 shadowed targets in the same boot.
-    // ⚠ its silence therefore meant "I did not run", and read as "nothing
-    // collides" — which is what a report that can only ever be empty always
+    // It records every target a later manifest took from an earlier one with a different frame
+    // grid, and reports the count once; deciding which of those MATTER needs to know which targets
+    // something resolves art by, and that is a catalog fact. This is the caller that owns both, so
+    // the filter lives here. **`PostStartup`, and `Startup` was a CHECK THAT COULD NOT FIRE.**
+    // `init_sheet_registry` is itself a `Startup` system, and Startup systems are UNORDERED — so
+    // this ran with `Res<SheetRegistry>` absent, took the `else { return; }` on its `Option`, and
+    // said nothing on every route. Measured: instrumented to print one line per shadowed target, it
+    // printed ZERO on both `mary_o_gameplay` and `ambition_gameplay` while the registry itself was
+    // logging 39 shadowed targets in the same boot. its silence therefore meant "I did not run",
+    // and read as "nothing collides" — which is what a report that can only ever be empty always
     // reads as.
     app.add_systems(bevy::prelude::PostStartup, report_shadowed_character_sheets);
     app.add_plugins(crate::dev::DevToolsPlugin);
     add_physics_debris_plugins(app);
-    // No UI-widget-framework plugin is installed here, and there is no
-    // `add_ui_plugins` to call. This app's UI is plain Bevy UI plus the
-    // typography Ambition owns (`MenuFont`, `MenuTextHeightFraction`,
-    // `resolve_menu_text_size`). See the note on the `ui` feature in
-    // `Cargo.toml` for what that feature still buys.
-    // Input bindings/bridge live in `ambition_platformer2d::host::HostInputBindingsPlugin`
-    // (E5 step 5). The app-local preset→InputMap resync that sat here
-    // (`sync_preset_input_map`) is deleted: it reached its participant with
-    // `single_mut()` — so a second couch seat made a preset change reach
-    // nobody — and it shipped only in this app, so no demo composition had a
-    // rebuild path at all. The engine owns it now:
-    // `sync_primary_recipe_from_settings` +
-    // `ambition_input::rebuild_maps_from_recipes` in the host input pipeline
-    // (`InputSet::Collect`), for every seat in every composition.
+    // No UI-widget-framework plugin is installed here, and there is no `add_ui_plugins` to
+    // call. This app's UI is plain Bevy UI plus the typography Ambition owns (`MenuFont`,
+    // `MenuTextHeightFraction`, `resolve_menu_text_size`). See the note on the `ui` feature in
+    // `Cargo.toml` for what that feature still buys. Input bindings/bridge live in
+    // `ambition_platformer2d::host::HostInputBindingsPlugin` (E5 step 5). The engine owns it
+    // now: `sync_primary_recipe_from_settings` + `ambition_input::rebuild_maps_from_recipes` in
+    // the host input pipeline (`InputSet::Collect`), for every seat in every composition.
     add_audio_plugins(app);
     add_mobile_touch_plugin(app);
     #[cfg(feature = "falling_sand")]
@@ -495,30 +432,21 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     #[cfg(feature = "frame_pacing")]
     app.add_plugins(crate::host::framepace::FramePacePlugin);
 
-    // ⚠ the PLUGIN, not the bare system: `load_ui_fonts` is engine code, and
-    // registering it here alone left every non-app composition with no `UiFonts`
-    // and a vacuous `.after(UiFontsLoaded)`. Same defect the note below records
-    // for `sync_resolved_visual_quality`.
+    // the PLUGIN, not the bare system: `load_ui_fonts` is engine code, and registering it here
+    // alone left every non-app composition with no `UiFonts` and a vacuous
+    // `.after(UiFontsLoaded)`.
     ui_fonts::UiFontsPlugin::ensure_installed(app);
-    // ⚠ `sync_resolved_visual_quality` left this file on 2026-07-31:
-    // `VisualQualityPlugin` owns the resource AND the system that keeps it
-    // true, and `SessionRoomVisualsPlugin` installs it. They were apart, and
-    // the half that MOVES was registered here alone — so every other
-    // composition held a `ResolvedVisualQuality` that never left its default.
-    // ⭐ and the OWNER, for the same reason as `UiFontsPlugin` above: this
-    // function registers systems that take `Res<ResolvedVisualQuality>`, and the
-    // plugin that installs it was reached only along the shipped host's path
-    // (`SessionRoomVisualsPlugin`). `capture_scene` composes this function
-    // WITHOUT that path, so it panicked on a missing resource before drawing a
-    // frame. Idempotent by construction (`is_unique() -> false` plus a marker),
-    // so saying it here costs the host nothing.
+    // They were apart, and the half that MOVES was registered here alone — so every other
+    // composition held a `ResolvedVisualQuality` that never left its default. and the OWNER, for
+    // the same reason as `UiFontsPlugin` above: this function registers systems that take
+    // `Res<ResolvedVisualQuality>`, and the plugin that installs it was reached only along the
+    // shipped host's path (`SessionRoomVisualsPlugin`). `capture_scene` composes this function
+    // WITHOUT that path, so it panicked on a missing resource before drawing a frame. Idempotent by
+    // construction (`is_unique() -> false` plus a marker), so saying it here costs the host
+    // nothing.
     app.add_plugins(ambition_platformer2d::render::quality::VisualQualityPlugin);
     app.add_systems(
         Update,
-        // ⚠ `refresh_parallax_layers_on_quality_change` left this chain on
-        // 2026-07-31: `SessionRoomVisualsPlugin` installs it now, beside the
-        // theme load it exists to make visible. Registering it here as well
-        // would run the despawn/respawn twice in one frame.
         (
             reload_visual_quality_assets_on_scale_change,
             ambition_platformer2d::render::rendering::refresh_entity_sprite_handles_on_game_assets_change,
@@ -526,7 +454,7 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
             .chain()
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     );
-    // ⚠ `sync_portal_quality_budget` left this file on 2026-08-04, for exactly
+    // `sync_portal_quality_budget` left this file, for exactly
     // the reason the note above gives for its sibling: it REQUIRES
     // `Res<ResolvedVisualQuality>`, which `VisualQualityPlugin` owns, and being
     // registered apart from it panicked every other composition that installs the
@@ -544,15 +472,9 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     // layer's own header forbids — and which said nothing at all in a
     // composition that never registers `GameMode`.
     app.add_plugins(inventory_ui::InventoryInputContextPlugin);
-    // ⛔ **the save/load leg LEFT this function on 2026-08-16, and the reason is
-    // worth keeping.** `SaveRestored` (then `InventoryRestored`) plus
-    // `restore_inventory_from_save` / `persist_inventory_to_save` were installed
-    // here, inside the visible-binary-only presentation assembly — so no headless
-    // composition ever saved or loaded anything, and the authority that decides
-    // what a player's file says had never run in a test. A save is not
-    // presentation; it belongs to every composition that simulates a world.
-    // `ambition_platformer2d_runtime::durable_save_horizon::DurableSaveHorizonPlugin`
-    // owns it now, beside the checkpoint horizon it serializes.
+    // A save is not presentation; it belongs to every composition that simulates a world.
+    // `ambition_platformer2d_runtime::durable_save_horizon::DurableSaveHorizonPlugin` owns it now,
+    // beside the checkpoint horizon it serializes.
     app.insert_resource(inventory_ui::InventoryUiState::default())
         .add_systems(
             Update,
@@ -586,15 +508,8 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
         .add_systems(
             Update,
             (
-                // ⚠ `dialog_input` LEFT this chain on 2026-08-02 — it and
-                // `dialog_reveal_tick` are now owned by the monolith's
-                // `YarnBindingsPlugin`, beside the rest of the feature.
                 handle_ldtk_hot_reload,
                 handle_debug_hotkeys,
-                // ⚠ `sync_developer_body_profile` LEFT this chain on
-                // 2026-08-02: it writes rollback state (`BodyBaseSize`), so
-                // it belongs in `DevToolsSimPlugin`'s `DevEditApplySet`,
-                // which is in the schedule that rewinds.
                 ambition_platformer2d::actors::trace::handle_trace_hotkey,
                 ambition_platformer2d::menu::map::handle_map_menu_hotkeys,
             )
@@ -625,10 +540,6 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
 }
 
 fn install_camera_and_debug_overlay_systems(app: &mut App) {
-    // The camera cluster itself (viewport publish, shake, follow, portal
-    // continuity) is `ambition_platformer2d::host::HostCameraPlugin` (E5 step 5). What
-    // stays here is the Ambition DEBUG OVERLAY, drawn once the camera has
-    // landed this frame.
     app.init_resource::<debug_overlay::DebugOverlayLabels>();
     // With portals, the continuity camera tag (registered by HostCameraPlugin)
     // must land before the overlay reads it.
@@ -656,20 +567,14 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
 }
 
 fn install_fx_and_hud_systems(app: &mut App) {
-    // ⚠ the VFX tick cluster (`update_particles` / `update_effects` /
-    // `update_impacts` / the two speech-bubble passes) left this file on
-    // 2026-08-15, together with `vfx_spawn_messages` below:
-    // `ambition_platformer2d_host::HostVfxPresentationPlugin` registers them for
-    // every composition. Until then this app was the only one that DREW a
-    // `VfxMessage` it had written — which is why Mary-O's coin never popped.
+    // Until then this app was the only one that DREW a `VfxMessage` it had written — which is why
+    // Mary-O's coin never popped.
     app.add_systems(
         Update,
         (
             update_hud,
             ambition_platformer2d::render::rendering::sync_boss_health_bar_overlay,
-            // ⚠ `dialog_reveal_tick` LEFT this chain on 2026-08-02; see the
-            // note at `dialog_input` above. It is now CHAINED after the
-            // input in one plugin, which those two never were here.
+            // It is now CHAINED after the input in one plugin, which those two never were here.
             ambition_platformer2d::render::cutscene::sync_cutscene_ui,
             // Keeps the overlay in the reading rect as the layout moves; the
             // spawn above only gets the first frame right. See
@@ -686,19 +591,15 @@ fn install_fx_and_hud_systems(app: &mut App) {
     .add_systems(
         Update,
         (
-            // ⚠ `regen_player_mana` LEFT this chain on 2026-08-02. It mutates
-            // `BodyMana`, which is rollback-registered (`body.mana`), and it was
-            // running here in `Update` at render rate -- outside the rollback
-            // schedule entirely. Its own doc already said "a sim mutator never
-            // lives in presentation" (E4); the code had moved out of the render
-            // module and the REGISTRATION had not. It now runs in the engine's
-            // FeatureCollection phase, so every composition regenerates mana and
-            // a rewind resimulates it.
+            // It mutates `BodyMana`, which is rollback-registered (`body.mana`), and it was running
+            // here in `Update` at render rate -- outside the rollback schedule entirely. It now
+            // runs in the engine's FeatureCollection phase, so every composition regenerates mana
+            // and a rewind resimulates it.
             ambition_platformer2d::render::hud::spawn_player_hud,
             ambition_platformer2d::render::hud::update_player_hud,
             // Ambition's built-in HP/MP/$ row hides whenever the active game
             // declared its OWN HUD (Sanic rings, Mary-O score), so vitals never
-            // overlay a game that has no health/mana (Jon bug #36).
+            // overlay a game that has no health/mana.
             ambition_platformer2d::render::hud::toggle_builtin_hud_for_declared_games,
             // Consumes THIS frame's resolved HUD regions, so a profile that
             // reserves surround for HUD actually gets the HUD put there.
@@ -755,17 +656,6 @@ fn install_misc_visual_sync_systems(app: &mut App) {
             .after(sync_visuals)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     )
-    // ⚠ `sync_parallax_layers` left this list on 2026-07-31, with the theme
-    // load and the refresh: `SessionRoomVisualsPlugin` registers it
-    // `.after(camera_follow)` for every composition, because a backdrop that
-    // does not move is not a parallax layer.
-    // Encounter / intro LockWall visuals. Reconciles `LockWallVisual`
-    // Bevy entities against the collision overlay's `gate_solids` (the
-    // lock walls the gate contributors derive each frame in WorldPrep,
-    // no longer mutated into the authored base) so the wall is visible
-    // when an encounter slams it shut. Pinned after
-    // `drive_wave_encounters` so it runs late in the frame, well
-    // after the WorldPrep contributor has populated `gate_solids`.
     .add_systems(
         Update,
         ambition_platformer2d::render::rendering::sync_lock_wall_visuals
@@ -813,19 +703,12 @@ fn install_misc_visual_sync_systems(app: &mut App) {
 /// feature-gated) blink preview ring.
 fn install_projectile_and_vfx_systems(app: &mut App) {
     // Projectile presentation is entity-backed now: the host renders the shared
-    // `LiveProjectile` occurrence family after simulation, using
-    // `ProjectileVisualId` / optional `ProjectileKind` rather than a player/enemy
-    // pool. The visual passes themselves left this file on 2026-07-31:
-    // `ambition_platformer2d_host::HostProjectileVisualsPlugin` registers them, with their
-    // two ordering edges intact, for every composition. Until then this app was
-    // the only one that DREW a projectile it had fired.
+    // `LiveProjectile` occurrence family after simulation, using `ProjectileVisualId` /
+    // optional `ProjectileKind` rather than a player/enemy pool.
     //
-    // ⚠ **and the VFX subscriber followed on 2026-08-15, for the same reason and
-    // with the same symptom.** `fx::process_*_requests` + `vfx_spawn_messages`
-    // now live in `ambition_platformer2d_host::HostVfxPresentationPlugin`. This
-    // app was the only composition that drew a `VfxMessage` it had written, so
-    // the Mary-O demo's coin pop, its brick-break burst and every impact spark
-    // in the smash demo were spawned into nothing.
+    // This app was the only composition that drew a `VfxMessage` it had written, so the Mary-O
+    // demo's coin pop, its brick-break burst and every impact spark in the smash demo were spawned
+    // into nothing.
     //
     // Live blink-destination preview ring. Reads leafwing action state to
     // know when the blink button is held, so it lives behind the `input`
@@ -862,12 +745,6 @@ pub(super) fn add_physics_debris_plugins(_app: &mut App) {}
 // Ambition's UI is plain Bevy UI, and no widget framework is installed here.
 // Typography is owned by `ambition_menu` — `MenuFont`,
 // `MenuTextHeightFraction`, `resolve_menu_text_size`.
-//
-// ⚠ `bevy_material_ui` sat here until 2026-08-08 under a comment calling its
-// `DialogPlugin` LOAD-BEARING for menu typography. Measured false: the launcher
-// renders the same 29 text entities at the same sizes either way. Do not
-// reinstate it on that reasoning — `dev/journals/material-ui-removal-2026-08-08.md`
-// has the forensics.
 //
 // The leafwing input bindings + the device→ControlFrame bridge live in
 // `ambition_platformer2d::host::HostInputBindingsPlugin` (E5 step 5); the dev
@@ -956,9 +833,9 @@ impl Plugin for AmbitionGamePresentationPlugin {
 }
 
 /// **Warn only for a shadowed sheet target that is a CHARACTER, because only
-/// those are resolved by target** — ledger D36.
+/// those are resolved by target** —.
 ///
-/// ⛔ **the sheet crate cannot make this call and must not learn to.** Its
+/// **the sheet crate cannot make this call and must not learn to.** Its
 /// collision check fired ~30 times per Android boot because 17 characters share
 /// the rig target `toon`, 18 share `robot` and 9 share `goblin`, all
 /// legitimately and with genuinely different frame sizes — and nothing looks art
@@ -967,7 +844,7 @@ impl Plugin for AmbitionGamePresentationPlugin {
 /// `pirate_heavy_broadside_bess`, so she loaded the right image and cropped it
 /// with a dead grid.
 ///
-/// ⚠ **`Option` on both, and that is not defensive padding.** A composition may
+/// **`Option` on both, and that is not defensive padding.** A composition may
 /// legitimately reach here with neither — a headless tool, a demo that mounts no
 /// Ambition cast — and the correct behaviour there is to say nothing rather than
 /// to report every rig target as suspicious.
@@ -988,19 +865,13 @@ fn report_shadowed_character_sheets(
         let Some(entry) = catalog.get(&shadowed.target) else {
             continue;
         };
-        // ⛔⛔ **and "the catalog knows this name" is NOT enough** — measured
-        // 2026-08-18, once this system was ordered late enough to run at all.
-        // Of the 39 shadowed targets, `toon` (15) is not a catalog id, but
-        // `robot` (15), `goblin` (8) and `sandbag` (1) ALL are: those names are
-        // shared RIG adapters that happen to also name a character. Warning on
-        // "the catalog knows it" would have reported 24 legitimate rig shares
-        // as defects, which is the noise this filter exists to remove.
+        // Of the 39 shadowed targets, `toon` (15) is not a catalog id, but `robot` (15), `goblin`
+        // (8) and `sandbag` (1) ALL are: those names are shared RIG adapters that happen to also
+        // name a character. Warning on "the catalog knows it" would have reported 24 legitimate rig
+        // shares as defects, which is the noise this filter exists to remove.
         //
-        // ⭐ **the harmful case is that the character's OWN sheet LOST.** The
-        // founding defect — `pirate_heavy_broadside_bess`, a day and a bisect —
-        // was her image loading and being cropped by a stale manifest's grid.
-        // That is exactly "the record this character names is the loser", and
-        // it is a question the pair (catalog entry, ShadowedTarget) can answer.
+        // That is exactly "the record this character names is the loser", and it is a question
+        // the pair (catalog entry, ShadowedTarget) can answer.
         let names_the_loser = std::path::Path::new(&entry.spritesheet)
             .file_name()
             .and_then(|name| name.to_str())

@@ -24,14 +24,11 @@ pub struct LedgeFacts {
     pub getup_kind: LedgeGetupKind,
 }
 
-/// Per-body semantic movement facts, republished every movement tick from the
-/// active policy. THE read surface for everything outside the kernel that used
-/// to peek at raw maneuver timers.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyMotionFacts {
     /// An active dash is in flight.
     ///
-    /// ⛔ **this is the TRAVERSAL dash** — Ambition's discrete, charge-gated
+    /// **this is the TRAVERSAL dash** — Ambition's discrete, charge-gated
     /// burst. A platform fighter's kit switches it off, so nothing that means
     /// *"is this body running"* may read it. That is [`Self::running`].
     pub dashing: bool,
@@ -39,10 +36,6 @@ pub struct BodyMotionFacts {
     /// above [`crate::MovementTuning::run_commit_frac`] of its top speed. The
     /// gait the genre's running attack comes out of.
     pub running: bool,
-    /// **The committed crouch before a jump leaves the ground.** A real state
-    /// with a real length ([`crate::MovementTuning::jump_squat_time`]) and, until
-    /// now, no way for a sheet to be asked for it — every fighter sheet in the
-    /// repo has drawn a `jump_squat` row the whole time.
     pub jump_squatting: bool,
     /// Dodge-roll i-frames are active.
     pub dodge_rolling: bool,
@@ -90,14 +83,14 @@ pub struct BodyMotionFacts {
     /// **This body crawls along surfaces** rather than walking a gravity axis —
     /// the `AdhesiveCrawler` policy, published as a FACT.
     ///
-    /// ⛔ **ADR 0024 §8 forbids reading `ActorTuning::surface_walker` at
+    /// **ADR 0024 §8 forbids reading `ActorTuning::surface_walker` at
     /// runtime**, because that boolean is spawn-time SELECTION: it chooses the
     /// motion model once and is then a stale copy of a decision the body already
     /// carries explicitly. One consumer still read it — the brain snapshot's
     /// `turns_at_walls`, where "does a wall mean turn around" is genuinely
     /// different for a body whose whole locomotion is walls. It reads this now.
     ///
-    /// ⚠ **a FACT, not the model**: consumers outside the kernel ask what is
+    /// **a FACT, not the model**: consumers outside the kernel ask what is
     /// true of the body, never which enum variant produced it. That is the same
     /// rule the animation layer follows for `tumbling` and `knocked_down`.
     pub adhesive_crawling: bool,
@@ -115,7 +108,7 @@ impl BodyMotionFacts {
     /// Project the active policy's semantic facts. Non-axis policies have no
     /// axis maneuvers by construction — their projection is the default.
     pub fn from_model(model: &MotionModel) -> Self {
-        // ⚠ **the crawler is answered BEFORE the early return.** Every fact below
+        // **the crawler is answered BEFORE the early return.** Every fact below
         // is axis-swept state, so the old `else { return default() }` gave a
         // crawler a facts block claiming it was not crawling — which is the exact
         // reason its one consumer went on reading the spawn-time flag instead.
@@ -181,8 +174,6 @@ mod tests {
 
     #[test]
     fn a_non_axis_policy_can_never_expose_stale_axis_facts() {
-        // Even if a body previously dashed/clung as an axis body, its facts
-        // under another policy are the default — the leak O4 exists to close.
         let model = MotionModel::surface_momentum(MomentumParams::default());
         assert_eq!(
             BodyMotionFacts::from_model(&model),

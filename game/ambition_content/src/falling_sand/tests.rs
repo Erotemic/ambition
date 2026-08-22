@@ -1,7 +1,3 @@
-//! Unit tests for the parent module, extracted from an inline
-//! `#[cfg(test)] mod tests` (test-organization campaign, 2026-07-10). Pure move:
-//! same test names + logic, now an adjacent child module with private access via
-//! `use super::*;`.
 
 use super::*;
 use crate::falling_sand_sim::{MIXED_SPOUT_WIDTH, SOLO_SPOUT_WIDTH};
@@ -137,8 +133,7 @@ fn thin_matter_projects_nothing_but_is_not_lost() {
     assert_eq!(scratch.bucketed(MaterialKind::Sand), SAND_THRESHOLD - 1);
 }
 
-/// The switch→spout wiring, as a table. `mixed` opens three mouths, and the
-/// order is fixed so the emit pass is deterministic (ADR 0023).
+/// The switch→spout wiring, as a table.
 #[test]
 fn the_switch_state_selects_a_deterministic_set_of_spout_mouths() {
     let none = FallingSandSpoutState::default();
@@ -172,17 +167,9 @@ fn the_switch_state_selects_a_deterministic_set_of_spout_mouths() {
         .all(|m| m.width == MIXED_SPOUT_WIDTH));
 }
 
-/// **The bug FS1 exists to kill, pinned at the definition.** Matter had a
-/// second home: `FallingSandStreamParticle`, an Ambition-side sprite that fell
-/// on its own gravity, ignored every block in the room, and despawned at an
-/// invented `world.size.y - 64` floor — so it poured straight through the
-/// platforms the real particles were pooling on. Its absence is the invariant.
+/// Its absence is the invariant.
 ///
-/// The check is on the DEFINITIONS, not on mentions of the names: the doc
-/// comments above deliberately say those names out loud so the next reader
-/// knows what was removed and why, and an occurrence-counting lint would fight
-/// its own explanation. A lint that cannot survive its own documentation is
-/// the wrong lint.
+/// A lint that cannot survive its own documentation is the wrong lint.
 #[test]
 fn the_grid_is_the_only_owner_of_matter() {
     let source = include_str!("../falling_sand.rs");

@@ -79,19 +79,16 @@ pub fn drain_cutscene_triggers(
 
 /// Advance the playing cutscene by one SIMULATION step.
 ///
-/// ⛔ **this read `Res<Time>`, which is the wrong clock in two ways.** This
-/// system runs in the sim schedule, and `sim_schedule()` IS `Update` under the
-/// `RenderFrame` host — so a cutscene's beat timings depended on how fast the
-/// machine drew frames, and two replays of the same input stream could enter
-/// different beats. Under a fixed or GGRS host the frame clock happens to be
-/// deterministic, which is exactly the kind of accident that makes a bug
-/// invisible in the tests that would catch it.
+/// **this read `Res<Time>`, which is the wrong clock in two ways.** This system runs in the sim
+/// schedule, and `sim_schedule()` IS `Update` under the `RenderFrame` host — so a cutscene's
+/// beat timings depended on how fast the machine drew frames, and two replays of the same input
+/// stream could enter different beats.
 ///
-/// ⚠ **and `WorldTime::sim_dt` is SCALED**, which the frame clock is not. A
+/// **and `WorldTime::sim_dt` is SCALED**, which the frame clock is not. A
 /// cutscene playing under slow motion now slows with the scene it accompanies
 /// instead of running at wall speed over a world in treacle.
 ///
-/// ⭐ this is the "deterministic elapsed" half of the cutscene-authority row in
+/// this is the "deterministic elapsed" half of the cutscene-authority row in
 /// `tracks.md`: playback state advances on the sim clock, and only presentation
 /// reads the wall clock (`PresentationTime::wall_dt`).
 pub fn tick_active_cutscene(
@@ -122,14 +119,11 @@ pub fn tick_active_cutscene(
     let mut completed = false;
     for event in events {
         match event {
-            // ⛔ **`BeatEntered` no longer decides what is on screen**, and that
-            // is the whole fix. It fires only on the tick a beat begins
-            // (`elapsed == 0.0`), so a rollback landing MID-BEAT never saw it
-            // again and the banner, camera target and fade were gone for the
-            // rest of that beat — while the snapshot's doc claimed the next tick
-            // would republish them. It also mutated one field at a time, so a
-            // camera beat following a dialogue left the dialogue on screen.
-            // (GPT 5.6 through `32eb27a`, findings 1 and 2.)
+            // It fires only on the tick a beat begins (`elapsed == 0.0`), so a rollback landing
+            // MID-BEAT never saw it again and the banner, camera target and fade were gone for
+            // the rest of that beat — while the snapshot's doc claimed the next tick would
+            // republish them. It also mutated one field at a time, so a camera beat following a
+            // dialogue left the dialogue on screen.
             CutsceneEvent::BeatEntered { .. } => {}
             CutsceneEvent::FlagWritten { id, on } => {
                 save.data_mut().set_flag(id, on);
@@ -151,7 +145,7 @@ pub fn tick_active_cutscene(
         return;
     }
 
-    // ⭐ **THE WHOLE PICTURE, REPLACED, from the state the snapshot carries.**
+    // **THE WHOLE PICTURE, REPLACED, from the state the snapshot carries.**
     // A pure function of `(script, beat_index, elapsed)` — so restoring mid-beat
     // restores the picture with it, and no beat can leave another's fields
     // standing because there are no individual fields to leave.

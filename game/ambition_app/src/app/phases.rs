@@ -30,9 +30,9 @@ pub(super) fn sync_player_presentation(
     sfx_writer: &mut SfxWriter,
     vfx_writer: &mut MessageWriter<VfxMessage>,
     shake: &mut ambition_platformer2d::platformer::camera_ease::CameraShakeState,
-    // The active route's shake ceiling (D14): a landing thump is one of the two
-    // things in the game that shakes the screen, and how hard it is allowed to
-    // is now the ROUTE's statement rather than a constant every game shares.
+    // The active route's shake ceiling: a landing thump is one of the two things in the game
+    // that shakes the screen, and how hard it is allowed to is now the ROUTE's statement rather
+    // than a constant every game shares.
     shake_tuning: ambition_platformer2d::platformer::camera_ease::CameraShakeTuning,
     is_primary: bool,
     // A13: the player body's presentation source, so its jump/dash/land cues
@@ -49,14 +49,8 @@ pub(super) fn sync_player_presentation(
     let shake_amplitude = ambition_platformer2d::platformer::camera_ease::hard_fall_shake_amplitude(
         frame_out.events.ground_contact.landing_impact_speed(),
     );
-    // ⛔ **THE HIT SHAKE IS NOT HERE, AND MUST NOT COME BACK HERE** (P4.37).
-    // It landed here first, and being home-avatar presentation is what made it
-    // wrong: this system's query is `With<PlayerEntity>` and the kick was gated
-    // again on `PrimaryPlayer`, which names the HOME AVATAR — a CPU-versus-CPU
-    // match legitimately has zero of them, and `ambition_app` is the only host
-    // that registers this system at all, so the standalone smash binary could
-    // never have shaken. It lives in the ENGINE now, reading every body:
-    // `features::ecs::hit_camera_shake`, scheduled in `CombatSet::Settle`.
+    // **THE HIT SHAKE IS NOT HERE, AND MUST NOT COME BACK HERE** (P4.37). It lives in the ENGINE
+    // now, reading every body: `features::ecs::hit_camera_shake`, scheduled in `CombatSet::Settle`.
     //
     // The hard-fall thump below stays: a LANDING genuinely is home presentation
     // (it is read off this body's own `PlayerBodyFrameOutput`), and its SFX is

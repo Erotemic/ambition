@@ -47,11 +47,6 @@ fn authored_encounter_waves(
 /// Read every room's authored `EncounterTrigger` + `LockWall` and build matching
 /// `EncounterSpec`s.
 ///
-/// ⭐⭐ **this used to take an `LdtkProject`, and that was the whole reason the
-/// actor monolith needed the LDtk crate** (D136). The two markers are ordinary
-/// emissions on the room IR now, so the loader reads what every other authored
-/// family reads and the map format stops leaking into the encounter road.
-///
 /// Runs once after startup (or after a hot reload). An encounter whose trigger
 /// id has an authored entry in the content-installed wave book gets that
 /// multi-wave timeline — the spawn cadence is data in `encounters/*.ron`, not in
@@ -60,11 +55,8 @@ fn authored_encounter_waves(
 pub fn load_encounter_specs_from_rooms(
     rooms: &[ambition_platformer2d_world::rooms::RoomSpec],
     save: &ambition_persistence::save_data::AmbitionGameSaveData,
-    // ⭐ **the App's book, passed in.** This used to be read out of a
-    // process-global, which made a loader that looks pure depend on install
-    // order — see `EncounterWaveBook`. `None` is a composition with no authored
-    // encounters, which falls back to the room's own spawn markers exactly as
-    // an unrecognised trigger id always did.
+    // `None` is a composition with no authored encounters, which falls back to the room's own spawn
+    // markers exactly as an unrecognised trigger id always did.
     waves: Option<&ambition_encounter::EncounterWaveBook>,
 ) -> Vec<(String, EncounterSpec, PersistedEncounterState)> {
     let mut out = Vec::new();
@@ -121,16 +113,10 @@ pub fn load_encounter_specs_from_rooms(
 /// **The mob `kind` string for an authored brain** — the inverse of the map
 /// reader's `parse_enemy_brain`.
 ///
-/// ⚠ **`Passive` has two pre-images and this collapses them.** The map reader
-/// turns an EMPTY `brain` field into `Passive`, and the literal `"Passive"` into
-/// `Passive` too; the old project-reading fallback distinguished them, defaulting
-/// an empty field to `"medium_striker"`. ⭐ **measured before choosing: every
-/// encounter area in the shipped worlds contains ZERO `EnemySpawn` markers** —
-/// all three authored encounters (`goblin_encounter` and the two lock-wall-only
-/// areas) drive from the wave book — so this path has no authored content and no
-/// behaviour moves either way. ⇒ the exact inverse is the honest choice, and
-/// promoting an unauthored marker to a striker is the behaviour to justify, not
-/// this one.
+/// **`Passive` has two pre-images and this collapses them.** The map reader turns an EMPTY
+/// `brain` field into `Passive`, and the literal `"Passive"` into `Passive` too; the old
+/// project-reading fallback distinguished them, defaulting an empty field to
+/// `"medium_striker"`.
 fn wave_mob_kind(brain: &ambition_entity_catalog::placements::CharacterBrain) -> String {
     use ambition_entity_catalog::placements::CharacterBrain;
     match brain {
@@ -151,7 +137,7 @@ fn fallback_waves_from_enemy_spawns(
         let centre = (spawn.aabb.min + spawn.aabb.max) * 0.5;
         let mut mob =
             EncounterMobSpec::new(wave_mob_kind(&spawn.payload.brain), [centre.x, centre.y]);
-        // ⭐ **the marker's own art identity.** A marker-derived wave mob is the
+        // **the marker's own art identity.** A marker-derived wave mob is the
         // same body reached by a different road, so it must not be the one path
         // left wearing its instance id. The IR REQUIRES `character_id`, so
         // unlike the project reader there is no absent case to fall back from.
@@ -204,11 +190,8 @@ mod loading_tests {
 
         // Escalation: wave 1 is light strikers, wave 3 is all heavies.
         //
-        // ⚠ **the heavy is a CHARACTER now, not a role** (2026-08-13). Jon cast
-        // `large_brute` as `npc_goblin_brute`, a distinct authored creature with
-        // its own sprite generator, rather than an archetype row. The shape this
-        // asserts — the third wave is uniformly the heavy — is unchanged; what
-        // the heavy IS finally has an answer.
+        // **the heavy is a CHARACTER now, not a role**. The shape this asserts — the third wave is
+        // uniformly the heavy — is unchanged; what the heavy IS finally has an answer.
         assert!(waves[0].mobs.iter().all(|m| m.kind == "medium_striker"));
         assert!(waves[2].mobs.iter().all(|m| m.kind == "npc_goblin_brute"));
 

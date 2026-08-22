@@ -1,10 +1,5 @@
 //! Pin Crouching stability under continuous Down input.
 //!
-//! Per Jon's 2026-05-07 report: "When the character crouches they
-//! start blinking ... shifting between standing and crouch sprites.
-//! Holding down causes the camera and sprite to look like they are
-//! shaking."
-//!
 //! This test runs the full Platformer2dSimHarness (engine + progression chain
 //! including body_mode driver) for 60 frames with axis_y pinned at
 //! 1.0 (Down held) and asserts the player stays Crouching for the

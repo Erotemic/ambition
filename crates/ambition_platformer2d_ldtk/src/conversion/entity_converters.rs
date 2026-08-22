@@ -26,28 +26,16 @@ pub(super) fn convert_surface(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, S
 
 /// `StitchedBoundary` is read by its own consumer off the raw `LdtkProject` and
 /// never joins the emission stream.
-///
-/// ⚠ **`EncounterTrigger` and `LockWall` used to be here too, and that sentence
-/// is what kept the LDtk crate in five production files** (D136). They emit now;
-/// see [`convert_encounter_trigger`].
 pub(super) fn convert_consumed_elsewhere(_ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     Ok(RoomEmission::ignored())
 }
 
 /// **An encounter's trigger volume, into the room IR.**
 ///
-/// ⭐⭐ **this is the inversion**: the encounter loader read `EncounterTrigger`
+/// **this is the inversion**: the encounter loader read `EncounterTrigger`
 /// straight off the `LdtkProject`, which is why it — and therefore the actor
 /// monolith — needed the LDtk crate at all. The marker joins the emission stream
 /// like every other authored family now, and the loader reads rooms.
-///
-/// ⭐ **and the coordinates get MORE correct on the way, not less.** The old
-/// reader used `entity.px` raw, which is LEVEL-local; this uses `ctx.min`, which
-/// has the active-area offset applied. Measured across the shipped worlds, every
-/// area carrying an encounter marker is a SINGLE level (`alice_relay`,
-/// `gate_stack_lower`, `goblin_encounter`), so that offset is zero and today's
-/// behaviour is unchanged — but a multi-level encounter area would have placed
-/// its trigger wrong under the old reader and will not under this one.
 pub(super) fn convert_encounter_trigger(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, _name, min, size) = ctx.parts();
     Ok(RoomEmission {
@@ -70,7 +58,7 @@ pub(super) fn convert_lock_wall(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission,
     Ok(RoomEmission {
         lock_walls: vec![ambition_platformer2d_world::rooms::EncounterLockWallSpec {
             id: field_string(entity, "id").unwrap_or_default(),
-            // ⚠ empty is NOT the same as absent here, and both mean "not a
+            // empty is NOT the same as absent here, and both mean "not a
             // gate": `authored_gated_lock_walls` skips a wall without a
             // condition because it belongs to an encounter instead.
             gated_by: field_string(entity, "gated_by")
@@ -85,7 +73,7 @@ pub(super) fn convert_lock_wall(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission,
 
 pub(super) fn convert_loading_zone(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
-    // ⛔ **an unrecognised spelling is REFUSED, not defaulted.** This was
+    // **an unrecognised spelling is REFUSED, not defaulted.** This was
     // `_ => Door`, so a typo produced an interact door where the author meant a
     // walk-through and nothing said so. See `LoadingZoneActivation::from_authored`.
     let authored = field_string(entity, "activation").unwrap_or_else(|| "Door".to_string());
@@ -195,9 +183,6 @@ pub(super) fn convert_surface_chain(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmiss
 /// second real consumer of the content-registered converter seam, strictly
 /// better than a script-injection escape hatch.
 ///
-/// Winding is fixed INTERIOR-rideable: vertices wind so each segment's
-/// `normal = (t.y, -t.x)` points toward the loop center, so a momentum body
-/// rides the INSIDE of the loop (up the wall, across the ceiling, and down).
 /// The marker's center (`min + size/2`) is the loop center.
 pub(super) fn convert_surface_loop(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
@@ -653,7 +638,7 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
     // is caught by LDtk's own referential integrity instead of by a spelling
     // convention three resolvers each implemented differently.
     //
-    // ⛔ **the `Patrol:<id>` string it replaces is REFUSED, not tolerated.**
+    // **the `Patrol:<id>` string it replaces is REFUSED, not tolerated.**
     // Falling through to `CharacterBrain::Custom` would leave an un-migrated
     // placement looking exactly like a healthy one — the same silence that let
     // sandbox's basement patroller stand still for months. Delete this arm once
@@ -669,7 +654,7 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
     let path_ref = ctx
         .kinematic_path_ref("path_ref")
         .map_err(|problem| format!("EnemySpawn `{name}` {problem}"))?;
-    // ⛔ ONE authority per placement. A `path_ref` beside a `Guard:96` is two
+    // ONE authority per placement. A `path_ref` beside a `Guard:96` is two
     // answers to "what drives this body", and picking one silently is how an
     // authored intent disappears.
     if path_ref.is_some() && !authored_brain.is_empty() {
@@ -689,18 +674,6 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
         None => parse_enemy_brain(authored_brain),
     };
     let (id, name, aabb) = authored_triple(entity, name, min, size);
-    // **The ART identity, authored separately from the label.** `name` is what a
-    // level calls this enemy; `character_id` is which catalog character it wears.
-    // They were the same string until 2026-08-06, which meant renaming a
-    // character silently un-arted every level that placed it and two demos
-    // carried a hand-written pass to patch the name back in after conversion.
-    // ⛔ **REQUIRED, and refused LOUDLY when absent** (2026-08-14). Absence used
-    // to leave the display-name join intact, which is how "which character is
-    // this" got two answers. Measured before the field was tightened: 184
-    // `EnemySpawn` entities across every `.ldtk` in the repo — content, both
-    // demos, the map-assets submodule — and every one authors an id, so this
-    // refusal has no authored content to reject. It exists for the NEXT entity
-    // somebody draws, which is precisely when a default would be invisible.
     let character_id = field_string(entity, "character_id")
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
@@ -726,15 +699,13 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
             }
         }
     }
-    // **WHEN THIS ONE COMES BACK** — the placement's own answer, when it has one
-    // (ADR 0022). A migrated character has no archetype row to inherit a policy
-    // from, and the same creature is a permanent casualty in a story room and a
-    // repopulating trash mob in a corridor. Absent leaves the archetype's, which
-    // is every level authored before the field existed.
+    // **WHEN THIS ONE COMES BACK** — the placement's own answer, when it has one (ADR 0022). A
+    // migrated character has no archetype row to inherit a policy from, and the same creature
+    // is a permanent casualty in a story room and a repopulating trash mob in a corridor.
     if let Some(respawn) = field_string(entity, "respawn") {
         match parse_respawn_policy(respawn.trim()) {
             Some(policy) => payload.respawn = Some(policy),
-            // ⛔ LOUD. A misspelled policy that silently meant "the archetype's"
+            // LOUD. A misspelled policy that silently meant "the archetype's"
             // is the shape this repo has paid for repeatedly: it looks exactly
             // like authoring nothing.
             None if !respawn.trim().is_empty() => {
@@ -772,7 +743,7 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
     // two placements is a patroller in one corridor and a door guard in the
     // next, which the creature itself must not have to decide.
     //
-    // ⚠ PROVIDER-RELATIVE, like every other authored profile reference — a level
+    // PROVIDER-RELATIVE, like every other authored profile reference — a level
     // author writes `medium_striker`, never `ambition::medium_striker`.
     if let Some(profile) = field_string(entity, "brain_profile") {
         let profile = profile.trim();
@@ -891,8 +862,8 @@ pub(super) fn convert_moving_platform(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmi
     // left alone — and let it say which motion that is. The adapter no longer
     // owns platform defaults or the rule for reading two motions at once.
     //
-    // ⚠ `sweep_dx` and `loop_dy` are DELTAS, so they take no level offset.
-    // ⛔ **`loop_min_y` is a POSITION, so it does.** `LdtkEntityCtx::offset`
+    // `sweep_dx` and `loop_dy` are DELTAS, so they take no level offset.
+    // **`loop_min_y` is a POSITION, so it does.** `LdtkEntityCtx::offset`
     // says it outright — "apply it to any ADDITIONAL points a converter parses
     // out of entity fields; `min` has it applied already" — and an anchor
     // compared against an already-offset `start_pos` is a shaft in a different
@@ -908,7 +879,7 @@ pub(super) fn convert_moving_platform(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmi
     .classify()?;
     Ok(RoomEmission::moving_platform(
         ambition_platformer2d_world::platforms::MovingPlatformSpec::new(
-            // ⛔ **an author could not name a platform, and every other converter
+            // **an author could not name a platform, and every other converter
             // lets them.** `LoadingZone`, `CameraZone`, `Portal`, `ShrineSpawn`
             // and the rest all read `field_string(entity, "id")` and fall back to
             // the iid; this one went straight to the iid, so a moving platform
@@ -983,11 +954,9 @@ pub(super) fn convert_switch(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, St
         aabb,
     );
     record.name = name;
-    // ⭐ **the `on_activate` line rides alongside, as its own family** (D136).
-    // `authored_switch_commands` used to read it straight off the raw project;
-    // it reads the room now. ⛔ NOT folded into `InteractableSpec`: that type is
-    // a variant of the closed Tier-0 `PlacementSchema`, so widening it would put
-    // a schema event behind a load-time string that one consumer reads.
+    // NOT folded into `InteractableSpec`: that type is a variant of the closed Tier-0
+    // `PlacementSchema`, so widening it would put a schema event behind a load-time string that one
+    // consumer reads.
     let switch_commands = field_string(entity, "on_activate")
         .map(|line| line.trim().to_string())
         .filter(|line| !line.is_empty())

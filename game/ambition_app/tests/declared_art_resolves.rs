@@ -1,21 +1,12 @@
 //! **Every declared art id must name a file that exists.**
 //!
-//! [`docs/planning/triage/declared-id-resolution-checks.md`] opened this in
-//! 2026-07-25 after a Mary-O playtest round, with a table of five instances and
-//! one sentence that is the whole reason it matters:
-//!
 //! > Every row in the table above was found by a player noticing something
 //! > missing, not by a test.
 //!
-//! The failure is that `Option` does two jobs at once — *"this build
-//! legitimately has no assets"* and *"this content named something that does not
-//! exist"* — and they are indistinguishable at the call site, so the second
-//! silently inherits the first's tolerance. Content declares a `sprite` id, the
-//! resolution returns `None`, the caller treats it as an art-free build, and the
-//! pickup **simulates perfectly while producing nothing at all**. No warning, no
-//! log line, no failing test.
+//! Content declares a `sprite` id, the resolution returns `None`, the caller treats it as an
+//! art-free build, and the pickup **simulates perfectly while producing nothing at all**. No
+//! warning, no log line, no failing test.
 //!
-//! Jon ruled out the obvious fix — a boot-time validation pass — on startup cost:
 //! *"it puts the cost on every launch forever to catch a class of mistake that is
 //! made at authoring time."* The triage's recommendation is a TEST as the gate,
 //! which costs the shipped binary nothing, and it named the direction that was
@@ -23,7 +14,7 @@
 //! those five bugs was the other way round, a declared id → a target that does
 //! not exist.
 //!
-//! ⚠ This asserts against the composed SHIPPED host, not against a fixture. A
+//! This asserts against the composed SHIPPED host, not against a fixture. A
 //! provider that declares art nobody generated is exactly the case, and only the
 //! real composition knows which providers are in the build.
 
@@ -50,11 +41,6 @@ fn asset_roots() -> Vec<PathBuf> {
 }
 
 /// Whether `declared` names a real file under any mounted root.
-///
-/// A `game://`-qualified path is stripped to its tail: source qualification says
-/// WHOSE tree to look in, and this check is about whether the file is anywhere at
-/// all. Being permissive here is deliberate — the failure being caught is "no
-/// such file", not "wrong source".
 fn resolves(declared: &str, roots: &[PathBuf]) -> bool {
     let relative = declared.rsplit("://").next().unwrap_or(declared);
     roots.iter().any(|root| root.join(relative).is_file())
@@ -66,7 +52,7 @@ fn resolves(declared: &str, roots: &[PathBuf]) -> bool {
 /// `true` unconditionally — a one-character edit, or an asset root that grows a
 /// catch-all. Nothing here would notice.
 ///
-/// ⚠ every other census in this repo grew a poison after being caught measuring
+/// every other census in this repo grew a poison after being caught measuring
 /// nothing: the regen orphan scan, the catalog placement scan, the hall pedestal
 /// pairing. This file's checks are older than that lesson.
 #[test]
@@ -244,23 +230,14 @@ fn every_declared_music_track_path_names_a_file_that_exists() {
 /// resolves, the asset server fails the load asynchronously, the `ImageNode`
 /// draws nothing, and every layer below is silent.
 ///
-/// ⛔ found on 2026-08-05 by LOOKING at the new smash character-select screen:
-/// Mary-O's cell was a hole. `inspect_hall_portraits.py` existed the whole time
-/// and could not have caught it — it reads ONE catalog file and filters to rows
-/// with a `hall_dialogue_id`, so a character outside the Hall, or declared by a
-/// demo's own Rust fragment, was never in its population. This asks the
-/// ASSEMBLED catalog, which is the same object the UI asks.
+/// This asks the ASSEMBLED catalog, which is the same object the UI asks.
 #[test]
 fn every_catalog_character_that_derives_a_portrait_has_the_art() {
     use ambition_platformer2d::character::CharacterCatalog;
 
     /// **Characters whose portrait art was never generated.**
     ///
-    /// ⭐ **EMPTY, and it was six on the morning of 2026-08-05.** Every one of
-    /// them wore the `mary_o_v2` sheet family, and FOUR separate surfaces drew
-    /// from it: the Mary-O demo's three forms, Pocket's runner, TwinTrack's
-    /// traveller, and Ambition's own versus arena. One missing generator target,
-    /// six blank faces, no error anywhere.
+    /// One missing generator target, six blank faces, no error anywhere.
     ///
     /// It closed in one command per form —
     /// `sprite2d_renderer portraits mary_o_v2{,_fire,_tall}`. The renderer
@@ -269,16 +246,13 @@ fn every_catalog_character_that_derives_a_portrait_has_the_art() {
     /// `super_mary_o_portraits.png` sat next door looking like coverage. The
     /// sheet name diverged; the pipeline never broke.
     ///
-    /// ⚠ **asserted as a SET, so it holds in both directions.** A new character
+    /// **asserted as a SET, so it holds in both directions.** A new character
     /// with no art fails here, and so does an entry left behind after its art
     /// arrives — the same staleness the rollback resource ratchet had to grow a
     /// second assert to prevent.
     ///
-    /// ⚠ **a hand-rolled census over the catalog SOURCE found five of the six
-    /// and missed `arena_duelist_close`**, which is declared in Rust inside
-    /// `ambition_app` rather than in any catalog RON. Asking the ASSEMBLED
-    /// resource is why this one is right; the regex was reading the places I
-    /// already knew to look.
+    /// Asking the ASSEMBLED resource is why this one is right; the regex was reading the places
+    /// I already knew to look.
     const KNOWN_MISSING: &[&str] = &[];
 
     let app = build_visible_app(VisibleRenderMode::NoWindow, true);
@@ -319,22 +293,15 @@ fn every_catalog_character_that_derives_a_portrait_has_the_art() {
 
 /// **The SHEET, which is the stronger form of the question above.**
 ///
-/// A portrait is a face; the spritesheet is the character. `regen_sprites.sh`
-/// publishes an EXPLICIT list of targets, and its own comments record the last
-/// time this went wrong — five Hall characters *"that previously depended on
-/// manually generated local assets and therefore disappeared on a fresh
-/// clone"*. Generated art is gitignored, so a sheet nobody's batch produces
-/// exists only on the machine that once rendered it, and the failure shows up
-/// as a clone with no character in it.
+/// A portrait is a face; the spritesheet is the character. Generated art is gitignored, so a
+/// sheet nobody's batch produces exists only on the machine that once rendered it, and the
+/// failure shows up as a clone with no character in it.
 ///
-/// ⚠ **and it CANNOT answer the fresh-clone question, which is the one that
-/// bites.** Generated art is gitignored, so this test sees whatever the machine
-/// running it happens to have rendered — a sheet that no batch publishes but
-/// that was made by hand a year ago passes here and is absent on a clone. What
-/// it does catch is a catalog row naming art that is nowhere at all, which is
-/// the typo case. The fresh-clone question is answered by `regen_sprites.sh`'s
-/// own `expected_files` postcondition; the fix for `mary_o_v2` on 2026-08-05
-/// went THERE, and this is its cheap companion.
+/// **and it CANNOT answer the fresh-clone question, which is the one that bites.** Generated art is
+/// gitignored, so this test sees whatever the machine running it happens to have rendered — a sheet
+/// that no batch publishes but that was made by hand a year ago passes here and is absent on a
+/// clone. What it does catch is a catalog row naming art that is nowhere at all, which is the typo
+/// case.
 #[test]
 fn every_catalog_character_names_a_spritesheet_that_exists() {
     use ambition_platformer2d::character::CharacterCatalog;

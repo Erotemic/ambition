@@ -44,13 +44,8 @@ impl CameraSample {
 /// **The portal's roll still reaches the camera, now that it arrives by a
 /// different road.**
 ///
-/// ⛔ it used to be written straight onto the snapshot by `camera_follow`, AFTER
-/// the resolve. It is now an INPUT to the resolve (`CameraPresentationInputs`),
-/// composed with the view's own observer roll — which is what lets the clamp
-/// know the view's real orientation. This asserts the composition is the
-/// identity for the world-fixed views these fixtures use, so a refactor that
-/// dropped the portal roll on the way in would be caught here rather than by
-/// somebody noticing the world stopped turning at a seam.
+/// It is now an INPUT to the resolve (`CameraPresentationInputs`), composed with the view's own
+/// observer roll — which is what lets the clamp know the view's real orientation.
 fn assert_presented_roll_follows_the_portal(sample: CameraSample) {
     assert!(
         (sample.presented_roll - sample.camera_roll).abs() < 1e-4,
@@ -78,7 +73,7 @@ impl HeadlessCameraHarness {
         app.insert_resource(TimeUpdateStrategy::ManualDuration(
             std::time::Duration::from_secs_f32(1.0 / 60.0),
         ));
-        // ⭐ **K2b edit 2: the shell host, booted to gameplay.** This composed the
+        // **K2b edit 2: the shell host, booted to gameplay.** This composed the
         // simulation plugin alone and inherited the `SessionRoot` it published at
         // plugin-build time; that publisher is gone. `StartRoomOverride` survives
         // the change — it is consumed while the prepared content is assembled, so
@@ -103,11 +98,8 @@ impl HeadlessCameraHarness {
         // the rig composes the render-side apply after it, exactly like the real
         // host.
         //
-        // ⭐ **and it registers no `CameraViewState`** (D116 M2): the state is a
-        // COMPONENT on the view, spawned with it by `CameraObservationPlugin`.
-        // The rig used to init a global the production host also init'd, which
-        // meant the fixture modelled the wrong ownership as faithfully as the
-        // code did.
+        // **and it registers no `CameraViewState`**: the state is a COMPONENT on the view,
+        // spawned with it by `CameraObservationPlugin`.
         app.add_systems(
             Update,
             (
@@ -146,9 +138,9 @@ impl HeadlessCameraHarness {
     }
 
     fn step(&mut self, action: AgentAction) -> CameraSample {
-        // ⛔ through the SEAM: `ControlFrame` is seat zero's OUTPUT mirror since
-        // D175, so assigning it delivers the press to nobody and every assertion
-        // after it would measure a body nothing was driving.
+        // through the SEAM: `ControlFrame` is seat zero's OUTPUT mirror since, so assigning it
+        // delivers the press to nobody and every assertion after it would measure a body
+        // nothing was driving.
         ambition_platformer2d::sim::drive_control_frame(self.app.world_mut(), action.into());
         self.app.update();
         self.sample()
@@ -459,12 +451,9 @@ fn c135_to_c134_preserves_screen_position_and_keeps_falling() {
     );
 }
 
-/// Walking through the thin-wall doorway pair (c136/c137) must keep the
-/// APPARENT (screen-space) player position smooth for the WHOLE walk — the
-/// engage frame, every anchored frame, the anchor-release frame, and the
-/// settle afterwards. Jon's report: the character visibly jumps crossing the
-/// thin wall in Continuous mode, which the per-crossing checks above (both on
-/// wide pairs) never covered frame-by-frame.
+/// Walking through the thin-wall doorway pair (c136/c137) must keep the APPARENT (screen-space)
+/// player position smooth for the WHOLE walk — the engage frame, every anchored frame, the
+/// anchor-release frame, and the settle afterwards.
 #[test]
 fn thin_wall_walk_keeps_apparent_player_position_smooth() {
     let mut harness = HeadlessCameraHarness::new();

@@ -18,18 +18,14 @@
 //!                              in a test, the browser's own loop on wasm.
 //! ```
 //!
-//! ⛔⛔ **THIS MODULE EXISTS BECAUSE THE MIDDLE LAYER WAS SPELLED OUT BY HAND
+//! **THIS MODULE EXISTS BECAUSE THE MIDDLE LAYER WAS SPELLED OUT BY HAND
 //! THREE TIMES, AND EACH COPY SILENTLY LOST SOMETHING.**
 //!
-//! - `capture_scene` hand-spelled it and lost the `--route` positional, the
-//!   headless display surface, `--dev-overlays`, `--combat-overlay`, and — for
-//!   two days, 2026-08-06 → 08-08 — *the entire room*, because
-//!   `install_ambition_shell_visuals` was never added to its copy.
-//! - `run_web` hand-spelled it and lost `AmbitionShellHosted`, the shell host,
-//!   the initial route, and `install_ambition_shell_visuals`. The browser
-//!   therefore loaded, linked, initialized wgpu, painted a canvas, and showed
-//!   **nothing at all** — no launcher, no room, no error. Reported by Jon
-//!   2026-08-14; it is the same defect as the one above, in a second builder.
+//! - `capture_scene` hand-spelled it and lost the `--route` positional, the headless display surface, `--dev-overlays`, `--combat-overlay`, and — for
+//! two days, → 08-08 — *the entire room*, because `install_ambition_shell_visuals` was never added to its copy.
+//! - `run_web` hand-spelled it and lost `AmbitionShellHosted`, the shell host, the initial route, and `install_ambition_shell_visuals`. The browser therefore loaded, linked, initialized wgpu, painted a canvas, and showed
+//! **nothing at all** — no launcher, no room, no error.
+//! it is the same defect as the one above, in a second builder.
 //!
 //! Both copies passed every gate they had. A build gate proves *links*; a link
 //! proves nothing about *composes*. The structural answer is that there is one
@@ -47,7 +43,7 @@ use super::plugins::{
 
 /// The few genuine choices a platform host makes about the game it composes.
 ///
-/// ⚠ **every field here is a thing hosts really differ on.** Anything a host
+/// **every field here is a thing hosts really differ on.** Anything a host
 /// merely *happens* to do differently belongs in [`compose_ambition_visible_game`]
 /// instead — that is the whole point of the split. The test of a candidate field
 /// is whether two hosts would answer it differently *for a reason*.
@@ -56,7 +52,7 @@ pub struct VisibleGameSpec {
     /// Which route the shell host boots into: `true` → the multi-game launcher,
     /// `false` → straight to gameplay.
     ///
-    /// ⚠ **the name is historical and kept on purpose.** Since K2b BOTH arms are
+    /// **the name is historical and kept on purpose.** Since K2b BOTH arms are
     /// shell-hosted; this only chooses the initial route, which is what
     /// `--direct` and every `--start-room` alias mean. Renaming it would touch
     /// 33 call sites to restate a boolean whose two values are unchanged.
@@ -113,14 +109,12 @@ impl VisibleGameSpec {
 /// `compose_inputs` is **the pre-simulation hook** — the one moment a caller can
 /// reach: after the App exists, before the simulation plugin builds.
 ///
-/// ⛔ `StartRoomOverride`, `StartRoomMustResolve`, `StartingCharacterOverride`
-/// and `SeatsAMatchInsteadOfAHomeBody` are COMPOSITION INPUTS:
-/// `init_sandbox_resources` removes them while the simulation plugin builds, so
-/// a caller that wants to set one must write it into a world that already exists
-/// and has not yet built that plugin. There was no such moment, and the absence
-/// is precisely what produced the first hand-spelled copy.
+/// `StartRoomOverride`, `StartRoomMustResolve`, `StartingCharacterOverride` and
+/// `SeatsAMatchInsteadOfAHomeBody` are COMPOSITION INPUTS: `init_sandbox_resources` removes
+/// them while the simulation plugin builds, so a caller that wants to set one must write it
+/// into a world that already exists and has not yet built that plugin.
 ///
-/// ⚠ **a closure rather than a struct of known inputs.** A struct would have to
+/// **a closure rather than a struct of known inputs.** A struct would have to
 /// enumerate the composition inputs, and the fifth one added elsewhere would not
 /// be reachable here — the same "a caller cannot say this" hole, one release
 /// later. The hook says *when*; the resources say *what*.
@@ -141,26 +135,13 @@ pub fn compose_ambition_visible_game(
     ambition_platformer2d::runtime::serialize_frame_schedules(app);
 
     {
-        // ⭐ **NOT GATED ON `dev_tools`, AND THE SAME HOST ON EVERY PLATFORM.**
+        // **NOT GATED ON `dev_tools`, AND THE SAME HOST ON EVERY PLATFORM.**
         // Bevy seals `SimSchedule` when the first simulation plugin registers,
         // so the host is chosen here for the whole build — which is why this
         // sits above the plugins below rather than beside its documentation.
         //
-        // It used to be chosen inside `#[cfg(feature = "dev_tools")]` — not a
-        // developer convenience but a COUPLING: the only thing that installed a
-        // GGRS session was the dev observatory, and a GGRS host with no session
-        // composes, boots, renders and never simulates. The engine owns the
-        // session now (the rollback backend's local-session owner), so every build can
-        // have one.
-        //
-        // ⛔ the browser entry once set NO host, so it fell to the render-frame
-        // default and stepped the simulation once per RENDER FRAME with the real
-        // frame delta (`refresh_world_time` reads the schedule-local
-        // `Res<Time>`). A platformer's feel is a function of its timestep, so the
-        // same game had a different jump arc in a browser than on a desktop, and
-        // at 144 Hz than at 60. Jon, 2026-08-03: *"the web build is another
-        // deployment of the game so likely needs ggrs if multiplayer is ever
-        // gonna be a real thing"*.
+        // The engine owns the session now (the rollback backend's local-session owner), so every
+        // build can have one.
         //
         // Ordinary play runs a zero-distance baseline: GGRS drives the
         // simulation deterministically and rollback stays dormant. F9 raises the
@@ -180,7 +161,7 @@ pub fn compose_ambition_visible_game(
     // Launch-time "choose your character": inserted BEFORE the plugins so the
     // sandbox preparation consumes it before publishing session authority.
     insert_starting_character_override(app);
-    // ⚠ this resource must be inserted BEFORE the sim plugins build: it is what
+    // this resource must be inserted BEFORE the sim plugins build: it is what
     // `publish_direct_prepared_session_root` checks, and without it the app
     // carries the build-time root AND the activation's, which is two canonical
     // roots and a panic on the first read.
@@ -200,7 +181,7 @@ pub fn compose_ambition_visible_game(
         app.add_plugins((AmbitionGameSimulationPlugin, AmbitionGamePresentationPlugin));
     }
 
-    // ⭐ **K2b: the shell host is composed EITHER WAY**, and the mode only
+    // **K2b: the shell host is composed EITHER WAY**, and the mode only
     // decides which route it boots into. Direct entry stops being a second way
     // to build a game and becomes what `tracks.md` says it should be — *a shell
     // host whose initial route is the gameplay route*, the recipe
@@ -213,7 +194,7 @@ pub fn compose_ambition_visible_game(
             super::shell_host::AMBITION_GAMEPLAY_ROUTE,
         );
     }
-    // ⛔⛔ **NO ROOM WITHOUT THIS.** Losing this one line is what made the
+    // **NO ROOM WITHOUT THIS.** Losing this one line is what made the
     // browser show a blank canvas, and what made `capture_scene` photograph an
     // empty world for two days. It is not a decoration pass — it is how an
     // activated session's world becomes visible at all.
@@ -233,15 +214,6 @@ pub fn compose_ambition_visible_game(
     );
 }
 
-/// Read an optional starting-character override from the
-/// `AMBITION_START_CHARACTER` env var. When set to a non-empty
-/// `character_catalog.ron` id, the local player spawns AS that character — its
-/// sprite, combat moveset, and name — instead of the default protagonist. This
-/// is the launch-time surface behind Jon's "choose your character" ask
-/// (`AMBITION_START_CHARACTER=goblin cargo run -p ambition_app`); an in-game
-/// selection menu is the natural follow-up. Unknown ids still spawn a fully
-/// controllable player (the sprite falls back to the colored rectangle).
-///
 /// A no-op in the browser, where the env read simply returns `Err`.
 fn insert_starting_character_override(app: &mut App) {
     let Ok(raw) = std::env::var("AMBITION_START_CHARACTER") else {

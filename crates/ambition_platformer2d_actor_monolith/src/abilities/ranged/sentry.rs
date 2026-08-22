@@ -145,7 +145,7 @@ pub fn update_sentries(
         // Nearest enemy within range.
         let target = enemies
             .iter()
-            // Structural tangibility gate (Jon 2026-07-22): a dead enemy is an
+            // Structural tangibility gate: a dead enemy is an
             // intangible corpse — the sentry does not target it.
             .filter(|(_, f, health)| {
                 **f == ActorFaction::Enemy && !crate::combat::util::body_is_corpse(*health)

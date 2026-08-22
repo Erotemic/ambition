@@ -154,13 +154,9 @@ fn zero_axis_vel(kinematics: &mut crate::body_clusters::BodyKinematics, axis: Ax
     }
 }
 
-/// The body's span ALONG the swept axis is nested inside the block's span: the
-/// contact can only be on a face perpendicular to the sweep (a side graze while
-/// sweeping the gravity axis), never a support/head face — so the gravity-axis
-/// pass must not resolve it. The axis-role generalization of the old Y-only
-/// `body_is_side_contact` (fable review 2026-07-02 §B5: the guard was welded to
-/// world axes, so under sideways gravity exact-edge grazes became spurious
-/// landings).
+/// The body's span ALONG the swept axis is nested inside the block's span: the contact can only
+/// be on a face perpendicular to the sweep (a side graze while sweeping the gravity axis),
+/// never a support/head face — so the gravity-axis pass must not resolve it.
 fn body_is_nested_along(body: Aabb, block: Aabb, axis: Axis) -> bool {
     const NESTED_EPS: f32 = 1.0e-4;
     let (body_min, body_max) = axis_span(body, axis);
@@ -221,12 +217,6 @@ fn resolve_side_penetration(
     chosen.filter(|&(d, _)| is_contact_range_snap(axis_vec(axis, d), body))
 }
 
-/// Swept-AABB collision step for ONE world axis, role-aware: the same function
-/// serves the side pass and the gravity pass for every cardinal gravity, so no
-/// guard can exist on one axis and not the other (fable review 2026-07-02
-/// §B5 — the old `sweep_player_x/y` pair each carried protections the other
-/// lacked, which surfaced whenever gravity rotated onto the unguarded axis).
-///
 /// Role behavior:
 /// - **Gravity axis**: OneWay landing gate, nested side-graze rejection, feet
 ///   snap + `on_ground` when moving toward the feet, head-face push otherwise.
@@ -289,7 +279,7 @@ pub(super) fn sweep_player_axis_clusters(
                 drop_through,
             );
         }
-        // ⛔ **the MIRROR, and without it a `BonkOnly` block is solid from every
+        // **the MIRROR, and without it a `BonkOnly` block is solid from every
         // side** — which is the invisible floor it exists to stop being. It
         // blocks a head coming up into it and nothing else.
         if matches!(block.kind, BlockKind::BonkOnly) {
@@ -311,18 +301,7 @@ pub(super) fn sweep_player_axis_clusters(
         let toi_fraction = sweep_fraction(hit.time_of_impact);
         kinematics.pos += axis_vec(axis, delta_along * toi_fraction);
         let body = kinematics.aabb_oriented(gravity_dir);
-        // ⛔ **`BonkOnly` used to hold an arm of its own here, and an `if / else
-        // if` chain DOES NOT FALL THROUGH.** The comment on that arm said *"it
-        // falls through to the ordinary face resolution below, which is what
-        // produces the head contact the bonk reads"* — a description of the
-        // intent, not of the code. Claiming the first arm skipped the head arm
-        // twelve lines down, so a hidden block STOPPED a rising head (the sweep
-        // above truncates the motion) and reported nothing at all: no contact,
-        // no bonk, no reward. Mary-O's one hidden block was unhittable, and it
-        // read as an art bug because the same block could not draw itself
-        // either (queue D67, where the probe caught this second defect).
-        //
-        // ⭐ **and the arm was never load-bearing.** Its whole stated job was
+        // **and the arm was never load-bearing.** Its whole stated job was
         // "not the feet-snap arm", which the condition below already refuses on
         // its own terms: a `BonkOnly` hit exists only when a head is RISING into
         // the block (`bonk_strike_from_head` is the sweep filter), so
@@ -416,14 +395,9 @@ pub(super) fn sweep_player_axis_clusters(
 
 /// One solid's CLAIM on the body's centre coordinate along the repaired axis.
 ///
-/// A claim is not a position to write — it is a BOUND. `delta` is the
-/// correction that block alone demands, byte-for-byte the one the per-block
-/// resolution produced before D126.1 (⚠ including its perpendicular component,
-/// which is non-zero for a feet snap under an OBLIQUE frame — projecting it
-/// onto the axis here would quietly change that case). `delta_along` is its
-/// component on the repaired axis, and its SIGN says which bound this is: a
-/// positive correction demands `centre >= bound`, a negative one demands
-/// `centre <= bound`.
+/// A claim is not a position to write — it is a BOUND. `delta_along` is its component on the
+/// repaired axis, and its SIGN says which bound this is: a positive correction demands `centre
+/// >= bound`, a negative one demands `centre <= bound`.
 ///
 /// Keeping the delta rather than only the bound is not bookkeeping: applying it
 /// reproduces the old arithmetic exactly, where `pos + (centre + delta - centre)`
@@ -445,13 +419,6 @@ struct AxisClaim<'a> {
 /// skip, and grounding, so those semantics vanished whenever gravity rotated
 /// onto X. Support and wall decisions are expressed in controlled-body terms:
 /// feet/head along the gravity axis, side normals along the local side axis.
-///
-/// ⭐ **CONSTRAINTS, not a walk (D126.1).** This used to apply each intersecting
-/// block's correction immediately and re-read the body AABB before the next
-/// block, so where two solids claimed one axis in one frame **the last one in
-/// `World::blocks` wrote the final position** — 16px apart in either order for
-/// the pinned fixture, and that Vec is pure construction order (authored LDtk
-/// emission, then moving platforms, then ECS overlay solids, then gate solids).
 ///
 /// So each block now contributes a BOUND on the body's centre instead
 /// ([`AxisClaim`]), and the resolved position is a function of the resulting
@@ -475,7 +442,7 @@ struct AxisClaim<'a> {
 ///   perpendicular axis is untouched, so a crushed body can still walk out
 ///   sideways under its own power.
 ///
-/// ⛔ **the no-artificial-pushout refusal is preserved as a filter on ADMISSION,
+/// **the no-artificial-pushout refusal is preserved as a filter on ADMISSION,
 /// not routed around**: a block whose own correction exceeds the body's
 /// half-extent ([`is_contact_range_snap`]) contributes NO claim at all — it does
 /// not move the body, does not report a contact, and cannot manufacture a
@@ -494,9 +461,6 @@ fn resolve_axis_repair(
     contacts: &mut Vec<Contact>,
 ) -> Option<AxisConstraintConflict> {
     let role = axis_role(axis, gravity_dir);
-    // ⚠ ONE body AABB for the whole pass. The old loop refreshed it after every
-    // applied correction, which is precisely what made block order decide the
-    // outcome; every claim is now measured against the same entry state.
     let aabb = kinematics.aabb_oriented(gravity_dir);
     let centre = axis_component(aabb.center(), axis);
     // The deepest claim in each direction: `toward_pos` demands the largest
@@ -508,7 +472,7 @@ fn resolve_axis_repair(
         {
             continue;
         }
-        // ⛔ **a hidden block never pushes a body out of itself.** Repair asked
+        // **a hidden block never pushes a body out of itself.** Repair asked
         // only `is_solid_for_axis`, which says yes on the gravity axis, so a body
         // that ended a tick overlapping a `BonkOnly` block was depenetrated and
         // could be left standing on it — the invisible floor the kind exists to
@@ -690,10 +654,6 @@ pub fn touching_rebound_aabb(world: &World, aabb: crate::Aabb) -> Option<Vec2> {
     })
 }
 
-// `try_pogo_clusters` (the probe-based engine pogo) was removed 2026-06-16 — it
-// was a redundant duplicate of the hitbox pogo, which detects the target with the
-// real attack hitbox and bounces gravity-relatively. That pogo now lives on the
-// moveset down-air (on-hit technique + `pogo_moveset_off_world_orbs`).
 
 #[cfg(test)]
 mod tests {

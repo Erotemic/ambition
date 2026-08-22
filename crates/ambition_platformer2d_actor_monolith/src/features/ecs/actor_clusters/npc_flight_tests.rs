@@ -1,15 +1,14 @@
 //! **Does an NPC body fly? The CHARACTER answers, then the catalog.**
 //!
-//! ⛔ two spawn paths decided aerial-ness and neither asked the character: the
+//! two spawn paths decided aerial-ness and neither asked the character: the
 //! peaceful-NPC seed read the catalog's `body_kind: Floating`, the hostile
 //! `EnemySpawn` path read `ArchetypeSpec::flies`. The doc on that field names the
 //! split, and the Perfect Cellular Automaton is the live disagreement —
 //! `Floating` in its catalog row, played grounded by the shipped duel.
 //!
-//! D89's ruling is that `body_kind` describes a SHAPE and stopped deciding
-//! whether a body flies. `CharacterLocomotion::baseline_free_flight` is
-//! `Option<bool>` precisely so a character can say NO out loud, which a body kind
-//! cannot express — and this file is that ruling reaching the NPC road.
+//! `CharacterLocomotion:baseline_free_flight` is `Option<bool>` precisely so a character can
+//! say NO out loud, which a body kind cannot express — and this file is that ruling reaching
+//! the NPC road.
 
 use super::*;
 use ambition_characters::actor::CharacterLocomotion;
@@ -78,24 +77,14 @@ fn seed_for(
     seed
 }
 
-// ⛔⛔ **`a_peaceful_npc_seed_carries_no_archetype_and_an_enemy_seed_still_does`
-// WAS HERE AND IS DELETED** (AC6). It asserted that a peaceful NPC's seed
-// carried `spec: None` while an ENEMY seed built from a roster key still carried
-// `Some` — the poison half being the proof that the archetype road had not
-// quietly stopped working. Both halves are unaskable: `ActorClusterSeed` has no
-// `spec` field and no constructor that fills one, because there is no
-// `ArchetypeSpec`. Every body is built from a character, which is the state this
-// test was watching the migration approach.
+// Both halves are unaskable: `ActorClusterSeed` has no `spec` field and no constructor that
+// fills one, because there is no `ArchetypeSpec`. Every body is built from a character, which
+// is the state this test was watching the migration approach.
 
 /// **An NPC that names a migrated character gets ITS vitals and ITS top speed,
 /// and the pool matches the maximum.**
 ///
-/// ⛔ every NPC used to spawn with `max_health: 1` and the shared player
-/// `MAX_RUN_SPEED` — which meant an exploding mite and a burning flying shark
-/// stood in a room with one hit point and the protagonist's legs, because
-/// nothing on this road knew who they were.
-///
-/// ⛔⛔ and the POOL was a second literal `1`, written independently of the
+/// and the POOL was a second literal `1`, written independently of the
 /// tuning's. The two agreed by coincidence; teaching only the tuning to ask the
 /// character would have left a body claiming a maximum of nine and holding one.
 #[test]
@@ -120,16 +109,8 @@ fn a_named_character_supplies_the_npc_body_it_authored() {
         "and its locomotion, not the shared player top speed"
     );
 
-    // ⛔ AI POLICY IS NOT THE BODY'S TO STATE — and this assertion had to be
+    // AI POLICY IS NOT THE BODY'S TO STATE — and this assertion had to be
     // rewritten when the road changed under it, which is the interesting part.
-    //
-    // It used to demand the shared `NPC_PATROL_SPEED` constant. That was the
-    // right PRINCIPLE (a character authoring 225 must not turn an idle stroll
-    // into a sprint) attached to the wrong MECHANISM: a fixed constant is what a
-    // body gets when nobody knows who it is, the same answer as `max_health: 1`.
-    // §4.7's seam is `body's top speed × controller's effort` — both halves
-    // stated by their own authority — and that is what the character road has
-    // always used.
     //
     // ⇒ the invariant, stated so it cannot be satisfied by a coincidence: the
     // amble is the PROFILE's fraction of the body's top speed, and it is strictly
@@ -173,14 +154,6 @@ fn an_incomplete_character_uses_peaceful_npc_defaults() {
         registry.insert_prepared(finalized.prepared);
         registry
     };
-    // ⚠ this asserted a literal `1` until 2026-08-12 and the number moved, not
-    // the claim. `1` was the road's answer for a body nobody described — and
-    // generic PROVOCATION then overwrote it with 4, because a 1-HP villager
-    // dies to the hit after the one that angers it. That made "being hit" an
-    // argument about how tough a creature is (D101). The default is one shared
-    // constant now, asked at construction, and provocation writes no health at
-    // all. What this test still pins is that an incomplete prepared character
-    // does not partially override the peaceful-NPC road's explicit defaults.
     use ambition_characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH;
     let bare_seed = seed_for(Some(&bare), Some("npc_test_flyer"));
     assert_eq!(bare_seed.health.max(), DEFAULT_UNAUTHORED_BODY_HEALTH);
@@ -221,7 +194,7 @@ fn is_aerial(
 /// **A character that says it flies, flies — and one that says it does NOT stays
 /// on the ground even though nothing else changed.**
 ///
-/// ⭐ the second half is the whole point and it is the half a `body_kind` could
+/// the second half is the whole point and it is the half a `body_kind` could
 /// never state. An empty catalog means the old rule answers "not floating" for
 /// both, so the only thing separating these two runs is what the character said.
 #[test]
@@ -240,7 +213,7 @@ fn the_character_decides_whether_an_npc_body_flies() {
 /// **The catalog rule is a fallback for characters NOBODY REGISTERED, not a
 /// second opinion on registered ones.**
 ///
-/// ⛔ this is the poison for the pair above, and writing it corrected the pair's
+/// this is the poison for the pair above, and writing it corrected the pair's
 /// own premise. The ~150 unmigrated NPC placements name characters with no
 /// prepared entry AT ALL — that, not "a prepared character that stayed silent",
 /// is the state the catalog still answers for. If this lookup had instead
@@ -249,11 +222,8 @@ fn the_character_decides_whether_an_npc_body_flies() {
 /// would look identical to correct.
 #[test]
 fn preparation_resolves_silence_and_only_an_unprepared_character_reaches_the_catalog() {
-    // ⛔ FIRST, the fact this test used to get wrong. A PREPARED character always
-    // answers: `finalize_character` resolves `baseline_free_flight: None` to
-    // `Some(false)` (D89 — silence is GROUNDED, and the three characters that
-    // genuinely fly say so). So "a silent prepared character" is not a state that
-    // exists, and a test named for it would be describing a branch it never took.
+    // So "a silent prepared character" is not a state that exists, and a test named for it
+    // would be describing a branch it never took.
     let cast = cast_saying(None);
     assert_eq!(
         cast.get("npc_test_flyer")

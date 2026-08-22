@@ -17,15 +17,15 @@
 #   - fetch and check the desktop game target.
 #
 # Usage:
-#   ./run_developer_setup.sh
-#   ./run_developer_setup.sh --skip-system-packages
-#   ./run_developer_setup.sh --skip-rust
-#   ./run_developer_setup.sh --no-profile
-#   ./run_developer_setup.sh --skip-submodules
-#   ./run_developer_setup.sh --skip-tally
-#   ./run_developer_setup.sh --skip-python
-#   ./run_developer_setup.sh --skip-assets
-#   ./run_developer_setup.sh --skip-cargo-check
+# ./run_developer_setup.sh
+# ./run_developer_setup.sh --skip-system-packages
+# ./run_developer_setup.sh --skip-rust
+# ./run_developer_setup.sh --no-profile
+# ./run_developer_setup.sh --skip-submodules
+# ./run_developer_setup.sh --skip-tally
+# ./run_developer_setup.sh --skip-python
+# ./run_developer_setup.sh --skip-assets
+# ./run_developer_setup.sh --skip-cargo-check
 #
 # Environment overrides:
 #   AMBITION_TOOL_PYTHON=3.12   Python version used for every tool-local .venv.
@@ -455,14 +455,6 @@ ensure_tool_venv() {
     # ".venv" for the repo root, "tools/<name>/.venv" for a tool project.
     local label="${venv_dir#"$repo_root"/}"
 
-    # `--clear` on EVERY creation path, not just the version-mismatch one. A
-    # venv's `bin/python` is a symlink chain ending at the interpreter it was
-    # built from, so when that interpreter goes away the `-x` test below fails
-    # while the venv directory is still very much there. uv then finds an
-    # existing environment at the target and, on a terminal, STOPS to ask
-    # whether to replace it — a setup script that hangs on a question nobody is
-    # there to answer (2026-08-08). `--clear` states the answer up front, which
-    # is what the surrounding branch already decided.
     if [ -x "$venv_dir/bin/python" ]; then
         local current_python
         current_python="$(venv_major_minor "$venv_dir/bin/python")"
@@ -497,15 +489,6 @@ install_tool_project() {
     (
         cd "$project"
         uv pip install --python "$project/.venv/bin/python" -e "$editable_target"
-        # A tool project that ships `tests/` has them RUN by
-        # `scripts/run_tests.py`, in this venv (the package and its deps live
-        # here, not in the repo-root one). Nothing declared pytest — not as a
-        # dependency, not as an optional group — so the LDtk authoring suite,
-        # 149 tests over the path every room in the game is built through,
-        # could not be collected on any machine this script set up
-        # (2026-07-30). Installed unconditionally: harmless for a project
-        # without tests, and one less thing to keep in sync with which ones have
-        # them.
         if [ -d "$project/tests" ]; then
             uv pip install --python "$project/.venv/bin/python" pytest
         fi
@@ -586,7 +569,7 @@ install_scripts_env() {
     # named pytest", which `run_tests.py` reports as two red jobs at 0.0s among
     # twenty green ones: a suite whose first line is "if the thing that decides
     # whether the suite is honest is broken, that is the answer" could never run
-    # the thing that decides it (found 2026-07-30).
+    # the thing that decides it.
     uv pip install --python "$venv_dir/bin/python" pytest tree_sitter tree_sitter_rust
     "$venv_dir/bin/python" -c "import tree_sitter_rust" \
         || fatal "scripts/.venv installed but 'tree_sitter_rust' is not importable"
@@ -625,7 +608,7 @@ check_desktop_target() {
     cargo check --locked -p ambition_app --bin ambition_game_bin
 }
 
-# ⛔ **The committed `target-dir` is one user's home, and a bare `cargo build` by
+# **The committed `target-dir` is one user's home, and a bare `cargo build` by
 # anyone else dies with `Permission denied` at a path they never chose.**
 #
 # `.cargo/config.toml` sets `target-dir = "/home/joncrall/ambition-target"`, and
@@ -633,7 +616,7 @@ check_desktop_target() {
 # an identical path string resolving to different local disks keeps VM and host
 # fingerprints from co-mingling. It is only the username that does not travel.
 #
-# ⚠ **and it cannot be overridden by a per-user config.** Cargo merges config
+# **and it cannot be overridden by a per-user config.** Cargo merges config
 # files with the one nearest the working directory winning, so the repo's
 # `.cargo/config.toml` beats `~/.cargo/config.toml`. `CARGO_TARGET_DIR` in the
 # ENVIRONMENT is the only override — which is why `run_game.sh` and the

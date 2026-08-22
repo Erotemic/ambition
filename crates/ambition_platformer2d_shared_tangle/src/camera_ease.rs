@@ -11,7 +11,7 @@ use bevy::prelude::{Component, Resource};
 /// the encounter registry (or developer overview override) every
 /// frame; this resource holds the smoothed value so transitions feel
 /// like a breath instead of a snap.
-/// ⭐ **a COMPONENT on a local view, not a resource.** A second local view eases
+/// **a COMPONENT on a local view, not a resource.** A second local view eases
 /// its own zoom toward its own target, so "the camera's ease state" is a
 /// question that has to name a view to mean anything.
 #[derive(Component, Clone, Copy, Debug)]
@@ -21,26 +21,21 @@ pub struct CameraEaseState {
     /// jumps when look-ahead flips with facing or when framing presets change.
     pub live_target_world: ae::Vec2,
     pub target_initialized: bool,
-    /// **M2's no-backtrack watermark.** The furthest `+x` the camera has reached
-    /// during the current visit to a `ForwardOnlyX` zone. `None` outside such a
-    /// zone — which is what makes re-entering one a fresh scroll rather than a
-    /// camera pinned to where it stopped an hour ago.
+    /// `None` outside such a zone — which is what makes re-entering one a fresh scroll rather
+    /// than a camera pinned to where it stopped an hour ago.
     pub scroll_watermark_x: Option<f32>,
     /// **The observer roll actually being presented**, eased toward the roll the
     /// view's reference frame asks for.
     ///
-    /// ⛔ **without it the world SNAPS.** `presented_roll_radians` is a pure
-    /// function of the CURRENT `subject_down`, so in `SubjectFrame` mode any
-    /// discontinuity in that axis — possessing a body standing on a different
-    /// surface, a gravity flip, any future view-subject change — rotated the
-    /// whole world by up to a half turn in one frame. D118's C4 listed "easing"
-    /// and "possession" as separate remaining items; they are one event
-    /// (`subject_down` changed discontinuously) and one fix.
+    /// **without it the world SNAPS.** `presented_roll_radians` is a pure function of the
+    /// CURRENT `subject_down`, so in `SubjectFrame` mode any discontinuity in that axis —
+    /// possessing a body standing on a different surface, a gravity flip, any future
+    /// view-subject change — rotated the whole world by up to a half turn in one frame.
     ///
     /// `None` until the first resolve, which then ADOPTS the target instead of
     /// easing to it: a view must open already oriented, not spin up from zero.
     ///
-    /// ⚠ presentation-only, like every other field here, and never rollback
+    /// presentation-only, like every other field here, and never rollback
     /// state. `WorldFixed` views are unaffected because their target roll is
     /// identically zero — which is every camera Ambition currently ships.
     pub live_observer_roll: Option<f32>,
@@ -48,19 +43,19 @@ pub struct CameraEaseState {
 
 /// How fast the presented observer roll follows its reference frame.
 ///
-/// ⭐ **the genre answered this, so it is a dial and not a decision.** A gravity
+/// **the genre answered this, so it is a dial and not a decision.** A gravity
 /// flip rotates the view over a short interval in VVVVVV and Mario Galaxy rather
 /// than cutting; π radians in 0.30s is inside that band and reads as "the world
 /// turns under you" instead of a jump cut.
 ///
-/// ⚠ a RATE, not a duration, so a small correction is quick and a half turn
+/// a RATE, not a duration, so a small correction is quick and a half turn
 /// takes the full interval — the alternative normalises every change to the same
 /// time and makes tiny ones feel mushy.
 pub const OBSERVER_ROLL_EASE_RAD_PER_S: f32 = std::f32::consts::PI / 0.30;
 
 /// Ease `current` toward `target` along the SHORTEST angular path.
 ///
-/// ⛔ **the wrap is the whole subtlety.** Rolls live on a circle: +π and -π are
+/// **the wrap is the whole subtlety.** Rolls live on a circle: +π and -π are
 /// the same orientation, and a naive `target - current` would send the view the
 /// long way round — a full rotation to reach an angle it was already at.
 pub fn ease_roll_radians(current: f32, target: f32, dt: f32) -> f32 {
@@ -155,7 +150,7 @@ pub struct CameraShakeState {
     pub seed: u32,
 }
 
-/// **How hard this game is allowed to shake, and how fast it settles.** (D14)
+/// **How hard this game is allowed to shake, and how fast it settles.**
 ///
 /// The cap was a `const` inside `kick` and the decay a module constant, so two
 /// games in one host shook identically whether or not that suited either of
@@ -205,24 +200,17 @@ impl CameraShakeState {
 
 /// **A simulation-produced request to kick the camera.** (P0.1)
 ///
-/// ⛔⛔ **the simulation must not touch [`CameraShakeState`] directly.** A
-/// rollback host runs each frame more than once, and the FIRST of those passes is
-/// already unconfirmed: GGRS predicts the remote input, so a hit that a later
-/// correction erases has, by then, already kicked the live camera. That pass is
-/// not a replay, so a `replaying_history` guard cannot see it — it suppresses the
-/// *duplicate* and keeps the *phantom*, which is the exact failure
-/// `external_effects` was written to end for sound and VFX.
+/// **the simulation must not touch [`CameraShakeState`] directly.** A rollback host runs each
+/// frame more than once, and the FIRST of those passes is already unconfirmed: GGRS predicts
+/// the remote input, so a hit that a later correction erases has, by then, already kicked the
+/// live camera.
 ///
-/// So the shake became what the sound already was: an **intent**, written into a
-/// quarantined channel, journalled per frame, and released once the host confirms
-/// the frame that produced it. A re-simulation that no longer produces the hit
-/// replaces its frame's batch with an empty one and the kick never happens; a
-/// confirmed hit is released exactly once. On every non-rollback host — fixed
-/// tick, render frame, headless, every unit fixture — no quarantine is installed
-/// and the request flows straight through in the same frame, which is why this
-/// costs nothing where nothing is predicted.
+/// So the shake became what the sound already was: an **intent**, written into a quarantined
+/// channel, journalled per frame, and released once the host confirms the frame that produced
+/// it. A re-simulation that no longer produces the hit replaces its frame's batch with an empty
+/// one and the kick never happens; a confirmed hit is released exactly once.
 ///
-/// ⚠ **strongest-wins survives the trip.** [`CameraShakeState::kick`] is a `max`,
+/// **strongest-wins survives the trip.** [`CameraShakeState::kick`] is a `max`,
 /// so several requests released together settle on the loudest exactly as several
 /// direct kicks did.
 #[derive(bevy::ecs::message::Message, Clone, Copy, Debug)]
@@ -307,44 +295,19 @@ pub fn hard_fall_shake_amplitude(impact_speed: Option<f32>) -> f32 {
 /// each having its own idea of "hard".
 pub const HIT_SHAKE_GAIN_PX_PER_S: f32 = 48.0;
 
-/// **The shake a landed hit buys, scaled by how hard it landed.**
-///
-/// ⛔⛔ **NO LANDED HIT SHAKED THE SCREEN AT ALL** until 2026-08-12 (campaign
-/// P4.37). `CameraShakeState::kick` had exactly two production call sites in the
-/// workspace — a boss phase change and a hard-fall landing — so a smash that
-/// sent a fighter to the blast zone and a jab moved the camera identically. The
-/// row's goal is *"a strong hit should feel materially different from a weak
-/// poke"*, and hitlag alone was carrying all of it.
-///
-/// ⭐ **the severity is ALREADY RESOLVED, so this invents no new concept.** A
-/// landed hit writes `BodyCombat::hitstop_timer` from
-/// `ae::hit_response::hitlag_duration`, which is `hitlag_time × reaction_scale`
-/// — the knockback the hit actually produced, floored at half and capped at 4×.
-/// Reading that back is what keeps the camera BODY-GENERIC: no move ids, no
-/// per-character table, and a character that authors a heavier launch gets a
-/// heavier camera for free.
-///
-/// ⚠ **the reference is a PARAMETER, not a constant here.** `hitlag_time` is the
+/// **the reference is a PARAMETER, not a constant here.** `hitlag_time` is the
 /// route's `Platformer2dFeelTuningMonolith` value; restating 0.070 in this crate
 /// would be a second literal agreeing with the first by coincidence, and a route
 /// that retunes its hitlag would silently retune its camera in the wrong
 /// direction.
 ///
-/// ⛔⛔ **the dead zone is the WEAKEST connect, not the reference one — and that
-/// correction is the difference between a shipped feature and a dead one.** It
-/// sat at the full reference for a day, which sounded principled (*"only a hit
-/// harder than standard moves the camera"*) and was measured wrong: the hardest
-/// connect in `duel_arena`, a real authored fight between two real fighters,
-/// freezes for **0.0595 s against a 0.070 s reference** — 0.85×. Every hit in
-/// Ambition's own combat lands UNDER the old dead zone, so the camera could
-/// never move in the shipped game, and only a Smash-style growth knockback (the
-/// smash demo authors real `knockback_growth`; every prefab swing authors
-/// `0.0`) could ever have cleared it. Anchoring on
-/// [`ae::hit_response::MIN_HITLAG_SCALE`] instead uses the mechanic's whole
-/// dynamic range: the softest possible connect still shakes NOTHING — which is
-/// the property the reference-anchored version was actually reaching for — while
-/// the duel's ordinary trade buys ~1.2 px and the hardest smash ~11.8 px, a
-/// tenfold spread rather than a cliff.
+/// Every hit in Ambition's own combat lands UNDER the old dead zone, so the camera could never move
+/// in the shipped game, and only a Smash-style growth knockback (the smash demo authors real
+/// `knockback_growth`; every prefab swing authors `0.0`) could ever have cleared it. Anchoring on
+/// [`ae::hit_response::MIN_HITLAG_SCALE`] instead uses the mechanic's whole dynamic range: the
+/// softest possible connect still shakes NOTHING — which is the property the reference-anchored
+/// version was actually reaching for — while the duel's ordinary trade buys ~1.2 px and the hardest
+/// smash ~11.8 px, a tenfold spread rather than a cliff.
 pub fn hit_shake_amplitude(hitstop_seconds: f32, reference_hitlag_seconds: f32) -> f32 {
     let weakest_connect = reference_hitlag_seconds.max(0.0) * ae::hit_response::MIN_HITLAG_SCALE;
     let excess = (hitstop_seconds - weakest_connect).max(0.0);
@@ -390,8 +353,6 @@ pub struct PlayerBlinkCameraState {
     /// Counts down from `blink_in_duration` to 0 after a blink; the camera
     /// and animator use this to play the arrival ease-in.
     pub blink_in_timer: f32,
-    /// Set to `BLINK_IN_ANIM_TIME` when a blink fires; used to normalise
-    /// `blink_in_timer` into a 0..1 progress value.
     pub blink_in_duration: f32,
     /// World-space camera position at the moment the blink fired; the camera
     /// eases from here toward the new player position.

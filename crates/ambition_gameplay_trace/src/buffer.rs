@@ -38,21 +38,14 @@ pub struct GameplayTraceBuffer {
     pub has_recorded_any: bool,
     /// Frame-to-frame diff source for synthetic events.
     pub previous: Option<PreviousFrameSnapshot>,
-    /// Frames remaining in the portal-transit suppression WINDOW. A portal
-    /// crossing both snaps the player a long way (an "unexplained" position
-    /// delta) AND lands it at the exit before the exit-side carve has opened
-    /// (so it momentarily reads as inside-solid), each of which would auto-dump.
-    /// Set to a few frames when a `BodyTeleported` fires; while > 0 BOTH the
-    /// position-delta and the OOB auto-dumps are suppressed, so a normal transit
-    /// never spams a trace dump. Decremented once per frame in `record_frame`.
+    /// Frames remaining in the portal-transit suppression WINDOW. Set to a few frames when a
+    /// `BodyTeleported` fires; while > 0 BOTH the position-delta and the OOB auto-dumps are
+    /// suppressed, so a normal transit never spams a trace dump. Decremented once per frame in
+    /// `record_frame`.
     pub teleport_suppress_ticks: u32,
-    /// Auto-dumps (OOB + teleport) are suppressed until the buffer holds at
-    /// least this many frames. Skips spawn-settling transients — the player is
-    /// authored with its feet a hair inside the floor, so it reads `inside
-    /// solid` for a tick or two before the first collision resolve lifts it
-    /// out — and guarantees a dump carries pre-anomaly lead-up instead of a
-    /// useless 1-frame snapshot. Manual (F8) dumps are never gated. Mirrors the
-    /// actor trace's gate (see `DEFAULT_MIN_CONTEXT_FRAMES`).
+    /// Auto-dumps (OOB + teleport) are suppressed until the buffer holds at least this many
+    /// frames. Manual (F8) dumps are never gated. Mirrors the actor trace's gate (see
+    /// `DEFAULT_MIN_CONTEXT_FRAMES`).
     pub min_context_frames: usize,
     /// Per-frame anomaly truth held until the rollback host confirms it. A
     /// corrected pass replaces this entry exactly like it replaces the frame

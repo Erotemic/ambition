@@ -2,7 +2,7 @@
 //!
 //! The engine seam is `features::ecs::dormancy`: an actor with no
 //! [`DormancyPolicy`] is always awake, because dormancy is "not something that
-//! should be inherent" (Jon, 2026-08-03). Two games had already answered the
+//! should be inherent". Two games had already answered the
 //! question for their own casts — Mary-O's slop and snake, Sanic's badniks —
 //! and this crate, which stages every boss, every arena mob, the duel, and the
 //! Hall's 144 characters, answered nothing at all. Silence there read
@@ -24,18 +24,16 @@
 //!
 //! ## The two stances, and why each actor gets the one it does
 //!
-//! Everything that another authority already drives says [`DormancyPolicy::Never`]:
-//! a distance rule would be a SECOND authority over the same body, contradicting
-//! the first the moment they disagreed. The free-roaming hostiles — the only ones
-//! that can walk somewhere while nobody is looking, which is the whole reported
-//! defect — get [`AMBITION_WAKE_RADIUS`].
+//! Everything that another authority already drives says [`DormancyPolicy::Never`]: a distance
+//! rule would be a SECOND authority over the same body, contradicting the first the moment they
+//! disagreed.
 //!
-//! ⚠ **the radius is a LEAD TIME, and the derivation is the interesting part**;
+//! **the radius is a LEAD TIME, and the derivation is the interesting part**;
 //! see [`AMBITION_WAKE_RADIUS`] for why Ambition's number comes from the
 //! protagonist's BLINK rather than from its run speed, and for the honest note
 //! that today's rooms are mostly smaller than it.
 //!
-//! ## ⚠ One thing this cannot answer, found while writing it
+//! ## One thing this cannot answer, found while writing it
 //!
 //! **POSSESSION does not move the observer marker.** The engine's wake test is
 //! "near any body marked `PlayerEntity`", and possessing an actor transfers the
@@ -61,7 +59,7 @@ use ambition_platformer2d_actor_monolith::features::{
 /// **How near an observer has to be for one of Ambition's roaming hostiles to
 /// keep thinking.**
 ///
-/// ⛔ **NOT Mary-O's 720 and NOT Sanic's 4800**, and not this game's run speed
+/// **NOT Mary-O's 720 and NOT Sanic's 4800**, and not this game's run speed
 /// either. A wake radius is a lead time wearing distance's clothes: it must be
 /// long enough that an actor is already moving by the time an observer can see
 /// it, so it is `observer top speed × lead time`, and the mistake to avoid is
@@ -77,7 +75,7 @@ use ambition_platformer2d_actor_monolith::features::{
 /// So: the same 2.4 s of lead the other two games use, against 1056 px/s ⇒ 2534,
 /// rounded to 2560.
 ///
-/// ⚠ **and it mostly does not fire today, which is stated rather than tuned
+/// **and it mostly does not fire today, which is stated rather than tuned
 /// away.** Ambition is authored as discrete rooms reached through loading
 /// zones, and only the active room's contents are staged; the largest
 /// enemy-bearing room (`scroll_lab`, 3200×900) has a 3324 px diagonal and most
@@ -100,7 +98,7 @@ pub const AMBITION_WAKE_RADIUS: f32 = 2560.0;
 /// authorities over one frame. GNU-ton's giant and its two hands are the live
 /// always-driven case.
 ///
-/// ⚠ **a mount declares `Never` whether or not it is carrying a rider today.**
+/// **a mount declares `Never` whether or not it is carrying a rider today.**
 /// Boarding is a runtime event and a stance is declared once at spawn, so
 /// "rideable" is the only form of the question a declaration can answer — and
 /// getting it wrong in the other direction means a body the player is riding
@@ -126,7 +124,7 @@ pub fn stance_for(
         return None;
     }
 
-    // ⭐ **The duel is the one content pair that genuinely fights under its own
+    // **The duel is the one content pair that genuinely fights under its own
     // decisions and still must never sleep.** The exhibition IS the simulation:
     // `register_duel_content_staging` stages the fight as part of room
     // construction so the pair is already battling the instant the player walks
@@ -161,13 +159,9 @@ pub fn stance_for(
         // be a rule that reads as enforced and is not.
         ActorFaction::Boss => Some(DormancyPolicy::Never),
 
-        // The placed peaceful cast. 176 of the 178 authored `NpcSpawn`s carry
-        // `patrol_radius: 0`, and the other two pace a lane bounded around an
-        // authored home (96 px and 200 px) — none of them can wander anywhere,
-        // so the defect this seam was built for cannot happen to them, and
-        // sleeping them would buy nothing but a rule to reason about.
+        // The placed peaceful cast.
         //
-        // ⛔ **and 144 of them are the Hall**, which is a stress test as much as
+        // **and 144 of them are the Hall**, which is a stress test as much as
         // an exhibition: *"Eventually we are going to give all those characters
         // normal brains"*. `Never` is the declaration that keeps that true —
         // handing the Hall a wake radius would quietly delete the load it exists
@@ -177,10 +171,6 @@ pub fn stance_for(
         // characters.
         ActorFaction::Npc => Some(DormancyPolicy::Never),
 
-        // The roaming hostiles — skitters, strikers, brutes, mites, crawling
-        // puppy slugs, diving sharks, the ai_slop. These are the actors Jon's
-        // report is about: they patrol, they chase, and left thinking with
-        // nobody there they will walk off a ledge before anyone arrives.
         ActorFaction::Enemy => Some(DormancyPolicy::AwakeNearObservers {
             radius: AMBITION_WAKE_RADIUS,
         }),

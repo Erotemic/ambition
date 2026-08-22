@@ -1,12 +1,6 @@
-//! Unit tests for the parent module, extracted from an inline
-//! `#[cfg(test)] mod tests` (test-organization campaign, 2026-07-10). Pure move:
-//! same test names + logic, now an adjacent child module with private access via
-//! `use super::*;`.
 
 use super::*;
-// ⚠ these arrived through `mod.rs`'s imports until 2026-08-12, when making
-// `prefabs.rs`'s coupling explicit (P1.7) showed they were only there to feed
-// a glob. Named here because this is where they are used.
+// Named here because this is where they are used.
 use crate::events::HitEvent;
 use crate::hitbox::apply_hitbox_damage;
 use ambition_characters::brain::action_set::MeleeActionSpec;
@@ -16,12 +10,9 @@ use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::vfx::VfxMessage;
 use bevy::prelude::*;
 
-/// **The attack direction is facing-relative, not screen-relative.** The aim
-/// axis arrives screen-local (`+x` = screen-right), but a forward press must read
-/// `Forward` no matter which way you face — and a press toward your BACK must read
-/// `Back`. Regression pin for the "move left + attack fired right" bug: facing was
-/// not folded into `attack_dir_from_axis`, so a left-facing forward press
-/// misclassified as `Back` and fired the aerial back-attack the wrong way.
+/// **The attack direction is facing-relative, not screen-relative.** The aim axis arrives
+/// screen-local (`+x` = screen-right), but a forward press must read `Forward` no matter which way
+/// you face — and a press toward your BACK must read `Back`.
 #[test]
 fn attack_dir_is_relative_to_facing() {
     // Facing RIGHT (+1): screen-right is forward, screen-left is back.
@@ -34,8 +25,7 @@ fn attack_dir_is_relative_to_facing() {
         AttackDir::Back
     );
 
-    // Facing LEFT (-1): the mirror. Pressing screen-LEFT is now FORWARD (the bug
-    // case — must be Forward, not Back), pressing screen-right is Back.
+    // Facing LEFT (-1): the mirror.
     assert_eq!(
         attack_dir_from_axis(ae::LocalAxes::new(-1.0, 0.0), -1.0),
         AttackDir::Forward
@@ -211,13 +201,9 @@ fn a_typod_cosmetic_vfx_id_is_rejected_at_expansion() {
 /// CM5: the content-free dispatcher turns a `Vfx` event into a PAIRED effect
 /// request at the owner's position.
 ///
-/// ⭐⭐ **it asserts an `FxRequest` now, and that is the fix rather than a
-/// bookkeeping change** (D149). This used to read `VfxMessage::Effect` because
-/// the dispatcher wrote one directly — going around the very type whose job is
-/// pairing a visual with the cue its own name addresses. That bypass is what
-/// made every authored burst a hand-written PAIR across fourteen fighter
-/// tables; 74 of 145 authored `sfx(…)` calls existed only to restate a sound
-/// this request derives.
+/// That bypass is what made every authored burst a hand-written PAIR across fourteen fighter
+/// tables; 74 of 145 authored `sfx(…)` calls existed only to restate a sound this request
+/// derives.
 ///
 /// ⚠ **the sound is deliberately NOT asserted here**, and the reason is a crate
 /// boundary worth stating: `process_fx_requests` — which fans a request into the
@@ -263,8 +249,6 @@ fn move_event_dispatch_asks_for_a_paired_cosmetic_effect() {
             move_id: "smash".into(),
             presentation_source: ambition_sfx::PresentationSourceId::unscoped(),
             kind: MoveEventKind::Vfx {
-                // The old behaviour, which both fields are serde-defaulted to:
-                // at the owner's centre, at the presentation's default size.
                 // This test is about the NAME reaching the wire.
                 effect: "starburst".to_string(),
                 at: (0.0, 0.0),
@@ -470,12 +454,6 @@ fn player_robot_slash_overlay_preserves_authored_sfx() {
 /// forward rect volume / recovery), one timed Sfx event on the swing.
 /// **ONE MOVE USE STALES ONCE, WHATEVER IT CATCHES.**
 ///
-/// ⛔⛔ **`LandedBodyHit` is emitted once per BODY CONTACT**, and the recorder
-/// this replaces read that message stream directly — so a swing that caught two
-/// fighters went into the stale ring TWICE and a move used once came back
-/// weakened as if it had been used twice. The queue's own doc calls itself *the
-/// last few moves this body LANDED*, and one swing is one landing.
-///
 /// ⭐ **the false→true edge of `MovePlayback::landed_hit` already meant exactly
 /// "this use connected"** — it had to, for the OnHit/OnWhiff cancel windows — so
 /// counting there needs no new state and no second system.
@@ -544,13 +522,9 @@ fn a_swing_that_catches_two_bodies_stales_the_move_once() {
     );
 }
 
-/// **A BODY THAT CAN LAND A MOVE CARRIES THE HISTORY OF THE ONES IT LANDED.**
-///
-/// ⛔ the ring used to ride the generic ancillary MOVEMENT bundle, so a body
-/// that could not attack still rewound nine slots of combat history. Attaching
-/// it through `#[require]` on the moveset carrier is what lets it leave that
-/// bundle without any spawn road having to remember it — and there are two of
-/// those roads, which is exactly how a carry list starts.
+/// Attaching it through `#[require]` on the moveset carrier is what lets it leave that bundle
+/// without any spawn road having to remember it — and there are two of those roads, which is
+/// exactly how a carry list starts.
 #[test]
 fn a_moveset_brings_its_own_stale_ring() {
     let mut app = App::new();
@@ -651,10 +625,6 @@ fn capture(
     cap.slashes.extend(vfx.read().cloned());
 }
 
-/// Headless sim harness: move playback + the REAL hitbox damage path,
-/// fixed 16ms sim ticks, a vulnerable player standing in reach.
-/// Fixture seam resolver: a fixed convex blade for the `attack_side`
-/// clip (what the player manifest authors), `None` for everything else.
 fn test_blade_resolver(
     _catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
     _cid: Option<&str>,
@@ -678,11 +648,7 @@ fn test_blade_resolver(
 }
 
 fn app_with_victim() -> (App, Entity) {
-    // The authored-blade path resolves through the install seam exactly
-    // like production. Tests insert a FIXTURE resolver (a fixed convex
-    // blade for the `attack_side` clip) — the seam + convex plumbing is
-    // what combat owns; the REAL sprite-data resolution is asserted
-    // sprites-side (`character_sprites::attack_hitbox` tests).
+    // The authored-blade path resolves through the install seam exactly like production.
     let mut app = App::new();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.insert_resource(
@@ -762,13 +728,6 @@ fn run_seconds(app: &mut App, seconds: f32) {
 }
 
 /// ⛔ A move event authored AT the start of the move must still fire.
-///
-/// The player's swipe is `windup_s: 0.0` on purpose — "the arc and the swing cue
-/// all land on the frame of the press" — which puts its SFX event at
-/// `at_s == 0.0`. `MovePlayback::new_at` pre-marks events as already fired so
-/// that SEEKING past them does not retro-fire them, and it used `at_s <= t0`,
-/// so at `t0 == 0.0` the swing event was fired-before-it-began. The player's
-/// swing was silent from 2026-07-26 until 2026-08-02 and no test saw it.
 ///
 /// ⚠ nothing caught it because every fixture in this file authors a NON-ZERO
 /// event time — `one_tick_sfx_move` below uses `0.01`. The boundary was the one
@@ -1043,10 +1002,9 @@ fn upward_attack_selects_the_upward_slash_pose() {
     }
 }
 
-/// W9 core: the authored timeline drives the REAL damage path. No hit
-/// during startup; the active window spawns the volume and the standing
-/// victim takes the authored damage; the window's exit despawns the box;
-/// move completion removes the component. The timed event fires once.
+/// core: the authored timeline drives the REAL damage path. No hit during startup; the active
+/// window spawns the volume and the standing victim takes the authored damage; the window's
+/// exit despawns the box; move completion removes the component. The timed event fires once.
 #[test]
 fn data_driven_move_lands_a_hit_through_the_real_path() {
     let (mut app, _victim) = app_with_victim();
@@ -1091,13 +1049,9 @@ fn data_driven_move_lands_a_hit_through_the_real_path() {
     assert_eq!(cap.hits.len(), 1, "no double hit across the whole move");
 }
 
-/// B1 (fable review §B1): a moveset volume's authored offset is BODY-LOCAL
-/// (side, down); the spawned `FollowOwner` hitbox must rotate it into the
-/// owner's gravity frame at spawn, so the SAME move lands its box in the same
-/// BODY-relative place under every gravity. Regression guard for the old
-/// screen-frame spawn: an unrotated offset put an above-the-head strike into
-/// the effective ceiling under sideways/inverted gravity, forking against the
-/// gravity-aware player melee path.
+/// B1 (fable review §B1): a moveset volume's authored offset is BODY-LOCAL (side, down); the
+/// spawned `FollowOwner` hitbox must rotate it into the owner's gravity frame at spawn, so the SAME
+/// move lands its box in the same BODY-relative place under every gravity.
 #[test]
 fn moveset_hitboxes_spawn_in_the_owner_gravity_frame() {
     // Authored body-local rect: forward (side +28) AND above the head
@@ -1342,8 +1296,8 @@ fn a_live_strike_keeps_the_facing_its_move_started_with() {
     assert_eq!(cap.hits[0].target, crate::events::HitTarget::Body(victim));
 }
 
-/// W9 decomposability proof: the SAME MoveSpec value bound to a second,
-/// differently-shaped actor lands the same hit — re-binding is data.
+/// decomposability proof: the SAME MoveSpec value bound to a second, differently-shaped actor
+/// lands the same hit — re-binding is data.
 #[test]
 fn rebinding_the_same_move_to_another_actor_is_data_only() {
     let (mut app, _victim) = app_with_victim();
@@ -1375,11 +1329,9 @@ fn rebinding_the_same_move_to_another_actor_is_data_only() {
     );
 }
 
-/// W9 relativity proof: a 0.25x-dilated attacker's move — windows AND
-/// picture — runs at quarter speed. After 0.32s of world time the
-/// undilated attacker has already hit; the dilated one is still in
-/// startup with a proportionally smaller phase. Its hit arrives ~4x
-/// later, and the volume's world-time life stretches with it.
+/// After 0.32s of world time the undilated attacker has already hit; the dilated one is still
+/// in startup with a proportionally smaller phase. Its hit arrives ~4x later, and the volume's
+/// world-time life stretches with it.
 #[test]
 fn dilated_owner_slows_windows_and_picture_together() {
     let (mut app, _victim) = app_with_victim();
@@ -1529,10 +1481,6 @@ fn a_sustained_effect_window_emits_its_effect_every_active_frame() {
     );
 }
 
-/// Smash-like MULTI-HIT expressivity (fable review §A1): a single authored move
-/// with TWO Active windows lands TWO distinct hits on a standing victim — the
-/// first window's box despawns before the second spawns, and each carries its
-/// own `HitboxHits`, so the combo reads as two strikes, not one lingering box.
 /// Pins that the moveset runtime expresses combos, not just single swings.
 #[test]
 fn a_two_window_move_lands_two_distinct_hits() {
@@ -1555,11 +1503,8 @@ fn a_two_window_move_lands_two_distinct_hits() {
     assert_eq!(cap.hits[1].damage, 3, "second window's authored damage");
 }
 
-/// Phase-0 keystone (fable review §A1, Path B): the PRODUCTION trigger — a body
-/// carrying an `ActorMoveset` whose control frame presses `special` starts the
-/// matching move (no test hand-inserts `MovePlayback`), and the move lands its
-/// authored hit through the real path. This is the insert the moveset runtime
-/// was missing; without it the whole system was dead in the shipping game.
+/// This is the insert the moveset runtime was missing; without it the whole system was dead in
+/// the shipping game.
 #[test]
 fn a_control_verb_edge_triggers_the_moveset_move_and_lands_it() {
     // Self-contained app: the full production chain registered ONCE
@@ -1621,8 +1566,6 @@ fn a_control_verb_edge_triggers_the_moveset_move_and_lands_it() {
         ActorControl(frame),
     ));
 
-    // Through one move: the verb edge started it, the active window landed the
-    // authored hit exactly once (0.68s move; stop before it can re-trigger).
     run_seconds(&mut app, 0.5);
     let cap = app.world().resource::<Captured>();
     assert_eq!(
@@ -1849,8 +1792,8 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ActorActionMessage>();
-    // The dispatcher asks for PAIRED effects now (D149), so the channel it
-    // writes has to exist or the system fails parameter validation.
+    // The dispatcher asks for PAIRED effects now, so the channel it writes has to exist or the
+    // system fails parameter validation.
     app.add_message::<ambition_vfx::FxRequest>();
     app.add_systems(Update, dispatch_move_events);
     let owner = app
@@ -1938,8 +1881,8 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
 /// `ActorControl.fire` is an EDGE cleared every tick, and a ranged move has
 /// startup — so by the time its authored fire frame arrives the request that
 /// triggered it is gone, and the handler fell through to the body's horizontal
-/// FACING. That repairs left-versus-right (queue D8) and flattens every aim that
-/// was up, down or diagonal (GPT 5.6 review, 2026-08-04).
+/// FACING. That repairs left-versus-right and flattens every aim that
+/// was up, down or diagonal.
 ///
 /// ⚠ **the sibling test above cannot see this**: it supplies a live `fire` on
 /// the event frame, which is the tier that always worked. The distinguishing
@@ -1954,8 +1897,8 @@ fn a_move_started_aiming_up_fires_up_after_its_request_is_cleared() {
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ActorActionMessage>();
-    // The dispatcher asks for PAIRED effects now (D149), so the channel it
-    // writes has to exist or the system fails parameter validation.
+    // The dispatcher asks for PAIRED effects now, so the channel it writes has to exist or the
+    // system fails parameter validation.
     app.add_message::<ambition_vfx::FxRequest>();
     app.add_systems(Update, dispatch_move_events);
 
@@ -2034,8 +1977,8 @@ fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ActorActionMessage>();
-    // The dispatcher asks for PAIRED effects now (D149), so the channel it
-    // writes has to exist or the system fails parameter validation.
+    // The dispatcher asks for PAIRED effects now, so the channel it writes has to exist or the
+    // system fails parameter validation.
     app.add_message::<ambition_vfx::FxRequest>();
     app.add_systems(Update, dispatch_move_events);
 
@@ -2104,12 +2047,9 @@ fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
 
 /// **A body with no live aim fires the way it is FACING, not world-right.**
 ///
-/// `frame.fire` is an edge — `clear_edges()` nulls it every tick — and a ranged
-/// move has startup, so by the time its fire frame arrives the intent that
-/// started it is usually gone. That fallback used to be a bare `(1.0, 0.0)`,
-/// which `dir_to_world` resolves through the acceleration frame alone, so every
-/// such shot went world-RIGHT whichever way the body looked. Reported from play
-/// as "Maryo's fireball only shoots to her right, not the way she is facing".
+/// `frame.fire` is an edge — `clear_edges()` nulls it every tick — and a ranged move has startup,
+/// so by the time its fire frame arrives the intent that started it is usually gone. Reported from
+/// play as "Maryo's fireball only shoots to her right, not the way she is facing".
 #[test]
 fn a_ranged_move_without_live_aim_fires_along_the_bodys_facing() {
     use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec};
@@ -2120,8 +2060,8 @@ fn a_ranged_move_without_live_aim_fires_along_the_bodys_facing() {
         app.add_message::<ambition_vfx::vfx::VfxMessage>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<ActorActionMessage>();
-        // The dispatcher asks for PAIRED effects now (D149), so the channel it
-        // writes has to exist or the system fails parameter validation.
+        // The dispatcher asks for PAIRED effects now, so the channel it writes has to exist or
+        // the system fails parameter validation.
         app.add_message::<ambition_vfx::FxRequest>();
         app.add_systems(Update, dispatch_move_events);
 
@@ -2170,10 +2110,6 @@ fn a_ranged_move_without_live_aim_fires_along_the_bodys_facing() {
     }
 }
 
-/// Ranged subsumption slice 2: `build_actor_moveset` folds `ActionSet.ranged`
-/// into a `"ranged"`-verb fire move (Startup → fire event → Recovery, no hit
-/// volume), and `trigger_moveset_moves` starts it on a `frame.fire` intent — the
-/// same trigger seam melee/specials use.
 #[test]
 fn a_fire_intent_triggers_the_ranged_move() {
     use ambition_characters::actor::control::ActorFireRequest;
@@ -2230,11 +2166,7 @@ fn a_fire_intent_triggers_the_ranged_move() {
     assert_eq!(pb.spec.id, RANGED_VERB);
 }
 
-/// Regression (ranged-fold): a body that is BOTH `MovesetMelee` and playing its
-/// `"ranged"` (or any non-`"attack"`) move must NOT get a phantom `BodyMelee.swing`
-/// — otherwise the movement pipeline reads it as "mid-attack" and freezes the
-/// firing body in place (this froze the PCA's chase in `actor_phase_split`). Only
-/// the `"attack"` move projects a swing.
+/// Only the `"attack"` move projects a swing.
 #[test]
 fn a_ranged_move_does_not_project_a_phantom_melee_swing() {
     use ambition_characters::brain::action_set::{MeleeActionSpec, RangedActionSpec, SwipeSpec};
@@ -2248,12 +2180,6 @@ fn a_ranged_move_does_not_project_a_phantom_melee_swing() {
     .expect("melee + ranged → a moveset");
     let fire = contract.move_for_verb(RANGED_VERB).unwrap().clone();
     let attack = contract.move_for_verb(ATTACK_VERB).unwrap().clone();
-    // ⭐ **AND A SPECIAL, the third input** (added 2026-08-13, GPT 5.6 review).
-    // `MovePlayback` is not melee — it carries ranged AND specials — and a patch
-    // that read "a playback exists" as "this body is attacking" was proposed and
-    // reverted the same day (ledger D107). Ranged was already poisoned here;
-    // special took the same code path and was not, so the third arm of the rule
-    // was untested.
     let mut special = attack.clone();
     special.id = "special".to_string();
 
@@ -2692,14 +2618,8 @@ fn a3_equip_equipment_row_is_read_time_for_plain_rows_and_rebuilds_for_grants() 
     assert!(worn.wears("spark_blossom"));
 }
 
-/// Regression (2026-07-12): a `MovesetMelee` body's `BodyMelee.swing` is a
-/// read-model that `project_moveset_melee_to_body_melee` rebuilds EVERY frame.
-/// The one-hit-per-target dedup (`hit_targets`, folded in by the downstream
-/// Volume resolver) used to live on that ephemeral swing, so it was wiped every
-/// tick — and the player's slash/pogo re-hit + re-fired the hit SFX on every
-/// active frame ("multi-hit on objects, lots of SFX at once"). The accumulator
-/// now lives on the persistent `MovePlayback`; the projection must COPY it onto
-/// the swing so `apply_hitbox_damage` re-emits it as `ignored_targets`.
+/// The accumulator now lives on the persistent `MovePlayback`; the projection must COPY it onto the
+/// swing so `apply_hitbox_damage` re-emits it as `ignored_targets`.
 #[test]
 fn the_moveset_projection_carries_the_hit_dedup_accumulator() {
     let mut app = App::new();
@@ -2768,9 +2688,7 @@ fn landing_out_of_an_aerial_costs_its_authored_lag_unless_it_autocancelled() {
             .landing_lag_timer
     };
 
-    // Landed early, inside the commitment: the authored lag is owed.
     assert!((paid(Some(0.25), Some(0.50), 0.10) - 0.25).abs() < 1e-6);
-    // Landed past the auto-cancel point: clean.
     assert_eq!(paid(Some(0.25), Some(0.50), 0.60), 0.0);
     // No auto-cancel authored: the lag applies whenever the move is running.
     assert!((paid(Some(0.25), None, 0.60) - 0.25).abs() < 1e-6);
@@ -2920,12 +2838,9 @@ fn a_contiguous_hitbox_track_lands_one_hit_per_victim() {
     );
 }
 
-/// ⛔ **POISON: a GAP still rehits.** A genuine multi-hit move — a drill, a
-/// rapid jab — is authored as Active windows with space between them, because
-/// that is physically what it is: the box goes away and comes back. If the
-/// handoff carried across a gap too, every multi-hit move in the game would
-/// silently become single-hit, and this whole mechanism would be a damage nerf
-/// wearing a bug fix's clothes.
+/// ⛔ **POISON: a GAP still rehits.** A genuine multi-hit move — a drill, a rapid jab — is
+/// authored as Active windows with space between them, because that is physically what it is:
+/// the box goes away and comes back.
 #[test]
 fn a_gap_between_active_windows_is_a_fresh_strike() {
     let (mut app, victim) = app_with_victim();
@@ -2959,13 +2874,7 @@ fn a_gap_between_active_windows_is_a_fresh_strike() {
     );
 }
 
-/// **AN AUTHORED EFFECT FACES THE WAY THE FIGHTER DOES.** (D154)
-///
-/// ⛔⛔ **the offset was body-local and the ARTWORK was not.** `build_move_events`
-/// mirrors an authored `at` by the move's committed facing and rotates it into
-/// the owner's gravity frame — so a left-facing fighter's `air_slice` landed at
-/// exactly the right left-hand spot, drawn pointing right. Invisible on a radial
-/// burst; visibly wrong on a slice, a streak, or an arrow.
+/// **AN AUTHORED EFFECT FACES THE WAY THE FIGHTER DOES.**
 ///
 /// ⭐ **this asserts the pose travels WITH the offset, from one derivation.** A
 /// pose computed anywhere else could disagree with the position it decorates,

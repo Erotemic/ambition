@@ -34,12 +34,9 @@ def default_field_value(field_def: dict[str, Any]) -> Any:
 # ---------------------------------------------------------------------------
 # Native `EntityRef` relationships.
 #
-# ⭐ **the registry is here because there are TWO of them now.** `mounted_on`
-# (ADR 0020, rider → mount) was the first and its field-def synthesis lived in
-# `mount_split`, the one command that needed it. `path_ref` (EnemySpawn → the
-# KinematicPath it patrols) is the second, and a second hand-rolled copy of
-# LDtk's ~30-key EntityRef field-def shape is how the two would drift. One
-# synthesizer, one table of what each relationship MEANS.
+# **the registry is here because there are TWO of them now.** `mounted_on` (ADR 0020, rider →
+# mount) was the first and its field-def synthesis lived in `mount_split`, the one command that
+# needed it. One synthesizer, one table of what each relationship MEANS.
 #
 # Each entry is the field's authored documentation plus `allowedRefs`, the
 # editor-side scope of what it may point at ("Any" / "OnlySame").
@@ -50,7 +47,7 @@ ENTITY_REF_FIELDS: dict[str, dict[str, str]] = {
             "mount action pre-applied). Resolved into a RidingOn/MountSlot link."
         ),
         "allowed_refs": "OnlySame",
-        # ⚠ a SPEC-authored mount link may cross entity types (the GNU-ton
+        # a SPEC-authored mount link may cross entity types (the GNU-ton
         # scholar BossSpawn → its `giant_gnu` EnemySpawn mount), which
         # "OnlySame" would forbid. Stated as data rather than as a caller's
         # special case, because the caller is a loop over every ref field.
@@ -62,7 +59,7 @@ ENTITY_REF_FIELDS: dict[str, dict[str, str]] = {
             "that path's own lookup id, so the reference cannot disagree with "
             "the target about how the path is spelled."
         ),
-        # ⭐ the strongest scope LDtk offers: the EDITOR itself will only offer
+        # the strongest scope LDtk offers: the EDITOR itself will only offer
         # `KinematicPath` targets, so the wrong-kind mistake cannot be made by
         # hand at all. `allowedRefsEntityUid` is resolved per project below.
         "allowed_refs": "OnlySpecificEntity",

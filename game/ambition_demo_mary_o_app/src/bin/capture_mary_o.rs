@@ -1,13 +1,6 @@
 //! **Photograph Mary-O.**
 //!
-//! ⛔ **before this, four of the five games could not be looked at at all.** The
-//! only capture tool here is `capture_scene`, which composes `ambition_app` —
-//! Ambition's rooms, Ambition's content. So every visual claim about Mary-O,
-//! Sanic, Smash or Pocket was argued rather than seen, and on 2026-08-04 two
-//! changes to Mary-O's own art landed unlooked-at for exactly that reason
-//! (queue D20).
-//!
-//! ⭐ **this binary is deliberately small, and that is the evidence.** Everything
+//! **this binary is deliberately small, and that is the evidence.** Everything
 //! hard — building a render target, pointing the cameras at it, reading the
 //! texture back, writing the PNG, exiting — is `ambition_render::capture`, shared
 //! and game-agnostic. What is left here is the part that genuinely differs
@@ -15,12 +8,8 @@
 //! If a second demo needs more than this file's length, the split is in the
 //! wrong place.
 //!
-//! ⛔ **and until 2026-08-09 it could only photograph 1-1.** It boots the gameplay
-//! route and the gameplay route entered one room, so `--at` could only teleport
-//! WITHIN that room and `capture_scene` — which composes `ambition_app`, holding
-//! 72 Ambition rooms and zero Mary-O ones — could not reach the demo at all. The
-//! union of both tools could not open World 1-2, which is the level three open
-//! observations were about (queue D65). `--room` is the whole difference.
+//! The union of both tools could not open World 1-2, which is the level three open observations
+//! were about. `--room` is the whole difference.
 //!
 //! ```text
 //! cargo run -p ambition_demo_mary_o_app --features capture --bin capture_mary_o \
@@ -36,27 +25,15 @@ use ambition_platformer2d::render::capture::{
 };
 use bevy::prelude::*;
 
-/// Frames to advance before shooting. A demo boots its shell, loads a room and
-/// spawns a body; a capture taken before that is a picture of an empty world.
+/// Frames to advance before shooting.
 #[derive(Resource)]
 struct Warmup {
     remaining: u32,
     /// Frames of held RIGHT before the shot.
     ///
-    /// ⛔ **without this the camera only ever saw the level's first screen.** A
-    /// pipe recolour landed unverified on 2026-08-04 for exactly that reason:
-    /// no pipe is in frame at the spawn point, and a capture that cannot travel
-    /// can only photograph the opening (queue D22). Holding a direction is the
-    /// cheapest way to reach the rest of a side-scroller.
+    /// Holding a direction is the cheapest way to reach the rest of a side-scroller.
     walk_right: u32,
     /// Frames to let the LAST walking input actually be simulated.
-    ///
-    /// ⛔ **the walk counter was short by its final frame.** `hold_right_while_walking`
-    /// spends the last step and presses RIGHT, and `shoot_when_warm` — chained
-    /// immediately after it — requested the picture in that same `Update`. The
-    /// press is collected and simulated on a LATER frame than the one that asked
-    /// for the shot, so `--walk 1` photographed zero frames of walking and every
-    /// other count was one short (GPT 5.6, review through `f0f97f5`).
     ///
     /// One frame is enough: the input written this frame is collected in the
     /// same frame's `InputSet::Collect` (which the writer is now ordered before)
@@ -64,7 +41,7 @@ struct Warmup {
     settle: u32,
     /// Where to PUT her before the shutter, in world coordinates.
     ///
-    /// ⭐ **because `--walk` cannot reliably reach a place.** The level's bricks
+    /// **because `--walk` cannot reliably reach a place.** The level's bricks
     /// are at x≥1536 and every capture ever taken of Mary-O stopped short of
     /// them, so nobody had actually looked at one — two separate claims about
     /// what a brick looks like were made from screenshots that did not contain a
@@ -90,7 +67,7 @@ fn main() {
                 let asked = args
                     .next()
                     .unwrap_or_else(|| fail("--room needs a room id"));
-                // ⛔ **validated here, because the seam it feeds does NOT refuse.**
+                // **validated here, because the seam it feeds does NOT refuse.**
                 // `RoomSet::from_parts` activates room 0 for an id it does not
                 // hold, so an unknown `--room` would photograph 1-1 and report
                 // success — a capture tool that silently shoots the wrong subject
@@ -145,9 +122,9 @@ fn main() {
         }
     }
 
-    // ⚠ `OffscreenGpu`, never `Headless`: headless sets `backends: None`, so
+    // `OffscreenGpu`, never `Headless`: headless sets `backends: None`, so
     // there is no RenderApp and no texture to read. See `RenderMode`.
-    // ⚠ the GAMEPLAY route, not the default launcher home. Booting the launcher
+    // the GAMEPLAY route, not the default launcher home. Booting the launcher
     // and counting frames writes a blank PNG — no amount of warmup walks a menu
     // into a level, and that is the readiness contract `capture` hands back to
     // the caller. It is also literally what the first attempt produced.
@@ -169,7 +146,7 @@ fn main() {
         at,
     });
     app.add_systems(Startup, setup_capture_target);
-    // ⚠ **the placement runs in the SIM schedule, not beside the other capture
+    // **the placement runs in the SIM schedule, not beside the other capture
     // systems.** It calls `transit_body`, which writes `MotionModel` — rollback
     // state — and `scripts/check_rollback_mutators_run_in_sim.py` catches
     // rollback state mutated outside the rewinding schedule. It caught this one.
@@ -184,7 +161,7 @@ fn main() {
         let sim = app.sim_schedule();
         app.add_systems(sim, place_before_the_shutter);
     }
-    // ⛔ **the synthetic input must be written BEFORE the frame collects it.**
+    // **the synthetic input must be written BEFORE the frame collects it.**
     // These sat in `Update` with no edge to `ambition_platformer2d::input::InputSet::Collect`,
     // which is also in `Update` — so whether a press written here was seen by
     // the same frame or the next one was left to whatever order Bevy happened to
@@ -206,7 +183,7 @@ fn main() {
 
 /// Count the world in, then ask for the picture.
 ///
-/// ⛔ **it waits for an ADOPTED camera, not just for frames.** A demo builds its
+/// **it waits for an ADOPTED camera, not just for frames.** A demo builds its
 /// cameras when its shell resolves a route, which is well after `Startup`;
 /// shooting before then reads back 960x540 pixels of `(0,0,0,0)` and reports
 /// success. That is not hypothetical — it is what the first two attempts wrote,
@@ -228,17 +205,14 @@ fn shoot_when_warm(
         warmup.remaining -= 1;
         return;
     }
-    // ⛔ **AND the walk has to finish.** This shot as soon as the warmup ran
-    // out, whatever `--walk` said — so `--warmup 10 --walk 300` took the picture
-    // on frame 10 with 290 frames of travel still owed, and the capture showed
-    // the spawn point. The flag asked for a journey and the tool photographed
-    // the departure lounge. `hold_right_while_walking` is chained BEFORE this,
-    // so the frame that spends the last walking step is the frame that shoots.
+    // **AND the walk has to finish.** This shot as soon as the warmup ran out, whatever
+    // `--walk` said — so `--warmup 10 --walk 300` took the picture on frame 10 with 290 frames
+    // of travel still owed, and the capture showed the spawn point. The flag asked for a
+    // journey and the tool photographed the departure lounge.
     if warmup.walk_right > 0 {
         return;
     }
-    // The last walking frame's press was written THIS frame at the earliest; let
-    // it be collected and simulated before the shutter. See `Warmup::settle`.
+    // See `Warmup::settle`.
     if warmup.settle > 0 {
         warmup.settle -= 1;
         return;
@@ -248,12 +222,12 @@ fn shoot_when_warm(
 
 /// Hold RIGHT while there are walking frames left.
 ///
-/// ⚠ **written into `ButtonInput` directly**, which is what `capture_scene`
+/// **written into `ButtonInput` directly**, which is what `capture_scene`
 /// does: the demo's binding layer reads the same resource a real keyboard fills,
 /// so this exercises the actual input path rather than a bypass.
 /// Put her where `--at` says, once, as soon as something is drawing.
 ///
-/// ⚠ **through the movement authority**, not a bare pose write: a discrete
+/// **through the movement authority**, not a bare pose write: a discrete
 /// relocation that leaves the body's contacts and collapsed sweep describing the
 /// spawn point is the defect ADR 0024's authorities exist to prevent, and a
 /// capture tool that corrupts the thing it photographs is worse than no tool.
@@ -304,7 +278,7 @@ fn hold_right_while_walking(
     }
     warmup.walk_right -= 1;
     keys.press(KeyCode::ArrowRight);
-    // ⛔ **walking alone cannot cross a side-scroller.** The first version held
+    // **walking alone cannot cross a side-scroller.** The first version held
     // only Right and she died to the first snake — the capture came back at the
     // spawn point with a life spent, which looks exactly like the flag not
     // working. A traversal that cannot jump reaches the first hazard and stops.

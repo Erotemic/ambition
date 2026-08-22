@@ -7,10 +7,6 @@
 
 use super::*;
 
-/// Inspect the current player state against the active world and produce
-/// the *first* OOB reason found, if any. Order matters: NaN/inf should
-/// be reported before "outside envelope" because both can be true.
-///
 /// The world envelope / inside-solid check is delegated to
 /// `ae::classify_player_safety` so the trace recorder and
 /// `crate::remember_safe_player_position` use the same definition.
@@ -185,9 +181,7 @@ pub fn build_frame(
     clusters: &ae::BodyClustersMut<'_>,
     facts: &ae::BodyMotionFacts,
     combat: &ambition_characters::actor::BodyCombat,
-    // AC3.1.B: the melee AUTHORITY. The trace used to read a
-    // `BodyCombat.attacking` mirror maintained beside it; a mirror in an
-    // instrument is worse than elsewhere, because a trace exists to be believed.
+    // AC3.1.B: the melee AUTHORITY.
     melee: &crate::actor::BodyMelee,
     clock: &ambition_time::ClockState,
     safety: &crate::avatar::PlayerSafetyState,
@@ -453,8 +447,6 @@ pub(crate) fn synthesize_events_from_diff(
     // press (the previous frame's value was already false).
     let pairs: &[(&str, bool, bool)] = &[
         ("Jump", controls.jump_pressed, prev.controls.jump_pressed),
-        // The CHANNEL, not the outcome: `GameplayTraceEvent::Dash` below is the
-        // detected traversal dash, and the two used to share this name.
         ("Burst", controls.burst_pressed, prev.controls.burst_pressed),
         ("Blink", controls.blink_pressed, prev.controls.blink_pressed),
         ("Up", controls.up_pressed, prev.controls.up_pressed),
@@ -495,11 +487,7 @@ pub(crate) fn synthesize_events_from_diff(
 
 /// Push the constructed frame and record this pass's anomaly assessment.
 ///
-/// Frame rows and anomaly truth use the same `(session, frame)` identity. Under
-/// rollback, the OOB assessment stays pending until GGRS confirms that frame;
-/// a correction replaces the pending assessment before it can emit an event or
-/// arm an irreversible dump. Non-rollback hosts have no identity and preserve
-/// the old immediate behavior.
+/// Frame rows and anomaly truth use the same `(session, frame)` identity.
 pub fn record_frame(
     buffer: &mut GameplayTraceBuffer,
     frame: GameplayTraceFrame,

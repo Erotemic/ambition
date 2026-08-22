@@ -45,8 +45,6 @@ pub fn install_boss_banter(registry: &mut CombatBanterRegistry) {
     registry.set_idle_barks(
         "GNU-ton",
         vec![
-            // The five Jon-favorited lines lead the pool so they
-            // surface first in a fresh fight.
             "Fall. I have already solved for where.",
             "The universe is not cruel. It is exact.",
             "I have split the sun. I can divide you.",

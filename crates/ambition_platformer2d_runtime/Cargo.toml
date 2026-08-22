@@ -16,7 +16,7 @@ ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_
     "input",
 ] }
 # Conversation continuity, named directly since it left the actor monolith
-# (2026-08-17). The domain now owns its rollback declaration; this host composes
+# . The domain now owns its rollback declaration; this host composes
 # that offer and `room_transition/commit.rs` reads whether a conversation is live.
 ambition_conversation = { path = "../ambition_conversation" }
 ambition_boss_encounter = { path = "../ambition_boss_encounter" }
@@ -62,15 +62,10 @@ ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 # snapshots into `AuthoredAttackVolumeResolver`. This edge was always here — it
 # was laundered through `ambition_platformer2d_actor_monolith::character_sprites`,
 # a facade that re-exported 22 `ambition_sprite_sheet` names purely so consumers
-# would not have to name the owner. The facade is gone (2026-08-08); the edge is
+# would not have to name the owner. The facade is gone; the edge is
 # now visible. `ambition_sprite_sheet` is a leaf asset/vocabulary crate below the
 # monolith this crate already depends on, so it adds no graph depth.
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
-# The sheet DERIVATIONS the composition needs: `authored_attack_volume_resolver`
-# (the closure `CombatSchedulePlugin` snapshots) and `SpritePosedBodyPlugin`.
-# Carved out of `ambition_platformer2d_actor_monolith` on 2026-08-09 as a
-# SIBLING of it, not a layer under it — so this edge adds no graph depth and the
-# actor crate stops rebuilding when a sprite derivation changes.
 ambition_character_sprites = { path = "../ambition_character_sprites" }
 bevy_common_assets = { version = "0.15", features = ["ron"] }
 blake3 = "1"

@@ -1,15 +1,6 @@
 //! **The `ParticipantId` ↔ `PlayerSlot` correspondence, in ONE place.**
 //!
-//! ⚠ **these are two concepts that currently share a numbering, and the sharing
-//! is not a fact about the world** (GPT 5.6 review through `c32e690`, finding 5).
-//! `ParticipantId` names *a person in front of a controller*, which outlives a
-//! session; `PlayerSlot` names *a seat the simulation reads a `ControlFrame`
-//! from*, which is created and destroyed with seating needs. Today the primary
-//! participant is seat 0 and the Nth participant is seat N, and every call site
-//! that spells `PlayerSlot(participant.id.slot())` has quietly asserted that
-//! they are the same thing.
-//!
-//! ⛔ **this module is NOT the rename.** The reviewer deferred that explicitly,
+//! **this module is NOT the rename.** The reviewer deferred that explicitly,
 //! and it is a large cross-crate change; what it asks for instead is that new
 //! code stop *adding* assumptions of numeric equality, so the future split has
 //! one place to change rather than a grep. So: new code converts here. Existing
@@ -18,7 +9,7 @@
 //!
 //! ## Why it lives in the monolith
 //!
-//! ⛔ **not a placement preference — the crate graph forces it.**
+//! **not a placement preference — the crate graph forces it.**
 //! `ambition_input` (which defines `ParticipantId`) and `ambition_characters`
 //! (which defines `PlayerSlot`) are SIBLINGS: neither depends on the other, and
 //! both sit on `ambition_platformer2d_core` + `ambition_entity_catalog`. Putting
@@ -30,9 +21,9 @@
 //! owns the mapping as DATA rather than as arithmetic — at which point these two
 //! functions become lookups and every caller keeps compiling.
 //!
-//! ## ⚠ there is a THIRD identity in the same number, and it is the one that bit
+//! ## there is a THIRD identity in the same number, and it is the one that bit
 //!
-//! `LocalChannelPlan` (2026-08-07) separated the *physical source* — which pad
+//! `LocalChannelPlan` separated the *physical source* — which pad
 //! somebody picked up — from the dense rollback channel, after a sparse source
 //! number reached GGRS as a handle and a fighter was deaf for a whole match.
 //! That fix is real and must not be undone. But it spells the CHANNEL
@@ -47,11 +38,9 @@
 //! PlayerSlot         what the simulation reads
 //! ```
 //!
-//! ⛔ **so the rule above extends to the channel**: new code must not add
-//! arithmetic equality between a participant and a channel/handle either. Route
-//! through `ambition_input::LocalChannelPlan`, whose whole job is being that map.
-//! The remaining split is tracked in `docs/planning/tracks.md`; a reproduction
-//! being fixed is not the identity model being separated.
+//! **so the rule above extends to the channel**: new code must not add arithmetic equality
+//! between a participant and a channel/handle either. Route through
+//! `ambition_input::LocalChannelPlan`, whose whole job is being that map.
 
 use ambition_characters::brain::PlayerSlot;
 use ambition_input::ParticipantId;
@@ -70,7 +59,7 @@ pub fn participant_of(slot: PlayerSlot) -> ParticipantId {
 mod tests {
     use super::*;
 
-    /// ⭐ **the round trip is the whole contract.** It is trivially true while
+    /// **the round trip is the whole contract.** It is trivially true while
     /// the two are one number, and it is the assertion that keeps being true
     /// after they stop being — which is the point of routing through here.
     #[test]

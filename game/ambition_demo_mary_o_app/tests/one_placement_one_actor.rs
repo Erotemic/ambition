@@ -1,30 +1,18 @@
 //! **One authored placement, one actor, wearing its own mechanics.**
 //!
-//! ⛔ **level 1-1 built every enemy TWICE and nothing noticed.** A GPT 5.6
-//! review of `90a9715` found it; a probe that booted the real app and dumped
-//! every `FeatureId` confirmed it — 17 authored `EnemySpawn` placements, 34
-//! actors. Two construction roots were live at once:
-//!
 //! - the engine's `authored_actor_requests()`, which builds one row for every
 //!   `room.enemy_spawns` entry, unconditionally;
 //! - two `RoomContentStagingRegistry` closures in the Mary-O crate, which walked
 //!   the same entries and minted a second actor under a prefixed id.
 //!
-//! ⚠ **the duplicate-id check could not see it**, because the whole point of the
+//! **the duplicate-id check could not see it**, because the whole point of the
 //! prefix was that the two paths called the same authored thing different names:
 //! `EnemySpawn-106877` and `mary_o_snake_EnemySpawn-106877`.
 //!
-//! ⚠ **and only the prefixed half was tagged.** `is_snake_id` matched an id
+//! **and only the prefixed half was tagged.** `is_snake_id` matched an id
 //! PREFIX, so the engine-built copy was a custom-brain enemy with no
 //! `SnakeShell`, no `AiSlop`, no stomp and no dormancy — half of 1-1's enemies
 //! were un-stompable lookalikes standing in the same places as the real ones.
-//!
-//! ⭐ **the regression was the LDtk port itself.** Before it, 1-1 authored no
-//! enemies and staging was the only root; authoring them gave the engine
-//! something to build and nothing removed the closure. That is what makes this
-//! worth a test rather than a fix: the two roots were individually correct and
-//! only their COEXISTENCE was wrong, so nothing either one owns would have
-//! caught it.
 
 use bevy::prelude::*;
 
@@ -58,9 +46,7 @@ fn mary_o_enemies(app: &mut App) -> Vec<(String, bool)> {
 
 /// **The count matches the file.**
 ///
-/// ⚠ deliberately compared against the AUTHORED placements rather than a
-/// literal 17: the level is Jon's to edit, and a test that has to be retuned
-/// when he adds an enemy is a test that will be wrong before it is red.
+/// Compare against authored placements rather than a literal count so level edits remain valid.
 #[test]
 fn each_authored_enemy_placement_builds_exactly_one_actor() {
     let authored: Vec<String> = ambition_demo_mary_o::level_1_1()
@@ -85,9 +71,7 @@ fn each_authored_enemy_placement_builds_exactly_one_actor() {
         built.iter().map(|(id, _)| id).collect::<Vec<_>>()
     );
 
-    // ⭐ and each one is the PLACEMENT's own identity, not a minted lookalike.
-    // A prefixed id here would mean the count matched only because one root
-    // replaced the other rather than because one root is left.
+    // and each one is the PLACEMENT's own identity, not a minted lookalike.
     let mut ids: Vec<&String> = built.iter().map(|(id, _)| id).collect();
     ids.sort();
     let mut expected: Vec<&String> = authored.iter().collect();
@@ -133,27 +117,17 @@ fn no_enemy_is_left_without_the_mechanics_its_brain_promises() {
 
 /// **An AI Slop learns it may sleep, and nobody else does.**
 ///
-/// ⭐ **this moved here from a unit test, and got better on the way.** The tag
-/// pass is where a slop receives its dormancy policy, and the engine's policy
-/// component is opt-in: an actor that never receives one is awake across the
-/// whole level forever, which looks identical to "the feature is not built".
-/// The old version spawned a bare `FeatureId` on an `App::new()` — it could only
-/// prove the pass answers something a test invented. This one asserts it for
-/// every slop the real construction path builds from the real authored level.
+/// This one asserts it for every slop the real construction path builds from the real authored
+/// level.
 ///
-/// ⚠ **the negative half is the point.** Dormancy is a per-character decision,
+/// **the negative half is the point.** Dormancy is a per-character decision,
 /// so handing it to everything in the room would be the same mistake as the
 /// engine assuming a distance.
 #[test]
 fn every_authored_enemy_declares_whether_it_sleeps() {
     let mut app = booted();
-    // ⛔ **this test used to assert that ONLY the slop declares dormancy**, and
-    // that assertion is why the snake went a day without a policy. Jon named the
-    // slop — *"ai slop will just walk off the edge of the level"* — so the seam
-    // was built, the slop was wired, and the test pinned the state of the fix
-    // rather than the property being fixed. The other patrolling enemy in the
-    // same level thought for the whole course, and the guard positioned to
-    // notice was instead defending its absence.
+    // The other patrolling enemy in the same level thought for the whole course, and the guard
+    // positioned to notice was instead defending its absence.
     //
     // The property is: every authored enemy in Mary-O declares a dormancy
     // policy, because every one of them patrols and none of them is worth

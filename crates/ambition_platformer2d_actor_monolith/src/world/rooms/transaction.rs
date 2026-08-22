@@ -7,14 +7,10 @@
 //!
 //! ## Why this is not in the feature plan
 //!
-//! It was, and the boundary was in the wrong place. `RoomFeatureConstructionPlan::spawn`
-//! queued its own capture and its own verify-and-publish around the FEATURE work,
-//! and then `RoomConstructionPlan::spawn_contents` — its caller — queued the
-//! moving-platform bodies and the [`LastRoomConstructionCommit`] receipt AFTER
-//! it returned. Command queues apply in insertion order, so the publication ran
-//! strictly before the room was finished: `RoomLoaded` announced a room with no
-//! platforms and no commit receipt, and verification inspected a world the
-//! transaction had not stopped building. Every listener that reacted to
+//! It was, and the boundary was in the wrong place. `RoomFeatureConstructionPlan::spawn` queued
+//! its own capture and its own verify-and-publish around the FEATURE work, and then
+//! `RoomConstructionPlan::spawn_contents` — its caller — queued the moving-platform bodies and
+//! the [`LastRoomConstructionCommit`] receipt AFTER it returned. Every listener that reacted to
 //! `RoomLoaded` by reading the room's platforms saw an empty set.
 //!
 //! A feature plan cannot own this boundary, because a feature plan is not the
@@ -25,16 +21,10 @@
 //!
 //! ## What "last" buys, and what it does not
 //!
-//! Because the queue is ordered, [`close`] runs after feature construction,
-//! planned roots, planned relationships, moving-platform entities, the
-//! last-commit receipt, and — for every lifecycle path — after active room
-//! selection, room geometry, moving-platform resource state, and carried-player
-//! handling, all of which are applied before `spawn_contents` is called at all.
-//! The same two closures serve the deferred path and the exclusive-world
-//! `apply_to_world` path, so there is ONE publication route rather than two that
-//! can drift.
+//! The same two closures serve the deferred path and the exclusive-world `apply_to_world` path,
+//! so there is ONE publication route rather than two that can drift.
 //!
-//! ⚠ **This is detection, not rollback, and withholding publication is not
+//! **This is detection, not rollback, and withholding publication is not
 //! rollback either.** By the time [`close`] runs, every construction command has
 //! applied and Bevy commands cannot be undone. A failed verification means the
 //! room never announces itself and the world keeps whatever the offending recipe
@@ -52,9 +42,8 @@ use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 /// The baseline captured at the head of a construction transaction, waiting for
 /// the verification pass at its tail.
 ///
-/// A resource because the two ends are separate commands in one queue and
-/// nothing else can carry a value between them. Removed by the verification
-/// pass, so its presence means a transaction is open.
+/// A resource because the two ends are separate commands in one queue and nothing else can
+/// carry a value between them.
 #[derive(Resource)]
 pub(crate) struct PendingConstructionBaseline(Result<TransactionBaseline, BaselineCaptureError>);
 
@@ -144,7 +133,6 @@ fn verify_and_publish(
     let baseline = match world.remove_resource::<PendingConstructionBaseline>() {
         Some(PendingConstructionBaseline(Ok(baseline))) => baseline,
         Some(PendingConstructionBaseline(Err(error))) => {
-            // The world was already inconsistent before this transaction began.
             // Publishing a room on top of that would bury the earlier fault.
             bevy::log::error!(
                 target: "ambition_platformer2d::construction",

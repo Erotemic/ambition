@@ -1,6 +1,3 @@
-//! The Super Mary-O demo's shell, as a function — so the binary and the exit-3
-//! regression test assemble the SAME app.
-//!
 //! See `main.rs` for the doctrine this file encodes.
 
 use bevy::prelude::*;
@@ -81,24 +78,11 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
 /// The windowed host with an explicitly named home route AND entry room — the
 /// sibling of [`build_demo_app_with_home`], and the reason it exists is the same.
 ///
-/// ⚠ **a capture needs the GAMEPLAY route, not the launcher.** Booting the
-/// default home and counting frames produces a blank picture: the launcher is
-/// where the shell starts, and no number of warmup ticks walks it into a level.
-/// That is not a hypothetical — it is what the first demo capture wrote
-/// (2026-08-04), and it is exactly the readiness contract
-/// `ambition_render::capture` says belongs to the caller.
+/// There was no way to look at 1-2 at all, which is why three open observations about it could only
+/// be argued.
 ///
-/// ⛔ **and it needs the ROOM, which this could not say until 2026-08-09.** The
-/// entry room is a resource a host inserts
-/// ([`MaryOEntryRoom`](ambition_demo_mary_o::provider::MaryOEntryRoom)) and this
-/// builder inserted none, so every windowed boot — including every capture — was
-/// 1-1. There was no way to look at 1-2 at all (queue D65), which is why three
-/// open observations about it could only be argued.
-///
-/// ⚠ **the entry room is answered ONCE here**, and the asset bind room is read
-/// off the same session world rather than off `mary_o_session_world()`. Those
-/// were two independent answers, and the second was hardcoded to 1-1 — the same
-/// fork this row found in the provider, one layer up.
+/// **the entry room is answered ONCE here**, and the asset bind room is read off the same
+/// session world rather than off `mary_o_session_world()`.
 #[cfg(all(feature = "visible", not(target_arch = "wasm32")))]
 pub fn build_windowed_demo_app_entering(
     render: RenderMode,
@@ -143,11 +127,11 @@ pub fn build_windowed_demo_app_entering(
         // A real renderer with nothing to present to. `winit` is the only thing
         // dropped, because a window is the only thing missing.
         RenderMode::OffscreenGpu => {
-            // ⛔ **`winit` is also the RUNNER.** Disabling it leaves Bevy's
+            // **`winit` is also the RUNNER.** Disabling it leaves Bevy's
             // default single-pass runner, so `app.run()` performs exactly ONE
             // update and returns — the app exits 0 having rendered nothing, and
             // a capture reports success with no file written. Found by trying
-            // it (2026-08-04).
+            // it.
             app.add_plugins(plugins.disable::<bevy::winit::WinitPlugin>())
                 .add_plugins(bevy::app::ScheduleRunnerPlugin::run_loop(
                     std::time::Duration::from_millis(0),
@@ -189,23 +173,14 @@ pub fn build_windowed_demo_app_entering(
     // The provider installs Mary-O's content definitions before the shared asset
     // catalog is assembled below.
     compose_mary_o_shell(&mut app, home_route);
-    // The UMBRELLA install, not a copy of it (2026-07-27). This shell used to
-    // hand-roll ~90 lines here, and so did Sanic's, and the external-consumer
-    // fixture recorded that a third party got neither — so it drew the world as
-    // coloured rectangles. A helper the in-repo demos do not use is a helper
-    // nothing exercises; these two ARE the regression test for it.
-    //
     // Level 1-1 is authored in code rather than LDtk, so no world manifest: a
     // world-less catalog contributes no world rows and every other entry lands.
     app.add_plugins(
         ambition_platformer2d::game_assets::PlatformerAssetsPlugin::for_experience(
             ambition_demo_mary_o::MARY_O_EXPERIENCE,
         )
-        // Startup asset binding precedes gameplay activation, so the theme comes
-        // from the authored room rather than a session root that does not exist
-        // yet. ⚠ from the room this host is ENTERING — it said
-        // `mary_o_session_world()`, which is 1-1 unconditionally, so a boot into
-        // any other room bound another room's biome art.
+        // Startup asset binding precedes gameplay activation, so the theme comes from the
+        // authored room rather than a session root that does not exist yet.
         .with_room(
             ambition_demo_mary_o::provider::mary_o_session_world_entering(entry_room)
                 .metadata
@@ -291,10 +266,8 @@ pub enum RenderMode {
     /// **No window and a REAL backend** — the mode that can produce pixels
     /// without a display.
     ///
-    /// ⛔ `Headless` cannot be used for this: it sets `backends: None`, so there
-    /// is no RenderApp and nothing to read a texture out of. That difference is
-    /// invisible until you try to photograph something, which is why this run
-    /// found it by trying (queue D20).
+    /// `Headless` cannot be used for this: it sets `backends: None`, so there is no RenderApp
+    /// and nothing to read a texture out of.
     ///
     /// Everything a window would have given us stays: `CorePipelinePlugin`, the
     /// gizmo pass, the real wgpu backend. Only `winit` and the window itself go.

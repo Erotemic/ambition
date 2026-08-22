@@ -4,7 +4,7 @@
 //!
 //! ```text
 //! PlayerInput        CheckpointRestore  ->  RoomReplayApplied
-//! PlayerSimulation   ...               ->  CheckpointCapture
+//! PlayerSimulation ...               ->  CheckpointCapture
 //! ```
 //!
 //! Concrete baseline resources and capture/restore systems are domain-owned.

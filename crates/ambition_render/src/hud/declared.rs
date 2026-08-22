@@ -1,15 +1,12 @@
 //! The renderer for a game's **declared** HUD readouts.
 //!
-//! The sibling module draws Ambition's fixed HP/MP/$ widget — three readouts
-//! hardcoded into the engine, which is exactly why no other game could have a
-//! HUD without a core edit. This module draws whatever the ACTIVE ROUTE
-//! declared instead, and knows nothing about what any of it means: it spawns
-//! one text node per
-//! [`HudSlotSpec`](ambition_platformer2d_shared_tangle::gameplay_presentation::HudSlotSpec)
-//! and mirrors the matching
+//! This module draws whatever the ACTIVE ROUTE declared instead, and knows nothing about what
+//! any of it means: it spawns one text node per
+//! [`HudSlotSpec`](ambition_platformer2d_shared_tangle::gameplay_presentation::HudSlotSpec) and
+//! mirrors the matching
 //! [`HudReadouts`](ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadouts)
-//! entry into it every frame. "RINGS", "SCORE", "TIME" are strings a game
-//! writes; none of them appear here.
+//! entry into it every frame. "RINGS", "SCORE", "TIME" are strings a game writes; none of them
+//! appear here.
 //!
 //! Placement reuses the ladder the built-in HUD already walks — ask
 //! [`hud_region`] for the region the slot asked for, take it when the active
@@ -43,8 +40,6 @@ pub struct DeclaredHudRoot;
 #[derive(Component)]
 pub struct DeclaredHudSlot(pub HudSlotId);
 
-/// The exact declaration used to build a node.
-///
 /// Slot ids are stable identities, not cache keys for appearance. Retaining the
 /// full spec lets a route update font, colour, centering, order, or region while
 /// keeping the same id and still receive a rebuilt node.
@@ -63,23 +58,15 @@ const LINE_HEIGHT_FACTOR: f32 = 1.2;
 
 /// How much vertical room one slot's PUBLISHED readout needs.
 ///
-/// ⛔ **stacking advanced by ONE line and every readout here may be several.**
-/// TwinTrack publishes three-line status and result cards, so its four declared
-/// slots were drawn on top of each other's second and third lines — the top-left
-/// of that demo is unreadable mush, and it looks like a layout bug in the game
-/// rather than in the renderer that spaces the slots. Any game that publishes a
-/// `\n` hits it.
+/// Any game that publishes a `\n` hits it.
 ///
 /// ⚠ a slot with NO published readout still reserves one line: a conditional
 /// card that blinks in and out would otherwise shove everything below it up and
 /// down as it appeared, and a stable HUD that reserves a little too much beats
 /// one that jumps.
 fn slot_extent(spec: &HudSlotSpec, readouts: &HudReadouts, measured: Option<f32>) -> f32 {
-    // ⛔ **the estimate cannot see WRAPPING, and the measurement can.** Counting
-    // `\n` fixed the explicit line breaks and left TwinTrack's status line —
-    // one logical line long enough to wrap — still colliding with the slot
-    // under it. `ComputedNode` carries what the layout actually produced, which
-    // is the only thing that knows where the text broke.
+    // `ComputedNode` carries what the layout actually produced, which is the only thing that
+    // knows where the text broke.
     //
     // ⚠ **last frame's height**, because UI layout runs in `PostUpdate` and this
     // is an `Update` system. Moving a node's `top` does not change its height,
@@ -160,7 +147,6 @@ pub fn spawn_declared_hud(
 ) {
     let declared = active.slots();
 
-    // Nothing declared: retire anything a previous route left behind.
     if declared.is_empty() {
         for entity in &owned {
             commands.entity(entity).despawn();
@@ -212,9 +198,7 @@ pub fn spawn_declared_hud(
                 DeclaredHudBar(spec.id.clone()),
                 Node {
                     position_type: PositionType::Absolute,
-                    // Under the slot's text, spanning the width it declared a
-                    // minimum for. Zero height until a gauge is published, so a
-                    // slot that never publishes one is byte-identical to before.
+                    // Under the slot's text, spanning the width it declared a minimum for.
                     left: Val::Px(0.0),
                     top: Val::Px(spec.font_size + 2.0),
                     width: Val::Px(0.0),
@@ -390,13 +374,9 @@ pub fn place_declared_hud(
         // Prefer the declared region; fall back to any OTHER reserved region
         // before giving up and overlaying.
         //
-        // A game declares where it would LIKE its readouts, but which surround
-        // a profile actually reserves depends on the display: Mary-O's fixed
-        // 4:3 pillarboxes on a widescreen (Left/Right) and letterboxes on a
-        // tall one (Top/Bottom). Honouring only the declared region meant its
-        // `Top` readouts found nothing on every ordinary monitor and fell
-        // through to the overlay corner — landing somewhere reasonable purely
-        // by luck rather than by placement.
+        // Honouring only the declared region meant its `Top` readouts found nothing on every
+        // ordinary monitor and fell through to the overlay corner — landing somewhere
+        // reasonable purely by luck rather than by placement.
         let region = select_hud_region(&presentation, spec);
 
         // What this slot's text actually occupied last frame, in LOGICAL px —
@@ -444,10 +424,8 @@ pub fn place_declared_hud(
 /// every frame (see [`update_declared_hud_gauges`]) because the slot itself
 /// moves between regions as the active presentation profile changes.
 ///
-/// ⚠ It said "a child node" for a while and was never one, which is exactly how
-/// the retire sweep came to miss it: a comment claiming a lifetime the code did
-/// not implement. Both sweeps in [`spawn_declared_hud`] now key on
-/// [`DeclaredHudRoot`], which every spawn there carries.
+/// Both sweeps in [`spawn_declared_hud`] now key on [`DeclaredHudRoot`], which every spawn
+/// there carries.
 #[derive(bevy::prelude::Component, Debug)]
 pub struct DeclaredHudBar(pub HudSlotId);
 
@@ -469,9 +447,6 @@ pub fn update_declared_hud_gauges(
         let slot = specs.iter().find(|(slot, ..)| slot.0 == bar.0);
         if let Some((_, spec, slot_node)) = slot {
             let left = slot_node.left;
-            // ⚠ **below the LAST line, not below the first.** The bar used to
-            // sit one font-size down, which is under a single-line readout and
-            // through the middle of a multi-line one.
             let text_height = slot_extent(&spec.0, &readouts, None) - SLOT_GAP;
             let top = match slot_node.top {
                 Val::Px(px) => Val::Px(px + text_height + 2.0),
@@ -484,11 +459,6 @@ pub fn update_declared_hud_gauges(
                 node.top = top;
             }
         }
-        // EXHAUSTIVE on purpose (queue L20). A new `HudFigure` variant stops
-        // this file compiling until somebody decides how it is drawn, which is
-        // the point of the enum: a renderer that has not been taught a new
-        // figure would otherwise draw nothing and look like a game that simply
-        // did not publish one.
         let figure = readouts.get(&bar.0).map(|readout| readout.figure.clone());
         let fill = match figure.flatten() {
             Some(HudFigure::Gauge(fill)) => fill,
@@ -544,10 +514,9 @@ pub fn update_declared_hud(
 
 /// **How many stocks are drawn one-icon-each before it becomes a count.**
 ///
-/// ⚠ the genre's own break point, not a guess: a platform fighter draws a row
-/// of little heads while there are few enough to read at a glance, and switches
-/// to `xN` once counting them would take longer than reading a number. Five is
-/// where the games Jon named do it.
+/// the genre's own break point, not a guess: a platform fighter draws a row of little heads while
+/// there are few enough to read at a glance, and switches to `xN` once counting them would take
+/// longer than reading a number.
 pub const MAX_DRAWN_STOCKS: u32 = 5;
 
 /// How wide one fighter panel is, and how big the pieces in it are.
@@ -775,11 +744,6 @@ pub fn update_declared_hud_panels(
 
 /// **How tall a whole panel is** — portrait, the percent under it, the stock
 /// row under that.
-///
-/// ⛔ **the panel is not its portrait, and pretending otherwise put the percent
-/// off the bottom of the screen** (photographed 2026-08-21, first capture of
-/// this HUD). Anchoring by the portrait alone left everything below it hanging
-/// past the edge, which no headless test could see.
 fn panel_height(font_size: f32) -> f32 {
     PORTRAIT_PX + font_size * LINE_HEIGHT_FACTOR + 4.0 + STOCK_ICON_PX + HUD_MARGIN
 }

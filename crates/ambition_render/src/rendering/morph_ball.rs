@@ -157,8 +157,6 @@ pub fn sync_morph_ball_visual(
         ),
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
-    // The primary player's visual is discovered by marker, not a process-global
-    // handle: `PrimaryPlayer` names the home avatar, `PlayerVisual` its sprite.
     mut player_query: Query<
         &mut Visibility,
         (
@@ -208,23 +206,12 @@ pub fn sync_morph_ball_visual(
 
 /// **What these tests prove, and what they do not.**
 ///
-/// tracks.md's bug queue carries *"Morph ball still draws the robot"*. These
-/// three tests run `sync_morph_ball_visual` against the rig it actually sees — a
-/// `PlayerEntity + PrimaryPlayer + PlayerVisual` body carrying a `BodyPoseView`,
-/// one `MorphBallVisual` sibling — and
-/// the system is **correct**: it shows the ball, hides the body, and restores
-/// `Inherited` (never a hard `Visible`) on exit.
+/// These three tests run `sync_morph_ball_visual` against the rig it actually sees — a
+/// `PlayerEntity + PrimaryPlayer + PlayerVisual` body carrying a `BodyPoseView`, one
+/// `MorphBallVisual` sibling — and the system is **correct**: it shows the ball, hides the
+/// body, and restores `Inherited` (never a hard `Visible`) on exit.
 ///
-/// So the reported bug is NOT in this system, and the search moves on: a child or
-/// overlay entity carrying an explicit `Visibility::Visible` (which Bevy does not
-/// hide with its parent), a second entity drawing the body's sprite, or a
-/// last-write-wins ordering with a system that re-shows it. This file no longer
-/// needs re-litigating.
-///
-/// The DESIGN defect is separate and still owed (E3, `mode→sprite-state row`):
-/// a modal body morph should select an animation row on the body's own sheet, not
-/// hide the body and draw a bespoke sibling sprite. That is what "generalize modal
-/// body morphs" means, and it deletes this whole file.
+/// That is what "generalize modal body morphs" means, and it deletes this whole file.
 #[cfg(test)]
 mod tests {
     use super::*;

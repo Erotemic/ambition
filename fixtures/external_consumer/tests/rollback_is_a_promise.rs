@@ -5,7 +5,7 @@
 //! named for the property, so a reader can check the promise against the list
 //! rather than against a paragraph.
 //!
-//! ⚠ **They live in the CONSUMER, not the engine.** Every one of these is a
+//! **They live in the CONSUMER, not the engine.** Every one of these is a
 //! claim about what a third party can and cannot do, and an engine-side test
 //! would be the engine asking itself. Outlander is a real external crate whose
 //! only dependency is `ambition_platformer2d`; if a property here needed an engine internal
@@ -18,12 +18,8 @@ use ambition_platformer2d::rollback::{RollbackPlan, RollbackRefused};
 
 /// Property 4: **deterministic activation.**
 ///
-/// A session rebases frame zero onto the live world, so the world has to be
-/// built first. This is the hazard the engine hit in its own first draft —
-/// session started on update #1, GGRS reporting a checksum mismatch on frames
-/// 2, 3 and 4 forever — and the fix used to be forty lines of ordering in this
-/// fixture. The consumer cannot get it wrong now because the consumer no longer
-/// performs it.
+/// A session rebases frame zero onto the live world, so the world has to be built first. The
+/// consumer cannot get it wrong now because the consumer no longer performs it.
 ///
 /// ENFORCED: `start` drives the host itself and reports what it waited for.
 #[test]
@@ -38,10 +34,8 @@ fn the_engine_activates_the_host_before_frame_zero() {
 
 /// Property 4, the refusal half: a host that never activates says so.
 ///
-/// A zero-tick budget is the cheap way to reach the branch, and reaching it is
-/// the point — an error path no test walks is a paragraph. The message has to
-/// name the state the host was in, because "failed to start" sends an author
-/// into `crates/`, which is the failure ADR 0031's blind-agent gate measures.
+/// A zero-tick budget is the cheap way to reach the branch, and reaching it is the point — an error
+/// path no test walks is a paragraph.
 #[test]
 fn a_host_that_never_activates_names_what_it_was_doing() {
     let mut app = ambition_platformer2d::app::PlatformerApp::headless()
@@ -70,11 +64,8 @@ fn a_host_that_never_activates_names_what_it_was_doing() {
 
 /// Property 3: **stable participants.**
 ///
-/// The count is declared at composition and cannot be re-passed per session, so
-/// a restart reuses it. The engine shipped the weaker version of this bug: a
-/// rollback oracle proving determinism for ONE input stream the same week a 2–4
-/// player couch versus mode seated four, because `..Default::default()` quietly
-/// meant one player.
+/// The count is declared at composition and cannot be re-passed per session, so a restart reuses
+/// it.
 ///
 /// ENFORCED: there is no participant argument on `RollbackPlan` at all, and
 /// `PlatformerApp::rollback` has no default. This test pins the reported value
@@ -121,7 +112,7 @@ fn a_fixed_step_host_refuses_rather_than_pretending() {
 /// nothing — and passes. This repo has a name for that shape: an instrument
 /// that measures nothing reports the success condition.
 ///
-/// ENFORCED: `start` refuses when the registry is empty. ⚠ That refusal catches
+/// ENFORCED: `start` refuses when the registry is empty. That refusal catches
 /// a broken COMPOSITION, not a consumer typo — the engine registers its own
 /// state, so a real rollback host is never empty. The consumer-facing half of
 /// this property is the one asserted below: the baseline must include state the
@@ -189,7 +180,7 @@ fn a_restarted_session_rebases_onto_the_live_world() {
         "the host stopped running across a rebase"
     );
 
-    // ⚠ `is_running()` alone was this test's whole liveness check until blind
+    // `is_running()` alone was this test's whole liveness check until blind
     // run 7, and it is not one: a host whose sim is FROZEN still reports
     // `Running { prepared: true }` — the run watched it do so for 4300
     // updates. So the rebase is checked by whether the session still ADVANCES,
@@ -295,7 +286,7 @@ fn a_consumer_can_ask_whether_its_session_is_still_healthy() {
         "a freshly started session is not healthy: {health:?}"
     );
 
-    // ⚠ The half a single sample cannot see. A frozen session reports
+    // The half a single sample cannot see. A frozen session reports
     // `Healthy` forever — liveness is a property of TWO observations, which is
     // why `RollbackHealth::frame` says to sample it twice and why this test
     // does.
@@ -319,17 +310,13 @@ fn a_consumer_can_ask_whether_its_session_is_still_healthy() {
 
 /// **The control run: prove re-simulation is HAPPENING, not just agreeing.**
 ///
-/// ⚠ Blind run 8 built this and it is a better proof than anything I wrote for
+/// Blind run 8 built this and it is a better proof than anything I wrote for
 /// this file. Its shape: a counter that ticks once per sim tick either tracks
 /// the frame count 1:1 (rewound correctly) or over-counts by roughly
 /// `check_distance + 1` (never rewound, so every re-simulation of a confirmed
 /// frame counted again).
 ///
-/// **A 1:1 result on its own is also what a FROZEN session produces.** That is
-/// why the over-count matters: the run measured 300 frames / 300 charge
-/// registered against 300 frames / 1484 charge unregistered — 4.95x, with
-/// `check_distance` 4. The second number is what proves the first one means
-/// rollback rather than nothing.
+/// The second number is what proves the first one means rollback rather than nothing.
 ///
 /// Here the same logic runs against the ENGINE's own consumer fixture: the
 /// beacon must not out-count the frames the session actually advanced.
@@ -375,8 +362,6 @@ fn a_rewound_counter_does_not_out_count_the_frames_it_ran() {
     );
 }
 
-/// **Health is a fact about a LIVE session, and it used to be a read model.**
-/// (GPT 5.6, 2026-07-31)
 ///
 /// Teardown removes the session, its ownership and the confirmed-frame
 /// boundary — and leaves `RollbackSessionStatus` and `RollbackFrameCount`

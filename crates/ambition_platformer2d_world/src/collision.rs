@@ -142,10 +142,9 @@ impl CollisionWorld<'_, '_> {
     /// * **no ECS overlay** — a gate's lock wall is a transient content solid,
     ///   not a surface an aperture should be able to outlive.
     ///
-    /// ⭐ this exists because the portal host adapter composed
-    /// `world_with_moving_platforms` by hand, the LAST reader outside this
-    /// module to do so. Its need was real and different; what was missing was a
-    /// name for it. Now no consumer builds a collision world itself.
+    /// ⭐ this exists because the portal host adapter composed `world_with_moving_platforms` by
+    /// hand, the LAST reader outside this module to do so. Now no consumer builds a collision
+    /// world itself.
     pub fn hostable_surfaces(&self) -> Option<Cow<'_, ae::World>> {
         let room = self.room.as_ref()?;
         let platforms = self.platforms.as_ref().map_or(&[][..], |p| &p.0);
@@ -168,10 +167,7 @@ pub fn world_with_sandbox_solids(
     ecs_overlay: &FeatureEcsWorldOverlay,
 ) -> ae::World {
     let mut collision_world = world_with_moving_platforms(world, platforms);
-    // Content gates may SUBTRACT authored geometry from the view (the immutable-
-    // base inversion): drop named authored blocks and carve out suppressed
-    // climbable regions before adding overlay solids / carving portals. A gate
-    // contributes these instead of mutating the authored base mid-room.
+    // A gate contributes these instead of mutating the authored base mid-room.
     apply_overlay_subtractions(&mut collision_world, ecs_overlay);
     collision_world
         .blocks

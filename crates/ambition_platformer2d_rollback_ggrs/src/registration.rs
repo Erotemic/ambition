@@ -1,11 +1,8 @@
 //! GGRS-backed implementation of Ambition's typed rollback registration vocabulary.
 //!
-//! The neutral schema contract lives in `ambition_platformer2d_runtime`; this
-//! module is the adapter that turns those same descriptors into `bevy_ggrs`
-//! snapshot/checksum/mapping machinery.  Schema idempotence and backend-install
-//! idempotence are deliberately separate: a fixed host may have recorded a
-//! descriptor before a rollback host is assembled, and that must never suppress
-//! installation of the actual backend machinery.
+//! The neutral schema contract lives in `ambition_platformer2d_runtime`; this module is the
+//! adapter that turns those same descriptors into `bevy_ggrs` snapshot/checksum/mapping
+//! machinery.
 
 use std::collections::BTreeSet;
 
@@ -175,10 +172,7 @@ pub trait AmbitionRollbackApp {
     /// Clone-snapshot a component holding a KEYED MAP of entity references,
     /// probed with the key folded in.
     ///
-    /// The map twin of [`Self::rollback_component_clone_entity_set`], and NOT
-    /// interchangeable with it: a set fold is commutative, so a map measured as
-    /// a set cannot see two keys exchange their targets. Use this whenever the
-    /// association between key and entity is itself the state.
+    /// Use this whenever the association between key and entity is itself the state.
     fn rollback_component_clone_entity_map<T>(
         &mut self,
         owner: &'static str,
@@ -191,12 +185,9 @@ pub trait AmbitionRollbackApp {
     /// Clone-snapshot with a projection the LOCALIZER measures and the GGRS
     /// aggregate does not.
     ///
-    /// The distinction matters and is easy to lose: `rollback_component_clone_checksum`
-    /// hands the same projection to both, which makes any nondeterminism in it a
-    /// session-wide desync report. This arm strengthens only the diagnostic. Use it
-    /// for per-tick mutable state whose restore you want localizable without changing
-    /// what the sync test calls a divergence — sharpening an instrument should not
-    /// move the guard it is used to investigate.
+    /// The distinction matters and is easy to lose: `rollback_component_clone_checksum` hands the
+    /// same projection to both, which makes any nondeterminism in it a session-wide desync report.
+    /// This arm strengthens only the diagnostic.
     fn rollback_component_clone_probed<T>(
         &mut self,
         owner: &'static str,
@@ -282,14 +273,14 @@ pub trait AmbitionRollbackApp {
 
     /// The same, **plus the fields the entity set cannot see**.
     ///
-    /// ⛔ **an entity-set probe is silent about everything that is not an
+    /// **an entity-set probe is silent about everything that is not an
     /// entity**, and for a resource that holds both it reports two divergent
     /// values as identical. `ActiveConversation` is the case that found it: the
     /// probe localized the two bodies faithfully while `input_owner` — which
     /// decides whose controls the conversation captures — could differ between
-    /// peers with no signal at all (GPT 5.6, 2026-08-07).
+    /// peers with no signal at all.
     ///
-    /// ⚠ `facts` must NOT hash raw entity handles. Those differ across a load by
+    /// `facts` must NOT hash raw entity handles. Those differ across a load by
     /// design, which is the whole reason the entity half goes through stable sim
     /// identities; mixing them in would make every load look like a desync.
     fn rollback_resource_clone_entity_set_probed<T>(
@@ -356,13 +347,8 @@ pub trait AmbitionRollbackApp {
     /// declaration that lies is worse than no declaration, because it satisfies
     /// the coverage sweep.
     ///
-    /// The probe makes it PARTLY falsifiable: `RollbackRestoreAudit` compares each
-    /// frame's census against the first pass, so a derived component that FAILS to be
-    /// rebuilt on a replayed frame shows up by name. That is the failure that shipped,
-    /// and the one this arm was added for.
-    ///
     /// It is not the whole contract, and the earlier version of this comment claimed
-    /// it was (GPT 5.6, 2026-07-26). A presence census sees a MISSING derived
+    /// it was. A presence census sees a MISSING derived
     /// component; it cannot see one rebuilt with entirely wrong values on the right
     /// number of carriers, and for a singleton derived resource "present" is nearly a
     /// constant. `declare_rollback_derived_component_state` is the value-sensitive
@@ -771,11 +757,8 @@ impl AmbitionRollbackApp for App {
         )
         {
             self.add_plugins(ResourceSnapshotPlugin::<CanonicalCodecStrategy<T>>::default());
-            // Ambition's own checksum system rather than
-            // `RollbackApp::checksum_resource`, which installs the `Res<T>` one.
-            // Absent hashes to a fixed sentinel; present hashes the canonical
-            // encoding — so the ABSENT→PRESENT edge, which is the whole content
-            // of an activation latch, moves the aggregate checksum.
+            // Ambition's own checksum system rather than `RollbackApp::checksum_resource`,
+            // which installs the `Res<T>` one.
             let update = move |mut commands: Commands,
                                resource: Option<Res<T>>,
                                mut checksum: Query<

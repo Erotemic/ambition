@@ -64,11 +64,9 @@ pub fn ambition_sim_composition(
     // builds (its `init_sandbox_resources` consumes the override).
     if let Some(room_id) = options.start_room.clone() {
         app.insert_resource(StartRoomOverride(room_id));
-        // ⭐ the CALLER said whether that room has to exist (D125). Tolerance
-        // stays the default because it is a promise a test is named after; a
-        // caller that means "this room must be there" says so with
-        // `with_required_start_room` and gets the loud failure, which lists
-        // every valid id.
+        // Tolerance stays the default because it is a promise a test is named after; a caller
+        // that means "this room must be there" says so with `with_required_start_room` and gets
+        // the loud failure, which lists every valid id.
         if options.start_room_must_resolve {
             app.insert_resource(crate::app::StartRoomMustResolve);
         }
@@ -79,28 +77,17 @@ pub fn ambition_sim_composition(
     if options.seats_a_match {
         app.insert_resource(crate::app::SeatsAMatchInsteadOfAHomeBody);
     }
-    // ⭐ **K2b edit 2: the harness composes the SHELL, like every other entry.**
-    // It used to add the simulation plugin alone and inherit the `SessionRoot`
-    // that plugin published at BUILD time — the second way to start a game this
-    // row exists to delete. Composing the shell and booting straight to the
-    // gameplay route makes an RL episode run the host a player runs.
-    //
-    // ⚠ the resource goes in BEFORE the plugin builds. It is what stopped
+    // the resource goes in BEFORE the plugin builds. It is what stopped
     // `publish_direct_prepared_session_root` publishing a root, and now that the
     // publisher is gone it is what tells the rest of the app which composition
     // this is.
     crate::app::shell_host::compose_ambition_gameplay_host(app);
-    // ⭐⭐ **AND THE DURABLE SAVE, which a headless composition did not have.**
-    // `PersistenceSchedulePlugin` is installed by `AmbitionGamePresentationPlugin`
-    // — "visible binary only" — so until 2026-08-19 an RL episode, a fuzz run or
-    // a headless test could reach a checkpoint and never write a file. D133
-    // recorded that as an open residue, and it is the same shape as every other
-    // "works only when somebody is watching" gap: the durable horizon is SIM
-    // state (its own row: *"the on-disk form IS the checkpoint's own
-    // description, serialized"*), so a composition that simulates should be able
-    // to persist.
+    // recorded that as an open residue, and it is the same shape as every other "works only
+    // when somebody is watching" gap: the durable horizon is SIM state (its own row: *"the
+    // on-disk form IS the checkpoint's own description, serialized"*), so a composition that
+    // simulates should be able to persist.
     //
-    // ⛔ **`isolated()` is not optional here.** `PersistenceRoot::default()` is
+    // **`isolated()` is not optional here.** `PersistenceRoot::default()` is
     // the PLAYER's platform data dir, so installing the writer without a root of
     // its own would point every headless run at the user's real save. The
     // windowless CLI host already redirects the same way, for the same reason
@@ -119,7 +106,6 @@ pub fn ambition_sim_composition(
 pub trait AmbitionSim: Sized {
     /// Build with the embedded LDtk world and the default wall-clock timestep.
     fn new() -> Result<Self, String>;
-    /// Build with full options control (fixed timestep, start-room, …).
     fn new_with_options(options: Platformer2dSimHarnessOptions) -> Result<Self, String>;
     /// Build with the given timestep policy (see [`Platformer2dSimHarness::build`]).
     fn new_with_timestep(timestep: TimestepMode) -> Result<Self, String>;

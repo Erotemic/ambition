@@ -1,20 +1,17 @@
 //! **Transactional construction owned by the gravity capability.**
 //!
-//! An authored gravity zone is not an actor, and it never was: its constructor
-//! lowers a resolved region and direction into [`GravityZone`] plus an optional
-//! [`OscillatingZone`], both of which are defined one module up. It sat inside
-//! `ActorConstructionParams` because the actor domain was the only closed
-//! construction domain that existed, which is a fact about the migration rather
-//! than about gravity.
+//! An authored gravity zone is not an actor, and it never was: its constructor lowers a
+//! resolved region and direction into [`GravityZone`] plus an optional [`OscillatingZone`],
+//! both of which are defined one module up.
 //!
-//! ⭐ **this module adds no dependency edge.** The construction machinery
+//! **this module adds no dependency edge.** The construction machinery
 //! ([`crate::construction`]), the session-scoped spawn extension
 //! ([`crate::lifecycle::SpawnSessionScopedExt`]) and the components being
 //! constructed all already live in this crate, so the domain lands beside the
 //! runtime capability it builds rather than beside a crate that had to grow an
 //! edge to reach it.
 //!
-//! ⚠ **the parameters are RESOLVED, not the room's spec.** `GravityZoneSpec`
+//! **the parameters are RESOLVED, not the room's spec.** `GravityZoneSpec`
 //! lives in `ambition_platformer2d_world`, which depends on this crate — taking
 //! it here would invert that. The room adapter translates instead, which is the
 //! same shape the portal-gun lane uses and the same reason.
@@ -77,7 +74,7 @@ impl ConstructionDomain for GravityZoneConstruction {
     }
 
     fn canonical_summary(parameters: &Self::Parameters) -> String {
-        // ⚠ every field, because this string is fingerprint material: a zone
+        // every field, because this string is fingerprint material: a zone
         // whose direction or slide changed is a different world, and a summary
         // that omitted them would call the two rooms identical.
         format!(

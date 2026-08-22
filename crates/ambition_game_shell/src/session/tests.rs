@@ -235,8 +235,7 @@ fn activating_a_provider_with_no_audio_fragment_panics() {
     settle(&mut app);
 }
 
-/// W0: the canonical session instance captures the load barrier that
-/// authorized its activation.
+/// : the canonical session instance captures the load barrier that authorized its activation.
 #[test]
 fn session_instance_carries_its_load_barrier_identity() {
     use ambition_load::{

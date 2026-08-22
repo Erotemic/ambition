@@ -12,7 +12,7 @@
 //!   field in turn. A table that claims a requirement the parser does not enforce
 //!   fails HERE, because the converter shrugs.
 //!
-//! Neither term is reasoned. `⛔ a check that cannot fail is worse than none`, so
+//! Neither term is reasoned. `a check that cannot fail is worse than none`, so
 //! every assertion below observes an actual `Result` from the actual converter,
 //! and each collects ALL its disagreements before failing so one run names the
 //! whole gap.
@@ -155,7 +155,7 @@ fn report(what: &str, problems: Vec<String>) {
     );
 }
 
-/// ⭐ **The direction that catches an UNDECLARED requirement.**
+/// **The direction that catches an UNDECLARED requirement.**
 ///
 /// If a converter grows a refusal the table does not know about, the minimal
 /// instance the table describes stops converting, and this is where that shows up
@@ -191,7 +191,7 @@ fn every_declared_entity_converts_from_its_required_fields_alone() {
     );
 }
 
-/// ⭐ **The direction that catches a DECLARED-BUT-UNENFORCED requirement.**
+/// **The direction that catches a DECLARED-BUT-UNENFORCED requirement.**
 ///
 /// This is the `character_id` failure exactly: the table says the field is
 /// required, so if the converter ever stops refusing its absence the Python
@@ -417,7 +417,7 @@ fn fields_that_need_a_companion_are_refused_alone() {
     report("conditional requirements the converter does not enforce:", problems);
 }
 
-/// ⭐ **The identifier list has ONE owner too.**
+/// **The identifier list has ONE owner too.**
 ///
 /// Python's `KNOWN_ENTITIES` was a hand-typed copy of `standard_converters()` and
 /// had already drifted: `SurfaceRamp` was a legal entity to Rust and an unknown

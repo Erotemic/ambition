@@ -1,34 +1,14 @@
 //! **What a PROVOCATION produces**, projected once and applied by the live flip.
 //!
-//! ⛔⛔ **THIS FILE USED TO BE A ROLLBACK RECONCILER, AND IT NEVER RAN**
-//! (ledger D104, reported by GPT 5.6 and proven 2026-08-12). Its entry point
-//! `reconcile_autonomous_actors` had two re-exports, four doc comments and a
-//! test module that called it directly — and zero production call sites. The
-//! only system in `AmbitionLoadWorldSet::Reconcile` is
-//! `codecs::reconcile_brain_bindings`, which filters on
-//! `binding.active_preset()?` — `None` for every provoked and character-first
-//! source. Nothing was ever going to invoke the reconstruction.
+//! Its entry point `reconcile_autonomous_actors` had two re-exports, four doc comments and a test
+//! module that called it directly — and zero production call sites. The only system in
+//! `AmbitionLoadWorldSet::Reconcile` is `codecs::reconcile_brain_bindings`, which filters on
+//! `binding.active_preset()?` — `None` for every provoked and character-first source. Nothing was
+//! ever going to invoke the reconstruction.
 //!
-//! ⭐ **and it was not a missing wire-up, it was 654 lines of redundancy.**
-//! Every component it rebuilt is registered rollback state: `Brain` (cursor),
-//! `BrainBinding`, `BodyHealth`, `ActorSurfaceState`, `TemporaryControl` and
-//! `CombatCapabilities` (canonical), `ActorConfig`, `ActionSet`, `Mounted`,
-//! `MountSlot`, `RidingOn`, `MountedBrainCache` (clone). The codecs had already
-//! put all of them back; the file's reason for existing evaporated when those
-//! registrations landed, and nobody re-read it.
-//!
-//! ⛔ **installing it would have been a REGRESSION.** Its provoked
-//! reconstruction called `fresh_health_pool(max_health)`, so a damaged actor
-//! would have healed to full on every load — exactly the divergence the Track B
-//! campaign note recorded as *"a mid-brawl enemy full-heal"*.
-//!
-//! ⚠ **the proof is `game/ambition_app/tests/rollback_provoked_actor.rs`**, and
-//! its first version was not proof: it asserted that state SURVIVED a window it
-//! merely believed was a rollback window. It asserts against
-//! `RollbackExecutionStats::lifetime_load_runs` now — the counter
-//! `count_load_run` increments inside the very reconciliation set — because at
-//! the SHIPPED prediction distance of 0, `LoadWorld` runs zero times and the
-//! original tests passed anyway.
+//! It asserts against `RollbackExecutionStats::lifetime_load_runs` now — the counter
+//! `count_load_run` increments inside the very reconciliation set — because at the SHIPPED
+//! prediction distance of 0, `LoadWorld` runs zero times and the original tests passed anyway.
 //!
 //! ⇒ what remains here is the LIVE half, which always did the work:
 //! [`provoked_projection`] (a mind and a kit, never a body) and
@@ -45,37 +25,19 @@ use ambition_entity_catalog::placements::CharacterBrain;
 
 /// **What provocation produces: a MIND and a KIT. Never a body.**
 ///
-/// ⛔⛔ **THIS USED TO REPLACE THE CREATURE.** A peaceful body that got struck
-/// had its tuning, its gravity scale, its HP pool, its combat capabilities and
-/// its sprite override overwritten from the `combatant` archetype row — so a
-/// provoked villager did not become an angry villager, it became a `combatant`
-/// wearing a villager's name. The comment three lines above the code that did it
-/// already stated the correct invariant: *"provocation is one body, a different
-/// driver, a changed relationship. The body stays exactly as its character built
-/// it."* It was describing the OTHER branch.
+/// The comment three lines above the code that did it already stated the correct invariant:
+/// *"provocation is one body, a different driver, a changed relationship. The body stays exactly as
+/// its character built it."* It was describing the OTHER branch.
 ///
 /// ⇒ what a provocation may change is the POLICY the body is driven by, the KIT
 /// it swings if it has none of its own, and its relationship to whoever struck
 /// it. Its speed, its locomotion, its capabilities and its silhouette are facts
 /// about the creature, and being hit is not an argument about any of them.
 ///
-/// ⭐⭐ **AND AS OF 2026-08-12 THAT SENTENCE IS LITERALLY TRUE** (ledger D101,
-/// GPT 5.6's redirect). Two body facts outlived the tuning/sprite/capability
-/// purge and this struct carried both as fields:
-/// - `gravity_scale`, which re-grounded a flying body so a "grounded" policy
-///   could drive it. The premise was stale — the default provoked policy is
-///   `Smash`, and the Smash brain steers aerially off `obs.self_aerial` with no
-///   `can_fly` gate, so a flyer's driver already knew it flies.
-/// - `max_health`, which replaced the body's whole `BodyHealth` with a fresh
-///   4-point pool because a peaceful placement spawned at `1`. The `1` was the
-///   defect: an undescribed body is undescribed before anybody hits it, so the
-///   number moved to `DEFAULT_UNAUTHORED_BODY_HEALTH` at the two spawn seeds
-///   and provocation stopped writing health.
-///
-/// ⛔ **do not add a third.** Every field on this struct is now a MIND or a KIT;
+/// **do not add a third.** Every field on this struct is now a MIND or a KIT;
 /// a body fact reappearing here is the ontology growing back.
 ///
-/// ⚠ **and the brain is lowered against the BODY's tuning now**, not the
+/// **and the brain is lowered against the BODY's tuning now**, not the
 /// archetype's — §4.7, a policy states normalized effort and the body states the
 /// speed. A provoked villager chases at a villager's top speed, which is the
 /// same sentence as the paragraph above with the consequence attached.
@@ -93,12 +55,7 @@ pub(crate) struct ProvokedArchetype {
 
 /// **The projection itself, from a POLICY rather than from a row.**
 ///
-/// ⭐ the live generic-provocation path calls this with
-/// [`default_provoked_policy`](super::brain_builders::default_provoked_policy),
-/// so provoking a body no longer touches the archetype roster at all — that
-/// lookup was the last reason the live path knew the ontology existed.
-///
-/// ⚠ the policy is pinned equal to the `combatant` row while that row survives
+/// the policy is pinned equal to the `combatant` row while that row survives
 /// (`an_engine_default_provoked_policy_matches_the_combatant_row`); when the row
 /// goes, this signature is already the one that stays.
 pub(crate) fn provoked_projection(
@@ -108,7 +65,7 @@ pub(crate) fn provoked_projection(
     held_item: Option<&HeldItem>,
     body: ambition_platformer2d_core::AbilitySet,
 ) -> ProvokedArchetype {
-    // ⭐ the POLICY is the provoked one; the BODY is the one that was struck.
+    // the POLICY is the provoked one; the BODY is the one that was struck.
     let mut hostile_config = current_config.clone();
     hostile_config.brain_profile = brain_profile;
     let (brain, action_set) = super::brain_builders::aggressive_brain_and_action_set_for_enemy(
@@ -117,14 +74,7 @@ pub(crate) fn provoked_projection(
         held_item,
         body,
     );
-    // ⛔⛔ **AN `archetype: &str` PARAMETER STOOD HERE, AND IT WAS THE LAST
-    // ROSTER KEY ON THE PROVOKE ROAD** (campaign P2.20, 2026-08-13). Its callers
-    // passed `hostile_brain_id_for_actor()`, which returned the literal
-    // `"combatant"` and nothing else once the pirate and cellular-automaton
-    // matcher arms were deleted, and it was used for exactly one thing: to set
-    // `config.brain = CharacterBrain::Custom("combatant")`.
-    //
-    // ⚠ **that read-model is a SILHOUETTE, and it was being used as a hostility
+    // **that read-model is a SILHOUETTE, and it was being used as a hostility
     // flag.** `evaluate_enemy_ai_output` branched `Passive => aggro 0.0` and
     // `patrol_enabled = !Passive`, so a provoked body needed a NON-`Passive`
     // value to read correctly — and the only one to hand was an archetype name.
@@ -144,12 +94,11 @@ pub(crate) fn provoked_projection(
     }
 }
 
-/// The fixed peaceful catalog config a catalog-backed NPC spawns with. Mirrors
-/// `ActorClusterSeed::new_peaceful_npc_in`: an undescribed-pool stroller with default
-/// brain-spec / capabilities, its authored combat kit as body-capability action
-/// set, and `is_aerial` from the CHARACTER's own locomotion — the catalog's
-/// silhouette only for a character nobody prepared (D89; see the body of
-/// [`peaceful_config`] for why that distinction is not cosmetic).
+/// Mirrors `ActorClusterSeed:new_peaceful_npc_in`: an undescribed-pool stroller with default
+/// brain-spec / capabilities, its authored combat kit as body-capability action set, and
+/// `is_aerial` from the CHARACTER's own locomotion — the catalog's silhouette only for a
+/// character nobody prepared (; see the body of [`peaceful_config`] for why that distinction is
+/// not cosmetic).
 pub(crate) struct PeacefulConfig {
     pub(crate) tuning: ActorTuning,
     pub(crate) brain_profile: BrainProfile,
@@ -166,22 +115,11 @@ pub(crate) fn peaceful_config(
     combat_kit: &CombatKit,
     resolved_brain: &Brain,
 ) -> PeacefulConfig {
-    // ⛔⛔ **THIS READ `body_kind: Floating` AND NOTHING ELSE**, which is the one
-    // rule the invariant list forbids by name: *do not reintroduce
-    // `body_kind => is_aerial` as authority*. D89 settled that a body kind
-    // describes a SHAPE — `CharacterLocomotion::baseline_free_flight` is
-    // `Option<bool>` precisely so a character can refuse flight out loud, which a
-    // silhouette cannot express — and the Perfect Cellular Automaton is the
-    // standing example: `body_kind: Floating` in its catalog row,
-    // `baseline_free_flight: Some(false)` in its own definition.
+    // **THIS READ `body_kind: Floating` AND NOTHING ELSE**, which is the one rule the invariant
+    // list forbids by name: *do not reintroduce `body_kind => is_aerial` as authority*.
     //
-    // ⚠ **the wrong answer was UNREACHABLE, and that is why it survived.** Six
-    // catalog rows say `Floating`; every one of them that is PREPARED also
-    // authors an autonomous profile, and `apply_catalog_mode` returns before
-    // this call when a character states its own policy. The only Floating row
-    // with no prepared definition is `npc_snakes_on_a_cartesian_plane`, for
-    // which the catalog IS the right authority. So this was a trap rather than a
-    // bug — and a trap that springs the day somebody deletes a profile.
+    // The only Floating row with no prepared definition is `npc_snakes_on_a_cartesian_plane`,
+    // for which the catalog IS the right authority.
     //
     // ⇒ it now mirrors `new_peaceful_npc_in` for real, which is what this
     // function's own doc has always claimed: the PREPARED character answers, and
@@ -197,31 +135,22 @@ pub(crate) fn peaceful_config(
                 })
         })
         .unwrap_or(false);
-    // ⛔⛔ **THE SAME TRAP THE `is_aerial` NOTE ABOVE DESCRIBES, IN THE TWO
-    // FIELDS BESIDE IT** (closed 2026-08-13, campaign P2.19).
+    // **THE SAME TRAP THE `is_aerial` NOTE ABOVE DESCRIBES, IN THE TWO
+    // FIELDS BESIDE IT**.
     //
-    // This installed `max_health: DEFAULT_UNAUTHORED_BODY_HEALTH` and
-    // `max_run_speed: MAX_RUN_SPEED` flat, with a comment claiming it was *"the
-    // same undescribed-body pool the seed this mirrors installs"*. It is not:
-    // `new_peaceful_npc_in` reads the PREPARED character's blueprint for both
-    // (P1.10), and falls back to those constants only for a body nobody
-    // authored. So a character-first body released back to peaceful would have
-    // been handed the shared player top speed and the undescribed pool — a
-    // silent downgrade wearing a controller change, which is the exact defect
-    // §2's `ProvokedArchetype` split exists to prevent, running in reverse.
+    // This installed `max_health: DEFAULT_UNAUTHORED_BODY_HEALTH` and `max_run_speed:
+    // MAX_RUN_SPEED` flat, with a comment claiming it was *"the same undescribed-body pool the
+    // seed this mirrors installs"*. It is not: `new_peaceful_npc_in` reads the PREPARED
+    // character's blueprint for both (P1.10), and falls back to those constants only for a body
+    // nobody authored.
     //
-    // ⚠ **and it was UNREACHABLE, which is why it survived** — the same shape as
-    // the `is_aerial` trap above, measured the same way. `apply_catalog_mode`
-    // returns before this call when the character states its own policy, and
-    // every one of the seventeen `ambition_content` characters that authors
-    // locomotion also authors a profile. So the population that could reach it
-    // is EMPTY today and springs the day somebody authors a body without a
-    // policy — which is an ordinary thing to author.
+    // So the population that could reach it is EMPTY today and springs the day somebody authors a
+    // body without a policy — which is an ordinary thing to author.
     let authored_body = character_id
         .and_then(|cid| prepared.and_then(|registry| registry.get(cid)))
         .and_then(|prepared| prepared.body_blueprint().ok());
     let tuning = ActorTuning {
-        // ⚠ **STILL FLAT, and that is not an oversight.** How fast a body
+        // **STILL FLAT, and that is not an oversight.** How fast a body
         // AMBLES is the controller's fact, not the body's — `new_peaceful_npc_in`
         // hard-codes these two for the same reason. A character authoring
         // `run_speed: 400.0` must not make its idle stroll a sprint.
@@ -256,11 +185,8 @@ pub(crate) fn peaceful_config(
     }
 }
 
-// ⛔ `fresh_health_pool(max_health)` stood here. Its one caller was the live
-// provoke flip, which used it to swap a struck body's whole `BodyHealth` for a
-// fresh 4-point pool — the last body mutation in provocation (D101). Deleted
-// with the write; a body's pool is now settled at construction and nothing
-// re-rolls it because somebody got angry.
+// `fresh_health_pool(max_health)` stood here. Deleted with the write; a body's pool is now
+// settled at construction and nothing re-rolls it because somebody got angry.
 
 #[cfg(test)]
 mod tests {
@@ -288,21 +214,17 @@ mod tests {
     /// **PROVOCATION PROJECTS NO TUNING AT ALL, so a body keeps everything it
     /// was.**
     ///
-    /// ⛔ this test used to be narrower and its name said so: *"borrows COMBAT
-    /// numbers but never the placement respawn policy"*. It existed because the
-    /// projection assigned an archetype's `tuning()` wholesale and a provoked
-    /// NPC silently became `OnRoomReenter` — the kill hook wrote no death flag,
-    /// save-sync had nothing to read, and the NPC was rebuilt alive by the next
-    /// room construction ("kill an NPC, it respawns immediately", ADR 0022).
+    /// It existed because the projection assigned an archetype's `tuning()` wholesale and a
+    /// provoked NPC silently became `OnRoomReenter` — the kill hook wrote no death flag, save-sync
+    /// had nothing to read, and the NPC was rebuilt alive by the next room construction ("kill an
+    /// NPC, it respawns immediately", ADR 0022).
     ///
-    /// ⭐ the fix at the time carved ONE field out of the wholesale assignment.
-    /// The projection assigns no tuning whatever now — a provocation changes the
-    /// mind and the kit, never the body — so the respawn policy survives for the
-    /// same reason the run speed does, and the narrow claim became a special
-    /// case of a general one. Asserting the general one is what stops a future
-    /// widening putting a second field back.
+    /// The projection assigns no tuning whatever now — a provocation changes the mind and the
+    /// kit, never the body — so the respawn policy survives for the same reason the run speed
+    /// does, and the narrow claim became a special case of a general one. Asserting the general
+    /// one is what stops a future widening putting a second field back.
     ///
-    /// ⚠ the poison is the second half: the projection must still produce a real
+    /// the poison is the second half: the projection must still produce a real
     /// hostile MIND. "It changed nothing" would satisfy the first assertion
     /// perfectly while describing a provocation that does not provoke.
     #[test]
@@ -331,20 +253,13 @@ mod tests {
             "the projection mutated its input"
         );
 
-        // ⭐ THE POISON. Without this, deleting the whole projection passes.
+        // THE POISON. Without this, deleting the whole projection passes.
         assert_eq!(
             proj.brain_profile,
             crate::features::ecs::brain_builders::default_provoked_policy(),
             "the provoked POLICY is the engine's default — that is the one thing \
              a generic provocation is for"
         );
-        // ⛔⛔ **THIS ASSERTED `!= Passive`, AND IT WAS PINNING THE DEFECT**
-        // (inverted 2026-08-13, campaign P2.20). A provoked body was given
-        // `CharacterBrain::Custom("combatant")` so that `evaluate_enemy_ai_output`
-        // — which branched `Passive => aggro 0.0` — would report it correctly, so
-        // "not passive" was the archetype NAME's fingerprint, and asserting it
-        // required the roster key to stay.
-        //
         // ⇒ both of those branches read the `BrainProfile` now, so `Passive` is
         // the CORRECT read-model for a provoked wanderer: hostility is
         // `ActorDisposition`'s and the policy is the profile's, and the
@@ -367,14 +282,11 @@ mod tests {
              gives, so provocation has a second answer to a question one function \
              owns"
         );
-        // ⭐⭐ **AND THE STRUCTURAL ASSERTION THAT REPLACED THE HP ONE.** This
-        // used to read `proj.max_health == DEFAULT_PROVOKED_HEALTH`, pinning the
-        // last body fact a provocation supplied. The endpoint is that there is
-        // no such field, so the claim worth pinning is the SHAPE: every field on
-        // this projection is a mind or a kit. A new body fact cannot be added
+        // The endpoint is that there is no such field, so the claim worth pinning is the SHAPE:
+        // every field on this projection is a mind or a kit. A new body fact cannot be added
         // without editing this list, which is the point.
         //
-        // ⚠ an EXHAUSTIVE destructure rather than a field read: adding a field
+        // an EXHAUSTIVE destructure rather than a field read: adding a field
         // breaks this line, where reading four fields would silently ignore a
         // fifth.
         let ProvokedArchetype {
@@ -430,26 +342,16 @@ mod peaceful_flight_tests {
     /// **A SILHOUETTE IS NOT A CLAIM ABOUT FLIGHT** — the one rule the invariant
     /// list forbids reintroducing by name.
     ///
-    /// ⛔⛔ `peaceful_config` read `body_kind: Floating` and nothing else, so a
-    /// catalog switch back to peaceful would have made the Perfect Cellular
-    /// Automaton fly — a character whose own definition says
-    /// `baseline_free_flight: Some(false)`. D89 settled this: a body kind
-    /// describes a SHAPE, and `Option<bool>` exists precisely so a character can
-    /// refuse flight out loud.
-    ///
-    /// ⚠ **the wrong answer was UNREACHABLE, which is why it survived.** Six
-    /// catalog rows say `Floating`; every PREPARED one also authors an autonomous
-    /// profile, and `apply_catalog_mode` returns before this call when a
-    /// character states its own policy. It was a trap that springs the day
-    /// somebody deletes a profile — so it is fixed at the rule rather than left
-    /// resting on a reachability argument nobody would re-derive.
+    /// `peaceful_config` read `body_kind: Floating` and nothing else, so a catalog switch back
+    /// to peaceful would have made the Perfect Cellular Automaton fly — a character whose own
+    /// definition says `baseline_free_flight: Some(false)`.
     #[test]
     fn a_prepared_characters_refusal_to_fly_outranks_a_floating_silhouette() {
         let catalog = catalog();
         let cast = grounded_floater();
         let brain = Brain::StateMachine(ambition_characters::brain::StateMachineCfg::StandStill);
 
-        // ⭐ THE POISON FIRST, because it is what makes the assertion below about
+        // THE POISON FIRST, because it is what makes the assertion below about
         // PRECEDENCE. With no prepared cast the catalog is the only authority and
         // it really does say this body floats — so an empty-catalog fixture, or a
         // resolver that answered `false` for everything, could not fake this pair.
@@ -482,21 +384,17 @@ mod peaceful_body_authority_tests {
     use super::*;
 
     /// **A BODY RELEASED BACK TO PEACEFUL KEEPS THE BODY ITS CHARACTER
-    /// AUTHORED.** (campaign P2.19)
+    /// AUTHORED.**
     ///
-    /// ⛔⛔ **the trap this closes had an EMPTY population, and that is the
-    /// reason to write the test rather than a reason not to.** `peaceful_config`
-    /// hard-coded `max_run_speed: MAX_RUN_SPEED` and the undescribed health pool
-    /// while claiming to install *"the same undescribed-body pool the seed this
-    /// mirrors installs"* — and the seed it mirrors reads the prepared
-    /// character's blueprint for both (P1.10). `apply_catalog_mode` returns
-    /// before this call when a character states its own POLICY, and every
-    /// `ambition_content` character that authors locomotion happens to author a
-    /// profile too, so nothing could reach it. A body without a policy is an
-    /// ordinary thing to author, and the day one exists the calm-down would have
-    /// handed it the player's top speed.
+    /// **the trap this closes had an EMPTY population, and that is the reason to write the test
+    /// rather than a reason not to.** `peaceful_config` hard-coded `max_run_speed:
+    /// MAX_RUN_SPEED` and the undescribed health pool while claiming to install *"the same
+    /// undescribed-body pool the seed this mirrors installs"* — and the seed it mirrors reads
+    /// the prepared character's blueprint for both (P1.10). A body without a policy is an
+    /// ordinary thing to author, and the day one exists the calm-down would have handed it the
+    /// player's top speed.
     ///
-    /// ⚠ **two terms, both observed.** The character's numbers survive, AND an
+    /// **two terms, both observed.** The character's numbers survive, AND an
     /// unauthored body still gets the shared defaults — otherwise "reads the
     /// blueprint" could be satisfied by a projection that reads it for
     /// everything and quietly changes what a catalog-only NPC becomes.
@@ -536,7 +434,7 @@ mod peaceful_body_authority_tests {
              the one its character authored — a silent downgrade wearing a \
              controller change, which is what the provoke side was split to stop"
         );
-        // ⛔ **THE HEALTH HALF OF THIS TEST IS NOW STRUCTURAL** (AC6.2). It
+        // **THE HEALTH HALF OF THIS TEST IS NOW STRUCTURAL** (AC6.2). It
         // asserted `calmed.tuning.max_health == AUTHORED_HEALTH`: the projection
         // restored a pool onto `ActorConfig`, and `apply_catalog_mode` copied the
         // whole tuning back over the live one. That copy never touched
@@ -545,7 +443,7 @@ mod peaceful_body_authority_tests {
         // state now — a controller change cannot reach a body's health because
         // there is nothing on this road that carries it.
 
-        // ⛔ THE OTHER TERM: a body nobody authored still gets the shared
+        // THE OTHER TERM: a body nobody authored still gets the shared
         // defaults, so this is "ask the character" and not "ask anything".
         let stranger = peaceful_config(
             &CharacterCatalog::empty(),

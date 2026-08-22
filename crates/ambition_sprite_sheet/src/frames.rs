@@ -1,16 +1,9 @@
 //! The single frame-addressing algebra for every sprite sheet.
 //!
-//! Every runtime reader — playable characters, bosses, props, melee/effect
-//! visuals, projectiles — addresses the same [`SheetRecord`] shape. The pixel
-//! math for "which page is this frame on", "what atlas cells does this page
-//! hold", "what's the page-local index of `(row, frame)`", and "how was this
-//! frame alpha-trimmed" used to be re-derived in four places (the character
-//! `CharacterSheetSpec`, the boss `BossSheetSpec` grid, the prop/effect
-//! `atlas_layout_from_record`, the projectile rect collector), and only the
-//! character path understood trimming + paging. This module is that math, once,
-//! in the foundational crate both the gameplay and render layers depend on, so
-//! a single implementation drives trimming and multi-page packing for the whole
-//! cast.
+//! Every runtime reader — playable characters, bosses, props, melee/effect visuals, projectiles —
+//! addresses the same [`SheetRecord`] shape. This module is that math, once, in the foundational
+//! crate both the gameplay and render layers depend on, so a single implementation drives trimming
+//! and multi-page packing for the whole cast.
 //!
 //! Everything here is pure integer / `glam` geometry — no Bevy `TextureAtlasLayout`
 //! (that's a render-feature type), so this crate stays headless-reusable. A
@@ -77,12 +70,9 @@ impl FrameTrim {
 /// so the logical frame's anchor point lands at the SAME world position the
 /// untrimmed frame would have used.
 ///
-/// Derivation: the full logical sprite has size `base_render_size` and anchor
-/// `base_anchor`; render only the trimmed sub-region at the proportional size
-/// and solve for the anchor that keeps the logical-frame mapping fixed. The
-/// formula reduces to `(base_render_size, base_anchor)` for an untrimmed frame
-/// (`offset == 0`, `trimmed == logical`), so untrimmed sheets are unchanged.
-/// Pinned by `trimmed_render_*` unit tests.
+/// The formula reduces to `(base_render_size, base_anchor)` for an untrimmed frame (`offset ==
+/// 0`, `trimmed == logical`), so untrimmed sheets are unchanged. Pinned by `trimmed_render_*`
+/// unit tests.
 pub fn trimmed_render(trim: &FrameTrim, base_render_size: Vec2, base_anchor: Vec2) -> (Vec2, Vec2) {
     let fw = trim.logical.x.max(1) as f32;
     let fh = trim.logical.y.max(1) as f32;
@@ -259,9 +249,8 @@ impl SheetRecord {
         }
     }
 
-    /// True when any frame of this sheet was alpha-trimmed (so a renderer must
-    /// adjust sprite size + anchor per frame via [`trimmed_render`]). False for
-    /// legacy uniform sheets, which keep the cheap fixed-anchor path.
+    /// True when any frame of this sheet was alpha-trimmed (so a renderer must adjust sprite
+    /// size + anchor per frame via [`trimmed_render`]).
     pub fn is_trimmed(&self) -> bool {
         self.rows
             .iter()

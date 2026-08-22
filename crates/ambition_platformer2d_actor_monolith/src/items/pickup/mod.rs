@@ -53,7 +53,7 @@ pub struct ItemPickupSimulationPlugin;
 impl Plugin for ItemPickupSimulationPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
-        // ⭐ **THE ITEM DOMAIN PUBLISHES ITS OWN QUESTION.** Registered from the
+        // **THE ITEM DOMAIN PUBLISHES ITS OWN QUESTION.** Registered from the
         // domain's own plugin and naming no other domain — which is the whole
         // acceptance for the condition contract: a provider that had to be
         // listed somewhere central would not be a provider, it would be a case
@@ -78,21 +78,8 @@ impl Plugin for ItemPickupSimulationPlugin {
                 .chain()
                 .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::PlayerSimulation),
         );
-        // ⛔⛔ **THE ONE CROSS-DOMAIN EDGE THIS CHAIN HAS, and it was missing.**
-        // `project_custody_onto_residency` at the tail of `CoreHeldItems` asks
-        // whether an object's holder is a `RoomResident`, and that filter is
-        // `Without<InCustodyOf>` — so on the tick a possession starts or ends,
-        // the answer depends on a marker a DIFFERENT domain writes
-        // (`body_custody::project_body_custody`, which owns the whole non-item body
-        // population). Both chains were internally ordered, internally correct,
-        // and siblings under `PlayerSimulation` with nothing between them.
-        //
-        // ⚠ **it was not BROKEN, and saying so matters**: measured 2026-08-20,
-        // the topological sort already put the body derive first, because
-        // unconstrained siblings fall out in plugin-add order. What was missing
-        // is the RULE — reordering two `.add(...)` lines in the runtime's plugin
-        // group would have flipped it, and the symptom is three tests about
-        // possession going red for an edit that touched neither domain.
+        // Both chains were internally ordered, internally correct, and siblings under
+        // `PlayerSimulation` with nothing between them.
         app.configure_sets(
             sim,
             ItemPickupSet::CoreHeldItems
@@ -112,7 +99,7 @@ impl Plugin for ItemPickupSimulationPlugin {
                 // fall inside a room transition or a loading frame, which is
                 // exactly when gameplay is suspended.
                 crate::shrine::restore_checkpoint_on_session_start,
-                // ⭐ **BEFORE the pickup, and that placement is load-bearing** —
+                // **BEFORE the pickup, and that placement is load-bearing** —
                 // see [`return_released_items`]. It reads a hand that has already
                 // settled, so it can never mistake an item the pickup below took
                 // this very tick for one nobody is holding.
@@ -139,30 +126,30 @@ impl Plugin for ItemPickupSimulationPlugin {
                     .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
                 ground_item_physics
                     .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
-                // ⭐ **RESIDENCY FOLLOWS CUSTODY.** Last in the chain, so it sees
+                // **RESIDENCY FOLLOWS CUSTODY.** Last in the chain, so it sees
                 // the custody this tick actually settled on — the release derive
                 // above ran first, the pickup and the throw wrote directly. And
                 // deliberately UNGATED: a room transition suspends gameplay
                 // between the crossing and the commit, which is precisely the
                 // window in which the room sweep reads residency.
                 project_custody_onto_residency,
-                // ⭐ **WHERE A CARRIED OCCURRENCE CAME TO REST.** Strictly
+                // **WHERE A CARRIED OCCURRENCE CAME TO REST.** Strictly
                 // between residency and the custody projection below, and both
                 // edges are load-bearing — see this system's own doc. It turns
                 // the outgoing `InCustody` row of an object that was just put
                 // down into the `Placed` row that survives the room's unload;
                 // the custody projection below then finds nothing to retract.
                 record_placed_ground_items,
-                // ⭐ **AND WHAT THE WORLD REMEMBERS ABOUT IT.** Immediately
+                // **AND WHAT THE WORLD REMEMBERS ABOUT IT.** Immediately
                 // after residency, because it reads residency: an occurrence in
                 // somebody's custody is alive and is not the room's to rebuild,
                 // so the room that authored it must not mint a second one
                 // behind the same `SimId::placement(..)`.
                 //
-                // ⚠ registered from here and written NOWHERE near here: the
+                // registered from here and written NOWHERE near here: the
                 // system is generic lifecycle vocabulary (it queries
                 // `InCustodyOf`, which knows nothing about items) and this is
-                // simply the chain whose last link produces its input. ⛔ do not
+                // simply the chain whose last link produces its input. do not
                 // read that as "the ledger is about items" — the next thing to
                 // put a row in it will not be one.
                 ambition_platformer2d_shared_tangle::lifecycle::project_custody_onto_authored_occurrences,
@@ -262,15 +249,8 @@ pub(crate) const MINTED_ITEM_HALF_EXTENT: Vec2 = Vec2::splat(PICKUP_HALF);
 
 /// **WHERE A PHYSICAL ITEM IS — the state that replaced destroy-and-recreate.**
 ///
-/// An item entity used to be DESPAWNED on pickup and a fresh one SPAWNED on
-/// throw, so the axe you threw was a different object from the axe you picked
-/// up: same spec, new entity, and — for an LDtk-authored ground item, which the
-/// construction executor stamps with `SimId::placement(spec.id)` — a **destroyed
-/// identity**. Nothing downstream could ask "is this the same axe": not a
-/// snapshot row, not a desync report, not a save file.
-///
 /// So custody is a VALUE the item carries, never the presence or absence of the
-/// item itself. ⛔ **retract by resetting, never by removing**: expressing "no
+/// item itself. **retract by resetting, never by removing**: expressing "no
 /// longer lying on the floor" by deleting the entity (or the `GroundItem`
 /// component) drops it out of every query that needs it — including the throw,
 /// which then has nothing to hand back and has to invent a replacement.
@@ -294,77 +274,34 @@ pub(crate) const MINTED_ITEM_HALF_EXTENT: Vec2 = Vec2::splat(PICKUP_HALF);
 ///   it and its equipment row transfers to the body; the object itself ends.
 ///   That despawn is a real end of life, not a custody change, so it stays.
 ///
-/// ⚠ **the inventory leg of `world → held → inventory → world` is NOT closed,
-/// and cannot be here.** `OwnedItems` is a process-global count table with no
-/// row per object, so an instance stowed into it becomes a quantity and its
-/// identity is gone. Equipping from the menu therefore MINTS a fresh instance
-/// on throw (see [`throw_held_item_system`]). That is not a bug to patch at this
-/// layer: **participant entitlement, body inventory, and physical custody are
-/// three different facts with three different owners**, and until the inventory
-/// is one of them there is no answer to *whose* inventory a possessed body
-/// fills. `equip_held_spec`/`unequip_held` keep the two current ends coherent —
-/// they are a migration seam, not the model.
+/// **the inventory leg of `world → held → inventory → world` is NOT closed, and cannot be
+/// here.** `OwnedItems` is a process-global count table with no row per object, so an instance
+/// stowed into it becomes a quantity and its identity is gone. Equipping from the menu
+/// therefore MINTS a fresh instance on throw (see [`throw_held_item_system`]).
+/// `equip_held_spec`/`unequip_held` keep the two current ends coherent — they are a migration
+/// seam, not the model.
 ///
-/// ⛔⛔ **and MEASURED (2026-08-15): one entitlement can manifest UNBOUNDEDLY
-/// MANY objects.** An entitlement in the count table equips into a hand with no
-/// object behind it, the throw's mint arm materializes one, and the count
-/// survives the throw — so equipping again materializes a SECOND. Repeat for a
-/// third.
-///
-/// ⭐ **HALF OF THAT IS CLOSED (D132, 2026-08-16), and it is the half that came
-/// from an OBJECT.** `pickup_held_item_system` used to `grant` a catalog count
-/// for an item that was ALSO a live instance, so one acquisition left two
-/// records — and only the object's rewound, because `OwnedItems` is not
-/// checkpoint state. A death that returned a picked-up weapon to its pedestal
-/// left the row behind, and the row then minted a second weapon. That grant is
-/// DELETED: picking an object up writes nothing to the catalog, and
-/// [`OwnedItems::count`](crate::items::OwnedItems::count) instead PROJECTS the
-/// equipped slot, so the grid shows what the hand holds and loses it exactly when
-/// the hand does. The two populations are disjoint now: a row is a quantity with
+/// A death that returned a picked-up weapon to its pedestal left the row behind, and the row
+/// then minted a second weapon. The two populations are disjoint now: a row is a quantity with
 /// no object; an object is an occurrence the checkpoint owns.
 ///
-/// ✔ **the GRANTED half is CLOSED (2026-08-19), and the reason it stayed open so
-/// long is worth keeping.** A quantity conferred by `<<give_item>>`, a shop or a
-/// drop used to keep its row through the mint, so it could manifest a second
-/// object. Spending the count on throw was the tempting fix and was WRONG while
-/// the catalog sat outside the checkpoint horizon: a death retracting an instance
-/// minted after the checkpoint would have found the quantity already spent and
-/// annihilated it, trading a duplication bug for a deletion bug. The gate was
-/// `OwnedItems` participating in the checkpoint baseline — `OwnedItemsBaseline`
-/// supplied it, and the mint's spend landed in the same change, not before.
-///
-/// ⛔⛔ **THIS NOTE, AND TWO COPIES OF IT, OUTLIVED THE FIX.** Three places went
-/// on saying the half was open after it was closed. A ⛔ note is a claim with a
-/// shelf life: when the thing it warns about is fixed, the note does not become
-/// harmless, it becomes WRONG — and the next reader either re-fixes a closed hole
-/// or trusts a hole that is gone. ⇒ **when you close a gate, grep for the
-/// sentence that named it.**
-///
-/// ⭐ **CUSTODY ALSO DECIDES WHERE THE OBJECT LIVES.** An object in a travelling
+/// **CUSTODY ALSO DECIDES WHERE THE OBJECT LIVES.** An object in a travelling
 /// body's custody is not resident in any room, so a room change does not retire
 /// it and the identity survives the door as well as the hand. That is a
 /// PROJECTION of this value, not a second fact:
 /// [`project_custody_onto_residency`], which owns the whole story.
 ///
-/// ⭐ **IT OPENED ONE, AND IT IS CLOSED — by durable room state, not by
-/// anything here.** An authored `GroundItem` carries `SimId::placement(..)`, and
-/// the room that authored it rebuilds its whole roster on every load, so
-/// carrying an authored axe out of its room and back in produced the axe in your
-/// hands AND a fresh one on the floor, both claiming the same placement id. The
-/// fix is that construction now asks what became of the occurrence a record
-/// minted last time
-/// (`lifecycle::AuthoredOccurrences` / `OccurrenceWhereabouts`) and mints a new
-/// one only for records whose last occurrence is neither alive elsewhere nor
-/// deliberately gone. ⛔ it was NOT fixed by re-destroying carried objects at the
-/// boundary: the projection that suppresses re-authoring reads `InCustodyOf`,
-/// which knows nothing about items.
+/// **IT OPENED ONE, AND IT IS CLOSED — by durable room state, not by anything here.** An authored
+/// `GroundItem` carries `SimId::placement(..)`, and the room that authored it rebuilds its whole
+/// roster on every load, so carrying an authored axe out of its room and back in produced the axe
+/// in your hands AND a fresh one on the floor, both claiming the same placement id.
 ///
-/// ⭐ **and where the object came to REST is this file's business**, because a
+/// **and where the object came to REST is this file's business**, because a
 /// position is not generic vocabulary — see [`record_placed_ground_items`]. The
 /// ledger's rows are occurrence-generic; its producers live with the families
 /// that have a position to read.
 ///
-/// ⚠ **rollback state, not a cache.** It gates whether the item is drawn,
+/// **rollback state, not a cache.** It gates whether the item is drawn,
 /// simulated, or collectible on a later frame, so a rewind that restored the
 /// wrong custody would leave an axe both in a hand and on the floor. This
 /// domain registers it in `crate::rollback_registration` as
@@ -408,14 +345,8 @@ impl bevy::ecs::entity::MapEntities for ItemCustody {
 /// player is empty-handed. Thrown items carry a `vel` and arc under gravity
 /// until they settle on a surface (`vel == ZERO` means resting).
 ///
-/// ⭐ **[`ItemCustody`] is REQUIRED, not inserted at each spawn site.** There are
-/// eight production sites that build one (LDtk construction, the boss and actor
-/// death drops, the sandbox reset, the bomb and grenade debug spawns, the
-/// throw), and the `SimId`/`SimIdCounter` precedent in this repo is explicit
-/// about what happens to a pairing that each site has to remember: two of six
-/// forgot, and a shipped boss lost its summon. A required component makes
-/// "every ground item has a custody" a property of the TYPE, so a ninth spawn
-/// site cannot omit it and cannot default to a state that reads as "not in the
+/// A required component makes "every ground item has a custody" a property of the TYPE, so a
+/// ninth spawn site cannot omit it and cannot default to a state that reads as "not in the
 /// world".
 #[derive(Component, Clone, Debug)]
 #[require(ItemCustody)]
@@ -495,34 +426,26 @@ pub fn ground_item_physics(
 
 /// **AN OBJECT ITS HOLDER LET GO OF IS BACK IN THE WORLD, NOT NOWHERE.**
 ///
-/// [`ItemCustody::Held`] names a body, and it is only TRUE while that body is
-/// actually holding the thing. Two production paths empty a hand without ever
-/// touching the object behind it, and neither can: the inventory menu's Stow,
-/// and the menu's equip-swap (which releases the old weapon before taking the
-/// new one). Each one used to leave the item recording a custody that had
-/// stopped being true — a state that is in NEITHER arm of what the enum MEANS:
-/// not in the world, so [`ground_item_physics`] skips it,
-/// [`pickup_held_item_system`] skips it, and the drawn view skips it; and not in
-/// anyone's hand, so [`throw_held_item_system`] cannot find it either. The
-/// authored axe carrying `SimId::placement(..)` simply stopped existing — which
-/// is exactly the outcome [`ItemCustody`] was introduced to prevent, reached
-/// through the inventory menu instead of through a despawn.
+/// [`ItemCustody::Held`] names a body, and it is only TRUE while that body is actually holding
+/// the thing. The authored axe carrying `SimId::placement(..)` simply stopped existing — which
+/// is exactly the outcome [`ItemCustody`] was introduced to prevent, reached through the
+/// inventory menu instead of through a despawn.
 ///
-/// ⛔ **retract by RESETTING, never by removing.** The object is not despawned
+/// **retract by RESETTING, never by removing.** The object is not despawned
 /// and its identity is never re-minted; its custody returns to
 /// [`ItemCustody::InWorld`] at the holder's last position, which is where a body
 /// that stops holding something leaves it. Picking it back up is the ordinary
 /// pickup, so the authored identity survives a stow the same way it survives a
 /// throw.
 ///
-/// ⭐ **it runs FIRST in the item chain.** [`pickup_held_item_system`] writes
+/// **it runs FIRST in the item chain.** [`pickup_held_item_system`] writes
 /// `Held { holder }` DIRECTLY but attaches [`HeldItem`] through `Commands`, so a
 /// release check running after it in the same tick would be reading a hand that
 /// has not been filled yet and would drop the item the pickup just took. Reading
 /// last tick's settled state removes the question rather than depending on where
 /// a sync point lands.
 ///
-/// ⚠ **this is a DERIVE, not a follow-up call.** The repo's rule is that a second
+/// **this is a DERIVE, not a follow-up call.** The repo's rule is that a second
 /// step belongs inside the first, and it is not available here: every release
 /// site that orphans an object lives in the inventory menu, which runs in
 /// `Update`, in another crate, holding no item query. What a caller cannot be
@@ -531,10 +454,10 @@ pub fn ground_item_physics(
 /// guard below skips it forever), which is what makes it safe under rollback's
 /// re-simulation of the same tick.
 ///
-/// ⚠ **body-generic.** `holder` is whatever entity took the item — a couch seat,
+/// **body-generic.** `holder` is whatever entity took the item — a couch seat,
 /// a possessed actor, an NPC. Nothing here asks whether it is a player.
 ///
-/// ⛔ **a holder that DESPAWNED is deliberately NOT released here, and that is a
+/// **a holder that DESPAWNED is deliberately NOT released here, and that is a
 /// known remaining orphan.** "What happens to a body's inventory when the body
 /// dies" already has an owner — `caps.drops_held_item` in the actor death
 /// resolver, which MINTS a fresh `GroundItem` from the corpse's `HeldItem` spec.
@@ -556,7 +479,7 @@ pub fn return_released_items(
             continue;
         };
         // A holder that no longer exists is the death-drop resolver's question,
-        // not this one's — see the ⛔ above.
+        // not this one's — see the above.
         let Ok((kin, held)) = holders.get(holder) else {
             continue;
         };
@@ -588,11 +511,8 @@ pub fn return_released_items(
 /// identity `ItemCustody` exists to prevent, reached through the room boundary
 /// instead of through the pickup.
 ///
-/// ⛔ **the fix does NOT live in the transition.** Teaching the room commit to
-/// walk a body's held items would make the boundary know that inventories
-/// exist, which is the player-centric composition-root special case this
-/// architecture removes. Custody already NAMES the holder; residency is a
-/// PROJECTION of it, and this is the projection:
+/// Custody already NAMES the holder; residency is a PROJECTION of it, and this is the
+/// projection:
 ///
 /// * `Held { holder }` by a body that is not itself a room resident ⇒ the
 ///   object's residency is that body's, spelled
@@ -602,7 +522,7 @@ pub fn return_released_items(
 ///   out of the roster a room CHANGE retires;
 /// * `Held { holder }` by a body that IS a fixture of this room (an unpossessed
 ///   NPC still carries `RoomScopedEntity`) ⇒ resident. The object dies with the
-///   room exactly as the body holding it does. ⭐ possession promotes a body it
+///   room exactly as the body holding it does. possession promotes a body it
 ///   takes over OUT of room scope for precisely this reason, so a possessed
 ///   carrier gets the travelling answer without anyone asking who the player is;
 /// * a holder that no longer EXISTS confers nothing, so the object is resident
@@ -613,7 +533,7 @@ pub fn return_released_items(
 ///   the destination room" means, and it needs no memory of where the object was
 ///   picked up: room residency is presence-driven and carries no room id.
 ///
-/// ⚠ **a DERIVE, not a follow-up call at each custody write.** Four sites move
+/// **a DERIVE, not a follow-up call at each custody write.** Four sites move
 /// custody (pickup, throw, the release derive above, and the throw's mint), and
 /// the repo's own rule is that the second step belongs inside the first — but
 /// the first step is a bare `*custody = ..` in systems that do not all hold
@@ -624,7 +544,7 @@ pub fn return_released_items(
 /// unconditionally, so it carries no "already applied" gate of its own and needs
 /// no rollback registration to converge after a rewind.
 ///
-/// ⭐ **and it is deliberately NOT gated on `gameplay_allowed`.** A transition
+/// **and it is deliberately NOT gated on `gameplay_allowed`.** A transition
 /// suspends gameplay between the crossing and the commit; residency must be
 /// right on those frames above all others, because that is exactly when the
 /// sweep runs.
@@ -642,29 +562,23 @@ pub fn project_custody_onto_residency(
     // — ANY entity can hold something, and a query that required a body cluster
     // would answer "not resident" for a holder it simply could not see.
     //
-    // ⛔⛔ **THIS ASKED `Has<RoomScopedEntity>` AND THAT WAS A RESTATEMENT OF THE
-    // RULE RATHER THAN THE RULE.** The question is *"would a room change retire
-    // this holder"*, and the roster that answers it is `RoomResident` =
-    // `(With<RoomScopedEntity>, Without<InCustodyOf>)`. The two agreed for as
-    // long as the only travelling holder was the session-scoped home avatar.
-    // They stopped agreeing the moment a POSSESSED body kept its room scope and
-    // suspended its residency through custody — a holder that is room-scoped,
-    // not resident, and about to travel. The proxy answered "resident", so the
-    // object in its hand stayed resident and was retired at the door.
+    // **THIS ASKED `Has<RoomScopedEntity>` AND THAT WAS A RESTATEMENT OF THE RULE RATHER THAN
+    // THE RULE.** The question is *"would a room change retire this holder"*, and the roster
+    // that answers it is `RoomResident` = `(With<RoomScopedEntity>, Without<InCustodyOf>)`. The
+    // two agreed for as long as the only travelling holder was the session-scoped home avatar.
+    // They stopped agreeing the moment a POSSESSED body kept its room scope and suspended its
+    // residency through custody — a holder that is room-scoped, not resident, and about to
+    // travel.
     //
-    // ⭐ asking the roster makes custody TRANSITIVE for free: a thing held by a
+    // asking the roster makes custody TRANSITIVE for free: a thing held by a
     // thing that is itself in somebody's custody travels with both, and nothing
     // here has to know how many links the chain has.
     //
-    // ⛔⛔ **TWO QUERIES, BECAUSE ONE CONFLATES "GONE" WITH "TRAVELLING" — and
-    // that conflation is a real bug, not a tidiness point.** A single
-    // `Query<(), RoomResident>` answers `Err` for both a holder that despawned
-    // and a holder that is carrying the object out of the room. But
-    // `return_released_items` says in its own ⛔: *"a holder that DESPAWNED is
-    // deliberately NOT released here, and that is a known remaining orphan"* —
-    // so custody stays `Held { holder: <dead entity> }` forever. Reading that as
-    // "travelling" would mark the object non-resident permanently and it would
-    // follow the player through every door for the rest of the session.
+    // But `return_released_items` says in its own : *"a holder that DESPAWNED is deliberately
+    // NOT released here, and that is a known remaining orphan"* — so custody stays `Held {
+    // holder: <dead entity> }` forever. Reading that as "travelling" would mark the object
+    // non-resident permanently and it would follow the player through every door for the rest
+    // of the session.
     existing: Query<()>,
     residents: Query<(), ambition_platformer2d_shared_tangle::lifecycle::RoomResident>,
 ) {
@@ -687,8 +601,7 @@ pub fn project_custody_onto_residency(
             }
         };
         match (holder, suspended) {
-            // Already says what it should say. Checked before writing so this
-            // does not queue a command per ground item per tick.
+            // Already says what it should say.
             (Some(holder), Some(InCustodyOf(current))) if *current == holder => {}
             (Some(holder), _) => {
                 commands.entity(entity).insert(InCustodyOf(holder));
@@ -710,61 +623,45 @@ pub fn project_custody_onto_residency(
 /// in the baseline AND in that hand   → nothing to do
 /// ```
 ///
-/// ⭐⭐ **ONE system for both directions, deliberately.** They read one value and
+/// **ONE system for both directions, deliberately.** They read one value and
 /// they are the same decision seen from two sides; split across two systems,
 /// each would have to re-derive what the other concluded, and the pair would
 /// drift the first time only one of them learned about a new case.
 ///
-/// ⛔⛔ **IT LIVES HERE, NOT WITH THE BASELINE, BECAUSE CUSTODY IS A FORKED
-/// RELATION.** `ItemCustody`/`InCustodyOf` on the object and `HeldItem` on the
-/// body are two halves of one fact, and `HeldItem` is in a crate the lifecycle
-/// crate cannot see. A retraction that answered only the half it could reach
-/// left the body holding a spec whose object no longer existed, and the player
-/// could never pick anything up again — the acceptance fixture caught exactly
-/// that, and caught it because it drove a SECOND pickup.
+/// **IT LIVES HERE, NOT WITH THE BASELINE, BECAUSE CUSTODY IS A FORKED RELATION.**
+/// `ItemCustody`/`InCustodyOf` on the object and `HeldItem` on the body are two halves of one
+/// fact, and `HeldItem` is in a crate the lifecycle crate cannot see.
 ///
-/// ⛔ **and the tempting generic repair is worse than the bug**: "empty any hand
-/// whose spec matches nothing in that body's custody" would disarm every
-/// authored fighter on its first frame, because a character definition's
-/// `held_item` puts a `HeldItem` on a body with no world object behind it at all.
-///
-/// ⭐ **it goes through [`equip_held_spec`] and [`unequip_held`] rather than
+/// **it goes through [`equip_held_spec`] and [`unequip_held`] rather than
 /// inserting and removing [`HeldItem`].** Those verbs also swap the body's
 /// `ActionSet` and its `StashedActionSet`, so a hand-written `remove::<HeldItem>`
 /// leaves the body wielding the item's attack verbs with no item — which is what
 /// the first draft of this did.
 ///
-/// ⚠ **[`InCustodyOf`] is NOT written here.** It is derived from `ItemCustody`
+/// **[`InCustodyOf`] is NOT written here.** It is derived from `ItemCustody`
 /// by [`project_custody_onto_residency`] on the same tick; writing it too would
 /// be a second producer of a projected value.
 ///
-/// ⛔ **it must NOT touch the ledger.** The occurrence leg restores that whole
-/// value from its own baseline. Two systems retracting one fact is how a
-/// retraction survives one of them being deleted and quietly stops working.
+/// **it must NOT touch the ledger.** The occurrence leg restores that whole value from its own
+/// baseline.
 ///
-/// ⭐⭐ **AND THE THIRD ARM: A BASELINE ROW WHOSE OCCURRENCE THE WORLD NO LONGER
-/// HAS AT ALL.** Carried at the checkpoint, later put down in a room, that room
-/// unloaded and took the entity with it, then a death. Re-assignment cannot
-/// reach it — there is nothing to re-assign — and no room rebuild will ever
-/// produce it either, because a baseline that says `InCustody` makes
-/// `outlook_for` answer `Suppressed` in *every* room, which is correct: a thing
-/// in a hand is not a thing in a room. So the occurrence has to be
-/// MATERIALIZED, by identity, from the record that minted it wherever in the
-/// world that record lives — see
-/// [`authored_occurrence_request`](crate::construction::authored_occurrence_request).
-/// It comes back with the record's own `SimId` and provenance, which is what
-/// makes it the same occurrence rather than a look-alike.
+/// Re-assignment cannot reach it — there is nothing to re-assign — and no room rebuild will
+/// ever produce it either, because a baseline that says `InCustody` makes `outlook_for` answer
+/// `Suppressed` in *every* room, which is correct: a thing in a hand is not a thing in a room.
+/// So the occurrence has to be MATERIALIZED, by identity, from the record that minted it
+/// wherever in the world that record lives — see
+/// [`authored_occurrence_request`](crate::construction::authored_occurrence_request). It comes
+/// back with the record's own `SimId` and provenance, which is what makes it the same
+/// occurrence rather than a look-alike.
 ///
-/// ⭐⭐ **AND THE FOURTH: A ROW NO RECORD ANYWHERE CAN DESCRIBE.** Materializing
-/// from a record is bounded by *"some room authors this id"*, and a
-/// RUNTIME-MINTED instance ([`SpawnOrigin::Dynamic`](ambition_platformer2d_shared_tangle::construction::SpawnOrigin))
-/// is room-scoped and carryable — it can enter the baseline, and no record can
-/// rebuild it. The checkpoint therefore captures a durable DESCRIPTION of one at
-/// commit time ([`minted_horizon`]) and this arm rebuilds from that. The two
-/// describers are disjoint populations, not a preference order.
+/// **AND THE FOURTH: A ROW NO RECORD ANYWHERE CAN DESCRIBE.** Materializing from a record is
+/// bounded by *"some room authors this id"*, and a RUNTIME-MINTED instance
+/// ([`SpawnOrigin::Dynamic`](ambition_platformer2d_shared_tangle::construction::SpawnOrigin))
+/// is room-scoped and carryable — it can enter the baseline, and no record can rebuild it. The
+/// two describers are disjoint populations, not a preference order.
 #[allow(clippy::too_many_arguments)]
 pub fn restore_custody_to_checkpoint(
-    // ⭐ **`SessionCommands`, because materialization SPAWNS.** An occurrence
+    // **`SessionCommands`, because materialization SPAWNS.** An occurrence
     // rebuilt into a hand is owned by the activation that is restoring, exactly
     // as the room build's would be; a bare `Commands` could only produce a
     // process-resident stranger that outlives the session.
@@ -809,7 +706,7 @@ pub fn restore_custody_to_checkpoint(
     }
 
     // Bodies by identity, so a baseline row can name the hand it belongs to.
-    // ⚠ a `BTreeMap` rather than the query's order: this drives despawns, and
+    // a `BTreeMap` rather than the query's order: this drives despawns, and
     // Bevy's iteration order is an archetype accident.
     let by_identity: std::collections::BTreeMap<
         ambition_platformer2d_shared_tangle::sim_id::SimId,
@@ -840,14 +737,6 @@ pub fn restore_custody_to_checkpoint(
         })
         .collect();
 
-    // ⛔⛔ **RETRACTIONS FIRST, REINSTATEMENTS SECOND, AND THE ORDER IS THE BUG
-    // THIS PARAGRAPH EXISTS FOR.** A body has one hand. Interleaved, an
-    // occurrence being put back can be equipped while the object being taken
-    // away is still in that hand; the equip and the unequip are both commands on
-    // one entity, the later one wins, and `return_released_items` then sees a
-    // hand whose spec does not match and releases the object this reset just put
-    // there. The fixture reported it as `InWorld` — the reinstatement had
-    // happened and been quietly undone one phase later.
     let (reinstate, retract): (Vec<_>, Vec<_>) = decisions
         .into_iter()
         .partition(|(_, wanted, _)| wanted.is_some());
@@ -897,7 +786,7 @@ pub fn restore_custody_to_checkpoint(
                         }
                     }
                 }
-                // ⭐ a DESPAWN, and that is the point rather than a shortcut. The
+                // a DESPAWN, and that is the point rather than a shortcut. The
                 // identity lives in the record that minted it, so letting the
                 // rebuild author it again produces the SAME `SimId` at the
                 // AUTHORED position — which is "the key went back on its
@@ -912,16 +801,16 @@ pub fn restore_custody_to_checkpoint(
         }
     }
 
-    // ── ⭐⭐ AND THE ROWS NO OBJECT IN THE WORLD ANSWERS FOR ──────────────────
+    // ── AND THE ROWS NO OBJECT IN THE WORLD ANSWERS FOR ──────────────────
     //
-    // ⛔ **this pass is driven from the BASELINE, not from the world, and that
+    // **this pass is driven from the BASELINE, not from the world, and that
     // is the whole difference.** Everything above starts at a live occurrence
     // and asks whether the checkpoint agrees with where it is — a question that
     // cannot be asked at all about an occurrence whose entity is gone. Those
     // rows are invisible to every query in the engine, so the only place they
     // exist is the baseline, and the only way to find them is to enumerate it.
     //
-    // ⚠ **LAST, after the retractions, for the reason the partition above
+    // **LAST, after the retractions, for the reason the partition above
     // exists**: a body has one hand, and the object being taken out of it must
     // leave before the banked one is put back.
     let live: std::collections::BTreeSet<SimId> = items
@@ -937,32 +826,17 @@ pub fn restore_custody_to_checkpoint(
             Some((occurrence.clone(), by_identity.get(custodian).copied()?))
         })
         .collect();
-    // ⛔⛔ **A MINT LEFT LYING IS NOT THIS SYSTEM'S TO REBUILD, and trying it
-    // here was measured wrong on 2026-08-19.** A dropped occurrence has no
-    // custodian, so it is structurally absent from `CustodyBaseline`; the
-    // obvious repair is a second loop over `Placed { room, at }` rows. It does
-    // not work, and the reason is TIMING: `ResetToCheckpoint` is processed while
-    // the active room is still the one the player died in, so the row's room is
-    // not loaded and nothing may be spawned into it.
-    //
-    // ⇒ **the debt belongs to the ROOM BUILD**, which already settles exactly
-    // this obligation — `outlook.reinstatements()` in `features/ecs/spawn`,
-    // relocating an authored record to where the ledger says the object lies. A
-    // runtime mint falls through it to a warn because no room authors a record
-    // for it. See D133; the fix is a describer arm there, not a second
-    // materializer here.
+    // ⇒ **the debt belongs to the ROOM BUILD**, which already settles exactly this obligation —
+    // `outlook.reinstatements` in `features/ecs/spawn`, relocating an authored record to where
+    // the ledger says the object lies. A runtime mint falls through it to a warn because no
+    // room authors a record for it.
     if missing.is_empty() {
         return;
     }
     // Resolved once, and only when there is something to materialize: a shell
     // host at a non-gameplay route must not author gameplay entities.
     //
-    // ⚠ **the session world is NOT required here any more, and that is the
-    // second describer arriving.** It used to be, because the authored record
-    // was the only thing that could rebuild an occurrence; a runtime mint has no
-    // record and is rebuilt from the checkpoint's own description, so a
-    // composition with no world can still put one back. The authored arm below
-    // asks for the world itself.
+    // The authored arm below asks for the world itself.
     let Some(scope) = commands.spawn_scope() else {
         bevy::log::warn!(
             target: "ambition_platformer2d::items",
@@ -973,14 +847,9 @@ pub fn restore_custody_to_checkpoint(
         return;
     };
     for (occurrence, holder) in missing {
-        // ⭐⭐ **TWO DESCRIBERS, AND WHICH ONE ANSWERS IS DECIDED BY WHERE THE
-        // OCCURRENCE CAME FROM.** An authored occurrence is rebuilt by the record
-        // that minted it; a runtime mint has no record anywhere and is rebuilt
-        // from the description the checkpoint captured of it. Asking the
-        // checkpoint FIRST is not a preference between two answers — the two
-        // populations are disjoint by construction, because the capture takes
-        // only `SpawnOrigin::Dynamic` rows and an authored record can never
-        // spell one.
+        // Asking the checkpoint FIRST is not a preference between two answers — the two
+        // populations are disjoint by construction, because the capture takes only
+        // `SpawnOrigin::Dynamic` rows and an authored record can never spell one.
         let described = minted
             .as_deref()
             .and_then(|minted| minted.description_of(&occurrence));
@@ -989,7 +858,7 @@ pub fn restore_custody_to_checkpoint(
             Some(description) => match held_spec_by_id(&description.held_item) {
                 Some(spec) => Some((
                     description.origin.clone(),
-                    // ⭐ **NO POSITION IS REMEMBERED AND NONE IS NEEDED.** The
+                    // **NO POSITION IS REMEMBERED AND NONE IS NEEDED.** The
                     // hand supplies where the object is, and `ground_item_physics`
                     // refuses to step anything not `InWorld`, so this value is
                     // not read while it is carried. It is the honest answer for
@@ -1001,7 +870,7 @@ pub fn restore_custody_to_checkpoint(
                     spec,
                 )),
                 None => {
-                    // ⚠ a CONTENT change: the item's spec has been edited out of
+                    // a CONTENT change: the item's spec has been edited out of
                     // the catalog since the checkpoint was taken.
                     bevy::log::warn!(
                         target: "ambition_platformer2d::items",
@@ -1039,7 +908,7 @@ pub fn restore_custody_to_checkpoint(
                     held.clone(),
                 )),
                 Some(_) => {
-                    // ⚠ the family that can be CARRIED and the family that can be
+                    // the family that can be CARRIED and the family that can be
                     // materialized are the same one list; a row for anything else
                     // means a producer joined one road and not the other.
                     bevy::log::warn!(
@@ -1050,10 +919,6 @@ pub fn restore_custody_to_checkpoint(
                     None
                 }
                 None => {
-                    // ⚠ a CONTENT change rather than a defect: the record has
-                    // been edited away since the checkpoint was taken (or this
-                    // composition has no session world to look in). Loud, and
-                    // the player simply no longer has the thing.
                     bevy::log::warn!(
                         target: "ambition_platformer2d::items",
                         "the checkpoint remembers `{occurrence:?}` in a hand, it carries no \
@@ -1070,7 +935,7 @@ pub fn restore_custody_to_checkpoint(
         let Ok((_, _, mut action_set, _, _)) = bodies.get_mut(holder) else {
             continue;
         };
-        // ⛔ **the occurrence's OWN `SimId` and provenance**, which is what makes
+        // **the occurrence's OWN `SimId` and provenance**, which is what makes
         // this the same occurrence coming back rather than a copy wearing its
         // name. A fresh identity here would be a silent duplication the moment
         // the home room decided the original was still out there — and for a
@@ -1078,7 +943,7 @@ pub fn restore_custody_to_checkpoint(
         // invisible to the NEXT capture, so the object would survive exactly one
         // death and then become unrecoverable.
         //
-        // ⚠ **`InCustodyOf` is NOT written here**, for the same reason the arms
+        // **`InCustodyOf` is NOT written here**, for the same reason the arms
         // above do not write it: it is derived from `ItemCustody` by
         // `project_custody_onto_residency`, later in this same tick and two
         // phases before any room sweep reads it.
@@ -1115,7 +980,7 @@ pub fn restore_custody_to_checkpoint(
 /// custody can say nothing about it — and the room it was dropped in destroys it
 /// on unload, after which the world's only memory of where it was is this row.
 ///
-/// ⭐ **it tracks only occurrences the ledger ALREADY remembers.** The condition
+/// **it tracks only occurrences the ledger ALREADY remembers.** The condition
 /// is `remembers(sim_id)`, which on the tick a hand empties is still the
 /// outgoing `InCustody` row — so the population is exactly "things somebody
 /// carried", never "every object in the room". A producer that recorded every
@@ -1123,21 +988,7 @@ pub fn restore_custody_to_checkpoint(
 /// ledger exists to not be, and would rewrite an enemy's row on every step it
 /// took.
 ///
-/// ⛔ **ORDER: strictly BEFORE
-/// [`project_custody_onto_authored_occurrences`](ambition_platformer2d_shared_tangle::lifecycle::project_custody_onto_authored_occurrences),
-/// and strictly after
-/// [`project_custody_onto_residency`].** The custody projection retracts the
-/// `InCustody` row of anything no longer carried; run first, it would erase the
-/// only evidence this system uses to decide that an object is worth tracking,
-/// and a dropped object would be forgotten on the very tick it was dropped.
-///
-/// ⚠ **it re-states the position every tick while the room is loaded**, which is
-/// why a THROWN object records where it landed rather than where it left the
-/// hand: the row is republished through the whole arc and simply stops being
-/// republished when the room unloads. That per-tick republish is also what keeps
-/// the row a re-derivable value inside the rollback window.
-///
-/// ⚠ **item-domain producer, generic vocabulary.** The ledger's rows are
+/// **item-domain producer, generic vocabulary.** The ledger's rows are
 /// occurrence-generic; a producer must read a POSITION, and there is no generic
 /// position for a simulated occurrence — so the producers live with the families
 /// that have one. Room transition still knows nothing about items.
@@ -1161,7 +1012,7 @@ pub fn record_placed_ground_items(
         return;
     };
     let room = &room_set.active_spec().id;
-    // ⭐ **BTreeMap, not the query's order.** This value reaches a construction
+    // **BTreeMap, not the query's order.** This value reaches a construction
     // plan; an archetype-ordered read here is a determinism bug that reproduces
     // perfectly on one machine.
     let mut placed: std::collections::BTreeMap<
@@ -1172,32 +1023,16 @@ pub fn record_placed_ground_items(
         if !custody.in_world() {
             continue;
         }
-        // ⛔⛔ **AN OCCURRENCE COMES TO REST HERE ONLY IF IT WAS IN A HAND, OR
+        // **AN OCCURRENCE COMES TO REST HERE ONLY IF IT WAS IN A HAND, OR
         // WAS ALREADY RESTING HERE — and that is an invariant, not a filter.**
         //
-        // ⭐ **an object cannot change rooms without being carried.** Every
-        // legitimate relocation passes through custody: picked up in A (the row
-        // becomes `InCustody`), carried, put down in B (this system writes
-        // `Placed { B }`). So a live object lying in the ACTIVE room whose row
-        // says it is `Placed` in ANOTHER room — or `Consumed` — is not an object
-        // that moved. It is a stale duplicate the world should not be holding,
-        // and believing it would be the ledger taking dictation from the very
-        // duplication it exists to prevent.
+        // **an object cannot change rooms without being carried.** Every legitimate relocation
+        // passes through custody: picked up in A (the row becomes `InCustody`), carried, put
+        // down in B (this system writes `Placed { B }`). It is a stale duplicate the world
+        // should not be holding, and believing it would be the ledger taking dictation from the
+        // very duplication it exists to prevent.
         //
-        // ⚠ **the case that forced this is the DURABLE LOAD** (2026-08-16). A
-        // session builds its start room from authored records before anything has
-        // read a save file, so the moment the file's ledger is installed the world
-        // holds an occurrence the file says is somewhere else. Without this arm
-        // the very next tick republished the stale position over the loaded row,
-        // and the rebuild that was already on its way then put the object back in
-        // the room the player had carried it out of. The same tick order also
-        // resurrected an occurrence whose row was terminal.
-        //
-        // ⭐ **it refuses rather than repairs**, deliberately. Retracting the
-        // stale entity here would make this a second reconstruction authority
-        // beside `outlook_for`; the room rebuild that the load requests sweeps it
-        // with everything else this room minted, and until then the ledger simply
-        // keeps saying the true thing.
+        // **it refuses rather than repairs**, deliberately.
         let comes_to_rest_here = match occurrences.whereabouts(sim_id) {
             Some(
                 ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::InCustody,
@@ -1224,8 +1059,6 @@ pub fn record_placed_ground_items(
     if placed.is_empty() {
         return;
     }
-    // Compared before writing: a resting object would otherwise mark the ledger
-    // changed on every tick of its life.
     let unchanged = placed.iter().all(|(sim_id, at)| {
         matches!(
             occurrences.whereabouts(sim_id),
@@ -1302,14 +1135,14 @@ pub fn held_spec_for_item(item: crate::items::Item) -> Option<HeldItemSpec> {
 /// **Resolve a held item's authored spec id back to its spec — the reverse of
 /// [`HeldItemSpec::id`], and the item domain's answer to "what is this thing".**
 ///
-/// ⭐ **the reverse direction is what makes a durable description possible.** A
+/// **the reverse direction is what makes a durable description possible.** A
 /// checkpoint that wants to rebuild a runtime-minted instance stores the id and
 /// nothing else (see
 /// [`minted_horizon`](crate::items::pickup::minted_horizon)); storing the
 /// resolved spec would put a second authority for *what a javelin is* inside a
 /// snapshot, so the id has to be resolvable from outside.
 ///
-/// ⚠ **both registries, in that order, because there are two.** The three wired
+/// **both registries, in that order, because there are two.** The three wired
 /// weapons are built here by [`held_spec_for_item`] and are NOT rows in
 /// `ambition_characters`'s table; the pirates' `gun_sword_heavy` is a row there
 /// and has no catalog slot. Consulting one alone silently loses half the items.
@@ -1326,22 +1159,12 @@ pub fn held_spec_by_id(id: &str) -> Option<HeldItemSpec> {
 /// hold a weapon calls this: the world pickup ([`pickup_held_item_system`]) and
 /// the inventory menu. There is no second place that writes half of it.
 ///
-/// ⭐ **`owned` is a PARAMETER, not a follow-up call.** `OwnedItems::equipped`
-/// and the presence of `HeldItem` on the body are ONE FACT STORED TWICE, and
-/// while the two were maintained at separate sites they drifted — dropping the
-/// portal gun cleared the component and left the menu still claiming the gun was
-/// equipped, because that one release path forgot the second edit. Handing the
-/// catalog to the transfer is what makes the two ends move together or not at
-/// all. `None` means "this body has no catalog behind it" (a headless fixture, a
-/// game with no inventory) — never "skip the bookkeeping".
+/// Handing the catalog to the transfer is what makes the two ends move together or not at all.
+/// `None` means "this body has no catalog behind it" (a headless fixture, a game with no
+/// inventory) — never "skip the bookkeeping".
 ///
-/// ⚠ **it does NOT grant, and after D132 nothing on this road does.** Entitlement
-/// (*do you own an axe as a quantity, with no object behind it*) and custody
-/// (*are you holding one*) are different questions, and picking an object up
-/// answers only the second: the object is the record, and
-/// [`OwnedItems::count`](crate::items::OwnedItems::count) projects the equipped
-/// slot this function writes. `grant` belongs to the sites that confer a
-/// quantity with no object — `<<give_item>>`, the shop, ability drops.
+/// `grant` belongs to the sites that confer a quantity with no object — `<<give_item>>`, the
+/// shop, ability drops.
 pub fn equip_held_spec(
     commands: &mut Commands,
     player: Entity,
@@ -1372,14 +1195,9 @@ pub fn equip_held_spec(
 /// Restore the stashed action set, detach [`HeldItem`], and clear the catalog's
 /// equipped slot. The body stops holding it here and nowhere else.
 ///
-/// ⛔ **the OBJECT's end is NOT this function's, and it used to be nobody's.** The
-/// throw writes the launch onto the object itself; the inventory menu writes
-/// nothing at all, and for a picked-up instance that left the object recording
-/// `ItemCustody::Held` by a body with an empty hand — invisible, unpickable and
-/// unthrowable for the rest of its life. Nothing here has an item query to fix
-/// that with (the menu calls this from `Update`, in another crate), so custody is
-/// re-derived from the hand instead: see [`return_released_items`]. A caller that
-/// simply lets go can no longer destroy an authored object.
+/// Nothing here has an item query to fix that with (the menu calls this from `Update`, in another
+/// crate), so custody is re-derived from the hand instead: see [`return_released_items`]. A caller
+/// that simply lets go can no longer destroy an authored object.
 pub fn unequip_held(
     commands: &mut Commands,
     player: Entity,
@@ -1428,12 +1246,6 @@ pub fn equip_portal_gun(
 /// **RELEASE custody of the portal gun** — the portal-gun twin of
 /// [`unequip_held`]. Detach [`PortalGun`], restore the stashed action set, and
 /// clear the catalog's equipped slot.
-///
-/// ⛔ **the world DROP used to inline this and omit the last step**, so a player
-/// who threw the gun on the floor kept an inventory screen insisting it was
-/// equipped. The throw path did clear it. Same operation, two hand-written
-/// copies, one of them missing an edit — which is the whole argument for the
-/// slot being this function's business rather than each caller's.
 #[cfg(feature = "portal")]
 pub fn unequip_portal_gun(
     commands: &mut Commands,
@@ -1463,14 +1275,14 @@ pub fn unequip_portal_gun(
 /// on the global `OwnedItems` home inventory. One item at a time: a body already
 /// holding an item (or the portal gun) can't grab another.
 ///
-/// ⚠ **this is a PRESS-gated action, and that is why it stays on one subject
+/// **this is a PRESS-gated action, and that is why it stays on one subject
 /// while the touch-collectors are body-generic.** Picking a weapon off the floor
 /// spends an Attack press on a specific body's `ActorControl`; walking into a
 /// coin spends nothing. The `ControlledSubject` here is not a player-centrism
 /// leftover — it is "the body whose press this is". The touch-collect fork lives
 /// in `features::ecs::pickups`.
 ///
-/// ⛔ **it does not DESTROY the item.** See [`ItemCustody`].
+/// **it does not DESTROY the item.** See [`ItemCustody`].
 pub fn pickup_held_item_system(
     mut commands: Commands,
     controlled: Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>,
@@ -1505,10 +1317,7 @@ pub fn pickup_held_item_system(
     }
     let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
     for (mut ground, mut custody) in &mut grounds {
-        // Only an item that is IN THE WORLD can be grabbed. Without this a
-        // second body could take an item straight out of the first body's hand,
-        // because the item entity is still alive — the exact class of bug the
-        // old despawn hid by destroying the evidence.
+        // Only an item that is IN THE WORLD can be grabbed.
         if !custody.in_world() {
             continue;
         }
@@ -1519,26 +1328,18 @@ pub fn pickup_held_item_system(
         // grab it, so there is no tunnel to sweep. An auto-collect (touch-to-grab
         // ring/coin) would instead route through `cast::aabb_path_contacts`.
         if player_aabb.strict_intersects(ground_aabb) {
-            // ⛔⛔ **THE CATALOG IS NOT WRITTEN HERE, AND THE DELETED WRITE IS
-            // D132.** This used to `owned.grant(item, 1)` — "you now OWN an axe"
-            // — beside taking custody, so ONE acquisition left TWO records: the
-            // object, which the checkpoint captures and a death rewinds, and a
-            // catalog row, which no checkpoint has ever seen. A player who picked
-            // a weapon up after the last shrine and died got the object back on
-            // its pedestal AND kept the row; the inventory menu would then equip
-            // the phantom and mint a SECOND weapon on the first throw, and the
-            // durable save wrote it to disk on the way past.
+            // A player who picked a weapon up after the last shrine and died got the object back on
+            // its pedestal AND kept the row; the inventory menu would then equip the phantom and
+            // mint a SECOND weapon on the first throw, and the durable save wrote it to disk on the
+            // way past.
             //
-            // ⭐ the object is the record. `OwnedItems::count` PROJECTS the hand
+            // the object is the record. `OwnedItems::count` PROJECTS the hand
             // (via the equipped slot `equip_held_spec` writes below), so the grid
             // still shows the axe you are carrying — derived, retracted by the
             // same reset that retracts the object, and impossible to disagree
             // with. See [`OwnedItems`](crate::items::OwnedItems)'s own docs.
             //
-            // CUSTODY: the ONE take-custody operation, shared with the inventory
-            // menu. This used to be four hand-written edits here and the same
-            // four inside `equip_held_spec`, whose own doc called itself a mirror
-            // of this loop — so the two could only ever agree by remembering to.
+            // CUSTODY: the ONE take-custody operation, shared with the inventory menu.
             equip_held_spec(
                 &mut commands,
                 player,
@@ -1553,10 +1354,6 @@ pub fn pickup_held_item_system(
             // input is immutable intent for this tick; action consumers arbitrate
             // on body state and commit by spending the semantic control edge.
             control.0.melee_pressed = false;
-            // ⭐ **THE ITEM IS NOT DESTROYED — its custody changes.** This used
-            // to be `commands.entity(ground_entity).despawn()`, and with it went
-            // the item's `SimId`, its `SpawnOrigin`, and any possibility of the
-            // thing you throw being the thing you picked up.
             *custody = ItemCustody::Held { holder: player };
             // A carried item is not in flight. Zeroing here (rather than relying
             // on the custody gate alone) also keeps the fuse arming honest:
@@ -1574,7 +1371,7 @@ pub fn pickup_held_item_system(
 /// `Shield + Attack` for any item, or on a plain `Attack` for a pure throwable
 /// (throw-on-use).
 ///
-/// ⭐ **"put back", not "spawn".** The object the body took custody of is still
+/// **"put back", not "spawn".** The object the body took custody of is still
 /// alive and still carries its identity, so the throw resets its
 /// [`ItemCustody`] and writes the launch onto it. A fresh instance is minted
 /// only when there is no object behind the hand at all — the inventory menu
@@ -1586,7 +1383,7 @@ pub fn pickup_held_item_system(
 /// — the body you drive throws the item it holds — reading that body's own
 /// `ActorControl`, not a player-identity-specific input path.
 ///
-/// ⭐ **and it CONSUMES the press, exactly as the pickup does.** A held weapon
+/// **and it CONSUMES the press, exactly as the pickup does.** A held weapon
 /// owns the Attack press (`trigger_moveset_moves` arbitrates that from
 /// `HeldItem`), but a throw is the one item action that ENDS the holding: it
 /// removes `HeldItem` in `PlayerSimulation`, and the move trigger looks in
@@ -1646,28 +1443,15 @@ pub fn throw_held_item_system(
     let throw_pos = kin.pos + frame.to_world(Vec2::new(facing * THROW_AHEAD, 0.0));
     // Forward + away-from-feet, in the local frame → world.
     let throw_vel = frame.to_world(Vec2::new(facing * THROW_SPEED_X, -THROW_SPEED_UP));
-    // CUSTODY, one operation: the hand empties and the catalog's equipped slot
-    // clears together. Only the equipped slot moves, never the stored quantity —
-    // and after D132 that sentence means two different things depending on which
-    // road put the item in the hand. A weapon PICKED UP has no stored row at all,
-    // so letting go of it is letting go of it: the object on the floor is the
-    // only record, and the grid dims. A weapon equipped out of a GRANTED quantity
-    // still has its row, so the thrower keeps catalog ownership and can re-equip.
+    // CUSTODY, one operation: the hand empties and the catalog's equipped slot clears together.
+    // A weapon PICKED UP has no stored row at all, so letting go of it is letting go of it: the
+    // object on the floor is the only record, and the grid dims. A weapon equipped out of a
+    // GRANTED quantity still has its row, so the thrower keeps catalog ownership and can
+    // re-equip.
     //
-    // ⭐ **that second case WAS the surviving half of D132, and it is closed.**
-    // Throwing a granted quantity mints an instance, and the mint SPENDS the row
-    // it came from — see the block beside the mint below. The reason it could
-    // not be spent here for months was that `OwnedItems` was not checkpoint
-    // state, so a death retracting a minted-after-the-checkpoint instance would
-    // have found the quantity already gone and annihilated it. `OwnedItemsBaseline`
-    // answered that on 2026-08-19 and the spend landed in the same change.
-    //
-    // ⛔ **this note used to say the opposite and it outlived the fix**, which is
-    // the failure mode a ⛔ comment has: it goes on advising after it stops being
-    // true, and the next reader either re-fixes a closed hole or trusts a hole
-    // that is gone. The rule the note still carries is the useful part: only the
-    // equipped slot moves here, never the stored quantity — the spend belongs at
-    // the MINT, where the quantity actually becomes an object.
+    // The rule the note still carries is the useful part: only the equipped slot moves here, never
+    // the stored quantity — the spend belongs at the MINT, where the quantity actually becomes an
+    // object.
     unequip_held(
         &mut commands,
         player,
@@ -1675,12 +1459,9 @@ pub fn throw_held_item_system(
         stashed,
         owned.as_deref_mut(),
     );
-    // ⭐ **RETURN THE OBJECT, do not manufacture a replacement.** The item this
-    // body took custody of is still a live entity carrying its own identity, so
-    // the throw resets its custody and writes the launch onto it. This used to
-    // be an unconditional `spawn_room_scoped`, which is why picking an authored
-    // axe up and dropping it produced an anonymous axe: `SimId::placement(...)`
-    // died at the pickup and nothing put it back.
+    // **RETURN THE OBJECT, do not manufacture a replacement.** The item this body took custody of
+    // is still a live entity carrying its own identity, so the throw resets its custody and writes
+    // the launch onto it.
     if let Some((mut ground, mut custody)) = carried
         .iter_mut()
         .find(|(_, custody)| custody.held_by(player))
@@ -1690,7 +1471,7 @@ pub fn throw_held_item_system(
         *custody = ItemCustody::InWorld;
         return;
     }
-    // ⚠ **NO OBJECT BEHIND THE HAND — materialize one.** A body can come to hold
+    // **NO OBJECT BEHIND THE HAND — materialize one.** A body can come to hold
     // an item with no world instance at all: the inventory menu equips straight
     // out of `OwnedItems`, which is a count table. Throwing that turns a
     // QUANTITY into an INSTANCE, and an instance owes an identity, so it takes
@@ -1699,17 +1480,7 @@ pub fn throw_held_item_system(
     // unclosed inventory leg described on [`ItemCustody`] — not a fallback that
     // should quietly absorb the common case.
     //
-    // ⭐⭐ **IDENTITY AND PROVENANCE ARE MINTED TOGETHER, and the second half used
-    // to be missing.** The id alone made this instance nameable and left it
-    // unreconstructable: `SpawnOrigin::Dynamic`'s doc says a dynamic entity
-    // states which spawner it descends from or it cannot be rebuilt, and
-    // `SimId::as_str`'s doc says the spelling may never be parsed to recover
-    // that fact. So the checkpoint horizon had no legitimate way to tell a mint
-    // from an authored placement, and
-    // [`minted_horizon::capture_minted_item_baseline`] — which discriminates on
-    // exactly this component — would have described nothing.
-    //
-    // ⚠ the pair is `Option` as ONE value: a thrower with no identity mints
+    // the pair is `Option` as ONE value: a thrower with no identity mints
     // neither half, so "dynamic, parent unknown" stays unspellable.
     let minted = identities.get_mut(player).ok().map(|(id, mut counter)| {
         let sequence = counter.next();
@@ -1721,23 +1492,17 @@ pub fn throw_held_item_system(
             },
         )
     });
-    // ⭐⭐ **AND THE MINT SPENDS THE ENTITLEMENT IT CAME FROM — D132's gate, opened
-    // 2026-08-19.** A quantity that turns into an object must stop being a
-    // quantity, or the row and the object both claim it and the next equip
-    // throws a second one. Measured before the fix: one granted javelin, two
-    // javelins on the floor.
+    // **AND THE MINT SPENDS THE ENTITLEMENT IT CAME FROM — gate, opened.** A quantity that
+    // turns into an object must stop being a quantity, or the row and the object both claim it
+    // and the next equip throws a second one.
     //
-    // ⛔ **this is only safe because `OwnedItems` is checkpoint state now.** The
-    // comment above `unequip_held` used to explain why the row could NOT be
-    // spent here: a death retracting a minted-after-the-checkpoint instance
-    // would find the quantity gone and annihilate it. `OwnedItemsBaseline`
-    // answers that — the reset puts the row back — so the two halves land
+    // `OwnedItemsBaseline` answers that — the reset puts the row back — so the two halves land
     // together and neither is a bug on its own.
     //
-    // ⚠ **`take`, not a `count` write.** `count` PROJECTS the equipped slot, and
+    // **`take`, not a `count` write.** `count` PROJECTS the equipped slot, and
     // writing a projection back into the table is the fork this domain already
     // paid for once; `take` is the stored quantity alone.
-    // ⚠ resolved from the SPEC's id, the same way `unequip_held` finds the slot
+    // resolved from the SPEC's id, the same way `unequip_held` finds the slot
     // it clears — a held spec that answers to no catalog Item was never a
     // quantity and has no row to spend.
     if let (Some(owned), Some(item)) = (
@@ -1962,10 +1727,6 @@ pub fn fire_held_ranged_system(
         },
         Name::new("Held ranged shot"),
     ));
-    // Opt the bolt into the ONE generic portal transit AT SPAWN (not via the
-    // deferred `ensure_projectile_portal_bodies`), so the host-surface carve opens
-    // the SAME frame even for a point-blank shot at a portal — otherwise the bolt
-    // would detonate on the still-solid surface one frame before it gets tagged.
     // `reorient: false, carry_velocity: true` is the free-flying projectile policy.
     #[cfg(feature = "portal")]
     shot.insert((

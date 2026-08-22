@@ -40,8 +40,6 @@ use super::brain_effects::spawn_projectiles_from_brain_actions;
 use crate::enemy_projectile::test_support::live_projectile_bodies;
 use crate::projectile::ProjectileSeqCounter;
 
-/// Fixed simulation step the harness ticks at (s). Matches the engine's nominal
-/// 60 Hz so body cooldowns measured in seconds map cleanly to tick counts.
 pub const HARNESS_DT: f32 = 1.0 / 60.0;
 
 /// Tick the body's per-frame attack timers, exactly as the real integrator does

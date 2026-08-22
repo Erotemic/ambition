@@ -46,29 +46,20 @@ pub enum Platformer2dInputActionMonolith {
     /// a per-preset keyboard key (gamepad Special awaits the remap pass, since
     /// the face + shoulder buttons are already fully assigned).
     Special,
-    /// **SHIELD — hold to raise a guard, release to drop it.** The one semantic
-    /// action that produces `ControlFrame::shield_held`, and an independent
-    /// participant control rather than a variant of [`Self::Special`] (D146,
-    /// Jon: *"Shield input -> can hold/release shield. Special input ->
-    /// activates authored special behavior. One cannot accidentally masquerade
-    /// as the other."*).
+    /// One cannot accidentally masquerade as the other."*).
     ///
-    /// ⚠ **this was `QuickAction`** — a generic name for an action every
+    /// **this was `QuickAction`** — a generic name for an action every
     /// producer and consumer already treated as the shield (the touch overlay's
     /// Shield button maps here, every keyboard preset's `shield` key binds it,
     /// and `read_gameplay_control_frame` reads it straight into `shield_held`).
     ///
-    /// ⛔ **a rename is a SETTINGS-FILE event**, because [`crate::BindingOverride`]
-    /// keys an action by this variant's `Debug` spelling and `apply_override`
-    /// silently ignores a name this build does not have — so a player's stored
-    /// remap of the shield would have gone quiet with no symptom. It is migrated
-    /// on load by `ControlSettings::clamp_all`; see `RENAMED_ACTIONS` there.
+    /// It is migrated on load by `ControlSettings::clamp_all`; see `RENAMED_ACTIONS` there.
     Shield,
     /// **GRAB — press to attempt a capture.** Starts an authored grab move; if
     /// that move's active window acquires a body, the two enter a capture
     /// relationship the grab move itself does not own and does not end.
     ///
-    /// ⛔ **an independent action, not a variant of [`Self::Attack`]**, for the
+    /// **an independent action, not a variant of [`Self::Attack`]**, for the
     /// same reason Shield is not a variant of Special: a grab beats a guard that
     /// stops an attack, and it establishes something that outlives the press.
     /// Binding it onto the attack button would make "may this body grab" and
@@ -115,8 +106,6 @@ pub enum Platformer2dInputActionMonolith {
     /// Paged-menu page turn RIGHT. Bound to the RIGHT shoulder bumper (R1 / RB =
     /// `GamepadButton::RightTrigger`) and the `E` key.
     MenuPageRight,
-    /// Analog left-stick read used to drive menu navigation with
-    /// configurable deadzone + repeat. Renders into `MenuAxisFrame`.
     #[actionlike(DualAxis)]
     MenuStick,
     /// Analog right-trigger value (0..=1). Used together with
@@ -145,7 +134,7 @@ impl Platformer2dInputActionMonolith {
     /// able to take Jump off South without taking confirm off South with it.
     /// This is the line it cuts on.
     ///
-    /// ⭐ **exhaustive on purpose.** A new action must decide which side it is
+    /// **exhaustive on purpose.** A new action must decide which side it is
     /// on, at the compiler's insistence, rather than falling through a `_` arm
     /// into whichever answer the author of this function happened to prefer.
     pub fn is_menu_only(self) -> bool {

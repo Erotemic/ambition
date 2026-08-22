@@ -24,7 +24,6 @@ python -m ambition_procedural_fit fit \
     --debug-max-frames 24
 
 # ----
-#
 
 export CUDA_VISIBLE_DEVICES=1
 

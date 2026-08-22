@@ -16,10 +16,6 @@
 //!   `hit_flash: f32` (seconds remaining).
 //! - **Boss**: the boss encounter hit-flash field exposed through the read-model seam.
 //! - **Player**: [`ambition_characters::actor::BodyCombat::hit_flash`].
-//!
-//! Replaces the pink multiplicative tint that
-//! [`super::actors::animate_characters`] and
-//! [`super::actors::animate_player`] used to set on `sprite.color`.
 
 use bevy::{
     image::TextureAtlasLayout,
@@ -45,11 +41,6 @@ const SHADER_ASSET_PATH: &str = "shaders/hit_flash.wgsl";
 /// pixels.
 const FLASH_HOLD_FRACTION: f32 = 0.80;
 
-/// Maximum hit_flash duration the codebase issues (enemy archetypes
-/// use 0.18–0.24 seconds). Used to normalize the timer into the
-/// [0, 1] range the shader expects. Values larger than this just
-/// saturate at full white — they don't visually clip, just hold
-/// longer.
 const REFERENCE_FLASH_SECONDS: f32 = 0.24;
 
 /// Z bias for the overlay mesh — must sit IN FRONT of every other
@@ -422,7 +413,7 @@ fn normalize_hit_flash(seconds: f32) -> f32 {
     }
 }
 
-/// ⭐ **NO `Assets<Image>`, and the plain-image branch shows why it was never
+/// **NO `Assets<Image>`, and the plain-image branch shows why it was never
 /// needed.** This fetched the image for one value — `texture_descriptor.size`,
 /// to normalise the frame rect — which `TextureAtlasLayout::size` already
 /// carries; and in the whole-image branch it computed that size and then
@@ -430,13 +421,13 @@ fn normalize_hit_flash(seconds: f32) -> f32 {
 /// doing nothing but gating on "has the texture decoded", a question the frame
 /// rect does not depend on.
 ///
-/// ⛔ it mattered because of what the dependency BLOCKED. Bevy loads images as
+/// it mattered because of what the dependency BLOCKED. Bevy loads images as
 /// `MAIN_WORLD | RENDER_WORLD`, so every decoded sheet keeps its full RGBA in
 /// main-world RAM — 1803 MB entering Hall of Characters. Each main-world reader
 /// of a loaded sheet is one more thing standing between the game and dropping
 /// `MAIN_WORLD`, and this one wanted two integers.
 ///
-/// ⚠ **there are THREE implementations of this computation** — here,
+/// **there are THREE implementations of this computation** — here,
 /// `ambition_content::presentation::deep_dream`, and
 /// `ambition_portal2d_presentation::clip_material::sprite_frame_basis` (whose
 /// doc says it "mirrors the hit-flash overlay's UV resolution", which is a

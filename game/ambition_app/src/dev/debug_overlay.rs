@@ -94,14 +94,10 @@ pub(crate) fn draw_debug_overlay(
     developer_tools: Res<DeveloperTools>,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomSet>,
     ldtk_spine_index: Res<ambition_platformer2d::ldtk_map::LdtkRuntimeSpineIndex>,
-    // ⭐ **the view this camera presents** (D116 M2). Was `Res<CameraViewState>`,
-    // a process-global describing "the" gameplay view — which is the one thing a
-    // debug overlay must not assume once a split layout draws two.
+    // Was `Res<CameraViewState>`, a process-global describing "the" gameplay view — which is
+    // the one thing a debug overlay must not assume once a split layout draws two.
     camera_view: ambition_platformer2d::sim_view::PresentedViewState,
     mode: Res<State<GameMode>>,
-    // Per-frame buffer of debug-box labels; filled below, rendered as Text2d by
-    // `render_debug_overlay_labels`. (In-flight projectile queries moved into
-    // `FeatureDebugQueries` to keep this system under Bevy's 16-param ceiling.)
     mut overlay_labels: ResMut<DebugOverlayLabels>,
     action_query: Query<
         &ActionState<Platformer2dInputActionMonolith>,

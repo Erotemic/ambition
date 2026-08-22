@@ -11,45 +11,25 @@
 //! - above it, `ambition_content` provides the named game DATA (rooms, bosses,
 //!   rosters) and `ambition_app` does final wiring + the binaries.
 //!
-//! Despite the historical `ambition_platformer2d_actor_monolith` name, it is content-light: concrete
-//! content has been migrated out to `ambition_content`. Foundation crates
-//! (`ambition_combat`, `ambition_input`, `ambition_platformer2d_core`, `ambition_characters`,
-//! `ambition_render`, …) are imported directly by their canonical crate paths; the
-//! old `crate::{input,engine_core,…}` compat re-exports have been removed.
-//!
-//! Top-level modules group coherent slices: `world`, `player`, `abilities`,
-//! `combat`, `gravity`, `items`, `music`, `projectile`,
-//! `quest`, plus the `schedule`/`host`/`session` assembly and `dev` tooling.
-//! ⛔ **`dialog`, `menu`, `equipment` and `persistence` are NOT among them any
-//! more** (D33, 2026-08-17): the first three joined the domain crates that
-//! already owned their subject (`ambition_conversation`, `ambition_menu`,
-//! `ambition_items`) and the fourth was deleted outright.
+//! Despite the historical `ambition_platformer2d_actor_monolith` name, it is content-light:
+//! concrete content has been migrated out to `ambition_content`.
 //!
 //! # The ENDPOINT: what is still here when the carve is done
 //!
-//! ⛔⛔ **the module list above is an INVENTORY OF WHAT HAS NOT MOVED YET, not a
-//! claim of ownership** — and reading it as ownership is what lets a
-//! decomposition run forever. An inventory cannot refuse anything: every
-//! gameplay-systems-shaped thing matches it, which is how this crate gained 49
-//! files in the fourteen days it was being carved (measured 2026-08-21).
+//! An inventory cannot refuse anything: every gameplay-systems-shaped thing matches it, which
+//! is how this crate gained 49 files in the fourteen days it was being carved.
 //!
-//! ⭐ **what this crate is FINISHED as is the ASSEMBLY.** The schedule, the host,
-//! the session, the module graph, and the cross-cutting types submodules
-//! reference through it. Jon, 2026-08-21, on D33: *"loc is the proxy. the real
-//! win is conceptual domain separation."* Assembly is the one concept that
-//! cannot be carved out, because it is what does the assembling.
+//! **what this crate is FINISHED as is the ASSEMBLY.** The schedule, the host, the session, the
+//! module graph, and the cross-cutting types submodules reference through it.
 //!
 //! ⇒ so every DOMAIN named above — `world`, `abilities`, `combat`, `gravity`,
 //! `items`, `music`, `quest`, actors and brains — is a carve CANDIDATE rather
 //! than a resident, and the test for a new file is: *is this assembly, or is it a
-//! domain that has not been given its crate yet?* ⛔ a domain answer means it is
+//! domain that has not been given its crate yet?* a domain answer means it is
 //! arriving in a waiting room, and it should say so.
 //!
-//! ⚠ **the corollary D33 already learned the hard way**: judge a carve by whether
-//! the concept ends up whole in the crate that owns it, never by what it removes
-//! from a per-crate line count. A slice that moves 2,000 lines and leaves the
-//! concept split across two crates is worth less than one that moves 200 and
-//! makes a domain whole.
+//! A slice that moves 2,000 lines and leaves the concept split across two crates is worth less
+//! than one that moves 200 and makes a domain whole.
 //!
 //! This crate owns the module graph and the cross-cutting types (`RoomGeometry`,
 //! `RoomTransitionCooldown`) that submodules reference through the actor crate.
@@ -70,12 +50,10 @@
 // into these modules. Everything else stays `pub(crate)` so the compiler
 // can tell us what's actually depended on from outside.
 pub mod audio;
-/// The HOME AVATAR — the body slot 0 owns and returns to, plus the policy that is
-/// genuinely the local human's rather than any body's: its identity bundle, its
-/// respawn safety and blink camera, its starting character, its emitted trail,
-/// and the tick that integrates it. Formerly `player/`; the body vocabulary, the
-/// control seam, the affordance table, and the body mechanics all left it in the
-/// S5/S6 fold (refactor-chain R6). What is named here is named correctly.
+/// The HOME AVATAR — the body slot 0 owns and returns to, plus the policy that is genuinely the
+/// local human's rather than any body's: its identity bundle, its respawn safety and blink camera,
+/// its starting character, its emitted trail, and the tick that integrates it. What is named here
+/// is named correctly.
 pub mod avatar;
 #[cfg(feature = "causal")]
 pub mod causal;
@@ -103,20 +81,13 @@ pub mod actor;
 pub mod assets;
 pub mod body_custody;
 pub mod body_mode;
-// ✔ `boss_encounter` LEFT 2026-08-17 (D33) and is now the
-// `ambition_boss_encounter` crate — the boss data model had been relocated into
-// it the same day, and the two names it still reached upward for
-// (`CutsceneTriggerQueue`, `MountDied`) moved BELOW the monolith instead. No
-// facade re-export stands here on purpose: callers name the crate.
 mod checkpoint_horizon;
 pub use checkpoint_horizon::ActorCheckpointHorizonPlugin;
 pub mod character_runtime;
 pub mod character_sprites;
 pub mod config;
-// ✔ `conversation` LEFT 2026-08-17 (D33 step 2) and is now the
-// `ambition_conversation` crate. No facade re-export stands here on purpose:
-// callers name the crate. The departure and what earned it are in that crate's
-// header; the short version is that its zero import edges were never the
+// No facade re-export stands here on purpose: callers name the crate. The departure and what earned
+// it are in that crate's header; the short version is that its zero import edges were never the
 // blocker — the SCHEDULE was.
 pub mod cutscene;
 pub mod dev;
@@ -186,15 +157,12 @@ use bevy::prelude::{Message, Resource};
 pub struct ActorDiedMessage {
     /// **WHO died.**
     ///
-    /// ⛔ **this message carried no victim at all**, so a consumer could only
-    /// take the last death and assume it was theirs. Mary-O does exactly that —
-    /// reads the latest message and applies it to the current
-    /// `ControlledSubject` — and it works only because emission is effectively
-    /// restricted to the one controlled body today. The moment two participants
-    /// can die, that consumer cannot tell whose death it is holding (GPT 5.6
-    /// review, 2026-08-04).
+    /// **this message carried no victim at all**, so a consumer could only take the last death
+    /// and assume it was theirs. Mary-O does exactly that — reads the latest message and
+    /// applies it to the current `ControlledSubject` — and it works only because emission is
+    /// effectively restricted to the one controlled body today.
     ///
-    /// ⚠ **an `Entity` is a SAME-FRAME identity, not a durable one.** Bevy
+    /// **an `Entity` is a SAME-FRAME identity, not a durable one.** Bevy
     /// recycles indices, so this is right for a consumer filtering "was that my
     /// body, this tick" and wrong for a replay or a peer. A durable
     /// victim identity — participant, or the body's stable
@@ -265,7 +233,7 @@ impl SafePositionContext {
 
 // `RoomGeometry` (the session-root component wrapping the active room's collision
 // geometry) lives in `ambition_platformer2d_core`, next to the `World` it wraps
-// (fable review §D4, Jon-confirmed home) — so the renderer and a future
+// — so the renderer and a future
 // `ambition_platformer2d_world` name it there directly, not through this 95k crate.
 
 pub const BLINK_IN_ANIM_TIME: f32 = 0.34;

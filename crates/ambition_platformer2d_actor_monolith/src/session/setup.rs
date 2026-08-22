@@ -1,12 +1,7 @@
 //! Sim/presentation split for the sandbox's startup setup.
 //!
-//! Slice 4 of ADR 0012's events refactor: an earlier monolithic setup
-//! system mixed simulation-only world construction
-//! (`LdtkWorldBundle`, the player entity's gameplay components) with
-//! presentation-only spawns (Camera2d, sprites, HUD text, and generated
-//! audio library setup). This module factors the sim half into
-//! [`simulation_world`] so the headless binary can build the world without
-//! presentation, while the visible-app setup keeps that seam clean.
+//! This module factors the sim half into [`simulation_world`] so the headless binary can build the
+//! world without presentation, while the visible-app setup keeps that seam clean.
 //!
 //! [`simulation_world`] takes `&mut Commands` plus borrowed resource handles
 //! ([`SimulationSetup`]) so it can be invoked from any Bevy startup system
@@ -46,7 +41,7 @@ pub struct SimulationSetup<'a> {
     /// `player` protagonist) takes the untouched `from_scratch` path.
     /// Whether this session builds a home body, and who it wears if so.
     ///
-    /// ⚠ a MATCH experience declares `NoInitialBody`: it realizes its own cast
+    /// a MATCH experience declares `NoInitialBody`: it realizes its own cast
     /// from a prepared roster, and a privileged avatar beside that cast is an
     /// actor nobody owns — the camera follows it and input drives it while the
     /// fighter the player chose stands somewhere else.
@@ -63,7 +58,7 @@ pub struct SimulationSetup<'a> {
     /// prepared character states what a body physically is. Without it, the worn
     /// player took its health from the catalog row and its mass and box from
     /// nowhere, while a seated fighter wearing the same character took all three
-    /// from the definition (GPT 5.6, 2026-07-29).
+    /// from the definition.
     pub prepared_characters: Option<&'a crate::character_runtime::PreparedCharacterRegistry>,
     /// App-local sheets this session's providers authored (U1). Sized bodies
     /// come from sheets, so setup needs it wherever it needs the catalog.
@@ -132,8 +127,8 @@ pub fn simulation_world(
     // typed `LdtkProject` handle requires `LdtkPlugin` to be registered.
     // Headless builds skip LdtkPlugin (its tile pipeline needs RenderApp),
     // so this function must not assume the LDtk asset type is available.
-    // ⭐ AND SIMULATION SETUP NO LONGER TOUCHES ASSETS AT ALL (2026-08-18).
-    // `ldtk_index` went first (2026-08-16), then `sandbox_data_asset`,
+    // AND SIMULATION SETUP NO LONGER TOUCHES ASSETS AT ALL.
+    // `ldtk_index` went first, then `sandbox_data_asset`,
     // `sandbox_asset_collection` and `asset_server` followed as this comment
     // predicted they would. All four were borrowed here and read by nothing:
     // the two collections were cloned into `_`-prefixed locals that dropped on
@@ -167,10 +162,6 @@ pub fn simulation_world(
         room_plan.platform_states().to_vec(),
     ));
 
-    // ⛔ **NO HOME BODY unless the experience asked for one.** Everything above
-    // is the WORLD, which every session needs; everything below builds the
-    // session's privileged avatar, which a match does not want and used to be
-    // given anyway. See `InitialBodyPolicy`.
     let crate::avatar::InitialBodyPolicy::SpawnCharacter(starting_character) = initial_body else {
         return None;
     };
@@ -205,12 +196,9 @@ pub fn simulation_world(
     // pool, and a character that authors none keeps the standard pool, so
     // Ambition's own protagonist is untouched.
     //
-    // ⚠ this used to read `character_catalog.max_health(..)` directly, which was
-    // a THIRD authority: the catalog row for the worn player, the prepared
-    // definition for a seated fighter, and nothing at all for mass or the box.
-    // The registry now folds the catalog row at its barrier, so consulting the
-    // prepared value is strictly more informed than consulting the row — and a
-    // registered-only character (every versus fighter) has no row to consult.
+    // The registry now folds the catalog row at its barrier, so consulting the prepared value is
+    // strictly more informed than consulting the row — and a registered-only character (every
+    // versus fighter) has no row to consult.
     let worn_id = starting_character.effective_id(default_character_id);
     let physical = prepared_characters
         .and_then(|registry| registry.get(worn_id))
@@ -223,16 +211,14 @@ pub fn simulation_world(
             .max_health(worn_id)
             .unwrap_or(DEFAULT_PLAYER_HEALTH),
     });
-    // The authored BOX, on the exploration player. `SpriteAuthored` needs nothing
-    // here — its per-pose projection reaches every body on every path — so this
-    // is the `Explicit` case, which was seating-only until now. Written into the
-    // scratch before the body exists, which is the one moment a size may be set
-    // without going through the transit seam (ADR 0024).
+    // The authored BOX, on the exploration player. `SpriteAuthored` needs nothing here — its
+    // per-pose projection reaches every body on every path — so this is the `Explicit` case,
+    // which was seating-only until now.
     if let Some(size) = physical.as_ref().and_then(|p| p.explicit_size()) {
         initial_scratch.kinematics.size = size;
         initial_scratch.base_size.base_size = size;
     }
-    // ⭐ **HOW THIS BODY FIRES**, resolved by the overlay the bundle already runs
+    // **HOW THIS BODY FIRES**, resolved by the overlay the bundle already runs
     // and kept rather than discarded — see below.
     let mut ranged = ambition_characters::brain::RangedExecution::ChargedProjectile;
     let player_bundle = if starting_character.is_default() {
@@ -243,7 +229,7 @@ pub fn simulation_world(
             initial_scratch,
             player_health,
             starting_character.character_id.as_str(),
-            // ⭐ the prepared cast, which this function already held and the
+            // the prepared cast, which this function already held and the
             // bundle was not given — see the parameter's own note.
             prepared_characters,
             &mut ranged,
@@ -272,10 +258,6 @@ pub fn simulation_world(
         )
         .id();
 
-    // ⭐⭐ **THE PROTAGONIST IS COMPLETE ON THIS FRAME** (Jon's second redirect,
-    // P0): it inserted `RecharacterizeBody` and asked the persona derive to
-    // finish initialising it, which is the thing that component exists NOT to be.
-    //
     // Two pieces were outstanding and both are answered here. The projectile
     // MARKERS a `Bundle` cannot conditionally omit — the overlay resolved how
     // this body fires and the bundle discarded that answer, so it is kept now.
@@ -325,7 +307,7 @@ pub fn simulation_world(
     // it — and spawns the HUD/quest text as session-scoped, marker-tagged
     // entities during its own setup.
     //
-    // ⚠ `Option` since 2026-08-06: "there is always exactly one primary player"
+    // `Option`: "there is always exactly one primary player"
     // was an engine-wide assumption, and a match experience is the counterexample.
     Some(player)
 }

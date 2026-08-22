@@ -1,15 +1,11 @@
 //! **A moving platform's picture, drawn the way every other room feature's is.**
 //!
-//! ⛔⛔ **this replaces a spawn inside the room-construction transaction, and
-//! that is the whole point of the slice.** `spawn_moving_platforms` ran between
-//! `transaction::open` and `transaction::close`, so the platform's VISUAL was
-//! installed by the commit that produced its STATE. That coupling is what kept
-//! the visual adapter in the actor monolith long after the state moved to
-//! `ambition_platformer2d_world`: any reactive spawn was judged as "splitting
-//! the transaction", and the fix looked like it needed a new
-//! construction → presentation message.
+//! **this replaces a spawn inside the room-construction transaction, and that is the whole
+//! point of the slice.** `spawn_moving_platforms` ran between `transaction::open` and
+//! `transaction::close`, so the platform's VISUAL was installed by the commit that produced its
+//! STATE.
 //!
-//! ⭐ **the seam already existed.** Every other room feature is drawn reactively:
+//! **the seam already existed.** Every other room feature is drawn reactively:
 //! *"every render family discovers its own population"*, and
 //! [`super::features`] draws a marked rectangle for any published id no family
 //! claims, so an unclaimed feature is LOUD. The moving platform was simply the
@@ -17,13 +13,9 @@
 //! deletes the problem rather than designing around it — a family that only
 //! derives pictures cannot split a transaction it does not participate in.
 //!
-//! ⚠ **what the old code was protecting is preserved.** `sync_moving_platform`'s
-//! doc recorded that it once carried a room-change reset of its own, and that
-//! hidden second authority clobbered freshly RESTORED platform state after a
-//! staged cross-room restore. Nothing here writes platform state: the set is
-//! read, never touched, and the visuals are reconciled to whatever it says. A
-//! restore that rewinds `MovingPlatformSet` is followed on the next frame by
-//! visuals that agree with it, which is the property the old reset broke.
+//! Nothing here writes platform state: the set is read, never touched, and the visuals are
+//! reconciled to whatever it says. A restore that rewinds `MovingPlatformSet` is followed on the
+//! next frame by visuals that agree with it, which is the property the old reset broke.
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_BLOCK};
@@ -36,7 +28,7 @@ use bevy::prelude::*;
 /// The picture of one moving platform, tied to its index in the authoritative
 /// [`MovingPlatformSet`].
 ///
-/// ⚠ the index IS the identity, exactly as the deleted monolith component's
+/// the index IS the identity, exactly as the deleted monolith component's
 /// was: the set is a positional roster rebuilt by room construction, so a
 /// platform has no id of its own to key on. A room change replaces the whole
 /// roster and retires the whole visual population with it.
@@ -154,13 +146,11 @@ mod tests {
         rows
     }
 
-    /// **⭐ THE CARVE'S CLAIM: a platform gets its picture without the room
+    /// **THE CARVE'S CLAIM: a platform gets its picture without the room
     /// construction transaction spawning one.**
     ///
-    /// The visual used to be spawned between `transaction::open` and
-    /// `transaction::close`, which is why it could not follow the state out of
-    /// the actor monolith. Here nothing constructs anything — the authoritative
-    /// set simply exists, and the family draws it.
+    /// Here nothing constructs anything — the authoritative set simply exists, and the family draws
+    /// it.
     #[test]
     fn a_platform_in_the_set_gets_a_visual_without_any_construction_commit() {
         let mut app = app_with_platforms(vec![platform("a", 100.0), platform("b", 400.0)]);
@@ -173,7 +163,7 @@ mod tests {
 
     /// **It follows the authoritative set rather than remembering.**
     ///
-    /// ⛔⛔ this is the property the deleted `sync_moving_platform` LOST once:
+    /// this is the property the deleted `sync_moving_platform` LOST once:
     /// it carried a room-change reset of its own, and that hidden second
     /// authority clobbered freshly RESTORED platform state after a staged
     /// cross-room restore. A pure reconcile cannot — it has nothing to

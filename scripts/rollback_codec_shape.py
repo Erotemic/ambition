@@ -20,7 +20,7 @@ Both answer *"is the SET of registered things the same"*. Neither answers *"does
 each thing still encode the same shape"*, which is the question a peer actually
 depends on.
 
-## What this measures
+# # What this measures
 
 The ordered sequence of codec PRIMITIVES per file — `put_f32`, `put_bool`,
 `r.u8()`, … — hashed. Adding, removing or retyping an encoded field changes the
@@ -34,7 +34,7 @@ reorder of two `f32`s. That is a real wire change and this will not catch it. It
 is the narrow residue of a check that is otherwise free of false positives, and
 a checker that cried wolf on every rename would be turned off within a week.
 
-## What to do when it goes red
+# # What to do when it goes red
 
 1. Did the BYTES a peer encodes change? Then bump `GGRS_ROLLBACK_SCHEMA_VERSION`
    and describe the change in its doc log, the way every version there does.
@@ -81,7 +81,7 @@ def codec_files() -> list[Path]:
             if '/target/' in str(path) or '/.claude/' in str(path):
                 continue
             text = path.read_text(encoding='utf8', errors='replace')
-            # ⚠ **a codec marker is required, not just a `put_*` call.**
+            # **a codec marker is required, not just a `put_*` call.**
             # `put_[a-z0-9_]+(` alone matched `put_pixel` in a room-geometry
             # RENDERER example — an unrelated file whose every edit would have
             # raised a wire-format alarm. A guard with a false positive in its
@@ -111,31 +111,17 @@ def shape_of(path: Path) -> tuple[int, str]:
     # `snapshot_pod!` lists its fields as bare idents rather than calls, so the
     # macro body is folded in by name — otherwise a POD component could gain a
     # field with no primitive call anywhere and read as unchanged.
-    #
-    # ⭐ **2026-08-20 is the receipt that this fold pays for itself.**
-    # `BodyShieldState` gained `break_total` (v57) and this file's hash MOVED
-    # WITH ITS PRIMITIVE COUNT UNCHANGED at 107 — the field produced no new
-    # `put_*` call, exactly the case the fold was added for. It is the first
-    # time a hole here was closed by an earlier fix rather than reported by a
-    # defect, and that is the only evidence such a fold was worth adding.
     for match in re.finditer(r'\bsnapshot_pod!\s*\((.*?)\)\s*;', text, flags=re.S):
         body = re.sub(r'\s+', '', match.group(1))
         tokens.append(f'pod[{body}]')
-    # ⛔⛔ **AND AN ARRAY-DRIVEN CODEC HIDES THE SAME WAY A POD DID.**
+    # **AND AN ARRAY-DRIVEN CODEC HIDES THE SAME WAY A POD DID.**
     #
-    # `for b in [f.a, f.b, …] { put_bool(out, b); }` calls ONE primitive however
-    # long the array is, and the decode side reads `[false; N]` in one loop. So a
-    # field added to the array changes the bytes a peer encodes and leaves the
-    # primitive SEQUENCE byte-identical — measured 2026-08-18 on
-    # `ActorControlFrame`, which went 19 flags to 20 with the file's hash
-    # unmoved at `b54dbef425527998` both sides.
-    #
-    # ⭐ this is the same hole `snapshot_pod!` was already patched for, in the
+    # this is the same hole `snapshot_pod!` was already patched for, in the
     # comment right above: *"otherwise a POD component could gain a field with no
     # primitive call anywhere and read as unchanged."* One construct had been
     # noticed and the other had not.
     #
-    # ⚠ the COUNT, never the names — a renamed field is not a wire change, and a
+    # the COUNT, never the names — a renamed field is not a wire change, and a
     # guard that fired on renames is the false positive this file's own docs say
     # gets a checker turned off.
     for match in re.finditer(r'\bfor\s+\w+\s+in\s*\[([^\[\]]*?)\]\s*\{', text, flags=re.S):
@@ -145,25 +131,16 @@ def shape_of(path: Path) -> tuple[int, str]:
         tokens.append(f'arr[{len(body.split(",")) }]')
     for match in re.finditer(r'\[\s*(?:false|true|0u8|0u16|0u32|0u64|0i32|0f32|0\.0)\s*;\s*(\d+)\s*\]', text):
         tokens.append(f'fixed[{match.group(1)}]')
-    # ⛔⛔ **AND `snapshot_unit_enum!` IS THE THIRD CONSTRUCT TO HIDE THE SAME WAY.**
+    # **AND `snapshot_unit_enum!` IS THE THIRD CONSTRUCT TO HIDE THE SAME WAY.**
     #
-    # `snapshot_unit_enum!(Ty { Ground = 0, Air = 1, … })` expands to ONE
-    # `put_u8` of a discriminant — and that `put_u8` lives in the MACRO, in
-    # `snapshot.rs`, not at the invocation. So an invocation site contributes no
-    # primitive call at all, and adding a variant adds a code a peer can now
-    # decode while every token above stays identical. Measured 2026-08-20: a
-    # branch adding `MovementOp::Footstool = 34` left
-    # `platformer2d_core/src/snapshot_impls.rs` byte-identical at
-    # `3355eb410d168f88`, and the enum went from 34 variants to 35.
-    #
-    # ⭐ **the file already documented the first two holes and this is the same
+    # **the file already documented the first two holes and this is the same
     # sentence a third time** — a POD gaining a field with no primitive call, an
     # array-driven codec widening with no primitive call, and now a wire CODE
     # arriving with no primitive call. ⇒ when a construct decides bytes without
     # naming a `put_*`, it has to be folded in by hand; there is no general rule
     # here, only the list.
     #
-    # ⚠ **the DISCRIMINANTS, SORTED — never the names and never the order.** A
+    # **the DISCRIMINANTS, SORTED — never the names and never the order.** A
     # rename is not a wire change and neither is reordering the variant list,
     # because each variant keeps its own code; a checker that fires on either is
     # the false positive this file's own docs say gets it turned off. An ADDED,

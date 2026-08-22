@@ -36,11 +36,6 @@ const AUTHORED_HALF: (f32, f32) = (4.0, 18.0);
 struct CapturedHits(Vec<HitEvent>);
 
 fn capture_hits(mut events: MessageReader<HitEvent>, mut out: ResMut<CapturedHits>) {
-    // ⚠ **hits that NAME A BODY.** Every question in this module is "did the
-    // strike reach the authored silhouette", and a body-owned melee also
-    // publishes the unresolved half of the same strike — geometry broadcast for
-    // breakables and bosses, naming no body. Counting that as a hurtbox hit
-    // would make an authored MISS look like a landed one.
     out.0.extend(
         events
             .read()
@@ -92,11 +87,9 @@ fn fight_app() -> App {
 /// Spawn an attacker plus a `World`-anchored strike box at `strike_x`.
 /// The world box a strike spawned by [`spawn_strike`] occupies.
 ///
-/// Kept beside the spawner so the two cannot disagree, and used to CHECK the
-/// premise of the miss case rather than state it in a comment. The prose said the
-/// strike overlaps the coarse box; move the strike to x = 40 and the miss would
-/// still "pass", having proven only that a strike reaching nothing hits nothing —
-/// the A10 defect class.
+/// The prose said the strike overlaps the coarse box; move the strike to x = 40 and the miss would
+/// still "pass", having proven only that a strike reaching nothing hits nothing — the A10 defect
+/// class.
 fn strike_box(strike_x: f32, half_width: f32) -> ae::Aabb {
     ae::Aabb::new(
         ae::Vec2::new(strike_x, 0.0),
@@ -148,7 +141,6 @@ fn spawn_authored_body(app: &mut App, player: bool) -> Entity {
         DamageableVolumes::default(),
         AuthoredHurtboxes(narrow_torso()),
         ResolvedHurtboxes::default(),
-        // The vulnerability trio every body carries (§A1 slice 3).
         ae::BodyOffense::default(),
         ae::BodyMotionFacts::default(),
         ae::BodyShieldState::default(),
@@ -162,16 +154,8 @@ fn spawn_authored_body(app: &mut App, player: bool) -> Entity {
 
 /// **A3 + A7.** The primary player is hit on its AUTHORED silhouette.
 ///
-/// Both halves matter. The miss proves the authored volumes are what damage
-/// consults — the strike is well inside the player's bounding rectangle, so the
-/// old coarse-box path would have landed it. The hit proves nothing was broken in
-/// the process.
-///
-/// This was unreachable before: `refresh_body_damageable_volumes` was gated
-/// `With<FeatureSimEntity>`, which the player does not carry, so the player had no
-/// published silhouette at all — and `apply_hitbox_damage` did not read published
-/// silhouettes anyway. Two independent reasons the same feature could not work for
-/// the most important body in the game.
+/// Two independent reasons the same feature could not work for the most important body in the
+/// game.
 #[test]
 fn a_player_shaped_body_is_hit_on_its_authored_hurtbox() {
     // ── Inside the coarse box, outside the authored torso: MISS ──
@@ -228,7 +212,6 @@ fn a_player_shaped_body_is_hit_on_its_authored_hurtbox() {
 /// The same body, the same authored doc, the same strike — with and without the
 /// player marker. The answers must be identical.
 ///
-/// Jon's ruling, asserted: *it is a smell that something would work for an enemy
 /// but not a player.* Before this change the two rows of this table disagreed,
 /// and nothing in the codebase would have noticed.
 #[test]
@@ -413,10 +396,8 @@ fn a_widening_move_silhouette_is_hittable_on_the_tick_it_widens() {
 
     let mut app = App::new();
     crate::schedule::configure_platformer2d_simulation_phases(&mut app);
-    // The session gate (`simulation_authorized`) requires EXACTLY ONE
-    // `SessionRoot`, and every gameplay set is nested inside it. Without this
-    // entity the whole simulation is structurally dormant and a test like this
-    // one fails with "nothing was ever hit" — which reads like a geometry bug.
+    // The session gate (`simulation_authorized`) requires EXACTLY ONE `SessionRoot`, and every
+    // gameplay set is nested inside it.
     app.world_mut()
         .spawn(ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(
             ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(0),

@@ -38,12 +38,10 @@ pub struct NearestInteractable(pub InteractVariant);
 /// which resolves the interaction against the same controlled subject — so the
 /// "Talk / Open / Activate" label appears exactly where the interact would fire.
 ///
-/// Selection policy: first overlap wins, in a fixed priority order
-/// (NPCs → chests → switches). The overlap test is binary today
-/// (AABB strict-intersects), matching the existing interact path.
-/// When the body overlaps multiple interactables simultaneously, the
-/// HUD label still reflects what the buffered-interact systems would
-/// fire because both follow the same priority order.
+/// The overlap test is binary today (AABB strict-intersects), matching the existing interact
+/// path. When the body overlaps multiple interactables simultaneously, the HUD label still
+/// reflects what the buffered-interact systems would fire because both follow the same priority
+/// order.
 pub fn update_nearest_interactable(
     controlled: Option<Res<ControlledSubject>>,
     bodies: Query<&ambition_platformer2d_core::BodyKinematics>,
@@ -85,7 +83,7 @@ pub fn update_nearest_interactable(
     let mut chosen = InteractVariant::None;
     for (aabb, disposition, _interaction, health) in &actors {
         // A hostile actor drops out of the Talk prompt; a dead one is an
-        // intangible corpse and offers no prompt (Jon 2026-07-22 — one policy).
+        // intangible corpse and offers no prompt.
         if disposition.is_hostile() || ambition_combat::util::body_is_corpse(health) {
             continue;
         }

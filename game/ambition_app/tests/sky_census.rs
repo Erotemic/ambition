@@ -1,15 +1,8 @@
 //! **WHAT DOES `pirate_sky_lookout` ACTUALLY ASK THE SFX CHANNEL FOR?**
 //!
-//! ⛔⛔ **THE FINDING IS A DEFECT IN THE INSTRUMENT'S OWN WORLD, and Jon named
-//! it before the numbers did.** Chasing his report of *"an sfx flurry that is
-//! loud and off-putting"* in the pirate sky, this census reported the room
-//! nearly silent. He refused the reading: *"there must be sounds in the pirate
-//! sky. they fire their gun swords… I'm just giving you an example of something
-//! obvious the instrument should be able to hear. it points at defect in the
-//! instrument."* He was right.
-//!
-//! Measured 2026-08-19, 1800 ticks (30 seconds) of `Platformer2dSimHarness` in
-//! this room:
+//! He refused the reading: *"there must be sounds in the pirate sky. they fire their gun
+//! swords… I'm just giving you an example of something obvious the instrument should be able to
+//! hear.
 //!
 //! ```text
 //! actors in the room                10   (4 flying sharks, 4 pirate riders, 2 parrots)
@@ -25,12 +18,12 @@
 //! and neither can any other test built on this harness that concludes
 //! "nothing bad happened".
 //!
-//! ⚠ that is the reason this is `#[ignore]`d rather than asserted: the honest
+//! that is the reason this is `#[ignore]`d rather than asserted: the honest
 //! assertion ("awake targeted enemies produce combat over 30s") is RED today,
 //! and a red test on `main` is not how a finding gets reported. Run it with
 //! `cargo test -p ambition_app --test app_it -- pirate_sky --ignored --nocapture`.
 //!
-//! ⛔ do NOT read a future green here as "the sky is quiet". It is quiet because
+//! do NOT read a future green here as "the sky is quiet". It is quiet because
 //! nothing happens.
 
 use ambition_platformer2d::sfx::{OwnedSfxMessage, SfxMessage};
@@ -53,12 +46,9 @@ fn pirate_sky_sfx_census() {
     let mut fx_channel_missing = false;
 
     for tick in 0..1800 {
-        // ⭐ **DRIVE INTO THE CEILING**, which is the scenario Jon named — an
-        // idle player in this room is quiet. Jump repeatedly and hold up.
-        // ⭐ **GO AT THEM.** The riders are dormancy-gated on observers
-        // (`AwakeNearObservers`), so an idle or stationary player never wakes
-        // them and the room measures as silent. Jon: "they fire their gun
-        // swords" — that is the sound, and it needs the pirates awake.
+        // Jump repeatedly and hold up. **GO AT THEM.** The riders are dormancy-gated on observers
+        // (`AwakeNearObservers`), so an idle or stationary player never wakes them and the room
+        // measures as silent.
         let action = ambition_app::AgentAction {
             move_x: if (tick / 240) % 2 == 0 { 1.0 } else { -1.0 },
             jump: tick % 90 == 0,
@@ -80,7 +70,7 @@ fn pirate_sky_sfx_census() {
                 })
                 .collect()
         };
-        // ⛔ **IS THE INSTRUMENT DEAF?** Count the UPSTREAM channel too. If
+        // **IS THE INSTRUMENT DEAF?** Count the UPSTREAM channel too. If
         // `FxRequest`s are plentiful while `OwnedSfxMessage`s are scarce, the
         // fan-out that turns one into the other is not installed here and the
         // census is measuring its own composition, not the game.
@@ -148,7 +138,7 @@ fn pirate_sky_sfx_census() {
         }
         println!("[sky-census] actors in the room: {}", brains.values().sum::<usize>());
         {
-            // ⭐ **PARITY WITH THE REAL HOST.** The shell host boots with 780
+            // **PARITY WITH THE REAL HOST.** The shell host boots with 780
             // systems across visible schedules (printed by the same census in
             // `smash_in_the_host`). If this composition carries materially
             // fewer, every headless test is measuring a smaller game.

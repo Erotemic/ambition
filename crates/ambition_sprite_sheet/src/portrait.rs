@@ -109,11 +109,7 @@ impl PortraitSheetManifest {
 /// Runtime index of baked portrait manifests, keyed by the same asset-relative
 /// manifest path stored in character-catalog rows.
 ///
-/// ⭐ **and by TARGET**, which every manifest has carried since it was written
-/// and which this index used to read and throw away. `target: "alice"` is a
-/// NAME for a portrait product, and a name is what a character definition can
-/// author — the path is what the CATALOG derives. Both roads end at the same
-/// manifest; only one of them was addressable.
+/// Both roads end at the same manifest; only one of them was addressable.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct PortraitSheetRegistry {
     manifests: HashMap<String, PortraitSheetManifest>,
@@ -132,11 +128,8 @@ impl PortraitSheetRegistry {
                     let path = normalize_manifest_path(asset_path);
                     let target = manifest.target.trim().to_string();
                     if !target.is_empty() {
-                        // ⚠ REFUSED rather than last-writer-wins, exactly like
-                        // `AuthoredSheets::insert_ron`. Two manifests claiming
-                        // one target is an authoring mistake whose symptom
-                        // would be a character wearing somebody else's face on
-                        // some runs and not others, depending on bake order.
+                        // REFUSED rather than last-writer-wins, exactly like
+                        // `AuthoredSheets::insert_ron`.
                         if let Some(existing) = registry.by_target.get(&target) {
                             warn!(
                                 "PortraitSheetRegistry: target '{target}' is claimed by \
@@ -166,7 +159,7 @@ impl PortraitSheetRegistry {
     ///
     /// The path comes back with it because a manifest's own `image` field is a
     /// bare filename (`"alice_portraits.png"`) while everything that loads one
-    /// speaks asset-relative paths (`"sprites/alice_portraits.png"`). ⛔ a
+    /// speaks asset-relative paths (`"sprites/alice_portraits.png"`). a
     /// resolver that returned the manifest alone would hand its caller a
     /// filename that resolves to nothing, silently — which is the exact failure
     /// `declared_art_resolves.rs` exists for.
@@ -227,14 +220,14 @@ pub fn baked_portrait_registry() -> PortraitSheetRegistry {
 /// **Every baked portrait target, sorted** — the vocabulary a character's
 /// `portrait` reference resolves against at preparation.
 ///
-/// ⭐ the exact twin of `character::sheets::available_targets`, and it exists for
+/// the exact twin of `character::sheets::available_targets`, and it exists for
 /// the reason that one does: the engine always knows this vocabulary because it
 /// is baked, so a provider should never have to hand it over just to have its
 /// typo caught. [`PortraitSheetRegistry::available_targets`] already carried the
 /// note *"so a preparation-time did-you-mean list is the same on every
-/// machine"* — a doc naming the use nothing was connected to (ledger D106).
+/// machine"* — a doc naming the use nothing was connected to.
 ///
-/// ⚠ **`OnceLock`, because [`baked_portrait_registry`] PARSES.** Preparation
+/// **`OnceLock`, because [`baked_portrait_registry`] PARSES.** Preparation
 /// runs per character, and calling the registry constructor there would re-parse
 /// every baked portrait manifest once per registered character — the startup
 /// decode storm §7.1 deleted, rebuilt from the other end. The sheet index is a

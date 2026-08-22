@@ -36,7 +36,6 @@ pub enum MovementOp {
     Tumble,
     /// A teched landing: the knockdown refused.
     Tech,
-    /// Landed while tumbling without teching — prone.
     Knockdown,
     /// Stood up from a knockdown (by choice or by timeout).
     Getup,
@@ -50,14 +49,6 @@ pub enum MovementOp {
     Pogo,
     Rebound,
     /// The crawler SEATED itself on a surface this step.
-    ///
-    /// ⛔ this locomotion mode published NOTHING before 2026-08-02 — not because
-    /// nobody wrote the op, but because `step_crawler` was handed `&mut
-    /// Vec<Contact>` rather than the whole [`super::FrameEvents`], so the
-    /// operations channel was not in scope for it to write to. A whole movement
-    /// policy was structurally unable to say what it did, and the causal
-    /// instrument that answered the ladder question is blind to exactly the mode
-    /// with an open contact bug.
     CrawlAttach,
     /// The crawler LEFT its surface this step (knocked off, walked off an end,
     /// or the surface stopped qualifying).

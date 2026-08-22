@@ -153,15 +153,9 @@ fn gnu_ton_rider_phase1_is_materially_longer_than_other_bosses() {
     );
 }
 
-// `gnu_ton_scripted_advance_cycles_telegraph_strike_rest` deleted:
-// the cursor-through-steps invariant moved to
-// `brain::boss_pattern::tests::{boss_pattern_telegraph_step_updates_telegraph_profile_state,
-// boss_pattern_strike_step_emits_melee_intent,
-// boss_pattern_resets_cursor_on_phase_change}`. The runtime no
-// longer ticks the cursor (the brain does), so polling
-// `boss.update(...)` and reading `boss.telegraph_profile` is no
-// longer a meaningful exercise — those mirror fields are written
-// by the boss tick system, not advanced by the runtime.
+// The runtime no longer ticks the cursor (the brain does), so polling `boss.update(...)` and
+// reading `boss.telegraph_profile` is no longer a meaningful exercise — those mirror fields are
+// written by the boss tick system, not advanced by the runtime.
 
 #[test]
 fn gnu_ton_hand_slam_anchors_to_drawn_hands() {
@@ -174,15 +168,9 @@ fn gnu_ton_hand_slam_anchors_to_drawn_hands() {
     // broke the test even though the visual / hitbox correspondence
     // stayed correct. Stick to invariants instead of magic numbers.
     let boss = gnu_ton_runtime();
-    // Note: after the 2026-05-26 data-driven migration, this
-    // exercises the `volumes_for_profile` FALLBACK math for the
-    // `HandSlam` arm — the live game routes through
-    // `sprite_authored_volumes` reading the
-    // `gnu_ton_boss_spritesheet.ron` `gnu_hand_slam` hitbox parts.
-    // The fallback's combat_size-relative offsets keep the
-    // left/right/below-pos invariants this test pins, so the
-    // assertions still hold without needing a sprite_metrics
-    // snapshot in the runtime fixture.
+    // The fallback's combat_size-relative offsets keep the left/right/below-pos invariants this
+    // test pins, so the assertions still hold without needing a sprite_metrics snapshot in the
+    // runtime fixture.
     let slam = crate::features::volumes_for_profile(
         &BossAttackProfile::Strike("hand_slam".to_string()),
         boss.kin.pos,
@@ -209,24 +197,12 @@ fn gnu_ton_hand_slam_anchors_to_drawn_hands() {
 // gate is the spawn tuning (`body_contact_damage: body_damage > 0`); the attacker
 // stamp is the shared contact path's, exercised by `app/tests/boss_contact_iframes`.
 
-// `gnu_ton_scripted_patterns_skip_non_attacking_phases` deleted:
-// the "Dormant / Stagger / Death emit neutral intent + clear
-// attack-state mirror" invariant moved to
-// `brain::boss_pattern::tests::boss_pattern_brain_emits_neutral_in_non_attacking_phase`.
-// The runtime no longer chooses the pattern step, so polling
-// `boss.update(...)` and reading the mirror fields is no longer
-// the right exercise — the brain owns the gate.
+// The runtime no longer chooses the pattern step, so polling `boss.update(...)` and reading the
+// mirror fields is no longer the right exercise — the brain owns the gate.
 
-// The `gnu_ton_apple_rain_strike_emits_falling_apple_spawns`,
-// `gnu_ton_apple_rain_spawns_avoid_self_aabb`,
-// `gnu_ton_apple_rain_spawns_cover_full_arena_width`, and
-// `gnu_ton_apple_rain_resets_accumulator_when_strike_ends` tests
-// were deleted with Task B of the actor/brain follow-up plan.
-// They tested `BossRuntime::tick_apple_rain` directly, which no
-// longer exists. The same invariants (downward gravity, owner
-// prefix, self-aabb dodge, full-width coverage, reset-on-leave)
-// are now exercised in
-// `features/ecs/brain_effects.rs::tests` against the
+// They tested `BossRuntime::tick_apple_rain` directly, which no longer exists. The same
+// invariants (downward gravity, owner prefix, self-aabb dodge, full-width coverage,
+// reset-on-leave) are now exercised in `features/ecs/brain_effects.rs::tests` against the
 // EFFECTS consumer `spawn_apple_rain_from_special_messages`.
 
 #[test]
@@ -541,13 +517,6 @@ fn gradient_sentinel_phase1_loop_is_substantial() {
     );
 }
 
-/// Bosses used to write `self.pos` via a bespoke per-axis sweep
-/// against `boss_space_is_free`. With the brain→sim seam they
-/// run through the SAME `step_motion` kernel every other
-/// actor uses — so a wall placed in the chase path blocks them
-/// at the wall instead of relying on a parallel-but-different
-/// collision code path. This guards against future regressions
-/// where someone reintroduces a position-space write.
 #[test]
 fn boss_motion_respects_world_collision_against_a_wall() {
     let combat_size = ae::Vec2::new(80.0, 80.0);

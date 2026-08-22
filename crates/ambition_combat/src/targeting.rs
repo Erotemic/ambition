@@ -124,11 +124,6 @@ pub fn can_damage(
 /// through this, so a possessed body attacks its former allies and is targeted by
 /// them, then reverts the instant control leaves (the authored faction was never
 /// touched).
-///
-/// ⭐ **it asks WHO DRIVES, not what the body's policy is.** It used to read
-/// `Brain::Player`, which was the same question only because the enum was the
-/// only place a driver could be named; a driven body now keeps its own AI policy
-/// throughout, so the policy could never have answered this.
 pub fn effective_faction(
     authored: ActorFaction,
     driver: Option<&ambition_characters::brain::DrivingParticipant>,
@@ -140,9 +135,6 @@ pub fn effective_faction(
     }
 }
 
-/// Whether an `attacker`-faction body's landed hit DAMAGES a specific `victim`
-/// body — the faction baseline ([`can_damage`]) PLUS the per-entity grudge override.
-///
 /// A grudge is the DAMAGE-side counterpart to a [`FactionRelations`] entry: just as
 /// relations make two FACTIONS hostile, a grudge makes one body hostile to one exact
 /// ENTITY. So a grudge authorizes a hit even between SAME-faction bodies that
@@ -150,11 +142,8 @@ pub fn effective_faction(
 /// (both `Npc`, each grudging the other) without either being re-tagged a hostile
 /// faction. Self-exclusion (`attacker_entity == victim_entity`) stays the caller's.
 ///
-/// `attacker_grudge` is the firing body's [`ActorAggression::grudge`]; `None` (no
-/// grudge, or a grudge-less attacker like the environment) falls straight back to the
-/// faction rule. This is a strict SUPERSET of `can_damage`, so it never spares a hit
-/// the faction baseline would have landed.
-/// **Which side of a match this body fights for.**
+/// `attacker_grudge` is the firing body's [`ActorAggression::grudge`]; `None` (no grudge, or a
+/// grudge-less attacker like the environment) falls straight back to the faction rule.
 ///
 /// A team is a relation a RULESET declares, and it outranks faction for the one
 /// question that matters here: may this hit land? Two bodies on different teams
@@ -199,14 +188,9 @@ pub fn team_allows_damage(
 
 /// **How two bodies stand to each other. ONE answer, for every consumer.**
 ///
-/// ⛔ **there were two, and they disagreed.** "May this damage land" read
-/// faction difference plus a team override; "is this a target worth chasing"
-/// read the `FactionRelations` hostility matrix and had never heard of a team.
-/// So a match whose fighters share an authored faction was damageable and
-/// untargetable at the same time — every CPU seat stood and stared — and the
-/// fix that had been applied was to give alternate seats alternate FACTIONS so
-/// the older of the two rules would answer correctly. That is the hack this
-/// type exists to delete.
+/// **there were two, and they disagreed.** "May this damage land" read faction difference plus
+/// a team override; "is this a target worth chasing" read the `FactionRelations` hostility
+/// matrix and had never heard of a team. That is the hack this type exists to delete.
 ///
 /// The three answers are the ones a combat rule actually needs:
 ///
@@ -264,13 +248,10 @@ impl CombatRelation {
 /// driver's side without its authored faction being mutated.
 #[allow(clippy::too_many_arguments)]
 pub fn combat_relation(
-    // `None` = **no matrix opinion**, which is what the DAMAGE side passes.
-    // Damage is physical: a swing that reaches a different-faction body hurts
-    // it whether or not the two are declared enemies, so the matrix arm is
-    // skipped and such a pair resolves [`CombatRelation::Neutral`] — hittable,
-    // not huntable. ⛔ do not "fix" this by handing damage the live matrix; that
-    // would make a stray blow pass through anyone the table had not been told to
-    // hate, which is the bystander bug in reverse.
+    // `None` = **no matrix opinion**, which is what the DAMAGE side passes. Damage is physical:
+    // a swing that reaches a different-faction body hurts it whether or not the two are
+    // declared enemies, so the matrix arm is skipped and such a pair resolves
+    // [`CombatRelation::Neutral`] — hittable, not huntable.
     relations: Option<&FactionRelations>,
     attacker_faction: ActorFaction,
     attacker_driver: Option<&ambition_characters::brain::DrivingParticipant>,
@@ -327,11 +308,11 @@ pub fn damage_lands_between(
     attacker_grudge: Option<Entity>,
     victim_entity: Entity,
 ) -> bool {
-    // ⚠ **the damage side of [`combat_relation`], and it must not grow a second
+    // **the damage side of [`combat_relation`], and it must not grow a second
     // opinion.** Callers pass ALREADY-EFFECTIVE factions here (the policy
     // re-resolves them, which is idempotent), so this stays a projection.
     //
-    // ⚠ **one behaviour deliberately changed**: friendly fire now also frees
+    // **one behaviour deliberately changed**: friendly fire now also frees
     // same-TEAM damage. The old team arm returned a bare "different team?" and
     // ignored the toggle, so a teams match could never enable friendly fire —
     // which is a real platform-fighter setting, and the flag says what it means.
@@ -350,19 +331,6 @@ pub fn damage_lands_between(
 }
 
 /// Pick each non-player actor's `ActorTarget` for this frame.
-///
-/// Selection is driven by each actor's [`ActorAggression`], not by its
-/// [`ActorFaction`]: `ActorAggression::target_policy` says whether the
-/// actor wants a target and which one. A non-passive actor (`Hostile` /
-/// `RetaliatesWhenHit`) tracks the nearest alive FOE by straight-line
-/// distance — any faction it opposes under `FactionRelations`, or its
-/// grudge entity. ⚠ this used to read "the nearest alive player-faction
-/// entity", and named an `AggressionMode::HostileToPlayer` that no longer
-/// exists: the player-named mode was collapsed into the one relational
-/// policy, and a born Enemy hunts the player because its FACTION opposes
-/// Player, not because the targeting knows what a player is. A passive
-/// actor takes no combat target and is pointed at itself so its facing
-/// math keeps the current facing instead of snapping toward the origin.
 ///
 /// When no player entities exist (pre-spawn, post-death-of-all-players,
 /// headless probe with no player) every actor's `ActorTarget` is left
@@ -478,9 +446,6 @@ pub fn select_actor_targets(
         (None, Some(_)) => std::cmp::Ordering::Greater,
         (None, None) => a.0.cmp(&b.0),
     });
-    // Nothing to point at: leave every actor's target untouched so downstream
-    // ticks keep last frame's value instead of zeroing (matches old behavior
-    // when no candidates existed).
     if candidates.is_empty() {
         return;
     }
@@ -513,11 +478,7 @@ pub fn select_actor_targets(
             if *entity == self_entity {
                 continue;
             }
-            // ⭐ **THE one relationship policy**, the same call the damage side
-            // makes. Selection used to read the hostility matrix alone and had
-            // never heard of a match seat, so a roster whose fighters share an
-            // authored faction was damageable and untargetable at once — and the
-            // patch for that was to hand alternate seats alternate FACTIONS.
+            // **THE one relationship policy**, the same call the damage side makes.
             //
             // `has_allegiance` still gates the matrix arm: a body with neither an
             // authored faction nor player control has no faction-relational foes
@@ -545,7 +506,7 @@ pub fn select_actor_targets(
             // destroys and recreates rollback entities, so `Entity` values are
             // NOT stable across a rewind and an id comparison could silently
             // flip the target of a symmetric two-foe setup mid-resimulation
-            // (fable review 2026-07-02 §B12; deep review 2026-07-19 §2.5).
+            // .
             let better = match best {
                 None => true,
                 Some((_, _, best_d)) => d < best_d,

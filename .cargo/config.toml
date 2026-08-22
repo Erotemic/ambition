@@ -1,23 +1,17 @@
 [build]
-# ⭐ NO `target-dir` HERE ON PURPOSE — cargo's default `<worktree>/target` is
+# NO `target-dir` HERE ON PURPOSE — cargo's default `<worktree>/target` is
 # correct, and `scripts/setup_target_bindmount.sh` makes it fast.
-#
-# The repo is on virtiofs, shared between the VM and the host, so the default
-# target dir would be slow and co-mingled. This file used to answer that with
-# `target-dir = "/home/joncrall/ambition-target"`: one absolute path that
-# resolved to a different local disk on each machine. It worked and it cost
-# three things.
 #
 #   1. EVERY WORKTREE SHARED ONE TARGET DIR. Parallel agents fought over its
 #      lock and thrashed each other's fingerprints — and one directory reached
 #      153 GB, 80 GB of it stale incremental state.
 #   2. It was a GUESS ABOUT THE MACHINE baked into a committed file, and it
 #      needed the same string to exist on both sides to keep them apart.
-#   3. ⛔⛔ AN ENV OVERRIDE DOES NOT REACH EVERY BUILD. An agent that exported
+#   3. AN ENV OVERRIDE DOES NOT REACH EVERY BUILD. An agent that exported
 #      `CARGO_TARGET_DIR` in its own shell — the obvious move — kept building
 #      here, while anything invoking cargo WITHOUT that variable still read the
 #      `target-dir` above. Same command, same source, two directories. On
-#      2026-08-15 the goal guard ran `cargo test --test app_it` as one of its
+# the goal guard ran `cargo test --test app_it` as one of its
 #      checks and got a LINK failure from the directory the config named, while
 #      the session was green in the one it had exported. Neither party inspects
 #      a target dir; they just resolved cargo's differently, and nothing says so
@@ -29,16 +23,8 @@
 #
 #     scripts/setup_target_bindmount.sh            # opt in (idempotent)
 #     scripts/setup_target_bindmount.sh --status   # is this worktree bound?
-#
-# ⚠ NOT running it is a working configuration — just a slower target dir on the
-# shared mount. ⛔ but do not reach for `CARGO_TARGET_DIR` instead: that is the
-# failure mode in (3), and it is invisible until two parties disagree.
 
 # **INCREMENTAL ON for the edit loop. The suite still turns it OFF for itself.**
-#
-# ⭐ **The measurement, 2026-08-07** (`scripts/compile_cost.py`, 8 cores, mold):
-# edit one function in `ambition_platformer2d_actor_monolith`, then build the
-# app's test binary — the loop an agent pays before a single test runs.
 #
 #     incremental off   104.9s
 #     incremental on     21.3s      4.9x
@@ -48,35 +34,21 @@
 # build it). Incremental is the only lever that touches codegen without giving
 # up `opt-level`.
 #
-# ⛔ **IF LINKS START FAILING, DELETE THE CACHE FIRST — that is the whole cure.**
+# **IF LINKS START FAILING, DELETE THE CACHE FIRST — that is the whole cure.**
 #
 #     rm -rf target/debug/incremental        # `target/` is this worktree's, bound or not
 #
-# ⚠ **and check WHICH target dir first, because that symptom has a second
-# cause.** `scripts/setup_target_bindmount.sh --status` names the directory
-# actually in use. On 2026-08-15 this exact `undefined symbol: anon.<hash>`
-# failure was NOT stale incremental state: it was a second target directory
-# nobody was maintaining, and clearing incremental there changed nothing.
+# That is why this was `false` for a week. It is not cosmetic: every goal-guard check that builds
+# the app's test binary fails at the LINK step, so a green repository reports itself red and the
+# reason is in a linker dump nobody reads. If it recurs often enough to matter, flip this back and
+# say so here rather than suffering it quietly.
 #
-# Three times on 2026-07-31 a `cargo test -p ambition_app` died with
-# `mold: error: undefined symbol: anon.<hash>.llvm.<hash>` referenced from a
-# stale `libambition_platformer2d_runtime` rlib — a link failure with no source
-# cause, cured only by discarding the incremental cache. That is why this was
-# `false` for a week. It is not cosmetic: every goal-guard check that builds the
-# app's test binary fails at the LINK step, so a green repository reports itself
-# red and the reason is in a linker dump nobody reads. If it recurs often enough
-# to matter, flip this back and say so here rather than suffering it quietly.
+# Every feature job is its own variant with its own incremental tree, and a suite that runs a dozen
+# times a day reuses almost none of them. Incremental buys the suite nothing anyway — a job either
+# compiles a feature set nothing else shares, or is already fresh. The dev loop is the opposite
+# case, which is why the two differ.
 #
-# ⚠ **the suite is NOT covered by this and must not be.**
-# `scripts/run_tests.py` sets `CARGO_INCREMENTAL=0` for its own jobs, and its
-# comment carries the number: on 2026-07-31 `target/debug/incremental` alone
-# reached **110G** and builds failed with ENOSPC mid-suite. Every feature job is
-# its own variant with its own incremental tree, and a suite that runs a dozen
-# times a day reuses almost none of them. Incremental buys the suite nothing
-# anyway — a job either compiles a feature set nothing else shares, or is
-# already fresh. The dev loop is the opposite case, which is why the two differ.
-#
-# ⚠ **switching between the two costs a full rebuild** (~100s, measured): the
+# **switching between the two costs a full rebuild** (~100s, measured): the
 # incremental flag is part of every unit's fingerprint, so `cargo check` here and
 # a `./run_tests.sh` run do not share artifacts. That is the price of the 4.9x,
 # it is paid on entering and leaving the suite rather than per edit, and it is

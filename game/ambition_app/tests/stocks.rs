@@ -1,12 +1,8 @@
 //! **Stocks are a real loop: spend, respawn, eliminate, end the match.** (S4)
 //!
-//! `FighterStocks` was vocabulary with no consumer. This drives the whole loop
-//! through the SHIPPED composition — `AmbitionGameSimulationPlugin`, the real
-//! `CombatSet::Settle` ordering, the real messages — rather than a hand-built app
-//! with the two systems in `Update`. The distinction matters here more than
-//! usual: every step of this loop is a system somebody has to have installed, and
-//! this repository's most-repeated defect is a reader wired correctly against a
-//! resource no plugin publishes.
+//! `FighterStocks` was vocabulary with no consumer. This drives the whole loop through the
+//! SHIPPED composition — `AmbitionGameSimulationPlugin`, the real `CombatSet::Settle` ordering,
+//! the real messages — rather than a hand-built app with the two systems in `Update`.
 //!
 //! ## Why the KO is injected rather than earned
 //!
@@ -48,14 +44,14 @@ fn composed_app() -> App {
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
     app.insert_resource(StartRoomOverride("portal_lab".to_string()));
-    // ⭐ **K2b edit 2: the shell host, booted to gameplay.** This added the
+    // **K2b edit 2: the shell host, booted to gameplay.** This added the
     // simulation plugin alone and inherited the `SessionRoot` it published at
     // plugin-build time; that publisher is gone, so the composition is the one
     // a player runs. `StartRoomOverride` survives it — it is consumed while the
     // prepared content is assembled, before any activation.
     ambition_app::app::shell_host::compose_ambition_gameplay_host(&mut app);
     app.finish();
-    // ⚠ **one update is no longer enough**: activation is asynchronous, behind a
+    // **one update is no longer enough**: activation is asynchronous, behind a
     // load barrier and eight preparation work items, and the sim schedule is
     // gated on a session existing — so without this the stocks systems never run
     // and every assertion below reads an empty message buffer.

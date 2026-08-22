@@ -101,19 +101,15 @@ pub(super) fn push_unique_animation_key(keys: &mut Vec<String>, key: &str) {
 /// The animation keys a runtime lookup will try, **with their two provenances
 /// kept apart**.
 ///
-/// ⛔ these used to be one flat `Vec<String>`, and that is the circularity that
-/// blocks the boss-animator fold: the live sample's OWN key was pushed into the
-/// same list every other check compares against, so a key-based rule could not
-/// be tested — the list already contained the answer. Removing the push left all
-/// 21 derivation tests green, which is how the gap was found.
+/// Removing the push left all 21 derivation tests green, which is how the gap was found.
 ///
-/// ⚠ the push cannot simply be deleted. `apple_rain` is a `Special` absent from
+/// the push cannot simply be deleted. `apple_rain` is a `Special` absent from
 /// the content crate's `special_animation_keys()`, so its profile claims NOTHING
 /// and the sample key is the only thing that finds its damageable row. Deleting
 /// the push changes a live boss's hurtbox. That is a CONTENT decision and it sits
 /// in `awaiting-maintainer-decision.md`.
 ///
-/// ⭐ what is not blocked is telling the two apart. Behaviour is unchanged —
+/// what is not blocked is telling the two apart. Behaviour is unchanged —
 /// [`Self::in_lookup_order`] rebuilds the exact list, same order, same dedup —
 /// but the rescue is now a property something can assert on
 /// ([`Self::only_the_sample_names_a_key`]) instead of a comment. The day the
@@ -150,7 +146,7 @@ impl RuntimeAnimationKeys {
     /// only thing naming a row — i.e. this profile's rows are found only because
     /// the sample rescued it, and a key-based rule would miss and fall back to
     /// elapsed-time sampling.
-    /// ⚠ a TEST is its only caller, deliberately — the doc above says the point
+    /// a TEST is its only caller, deliberately — the doc above says the point
     /// is that the rescue becomes "a test result rather than an argument", so a
     /// production caller was never the goal. Silenced rather than `#[cfg(test)]`
     /// because the type's own doc links to it, and a cfg'd item breaks that link
@@ -191,13 +187,6 @@ pub(super) fn runtime_animation_keys(
 }
 
 /// World-space volumes for one authored animation box, at the frame being shown.
-///
-/// **Precedence: `poly` wins.** An authored hull is the shape; `parts`/`bbox`
-/// are what a body without one publishes, and what a consumer that could not
-/// express a hull used to read INSTEAD of one. That was the split this campaign
-/// closed: the same authored attack resolved to a cone on the player path and
-/// to a differently-sized rectangle on this one, silently, because this returned
-/// `Vec<Aabb>` and could not say anything else.
 ///
 /// Per-frame data still outranks the coarse per-animation box, so a large moving
 /// part (GNU-ton's head) tracks the drawn pose rather than one average.

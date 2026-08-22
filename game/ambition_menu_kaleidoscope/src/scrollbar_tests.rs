@@ -187,13 +187,9 @@ fn press_and_move_on_scrollbar_emits_proportional_fraction() {
     );
 }
 
-/// Regression: changing the scroll position triggers the host's per-step
-/// republish, which DESPAWNS + respawns the scrollbar entity. The held-pointer
-/// state lives in [`ScrollbarDragState`] (a resource), NOT on the entity, so the
-/// drag must survive: after despawning the pressed bar and spawning a fresh one,
-/// the manual tracker keeps emitting for the held pointer against the NEW track.
-/// Before the resource fix, the per-entity flag reset to `None` on respawn and
-/// the drag died after the first step (mouse moved, scrollbar didn't follow).
+/// The held-pointer state lives in [`ScrollbarDragState`] (a resource), NOT on the entity, so
+/// the drag must survive: after despawning the pressed bar and spawning a fresh one, the manual
+/// tracker keeps emitting for the held pointer against the NEW track.
 #[test]
 fn held_drag_survives_a_scrollbar_respawn() {
     let mut app = App::new();

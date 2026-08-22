@@ -12,14 +12,14 @@ levels — this tool solves it for entity definitions.
 Pairs with `python -m ambition_ldtk_tools area create`: register the def first, then
 author levels that place the new entity.
 
-## Usage
+# # Usage
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools \
 python -m ambition_ldtk_tools def register-entity spec.yaml --in-place
 ```
 
-## Spec format (YAML or JSON)
+# # Spec format (YAML or JSON)
 
 ```yaml
 entities:
@@ -94,14 +94,9 @@ VALIDATOR = PKG_DIR / "validate.py"
 # `contract::prover` proves. `default_entity_contract` owns the path so this file
 # does not become the next stale hardcoded consumer (see the note below).
 ENTITY_CONTRACT = default_entity_contract()
-# ⛔ **this path was three renames stale and the tool DIED on it.** It pointed
-# into `ambition_platformer2d_actor_monolith/src/world/ldtk_world/`, a tree that
-# has not existed since the LDtk code moved to its own crate — so
-# `def register-entity` wrote the entity definition into the .ldtk successfully
-# and then raised `FileNotFoundError`, leaving the caller with a non-zero exit and
-# a file that HAD been updated. A half-succeeded tool is worse than a failed one.
+# A half-succeeded tool is worse than a failed one.
 #
-# ⚠ a hardcoded consumer path in a tool is the same class as the renderer
+# a hardcoded consumer path in a tool is the same class as the renderer
 # submodules that hardcode the consumer crate name: nothing compiles it, so a
 # rename cannot break it until someone runs the command.
 RUNTIME_RS = (
@@ -118,14 +113,14 @@ HUMAN_TO_INTERNAL = {
     "Float": "F_Float",
     "String": "F_String",
     "Bool": "F_Bool",
-    # ⭐ **`Enum` is the type that turns a field into a DROPDOWN.** A manifest
+    # **`Enum` is the type that turns a field into a DROPDOWN.** A manifest
     # declaring one also declares its values (`"enum"` + `"values"`), because a
     # closed vocabulary is the point: `ldtk_vocabulary.rs` parses `kind`
     # case-insensitively and says why — *"an author typing into a free-text
     # field is a real possibility until the enum def lands in the project."*
     # This is that enum def landing.
     #
-    # ⚠ the INTERNAL type is `F_Enum(<uid>)`, so it cannot be a constant here;
+    # the INTERNAL type is `F_Enum(<uid>)`, so it cannot be a constant here;
     # `enum_field_type` resolves it against the project, creating the enum def
     # when the project has not seen it yet.
     "Enum": None,
@@ -519,7 +514,7 @@ def main(argv=None) -> int:
     print(f"wrote {target} with {len(new_identifiers)} new entity def(s)")
 
     if not args.no_source_patch:
-        # ⛔ **A GAME'S NOUN MUST NOT JOIN THE ENGINE'S VOCABULARY.**
+        # **A GAME'S NOUN MUST NOT JOIN THE ENGINE'S VOCABULARY.**
         # The authoring contract is checked two ways — every project is expected
         # to DEFINE all of it, and no instance may fall outside it — so adding
         # `MaryOBlock` there would push a block only Mary-O has onto every other

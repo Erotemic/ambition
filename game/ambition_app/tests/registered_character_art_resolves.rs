@@ -44,9 +44,8 @@ fn every_registered_character_resolves_the_art_it_declares() {
     let mut complaints = Vec::new();
     for (id, prepared) in registry.iter() {
         for unresolved in prepared.unresolved_references() {
-            // The resolver's own message already names the id, who declared it,
-            // and the closest match. Reproducing it whole keeps the fix in the
-            // failure output instead of one indirection away.
+            // The resolver's own message already names the id, who declared it, and the closest
+            // match.
             complaints.push(format!("  {id}: {unresolved}"));
         }
     }
@@ -61,14 +60,8 @@ fn every_registered_character_resolves_the_art_it_declares() {
 
     // **EVERY SHIPPED PROVIDER'S STARTING CHARACTER IS ACTUALLY REGISTERED.**
     //
-    // The check above only inspects characters that ARE in the registry, so a
-    // provider that never registers passes it by being absent. The comment at the
-    // top of this file has named Pocket as covered since it was written, and
-    // Pocket registered nothing at all — it declared a catalog fragment and
-    // stopped. Its runner was `UnknownCharacter` to the art pipeline and drew the
-    // marked placeholder: picking "Pocket" from the launcher showed a blue box
-    // standing on the platform, with this guard green (found by capturing the
-    // route, 2026-07-29).
+    // The check above only inspects characters that ARE in the registry, so a provider that
+    // never registers passes it by being absent.
     //
     // A guard that inspects a population cannot notice something missing FROM the
     // population. This names the population instead.
@@ -92,10 +85,8 @@ fn every_registered_character_resolves_the_art_it_declares() {
 
 /// **The two declaration authorities agree, in the SHIPPED composition.**
 ///
-/// `audit_character_authority_parity` has existed since 2026-07-26 and reports
-/// through `error!`. Nothing has ever asserted on it, so a conflict in the
-/// shipped cast is a log line among hundreds and a green suite
-/// [[feedback-a-green-guardrail-proves-nothing]]. This is the assertion.
+/// Nothing has ever asserted on it, so a conflict in the shipped cast is a log line among hundreds
+/// and a green suite [[feedback-a-green-guardrail-proves-nothing]]. This is the assertion.
 #[test]
 fn the_shipped_cast_has_one_authority_per_character() {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
@@ -121,18 +112,11 @@ fn the_shipped_cast_has_one_authority_per_character() {
 
 /// **The migrated mites reach the SHIPPED composition with their bodies.**
 ///
-/// D73 phase 2 moved `explodes_on_death` and the split trait off
-/// `character_archetypes.ron` and onto the two mite CHARACTERS. That leg —
-/// authored in `ambition_content`, registered through `buildable_only_cast()`,
-/// prepared into the registry the spawn path reads — is only true of the
-/// assembled app, so only the assembled app can assert it.
+/// That leg — authored in `ambition_content`, registered through `buildable_only_cast`,
+/// prepared into the registry the spawn path reads — is only true of the assembled app, so only
+/// the assembled app can assert it.
 ///
-/// ⛔ **the failure this exists for is silent.** Delete either mite from the
-/// build-only cast, or empty its `authored/` module, and nothing
-/// crashes: the placement still names a character, `plan.definition()` reports
-/// it missing or bodiless, the body keeps its archetype — which no longer says
-/// anything about death — and a sandbox mite quietly stops exploding. Nobody
-/// finds that until they stand next to one.
+/// Nobody finds that until they stand next to one.
 #[test]
 fn the_migrated_mites_reach_the_prepared_registry_with_their_death_traits() {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
@@ -142,10 +126,6 @@ fn the_migrated_mites_reach_the_prepared_registry_with_their_death_traits() {
         .get_resource::<PreparedCharacterRegistry>()
         .expect("the shipped composition registers characters through the one seam");
 
-    // ⭐ AC5.4: the divider names its OFFSPRING, not a bare "yes". The engine's
-    // split path used to hold that creature name; asserting the id here is what
-    // makes "the character decides what it becomes" checkable in the shipped
-    // composition rather than in the authoring file alone.
     for (id, explodes, divides_into, health) in [
         ("npc_exploding_mite", true, None, 2),
         ("npc_dividing_mite", false, Some("npc_puppy_slug"), 4),

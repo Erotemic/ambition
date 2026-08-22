@@ -3,11 +3,8 @@
 
 use super::*;
 
-/// When the manifest carries a `tuning:` block,
-/// `spec_from_record` must prefer it over the passed-in
-/// `SheetTuning` const. Catches a regression where the migration
-/// to manifest-authored tuning silently falls back to the Rust
-/// const for every char that hasn't been migrated yet.
+/// When the manifest carries a `tuning:` block, `spec_from_record` must prefer it over the
+/// passed-in `SheetTuning` const.
 #[test]
 fn spec_from_record_prefers_manifest_tuning_when_present() {
     // Synthetic record with manifest-authored tuning that
@@ -86,12 +83,8 @@ fn spec_from_record_falls_back_to_const_when_manifest_omits_tuning() {
 /// **The quad is the sheet's body rectangle scaled onto the collision box, and
 /// `collision_scale` has nothing to do with it.**
 ///
-/// ⭐ **the poison is the point, not the equality.** Asserting "the drawn body
-/// equals the collision box" alone would pass under the OLD arithmetic for any
-/// sheet whose `collision_scale` happened to be tuned right — which is exactly
-/// how 116 authored values survived being useless. So this builds the same sheet
-/// twice with wildly different `collision_scale` and requires the two quads to
-/// be BYTE-IDENTICAL: the field cannot be doing work, whatever value it holds.
+/// So this builds the same sheet twice with wildly different `collision_scale` and requires the
+/// two quads to be BYTE-IDENTICAL: the field cannot be doing work, whatever value it holds.
 #[test]
 fn a_published_body_sizes_the_quad_and_collision_scale_is_inert() {
     // A 40x80 character sitting off-centre inside a 100x120 frame, so a quad
@@ -182,13 +175,13 @@ fn a_sheet_with_no_published_body_still_reads_collision_scale() {
 
 /// **A CLIP RESOLVES TO ITS ROW SLOT, AND A MISSING ONE RESOLVES TO NOTHING.**
 ///
-/// ⭐ sprite redirect P0. Everything else on this spec is keyed by
+/// sprite redirect P0. Everything else on this spec is keyed by
 /// `CharacterAnim` — 56 semantic body states — and the new fighter sheets carry
 /// rows it has no variant for at all (`smash_forward`, `air_dodge`, `tumble`).
 /// Growing the enum toward the 271-entry fighter-motion catalog is what the
 /// redirect rejects; the authored clip name is the key instead.
 ///
-/// ⛔ **the `None` term is the important one.** The habit this path replaces is
+/// **the `None` term is the important one.** The habit this path replaces is
 /// `row_index_of(name).unwrap_or(0)`, which silently draws ROW ZERO — idle — for
 /// a row the sheet does not have, and looks exactly like a character that never
 /// swings. An unresolvable chain must say so, so the caller can fall back to the
@@ -255,19 +248,15 @@ fn a_clip_chain_resolves_to_a_row_slot_or_to_nothing() {
          that does not swing"
     );
 
-    // ⚠ and the slot indexes the real row: a resolved clip must be able to draw.
+    // and the slot indexes the real row: a resolved clip must be able to draw.
     assert_eq!(spec.row_at(3).frame_count, 5, "slot 3 is the 5-frame smash");
     assert_eq!(spec.flat_index_at(3, 2), spec.flat_index_at(3, 0) + 2);
 }
 
 /// **A trimmed sheet's CLIP must be sized and anchored by the CLIP's row.**
 ///
-/// ⛔ the falsifier this pins: `CharacterAnimator::current_render` used to read
-/// `frame_trim(self.current, …)` unconditionally, so while an authored clip was
-/// playing it drew the clip's atlas cell at the SEMANTIC pose's trim. Both
-/// lookups clamp their row and frame, so the failure was a silently misplaced,
-/// mis-sized sprite rather than an error — and 122 of the 185 shipped sheets are
-/// trimmed.
+/// Both lookups clamp their row and frame, so the failure was a silently misplaced, mis-sized
+/// sprite rather than an error — and 122 of the 185 shipped sheets are trimmed.
 ///
 /// The two rows here are deliberately far apart in trim AND the clip row's name
 /// is one `CharacterAnim::from_name` does NOT know, which is the case that
@@ -359,13 +348,9 @@ fn a_clip_on_a_trimmed_sheet_is_measured_by_the_clip_row() {
 /// backwards again on exactly the devices that load packs, while their own
 /// sheets looked correct.
 ///
-/// ⭐ **the precondition assertion at the bottom stays.** A version that passed
-/// when no tier resolved would have been green throughout the original defect,
-/// which is the whole reason it asserts what it checked. ⚠ but on a tree that
-/// never ran regen there is no pack to check at all, and being RED for that is
-/// noise that teaches people to ignore red — so `has_baked_packs`, a
-/// build-script cfg over the same table the test reads, turns it into an
-/// `ignored` line with its reason on it.
+/// but on a tree that never ran regen there is no pack to check at all, and being RED for that
+/// is noise that teaches people to ignore red — so `has_baked_packs`, a build-script cfg over
+/// the same table the test reads, turns it into an `ignored` line with its reason on it.
 #[test]
 #[cfg_attr(
     not(has_baked_packs),
@@ -417,17 +402,10 @@ fn a_packed_target_keeps_the_facing_its_artwork_was_drawn_in() {
 /// derived from one tier and not another is a body whose SIZE changes when the
 /// player turns the graphics down.
 ///
-/// ⛔⛔ **and the tiers really did disagree — twelve sheets, measured
-/// 2026-08-19**: `player_extended`, the three `player_*_review` sheets and eight
-/// `robot_*` variants declared `authored_body: true` in all three reduced tiers
-/// and NOT at full resolution, because the tier road was regenerated after a
-/// generator gained a `body_inset` and the full-res road never was. ⭐ **it was
-/// latent only by luck**: `authored_body_pixel_size` is called with the bare
-/// target id, so full resolution always won and nothing observed the other
-/// three. Luck is not an invariant, and the gap widened every time one road was
-/// regenerated without the other.
+/// Luck is not an invariant, and the gap widened every time one road was regenerated without the
+/// other.
 ///
-/// ⚠ **this asks the BAKED INDEX, not the files** — the same table every runtime
+/// **this asks the BAKED INDEX, not the files** — the same table every runtime
 /// lookup reads, so it cannot pass against a tree the build did not compile.
 #[test]
 fn a_sheets_gameplay_body_does_not_depend_on_the_graphics_setting() {
@@ -467,7 +445,7 @@ fn a_sheets_gameplay_body_does_not_depend_on_the_graphics_setting() {
         }
     }
 
-    // ⚠ the zero floor. A build that baked no quality variants at all — or an
+    // the zero floor. A build that baked no quality variants at all — or an
     // index whose tier keys stopped carrying their suffix — would compare
     // NOTHING and report perfect agreement.
     assert!(

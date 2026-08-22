@@ -34,10 +34,8 @@ fn player_at(
     (scratch, safety)
 }
 
-/// The OOB y=-23 position (above the world envelope) must NOT be
-/// recorded as safe even though `on_ground` is true. This is the
-/// invariant the wall-cling teleport bug violated for two consecutive
-/// reproductions before the fix.
+/// The OOB y=-23 position (above the world envelope) must NOT be recorded as safe even though
+/// `on_ground` is true.
 #[test]
 fn rejects_position_above_world_envelope() {
     let world = dummy_world();

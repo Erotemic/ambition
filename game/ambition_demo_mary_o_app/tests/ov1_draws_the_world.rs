@@ -66,12 +66,8 @@ fn ui_node_count(app: &mut App) -> usize {
 /// UI nodes the ENGINE'S presentation face brought in — every `bevy_ui` node
 /// that is NOT part of a HUD this demo itself declared.
 ///
-/// The distinction is the whole point of the guard after the declared-HUD seam
-/// landed. "Zero UI nodes" used to be a fine proxy for "the engine dragged in no
-/// game UI", because a demo could not have a HUD at all. Now it can, by
-/// DECLARING one on its provider — so the guard has to name what it forbids
-/// (engine-owned UI) instead of forbidding all UI and thereby forbidding the
-/// demo's own feature.
+/// Now it can, by DECLARING one on its provider — so the guard has to name what it forbids
+/// (engine-owned UI) instead of forbidding all UI and thereby forbidding the demo's own feature.
 fn engine_owned_ui_node_count(app: &mut App) -> usize {
     let mut query = app
         .world_mut()
@@ -135,7 +131,7 @@ fn the_demo_spawns_the_rooms_static_visuals() {
 /// list and in no demo. So AC12/AC20's "one ranked placement pass over every
 /// world-space text label" was a policy of the full Ambition app, and this demo,
 /// Sanic and the external consumer all still drew labels at raw anchors in
-/// Bevy's fallback font (GPT 5.6, 2026-07-30).
+/// Bevy's fallback font.
 ///
 /// Asserted by the POLICY, not by the plugin list: two labels from two families
 /// are spawned on top of each other, and the pass must separate them. A test
@@ -211,11 +207,8 @@ fn the_demo_spawns_a_main_camera_and_publishes_it() {
 /// future change drags the game's HUD or menus into it, a demo's dependency wall
 /// grows silently. This is the guard.
 ///
-/// It asserts on `bevy_ui` nodes rather than on named resources, because the
-/// naming test I first wrote was WRONG: `DeveloperRuntimeState` looked app-local and is
-/// in fact ENGINE state (the room-transition commit writes it, and `ambition_platformer2d_runtime`
-/// re-exports it as a host seam). A demo carrying it is correct. A demo carrying
-/// Ambition's HUD is not, and a UI node is what a HUD is made of.
+/// A demo carrying it is correct. A demo carrying Ambition's HUD is not, and a UI node is what
+/// a HUD is made of.
 #[test]
 fn the_presentation_plugin_adds_no_hud_and_no_menu() {
     let mut app = drawn_demo();
@@ -249,15 +242,6 @@ fn the_presentation_plugin_adds_no_hud_and_no_menu() {
         .is_some(),);
 }
 
-/// **Standalone points its AssetServer at the engine's sprite tree, not the
-/// empty cwd `assets/`.** The bug: the windowed demo took Bevy's default
-/// cwd-relative `"assets"` file root, which has no `sprites/` tree, so every
-/// character silently fell back to a bare box while the hosted app (which sets
-/// the actors-assets root) drew fine — a standalone/hosted divergence. The demo
-/// now sets the SAME shared engine root the hosted app uses; assert that root is
-/// the on-disk sprite tree, so a `load("sprites/…png")` can resolve. (The async
-/// load itself is not driven to completion by a manually-stepped headless app, so
-/// this asserts the configured root rather than polling a load state.)
 #[test]
 fn the_windowed_demo_asset_root_is_the_engine_sprite_tree() {
     let root = ambition_platformer2d::asset_manager::actors_desktop_asset_root();
@@ -345,20 +329,14 @@ fn visible_mary_o_presentation_retires_and_relaunches_with_the_session() {
 
 /// **A `VfxMessage` this demo writes must be DRAWN by this demo.**
 ///
-/// ⛔ the defect this closes, and it is Jon's own report: *"the block flinches
-/// and the cue plays, but nothing draws a coin arcing out."* Every half of the
-/// coin pop was built — `powerups.rs` writes `VfxMessage::CoinPop`,
-/// `fx::spawn_coin_pop` spawns a ballistic `ParticleVisual` for it, the flinch
-/// and the sound both arrive — and the coin still never appeared, because
-/// `fx::vfx_spawn_messages` was registered in `game/ambition_app` and NOWHERE
-/// else. This demo composes `PlatformerEnginePlugins` + `PlatformerHostPlugins`
-/// and no `ambition_app`, so the message went into a queue with no reader.
+/// This demo composes `PlatformerEnginePlugins` + `PlatformerHostPlugins` and no `ambition_app`, so
+/// the message went into a queue with no reader.
 ///
 /// Exactly the OV1 shape the rest of this file guards, one message channel over:
 /// the code existed in `ambition_render`, and no plugin a demo installs called
 /// it. `ambition_platformer2d_host::HostVfxPresentationPlugin` is the answer.
 ///
-/// ⚠ asserted on the ENTITY, not on the plugin list. A test that looked for the
+/// asserted on the ENTITY, not on the plugin list. A test that looked for the
 /// plugin would stay green on a plugin that had stopped working, and the same
 /// assertion covers the brick-break `VfxMessage::Burst` and every impact spark,
 /// which travel the same subscriber.

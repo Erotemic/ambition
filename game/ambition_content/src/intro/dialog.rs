@@ -1,11 +1,8 @@
 //! Intro NPC dialogue ids.
 //!
-//! The actual dialogue content (speakers, lines, choices) moved to
-//! `assets/data/dialogue/registry.ron` in the data-driven migration.
-//! This module survives as the canonical list of intro-owned
-//! dialogue ids so the LDtk content validator can approve
-//! `NpcSpawn.dialogue_id` fields without forcing intro content to
-//! escape its submodule.
+//! This module survives as the canonical list of intro-owned dialogue ids so the LDtk content
+//! validator can approve `NpcSpawn.dialogue_id` fields without forcing intro content to escape
+//! its submodule.
 
 /// Dialogue identifiers consumed by the LDtk `NpcSpawn.dialogue_id`
 /// field for intro-room NPCs. Returned to the validator via

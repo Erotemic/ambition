@@ -1,14 +1,11 @@
 //! Volley — a player-wielded **ranged** boss attack: a fan of bolts that damage
 //! enemies, fired through the shared projectile request/materialization road.
 //!
-//! This is the ranged counterpart to `crate::abilities::ranged::shockwave` (the wielded AOE). The
-//! old pool used to be faction-segregated — its enemy-only stepper only ever
-//! damaged the player — so a player-fired bolt in it would hit the player. Now
-//! damage routes off the FIRER's real `ActorFaction` (looked up from the
-//! projectile's owner entity): a player-owned shot damages enemies/bosses and
-//! expires on contact, an enemy-owned shot still hits the player. Same pool,
-//! same step system — the projectile analog of the shockwave's faction-tagged
-//! `Hitbox`.
+//! This is the ranged counterpart to `crate::abilities::ranged::shockwave` (the wielded AOE). Now
+//! damage routes off the FIRER's real `ActorFaction` (looked up from the projectile's owner
+//! entity): a player-owned shot damages enemies/bosses and expires on contact, an enemy-owned shot
+//! still hits the player. Same pool, same step system — the projectile analog of the shockwave's
+//! faction-tagged `Hitbox`.
 
 use bevy::prelude::*;
 

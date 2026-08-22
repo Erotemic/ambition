@@ -12,7 +12,6 @@
 # - `sky_arrival` LoadingZone on the south edge ← gate_stack_lower
 #   (reciprocal LoadingZone placed on the left balcony there via
 #   `connect_to`).
-#
 id: pirate_sky_arena
 level_id: pirate_sky_arena
 world_x: 108000          # vertically aligned with gate_stack_lower

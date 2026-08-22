@@ -170,8 +170,6 @@ fn screen_mode_is_screen_relative_at_every_orientation() {
 
 #[test]
 fn screen_mode_matches_the_authored_quadrant_spec() {
-    // The exact mapping Jon specified. Gravity RIGHT (player's feet point
-    // screen-right): run = +side (screen-up), descend = +down (screen-right).
     let right = AccelerationFrame::new(Vec2::new(1.0, 0.0));
     let r = |ax, ay| {
         right
@@ -348,13 +346,10 @@ fn launch_is_away_from_feet() {
 
 // ── CAMERA FRAME × INPUT FRAME ───────────────────────────────────────────────
 //
-// ⭐⭐ **the claim these pin is that a player-relative VIEW makes the input-frame
-// setting inert, and that this is an IDENTITY rather than a tuned
-// approximation.** `ScreenRelative` resolves by projecting the stick onto
-// `side`/`down`, which are the body basis *expressed in world coordinates* — so
-// "screen" silently means "world", correct only while no view rotates. The
-// moment a view can roll, reading the stored mode raw is a defect, and these
-// tests are what fail if someone reverts to it.
+// ⭐⭐ **the claim these pin is that a player-relative VIEW makes the input-frame setting inert,
+// and that this is an IDENTITY rather than a tuned approximation.** `ScreenRelative` resolves
+// by projecting the stick onto `side`/`down`, which are the body basis *expressed in world
+// coordinates* — so "screen" silently means "world", correct only while no view rotates.
 
 /// Every gravity direction worth distinguishing: down, both sideways, inverted,
 /// and an off-cardinal angle (the frame is a general rotation, not a snap).
@@ -409,9 +404,6 @@ fn a_player_relative_view_collapses_every_input_mode() {
     }
 }
 
-/// **JON'S INVARIANT: player-relative at any gravity feels like world-fixed at
-/// normal gravity.**
-///
 /// "Press right, go right on screen" is the thing a player actually checks, and
 /// the baseline everyone already agrees on is screen-directed input under
 /// ordinary down gravity with an unrotated camera. This says a player-relative

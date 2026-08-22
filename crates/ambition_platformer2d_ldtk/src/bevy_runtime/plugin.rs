@@ -64,12 +64,7 @@ impl Plugin for LdtkRuntimeSpinePlugin {
                 super::parity::check_ldtk_runtime_spine_parity,
             )
                 .chain()
-                // ⭐ **the chain is LDtk's, so it runs only where LDtk is.**
-                // Every game composing the runtime plugin group used to run
-                // these six systems each sim tick; the five RON-authored ones
-                // had no LDtk entities and an empty index, so all six did
-                // nothing, expensively and invisibly. The index being optional
-                // is what finally makes that statable.
+                // The index being optional is what finally makes that statable.
                 .run_if(super::asset::ldtk_world_installed),
         );
     }

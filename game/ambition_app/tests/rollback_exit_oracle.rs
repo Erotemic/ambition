@@ -1,22 +1,11 @@
 //! **The track-0 exit oracle: cross-feature state survives forced rollback.**
 //!
-//! Track 0's exit criterion, verbatim: *"a sync-test run that lands a melee
-//! hit, spends armor, flips a switch, and breaks a brick across a forced
-//! rollback window stays checksum-identical."* The registrations for combat,
-//! equipment, switch, and breakable state each landed separately; this is the
-//! one run that exercises them TOGETHER inside GGRS's save/rewind/resimulate
-//! loop, where an unregistered interaction between two of them would finally
-//! show as a checksum divergence.
+//! The scenario runs in `combat_calibration_lab` — the combat-verb calibration room — which authors
+//! a patrol enemy, a striker pair, a breakable brick, and the classify-console switch along one
+//! floor route. A steering policy walks the route: absorb one enemy hit with a worn armor row,
+//! break the brick, land a melee hit, and flip the switch.
 //!
-//! The scenario runs in `combat_calibration_lab` — the combat-verb calibration
-//! room — which authors a patrol enemy, a striker pair, a breakable brick, and
-//! the classify-console switch along one floor route. A steering policy walks
-//! the route: absorb one enemy hit with a worn armor row, break the brick, land a
-//! melee hit, and flip the switch. Every event is asserted from world state, so a
-//! green run can't be vacuous — if the policy never actually landed the hit, the
-//! test fails on the observation, not the checksum.
-//!
-//! ⚠ That last sentence is the whole design, and it is load-bearing because this
+//! That last sentence is the whole design, and it is load-bearing because this
 //! route DID stop doing two of the four things and stayed green for it. The
 //! walker aimed at the breakable brick's centre, walked into a block whose top
 //! face stands 32 above the floor, hopped onto it, and swung horizontally over
@@ -36,8 +25,6 @@ use bevy::prelude::{Entity, With, Without};
 
 const ORACLE_ARMOR_ID: &str = "oracle_armor";
 const MAX_FRAMES: usize = 2400;
-/// Frames the route keeps resimulating even after every observation has landed.
-/// See the early-exit guard in `walk_the_combat_route`.
 const MIN_FRAMES: usize = 600;
 
 fn oracle_sim() -> Platformer2dSimHarness {
@@ -87,7 +74,7 @@ fn wear_oracle_armor(sim: &mut Platformer2dSimHarness) {
     }
     // Direct world_mut mutations must become the rollback baseline — GGRS's
     // stored history predates them, and a restore would resurrect the
-    // pre-setup state (harness contract on `world_mut`; GPT 5.6 review §2).
+    // pre-setup state (harness contract on `world_mut`; §2).
     sim.rebase_rollback_history()
         .expect("oracle armor setup becomes the rollback baseline");
 }
@@ -129,13 +116,6 @@ impl OracleEvents {
 
 /// **The exact props the route is supposed to act on, by authored id.**
 ///
-/// The objectives used to read "any breakable is broken" and "any switch is on",
-/// with the initial states stated in a comment (GPT 5.6, 2026-07-26). Author one
-/// decorative already-shattered crate into this room, or one switch that starts
-/// active, and both objectives pass before the player reaches anything — the same
-/// defect class as A10's silhouette premise, in the test that was just cleaned up
-/// for it.
-///
 /// Pinned by [`FeatureId`] rather than by `Entity`: bevy_ggrs DESTROYS and recreates
 /// rollback entities, so a handle captured at calibration names nothing after the
 /// first forced rewind. The authored id is the identity that survives, which is the
@@ -149,13 +129,6 @@ struct OracleTargets {
 /// The authored ids, from `intro.ldtk`'s `combat_calibration_lab` level: the
 /// `BreakablePlatform` named `calibration_brick` and the `Switch` whose id is
 /// `combat_lab_classify_switch`.
-///
-/// Named as constants rather than taken from `bricks.first()`, which is what the
-/// first version did: Bevy query order is not an authored contract, so a room that
-/// later gains a second breakable would silently retarget the oracle onto a
-/// different prop while still reporting that it names the one it aims at (GPT 5.6,
-/// 2026-07-26). If the authoring changes these ids the calibration below fails and
-/// says so, which is the correct outcome — the route is aimed at these two props.
 const ORACLE_BRICK_NAME: &str = "calibration_brick";
 const ORACLE_SWITCH_ID: &str = "combat_lab_classify_switch";
 
@@ -312,7 +285,7 @@ struct PropBox {
     half_w: f32,
 }
 
-// ⚠ no `y`. It was recorded and never read, and the compiler said so. The
+// no `y`. It was recorded and never read, and the compiler said so. The
 // standoff this feeds is a HORIZONTAL question — which side to approach from and
 // where to stop — so a centre height is a fact the oracle does not use. Carrying
 // it anyway is how a reader concludes the approach considers height when it does
@@ -375,15 +348,12 @@ fn target_positions(
 
 /// **Every registration that carries state across a rollback owns a probe.**
 ///
-/// The localizer's promise, as written in `probes.rs`, is that "a component cannot
-/// be rollback-registered and remain invisible to localization", and the planning
-/// notes turned that into "all 99 registered components and resources were probed".
-/// Neither was true. `record_probe` was called from five of the ten state-bearing
-/// registration arms; the plain-clone and custom-checksum arms installed GGRS
-/// snapshot and checksum machinery and no probe at all. `RoomSet`,
-/// `LdtkRuntimeIndex`, `EncounterParticipants`, `PendingPlayerHitEvents` and —
-/// pointedly — `ProjectileOwner`, whose remap is the fix the equipment divergence
-/// turned on, were all invisible to the tool built to find exactly that.
+/// The localizer's promise, as written in `probes.rs`, is that "a component cannot be
+/// rollback-registered and remain invisible to localization", and the planning notes turned
+/// that into "all 99 registered components and resources were probed". Neither was true.
+/// `RoomSet`, `LdtkRuntimeIndex`, `EncounterParticipants`, `PendingPlayerHitEvents` and —
+/// pointedly — `ProjectileOwner`, whose remap is the fix the equipment divergence turned on,
+/// were all invisible to the tool built to find exactly that.
 ///
 /// The diagnostic below asserted only `probes > 0`, which cannot tell the difference
 /// between full coverage and 5%. So its green result could not support the
@@ -449,7 +419,7 @@ fn every_state_bearing_rollback_registration_owns_a_localization_probe() {
 /// **Every probe that can see only PRESENCE is written down, with a reason.**
 ///
 /// The test above compares type NAMES, which a presence-only probe satisfies while
-/// reporting nothing about the value (GPT 5.6, 2026-07-26). So "254 of 254 probed"
+/// reporting nothing about the value. So "254 of 254 probed"
 /// was true and weaker than it read: a restore that put back the right NUMBER of
 /// `ProjectileOwner`s and pointed one bolt at the wrong body changed no census.
 ///
@@ -468,7 +438,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
     // EXACT full Rust type names, and a reason each. Substring fragments were the
     // first version and manufactured their own false confidence: an entry reading
     // `"::Encounter"` silently absolved a future `EncounterMutableRuntimeState`
-    // (GPT 5.6, 2026-07-26). An allowlist that approximately matches is one that
+    // . An allowlist that approximately matches is one that
     // grows without anybody deciding.
     //
     // DERIVED registrations are not listed here. Their justification is the rebuild
@@ -798,12 +768,8 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         .map(|probe| probe.type_name)
         .collect();
 
-    // EXACT full type names, both directions. Substring matching was the first
-    // version and it manufactured its own false confidence: an entry reading
-    // `"::Encounter"` silently absolved a future `EncounterMutableRuntimeState`,
-    // which would then be presence-only, unreviewed, and reported as intentional
-    // (GPT 5.6, 2026-07-26). An allowlist that approximately matches is an allowlist
-    // that grows without anyone deciding.
+    // EXACT full type names, both directions. An allowlist that approximately matches is an
+    // allowlist that grows without anyone deciding.
     //
     // Derived probes are listed individually too, rather than skipped as a class.
     // "It is derived" is a real reason and it is also the reason `ProjectileOwner`'s
@@ -884,9 +850,6 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         stale.join("\n  ")
     );
 
-    // **The reasons themselves are now checked against the registry.** (G2b,
-    // 2026-07-27)
-    //
     // This list enforced that a sentence EXISTS, never that it is true, and nine
     // of its thirteen entity-handle claims were false: `PortalShot` carries shot
     // kinematics, `PortalGun` a flag and a colour, `SwitchActivationQueue` three
@@ -915,14 +878,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         entity_mapped.len()
     );
 
-    // **NO entity-mapped type may be presence-only.** (G2b, closed 2026-07-27)
-    //
-    // This started as a marker convention — a reason for a mapped type had to
-    // say `entity-mapped` — which was bookkeeping around a weakness rather than
-    // its removal, and it let four types (`Limb`, `LimbRig`, `MountSlot`,
-    // `EncounterRegistry`) sit marked-and-unobservable while the row that
-    // introduced the marker claimed no entity-handle cases were left (GPT 5.6,
-    // 2026-07-27). Marking a gap is not closing it.
+    // **NO entity-mapped type may be presence-only.**
     //
     // A type holds remappable handles exactly when something registers an entity
     // mapping for it, and every one of those now has a projection through the
@@ -1051,13 +1007,9 @@ fn enemy_death_and_inplace_revive_survive_rollback() {
 /// divergence here isolates the fault to the room's autonomous population
 /// before the full oracle's combat even starts.
 ///
-/// During development this test carried a five-variant despawn matrix
-/// (no_enemies / no_brick / no_switch / no_pickups) plus a print-only pickup
-/// census — the bisection tools that cornered the `Collected` latch. Those
-/// cost five extra sim boots per suite run and their findings are fixed and
-/// pinned elsewhere, so the standing probe keeps only the intact room
-/// (2026-07-23 rollback review: trim the diagnostic matrix). Resurrect the
-/// matrix from git history if this ever goes red again.
+/// During development this test carried a five-variant despawn matrix (no_enemies / no_brick /
+/// no_switch / no_pickups) plus a print-only pickup census — the bisection tools that cornered
+/// the `Collected` latch. Resurrect the matrix from git history if this ever goes red again.
 #[test]
 fn the_calibration_lab_is_checksum_stable_at_rest() {
     let mut sim = oracle_sim();
@@ -1082,9 +1034,6 @@ fn the_calibration_lab_is_checksum_stable_at_rest() {
 /// a rewind has to reproduce, so the census walks every frame and unions.
 /// The first harness frame on which the simulation advanced and the GGRS
 /// session did not, with everything known about the session at that moment.
-// Every field is read by the `{:?}` in the failure message — which is the
-// entire point of the struct — but a derived Debug is ignored by dead-code
-// analysis, so say so rather than deleting the fields that carry the diagnosis.
 #[derive(Debug)]
 #[allow(dead_code)]
 struct GgrsStall {
@@ -1109,13 +1058,10 @@ fn walk_the_combat_route(sim: &mut Platformer2dSimHarness) -> RouteWalk {
     // this cannot find, or finds already done, fails here — before a run that would
     // otherwise report those objectives satisfied by the room's authoring.
     let targets = calibrate_targets(&mut *sim);
-    // ⚠ **the vacuity guard lives HERE, not in `_with`.** It was inside the walk
-    // and I moved it out while hoisting the calibration — which would have
-    // silently dropped a fixture-health assertion, the exact failure this file
-    // is a monument to. It belongs on THIS path: the main oracle must never
-    // report a melee observation over a room with nothing alive in it. The sweep
-    // deliberately removes populations, so it takes the other entry point and
-    // owns that risk explicitly (its variant list removes props, not enemies).
+    // It belongs on THIS path: the main oracle must never report a melee observation over a
+    // room with nothing alive in it. The sweep deliberately removes populations, so it takes
+    // the other entry point and owns that risk explicitly (its variant list removes props, not
+    // enemies).
     {
         let world = sim.world_mut();
         let mut q = world
@@ -1132,7 +1078,7 @@ fn walk_the_combat_route(sim: &mut Platformer2dSimHarness) -> RouteWalk {
 
 /// The route, against targets somebody else already identified.
 ///
-/// ⛔ **the population sweep could not use `walk_the_combat_route`, and that is
+/// **the population sweep could not use `walk_the_combat_route`, and that is
 /// why it could never finish.** The sweep's whole question is *"does the
 /// divergence still need this class?"*, so it DESPAWNS a class and re-runs — and
 /// the route's first act was to assert that class is present. `no_brick` removed
@@ -1140,12 +1086,10 @@ fn walk_the_combat_route(sim: &mut Platformer2dSimHarness) -> RouteWalk {
 /// *"the calibration lab must author a breakable named `calibration_brick` …
 /// Present: []"*, which reads as a broken room and was a broken question.
 ///
-/// ⭐ **the guard is right and stays** — a fixture's health belongs in its own
-/// assertion, three times over in this ledger. It just belongs BEFORE the
-/// deliberate removal, not after. So the sweep calibrates the intact world,
-/// despawns, and walks with the ids it already has; every consumer of
-/// `OracleTargets` is an `.any()` or a `.find().map()` and tolerates a target
-/// that is now gone.
+/// **the guard is right and stays** — a fixture's health belongs in its own assertion, three
+/// times over in this ledger. So the sweep calibrates the intact world, despawns, and walks
+/// with the ids it already has; every consumer of `OracleTargets` is an `.any()` or a
+/// `.find().map()` and tolerates a target that is now gone.
 fn walk_the_combat_route_with(
     sim: &mut Platformer2dSimHarness,
     targets: OracleTargets,
@@ -1296,12 +1240,6 @@ fn walk_the_combat_route_with(
             );
         }
         frames_run = frame + 1;
-        // Do not stop the moment the route is complete. Every event now lands
-        // inside the first ~180 frames, and the divergence this oracle was built
-        // for lived at frames 149-151 — a run that exits at the last event would
-        // have a rollback window barely wider than the bug it is guarding. Keep
-        // resimulating to the floor, holding position, so the enemies' revive and
-        // re-aggro cycles keep churning combat state inside the window.
         if events.all() && frames_run >= MIN_FRAMES {
             break;
         }
@@ -1321,7 +1259,7 @@ fn walk_the_combat_route_with(
 /// because two different failures were tangled together in it:
 ///
 /// * a genuine **value divergence** at frames ~[149, 150, 151] —
-///   `docs/archive/planning-superseded/2026-08-13/triage/rollback-equipment-oracle-divergence.md` records the
+/// `docs/archive/planning-superseded//triage/rollback-equipment-oracle-divergence.md` records the
 ///   bisection. `IdentityKit` and `PlayerVisual` were found and fixed on the way;
 ///   the actual cause was `ProjectileOwner` declared rollback-DERIVED on the
 ///   promise of a system whose query could not see enemy projectiles. Fixed, and
@@ -1331,11 +1269,8 @@ fn walk_the_combat_route_with(
 ///   steered at the brick's centre, climbed the block, and swung over it. Fixed by
 ///   standing off the face and not hopping while the brick is the objective.
 ///
-/// The order matters for anyone reading the git history: the determinism fix made
-/// the route's silence visible, and only then could the two prop assertions be
-/// restored. A green checksum over a route that does nothing is the failure mode
-/// this file is most exposed to, which is why every event is observed from world
-/// state and every observation is asserted.
+/// The order matters for anyone reading the git history: the determinism fix made the route's
+/// silence visible, and only then could the two prop assertions be restored.
 #[test]
 fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
     let mut sim = oracle_sim();
@@ -1379,11 +1314,7 @@ fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
     );
     // A16: these two are asserted again, and the route reaches them.
     //
-    // They were replaced by an inverted guard for one run, because both were false
-    // on every pass of this route — before and after the determinism fix — and
-    // asserting something the walker had never done would have made the oracle red
-    // for a reason unrelated to the determinism it exists to guard. The inverted
-    // guard is what reported that the route had started reaching them.
+    // The inverted guard is what reported that the route had started reaching them.
     //
     // What was actually wrong was the STEERING, not the props: the policy aimed at
     // the brick's centre, walked into a 48x48 block whose top face stands 32 above
@@ -1404,10 +1335,7 @@ fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
          never reached x≈1132 or its interact pulses did not land"
     );
 
-    // A step that advanced the sim and not GGRS. Named BEFORE the ratio
-    // assertions because it is a CAUSE and they are symptoms of it — and
-    // because this run's history is precisely a case where the symptom got
-    // diagnosed as this cause and was not (see below).
+    // A step that advanced the sim and not GGRS.
     assert!(
         stalled_at.is_none(),
         "the simulation advanced while the GGRS session did not: {:?}\n\
@@ -1419,19 +1347,12 @@ fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
     let stats = sim
         .rollback_execution_stats()
         .expect("GGRS instrumentation is installed");
-    // ⚠ **LIFETIME, not per-session, and that distinction is the whole of AC18.**
+    // **LIFETIME, not per-session, and that distinction is the whole of AC18.**
     //
     // This route can produce a confirmed Track-B lifecycle commit, which rebases
     // the GGRS session — atomically, deliberately, correctly. A rebase installs
     // a new session, and a new session's frame numbering (and therefore these
     // per-session counters) starts at zero.
-    //
-    // Asserting `advance_runs > frames_run` therefore compared the LAST
-    // session's work against the WHOLE run's steps. With three differently-named
-    // enemies in the lab the commit landed at frame 587 of 600, and this
-    // assertion reported `advance_runs: 40, last_simulated_frame: 12` — which
-    // reads exactly like a session that stopped being driven at frame 12, and
-    // was read that way. It had executed 2915 advances by frame 500.
     //
     // The content coupling AC18 filed was real, but not where it looked: the
     // authored enemy set decides whether a lifecycle op commits inside the
@@ -1457,15 +1378,6 @@ fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
     // and nothing said which had happened — *a proof whose coverage moves when
     // a designer edits a room is a weaker proof than it looks.*
     //
-    // So the count is asserted — against the count at the START of the walk, not
-    // against 1. Measured 2026-07-31: this run reports `sessions_installed: 3`,
-    // and all three are the SETUP's (the initial session plus one rebase for
-    // each of the two `world_mut` folds). `advance_runs: 2980` against
-    // `lifetime_advance_runs: 2981` is the same fact from the other side: the
-    // current session has done essentially all of the work, so nothing rebased
-    // mid-walk. Pinning the literal 3 would have made this a test of the
-    // SETUP's shape; pinning the delta makes it a test of the walk's coverage.
-    //
     // This run is the NO-REBASE walk: one session, rewound and resimulated for
     // its whole length. The crossed-rebase case is covered deliberately and far
     // more thoroughly by
@@ -1474,21 +1386,14 @@ fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
     // while predicted and committed exactly once on confirmation, and keeps
     // running checksum-clean past the rebase.
     //
-    // ⚠ **a fixture room of the oracle's own was the other option and is not
-    // taken.** It would be a second copy of authored content to keep alive, and
-    // it does not buy what it looks like it buys: this route's four objectives
-    // are already asserted by AUTHORED ID, so a content edit that moves them
-    // fails loudly at `calibrate_targets` either way. Coverage was the only part
-    // that could move silently, and an assertion is the whole fix for that.
-    // ⚠ **+1, measured 2026-07-31, and the delta is DELIBERATE.** The
-    // protagonist's melee windup went 0.12s → 0.0 (the attack now comes out on
-    // the press), the route's objectives land tens of frames earlier — melee at
-    // frame 20, brick at 56, switch at 127 — and one confirmed Track-B lifecycle
-    // commit moved from after the walk to inside it. Nothing broke: the checksum
-    // identity above still holds frame for frame. What changed is the COVERAGE,
-    // and this pin is what said so instead of letting it pass.
+    // **a fixture room of the oracle's own was the other option and is not taken.** It would be a
+    // second copy of authored content to keep alive, and it does not buy what it looks like it
+    // buys: this route's four objectives are already asserted by AUTHORED ID, so a content edit
+    // that moves them fails loudly at `calibrate_targets` either way. Nothing broke: the checksum
+    // identity above still holds frame for frame. What changed is the COVERAGE, and this pin is
+    // what said so instead of letting it pass.
     //
-    // ⛔ **and it is pinned rather than restored, after three attempts to restore
+    // **and it is pinned rather than restored, after three attempts to restore
     // it failed.** The walk's stats are byte-identical (`advance_runs: 770`,
     // `last_simulated_frame: 158`) whether the fixture pins the player's
     // `ActionSet`, its derived `ActorMoveset`, its `IdentityKit`, or the lab's
@@ -1496,16 +1401,6 @@ fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
     // reachable by mutating this sim at frame zero. A pin that cannot be restored
     // from the test is a pin whose subject lives in the engine, and pretending
     // otherwise with a no-op helper would be worse than saying so.
-    //
-    // The number stays EXACT, so further drift still fails here. The crossed
-    // rebase itself is covered thoroughly by
-    // `rollback_room_transition::a_transition_intent_is_recorded_then_committed_exactly_once`.
-    // ⚠ **RE-PINNED to +0 on 2026-08-03, and this is the SECOND time the number
-    // moved for a reason unrelated to what the oracle proves.** The confirmed
-    // Track-B commit that the 07-31 note describes moving INTO the walk has moved
-    // back out of it; the likely cause is the 08-02 reference-frame corrections
-    // (`5ae87b2e8`, `3e7780623`), which changed how a body's `locomotion` is
-    // interpreted and therefore when this route's objectives land.
     //
     // Checked before re-pinning rather than after: the crossed-rebase claim this
     // count was standing in for is owned by
@@ -1515,12 +1410,6 @@ fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
     //
     // ⇥ **THE THIRD MOVE, AND THE RULE ABOVE SAID WHAT TO DO ABOUT IT.**
     //
-    // 2026-08-09: the count went to +1 when hitstun and hitlag started scaling
-    // with the launch. A longer freeze per connect lengthens this walk, and a
-    // longer walk crosses one more lifecycle commit. Combat TUNING moved a
-    // rollback oracle's coverage pin — exactly the failure mode the note above
-    // predicted, for the third time, having still caught no defect.
-    //
     // ⇒ **the exact pin is retired, deliberately and per its own pre-registered
     // rule**: assert the checksum identity (which this file exists for, and
     // which is asserted above and passed), and REPORT the session count instead
@@ -1529,7 +1418,7 @@ fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
     // one-commit drift caused by feel tuning does not cost a fourth
     // investigation.
     //
-    // ⛔ do not restore the exact equality. If the count is wanted exactly,
+    // do not restore the exact equality. If the count is wanted exactly,
     // the route needs a timing-independent length first.
     let further = stats.sessions_installed as i64 - sessions_at_the_start as i64;
     println!(
@@ -1548,12 +1437,10 @@ fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
 
 /// **Which population does the divergence need?** — the localizer, opt-in.
 ///
-/// When the oracle above goes red it names a frame and nothing else: a GGRS
-/// sync-test reports one aggregate checksum, so "frames [149, 150, 151] differ"
-/// is the whole story it can tell. This walks the SAME route through worlds with
-/// one entity class removed at a time. A variant that goes green names the class
-/// the divergence needs, which is the question the aggregate checksum cannot
-/// answer and the one a fix has to start from.
+/// When the oracle above goes red it names a frame and nothing else: a GGRS sync-test reports
+/// one aggregate checksum, so "frames [149, 150, 151] differ" is the whole story it can tell. A
+/// variant that goes green names the class the divergence needs, which is the question the
+/// aggregate checksum cannot answer and the one a fix has to start from.
 ///
 /// `#[ignore]` because it boots five sims and re-walks a ~150-frame route in
 /// each. It is a bisection tool, not a standing guard — the oracle is the guard.
@@ -1570,7 +1457,7 @@ fn which_population_does_the_rollback_divergence_need() {
         let mut sim = oracle_sim();
         wear_oracle_armor(&mut sim);
         stage_player_on_arena_floor(&mut sim);
-        // ⭐ **calibrate the INTACT world, before anything is removed.** See
+        // **calibrate the INTACT world, before anything is removed.** See
         // `walk_the_combat_route_with`.
         let targets = calibrate_targets(&mut sim);
         {
@@ -1633,7 +1520,7 @@ fn which_population_does_the_rollback_divergence_need() {
             Err(report) => findings.push(format!("  {variant:<12} DIVERGED — {report}")),
         }
     }
-    // ⛔ **THIS PANICKED UNCONDITIONALLY, and it made `--heavy` structurally
+    // **THIS PANICKED UNCONDITIONALLY, and it made `--heavy` structurally
     // red.** `run_tests.py`'s heavy pass runs `--include-ignored`, so the ONLY
     // mode that executes ignored tests contained a guaranteed failure — which
     // turns its output into noise, which is precisely why three rotted
@@ -1729,13 +1616,6 @@ fn which_component_does_the_rollback_divergence_live_in() {
 /// resumes from wherever the abandoned future left its cursor, and either re-reads
 /// messages it already consumed or skips ones it has not.
 ///
-/// The engine's answer is `clear_message_on_rollback::<T>`, which empties the channel
-/// during `LoadWorld::Mapping` so both peers resume from an empty buffer and a stale
-/// cursor has nothing to be stale about. Seventy-one channels are registered that
-/// way. The hazard this test closes is the channel that is NOT — it was known,
-/// written down as A14, measured not to be the equipment divergence's cause, and
-/// then left as a sentence in a queue.
-///
 /// So: enumerate. Every `Messages<T>` resource the composed sim carries is compared
 /// against the registered clears, and anything unregistered must appear below with a
 /// reason. Same discipline as the probe-strength guard — a hazard that has to be
@@ -1751,15 +1631,7 @@ fn every_gameplay_message_channel_is_rewound_on_rollback_or_named() {
     // A new gameplay channel lands here as a failure, and its author has to decide
     // rather than inherit silence.
     const NOT_REWOUND: &[(&str, &str)] = &[
-        // ── The SHELL, arriving with K2b edit 2 (2026-08-06) ──────────────────
-        //
-        // Seventeen channels joined this list at once, and not because anything
-        // changed about them: the harness used to compose `AmbitionGameSimulationPlugin`
-        // alone and take the `SessionRoot` it published at plugin-build time. That
-        // publisher is deleted, so the harness composes the shell host a player
-        // runs — and the shell's channels came with it.
-        //
-        // ⭐ **sixteen are answered STRUCTURALLY rather than one at a time.** The
+        // **sixteen are answered STRUCTURALLY rather than one at a time.** The
         // checker asks whether a stale reader cursor can change the simulation. A
         // sim crate that cannot NAME the message type cannot hold a cursor into
         // its channel, and the dependency graph settles that without reading a

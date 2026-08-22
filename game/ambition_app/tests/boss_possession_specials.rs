@@ -163,12 +163,10 @@ fn possessed_boss_commands_its_authored_specials_and_release_restores_the_patter
     // stamped in `advance_move_playback`), so it hits the boss's former allies
     // rather than the controlling player.
     //
-    // WHICH strike is the boss's own authored choice. The rider authors a G5
-    // `possessed_verbs` map (`attack` -> `hand_sweep`), so plain Attack commands
-    // that move instead of falling back to slot 0 — and because `hand_sweep` is
-    // limb-routed, the press drives the giant mount's facing-side hand. A profile
-    // with no verb map (the fused `gnu_ton` this test used to spawn) keeps the
-    // legacy slot-0 mapping.
+    // WHICH strike is the boss's own authored choice. The rider authors a G5 `possessed_verbs` map
+    // (`attack` -> `hand_sweep`), so plain Attack commands that move instead of falling back to
+    // slot 0 — and because `hand_sweep` is limb-routed, the press drives the giant mount's
+    // facing-side hand.
     let attack_move = BossAttackProfile::Strike("hand_sweep".to_string());
     assert!(
         !primary.is_special() && !attack_move.is_special(),

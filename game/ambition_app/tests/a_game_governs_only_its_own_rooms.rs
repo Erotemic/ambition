@@ -9,15 +9,7 @@
 //! Mary-O after Sanic, so **every Smash match in the shipped host ran under
 //! Mary-O's rules** — in an arena whose own rules want [`LevelReset::Never`].
 //!
-//! ⚠ **it was measured INERT on 2026-08-16 and it was still the defect.** An
-//! `Unbounded` fighter writes no `ActorDiedMessage` and a Smash seat carries no
-//! `PlayerEntity`, so `open_death_interlude` never fired; the wrong answer was
-//! sitting in the resource waiting for either of those to change. This test
-//! asks the composition question directly rather than driving a death, because
-//! the defect is that the declarations resolve wrongly, not that some particular
-//! frame observed it.
-//!
-//! ⭐ **the shape is the scope registry's, one authority over** (see
+//! **the shape is the scope registry's, one authority over** (see
 //! `experience_scope_ownership.rs`): a claim that is unfalsifiable from inside
 //! one plugin's `build`, checked over the composed host where all of them are
 //! visible at once.
@@ -127,11 +119,11 @@ fn each_declared_mode_resolves_to_its_own_games_rules() {
     );
 }
 
-/// ⚠ **the probe for the probe.** The assertions above are worth exactly as much
+/// **the probe for the probe.** The assertions above are worth exactly as much
 /// as the composition behind them: a host that registered one game — or none —
 /// would satisfy every one of them by having nothing to contest.
 ///
-/// ⛔ **the floor is not "somebody claims every room"**. It is that the three
+/// **the floor is not "somebody claims every room"**. It is that the three
 /// games that MEASURABLY collided are all present with their own scopes, and
 /// that Ambition's own claim is the untagged rooms rather than the binary. If
 /// `MaryOExperiencePlugin` ever stops being listed in `shell_host.rs`, the test

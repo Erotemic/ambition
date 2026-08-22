@@ -147,10 +147,7 @@ impl From<SoundCue> for SoundCueKey {
     }
 }
 
-/// Backing storage for a music track's audio source. Always file-backed
-/// now (procedural fallback removed); the handle is lazily allocated on
-/// the first `resolve_track_handle` call so the catalog's 25+ OGGs don't
-/// all hit the asset IO queue at startup.
+/// Backing storage for a music track's audio source.
 #[derive(Clone)]
 struct TrackSource {
     asset_path: String,
@@ -452,13 +449,9 @@ impl AudioLibrary {
 
 /// What the base music channel is playing, and WHICH PLAY it is.
 ///
-/// ⭐ **the generation is the difference between "still playing" and "started
-/// again".** The track name alone cannot tell those apart — a screen transition
-/// that stops the title theme and immediately restarts the identical file leaves
-/// exactly the state it found. That is audible, it was a real defect (the music
-/// restarting on the startup → launcher handoff, Jon 2026-08-03), and nothing in
-/// the world recorded it, so a test could only watch the director's clock
-/// sideways and hope.
+/// **the generation is the difference between "still playing" and "started again".** The track
+/// name alone cannot tell those apart — a screen transition that stops the title theme and
+/// immediately restarts the identical file leaves exactly the state it found.
 ///
 /// This is deliberately NOT an event log. Wwise and FMOD ship capture logs and
 /// Unreal has trace channels, but that is a debugging surface for a whole audio
@@ -533,30 +526,21 @@ pub struct DefaultMusicStarted(pub bool);
 /// Startup loading must settle before the default track is allowed to begin, so
 /// the loader pins `.before` this.
 ///
-/// ⚠ ONE member. The system is already gated by a run condition
-/// (`music_auto_start_when_ungated`); ⛔ a run condition on the only member does
+/// ONE member. The system is already gated by a run condition
+/// (`music_auto_start_when_ungated`); a run condition on the only member does
 /// NOT propagate to the set, so `.before` this set holds whether or not the
 /// music actually starts — which is the behaviour the pin wants.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct DefaultMusicStart;
 
-/// Update-loop variant of the old `start_default_music`. Polls the
-/// asset server until the default music track's handle finishes
-/// loading, then issues the `play` call once. Important on web,
-/// where the music OGG is fetched over HTTP and may not be ready
-/// until several frames after startup — calling `play(handle)` on a
-/// not-yet-loaded handle either drops the request silently or fires
-/// a soft warning, depending on bevy_kira_audio's internal state,
-/// and the music never starts.
+/// Important on web, where the music OGG is fetched over HTTP and may not be ready until
+/// several frames after startup — calling `play(handle)` on a not-yet-loaded handle either
+/// drops the request silently or fires a soft warning, depending on bevy_kira_audio's internal
+/// state, and the music never starts.
 ///
-/// Also gated by [`AudioUnlockState::unlocked`]: on web the
-/// AudioContext is `suspended` until a user gesture, and Kira's
-/// `play()` call on a suspended context schedules sounds that never
-/// audibly play. Deferring the first `play` until after the gesture
-/// gives the JS unlock shim in `web/index.html` a chance to resume
-/// the context first. Desktop builds flip `unlocked` to `true` on
-/// the first `Update` frame, so behavior matches the old startup
-/// system there.
+/// Also gated by [`AudioUnlockState::unlocked`]: on web the AudioContext is `suspended` until a
+/// user gesture, and Kira's `play()` call on a suspended context schedules sounds that never
+/// audibly play.
 pub fn start_default_music_when_ready(
     mut started: ResMut<DefaultMusicStarted>,
     unlock: Res<AudioUnlockState>,

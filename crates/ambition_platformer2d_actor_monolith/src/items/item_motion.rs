@@ -1,11 +1,9 @@
 //! **How a pickup moves** — an authored motion PLAN, stepped by the engine.
 //!
-//! A mushroom that walks off a block and turns at walls, and a star that
-//! ricochets down a corridor, are the same machine with different numbers. So a
-//! game does not write a mover: it states a [`ItemMotionPlan`] — emerge, speed,
-//! gravity, bounce, turn-at-walls — and the engine steps every pickup that has
-//! one. A pickup with no plan sits exactly where it was spawned, which is what
-//! every pickup did before this existed.
+//! A mushroom that walks off a block and turns at walls, and a star that ricochets down a
+//! corridor, are the same machine with different numbers. So a game does not write a mover: it
+//! states a [`ItemMotionPlan`] — emerge, speed, gravity, bounce, turn-at-walls — and the engine
+//! steps every pickup that has one.
 //!
 //! ## Why this is not a brain, and not a body either
 //!
@@ -28,10 +26,7 @@
 //!
 //! ## The position stays in one place
 //!
-//! Motion writes [`WorldItem::pos`], the same field collection and rendering
-//! already read. A pickup does NOT gain a `BodyKinematics` beside it — two
-//! positions that must agree is the bug this design is most likely to grow, so
-//! velocity lives on the cursor and the position lives where it always did.
+//! Motion writes [`WorldItem::pos`], the same field collection and rendering already read.
 
 use bevy::prelude::*;
 
@@ -56,10 +51,6 @@ pub struct ItemMotionPlan {
     pub facing: f32,
     /// Downward pull once travelling, px/s². `0.0` floats.
     pub gravity: f32,
-    /// Fraction of impact speed returned when it lands. `0.0` settles onto the
-    /// floor and walks (a mushroom); `~0.8` keeps bouncing for as long as it
-    /// lives (a star). This one number is the whole difference between Jon's two
-    /// pickups.
     pub bounce: f32,
     /// Turn around when something stops it. The same rule bodies follow, stated
     /// here rather than shared, because a pickup has no `ActorTuning` to hold it.
@@ -108,8 +99,7 @@ impl ItemMotionPlan {
         }
     }
 
-    /// Rise out of the thing that produced it first. `distance` is usually the
-    /// height of the block it came from.
+    /// Rise out of the thing that produced it first.
     pub fn emerging(mut self, distance: f32, seconds: f32) -> Self {
         self.emerge = Some(ItemEmerge { distance, seconds });
         self
@@ -246,18 +236,14 @@ fn step_one_item(world: &ae::World, item: &mut WorldItem, motion: &mut ItemMotio
             if motion.emerged_for < rise.seconds {
                 // **CLAMP THE TIME CONSUMED, not the per-tick fraction.**
                 //
-                // `(dt / seconds).min(1.0)` bounds a single step at the whole
-                // rise, which only matters for a rise shorter than one tick —
-                // and says nothing about the LAST tick of a normal one. An
-                // authored duration that is not an exact multiple of the fixed
-                // timestep (0.25s against 1/60s is not) leaves a part-tick at
-                // the end, and spending a full tick's worth of distance in it
-                // pushed the item past the height the block authored. The item
-                // then began its travel from somewhere nobody wrote down.
+                // `(dt / seconds).min(1.0)` bounds a single step at the whole rise, which only
+                // matters for a rise shorter than one tick — and says nothing about the LAST
+                // tick of a normal one. The item then began its travel from somewhere nobody
+                // wrote down.
                 //
                 // Taking `min(remaining)` makes the fractions sum to exactly
                 // one, so total displacement is exactly `rise.distance` for any
-                // duration and any timestep. (GPT review of 5cc4337..47d7de3.)
+                // duration and any timestep.
                 let remaining = (rise.seconds - motion.emerged_for).max(0.0);
                 let used = dt.min(remaining);
                 let fraction = used / rise.seconds.max(1e-4);

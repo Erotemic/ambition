@@ -164,10 +164,10 @@ impl ActiveConversation {
 
     /// Both in-world bodies.
     ///
-    /// ⭐ **the continuity questions are about the PAIR** — how far apart are
-    /// they, was either one hit — and a caller that reaches for [`Self::talker`]
-    /// alone has already made the rule player-centric in the way Jon's design
-    /// says it must not be (*"both characters should hover"*).
+    /// ⭐ **the continuity questions are about the PAIR** — how far apart are they, was either
+    /// one hit — and a caller that reaches for [`Self:talker`] alone has already made the rule
+    /// player-centric in the way the rule says it must not be (*"both characters should
+    /// hover"*).
     pub fn participants(&self) -> impl Iterator<Item = Entity> + '_ {
         self.live
             .iter()

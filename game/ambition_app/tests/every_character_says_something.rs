@@ -1,12 +1,9 @@
-//! **Nobody in the shipped cast stands mute.** (Jon, 2026-07-29)
+//! **Nobody in the shipped cast stands mute.**
 //!
-//! Jon walked the Hall of Characters and found pedestals whose occupants said
 //! nothing. The measurement behind this file: 4 of 144 pedestals staged a
 //! character with no catalog row at all — every one registered by a demo
 //! provider through `register_character`, which until that day could carry art
 //! and a name but not a voice.
-//!
-//! # Why silence is the failure and not merely a gap
 //!
 //! The ambient bark ticker SKIPS an actor it can find no line for. So a
 //! character with nothing authored is not "quiet", it is invisible to the one
@@ -38,7 +35,7 @@ use ambition_app::app::{build_visible_app, VisibleRenderMode};
 #[test]
 fn every_composed_character_can_say_at_least_one_line() {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
-    // ⚠ **THE BARRIER, or the registry is not the cast.** `register_character`
+    // **THE BARRIER, or the registry is not the cast.** `register_character`
     // queues a definition; the prepared registry is PUBLISHED once, whole, at
     // `Plugin::finish`. Reading it off a freshly built App finds a partial cast
     // — which is how the first version of this test reported three characters
@@ -50,9 +47,7 @@ fn every_composed_character_can_say_at_least_one_line() {
         .world()
         .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>();
 
-    // The composed population: catalog rows AND registered-only characters. The
-    // second half is the one that was mute, so a sweep over the catalog alone
-    // would have passed while the defect was live.
+    // The composed population: catalog rows AND registered-only characters.
     let mut ids: Vec<String> = catalog.iter().map(|(id, _)| id.clone()).collect();
     if let Some(registry) = registry {
         ids.extend(registry.ids().map(str::to_string));

@@ -15,7 +15,6 @@
 //!
 //! The named kind is not faction authority: reflected or remotely controlled
 //! shots keep their kind while their `ProjectileAllegiance` can change.
-//!
 
 use ambition_platformer2d_core::Vec2;
 use bevy::prelude::Component;

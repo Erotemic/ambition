@@ -6,9 +6,6 @@
 //! campaign gets to look at, because a mandatory line in a minimal game is a
 //! tax on every game.
 
-// ONE import for room authoring. This used to be `ambition_platformer2d::engine_core as ae`
-// plus `ambition_platformer2d::world::rooms::RoomSpec` — two modules, one of them an
-// implementation crate named `engine_core`, to place a floor.
 use ambition_platformer2d::world::prelude::*;
 
 use crate::MINIMAL_EXPERIENCE;
@@ -22,15 +19,8 @@ pub const MINIMAL_ROOM_ID: &str = "minimal_room";
 /// The sheet named here does not exist; the engine degrades to a placeholder
 /// body, which is the correct behaviour for a game that ships no art.
 ///
-/// ⛔⛔ **A CATALOG FRAGMENT IS PARSED AT RUNTIME, so `cargo check` is not a
-/// check on it.** This row carried `playable_kit: Authored` until 2026-08-21 —
-/// eight days after `PlayableKitSource` was deleted — and every one of the ten
-/// tests here that boots a game panicked on the unknown field the whole time,
-/// while the fixture compiled clean. ⚠ this is a SEPARATE WORKSPACE, deliberately,
-/// so the repository gate (`cargo check -p ambition_app --all-targets`) does not
-/// reach it: run it from `fixtures/minimal_game` after changing anything a
-/// consumer's RON can name. The sibling fixture `external_consumer` hit the
-/// identical failure and was fixed alone, which is how this one kept it.
+/// The sibling fixture `external_consumer` hit the identical failure and was fixed alone, which is
+/// how this one kept it.
 pub const MINIMAL_ROSTER_RON: &str = r#"(
     brain_presets: { "still": StandStill },
     action_set_presets: {
@@ -64,13 +54,7 @@ pub fn minimal_room() -> RoomSpec {
         "Minimal Room",
         size,
         Vec2::new(64.0, floor_top - 64.0),
-        // ⚠ `Block::solid(name, MIN, size)` — a MIN CORNER, not a centre.
-        //
-        // This passed a centre until 2026-07-30, so the floor sat at x 320..960
-        // in a 640-wide room while the walker spawned at x=64. The walker fell
-        // straight past it, blast-died, respawned and fell again, forever —
-        // and `host_status` reported `Running { prepared: true }` the whole
-        // time, because the host WAS running. It was the game that was broken.
+        // `Block::solid(name, MIN, size)` — a MIN CORNER, not a centre.
         //
         // Found by blind run 3, which copied this fixture verbatim because
         // `docs/sdk/README.md` says to, and spent its longest debugging episode
@@ -88,6 +72,5 @@ pub fn minimal_room() -> RoomSpec {
 // because preparation validation refuses an experience that declares no audio —
 // mandatory paperwork with no word for it on the public surface.
 //
-// DELETED 2026-07-30. `ModuleDraft::no_audio()` is the word. That was this
-// game's LAST hand-registration; it now declares itself entirely through the
-// draft and installs no plugin of its own.
+// `ModuleDraft::no_audio()` is the word. That was this game's LAST hand-registration; it now
+// declares itself entirely through the draft and installs no plugin of its own.

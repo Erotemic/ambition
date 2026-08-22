@@ -1,9 +1,7 @@
 //! Frame pacing (battery saver) — wires [`bevy_framepace`] to the Video setting
 //! [`ambition_platformer2d::persistence::settings::video::VideoSettings::frame_cap`].
 //!
-//! `Auto` ([`Limiter::Auto`]) sleeps to match the display refresh rate; `120/60/30/24`
-//! cap to a fixed rate ([`Limiter::from_framerate`]) for deeper battery/heat savings;
-//! `Off` ([`Limiter::Off`]) renders unthrottled (benchmarking). See [`FramePaceCap`].
+//! See [`FramePaceCap`].
 //!
 //! This whole module is gated behind the `frame_pacing` feature because the
 //! limiter lives in the render sub-app; headless builds have no render app and
@@ -47,7 +45,6 @@ fn sync_framepace_from_settings(
     framepace.limiter = match settings.video.frame_cap {
         FramePaceCap::Auto => Limiter::Auto,
         FramePaceCap::Off => Limiter::Off,
-        // 120/60/30/24 → a fixed-rate limiter.
         cap => match cap.target_fps() {
             Some(fps) => Limiter::from_framerate(fps),
             None => Limiter::Auto,

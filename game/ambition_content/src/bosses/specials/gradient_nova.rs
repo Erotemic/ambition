@@ -1,7 +1,4 @@
 //! Exploding Gradient runaway nova boss-special Technique.
-//!
-//! Split out of the former 1.8k-line `specials.rs` (2026-06-15) — see
-//! [`super`] (`specials/mod.rs`) for the shared module overview.
 
 use bevy::prelude::*;
 

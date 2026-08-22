@@ -1,11 +1,11 @@
 //! **Two CPUs, one character, in the COMPLETE shipped composition** — and Emmy
-//! Ethereal's authored exception to the rule. (queue D128, 2026-08-17)
+//! Ethereal's authored exception to the rule.
 //!
-//! ⭐⭐ **why this file exists when four other suites already cover the policy.**
+//! **why this file exists when four other suites already cover the policy.**
 //! The pieces were each pinned where they were cheapest to pin: Emmy's authoring
 //! in `ambition_content`, the fold in `ambition_characters`, the seed policy and
 //! seating in the actor monolith, the stage-level divergence in the demo app's own
-//! suite. ⛔ **none of them could seat the REAL Emmy.** `ambition_demo_smash_app`
+//! suite. **none of them could seat the REAL Emmy.** `ambition_demo_smash_app`
 //! does not compose `ambition_content`, so a roster naming `npc_emmy_noether` seats
 //! nobody there, and the monolith's tests register a synthetic stand-in that
 //! authors the trait. So the claim *"the character a player can actually pick off
@@ -13,13 +13,6 @@
 //!
 //! ⇒ this file closes it, through `build_visible_app` — the one composition the
 //! desktop binary runs — reading the grid the select screen will actually show.
-//!
-//! ⚠ **ungated on purpose.** The pieces this proves are a CPU/brain concern, so
-//! `smash_in_the_host` would have been the obvious neighbour, and it is
-//! `#![cfg(feature = "input")]` because it drives real key presses. Nothing here
-//! needs a keypress — a roster and a route command are enough — and putting it
-//! behind that feature would have hidden it from the project gate, which is the
-//! failure mode `awaiting-maintainer-decision.md` §9 is about.
 
 use ambition_demo_smash::select::SmashRoster;
 use ambition_platformer2d::actor::{BodyKinematics, MatchSeat};
@@ -31,7 +24,7 @@ use bevy::prelude::*;
 /// Emmy, by the id the catalog and the select grid both use.
 const EMMY: &str = "npc_emmy_noether";
 
-/// An ordinary selectable fighter, as the CONTROL. ⚠ it must be a real grid
+/// An ordinary selectable fighter, as the CONTROL. it must be a real grid
 /// member in this composition or the contrast proves nothing — asserted below.
 const ORDINARY: &str = "npc_pirate_admiral";
 
@@ -42,7 +35,7 @@ const RUNG: u8 = 5;
 
 /// What one seated body's fighter brain is thinking with, keyed by seat.
 ///
-/// ⭐ `FighterState::noise` IS the cognitive stream — construction stores the seed
+/// `FighterState::noise` IS the cognitive stream — construction stores the seed
 /// there verbatim and every later sample advances from it — so it is the smallest
 /// deterministic property that answers *"are these two fighters the same mind?"*.
 fn fighter_streams(app: &mut App) -> Vec<(usize, u64)> {
@@ -74,7 +67,7 @@ fn seat_positions(app: &mut App) -> Vec<(usize, ambition_platformer2d::engine_co
 
 /// The composed host, one frame in — which is where the seatable registry exists.
 ///
-/// ⚠ **the frame is load-bearing and this is the second suite to need the note**:
+/// **the frame is load-bearing and this is the second suite to need the note**:
 /// `PreparedCharacterRegistry` is filled by a `Startup` system, so a build that
 /// has never updated has a catalog and no registry, and the grid assembled from it
 /// would be empty. `smash_roster_movesets` carries the same warning.
@@ -88,7 +81,7 @@ fn host() -> App {
 /// Seat two CPUs on ONE character on the real smash stage and run the match for
 /// `ticks`, returning every stream observed and the seat positions per tick.
 ///
-/// ⚠ **the roster is the stage's own builder** (`smash_roster_at_levels`), not a
+/// **the roster is the stage's own builder** (`smash_roster_at_levels`), not a
 /// hand-built one: it publishes itself under the smash experience and names the
 /// `duelist_l{rung}` policies that experience registers, which is what makes each
 /// seat resolve to a real FIGHTER brain rather than a refused profile.
@@ -101,7 +94,7 @@ fn play_mirror_match(
 ) {
     let mut app = host();
 
-    // ⛔ NON-VACUITY, and it is the whole point of running in this host: the
+    // NON-VACUITY, and it is the whole point of running in this host: the
     // character must be one a player can actually PICK. `SmashRoster::assemble`
     // filters the wish list down to what this composition can seat, so a name
     // that survives it is a name on the select screen.
@@ -145,12 +138,12 @@ fn play_mirror_match(
     (streams, frames)
 }
 
-/// ⭐⭐ **EMMY'S AUTHORED MIRROR SYMMETRY REACHES THE REAL SELECTABLE CHARACTER,
+/// **EMMY'S AUTHORED MIRROR SYMMETRY REACHES THE REAL SELECTABLE CHARACTER,
 /// through the composition the desktop binary runs.**
 ///
 /// Two CPU seats of the Emmy a player picks off the grid receive the SAME
 /// deterministic cognitive stream, because her character definition authors
-/// `preserving_mirror_symmetry()`. ⛔ nothing here reaches into the brain seed or
+/// `preserving_mirror_symmetry()`. nothing here reaches into the brain seed or
 /// registers a stand-in: the only inputs are the host, the grid and the stage's own
 /// roster builder.
 #[test]
@@ -176,7 +169,7 @@ fn both_emmy_seats_receive_one_cognitive_stream_in_the_real_host() {
     );
 }
 
-/// ⛔ **THE CONTROL, IN THE SAME COMPOSITION: an ordinary selectable fighter's two
+/// **THE CONTROL, IN THE SAME COMPOSITION: an ordinary selectable fighter's two
 /// seats do NOT share a stream.**
 ///
 /// Without this, the test above is satisfied by the very defect this change
@@ -202,7 +195,7 @@ fn two_seats_of_an_ordinary_selectable_fighter_do_not_share_a_stream() {
 /// **How long the two bodies stay an exact reflection of each other**, and how
 /// many frames were observed at all.
 ///
-/// ⭐ the midline is the stage's own symmetry, read off the first frame both bodies
+/// the midline is the stage's own symmetry, read off the first frame both bodies
 /// exist on rather than written here as a literal. "A reflection" then means seat 1
 /// is seat 0 flipped about it:
 ///
@@ -228,10 +221,10 @@ fn mirrored_frames(
     (held, frames.len())
 }
 
-/// ⭐⭐ **AND THE SHARED STREAM SHOWS: two Emmys hold a mirror far longer than two
+/// **AND THE SHARED STREAM SHOWS: two Emmys hold a mirror far longer than two
 /// of anybody else.** This is the only assertion in this file a player could see.
 ///
-/// ⛔⛔ **COMPARATIVE ON PURPOSE, because measuring Emmy alone is VACUOUS — a first
+/// **COMPARATIVE ON PURPOSE, because measuring Emmy alone is VACUOUS — a first
 /// draft did exactly that and passed for every character.** Measured over a
 /// 120-tick window both pairs stayed mirrored to within 0.0003px, Emmy and the
 /// Pirate Admiral alike: the fighters have not yet consumed enough execution noise
@@ -239,8 +232,6 @@ fn mirrored_frames(
 /// a fact about the window, not about Emmy. ⇒ **the honest form is a contrast
 /// against a character with its own streams, over a window long enough for the
 /// difference to exist.**
-///
-/// Measured 2026-08-17 in this host, at rung 5:
 ///
 /// ```text
 ///                      streams   mirrored for      match ran
@@ -251,25 +242,10 @@ fn mirrored_frames(
 ///                                                           ends)
 /// ```
 ///
-/// ⚠ **488 frames is ~8.1s, and Jon reported exactly that in play** — *"it took a
-/// while for Booule to desync, but they eventually did"*. ⛔ **that number is a
-/// finding, not a threshold to tighten here.** The fighter brain spends its stream
-/// on press timing alone, so two bodies both walking toward each other stay mirrored
-/// whatever their streams say. Two fixes for it were built, measured and reverted —
-/// one broke five behavioural guards, the other bought one frame — and the note on
-/// `brain_builders::fighter_cognition_seed` records both so nobody builds a third
-/// before reading them.
-///
-/// ⚠ **the shorter Admiral match is itself the finding**: two fighters that think
+/// **the shorter Admiral match is itself the finding**: two fighters that think
 /// differently actually resolve their match, while two Emmys mirror each other into
 /// a much longer one. Nothing here asserts that — it is context for whoever reads a
 /// failure.
-///
-/// ⚠ **a failure is not automatically a cognition bug.** The mirror is emergent —
-/// identical cognition reading symmetric information — so if the stage grows a
-/// per-seat asymmetry (a spawn offset by seat index is a known pending change, D128
-/// defect 3) Emmy's window shrinks for a good reason. Re-derive the numbers before
-/// touching the seed.
 #[test]
 fn two_emmys_hold_a_mirror_far_longer_than_two_ordinary_fighters() {
     // One window for both, so the comparison cannot be an artifact of two
@@ -309,7 +285,7 @@ fn two_emmys_hold_a_mirror_far_longer_than_two_ordinary_fighters() {
          ({ordinary_streams:?})"
     );
 
-    // ⭐ THE CLAIM: the ordinary pair's reflection breaks, and Emmy's does not.
+    // THE CLAIM: the ordinary pair's reflection breaks, and Emmy's does not.
     assert!(
         ordinary_mirrored < ordinary_seen,
         "two {ORDINARY} CPUs stayed an exact reflection for the whole \

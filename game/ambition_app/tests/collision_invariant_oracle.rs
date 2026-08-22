@@ -1,27 +1,12 @@
 //! Collision-invariant oracle — a fuzz-driven *diagnostic* that surfaces the
 //! out-of-bounds / clipped-into-a-wall movement bugs.
 //!
-//! The existing `fuzz_random_walker` asserts only "no panic / no NaN / alive"
-//! and *deliberately permits* collision violations. This harness adds the
-//! missing per-step invariant oracle on top of the same deterministic
-//! `Platformer2dSimHarness`: each tick it reads the player's live AABB and the room's
-//! collision world and flags
-//!   - **EmbeddedInSolid** — the player center sits inside a Solid block (the
-//!     "teleported into a wall" / clipped-through signature),
-//!   - **OutOfBounds** — the player center left the world bounds (above the
-//!     ceiling is the bug Jon hit flying up; below the floor is usually a legit
-//!     gap fall — the catalog labels the side so a human can tell them apart),
-//!   - **Teleport** — a single-tick position jump larger than any legit move
-//!     (blink is 150px, so the 250px threshold only catches genuine pops).
+//! The existing `fuzz_random_walker` asserts only "no panic / no NaN / alive" and *deliberately
+//! permits* collision violations.
 //!
-//! **Why this is a diagnostic, not a hard CI gate** (deliberate, see the
-//! `tech-debt-log` OOB entry + the "no-shadow assertion" TODO): OOB-via-authored-
-//! gaps is *expected* in some rooms, and embed/teleport are exactly the OOB bugs
-//! Jon has explicitly deferred to a non-autonomous fixing session. A hard assert
-//! would either false-positive on gap rooms or red-light CI on a known-deferred
-//! bug. So `collision_oracle_smoke` only proves the *harness* runs (and prints a
-//! report); the comprehensive `collision_oracle_full_sweep` is `#[ignore]`d and
-//! run on demand to produce the repro catalog:
+//! So `collision_oracle_smoke` only proves the *harness* runs (and prints a report); the
+//! comprehensive `collision_oracle_full_sweep` is `#[ignore]`d and run on demand to produce the
+//! repro catalog:
 //!
 //! ```text
 //! cargo test -p ambition_app --test collision_invariant_oracle \
@@ -41,9 +26,7 @@ use ambition_app::{RandomWalkPolicy, Platformer2dSimHarness, Platformer2dSimHarn
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Kind {
-    /// §6.1 invariant 1 — center inside a Solid/BlinkWall **after carve
-    /// subtraction**. A carved hole is not solid, so a body sunk into a portal
-    /// aperture is legal and this test no longer sees the block it went through.
+    /// §6.1 invariant 1 — center inside a Solid/BlinkWall **after carve subtraction**.
     EmbeddedInSolid,
     OutOfBoundsAbove,
     OutOfBoundsBelow,
@@ -52,9 +35,8 @@ enum Kind {
     /// §6.1 invariant 4 — `NaN`/`inf` in pos or vel. Folded in from
     /// `fuzz_random_walker`, which asserts it but does not catalog it.
     NonFinite,
-    /// §6.1 invariant 6 — a body ended BELOW a one-way it was supported by last
-    /// frame, with no drop-through intent and no reset/room change. Admission is
-    /// one-directional; silent fall-through is the historical bug.
+    /// §6.1 invariant 6 — a body ended BELOW a one-way it was supported by last frame, with no
+    /// drop-through intent and no reset/room change.
     OneWayFallThrough,
     /// §6.1 invariant 2 — a straddling body's center sits inside AUTHORED solid
     /// material that is not part of the carve of the portal it straddles. The
@@ -66,22 +48,14 @@ enum Kind {
     /// Invariant 1 proper tests the body's CENTRE, which misses a body embedded
     /// up to half its height: `stagger_steps` authored a `PlayerStart` fifteen
     /// pixels inside a step and the oracle saw nothing until a dash lifted the
-    /// centre into the tile (2026-07-27).
+    /// centre into the tile.
     ///
-    /// The naive widening — any AABB overlap — is WRONG, and measuring said so:
-    /// 116 frames across twelve rooms, all of them an airborne body clipping the
-    /// corner of a step it was jumping onto. An axis-separated solver resolves
-    /// the vertical clearance before the horizontal push, so the front edge rides
-    /// inside the step's side for the few frames of the arc. That is the
-    /// behaviour, not a bug, which is why the depth sequence was identical in
-    /// seven unrelated rooms — it is the same jump.
-    ///
-    /// GROUNDED AND SETTLED is the qualifier that separates them. A body standing
-    /// still on the floor has no arc to be part-way through. Measured at ZERO
-    /// across all 72 rooms once the `stagger_steps` spawn was fixed.
+    /// The naive widening — any AABB overlap — is WRONG, and measuring said so: 116 frames
+    /// across twelve rooms, all of them an airborne body clipping the corner of a step it was
+    /// jumping onto.
     EmbeddedAtRest,
-    /// §6.1 invariant 5 — two Class-B remaps applied to one body in one frame
-    /// (§3.2's ordering invariant). A re-ordering bug, not a tolerated race.
+    /// §6.1 invariant 5 — two Class-B remaps applied to one body in one frame (§3.2's ordering
+    /// invariant).
     DoubleClassBRemap,
 }
 
@@ -126,10 +100,7 @@ struct Violation {
     kind: Kind,
     pos: (f32, f32),
     detail: String,
-    /// For an OOB: did the player cross a Solid boundary wall to get out
-    /// (`Some(true)` = a real clip-through bug) or walk off an open edge
-    /// (`Some(false)` = level-authoring, the edge is just open)? `None` for the
-    /// embed/teleport kinds, which aren't boundary-relative.
+    /// `None` for the embed/teleport kinds, which aren't boundary-relative.
     through_wall: Option<bool>,
     /// §6.2's pinned minimum payload: the `GeoId` of the geometry the invariant
     /// NAMES — the embedding block, the violated one-way. `None` where the
@@ -137,8 +108,6 @@ struct Violation {
     geo: Option<ae::GeoId>,
 }
 
-/// True if `(x, y)` lies inside any Solid block — used to probe whether a Solid
-/// boundary wall sits just inside the edge the player went OOB through.
 fn point_in_solid(blocks: &[SolidBlock], x: f32, y: f32) -> bool {
     blocks
         .iter()
@@ -174,12 +143,9 @@ struct SolidBlock {
 /// "after carve subtraction (the composed world is the truth — a carved hole is
 /// not solid)".
 ///
-/// This is the CC3 delta. The harness reads the canonical session-root `RoomGeometry`, the AUTHORED
-/// geometry, and so reported a body sunk into a portal aperture as embedded in the
-/// wall the portal had punched through. Composing the carves first makes the
-/// invariant-1 exemption for a straddling body FALL OUT of the geometry instead of
-/// needing a `PortalTransit` special case: the block it is "inside" no longer
-/// exists there.
+/// This is the CC3 delta. Composing the carves first makes the invariant-1 exemption for a
+/// straddling body FALL OUT of the geometry instead of needing a `PortalTransit` special case:
+/// the block it is "inside" no longer exists there.
 ///
 /// `BlinkWall` joins `Solid`, per the invariant's own wording. One-ways never do:
 /// overlapping a one-way is explicitly legal (§6.1 "Explicitly legal").
@@ -271,11 +237,9 @@ fn player_entity(sim: &mut Platformer2dSimHarness) -> Option<ambition_platformer
 /// **Invariant 2's read-model row.** The carve volume of the portal the player
 /// is currently straddling, if it is straddling one.
 ///
-/// `docs/concepts/movement-collision.md` said this needed "a
-/// read-model row" that did not exist. It did exist: `PortalTransit.straddling`
-/// has always named the channel — what was missing was a caller. The hole is the
-/// same `pieces::carve_hole` that `publish_portal_carves` pushes, so the oracle
-/// tests against the exact geometry the sim carved.
+/// `docs/concepts/movement-collision.md` said this needed "a read-model row" that did not
+/// exist. The hole is the same `pieces::carve_hole` that `publish_portal_carves` pushes, so the
+/// oracle tests against the exact geometry the sim carved.
 #[cfg(feature = "portal")]
 fn straddled_carve(sim: &mut Platformer2dSimHarness) -> Option<ae::Aabb> {
     use ambition_platformer2d::bevy::prelude::With;
@@ -507,9 +471,6 @@ fn check_step(
     }
 
     // §6.1 invariant 5 — at most one Class-B remap per body per frame (§3.2).
-    // The ledger is the countable event; two entries is the violation, and their
-    // ORDER says which kind of bug: a stronger authority applying second means a
-    // sweep sample was not reset, a weaker one means the schedule is misordered.
     if transit.remaps.len() > 1 {
         let first = transit.remaps[0];
         let second = transit.remaps[1];
@@ -643,13 +604,9 @@ fn check_step(
 /// start room) so a transition mid-episode attributes correctly. Returns
 /// `(violations, steps_actually_run, oob_suppressed_at_authored_exits)`.
 ///
-/// ⛔ **`start_room == ""` is this function's own sentinel for "whatever the
-/// LDtk world authors as the start", not a room id** (`collision_oracle_smoke`
-/// passes it). It has to stay OUT of the start-room option entirely — asking for
-/// `""` and letting the fallback answer would be the silent substitution D125
-/// exists to end, and `with_required_start_room("")` would rightly refuse to
-/// boot. Every NAMED room reaching here comes from `room_ids()`, so it is
-/// required.
+/// **`start_room == ""` is this function's own sentinel for "whatever the LDtk world authors as
+/// the start", not a room id** (`collision_oracle_smoke` passes it). Every NAMED room reaching
+/// here comes from `room_ids`, so it is required.
 fn run_episode(
     start_room: &str,
     seed: u64,
@@ -787,10 +744,9 @@ fn format_report(
     // clip-through (bug) buckets separately from an open-edge walk-off (design).
     let label = |v: &Violation| -> String {
         match v.through_wall {
-            // A Solid sits just inside the crossed edge. SUSPECT clip-through —
-            // but a heuristic: the player could also have left through a gap and
-            // drifted (while OOB) to a coordinate that happens to be walled. The
-            // `?` flags "investigate", not "confirmed bug".
+            // A Solid sits just inside the crossed edge. SUSPECT clip-through — but a
+            // heuristic: the player could also have left through a gap and drifted (while OOB)
+            // to a coordinate that happens to be walled.
             Some(true) => format!("{} [past-solid?]", v.kind.label()),
             Some(false) => format!("{} (open edge)", v.kind.label()),
             None => v.kind.label().to_string(),
@@ -954,11 +910,6 @@ fn trace_oob_under_town_pipes() {
 
 /// **The cheap tier of the CC3 gate, and it ENFORCES.**
 ///
-/// This used to be harness liveness only — "does not assert zero violations,
-/// embed/teleport/OOB are the deferred bugs". Those are not deferred any more:
-/// `collision_oracle_full_sweep` asserts them across every room and seed, and it
-/// found and fixed a real level defect getting there.
-///
 /// But the full sweep is `#[ignore]`d because it takes minutes, so
 /// `cargo test --workspace` never runs it and only a guarded run does.
 /// "Enforcing, but only where somebody remembers to look" is a weaker guarantee
@@ -985,9 +936,8 @@ fn collision_oracle_smoke() {
     }
     eprintln!("{}", format_report(&all, episodes, total_steps, suppressed));
     assert_eq!(episodes, 2);
-    // The SAME exclusion the full sweep applies: an out-of-bounds that left
-    // through an open edge without passing a Solid is legal level authoring
-    // (§6.1). Everything else is a collision defect.
+    // The SAME exclusion the full sweep applies: an out-of-bounds that left through an open
+    // edge without passing a Solid is legal level authoring (§6.1).
     let excluded: Vec<&Violation> = all
         .iter()
         .filter(|v| {
@@ -1054,20 +1004,16 @@ fn collision_oracle_full_sweep() {
 
     // ── THE GATE (CC3 enforcement) ────────────────────────────────────────
     //
-    // `docs/concepts/movement-collision.md` has said since 2026-07-10: *"Re-close CC3
+    // `docs/concepts/movement-collision.md` has said: *"Re-close CC3
     // only after an executable behavioral gate runs all required rooms and
     // fails on the exact invariant classes it claims to exclude."* This sweep
     // ran all the rooms and asserted nothing, so it was measurement — valuable,
     // and not a guarantee.
     //
-    // What is excluded is every invariant class EXCEPT an out-of-bounds that
-    // left through an open edge. §6.1 already rules those legal: they are level
-    // authoring, a body walking off an unwalled edge, and the doc's own analysis
-    // says promoting this gate "would now cost only the authored-exit allowlist,
-    // not a bug hunt". Re-running it on 2026-07-27 proved that TRUE — after one
-    // real defect it also found: `stagger_steps` authored its `PlayerStart`
-    // inside a step, so the body spawned 15px embedded in solid and tripped
-    // invariant 1 the moment a dash lifted its centre into the tile.
+    // What is excluded is every invariant class EXCEPT an out-of-bounds that left through an open
+    // edge. §6.1 already rules those legal: they are level authoring, a body walking off an
+    // unwalled edge, and the doc's own analysis says promoting this gate "would now cost only the
+    // authored-exit allowlist, not a bug hunt".
     //
     // An OOB that ended PAST a Solid at the crossed edge is NOT excluded: that
     // is a clip-through, the thing the boundary walls exist to prevent.
@@ -1157,9 +1103,8 @@ fn a_non_finite_body_reports_invariant_4_and_nothing_else() {
 
 /// §6.1 invariant 6 — one-way admission is one-directional.
 ///
-/// The historical bug is a SILENT fall-through. Dropping through on purpose, and
-/// being remapped by the engine (a room load / respawn — the Class-B escape
-/// hatch), are both legal and must not fire.
+/// Dropping through on purpose, and being remapped by the engine (a room load / respawn — the
+/// Class-B escape hatch), are both legal and must not fire.
 #[test]
 fn a_silent_one_way_fall_through_reports_invariant_6() {
     let mut supp = 0;
@@ -1200,7 +1145,6 @@ fn a_silent_one_way_fall_through_reports_invariant_6() {
         "§6.2: the dump names the geometry the invariant names"
     );
 
-    // Dropping through ON PURPOSE is the feature, not the bug.
     assert!(fire(true, false, &mut supp)
         .iter()
         .all(|x| !matches!(x.kind, Kind::OneWayFallThrough)));
@@ -1387,9 +1331,6 @@ fn a_straddling_body_inside_the_wall_but_outside_its_own_carve_is_invariant_2() 
 }
 
 /// §6.1 **invariant 5** — at most one Class-B remap per body per frame (§3.2).
-///
-/// The ledger is a `Vec`, so the probe is trivial; what earns its keep is the
-/// DETAIL line, which reads the pair's priority order and names the bug class.
 #[test]
 fn two_class_b_remaps_in_one_frame_is_invariant_5_and_the_order_names_the_bug() {
     use ambition_platformer2d::platformer::class_b::ClassBRemap;
@@ -1438,8 +1379,7 @@ fn two_class_b_remaps_in_one_frame_is_invariant_5_and_the_order_names_the_bug() 
         hit.detail
     );
 
-    // Death then portal transit: a corpse cannot warp. The weaker authority ran
-    // last and won — a schedule ordering bug, a different fix.
+    // Death then portal transit: a corpse cannot warp.
     let v = fire(
         &[ClassBRemap::DeathOrReset, ClassBRemap::PortalTransit],
         &mut supp,
@@ -1501,7 +1441,7 @@ fn a_class_b_remap_exempts_the_frames_position_jump_from_the_teleport_probe() {
     );
 }
 
-/// **D18 measurement: how blind is invariant 1?**
+/// ** measurement: how blind is invariant 1?**
 ///
 /// §6.1 invariant 1 tests the body's CENTRE against solid material. A body
 /// embedded up to half its height therefore does not register — which is not
@@ -1509,13 +1449,9 @@ fn a_class_b_remap_exempts_the_frames_position_jump_from_the_teleport_probe() {
 /// a step, and the body stood there for whole episodes while the oracle said
 /// nothing. It only fired once a stress dash lifted the centre into the tile.
 ///
-/// Widening invariant 1 to a full AABB-overlap test would see that. Whether it
-/// SHOULD be widened depends entirely on a number nobody has: how many frames
-/// across every shipped room end with a body overlapping solid material. If the
-/// answer is "a handful of authoring mistakes", widen it. If it is "thousands",
-/// the resolver legitimately leaves sub-pixel overlaps and a widened invariant
-/// would be noise — and adopting it would turn CC3's promotion into the bug hunt
-/// §6.1 says it must not be.
+/// Widening invariant 1 to a full AABB-overlap test would see that. Whether it SHOULD be widened
+/// depends entirely on a number nobody has: how many frames across every shipped room end with a
+/// body overlapping solid material. If the answer is "a handful of authoring mistakes", widen it.
 ///
 /// So this MEASURES and asserts nothing about the count. Deliberately: a
 /// measurement that fails is a gate, and this is not one yet.
@@ -1555,14 +1491,10 @@ fn measure_how_many_frames_end_with_a_body_overlapping_solid() {
             if !px.is_finite() || !py.is_finite() {
                 continue;
             }
-            // GROUNDED AND SETTLED only. An airborne body legitimately clips the
-            // corner of a step it is jumping onto — an axis-separated solver
-            // resolves the vertical clearance before the horizontal push, so the
-            // front edge rides inside the step's side for the few frames of the
-            // arc. Every one of the 116 frames the first measurement found was
-            // exactly that, which is why the depth sequence was identical in seven
-            // rooms: it is the same jump. A body standing still on the floor has
-            // no such excuse.
+            // GROUNDED AND SETTLED only. Every one of the 116 frames the first measurement
+            // found was exactly that, which is why the depth sequence was identical in seven
+            // rooms: it is the same jump. A body standing still on the floor has no such
+            // excuse.
             if !obs.on_ground || obs.player_vel.0.abs() > 1.0 || obs.player_vel.1.abs() > 1.0 {
                 continue;
             }

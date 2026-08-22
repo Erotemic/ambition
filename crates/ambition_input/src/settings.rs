@@ -33,13 +33,6 @@ pub enum MenuTapMode {
 
 impl Default for MenuTapMode {
     fn default() -> Self {
-        // ⛔ **Android used to default to `TapToSelectThenConfirm`, and Jon hit
-        // it on a Pixel 5**: a dialogue response took two taps, which reads as
-        // the tap not working — a touchscreen has no hover or focus feedback, so
-        // "it highlighted but did nothing" is indistinguishable from a dropped
-        // input. Worse, the visible list recenters around the new selection
-        // between the two taps, so the second tap can land on a NEIGHBOUR.
-        //
         // The stated reason for it was accidental activation when a press turns
         // into a small drag. That is a real hazard and it is not what a
         // whole-menu confirmation policy is for: `SingleTapWithDestructiveGuard`
@@ -134,11 +127,8 @@ impl MenuTapMode {
 /// Whether the BURST press — the shared dodge/dash button — should fire from
 /// the right trigger only, the right shoulder button only, or both.
 ///
-/// ⚠ **the TYPE renamed and the WIRE did not have to.** A unit-variant enum
-/// serializes as its VARIANT name, and `Trigger` / `Button` / `Both` never
-/// carried the old word — so an existing settings file reads back unchanged.
-/// The field that DOES carry it is [`ControlSettings::burst_input_mode`], and
-/// that one is pinned.
+/// The field that DOES carry it is [`ControlSettings::burst_input_mode`], and that one is
+/// pinned.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum BurstInputMode {
     /// Right trigger 2 (RT/R2). Default; matches prior behavior.
@@ -282,15 +272,7 @@ impl ControllerProfileId {
 
 /// **The values the DEVICE READER filters with.**
 ///
-/// The calibration half of [`ControlSettings`], split out because it is the half
-/// that belongs to the PAD rather than to the machine. Jon, 2026-08-06:
-/// *filtering per pad, bindings shared.*
-///
-/// ⛔ **every seat used to read the one global blob**, so player two's drifty
-/// Xbox 360 pad ran on whatever deadzone player one had tuned for a DualSense —
-/// and player two cannot reach the settings screen to fix it, because the
-/// settings screen is the primary's. A deadzone is a fact about the stick in
-/// somebody's hands, not about the person holding it.
+/// A deadzone is a fact about the stick in somebody's hands, not about the person holding it.
 ///
 /// `Copy` on purpose: this is rebuilt per seat per frame, and cloning
 /// `ControlSettings` would allocate its binding-override `Vec` every time.
@@ -300,7 +282,7 @@ pub struct ControlFilters {
     pub right_stick_deadzone: f32,
     pub trigger_release_threshold: f32,
     pub trigger_press_threshold: f32,
-    /// ⚠ a PREFERENCE, not a calibration — which trigger or button means BURST
+    /// a PREFERENCE, not a calibration — which trigger or button means BURST
     /// is a choice about the person, so it stays machine-wide even per pad.
     pub burst_input_mode: BurstInputMode,
     /// Also a preference. Inverted aim is a habit, not a hardware property.
@@ -324,7 +306,7 @@ impl ControlFilters {
     /// Calibrated for a pad of this vendor style, keeping the machine-wide
     /// PREFERENCES.
     ///
-    /// ⚠ **an explicit profile choice still wins.** If somebody picked a
+    /// **an explicit profile choice still wins.** If somebody picked a
     /// controller profile in the settings, that is a decision and detection does
     /// not get to overrule it; only `Default` — "nobody said" — defers to the
     /// pad. That keeps the settings screen meaningful instead of making it a
@@ -345,7 +327,7 @@ impl ControlFilters {
 
 /// Which calibration table a DETECTED pad style gets.
 ///
-/// ⚠ **`Xbox360` is deliberately unreachable from detection.** Its table is the
+/// **`Xbox360` is deliberately unreachable from detection.** Its table is the
 /// drifty-stick / worn-trigger one, and `gamepad_style_of` reads Microsoft's
 /// vendor id — which a 360 pad and a Series controller share. Guessing "old and
 /// worn" from a vendor id would widen the deadzone on a brand-new pad. That
@@ -361,7 +343,7 @@ fn profile_for_pad(style: crate::GamepadStyle) -> ControllerProfileId {
 
 /// A control an override can NAME.
 ///
-/// ⚠ **deliberately not `PhysicalControl`**, which the binding projection uses,
+/// **deliberately not `PhysicalControl`**, which the binding projection uses,
 /// and the difference is the direction of travel. That type reads OUT of a live
 /// `InputMap` and so must be total — it carries an `Other(String)` arm rather
 /// than dropping a binding it cannot classify. This one is authored INTO a map
@@ -427,7 +409,7 @@ impl BindingOverride {
     }
 }
 
-/// ⚠ **not `Copy`.** It holds the binding overrides, which are a `Vec`. The
+/// **not `Copy`.** It holds the binding overrides, which are a `Vec`. The
 /// handful of sites that took a copy take a `.clone()`; every other reader
 /// already went through a reference.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -453,7 +435,7 @@ pub struct ControlSettings {
     pub invert_aim_y: bool,
     /// Which control fires the shared dodge/dash BURST press.
     ///
-    /// ⛔⛔ **the SERDE NAME IS THE WIRE, and it stays `dash_input_mode`.**
+    /// **the SERDE NAME IS THE WIRE, and it stays `dash_input_mode`.**
     /// This field has no `#[serde(default)]` and `ControlSettings` has no
     /// container default, so a missing key is not "fall back to the default for
     /// this one knob" — it is a deserialize error for the whole struct, and
@@ -563,7 +545,7 @@ impl ControlSettings {
     /// Restore the deadzone / trigger / repeat values to their defaults
     /// without disturbing controller/keyboard profile selection.
     ///
-    /// ⚠ **filtering only** — it is what the `ResetControlFiltering` row calls,
+    /// **filtering only** — it is what the `ResetControlFiltering` row calls,
     /// and it leaves both the preset and the binding overrides alone. Forgetting
     /// a remap is [`Self::reset_binding_overrides`]; a row that did both would
     /// wipe a player's controls when they only wanted their deadzone back.
@@ -594,7 +576,7 @@ impl ControlSettings {
 
     /// **Carry a stored remap across an action RENAME.**
     ///
-    /// ⛔ **a rename silently deletes a player's remap, and nothing reports it.**
+    /// **a rename silently deletes a player's remap, and nothing reports it.**
     /// [`BindingOverride::action`] is the action's `Debug` spelling, and
     /// `apply_override` deliberately ignores a name this build does not have —
     /// that tolerance is what lets a settings file from a newer build load at all
@@ -607,9 +589,6 @@ impl ControlSettings {
     /// name is HEALED rather than merely tolerated — a second rename later cannot
     /// then need a two-step chain.
     fn migrate_renamed_actions(&mut self) {
-        /// `(old spelling, current spelling)`. D146 slice 2 renamed the shield's
-        /// device action off the ceremony word it had been carrying; the BURST
-        /// pass renamed the shared dodge/dash channel off one of its outcomes.
         const RENAMED_ACTIONS: &[(&str, &str)] = &[("QuickAction", "Shield"), ("Dash", "Burst")];
 
         for over in &mut self.binding_overrides {
@@ -800,9 +779,7 @@ mod tests {
 
     /// **A seat's deadzone follows the pad in its hands, not the machine.**
     ///
-    /// ⛔ every seat used to read the one global blob, and a couch seat cannot
-    /// reach the settings screen to correct it — that screen belongs to the
-    /// primary. So player two's pad ran on player one's calibration.
+    /// So player two's pad ran on player one's calibration.
     #[test]
     fn a_seats_filtering_follows_its_own_pad() {
         let mut settings = ControlSettings::default();
@@ -835,7 +812,7 @@ mod tests {
         );
     }
 
-    /// ⚠ a profile somebody CHOSE outranks one the game detected.
+    /// a profile somebody CHOSE outranks one the game detected.
     #[test]
     fn an_explicit_controller_profile_is_not_overruled_by_detection() {
         let mut settings = ControlSettings::default();
@@ -879,11 +856,7 @@ mod tests {
 
     /// **A PLAYER'S REMAP SURVIVES THE ACTION BEING RENAMED.**
     ///
-    /// ⛔ this is the one failure mode a rename has that a compiler cannot see.
-    /// `BindingOverride` names an action by its `Debug` spelling and
-    /// `apply_override` deliberately ignores an unknown name, so `QuickAction`
-    /// becoming `Shield` would have quietly reverted every stored shield remap to
-    /// the preset key with nothing logged and nothing red.
+    /// this is the one failure mode a rename has that a compiler cannot see.
     #[test]
     fn a_stored_remap_survives_the_shield_action_rename() {
         use bevy::prelude::KeyCode;

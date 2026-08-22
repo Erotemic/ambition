@@ -1,15 +1,9 @@
 //! **Emmy Ethereal's repertoire** — a theorem, as a fighter.
 //!
-//! Jon, 2026-08-16: *"We also want to give her a full smash kit like we did with
 //! Oiler. Again, we should have the vfx and sfx for this."*
 //!
-//! ⭐ **the sixth adopter removed from `smash_fighter_kit()`.** She stood on the
-//! Super Smash Siblings grid with a `peaceful` catalog row — no melee at all —
-//! on top of the fullest animation vocabulary in the project: **123 authored
-//! rows**, grabs and throws and techs and ledge options and a shield break,
-//! rendered and unreachable. Twelve of her own effects sat on
-//! `noether_vfx_spritesheet.ron` with twelve matching cues in the packed bank.
-//! This table is the wire between them.
+//! Twelve of her own effects sat on `noether_vfx_spritesheet.ron` with twelve matching cues in
+//! the packed bank. This table is the wire between them.
 //!
 //! ## The character, from her own theorem
 //!
@@ -34,7 +28,7 @@
 //! the quantity is conserved, and what a player chooses is where on the curve to
 //! spend it.
 //!
-//! ⛔ **this is a real trade and not a re-skin.** Oiler's table holds EVERY box
+//! **this is a real trade and not a re-skin.** Oiler's table holds EVERY box
 //! out for at least 0.10s and torques exactly one bolt to kill; hers pays for
 //! every point of damage in window time. Landing her forward smash is the
 //! hardest single thing any authored fighter here asks for, and it is also the
@@ -43,31 +37,24 @@
 //!
 //! ## What the engine could not express, and what that changed
 //!
-//! ⚠ the blueprint that ships with her sheet calls her neutral special *"a held
-//! field that returns what it absorbs"* — a counter. **`MoveSpec` has no absorb,
-//! armour or reflect**, so a counter is not authorable today and inventing one
-//! for a single character would be the wrong shape (see
-//! `docs/planning/queue.md`, D139). Her `conservation_law` is instead the thing
-//! the runtime CAN say and that reads the same on screen: a field that pays out
-//! three times on one press, at even intervals, for as long as she holds the
-//! ground she claimed.
+//! the blueprint that ships with her sheet calls her neutral special *"a held field that
+//! returns what it absorbs"* — a counter. Her `conservation_law` is instead the thing the
+//! runtime CAN say and that reads the same on screen: a field that pays out three times on one
+//! press, at even intervals, for as long as she holds the ground she claimed.
 //!
-//! ⭐ and her Up-B genuinely **does not attack**, which the blueprint asked for
+//! and her Up-B genuinely **does not attack**, which the blueprint asked for
 //! and which nothing else on the grid does. It is the only recovery here with no
 //! hitbox at all: she cannot trade with an edgeguard, she can only beat it.
 //!
 //! ## The effects are the move, not decoration
 //!
-//! ⭐ **an effect is a NAME.** `invariant_core` addresses a row on a shipped FX
+//! **an effect is a NAME.** `invariant_core` addresses a row on a shipped FX
 //! sheet and needs no table, enum or registry to reach the screen.
 //!
-//! ⭐⭐ **and the name carries the SOUND too** (D149). `dispatch_move_events`
-//! asks for a paired `FxRequest`; presentation resolves the cue the row's own
-//! name addresses. So a burst below states the art and stops. ⛔ this table used
-//! to author an `Sfx` event beside every one of them — put one back and the
-//! burst is heard TWICE.
+//! `dispatch_move_events` asks for a paired `FxRequest`; presentation resolves the cue the
+//! row's own name addresses.
 //!
-//! ⛔ **five of her twelve cues carry a `.loop` suffix the sprite row does not**
+//! **five of her twelve cues carry a `.loop` suffix the sprite row does not**
 //! (`vfx.noether.invariant_core.loop`, `conserved_current`, `group_orbit`,
 //! `paired_trajectory`, `conserved_pair_exchange`). The derived
 //! `vfx.<family>.<row>` name misses the bank for all five, so those five say
@@ -94,7 +81,6 @@ use ambition_characters::moveset_authoring::{
 /// presentation default (`ambition_render::fx::FX_DEFAULT_WORLD_SIZE`, a little
 /// under a fighter's height).
 ///
-/// Jon, 2026-08-16: *"try to make the hitboxes and vfx placement make sense,
 /// right now we are seeing crazy upscaled vfx"*. A poke is a spark on a
 /// knuckle; a smash is the size of the swing; a field is meant to be read as
 /// ground you cannot stand on. They are not the same size, and until this week
@@ -106,7 +92,7 @@ const FIELD_FX: f32 = 1.30;
 
 /// **The conserved quantity**: `damage x active_seconds`, in damage-seconds.
 ///
-/// ⚠ this is the character, not a tuning constant fitted to the numbers after
+/// this is the character, not a tuning constant fitted to the numbers after
 /// the fact. Retuning Emmy means moving a move ALONG the curve — buy damage with
 /// window time, or window time with damage — never off it. A move that broke the
 /// invariant would be a move her theorem does not describe.
@@ -126,7 +112,7 @@ pub const ORDINARY_GROWTH: f32 = 1.95;
 
 /// The rise her ethereal lift commands, in px/s.
 ///
-/// ⭐ authored as a SPEED and applied with [`ImpulseMode::Set`], for the reason
+/// authored as a SPEED and applied with [`ImpulseMode::Set`], for the reason
 /// every recovery in this repo is: an Emmy pressing this at terminal velocity
 /// gets exactly the climb a standing one does. An additive impulse is weakest
 /// precisely when it is the only thing between her and the blast zone.
@@ -134,7 +120,7 @@ pub const LIFT_SPEED: f32 = 940.0;
 
 /// When the lift takes hold, and when it lets go.
 pub const LIFT_AT_S: f32 = 0.18;
-/// ⛔ **not a feel number.** Under the engine baseline the lift climbs
+/// **not a feel number.** Under the engine baseline the lift climbs
 /// `LIFT_SPEED^2 / 2g` and takes `LIFT_SPEED / g` to do it; a tail shorter than
 /// twice that hands her back above where it found her on every press, which is
 /// flight rather than a recovery. `the_lift_is_a_save_and_not_a_flight` holds
@@ -150,7 +136,6 @@ pub fn total_active_s(spec: &MoveSpec) -> f32 {
         .sum()
 }
 
-/// The conserved quantity, measured off a built move.
 pub fn conserved_impulse(spec: &MoveSpec) -> f32 {
     let damage = spec
         .windows
@@ -194,7 +179,7 @@ fn field_term(start_s: f32, end_s: f32) -> MoveWindow {
 pub fn emmy_noether_moveset() -> MovesetContract {
     // ── the ground game ──────────────────────────────────────────────────────
     //
-    // ⚠ **every clip below is one of her 123 authored rows.** Where the sheet has
+    // **every clip below is one of her 123 authored rows.** Where the sheet has
     // no row for a genre verb (she has no `attack_side` and no `smash_forward`),
     // the move takes the SIGNATURE row that draws that idea — `generator_strike`
     // for the committed forward swing, `symmetry_break` for the smash — rather
@@ -346,7 +331,7 @@ pub fn emmy_noether_moveset() -> MovesetContract {
     );
     let up_smash = on_contact(up_smash, "player.hit");
 
-    // ⭐ the down smash is the up smash REFLECTED: same damage, same window, same
+    // the down smash is the up smash REFLECTED: same damage, same window, same
     // growth, opposite launch. Her table is meant to look like this.
     let mut down_smash = strike(
         "smash_down",
@@ -401,11 +386,7 @@ pub fn emmy_noether_moveset() -> MovesetContract {
     );
     let n_air = on_contact(n_air, "player.hit");
 
-    // ⭐⭐ **THE SYMMETRY, and it is the whole character in two moves.** The
-    // forward and back aerials are built from the same numbers by construction —
-    // ONE expression over the two ids rather than two hand-written blocks, so
-    // they cannot drift apart in a later retune. A fighter whose theorem is
-    // invariance does not get to care which way she is facing.
+    // A fighter whose theorem is invariance does not get to care which way she is facing.
     let [f_air, b_air] = [
         ("air_forward", "air_forward", 1.0_f32),
         ("air_back", "air_back", -1.0_f32),
@@ -483,7 +464,7 @@ pub fn emmy_noether_moveset() -> MovesetContract {
     // paying. Three terms at even intervals, identical every time: what the field
     // returns does not decay, which is the conservation idea stated as a move.
     //
-    // ⛔ **not the counter the sheet's blueprint imagined** — `MoveSpec` has no
+    // **not the counter the sheet's blueprint imagined** — `MoveSpec` has no
     // absorb or reflect, and inventing one for one character would be the wrong
     // shape. See the module doc.
     let n_b = strike(
@@ -491,7 +472,7 @@ pub fn emmy_noether_moveset() -> MovesetContract {
         "conservation_law",
         0.16,
         0.10,
-        // ⚠ long enough to CONTAIN the two further terms below (they end at
+        // long enough to CONTAIN the two further terms below (they end at
         // 0.66) — the builder's own `debug_assert` caught this at 0.34 and it is
         // the reason the assert is there: windows pushed after construction do
         // not extend the move.
@@ -534,7 +515,7 @@ pub fn emmy_noether_moveset() -> MovesetContract {
 
     // **SIDE — `symmetry_shift`.** A lateral displacement that keeps her facing.
     //
-    // ⭐⭐ **the impulse is NEGATIVE, and that is the move.** Body-local x runs
+    // **the impulse is NEGATIVE, and that is the move.** Body-local x runs
     // toward her facing, so a negative one carries her AWAY from what she is
     // looking at without turning her round — the blueprint's *"reposition without
     // conceding the neutral"*. Every other displacing special in this repo
@@ -571,7 +552,7 @@ pub fn emmy_noether_moveset() -> MovesetContract {
 
     // **UP — `ethereal_lift`. THE RECOVERY, AND IT DOES NOT ATTACK.**
     //
-    // ⭐⭐ the blueprint asked for exactly this — *"Rises, does not attack — the
+    // the blueprint asked for exactly this — *"Rises, does not attack — the
     // traversal motif, not a second offensive option"* — and nothing else on the
     // grid is shaped like it. Every other authored recovery here carries a box,
     // so an edgeguard is a trade you might win by pressing anyway. Hers is a pure
@@ -598,7 +579,7 @@ pub fn emmy_noether_moveset() -> MovesetContract {
             sustain_effect: None,
         }],
         events: Vec::new(),
-        // ⭐ the SLOT owns the posture — `SmashRepertoire` sets it from
+        // the SLOT owns the posture — `SmashRepertoire` sets it from
         // `up_special`; this field is only here because a struct literal has to
         // name every field.
         gates: Default::default(),
@@ -677,16 +658,13 @@ pub fn emmy_noether_moveset() -> MovesetContract {
     );
     let down_b = on_contact(down_b, "player.hit");
 
-    // ── 2026-08-16: THE OTHER POSTURE ────────────────────────────────────────
-    //
-    // Jon: *"A down-b that has special airborne properties should also have an
     // effect on ground. Think of bowser down b. In the air he just does a
     // downward slam, but on the ground, it causes him to jump in an arc and then
     // slam. Specials can have different effects in different contexts that
     // should be ok, and makes for a richer smash game, although in most cases
     // they shouldn't be context dependent."*
     //
-    // ⛔ a special gated to ONE posture is not answered in the other — the
+    // a special gated to ONE posture is not answered in the other — the
     // directional chain walks straight past it to the NEUTRAL special, so a
     // player pressing down-B in the air got the neutral-B. `special_air_down`
     // sits ahead of `special_down` in that chain and has the whole time; this is
@@ -709,7 +687,7 @@ pub fn emmy_noether_moveset() -> MovesetContract {
     );
     air_down_b.landing_lag_s = Some(0.28);
     let air_down_b = impulse(air_down_b, 0.10, (0.0, 1200.0), ImpulseMode::Set);
-    // ⚠ this table's own rule: every burst is heard. The conserved current comes
+    // this table's own rule: every burst is heard. The conserved current comes
     // down with her.
     let air_down_b = vfx_cued(
         air_down_b,
@@ -724,7 +702,7 @@ pub fn emmy_noether_moveset() -> MovesetContract {
     // **EMMY'S CAPTURE KIT.** The steepest growth after the automaton: weak early,
     // decisive late. A conservation joke that is also a real property — what her throw
     // takes out of you is returned with interest at high percent.
-    // ⭐ her sheet ships the whole grab family — `grab`, `grab_hold`, `grab_release` — so the capture kit draws the rows it was drawn for.
+    // her sheet ships the whole grab family — `grab`, `grab_hold`, `grab_release` — so the capture kit draws the rows it was drawn for.
     let grab = author_standing_grab(
         grab_shell("emmy_grab", "grab", 0.07, 0.06, 0.21),
         CaptureAttemptParams {
@@ -804,15 +782,14 @@ pub fn emmy_noether_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: up_b,
-        // ⭐ **AUTHORED 2026-08-19, at Jon's ask that every fighter in the smash
-        // roster have a grab.** The transitional `None` is gone: capture was
-        // proven on George and the Pirate Admiral, and the whole point of
-        // proving it was to stop being the only two.
+        // **AUTHORED, at the rule that every fighter in the smash roster have a grab.** The
+        // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
+        // the whole point of proving it was to stop being the only two.
         //
-        // ⚠ the VALUES are per character on purpose. A roster whose grabs are
+        // the VALUES are per character on purpose. A roster whose grabs are
         // twelve copies of one number set is one grab wearing twelve names.
         capture: SmashCaptureRepertoire {
-            // ⭐ the axis she snaps you onto, the transfer each pummel makes, and the bridge she throws you across — her kit guards that every effect comes off her
+            // the axis she snaps you onto, the transfer each pummel makes, and the bridge she throws you across — her kit guards that every effect comes off her
             // own sheet, and a shared `classic_burst` would violate it.
             cues: CaptureCues {
                 reach: "symmetry_axis_snap",
@@ -833,7 +810,7 @@ pub fn emmy_noether_moveset() -> MovesetContract {
     }
     .into_contract();
 
-    // ⭐ **the invariant is checked WHERE IT IS AUTHORED.** A move edited off the
+    // **the invariant is checked WHERE IT IS AUTHORED.** A move edited off the
     // curve stops being Emmy's before anything else notices, and this is the last
     // place that holds the whole table at once.
     debug_assert!(
@@ -885,8 +862,6 @@ mod tests {
             .fold(0.0f32, f32::max)
     }
 
-    // ⭐⭐ **RETIRED 2026-08-16 — the per-file verb-map test.**
-    //
     // Fourteen fighters each carried a copy of it: every bound verb names a move
     // this table defines, and the table binds the whole vocabulary. Both are now
     // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb
@@ -900,7 +875,7 @@ mod tests {
     /// **THE SYMMETRY, AS AN ASSERTION — and the poison is every other fighter.**
     ///
     /// Her forward and back aerials must be the same move in everything but the
-    /// direction they point. ⛔ **the second half is what makes this a claim about
+    /// direction they point. **the second half is what makes this a claim about
     /// EMMY** rather than about aerials in general: Oiler's pair and the goblin's
     /// pair differ, so a table that accidentally satisfied the first assertion
     /// would still be saying something true only of her.
@@ -919,7 +894,7 @@ mod tests {
             "same time in the world"
         );
 
-        // ⛔ the poison: nobody else on the grid is symmetric, so this is a
+        // the poison: nobody else on the grid is symmetric, so this is a
         // statement about her and not about the genre.
         let oiler = crate::oiler_moveset::oiler_moveset();
         let of = find(&oiler, "air_forward");
@@ -934,7 +909,7 @@ mod tests {
     /// **THE CONSERVED QUANTITY, AS AN ASSERTION.**
     ///
     /// Every striking move sits on `damage x active_seconds =` [`NOETHER_IMPULSE`]
-    /// within [`INVARIANT_BAND`]. ⛔ **and the band is not wide enough to be
+    /// within [`INVARIANT_BAND`]. **and the band is not wide enough to be
     /// vacuous**: the same measurement over Oiler's table — a fighter authored
     /// from the opposite idea — has to miss it, or this asserts nothing.
     #[test]
@@ -987,7 +962,7 @@ mod tests {
 
     /// **Her recovery does not attack, and nothing else on the grid is like it.**
     ///
-    /// The blueprint asked for exactly this. ⛔ the poison is Oiler's geyser,
+    /// The blueprint asked for exactly this. the poison is Oiler's geyser,
     /// which DOES carry a box — so this is a statement about a deliberate trade
     /// and not about recoveries generally.
     #[test]
@@ -1052,14 +1027,10 @@ mod tests {
         );
     }
 
-    // ⭐⭐ **`every_burst_in_this_table_is_heard` was RETIRED here (D149).** Its
-    // whole job was checking that whoever authored a `Vfx` remembered to write
-    // an `Sfx` beside it — infrastructure making a content author carry a
-    // backend detail. A burst carries its own sound now: `dispatch_move_events`
-    // asks for a paired `FxRequest` and presentation resolves the cue the
-    // effect's name addresses.
+    // A burst carries its own sound now: `dispatch_move_events` asks for a paired `FxRequest`
+    // and presentation resolves the cue the effect's name addresses.
     //
-    // ⚠ **what guards it instead**, and it is a stronger claim than this test
+    // **what guards it instead**, and it is a stronger claim than this test
     // made: `a_paired_burst_is_heard_exactly_once` (`src/moveset_sound.rs`)
     // drives these very tables through the real dispatcher and the real fan-out
     // and counts what reaches the SFX channel — so it catches the silence this
@@ -1068,7 +1039,7 @@ mod tests {
 
     /// **THE ART IS HERS, AND IT ALL SHIPS.**
     ///
-    /// ⭐ the oracle is the ART — `is_authored_effect` reads the rows out of the
+    /// the oracle is the ART — `is_authored_effect` reads the rows out of the
     /// baked manifests — so this asks exactly what the renderer will ask.
     #[test]
     fn the_kit_looks_like_emmy_and_the_art_all_ships() {
@@ -1105,7 +1076,7 @@ mod tests {
 
     /// **Every clip she names is a row her rig actually publishes.**
     ///
-    /// ⛔ the structural fallback chain means a missing clip is SILENT: the move
+    /// the structural fallback chain means a missing clip is SILENT: the move
     /// still runs, drawn as `idle`. That is the right runtime behaviour and the
     /// wrong authoring outcome, so the table is checked against the sheet here.
     #[test]

@@ -49,20 +49,16 @@ pub struct CameraZoneSpec {
     /// When true, target the zone center instead of the player.
     pub cinematic_lock: bool,
     pub clamp_mode: CameraClampMode,
-    /// **M2 — the one-way forward scroll.** `#[serde(default)]`, so every authored
-    /// zone that predates it stays exactly as it was.
     #[serde(default)]
     pub scroll_policy: CameraScrollPolicy,
 }
 
 /// How the camera is allowed to travel while a zone is active
-/// (`docs/planning/demos/super-mary-o.md` M2: *"one-way forward scroll +
-/// no-backtrack clamp"*).
+/// (`docs/planning/demos/super-mary-o.md`: *"one-way forward scroll + no-backtrack clamp"*).
 ///
 /// Forward-only scrolling uses world/screen `+x` and is independent of gravity.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum CameraScrollPolicy {
-    /// The camera follows wherever the focus goes. Every zone before M2.
     #[default]
     Free,
     /// The camera never travels back along `-x`. The player may walk left; the
@@ -287,7 +283,7 @@ mod kinematic_path_lookup_tests {
 mod scroll_policy_tests {
     use super::*;
 
-    /// **The whole of M2.** The camera goes forward. It never comes back.
+    /// It never comes back.
     #[test]
     fn the_camera_never_travels_back_along_minus_x() {
         let mut w = None;
@@ -340,8 +336,8 @@ mod scroll_policy_tests {
         assert_eq!(fresh, None, "and it did not become the watermark");
     }
 
-    /// Authored strings, all the ways a level designer might spell it. Anything else
-    /// is `Free`, which is what every zone authored before M2 means.
+    /// Authored strings, all the ways a level designer might spell it. Anything else is `Free`,
+    /// which is what every zone authored before means.
     #[test]
     fn the_authored_value_parses_the_spellings_a_designer_would_try() {
         for s in [
@@ -364,10 +360,9 @@ mod scroll_policy_tests {
         }
     }
 
-    /// **Byte-parity.** A zone authored before M2 carries no `scroll_policy` field.
     /// It deserializes to `Free` — the behaviour it has always had — which is what
-    /// `#[serde(default)]` buys and what this proves by deleting the field from a
-    /// round-tripped spec rather than by hand-typing one.
+    /// `#[serde(default)]` buys and what this proves by deleting the field from a round-tripped
+    /// spec rather than by hand-typing one.
     #[test]
     fn a_pre_m2_camera_zone_still_parses_and_scrolls_freely() {
         let spec = CameraZoneSpec {
@@ -385,8 +380,7 @@ mod scroll_policy_tests {
         let ron = ron::to_string(&spec).expect("serializes");
         assert!(ron.contains("scroll_policy"));
 
-        // Strip the field, exactly as a pre-M2 file lacks it. The serializer's
-        // spacing is its own business, so find it rather than assume it.
+        // The serializer's spacing is its own business, so find it rather than assume it.
         let start = ron.find("scroll_policy").expect("the field is there");
         let end = ron[start..]
             .find(|c| c == ',' || c == ')')

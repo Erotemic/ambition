@@ -1,4 +1,4 @@
-//! ⚠ **these tests build their own `App`, which is exactly the shape that can
+//! **these tests build their own `App`, which is exactly the shape that can
 //! pass with the production wiring absent.** They are about the CONTRACT — its
 //! arity checking, its refusals, its ordering — and the contract is what they
 //! supply. The claim that real domains publish real conditions is proved by the
@@ -41,7 +41,7 @@ fn descriptor(domain: &str, question: &str) -> ConditionDescriptor {
 
 /// **A CRATE THAT IS NOT THE ENGINE CAN PUBLISH A CONDITION.**
 ///
-/// ⭐⭐ **this is the milestone's behavioral acceptance, and it is a real test
+/// **this is the milestone's behavioral acceptance, and it is a real test
 /// rather than a review opinion.** This file lives in the library's own test
 /// module, but it names no other domain, edits no enum, and touches no
 /// registration table — it calls `publish_condition` and nothing else. If a
@@ -98,7 +98,7 @@ fn the_catalog_composes_domains_without_either_naming_the_other() {
 
 /// **AN UNANSWERABLE CONDITION IS NOT A FALSE ONE.**
 ///
-/// ⛔ the failure this pins is folding the third answer into `false`: a gate that
+/// the failure this pins is folding the third answer into `false`: a gate that
 /// opens on the negation of *"is the key held?"* would swing open in a world that
 /// never authored a key at all.
 #[test]
@@ -113,7 +113,7 @@ fn asking_an_unpublished_condition_is_unanswerable_rather_than_false() {
 /// **ARITY AND KIND ARE CHECKED ONCE, CENTRALLY, AND THE REASON NAMES THE
 /// PARAMETER.**
 ///
-/// ⚠ a diagnostic that said only "bad arguments" would make every authoring
+/// a diagnostic that said only "bad arguments" would make every authoring
 /// mistake a debugging session; the schema is right there, so the message uses it.
 #[test]
 fn a_mistyped_argument_is_refused_with_a_reason_an_author_can_act_on() {
@@ -139,7 +139,7 @@ fn a_mistyped_argument_is_refused_with_a_reason_an_author_can_act_on() {
 
 /// **TWO DOMAINS CANNOT OWN ONE ID, AND IT FAILS AT STARTUP.**
 ///
-/// ⚠ the alternative is that the winner is whichever plugin built last — a bug
+/// the alternative is that the winner is whichever plugin built last — a bug
 /// that appears only when a host changes its plugin order, which is the worst
 /// time to discover it.
 #[test]
@@ -159,24 +159,19 @@ fn a_dot_inside_a_segment_is_refused() {
 
 /// **AUTHORED CONTENT NAMES A CONDITION BY STRING, AND A TYPO IS A DIAGNOSTIC
 /// RATHER THAN A PANIC.**
-///
-/// ⭐ [`ConditionId::new`] asserts because a *provider* spelling its own id
-/// wrongly is a bug in the engine. [`ConditionId::parse`] refuses because a
-/// *`.yarn` line* spelling it wrongly is a bug in content, and content must not
-/// be able to take the process down.
 #[test]
 fn an_id_read_back_from_authored_text_refuses_instead_of_panicking() {
     assert_eq!(
         ConditionId::parse("world.flag_set"),
         Some(ConditionId::new("world", "flag_set"))
     );
-    // ⚠ every one of these would have PANICKED through `new`.
+    // every one of these would have PANICKED through `new`.
     assert_eq!(ConditionId::parse("flag_set"), None, "no domain at all");
     assert_eq!(ConditionId::parse(".flag_set"), None, "empty domain");
     assert_eq!(ConditionId::parse("world."), None, "empty question");
     assert_eq!(ConditionId::parse("a.b.c"), None, "ambiguous segments");
     assert_eq!(ConditionId::parse(""), None);
-    // ⛔ and it never repairs. A leading space parses — the shape is legal — but
+    // and it never repairs. A leading space parses — the shape is legal — but
     // it parses to a DIFFERENT id, which is what makes the lookup miss and the
     // author see a diagnostic naming their own spelling.
     assert_ne!(

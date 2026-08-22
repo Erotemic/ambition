@@ -6,13 +6,13 @@
 # what was published. A full run with nothing changed costs seconds.
 #
 # Usage:
-#   ./regen_visual_quality_variants.sh
-#   ./regen_visual_quality_variants.sh --sprites-only
-#   ./regen_visual_quality_variants.sh --backgrounds-only
-#   ./regen_visual_quality_variants.sh --target patent_clerk        # one character, every tier
-#   ./regen_visual_quality_variants.sh --target 'pirate_*' --tier 0_5x
-#   ./regen_visual_quality_variants.sh --force                      # ignore the freshness check
-#   ./regen_visual_quality_variants.sh --clean                      # empty each tier root first
+# ./regen_visual_quality_variants.sh
+# ./regen_visual_quality_variants.sh --sprites-only
+# ./regen_visual_quality_variants.sh --backgrounds-only
+# ./regen_visual_quality_variants.sh --target patent_clerk        # one character, every tier
+# ./regen_visual_quality_variants.sh --target 'pirate_*' --tier 0_5x
+# ./regen_visual_quality_variants.sh --force                      # ignore the freshness check
+# ./regen_visual_quality_variants.sh --clean                      # empty each tier root first
 #
 #   --target takes an fnmatch pattern and repeats; --tier is one of
 #   0_5x / 0_25x / potato and repeats.
@@ -21,7 +21,7 @@
 #   AMBITION_SPRITE_PYTHON=/path/to/python  Override the sprite tool .venv.
 #   AMBITION_QUALITY_VARIANTS=0             Skip variant generation entirely.
 #
-# ⛔ there is no hand-written postcondition here any more. This script asserted
+# there is no hand-written postcondition here any more. This script asserted
 # `sprites_0_5x/player_robot_spritesheet.ron` for weeks after the player sheet
 # became `player_robot_v3`, so every run did its work, printed its summary, and
 # then exited 1 on a file that had stopped existing. The generator now verifies

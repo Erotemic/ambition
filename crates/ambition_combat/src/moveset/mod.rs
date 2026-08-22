@@ -59,22 +59,18 @@ pub use ambition_entity_catalog::{
     CAPTURE_THROW_FORWARD_VERB, CAPTURE_THROW_UP_VERB, GRAB_VERB,
 };
 
-// ⭐ **THE GENERIC BUILDER VOCABULARY MOVED DOWN; THE PINS STAYED** (campaign
-// P1.7, 2026-08-12). These three ids are what the builders themselves author
-// into every moveset, and `prefabs.rs` had to become lowerable to
-// `ambition_characters` so character preparation could call
-// `build_actor_moveset` from below. Plain `&str`s travel; what could NOT travel
-// is the compile-time assertions under them, which need `ambition_sfx`'s id
-// table — so the low crate owns the text and this one keeps the pin.
+// These three ids are what the builders themselves author into every moveset, and `prefabs.rs`
+// had to become lowerable to `ambition_characters` so character preparation could call
+// `build_actor_moveset` from below. Plain `&str`s travel; what could NOT travel is the
+// compile-time assertions under them, which need `ambition_sfx`'s id table — so the low crate
+// owns the text and this one keeps the pin.
 pub use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX, SWING_SFX_CUE};
 
-// ⛔⛔ **AND THE THREE `PLAYER_ROBOT_*` CUES CAME BACK UP** (2026-08-12). They
-// went down with the builders because they were adjacent in the file, not
-// because preparation needed them: the overlay that reads them has exactly one
-// production caller, the protagonist road, and `prepare_character` never
-// reaches it. Text in the low crate and its compile-time proof in this one was
-// the shape that move created; both are here now. See
-// `player_robot_slash`'s own doc. (GPT 5.6 review of `1579ab3`, finding 4.)
+// **AND THE THREE `PLAYER_ROBOT_*` CUES CAME BACK UP**. They went down with the builders because
+// they were adjacent in the file, not because preparation needed them: the overlay that reads them
+// has exactly one production caller, the protagonist road, and `prepare_character` never reaches
+// it. Text in the low crate and its compile-time proof in this one was the shape that move created;
+// both are here now. See `player_robot_slash`'s own doc.
 mod player_robot_slash;
 pub use player_robot_slash::{
     apply_player_robot_slash_sfx, PLAYER_ROBOT_IMPACT_SFX_CUE, PLAYER_ROBOT_POGO_SFX_CUE,
@@ -97,7 +93,7 @@ const _: () = assert!(
 // D-B split: the MoveSpec builders and actor-moveset construction live in
 // `prefabs.rs`. Re-exported so `moveset::<builder>` paths (and `tests.rs`'s
 // `use super::*`) are unchanged by the relocation.
-// ⭐ **THE REGISTRY IS ITS OWN MODULE** (P1.7): `prefabs.rs` is the build-time
+// **THE REGISTRY IS ITS OWN MODULE** (P1.7): `prefabs.rs` is the build-time
 // half of the Smash model and character preparation calls it, so it has to be
 // able to sit at or below `ambition_characters`. Expanding an authored prefab
 // KEY is a different job from building a move from a spec, and it is the one
@@ -127,7 +123,7 @@ pub struct MovesetMelee;
 /// unrelated places (the actor cluster seed, the prepared-character projection)
 /// and by NOBODY on the catalog persona path, which replaces `ActorMoveset`
 /// wholesale on a kit swap and never touched them. The consequences are all
-/// silent (GPT 5.6, 2026-07-27):
+/// silent:
 ///
 /// * a stale `MovesetMelee` diverts an attack into a timeline the new moveset
 ///   does not contain — the input is consumed and nothing happens;
@@ -193,20 +189,13 @@ pub struct MoveEventMessage {
     pub kind: MoveEventKind,
     /// **WHERE this event happens, relative to the owner, in WORLD units.**
     ///
-    /// ⭐ authored body-local and resolved HERE, because this is where the
+    /// authored body-local and resolved HERE, because this is where the
     /// facing the move committed to and the owner's gravity frame are both in
     /// hand — the consumer has neither. Zero for every event kind that has no
     /// place of its own, which is all of them but `Vfx`.
     pub world_offset: ae::Vec2,
     /// **HOW this event is oriented** — the sibling of [`Self::world_offset`],
     /// resolved from the SAME two authorities in the same expression.
-    ///
-    /// ⛔ separating them is the defect D154 fixed: the offset was mirrored by
-    /// the committed facing and rotated into the owner's frame, and the artwork
-    /// was then drawn world-upright, so a left-facing fighter's slice appeared
-    /// in exactly the right place pointing right. A pose derived anywhere else
-    /// could disagree with the position it decorates.
-    /// [`ambition_vfx::FxPose::UPRIGHT`] for every kind that has no art.
     pub world_pose: ambition_vfx::FxPose,
 }
 
@@ -223,7 +212,7 @@ pub struct MovePlayback {
     /// playback because the LANDING EDGE is a fact about this move's history,
     /// not about the body.
     ///
-    /// ⛔ **seeded `true`, which reads backwards and is the point.** It means
+    /// **seeded `true`, which reads backwards and is the point.** It means
     /// *no airborne observation yet*, so a move begun ON THE GROUND can never
     /// cross the edge on its first tick and be charged an aerial's landing lag
     /// — which is exactly what a `false` seed did, and what
@@ -231,7 +220,7 @@ pub struct MovePlayback {
     /// cannot supply the real answer (`MovePlayback::new` sees no body), so the
     /// safe direction is to assume grounded until a tick observes otherwise.
     ///
-    /// ⚠ the price, and it is nil in practice: a move that starts airborne and
+    /// the price, and it is nil in practice: a move that starts airborne and
     /// touches down within the SAME tick pays nothing. A body already on the
     /// floor when its move started is a grounded move.
     pub was_grounded: bool,
@@ -258,38 +247,22 @@ pub struct MovePlayback {
     live_boxes: Vec<(usize, Entity)>,
     /// Which timed events already fired (parallel to `spec.events`).
     fired: Vec<bool>,
-    /// One-hit-per-target dedup for a Player-faction Volume strike (the player's
-    /// slash / pogo). The downstream Volume resolver (`apply_feature_hit_events`)
-    /// folds each landed target key in, and the strike's per-tick emit ignores
-    /// them — so a multi-tick Active window hits each target ONCE. It lives HERE,
-    /// on the persistent per-strike move, NOT on the projected `BodyMelee.swing`:
-    /// that swing is a read-model rebuilt every frame by
-    /// `project_moveset_melee_to_body_melee`, which wiped the accumulator and made
-    /// every active tick re-hit + re-fire the hit SFX (the old flat-swing dedup
-    /// didn't survive the moveset projection). Starts empty per move.
-    ///
-    /// ⛔ **this used to say it "is not yet carried across a rollback resume".
-    /// That was false and stale.** The registration is a CLONE snapshot, so the
-    /// whole component including this list is restored; what was missing was the
-    /// CHECKSUM projection, which is why two peers could disagree about who had
-    /// already been struck and still agree on the hash. Both are right now — see
-    /// `SnapshotResolve for MovePlayback`.
     pub hit_targets: Vec<String>,
     /// **The ranged intent that STARTED this move**, if one did.
     ///
-    /// ⛔ **a move's fire event usually arrives after its own request is gone.**
+    /// **a move's fire event usually arrives after its own request is gone.**
     /// `ActorControl.fire` is an EDGE — `clear_edges()` nulls it every tick — and
     /// a ranged move has startup, so by the time its authored `Ranged` frame
     /// fires, the intent that triggered it has been cleared. The handler fell
     /// back to the body's horizontal facing, which is right for a forward shot
     /// and flattens every aim that was UP, DOWN or DIAGONAL: a move triggered
-    /// with an upward aim fired sideways (GPT 5.6 review, 2026-08-04).
+    /// with an upward aim fired sideways.
     ///
     /// Captured here at move start and consumed at the fire frame, so the shot
     /// carries the aim the player actually gave it. `None` for a move nobody
     /// aimed, which is what keeps the facing fallback meaningful.
     ///
-    /// ⚠ the POLICY travels with the direction. A body-local `(1,0)` and a world
+    /// the POLICY travels with the direction. A body-local `(1,0)` and a world
     /// `(1,0)` are different shots under non-default gravity, so storing the
     /// vector alone would re-introduce the frame confusion `dir_to_world` exists
     /// to prevent.
@@ -322,11 +295,6 @@ pub struct PlacedBodyVolume {
 /// The `+x = committed facing, +y = gravity-down` contract every authored
 /// `HitVolume` states, applied once. Strike volumes and CAPTURE volumes both go
 /// through it.
-///
-/// ⛔ **extracted rather than copied, and the bug that motivates it is specific**:
-/// two roads computing this independently drift into *"the attack box rotates
-/// with gravity and the grab box does not"*, which is invisible in every upright
-/// test and wrong in exactly the rooms this engine exists to support.
 pub fn place_body_local_volume(
     shape: &ambition_entity_catalog::VolumeShape,
     facing: f32,
@@ -367,14 +335,14 @@ pub fn despawn_live_boxes(commands: &mut bevy::prelude::Commands, playback: &mut
 
 /// **End a move: its volumes stop existing and the body stops playing it.**
 ///
-/// ⭐ **there were FOUR hand-copies of this**, and one of them carried the
+/// **there were FOUR hand-copies of this**, and one of them carried the
 /// comment *"Tear down exactly as natural completion does (the ONE teardown
 /// path)"* — a claim the code made true by duplication, which is the same thing
 /// as not being true. Capture needs a fifth caller (a body that gets grabbed
 /// mid-swing must not keep a live hitbox), and a fifth copy is where a divergence
 /// becomes likely rather than possible.
 ///
-/// ⛔ **this is a consolidation, not an action-state framework.** It does what
+/// **this is a consolidation, not an action-state framework.** It does what
 /// the four copies did and nothing else; a body's move ending has no other
 /// meaning today, and inventing one here would be building the abstraction
 /// nobody has asked for.
@@ -392,16 +360,6 @@ impl MovePlayback {
         Self::new_at(spec, facing, 0.0)
     }
 
-    /// Start a move with its clock pre-advanced to `t0` seconds (owner proper
-    /// time). Used to SKIP a leading window: a boss strike commanded without a
-    /// telegraph (possession, or a bare `Strike` step) starts at `t0 = telegraph
-    /// window`, so its Active window is live immediately and the projected
-    /// `active_elapsed` still folds in the telegraph offset (E53). Events with
-    /// `at_s <= t0` are pre-marked fired so seeking past them doesn't retro-fire.
-    /// **Resume a move mid-flight.** Historical: built for the deleted
-    /// `ambition_platformer2d_runtime::snapshot` engine's
-    /// `SnapshotResolve`.
-    ///
     /// The blob carries the CHOICE — which move, how far in, did it land — and the
     /// `MoveSpec` is resolved back out of the owner's authored `ActorMoveset`. The
     /// `live_boxes` cache comes back empty, which is exactly right: a blob cannot
@@ -418,12 +376,9 @@ impl MovePlayback {
 
     pub fn new_at(spec: MoveSpec, facing: f32, t0: f32) -> Self {
         let t0 = t0.clamp(0.0, spec.duration_s);
-        // ⛔ STRICTLY before `t0`, not `<=`. An event authored AT the start is the
-        // common case, not an edge one: the player's swipe is `windup_s: 0.0`
-        // precisely so "the arc and the swing cue all land on the frame of the
-        // press", which puts its SFX event at `at_s == 0.0`. With `<=` that event
-        // was pre-marked fired before the move began and could never sound — the
-        // player's swing was silent from 2026-07-26 until this was found.
+        // STRICTLY before `t0`, not `<=`. An event authored AT the start is the common case, not an
+        // edge one: the player's swipe is `windup_s: 0.0` precisely so "the arc and the swing cue
+        // all land on the frame of the press", which puts its SFX event at `at_s == 0.0`.
         //
         // The pre-marking exists so SEEKING past events does not retro-fire them,
         // and `<` still does that: seek to 0.5 and everything before 0.5 stays
@@ -464,20 +419,6 @@ impl MovePlayback {
     }
 }
 
-/// A body's data-driven move repertoire — the Bevy-side carrier of a headless
-/// [`MovesetContract`]. A body that exposes this contract triggers its moves
-/// through [`trigger_moveset_moves`]: a control-frame verb edge inserts the
-/// matching [`MovePlayback`]. This + [`dispatch_move_events`] are the production
-/// seam the moveset system was missing (nothing ever created a `MovePlayback` in
-/// the live game) — the first real consumer is the PCA's data-driven signature
-/// move (fable review 2026-07-02 §A1, Path B: prove the moveset on a real actor
-/// before folding the boss onto it). The boss fold reuses the SAME trigger +
-/// dispatch — a boss is an actor whose repertoire happens to be large.
-/// ⭐ **A BODY THAT CAN LAND A MOVE CARRIES THE HISTORY OF THE ONES IT LANDED.**
-/// [`crate::stale::BodyStaleMoves`] used to ride the generic ancillary MOVEMENT
-/// bundle, so a body that could not attack at all still rewound nine slots of
-/// combat history. Requiring it here attaches it to exactly the population that
-/// can fill it, and no spawn road has to remember.
 #[derive(Component, Debug, Clone)]
 #[require(crate::stale::BodyStaleMoves)]
 pub struct ActorMoveset(pub MovesetContract);
@@ -501,20 +442,6 @@ impl bevy::ecs::entity::MapEntities for StrikeVolume {
 }
 
 /// **Despawn every strike volume whose owner's clock says it should not exist.**
-///
-/// Runs every frame, before [`advance_move_playback`], and is a no-op in the ordinary
-/// case: the window's exit edge already despawned the box and dropped it from
-/// `live_boxes`. It earns its keep when the two disagree, which happens when
-/// `MovePlayback` is REPLACED rather than advanced:
-///
-/// - (historical) the deleted `ambition_platformer2d_runtime::snapshot::restore` rebuilt it from a
-///   blob (`MovePlayback::resumed`) with an empty `live_boxes`; this system despawned
-///   the boxes the rewound-from tick left standing. Under GGRS (ADR 0027) the playback
-///   is instead CLONED + entity-remapped, so the failure mode INVERTS: a cloned slot
-///   can name a dead `Entity` for a window that should be live. This system does not
-///   repair that direction — `advance_move_playback` does, by validating each cached
-///   slot against the live world before believing it.
-/// - Any future code that swaps a playback mid-move.
 ///
 /// N3.1's rule, honoured: *"if restoring something requires a rebuild pass, the rebuild
 /// must be the SAME system that maintains it per-frame (no restore-only code paths)."*
@@ -583,7 +510,7 @@ pub fn advance_move_playback(
         // `register_character` — which has no `CharacterCatalogOwners` entry at
         // all — still names its own provider here.
         Option<&ambition_sfx::BodyPresentationSource>,
-        // ⭐ MUTABLE since the timeline learned to move its own owner: a
+        // MUTABLE since the timeline learned to move its own owner: a
         // `MoveEventKind::Impulse` crossing is authored SELF-MOTION and this is
         // the system that owns the move clock, so it is the one place that can
         // apply it at the authored instant. `trigger_moveset_moves` does the
@@ -630,11 +557,6 @@ pub fn advance_move_playback(
         // registered-only characters to nobody. `unscoped` then sent the cue to
         // the session's global emission context, where it was either credited to
         // the session owner's bank or denied outright.
-        //
-        // The fallback stays for bodies the publisher has not reached (an entity
-        // spawned and striking inside the same tick, or a composition without
-        // the character runtime): it is exactly the old behaviour, so this is
-        // never worse than before and is right whenever the component exists.
         let presentation_source = body_source
             .map(|source| source.id().clone())
             .or_else(|| {
@@ -659,13 +581,13 @@ pub fn advance_move_playback(
         // side by side.
         let pb = &mut *playback;
         for (idx, ev) in pb.spec.events.iter().enumerate() {
-            // ⚠ no lower bound: `fired[idx]` already guarantees once-only, and a
+            // no lower bound: `fired[idx]` already guarantees once-only, and a
             // `ev.at_s > t_prev` bound is unsatisfiable for an event at 0.0 on the
             // first advance, where `t_prev` is also 0.0. It added nothing except
             // that hole.
             if !pb.fired[idx] && ev.at_s <= t {
                 pb.fired[idx] = true;
-                // ⭐ **AUTHORED SELF-MOTION IS SIMULATION, so it lands HERE and
+                // **AUTHORED SELF-MOTION IS SIMULATION, so it lands HERE and
                 // is not announced as a message.**
                 //
                 // Every other `MoveEventKind` names something for a CONSUMER to
@@ -687,7 +609,7 @@ pub fn advance_move_playback(
                     // owner's frame — the same two steps `start_impulse` takes,
                     // so a rise stays a rise under any gravity.
                     //
-                    // ⚠ `pb.facing`, not the body's live facing: a move whose
+                    // `pb.facing`, not the body's live facing: a move whose
                     // burst pointed wherever the body happened to be looking
                     // three windows later would not be the move that was
                     // committed to.
@@ -703,13 +625,6 @@ pub fn advance_move_playback(
                 // rotate into the owner's frame — the two steps `Impulse` takes
                 // directly above, so a burst authored at the end of a swing
                 // stays there under any gravity and either facing.
-                //
-                // ⭐⭐ **AND THE POSE COMES FROM THE SAME TWO AUTHORITIES**
-                // (D154). The offset was mirrored and rotated all along while
-                // the ARTWORK was drawn world-upright, so an authored burst
-                // landed in the right place pointing the wrong way. Deriving the
-                // pose anywhere else would let it disagree with the offset it
-                // decorates, which is the whole reason it is computed here.
                 let (world_offset, world_pose) = match &ev.kind {
                     MoveEventKind::Vfx { at, .. } => {
                         let body_frame = owner_frames
@@ -721,7 +636,7 @@ pub fn advance_move_playback(
                         } else {
                             ae::Vec2::ZERO
                         };
-                        // ⚠ an effect at the body's CENTRE still has a facing —
+                        // an effect at the body's CENTRE still has a facing —
                         // the old `at != (0,0)` guard was about not paying for a
                         // transform that yields zero, never about orientation.
                         (
@@ -770,14 +685,14 @@ pub fn advance_move_playback(
             }
         }
 
-        // ⭐ **HITBOX TRACKS.** An attack whose shape moves through its swing is
+        // **HITBOX TRACKS.** An attack whose shape moves through its swing is
         // authored as several Active windows laid end to end — the platform-
         // fighter "hitbox track", one strike sampled at keyframes. Each window
         // spawns its own box, so without this the arc would hit the same victim
         // once PER SEGMENT: a four-keyframe sword swing dealing quadruple damage.
         //
         // So a window that ends exactly where the next begins hands its hit set
-        // forward. ⛔ **contiguity is the whole rule, and it is not a guess about
+        // forward. **contiguity is the whole rule, and it is not a guess about
         // intent** — it is the literal continuity of the volume in time. The box
         // never left, so the strike never ended, so the victim is still struck.
         // A GAP means the box went away and came back, which is precisely what a
@@ -786,7 +701,7 @@ pub fn advance_move_playback(
         // The carry only has to survive within one tick: contiguous windows hand
         // off on the single tick where the clock crosses their shared edge.
         // Nothing about it is rollback state, which is why this costs no wire
-        // format. ⚠ it does assume `windows` is authored in time order, which
+        // format. it does assume `windows` is authored in time order, which
         // every spec is and `MoveFrameData` already relies on.
         let mut handoff: Vec<(f32, Vec<std::collections::HashSet<Entity>>)> = Vec::new();
 
@@ -798,21 +713,15 @@ pub fn advance_move_playback(
                 continue;
             }
             let inside = window.start_s <= t && t < window.end_s;
-            // Validate the cache against the WORLD before trusting it. A cached
-            // slot naming an entity that no longer exists is treated as absent,
-            // so the window re-spawns its volume.
+            // A cached slot naming an entity that no longer exists is treated as absent, so the
+            // window re-spawns its volume.
             //
-            // This is what makes the "existence is DERIVED from `(t, window)`"
-            // contract actually hold under GGRS (ADR 0027): bevy_ggrs restores
-            // `MovePlayback` by CLONING it and remapping entities, so after a
-            // LoadWorld a slot can name a despawned/unmappable entity for a
-            // window the restored clock says is active. Believing the stale slot
-            // meant the strike silently whiffed for the rest of the window
-            // during resimulation. `retire_orphaned_strike_volumes` only covers
-            // the mirror case (a live box whose owner forgot it), so this arm
-            // owns the other direction — and, being mechanism-agnostic, it also
-            // covers any future path that despawns a volume out from under a
-            // playback.
+            // This is what makes the "existence is DERIVED from `(t, window)`" contract
+            // actually hold under GGRS (ADR 0027): bevy_ggrs restores `MovePlayback` by CLONING
+            // it and remapping entities, so after a LoadWorld a slot can name a
+            // despawned/unmappable entity for a window the restored clock says is active.
+            // Believing the stale slot meant the strike silently whiffed for the rest of the
+            // window during resimulation.
             let live_slot = pb
                 .live_boxes
                 .iter()
@@ -825,11 +734,6 @@ pub fn advance_move_playback(
             }
             match (inside, live_slot) {
                 (true, None) => {
-                    // Authored volume offsets are BODY-LOCAL (side, down); rotate
-                    // them through the owner's gravity frame at spawn — so an
-                    // authored above-the-head volume stays above the head under any
-                    // gravity (fable review 2026-07-02 §B1: the unrotated form
-                    // spawned it screen-up, into a sideways body's ceiling).
                     let body_frame = owner_frames
                         .get(owner)
                         .map(|frame| frame.basis())
@@ -889,7 +793,7 @@ pub fn advance_move_playback(
                                 let c = b.center();
                                 (ae::Vec2::new(c.x * pb.facing, c.y), b.half_size(), None)
                             }
-                            // ⭐ the plain authored shape goes through the SHARED
+                            // the plain authored shape goes through the SHARED
                             // placement (see `place_body_local_volume`), which is
                             // the same call a capture attempt makes — so a grab
                             // box and an attack box cannot disagree about gravity.
@@ -943,11 +847,6 @@ pub fn advance_move_playback(
                         // §7.2: the slash VFX rides the SAME resolved volume the
                         // damage does (one box drives both) — emitted once at the
                         // Active edge.
-                        //
-                        // The volume goes across WHOLE. Until 2026-08-01 this
-                        // site took `.bounds()` first and handed presentation a
-                        // box, which is the step that made the drawn art
-                        // unfittable to the hull that hurts.
                         if let Some(tag) = &volume.vfx {
                             let kind = if tag == SLASH_POKE_VFX {
                                 ambition_vfx::vfx::SlashKind::Poke
@@ -1068,12 +967,12 @@ pub fn advance_move_playback(
 /// authors neither field lands the way it always did, so this is inert for
 /// every move that has not opted in.
 ///
-/// ⭐ **body-generic by construction.** It reads `MovePlayback` and
+/// **body-generic by construction.** It reads `MovePlayback` and
 /// `BodyGroundState`, which every body carries — a CPU fighter, a possessed
 /// boss and a human all pay the same lag for the same move. There is no
 /// controller in the query.
 ///
-/// ⚠ **the landing EDGE, not the grounded state.** A move begun on the ground
+/// **the landing EDGE, not the grounded state.** A move begun on the ground
 /// (a jab, a down-tilt) is never mid-air, so it can never cross the edge and
 /// never pays. That is why the previous grounded-ness is remembered on the
 /// playback rather than re-derived: "is grounded now" would charge every
@@ -1093,7 +992,6 @@ pub fn resolve_aerial_landings(
         if !was_airborne || !ground.on_ground {
             continue;
         }
-        // Landed this frame, out of a move that was still running.
         let Some(lag) = playback.spec.landing_lag_s else {
             continue;
         };
@@ -1178,15 +1076,13 @@ pub fn resolve_attack_gestures(
 /// player's directional repertoire (R2.5). A body authoring only `"attack"`
 /// resolves every direction to it — byte-identical to the pre-directional path.
 ///
-/// ⭐ **A WEAPON IN HAND OWNS THE ATTACK PRESS** — see
+/// **A WEAPON IN HAND OWNS THE ATTACK PRESS** — see
 /// [`held_weapon_attack_move`]. The wearer's own `attack` verbs keep existing;
 /// they simply stop being what that press reaches.
 /// **Name the writer of a move's self-motion impulse.**
 ///
-/// Two call sites author the same impulse — the plain trigger and the CANCEL
-/// path — and they are byte-identical expressions. Naming them apart is the
-/// point: "a move moved this body" is one answer, "a CANCEL moved this body"
-/// is a different bug.
+/// Two call sites author the same impulse — the plain trigger and the CANCEL path — and they
+/// are byte-identical expressions.
 ///
 /// The fact itself comes from `ambition_causal::velocity_authored`, so this
 /// writer's story has the same shape as every other one. The move id rides
@@ -1226,19 +1122,13 @@ fn record_impulse_authorship(
 /// **The swing a held weapon answers a directional Attack with** — `None` when
 /// that weapon answers the press somewhere other than the move runtime.
 ///
-/// Jon, on the gun-sword: *"When I have the laser sword and I use it, I
 /// incorrectly still use my normal jab attack. Holding an item should reroute
 /// normal attack actions to the item action, which might be like throw for
 /// bombs or fire for the gun sword … the default for the gun sword is they all
 /// route to the one action the item has: shoot."*
 ///
-/// The defect was **two claimants on one press**, the same shape
-/// `revoke_host_owned_ranged` fixed for ranged one slot over: equipping already
-/// cleared the item's melee out of the wearer's `ActionSet`, but the wearer's
-/// MOVESET still bound `attack`, so the jab ran beside the bolt. The `ActionSet`
-/// and the moveset are a UNION for the Attack slot
-/// (`ambition_characters::action_scheme::combat_actions`), and only one half was
-/// ever displaced.
+/// The `ActionSet` and the moveset are a UNION for the Attack slot
+/// (`ambition_characters::action_scheme::combat_actions`), and only one half was ever displaced.
 ///
 /// So the press is arbitrated HERE, by identity, from the one authority on what
 /// a body is holding:
@@ -1250,14 +1140,14 @@ fn record_impulse_authorship(
 ///   gauntlet's bespoke system) → **nothing** answers here, and the item's own
 ///   subject-generic system consumes the press it already reads.
 ///
-/// ⛔ **the wearer's `attack` MOVES are not pruned, and must not be.** A
+/// **the wearer's `attack` MOVES are not pruned, and must not be.** A
 /// timeline nothing presses is inert; deleting it on a reachability argument
 /// throws away authored content and makes unequipping a restore problem. Only
 /// the RESOLUTION moves, and it moves back the instant the hand is empty — so
 /// there is nothing to stash, and a rewind past an equip is correct for free
 /// (`HeldItem` is already rollback state).
 ///
-/// ⛔ **and the slot must survive, which is why this is not a verb revoke.**
+/// **and the slot must survive, which is why this is not a verb revoke.**
 /// `touch_action_available` draws — and admits touches for — an on-screen Attack
 /// button only while `ControlPrompt` carries a label for the Attack slot, and
 /// that label comes from the scheme's union of moveset verb and `ActionSet`
@@ -1308,14 +1198,9 @@ pub fn trigger_moveset_moves(
         // fact — ADR 0024's read surface, which is what a consumer outside the
         // movement kernel is owed.
         //
-        // ⛔⛔ **this used to ask `BodyMotionFacts::dashing`, and that made the
-        // dash attack unreachable in the game it was built for.** `dashing` is
-        // the TRAVERSAL dash's timer, and `SMASH_FIGHTER_KIT` deliberately
-        // leaves `AbilitySet::dash` off — so no fighter on the roster could
-        // enter the state that selected the move. The tests passed because they
-        // told the selector the body was dashing; none of them could ask
-        // whether a fighter ever is. `running` is ordinary grounded
-        // locomotion, which is where the genre's running attack lives.
+        // The tests passed because they told the selector the body was dashing; none of them could
+        // ask whether a fighter ever is. `running` is ordinary grounded locomotion, which is where
+        // the genre's running attack lives.
         //
         // `Option` for bare test bodies, which are treated as standing.
         Option<&ae::BodyMotionFacts>,
@@ -1324,13 +1209,9 @@ pub fn trigger_moveset_moves(
     // there is no mirrored `Capturing` component to read instead: one authority,
     // scanned. At most one captive per captor and a handful per stage.
     captives: Query<(Entity, &crate::capture::CapturedBy)>,
-    // ⛔ **WHO WROTE THIS BODY'S VELOCITY.** A move's `start_impulse` is a
-    // velocity write outside the integrator, and the causal log reported what
-    // the velocity WAS and never who set it — which cost six rebuild-and-print
-    // cycles on one 12-tick window before the first authored fact existed
-    // (queue S51). This is the second writer to name itself.
+    // This is the second writer to name itself.
     //
-    // ⚠ `Option` on both: the FEATURE and the PLUGIN are two switches, and a
+    // `Option` on both: the FEATURE and the PLUGIN are two switches, and a
     // body without an identity is still a body.
     #[cfg(feature = "causal")] log: Option<bevy::prelude::ResMut<ambition_causal::CausalRecording>>,
     #[cfg(feature = "causal")] identities: Query<&crate::components::ActorIdentity>,
@@ -1372,12 +1253,12 @@ pub fn trigger_moveset_moves(
         // off it, and every one of those would then need its own "unless holding"
         // clause — the rule spread across a dozen sites instead of stated once.
         //
-        // ⛔ **`AttackStrength` is deliberately ignored in here.** Holding
+        // **`AttackStrength` is deliberately ignored in here.** Holding
         // somebody must not turn a forward throw into a "smash throw": the
         // charge grammar belongs to the strike vocabulary, and a throw's payoff
         // is authored on its own timeline.
         //
-        // ⚠ **an unauthored throw resolves to NOTHING, on purpose.** It does not
+        // **an unauthored throw resolves to NOTHING, on purpose.** It does not
         // fall back to the pummel. A player who presses up+attack and gets a
         // pummel has been told this fighter has a bad up-throw; a player who gets
         // nothing has been told it has none, and the second is true.
@@ -1442,12 +1323,12 @@ pub fn trigger_moveset_moves(
                 } else {
                     (ATTACK_VERB, AttackDir::Down, grounded)
                 };
-            // ⭐ **A WEAPON IN HAND OWNS THIS PRESS.** With something held, the
+            // **A WEAPON IN HAND OWNS THIS PRESS.** With something held, the
             // wearer's own repertoire is not consulted at all — the weapon
             // answers with its swing, or it answers elsewhere and nothing runs
             // here (see [`held_weapon_attack_move`] for why this arbitrates
             // instead of revoking the wearer's verbs).
-            // ⭐⭐ **A RUN PRE-EMPTS THE SMASH GESTURE**, and it has to, because
+            // **A RUN PRE-EMPTS THE SMASH GESTURE**, and it has to, because
             // the two inputs are the same one. `resolve_attack_gesture` calls a
             // press a SMASH when a direction FLICK preceded it inside the
             // window — and flicking a direction is exactly how a player enters
@@ -1455,13 +1336,13 @@ pub fn trigger_moveset_moves(
             // Attack) was answered with a forward smash and the running attack
             // was unreachable by the way it is actually performed.
             //
-            // ⚠ **this is the genre's answer, not a preference.** Ultimate,
+            // **this is the genre's answer, not a preference.** Ultimate,
             // Smash 4, Brawl and Melee all resolve Attack-out-of-a-run as the
             // running attack; none of them lets a forward smash come straight
             // out of one without a cancel first. So there is no knob here —
             // where the games AGREE, we ship what they do.
             //
-            // ⚠ **conditioned on the move being AUTHORED**, which is what keeps
+            // **conditioned on the move being AUTHORED**, which is what keeps
             // this from stealing a smash. A fighter with no running attack
             // resolves its press exactly as before, rather than falling through
             // to a tilt.
@@ -1476,7 +1357,7 @@ pub fn trigger_moveset_moves(
             } else {
                 moveset
                     .0
-                    // ⭐ **the DASH ATTACK.** A running body's press is its own
+                    // **the DASH ATTACK.** A running body's press is its own
                     // move in this genre, and it was resolving as whatever the
                     // stick happened to name — the forward tilt, or the jab.
                     // The base is forced to ATTACK when the run owns the press,
@@ -1503,7 +1384,7 @@ pub fn trigger_moveset_moves(
                     })
                     .cloned()
             };
-            // ⚠ a running attack answers to the ATTACK family whatever gesture
+            // a running attack answers to the ATTACK family whatever gesture
             // asked for it — the cancel namespace follows the move that ran.
             let verb_names: &[&str] = if base_verb == SMASH_VERB && !running_attack {
                 &[SMASH_VERB, ATTACK_VERB, "any_attack"]
@@ -1512,7 +1393,7 @@ pub fn trigger_moveset_moves(
             };
             (spec, verb_names)
         } else if frame.taunt_pressed {
-            // ⭐ LAST in the chain on purpose: a taunt loses to every verb that
+            // LAST in the chain on purpose: a taunt loses to every verb that
             // does something, so a press that overlaps a real action is that
             // action rather than a mood.
             (
@@ -1544,17 +1425,12 @@ pub fn trigger_moveset_moves(
             // cancel window ENDS the move (early recovery-cancel); the verb
             // itself runs through the normal locomotion path this same tick.
             //
-            // ⚠ the edge is now the BURST press, but the AUTHORED cancel class
+            // the edge is now the BURST press, but the AUTHORED cancel class
             // stays `"dash"`: it is content vocabulary (`CANCEL_CLASS_NAMES`),
             // not the channel's name. Renaming it is a CONTENT migration.
             //
-            // ⭐ **and it is cheaper than it reads, measured 2026-08-20.** No
-            // `.ron` in the workspace carries a `Cancelable` window at all —
-            // movesets are authored in Rust through `cancelable(..)` — and the
-            // ONE authored window there is (`george_booul_moveset.rs:112`)
-            // names `["smash", "special"]`. Zero content sites spell `"dash"`
-            // today; the word survives only here, in `CANCEL_CLASS_NAMES` and
-            // in `ambition_entity_catalog`'s own tests.
+            // Zero content sites spell `"dash"` today; the word survives only here, in
+            // `CANCEL_CLASS_NAMES` and in `ambition_entity_catalog`'s own tests.
             let loco = if frame.jump_pressed {
                 Some("jump")
             } else if frame.burst_pressed {
@@ -1604,7 +1480,7 @@ pub fn trigger_moveset_moves(
             }
             commands
                 .entity(entity)
-                // ⭐ **capture the aim at START, because it will be gone by the
+                // **capture the aim at START, because it will be gone by the
                 // fire frame.** See `MovePlayback::aim`.
                 .insert(
                     MovePlayback::new(spec, kin.facing)
@@ -1637,7 +1513,7 @@ pub fn trigger_moveset_moves(
                 let _ = before;
             }
             commands.entity(entity).insert(
-                // ⚠ **the plain trigger path needs the aim just as much as the
+                // **the plain trigger path needs the aim just as much as the
                 // cancel path above.** Capturing on one of the two start sites
                 // would have fixed aimed shots only for moves that interrupted
                 // another one, which is the rarer half.
@@ -1651,11 +1527,9 @@ pub fn trigger_moveset_moves(
 /// CM4: mark the attacker's playing move as CONNECTED from the same resolved
 /// body-hit fact on-hit techniques consume.
 ///
-/// The contact resolver owns the meaning of "landed". Move cancels do not infer
-/// it from `HitTarget`, and on-hit effects do not perform their own overlap pass;
-/// both consume [`crate::hitbox::LandedBodyHit`]. World/broadcast effects that do
-/// not resolve a body victim continue to mark their own outcome at their own
-/// resolution seam.
+/// Move cancels do not infer it from `HitTarget`, and on-hit effects do not perform their own
+/// overlap pass; both consume [`crate::hitbox::LandedBodyHit`]. World/broadcast effects that do not
+/// resolve a body victim continue to mark their own outcome at their own resolution seam.
 pub fn mark_move_playback_landed_hits(
     mut landed_hits: MessageReader<crate::hitbox::LandedBodyHit>,
     mut playbacks: Query<(&mut MovePlayback, Option<&mut crate::stale::BodyStaleMoves>)>,
@@ -1664,16 +1538,12 @@ pub fn mark_move_playback_landed_hits(
         let Ok((mut pb, queue)) = playbacks.get_mut(landed.attacker) else {
             continue;
         };
-        // ⭐⭐ **THE FALSE→TRUE EDGE IS ONE MOVE USE CONNECTING**, and staling is
+        // **THE FALSE→TRUE EDGE IS ONE MOVE USE CONNECTING**, and staling is
         // counted on it rather than on the message.
         //
-        // ⛔ `LandedBodyHit` is emitted once per BODY CONTACT, so the separate
-        // `Settle` recorder this replaces stale a swing TWICE for catching two
-        // fighters — the queue's own doc calls itself the moves this body
-        // landed, and one swing is one landing. A move that connects with three
-        // opponents has been used once.
+        // A move that connects with three opponents has been used once.
         //
-        // ⚠ one authority for "this use connected" and one consumer of it: the
+        // one authority for "this use connected" and one consumer of it: the
         // playback already had to carry the fact for OnHit/OnWhiff cancels, and
         // `MovePlayback` is rollback state, so the edge survives a rewind.
         if !pb.landed_hit {
@@ -1715,8 +1585,7 @@ pub fn dispatch_move_events(
     // `MovePlayback::aim`.
     playbacks: Query<&MovePlayback>,
     mut sfx: SfxWriter,
-    // ⭐ **the PAIRING channel, not the bare visual one** (D149). Presentation's
-    // `process_fx_requests` fans one request into the effect + the cue its own
+    // Presentation's `process_fx_requests` fans one request into the effect + the cue its own
     // name addresses, so a move's author states the picture and gets the sound.
     mut fx_requests: MessageWriter<ambition_vfx::FxRequest>,
     mut actions: MessageWriter<ActorActionMessage>,
@@ -1741,7 +1610,7 @@ pub fn dispatch_move_events(
             MoveEventKind::Vfx {
                 effect, scale, sfx, ..
             } => {
-                // CM5 per-move cosmetic effect. ⭐ there is no table here any
+                // CM5 per-move cosmetic effect. there is no table here any
                 // more: the authored NAME goes on the wire as its hash, and
                 // presentation resolves it against the rows the shipped FX
                 // sheets actually carry. An id no sheet has is a counted miss
@@ -1751,20 +1620,14 @@ pub fn dispatch_move_events(
                     .map(|k| k.pos)
                     .unwrap_or(ae::Vec2::ZERO)
                     + ev.world_offset;
-                // ⭐⭐ **AN `FxRequest`, NOT A BARE `VfxMessage` — so the SOUND
-                // comes with the picture** (D149). `FxRequest`'s own doc states
-                // the property: the bank ships one `vfx.<family>.<row>` cue per
-                // authored row, so *"an emitter that says which effect has
-                // already said which sound"*.
+                // `FxRequest`'s own doc states the property: the bank ships one
+                // `vfx.<family>.<row>` cue per authored row, so *"an emitter that says which
+                // effect has already said which sound"*.
                 //
-                // ⛔ writing the visual directly is what made every authored
-                // burst a hand-written PAIR — measured across the fourteen
-                // tables, 74 of 145 authored `sfx(…)` calls existed only to
-                // restate the cue this line can derive. A fighter's author had
-                // to remember a backend detail, and several characters grew a
-                // test whose whole job was checking they had.
+                // A fighter's author had to remember a backend detail, and several characters grew
+                // a test whose whole job was checking they had.
                 //
-                // ⚠ the `.loop` cues are why the OVERRIDE arm is not
+                // the `.loop` cues are why the OVERRIDE arm is not
                 // speculative: a sustained effect wants a looping variant of its
                 // own row's sound, which is a real thing to say. An authored
                 // `sfx: None` means *say what the art says* — and that is what
@@ -1773,8 +1636,8 @@ pub fn dispatch_move_events(
                     ambition_vfx::FxRequest::new(pos, ambition_vfx::FxId::new(effect))
                         .with_scale(*scale)
                         .from_source(ev.presentation_source.clone())
-                        // ⭐ the pose derived beside the OFFSET, so the artwork and
-                        // the place it lands cannot disagree about facing (D154).
+                        // the pose derived beside the OFFSET, so the artwork and the place it
+                        // lands cannot disagree about facing.
                         .with_pose(ev.world_pose);
                 if let Some(cue) = sfx {
                     request = request.with_sfx(SfxId::new(cue));
@@ -1821,24 +1684,17 @@ pub fn dispatch_move_events(
                 // Sample the owner's live aim at the fire frame, and fall back to
                 // the body's FACING when there is none.
                 //
-                // ⛔ **the fallback used to be a bare `(1.0, 0.0)`, and its comment
-                // said that was "forward (controlled-body-local +x = the body's
-                // facing direction)". It is not.** `ControlledBodyLocal` +x is the
-                // gravity frame's SIDE axis — `dir_to_world` applies
-                // `AccelerationFrame::to_world` and nothing else — so under normal
-                // gravity the fallback resolved to world +x and every such shot
-                // went RIGHT, whichever way the body was looking.
+                // It is not.** `ControlledBodyLocal` +x is the gravity frame's SIDE axis —
+                // `dir_to_world` applies `AccelerationFrame::to_world` and nothing else — so under
+                // normal gravity the fallback resolved to world +x and every such shot went RIGHT,
+                // whichever way the body was looking.
                 //
-                // ⚠ and the fallback is the COMMON path, not the rare one.
-                // `frame.fire` is an EDGE: `clear_edges()` nulls it every tick. A
-                // ranged move has startup, so by the time its fire frame arrives
-                // the intent that started it is already gone and this branch is
-                // what runs. Jon reported it as "Maryo's fireball only shoots to
-                // her right, not the way she is facing" — the demo passes
-                // `kin.facing` correctly on the press, and the value never
-                // survived to the shot.
+                // and the fallback is the COMMON path, not the rare one. `frame.fire` is an EDGE:
+                // `clear_edges()` nulls it every tick. A ranged move has startup, so by the time
+                // its fire frame arrives the intent that started it is already gone and this branch
+                // is what runs.
                 //
-                // ⭐ **THREE tiers, and the middle one is the fix.** A live edge
+                // **THREE tiers, and the middle one is the fix.** A live edge
                 // this frame wins (a moveset shot still tracks a strafing target).
                 // Otherwise the aim the move was STARTED with — captured into
                 // `MovePlayback::aim`, because the request that triggered the move
@@ -1846,10 +1702,10 @@ pub fn dispatch_move_events(
                 // the common case this comment already described. Only an
                 // unaimed move falls through to facing.
                 //
-                // ⛔ **before the middle tier, an UPWARD aim fired sideways.** The
+                // **before the middle tier, an UPWARD aim fired sideways.** The
                 // facing fallback repairs left-versus-right and flattens every
                 // non-horizontal shot, and it was reached by essentially every
-                // authored ranged move (GPT 5.6 review, 2026-08-04).
+                // authored ranged move.
                 let started_with = playbacks.get(ev.owner).ok().and_then(|pb| pb.aim);
                 let (dir, dir_policy) = match (control.0.fire, started_with) {
                     (Some(req), _) => (req.dir, req.dir_policy),
@@ -1869,7 +1725,7 @@ pub fn dispatch_move_events(
                     },
                 });
             }
-            // ⛔ **UNREACHABLE BY CONSTRUCTION, and named rather than swept into
+            // **UNREACHABLE BY CONSTRUCTION, and named rather than swept into
             // a wildcard.** An `Impulse` is a velocity write on the owner, so
             // `advance_move_playback` applies it at the authored instant and
             // never publishes it — there is nothing here to resolve. The arm
@@ -1881,18 +1737,12 @@ pub fn dispatch_move_events(
     }
 }
 
-/// Project a `MovesetMelee` body's live [`MovePlayback`] into its [`BodyMelee`]
-/// read-model so every existing consumer — the actor anim index, the
-/// view/telegraph index, the HUD, the melee integration tests — keeps working
-/// unchanged after melee moved onto the moveset. The move's Active window(s) drive
-/// a synthesized `MeleeSwing` whose phase (Startup/Active/Recovery) and elapsed
-/// mirror the move; the real hitboxes/damage are owned by
-/// [`advance_move_playback`], so this writes NO gameplay — it is purely the
-/// read-model the flat `BodyMelee` swing used to publish. In particular, damage
-/// resolution must never consult this projection as an authority gate: the live
-/// strike volume is the authority. A body with no live move
-/// has its projected swing cleared (its cooldown floors still tick in
-/// `tick_body_melee_cooldowns`).
+/// Project a `MovesetMelee` body's live [`MovePlayback`] into its [`BodyMelee`] read-model so every
+/// existing consumer — the actor anim index, the view/telegraph index, the HUD, the melee
+/// integration tests — keeps working unchanged after melee moved onto the moveset. In particular,
+/// damage resolution must never consult this projection as an authority gate: the live strike
+/// volume is the authority. A body with no live move has its projected swing cleared (its cooldown
+/// floors still tick in `tick_body_melee_cooldowns`).
 ///
 /// Runs AFTER `advance_move_playback` (so `t` is current). It is the SOLE writer
 /// of a `MovesetMelee` body's swing — there is no flat melee driver competing for
@@ -1946,11 +1796,6 @@ fn is_melee_verb(verb: &str) -> bool {
 
 /// Whether a move is a melee swing versus a ranged shot or a content special.
 ///
-/// **Asks the VERB, not the name.** The derived movesets name every swing after
-/// its verb (`attack` / `attack_up` / `attack_air_down`), so for years "does the
-/// id start with `attack`" and "is it bound to the attack verb" were the same
-/// question — and the id was the cheaper one to ask.
-///
 /// They stop being the same question the moment a moveset is hand-authored, and
 /// a fighting game's move list is named after its MOVES (`jab`, `smash_forward`,
 /// `tilt_up`), not after the buttons. Misclassifying one no longer suppresses
@@ -1958,26 +1803,16 @@ fn is_melee_verb(verb: &str) -> bool {
 /// wrong animation/HUD/telegraph state and can change movement policy that reads
 /// "mid-attack" from the projection. Both attack and smash verb families are
 /// therefore classified here by their bindings, not by move-id spelling.
-///
-/// The id check remains as the fallback for a move that the owner's moveset does
-/// not bind (a boss projecting moves it never registered a verb for), so this is
-/// a strict SUPERSET of the old rule: nothing that swung before stops swinging.
 fn is_melee_swing_move(moveset: Option<&MovesetContract>, id: &str) -> bool {
     if let Some(verb) = moveset.and_then(|m| verb_for_move(m, id)) {
         return is_melee_verb(verb);
     }
-    // ⛔ the id fallback is deliberately NARROW, and "is there a playback" is the
-    // wrong question — a patch that widened `BodyCombat::attacking` to
-    // `playback.is_some()` was proposed and reverted on 2026-08-13 (D107): it
-    // reported a body as attacking while it fired a bolt.
+    // the id fallback is deliberately NARROW, and "is there a playback" is the wrong question —
+    // a patch that widened `BodyCombat:attacking` to `playback.is_some` was proposed and
+    // reverted: it reported a body as attacking while it fired a bolt.
     id == ATTACK_VERB || id.starts_with("attack_") || id == SMASH_VERB || id.starts_with("smash_")
 }
 
-/// Map a moveset `"attack"` move id back to the swing direction it was derived
-/// for. The directional variants (`prefabs::directional_attack_variants`) name
-/// their moves after the intent, so the read-model swing (and the sprite row it
-/// drives) can recover the direction the flat path used to carry on `AttackSpec`.
-/// The base `"attack"` and any unknown id read as the forward swing.
 fn attack_intent_from_move_id(id: &str) -> AttackIntent {
     match id {
         "attack_up" => AttackIntent::Up,
@@ -2031,11 +1866,6 @@ fn synth_swing_from_move(pb: &MovePlayback) -> MeleeSwing {
     };
     let mut swing = MeleeSwing::new(attack_spec);
     swing.elapsed = pb.t;
-    // Expose the move's PERSISTENT one-hit-per-target dedup on the read-model
-    // swing, so `apply_hitbox_damage` emits it as the strike's `ignored_targets`.
-    // The resolver folds newly-landed keys back into `MovePlayback.hit_targets`
-    // (not this swing, which is rebuilt next frame) — that persistence is what
-    // stops the multi-hit / hit-SFX spam.
     swing.hit_targets = pb.hit_targets.clone();
     swing
 }

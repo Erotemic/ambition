@@ -1,6 +1,5 @@
 //! **Actors that stop THINKING when nobody is there to see them.**
 //!
-//! Jon, 2026-08-03: *"We probably need an engine concept that allows actors to
 //! be dormant. This is important for maryo because ai slop will just walk off
 //! the edge of the level before she even gets to that part of the level, so we
 //! need to wake or sleep their brain depending on how close she is to them.
@@ -20,30 +19,23 @@
 //!
 //! ## 2. The rule never names the player
 //!
-//! ⛔ **"near the player" is the version that breaks on the couch**, and it
-//! would break for netplay next. The wake test is *near any OBSERVER* — any
-//! body a view is composed around — so one player, four on a sofa, and a remote
-//! peer are the same rule, and this module never learns what a protagonist is.
-//! (`magnetize_pickups` had the other version and pulled every coin toward seat
-//! one; this is the same lesson applied before the mistake instead of after.)
+//! **"near the player" is the version that breaks on the couch**, and it would break for
+//! netplay next. The wake test is *near any OBSERVER* — any body a view is composed around — so
+//! one player, four on a sofa, and a remote peer are the same rule, and this module never
+//! learns what a protagonist is.
 //!
 //! ## 3. It sleeps the BRAIN, not the body — and must CLEAR the brain's last word
 //!
-//! The reported defect is an actor ACTING off-screen — walking off a ledge
-//! before the player arrives. Freezing the BODY would be visibly wrong the
-//! moment it mattered: a falling enemy would hang in the air at the edge of the
-//! wake radius, and a thrown one would stop mid-arc. Physics is cheap; deciding
-//! is not.
+//! Freezing the BODY would be visibly wrong the moment it mattered: a falling enemy would hang
+//! in the air at the edge of the wake radius, and a thrown one would stop mid-arc. Physics is
+//! cheap; deciding is not.
 //!
-//! ⛔ **but "a body with no control input already stands still" is FALSE here,
-//! and this module shipped believing it for a few hours.** `ActorControl` is a
-//! COMPONENT, not a per-tick message: `update_ecs_actors` writes it for every
-//! actor it ticks, and `integrate_sim_bodies` reads it for every actor with no
-//! `Without<Dormant>` filter at all. So a sleeping actor does not have "no
-//! control input" — it has a STALE one, and the body keeps integrating the last
-//! thing the brain said. A slop that fell asleep walking left walks left
-//! forever, which is *precisely the reported symptom* the policy was added to
-//! stop.
+//! **but "a body with no control input already stands still" is FALSE here, and this module
+//! shipped believing it for a few hours.** `ActorControl` is a COMPONENT, not a per-tick
+//! message: `update_ecs_actors` writes it for every actor it ticks, and `integrate_sim_bodies`
+//! reads it for every actor with no `Without<Dormant>` filter at all. So a sleeping actor does
+//! not have "no control input" — it has a STALE one, and the body keeps integrating the last
+//! thing the brain said.
 //!
 //! So going dormant CLEARS the frame. That is the whole difference between this
 //! module doing what it says and doing nothing at all.
@@ -84,32 +76,21 @@ pub struct Dormant;
 ///
 /// Runs before the brain tick, which filters `Without<Dormant>`.
 ///
-/// ⭐ **An observer is a body somebody is DRIVING, not a body marked
-/// `PlayerEntity`.** This asked for `PlayerEntity` and that was wrong for the
-/// one case the distinction exists for: `markers.rs` states the rule outright —
-/// *"`PrimaryPlayer` does NOT mean 'the currently controlled body'. The
-/// controlled body is whichever entity holds `DrivingParticipant(PlayerSlot::…)` —
-/// during possession that is a DIFFERENT entity (the possessed actor). Input,
-/// abilities, camera, portal viewer, and the melee lifecycle derive from"* it.
-/// Dormancy belongs on that list and was not on it.
+/// The controlled body is whichever entity holds `DrivingParticipant(PlayerSlot::…)` — during
+/// possession that is a DIFFERENT entity (the possessed actor). Input, abilities, camera,
+/// portal viewer, and the melee lifecycle derive from"* it. Dormancy belongs on that list and
+/// was not on it.
 ///
-/// The symptom, found by the agent wiring `ambition_content` and correctly NOT
-/// patched around content-side: possess an actor, walk it away from the body you
-/// left parked, and the thing you are driving falls asleep — and dormancy
-/// RETRACTS its control frame, so it stops dead. The wake radius was measuring
-/// the distance to a body nobody is looking through.
+/// The wake radius was measuring the distance to a body nobody is looking through.
 ///
-/// ⚠ **[`DrivingParticipant`] covers every seat**, so a second player on the
+/// **[`DrivingParticipant`] covers every seat**, so a second player on the
 /// couch still wakes the world around them with no extra wiring — which is what
 /// the `PlayerEntity` version bought and is preserved here.
 ///
-/// ⭐ **the predicate IS the query now.** This used to ask for every `Brain` and
-/// then `matches!(.., Brain::Player(_))` — a filter written because *"somebody is
-/// driving this body"* had nowhere of its own to live. It has one now:
-/// [`ambition_characters::brain::DrivingParticipant`] is authored at the seat and
-/// moved by possession alone, so the observer set is a `With<>` and there is no
-/// filter left to get wrong. The rule quoted above still holds — what changed is
-/// that the fact it describes is no longer spelled inside an AI-policy enum.
+/// It has one now: [`ambition_characters::brain::DrivingParticipant`] is authored at the seat and
+/// moved by possession alone, so the observer set is a `With<>` and there is no filter left to get
+/// wrong. The rule quoted above still holds — what changed is that the fact it describes is no
+/// longer spelled inside an AI-policy enum.
 pub fn assess_dormancy(
     mut commands: Commands,
     observers: Query<&ae::BodyKinematics, With<ambition_characters::brain::DrivingParticipant>>,
@@ -131,7 +112,7 @@ pub fn assess_dormancy(
         let awake = match policy {
             DormancyPolicy::Never => true,
             DormancyPolicy::AwakeNearObservers { radius } => {
-                // ⚠ **no observers ⇒ AWAKE.** A world with nobody in it is a
+                // **no observers ⇒ AWAKE.** A world with nobody in it is a
                 // world between activations, not a world to freeze: sleeping
                 // every actor there would make a room's first frame after a
                 // transition depend on which system ran first.
@@ -147,7 +128,7 @@ pub fn assess_dormancy(
             }
             (false, false) => {
                 commands.entity(entity).insert(Dormant);
-                // ⛔ **RETRACT the brain's last word.** See the module doc: the
+                // **RETRACT the brain's last word.** See the module doc: the
                 // body integrates `ActorControl` whether or not the brain ran,
                 // so a slop that fell asleep mid-stride would keep striding —
                 // off the ledge this policy exists to keep it away from.
@@ -173,7 +154,7 @@ mod tests {
 
     // **WHY EVERY FIXTURE BELOW SPAWNS A SEAT, NOT JUST A MARKER.**
     //
-    // ⛔ an observer is a body a participant is DRIVING, and that is
+    // an observer is a body a participant is DRIVING, and that is
     // `DrivingParticipant`. A fixture that spawned `PlayerEntity` alone would
     // find NO OBSERVERS AT ALL — and "no observer nearby" is precisely this
     // system's dormancy condition. Every actor would fall asleep, so the tests
@@ -181,7 +162,7 @@ mod tests {
     // asserting wakefulness failed. A dead input road is half invisible from its
     // own failures.
     //
-    // ⚠ the possession reconcile is still chained in below and is now a NO-OP
+    // the possession reconcile is still chained in below and is now a NO-OP
     // here (no possession is in flight), kept so the fixtures keep running the
     // production ordering rather than a shape that only exists in a test.
 
@@ -196,18 +177,15 @@ mod tests {
 
     fn app_with(policy: Option<DormancyPolicy>, actor_x: f32, observers: &[f32]) -> (App, Entity) {
         let mut app = App::new();
-        // ⭐ the derive runs AHEAD of its reader — see the note above `body_at`.
+        // the derive runs AHEAD of its reader — see the note above `body_at`.
         app.init_resource::<crate::abilities::traversal::possession::PossessionState>();
         app.add_systems(
             Update,
             (crate::control::project_driving_participant, assess_dormancy).chain(),
         );
         for x in observers {
-            // ⚠ **an observer is a body being DRIVEN**, which is why this spawns
-            // a SEAT and not only the `PlayerEntity` marker. The fixture used to
-            // spawn the marker alone, and it was encoding the definition this
-            // module had wrong: during possession `PlayerEntity` stays on the
-            // parked body while the seat moves to the possessed one.
+            // **an observer is a body being DRIVEN**, which is why this spawns a SEAT and not only
+            // the `PlayerEntity` marker.
             app.world_mut().spawn((
                 PlayerEntity,
                 ambition_characters::brain::DrivingParticipant(
@@ -244,7 +222,7 @@ mod tests {
     #[test]
     fn the_driven_body_is_the_observer_not_the_parked_one() {
         let mut app = App::new();
-        // ⭐ the derive runs AHEAD of its reader — see the note above `body_at`.
+        // the derive runs AHEAD of its reader — see the note above `body_at`.
         app.init_resource::<crate::abilities::traversal::possession::PossessionState>();
         app.add_systems(
             Update,
@@ -316,7 +294,7 @@ mod tests {
         assert!(!is_dormant(&app, actor), "and awake once one is close");
     }
 
-    /// ⭐ **the couch case, which "near the player" cannot express.** Seat one is
+    /// **the couch case, which "near the player" cannot express.** Seat one is
     /// far away and seat two is next to the actor; the actor is awake because
     /// SOMEBODY is there, not because the protagonist is.
     #[test]
@@ -335,9 +313,6 @@ mod tests {
         assert!(!is_dormant(&app, actor));
     }
 
-    /// ⛔ **THE REGRESSION THIS MODULE SHIPPED WITH, for a few hours on
-    /// 2026-08-03.**
-    ///
     /// `ActorControl` is a COMPONENT the body integrates every tick, and the
     /// brain tick that writes it filters `Without<Dormant>`. So falling asleep
     /// does not stop an actor — it FREEZES ITS LAST INTENT, and
@@ -346,7 +321,7 @@ mod tests {
     /// off mid-stride walks that direction forever, off the ledge this policy
     /// exists to keep it away from.
     ///
-    /// ⚠ **the first version of this module asserted only that the POLICY was
+    /// **the first version of this module asserted only that the POLICY was
     /// attached**, which was true and useless: the actor was marked dormant and
     /// kept walking. The claim to test is what the actor DOES, not what it is
     /// labelled.
@@ -357,7 +332,7 @@ mod tests {
         use ambition_platformer2d_core::reference_frame::LocalAxes;
 
         let mut app = App::new();
-        // ⭐ the derive runs AHEAD of its reader — see the note above `body_at`.
+        // the derive runs AHEAD of its reader — see the note above `body_at`.
         app.init_resource::<crate::abilities::traversal::possession::PossessionState>();
         app.add_systems(
             Update,
@@ -409,7 +384,7 @@ mod tests {
         use ambition_platformer2d_core::reference_frame::LocalAxes;
 
         let mut app = App::new();
-        // ⭐ the derive runs AHEAD of its reader — see the note above `body_at`.
+        // the derive runs AHEAD of its reader — see the note above `body_at`.
         app.init_resource::<crate::abilities::traversal::possession::PossessionState>();
         app.add_systems(
             Update,

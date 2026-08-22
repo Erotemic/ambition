@@ -5,13 +5,13 @@
 //! *"`npc_lab_raider` and `npc_salvage_guard` for the two intro
 //! placements that are literally named that."*
 //!
-//! ⚠ its body facts are the goblin's, because the archetype it wore gave
+//! its body facts are the goblin's, because the archetype it wore gave
 //! both the same ones — 5 HP, 170 px/s, 0.70 contact. Carried across
 //! unchanged; making a raider tougher than a goblin is a design decision
 //! and it should be made where design decisions are visible, not
 //! smuggled in by a migration.
 //!
-//! ⛔ no `action_set` here, exactly like the goblin: its kit comes from
+//! no `action_set` here, exactly like the goblin: its kit comes from
 //! its catalog row's `default_action_set: "striker_swipe"`. Authoring one
 //! would be a SECOND declaration of the same fact, which is the muddle
 //! this campaign removes rather than a completeness improvement.

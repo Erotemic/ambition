@@ -79,13 +79,11 @@ pub fn arrive_body_in_room(
     if momentum == ArrivalMomentum::Preserve {
         // ⛔ **AND THE RITUAL REGREW INSIDE THE FUNCTION WRITTEN TO KILL IT.**
         //
-        // `reset_body_clusters` transits at `TransitVelocity::Zero`, and a
-        // transit rebuilds the collapsed `SweepSample` FROM the velocity it sees
-        // — so restoring `kinematics.vel` afterwards left the body moving and
-        // its sweep sample stationary. Two motion facts, one body, disagreeing:
-        // exactly the "authority that requires a follow-up call" this type's own
-        // doc comment exists to name, one layer further in. (GPT review of
-        // 5cc4337..47d7de3, finding 8.)
+        // `reset_body_clusters` transits at `TransitVelocity:Zero`, and a transit rebuilds the
+        // collapsed `SweepSample` FROM the velocity it sees — so restoring `kinematics.vel`
+        // afterwards left the body moving and its sweep sample stationary. Two motion facts,
+        // one body, disagreeing: exactly the "authority that requires a follow-up call" this
+        // type's own doc comment exists to name, one layer further in.
         //
         // Reconciling AFTER the momentum policy is what makes the arrival one
         // operation: whatever velocity the body leaves here with is the velocity
@@ -257,9 +255,6 @@ mod tests {
     use super::*;
     use crate::movement::adhesive_crawler::CrawlerState;
 
-    /// The frozen-tick authorities do exactly what they say and nothing else —
-    /// the whole reason they exist is to be a NAME for two writes that used to be
-    /// bare, so the test is that they stay that small.
     #[test]
     fn a_halted_body_keeps_its_pose_and_loses_its_velocity() {
         let mut kin = crate::body_clusters::BodyKinematics {

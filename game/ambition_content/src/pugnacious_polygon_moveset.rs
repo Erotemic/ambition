@@ -154,7 +154,7 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
     );
 
     SmashRepertoire {
-        // ⚠ the genre shapes, deliberately. This is the unarmed half of the
+        // the genre shapes, deliberately. This is the unarmed half of the
         // REFERENCE pair, so its taunt and dash attack are the ones a new
         // humanoid should copy before it has a reason to differ. Five fighters
         // own a `DashAttackShape` because their own laws refused the generic

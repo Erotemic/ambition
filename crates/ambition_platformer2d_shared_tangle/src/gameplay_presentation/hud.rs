@@ -3,11 +3,7 @@
 //!
 //! The engine already owned WHERE a HUD may live
 //! ([`ResolvedGameplayPresentation::hud_region`](super::ResolvedGameplayPresentation::hud_region)
-//! and the surround/occupancy vocabulary). What it did not own was a way for a
-//! game to say WHAT to show there without the engine growing a field per game:
-//! the only HUD in the tree is a fixed three-readout widget hardcoded to
-//! `HP`/`MP`/`$`, so a demo wanting `RINGS: 12` or `SCORE 004200` had no seam
-//! and shipped no HUD at all.
+//! and the surround/occupancy vocabulary).
 //!
 //! This module is that seam, and it is deliberately two halves:
 //!
@@ -223,7 +219,7 @@ pub struct HudReadout {
     pub figure: Option<HudFigure>,
 }
 
-/// **The non-textual VALUE a readout carries.** (queue L20)
+/// **The non-textual VALUE a readout carries.**
 ///
 /// The split this type defends is the one the gauge already stated in prose and
 /// nothing enforced: a readout publishes a VALUE, and how that value is drawn —
@@ -232,26 +228,12 @@ pub struct HudReadout {
 ///
 /// ## Why an enum and not another `Option` field
 ///
-/// `fill: Option<f32>` was the first non-string thing the declared HUD could
-/// carry, and the obvious way to add the second (a portrait, a stock counter, an
-/// icon row) is a second `Option`. That is the wrong shape for one reason:
-/// **a renderer that has not been taught a new field silently draws nothing.**
-/// Silence is the failure mode this codebase keeps paying for — a body no family
-/// claimed rendered as absence, a binding that failed resolved to nothing — so
-/// the seam is an enum the renderer matches EXHAUSTIVELY. Adding a variant stops
-/// the renderer compiling until somebody decides how it looks, which is exactly
-/// when that decision should be made.
-///
 /// It is also why this is not `kind: HudReadoutKind`. A health slot is a label
 /// AND a number AND a bar at the same time; a readout that had to be exactly one
 /// of those could not express the only case that exists today.
 ///
-/// Variants are presentation PRIMITIVES, not content vocabulary — the same
-/// category as [`SurroundRegion`]. The engine still never learns what "health"
-/// is.
-/// ⚠ **`Clone` and not `Copy` since 2026-08-21.** [`HudFigure::Standing`] carries
-/// asset paths, and a `String` is what pays for the engine not knowing what a
-/// character is — see [`HudStanding::portrait`].
+/// Variants are presentation PRIMITIVES, not content vocabulary — the same category as
+/// [`SurroundRegion`].
 #[derive(Clone, Debug, PartialEq)]
 pub enum HudFigure {
     /// A `0..=1` proportion, drawn as a bar. Clamped on construction, because a
@@ -261,12 +243,9 @@ pub enum HudFigure {
     /// **A fighter's standing in a stocks match**: who they are and how many
     /// lives they have left.
     ///
-    /// The platform-fighter convention Jon asked for on 2026-08-21 — a portrait
-    /// with the percent under it and the remaining stocks as icons, one panel
-    /// per player across the bottom. What that LOOKS like is entirely the
-    /// renderer's: how big the portrait is, how many icons are drawn before it
-    /// switches to a count, whether the panels are centred. This says only what
-    /// is true.
+    /// What that LOOKS like is entirely the renderer's: how big the portrait is, how many icons are
+    /// drawn before it switches to a count, whether the panels are centred. This says only what is
+    /// true.
     Standing(HudStanding),
 }
 
@@ -275,7 +254,7 @@ pub enum HudFigure {
 pub struct HudStanding {
     /// The portrait image's ASSET PATH, resolved by the GAME.
     ///
-    /// ⛔ **a path and not a character id, deliberately.** The variants of
+    /// **a path and not a character id, deliberately.** The variants of
     /// [`HudFigure`] are presentation PRIMITIVES rather than content vocabulary,
     /// and "which character" is content — an engine that took an id here would
     /// have to learn what a roster is to draw a HUD. A path is a thing a

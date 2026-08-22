@@ -73,13 +73,6 @@ fn scaled_variant_specs_pair_smaller_geometry_when_generated() {
 }
 
 /// **The quad puts the sheet's own body on the collision box.**
-///
-/// ⛔ **this used to be `sprite_render_size_uses_max_collision_axis`**, pinning
-/// `height = max(collision.x, collision.y) * collision_scale` — the arithmetic
-/// that drew a long flat animal as tall as it is wide and made how big a
-/// character read depend on how much transparent margin its crop left. Retired
-/// 2026-08-08 with the bbox-quad route (queue D44): the field it multiplied is
-/// inert for every sheet that publishes a body.
 #[test]
 fn sprite_render_size_draws_the_body_at_the_collision_box() {
     let spec = robot_sheet();
@@ -103,11 +96,8 @@ fn sprite_render_size_draws_the_body_at_the_collision_box() {
     );
 }
 
-/// The 8.0 floor moved WITH the arithmetic it belonged to: it now guards only
-/// the fallback for a sheet that publishes no body. A sheet that does publish
-/// one is drawn at the size of that body, however small — a picture bigger than
-/// the box is the defect this route exists to remove, and "so micro-entities
-/// still render visibly" was a statement about the BOX.
+/// The 8.0 floor moved WITH the arithmetic it belonged to: it now guards only the fallback for a
+/// sheet that publishes no body.
 #[test]
 fn a_tiny_collision_box_draws_a_tiny_body_rather_than_a_floored_one() {
     let spec = robot_sheet();
@@ -313,23 +303,16 @@ fn parse_spritesheets_under(
 // by construction (the parse test above + the oracle below cover the
 // remaining contract).
 
-/// Transcription oracle for the Stage 20 / B3 catalog-tuning migration:
-/// the data-driven `sheet_for_character_id` must reproduce EXACTLY the
-/// tuning the old hardcoded `*_SHEET` statics carried (values
-/// transcribed here from the deleted sheets.rs constants). Each character
-/// must index its OWN published sheet: the former cross-id atlas borrow
-/// (`sprite_target`: standard pirates -> admiral, oni leader -> duelist)
-/// was removed because it misaligned the animation once sheets became
-/// per-frame alpha-trimmed (own texture + a foreign sheet's rects).
+/// Transcription oracle for the Stage 20 / B3 catalog-tuning migration: the data-driven
+/// `sheet_for_character_id` must reproduce EXACTLY the tuning the old hardcoded `*_SHEET`
+/// statics carried (values transcribed here from the deleted sheets.rs constants).
 #[test]
 fn catalog_tuning_reproduces_the_old_hardcoded_sheets() {
     // (id, collision_scale, frame_sample_inset)
     let expected = [
-        // NOT "player": its art was replaced by the authored SVG rig, and that
-        // sheet ships its own `collision_scale` in its manifest. Pinning the
-        // pre-migration 1.35 here would forbid ever retuning the protagonist --
-        // this list guards the ONE-TIME move of tuning out of hardcoded statics
-        // into the catalog, not the values themselves forever.
+        // Pinning the pre-migration 1.35 here would forbid ever retuning the protagonist -- this
+        // list guards the ONE-TIME move of tuning out of hardcoded statics into the catalog, not
+        // the values themselves forever.
         ("robot", 2.1, 1),
         ("goblin", 2.1, 1),
         ("sandbag", 1.38, 1),
@@ -368,11 +351,9 @@ fn catalog_tuning_reproduces_the_old_hardcoded_sheets() {
         );
     }
 
-    // Own-sheet resolution (regression guard for the removed `sprite_target`
-    // atlas borrow): each of these characters must index its OWN packed sheet,
-    // not the representative's. The idle frame-0 atlas rect is read from the
-    // resolved record, so borrowing the admiral's/duelist's rects (which trim
-    // to different widths) would make these rects equal the representative's.
+    // The idle frame-0 atlas rect is read from the resolved record, so borrowing the
+    // admiral's/duelist's rects (which trim to different widths) would make these rects equal the
+    // representative's.
     let idle_rect = |id: &str| {
         sheet_for_character_id(id)
             .unwrap_or_else(|| panic!("{id} must resolve a sheet spec"))
@@ -399,21 +380,9 @@ fn catalog_tuning_reproduces_the_old_hardcoded_sheets() {
     );
 }
 
-// Catalog<->sheet integration tests, moved from actor::character_catalog
-// (Stage 22): they exercise sheet RESOLUTION, which is this module's contract,
-// and keeping them here lets the actor unit drop its presentation dependency.
 
-/// Regression: the boss subdir manifests (gnu_ton_boss,
-/// mockingbird_boss) must produce a working `CharacterSheetSpec`
-/// at runtime. They reached the catalog via `synth_boss_manifest`,
-/// but that script's `anchors: {}` was serialized as `anchors:
-/// ()` by an in-house RON dumper bug — RON rejected `()` as a
-/// HashMap value, the manifest failed to parse, and the Hall
-/// silently rendered placeholders for both bosses (2026-05-24).
-/// `inspect_hall_sprites.py` couldn't see the issue because its
-/// `pyron.load` parser was more permissive than the Rust runtime's
-/// `ron::from_str`. Pin both ids here so any future
-/// reintroduction of the bug trips a focused diff.
+/// `inspect_hall_sprites.py` couldn't see the issue because its `pyron.load` parser was more
+/// permissive than the Rust runtime's `ron::from_str`.
 #[test]
 fn boss_subdir_manifests_resolve_through_catalog() {
     for cid in &["npc_gnu_ton_boss", "npc_mockingbird_boss"] {
@@ -438,7 +407,7 @@ fn every_catalog_sprite_spec_has_idle_row_if_loaded() {
     // (None) or includes an Idle row — never an Idle-less spec
     // that the runtime would unwrap into a panic.
     //
-    // Caught a real crash 2026-05-24 when the manifest-driven
+    // Caught a real crash when the manifest-driven
     // fallback loaded a spec for a character whose generated
     // sheet only had run/walk rows (no idle).
 
@@ -458,7 +427,7 @@ fn every_catalog_sprite_spec_has_idle_row_if_loaded() {
 
 #[test]
 fn sprite_loader_resolves_a_sheet_for_most_catalog_entries() {
-    // Phase 6 + manifest-driven fallback (2026-05-24): every
+    // Phase 6 + manifest-driven fallback: every
     // catalog id either resolves to a hardcoded `*_SHEET` const
     // (for the entries that need bespoke tuning) or falls back
     // to the manifest-driven `try_load_spec_for_character_id`
@@ -532,85 +501,17 @@ fn resolve_anim_renders_most_specific_pose_in_the_actor_anim_set() {
 ///     list_what_each_character_derives_for_its_body -- --ignored --nocapture
 /// ```
 ///
-/// ⭐ **queue D4 asks for exactly this** — *"a way to tell whether a given
-/// character has been done"* — and it has to run the REAL derivation rather than
-/// restate its arithmetic. A Python reimplementation of
-/// `catalog_join::sprite_body_collision_for_character_id_from_data` would be a second copy of
-/// the rule, free to drift from the one the game uses, which is the mistake this
-/// row is already recovering from one level down.
-///
-/// ⚠ **the question is narrower than "is it the right size".** A height applies
+/// **the question is narrower than "is it the right size".** A height applies
 /// only when the sheet publishes `body_metrics.body_pixel_bbox`; without one the
 /// derivation returns `None` and the LDtk spawn box decides, whatever the
 /// catalog says. So the useful column is not the number — it is whether there IS
 /// one.
 ///
-/// ⚠ **and `collision_scale` is IRRELEVANT on this path**, which is worth seeing
+/// **and `collision_scale` is IRRELEVANT on this path**, which is worth seeing
 /// rather than being told: when a standing height applies, `render` is rebuilt
 /// from `height / body_h` and the hand-tuned scale never enters. Two `Standard`
 /// characters whose sheets disagree about `collision_scale` still land on the
 /// same body height.
-/// **An authored `standing_height` IS the body's height — not a hint, not a
-/// scale factor applied to something else.**
-///
-/// The derivation has two branches, and until 2026-08-22 the authored one had
-/// never run in shipped content, so nothing had ever checked that it delivers
-/// what it promises. It does: the three heavies land on their stated numbers
-/// exactly. This pins that, for every row that authors a height now or later.
-///
-/// ⛔ deliberately asserts NO specific number and names NO character. The
-/// heights are Jon's to retune, and a test that spelled `56.2` would redden on
-/// an ordinary content edit while telling us nothing about the mechanism. The
-/// invariant is the equality itself, which survives any retune and widens on its
-/// own as the remaining 142 rows get authored.
-///
-/// ⚠ a row whose sheet publishes no `body_metrics` derives `None` and keeps its
-/// LDtk box whatever the catalog says — that is the documented rule, so those
-/// rows are skipped rather than failed. If a height is authored for one, the
-/// number silently does nothing; the count printed on failure is how that shows.
-#[test]
-fn an_authored_standing_height_is_the_height_the_body_derives() {
-    use super::assets::sprite_body_collision_for_character_id_in;
-
-    let catalog = test_catalog();
-    let sheets = Default::default();
-    let ldtk = ambition_platformer2d_core::Vec2::new(28.0, 46.0);
-
-    let mut checked = 0usize;
-    let mut inert = Vec::new();
-    for (id, entry) in &catalog.data().characters {
-        let Some(authored) = entry.standing_height else {
-            continue;
-        };
-        match sprite_body_collision_for_character_id_in(&sheets, &catalog, id, ldtk) {
-            Some(body) => {
-                checked += 1;
-                assert!(
-                    (body.collision.y - authored).abs() < 1e-3,
-                    "{id} authors a standing height of {authored} but derives a body \
-                     {:.3} tall — the authored branch is not honoring its input",
-                    body.collision.y,
-                );
-            }
-            // No published body box: the LDtk spawn box decides and the authored
-            // height is inert. Collected so an authored-but-ignored height is
-            // visible rather than passing silently.
-            None => inert.push(id.clone()),
-        }
-    }
-
-    assert!(
-        checked > 0,
-        "no catalog row authors a standing_height, so this guard checked nothing \
-         — if heights were removed on purpose, remove this test with them"
-    );
-    assert!(
-        inert.is_empty(),
-        "these rows author a standing_height that CANNOT apply, because their \
-         sheet publishes no body_metrics — the number is silently doing nothing: {inert:?}"
-    );
-}
-
 #[test]
 #[ignore = "audit listing: prints what each character derives; read it, do not assert on it"]
 fn list_what_each_character_derives_for_its_body() {

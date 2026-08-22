@@ -17,13 +17,9 @@ use bevy::prelude::{App, Commands, Update};
 /// **A BODY REMEMBERS WHICH CHARACTER IT IS**, which is the precondition the
 /// character-first provocation branch keys on.
 ///
-/// ⛔ **the measurement D84 named, done at the field rather than by reading.**
-/// `provoke_actor_in_place` prefers the creature's own `provoked_profile` and
-/// finds it through `ActorConfig::sprite_character_id`. If a peaceful NPC built
-/// by the archetype road did not carry that field, every pirate's authored
-/// policy would be dead content and deleting the rows it replaces would return
-/// them all to `combatant` — silently, because a generic brawler looks like a
-/// working provoke.
+/// If a peaceful NPC built by the archetype road did not carry that field, every pirate's
+/// authored policy would be dead content and deleting the rows it replaces would return them
+/// all to `combatant` — silently, because a generic brawler looks like a working provoke.
 ///
 /// Two terms, both observed: the id survives construction when the placement
 /// names one, AND it is the id that was named rather than whatever the display
@@ -53,7 +49,7 @@ fn a_body_built_from_a_named_character_remembers_which_one() {
 
 /// A body whose CHARACTER declares `template` as its controller policy.
 ///
-/// ⛔ **`make_enemy(brain_key)` stood here** and built through an archetype row
+/// **`make_enemy(brain_key)` stood here** and built through an archetype row
 /// resolved from the key, so a test named a creature-ish string and got whatever
 /// the fixture roster said that creature was. The rows are deleted (AC6) and a
 /// body's policy comes from the character that states it — which is what these
@@ -188,15 +184,9 @@ fn room_features_lower_through_the_caller_supplied_registry() {
     );
 }
 
-/// Regression net: an encounter mob's brain comes from the CONTROLLER POLICY
-/// its character declares.
-///
-/// ⛔ **it used to come from an archetype row**, and this test read
-/// `medium_striker`'s — a row that "migrated from `MeleeBrute` to `Smash` in
-/// `character_archetypes.ron`", which the test then followed. The row is
-/// deleted (AC6); the claim survives because it was never really about the row:
-/// a body's driver is the profile SOMETHING published, and now the only thing
-/// that can publish one is a character or a placement.
+/// The row is deleted (AC6); the claim survives because it was never really about the row: a body's
+/// driver is the profile SOMETHING published, and now the only thing that can publish one is a
+/// character or a placement.
 #[test]
 fn encounter_mob_brain_comes_from_its_characters_profile() {
     use ambition_characters::brain::{Brain, StateMachineCfg};
@@ -269,10 +259,8 @@ fn smash_fixture_cast() -> crate::character_runtime::PreparedCharacterRegistry {
     registry
 }
 
-/// Regression net: the boss populate function attaches Brain (BossPattern) +
-/// ActionSet + ActorControl alongside BossFeature. Pins the
-/// parallel-shape invariant. (Bosses are plan rows now, so the recipe calls
-/// this same `_into` on an executor-allocated root.)
+/// Pins the parallel-shape invariant. (Bosses are plan rows now, so the recipe calls this same
+/// `_into` on an executor-allocated root.)
 #[test]
 fn boss_spawn_attaches_brain_components() {
     use ambition_characters::brain::{ActionSet, ActorControl, Brain, StateMachineCfg};
@@ -346,8 +334,6 @@ fn boss_spawn_attaches_brain_components() {
         .expect("boss shared components");
     assert_eq!(identity.id(), "test_boss");
     assert_eq!(*disposition, ActorDisposition::Hostile);
-    // AC3.1.A: ONE liveness answer. The line below used to assert a `BodyCombat`
-    // mirror agreed with it, which is the duplication rather than a check of it.
     assert!(health.alive());
     assert_eq!(
         combat.hit_flash, 0.0,
@@ -357,10 +343,7 @@ fn boss_spawn_attaches_brain_components() {
     assert_eq!(aggression.mode, AggressionMode::Hostile);
 }
 
-/// Regression net: every encounter-spawned hostile actor lands
-/// with the universal-brain components attached. Pins the
-/// parallel-shape invariant so a future spawn-site refactor
-/// can't silently lose the brain.
+/// Pins the parallel-shape invariant so a future spawn-site refactor can't silently lose the brain.
 #[test]
 fn encounter_mob_spawns_with_brain_components() {
     let mut app = App::new();
@@ -404,11 +387,8 @@ fn encounter_mob_spawns_with_brain_components() {
 
 /// `enemy_default_brain` picks the brain FAMILY its controller policy names.
 ///
-/// ⛔ **it used to pin a KEY→family map** (`sandbag_infinite` → StandStill,
-/// `fixture_mount` → ChargeCrash, `medium_striker` → Smash) read out of the
-/// archetype table, and its own comments record two creatures leaving that table
-/// underneath it. The mapping under test was never the creature's — it is
-/// `template → StateMachineCfg`, and a character states the template.
+/// The mapping under test was never the creature's — it is `template → StateMachineCfg`, and a
+/// character states the template.
 #[test]
 fn enemy_default_brain_picks_the_family_its_policy_names() {
     use ambition_characters::brain::CharacterBrainTemplate as Template;
@@ -435,34 +415,21 @@ fn enemy_default_brain_picks_the_family_its_policy_names() {
     match enemy_default_brain(&striker, abilities) {
         Brain::StateMachine(StateMachineCfg::Smash { cfg, .. }) => {
             assert!(cfg.aggro_radius > 0.0);
-            // ⭐ **the PROFILE's pacing against the BODY's top speed** (§4.7),
-            // which is the seam the archetype row used to collapse into one
-            // number: 155 px/s at `chase_effort: 1.0`.
             assert!((cfg.chase_speed - 155.0).abs() < 0.01);
         }
         other => panic!("expected Smash for a Smash policy, got {other:?}"),
     }
 }
 
-// ⛔⛔ **FOUR ARCHETYPE-TABLE TESTS WERE HERE AND ARE DELETED** (AC6):
-// `enemy_default_brain_covers_every_combat_archetype`,
-// `mounted_rider_archetype_carries_a_ranged_kit`,
-// `enemy_default_action_set_covers_every_combat_archetype` and
-// `enemy_default_action_set_picks_per_archetype_specs`. Each swept
-// `COMBAT_BRAIN_KEYS` or a `fixture_spec(..)` row and asserted that the table's
-// rows produced sensible kits — a coverage lint over a table that no longer
-// exists, and whose replacement is not another sweep: what a body fights with is
-// authored on its character and reaches it through one persona writer, and a
-// character that cannot state a body refuses to build one.
+// Each swept `COMBAT_BRAIN_KEYS` or a `fixture_spec(..)` row and asserted that the table's rows
+// produced sensible kits — a coverage lint over a table that no longer exists, and whose
+// replacement is not another sweep: what a body fights with is authored on its character and
+// reaches it through one persona writer, and a character that cannot state a body refuses to
+// build one.
 
 /// A body forced hostile must be able to SWING, not merely to approach — the
 /// "walks toward you but never swings" state where only movement was made
 /// hostile.
-///
-/// ⚠ the action set is stated here rather than resolved: the claim under test is
-/// the BRAIN's, and the kit is its input. It used to be read off the
-/// `pirate_heavy` archetype row, which made a brain test depend on a content
-/// table (deleted, AC6).
 #[test]
 fn a_body_forced_hostile_swings_when_its_kit_can() {
     let (enemy, abilities) =
@@ -610,26 +577,19 @@ fn authored_npc_takes_its_label_from_the_catalog_display_name() {
     );
 }
 
-/// **The caller-level guard for D73's identity inversion.**
+/// **The caller-level guard for identity inversion.**
 ///
-/// `spawn_enemy_with_faction_into` used to reach the prepared character through
-/// `config.sprite_character_id`, which `presentation_identity` →
-/// `id_for_authored_identity` produces WITH A DISPLAY-NAME FALLBACK. Reading a
-/// body's health off that chain infers gameplay identity from presentation
-/// identity, which is the arrow the character-template campaign exists to
-/// reverse. Nothing in the tree noticed; this module is where it would have.
-///
-/// Historical rationale: `docs/archive/planning-superseded/2026-08-13/`
-/// `character-template-architecture-2026-08-10.md`, appendix C.
+/// Reading a body's health off that chain infers gameplay identity from presentation identity,
+/// which is the arrow the character-template campaign exists to reverse. Nothing in the tree
+/// noticed; this module is where it would have.
 mod authored_enemy_reads_its_character {
     use super::*;
 
-    // ⛔⛔ **`roster()` WAS HERE AND IS DELETED** (AC6). It published two rows
-    // with deliberately different pools so "the character's HP won" could be
-    // told apart from "the archetype's did" — the comparison this module was
-    // built to make. There is no second authority to lose to: a body's pool is
-    // its character's, and a placement naming no buildable character is refused
-    // rather than handed a generic body with a plausible pool.
+    // It published two rows with deliberately different pools so "the character's HP won" could
+    // be told apart from "the archetype's did" — the comparison this module was built to make.
+    // There is no second authority to lose to: a body's pool is its character's, and a
+    // placement naming no buildable character is refused rather than handed a generic body with
+    // a plausible pool.
 
     /// `npc_busy_beaver` is a REAL catalog row with the real display name
     /// "Busy Beaver", authoring 9 HP as a character. Using a real row is what
@@ -637,17 +597,7 @@ mod authored_enemy_reads_its_character {
     /// **A CATALOG-BACKED NPC WEARS ITS CHARACTER**, which is what makes
     /// provocation able to ask what it becomes.
     ///
-    /// ⛔⛔ **the precondition I nearly broke by fixing the field above it.**
-    /// `provoke_actor_in_place` used to find a body's character through
-    /// `sprite_character_id` — presentation deciding a gameplay question, which
-    /// Jon's second redirect (P1) named as the inversion D73 already removed.
-    /// Threading the GAMEPLAY identity in was one edit; the trap is that a
-    /// peaceful NPC did not carry one at all, so the corrected read would have
-    /// found nothing, every provoked pirate would have fallen through to a
-    /// matcher whose arms are DELETED, and they would all have become generic
-    /// combatants. Silently — a brawler looks like a working provoke.
-    ///
-    /// ⚠ the anonymous case is asserted too. A synthetic placement names no
+    /// the anonymous case is asserted too. A synthetic placement names no
     /// character, and inventing a worn id to satisfy a lookup would be worse
     /// than the absence.
     #[test]
@@ -684,21 +634,16 @@ mod authored_enemy_reads_its_character {
 
     /// **A CONSTRUCTED CHARACTER IS STAMPED AS APPLIED ON ITS OWN FRAME.**
     ///
-    /// ⛔⛔ **the invariant Jon's second redirect asked for directly, and the one
-    /// I got wrong by inference.** The persona derive re-applies a body whenever
-    /// `stale_cast = PersonaBaseline.is_none_or(..)`. Construction wrote only
-    /// `ProjectedCharacterKit`, so a body built COMPLETE still had no baseline,
-    /// `stale_cast` was true, and the character was applied a SECOND time on the
-    /// next pass. I had verified the other applier
-    /// (`project_prepared_character_definitions`, which does skip) and reported
-    /// that as covering both.
+    /// Construction wrote only `ProjectedCharacterKit`, so a body built COMPLETE still had no
+    /// baseline, `stale_cast` was true, and the character was applied a SECOND time on the next
+    /// pass.
     ///
-    /// ⭐ **this fixture cannot lie about it**, which is why it lives here: the
+    /// **this fixture cannot lie about it**, which is why it lives here: the
     /// app it builds registers the spawn system and NOTHING ELSE.
     /// `apply_worn_character_gameplay` is not in it, so a `PersonaBaseline` on
     /// the body can only have come from construction.
     ///
-    /// ⚠ and `displaced` must be EMPTY — that is the Construction boundary's
+    /// and `displaced` must be EMPTY — that is the Construction boundary's
     /// meaning. Nothing was taken from this body; it was built as this character.
     /// A stamp carrying displacements would claim a replacement had happened and
     /// hand a later re-wear something wrong to retract to.
@@ -775,9 +720,8 @@ mod authored_enemy_reads_its_character {
         );
     }
 
-    /// Initial orientation is carried by the authored occurrence and lands on
-    /// the authoritative body before its first controller tick. This is the
-    /// regression guard for the old unconditional `facing: 1.0` constructor.
+    /// Initial orientation is carried by the authored occurrence and lands on the authoritative
+    /// body before its first controller tick.
     #[test]
     fn a_placement_sets_initial_body_facing_on_the_construction_frame() {
         let mut spec = crate::rooms::EnemySpawnSpec::new(
@@ -838,12 +782,6 @@ mod authored_enemy_reads_its_character {
 
     /// **THE SAME BODY, TWO PLACEMENTS, TWO DRIVERS.**
     ///
-    /// ⭐ the demonstration Jon asked for in place of the one-of-each archetype
-    /// museum: *the same controller policy can drive distinct bodies, and the
-    /// same body can use distinct policies.* A goblin that patrols a corridor
-    /// and a goblin that guards a door are one creature and two placements — and
-    /// until `EnemySpawnSpec::brain_profile` existed, they could not be.
-    ///
     /// Two terms, both observed: the placement's policy REACHES the body's
     /// tuning, and a placement that names nothing keeps the character's own — so
     /// this cannot pass by both answers happening to agree.
@@ -866,7 +804,7 @@ mod authored_enemy_reads_its_character {
 
     /// **A placement that names a policy nobody published is a REFUSAL.**
     ///
-    /// ⛔ the same contract `CharacterDefinition::autonomous_profile_ref`
+    /// the same contract `CharacterDefinition::autonomous_profile_ref`
     /// carries, one authority over: an explicit reference that misses must never
     /// read as silence, or the level says "guard this door" and the body
     /// patrols, with everything green.
@@ -880,7 +818,7 @@ mod authored_enemy_reads_its_character {
     /// One published policy: a door guard that barely ambles.
     fn policy_registry() -> ambition_characters::actor::character_catalog::BrainProfileRegistry {
         use ambition_characters::actor::character_catalog::CharacterCatalog;
-        // ⚠ NAMESPACED, because assembly namespaces every fragment key — a
+        // NAMESPACED, because assembly namespaces every fragment key — a
         // fixture keying the bare local name models a catalog that cannot exist.
         const CATALOG: &str = r#"(
             autonomous_profiles: {
@@ -1008,13 +946,13 @@ mod authored_enemy_reads_its_character {
 
     /// **A CHARACTER-FIRST BODY CARRIES THE WEAPON ITS CHARACTER HOLDS.**
     ///
-    /// ⛔ the spawn plan resolves a held item from `enemy.spec`, and a
+    /// the spawn plan resolves a held item from `enemy.spec`, and a
     /// character-first seed's spec is INERT — so a migrated raider spawned
     /// empty-handed and dropped nothing when it died, which is most of what a
     /// raider is. This is the gap between `pirate_shark_rider` being authorable
     /// and being migratable (its row's `held_item: Some("gun_sword")`).
     ///
-    /// ⚠ the control is the same character with no weapon authored: a body that
+    /// the control is the same character with no weapon authored: a body that
     /// holds nothing must carry no `HeldItem` at all, or "authored nothing" and
     /// "authored a weapon" would be the same state.
     #[test]
@@ -1106,7 +1044,7 @@ mod authored_enemy_reads_its_character {
 
     /// **A COMPLETE character is BUILT, not patched.**
     ///
-    /// ⭐ the difference this asserts is the campaign's central one. Both spawns
+    /// the difference this asserts is the campaign's central one. Both spawns
     /// below name the same character; the first is half-migrated and receives
     /// the archetype's body with the character's health written over it, and the
     /// second states how it moves and therefore gets a body made of nothing but
@@ -1130,81 +1068,56 @@ mod authored_enemy_reads_its_character {
             "the character's contact damage did not reach the body"
         );
 
-        // ⛔ **the CONTROL half is deleted with the road it exercised** (AC5,
-        // 2026-08-13). It spawned the same character minus its locomotion and
-        // asserted that a half-migrated body still took the legacy road with its
-        // health patched over the archetype's. That road is
-        // the body-assist seam, which is gone: every registered character
-        // can build its own body, so the state that control modelled cannot
-        // occur. Asserting it would pin a behaviour production can no longer
-        // produce.
+        // That road is the body-assist seam, which is gone: every registered character can
+        // build its own body, so the state that control modelled cannot occur.
     }
 
     /// **A SPAWN NOTHING CAN BUILD IS REFUSED, LOUDLY.**
     ///
-    /// ⭐ Jon's P0.1, at the point where it can finally be enforced: *"An
     /// authored `character_id = IronMary` must never silently produce a
     /// shark-rider body because Iron Mary was accidentally omitted from some
     /// registration list."*
     ///
-    /// ⛔ **the condition WAS "nothing can build it", and is now simply "it
-    /// cannot be built"** (AC6). The distinction existed because a demo that
-    /// BORROWS another provider's character could legitimately run without it,
-    /// falling back to a roster row that still described the body — Mary-O's
-    /// plane swarms were the case. Mary-O owns those characters outright now and
-    /// the rows are deleted, so there is no second thing that could build any
-    /// body and the condition has one term.
+    /// **the condition WAS "nothing can build it", and is now simply "it cannot be built"**
+    /// (AC6). The distinction existed because a demo that BORROWS another provider's character
+    /// could legitimately run without it, falling back to a roster row that still described the
+    /// body — Mary-O's plane swarms were the case.
     ///
-    /// ⚠ **this is the SPAWN-seam regression, and the seam is no longer where a
-    /// shipped composition meets it**: `construction::preflight_planned_bodies`
-    /// refuses the same placement at preparation, with the room whole. What this
-    /// keeps is the assertion that the enemy road itself does not quietly build
-    /// something — a caller reaching it unplanned must still fail loudly.
+    /// What this keeps is the assertion that the enemy road itself does not quietly build something
+    /// — a caller reaching it unplanned must still fail loudly.
     #[test]
     #[should_panic(expected = "which this composition has not registered")]
     fn a_spawn_naming_nothing_buildable_is_refused() {
         // A character nobody registered: the body would be a generic
         // `combatant` wearing Iron Mary's name.
         //
-        // ⚠ the registry is NON-EMPTY here on purpose — an empty one is the
+        // the registry is NON-EMPTY here on purpose — an empty one is the
         // shape a host with no cast has, and this asserts the content rule
         // rather than that shape.
         spawn_with_prepared_and_brain(prepared(), "iron_mary", "no_such_archetype");
     }
-    // ⛔⛔ **`a_composition_with_no_cast_at_all_falls_back_instead_of_refusing`
-    // WAS HERE AND IS DELETED** (AC6) — the HOST WAIVER, the last fallback road
-    // in construction. It asserted that a composition publishing no characters
-    // still built SOMETHING, because refusing *"would take down the multi-game
-    // shell over a registry that publishes no characters"*. Every composition in
-    // the repository publishes one now; a body with nothing to build it from is
-    // a construction error in all of them, which is what makes the road
+    // It asserted that a composition publishing no characters still built SOMETHING, because
+    // refusing *"would take down the multi-game shell over a registry that publishes no
+    // characters"*. Every composition in the repository publishes one now; a body with nothing
+    // to build it from is a construction error in all of them, which is what makes the road
     // deletable rather than merely unused.
 
-    // ⛔⛔ **`a_spawn_naming_an_unregistered_character_with_a_real_archetype_falls_back`
-    // WAS HERE AND IS DELETED** (AC6). It asserted that a placement naming a
-    // character this composition does NOT have still got the archetype's body,
-    // *"that is what makes a standalone demo able to run with a borrowed cast"*.
-    // The borrowed-cast case was real and it is closed at the source instead:
-    // every demo registers the characters it places (Mary-O's plane swarms were
-    // the last borrowers, 2026-08-13), so there is nothing left to borrow FOR —
-    // and a placement that names a character nobody registered is refused rather
-    // than built as a stranger with the right name.
 
     /// **A PLACEMENT DECIDES WHEN ITS BODY COMES BACK.**
     ///
-    /// ⭐ ADR 0022's rule, finally authorable where it belongs. Respawn is the
+    /// ADR 0022's rule, finally authorable where it belongs. Respawn is the
     /// one fact in an enemy archetype row that is neither the character's nor
     /// the controller's — the same creature is a permanent casualty in a story
     /// room and a repopulating trash mob in a corridor — and it lived on the row
     /// only because a placement had no field for it.
     ///
-    /// ⛔ the reason it became urgent: a MIGRATED character has no row, so its
+    /// the reason it became urgent: a MIGRATED character has no row, so its
     /// respawn arrived through the `combatant` fallback. That worked by luck.
     #[test]
     fn a_placement_authors_its_own_respawn_and_outranks_the_default() {
         use ambition_entity_catalog::placements::RespawnPolicy;
 
-        // ⭐ **the two answers must DIFFER, or neither assertion can tell "the
+        // **the two answers must DIFFER, or neither assertion can tell "the
         // placement was read" from "the default stood".** The unauthored answer
         // is `UNDESCRIBED_BODY_RESPAWN` — the engine's stated policy for a body
         // nobody described — so the placement asks for the opposite.
@@ -1288,16 +1201,10 @@ mod authored_enemy_reads_its_character {
         spawn_with_prepared_and_brain(prepared, character_id, "medium_striker")
     }
 
-    // ⛔ **`spawn_with_brain` WAS HERE and went with the ontology** (AC6). It
-    // varied the ARCHETYPE KEY a placement names while holding the character
-    // fixed — the axis a refusal used to turn on, because a key that matched no
-    // row still built a body from the reserved `combatant` one. There are no
-    // rows, so the key decides nothing about a body and the axis has no second
-    // value to take. Its one caller went with the parity test that read it.
 
     fn spawn_with_prepared_and_brain(
         prepared: crate::character_runtime::PreparedCharacterRegistry,
-        // ⚠ was `Option`, and both callers always passed `Some`. The placement
+        // was `Option`, and both callers always passed `Some`. The placement
         // type requires a character now, so the axis this could vary no longer
         // exists.
         character_id: &'static str,
@@ -1411,7 +1318,7 @@ mod authored_enemy_reads_its_character {
         // The display name is deliberately NOT the character's, so the only
         // route to 9 HP is the authored id.
         //
-        // ⚠ **the fixture registers a body-COMPLETE character now** (AC5): the
+        // **the fixture registers a body-COMPLETE character now** (AC5): the
         // health arrives because the body is BUILT from the definition, not
         // because a patch corrected an archetype's. That is what production does
         // — every registered character can build its own body — and a fixture
@@ -1424,12 +1331,10 @@ mod authored_enemy_reads_its_character {
         );
         assert_eq!(sprite.as_deref(), Some("npc_busy_beaver"));
     }
-    // ⛔⛔ **`a_spawn_that_only_looks_like_a_character_does_not_become_one` WAS
-    // HERE AND IS DELETED — the inference it guarded is now UNSTATEABLE** (AC6).
-    // It spawned a placement whose DISPLAY NAME matched a catalog character and
-    // asserted the body kept the archetype's 3 HP rather than the character's 9,
-    // because gameplay identity must not be inferred from presentation identity.
-    // A body is built from `gameplay_character_id()` — the placement's
-    // `character_id` and nothing else — and a placement that names none has no
-    // second road to be built on, so the display name cannot supply one.
+    // It spawned a placement whose DISPLAY NAME matched a catalog character and asserted the
+    // body kept the archetype's 3 HP rather than the character's 9, because gameplay identity
+    // must not be inferred from presentation identity. A body is built from
+    // `gameplay_character_id()` — the placement's `character_id` and nothing else — and a
+    // placement that names none has no second road to be built on, so the display name cannot
+    // supply one.
 }

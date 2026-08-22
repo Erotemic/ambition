@@ -56,12 +56,8 @@ impl LocalViewId {
 
 /// **WHERE A VIEW SITS INSIDE THE GAMEPLAY RECTANGLE**, as a fraction of it.
 ///
-/// ⭐ **this is the layout answer [`compose_local_views`] used to have to
-/// decline.** Two views composed there came up on the same rectangle and drew on
-/// top of each other, because the host publisher that owns
-/// [`crate::camera_snapshot::CameraViewport`] wrote ONE resolved gameplay rect
-/// onto every view. The publisher now carves that rect by this component, so a
-/// composition states its layout as data on the views it already owns.
+/// The publisher now carves that rect by this component, so a composition states its layout as data
+/// on the views it already owns.
 ///
 /// ⚠ **a FRACTION, never pixels.** The gameplay rectangle is resolved from the
 /// window, the safe area and the on-screen controls every frame; a placement in
@@ -145,14 +141,11 @@ impl ViewPlacement {
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ViewSubject(pub Entity);
 
-/// Seat followed by a view. The body is resolved dynamically through
-/// `DrivingParticipant`, so the view follows control transfers instead of a
-/// fixed entity. Keep this type aligned with the identifier used there.
+/// Seat followed by a view. Keep this type aligned with the identifier used there.
 ///
-/// ⚠ **[`ViewSubject`] still wins where both are present, and still exists.**
-/// Following one named body is a real policy and not a mistake: spectator
-/// cameras, cutscenes, a portal's far side. What was wrong was spelling *follow
-/// my participant* as *follow this entity* and losing the difference.
+/// ⚠ **[`ViewSubject`] still wins where both are present, and still exists.** Following one
+/// named body is a real policy and not a mistake: spectator cameras, cutscenes, a portal's far
+/// side.
 ///
 /// ⛔ **presentation only, and it is NOT control authority.** This says where a
 /// camera looks; `DrivingParticipant` says who is driving. Collapsing the two
@@ -245,15 +238,11 @@ pub fn the_only_view(world: &mut bevy::prelude::World) -> Entity {
 /// **WHICH VIEW THIS CAMERA PRESENTS** — a camera→view link, stated on the
 /// camera.
 ///
-/// ⭐ **the first thing M2 demands, and the reason is a `Single`.**
-/// `camera_follow` read the view as `Single<…, With<LocalView>>` and the main
-/// camera as a query over `With<MainCamera>`, pairing them by the coincidence
-/// that there is one of each. That is not a pairing, it is an assumption of
-/// uniqueness at BOTH ends — and the whole point of this module is that the
-/// second view is coming. With the link, a camera says what it presents and a
-/// second camera can say something different; without it, adding a view silently
-/// makes a `Single` panic and adding a camera silently makes two cameras fight
-/// over one snapshot.
+/// That is not a pairing, it is an assumption of uniqueness at BOTH ends — and the whole point
+/// of this module is that the second view is coming. With the link, a camera says what it
+/// presents and a second camera can say something different; without it, adding a view silently
+/// makes a `Single` panic and adding a camera silently makes two cameras fight over one
+/// snapshot.
 ///
 /// ⚠ **bound where the camera is SPAWNED, not resolved per frame.** The binding
 /// is a composition decision (which rig presents which view), so it is data on
@@ -284,12 +273,9 @@ pub struct PresentsView(pub Entity);
 ///         └── projection for view B  → its own entity, transform, layout
 /// ```
 ///
-/// ⛔⛔ **what is duplicated is the view-dependent PRESENTATION, never the
-/// authoritative object.** The simulation body, the `NameplateIndex` row, the
-/// `DoorNameplateSource` on a room visual and the room's authored label list all
-/// stay singular; two views produce two projections OF them. Duplicating
-/// anything another system treats as the source of truth would be the defect
-/// this shape exists to avoid — two bodies, not two pictures of one body.
+/// **what is duplicated is the view-dependent PRESENTATION, never the authoritative object.** The
+/// simulation body, the `NameplateIndex` row, the `DoorNameplateSource` on a room visual and the
+/// room's authored label list all stay singular; two views produce two projections OF them.
 ///
 /// # ⛔ IT IS A RELATIONSHIP, NOT AN ISOLATION MECHANISM
 ///
@@ -308,12 +294,8 @@ pub struct PresentsView(pub Entity);
 /// relationship and never from `LocalViewId`. That is a citation, and citations
 /// go stale: nothing here depends on it, which is the point.
 ///
-/// ⚠ **a copy is retracted by DESPAWNING it, never by clearing this key.** An
-/// entity that keeps its `Text2d` and loses its view falls out of every query
-/// that requires the key while still being drawn by the renderer, and a test
-/// asserting the key is absent would agree with the bug. The one exception is a
-/// population's ROOT, which is RE-KEYED onto a surviving view — a reset, not a
-/// removal.
+/// The one exception is a population's ROOT, which is RE-KEYED onto a surviving view — a reset, not
+/// a removal.
 ///
 /// ⛔ **and, like the view itself, it never travels with a `Name`.** `entity.name`
 /// is registered for rollback, and the coverage contract treats an entity
@@ -336,15 +318,9 @@ pub struct PresentedForView(pub Entity);
 /// The rule:
 ///
 /// - a camera that NAMES a view presents that one;
-/// - a camera that names none, in a composition with exactly ONE view, presents
-///   that view — this is every fixture in the tree and every shipped host today,
-///   and taking the only view is the honest reading of a single-view
-///   composition;
-/// - a camera that names none while SEVERAL views exist is refused, loudly.
-///   Picking one would be arbitrary, and arbitrary is exactly the process-global
-///   "the gameplay view" that D116 M2 deleted.
-/// - no views at all is quiet: a headless or pre-composition host has nothing to
-///   present and nothing to complain about.
+/// - a camera that names none, in a composition with exactly ONE view, presents that view — this is every fixture in the tree and every shipped host today, and taking the only view is the honest reading of a single-view composition;
+/// - a camera that names none while SEVERAL views exist is refused, loudly. Picking one would be arbitrary, and arbitrary is exactly the process-global "the gameplay view" that deleted.
+/// - no views at all is quiet: a headless or pre-composition host has nothing to present and nothing to complain about.
 ///
 /// ⭐ **and the same rule answers the DRAW side** ([`Self::drawn_for`]): a
 /// world-space presentation entity that names its view belongs to that one, an
@@ -389,14 +365,6 @@ impl ViewsOnHand {
 
     /// The view a DRAWN world-space presentation entity belongs to — the same
     /// rule, asked at the other end of the seam.
-    ///
-    /// ⚠ **the single-view branch is what keeps every existing composition
-    /// working.** Labels spawned before per-view keying existed — authored
-    /// signage, and the probes two demo tests spawn by hand — carry no
-    /// [`PresentedForView`], and in a one-view game the only view is the honest
-    /// answer for them, exactly as it is for an unlinked camera. With several
-    /// views it is refused instead, because "draw it for whichever view the
-    /// archetype yielded first" is the process-global this whole module deleted.
     pub fn drawn_for(&self, key: Option<PresentedForView>) -> Option<Entity> {
         match self.resolve(key.map(|PresentedForView(view)| view)) {
             Ok(view) => view,
@@ -477,14 +445,11 @@ pub struct BoundLocalView {
 
 /// **"GIVE ME THESE VIEWS, EACH WITH ITS OWN CAMERA, EACH BOUND."**
 ///
-/// ⭐ **this is the helper the refusal rule assumed existed.** Both shipped
-/// camera-spawn sites (`ambition_render::platformer_presentation::spawn_main_camera`
-/// and the app's `scene_setup`) spawn ONE camera and decline to bind
-/// [`PresentsView`] once several views exist, on the stated principle that *"a
-/// composition that wants two rigs binds them itself"*. The principle is right
-/// and is unchanged here — what was missing was any way to DO it without copying
-/// private wiring, which made the refusal a dead end rather than a handoff. This
-/// is the handoff.
+/// ⭐ **this is the helper the refusal rule assumed existed.** Both shipped camera-spawn sites
+/// (`ambition_render::platformer_presentation::spawn_main_camera` and the app's `scene_setup`)
+/// spawn ONE camera and decline to bind [`PresentsView`] once several views exist, on the
+/// stated principle that *"a composition that wants two rigs binds them itself"*. This is the
+/// handoff.
 ///
 /// # What it does
 ///
@@ -529,11 +494,6 @@ pub struct BoundLocalView {
 /// indistinguishable from one that ran. It also means the camera-spawn sites
 /// above, which run in `Startup`, see the finished view set and refuse honestly
 /// rather than binding half of it.
-///
-/// ⚠ **a composition that calls this should not ALSO install a single-camera
-/// spawn site.** It would get an extra, unbound `MainCamera`; that camera is
-/// refused loudly by every consumer rather than drawing the wrong view, so the
-/// failure is visible in the log — but it is still a rig nobody asked for.
 pub fn compose_local_views<C, F>(
     world: &mut bevy::prelude::World,
     ids: impl IntoIterator<Item = LocalViewId>,
@@ -617,11 +577,9 @@ mod tests {
 
     /// **A LAYOUT THAT COVERS THE DISPLAY EXACTLY ONCE.**
     ///
-    /// ⚠ **the columns must TILE**, and both halves of that are checked: no gap
-    /// (a strip of unpainted display between two panes) and no overlap (two
-    /// observers drawing into the same pixels, which looks healthy in every
-    /// single-view assertion). Derived from the carve rather than compared
-    /// against hand-written pixel values, so the test cannot agree with itself.
+    /// ⚠ **the columns must TILE**, and both halves of that are checked: no gap (a strip of
+    /// unpainted display between two panes) and no overlap (two observers drawing into the same
+    /// pixels, which looks healthy in every single-view assertion).
     #[test]
     fn columns_tile_the_gameplay_rectangle_with_no_gap_and_no_overlap() {
         let origin = ae::Vec2::new(40.0, 10.0);
@@ -889,10 +847,7 @@ mod tests {
 
     /// **The frame policy is per-view state that a game can select.**
     ///
-    /// D118 landed the whole subject-relative mechanism and left the selection
-    /// deliberately unbuilt, because a policy that belongs to a VIEW must not
-    /// become a process-global mode. This is that policy having a home: writing
-    /// the component is the selection.
+    /// This is that policy having a home: writing the component is the selection.
     ///
     /// ⭐ **the Gameplay-menu option now drives it too** (`camera_reference_frame`
     /// → [`crate::camera_snapshot::CameraObservationPlugin`]), and this test is

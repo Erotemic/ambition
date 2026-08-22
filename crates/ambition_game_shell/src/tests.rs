@@ -294,24 +294,18 @@ mod composed {
         assert_eq!(active_route(&app), Some("alpha-route".to_owned()));
     }
 
-    /// ⛔ **Moving the cursor must not rebuild the launcher.**
-    ///
-    /// `render_basic_shell` keys its rebuild on a frame string, and
-    /// `launcher.selected` used to be part of it — so every arrow press
-    /// despawned and respawned every node in the launcher. That threw away hover
-    /// state and any in-flight animation, and it is why a one-frame text defect
-    /// read as a whole-UI blink rather than as one wrong glyph.
+    /// **Moving the cursor must not rebuild the launcher.**
     ///
     /// The cursor is RUNTIME STATE, not structure. `follow_the_launcher_cursor`
     /// moves the highlight in place through `MenuVisualState`, and the restyle
     /// system recolours what changed; the key names only what a rebuild is
     /// actually needed for — which rows exist and what they say.
     ///
-    /// ⚠ this asserts entity IDENTITY, not a node count. A rebuild that happened
+    /// this asserts entity IDENTITY, not a node count. A rebuild that happened
     /// to spawn the same number of nodes would pass a count and still have
     /// thrown the tree away.
     ///
-    /// ⚠ **gated, because the presentation is.** `basic_presentation` is not a
+    /// **gated, because the presentation is.** `basic_presentation` is not a
     /// default feature, so a bare `cargo test -p ambition_game_shell` renders no
     /// launcher at all — the 38 tests it reports never touch this. The runner's
     /// per-crate feature job is what runs it (and
@@ -354,12 +348,7 @@ mod composed {
         let selected_before = app.world().resource::<ShellLauncherState>().selected;
 
         app.world_mut().write_message(ShellLauncherCommand::Next);
-        // TWO updates. The command is consumed and `selected` moves in the first;
-        // `render_basic_shell` computes its key BEFORE that on the same frame, so
-        // a rebuild provoked by the new cursor lands on the SECOND. Asserting
-        // after one update passes even with `selected` back in the rebuild key —
-        // measured, not assumed: the probe that restores the original bug was
-        // green until this second update was added.
+        // TWO updates.
         app.update();
         app.update();
 
@@ -674,12 +663,9 @@ fn provider_retry_supersedes_the_failed_transaction_and_rejects_stale_publicatio
 
 #[test]
 fn a_failed_route_preparation_surfaces_the_provider_reason_not_just_failed() {
-    // Regression for the Phase 6 task-7 diagnostics finding: a headless host saw
-    // a route "sit pending forever" because the router discarded the
-    // coordinator's well-worded LoadFailure and reported only the bare readiness
-    // enum. The terminal event must now carry the provider's developer detail so
-    // `log_shell_routing_failures` — and any headless consumer inspecting the
-    // event — can name the cause instead of watching the route stall.
+    // The terminal event must now carry the provider's developer detail so
+    // `log_shell_routing_failures` — and any headless consumer inspecting the event — can name the
+    // cause instead of watching the route stall.
     let mut loads = LoadCoordinator::default();
     let mut prepared = PreparedSessionRegistry::default();
     let plan = ProviderPreparationPlan::new("Prepare fixture", "ready", "Ready")

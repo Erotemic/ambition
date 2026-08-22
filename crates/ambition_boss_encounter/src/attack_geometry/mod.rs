@@ -168,13 +168,7 @@ pub trait CombatGeometry {
 /// the [`ae::CenteredAabb`] every consumer reads (the debug overlay, hurtbox
 /// resolution, target volumes).
 ///
-/// ⛔⛔ **there used to be two spellings of this, and one of them called itself
-/// "the one universal `CenteredAabb` publish rule (AJ5.1)" while the other sat
-/// in the home road.** Same four inputs, same call, same two assignments; the
-/// only real difference was that the actor road allowed a coarse `footprint`
-/// override for a boss's composite envelope, which is a parameter rather than a
-/// species. Two spellings of a rule that names itself universal is the shape
-/// D114 was, one layer over.
+/// Two spellings of a rule that names itself universal is the shape was, one layer over.
 ///
 /// `footprint` is the body's collision size, or a boss's render envelope where
 /// one is carried. `frame_down` is the body's reference-frame down — gravity at
@@ -442,12 +436,7 @@ pub fn body_damage_aabb(pos: ae::Vec2, combat_size: ae::Vec2) -> ae::Aabb {
     ae::Aabb::new(pos, combat_size * 0.5)
 }
 
-// `boss_attack_damage` is GONE (fable AD2): a boss's offense flows through the ONE
-// set of systems every actor uses — STRIKE damage via the boss's own moveset moves
-// (`trigger_boss_attack_moves` → `advance_move_playback` → `apply_hitbox_damage`'s Boss
-// branch; fable review §A1 retired the per-tick `sync_boss_strike_hitboxes` poll), and
-// BODY-CONTACT damage via the shared `apply_actor_contact_damage` (the boss's contact
-// tuning is driven from `behavior.body_damage` at spawn). No bespoke boss damage poll.
+// No bespoke boss damage poll.
 //
 // NOTE: `active_attack_volumes` / `volumes_for_profile` below are now consumed only by
 // the DEBUG overlay (telegraph/strike gizmos) and the hurtbox-pose selection — the
@@ -457,11 +446,7 @@ pub fn body_damage_aabb(pos: ae::Vec2, combat_size: ae::Vec2) -> ae::Aabb {
 
 /// One body-local strike rectangle, as DATA.
 ///
-/// ⚠ **DEFINED in `ambition_characters::brain::boss_pattern::profile`** since
-/// 2026-08-03 — a boss AUTHORS strike-geometry overrides in `boss_profiles.ron`,
-/// so this type is part of that vocabulary and had to move with it for the
-/// content compiler to own the family without linking this crate. Pure data
-/// over `ae::Vec2`; nothing about it needed to be here.
+/// Pure data over `ae::Vec2`; nothing about it needed to be here.
 pub use ambition_characters::brain::boss_pattern::profile::StrikeRect;
 
 // Built-in per-profile strike geometry, as DATA. Each was a hardcoded `vec![Aabb::new
@@ -546,7 +531,7 @@ pub fn strike_geometry(move_id: &str) -> &'static [StrikeRect] {
 /// declarative [`StrikeRect`] table, not a hardcoded per-variant `match`). Pure
 /// function of the profile + body fields. Used as the fallback path when the boss has
 /// no `sprite_metrics`-driven per-animation hitbox. The gradient sentinel and (since
-/// 2026-05-26) GNU-ton route through `sprite_authored_volumes` instead — the geometry
+/// ) GNU-ton route through `sprite_authored_volumes` instead — the geometry
 /// table here is still required for bosses whose sprite RONs don't yet carry
 /// per-animation hitbox.parts, AND is the source `boss_attack_moveset` derives each
 /// boss move's `HitVolume`s from at spawn.

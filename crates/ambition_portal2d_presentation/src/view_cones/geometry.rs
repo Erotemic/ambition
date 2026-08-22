@@ -1,7 +1,5 @@
 //! Portal view-cone geometry pipeline: the rebuild key, aperture line-of-sight
 //! + occlusion, the clipped cone polygon, and its UV/vertex computation.
-//!
-//! Split out of the former 1098-line `view_cones.rs` (2026-06-15).
 
 use super::*;
 
@@ -154,8 +152,6 @@ const LOS_SAMPLE_INSET: f32 = 2.0;
 /// Lift LOS aperture samples away from the portal host face so rays do not land
 /// exactly on the uncarved wall/floor geometry.
 const APERTURE_LOS_SURFACE_LIFT: f32 = 12.0;
-/// Stop LOS casts a little before the lifted target, preserving the old center
-/// ray behavior and avoiding false hits on the host face near the aperture.
 const APERTURE_LOS_TARGET_BACKOFF: f32 = 4.0;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -680,19 +676,14 @@ pub(crate) fn compute_cone(
         return closed(min);
     }
 
-    // Clip the window's depth to the host wall's measured material so a thin
-    // door wall never lets the mesh punch through into the room behind it (see
-    // [`host_depth_limit`]). The half-plane takeover below stays unclipped for
-    // genuinely disjoint pairs — crossing a teleport, the whole view becomes
-    // the exit chart — but NOT for a DOORWAY pair (opposed faces across a
-    // thin slab): its two charts are the same visual space, so a takeover
-    // pane photographs a region that is ALSO directly on screen and
-    // double-images everything in it (the world shimmered at a parallax
-    // offset, the far frame showed twice, the transiting body doubled — the
-    // c136/c137 artifact family). A doorway is a HOLE, not a wormhole: its
-    // pane covers only the slab (the wall material is the one thing to
-    // hide), and inside the slab the mapped capture reconstructs exactly the
-    // occluded middle of whatever straddles the wall — while the body's
+    // The half-plane takeover below stays unclipped for genuinely disjoint pairs — crossing a
+    // teleport, the whole view becomes the exit chart — but NOT for a DOORWAY pair (opposed faces
+    // across a thin slab): its two charts are the same visual space, so a takeover pane photographs
+    // a region that is ALSO directly on screen and double-images everything in it (the world
+    // shimmered at a parallax offset, the far frame showed twice, the transiting body doubled — the
+    // c136/c137 artifact family). A doorway is a HOLE, not a wormhole: its pane covers only the
+    // slab (the wall material is the one thing to hide), and inside the slab the mapped capture
+    // reconstructs exactly the occluded middle of whatever straddles the wall — while the body's
     // clipped pieces and the far side draw direct, crisp, exactly once.
     let doorway_pair = enter.frame.normal.dot(exit.frame.normal) < -0.9
         && enter.frame.origin.distance(exit.frame.origin) <= config.doorway_pair_max_gap;

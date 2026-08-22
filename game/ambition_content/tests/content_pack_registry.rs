@@ -1,18 +1,7 @@
 //! Guard: the tool and the game validate against the SAME schemas.
 //!
-//! `ambition_content_pack::compile` is deliberately the only validator, so that
-//! a pack cannot pass one gate and fail another. That guarantee is only as good
-//! as the REGISTRY each caller hands it — two callers composing different
-//! schema sets get two different verdicts from one implementation, which is the
-//! same defect one level up.
-//!
-//! There were three registry compositions when this was written
-//! (`content::engine_schemas`, `ambition_content_cli::default_registry`, and a
-//! third hand-rolled inside `compile_pack`), all of which had to agree and
-//! none of which made the others agree. ⚠ **and with a single schema installed
-//! they agreed trivially** — the drift is structurally invisible until a second
-//! family lands, which is why this probe exists before that family rather than
-//! after the first divergence.
+//! `ambition_content_pack::compile` is deliberately the only validator, so that a pack cannot
+//! pass one gate and fail another.
 
 use std::collections::BTreeSet;
 
@@ -85,13 +74,9 @@ fn every_schema_the_shipped_pack_declares_is_installed_in_both_compositions() {
 
 /// The two compositions install the same schemas, not merely enough of them.
 ///
-/// Coverage of the shipped pack is the load-bearing half above; this is the
-/// tighter statement, and it is true today because every schema Ambition
-/// authors is owned by an ENGINE capability. ⚠ **if Ambition ever owns a schema
-/// of its own**, that is a legitimate divergence — the game gains a schema the
-/// engine-only tool cannot know about — and the fix is to teach the CLI that
-/// composition (it already takes `--capability`), not to delete this test. A
-/// silent divergence is what must not happen.
+/// Coverage of the shipped pack is the load-bearing half above; this is the tighter statement,
+/// and it is true today because every schema Ambition authors is owned by an ENGINE capability.
+/// A silent divergence is what must not happen.
 #[test]
 fn the_tools_composition_and_the_games_composition_are_the_same_set() {
     let game: BTreeSet<String> = ambition_content::pack::pack_schemas()

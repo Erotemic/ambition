@@ -677,14 +677,9 @@ def build_entity_instance(
         # for editor-roundtrip-clean files. Pull from the entity def's
         # color (Ambition entity defs always set one); fall back to white.
         "__smartColor": ent_def.get("color", "#FFFFFF"),
-        # `__worldX` / `__worldY` are LDtk-computed cached fields that
-        # downstream consumers (notably `bevy_ecs_ldtk`) use to position
-        # the entity in world space without recomputing
-        # `level.worldX + entity.px`. Missing them caused the new
-        # basement-door LoadingZones to render at the world (0,0)-rooted
-        # frame in 2026-05-07, layering on top of central_hub_main
-        # instead of below it. Always populate so the editor-roundtrip
-        # invariant holds.
+        # `__worldX` / `__worldY` are LDtk-computed cached fields that downstream consumers (notably
+        # `bevy_ecs_ldtk`) use to position the entity in world space without recomputing
+        # `level.worldX + entity.px`. Always populate so the editor-roundtrip invariant holds.
         "__worldX": level_world_x + int(px[0]),
         "__worldY": level_world_y + int(px[1]),
         "iid": iid,
@@ -836,14 +831,6 @@ def build_level(project: dict, spec: dict) -> dict:
     # referring entity def carries the field def BEFORE building (so the strict
     # field check in `build_entity_instance` accepts it), then resolve the handle
     # into a real LDtk EntityRef after every entity has an iid.
-    #
-    # ⛔ **driven off the registry, not off one field name.** This loop used to
-    # name `mounted_on` and nothing else, so the SECOND reference relationship
-    # would have been rejected by the strict field check with no hint that the
-    # missing piece was three lines away. Each field's editor-side scope
-    # (`spec_allowed_refs`) is part of the registry too — the mount link crosses
-    # entity types when a spec authors it, and that is a fact about the mount
-    # link, not about this loop.
     from ambition_ldtk_tools.ldtk.fields import (
         ENTITY_REF_FIELDS,
         ensure_entity_ref_fielddef,
@@ -977,13 +964,7 @@ def build_level(project: dict, spec: dict) -> dict:
     ambition_layer["layerDefUid"] = ambition_def["uid"]
     ambition_layer["entityInstances"] = entity_instances
 
-    # Optional Climbable IntGrid layer. When the spec has an
-    # `intgrid.climbable` block, we ensure the project has the
-    # Climbable layer def (idempotent — already there if a previous
-    # apply ran), then paint the spec's cells onto a new layer
-    # instance for this level. Levels that don't author climbables
-    # still get a Climbable layer instance via
-    # `ensure_climbable_layer_def`'s migration pass.
+    # Optional Climbable IntGrid layer.
     climbable_cells = (spec.get("intgrid") or {}).get("climbable") or []
     if climbable_cells:
         climbable_def = ensure_climbable_layer_def(project)
@@ -1430,8 +1411,6 @@ def even_space_entities(
         last_x = int(matched[-1]["px"][0])
         last_w = widths[-1]
         # Keep first / last in place; even-space inner entities.
-        # Compute the total inner width consumed by entities (excluding
-        # the first, which is fixed) and divide remaining gap budget.
         inner_w_sum = sum(widths[1:])
         span = (last_x + last_w) - first_x
         gap_budget = span - sum(widths)

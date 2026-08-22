@@ -15,14 +15,9 @@ use super::*;
 /// [`derive_pogo_target_volumes`]. Hostility should affect AI and damage dealt,
 /// not whether a body can be hit.
 ///
-/// **So does the player.** This system was gated `With<FeatureSimEntity>` — a
-/// marker the primary player does not carry — which meant a player could author
-/// hurtboxes and never publish them, and made "hittable" a property of which
-/// spawn path built the body. Jon's ruling: *it is a smell that something would
-/// work for an enemy but not a player; they should be unified.* The gate is gone,
-/// and the predicate for participating is now the honest one — **carrying
-/// [`DamageableVolumes`] is what makes a body a damage target**, whatever spawned
-/// it.
+/// **So does the player.** This system was gated `With<FeatureSimEntity>` — a marker the primary
+/// player does not carry — which meant a player could author hurtboxes and never publish them, and
+/// made "hittable" a property of which spawn path built the body.
 ///
 /// # Registered TWICE, deliberately
 ///
@@ -39,9 +34,7 @@ use super::*;
 ///   Mary-O contact bug: a classifier must read the positions the contact pass
 ///   reads.
 ///
-/// Two invocations of one rule is a refresh. Two rules writing one component is
-/// the clobber-by-ordering bug the boss exclusion below exists to prevent — keep
-/// it that way.
+/// Two invocations of one rule is a refresh.
 pub fn refresh_body_damageable_volumes(
     mut bodies: Query<
         (
@@ -67,7 +60,7 @@ pub fn refresh_body_damageable_volumes(
     >,
 ) {
     for (aabb, health, hurtboxes, kin, mut damageable) in &mut bodies {
-        // Structural tangibility gate (Jon 2026-07-22): a live body — peaceful or
+        // Structural tangibility gate: a live body — peaceful or
         // hostile — is a valid body-strike / pogo target; a dead one is an
         // intangible corpse and publishes no volume (so you cannot pogo off a
         // corpse). Disposition governs AI and damage dealt TO the player, not

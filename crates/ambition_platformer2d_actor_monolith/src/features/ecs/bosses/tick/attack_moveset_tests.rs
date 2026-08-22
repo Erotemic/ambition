@@ -184,11 +184,8 @@ fn telegraph_edge_trigger_projects_windup_then_strike() {
     );
 }
 
-/// E53 Slice D: a windup the pattern ABANDONS (intent cleared — phase change /
-/// suppress / rest) must NOT strike. The still-in-windup move is despawned before
-/// its Active window opens, so no spurious hitbox — parity with the old
-/// strike-edge trigger (which simply never started a move for an interrupted
-/// telegraph).
+/// E53 Slice D: a windup the pattern ABANDONS (intent cleared — phase change / suppress / rest)
+/// must NOT strike.
 #[test]
 fn interrupted_windup_is_aborted_before_the_strike() {
     let (mut app, boss) = telegraph_boss_app();

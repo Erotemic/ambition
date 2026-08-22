@@ -1,10 +1,8 @@
 //! The engine-generic simulation messages + resource defaults (E5 step 6).
 //!
-//! Moved from the app's `AmbitionGameSimulationSetupPlugin` so a demo app gets
-//! a bootable sim from the engine group alone (THE DEMO GATE). Everything here
-//! is `init_resource`/default semantics — a host overrides any of these by
-//! `insert_resource` BEFORE adding the group (init never clobbers), which is
-//! the documented host-override convention (`Platformer2dSimulationFoundationPlugin` docs).
+//! Everything here is `init_resource`/default semantics — a host overrides any of these by
+//! `insert_resource` BEFORE adding the group (init never clobbers), which is the documented
+//! host-override convention (`Platformer2dSimulationFoundationPlugin` docs).
 //!
 //! What the engine group deliberately does NOT provide (the game/fixture
 //! must): the INSTALLED WORLD state (`RoomSet`, `RoomGeometry`,
@@ -134,7 +132,7 @@ impl Plugin for SimCoreResourcesPlugin {
             // as `resource.gate_portal_phases`). Two resources because only one
             // of them rewinds.
             .init_resource::<ambition_platformer2d_actor_monolith::rooms::GatePortalPhases>()
-            // ⛔ `CameraEaseState` is NOT here any more: it is per-VIEW state and
+            // `CameraEaseState` is NOT here any more: it is per-VIEW state and
             // lives on the local view entity, spawned by `CameraObservationPlugin`.
             // The tuning below stays global — it is authored feel, one game-wide
             // answer, not something a second observer would disagree about.
@@ -184,7 +182,7 @@ impl Plugin for SimCoreResourcesPlugin {
         // quarantine hold a predicted hit's shake back until the host settles the
         // frame that produced it.
         //
-        // ⛔ **in the ENGINE group, not the windowed host.** `tick_camera_shake`
+        // **in the ENGINE group, not the windowed host.** `tick_camera_shake`
         // and `camera_follow` are the host's because a headless run has no camera
         // to move — but a headless run still ASKS for shakes and still has the
         // amplitude read off it (`app_it::hit_shakes_the_camera` watches a duel

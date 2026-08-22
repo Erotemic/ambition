@@ -1,7 +1,5 @@
 //! Sprite render geometry: per-target render size, feet anchoring, and the
 //! Bevy `Sprite` construction helpers the renderers call.
-//!
-//! Split out of the former 780-line `sheets/mod.rs` (2026-06-15).
 
 use super::*;
 
@@ -39,26 +37,16 @@ pub fn sprite_render_size(spec: &CharacterSheetSpec, collision: Vec2) -> Vec2 {
 /// collision box** — one uniform scale, so the art is never stretched and the
 /// drawn character is the size of the thing it collides with.
 ///
-/// ⭐ **the scale is computable, which is why nothing authors it any more.** A
-/// sheet publishes `body_pixel_bbox` (184 of 190 do — the generator measures the
-/// alpha bbox on every regeneration), so `world_per_pixel = fit(collision, body)`
-/// is arithmetic. What this replaced was
-/// `max(collision.x, collision.y) * collision_scale`, in which:
+/// **the scale is computable, which is why nothing authors it any more.** A sheet publishes
+/// `body_pixel_bbox` (184 of 190 do — the generator measures the alpha bbox on every
+/// regeneration), so `world_per_pixel = fit(collision, body)` is arithmetic.
 ///
-/// * the height came off the collision box's LARGER axis, so a long flat animal
-///   was drawn as tall as it is wide;
-/// * the width came off the PADDED FRAME's aspect, which its own comment named
-///   as the intent — so the drawn body's size depended on how much empty space
-///   the generator's crop happened to leave around it;
-/// * `collision_scale` was the correction for that padding, hand-tuned per
-///   sheet. Since `figure = collision_scale × (body_h / frame_h)`, the 180 baked
-///   sheets spanned **10.9x** in how big a character was drawn relative to its
-///   own box — which is Jon's *"the Hall characters are inconsistent sizes"* and
-///   his *"the collision / hurt box is larger than the player sprite"*, in one
-///   number. Under this route that figure is **1.0 for every sheet, by
-///   construction**.
+/// * the height came off the collision box's LARGER axis, so a long flat animal was drawn as tall as it is wide;
+/// * the width came off the PADDED FRAME's aspect, which its own comment named as the intent — so the drawn body's size depended on how much empty space the generator's crop happened to leave around it;
+/// * `collision_scale` corrected frame padding per sheet. The resulting figure scale varied by
+///   10.9x across baked sheets; deriving scale from the body bbox makes it 1.0 by construction.
 ///
-/// ⚠ **the whole frame is still drawn, not a crop of it.** `Sprite::custom_size`
+/// **the whole frame is still drawn, not a crop of it.** `Sprite::custom_size`
 /// scales the entire atlas frame into the quad per axis, so sizing the quad to
 /// the BODY while still sampling the frame divides the padding into the
 /// character — measured, first try, at a 2.20x vertical squash on the snake and

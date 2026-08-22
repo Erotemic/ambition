@@ -82,11 +82,6 @@ pub fn lasersword_projectile_sprite(
 /// Provider-contributed art, resolved once at startup: the ids that bound, and
 /// the loaded `(image, display size)` for each, indexed by the binding's slot.
 ///
-/// This replaces the `HashMap<String, _>` both art resources used to be. The map
-/// was not wrong about storage — it was wrong about FAILURE. Its `get` returned
-/// `None` for "you misspelled the id" and for "no provider ever registered art",
-/// and every caller collapsed both into the same placeholder quad.
-///
 /// A miss now yields a diagnosis the caller can print. The placeholder still
 /// draws — that part was right, and a blind run must never go black — but the
 /// run also names what it could not find.
@@ -124,12 +119,6 @@ impl<N: Namespace> ArtBindings<N> {
     }
 
     /// The art for `id`, or nothing.
-    ///
-    /// Says nothing about WHY on purpose: these syncs run every frame, and the
-    /// why — cloning every registered id, running a did-you-mean across all of
-    /// them — costs orders of magnitude more than the lookup. A caller that has
-    /// not yet reported this failure asks [`Self::explain`] for it; a caller
-    /// that already has just draws the placeholder again, for free.
     pub fn get(&self, id: &str) -> Option<(Handle<Image>, Vec2)> {
         let bound = self.ids.bind(id)?;
         Some(self.art[bound.slot()].clone())
@@ -471,9 +460,9 @@ pub fn sync_world_item_visuals(
         reported.clear();
     }
     for item in &items.0 {
-        // ⭐ **an emerging pickup draws BEHIND the world**, so it reads as coming
+        // **an emerging pickup draws BEHIND the world**, so it reads as coming
         // out of the block that produced it instead of being pasted whole on top
-        // of it (Jon, 2026-08-04). `WORLD_Z_BLOCK` is 0.0, so anything below it
+        // of it. `WORLD_Z_BLOCK` is 0.0, so anything below it
         // is occluded by the geometry; a free item keeps the ordinary 8.0.
         let z = if item.emerging { -1.0 } else { 8.0 };
         let translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, item.pos, z);

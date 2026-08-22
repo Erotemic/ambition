@@ -1,12 +1,5 @@
 //! The touch HUD's resolved on-screen placement.
 //!
-//! Before this existed the touch overlay anchored itself to the physical
-//! window corners while the presentation layout separately "reserved" surround
-//! regions for controls. The two never met, so a fixed-aspect profile drew
-//! sidebars that were decoration: at 1920x1200 each side surround is 160px
-//! while the movement control reaches 185px and the action bezel is 233px
-//! wide, and both clusters sat on top of the gameplay viewport anyway.
-//!
 //! Now there is ONE resolved answer. This crate publishes what its clusters
 //! need ([`touch_control_footprints`]), the presentation resolver decides where
 //! they fit, and everything here — the rendered `Node`s, the raw multitouch hit
@@ -93,14 +86,8 @@ pub fn touch_control_footprints() -> ControlFootprints {
 ///         -> apply resolved control placement       (ApplyPlacement)
 /// ```
 ///
-/// Both edges must be REAL. `publish_touch_control_footprints` writes
-/// `ControlFootprints` and the host's resolve reads it; before this set
-/// existed the only thing separating them was that undeclared resource
-/// conflict, which makes them ambiguous — the executor may serialize them
-/// either way, so a footprint change could be consumed this update or next
-/// depending on nothing the code states. Hiding the touch HUD is exactly that
-/// case: the participant flips a setting and the reserved surround either
-/// collapses now or a frame later.
+/// Both edges must be REAL. Hiding the touch HUD is exactly that case: the participant flips a
+/// setting and the reserved surround either collapses now or a frame later.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum TouchPresentationSet {
     /// Find the control roots this crate does not spawn itself and tag them.
@@ -127,17 +114,11 @@ impl TouchPresentationSet {
     /// here does not fail loudly, it just draws the controls at last frame's
     /// rectangles.
     ///
-    /// The `Discover → PublishRequirements` edge is also the deferred-command
-    /// boundary. Discovery tags roots through `Commands` and every system after
-    /// it queries for exactly those markers, so the markers must be applied in
-    /// between; Bevy's `auto_insert_apply_deferred` build pass (on by default)
-    /// inserts the sync point wherever a `Commands` system has an ordering
-    /// dependency, which this edge is. Declaring the order is therefore
-    /// sufficient AND necessary — a hand-written `ApplyDeferred` here changes
-    /// nothing, but dropping the edge means the frame a joystick is created it
-    /// is neither placed nor hidden: one visible frame at the joystick crate's
-    /// own corner position, over gameplay, whatever the touch-controls setting
-    /// says.
+    /// The `Discover → PublishRequirements` edge is also the deferred-command boundary.
+    /// Discovery tags roots through `Commands` and every system after it queries for exactly
+    /// those markers, so the markers must be applied in between; Bevy's
+    /// `auto_insert_apply_deferred` build pass (on by default) inserts the sync point wherever
+    /// a `Commands` system has an ordering dependency, which this edge is.
     pub fn configure(app: &mut bevy::prelude::App) {
         use ambition_platformer2d_shared_tangle::gameplay_presentation::GameplayPresentationSet;
         use bevy::prelude::{IntoScheduleConfigs as _, Update};
@@ -168,17 +149,14 @@ impl bevy::prelude::Plugin for TouchPresentationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         // **A SURFACE IS BORN HIDDEN.**
         //
-        // `apply_touch_control_placement` decides every frame whether a surface
-        // is drawn and where — but a `Node`'s `display` defaults to `Flex`, so
-        // the frame a surface is CREATED it renders before that system has ever
-        // looked at it. The module docs above already name the symptom: "one
-        // visible frame at the joystick crate's own corner position, over
-        // gameplay, whatever the touch-controls setting says".
+        // The module docs above already name the symptom: "one visible frame at the joystick
+        // crate's own corner position, over gameplay, whatever the touch-controls setting
+        // says".
         //
         // An observer rather than a `display: Display::None` on each spawned
         // `Node`, because the movement surface is not spawned here at all — it is
         // a `TouchSurface` inserted onto an entity the joystick crate owns, and
-        // that is exactly the one the symptom names (2026-07-29).
+        // that is exactly the one the symptom names.
         app.add_observer(
             |surface: bevy::prelude::On<bevy::prelude::Add, crate::bevy_plugin::TouchSurface>,
              mut nodes: bevy::prelude::Query<&mut bevy::prelude::Node>| {
@@ -381,11 +359,8 @@ mod tests {
 
     /// The rendered `Node`s and the raw hit test read the SAME rectangles.
     ///
-    /// This is the property the review found missing: the layout reserved
-    /// surround regions while the controls anchored to window corners, so the
-    /// two descriptions were free to disagree. Now the drawn centre of every
-    /// button hit-tests back to itself no matter where — or at what scale —
-    /// the cluster was placed.
+    /// Now the drawn centre of every button hit-tests back to itself no matter where — or at
+    /// what scale — the cluster was placed.
     #[test]
     fn drawn_buttons_and_the_hit_test_use_one_rectangle() {
         let mut app = app_with(reserved_and_compacted());
@@ -455,14 +430,6 @@ mod tests {
     /// their last rectangle, so a hidden HUD stops being tappable and stops
     /// being drawn.
     ///
-    /// ⚠ this asserted `width == 0 && height == 0` and passed for as long as the
-    /// bug existed. Collapsing a node to zero is not hiding it: the node still
-    /// lays out, and every child of these surfaces is `PositionType::Absolute`,
-    /// so the joystick art and its glyphs kept drawing at the collapsed origin —
-    /// the top-left corner of the screen. `mobile_touch` is in the default
-    /// desktop feature set, so every desktop run drew a virtual d-pad over the
-    /// HUD (2026-07-29).
-    ///
     /// The assertion is on `display` now, which is the property that decides
     /// whether the subtree renders at all. A test can only catch what it looks
     /// at, and this one was looking at the size of something whose size was
@@ -496,7 +463,7 @@ mod tests {
     /// a surface that SHOULD be on screen still gets a rectangle — otherwise the
     /// repair for "the d-pad drew in the wrong corner" would be "the d-pad does
     /// not draw", which is worse for the person holding a phone: a misplaced
-    /// stick is playable and an absent one is not (Jon, 2026-07-29).
+    /// stick is playable and an absent one is not.
     ///
     /// Driven through the REAL resolver with this crate's real footprints and
     /// then through the REAL placement system, so it asserts the pixels a touch
@@ -509,9 +476,6 @@ mod tests {
         };
 
         let display = Vec2::new(1280.0, 720.0);
-        // Full-bleed: no reserved surround, so the controls take the overlay
-        // ladder's last rung — a device-safe corner. That is the shipped desktop
-        // and phone case, and the one the bug appeared in.
         let profile = GameplayPresentationProfile::full_bleed();
         let resolved = resolve_gameplay_presentation(GameplayPresentationInput {
             display_px: display,
@@ -564,11 +528,8 @@ mod tests {
     /// **A surface is HIDDEN the moment it is created, before placement runs.**
     /// (Z′6)
     ///
-    /// `apply_touch_control_placement` decides every frame whether a surface is
-    /// drawn — but a `Node`'s `display` defaults to `Flex`, so on the frame a
-    /// surface is CREATED it renders before that system has looked at it. The
-    /// module docs name the symptom: one visible frame at the joystick crate's
-    /// own corner position, over gameplay, whatever the setting says.
+    /// The module docs name the symptom: one visible frame at the joystick crate's own corner
+    /// position, over gameplay, whatever the setting says.
     ///
     /// Asserted WITHOUT running the placement system, because the whole point is
     /// the state between creation and the first placement pass.

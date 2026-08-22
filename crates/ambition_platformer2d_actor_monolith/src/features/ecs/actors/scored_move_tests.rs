@@ -1,11 +1,5 @@
-//! **The acceptance test for "the fighter presses the move it scored"** — GPT
-//! 5.6's 2026-07-31 review, finding 2.
-//!
-//! The emission half landed first and its tests observe the CONTROL FRAME. That
-//! is not enough, and the review said why: the defect was never in the frame, it
-//! was that nothing downstream read the direction, so a brain that scored an
-//! up-tilt still produced the plain jab. A test asserting `melee_pressed` is a
-//! test of the disconnected seam itself and passes in both worlds.
+//! A test asserting `melee_pressed` is a test of the disconnected seam itself and passes in both
+//! worlds.
 //!
 //! So this fixture asserts `MovePlayback.spec.id` — the move the body is
 //! ACTUALLY playing — and it gets there through the production chain:
@@ -94,7 +88,7 @@ fn strike_hitting_for(id: &str, reach_offset: f32, damage: i32) -> MoveSpec {
 
 /// A body with a stubby jab and a long up-tilt.
 ///
-/// ⚠ **the two moves must differ in REACH, not in name.** A fixture whose moves
+/// **the two moves must differ in REACH, not in name.** A fixture whose moves
 /// were interchangeable would pass with the direction still discarded, because
 /// whichever move the neutral press resolved to would be as good an answer as
 /// the scored one.
@@ -148,18 +142,15 @@ fn scene(gap: f32) -> WorldView {
 /// same helpers a character's own file uses, so the kit reads the same shape a
 /// fighter really publishes.
 ///
-/// ⚠ **the jab out-damages the throw** (14 against 11), which is the genre's own
-/// arrangement and the only one that asks a real question. A fixture whose only
-/// attack was weaker than the grab's payoff would have the fighter grab always,
-/// and that is a property of the fixture rather than of the scorer — measured
-/// 2026-08-18 before this fixture was fair.
+/// **the jab out-damages the throw** (14 against 11), which is the genre's own arrangement and the
+/// only one that asks a real question.
 fn jab_and_grab() -> MovesetContract {
     use ambition_characters::smash_capture::{
         author_standing_grab, author_throw, capture_beat, grab_shell, CaptureAttemptParams,
         CaptureThrowParams,
     };
     let grab = author_standing_grab(
-        // ⚠ **George's real numbers.** A grab is SLOW and its whiff is long; a
+        // **George's real numbers.** A grab is SLOW and its whiff is long; a
         // fixture that gave it a jab's startup would be asking whether the
         // scorer prefers a strictly better move, which is not a question.
         grab_shell("grab", "grab", 0.16, 0.06, 0.30),
@@ -321,9 +312,7 @@ fn every_candidate_in_the_kit_carries_the_press_that_invokes_it() {
 
 /// **The move the body plays is the move the brain scored.**
 ///
-/// ⚠ this asserts `MovePlayback.spec.id` and NOT `melee_pressed`. The latter was
-/// true in the broken world too — it is the seam that was disconnected, so a
-/// test that observes it cannot see the bug it exists to catch.
+/// this asserts `MovePlayback.spec.id` and NOT `melee_pressed`.
 ///
 /// PROBED: with `press_the_chosen_attack`'s axis forced back to `Vec2::ZERO` —
 /// the pre-fix emission, a neutral press — this reports
@@ -367,14 +356,14 @@ fn a_close_foe_gets_the_jab_the_scoring_actually_picked() {
     );
 }
 
-/// **⭐ THE GRAB ENTERS THE KIT FROM ITS OWN AUTHORED DATA.**
+/// **THE GRAB ENTERS THE KIT FROM ITS OWN AUTHORED DATA.**
 ///
 /// A CPU could not choose a grab at all: the kit enumerated the three attack
 /// buttons, and a grab answers its own. Everything the scorer needs about one
 /// has to come from the authored capture itself, because `frame_data` derives
 /// reach, coverage and power from HIT VOLUMES and a grab lands none.
 ///
-/// ⛔ **no character id, no role, no hand-written distance.** A CPU that knew
+/// **no character id, no role, no hand-written distance.** A CPU that knew
 /// "George grabs at 44px" would stop working the day George is retuned, and a
 /// second fighter would need a second constant.
 #[test]
@@ -411,22 +400,15 @@ fn the_kit_prices_a_grab_from_the_capture_its_own_move_authors() {
     );
 }
 
-/// **⭐ A GUARD-IGNORING MOVE BEATS A BLOCKABLE ONE AGAINST A RAISED SHIELD.**
+/// **A GUARD-IGNORING MOVE BEATS A BLOCKABLE ONE AGAINST A RAISED SHIELD.**
 ///
 /// The generic half of the triangle, at the layer that owns it: the ROLLOUT is
 /// where a shield zeroes a swing, so it is where `ignores_guard` has to be
 /// visible. Two candidates identical in every other respect, and the fighter's
 /// READ of its opponent as the only thing that changes.
 ///
-/// ⛔⛔ **this deliberately does NOT claim "the CPU grabs a shielding
-/// opponent", and the difference is a measured match.** A grab deals no damage,
-/// so against a guard a blockable attack and a capture are both worth zero and
-/// the fit breaks the tie — the CPU picks the attack. Pricing the grab at its
-/// throw's damage made it prefer the grab and ALSO made it grab from 110px in
-/// every exchange (`capture_probe`, 2026-08-18: nine attempts, none inside the
-/// 42px it reaches, zero holds). What is missing is not a number: it is that
-/// "how valuable is holding somebody" is platform-fighter policy, and this
-/// scorer is shared by every actor in every game the engine runs. Queue D166.
+/// What is missing is not a number: it is that "how valuable is holding somebody" is
+/// platform-fighter policy, and this scorer is shared by every actor in every game the engine runs.
 #[test]
 fn a_guard_ignoring_move_is_what_answers_a_raised_shield() {
     use ambition_characters::actor::attack_gesture::AttackDir;
@@ -503,14 +485,6 @@ fn a_guard_ignoring_move_is_what_answers_a_raised_shield() {
     }
 }
 
-/// **A Grab EDGE plays the authored grab** — the same seam
-/// `the_fighter_plays_the_move_it_scored_not_the_neutral_one` pins for an
-/// attack, asked of the button that had no path onto a body at all until now.
-///
-/// ⚠ the edge is written by hand rather than driven out of the brain, and that
-/// is the honest shape: whether the fighter CHOOSES a grab is the scorer's
-/// question and is measured above; whether a chosen grab reaches the body is
-/// this one, and mixing them would leave both unpinned when either moved.
 #[test]
 fn a_grab_edge_plays_the_authored_grab() {
     let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();

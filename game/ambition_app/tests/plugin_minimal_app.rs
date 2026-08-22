@@ -53,19 +53,13 @@ fn minimal_sim_app() -> App {
     app.add_plugins(StatesPlugin);
     app.init_state::<GameMode>();
 
-    // ⭐ **K2b edit 2: composed the way a player runs it.** This used to add the
-    // simulation plugin alone and take the `SessionRoot` it published at
-    // PLUGIN-BUILD time — the second way to start a game. That publisher is
-    // gone, so the fixture composes the shell host booted to the gameplay route,
+    // That publisher is gone, so the fixture composes the shell host booted to the gameplay route,
     // which is the only way now.
     ambition_app::app::shell_host::compose_ambition_gameplay_host(&mut app);
 
-    // ⚠ **one update is no longer enough.** A build-time root exists before the
-    // first frame; a shell activation reaches `Ready` over a load barrier and
-    // eight preparation work items. Wait for the session world rather than
-    // guessing a frame count, and PANIC with the budget when it never arrives —
-    // returning an un-activated App would fail every test built on this fixture
-    // somewhere far less informative.
+    // Wait for the session world rather than guessing a frame count, and PANIC with the budget
+    // when it never arrives — returning an un-activated App would fail every test built on this
+    // fixture somewhere far less informative.
     ambition_platformer2d::platformer::lifecycle::settle_until_session_world(
         &mut app,
         ambition_platformer2d::platformer::lifecycle::SESSION_SETTLE_FRAMES,
@@ -129,11 +123,6 @@ fn sandbox_simulation_plugin_spawns_exactly_one_player() {
 #[test]
 fn player_entity_carries_canonical_sim_components() {
     let mut app = minimal_sim_app();
-    // Cluster-native (2026-05-28): `PlayerMovementAuthority` /
-    // `PlayerBody` are gone. The canonical bundle now carries
-    // `BodyKinematics` (size, pos, vel, facing) in their
-    // place — assert the bundle still spawns with non-degenerate
-    // body geometry plus every presentation/state component.
     let mut q = app.world_mut().query_filtered::<(
         &BodyKinematics,
         &BodyHealth,

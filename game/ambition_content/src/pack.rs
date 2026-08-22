@@ -1,13 +1,8 @@
 //! Ambition's own content pack — the compile that IS the load path.
 //!
-//! This module used to live inside `character_catalog.rs`, which was honest
-//! while the pack had exactly one source. It does not any more: `pack.ron`
-//! declares a growing source list, and a per-family module is the wrong owner
-//! for "the whole pack compiles".
-//!
 //! ## One manifest, two source origins
 //!
-//! ⚠ A shipped binary must EMBED its content — there is no asset directory
+//! A shipped binary must EMBED its content — there is no asset directory
 //! beside a wasm bundle — and the CLI must READ a directory. What must not
 //! differ is the manifest that says what the pack IS, or the pipeline that
 //! judges it. So `pack.ron` is embedded from the same file the CLI reads, and
@@ -48,7 +43,7 @@ pub const ITEMS_RON: &str = include_str!("../assets/data/items.ron");
 
 /// The authored fighter difficulty ladder.
 ///
-/// ⛔ **this file existed and nothing read it.** A content test parsed it; the
+/// **this file existed and nothing read it.** A content test parsed it; the
 /// game did not, and `FighterBrainProfile::for_level` — which documents itself as
 /// the floor a game overrides — was consulted at both production call sites
 /// instead. Declaring it here is what makes it content rather than a document.
@@ -56,7 +51,7 @@ pub const FIGHTER_BRAIN_LADDER_RON: &str = include_str!("../assets/data/fighter_
 
 /// Every source `pack.ron` declares, paired with its embedded text.
 fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
-    // ⭐ **the boss encounters are appended from ONE table**, not written out
+    // **the boss encounters are appended from ONE table**, not written out
     // here beside `BOSS_ENCOUNTER_RONS[n]`. Path and bytes travel together in
     // `bosses::BOSS_ENCOUNTERS`, so reordering that list cannot attach a file's
     // contents to another file's diagnostic path — which the index form allowed,
@@ -106,38 +101,25 @@ fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
 
 /// The schemas Ambition's own pack is compiled against.
 ///
-/// ⛔ **ONE composition, not a third hand-rolled list.** This used to build its
-/// own `SchemaRegistry` and register the character catalog by hand — a third
-/// site doing what the facade's `engine_schemas()` exists to do, beside the
-/// CLI's `default_registry()`. Three lists that all had to agree, with nothing
-/// making them agree, and `engine_schemas()` itself had ZERO callers: the SDK's
-/// declared answer to "which crates own which schemas" was dead code while two
-/// other places answered it privately.
-///
-/// With one schema installed all three agreed trivially, which is exactly why
-/// this was worth fixing BEFORE a second family landed rather than after the
-/// first divergence. `content_pack_registry` is the probe.
+/// Three lists that all had to agree, with nothing making them agree, and `engine_schemas()` itself
+/// had ZERO callers: the SDK's declared answer to "which crates own which schemas" was dead code
+/// while two other places answered it privately.
 pub fn pack_schemas() -> ambition_content_pack::SchemaRegistry {
     ambition_platformer2d::content::engine_schemas()
 }
 
 /// Compile Ambition's embedded pack.
 ///
-/// **This is the load path, not a check beside it.** Before this, the compiler
-/// proved the content correct and the game parsed the same bytes again through
-/// its own reader — two readers of one file, with nothing guaranteeing they
-/// agreed. Now the runtime takes what the compiler lowered.
+/// Now the runtime takes what the compiler lowered.
 ///
-/// ⚠ assets are UNCHECKED here on purpose. A shipped binary's art may
+/// assets are UNCHECKED here on purpose. A shipped binary's art may
 /// legitimately be absent on a fresh clone (AGENTS.md: git-ignored payloads,
 /// "degrade visibly when a file is absent"), and refusing to boot over a missing
 /// sheet would make this compiler the thing that stops the game rather than the
 /// thing that explains it. The CLI's strict mode is where art is a gate.
 pub fn compile_pack() -> Result<PreparedContentPack, CompileFailure> {
-    // ⭐ **the manifest is a DIAGNOSTIC, not a panic**, since D166 gave the
-    // compiler its own embedded-pack road. It used to be `ron::from_str(...)
-    // .expect(...)` here — the one content fault in this pipeline that killed the
-    // process instead of being reported like every other one.
+    // **the manifest is a DIAGNOSTIC, not a panic**, since gave the compiler its own
+    // embedded-pack road.
     let draft = ambition_content_pack::ContentPackDraft::from_manifest_ron(
         PACK_MANIFEST_RON,
         embedded_sources(),

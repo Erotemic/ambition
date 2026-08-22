@@ -392,8 +392,6 @@ fn publish_attachment_contact(
     let Some(normal) = motion.state.attached_normal(world) else {
         return;
     };
-    // The standoff is measured across the CLUNG face, so on a wall it is the
-    // body's half-WIDTH — the same frame-relative reading every probe uses.
     let (_, body_thick) = body_extents_for(clusters.kinematics.size * 0.5, normal);
     let probe = Aabb::new(
         clusters.kinematics.pos - normal * 2.0,
@@ -483,9 +481,6 @@ fn fall_step(
     }
 
     if clusters.ground.on_ground {
-        // Attach to the LANDED surface's true outward normal (the semantic
-        // Support contact) — under an oblique frame the surface's normal and
-        // the frame's anti-down differ, and adhesion is about the surface.
         let landed = contacts
             .iter()
             .rev()
@@ -530,15 +525,6 @@ fn body_extents_for(half: Vec2, normal: Vec2) -> (f32, f32) {
 }
 
 /// Is there a wall within the NEXT CRAWL STEP of the body's leading edge?
-///
-/// `reach` is that step, not a constant. It used to be a bare `3.0` px, and the
-/// magic number was directly visible in the motion: the turn fired as soon as the
-/// wall came within ~4.7 px, and the concave snap then closed that whole gap in
-/// one tick — a seven-step lurch at crawl speed, whose size was set by nothing
-/// but the margin. Sized to one step instead, the body arrives at the wall by
-/// crawling and the turn costs a single step's worth of jerk. The floor keeps a
-/// degenerate probe (bullet time, hitstop) from being unable to intersect
-/// anything.
 fn wall_ahead(
     world: &World,
     pos: Vec2,
@@ -559,16 +545,11 @@ fn wall_ahead(
 /// cling geometry, return the position seated `body_thick` off that surface.
 /// `None` when no surface is within reach.
 ///
-/// The march only has to FIND the surface — the seat then comes from the block's
-/// own face ([`seated_on`]), so it is exact regardless of how coarsely the probe
-/// stepped. Deriving the seat from the march distance instead is what produced a
-/// permanent 30 Hz shimmer in every crawl: the seat was `body_thick - (d - 0.5)`
-/// off the probe, and settling required `d == body_thick + 0.5` — a half-integer
-/// the integer march can never take. So a slug on perfectly flat ground never
-/// reached a fixed point; it limit-cycled between two positions 0.5 px apart
-/// forever, at a full tick of jerk on a 0.83 px step. Reported as slugs
-/// "jerking around wildly" (Jon, 2026-07-29), and measured by
-/// `movement::tests::adhesive_crawler`.
+/// The march only has to FIND the surface — the seat then comes from the block's own face
+/// ([`seated_on`]), so it is exact regardless of how coarsely the probe stepped. Deriving the
+/// seat from the march distance instead is what produced a permanent 30 Hz shimmer in every
+/// crawl: the seat was `body_thick - (d - 0.5)` off the probe, and settling required `d ==
+/// body_thick + 0.5` — a half-integer the integer march can never take.
 fn snapped_to_surface(
     world: &World,
     pos: Vec2,

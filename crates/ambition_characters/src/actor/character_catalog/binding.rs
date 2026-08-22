@@ -79,12 +79,10 @@ impl std::fmt::Display for BrainPresetId {
 /// resolved identity                 BrainPresetId        "hall::combatant"
 /// ```
 ///
-/// ⚠ **resolution happens at SPAWN today, in [`resolve_initial_brain`], not at
-/// preparation.** So a `PreparedCharacterDefinition` still carries a reference
-/// rather than an id — which is honest about where the work happens, and is
-/// itself a thing to fix: a prepared definition should hold resolved identities.
-/// See `docs/planning/engine/simulation-authority-and-determinism.md` for the
-/// remaining preparation/authority cleanup and the archived D73 brief for history.
+/// ⚠ **resolution happens at SPAWN today, in [`resolve_initial_brain`], not at preparation.**
+/// So a `PreparedCharacterDefinition` still carries a reference rather than an id — which is
+/// honest about where the work happens, and is itself a thing to fix: a prepared definition
+/// should hold resolved identities.
 ///
 /// ⚠ not to be confused with `content_schema::BrainPresetRef`, which is a
 /// zero-sized CONTENT-KIND tag for the cross-content validator, not a value.
@@ -178,14 +176,6 @@ pub enum AutonomousSource {
     CatalogPreset(BrainPresetId),
     /// **PROVOKED, WITH NOTHING TO LOOK UP** — the body is driven by the
     /// engine's default provoked policy.
-    ///
-    /// ⛔⛔ **this used to be `Provoked { archetype: HostileArchetypeId }`**, and
-    /// the id was always the same string. `hostile_brain_id_for_actor()` returns
-    /// `"combatant"` and nothing else — the pirate arms and the
-    /// cellular-automaton arm were deleted in August when those creatures took
-    /// their own provoked policies — so the "stable archetype id a rebuild
-    /// needs" named one row, forever, and carrying it made the rollback road
-    /// resolve a roster the live road had stopped consulting.
     ///
     /// ⭐ payloadless for the same reason [`Self::CharacterProfile`] is: the
     /// answer is not somewhere to look up, it is a thing the engine states.
@@ -326,13 +316,8 @@ impl BrainBinding {
 
     /// Return to the character default. (The caller rebuilds the live `Brain`.)
     pub fn restore_default(&mut self) {
-        // ⛔⛔ **THE SOURCE HAS TO MATCH THE DEFAULT.** This wrote
-        // `CatalogDefault` unconditionally, which was harmless only while every
-        // default WAS a catalog preset. On a body whose default is its
-        // character's own profile it would leave the live source claiming a
-        // catalog preset that `active_preset()` then reports as absent — so the
-        // next rewind rebuilt no brain at all, and did it quietly, which is the
-        // same class of silence this whole seam was fixed for.
+        // ⛔⛔ **THE SOURCE HAS TO MATCH THE DEFAULT.** This wrote `CatalogDefault`
+        // unconditionally, which was harmless only while every default WAS a catalog preset.
         self.source = match self.default_preset {
             AutonomousDefault::CharacterProfile => AutonomousSource::CharacterProfile,
             AutonomousDefault::Preset(_) | AutonomousDefault::None => {
@@ -461,13 +446,6 @@ pub enum BrainBuildError {
     },
     /// **NOBODY NAMES A PRESET, and no placement override was given.**
     ///
-    /// ⛔ this used to be reported as `UnknownPreset { preset: "" }`, because the
-    /// default was built by `BrainPresetId::new(entry.default_brain.clone())` and
-    /// an emptied row produced an empty key rather than an absent one. An empty
-    /// id is a lie in the shape of an answer: it flows into
-    /// `BrainBinding::default_preset`, survives a snapshot, and comes back out at
-    /// `RestoreDefault` as an unknown preset nobody authored.
-    ///
     /// ⚠ it is NOT necessarily an error. A character that states a
     /// [`BrainProfile`] instead is fully authored — this is the signal to ask
     /// THAT authority, which only a caller holding the body can do.
@@ -582,13 +560,7 @@ pub fn resolve_initial_brain(
         .ok_or_else(|| BrainBuildError::UnknownCharacter(character_id.to_string()))?;
     // ⛔⛔ **AN ABSENT DEFAULT IS `None`, NEVER `BrainPresetId::new("")`.**
     //
-    // This built the id unconditionally, so a character whose definition names
-    // no preset AND whose row's `default_brain` was emptied by the migration got
-    // an EMPTY key that then behaved like a real one: it reached
-    // `BrainBinding::default_preset` as `Some("")`, rode a snapshot, and came
-    // back at `RestoreDefault` as *"unknown brain preset ``"* — a body that
-    // silently kept whatever mind it had after every possession. The field is
-    // already `Option`, and its own doc already said what `None` means; the
+    // The field is already `Option`, and its own doc already said what `None` means; the
     // constructor was the one place that could not say it.
     let default_preset = Some(BrainPresetId::new(entry.default_brain.clone()))
         .filter(|id| !id.as_str().trim().is_empty());
@@ -603,12 +575,10 @@ pub fn resolve_initial_brain(
             // keys. The binding stores the QUALIFIED name so the runtime switch
             // path and snapshot reconcile resolve it identically.
             //
-            // ⭐ **THE ENTRY'S OWN PROVIDER FIRST** (2026-08-12, D81) — and this
-            // site is why the fourth attempt to empty a `default_brain` still
-            // failed. `CharacterCatalog::validate_brain_override` had been taught
-            // to ask the provider; THIS one had not, and it is the one the NPC
-            // road reaches. Two functions doing one job, and fixing the wrong
-            // half looked exactly like a half-assembled catalog.
+            // ⭐ **THE ENTRY'S OWN PROVIDER FIRST** — and this site is why the fourth attempt to
+            // empty a `default_brain` still failed. `CharacterCatalog::validate_brain_override`
+            // had been taught to ask the provider; THIS one had not, and it is the one the NPC
+            // road reaches.
             //
             // ⚠ the fallbacks are ORDERED so the field that may be absent is
             // last: `default_action_set` is still required of every row,
@@ -865,11 +835,6 @@ mod tests {
 
     /// A provoked source has no active catalog preset — reconciliation reads
     /// this to rebuild the provoked mode rather than the catalog default.
-    ///
-    /// ⚠ it used to also assert the ARCHETYPE ID it named. There is none:
-    /// `provoke()` records the engine's default policy and carries nothing,
-    /// because the id it used to carry was the string `"combatant"` on every
-    /// call this repository has ever made.
     #[test]
     fn provoked_source_has_no_active_preset() {
         let mut binding = BrainBinding::new(
@@ -904,8 +869,6 @@ mod tests {
             None
         );
     }
-    // ⭐⭐ **THREE TESTS LEFT HERE WITH THE ROAD THEY GUARDED** (D97, 2026-08-12).
-    //
     // They pinned a real ruling — *"a character definition may state its normal
     // autonomous behaviour, and it outranks the catalog row"* — through the
     // `definition_default` parameter, a `BrainPresetRef` a definition could

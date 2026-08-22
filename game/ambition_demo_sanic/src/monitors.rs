@@ -18,12 +18,9 @@
 //!   `MomentumParams` (top speed + ground accel), restored exactly on expiry.
 //!   Skipped while super — the form's params are identity-authored.
 //!
-//! ⛔ **the course does NOT hand out the super form, and no monitor may.** Jon,
-//! 2026-08-16: *"the sanic level should not offer super form. at all. There is a
-//! key for it."* The transformation lives on the Utility action (`toggle_sanic_form`)
-//! and nowhere else, so this file has no super grant to gate, defer or make
-//! deliberate — the whole `monitor_super` block, its placement and its
-//! stomp-only rule are gone rather than tuned.
+//! There is a key for it."* The transformation lives on the Utility action (`toggle_sanic_form`)
+//! and nowhere else, so this file has no super grant to gate, defer or make deliberate — the whole
+//! `monitor_super` block, its placement and its stomp-only rule are gone rather than tuned.
 
 use bevy::prelude::*;
 
@@ -51,7 +48,7 @@ const STOMP_BAND: f32 = 16.0;
 /// Which monitors are broken this run. A Vec, not a HashSet: the overlay
 /// contribution iterates it every frame and the sim determinism contract bans
 /// std-hash iteration order.
-/// ⚠ **`Clone` because it is ROLLBACK STATE**, for the same reason Mary-O's
+/// **`Clone` because it is ROLLBACK STATE**, for the same reason Mary-O's
 /// broken bricks are: the overlay subtracts these names from collision every
 /// frame, so a rewind that does not restore the set disagrees with the world
 /// about which monitors are still solid.
@@ -61,7 +58,7 @@ pub struct SpentMonitors(pub Vec<String>);
 impl SpentMonitors {
     /// **A checksum over WHICH monitors are spent.**
     ///
-    /// ⚠ **order-independent even though this is a `Vec`.** The vector's order is
+    /// **order-independent even though this is a `Vec`.** The vector's order is
     /// the order they broke in, which is genuine information — but two peers
     /// running identical simulations break them in the same order anyway, so
     /// XORing per-name hashes loses nothing a desync check needs and survives a
@@ -93,10 +90,7 @@ pub struct SpeedShoes {
 /// **The break.** A falling player whose feet land on a monitor's lid, or a
 /// rolling player overlapping it, breaks it once: burst + cue + the grant.
 ///
-/// Every monitor pops on a roll-through, the classic Sonic feel. That used to
-/// be conditional — the super monitor was stomp-only, so carrying speed through
-/// its lane could not transform you by accident — and the condition died with
-/// the monitor it protected.
+/// Every monitor pops on a roll-through, the classic Sonic feel.
 pub fn break_monitor_boxes(
     mut commands: Commands,
     mut spent: ResMut<SpentMonitors>,
@@ -182,11 +176,8 @@ pub fn break_monitor_boxes(
             other => {
                 // An authored monitor with no grant is a level-authoring bug.
                 //
-                // ⚠ this said "break it visibly but loudly note the miss in debug
-                // builds" and then noted it in debug builds ONLY — so in the
-                // build a player runs, breaking the monitor granted nothing and
-                // said nothing. The authoring mistake is exactly the kind nobody
-                // finds by reading a level file.
+                // The authoring mistake is exactly the kind nobody finds by reading a level
+                // file.
                 debug_assert!(false, "monitor block '{other}' has no authored grant");
                 bevy::log::error!(
                     target: "ambition_platformer2d::sanic",

@@ -61,16 +61,7 @@ all_capabilities = [
     "ambition_items",
     "ambition_menu",
     "ambition_persistence",
-    # ⭐ optional AGAIN as of 2026-08-16, and this time it is not fiction. It was
-    # made unconditional on 2026-08-15 because `game_assets` took a
-    # `WorldManifest` in an ungated signature; D136 moved that type down to
-    # `ambition_platformer2d_world::world_manifest`, where it belonged — an
-    # asset catalog, not LDtk vocabulary — so this crate's only remaining use of
-    # the backend is the `ldtk_map` mirror, which is gated with the edge.
-    # ⚠ the RESOLVED graph still does not move for a game that links actors:
-    # `ambition_platformer2d_actor_monolith` and `ambition_platformer2d_runtime`
-    # both name the crate unconditionally. This closes the FACADE's own edge,
-    # which is one of the four that hold it, not the footprint.
+    # This closes the FACADE's own edge, which is one of the four that hold it, not the footprint.
     "ambition_platformer2d_ldtk",
     "ambition_portal2d",
     "ambition_portal2d_presentation",
@@ -95,9 +86,7 @@ desktop_platform = ["ambition_platformer2d_actor_monolith/desktop_platform"]
 android_platform = ["ambition_platformer2d_actor_monolith/android_platform"]
 web_platform = [
     "ambition_platformer2d_actor_monolith/web_platform",
-    # The rollback backend owns the wasm clock requirement. Weak forwarding
-    # keeps a browser fixed-step composition from enabling rollback just to
-    # satisfy a target-specific dependency of a capability it did not select.
+    # The rollback backend owns the wasm clock requirement.
     "ambition_platformer2d_rollback_ggrs?/web_platform",
 ]
 web_served = ["ambition_platformer2d_actor_monolith/web_served"]
@@ -189,12 +178,10 @@ ambition_sfx = { path = "../ambition_sfx", optional = true }
 ambition_sfx_bank = { path = "../ambition_sfx_bank", optional = true }
 ambition_sim_view = { path = "../ambition_sim_view", features = ["input"] }
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
-# The sheet DERIVATIONS (`posed_body_geometry`, `authored_body_pixel_size`, the
-# animation pickers), re-exported as `ambition_platformer2d::character_sprites`.
-# ⚠ a game may NOT name this crate directly — `game.demo-*-umbrella-only` and
-# `game.app-reaches-lower-through-facade` say so — which is exactly why the
-# facade alias exists. It is not the alias the carve removed: THAT one was
-# `actors::character_sprites`, and `actors` IS the actor crate.
+# The sheet DERIVATIONS (`posed_body_geometry`, `authored_body_pixel_size`, the animation
+# pickers), re-exported as `ambition_platformer2d::character_sprites`. ⚠ a game may NOT name
+# this crate directly — `game.demo-*-umbrella-only` and `game.app-reaches-lower-through-facade`
+# say so — which is exactly why the facade alias exists.
 ambition_character_sprites = { path = "../ambition_character_sprites" }
 ambition_time = { path = "../ambition_time" }
 ambition_touch_input = { path = "../ambition_touch_input", optional = true }

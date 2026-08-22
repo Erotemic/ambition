@@ -1,24 +1,8 @@
 //! **Provenance-driven reconstruction: the identity pair, end to end.**
 //!
-//! `mint_spawned_sim_ids` stamps a dynamically-spawned entity's identity AND its
-//! [`SpawnOrigin`]; `heal_projectile_owners` re-derives the one `Entity` handle
-//! the projectile family carries from that origin. Those two systems used to be
-//! joined by a string: the minter spelled the parent into the id, and the healer
-//! read it back out with `rsplit_once('/')`.
-//!
 //! Nothing tested that seam before this file, which is why the swap could look
 //! green against 3400 other tests while proving nothing about the mechanism it
 //! replaced.
-//!
-//! **Two of these tests discriminate between the mechanisms; four do not.**
-//! Verified by running the whole file against the pre-change implementation:
-//! `minting_a_spawned_id_also_states_its_parent` and
-//! `without_provenance_the_owner_cannot_be_healed` FAIL there, and are what
-//! prove the swap actually happened. The rest — healing a lost handle,
-//! repointing a stale one, leaving a healthy one alone — pass either way,
-//! because *healing works* was true before too. They are regression protection
-//! for the behaviour, not evidence about the mechanism, and it is worth being
-//! explicit about which is which rather than calling the whole file poisoned.
 
 use bevy::prelude::*;
 
@@ -100,8 +84,6 @@ fn a_projectile_that_lost_its_owner_handle_heals_from_its_provenance() {
 }
 
 /// Poison test for the above: strip the provenance and healing must NOT happen.
-/// Without this, the previous test would still pass if healing silently fell
-/// back to some other fact — including the id string it used to parse.
 #[test]
 fn without_provenance_the_owner_cannot_be_healed() {
     let (mut world, _firer, shot) = world_with_a_shot();

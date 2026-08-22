@@ -106,7 +106,6 @@ fn sanic_declares_soft_framing_everywhere() {
     }
 }
 
-/// Mary-O: a fixed 4:3 gameplay viewport on every platform, surround reserved.
 #[test]
 fn mary_o_declares_a_fixed_four_by_three_viewport() {
     let app = mary_o_app();

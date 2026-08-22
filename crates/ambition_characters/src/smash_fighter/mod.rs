@@ -1,17 +1,12 @@
 //! **THE FIRST CHARACTER-OWNED `smash.fighter` FACET — values authored as
 //! content, prepared into runtime fighter data.**
 //!
-//! ⭐⭐ **this is D166's restitch point, and it is deliberately ONE SECTION
-//! wide.** [`smash_repertoire`](crate::smash_repertoire) and
-//! [`smash_capture`](crate::smash_capture) both carry the same standing note —
-//! *"do not move it for purity; the restitch point is the first real
-//! character-owned `smash.fighter` facet"* — and this module is that facet
-//! arriving. What it carries is the CAPTURE kit and nothing else, because the
-//! capture kit is the part the 2026-08-18 grab campaign proved is pure authored
-//! VALUES: six numbers of geometry, four timings, and three payloads, with no
-//! helper composition and no per-move design law in the middle of them.
+//! **this is restitch point, and it is deliberately ONE SECTION wide.**
+//! [`smash_repertoire`](crate:smash_repertoire) and [`smash_capture`](crate:smash_capture) both
+//! carry the same standing note — *"do not move it for purity; the restitch point is the first
+//! real character-owned `smash.fighter` facet"* — and this module is that facet arriving.
 //!
-//! ⛔ **the sixteen-slot repertoire is NOT here and must not be dragged in to
+//! **the sixteen-slot repertoire is NOT here and must not be dragged in to
 //! make the facet look complete.** A fighter's ordinary moves are authored
 //! through composed Rust helpers (`strike`, `impulse`, `on_hit`,
 //! `committed_tail`, `feel`) whose composition IS the design, and George's own
@@ -19,8 +14,6 @@
 //! Flattening that into RON would turn authored reasoning into a wall of
 //! numbers and buy nothing this row asked for. The capture kit came out clean;
 //! the rest has not yet been shown to.
-//!
-//! ## The three layers, as the queue's D166 row draws them
 //!
 //! ```text
 //! Smash capability   defines the facet's SEMANTICS      this module
@@ -36,26 +29,19 @@
 //! [`smash_capture`](crate::smash_capture) helpers, so the taxonomy stops here
 //! exactly as it did before.
 //!
-//! ## ⚠ The capability is named before it is a crate
+//! ## The capability is named before it is a crate
 //!
 //! [`SMASH_FIGHTER_CAPABILITY`] declares an owner for this schema today, inside
 //! the crate the types transitionally live in. That is the point: a schema
 //! registration must name a capability, so registering one WRITES DOWN the
-//! ownership the eventual carve will make structural. ⛔ it is not a licence to
+//! ownership the eventual carve will make structural. it is not a licence to
 //! start the carve — see the same refusal on both sibling modules.
 //!
-//! ## What replaced the param registry, and why that note changed
-//!
-//! [`smash_capture`](crate::smash_capture) used to end with *"if a capture param
-//! ever becomes authorable as loose RON, wiring
-//! [`ParamSchemaRegistry`](ambition_entity_catalog::ParamSchemaRegistry) is a
-//! precondition of that change"*. Capture params are authorable now — and they
-//! are not LOOSE. They arrive as typed serde structs with
-//! `deny_unknown_fields`, checked by the content compiler before a pack is
-//! allowed to reach a runtime, so a typo is a diagnostic naming the file and the
-//! field at compile time rather than a param that silently never fires. That is
-//! the check the precondition asked for, taken by a stronger road than the one
-//! it named.
+//! Capture params are authorable now — and they are not LOOSE. They arrive as typed serde structs
+//! with `deny_unknown_fields`, checked by the content compiler before a pack is allowed to reach a
+//! runtime, so a typo is a diagnostic naming the file and the field at compile time rather than a
+//! param that silently never fires. That is the check the precondition asked for, taken by a
+//! stronger road than the one it named.
 
 use std::collections::BTreeMap;
 
@@ -73,12 +59,8 @@ pub mod content_schema;
 
 /// **The capability that owns platform-fighter authoring.**
 ///
-/// Today it is a name on a schema registration rather than a crate, and that is
-/// the honest state: D166's ruling is that the types stay where they are until a
-/// facet makes the ownership load-bearing, and this constant is what makes it
-/// load-bearing. A composition that installs the schema installs this
-/// capability, so "who owns a fighter's authored values" has one answer that a
-/// tool can print.
+/// A composition that installs the schema installs this capability, so "who owns a fighter's
+/// authored values" has one answer that a tool can print.
 pub const SMASH_FIGHTER_CAPABILITY: &str = "smash_fighter";
 
 /// The authored FILE kind: one character's platform-fighter facet.
@@ -111,7 +93,7 @@ pub struct CaptureKitAuthoring {
     /// Required. A capture kit whose only throw is unauthored would acquire a
     /// captive it can never dispose of except by the hold timing out.
     pub forward_throw: ThrowAuthoring,
-    /// ⛔ an unauthored throw does NOTHING, and deliberately does not fall back
+    /// an unauthored throw does NOTHING, and deliberately does not fall back
     /// to a pummel — see [`SmashCaptureRepertoire`]. `None` is the authored way
     /// to say "this fighter has no back throw".
     #[serde(default)]
@@ -157,7 +139,7 @@ pub struct ThrowAuthoring {
     pub id: String,
     pub clip: String,
     pub duration_s: f32,
-    /// ⭐ the release is a timeline instant, not the button press — the captive
+    /// the release is a timeline instant, not the button press — the captive
     /// stays constrained through the wind-up and leaves here, which is what
     /// makes a throw readable and punishable rather than instantaneous.
     pub release_at_s: f32,
@@ -235,7 +217,7 @@ impl SmashFighterFacet {
     /// release the captive never reaches — because that is the class of fault
     /// that is invisible in a playtest and looks like the mechanic being bad.
     ///
-    /// ⚠ what is NOT here: balance. A 400-knockback pummel and a two-second grab
+    /// what is NOT here: balance. A 400-knockback pummel and a two-second grab
     /// are both usable and both terrible, and refusing them would make this
     /// module the designer.
     pub fn problems(&self) -> Vec<String> {
@@ -312,7 +294,7 @@ impl CaptureKitAuthoring {
             }
         }
 
-        // ⛔ **two capture moves sharing an id is a COLLISION, not a duplicate
+        // **two capture moves sharing an id is a COLLISION, not a duplicate
         // row.** A `MovesetContract` resolves a move by its id, so the second
         // one would be reachable through its verb and unreachable through
         // everything else that names a move — cancel windows, hitlag

@@ -1,10 +1,7 @@
 //! **The Shadow Oni Leader's repertoire** — the counter-puncher, written from
 //! his own barks.
 //!
-//! ⭐ **the fourth adopter removed from the generic floor** (campaign P3.24), and
-//! the first authored from a character's VOICE rather than from a
-//! `gameplay_description`. His catalog row carries no design note; it carries
-//! five lines, and they are a design note:
+//! His catalog row carries no design note; it carries five lines, and they are a design note:
 //!
 //! > *"Your form is loud."* · *"A warning: one breath left."* · *"The shadow
 //! > answers."* · *"I permit your gaze. Note the word 'permit'."* · *"A leader's
@@ -27,7 +24,7 @@
 //!   oni leader   0.03      0.04      0.20         faster, and it COSTS
 //! ```
 //!
-//! ⛔ **this is a different AXIS, not a fifth set of numbers.** The four tables
+//! **this is a different AXIS, not a fifth set of numbers.** The four tables
 //! that exist vary reach, damage and speed together — a goblin is smaller and
 //! quicker and weaker, an admiral longer and slower and harder. The oni varies
 //! the SHAPE of a swing: same reach band as a striker, and a window you either
@@ -35,10 +32,8 @@
 //! the previous table renumbered, which is what the comparative tests below
 //! exist to refuse.
 //!
-//! ⚠ **the ninja fantasy is NOT in here** — no teleport, no clone, no smoke.
-//! Those are abilities and techniques; a moveset says what a hit IS. Giving him
-//! a vanish as a move window would be the wholesale-migration failure mode
-//! wearing a content commit.
+//! **the ninja fantasy is NOT in here** — no teleport, no clone, no smoke. Those are abilities
+//! and techniques; a moveset says what a hit IS.
 
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
@@ -57,7 +52,7 @@ use ambition_platformer2d::entity_catalog::ImpulseMode;
 pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     // ── grounded ─────────────────────────────────────────────────────────────
     //
-    // ⭐ the fastest jab in the game, and the shortest. It answers a goblin's
+    // the fastest jab in the game, and the shortest. It answers a goblin's
     // jab and beats it — and if the goblin was not there, the oni is standing
     // still for a fifth of a second holding an empty hand.
     let jab = strike(
@@ -107,7 +102,7 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
 
     // ── smashes ──────────────────────────────────────────────────────────────
     //
-    // ⚠ **the FASTEST smashes on the grid and the most punishing to miss**, which
+    // **the FASTEST smashes on the grid and the most punishing to miss**, which
     // is the whole character in one pair of numbers. Everybody else's kill move
     // is slow to start; his is slow to *end*. A goblin that eats it was caught
     // reacting; a goblin that saw it coming gets 0.44s to answer.
@@ -235,18 +230,15 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
         None,
     );
 
-    // ── 2026-08-16: THE FIVE THAT WERE MISSING ───────────────────────────────
-    //
-    // Jon: *"Let's complete the kit for all characters … We can invent whatever
     // special we want for oni and goblin … I think oni has a bunch of sfx and
     // vfx ready for it."* He does: fourteen authored rows on his own FX sheet,
     // and this table had never named ONE of them. Every effect below is his.
     //
-    // ⭐ **the axis holds through all five.** Fastest to start, shortest active
+    // **the axis holds through all five.** Fastest to start, shortest active
     // window, recovery of more than three times it — a special that opened
     // slowly or lingered would be a different character wearing the mask.
 
-    // ⛔ **the forward tilt, which fell down the chain to the jab.** `missed_
+    // **the forward tilt, which fell down the chain to the jab.** `missed_
     // answer_cut` is the row for it: the answer that goes through where you were.
     let f_tilt = strike(
         "tilt_forward",
@@ -266,9 +258,6 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     let f_tilt = sfx(f_tilt, 0.04, "enemy.shadow_oni.slash");
     let f_tilt = on_contact(f_tilt, "player.hit");
 
-    // **NEUTRAL — `shadow_answer`.** The bark, as a move: *"The shadow answers."*
-    // The shortest active window on the grid, four frames of eye-flash telegraph
-    // in front of it, and a recovery you pay whether or not it landed.
     let n_b = strike(
         "shadow_answer",
         "attack",
@@ -316,7 +305,7 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
 
     // **UP — `smoke_fold`. THE RECOVERY**, and the reason this batch is not
     // cosmetic: with no special at all he had a double jump and nothing else.
-    // He does not climb — he leaves, and arrives. ⭐ the hit is on the ARRIVAL,
+    // He does not climb — he leaves, and arrives. the hit is on the ARRIVAL,
     // not the departure, so covering the spot he left is not a punish.
     let mut up_b = strike(
         "smoke_fold",
@@ -367,16 +356,13 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     let down_b = sfx(down_b, 0.06, "faction.ninja.parry_flash");
     let down_b = on_contact(down_b, "player.hit");
 
-    // ── 2026-08-16: THE OTHER POSTURE ────────────────────────────────────────
-    //
-    // Jon: *"A down-b that has special airborne properties should also have an
     // effect on ground. Think of bowser down b. In the air he just does a
     // downward slam, but on the ground, it causes him to jump in an arc and then
     // slam. Specials can have different effects in different contexts that
     // should be ok, and makes for a richer smash game, although in most cases
     // they shouldn't be context dependent."*
     //
-    // ⛔ a special gated to ONE posture is not answered in the other — the
+    // a special gated to ONE posture is not answered in the other — the
     // directional chain walks straight past it to the NEUTRAL special, so a
     // player pressing down-B in the air got the neutral-B. `special_air_down`
     // sits ahead of `special_down` in that chain and has the whole time; this is
@@ -408,7 +394,7 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     // **ONI'S CAPTURE KIT.** The FASTEST grab in the game and the longest recovery
     // behind it — a read, not a poke. Whiffing this is the punish window his whole kit
     // is balanced around.
-    // ⚠ the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
+    // the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
     // and each table's own `every_clip_names_a_row_..._sheet_carries` guard says
     // so. `ClipBinding`'s fallbacks would have covered it at runtime, but a move
     // that NAMES a row nobody publishes is a lie the guard is right to refuse.
@@ -470,7 +456,7 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     );
     SmashRepertoire {
         taunt: ambition_characters::moveset_authoring::taunt("ninja_shadow_oni_leader_taunt", 0.9),
-        // ⚠ **0.30 recovery, not the genre's 0.26** — nothing he swings recovers
+        // **0.30 recovery, not the genre's 0.26** — nothing he swings recovers
         // in under 3x its active window, which is what stops any of it being
         // thrown casually. 0.09 active buys 0.27, and his law wants MORE.
         dash_attack: ambition_characters::moveset_authoring::dash_attack(
@@ -497,12 +483,11 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: up_b,
-        // ⭐ **AUTHORED 2026-08-19, at Jon's ask that every fighter in the smash
-        // roster have a grab.** The transitional `None` is gone: capture was
-        // proven on George and the Pirate Admiral, and the whole point of
-        // proving it was to stop being the only two.
+        // **AUTHORED, at the rule that every fighter in the smash roster have a grab.** The
+        // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
+        // the whole point of proving it was to stop being the only two.
         //
-        // ⚠ the VALUES are per character on purpose. A roster whose grabs are
+        // the VALUES are per character on purpose. A roster whose grabs are
         // twelve copies of one number set is one grab wearing twelve names.
         capture: SmashCaptureRepertoire {
             cues: CaptureCues::GENERIC,
@@ -534,7 +519,7 @@ mod tests {
             .clone()
     }
 
-    /// ⚠ **only a STRIKE has one.** A pummel and a throw are timelines with no
+    /// **only a STRIKE has one.** A pummel and a throw are timelines with no
     /// Active window at all, so the swing tests below iterate `strikes()` rather
     /// than every move the contract carries — asking a throw for its startup is
     /// asking about a window it never has.
@@ -566,8 +551,6 @@ mod tests {
         m.duration_s - active(m).end_s
     }
 
-    // ⭐⭐ **RETIRED 2026-08-16 — `every_bound_verb_names_a_move_that_exists`.**
-    //
     // Fourteen fighters each carried a copy of it: every bound verb names a move
     // this table defines, and the table binds the whole vocabulary. Both are now
     // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb
@@ -612,19 +595,19 @@ mod tests {
     /// **THE ORDER OBEYED INSTANTLY CANNOT BE RECALLED: every move recovers for
     /// more than three times its own active window.**
     ///
-    /// ⭐ this is the axis, and it is what stops the table being the goblin's
+    /// this is the axis, and it is what stops the table being the goblin's
     /// with smaller numbers. A fighter can be given fast startups by typing
     /// smaller floats; a fighter whose every swing costs more than triple what it
     /// buys has a different relationship to committing.
     ///
-    /// ⛔ **the poison is that the GOBLIN must fail this**, or the ratio is a
+    /// **the poison is that the GOBLIN must fail this**, or the ratio is a
     /// property of `strike`'s shape rather than a property of him.
     #[test]
     fn every_swing_costs_more_than_three_times_the_moment_it_buys() {
         let oni = ninja_shadow_oni_leader_moveset();
-        // ⚠ SWINGS only. The claim is about what a swing costs, and a pummel or
+        // SWINGS only. The claim is about what a swing costs, and a pummel or
         // a throw is not a swing — it holds no window to be three times longer
-        // than. ⛔ the count is the zero floor: a filter that removed everything
+        // than. the count is the zero floor: a filter that removed everything
         // would satisfy this loop by iterating nothing.
         let swings = strikes(&oni);
         assert!(

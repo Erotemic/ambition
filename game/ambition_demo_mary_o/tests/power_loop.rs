@@ -56,11 +56,6 @@ struct Loop {
     app: App,
     body: Entity,
     /// The AUTHORED ?-block this harness bonks.
-    ///
-    /// ⛔ it used to be `power_block_id(0)`, an id reconstructed from a Rust
-    /// column array — which stopped naming anything the moment the level became
-    /// authored. The harness loads the real level and takes the first block the
-    /// AUTHOR marked as a ?-block, so what it hits is what a player would.
     struck: ae::GeoId,
 }
 
@@ -308,22 +303,13 @@ fn clip_secs(sheet_target: &str, anim: CharacterAnim) -> f32 {
 
 /// **A transformation lasts as long as the art that shows it.**
 ///
-/// Every tier change — up AND down — authors a beat that names the clip the
-/// ARRIVING sheet drew for it and holds long enough for every frame of that clip
-/// to be drawn. Both halves were broken: the beat named `Death` (the closest
-/// thing her sheets had to a held pose before the transition rows existed) and
-/// ran for a flat 0.5s, which is SHORTER than the eight-frame fire
-/// transformation — so the reveal frames were never reached, and Jon reported
-/// the transformation as "nearly instant if it even exists".
+/// Every tier change — up AND down — authors a beat that names the clip the ARRIVING sheet drew for
+/// it and holds long enough for every frame of that clip to be drawn.
 ///
 /// The durations are compared against the sheets, not against constants: the
 /// generator owns the frame tables, and a test that copied them would agree with
 /// a stale demo and disagree with the art.
-// ⛔⛔ **`mary_o_roster_fragment` WAS HERE AND IS DELETED** (AC6). It registered
-// an EMPTY archetype fragment purely so the `CharacterRoster` RESOURCE existed
-// for `spawn_encounter_mob` to ask — the demo had shipped no rows since
-// 2026-08-13 — and its own doc said it "is deleted with that parameter when the
-// roster machinery goes". It has.
+// It has.
 
 #[test]
 fn every_tier_change_holds_its_arriving_sheets_transition_clip() {
@@ -676,21 +662,12 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<ambition_platformer2d::actors::avatar::PlayerHealRequested>();
 
-    // ⭐ every Mary-O enemy is a CHARACTER now (the plane swarms joined
+    // every Mary-O enemy is a CHARACTER now (the plane swarms joined
     ambition_demo_mary_o::snake::register_solid_snake_character(&mut app);
     ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
     app.add_systems(Update, (step_projectiles, apply_feature_hit_events).chain());
 
     // A player-faction firer to own the shot.
-    //
-    // ⛔⛔ **THE FACTION IS LOAD-BEARING, and leaving it off made this fixture
-    // stop modelling production** (repaired 2026-08-21). D150 gave every shot a
-    // frozen `ProjectileAllegiance`; an unstamped shot derives it from the
-    // FIRER's combat data on its first tick, and a firer carrying no faction
-    // yields `None` — *"a genuinely ownerless/environmental volley"*, which
-    // damages nobody. So the spark flew through the snake and the test read as
-    // "the shared hit pipeline is broken" when what was broken was a player body
-    // this fixture built without the component every real one has.
     let firer = app
         .world_mut()
         .spawn((
@@ -796,15 +773,6 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
 }
 
 /// **A stomp SHELLS a snake — it never kills it.**
-///
-/// The bug this guards: the shell used to be a zero-HP "corpse", but a dead
-/// HOSTILE actor is hidden by the render's `visible = !hostile || alive` rule, so
-/// a stomped snake simply vanished ("just kills it") with the whole withdraw cycle
-/// running invisibly. The fix keeps the body ALIVE and expresses "shelled" as two
-/// real levers. This drives the ACTUAL production system on a REAL spawned snake
-/// and asserts the stomp: (a) leaves its HP untouched — so it stays visible — and
-/// (b) freezes it (`recoil_lock_timer`) and makes it inert (`body_contact_damage`
-/// off). Nothing here sets state by hand; it is the stomp, read from the world.
 #[test]
 fn a_stomp_shells_a_snake_alive_it_never_dies() {
     use ambition_demo_mary_o::snake::{SnakeShell, run_snake_shells};
@@ -849,7 +817,7 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
     app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<HitEvent>();
 
-    // ⭐ every Mary-O enemy is a CHARACTER now (the plane swarms joined
+    // every Mary-O enemy is a CHARACTER now (the plane swarms joined
     ambition_demo_mary_o::snake::register_solid_snake_character(&mut app);
     ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
     app.add_systems(Update, run_snake_shells);
@@ -997,7 +965,7 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
     app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<HitEvent>();
 
-    // ⭐ every Mary-O enemy is a CHARACTER now (the plane swarms joined
+    // every Mary-O enemy is a CHARACTER now (the plane swarms joined
     ambition_demo_mary_o::snake::register_solid_snake_character(&mut app);
     ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
     app.add_systems(Update, run_snake_shells);
@@ -1093,14 +1061,6 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
 }
 
 /// **A DEAD snake leaves the shell machine — no invisible hits.**
-///
-/// The bug this guards, the other half of "a dead snake keeps hitting me": a shell
-/// can kill other snakes now, and the engine HIDES a dead hostile actor
-/// (`visible = !hostile || alive`). A corpse that kept stepping would go on sliding
-/// forever — invisible, still broadcasting lethal `Volume` hits and still able to
-/// side-hit the player, with nothing on screen to explain any of it. This drives the
-/// real system on a real snake that is sliding AND dead, and asserts it emits
-/// nothing at all and stops moving.
 #[test]
 fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
     use ambition_demo_mary_o::snake::{SnakeShell, run_snake_shells};
@@ -1143,7 +1103,7 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
     app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<HitEvent>();
 
-    // ⭐ every Mary-O enemy is a CHARACTER now (the plane swarms joined
+    // every Mary-O enemy is a CHARACTER now (the plane swarms joined
     ambition_demo_mary_o::snake::register_solid_snake_character(&mut app);
     ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
     app.add_systems(Update, run_snake_shells);
@@ -1251,18 +1211,9 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
 
 /// **A rules-only shell STANDING IN one authored room.**
 ///
-/// ⛔ **the room used to be implicit, and it was always 1-1 (2026-08-15).**
-/// `warp_through_secret_pipe` read a process-global tube list built from
-/// `authored_room(LEVEL_1_1_ROOM_ID)`, so every tube in the game was 1-1's and
-/// this shell needed no session world to exercise one. Tubes are keyed by the
-/// room that authors them now and the reader asks `RoomSet` where the body is
-/// standing, so the room is a parameter — which is what lets the three tests
-/// below be the same test in three rooms.
-///
-/// ⚠ **a shell with NO session world has no pipes at all, and that is correct.**
-/// "Which tubes can she press into" is a question about the room she is in; with
-/// no room there is no answer, and answering 1-1 anyway is exactly the bug this
-/// replaced.
+/// Tubes are keyed by the room that authors them now and the reader asks `RoomSet` where the body
+/// is standing, so the room is a parameter — which is what lets the three tests below be the same
+/// test in three rooms.
 fn pipe_shell(room_id: &str) -> App {
     let mut app = App::new();
     app.insert_resource(ambition_platformer2d::time::WorldTime {
@@ -1319,13 +1270,10 @@ fn press_locomotion(app: &mut App, body: Entity, y: f32) {
 
 /// **A warp is a MOVE, not a teleport.**
 ///
-/// Pressing DOWN on the pipe mouth used to relocate the body in a single frame:
-/// you were on the surface, then you were in the vault, with nothing in between.
-/// That reads as a teleport rather than as a pipe. This drives the REAL systems
-/// on a REAL body and asserts the trip: the press starts a transit instead of
-/// finishing one, the body is still near the mouth a frame later (sinking, not
-/// gone), and it arrives — exactly on the authored arrival — only after the
-/// authored slide has run. Nothing here sets a position by hand.
+/// That reads as a teleport rather than as a pipe. This drives the REAL systems on a REAL body and
+/// asserts the trip: the press starts a transit instead of finishing one, the body is still near
+/// the mouth a frame later (sinking, not gone), and it arrives — exactly on the authored arrival —
+/// only after the authored slide has run. Nothing here sets a position by hand.
 #[test]
 fn pressing_down_on_the_pipe_slides_the_body_through_it_over_time() {
     use ambition_demo_mary_o::pipe::{EMERGE_S, PipeTransit, SWALLOW_S};
@@ -1333,8 +1281,6 @@ fn pressing_down_on_the_pipe_slides_the_body_through_it_over_time() {
     use ambition_platformer2d::characters::actor::BodyCombat;
     use ambition_platformer2d::engine_core::AabbExt;
 
-    // ⚠ **standing in 1-1**, because the tube this drives is 1-1's and the
-    // reader now asks the room. It used to ask nothing and get 1-1 regardless.
     let mut app = pipe_shell(LEVEL_1_1_ROOM_ID);
 
     // A full body standing ON the entry pipe's mouth.
@@ -1411,7 +1357,7 @@ fn pressing_down_on_the_pipe_slides_the_body_through_it_over_time() {
 
 /// **And the way BACK — the leg nothing else runs.**
 ///
-/// ⛔ the two tests that walked 1-1's whole secret route (`scripted_level_run`
+/// the two tests that walked 1-1's whole secret route (`scripted_level_run`
 /// and `level_1_acceptance`) are both `#[ignore]`d, tuned to an older
 /// arrangement — so the ASCENT was the half of the vault trip with no running
 /// coverage at all. It is also the half the authored `role` decides: both of
@@ -1459,19 +1405,14 @@ fn pressing_up_under_the_vault_pipe_surfaces_her_on_the_exit_pipe() {
 
 /// **A tube authored OUTSIDE 1-1 warps her too — where it was drawn.**
 ///
-/// ⛔⛔ **this failed before 2026-08-15, and nothing said so.**
-/// `warp_through_secret_pipe` read a process-global tube list built from
-/// `authored_room(LEVEL_1_1_ROOM_ID)`, so **every tube in the game was 1-1's**.
-/// A warp pipe drawn in any other level converted, paired, passed the load-time
-/// Entrance/Exit check, drew its prop art — and did nothing at all. The system's
-/// own comment promised the opposite (*"a third tube Jon draws works with no
-/// line of Rust"*), which was true INSIDE 1-1 and false one room along, and
-/// nothing in the vocabulary, the validator or the entity docs mentioned the
-/// restriction. `mary_o_1_3` shipped with two correct, completely inert pairs.
+/// A warp pipe drawn in any other level converted, paired, passed the load-time Entrance/Exit
+/// check, drew its prop art — and did nothing at all. The system's own comment promised the
+/// opposite, which was true INSIDE 1-1 and false one room along, and nothing in the vocabulary, the
+/// validator or the entity docs mentioned the restriction. `mary_o_1_3` shipped with two correct,
+/// completely inert pairs.
 ///
-/// ⭐ **the room is DERIVED, not named.** This asks the world for the first
+/// **the room is DERIVED, not named.** This asks the world for the first
 /// authored area other than 1-1 that draws a tube, so it covers whichever level
-/// Jon drags a pipe into next instead of a room id this file must be edited to
 /// learn — which is the same failure, one layer up, that the test would then be.
 #[test]
 fn a_warp_tube_authored_outside_1_1_still_warps_her() {

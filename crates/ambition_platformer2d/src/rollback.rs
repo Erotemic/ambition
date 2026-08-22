@@ -6,12 +6,7 @@
 //! activation, lifecycle rebasing, confirmation boundaries. Its own slice, its
 //! own acceptance tests."
 //!
-//! This is that slice. The six properties are not documented here — they are
-//! the reason this module exists at all, because each one is a way a consumer
-//! could hold rollback wrong, and every one of them was held wrong first by
-//! the engine's own fixture. [`start`] performs the sequence Outlander used to
-//! perform by hand, so the orderings that produce a desync are unreachable
-//! rather than warned about:
+//! This is that slice.
 //!
 //! | Property | How this module keeps it |
 //! |---|---|
@@ -65,7 +60,7 @@ pub use ambition_platformer2d_runtime::rollback::{
 
 /// How a rollback session should be brought up.
 ///
-/// ⚠ **The participant count is deliberately NOT here.** It is declared at
+/// **The participant count is deliberately NOT here.** It is declared at
 /// composition, by [`crate::app::PlatformerApp::rollback`], because a restart
 /// must reuse the frozen value rather than re-sample it: proof pulses,
 /// hot-reload rebases and lifecycle commits are all the same session
@@ -74,10 +69,7 @@ pub use ambition_platformer2d_runtime::rollback::{
 /// plan would make it an argument to every restart — three chances to disagree
 /// where the engine went to some trouble to have one answer.
 ///
-/// The engine shipped the weaker version of this bug already:
-/// `..Default::default()` silently meant one player, and a rollback oracle
-/// proved determinism for ONE input stream the same week a 2–4 player couch
-/// versus mode landed. A desync in seat two had nowhere to show up.
+/// A desync in seat two had nowhere to show up.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct RollbackPlan {
     check_distance: usize,
@@ -125,13 +117,13 @@ impl RollbackPlan {
 
     /// How many quiet ticks to run after activation before frame zero.
     ///
-    /// ⚠ Lowering this to zero is how a consumer reintroduces the hazard the
+    /// Lowering this to zero is how a consumer reintroduces the hazard the
     /// campaign names: seating completes on the session's first frame, so
     /// activation would land on GGRS frame 1 where nothing can rewind across
     /// it. The knob exists because a game with a different activation shape
     /// may need MORE, not because zero is a supported choice.
     ///
-    /// ⚠ **and a tick count is not a readiness CONTRACT.** No number here
+    /// **and a tick count is not a readiness CONTRACT.** No number here
     /// proves a host is settled; it buys frames, and the default buys enough
     /// for every activation shape in this repo. Do not read a passing run as
     /// "eight ticks is the requirement", do not tune it to make a flaky test
@@ -163,24 +155,15 @@ pub struct DeclaredParticipants(pub usize);
 
 /// Why a rollback session could not start.
 ///
-/// Every variant names the thing the author must change. A refusal that said
-/// only "failed" would send them into `crates/`, which is the failure ADR
-/// 0031's blind-agent gate measures.
+/// Every variant names the thing the author must change.
 ///
-/// ⚠ **A fifth variant was written and deleted before this shipped, and its
-/// PREMISE HAS SINCE EXPIRED.** `ParticipantsDisagree` compared the declared
-/// count against `LocalSeatTopology` and refused when they differed. It was
-/// deleted as unreachable: a probe found that on a host composed through
-/// `PlatformerApp::rollback`, `LocalSeatTopology` was never inserted at all,
-/// being populated only by the dev observatory's own session path.
-///
-/// ⛔ **that is no longer true.** `freeze_local_seating_for_the_decided_match`
+/// **that is no longer true.** `freeze_local_seating_for_the_decided_match`
 /// is registered by `PlatformerHostPlugins`, which this builder adds
 /// unconditionally, so a topology IS frozen here the moment a match publishes a
 /// roster — which is precisely the situation the refusal was about. The reason
 /// for deleting it has expired even though the deletion may still be right.
 ///
-/// ⚠ **so this is a live question, not a settled one**, and it is recorded
+/// **so this is a live question, not a settled one**, and it is recorded
 /// rather than acted on: restoring a refusal is a design decision, and the
 /// original argument for removing it ("an unreachable refusal reads as
 /// protection") no longer applies to a reachable one. What has NOT changed is
@@ -209,21 +192,10 @@ pub enum RollbackRefused {
     NoAuthoritativeState,
     /// Activation never produced a session world.
     ///
-    /// ⛔ **a rollback session must not begin before activation has settled**,
-    /// and until 2026-08-06 nothing said so — because nothing could notice. A
-    /// direct-entry host spawns its session root at PLUGIN-BUILD time, so
-    /// "the world exists" was true before the first frame and the rule had no
-    /// teeth to grow.
+    /// Under a shell-routed host it is not true: the root arrives several frames in, behind a
+    /// load barrier and eight preparation work items.
     ///
-    /// Under a shell-routed host it is not true: the root arrives several frames
-    /// in, behind a load barrier and eight preparation work items. A sync test
-    /// started before then compares frames containing ACTIVATION work, and the
-    /// two runs diverge on the world being built rather than on gameplay —
-    /// measured, when the sim harness was pointed at the shell: *"GGRS sync-test
-    /// checksum mismatch at frames [2, 3, 4]"*, with the desync canary reporting
-    /// no controlled subject beside it.
-    ///
-    /// ⭐ **so the fix is not a longer budget, it is a stated precondition.** A
+    /// **so the fix is not a longer budget, it is a stated precondition.** A
     /// session that begins over a world that does not exist yet is measuring
     /// construction; refusing is the honest answer, and it names the thing to
     /// wait for.
@@ -272,10 +244,6 @@ impl core::fmt::Display for RollbackRefused {
 impl std::error::Error for RollbackRefused {}
 
 /// A started rollback session.
-///
-/// Returned rather than dropped so a caller can assert on the facts that make
-/// the session meaningful — chiefly [`Self::encoded_types`], because a session
-/// over nothing is the failure mode that looks most like success.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RollbackSession {
     ticks_to_activation: usize,
@@ -302,12 +270,8 @@ impl RollbackSession {
 
 /// Whether a rollback session is still doing its job.
 ///
-/// ⚠ **A started session is not a running one, and nothing in this SDK could
-/// tell the difference until now.** Blind run 7 watched `host_status` report
-/// `Running { prepared: true }` for 4300 consecutive updates while its sim was
-/// frozen and its player body had not moved by a single float. GGRS reports a
-/// desync through a `warn!` and a message a headless consumer never sees, so
-/// the only honest answer available to that author was "the engine is broken".
+/// GGRS reports a desync through a `warn!` and a message a headless consumer never sees, so the
+/// only honest answer available to that author was "the engine is broken".
 ///
 /// [`RollbackSession`] reports STARTUP facts — participants, encoded types,
 /// ticks to activation — and all three were healthy while the session was not.
@@ -331,8 +295,7 @@ pub enum RollbackHealth {
     },
     /// The session re-simulated a frame and got a different answer.
     ///
-    /// This is a determinism bug in the game or the engine, and it is the
-    /// whole reason to run a sync test. The frames are the ones that differed.
+    /// The frames are the ones that differed.
     Desynced {
         /// Frames whose re-simulation disagreed.
         frames: Vec<i32>,
@@ -356,7 +319,7 @@ impl RollbackHealth {
 
     /// The session's current frame, if there is a session.
     ///
-    /// ⚠ A frame that does not ADVANCE between updates is a stalled session,
+    /// A frame that does not ADVANCE between updates is a stalled session,
     /// and no variant here reports that on its own — liveness is a property of
     /// two observations, not one. Sample it twice.
     pub fn frame(&self) -> Option<i32> {
@@ -385,14 +348,6 @@ impl RollbackHealth {
 ///
 /// Cheap enough to call every update. See [`RollbackHealth`] for why a
 /// consumer needs it and what [`RollbackSession`] does not tell you.
-///
-/// ⚠ **The LIVE session decides first, and it did not used to.** `health` read
-/// `RollbackSessionStatus` and `RollbackFrameCount`, both of which are read
-/// models that OUTLIVE the session that wrote them — teardown removes the
-/// session, its ownership and the confirmed-frame boundary, and leaves those
-/// two behind. So a stopped host reported `Healthy { frame }` at whatever frame
-/// it had reached, forever, from a public API (GPT 5.6, 2026-07-31). The frame
-/// even looked plausible: it was the last real one.
 ///
 /// What survives teardown deliberately is the DIAGNOSIS. A session that
 /// desynced and was then stopped still reports [`RollbackHealth::Invalidated`]
@@ -462,10 +417,7 @@ pub fn stop(app: &mut App) {
 
 /// Bring a composed rollback host up to a running session.
 ///
-/// Construct, wait for activation, settle, then rebase frame zero onto the
-/// result. Each step is here because skipping it produces a desync that
-/// reports as a checksum mismatch several frames later, where it reads like a
-/// bug in the game rather than a bug in the startup order.
+/// Construct, wait for activation, settle, then rebase frame zero onto the result.
 pub fn start(app: &mut App, plan: RollbackPlan) -> Result<RollbackSession, RollbackRefused> {
     // The host kind is a resource the engine sets when the plugin group is
     // chosen, so this reads the composition's actual decision rather than a
@@ -504,7 +456,7 @@ pub fn start(app: &mut App, plan: RollbackPlan) -> Result<RollbackSession, Rollb
         app.update();
     }
 
-    // ⛔ **the world must EXIST before the session does.** See
+    // **the world must EXIST before the session does.** See
     // [`RollbackRefused::NoSessionWorld`]: a rollback session opened over an
     // unbuilt world compares activation rather than gameplay, and the checksum
     // mismatch that produces reads as a desync in the game.
@@ -528,7 +480,7 @@ pub fn start(app: &mut App, plan: RollbackPlan) -> Result<RollbackSession, Rollb
         max_prediction_window: plan.prediction_window,
         ..ambition_platformer2d_rollback_ggrs::SyncTestSettings::for_players(participants)
     };
-    // ⚠ The EFFECTIVE count, not the requested one. `player_count` clamps into
+    // The EFFECTIVE count, not the requested one. `player_count` clamps into
     // what a session can build, and reporting the request back would let this
     // struct describe a topology GGRS did not seat. `PlatformerApp::rollback`
     // refuses out-of-range counts so the clamp should now be a no-op — reading

@@ -52,17 +52,15 @@ pub fn sync_player_actor_poses(
 /// one conversion that would be STRICTER rather than equivalent, on the grounds
 /// that `PlayerInputSet::Brain` already holds two things.
 ///
-/// ⭐ that reasoning was wrong, and the correction generalises: "the target is
-/// already in a multi-member set" only forces a stricter pin if you insist on
-/// reusing THAT set. A NESTED single-member set is always available and is
-/// exactly equivalent to the leaf pin it replaces.
+/// A NESTED single-member set is always available and is exactly equivalent to the leaf pin it
+/// replaces.
 ///
 /// It also unblocks a pin that could never have used the parent. The causal
 /// observer `record_player_movement_intent` is itself a member of
 /// `PlayerInputSet::Brain`, so `.after(PlayerInputSet::Brain)` would be a cycle;
 /// `.after(ControlledBrainTick)` is not, because it is not in this set.
 ///
-/// ⚠ ONE member, permanently. The parent phase is the place to add brain-adjacent
+/// ONE member, permanently. The parent phase is the place to add brain-adjacent
 /// work; this set means "participant control has become `ActorControl`" and
 /// nothing else, which is precisely what all four consumers were reaching for.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -77,18 +75,6 @@ pub struct ControlledBrainTick;
 /// somebody possessed. Body mechanics consume the translated [`ActorControl`]
 /// written here.
 ///
-/// ⭐⭐ **THE `With<PlayerEntity>` FILTER IS GONE, AND THAT IS THE POINT.** It
-/// was here because a possessed actor otherwise had TWO producers writing its
-/// `ActorControl` in one tick — this one and `tick_actor_brains` — and the
-/// filter picked a winner by identity. Measured 2026-08-14, what the possessed
-/// body was paying `tick_actor_brains` for is: a crowd observation, an enemy
-/// brain snapshot, a perception policy, a world view built over the collision
-/// world, a believed-target derivation, and a MUTATION of its
-/// `PerceptionMemory` — none of which `tick_player_brain_from_control` reads.
-/// It reads six facts, and all six are here. So the arbitration is no longer by
-/// identity: `tick_actor_brains` now leaves a DRIVEN body alone, and a
-/// human piloting a body no longer constructs AI perception to move a stick.
-///
 /// ⇒ the one fact that WAS actor-specific is the movement scale, and it does not
 /// need actor configuration to state it. `velocity_target` is an absolute
 /// world-space command, so the translation needs the body's own top speed;
@@ -102,11 +88,7 @@ pub struct ControlledBrainTick;
 /// A body nobody is driving is skipped for the same reason: its `ActorControl`
 /// belongs to an AI producer.
 ///
-/// ⛔ **it does NOT need the body's `Brain`, and that is the deletion.** This used
-/// to hold `&mut Brain` and ask it `player_slot()` — a mutable borrow of an
-/// AI-policy component, taken to read a person's seat number out of it.
-///
-/// ⚠ **one filter is deliberately NOT inherited from the actor tick:
+/// **one filter is deliberately NOT inherited from the actor tick:
 /// `Without<Dormant>`.** Dormancy sleeps a BRAIN — *"only the brain sleeps: the
 /// body still integrates"* — and a participant is not an AI to be optimised away.
 /// A human pressing right on a body that has gone dormant must move it.
@@ -217,7 +199,7 @@ pub fn tick_controlled_brains(
             air_jumps_remaining: 0,
         };
         let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
-        // ⭐ the player-input translator, called DIRECTLY rather than reached
+        // the player-input translator, called DIRECTLY rather than reached
         // through an enum arm. It was only ever a `Brain` variant because the
         // seat was; with the seat named on the body there is nothing left to
         // dispatch on.
@@ -264,10 +246,8 @@ const MANA_REGEN_PER_SEC: f32 = 14.0;
 /// field so we don't change `BodyMana::default` (and any test that relies on
 /// it). Scaled by sim dt, so bullet-time / pause slow it with the world.
 ///
-/// Refills the *controlled subject's* mana — the body actually spending it on
-/// charge attacks / the fireball — so possessing an actor regenerates that
-/// actor's meter, not the vacated home avatar's. (Moved from the render HUD
-/// module, E4: a sim mutator never lives in presentation.)
+/// Refills the *controlled subject's* mana — the body actually spending it on charge attacks / the
+/// fireball — so possessing an actor regenerates that actor's meter, not the vacated home avatar's.
 pub fn regen_player_mana(
     time: Res<ambition_time::WorldTime>,
     controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,

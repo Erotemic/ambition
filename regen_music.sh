@@ -10,9 +10,9 @@
 #     into crates/ambition_platformer2d_actor_monolith/assets/audio/music/generated/. No dedicated installer.
 #
 # Usage:
-#   ./regen_music.sh                    # render + install everything (default)
-#   ./regen_music.sh --skip-render      # only republish from existing renders
-#   ./regen_music.sh --force            # force re-render where supported
+# ./regen_music.sh                    # render + install everything (default)
+# ./regen_music.sh --skip-render      # only republish from existing renders
+# ./regen_music.sh --force            # force re-render where supported
 #
 # Useful environment overrides:
 #   AMBITION_MUSIC_BACKEND=pretty-midi|fluidsynth-cli|fallback|auto

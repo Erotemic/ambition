@@ -1,18 +1,8 @@
 //! **BOB'S BODY, now that bob has answers.**
 //!
-//! ⭐ bob leaves [`super::hall_humanoids`] under that file's own rule: *"one
-//! file for the rest... If one of them grows a moveset or a distinct build, it
-//! earns its own file that day."* This is that day — the third and fourth time
-//! that rule has fired this week, after Emmy and Oiler. The walk is the same
-//! 210 px/s humanoid amble and the health the same ordinary-NPC 4: nothing about
-//! standing in the Hall changed, and a retune riding a migration's commit is
-//! exactly what that rule exists to prevent.
-//!
-//! ⚠ **the MOVESET is what is new**, and it reaches the fighter through
-//! `with_moveset` — see [`crate::bob_moveset`] for the table and the
-//! sender/receiver split it is built on. Measured before it was written, bob
-//! was 0/16 on the smash grid: no table, no action set, and no unarmed floor
-//! reaching the body either, so every press was silence.
+//! bob leaves [`super::hall_humanoids`] under that file's own rule: *"one file for the rest...
+//! If one of them grows a moveset or a distinct build, it earns its own file that day."* This
+//! is that day — the third and fourth time that rule has fired this week, after Emmy and Oiler.
 
 use ambition_characters::actor::CharacterLocomotion;
 use ambition_characters::brain::MoveStyleSpec;
@@ -28,7 +18,6 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             ..Default::default()
         })
         .with_moveset(crate::bob_moveset::bob_moveset());
-    // Jon 2026-08-13: ordinary humanoid/NPC baseline. Unchanged by the kit — a
     // person with a repertoire is not a bigger body.
     definition.vitals.max_health = Some(4);
     definition

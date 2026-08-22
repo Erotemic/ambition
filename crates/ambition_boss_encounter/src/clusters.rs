@@ -52,16 +52,15 @@ pub struct BossEncounter {
     /// flip. (Deliberately distinct from `sprite_metrics.sprite_render_size`, the
     /// derived world quad; this is the *input* the sheet spec scales.)
     pub render_size: ae::Vec2,
-    /// Entity-local phase state + the trigger-driven phase mechanism: current
-    /// phase, the `transition_lock` tell timer, and the intrinsic phase triggers
-    /// as DATA. This + `health` ARE the source of truth for the fight (the old
-    /// global registry live-map is gone); the encounter-only concerns (per-phase
-    /// music, lock-walls, HUD, display) live on the data catalog / the optional
-    /// encounter entity. `update_boss_encounters` seeds it once from the boss's
-    /// `BossProfile` (or `BossOverrides`) and ticks it. Keeping the state ON the
-    /// entity is what makes two of the same boss (a gauntlet) carry independent
-    /// fights by construction rather than by a string-keyed side map. See
-    /// `docs/systems/boss-encounter-architecture.md`. `None` until seeded.
+    /// Entity-local phase state + the trigger-driven phase mechanism: current phase, the
+    /// `transition_lock` tell timer, and the intrinsic phase triggers as DATA. This + `health`
+    /// ARE the source of truth for the fight (the old global registry live-map is gone); the
+    /// encounter-only concerns (per-phase music, lock-walls, HUD, display) live on the data
+    /// catalog / the optional encounter entity. `update_boss_encounters` seeds it once from the
+    /// boss's `BossProfile` (or `BossOverrides`) and ticks it. Keeping the state ON the entity
+    /// is what makes two of the same boss (a gauntlet) carry independent fights by construction
+    /// rather than by a string-keyed side map. See
+    /// `docs/systems/boss-encounter-architecture.md`.
     pub encounter: Option<super::ActorPhaseState>,
 }
 

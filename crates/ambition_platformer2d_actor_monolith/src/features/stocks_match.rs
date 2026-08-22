@@ -23,24 +23,18 @@ use ambition_combat::stocks::{
 /// Set once [`decide_stocks_match`] has written a [`StocksMatchDecided`], so the
 /// outcome is announced once rather than every tick after it becomes true.
 ///
-/// ⛔⛔ **this was a bare `bool` about the PROCESS, and D140 is what that
-/// costs.** A match that ended set it true; nothing on this stage set it back,
-/// because the only retraction was `decide_stocks_match` observing NO active
-/// match and there is no tick between two matches on which the receipt is
-/// absent. Match two opened wearing match one's verdict and could never be
-/// decided — Jon, 2026-08-16: *"the GO stays on the screen for the entire match,
-/// and the match does not end."* The repair at the time was to retract it from
-/// `activate_the_prepared_match`, which worked and which made the GENERIC match
-/// activation road know that one particular ruleset keeps a private boolean
-/// latch (D147).
+/// **this was a bare `bool` about the PROCESS, and is what that costs.** A match that ended set
+/// it true; nothing on this stage set it back, because the only retraction was
+/// `decide_stocks_match` observing NO active match and there is no tick between two matches on
+/// which the receipt is absent.
 ///
-/// ⭐ **it is not a timeless global. It is the outcome for match X**, and saying
+/// **it is not a timeless global. It is the outcome for match X**, and saying
 /// so is the whole fix: a verdict stamped with the match it is about goes stale
 /// BY CONSTRUCTION when a different match activates. Nobody retracts it, nothing
 /// has to be ordered against activation, and a composition that never installed
 /// this ruleset is not mentioned anywhere on the activation road.
 ///
-/// ⚠ still a resource rather than a `Local`, and still rollback state: a `Local`
+/// still a resource rather than a `Local`, and still rollback state: a `Local`
 /// does not rewind, and this gates a message the ruleset acts on, so a rewind
 /// across the deciding frame must be able to un-decide the match. It rewinds
 /// alongside [`ActiveMatch`], which is what makes the comparison below correct
@@ -66,7 +60,7 @@ impl StocksMatchSettled {
         Self(decided)
     }
 
-    /// The match this verdict is about, for the wire format. ⚠ **not a
+    /// The match this verdict is about, for the wire format. **not a
     /// "has anything been decided" predicate** — that question needs the live
     /// match to compare against, which is [`Self::settled`].
     #[doc(hidden)]
@@ -78,10 +72,8 @@ impl StocksMatchSettled {
 /// **Has the LIVE match been decided?** — both halves of the question, for a
 /// caller holding a world rather than a system's parameters.
 ///
-/// ⚠ it exists so that a test or a tool asking "is the match over" cannot ask
-/// the half of it that used to be the whole thing. A latch with a verdict in it
-/// says nothing on its own; it has to be the verdict for the match that is
-/// running.
+/// A latch with a verdict in it says nothing on its own; it has to be the verdict for the match
+/// that is running.
 pub fn the_live_match_is_settled(world: &World) -> bool {
     match (
         world.get_resource::<ActiveMatch>(),
@@ -94,7 +86,7 @@ pub fn the_live_match_is_settled(world: &World) -> bool {
 
 /// Decide a stocks match, once.
 ///
-/// ⚠ **no sort, and that is deliberate rather than an oversight.**
+/// **no sort, and that is deliberate rather than an oversight.**
 /// `last_side_standing` folds each row into a `BTreeMap` with `|=`, so the
 /// result does not depend on the order the query yields entities — which is the
 /// one thing a Bevy query does not promise. A version that collected and sorted
@@ -119,11 +111,8 @@ pub fn decide_stocks_match(
     // Only a LIVE match can end. Without this the sweep runs over a stage that
     // is still seating and decides a match against a cast that is half built.
     //
-    // ⛔ this used to RETRACT the latch here — *"a match that went away
-    // un-decides itself"* — and it was the whole retraction, which is why the
-    // second match on a stage that never removes its receipt inherited the
-    // first's verdict (D140). Nothing is written on this path now: the verdict
-    // names its match, so the next one is undecided without anybody saying so.
+    // Nothing is written on this path now: the verdict names its match, so the next one is
+    // undecided without anybody saying so.
     let Some(active) = active else {
         return;
     };
@@ -136,7 +125,7 @@ pub fn decide_stocks_match(
         (
             // The same naming rule the stage's scoreboard uses: a declared team,
             // or the seat when a match declared none and every seat is a side.
-            // ⚠ it is `stocks::side_label` now rather than a copy of the rule —
+            // it is `stocks::side_label` now rather than a copy of the rule —
             // a winner card that names a side has to name the SAME side.
             ambition_combat::stocks::side_label(seat.0, team),
             !eliminated,
@@ -145,7 +134,7 @@ pub fn decide_stocks_match(
     if !any {
         return;
     }
-    // ⭐ **THE CLOCK IS THE SECOND WAY A MATCH ENDS, and it is asked SECOND.**
+    // **THE CLOCK IS THE SECOND WAY A MATCH ENDS, and it is asked SECOND.**
     // A last-side-standing verdict on the tick the clock runs out is still a
     // knockout — the fighters settled it themselves — and reading the clock
     // first would relabel it as a timeout with the same winner and a worse
@@ -185,11 +174,11 @@ pub fn decide_stocks_match(
 /// 3. a DRAW                  genuinely level
 /// ```
 ///
-/// ⭐ **sides, not fighters, and the fold is what makes teams work**: a team's
+/// **sides, not fighters, and the fold is what makes teams work**: a team's
 /// stocks are its members' summed, so a 2v2 where one side has three stocks
 /// spread over two bodies beats a side with two on one.
 ///
-/// ⚠ **PARTIAL against the genre, and named rather than implied**: Ultimate
+/// **PARTIAL against the genre, and named rather than implied**: Ultimate
 /// sends a level match to SUDDEN DEATH — both fighters at 300%, one stock, first
 /// hit decides — where this calls it a draw. Sudden death is a second match
 /// staged from the first's result, which is a lifecycle question rather than a
@@ -220,7 +209,7 @@ fn decide_on_the_clock(
 /// The tiebreak itself, over folded sides — split from the query so the RULE can
 /// be asked without a `World` and the fold cannot hide inside the answer.
 fn clock_outcome(sides: &std::collections::BTreeMap<String, (u32, i32)>) -> SidesOutcome {
-    // ⚠ one comparison on `(stocks, -damage)`, so the two rungs cannot disagree
+    // one comparison on `(stocks, -damage)`, so the two rungs cannot disagree
     // about which is the tiebreak.
     let Some(best) = sides
         .values()
@@ -238,14 +227,12 @@ fn clock_outcome(sides: &std::collections::BTreeMap<String, (u32, i32)>) -> Side
     }
 }
 
-/// **THE PACE A MATCH RUNS AT — full speed while it is undecided, STOPPED once
-/// it is over.** (D140)
+/// **THE PACE A MATCH RUNS AT — full speed while it is undecided, STOPPED once it is over.**
 ///
-/// Jon, 2026-08-16: *"When there is only 1 player alive or 1 team alive for team
 /// matches the time in the game should freeze with 'WINNER: <name>' to show the
 /// match is over, and not let players continue to play after the match ends."*
 ///
-/// ⭐ **one statement, both halves.** A system that only spoke when the match was
+/// **one statement, both halves.** A system that only spoke when the match was
 /// over would leave the freeze standing: nothing else says "back to full speed"
 /// on a CPU-vs-CPU stage, because the only other producer of a neutral request
 /// is [`emit_player_time_intent_system`](crate::time::time_control::emit_player_time_intent_system),
@@ -255,14 +242,7 @@ fn clock_outcome(sides: &std::collections::BTreeMap<String, (u32, i32)>) -> Side
 /// [`MatchInstance`], so the previous match's verdict stops applying on the tick
 /// the cast is built, and this puts the clock back by itself.
 ///
-/// ⚠ **it composes with hitstop rather than fighting it**, and that is a
-/// property of the sink rather than of this: `apply_clock_scale_requests`
-/// reduces a frame's granted requests by `min`, so a `1.0` from here and a `0.0`
-/// from a landed hit still yield the hitstop. The reduction is why saying "full
-/// speed" every tick is safe at all — under a last-wins sink it would have
-/// erased every slow-motion effect in the game.
-///
-/// ⛔ **not a control hold.** `ScriptedControl` (the opening ceremony's
+/// **not a control hold.** `ScriptedControl` (the opening ceremony's
 /// instrument) stops a body from ACTING while the world keeps moving, which is
 /// what a countdown wants and not what an ending wants — a winner launched off
 /// the top of the screen would go on travelling under it. The clock is the thing
@@ -272,7 +252,7 @@ pub fn state_the_matchs_pace(
     active: Option<Res<ActiveMatch>>,
     mut pace: MessageWriter<ClockScaleRequest>,
 ) {
-    // No match, no opinion. ⚠ `absence of an opinion is not an opinion` is the
+    // No match, no opinion. `absence of an opinion is not an opinion` is the
     // sink's own rule, so leaving the stage leaves the clock wherever the last
     // match put it — which is exactly why the live arm below re-states full
     // speed rather than trusting a reset somewhere else.
@@ -311,7 +291,7 @@ mod tests {
 
     /// **WHEN THE CLOCK RUNS OUT, THE SIDE WITH MOST STOCKS TAKES IT.**
     ///
-    /// ⛔ three rungs and all three asserted, because a tiebreak that never
+    /// three rungs and all three asserted, because a tiebreak that never
     /// reaches its second rung is a tiebreak with one rung: stocks decide, then
     /// damage, then it is genuinely level. A version that stopped at stocks
     /// would call every equal-stock timeout a draw, which on a stock match is
@@ -344,7 +324,7 @@ mod tests {
             SidesOutcome::Draw,
             "a genuinely level match invented a winner"
         );
-        // ⭐ a team's stocks are its members' SUMMED — three across two bodies
+        // a team's stocks are its members' SUMMED — three across two bodies
         // beats two on one.
         assert_eq!(
             decide(vec![
@@ -358,7 +338,7 @@ mod tests {
 
     /// **AN UNTIMED MATCH NEVER EXPIRES, AND A TIMED ONE DOES EXACTLY ONCE.**
     ///
-    /// ⛔ the floor: `time_limit_ticks == 0` is every roster that existed before
+    /// the floor: `time_limit_ticks == 0` is every roster that existed before
     /// a clock did, and a clock that read zero as "already over" would decide
     /// every one of them on their first tick.
     #[test]
@@ -379,16 +359,9 @@ mod tests {
         assert!(timed.time_expired(10_000), "the clock un-expired");
     }
 
-    /// **THE PROPERTY D147 BOUGHT, AND THE BUG D140 WAS.** (D147)
+    /// A verdict is *the outcome for match X*.
     ///
-    /// A verdict is *the outcome for match X*. The second match on a stage that
-    /// never removes its receipt used to open wearing the first match's verdict,
-    /// because the verdict was a process-global `bool` and the only thing that
-    /// retracted it was a tick with no match on it — which two matches in a row
-    /// never produce. Jon watched that: *"the GO stays on the screen for the
-    /// entire match, and the match does not end."*
-    ///
-    /// ⚠ **nothing here retracts anything**, and that is the assertion. The
+    /// **nothing here retracts anything**, and that is the assertion. The
     /// second match is undecided because it is a DIFFERENT match, not because
     /// somebody remembered to clear a latch — so there is no ordering to get
     /// wrong and nothing for generic match activation to know about this
@@ -416,8 +389,6 @@ mod tests {
         );
     }
 
-    /// A verdict for a match in ANOTHER session is not this session's either —
-    /// the quit-to-title road, which Jon also walked.
     #[test]
     fn a_verdict_from_another_session_does_not_settle_this_match() {
         let mut settled = StocksMatchSettled::default();
@@ -442,7 +413,7 @@ mod tests {
     /// ([`ActiveMatch::adopt_seat_topology`]), and that must not un-decide a
     /// match that has already been announced.
     ///
-    /// ⚠ this is the reason the identity is the ACTIVATION's two facts rather
+    /// this is the reason the identity is the ACTIVATION's two facts rather
     /// than the whole receipt: keying on a value with a mutable field in it
     /// would put the winner card back on a live clock the moment anything
     /// touched it.

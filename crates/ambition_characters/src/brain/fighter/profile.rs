@@ -75,7 +75,7 @@ impl FighterBrainProfile {
     /// **The engine's default rung for a level**, so a catalog row can say
     /// `Fighter { level: 5 }` and get a brain.
     ///
-    /// ⚠ this is a FLOOR, not the ladder. A game that cares ships its own nine
+    /// this is a FLOOR, not the ladder. A game that cares ships its own nine
     /// rows (`FighterBrainLadder::from_ron`) and this is never consulted; what it
     /// exists for is that authoring a fighter should not require authoring a
     /// difficulty curve first. Before it, the rig was unreachable from content at
@@ -117,13 +117,13 @@ impl FighterBrainProfile {
 
 /// **The game's authored ladder, where the sim can reach it.**
 ///
-/// ⛔ **a resource rather than an argument, because of where the pack lives.**
+/// **a resource rather than an argument, because of where the pack lives.**
 /// The prepared content pack is `game/ambition_content`, ABOVE the monolith that
 /// builds most brains — so the monolith cannot fetch the ladder, and the game has
 /// to hand it down. Absent means this game shipped no rows and
 /// [`FighterBrainProfile::for_level`] applies, which is the engine's stated rule.
 ///
-/// ⚠ **config, not state.** A rewind restores a brain; it never rebuilds the
+/// **config, not state.** A rewind restores a brain; it never rebuilds the
 /// ladder that brain was constructed from, so this is deliberately not rollback
 /// state — the same argument that puts write-once construction data outside the
 /// snapshot.
@@ -132,18 +132,13 @@ pub struct AuthoredFighterLadder(pub FighterBrainLadder);
 
 /// **The one place a level becomes a profile.**
 ///
-/// ⛔ **the engine's rule was written in a doc comment and consulted nowhere, so
+/// **the engine's rule was written in a doc comment and consulted nowhere, so
 /// it did not hold.** [`FighterBrainProfile::for_level`] says of itself: *"this
 /// is a FLOOR, not the ladder. A game that cares ships its own nine rows
 /// (`FighterBrainLadder::from_ron`) and this is never consulted."* Ambition ships
 /// the nine rows, and both production call sites called the floor anyway —
 /// because a rule about which of two sources wins cannot be enforced by the
 /// source that loses. This function IS the rule.
-///
-/// ⚠ **a ladder that has no rung for this level falls back rather than
-/// refusing.** `problems()` is where a malformed ladder is reported, at load, in
-/// one place with every fault at once; a missing rung discovered here would be
-/// one fighter's construction failing in the middle of a match.
 pub fn profile_for_level(level: u8, ladder: Option<&FighterBrainLadder>) -> FighterBrainProfile {
     ladder
         .and_then(|ladder| ladder.level(level))

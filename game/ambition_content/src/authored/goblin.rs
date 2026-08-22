@@ -2,13 +2,13 @@
 //! `pg_goblin_a/b/c`) that have been wearing the `medium_striker`
 //! ARCHETYPE — a whole body, borrowed for its fighting style.
 //!
-//! ⭐ **it NAMES its policy rather than carrying one**, which is the
+//! **it NAMES its policy rather than carrying one**, which is the
 //! Group-B/Group-C split arriving: the archetype's controller half is now
 //! `autonomous_profiles: { "medium_striker": .. }` in the catalog, and any
 //! number of creatures may point at it while keeping their own bodies. A
 //! lab raider and a skitter are the next two.
 //!
-//! ⚠ the key is PROVIDER-NAMESPACED on assembly, so the reference is
+//! the key is PROVIDER-NAMESPACED on assembly, so the reference is
 //! `ambition::medium_striker` rather than the local name — two games may
 //! both author a "medium_striker" and neither wins.
 
@@ -29,14 +29,9 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             strength: 0.70,
             amount: 1,
         })
-        // ⭐ **the LOCAL name.** It used to hand-namespace this
-        // (`format!("{}::medium_striker", AMBITION_CONTENT_PROVIDER)`),
-        // which made an author responsible for knowing whether the
-        // surrounding catalog had been assembled yet — the leak Jon's
-        // redirect §8 names. `BrainProfileRef` resolves it against this
-        // definition's own provider.
+        // `BrainProfileRef` resolves it against this definition's own provider.
         .with_autonomous_profile_named("medium_striker")
-        // ⭐ **AND ITS OWN MOVES** (campaign P3.24, 2026-08-12). Every
+        // **AND ITS OWN MOVES**. Every
         // seated fighter whose character says nothing takes
         // `smash_fighter_kit()` — one generic swipe — and that floor's
         // goal is DELETION, one adopter at a time. The goblin is the

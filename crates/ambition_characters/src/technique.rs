@@ -1,23 +1,14 @@
 //! **THE AUTHORED SCHEMAS OF ENGINE TECHNIQUES** — the params an `on_hit`
 //! effect carries, and nothing that executes one.
 //!
-//! ⛔⛔ **this lived in `ambition_combat::on_hit` beside the Bevy system that
-//! runs it**, and the split matters because of who else needs it: the moveset
-//! PREFABS name `POGO_BOUNCE_KEY` and call `set_pogo_sfx` while building a
-//! contract, and character PREPARATION calls the prefabs. `ambition_combat`
-//! depends on this crate, so as long as the technique's schema lived up there,
-//! the authoritative character model could not follow it down — campaign P1.7's
-//! last obstacle, and Jon's brief is explicit that a dependency cycle must not
-//! be solved by leaving the model inside the actor monolith.
+//! **this lived in `ambition_combat:on_hit` beside the Bevy system that runs it**, and the
+//! split matters because of who else needs it: the moveset PREFABS name `POGO_BOUNCE_KEY` and
+//! call `set_pogo_sfx` while building a contract, and character PREPARATION calls the prefabs.
 //!
-//! ⭐ the split is the one the brief names as the precedent: `CombatCapabilities`
-//! did not belong on an authored `CharacterDefinition`, so a lower
-//! `CharacterDeathTraits` FACT was extracted and the runtime component stayed
-//! above it. Here the lower fact is *what a `pogo_bounce` effect SAYS*; the
-//! rebound itself — the queries, the policies, the message — stays in
-//! `ambition_combat` where the bodies are.
+//! Here the lower fact is *what a `pogo_bounce` effect SAYS*; the rebound itself — the queries,
+//! the policies, the message — stays in `ambition_combat` where the bodies are.
 //!
-//! ⚠ **the cue comes back as a `String`, not an `SfxId`.** Wrapping it would
+//! **the cue comes back as a `String`, not an `SfxId`.** Wrapping it would
 //! mean a new `ambition_characters → ambition_sfx` edge for one newtype, and the
 //! layering is better without it: this crate owns the authored TEXT, and
 //! deciding that the text names a cue is the consumer's job. `ambition_combat`

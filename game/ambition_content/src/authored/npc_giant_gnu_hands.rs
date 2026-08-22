@@ -2,7 +2,7 @@
 //! left and a right from this single definition, which is a reusable
 //! authored template doing exactly what the campaign is about.
 //!
-//! ⚠ its collision envelope does NOT come across, and could not: a hand
+//! its collision envelope does NOT come across, and could not: a hand
 //! is sized at PLAN time as 0.7 of the giant's own half-extent, so the
 //! row's `default_size: (154.0, 154.0)` was 220 × 0.7 written down a
 //! second time. The geometry is derived; the row was restating it.

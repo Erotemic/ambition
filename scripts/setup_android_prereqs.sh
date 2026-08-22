@@ -9,9 +9,9 @@ set -euo pipefail
 # overridden via environment variables.
 #
 # Usage:
-#   ./scripts/setup_android_prereqs.sh
-#   ./scripts/setup_android_prereqs.sh --doctor
-#   ./scripts/setup_android_prereqs.sh --with-emulator
+# ./scripts/setup_android_prereqs.sh
+# ./scripts/setup_android_prereqs.sh --doctor
+# ./scripts/setup_android_prereqs.sh --with-emulator
 #
 # Environment overrides:
 #   ANDROID_API=35

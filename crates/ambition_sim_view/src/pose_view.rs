@@ -21,12 +21,6 @@ use bevy::prelude::{Commands, Entity, Query, Res, ResMut, Resource, With};
 /// Sim-resolved presentation pose for one player-bodied entity: everything
 /// the renderer needs to place, size, animate, and flash the sprite. Plain
 /// data (Copy, no `Entity`/`Handle` borrows) — snapshot-safe by construction.
-///
-/// AJ14 Tier-0: `pos` + `vel` are the per-body read-model velocity fields the
-/// slower-light observer views ride.
-/// ⚠ **not `Copy` since it gained the active move's clip chain** (2026-08-11):
-/// the chain is owned strings, because a materialized pose view outlives the
-/// query that built it.
 #[derive(bevy::prelude::Component, Clone, Debug)]
 pub struct BodyPoseView {
     pub pos: ambition_platformer2d_core::Vec2,
@@ -81,15 +75,6 @@ pub struct BodyPoseView {
     pub authored_render: Option<ambition_platformer2d_core::Vec2>,
     /// **Where to draw that quad, relative to the body centre** — the companion
     /// to `authored_render` and gated on the same `SpritePosedBody`.
-    ///
-    /// ⛔ **the player used to RE-DERIVE this and the actor path did not.** A
-    /// sheet frame is not its character: the art sits somewhere inside the frame,
-    /// usually off-centre, so a quad centred on the body draws the character
-    /// wherever the padding happens to put it. `sync_sprite_posed_bodies` already
-    /// publishes the offset that puts the ART on the BOX, and `view_index` (the
-    /// actor path) reads it — while the player path recomputed a feet anchor from
-    /// `feet_anchor_norm` instead. Two derivations of one fact, differing for v3
-    /// by ~1 px vertically and ~2.5 px horizontally.
     pub authored_offset: Option<ambition_platformer2d_core::Vec2>,
 }
 
@@ -118,10 +103,6 @@ impl Default for BodyPoseView {
     }
 }
 
-/// Rebuild every player-bodied entity's [`BodyPoseView`] from its real
-/// clusters — the SAME reads `animate_player` used to make live, moved
-/// sim-side. Runs in `FeatureViewSync` beside the other read-model rebuilds.
-///
 /// Only `BodyKinematics` is REQUIRED: a partial body (a test fixture that
 /// spawns `PlayerVisual` + kinematics alone) still gets its transform facts;
 /// the anim pick needs the full movement/ability cluster set (the same set
@@ -163,10 +144,7 @@ pub fn rebuild_body_pose_views(
                 Option<
                     &ambition_sprite_sheet::character::ActorAnimOverride,
                 >,
-                // The sheet-authored sprite quad, when this body's geometry is
-                // its art. Produced beside the collision box by
-                // `sync_sprite_posed_bodies`, so reading it here is reading the
-                // SAME number the box came from.
+                // The sheet-authored sprite quad, when this body's geometry is its art.
                 //
                 // ⚠ gated on `SpritePosedBody`, NOT on the render size alone.
                 // `ActorRenderSize` is the SHARED sprite-quad component — several
@@ -271,16 +249,10 @@ pub fn rebuild_body_pose_views(
             ),
             _ => CharacterAnim::Idle,
         };
-        // A content pose PIN wins over the picked pose — the SAME rule
-        // `rebuild_actor_anim_index` applies to every brain-driven actor, and it
-        // belongs here for the identical reason: a pose the disposition-agnostic
-        // picker cannot infer (a shelled enemy's withdraw, a body mid-power-up)
-        // is stated by the content that owns the state machine. Reading the pin
-        // on one path and not the other was a FORK, and the player was the half
-        // that lost: `transform_beat` has been pinning a transformation pose on
-        // Mary-O since it landed, and nothing on the player's path ever looked
-        // at it, so the "growing" beat played her ordinary locomotion row for
-        // its whole duration and read as instant.
+        // A content pose PIN wins over the picked pose — the SAME rule `rebuild_actor_anim_index`
+        // applies to every brain-driven actor, and it belongs here for the identical reason: a pose
+        // the disposition-agnostic picker cannot infer (a shelled enemy's withdraw, a body
+        // mid-power-up) is stated by the content that owns the state machine.
         let anim = anim_override.map(|o| o.0).unwrap_or(anim);
         let next = BodyPoseView {
             pos: kinematics.pos,
@@ -400,12 +372,10 @@ mod pose_view_tests {
 
     /// **A sheet-authored quad is reported only by a body that HAS one.**
     ///
-    /// `authored_render` tells the renderer "stop computing this — the box and
-    /// the quad came from one authored scale". `ActorRenderSize` alone cannot
-    /// support that claim: it is the shared sprite-quad component, and several
-    /// spawn paths set it from sheet metadata for bodies whose collision box is
-    /// still hand-authored. Reading it bare would silently retarget the render
-    /// for every such body, which is a change nothing would report.
+    /// `ActorRenderSize` alone cannot support that claim: it is the shared sprite-quad
+    /// component, and several spawn paths set it from sheet metadata for bodies whose collision
+    /// box is still hand-authored. Reading it bare would silently retarget the render for every
+    /// such body, which is a change nothing would report.
     ///
     /// The negative case is the whole test — the positive one only proves the
     /// field is wired at all.
@@ -463,11 +433,8 @@ mod pose_view_tests {
 
     /// **A content pose pin reaches the PLAYER's view, not only an actor's.**
     ///
-    /// `ActorAnimOverride` is how content states a pose the locomotion picker
-    /// cannot infer — a shell withdrawing, a body mid-transformation. The actor
-    /// read-model has always honoured it; this path did not, so every pin ever
-    /// placed on a player body (the transformation beat's, since it landed) was
-    /// written, snapshotted, rolled back — and never drawn.
+    /// `ActorAnimOverride` is how content states a pose the locomotion picker cannot infer — a
+    /// shell withdrawing, a body mid-transformation.
     ///
     /// The pin is the whole assertion: an unpinned body here picks `Idle` (the
     /// partial-cluster fallback), so a view that answers `Idle` under a pin is

@@ -71,11 +71,11 @@ REPO = Path(__file__).resolve().parents[1]
 PROSE_PREFIXES = ("docs/",)
 
 #: Prose, plus the append-only measurement submodule — everything whose change
-#: cannot alter what the suite would report. ⛔ this is the whole whitelist; a
+#: cannot alter what the suite would report. this is the whole whitelist; a
 #: prefix added here is a class of change nobody gates on again.
 SKIPPABLE_PREFIXES = PROSE_PREFIXES + ("dev/ambition_dev_measurements",)
 
-#: Named smoke modules, each with the reason it is here. ⛔ do not add a module
+#: Named smoke modules, each with the reason it is here. do not add a module
 #: because it is fast, and do not remove one because it is slow — the question is
 #: only "would this fail if the app stopped composing".
 SMOKE_MODULES: dict[str, str] = {

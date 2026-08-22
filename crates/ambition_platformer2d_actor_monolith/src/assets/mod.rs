@@ -5,7 +5,7 @@
 //! - `platformer_assets` — sandbox-side aggregator for the
 //!   [`ambition_asset_manager`] catalog.
 //! - `loading` — the startup asset COLLECTION, which is LDtk-shaped and so
-//!   lives behind `ldtk_runtime`. ⭐ it was unconditional until 2026-08-18,
+//! lives behind `ldtk_runtime`. it was unconditional until,
 //!   which made the feature a fiction: `bevy_ecs_ldtk` and `bevy_asset_loader`
 //!   are declared optional in the manifest, but this one module named both
 //!   unconditionally, so turning `ldtk_runtime` OFF did not yield a smaller

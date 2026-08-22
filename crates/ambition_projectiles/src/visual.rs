@@ -67,7 +67,6 @@ pub enum ProjectileRenderSize {
     /// Scale to the projectile body hitbox (each axis clamped to `min` px),
     /// times `scale`.
     Body { min: f32, scale: f32 },
-    /// Fixed render width in px; height follows the source frame's aspect.
     FixedWidth(f32),
 }
 
@@ -179,7 +178,7 @@ impl ProjectileVisualCatalog {
     /// falls back to the generic shot for an unregistered id, which is right at
     /// runtime and means a declared image that names no file is indistinguishable
     /// from a shot nobody skinned. A test can tell them apart only if it can
-    /// enumerate what was declared (declared-id resolution checks, 2026-07-28).
+    /// enumerate what was declared.
     pub fn iter(&self) -> impl Iterator<Item = (&str, &ProjectileArt)> {
         self.arts.iter().map(|(id, art)| (id.as_str(), art))
     }

@@ -54,12 +54,10 @@ enum PauseEntry {
 
 /// The audio properties the SHELL owns, in row order.
 ///
-/// Deliberately only these four. Jon: *"only for generic global all-game
-/// properties. Then in ambition itself, it would extend or compose with that IR
-/// to add the additional one it needs."* Video, controls and gameplay settings
-/// are either per-game or need a live session to preview, so they stay with the
-/// game's own system menu; audio is the one group that means the same thing on
-/// a title screen as it does mid-fight.
+/// Deliberately only these four. Then in ambition itself, it would extend or compose with that IR
+/// to add the additional one it needs."* Video, controls and gameplay settings are either per-game
+/// or need a live session to preview, so they stay with the game's own system menu; audio is the
+/// one group that means the same thing on a title screen as it does mid-fight.
 const SHELL_AUDIO_OPTIONS: [ambition_settings_menu::settings::SettingsOptionId; 4] = [
     ambition_settings_menu::settings::SettingsOptionId::Mute,
     ambition_settings_menu::settings::SettingsOptionId::MasterVolume,
@@ -258,12 +256,8 @@ impl Plugin for ShellPauseMenuPlugin {
 /// CPU count. Neither could consume the other's edge, because they read
 /// different channels (`MenuControlFrame` here, `SeatMenuFrames` there).
 ///
-/// ⚠ **the fix is NOT a feature edge from the demo to the shell.** A demo cannot
-/// name `ShellPauseMenu` at all — `basic_shell_presentation` is not in
-/// `all_capabilities`, which is the oracle rule working as intended. The claim
-/// system is the seam that was already built for this: this side declares, the
-/// surface underneath asks whether it still owns its seat, and neither names the
-/// other.
+/// The claim system is the seam that was already built for this: this side declares, the
+/// surface underneath asks whether it still owns its seat, and neither names the other.
 ///
 /// The claim goes to every participant because the pause menu is global — one
 /// menu, opened by whoever pressed Start. A per-seat surface is a separate
@@ -318,13 +312,6 @@ fn drive_shell_pause_menu(
     // The active experience owns its own pause chrome: the shell menu yields
     // entirely. If it was open (e.g. that experience just took over), fold it
     // shut and hand the sim back.
-    //
-    // ⚠ NOT gated on a live session any more. It was, and the visible symptom
-    // was Jon's: "Currently the touch menu icon does nothing" — on the title
-    // screen there is no session, so Start/Menu returned here and the button
-    // was decoration. There is nothing to RESUME without a session, but audio
-    // and quitting are global, and a stranger's first screen is exactly where
-    // "how do I mute this" gets asked (2026-07-28).
     if suppressed.0 {
         if menu.open {
             menu.close();
@@ -497,14 +484,8 @@ fn activate_pause_entry(
             // Retire the session and return to the host's title screen — the
             // same leak-free path F10 fires.
             //
-            // ⭐ **it does NOT hand the sim back, and that is the fix.** This row
-            // used to call `resume_sim` here, which made unpausing the caller's
-            // job — so the three OTHER writers of `QuitToHome` (F10, the in-world
-            // system menu, the scripted route sweep) each left the world stopped
-            // with no session to explain it, and the next match hung in the air.
-            // Session retirement resets the mode now
-            // (`translate_shell_session_lifecycle`), because the lifecycle that
-            // ended the session is the one place that cannot forget.
+            // Session retirement resets the mode now (`translate_shell_session_lifecycle`), because
+            // the lifecycle that ended the session is the one place that cannot forget.
             shell.write(ShellCommand::QuitToHome);
             menu.close();
             play(sfx, ids::UI_MENU_ACCEPT);
@@ -744,9 +725,6 @@ mod tests {
     /// nowhere and their D-pad moved nothing. From the couch that reads as a
     /// broken button, which is why the handoff's claim that "any seat pauses"
     /// was worth checking rather than believing.
-    ///
-    /// Jon's ruling, 2026-08-06: any seat may pause, and the seat that paused
-    /// drives it.
     #[test]
     fn the_seat_that_paused_is_the_seat_that_drives_the_menu() {
         let mut app = couch_app();
@@ -833,10 +811,6 @@ mod tests {
 
     #[test]
     fn the_start_intent_opens_the_menu_with_or_without_a_session() {
-        // **The title screen has a menu now.** It did not, and the visible
-        // symptom was Jon's: "Currently the touch menu icon does nothing." The
-        // drive system returned early with no session, so Start was decoration
-        // on the one screen where "how do I mute this" gets asked.
         let mut app = app();
         press_start(&mut app);
         assert!(
@@ -928,8 +902,7 @@ mod tests {
         );
     }
 
-    /// Mute is the property Jon named, and confirm has to work it — a toggle you
-    /// can only reach with a direction key is a toggle a controller cannot press.
+    /// Confirm must toggle mute; direction-only toggles are not controller-accessible.
     #[test]
     fn confirming_the_mute_row_toggles_mute() {
         use ambition_persistence::settings::UserSettings;

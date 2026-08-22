@@ -8,9 +8,6 @@ use ambition_platformer2d_core as ae;
 
 use super::EncounterSpec;
 
-/// Save-flag id used to remember whether the player has already opened
-/// (looted) a given encounter's reward chest. Persists across
-/// save/load so a re-spawned chest correctly reads as opened.
 pub fn encounter_reward_looted_flag(encounter_id: &str) -> String {
     format!("encounter_{encounter_id}_reward_dropped")
 }

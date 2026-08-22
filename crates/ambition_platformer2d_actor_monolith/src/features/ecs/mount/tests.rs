@@ -288,9 +288,7 @@ fn boss_rider_keeps_its_brain_and_emits_mount_died_on_dismount() {
     // derives) proves the brain is untouched — no new flag, the component IS the
     // marker (Q19b).
     //
-    // ⚠ it used to be `Brain::Player`, which was distinctive only because that
-    // variant could never be derived. With the variant gone, the marker has to
-    // be a VALUE nothing else would produce.
+    // With the variant gone, the marker has to be a VALUE nothing else would produce.
     app.world_mut().entity_mut(rider).insert((
         ambition_boss_encounter::BossConfig {
             id: "boss_rider".into(),
@@ -530,18 +528,13 @@ fn total_grant_routes_rider_locomotion_to_mount_but_not_fire() {
     );
 }
 
-/// M5 (ADR 0020 §4) — **player-piloting through the control seam is
-/// rider-agnostic.** A PLAYER-driven rider pilots the mount through the exact
-/// same two coupling systems an AI rider uses. Coupling keys on the STRUCTURAL
-/// facts (both bodies alive + carrying their mount-role components), never on
-/// disposition: this rider holds a seat and a `Peaceful` disposition
-/// (the shape a possessed / human-driven body has — possession transfers the
-/// player brain but never touches disposition; `Peaceful` here proves the
-/// coupling ignores disposition entirely). It both (a) STEERS the mount — its
-/// locomotion intent flows through `steer_mount_from_rider` onto the mount — and
-/// (b) WELDS to the mount — `sync_riders_to_mounts` snaps its pose — identically
-/// to the enemy Skirmisher rider. Before M5 the `is_hostile()` gate skipped a
-/// non-hostile rider, so a human piloting a vehicle would ride nothing.
+/// Coupling keys on the STRUCTURAL facts (both bodies alive + carrying their mount-role
+/// components), never on disposition: this rider holds a seat and a `Peaceful` disposition (the
+/// shape a possessed / human-driven body has — possession transfers the player brain but never
+/// touches disposition; `Peaceful` here proves the coupling ignores disposition entirely). It
+/// both (a) STEERS the mount — its locomotion intent flows through `steer_mount_from_rider`
+/// onto the mount — and (b) WELDS to the mount — `sync_riders_to_mounts` snaps its pose —
+/// identically to the enemy Skirmisher rider.
 #[test]
 fn a_player_controlled_rider_pilots_the_mount_agnostically() {
     use ambition_characters::actor::control::ActorControlFrame;
@@ -723,14 +716,10 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     };
     use ambition_characters::brain::Brain;
 
-    // (1) **The giant's "I am a rideable giant-class mount, and touching me does
-    // not hurt" assertion lives with the CHARACTER now**, in
-    // `ambition_content`'s `the_giant_gnu_authors_the_mount_its_archetype_row_used_to`.
-    // It asked `test_spec("giant_gnu")` here until that archetype row was
-    // deleted (D73 group A) — and it cannot follow the facts into this file,
-    // because the engine crate must not depend on a game's content crate. What
-    // this test is for is the mount/rider BRIDGE below, which needs no shipped
-    // content at all.
+    // (1) **The giant's "I am a rideable giant-class mount, and touching me does not hurt"
+    // assertion lives with the CHARACTER now**, in `ambition_content`'s
+    // `the_giant_gnu_authors_the_mount_its_archetype_row_used_to`. What this test is for is the
+    // mount/rider BRIDGE below, which needs no shipped content at all.
 
     // (2) The `npc_giant_gnu` catalog id resolves a character sprite — the mount
     // renders through the character-sprite path. Gated on the baked sheet being
@@ -1207,7 +1196,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
                 brain: ambition_entity_catalog::placements::BossBrain::Dormant,
                 behavior: profile.behavior.clone(),
             },
-            // ⭐ the SEAT is what makes this boss possessed; its own `Brain` stays
+            // the SEAT is what makes this boss possessed; its own `Brain` stays
             // put and simply stops deciding while a person is driving.
             (Brain::stand_still(), DrivingParticipant(PlayerSlot(0))),
             ActorControl(ActorControlFrame::neutral()),

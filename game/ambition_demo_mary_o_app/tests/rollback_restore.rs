@@ -90,7 +90,6 @@ fn a_dirty_level_state_mutation_is_rolled_back_by_restore() {
         ambition_platformer2d::rollback::SyncTestSettings {
             check_distance: 4,
             max_prediction_window: 10,
-            // Single-player demo, stated rather than inherited (2026-07-29).
             ..ambition_platformer2d::rollback::SyncTestSettings::for_players(1)
         },
     )

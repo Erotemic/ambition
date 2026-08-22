@@ -42,14 +42,8 @@ impl Plugin for TraceSchedulePlugin {
             // Disk writes are irreversible host effects, so they stay outside
             // the simulation schedule.
             //
-            // The recorders above used to be gated on
-            // `simulation_pass_is_authoritative`, and that was the wrong policy
-            // rather than a conservative one. "Authoritative" there meant
-            // FIRST-PASS, which is not the same as confirmed: a first pass may
-            // be a prediction that a rewind later corrects, and skipping the
-            // corrected pass meant the trace kept the guess forever. A forensic
-            // record that quietly preserves the wrong version of history is
-            // worse than one that lags.
+            // A forensic record that quietly preserves the wrong version of history is worse than
+            // one that lags.
             //
             // Rows and anomaly assessments are keyed by session generation +
             // simulation frame. A re-simulation REPLACES both. Automatic dump

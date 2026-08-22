@@ -24,11 +24,7 @@ use crate::{LocalAxes, MotionFrame, World};
 /// it and a consumer can read what was actually covered.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RecoveryProbe {
-    /// Kernel steps per effort. A probe that stops before the body would have
-    /// landed reports "no support" for the wrong reason — the exact arithmetic
-    /// that broke the fighter's rollout (its horizon was 12 ticks and the fall
-    /// took 24), so the default is deliberately far longer than any plausible
-    /// fall.
+    /// Kernel steps per effort.
     pub steps: usize,
     pub dt: f32,
     /// ⭐ **the buttons this search presses.** Not a property of the body and
@@ -88,11 +84,9 @@ pub struct RecoveryStep {
 /// **The input policy a [`RecoveryProbe`] searches with — a heuristic, never a
 /// statement about the body.**
 ///
-/// ⛔ this exists so that a negative result can name what it tried. It is NOT an
-/// enumeration of what a body can do: the engine ships exactly one policy
-/// ([`Self::DRIFT_AND_JUMP`]) and a caller that wants more supplies its own. A
-/// hand-written list of every verb a body owns would be the deleted *"airborne +
-/// below the lip ⇒ dead"* rule in new clothes.
+/// ⛔ this exists so that a negative result can name what it tried. It is NOT an enumeration of
+/// what a body can do: the engine ships exactly one policy ([`Self::DRIFT_AND_JUMP`]) and a
+/// caller that wants more supplies its own.
 ///
 /// Determinism (ADR 0023): `input` must be a pure function of its
 /// [`RecoveryStep`] — same step, same buttons — and the efforts are an ordered
@@ -126,11 +120,8 @@ pub struct RecoveryPolicy {
 /// so a caller that HOLDS such a move can hand the probe that number and get a
 /// verdict about the body it actually has.
 ///
-/// ⚠ **and the honesty rule is unchanged: a negative is still bounded by the
-/// policy.** A search carrying a burst reports *"drift, jump and this one
-/// displacement found nothing"*, which is a stronger claim than before and
-/// still not *"no way exists"*. [`RecoveryProbe`] carries the whole policy into
-/// every negative precisely so a consumer can read which it got.
+/// [`RecoveryProbe`] carries the whole policy into every negative precisely so a consumer can
+/// read which it got.
 ///
 /// ⛔ **it is not a MOVE and knows nothing about attacks.** It is a velocity and
 /// a step count. The kernel has no idea whether the thing that produced it was a
@@ -142,10 +133,6 @@ pub struct RecoveryBurst {
     /// `+x` = the side the effort is steering toward, `+y` = toward the feet.
     /// An against-gravity burst is negative `y`.
     pub local: crate::Vec2,
-    /// Kernel steps into the effort at which it fires — the authored windup a
-    /// body has to survive before the displacement arrives. A burst that landed
-    /// at step 0 would model a move with no startup, which no recovery special
-    /// has.
     pub at_step: usize,
 }
 
@@ -174,10 +161,8 @@ impl RecoveryPolicy {
     /// **[`Self::DRIFT_AND_JUMP`], plus one displacement the body can actually
     /// command.**
     ///
-    /// The steering and the jump are unchanged, so a body that gets home without
-    /// the burst still gets home the same way and by the same effort — the burst
-    /// only ever adds routes. A caller supplies it from whatever it knows the
-    /// body can do; the kernel neither knows nor asks where the number came from.
+    /// The steering and the jump are unchanged, so a body that gets home without the burst
+    /// still gets home the same way and by the same effort — the burst only ever adds routes.
     pub const fn drift_jump_and_burst(burst: RecoveryBurst) -> Self {
         Self {
             name: "drift+jump+burst",
@@ -254,9 +239,7 @@ pub enum RecoveryOutlook {
     /// The body came to rest on, rode, clung to or caught hold of something,
     /// after `steps` kernel steps of effort `effort`.
     ///
-    /// ⭐ a positive needs no bound. Finding a route by driving the real kernel
-    /// IS proof the route exists; only the failure to find one is a claim about
-    /// the searcher.
+    /// a positive needs no bound.
     Regained { steps: usize, effort: usize },
     /// ⛔ **NOT "this body cannot recover."** `search` regained no support: the
     /// buttons [`RecoveryProbe::policy`] presses, run for
@@ -422,16 +405,9 @@ fn run_effort(
         let facing_intent = input.local_axis().x;
         // ⭐ **THE BURST, WRITTEN THE WAY THE THING IT MODELS WRITES IT.**
         //
-        // ⛔⛔ **NOT through `BodyFlightState::pending_launch`, and the reason is
-        // a measured trap rather than a preference.** That channel is the one an
-        // outside mover uses, it is drained at the single gateway, and it would
-        // have been the tidy choice — but `accept_external_launch` also feeds
-        // `launch_into_tumble`, so any burst above the body's authored
-        // `tumble_speed` knocks the probe body DOWN. The search would then model
-        // a fighter that throws its recovery and loses control of it, and report
-        // "no support" about a body the real runtime never tumbles. A predictor
-        // whose one move behaves differently from the move is worse than no
-        // predictor.
+        // The search would then model a fighter that throws its recovery and loses control of it,
+        // and report "no support" about a body the real runtime never tumbles. A predictor whose
+        // one move behaves differently from the move is worse than no predictor.
         //
         // ⚠ so this mirrors the authored-impulse seam exactly: a
         // `MoveEventKind::Impulse` is a direct velocity write on the owner, and
@@ -446,16 +422,6 @@ fn run_effort(
         // (drift left) bursts left and effort 2 bursts right; a policy whose
         // burst always pointed one way would search two of its three efforts
         // with a displacement fighting the drift.
-        //
-        // ⛔⛔ **AND AN UNSTEERED EFFORT DOES NOT THROW A SIDE-CARRYING BURST AT
-        // ALL.** `DRIFT_SIDES[0]` is "no steering", so `toward` is zero there —
-        // and multiplying the side component by it used to fire a DE-SIDED
-        // version of the displacement: a grapple that hauls its owner 980px/s
-        // across was searched as a 300px/s hop straight up, which is not a thing
-        // the body can do. That is not conservative, it is WRONG IN BOTH
-        // DIRECTIONS — the hop can land on a shelf the real move would overshoot
-        // (a false positive about a route that does not exist) and it misses
-        // every surface the real move reaches.
         //
         // ⭐ so effort 0 is now the honest baseline — buttons only, *"do I even
         // need this?"* — and efforts 1 and 2 are the move thrown each way. A
@@ -489,12 +455,7 @@ fn run_effort(
                 },
             )
         };
-        // ⛔ BEFORE the support test, and that order is the whole reason this is
-        // checked at all. The out-of-bounds gate REPORTS; it does not move the
-        // body. A body whose owner would have respawned it keeps falling here,
-        // and in a world with a floor under the blast zone it would eventually
-        // land on it and be reported as having recovered from a position it had
-        // already died in.
+        // The out-of-bounds gate REPORTS; it does not move the body.
         if let Some(reset) = result.events.reset {
             return EffortOutcome::Reset(reset);
         }
@@ -755,11 +716,7 @@ mod tests {
     /// unrepresentable by the vertical half alone, and a search that kept only
     /// that half would condemn the exact lines such a move saves.
     ///
-    /// ⛔ **both terms are observed, and the poison is the SIDE specifically**:
-    /// the identical body, in the identical world, with the identical rise and
-    /// the identical timing, and only the side component removed, must fail. So
-    /// this cannot pass because the burst is strong, or because the probe is
-    /// permissive.
+    /// So this cannot pass because the burst is strong, or because the probe is permissive.
     #[test]
     fn the_side_half_of_a_burst_crosses_a_gap_the_rise_alone_cannot() {
         let world = distant_shelf_world();
@@ -900,8 +857,6 @@ mod tests {
         let frame = frame_pulling(Vec2::new(0.0, 1.0));
         let body = falling_body(drifter(), Vec2::new(150.0, 500.0));
 
-        // Too weak to climb 220px (100²/4500 = 1.1px), so it still fails — and
-        // the failure is a fact about THIS search.
         let feeble = RecoveryBurst {
             local: Vec2::new(0.0, -100.0),
             at_step: 8,
@@ -984,14 +939,6 @@ mod tests {
     }
 
     /// **"Airborne, below the lip, outside the span" is not a verdict.**
-    ///
-    /// That predicate was implemented as a rollout terminal value, measured, and
-    /// removed (Jon, 2026-08-14) because it is a claim about one stage wearing
-    /// the clothes of a claim about bodies. This pins the replacement: the state
-    /// it called dead is answered by the SURFACES, and the poison shows the
-    /// answer really did come from the surface rather than from a permissive
-    /// probe — take that one block away and the same body in the same place is
-    /// reported unrecovered.
     #[test]
     fn below_the_lip_and_outside_the_span_is_answered_by_the_surfaces() {
         let frame = frame_pulling(Vec2::new(0.0, 1.0));
@@ -1130,9 +1077,8 @@ mod tests {
              the search. Got {searched:?}"
         );
 
-        // ⛔ poison: the rescue came from the BODY's verb, through the kernel —
-        // not from the policy. Take blink off the same body, leave everything
-        // else including the policy alone, and it must fail again.
+        // Take blink off the same body, leave everything else including the policy alone, and
+        // it must fail again.
         let no_blink = falling_body(
             AbilitySet {
                 move_horizontal: true,
@@ -1157,11 +1103,6 @@ mod tests {
 #[cfg(test)]
 mod dodge_shadows_the_dash {
     //! **What a platform fighter LOSES when the dash leaves its kit: nothing.**
-    //!
-    //! D146 (Jon, 2026-08-16): *"now that each character has an up-b, I think we
-    //! can likely also remove everyone's ability to dash in smash… We may need to
-    //! give everyone extra height for their double jump to compensate."* This is
-    //! the measurement that answered the second sentence, and the answer is no.
 
     use super::*;
     use crate::abilities::AbilitySet;
@@ -1287,13 +1228,9 @@ mod dodge_shadows_the_dash {
     /// **A BODY THAT OWNS THE DODGE CAN NEVER SPEND ITS PRESS ON A DASH, SO
     /// TAKING THE DASH AWAY COSTS IT NOTHING.**
     ///
-    /// Dodge outranks dash on the shared burst press ([`super::super::abilities::
-    /// BurstManeuver`]), and a platform fighter authors an air-dodge window — so
-    /// airborne, every press it makes is already an air dodge. The dash bit was
-    /// dead weight in that kit, which is the whole reason D146 could remove it
-    /// without a compensating number.
-    ///
-    /// Measured on the smash-shaped stage, furthest offstage recovery in px:
+    /// Dodge outranks dash on the shared burst press ([`super:super:abilities:
+    /// BurstManeuver`]), and a platform fighter authors an air-dodge window — so airborne,
+    /// every press it makes is already an air dodge.
     ///
     /// ```text
     ///   dy   drift+jump      +burst press      poison: dash, NO dodge

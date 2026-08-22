@@ -18,9 +18,8 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use bevy::prelude::*;
 
-/// Minimum distance the player must move before the trail records another fixed
-/// sample. The live endpoint still follows the player every frame while emitting;
-/// this only controls how dense the preserved breadcrumb polyline is.
+/// The live endpoint still follows the player every frame while emitting; this only controls
+/// how dense the preserved breadcrumb polyline is.
 pub const TRAIL_SAMPLE_SPACING: f32 = 10.0;
 
 /// Endpoint distance from the start point required to close an emitted trail into
@@ -165,8 +164,7 @@ impl CollapsingTrailLoop {
 /// Lifecycle state of the player's current trail.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TrailStatus {
-    /// Emission is active. `chunks` are fixed samples; `live_end` follows the
-    /// player until the next sample is committed.
+    /// Emission is active.
     Emitting,
     /// Emission stopped near the start point, so the trail has become a closed
     /// cycle. This is the state future homology spell code should inspect.
@@ -184,8 +182,8 @@ impl Default for TrailStatus {
 
 /// The player's emitted trail.
 ///
-/// `chunks` stores fixed world-space samples. While [`TrailStatus::Emitting`],
-/// `live_end` is the current unsampled endpoint attached to the player's body.
+/// While [`TrailStatus::Emitting`], `live_end` is the current unsampled endpoint attached to
+/// the player's body.
 #[derive(Component, Clone, Debug)]
 pub struct PlayerTrail {
     pub chunks: Vec<TrailChunk>,
@@ -347,8 +345,7 @@ impl PlayerTrail {
         out
     }
 
-    /// Legacy convenience for tests/debuggers that only need a flattened view of
-    /// fixed points. Prefer [`PlayerTrail::render_polylines`] when drawing.
+    /// Prefer [`PlayerTrail::render_polylines`] when drawing.
     pub fn render_points(&self) -> Vec<ae::Vec2> {
         self.render_polylines().into_iter().flatten().collect()
     }

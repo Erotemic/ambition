@@ -143,9 +143,8 @@ pub fn portal_half_extent(normal: Vec2) -> Vec2 {
     portal_half_extent_with_length(normal, PORTAL_OPENING_HALF)
 }
 
-/// [`portal_half_extent`] with an explicit along-surface half-length (e.g. the
-/// authored LDtk box), keeping the standard through-surface thickness. For
-/// portals whose opening size is authored rather than the fixed default.
+/// [`portal_half_extent`] with an explicit along-surface half-length (e.g. the authored LDtk
+/// box), keeping the standard through-surface thickness.
 pub fn portal_half_extent_with_length(normal: Vec2, along_half: f32) -> Vec2 {
     let n = normal.normalize_or_zero();
     let along = Vec2::new(-n.y, n.x);
@@ -190,18 +189,14 @@ pub struct PortalTransitCooldown {
     pub pair: PortalChannel,
 }
 
-/// Measured solid host material behind each placed portal's face, published by
-/// the HOST (it owns the collision world) each frame — portal core stays
-/// world-free. Consumed by the transit rescue and the carve so a portal on a
-/// THIN wall never grabs or engages a body standing in the open room BEHIND
-/// that wall: the aperture volume ends where the wall does. A channel with no
-/// entry reads as unmeasured (`f32::INFINITY` = unclipped), which callers
-/// bound by [`crate::pieces::CARVE_DEPTH`].
+/// Consumed by the transit rescue and the carve so a portal on a THIN wall never grabs or engages a
+/// body standing in the open room BEHIND that wall: the aperture volume ends where the wall does. A
+/// channel with no entry reads as unmeasured (`f32::INFINITY` = unclipped), which callers bound by
+/// [`crate::pieces::CARVE_DEPTH`].
 #[derive(bevy::prelude::Resource, Clone, Debug, Default)]
 pub struct PortalHostDepths(pub Vec<(PortalChannel, f32)>);
 
 impl PortalHostDepths {
-    /// The measured host depth for `channel`, or `INFINITY` when unmeasured.
     pub fn depth(&self, channel: PortalChannel) -> f32 {
         self.0
             .iter()

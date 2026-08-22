@@ -1,31 +1,25 @@
 //! **Every minion a boss summons by NAME must resolve a body somebody authored.**
 //!
-//! ⛔⛔ **THE CENSUS THAT DELETED `small_lurker` COUNTED LDTK PLACEMENTS AND WAS
-//! BLIND TO A RUST CONSTANT.** On 2026-08-11 a sweep reported it "PLACED IN ZERO
-//! LEVELS" and removed its archetype row. The Gradient Sentinel summons it — and
-//! `puppy_slug`, deleted the same week — from `gradient_sentinel.rs`, so from
-//! that day the boss's minima traps and gradient cascades spawned the generic
-//! `combatant` fallback: wrong health, wrong speed, wrong body, no crawl, no
-//! cling. Nothing failed. A fallback is a real body, so the only tell was on
-//! screen, and nobody was looking at that boss.
+//! The Gradient Sentinel summons it — and `puppy_slug`, deleted the same week — from
+//! `gradient_sentinel.rs`, so from that day the boss's minima traps and gradient cascades spawned
+//! the generic `combatant` fallback: wrong health, wrong speed, wrong body, no crawl, no cling.
+//! Nothing failed. A fallback is a real body, so the only tell was on screen, and nobody was
+//! looking at that boss.
 //!
-//! ⭐ **the missing DIRECTION.** `every_archetype_row_is_placed_somewhere_or_
+//! **the missing DIRECTION.** `every_archetype_row_is_placed_somewhere_or_
 //! deliberately_code_selected` asks *does every row have a placement?* This asks
 //! the other one: *does every name the code SUMMONS still resolve?* A row and a
 //! constant can each be individually defensible while the pair is broken, and
 //! only the second question sees it.
 
-/// ⛔ **THERE WAS A HAND-WRITTEN LIST HERE AND IT IS DELETED** (2026-08-12). It
-/// named the two Gradient Sentinel constants and the puppy-slug gun's, which is
-/// exactly the set the scanner below finds on its own — and a transcription that
-/// duplicates a scan is a second place to forget. The class had already outrun the
-/// list three times before the scan existed; keeping both would have preserved the
-/// habit that made that possible.
+/// It named the two Gradient Sentinel constants and the puppy-slug gun's, which is exactly the
+/// set the scanner below finds on its own — and a transcription that duplicates a scan is a
+/// second place to forget.
 ///
 /// Every encounter file whose wave `kind`s are read STRAIGHT FROM THE SHIPPED
 /// BYTES rather than transcribed into the list above.
 ///
-/// ⛔ **a transcribed list is a snapshot, and a snapshot cannot see the wave
+/// **a transcribed list is a snapshot, and a snapshot cannot see the wave
 /// somebody adds tomorrow.** The two boss constants are `const &str` in Rust and
 /// have to be listed by hand; a `.ron` does not, so it is parsed. Where the guard
 /// can read the source of truth, it reads it.
@@ -37,17 +31,17 @@ const ENCOUNTER_FILES: &[(&str, &str)] = &[(
 /// The `kind: "..."` values an encounter file authors.
 /// **What each mob in a wave file will actually be built as.**
 ///
-/// ⛔⛔ **this read `kind:` only, and that is not the road the runtime takes.**
+/// **this read `kind:` only, and that is not the road the runtime takes.**
 /// `spawn_encounter_mob` builds the body from the mob's prepared `character`;
 /// `kind` is controller policy and never a body fallback. Reading only `kind`
 /// therefore measures the wrong authority and can report a healthy encounter as
 /// unresolved even when every mob names a buildable character.
 ///
-/// ⚠ a guard that measures a road nobody drives fails for the wrong reason, and
+/// a guard that measures a road nobody drives fails for the wrong reason, and
 /// the temptation then is to add the id to `KNOWN_UNRESOLVED` with a story about
 /// a decision that was never waiting.
 ///
-/// ⭐ **`character:` must be read on the SAME mob**, not anywhere in the file:
+/// **`character:` must be read on the SAME mob**, not anywhere in the file:
 /// scanning for both fields globally would let one mob's character cover
 /// another's missing row. Each entry is one line in these files, so the line is
 /// the unit.
@@ -72,7 +66,7 @@ fn field<'a>(line: &'a str, prefix: &str) -> Option<&'a str> {
 /// **Every `*_ARCHETYPE` constant in the workspace, found by SCANNING rather than
 /// by transcription.**
 ///
-/// ⛔⛔ **the list above is a snapshot and the class has already outrun it three
+/// **the list above is a snapshot and the class has already outrun it three
 /// times.** `puppy_slug` and `small_lurker` in the Gradient Sentinel, then
 /// `puppy_slug` again in a PLAYER WEAPON one crate away — each found by a human
 /// asking "who else names an archetype by string?", never by a guard. A list
@@ -82,9 +76,6 @@ fn field<'a>(line: &'a str, prefix: &str) -> Option<&'a str> {
 /// each value the same way. A new constant is covered the moment it is written,
 /// which is the only version of this guard that survives the next person who
 /// adds one.
-///
-/// ⚠ **it asserts it FOUND some**, because a scanner that matches nothing passes
-/// silently — the failure mode of every source-scanning test ever written.
 fn archetype_constants(root: &std::path::Path) -> Vec<(String, String)> {
     fn walk(dir: &std::path::Path, out: &mut Vec<(String, String)>) {
         let Ok(entries) = std::fs::read_dir(dir) else {
@@ -106,7 +97,7 @@ fn archetype_constants(root: &std::path::Path) -> Vec<(String, String)> {
                     if !trimmed.starts_with("const ") && !trimmed.starts_with("pub const ") {
                         continue;
                     }
-                    // ⛔ the NAME must END in `_ARCHETYPE`, not merely contain it.
+                    // the NAME must END in `_ARCHETYPE`, not merely contain it.
                     // The first version matched `CHARACTER_ARCHETYPES_FILE` and
                     // friends and reported a RON path as an unresolvable creature
                     // — a scanner that over-matches gets muted exactly as fast as
@@ -135,11 +126,6 @@ fn archetype_constants(root: &std::path::Path) -> Vec<(String, String)> {
 }
 
 /// **Each summoned id names a registered character that can build a body.**
-///
-/// ⭐ the exemption list is EMPTY as of 2026-08-13: `small_lurker`, its last
-/// entry, was cast as `npc_ai_slop` (provisionally — the reversal is one string
-/// constant in `gradient_sentinel.rs`). The list stays so the next broken
-/// summon has somewhere to state its reason instead of muting this guard.
 #[test]
 fn every_summoned_minion_id_resolves_a_body() {
     const KNOWN_UNRESOLVED: &[(&str, &str)] = &[];
@@ -147,7 +133,7 @@ fn every_summoned_minion_id_resolves_a_body() {
     let buildable: std::collections::BTreeSet<&str> =
         ambition_content::character_catalog::buildable_cast().collect();
 
-    // ⭐ the SCANNED half: every `*_ARCHETYPE` constant in the engine and the
+    // the SCANNED half: every `*_ARCHETYPE` constant in the engine and the
     // games, wherever somebody writes the next one.
     let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -183,7 +169,7 @@ fn every_summoned_minion_id_resolves_a_body() {
 
     let mut unresolved = Vec::new();
     for (id, site) in &named {
-        // ⛔ **one road** (AC6). This also accepted an archetype ROW under the
+        // **one road** (AC6). This also accepted an archetype ROW under the
         // id, because a row would build the body too; the rows are deleted and a
         // summon that names no character is refused at construction.
         if !buildable.contains(id) {
@@ -204,7 +190,7 @@ fn every_summoned_minion_id_resolves_a_body() {
          waiting."
     );
 
-    // ⛔ and the exemption list cannot rot: an id that got FIXED must leave it,
+    // and the exemption list cannot rot: an id that got FIXED must leave it,
     // or the next reader believes a resolved name is still broken.
     let stale: Vec<_> = KNOWN_UNRESOLVED
         .iter()

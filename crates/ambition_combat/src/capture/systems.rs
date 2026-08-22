@@ -16,15 +16,11 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
 /// **What a body must BE to take part in a capture, at either end of it.**
 ///
-/// ⛔⛔ **acquisition asks for what the whole LIFECYCLE needs, and this is that
-/// list.** A capture is not one moment. It is a hold, then pummels, then a throw
-/// or a release, and each beat reaches for different body state. While
-/// acquisition accepted a wider class of bodies than the later beats could
-/// operate on, a capture could be established that nothing downstream could
-/// complete — and the failure surfaced far from its cause, as a hold that
-/// appeared never to form. Stating the requirement once, and asking it at the
-/// one moment where refusing is still free, is what makes an established capture
-/// mean "every beat of this relationship can run".
+/// **acquisition asks for what the whole LIFECYCLE needs, and this is that list.** A capture is not
+/// one moment. It is a hold, then pummels, then a throw or a release, and each beat reaches for
+/// different body state. Stating the requirement once, and asking it at the one moment where
+/// refusing is still free, is what makes an established capture mean "every beat of this
+/// relationship can run".
 ///
 /// ```text
 /// BodyKinematics      the hold anchor; a throw's impact point
@@ -209,12 +205,6 @@ pub fn acquire_captures(
 
         // ⛔⛔ **THE CAPTIVE'S MOVE ENDS HERE, AND ITS VOLUMES WITH IT.**
         //
-        // Otherwise: Alice starts a forward smash, George grabs her, Alice hangs
-        // in his hands — and her smash's Active window opens on schedule and hits
-        // the man holding her. A captive that can still hit its captor is not a
-        // capture, and the bug would read as "grabs are unsafe" rather than as a
-        // missing teardown.
-        //
         // ⭐ through the ONE teardown path (`cancel_move_playback`), which is why
         // that was extracted from its four hand-copies first rather than becoming
         // a fifth here.
@@ -323,12 +313,6 @@ impl CaptureFacts {
     }
 }
 
-// ⭐ **AND THEN THE CONSTANTS STOPPED BEING CONSTANTS** (2026-08-20). They moved
-// to the fighter capability on 2026-08-19 because a grab timeout and a mash rate
-// are platform-fighter rules; they are now `DeclaredCombatRules::grab_hold_*` and
-// `grab_mash_seconds`, because they are rules a MATCH declares rather than
-// numbers a crate holds. The baseline an undeclared world falls back to is
-// `combat::rules::FLAT_GRAB_HOLD_SECONDS`, which is the 4.0 that lived here.
 
 /// **The captive's restricted channel: a mash reaches the hold, and nothing
 /// else does.**
@@ -358,18 +342,9 @@ pub fn sample_capture_escape(
             &mut ambition_characters::smash_capture::SmashHoldState,
             &ambition_characters::brain::ActorControl,
         ),
-        // ⛔⛔ **`With<CapturedBy>` IS LOAD-BEARING, and dropping it was a
-        // regression this system already survived once.** Before the
-        // 2026-08-19 split this query took `&mut CapturedBy`, which required
-        // the relation by construction; asking for the ruleset's half alone
-        // silently WIDENED the population, because `release_capture` removes
-        // the relation and leaves `SmashHoldState` on the freed body.
-        //
-        // ⇒ without this filter every body that has ever been captured keeps
-        // accumulating escape progress from ordinary play, forever — a write to
-        // ROLLBACK STATE every tick, churning the checksum for a hold that
-        // ended. It would not free anybody (a fresh capture overwrites the row),
-        // which is exactly why it would not have shown up as a bug.
+        // ⇒ without this filter every body that has ever been captured keeps accumulating
+        // escape progress from ordinary play, forever — a write to ROLLBACK STATE every tick,
+        // churning the checksum for a hold that ended.
         bevy::prelude::With<CapturedBy>,
     >,
     tuning: Option<Res<crate::rules::ResolvedCombatTuning>>,
@@ -601,13 +576,6 @@ mod tests {
     }
 
     /// **A HURT CAPTIVE IS HELD LONGER, AND THE HOLD DOES NOT GROW UNDER IT.**
-    ///
-    /// ⛔ two claims, and the second is the one a caching shortcut would lose.
-    /// Ultimate reads the captive's percent AT THE GRAB; a hold that re-read it
-    /// every tick would lengthen every time its captor pummelled, which turns a
-    /// pummel from a decision into a free extension of an advantage you already
-    /// hold. So the deadline is measured once and then damage is piled on with
-    /// the hold still running.
     #[test]
     fn a_hold_is_measured_from_the_damage_the_captive_had_when_it_was_caught() {
         let rules = crate::rules::ResolvedCombatTuning {
@@ -707,11 +675,6 @@ mod tests {
     /// the body is actually held: every body that has ever been captured would
     /// then keep crediting escape presses from ordinary play, forever, writing
     /// ROLLBACK STATE every tick for a hold that ended.
-    ///
-    /// ⚠ **it would never have shown up as a bug**, which is why it is pinned:
-    /// nothing reads the value while the body is free, and the next capture
-    /// resets it. The cost is checksum churn and a lie in the snapshot, not a
-    /// broken mechanic — the quietest kind of defect this codebase has.
     #[test]
     fn a_freed_body_stops_crediting_escape_presses() {
         let mut app = capture_app();
@@ -770,12 +733,8 @@ mod tests {
 
     /// **⛔⛔ A HOLD IS TWO COMPONENTS, AND ACQUIRING ONE INSERTS BOTH.**
     ///
-    /// Since the 2026-08-19 split, `CapturedBy` is the RELATION — who holds
-    /// whom, where, and what physical state release must give back — and
-    /// `SmashHoldState` is this ruleset's half: the pummel count, the hold's age
-    /// and the escape accumulator. A body carrying only the first is held by
-    /// somebody with **no clock and nothing to mash out of**: `tick_capture_holds`
-    /// requires the state, so such a hold would never time out, and
+    /// A body carrying only the first is held by somebody with **no clock and nothing to mash out
+    /// of**: `tick_capture_holds` requires the state, so such a hold would never time out, and
     /// `sample_capture_escape` would never credit a press.
     ///
     /// ⚠ **pinned because the pairing is a convention, not a type.** Nothing
@@ -998,13 +957,9 @@ mod tests {
 
     /// **⛔⛔ AN EXISTING CAPTOR MISSING COMBAT STATE IS NOT A DESPAWNED ONE.**
     ///
-    /// The invariant, not the fix. The interruption rule asked
-    /// `combat.get(captor).is_err()` and read the answer as *"the captor is
-    /// gone"*. A live captor that simply carried no `BodyCombat` therefore read
-    /// as despawned, and every hold it made was dissolved on the tick it formed
-    /// — a relationship that never survived long enough to be observed, which
-    /// looks precisely like acquisition refusing the victim. That misreading is
-    /// what kept the end-to-end acceptance red, and what got it diagnosed wrong.
+    /// The invariant, not the fix. The interruption rule asked `combat.get(captor).is_err()`
+    /// and read the answer as *"the captor is gone"*. That misreading is what kept the
+    /// end-to-end acceptance red, and what got it diagnosed wrong.
     ///
     /// ⚠ **built by hand ON PURPOSE.** Acquisition now refuses such a captor
     /// outright, so a grab press can no longer reach this state — which is
@@ -1086,12 +1041,7 @@ mod tests {
 
     /// **⛔⛔ NOBODY IS HELD FOREVER, AND STRUGGLING BEATS NOT STRUGGLING.**
     ///
-    /// Before this, a capture ended only by a throw its captor chose or a hit
-    /// somebody else landed — so a player who grabbed an opponent and then
-    /// pressed nothing at all held that body for the rest of the match, and the
-    /// captive AI, having no escape to reach for, correctly did nothing about
-    /// it. An unbounded relationship is a gameplay bug rather than a missing
-    /// feature.
+    /// An unbounded relationship is a gameplay bug rather than a missing feature.
     ///
     /// ⭐ **the two halves are one test on purpose.** A hold that ended on its
     /// clock but ignored the captive would pass a mash test that only asserted
@@ -1249,12 +1199,6 @@ mod tests {
 
     /// **⭐ A BODY THE REST OF THE LIFECYCLE COULD NOT OPERATE ON IS NOT
     /// CAPTURED.**
-    ///
-    /// Acquisition used to accept a wider class of bodies than the hold, the
-    /// pummel, the throw and the release could act on, so a capture could be
-    /// established that no later beat could complete. Both ends are checked
-    /// because both ends are operated on: a captor is thrown FROM and can be
-    /// interrupted, a victim is anchored, damaged and launched.
     #[test]
     fn a_body_the_lifecycle_could_not_operate_on_is_never_captured() {
         for (label, strip_captor) in [("captor", true), ("victim", false)] {
@@ -1649,11 +1593,8 @@ pub fn restrict_captor_control(
 
 /// **THE one release.** Every path out of a capture goes through it.
 ///
-/// ⛔ **no caller clears half the relation.** A capture suspends three things —
-/// the relationship, the control projection, and gravity — and a release that
-/// forgot any one leaves a body that is free but frozen, or falling but still
-/// listed as held. Making that impossible is the entire reason this is a
-/// function rather than three lines repeated at each exit.
+/// Making that impossible is the entire reason this is a function rather than three lines
+/// repeated at each exit.
 ///
 /// ⭐ **this is also what makes escape cheap.** Mash-to-escape, when it lands,
 /// is another caller: it decides WHEN, and this decides what release means.
@@ -1684,25 +1625,16 @@ pub fn release_capture(
 /// **A capture ends when either body takes a real hit, or the captor stops
 /// existing.**
 ///
-/// ⭐ **derived from the ACCEPTED reaction, not from raw overlap.** `BodyCombat`
-/// already records that a body entered hitstun or a recoil lock — facts written
-/// only when a hit actually landed and was not shrugged off — so a third party
-/// interrupting a grab needs no parallel "grab interrupted" pipeline. The
-/// interruption is the hit reaction the engine already agreed happened.
+/// The interruption is the hit reaction the engine already agreed happened.
 ///
 /// ⛔ **hitstop alone does NOT break it.** A pummel may deliberately produce a
 /// little hitstop while preserving the hold; breaking on that would make the
 /// mechanic destroy itself on its own second beat.
 ///
-/// ⛔⛔ **EXISTENCE IS ASKED OF THE WORLD, NEVER INFERRED FROM A COMPONENT.**
-/// This read `combat.get(captor).is_err()` and called that "the captor is gone".
-/// It is not: it is "the captor has no combat state", and the two answers differ
-/// for every body that is alive without one. The consequence was that such a
-/// captor's hold was dissolved on the same tick it formed — acquisition
-/// succeeding and the relationship vanishing before anything could observe it,
-/// a symptom that reads exactly like acquisition refusing the victim, and which
-/// cost a misdiagnosis to find. `bodies` answers only the existence question,
-/// and answers nothing else.
+/// ⛔⛔ **EXISTENCE IS ASKED OF THE WORLD, NEVER INFERRED FROM A COMPONENT.** This read
+/// `combat.get(captor).is_err()` and called that "the captor is gone". It is not: it is "the
+/// captor has no combat state", and the two answers differ for every body that is alive without
+/// one. `bodies` answers only the existence question, and answers nothing else.
 pub fn release_interrupted_captures(
     mut commands: Commands,
     captives: Query<(Entity, &CapturedBy)>,

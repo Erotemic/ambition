@@ -1,21 +1,12 @@
-// Movement-axis regression test: only built with the RL stepping API. Compiled
-// out (empty test binary) when `rl_sim` is disabled.
+// Compiled out (empty test binary) when `rl_sim` is disabled.
 #![cfg(feature = "rl_sim")]
-//! Headless reproduction of the "Move axis is dead/sticky" input regression.
+//! This test drives the RL/agent seam — writing `ControlFrame` directly each tick via
+//! `Platformer2dSimHarness::step` (no devices, no leafwing) — and asserts the player actually
+//! translates a real distance in the commanded direction. It encodes the contract "axis input
+//! -> actual movement" headlessly, independent of rendering or input devices.
 //!
-//! The symptom from manual play: discrete button actions (jump/fly/fire) flow
-//! fine, but the analog Move axis (`ControlFrame.axis_x` / `axis_y`) does not
-//! reach player movement. This test drives the RL/agent seam — writing
-//! `ControlFrame` directly each tick via `Platformer2dSimHarness::step` (no devices, no
-//! leafwing) — and asserts the player actually translates a real distance in the
-//! commanded direction. It encodes the contract "axis input -> actual movement"
-//! headlessly, independent of rendering or input devices.
-//!
-//! If this FAILS, the regression is DOWNSTREAM of `ControlFrame` (the
-//! ControlFrame -> SlotControls -> DrivingParticipant -> ActorControl -> movement path, or a
-//! system clobbering `ControlFrame.axis` between populate and consume). If it
-//! PASSES, the live device->ControlFrame populate path is the only remaining
-//! suspect (not exercised by this seam).
+//! If it PASSES, the live device->ControlFrame populate path is the only remaining suspect (not
+//! exercised by this seam).
 
 use crate::common::base;
 

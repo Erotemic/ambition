@@ -42,7 +42,7 @@ STATUS = REPO / "target" / "run_tests_status.json"
 
 #: How old a run may be and still answer "how is the suite doing?".
 #:
-#: ⚠ this is a claim about RELEVANCE, not correctness. A 40-minute-old green run
+#: this is a claim about RELEVANCE, not correctness. A 40-minute-old green run
 #: is a true statement about a tree that has probably moved; the point is to make
 #: the reader say so instead of implying it is current.
 DEFAULT_MAX_AGE_MIN = 30.0
@@ -144,14 +144,14 @@ def main() -> int:
         print("a run is IN PROGRESS; this is not a verdict yet.")
         return 2
 
-    # ⛔⛔ **THE CHECK THAT ACTUALLY CATCHES IT, and the age check does not.**
+    # **THE CHECK THAT ACTUALLY CATCHES IT, and the age check does not.**
     #
     # Being honest about the motivating case: the stale run that fooled me was
     # ~10 minutes old, so any sane `--max-age` would have waved it through. Age
     # measures how long ago, and the question is whether the CODE MOVED SINCE —
     # a result is only a statement about the tree it ran against.
     #
-    # ⚠ I nearly shipped this file with the age check alone, which would have
+    # I nearly shipped this file with the age check alone, which would have
     # been a guard green through its own motivating case: the exact failure this
     # repo has recorded five times in one day.
     newest, newest_at = newest_source(REPO)

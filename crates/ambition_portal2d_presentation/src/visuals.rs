@@ -85,19 +85,11 @@ pub fn sync_portal_disorientation_indicator(
     ));
 }
 
-/// Draw the transiting body as its two portal-aware **pieces**, texture-clipped
-/// at the portal planes: the real sprite is hidden and replaced by a `here`
-/// quad (the sprite clipped to the front of the entry plane, at the real pose)
-/// plus a `through` quad (the sprite posed by the BODY map — `copy_transform`:
-/// rotation-only for det +1 maps, rotation plus flip for det -1 maps — clipped
-/// to the front of the exit plane and to the exit aperture span). Because the
-/// portal map is an isometry the two slices tile continuously across the seam,
-/// so nothing pops when the authoritative position snaps at the centroid
-/// crossing, and the sunk slice never draws over the far side of a thin wall
-/// (the Q10 crossing flicker). Clipping runs in [`PortalClipMaterial`]'s
-/// fragment shader against world positions, so it is exact for any anchor /
-/// trim rect / flip / roll. Shared by EVERY visual-effect mode
-/// (windows / off).
+/// Because the portal map is an isometry the two slices tile continuously across the seam, so
+/// nothing pops when the authoritative position snaps at the centroid crossing, and the sunk slice
+/// never draws over the far side of a thin wall (the Q10 crossing flicker). Clipping runs in
+/// [`PortalClipMaterial`]'s fragment shader against world positions, so it is exact for any anchor
+/// / trim rect / flip / roll. Shared by EVERY visual-effect mode (windows / off).
 ///
 /// Pieces are rebuilt each frame from the same `Sprite`, after the host's
 /// animator has updated it, so they can never drift from the real sprite; the
@@ -371,21 +363,15 @@ pub fn sync_portal_visuals(
         // direction of the bar's long axis, then rotate the sprite to match.
         let angle = (-along.y).atan2(along.x);
         let rotation = Quat::from_rotation_z(angle);
-        // Rim (outer) + brighter thin core, both split into pair-colored halves.
-        // Split ACROSS the portal face (along the normal), not along the portal's
-        // long axis. For a wall portal this gives left/right halves instead of
-        // top/bottom halves, so the color sheet that the actor enters lines up
-        // with the mapped exit-side portal texture. The positive-normal side
-        // is this portal's own channel; the negative-normal side is its partner.
-        // All three (rim/core/label) draw at the dominance-resolved `frame_z`
-        // (above the glass for the near portal, under it for the far one) on
-        // the WORLD layer, so portal captures photograph them — portals seen
-        // through a window must look like portals. The "two copies of the
-        // portals" artifact came from the doorway takeover pane painting a
-        // parallax-offset capture over directly-visible frames; that regime
-        // is gone at the source (the doorway clamp in `compute_cone`), and a
-        // wormhole pane showing a DISJOINT elsewhere never overlaps the
-        // frames it photographs.
+        // Rim (outer) + brighter thin core, both split into pair-colored halves. Split ACROSS
+        // the portal face (along the normal), not along the portal's long axis. For a wall
+        // portal this gives left/right halves instead of top/bottom halves, so the color sheet
+        // that the actor enters lines up with the mapped exit-side portal texture. The
+        // positive-normal side is this portal's own channel; the negative-normal side is its
+        // partner. All three (rim/core/label) draw at the dominance-resolved `frame_z` (above
+        // the glass for the near portal, under it for the far one) on the WORLD layer, so
+        // portal captures photograph them — portals seen through a window must look like
+        // portals.
         for (channel, sign, side) in [
             (negative_channel, -1.0, "negative-normal"),
             (positive_channel, 1.0, "positive-normal"),

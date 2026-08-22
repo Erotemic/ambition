@@ -2,7 +2,7 @@
 # Regenerate every procedural background family used by the desktop game.
 #
 # Usage:
-#   ./regen_backgrounds.sh
+# ./regen_backgrounds.sh
 #   AMBITION_BACKGROUND_PYTHON=/path/to/python ./regen_backgrounds.sh
 #   AMBITION_PARALLAX_PYTHON=/path/to/python ./regen_backgrounds.sh
 #

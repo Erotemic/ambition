@@ -141,11 +141,9 @@ fn shield_ring_coverage(integrity: f32) -> f32 {
     0.55 + 0.45 * integrity.clamp(0.0, 1.0)
 }
 
-/// Show / hide + tint a bubble ring around EVERY body whose shield is up — the
-/// player AND any brain-controlled actor (the duel fighters). One pooled ring per
-/// active shielder; unused rings hide, and the pool grows on demand. So an AI
-/// shield now reads IDENTICALLY to the player's (it previously drew nothing for
-/// actors — the ring was `PrimaryPlayer`-only). Scale tracks each body's size.
+/// Show / hide + tint a bubble ring around EVERY body whose shield is up — the player AND any
+/// brain-controlled actor (the duel fighters). One pooled ring per active shielder; unused rings
+/// hide, and the pool grows on demand. Scale tracks each body's size.
 pub fn sync_bubble_shield_visual(
     mut commands: Commands,
     sprite: Option<Res<BubbleShieldSprite>>,

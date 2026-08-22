@@ -21,9 +21,7 @@ fn app_with(display: ae::Vec2, profile: &GameplayPresentationProfile) -> App {
         occlusions: &[],
         control_footprints: ControlFootprints::default(),
     }));
-    // ONE update. The bars must be laid out at spawn, not on a following
-    // frame: the frame a fixed-aspect game starts is the frame its pillarboxes
-    // appear, and a one-frame gap is a flash of uncleared framebuffer.
+    // ONE update.
     app.update();
     app
 }
@@ -47,8 +45,6 @@ fn bar_rects(app: &mut App) -> Vec<(SurroundRegion, Rect)> {
     out
 }
 
-/// A fixed-aspect profile paints every pillarbox pixel, and paints nothing
-/// inside the gameplay rectangle.
 #[test]
 fn the_surround_tiles_exactly_what_the_camera_does_not_draw() {
     let display = ae::Vec2::new(2400.0, 1080.0);

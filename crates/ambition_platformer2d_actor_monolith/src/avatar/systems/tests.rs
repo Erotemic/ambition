@@ -334,10 +334,6 @@ fn player_brain_seam_translates_control_frame_to_actor_control() {
         &mut player.dodge,
         ae::DEFAULT_TUNING.air_jumps,
     );
-    // `PlayerSimulationBundle` carries the same cluster components
-    // that `PlayerMovementAuthority` + `PlayerBody` used to be
-    // synthesized from. `Brain` / `ActorControl` are bundle fields
-    // too, so no extra spawn-tuple state is needed.
     let bundle = crate::avatar::PlayerSimulationBundle::from_scratch(
         player,
         ambition_characters::actor::Health::new(10),
@@ -394,11 +390,9 @@ fn player_brain_seam_translates_control_frame_to_actor_control() {
 /// which is exactly what possession does (ONE control seam: possession is brain
 /// transfer, never an input-copy component).
 ///
-/// ⭐ **and the speed proves whose body it is.** `velocity_target` is an absolute
-/// world-space command, so the translator scales the stick by the body's own
-/// `MotionModel::commanded_top_speed` — 137 here, a number no other body in the
-/// test has. Before this cut that scale came from `ActorConfig.tuning`, which is
-/// one game's authoring type reaching into a generic controlled seam.
+/// ⭐ **and the speed proves whose body it is.** `velocity_target` is an absolute world-space
+/// command, so the translator scales the stick by the body's own
+/// `MotionModel::commanded_top_speed` — 137 here, a number no other body in the test has.
 #[test]
 fn a_possessed_actor_is_driven_by_the_controlled_brain_producer() {
     use ambition_characters::brain::{DrivingParticipant, PlayerSlot};
@@ -484,11 +478,7 @@ fn a_possessed_actor_is_driven_by_the_controlled_brain_producer() {
 
 /// **A scripted sequence now silences a possessed body too.**
 ///
-/// ⛔ it did not before, and nothing said so. `blank_scripted_control_frames`
-/// sits in `PlayerInput::ControlGate` — *"the only position where blanking is
-/// observable"* — but a possessed body's frame was written a phase LATER, in
-/// `WorldPrep`, so the blanking ran before the write it was meant to erase. A
-/// death beat or a flagpole slide driving a possessed body would blank nothing.
+/// A death beat or a flagpole slide driving a possessed body would blank nothing.
 ///
 /// One producer in one phase is what fixes it, and the guard is the ORDER: the
 /// two systems run in their real schedule relation, so a future move of either

@@ -18,14 +18,11 @@ pub use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOve
 /// **The set `rebuild_feature_ecs_world_overlay` runs in, so a consumer can order
 /// against a NAME instead of against this function.**
 ///
-/// ⛔ six places order against that function today — four in `ambition_content`
-/// (`bosses`, `falling_sand`, `falling_sand_sim`, `intro`), one in the monolith's
-/// own `encounter`, one more on `update_ecs_hazards` beside it. A GAME reaching
-/// for an engine leaf is the sharper form of the defect the engine roadmap's
-/// Task 6 rules out: it is a consumer depending on engine internals, which is
-/// what the facade exists to prevent.
+/// six places order against that function today — four in `ambition_content` (`bosses`,
+/// `falling_sand`, `falling_sand_sim`, `intro`), one in the monolith's own `encounter`, one more on
+/// `update_ecs_hazards` beside it.
 ///
-/// ⚠ **deliberately a ONE-MEMBER set.** The obvious alternative — a set spanning
+/// **deliberately a ONE-MEMBER set.** The obvious alternative — a set spanning
 /// this system and `update_ecs_hazards` next to it in the chain — would make
 /// `.after(set)` STRICTER than the `.after(rebuild_feature_ecs_world_overlay)` it
 /// replaces, because consumers would newly wait for hazards too. One member
@@ -58,9 +55,6 @@ pub fn rebuild_feature_ecs_world_overlay(
         if feature.broken() {
             continue;
         }
-        // Pogo-refresh breakables are now contributed through
-        // PogoTargetVolumes below. Preserve the old behavior where a pogo orb is
-        // a non-solid ghost block even if its authored collision says otherwise.
         if feature.breakable.pogo_refresh {
             continue;
         }

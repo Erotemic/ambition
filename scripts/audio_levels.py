@@ -9,7 +9,7 @@ things that might blow somebodies ear out."*
 The instrument reports; it never retunes anything. Fixing a level is a separate,
 explicit edit that names the file and the delta.
 
-## The corpus is THREE populations, not one, and two of them are not files
+# # The corpus is THREE populations, not one, and two of them are not files
 
 ⚠ a sweep of `*.ogg` finds **only music**. Every loose ogg in the tree is under
 `assets/audio/music/generated/`; there is not one loose SFX file. An instrument
@@ -40,7 +40,7 @@ waveform and noise mix) and pins that the extractor still resolves every field
 of every provider spec, so a refactor of `sanic_open()` fails loudly instead of
 silently dropping Sanic from the report.
 
-## Why ebur128, and the one place it is structurally blind
+# # Why ebur128, and the one place it is structurally blind
 
 `ffmpeg -af ebur128=peak=true` is ITU-R BS.1770: integrated LUFS, loudness
 range, and **true peak** in one pass. True peak is the number that predicts a
@@ -68,7 +68,7 @@ population has no internal outlier: measured here, the procedural path sits
 run per population; cohorts are reported, and their *offset from the population*
 is itself a finding.
 
-## Cost
+# # Cost
 
 Measured 2026-08-08, 8 workers: **87 s cold** for 782 sounds (347 music files —
 4.8 h of audio — plus 381 bank clips and 54 synthesized specs), **1–4 s warm**.
@@ -78,7 +78,7 @@ and the SPEC for a synthesized cue (⚠ never its bytes — libsndfile stamps a
 float WAV's `PEAK` chunk with the creation time, so hashing the render gives a
 cache that misses every single time and never says so).
 
-## Usage
+# # Usage
 
     python3 scripts/audio_levels.py                 # full sweep + report
     python3 scripts/audio_levels.py --limit 20      # smoke run
@@ -112,7 +112,7 @@ from rich.markup import escape as rich_escape
 # the cache key, so an old cache cannot silently serve numbers for a new
 # definition.
 #
-# ⛔ **`synthesize()` is part of the definition too.** Procedural rows are keyed
+# **`synthesize()` is part of the definition too.** Procedural rows are keyed
 # by the SPEC, not by the rendered bytes (see `spec_cache_key`), so a change to
 # the synthesizer or to `PROCEDURAL_CUE_REFERENCE_RMS_DBFS` is invisible to the
 # cache: the run reports `0 fresh, N cached` and serves the OLD sound's numbers
@@ -595,7 +595,7 @@ def _enclosing_fn(text: str, index: int) -> tuple[str, list[str]] | None:
 
 
 def _call_sites(text: str, fn_name: str) -> Iterator[list[str]]:
-    # ⛔ `fn NAME(` matches a call-site regex, and its parameter LIST has exactly
+    # `fn NAME(` matches a call-site regex, and its parameter LIST has exactly
     # the arity of a real call, so the declaration binds nothing and emits one
     # all-unresolved ghost spec per helper. Exclude it explicitly.
     for m in re.finditer(rf'(?<![\w.])(fn\s+)?{re.escape(fn_name)}\s*\(', text):
@@ -655,7 +655,7 @@ def _owner_of(path: Path) -> str:
 
 def _sample_rate_from(text: str) -> int:
     m = re.search(r'sample_rate\s*:\s*([\d_]+)', text)
-    # ⚠ Rust authors `44_100`. A `(\d+)` capture silently yields 44 Hz, which
+    # Rust authors `44_100`. A `(\d+)` capture silently yields 44 Hz, which
     # ffmpeg then clamps and reports as a real measurement of a different sound.
     return int(m.group(1).replace('_', '')) if m else 44100
 
@@ -774,11 +774,11 @@ def discover_procedural_specs() -> list[ProceduralSpec]:
 
 WAVEFORMS = {'Sine', 'Square', 'Triangle', 'Saw'}
 
-#: `ambition_audio::render::PROCEDURAL_CUE_REFERENCE_RMS_DBFS` — the loudness of
-#: a `volume = 1.0` cue, as RMS dBFS over its body. ⚠ this is the one number
-#: this port shares with the Rust by VALUE rather than by construction; if the
-#: engine moves its target and this does not, every procedural row in the report
-#: is off by the difference and nothing else notices.
+# : `ambition_audio::render::PROCEDURAL_CUE_REFERENCE_RMS_DBFS` — the loudness of
+# : a `volume = 1.0` cue, as RMS dBFS over its body. this is the one number
+# : this port shares with the Rust by VALUE rather than by construction; if the
+# : engine moves its target and this does not, every procedural row in the report
+# : is off by the difference and nothing else notices.
 PROCEDURAL_CUE_REFERENCE_RMS_DBFS = -11.0
 
 
@@ -1099,8 +1099,7 @@ def verdict_lines(items: list[Item]) -> list[str]:
     for item in items:
         by_population.setdefault(population_of(item.cohort), []).append(item)
 
-    # How the ways of PRODUCING a sound compare, before any owner is named. A
-    # whole production path sitting hot is a different fix from one loud file.
+    # A whole production path sitting hot is a different fix from one loud file.
     for population, group in sorted(by_population.items()):
         metric = population_metric(population)
         base = _cohort_values(group, metric)
@@ -1208,10 +1207,10 @@ def _loudest_sounds_finding(by_population: dict[str, list[Item]]) -> list[str]:
         threshold = median + 3.0 * mad
         scale = 'LUFS' if metric == 'lufs_i' else 'RMS dBFS'
         for item in group:
-            # ⚠ through `metrics`, and NOT `getattr(item, metric)`: the metric
+            # through `metrics`, and NOT `getattr(item, metric)`: the metric
             # is a dict KEY, not an attribute name, so getattr returned None for
             # every item and this section reported a clean sweep on its first
-            # run. ⛔ a finding that cannot fire is worse than no finding — it
+            # run. a finding that cannot fire is worse than no finding — it
             # reads as a pass.
             if metric == 'lufs_i' and not item.lufs_valid:
                 continue

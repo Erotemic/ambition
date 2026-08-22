@@ -1,5 +1,3 @@
-//! Regression: a boss's draw cursor reaches the render layer and ADVANCES.
-//!
 //! The render draws bosses from a separate `FeatureVisual` mirror entity that is
 //! synced by id — it never carries the sim's `BossAnimFrame` component. So the
 //! frame cursor has to cross the sim→render boundary through the by-id read-model

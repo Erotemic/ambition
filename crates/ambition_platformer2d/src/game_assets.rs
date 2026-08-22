@@ -1,13 +1,10 @@
 //! **The asset install a visible game needs before anything draws.**
 //!
-//! [`PlatformerPresentationPlugin`](crate::presentation::PlatformerPresentationPlugin)
-//! draws a room from two resources it does not build:
+//! [`PlatformerPresentationPlugin`](crate::presentation::PlatformerPresentationPlugin) draws a
+//! room from two resources it does not build:
 //! [`Platformer2dAssetCatalog`](ambition_platformer2d_actor_monolith::assets::platformer_assets::Platformer2dAssetCatalog)
 //! (every asset path/source policy) and
-//! [`GameAssets`](ambition_sprite_sheet::game_assets::GameAssets) (the decoded
-//! sheets). Building them was ~90 lines each demo shell hand-rolled, and the
-//! external-consumer fixture's own comment records what a third party gets
-//! without it:
+//! [`GameAssets`](ambition_sprite_sheet::game_assets::GameAssets) (the decoded sheets).
 //!
 //! > the in-repo demo shells each hand-roll a standalone asset-resource install
 //! > that no umbrella helper offers, so this binary ships WITHOUT it and draws
@@ -121,11 +118,7 @@ impl Plugin for PlatformerAssetsPlugin {
             .cloned()
             .unwrap_or_else(GameAssetConfig::from_args);
 
-        // The catalogs the content plugins registered. Missing means this plugin
-        // was added BEFORE the content — a composition-order mistake, and one
-        // worth failing loudly on: the silent version is an empty catalog and a
-        // world drawn as coloured rectangles, which is the exact failure this
-        // plugin exists to end.
+        // The catalogs the content plugins registered.
         let character_catalog = app
             .world()
             .get_resource::<CharacterCatalog>()

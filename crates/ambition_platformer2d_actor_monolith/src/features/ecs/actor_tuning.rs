@@ -1,18 +1,13 @@
 //! The per-actor tuning vocabulary: numeric/flag facts the runtime loops read
 //! each frame, resolved at spawn and carried on the actor's config component.
 //!
-//! ⛔ **it was the ARCHETYPE tuning vocabulary** — "authored per archetype
-//! (`character_archetypes.ron`) and projected onto the enemy config component at
-//! spawn". There are no archetypes; every value here is resolved from the
-//! body's `CharacterBodyBlueprint`, its `BrainProfile`, or its placement. What
-//! survives of the old sentence is the SHAPE: this is mostly a projection,
-//! written once at construction.
+//! There are no archetypes; every value here is resolved from the body's
+//! `CharacterBodyBlueprint`, its `BrainProfile`, or its placement. What survives of the old
+//! sentence is the SHAPE: this is mostly a projection, written once at construction.
 //!
-//! ⚠ **MOSTLY, and the exception is load-bearing**: `body_contact_damage` is
-//! toggled per tick by Mary-O's snake shells, so this type does carry one fact
-//! whose previous value decides the next frame. That is legal here only because
-//! `ActorConfig` is rollback-registered; see the classification test below
-//! before adding a second.
+//! **MOSTLY, and the exception is load-bearing**: `body_contact_damage` is toggled per tick by
+//! Mary-O's snake shells, so this type does carry one fact whose previous value decides the
+//! next frame.
 //!
 //! Combat reads none of this — spawn projects the combat-relevant facts onto
 //! `CombatTuning` (the legal actors → combat arrow).
@@ -48,13 +43,6 @@ pub struct ActorTuning {
     /// publish contact damage; peaceful patrollers are false. A PLACEMENT
     /// decision (`SpawnDisposition`), not a body fact — the same creature is
     /// ambient wildlife in one room and a threat in another.
-    ///
-    /// ⚠ **distinct from the `ActorDisposition` component**, which is the live,
-    /// rewinding answer to *is this body fighting right now* and gates damage
-    /// standing and dialogue. This one is the spawn policy the brain's
-    /// aggressiveness is built from. ⛔ a dangling half-sentence about a
-    /// deleted `attack_cooldown_mult` was stranded here; it moved to
-    /// `BrainProfile` on 2026-08-13.
     pub is_hostile: bool,
     /// SPAWN-TIME policy selector: this body crawls surfaces glued to
     /// the surface normal (the adhesive-crawler movement policy). Consumed
@@ -132,45 +120,27 @@ impl ActorTuning {
         }
     }
 
-    // ⛔⛔ **`adopting_archetype` WAS HERE, AND THE CONCEPT DIED RATHER THAN THE
-    // HELPER** (2026-08-12). It existed so a projected archetype tuning could be
-    // assigned WHOLESALE onto a provoked body while the placement kept the one
-    // field it owns — respawn policy (ADR 0022). Assigning it wholesale dragged
-    // a mob's `OnRoomReenter` onto a named NPC, the kill hook then wrote no
-    // death flag, and the NPC was rebuilt alive by the next room construction.
-    // That was a live bug, and this function was its fix.
+    // It existed so a projected archetype tuning could be assigned WHOLESALE onto a provoked
+    // body while the placement kept the one field it owns — respawn policy (ADR 0022).
+    // Assigning it wholesale dragged a mob's `OnRoomReenter` onto a named NPC, the kill hook
+    // then wrote no death flag, and the NPC was rebuilt alive by the next room construction.
     //
-    // ⭐ provocation projects NO tuning at all now (ledger D101): it changes a
-    // mind and a kit, never a body. So the respawn policy survives for the same
-    // reason the run speed does, and there is no wholesale assignment left to
-    // protect a field from. Its last caller went with
-    // `project_provoked_archetype` (D104).
-    //
-    // ⚠ compiler-verified dead by `#[deprecated]` + `cargo check --workspace
-    // --all-targets`, not by a grep — see ledger D105 for why that distinction
-    // has mattered six times this run.
+    // So the respawn policy survives for the same reason the run speed does, and there is no
+    // wholesale assignment left to protect a field from.
 }
 
 /// Generic kit vocabulary for an archetype's brain.
 ///
-/// ⚠ **DEFINED in `ambition_characters::brain`** since 2026-08-03. Its own doc
-/// already said the brain module is the universal-actor abstraction; it was
-/// merely LOCATED here. It moved so `character_archetypes.ron`'s authored
-/// vocabulary could leave this crate, which is what let the content compiler
-/// own the enemy-roster family without linking a renderer.
+/// Its own doc already said the brain module is the universal-actor abstraction; it was merely
+/// LOCATED here. It moved so `character_archetypes.ron`'s authored vocabulary could leave this
+/// crate, which is what let the content compiler own the enemy-roster family without linking a
+/// renderer.
 pub use ambition_characters::brain::CharacterBrainTemplate;
 
 /// **The reusable autonomous-controller profile** — DEFINED in
 /// `ambition_characters::brain::profile`, and it is not this crate's type.
 ///
-/// ⭐ **it replaced `BrainProfile` outright** (campaign 2026-08-11, the
-/// controller authority). That struct was the same idea one crate too high and
-/// one concept too narrow: a *projection* of an archetype, reachable only by
-/// having an archetype, so two characters that fight alike could not share a
-/// policy without sharing a body. [`BrainProfile`] is authorable, reusable, and
-/// carries the three CharacterAI knobs that used to sit in [`ActorTuning`]
-/// (`aggro_radius`, `attack_range`, `turns_at_walls`) — those are decisions a
-/// DRIVER makes, not facts a body states.
+/// **it replaced `BrainProfile` outright**.
 pub use ambition_characters::brain::BrainProfile;
 
 impl ActorTuning {
@@ -205,22 +175,10 @@ mod authority_split_tests {
     /// **EVERY FIELD OF `ActorTuning` HAS A DECLARED AUTHORITY**, and the
     /// compiler is what holds it rather than a number in a document.
     ///
-    /// ⭐ **the columns are the CAMPAIGN's six, not the three this test was born
-    /// with** (AC6.2). Its original split — character / controller / placement —
-    /// was the right question for the migration that created it and the wrong
-    /// one for the destination: it had to file `dream_seed` and `ranged_visual`
-    /// under BODY with a note explaining that they are presentation, which is a
-    /// classification admitting it does not fit. The plan's taxonomy has a
-    /// column for them, so they sit in it.
+    /// **the columns are the CAMPAIGN's six, not the three this test was born with** (AC6.2).
+    /// The plan's taxonomy has a column for them, so they sit in it.
     ///
-    /// ⛔⛔ **a COUNT in prose cannot hold this and has now failed three times.**
-    /// The acceptance list sized this type at 275 lines; a hand grep on
-    /// 2026-08-13 reported 14 fields and this destructure immediately refuted it.
-    /// Worse, the campaign row's placement/session column named `attacks_player`,
-    /// which had been renamed to `is_hostile` — a field nobody could grep for, in
-    /// a document nobody could tell was wrong.
-    ///
-    /// ⭐ **an exhaustive destructure does not rot.** Add a field and this stops
+    /// **an exhaustive destructure does not rot.** Add a field and this stops
     /// COMPILING until somebody puts it in a column; remove one and the same.
     /// There is no number to edit and no census to redo.
     #[test]
@@ -238,18 +196,15 @@ mod authority_split_tests {
             flight_direct_velocity: _,
             // ── CONTROLLER POLICY, RESOLVED AGAINST THE BODY ────────────────
             //
-            // ⭐ **both are PROJECTIONS, not a second authority.**
-            // `ActorClusterSeed` computes `patrol_speed = run_speed *
-            // brain_profile.patrol_effort` and the same for chase, so the
-            // authority is `BrainProfile`'s normalized effort and these are what
-            // it looks like once a body has been named. ⛔ `attack_cooldown_mult`
-            // stood here and MOVED to the profile (2026-08-13), which is what
-            // this column's remaining work turned out to be.
+            // **both are PROJECTIONS, not a second authority.** `ActorClusterSeed` computes
+            // `patrol_speed = run_speed * brain_profile.patrol_effort` and the same for chase,
+            // so the authority is `BrainProfile`'s normalized effort and these are what it
+            // looks like once a body has been named.
             patrol_speed: _,
             chase_speed: _,
             // ── PLACEMENT / SESSION — true of THIS instance, here ───────────
             //
-            // ⚠ `is_hostile` reads as a body fact and is not one: the same
+            // `is_hostile` reads as a body fact and is not one: the same
             // creature is ambient wildlife in one room and a threat in another,
             // which is why it left the archetype row.
             is_hostile: _,
@@ -264,32 +219,29 @@ mod authority_split_tests {
             ranged_visual: _,
             // ── RUNTIME STATE — one entry, and I claimed there were none ────
             //
-            // ⛔⛔ **`body_contact_damage` IS MUTATED PER TICK BY A SHIPPED GAME**,
+            // **`body_contact_damage` IS MUTATED PER TICK BY A SHIPPED GAME**,
             // and this column said "deliberately empty" until somebody read
             // Mary-O. `step_snake_shell` clears it when a stomped snake becomes a
             // shell and sets it again when the shell walks — *a shell is
             // harmless to touch* — so its PREVIOUS value decides whether the next
             // frame's contact hurts.
             //
-            // ⚠ **legal, and only because `ActorConfig` is rollback-registered**
+            // **legal, and only because `ActorConfig` is rollback-registered**
             // (`actor.config`, component-clone). A mutable gameplay fact on a
             // component that did NOT rewind would be a desync waiting for a
             // rollback; check that before adding a second one.
             //
-            // ⭐ it is filed here rather than under CHARACTER FACT even though a
+            // it is filed here rather than under CHARACTER FACT even though a
             // character authors the underlying `ContactDamage`, because what this
             // bool holds is the CURRENT answer, not the authored one — and the
             // two differ for exactly as long as a snake is a shell.
             body_contact_damage: _,
             // ── OBSOLETE / DEAD — empty, and it is checked ──────────────────
             //
-            // ⛔⛔ `max_health` and `death_policy` WERE HERE and left for
-            // `BodyHealth` (AC6.2), which already carried both for every body
-            // including the player. The pool copy was written independently at
-            // three construction sites; the policy copy was never set to anything
-            // but the default, while the match road set the real one on
-            // `BodyHealth` — so the actor damage gate asked the copy and could
-            // read `HpDepleted` for a fighter playing under `Unbounded`.
+            // The pool copy was written independently at three construction sites; the policy
+            // copy was never set to anything but the default, while the match road set the real
+            // one on `BodyHealth` — so the actor damage gate asked the copy and could read
+            // `HpDepleted` for a fighter playing under `Unbounded`.
         } = ActorTuning::default();
 
         // The destructure above is the assertion. This one only states the

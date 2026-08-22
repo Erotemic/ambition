@@ -19,7 +19,7 @@ Jon, 2026-08-08: *"basically we should start recording this so we can build
 statistics and gain more insights into how to optimize compile time in maybe non
 obvious ways."* The recording landed first. This is the half that looks at it.
 
-## The honesty rules this page obeys
+# # The honesty rules this page obeys
 
 ⛔ **a trend line through one sample is the prettiest way this work could lie.**
 `compile_graph.jsonl` and `carve_lineage.jsonl` hold ONE row each. Where
@@ -44,7 +44,7 @@ denominator is how one measurement becomes two findings.
 and reliable for one crate against itself over time — the schema says so, and
 this page repeats it next to every ms/line number rather than in a footnote.
 
-## Self-containment
+# # Self-containment
 
 ⛔ **no CDN, no webfont, no external stylesheet, no remote image, no fetch.**
 Every chart is inline SVG this file generates; all CSS and the one small script
@@ -78,9 +78,6 @@ import measurement_paths  # noqa: E402
 ROOT = Path(__file__).resolve().parents[1]
 DEV = ROOT / "dev"
 
-# ⛔ declared in ONE place — `scripts/lib/measurement_paths.py`. This file used to
-# re-declare the same five paths `compile_ratchet.py` already declared, which is
-# how the two readers of one ledger get to disagree about where it is.
 MEASUREMENTS = measurement_paths.MEASUREMENTS
 LEDGERS = measurement_paths.LEDGERS
 
@@ -90,7 +87,7 @@ SCENARIO_LEDGER = measurement_paths.SCENARIO_LEDGER
 GRAPH_LEDGER = measurement_paths.GRAPH_LEDGER
 CARVE_LEDGER = measurement_paths.CARVE_LEDGER
 
-# ⚠ the OUTPUT stays in `dev/` and is gitignored. It is a view, regenerated in
+# the OUTPUT stays in `dev/` and is gitignored. It is a view, regenerated in
 # under a second, and it is not a measurement — nothing about it wants the
 # submodule's history.
 DEFAULT_OUTPUT = DEV / "compile_report.html"
@@ -448,10 +445,8 @@ def dimension_groups(unit_rows: list[dict]) -> list[DimensionGroup]:
 # Scenario rows
 # --------------------------------------------------------------------------- #
 
-# `dev/compile_telemetry_schema.md` §4, transcribed. The ledger is append-only
-# and these four rows are NOT rewritten, so the mapping lives at read time.
-# ⛔ keying on `machine_cargo_incremental` cannot work: `"(config default)"`
-# means OFF before `.cargo/config.toml` turned incremental on and ON after.
+# `dev/compile_telemetry_schema.md` §4, transcribed. The ledger is append-only and these four
+# rows are NOT rewritten, so the mapping lives at read time.
 _SCHEMA_ZERO_MAP = {
     ("env-incremental-1", ""): {"incremental": True, "profile": "test", "opt_level": "1"},
     ("env-empty", "baseline-config-default"): {"incremental": False, "profile": "test", "opt_level": "1"},
@@ -653,7 +648,7 @@ def _nice_ticks(hi: float, count: int = 5) -> list[float]:
         step = mult * 10**exp
         if step >= raw:
             break
-    # ⛔ the last tick must be >= hi, not <= it. A top tick BELOW the maximum
+    # the last tick must be >= hi, not <= it. A top tick BELOW the maximum
     # makes every bar scaled against it overflow its own plot area, which is
     # exactly what the first draft did to the widest test-job bar.
     ticks, value = [], 0.0
@@ -782,9 +777,7 @@ def stacked_bars(rows: list[dict], *, segments: list[tuple[str, str, str]], titl
     height = pad_t + len(rows) * (bar_h + gap) + pad_b
     char_w = 6.2  # 11.5px system sans, measured generously
 
-    # ⛔ size the gutters to the TEXT, then truncate to what is left. A fixed
-    # label column with a fixed truncation is how a label ends up rendered at
-    # x = -14, outside the viewBox, clipped by the card it sits in.
+    # size the gutters to the TEXT, then truncate to what is left.
     totals = [sum(r["values"].get(k, 0.0) for k, _, _ in segments) for r in rows]
     values = [f"{t:,.0f}{unit}{r.get('note') or ''}" for t, r in zip(totals, rows)]
     value_w = min(max((len(v) for v in values), default=0) * char_w + 14, 210)
@@ -1252,7 +1245,7 @@ def section_monolith_claim(builds: list[Build], costs: dict[str, list[CrateCost]
     focus = default_build(builds, costs)
     by_crate = {c.crate: c for c in (costs.get(focus.source) if focus else []) or []}
     mono = by_crate.get(MONOLITH)
-    # ⚠ "dear per line" alone names a 250-line crate nobody waits on. The crates
+    # "dear per line" alone names a 250-line crate nobody waits on. The crates
     # worth naming are dear per line AND materially expensive in absolute terms,
     # so this ranks the top-15 absolute costs by their rate.
     expensive = sorted(by_crate.values(), key=lambda c: -c.seconds)[:15]
@@ -1289,7 +1282,7 @@ def section_monolith_claim(builds: list[Build], costs: dict[str, list[CrateCost]
         position = ranked.index(entry) + 1
         if position == 1:
             rank_one.append(build)
-        # ⛔ the back-filled build is excluded from the spans on purpose: the
+        # the back-filled build is excluded from the spans on purpose: the
         # sentence they feed is "once the collector recompiled ALL of them",
         # and folding a 17-crate sample back in would put a 1st place in the
         # very range built to show the claim does not hold there.

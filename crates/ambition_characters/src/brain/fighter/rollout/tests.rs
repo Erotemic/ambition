@@ -282,16 +282,6 @@ fn a_lunge_reaches_past_its_static_reach_because_the_body_travels() {
         600.0 * swing.total_s
     );
     // And the impulse dies with the move — but at a RATE, not instantly.
-    //
-    // ⛔ **this asserted `vel.x == 0.0` after five Hold steps, and that was
-    // pinning the imitation** (fixed 2026-08-06). The shadow's grounded `Hold`
-    // used to zero lateral velocity outright; the real kernel coasts at
-    // `GROUND_FRICTION` 7600 px/s², which sheds ~127 px/s per 60Hz step. The old
-    // assertion was true of the model and false of the game — the definition of
-    // an imitation — and the
-    // under-predicted stopping distance is the direction that lets the movement
-    // veto approve a dash that really leaves the stage (`ladder_probe`'s open
-    // question, whose stated mechanism had the sign backwards).
     run(&mut s, 5, &ShadowIntent::Hold, &tuning);
     let after_five_steps = s.me.vel.x;
     assert!(
@@ -301,7 +291,7 @@ fn a_lunge_reaches_past_its_static_reach_because_the_body_travels() {
          exact number here would pin whatever the model does rather than the \
          fact that it coasts"
     );
-    // ⭐ and it DOES stop — the rate is a rate, not a leak.
+    // and it DOES stop — the rate is a rate, not a leak.
     run(&mut s, 5, &ShadowIntent::Hold, &tuning);
     assert_eq!(s.me.vel.x, 0.0, "ground friction ends the lunge");
 }
@@ -428,13 +418,9 @@ fn the_rollout_prefers_the_move_that_actually_connects() {
     );
 }
 
-/// FB6e's bench pin (§12.6): the worst shipped budget is a NON-EVENT. D2
-/// demoted wall-clock from a runtime knob to an assertion — this is the
-/// assertion. 100 decisions at k=4 × depth=20 (the worst §12.3 contemplates
-/// shipping) must clear 100 ms total, i.e. <1 ms per decision with an order
-/// of magnitude of CI-noise headroom over the ~100 µs target. If this ever
-/// goes red, the fix is an authored profile row or a cheaper model — never a
-/// clock in the decision path.
+/// FB6e's bench pin (§12.6): the worst shipped budget is a NON-EVENT. 100 decisions at k=4 ×
+/// depth=20 (the worst §12.3 contemplates shipping) must clear 100 ms total, i.e. <1 ms per
+/// decision with an order of magnitude of CI-noise headroom over the ~100 µs target.
 #[test]
 fn the_worst_shipped_budget_is_cheap_enough_to_be_a_non_event() {
     let view = view_with(300.0, 380.0);
@@ -591,7 +577,7 @@ fn the_same_walk_ends_in_a_ko_and_the_old_infinite_plane_never_does() {
     // 160 px/s) and fall the 284 px to the bottom of the envelope; SHORT enough
     // that a body strolling at platform height reaches only x=640, well inside
     // the envelope's x=800 wall. So the KO below can only have come from falling.
-    // ⚠ **60 ticks, not 90, and the number is load-bearing.** A one-second walk
+    // **60 ticks, not 90, and the number is load-bearing.** A one-second walk
     // at `ground_speed` covers 270px from x=400, which stays inside the 800-wide
     // fixture stage; ninety ticks covers 405 and leaves it, so the INFINITE-plane
     // control KO'd on the horizontal blastzone and the test reported *"the
@@ -613,10 +599,6 @@ fn the_same_walk_ends_in_a_ko_and_the_old_infinite_plane_never_does() {
         "walking off the stage should cost me the stock; the rollout has to be able to price it"
     );
 
-    // The probe: the SAME scenario under v1's terrain model — an infinite plane
-    // at the height I was standing at — is survived, in silence, forever. This
-    // is what every rollout scored before the floor got an extent, and it is why
-    // `ladder_probe` measured identical self-KO counts at every rung.
     let mut infinite_plane = build();
     infinite_plane.me.ground_span = None;
     let events = run(
@@ -639,8 +621,6 @@ fn the_same_walk_ends_in_a_ko_and_the_old_infinite_plane_never_does() {
 
 #[test]
 fn the_movement_veto_survives_having_nothing_to_swing() {
-    // The whole point: a fighter with no attack option is the fighter that is
-    // WALKING somewhere, and it used to be the one case the veto skipped.
     let view = view_on_platform(440.0, 60.0);
     // `OptionSet::attacks` is empty in exactly one situation, and its own doc
     // names it: `Recovery` — "a body past the blastzone has exactly one
@@ -682,10 +662,8 @@ fn the_movement_veto_survives_having_nothing_to_swing() {
 
 #[test]
 fn the_veto_horizon_reaches_past_the_edge_and_the_attack_horizon_does_not() {
-    // Pins the RATIO, which is the finding: 12 ticks is 0.2 s (a startup plus an
-    // active span — right for "does this connect") and 0.2 s cannot see a
-    // walk-off. `ladder_probe` measured the blindness as a depth A/B that moved
-    // nothing at all.
+    // Pins the RATIO, which is the finding: 12 ticks is 0.2 s (a startup plus an active span —
+    // right for "does this connect") and 0.2 s cannot see a walk-off.
     let depth = 12u32;
     let attack_horizon_s = depth as f32 / 60.0;
     let veto_horizon_s = (depth * MOVEMENT_HORIZON_MULTIPLE) as f32 / 60.0;
@@ -735,7 +713,7 @@ fn a_shadow_body_that_jumps_while_driving_lands_where_it_drifted_to() {
 
 /// **A body ALREADY offstage is not already dead, and the shadow says it is.**
 ///
-/// ⛔ `shadow_step` KOs anything outside the stage envelope on the tick it looks,
+/// `shadow_step` KOs anything outside the stage envelope on the tick it looks,
 /// on the argument that *"on a platform stage the envelope IS the blast zone"*.
 /// That is right for a body walking off and wrong for one RECOVERING: a fighter
 /// knocked above or beside the stage starts outside the envelope and has to come
@@ -780,11 +758,8 @@ fn a_body_recovering_from_offstage_is_not_scored_as_already_dead() {
 
 /// **The shadow's movement numbers ARE the engine's, not a copy of them.**
 ///
-/// ⛔ they were a copy, and three of the seven were wrong at once: gravity 1400
-/// against 2250, ground speed 160 against 270, jump 420 against 630. A second
-/// table looks maintained, which is why nobody checked it for weeks. This
-/// asserts the identity rather than the values — a table that drifts cannot
-/// drift past it.
+/// A second table looks maintained, which is why nobody checked it for weeks. This asserts the
+/// identity rather than the values — a table that drifts cannot drift past it.
 #[test]
 fn the_default_shadow_is_the_engines_own_movement_law() {
     let engine = ae::MovementTuning::default();
@@ -806,7 +781,7 @@ fn the_default_shadow_is_the_engines_own_movement_law() {
 /// changed the body and not the model, so the rollout kept planning arcs the
 /// body could not fly.
 ///
-/// ⚠ and the foe assumptions survive the fold, because they are NOT body-derived
+/// and the foe assumptions survive the fold, because they are NOT body-derived
 /// — the view names an opponent's phase and its clock, never its move.
 #[test]
 fn an_authored_body_is_predicted_with_its_own_movement_law() {
@@ -899,12 +874,12 @@ fn lens_for(
 /// * a lens over a body that owns one ⇒ the kernel drives it back onto the
 ///   platform and the verb is reprieved.
 ///
-/// ⭐ `decide` picks the first movement option the veto did not name, so an
+/// `decide` picks the first movement option the veto did not name, so an
 /// emptied veto is the difference between choosing this line and falling through
 /// to `least_bad_movement` — the line that merely dies LATEST. That fallback is
 /// what a fighter near a ledge has been getting.
 ///
-/// ⛔ the refused *"airborne, below the lip, outside the span"* predicate cannot
+/// the refused *"airborne, below the lip, outside the span"* predicate cannot
 /// produce this table: it reads the position, which is the one thing all three
 /// rows share.
 #[test]
@@ -1004,10 +979,9 @@ fn an_unmodelled_verb_is_still_unjudged_with_a_lens_attached() {
 
 /// **The kernel path is as deterministic as the shadow path** (ADR 0023).
 ///
-/// A rollback-resimulated decision tick has to reproduce its original answer
-/// bit-for-bit, and the lens is the first thing in this module that leaves it —
-/// it clones a body and drives `step_motion`. No clock, no RNG, and the effort
-/// order is a fixed array, so two identical calls must be identical answers.
+/// A rollback-resimulated decision tick has to reproduce its original answer bit-for-bit, and
+/// the lens is the first thing in this module that leaves it — it clones a body and drives
+/// `step_motion`.
 #[test]
 fn a_decision_taken_through_the_lens_repeats_exactly() {
     let view = view_falling_beside_the_platform();
@@ -1126,10 +1100,8 @@ fn the_shadow_lets_go_of_the_lip_where_the_kernel_does() {
 /// that could report `Regained` is the platform it just left, at a position the
 /// shadow reached while still half-standing on it.
 ///
-/// ⛔ this is NOT the deleted *"airborne + below the lip + outside the span ⇒
-/// dead"* rule returning: no predicate here says what the body can do. The
-/// second row is the proof — identical body, identical kit, identical walk, one
-/// extra shelf in the flight path, opposite verdict. Only surfaces moved.
+/// The second row is the proof — identical body, identical kit, identical walk, one extra shelf
+/// in the flight path, opposite verdict.
 #[test]
 fn a_walk_off_the_lip_is_not_reprieved_by_the_platform_it_is_leaving() {
     let options = crate::brain::fighter::options::OptionSet {

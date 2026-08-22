@@ -11,7 +11,7 @@
 //! This is that step, once. Authored source in, a [`PreparedCondition`] or a
 //! [`PreparedCommand`] out, and a refusal with a reason in between.
 //!
-//! # ⭐⭐ The four properties, and why each is STRUCTURAL rather than promised
+//! # The four properties, and why each is STRUCTURAL rather than promised
 //!
 //! **1. Validation cannot be skipped, because there is no other way in.** Both
 //! prepared types have private fields and no public constructor. The only
@@ -25,7 +25,7 @@
 //! **2. The runtime parses nothing, because the runtime holds no text.** The
 //! authored source is consumed by `prepare` and is **not stored** on the
 //! prepared value. What survives is a [`ConditionId`]/[`CommandId`] and a
-//! `Vec<AuthoredArg>`. ⛔ there is no accessor that returns the source line,
+//! `Vec<AuthoredArg>`. there is no accessor that returns the source line,
 //! which is what makes *"nothing parses an expression string during
 //! simulation"* a shape rather than a rule somebody has to keep.
 //!
@@ -36,14 +36,13 @@
 //! a value rather than a registry: the catalogs are safe because a tick cannot
 //! reach the door, and a prepared call is safe because no door exists.
 //!
-//! **4. A reference is a [`SimId`], minted by `SimId`'s own constructors.** ⛔
-//! never [`SimId::from_snapshot`], which that module reserves for rebuilding an
+//! **4. A reference is a [`SimId`], minted by `SimId`'s own constructors.** //! never [`SimId::from_snapshot`], which that module reserves for rebuilding an
 //! id from a snapshot blob. The authored text names its namespace —
 //! `encounter:symmetry_attunement` — and preparation dispatches to
 //! [`SimId::encounter`] / [`SimId::placement`], so the escaping that keeps the
 //! id encoding injective happens exactly as it does everywhere else.
 //!
-//! ⚠ **the author spelling the namespace is a deliberate choice, and the
+//! **the author spelling the namespace is a deliberate choice, and the
 //! alternative is written down so widening later is a decision.** The other
 //! design puts the namespace in the [`ParamSpec`], so a `.ldtk` field could say
 //! just `symmetry_attunement`. That needs `ParamKind::Reference` to carry a
@@ -53,23 +52,19 @@
 //! `encounter:kernel` are two different things and an agent reading the world
 //! can tell which one it is looking at.
 //!
-//! # ⛔ What preparation is NOT
+//! # What preparation is NOT
 //!
-//! ⛔ **not an expression language.** The authored form is `<id> <arg>…` —
+//! **not an expression language.** The authored form is `<id> <arg>…` —
 //! whitespace-separated, no operators, no nesting, no precedence. An argument
 //! containing a space is not expressible, which is a limit worth having: every
 //! argument any published condition or command takes is an id, a key, a number
 //! or a truth.
 //!
-//! ⛔ **no program counter, and that is the point.** A prepared call is one
-//! call. Nothing here sequences, latches, waits or resumes, so there is no
-//! cursor to give rollback semantics to — which is the cheapest possible answer
-//! to M0's Finding 4 (*the tree ships three different answers to "is a program
-//! counter rollback state?"*). ⚠ **the day a customer genuinely needs a cursor,
-//! that is a decision for a human**, not a thing to add here because it was
-//! convenient.
+//! **no program counter, and that is the point.** A prepared call is one call. **the day a
+//! customer genuinely needs a cursor, that is a decision for a human**, not a thing to add here
+//! because it was convenient.
 //!
-//! ⛔ **not a condition/command pairing either.** A `when … then …` rule form
+//! **not a condition/command pairing either.** A `when … then …` rule form
 //! was written and cut: the one customer that pays for this — a `Switch` that
 //! names a verb — has an EMPTY condition list in all four of its rows, and a
 //! shipped `when` with zero adopters is the wrapper this program's own falsifier
@@ -87,7 +82,7 @@ use super::{
 
 /// **Why one authored line did not become a prepared call.**
 ///
-/// ⚠ **it carries the source**, because the caller that reports this is usually
+/// **it carries the source**, because the caller that reports this is usually
 /// a loader iterating many authored rows and *"takes 2 arguments, got 1"* with
 /// no line in it is a diagnostic an author cannot act on.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -104,7 +99,7 @@ impl PreparationError {
         }
     }
 
-    /// The authored text that failed. ⚠ this is the ERROR's copy — a diagnostic —
+    /// The authored text that failed. this is the ERROR's copy — a diagnostic —
     /// and is deliberately the only place the source survives preparation.
     pub fn source(&self) -> &str {
         &self.source
@@ -123,7 +118,7 @@ impl std::fmt::Display for PreparationError {
 
 /// **One validated question, ready to be asked.**
 ///
-/// ⭐ private fields and no public constructor — see this module's header on why
+/// private fields and no public constructor — see this module's header on why
 /// that is what makes *"validation happens before runtime"* structural.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PreparedCondition {
@@ -207,7 +202,7 @@ impl ConditionCatalog {
 
     /// **Ask a prepared question.**
     ///
-    /// ⭐ the point of the prepared form: the tick evaluates, and everything that
+    /// the point of the prepared form: the tick evaluates, and everything that
     /// could have been wrong about the call was already wrong at prepare time.
     pub fn ask(&self, world: &World, prepared: &PreparedCondition) -> ConditionOutcome {
         self.evaluate(world, &prepared.id, &prepared.args)
@@ -238,7 +233,7 @@ impl CommandCatalog {
     /// **Prepare one verb from a whole authored line** — `"encounter.signal
     /// encounter:symmetry_attunement gravity_down"`.
     ///
-    /// ⭐ this is the form an authored FIELD carries, because a level author
+    /// this is the form an authored FIELD carries, because a level author
     /// writes one string and the number of arguments is the verb's business
     /// rather than the field's.
     pub fn prepare_line(&self, source: &str) -> Result<PreparedCommand, PreparationError> {
@@ -255,7 +250,7 @@ impl CommandCatalog {
 
 /// Split `"<id> <arg>…"` on whitespace.
 ///
-/// ⚠ **it never repairs and never quotes.** An argument containing a space is
+/// **it never repairs and never quotes.** An argument containing a space is
 /// not expressible; adding quoting would be the first inch of the expression
 /// language this module's header refuses.
 fn split_line(source: &str) -> Result<(&str, Vec<&str>), PreparationError> {
@@ -281,7 +276,7 @@ fn describe_source(id: &str, args: &[&str]) -> String {
 
 /// **Turn authored text into the arguments the published descriptor declares.**
 ///
-/// ⭐⭐ **the descriptor decides the kind; the authored text only has to fit.**
+/// **the descriptor decides the kind; the authored text only has to fit.**
 /// The alternative — guess the kind from the text — is the lossy conversion that
 /// silently turns a flag named `"1"` into a number, and it is the reason this
 /// lives beside the descriptors rather than in each consumer.
@@ -324,7 +319,7 @@ fn prepare_one(id: &str, param: &ParamSpec, text: &str) -> Result<AuthoredArg, S
                 param.name
             )
         }),
-        // ⚠ **exactly `true` / `false`, with no `1`, `yes` or `on`.** A verb that
+        // **exactly `true` / `false`, with no `1`, `yes` or `on`.** A verb that
         // accepted four spellings of truth would accept a fifth by accident, and a
         // mistyped one would read as `false` — which is a flag being CLEARED when
         // the author meant to set it.
@@ -343,13 +338,13 @@ fn prepare_one(id: &str, param: &ParamSpec, text: &str) -> Result<AuthoredArg, S
 
 /// **`<namespace>:<id>` → the matching [`SimId`] constructor.**
 ///
-/// ⛔ **never [`SimId::from_snapshot`]**, which is reserved for rebuilding an id
+/// **never [`SimId::from_snapshot`]**, which is reserved for rebuilding an id
 /// from a snapshot blob. Going through the real constructor is what applies the
 /// escaping that keeps the id encoding injective — so an authored
 /// `encounter:a:b` prepares to `SimId::encounter("a:b")` and cannot collide with
 /// anything else the vocabulary can mint.
 ///
-/// ⚠ **only the two namespaces an AUTHOR can name.** `slot:`, a spawned id and a
+/// **only the two namespaces an AUTHOR can name.** `slot:`, a spawned id and a
 /// strike volume are minted by the running simulation from facts no level
 /// knows — a placement and an encounter are the two an authored world actually
 /// contains.

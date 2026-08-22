@@ -15,7 +15,7 @@
 //! A consumer never reads pack pixels for gameplay: the synthesized
 //! [`SheetRecord`](ambition_sprite_sheet::SheetRecord) view carries no
 //! `body_metrics` (packs are visual storage truth only — see
-//! `docs/archive/reviews/sprite-pipeline-2026-07/data-driven-sprites-and-characters.md`).
+//! `docs/archive/reviews/sprite-pipeline-/data-driven-sprites-and-characters.md`).
 
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -43,7 +43,7 @@ pub fn pack_tier_for_scale(scale: TextureResolutionScale) -> &'static str {
 /// The scale a pack tier directory name denotes — the exact inverse of
 /// [`pack_tier_for_scale`], and `None` for a name that is not a tier.
 ///
-/// ⭐ **exists so a caller can record what [`catalog_for_scale`] actually
+/// **exists so a caller can record what [`catalog_for_scale`] actually
 /// resolved.** That function answers a request and may hand back `full` instead;
 /// its caller then has the physical tier only as a directory name, and stamping
 /// a realization needs it as a scale. Re-deriving the fallback rule at the call
@@ -128,11 +128,8 @@ mod tests {
     /// target set — a tier that silently lost targets would fall back
     /// per-target at runtime and hide a broken regen.
     ///
-    /// ⛔ **it used to `eprintln!` and `return` on a tree with no packs, and
-    /// that is the silent skip this repo keeps finding.** `cargo test` swallows
-    /// stderr for a PASSING test, so the green tick meant "checked" and "there
-    /// was nothing to check" identically. `has_baked_packs` is a build-script
-    /// cfg over the same table, so the run says `ignored` and says why.
+    /// `has_baked_packs` is a build-script cfg over the same table, so the run says `ignored`
+    /// and says why.
     #[test]
     #[cfg_attr(
         not(has_baked_packs),
@@ -157,17 +154,14 @@ mod tests {
         );
     }
 
-    /// The W2 pilot end-to-end (headless half): `intro_cart` resolves a spec
-    /// from the shared pack at TWO different quality tiers, the Idle row maps,
-    /// and a Bevy atlas layout builds for every page the spec addresses. The
-    /// other half (pixels on screen) is the in-app run.
+    /// The other half (pixels on screen) is the in-app run.
     ///
-    /// ⛔ **the third `eprintln!`-and-`return` in this file, and the last.** See
+    /// **the third `eprintln!`-and-`return` in this file, and the last.** See
     /// `baked_pack_tiers_parse_and_agree_on_coverage`: a skip that only reaches
     /// stderr is invisible on a passing run, so the tick meant "checked" and
     /// "there was nothing to check" identically.
     ///
-    /// ⚠ this one wants EVERY tier, not just any — it asks `full` and `potato`
+    /// this one wants EVERY tier, not just any — it asks `full` and `potato`
     /// by name. A tree with a PARTIAL pack set fails it, and should: a regen
     /// that produced some tiers and not others is exactly the broken state
     /// `baked_pack_tiers_parse_and_agree_on_coverage` guards from the other

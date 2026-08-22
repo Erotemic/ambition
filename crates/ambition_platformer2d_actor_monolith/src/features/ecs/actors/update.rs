@@ -74,7 +74,7 @@ pub type CausalLend<'w> = std::marker::PhantomData<&'w ()>;
 /// THREAD-LOCAL sink, and Bevy runs systems across worker threads — so those
 /// facts were landing in nothing and being counted by `facts_lost_offthread()`.
 ///
-/// ⚠ **the alternative was threading a recorder into `tick_with_actions`**, and
+/// **the alternative was threading a recorder into `tick_with_actions`**, and
 /// it is worse: it puts the log on the simulation's own signatures. This crate
 /// already refused that once — `record_player_movement_intent` runs AFTER the
 /// brain tick precisely so "a system that only reads cannot be the thing that
@@ -97,13 +97,10 @@ fn with_causal_sink<T>(_causal: &mut CausalLend<'_>, body: impl FnOnce() -> T) -
 }
 
 pub fn tick_actor_brains(
-    // ⛔ **THESE SEVEN USED TO RIDE IN ONE TUPLE**, because this system sat at
-    // Bevy's 16-parameter ceiling and packing was the only way under it. Packing
-    // is not a contract: a tuple says these things arrive together, and nothing
-    // about why. They are named again because the ceiling pressure is gone —
-    // deleting the combat slot board freed two parameters and adopting
-    // `CollisionWorld` freed two more — and because three of the seven turned out
-    // to be one concept (`PerceivedWorld`) rather than three neighbours.
+    // Packing is not a contract: a tuple says these things arrive together, and nothing about why.
+    // They are named again because the ceiling pressure is gone — deleting the combat slot board
+    // freed two parameters and adopting `CollisionWorld` freed two more — and because three of the
+    // seven turned out to be one concept (`PerceivedWorld`) rather than three neighbours.
     world_time: Res<WorldTime>,
     // Accumulating sim-time, for the brain's reaction-latency lookback.
     sim_clock: Res<crate::features::GameplayElapsed>,
@@ -116,7 +113,7 @@ pub fn tick_actor_brains(
     captives: Query<(
         bevy::prelude::Entity,
         &ambition_combat::capture::CapturedBy,
-        // ⚠ the RELATION says who holds whom; the RULESET's state says how long
+        // the RELATION says who holds whom; the RULESET's state says how long
         // and how many. `Option` because a hold this ruleset has no opinion
         // about is a real thing.
         Option<&ambition_characters::smash_capture::SmashHoldState>,
@@ -134,11 +131,8 @@ pub fn tick_actor_brains(
     //
     // So the HOST opens the sink around the brain call instead.
     mut causal: CausalLend,
-    // **The collision read-API, not its three ingredients.** This system used to
-    // carry the room, the moving-platform set and the feature overlay as separate
-    // parameters and compose them itself — the same three lines eight production
-    // systems each wrote out. `CollisionWorld` is the seam that already owned that
-    // composition; the brain tick simply had never adopted it.
+    // `CollisionWorld` is the seam that already owned that composition; the brain tick simply had
+    // never adopted it.
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     // Neighbor index handed to the movement phase (surface-walker steering).
     mut steering: ResMut<ActorSteering>,
@@ -149,11 +143,6 @@ pub fn tick_actor_brains(
     // this class, however many a session has. `BodyHealth` is the liveness
     // authority (NOT `BodyCombat.alive`, an actor-cluster mirror never synced for
     // a controlled body), consistent with `select_actor_targets`.
-    //
-    // ⭐ this used to read POSITION and `PlayerSlot` as well, to anchor a combat
-    // slot board on "the primary player". That board is gone (see
-    // `ambition_combat::crowd`), and with it the last reason generic brain
-    // ticking needed to know where a player was standing.
     player_query: Query<
         (
             bevy::prelude::Entity,
@@ -183,9 +172,6 @@ pub fn tick_actor_brains(
             // **WHO DRIVES THIS BODY**, if anybody. Two things read it here: the
             // skip below (a body a participant is driving does not get decided
             // for) and the EFFECTIVE faction in its own world-out view.
-            //
-            // ⭐ it used to be `brain.player_slot()` — the same question asked of
-            // an AI-policy enum, which is the conflation `Brain::Player` was.
             Option<&ambition_characters::brain::DrivingParticipant>,
             Option<&mut ambition_characters::brain::ActorControl>,
             // ActionSet — read for the Smash brain so it knows which
@@ -196,20 +182,11 @@ pub fn tick_actor_brains(
             // The unified actor cluster — every actor (was-NPC + was-enemy)
             // carries it. The tick integrates through it via `ActorMut`.
             //
-            // ⚠ **a possessed body is MATCHED here and deliberately not decided
-            // for.** It carries `DrivingParticipant(slot)` (redirected by
-            // `crate::abilities::traversal::possession`), and since 2026-08-14
-            // `tick_controlled_brains` owns its intent frame a phase earlier —
-            // this loop still runs the facts a body in a world has (reaction
-            // decay, target liveness, crowd, disposition) and stops before the
-            // decision. See the skip in the loop body for what that deletes.
+            // See the skip in the loop body for what that deletes.
             (
                 Option<super::super::actor_clusters::ActorClusterQueryData>,
-                // The body's per-tick resolved frame (ADR 0024): published by
-                // the frame resolution phase before this brain tick, and the
-                // SAME value `integrate_sim_bodies` moves the body under. The
-                // brain interprets controller input and perceives "down"
-                // through it — never through a private gravity lookup.
+                // The brain interprets controller input and perceives "down" through it — never
+                // through a private gravity lookup.
                 Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
                 // Faction — read to scope the anti-clump crowding signal to
                 // SAME-faction allies. Without this, two hostiles of different
@@ -246,13 +223,8 @@ pub fn tick_actor_brains(
                 // above is: the brain reads no ECS, so a fact it needs about the
                 // body arrives through the world-in port.
                 //
-                // ⛔ **it must be this component and not the body's PHASE.** The
-                // rule that actually drops a press is
-                // `spec.cancel_permits(t, landed_hit, names)`, which depends on
-                // the running move's authored cancel windows and on whether it
-                // has landed a hit. A brain inferring "I look like I am in
-                // recovery" would be answering a different question and would be
-                // wrong for every move with a cancel window.
+                // A brain inferring "I look like I am in recovery" would be answering a different
+                // question and would be wrong for every move with a cancel window.
                 Option<&crate::combat::moveset::MovePlayback>,
                 // **WHAT IS TRUE OF THIS BODY'S LOCOMOTION**, published once per
                 // tick by the movement kernel. The brain snapshot's
@@ -268,17 +240,10 @@ pub fn tick_actor_brains(
                 // its maneuver from CAPABILITIES instead names one thing and the
                 // kernel performs another — see `SelfView::burst`.
                 //
-                // ⛔ **NOT `Option`, per ADR 0024 §1: absence is never a movement
-                // policy.** It was optional until 2026-08-16, and the `None` arm
-                // in `perception_body_for` read a missing component as
-                // `AxisSweptMotion::default()` — the ADR's exact prohibition
-                // ("no outer query may interpret a missing component as
-                // axis-swept"), reached with the DEFAULT air-dodge window rather
-                // than the body's. Requiring it costs nothing: the integration
-                // query below (`integrate_actor_bodies`) already takes
-                // `&mut MotionModel` non-optionally over the same archetype, so a
-                // body without one is not integrated at all and has no locomotion
-                // for a brain to reason about.
+                // Requiring it costs nothing: the integration query below
+                // (`integrate_actor_bodies`) already takes `&mut MotionModel` non-optionally over
+                // the same archetype, so a body without one is not integrated at all and has no
+                // locomotion for a brain to reason about.
                 &crate::features::MotionModel,
             ),
             // **IS THIS BODY IN A FIGHT?** Read for the stand-down rule below,
@@ -288,7 +253,7 @@ pub fn tick_actor_brains(
             // fighters combatants; that is not a fact AI targeting is allowed to
             // revoke.
             //
-            // ⛔ **this was `Has<MatchSeat>`, and a seat is not participation.**
+            // **this was `Has<MatchSeat>`, and a seat is not participation.**
             // An eliminated fighter keeps its seat — the body stays standing
             // until a ruleset removes it — so it went on holding attack state and
             // a place on the anti-clump board with no stocks left. It was also
@@ -302,22 +267,9 @@ pub fn tick_actor_brains(
         // (player / actor archetypes never overlap).
         //
         // Exclude BOSSES too: they carry the shared actor read-models
-        // (`ActorIdentity`/`ActorDisposition`/… synced by
-        // `sync_boss_actor_components`) but have NO actor cluster, so without
-        // this they'd match here (cluster = `None`) and get ticked by the actor
-        // loop ON TOP of their own `tick_boss_brains_system` — a double brain
-        // tick. The deleted `ActorRuntime` tag used to keep them out implicitly.
-        //
-        // POLICY, not a fold target (E6(d), Codex 2026-07-07): this is a SWARM
-        // system — per-target slot-board arbitration, sighted-perception memory,
-        // and anti-clump crowding — which a boss doesn't participate in. The
-        // bounded `BossAttackIntent → general move-intent` / boss-brain fold fails
-        // the cheap test because it would add a boss branch that SKIPS that swarm
-        // machinery while also translating boss-profile fire intent and
-        // possession→special mapping. That is an adapter, not deletion of a path.
-        // Keep `tick_boss_brains_system` as the non-swarm boss orchestrator; the
-        // shared seams are `ActorControlFrame`, `ActorMoveset`, and the move
-        // playback projection.
+        // (`ActorIdentity`/`ActorDisposition`/… synced by `sync_boss_actor_components`) but have NO
+        // actor cluster, so without this they'd match here (cluster = `None`) and get ticked by the
+        // actor loop ON TOP of their own `tick_boss_brains_system` — a double brain tick.
         (
             With<FeatureSimEntity>,
             Without<crate::actor::PlayerEntity>,
@@ -337,38 +289,17 @@ pub fn tick_actor_brains(
     let dt = world_time.sim_dt();
     // Accumulating sim-time for brain perception (reaction-latency lookback).
     let sim_now = sim_clock.0;
-    // ⚠ **no room means no tick, exactly as before.** The room used to arrive as a
-    // `Single`, and a `Single` that matches nothing makes Bevy skip the whole
-    // system; `CollisionWorld` takes it optionally, so the skip has to be written
-    // down. This is the one condition that legitimately ends this system early —
-    // there is no geometry for a body to decide against — and it is not a
-    // condition about whether a player exists.
     let Some(feature_world) = collision.solids() else {
         return;
     };
     // The live hostility table for every brain's world-out view this frame (§A7),
     // all-peaceful when a fixture registers none.
     let relations = perceived.relations();
-    // ⛔⛔ **A SLOT BOARD ANCHORED ON "THE PRIMARY PLAYER" USED TO STAND HERE,
-    // AND IT DROVE NOTHING.**
-    //
-    // It chose an anchor position from `PrimaryPlayer`, or the lowest
-    // `PlayerSlot` when a build had no primary, and handed it to `assign_slots`
-    // to arrange a crowd into numbered approach slots around it. No production
-    // reader ever consumed the assignment — the per-actor position it produced
-    // had been discarded since before the monolith split — so the single
-    // largest player-centric assumption in generic actor simulation existed to
-    // feed a mechanism with no consumer, and was rewound as rollback state on
-    // top of that. Deleted with the board (`ambition_combat::crowd`).
-    //
-    // ⚠ **a world with no controlled body is ordinary**, and the shape that
-    // proves it is the absence of an early return here. When the anchor was
-    // live this read `let Some(player_pos) = ... else { return; }`, so a session
-    // that declared no home avatar ticked NO actor brains at all — every actor
-    // everywhere, not merely the ones near a player. Two seated fighters stood
-    // on a platform with correct factions, correct targets and zero velocity,
-    // and read as a seating bug for hours (2026-08-06). Nothing in this system
-    // may become conditional on a player existing again.
+    // **a world with no controlled body is ordinary**, and the shape that proves it is the
+    // absence of an early return here. When the anchor was live this read `let Some(player_pos)
+    // = ... else { return; }`, so a session that declared no home avatar ticked NO actor brains
+    // at all — every actor everywhere, not merely the ones near a player. Nothing in this
+    // system may become conditional on a player existing again.
 
     // ── OBSERVATION ──────────────────────────────────────────────────────
     // Look at every body once, then derive. `crowd_observation` owns the
@@ -397,7 +328,7 @@ pub fn tick_actor_brains(
         in_a_fight,
     ) in &actors
     {
-        // ⚠ **the two arms are the two ways to be in a fight.** Social hostility
+        // **the two arms are the two ways to be in a fight.** Social hostility
         // is how an AI body joins one; `ActiveCombatant` is how a ruleset puts a
         // body in. A human-driven fighter is the second without ever being the
         // first — it holds no AI target, so asking only the disposition left it
@@ -483,39 +414,18 @@ pub fn tick_actor_brains(
         // never spuriously stands down. Relativity-neutral (any fighter, any
         // faction). This REPLACES the former hard pacify-to-passive, which dead-ended
         // a duel winner (couldn't be talked to or re-provoked, and mislabeled it).
-        // ⛔ **UNLESS A MATCH SAYS OTHERWISE.** A seated fighter is a combatant
+        // **UNLESS A MATCH SAYS OTHERWISE.** A seated fighter is a combatant
         // because two people decided it is, and that is not a fact about whether
         // it currently holds a target.
         //
-        // ⭐ **and it is no longer about DAMAGE**, which is the half that has
-        // moved: `apply_actor_hit` asks `CombatStanding`, so a fighter that
-        // stood down is still damageable.
-        //
-        // ⚠ **nor is it about the read-model any more** (AC3, 2026-08-13). This
-        // used to say that `BodyCombat::peaceful` dropped a stood-down fighter's
-        // attack windup and swing timers every frame — true when written, and
-        // now describing machinery that no longer exists: those fields were dead
-        // and are deleted, and the per-frame rebuild that dropped them is gone.
-        // What survives the correction is the anti-clump slot board, which stops
-        // seeing a body that leaves the fight.
-        //
-        // ⚠ the original symptom is worth keeping written down, because it is
+        // the original symptom is worth keeping written down, because it is
         // what the two questions sharing one field cost: a peaceful body takes
         // no health damage at all, so a fighter that stood down could not be hit,
         // could not be knocked out, and could not lose a stock.
         //
-        // ⚠ **measured 2026-08-07, and it is worse than the test that found it.**
-        // Two participant-driven fighters hold no combat target — targeting hunts
-        // live foes for a BRAIN — so in a human-versus-human match BOTH sides
-        // stood down and neither could damage the other at all. The stage-kill
-        // test only caught the blast-zone corner of it: seat 1 launched at
-        // 2400px/s fell to y=5771 and kept falling, the gate writing a lethal
-        // hit every tick that nothing would resolve.
-        //
-        // ⚠ it was masked by a bug. `provoke_actor_in_place` used to seize
-        // `Brain::Player` on the first hit, which turned a human's fighter into
-        // an AI body that acquired a target — so the fighters were hostile by
-        // accident. Fixing that seizure (`d657a0e22`) is what exposed this.
+        // The stage-kill test only caught the blast-zone corner of it: seat 1 launched at 2400px/s
+        // fell to y=5771 and kept falling, the gate writing a lethal hit every tick that nothing
+        // would resolve.
         if disposition.is_hostile() && target.entity.is_none() && !in_a_fight {
             *disposition = ActorDisposition::Peaceful;
         }
@@ -555,7 +465,7 @@ pub fn tick_actor_brains(
                     continue;
                 };
                 let enemy_gravity_dir = resolved_frame.down();
-                // ⭐⭐ **A PARTICIPANT'S BODY IS NOT THIS SYSTEM'S TO DECIDE FOR.**
+                // **A PARTICIPANT'S BODY IS NOT THIS SYSTEM'S TO DECIDE FOR.**
                 // A possessed actor carries `DrivingParticipant(slot)`, and its
                 // `ActorControl` is produced a whole phase earlier by
                 // `tick_controlled_brains` — the one seam that turns participant
@@ -570,7 +480,7 @@ pub fn tick_actor_brains(
                 // either: possessing a body would restart its sight memory every
                 // tick from a view nobody consulted.
                 //
-                // ⚠ everything ABOVE this point still runs for a possessed body:
+                // everything ABOVE this point still runs for a possessed body:
                 // reaction-timer decay, target liveness, disposition standdown and
                 // the crowd observation are facts about a body in a world, not
                 // decisions a driver makes.
@@ -633,7 +543,7 @@ pub fn tick_actor_brains(
                         faction
                             .copied()
                             .unwrap_or(ambition_characters::actor::ActorFaction::Enemy),
-                        // ⚠ always `None` on this branch — the loop `continue`s
+                        // always `None` on this branch — the loop `continue`s
                         // above for any body a participant drives — and stated
                         // rather than folded away, because the SELF-view is
                         // documented as "real (possession-aware) faction" and a
@@ -652,9 +562,9 @@ pub fn tick_actor_brains(
                     // phase early — so the brain names the maneuver the body will
                     // actually perform instead of re-deriving the precedence.
                     //
-                    // ⚠ a body on a NON-axis model has no `AxisManeuverState` to
+                    // a body on a NON-axis model has no `AxisManeuverState` to
                     // read, and the default reads as "no window open, no endlag".
-                    // ⛔ that is a reading of a PRESENT model that is not
+                    // that is a reading of a PRESENT model that is not
                     // axis-swept — a crawler genuinely has no air-dodge window —
                     // and NOT a reading of an absent component, which ADR 0024 §1
                     // forbids and the query above now makes unrepresentable.
@@ -853,24 +763,9 @@ pub(crate) fn integrate_actor_body(
             }
         }
     }
-    // ⭐ **HITSTOP: this body freezes on its own, and so does the one it hit.**
-    // The resolver arms `combat.hitstop_timer` on the victim AND the attacker,
-    // because a landed hit is one event, and `integrate_body` below spends it
-    // (`let sim_dt = if combat.is_in_hitlag() { 0.0 } else { dt }`) exactly as
-    // the home road does. One named predicate, asked on both roads.
+    // One named predicate, asked on both roads.
     //
-    // ⛔⛔ **this comment used to say the opposite — that an actor's sim dt is
-    // NOT frozen, because "per-victim freezes in AI-vs-AI fights made duels
-    // degenerate" — and it is SUPERSEDED, not merely out of date.** That
-    // measurement predates D155, on a build where every authored launch
-    // direction was inverted and a tumbling launch resolved as a landing, so
-    // nobody was ever knocked anywhere: a feel verdict inherits the build it
-    // was formed on. Jon ruled on it 2026-08-17 after seeing the fixed build —
-    // *"hitlag is a combat/body semantic, not something that should depend on
-    // whether a body happens to occupy the primary local-control road"* — and
-    // the per-road distinction WAS the defect the ruling removes.
-    //
-    // ⛔ so if hitlag ever feels too sticky, tune its DURATION or SHAPE.
+    // so if hitlag ever feels too sticky, tune its DURATION or SHAPE.
     // **Restoring a controlled-body/actor asymmetry here is forbidden**, and a
     // comment recommending it is how the last one nearly got restored.
     let (frame, move_events) = em.update(
@@ -920,12 +815,8 @@ pub(crate) fn integrate_actor_body(
     // authored respawn policy, the banner, the death cue, and an
     // `ActorDiedMessage` carrying `HitSource::LeftTheWorld`.
     //
-    // Gated on ALIVE, because the gate is a position test and re-fires every
-    // tick the body is past the margin. A corpse that has not been cleaned up
-    // yet is still out there, so without this every dead body outside the world
-    // writes a lethal hit once per frame, forever — the damage pass ignores
-    // them all (it refuses hits on the dead), which makes it a silent per-frame
-    // cost rather than a visible bug, which is worse.
+    // Gated on ALIVE, because the gate is a position test and re-fires every tick the body is
+    // past the margin.
     if em.health.alive() && move_events.reset == Some(ae::ResetCause::LeftTheWorld) {
         hit_events.write(HitEvent {
             strike_sfx: None,
@@ -944,15 +835,10 @@ pub(crate) fn integrate_actor_body(
             ignored_targets: Vec::new(),
         });
     }
-    // Movement presentation for the body's frame: jump/dash/dodge/wall-jump/ledge/
-    // shield/blink SFX+VFX + landing dust, through the SAME body-generic emitter
-    // the player tick uses — so an AI fighter that dashes or wall-jumps produces
-    // the same dust + SFX the player does, not the old blink-only actor branch
-    // with its hand-copied second blink emit (fable review §A8). Fly-toggle +
-    // shield are resolved INSIDE `em.update`'s shared pipeline.
-    // The kernel NAMED what it did; hand that to the instrument beside the FX
-    // that already read it. One publish covers every kernel velocity writer,
-    // which is why this is not sixty-eight instrumentations.
+    // Fly-toggle + shield are resolved INSIDE `em.update`'s shared pipeline. The kernel NAMED
+    // what it did; hand that to the instrument beside the FX that already read it. One publish
+    // covers every kernel velocity writer, which is why this is not sixty-eight
+    // instrumentations.
     #[cfg(feature = "causal")]
     if let Some(writer) = movement_ops {
         if !move_events.operations.is_empty() {
@@ -1008,7 +894,7 @@ pub(crate) fn integrate_actor_body(
 
 /// **SAMPLE EVERY SOLID BODY'S CONTACT BOX BEFORE ANY OF THEM MOVES.**
 ///
-/// ⛔⛔ **a separate system, immediately before the integration phase, and that
+/// **a separate system, immediately before the integration phase, and that
 /// is the fairness argument.** Body contact is resolved per body inside the
 /// integrator; if each body asked the world for its neighbours' LIVE poses, the
 /// second body to be resolved would see the first one already integrated and the
@@ -1016,11 +902,11 @@ pub(crate) fn integrate_actor_body(
 /// on a couch it is one player being harder to push than the other for no reason
 /// anybody authored. One sample, before anybody moves.
 ///
-/// ⚠ **grounded bodies only, first slice** — see [`BodyContactSnapshot`]. An
+/// **grounded bodies only, first slice** — see [`BodyContactSnapshot`]. An
 /// airborne body passing over another is not in its way, and standing ON one is
 /// `footstool`, which already exists and means something else.
 ///
-/// ⚠ **it clears unconditionally.** A snapshot that survived a tick in which
+/// **it clears unconditionally.** A snapshot that survived a tick in which
 /// nothing ran would be last tick's poses presented as this tick's, which is the
 /// stale-derivation shape rollback cannot rewind out of.
 pub fn snapshot_body_contact(
@@ -1041,7 +927,7 @@ pub fn snapshot_body_contact(
         snapshot.push(
             entity,
             kinematics.aabb_oriented(frame.down()),
-            // ⚠ its ENTRY velocity — this pass runs before any body resolves its
+            // its ENTRY velocity — this pass runs before any body resolves its
             // controller, which is the whole point of a common snapshot.
             kinematics.vel,
             contact.resistance,
@@ -1078,12 +964,10 @@ pub fn integrate_sim_bodies(
     // query rather than another member of the cluster tuple, which is already at
     // twelve.
     body_sources: Query<&ambition_sfx::BodyPresentationSource>,
-    // **EVERY SOLID BODY'S CONTACT BOX, sampled before any of them moved** —
-    // see `snapshot_body_contact`, which runs immediately before this phase.
-    // Empty in every composition that has not granted the capability, and an
-    // empty snapshot answers `BodyContactField::NONE` for every body.
+    // Empty in every composition that has not granted the capability, and an empty snapshot
+    // answers `BodyContactField::NONE` for every body.
     contact: Res<ambition_platformer2d_shared_tangle::body::BodyContactSnapshot>,
-    // The per-body blocker list, reused across bodies and across ticks. ⚠ a
+    // The per-body blocker list, reused across bodies and across ticks. a
     // `Local` rather than a fresh `Vec` per body: this is the innermost loop of
     // the movement phase.
     mut contact_scratch: Local<Vec<ae::BodyContactBlocker>>,
@@ -1124,14 +1008,9 @@ pub fn integrate_sim_bodies(
             Option<&crate::combat::moveset::MovePlayback>,
             // **The body's own FEEL, if its character authored one.**
             //
-            // ⚠ this component was GRANTED to every seated fighter and read by
-            // nobody on this path: `presentation.rs` inserts it precisely so a
-            // seated fighter and a worn player move alike, and the only consumer
-            // in the repository was the PLAYER loop below. So a character's
-            // authored tuning reached it when worn and vanished when seated —
-            // the exact asymmetry the seating comment says it exists to prevent
-            // (found 2026-07-31 by authoring `slash_recoil: 0` on the smash
-            // duelists and measuring no change at all).
+            // this component was GRANTED to every seated fighter and read by nobody on this path:
+            // `presentation.rs` inserts it precisely so a seated fighter and a worn player move
+            // alike, and the only consumer in the repository was the PLAYER loop below.
             Option<&ambition_platformer2d_core::AuthoredMovementTuning>,
         ),
         (
@@ -1160,7 +1039,7 @@ pub fn integrate_sim_bodies(
             Entity,
             ae::BodyClusterQueryData,
             &BodyCombat,
-            // ⛔ **the body's own reason set, because a hazard TILE is damage.**
+            // **the body's own reason set, because a hazard TILE is damage.**
             // A player who cannot be hurt — a super form, a transformation beat,
             // a scripted grant — must not be reset to spawn by walking over
             // spikes. `Option` because a home body without health is a valid
@@ -1288,14 +1167,6 @@ pub fn integrate_sim_bodies(
             .unwrap_or(editable_player_tuning);
         let mut clusters = cluster_item.as_clusters_mut();
         let player_motion_frame = resolved_frame.get();
-        // ⭐⭐ **the SAME composited world the actors integrate against**, built
-        // once per frame above rather than once per body here. This road used to
-        // call `world_with_sandbox_solids` itself, from identical inputs — the
-        // authored world, the platform set, the overlay — so every home body
-        // CLONED the whole block list to rebuild a value that already existed a
-        // few lines up. Two composite sites is also two places for the moving
-        // platforms, gate solids, water and portal carves a body collides with to
-        // drift apart (D117).
         let riding_up = crate::avatar::integrate_home_body(
             control.0,
             &feature_world,
@@ -1330,13 +1201,11 @@ pub fn integrate_sim_bodies(
 
 /// PHASE — sync the actor identity read-model.
 ///
-/// ⭐⭐ **this phase used to mirror `BodyCombat` too, and now mirrors nothing but
-/// a name** (AC3). Every combat fact it wrote turned out to be a duplicate of an
-/// authority the reader could ask directly: liveness (`BodyHealth`), melee
-/// (`BodyMelee`), the sandbag flag (authored, set at construction), and three
-/// fields nobody read at all. So the query loses `ActorDisposition`,
-/// `BodyCombat` and `Has<ActiveCombatant>` — the last of which existed ONLY to
-/// choose between a peaceful and a hostile rebuild that no longer happens.
+/// Every combat fact it wrote turned out to be a duplicate of an authority the reader could ask
+/// directly: liveness (`BodyHealth`), melee (`BodyMelee`), the sandbag flag (authored, set at
+/// construction), and three fields nobody read at all. So the query loses `ActorDisposition`,
+/// `BodyCombat` and `Has<ActiveCombatant>` — the last of which existed ONLY to choose between a
+/// peaceful and a hostile rebuild that no longer happens.
 ///
 /// It changes no control and moves no body. Runs after `integrate_actor_bodies`.
 pub fn sync_actor_read_model(
@@ -1377,14 +1246,9 @@ pub fn sync_actor_read_model(
 /// strike + boss damage use).
 #[allow(clippy::too_many_arguments)]
 pub fn apply_actor_contact_damage(
-    // CM8: contact hits no longer emit feedback here (they used to fire the
-    // player-hurt payload for EVERY victim). The struck body's own victim
-    // consumer emits its `HurtFeedback` now, so this system only writes the
-    // `HitEvent`.
+    // The struck body's own victim consumer emits its `HurtFeedback` now, so this system only
+    // writes the `HitEvent`.
     mut hit_events: MessageWriter<HitEvent>,
-    // Attackers (mutable clusters) and victims (read) alias the same actor
-    // archetypes now that contact damage targets ANY tracked body (fable
-    // review 2026-07-02 §A4) — the ParamSet sequences the two passes.
     mut set: bevy::ecs::system::ParamSet<(
         Query<
             (
@@ -1451,13 +1315,6 @@ pub fn apply_actor_contact_damage(
             continue;
         }
         if let Some(damage) = attack.hit_event(attacker, target_entity, hurtbox.aabb()) {
-            // CM8: this used to emit the player-hurt payload (PLAYER_DAMAGE + red
-            // burst + debris) for EVERY victim — `is_player` was bound above but
-            // ignored here, so an enemy body-checking another enemy played the
-            // "player got hurt" cue. The feedback now belongs to the ONE
-            // victim-side reaction, which reads the VICTIM's `HurtFeedback`: the
-            // player keeps its red burst, an enemy gets the plain tick. The
-            // routing use of `is_player` (Player vs Actor target) stays.
             hit_events.write(damage);
         }
     }
@@ -1580,7 +1437,7 @@ pub(super) fn attack_kit_of(
     moveset: Option<&crate::combat::moveset::ActorMoveset>,
     // The body's REAL posture this tick. The kit is what it can press NOW.
     grounded: bool,
-    // ⚠ **only a FIGHTER brain reads the kit**, and building it is a `Vec` of
+    // **only a FIGHTER brain reads the kit**, and building it is a `Vec` of
     // owned move ids and frame data — per actor, per tick. Every other brain in
     // the game would have paid for a list nothing looks at, which is a cost
     // §13.2 explicitly said to fix by rebuilding on moveset CHANGE. It does not
@@ -1611,9 +1468,9 @@ pub(super) fn attack_kit_of(
 
     // **ENUMERATE THE PRESSES, ASK WHAT EACH ONE REACHES.**
     //
-    // ⚠ this listed `moveset.moves` — every move the body owns, whether or not
+    // this listed `moveset.moves` — every move the body owns, whether or not
     // any input can invoke it — and the candidate carried no way to invoke the
-    // one that won (GPT 5.6, 2026-07-31, finding 2). Two failures in one line: a
+    // one that won. Two failures in one line: a
     // move with no binding (a buff, a summon, an on-hit technique) could be
     // SCORED and then come out as a generic swing, and the winner's identity had
     // nowhere to travel.
@@ -1674,15 +1531,11 @@ pub(super) fn attack_kit_of(
 /// **CAN THE BODY BEGIN THIS MOVE THIS TICK?** — asked of the same function that
 /// actually decides it.
 ///
-/// ⛔⛔ **this deliberately does NOT read the body's phase.** The rule that drops
-/// a press is `spec.cancel_permits(t, landed_hit, names)` on the RUNNING move:
-/// it depends on that move's authored cancel windows and on whether it has
-/// landed a hit, so two bodies in visually identical recovery can differ. A
-/// brain inferring legality from "I look like I am in recovery" would answer a
-/// different question and be wrong for every move that authors a cancel window
-/// — the proxy-instrument failure, one layer up from where it usually shows up.
+/// A brain inferring legality from "I look like I am in recovery" would answer a different question
+/// and be wrong for every move that authors a cancel window — the proxy-instrument failure, one
+/// layer up from where it usually shows up.
 ///
-/// ⚠ **the name list must match `trigger_moveset_moves` exactly**: the verb the
+/// **the name list must match `trigger_moveset_moves` exactly**: the verb the
 /// press resolves through, plus the resolved move id. That is the one cancel
 /// namespace, and asking with a different list would make this answer a
 /// question nothing enforces.
@@ -1708,12 +1561,8 @@ fn legality_of(
 
 /// **The authored GRAB, priced as an option like any other technique.**
 ///
-/// ⛔⛔ **nothing here reads a character id, a role, or a hand-written distance,
-/// and that is the requirement rather than a nicety.** A grab's reach is the
-/// rect its own capture attempt sustains; what landing it is worth is the throw
-/// the same fighter authored to follow it. A CPU that knew "George grabs at
-/// 44px" would be a CPU that stops working the day George is retuned, and a
-/// second fighter would need a second constant.
+/// A CPU that knew "George grabs at 44px" would be a CPU that stops working the day George is
+/// retuned, and a second fighter would need a second constant.
 ///
 /// Two things the ordinary derivation cannot supply, because a grab lands no hit
 /// volume and `frame_data` reads volumes:
@@ -1723,21 +1572,13 @@ fn legality_of(
 /// ignores_guard      true; the shield is not the answer to a grab
 /// ```
 ///
-/// ⛔⛔ **AND A THIRD THAT WAS TRIED AND IS WRONG: pricing the grab at its
-/// FOLLOW-UP THROW's damage.** It reads as obviously right — what is catching
-/// somebody worth, if not the throw? — and it made the CPU grab from 110px in
-/// every exchange of a measured match (2026-08-18, `capture_probe`): the rollout
-/// saw a 9-damage option against a 3-damage jab, predicted the gap closing, and
-/// picked the grab every time. Nine attempts, none inside the 42px it reaches,
-/// zero holds.
-///
 /// A grab deals NO DAMAGE, and `max_damage` is what this move does on contact.
 /// What a capture is really worth is that the opponent is HELD — a fact the
 /// generic option scorer has no term for and should not grow one for: "how
 /// valuable is a hold" is platform-fighter policy (the throw it sets up, the
 /// escape risk, the percent, the stage position), and this is a scorer shared by
 /// every actor in every game the engine runs. ⇒ **the honest number here is
-/// zero, and the missing one is the fighter capability's** (queue D166).
+/// zero, and the missing one is the fighter capability's**.
 fn capture_candidate(
     moveset: &crate::combat::moveset::ActorMoveset,
     grounded: bool,
@@ -1774,9 +1615,6 @@ fn capture_candidate(
         ),
     });
     frames.reach = attempt.offset.0 + attempt.half_extents.0;
-    // ⛔ `max_damage` is left where `frame_data` put it — zero, because a grab
-    // lands no volume. See the doc: pricing it at the throw's damage is the
-    // measured mistake, not the missing feature.
     frames.ignores_guard = true;
     Some(AttackCandidate {
         move_id: spec.id.clone(),
@@ -1816,7 +1654,7 @@ fn build_enemy_brain_snapshot(
     motion_facts: &ambition_platformer2d_core::BodyMotionFacts,
     // The capture relationship, resolved by the caller — which holds the capture
     // query. Threaded rather than looked up so the brain layer keeps its
-    // property of reading no ECS. ⚠ LAST on purpose, and a STRUCT for the same
+    // property of reading no ECS. LAST on purpose, and a STRUCT for the same
     // reason: inserting a term mid-list silently shifted two positional
     // arguments into the wrong slots and the compiler reported it as a type
     // error three parameters away.
@@ -1834,14 +1672,7 @@ fn build_enemy_brain_snapshot(
         // decides whether it means "turn around"; integration never mutates
         // facing merely because a wall exists.
         side_contact_normal: em.wall.on_wall.then_some(em.wall.wall_normal_x.signum()),
-        // ⛔ **the second term read `em.config.tuning.surface_walker`, which ADR
-        // 0024 §8 forbids at runtime** — that boolean is spawn-time SELECTION
-        // (it chooses the `MotionModel` once) and is afterwards a stale copy of a
-        // decision the body carries explicitly. The workspace policy checker had
-        // been reporting it; nothing in the run's gate builds that crate's tests,
-        // so it went unread (ledger D88).
-        //
-        // ⚠ the LOGIC is unchanged and is not a detail: a wall means "turn
+        // the LOGIC is unchanged and is not a detail: a wall means "turn
         // around" to a walker and means "keep going" to a body whose entire
         // locomotion is walls.
         turns_at_walls: em.config.brain_profile.turns_at_walls && !motion_facts.adhesive_crawling,
@@ -1850,9 +1681,7 @@ fn build_enemy_brain_snapshot(
         // moveset itself, so this is body-derived truth arriving through the
         // world-in port — exactly like `actor_aerial`.
         //
-        // Built every tick like every other snapshot field. Correctness first:
-        // if profiling ever complains, the fix is to rebuild it on moveset
-        // CHANGE, not to let it go stale.
+        // Built every tick like every other snapshot field.
         attack_kit: attack_kit_of(moveset, em.ground.on_ground, brain, playback),
         // WHICH BODY THIS IS, so a published decision fact can name its
         // subject. The brain cannot know — a snapshot is body state and identity
@@ -1874,9 +1703,7 @@ fn build_enemy_brain_snapshot(
         holding_captive: capture.holding_captive,
         pummels_landed: capture.pummels_landed,
         target_pos,
-        // Real target liveness (was hardcoded `true`): a fighter whose foe is dead
-        // perceives it and the Smash brain demotes to Idle instead of swinging at a
-        // corpse. Resolved from the target entity's body-alive state by the caller.
+        // Resolved from the target entity's body-alive state by the caller.
         target_alive,
         // Own health fraction — the Smash brain watches it drop to trigger a regroup
         // (back off + reset after taking a beating).
@@ -1896,12 +1723,8 @@ fn build_enemy_brain_snapshot(
         // same tuning as a throttle scale; a rollout has to step the body
         // forward, so it needs the law and not one field of it.
         //
-        // `body_tuning` is the same projection the rich integration path takes,
-        // so the predictor and the integrator read one source — which is the
-        // whole point. A shadow model that restates the engine's constants
-        // predicts the wrong body the moment an archetype authors its own
-        // gravity or jump, and it was silently predicting the wrong body even
-        // before that.
+        // `body_tuning` is the same projection the rich integration path takes, so the
+        // predictor and the integrator read one source — which is the whole point.
         movement_tuning: Some(
             em.config
                 .tuning
@@ -1931,19 +1754,10 @@ fn build_enemy_brain_snapshot(
 
 /// Keep the actor's `ActorIdentity` read-model in step with its cluster.
 ///
-/// ⭐⭐ **IT NO LONGER TOUCHES `BodyCombat` AT ALL** (AC3). What this function
-/// did to that component, slice by slice: AC3.1.C deleted three fields it
-/// rebuilt for no reader; AC3.2 replaced the save→rebuild→restore with in-place
-/// writes; AC3.1.A and .B deleted the liveness and melee mirrors it wrote; and
-/// AC3.1.D moved `training_dummy` to construction, where an AUTHORED fact
-/// belongs. What is left is one string comparison.
+/// ⇒ **that is the change-amplification answer stated as code**: adding a reaction timer to
+/// `BodyCombat` now requires no edit here, and none in the boss road either.
 ///
-/// ⇒ **that is the change-amplification answer stated as code**: adding a
-/// reaction timer to `BodyCombat` now requires no edit here, and none in the
-/// boss road either. It used to require a carry line in two hand-kept lists that
-/// had already drifted apart.
-///
-/// ⚠ identity is rebuilt only when it actually differs. This runs per actor per
+/// identity is rebuilt only when it actually differs. This runs per actor per
 /// frame, and an unconditional rebuild is a string clone plus a spurious
 /// change-detection tick for every actor in the room.
 pub fn sync_actor_components_from_cluster(
@@ -2041,7 +1855,7 @@ pub fn tick_npc_idle_barks(
         _ => (12.0, 8_000),
     };
     for (kin, config, combat, interaction, disposition, health) in &npcs {
-        // Structural tangibility gate (Jon 2026-07-22): a dead body does not
+        // Structural tangibility gate: a dead body does not
         // present — an intangible corpse says nothing, ambient or otherwise.
         if disposition.is_hostile() || combat.hit_flash > 0.0 || !health.alive() {
             continue;
@@ -2082,17 +1896,12 @@ pub fn tick_npc_idle_barks(
 mod body_combat_rebuild_contract {
     /// **NOTHING IN `BodyCombat` IS WRITTEN BY THE PER-FRAME ACTOR SYNC.**
     ///
-    /// ⭐⭐ **this destructure found D108 and then outlived the defect.** The sync
-    /// used to REPLACE `*combat` wholesale and restore a hand-written list of
-    /// timers — a list a comment described as *"the SAME fields the player
-    /// carries"*, which nothing enforced. `landing_lag_timer` joined
-    /// `BodyCombat` later, never joined the list, and was erased one frame after
-    /// the moveset runtime set it.
+    /// `landing_lag_timer` joined `BodyCombat` later, never joined the list, and was erased one
+    /// frame after the moveset runtime set it.
     ///
-    /// ⇒ AC3 removed every field the sync had a reason to write. Keeping the
-    /// destructure keeps the claim honest: if a future field is added to this
-    /// component AND written from the cluster, this stops compiling and somebody
-    /// has to say why the read-model is growing a second authority again.
+    /// Keeping the destructure keeps the claim honest: if a future field is added to this
+    /// component AND written from the cluster, this stops compiling and somebody has to say why
+    /// the read-model is growing a second authority again.
     #[allow(dead_code)]
     fn the_per_frame_sync_writes_none_of_these(combat: &ambition_characters::actor::BodyCombat) {
         let ambition_characters::actor::BodyCombat {

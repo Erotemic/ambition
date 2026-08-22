@@ -40,12 +40,6 @@ impl RoomConstructionPlanId {
 
 /// Why canonical room construction could not be prepared. Every variant is
 /// detected before any live-room mutation.
-///
-/// ⛔ **`MissingService { service }` was deleted with the exclusive-`World`
-/// `prepare` that was the only thing able to raise it.** Every surviving road
-/// hands its authorities over as arguments, so "this world does not provide X"
-/// is a shape the type system now refuses rather than an error a caller has to
-/// remember to handle.
 #[derive(Clone, Debug, PartialEq)]
 pub enum RoomConstructionError {
     UnknownRoom {
@@ -227,7 +221,7 @@ impl RoomConstructionPlan {
     /// short. Anything that holds a plan across frames compares this before
     /// promoting it.
     ///
-    /// ⚠ **it is the whole outlook, not a set of suppressed identities.** A plan
+    /// **it is the whole outlook, not a set of suppressed identities.** A plan
     /// that placed a relocated object at one position is not the plan a world
     /// wants once that object rests at another, and an identity set cannot tell
     /// those two apart.
@@ -267,14 +261,10 @@ impl RoomConstructionPlan {
     /// Enqueue the prepared room contents without changing active-room
     /// resources. Session startup uses this after those resources are installed.
     ///
-    /// **This is the room transaction boundary.** Everything the room is made of
-    /// is queued between [`transaction::open`] and [`transaction::close`], so
-    /// the verification that publishes `RoomLoaded` runs after ALL of it: the
-    /// feature families, the planned roots, the planned relationships, the
-    /// moving-platform bodies, and the last-commit receipt. Active room
-    /// selection, room geometry, moving-platform resource state, and carried-
-    /// player handling are applied by every caller before this is reached, so
-    /// they precede publication too.
+    /// **This is the room transaction boundary.** Everything the room is made of is queued
+    /// between [`transaction::open`] and [`transaction::close`], so the verification that
+    /// publishes `RoomLoaded` runs after ALL of it: the feature families, the planned roots,
+    /// the planned relationships, the moving-platform bodies, and the last-commit receipt.
     ///
     /// The bracket sits HERE rather than inside the feature plan because the
     /// feature plan does not know when the room is complete — it is one
@@ -294,7 +284,7 @@ impl RoomConstructionPlan {
             self.predicted_authoritative_ids(),
             "room construction execution diverged from its prepared root roster",
         );
-        // ⛔ **no platform VISUAL is spawned here any more.** The commit installs
+        // **no platform VISUAL is spawned here any more.** The commit installs
         // platform STATE (the receipt below counts it); the picture is
         // reconciled by a render family from `MovingPlatformSet`, like every
         // other room feature. That is what let the visual adapter leave the
@@ -337,7 +327,7 @@ impl RoomConstructionPlan {
                 // failing on it turns a success into a crash.
                 //
                 // This is the honest residue of Task 5's transactionality
-                // question (queue M2): `apply_to_world` promises no fallible
+                // question: `apply_to_world` promises no fallible
                 // LOOKUP, and promised nothing about the commands it queues.
                 // This was the only command in the construction path that could
                 // fail — everything else spawns.
@@ -365,22 +355,14 @@ impl RoomConstructionPlan {
 /// Identity of one prepared room-construction artifact, from EVERY frozen
 /// world-defining preparation product — not just the authored source.
 ///
-/// The previous form hashed the `RoomSpec` plus a hand-built id set, which made
-/// two materially different prepared worlds collide: giant hand rows, limb
-/// relation payloads (slots, home offsets), recipe identities, and the content
-/// epoch are all derived from the character roster and registry — data OUTSIDE
-/// the `RoomSpec` — so a roster change that moved a hand's slot produced a
-/// different world under the SAME plan id. `deterministic_dump()` is the
-/// canonical rendering of exactly that derived surface (schema version, content
-/// binding/epoch, every plan row with recipe + origin + parameter summary, every
-/// relation with its canonical payload), so folding it in makes the id a function
-/// of the complete frozen plan.
+/// `deterministic_dump()` is the canonical rendering of exactly that derived surface (schema
+/// version, content binding/epoch, every plan row with recipe + origin + parameter summary,
+/// every relation with its canonical payload), so folding it in makes the id a function of the
+/// complete frozen plan.
 ///
-/// Moving platforms and kinematic paths are pure functions of the spec, so the
-/// spec JSON already covers them. Deliberately EXCLUDED: `SessionSpawnScope` /
-/// `TransactionId` (commit-time, not frozen-plan), `Entity` values, and anything
-/// process-local. `DefaultHasher::new()` uses fixed keys, so the id is stable
-/// across runs and replays.
+/// Moving platforms and kinematic paths are pure functions of the spec, so the spec JSON
+/// already covers them. Deliberately EXCLUDED: `SessionSpawnScope` / `TransactionId`
+/// (commit-time, not frozen-plan), `Entity` values, and anything process-local.
 fn construction_plan_id(
     spec: &RoomSpec,
     features: &RoomFeatureConstructionPlan,
@@ -416,7 +398,7 @@ mod tests {
     /// **THE FIXTURE CAST**, because every body is built from a character (AC6)
     /// and a placement that names none is refused at construction.
     ///
-    /// ⚠ `'static`: `ActorConstructionContext` BORROWS the cast, so a per-test
+    /// `'static`: `ActorConstructionContext` BORROWS the cast, so a per-test
     /// local would not outlive the plan it is handed to.
     fn fixture_cast() -> &'static crate::character_runtime::PreparedCharacterRegistry {
         static CAST: std::sync::OnceLock<crate::character_runtime::PreparedCharacterRegistry> =
@@ -525,7 +507,7 @@ mod tests {
     /// As [`prepare`], but with an explicit CAST and content epoch — the two
     /// preparation inputs OUTSIDE the `RoomSpec` that shape the derived plan.
     ///
-    /// ⛔ **it took a `&CharacterRoster`** and the giant tests below handed it
+    /// **it took a `&CharacterRoster`** and the giant tests below handed it
     /// rows declaring `mount_class: Some("giant")`. A character states its mount
     /// now (AC6), so the cast is the input that decides whether a placement
     /// lowers to a limbed host.
@@ -576,10 +558,6 @@ mod tests {
         registry
     }
 
-    /// A giant placement of the given body half-extent. The size drives
-    /// `giant_hand_plans` geometry — hand boxes and `home_offset` relation
-    /// payloads — and it is the PLACEMENT's now: the archetype `default_size`
-    /// that used to override it is deleted with the rows (AC6).
     fn giant_spec_sized(id: &str, half: f32) -> RoomSpec {
         let mut spec = empty_spec(id);
         let payload = crate::rooms::EnemySpawnSpec::new(
@@ -783,14 +761,9 @@ mod tests {
 
     /// **`RoomLoaded` is published only after the WHOLE room is applied.**
     ///
-    /// The transaction boundary is `spawn_contents`, not the feature plan.
-    /// Command queues apply in insertion order, so the verify-and-publish queued
-    /// at the tail of `spawn_contents` runs after the moving-platform bodies and
-    /// the last-commit receipt at its middle — the ordering that failed when the
-    /// feature plan owned the bracket, publishing before its caller had queued
-    /// the platforms. An observer reads the world the instant `RoomLoaded` is
-    /// delivered and proves the platforms, the commit receipt, and the
-    /// authoritative bodies are already present.
+    /// The transaction boundary is `spawn_contents`, not the feature plan. An observer reads
+    /// the world the instant `RoomLoaded` is delivered and proves the platforms, the commit
+    /// receipt, and the authoritative bodies are already present.
     #[test]
     fn room_loaded_observes_a_fully_committed_room() {
         let mut spec = empty_spec("published");
@@ -876,12 +849,8 @@ mod tests {
             Some(1),
             "the last-commit receipt existed before RoomLoaded"
         );
-        // ⚠ this used to ALSO count `MovingPlatformVisual`s, and that clause
-        // described machinery that deliberately no longer exists: the platform's
-        // picture left the transaction in 2026-08-14's carve and is reconciled by
-        // a render family from `MovingPlatformSet`. What the test defends is
-        // unchanged — the receipt, and therefore the room's STATE, is complete
-        // before `RoomLoaded` publishes.
+        // What the test defends is unchanged — the receipt, and therefore the room's STATE, is
+        // complete before `RoomLoaded` publishes.
         assert!(
             saw_occupant,
             "the authoritative occupant existed before RoomLoaded"
@@ -964,7 +933,7 @@ mod tests {
         construction.continuity = Some(features::OccurrenceContinuity {
             remembered,
             world,
-            // ⚠ no checkpoint behind this planner: it prepares a spec from the
+            // no checkpoint behind this planner: it prepares a spec from the
             // world's own records, and `None` is the honest answer for a
             // composition that has taken none.
             minted: None,
@@ -1006,12 +975,6 @@ mod tests {
     /// from the world's definitions plus the authoritative disposition of every
     /// occurrence, and an occurrence carried out of the room that minted it and
     /// put down elsewhere belongs to the room it is lying in.
-    ///
-    /// ⛔⛔ **both terms are asserted from the same ledger row because either
-    /// alone is a bug.** Suppression without reinstatement deletes the object
-    /// from the world permanently; reinstatement without suppression puts two
-    /// live occurrences behind one `SimId`, which is the failure `SimId` exists
-    /// to make impossible.
     #[test]
     fn a_room_reinstates_an_occurrence_whose_record_lives_next_door() {
         let mut home = empty_spec("blink_run");

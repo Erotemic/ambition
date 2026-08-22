@@ -193,9 +193,6 @@ fn a_resimulated_tick_is_labelled_and_a_repeat_is_not_a_mystery() {
     // The sink counters are PROCESS globals and tests run in
     // parallel; see `global_sink_test_lock`.
     let _serialised = crate::sink::global_sink_test_lock();
-    // The failure the text trace could not express: under a rollback host a
-    // resimulated frame decides again and logs again, and two identical lines
-    // are indistinguishable from one decision made twice.
     let mut log = recording_log();
     log.record(
         fact("chose", 40, domains::BRAIN)

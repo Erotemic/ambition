@@ -2,16 +2,12 @@
 #![cfg(feature = "rl_sim")]
 //! **The hosted half of the room-replay seam** (tracks §2.5).
 //!
-//! `apply_room_replay_request_system` used to be registered right here, by
-//! `ambition_app`. It now rides `PlatformerEnginePlugins`, because content in
-//! EVERY host emits `RoomReplayRequested` and the standalone demo binaries —
-//! which depend on `ambition_platformer2d` but never on `ambition_app` — were draining it
-//! with nothing.
+//! It now rides `PlatformerEnginePlugins`, because content in EVERY host emits
+//! `RoomReplayRequested` and the standalone demo binaries — which depend on `ambition_platformer2d`
+//! but never on `ambition_app` — were draining it with nothing.
 //!
-//! Two things have to hold on this side of that move. Ambition must not have
-//! LOST the consumer when its own registration was deleted, and it must not
-//! now have TWO (the engine group's, plus a leftover local one). The demo-side
-//! counterparts live in `ambition_demo_{mary_o,sanic}_app/tests/room_replay.rs`.
+//! Two things have to hold on this side of that move. The demo-side counterparts live in
+//! `ambition_demo_{mary_o,sanic}_app/tests/room_replay.rs`.
 
 use crate::common::{base, fixed_60hz_sim};
 
@@ -137,7 +133,7 @@ fn the_hosted_app_drains_a_replay_request_exactly_once() {
     );
 }
 
-/// **⛔⛔ THE REPLAY IS A TRANSACTION, AND ITS THREE STEPS HAVE AN ORDER.**
+/// **THE REPLAY IS A TRANSACTION, AND ITS THREE STEPS HAVE AN ORDER.**
 ///
 /// ```text
 /// ContentDialogueFollowupSet   emit the request
@@ -145,18 +141,8 @@ fn the_hosted_app_drains_a_replay_request_exactly_once() {
 /// RoomReplayApplied            rebuild the room
 /// ```
 ///
-/// The first two used to be a bare tuple — `(A, B).before(consumer)` — which
-/// constrains both against the consumer and says NOTHING about each other. So
-/// the reset could run first, read no request (the followup had not written it
-/// yet) and do nothing, while the consumer, correctly after both, rebuilt the
-/// room from state still persisted as cleared. That is the Smirking Behemoth's
-/// "press reset and start again" bringing back an already-defeated boss.
-///
-/// ⚠ **this asserts the ORDER rather than the boss**, deliberately. The failure
-/// is a schedule relation, and pinning it through one content encounter would
-/// test the encounter; every content emitter/reset pair rides these same two
-/// sets, and the next one will not come with its own regression. The probes are
-/// ordinary systems placed in the real sets of the real app.
+/// **this asserts the ORDER rather than the boss**, deliberately. The probes are ordinary systems
+/// placed in the real sets of the real app.
 #[test]
 fn the_replay_reset_runs_after_the_dialogue_followup_that_requests_it() {
     use ambition_platformer2d::actors::session::reset::{

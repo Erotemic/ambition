@@ -6,11 +6,9 @@
 //! and (later) the lockstep wire all read the same recording, so they cannot
 //! disagree about what the player did.
 //!
-//! It records `SlotControls` AFTER the input phase has finalized them — the
-//! frame the simulation actually consumed, not the frame the device produced.
-//! Those differ: gesture recognition (double-tap fast-fall), portal input warp,
-//! and the fixed-tick latch all rewrite the frame between device and sim. A
-//! recording of the device frame would replay into a different trajectory.
+//! It records `SlotControls` AFTER the input phase has finalized them — the frame the
+//! simulation actually consumed, not the frame the device produced. A recording of the device
+//! frame would replay into a different trajectory.
 
 use bevy::prelude::{Res, ResMut, Resource};
 

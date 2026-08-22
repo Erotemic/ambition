@@ -256,7 +256,6 @@ fn wall_jump_does_not_catapult_player_off_wall_overlap() {
     );
 }
 
-/// Regression: reproduces the wall-cling → Grounded teleport.
 #[test]
 fn wall_cling_does_not_teleport_to_wall_top_on_y_sweep() {
     let world = test_world();
@@ -459,19 +458,13 @@ fn body_is_side_contact_classifies_walls_vs_floors() {
         );
 }
 
-/// Regression: flying deep into the wide, thin ceiling must push the body DOWN
-/// the short way, never shove it out the ceiling block's far X edge. The old
-/// overlap-depth de-penetration heuristic ejected a deeply-penetrating body
-/// hundreds of px in X -- out the ceiling's far edge, into the border wall /
-/// past the world -- which the OOB detector flagged as "inside solid" /
-/// "outside world (y)" in the fly-into-ceiling traces.
+/// The old overlap-depth de-penetration heuristic ejected a deeply-penetrating body hundreds of px
+/// in X -- out the ceiling's far edge, into the border wall / past the world -- which the OOB
+/// detector flagged as "inside solid" / "outside world (y)" in the fly-into-ceiling traces.
 #[test]
 fn deep_ceiling_penetration_resolves_down_not_out_the_far_x_edge() {
     let world = test_world(); // ceiling (0,0)-(1600,24); right wall x:1564-1600
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
-    // Place the 40-tall body fully spanning the 24-tall ceiling (top at the world
-    // top), mid-span so its near X edge is ~800px away -- the exact shape the old
-    // code mis-read as an X penetration and shoved out the far edge.
     scratch.kinematics.pos = Vec2::new(800.0, 20.0);
     scratch.kinematics.vel = Vec2::ZERO;
     scratch.ground.on_ground = false;
@@ -687,11 +680,8 @@ fn ceiling_graze_x_sweep_does_not_teleport_body_to_the_far_edge() {
 
 #[test]
 fn one_way_drop_through_works_under_inverted_gravity() {
-    // The reported bug: with gravity inverted (pointing up), you couldn't drop
-    // through a one-way platform. Deterministic mirror of the down-gravity test:
-    // the player rests on the platform's BOTTOM face and local "down + jump"
-    // drops them through, toward gravity (-Y). Raw screen-UP is mapped into this
-    // local intent before the movement engine sees `InputState`.
+    // Deterministic mirror of the down-gravity test: the player rests on the platform's BOTTOM
+    // face and local "down + jump" drops them through, toward gravity (-Y).
     use crate::test_support::TEST_TUNING;
     let g = Vec2::new(0.0, -1.0);
     let tuning = TestTuning {
@@ -945,14 +935,9 @@ fn one_way_platform_works_under_sideways_gravity() {
     );
 }
 
-/// Regression for the central-hub OOB clip caught by the actor OOB trace
-/// (2026-06-25): under sideways gravity the player walked/fell into a wide hub
-/// solid and was pushout-teleported hundreds of pixels — once 310px on the side
-/// axis, once 163px clear out of the world's left edge — in a single tick. The
-/// shared kinematic primitive already forbids this
-/// (`is_contact_range_snap`); the authored player collision path did not, so
-/// every penetration-resolution snap/push here must stay bounded by the body's
-/// own half-extent. This pins the player path to the same no-pushout invariant.
+/// The shared kinematic primitive already forbids this (`is_contact_range_snap`); the authored
+/// player collision path did not, so every penetration-resolution snap/push here must stay bounded
+/// by the body's own half-extent. This pins the player path to the same no-pushout invariant.
 #[test]
 fn deeply_embedded_player_is_not_pushout_teleported_under_sideways_gravity() {
     use crate::world::Block;
@@ -1052,34 +1037,25 @@ fn deeply_embedded_player_is_not_pushout_teleported_under_sideways_gravity() {
     }
 }
 
-/// **D126.1 — THE IMPOSSIBLE GAP.** Where a body is claimed by TWO solids on
-/// the same axis in one frame, the outcome must not depend on the order those
-/// solids happen to sit in `world.blocks`.
+/// **.1 — THE IMPOSSIBLE GAP.** Where a body is claimed by TWO solids on the same axis in one
+/// frame, the outcome must not depend on the order those solids happen to sit in
+/// `world.blocks`.
 ///
-/// ⛔ **and the honest outcome here is NOT a position.** In this fixture the
-/// body physically does not fit: the ceiling demands `centre >= 264` and the
-/// platform demands `centre <= 248`, so the feasible interval is EMPTY and
-/// there is no legal place to put the body. Before D126.1 the resolver walked
-/// `&world.blocks`, applied each intersecting block's correction immediately
-/// and re-read the AABB before the next one, so the LAST claimant wrote the
-/// final position — ceiling-first settled at `y = 248`, platform-first at
-/// `y = 264`, same world, same frame, 16px apart. The block Vec is pure
-/// construction order (LDtk emission for the authored base, then moving
-/// platforms, then ECS overlay solids, then gate solids), which made the
-/// outcome silently different when authoring order changed.
+/// **and the honest outcome here is NOT a position.** In this fixture the body physically does
+/// not fit: the ceiling demands `centre >= 264` and the platform demands `centre <= 248`, so
+/// the feasible interval is EMPTY and there is no legal place to put the body. The block Vec is
+/// pure construction order (LDtk emission for the authored base, then moving platforms, then
+/// ECS overlay solids, then gate solids), which made the outcome silently different when
+/// authoring order changed.
 ///
-/// ⛔⛔ **sorting the contacts and resolving deepest-first was proposed and
-/// REJECTED, and the reason is the whole point of this test**: it makes the
-/// answer deterministic without making it correct. After obeying one side the
-/// body is still invalid with respect to the other, so a green "both orders
-/// agree" would have concealed the real physical condition. So this test pins
-/// BOTH halves: the two orders agree, AND what they agree on is the refusal —
-/// the body is not moved to a position no surface accepts, and the frame
-/// reports an [`crate::collision_semantics::AxisConstraintConflict`] naming the
-/// two demands. What a crush MEANS (damage, death, a stock, displacement,
-/// immunity) is game policy and deliberately unwired in the kernel.
+/// **sorting the contacts and resolving deepest-first was proposed and REJECTED, and the reason
+/// is the whole point of this test**: it makes the answer deterministic without making it
+/// correct. After obeying one side the body is still invalid with respect to the other, so a
+/// green "both orders agree" would have concealed the real physical condition. What a crush
+/// MEANS (damage, death, a stock, displacement, immunity) is game policy and deliberately
+/// unwired in the kernel.
 ///
-/// ⛔ **this is NOT the no-artificial-pushout refusal.** Both corrections are
+/// **this is NOT the no-artificial-pushout refusal.** Both corrections are
 /// 8px against a body whose half-extent is ~28px, so `is_contact_range_snap`
 /// accepts both: nothing declines, and the old divergence was iteration order
 /// alone. The existing
@@ -1130,8 +1106,6 @@ fn a_body_between_two_closing_solids_resolves_the_same_in_either_block_order() {
         scratch.kinematics.pos = start;
         scratch.kinematics.vel = Vec2::ZERO;
         scratch.ground.on_ground = false;
-        // Several ticks: the divergence was a stable fixed point per order, not
-        // a one-frame transient, and a settled comparison says so.
         for _ in 0..4 {
             update_player_with_tuning_scratch(
                 &world,
@@ -1154,7 +1128,7 @@ fn a_body_between_two_closing_solids_resolves_the_same_in_either_block_order() {
          {:.1}px apart",
         (ceiling_first - platform_first).length(),
     );
-    // ⛔ the poison for "make it deterministic and call it fixed": agreeing on
+    // the poison for "make it deterministic and call it fixed": agreeing on
     // 248 (or on 264, or on the midpoint) would satisfy the assertion above
     // while placing the body somewhere no surface accepts.
     assert!(
@@ -1198,9 +1172,6 @@ fn a_body_between_two_closing_solids_resolves_the_same_in_either_block_order() {
         from_ceiling_first, from_platform_first,
         "the reported conflict depends on block order",
     );
-    // The ceiling wants the centre at 264, the platform at 248: 16px of
-    // penetration no position can remove — the same 16px the two orders used to
-    // disagree by.
     assert!(
         (from_ceiling_first.overconstraint() - 16.0).abs() < 1.0e-3,
         "expected 16px of unremovable penetration, got {:?}",
@@ -1208,14 +1179,10 @@ fn a_body_between_two_closing_solids_resolves_the_same_in_either_block_order() {
     );
 }
 
-/// **The other half of D126.1, and the one that proves ORDER-INDEPENDENCE
-/// rather than crush detection.** Two solids claim the gravity axis in the same
-/// frame and the feasible interval is NOT empty — a body landing across a step,
-/// the ordinary shape of tiled world geometry. It must settle in exactly one
-/// place whichever order the blocks are authored in, and it must NOT be
-/// reported as crushed.
+/// It must settle in exactly one place whichever order the blocks are authored in, and it must
+/// NOT be reported as crushed.
 ///
-/// ⭐ that second assertion is the poison. A resolver that answered "two solids
+/// that second assertion is the poison. A resolver that answered "two solids
 /// claim this axis" with a conflict would make the impossible-gap test above
 /// green while breaking every step, ledge and tile seam in the game.
 #[test]

@@ -1,4 +1,4 @@
-//! **Two characters authored to fight.** (queue L7)
+//! **Two characters authored to fight.**
 //!
 //! Couch versus works: two controllers, two bodies, each driving only its own.
 //! It is two people walking into each other, because neither `mary_o` nor
@@ -125,7 +125,7 @@ pub fn duelist_moveset(numbers: DuelistNumbers) -> MovesetContract {
     MovesetContract { verbs, moves }
 }
 
-/// **What a fighter is HITTABLE through, and when it changes.** (queue C2)
+/// **What a fighter is HITTABLE through, and when it changes.**
 ///
 /// The `HurtboxDoc` seam has existed since A7 and no character authored one, so
 /// every body in the game was damageable through a box derived from its sprite —
@@ -203,7 +203,7 @@ pub const CLOSE_GUARD: DuelistNumbers = DuelistNumbers {
 /// **WHAT A DUELIST'S BODY CAN DO, authored on the fighter rather than inherited
 /// from the stage's ceiling.**
 ///
-/// ⛔⛔ **this is the kit both duelists ALREADY had; naming it changes nothing
+/// **this is the kit both duelists ALREADY had; naming it changes nothing
 /// today, and that is the point.** `versus.rs` declares
 /// `MatchAbilities::at_most(…)` — a ceiling and no floor, meaning *"a character
 /// keeps what it authored, minus what this duel forbids"*. Neither duelist
@@ -212,14 +212,12 @@ pub const CLOSE_GUARD: DuelistNumbers = DuelistNumbers {
 /// behaviour disagreed, and the disagreement was invisible because the answer
 /// happened to be the one everybody wanted.
 ///
-/// ⭐ **it is written down here so the bridge can be retired** (D151). That
-/// `None → permitted` arm turns PERMISSION into a GRANT — most damagingly in the
-/// use the type's own docs propose, where `permitted ⊃ granted` says *"the one
-/// character who authored a wall jump keeps it"* and an unauthored character
-/// takes the wall jump too. It cannot simply be deleted while it is the only
-/// thing dressing these two, so they get dressed first.
+/// That `None → permitted` arm turns PERMISSION into a GRANT — most damagingly in the use the
+/// type's own docs propose, where `permitted ⊃ granted` says *"the one character who authored a
+/// wall jump keeps it"* and an unauthored character takes the wall jump too. It cannot simply
+/// be deleted while it is the only thing dressing these two, so they get dressed first.
 ///
-/// ⚠ `reset` and `interact` ride in from `basic()`, and they were already
+/// `reset` and `interact` ride in from `basic()`, and they were already
 /// arriving by the same route. Preserved deliberately rather than tidied: this
 /// change is behaviour-neutral or it is not worth making.
 pub const VERSUS_FIGHTER_KIT: ambition_platformer2d::engine_core::AbilitySet =
@@ -244,14 +242,8 @@ pub fn duelists() -> [CharacterDefinition; 2] {
             .with_health(60, 1.0)
             // EMPTY, and authored here rather than left to the catalog row.
             //
-            // Everything these fighters do is on the moveset below. The action
-            // set says what a body REACHES FOR — what the brain believes it can
-            // press — and theirs is nothing beyond it. Saying so on the
-            // definition is the point: the row used to carry an
-            // `authored_elsewhere` preset whose own comment admitted it was a
-            // second opinion that never wins, and a second opinion that never
-            // wins still reads as the real kit to whoever finds it first
-            // (C3 / GPT 5.6, 2026-07-28).
+            // Everything these fighters do is on the moveset below. The action set says what a body
+            // REACHES FOR — what the brain believes it can press — and theirs is nothing beyond it.
             .with_action_set(ActionSet::default())
             .with_moveset(duelist_moveset(LONG_GUARD))
             .with_hurtboxes(duelist_hurtboxes(LONG_GUARD))
@@ -301,12 +293,12 @@ impl WithHealth for CharacterDefinition {
         self.vitals = ambition_platformer2d::actors::character_runtime::Vitals {
             max_health: Some(max_health),
             mass: Some(mass),
-            // ⚠ these two author no knockback WEIGHT, deliberately: the versus
+            // these two author no knockback WEIGHT, deliberately: the versus
             // stage declares no growth (its rounds end on health, not a blast
             // zone), so a weight here would divide a term that is always zero
             // and read as a tuning knob that does nothing.
             knockback_weight: None,
-            // ⚠ and no canonical HEIGHT, for a different reason: these two are
+            // and no canonical HEIGHT, for a different reason: these two are
             // arena duellists drawn from the shared duelist art, so how tall
             // they stand is the sheet's answer rather than a character fact
             // anyone has authored. `None` says exactly that.
@@ -332,10 +324,7 @@ impl WithHealth for CharacterDefinition {
 pub const VERSUS_CATALOG_RON: &str = r#"(
     brain_presets: { "stand_still": StandStill },
     autonomous_profiles: {
-        // ⭐⭐ **THIS STAGE'S CPU POLICY, PUBLISHED** (campaign P2.18, 2026-08-13
-        // — the same migration ledger D87 made for the Smash stage's six).
-        //
-        // ⛔ it was `VERSUS_ROSTER_RON`, one `ArchetypeSpec` row registered as a
+        // it was `VERSUS_ROSTER_RON`, one `ArchetypeSpec` row registered as a
         // `CharacterRosterFragment` and existing for exactly one lookup: a CPU
         // seat naming `versus_duelist`, resolved through an ENEMY ARCHETYPE
         // TABLE, so the controller half of `character + controller + team`
@@ -343,7 +332,7 @@ pub const VERSUS_CATALOG_RON: &str = r#"(
         // IS, and publishing it is what lets `seat_brain_profile` stop having a
         // second authority to fall through to.
         //
-        // ⚠ **the numbers are the row's controller half verbatim** — template,
+        // **the numbers are the row's controller half verbatim** — template,
         // both radii and both efforts. Its BODY half went nowhere because it was
         // already dead: `max_health`, `run_speed`, `melee`, `move_style` and
         // `respawn` stopped being read the day a seat was built from its
@@ -352,10 +341,8 @@ pub const VERSUS_CATALOG_RON: &str = r#"(
         // regardless of what the match said the body could do", and taking it
         // away is what exposed the missing `attack` verb.
         //
-        // ⚠ deliberately NOT the `Fighter` template: seated here, `Fighter`
-        // moved 0.4 px in five seconds with an opponent in front of it while the
-        // same brain fights on the smash stage. That is an open finding, not a
-        // preference — see `the_cpu_opponent_is_not_a_statue` and the queue row.
+        // That is an open finding, not a preference — see `the_cpu_opponent_is_not_a_statue`
+        // and the queue row.
         "versus_duelist": (
             template: Smash,
             aggro_radius: 460.0,
@@ -494,31 +481,18 @@ mod tests {
              character wearing two names"
         );
     }
-    /// **DRESSING THE DUELISTS CHANGED NOTHING, and that is what makes it safe
-    /// to retire the bridge afterwards.** (D151)
+    /// **DRESSING THE DUELISTS CHANGED NOTHING, and that is what makes it safe to retire the
+    /// bridge afterwards.**
     ///
-    /// ⛔ the arm being retired is `MatchAbilities::apply`'s
+    /// the arm being retired is `MatchAbilities::apply`'s
     /// `authored.unwrap_or(self.permitted)` — an unauthored character receives
     /// the whole CEILING, so PERMISSION becomes a GRANT. It reads harmless until
     /// the type is used the way its own docs propose (`permitted ⊃ granted`, so
     /// one character keeps a wall jump nobody else has), at which point every
     /// unauthored character silently keeps it too.
     ///
-    /// ⚠ it could not simply be deleted, because it was the ONLY thing giving
-    /// these two fighters a kit — deleting it left the versus stage with two
-    /// bodies that could not move. This asserts the step that fixes that: what
-    /// they author and what the bridge was handing them are the same set, so the
-    /// semantics can move without any fighter changing.
-    ///
-    /// ⛔⛔ **AND STEP 2 THEN RETIRED THE BRIDGE, WHICH INVALIDATED THE ASSERTION
-    /// THIS TEST WAS BORN WITH** (2026-08-17, caught by a `--lib` sweep the
-    /// project gate does not run). It said `apply(None) == apply(Some(kit))`,
-    /// which was the whole POINT while the bridge stood and is FALSE the moment
-    /// it is gone: an absent claim now takes what the mode GRANTS, and a ceiling
-    /// grants nothing. ⇒ the equality is kept below as HISTORY — asserted
-    /// against `AbilitySet::NONE` rather than deleted — because *what the bridge
-    /// used to hand an unauthored fighter* is exactly the fact that made
-    /// dressing these two a prerequisite.
+    /// This asserts the step that fixes that: what they author and what the bridge was handing
+    /// them are the same set, so the semantics can move without any fighter changing.
     #[test]
     fn what_the_duelists_author_is_exactly_what_the_bridge_was_handing_them() {
         use ambition_platformer2d::engine_core::{AbilitySet, MatchAbilities};
@@ -537,7 +511,7 @@ mod tests {
              D151 retired is back, and permission is a grant once more"
         );
 
-        // ⛔ non-vacuity: a kit of nothing would satisfy the equality above for
+        // non-vacuity: a kit of nothing would satisfy the equality above for
         // the wrong reason. These two fighters throw punches.
         assert!(
             authored.attack && authored.move_horizontal && authored.jump,
@@ -545,7 +519,7 @@ mod tests {
              empty sets rather than a real fighter's verbs"
         );
 
-        // ⭐ and the fighters really do carry it now — the whole point is that
+        // and the fighters really do carry it now — the whole point is that
         // the answer stops depending on the ceiling.
         for duelist in duelists() {
             assert_eq!(

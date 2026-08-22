@@ -1,13 +1,8 @@
 # mary_o_1_2's flagpole had a shaft and nothing else on it.
 #
-# Jon, 2026-08-09: "In mary-o 1-2 the flagpole doesn't have a flag."
-#
-# `scenery_for_authored_room` (game/ambition_demo_mary_o/src/lib.rs) dresses a
-# pole from three authored blocks — `goal_pole` -> shaft art,
-# `goal_pole_knob` -> finial, `goal_pole_banner` -> flag — and its `_ => {}` arm
-# means an unauthored name draws nothing and says nothing. 1-1 authors all
-# three; 1-2 authored only the shaft, so it was missing the FINIAL as well as
-# the flag Jon reported.
+# `scenery_for_authored_room` (game/ambition_demo_mary_o/src/lib.rs) dresses a pole from three
+# authored blocks — `goal_pole` -> shaft art, `goal_pole_knob` -> finial, `goal_pole_banner` -> flag
+# — and its `_ => {}` arm means an unauthored name draws nothing and says nothing.
 #
 # The offsets are copied from 1-1, where they are relative to the shaft rather
 # than absolute: knob at shaft_top - 16, banner at shaft_top + 16, both at the

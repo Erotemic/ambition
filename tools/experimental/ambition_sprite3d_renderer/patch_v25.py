@@ -17,11 +17,9 @@ new_block = r'''# BEGIN SIMPLIFIED_TARGET_OVERRIDES
 #   -Y = camera-visible surface
 #   +Z = up
 #
-# All screens, eyes, belts, and cloth panels are placed with helpers that put
-# them on the visible -Y surface of a core primitive.  This prevents the common
-# regression where a screen or face exists but is buried inside the head/body.
-# Robot and goblin use separate builders and separate pose roots; the only
-# shared code is low-level primitive placement and view-surface helpers.
+# All screens, eyes, belts, and cloth panels are placed with helpers that put them on the visible -Y
+# surface of a core primitive. Robot and goblin use separate builders and separate pose roots; the
+# only shared code is low-level primitive placement and view-surface helpers.
 
 
 def _soften_form(obj, levels: int = 1, factor: float = 0.12):

@@ -4,14 +4,9 @@
 //! starts the corresponding move, and `MovePlayback` is the sole attack timeline
 //! for geometry and content-technique specials alike.
 
-// Boss policy vocabulary (`BossMovementProfile`, `BossPatternStep`,
-// `BossPattern`, `BossAttackPattern`, `BossAttackProfile`,
-// `step_duration`) moved to `ambition_characters::brain::boss_pattern` per the
-// "move boss policy out of BossRuntime" migration. Re-exported here
-// because `BossBehaviorProfile` and the volumes / construction code
-// below still reference them by their old `content::features::bosses`
-// path — those references stay legal via the re-export while call
-// sites migrate to the brain-module path at their leisure.
+// Re-exported here because `BossBehaviorProfile` and the volumes / construction code below
+// still reference them by their old `content::features::bosses` path — those references stay
+// legal via the re-export while call sites migrate to the brain-module path at their leisure.
 #[cfg(test)]
 use ambition_characters::brain::boss_pattern::BossAttackPattern;
 pub use ambition_characters::brain::boss_pattern::{BossAttackProfile, BossMovementProfile};
@@ -20,26 +15,9 @@ pub use ambition_characters::brain::boss_pattern::{BossAttackProfile, BossMoveme
 // still publicly accessible via `ambition_characters::brain::boss_pattern`; we
 // just don't re-export them here anymore.
 
-// `BossTickOutputs` (previously: `projectile_spawns: Vec<…>`) was
-// deleted with Task B of the actor/brain follow-up plan. Apple-rain
-// spawning moved to `spawn_apple_rain_from_special_messages` (an
-// EFFECTS-stage consumer driven by `ActorActionMessage::Special`).
-// Future boss specials follow the same pattern — one consumer per
-// `SpecialActionSpec` variant — instead of accumulating side-channel
-// `Vec`s the caller flushes.
 
-// All boss-special tuning numbers (apple-rain cadence, overfit-volley sampling,
-// minima-trap / saddle-point / gradient-cascade params, the eye-beam tuning)
-// moved to `ambition_content::bosses::specials` with the Techniques themselves —
-// the engine names no boss special's params. The engine retains only the generic
-// boss machinery (profile/spec/resolver) below.
+// The engine retains only the generic boss machinery (profile/spec/resolver) below.
 
-// `GNU_TON_ANCHOR_Y`, `GNU_TON_COLLISION_SCALE`, `GNU_TON_FRAME_HEIGHT`,
-// and `gnu_ton_sprite_scale` were retired in the 2026-05-26
-// data-driven migration. The GNU-ton per-animation hit / hurt-box
-// geometry lives in `gnu_ton_boss_spritesheet.ron`'s
-// `body_metrics.animations` map and flows through the generic
-// `world_aabb_from_pixel_rect` transform the gradient sentinel uses.
 
 // `BossBehaviorProfile` / `BossRewardProfile` / `ActorSpriteMetrics` /
 // `canonical_boss_id_from` / `boss_animation_keys_for_profile` moved to

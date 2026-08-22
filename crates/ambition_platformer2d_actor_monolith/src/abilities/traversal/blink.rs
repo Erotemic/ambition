@@ -1,12 +1,7 @@
 //! Blink — a held item granting a short-range directional teleport.
 //!
-//! Canon ability ([`crate::items::Item::Blink`]): Jon's note — "Short-range
-//! teleport. Your favorite, and high-skill." Implemented as a wired ability (a
-//! held item) like Mark/Recall and Fireball, so it reuses the equip / OoT-menu /
-//! throw plumbing. While holding it, `Attack` blinks the player a fixed distance
-//! along the aim direction, **collision-clamped**: a `raycast_solids` stops the
-//! teleport just short of the first wall so you can't blink through or embed in a
-//! solid (the "collision safety policy" the blink design calls for).
+//! Your favorite, and high-skill." Implemented as a wired ability (a held item) like
+//! Mark/Recall and Fireball, so it reuses the equip / OoT-menu / throw plumbing.
 //!
 //! Stateless (no mark to store), so there's nothing to clear on reset. Like the
 //! other pure-use held items it has no melee/ranged verb and opts out of

@@ -1,9 +1,7 @@
 //! **The presentation an engine PROMISES, asked of a third party's app.**
 //!
-//! Three defects on 2026-07-31 had one shape: an engine render system that only
-//! `game/ambition_app` registered, so every other composition ran an engine that
-//! half-drew. None of them crashed. The backdrop was absent, or present and
-//! motionless; the quality budget existed and never moved.
+//! None of them crashed. The backdrop was absent, or present and motionless; the quality budget
+//! existed and never moved.
 //!
 //! `scripts/check_engine_systems_are_engine_installed.py` catches the SHAPE —
 //! "no engine crate registers this" — and it is a text search over registration
@@ -65,18 +63,9 @@ fn the_backdrop_is_drawn_and_follows_the_camera() {
 
     let before = parallax_layer_positions(&mut app);
 
-    // Walk. The camera follows the body, and the layers follow the camera at
-    // their own rate — that last edge is the one that was missing.
+    // Walk.
     //
-    // ⛔ **SAMPLE THE WHOLE RUN, not the endpoints.** The twin of this assertion
-    // in `ambition_demo_sanic_app` compared `before` against `after` alone and
-    // cost FOUR wrong diagnoses on 2026-08-03 — a missing `sync_parallax_layers`,
-    // an unregistered `camera_follow`, a broken camera clamp, and "the subject is
-    // slow" — before the numbers showed the truth: the speedway LOOPS, so after
-    // 240 frames the body was back near its start, the camera was back on its
-    // clamp, and every layer was back where it began, correctly, to the float.
-    // The endpoints are the one pair of samples that cannot see a following
-    // backdrop working.
+    // The endpoints are the one pair of samples that cannot see a following backdrop working.
     //
     // Nothing guarantees the outlander's course does not double back either, so
     // this tracks the largest deviation across the walk. That holds whether the
@@ -120,7 +109,7 @@ fn the_backdrop_is_drawn_and_follows_the_camera() {
     );
 }
 
-// ⚠ **The quality-budget half of this file does not belong here, and finding
+// **The quality-budget half of this file does not belong here, and finding
 // that out was worth the attempt.** `ResolvedVisualQuality` reads
 // `UserSettings`, and this consumer is built `default-features = false` — it
 // never asked for the `ambition_persistence` capability, so `ambition_platformer2d::

@@ -48,12 +48,8 @@ pub struct EquipmentRow {
     /// Optional EXCLUSIVE slot. Two rows naming the same slot cannot be worn at
     /// once: equipping one replaces the other.
     ///
-    /// Without it, a progression of rows that each supersede the last has to be
-    /// STACKED, and stacking silently reorders what a hit spends — the older row
-    /// is found first, so an upgrade would be protected by the thing it replaced
-    /// and lost in the wrong order. Naming a slot says "this is a STATE, of which
-    /// a body has one", which is what makes a superseding row's `downgrade_to`
-    /// the authority on what losing it means.
+    /// Naming a slot says "this is a STATE, of which a body has one", which is what makes a
+    /// superseding row's `downgrade_to` the authority on what losing it means.
     #[serde(default)]
     pub exclusive_slot: Option<String>,
     /// Stable authoring id (`"mushroom"`, `"fire_flower"`). Also what
@@ -157,10 +153,6 @@ impl EquipmentGrant {
 /// What being hit does to a worn row.
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub enum OnHit {
-    /// Spend this row to absorb the hit: the wearer takes zero HP damage and gains
-    /// the normal brief i-frames. The row is removed, or replaced by `downgrade_to`
-    /// (Mary-O's mushroom big→small is `downgrade_to: None`).
-    ///
     /// A downgrade row is expected to be grant-free (modifiers/armor only): the
     /// armor spend happens inside the victim-side resolver, which can rewrite the
     /// worn set but cannot run equip-time grant application. A grant-bearing
@@ -318,10 +310,8 @@ pub fn resolved_ranged(
     let damage = resolved_param(base.damage() as f32, worn, ranged_param::DAMAGE, scope)
         .round()
         .max(0.0) as i32;
-    // Only the folded params change; the action's cadence, authored flight, and
-    // visual identity ride along untouched. Rebuilding variant-by-variant used to
-    // preserve just speed/damage, which silently dropped everything else a spec
-    // carried the moment a worn row scaled it.
+    // Only the folded params change; the action's cadence, authored flight, and visual identity
+    // ride along untouched.
     RangedActionSpec {
         speed,
         damage,

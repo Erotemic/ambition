@@ -83,9 +83,7 @@ fn is_reviewed(marker: &str, lines: &[&str], idx: usize) -> bool {
     false
 }
 
-/// Sim sources for one scope, as `(label, text)`. Test files and non-sim subpaths
-/// excluded. Asserts each declared root of this scope contributes files — a scan
-/// that reads nothing under a root passes vacuously (the audit N0.3 bug).
+/// Sim sources for one scope, as `(label, text)`. Test files and non-sim subpaths excluded.
 fn sim_sources(ws: &Workspace, cfg: &Config, scope: Scope) -> Vec<(String, String)> {
     let mut out = Vec::new();
     for root in cfg.root.iter().filter(|r| r.scope == scope) {
@@ -472,9 +470,7 @@ pub fn poison_self_tests() {
         "wall-clock check must flag Instant::now"
     );
 
-    // Rule 3 — std-hash iteration detected; Bevy hash NOT a false positive. The
-    // field is on its own line, exactly as real code writes it (this is the shape
-    // `WorldMemory` used to hide a real hash-order bug behind).
+    // Rule 3 — std-hash iteration detected; Bevy hash NOT a false positive.
     let std_hash = vec![(
         "x.rs".to_string(),
         "use std::collections::HashMap;\nstruct S {\n    actors: HashMap<String, u8>,\n}\nfn f(s: &S) {\n    for a in s.actors.values() {}\n}".to_string(),

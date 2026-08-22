@@ -1,7 +1,7 @@
 // Portal integration test: only built with the portal mechanic + RL stepping
 // API. Compiled out (empty test binary) when `portal` is disabled.
 #![cfg(all(feature = "portal", feature = "rl_sim"))]
-//! Room-reset portal policy (Jon, 2026-06-09):
+//! Room-reset portal policy:
 //!
 //! - A player DEATH preserves EVERY portal — the player's gun-spawned pair AND
 //!   the authored level portals survive, so dying mid-puzzle doesn't wipe your

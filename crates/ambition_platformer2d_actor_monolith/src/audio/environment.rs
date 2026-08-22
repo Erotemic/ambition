@@ -223,11 +223,8 @@ pub fn apply_audio_environment(
     *last = Some(key);
 }
 
-/// Round `wetness` to a fixed quantum so tiny float jitter on the
-/// smoothing curve doesn't push a `set_volume` call every frame.
-/// 64-step granularity is finer than the ear can resolve over an
-/// 8 dB range while still cutting roughly two orders of magnitude of
-/// redundant writes.
+/// 64-step granularity is finer than the ear can resolve over an 8 dB range while still cutting
+/// roughly two orders of magnitude of redundant writes.
 #[cfg_attr(not(feature = "audio"), allow(dead_code))]
 #[inline]
 fn quantize_wetness(wetness: f32) -> f32 {

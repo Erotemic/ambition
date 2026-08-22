@@ -13,12 +13,10 @@
 //!
 //! > **Does rolling back change what presentation observes?**
 //!
-//! It must not. The same input script is played twice through the same host —
-//! once with `check_distance = 0` (GGRS never rewinds, so every effect is
-//! ground truth) and once with `check_distance = 4` (GGRS rewinds and
-//! resimulates every single step). The two runs must produce the *same effects
-//! in the same order*. Without the quarantine the rewinding run emits each sound
-//! roughly five times over, which is the bug in its original observable form.
+//! It must not. The same input script is played twice through the same host — once with
+//! `check_distance = 0` (GGRS never rewinds, so every effect is ground truth) and once with
+//! `check_distance = 4` (GGRS rewinds and resimulates every single step). The two runs must produce
+//! the *same effects in the same order*.
 //!
 //! Deliberately NOT claimed here: a mispredicted remote input. A sync test
 //! resimulates with the *same* inputs, so its correction always equals its
@@ -185,13 +183,10 @@ fn the_journal_drains_once_every_frame_confirms() {
         journal.released() > 0,
         "the run must have released something for the drain claim to mean anything"
     );
-    // `check_distance` + 1, and the +1 is `bevy_ggrs`, not slack. It computes a
-    // sync test's confirmed frame as `current - check_distance` using the frame
-    // counter read *before* the advance increments it, so while frame F is
-    // being simulated the reported confirmed frame is `F - 5`, not `F - 4`. The
-    // quarantine is therefore one frame more conservative than it strictly
-    // needs to be — safe in the direction that matters, and cheaper to document
-    // than to correct against an upstream detail that may change.
+    // `check_distance` + 1, and the +1 is `bevy_ggrs`, not slack. The quarantine is therefore
+    // one frame more conservative than it strictly needs to be — safe in the direction that
+    // matters, and cheaper to document than to correct against an upstream detail that may
+    // change.
     assert!(
         journal.depth() <= 5,
         "at most `check_distance` (+1, see above) frames may still be awaiting \
@@ -253,11 +248,6 @@ fn only_presentation_facing_effects_are_quarantined() {
         FxRequest,
         FireworksRequest,
         DebrisBurstMessage,
-        // P0.1: a screen kick leaves the process exactly as a sound does. It
-        // used to be written straight onto `CameraShakeState` from inside the
-        // combat schedule, behind a `replaying_history` guard that could see the
-        // duplicate and not the phantom — the first pass over a predicted frame
-        // is not a replay.
         ambition_platformer2d::platformer::camera_ease::CameraShakeRequest,
     );
     assert_not_quarantined!(

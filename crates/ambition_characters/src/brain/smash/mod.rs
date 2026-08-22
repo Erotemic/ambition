@@ -84,10 +84,7 @@ pub struct SmashCfg {
     /// default; enabled per archetype (goblins) so it doesn't silently change
     /// every melee enemy's feel.
     ///
-    /// ⛔ it was `dash_to_close` and it named a CAPABILITY the body may not
-    /// have. It is a policy about how hard this driver closes distance, and it
-    /// is spent entirely through the ordinary locomotion surface — no ability
-    /// bit, no burst press (D146).
+    /// it was `dash_to_close` and it named a CAPABILITY the body may not have.
     pub sprint_to_close: bool,
     /// Neutral-game footsies: amplitude (px) the actor weaves IN and OUT
     /// around [`Self::engage_distance`] while spacing against a live
@@ -118,15 +115,12 @@ pub struct SmashCfg {
     /// retreat — and the re-approach — cross a real gap (so the sprint/fly traversal
     /// actually fires). Ignored when regroup is disabled.
     pub regroup_distance: f32,
-    /// **Poke-and-reset discipline** (whiff-punish footsies). Seconds the fighter
-    /// suppresses offense after a melee swing completes — letting the neutral weave
-    /// reset its spacing — before it may re-commit. `0.0` (the grunt default)
-    /// disables it: the actor stays in range and re-swings the instant its cooldown
-    /// clears (point-blank mashing). A positive value makes a real neutral game —
-    /// poke, reset, re-approach — instead of two bodies glued together trading
-    /// hits. Frame-agnostic (uses only target-relative spacing); the in/out weave,
-    /// not a forced retreat, does the spacing so a cornered fighter never pins
-    /// itself against a wall.
+    /// **Poke-and-reset discipline** (whiff-punish footsies). `0.0` (the grunt default)
+    /// disables it: the actor stays in range and re-swings the instant its cooldown clears
+    /// (point-blank mashing). A positive value makes a real neutral game — poke, reset,
+    /// re-approach — instead of two bodies glued together trading hits. Frame-agnostic (uses
+    /// only target-relative spacing); the in/out weave, not a forced retreat, does the spacing
+    /// so a cornered fighter never pins itself against a wall.
     pub poke_reset_s: f32,
     /// When true, the fighter may **blink-evade** a fast-closing opponent (a
     /// perceivable lunge, read from the lagged target history — never from a
@@ -162,16 +156,14 @@ pub struct SmashCfg {
     /// **Whether blocking requires the ground — the GAME's rule, not this
     /// brain's.**
     ///
-    /// ⛔ this was hardcoded as `obs.self_on_ground` at both the reactive-block
-    /// arm and the hold that follows it, which made "no blocking in mid-air" a
-    /// fact about `brain/smash`. Smash Siblings wants that rule; another game on
-    /// this engine may not, and answering it meant editing the brain.
+    /// Smash Siblings wants that rule; another game on this engine may not, and answering it
+    /// meant editing the brain.
     ///
-    /// ⚠ **defaults to `true` everywhere, so nothing changes by accident** — the
+    /// **defaults to `true` everywhere, so nothing changes by accident** — the
     /// lift is deliberately behaviour-preserving. Whether AMBITION wants airborne
     /// blocking is a separate product question and stays open
     /// (`awaiting-maintainer-decision.md` #9, "Can a flying fighter shield?").
-    /// ⭐ a game answers it by AUTHORING now, and a duel fixture can state which
+    /// a game answers it by AUTHORING now, and a duel fixture can state which
     /// rule it is testing under instead of inheriting one silently.
     pub shield_requires_ground: bool,
     /// When true, this is a **hybrid flyer**: a body that can both fight grounded
@@ -339,12 +331,8 @@ impl SmashCfg {
 /// always covered once the buffer fills.
 pub const OBS_HISTORY_LEN: usize = 32;
 
-/// Ring buffer of recent opponent observations `(sim_time, target_pos)`,
-/// used to apply **reaction latency**: each tick the brain perceives the
-/// opponent as it was `reaction_delay_s` ago, so it can't frame-perfectly
-/// counter a sudden move. The actor's OWN state is never delayed (you always
-/// know where you are). Pure function of the tick stream → replay-safe and
-/// deterministic. `Copy` so `SmashState` stays `Copy`.
+/// The actor's OWN state is never delayed (you always know where you are). Pure function of the
+/// tick stream → replay-safe and deterministic. `Copy` so `SmashState` stays `Copy`.
 #[derive(Clone, Copy, Debug)]
 pub struct ObsHistory {
     samples: [(f32, ae::Vec2); OBS_HISTORY_LEN],
@@ -436,15 +424,10 @@ pub struct SmashState {
     /// reaction delay variance). Set once at first tick from the
     /// actor id; survives reset_to_spawn via spawn-time init.
     pub rng_seed: u64,
-    /// Seconds until the actor's *sprint-to-close* commitment is off cadence
-    /// (only used when [`SmashCfg::sprint_to_close`]). Same brain-side
-    /// shape as the ranged cooldown: decremented each tick, gated against
-    /// `> 0`, reset to [`SPRINT_COOLDOWN_S`] on a commit. Brain-side only —
-    /// the body has no cooldown on running.
+    /// Seconds until the actor's *sprint-to-close* commitment is off cadence (only used when
+    /// [`SmashCfg::sprint_to_close`]). Brain-side only — the body has no cooldown on running.
     pub sprint_cooldown_remaining: f32,
-    /// Rolling history of the opponent's recent positions, used to apply
-    /// the difficulty profile's `reaction_delay_s` (the brain perceives a
-    /// lagged opponent — it never reacts frame-perfectly). See [`ObsHistory`].
+    /// See [`ObsHistory`].
     pub obs_history: ObsHistory,
     /// Footsies weave phase (radians), advanced each tick when the cfg enables
     /// the neutral game. A per-actor offset (from `rng_seed`) is added at read
@@ -469,9 +452,6 @@ pub struct SmashState {
     /// the fighter suppresses offense and weaves out to its outer spacing pocket
     /// instead of re-swinging point-blank. `0` outside the window / for grunts.
     pub neutral_reset_timer: f32,
-    /// Whether the actor was mid-swing last tick. Used to detect the swing's
-    /// falling edge (swing → not-swinging) so the neutral reset arms exactly once
-    /// per poke. Pure tick-stream bookkeeping → replay-safe.
     pub was_attacking: bool,
     /// Seconds left in the current regroup (break-off-and-reset after a beating).
     /// While positive the fighter retreats a real distance — sprinting, and taking to
@@ -527,12 +507,12 @@ pub fn tick_smash(
     }
     // ── Capture context ─────────────────────────────────────────────────────
     //
-    // ⭐ **BEFORE everything, and it RETURNS.** A fighter in a capture — at
+    // **BEFORE everything, and it RETURNS.** A fighter in a capture — at
     // either end — is not a fighter with extra options; the ordinary decision
     // does not apply and running it would ask "should I approach?" of a body
     // that cannot walk.
     //
-    // ⛔ **and the whole point is what these arms emit: nothing capture-shaped.**
+    // **and the whole point is what these arms emit: nothing capture-shaped.**
     // `SpecificAction::CaptureAttack` writes the ordinary `melee_pressed` and an
     // attack direction — the same two fields a person's Attack button writes —
     // and `trigger_moveset_moves` turns them into a pummel or a throw by reading
@@ -550,7 +530,7 @@ pub fn tick_smash(
         return;
     }
     if snapshot.holding_captive {
-        // ⚠ deliberately the simplest policy that proves the road: pummel once,
+        // deliberately the simplest policy that proves the road: pummel once,
         // then throw. It is not grab AI — opponent percent, stage edge, kill
         // potential and escape risk are all real inputs it does not read. What it
         // proves is that a CPU reaches a pummel and a throw through the ordinary
@@ -566,10 +546,8 @@ pub fn tick_smash(
     }
     // Advance the dwell accumulator before any mode-flip check.
     state.mode_dwell_s += snapshot.dt;
-    // Tick the brain-side cadences down (clamped at 0) before this
-    // frame's verb selection can re-arm them. Fire-rate is NOT among them:
-    // the body owns the ranged refire cooldown (invariant I3), so the brain
-    // attempts a shot whenever it wants one and the body enforces the rate.
+    // Fire-rate is NOT among them: the body owns the ranged refire cooldown (invariant I3), so
+    // the brain attempts a shot whenever it wants one and the body enforces the rate.
     state.sprint_cooldown_remaining = (state.sprint_cooldown_remaining - snapshot.dt).max(0.0);
     state.neutral_jump_cooldown = (state.neutral_jump_cooldown - snapshot.dt).max(0.0);
     state.blink_cooldown = (state.blink_cooldown - snapshot.dt).max(0.0);
@@ -765,25 +743,14 @@ pub fn tick_smash(
         }
         // Hold the block up across its window: shield + stand ground.
         //
-        // ⛔ **this used to write `out.shield_held = true` by hand**, which was a
-        // FORK: `SpecificAction::Shield` already exists, already means exactly
-        // this, and already has an [`emit_inputs`] arm — so the guard had two
-        // producers and the semantic action had none. A CPU now requests the
-        // SAME semantic action a human's shield button resolves to (D146 slice
-        // 2, Jon: *"CPU logic should be able to request Shield semantically
-        // without pretending to press a physical controller trigger"*), and
+        // A CPU now requests the SAME semantic action a human's shield button resolves to, and
         // `emit_inputs` owns what that means on a frame.
         if state.shield_hold_timer > 0.0
             && (!cfg.shield_requires_ground || obs.self_on_ground)
             && !out.blink_pressed
         {
-            // ⚠ the FACING is the tick's action's, not the block's, and that is
-            // measured rather than argued: `emit_inputs` faces the target
-            // unconditionally, and letting it do so here overrode the footsies
-            // weave's own facing and pinned both fighters in a corner
-            // (`flying_pca_vs_grounded_robot_is_non_degenerate`, red on the first
-            // attempt). Reactive defense LAYERS a commitment onto an already
-            // chosen action; it does not replace it.
+            // Reactive defense LAYERS a commitment onto an already chosen action; it does not
+            // replace it.
             let facing = out.facing;
             emit_inputs(SpecificAction::Shield, &obs, out);
             out.facing = facing;
@@ -1091,7 +1058,7 @@ fn regroup_aerial_steer(obs: &ObservationFrame, cfg: &SmashCfg) -> ae::WorldVec2
 /// distance. Re-arms the cadence on commit. A ranged poke (run earlier) or a
 /// melee swing already wins — only a plain Walk converts.
 ///
-/// ⚠ the gate is entirely a DECISION about cadence and distance. Nothing here
+/// the gate is entirely a DECISION about cadence and distance. Nothing here
 /// asks what the body can do, because running is not a capability.
 fn maybe_substitute_sprint(
     action: SpecificAction,

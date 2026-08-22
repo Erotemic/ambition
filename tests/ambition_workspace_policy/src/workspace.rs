@@ -142,9 +142,6 @@ fn ambition_deps_of(manifest: &str) -> BTreeSet<String> {
     let Ok(table) = manifest.parse::<toml::Table>() else {
         return out;
     };
-    // The facade used to be the one crate named `ambition` with no suffix, so
-    // this carried an equality arm beside the prefix test. It is
-    // `ambition_platformer2d` now, which the prefix already covers.
     let is_ambition = |name: &str| name.starts_with("ambition_");
 
     let mut collect = |t: Option<&toml::Value>| {
@@ -277,8 +274,6 @@ struct PolicyFile {
 }
 
 /// Load the declarative policies for one scope from its `policies/*.toml` file.
-/// Every loaded policy is asserted to actually carry that scope (a policy in the
-/// wrong file is a bug, not a silent skip).
 pub fn load_scope_policies(scope: Scope) -> Vec<Policy> {
     let path = policies_dir().join(scope.policy_file());
     let text = std::fs::read_to_string(&path)

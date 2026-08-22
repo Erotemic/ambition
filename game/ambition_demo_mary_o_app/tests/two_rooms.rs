@@ -1,7 +1,7 @@
 //! **The demo changes rooms.**
 //!
 //! This is the exit proof for moving the room-transition transaction into the
-//! engine (2026-07-25). Before it, `RoomTransitionRequested` had exactly one
+//! engine. Before it, `RoomTransitionRequested` had exactly one
 //! consumer and only `ambition_app` registered it — so in THIS binary, which
 //! deliberately does not depend on `ambition_app`, the message went into a
 //! registered channel that nothing drained. A second room was not merely
@@ -16,21 +16,14 @@
 //!
 //! ## Driving the stick under either composition
 //!
-//! The scripted stick used to run in `PreUpdate` behind
-//! `#![cfg(not(feature = "input"))]`, which was the WRONG PREDICATE and made
-//! this file red under `cargo test --workspace` for as long as that command has
-//! existed. The cfg reads THIS crate's `input` feature, but what actually
-//! decides whether the participant pipeline owns `ControlFrame` is
-//! `ambition_platformer2d/input` — and workspace feature unification turns that on from
-//! `ambition_app`'s defaults no matter what this crate asked for. So the guard
-//! silently stopped guarding: the file compiled, the pipeline ran in `Update`
-//! and overwrote every `PreUpdate` write, and Mary-O simply never moved.
+//! The cfg reads THIS crate's `input` feature, but what actually decides whether the participant
+//! pipeline owns `ControlFrame` is `ambition_platformer2d/input` — and workspace feature
+//! unification turns that on from `ambition_app`'s defaults no matter what this crate asked for. So
+//! the guard silently stopped guarding: the file compiled, the pipeline ran in `Update` and
+//! overwrote every `PreUpdate` write, and Mary-O simply never moved.
 //!
-//! The fix is to stop guessing and order against the authority: the stick is
-//! written in `Update` after `InputSet::Route`, which is where the pipeline
-//! declares all its `ControlFrame`-writing systems live. That is last-writer-wins
-//! by construction rather than by composition luck, so this proof holds under
-//! `-p` and `--workspace` alike.
+//! That is last-writer-wins by construction rather than by composition luck, so this proof
+//! holds under `-p` and `--workspace` alike.
 
 use ambition_demo_mary_o::level_1_2::LEVEL_1_2_ROOM_ID;
 use ambition_demo_mary_o::powerups::{SpentPowerBlocks, STAR_WAND_ID};
@@ -46,11 +39,8 @@ use bevy::prelude::*;
 
 fn boot() -> App {
     let mut app = build_demo_app();
-    // ⭐ **the ordering lives in ONE place now** — after the participant
-    // pipeline's routing stage and before the frame→tick latch. Eight
-    // fixtures each carried their own copy of that knowledge, and five of
-    // them were still guessing `PreUpdate` on 2026-08-19, where the
-    // pipeline overwrote every scripted write before the sim saw it.
+    // **the ordering lives in ONE place now** — after the participant pipeline's routing stage and
+    // before the frame→tick latch.
     ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
     // Settle activation: the provider publishes its world over several frames.
     for _ in 0..90 {
@@ -128,13 +118,6 @@ fn she_walks_out_of_one_room_and_into_another() {
         "the demo should start on the surface",
     );
 
-    // ⛔ **this used to walk into a DESCENT SHAFT in 1-1's vault, and that shaft
-    // is gone (2026-08-06).** Jon: *"she doesn't just get to go there in the
-    // middle of 1-1 and come back."* The only route from 1-1 to 1-2 is finishing
-    // 1-1, so that is the route this proof drives now — the assertion it was
-    // written for is about the TRANSACTION (the active room changed and the body
-    // is standing in the new geometry), not about which affordance started it.
-    //
     // Set down a short walk from the pole, then WALK into it. The placement is
     // the same concession `level_circuit` makes and for the same reason — 1-1 is
     // 3328px of platforming and this is not a playthrough test — but the last
@@ -163,18 +146,6 @@ fn she_walks_out_of_one_room_and_into_another() {
     // And she is IN the new room, not merely bookkept into it. 1-2's corridor
     // floor is at the bottom of a 14-tile room; 1-1's vault floor is elsewhere,
     // so a body still standing in the old geometry fails this.
-    //
-    // ⚠ **the flip and the body are not the SAME frame on this route.** Under
-    // the deleted descent shaft the transaction that changed the room also moved
-    // the body, so reading the position on the flip frame was safe. The flag
-    // route asks for the room while the sequence still holds her at the pole,
-    // and she is placed at the target room's spawn when it commits — so this
-    // read one frame early and reported her at 1-1's x=3240, which looks exactly
-    // like "the body never moved".
-    //
-    // ⛔ so it WAITS rather than settling a fixed count: a bounded wait that
-    // reports the last position it saw still fails if she never arrives, which a
-    // blind `for 0..120` before the read would have hidden.
     let world_size = {
         let mut query = app.world_mut().query::<&RoomSet>();
         let world = app.world();
@@ -216,10 +187,8 @@ fn the_two_rooms_are_linked_both_ways() {
 
     // A one-way link is a trap door: you can reach 1-2 and never come back.
     //
-    // ⛔ **this asked the LOADING ZONES, and neither room has one any more**
-    // (2026-08-06 — the mid-1-1 round trip Jon rejected was four zones and they
-    // are all deleted). Asking them now would be a check that cannot fail in the
-    // worst way: it would pass on an empty `for`.
+    // Asking them now would be a check that cannot fail in the worst way: it would pass on an
+    // empty `for`.
     //
     // ⭐ **so it asks the route that actually exists.** Finishing a level is what
     // moves you between them, `exit_for_room` is where each level says where
@@ -308,11 +277,6 @@ fn a_body_standing_on_the_ferry_is_carried_by_it() {
 }
 
 /// Where the 1-2 ferry is right now, out of the live platform set.
-///
-/// ⭐ found by its authored ID. It was found by NAME until the converter learned
-/// to read one: a platform's runtime id was the LDtk iid, which the file mints
-/// and nothing outside it can spell, so presentation was the only handle going —
-/// and renaming the platform in the editor would have broken this silently.
 fn ferry(app: &mut App) -> (Vec2, Vec2) {
     let set = app
         .world()
@@ -346,11 +310,6 @@ fn reach_level_1_2(app: &mut App) {
 }
 
 /// Walk the vault and collect what it pays out.
-///
-/// Into the vault through the real directional pipe — stand on the mouth and
-/// press DOWN, the verb Jon asked for — then along its floor. The far end is
-/// masonry (`vault_wall_1`) since the descent shaft was deleted, so holding
-/// right simply stops there.
 fn bank_the_vault_coins(app: &mut App) {
     let mouth = ambition_demo_mary_o::pipe_mouth();
     place_player(app, Vec2::new(mouth.center().x, mouth.center().y - 24.0));
@@ -375,15 +334,8 @@ fn bank_the_vault_coins(app: &mut App) {
 /// A room is a place, not a save file: crossing between them must not reset the
 /// RUN.
 ///
-/// This is the class of bug the level-1 gate already caught once — a body reset
-/// redefined the body (`4e4bd0fd8`), silently, because every test asserted the
-/// value an emitter had just written. So each clause here reads state that
-/// crossing the boundary would plausibly clobber, on both sides of the crossing.
-///
-/// ⚠ crossing while GROWN was the gap this note used to name, and it is covered
-/// now by [`she_crosses_wearing_the_form_she_earned`] below — separately,
-/// because powering her up is a whole beat of its own and folding it in here
-/// would make one failure mean four things.
+/// So each clause here reads state that crossing the boundary would plausibly clobber, on both
+/// sides of the crossing.
 #[test]
 fn the_run_survives_the_crossing() {
     let mut app = boot();
@@ -391,12 +343,8 @@ fn the_run_survives_the_crossing() {
     // Bank the vault's coins FIRST — real currency through the shared economy,
     // not a number poked into a resource.
     //
-    // ⚠ **this used to be a side effect of getting to 1-2, and it stopped being
-    // one.** The route to 1-2 ran along the vault floor to the descent shaft, so
-    // walking to the crossing collected the coins on the way. The shaft is gone
-    // (2026-08-06) and the route is the goal pole, which is nowhere near the
-    // vault — so the walk is its own beat now, and the assertion below is what
-    // said so rather than a comment.
+    // The shaft is gone and the route is the goal pole, which is nowhere near the vault — so the
+    // walk is its own beat now, and the assertion below is what said so rather than a comment.
     bank_the_vault_coins(&mut app);
     let coins = wallet(&mut app);
     assert!(

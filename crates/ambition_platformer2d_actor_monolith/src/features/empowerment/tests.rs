@@ -1,13 +1,8 @@
 //! The composition, asserted as behaviour: each trait acts alone, and both act
 //! together, without either knowing the other exists.
 //!
-//! ⚠ these used to assert that a strike VOLUME existed, and every one of them
-//! passed while contact damage did nothing at all — the volume was published
-//! correctly and `apply_hitbox_damage` dropped it every tick, because a
-//! `HitSide::Player` FollowOwner hitbox is resolved as a melee swing and there
-//! was no swing. Counting the artifact proved the artifact. So the harm tests
-//! now assert the only thing that was ever the point: **something overlapping
-//! takes the hit.**
+//! Counting the artifact proved the artifact. So the harm tests now assert the only thing that was
+//! ever the point: **something overlapping takes the hit.**
 
 use super::*;
 
@@ -58,9 +53,9 @@ fn app_with_striker_and_victim(
             BodyCombat::default(),
         ))
         .id();
-    // ⭐ **the engine installs the clock; this fixture installs only the half a
-    // game chooses.** That is the D152 shape, and building the fixture the other
-    // way (hand-adding `run_empowerments`) would test a composition no game has.
+    // **the engine installs the clock; this fixture installs only the half a game chooses.**
+    // That is the shape, and building the fixture the other way (hand-adding
+    // `run_empowerments`) would test a composition no game has.
     app.add_plugins(EmpowermentLifecyclePlugin);
     app.add_systems(Update, apply_contact_harm.after(EmpowermentExpiry));
     (app, striker, victim)
@@ -205,12 +200,9 @@ fn a_vanished_striker_harms_nothing() {
 /// **Taking the empowerment back releases what it was projecting**, with no
 /// second call at the removal site.
 ///
-/// The failure this pins is silent and permanent: `run_empowerments` can only
-/// write the `EMPOWERED` reason for bodies that still HAVE the component, so a
-/// granter that removes it left the body untouchable forever. Sanic's super form
-/// is exactly that granter, and it carried a hand-written
-/// `invulnerable.set(EMPOWERED, false)` beside its `remove::<Empowered>()` to
-/// cover for it — the two-step ritual whose second step is the one people forget.
+/// Sanic's super form is exactly that granter, and it carried a hand-written
+/// `invulnerable.set(EMPOWERED, false)` beside its `remove::<Empowered>()` to cover for it — the
+/// two-step ritual whose second step is the one people forget.
 ///
 /// So this test removes the component ALONE, which is what a caller who never
 /// read the ritual would do.
@@ -246,18 +238,11 @@ fn removing_the_empowerment_releases_its_invulnerability_without_a_second_call()
 /// **The footgun, closed: a composition that schedules NOTHING still ends a
 /// timed grant.**
 ///
-/// This is the whole of D152. `Empowered::for_seconds(…, 2.0)` says two
-/// seconds, and until the engine installed the clock that sentence was only
-/// true in a game that separately remembered to add `run_empowerments` to its
-/// own schedule — five compositions had remembered, and Smash's respawn
-/// protection is how the sixth would have found out: the grant appeared and
-/// five seconds later still read `remaining: 2.0`.
-///
 /// So this app is deliberately impoverished. It adds the lifecycle plugin and
 /// nothing else — no phases, no ordering, no contact harm — because that is the
 /// composition of the game that has not read this file.
 ///
-/// ⛔ `app.update()` is not one tick of sim time, so the property is polled to a
+/// `app.update()` is not one tick of sim time, so the property is polled to a
 /// ceiling rather than counted out in updates.
 #[test]
 fn a_timed_empowerment_ends_in_a_composition_that_scheduled_nothing() {

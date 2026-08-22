@@ -1,18 +1,15 @@
 //! **The deterministic snapshot vocabulary.**
 //!
-//! ⚠ Lives in the FLOOR — `ambition_platformer2d_core` depends on no workspace crate,
-//! which is what lets every domain implement [`SnapshotState`] for its OWN
-//! types. It was `ambition_platformer2d_runtime::rollback::codec` until 2026-07-30, and
-//! `ambition_platformer2d_runtime` depends on twenty domain crates while none depends on it,
-//! so no domain could: the trait sat above them. The tree recorded that cost as
-//! ~100 foreign impls in one 2688-line file, there because it was the only
-//! place they could compile.
+//! Lives in the FLOOR — `ambition_platformer2d_core` depends on no workspace crate, which is what
+//! lets every domain implement [`SnapshotState`] for its OWN types. The tree recorded that cost as
+//! ~100 foreign impls in one 2688-line file, there because it was the only place they could
+//! compile.
 //!
 //! Carved under the API growth doctrine in `docs/concepts/api-growth.md`, which authorises an internal carve
 //! when a leak cannot be closed without moving code between crates — and
 //! authorises exactly the boundary the leak names.
 //!
-//! ⚠ `CanonicalCodecStrategy` deliberately did NOT come along: it implements
+//! `CanonicalCodecStrategy` deliberately did NOT come along: it implements
 //! `bevy_ggrs::Strategy`, so it is a GGRS bridge, and pulling `bevy_ggrs` into
 //! the floor would make every domain depend on the patched fork that is this
 //! engine's highest-cost consumer leak.
@@ -249,11 +246,7 @@ pub fn paste_put<T: PasteEncode>(out: &mut Vec<u8>, value: T) {
 
 // ── The three authoring macros ──────────────────────────────────────────────
 //
-// ⚠ These are `#[macro_export]`, so every path inside them is `$crate::`-
-// qualified. They expand to `impl SnapshotState for …`, which is why they had
-// to move WITH the trait: the orphan rule binds an impl to the crate that owns
-// either the trait or the type, and after the carve that is the domain crate at
-// the call site — not `ambition_platformer2d_runtime`, where they used to live.
+// These are `#[macro_export]`, so every path inside them is `$crate::`- qualified.
 
 /// A struct whose every field is a `PasteEncode` primitive, read back in the
 /// same order.
@@ -273,7 +266,7 @@ macro_rules! snapshot_pod {
 
 /// A fieldless enum, encoded as one explicitly authored byte per variant.
 ///
-/// ⚠ The codes are AUTHORED, never derived from declaration order: a variant
+/// The codes are AUTHORED, never derived from declaration order: a variant
 /// inserted in the middle would silently renumber every one after it, and a
 /// snapshot decoded across that change would be wrong rather than absent.
 #[macro_export]
@@ -352,7 +345,7 @@ pub struct RequiredRollbackState {
 /// This lets it DO the registering — without naming a rollback backend, and
 /// without a crate above it holding a list of its types.
 ///
-/// ⭐ **why this closes the argument that kept the census central.** Every
+/// **why this closes the argument that kept the census central.** Every
 /// `bevy_ggrs` registration entry point is generic over the concrete type, so
 /// something must monomorphize it — but the monomorphizing call site can be a
 /// TRAIT METHOD the domain invokes, not a line in the netcode crate. The
@@ -361,13 +354,13 @@ pub struct RequiredRollbackState {
 /// list of `T`s: `ambition_platformer2d_rollback_ggrs::AmbitionRollbackApp`
 /// already demonstrated the typed façade, one crate too high up.
 ///
-/// ⚠ **methods are generic, so this trait is NOT object-safe, and must not
+/// **methods are generic, so this trait is NOT object-safe, and must not
 /// become so.** A domain takes `&mut impl RollbackRegistrar`; monomorphisation
 /// happens where the host constructs the concrete registrar. Type-erasing it
 /// would mean an Ambition-owned snapshot layer — a second rollback
 /// implementation, not a seam.
 ///
-/// ⚠ **the FLOOR is the only place it can live.** A domain crate below the
+/// **the FLOOR is the only place it can live.** A domain crate below the
 /// runtime cannot depend on the runtime, and the orphan rule forbids the runtime
 /// implementing a floor trait for foreign `bevy_app::App` — so the implementor
 /// is a runtime-owned WRAPPER around `App`, which is orphan-clean and costs the

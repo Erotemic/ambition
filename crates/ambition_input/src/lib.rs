@@ -97,15 +97,8 @@ pub use seating::{LocalSeatOffer, SessionSeatingSource};
 ///    every system that READS a published frame to drive gameplay runs after
 ///    it.
 ///
-///    ⛔ **it used to say "every system that WRITES the `ControlFrame`
-///    resource", and that definition retired with the resource's job** (D175).
-///    While one global frame WAS the input, membership and the property were the
-///    same sentence. Seats are shaped in their own rows of `SeatRawFrames` now
-///    and `ControlFrame` is seat zero's output mirror, so the membership rule is
-///    the ORDERING the set has always really carried: before the publication
-///    boundary. Two systems that no longer touch that resource — the gesture
-///    derivation and the interact buffer — are still members for exactly that
-///    reason, and are correct to be.
+/// Two systems that no longer touch that resource — the gesture derivation and the interact
+/// buffer — are still members for exactly that reason, and are correct to be.
 ///
 ///    The sandbox pins `Route` before its gameplay consumer, so a
 ///    writer can never "float" past the consume boundary and stamp stale
@@ -153,15 +146,8 @@ pub use rebind::{also_bound_to, bindable, capture, pressed_controls_this_frame};
 pub use settings::{BindingOverride, ControlFilters, OverrideControl, OverrideDeviceClass};
 /// **HOW LOCAL SOURCES BECOME PARTICIPANTS**, and who owns the keyboard when
 /// that is a question.
-///
-/// ⭐ **the count and the policy are ONE statement, and since 2026-08-21 one
-/// value**: a surface that says *two people may play* and stops there gets two
-/// seats and one of them inert, since the default policy gives every device to
-/// the primary participant. Saying the count without saying the policy is the
-/// shape that shipped a dead second seat (TwinTrack, 2026-08-20), so
-/// [`LocalSeatOffer`] carries both under one owner.
 pub use sources::{InputAssignmentPolicy, KeyboardOwner};
-// ⚠ `key_name` joins this list rather than the module being opened: the crate
+// `key_name` joins this list rather than the module being opened: the crate
 // exposes a chosen surface, and a HUD legend needs exactly one function from it.
 pub use presets::{key_name, ActionKeys, KeyboardPreset, MovementKeys, PresetId};
 pub use semantic::{

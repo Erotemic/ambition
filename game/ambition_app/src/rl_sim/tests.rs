@@ -76,9 +76,7 @@ fn agent_action_to_control_frame_preserves_axes() {
 
 #[test]
 fn fixed_timestep_produces_deterministic_trajectory() {
-    // Two sims, same fixed timestep, same action sequence: their
-    // player positions must match exactly at every step. This is
-    // the foundation for replay debugging and RL training.
+    // This is the foundation for replay debugging and RL training.
     let actions = [
         AgentAction::move_x(1.0),
         AgentAction::jump(),
@@ -210,22 +208,18 @@ fn unknown_start_room_does_not_panic_or_error() {
     assert!(!sim.observation().active_room.is_empty());
 }
 
-/// **A CALLER THAT SAYS THE ROOM MUST BE THERE GETS TOLD WHEN IT IS NOT.** (D125)
+/// **A CALLER THAT SAYS THE ROOM MUST BE THERE GETS TOLD WHEN IT IS NOT.**
 ///
-/// ⛔ the sibling above (`unknown_start_room_does_not_panic_or_error`) pins the
+/// the sibling above (`unknown_start_room_does_not_panic_or_error`) pins the
 /// TOLERANT promise, and it stays — a library caller may legitimately name a
 /// room outside the composition it is building. This pins the other half, which
 /// is what almost every test actually means: of the `with_start_room` literals
 /// in the tree, every one names a real room id except that deliberate negative.
 ///
-/// ⭐ **the failure this buys is the one that already cost a room sweep**: it
-/// asked for `central_hub_basement` and `hall_of_bosses_arena`, got the hub
-/// twice, and wrote a valid PNG for a wholly invented id while exiting 0. The
-/// likeliest mistake is naming an LDtk LEVEL (`central_hub_main`) where a
-/// runtime room id (`central_hub_complex`) belongs — which a silent fallback
-/// hides and this does not.
+/// The likeliest mistake is naming an LDtk LEVEL (`central_hub_main`) where a runtime room id
+/// (`central_hub_complex`) belongs — which a silent fallback hides and this does not.
 ///
-/// ⚠ **it PANICS rather than returning `Err`, and that is the existing strict
+/// **it PANICS rather than returning `Err`, and that is the existing strict
 /// path's choice, not a new one** — `capture_scene` has relied on it since the
 /// row that asked for *"FAIL LOUDLY on an unknown room"*. Asserting the panic is
 /// honest about what happens; turning it into an `Err` would be a separate
@@ -241,7 +235,7 @@ fn a_required_start_room_that_does_not_exist_refuses_to_boot() {
     );
 }
 
-/// ⛔ **the non-vacuity half of the guard above**: without this, that test could
+/// **the non-vacuity half of the guard above**: without this, that test could
 /// pass because the REQUIRED form never boots anything at all.
 #[test]
 fn a_required_start_room_that_exists_still_boots() {

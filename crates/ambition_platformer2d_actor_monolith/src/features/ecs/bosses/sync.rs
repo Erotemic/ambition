@@ -19,20 +19,13 @@ pub struct BossSpriteMetricsApplied;
 
 /// Build the shared actor combat read-model snapshot for a boss.
 ///
-/// Bosses still own encounter-specific state through [`BossFeature`] and the
-/// boss encounter registry, but their generic combat shape is now exposed
-/// through the same `ActorIdentity` / `BodyHealth` / `BodyCombat`
-/// components used by NPCs and enemies. This keeps future
-/// faction, targeting, HUD, and held-item work from needing to pattern-match
-/// directly on `BossFeature` for ordinary combat facts.
-/// ⭐⭐ **IT NO LONGER RETURNS A `BodyCombat`** (AC3.2). It used to build one
-/// from the boss's HP and then copy four reaction timers out of the previous
-/// value — the same save/rebuild/restore the actor road did, written by reading
-/// that road's comment, which is how one omission became two. Both lists forgot
-/// `landing_lag_timer`, so a boss that landed out of an authored aerial had its
-/// lag erased on the very next frame.
+/// Bosses still own encounter-specific state through [`BossFeature`] and the boss encounter
+/// registry, but their generic combat shape is now exposed through the same `ActorIdentity` /
+/// `BodyHealth` / `BodyCombat` components used by NPCs and enemies. This keeps future faction,
+/// targeting, HUD, and held-item work from needing to pattern-match directly on `BossFeature` for
+/// ordinary combat facts. **IT NO LONGER RETURNS A `BodyCombat`** (AC3.2).
 ///
-/// ⛔ **a citation is only as correct as the thing it cites.** The comment here
+/// **a citation is only as correct as the thing it cites.** The comment here
 /// said "the same rule as `sync_actor_components_from_cluster`" and it was
 /// accurate; the rule it named was wrong.
 ///
@@ -67,9 +60,7 @@ pub fn sync_boss_actor_components(
     for (feature, _attack_state, action_set, mut combat_kit, mut identity, mut disposition) in
         &mut bosses
     {
-        // ⭐ AC3.1.A: this loop no longer touches `BodyCombat` or `BodyHealth` at
-        // all. Everything it used to derive from them was a mirror; liveness is
-        // read from the authority by whoever needs it.
+        // AC3.1.A: this loop no longer touches `BodyCombat` or `BodyHealth` at all.
         let (next_identity, next_disposition) = boss_component_snapshot(feature.as_boss_ref());
         *combat_kit = CombatKit::from_action_set(action_set);
         *identity = next_identity;
@@ -267,7 +258,7 @@ mod boss_combat_rebuild_contract {
 
     /// **EVERY `BodyCombat` FIELD DECLARES WHO WRITES IT ON THE BOSS ROAD.**
     ///
-    /// ⛔ **the original of this guard recorded a propagated error.**
+    /// **the original of this guard recorded a propagated error.**
     /// `boss_component_snapshot` rebuilt `BodyCombat` and restored a list of
     /// timers *"the same rule as `sync_actor_components_from_cluster`"* — an
     /// accurate citation of a wrong rule, so both roads forgot

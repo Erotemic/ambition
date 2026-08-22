@@ -159,10 +159,8 @@ fn carve_hole_reaches_through_the_surface_grace() {
     assert!((hole.max.x - hole.min.x - 92.0).abs() < 1e-3, "{hole:?}");
 }
 
-/// The PURE vector layer is exact for ARBITRARY (non-cardinal) normals —
-/// pinned at 45° so slanted portals "just work" at this layer when
-/// authoring arrives. (The AABB piece/carve layer above it is documented
-/// cardinal-only; see the module docs and the review report Q8.)
+/// The PURE vector layer is exact for ARBITRARY (non-cardinal) normals — pinned at 45° so
+/// slanted portals "just work" at this layer when authoring arrives.
 #[test]
 fn slanted_normals_are_exact_in_the_vector_layer() {
     let inv_sqrt2 = 1.0 / 2.0_f32.sqrt();

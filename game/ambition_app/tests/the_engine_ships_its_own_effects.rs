@@ -1,15 +1,11 @@
 //! **The engine draws its effects from art the ENGINE ships.**
 //!
-//! ⛔⛔ the defect this closes: `spawn_effect` reached for its art through
-//! `GameAssets.characters.props` — *a map keyed by the LDtk `Prop.kind` field* —
-//! and the only things that ever wrote to it were GAME systems. Ambition's intro
-//! prop table listed `generic_explosions` beside a cart and a piano; nothing else
-//! in the workspace listed any FX sheet at all. So in Smash, Sanic and Mary-O
-//! every effect degraded to one particle burst, forever, while 189 authored
-//! effect rows sat on disk unreachable. An engine that draws an asset has to be
-//! able to ship it.
+//! Ambition's intro prop table listed `generic_explosions` beside a cart and a piano; nothing else
+//! in the workspace listed any FX sheet at all. So in Smash, Sanic and Mary-O every effect degraded
+//! to one particle burst, forever, while 189 authored effect rows sat on disk unreachable. An
+//! engine that draws an asset has to be able to ship it.
 //!
-//! ⚠ **asserted on the composed SHIPPED host**, not a hand-built App: "the
+//! **asserted on the composed SHIPPED host**, not a hand-built App: "the
 //! engine ships it" is a claim about the composition, and a fixture that
 //! inserted the sheets itself would prove nothing about what a player gets.
 
@@ -34,12 +30,8 @@ fn booted() -> App {
 /// the engine rather than re-deriving its lookup is what keeps this from
 /// drifting away from what the renderer does.
 ///
-/// ⚠ **the non-vacuity guard is the first assertion, and it is exact.** The one
-/// registration that ever existed was Ambition's intro prop row for
-/// `generic_explosions`; that row is deleted, so `characters.props` no longer
-/// carries it in this very host. Absent-there and drawable-here together say
-/// the ENGINE is the one shipping the art — and a world where no assets loaded
-/// at all fails the second half rather than passing the first.
+/// Absent-there and drawable-here together say the ENGINE is the one shipping the art — and a
+/// world where no assets loaded at all fails the second half rather than passing the first.
 #[test]
 fn effects_draw_from_engine_shipped_sheets_with_no_game_registering_them() {
     let app = booted();
@@ -62,8 +54,6 @@ fn effects_draw_from_engine_shipped_sheets_with_no_game_registering_them() {
         assets.fx.targets()
     );
 
-    // One from the sheet the old five lived on, one from a sheet nothing could
-    // reach before, one from a per-character effect sheet.
     for (name, sheet) in [
         ("classic_burst", "generic_explosions"),
         ("sonic_boom", "generic_exotic_fx"),

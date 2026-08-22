@@ -6,20 +6,13 @@
 //! answering the *naming* question differently is the day the browser and the
 //! desktop are playing two different games out of two different trees.
 //!
-//! ⚠ **the served-web tree was published from one implementation crate's
-//! `assets/` directory** (`crates/ambition_platformer2d_actor_monolith/assets`)
-//! from 2026-05-17 until this file was written. The composed publication seam
-//! that merges BOTH roots — `scripts/package_asset_guard.py`, which Android and
-//! the Steam Deck deploy already used — arrived 2026-07-21 and the web script
-//! was never migrated to it. So everything the content crate owned was absent
-//! from the browser's `/assets/` — including every `.ldtk` world — and nothing
-//! measured the gap because nothing compared the two platforms' views.
+//! The composed publication seam that merges BOTH roots — `scripts/package_asset_guard.py`,
+//! which Android and the Steam Deck deploy already used — arrived and the web script was never
+//! migrated to it. So everything the content crate owned was absent from the browser's
+//! `/assets/` — including every `.ldtk` world — and nothing measured the gap because nothing
+//! compared the two platforms' views.
 //!
-//! This runs against the PRODUCTION manifest the shipped host builds — not a
-//! fixture — and holds that manifest FIXED while varying only the profile, so
-//! what it measures is exactly "does the platform change the answer".
-//!
-//! ⭐ **the property is about the LOGICAL path, not the string.** A desktop dev
+//! **the property is about the LOGICAL path, not the string.** A desktop dev
 //! checkout may hand back an absolute `LocalPath` so the file watcher can see
 //! it, and a browser may hand back `embedded://…` for the same entry; those are
 //! two mechanisms carrying one name, which is the intended design. What must
@@ -83,9 +76,6 @@ fn production_catalog() -> Platformer2dAssetCatalog {
         .clone()
 }
 
-/// One id per namespace the production manifest actually carries — the
-/// representative set Jon named, resolved from the catalog rather than
-/// hard-coded, so a renamed asset does not silently drop a kind from the audit.
 fn representative_ids(catalog: &Platformer2dAssetCatalog) -> Vec<AssetId> {
     let namespaces = [
         "data",       // platformer_defaults.ron
@@ -129,7 +119,7 @@ fn divergences(catalog: &Platformer2dAssetCatalog, ids: &[AssetId]) -> Vec<Strin
         };
         let desktop = resolve(AssetProfile::DesktopDevLoose);
         let web = resolve(AssetProfile::WebServedAssets);
-        // ⚠ the entry's own `logical_path` is the arbiter, not the desktop
+        // the entry's own `logical_path` is the arbiter, not the desktop
         // answer. Comparing the two platforms to each other would pass happily
         // if BOTH drifted off the manifest together.
         let logical = strip_scheme(&entry.logical_path.replace('\\', "/")).to_string();
@@ -206,7 +196,7 @@ fn every_manifest_entry_names_the_same_file_on_both_platforms() {
     );
 }
 
-/// ⛔ **THE POISON.** Every assertion above passes when two resolutions agree,
+/// **THE POISON.** Every assertion above passes when two resolutions agree,
 /// so a comparison that cannot tell two different files apart would pass
 /// vacuously — which is exactly the failure mode of a suffix match written
 /// without a boundary check (`".../boss.png"` "matching" `".../miniboss.png"`).

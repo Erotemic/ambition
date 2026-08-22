@@ -35,14 +35,12 @@ impl CharacterBodyKind {
     /// The height a character of this kind stands, in world px, when its row
     /// does not say.
     ///
-    /// ⚠ **only `Standard` answers, and that narrowness is the design.** The
-    /// complaint was about HUMANOIDS being mutually out of scale; a crawler, a
-    /// floating drone and a wide body have no shared height to be consistent
-    /// about, and inventing one for them would be changing sizes to satisfy a
-    /// pattern rather than a report. They keep the old derivation until somebody
-    /// authors a number or brings a complaint.
+    /// **only `Standard` answers, and that narrowness is the design.** The complaint was about
+    /// HUMANOIDS being mutually out of scale; a crawler, a floating drone and a wide body have
+    /// no shared height to be consistent about, and inventing one for them would be changing
+    /// sizes to satisfy a pattern rather than a report.
     ///
-    /// ⭐ **48.0 is not invented: it is the protagonist.** `player_robot_v3`
+    /// **48.0 is not invented: it is the protagonist.** `player_robot_v3`
     /// resolves to a 30x48 body through the sprite-authored seam, so a Standard
     /// character now stands exactly as tall as the character the player looks at
     /// most. A reference the game already contains beats a plausible number.
@@ -429,7 +427,7 @@ pub enum BarkSituation {
     /// **A conversation with this character was left rather than finished** —
     /// the other party walked, fell, or was carried out of talking range.
     ///
-    /// ⛔ deliberately NOT "the conversation was interrupted". A conversation
+    /// deliberately NOT "the conversation was interrupted". A conversation
     /// broken by a HIT already barks: `npc_hit_bark_line` fires on every strike
     /// and falls back to a generic line when a character authored none, so a
     /// second bubble for one event would be worse than none. Walking away is
@@ -523,15 +521,10 @@ pub struct CharacterPortraitRef {
 pub struct CharacterCatalogEntry {
     /// **Which provider authored this row**, filled in by ASSEMBLY.
     ///
-    /// ⭐ **the namespace, taken from the authority that owns it** (2026-08-12,
-    /// ledger D81). `qualify_preset_like` used to infer a character's provider by
-    /// splitting `default_brain`'s assembled `provider::name` — its own doc calls
-    /// that out — which quietly made a preset reference load-bearing for
-    /// something that has nothing to do with brains. The cost showed up when a
-    /// migrated character tried to stop naming a preset: the Hall's override
-    /// validation lost the namespace and the full-host check failed.
+    /// The cost showed up when a migrated character tried to stop naming a preset: the Hall's
+    /// override validation lost the namespace and the full-host check failed.
     ///
-    /// ⚠ **EMPTY in an unassembled fragment**, which is honest rather than a gap:
+    /// **EMPTY in an unassembled fragment**, which is honest rather than a gap:
     /// a fragment does not know its own provider until it is registered under
     /// one, and `#[serde(default)]` means no authored row writes this.
     #[serde(default)]
@@ -556,20 +549,14 @@ pub struct CharacterCatalogEntry {
     /// visible body.** `None` falls back to
     /// [`CharacterBodyKind::default_standing_height`].
     ///
-    /// ⭐ **the one quantity a viewer actually compares, and it was authored
+    /// **the one quantity a viewer actually compares, and it was authored
     /// NOWHERE.** A catalog character's on-screen size was
     /// `authored LDtk spawn box × collision_scale × (body / frame)` — two
     /// per-character guesses and a room's spawn rectangle. Nothing in that
     /// product is a statement about height, so nothing could be consistent about
     /// one, and the Hall of Characters drew comparable humanoids across a 2x
     /// range: the goblin taller than the robots, one goblin half the other
-    /// (measured from a capture, 2026-08-04, queue D4).
-    ///
-    /// This is the same direction the definition side already took —
-    /// `BodySource::SpriteAuthored { world_per_pixel }` and
-    /// `MARY_O_STANDING_HEIGHT` — moved down to the authority the Hall's cast
-    /// actually has. A 140-row catalog produces no `CharacterDefinition`, so the
-    /// recipe that fixed the player robot could never reach it.
+    /// .
     #[serde(default)]
     pub standing_height: Option<f32>,
     /// Optional layered composition (multi-part sprites). `None` for
@@ -578,20 +565,10 @@ pub struct CharacterCatalogEntry {
     pub composition: Option<Vec<CompositionLayer>>,
     /// Name of the preset in `brain_presets` to apply by default.
     ///
-    /// ⭐ **EMPTY means this character names no preset**, which is a real answer
-    /// rather than a gap (2026-08-12, ledger D81). A character whose DEFINITION
-    /// authors an autonomous `BrainProfile` does not use this field —
-    /// `resolve_npc_brain` ranks the definition above it and the enemy road
-    /// builds character-first — so requiring one made a migrated creature name a
-    /// vocabulary it had left. The stochastic parrot is the case: it authored
-    /// `Aerial, aggro 620, attack_range 60` on its definition while its row still
-    /// pointed at a preset saying 120 and 0, and the preset could not be deleted
-    /// because the row had to name SOMETHING.
+    /// ⇒ omit it and the preset dies with its last namer, which is what retirement is: one
+    /// vocabulary, reached by subtraction.
     ///
-    /// ⇒ omit it and the preset dies with its last namer, which is what D81's
-    /// retirement is: one vocabulary, reached by subtraction.
-    ///
-    /// ⚠ **`#[serde(default)]` rather than `Option`, and the reason is churn**:
+    /// **`#[serde(default)]` rather than `Option`, and the reason is churn**:
     /// 144 shipped rows write this field as a bare string, and RON does not
     /// accept those for an `Option` without `implicit_some`. Empty had no prior
     /// meaning here, so this is the FIRST meaning on that emptiness rather than a
@@ -623,17 +600,11 @@ pub struct CharacterCatalogEntry {
     /// **The sheet this character's melee draws its swing from.** `None` means
     /// UNAUTHORED, which is a real authored answer and not a gap to paper over.
     ///
-    /// The slash sheet used to be a `const` in the renderer, so every body in
-    /// the game — the protagonist, its enemies, a boss — swung the same four
-    /// rows. That was already wrong and got worse when the art started being
-    /// shaped to a specific character's hit polygon: another character naming it
-    /// wears a silhouette cut for someone else's volume.
-    ///
     /// Several characters MAY name the same sheet; that is sharing, and it is
     /// fine as long as their polygons are compatible. What is not fine is
     /// inheriting one by default, which is why the default is `None`.
     ///
-    /// ⚠ `None` does not mean invisible. A body with no authored attack VFX
+    /// `None` does not mean invisible. A body with no authored attack VFX
     /// draws its hit volume directly, as a translucent shape, so an unauthored
     /// attack is legible in play instead of silent — see
     /// `ambition_render`'s unauthored-volume pass. An unresolvable id is a
@@ -697,14 +668,10 @@ pub struct CharacterCatalogEntry {
 }
 
 impl CharacterCatalogEntry {
-    /// The sheet-manifest record key for this character: the manifest
-    /// filename root (e.g. `sprites/pirate_admiral_spritesheet.ron`
-    /// -> `pirate_admiral`). Multiple catalog ids that point at the SAME
-    /// `manifest` path share one generated sheet (texture + record both);
-    /// each character with its own art reads its own manifest. (Cross-id
-    /// atlas borrowing was removed — it broke once sheets became
-    /// per-frame alpha-trimmed: own texture + a foreign sheet's rects
-    /// misaligned the animation.)
+    /// The sheet-manifest record key for this character: the manifest filename root (e.g.
+    /// `sprites/pirate_admiral_spritesheet.ron` -> `pirate_admiral`). Multiple catalog ids that
+    /// point at the SAME `manifest` path share one generated sheet (texture + record both);
+    /// each character with its own art reads its own manifest.
     pub fn manifest_target(&self) -> Option<&str> {
         let file = self.manifest.rsplit('/').next()?;
         file.strip_suffix("_spritesheet.ron")
@@ -801,12 +768,10 @@ pub enum BrainPreset {
     /// **The FB4b fighter brain** — L1 classify, L2 options, L3 rollout, on a
     /// human cadence with an APM ceiling.
     ///
-    /// ⚠ added 2026-07-31 because the rig had NO AUTHORING PATH. It existed,
-    /// was tested, and no content could select it: `BrainPreset` is the only
-    /// vocabulary a catalog row has for choosing a brain, and there was no
-    /// variant for this one. That is the third time in a day the same shape has
-    /// turned up here — a capability built, correct, and unreachable from where
-    /// a consumer stands (the named-seat driver seam, the inert rollback
+    /// It existed, was tested, and no content could select it: `BrainPreset` is the only vocabulary
+    /// a catalog row has for choosing a brain, and there was no variant for this one. That is the
+    /// third time in a day the same shape has turned up here — a capability built, correct, and
+    /// unreachable from where a consumer stands (the named-seat driver seam, the inert rollback
     /// registration, and now this).
     ///
     /// `level` picks a rung of the ladder. The other knobs are the ones a stage
@@ -928,27 +893,19 @@ pub struct ActionSetPreset {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct CharacterCatalogData {
-    /// **Reusable autonomous-controller profiles, by name** — the second of the
-    /// three authorities identified during D73 (see
-    /// `docs/archive/planning-superseded/2026-08-13/overnight-campaign-2026-08-11.md`),
-    /// authored once and NAMED by any number of characters.
+    /// A character could carry a [`crate:brain:BrainProfile`] by VALUE
+    /// (`CharacterDefinition:autonomous_profile`) or name a [`BrainPreset`] by key — and those
+    /// are different vocabularies read by different roads, so the old architecture coupled
+    /// autonomous policy to body identity.
     ///
-    /// ⭐ **the missing sentence that gated Group B and Group C** (ledger D80). A
-    /// character could carry a [`crate::brain::BrainProfile`] by VALUE
-    /// (`CharacterDefinition::autonomous_profile`) or name a [`BrainPreset`] by
-    /// key — and those are different vocabularies read by different roads, so
-    /// the old architecture coupled autonomous policy to body identity. D73
-    /// deleted that whole-body archetype authority; reusable profiles are now
-    /// explicitly policy that multiple character bodies may name.
-    ///
-    /// ⚠ deliberately NOT [`BrainPreset`], and the difference is the point: a
+    /// deliberately NOT [`BrainPreset`], and the difference is the point: a
     /// preset authors ABSOLUTE speeds (`chase_speed`, `cruise_speed`) while a
     /// profile authors normalized EFFORT against the body's own `run_speed`
     /// (§4.7). Merging the two vocabularies needs the BODY, which a preset does
     /// not know; this map sidesteps that by being the profile vocabulary from
     /// the start. The presets are untouched.
     ///
-    /// ⚠ namespaced per provider on assembly, exactly like the presets beside
+    /// namespaced per provider on assembly, exactly like the presets beside
     /// it, so two games may both author a `"striker"` without colliding.
     #[serde(default)]
     pub autonomous_profiles: BTreeMap<String, crate::brain::BrainProfile>,

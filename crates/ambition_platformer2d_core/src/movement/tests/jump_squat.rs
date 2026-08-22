@@ -1,7 +1,7 @@
 //! Jump-squat: the grounded startup a jump owes before the body leaves the
 //! floor.
 //!
-//! ⭐ this is what makes a jump COMMITTAL — the window in which a platform
+//! this is what makes a jump COMMITTAL — the window in which a platform
 //! fighter can be struck out of its own takeoff and an opponent can react to the
 //! crouch. It is authored per body rather than globally because a body without a
 //! squat is not a badly-tuned fighter, it is a different game: Mary-O's SMB1
@@ -16,7 +16,7 @@ use crate::{AbilitySet, Vec2};
 
 const DT: f32 = 1.0 / 60.0;
 
-/// A body at REST on the shared test world's floor. ⚠ the world's spawn hangs a
+/// A body at REST on the shared test world's floor. the world's spawn hangs a
 /// little above the floor, so the body is dropped onto it rather than having
 /// `on_ground` set by hand — a hand-set flag survives exactly one tick here and
 /// then the integrator corrects it, which silently un-grounds the fixture.
@@ -57,11 +57,9 @@ fn jump_input(pressed: bool, held: bool, released: bool) -> InputState {
     }
 }
 
-/// ⭐⭐ **the invariant, and its poison in one test.** A squat body owes its
-/// crouch before it moves; a body that authored no squat leaps on the press
-/// tick. The second half is the poison that matters, because EVERY body in the
-/// game today is in it — a squat that leaked into the default would change how
-/// Mary-O jumps, and nothing else here would notice.
+/// The second half is the poison that matters, because EVERY body in the game today is in it —
+/// a squat that leaked into the default would change how Mary-O jumps, and nothing else here
+/// would notice.
 #[test]
 fn a_squat_delays_the_leap_and_no_squat_leaves_the_press_tick_untouched() {
     let squat_s = 3.0 * DT;
@@ -131,7 +129,7 @@ fn a_squat_delays_the_leap_and_no_squat_leaves_the_press_tick_untouched() {
     );
 }
 
-/// ⭐ a squat is the thing you can be knocked OUT of. Losing the floor mid-crouch
+/// a squat is the thing you can be knocked OUT of. Losing the floor mid-crouch
 /// voids the leap rather than owing it in the air — without this the startup
 /// buys the attacker nothing, which is the entire reason it exists.
 #[test]
@@ -162,10 +160,8 @@ fn losing_the_floor_mid_squat_voids_the_leap() {
     );
 }
 
-/// The release edge that shortens a hop lands DURING the crouch, where there is
-/// no ascent to cut. ⛔ the fix is to defer that release to the takeoff through
-/// the body's own variable-jump law — NOT to author a second "short hop" speed
-/// beside it, which would be two mechanisms for one feel knob.
+/// The release edge that shortens a hop lands DURING the crouch, where there is no ascent to
+/// cut.
 #[test]
 fn a_button_released_during_the_squat_still_shortens_the_hop() {
     let squat = 3.0 * DT;

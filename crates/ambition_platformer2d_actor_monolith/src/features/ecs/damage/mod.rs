@@ -124,10 +124,8 @@ pub struct FeatureHitWriters<'w, 's> {
 impl FeatureHitWriters<'_, '_> {
     /// The presentation source for one body, if it has one.
     ///
-    /// Returns an OWNED id rather than a reference: callers need it alongside
-    /// `&mut writers.sfx`, and a borrow of `self` cannot coexist with that. One
-    /// small clone per LANDED hit is a price worth paying to keep the emitter's
-    /// signature honest about taking two different sources.
+    /// Returns an OWNED id rather than a reference: callers need it alongside `&mut writers.sfx`,
+    /// and a borrow of `self` cannot coexist with that.
     pub fn source_of(
         &self,
         entity: Option<bevy::prelude::Entity>,
@@ -143,7 +141,7 @@ impl FeatureHitWriters<'_, '_> {
     /// Owned for the same reason [`Self::source_of`] is owned: the drop sites
     /// need it alongside `&mut writers.commands`.
     ///
-    /// ⚠ **read, never spelled.** `SimId::placement(feature_id)` would reproduce
+    /// **read, never spelled.** `SimId::placement(feature_id)` would reproduce
     /// today's value for every drop parent in the shipped game, and that is
     /// exactly the shortcut `SimId::as_str`'s doc forbids — provenance is a
     /// component the entity carries so that changing the id grammar cannot
@@ -170,19 +168,15 @@ impl FeatureHitWriters<'_, '_> {
 
 /// Resolve the identity a drop will descend from, or refuse the drop loudly.
 ///
-/// ⛔ **a drop that cannot name its parent must not spawn** — the same rule
-/// `apply_summon_effects` applies to a summon, and here it is not even a
-/// trade. `rebuild_dynamic_feature_views` selects loot by provenance, so an
-/// unprovenanced coin is a coin NO render family claims: the player walks over
-/// `draw_unclaimed_feature_views`' magenta diagnostic box, and the
-/// room-transition cover — which holds the screen until no stand-in remains —
-/// sits out its whole 8-second deadline over it. Skipping is how the defect
-/// gets a log line naming the body that needs identity instead of a magenta
-/// box the player has to report.
+/// **a drop that cannot name its parent must not spawn** — the same rule `apply_summon_effects`
+/// applies to a summon, and here it is not even a trade. `rebuild_dynamic_feature_views` selects
+/// loot by provenance, so an unprovenanced coin is a coin NO render family claims: the player walks
+/// over `draw_unclaimed_feature_views`' magenta diagnostic box, and the room-transition cover —
+/// which holds the screen until no stand-in remains — sits out its whole 8-second deadline over it.
 ///
 /// Empirically this never fires in the shipped game: every drop parent is
 /// built by the construction executor, which stamps `SimId` before the recipe
-/// runs (probed 2026-08-08 across `proving_grounds`' whole cast).
+/// runs (probed across `proving_grounds`' whole cast).
 fn drop_parent(
     writers: &FeatureHitWriters<'_, '_>,
     entity: Entity,
@@ -309,13 +303,9 @@ pub fn apply_feature_hit_events(
             // fighter's KO is the match's business; the world's death economy is
             // not invited.
             //
-            // `ActiveCombatant`: is this body IN a fight right now? ⛔ **a
-            // different question, and one flag used to answer both.** Death
-            // ownership decides what happens AFTER a KO; participation decides
-            // whether a landed hit takes health at all. They correlate for a
-            // fighter mid-round and diverge the moment it is eliminated — the
-            // body stays standing, its death still belongs to the match, and it
-            // is not fighting any more.
+            // They correlate for a fighter mid-round and diverge the moment it is eliminated — the
+            // body stays standing, its death still belongs to the match, and it is not fighting any
+            // more.
             (
                 Option<&'static crate::combat::CombatTuning>,
                 bevy::prelude::Has<crate::combat::components::RulesetOwnsDeath>,
@@ -356,13 +346,10 @@ pub fn apply_feature_hit_events(
         ),
         (With<FeatureSimEntity>, Without<crate::actor::PlayerEntity>),
     >,
-    // Hitstop / flash on a successful player attack apply to the
-    // attacker that landed the hit. Iterates every player and uses
-    // `HitEvent::attacker` (now stamped by every player-attacker
-    // emit site — slash, pogo, and player projectile). Events with
-    // `attacker = None` remain unattributed unless the source is one of the
-    // legacy player-originated variants whose producer predates explicit
-    // attacker stamping. Enemy/environmental hits never borrow the primary
+    // Iterates every player and uses `HitEvent::attacker` (now stamped by every player-attacker
+    // emit site — slash, pogo, and player projectile). Events with `attacker = None` remain
+    // unattributed unless the source is one of the legacy player-originated variants whose producer
+    // predates explicit attacker stamping. Enemy/environmental hits never borrow the primary
     // player's identity.
     mut player_combat_q: Query<
         (
@@ -382,11 +369,6 @@ pub fn apply_feature_hit_events(
         ),
     >,
     mut writers: FeatureHitWriters,
-    // CM4: the attacker's playing move learns its strike CONNECTED (the
-    // combo-confirm fact behind `OnHit`/`OnWhiff` cancel conditions). This
-    // resolver is the one place a `Volume`-target strike (a player-effective
-    // slash) is known to have actually landed on someone; pre-resolved
-    // victim events are marked by `mark_move_playback_landed_hits`.
     mut attacker_moves: Query<&mut crate::combat::moveset::MovePlayback>,
     // The player's OUTGOING damage scale (the power slider). `Option` so minimal
     // headless test worlds that never stand up settings still run at the neutral
@@ -400,10 +382,6 @@ pub fn apply_feature_hit_events(
     // components and conflict with nothing here, including the mutable boss
     // query above. Bundled into one param because this system is at Bevy's
     // 16-param ceiling.
-    //
-    // Which bodies hit HEAVY, and which a human is driving. Both used to be
-    // pattern matches on the cause vocabulary; both are facts about the striker,
-    // and the event names the striker.
     (heavy_attackers, controlled_attackers, combat_sides): (
         Query<(), With<ambition_boss_encounter::BossConfig>>,
         Query<(), With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>,
@@ -447,14 +425,10 @@ pub fn apply_feature_hit_events(
         // slider. Scale once, before any victim reads `event.damage`; projectiles
         // are already scaled at spawn, so melee-only avoids double-scaling.
         //
-        // ⛔ **whose melee this is comes from the ATTACKER, not from the source
-        // word.** It used to be `matches!(event.source, PlayerSlash)` — which
-        // read as "a player's slash" and actually meant "a slash filed under the
-        // player-side spelling". A possessed enemy's swing carries that spelling
-        // and an empowered ally's does not, so the slider reached the wrong
-        // strikes in both directions. And it blocks the cause-vocabulary fold
-        // outright: once one `Melee` covers every swing, this gate would scale
-        // ENEMY damage by the player's own multiplier.
+        // A possessed enemy's swing carries that spelling and an empowered ally's does not, so the
+        // slider reached the wrong strikes in both directions. And it blocks the cause-vocabulary
+        // fold outright: once one `Melee` covers every swing, this gate would scale ENEMY damage by
+        // the player's own multiplier.
         let attacker_is_controlled = event
             .attacker
             .is_some_and(|attacker| controlled_attackers.contains(attacker));
@@ -524,7 +498,7 @@ pub fn apply_feature_hit_events(
         // otherwise an `EnemyBody` event would damage the same enemy
         // that emitted it when the volume overlaps its own AABB.
         //
-        // ⭐ `UnresolvedFeatures` passes on its TARGET, not on its source word: the
+        // `UnresolvedFeatures` passes on its TARGET, not on its source word: the
         // target already says this is a strike hunting for what it could not
         // name. Asking `seeks_victims` as well would drop every enemy swing's
         // unresolved half, since the direction words file those victim-side.
@@ -558,11 +532,11 @@ pub fn apply_feature_hit_events(
                     continue;
                 }
             }
-            // ⛔ **IDENTITY BEATS EVERY RELATIONSHIP RULE** — the body resolver's
+            // **IDENTITY BEATS EVERY RELATIONSHIP RULE** — the body resolver's
             // first line, and this scan did not have it. A broadcast that
             // overlaps its own emitter damaged it.
             //
-            // ⚠ **the DIRECTION words were doing this job**, which is why nobody
+            // **the DIRECTION words were doing this job**, which is why nobody
             // noticed: a body-contact hit was filed victim-side, the drain
             // skipped every victim-side broadcast, and the self-hit could not
             // arise. Fold the direction out of the vocabulary and the protection
@@ -589,7 +563,7 @@ pub fn apply_feature_hit_events(
             // The victim's held locomotion (local frame) drives DI (CM2).
             let di_input_local = control.map(|c| c.0.locomotion.vec()).unwrap_or_default();
             let mut em = cq.as_actor_mut();
-            // Structural tangibility gate (Jon 2026-07-22): a dead body is an
+            // Structural tangibility gate: a dead body is an
             // intangible corpse — a strike neither lands on it nor barks back.
             // This is the ONE place the player-slash actor path consults
             // tangibility, so the peaceful branch (which has no alive check of its
@@ -637,7 +611,7 @@ pub fn apply_feature_hit_events(
         // answered by the same function, that the body resolver asks of every
         // other victim.
         //
-        // ⛔ **this scan asked nothing at all.** It damaged any boss an
+        // **this scan asked nothing at all.** It damaged any boss an
         // attacker-side volume reached, and got away with it because only the
         // player was allowed to broadcast one — so a boss's "who may hurt me"
         // rule was encoded as *who is permitted to emit a broadcast*, in another
@@ -645,7 +619,7 @@ pub fn apply_feature_hit_events(
         // fold dissolves, and a rule that lives in who-may-speak cannot survive
         // everyone being able to speak.
         //
-        // ⚠ an UNATTRIBUTED hit still lands. A broadcast with no attacker cannot
+        // an UNATTRIBUTED hit still lands. A broadcast with no attacker cannot
         // be adjudicated, and refusing it would silently disarm the hazard and
         // scripted-blast paths that legitimately carry no entity.
         let may_damage_boss = |boss_entity: Entity| {
@@ -708,19 +682,15 @@ pub fn apply_feature_hit_events(
             }
         }
 
-        // ⭐⭐ **WHO STRUCK, asked ONCE per event** (AC7, probe B). The rule
+        // **WHO STRUCK, asked ONCE per event** (AC7, probe B). The rule
         // below stood here and again 150 lines down, and the two copies did not
         // agree: this one refuses to guess unless the event is an unresolved
         // BROADCAST from a victim-seeking source, and the breakable fold simply
         // wrote `event.attacker.or_else(|| primary_q.single().ok())` — any melee
         // with no attacker credited whichever body happens to be the home avatar.
         //
-        // ⛔ **the reasoning is this copy's own and it is the correct one**:
-        // *"We do not know who did this" is true of a broadcast and of nothing
-        // else. A `Body`-targeted event with no attacker is a producer bug, and
-        // blaming the nearest human hides it.* Probe B asks which body-generic
-        // systems reach for `PrimaryPlayer` merely to LOCATE a body; this was one,
-        // twice, and now it is one rule that both readers share.
+        // **the reasoning is this copy's own and it is the correct one**: *"We do not know who
+        // did this" is true of a broadcast and of nothing else.
         let unresolved_broadcast = matches!(
             event.target,
             crate::combat::events::HitTarget::Volume
@@ -733,7 +703,7 @@ pub fn apply_feature_hit_events(
                 .flatten()
         });
         if actor_hit_this_event || boss_hit_this_event {
-            // ⛔ **an UNRESOLVED broadcast may fall back to the primary; a hit
+            // **an UNRESOLVED broadcast may fall back to the primary; a hit
             // that named its victim may not.** This used to ask
             // `source.defaults_to_primary_attacker()` — a list of the
             // player-spelled causes — which is the same question asked through
@@ -742,9 +712,7 @@ pub fn apply_feature_hit_events(
             // and carries no entity owner would credit the player with the
             // confirm, the hitstop and the per-swing bookkeeping.
             //
-            // "We do not know who did this" is true of a broadcast and of
-            // nothing else. A `Body`-targeted event with no attacker is a
-            // producer bug, and blaming the nearest human hides it.
+            // "We do not know who did this" is true of a broadcast and of nothing else.
             if let Some(attacker) = target_attacker {
                 let record_dedup = matches!(event.source, HitSource::Melee);
                 // CM4: the strike connected — the attacker's playing move
@@ -764,15 +732,9 @@ pub fn apply_feature_hit_events(
                     if entity != attacker {
                         continue;
                     }
-                    // CM8 free cleanup: read the declared `attack_hitstop_time`
-                    // (0.055) that previously had NO reader — the attacker's
-                    // hit-landed hitstop was hardcoded 0.06. Now the feel field is
-                    // authoritative.
-                    // ⭐ **the attacker freezes for exactly as long as its victim**,
-                    // from the one hitlag law, scaled by the hit it just landed.
-                    // Two unscaled constants at two sites used to decide this,
-                    // and a connect that reads as one event cannot be built out
-                    // of two numbers that may drift.
+                    // Now the feel field is authoritative. **the attacker freezes for exactly
+                    // as long as its victim**, from the one hitlag law, scaled by the hit it
+                    // just landed.
                     combat.hitstop_timer = combat.hitstop_timer.max(
                         ambition_platformer2d_core::hit_response::hitlag_duration(
                             event.knockback.as_ref(),
@@ -782,16 +744,7 @@ pub fn apply_feature_hit_events(
                             ),
                         ),
                     );
-                    // ⛔ **A PROJECTILE HIT DOES NOT FLASH ITS THROWER.** The
-                    // attacker flash is CONTACT feel — it reads as "that connected
-                    // on my body", which is true for a slash or a pogo bounce and
-                    // false for a shot that landed somewhere across the room.
-                    // Jon, from play: *"maryo flashes when her fireball hits an
-                    // enemy. that should not happen."*
-                    //
-                    // ⚠ the HITSTOP above is kept deliberately: the brief hold on
-                    // impact is what makes a shot feel like it hit something, and
-                    // nobody reported that. Only the body-flash is wrong.
+                    // Only the body-flash is wrong.
                     if !matches!(event.source, HitSource::Projectile) {
                         combat.hit_flash = combat.hit_flash.max(0.10);
                     }
@@ -814,11 +767,7 @@ pub fn apply_feature_hit_events(
             // the ATTACKER's feel (hitstop / flash / combo-confirm dedup).
         }
 
-        // Struck breakables, keyed for the one-hit-per-target dedup. Unlike actors
-        // (i-frames) and bosses, a breakable carries NO post-hit invuln, and its
-        // loop runs AFTER the actor/boss fold-back — so before this it was never
-        // entered into the accumulator and a lingering player strike re-smashed it
-        // (and re-fired its Impact FX) every active tick. Collected here and folded
+        // Struck breakables, keyed for the one-hit-per-target dedup. Collected here and folded
         // below, exactly like the factioned targets.
         let mut breakable_keys: Vec<String> = Vec::new();
         for (entity, id, name, aabb, mut feature) in

@@ -215,7 +215,7 @@ fn burning_shark_enemy() -> super::actor_clusters::ActorClusterSeed {
         ambition_entity_catalog::placements::CharacterBrain::Custom("fixture_mount".into()),
         &[],
     );
-    // ⭐ **the capability is STATED, because it is the input under test.** It
+    // **the capability is STATED, because it is the input under test.** It
     // arrived from the `fixture_mount` archetype row's `charge_crash_explodes`
     // until AC6 deleted the rows; a death trait is a character's fact now, and
     // the function below takes the resolved capability rather than a body.

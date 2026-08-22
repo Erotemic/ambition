@@ -1,10 +1,5 @@
 //! **Bob's repertoire** — the engineer, and the one who RECEIVES.
 //!
-//! ⭐ **written 2026-08-16**, beside [`crate::alice_moveset`] and for the same
-//! reason: measured before a line of it, Bob was one of four fighters on the
-//! grid at **0/16** — no table, no action set, and no unarmed floor reaching his
-//! body either. Every press was silence.
-//!
 //! ## The character, from his own name
 //!
 //! Alice sends and Bob receives, and the pair's split is the design. Where hers
@@ -20,9 +15,6 @@
 //!   bob       26 px     0.07 s          16          slow, and it lands
 //! ```
 //!
-//! ⚠ **his effects are the generic vocabulary, deliberately** — no authored FX
-//! sheet of his own yet, and Jon's *"It doesn't have to be fancy"* is the licence
-//! for `gear_scatter`, `electric_arc`, `steam_vent`, `hit_metal` and `shockwave`.
 //! Every one is a row a shipped generic sheet carries.
 
 use ambition_characters::smash_capture::{
@@ -353,16 +345,13 @@ pub fn bob_moveset() -> MovesetContract {
     let down_b = vfx_at(down_b, 0.18, "landing_puff", (0.0, 22.0), SHOP_FX);
     let down_b = on_contact(down_b, "player.hit");
 
-    // ── 2026-08-16: THE OTHER POSTURE ────────────────────────────────────────
-    //
-    // Jon: *"A down-b that has special airborne properties should also have an
     // effect on ground. Think of bowser down b. In the air he just does a
     // downward slam, but on the ground, it causes him to jump in an arc and then
     // slam. Specials can have different effects in different contexts that
     // should be ok, and makes for a richer smash game, although in most cases
     // they shouldn't be context dependent."*
     //
-    // ⛔ a special gated to ONE posture is not answered in the other — the
+    // a special gated to ONE posture is not answered in the other — the
     // directional chain walks straight past it to the NEUTRAL special, so a
     // player pressing down-B in the air got the neutral-B. `special_air_down`
     // sits ahead of `special_down` in that chain and has the whole time; this is
@@ -389,7 +378,7 @@ pub fn bob_moveset() -> MovesetContract {
     let air_down_b = on_contact(air_down_b, "player.hit");
     // **BOB'S CAPTURE KIT.** Heavy and slow: the longest reach and the hardest single
     // pummel, paid for with the worst startup and recovery. One beat, and it hurts.
-    // ⚠ the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
+    // the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
     // and each table's own `every_clip_names_a_row_..._sheet_carries` guard says
     // so. `ClipBinding`'s fallbacks would have covered it at runtime, but a move
     // that NAMES a row nobody publishes is a lie the guard is right to refuse.
@@ -473,12 +462,11 @@ pub fn bob_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: up_b,
-        // ⭐ **AUTHORED 2026-08-19, at Jon's ask that every fighter in the smash
-        // roster have a grab.** The transitional `None` is gone: capture was
-        // proven on George and the Pirate Admiral, and the whole point of
-        // proving it was to stop being the only two.
+        // **AUTHORED, at the rule that every fighter in the smash roster have a grab.** The
+        // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
+        // the whole point of proving it was to stop being the only two.
         //
-        // ⚠ the VALUES are per character on purpose. A roster whose grabs are
+        // the VALUES are per character on purpose. A roster whose grabs are
         // twelve copies of one number set is one grab wearing twelve names.
         capture: SmashCaptureRepertoire {
             cues: CaptureCues::GENERIC,
@@ -501,8 +489,6 @@ pub fn bob_moveset() -> MovesetContract {
 mod tests {
     use super::*;
 
-    // ⭐⭐ **RETIRED 2026-08-16 — the per-file verb-map test.**
-    //
     // Fourteen fighters each carried a copy of it: every bound verb names a move
     // this table defines, and the table binds the whole vocabulary. Both are now
     // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb

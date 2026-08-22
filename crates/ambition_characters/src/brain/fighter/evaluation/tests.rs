@@ -34,7 +34,7 @@ fn the_report_covers_every_scenario_the_suite_names() {
 
 /// **Every rung stays inside the press budget it authors — and actually presses.**
 ///
-/// ⛔ the non-vacuity half is the point. This check first went in while the rig
+/// the non-vacuity half is the point. This check first went in while the rig
 /// handed the brain no attack kit: zero presses, within every cap, green and
 /// worthless. The `presses` assertion is what stops it returning to that state
 /// if a future change empties the kit again.
@@ -61,13 +61,13 @@ fn no_rung_presses_faster_than_its_profile_allows() {
 
 /// **The ladder is ordered by press rate.**
 ///
-/// ⚠ **this is a narrower claim than "stronger levels win", and deliberately
+/// **this is a narrower claim than "stronger levels win", and deliberately
 /// so.** Winning is a survival/damage question that needs two bodies fighting;
 /// this rig has one brain and a scripted opponent. What it can say is that the
 /// rungs are not interchangeable and that they order the way the ladder intends:
 /// mean APM rises monotonically, 28.5 at L1 to 103.5 at L9.
 ///
-/// ⭐ and one calibration fact worth keeping: every rung sits near a QUARTER of
+/// and one calibration fact worth keeping: every rung sits near a QUARTER of
 /// its own cap. The caps are not what separates the levels — reaction and
 /// decision cadence are — so raising a cap alone would move nothing.
 #[test]

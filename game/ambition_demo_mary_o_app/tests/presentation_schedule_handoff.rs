@@ -1,15 +1,6 @@
-//! **The fixed-tick half of the presentation/camera handoff.**
-//!
-//! Bevy ordering constraints are SCHEDULE-LOCAL. The gameplay-presentation
-//! cluster runs in `Update`; the camera observation resolve used to run in
-//! `app.sim_schedule()`, which for this demo is `FixedUpdate`. The
-//! `.before`/`.after` edges between them were therefore inert here — they
-//! compiled, they read as guarantees, and they constrained nothing.
-//!
-//! The symptom is not a crash. It is a one-frame MIXTURE: the physical
-//! `Camera.viewport` describes this frame's layout while the camera snapshot
-//! still describes last frame's, so the world is framed for a viewport it is
-//! no longer being drawn into.
+//! It is a one-frame MIXTURE: the physical `Camera.viewport` describes this frame's layout
+//! while the camera snapshot still describes last frame's, so the world is framed for a
+//! viewport it is no longer being drawn into.
 //!
 //! This is the real Super Mary-O composition — the same `build_windowed_demo_app`
 //! the demo binary uses, on `PlatformerEnginePlugins::fixed_tick()`, with the
@@ -155,8 +146,6 @@ fn player_exists(app: &mut App) -> bool {
         .is_some()
 }
 
-/// Mary-O's declared 4:3 profile reaches every consumer coherently on a
-/// fixed-tick host, both at rest and across a live resize.
 #[test]
 fn fixed_tick_mary_o_keeps_one_layout_across_a_resize() {
     let mut app = mary_o_app(DISPLAY);

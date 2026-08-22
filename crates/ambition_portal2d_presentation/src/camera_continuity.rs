@@ -15,11 +15,7 @@ pub enum PortalCameraTransitMode {
     /// The host camera behaves normally. If its focus teleports, the camera
     /// pops/snaps/lerps exactly as the host camera system normally would.
     Pop,
-    /// Portal camera continuity: when the active viewpoint focus transfers
-    /// through a portal, map the previous visible camera center through the
-    /// same portal BODY map that moved the focus, then keep the focus at that
-    /// exact screen-space offset only while it remains in the aperture. Any
-    /// roll is immediate and clears as soon as normal camera policy resumes.
+    /// Any roll is immediate and clears as soon as normal camera policy resumes.
     Continuous,
 }
 
@@ -139,8 +135,6 @@ pub struct PortalCameraContinuityHostView {
     /// Monotonic count of host camera samples. Useful in logs to verify the
     /// continuity system is reading a fresh host camera value each frame.
     pub sample_index: u64,
-    /// Previous rendered gameplay camera center in world coordinates, before
-    /// the latest host camera-follow sample.
     pub previous_center_world: Vec2,
     /// Current rendered gameplay camera center in world coordinates. This is
     /// the entry-side anchor for a transfer.

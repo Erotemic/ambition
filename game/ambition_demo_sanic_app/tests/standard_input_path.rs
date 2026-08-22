@@ -1,10 +1,7 @@
 //! **S0 — the standard host-input path, proven end to end.**
 //!
-//! Synthetic keyboard input → the normal leafwing action state → the standard
-//! device→`ControlFrame` bridge → the fixed-tick latch → `SlotControls` → the
-//! canonical player's brain → observable movement. This is the SAME production
-//! wiring the full app runs (`PlatformerHostPlugins` under the `input` feature),
-//! assembled by the demo's own `build_demo_app`; nothing here inserts a
+//! This is the SAME production wiring the full app runs (`PlatformerHostPlugins` under the
+//! `input` feature), assembled by the demo's own `build_demo_app`; nothing here inserts a
 //! `ControlFrame` directly or adds a Sanic-specific input adapter.
 //!
 //! The test asserts observable movement (the load-bearing claim) plus the
@@ -103,7 +100,7 @@ fn synthetic_keyboard_moves_the_player_through_the_standard_path() {
         "the host bridge must emit a rightward ControlFrame from held ArrowRight; got {frame:?}"
     );
 
-    // 3./4. The fixed-tick latch delivered that frame to the player's slot.
+    // 3./4.
     let slot = app
         .world()
         .resource::<SlotControls>()
@@ -213,13 +210,10 @@ fn without_input_the_player_does_not_drift_right() {
 /// This is stronger than inspecting ActionSet: it drives the production keyboard
 /// bridge and observes both the sanitized ActorControl and inert body state.
 ///
-/// The demo steps a FIXED tick (it does not fire every frame), and `attack` /
-/// `projectile` are rising edges (`just_pressed`), so a single read would race
-/// the latch. We hold the shield level and re-arm the attack/projectile edges
-/// across a window, ACCUMULATING what the slot saw and what the body ever did.
-/// That is robust to tick timing and a stronger claim than a one-frame snapshot:
-/// the standard path must deliver every host combat input, and the peaceful kit
-/// must suppress every one of them on every frame.
+/// We hold the shield level and re-arm the attack/projectile edges across a window,
+/// ACCUMULATING what the slot saw and what the body ever did. That is robust to tick timing and
+/// a stronger claim than a one-frame snapshot: the standard path must deliver every host combat
+/// input, and the peaceful kit must suppress every one of them on every frame.
 #[test]
 fn peaceful_sanic_filters_host_combat_inputs_before_effects() {
     use ambition_platformer2d::characters::brain::ActorControl;
@@ -247,8 +241,7 @@ fn peaceful_sanic_filters_host_combat_inputs_before_effects() {
     for i in 0..120 {
         {
             let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
-            // Toggle X/V so `just_pressed` re-arms every other frame — at least one
-            // rising edge then coincides with a fixed tick. Hold E as a level.
+            // Hold E as a level.
             if i % 2 == 0 {
                 keys.press(KeyCode::KeyX);
                 keys.press(KeyCode::KeyV);
@@ -355,11 +348,10 @@ fn down_plus_x_revs_and_releasing_down_launches_the_ball_dash() {
         app.update();
     }
 
-    // Re-arm X until one edge crosses a fixed tick. While Down is held the
-    // body must enter its compact mode and the shared animation picker must
-    // request DashStartup (or a sheet fallback from that row), rather than
-    // freezing on idle. Stop as soon as the state proves a launchable charge;
-    // an arbitrary post-charge delay would test charge decay, not release.
+    // While Down is held the body must enter its compact mode and the shared animation picker
+    // must request DashStartup (or a sheet fallback from that row), rather than freezing on
+    // idle. Stop as soon as the state proves a launchable charge; an arbitrary post-charge
+    // delay would test charge decay, not release.
     let tuning = BallDashTuning::default();
     let mut max_charge = 0.0_f32;
     let mut slot_saw_attack = false;

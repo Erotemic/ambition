@@ -1,8 +1,5 @@
 //! Ledge-grab runtime: probing for a grabbable ledge, ticking the active
 //! climb/roll/getup clusters, grab classification, and the launch-boost math.
-//!
-//! Split out of the former 934-line `ledge_grab/mod.rs` (2026-06-15). The pure
-//! position/curve helpers stay in the parent and are reached via `use super::*`.
 
 use super::*;
 use crate::geometry::{Aabb, AabbExt};
@@ -40,12 +37,7 @@ const LEDGE_LATCH_TOL: f32 = 8.0;
 
 /// Is `contact` the ledge of THIS block, under this frame?
 ///
-/// ⭐ **it inverts [`probe_ledge_grab_in_frame`]'s anchor/climb formulas, which
-/// is why it lives beside them.** It used to live in the world crate, phrased
-/// over a `MovingPlatformState`, where the two copies of the same arithmetic
-/// could drift with nothing to notice: a change to the probe's `- 1.0` /
-/// `- 4.0` face offsets silently stopped every moving platform from matching
-/// its own rider's hang. Same file, same constants, one place to change.
+/// Same file, same constants, one place to change.
 ///
 /// The final range test rejects a block that merely shares a lip coordinate
 /// with the real one — the climb target must be inboard of THIS block.
@@ -111,16 +103,10 @@ pub enum LedgeCarry {
 /// solid's [`crate::world::Block::velocity`].* Static geometry carries `ZERO`, so
 /// a hang on an ordinary wall is the degenerate case rather than a separate road.
 ///
-/// ⛔ **this used to be player-only, and nothing about it was.** The carry lived
-/// in the actor monolith's home-body integration, reached through a
-/// `&[MovingPlatformState]` parameter that `integrate_actor_body` was never
-/// given — so an enemy or NPC that latched onto a moving platform's ledge (the
-/// hang state is kernel-owned and carries no player marker) was simply left
-/// behind by it, and could be dragged through a wall the player would be knocked
-/// off by. Reading `Block::velocity` off the collision world instead removes the
-/// parameter, and with it the reason the rule could only run on one body.
+/// Reading `Block::velocity` off the collision world instead removes the parameter, and with it the
+/// reason the rule could only run on one body.
 ///
-/// ⚠ **the carrier is excluded from the wall test by IDENTITY, not by kind.** The
+/// **the carrier is excluded from the wall test by IDENTITY, not by kind.** The
 /// old site passed the *base* world, relying on the platform being composited in
 /// separately; that is an accident of composition order, and it would have
 /// started knocking every rider off the first time a moving solid was authored
@@ -238,9 +224,7 @@ pub fn probe_ledge_grab_in_frame(
             continue;
         }
 
-        // The space directly above the platform (away from the feet) must be
-        // clear. These local-frame formulas are the old probe/hang/climb centers
-        // with x/y replaced by side/down coordinates.
+        // The space directly above the platform (away from the feet) must be clear.
         let probe_center = point_from_frame_coords(
             frame,
             block_wall_side - side_normal * (player_side_half - 1.0),
@@ -660,10 +644,6 @@ pub fn ledge_boost_for_state_in_frame(
     )
 }
 
-/// The boost weight (0..1) at the time a getup was initiated. Used
-/// to scale both the launch velocity AND the transition duration —
-/// so a high-momentum getup runs faster AND exits faster, rather
-/// than just teleporting fast at the end of a frozen animation.
 pub fn ledge_boost_weight_for_state(state: LedgeGrabState, tuning: &AxisSweptParams) -> f32 {
     if !state.grab_quality.is_precise() {
         return 0.0;
@@ -793,7 +773,7 @@ pub fn try_start_ledge_grab_clusters_in_frame(
     // grab. Reuses `dodge_roll_timer` because that field already gates
     // damage — same pipeline, single source of truth.
     //
-    // ⭐ **and it is EARNED, not flat.** The window is bought with the time this
+    // **and it is EARNED, not flat.** The window is bought with the time this
     // body spent off a ledge, so a fighter that was knocked away and recovered
     // gets all of it and one that drops and instantly re-catches gets the floor.
     // A flat grant made the edge a free reset you could hold forever.

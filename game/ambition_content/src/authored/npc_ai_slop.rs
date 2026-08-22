@@ -3,7 +3,7 @@
 //! pedestal — which is the ontology this campaign is about: one
 //! character, two contexts.
 //!
-//! ⚠ its catalog row's `default_brain` is `melee_brute_striker`, and that
+//! its catalog row's `default_brain` is `melee_brute_striker`, and that
 //! is NOT what this authors. The catalog default is what a PEACEFUL Hall
 //! NPC of this character does; the profile below is what the placed enemy
 //! does, and they are allowed to differ because the first is a catalog

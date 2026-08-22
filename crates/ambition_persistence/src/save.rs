@@ -56,22 +56,15 @@ pub fn save_path_under(root: &Path) -> PathBuf {
 
 /// A save read from disk, together with whether this build may write over it.
 ///
-/// The second field is the point. Every failure path here produces a usable
-/// `AmbitionGameSaveData` — that is the long-standing and correct choice, since a
-/// player would rather start a fresh sandbox than stare at a crash — but
-/// "usable" and "safe to commit over the original" are different facts, and
-/// collapsing them is how an unreadable file becomes a destroyed one on the next
-/// autosave.
+/// The second field is the point.
 #[derive(Clone, Debug)]
 pub struct LoadedSave {
     pub data: AmbitionGameSaveData,
     /// False when the file on disk holds something this build must not replace:
     /// a save from an incompatible schema, or bytes it could not parse at all.
     pub writable: bool,
-    /// True when `data` no longer matches the bytes on disk because a migration
-    /// ran. The caller must NOT record it as the persisted shadow — see
-    /// [`load_save_at_startup`], where doing exactly that left upgraded files
-    /// un-upgraded on disk.
+    /// The caller must NOT record it as the persisted shadow — see [`load_save_at_startup`],
+    /// where doing exactly that left upgraded files un-upgraded on disk.
     pub upgraded: bool,
 }
 
@@ -102,10 +95,8 @@ pub fn load_save(path: &Path) -> LoadedSave {
             return LoadedSave::fresh();
         }
         Err(error) => {
-            // The file EXISTS and could not be read (permissions, a bad mount, a
-            // transient I/O error). Playing on is fine; overwriting it is not —
-            // the next attempt might succeed, and it cannot if this session
-            // replaced the file with a blank one.
+            // The file EXISTS and could not be read (permissions, a bad mount, a transient I/O
+            // error).
             warn!(
                 target: "ambition_platformer2d::save",
                 "could not read save file {}: {error}; playing on a fresh sandbox \
@@ -131,8 +122,7 @@ pub fn load_save(path: &Path) -> LoadedSave {
                 LoadedSave {
                     data: save,
                     writable: true,
-                    // The bytes on disk are still the OLD version. Saying so is
-                    // what gets them rewritten.
+                    // Saying so is what gets them rewritten.
                     upgraded: true,
                 }
             }
@@ -179,9 +169,9 @@ pub fn load_save(path: &Path) -> LoadedSave {
     }
 }
 
-/// Commit through a temp file. If replacing the destination by rename is not
-/// supported, move the old file aside first and restore it if installing the new
-/// file fails. A failed save must leave either the old or the new file intact.
+/// If replacing the destination by rename is not supported, move the old file aside first and
+/// restore it if installing the new file fails. A failed save must leave either the old or the
+/// new file intact.
 pub fn write_save(path: &Path, save: &AmbitionGameSaveData) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
@@ -280,21 +270,15 @@ pub struct LastPersistedSave(
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))] Option<AmbitionGameSaveData>,
 );
 
-/// Bevy update system: commit the save to disk when it no longer matches what
-/// is there, and only while the simulation holds no predicted state.
-///
 /// The confirmation gate is the load-bearing half. A rollback host advances
 /// frames using a guess at what a remote peer did; the world therefore holds
 /// state that may be rewound and recomputed. Writing that to disk records a
 /// guess as history — and unlike a sound, which is merely heard once and wrong,
 /// a save file outlives the session that produced it.
 ///
-/// `world_state_is_confirmed` is true whenever nothing is predicted, which on
-/// every non-rollback host is *always*, so a fixed-tick or headless game keeps
-/// writing exactly when it did before. Under a rollback session it means the
-/// autosave waits for a moment with no outstanding predictions rather than
-/// racing them; if that moment never comes, not autosaving is the correct
-/// outcome, not a missed one.
+/// Under a rollback session it means the autosave waits for a moment with no outstanding
+/// predictions rather than racing them; if that moment never comes, not autosaving is the
+/// correct outcome, not a missed one.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn autosave_sandbox_save(
     save: Res<AmbitionGameSave>,
@@ -507,10 +491,7 @@ mod tests {
 
     /// A save written by a NEWER build survives being opened by an older one.
     ///
-    /// This is the failure that cannot be undone: the player runs a new build,
-    /// makes progress, launches the old one for any reason, and the old one
-    /// writes its own understanding over a file it could not read. Playing on a
-    /// fresh sandbox is fine. Committing that sandbox is not.
+    /// Playing on a fresh sandbox is fine. Committing that sandbox is not.
     #[test]
     fn an_older_build_never_writes_over_a_newer_builds_save() {
         let _g = crate::lock_data_dir();
@@ -564,8 +545,6 @@ mod tests {
             .init_resource::<crate::settings::UserSettings>()
             .add_plugins(crate::PersistenceSchedulePlugin);
 
-        // This update runs the real startup loader. The regression was a
-        // debug_assert inside migration that panicked here on `version: 0`.
         app.update();
 
         assert_eq!(

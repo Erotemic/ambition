@@ -1,15 +1,6 @@
-//! Boss sprite upgrade + animation (the boss spritesheet resolver and per-boss
-//! animation). Split out of the actors renderer god-module; imports the shared
-//! sprite-build helpers + the marker components / z-constants explicitly.
-//!
-//! **A two-part boss is two linked actors, not two render layers.** The old
-//! split-layer render (fable review C7) drew a giant's body behind one-way
-//! platforms and its hands in front of the player, from a `{boss_key}_body` +
-//! `{boss_key}_hands` sheet convention. GNU-ton was its only instance, and the
-//! ADR-0020 mount/rider split superseded it: the giant is a real mount ACTOR
-//! whose hands are real limb bodies the rider boss's strikes drive. Render-only
-//! layers can't be hit, possessed, or killed; limbs can. Deleted in the E6
-//! teardown (`refactor-chain.md` R2).
+//! GNU-ton was its only instance, and the ADR-0020 mount/rider split superseded it: the giant
+//! is a real mount ACTOR whose hands are real limb bodies the rider boss's strikes drive.
+//! Render-only layers can't be hit, possessed, or killed; limbs can.
 
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
@@ -97,7 +88,7 @@ pub fn upgrade_boss_sprites(
         sprite.custom_size = Some(render_size);
         // `with_render_basis` lets a trimmed (alpha-packed) boss sheet recompute
         // per-frame size/anchor in `animate_bosses`; untrimmed sheets ignore it.
-        // `try_insert`: REPRODUCED, not reasoned (queue L24). The boss visual is
+        // `try_insert`: REPRODUCED, not reasoned. The boss visual is
         // a `FeatureVisual`, and `despawn_dead_dynamic_feature_visuals` retires
         // exactly those when a feature's view disappears — a boss dying on the
         // frame its sheet finishes loading is the ordinary way to hit it.
@@ -116,7 +107,7 @@ pub fn upgrade_boss_sprites(
 /// Camera shake and follow read the pose it resolves, so they run after it —
 /// "this frame's resolved snapshot, not last frame's", per the host's own note.
 ///
-/// ⚠ ONE member, and the neighbour is the reason: `manage_gradient_lane_visual`
+/// ONE member, and the neighbour is the reason: `manage_gradient_lane_visual`
 /// is chained immediately after specifically so it can READ the move-derived
 /// `BossAttackState` this system produces. Including it would make the camera
 /// wait on a hazard visual it has nothing to do with.
@@ -125,11 +116,8 @@ pub struct BossAnimation;
 
 /// Per-frame state-driven animation for boss entities.
 pub fn animate_bosses(
-    // The boss frame read-model (E4 slice 7): facing flip + attack-telegraph tint
-    // facts resolved sim-side into `BossFrameIndex`, PLUS the SIM-owned draw cursor
-    // (`cursor_anim`/`cursor_frame`). The frame is not derived here: the sim owns it
-    // (`drive_boss_animators`), and this system mirrors the published cursor into
-    // the draw-only animator and renders it.
+    // The frame is not derived here: the sim owns it (`drive_boss_animators`), and this system
+    // mirrors the published cursor into the draw-only animator and renders it.
     boss_frames: Res<ambition_sim_view::BossFrameIndex>,
     // The draw cursor is READ from `boss_frames` (the by-id read-model), NOT from a
     // `&BossAnimFrame` component: this presentation entity is a `FeatureVisual`
@@ -194,10 +182,8 @@ pub fn animate_bosses(
             gravity.dir_at(state.pos),
         ) ^ animator.spec.authored_faces_left;
         sprite.flip_x = flip;
-        // Alpha-trimmed (atlas-packed) boss sheets: re-derive per-frame size +
-        // anchor so the logical frame stays fixed. `render_of` is `None` for
-        // untrimmed sheets, so those keep their spawn-time size/anchor. The
-        // anchor x mirrors with the same facing flip applied to the sprite.
+        // `render_of` is `None` for untrimmed sheets, so those keep their spawn-time
+        // size/anchor. The anchor x mirrors with the same facing flip applied to the sprite.
         if let (Some((size, mut anchor_v)), Some(mut anchor)) =
             (animator.render_of(cursor_anim, cursor_frame), anchor)
         {

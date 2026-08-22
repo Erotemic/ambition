@@ -15,12 +15,11 @@
 //! from `ActorControl`; the raw `ControlFrame` is no longer consulted inside
 //! the player simulation phases.
 //!
-//! ⛔⛔ **THAT SENTENCE WAS FALSE FOR THE WHOLE LIFE OF THE CAPTURE MECHANIC**
-//! (2026-08-18). `grab_pressed` was not in the carry list, so a human's Grab
+//! **THAT SENTENCE WAS FALSE FOR THE WHOLE LIFE OF THE CAPTURE MECHANIC**
+//! . `grab_pressed` was not in the carry list, so a human's Grab
 //! button reached the input layer, the seat, the abilities and the action
 //! scheme — and stopped here. A CPU could grab, because AI brains write
 //! `ActorControl` directly and never call this function; a person could not.
-//! Jon found it by playing: *"grab doesn't work on george when I press the
 //! button that says grab."*
 //!
 //! ⇒ the paragraph above is now GUARDED rather than asserted. See the
@@ -74,15 +73,10 @@ pub fn tick_player_brain_from_control(
 ) {
     *out = crate::actor::control::ActorControlFrame::neutral();
 
-    // ⛔⛔ **EXHAUSTIVE ON PURPOSE, AND IT IS THE GUARD FOR A DEFECT THAT
-    // SHIPPED.** This function reads `c.<field>` one field at a time, so a field
-    // nobody reads is indistinguishable from a field nobody NEEDS — which is
-    // exactly how `grab_pressed` stayed absent while every other layer of the
-    // capture road was built, tested and documented. A struct pattern with no
-    // `..` makes adding a `ControlFrame` field a COMPILE ERROR right here, so
-    // the next verb cannot be silently human-unreachable.
+    // A struct pattern with no `..` makes adding a `ControlFrame` field a COMPILE ERROR right
+    // here, so the next verb cannot be silently human-unreachable.
     //
-    // ⚠ **every binding is `_` and that is the point**: this states a DECISION,
+    // **every binding is `_` and that is the point**: this states a DECISION,
     // it reads nothing. The real reads stay below where they are legible, and
     // this list stays a list of answered questions.
     let ControlFrame {
@@ -143,11 +137,6 @@ pub fn tick_player_brain_from_control(
         snapshot.movement_frame_mode,
         ambition_platformer2d_core::ScreenAxes::new(c.axis_x, c.axis_y),
     );
-    // ⛔ **this used to end in `.vec()`, and that single call is how the defect
-    // got in.** `resolve_control` hands back a typed `LocalAxes`; stripping it to
-    // a bare `Vec2` right at the seam meant every use below — locomotion, facing,
-    // attack axis, and the WORLD-space `velocity_target` — looked identical to the
-    // compiler. Keeping the type is what forces line ~115 to say `to_world`.
     let local_axis = resolved.local_axes;
     let raw_aim = ae::Vec2::new(c.aim_x, c.aim_y);
     let local_aim = if raw_aim.length() > 0.1 {
@@ -176,19 +165,11 @@ pub fn tick_player_brain_from_control(
     // player passes `max_run_speed == 0` (its integrator ignores this field), so
     // this is inert for the grounded avatar.
     //
-    // ⛔ **`velocity_target` is WORLD-SPACE and this wrote a LOCAL vector.** Its
+    // **`velocity_target` is WORLD-SPACE and this wrote a LOCAL vector.** Its
     // own doc says "exact world-space velocity command in px/s", and every other
     // writer agrees — `limbs.rs` sends `(home_world - pos) * gain`, and the smash
     // shadow model assigns it straight to `f.vel`. Only this one handed it the
     // body-local stick.
-    //
-    // ⚠ invisible under screen-down gravity, where `to_world` is the identity;
-    // it bites a POSSESSED FLYER in a rotated frame, which is precisely the
-    // body-generic case the comment above promises to serve. Sibling of the
-    // fighter brain's `locomotion.x` defect (S48) — same struct, adjacent field,
-    // opposite direction: that one wrote world into a local field, this wrote
-    // local into a world one, and both compile because both fields are a bare
-    // `Vec2`.
     out.velocity_target = ae::WorldVec2(frame.to_world(local_axis.vec()) * snapshot.max_run_speed);
 
     // Facing: prefer local side intent; fall back to snapshot facing when stick
@@ -230,30 +211,18 @@ pub fn tick_player_brain_from_control(
     out.jump_held = c.jump_held;
     out.jump_released = c.jump_released;
 
-    // Drop-through: nothing to write. The engine derives the gesture from
-    // `descend + jump_pressed` at the consumer (`wants_drop_through`), which is
-    // why it is gravity- and input-mode-relative — and `locomotion` + the jump
-    // edge above are already both of its ingredients. This used to zero a
-    // `drop_through` field on the frame; that field was the same refusal
-    // written as a declaration, and it is deleted (D126.2).
-    // Human-controlled bodies do not become passive contact hazards
-    // unless a specific mode opts in.
     out.body_contact_damage_enabled = false;
 
     // Burst, interact, shield, grab, special.
     out.burst_pressed = c.burst_pressed;
     out.interact_pressed = c.interact_pressed;
     out.shield_held = c.shield_held;
-    // ⛔⛔ **THE LINE THAT WAS NOT HERE, AND THE WHOLE CAPTURE MECHANIC WAS
-    // UNREACHABLE BY A HUMAN BECAUSE OF IT** (Jon, 2026-08-18: *"grab doesn't
-    // work on george when I press the button that says grab, at least I don't
-    // see anything happen"*). Everything else existed: the pad bound Y to Grab,
-    // the seat's `ControlFrame.grab_pressed` was set, the body had
-    // `AbilitySet::grab` and a `ControlSlot::Grab`, George authored the move —
-    // and this brain, the ONE seam a human's frame crosses to reach a body,
-    // never copied the field.
+    // Everything else existed: the pad bound Y to Grab, the seat's `ControlFrame.grab_pressed`
+    // was set, the body had `AbilitySet:grab` and a `ControlSlot:Grab`, George authored the
+    // move — and this brain, the ONE seam a human's frame crosses to reach a body, never copied
+    // the field.
     //
-    // ⚠ **`ActorControl::grab_pressed`'s own doc asserted the opposite**: *"the
+    // **`ActorControl::grab_pressed`'s own doc asserted the opposite**: *"the
     // human's Grab button and a CPU's decision write this SAME field. There is
     // deliberately no `cpu_wants_grab` beside it."* The design was right and the
     // carry list simply never learned it, so the comment described an intent the

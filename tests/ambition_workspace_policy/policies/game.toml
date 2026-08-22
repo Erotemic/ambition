@@ -155,29 +155,9 @@ allow = [
     "ambition_demo_sanic",
     "ambition_demo_pocket",
     "ambition_demo_mary_o",
-    # The smash demo, on the same footing as the other hosted games. It joined
-    # the app when Smash reached the title screen (`14de494d1`) and this list was
-    # not updated, so `cargo test --workspace` has been RED since — a launcher
-    # row leading to a game is the intended shape, not the violation this policy
-    # exists to catch. (2026-07-31)
     "ambition_demo_smash",
-    # TwinTrack, the special-relativity demo, on the same footing as the rest.
-    # ⚠ **the SECOND time an overlay added a hosted game and left this list
-    # behind** — `ambition_demo_smash` did it in `14de494d1` and turned
-    # `cargo test --workspace` red until somebody noticed. A launcher row leading
-    # to a game is the intended shape; the policy exists to catch a dependency
-    # that ISN'T that, and a provider the shell already registers is not it.
-    # (2026-08-05)
     "ambition_demo_twintrack",
     "ambition_sim_harness",
-    # ⛔ **the causal instrument, and the app is where it is TURNED ON.** The
-    # feature chain reached every domain recorder and NOTHING enabled it — measured
-    # 2026-08-01, `causal` resolved false for every crate in the default workspace
-    # build and `ambition_app` had no such feature at all, so every recorder was
-    # compiled out of every build the app produces while the per-crate feature jobs
-    # stayed green. Fixing that added this dependency and this list was not updated,
-    # which is the SECOND time this policy has gone red for a deliberate edge whose
-    # allowlist entry was forgotten (see `ambition_demo_smash` above). (2026-08-02)
     "ambition_causal",
 ]
 manifest = "game/ambition_app/Cargo.toml"
@@ -351,14 +331,12 @@ scope = "game"
 kind = "file-contains"
 owners = ["ambition_app"]
 watch_paths = ["game/ambition_app/src/app/sim_systems.rs"]
-# NARROWED 2026-07-21 (tracks 2.5). This used to also require
-# `apply_room_replay_request_system` here. That system is the ONE consumer of
-# `RoomReplayRequested`, and keeping it app-side is exactly what made a demo
-# app's restart inert: `ambition_demo_*_app` depends on `ambition_platformer2d`, never on
-# `ambition_app`, so the message went into a channel nothing drained. It now
-# lives in `ambition_platformer2d_runtime::sandbox_reset` and rides `PlatformerEnginePlugins`
-# into every host. What genuinely stays app-side is the reset INPUT system,
-# because the button binding is Ambition's own.
+# That system is the ONE consumer of `RoomReplayRequested`, and keeping it app-side is exactly what
+# made a demo app's restart inert: `ambition_demo_*_app` depends on `ambition_platformer2d`, never
+# on `ambition_app`, so the message went into a channel nothing drained. It now lives in
+# `ambition_platformer2d_runtime::sandbox_reset` and rides `PlatformerEnginePlugins` into every
+# host. What genuinely stays app-side is the reset INPUT system, because the button binding is
+# Ambition's own.
 rationale = "the reset-input binding is the app's; the replay consumer is the engine's"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
@@ -447,11 +425,9 @@ scope = "game"
 kind = "forbidden-path"
 owners = ["ambition_menu"]
 watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
-# ⭐ this used to REQUIRE `src/menu/map` in the monolith ("lib menu keeps only
-# map hydration/UI adapters"). D33 (2026-08-17) moved that adapter into
-# `ambition_menu::map`, beside the `MapMenuState` it always rendered, so the
-# requirement became false and the guard had to change SIDES rather than be
-# deleted: the monolith now owns no menu at all.
+# moved that adapter into `ambition_menu:map`, beside the `MapMenuState` it always rendered, so
+# the requirement became false and the guard had to change SIDES rather than be deleted: the
+# monolith now owns no menu at all.
 rationale = "the actor monolith owns no menu; the Map tab lives in ambition_menu::map"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
@@ -587,7 +563,6 @@ severity = "error"
 roots = ["game/ambition_app/src", "crates/ambition_platformer2d_actor_monolith/src"]
 forbid = ["ambition_platformer2d_actor_monolith::persistence::settings", "ambition_platformer2d_actor_monolith::menu::ir"]
 
-# ── frontend campaign (2026-07-13): providers stay host-ignorant ──
 
 [[policy]]
 id = "game.providers-are-host-ignorant"

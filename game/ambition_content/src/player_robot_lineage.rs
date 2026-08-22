@@ -9,13 +9,9 @@
 //!
 //! # These are separate characters, not variants of one
 //!
-//! That distinction is the whole design and it is easy to lose. A "player robot"
-//! with a version *parameter* would be one character wearing three coats, and
-//! every system downstream would have to learn what a version is in order to ask
-//! anything useful. What exists instead is three characters that happen to share
-//! a face: each has its own stable id, its own art, and its own kit — v0 is
-//! peaceful, v2 swings the generic striker swipe the protagonist used to carry,
-//! v3 carries the host-code kit — and nothing downstream knows they are related.
+//! That distinction is the whole design and it is easy to lose. A "player robot" with a version
+//! *parameter* would be one character wearing three coats, and every system downstream would have
+//! to learn what a version is in order to ask anything useful.
 //!
 //! # What the sharing is, and what it is NOT
 //!
@@ -30,7 +26,7 @@
 //! — which is the same shape `versus_fighters::DuelistNumbers` uses for the two
 //! duelists, and for the same reason.
 //!
-//! ⚠ [`Lineage::derived_from`] is **provenance, not authority**. It records that
+//! [`Lineage::derived_from`] is **provenance, not authority**. It records that
 //! v3 replaced v2; nothing resolves through it, and no field of v3 is inherited
 //! from v2. A reader who treats it as an inheritance edge has reintroduced the
 //! patch layer this design exists to refuse.
@@ -44,11 +40,7 @@ use ambition_platformer2d_actor_monolith::character_runtime::{
 
 /// One incarnation of the player robot: everything about it that is not shared.
 ///
-/// Deliberately TWO fields, and it had four. **Jon ruled 2026-07-31 that each
-/// robot version is a different character** — so a version's FACTS (its name,
-/// its sheet, its physicals, its voice) belong to that character's content row,
-/// and what Rust owns is the reusable lineage COMPOSITION: who exists, and which
-/// one replaced which.
+/// Deliberately TWO fields, and it had four.
 ///
 /// `display_name` and `sheet` lived here AND in `character_catalog.ron`, with
 /// nothing deciding which won per field — the AF4b duplicate-authority row. The
@@ -71,9 +63,7 @@ pub struct Incarnation {
     pub replaces: Option<&'static str>,
 }
 
-// ⚠ **no `voice` field, and its removal is AF4b** (Jon ruled 2026-07-31: each
-// version is a different CHARACTER, so version-specific facts belong to the
-// per-character content row and Rust owns reusable lineage COMPOSITION).
+// **no `voice` field, and its removal is AF4b**.
 //
 // It was authored here AND in `character_catalog.ron`, with v0's two lines
 // duplicated verbatim between them — and the duplicate was not symmetric. The
@@ -108,10 +98,8 @@ pub const V2: Incarnation = Incarnation {
 
 /// **v3 — the body you are playing right now.**
 ///
-/// Named for its version rather than for being current, so v4 costs a struct
-/// literal instead of a rename. Until 2026-07-29 this was the one incarnation
-/// whose id meant "whichever is latest", which would have made preserving it a
-/// retroactive rename of every sheet, rig and reference it owns.
+/// Named for its version rather than for being current, so v4 costs a struct literal instead of a
+/// rename.
 pub const V3: Incarnation = Incarnation {
     id: "player_robot_v3",
     replaces: Some(V2.id),
@@ -127,15 +115,11 @@ pub const LINEAGE: &[&Incarnation] = &[&V0, &V2, &V3];
 /// NOT do is inherit: no field is copied from `replaces`, and the definition that
 /// comes out is complete on its own.
 ///
-/// ⚠ **the row is the authority for the name and the art, and this used to
-/// duplicate both.** `load_catalog` is a pure parse of an `include_str!`
-/// constant — no `App`, no plugin order, no asset load — so there is no ordering
-/// reason for the Rust side to carry its own copy, which is the objection that
-/// kept AF4b open. The sheet comes through
+/// The sheet comes through
 /// [`CatalogEntry::manifest_target`](ambition_characters::actor::character_catalog::CatalogEntry::manifest_target),
-/// the same canonical projection `audit_character_authority_parity` compares
-/// with — a catalog row names FILES (`sprites/player_robot_v2_spritesheet.ron`)
-/// and a definition names a TARGET (`player_robot_v2`).
+/// the same canonical projection `audit_character_authority_parity` compares with — a catalog row
+/// names FILES (`sprites/player_robot_v2_spritesheet.ron`) and a definition names a TARGET
+/// (`player_robot_v2`).
 ///
 /// A missing row is a panic rather than a fallback: an incarnation the catalog
 /// does not describe cannot be registered as a character, and inventing a name
@@ -173,38 +157,26 @@ fn definition_from(
     .with_sheet(sheet);
     // **Hand the body to the art, for whichever incarnation authored one.**
     //
-    // Jon, on Mary-O and then again on v3: *"The box and the sprite seem to be
-    // not independent of each other. Shouldn't the sprite sheet generator be
-    // authoring the collision boxes for the characters?"* It should, and the
-    // engine has offered `BodySource::SpriteAuthored { world_per_pixel }` since
-    // §4.11 — every NPC and enemy derives its box from published sprite metrics
-    // and Mary-O's three forms use this exact seam. The player robot used
-    // neither: they kept the engine's default 30×48 constant while their sprite was
-    // drawn through a hand-tuned `collision_scale`, and the two were never
-    // reconciled. Measured 2026-08-03 with `scripts/show_sprite_gameplay_box.py`:
-    // their collider ran **1.28× wider and 1.29× taller than the body inside it**,
-    // its top edge 17 px above the tip of their antenna. That is the report.
+    // not independent of each other. Shouldn't the sprite sheet generator be authoring the
+    // collision boxes for the characters?"* It should, and the engine has offered
+    // `BodySource::SpriteAuthored { world_per_pixel }` since §4.11 — every NPC and enemy derives
+    // its box from published sprite metrics and Mary-O's three forms use this exact seam. The
+    // player robot used neither: they kept the engine's default 30×48 constant while their sprite
+    // was drawn through a hand-tuned `collision_scale`, and the two were never reconciled. That is
+    // the report.
     //
-    // ⚠ **the SCALE is derived and the HEIGHT is the authored quantity**, the
+    // **the SCALE is derived and the HEIGHT is the authored quantity**, the
     // same direction Mary-O's `MARY_O_STANDING_HEIGHT` takes and for the same
     // reason: the sheets are regenerated regularly, every regeneration
     // re-measures, and a scale pinned to today's pixel count silently changes
     // how tall they stand the first time a crop moves by a pixel. Levels are
     // authored against the standing height, so that is what must hold still.
     //
-    // ⚠ **only an AUTHORED body qualifies**, which is why this can be a blanket
-    // rule over the lineage instead of a per-version flag. `authored_body_pixel_size`
-    // returns `None` for a sheet that merely MEASURED its alpha bbox, so v0 and
-    // v2 — whose boxes are still raw silhouettes, arms and all — keep exactly
-    // the path they have today and opt in when someone authors them. Absence is
-    // the answer, not an omission to fix here.
+    // Absence is the answer, not an omission to fix here.
     if let Some(body_px) = ambition_platformer2d::character_sprites::authored_body_pixel_size(sheet)
     {
-        // ⭐ the robot's canonical height IS the engine's default playable body:
-        // 48 world pixels, exactly three tiles. Stated through the one named
-        // derivation now rather than spelled as a division here — the same
-        // arithmetic the AI slop and the snake were each doing separately, on
-        // two different axes (D165).
+        // the robot's canonical height IS the engine's default playable body: 48 world pixels,
+        // exactly three tiles.
         let canonical_height = ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT;
         if let Some(world_per_pixel) =
             ambition_characters::actor::definition::world_per_pixel_for_height(
@@ -218,43 +190,26 @@ fn definition_from(
                 .with_hurtboxes(forgiving_hurtbox(body_px * world_per_pixel));
         }
     }
-    // ⭐⭐ **THE CURRENT INCARNATION CARRIES THE MOVES.** (Jon's redirect §15.)
+    // **THE CURRENT INCARNATION CARRIES THE MOVES.**
     //
-    // ⛔ **the protagonist's repertoire was Smash-only until now.** The eleven
+    // **the protagonist's repertoire was Smash-only until now.** The eleven
     // authored timelines — jab, three tilts, three smashes, five aerials, with
     // landing lag and auto-cancel — lived in `ambition_demo_smash` attached to
     // shadow identities (`smash_duelist_a/b`) wearing Robot art, so the real
     // robot could not throw any of them and the demo was proving the
     // architecture on characters nobody plays.
     //
-    // ⚠ **v3 only, and that is not a shortcut.** v0 and v2 are the bodies the
-    // player USED to be — a lineage the game shows you rather than a roster it
-    // seats — and giving a retired incarnation the current one's frame data
-    // would be inventing content, not migrating it.
+    // the ACTION SET is still the host's (`playable_kit: HostCode`): what the robot may DO is
+    // progression-gated, and what its swings ARE is not. Those are different questions and this
+    // answers only the second. Eleven authored timelines — jab, three tilts, three smashes,
+    // five aerials, with landing lag and auto-cancel — lived in `ambition_demo_smash` attached
+    // to shadow identities wearing Robot art, so the real robot could throw none of them.
     //
-    // ⚠ the ACTION SET is still the host's (`playable_kit: HostCode`): what the
-    // robot may DO is progression-gated, and what its swings ARE is not. Those
-    // are different questions and this answers only the second.
-    // ⭐⭐ **THE CURRENT INCARNATION CARRIES THE MOVES** (Jon's redirect §15,
-    // ledger D82). Eleven authored timelines — jab, three tilts, three smashes,
-    // five aerials, with landing lag and auto-cancel — lived in
-    // `ambition_demo_smash` attached to shadow identities wearing Robot art, so
-    // the real robot could throw none of them.
+    // the ACTION SET is still the host's (`playable_kit: HostCode`): what the robot may DO is
+    // progression-gated, and what its swings ARE is not. **THE BODY EVERY INCARNATION SHARES**,
+    // migrated off the `player_robot` ARCHETYPE row.
     //
-    // ⚠ **v3 only.** v0 and v2 are bodies the player USED to be — a lineage the
-    // game shows you rather than a roster it seats — and giving a retired
-    // incarnation the current one's frame data would be inventing content.
-    //
-    // ⚠ the ACTION SET is still the host's (`playable_kit: HostCode`): what the
-    // robot may DO is progression-gated, and what its swings ARE is not.
-    // ⭐⭐ **THE BODY EVERY INCARNATION SHARES**, migrated off the
-    // `player_robot` ARCHETYPE row (2026-08-11). That row was eighty lines with
-    // all three authorities fused into it — a body (health, top speed, gait,
-    // contact damage, movement feel), a controller (aggro distances, the duelist
-    // neutral game), and a placement policy (respawn) — which is exactly the
-    // shape Jon's brief says must separate rather than migrate wholesale.
-    //
-    // ⚠ **the lineage shares one body**, so this is stated once rather than per
+    // **the lineage shares one body**, so this is stated once rather than per
     // incarnation: v0, v2 and v3 are the same robot at three ages, and the
     // exhibition duel in the arena fields v2 against the PCA precisely because
     // it IS the player's body seen from outside.
@@ -273,9 +228,9 @@ fn definition_from(
         // policy that only one character can use is a policy fused to a body all
         // over again.
         .with_autonomous_profile_named("robot_duelist")
-        // ⭐⭐ **AND THE VERBS ITS BODY HAS** (Jon's redirect §18).
+        // **AND THE VERBS ITS BODY HAS**.
         //
-        // ⛔ **the protagonist authored none**, so a match seating it took
+        // **the protagonist authored none**, so a match seating it took
         // the *migration bridge*: `seat_abilities` hands an unauthored
         // character the MODE's declared set verbatim, because almost nothing
         // in the repo states its own verbs and removing that row today would
@@ -284,12 +239,12 @@ fn definition_from(
         // first, and it is the right first because it is the one body both
         // games are supposed to share.
         //
-        // ⚠ **no behaviour change in Smash, by construction**: the stage
+        // **no behaviour change in Smash, by construction**: the stage
         // declares a subset of this, and `authored ∩ mask` is the mask. What
         // changes is WHY — the robot may shield because the robot can
         // shield, not because nobody asked it.
         //
-        // ⚠ **`fly` IS one of the robot's verbs, and my first pass had this
+        // **`fly` IS one of the robot's verbs, and my first pass had this
         // wrong.** It reads like a dev toggle from the player's side and it is
         // not: the archetype row granted `can_fly` beside `is_aerial: false`,
         // with the reason written down — *"grounded-base hybrid, exactly like
@@ -297,7 +252,7 @@ fn definition_from(
         // toggle when it needs the vertical space."* The duel arena's exhibition
         // robot uses it, and a body that could not would be a different creature.
         //
-        // ⛔ **`reset` stays out**, and that one really is a debug affordance:
+        // **`reset` stays out**, and that one really is a debug affordance:
         // authoring it would hand every game that seats the robot a way to
         // teleport home.
         .with_abilities(ambition_platformer2d_core::AbilitySet {
@@ -330,24 +285,17 @@ fn definition_from(
             fly_toggle: true,
             ..ambition_platformer2d_core::AbilitySet::NONE
         });
-    // ⭐ **THE SIGNATURE PROJECTILE.** The robot fires a Hadouken, and that was a
-    // fact only an enemy ARCHETYPE row could state (ledger D83) — so a
+    // **THE SIGNATURE PROJECTILE.** The robot fires a Hadouken, and that was a
+    // fact only an enemy ARCHETYPE row could state — so a
     // character-first robot fired an unadorned rock while the archetype road drew
     // the real thing.
     definition = definition.with_ranged_vfx("hadouken");
-    // ⭐⭐ **AND IT CHARGES.** Hold to build, release to fire — the mechanic the
+    // **AND IT CHARGES.** Hold to build, release to fire — the mechanic the
     // protagonist has always had, authored on the CHARACTER for the first time
-    // (GPT 5.6 §4, 2026-08-11).
-    //
-    // ⛔ **this was a property of `PlayableKitSource::HostCode`**, which made
-    // *delete HostCode* read as *delete the charge*. Jon's product rule is the
-    // opposite: Player Robot v3 is the same character with the same repertoire in
-    // Ambition and in Smash, and a mode changes interpretation and restrictions
-    // rather than silently replacing its moves. Authoring it here is what lets
-    // `HostCode` be deleted without the robot losing the Hadouken.
+    // .
     definition = definition
         .with_ranged_execution(ambition_characters::brain::RangedExecution::ChargedProjectile);
-    // ⭐ **THEOREM CHAIN, on the incarnation the duel fields.** v3 carries the
+    // **THEOREM CHAIN, on the incarnation the duel fields.** v3 carries the
     // platform-fighter table instead; two incarnations of one robot with
     // different repertoires is what a lineage IS.
     if incarnation.id == V2.id {
@@ -355,13 +303,11 @@ fn definition_from(
     }
     if incarnation.id == V3.id {
         definition = definition.with_moveset(crate::player_robot_moveset::player_robot_moveset());
-        // ⭐⭐ **AND WHAT ACTIONS IT HAS**, not only what those actions ARE (GPT
-        // 5.6 §5). The moveset says the swing's timeline; this says the robot has
-        // a swing, a bolt and a bubble shield at all — the half that was
-        // `default_player_action_set` in host code, keyed off
-        // `playable_kit: HostCode` in the catalog row.
+        // The moveset says the swing's timeline; this says the robot has a swing, a bolt and a
+        // bubble shield at all — the half that was `default_player_action_set` in host code,
+        // keyed off `playable_kit: HostCode` in the catalog row.
         //
-        // ⚠ authoring it is what makes this character `PreparedKit::Authored`,
+        // authoring it is what makes this character `PreparedKit::Authored`,
         // and §4's `ranged_execution` is why that no longer costs it the charge.
         definition =
             definition.with_action_set(crate::player_robot_moveset::player_robot_action_set());
@@ -380,20 +326,15 @@ fn definition_from(
 
 /// **Being hit is judged on their torso, not on their outline.**
 ///
-/// Jon: *"It should be under the main head, and well within the player arms.
 /// The player hitbox needs to be very forgiving to the player."*
 ///
-/// ⭐ **that sentence describes TWO boxes, which is why it read as
+/// **that sentence describes TWO boxes, which is why it read as
 /// contradictory.** The collision box has to keep their head, or a robot whose
 /// head is nearly half their height walks it through every ceiling; the hurtbox is
 /// the one that can stop under it. They were one rectangle until this, so
 /// "forgiving" had nowhere to live — the `HurtboxDoc` seam has existed since A7
 /// and the protagonist authored nothing, so their hurtbox fell back to the coarse
 /// body AABB.
-///
-/// The insets are FRACTIONS of the sheet's authored body box, not pixels, for
-/// the same reason `body_inset` is fractional: they survive a regeneration that
-/// re-crops them. What they were measured against, in their 224 px idle frame:
 ///
 /// | | |
 /// |---|---|
@@ -414,7 +355,7 @@ fn forgiving_hurtbox(body_world: ambition_platformer2d_core::Vec2) -> HurtboxDoc
     const TOP: f32 = 0.43;
     const BOTTOM: f32 = 0.01;
 
-    // ⚠ **+y is DOWN** — `DEFAULT_GRAVITY_DIR` is `(0, 1)`, and sheet pixel
+    // **+y is DOWN** — `DEFAULT_GRAVITY_DIR` is `(0, 1)`, and sheet pixel
     // space and world space share that handedness. A box that sits low on the
     // body therefore takes a POSITIVE y offset; the opposite sign would put their
     // hurtbox in the air above their head and nothing would ever hit them.
@@ -461,14 +402,10 @@ pub fn register(app: &mut bevy::prelude::App) {
     for incarnation in LINEAGE {
         app.try_register_character(
             definition_from(&catalog, incarnation),
-            // ⚠ **the seam fills the engine's sheet AND portrait vocabularies
-            // itself** (`with_engine_vocabularies`), so a target that names
-            // nothing is reported at load with a did-you-mean rather than
-            // silently drawing the marked rectangle — whether or not a provider
-            // remembered to ask. This said `.with_engine_sheet_vocabulary()`,
-            // which was an inherent method that had to leave `CharacterBindings`
-            // before the type could move down (P1.7 sub-case (a)); passing
-            // nothing gets the same two resolvers, and now the portrait one too.
+            // **the seam fills the engine's sheet AND portrait vocabularies itself**
+            // (`with_engine_vocabularies`), so a target that names nothing is reported at load
+            // with a did-you-mean rather than silently drawing the marked rectangle — whether
+            // or not a provider remembered to ask.
             CharacterBindings::default(),
         )
         .unwrap_or_else(|error| panic!("player-robot incarnation rejected: {error}"));
@@ -481,9 +418,8 @@ mod tests {
 
     /// **The chain is well-formed, and it is a chain.**
     ///
-    /// Exactly one origin, every other link naming the incarnation before it,
-    /// and no id repeated. A lineage that forked or looped would still compile
-    /// and would quietly make "the version before this one" unanswerable.
+    /// Exactly one origin, every other link naming the incarnation before it, and no id
+    /// repeated.
     #[test]
     fn the_lineage_is_an_unbroken_chain_of_distinct_characters() {
         let ids: Vec<&str> = LINEAGE.iter().map(|inc| inc.id).collect();
@@ -510,7 +446,6 @@ mod tests {
 
     /// **v3 stands as tall as the level expects, and their box is their ART.**
     ///
-    /// Jon: *"The current player V3 collision / hurt box is larger than the
     /// player sprite."* It was, by 1.28× wide and 1.29× tall, because their box
     /// was the engine's default constant while their sprite was drawn through a
     /// hand-tuned `collision_scale` and nothing reconciled the two.
@@ -549,7 +484,6 @@ mod tests {
 
     /// **The forgiving hurtbox is strictly inside the box that carries it.**
     ///
-    /// Jon asked for a hitbox that is *"very forgiving to the player"* — under
     /// the main head and well within the arms — and the only way that claim can
     /// be wrong without anyone noticing is if the authored volume quietly
     /// resolves to something as big as the collision box, which is exactly what
@@ -644,14 +578,9 @@ mod tests {
     /// **The authored body box is INSET from the art it belongs to**, asked of
     /// the sheet rather than of a number typed here.
     ///
-    /// Jon: *"It needs to be slightly inset from the visible parts of the
-    /// player [...] well within the player arms."* The two tests above pin the
-    /// box against the STANDING HEIGHT and the hurtbox against the BOX, and
-    /// both stay green if the authored rectangle silently grows back out to the
-    /// full silhouette — the exact defect being fixed. Only a comparison
-    /// against the drawing catches that.
+    /// Only a comparison against the drawing catches that.
     ///
-    /// ⭐ **the sheet already publishes its own alpha extent, so nothing has to
+    /// **the sheet already publishes its own alpha extent, so nothing has to
     /// decode a PNG.** The atlas packer trims every frame to its opaque alpha
     /// bounding box and records where that box sat inside the logical frame
     /// (`FrameRect::off`), so the union over a row's frames IS the drawn
@@ -660,7 +589,7 @@ mod tests {
     /// RELATIONSHIP instead of pixel constants, and stay true when the art is
     /// redrawn.
     ///
-    /// ⚠ the bottom edge is deliberately NOT required to be inset: that is the
+    /// the bottom edge is deliberately NOT required to be inset: that is the
     /// shoe line, and lifting a collision box off the floor is how a character
     /// starts hovering. "Under the main head" is likewise the HURTBOX's job
     /// (see above) — this box only has to clear the antenna.
@@ -697,7 +626,7 @@ mod tests {
             bottom = bottom.max(rect.off.1 + rect.h);
         }
 
-        // ⚠ NON-VACUITY, three ways. Without these the comparisons below pass
+        // NON-VACUITY, three ways. Without these the comparisons below pass
         // on a sheet that says nothing: an empty row leaves the union inverted,
         // and an UNTRIMMED row reports `off == (0, 0)` with `w`/`h` equal to the
         // whole logical frame, which is trivially bigger than any body box.
@@ -715,7 +644,6 @@ mod tests {
             record.frame_height,
         );
 
-        // The measurement Jon reported, as a relationship.
         assert!(
             body.x > left && body.x + body.w < right,
             "v3's body box spans x {}..{} against a drawn silhouette of \
@@ -750,18 +678,11 @@ mod tests {
 
     /// Every incarnation's art resolves, and to a DIFFERENT sheet.
     ///
-    /// ⚠ the second half is the one worth having. Eighteen shipped sheets
+    /// the second half is the one worth having. Eighteen shipped sheets
     /// declare `target: "robot"` — the name of the procedural generator, not of
     /// a character — so "the target resolves" is satisfied by all three
     /// resolving to the same robot. Distinctness is what says three incarnations
     /// actually look like three characters.
-    ///
-    /// ⚠ **it asks the DEFINITION now, not the struct.** The sheet used to be a
-    /// `&'static str` on `Incarnation`, so this test read a Rust literal and
-    /// would have stayed green while the catalog row — which is what the art
-    /// pipeline actually resolves — said something else entirely. That is the
-    /// same mistake `every_incarnation_says_something` had to be rewritten out
-    /// of on the voice field the same day.
     #[test]
     fn every_incarnation_resolves_its_own_distinct_sheet() {
         use ambition_sprite_sheet::character::sheets;
@@ -813,9 +734,7 @@ mod tests {
     /// **Nobody in the lineage stands mute — asked of the RUNTIME, not the
     /// struct.** (AF4b)
     ///
-    /// This used to assert `!definition.voice.is_empty()`, which is a fact about
-    /// a Rust literal and not about what anybody hears. It was green while
-    /// `player_robot_v2`'s lines were unreachable: the catalog outranks a
+    /// It was green while `player_robot_v2`'s lines were unreachable: the catalog outranks a
     /// definition's voice, and v2's row authored both a `barks.hall` pool AND a
     /// `fallback_dialogue`, so `CatalogEntry::bark` always answered first.
     ///
@@ -859,26 +778,26 @@ mod tests {
 
 /// **Every character this provider DECLARES, registered so it can be BUILT.**
 ///
-/// ⛔ **a catalog row is not a registration, and the difference had never been
+/// **a catalog row is not a registration, and the difference had never been
 /// visible.** The row says what a character IS; `register_character` is what
 /// puts it in `PreparedCharacterRegistry`, which is the population match
 /// preparation can construct a body from. Ambition's Hall cast was catalog-only,
 /// so the crossover grid OFFERED eight fighters this host could not seat.
 ///
-/// ⛔ **and the old adoption path HID it.** A human seat took over the session's
+/// **and the old adoption path HID it.** A human seat took over the session's
 /// existing body, and that branch consulted the registry optionally — so a
 /// catalog-only character worked in seat 0 and nowhere else. Eight of the twelve
 /// grid fighters were playable only as player one, and picking one for anybody
-/// else deadlocked the whole match in silence (Jon, 2026-08-06). Building every
+/// else deadlocked the whole match in silence. Building every
 /// seat the same way is what turned that asymmetry into a single question, and
 /// this is the answer to it.
 ///
-/// ⚠ **projected from the rows, never re-authored.** Display name and sheet come
+/// **projected from the rows, never re-authored.** Display name and sheet come
 /// from the catalog exactly as [`definition_from`] takes them, because naming
 /// them again in Rust is the second source of truth the character-authority
 /// campaign exists to remove.
 ///
-/// ⚠ **a BLANKET rule over the provider's own catalog, not a list of eight.**
+/// **a BLANKET rule over the provider's own catalog, not a list of eight.**
 /// A hand-kept list is the shape this repo has been bitten by five times — the
 /// pairing that drifts because nothing checks it. "A character we declare is a
 /// character we can build" needs no maintenance.
@@ -888,17 +807,14 @@ pub fn register_declared_cast(app: &mut bevy::prelude::App) {
     // re-registering here would be a duplicate and would also throw those away.
     let lineage: std::collections::BTreeSet<&str> =
         LINEAGE.iter().map(|incarnation| incarnation.id).collect();
-    // ⛔ **THE BUILDABLE CAST, not every catalog row.** Registering the whole
+    // **THE BUILDABLE CAST, not every catalog row.** Registering the whole
     // catalog was tried and is measurably wrong — see the note on
     // `PLAYABLE_ROSTER`, where the population is declared and the measurement
     // recorded. In one line: a bare registration says "this character authors no
     // body", preparation correctly retracts what a persona does not author, and
     // ~100 exploration NPCs lost their archetype-built vitals.
     //
-    // ⭐ **and it is no longer the SELECTION list** (D73 phase 2): what a game
-    // can BUILD and what it OFFERS on a character-select grid are two questions,
-    // and `buildable_cast()` is the union that answers the first. Empty
-    // build-only list today, so this iterates exactly what it always did.
+    // Empty build-only list today, so this iterates exactly what it always did.
     for id in crate::character_catalog::buildable_cast() {
         if lineage.contains(id) {
             continue;

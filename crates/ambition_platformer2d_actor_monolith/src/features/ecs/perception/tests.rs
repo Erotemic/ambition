@@ -500,22 +500,11 @@ fn collect_perception_projectiles_snapshots_live_projectiles_once_with_frozen_si
 
 // ── FB1: the view-audit regressions ──
 
-/// **The 2× bug.** `BodyKinematics::size` is the FULL body size (`aabb()`
-/// halves it); `PerceptionBody::half_extent` and `PerceivedActor::half_extent`
-/// are halves. Both fill sites passed `size` straight through, so every body
-/// perceived itself and everyone else as twice its real box.
+/// Both fill sites passed `size` straight through, so every body perceived itself and everyone
+/// else as twice its real box.
 ///
 /// This test pins the CONTRACT rather than the call sites: the view's
 /// half-extent must equal the body's real `aabb()` half-extent.
-///
-/// ⚠ **it used to observe that through `WorldView::reachable`** — a swept
-/// straight-line query that took `self_view.half_extent`, and that had no
-/// production consumer at all. `reachable` is deleted; the invariant is now
-/// asserted on the BUILT VIEW directly, which is a stronger statement than an
-/// inference from one query's behaviour and cannot go quiet if that query's
-/// sweep changes. ⛔ do NOT re-point this at `line_of_fire`: that one sweeps a
-/// fixed thin probe (`SIGHT_PROBE_HALF`) and is blind to the body's box, so it
-/// would pass identically with the bug present.
 #[test]
 fn the_views_half_extent_is_a_half_extent() {
     let kin_size = ae::Vec2::new(24.0, 36.0);

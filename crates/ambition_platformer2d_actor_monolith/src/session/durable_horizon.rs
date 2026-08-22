@@ -8,7 +8,7 @@
 //! 3  durable save truth      ← THIS MODULE
 //! ```
 //!
-//! # ⭐⭐ THE ON-DISK FORM IS THE CHECKPOINT'S OWN DESCRIPTION, SERIALIZED
+//! # THE ON-DISK FORM IS THE CHECKPOINT'S OWN DESCRIPTION, SERIALIZED
 //!
 //! Not a fourth description of the same facts. The occurrence half of a
 //! checkpoint is exactly the three occurrence lists this writes, field for field;
@@ -21,20 +21,20 @@
 //! MintedItemBaseline    → save.minted_items  SimId + SpawnOrigin::Dynamic + spec id
 //! ```
 //!
-//! ⭐ **and that is a measurement rather than a preference.** The minimal durable
+//! **and that is a measurement rather than a preference.** The minimal durable
 //! description of a runtime-minted occurrence was settled by the checkpoint slice
 //! as `identity + provenance + definition-REFERENCE` and nothing else; asking the
 //! same question of a file produced the same three fields, because the question is
 //! the same one — *how would you make this again?* A second on-disk vocabulary
 //! would have been a second answer to it.
 //!
-//! ⛔ **NO COMPONENT SNAPSHOTS.** That is rollback wearing save's clothes: it
+//! **NO COMPONENT SNAPSHOTS.** That is rollback wearing save's clothes: it
 //! welds the file format to ECS layout, so a component split renames a player's
 //! progress. What reaches disk is what an occurrence IS and WHERE it is; what it
 //! is made of comes back from the authored record, or from the item catalog by
 //! reference.
 //!
-//! # ⭐⭐ A LOAD IS A CHECKPOINT RESUME
+//! # A LOAD IS A CHECKPOINT RESUME
 //!
 //! The lifecycle adopter and item-domain restore install their own values. A
 //! final completion system then raises [`SaveRestored`] and writes exactly one
@@ -47,37 +47,31 @@
 //! resume_at_checkpoint_on_reset    rebuilds the room from the restored ledger
 //! ```
 //!
-//! ⭐ **that is why this module is ~two systems rather than a reconstruction
+//! **that is why this module is ~two systems rather than a reconstruction
 //! engine.** The hard half — suppress the home room, reinstate where the object
 //! lies, materialize a hand's occurrence from a record or from a description —
 //! was built for horizon 2 and needed nothing added for horizon 3. The durable
 //! horizon's whole job turned out to be *stating the same three values in a form
 //! that outlives the process*.
 //!
-//! ⛔ **so a load must NOT also restore occurrences by some second road.** There
+//! **so a load must NOT also restore occurrences by some second road.** There
 //! is exactly one reconstruction authority and it is the ledger; this module
 //! writes the ledger and asks the shipped restore to run.
 //!
-//! # ⚠ WHY THE LOADED STATE BECOMES THE BASELINE
+//! # WHY THE LOADED STATE BECOMES THE BASELINE
 //!
-//! A fresh process has no checkpoint history. Leaving the empty default baseline
-//! in place would make the FIRST death after a load take back everything the file
-//! remembered — the mirror image of the bug the horizon exists to prevent. So the
-//! load adopts what it read as the baseline, which is the same degenerate-case
-//! reasoning the sandbox reset uses from the other side: a host that never
-//! commits restores the empty baseline, and a process that never committed *this
+//! A fresh process has no checkpoint history. So the load adopts what it read as the baseline,
+//! which is the same degenerate-case reasoning the sandbox reset uses from the other side: a host
+//! that never commits restores the empty baseline, and a process that never committed *this
 //! session* restores what it was given.
 //!
-//! ⚠ **stated rather than defended: the body and the objects then resume from
-//! different instants.** `PersistedCheckpoint` is written by a shrine, so the
-//! BODY comes back at the last shrine, while these rows are current truth at the
-//! moment the autosave ran. For a first slice that is strictly better than the
-//! alternative (objects evaporating), and it is the same seam `OwnedItems` has
-//! sat outside since D132.
+//! **stated rather than defended: the body and the objects then resume from different
+//! instants.** `PersistedCheckpoint` is written by a shrine, so the BODY comes back at the last
+//! shrine, while these rows are current truth at the moment the autosave ran.
 //!
-//! # ⚠ WHAT THIS STILL DOES NOT COVER
+//! # WHAT THIS STILL DOES NOT COVER
 //!
-//! * ✔ **a runtime mint NOT in a hand is COVERED as of 2026-08-19**, and the
+//! * ✔ **a runtime mint NOT in a hand is COVERED **, and the
 //!   reason this list gave was wrong twice over. It said the mint "remembers no
 //!   position" — it does not need to: an `OccurrenceWhereabouts::Placed { room,
 //!   at }` row records exactly where a resting occurrence lies, written for every
@@ -85,7 +79,7 @@
 //!   refusing anything `InWorld`, so the world knew WHERE and had no way to make
 //!   it again. The describer no longer filters, and the room build settles the
 //!   reinstatement debt from the checkpoint's description.
-//!   ⚠ **in FLIGHT is still not covered, and that half is by design**: the
+//!   **in FLIGHT is still not covered, and that half is by design**: the
 //!   ledger tracks only occurrences it already `remembers` — things somebody
 //!   CARRIED — and `record_placed_ground_items` refuses to become the universal
 //!   instance registry that tracking everything would require;
@@ -111,19 +105,15 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
 /// **Has the loaded save been applied to this world yet?**
 ///
-/// ⭐ **ONE latch for the whole durable restore, and that is the point of the
+/// **ONE latch for the whole durable restore, and that is the point of the
 /// name.** It used to be `InventoryRestored` and gate only the catalog + wallet;
 /// the occurrence leg asks the same question — *has the file been applied?* — and
 /// a second flag would be a second answer to it, free to disagree the first time
 /// one leg's precondition was met and the other's was not.
 ///
-/// ⛔ **ROLLBACK STATE.** This is an "already applied" flag that GATES behaviour,
-/// not a cache, and everything it coordinates rewinds: `OwnedItems`,
-/// `BodyWallet`, `AmbitionGameSave` and the occurrence ledger are all in the
-/// schema. Left un-rewound it survived a rewind that undid the restore,
-/// `restore_inventory_from_save` then returned early forever, and
-/// `persist_inventory_to_save` — gated on this being TRUE — wrote the starter set
-/// over the loaded save.
+/// **ROLLBACK STATE.** This is an "already applied" flag that GATES behaviour, not a cache, and
+/// everything it coordinates rewinds: `OwnedItems`, `BodyWallet`, `AmbitionGameSave` and the
+/// occurrence ledger are all in the schema.
 #[derive(Resource, Default, Clone)]
 pub struct SaveRestored(pub bool);
 
@@ -211,8 +201,7 @@ pub fn complete_durable_restore(
 /// Install the complete durable-save application/mirroring chain owned by the
 /// actor integration layer.
 ///
-/// The generic runtime calls this one domain offer. It no longer enumerates
-/// concrete durable systems or checkpoint baselines.
+/// The generic runtime calls this one domain offer.
 pub fn install_durable_save_horizon(app: &mut App) {
     app.init_resource::<SaveRestored>().add_systems(
         Update,
@@ -239,19 +228,19 @@ pub fn install_durable_save_horizon(app: &mut App) {
 /// **Mirror what the world currently remembers into the save**, for the autosave
 /// to commit.
 ///
-/// ⚠ **value-compared before it writes, like every other save mirror.** The
+/// **value-compared before it writes, like every other save mirror.** The
 /// autosave's throttle is "does the file still match the value", so a mirror that
 /// marked the save changed every tick would rewrite the file forever.
 ///
-/// ⚠ **gated on the restore**, so it cannot run first and write a world that has
+/// **gated on the restore**, so it cannot run first and write a world that has
 /// not yet been told what the file said.
 ///
-/// ⭐ **the CURRENT horizon, not the checkpoint one.** An object carried into
+/// **the CURRENT horizon, not the checkpoint one.** An object carried into
 /// another room and put down after the last shrine is where the player left it,
 /// and a save that wrote the shrine's memory instead would move it back while
 /// they watched.
 ///
-/// # ⛔⛔ A RELATIONSHIP MAY ONLY CROSS THIS HORIZON WITH ITS AUTHORITY
+/// # A RELATIONSHIP MAY ONLY CROSS THIS HORIZON WITH ITS AUTHORITY
 ///
 /// `InCustodyOf` is generic vocabulary with two owners. The item domain derives
 /// it from `ItemCustody`, which the save carries and `restore_inventory_from_save`
@@ -264,7 +253,7 @@ pub fn install_durable_save_horizon(app: &mut App) {
 /// enemy is in somebody's hands"* with no hand — a half-persisted relationship
 /// whose only reader is a room build deciding whether to author the enemy at all.
 ///
-/// ⚠ **and it very nearly bit.** The live projection republishes the custody leg
+/// **and it very nearly bit.** The live projection republishes the custody leg
 /// from live state every tick, so the row is retracted on the first tick of a
 /// load and the room build never sees it. That worked; it is one ordering deep,
 /// and `a_save_taken_mid_possession_does_not_delete_the_enemy_in_a_fresh_process`
@@ -276,7 +265,7 @@ pub fn install_durable_save_horizon(app: &mut App) {
 /// That is the item road, and `ItemCustody` is exactly the component that says
 /// so. A body's occurrence is simply absent from the file, and absent is the
 /// right answer: on load its room authors it, which is what a world with nobody
-/// possessing anything should contain. ⛔ this is deliberately NOT a filter on
+/// possessing anything should contain. this is deliberately NOT a filter on
 /// "is it a body" — the question is which domain can rebuild the relation, and a
 /// second population that becomes durably restorable joins by carrying its own
 /// durable custody, not by being added to a list here.
@@ -316,7 +305,7 @@ pub fn persist_occurrence_horizon_to_save(
                     OccurrenceWhereabouts::InCustody => PersistedWhereabouts::InCustody,
                     OccurrenceWhereabouts::Placed { room, at } => PersistedWhereabouts::Placed {
                         room: room.clone(),
-                        // ⭐ INTEGER pixels — see `PersistedWhereabouts::Placed`.
+                        // INTEGER pixels — see `PersistedWhereabouts::Placed`.
                         // A float would cost the save's `Eq` and make a NaN
                         // rewrite the file every frame forever.
                         x: at.x.round() as i32,

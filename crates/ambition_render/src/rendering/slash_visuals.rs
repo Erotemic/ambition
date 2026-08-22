@@ -30,7 +30,7 @@ use ambition_platformer2d_shared_tangle::binding::BindingLedger;
 
 /// Sheets already resolved this session, keyed by the id a character named.
 ///
-/// ⚠ THIS WAS A `const`. One sheet, four rows, every body in the game — so the
+/// THIS WAS A `const`. One sheet, four rows, every body in the game — so the
 /// protagonist's blade was the engine's blade, and a boss swung the robot's
 /// crescent. It got worse once the art was shaped to a specific character's hit
 /// polygon: anyone else drawing it wears a silhouette cut for someone else's
@@ -73,15 +73,7 @@ impl SlashSource {
 /// directions yields the four correctly-rotated effects.
 /// Where to point the art: along the swing, and nothing else.
 ///
-/// ⚠ This used to add a per-pose quarter turn, and the sheet's `up` / `down`
-/// rows were drawn pre-rotated to cancel it. That was coherent while the sprite
-/// was a SQUARE — turning a square changes nothing about which side is long.
-///
-/// It stopped being coherent when the quad became the swing's own extent. The
-/// sprite is sized (length along the swing, width across it) on its LOCAL axes,
-/// so a row whose art is a quarter turn out has its long dimension across the
-/// swing: measured at 8.8% of the drawn ink outside the volume for the up
-/// attacks and 9.2% for the down.
+/// It stopped being coherent when the quad became the swing's own extent.
 ///
 /// `pose` now selects WHICH artwork, never how it is turned. The rows are
 /// authored in swing space to match (`robot_slash.py`).
@@ -102,20 +94,11 @@ pub(crate) struct SlashVisual {
     frames: usize,
     frame_duration: f32,
     /// Who is swinging, and where the swing sits in THEIR frame.
-    ///
-    /// A melee effect is attached to a person. This one used to be placed in the
-    /// world and left there, while the damage box it draws for is
-    /// `HitboxAnchor::FollowOwner` and re-resolves from the body every tick — so
-    /// a running attacker's hitbox tracked and its blade did not.
     owner: Entity,
     local: ae::SwingShape,
 }
 
 /// Resolve (and remember) the sheet a character named.
-///
-/// A miss is cached as a miss: an id that the baked registry does not carry is
-/// reported once by the ledger rather than re-looked-up every swing, and the
-/// caller falls through to drawing the volume itself.
 fn slash_source(
     sheet: &str,
     asset_server: &AssetServer,
@@ -183,26 +166,20 @@ pub(crate) fn spawn_slash_effects(
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     sheet_registry: Option<Res<SheetRegistry>>,
     active_session: Option<Res<ActiveSessionScope>>,
-    // ⚠ the READ-MODEL pose, not the sim's `BodyKinematics` — presentation reads
+    // the READ-MODEL pose, not the sim's `BodyKinematics` — presentation reads
     // `ambition_sim_view` (E4), and naming the live cluster here is what turned
-    // `engine.render-never-names-live-sim-state` red on 2026-08-02.
+    // `engine.render-never-names-live-sim-state` red.
     //
-    // ⛔⛔ this used to require a `BodyPoseView` beside the presented pose, and
-    // claimed *"the population is unchanged"*. It was not: that view is rebuilt
-    // `With<PlayerVisual>`, so no boss and no actor ever matched and every one
-    // of their slashes took the miss arm. `PresentedPose` follows
-    // `BodyKinematics` and answers for every body, which is all this needs — the
-    // drawn position of the swinging body.
+    // It was not: that view is rebuilt `With<PlayerVisual>`, so no boss and no actor ever matched
+    // and every one of their slashes took the miss arm. `PresentedPose` follows `BodyKinematics`
+    // and answers for every body, which is all this needs — the drawn position of the swinging
+    // body.
     owners: Query<&PresentedPose>,
     // Which sheet each swinging body's character authors — the READ-MODEL fact,
     // resolved sim-side by `rebuild_attack_vfx_views`.
     //
-    // ⛔ this used to be `Option<Res<CharacterCatalog>>` plus a `WornCharacter`
-    // lookup, which `engine.character-authority-is-app-local` forbids: in every
-    // composition that installs no catalog the `Option` is `None`, and `None`
-    // there is indistinguishable from "this character authors no attack art".
-    // The view cannot make that mistake — an unresolved body has NO component,
-    // which is not the same as one whose `sheet` resolved to `None`.
+    // The view cannot make that mistake — an unresolved body has NO component, which is not the
+    // same as one whose `sheet` resolved to `None`.
     attack_vfx: Query<&ambition_sim_view::AttackVfxView>,
     mut cache: ResMut<SlashSources>,
 ) {
@@ -241,8 +218,6 @@ pub(crate) fn spawn_slash_effects(
         ) else {
             continue;
         };
-        // ⛔ **no owner, no slash.** This used to fall back to `Vec2::ZERO` and
-        // draw the swing at the world origin — see `owner_pos`.
         let Some(at) = owner_pos(&owners, *owner) else {
             bevy::log::warn!(
                 target: "ambition_platformer2d::render",
@@ -271,11 +246,8 @@ pub(crate) fn spawn_slash_effects(
 /// region, sized to the swing's own length and width, and turned to the swing
 /// axis.
 ///
-/// ⚠ The quad is NOT square. It was, because the cue carried one scalar; the
-/// art is drawn in a square frame, so a swing that reaches twice as far as it
-/// is tall used to be drawn in a box as tall as it was long. The art stretches
-/// to the swing now, which is only fully honest once the art itself is
-/// generated from the same swing descriptor the hit polygon is.
+/// The quad is NOT square. The art stretches to the swing now, which is only fully honest once the
+/// art itself is generated from the same swing descriptor the hit polygon is.
 fn spawn_one(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
@@ -330,30 +302,15 @@ fn spawn_one(
 
 /// Where the owner is being DRAWN this frame.
 ///
-/// The presented pose, not the sim pose. They differ by up to a frame of
-/// interpolation, and the body sprite is drawn from the presented one — so a
-/// blade placed on the sim pose shudders against a body that looks perfectly
-/// stable. That is the same trap the debug overlay's own box fell into and
-/// fixed by sampling `draw_pos`.
-/// Where the swinging body is drawn, or `None` if it cannot be found.
+/// The presented pose, not the sim pose. They differ by up to a frame of interpolation, and the
+/// body sprite is drawn from the presented one — so a blade placed on the sim pose shudders against
+/// a body that looks perfectly stable. Where the swinging body is drawn, or `None` if it cannot be
+/// found.
 ///
-/// ⛔ **this used to end `.unwrap_or(ae::Vec2::ZERO)`, and that turned "I cannot
-/// find the swinging body" into "draw the swing at the world origin."** In a
-/// room whose content sits at positive coordinates that is the top-left corner:
-/// the failure stopped being invisible and started being *garbage in a corner*,
-/// which reads like an art or anchor bug and sends the next person into the
-/// sprite pipeline.
+/// **an absent owner is now an absent slash** — nothing drawn, one warning naming the entity.
 ///
-/// ⭐ **an absent owner is now an absent slash** — nothing drawn, one warning
-/// naming the entity. That is legible, greppable, and cannot be mistaken for a
-/// placement defect. See queue D54.
-///
-/// ⚠ **this is NOT known to be the cause of Jon's top-left smash VFX.** The
-/// population here is filled by `rebuild_body_pose_views`, which
-/// `FeatureViewSyncSchedulePlugin` installs from the runtime that smash
-/// composes — so the miss may never happen. The fix stands on its own: a
-/// fallback that invents an answer is wrong whether or not it is currently
-/// firing.
+/// The fix stands on its own: a fallback that invents an answer is wrong whether or not it is
+/// currently firing.
 fn owner_pos(owners: &Query<&PresentedPose>, owner: Entity) -> Option<ae::Vec2> {
     owners
         .get(owner)
@@ -394,11 +351,8 @@ pub(crate) fn follow_slash_owner(
     }
 }
 
-/// Advance every live slash effect one frame at a time and despawn it once the
-/// row finishes. Uses the render-frame presentation clock (scaled, so the swing
-/// reads in bullet-time/pause) — NOT `WorldTime`, whose `scaled_dt` is the fixed
-/// sim tick under the GGRS host and would tie animation speed to display refresh
-/// rate (see 0693e5e88). Matches `animate_shrine_visuals`.
+/// Advance every live slash effect one frame at a time and despawn it once the row finishes.
+/// Matches `animate_shrine_visuals`.
 pub(crate) fn animate_slash(
     mut commands: Commands,
     presentation_time: ambition_time::PresentationTime,
@@ -481,10 +435,7 @@ mod tests {
             slash_rotation(Vec2::new(-1.0, 0.0), SlashPose::Side),
             PI
         ));
-        // **The pose does not turn the art.** It used to add a quarter turn per
-        // pose, which put the sprite's long axis across a vertical swing once
-        // the quad became the swing's own extent. Restore either offset and this
-        // fails.
+        // Restore either offset and this fails.
         for pose in [SlashPose::Side, SlashPose::Up, SlashPose::Down] {
             assert!(
                 approx(slash_rotation(Vec2::new(0.0, -1.0), pose), FRAC_PI_2),

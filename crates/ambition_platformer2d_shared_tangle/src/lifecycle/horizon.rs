@@ -1,11 +1,7 @@
 //! Checkpoint reset horizon shared across lifecycle domains.
 //!
-//! Current world state, checkpoint state, durable save state, and authored
-//! source state are distinct reconstruction horizons. Death/retry restores the
-//! latest committed checkpoint regardless of item kind. Each authoritative
-//! domain owns and snapshots its own checkpoint contribution; this module owns
-//! the shared commit/reset vocabulary and shared lifecycle contributions rather
-//! than a central erased baseline registry.
+//! Current world state, checkpoint state, durable save state, and authored source state are
+//! distinct reconstruction horizons.
 
 use bevy::prelude::{App, IntoScheduleConfigs, Message, Plugin, SystemSet};
 
@@ -22,9 +18,8 @@ use super::{
 /// now.**
 ///
 /// ⭐ **a world EVENT, not a body position.** The save shrine already writes a
-/// `PersistedCheckpoint { room, x, y }`, and that value answers *where the body
-/// comes back*, which is the smallest part of the question. What was missing is
-/// an INSTANT at which the rest of the world can be recorded, and this is it.
+/// `PersistedCheckpoint { room, x, y }`, and that value answers *where the body comes back*,
+/// which is the smallest part of the question.
 ///
 /// ⚠ **emitted by whatever a game decides a checkpoint is.** The engine does not
 /// decide: a shrine, a flag, a room entry and an autosave are all legitimate,
@@ -58,13 +53,6 @@ pub struct ResetToCheckpoint;
 pub struct CheckpointCapture;
 
 /// **Where a domain writes its baseline back**, reading [`ResetToCheckpoint`].
-///
-/// ⭐ **ordered BEFORE the room rebuild, and that edge is the whole
-/// transaction.** Reconstruction asks the occurrence ledger what became of each
-/// authored record; if the ledger were restored after the rebuild, the room
-/// would be rebuilt against the world the player just died in and the baseline
-/// would apply from the next room load onward — an off-by-one-room bug that
-/// looks like nothing until somebody dies twice in different rooms.
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct CheckpointRestore;
 

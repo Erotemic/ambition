@@ -15,9 +15,7 @@
 //! solver and no animation system in the engine for the sake of one screen, and
 //! re-timing or re-posing the card is a Python re-run rather than a code change.
 //!
-//! ⚠ **the bake is verified against the renderer** (`--verify` re-composites
-//! every frame and diffs it), so a card that looks wrong here is a DRAWING bug
-//! in this file, not a placement bug in the data. That split is the point.
+//! That split is the point.
 //!
 //! ## What it costs at boot, since this is the first thing the game shows
 //!
@@ -130,14 +128,14 @@ pub struct MadeThisMemeCardPlugin;
 
 impl Plugin for MadeThisMemeCardPlugin {
     fn build(&self, app: &mut App) {
-        // ⚠ the card is a SHELL SEGMENT, and `ambition_content`'s presentation
+        // the card is a SHELL SEGMENT, and `ambition_content`'s presentation
         // does not drag the game shell in behind it — a composition can hold this
         // plugin with no shell at all (`capture_scene` does). `spawn_vanity_card`
         // asks `ActiveShellSequence` what segment is registered and returns when
         // the answer is "none", so "the resource does not exist" has the SAME
         // answer; without the condition it was a `Res` validation panic instead.
         //
-        // ⛔ and it gates all THREE, not just the spawner. The first draft let the
+        // and it gates all THREE, not just the spawner. The first draft let the
         // other two run on the reasoning that no shell means no roots means their
         // queries find nothing — true of the BODIES, and beside the point:
         // `animate_vanity_card` holds a `MessageWriter<ShellSequenceCommand>`, and
@@ -242,10 +240,6 @@ fn spawn_vanity_card(
             Name::new("Ambition Vanity Card Root"),
         ))
         .with_children(|root| {
-            // The viewport is measured every frame; the stage inside it is
-            // exactly canvas-sized and SCALED to fit, so every number below is
-            // in the same canvas units the exporter wrote and nothing has to be
-            // re-derived per resolution.
             root.spawn((
                 Node {
                     width: Val::Percent(100.0),
@@ -374,14 +368,14 @@ fn spawn_vanity_card(
 /// in the baked table then means the same thing at 640x360 and at 4K, and the
 /// speech text scales with the art rather than growing out of its bubble.
 ///
-/// ⚠ the measurement is converted to LOGICAL pixels before it is compared to the
+/// the measurement is converted to LOGICAL pixels before it is compared to the
 /// canvas. `ComputedNode::size()` is PHYSICAL, and the stage is sized in `Val::Px`
 /// — which bevy_ui has already multiplied by the display scale factor — so
 /// dividing the raw sizes asks "how many device pixels fit in a logical canvas"
 /// and answers with a scale inflated by exactly that factor. A desktop at 1.0
 /// cannot tell the difference, which is why every check of this passed; a phone
 /// at 2.0-3.5 drew the card zoomed several times past the edges of the screen
-/// (Android, 2026-08-08).
+/// .
 fn fit_card_to_display(
     viewports: Query<(&ComputedNode, &Children), With<VanityCardViewport>>,
     mut stages: Query<&mut UiTransform, With<VanityCardStage>>,

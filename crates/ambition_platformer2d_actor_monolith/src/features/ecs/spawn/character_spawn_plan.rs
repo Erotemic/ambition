@@ -17,14 +17,14 @@
 //! generic runtime ECS components
 //! ```
 //!
-//! ⚠ **this is an UPSTREAM layer, not a taxonomy of enemy/NPC bodies.**
+//! **this is an UPSTREAM layer, not a taxonomy of enemy/NPC bodies.**
 //! `EnemyActorSpawnPlan` and `NpcActorSpawnPlan` remain executor-local bundles
 //! after the common character request has been resolved. Their shared fields are
 //! outputs of character/control/context resolution, not evidence for restoring
 //! separate body authorities. If they converge further, converge around the
 //! ordinary character-body constructor rather than around an enemy/NPC kind.
 //!
-//! ⚠ **it carries `character` + `context` and NOT YET `controller` or an
+//! **it carries `character` + `context` and NOT YET `controller` or an
 //! autonomous-profile override, deliberately.** Those are the plan's other two
 //! members and the second axis is the whole point of the design — but the
 //! authored-enemy path is the only caller so far, and it has neither: an
@@ -34,13 +34,10 @@
 //! override) and the match path (which authors a controller), each with a
 //! reader in the same change.
 //!
-//! ⛔ **`SpawnContext` is the member that will rot if unwatched.** The rule that
+//! **`SpawnContext` is the member that will rot if unwatched.** The rule that
 //! keeps it honest: every member is a decision the PLACEMENT made, never a fact
 //! the CHARACTER states. A field that a character could author belongs on the
 //! definition, and putting it here makes this the next god-object.
-//!
-//! See `docs/systems/actors-brains-and-character-content.md`; the original D73
-//! appendix is archived under `docs/archive/planning-superseded/2026-08-13/`.
 
 use ambition_entity_catalog::CharacterId;
 use ambition_platformer2d_core as ae;
@@ -48,7 +45,7 @@ use ambition_platformer2d_core as ae;
 /// **Where this instance goes and what it is called at runtime** — the part of
 /// a spawn request that is universal to instantiating a character.
 ///
-/// ⛔⛔ **DELIBERATELY SMALLER THAN THE FIRST CALLER NEEDS, and it briefly was
+/// **DELIBERATELY SMALLER THAN THE FIRST CALLER NEEDS, and it briefly was
 /// not.** It also carried the authored display NAME, the FACTION and the room's
 /// kinematic PATHS, because the authored enemy path has all three in hand. Each
 /// is a real placement decision, so the rule *"every member is something the
@@ -80,14 +77,9 @@ pub(crate) struct SpawnContext<'a> {
 pub(crate) struct CharacterSpawnPlan<'a> {
     /// Which `CharacterDefinition` to instantiate.
     ///
-    /// ⛔⛔ **REQUIRED, since AC6** (2026-08-14). This was `Option` for one
-    /// reason: *"a placement that has not named a character falls back to its
-    /// legacy archetype, and that gap must stay VISIBLE"*. The gap closed from
-    /// the other end — the archetype ontology is deleted, so an unnamed
-    /// character does not fall back to anything, and an `Option` here would
-    /// describe a road that no longer exists while quietly reintroducing the
-    /// question *what builds a body that names nobody*. There is no answer, and
-    /// the type is now the one that says so.
+    /// **REQUIRED, since AC6**. This was `Option` for one reason: *"a placement that has not
+    /// named a character falls back to its legacy archetype, and that gap must stay VISIBLE"*.
+    /// There is no answer, and the type is now the one that says so.
     character: &'a CharacterId,
     context: SpawnContext<'a>,
 }
@@ -103,9 +95,9 @@ impl<'a> CharacterSpawnPlan<'a> {
 
     /// The prepared definition this plan names.
     ///
-    /// ⭐ the ONE place construction asks "which character is this body?".
+    /// the ONE place construction asks "which character is this body?".
     ///
-    /// ⛔ **TWO OUTCOMES, and the third one is now a TYPE.** This returned
+    /// **TWO OUTCOMES, and the third one is now a TYPE.** This returned
     /// `Result<Option<_>, _>` so that *"this placement has not been migrated"*
     /// could be told apart from *"this placement names a character that is not
     /// registered"* — the distinction whose collapse once let a spawn authored
@@ -128,7 +120,7 @@ impl<'a> CharacterSpawnPlan<'a> {
 /// **What answers a missing character on the ONE road that still has a fallback
 /// to name.**
 ///
-/// ⛔⛔ **its population was four roads and is now one** (AC6, 2026-08-14), and
+/// **its population was four roads and is now one**, and
 /// that is the honest reading rather than a loss. This rule exists to decide
 /// between warning and refusing, and warning is only defensible when something
 /// else will build the body. Three of its four callers had nothing:
@@ -155,13 +147,10 @@ impl<'a> CharacterSpawnPlan<'a> {
 /// nothing can build it      → REFUSE
 /// ```
 ///
-/// ⚠ **`prepared.is_empty()` is not defensive padding, it is a second defect kept
-/// out of this one's way.** Several hosts — the multi-game shell, the rollback
-/// door fixture — reach construction with a prepared registry containing ZERO
-/// characters, measured. There EVERY placement's character is "missing", and
-/// refusing would blame the content for a composition gap.
+/// There EVERY placement's character is "missing", and refusing would blame the content for a
+/// composition gap.
 ///
-/// ⛔ **`fallback` is what will build the body INSTEAD, not whether one exists in
+/// **`fallback` is what will build the body INSTEAD, not whether one exists in
 /// principle.** Pass `None` only when the answer is *a generic body wearing this
 /// character's name*, because that is the original Iron Mary defect and it looks
 /// exactly like a working spawn.
@@ -182,13 +171,7 @@ pub(crate) fn report_unprepared_character(
          a generic body wearing that character's name. Register the character, or \
          author something that can build it."
     );
-    // ⭐ **TWO DIFFERENT FACTS, SAID DIFFERENTLY** (ledger D75). A per-placement
-    // warning about a missing character reads as *this content is wrong*, and in
-    // a host that published NO CAST AT ALL that is a lie repeated once per
-    // placement: the composition is what is incomplete, and every character in
-    // the room is equally "missing".
-    //
-    // ⚠ absence is legitimate — `CharacterPreparationPlugin` is installed by
+    // absence is legitimate — `CharacterPreparationPlugin` is installed by
     // `try_register_character`, so a host that registers nobody never publishes,
     // and "no cast" is exactly what that means. What must not happen is a room
     // full of character-named placements quietly becoming generics with nothing
@@ -227,13 +210,9 @@ mod tests {
 
     /// **A plan resolves the character it NAMES, and nothing else.**
     ///
-    /// ⛔ **the other half of this test is now a COMPILE ERROR** and that is the
-    /// stronger form. It used to assert that a plan naming no character resolved
-    /// none *"however its placement is labelled"* — the guard against a body
-    /// being matched by display name. `CharacterSpawnPlan::character` is
-    /// required since AC6, so a plan that names nobody cannot be constructed to
-    /// be asked; there is no fallback for it to resolve TO. What survives here
-    /// is the positive half, which the assertion above was measured against.
+    /// **the other half of this test is now a COMPILE ERROR** and that is the stronger form.
+    /// `CharacterSpawnPlan::character` is required since AC6, so a plan that names nobody cannot be
+    /// constructed to be asked; there is no fallback for it to resolve TO.
     #[test]
     fn a_plan_resolves_the_character_it_names() {
         let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
@@ -269,17 +248,8 @@ mod tests {
     /// **An authored character that is not prepared is a FAULT, not a
     /// fallback.**
     ///
-    /// The state this separates out: content says `IronMary`, her registration
-    /// is missing for any reason, and the body quietly keeps the archetype it
-    /// would have had — which is the exact defect this campaign exists to
-    /// remove, reproduced by the machinery meant to remove it.
-    ///
-    /// ⛔ poison: make `definition` return a plain `Option` and this stops
-    /// compiling — which is the point. The fault is in the type, so it cannot be
-    /// lost by a caller forgetting to check. ⚠ it used to have to be
-    /// distinguishable from an UNMIGRATED placement because only one of the two
-    /// could fall back; there is nothing to fall back to now, so the type
-    /// carries one distinction instead of two.
+    /// poison: make `definition` return a plain `Option` and this stops compiling — which is the
+    /// point.
     #[test]
     fn an_authored_character_that_is_not_prepared_is_an_error() {
         let registry = crate::character_runtime::PreparedCharacterRegistry::default();
@@ -308,10 +278,8 @@ mod tests {
     /// **A named character nobody registered, with nothing else able to build
     /// the body, is REFUSED.**
     ///
-    /// This is the whole of P0.1's second half: the type has distinguished the
-    /// three outcomes for a while, and the CALLER only warned. A body that would
-    /// come out generic wearing somebody's name is the original defect, and the
-    /// campaign's rule is that it must not be reachable quietly.
+    /// This is the whole of P0.1's second half: the type has distinguished the three outcomes
+    /// for a while, and the CALLER only warned.
     #[test]
     #[should_panic(expected = "nothing else can build this body")]
     fn a_named_character_with_no_fallback_refuses_the_spawn() {
@@ -321,10 +289,7 @@ mod tests {
     /// **…and the two states that must NOT refuse, so the guard above is a rule
     /// rather than a panic.**
     ///
-    /// ⛔ this half is the poison for the half above. A refusal that also fires
-    /// on a borrowed character or on a host with no cast would be indistinguishable
-    /// from one that fires correctly — and it would refuse two shipping
-    /// compositions, which is how a guard gets deleted instead of obeyed.
+    /// this half is the poison for the half above.
     #[test]
     fn a_fallback_or_an_empty_cast_warns_instead_of_refusing() {
         // Something else can build it: a borrowed character in a partial

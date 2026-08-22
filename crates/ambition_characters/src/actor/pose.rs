@@ -1,11 +1,8 @@
 //! Actor-system pose + faction vocabulary.
 //!
-//! `ActorPose` is the lightweight gameplay-space read model brains and
-//! action systems use for attack origins and facing (the collision body
-//! stays authoritative in the combat kit). `ActorFaction` is the shared
-//! allegiance handle every actor family carries. Both moved here from
-//! the combat kit because they are ACTOR vocabulary (Stage 22 unified
-//! actor system); the kit re-exports them at the old paths.
+//! `ActorPose` is the lightweight gameplay-space read model brains and action systems use for
+//! attack origins and facing (the collision body stays authoritative in the combat kit).
+//! `ActorFaction` is the shared allegiance handle every actor family carries.
 
 use ambition_platformer2d_core as ae;
 use bevy::prelude::Component;

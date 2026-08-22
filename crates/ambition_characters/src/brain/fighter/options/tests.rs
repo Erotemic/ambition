@@ -88,7 +88,7 @@ fn view_with(me_x: f32, foe_x: f32) -> WorldView {
 /// prices its jab as a jab without anyone typing a table.
 ///
 /// ⛔⛔ **and it prices an ANTI-AIR as an anti-air, which is the whole reason this
-/// feature stopped being a scalar** (2026-08-15). Its predecessor compared
+/// feature stopped being a scalar**. Its predecessor compared
 /// `reach` — the `+x` face alone — against `(foe.pos - me.pos).length()`, so a
 /// move whose volume sits above the shoulder was indistinguishable from a poke
 /// of the same length and the vertical half of every authored kit was never
@@ -322,12 +322,6 @@ fn lifting_candidate(id: &str, lift_speed: f32, lift_at_s: f32) -> AttackCandida
 
 /// **A RECOVERING BODY IS OFFERED THE MOVE THAT LIFTS IT, AND ONLY THAT MOVE.**
 ///
-/// ⛔ the defect this closes: `Recovery` returned an empty attack list
-/// unconditionally, so a fighter carrying a real recovery special drifted and
-/// jumped at a stage it could not reach while holding the thing that would have
-/// got it home. The refusal was right about ATTACKING and wrong about the
-/// repertoire.
-///
 /// ⭐ **and the selection is geometric.** Nothing here names a character, a verb
 /// or a move id — the jab and the smash are excluded because they command no
 /// against-gravity speed, and `ascend` is offered because it commands one. Give
@@ -466,14 +460,10 @@ fn lifting_candidates_selects_on_commanded_lift_alone() {
 /// Movement expresses the situation's ONE obligation, so a brain with no L3
 /// still plays a recognizable game.
 ///
-/// ⚠ **`Disadvantage` moved from Shield to Retreat on 2026-08-11**, and the
-/// row below is the reason rather than a weakening: `Disadvantage` covers being
-/// CORNERED as well as being in hitstun, and guarding does not un-corner
-/// anybody. Two shielding fighters who never move is a stable state, and it is
-/// what the Smash stage did for a whole match the day these bodies were first
-/// given the capability. Shield is a reaction to a swing —
-/// [`disadvantage_shields_only_against_an_incoming_swing`] is the other half
-/// of this pair and asserts it still happens when there IS one.
+/// Two shielding fighters who never move is a stable state, and it is what the Smash stage did for
+/// a whole match the day these bodies were first given the capability. Shield is a reaction to a
+/// swing — [`disadvantage_shields_only_against_an_incoming_swing`] is the other half of this pair
+/// and asserts it still happens when there IS one.
 #[test]
 fn each_situation_has_its_obligation() {
     let kit = [candidate("jab", 0.1, 100.0)];
@@ -593,10 +583,8 @@ fn the_evade_verb_is_whichever_maneuver_the_dash_button_actually_produces() {
         );
     }
 
-    // ⭐ THE POISON: a body that genuinely dashes must still be offered `Dash`,
-    // or this would pass just as well on a brain that renamed the verb for
-    // everybody. It is ALSO the case the capability instrument could not
-    // express — a Smash fighter owning both, mid-dodge-cooldown, resolves here.
+    // It is ALSO the case the capability instrument could not express — a Smash fighter owning
+    // both, mid-dodge-cooldown, resolves here.
     let offered = verbs(BurstManeuver::Dash);
     assert!(
         offered.contains(&MovementVerb::Dash) && !offered.contains(&MovementVerb::Dodge),
@@ -799,12 +787,8 @@ fn score_of(options: &OptionSet, verb: MovementVerb) -> f32 {
         .unwrap_or(f32::NAN)
 }
 
-/// **Approaching toward a ledge is penalised.** (2026-07-31)
-///
-/// The defect: a fighter lost all three of its stocks WITHOUT BEING HIT, by
-/// running past its opponent and off the edge. The brain was not wrong — until
-/// the smash stage, every room in this engine was ENCLOSED, so `Approach` was
-/// always safe and nothing had to score a ledge.
+/// The brain was not wrong — until the smash stage, every room in this engine was ENCLOSED, so
+/// `Approach` was always safe and nothing had to score a ledge.
 #[test]
 fn approaching_off_the_edge_of_a_platform_scores_worse_than_approaching_inward() {
     // Foe to the RIGHT, and the platform ends 10px to the right: closing means
@@ -952,7 +936,7 @@ fn an_attack_that_cannot_span_the_gap_is_not_offered() {
     );
 }
 
-// ── what a hold is worth (D166's policy half) ────────────────────────────
+// ── what a hold is worth ( policy half) ────────────────────────────
 
 /// A grab candidate with a real capture box, the way `capture_candidate` builds
 /// one: no damage, no `reach` from a volume, guard ignored, and a `coverage`
@@ -1033,15 +1017,10 @@ fn a_reeling_body_is_not_worth_grabbing() {
 /// **⛔⛔ THE REVERTED BUG, PINNED: no amount of hold value buys a grab thrown
 /// from outside its own reach.**
 ///
-/// Pricing the grab at its forward throw's damage made the CPU grab from 110px
-/// with a 42px reach — nine attempts in sixty seconds, none inside its own
-/// range, zero holds (`capture_probe`, 2026-08-18). The fault was that the
-/// number was UNCONDITIONAL, so this fixes the opponent at every fact that
-/// makes a hold most valuable — guarding AND at high percent — and puts them
-/// out of reach anyway.
+/// The fault was that the number was UNCONDITIONAL, so this fixes the opponent at every fact that
+/// makes a hold most valuable — guarding AND at high percent — and puts them out of reach anyway.
 #[test]
 fn a_hold_is_never_worth_a_grab_the_body_cannot_reach() {
-    // 110px apart, exactly the measured failure, with a 42px grab.
     let mut view = guarding(view_with(300.0, 410.0));
     view.actors[0].damage_taken = 140;
 
@@ -1147,12 +1126,6 @@ fn an_airborne_body_is_worth_nothing_to_hold() {
 // ── legality: can this action begin at all? ──────────────────────────────
 
 /// **⛔⛔ AN ATTACK THE BODY CANNOT BEGIN IS NOT AN OPTION.**
-///
-/// Measured with `capture_probe` on 2026-08-19: of 54 CPU grab presses in a
-/// sixty-second match, **33 were issued while a smash already owned the body**
-/// and were dropped by `trigger_moveset_moves` before they did anything. No
-/// feature could express that, because it is not a question about the opponent
-/// or the geometry — it is a question about the body.
 ///
 /// ⚠ **the sibling filter cannot catch it.** "An attack that cannot REACH is not
 /// an option" refuses a move that cannot touch the foe; this one is in reach and

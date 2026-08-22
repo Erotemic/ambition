@@ -1,12 +1,7 @@
 //! **Worn equipment → granted actions**, reconciled continuously.
 //!
-//! A row may GRANT an action verb ([`EquipmentGrant`]), and a grant has to be
-//! revocable: a row that is consumed, downgraded, or unequipped must take its verb
-//! with it. Equip used to apply grants one-shot at the pickup site, which made
-//! revocation impossible to express — there was no un-granted baseline to subtract
-//! against, so the A3 contract documented "a grant-bearing downgrade is out of
-//! scope" and the victim-side hit resolver was forbidden from touching a granting
-//! row at all.
+//! A row may GRANT an action verb ([`EquipmentGrant`]), and a grant has to be revocable: a row that
+//! is consumed, downgraded, or unequipped must take its verb with it.
 //!
 //! This module removes that limitation by inverting the relationship. A body's
 //! live [`ActionSet`] and [`ActorMoveset`] are no longer WRITTEN by whoever

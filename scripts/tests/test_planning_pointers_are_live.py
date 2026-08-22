@@ -72,11 +72,11 @@ def test_an_archived_ledger_has_no_open_marks():
     the day it was filed. Both were carried forward before the move.
     """
     archive = REPO / "docs" / "archive"
-    # ⚠ `*-closed-sections.md` are EXCLUDED, and the exclusion is their own
+    # `*-closed-sections.md` are EXCLUDED, and the exclusion is their own
     # contract rather than a convenience: those files archive individual sections
     # that had zero open rows, and their header states **"Nothing here is
     # edited"** — verbatim and lossless, so a mark inside one may not be touched.
-    # ⛔ two of them nonetheless carry rows that read as open (`AE6`, `S49`,
+    # two of them nonetheless carry rows that read as open (`AE6`, `S49`,
     # *"milestone 5 is NOT reached"*). That is a question about ORPHANED WORK, not
     # about formatting, and stripping the marks would erase the evidence for it.
     # Tracked separately; see the live ledger.

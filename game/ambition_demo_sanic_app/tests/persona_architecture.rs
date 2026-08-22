@@ -129,34 +129,21 @@ fn the_demo_body_rides_surface_momentum_and_arms_ball_dash() {
     );
 }
 
-/// **The demo body wears SANIC'S authored kit, not Ambition's protagonist kit.**
-/// `sanic` is the demo's default/only character, so under the old rule (kit skipped
-/// for the content default) it kept the code-side `sandbox_all` kit — Swipe, Bolt,
-/// bubble_shield — a peaceful speedster that secretly shot fireballs. With the
-/// `default_character_id`↔code-kit coupling removed, `sanic` is an `Authored` row,
-/// so its `"peaceful"` ActionSet (no melee / ranged / special) IS the worn kit. This
-/// is the assembled proof of the architecture fix — asserted on `ActionSet` +
-/// `ActorMoveset`, not just movement.
+/// **The demo body wears SANIC'S authored kit, not Ambition's protagonist kit.** `sanic` is the
+/// demo's default/only character, so under the old rule (kit skipped for the content default)
+/// it kept the code-side `sandbox_all` kit — Swipe, Bolt, bubble_shield — a peaceful speedster
+/// that secretly shot fireballs. This is the assembled proof of the architecture fix — asserted
+/// on `ActionSet` + `ActorMoveset`, not just movement.
 ///
-/// ⭐⭐ **THE MOVESET HALF WAS CORRECTED ON 2026-08-16 (D146 slice 4), and it was
-/// a STALE ASSERTION rather than a regression.** It read `moveset_len == 0`,
-/// "an empty melee derives an empty directional moveset", which was the whole
-/// truth while Sanic authored no moves. He now authors a smash table — the
-/// crossover grid was pressing silence at him — and an AUTHORED moveset OVERLAYS
-/// the derived one instead of being derived from the action set, so the body
+/// He now authors a smash table — the crossover grid was pressing silence at him — and an AUTHORED
+/// moveset OVERLAYS the derived one instead of being derived from the action set, so the body
 /// carries seventeen moves and not one of them came from a protagonist kit.
 ///
-/// ⛔⛔ **AND THE REASONING THAT REWROTE IT WAS FALSE WHEN IT WAS WRITTEN.** It
-/// said *"what keeps that off his own speedway is the ABILITY, not the table"* —
-/// his rows author `abilities: Some([RunJump])`, which has no `attack`. Nothing
-/// consulted that: `combat_actions` derived the Attack / Special slots from the
-/// MOVESET and the `ActionSet` alone, so the slots appeared, the persona gate
-/// kept the verbs, and every press answered. Jon found it by playing Mary-O
-/// (2026-08-16, *"maryo seems to have gotten a bunch of moves from smash in her
-/// game"*) — this test's red at `moveset_len == 17` had been reporting it for a
-/// day and was argued away.
+/// Nothing consulted that: `combat_actions` derived the Attack / Special slots from the MOVESET
+/// and the `ActionSet` alone, so the slots appeared, the persona gate kept the verbs, and every
+/// press answered.
 ///
-/// ⭐ the ability is a real gate now (`ambition_characters::action_scheme`), and
+/// the ability is a real gate now (`ambition_characters::action_scheme`), and
 /// what it gates is proved BEHAVIOURALLY next door in
 /// [`the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table`] —
 /// a count and an equality can only ever say what the body CARRIES. This one
@@ -232,17 +219,15 @@ fn the_demo_body_wears_the_authored_peaceful_kit_not_the_host_protagonist_kit() 
 
 /// **Sanic at home cannot trigger a single move from his own smash table.**
 ///
-/// The behavioural half of the test above, and the one that would have caught
-/// the regression it was rewritten around. Sanic carries seventeen authored
-/// moves so a crossover ruleset has something to consume; his own game grants
-/// him `RunJump`, which has no `attack`, so no press may start one.
+/// Sanic carries seventeen authored moves so a crossover ruleset has something to consume; his own
+/// game grants him `RunJump`, which has no `attack`, so no press may start one.
 ///
-/// ⚠ **asserted on what a press STARTS, never on a field.** The spin-dash is a
+/// **asserted on what a press STARTS, never on a field.** The spin-dash is a
 /// TECHNIQUE on his Attack slot, so the melee edge is still routed and consumed
 /// here — this passing means the technique kept its button while the repertoire
 /// behind it stayed unreachable.
 ///
-/// ⛔ `app.update()` is a frame, not a tick: every press is held across a window
+/// `app.update()` is a frame, not a tick: every press is held across a window
 /// and then released, and the whole sweep runs under a ceiling.
 #[test]
 fn the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table() {
@@ -250,11 +235,8 @@ fn the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table() {
     use ambition_platformer2d::engine_core::ControlFrame;
 
     let mut app = ambition_demo_sanic_app::build_demo_app();
-    // ⭐ **the ordering lives in ONE place now** — after the participant
-    // pipeline's routing stage and before the frame→tick latch. Eight
-    // fixtures each carried their own copy of that knowledge, and five of
-    // them were still guessing `PreUpdate` on 2026-08-19, where the
-    // pipeline overwrote every scripted write before the sim saw it.
+    // **the ordering lives in ONE place now** — after the participant pipeline's routing stage and
+    // before the frame→tick latch.
     ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
     settle_until_primary_player(&mut app);
     for _ in 0..30 {
@@ -336,7 +318,7 @@ fn the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table() {
         "Sanic's own speedway answered a combat press with a smash move: {triggered:#?}"
     );
 
-    // ⛔⛔ **THE PAIRED POSITIVE TERM, AND WITHOUT IT THE ASSERTION ABOVE CANNOT
+    // **THE PAIRED POSITIVE TERM, AND WITHOUT IT THE ASSERTION ABOVE CANNOT
     // FAIL.** Every claim in this test is that something does NOT happen, so a
     // run in which no press reaches Sanic at all satisfies it perfectly — which
     // is exactly what this file did while its stick was written in `PreUpdate`.
@@ -374,13 +356,9 @@ fn the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table() {
 
 /// **The Utility control is NAMED by the worn persona, like every other control.**
 ///
-/// Jon, 2026-08-08: *"Sanic's transform button still reads 'fly'."* Each on-screen
-/// control takes its word from the controlled subject's own action scheme
-/// (`derive_action_scheme` → `ControlPrompt` → the touch button's `ButtonVerb`),
-/// and the spawn label is only the fallback for a slot the scheme says nothing
-/// about. The form toggle used to consume the raw Utility edge without DECLARING
-/// itself, so Sanic's scheme left that slot empty and the fallback — "Fly" —
-/// was, correctly, what showed.
+/// control takes its word from the controlled subject's own action scheme (`derive_action_scheme` →
+/// `ControlPrompt` → the touch button's `ButtonVerb`), and the spawn label is only the fallback for
+/// a slot the scheme says nothing about.
 ///
 /// Asserted on the ASSEMBLED demo on purpose: the declaration (content) and the
 /// labelling (engine) live in different crates and each is inert without the
@@ -408,13 +386,7 @@ fn the_utility_control_is_named_by_the_worn_persona_not_by_a_generic_fly_verb() 
 
 /// **Every authored badnik declares whether it sleeps.**
 ///
-/// The dormancy seam was built for Jon's Mary-O report — *"ai slop will just walk
-/// off the edge of the level before she even gets to that part of the level"* —
-/// and for a day it was wired to exactly one enemy in one game. A speedway is the
-/// case that needs it most: the level is long, the badniks are spread down its
-/// whole length, and Sanic reaches the far end seconds after the near one.
-///
-/// ⚠ **this also proves the tagger is REGISTERED**, which is the failure mode a
+/// **this also proves the tagger is REGISTERED**, which is the failure mode a
 /// compile cannot catch. `tag_sanic_badniks` could be perfectly written and
 /// simply never added to a schedule, and everything would still build.
 #[test]

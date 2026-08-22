@@ -1,12 +1,6 @@
 //! **Snakes on a plane: the flying-swarm enemy archetypes.**
 //!
-//! Two characters, not two skins — the Cartesian one is a maths joke and the
-//! paper one is an aviation joke. Their catalog rows, pedestals and
-//! conversations landed 2026-08-05, the archetypes on 08-06, and 1-2 places two
-//! of each on 08-06 (Jon: *"I would like to add the flying snakes on a plane as
-//! enemies in this world"*).
-//!
-//! ⭐ **the engine already flies, and it is DATA.** The ledger row claimed a
+//! **the engine already flies, and it is DATA.** The ledger row claimed a
 //! flying swarm needed a motion authority that is neither the body sweep nor a
 //! projectile. It needed neither: `CharacterBrainTemplate::Aerial` and
 //! `MoveStyleSpec::Float` have existed the whole time (the comment beside
@@ -15,7 +9,7 @@
 //! `Floating -> is_aerial -> gravity_scale: 0.0` plus the fly ability from
 //! spawn.
 //!
-//! ⛔ **but "so this file is a table, not a system" was too strong, and placing
+//! **but "so this file is a table, not a system" was too strong, and placing
 //! one is what showed it.** That claim is true of BEHAVIOUR and false of the
 //! ENEMY: a plane snake in 1-2 drew a red placeholder rectangle until
 //! [`register_snakes_on_a_plane_sheets`] existed, because sheet publishing is
@@ -25,37 +19,24 @@
 /// **Register both swarms as CHARACTERS** — the same shape `snake.rs` uses,
 /// one creature over, twice.
 ///
-/// ⭐⭐ **this retires the demo's last roster fragment.** The pair used to be
-/// `mary_o_snakes_on_a_*` archetype ROWS, kept because a STANDALONE Mary-O had
-/// no cast entry for Ambition-registered characters and fell back to them. The
-/// fork is closed the other way now: Mary-O is the one provider that registers
-/// `npc_snakes_on_a_*`, in every composition — characters are shared by ID
-/// across providers, so the Hall's pedestals still stage them in the hosted
-/// app, from the merged catalog.
-///
-/// ⚠ **`aggro_radius: 0.0` and `attack_range: 0.0` are deliberate, and the
-/// reason first written here was WRONG.** It said *"the `Aerial` template
-/// ignores both, and giving them numbers would state a rule nothing reads"*.
-/// It reads both: `aerial_brain_for_enemy` passes `aggro_radius` straight into
-/// `AerialCfg` and folds `attack_range` into the roam radius
-/// (`(110..170).max(attack_range * 1.5)`). So the zeros are not inert — they are
-/// what makes these two ROAM and never DIVE, and a nonzero aggro radius would
-/// turn each of them into a homing dive-bomber the moment Mary-O walked under
-/// it.
+/// It reads both: `aerial_brain_for_enemy` passes `aggro_radius` straight into `AerialCfg` and
+/// folds `attack_range` into the roam radius (`(110..170).max(attack_range * 1.5)`). So the
+/// zeros are not inert — they are what makes these two ROAM and never DIVE, and a nonzero aggro
+/// radius would turn each of them into a homing dive-bomber the moment Mary-O walked under it.
 ///
 /// Which is the behaviour we want and the reason to keep the zeros: offense is
 /// body contact, on a creature that patrols its own patch of air. A Mary-O enemy
 /// is an obstacle with a rhythm, not a pursuer — and a flyer that chases is a
 /// different design question than "1-2 has no enemies".
 ///
-/// ⭐ **the two differ in SPEED and HEALTH, not in kind.** A paper plane is
+/// **the two differ in SPEED and HEALTH, not in kind.** A paper plane is
 /// light and quick and dies to anything; a Cartesian plane is a grid and moves
 /// like one — slower, steadier, and it takes two hits. That is the whole
 /// difference a player feels.
 ///
-/// ⚠ **`patrol_effort: 1.0` is the deleted rows' own pace** (the same catch
+/// **`patrol_effort: 1.0` is the deleted rows' own pace** (the same catch
 /// `snake.rs` documents): a swarm PACES its patch of air at full speed, and
-/// `BrainProfile`'s default is the half-speed amble. ⛔ the row-vs-character
+/// `BrainProfile`'s default is the half-speed amble. the row-vs-character
 /// fork had hidden exactly this — the hosted build's character authored no
 /// efforts and ambled at half pace while the standalone row flew at full; the
 /// row's numbers are the authored intent, so unification keeps them.
@@ -129,7 +110,7 @@ pub const CARTESIAN_PLANE_CHARACTER_ID: &str = "npc_snakes_on_a_cartesian_plane"
 
 /// **The sheet TARGETS, and they are not the catalog ids.**
 ///
-/// ⚠ `solid_snake` and `ai_slop` are both at once, which is why neither of those
+/// `solid_snake` and `ai_slop` are both at once, which is why neither of those
 /// modules needs a pair of constants — and why copying their shape without
 /// noticing would publish these two under a name nothing asks for. The renderer
 /// draws `snakes_on_a_paper_plane`; the catalog calls the same creature
@@ -152,11 +133,7 @@ pub const CARTESIAN_PLANE_DISPLAY_NAME: &str = "Snakes on a Cartesian Plane";
 /// placeholder, which is a red rectangle, and a red rectangle is what a hostile
 /// placeholder is SUPPOSED to look like.
 ///
-/// ⛔ **the archetype was not the whole enemy, and the ledger said it was.** The
-/// row that closed on 2026-08-06 recorded *"the whole enemy is a TABLE"* because
-/// the movement kernel already flew. True of BEHAVIOUR and false of the enemy:
-/// placing one in 1-2 drew two red rectangles until this existed. What a table
-/// bought was the brain; art has always been the provider's own job here, and
+/// What a table bought was the brain; art has always been the provider's own job here, and
 /// `snake.rs` and `ai_slop.rs` each say so in their own file.
 ///
 /// Keyed three ways per creature — sheet target, catalog id, display name —

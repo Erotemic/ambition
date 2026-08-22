@@ -1,9 +1,7 @@
 //! Backend-neutral recorder for domain-owned rollback declarations.
 //!
-//! This registrar records the exact schema row a concrete rollback backend would
-//! install, but installs no snapshot/session machinery. Fixed/render-frame hosts
-//! use it so prepared-content identity carries the same rollback contract without
-//! linking a netcode backend. Concrete hosts implement the same
+//! This registrar records the exact schema row a concrete rollback backend would install, but
+//! installs no snapshot/session machinery. Concrete hosts implement the same
 //! [`RollbackRegistrar`] vocabulary in their own crates.
 
 use bevy::ecs::component::Mutable;

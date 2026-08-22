@@ -28,14 +28,10 @@ fn boss_sheet_render_basis_diverges_from_the_baked_sheet_dims() {
     // gameplay's const `render_size` uses the CONST dims. `render_size` height is
     // collision-scale-only, so only the WIDTH (frame aspect fw/fh) can diverge.
     //
-    // This documents WHY AS4b stores the seed render-basis on the boss and lets the
-    // render keep its own `spec.render_size(seed)` (byte-identical), instead of
-    // routing render onto a const-derived size — the const and baked aspects do NOT
-    // match for real bosses, so a const-derived `ActorRenderSize` would resize the
-    // sprite. Convergence (render + hurtbox on one true size) is a separate blind
-    // slice per AD3's "latent bug to fix regardless"; this guard fails loudly if the
-    // gap ever CLOSES (at which point the const-derived path becomes safe and this
-    // note is stale).
+    // This documents WHY AS4b stores the seed render-basis on the boss and lets the render keep
+    // its own `spec.render_size(seed)` (byte-identical), instead of routing render onto a
+    // const-derived size — the const and baked aspects do NOT match for real bosses, so a
+    // const-derived `ActorRenderSize` would resize the sprite.
     let known_divergent = [
         ("boss", &BOSS_SHEET),
         ("mockingbird_boss", &MOCKINGBIRD_SHEET),
@@ -216,11 +212,9 @@ fn giant_gnu_baked_record_drives_the_packed_pixels() {
 
 #[test]
 fn boss_atlas_tracks_the_published_rects_not_the_const_grid() {
-    // The flashing bug: the boss atlas was a uniform grid recomputed from the
-    // const's frame_width, so when the regenerated sheet's cells changed size
-    // the boss indexed the wrong pixels. The data-driven path must lay cells out
-    // at the PUBLISHED rect stride. Use a deliberately DIFFERENT frame width
-    // (300) from the const so a grid-from-const would land cells elsewhere.
+    // The data-driven path must lay cells out at the PUBLISHED rect stride. Use a deliberately
+    // DIFFERENT frame width (300) from the const so a grid-from-const would land cells
+    // elsewhere.
     let record = fsm_record(300, 280, 100);
     assert!(
         record_aligns_with_const(&record, &FLYING_SPAGHETTI_MONSTER_SHEET),
@@ -265,9 +259,7 @@ fn boss_atlas_falls_back_when_record_rows_dont_line_up() {
 
 #[test]
 fn mockingbird_flips_to_face_the_player_unlike_right_facing_sheets() {
-    // Regression for "the mockingbird always faces away from you": its
-    // sheet is authored facing left, so the flip must be inverted vs a
-    // normal right-facing sheet. Player to the right ⇒ facing > 0.
+    // Player to the right ⇒ facing > 0.
     assert!(MOCKINGBIRD_SHEET.authored_faces_left);
     assert!(!BOSS_SHEET.authored_faces_left);
     assert!(!GIANT_GNU_SHEET.authored_faces_left);

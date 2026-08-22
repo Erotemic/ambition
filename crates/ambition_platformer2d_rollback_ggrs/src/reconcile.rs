@@ -28,7 +28,7 @@
 /// - **A DISPLACED brain is untouchable.** A body under mount control
 ///   (`Mounted`) is skipped — its live brain is the controller's, not its
 ///   autonomous selection, and reconciling would clobber it.
-///   ⭐ **possession is no longer on that list.** A possessed body keeps its own
+///   **possession is no longer on that list.** A possessed body keeps its own
 ///   policy the whole time (the seat moved, the brain did not), so its live brain
 ///   IS its autonomous selection and reconciling it is exactly right.
 /// - **Externally-owned brains are left to their authority.** A binding whose

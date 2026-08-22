@@ -1,33 +1,9 @@
 //! **An archetype can say GROUNDED, distinctly from saying nothing.**
 //!
-//! ⛔ **it could not until 2026-08-07, and that is what made the Perfect Cellular
-//! Automaton undecidable.** `ArchetypeSpec::is_aerial` was a bare `bool` with
-//! `#[serde(default)]`, so an archetype authoring `false` and one authoring
-//! nothing produced the identical value — and two spawn paths disagree exactly
-//! there: `new_peaceful_npc_in` reads the catalog's `body_kind: Floating` while
-//! the hostile `EnemySpawn` path reads this field. The PCA says `Floating` in its
-//! catalog row and is played grounded by the shipped duel, and with a bare bool
-//! there was no way to state "the archetype says grounded" as distinct from "the
-//! archetype is silent, so the catalog wins".
+//! So did a deliberate `false`.
 //!
-//! ⭐ **the same defect the struct's own header warns about, one field away**:
-//! `deny_unknown_fields` is there because a misspelled key "looks identical to
-//! authoring nothing". So did a deliberate `false`.
-//!
-//! ⭐⭐ **AND THE PROPERTY MOVED TO THE CHARACTER, 2026-08-11 (ledger D89).** The
-//! PCA was the only shipped archetype that authored `is_aerial` at all, and its
-//! row is DELETED — so a census of `ArchetypeSpec` can no longer reach `Some`,
-//! exactly as this file's own body predicted: *"a census of a file that is
-//! deliberately shrinking to nothing is not a property; it is a countdown, and it
-//! fails for the exact reason the campaign is succeeding."*
-//!
-//! ⇒ the three-state now lives on `CharacterLocomotion::flies`, which is where
-//! the fact belongs, and shipped content authors all three cases. Jon's call is
-//! also in: *"in smash PCA should not have the fly ability"* — so the automatons
-//! say `Some(false)` while the parrot and the burning shark say `Some(true)`.
-//! ⚠ what is pinned is unchanged: **stated-grounded and silent must be
-//! distinguishable in shipped content.** Only the type carrying the distinction
-//! moved.
+//! ⇒ the three-state now lives on `CharacterLocomotion::flies`, which is where the fact belongs,
+//! and shipped content authors all three cases.
 
 #[test]
 fn shipped_characters_state_their_flight_answer_explicitly() {
@@ -42,7 +18,7 @@ fn shipped_characters_state_their_flight_answer_explicitly() {
         .and_then(|locomotion| locomotion.baseline_free_flight)
     };
 
-    // ⭐ **a character that says it FLIES.** Without one, `Some(true)` is
+    // **a character that says it FLIES.** Without one, `Some(true)` is
     // unreachable from shipped content and the type is decorative.
     assert_eq!(
         authored("stochastic_parrot"),
@@ -51,7 +27,7 @@ fn shipped_characters_state_their_flight_answer_explicitly() {
          `body_kind: Floating` stopped deciding locomotion (D89)"
     );
 
-    // ⭐ **a character that says it does NOT**, which is the case that could not
+    // **a character that says it does NOT**, which is the case that could not
     // be expressed at all before: the PCA's row still says `Floating`, and that
     // is now a claim about its SILHOUETTE only.
     assert_eq!(
@@ -61,7 +37,7 @@ fn shipped_characters_state_their_flight_answer_explicitly() {
          or a presentation enum decides its locomotion again"
     );
 
-    // ⭐ **and SILENCE, distinct from both.** A character that never mentions
+    // **and SILENCE, distinct from both.** A character that never mentions
     // flight leaves the question open at the source layer; preparation resolves
     // it once, so nothing downstream has to re-ask.
     assert_eq!(
@@ -73,21 +49,12 @@ fn shipped_characters_state_their_flight_answer_explicitly() {
     );
 }
 
-// ⛔⛔ **`absence_still_resolves_to_grounded` WAS HERE AND IS DELETED** (AC6). It
-// swept every archetype row's `is_aerial: Option<bool>` and asserted that silence
-// still resolved to grounded — that making the question expressible had changed
-// no behaviour. The rows are deleted; the three-state lives on
-// `CharacterLocomotion::baseline_free_flight`, and the test above pins all three
-// of its cases in shipped content.
+// It swept every archetype row's `is_aerial: Option<bool>` and asserted that silence still
+// resolved to grounded — that making the question expressible had changed no behaviour.
 
 /// **THE PULSE SURVIVED ITS ARCHETYPE ROW.**
 ///
-/// ⛔ "Cellular Pulse" was the repository's first data-driven move and it lived
-/// inline on `character_archetypes.ron`'s `cellular_automaton_fighter` row, with
-/// a monolith test proving the row deserialized. That row is deleted (ledger
-/// D89); this is the same proof where the move now lives.
-///
-/// ⚠ the numbers are the row's verbatim — a migration that retuned on the way
+/// the numbers are the row's verbatim — a migration that retuned on the way
 /// would be a retune wearing a migration's commit.
 #[test]
 fn the_cellular_pulse_survived_its_archetype_row() {

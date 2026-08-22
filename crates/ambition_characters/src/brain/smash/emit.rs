@@ -70,17 +70,10 @@ pub fn emit_inputs(
             // speed — the same surface `Walk` uses at a partial throttle, and the
             // whole difference between the two.
             //
-            // ⛔⛔ **`out.burst_pressed = true` used to ride along here** and it
-            // was never the closing. The comment defending it said the throttle
-            // was the "body-agnostic floor" and the press an optional burst on
-            // top — but the press is the SHARED burst button, and once
-            // `apply_intent` stopped conflating the buffer (D146) a smash
-            // fighter resolves it as a DODGE ROLL, because dodge outranks dash.
-            // The brain would have been asking to evade at the exact moment it
-            // meant to run. And the burst it was reaching for is gone from this
-            // game's vocabulary anyway.
+            // The brain would have been asking to evade at the exact moment it meant to run.
+            // And the burst it was reaching for is gone from this game's vocabulary anyway.
             //
-            // ⚠ a driver that genuinely wants the discrete burst must ask
+            // a driver that genuinely wants the discrete burst must ask
             // `resolve_burst_maneuver` what a press would MEAN on this body
             // first; nothing in the smash brain does, which is why dropping the
             // press is the correct shape and not a lost capability.
@@ -133,23 +126,9 @@ pub fn emit_inputs(
             out.special_pressed = true;
         }
         SpecificAction::Shield => {
-            // ⛔⛔ **"no engine-side input bit yet" WAS WRONG, and it had been
-            // wrong for a while** (corrected 2026-08-13). `shield_held` is a
-            // field on the very struct this function writes to, and it is the
-            // live path a player's guard takes — `shield_held` → `resolve_shield`
-            // (`avatar/starting_character.rs`). The comment described the world
-            // when the variant was added and nobody re-read it, so P5.38 recorded
-            // `Shield` as having "zero producers" while the reason it had none
-            // was assumed to be downstream.
-            //
-            // ⚠ a body that cannot shield is not harmed by this: the ability mask
+            // a body that cannot shield is not harmed by this: the ability mask
             // gates the verb (`AbilitySet::shield`), so holding the bit on a body
             // without a guard raises nothing.
-            //
-            // ⭐ **and it now has a caller.** `tick_smash`'s reactive block commits
-            // `SpecificAction::Shield` instead of setting the two fields itself
-            // (D146 slice 2), so what a requested guard MEANS on a frame is
-            // decided here and nowhere else.
             out.shield_held = true;
             out.locomotion = ae::LocalAxes::ZERO;
         }
@@ -160,12 +139,12 @@ pub fn emit_inputs(
             out.locomotion = ae::LocalAxes::ZERO;
         }
         SpecificAction::CaptureAttack { forward } => {
-            // ⭐ the ORDINARY attack press. `trigger_moveset_moves` reads the
+            // the ORDINARY attack press. `trigger_moveset_moves` reads the
             // capture context and turns it into a pummel or a throw; a brain
             // that reached for a capture-specific verb here would be the
             // CPU-only road this design exists without.
             out.melee_pressed = true;
-            // ⛔⛔ **MIRRORED BY FACING, and it was not.** `attack_axis` is a
+            // **MIRRORED BY FACING, and it was not.** `attack_axis` is a
             // STICK — `attack_dir_from_axis` computes `axis.x * facing` — so a
             // bare `+x` means *forward* only while the body faces right. A
             // left-facing captor asking for a forward throw was asking for a
@@ -174,7 +153,7 @@ pub fn emit_inputs(
             // The same double-mirror cost George his side special once already,
             // and the note on `aim_the_stick` is where that is written down.
             //
-            // ⚠ a PARTIAL deflection, for the second reason that note gives: a
+            // a PARTIAL deflection, for the second reason that note gives: a
             // stick shoved to 1.0 reads as a flick, and a flick left armed turns
             // the next ordinary attack into an accidental smash.
             out.attack_axis = if forward {
@@ -195,19 +174,11 @@ pub fn emit_inputs(
             out.locomotion = ae::LocalAxes::ZERO;
         }
         SpecificAction::Dodge { .. } => {
-            // ⚠ **still reserved, but the REASON changed** (D146). There is no
-            // dodge bit on `ActorControlFrame`; a dodge reaches a body through
-            // the shared burst press, and the old note called emitting one a
-            // defect because a body owning both verbs resolves the press by its
-            // live state rather than the brain's word.
-            //
-            // ⭐ that is no longer a defect on a SMASH fighter: the kit carries
-            // `dodge` and not `dash` (D146), so a burst press there resolves to
-            // exactly one thing. The remaining requirement is the general one —
-            // this arm must ask `resolve_burst_maneuver` (perception already
-            // carries the answer as `ObservationFrame::burst`) and emit only when
-            // it says a dodge, instead of pressing and hoping. Slice-sized work
-            // of its own; ⛔ don't hand it the press without the question.
+            // The remaining requirement is the general one — this arm must ask
+            // `resolve_burst_maneuver` (perception already carries the answer as
+            // `ObservationFrame:burst`) and emit only when it says a dodge, instead of pressing
+            // and hoping. Slice-sized work of its own; don't hand it the press without the
+            // question.
             out.locomotion = ae::LocalAxes::ZERO;
         }
     }

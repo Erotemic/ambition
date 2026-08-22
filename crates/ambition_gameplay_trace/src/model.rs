@@ -44,7 +44,7 @@ pub struct ControlFrameTrace {
     pub jump_pressed: bool,
     pub jump_held: bool,
     pub jump_released: bool,
-    /// ⚠ **the RECORDED key stays `dash_pressed`** so a dump written after the
+    /// **the RECORDED key stays `dash_pressed`** so a dump written after the
     /// BURST rename still parses with every trace tool that predates it.
     #[serde(rename = "dash_pressed")]
     pub burst_pressed: bool,

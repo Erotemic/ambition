@@ -49,8 +49,6 @@ from pathlib import Path
 
 SHEETS = Path("crates/ambition_platformer2d_actor_monolith/assets/sprites")
 
-# The reference Jon named. Their measured figure height is what everything else
-# is compared against; it is not a number this script invented.
 REFERENCE = ("alice", "bob")
 
 FRAME_HEIGHT = re.compile(r"frame_height:\s*(\d+)")
@@ -60,7 +58,7 @@ BODY_BBOX = re.compile(
 COLLISION_SCALE = re.compile(r"collision_scale:\s*([0-9.]+)")
 
 # `SheetTuning`'s default, applied when a sheet declares no `collision_scale`.
-# ⚠ 149 of 182 sheets inherit this, so "no value" is a real and common answer —
+# 149 of 182 sheets inherit this, so "no value" is a real and common answer —
 # and every one of the smallest characters declares something instead.
 DEFAULT_COLLISION_SCALE = 1.5
 

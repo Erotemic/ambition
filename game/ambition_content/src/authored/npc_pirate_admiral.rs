@@ -5,10 +5,7 @@
 //! sprite is authored at `collision_scale: 1.6` — the largest of the three
 //! fighters with a table.
 //!
-//! ⛔ MOVES ONLY. The admiral's body still comes from its catalog row and
-//! its archetype; authoring vitals or locomotion here would be a retune
-//! wearing a migration's commit, and it is not what removes the adopter.
-//! A table is the whole job.
+//! MOVES ONLY. A table is the whole job.
 
 use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
 
@@ -18,7 +15,7 @@ use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition
 /// stating the body's run speed here changes nothing a player sees today — it
 /// makes the body complete, which is what let the body-assist seam go.
 ///
-/// ⚠ a moveset without a body was the exact shape the assist seam existed for: a
+/// a moveset without a body was the exact shape the assist seam existed for: a
 /// character rich enough to state its swings and not yet able to state its walk.
 ///
 /// See the module doc. Reached through [`super::AUTHORED_CAST`], which is also
@@ -31,7 +28,6 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             ..Default::default()
         })
         .with_moveset(crate::pirate_admiral_moveset::pirate_admiral_moveset());
-    // Jon 2026-08-13: heavy/large pirate variants 6. An admiral is one.
     definition.vitals.max_health = Some(6);
     definition
 }

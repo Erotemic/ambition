@@ -40,9 +40,8 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 
-# Measured 2026-07-31: 28 jobs consumed ~295 G of `target/debug/deps`. A floor
-# with a little room, not a precise budget — the point is to refuse BEFORE a job
-# dies of ENOSPC and reports it as a compile error.
+# A floor with a little room, not a precise budget — the point is to refuse BEFORE a job dies of
+# ENOSPC and reports it as a compile error.
 MIN_FREE_GB = 40.0
 
 

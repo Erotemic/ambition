@@ -1,21 +1,10 @@
 //! **Sequential-session isolation gate (session-root exclusivity).**
 //!
-//! The architecture half of the N3.2 session campaign: activate one session,
-//! populate it, tear it down through the supported lifecycle, activate a fresh
-//! one, and prove that *nothing* — no entity, relationship, resource handle,
-//! cache, or published read model — refers to the retired scope.
-//!
 //! This drives the REAL Sanic host (`build_demo_app`: foundation + engine + host
 //! + shell + the Sanic provider) headlessly. The player body is
 //! `simulation_world`'s real output; teardown is the shell's real
 //! `SessionScopeRetired` sweep plus the provider-installed
 //! `SessionTeardownPlugin` that resets the session-scoped resource mirrors.
-//!
-//! The existing `shell_cycle.rs` proves *entity* isolation. This test adds the
-//! dimension that campaign targets: the process-global resource mirrors that the
-//! entity sweep does not touch (`MovingPlatformSet`, `PossessionState`,
-//! `ControlledSubject`, `EncounterRegistry`, `RoomTransitionCooldown`) — the ones that
-//! used to retain dangling `Entity` handles across a teardown.
 
 use bevy::prelude::*;
 

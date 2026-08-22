@@ -157,15 +157,6 @@ require_positive_integer() {
 }
 
 # Where the authored worlds live, and which one the validator starts from.
-#
-# ⛔ until 2026-08-01 this pointed at a directory that does not exist, under the
-# former `crates/ambition_actors/assets/` — and it had already stopped existing
-# before that crate was renamed, because the content split moved the worlds
-# under `game/ambition_content`. The failure was NOT loud: the two
-# named secondary worlds were guarded by `[[ -f … ]]`, so a missing directory
-# silently reduced the run to a single-world check, and cross-file LoadingZone
-# resolution — the hub door into the Hall, the cut-rope vault — was validated
-# by nothing at all.
 ldtk_worlds_dir="$repo_root/game/ambition_content/assets/worlds"
 ldtk_primary_world="sandbox.ldtk"
 
@@ -177,9 +168,7 @@ run_ldtk_validation() {
     [[ -f "$primary" ]] ||
         fail "the entry world ${ldtk_primary_world} is not in ${ldtk_worlds_dir#"$repo_root"/}"
 
-    # DISCOVERED, not listed. Every secondary must reach the validator or
-    # cross-file LoadingZone targets resolve against nothing — and a hard-coded
-    # list drops a newly authored world silently, which is the defect above.
+    # DISCOVERED, not listed.
     local worlds=()
     while IFS= read -r -d '' world; do
         worlds+=("$world")
@@ -197,8 +186,6 @@ run_ldtk_validation() {
     echo "Validating LDtk worlds in ${ldtk_worlds_dir#"$repo_root"/}:"
     echo "  entry:     $ldtk_primary_world"
     if ((${#secondaries[@]} == 0)); then
-        # Not fatal — a single-world repository is legal — but it is stated,
-        # because it is indistinguishable from the bug this replaced.
         echo "  secondary: (none found)"
     else
         echo "  secondary: ${secondaries[*]}"

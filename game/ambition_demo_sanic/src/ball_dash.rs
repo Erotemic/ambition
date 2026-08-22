@@ -67,8 +67,7 @@ pub struct BallDashTuning {
     /// radius-180 loop under 2250 gravity needs ~1300 px/s at the bottom, so the
     /// full-charge launch sits comfortably above that with room for pre-loop drag.
     pub launch_speed: f32,
-    /// Below this charge a crouch-release is just standing up. Without a floor,
-    /// every crouch would fire a limp dash and the verb would feel like a bug.
+    /// Below this charge a crouch-release is just standing up.
     pub min_launch_charge: f32,
     /// The balled-up body box. Square, so the kernel's circle proxy is exact.
     pub ball_size: ae::Vec2,
@@ -77,9 +76,7 @@ pub struct BallDashTuning {
     pub exit_speed: f32,
     /// `locomotion.y` past this reads as a crouch (local down is `+y`).
     pub crouch_threshold: f32,
-    /// Grace after losing a ride contact while a rev is already armed. Surface
-    /// hand-offs and ramp lips can report one brief airborne tick; that must not
-    /// erase a deliberate charge before the release edge reaches the rules.
+    /// Grace after losing a ride contact while a rev is already armed.
     pub contact_grace_s: f32,
 }
 
@@ -106,8 +103,7 @@ pub struct BallDash {
     pub charge: f32,
     /// Was the body crouched at the end of last tick? The release edge.
     pub crouched: bool,
-    /// Remaining time in which a previously grounded rev may survive a brief
-    /// contact seam. This is refreshed only by a real riding contact.
+    /// This is refreshed only by a real riding contact.
     pub contact_grace: f32,
 }
 
@@ -118,9 +114,7 @@ pub struct BallDash {
 pub struct BallDashInput {
     /// Local-down is held past the authored threshold.
     pub crouch_held: bool,
-    /// Falling edge of local-down, captured at the same controller-neutral seam
-    /// as the rev. Keeping the edge here makes release independent of later
-    /// body-mode clearance and fixed-tick latch timing.
+    /// Falling edge of local-down, captured at the same controller-neutral seam as the rev.
     pub crouch_released: bool,
     /// Rising edge of the default attack verb (X in arrows + Z/X/C).
     pub rev_pressed: bool,
@@ -129,14 +123,11 @@ pub struct BallDashInput {
     pub grounded_at_capture: bool,
 }
 
-/// Capture Sanic's spin-dash rev from the SANCTIONED technique edge the persona
-/// gate resolved onto its Attack slot — no longer by intercepting the raw
-/// `melee_pressed` verb in a fragile before-gate window. The body's action scheme
-/// declares `spin_dash` on the Attack slot (`ActorTechniques`), so
+/// The body's action scheme declares `spin_dash` on the Attack slot (`ActorTechniques`), so
 /// `gate_worn_player_control` routes the Attack device edge into
-/// `ResolvedTechniqueEdges["spin_dash"]` (and clears the raw melee verb); this
-/// reads that edge. Runs AFTER the gate. Vacated bodies are reset so a possession
-/// handoff cannot replay a stale rev edge.
+/// `ResolvedTechniqueEdges["spin_dash"]` (and clears the raw melee verb); this reads that edge.
+/// Runs AFTER the gate. Vacated bodies are reset so a possession handoff cannot replay a stale
+/// rev edge.
 pub fn capture_ball_dash_input(
     subject: Option<Res<ambition_platformer2d::platformer::markers::ControlledSubject>>,
     tuning: Res<BallDashTuning>,
@@ -335,7 +326,7 @@ pub fn tick_ball_dash(
             BallDashStep::Launch(charge) => {
                 let speed = tuning.launch_speed * charge;
                 let facing = if kin.facing == 0.0 { 1.0 } else { kin.facing };
-                // ⭐ the sign convention (`v_t` shares facing's sign, because the
+                // the sign convention (`v_t` shares facing's sign, because the
                 // kernel integrates `v_t += run * accel * dt` with
                 // `run = locomotion.x`) now lives on the op rather than in a
                 // comment here. The `false` branch is the airborne case, which
@@ -403,7 +394,7 @@ pub fn tick_rolling(
 /// [`BallDashInput`] and the [`Rolling`] form are Sanic's state, authored here,
 /// and no generic ruleset can know they exist. Without this, a body restarted
 /// mid-rev came back holding the charge and fired it on the next release edge,
-/// or came back still balled up (GPT 5.6, 2026-07-27).
+/// or came back still balled up.
 ///
 /// An observer rather than a system, so it lands inside whichever tick did the
 /// restarting no matter which schedule slot that caller occupies — and it is

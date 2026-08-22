@@ -1,12 +1,9 @@
 //! Schedule + input-frame vocabulary shared by the machinery lib, the
 //! content crate, and the app crate.
 //!
-//! The Bevy app ASSEMBLY (plugins, resources, sim systems, HUD, CLI)
-//! moved to the `ambition_app` crate (Stage 20 / A3). What stays here
-//! is the vocabulary other layers order against: the `Platformer2dSimulationPhaseMonolith`
-//! schedule labels (+ the content/machinery slot sets) and the
-//! device -> ControlFrame populate systems the menu/host layers anchor
-//! to.
+//! What stays here is the vocabulary other layers order against: the
+//! `Platformer2dSimulationPhaseMonolith` schedule labels (+ the content/machinery slot sets)
+//! and the device -> ControlFrame populate systems the menu/host layers anchor to.
 
 mod input_systems;
 mod schedule;

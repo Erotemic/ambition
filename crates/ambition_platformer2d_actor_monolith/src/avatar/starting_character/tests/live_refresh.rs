@@ -18,9 +18,6 @@ fn observe_body_ability_changes(
     observations.0 += changed.iter().count() as u32;
 }
 
-/// Production-shaped regression for the two change-detection edges that used
-/// to reset Sanic's surface follower every frame:
-///
 /// 1. an unchanged inspector mirror must not mark `BodyAbilities` changed;
 /// 2. a real ability edit on an Authored persona must not reapply movement
 ///    identity or erase `MomentumMotion`'s persistent riding state.
@@ -105,18 +102,10 @@ fn live_ability_sync_does_not_rederive_authored_movement_identity() {
     assert_riding_state(app.world(), entity, riding);
 }
 
-/// The bug this whole seam exists to kill: a body authored with a RESTRICTED
-/// base (classic run + jump) must keep it. The F3 dev editable defaults to
-/// `sandbox_all`; because it is now a session MASK over the body's
-/// [`AbilityBase`](ambition_platformer2d_core::AbilityBase) — not a wholesale
-/// replacement — the restricted base survives the per-frame sync instead of
-/// being clobbered up to `sandbox_all` (which is exactly how Mary-O silently
-/// regained blink/dash/wall/fly every frame before this landed).
 #[test]
 fn restricted_ability_base_survives_the_sandbox_default_mask() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
-    // Default = sandbox_all: the permissive mask, the value that used to clobber.
     app.init_resource::<ambition_dev_tools::dev_tools::EditableAbilitySet>();
     app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
     // The neutral authority `sync_live_player_dev_edits_system` reads (K1a).
@@ -145,7 +134,6 @@ fn restricted_ability_base_survives_the_sandbox_default_mask() {
         ))
         .id();
 
-    // The old wholesale-replace bug clobbered on the FIRST frame; run several.
     for _ in 0..5 {
         app.update();
     }
@@ -324,9 +312,6 @@ fn cross_model_rewear_preserves_shared_state_and_initializes_axis_private_state(
         .unwrap()
         .charges_available = 2;
 
-    // Re-wear an axis persona (the default protagonist) — and ASK for it.
-    // Writing the identity stopped rebuilding the body (Jon's second redirect,
-    // P0): a re-wear is an explicit request now.
     app.world_mut().entity_mut(entity).insert((
         WornCharacter::new("player"),
         ambition_characters::actor::RecharacterizeBody,

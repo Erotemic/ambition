@@ -1,4 +1,4 @@
-//! ⚠ **the App-level tests build their own world**, the shape that can pass with
+//! **the App-level tests build their own world**, the shape that can pass with
 //! production wiring absent. What they own is the seam: authored text → a
 //! prepared call → a request. That the shipped world actually SAYS it is pinned
 //! in `ambition_content`, and that the whole chain runs in the composed game is
@@ -56,7 +56,7 @@ fn project_with_one_switch(on_activate: Option<&str>) -> LdtkProject {
                 c_hei: 80,
                 grid_size: 16,
                 entity_instances: vec![
-                    // ⚠ the converter refuses an area without one; the old
+                    // the converter refuses an area without one; the old
                     // hand-walk never asked. See the sibling lock-wall fixture.
                     LdtkEntityInstance {
                         iid: "PlayerStart-test-symmetry".into(),
@@ -86,9 +86,9 @@ fn project_with_one_switch(on_activate: Option<&str>) -> LdtkProject {
 
 /// The fixture project, CONVERTED — the road production takes.
 ///
-/// ⭐ the fixture stays an `LdtkProject` on purpose: the command line comes off
-/// the room IR now (D136), and converting here means a `convert_switch` that
-/// stops emitting `on_activate` fails in these tests rather than at runtime.
+/// the fixture stays an `LdtkProject` on purpose: the command line comes off the room IR now,
+/// and converting here means a `convert_switch` that stops emitting `on_activate` fails in
+/// these tests rather than at runtime.
 fn room_with_one_switch(
     on_activate: Option<&str>,
     room_id: &str,
@@ -130,7 +130,7 @@ fn an_authored_switch_verb_is_found_with_its_switch_id() {
 
 /// **A `Switch` with no `on_activate` is not this system's business.**
 ///
-/// ⚠ every switch shipped before this field existed is one of these — the
+/// every switch shipped before this field existed is one of these — the
 /// encounter arming gate, the reset path, the sand sim — and they must keep
 /// working untouched.
 #[test]
@@ -140,7 +140,7 @@ fn a_switch_with_no_authored_verb_is_left_to_its_other_consumers() {
 
 /// **Only the active room's switches.**
 ///
-/// ⭐ this is what the deleted const table's comment worried about — *"a gravity
+/// this is what the deleted const table's comment worried about — *"a gravity
 /// switch authored in some other room must not count"* — and the authored form
 /// gets it for free: location comes with the placement.
 #[test]
@@ -150,7 +150,7 @@ fn switches_in_another_room_are_not_found() {
 
 // ── the seam ────────────────────────────────────────────────────────────────
 
-/// The verb the test's own domain publishes. ⚠ **a domain the engine has never
+/// The verb the test's own domain publishes. **a domain the engine has never
 /// heard of**, so nothing below can be passing because it named something real.
 #[derive(Resource, Default)]
 struct Bell(Vec<String>);
@@ -222,11 +222,7 @@ fn rung(app: &App) -> &[String] {
 /// **PRESSING AN AUTHORED SWITCH ASKS FOR THE VERB THE LEVEL NAMED — AND NOTHING
 /// IN THIS FILE NAMES IT.**
 ///
-/// ⭐⭐ **this is M2's customer-side acceptance.** The pairing that used to be a
-/// Rust const table is a string in a level; the string is prepared once against
-/// the published catalog; the tick performs an id and a prepared argument.
-///
-/// ⚠ **both terms are observed**: the bell is silent on a frame with no
+/// **both terms are observed**: the bell is silent on a frame with no
 /// activation, and rings on the frame with one. A version asserting only the end
 /// state would pass with the activation channel ignored entirely.
 #[test]
@@ -270,13 +266,13 @@ fn pressing_a_switch_with_no_authored_verb_asks_for_nothing() {
 /// **AN UNPERFORMABLE LINE IS REFUSED WHEN THE ROOM IS PREPARED, NOT WHEN THE
 /// SWITCH IS PRESSED.**
 ///
-/// ⛔⛔ **this is the acceptance clause "validation occurs before runtime", stated
+/// **this is the acceptance clause "validation occurs before runtime", stated
 /// as a behaviour rather than as a claim.** The line below names a verb no
 /// composition publishes. It is rejected while the room's rules are read — so it
 /// is never in the prepared set at all, and the press finds nothing rather than
 /// discovering the problem mid-tick.
 ///
-/// ⚠ **the good line is exercised in the same test**, because a preparer that
+/// **the good line is exercised in the same test**, because a preparer that
 /// prepared NOTHING would pass the negative half and be just as broken.
 #[test]
 fn a_line_no_composition_can_perform_never_reaches_the_prepared_set() {
@@ -299,8 +295,6 @@ fn a_line_no_composition_can_perform_never_reaches_the_prepared_set() {
     );
 }
 
-/// **A MISTYPED ARGUMENT IS REFUSED AT PREPARE TIME TOO**, not passed on to be
-/// discovered by the catalog on the tick the switch is pressed.
 #[test]
 fn an_argument_the_descriptor_does_not_declare_is_refused_when_the_room_is_read() {
     let mut app = world_with_one_authored_switch(Some("bystander.ring C sharp"));
@@ -313,14 +307,11 @@ fn an_argument_the_descriptor_does_not_declare_is_refused_when_the_room_is_read(
 
 /// **A REPLACED ROOM SET INVALIDATES THE PREPARED CALLS.**
 ///
-/// ⛔ carried across from the sibling system, which shipped without it once: a
+/// carried across from the sibling system, which shipped without it once: a
 /// hot reload that swaps the authored source under an unchanged room id kept
 /// serving rules computed from content that is no longer loaded.
 ///
-/// ⚠ **the watched input moved with the data** (D136) — it was
-/// `ActiveLdtkProject::is_changed()`, and the command lines come off the room
-/// set now. This is the test that says the signal followed rather than being
-/// dropped on the way.
+/// This is the test that says the signal followed rather than being dropped on the way.
 #[test]
 fn swapping_the_room_set_alone_invalidates_the_prepared_calls() {
     let mut app = world_with_one_authored_switch(Some(LINE));

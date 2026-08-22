@@ -67,7 +67,7 @@ fn engage_with_melee_in_range_emits_attack() {
 ///
 /// ⛔⛔ **the campaign row said Ambition's enemies "do not choose from their
 /// movesets", and re-measuring says otherwise — but nothing PINNED the half that
-/// is true** (P5.38, 2026-08-12). The `Fighter` brain enumerates a scored
+/// is true**. The `Fighter` brain enumerates a scored
 /// `attack_kit`; the `Smash` brain does not, and `attack_kit_of` returns an empty
 /// `Vec` for it on purpose. What it does instead is aim: `MeleeAttack { dir }`
 /// becomes `ActorControlFrame::attack_axis` in `emit`, and
@@ -166,12 +166,10 @@ fn engage_on_cooldown_holds_instead_of_attacking() {
     assert_eq!(act, SpecificAction::Idle, "got {act:?}");
 }
 
-/// §A1 subsumption: the AUTONOMOUS special cadence is deliberately OFF (a naive
-/// "fire while melee recharges" spammed the move and broke the damage-triggered
-/// regroup kit) — so even a fighter WITH a signature special holds in Engage on
-/// cooldown, same as one without. The moveset is still the executor; possession
-/// fires the special via `special_pressed`. Re-enabling autonomous firing is a
-/// feel/AI cadence pass (a real special cooldown) for Jon against the landed system.
+/// §A1 subsumption: the AUTONOMOUS special cadence is deliberately OFF (a naive "fire while melee
+/// recharges" spammed the move and broke the damage-triggered regroup kit) — so even a fighter WITH
+/// a signature special holds in Engage on cooldown, same as one without. The moveset is still the
+/// executor; possession fires the special via `special_pressed`.
 #[test]
 fn engage_on_cooldown_holds_even_with_a_signature_special() {
     use crate::brain::action_set::SpecialActionSpec;

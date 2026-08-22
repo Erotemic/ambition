@@ -88,8 +88,8 @@ pub use ae::CameraReferenceFrame;
 pub fn observer_roll_radians(frame: CameraReferenceFrame, subject_down: Option<ae::Vec2>) -> f32 {
     match frame {
         CameraReferenceFrame::WorldFixed => 0.0,
-        // No subject to orient on is not an error — a view may be framing a cast
-        // or nothing at all. It reads as world-fixed, the readable default.
+        // No subject to orient on is not an error — a view may be framing a cast or nothing at
+        // all.
         CameraReferenceFrame::SubjectFrame => match subject_down {
             Some(down) if down.length_squared() > f32::EPSILON => {
                 let down = down.normalize();
@@ -140,12 +140,6 @@ pub struct CameraChartTransit {
 /// still the live base, so this is `base + M`; in the second the adopted roll is
 /// the PRE-crossing base, so it is `base_before + M` — which is exactly the
 /// post-crossing base, reached with no overshoot.
-///
-/// ⭐ and `WorldFixed` is the degenerate case rather than a separate path: its
-/// base is identically 0, so this is `M`, decaying to 0 when the crossing ends —
-/// byte-identical to the overwrite the renderer used to perform. The old code
-/// was not wrong; it was one instance of this rule, written where the general
-/// case could not be expressed.
 pub fn presented_roll_radians(
     frame: CameraReferenceFrame,
     subject_down: Option<ae::Vec2>,
@@ -211,8 +205,6 @@ pub struct CameraFocus2d {
     pub center_world: ae::Vec2,
     /// Current body/focus size in world units.
     pub size: ae::Vec2,
-    /// Standing/baseline body size. Used to keep the camera from popping when a
-    /// stance temporarily changes body height.
     pub base_size: ae::Vec2,
     /// Horizontal facing sign used by camera-framing presets.
     pub facing: f32,
@@ -311,9 +303,7 @@ pub struct CameraSnapshotResolveInput<'a> {
     /// an inactive value) means ordinary centering — captures, headless runs,
     /// and games that declare no framing policy all pass nothing.
     pub screen_framing: Option<CameraScreenFraming>,
-    /// Which frame this view presents in. Defaults to the world-fixed behaviour
-    /// that existed before the policy, so a caller that does not care is
-    /// unaffected.
+    /// Which frame this view presents in.
     pub reference_frame: CameraReferenceFrame,
     /// The view subject's resolved down axis, read by `SubjectFrame`. `None`
     /// when the view has no subject to orient on.
@@ -326,7 +316,7 @@ pub struct CameraSnapshotResolveInput<'a> {
     /// cast's bounding box, in world coordinates.
     ///
     /// ⛔⛔ **THE CLAMP IS WHY A PLATFORM FIGHTER'S CAMERA SHOWED AN EMPTY
-    /// PLATFORM AT EVERY KNOCKOUT** (queue D128 item 2, measured 2026-08-16).
+    /// PLATFORM AT EVERY KNOCKOUT**.
     /// The framing above already frames every live seat correctly; the room
     /// clamp then threw that centre away, because *the region a body can be
     /// in is bigger than the region the room draws*. A stage's blast margins
@@ -495,8 +485,7 @@ pub fn resolve_follow_camera_snapshot(
     let rotation_radians = match ease_state.as_deref_mut() {
         Some(state) if input.chart_transit.is_none() => {
             let eased = match state.live_observer_roll {
-                // First resolve for this view: ADOPT. A view opens already
-                // oriented; spinning up from zero would be a defect of its own.
+                // First resolve for this view: ADOPT.
                 None => target_roll,
                 Some(current) => {
                     ambition_platformer2d_shared_tangle::camera_ease::ease_roll_radians(
@@ -610,9 +599,7 @@ pub fn resolve_follow_camera_snapshot(
         (normal_host_x, normal_host_y)
     };
 
-    // **M2 — the one-way forward scroll.** Applied AFTER the bounds clamp, because
-    // the watermark must record where the camera actually settled, not where it
-    // wanted to be. `host_x` is centered-render x, which is monotone in world x.
+    // `host_x` is centered-render x, which is monotone in world x.
     //
     // Leaving the zone clears the watermark: the clamp is per-visit, not per-room.
     let forward_only =
@@ -660,16 +647,10 @@ pub fn resolve_follow_camera_snapshot(
 /// box to satisfy `region.min <= n <= region.max` yields a closed interval of
 /// admissible camera centers per axis; the correction is then a plain clamp.
 ///
-/// `desired` contributes only its BIAS — everything the ordinary policy wanted
-/// beyond centering (framing preset look-ahead, camera-zone offsets) — which
-/// translates the admissible interval instead of overriding the deadzone.
-/// ⛔⛔ **THE SAFE REGION IS A SCREEN RECTANGLE, AND THIS USED TO APPLY IT IN
-/// WORLD AXES.** *"Keep the subject in the lower third"* means the lower third of
-/// what the participant is looking at. While a view is upright the two frames
-/// coincide and nothing could tell the difference; under a rolled view — a
-/// gravity flip in `SubjectFrame` mode, a portal seam — they diverge by the roll,
-/// and the deadzone protected the wrong screen edge. Rolling a quarter turn
-/// swapped which axis the region constrained entirely.
+/// While a view is upright the two frames coincide and nothing could tell the difference; under a
+/// rolled view — a gravity flip in `SubjectFrame` mode, a portal seam — they diverge by the roll,
+/// and the deadzone protected the wrong screen edge. Rolling a quarter turn swapped which axis the
+/// region constrained entirely.
 ///
 /// ⭐ **the transform is a plain rotation by +roll, and that is worth deriving
 /// rather than guessing.** World is y-DOWN, render is y-UP, and screen space is
@@ -885,16 +866,11 @@ fn clamp_to_world_bounds(
 /// inside the view — so the correction is a plain clamp into it, exactly the
 /// shape [`apply_soft_subject_framing`] uses for a screen region.
 ///
-/// ⭐ **it runs AFTER the room clamp and wins**, and that ordering is the whole
-/// point rather than an ordering detail: this is the one caller that is asking
-/// to look outside the room on purpose. While the box sits comfortably inside
-/// the view the interval is wide, the eased target is already inside it, and
-/// this changes nothing — so the ordinary smoothing is untouched and only the
-/// frames where the cast would otherwise leave the screen are corrected. That
-/// is what closes the last of the gap the ease itself opens: an 8 Hz target
-/// ease lags a body being launched by roughly `v / 8` units, which measured 46
-/// units past the edge at the moment of a knockout — the one frame a platform
-/// fighter must show.
+/// **it runs AFTER the room clamp and wins**, and that ordering is the whole point rather than an
+/// ordering detail: this is the one caller that is asking to look outside the room on purpose.
+/// While the box sits comfortably inside the view the interval is wide, the eased target is already
+/// inside it, and this changes nothing — so the ordinary smoothing is untouched and only the frames
+/// where the cast would otherwise leave the screen are corrected.
 ///
 /// ⚠ **a box wider than the view centres on it instead**, which is the honest
 /// answer to an impossible request: nothing holds it, so show the middle. In
@@ -957,37 +933,24 @@ fn clamp_or_center(value: f32, min: f32, max: f32) -> f32 {
     }
 }
 
-// ---------------------------------------------------------------------------
-// The camera OBSERVATION seam (E4 slice 17 — the render→sim write inverted).
+// Owning it here makes the AJ13 "camera is an observer" boundary structural: ONE resolved snapshot,
+// ONE writer, and presentation only consumes it (portal continuity applies its deltas to a COPY,
+// never to this state).
 //
-// The follow-camera resolve (which integrates `CameraEaseState`) used to run
-// INSIDE the render crate's `camera_follow`, making presentation the writer
-// of sim-side ease state. Owning it here makes the AJ13 "camera is an
-// observer" boundary structural: ONE resolved snapshot, ONE writer, and
-// presentation only consumes it (portal continuity applies its deltas to a
-// COPY, never to this state).
-//
-// The invariant E4-17 was really about is the single writer — NOT which
-// schedule advances it. The resolve is a visible-host observer: it takes the
-// physical viewport and video settings, eases on the render clock, and no sim
-// system reads what it publishes. So it runs once per rendered frame in
-// `Update`, which is truthful for render-frame, fixed-tick and GGRS hosts
-// alike; see `CameraObservationPlugin` for why the sim schedule was wrong on
-// its own terms.
-// ---------------------------------------------------------------------------
+// The invariant E4-17 was really about is the single writer — NOT which schedule advances it.
+// The resolve is a visible-host observer: it takes the physical viewport and video settings,
+// eases on the render clock, and no sim system reads what it publishes.
 
 /// **THE SCREEN RECTANGLE THIS VIEW OCCUPIES** — an OBSERVER FACT the windowed
 /// host publishes each frame (`publish_camera_viewport`). Headless runs keep the
 /// default design-window rectangle, so the resolver (and any RL reader of
 /// [`ResolvedCameraSnapshot`]) works without a window.
 ///
-/// ⭐ **it is a RECTANGLE, not just a size** (D116 M2). It carried only `px` — a
-/// size — which is everything the zoom/clamp maths needs and exactly nothing of
-/// what a second view needs: two views sharing one screen differ by WHERE they
-/// sit, not only by how big they are. With an origin the component states the
-/// whole rectangle, and `apply_gameplay_camera_viewport` can hand each camera
-/// its own view's rectangle instead of one global gameplay rect handed to all of
-/// them.
+/// It carried only `px` — a size — which is everything the zoom/clamp maths needs and exactly
+/// nothing of what a second view needs: two views sharing one screen differ by WHERE they sit,
+/// not only by how big they are. With an origin the component states the whole rectangle, and
+/// `apply_gameplay_camera_viewport` can hand each camera its own view's rectangle instead of
+/// one global gameplay rect handed to all of them.
 ///
 /// ⚠ **logical display pixels, both fields** — the space the resolved layout,
 /// window cursors, touches and `bevy_ui` share. `Camera::viewport` is PHYSICAL,
@@ -1026,19 +989,7 @@ impl Default for CameraViewport {
 /// chart rotation the view is presenting through. Both default to `None` every
 /// frame they are not actively needed — the writer owns clearing them.
 ///
-/// ⛔ **the chart rotation had to join it rather than be layered afterwards.**
-/// The renderer used to overwrite `rotation_radians` AFTER the resolve, which
-/// left the resolver clamping an axis-aligned footprint for a view it did not
-/// know was rolled — at a quarter turn the world-space footprint swaps width for
-/// height, so a floor↔wall transit could show outside the room. A rotation-aware
-/// clamp is only expressible once the roll is an INPUT.
-///
-/// ⭐ **one resource, because it is one act.** Both fields are written by the
-/// same adapter, in the same frame, for the same reason: *this is what the
-/// presentation layer needs the resolve to know before it resolves.* This
-/// REPLACED a single-field `CameraExtraClamp` rather than adding a second
-/// resource beside it — which also keeps the resolve system under Bevy's
-/// parameter ceiling without bundling unrelated things to get there.
+/// A rotation-aware clamp is only expressible once the roll is an INPUT.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, Default)]
 pub struct CameraPresentationInputs {
     /// Optional extra center that should remain inside the clamp bounds.
@@ -1052,11 +1003,7 @@ pub struct CameraPresentationInputs {
 /// this (applying shake/portal deltas to a copy); RL/headless readers may read
 /// it too — it is plain data.
 ///
-/// Per frame, not per tick: this is presentation state. Under fixed-tick the
-/// sim may advance zero or several times between frames, and under GGRS it
-/// resimulates arbitrarily many times per frame during rollback; the camera
-/// must ease once per thing the participant actually sees, and camera state is
-/// not rollback-registered. See [`CameraObservationPlugin`].
+/// Per frame, not per tick: this is presentation state. See [`CameraObservationPlugin`].
 #[derive(bevy::prelude::Component, Clone, Debug, Default)]
 pub struct ResolvedCameraSnapshot {
     pub snapshot: CameraSnapshot2d,
@@ -1106,15 +1053,6 @@ const CAST_FRAMING_MARGIN: f32 = 48.0;
 
 /// **How fast the cast framing CLOSES**, as an exponential rate in Hz.
 ///
-/// ⛔⛔ **only the way in is eased, and the asymmetry is the whole fix.**
-/// Reported from the couch, 2026-08-15: *"the camera zooms out when someone
-/// flys off the stage, and that is good, but when they die in the blast zone
-/// instead of having a smooth camera transition back, it just snaps back to the
-/// main stage."*
-///
-/// Measured on a headless CPU-versus-CPU match, largest per-frame change in
-/// `visible_view` around four knockouts:
-///
 /// ```text
 ///   widening   33 .. 49 units/frame, over 7-8 frames   (800 -> 1115)
 ///   closing    237 .. 361 units in ONE frame           (-> 800)
@@ -1134,12 +1072,6 @@ const CAST_FRAMING_MARGIN: f32 = 48.0;
 /// widening it undoes, which is the same shape `CameraEaseTuning` already
 /// declares for the encounter zoom (out 1.6, in 0.9).
 ///
-/// ⭐ **THE SAME RATE NOW CARRIES THE CENTRE, and it was not re-tuned to do it**
-/// (2026-08-16, queue D128 item 2). It applies per EDGE of the presented cast
-/// box rather than to the box's size, so the identical asymmetry that made the
-/// zoom stop cutting makes the centre stop cutting. Measured on the same
-/// fixture, largest single-frame camera-CENTRE step:
-///
 /// ```text
 ///   on an elimination     209.6 -> 27.0    (a 248.8-unit collapse absorbed)
 ///   on a respawn teleport 251, 203, 202, 179 -> 153, 78, 63, 41
@@ -1157,17 +1089,12 @@ const CAST_FRAMING_CLOSE_HZ: f32 = 5.0;
 /// flying must never leave the frame while the camera catches up); an edge
 /// moving inward EASES at [`CAST_FRAMING_CLOSE_HZ`].
 ///
-/// ⭐⭐ **easing the BOX is what gives the centre its smoothing for free, and
-/// that is the whole reason the framing is carried as a box rather than as a
-/// size.** Until the room clamp was taught to let the camera leave the room
-/// (see [`CameraSnapshotResolveInput::must_frame_world`]) the framing CENTRE was
-/// pinned, so only the size could move and only the size needed easing. A centre
-/// that can travel has the identical discontinuity the size had, and more often:
-/// an eliminated body is removed, and a knocked-out body TELEPORTS back to the
-/// spawn point on every respawn — measured at 302, 314, 319 and 616 units of
-/// cast-centre jump in a single frame across one match. Absorbing those in the
-/// box absorbs them once, for the centre, the zoom and the clamp together,
-/// instead of three times in three shapes.
+/// **easing the BOX is what gives the centre its smoothing for free, and that is the whole reason
+/// the framing is carried as a box rather than as a size.** Until the room clamp was taught to let
+/// the camera leave the room (see [`CameraSnapshotResolveInput::must_frame_world`]) the framing
+/// CENTRE was pinned, so only the size could move and only the size needed easing. Absorbing those
+/// in the box absorbs them once, for the centre, the zoom and the clamp together, instead of three
+/// times in three shapes.
 fn ease_cast_edge(previous: f32, current: f32, alpha: f32, outward: f32) -> f32 {
     if (current - previous) * outward >= 0.0 {
         current
@@ -1218,22 +1145,15 @@ pub fn resolve_camera_observation(
     ease_tuning: bevy::prelude::Res<
         ambition_platformer2d_shared_tangle::camera_ease::CameraEaseTuning,
     >,
-    // **EVERY OBSERVER OF THIS SIMULATION, and what each one presents.** Five
-    // process-global resources used to stand here — viewport, screen framing,
-    // presentation inputs, ease state, resolved snapshot — and each of them
-    // silently meant "the" view. They are components on a view entity now, so
-    // reading one requires naming WHICH view, and a second local view is an
-    // extra row rather than an architecture. See `local_view`.
+    // They are components on a view entity now, so reading one requires naming WHICH view, and a
+    // second local view is an extra row rather than an architecture. See `local_view`.
     mut views: bevy::prelude::Query<
         (
             &CameraViewport,
             &CameraScreenFraming,
             &CameraPresentationInputs,
             &CameraReferenceFrame,
-            // **THIS VIEW's subject, already resolved.** A view names either a
-            // body or a seat, and `resolve_view_subjects` turns whichever it
-            // used into one entity before this system runs. `None` — every
-            // single-view composition — frames the session's, resolved once
+            // `None` — every single-view composition — frames the session's, resolved once
             // above the loop.
             &crate::local_view::ResolvedViewSubject,
             &mut ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState,
@@ -1264,13 +1184,8 @@ pub fn resolve_camera_observation(
     controlled: bevy::prelude::Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>,
     // What to look at when nothing is driving a body — see the `None` arm below.
     framed: bevy::prelude::Res<ambition_platformer2d_shared_tangle::markers::FramedCast>,
-    // **Three lookups on ONE subject**, grouped because they are one question
-    // asked of one entity — not because of the parameter limit. ⚠ that was the
-    // reason until 2026-08-21: this system sat at Bevy's 16-param ceiling, and
-    // packing to satisfy it is how a control-authority query ended up inside a
-    // camera resolve. Subject resolution moved to `resolve_view_subjects` and
-    // the headroom came back; the grouping stayed because it was always the
-    // honest shape.
+    // Subject resolution moved to `resolve_view_subjects` and the headroom came back; the grouping
+    // stayed because it was always the honest shape.
     //
     // The camera frames the PRESENTED subject, not the raw tick pose: this and
     // the sprite must sample the same frame-clock position, or they disagree by
@@ -1300,11 +1215,7 @@ pub fn resolve_camera_observation(
     let overview_scale = developer_tools.overview_camera_scale.max(1.0);
     let encounter_scale = encounter_view.camera_zoom.max(1.0);
 
-    // ⛔ **A HOME AVATAR IS NOT REQUIRED ANY MORE, and this `single()` used to
-    // make it one.** Without a primary player the whole system returned, so an
-    // experience that legitimately has no session body — a MATCH, which realizes
-    // its own cast — would have had no camera at all, silently. That is the
-    // failure mode this repo has been bitten by repeatedly: presentation not
+    // That is the failure mode this repo has been bitten by repeatedly: presentation not
     // running looks exactly like presentation running badly.
     //
     // The home avatar remains the source of blink easing and the base size when
@@ -1318,12 +1229,8 @@ pub fn resolve_camera_observation(
     let (mut player_body, player_base_size, blink_cam, mut followed) = match home {
         Some((entity, body, base_size, blink)) => (body, base_size, blink, entity),
         None => {
-            // ⭐ **NO HOME AVATAR: the controlled body, else the DECLARED CAST.**
-            // The second half used to be a bare `return`, which is why a
-            // CPU-versus-CPU match drew nothing at all — Jon's own run said so
-            // before any test did. What to frame is a presentation decision this
-            // resolver is TOLD (`FramedCast`), never one it guesses: a scan for
-            // bodies would have to decide which ones matter, and whoever
+            // What to frame is a presentation decision this resolver is TOLD (`FramedCast`), never
+            // one it guesses: a scan for bodies would have to decide which ones matter, and whoever
             // published the cast already knows.
             match controlled
                 .0
@@ -1347,20 +1254,7 @@ pub fn resolve_camera_observation(
                         *live_cast = None;
                         return;
                     };
-                    // The box decides the ZOOM as well as the centre: two
-                    // fighters that run apart must both stay on screen, and a
-                    // fixed view centred between them is how one of them walks
-                    // off it. A FLOOR, so authored zoom still wins when wider.
-                    //
-                    // ⭐ **and every edge OPENS immediately while it CLOSES on
-                    // an ease.** See [`CAST_FRAMING_CLOSE_HZ`] and
-                    // [`ease_cast_edge`]: a fighter flying off is a continuous
-                    // input and needs no help, but a fighter taken out of play —
-                    // or teleported back to the spawn point on a respawn —
-                    // collapses the box in one frame, which is the snap Jon
-                    // reported. Per EDGE, so a pair that separates one way while
-                    // settling the other does both, and so the centre gets the
-                    // same hysteresis the size does.
+                    // A FLOOR, so authored zoom still wins when wider.
                     let dt = time.delta_secs().max(0.0);
                     let alpha = (1.0 - (-CAST_FRAMING_CLOSE_HZ * dt).exp()).clamp(0.0, 1.0);
                     let bounds = match *live_cast {
@@ -1400,20 +1294,6 @@ pub fn resolve_camera_observation(
                     (
                         ae::BodyKinematics {
                             pos: centre,
-                            // ⛔⛔ **`size` LEFT AT `Default` PUT THE WHOLE CAST
-                            // HALF A SCREEN BELOW THE FRAME** (found 2026-08-16,
-                            // queue D128 item 2). `CameraFocus2d::stable_center`
-                            // subtracts `(base_size.y - size.y) / 2` so a
-                            // CROUCHING body does not make the camera bob — a
-                            // correct compensation for a real body, and this arm
-                            // hands it a `base_size` of the framing VIEW against
-                            // a `size` of ZERO, so the "resize" it compensated
-                            // for was 225 units of nothing. Measured: the cast's
-                            // centre sat at y=366 while the camera targeted
-                            // y=202, which is why a fighter falling off the
-                            // bottom left the frame with the camera still on the
-                            // platform.
-                            //
                             // ⭐ the framed CAST is not a body that crouches:
                             // its extent and its baseline extent are the same
                             // number by construction, so saying so once here
@@ -1454,16 +1334,10 @@ pub fn resolve_camera_observation(
     // pose instead, the two would disagree by up to a tick of travel and the
     // subject would shudder against the world at speed.
     //
-    // ⛔⛔ **carried by the DELTA, not replaced by the position.** For a body the
-    // camera follows directly these are the same number — `pos` IS that body's
-    // authoritative pose, so `pos + (presented − authoritative) == presented`.
-    // For a FRAMED CAST they are not: `pos` is the pair's CENTRE, and assigning
-    // the anchor's presented position throws that centre away and points the
-    // camera at seat 0. That was unreachable only because a fighter published no
-    // presented pose at all — the population was player-bodied — so widening
-    // that population (D116 M2a) is what made this live. A framing centre is
-    // rigidly attached to the cast exactly as a hitbox is to its owner, and both
-    // are carried on the frame clock the same way.
+    // For a FRAMED CAST they are not: `pos` is the pair's CENTRE, and assigning the anchor's
+    // presented position throws that centre away and points the camera at seat 0. A framing
+    // centre is rigidly attached to the cast exactly as a hitbox is to its owner, and both are
+    // carried on the frame clock the same way.
     if let Ok(presented) = presented.get(followed) {
         player_body.pos += presented.delta();
     }
@@ -1579,11 +1453,7 @@ pub fn resolve_camera_observation(
                 extra_clamp_center_world: presentation.extra_clamp_center_world,
                 ease_tuning: *ease_tuning,
                 screen_framing: Some(*screen_framing),
-                // **THIS VIEW's frame policy**, read off the view that is being
-                // resolved. It defaults to `WorldFixed`, so behaviour is
-                // unchanged until something selects otherwise — but selecting is
-                // now writing a component on a view, which is what D118 C2 said
-                // it must never become a process-global mode to do.
+                // **THIS VIEW's frame policy**, read off the view that is being resolved.
                 reference_frame: *reference_frame,
                 subject_down,
                 // Written pre-resolve by the portal adapter, exactly like the
@@ -1612,11 +1482,6 @@ pub fn resolve_camera_observation(
 pub struct CameraObservationSet;
 
 /// Camera observation runs once per rendered frame in `Update`.
-///
-/// The resolve consumes viewport/video presentation inputs and integrates
-/// [`CameraEaseState`], so it must not run in a rollback or fixed simulation
-/// schedule. Simulation completes before `Update`; camera presentation then
-/// observes the resulting frame.
 ///
 /// [`CameraViewState`] stores diagnostics on each view rather than in a global
 /// resource so multi-view readers always consume the state for their own view.
@@ -1669,15 +1534,12 @@ impl From<&CameraSnapshot2d> for CameraViewState {
 /// link it REFUSES rather than picking, so a second view arriving without a
 /// second link is loud instead of arbitrary.
 ///
-/// ⛔⛔ **AND THAT IS ONLY HALF THE AMBIGUITY. "THE PRESENTED VIEW" IS A
-/// SINGLE-VIEW CONTRACT, AND IT SAYS SO OUT LOUD.** The first cut of this
-/// resolver read `cameras.iter().next()` — which is fine while one main camera
-/// exists and is exactly wrong the moment split-screen arrives: two cameras each
-/// correctly naming a DIFFERENT view would not produce two views, they would
-/// produce whichever camera the archetype iteration happened to yield first,
-/// handed to every consumer. That is the process-global singleton this component
-/// move was meant to delete, restored as a lookup and harder to see (GPT 5.6,
-/// 2026-08-15).
+/// ⛔⛔ **AND THAT IS ONLY HALF THE AMBIGUITY. "THE PRESENTED VIEW" IS A SINGLE-VIEW CONTRACT,
+/// AND IT SAYS SO OUT LOUD.** The first cut of this resolver read `cameras.iter.next` — which
+/// is fine while one main camera exists and is exactly wrong the moment split-screen arrives:
+/// two cameras each correctly naming a DIFFERENT view would not produce two views, they would
+/// produce whichever camera the archetype iteration happened to yield first, handed to every
+/// consumer.
 ///
 /// So the refusal is symmetric: several VIEWS and no link refuses, and several
 /// main CAMERAS refuses, because at that point "the" presented view is not a
@@ -1734,11 +1596,10 @@ impl PresentedViewState<'_, '_> {
 
 /// **The player's camera-frame setting, applied to the local view.**
 ///
-/// ⭐ **the component is still the selection; this only gives it a player-facing
-/// source.** D118 left the selection unbuilt on purpose so the policy could not
-/// become a process-global mode, and that constraint is intact: this writes a
-/// per-view COMPONENT, so when views become indexed each one can take its policy
-/// from wherever it likes and nothing here has to be removed.
+/// ⭐ **the component is still the selection; this only gives it a player-facing source.** left
+/// the selection unbuilt on purpose so the policy could not become a process-global mode, and
+/// that constraint is intact: this writes a per-view COMPONENT, so when views become indexed
+/// each one can take its policy from wherever it likes and nothing here has to be removed.
 ///
 /// ⛔ **writes only on a real change.** An unconditional write would mark the
 /// component changed every frame, and `is_changed()` ticks do not rewind — a
@@ -1774,9 +1635,9 @@ fn apply_camera_reference_frame_setting(
 /// a camera frozen at the origin. With one definition the two paths cannot
 /// differ; adding a fact here reaches both by construction.
 ///
-/// ⚠ the count is the contract `local_view::tests` pins component-by-component:
-/// the identity ([`crate::local_view::LocalViewId`]) is passed separately, so
-/// what is here is exactly the six facts D116 M2 moved off process-globals.
+/// ⚠ the count is the contract `local_view:tests` pins component-by-component: the identity
+/// ([`crate:local_view:LocalViewId`]) is passed separately, so what is here is exactly the six
+/// facts moved off process-globals.
 pub fn local_view_facts() -> impl bevy::prelude::Bundle {
     (
         CameraViewport::default(),
@@ -1789,10 +1650,8 @@ pub fn local_view_facts() -> impl bevy::prelude::Bundle {
         // anything frames it. Here rather than at the two spawn sites for the
         // reason this whole function exists.
         crate::local_view::ResolvedViewSubject::default(),
-        // Sixth fact on the view (D116 M2): the live camera diagnostics the
-        // overlays read. Carried here for the same reason as the others — a
-        // reader must never see a frame where the view exists and its state
-        // does not.
+        // Carried here for the same reason as the others — a reader must never see a frame
+        // where the view exists and its state does not.
         CameraViewState::default(),
     )
 }
@@ -1810,20 +1669,13 @@ impl bevy::prelude::Plugin for CameraObservationPlugin {
         // because a system that silently does nothing looks exactly like one
         // that ran. A view that exists before any schedule runs cannot produce
         // that frame.
-        //
-        // ⭐ and the components ARE the registration: five process-global
-        // resources used to be init'd here, each meaning "the" view. Ambition
-        // has one view; that is now a COUNT rather than an assumption.
         crate::local_view::spawn_local_view(
             app.world_mut(),
             crate::local_view::LocalViewId::FIRST,
             local_view_facts(),
         );
 
-        // Declared ONLY when the sim shares this schedule. In fixed-tick and
-        // GGRS hosts the sim is in another schedule, where this edge would be
-        // an inert no-op that reads as a guarantee; the schedule boundary
-        // already provides the ordering there.
+        // Declared ONLY when the sim shares this schedule.
         if app.sim_is(bevy::prelude::Update) {
             app.configure_sets(
                 bevy::prelude::Update,
@@ -1943,8 +1795,8 @@ mod m2_forward_scroll_tests {
         assert!(further > far + 100.0, "{far} -> {further}");
     }
 
-    /// A `Free` zone — every zone authored before M2 — follows the player both ways,
-    /// and clears any watermark it inherited from a forward-only zone it just left.
+    /// A `Free` zone — every zone authored before — follows the player both ways, and clears
+    /// any watermark it inherited from a forward-only zone it just left.
     #[test]
     fn a_free_zone_follows_both_ways_and_clears_the_watermark() {
         let w = world();
@@ -2277,8 +2129,6 @@ mod reference_frame_tests {
 
     const HALF_PI: f32 = std::f32::consts::FRAC_PI_2;
 
-    /// **World-fixed is the default and rolls for nothing.**
-    ///
     /// A view that never states a policy must present exactly as it did before
     /// the policy existed, whatever its subject is doing.
     #[test]
@@ -2299,10 +2149,8 @@ mod reference_frame_tests {
 
     /// **A subject-relative view puts the subject's feet at the bottom.**
     ///
-    /// ⚠ the sign is the load-bearing part, and it is fixed by render space
-    /// (world with y flipped) — the same convention `portal_transit_roll` uses,
-    /// because they write the same field. Ordinary gravity must be the identity
-    /// or every existing room would tilt the moment the mode is selected.
+    /// Ordinary gravity must be the identity or every existing room would tilt the moment the mode
+    /// is selected.
     #[test]
     fn subject_frame_orients_on_the_subjects_down_axis() {
         let roll = |x: f32, y: f32| {
@@ -2354,8 +2202,6 @@ mod reference_frame_tests {
         );
     }
 
-    /// **A world-fixed view presents the chart rotation and nothing else.**
-    ///
     /// ⛔ this is the behaviour that shipped, and it must be preserved to the
     /// bit: the renderer overwrote `rotation_radians` with the portal roll, and
     /// under `WorldFixed` the composed rule has to agree exactly — the base is
@@ -2469,8 +2315,6 @@ mod reference_frame_tests {
         }
     }
 
-    /// **⛔ A QUARTER TURN SWAPS WIDTH AND HEIGHT** — the defect this exists for.
-    ///
     /// `portal_transit_roll` returns ±π/2 for a floor↔wall pair, so this is not
     /// a future mode's problem: it is what a portal does today. A 400×225 view
     /// rolled a quarter turn is 225 wide and 400 tall in the world, and clamping
@@ -2576,10 +2420,9 @@ mod observer_roll_continuity_tests {
 
     /// **A GRAVITY FLIP MUST NOT CUT.**
     ///
-    /// `presented_roll_radians` has no history, so before this the world rotated
-    /// a half turn in ONE frame the instant the subject's down axis flipped —
-    /// which is also what possessing a body on a different surface did. D118's
-    /// C4 named those as two remaining items; they are one event and one fix.
+    /// `presented_roll_radians` has no history, so before this the world rotated a half turn in
+    /// ONE frame the instant the subject's down axis flipped — which is also what possessing a
+    /// body on a different surface did.
     #[test]
     fn a_gravity_flip_turns_the_world_instead_of_cutting_it() {
         let w = world();
@@ -2603,9 +2446,7 @@ mod observer_roll_continuity_tests {
             (after_one - settled).abs(),
         );
 
-        // ⭐ the non-vacuity half: it must actually ARRIVE. An ease that never
-        // converges is a worse defect than the snap, and "it moved a little"
-        // alone would pass for one.
+        // ⭐ the non-vacuity half: it must actually ARRIVE.
         let target = observer_roll_radians(CameraReferenceFrame::SubjectFrame, Some(UP));
         let mut last = after_one;
         for _ in 0..120 {

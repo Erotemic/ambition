@@ -32,7 +32,7 @@
 //!
 //! ## Why it is a ledger and not a slot
 //!
-//! ⛔ **the thing this replaces held ONE record**, and justified it by arguing
+//! **the thing this replaces held ONE record**, and justified it by arguing
 //! that two conversations cannot finish inside an eight-frame prediction window
 //! *because a player has to read the first one*. That is not an engine
 //! invariant. Dialogue can be scripted, system-started, one line long, or
@@ -52,14 +52,14 @@
 //!    the runner in `Update`, after this frame's simulation has already run.
 //! 2. **Released on an EDGE**, at `from_tick == now`, into the ordinary message
 //!    channel — so every existing sim consumer reads it unchanged and unaware.
-//!    ⛔ the slot this replaces released on a LEVEL (`from_tick <= now`), which
+//!    the slot this replaces released on a LEVEL (`from_tick <= now`), which
 //!    is safe only because closing a conversation twice is closing it once. A
 //!    grant is not idempotent, and a level rule would hand out an item every
 //!    tick forever.
 //! 3. **Instance-gated.** A record releases only while its own conversation is
 //!    the live one. A branch the host abandoned did not happen, and its narrative
 //!    effects do not reach the world — the same judgement
-//!    `ExternalEffectJournal::discard_after` makes outbound. ⚠ the visible cost,
+//!    `ExternalEffectJournal::discard_after` makes outbound. the visible cost,
 //!    stated rather than hidden: in netplay a remote player who breaks your
 //!    conversation can take back an item you watched being granted.
 //! 4. **Pruned to the replay horizon**, never by consumption. Nothing marks a
@@ -92,7 +92,7 @@ struct StampedNarrativeInput<M> {
 /// One per payload type, so a game's own narrative vocabulary registers its own
 /// ledger and this module names no content.
 ///
-/// ⚠ **never register this for rollback.** See the module docs: it is the record
+/// **never register this for rollback.** See the module docs: it is the record
 /// of what arrived from outside, and rewinding an input erases it. The
 /// `two_narrative_ends_in_one_window_both_replay` test fails rather than passing
 /// quietly if it ever becomes rollback state.
@@ -122,11 +122,8 @@ impl<M: Message + Clone> NarrativeInputLedger<M> {
 
     /// Whether this instance already has a record here.
     ///
-    /// For a fact that is observed as a CONDITION rather than an event — "the
-    /// runner is no longer active" stays true until the simulation acts — so the
-    /// observer can record it once instead of re-stamping a later tick on every
-    /// frame in between. ⚠ a caller recording a genuine repeat (two `give_item`
-    /// commands in one conversation) must NOT consult this.
+    /// a caller recording a genuine repeat (two `give_item` commands in one conversation) must
+    /// NOT consult this.
     pub fn holds_for(&self, instance: &ConversationInstanceId) -> bool {
         self.records
             .iter()
@@ -144,7 +141,7 @@ impl<M: Message + Clone> NarrativeInputLedger<M> {
     /// `now` is `None` in a composition with no timeline, and that is a
     /// different world rather than a missing value: with no `SimTick` there is no
     /// replay to reproduce anything for, so a record is delivered once and
-    /// leaves. ⛔ this fork is stated HERE, once, because the shape it replaces
+    /// leaves. this fork is stated HERE, once, because the shape it replaces
     /// spelled it `tick.map_or(u64::MAX, ..)` at each reader — and a sentinel
     /// that means "act immediately" read as an ordinary comparison.
     fn release(&mut self, now: Option<u64>, live: Option<&ConversationInstanceId>) -> Vec<M> {
@@ -171,10 +168,6 @@ impl<M: Message + Clone> NarrativeInputLedger<M> {
     }
 
     /// Drop records whose tick can never be simulated again.
-    ///
-    /// ⚠ **the horizon, not consumption.** Nothing here marks a record used: a
-    /// resimulated tick has to find it again, and a ledger that forgot on
-    /// delivery is the defect this type exists to remove, one level down.
     fn prune(&mut self, now: u64, prediction_distance: u64) {
         let horizon = now.saturating_sub(prediction_distance);
         self.records.retain(|record| record.from_tick >= horizon);
@@ -186,12 +179,6 @@ impl<M: Message + Clone> NarrativeInputLedger<M> {
 /// Bundles the three things every narrative writer needs — who is talking, what
 /// tick it is, and where the record goes — so a Yarn command says
 /// `narrative.write(..)` and nothing about stamping.
-///
-/// ⛔ **a command that reaches for the effect's own channel instead is the
-/// defect this exists to prevent.** Those writes happen in `Update`, the
-/// consumers are sim systems, and every one of those channels is cleared on
-/// rollback by a host that will not re-run the presentation system that filled
-/// it. The write survived exactly until the first rewind.
 #[derive(SystemParam)]
 pub struct NarrativeInputWriter<'w, M: Message + Clone> {
     conversation: Res<'w, ActiveConversation>,
@@ -236,7 +223,7 @@ impl<M: Message + Clone> NarrativeInputWriter<'_, M> {
 
     /// The first tick the simulation may act on something observed now.
     ///
-    /// ⭐ the NEXT tick, because presentation observes the runner in `Update`,
+    /// the NEXT tick, because presentation observes the runner in `Update`,
     /// after this frame's simulation has already run. Stamping the tick that has
     /// been simulated would make the original frame and its replay disagree
     /// about whether the fact was true during it — the same off-by-one
@@ -267,7 +254,7 @@ pub fn release_narrative_inputs<M: Message + Clone>(
 
 /// **Forget what can never be replayed again.** (presentation/host)
 ///
-/// ⛔ **not in the sim schedule, and that is not a placement preference.** This
+/// **not in the sim schedule, and that is not a placement preference.** This
 /// runs during resimulation if it is, and a replayed tick that erases its own
 /// input reaches a different history than the run it is reproducing.
 pub fn prune_narrative_inputs<M: Message + Clone>(
@@ -311,14 +298,14 @@ impl<M: Message + Clone> Plugin for NarrativeInputPlugin<M> {
         };
 
         let sim = app.sim_schedule();
-        // ⛔ **REGISTER THE CHANNEL THIS PLUGIN RELEASES INTO** — the same lesson
+        // **REGISTER THE CHANNEL THIS PLUGIN RELEASES INTO** — the same lesson
         // `ExternalEffectQuarantinePlugin` records. Leaving it to whoever else
         // wants the message means it always works in a shipped app and nowhere
         // else. `add_message` is guarded by `contains_resource`, so this is
         // idempotent for a channel somebody already registered.
         app.add_message::<M>()
             .init_resource::<NarrativeInputLedger<M>>()
-            // ⚠ **INSIDE the root set, at its head** — the `ensure_sim_id`
+            // **INSIDE the root set, at its head** — the `ensure_sim_id`
             // placement, not the effect quarantine's `.before(root)` one. The
             // root carries the session gate, so a release outside it would hand
             // narrative facts to a frozen simulation at a title or loading route
@@ -365,7 +352,7 @@ mod tests {
             ledger.release(Some(11), Some(&chat)).is_empty(),
             "released twice: a level rule grants the item again every tick"
         );
-        // ⭐ and the tick REPLAYS: the record is still there, because nothing
+        // and the tick REPLAYS: the record is still there, because nothing
         // marks it consumed.
         assert_eq!(
             ledger.release(Some(10), Some(&chat)),

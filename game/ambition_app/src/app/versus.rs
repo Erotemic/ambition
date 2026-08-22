@@ -1,9 +1,5 @@
-//! **A versus stage you can pick from the launcher.** (C4 slice 2)
-//!
-//! Slice 1 gave the engine the verb — `seat_match_participants` turns a
-//! [`MatchParticipantRoster`] into bodies. Nothing called it. C4's complaint was
-//! never that the fight did not work; it was that the fight existed only where a
-//! test could see it, and "a stranger can run it and watch" is the whole
+//! Nothing called it. C4's complaint was never that the fight did not work; it was that the fight
+//! existed only where a test could see it, and "a stranger can run it and watch" is the whole
 //! difference between an engine demo and an engine.
 //!
 //! So this is a route. It appears in the launcher beside Ambition, Sanic and
@@ -20,11 +16,6 @@
 //! the same thing inside itself.
 //!
 //! ## What it deliberately does not do
-//!
-//! No win condition, no rounds, no HUD. Those are match RULES, and a stage that
-//! has to be right before rules can be written is the thing that was missing;
-//! inventing a ruleset here would make the slice bigger and the seam no more
-//! proven. Slice 3 (player vs CPU) needs the human seat, not rules.
 
 use bevy::prelude::*;
 
@@ -44,14 +35,6 @@ pub const VERSUS_GAMEPLAY_ROUTE: &str = "versus_gameplay";
 pub const VERSUS_ROOM_ID: &str = "versus_arena";
 
 /// The two fighters.
-///
-/// They used to be `mary_o` and `sanic`, chosen because a match between two
-/// demo providers' casts is the crossover the character seam was built for.
-/// That was the right cast for proving the seam and the wrong one for a fight:
-/// neither authors a move list, so couch versus was two people walking into
-/// each other, and giving either one attacks would have been authoring against
-/// their design to make a different mode work (Sanic's row says "no combat
-/// moveset" in as many words; Mary-O has to play like SMB1).
 ///
 /// The arena has its own fighters now — see [`super::versus_fighters`]. The
 /// crossover is not lost: they SHARE the demos' art by id, so the stage still
@@ -129,7 +112,7 @@ fn versus_prepared_session_world() -> PreparedPlatformerSource {
     let room = versus_arena();
     let geometry = ae::RoomGeometry(room.world.clone());
     let metadata = ActiveRoomMetadata(room.metadata.clone());
-    // ⛔ **`for_match`: no home body.** The comment this replaces described the
+    // **`for_match`: no home body.** The comment this replaces described the
     // old contract exactly — *"the body a human seat takes over"* — and that
     // takeover is the fork that has been deleted. Every fighter is built by the
     // match now; `FIGHTERS[0]` remains as this experience's catalog default.
@@ -152,13 +135,7 @@ fn versus_prepared_session_world() -> PreparedPlatformerSource {
 /// present, which is the assertion you write when you have not looked at the
 /// screen.
 ///
-/// Seat 1 is a HUMAN when a second controller is plugged in, and a CPU
-/// otherwise. That is the whole of Jon's ordering (cpu vs cpu, then player vs
-/// cpu, then local couch, and only then netcode) reaching its third step, and it
-/// needs no menu: the presence of a second controller is an unambiguous
-/// statement that a second person is here, and a stage that asked the question
-/// in a lobby screen would be a lobby screen standing between a stranger and the
-/// thing they came to see.
+/// Seat 1 is a HUMAN when a second controller is plugged in, and a CPU otherwise.
 ///
 /// Deliberately decided at STAGE ENTRY, not per frame. A pad unplugged mid-match
 /// must not silently hand player two's fighter to the AI, and a pad plugged in
@@ -182,44 +159,21 @@ fn versus_prepared_session_world() -> PreparedPlatformerSource {
 /// where the relation is load-bearing.
 /// **The archetype a versus CPU seat asks for**, and this experience registers.
 ///
-/// ⚠ it used to be `"medium_striker"` — a row in `ambition_content`'s archetype
-/// table, which the versus experience does not compose. So the lookup missed,
-/// and before seating learned to REFUSE an unresolvable profile (2026-07-31) the
-/// seat silently became a `stand_still` body: a versus match against an opponent
-/// that has never once moved. The refusal turned that into a panic in
-/// `versus_through_the_sdk`, which is the guard doing exactly its job.
+/// The refusal turned that into a panic in `versus_through_the_sdk`, which is the guard doing
+/// exactly its job.
 ///
-/// The name is this experience's own, because the experience owns the row. A
-/// demo naming another provider's archetype is the same borrowed-authority bug
-/// one namespace over.
+/// The name is this experience's own, because the experience owns the row.
 pub const VERSUS_CPU_BRAIN: &str = "versus_duelist";
 
-// ⛔⛔ **`VERSUS_ROSTER_RON` WAS HERE AND IS DELETED (2026-08-13, campaign
-// P2.18)** — one `ArchetypeSpec` row, registered as a `CharacterRosterFragment`,
-// existing for exactly one lookup: a CPU seat naming `versus_duelist`, answered
-// through an ENEMY ARCHETYPE TABLE. Its controller half is published as an
-// `autonomous_profiles` entry in `versus_fighters::VERSUS_CATALOG_RON` now,
-// which is what a controller policy IS.
-//
-// ⚠ **its body half went nowhere because nothing read it.** `max_health`,
+// **its body half went nowhere because nothing read it.** `max_health`,
 // `run_speed`, `melee`, `move_style` and `respawn` stopped being read the day a
 // seat was built from its CHARACTER (P1.11) — see the `fighter_abilities` note
 // below, which is the record of that: the row's authored `melee` "reached the
 // body regardless of what the match said the body could do", and removing it is
 // what exposed this stage's missing `attack` verb.
-//
-// ⇒ the same migration ledger D87 made for the Smash stage's six rows, and it
-// leaves `seat_brain_profile`'s archetype arm with no production caller.
 
 /// **The roster the route PROPOSES on entry**, built from live device discovery
 /// before any session has decided its seating.
-///
-/// ⭐ **proposed, not activated** (2026-08-06). Nothing seats from this until
-/// [`activate_versus_roster`] agrees, because the route builds it from devices
-/// and the rollback session freezes its topology afterwards — so a roster built
-/// here can describe a different match than the session will run. Seating used
-/// to happen from it anyway and the disagreement was reported after the fact,
-/// which is what `status.md` means by *"MECHANISMS DONE, ACTIVATION OPEN"*.
 pub fn versus_roster(local_players: usize) -> MatchParticipantRoster {
     versus_roster_from(local_players, RosterSeating::Proposed)
 }
@@ -233,7 +187,7 @@ pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> Match
         .map(|seat| {
             let controller = if seat < local_players {
                 ControllerBinding::Human {
-                    // ⚠ **PAD `seat`, and this route is entitled to say so.** The
+                    // **PAD `seat`, and this route is entitled to say so.** The
                     // versus roster is built from live device discovery — seat
                     // `n` IS the `n`-th pad, with no lobby in between to renumber
                     // anything — which is exactly the case where the source and
@@ -253,12 +207,8 @@ pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> Match
         .collect();
     MatchParticipantRoster {
         participants,
-        // A round opens on a COUNTDOWN, so nobody acts until it ends. Declared on
-        // the roster rather than applied after seating: a fighter that seats on
-        // the tick the countdown begins would otherwise get one simulation step
-        // first — a CPU decision, or a held direction — before the suspension
-        // insert lands (GPT 5.6, 2026-07-29). The `Starting` arm reaching zero is
-        // what takes it off, which is already the one place a round goes live.
+        // The `Starting` arm reaching zero is what takes it off, which is already the one place
+        // a round goes live.
         opens_suspended: true,
         // **THIS STAGE OWNS ITS OWN CEREMONY**, so the engine's countdown stays
         // out of it: the `Starting` arm reaching zero is what takes the hold
@@ -266,7 +216,7 @@ pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> Match
         // count. `0` says "not mine to end" rather than "no countdown" — the
         // versus round very much has one.
         opening_countdown_ticks: 0,
-        // ⚠ no clock: a versus round ends on health, and a stalemate there is
+        // no clock: a versus round ends on health, and a stalemate there is
         // already answered by the round's own economy.
         time_limit_ticks: 0,
         // **A FAIR FIGHT.** Seat 0 is the ADOPTED primary player and arrives
@@ -277,42 +227,32 @@ pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> Match
         //
         // Stated by the match rather than assumed by seating: a stage that wants
         // asymmetric fighters says something else here.
-        // ⛔ **`basic()` HAS NO `attack`, and a duel where nobody may swing is
+        // **`basic()` HAS NO `attack`, and a duel where nobody may swing is
         // incoherent.** It stood because the swing did not come from the fighter
         // at all: a seat was built out of the CPU archetype, and
         // `versus_duelist`'s authored `melee` reached the body regardless of
         // what the match said the body could do. Building a seat from its
-        // CHARACTER instead (campaign P1.11) took that away, and this is the
+        // CHARACTER instead took that away, and this is the
         // fact that was hiding behind it — the mask never granted the verb its
         // own fighters needed.
         //
-        // ⚠ deliberately the SAME shape as the Smash stage's floor minus its
+        // deliberately the SAME shape as the Smash stage's floor minus its
         // platform-fighter extras: this stage is a duel on one screen, and its
         // opponent brain does not use a dodge or a ledge.
         //
-        // ⭐ **`at_most`, which is exactly what this has always been** — a
-        // CEILING and no floor. The smash stage next door levels instead
-        // (`MatchAbilities::levelled`); saying which of the two a stage means is
-        // the whole point of the type, and this one means *"a character keeps
-        // what it authored, minus what this duel forbids"*. A floor here would
-        // hand the robot lineage the `reset` its definition deliberately refuses
-        // — `basic()` grants one — which is the trap that stopped this being a
-        // grant in the first place.
-        // ⭐ **the SAME set the duelists now author** (D151), named once in
-        // `versus_fighters` so a ceiling and the kit under it cannot drift into
-        // disagreeing. Restating it here is how the stage came to be the only
-        // thing dressing its own cast.
+        // **`at_most`, which is exactly what this has always been** — a CEILING and no floor.
+        // The smash stage next door levels instead (`MatchAbilities:levelled`); saying which of
+        // the two a stage means is the whole point of the type, and this one means *"a
+        // character keeps what it authored, minus what this duel forbids"*. A floor here would
+        // hand the robot lineage the `reset` its definition deliberately refuses — `basic`
+        // grants one — which is the trap that stopped this being a grant in the first place.
+        // Restating it here is how the stage came to be the only thing dressing its own cast.
         fighter_abilities: Some(ae::MatchAbilities::at_most(
             super::versus_fighters::VERSUS_FIGHTER_KIT,
         )),
-        // **NONE, and it is a decision.** This stage's cast is
-        // `versus_fighters::duelists()`, two characters authored FOR it, so the
-        // body they play with is already the one they were tuned with — there is
-        // no fighter here whose feel came from somebody else's game. The smash
-        // stage next door supplies one because it seats a crossover cast that
-        // never agreed to be a platform fighter (see
-        // `MatchParticipantRoster::fighter_body`), and this duel wants none of
-        // its extras: no jump squat, no air dodge, no floor game.
+        // The smash stage next door supplies one because it seats a crossover cast that never
+        // agreed to be a platform fighter (see `MatchParticipantRoster::fighter_body`), and
+        // this duel wants none of its extras: no jump squat, no air dodge, no floor game.
         fighter_body: None,
         // S4: NOT a stocks match yet, and the `None` is a decision rather than a
         // gap. The shipped stage settles ROUNDS off health, and switching it to
@@ -323,17 +263,17 @@ pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> Match
         // fighter to `DeathPolicy::Unbounded`, which is the pair that has to
         // travel together.
         fighter_stocks: None,
-        // **NONE, and it is a decision** (queue D131). This stage settles ROUNDS
+        // **NONE, and it is a decision**. This stage settles ROUNDS
         // off health, so the pool is literal hit points rather than the scale a
         // percent is read against — and its cast is `versus_fighters::duelists()`,
         // two characters authored FOR this stage whose light/heavy split is
         // partly the pool itself (`with_health`). Declaring one number here
         // would flatten a difference the stage exists to have.
         //
-        // ⚠ **the day this stage seats somebody else's character, this becomes
-        // `Some(_)`.** That is the whole of D131: an authored `max_health` is a
-        // statement made under the AUTHORING game's rules, and a host that seats
-        // a foreign cast owes its own. Smash seats fourteen and declares one.
+        // **the day this stage seats somebody else's character, this becomes `Some(_)`.** That
+        // is the whole of: an authored `max_health` is a statement made under the AUTHORING
+        // game's rules, and a host that seats a foreign cast owes its own. Smash seats fourteen
+        // and declares one.
         fighter_health_pool: None,
         seating,
         // **WHOSE MATCH THIS IS.** The exit rule below removes the roster it
@@ -361,29 +301,15 @@ pub const MAX_VERSUS_SEATS: usize = 4;
 /// connecting in that gap leaves the roster seating N fighters into a session
 /// with M handles, with both citing "the connected controllers".
 ///
-/// Before seating, a roster is only an INTENTION — nothing has a body yet — so
-/// the honest response is to rebuild it against the topology that won. After
-/// seating it is bodies on a stage, and silently reseating mid-match would be a
-/// worse bug than the disagreement; that case is reported instead.
+/// Match activation now performs the full atomic publication step: a prepared match builds the
+/// seated bodies and publishes `ActiveMatch` in one flush, and `ActiveMatch` is optional canonical
+/// rollback state. This reconciler therefore owns only the earlier question: whether a
+/// still-unactivated roster must be rebuilt against the topology that actually froze.
 ///
-/// Match activation now performs the full atomic publication step: a prepared
-/// match builds the seated bodies and publishes `ActiveMatch` in one flush, and
-/// `ActiveMatch` is optional canonical rollback state. This reconciler therefore
-/// owns only the earlier question: whether a still-unactivated roster must be
-/// rebuilt against the topology that actually froze. The migration history is
-/// archived in `docs/archive/planning-superseded/2026-08-13/character-preparation-finalization-plan.md`.
-///
-/// ⛔ **"no `ActiveMatch`" does NOT mean "no bodies yet", and reading it that way
-/// was a real authority split** (GPT 5.6, 2026-07-30). Seating retries across
-/// ticks and the latch closes only when EVERY seat has a body, so between the
-/// first seated fighter and the last there is a window in which participants
-/// exist and the latch does not. Replacing the roster inside that window left the
-/// already-seated bodies alone — seating skips a seat index it finds occupied —
-/// so the match could activate with bodies built from the OLD roster and
-/// definitions from the NEW one: wrong character, wrong team, wrong
-/// human-versus-CPU assignment, and a warning afterwards that could not repair
-/// any of it. The window is now checked, and a disagreement inside it is
-/// reported rather than half-applied.
+/// **"no `ActiveMatch`" does NOT mean "no bodies yet", and reading it that way was a real
+/// authority split**. Seating retries across ticks and the latch closes only when EVERY seat
+/// has a body, so between the first seated fighter and the last there is a window in which
+/// participants exist and the latch does not.
 fn reconcile_roster_with_frozen_topology(
     mut commands: Commands,
     topology: Option<Res<ambition_platformer2d::input::LocalSeatTopology>>,
@@ -393,13 +319,11 @@ fn reconcile_roster_with_frozen_topology(
     // Bodies that are ALREADY seated, latch or no latch. This is the fact the
     // `ActiveMatch` check was standing in for, and the two are not the same fact.
     seated: Query<&ambition_platformer2d::actors::character_runtime::MatchSeat>,
-    // **The published controller policies** — the authority activation validates
-    // against, and since 2026-08-13 the only one. OPTIONAL because a composition
-    // legitimately publishes none (an engine App with no content), and
-    // `engine.character-authority-is-app-local` means "not part of this
-    // composition" is a real answer rather than a fault.
+    // OPTIONAL because a composition legitimately publishes none (an engine App with no content),
+    // and `engine.character-authority-is-app-local` means "not part of this composition" is a real
+    // answer rather than a fault.
     //
-    // ⛔ a `Res<CharacterRoster>` stood beside this and was passed FIRST. An
+    // a `Res<CharacterRoster>` stood beside this and was passed FIRST. An
     // enemy archetype table cannot answer a controller question — it stopped
     // being able to when `seat_brain_profile`'s archetype arm went (P2.18) — and
     // a validator that consults an authority the runtime does not is a validator
@@ -411,28 +335,17 @@ fn reconcile_roster_with_frozen_topology(
     let (Some(topology), Some(mut roster)) = (topology, roster) else {
         return;
     };
-    // ⛔ **MINE, not "a roster exists" — the same rule `maintain_versus_stage`
+    // **MINE, not "a roster exists" — the same rule `maintain_versus_stage`
     // learned and this function did not.**
     //
-    // `versus_roster_from` stamps `published_by: ambition_versus`, so rebuilding
-    // somebody else's roster here does not just resize it: it TRANSFERS
-    // OWNERSHIP. Smash's select screen publishes a two-fighter roster, this
-    // replaced it with a versus-stamped one built from the frozen topology, and
-    // `maintain_versus_stage` then correctly deleted it as its own on a route
-    // that was not versus. Smash never seated anybody and the stage opened with
-    // one fighter — Jon, 2026-08-01: *"even when we add a CPU player in smash
-    // there is only ever one player that shows up in game."*
+    // `versus_roster_from` stamps `published_by: ambition_versus`, so rebuilding somebody
+    // else's roster here does not just resize it: it TRANSFERS OWNERSHIP.
     //
-    // ⚠ it only bites where a topology is actually FROZEN — and that is EVERY
+    // it only bites where a topology is actually FROZEN — and that is EVERY
     // build now, not a `dev_tools` one.
     //
-    // ⛔ **this comment used to say the rollback observatory was the only thing
-    // that froze a topology (queue S35), and that stopped being true when
-    // `freeze_local_seating_for_the_decided_match` shipped**: it is registered
-    // by `PlatformerHostPlugins`, which every host adds, and the ggrs session
-    // maintainer captures one of its own besides. So the reconciler below runs
-    // in a shipped build, which is what makes the two-writer problem reachable
-    // rather than theoretical (queue G1 PICK 17).
+    // So the reconciler below runs in a shipped build, which is what makes the two-writer problem
+    // reachable rather than theoretical.
     //
     // The headless host test still passes for the reason it always did:
     // `MinimalPlugins` installs no host, so nothing freezes and this returns
@@ -440,23 +353,19 @@ fn reconcile_roster_with_frozen_topology(
     if !roster.is_published_by(VERSUS_EXPERIENCE) {
         return;
     }
-    // ⭐ **NOTHING FROZE, so nothing has an opinion — activate as-is.**
+    // **NOTHING FROZE, so nothing has an opinion — activate as-is.**
     //
-    // This arm used to `return`, and with seating refusing a `Proposed` roster
-    // that would have stranded every composition where no rollback session ever
-    // starts: the headless host, the shell's non-rollback routes, a
-    // `MinimalPlugins` test. A roster nobody can disagree with is not a roster
-    // awaiting confirmation, and leaving it `Proposed` forever would turn a
-    // lifecycle into a deadlock.
+    // A roster nobody can disagree with is not a roster awaiting confirmation, and leaving it
+    // `Proposed` forever would turn a lifecycle into a deadlock.
     if !topology.is_frozen() {
         if !roster.seating.may_seat() {
-            // ⭐ **validate as PART of activating.** `status.md`'s activation row
+            // **validate as PART of activating.** `status.md`'s activation row
             // asks for exactly this, and the validation already existed — its
             // only caller was `seat_match_participants`, which runs one step
             // AFTER the roster is live. So a route could activate a match its
             // own composition cannot fill, seating would refuse it, and the
             // stage would sit on a roster that never seats.
-            // ⭐ **ONE ARM NOW, and an absent registry is a real answer rather
+            // **ONE ARM NOW, and an absent registry is a real answer rather
             // than a reason to skip the check.** This branched on whether an
             // archetype table existed and activated UNVALIDATED when it did not
             // — defensible while a seat's policy had two possible homes, because
@@ -494,7 +403,7 @@ fn reconcile_roster_with_frozen_topology(
         // the round is worse than the disagreement — so the question is whether
         // there IS one.
         //
-        // ⚠ **and the obvious comparison is wrong.** A one-player topology seats
+        // **and the obvious comparison is wrong.** A one-player topology seats
         // TWO participants (there is always an opponent, human or CPU), so
         // comparing `participants.len()` against `topology.players()` reports a
         // disagreement in the ordinary single-player case. Compare the FIGHTERS —
@@ -539,13 +448,9 @@ fn reconcile_roster_with_frozen_topology(
     // the roster is inert with respect to the bodies (same characters, same seat
     // indices) and all it does is stamp the generation, so it is safe either way.
     //
-    // ⭐ **and a PROPOSED roster is never half seated, which is the point of the
-    // lifecycle.** Seating refuses one, so a disagreement discovered here has no
-    // bodies to be inconsistent with and falls through to the replacement below
-    // — repaired instead of reported. The warning survives for the case it was
-    // written for: a roster that was ALREADY activated (nothing froze when the
-    // route entered, so it was activated as-is) and then met a session that
-    // froze a topology seating somebody else.
+    // The warning survives for the case it was written for: a roster that was ALREADY activated
+    // (nothing froze when the route entered, so it was activated as-is) and then met a session
+    // that froze a topology seating somebody else.
     if rebuilt.participants != roster.participants && !seated.is_empty() {
         bevy::log::warn_once!(
             "the versus roster seats {} fighter(s) from seat topology {:?} and the session \
@@ -570,12 +475,12 @@ fn reconcile_roster_with_frozen_topology(
 
 /// **What a `VersusMatch` IS, for a rollback checksum.**
 ///
-/// ⚠ **the phase is not a tag here — it carries the numbers.** `Starting` holds
+/// **the phase is not a tag here — it carries the numbers.** `Starting` holds
 /// the countdown, `Ko` and `Won` hold the dwell clock, and a rewind that agreed
 /// about "we are in Ko" while disagreeing about how much of it is left produces
 /// two timelines that resume play on different frames.
 ///
-/// ⭐ **the per-team wins are folded order-independently.** `rounds_won` is a
+/// **the per-team wins are folded order-independently.** `rounds_won` is a
 /// `BTreeMap` so its order is already deterministic, but a projection that
 /// depended on that would silently start reporting desyncs if the container ever
 /// changed — the same reasoning as Mary-O's spent-block set, which IS a
@@ -620,17 +525,9 @@ fn hash_team(team: &str) -> u64 {
 
 /// **The fighting stage's directional-influence budget, in radians.**
 ///
-/// Jon, asked whether DI was worth turning on: *"In smash DI is critical!"* —
 /// and `Platformer2dFeelTuningMonolith::di_max_angle`'s own doc has named this mode as the
 /// caller since the field was written: *"a fighter mode (Super Smash Siblings)
 /// authors a smash-like ≈ 0.31 (18°) to turn it on."*
-///
-/// ⚠ **a MATCH RULE, set on route entry and restored on exit** — the same shape
-/// `FriendlyFire` already uses below, and for the same reason: a rule that
-/// outlives its match is a rule the next game silently inherits. Ambition's PvE
-/// knockback keeps the `0.0` default, because Jon said he *"probably"* wants
-/// Smash physics in the flagship too and did not name a number; changing how the
-/// whole game feels is his call, not an inference from this one.
 ///
 /// 0.31 rad ≈ 18°: the victim's held stick may rotate its own launch by that
 /// much, which is what makes a knock-off a read instead of a coin flip.
@@ -671,32 +568,18 @@ fn track_versus_roster(
         .active
         .as_ref()
         .is_some_and(|active| active.route_id.as_str() == VERSUS_GAMEPLAY_ROUTE);
-    // MINE, not "a roster exists". Smash's character select publishes one from
-    // a different route, and this system ran every frame: not on the versus
-    // route, a roster present, remove it — deleting another game's match before
-    // it could open. Neither stage was wrong on its own; the resource is global
-    // and had no owner until it did.
+    // MINE, not "a roster exists".
     let mine = roster
         .as_ref()
         .is_some_and(|roster| roster.is_published_by(VERSUS_EXPERIENCE));
     match (on_versus, mine) {
         (true, false) => {
-            // One local player per connected controller, capped by the stage's
-            // two seats. Zero controllers is one seat: the keyboard is player
-            // one, which is how every other route in the shell already plays.
-            // THE SESSION'S FROZEN SEATING when one exists, the live order
-            // otherwise. A rollback session decides its handle count once, at
-            // session start; a roster that re-sampled the live device order
-            // could seat a fighter the session has no handle for, and both
-            // would be citing "the connected controllers" (GPT 5.6,
-            // 2026-07-28). Without a session — the shell's non-rollback
-            // routes — the live order IS the answer.
             let frozen = topology.as_ref().filter(|topology| topology.is_frozen());
             let roster = versus_roster_from(
                 frozen
                     .map(|topology| topology.players())
                     .unwrap_or_else(|| devices.devices().len().max(1)),
-                // ⭐ **frozen means ACTIVATED, unfrozen means PROPOSED.** The
+                // **frozen means ACTIVATED, unfrozen means PROPOSED.** The
                 // seat count above already comes from the frozen topology when
                 // one exists, so when it does, the session has already agreed
                 // and there is nothing left to reconcile. When it does not, this
@@ -710,14 +593,14 @@ fn track_versus_roster(
             // decoded sheet draws a placeholder, and the whole point of a visible
             // slice is that it looks like the two characters it says it is.
             roster.project_demand(&mut demand);
-            // ⭐ **THE SEAT COUNT THIS MATCH DECIDED, published with the roster
+            // **THE SEAT COUNT THIS MATCH DECIDED, published with the roster
             // and under this experience's name.** The local session maintainer
             // freezes its topology from connected DEVICES otherwise — and
             // devices are not participants: a keyboard seat has no controller
             // entity, a spare pad may not be playing, a CPU seat has none at
             // all.
             //
-            // ⚠ the claim is OWNED, and that is what makes it releasable: this
+            // the claim is OWNED, and that is what makes it releasable: this
             // route's scope hands it back on the way out, so the next
             // experience's session is not sized by a match that has ended.
             commands.insert_resource(
@@ -734,11 +617,6 @@ fn track_versus_roster(
             // publish, once every participant has a body.
             commands
                 .remove_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>();
-            // NO global free-for-all. The fighters are on declared TEAMS
-            // (`blue` / `red`), and `MatchTeam` outranks faction for "may this
-            // land" — which is what the roster's teams were for since §7.8 and
-            // what nothing read until 2026-07-27.
-            //
             // The stage DID switch on global `FriendlyFire` for a day, because
             // `effective_faction` maps any player-brained body to Player and two
             // humans are therefore always the same faction. That works for a
@@ -756,70 +634,57 @@ fn track_versus_roster(
             // the difference between a knock-off that is a read and one that is a
             // coin flip. Inert everywhere else: Ambition's PvE keeps 0.0.
             commands.insert_resource(ambition_platformer2d::combat::rules::DeclaredCombatRules {
-                // ⛔ BY OWNER, because this stage is no longer the only one that
-                // declares rules — the smash demo does too, and a giveback that
-                // removed the resource by TYPE would delete whichever stage was
-                // still playing. Third time this repo has learned it: the
-                // participant roster, the prepared match, now the rules.
+                // Third time this repo has learned it: the participant roster, the prepared
+                // match, now the rules.
                 declared_by: VERSUS_EXPERIENCE.to_string(),
                 di_max_angle: VERSUS_DI_MAX_ANGLE,
-                // ⚠ no meteor rule here for the same reason the knockback stays
+                // no meteor rule here for the same reason the knockback stays
                 // flat: rounds end on health, not on a blast zone, so a spike
                 // has nowhere to send you and a window you cannot recover in
                 // would be a stun with no payoff.
                 meteor_lock_time: 0.0,
-                // ⚠ and no rage, for the third time the same reason: health
+                // and no rage, for the third time the same reason: health
                 // rounds have no percent mechanic to mirror.
                 rage_per_damage: 0.0,
                 rage_max_scale: 1.0,
-                // ⚠ and no staling: rounds this short do not repeat a move
+                // and no staling: rounds this short do not repeat a move
                 // enough for a queue to mean anything.
                 stale_step: 0.0,
                 stale_floor: 1.0,
-                // ⚠ and no crouch cancel: this stage has no crouch verb to
+                // and no crouch cancel: this stage has no crouch verb to
                 // reward, and a rule nothing can reach is a rule that lies about
                 // what the stage does.
                 crouch_cancel_scale: 1.0,
-                // ⚠ a versus round ends on health, and its grabs are the
+                // a versus round ends on health, and its grabs are the
                 // engine's flat hold rather than a percent mechanic.
                 grab_hold_base_seconds:
                     ambition_platformer2d::combat::rules::FLAT_GRAB_HOLD_SECONDS,
                 grab_hold_per_damage: 0.0,
                 grab_hold_max_seconds: ambition_platformer2d::combat::rules::FLAT_GRAB_HOLD_SECONDS,
                 grab_mash_seconds: ambition_platformer2d::combat::rules::FLAT_GRAB_MASH_SECONDS,
-                // ⚠ the generic versus stage stays FLAT for now: its rounds end
+                // the generic versus stage stays FLAT for now: its rounds end
                 // on health rather than on a blast zone, so a launch that grows
                 // without bound is a different game's mechanic. Smash declares
                 // its own — see `SMASH_KNOCKBACK_GROWTH`.
                 knockback_growth: 0.0,
-                // ⚠ the generic versus stage keeps the POGO reading, deliberately:
+                // the generic versus stage keeps the POGO reading, deliberately:
                 // its rounds end on health rather than on a blast zone, so a
                 // spike has nothing to kill you off and the rebound is the more
                 // useful of the two. Smash declares otherwise — see
                 // `SMASH_KNOCKBACK_GROWTH`'s neighbour.
                 downward_hit: ambition_platformer2d::combat::rules::DownwardHitStyle::Pogo,
                 friendly_fire: false,
-                // ⚠ **the versus route says NOTHING here** (2026-08-12). Its
+                // **the versus route says NOTHING here**. Its
                 // seats are the shipped cast, every one of which authors its own
                 // kit; a floor is what a stage needs when a body does not, and
                 // this stage does not have that body. `None` leaves the engine's
                 // exploration default standing, which nothing here reaches.
                 unarmed_melee: None,
             });
-            // A FRESH match. `VersusMatch` is a long-lived resource, so without
-            // this, leaving mid-round and coming back resumes the old score —
-            // and a KO or match-over countdown resumes with it, which reads as
-            // the stage opening onto somebody else's game (GPT 5.6,
-            // 2026-07-27). Reset on ENTRY rather than exit so a crash or a
-            // route change that skips the teardown still starts clean.
             *match_state = super::versus_rules::VersusMatch::opening();
         }
-        // ⭐ **THE EXIT IS A DECLARATION, not a branch.** Everything this route
-        // published leaves with the experience — see the scope in
-        // [`compose_versus_experience`]. It used to be a `(false, true)` arm
-        // here, which could only fire while `track_versus_roster` was still
-        // installed and still running, and which named "the roster exists" as
-        // its trigger rather than "my experience ended".
+        // **THE EXIT IS A DECLARATION, not a branch.** Everything this route published leaves with
+        // the experience — see the scope in [`compose_versus_experience`].
         _ => {}
     }
 }
@@ -846,7 +711,7 @@ pub fn compose_versus_experience(app: &mut App) {
     for fighter in super::versus_fighters::duelists() {
         app.register_character(fighter);
     }
-    // ⚠ **no archetype fragment.** A CPU seat's `brain_profile` resolves against
+    // **no archetype fragment.** A CPU seat's `brain_profile` resolves against
     // this experience's published `autonomous_profiles` (see the note where
     // `VERSUS_ROSTER_RON` used to be), which is the authority a controller
     // question belongs to.
@@ -899,11 +764,7 @@ pub fn compose_versus_experience(app: &mut App) {
         // thing — the words the stage says between exchanges — and a second slot
         // would let them overlap.
         //
-        // ⚠ this said "published only while a round is over, so it needs no hide
-        // path". True until the countdown landed (2026-07-28) and false after:
-        // the count publishes every tick of a LIVE-adjacent phase, so
-        // `publish_versus_hud` clears the slot explicitly on `Fighting`. Without
-        // that the word FIGHT would sit over the whole round.
+        // Without that the word FIGHT would sit over the whole round.
         .slot(
             ambition_platformer2d::presentation::HudSlotSpec::new(
                 super::versus_rules::ANNOUNCE_HUD_SLOT,
@@ -913,11 +774,7 @@ pub fn compose_versus_experience(app: &mut App) {
             .with_color([1.0, 0.85, 0.3, 1.0]),
         )
     })
-    // ⭐⭐ **COMPOSED AND ROUTED, BUT NOT OFFERED** (Jon, 2026-08-15: the
-    // game-selection shell should list games, and these can be standalone for
-    // tests).
-    //
-    // ⛔ **it cannot become a standalone binary, and that is a fact about what it
+    // **it cannot become a standalone binary, and that is a fact about what it
     // IS rather than an omission.** Its fighters are `mary_o` and `sanic`,
     // registered by two DIFFERENT provider plugins, so the multi-game shell host
     // is the only composition where both casts exist — which is exactly why this
@@ -937,13 +794,6 @@ pub fn compose_versus_experience(app: &mut App) {
     // and not the score leaves the two disagreeing about what round it is.
     {
         use ambition_platformer2d::rollback::AmbitionRollbackApp;
-        // ⭐ **a value checksum over the match, not merely its presence**
-        // (2026-08-06). `VersusMatch` decides the round, the phase and who has
-        // won — two timelines that disagree about the phase disagree about
-        // whether input is even accepted, and a presence probe saw none of it.
-        // Eighteen of these surfaced at once when K2b edit 2 made the rollback
-        // harness compose the shipped host; see `ambition_demo_mary_o`'s
-        // `rollback_probes` for the family.
         app.rollback_resource_clone_checksum::<super::versus_rules::VersusMatch>(
             VERSUS_EXPERIENCE,
             "resource.versus_match",
@@ -969,7 +819,7 @@ pub fn compose_versus_experience(app: &mut App) {
             sim,
             super::versus_rules::settle_versus_round
                 .in_set(CombatSet::Settle)
-                // ⛔ **ONLY WHILE THIS STAGE IS THE ONE BEING PLAYED.**
+                // **ONLY WHILE THIS STAGE IS THE ONE BEING PLAYED.**
                 //
                 // It ran unconditionally, and `VersusMatch` defaults to
                 // `MatchPhase::Starting` — whose arm calls `take_the_controls`
@@ -979,17 +829,6 @@ pub fn compose_versus_experience(app: &mut App) {
                 // `blank_scripted_control_frames` zeroed its control frame each
                 // tick. The input arrived correctly the whole way — GGRS
                 // published it, the brain read it — and the body never moved.
-                //
-                // ⭐ **the same rule `track_versus_roster` learned about the
-                // roster**: not "a fighter exists", MINE. A global resource with
-                // no owner deleted another game's match on 2026-08-01; a global
-                // countdown with no owner froze another game's fighters, and the
-                // two are the same mistake one campaign apart.
-                //
-                // Invisible until K2b edit 2 (2026-08-06) made the rollback
-                // harness compose the shipped shell host, which installs this
-                // stage. `two_local_seats_drive_independently_under_a_rollback_host`
-                // is what caught it.
                 .run_if(versus_stage_is_active),
         );
     }
@@ -1029,13 +868,10 @@ pub fn compose_versus_experience(app: &mut App) {
 
     // `Update`, NOT the sim schedule.
     //
-    // The first draft put this in `Platformer2dSimulationPhaseMonolith::PlayerInput`, and its own test
-    // caught the consequence: every `Platformer2dSimulationPhaseMonolith` is nested inside
-    // `GameplaySimulationRoot`, which carries the session gate, so leaving
-    // gameplay switches OFF the system whose job is to clean up after leaving
-    // gameplay. The roster survived, and the next game the player picked would
-    // have had two fighters seated into it — silently, because the bodies look
-    // like they belong to the level.
+    // The first draft put this in `Platformer2dSimulationPhaseMonolith::PlayerInput`, and its
+    // own test caught the consequence: every `Platformer2dSimulationPhaseMonolith` is nested
+    // inside `GameplaySimulationRoot`, which carries the session gate, so leaving gameplay
+    // switches OFF the system whose job is to clean up after leaving gameplay.
     //
     // A teardown that lives inside the thing it tears down can only ever run
     // while it is not needed. This reads the shell router and writes resources;
@@ -1049,7 +885,7 @@ pub fn compose_versus_experience(app: &mut App) {
             reconcile_roster_with_frozen_topology,
         )
             .chain()
-            // ⛔ **BEFORE THE SESSION IS SIZED, and stated rather than hoped.**
+            // **BEFORE THE SESSION IS SIZED, and stated rather than hoped.**
             // The maintainer freezes a topology from connected DEVICES when
             // nothing has claimed roster-driven seating, and the session is
             // never resized afterwards — so a maintainer that ran first on the
@@ -1086,12 +922,8 @@ fn declare_versus_experience_scope(app: &mut App) {
             // The match ends WITH its route. An activation that outlives its
             // match is the next game inheriting somebody else's fighters.
             //
-            // ⛔ **by OWNER, and the owner is on the PLAN.** This removed the
-            // activation by TYPE until 2026-08-07, as did smash's scope three
-            // files away — so whichever experience left first deleted the
-            // other's live match, and each declaration read as correct on its
-            // own. `ActiveMatch` is rollback state that deliberately carries no
-            // identity, so the plan it was activated from answers for it.
+            // `ActiveMatch` is rollback state that deliberately carries no identity, so the plan it
+            // was activated from answers for it.
             .releasing_witnessed::<
                 ambition_platformer2d::actors::character_runtime::ActiveMatch,
                 ambition_platformer2d::actors::character_runtime::PreparedMatch,
@@ -1101,7 +933,7 @@ fn declare_versus_experience_scope(app: &mut App) {
             // game's fighters — the same lesson as the roster above, one
             // resource later.
             //
-            // ⚠ declared AFTER the activation above, which reads it: releases
+            // declared AFTER the activation above, which reads it: releases
             // run in declaration order and the witness has to still be here.
             .releasing_owned::<ambition_platformer2d::actors::character_runtime::PreparedMatch>(
                 |plan, owner| plan.is_published_by(owner.as_str()),
@@ -1110,7 +942,7 @@ fn declare_versus_experience_scope(app: &mut App) {
             // rule the next game silently inherits, and "your allies can now
             // shoot you" is a bad surprise to bring into a co-op level.
             //
-            // ⚠ there is nothing to put back, and that is the point: writing the
+            // there is nothing to put back, and that is the point: writing the
             // engine defaults reads as a restore and is not one.
             .releasing_owned::<ambition_platformer2d::combat::rules::DeclaredCombatRules>(
                 |rules, owner| rules.is_declared_by(owner.as_str()),
@@ -1139,18 +971,12 @@ mod stage_rule_tests {
         );
         app.init_resource::<ambition_platformer2d::input::LocalDeviceOrder>();
         app.insert_resource(ambition_platformer2d::game_shell::ShellRouter::default());
-        // The projection normally runs in `Platformer2dSimulationPhaseMonolith::WorldPrep`; here it runs
-        // straight after the declarer, which is the same ORDER and all these
-        // tests need. Asserting on the resolved value rather than on a global is
-        // the whole point of AE6 — a test that read the baseline would be
-        // asserting the borrow it replaced.
-        // The REAL exit mechanism, not a fixture copy: the versus scope
-        // declaration (the same call `compose_versus_experience` makes) plus
-        // the shell's release system. These tests went red for a day when the
-        // exit moved from a teardown arm inside `track_versus_roster` into the
-        // scope declaration and this fixture kept composing only the former —
-        // asserting "DI leaves with the match" against an app that contained
-        // no leaving mechanism at all.
+        // The projection normally runs in `Platformer2dSimulationPhaseMonolith::WorldPrep`; here it
+        // runs straight after the declarer, which is the same ORDER and all these tests need.
+        // Asserting on the resolved value rather than on a global is the whole point of AE6 — a
+        // test that read the baseline would be asserting the borrow it replaced. The REAL exit
+        // mechanism, not a fixture copy: the versus scope declaration (the same call
+        // `compose_versus_experience` makes) plus the shell's release system.
         super::declare_versus_experience_scope(&mut app);
         app.add_systems(
             Update,
@@ -1195,14 +1021,7 @@ mod stage_rule_tests {
 
     /// **A match leaves with its route — and takes only its OWN.**
     ///
-    /// ⛔ **the bug this pins shipped for a day and read as correct in both
-    /// files that had it.** Versus removed `ActiveMatch` and `PreparedMatch` by
-    /// TYPE on the way out; so did smash, in a host (`shell_host.rs`) that lists
-    /// both. Whichever experience left first deleted the other's live match, and
-    /// the comment directly above each declaration explained — correctly, about
-    /// the roster — why removing a shared global by type is exactly that bug.
-    ///
-    /// ⚠ **both halves, because either alone is green for the wrong reason.**
+    /// **both halves, because either alone is green for the wrong reason.**
     /// Deleting the release entirely passes "a stranger's survives"; leaving it
     /// unconditional passes "mine is gone". Only the pair pins the fix.
     #[test]
@@ -1269,21 +1088,10 @@ mod stage_rule_tests {
 
     /// **DI is a rule of the fighting stage, and it leaves with the stage.**
     ///
-    /// Jon: *"In smash DI is critical!"* — and also that he only *"probably"*
     /// wants Smash physics in the flagship, without naming a number. So the
     /// budget is switched on by the versus route and gone again on the way out.
     ///
-    /// The leaving half is the half worth pinning. A match rule that outlives its
-    /// match is a rule the next game silently inherits, which is exactly the bug
-    /// `FriendlyFire` had here: leaving the arena used to leave "your allies can
-    /// now shoot you" behind in a co-op level. DI leaking would be quieter and
-    /// worse — every knockback in Ambition would start steering, and nothing
-    /// would say why.
-    ///
-    /// ⚠ **asserted on the RESOLVED tuning, and on the baseline NOT MOVING**
-    /// (AE6). The stage used to reach this by writing `Platformer2dFeelTuningMonolith`; it
-    /// declares now, so the second assertion in each pair — that the world's own
-    /// tuning is exactly where it was — is the one that would catch a relapse.
+    /// **asserted on the RESOLVED tuning, and on the baseline NOT MOVING** (AE6).
     #[test]
     fn di_switches_on_with_the_versus_route_and_off_again_when_it_ends() {
         let mut app = stage_rule_app();
@@ -1321,20 +1129,14 @@ mod stage_rule_tests {
 
     /// **The half the default-start test could not see, and what replaced it.**
     ///
-    /// Exit used to write `Platformer2dFeelTuningMonolith::default()` and `FriendlyFire =
-    /// false`, and the test above starts from exactly those, so reset and
-    /// restore were indistinguishable in it. Starting from values NOBODY ships
-    /// made the difference visible: an experience that authored its own DI budget
-    /// and its own friendly-fire rule had to get them back, having lost them
+    /// Starting from values NOBODY ships made the difference visible: an experience that authored
+    /// its own DI budget and its own friendly-fire rule had to get them back, having lost them
     /// merely because the player visited the versus route.
     ///
-    /// ⚠ **the restore is gone, because the borrow is** (AE6). The stage declares
-    /// its rules and the projection folds them over the baseline, so the
-    /// baseline is never written and there is nothing to hand back. This test
-    /// keeps the same hostile starting values and asserts the stronger property:
-    /// the authored world is byte-identical before, DURING, and after a match.
-    /// A relapse to writing globals fails on the middle assertion, which is the
-    /// one the old shape could not make at all.
+    /// **the restore is gone, because the borrow is** (AE6). The stage declares its rules and
+    /// the projection folds them over the baseline, so the baseline is never written and there
+    /// is nothing to hand back. A relapse to writing globals fails on the middle assertion,
+    /// which is the one the old shape could not make at all.
     #[test]
     fn a_match_never_touches_the_world_tuning_it_plays_over() {
         let mut app = stage_rule_app();
@@ -1379,9 +1181,7 @@ mod stage_rule_tests {
         assert!(resolved(&app).friendly_fire);
 
         enter_versus(&mut app);
-        // DURING. The old shape could not express this: while a match was live,
-        // the world's tuning WAS the match's tuning, so there was no moment at
-        // which the two could be compared.
+        // DURING.
         authored_is_intact(&app, "during the match");
         assert_eq!(
             resolved(&app).di_max_angle,
@@ -1443,26 +1243,16 @@ mod roster_topology_tests {
     /// **Activation VALIDATES, and a roster this composition cannot fill is not
     /// activated.**
     ///
-    /// `status.md`'s activation row asks for *"validate every participant,
-    /// activate the roster atomically"*. The validation existed —
-    /// `unsatisfiable_seats` — and its caller was `seat_match_participants`,
-    /// which runs one step AFTER the roster is live. So a route could activate a
-    /// match naming a brain profile its own `CharacterRoster` has never heard
-    /// of, seating would refuse it every tick, and the stage would sit forever on
-    /// a match that publishes a refusal instead of fighters. That is not
-    /// hypothetical: the versus stage named `medium_striker` and the smash demo
-    /// named `duelist` before either composition registered one, on 2026-07-31,
-    /// and both shipped looking composed.
-    ///
-    /// ⚠ **the fixture registers an EMPTY archetype table, not none.** Absent is
-    /// a different answer — a content-free composition legitimately has no
-    /// archetypes and activating unvalidated is the right behaviour there, since
-    /// refusing would strand it. Empty means "this composition has a table and
-    /// your profile is not in it", which is the failure being caught.
+    /// `status.md`'s activation row asks for *"validate every participant, activate the roster
+    /// atomically"*. The validation existed — `unsatisfiable_seats` — and its caller was
+    /// `seat_match_participants`, which runs one step AFTER the roster is live. So a route could
+    /// activate a match naming a brain profile its own `CharacterRoster` has never heard of,
+    /// seating would refuse it every tick, and the stage would sit forever on a match that
+    /// publishes a refusal instead of fighters.
     #[test]
     fn a_roster_this_composition_cannot_seat_is_not_activated() {
         let mut app = App::new();
-        // ⚠ **ONE local player, and that is not a detail.** `versus_roster_from`
+        // **ONE local player, and that is not a detail.** `versus_roster_from`
         // makes seat `n` human only while `n < local_players`, so a two-player
         // roster is two humans and has no brain profile to validate at all —
         // this test passed for that reason first time out.
@@ -1483,22 +1273,20 @@ mod roster_topology_tests {
              open"
         );
 
-        // ⭐ and the SAME roster activates once the composition can answer for it,
+        // and the SAME roster activates once the composition can answer for it,
         // or the refusal above would pass against a route that never activates.
-        // ⚠ assembled from the stage's OWN catalog RON, not a hand-built table:
+        // assembled from the stage's OWN catalog RON, not a hand-built table:
         // that file is what a shipped composition registers, so this half also
         // asserts `VERSUS_CPU_BRAIN` is actually in it — the exact thing that was
-        // false on 2026-07-31 when the stage named `medium_striker`.
+        // false when the stage named `medium_striker`.
         //
-        // ⛔ it registered an archetype FRAGMENT until 2026-08-13, because the
-        // policy lived in `VERSUS_ROSTER_RON`. Same claim, one authority over:
-        // a CPU seat's controller question is answered by published
+        // Same claim, one authority over: a CPU seat's controller question is answered by published
         // `autonomous_profiles`, so that is what the composition must carry.
         {
             use ambition_platformer2d::characters::actor::character_catalog::{
                 CharacterCatalogAppExt, CharacterCatalogFragment,
             };
-            // ⭐ through the App seam the composition itself uses, so what is
+            // through the App seam the composition itself uses, so what is
             // published here is what a shipped versus route publishes — the
             // registration is what turns an authored profile into a resolvable
             // `versus::versus_duelist`.
@@ -1521,16 +1309,16 @@ mod roster_topology_tests {
         );
     }
 
-    /// ⛔ **Another game's roster is not this one's to rebuild.**
+    /// **Another game's roster is not this one's to rebuild.**
     ///
     /// `versus_roster_from` stamps `published_by: ambition_versus`, so rebuilding
     /// a roster somebody else published does not resize it — it TRANSFERS
     /// OWNERSHIP, and `maintain_versus_stage` then deletes it, correctly, as its
     /// own on a route that is not versus. Smash's select screen published two
     /// fighters, this took them, versus threw them away, and the stage opened
-    /// with one fighter (Jon, 2026-08-01).
+    /// with one fighter.
     ///
-    /// ⚠ the fixture has to FREEZE a topology, because that is the only
+    /// the fixture has to FREEZE a topology, because that is the only
     /// condition under which the reconciler runs at all — and it is exactly why
     /// the headless host test never saw this: `MinimalPlugins` freezes none, so
     /// the function returned early and Smash's roster survived in a composition
@@ -1603,16 +1391,11 @@ mod roster_topology_tests {
 
     /// **A HALF-SEATED match is not handed a different roster.**
     ///
-    /// The test above is the safe case and was read as the general one: "no
-    /// `ActiveMatch`" was taken to mean "nothing has a body yet". It does not.
-    /// Seating retries across ticks and the latch closes only when every seat is
-    /// filled, so a match with one fighter standing and one still pending sits in
-    /// exactly this state — and swapping the roster there is not a rebuild, it is
-    /// a match assembled from two rosters. Seating skips a seat index it finds
-    /// occupied, so the standing body keeps the OLD character, team and
-    /// controller kind while the latch closes over the NEW definitions, and the
-    /// warning that used to follow could not undo any of it (GPT 5.6,
-    /// 2026-07-30).
+    /// The test above is the safe case and was read as the general one: "no `ActiveMatch`" was
+    /// taken to mean "nothing has a body yet". It does not. Seating retries across ticks and the
+    /// latch closes only when every seat is filled, so a match with one fighter standing and one
+    /// still pending sits in exactly this state — and swapping the roster there is not a rebuild,
+    /// it is a match assembled from two rosters.
     #[test]
     fn a_half_seated_match_is_not_handed_a_different_roster() {
         let mut app = app_with(versus_roster_from(2, RosterSeating::Proposed), 3, false);
@@ -1684,11 +1467,8 @@ mod roster_topology_tests {
     /// **A topology that has decided nothing does not get to overrule live
     /// discovery.**
     ///
-    /// `generation == 0` means never captured — the resource exists, no session
-    /// has frozen its seating. Treating that as an answer would rebuild every
-    /// roster down to the two-seat floor. Written because removing the
-    /// `is_frozen` guard left the other three tests green: an unverified guard
-    /// is one that gets deleted by the next person who reads it as noise.
+    /// `generation == 0` means never captured — the resource exists, no session has frozen its
+    /// seating. Treating that as an answer would rebuild every roster down to the two-seat floor.
     #[test]
     fn an_unfrozen_topology_does_not_overrule_the_roster() {
         let mut app = App::new();
@@ -1716,10 +1496,6 @@ mod roster_topology_tests {
     /// rollback session starts and freezes its topology. Now the roster
     /// disagrees with the session about which decision produced it while
     /// agreeing completely about who is fighting.
-    ///
-    /// Before this, that warned — on a stage where nothing was wrong. Y′9 left
-    /// the post-seating case "reported rather than repaired"; repairing the
-    /// repairable half is what makes the remaining report mean something.
     #[test]
     fn a_live_match_that_agrees_with_its_session_adopts_its_topology() {
         let mut app = app_with(versus_roster_from(1, RosterSeating::Proposed), 1, true);
@@ -1754,11 +1530,6 @@ mod roster_topology_tests {
     }
 
     /// **After seating it is bodies on a stage, and it is left alone.**
-    ///
-    /// Reseating mid-match would be a worse bug than the disagreement it fixes.
-    /// The disagreement is reported instead — this is the case match ACTIVATION
-    /// exists to make impossible, and pretending a rebuild is safe here would
-    /// hide the reason that work is still open.
     #[test]
     fn a_seated_match_is_never_reseated_underneath_itself() {
         let mut app = app_with(versus_roster_from(2, RosterSeating::Proposed), 3, true);

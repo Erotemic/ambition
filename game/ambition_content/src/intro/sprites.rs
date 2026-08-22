@@ -52,8 +52,6 @@ pub fn intro_npc_sprite_rows(
             "creator_spritesheet.png",
             intro_sheet("creator", t),
         ),
-        // Oiler: street mechanic (direct-SVG multiview rig, since 2026-08-16 —
-        // the toon-adapter sheet this used to name is no longer published).
         ("Oiler", "oiler_spritesheet.png", intro_sheet("oiler", t)),
         // Gate Janitor: Kernel Guide placeholder until a dedicated
         // janitor sheet lands.
@@ -105,13 +103,6 @@ const PROP_TUNING: SheetTuning = SheetTuning::new(1.00, 2);
 /// props (keyed by `Prop.kind` so LDtk renames don't re-point sprites).
 /// Includes the cut-rope arena props until a dedicated non-intro prop
 /// catalog exists.
-///
-/// `pack target` is the shared-sprite-pack opt-in: `Some(target)` means the
-/// loader first tries the quality-tiered ultrapack
-/// (`assets/sprite_packs/<tier>/`) for that packer target name, falling back
-/// to the per-target sheet when no pack exists. `intro_cart` is the pilot
-/// (docs/archive/reviews/sprite-pipeline-2026-07/data-driven-sprites-and-characters.md, W2); extend
-/// per prop once verified.
 pub fn intro_prop_sprite_rows() -> Vec<(
     &'static str,
     &'static str,
@@ -177,12 +168,9 @@ pub fn intro_prop_sprite_rows() -> Vec<(
             intro_sheet("cut_rope_piano", t),
             None,
         ),
-        // ⛔ `generic_explosions` used to be listed here, as an LDtk PROP —
-        // which is how the one FX sheet the engine could draw got loaded at
-        // all, and why no other app could draw any effect. The engine ships its
-        // own effect sheets now (`ambition_sprite_sheet::fx::FX_SHEETS`); a
-        // story's prop table is not the place to declare them.
-        // Interdimensional gate ring + portal surface.
+        // The engine ships its own effect sheets now (`ambition_sprite_sheet::fx::FX_SHEETS`); a
+        // story's prop table is not the place to declare them. Interdimensional gate ring + portal
+        // surface.
         (
             "gate_ring",
             "interdimensional_gate_ring_spritesheet.png",

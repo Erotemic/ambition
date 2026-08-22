@@ -3,17 +3,11 @@
 //! or windowed: time control → input → controlled-subject resolution → brains
 //! → body mode → possession → hit events → presentation write-back.
 //!
-//! Moved from `ambition_app::app::plugins::register_player_input_systems` /
-//! `register_player_simulation_systems` / `register_presentation_sync_systems`.
-//! The app-LOCAL residue stays app-side and pins itself into the gaps by
-//! naming these engine systems (the ordering contract below documents the
-//! gaps):
-//!
 //! - the host's own reset-INPUT system (Ambition's
 //!   `apply_player_reset_input_system`) pins
 //!   `.after(DevEditApplySet).before(input_timer_system)`
 //!   in `Platformer2dSimulationPhaseMonolith::PlayerInput`. Its former chain partner, the
-//!   `RoomReplayRequested` consumer, is engine-side as of 2026-07-21 —
+//! `RoomReplayRequested` consumer, is engine-side —
 //!   see [`crate::sandbox_reset`];
 //! - the home-reset/presentation pair (`apply_home_reset_policy`,
 //!   `sync_player_presentation`) joins `PlayerSimulationSet::PostPossession` —
@@ -45,20 +39,10 @@ impl Plugin for PlayerSchedulePlugin {
         // movement phase writes and the presentation phase reads (required so
         // both phase queries always match the player + any clone).
         app.register_required_components::<ambition_platformer2d_actor_monolith::actor::PlayerEntity, PlayerBodyFrameOutput>();
-        // Every player body publishes the same gravity-oriented combat
-        // footprint an actor does (fable review 2026-07-02 §A6);
-        // integrate_home_body writes it.
         app.register_required_components_with::<ambition_platformer2d_actor_monolith::actor::PlayerEntity, ambition_platformer2d_core::CenteredAabb>(
             || ambition_platformer2d_core::CenteredAabb::new(ambition_platformer2d_core::Vec2::ZERO, ambition_platformer2d_core::Vec2::ZERO),
         );
         // ...and the same PUBLISHED silhouette every other body has.
-        //
-        // Carrying `DamageableVolumes` is what makes a body a damage target, and
-        // the player did not carry it — so `refresh_body_damageable_volumes` had
-        // nothing to write into and `apply_hitbox_damage` fell back to the coarse
-        // box for the player alone. A player could author a hurtbox timeline and be
-        // hit on a rectangle instead. Jon's ruling: a thing that works for an enemy
-        // and not a player is a smell, not a special case.
         //
         // The default is UNPUBLISHED, not intangible — the distinction the
         // component exists to make. `DamageableVolumes::intangible()` is
@@ -107,15 +91,10 @@ impl Plugin for PlayerSchedulePlugin {
 
         // ── Frame tail: the time-control pipeline ─────────────────────────
         //
-        // The clock-request consumers run AFTER every producer in the frame
-        // (hit resolver in PlayerSimulation, room commit in RoomTransition,
-        // session reset in ResetProcessing, plus the intent emitter here), so
-        // a `ClockScaleRequest`/`ClockResetRequest` is consumed the same sim
-        // frame it is written. That is the rollback doctrine (deep review
-        // §2.2): message buffers are cleared on GGRS `LoadWorld`, so a request
-        // crossing a frame boundary silently dies during re-simulation; the
-        // truth that DOES cross the boundary here is `RequestedClockScale` +
-        // `ClockState` — registered resources GGRS restores exactly.
+        // The clock-request consumers run AFTER every producer in the frame (hit resolver in
+        // PlayerSimulation, room commit in RoomTransition, session reset in ResetProcessing,
+        // plus the intent emitter here), so a `ClockScaleRequest`/`ClockResetRequest` is
+        // consumed the same sim frame it is written.
         //
         // Observable timing is unchanged from the historical frame-start
         // placement: `refresh_world_time` (part A above) still snapshots at
@@ -191,10 +170,6 @@ impl Plugin for PlayerSchedulePlugin {
                 //    component is copied.
                 (
                     ambition_platformer2d_actor_monolith::abilities::traversal::possession::resolve_controlled_subject,
-                    // ⭐ **THE PUBLISH, for a composition with no latch** — where
-                    // `populate_slot_controls` used to stand, and registered here
-                    // for the same reason it was: every composition has a sim
-                    // schedule, and not every one installs the device host.
                     ambition_platformer2d_actor_monolith::schedule::publish_seat_controls_when_nobody_else_does
                         .in_set(ambition_platformer2d_actor_monolith::control::PrimarySlotInputCommit),
                     // ⭐ **and the MIRROR, once, for every host.** `ControlFrame`
@@ -215,13 +190,6 @@ impl Plugin for PlayerSchedulePlugin {
                 .after(ambition_dev_tools::DevEditApplySet),
         );
 
-        // The rest of what used to be one long chain, now placed by PHASE.
-        //
-        // The systems and their order are unchanged; what changed is that each
-        // one states which phase it belongs to, so a caller elsewhere can order
-        // against the phase instead of against a name. `PlayerInputSet` carries
-        // the argument, including the schedule cycle the leaf-naming style cost
-        // on 2026-07-27.
         app.add_systems(
             sim,
             // Canonical persona derive. Identity changes refresh the full
@@ -243,12 +211,8 @@ impl Plugin for PlayerSchedulePlugin {
         // Causal recording, in the SIM schedule because that is where its
         // publishers live and where `SimulationReplayState` means anything.
         //
-        // ⚠ the stamp runs FIRST and everything else is `.after` it. The first
-        // version of this plugin stamped in `Last`, and the parallel-schedule
-        // proof caught it immediately: every fact published during the frame
-        // carried the PREVIOUS frame's tick, and none of them knew the host was
-        // resimulating. A publisher cannot know either of those; the host is the
-        // only thing that does.
+        // ⚠ the stamp runs FIRST and everything else is `.after` it. A publisher cannot know
+        // either of those; the host is the only thing that does.
         #[cfg(feature = "causal")]
         app.add_systems(
             sim,
@@ -418,13 +382,11 @@ impl Plugin for PlayerSchedulePlugin {
         // ⛔ **CLOSING runs NEXT FRAME, immediately before the replay consumer,
         // and the split is a ROLLBACK requirement rather than taste.**
         //
-        // The consequence it requests is `RoomReplayRequested`, and that channel
-        // is `clear_message_on_rollback`. Written here in `Outcome` it would be
-        // consumed by `apply_room_replay_request_system` in the NEXT frame's
-        // `PlayerInput` — so a rewind across that boundary wipes the message,
-        // the resimulated branch never resets the level, and the two runs
-        // diverge. Measured: a GGRS sync-test checksum mismatch at the first
-        // death, on a route that was green before.
+        // The consequence it requests is `RoomReplayRequested`, and that channel is
+        // `clear_message_on_rollback`. Written here in `Outcome` it would be consumed by
+        // `apply_room_replay_request_system` in the NEXT frame's `PlayerInput` — so a rewind
+        // across that boundary wipes the message, the resimulated branch never resets the
+        // level, and the two runs diverge.
         //
         // Everything this system reads — the window and the roster — is SNAPSHOT
         // state, so running it in the same frame as the consumer makes the whole
@@ -450,10 +412,7 @@ impl Plugin for PlayerSchedulePlugin {
         // Runs unconditionally so paused / dialogue modes still wind down
         // flash and landing-pose timers.
         //
-        // ⭐ **`write_player_ecs_components` is gone** (AC3.1.A/B). It existed to
-        // maintain two `BodyCombat` mirrors — `attacking` from `BodyMelee` and
-        // `alive` from `BodyHealth` — and when both were deleted it had no work
-        // left to do at all.
+        // ⭐ **`write_player_ecs_components` is gone** (AC3.1.A/B).
         app.add_systems(
             sim,
             ambition_platformer2d_actor_monolith::control::cleanup_timers_system

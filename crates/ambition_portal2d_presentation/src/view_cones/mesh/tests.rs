@@ -89,9 +89,8 @@ fn thin_wall_pane_winner_flips_exactly_once_walking_across() {
     assert_eq!(flips, 1, "one crossing, one pane handoff");
 }
 
-/// Sub-pixel eye jitter around the midpoint must not alternate the panes:
-/// within the hysteresis band the previous winner is kept (standing
-/// still inside the doorway — Jon's screenshot — stays stable).
+/// Sub-pixel eye jitter around the midpoint must not alternate panes; within the
+/// hysteresis band the previous winner is kept.
 #[test]
 fn midpoint_jitter_keeps_the_previous_pane_winner() {
     let (left, right) = thin_wall_pair();

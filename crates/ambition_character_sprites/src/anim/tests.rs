@@ -149,10 +149,8 @@ fn climbing_with_attack_kind_returns_ledge_getup_attack() {
     );
 }
 
-/// The non-looping list must include the two new ledge rows so
-/// `CharacterAnimator` doesn't keep cycling their frames after
-/// the engine transition completes. Regression guard against
-/// adding new variants and forgetting the `non_looping` entry.
+/// The non-looping list must include the two new ledge rows so `CharacterAnimator` doesn't keep
+/// cycling their frames after the engine transition completes.
 #[test]
 fn new_ledge_rows_are_non_looping() {
     assert!(non_looping(CharacterAnim::LedgeRoll));
@@ -414,7 +412,6 @@ fn from_name_resolves_all_new_action_rows() {
         ("dodge_roll", CharacterAnim::DodgeRoll),
         ("wall_jump", CharacterAnim::WallJump),
         ("interact", CharacterAnim::Interact),
-        // PCA sheet rows that previously dropped silently.
         ("jab", CharacterAnim::Slash),
         ("punch", CharacterAnim::Punch),
         ("special", CharacterAnim::Special),
@@ -458,19 +455,11 @@ fn swing_with_intent(intent: ambition_combat::AttackIntent) -> MeleeSwing {
 
 /// **A CPU FIGHTER AT FULL SPRINT DRAWS `run`, NOT `walk`.**
 ///
-/// ⛔⛔ **the gait used to be decided by a threshold whose two setters
-/// DISAGREED along the player/actor line**: `pick_player_anim` set
-/// `run_above = Some(220.0)` and `pick_actor_anim` set `None`, and `None` means
-/// *cap at Walk*. So the protagonist could run and **every CPU fighter in the
-/// game walked at full sprint**, drawing `walk` off a sheet that ships a `run`
-/// row. The bodies doing most of the running were the ones that could not.
+/// the same shape ruled on — a body semantic must not depend on which control road the body
+/// happens to occupy — so the fix is the published `BodyMotionFacts:running`, which is speed
+/// against THIS body's own top speed rather than an absolute number no heavyweight could reach.
 ///
-/// ⭐ the same shape D114 ruled on — a body semantic must not depend on which
-/// control road the body happens to occupy — so the fix is the published
-/// `BodyMotionFacts::running`, which is speed against THIS body's own top speed
-/// rather than an absolute number no heavyweight could reach.
-///
-/// ⚠ **the second half is the floor**: a body under the gait line must still be
+/// **the second half is the floor**: a body under the gait line must still be
 /// `Walk`, or this would have deleted the walk instead of the run.
 #[test]
 fn an_actor_in_the_run_gait_is_not_drawn_walking() {
@@ -696,11 +685,8 @@ fn actors_animate_rich_cluster_abilities() {
     );
 }
 
-/// **The aerial evade does not draw the ground roll.** Jon's requirement on the
-/// air dodge was that its state be modelled *"explicitly enough that
-/// animation/debugging can distinguish it from a ground roll"* — this is the
-/// animation half. `Roll`'s own fallback is `DodgeRoll`, so a sheet with one
-/// curl still animates; a sheet with both shows two maneuvers.
+/// `Roll`'s own fallback is `DodgeRoll`, so a sheet with one curl still animates; a sheet with both
+/// shows two maneuvers.
 #[test]
 fn an_air_dodge_picks_its_own_row_and_falls_back_to_the_ground_roll() {
     let mut view = BodyAnimView {
@@ -754,14 +740,8 @@ fn the_floor_game_outranks_the_hit_row() {
 
 // ── GRAVITY-RELATIVE LOCOMOTION METRIC ───────────────────────────────────────
 //
-// ⭐⭐ **Jon, from play (2026-08-17): "in the wall run room when gravity is
-// sideways and I walk on the wall, the walk animation does not play — but on the
-// ceiling, upside down, it works."** That asymmetry IS the diagnosis. The
-// grounded metric was `|vel.x|`, a WORLD-x magnitude, which coincides with the
-// body's run axis only while gravity is vertical — down and up both keep the run
-// axis on world-x, so those two read correctly and hide the defect. Turn gravity
-// sideways and the run axis becomes world-y, `|vel.x|` reads ~0, and a body at
-// full running speed is below `idle_below`.
+// Turn gravity sideways and the run axis becomes world-y, `|vel.x|` reads ~0, and a body at full
+// running speed is below `idle_below`.
 
 /// The four cardinal gravities, and a walking speed expressed in each one's own
 /// run axis. `side` is `down` rotated -90°, matching `AccelerationFrame::new`.
@@ -796,7 +776,7 @@ fn a_grounded_body_walks_in_every_gravity_not_just_the_vertical_ones() {
     }
 }
 
-/// ⛔ **the poison.** Without it the fix could be "always report Walk when
+/// **the poison.** Without it the fix could be "always report Walk when
 /// grounded", which would pass the test above and make standing still animate.
 #[test]
 fn a_grounded_body_standing_still_is_idle_in_every_gravity() {
@@ -819,9 +799,7 @@ fn a_grounded_body_standing_still_is_idle_in_every_gravity() {
     }
 }
 
-/// ⛔ **and DRIFT ALONG THE FALL AXIS IS NOT WALKING.** The mirror of the bug:
-/// measuring total speed instead of the run component would make a body sliding
-/// down its own wall play the walk row. Only motion along `side` counts.
+/// Only motion along `side` counts.
 #[test]
 fn motion_along_the_fall_axis_is_not_walking() {
     let (anim, combat, blink_cam, mut c) = pick_inputs();
@@ -844,11 +822,6 @@ fn motion_along_the_fall_axis_is_not_walking() {
 }
 
 /// **A HELD BODY DRAWS AS HELD, WHATEVER ITS VELOCITY SAYS.**
-///
-/// ⛔ the defect this closes: nothing in the anim layer read the capture
-/// relation, so a body hanging in somebody's hands drew its ordinary locomotion
-/// row — idle if the hold had stopped it, falling if it had not. The captor's
-/// grab animation played against a victim standing calmly inside it.
 #[test]
 fn a_captive_outranks_every_locomotion_read() {
     let mut v = BodyAnimView {
@@ -871,7 +844,7 @@ fn a_captive_outranks_every_locomotion_read() {
         "a held body was drawn prone"
     );
 
-    // ⭐ and the floor: released, the same body goes back to its own reads.
+    // and the floor: released, the same body goes back to its own reads.
     v.held = false;
     assert_eq!(
         pick_body_anim(&v),
@@ -882,16 +855,16 @@ fn a_captive_outranks_every_locomotion_read() {
 
 /// **A BROKEN GUARD READS AS REELING, NOT AS STANDING THERE.**
 ///
-/// ⛔ the gap this closes: the shield became a resource that can shatter and
+/// the gap this closes: the shield became a resource that can shatter and
 /// leave a body dizzy and helpless for two seconds, and the picker had no read
 /// for it — so the most punishable state in the game drew the same idle pose as
-/// standing safely. ⚠ it draws `Hit` because no sheet owns a dizzy row; the
+/// standing safely. it draws `Hit` because no sheet owns a dizzy row; the
 /// point is that it stops drawing calm.
 #[test]
 fn a_shattered_guard_outranks_the_guard_it_no_longer_has() {
     let broken = BodyAnimView {
         guard_broken: true,
-        // ⭐ the poison built in: `blocking` is set too. A body cannot be shown
+        // the poison built in: `blocking` is set too. A body cannot be shown
         // holding a guard it just lost, so the arm order is the claim.
         blocking: true,
         ..Default::default()

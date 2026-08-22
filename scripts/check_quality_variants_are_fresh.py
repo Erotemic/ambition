@@ -58,11 +58,8 @@ PARALLAX_TIERS = (
     "parallax_layers_potato",
 )
 
-# How far behind its source a published tier file may be before it counts as
-# stale. See the module docstring: a fresh clone produces sub-second skew and the
-# reported failure was ~4 days, so anything in between separates them. Ten
-# minutes also covers a long regen run, where a tier written early legitimately
-# predates a source touched late in the same invocation.
+# Ten minutes also covers a long regen run, where a tier written early legitimately predates a
+# source touched late in the same invocation.
 STALE_AFTER_S = 600.0
 
 
@@ -142,7 +139,7 @@ def stale_pairs(source_dir: Path, tier_dir: Path) -> list[tuple[Path, float]]:
         # own unit. (`.yaml` sidecars are debug output nothing loads.)
         if published in claimed or not published.is_file():
             continue
-        # ⛔ and a PNG whose SHEET is published here but which that sheet does not
+        # and a PNG whose SHEET is published here but which that sheet does not
         # name is an ORPHAN page, not a stale one — the tier repacked into fewer
         # pages and left the old file behind. Nothing loads it. Saying so would be
         # a false alarm about dead bytes; the generator's prune phase owns them.
@@ -180,7 +177,7 @@ def main() -> int:
         checked += tier_dir.is_dir()
         stale.extend(stale_pairs(root / "backgrounds" / "parallax_layers", tier_dir))
 
-    # ⛔ zero tier roots is a FAILURE, not a pass. A check that silently succeeds
+    # zero tier roots is a FAILURE, not a pass. A check that silently succeeds
     # when pointed at the wrong directory is the shape of a guard that reports
     # green for years — and `--asset-root` makes pointing it somewhere wrong a
     # single typo away.

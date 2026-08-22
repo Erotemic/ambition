@@ -1,7 +1,3 @@
-//! Unit tests for the parent module, extracted from an inline
-//! `#[cfg(test)] mod tests` (test-organization campaign, 2026-07-10). Pure move:
-//! same test names + logic, now an adjacent child module with private access via
-//! `use super::*;`.
 
 use super::*;
 use ambition_boss_encounter::BossBehaviorProfileExt;
@@ -111,14 +107,8 @@ fn spawn_giant_bodied_boss_runtime() -> BossClusterScratch {
     scratch
 }
 
-/// Regression guard for the GNU-ton head-hurtbox alignment concern
-/// (TODO #30): after the sprite-metrics derivation, the
-/// `damageable_volumes` head hurtbox must actually overlap the boss
-/// body envelope (`boss.aabb()`, which the debug overlay documents as
-/// lining up with the visible body) rather than floating off to the
-/// side / below it. This pins that the hurtbox tracks the body even
-/// though it is computed in frame space (frame-center → `boss.pos`)
-/// while the body envelope carries `combat_offset`.
+/// This pins that the hurtbox tracks the body even though it is computed in frame space
+/// (frame-center → `boss.pos`) while the body envelope carries `combat_offset`.
 #[test]
 fn giant_head_hurtbox_overlaps_the_body_envelope() {
     use ambition_platformer2d_core::AabbExt;

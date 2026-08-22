@@ -3,13 +3,13 @@
 //! (`pirate_shark_rider`, `pirate_heavy_shark_rider`) whose only real
 //! differences are health, weight, reach and which gun-sword they hold.
 //!
-//! ⚠ **`body_contact_damage: false` on both rows, so neither authors
+//! **`body_contact_damage: false` on both rows, so neither authors
 //! `contact_damage`.** The rows carried a `contact_strength` and a
 //! `damage_amount` beside a flag that turned them off — numbers that
 //! described nothing. A character says what is true: touching a raider
 //! does not hurt; its gun-sword does.
 //!
-//! ⚠ `default_size` does not come across either: both are sized by their
+//! `default_size` does not come across either: both are sized by their
 //! authored placements (44x78 and 72x110 in `sandbox.ldtk`), which is the
 //! same silhouette the rows were restating.
 
@@ -48,9 +48,6 @@ pub(crate) fn author(id: &str, definition: CharacterDefinition) -> CharacterDefi
             template: CharacterBrainTemplate::Skirmisher,
             aggro_radius: 1200.0,
             attack_range: 1100.0,
-            // ⭐ a TUNED amble, and the reason `BrainProfile` had to grow
-            // `patrol_effort` before either of these could migrate: the
-            // constructor's literal `0.5` would have quietly retuned both.
             patrol_effort: if heavy { 0.5116 } else { 0.4783 },
             chase_effort: 1.0,
             ..Default::default()

@@ -1,11 +1,7 @@
 //! The render-only `rgba` color helper.
 //!
-//! The coordinate transform (`world_to_bevy`) plus the z-layer / grid /
-//! default-window constants live in `ambition_platformer2d_core::config` (foundation
-//! crate) so reusable mechanics — and render/app — name them at their true home
-//! (fable review §D1: this module no longer re-exports them). Only `rgba`
-//! remains here, because it needs `bevy::Color`, which the foundation crate
-//! can't depend on.
+//! Only `rgba` remains here, because it needs `bevy:Color`, which the foundation crate can't
+//! depend on.
 
 use bevy::prelude::*;
 

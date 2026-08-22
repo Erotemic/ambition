@@ -34,13 +34,6 @@ impl GroundContactTransition {
 
 /// Why the body's owner is being asked to apply its reset policy this step.
 ///
-/// The kernel reports WHAT the world did to the body; the owner decides what it
-/// MEANS — the home body respawns, an actor takes damage or ignores it, a
-/// platform fighter spends a stock. That split already existed; what did not
-/// was the reason. Both the void and a spike used to arrive as one anonymous
-/// `hazard` bool, so no consumer could tell them apart, and the death publisher
-/// downstream said so in a comment rather than in code.
-///
 /// The distinction is not cosmetic: "left the world" is the blast zone every
 /// platform fighter is built on, and it has to survive the seam to be built on.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -88,17 +81,12 @@ pub struct FrameEvents {
     /// Presentation and gameplay reactions consume this rather than deriving
     /// edges from default-initialized booleans.
     pub ground_contact: GroundContactTransition,
-    /// World contacts resolved this step (fable review 2026-07-05 AJ10: the
-    /// contact vocabulary). Pure observability — resolution is unchanged;
-    /// readers interpret (the debug overlay, a future general resolver).
-    /// Landing pushes a feet contact, a wall push a side contact, and a
-    /// grounded frame a rest contact carrying the support's `surface_velocity`.
     pub contacts: Vec<crate::collision_semantics::Contact>,
     /// Axes on which the solids claiming the body admitted NO position this
     /// step — the body is over-constrained (crushed) between two surfaces. At
     /// most one per world axis.
     ///
-    /// ⭐ **the kernel reports it and decides nothing about it**, the same split
+    /// **the kernel reports it and decides nothing about it**, the same split
     /// [`ResetCause`] states: damage, death, a stock, a respawn, a forced
     /// displacement or crush immunity are the owner's policy. Nothing in the
     /// engine consumes this yet, deliberately.

@@ -1,9 +1,9 @@
-//! ⚠ these test the SCHEMA, not the ladder. `FighterBrainLadder::problems` has
+//! these test the SCHEMA, not the ladder. `FighterBrainLadder::problems` has
 //! its own tests next door; what is asked here is whether a ladder the TYPE
 //! calls broken is one the schema would have something to report — which is the
 //! difference between a ladder that is well-formed and one that is checked.
 //!
-//! ⛔ deliberately a local fixture rather than `include_str!` of the shipped
+//! deliberately a local fixture rather than `include_str!` of the shipped
 //! file. `ambition_characters` is an engine crate and `game/ambition_content` is
 //! a game; a test path climbing six directories out of one into the other is a
 //! dependency the crate graph does not have. The shipped ladder has its own test
@@ -47,7 +47,7 @@ fn a_well_formed_ladder_has_nothing_to_report() {
     assert_eq!(ladder.rungs().len(), 9);
 }
 
-/// ⭐ **the case that looks fine row by row.** A ladder whose level 5 reacts
+/// **the case that looks fine row by row.** A ladder whose level 5 reacts
 /// SLOWER than level 4 parses cleanly — every row is a valid profile — and is
 /// nonsense as a ladder. This is what the schema exists to say at load, in one
 /// place, instead of as "the levels do not order correctly" after hours of

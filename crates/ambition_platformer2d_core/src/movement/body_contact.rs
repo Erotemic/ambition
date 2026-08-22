@@ -7,13 +7,6 @@
 //! function here is monotone: the returned motion is never larger than the
 //! motion proposed and never has the opposite sign.
 //!
-//! ⛔⛔ **AN ACCELERATION TERM CANNOT DO THIS.** The axis-swept kernel treats
-//! `vel.x` as a velocity TARGET and overwrites it every tick, so anything summed
-//! into it is erased before integration. **The only place a body can be told
-//! about another body is where its motion is already being resolved.** (The
-//! deleted force version and its eight vacuous tests are recorded where they can
-//! still fail: `kernel::tests::a_grounded_body_walking_into_another_one_is_stopped_by_the_real_sweep`.)
-//!
 //! ⚠ **the vocabulary is deliberately genre-free.** This is not jostle, not
 //! pushback and not a fighting-game term: it is one body's motion constrained by
 //! the bodies it is touching. A platform fighter opts its cast into it and calls
@@ -97,15 +90,10 @@ impl<'a> BodyContactField<'a> {
     /// **THE FIELD A BODY IS RESOLVED AGAINST**: who is in its way, how hard
     /// they resist, and the velocity the snapshot recorded for the body itself.
     ///
-    /// ⛔⛔ **there is no constructor that omits the last one, and there used to
-    /// be.** `new` built a field whose own velocity was zero on the documented
-    /// promise that "every share it computes is the whole gap" — true only while
-    /// the no-evidence case was *also* the whole gap. It has no production
-    /// caller and never had one (`delta_along` is `vel * dt`, so a body
-    /// proposing motion always has the velocity that produced it); what it had
-    /// were four unit tests describing a stationary body asking for thirty units
-    /// of motion, and between them they kept the branch that decides what
-    /// happens when NEITHER body is moving completely unexercised.
+    /// It has no production caller and never had one (`delta_along` is `vel * dt`, so a body
+    /// proposing motion always has the velocity that produced it); what it had were four unit tests
+    /// describing a stationary body asking for thirty units of motion, and between them they kept
+    /// the branch that decides what happens when NEITHER body is moving completely unexercised.
     pub fn moving(
         blockers: &'a [BodyContactBlocker],
         resistance: f32,

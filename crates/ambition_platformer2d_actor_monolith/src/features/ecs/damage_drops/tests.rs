@@ -1,7 +1,7 @@
 //! **A drop belongs to the room it fell in, and states the body it fell out
 //! of** — the class guard for everything the damage path drops.
 //!
-//! ⛔ **this deliberately does NOT assert "the drop functions insert
+//! **this deliberately does NOT assert "the drop functions insert
 //! `RoomScopedEntity`".** That check goes green the day a further drop is added
 //! without the marker, which is exactly how `drop_ability_pickup` was shipped
 //! session-scoped for months while its two siblings carried the fix and a
@@ -10,7 +10,7 @@
 //!
 //! 1. [`every_death_drop_is_room_scoped_and_states_its_parent`] — the
 //!    INVARIANT. It spawns the drops into a real `World` and asks the World, not
-//!    the source, what each one carries. ⚠ asking the World is the point:
+//!    the source, what each one carries. asking the World is the point:
 //!    `RoomVisual` reaches `RoomScopedEntity` through `#[require]`, so a
 //!    component can be present without its name appearing at the spawn site, and
 //!    a grep-shaped guard would false-accuse the day a drop acquires it that
@@ -25,18 +25,11 @@
 //! on its own — half 1 alone is blind to new functions, half 2 alone never looks
 //! at a component.
 //!
-//! ⛔⛔ **AND HALF 2's SUBJECT WAS NARROWER THAN THE RULE IT PROTECTS, WHICH IS
-//! HOW TWO DROPS ESCAPED IT ENTIRELY (found 2026-08-19).** It scanned ONE FILE
-//! for ONE SPELLING — `PickupFeature::new(` in `damage_drops.rs` — while the
-//! class is *everything a death drops*. `actor_hit`'s dropped weapon and
-//! `boss_hit`'s signature gauntlet were `GroundItem`s spawned inline in the
-//! damage SYSTEMS, so they matched neither the spelling nor the file, and the
-//! guard reported complete coverage of a set that was missing both of them. ⇒
-//! **a coverage half is only as wide as its population**, and the population is
-//! now every collectible spelling across every file in the damage path — which
-//! is why both of those drops are in the table below rather than outside it.
+//! **AND HALF 2's SUBJECT WAS NARROWER THAN THE RULE IT PROTECTS, WHICH IS HOW TWO DROPS
+//! ESCAPED IT ENTIRELY.** It scanned ONE FILE for ONE SPELLING — `PickupFeature::new(` in
+//! `damage_drops.rs` — while the class is *everything a death drops*.
 //!
-//! ⚠ the two are ALSO now spawned by one function rather than three copies of a
+//! the two are ALSO now spawned by one function rather than three copies of a
 //! comment, so the file-scoped half of that lesson is structural: there is one
 //! place a drop can be spelled.
 
@@ -58,7 +51,7 @@ const DEATH_DROPS_UNDER_GUARD: &[&str] = &[
 /// **The whole damage path's source, read at COMPILE time** so the coverage scan
 /// cannot drift from the code that actually compiled.
 ///
-/// ⚠ **four files, not one.** The two drops this guard missed for months were
+/// **four files, not one.** The two drops this guard missed for months were
 /// spawned in the damage systems rather than in the drop module, so scanning
 /// only the drop module asked "are the drops I already know about covered?" —
 /// a question that cannot fail. Listing the files here is a hand-kept set of
@@ -122,20 +115,9 @@ fn spawn_every_death_drop(mut commands: Commands) {
 /// Neither failure is tidiness, and they are different failures:
 ///
 /// ```text
-/// no RoomScopedEntity   the roster a room CHANGE retires is
-///                       `(With<RoomScopedEntity>, Without<InCustodyOf>)`, so a
-///                       session-scoped drop is not in it and FOLLOWS YOU into
-///                       the next room. For a pickup whose picture is a
-///                       `RoomVisual` it is worse still: the sim keeps
-///                       publishing a view nothing is drawing, so
-///                       `draw_unclaimed_feature_views` mints a magenta stand-in
-///                       every transition, forever — and those stand-ins are
-///                       what the room-transition cover waits on. Jon's
-///                       2026-08-05 log is an 8-second black screen from exactly
-///                       this.
-/// no SpawnOrigin        `rebuild_dynamic_feature_views` discovers runtime-minted
-///                       loot by construction PROVENANCE. A drop that states no
-///                       parent was not in the room spec and cannot say so.
+/// no RoomScopedEntity the roster a room CHANGE retires is `(With<RoomScopedEntity>, Without<InCustodyOf>)`, so a session-scoped drop is not in it and FOLLOWS YOU into the next room. For a pickup whose picture is a `RoomVisual` it is worse still: the sim keeps publishing a view nothing is drawing, so `draw_unclaimed_feature_views` mints a magenta stand-in every transition, forever — and those stand-ins are
+/// what the room-transition cover waits on.
+/// no SpawnOrigin `rebuild_dynamic_feature_views` discovers runtime-minted loot by construction PROVENANCE. A drop that states no parent was not in the room spec and cannot say so.
 /// ```
 #[test]
 fn every_death_drop_is_room_scoped_and_states_its_parent() {
@@ -144,7 +126,7 @@ fn every_death_drop_is_room_scoped_and_states_its_parent() {
     app.update();
 
     let world = app.world_mut();
-    // ⚠ **the population is BOTH collectible spellings**, because the class is
+    // **the population is BOTH collectible spellings**, because the class is
     // "what a death drops" and not "what carries a `PickupFeature`" — the two
     // `GroundItem` drops are precisely the ones that were never checked.
     let mut drops = world.query_filtered::<(Entity, Option<&FeatureId>, Option<&Name>), Or<(
@@ -162,7 +144,7 @@ fn every_death_drop_is_room_scoped_and_states_its_parent() {
         })
         .collect();
 
-    // ⚠ the denominator, asserted rather than assumed: a drop function that
+    // the denominator, asserted rather than assumed: a drop function that
     // stopped spawning anything would otherwise make the checks below pass over
     // an empty population.
     assert_eq!(
@@ -171,7 +153,7 @@ fn every_death_drop_is_room_scoped_and_states_its_parent() {
         "expected one drop per function in DEATH_DROPS_UNDER_GUARD, found {dropped:?}"
     );
 
-    // ⭐ **ASK THE ROSTER, do not restate it.** The question is not "does this
+    // **ASK THE ROSTER, do not restate it.** The question is not "does this
     // carry `RoomScopedEntity`" — it is *would a room change retire this?*, and
     // `RoomResident` is the production type the transition's own query is built
     // from. Naming the marker here would have been a second spelling of the rule
@@ -216,7 +198,7 @@ fn every_death_drop_is_room_scoped_and_states_its_parent() {
 /// says nothing about components — it only refuses to let the invariant above go
 /// stale.
 ///
-/// ⚠ **it reports the enclosing TOP-LEVEL function**, so an inline drop written
+/// **it reports the enclosing TOP-LEVEL function**, so an inline drop written
 /// back into a damage system surfaces as `apply_actor_hit` rather than as a name
 /// that could be added to the table. That is intended: the fix for one is to
 /// move it beside its siblings, not to widen the table.
@@ -252,7 +234,7 @@ fn the_death_drop_table_is_complete() {
 /// helpers that drop, this scan reports the enclosing top-level function, which
 /// is still the right unit for the table.
 ///
-/// ⚠ **two spellings, because a collectible has two shapes.** A `PickupFeature`
+/// **two spellings, because a collectible has two shapes.** A `PickupFeature`
 /// is walked over and granted; a `GroundItem` is picked up and wielded. Watching
 /// only the first is what let two drops sit outside this guard.
 fn collectible_drop_fns(src: &str) -> Vec<String> {

@@ -138,9 +138,6 @@ impl GatePortalPhases {
 /// registration** — the checksum a GGRS host folds into its per-frame desync
 /// detector, and the census a restore audit compares across a rewind.
 ///
-/// ⭐ **the elapsed timer is the whole point.** The defect this projection
-/// closes was an integrator running ahead of the input that drove it, so a
-/// checksum that saw only *which zones have a phase* would agree with the bug.
 /// Every field that decides when `Opening` becomes `On` is projected here.
 ///
 /// Keys are folded in `BTreeMap` order so identical phase state produces the
@@ -493,12 +490,9 @@ mod tests {
     /// the function under test is the whole registration, and the checksum it
     /// registered is pulled back out and fed diverging states.
     ///
-    /// ⚠ both terms are observed: the call is asserted to have happened at all
-    /// (an empty `calls` fails), AND the registered function is asserted to
-    /// separate two states that differ only in `elapsed`. A registration that
-    /// passed a presence-only projection fails the second assertion while
-    /// satisfying every coverage sweep — which is the exact defect
-    /// `resource.gate_portal_phases` was created to close.
+    /// ⚠ both terms are observed: the call is asserted to have happened at all (an empty
+    /// `calls` fails), AND the registered function is asserted to separate two states that
+    /// differ only in `elapsed`.
     #[test]
     fn the_domain_registers_its_own_phase_state_with_the_value_projection() {
         let mut registrar = CapturingRegistrar::default();

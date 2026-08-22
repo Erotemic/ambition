@@ -7,12 +7,7 @@
 //! a CRATE boundary in both directions: render does not depend on
 //! actor machinery, and actor machinery cannot import render (enforced by
 //! `architecture_boundaries`).
-//!
-//! Modules are migrated here incrementally from the old
-//! the old actor-side presentation umbrella; consumers (content, app) import
-//! `ambition_render::*` directly.
 
-/// Text census of texture decoding: which sheets landed, how big, and when.
 pub mod asset_census;
 #[cfg(feature = "capture")]
 pub mod capture;

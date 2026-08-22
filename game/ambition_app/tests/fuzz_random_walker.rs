@@ -6,11 +6,6 @@
 //! Rust without needing the visible binary. Mirrors the policy in
 //! `bin/rl_random_walker.rs` but with smaller per-seed step counts so
 //! the test suite stays fast.
-//!
-//! If a future code change causes the sim to panic on a specific
-//! random seed, this test fires with a stable seed in the failure
-//! message — the bug is then reproducible by running the same seed
-//! through `cargo run --bin rl_random_walker -- <STEPS> <SEED>`.
 
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;

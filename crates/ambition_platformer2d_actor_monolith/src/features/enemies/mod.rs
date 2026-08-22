@@ -3,19 +3,15 @@
 //! grounded, aerial, and the adhesive crawler, integrates through the one
 //! shared movement kernel (`ae::step_motion`).
 //!
-//! ⛔⛔ **THE ENEMY-ARCHETYPE ONTOLOGY WAS HERE AND IS DELETED** (AC6,
-//! 2026-08-13): `CharacterRoster` and its fragments/registry/assembly errors,
+//! **THE ENEMY-ARCHETYPE ONTOLOGY WAS HERE AND IS DELETED** (AC6,
+//! ): `CharacterRoster` and its fragments/registry/assembly errors,
 //! the `OpenCastingDecision` waiver, `GENERIC_BODY_ROW`, the `ArchetypeSpecExt`
 //! projections into this crate's runtime shapes, and the fixture rosters — about
 //! 1,800 lines, plus `ArchetypeSpec` itself in `ambition_combat` and the
 //! `character_archetypes.ron` it parsed.
 //!
-//! ⇒ **a body is what its CHARACTER says it is.** The table it replaced answered
-//! by BRAIN KEY and could not fail: an identifier naming no row resolved to a
-//! reserved `combatant` body, so a misspelling, a renamed creature or a deleted
-//! row produced a complete and plausible wrong body. Three shipped things were
-//! silently downgraded that way while every test stayed green (a boss's minions,
-//! a goblin fight's heavies, an under-town skitter). Construction refuses an
+//! Three shipped things were silently downgraded that way while every test stayed green (a
+//! boss's minions, a goblin fight's heavies, an under-town skitter). Construction refuses an
 //! identifier that names no character now.
 
 use super::*;
@@ -42,7 +38,7 @@ pub struct ActorSpawnState {
 // re-exported so `crate::features::ActorSurfaceState` paths keep working, the
 // same shape as `RespawnPolicy` immediately below.
 //
-// ⭐ this is what unblocks moving the capture SYSTEMS to `ambition_combat`,
+// this is what unblocks moving the capture SYSTEMS to `ambition_combat`,
 // which owns the capture vocabulary: it was the one type in
 // `features/ecs/capture.rs` that a lower crate could not see.
 pub use ambition_platformer2d_core::ActorSurfaceState;

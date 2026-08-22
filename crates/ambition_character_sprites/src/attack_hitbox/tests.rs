@@ -38,13 +38,8 @@ fn player_box(facing: f32) -> ae::Aabb {
     .bounds()
 }
 
-/// REGRESSION (Jon's gravity report): the manifest attack hitbox is authored
-/// in the sprite's screen frame, but the swing happens in the BODY's gravity
-/// frame — so the damage box MUST covary with gravity exactly as the slash VFX
-/// does (`AttackSpec::into_world_frame`), or the polygon points one way while
-/// the VFX points another (the bug: VFX correct, "atk" polygon wrong under
-/// every non-down gravity). This pins that covariance: the hitbox offset under
-/// gravity `g` is the screen-down offset rotated into `g`'s frame.
+/// This pins that covariance: the hitbox offset under gravity `g` is the screen-down offset rotated
+/// into `g`'s frame.
 #[test]
 fn attack_hitbox_covaries_with_gravity_like_the_slash_vfx() {
     let body = ae::Vec2::new(100.0, 100.0);

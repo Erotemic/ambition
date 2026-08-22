@@ -6,28 +6,18 @@
 //! - **Placement** comes from the demo's LDtk file: `EnemySpawn` entities
 //!   carrying `brain: "sanic_badnik"` lower into `RoomSpec::enemy_spawns` and
 //!   the engine's room staging spawns them — no demo staging system at all.
-//! - **Body + walk + contact damage** ⛔ **DO NOT come from what this said they
+//! - **Body + walk + contact damage** **DO NOT come from what this said they
 //!   did.** It claimed "a demo-owned roster archetype (`sanic_badnik`, a 1-HP
 //!   `Wanderer` that paces and reverses at walls)", and there is no such row —
 //!   not in this crate, not in Ambition's `character_archetypes.ron`, and not in
-//!   its history (checked 2026-08-12, ledger D95). `spec_for_brain` answers
+//! its history. `spec_for_brain` answers
 //!   `combatant` for a key it does not know, so a badnik has ALWAYS been built
 //!   with the generic combatant body: its health, walk speed and contact damage
 //!   are the fallback's, not the 1-HP wanderer's described above.
 //!
-//!   ⚠ **nothing is broken** — a badnik walks, hurts on contact and dies to a
-//!   stomp or a roll, because those are this file's own systems and the defeat
-//!   below is real. What is wrong is that the numbers came from somewhere nobody
-//!   chose, and the comment said otherwise for long enough that it read as
-//!   design. The 1-HP wanderer is a DESIGN INTENT with no implementation; making
-//!   it true means authoring `sanic_badnik` as a character (it already has a
-//!   catalog row for its sprite and name) and is Jon's call, because it changes
-//!   how Sanic's enemies feel.
-//! - **The defeat** is Sanic's, not Mary-O's: a descending bounce on the head
-//!   (classic stomp, with the bounce) OR any overlap while ROLLING (the ball
-//!   dash / crouch-roll is the weapon — rolling through a badnik at speed is
-//!   the Sonic fantasy). Both despawn the badnik the same frame so the shared
-//!   contact-damage pass never bills the attacker.
+//! The 1-HP wanderer is not implemented; making it authoritative requires a `sanic_badnik`
+//! character definition because health and movement are character facts.
+//! - **The defeat** is Sanic's, not Mary-O's: a descending bounce on the head (classic stomp, with the bounce) OR any overlap while ROLLING (the ball dash / crouch-roll is the weapon — rolling through a badnik at speed is the Sonic fantasy). Both despawn the badnik the same frame so the shared contact-damage pass never bills the attacker.
 //!
 //! Every type it names comes through the `ambition_platformer2d` umbrella — the E9 oracle.
 
@@ -49,32 +39,16 @@ pub const BADNIK_BRAIN_KEY: &str = "sanic_badnik";
 
 /// **How near Sanic has to be for a badnik to keep thinking.**
 ///
-/// ⛔ **NOT the 720px Mary-O uses, and copying it would have been the bug.** A
-/// wake radius is not a distance, it is a LEAD TIME wearing distance's clothes:
-/// 720px in front of a Mary-O running at 300px/s is 2.4 seconds of warning, and
-/// the same 720px in front of a Sanic at his 2000px/s super top speed is **0.36
-/// seconds** — a badnik that snaps into motion in full view, which is worse than
-/// one that was walking all along.
-///
 /// So this is derived rather than borrowed: the same 2.4s of lead against
 /// Sanic's fastest tuning (`top_speed: 2000.0`).
 ///
-/// ⚠ **that a fixed radius encodes an assumption about observer speed is the
-/// interesting part**, and it is the argument for the policy eventually taking
-/// SECONDS rather than pixels. Recorded here rather than acted on, because one
-/// game is not enough evidence to change an engine seam's units.
+/// Recorded here rather than acted on, because one game is not enough evidence to change an
+/// engine seam's units.
 pub const BADNIK_WAKE_RADIUS: f32 = 4800.0;
 
 /// **Badniks stop thinking when Sanic is nowhere near them.**
 ///
-/// The adoption half of the dormancy seam, which was built for Jon's report
-/// about Mary-O's slop — *"ai slop will just walk off the edge of the level
-/// before she even gets to that part of the level"* — and then wired to exactly
-/// one game. A speedway is the case that needs it most: the level is long, the
-/// badniks are spread down its whole length, and Sanic reaches the far end
-/// seconds after the near one.
-///
-/// ⚠ **declared per character, never inherited.** An actor with no
+/// **declared per character, never inherited.** An actor with no
 /// `DormancyPolicy` is always awake, which is what makes "not inherent" the
 /// default rather than an opt-out.
 pub fn tag_sanic_badniks(
@@ -142,12 +116,8 @@ pub fn register_badnik_character(app: &mut App) {
         template: CharacterBrainTemplate::Wanderer,
         aggro_radius: 0.0,
         attack_range: 0.0,
-        // ⭐ **the deleted row's own pace, and the last thing it still said.**
-        // A badnik paces at FULL speed — it is not patrolling, it is walking
-        // its line — and `BrainProfile`'s default is the ordinary half-speed
-        // amble. Without this the fragment's deletion would have halved every
-        // badnik in the demo, which is the silent-retune the campaign keeps
-        // finding one field at a time.
+        // Without this the fragment's deletion would have halved every badnik in the demo,
+        // which is the silent-retune the campaign keeps finding one field at a time.
         patrol_effort: 1.0,
         ..Default::default()
     });
@@ -193,13 +163,6 @@ pub fn defeat_badniks(
         return;
     };
     // **Squashing on touch is a TRAIT the body holds, not a name it wears.**
-    //
-    // This used to read `worn.id() == SUPER_SANIC_CHARACTER_ID` — a rule about
-    // WHO you are standing in for a rule about what is TRUE of you. Every other
-    // way of becoming untouchable-and-lethal (a future invincibility ring, a
-    // possessed body, a second super form) would have needed another `||` here,
-    // and the engine already has the word for it: `HARMS_ON_CONTACT`, which
-    // Mary-O's cosmic quasar composes from the same two traits.
     //
     // Rolling joins it for the kill condition but not for the bounce: a super
     // stomp still bounces like any stomp.
@@ -335,12 +298,6 @@ mod tests {
 
     /// **A body that HARMS ON CONTACT squashes on any touch** — un-rolled, not
     /// falling, a plain walk-into.
-    ///
-    /// The body is dressed with the TRAIT, not with Sanic's super identity, and
-    /// that is the assertion: this rule used to read `worn.id() ==
-    /// SUPER_SANIC_CHARACTER_ID`, so it was a fact about who you were. Anything
-    /// that grants the trait now gets the same touch, and nothing has to teach
-    /// this file about it.
     #[test]
     fn a_body_that_harms_on_contact_squashes_a_badnik_on_any_touch() {
         let mut app = defeat_app();
@@ -362,9 +319,6 @@ mod tests {
     /// And the SUPER IDENTITY alone does not — it is the empowerment the form
     /// grants that does the work, so a body wearing the name without the trait
     /// is an ordinary body.
-    ///
-    /// This is the half that would have made the old rule pass either way: it
-    /// pins that the id is no longer consulted.
     #[test]
     fn the_super_identity_alone_is_not_what_squashes() {
         let mut app = defeat_app();

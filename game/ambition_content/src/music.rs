@@ -45,24 +45,16 @@ pub fn ambition_music_cue_catalog() -> MusicCueCatalog {
 pub fn first_goblin_tune_v2_spec() -> MusicCueSpec {
     let asset_root = "audio/music/generated/first_goblin_tune_v2".to_string();
     let layers = vec![
-        // The current generated goblin cue intentionally plays mastered
-        // per-section full mixes rather than raw per-stem files. Keep the cue
-        // layer vocabulary to the actual playable layer so old runtime stem
-        // balance overrides cannot accidentally overwrite the `full` layer's
-        // slot gain for wave sections.
+        // The current generated goblin cue intentionally plays mastered per-section full mixes
+        // rather than raw per-stem files.
         MusicLayerSpec {
             id: "full".into(),
             slot: 0,
         },
     ];
 
-    // `stem_sources` (per-stem layer set) was used here before the
-    // 2026-05-08 rebalance. Re-add it only after the renderer applies its
-    // mastering chain to per-stem outputs and stems are individually audible.
-    // Until then, section boundaries can be abrupt: the runtime music director
-    // owns the crossfade/overlap, while generated section files should avoid
-    // baking long fade-outs that would double-count the transition and create
-    // a perceived dip before wave1.
+    // Re-add it only after the renderer applies its mastering chain to per-stem outputs and
+    // stems are individually audible.
 
     fn full_source(section: &str) -> Vec<MusicLayerSourceSpec> {
         vec![MusicLayerSourceSpec {

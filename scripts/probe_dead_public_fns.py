@@ -77,7 +77,7 @@ def mark(path: str) -> tuple[str, list[str]]:
     lines = original.split("\n")
     out: list[str] = []
     names: list[str] = []
-    # ⛔ brace-DEPTH scoped, not a latch: a `#[cfg(test)]` module ends, and a
+    # brace-DEPTH scoped, not a latch: a `#[cfg(test)]` module ends, and a
     # flag that never clears silently un-marks the whole rest of the file.
     test_depth: int | None = None
     depth = 0
@@ -112,7 +112,7 @@ def main() -> int:
             marked.extend((os.path.basename(path), name) for name in names)
             print(f"{os.path.basename(path):34s} marked {len(names)}")
 
-        # ⛔ THE ZERO GUARD. A probe that marked nothing finds everything "dead".
+        # THE ZERO GUARD. A probe that marked nothing finds everything "dead".
         if not marked:
             print(
                 "\n⛔ marked ZERO functions. That is a failure, not a clean bill —"
@@ -121,18 +121,7 @@ def main() -> int:
             )
             return 1
 
-        # ⛔ --workspace, never -p: `-p` cannot see a crate's dependents.
-        #
-        # ⛔⛔ **AND `--workspace` CANNOT SEE A CONSUMER THE WORKSPACE EXCLUDES**
-        # — the eighth trap, and this tool walked straight into it on
-        # 2026-08-12. Run over `features/enemies/mod.rs` it reported exactly one
-        # dead function, `CharacterRosterFragment::from_ron_at`. That function
-        # had been deleted for the same reason six days earlier, restored the
-        # same morning, and its only caller is `fixtures/external_consumer` —
-        # `exclude`d in the root `Cargo.toml`, and the ONLY in-repo consumer that
-        # links the engine from outside a shared workspace, which is precisely
-        # the population a public-API census is about. Trusting the output would
-        # have deleted it a second time.
+        # --workspace, never -p: `-p` cannot see a crate's dependents.
         #
         # ⇒ every sub-workspace consumer is built too, with the same markings,
         # and the warnings are UNIONED. A crate that has to be asked separately

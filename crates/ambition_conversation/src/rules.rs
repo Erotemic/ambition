@@ -20,10 +20,6 @@ pub struct ConversationCutBark {
     pub speaker: Entity,
 }
 
-/// Break a conversation when either in-world participant is struck or when the
-/// two participant AABBs no longer intersect. The reach predicate is the same
-/// one used to start interaction. Scripted conversations with fewer than two
-/// in-world participants are not subject to separation.
 pub fn break_dialogue_on_hit_or_separation(
     mut conversation: ResMut<ActiveConversation>,
     bodies: Query<(&CenteredAabb, Option<&BodyCombat>)>,
@@ -59,20 +55,14 @@ pub fn break_dialogue_on_hit_or_separation(
         return;
     };
 
-    // **THE BARK.** Jon: *"A broken dialog can have some bark to indicate that
-    // it was broken."*
-    //
     // ⛔ only for the break that has no voice yet. A conversation broken by a
     // HIT already barks — `npc_hit_bark_line` fires on every strike and falls
     // back to a generic line when a character authored none — so adding a second
     // bubble for one event would be worse than none. `wants_its_own_bark` is
     // where that lives, beside the reason it is about.
     //
-    // ⭐ **and this ASKS rather than answers.** Which line, from which pool,
-    // with which fallback, is a CAST question; see [`ConversationCutBark`]. An
-    // empty pool is still SILENCE, and that is still the finished behaviour —
-    // the responder decides it, and no character has a `conversation_cut` line
-    // yet because those are Jon's voice to write, not the engine's to invent.
+    // **and this ASKS rather than answers.** Which line, from which pool, with which fallback, is a
+    // CAST question; see [`ConversationCutBark`].
     if reason.wants_its_own_bark() {
         barks.write(ConversationCutBark { speaker: *b });
     }

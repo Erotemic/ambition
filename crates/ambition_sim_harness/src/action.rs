@@ -112,15 +112,11 @@ impl From<AgentAction> for ControlFrame {
             jump_held: a.jump_held,
             jump_released: a.jump_released,
             burst_pressed: a.dash,
-            // up_pressed / down_pressed are edge-triggered (just-
-            // pressed) on the desktop input pipeline. Auto-deriving
-            // them from move_y > 0.5 every frame breaks gestures
-            // that depend on the edge: register_down_tap reads
-            // down_pressed each tick and treats every consecutive
-            // true as a fresh tap, which fires double-tap-down →
-            // MorphBall on the second held frame. Crouch is the
-            // visible symptom: holding Down should crouch
-            // continuously, not curl into MorphBall after one frame.
+            // up_pressed / down_pressed are edge-triggered (just- pressed) on the desktop input
+            // pipeline. Auto-deriving them from move_y > 0.5 every frame breaks gestures that
+            // depend on the edge: register_down_tap reads down_pressed each tick and treats
+            // every consecutive true as a fresh tap, which fires double-tap-down → MorphBall on
+            // the second held frame.
             //
             // Fix: leave these fields neutral (false) by default in
             // the AgentAction → ControlFrame conversion. Agents that
@@ -155,7 +151,7 @@ impl From<AgentAction> for ControlFrame {
             projectile_held: a.projectile_held,
             projectile_released: a.projectile_released,
             shield_held: false,
-            // ⚠ false like `shield_held` beside it, and for the same reason: the
+            // false like `shield_held` beside it, and for the same reason: the
             // RL action space does not carry this verb yet. Adding it means
             // widening `AgentAction` and retraining against a larger space, which
             // is a decision about the harness rather than a line in a converter.

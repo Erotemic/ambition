@@ -37,18 +37,11 @@
 //!   approximation about the only question that costs a stock (*"is this fall
 //!   survivable"*), so that question alone is handed to
 //!   `ambition_platformer2d_core::movement::recovery`, which drives the body's
-//!   own kernel over its own kit. ⛔ the reusable layer reports whether support
+//!   own kernel over its own kit. the reusable layer reports whether support
 //!   was regained; [`rollout::refine_by_rollout`] decides that this means "do not
 //!   take this line".
 //!
 //! Still owed: FB6e's `l3_earns_its_depth` ladder gate.
-//!
-//! ⛔ **"ladder rows keep `rollout_depth: 0` until that instrument exists" was
-//! true when written and is NOT true now** — corrected 2026-08-02. `ed6c55d0e`
-//! (2026-07-31) made `profile.rs` ship `rollout_depth: if level >= 6 { 12 } else
-//! { 0 }`, so half the shipped ladder runs lookahead. Three separate places went
-//! on asserting the old state, which is the cost of writing a fact about the code
-//! in prose that nothing evaluates.
 
 /// The `fighter_brain_ladder` schema this capability owns. Behind `content_pack`:
 /// a game that never validates its content must not link a compiler.

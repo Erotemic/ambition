@@ -37,8 +37,6 @@ impl std::fmt::Display for HygieneFinding {
 pub struct HygieneReport {
     /// Diagnostics found under the runtime root — a boundary violation.
     pub errors: Vec<HygieneFinding>,
-    /// Author-time intermediates found under the runtime root — tolerated
-    /// during migration but worth surfacing.
     pub warnings: Vec<HygieneFinding>,
 }
 

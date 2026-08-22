@@ -141,7 +141,7 @@ def test_every_pickup_grammar_the_engine_parses_is_accepted():
 
 
 def test_an_unrecognised_brain_is_an_extension_and_stays_silent():
-    # ⭐ the half a stricter validator would have broken. `mary_o_snake` and
+    # the half a stricter validator would have broken. `mary_o_snake` and
     # `sanic_badnik` are CharacterBrain::Custom keys their providers match on.
     for brain in ("mary_o_snake", "sanic_badnik", "combatant", "Passive", "Guard:96"):
         project = _project(_entity("EnemySpawn", "e1", character_id="x", brain=brain))
@@ -186,7 +186,7 @@ def test_a_path_ref_alone_resolves_and_is_silent():
 
 
 def test_a_path_ref_into_another_active_area_is_refused():
-    # ⚠ AREA-scoped, matching `LdtkEntityCtx::kinematic_path_ref` exactly. A
+    # AREA-scoped, matching `LdtkEntityCtx::kinematic_path_ref` exactly. A
     # wider index here would call a level healthy that the converter rejects.
     elsewhere = {
         "identifier": "other",
@@ -224,11 +224,9 @@ def test_a_loop_anchor_without_a_span_describes_no_motion():
 
 
 def test_a_conditional_fields_grammar_is_conditional_too():
-    # ⚠ nine real `Breakable*` placements in sandbox.ldtk carry
-    # `respawn_seconds: 0` beside `respawn: OnRoomReload`, and
-    # `parse_breakable_respawn` never looks at the number unless `respawn` is
-    # exactly `AfterSeconds`. Checking it anyway called nine healthy platforms
-    # broken — measured on the first run, which is why this test exists.
+    # nine real `Breakable*` placements in sandbox.ldtk carry `respawn_seconds: 0` beside `respawn:
+    # OnRoomReload`, and `parse_breakable_respawn` never looks at the number unless `respawn` is
+    # exactly `AfterSeconds`.
     inert = _entity(
         "BreakablePlatform", "b1", respawn="OnRoomReload", respawn_seconds=0
     )
@@ -258,7 +256,7 @@ def test_a_one_point_path_is_refused_and_a_two_point_one_is_not():
 
 
 def test_the_identifier_list_comes_from_the_contract_and_includes_surface_ramp():
-    # ⛔ the drift that was already live: `SurfaceRamp` is registered in
+    # the drift that was already live: `SurfaceRamp` is registered in
     # `standard_converters()` and was missing from the hand-typed KNOWN_ENTITIES,
     # so authoring the engine's own fillet failed a green check.
     identifiers = contract_identifiers()
@@ -266,7 +264,7 @@ def test_the_identifier_list_comes_from_the_contract_and_includes_surface_ramp()
     assert {"EnemySpawn", "Solid", "LoadingZone", "Portal"} <= identifiers
 
 
-#: Exactly the keys `contract::FieldContract` deserializes. ⛔ **a key outside
+#: Exactly the keys `contract::FieldContract` deserializes. **a key outside
 #: this set is silently ignored by BOTH readers** — `refused_paterns` would
 #: neither parse in Rust nor validate in Python, and the contract would quietly
 #: claim less than it means to. This is the only place that can catch it.
@@ -331,7 +329,7 @@ def test_every_declared_field_states_a_disposition():
 
 
 # ---------------------------------------------------------------------------
-# ⭐ the whole loop, on real content
+# the whole loop, on real content
 
 
 @pytest.mark.skipif(

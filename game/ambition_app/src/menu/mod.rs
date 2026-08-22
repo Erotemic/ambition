@@ -10,13 +10,10 @@ pub mod effects;
 pub mod grid_backend;
 // **Always compiled, despite the name.** (repair_wasm §1)
 //
-// This module was gated on `kaleidoscope_menu` because of what it is CALLED,
-// and the gate was wrong: of its ~1900 lines, nineteen mention `bevy_lunex`.
-// Everything else is the backend-neutral menu host — the cursor, the system-menu
-// navigation, item actions, page building — which `dispatch.rs` and the bevy_ui
-// `grid_backend.rs` import unconditionally because they genuinely need it. So a
-// build without the cube (the web persona) failed to compile the FLAT menu, which
-// has nothing to do with Lunex.
+// Everything else is the backend-neutral menu host — the cursor, the system-menu navigation,
+// item actions, page building — which `dispatch.rs` and the bevy_ui `grid_backend.rs` import
+// unconditionally because they genuinely need it. So a build without the cube (the web persona)
+// failed to compile the FLAT menu, which has nothing to do with Lunex.
 //
 // The cube renderer itself is still gated, item by item, inside the module. A
 // headless or web build pays for no 3D UI toolkit; it just gets to have a menu.

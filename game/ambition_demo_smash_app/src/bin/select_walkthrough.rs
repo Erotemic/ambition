@@ -7,7 +7,7 @@
 //! render (`role_button_text`, `card_name_text`, `SmashSelect::blocker`), so
 //! this cannot show a screen the player would not see.
 //!
-//! ⭐ **the geometry is real too.** `select_screen::layout` is a pure function
+//! **the geometry is real too.** `select_screen::layout` is a pure function
 //! of the viewport, so a headless app lays the screen out against
 //! `HEADLESS_VIEWPORT` and the cursor lands on the same rectangles a windowed
 //! build would draw. That is what lets a text walkthrough click a BUTTON rather

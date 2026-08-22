@@ -1,11 +1,8 @@
 # The intro raid corridor's guard stops being a "gradient seeker" and becomes
 # the character it was always named after.
 #
-# D73 / campaign P2.16. `gradient_seeker` was an enemy ARCHETYPE with exactly one
-# placement in the entire tree — this one — and that placement is literally named
-# "Salvage Guard". A generic role with one creature in it was never a role; it
-# was that creature's body filed under a different name, with its controller
-# policy and its placement policy mixed into the same row.
+# A generic role with one creature in it was never a role; it was that creature's body filed under a
+# different name, with its controller policy and its placement policy mixed into the same row.
 #
 # The three authorities separate as they always do:
 #
@@ -18,7 +15,7 @@
 #   placement   -> stays here, on the spawn: WHERE it stands, and `respawn`,
 #                  which is the engine default for a room-scoped enemy
 #
-# ⚠ `brain` is left alone on purpose. The definition now supplies the controller
+# `brain` is left alone on purpose. The definition now supplies the controller
 # policy, and the key stays until `gradient_seeker`'s row is gone from
 # `character_archetypes.ron` in the same change — after which the key resolves
 # nothing and the character answers for the whole body.

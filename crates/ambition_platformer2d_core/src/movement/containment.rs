@@ -1,13 +1,9 @@
-//! **Does this movement policy stay inside a room?** (queue L6)
+//! **Does this movement policy stay inside a room?**
 //!
-//! A motion model and a level are each correct alone and can be broken
-//! together. That is not a hypothesis: the surface-momentum solver had no
-//! horizontal collision on its riding arm for the whole life of the project,
-//! and nothing noticed, because the only level it was ever played in was a
-//! hand-authored chain course with nothing to run into. The day a character
-//! using it was put in an ordinary walled room, it ran through the wall and
-//! fell out of the world — and a human running the binary found that, not a
-//! test.
+//! A motion model and a level are each correct alone and can be broken together. That is not a
+//! hypothesis: the surface-momentum solver had no horizontal collision on its riding arm for
+//! the whole life of the project, and nothing noticed, because the only level it was ever
+//! played in was a hand-authored chain course with nothing to run into.
 //!
 //! The instrument is embarrassingly cheap: put a body in a box, hold a
 //! direction, check it is still in the box. What makes it worth having as a

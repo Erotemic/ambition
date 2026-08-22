@@ -1,7 +1,5 @@
 //! System-tab page caching: the cached snapshot + the cache/republish systems
 //! and the change-detection RebuildKey that suppresses no-op republishes.
-//!
-//! Split out of the kaleidoscope menu host (2026-06-15).
 
 use super::*;
 /// Per-frame cache of the System face's built model + windowed rows + the radio/dev
@@ -94,14 +92,12 @@ pub(crate) fn republish_kaleidoscope_pages(
     let just_opened = open && !*was_open;
     *was_open = open;
 
-    // Deferred Bug 2 fix: the page key keys off the System scroll-window START, NOT
-    // the raw `cursor.focus`. A cursor-only move (mouse OR keyboard) no longer
-    // rebuilds the face — the highlight (`kaleidoscope_sync_focus_visuals`) and the
-    // detail text (`kaleidoscope_sync_detail_text`) update IN PLACE. Without this, a
-    // `Pointer<Move>` between a press and release despawned the hovered control and
-    // Bevy dropped the `Pointer<Click>`. Only a focus change that SHIFTS the System
-    // scroll window changes the rendered rows, so only that needs a rebuild; the
-    // drill-down state is also keyed so drilling in/out republishes the new rows.
+    // A cursor-only move (mouse OR keyboard) no longer rebuilds the face — the highlight
+    // (`kaleidoscope_sync_focus_visuals`) and the detail text (`kaleidoscope_sync_detail_text`)
+    // update IN PLACE. Without this, a `Pointer<Move>` between a press and release despawned
+    // the hovered control and Bevy dropped the `Pointer<Click>`. Only a focus change that
+    // SHIFTS the System scroll window changes the rendered rows, so only that needs a rebuild;
+    // the drill-down state is also keyed so drilling in/out republishes the new rows.
     let window_start = if pages.active == Some(MenuPage::System) {
         // The EFFECTIVE window start: an explicit drag/wheel override wins (Features
         // C/D), otherwise it follows the cursor. Keying the rebuild off this means a
@@ -189,9 +185,7 @@ pub(crate) struct RebuildKey {
     /// its storage, so derive the stable catalog-order counts through its public API.
     owned_counts: [u32; ambition_platformer2d::items::ITEM_COUNT],
     equipped: Option<Item>,
-    /// Complete persisted settings value. This keeps the rebuild contract correct as
-    /// new rendered settings rows are added without extending a second hand-written
-    /// partial key.
+    /// Complete persisted settings value.
     settings: UserSettings,
     radio: RadioSnapshot,
     dev: DevSnapshot,

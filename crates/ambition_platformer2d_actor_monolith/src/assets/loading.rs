@@ -20,11 +20,9 @@ pub struct Platformer2dStartupAssets {
     #[asset(path = "ambition/platformer_defaults.ron")]
     pub sandbox_data: Handle<Platformer2dGameplayDefaults>,
 
-    // Worlds moved to the content crate's `assets/` tree (R3.2), served via the
-    // `game://` asset source the app registers — NOT the default (actor-sim)
-    // source. The canonical world path is `game://worlds/<file>` (see
-    // `world_manifest`/`world_bevy_asset_path`); loading it from the default
-    // source here 404'd ("ambition/worlds/sandbox.ldtk" no longer exists).
+    // The canonical world path is `game://worlds/<file>` (see
+    // `world_manifest`/`world_bevy_asset_path`); loading it from the default source here 404'd
+    // ("ambition/worlds/sandbox.ldtk" no longer exists).
     #[asset(path = "game://worlds/sandbox.ldtk")]
     pub ldtk_project: Handle<bevy_ecs_ldtk::assets::LdtkProject>,
 }

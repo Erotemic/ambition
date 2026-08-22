@@ -45,9 +45,7 @@ pub fn validate(catalog: &CharacterCatalogData) -> Vec<String> {
                 errors.push(format!("character '{id}' has empty portrait default_clip"));
             }
         }
-        // ⚠ an EMPTY `default_brain` names no preset on purpose — see the field's
-        // doc. Validating it would refuse exactly the migrated characters this
-        // campaign produces.
+        // an EMPTY `default_brain` names no preset on purpose — see the field's doc.
         if !entry.default_brain.is_empty()
             && !catalog.brain_presets.contains_key(&entry.default_brain)
         {

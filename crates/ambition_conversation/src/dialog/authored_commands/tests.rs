@@ -1,15 +1,15 @@
 //! **Does a `<<command …>>` line actually reach a domain that published a
 //! command — through the real interpreter, with no edit to any binding?**
 //!
-//! ⭐⭐ **these tests publish their command FROM HERE**, under a domain name
+//! **these tests publish their command FROM HERE**, under a domain name
 //! nothing in the engine mentions, using only
 //! [`PublishCommand`](ambition_platformer2d_shared_tangle::authored_logic::PublishCommand).
 //! That is the whole claim: if asking for a verb required a bridge to learn its
-//! name, a test crate could not have taught it one. ⛔ they deliberately do NOT
+//! name, a test crate could not have taught it one. they deliberately do NOT
 //! assert which commands the engine ships — pinning that list would make every
 //! new provider a failing test.
 //!
-//! ⚠ **what a Yarn-level test can and cannot see.** The verb's job ends at the
+//! **what a Yarn-level test can and cannot see.** The verb's job ends at the
 //! narrative ledger; the simulation performs the command a tick later. So these
 //! assert on the LEDGER's release, which is the seam the verb actually writes,
 //! and the contract module's own tests assert that a released request performs
@@ -87,7 +87,7 @@ fn app(source: &str) -> App {
 /// Put a conversation on the record so the ledger has an instance to stamp
 /// against, then release whatever the verb wrote into the message channel.
 ///
-/// ⚠ **this is the production release system**, not a test shortcut — a request
+/// **this is the production release system**, not a test shortcut — a request
 /// the ledger refuses to release is a request the simulation never sees.
 fn released(app: &mut App) -> Vec<RunAuthoredCommand> {
     app.world_mut()
@@ -117,7 +117,7 @@ fn talking(app: &mut App) {
 /// **A COMMAND PUBLISHED BY A DOMAIN NOTHING NAMES IS REACHABLE FROM AUTHORED
 /// `.yarn`, WITH NO EDIT TO ANY BINDING.**
 ///
-/// ⭐⭐ **the milestone's consumer-side acceptance.** `gossip.spread` exists only
+/// **the milestone's consumer-side acceptance.** `gossip.spread` exists only
 /// in this file; no bridge, no vocabulary table and no game crate learned its
 /// name. And the arguments arrive PREPARED and TYPED — the `true` that Yarn
 /// hands over as the string `"true"` is an [`AuthoredArg::Truth`] by the time it
@@ -150,9 +150,8 @@ fn a_command_published_by_a_foreign_domain_is_requestable_from_authored_yarn() {
 
 /// **AN UNPUBLISHED COMMAND ASKS FOR NOTHING, AND DOES NOT CRASH.**
 ///
-/// ⚠ a `.yarn` typo is a bug in content. ⛔ and note what is NOT tested here:
-/// that a bad verb name panics. It must not — `<<command>>` is one registered
-/// Yarn command whatever id follows it, so an unknown domain never reaches
+/// and note what is NOT tested here: that a bad verb name panics. It must not — `<<command>>`
+/// is one registered Yarn command whatever id follows it, so an unknown domain never reaches
 /// yarnspinner's `CommandNotFound` path at all.
 #[test]
 fn a_command_nobody_published_requests_nothing() {
@@ -194,7 +193,7 @@ Told.
 
 /// **A TRUTH IS EXACTLY `true` OR `false`.**
 ///
-/// ⛔ **this is the poison, and it is pointed at the direction that loses
+/// **this is the poison, and it is pointed at the direction that loses
 /// data.** Yarn hands a command every parameter as text, so `"yes"` and `"1"`
 /// are indistinguishable from `"true"` at the type level. A lenient parse would
 /// map an unrecognised spelling to `false` — and `false` on `world.set_flag` is
@@ -221,7 +220,7 @@ Told.
 
 /// **A PREPARED REFERENCE IS REFUSED RATHER THAN GUESSED.**
 ///
-/// ⭐ the same refusal the condition verb makes, and the stake is higher: a
+/// the same refusal the condition verb makes, and the stake is higher: a
 /// condition that guesses returns a wrong answer, a command that guesses changes
 /// the wrong thing.
 #[test]
@@ -245,11 +244,7 @@ Told.
 
 /// **THE HOST PLUGIN ACTUALLY PUSHES THE VERB.**
 ///
-/// ⛔ **the one failure in this file that would break shipped content rather
-/// than log a line.** Authored `.yarn` calls `<<command …>>`; a Yarn command no
-/// runner registered is reported and dropped, so every authored effect would
-/// silently stop happening. Everything else here proves the verb works once
-/// installed — this proves it gets installed.
+/// Everything else here proves the verb works once installed — this proves it gets installed.
 #[test]
 fn the_bindings_plugin_installs_the_command_verb() {
     let mut app = App::new();

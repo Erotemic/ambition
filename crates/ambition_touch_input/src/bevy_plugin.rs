@@ -104,13 +104,6 @@ pub struct TouchControlsVisible(pub bool);
 
 impl Default for TouchControlsVisible {
     fn default() -> Self {
-        // Default to TRUE so the touch HUD is visible on all
-        // platforms when `mobile_touch` is enabled. Per Jon's
-        // 2026-05-07 feedback, the HUD should be visible by
-        // default on desktop too so it can be tested with a
-        // mouse. Flipping to false will be the user's choice
-        // via the settings menu (TODO).
-        //
         // The fold path is activity-gated; an idle touch HUD
         // doesn't stomp keyboard input.
         Self(true)
@@ -167,12 +160,6 @@ pub fn apply_touch_control_placement(
             // `PositionType::Absolute` — so the joystick art, the U/D/L/R glyphs
             // and the action labels all kept drawing, at the collapsed node's
             // origin, which is the top-left corner of the screen.
-            //
-            // That is what put a virtual d-pad over the versus scoreboard on
-            // every desktop run: `mobile_touch` is in the default feature set, a
-            // keyboard session publishes no touch footprint, and "hidden" drew a
-            // full control cluster in the corner (found 2026-07-29 by capturing
-            // the stage; Jon spotted it in the image).
             //
             // `Display::None` removes the subtree from layout entirely, which is
             // the thing the old comment believed it was doing.
@@ -344,10 +331,8 @@ impl Plugin for TouchControlsPlugin {
                     // The STICK, on the same rule, after the root sync so it
                     // wins over the blanket setting mirror rather than racing it.
                     sync_touch_stick_visibility_from_context.after(sync_touch_ui_visibility),
-                    // After `Route`, where `update_seat_active_devices` runs —
-                    // so the glyph reflects THIS frame's device flip. The old
-                    // pin (`AffordancesSystemSet::Compute`) ordered it against
-                    // a detector that no longer exists there.
+                    // After `Route`, where `update_seat_active_devices` runs — so the glyph
+                    // reflects THIS frame's device flip.
                     update_button_glyph_from_active_input.after(ambition_input::InputSet::Route),
                     update_button_pressed_from_actions
                         .after(ambition_sim_view::affordances::AffordancesSystemSet::Compute),
@@ -418,25 +403,17 @@ fn offset_joystick_art_within_footprint(
 /// require a Knob.png art asset to render. Mouse-drag works on
 /// desktop because virtual_joystick routes mouse + touch through
 /// the same Interaction-driven path.
-///
-/// Per Jon's "make mobile_touch overlay intentionally testable
-/// with a mouse on desktop builds. ... mouse is a single-pointer
-/// debug path, not a replacement for real multitouch testing."
 pub fn spawn_touch_joysticks(mut cmd: Commands, mut images: ResMut<Assets<Image>>) {
     let knob = images.add(build_joystick_knob_image());
     let outline = images.add(build_joystick_outline_image());
 
-    // Single Move stick on the left. Per Jon's 2026-05-07
-    // feedback "We only need one for this game. A touch joystick
-    // and a set of touch buttons." The Aim stick was dropped --
-    // for blink-aim, the right-stick gamepad path stays
-    // canonical, and on touch the action buttons cover Blink as
-    // a tap (a future polish could add a directional gesture).
-    // Joystick footprint is scaled by `TOUCH_SCALE` from the original
-    // 120x120 / 56x56 layout to match the shrunken action cluster.
-    // Placement (and therefore the menu drag-scroll exclusion) comes from the
-    // resolved control regions once `tag_virtual_joystick_root` marks this
-    // root; the constants here are only the authored full-size shape.
+    // Single Move stick on the left. A touch joystick and a set of touch buttons." The Aim stick
+    // was dropped -- for blink-aim, the right-stick gamepad path stays canonical, and on touch the
+    // action buttons cover Blink as a tap (a future polish could add a directional gesture).
+    // Joystick footprint is scaled by `TOUCH_SCALE` from the original 120x120 / 56x56 layout to
+    // match the shrunken action cluster. Placement (and therefore the menu drag-scroll exclusion)
+    // comes from the resolved control regions once `tag_virtual_joystick_root` marks this root; the
+    // constants here are only the authored full-size shape.
     let layout = movement_joystick_layout();
     create_joystick(
         &mut cmd,
@@ -459,21 +436,13 @@ pub fn spawn_touch_joysticks(mut cmd: Commands, mut images: ResMut<Assets<Image>
             bottom: Val::Px(layout.margin),
             ..default()
         },
-        // JoystickFixed: knob returns to base center on release
-        // (vs JoystickFloating which leaves the knob where the
-        // touch lifted). Fixed mode is what the example uses and
-        // produces predictable axis values for desktop mouse
-        // testing.
+        // JoystickFixed: knob returns to base center on release (vs JoystickFloating which
+        // leaves the knob where the touch lifted).
         JoystickFixed,
         NoAction,
     );
-    // No floating "Move" overlay above the stick — the knob's drag
-    // position is the directional indicator on its own. Per Jon
-    // 2026-05-23: "the control stick itself on the touch screen
-    // would be the thing that moves rather than having something
-    // drawn above it." The action buttons still carry verb / glyph
-    // labels because they don't visually change to show what they'd
-    // do; the stick does.
+    // No floating "Move" overlay above the stick — the knob's drag position is the directional
+    // indicator on its own.
     //
     // Tag the joystick UI root with MobileTouchUiRoot so the
     // visibility-sync system hides it alongside the bezel and
@@ -951,25 +920,16 @@ pub struct TouchActionLabel(pub TouchActionButton);
 /// pressed-state highlight — each own their own component + update
 /// system and compose at render.
 ///
-/// ⛔ **this was an enum — `Static(&'static str)` OR `Dynamic(String)` — and the
-/// two states were the bug.** Once the prompt wrote a `Dynamic`, the spawn-time
-/// label was GONE, and `update_button_verb_from_prompt` only writes when the
-/// prompt offers a verb. A button that is DRAWN with nothing to say therefore
-/// kept whatever it last said, from a context that had ended.
+/// A button that is DRAWN with nothing to say therefore kept whatever it last said, from a context
+/// that had ended.
 ///
-/// That is not hypothetical. In a menu, Jump and Interact are drawn as the
-/// confirm pair, and they take their verb from `prompt.menu_confirm` — which is
-/// published by `install_menu_confirm_provider`, called from `ambition_app`'s
-/// kaleidoscope menu and NOWHERE else. Open a menu in Sanic and the confirm
-/// buttons still read "Spin Dash" and "Jump," which is Jon's report on
-/// 2026-08-03: *"in sanic the button text doesn't match what the controls really
-/// are."* The doc on `update_button_verb_from_prompt` promised the opposite in
-/// so many words — *"so a menu button never reads 'Jump'"* — and the promise was
-/// only kept where a provider happened to exist.
+/// That is not hypothetical. In a menu, Jump and Interact are drawn as the confirm pair, and they
+/// take their verb from `prompt.menu_confirm` — which is published by
+/// `install_menu_confirm_provider`, called from `ambition_app`'s kaleidoscope menu and NOWHERE
+/// else.
 ///
-/// As a struct, the fallback is never overwritten and the current verb is
-/// `Option`, so "the prompt has nothing to say" resolves to the spawn label
-/// instead of to stale text. The failure is unrepresentable rather than guarded.
+/// As a struct, the fallback is never overwritten and the current verb is `Option`, so "the prompt
+/// has nothing to say" resolves to the spawn label instead of to stale text.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct ButtonVerb {
     /// Spawn-time fallback label. Only buttons without a contextual
@@ -1058,15 +1018,6 @@ pub fn update_button_verb_from_prompt(
                 .and_then(|slot| prompt.label_for(slot))
                 .map(str::to_owned),
             ControlContextKind::Menu | ControlContextKind::Dialogue => {
-                // ⛔ **`.flatten()` used to live here, and it was the Sanic bug.**
-                // No authored confirm verb meant no write at all, so the button
-                // kept its gameplay verb — in a Sanic menu, "Spin Dash" over a
-                // control that selects. `menu_confirm` is published by
-                // `install_menu_confirm_provider`, which `ambition_app`'s
-                // kaleidoscope menu calls and no other composition does, so
-                // "no authored verb" is the NORMAL case everywhere but the
-                // shipped app.
-                //
                 // The fallback belongs here rather than in each demo: what this
                 // button does in a menu is CONFIRM, and that is true of every
                 // composition that has a menu at all. A game with a better word
@@ -1080,11 +1031,6 @@ pub fn update_button_verb_from_prompt(
             }
             ControlContextKind::Empty => None,
         };
-        // ⛔ **unconditional, including the `None`.** This used to be
-        // `if let Some(next)`, so a button the prompt had nothing to say about
-        // kept the verb of a context that had ended — see `ButtonVerb`. Writing
-        // `None` is what lets it fall back to its spawn label.
-        //
         // Still change-detected, so `Changed<ButtonVerb>` stays honest for
         // `render_touch_button_text`.
         if verb.current != next {
@@ -1119,16 +1065,10 @@ pub fn touch_action_available(action: TouchActionButton, prompt: &ControlPrompt)
 
 /// **Is this button LIVE this frame — drawn AND touchable?**
 ///
-/// ⛔ **the drawn overlay and its touch targets used to answer this with
-/// different expressions, and the difference was exactly one term.** Visibility
-/// asked `(gameplay || always_available) && touch_action_available(..)`; the
-/// touch mask asked `touch_action_available(..)` alone, under a comment claiming
-/// "one availability source of truth". During DIALOGUE the dialogue prompt marks
-/// Jump and Interact as confirm buttons, so the mask kept them live while the
-/// `gameplay_owned()` term hid them — **an invisible pair of buttons sitting over
-/// the dialogue panel**, which is Jon's report from a Pixel 5: touching an
-/// apparently empty area advances dialogue, and touching a visible choice can
-/// activate a hidden HUD action instead.
+/// ⛔ **the drawn overlay and its touch targets used to answer this with different expressions,
+/// and the difference was exactly one term.** Visibility asked `(gameplay || always_available)
+/// && touch_action_available(..)`; the touch mask asked `touch_action_available(..)` alone,
+/// under a comment claiming "one availability source of truth".
 ///
 /// So both halves call THIS, and a button cannot be drawn and untouchable or
 /// touchable and undrawn.
@@ -1151,15 +1091,10 @@ pub fn touch_action_live(
     // ⭐ **the gameplay-ownership term applies only to a GAMEPLAY prompt**, and
     // narrowing it to that is what gives dialogue its confirm button back.
     //
-    // `publish_frontend_context_prompt` already resolves this correctly: when a
-    // non-gameplay context owns the seat it rewrites the prompt to
-    // `ControlContextKind::Menu` with that context's own submit label, and
-    // `touch_action_available` then admits only the menu confirm + menu row.
-    // Every gameplay verb is ALREADY hidden by that, which is the case the
-    // ownership term was added for on 2026-07-28 (the launcher's capturing claim
-    // over the title screen) — so ANDing it over a menu prompt was redundant
-    // there and wrong here: it hid the very Jump/Interact the dialogue had just
-    // nominated as its confirm.
+    // `publish_frontend_context_prompt` already resolves this correctly: when a non-gameplay
+    // context owns the seat it rewrites the prompt to `ControlContextKind::Menu` with that
+    // context's own submit label, and `touch_action_available` then admits only the menu confirm +
+    // menu row.
     //
     // ⚠ what the term still buys is the STALE case: the prompt keeps its last
     // value when no seat resolves an owner, so a prompt still claiming Gameplay
@@ -1197,13 +1132,10 @@ fn mask_unavailable(now: &mut TouchButtonEdges, prompt: &ControlPrompt, gameplay
 /// toggle.
 /// **The movement STICK is a verb nobody can press either.**
 ///
-/// `sync_touch_button_visibility_from_prompt` below hides the gameplay action
-/// buttons while a menu owns input, on the argument that a verb nobody can
-/// press must not be on screen. The stick was left out of that fix and kept
-/// drawing itself over the game-select screen — found 2026-07-28 by
-/// PHOTOGRAPHING the launcher, which is a thing the capture tool could not do
-/// until the same day. The rendered test that covers this queries
-/// `TouchActionButton` and the stick is not one, so nothing caught it.
+/// `sync_touch_button_visibility_from_prompt` below hides the gameplay action buttons while a menu
+/// owns input, on the argument that a verb nobody can press must not be on screen. The rendered
+/// test that covers this queries `TouchActionButton` and the stick is not one, so nothing caught
+/// it.
 ///
 /// Gated on `TouchSurface::Movement` rather than on the shared
 /// `MobileTouchUiRoot`, because the action bezel carries Start and Reset — the
@@ -1222,20 +1154,13 @@ pub fn sync_touch_stick_visibility_from_context(
     // **The stick STEERS A MENU too, and hiding it there cost the player their
     // only way to move a selection.**
     //
-    // `bind_touch_virtual_inputs` maps `TouchVirtualStick` to BOTH `Move` and
-    // `MenuStick`, and the axis writer is ungated — so while a menu or dialogue
-    // owns the seat the stick is a working navigation control, and hiding it on
-    // `gameplay_owned()` alone hid a control that does something. (A hidden node
-    // takes no drags, so it really was dead, not merely invisible: this is the
-    // opposite of the buttons' bug, where hidden ones stayed live.)
+    // `bind_touch_virtual_inputs` maps `TouchVirtualStick` to BOTH `Move` and `MenuStick`, and
+    // the axis writer is ungated — so while a menu or dialogue owns the seat the stick is a
+    // working navigation control, and hiding it on `gameplay_owned()` alone hid a control that
+    // does something.
     //
-    // ⚠ the rule is still "a control nobody can use must not be on screen" —
-    // the Empty context still hides it. ⛔ but NOT because "neither binding
-    // routes", which is what this said and is not true: the menu lane is
-    // ungated, exactly as the paragraph above states, so `MenuStick` reaches
-    // `SeatMenuFrames` in every context. What `Empty` means is that nothing
-    // published a cue and nothing claimed the seat, so no surface is READING
-    // those frames — the stick would steer nothing. `surface_prompt` in
+    // What `Empty` means is that nothing published a cue and nothing claimed the seat, so no
+    // surface is READING those frames — the stick would steer nothing. `surface_prompt` in
     // `ambition_sim_view::control_prompt` is where that judgement is made.
     let steers_something = gameplay
         || matches!(
@@ -1259,10 +1184,7 @@ pub fn sync_touch_stick_visibility_from_context(
 
 pub fn sync_touch_button_visibility_from_prompt(
     prompt: Res<ControlPrompt>,
-    // Whether GAMEPLAY owns the participant's actions this frame. On the title
-    // screen the launcher holds a CAPTURING claim above gameplay, so this is
-    // false and every gameplay verb is unpressable — which is exactly why
-    // showing them was wrong (found 2026-07-28).
+    // Whether GAMEPLAY owns the participant's actions this frame.
     //
     // Optional because this overlay composes into apps that never install the
     // participant-context resolver; absent, the old prompt-only behaviour stands
@@ -1346,13 +1268,9 @@ pub struct ButtonPressed(pub bool);
 
 /// Map a touch button to its canonical gameplay [`Platformer2dInputActionMonolith`].
 ///
-/// ⛔ **this used to be a second table.** It sat fifteen lines below
-/// `touch_button_slot` (`TouchActionButton → ControlSlot`) and listed the same
-/// twelve buttons again, agreeing with it only because somebody kept them
-/// agreeing. Two maps over one enum is the shape that produced the gamepad
-/// glyph table's "if those bindings change the table here needs to follow", and
-/// a third reader — the on-screen prompt, asking what the Attack SLOT is bound
-/// to — would have needed a third table.
+/// Two maps over one enum is the shape that produced the gamepad glyph table's "if those bindings
+/// change the table here needs to follow", and a third reader — the on-screen prompt, asking what
+/// the Attack SLOT is bound to — would have needed a third table.
 ///
 /// It COMPOSES now: button → slot → action, through
 /// `ambition_input::action_for_slot`. Start and Reset are the honest residue —
@@ -1533,16 +1451,12 @@ fn update_buttons_from_interactions(
         set_button_held(&mut now, *action, held);
     }
 
-    // Android / real-touch path: Bevy's Button `Interaction` is
-    // not a reliable multitouch source while another finger owns
-    // the virtual joystick. Read raw active touches and hit-test
-    // against the same fixed button layout instead. This lets the
-    // player keep the left thumb on the move stick while tapping
-    // Jump / Attack / Burst with the right thumb.
-    // The rectangles come from the RESOLVED placement, not from the window:
-    // a cluster reserved into a surround column must be tappable where it is
-    // drawn. Deriving them here from window size again is what let the drawn
-    // overlay and its touch targets drift apart.
+    // Android / real-touch path: Bevy's Button `Interaction` is not a reliable multitouch
+    // source while another finger owns the virtual joystick. This lets the player keep the left
+    // thumb on the move stick while tapping Jump / Attack / Burst with the right thumb. The
+    // rectangles come from the RESOLVED placement, not from the window: a cluster reserved into
+    // a surround column must be tappable where it is drawn. Deriving them here from window size
+    // again is what let the drawn overlay and its touch targets drift apart.
     let cluster = placement.action_cluster;
     let menu_row = placement.menu_row;
     for touch in touches.iter() {
@@ -1565,10 +1479,9 @@ fn update_buttons_from_interactions(
         }
     }
 
-    // A button HIDDEN must not register touch even via the raw fixed-layout hit
-    // test above. `touch_action_live` is now literally the one source of truth —
-    // the visibility pass calls the same function with the same two inputs, so
-    // the drawn overlay and its touch targets cannot disagree.
+    // `touch_action_live` is now literally the one source of truth — the visibility pass calls
+    // the same function with the same two inputs, so the drawn overlay and its touch targets
+    // cannot disagree.
     mask_unavailable(&mut now, &prompt, gameplay);
 
     let make_btn = |held_now: bool, held_prev: bool| super::TouchButton {
@@ -2078,11 +1991,6 @@ mod prompt_tests {
 
     /// **Every button a dialogue SHOWS reads what it actually does.**
     ///
-    /// Jon: *"it would be nice if we had a test that proved the on screen
-    /// buttons displayed the right text for the dialogue menu (i.e. accept /
-    /// back)… I know in sanic the button text doesn't match what the controls
-    /// really are."*
-    ///
     /// Driven through the real systems — `update_button_verb_from_prompt` then
     /// `render_touch_button_text` — so it asserts the rendered `Text`, not an
     /// intermediate. And it asserts over the buttons that are LIVE, because a
@@ -2097,8 +2005,6 @@ mod prompt_tests {
             Update,
             (update_button_verb_from_prompt, render_touch_button_text).chain(),
         );
-        // Seeded with GAMEPLAY verbs, which is the state a dialogue opens from:
-        // the player was just playing. A button that keeps one is the bug.
         for (action, gameplay_label) in [
             (TouchActionButton::Jump, "Jump"),
             (TouchActionButton::Interact, "Talk"),
@@ -2173,7 +2079,7 @@ mod prompt_tests {
     /// **A menu that names no confirm verb still labels its buttons honestly** —
     /// the Sanic case, and the one that actually bit.
     ///
-    /// Jon, 2026-08-03: *"I know in sanic the button text doesn't match what the
+    /// *"I know in sanic the button text doesn't match what the
     /// controls really are."* `menu_confirm` is published by
     /// `install_menu_confirm_provider`, which only `ambition_app`'s kaleidoscope
     /// menu calls — so in every demo it is `None`, the old `.flatten()` wrote
@@ -2307,7 +2213,7 @@ mod prompt_tests {
     }
 
     /// **A STALE gameplay prompt while nobody owns gameplay shows nothing** —
-    /// the 2026-07-28 fix, preserved and now stated as its own case.
+    /// the fix, preserved and now stated as its own case.
     ///
     /// The prompt keeps its last value when no seat resolves an owner, so this
     /// is the one condition the ownership term still buys. Narrowing it to a
@@ -2334,11 +2240,9 @@ mod prompt_tests {
 
     /// **Drawn and touchable are the same question**, over every combination.
     ///
-    /// This is the invariant the two halves used to violate by one term. It is
-    /// asserted as a PROPERTY rather than by checking that both call one
-    /// function, because what must not come back is a second expression — and a
-    /// second expression would pass a "do they call the same fn" test by simply
-    /// not calling it.
+    /// It is asserted as a PROPERTY rather than by checking that both call one function, because
+    /// what must not come back is a second expression — and a second expression would pass a "do
+    /// they call the same fn" test by simply not calling it.
     #[test]
     fn what_is_drawn_is_exactly_what_is_touchable() {
         let prompts = [
@@ -2381,9 +2285,7 @@ mod prompt_tests {
 
     #[test]
     fn hidden_action_is_not_tappable_end_to_end() {
-        // The regression the review flagged: hiding a button must ALSO disable
-        // its touch region, not just its visibility. Drive the interaction
-        // system with a "pressed" Attack button the scheme lacks.
+        // Drive the interaction system with a "pressed" Attack button the scheme lacks.
         let mut app = App::new();
         app.insert_resource(prompt(
             ControlContextKind::Gameplay,
@@ -2411,17 +2313,6 @@ mod prompt_tests {
     }
 
     /// **"Hidden" has to mean removed from layout, not resized to nothing.**
-    ///
-    /// When no footprint is published for a surface, this used to collapse the
-    /// node to a zero rect. A zero-size node still lays out, and every child of
-    /// these surfaces is `PositionType::Absolute` — so the joystick art, the
-    /// U/D/L/R glyphs and the action labels all kept drawing, at the collapsed
-    /// node's origin, which is the top-left corner of the screen.
-    ///
-    /// `mobile_touch` is in the default desktop feature set and a keyboard
-    /// session publishes no touch footprint, so every desktop run drew a virtual
-    /// d-pad in the corner — on top of the versus scoreboard, which is where it
-    /// was finally noticed (2026-07-29).
     #[test]
     fn an_unplaced_touch_surface_leaves_the_layout_entirely() {
         let mut app = App::new();

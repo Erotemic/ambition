@@ -1,6 +1,3 @@
-//! Touch HUD layout: action button identity, fixed positions, and
-//! visible-circle hit testing.
-//!
 //! Layout values are intentionally bound to the *visible circle*, not
 //! to the absolute square `Node` bounds. Adjacent diamond buttons can
 //! have overlapping square footprints when their visible circles
@@ -205,11 +202,6 @@ pub fn touch_action_layout() -> [TouchActionSpec; 11] {
         ),
         // Face band.
         scaled(TouchActionButton::Attack, "Attack", 30.0, 158.0, 70.0, 14.0),
-        // ⭐ **the face band had a real hole, and this is the measured fit.**
-        // Authored-space clearance to its nearest neighbour is 22.0px (Interact
-        // above, Attack and Burst beside it) — WIDER than the arrangement's own
-        // tightest existing pair at 14.0 (Fly/Interact and Run/Jump), so adding
-        // it does not touch the minimum this layout was retuned to protect.
         // Slightly smaller than its neighbours (58 vs 70) to keep that true.
         scaled(TouchActionButton::Grab, "Grab", 125.0, 158.0, 58.0, 12.0),
         scaled(TouchActionButton::Burst, "Burst", 210.0, 158.0, 70.0, 14.0),
@@ -460,12 +452,9 @@ mod layout_tests {
     /// **Visible circles, not square bounds.** A point inside a button's square
     /// but outside its drawn circle must hit nothing.
     ///
-    /// This used to be shown via two diagonal neighbours whose squares overlapped
-    /// — which quietly made the assertion depend on the cluster staying crowded,
-    /// and the re-layout that opened the bands up broke it. The property never
-    /// needed two buttons: a single button's own corner is inside its square and
-    /// outside its circle, so every button can assert it, and no future spacing
-    /// change can make the test vacuous.
+    /// The property never needed two buttons: a single button's own corner is inside its square and
+    /// outside its circle, so every button can assert it, and no future spacing change can make the
+    /// test vacuous.
     #[test]
     fn touch_action_hit_test_uses_visible_circle_not_square_bounds() {
         let cluster = cluster_at(Vec2::new(1050.0, 500.0), 1.0);

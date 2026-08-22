@@ -1,14 +1,11 @@
 //! `SnapshotState` for this crate's own types — the rollback wire format.
 //!
-//! ⚠ These impls live HERE, beside the types they encode, because
-//! `ambition_platformer2d_core::snapshot` owns the trait and the orphan rule binds an
-//! impl to the crate owning the trait OR the type. Until 2026-07-30 the trait
-//! sat in `ambition_platformer2d_runtime`, above every domain crate, so the only place all
-//! ~100 of them could compile was one 2688-line file in `ambition_platformer2d_runtime`. The
-//! orphan rule is what proves this file is in the right crate: if a type moves,
-//! this stops compiling rather than drifting.
+//! These impls live HERE, beside the types they encode, because
+//! `ambition_platformer2d_core::snapshot` owns the trait and the orphan rule binds an impl to the
+//! crate owning the trait OR the type. The orphan rule is what proves this file is in the right
+//! crate: if a type moves, this stops compiling rather than drifting.
 //!
-//! ⚠ A field added to an encoded type is a WIRE FORMAT change. Encode and
+//! A field added to an encoded type is a WIRE FORMAT change. Encode and
 //! decode must stay in the same order, and `snapshot_unit_enum!` codes are
 //! authored per variant so inserting one never renumbers the rest.
 
@@ -49,7 +46,7 @@ impl SnapshotState for crate::components::ActiveCombatant {
 // resimulate with a body that has died in a branch it has not died in yet — or
 // worse, put a live body back into a level reset that no longer has a cause.
 //
-// ⭐ registered by the ENGINE, so a game that states death rules cannot forget
+// registered by the ENGINE, so a game that states death rules cannot forget
 // to make them rollback-safe. Mary-O's hand-registered beat is exactly the thing
 // this replaces, and its own comment records that it *"was simply missed"* the
 // first time.
@@ -121,21 +118,12 @@ impl SnapshotState for crate::components::BodyEnvelope {
 /// The blob is `(move id, facing, t, landed_hit)`; the `MoveSpec` comes back out of the
 /// entity's own `ActorMoveset`, which a patched entity still carries.
 ///
-/// ⛔ **the narrative that used to sit here described a DELETED mechanism.** It
-/// said `live_boxes` comes back empty and `fired` is rebuilt from `t`, "both by
-/// `MovePlayback::resumed`". Under bevy_ggrs (ADR 0027) the registration is
-/// `rollback_component_resolved`, a CLONE snapshot: the whole component is
-/// restored, `fired` and `hit_targets` included, and `live_boxes` is
-/// entity-remapped rather than emptied. A comment describing a snapshot engine
-/// that no longer exists is worse than none — it tells the next reader the dedup
-/// state is not preserved when it is (GPT 5.6 review, 2026-08-04).
-///
 /// What survives from that story is why the cache is safe to restore: a strike
 /// volume's existence is DERIVED from `(t, window)`, and
 /// `retire_orphaned_strike_volumes` re-checks that against the live world every
 /// frame, so a restored slot naming a dead entity is dropped and respawned.
 ///
-/// ⭐ **and `hit_targets` is in the CHECKSUM now.** The restore always carried it;
+/// **and `hit_targets` is in the CHECKSUM now.** The restore always carried it;
 /// the projection did not, so two peers could disagree about which target a
 /// multi-tick strike had already hit and still agree on the hash — a divergence
 /// that surfaces later as different damage and SFX. Sorted before hashing because
@@ -157,7 +145,7 @@ impl SnapshotResolve for crate::moveset::MovePlayback {
         for target in targets {
             put_str(out, target);
         }
-        // ⚠ **the AIM is state, so it is checksummed** — added in the same change
+        // **the AIM is state, so it is checksummed** — added in the same change
         // that started carrying it. Two peers whose in-flight move disagrees
         // about the direction it will fire have diverged, and the shot it
         // produces later is the visible consequence. The POLICY is part of the

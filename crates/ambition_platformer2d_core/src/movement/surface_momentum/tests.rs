@@ -548,16 +548,11 @@ fn c4_rotation_symmetry_the_rotated_valley_matches() {
     let rot = |p: Vec2| Vec2::new(p.y, -p.x) + Vec2::new(0.0, 2000.0);
     let rot_v = |p: Vec2| Vec2::new(p.y, -p.x);
 
-    // The valley with 500px of extra runway PREPENDED along the same line as
-    // its left ramp — geometrically identical where the body travels, and
-    // `ride(.., 510.0, ..)` starts it at the exact world point `s = 10` named
-    // on the bare `valley()`. The runway exists because the braking phase
-    // below used to park the body on the chain's OPEN LEFT END, where whether
-    // it sheds this frame or next is decided by f32 rounding. A symmetry test
-    // must not straddle a discrete knife edge: the two rotated runs would
-    // disagree by a whole frame of state, which says nothing about symmetry.
-    // (Found when the airborne air-control sign was corrected below; the old
-    // mirrored sign happened to shove the body back onto the ramp.)
+    // The valley with 500px of extra runway PREPENDED along the same line as its left ramp —
+    // geometrically identical where the body travels, and `ride(.., 510.0, ..)` starts it at
+    // the exact world point `s = 10` named on the bare `valley()`. A symmetry test must not
+    // straddle a discrete knife edge: the two rotated runs would disagree by a whole frame of
+    // state, which says nothing about symmetry.
     let chain_a = long_valley();
     let chain_b = SurfaceChain::open(
         "valley-rot",
@@ -983,14 +978,10 @@ fn airborne_air_control_is_gravity_relative() {
 
 /// **A body that runs off the end of a flat chain must FALL, not hover.**
 ///
-/// The launch places it exactly at the end vertex, one radius above the
-/// surface, moving horizontally. `project` clamps arc length to the chain, so
-/// the next airborne sweep re-attached it at that same vertex, from which the
-/// ride step launched it again — a two-frame limit cycle with the position
-/// frozen at the lip. Nothing caught it because the ONE flat-chain-end
-/// scenario in the suite ran a MIRRORED air-control sign (fixed above) that
-/// shoved the body back over the chain instead of off it. Two bugs holding
-/// each other up.
+/// The launch places it exactly at the end vertex, one radius above the surface, moving
+/// horizontally. `project` clamps arc length to the chain, so the next airborne sweep
+/// re-attached it at that same vertex, from which the ride step launched it again — a two-frame
+/// limit cycle with the position frozen at the lip. Two bugs holding each other up.
 #[test]
 fn running_off_a_flat_chains_end_falls_instead_of_hovering_at_the_lip() {
     let floor = SurfaceChain::open(
@@ -1187,12 +1178,10 @@ fn zero_speed_at_a_joint_chooses_support_and_keeps_jump_and_walk_available() {
 
 /// **A body must be able to cross a joint anywhere on a long chain.**
 ///
-/// `advance_riding` nudges past a joint so `frame_at` resolves the segment it
-/// entered. The nudge was a fixed `1e-4` — under one f32 ULP once the arc
-/// length passes ~800px. On a long chain the nudge rounded back to the joint,
-/// `to_join` stayed 0, and the bounded walk spun out without advancing: the
-/// body froze ON the joint, still `Riding`, still carrying its velocity. That
-/// last detail is why it read as a physics puzzle instead of a rounding bug.
+/// `advance_riding` nudges past a joint so `frame_at` resolves the segment it entered. On a
+/// long chain the nudge rounded back to the joint, `to_join` stayed 0, and the bounded walk
+/// spun out without advancing: the body froze ON the joint, still `Riding`, still carrying its
+/// velocity.
 ///
 /// The valley tests never caught it because their joints sit at s ≈ 500, where
 /// `1e-4` is comfortably many ULPs.
@@ -1888,11 +1877,9 @@ fn an_airborne_pad_impulse_keeps_perpendicular_momentum() {
 
 /// A rider stops at a wall instead of running through it.
 ///
-/// Found 2026-07-27 by putting Sanic in the versus arena — a flat floor with a
-/// wall at each end. He ran through the right wall, off the end of the floor,
-/// and fell forever. The riding arm knew only the surface under the body: the
-/// airborne arm had swept solid blocks since blocks became surfaces, and the
-/// riding arm never did.
+/// He ran through the right wall, off the end of the floor, and fell forever. The riding arm knew
+/// only the surface under the body: the airborne arm had swept solid blocks since blocks became
+/// surfaces, and the riding arm never did.
 ///
 /// This is not a versus-stage problem. Any room built out of blocks — which is
 /// every room the LDtk importer produces — could not contain a momentum
@@ -1950,7 +1937,7 @@ fn a_rider_is_stopped_by_a_wall_and_does_not_leave_the_room() {
 }
 
 /// A rider on an authored CHAIN is still stopped by a wall the chain never
-/// traced. (queue L5)
+/// traced.
 ///
 /// The obstruction sweep was originally scoped to bodies riding BLOCKS, because
 /// a chain is an authored route and the blocks under it are the geometry it was
@@ -2001,7 +1988,7 @@ fn a_chain_rider_is_stopped_by_a_wall_the_chain_was_never_drawn_over() {
     );
 }
 
-// ── External launches (knockback), D6 ──────────────────────────────────────
+// ── External launches (knockback), ──────────────────────────────────────
 
 /// A flat floor and a body running along it, which is the situation every
 /// reported "no knockback" complaint describes.
@@ -2016,13 +2003,8 @@ fn running_on_flat() -> (World, SurfaceBody) {
     (world, body)
 }
 
-/// ⛔ **THE BUG, pinned as a fact about the model rather than as an anecdote.**
-///
-/// Writing a launch into `SurfaceBody::vel` and stepping does NOT launch a riding
-/// body — `vel` is derived from `v_t` while `Riding`, so the step republishes it
-/// and the impulse is gone. This is what `apply_body_hit_reaction` used to do,
-/// and it is why knockback 360/260 and hitstun 0.24s produced a body that took
-/// hits without reacting.
+/// Writing a launch into `SurfaceBody::vel` and stepping does NOT launch a riding body — `vel` is
+/// derived from `v_t` while `Riding`, so the step republishes it and the impulse is gone.
 ///
 /// Kept as a test because the fix is a channel, not a line: if someone later
 /// "simplifies" the launch back into a velocity write, this is what says no.

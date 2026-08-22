@@ -37,8 +37,7 @@ pub trait Namespace: 'static {
 /// holding it directly, and the difference is real: a `String` field can be read
 /// by a consumer that never asks anyone whether the id exists.
 // The std derives would demand `N: Debug + Clone + ...` on the marker type, which
-// `PhantomData<fn() -> N>` does not actually need. Hand-written impls keep
-// namespace markers bare unit structs.
+// `PhantomData<fn() -> N>` does not actually need.
 pub struct Ref<N: Namespace> {
     id: String,
     _namespace: PhantomData<fn() -> N>,
@@ -357,12 +356,10 @@ impl<N: Namespace> Resolver<N> {
 
     /// Bind `id` if it exists, saying nothing if it does not.
     ///
-    /// A binary search and a refcount bump — no allocation at all. This is the
-    /// half a per-frame consumer wants, because [`Self::explain`] is where the
-    /// cost lives and a consumer that has already reported a permanently missing
-    /// id must not keep paying for the explanation nobody will read. Anything
-    /// resolving ONCE should call [`Self::resolve`] instead and let the report
-    /// carry the failure.
+    /// A binary search and a refcount bump — no allocation at all. This is the half a per-frame
+    /// consumer wants, because [`Self::explain`] is where the cost lives and a consumer that has
+    /// already reported a permanently missing id must not keep paying for the explanation nobody
+    /// will read.
     pub fn bind(&self, id: &str) -> Option<Bound<N>> {
         let index = self
             .ids
@@ -528,9 +525,6 @@ impl BindingLedger {
             }));
     }
 
-    /// Resolve through `resolver`, recording the failure and yielding `None`
-    /// rather than short-circuiting — so ONE pass reports every bad reference
-    /// instead of stopping at the first and hiding the rest.
     pub fn resolve<N: Namespace>(
         &mut self,
         resolver: &Resolver<N>,
@@ -576,9 +570,7 @@ impl BindingLedger {
 /// Empty means every authored reference in scope found its target. That is the
 /// assertion a headless test makes.
 ///
-/// It is not a precondition for publishing a room. Unresolved references may
-/// degrade construction while still being reported; the construction rule that
-/// owns a reference decides whether the defect is fatal.
+/// It is not a precondition for publishing a room.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct BindingReport {
     unresolved: Vec<UnresolvedRef>,

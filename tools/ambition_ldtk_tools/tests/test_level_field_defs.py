@@ -25,8 +25,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 # Level fields read by `LdtkLevel::level_metadata` in
-# `crates/ambition_platformer2d_ldtk/src/project.rs`. Adding a reader there without
-# adding the def here (and to the projects) recreates the `mode` bug.
+# `crates/ambition_platformer2d_ldtk/src/project.rs`.
 ENGINE_READ_LEVEL_FIELDS = {
     "activeArea",
     "biome",
@@ -41,25 +40,16 @@ ENGINE_READ_LEVEL_FIELDS = {
 }
 
 
-#: ⛔⛔ `.claude/worktrees/` holds abandoned agent worktrees, and a repo-wide walk
-#: finds every world TWICE — once really and once as a stale copy whose submodule
-#: files were never checked out. That is how this test started failing on six
-#: projects that were perfectly fine (2026-08-13): the six failures were
-#: `FileNotFoundError` on paths under a worktree, not a missing field def
-#: anywhere. The same contamination made a first census of the authoring specs
-#: read four times its true size.
-#:
-#: ⚠ worse than the noise is the quiet case — a stale worktree whose `.ldtk` DOES
-#: exist gets validated as though it shipped, so a real project's regression
-#: hides behind an old copy's passing.
+# That is how this test started failing on six : projects that were perfectly fine: the six failures
+# were : `FileNotFoundError` on paths under a worktree, not a missing field def : anywhere.
 EXCLUDED_DIRS = frozenset({"target", "__pycache__", ".claude", ".git"})
 
 
 def ldtk_projects() -> list[Path]:
-    #: ⚠ every world is reachable by TWO paths — `ambition_content/assets/worlds`
-    #: is a directory of symlinks into the `ambition_map_assets` submodule where
-    #: the files really live. Resolving collapses the pair to one project instead
-    #: of testing each world twice under two ids.
+    # : every world is reachable by TWO paths — `ambition_content/assets/worlds`
+    # : is a directory of symlinks into the `ambition_map_assets` submodule where
+    # : the files really live. Resolving collapses the pair to one project instead
+    # : of testing each world twice under two ids.
     by_real_path = {
         p.resolve(): p
         for p in REPO_ROOT.rglob("*.ldtk")

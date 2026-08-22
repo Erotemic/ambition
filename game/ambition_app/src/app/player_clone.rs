@@ -155,10 +155,6 @@ pub fn spawn_requested_player_clone(
         ae::DEFAULT_PLAYER_BODY_WIDTH,
         ae::DEFAULT_PLAYER_BODY_HEIGHT,
     );
-    // The clone wears whatever the PLAYER wears. This used to read the typed
-    // `player` slot and fall back to `robot`, which is two engine-known ids
-    // standing in for "the protagonist" — wrong the moment the protagonist is
-    // Mary-O. `worn_id` comes from the body being cloned.
     let asset = game_assets
         .as_ref()
         .zip(worn)
@@ -187,15 +183,13 @@ pub fn spawn_requested_player_clone(
 
 /// Tick every player clone's `PlayerDemo` brain → its `ActorControl` frame.
 ///
-/// This is the clone's counterpart to `tick_controlled_brains` (which produces the
-/// PRIMARY's `ActorControl` from device input). The clone's brain is a *timed*
-/// demo cycle, so it needs real `sim_time`/`dt` in its snapshot — which is why it
-/// can't ride the unfiltered `tick_controlled_brains` (that passes `dt = 0`) and the
-/// clone holds no seat. Movement itself is NO LONGER here: now that the
-/// clone is a `PlayerEntity`, the iterating `player_control_system` /
-/// `player_simulation_system` integrate its clusters from this `ActorControl` —
-/// the same shared core the human player runs. Runs in `PlayerInput`, before the
-/// control phase consumes the frame.
+/// This is the clone's counterpart to `tick_controlled_brains` (which produces the PRIMARY's
+/// `ActorControl` from device input). The clone's brain is a *timed* demo cycle, so it needs
+/// real `sim_time`/`dt` in its snapshot — which is why it can't ride the unfiltered
+/// `tick_controlled_brains` (that passes `dt = 0`) and the clone holds no seat. Movement itself
+/// is NO LONGER here: now that the clone is a `PlayerEntity`, the iterating
+/// `player_control_system` / `player_simulation_system` integrate its clusters from this
+/// `ActorControl` — the same shared core the human player runs.
 pub fn tick_player_clone_brains(
     time: Res<Time>,
     mut clock: ResMut<PlayerCloneClock>,
@@ -241,11 +235,9 @@ pub fn tick_player_clone_brains(
 /// sandbox's own `clear_transient_on_sandbox_reset` clears — but `PlayerClone`
 /// lives in this app crate, so the despawn is app-side.
 ///
-/// Keyed on `NewGameResetCommitted`, the same signal that engine-side clear
-/// uses, and for the same reason: a reset whose room preflight refuses must
-/// leave the running session exactly as it found it. Reading the REQUEST meant
-/// a refused reset still deleted the player's clones — a teardown for a reset
-/// that never happened.
+/// Keyed on `NewGameResetCommitted`, the same signal that engine-side clear uses, and for the
+/// same reason: a reset whose room preflight refuses must leave the running session exactly as
+/// it found it.
 pub fn despawn_player_clones_on_reset(
     mut committed: MessageReader<ambition_platformer2d::actors::session::reset::NewGameResetCommitted>,
     clones: Query<Entity, With<PlayerClone>>,

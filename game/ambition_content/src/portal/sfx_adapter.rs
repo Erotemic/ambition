@@ -17,13 +17,6 @@ use ambition_portal2d::{PortalBodyEntered, PortalBodyTransited, PortalShotFired}
 
 /// Play the portal audio cues from the portal-owned signals:
 ///
-/// - [`PortalShotFired`] → the punchy fire blast + the airy travel whizz (at the
-///   shot's origin), exactly what `portal_fire_system` used to emit inline.
-/// - [`PortalBodyEntered`] → the ENTER cue (at the entry portal), exactly what
-///   `portal_transit`'s `Begin` branch used to emit.
-/// - [`PortalBodyTransited`] → the EXIT cue (at the exit-side centroid
-///   `exit_pos`), exactly what `portal_transit`'s `Transfer` branch used to emit.
-///
 /// Runs after the portal fire + transit systems so every signal emitted this
 /// frame is played the same frame, byte-identical to the old in-core writes.
 pub fn play_portal_sfx(

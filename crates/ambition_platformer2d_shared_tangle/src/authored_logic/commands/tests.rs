@@ -1,4 +1,4 @@
-//! ⚠ **these tests build their own `App`**, which is exactly the shape that can
+//! **these tests build their own `App`**, which is exactly the shape that can
 //! pass with the production wiring absent. They are about the CONTRACT — its
 //! privacy, its one road, its arity checking, its refusals. The claim that real
 //! domains publish real commands is proved by the integration fixture that
@@ -53,14 +53,14 @@ fn request(app: &mut App, id: &CommandId, args: Vec<AuthoredArg>) {
 /// **A CRATE THAT IS NOT THE ENGINE CAN PUBLISH A COMMAND, AND THE ONLY ROAD TO
 /// PERFORMING ONE IS THE REQUEST CHANNEL.**
 ///
-/// ⭐⭐ **this is the milestone's behavioural acceptance for the command half,
+/// **this is the milestone's behavioural acceptance for the command half,
 /// and it is two claims in one test because the second is what makes the first
 /// mean anything.**
 ///
 /// 1. This module names no other domain, edits no enum and touches no
 ///    registration table — it calls `publish_command` and nothing else. If a
 ///    central list of command kinds existed, this could not compile.
-/// 2. ⚠ **and the test cannot pass by accident**: it asserts the bell is silent
+/// 2. **and the test cannot pass by accident**: it asserts the bell is silent
 ///    while the request is only WRITTEN, and rings only once the dispatcher has
 ///    run. Both terms are observed. A version of this that asserted only the
 ///    end state would still pass if `run_requested_authored_commands` were
@@ -88,10 +88,7 @@ fn a_provider_that_names_no_other_domain_can_publish_and_be_performed() {
 
 /// **A COMMAND HAPPENS ONCE PER REQUEST.**
 ///
-/// ⛔ the failure this pins is the dispatcher reading with a cursor instead of
-/// draining: a second dispatch in the same frame — or a resimulated tick — would
-/// find the same request still sitting there and perform it again. A grant is
-/// not idempotent.
+/// A grant is not idempotent.
 #[test]
 fn a_request_is_performed_once_and_leaves_the_buffer_empty() {
     let mut app = App::new();
@@ -134,7 +131,7 @@ fn the_catalog_composes_domains_without_either_naming_the_other() {
 
 /// **AN UNPUBLISHED COMMAND IS REFUSED WITH A COUNT, NOT SILENTLY DROPPED.**
 ///
-/// ⚠ the count is the sentence that tells an author whether they typo'd a verb
+/// the count is the sentence that tells an author whether they typo'd a verb
 /// or forgot a plugin.
 #[test]
 fn asking_for_an_unpublished_command_is_refused_with_a_reason() {
@@ -182,7 +179,7 @@ fn a_mistyped_argument_is_refused_with_a_reason_an_author_can_act_on() {
 
 /// **A DOMAIN THAT CANNOT PERFORM ITS OWN VERB REFUSES RATHER THAN PANICKING.**
 ///
-/// ⚠ a composition without the state a command needs is a real composition — a
+/// a composition without the state a command needs is a real composition — a
 /// headless fixture, a menu route — not a broken one.
 #[test]
 fn a_composition_missing_the_domains_state_refuses() {
@@ -222,13 +219,13 @@ fn an_id_read_back_from_authored_text_refuses_instead_of_panicking() {
         CommandId::parse("world.set_flag"),
         Some(CommandId::new("world", "set_flag"))
     );
-    // ⚠ every one of these would have PANICKED through `new`.
+    // every one of these would have PANICKED through `new`.
     assert_eq!(CommandId::parse("set_flag"), None, "no domain at all");
     assert_eq!(CommandId::parse(".set_flag"), None, "empty domain");
     assert_eq!(CommandId::parse("world."), None, "empty verb");
     assert_eq!(CommandId::parse("a.b.c"), None, "ambiguous segments");
     assert_eq!(CommandId::parse(""), None);
-    // ⛔ and it never repairs.
+    // and it never repairs.
     assert_ne!(
         CommandId::parse(" world.set_flag"),
         Some(CommandId::new("world", "set_flag")),

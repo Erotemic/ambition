@@ -39,7 +39,7 @@ ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 # from a catalog row to the sheet a character renders from. Already linked here
 # transitively (`ambition_interaction` depends on it), so the direct edge adds no
 # crate to any consumer's closure and cannot lengthen the serial build chain; it
-# only stops the join from having to live above both crates. ⛔ this is a
+# only stops the join from having to live above both crates. this is a
 # dependency on the catalog's TYPES, never on a catalog: nothing in this crate
 # may load, bake or own character content.
 ambition_characters = { path = "../ambition_characters" }

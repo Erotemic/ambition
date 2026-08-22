@@ -354,14 +354,9 @@ fn flying_pca_vs_grounded_robot_is_non_degenerate() {
 
 /// **A SMASH CPU STILL CLOSES ON ITS OPPONENT, AND CLOSING IS LOCOMOTION.**
 ///
-/// D146 took the burst press off the closing action: `SpecificAction::Sprint`
-/// now writes a full locomotion throttle and nothing else. The thing that must
-/// survive is the BEHAVIOUR — a fighter across the stage comes to meet you.
+/// The thing that must survive is the BEHAVIOUR — a fighter across the stage comes to meet you.
 ///
-/// ⛔ this asserts the SEPARATION shrank, not that a field was set. The old
-/// coverage for this behaviour watched `burst_pressed`, which is exactly the bit
-/// that had to go; a test written that way would have had to be deleted rather
-/// than kept.
+/// ⛔ this asserts the SEPARATION shrank, not that a field was set.
 ///
 /// ⭐ and the verb census is the second half: `classify_verb` reads the
 /// LOCOMOTION throttle only, so seeing `SprintLeft`/`SprintRight` in the trace is

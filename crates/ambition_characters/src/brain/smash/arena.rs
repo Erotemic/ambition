@@ -35,7 +35,6 @@ use crate::actor::control::ActorControlFrame;
 
 // ----- tuning constants (brain-level kinematics) -----
 
-/// Fixed simulation step (s) — 60 Hz, matching the game's brain tick.
 const DT: f32 = 1.0 / 60.0;
 /// Downward gravity for grounded bodies (px/s²). Engine `+y` is down.
 const GRAVITY: f32 = 2400.0;
@@ -43,11 +42,7 @@ const GRAVITY: f32 = 2400.0;
 const JUMP_SPEED: f32 = 720.0;
 /// Terminal fall speed (px/s).
 const MAX_FALL: f32 = 1500.0;
-/// Horizontal knockback imparted by a landed melee hit (px/s).
 const KNOCKBACK_X: f32 = 300.0;
-/// Upward pop imparted by a landed melee hit (px/s). Small — the harness melee
-/// is a *jab*, which resets spacing horizontally but does NOT launch into an
-/// air juggle (that's a heavy/up-tilt, which this generic striker doesn't have).
 const KNOCKBACK_UP: f32 = 70.0;
 /// Hitstun (s) the victim suffers — interrupts their action and resets spacing.
 const HITSTUN_S: f32 = 0.20;
@@ -338,7 +333,7 @@ impl Arena {
             // Free-mover: steer the commanded 2D velocity directly (the aerial
             // brain writes velocity_target; a stray grounded throttle maps to
             // horizontal motion as a fallback).
-            // ⚠ **`locomotion.x` is a body-LOCAL side throttle and `f.vel` is
+            // **`locomotion.x` is a body-LOCAL side throttle and `f.vel` is
             // world** — the same conflation S48 found in two shipped brains. It is
             // safe HERE and only here: this arena's gravity is a SCALAR magnitude
             // with "engine `+y` is down" hardcoded (see `GRAVITY`), never a
@@ -577,7 +572,7 @@ fn classify_verb(frame: &ActorControlFrame, f: &Fighter) -> Verb {
     if mag < 0.05 {
         return Verb::Idle;
     }
-    // A throttle near full is a sprint; a partial throttle is a walk. ⚠ this
+    // A throttle near full is a sprint; a partial throttle is a walk. this
     // reads the LOCOMOTION throttle and never `burst_pressed` — which is why the
     // variety metric survived dash leaving the smash vocabulary unchanged.
     let sprint = mag > 0.9;
@@ -642,10 +637,6 @@ pub fn analyze_fighter(stage: &Stage, name: &'static str, samples: &[Sample]) ->
     let corner_margin = stage.width() * CORNER_FRAC;
     let in_corner = |x: f32| x < stage.left + corner_margin || x > stage.right - corner_margin;
 
-    // "Still" = camping a spot, measured bin-independently: the longest stretch
-    // during which the fighter never strayed more than STILL_RADIUS from an
-    // anchor (reset when it does). Captures genuine freezing/looping-in-place
-    // without the fixed-column aliasing that penalizes a normal neutral weave.
     let mut max_still_s = 0.0_f32;
     let mut still_anchor: Option<ae::Vec2> = None;
     let mut still_start_t = 0.0_f32;

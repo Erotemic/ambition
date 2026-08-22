@@ -35,13 +35,8 @@ pub(crate) use super::spawn_actors::{spawn_runtime_minion, spawn_runtime_minion_
 /// A room's authored paths under every spelling they answer to, for the
 /// lowering roads that resolve a path reference by string.
 ///
-/// ⛔ **this function used to flatten the specs itself — id first, name second —
-/// and that private rule is what made the binding sweep a liar.** `matches_id`
-/// (and therefore the sweep) also accepts the normalized display-name slug, so a
-/// reference spelled that way resolved during validation and found nothing here.
-/// It delegates to `kinematic_path_lookup` now: there is ONE alias set, and a
-/// second one cannot drift back in. See that function for the shipped patrol the
-/// drift had standing still.
+/// It delegates to `kinematic_path_lookup` now: there is ONE alias set, and a second one cannot
+/// drift back in. See that function for the shipped patrol the drift had standing still.
 ///
 /// Lives spawn-side: `RoomSpec` is world-IR vocabulary the combat kit must not
 /// name (E2).
@@ -112,12 +107,9 @@ pub struct RoomFeatureConstructionPlan {
     expected_authoritative_ids: BTreeSet<String>,
     /// What this room POINTS AT and did not find. Empty for a clean room.
     ///
-    /// Carried on the plan rather than returned as an error: an unresolved
-    /// reference is a content defect, not a reason to refuse to build the room —
-    /// the placeholder art and passive fallbacks are deliberate, and a blind run
-    /// must still show something. What changed is that the plan now KNOWS, so a
-    /// test can assert on it and the commit logs it instead of the defect living
-    /// only in whichever consumer shrugged first.
+    /// Carried on the plan rather than returned as an error: an unresolved reference is a content
+    /// defect, not a reason to refuse to build the room — the placeholder art and passive fallbacks
+    /// are deliberate, and a blind run must still show something.
     binding_report: ambition_platformer2d_shared_tangle::binding::BindingReport,
     /// The occurrence dispositions this plan was prepared against — the
     /// identities it deliberately did NOT plan, and the ones it planned
@@ -129,22 +121,15 @@ pub struct RoomFeatureConstructionPlan {
 /// **What the world remembers about its occurrences, and the definitions a room
 /// needs in order to act on what it remembers.**
 ///
-/// ⛔⛔ **the two travel as ONE value because acting on half the ledger deletes
-/// objects.** A `Placed` row is a single fact with two consequences: the room
-/// whose record minted the occurrence must not mint it again, and the room the
-/// occurrence is lying in must rebuild it — even though that room does not own
-/// the record. A construction road holding only the ledger can perform the
-/// suppression and is structurally unable to perform the reinstatement, which
-/// turns a duplication bug into a permanent deletion. Stating the ledger and
-/// the world definitions separately would make that road expressible; this type
-/// is what makes it not.
+/// **the two travel as ONE value because acting on half the ledger deletes objects.** A
+/// `Placed` row is a single fact with two consequences: the room whose record minted the
+/// occurrence must not mint it again, and the room the occurrence is lying in must rebuild it —
+/// even though that room does not own the record. Stating the ledger and the world definitions
+/// separately would make that road expressible; this type is what makes it not.
 ///
-/// ⚠ **`world` is every room of the world, not the neighbours.** A body can
-/// carry an object any distance before putting it down, so the room holding the
-/// record is not reachable by adjacency. Nothing is derived from a room the
-/// ledger does not name — see
-/// [`RoomFeatureConstructionPlan::prepare`](RoomFeatureConstructionPlan::prepare) —
-/// so the cost of a large world is a slice, not a scan.
+/// Nothing is derived from a room the ledger does not name — see
+/// [`RoomFeatureConstructionPlan::prepare`](RoomFeatureConstructionPlan::prepare) — so the cost
+/// of a large world is a slice, not a scan.
 #[derive(Clone, Copy)]
 pub struct OccurrenceContinuity<'a> {
     /// Horizon 1: where the occurrences this world has already minted actually
@@ -156,14 +141,11 @@ pub struct OccurrenceContinuity<'a> {
     pub world: &'a [crate::rooms::RoomSpec],
     /// **THE SECOND DESCRIBER — how to rebuild what no record can.**
     ///
-    /// ⛔⛔ a RUNTIME-MINTED occurrence has no authored record in any room, so
-    /// the reinstatement above can never settle its debt: the loop searches
-    /// `world` for a record to relocate and finds none. Until 2026-08-19 that
-    /// fell through to a warn, and a weapon the player minted, carried and
-    /// dropped was simply gone after a death — which Jon's dropped-weapon ruling
-    /// makes a product defect, not a residue.
+    /// a RUNTIME-MINTED occurrence has no authored record in any room, so the reinstatement above
+    /// can never settle its debt: the loop searches `world` for a record to relocate and finds
+    /// none.
     ///
-    /// ⭐ the two describers are disjoint populations, not a preference order:
+    /// the two describers are disjoint populations, not a preference order:
     /// the capture takes only `SpawnOrigin::Dynamic` rows and an authored record
     /// can never spell one. `None` is the honest answer for a composition with
     /// no checkpoint behind it.
@@ -180,10 +162,10 @@ pub struct ActorConstructionContext<'a> {
     /// [`ContentBinding::Content`] — the enum exists because the planner also
     /// serves runtime-dynamic construction, which is not.
     pub binding: ambition_platformer2d_shared_tangle::construction::ContentBinding,
-    /// **The prepared cast**, when the caller has one — so a lowered NPC can be
-    /// asked what its CHARACTER's default autonomous profile is (D73 phase 1).
+    /// **The prepared cast**, when the caller has one — so a lowered NPC can be asked what its
+    /// CHARACTER's default autonomous profile is.
     ///
-    /// ⚠ `Option`, and an absent registry is a legal answer rather than a
+    /// `Option`, and an absent registry is a legal answer rather than a
     /// degraded one: it means no character states a default, which is exactly
     /// what this path assumed before a definition could state one. Every
     /// existing caller keeps its behaviour by saying nothing.
@@ -200,7 +182,7 @@ pub struct ActorConstructionContext<'a> {
     /// nor forgets an occurrence that is lying in this room under a record this
     /// room does not own.
     ///
-    /// ⚠ same `Option` contract as the cast and the policies: absent means "this
+    /// same `Option` contract as the cast and the policies: absent means "this
     /// composition remembers nothing", which is the honest answer for startup,
     /// for provider activation, for a hot reload that replaces the content
     /// wholesale — and for a RESET, which destroys the occurrences a
@@ -227,19 +209,13 @@ impl<'a> ActorConstructionContext<'a> {
 
     /// **Every authority a ROOM's construction may consult, stated at once.**
     ///
-    /// ⛔⛔ **SEVEN ROADS BUILT THIS CONTEXT BY HAND AND FOUR OF THEM WERE
-    /// INCOMPLETE.** Startup, reset, transition, hot reload, provider
-    /// activation, the exclusive-world rebuild and the neighbour prefetch each
-    /// assembled their own `new(..).with_prepared(..).with_brain_profiles(..)`
-    /// chain, and a road that forgot one link did not fail to compile — it
-    /// silently constructed rooms against an authority it did not have. AC6
-    /// found the exclusive-world road missing the cast on 2026-08-13; the
-    /// PREFETCH road was still missing both on 2026-08-15, which is why Jon's
-    /// log repeated *"`goblin` … which this composition has not registered"* at
-    /// frame rate for a character that is registered. `reset` had the cast and
-    /// not the policies; direct entry and hot reload had neither.
+    /// **SEVEN ROADS BUILT THIS CONTEXT BY HAND AND FOUR OF THEM WERE INCOMPLETE.** Startup, reset,
+    /// transition, hot reload, provider activation, the exclusive-world rebuild and the neighbour
+    /// prefetch each assembled their own `new(..).with_prepared(..).with_brain_profiles(..)` chain,
+    /// and a road that forgot one link did not fail to compile — it silently constructed rooms
+    /// against an authority it did not have.
     ///
-    /// ⭐ **so the authorities are PARAMETERS, not opt-in builder calls.** A
+    /// **so the authorities are PARAMETERS, not opt-in builder calls.** A
     /// caller must say what it has, including saying `None`, and the next
     /// authority a room may consult is one signature change that breaks every
     /// road at once instead of seven chances to forget. `Option` still means
@@ -276,7 +252,7 @@ impl<'a> ActorConstructionContext<'a> {
 
     /// Supply the prepared cast for this construction. See [`Self::prepared`].
     ///
-    /// ⚠ **for construction that is not a ROOM's** — a summon, a runtime spawn,
+    /// **for construction that is not a ROOM's** — a summon, a runtime spawn,
     /// a focused fixture. A room goes through [`Self::for_room_construction`],
     /// which is where forgetting an authority stopped being possible.
     #[must_use]
@@ -340,7 +316,7 @@ impl std::fmt::Debug for RoomFeatureConstructionPlan {
 /// **Claim one lane's planned identities into the room's roster, refusing a
 /// collision with any lane already claimed.**
 ///
-/// ⛔ cross-lane identity collisions are the one thing independently typed lanes
+/// cross-lane identity collisions are the one thing independently typed lanes
 /// cannot check for themselves: each lane's own preparation refuses duplicates
 /// WITHIN it, and nothing inside a lane can see another lane's `SimId`s. This is
 /// that check, and it is a fold rather than a pairwise intersection so a third
@@ -383,23 +359,13 @@ impl RoomFeatureConstructionPlan {
             .iter()
             .map(|(_, request)| request.clone())
             .collect();
-        // Every id this room POINTS AT that has NO failure mode of its own,
-        // resolved before construction mutates anything: an unknown patrol path
-        // goes passive.
-        //
-        // ⛔⛔ **THE CHARACTER NAMESPACE LEFT THIS SWEEP WITH THE ROSTER** (AC6).
-        // It resolved each placement's BRAIN KEY against `roster.brain_keys()`,
-        // because the lookup behind it could not fail and a misspelling became
-        // the generic `combatant` body with the right name on it. There is no
-        // such lookup and no such body: an identifier that names no character is
-        // a construction REFUSAL, which is a stronger statement than a report
-        // nobody has to read, and a brain key is controller policy rather than a
-        // body, so sweeping one against a body table was the category error the
-        // campaign is named for.
+        // **THE CHARACTER NAMESPACE LEFT THIS SWEEP WITH THE ROSTER** (AC6). It resolved each
+        // placement's BRAIN KEY against `roster.brain_keys()`, because the lookup behind it
+        // could not fail and a misspelling became the generic `combatant` body with the right
+        // name on it.
         //
         // Held items are deliberately absent for the same reason:
-        // `authored_ground_item_requests` REFUSES a room that names an
-        // unregistered one. One defect, one authority, one diagnostic.
+        // `authored_ground_item_requests` REFUSES a room that names an unregistered one.
         let bindings = crate::rooms::RoomBindings::default();
         let binding_report = bindings.sweep(room);
         binding_report.log(&format!("room `{}` construction", room.id));
@@ -449,39 +415,34 @@ impl RoomFeatureConstructionPlan {
             &room.id,
             &paths,
         ));
-        // Phase 4d: the formerly-anonymous static families are plan rows too.
         requests.extend(crate::construction::authored_static_requests(room));
-        // Phase 4a/4b: EVERY authored enemy and boss is a plan row — ordinary
-        // enemies as `AuthoredEnemy`, `"giant"`-class hosts as host + two hand
-        // rows joined by limb relations, bosses as `AuthoredBoss`. The family
-        // loops that used to build these in `spawn` are deleted.
         requests.extend(crate::construction::authored_actor_requests(
             room,
             &paths,
             construction.prepared,
         ));
-        // ⭐ **AND NOW THE ONE QUESTION AN AUTHORED RECORD CANNOT ANSWER ABOUT
+        // **AND NOW THE ONE QUESTION AN AUTHORED RECORD CANNOT ANSWER ABOUT
         // ITSELF: what became of the occurrence it minted last time?** Authored
         // DEFINITION identity is not runtime OCCURRENCE identity — a record is
         // a recipe, `SimId::placement(..)` names the thing the recipe made —
         // and a rebuild owes the world a fresh occurrence only for the records
         // whose last one is neither alive elsewhere nor deliberately gone.
         //
-        // ⛔ **this asks a DISPOSITION, not "is something with this id alive".**
+        // **this asks a DISPOSITION, not "is something with this id alive".**
         // The second sentence has no room for a permanently destroyed object,
         // which must also not be re-authored and is not alive anywhere; the
         // ledger answers both with one call. It is also why the filter is here
         // and not in the room transition: nothing on this road knows that items
         // exist, or that a carried thing is what put a row in the ledger.
         //
-        // ⭐ **AND THE ANSWER HAS THREE ARMS, NOT TWO.** An occurrence that was
+        // **AND THE ANSWER HAS THREE ARMS, NOT TWO.** An occurrence that was
         // carried across this room and PUT DOWN belongs to this room at
         // coordinates the record knows nothing about; rebuilding the room owes
         // the world that occurrence, with its own identity, WHERE IT WAS LEFT.
         // Reading `Reinstated` as "author it" and dropping the position is how a
         // relocation silently becomes a teleport back to the authored spot.
         //
-        // ⭐⭐ **AND THE ANSWER IS NOT A FUNCTION OF THIS ROOM'S RECORDS ALONE.**
+        // **AND THE ANSWER IS NOT A FUNCTION OF THIS ROOM'S RECORDS ALONE.**
         // An occurrence lying in this room may have been minted by a record next
         // door — carried here and put down — and this room owes the world that
         // occurrence exactly as much as it owes the ones it authors. Its home
@@ -530,7 +491,7 @@ impl RoomFeatureConstructionPlan {
         // reconstructed from the world's definitions plus the authoritative
         // disposition of every occurrence.
         //
-        // ⚠ **only rooms the ledger's obligation actually reaches are touched.**
+        // **only rooms the ledger's obligation actually reaches are touched.**
         // The loop stops the moment the debt is settled and never runs at all
         // for the overwhelmingly common empty ledger, so a big world costs a
         // slice bound, not a scan.
@@ -546,13 +507,11 @@ impl RoomFeatureConstructionPlan {
                 if foreign.id == room.id {
                     continue;
                 }
-                // ⛔ **a foreign room that cannot yield its records REFUSES this
-                // build**, rather than quietly dropping the occurrence. The
-                // world promised the player an object back and cannot produce
-                // it; that is a preflight failure — raised while the outgoing
-                // room is still whole, like every other one here — and not a
-                // silent deletion. (The same defect already makes the foreign
-                // room itself unbuildable, so nothing is being made worse.)
+                // **a foreign room that cannot yield its records REFUSES this build**, rather
+                // than quietly dropping the occurrence. The world promised the player an object
+                // back and cannot produce it; that is a preflight failure — raised while the
+                // outgoing room is still whole, like every other one here — and not a silent
+                // deletion.
                 let candidates = crate::construction::reinstatable_authored_requests(foreign)
                     .map_err(RoomFeatureConstructionError::ActorConstruction)?;
                 for mut request in candidates {
@@ -576,7 +535,7 @@ impl RoomFeatureConstructionPlan {
             // ── the SECOND DESCRIBER: a debt no RECORD can settle, that the
             //    CHECKPOINT can. ─────────────────────────────────────────────
             //
-            // ⭐ a runtime mint has no authored record anywhere, so the search
+            // a runtime mint has no authored record anywhere, so the search
             // above could never settle its debt; what rebuilds it is the
             // description the checkpoint captured. The position is the ledger's
             // `at`, which is the whole point — this is an object lying where
@@ -586,7 +545,7 @@ impl RoomFeatureConstructionPlan {
                     .minted
                     .and_then(|minted| minted.description_of(&sim_id));
                 if let Some(description) = described {
-                    // ⛔ `held_spec_by_id`, NOT `ambition_characters::brain::held_item_by_id`.
+                    // `held_spec_by_id`, NOT `ambition_characters::brain::held_item_by_id`.
                     // The narrow one knows only the brain's registry; a mint that
                     // came out of the INVENTORY resolves through the item catalog
                     // (`Item::from_held_item_id`) and the narrow lookup answers
@@ -596,7 +555,7 @@ impl RoomFeatureConstructionPlan {
                         Some(held) => {
                             requests.push(crate::construction::ActorConstructionRequest {
                                 sim_id: sim_id.clone(),
-                                // ⛔ the occurrence's OWN provenance, carried
+                                // the occurrence's OWN provenance, carried
                                 // verbatim: a rebuilt mint with no
                                 // `SpawnOrigin::Dynamic` is invisible to the NEXT
                                 // capture, so it would survive exactly one death
@@ -619,7 +578,7 @@ impl RoomFeatureConstructionPlan {
                             continue;
                         }
                         None => {
-                            // ⚠ a CONTENT change: the spec has been edited out of
+                            // a CONTENT change: the spec has been edited out of
                             // the catalog since the checkpoint was taken.
                             bevy::log::warn!(
                                 target: "ambition_platformer2d::construction",
@@ -632,11 +591,8 @@ impl RoomFeatureConstructionPlan {
                         }
                     }
                 }
-                // ⚠ **a debt NEITHER describer can settle**, which is a CONTENT
-                // change rather than a construction defect: the record an
-                // occurrence was minted from has been edited away. Refusing to
-                // build the room would make it permanently unenterable, so this
-                // is loud and the room is built without it.
+                // Refusing to build the room would make it permanently unenterable, so this is
+                // loud and the room is built without it.
                 bevy::log::warn!(
                     target: "ambition_platformer2d::construction",
                     "room `{}` remembers occurrence `{sim_id:?}` lying at {at:?}, no room in \
@@ -662,10 +618,6 @@ impl RoomFeatureConstructionPlan {
             construction.prepared,
         )
         .map_err(RoomFeatureConstructionError::ActorConstruction)?;
-        // **And every planned BODY can be built**, checked here for the same
-        // reason: after AC6 a character that resolves to nothing has nothing
-        // else to become, and that refusal used to happen inside a recipe — mid
-        // commit, with the outgoing room already retired.
         crate::construction::preflight_planned_bodies(&requests, construction.prepared)
             .map_err(RoomFeatureConstructionError::ActorConstruction)?;
         let construction_scope =
@@ -676,15 +628,10 @@ impl RoomFeatureConstructionPlan {
         let construction_plan = crate::construction::ActorConstructionPlan::prepare(
             construction_scope.clone(),
             requests,
-            // ⛔ **THIS USED TO BE AN EMPTY SET AND A SENTENCE THAT STOPPED
-            // BEING TRUE**: *"a room plan is prepared against the room it
-            // replaces, so nothing it constructs is live yet by definition."*
-            // It was true only while a room change destroyed everything it had
-            // built. An occurrence in somebody's custody crosses the boundary
-            // alive, so a room CAN be prepared while one of the identities it
-            // authors is already out there.
+            // An occurrence in somebody's custody crosses the boundary alive, so a room CAN be
+            // prepared while one of the identities it authors is already out there.
             //
-            // ⭐ the `retain` above is the FIX; passing the same set here is the
+            // the `retain` above is the FIX; passing the same set here is the
             // GUARD. The planner refuses `IdentityAlreadyLive` — so a future
             // road that acquires a request for a suppressed identity by some
             // other route gets a loud refusal during preflight, while the
@@ -709,12 +656,8 @@ impl RoomFeatureConstructionPlan {
         // construction lane. Lanes remain independently typed and verified; the
         // room composes only their stable identities.
         //
-        // ⭐ **collision detection is now the SAME LINE that composes the
-        // roster.** It used to be a hand-written pairwise intersection — fine
-        // for two lanes, quadratic in the number of lanes, and the second thing
-        // a third lane had to remember to edit. Claiming into one set answers
-        // both questions at once and cannot be half-updated: a lane that is
-        // composed is a lane that is checked.
+        // Claiming into one set answers both questions at once and cannot be half-updated: a lane
+        // that is composed is a lane that is checked.
         let mut expected_authoritative_ids: BTreeSet<String> = BTreeSet::new();
         claim_lane_ids(&room.id, &actor_ids, &mut expected_authoritative_ids)?;
         capability_lanes.claim_planned_ids(&room.id, &mut expected_authoritative_ids)?;
@@ -750,7 +693,7 @@ impl RoomFeatureConstructionPlan {
     /// would leave the room permanently missing it. Stated on the artifact so a
     /// cache can compare rather than guess — see the prefetch promotion check.
     ///
-    /// ⚠ **the whole outlook, not just the suppressed ids.** A plan prepared
+    /// **the whole outlook, not just the suppressed ids.** A plan prepared
     /// while a relocated object rested at one position is not the plan this
     /// world wants once it rests at another, and a set of identities cannot tell
     /// those two apart.
@@ -762,8 +705,7 @@ impl RoomFeatureConstructionPlan {
 
     /// Every reference this room makes and does not keep.
     ///
-    /// Empty means each id the room points at was found. A test asserts on this
-    /// directly; the commit logs it; neither has to scrape a consumer's warning.
+    /// Empty means each id the room points at was found.
     pub fn binding_report(&self) -> &ambition_platformer2d_shared_tangle::binding::BindingReport {
         &self.binding_report
     }
@@ -773,7 +715,7 @@ impl RoomFeatureConstructionPlan {
         &self.construction
     }
 
-    /// ⚠ **`cfg(test)`, both of these: production never asks a room WHICH LANE
+    /// **`cfg(test)`, both of these: production never asks a room WHICH LANE
     /// built something.** It asks the room for its roster, and each lane verifies
     /// itself against the shared baseline. A lane accessor exists so a test can
     /// prove an identity lives in one lane and not another — which is a claim
@@ -951,14 +893,8 @@ impl RoomFeatureConstructionPlan {
 
     /// Apply the exact feature decisions captured by [`Self::prepare`].
     ///
-    /// **This does not publish the room, and does not verify it.** It used to do
-    /// both, bracketing its own work with a baseline capture and a
-    /// verify-and-publish. That boundary was in the wrong place: this function's
-    /// CALLER queues moving platforms and the last-commit receipt after it
-    /// returns, and command queues apply in insertion order, so `RoomLoaded` was
-    /// written before the room was finished being built. A feature plan is one
-    /// participant in a room transaction, not the transaction, so it cannot know
-    /// when the room is complete. The bracket lives with the outer artifact that
+    /// A feature plan is one participant in a room transaction, not the transaction, so it
+    /// cannot know when the room is complete. The bracket lives with the outer artifact that
     /// does — see [`crate::world::rooms::transaction`].
     pub fn spawn(
         &self,
@@ -969,11 +905,6 @@ impl RoomFeatureConstructionPlan {
         // with its relations. Capability-owned families use sibling lanes.
         commands.insert_resource(crate::features::FactionRelations::default());
 
-        // The planned families commit through the one planner. Provider-staged
-        // actors used to be written as `SpawnActorRequest` MESSAGES and applied
-        // a system later; they are constructed here instead, so a room's
-        // occupants all exist at the same instant and a staged actor is a plan
-        // row rather than a deferred side effect.
         let construction = {
             let mut ctx = ambition_platformer2d_shared_tangle::construction::ConstructionExecCtx {
                 commands,
@@ -1009,7 +940,6 @@ impl RoomFeatureConstructionPlan {
     }
 }
 
-/// Execute a previously prepared feature plan.
 pub fn spawn_room_feature_entities_from_plan(
     commands: &mut Commands,
     plan: &RoomFeatureConstructionPlan,

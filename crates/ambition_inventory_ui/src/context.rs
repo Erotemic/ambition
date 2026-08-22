@@ -36,12 +36,6 @@ pub fn declare_inventory_input_context(
 }
 
 /// Install the inventory's input-context claim.
-///
-/// Separate from whoever creates [`InventoryUiState`] so that a composition
-/// showing an inventory without a participant stack (a pure render fixture)
-/// is not forced to carry the input pipeline; and installed BY that composition
-/// rather than inferred, because a claim nobody declared is the failure mode
-/// this whole seam exists to make impossible.
 pub struct InventoryInputContextPlugin;
 
 impl Plugin for InventoryInputContextPlugin {

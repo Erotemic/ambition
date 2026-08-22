@@ -46,10 +46,6 @@ fn brain_preset_resolves_to_valid_variant_for_each_entry() {
     let data = catalog();
     let mut checked = 0usize;
     for (id, entry) in &data.data().characters {
-        // ⚠ **a character may name NO preset** (2026-08-12, D81): its definition
-        // states its autonomous policy instead, and requiring one here would
-        // refuse exactly the migrated characters this campaign produces. What
-        // stays pinned is that a name, when there IS one, resolves.
         if entry.default_brain.is_empty() {
             continue;
         }
@@ -187,11 +183,8 @@ fn exemplar_barks_resolve_from_catalog() {
     );
 }
 
-/// The whole point of shipping suggested lines with the art: a character whose
-/// sprite target authored `dialogue_hints` and NO bark pools still speaks on its
-/// Hall pedestal, in its own voice. Marie Curry is exactly that shape, and this
-/// is checked against the REAL catalog because the failure it guards -- a
-/// character standing silently on a pedestal -- is invisible in a fixture.
+/// The whole point of shipping suggested lines with the art: a character whose sprite target
+/// authored `dialogue_hints` and NO bark pools still speaks on its Hall pedestal, in its own voice.
 #[test]
 fn a_character_with_only_suggested_lines_still_speaks_in_the_hall() {
     use ambition_characters::actor::character_catalog::BarkSituation;

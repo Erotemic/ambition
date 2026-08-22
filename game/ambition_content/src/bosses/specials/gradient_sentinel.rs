@@ -1,7 +1,4 @@
 //! Gradient Sentinel kit (apple rain, overfit volley, minima trap, saddle point, gradient cascade) boss-special Technique.
-//!
-//! Split out of the former 1.8k-line `specials.rs` (2026-06-15) — see
-//! [`super`] (`specials/mod.rs`) for the shared module overview.
 
 use bevy::prelude::*;
 
@@ -28,9 +25,7 @@ const MINIMA_TRAP_KEY: &str = "minima_trap";
 const SADDLE_POINT_KEY: &str = "saddle_point";
 const GRADIENT_CASCADE_KEY: &str = "gradient_cascade";
 
-// Boss-special tuning — content-owned (moved off the engine lib with the
-// techniques; the engine's `features::bosses` no longer holds boss-special
-// numbers). Values are tuned for the gradient-sentinel arena.
+// Values are tuned for the gradient-sentinel arena.
 const APPLE_RAIN_INTERVAL: f32 = 0.35;
 const APPLE_RAIN_SPAWN_SPEED: f32 = 35.0;
 const APPLE_RAIN_DAMAGE: i32 = 1;
@@ -48,15 +43,10 @@ const SADDLE_POINT_AXIS_PERIOD_S: f32 = 1.2;
 const SADDLE_POINT_DAMAGE: i32 = 2;
 const GRADIENT_CASCADE_MINION_COUNT: u8 = 2;
 
-/// Per-boss apple-rain accumulator: state moved out of `BossRuntime`
-/// to keep the runtime focused on body/HP and to let the EFFECTS
-/// consumer (`spawn_apple_rain_from_special_messages`) own the
-/// per-tick spawn cadence. Defaulted-attached to every boss; only a
-/// boss whose `ActionSet.special` is `SpecialActionSpec::Special("apple_rain")`
-/// advances it (only such a boss generates the Special messages the
-/// consumer reads) — the `gnu_ton_rider` encounter is the current
-/// wielder. Per the actor/brain follow-up plan Task B: components hold
-/// state, consumers spawn effects.
+/// Defaulted-attached to every boss; only a boss whose `ActionSet.special` is
+/// `SpecialActionSpec::Special("apple_rain")` advances it (only such a boss generates the Special
+/// messages the consumer reads) — the `gnu_ton_rider` encounter is the current wielder. Per the
+/// actor/brain follow-up plan Task B: components hold state, consumers spawn effects.
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct AppleRainSpawnState {
     /// Seconds carried over from the previous tick's apple-spawn.
@@ -108,15 +98,10 @@ fn apple_rain_spawn_x(spawn_index: u32, world_width: f32, boss_aabb: ae::Aabb) -
     spawn_x
 }
 
-/// Spawn the apple-rain barrage in response to
-/// `ActorActionMessage::Special { spec: SpecialActionSpec::Special("apple_rain") }`.
-/// The boss runtime tags `frame.special_pressed = true` every tick
-/// its `BossAttackProfile::Special("apple_rain")` strike window is active;
-/// the resolver translates that into one `Special` message per
-/// tick. This consumer owns the spawn cadence, the
-/// golden-ratio x distribution, and the self-aabb dodge that keeps
-/// apples from landing on the wielding boss's own head — all of which
-/// used to live inside `BossRuntime::tick_apple_rain`.
+/// Spawn the apple-rain barrage in response to `ActorActionMessage::Special { spec:
+/// SpecialActionSpec::Special("apple_rain") }`. The boss runtime tags `frame.special_pressed =
+/// true` every tick its `BossAttackProfile::Special("apple_rain")` strike window is active; the
+/// resolver translates that into one `Special` message per tick.
 ///
 /// Bosses whose Special slot is something other than `apple_rain`
 /// emit no messages this consumer cares about; bosses whose
@@ -458,14 +443,12 @@ const MINIMA_TRAP_OWNER_PREFIX: &str = "gradient_sentinel_minima";
 const MINIMA_TRAP_KNOCKBACK: f32 = 1.4;
 /// **The CHARACTER the trap summons** — the pacifist crawler.
 ///
-/// ⛔⛔ **this said `"puppy_slug"` and that row has been DELETED** (the slug
-/// became `npc_puppy_slug`, D73 group A). A summon whose id resolves nothing
-/// lands on the generic `combatant` fallback, so every minion this boss cast was
-/// silently the wrong body — wrong health, wrong speed, no crawl, no cling —
-/// from the moment the row went. Nothing failed, because a fallback is a real
-/// body; the only tell was on screen.
+/// A summon whose id resolves nothing lands on the generic `combatant` fallback, so every
+/// minion this boss cast was silently the wrong body — wrong health, wrong speed, no crawl, no
+/// cling — from the moment the row went. Nothing failed, because a fallback is a real body; the
+/// only tell was on screen.
 ///
-/// ⭐ the name is unchanged in spirit and now names a CHARACTER: the summon road
+/// the name is unchanged in spirit and now names a CHARACTER: the summon road
 /// resolves the prepared cast first and builds from the definition.
 const MINIMA_TRAP_MINION_CHARACTER: &str = "npc_puppy_slug";
 const MINIMA_TRAP_MINION_HALF_SIZE: ae::Vec2 = ae::Vec2::new(24.0, 11.0);
@@ -772,17 +755,15 @@ pub fn spawn_saddle_point_from_special_messages(
     }
 }
 
-/// ⭐⭐ **THE CASCADE'S MINIONS ARE THE AI SLOP** (cast 2026-08-13, provisional).
+/// **THE CASCADE'S MINIONS ARE THE AI SLOP**.
 /// This pointed at `small_lurker`, a name whose archetype row a census had
 /// deleted, left dangling on purpose while "what IS a small lurker?" waited for
-/// Jon. The cast applied is the recommendation that sat on the decision surface:
 /// this technique's own design note has always read *"spawn N **\"slop\"
 /// minions**"*, `npc_ai_slop` is the registered, body-complete character of that
 /// exact name, and the sibling constant above (`MINIMA_TRAP_MINION_CHARACTER`)
 /// was already cast the same way.
 ///
-/// ⚠ **provisional means the reversal is THIS ONE STRING** — a casting choice in
-/// Jon's "easy to retune" category, not an architectural fact. If a small lurker
+/// **provisional means the reversal is THIS ONE STRING** — a casting choice in
 /// turns out to be its own creature, author the character and point this at it;
 /// nothing else in the game names one.
 const GRADIENT_CASCADE_MINION_CHARACTER: &str = "npc_ai_slop";

@@ -225,10 +225,7 @@ pub(crate) fn sync_menu_page_across_backend_switch(
     // closed is irrelevant (the next open's entry key sets the landing page). The very
     // first run has no prior backend to carry from.
     if *last != Some(now) && last.is_some() && overlay.visible {
-        // Carry the page captured LAST frame from the OLD backend. We do NOT read the
-        // live `pages.active` here: `grid_menu_nav` rewrites it to its own (stale) tab
-        // the instant the backend flips to Grid, clobbering the cube's page before we
-        // run. The snapshot below is taken on stable frames, so it is reliable.
+        // The snapshot below is taken on stable frames, so it is reliable.
         if let Some(page) = *carried {
             match now {
                 InventoryUiBackend::Grid => tab_state.active_tab = tab_index_of(page),
@@ -574,15 +571,6 @@ pub(crate) fn grid_menu_nav(
                 return;
             }
             if menu.select {
-                // ⭐ **PUBLISH, do not dispatch.** A controller submit and a tap
-                // are the same event — "the player chose this control" — and
-                // this branch used to say it a second way: it resolved the
-                // action and called `dispatch_menu_action` inline, beside a
-                // pointer path that published `MenuActionActivated` for a
-                // consumer to dispatch. Two spellings of one event is how the
-                // re-pin, the republish invalidation and the close handling
-                // came to exist twice, and how they drift.
-                //
                 // The ERROR bark stays here because it is NOT an activation:
                 // an empty cell has no action to publish, and the consumer
                 // could not tell "nothing there" from "nobody pressed".
@@ -755,14 +743,8 @@ pub(crate) fn grid_menu_republish_view(
         window_start,
         pending_quality: quality_confirm.pending(),
     };
-    // Fix 3: detect inventory/settings STATE changes too, mirroring the cube's
-    // `republish_kaleidoscope_pages` (`owned.is_changed() || settings.is_changed()`).
-    // A select that mutates state (equip an item, toggle a setting, play a radio song)
-    // changes `OwnedItems`/`UserSettings` but NOT the focus cursor, so the old key
-    // `(tab, open_entry, focus, version)` stayed equal and the view did not refresh
-    // until the cursor moved. The dispatch paths ALSO clear `last_key` directly (the
-    // belt-and-braces force-republish), so even a state change this key can't see
-    // (e.g. a dev snapshot) still re-renders.
+    // The dispatch paths ALSO clear `last_key` directly (the belt-and-braces force-republish),
+    // so even a state change this key can't see (e.g. a dev snapshot) still re-renders.
     let state_changed = owned.is_changed() || settings.is_changed() || quality_confirm.is_changed();
     if tab_state.last_key == Some(key) && !roots.is_empty() && !state_changed {
         return;
@@ -798,12 +780,9 @@ pub(crate) fn grid_menu_republish_view(
         quality_confirm.pending(),
     );
 
-    // BUG 2: strip the cube's page-turn EDGE controls (`MenuPageAction::ChangePage`).
-    // The page builders bake `< Prev` / `> Next` edge buttons for the cube; the flat
-    // tabbed renderer replaces them with the tab bar, so they must NOT be drawn (they
-    // leaked in as "< Items" / "> Quest" flashes, and keyboard/gamepad nav could land
-    // on them). The flat backend filters them out before handing the model to the
-    // engine renderer.
+    // The page builders bake `< Prev` / `> Next` edge buttons for the cube; the flat tabbed
+    // renderer replaces them with the tab bar, so they must NOT be drawn (they leaked in as "<
+    // Items" / "> Quest" flashes, and keyboard/gamepad nav could land on them).
     let mut page = page.clone();
     page.nodes.retain(|n| {
         !matches!(
@@ -815,12 +794,8 @@ pub(crate) fn grid_menu_republish_view(
         )
     });
 
-    // Despawn the previous tree, then respawn ON THE SAME command buffer so both
-    // land in the same flush. (The old code despawned here but deferred the spawn
-    // into a `commands.queue(world.commands())` closure that flushed LATER, leaving
-    // a one-frame gap with no body content — the menu body looked empty and only
-    // flashed its content for the frame a respawn happened to land. Spawning
-    // directly with the system's own `Commands` closes that gap.)
+    // Despawn the previous tree, then respawn ON THE SAME command buffer so both land in the same
+    // flush. Spawning directly with the system's own `Commands` closes that gap.)
     for e in &roots {
         commands.entity(e).despawn();
     }
@@ -1048,16 +1023,12 @@ pub(crate) fn grid_menu_tab_activated(
 
 /// Hover: move the cursor onto the hovered control (so keyboard + pointer agree).
 ///
-/// Gated on the machine's active device being `Mouse`: the menu republishes (despawn +
-/// respawn its controls) on every cursor move, and a fresh control spawning
-/// under a STATIONARY mouse makes `bevy_ui` picking fire a `Pointer<Over>`. If
-/// this handler reacted to that while the player was on the keyboard / gamepad /
-/// touch, it would snap the cursor straight back to the mouse on every
-/// directional move (the recurring "can't move away from the hovered option"
-/// bug). A GENUINE mouse move marks `Mouse` first (see
-/// `update_seat_active_devices`), so real hovering still works; only the
-/// rebuild-induced `Over` is ignored. Activation itself comes from Bevy UI's
-/// shared `Interaction` bridge and is independent of this hover ownership gate.
+/// Gated on the machine's active device being `Mouse`: the menu republishes (despawn + respawn
+/// its controls) on every cursor move, and a fresh control spawning under a STATIONARY mouse
+/// makes `bevy_ui` picking fire a `Pointer<Over>`. A GENUINE mouse move marks `Mouse` first
+/// (see `update_seat_active_devices`), so real hovering still works; only the rebuild-induced
+/// `Over` is ignored. Activation itself comes from Bevy UI's shared `Interaction` bridge and is
+/// independent of this hover ownership gate.
 pub(crate) fn grid_menu_pointer_hover(
     over: On<Pointer<Over>>,
     overlay: Res<ambition_platformer2d::inventory_ui::InventoryUiState>,
@@ -1107,7 +1078,7 @@ pub fn install_grid_unified_menu(app: &mut App) {
         // also inits it, but init here too so the Grid backend is self-sufficient
         // (`init_resource` is idempotent).
         .init_resource::<ambition_platformer2d::input::SeatActiveDevices>();
-    // ⚠ **registered HERE, beside the system that publishes it**, not only in the
+    // **registered HERE, beside the system that publishes it**, not only in the
     // `install_bevy_ui_menu_actions` block below. `grid_menu_nav` now writes this
     // message, so a composition that installs nav without the pointer bridge
     // (every `grid_app()` test fixture) would panic on an uninitialised
@@ -1139,12 +1110,12 @@ pub fn install_grid_unified_menu(app: &mut App) {
                 .in_set(ambition_platformer2d::actors::schedule::MenuNavConsume),
         )
             .chain()
-            // ⚠ **CONDITIONAL on the host, like the preset-map sync in
+            // **CONDITIONAL on the host, like the preset-map sync in
             // `app/plugins.rs`.** `CoreSimulation` lives in `app.sim_schedule()`,
             // which is this literal `Update` only under `RenderFrame`; the shipped
             // `dev_tools` build is `Ggrs`, where measurement puts 0 systems in
             // `Update`'s CoreSimulation node and 242 in `GgrsSchedule`. Kept
-            // because `RenderFrame` is the default host — but ⛔ do NOT read this
+            // because `RenderFrame` is the default host — but do NOT read this
             // pin as proof that menu nav consumes the frame before the sim does
             // under rollback: there the sim has already run, in `PreUpdate`.
             // What actually keeps the menu and the sim from fighting over a press
@@ -1187,7 +1158,7 @@ pub fn install_grid_unified_menu(app: &mut App) {
             )
                 .run_if(grid_backend_active)
                 .after(BevyUiMenuInteractionSet)
-                // ⚠ **AND after nav, which now publishes activations too.** Without
+                // **AND after nav, which now publishes activations too.** Without
                 // this the two sets are unordered siblings in `Update`, so a
                 // controller submit would be dispatched a frame late — breaking the
                 // `InputSet` contract that an edge produced this frame is consumed

@@ -7,12 +7,9 @@
 //! realization has to end up bound to the new one, on the same entity, without
 //! losing its identity, and the old image has to die.
 //!
-//! ⚠ **a rebind that only works on the frame `GameAssets` changed is not
-//! convergence.** The new sheet's pages are `asset_server.load`ed, so they land
-//! some frames LATER — after the one-frame `is_changed()` window has closed. Both
-//! fixtures here deliberately land the image on a later frame, because that is
-//! the ordinary case and the one that used to strand a body on old pixels
-//! forever.
+//! **a rebind that only works on the frame `GameAssets` changed is not convergence.** The new
+//! sheet's pages are `asset_server.load`ed, so they land some frames LATER — after the one-frame
+//! `is_changed()` window has closed.
 
 use bevy::prelude::*;
 
@@ -156,8 +153,6 @@ fn an_actor_body_converges_to_the_new_tier_and_the_old_image_dies() {
         "the fixture must START bound to the half realization"
     );
 
-    // APPLY. The engine retires the half realization and republishes at Full;
-    // its pages are freshly `load`ed, so the image has NOT landed yet.
     let full = a_pending_realization(&mut app, TextureResolutionScale::Full);
     let full_image = full.texture.id();
     app.insert_resource(quality(VisualQualityProfile::High));
@@ -167,7 +162,7 @@ fn an_actor_body_converges_to_the_new_tier_and_the_old_image_dies() {
         .publish(ACTOR_NAME, full.clone());
     app.update();
 
-    // ⚠ THE FRAME THAT MATTERS. `GameAssets` last changed a frame ago; the
+    // THE FRAME THAT MATTERS. `GameAssets` last changed a frame ago; the
     // decode finishes now. A binder gated on `is_changed()` never looks again.
     the_image_lands(&mut app, &full);
     drop(full);
@@ -190,7 +185,7 @@ fn an_actor_body_converges_to_the_new_tier_and_the_old_image_dies() {
         Some(ACTOR_ID.to_string()),
     );
 
-    // ⭐ NOTHING LIVE STILL REFERENCES THE OLD ONE. There is no evictor: the
+    // NOTHING LIVE STILL REFERENCES THE OLD ONE. There is no evictor: the
     // table dropped its clones on republish and the body dropped its handle on
     // rebind, so the last strong handle is gone and Bevy reclaims the image.
     app.update();
@@ -271,7 +266,7 @@ fn the_player_body_converges_to_the_new_tier_and_the_old_image_dies() {
     );
 }
 
-/// ⛔ **A profile change that keeps the tier must not thrash the sprite.**
+/// **A profile change that keeps the tier must not thrash the sprite.**
 ///
 /// `Low` and `Medium` realize the same `Half` pixels. A binder that keyed on the
 /// active PROFILE — or on "`GameAssets` changed" — would rebuild the sprite and
@@ -321,18 +316,14 @@ fn a_profile_change_that_keeps_the_tier_does_not_rebind() {
     );
 }
 
-/// ⭐⭐ **a spawn's ART IDENTITY names its art** (queue D56).
+/// **a spawn's ART IDENTITY names its art**.
 ///
-/// ⛔ the sheet was the ONE thing bound off presentation: everything else about
+/// the sheet was the ONE thing bound off presentation: everything else about
 /// an actor — barks, hurt feedback, sprite-derived collision, authored attack
 /// volumes — resolves through `sprite_character_id`, while `upgrade_actor_sprites`
 /// looked the sheet up by DISPLAY NAME. So `EnemySpawnSpec::character_id`, added
 /// so a level's label and its art identity could differ, could not do the job it
 /// exists for: any spawn whose id differed from its name drew the placeholder.
-///
-/// The fixture is that exact shape — a body labelled one thing whose art is
-/// registered under another — and it is why the defect had no witnesses: 0 of 65
-/// authored spawns set the field, so nothing in the game was in this case.
 #[test]
 fn an_actor_binds_the_sheet_of_its_character_id_not_its_display_name() {
     let mut app = asset_app();
@@ -353,7 +344,7 @@ fn an_actor_binds_the_sheet_of_its_character_id_not_its_display_name() {
         ACTOR_ID.to_string(),
         ambition_sim_view::ActorRenderView {
             sprite_character_id: Some("catalog_identity".to_string()),
-            // ⚠ deliberately NOT a registered sheet: if the binder still
+            // deliberately NOT a registered sheet: if the binder still
             // preferred the label this would find nothing and draw the
             // placeholder, which is the bug.
             name: "A Label Nobody Registered".to_string(),
@@ -381,10 +372,8 @@ fn an_actor_binds_the_sheet_of_its_character_id_not_its_display_name() {
     );
 }
 
-/// The poison, and it is what keeps the fix from being a rename. An actor with
-/// NO `sprite_character_id` — every authored spawn in the game today — still
-/// resolves by its display name. Deleting that arm would un-art the whole cast
-/// to fix a case with no occurrences.
+/// An actor with NO `sprite_character_id` — every authored spawn in the game today — still
+/// resolves by its display name.
 #[test]
 fn an_actor_without_a_character_id_still_resolves_by_its_display_name() {
     let mut app = asset_app();
@@ -429,31 +418,19 @@ fn an_actor_without_a_character_id_still_resolves_by_its_display_name() {
     );
 }
 
-/// ⭐⭐ **a prop's quality stamp is the tier of the ASSET IT WAS BUILT FROM,
-/// never the tier that was requested** (queue D52, the guard the row left owed).
+/// **a prop's quality stamp is the tier of the ASSET IT WAS BUILT FROM,
+/// never the tier that was requested**.
 ///
-/// ⛔ the poison IS the test: request a tier the prop table does not hold. Under
-/// the old code `refresh_prop_sprites_on_game_assets_change` read
-/// `active_sprite_scale(quality)` and stamped THAT while rebuilding from
-/// whatever the preserved table still held — so a `Half` prop under a `Full`
-/// request was rebuilt from `Half` pixels and marked `Full`, after which
-/// `q.scale == scale` was true forever and nothing looked at it again. Falsely
-/// current, and permanently.
-///
-/// ⚠ **an honest stamp is not a current prop.** Props still carry no
-/// rematerialization recipe, so the table keeps the old asset — this pins that
-/// the staleness stays VISIBLE, which is the whole difference D52 bought.
-///
-/// (Writable as of 2026-08-10: the row blocked it on D59, and
-/// `cargo test -p ambition_render` links again.)
+/// **an honest stamp is not a current prop.** Props still carry no rematerialization recipe, so
+/// the table keeps the old asset — this pins that the staleness stays VISIBLE, which is the
+/// whole difference bought.
 #[test]
 fn a_prop_is_stamped_with_the_tier_it_was_actually_built_from() {
     use crate::rendering::primitives::PropVisual;
     use ambition_platformer2d_world::rooms::PropDraw;
 
     let mut app = asset_app();
-    // The REQUEST is Full; the table holds only Half. That divergence is the
-    // whole fixture — with a matching pair the bug is invisible.
+    // The REQUEST is Full; the table holds only Half.
     app.insert_resource(quality(VisualQualityProfile::High));
     let half = a_pending_realization(&mut app, TextureResolutionScale::Half);
     the_image_lands(&mut app, &half);
@@ -513,7 +490,7 @@ fn a_prop_is_stamped_with_the_tier_it_was_actually_built_from() {
 fn texture_readiness_asks_the_owner_of_the_handle() {
     use super::texture_is_ready;
 
-    // ⚠ its OWN app, with the IO pool: `asset_server.load` spawns onto it and
+    // its OWN app, with the IO pool: `asset_server.load` spawns onto it and
     // panics without it, and the shared `asset_app()` fixture deliberately has no
     // pool because no other test here issues a real load.
     let mut app = App::new();

@@ -20,13 +20,9 @@
 //!
 //! # Why `no_characters()` is a call and not an omission
 //!
-//! `PlatformerAssetsPlugin` refuses to invent an empty character catalog, and
-//! its comment says why: *"silently substituting an empty catalog is how a game
-//! ships with its bosses drawn as the fallback body and nobody notices."* That
-//! is right. But a game with no cast is an ordinary thing, and before slice B
-//! there was no way to SAY so — the 2026-07-30 blind agent recovered the empty
-//! roster by feeding the parser `"()"` and reading the errors it complained
-//! back.
+//! `PlatformerAssetsPlugin` refuses to invent an empty character catalog, and its comment says why:
+//! *"silently substituting an empty catalog is how a game ships with its bosses drawn as the
+//! fallback body and nobody notices."* That is right.
 //!
 //! So the engine still refuses to guess, and the consumer now has a word for
 //! it. That is the whole shape of this slice: not *make the demand go away*,
@@ -77,12 +73,7 @@ impl GameModule for MinimalModule {
 // audio fragment, and now nothing: `playable()` declares the experience and
 // `no_audio()` declares the silence.
 //
-// ⚠ **The whole game is now a declaration.** It installs no plugin, spawns no
-// system, and touches no `App`. That is ADR 0032 decision 1 reaching its
-// conclusion for the smallest possible consumer — "nothing a provider writes is
-// live when its `define` returns" — and it is the clearest measure of what
-// slices A-C bought: this file used to need `ambition_platformer2d::provider`,
-// `ambition_platformer2d::runtime`, `ambition_platformer2d::engine_core` and `ambition_platformer2d::audio` to say the
-// same thing.
+// **The whole game is now a declaration.** It installs no plugin, spawns no system, and touches no
+// `App`.
 
 pub mod minimal_experience;

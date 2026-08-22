@@ -2,19 +2,12 @@
 //! strike back, excluded from the save file, and skipped by the path
 //! assignment — all of which is what `practice_target` says in one word.
 //!
-//! ⚠ **it authors no `contact_damage`, and its old row's comment was
-//! wrong about that.** `sandbag_finite` said *"It still deals light
-//! CONTACT damage if you walk into it"* directly above
-//! `body_contact_damage: false`, which turns exactly that off. The flag
-//! is the gate, so the comment described an intention nobody had
-//! implemented, and a migration that believed the prose would have given
-//! the dummy a hitbox it never had.
+//! The flag is the gate, so the comment described an intention nobody had implemented, and a
+//! migration that believed the prose would have given the dummy a hitbox it never had.
 //!
-//! ⚠ its `respawn: InPlace(0.85)` moves to the placement, where a respawn
-//! policy belongs (ADR 0022) — and `sandbag_infinite` does NOT migrate
-//! with it: `never_dies` is a character trait, so the immortal dummy is a
-//! different creature and needs its own registered character. See ledger
-//! D77.
+//! its `respawn: InPlace(0.85)` moves to the placement, where a respawn policy belongs (ADR 0022) —
+//! and `sandbag_infinite` does NOT migrate with it: `never_dies` is a character trait, so the
+//! immortal dummy is a different creature and needs its own registered character.
 
 use ambition_characters::actor::CharacterLocomotion;
 use ambition_characters::brain::{BrainProfile, CharacterBrainTemplate, MoveStyleSpec};

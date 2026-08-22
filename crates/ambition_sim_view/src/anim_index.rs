@@ -50,11 +50,8 @@ pub struct ActorSpriteData {
     /// **The body's own resolved reference basis**, so the locomotion metric is
     /// measured along ITS run axis rather than world-x.
     ///
-    /// ⛔ not the global `GravityField`: that is a per-tick mirror of the PRIMARY
-    /// body's frame, so every NPC in a localized-gravity zone would be animated
-    /// against the player's gravity. `Option` because a body spawned mid-tick has
-    /// not been through the frame-resolution phase yet; it reads as ordinary
-    /// down-gravity, which is what it did before this was an input at all.
+    /// not the global `GravityField`: that is a per-tick mirror of the PRIMARY body's frame, so
+    /// every NPC in a localized-gravity zone would be animated against the player's gravity.
     pub frame: Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     /// Content-driven pose PIN. When present it wins over the picked pose — a
     /// content state machine (e.g. a shelled enemy's withdraw cycle) uses it to
@@ -78,7 +75,7 @@ pub struct ActorAnimFrame {
     /// **The authored clip the body's ACTIVE MOVE asks to be drawn as**, with
     /// its fallbacks, or `None` when no move is playing.
     ///
-    /// ⭐⭐ sprite redirect P0. `anim` is a [`CharacterAnim`] — 56 semantic body
+    /// sprite redirect P0. `anim` is a [`CharacterAnim`] — 56 semantic body
     /// states — and the new fighter sheets carry rows it has no variant for
     /// (`smash_forward`, `air_dodge`, `tumble`, `tech_roll`). `MoveSpec` already
     /// names its clip and its fallback chain and says its timeline is
@@ -86,19 +83,19 @@ pub struct ActorAnimFrame {
     /// the request and the renderer resolves it against the sheet it is about
     /// to draw.
     ///
-    /// ⚠ **it is a REQUEST, not a row.** Whether `smash_forward` exists is a
+    /// **it is a REQUEST, not a row.** Whether `smash_forward` exists is a
     /// question about one sheet, so it is answered at the draw
     /// (`CharacterAnimator::request_clip`) and never here — that is the same
     /// rule `AnimRow` binding follows everywhere else.
     ///
-    /// ⚠ **and `anim` stays populated**, because it is what a sheet with none of
+    /// **and `anim` stays populated**, because it is what a sheet with none of
     /// the chain draws. A body playing a move is still semantically in a pose.
     pub clip: Option<ClipRequest>,
 }
 
 /// The clip + fallbacks one active move asks for. See [`ActorAnimFrame::clip`].
 ///
-/// ⚠ owned strings rather than borrows: this is a materialized read-model that
+/// owned strings rather than borrows: this is a materialized read-model that
 /// outlives the frame's queries, and a move's chain is three or four short names
 /// resolved once per drawn actor.
 #[derive(Clone, Debug, PartialEq)]
@@ -109,8 +106,7 @@ pub struct ClipRequest {
 
 impl ClipRequest {
     /// Build a request from a static preference chain — the shape
-    /// `ambition_character_sprites::body_state_clip` answers in. `None` for an
-    /// empty chain, which is a caller bug rather than a state.
+    /// `ambition_character_sprites::body_state_clip` answers in.
     pub fn from_chain(chain: &[&str]) -> Option<Self> {
         let (clip, fallbacks) = chain.split_first()?;
         Some(Self {
@@ -134,9 +130,9 @@ impl ClipRequest {
 // per-frame ANIM frame below stays a live read until slice B materializes it.
 
 /// Materialized per-frame animation pose for every actor, keyed by
-/// [`FeatureId`] — the MOVING half of the actor read-model. ⚠ `ActorAnimFrame`
+/// [`FeatureId`] — the MOVING half of the actor read-model. `ActorAnimFrame`
 /// stopped being `Copy` when it gained the active move's clip request
-/// (2026-08-11): the chain is owned strings, because a materialized read-model
+/// the chain is owned strings, because a materialized read-model
 /// outlives the queries that built it. Presentation reads the pose by id and never borrows the
 /// actor clusters to animate. Because this pose is presentation-ONLY, its
 /// rebuild is registered in the render presentation plugin — NOT the sim
@@ -148,7 +144,7 @@ pub struct ActorAnimIndex {
 }
 
 impl ActorAnimIndex {
-    /// ⚠ **borrowed rather than copied** since the frame gained the active
+    /// **borrowed rather than copied** since the frame gained the active
     /// move's clip chain — the caller draws from it in place and never needs to
     /// own it, so nothing clones the strings per actor per frame.
     pub fn get(&self, id: &str) -> Option<&ActorAnimFrame> {
@@ -236,12 +232,12 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                 anim,
                 pos: a.kin.pos,
                 facing: a.kin.facing,
-                // ⭐ what the ACTIVE MOVE asks to be drawn as. The move's own
+                // what the ACTIVE MOVE asks to be drawn as. The move's own
                 // timeline is authoritative for presentation as well as
                 // gameplay, so this is the move speaking, not a guess about it.
-                // ⭐ a MOVE names its row; failing that, a fighter STATE does
+                // a MOVE names its row; failing that, a fighter STATE does
                 // (sprite redirect P2 — air dodge, tumble, knockdown, getup).
-                // ⚠ the move wins: a body that is mid-swing while tumbling is
+                // the move wins: a body that is mid-swing while tumbling is
                 // drawn as its swing, which is what its timeline says it is.
                 clip: a
                     .playback
@@ -270,9 +266,6 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
     index.end_rebuild();
 }
 
-/// One boss's hazard-column lane for this frame — the visible rectangle is
-/// computed sim-side from the SAME volume math as damage, so the visual and
-/// the hitbox are exactly coincident (E4 slice 7).
 #[derive(Clone, Copy, Debug)]
 pub struct HazardLaneFact {
     /// `true` during the strike window (red solid); `false` during
@@ -282,12 +275,10 @@ pub struct HazardLaneFact {
     pub size: ae::Vec2,
 }
 
-/// Materialized per-frame boss presentation facts, keyed by [`FeatureId`]:
-/// the resolved [`BossAnimState`] (facing / tint / row-selection facts), the
-/// boss's collision AABB, and the hazard-column lane when one is live. The
-/// MOVING half of the boss read-model — `BossRenderIndex` carries the static
-/// identity. Presentation reads this by id and never borrows the live boss
-/// clusters (E4 slice 7); rows are `Copy`, so the rebuild just overwrites.
+/// Materialized per-frame boss presentation facts, keyed by [`FeatureId`]: the resolved
+/// [`BossAnimState`] (facing / tint / row-selection facts), the boss's collision AABB, and the
+/// hazard-column lane when one is live. The MOVING half of the boss read-model — `BossRenderIndex`
+/// carries the static identity.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct BossFrameIndex {
     frames: std::collections::HashMap<String, (BossFrameView, u64)>,
@@ -350,9 +341,6 @@ impl BossFrameIndex {
     }
 }
 
-/// Rebuild [`BossFrameIndex`] from the live boss clusters — the same reads
-/// `animate_bosses` / `manage_gradient_lane_visual` used to make live from
-/// render, moved sim-side. Runs in `FeatureViewSync`.
 pub fn rebuild_boss_frame_index(
     mut index: ResMut<BossFrameIndex>,
     bosses: Query<(
@@ -362,11 +350,8 @@ pub fn rebuild_boss_frame_index(
         &ambition_characters::actor::BodyCombat,
         &ambition_characters::brain::BossAttackState,
         &ambition_characters::brain::Brain,
-        // The SIM-owned draw cursor. `drive_boss_animators` advances it earlier in
-        // the sim tick (it runs after the attack-state projection, before this
-        // FeatureViewSync rebuild), so we read the CURRENT frame and publish it for
-        // the render mirror. `Option` so a boss fixture spawned without the anim
-        // cursor still lands in the index (it just draws Rest frame 0).
+        // The SIM-owned draw cursor. `Option` so a boss fixture spawned without the anim cursor
+        // still lands in the index (it just draws Rest frame 0).
         Option<&ambition_boss_encounter::sprites::BossAnimFrame>,
     )>,
 ) {

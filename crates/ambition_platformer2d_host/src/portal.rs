@@ -218,7 +218,7 @@ mod host_adapter {
     /// The debug overlay draws after the continuity camera is tagged, so its
     /// labels track a camera that already has its final identity this frame.
     ///
-    /// ⚠ ONE member — tagging the eligible camera is the whole step.
+    /// ONE member — tagging the eligible camera is the whole step.
     #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
     pub struct PortalContinuityCameraTagged;
 
@@ -241,23 +241,18 @@ mod host_adapter {
 
     /// Optional camera-continuity screen anchor for portal transits.
     ///
-    /// When the active continuity focus transits, map the previous visible
-    /// camera center through the same portal BODY map that moved the focus.
-    /// The host camera then keeps the focus at that exact screen-space offset
-    /// only while the focus remains in the aperture; once it leaves, ordinary
-    /// camera policy resumes immediately. Straight-through pairs are exact
-    /// translation continuity by construction; quarter-turn pairs apply their
-    /// roll immediately for the same aperture interval.
+    /// The host camera then keeps the focus at that exact screen-space offset only while the
+    /// focus remains in the aperture; once it leaves, ordinary camera policy resumes
+    /// immediately. Straight-through pairs are exact translation continuity by construction;
+    /// quarter-turn pairs apply their roll immediately for the same aperture interval.
     pub fn apply_portal_camera_continuity(
         selection: Option<Res<PortalCameraContinuitySelection>>,
         config: Option<Res<PortalCameraContinuityConfig>>,
         host_view: Option<Res<PortalCameraContinuityHostView>>,
         world_frame: Option<Res<PortalWorldFrame>>,
         state: Option<ResMut<PortalCameraContinuityState>>,
-        // **THE EASING STATE OF EVERY LOCAL VIEW.** A portal maps the world, so
-        // every observer of that world has to carry its own smoothed target
-        // through the same map — this used to be one global ease state, which is
-        // the assumption a second view breaks.
+        // **THE EASING STATE OF EVERY LOCAL VIEW.** A portal maps the world, so every observer
+        // of that world has to carry its own smoothed target through the same map
         mut view_ease: Query<&mut CameraEaseState, With<ambition_sim_view::LocalView>>,
         mut transited: MessageReader<ambition_portal2d::PortalBodyTransited>,
         gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityField>>,
@@ -463,9 +458,7 @@ mod host_adapter {
                 raw_roll
             };
 
-            // Debug the exact screen-space invariant. The body has already been
-            // moved to the exit side; reverse-map it to estimate the pre-transfer
-            // body center, then compare screen offsets around the mapped camera.
+            // Debug the exact screen-space invariant.
             let body_after = body.pos;
             let body_before =
                 ambition_portal2d::pieces::map_point(body_after, &exit_frame, &enter_frame);

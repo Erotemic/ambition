@@ -15,7 +15,7 @@
 //! ⇒ this is the description that closes that gap, and it is the item domain's
 //! because only the item domain knows what an item IS.
 //!
-//! # ⭐ WHAT THE MINIMAL DURABLE DESCRIPTION TURNED OUT TO BE
+//! # WHAT THE MINIMAL DURABLE DESCRIPTION TURNED OUT TO BE
 //!
 //! ```text
 //! identity     the occurrence's own SimId          — the map key
@@ -32,49 +32,28 @@
 //! owe a position, and a position is a fact nothing in a checkpoint currently
 //! remembers for a minted instance.
 //!
-//! ⛔ **the PROVENANCE is not decoration, and leaving it out was the tempting
-//! shortcut.** Without it the rebuilt occurrence would be a dynamic instance
-//! that cannot say which spawner it descends from — exactly the state
-//! [`SpawnOrigin::Dynamic`]'s own doc refuses to let anyone spell — and it would
-//! therefore be invisible to the NEXT capture. The object would come back once
-//! and be unrecoverable from the checkpoint after that.
+//! **the PROVENANCE is not decoration, and leaving it out was the tempting shortcut.** Without
+//! it the rebuilt occurrence would be a dynamic instance that cannot say which spawner it
+//! descends from — exactly the state [`SpawnOrigin::Dynamic`]'s own doc refuses to let anyone
+//! spell — and it would therefore be invisible to the NEXT capture.
 //!
-//! ⛔ **and the definition is a REFERENCE, never a copy.** The row stores the
-//! spec's authored id and the item domain resolves it back through
-//! [`held_spec_by_id`](super::held_spec_by_id). Copying the resolved
-//! [`HeldItemSpec`](ambition_characters::brain::HeldItemSpec) in would put a
-//! second authority for *what an axe is* inside a snapshot, and a content edit
-//! would then be silently overridden by every checkpoint taken before it.
+//! **and the definition is a REFERENCE, never a copy.** The row stores the spec's authored id
+//! and the item domain resolves it back through [`held_spec_by_id`](super::held_spec_by_id).
 //!
-//! # ⛔⛔ IT IS A SNAPSHOT AT COMMIT TIME, NOT A REGISTRY OF EVERY MINT
+//! # IT IS A SNAPSHOT AT COMMIT TIME, NOT A REGISTRY OF EVERY MINT
 //!
-//! Nothing writes here at the mint site. At a checkpoint the whole map is
-//! replaced by descriptions of the dynamic occurrences that are part of the
-//! remembered world — held or resting. An instance minted AFTER the checkpoint
-//! has no row, which is the same sentence from the other side as "it did not
-//! exist at the checkpoint, so a death does not owe it back".
-//!
-//! ⭐ **the description never decides residency.** This map answers *how* to
+//! **the description never decides residency.** This map answers *how* to
 //! rebuild a runtime mint. The custody baseline decides whether a held instance
 //! is owed and into whose hand; an `OccurrenceWhereabouts::Placed` row decides
 //! whether a resting instance is owed in a room. Description and disposition are
 //! separate facts, so neither becomes a universal instance registry.
 //!
-//! # ✔ IT REACHES DISK UNCHANGED (2026-08-16)
-//!
 //! `AmbitionGameSaveData::minted_items` is [`MintedItemDescription`] field for
 //! field — provenance and a spec-id reference — because the durable horizon asked
 //! the same question this one did (*how would you make this again?*) and got the
-//! same answer. ⭐ **that the on-disk form needed no fourth field is the
+//! same answer. **that the on-disk form needed no fourth field is the
 //! measurement**, not a convenience: the description this file settled on was the
 //! minimal one, and a save is where "minimal" gets tested.
-//!
-//! ⚠ **the remaining boundary is IN-FLIGHT state, not a dropped item.** Since
-//! 2026-08-19 `live_minted_descriptions` describes both held and resting dynamic
-//! instances, and a resting occurrence's `OccurrenceWhereabouts::Placed` row
-//! supplies its room/position. A genuinely in-flight occurrence is still outside
-//! this ledger by design; tracking every transient would turn the occurrence
-//! horizon into a universal instance registry.
 
 use std::collections::BTreeMap;
 
@@ -110,11 +89,6 @@ pub struct MintedItemDescription {
 
 /// **How to rebuild each runtime-minted instance remembered at the last
 /// committed checkpoint**, keyed by the occurrence's own identity.
-///
-/// ⛔⛔ **rollback state with a real VALUE, exactly like the two baselines it
-/// sits beside.** Nothing republishes it from live state, and a checkpoint
-/// commits mid-frame, so a rewind across the commit must restore it or the world
-/// keeps a description from a future that was un-happened.
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct MintedItemBaseline {
     /// occurrence → how to make it again.
@@ -147,12 +121,12 @@ impl MintedItemBaseline {
     /// **Adopt a set of descriptions** — the one road that writes this outside a
     /// [`CheckpointCommitted`].
     ///
-    /// ⭐ **its single caller is a durable LOAD.** A fresh process has no
+    /// **its single caller is a durable LOAD.** A fresh process has no
     /// checkpoint history, so what the save file described IS what a first death
     /// can rebuild; without this the shipped restore would find a custody row it
     /// has no recipe for and warn instead of putting the object back.
     ///
-    /// ⛔ **whole-value, and still not a registry.** Adopting a file's rows is
+    /// **whole-value, and still not a registry.** Adopting a file's rows is
     /// the same snapshot semantics the capture has — the map is replaced, never
     /// accumulated.
     pub fn adopt(&mut self, minted: BTreeMap<SimId, MintedItemDescription>) {
@@ -183,19 +157,14 @@ impl MintedItemBaseline {
 /// **Record how to remake what the simulation minted, at the instant a
 /// checkpoint commits.**
 ///
-/// ⚠ **an empty capture is a real answer and is written**, for the same reason
-/// the custody capture writes one: leaving the previous checkpoint's rows in
-/// place would let a later death rebuild something the player had already
-/// legitimately parted with.
-///
-/// ⚠ **the population is `SpawnOrigin::Dynamic` AND in custody.** Dynamic,
+/// **the population is `SpawnOrigin::Dynamic` AND in custody.** Dynamic,
 /// because an authored occurrence is rebuilt by its record and a second
 /// description of it here would be a competing authority. In custody, because
 /// that is the only question this value serves — a minted object lying in a
 /// loaded room is answered by the object itself, and one in an unloaded room is
 /// beyond what a checkpoint remembers at all.
 ///
-/// ⭐ **it reads [`ItemCustody`], the item domain's own authority, rather than
+/// **it reads [`ItemCustody`], the item domain's own authority, rather than
 /// the [`InCustodyOf`](ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf)
 /// projection the custody capture reads.** Each domain captures from what it
 /// owns. The projection drops a row for a room-fixture hand, so this map can
@@ -223,22 +192,7 @@ pub fn capture_minted_item_baseline(
 
 /// **WHAT THE PLAYER WAS ENTITLED TO AT THE LAST COMMITTED CHECKPOINT.**
 ///
-/// ⛔⛔ **the gate D132 named, and the reason it could not be opened before.**
-/// `OwnedItems` is a QUANTITY table: an entitlement conferred by
-/// `<<give_item>>`, a shop or a drop, with no object behind it until something
-/// mints one. Throwing such a quantity minted an INSTANCE without spending the
-/// row, so the row and the object both claimed it and a second throw made a
-/// second object — measured: one granted javelin, two javelins on the floor.
-///
-/// The row could not simply be spent at the mint, and the throw's own comment
-/// said why: *"the catalog is not checkpoint state, so a death that retracts a
-/// minted-after-the-checkpoint instance would find the quantity already spent
-/// and ANNIHILATE it — the mirror image of the phantom this slice removed."*
-/// ⇒ **so the catalog becomes checkpoint state here, and the mint spends the
-/// row in the same change.** Either half alone is a bug in one direction or the
-/// other.
-///
-/// ⚠ **rollback state with a real VALUE, exactly like its three siblings.**
+/// **rollback state with a real VALUE, exactly like its three siblings.**
 /// Nothing republishes it, and a commit happens mid-frame at a shrine, so a
 /// rewind across the commit must restore it or the world keeps an entitlement
 /// from a future that was un-happened.
@@ -246,8 +200,8 @@ pub fn capture_minted_item_baseline(
 pub struct OwnedItemsBaseline(crate::items::OwnedItems);
 
 impl OwnedItemsBaseline {
-    /// What the last commit saw. `None` is not expressible: a checkpoint always
-    /// saw SOME bag, and an empty one is a real answer.
+    /// `None` is not expressible: a checkpoint always saw SOME bag, and an empty one is a real
+    /// answer.
     pub fn remembered(&self) -> &crate::items::OwnedItems {
         &self.0
     }
@@ -262,13 +216,13 @@ impl OwnedItemsBaseline {
     /// disagree about what the player was entitled to at the last checkpoint
     /// have diverged, and a checksum is how they find out.
     ///
-    /// ⚠ the EQUIPPED slot is deliberately outside it. The baseline restores
+    /// the EQUIPPED slot is deliberately outside it. The baseline restores
     /// stored quantities only — the hand is `restore_custody_to_checkpoint`'s —
     /// so hashing a field this resource does not own would make the projection
     /// disagree with what it actually puts back.
     pub fn checksum(&self) -> u64 {
         use ambition_platformer2d_core::snapshot::{checksum_bytes, put_str, put_u64};
-        // ⭐ `to_persisted` rather than a private field walk: it is already THE
+        // `to_persisted` rather than a private field walk: it is already THE
         // stored-quantity view — the durable save's own — and it excludes the
         // equipped projection for the same reason this checksum must. Reusing it
         // means the hash and the file can never come to disagree about what a
@@ -284,7 +238,6 @@ impl OwnedItemsBaseline {
     }
 }
 
-/// Freeze the player's entitlements at a checkpoint commit.
 pub fn capture_owned_items_baseline(
     mut commits: MessageReader<CheckpointCommitted>,
     owned: Option<Res<crate::items::OwnedItems>>,
@@ -319,7 +272,7 @@ pub fn restore_owned_items_to_checkpoint(
     if !requested {
         return;
     }
-    // ⚠ the EQUIPPED slot is not the baseline's to restore: custody is restored
+    // the EQUIPPED slot is not the baseline's to restore: custody is restored
     // by `restore_custody_to_checkpoint`, which re-equips what the hand held.
     // Writing the whole bag back would fight it for the one field they share.
     let equipped = owned.equipped();
@@ -339,10 +292,8 @@ pub struct ItemCheckpointHorizonPlugin;
 impl Plugin for ItemCheckpointHorizonPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
-        // The item projection must settle before this domain captures its
-        // checkpoint state. Keeping the edge here makes the contribution carry
-        // its own scheduling obligation instead of making the host know which
-        // item set produces the facts.
+        // Keeping the edge here makes the contribution carry its own scheduling obligation
+        // instead of making the host know which item set produces the facts.
         app.configure_sets(
             sim,
             CheckpointCapture.after(super::ItemPickupSet::CoreHeldItems),
@@ -460,36 +411,25 @@ where
 /// **How to remake every runtime mint that exists RIGHT NOW — in a hand or
 /// lying where somebody dropped it.**
 ///
-/// ⭐ **extracted so the checkpoint horizon and the durable one cannot fork.**
-/// The capture above reads it at a commit; the durable writer
-/// (`session::durable_horizon`) reads the same function every tick to decide what
-/// a save file should say. The population rule — `SpawnOrigin::Dynamic` — is
-/// stated once, so a second describer cannot start describing authored
-/// occurrences by accident.
+/// The population rule — `SpawnOrigin::Dynamic` — is stated once, so a second describer cannot
+/// start describing authored occurrences by accident.
 ///
-/// ⛔⛔ **IT USED TO SAY `AND NOT InWorld`, AND THAT LOST EVERY DROPPED MINT.**
-/// A runtime mint put down in a room was described by nobody: this refused it
-/// for being in the world, and no authored record can describe a thing the
-/// simulation invented. So the checkpoint knew WHERE it lay — a `Placed { room,
-/// at }` row is written for every in-world item — and had no way to make it
-/// again.
-///
-/// ⭐ **the two halves are exact complements, which is why the filter read as
+/// **the two halves are exact complements, which is why the filter read as
 /// correct for a year.** An in-custody mint is DESCRIBED and unplaced, because
 /// the hand supplies where it is. An in-world mint is PLACED and, until now,
 /// undescribed. Neither half ever covered the other's case.
 ///
-/// ⚠ **this widens a POPULATION, not a format.** `MintedItemDescription` is
-/// unchanged, so the baseline's codec, the three rollback baselines and the save
-/// version are all untouched by it — the reason D133's recorded cause (*"the
-/// description remembers no position"*) mattered is that it implied the opposite.
+/// **this widens a POPULATION, not a format.** `MintedItemDescription` is unchanged, so the
+/// baseline's codec, the three rollback baselines and the save version are all untouched by it
+/// — the reason recorded cause (*"the description remembers no position"*) mattered is that it
+/// implied the opposite.
 pub fn live_minted_descriptions(
     carried: &Query<(&SimId, &SpawnOrigin, &GroundItem, &ItemCustody), With<RoomScopedEntity>>,
 ) -> BTreeMap<SimId, MintedItemDescription> {
     carried
         .iter()
         .filter_map(|(occurrence, origin, ground, _)| {
-            // ⛔ the DISCRIMINATOR IS THE PROVENANCE COMPONENT, never the shape
+            // the DISCRIMINATOR IS THE PROVENANCE COMPONENT, never the shape
             // of the id string. `SimId::as_str`'s doc is explicit that the
             // spelling is a legibility convenience and that nothing may recover
             // a fact from it — provenance is `SpawnOrigin` precisely so a change
@@ -550,7 +490,7 @@ mod tests {
     /// **A carried runtime mint is described; a carried AUTHORED occurrence is
     /// not.**
     ///
-    /// ⭐ both terms are observed, because the failure that matters is a capture
+    /// both terms are observed, because the failure that matters is a capture
     /// that describes everything: an authored occurrence with a row here would be
     /// rebuilt from a snapshot's copy of its spec instead of from the record that
     /// owns it, and a content edit would stop taking effect.
@@ -600,9 +540,7 @@ mod tests {
 
     /// **A mint that appears AFTER the commit is not in the baseline.**
     ///
-    /// ⛔ this is the poison against the cheap wrong answer — a map written at
-    /// the MINT site rather than captured at the commit. Such a map grows
-    /// forever, and it would describe an object the checkpoint never saw.
+    /// Such a map grows forever, and it would describe an object the checkpoint never saw.
     #[test]
     fn a_mint_after_the_commit_has_no_row() {
         let mut app = horizon_world();
@@ -634,17 +572,9 @@ mod tests {
 
     /// **A later commit with nothing minted overwrites an earlier one's rows.**
     ///
-    /// ⛔ the failure this pins is a capture that skips the write when the map
-    /// would be empty: the previous checkpoint's descriptions survive, and a
-    /// death then rebuilds an object that no longer exists.
-    ///
-    /// ⚠ **its fixture used to DROP the item and expect the row to vanish**, and
-    /// that only worked because the capture refused anything `InWorld` — the
-    /// defect fixed on 2026-08-19, where a dropped mint was described by nobody
-    /// and lost. Dropping is now correctly a no-op for this row: the object still
-    /// exists and still has to be describable. So the fixture states the case the
-    /// test is actually about — the occurrence CEASING TO EXIST — and the claim
-    /// it was written for is unchanged.
+    /// Dropping is now correctly a no-op for this row: the object still exists and still has to be
+    /// describable. So the fixture states the case the test is actually about — the occurrence
+    /// CEASING TO EXIST — and the claim it was written for is unchanged.
     #[test]
     fn committing_with_nothing_minted_clears_the_earlier_rows() {
         let mut app = horizon_world();
@@ -685,22 +615,10 @@ mod tests {
             .id()
     }
 
-    /// **⛔⛔ A DROPPED RUNTIME MINT IS DESCRIBED TOO — it used to be described by
-    /// NOBODY.**
+    /// The capture refused anything `InWorld`, and no authored record can describe a thing the
+    /// simulation invented, so a minted item put down in a room was lost at the save horizon.
     ///
-    /// The capture refused anything `InWorld`, and no authored record can
-    /// describe a thing the simulation invented, so a minted item put down in a
-    /// room was lost at the save horizon. The checkpoint knew WHERE it lay — a
-    /// `Placed { room, at }` row is written for every in-world item — and had no
-    /// way to make it again.
-    ///
-    /// ⭐ **Jon's dropped-weapon ruling is the product requirement behind it**: a
-    /// unique weapon stays where it fell, which is not expressible while the only
-    /// mints that survive are the ones in somebody's hand.
-    ///
-    /// ⚠ both custody states are asserted in ONE run, because the failure that
-    /// matters is a capture that trades one for the other rather than covering
-    /// both.
+    /// A unique dropped weapon must persist where it fell.
     #[test]
     fn the_capture_describes_a_dropped_mint_as_well_as_a_carried_one() {
         let mut app = horizon_world();

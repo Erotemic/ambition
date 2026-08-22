@@ -111,14 +111,11 @@ pub fn is_solid_for_axis(kind: BlockKind, axis: Axis, gravity_dir: Vec2) -> bool
 
 /// **Kinds whose ONLY solidity is a rising head strike — air to everything else.**
 ///
-/// ⛔ **`is_solid_for_axis` is not enough on its own, and that gap shipped.**
-/// `BonkOnly` answers `true` there on the gravity axis, because a head coming up
-/// into one must be stopped — so every OTHER query that filters candidates with
-/// that predicate and then forgets to ask [`bonk_strike_from_head`] treats a
-/// hidden block as an ordinary floor. Two did: the controlled body's
-/// penetration REPAIR, and the generic kinematic sweep enemies use. The result
-/// was one block kind meaning different things depending on which movement
-/// engine drove the body (GPT 5.6, review through `d46a0f7` — correct).
+/// **`is_solid_for_axis` is not enough on its own, and that gap shipped.** `BonkOnly` answers
+/// `true` there on the gravity axis, because a head coming up into one must be stopped — so every
+/// OTHER query that filters candidates with that predicate and then forgets to ask
+/// [`bonk_strike_from_head`] treats a hidden block as an ordinary floor. Two did: the controlled
+/// body's penetration REPAIR, and the generic kinematic sweep enemies use.
 ///
 /// ⭐ **so the rule is stated once, here, and every path that is not the swept
 /// head-strike test skips these outright.** A query that genuinely handles the
@@ -158,8 +155,8 @@ pub fn snap_feet_to_surface(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> Vec
 /// engine's no-artificial-pushout invariant,
 /// shared by the controlled-body sweep and the generic kinematic primitive so
 /// neither path can single-tick teleport an embedded actor out of the world.
-/// Caught twice by the actor OOB trace: the mockingbird arena (2026-06-21) and
-/// the central hub under sideways gravity (2026-06-25).
+/// Caught twice by the actor OOB trace: the mockingbird arena and
+/// the central hub under sideways gravity.
 pub fn is_contact_range_snap(snap: Vec2, body: Aabb) -> bool {
     snap.length() <= body.half_size().length()
 }
@@ -168,10 +165,6 @@ pub fn is_contact_range_snap(snap: Vec2, body: Aabb) -> bool {
 /// with a surface to rest on it (the X span under vertical gravity, the Y span
 /// under wall-walking). Requires [`EDGE_OVERLAP_SLOP`] of real overlap on each
 /// side, so a body hanging off an edge by a sliver does not count as resting.
-///
-/// Canonical unification (2026-06-25): the controlled-body sweep required this
-/// slack ("strict-touch contract"); the generic kinematic sweep used none. The
-/// slack is the more conservative, tuned rule, so it now applies to every actor.
 pub fn perpendicular_overlap(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> bool {
     if gravity_dir.y.abs() >= gravity_dir.x.abs() {
         spans_overlap_for_support(
@@ -194,12 +187,8 @@ pub fn perpendicular_overlap(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> bo
 /// the axis perpendicular to the body's own gravity, so this is as
 /// gravity-generic as its caller's projection.
 ///
-/// ⭐ **exposed so a body that is not an [`Aabb`] can ask the SAME question**,
-/// rather than re-deriving support from a centre. A model that keeps its floor
-/// as a span (`ambition_characters`' fighter-brain shadow rollout keeps exactly
-/// that) had a centre-in-span test, which drops a body a half-extent before the
-/// kernel does — and the two disagreeing at a ledge is the whole of the
-/// disagreement, because a ledge is the only place the answer changes.
+/// ⭐ **exposed so a body that is not an [`Aabb`] can ask the SAME question**, rather than
+/// re-deriving support from a centre.
 pub fn spans_overlap_for_support(body: (f32, f32), surface: (f32, f32)) -> bool {
     body.1 > surface.0 + EDGE_OVERLAP_SLOP && body.0 < surface.1 - EDGE_OVERLAP_SLOP
 }
@@ -208,10 +197,6 @@ pub fn spans_overlap_for_support(body: (f32, f32), surface: (f32, f32)) -> bool 
 /// toward its feet, have started on the passable (anti-gravity) side within
 /// [`ONE_WAY_CROSSING_SLOP`], and share perpendicular overlap. `drop_through`
 /// — or absent gravity — suppresses the landing so the body falls through.
-///
-/// Canonical unification (2026-06-25): includes the `gravity_dir == ZERO` guard
-/// (a one-way "landing" is meaningless without a gravity direction) that the
-/// controlled-body sweep had and the kinematic sweep lacked.
 pub fn one_way_landing_from_previous_feet(
     body: Aabb,
     block: Aabb,
@@ -255,10 +240,6 @@ pub fn bonk_strike_from_head(body: Aabb, block: Aabb, delta: Vec2, gravity_dir: 
 /// perpendicular overlap, the body's center on the support side, and the feet
 /// face within [`CONTACT_SLOP`] of the surface head. A one-way does not support
 /// a body that is dropping through.
-///
-/// Canonical unification (2026-06-25): includes the `body_on_support_side`
-/// requirement (you are not resting ON something your center has passed) that
-/// the kinematic sweep had and the controlled-body sweep lacked.
 pub fn surface_supports_body_at_rest(
     kind: BlockKind,
     body: Aabb,
@@ -279,16 +260,9 @@ pub fn surface_supports_body_at_rest(
 /// **Are `stomper`'s feet on `victim`'s head?** — the body-vs-body twin of
 /// [`surface_supports_body_at_rest`], and the geometric half of a footstool.
 ///
-/// ⭐ **the SAME two primitives a resting body uses**, so a footstool cannot
-/// disagree with a landing about where a head is: [`perpendicular_overlap`] for
-/// the lateral share (with its `EDGE_OVERLAP_SLOP`), [`support_face_separation`]
-/// for the gravity axis. Both are frame-relative, so this works under arbitrary
-/// gravity and a hand-rolled `feet.y >= head.y` never appears.
-///
-/// ⛔ **the band is PENETRATION tolerance, not reach.** Accepting a separation
-/// below zero would classify a body hovering above another as standing on it —
-/// the exact bug both hand-rolled copies of this geometry in the Mary-O demo had
-/// before they were unified.
+/// ⭐ **the SAME two primitives a resting body uses**, so a footstool cannot disagree with a
+/// landing about where a head is: [`perpendicular_overlap`] for the lateral share (with its
+/// `EDGE_OVERLAP_SLOP`), [`support_face_separation`] for the gravity axis.
 pub fn feet_on_head(stomper: Aabb, victim: Aabb, gravity_dir: Vec2, band: f32) -> bool {
     if !perpendicular_overlap(stomper, victim, gravity_dir) {
         return false;
@@ -309,8 +283,6 @@ pub fn supporting_block<'a>(
     })
 }
 
-// --- The contact vocabulary (fable review 2026-07-05, AJ10 layer 1) ---
-//
 // The lingua franca between the world's geometry and a body's interpretation
 // of it: "the world exposes coherent contact information; bodies decide what
 // that contact means." The ONE sweep populates contacts into
@@ -318,13 +290,8 @@ pub fn supporting_block<'a>(
 // acts on axis faces, and the surface-follower solver consumes the same
 // vocabulary for chains. Observability first, byte-identical.
 //
-// ⭐ **this said "both sweeps" and named a second one.** A duplicate
-// enemies/NPCs sweep (`step_kinematic` / `step_kinematic_observed`, in
-// `ambition_platformer2d_shared_tangle::kinematic`) really did exist and really
-// did consume this vocabulary — until the actor unification routed every body
-// through `step_motion` and left it with nothing but its own tests calling it.
-// It is deleted (D126.2). This vocabulary is shared between the world and the
-// bodies that read it, not between two resolvers.
+// This vocabulary is shared between the world and the bodies that read it, not between two
+// resolvers.
 
 /// The SEMANTIC role a resolved contact plays for the body, judged against the
 /// body's CURRENT resolved frame (never world Y) at the moment the contact is

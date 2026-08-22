@@ -64,12 +64,12 @@ pub use body_clusters::{
     SweepSample,
 };
 // **The geometry + frames kernel lives in `ambition_geometry` now** (carved
-// 2026-08-01). Re-exported here, module paths included, so every existing
+// ). Re-exported here, module paths included, so every existing
 // `ambition_platformer2d_core::{geometry, reference_frame, ...}` path resolves
 // unchanged — this is a FACADE over a crate this one depends on, not a
 // compatibility shim for a rename.
 //
-// ⚠ a consumer that wants only shapes or frames should depend on
+// a consumer that wants only shapes or frames should depend on
 // `ambition_geometry` directly. Reaching them through here is what made 19
 // unqualified crates declare a platformer dependency they did not have.
 pub use ambition_geometry::combat_volume::CombatVolume;
@@ -87,7 +87,7 @@ pub use ambition_geometry::{combat_volume, geometry, reference_frame, swing_shap
 pub use confirmed_frame::{world_state_is_confirmed, ConfirmedFrameBoundary};
 pub use content_epoch::ContentEpoch;
 pub use control_frame::ControlFrame;
-/// One seat's frame→tick input latch (netcode N0.1). ⚠ a VALUE, not a resource:
+/// One seat's frame→tick input latch (netcode N0.1). a VALUE, not a resource:
 /// the table that holds one per seat is `SlotControlLatches`, one layer up where
 /// `PlayerSlot` exists.
 pub use control_frame::ControlFrameLatch;

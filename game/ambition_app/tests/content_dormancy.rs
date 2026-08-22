@@ -1,21 +1,14 @@
 //! **Every actor `ambition_content` stages declares whether it sleeps.**
 //!
-//! The dormancy seam was built for Jon's Mary-O report — *"ai slop will just walk
-//! off the edge of the level before she even gets to that part of the level"* —
-//! and then adopted by two demo games. `ambition_content` stages more brained
-//! actors than both of them together (11 bosses, 65 authored enemy placements,
-//! 178 placed cast, the duel pair, the wave mobs, GNU-ton's mount and hands) and
-//! declared nothing, so "always awake" was indistinguishable from "nobody
-//! chose". This is the assembled proof that it is now a decision:
-//! `ambition_content::dormancy` states a stance for each, and every actor the
-//! real rooms stage carries one.
+//! This is the assembled proof that it is now a decision: `ambition_content::dormancy` states a
+//! stance for each, and every actor the real rooms stage carries one.
 //!
-//! ⚠ **it deliberately does NOT pin WHICH stance** — the property is that the
+//! **it deliberately does NOT pin WHICH stance** — the property is that the
 //! choice is stated and findable, not that today's answers are frozen. Mary-O's
 //! equivalent test learned that the hard way: it asserted that only the slop
 //! declared dormancy, and so spent a day defending the snake's absence.
 //!
-//! ⚠ **and it also proves the pass is REGISTERED**, which a compile cannot
+//! **and it also proves the pass is REGISTERED**, which a compile cannot
 //! catch: `declare_ambition_dormancy` could be perfectly written and never added
 //! to a schedule, and everything would still build.
 
@@ -36,7 +29,6 @@ const ROOMS: [&str; 4] = [
     "hall_of_characters",
 ];
 
-/// One staged actor's identity, for the failure message.
 fn undeclared_in(room: &str) -> (usize, Vec<String>) {
     let mut sim = crate::common::fixed_60hz_room_sim(room);
     // A few frames for room staging, the spawn-request applier, and the
@@ -45,9 +37,8 @@ fn undeclared_in(room: &str) -> (usize, Vec<String>) {
         sim.step(crate::common::base());
     }
     let world = sim.world_mut();
-    // "Has a brain" is the population: an autonomous actor carries `Brain`, and a
-    // boss's decisions live on `BossConfig` instead. The player is an OBSERVER —
-    // the body the wake test is measured against — never a candidate.
+    // "Has a brain" is the population: an autonomous actor carries `Brain`, and a boss's decisions
+    // live on `BossConfig` instead.
     let mut q = world.query_filtered::<
         (Option<&FeatureId>, &ActorFaction, Option<&DormancyPolicy>),
         (Or<(With<Brain>, With<BossConfig>)>, Without<PlayerEntity>),

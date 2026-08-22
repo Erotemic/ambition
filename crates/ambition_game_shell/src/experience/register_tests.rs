@@ -171,8 +171,6 @@ fn an_experience_can_enter_at_a_screen_of_its_own() {
     );
 }
 
-/// The failure this rule exists to catch: a row nobody can press twice —
-/// it resolves to nothing, and the first player to try finds out.
 #[test]
 fn entering_at_an_unregistered_route_is_refused_by_name() {
     let message = capture_panic(|| {

@@ -20,12 +20,6 @@ pub const INTRO_ROOM_CUTSCENE_BINDINGS: &[(&str, &str)] = &[
     ("intro_wake_room", "intro_wake"),
     ("intro_raid_corridor", "intro_raid"),
     ("drain_alley", "drain_market_arrival"),
-    // Removed 2026-05-22: the gate-stack reveal cutscene interrupted
-    // the player on every entry without earning the pause. The PA
-    // "Gate Six delayed" line lives in the dialogue layer; the
-    // banner reveal isn't needed when the room itself reads as a
-    // gate stack on sight. If we want a one-time arrival beat later
-    // it should be a quieter banner with no dialogue.
 ];
 
 pub fn intro_room_cutscene_bindings() -> &'static [(&'static str, &'static str)] {

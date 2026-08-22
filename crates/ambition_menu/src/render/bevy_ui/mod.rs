@@ -49,8 +49,6 @@ use crate::{
 #[derive(Component, Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct BevyUiMenuRoot;
 
-/// Marker for the centered, fixed-size panel (the menu "window") that holds the
-/// tab bar + body, sitting in the middle of the full-screen scrim root.
 #[derive(Component, Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct BevyUiMenuPanel;
 
@@ -217,21 +215,14 @@ fn control_bg(kind: MenuControlKind, focused: bool, selected: bool, important: b
     }
 }
 
-/// Spawn the flat tabbed menu under a fresh [`BevyUiMenuRoot`] and return its
-/// entity. The host should despawn the previous root before respawning on change.
+/// Spawn the flat tabbed menu under a fresh [`BevyUiMenuRoot`] and return its entity.
 ///
-/// Layout: a full-screen absolute root acting as a centered scrim (so clicks
-/// outside the panel land on the scrim, not the world), with a centered,
-/// fixed-size PANEL holding a tab-bar row at the top then the page body filling
-/// the rest. The panel is roughly where/size the kaleidoscope cube renders — a
-/// window in the middle of the screen, NOT a full-screen layout. The body draws
-/// the page's nodes by absolute percent rect (percent of the PANEL) so it matches
-/// the model's authored layout, while the tab bar uses flex so tabs share the
-/// panel width evenly. A high [`GlobalZIndex`] keeps the menu on top so its
-/// `bevy_ui` buttons receive `Interaction`/picking before anything underneath.
-/// Font handle used by all menu surfaces. The renderer-agnostic menu crate does
-/// not own an asset path; the host supplies the resolved handle. `None` uses
-/// Bevy's default font.
+/// The panel is roughly where/size the kaleidoscope cube renders — a window in the middle of
+/// the screen, NOT a full-screen layout. The body draws the page's nodes by absolute percent
+/// rect (percent of the PANEL) so it matches the model's authored layout, while the tab bar
+/// uses flex so tabs share the panel width evenly. Font handle used by all menu surfaces. The
+/// renderer-agnostic menu crate does not own an asset path; the host supplies the resolved
+/// handle. `None` uses Bevy's default font.
 #[derive(bevy::prelude::Resource, Default, Clone, Debug)]
 pub struct MenuFont(pub Option<bevy::prelude::Handle<bevy::text::Font>>);
 
@@ -287,10 +278,8 @@ where
                 align_items: AlignItems::Center,
                 ..default()
             },
-            // Fix 1: TRANSLUCENT scrim. The despawn bug that blanked the body (which
-            // forced an opaque workaround) is fixed, so the menu can dim-and-show the
-            // world behind it again. A 0.55 alpha black darkens the gameplay enough to
-            // read the panel while keeping the scene visible.
+            // A 0.55 alpha black darkens the gameplay enough to read the panel while keeping
+            // the scene visible.
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.55)),
             // On top of the gameplay HUD so the menu's buttons get the pointer.
             GlobalZIndex(1000),
@@ -301,7 +290,6 @@ where
         .id();
 
     commands.entity(root).with_children(|root| {
-        // --- Centered fixed-size panel (the window) --------------------------
         root.spawn((
             Node {
                 width: Val::Percent(64.0),
@@ -430,18 +418,13 @@ where
 const LAYER_CONTROL: i32 = 10;
 const LAYER_TEXT: i32 = 20;
 
-/// Feature C (flat backend): map a pointer's vertical SCREEN position over a
-/// scrollbar track's screen rect into the neutral `0..=1` drag fraction (0 = top,
-/// 1 = bottom). `None` if the track has no measured height yet. Mirrors the cube's
-/// the `ambition_menu_kaleidoscope` cube renderer `scrollbar_fraction`, but reads the track rect
-/// from `bevy_ui`'s `ComputedNode`/`GlobalTransform` (2D, no camera projection).
-/// The track's screen rect `(top_y, height)` in logical pixels from its
-/// `bevy_ui` layout. A UI node's computed screen rect lives in [`ComputedNode`]
-/// (PHYSICAL px size) + [`UiGlobalTransform`] (PHYSICAL px center) — NOT its plain
-/// `GlobalTransform`, which is identity for UI nodes (that was the long-standing
-/// bug: the rect always read zero). Scale both to LOGICAL px via the node's
-/// `inverse_scale_factor` so they line up with the pointer location, which the
-/// picking core reports in logical/window px.
+/// Feature C (flat backend): map a pointer's vertical SCREEN position over a scrollbar track's
+/// screen rect into the neutral `0..=1` drag fraction (0 = top, 1 = bottom). Mirrors the cube's
+/// the `ambition_menu_kaleidoscope` cube renderer `scrollbar_fraction`, but reads the track
+/// rect from `bevy_ui`'s `ComputedNode`/`GlobalTransform` (2D, no camera projection). The
+/// track's screen rect `(top_y, height)` in logical pixels from its `bevy_ui` layout. Scale
+/// both to LOGICAL px via the node's `inverse_scale_factor` so they line up with the pointer
+/// location, which the picking core reports in logical/window px.
 fn bevy_ui_track_rect(computed: &ComputedNode, transform: &UiGlobalTransform) -> (f32, f32) {
     let inv = computed.inverse_scale_factor();
     let height = computed.size().y * inv;
@@ -458,9 +441,6 @@ fn bevy_ui_scrollbar_fraction(
     scrollbar_fraction_from_rect(top_y, height, pointer_y)
 }
 
-/// The pure track-rect → fraction mapping shared by the `bevy_ui` scrollbar
-/// observers. `None` if the track has no measured height yet. 0 = top edge,
-/// 1 = bottom edge; clamped.
 
 /// Feature C: a press that lands on the `bevy_ui` scrollbar marks the track held by
 /// that pointer (so [`bevy_ui_scrollbar_press_drag`] tracks the live position) and
@@ -764,9 +744,8 @@ fn publish_bevy_ui_menu_tabs(
                 }
                 *armed_entity = None;
             }
-            // Same entity, no longer under the pointer: left, not released.
-            // A DIFFERENT entity (or none) is the tab bar mid-republish, whose
-            // fresh nodes read `None` until the next frame's focus pass.
+            // A DIFFERENT entity (or none) is the tab bar mid-republish, whose fresh nodes read
+            // `None` until the next frame's focus pass.
             Some((entity, Interaction::None)) if Some(entity) == *armed_entity => {
                 arm.clear();
                 *armed_entity = None;
@@ -802,12 +781,6 @@ where
 }
 
 /// **Recolour a control when its runtime state changes, WITHOUT respawning it.**
-///
-/// ⛔ the defect this exists for: the shell launcher's frame key included the
-/// cursor position, so an arrow press despawned and respawned every node in the
-/// tree. It threw away hover state and any per-frame animation a menu might
-/// want, and it is why a one-frame text defect was visible at all — a whole UI
-/// blinking is a much bigger event than a value changing.
 ///
 /// The colour was baked at spawn by `control_bg`, so the only way to change it
 /// WAS to spawn again. Now [`MenuVisualState`] carries everything that function
@@ -925,10 +898,8 @@ pub fn install_bevy_ui_menu_text_scaling(app: &mut App) {
     }
     app.init_resource::<MenuTextScalingInstalled>().add_systems(
         bevy::prelude::PostUpdate,
-        // Before text is MEASURED, so the size this writes is the size that
-        // frame lays out. See `resolve_menu_text_size` for why the schedule is
-        // load-bearing. Ordering against a set no plugin populated (a headless
-        // App without `UiPlugin`) is a no-op, not an error.
+        // See `resolve_menu_text_size` for why the schedule is load-bearing. Ordering against a
+        // set no plugin populated (a headless App without `UiPlugin`) is a no-op, not an error.
         resolve_menu_text_size.before(bevy::ui::UiSystems::Content),
     );
 }

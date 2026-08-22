@@ -84,22 +84,14 @@ pub fn install_unified_menu_shared(app: &mut App) {
         // (`init_resource` is idempotent).
         .init_resource::<ambition_platformer2d::input::SeatActiveDevices>()
         .init_resource::<KaleidoscopeSystemNav>()
-        // ⛔⛔ **BACKEND-NEUTRAL, AND IT USED TO BE CUBE-ONLY.** `RebindCapture`
-        // is read by `SystemMenuParams`, which the FLAT grid backend's
-        // `grid_menu_nav` takes — but it was initialised inside
-        // `install_kaleidoscope_menu_backend`, behind the Lunex feature. So any
-        // build without the cube composed a grid menu whose nav system required a
-        // resource nothing had inserted, and Bevy killed the app on the first
-        // menu tick: `Parameter MenuDispatchParams::system failed validation:
-        // Resource does not exist`.
+        // So any build without the cube composed a grid menu whose nav system required a resource
+        // nothing had inserted, and Bevy killed the app on the first menu tick: `Parameter
+        // MenuDispatchParams::system failed validation: Resource does not exist`.
         //
-        // ⚠ **that is a BLANK SCREEN, and it is what the browser was showing.**
-        // Startup completes and assets begin loading — which is why the server log
-        // looked healthy — and then the first `Update` panics and the app is dead.
-        // Nothing about it is web-specific; the web persona was simply the only
-        // shipped build with the cube feature off. Found 2026-08-14 by running the
-        // web persona's Cargo features on a NATIVE host (`examples/web_persona_boot`),
-        // where the panic prints a system name instead of painting nothing.
+        // **that is a BLANK SCREEN, and it is what the browser was showing.** Startup completes and
+        // assets begin loading — which is why the server log looked healthy — and then the first
+        // `Update` panics and the app is dead. Nothing about it is web-specific; the web persona
+        // was simply the only shipped build with the cube feature off.
         .init_resource::<RebindCapture>()
         .init_resource::<VisualQualityConfirmState>()
         .add_plugins(AmbitionInventoryUiPlugin);
@@ -242,11 +234,6 @@ pub fn install_kaleidoscope_menu(app: &mut App) {
     install_kaleidoscope_menu_backend(app);
 }
 
-/// Game-host configuration for the cube: the Option-1 transparent overlay. The
-/// cube camera clears `None` so the live gameplay world stays visible underneath;
-/// the scrim (not a camera clear) supplies text contrast. Suspending the world
-/// camera instead and self-clearing was tried (2026-07-20) and rejected — it reads
-/// as "the 2d camera turned off" and breaks the pause-overlay identity.
 #[cfg(feature = "kaleidoscope_menu")]
 fn game_kaleidoscope_config() -> KaleidoscopeMenuConfig {
     KaleidoscopeMenuConfig {
@@ -290,28 +277,20 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
         PreUpdate,
         KaleidoscopeRenderPre.run_if(kaleidoscope_render_needed),
     );
-    // ⚠ registered beside the systems that WRITE it — nav and the pointer-release
+    // registered beside the systems that WRITE it — nav and the pointer-release
     // observer both publish here, so a composition that installs either without
     // the message panics on an uninitialised `MessageWriter`. The fix for that
     // panic is never `Option<T>`: that answers "may this be absent" when the
     // question is "who owns registering it". `add_message` is a no-op if present.
     app.add_message::<MenuActionActivated<MenuPageAction>>();
     app.add_systems(Startup, spawn_kaleidoscope_scrim)
-        // PHASE 1 — decide this frame's CONTENT, BEFORE the lib rebuild. Nav mutates
-        // the cursor; scroll/cache/republish derive the page model + System scroll
-        // window from it. Running republish BEFORE `rebuild_cube_faces` means a move
-        // that SHIFTS the System scroll window rebuilds the new rows the SAME frame as
-        // the highlight moves — eliminating the one-frame "highlight jumps, then the
-        // list scrolls" flash (republish used to run AFTER the rebuild, so the shifted
-        // window was not drawn until the next frame).
+        // PHASE 1 — decide this frame's CONTENT, BEFORE the lib rebuild. Nav mutates the cursor;
+        // scroll/cache/republish derive the page model + System scroll window from it.
         .add_systems(
             Update,
             (
-                // Route pause/Esc, inventory, and map into the cube backend on the
-                // matching page before navigation consumes the frame. In
-                // MenuNavConsume so every menu-frame WRITER (the participant
-                // populate and the touch drag-scroll gesture fold, both pinned
-                // `.before(MenuNavConsume)`) lands its bits before this reads.
+                // Route pause/Esc, inventory, and map into the cube backend on the matching
+                // page before navigation consumes the frame.
                 kaleidoscope_menu_open_routing
                     .run_if(kaleidoscope_backend_active)
                     // Gate the pause/inventory toggle on a LIVE Ambition session
@@ -327,13 +306,13 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                 kaleidoscope_focus_nav
                     .run_if(kaleidoscope_menu_visible)
                     .in_set(ambition_platformer2d::actors::schedule::MenuNavConsume),
-                // ⚠ **between nav and republish, deliberately.** Nav and the
+                // **between nav and republish, deliberately.** Nav and the
                 // pointer-release observer both PUBLISH the chosen action; this
                 // dispatches it. Running it after republish would draw the menu a
                 // frame before the equip it just performed.
                 kaleidoscope_menu_action_activated.run_if(kaleidoscope_menu_visible),
                 // After the dispatch that arms it, so an arm and its capture
-                // cannot be a frame apart in the wrong direction. ⚠ the ORDER is
+                // cannot be a frame apart in the wrong direction. the ORDER is
                 // not what stops the confirm key becoming the binding —
                 // `RebindCapture::settle` is, because a just-pressed set is a
                 // fact about the frame rather than about where in it you read.
@@ -369,12 +348,6 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                 fade_kaleidoscope_scrim.run_if(kaleidoscope_render_needed),
             )
                 .chain()
-                // CURSOR-HIGHLIGHT fix: the lib renders the focus highlight from
-                // `MenuVisualState` via the `Changed`-gated `KaleidoscopeFocusVisuals`
-                // readers. Run the `kaleidoscope_sync_focus_visuals` WRITER AFTER
-                // `rebuild_cube_faces` (so a republish that respawns the controls can't
-                // wipe the flags it set) and BEFORE the lib readers (so they see the
-                // flipped flags the same frame).
                 .after(rebuild_cube_faces::<MenuPage, MenuPageAction>)
                 .before(KaleidoscopeFocusVisuals),
         )
@@ -384,10 +357,8 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
 }
 
 /// Which input source currently owns the cube cursor. Mirrors the grid's
-/// [`ambition_platformer2d::ui_nav::MenuFocusOwner`]: keyboard/gamepad nav claims focus and keeps
-/// it until the pointer moves to a DIFFERENT control. A stationary hover must not
-/// keep reasserting itself over newer directional navigation (the "can't move away
-/// from the hovered option" bug).
+/// [`ambition_platformer2d::ui_nav::MenuFocusOwner`]: keyboard/gamepad nav claims focus and
+/// keeps it until the pointer moves to a DIFFERENT control.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 enum FocusSource {
     #[default]
@@ -444,15 +415,11 @@ pub(crate) struct KaleidoscopeSystemNav {
 /// origin (a drag, not a tap), and consumed by the release observer. Mouse OR touch —
 /// both arrive through the same pointer events, so this is mouse-testable.
 ///
-/// ⭐ **this used to be a private re-implementation of that primitive**, with its own
-/// 12px threshold beside dialogue's 16px — two answers to "how far may a thumb roll
-/// and still have tapped", differing by a quarter, on one machine. The arm is the
-/// shared `ui_nav::PressArm` now; what stays local is only the choice of IDENTITY.
-/// The cube keys on the ACTION rather than a row index because its cells have no
-/// stable ordinal — and, like a windowed list, it despawns and respawns them between
-/// press and release, which is the historical `Pointer<Click>` failure (press and
-/// release must resolve to the SAME entity, which a rebuilding perspective cube
-/// routinely broke).
+/// The arm is the shared `ui_nav::PressArm` now; what stays local is only the choice of IDENTITY.
+/// The cube keys on the ACTION rather than a row index because its cells have no stable ordinal —
+/// and, like a windowed list, it despawns and respawns them between press and release, which is the
+/// historical `Pointer<Click>` failure (press and release must resolve to the SAME entity, which a
+/// rebuilding perspective cube routinely broke).
 #[derive(Resource, Default)]
 pub(crate) struct KaleidoscopePointerPress(
     pub(crate) ambition_platformer2d::ui_nav::PressArm<MenuPageAction>,
@@ -460,7 +427,7 @@ pub(crate) struct KaleidoscopePointerPress(
 
 /// **A rebind row is armed, waiting for the next physical press.**
 ///
-/// ⚠ **the capture cannot happen where the row is selected.** Selecting runs
+/// **the capture cannot happen where the row is selected.** Selecting runs
 /// inside the menu's own dispatch, and the whole point of a rebind is to see a
 /// control the menu's bindings do not route — a key no preset uses reaches no
 /// action and therefore no dispatch. So selection arms, and a separate system
@@ -473,13 +440,13 @@ pub(crate) struct KaleidoscopePointerPress(
 #[derive(Resource, Default)]
 pub(crate) struct RebindCapture {
     armed_row: Option<usize>,
-    /// ⛔ **the frame that ARMED it must not also capture it.** Selecting a row
+    /// **the frame that ARMED it must not also capture it.** Selecting a row
     /// is itself a key press, and it is still in `get_just_pressed` when the
     /// capture runs later the same frame — so without this, confirming a rebind
     /// row would bind that action to the confirm key, and every action in the
     /// list would end up on Enter.
     ///
-    /// ⚠ ordering does NOT fix this. Running the capture after the dispatch was
+    /// ordering does NOT fix this. Running the capture after the dispatch was
     /// the first attempt and it is wrong: a just-pressed set is a fact about the
     /// frame, not about where in the frame you read it.
     armed_this_frame: bool,
@@ -515,13 +482,13 @@ impl RebindCapture {
 #[cfg(feature = "kaleidoscope_menu")]
 /// **Resolve an armed rebind: the next physical press becomes the binding.**
 ///
-/// ⛔ **this cannot live in the menu's dispatch**, which is why arming and
+/// **this cannot live in the menu's dispatch**, which is why arming and
 /// capturing are two steps. Dispatch runs off routed ACTIONS, and the whole
 /// point of a rebind is to bind a control that routes to nothing — a key no
 /// preset uses reaches no action and therefore no dispatch. So the capture reads
 /// raw device state (`ambition_input::pressed_controls_this_frame`).
 ///
-/// ⭐ the armed ROW INDEX resolves against the same canonical order the screen
+/// the armed ROW INDEX resolves against the same canonical order the screen
 /// was built from — `ActionBindings::all()` sorts by action name — so the index
 /// and the row cannot disagree without a second table existing to disagree
 /// through.
@@ -540,7 +507,7 @@ pub(crate) fn capture_armed_rebind(
     let Some(row) = capture.armed() else {
         return;
     };
-    // ⛔ the press that ARMED this row is still just-pressed. Capturing it would
+    // the press that ARMED this row is still just-pressed. Capturing it would
     // bind the action to the confirm key.
     if capture.settle() {
         return;
@@ -737,7 +704,7 @@ impl SystemMenuParams<'_> {
                     ambition_platformer2d::sfx::ids::UI_TOGGLE_ON
                 }
             }
-            // ⚠ selecting a rebind row ARMS a capture; it does not rebind.
+            // selecting a rebind row ARMS a capture; it does not rebind.
             // The next physical press is the binding, and that press cannot be
             // read here — this runs inside a menu dispatch, and the whole point
             // of the capture is to see a control the menu's own bindings do not
@@ -961,7 +928,7 @@ fn kaleidoscope_focus_nav(
     // Single mutable access to the overlay state — also read `.visible` from it (a
     // separate `Res<InventoryUiState>` would be a B0002 conflict with this `ResMut`).
     mut overlay: ResMut<ambition_platformer2d::inventory_ui::InventoryUiState>,
-    // ⚠ **the game mode is GONE from nav.** It was here only so a close-via-action
+    // **the game mode is GONE from nav.** It was here only so a close-via-action
     // (Reset Sandbox) could unpause exactly like an Esc-close — and that close
     // travels with the dispatch, into `kaleidoscope_menu_action_activated`. Nav
     // announces; it does not act.
@@ -987,15 +954,8 @@ fn kaleidoscope_focus_nav(
     // `InventoryUiBackend` mid-frame (the cause of the unreliable in-menu toggle).
     let menu = *menu_frame;
     menu_frame.consume_nav_edges();
-    // The Esc/pause toggle (`menu.start`) is owned ENTIRELY by
-    // `kaleidoscope_menu_open_routing` (close the cube / drill out of a System category /
-    // restore GameMode). Esc co-fires `menu.back`, and this nav system (and the
-    // `system_focus_nav` it calls) closes on `menu.back` below — so without bailing
-    // here a single Esc would CLOSE the cube HERE and then `kaleidoscope_menu_open_routing`
-    // would see `!visible` and RE-OPEN it (the Esc-Esc reopen bug). The router was
-    // meant to consume `menu.back` before this system, but the chain order is no
-    // longer guaranteed once these systems join multiple sets, so make the router the
-    // SOLE Esc handler order-independently by bailing on `menu.start` here.
+    // The Esc/pause toggle (`menu.start`) is owned ENTIRELY by `kaleidoscope_menu_open_routing`
+    // (close the cube / drill out of a System category / restore GameMode).
     if menu.start {
         return;
     }
@@ -1015,11 +975,8 @@ fn kaleidoscope_focus_nav(
     let dx = (menu.right as i32) - (menu.left as i32);
     let dy = (menu.down as i32) - (menu.up as i32);
 
-    // Fix 2: the L/R shoulder bumpers turn the page DIRECTLY (same target as the
-    // on-screen L/R edge buttons), independent of the arrow/d-pad item cursor. Left
-    // bumper rotates to the viewer-left page, right bumper to the viewer-right page.
-    // Handled before the per-face nav so a bumper press always rotates regardless of
-    // where the item cursor sits. The cursor lands on the new page's back-edge button.
+    // Left bumper rotates to the viewer-left page, right bumper to the viewer-right page. The
+    // cursor lands on the new page's back-edge button.
     let bump = (menu.page_right as i32) - (menu.page_left as i32);
     if bump < 0 {
         turn_page_seeded(
@@ -1075,11 +1032,9 @@ fn kaleidoscope_focus_nav(
     // turns; arrows rotate, landing the cursor on the new page's back-edge button
     // (Fix 1). The L/R bumpers (Fix 2) are already handled above for every face.
     if active_page != MenuPage::Items {
-        // Placeholder faces (Map / Quest) have only the two edge buttons and no centre
-        // content, so edge nav is the whole story: `edge_button_nav` rotates on an
-        // OUTWARD step / select and crosses to the opposite edge on an INWARD step. The
-        // only thing left to do locally is seed onto an edge when the cursor hasn't
-        // landed on one yet (rare — these faces spawn the cursor on an edge).
+        // Placeholder faces (Map / Quest) have only the two edge buttons and no centre content, so
+        // edge nav is the whole story: `edge_button_nav` rotates on an OUTWARD step / select and
+        // crosses to the opposite edge on an INWARD step.
         if edge_button_nav(
             &mut cursor,
             &mut pages,
@@ -1145,7 +1100,7 @@ fn kaleidoscope_focus_nav(
             MenuFocus::System(_) => None,
         };
         match action {
-            // ⭐ PUBLISH, do not dispatch — the same event a tap on this cell
+            // PUBLISH, do not dispatch — the same event a tap on this cell
             // raises. Page turns come through here too (the cube turns faces via
             // its edge controls), which is why all three arms are activations and
             // only System, handled above, is not.
@@ -1170,7 +1125,7 @@ fn kaleidoscope_focus_nav(
 #[cfg(feature = "kaleidoscope_menu")]
 /// **The cube's ONE dispatcher for a chosen action.**
 ///
-/// ⛔ **the cube had no consumer at all**, which is the asymmetry this closes.
+/// **the cube had no consumer at all**, which is the asymmetry this closes.
 /// The grid published `MenuActionActivated` from its pointer bridge and
 /// dispatched it in one system; the cube dispatched inline from THREE places —
 /// its keyboard nav, `system_focus_nav`, and the `Pointer<Release>` observer —
@@ -1274,14 +1229,12 @@ pub(crate) fn system_focus_nav(
     cursor: &mut KaleidoscopeCursor,
     system_nav: &mut KaleidoscopeSystemNav,
     pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
-    // ⚠ the game mode left this signature with the dispatch. The only close
-    // still owned here is `back`, which hides the overlay without unpausing —
-    // the unpause belongs to a close-via-ACTION, and that moved to the consumer.
+    // the game mode left this signature with the dispatch.
     overlay: &mut ambition_platformer2d::inventory_ui::InventoryUiState,
     settings: &mut UserSettings,
     quality_confirm: &mut VisualQualityConfirmState,
     active_page: MenuPage,
-    // ⭐ **the ONE activation event, in place of the five dispatch parameters.**
+    // **the ONE activation event, in place of the five dispatch parameters.**
     // This function is SHARED by both inventory frontends, so it was carrying
     // `owned` / `commands` / `players` / `mana_q` / `heals` purely to call
     // `dispatch_menu_action` itself — five parameters that existed to say a
@@ -1296,12 +1249,10 @@ pub(crate) fn system_focus_nav(
     // value rows and is otherwise inert (it can never reach an edge or `turn_page`,
     // which used to leak the cube's rotate-SFX + a one-frame face flip into Grid mode).
     allow_page_turn: bool,
-    // Vertical wrap-around for the row list: UP off the top lands on the bottom row
-    // and DOWN off the bottom lands on the top. The cube enables this (its System
-    // face is a closed list with nothing above/below the rows); the Grid passes
-    // `false` because its rows sit BELOW a real target (the tab bar), so UP off the
-    // top must reach that, not wrap. Kept as a distinct flag from `allow_page_turn`
-    // so either behaviour can be flipped independently (e.g. trivially reverted).
+    // Vertical wrap-around for the row list: UP off the top lands on the bottom row and DOWN off
+    // the bottom lands on the top. The cube enables this (its System face is a closed list with
+    // nothing above/below the rows); the Grid passes `false` because its rows sit BELOW a real
+    // target (the tab bar), so UP off the top must reach that, not wrap.
     wrap_rows: bool,
 ) {
     let focus_before = cursor.focus;
@@ -1583,7 +1534,7 @@ pub(crate) fn menu_confirm_label(
 pub(crate) const INVENTORY_CUE_CONTEXT: ambition_platformer2d::input::InputContextId =
     ambition_platformer2d::input::InputContextId("ambition.inventory");
 
-/// P4b (GPT-5.6 review gate 6): publish the focused inventory item's verb as
+/// P4b: publish the focused inventory item's verb as
 /// this surface's [`ambition_platformer2d::input::UiCue`], so runtime inventory controls
 /// read "Equip" / "Use" instead of a generic "Select".
 ///
@@ -1614,12 +1565,10 @@ fn publish_menu_confirm_prompt(
     }
 }
 
-/// The edge-button focus on `to` that turns BACK toward `from` (Fix 1). After a page
-/// turn the cursor lands here, so the arriving control is highlighted and an immediate
-/// rotate/select returns to the page we came from. On `to`, the LEFT edge button
-/// targets `to.on_viewer_left()` and the RIGHT targets `to.on_viewer_right()`; we pick
-/// whichever points back at `from`. When `from` is unknown (first open) we default to
-/// the left edge button so there is always a highlighted control.
+/// The edge-button focus on `to` that turns BACK toward `from` (Fix 1). On `to`, the LEFT edge
+/// button targets `to.on_viewer_left()` and the RIGHT targets `to.on_viewer_right()`; we pick
+/// whichever points back at `from`. When `from` is unknown (first open) we default to the left
+/// edge button so there is always a highlighted control.
 pub(crate) fn back_edge_focus(from: Option<MenuPage>, to: MenuPage) -> MenuFocus {
     match from {
         Some(from) if to.on_viewer_right() == from => MenuFocus::EdgeRight,
@@ -1648,14 +1597,13 @@ enum EdgeInward {
     /// The opposite edge button. Placeholder faces (Map/Quest) have no centre content,
     /// so stepping in from one edge crosses straight to the other.
     ///
-    /// ⚠ **NOT gated, though only cube code constructs it.** `edge_button_nav`
+    /// **NOT gated, though only cube code constructs it.** `edge_button_nav`
     /// MATCHES on it in backend-neutral code, so removing the variant removes an
     /// arm the flat backend still compiles. `#[allow]` on the variant would be the
     /// wrong tool too — the variant is not dead, it is unreachable in one
     /// configuration, and that is a fact about the callers rather than about it.
     #[cfg_attr(not(feature = "kaleidoscope_menu"), allow(dead_code))]
     OppositeEdge,
-    /// A fixed focus — the head of the System face's row list.
     Into(MenuFocus),
 }
 
@@ -1868,13 +1816,10 @@ fn kaleidoscope_menu_open_routing(
 
     // pause / Esc: toggle the cube on the System page.
     //
-    // Rising-edge debounce: `menu.start` is `just_pressed(Start)`, but it can be
-    // observed on MORE THAN ONE consecutive frame (e.g. when the Update schedule
-    // ticks more than once per leafwing input update). Without edge-detection a
-    // single Esc press would CLOSE the cube on frame N (overlay.visible true→false)
-    // and then immediately RE-OPEN it on frame N+1 (start still set, overlay now
-    // hidden → the `else` open branch) — the "Esc-Esc reopen" bug. Acting only on
-    // the rising edge guarantees one open/close per physical press.
+    // Rising-edge debounce: `menu.start` is `just_pressed(Start)`, but it can be observed on
+    // MORE THAN ONE consecutive frame (e.g. when the Update schedule ticks more than once per
+    // leafwing input update). Acting only on the rising edge guarantees one open/close per
+    // physical press.
     let start_edge = menu.start && !*last_start;
     *last_start = menu.start;
     if start_edge {
@@ -1887,15 +1832,12 @@ fn kaleidoscope_menu_open_routing(
         // still reaches the nav systems for its own close / drill-out handling.
         menu.back = false;
         if overlay.visible {
-            // Fix 1: while the menu is open, Esc BACKS OUT one level when the cursor
-            // is inside a nested System screen (a drilled-in category / Radio /
-            // Developer entry, i.e. `open_entry.is_some()`); only at the top level
-            // does Esc CLOSE the whole menu. The restructure renamed `open_category`
-            // → `open_entry` but this Esc handler never consulted the nesting, so it
-            // always closed — the regression. Owning the drill-out HERE (instead of
-            // leaving it to `system_focus_nav`'s `menu.back`) is required because we
-            // consume the co-firing `menu.back` just above, so the nav systems can't
-            // see this Esc at all.
+            // Fix 1: while the menu is open, Esc BACKS OUT one level when the cursor is inside a
+            // nested System screen (a drilled-in category / Radio / Developer entry, i.e.
+            // `open_entry.is_some()`); only at the top level does Esc CLOSE the whole menu. Owning
+            // the drill-out HERE (instead of leaving it to `system_focus_nav`'s `menu.back`) is
+            // required because we consume the co-firing `menu.back` just above, so the nav systems
+            // can't see this Esc at all.
             if system_nav.open_entry.is_some() {
                 play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_BACK);
                 quality_confirm.cancel();
@@ -2035,12 +1977,10 @@ fn close_kaleidoscope_menu(
 }
 
 #[cfg(feature = "kaleidoscope_menu")]
-/// Dev hotkey: `\` cycles the room's ambient gravity through the four cardinal
-/// directions — down → left → up → right — so flipped / sideways-gravity behavior
-/// (pogo, cling, orientation, slug-crawl) is testable without an authored switch.
-/// Mutates [`BaseGravity`]; a gravity zone the player overlaps still wins locally,
-/// and a room reset restores the authored default. The inventory-frontend toggle
-/// this key used to own now lives only on the dev menu (`D::MenuBackend`).
+/// Dev hotkey: `\` cycles the room's ambient gravity through the four cardinal directions — down →
+/// left → up → right — so flipped / sideways-gravity behavior (pogo, cling, orientation,
+/// slug-crawl) is testable without an authored switch. Mutates [`BaseGravity`]; a gravity zone the
+/// player overlaps still wins locally, and a room reset restores the authored default.
 fn cycle_dev_gravity(
     keys: Res<ButtonInput<KeyCode>>,
     mut base: ResMut<ambition_platformer2d::actors::physics::BaseGravity>,
@@ -2089,12 +2029,8 @@ fn gate_kaleidoscope_menu(
     // (`close_speed_scale`), the scrim (which follows `amount`) reads as a quick
     // fade-out. The cutoff only matters while CLOSING; opening crosses it instantly.
     let shown = open_state.amount > 0.08;
-    // Overlay contract: the cube camera clears `None` and renders OVER the live
-    // world, so only the cube's own camera toggles here. Suspending the main
-    // gameplay camera while open was tried for perf (2026-07-20) and reverted:
-    // the actual open-menu frame cost was the per-frame face-rebuild churn, which
-    // the version-keyed rebuild gate now prevents, and killing the world render
-    // broke the pause-overlay design.
+    // Overlay contract: the cube camera clears `None` and renders OVER the live world, so only the
+    // cube's own camera toggles here.
     for mut camera in &mut cube_cameras {
         if camera.is_active != shown {
             camera.is_active = shown;
@@ -2112,12 +2048,6 @@ fn gate_kaleidoscope_menu(
     }
 }
 
-/// Apply the focus HIGHLIGHT in place: set each live control's [`MenuVisualState`]
-/// from the live cursor (the lib's `sync_control_focus_visuals` then recolors it),
-/// WITHOUT touching `ActiveMenuPages`. This is what lets a mouse move re-highlight a
-/// control without a face rebuild — the rebuild used to despawn the hovered control
-/// between a pointer press and release, dropping `Pointer<Click>` (deferred Bug 2).
-///
 /// A control's focus identity is the inverse of [`focus_for_action`], so the cursor
 /// (keyboard OR pointer) and the highlighted control always agree — keyboard select
 /// keeps working identically.
@@ -2217,25 +2147,15 @@ fn kaleidoscope_sync_detail_text(
     }
 }
 
-// ⭐ **THE GATE IS `bevy_lunex`, AND ONLY `bevy_lunex`** (Jon, 2026-08-14: *"that's
-// the only reason we don't include it in the web build"*). Nothing about the cube
-// menu is unwanted in a browser; the 3D UI toolkit it renders through is what the
-// web persona declines to carry. So these submodules are gated on the feature that
-// pulls Lunex, not on a target — the day Lunex is viable on wasm the web build
-// turns this back on by enabling one feature and changing no line of code.
+// Nothing about the cube menu is unwanted in a browser; the 3D UI toolkit it renders through is
+// what the web persona declines to carry. So these submodules are gated on the feature that
+// pulls Lunex, not on a target — the day Lunex is viable on wasm the web build turns this back
+// on by enabling one feature and changing no line of code.
 //
-// ⚠ **and the gate is worth keeping even then** (Jon, same day: *"once lunex has
-// compatibility with wasm we may want to remove the gate, although there is
-// something to be said for not requiring it"*). This is an OPTIONAL-DEPENDENCY
-// boundary, not a wasm workaround: a game embedding this engine gets to have a
-// menu without taking a 3D UI toolkit, and that stays true whatever Lunex
-// supports. Treat a future wasm-capable Lunex as permission to flip the web
-// persona's feature, not as a reason to delete the seam.
-//
-// ⛔ **and gated, not `#[allow(dead_code)]`.** Silencing the warning would keep
-// compiling every one of these into the browser module, which measured 220 MB of
-// wasm (100 MB code) with them in it. An `allow` hides the report; a `cfg` removes
-// the weight.
+// This is an OPTIONAL-DEPENDENCY boundary, not a wasm workaround: a game embedding this engine gets
+// to have a menu without taking a 3D UI toolkit, and that stays true whatever Lunex supports. Treat
+// a future wasm-capable Lunex as permission to flip the web persona's feature, not as a reason to
+// delete the seam.
 #[cfg(feature = "kaleidoscope_menu")]
 mod cache;
 #[cfg(feature = "kaleidoscope_menu")]

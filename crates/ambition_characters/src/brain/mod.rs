@@ -356,19 +356,7 @@ impl SlotControlLatches {
 
 /// **The participant slot driving this body**, this tick.
 ///
-/// ⭐⭐ **this WAS the `slot` inside `Brain::Player(slot)`, and it is not a
-/// brain.** *"A participant drives this body"* is not an AI backend; it sat in
-/// that enum because the enum was the only place to say it, which is why
-/// possession used to MOVE a policy variant in order to change who is driving,
-/// and why `PossessionState` needed a `restore_brain` to put the displaced
-/// policy back. `Brain` is AI policy only now, and this is the driver.
-///
-/// ⭐ **AUTHORED at the spawn/seat site, RECONCILED by exactly one system.** A
-/// body that a participant drives is spawned wearing this; the one runtime writer
-/// is `control::project_driving_participant`, which moves the PRIMARY seat onto a
-/// possessed body and back. Nothing else inserts or removes it, because two
-/// writable answers to *who drives this body* is the defect this type exists to
-/// end.
+/// `Brain` is AI policy only now, and this is the driver.
 ///
 /// ⛔ **it is REGISTERED rollback state, not a derive.** It was declared derived
 /// while it was reprojected from `Brain::Player`, which IS in the snapshot; with
@@ -385,12 +373,8 @@ pub struct DrivingParticipant(pub PlayerSlot);
 
 /// Identifies which **autonomous policy** drives an actor when no participant is.
 ///
-/// ⭐⭐ **a `Brain` is an AI backend and nothing else.** It used to carry a
-/// `Player(PlayerSlot)` variant, so every exhaustive match over it had an arm for
-/// a thing that is not a policy and possession had to swap policies around in
-/// order to say who was driving. Who drives a body is [`DrivingParticipant`]; a
-/// driven body KEEPS whatever policy it has, and gets it back by never having
-/// lost it.
+/// Who drives a body is [`DrivingParticipant`]; a driven body KEEPS whatever policy it has, and
+/// gets it back by never having lost it.
 ///
 /// Brains are dispatched via enum match (not trait objects) to keep
 /// the per-tick cost a single switch. New backends extend the enum;
@@ -584,31 +568,21 @@ pub struct ActorControl(pub crate::actor::control::ActorControlFrame);
 /// documented as "a mount's saddle, a scripted flagpole slide". This is the
 /// control half, which had no name and was therefore reinvented at every site.
 ///
-/// It is a marker rather than a set of flags on purpose. Every consumer so far
-/// wants the same thing — the body stops answering input — and a flag per
-/// consumer would let a sequence be half-scripted, which is exactly the state
-/// that produced the bugs this replaces: Mary-O's death blanked the control
-/// frame in `GameplayEffects`, a full phase after everything that reads it and
-/// one phase before the brain refilled it, so it suppressed nothing at all; and
-/// Sanic's goal brake cleared locomotion but not the rest, which read as a
-/// crouch RELEASE and fired the spin dash he had been charging.
+/// It is a marker rather than a set of flags on purpose.
 ///
 /// Insert it when the sequence begins and remove it when the sequence retires.
 /// Whoever inserts it is responsible for driving the body meanwhile — a blanked
 /// control frame is not a frozen body, and gravity will happily walk an
 /// undriven one out from under its pose.
 ///
-/// ⛔⛔ **DERIVED, AND NO LONGER INSERTED OR REMOVED BY HAND.** Its presence is
-/// exactly "[`ControlHolds`] is not empty". An earlier draft of this note said
-/// *"one scripted sequence per body at a time — consumers remove this without
-/// checking who put it there, which is fine while a death beat, a flagpole
-/// slide, and an act clear are mutually exclusive; a second concurrent sequence
-/// would need a claimant, the way the encounter layer's priority music tier
-/// does"*. A capture IS that second concurrent sequence: it holds a body for as
-/// long as the grab lasts, during which a ruleset's KO freeze can legitimately
-/// claim the same body — and then the throw's release stripped the freeze off
-/// somebody else's fight. So the claimant exists now, and the prediction is
-/// spent rather than pending.
+/// An earlier draft of this note said *"one scripted sequence per body at a time — consumers
+/// remove this without checking who put it there, which is fine while a death beat, a flagpole
+/// slide, and an act clear are mutually exclusive; a second concurrent sequence would need a
+/// claimant, the way the encounter layer's priority music tier does"*. A capture IS that second
+/// concurrent sequence: it holds a body for as long as the grab lasts, during which a ruleset's
+/// KO freeze can legitimately claim the same body — and then the throw's release stripped the
+/// freeze off somebody else's fight. So the claimant exists now, and the prediction is spent
+/// rather than pending.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct ScriptedControl;
 
@@ -721,12 +695,6 @@ impl ControlHolds {
 }
 
 /// **Claim a control hold, whatever else already holds this body.**
-///
-/// The two writes are one operation on purpose: [`ScriptedControl`] is the
-/// projection every reader asks about, and a claim that set the bit without it
-/// would suppress nothing at all — which is precisely the bug the marker was
-/// introduced to end (a death beat that blanked a control frame in the wrong
-/// phase and stopped nothing).
 pub fn claim_control_hold(commands: &mut Commands, body: Entity, hold: ControlHold) {
     commands
         .entity(body)
@@ -740,12 +708,6 @@ pub fn claim_control_hold(commands: &mut Commands, body: Entity, hold: ControlHo
 ///
 /// Ordinary control comes back when the LAST authority lets go, so a body a
 /// conversation and a capture both held stays held until both release.
-///
-/// ⚠ **`holds: None` releases nothing, deliberately.** A caller whose query
-/// forgot [`ControlHolds`] leaves the body held rather than freeing it, and a
-/// body that will not move is a visible bug reported in one match. The failure
-/// this replaces was the silent one: a subsystem removing a marker it never
-/// claimed, so somebody else's hold vanished with no trace at either end.
 pub fn release_control_hold(
     commands: &mut Commands,
     body: Entity,
@@ -1010,14 +972,11 @@ mod slot_gesture_tests;
 #[cfg(test)]
 mod tests;
 
-/// ⚠ moved here from `ambition_platformer2d_actor_monolith::features::ecs::actor_tuning`
-/// on 2026-08-03. It is authored vocabulary — `character_archetypes.ron` names
-/// these variants — and the content compiler cannot link the actor crate.
-/// Generic kit vocabulary: the brain module is the universal-actor
-/// abstraction and shouldn't know named enemies, and the runtime brain
-/// rebuild (provoke-to-hostile, dismount) must reconstruct a brain from
-/// projected data without naming the content archetype enum. Authored
-/// per archetype in `character_archetypes.ron` and projected onto
+/// It is authored vocabulary — `character_archetypes.ron` names these variants — and the content
+/// compiler cannot link the actor crate. Generic kit vocabulary: the brain module is the
+/// universal-actor abstraction and shouldn't know named enemies, and the runtime brain rebuild
+/// (provoke-to-hostile, dismount) must reconstruct a brain from projected data without naming the
+/// content archetype enum. Authored per archetype in `character_archetypes.ron` and projected onto
 /// [`BrainProfile`] at spawn.
 // ⚠ `Serialize` because a `BrainProfile` carrying one is now authorable in the
 // character catalog, and `CharacterCatalogData` round-trips through serde for
@@ -1033,8 +992,7 @@ pub enum CharacterBrainTemplate {
     /// per-actor chase_speed / attack_range / aggro_radius in
     /// [`ActorTuning`].
     MeleeBrute,
-    /// Strafe-and-fire ranged policy. Maintains a standoff distance and
-    /// emits `frame.fire` on a fixed cooldown.
+    /// Strafe-and-fire ranged policy.
     Skirmisher,
     /// Hold position + long-range fire. Like `Skirmisher` but does not
     /// strafe — stationary turret-like enemies.
@@ -1051,12 +1009,8 @@ pub enum CharacterBrainTemplate {
     /// **The FB4b fighter brain**: L1 classify → L2 options → L3 rollout, on a
     /// human cadence with an APM ceiling and execution noise.
     ///
-    /// ⚠ added 2026-07-31, and it is the THIRD brain vocabulary the rig needed a
-    /// variant in — `BrainPreset` (catalog rows), `CharacterBrainTemplate`
-    /// (archetypes), and the `brain_profile` STRING that selects an archetype.
-    /// A match seat travels the archetype path, so a rig reachable only from the
-    /// catalog was reachable from everything except a match. Worth stating
-    /// plainly because the next brain will need all three too, and nothing
-    /// currently says so.
+    /// A match seat travels the archetype path, so a rig reachable only from the catalog was
+    /// reachable from everything except a match. Worth stating plainly because the next brain will
+    /// need all three too, and nothing currently says so.
     Fighter,
 }

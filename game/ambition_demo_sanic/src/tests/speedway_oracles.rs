@@ -1,14 +1,3 @@
-//! Executable repros ("oracles") for the momentum-speedway bugs observed on
-//! 2026-07-16: held-Up loop orbiting, finicky ramp entry, and edge sticking.
-//!
-//! Every oracle drives the REAL `sanic_speedway()` geometry through the real
-//! movement kernel (`ae::step_motion`) with the catalog's authored momentum
-//! numbers, records a per-tick trace, and asserts the behavior a player is
-//! entitled to. All nine originally reproduced live defects (see the section
-//! comments); the 2026-07-16 solver fixes turned them green and they now
-//! stand as the speedway's permanent regression gates. Oracle G (jumps on the
-//! track land on the track) was added with the same-day depth-occlusion
-//! rework that made airborne collision lane-blind.
 
 use ambition_platformer2d::engine_core as ae;
 
@@ -264,15 +253,6 @@ fn laps_until_exit(
 // Oracle A/B — the course contract at AUTHORED params: a runner holding Up
 // (the input the course demands — it is the only way onto the ramp) must ride
 // the loop exactly once and come out the far side.
-//
-// Today these pin long before the routing question even arises: at authored
-// speed the convex joints near the ramp top (forward) and on the descent
-// (reverse) trip the launch rule, the launched circle is instantly recaptured
-// by the same surface, and the attach/shed pair repeats every tick with the
-// position frozen and v_t intact — the "stuck on an edge, then unstuck at
-// full speed" a player feels. The pure routing bug is isolated separately in
-// the `route_bias_isolation` oracles below.
-// ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
 fn oracle_held_up_forward_run_rides_the_loop_exactly_once() {
@@ -318,7 +298,6 @@ fn oracle_held_up_reverse_run_exits_down_the_ramp_after_one_lap() {
     let entry_s = chain.arc_at_vertex(LOOP_ENTRY_POINT_INDEX);
     let top_s = chain.arc_at_vertex(LOOP_ENTRY_POINT_INDEX + LOOP_SEGMENTS / 2);
 
-    // Jon's concrete repro: start right of the runout, run LEFT holding Up.
     // Up at the runout fork climbs the descent; the correct route is then one
     // reverse revolution and out down the entry ramp.
     let mut probe = Probe::riding_chain(&room.world, floor_idx, 3400.0, -600.0, sanic_params());
@@ -771,15 +750,10 @@ fn oracle_soak_position_never_pins_and_ride_state_never_flaps() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Oracle G — jumps on the track land on the track.
 //
-// Depth lanes are an implementation detail the player cannot perceive: the
-// ramp (-1), loop body (0), and mouth deck / shoulders / runout (+1) all read
-// as ONE solid course. Before the 2026-07-16 depth-occlusion rework, an
-// airborne body was frozen in the lane it launched from and fell clean
-// through every other lane's track — jump on the ramp holding forward and
-// the loop mouth was intangible; jump from the floor and the ramp face was.
-// Airborne collision is now lane-blind (launch-coincident foreign track is
-// suppressed only until the flight separates), and these gates pin the
-// Sonic entitlement: what you can see, you can land on.
+// Depth lanes are an implementation detail the player cannot perceive: the ramp (-1), loop body
+// (0), and mouth deck / shoulders / runout (+1) all read as ONE solid course. Airborne collision is
+// now lane-blind (launch-coincident foreign track is suppressed only until the flight separates),
+// and these gates pin the Sonic entitlement: what you can see, you can land on.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// The first riding sample after the probe has actually gone airborne.
@@ -819,11 +793,8 @@ fn oracle_ramp_jump_held_forward_lands_on_the_track() {
     let chain = &room.world.chains[loop_idx];
     let upper_ramp_s = chain.arc_at_vertex(LOOP_ENTRY_POINT_INDEX) * 0.75;
 
-    // The reported bug: jump on the upper ramp while holding toward the loop.
-    // Air steering carries the arc over the crest into the loop-mouth
-    // airspace; the mouth deck and shoulders must catch it. Before the
-    // rework the ramp-lane flight fell through the foreground track and hit
-    // the base floor.
+    // Air steering carries the arc over the crest into the loop-mouth airspace; the mouth deck
+    // and shoulders must catch it.
     let mut probe = Probe::riding_chain(&room.world, loop_idx, upper_ramp_s, 240.0, sanic_params());
     probe.step(&room.world, ae::Vec2::X, true);
     for _ in 0..150 {
@@ -906,13 +877,6 @@ fn oracle_drop_onto_the_overpass_lands_on_the_raised_track() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Oracle H — the expanded course: hills, platforms, springs, and the pit.
-//
-// The 2026-07-16 course expansion (LDtk-authored level) added rolling hills,
-// one-way platforms, a vertical + a diagonal spring, monitors, badniks, and a
-// hazard pit. These gates pin the layout promises: every platform is either
-// genuinely jumpable or spring-served, springs actually launch a rider, the
-// hills flow at speed, and the pit is exactly as lethal as authored.
-// ─────────────────────────────────────────────────────────────────────────────
 
 /// Interpolated ground-route height under `x` (the hills are real geometry,
 /// so "the ground" is the chain surface, not the flat slab top).

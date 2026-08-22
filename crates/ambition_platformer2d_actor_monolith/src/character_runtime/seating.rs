@@ -1,21 +1,9 @@
 //! **What a seated fighter IS, and which match is live.**
 //!
-//! ⚠ **the verb moved.** Turning a roster into bodies used to live here, and it
-//! resolved each seat against live authority tables in the middle of building
-//! it. That shape is gone: [`crate::character_runtime::prepared_match`] answers
-//! every question first and then builds the whole cast from the answer. What is
-//! left here is the seat BINDING — the component a body wears, the derivation
-//! that reads the cast off the world, and the latch that says a match is live.
-//!
-//! ⛔ **and the fork it removed is worth naming, because it generated every bug
-//! in the 2026-08-06 report.** A local player's seat used to ADOPT the session's
-//! existing body while a CPU's seat SPAWNED a new one, so a fighter's
-//! construction depended on who happened to drive it. From that one asymmetry
-//! came: a costume handshake that could deadlock the whole match, seat 0 being
-//! privileged, health/box/mass/ability divergences unified one at a time across
-//! three weeks, and a match with nobody local in it being inexpressible.
-//! Realization is now one path for every fighter and control is attached
-//! afterwards.
+//! That shape is gone: [`crate::character_runtime::prepared_match`] answers every question first
+//! and then builds the whole cast from the answer. What is left here is the seat BINDING — the
+//! component a body wears, the derivation that reads the cast off the world, and the latch that
+//! says a match is live.
 
 use bevy::prelude::*;
 
@@ -36,11 +24,9 @@ pub struct MatchSeat(pub usize);
 /// cannot claim one. Anything that needs the cast asks the world through this,
 /// rather than reading a list somebody remembered.
 ///
-/// ⚠ **this used to be a `Vec<Entity>` on [`ActiveMatch`], and that was the bug**
-/// (GPT 5.6, 2026-07-29). A resource holding live `Entity` values, mutated from
-/// inside the rollback schedule and not registered as rollback state, keeps its
-/// future contents across a rewind: the bodies are restored to an earlier state —
-/// or to not existing — while the list still names them. Deriving costs one
+/// A resource holding live `Entity` values, mutated from inside the rollback schedule and not
+/// registered as rollback state, keeps its future contents across a rewind: the bodies are restored
+/// to an earlier state — or to not existing — while the list still names them. Deriving costs one
 /// query and cannot go stale, because there is nothing to keep in step.
 ///
 /// Sorted by seat, so `participants[i]` is seat `i` however the entities were
@@ -60,11 +46,11 @@ pub fn match_participants(seated: &Query<(Entity, &MatchSeat)>) -> Vec<Entity> {
 /// Present means every seat in the prepared match has a body. Absent means no
 /// match is running — either none was prepared, or activation has not run yet.
 ///
-/// ⚠ this replaced a `MatchSeated(bool)`, and the difference is the whole point.
+/// this replaced a `MatchSeated(bool)`, and the difference is the whole point.
 /// A bool said seating had FINISHED and never said WHO, so nothing could ask
 /// whether the live fighters are still the set the match was built from.
 ///
-/// ⚠ **and it says how MANY, not WHICH** (GPT 5.6, 2026-07-29). Naming the
+/// **and it says how MANY, not WHICH**. Naming the
 /// bodies meant holding `Vec<Entity>` in a resource written from inside the
 /// rollback schedule and not registered as rollback state, so a rewind across
 /// activation would restore the fighters and leave the list pointing at the
@@ -74,18 +60,7 @@ pub fn match_participants(seated: &Query<(Entity, &MatchSeat)>) -> Vec<Entity> {
 /// What is left is plain data: a count, a generation number, and **the identity
 /// of the activation it receipts** — all facts about the DECISION to activate.
 ///
-/// ⛔ **the identity is load-bearing and it used to be a presence proxy.**
-/// Activation asked *"is there an `ActiveMatch` AND are there `MatchSeat`
-/// bodies"*, reading a receipt with no bodies as a dead session's paperwork.
-/// That is false for a platform fighter: `take_eliminated_fighters_out_of_play`
-/// despawns an eliminated fighter's body, and a simultaneous final-stock ring-out
-/// is a supported DRAW — so a legitimately finished match sits at
-/// `ActiveMatch = current`, `MatchSeat count = 0` for the whole 4.5s the winner
-/// card is up. Activation would have fallen straight through and rebuilt the
-/// cast with fresh stocks, underneath the announcement. Found by review
-/// (GPT 5.6, 2026-08-07) before anybody had to watch it happen.
-///
-/// ⭐ so identity is stated, not inferred: this receipt names the session whose
+/// so identity is stated, not inferred: this receipt names the session whose
 /// plan it built, and fighter presence is irrelevant to it.
 #[derive(Resource, Debug, Clone, PartialEq)]
 pub struct ActiveMatch {
@@ -102,7 +77,7 @@ pub struct ActiveMatch {
     /// **The sim tick the cast was built on**, so the opening ceremony can be
     /// DERIVED rather than ticked.
     ///
-    /// ⭐ this is what lets a 3–2–1–GO countdown exist without any new mutable
+    /// this is what lets a 3–2–1–GO countdown exist without any new mutable
     /// state in the rollback window: the phase is `now - activated_on` against
     /// the ruleset's declared length, which a rewind recomputes identically.
     ///
@@ -112,32 +87,27 @@ pub struct ActiveMatch {
     activated_on: Option<u64>,
 }
 
-/// **WHICH ACTIVATION OF WHICH MATCH** — the identity a ruleset keys its own
-/// per-match state on. (D147)
+/// **WHICH ACTIVATION OF WHICH MATCH** — the identity a ruleset keys its own per-match state
+/// on.
 ///
-/// ⛔⛔ **the alternative is a process-global latch somebody has to remember to
-/// clear, and forgetting is what D140 was.** `StocksMatchSettled` was a bare
-/// `bool` about the process rather than about a match: it went true when a match
-/// ended and stayed true, so the next match on the same stage opened wearing the
-/// previous one's verdict and could never be decided. The repair at the time was
-/// to retract it from `activate_the_prepared_match` — which works, and which
-/// made the GENERIC activation road know that one particular ruleset keeps a
-/// private boolean.
+/// The repair at the time was to retract it from `activate_the_prepared_match` — which works,
+/// and which made the GENERIC activation road know that one particular ruleset keeps a private
+/// boolean.
 ///
-/// ⭐ **keyed to this, a ruleset's per-match state goes stale BY
+/// **keyed to this, a ruleset's per-match state goes stale BY
 /// CONSTRUCTION.** *"Has this match been decided"* is `settled == Some(live
 /// instance)`, and a different match is not this one — so there is no retraction
 /// to schedule, no ordering to get right, and nothing for activation to know
 /// about a ruleset it may not even be composed with.
 ///
-/// ⚠ **it rewinds because both halves do.** This is derived from
+/// **it rewinds because both halves do.** This is derived from
 /// [`ActiveMatch`], which is rollback state, and the ruleset's latch stores a
 /// copy — so a rewind across the deciding frame restores a latch stamped with a
 /// match and a receipt that agree again, or restores the receipt's ABSENCE and
 /// the question stops being asked. No change detection is involved, which is the
 /// property that makes it safe inside the rollback window.
 ///
-/// ⚠ **a composition with neither a session nor a clock cannot tell two
+/// **a composition with neither a session nor a clock cannot tell two
 /// activations apart**, and that is the honest answer rather than a hole: those
 /// are the two facts that distinguish one activation from the next, and a
 /// composition with no clock has no tick on which to run a second match.
@@ -179,7 +149,7 @@ impl MatchInstance {
 impl ActiveMatch {
     /// **Publish an activation.** The one production constructor.
     ///
-    /// ⚠ called only by `activate_the_prepared_match`, which is infallible — so
+    /// called only by `activate_the_prepared_match`, which is infallible — so
     /// unlike every earlier version of this latch there is no path on which it
     /// can be published over a partially built cast.
     pub fn activated(
@@ -271,14 +241,10 @@ impl ActiveMatch {
 
     /// Rebuild an activation from a rollback snapshot.
     ///
-    /// ⚠ **what makes registering this correct is that `bevy_ggrs` restores
-    /// ABSENCE**: `ResourceSnapshotPlugin::load` maps `(Some(_), None)` to
-    /// `remove_resource`. So a rewind to a frame before activation does not
-    /// merely stale the latch, it deletes it — activation sees no active match,
-    /// re-runs, and rebuilds the cast from the prepared plan, which is NOT
-    /// rollback state and is therefore still there to rebuild from. Registration
-    /// would have been decorative if the plugin only overwrote a present value,
-    /// which is worth stating because that is the assumption the fix rests on.
+    /// **what makes registering this correct is that `bevy_ggrs` restores ABSENCE**:
+    /// `ResourceSnapshotPlugin::load` maps `(Some(_), None)` to `remove_resource`. Registration
+    /// would have been decorative if the plugin only overwrote a present value, which is worth
+    /// stating because that is the assumption the fix rests on.
     #[doc(hidden)]
     pub fn from_snapshot(
         seats: usize,
@@ -294,7 +260,3 @@ impl ActiveMatch {
         }
     }
 }
-
-// The tests that used to live here moved with the verb they exercise, to
-// `prepared_match`. What remains in this file is a component, a derivation and
-// a latch, each covered where it is used.

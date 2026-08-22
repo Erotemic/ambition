@@ -43,14 +43,6 @@
 //!
 //! # Finite settling
 //!
-//! Every move strictly decreases a grain's height, which is bounded by the
-//! floor walls, so a finite emission reaches a fixed point. At the fixed point
-//! every loose grain has all three lower neighbors blocked; `settle_into`
-//! then transfers pile interiors whose lower neighbors are already static
-//! (walls or settled cells) — support grows upward from the floor, and one
-//! pass per tick converts the whole resting pile bottom-up. End state: zero
-//! loose cells, ledger total == emitted. Pinned by the fixed-point test.
-//!
 //! Gravity is +y (this codebase's world convention: y grows downward). The
 //! symmetry-room C4 generalization (gravity from `GravityCtx`) is future work;
 //! this room authors normal gravity.
@@ -82,9 +74,6 @@ pub enum SandCell {
     Wall,
     /// A loose grain. Matter, owned by the grid.
     Sand,
-    /// Ground that used to be a grain. Geometry; the matter now lives in the
-    /// [`SettledSandLedger`]. Kept distinct from [`SandCell::Wall`] so the
-    /// visual can draw it as sand and a later slice can re-fluidize it.
     Settled,
 }
 
@@ -464,11 +453,8 @@ mod tests {
         }
         run_to_fixed_point(&mut grid, &mut ledger, 300);
 
-        // Genuinely fixed: a grain move is the only mutation `step` performs
-        // and a transfer the only one `settle_into` performs, so ten more
-        // ticks returning zero of each is "nothing drifts". (The grids
-        // themselves are NOT compared — `tick` advances at quiescence, and it
-        // is real state: scan parity reads it.)
+        // (The grids themselves are NOT compared — `tick` advances at quiescence, and it is
+        // real state: scan parity reads it.)
         let frozen_ledger = ledger.clone();
         let frozen_loose = grid.loose();
         for _ in 0..10 {

@@ -1,10 +1,7 @@
 //! **FB4b — the rig that turns the fighter brain into inputs.** (§13)
 //!
-//! Everything below this file is pure and already tested: `classify` (L1),
-//! `generate_options` (L2), `refine_by_rollout` (L3), the `HabitModel`, the
-//! `DelayedPerception` buffer. None of it emitted a control frame, so the whole
-//! L3 investment sat unexercised on the ladder — every row stays
-//! `rollout_depth: 0` until a brain that PLAYS can be measured.
+//! Everything below this file is pure and already tested: `classify` (L1), `generate_options`
+//! (L2), `refine_by_rollout` (L3), the `HabitModel`, the `DelayedPerception` buffer.
 //!
 //! This is that brain. It is mostly plumbing plus three careful pieces, and each
 //! of the three is rollback state rather than cache:
@@ -141,8 +138,8 @@ fn next_signed_unit(seed: &mut u64) -> f32 {
 
 /// **A press the brain has committed to, and the press it is.**
 ///
-/// ⚠ this was a bare `Option<u32>` — a delay with no memory of what it was
-/// delaying (GPT 5.6, 2026-07-31, finding 2). The scored move was chosen, the
+/// this was a bare `Option<u32>` — a delay with no memory of what it was
+/// delaying. The scored move was chosen, the
 /// count matured, and a NEUTRAL melee edge came out; `trigger_moveset_moves`
 /// then resolved whatever the default gesture maps to, which for a body with
 /// directional variants is the plain jab whatever the brain had picked.
@@ -237,15 +234,7 @@ pub fn tick_fighter(
     // and presses every thought is still pressing at that rate.
     state.apm.elapsed_ticks = state.apm.elapsed_ticks.saturating_add(1);
 
-    // ⛔⛔ **A CAPTURE PRE-EMPTS THE WHOLE DECISION, AT BOTH ENDS — and this
-    // brain is the one that needed it.** The capture arms landed on the Smash
-    // brain first, and the smash ROSTER seats Fighters
-    // (`the_duelist_preset_is_a_fighter_brain`), so a CPU in an actual match had
-    // no capture behaviour at all: a held fighter ran its ordinary decision and
-    // asked to approach an opponent it could not walk toward, and a fighter
-    // holding one asked the same. The capability existed and had no adopter.
-    //
-    // ⚠ before the held frame is emitted and before the pending press matures:
+    // before the held frame is emitted and before the pending press matures:
     // a press decided while free is stale the moment a relationship exists, and
     // maturing it would spend an APM token on a button that cannot fire.
     if let Some(frame) = capture_context_frame(snapshot) {
@@ -259,10 +248,10 @@ pub fn tick_fighter(
     // decision asked for. Edges are cleared below unless something arms them
     // this tick — a `melee_pressed` that stayed true would be a button held down
     // forever.
-    // ⚠ **`clear_edges`, not three fields by hand.** This open-coded melee,
+    // **`clear_edges`, not three fields by hand.** This open-coded melee,
     // jump and dash — and `MovementVerb::Blink` sets `blink_pressed`, which was
     // not among them, so one Blink decision emitted a press edge on EVERY tick
-    // until the next decision overwrote it (GPT 5.6, 2026-07-31, finding 3).
+    // until the next decision overwrote it.
     // Cooldowns masked some of it; the control stream was still several presses
     // for one choice. The helper was incomplete too — it is complete now, and
     // this is the caller that proves it: an edge added to the frame and not to
@@ -274,8 +263,6 @@ pub fn tick_fighter(
         state.ticks_until_decision -= 1;
     }
 
-    // A committed press matures. Checked BEFORE the decision so a press armed by
-    // the previous decision is not silently replaced by the next one.
     match state.pending_press {
         Some(PendingAttack { ticks: 0, binding }) => {
             state.pending_press = None;
@@ -307,20 +294,20 @@ pub fn tick_fighter(
 
 /// **What a fighter inside a capture presses** — `None` at neither end of one.
 ///
-/// ⭐ **the same two fields a person's Attack button writes, and no capture API
+/// **the same two fields a person's Attack button writes, and no capture API
 /// at all.** `trigger_moveset_moves` reads the RELATIONSHIP and turns a neutral
 /// press into a pummel and a forward press into a throw; a brain that reached
 /// for a capture-specific verb would be the CPU-only road this design exists
 /// without.
 ///
-/// ⛔ **the captive is not silent and the captor is not idle**, which are the
+/// **the captive is not silent and the captor is not idle**, which are the
 /// two failures this replaces. A held body struggles — that is its whole agency
 /// and the only thing it may ask for — and a holding body spends the hold rather
 /// than standing in it until the clock runs out.
 fn capture_context_frame(snapshot: &BrainSnapshot) -> Option<ActorControlFrame> {
     if snapshot.captured {
         let mut frame = ActorControlFrame::neutral();
-        // ⚠ **no APM token.** Mashing out of a grab is the one thing a person
+        // **no APM token.** Mashing out of a grab is the one thing a person
         // really does at machine speed, and spending the decision budget on it
         // would make a fighter's escape compete with its next attack.
         if crate::brain::struggling_this_tick(snapshot.captured_for, snapshot.dt) {
@@ -333,11 +320,11 @@ fn capture_context_frame(snapshot: &BrainSnapshot) -> Option<ActorControlFrame> 
     }
     let mut frame = ActorControlFrame::neutral();
     frame.melee_pressed = true;
-    // Pummel once, then throw. ⚠ deliberately the simplest policy that proves
+    // Pummel once, then throw. deliberately the simplest policy that proves
     // the road: opponent percent, stage edge, kill potential and escape risk are
     // all real inputs it does not read.
     frame.attack_axis = if snapshot.pummels_landed >= 1 {
-        // ⛔ MIRRORED: `attack_dir_from_axis` reads `axis.x * facing`, so a bare
+        // MIRRORED: `attack_dir_from_axis` reads `axis.x * facing`, so a bare
         // `+x` is *forward* only for a right-facing body. See `aim_the_stick`.
         let facing = if snapshot.actor_facing < 0.0 {
             -1.0
@@ -363,8 +350,6 @@ fn decide(
     };
     let situation = classify(view);
 
-    // **RECOVERY CANCELS A QUEUED ATTACK.** (traced 2026-07-31)
-    //
     // A press is armed at one decision and matures several ticks later, and the
     // situation can change in between — which on a platform stage it does, in
     // the one direction that matters. The trace caught it exactly: an attack
@@ -373,17 +358,13 @@ fn decide(
     // `Recover`, and every attack in this engine LUNGES. So the fighter's own
     // queued swing carried it out at 700 px/s while its emitted input said left.
     //
-    // ⚠ **and it is a DROP, not a ban** — the distinction matters now that L2
-    // offers a recovering body its lifting moves. The stale press dies here;
-    // `generate_options` runs below and re-arms from the Recovery option set in
-    // this same tick, so a body whose kit contains a way home presses that
-    // instead of nothing. What cannot survive is a press decided under a
-    // different situation, which is the whole of the 2026-07-31 trace.
+    // **and it is a DROP, not a ban** — the distinction matters now that L2 offers a recovering
+    // body its lifting moves. The stale press dies here; `generate_options` runs below and re-arms
+    // from the Recovery option set in this same tick, so a body whose kit contains a way home
+    // presses that instead of nothing.
     //
-    // (The old note here said *"L2 already refuses to offer attacks in
-    // `Recovery`"*. It no longer does — refusing was right about attacking and
-    // wrong about the repertoire, since a genre fighter's answer to being
-    // offstage IS a move.)
+    // It no longer does — refusing was right about attacking and wrong about the repertoire,
+    // since a genre fighter's answer to being offstage IS a move.)
     if situation == Situation::Recovery {
         state.pending_press = None;
     }
@@ -412,7 +393,7 @@ fn decide(
         &cfg.profile.utility_weights,
     );
 
-    // ⭐ **THE ROLLOUT PREDICTS THE BODY IT IS IN, not a default one.** The
+    // **THE ROLLOUT PREDICTS THE BODY IT IS IN, not a default one.** The
     // config's tuning carries the foe assumptions and the hit response; the
     // MOVEMENT half comes from the body's own authored `MovementTuning` when the
     // snapshot carries it. Without this a character that authors its own gravity
@@ -423,7 +404,7 @@ fn decide(
         None => cfg.tuning.clone(),
     };
 
-    // ⭐ **THE RECOVERY LENS — the one real-kernel seam in the decision.**
+    // **THE RECOVERY LENS — the one real-kernel seam in the decision.**
     //
     // Built once per decision (never per rolled line, and never per tick): the
     // world lowering allocates a block per perceived solid and does not change
@@ -435,16 +416,11 @@ fn decide(
     // `movement_tuning` and `attack_kit` arrive on. Nothing here interprets the
     // ability set; it is handed to the kernel, which owns what a body can do.
     //
-    // ⭐⭐ **THE ROUTES ARE PROPOSED, NOT CHOSEN.** Every move in this body's kit
-    // that commands a displacement becomes a candidate route, in
-    // `lifting_candidates`' deterministic order, and the LENS decides which of
-    // them is useful from where the body actually is. This used to take
-    // `.first()` — the largest against-gravity number — and hand the search that
-    // one move, which makes a scalar into a recovery ontology: a fighter whose
-    // way home is lateral advertises a small rise, so a stall-and-juggle aerial
-    // outranked it and became "the recovery" for every layer downstream. Nothing
-    // here knows whose body it is; the affordance is still derived from move
-    // geometry and never from an identity.
+    // **THE ROUTES ARE PROPOSED, NOT CHOSEN.** Every move in this body's kit that commands a
+    // displacement becomes a candidate route, in `lifting_candidates`' deterministic order, and the
+    // LENS decides which of them is useful from where the body actually is. Nothing here knows
+    // whose body it is; the affordance is still derived from move geometry and never from an
+    // identity.
     let route_moves = super::options::lifting_candidates(&snapshot.attack_kit);
     let routes: Vec<super::recovery::RecoveryLift> = route_moves
         .iter()
@@ -487,7 +463,7 @@ fn decide(
 
     // MOVEMENT: the best verb the rollout did not veto.
     //
-    // ⚠ **a verdict nothing consumes is not a verdict.** L3 now rolls each
+    // **a verdict nothing consumes is not a verdict.** L3 now rolls each
     // movement line and names the ones that end with this body out of the world;
     // if the rig still took `movement.first()`, that list would be a field in a
     // struct and the fighter would keep walking off the stage — which is the
@@ -506,12 +482,9 @@ fn decide(
     // inside each verb makes "nothing was chosen" mean "nothing is pressed"
     // structurally, instead of depending on every branch below to remember.
     //
-    // ⚠ this replaced an explicit `halt()` on the empty case. That branch was
-    // correct when it was written and became UNREACHABLE the moment the
-    // least-bad fallback landed — every vetoed verb is a modelled verb, so an
-    // emptied list always has a longest-lived line to fall back to. An
-    // unreachable refusal reads as protection while protecting nothing;
-    // `ladder_probe` confirmed it fires zero times across five matches.
+    // this replaced an explicit `halt()` on the empty case. An unreachable refusal reads as
+    // protection while protecting nothing; `ladder_probe` confirmed it fires zero times across five
+    // matches.
     frame.locomotion = ae::LocalAxes::ZERO;
     let chosen = options
         .movement
@@ -532,17 +505,17 @@ fn decide(
 
     // ATTACK: a chosen attack becomes a PENDING press, jittered by the profile's
     // execution noise. The winner is L3's when L3 spoke, L2's otherwise.
-    // ⛔ **`and_then`, not `map`.** `RefinedChoice::move_id` is the rollout's
+    // **`and_then`, not `map`.** `RefinedChoice::move_id` is the rollout's
     // preferred attack and it is `None` when L2 offered none — `map` wrapped
     // that in a second `Some`, so every decision that ran a rollout requested an
     // attack that named no move, including in `Recovery`. See the field's doc.
     //
-    // ⚠ **the BINDING travels with it**, which is the whole of GPT 5.6's finding
-    // 2: the winner used to be reduced to "yes, attack" and a tick count, and the
-    // press that matured was a neutral melee edge — so the reach, frame-advantage
-    // and rollout work decided WHETHER to swing and never WHICH move.
+    // **the BINDING travels with it**, which is the whole of 2: the winner used to be reduced
+    // to "yes, attack" and a tick count, and the press that matured was a neutral melee edge —
+    // so the reach, frame-advantage and rollout work decided WHETHER to swing and never WHICH
+    // move.
     //
-    // ⭐⭐ **AND IN `Recovery` THE KERNEL OUTRANKS BOTH.** L2 orders the routes by
+    // **AND IN `Recovery` THE KERNEL OUTRANKS BOTH.** L2 orders the routes by
     // the one thing a pure function can see — how hard each one pushes against
     // gravity — and that order is a proposal, not an answer. Which authored
     // action is useful from where this body actually is has exactly one
@@ -568,8 +541,7 @@ fn decide(
     } else {
         None
     };
-    //
-    // ⭐ **the MOVE ID travels with the binding, and it is not decoration.** A
+    // **the MOVE ID travels with the binding, and it is not decoration.** A
     // binding is a button and a stick direction; two different moves in one kit
     // reach the same one under different gates, so a trace that published only
     // the binding could not answer *"which authored action did the CPU select
@@ -582,30 +554,19 @@ fn decide(
             .route
             .and_then(|index| route_moves.get(index))
             .map(|candidate| (candidate.binding, candidate.move_id.clone())),
-        // ⭐⭐ **THE SEARCH RAN AND ENDORSED NOTHING ⇒ THROW NOTHING.** The
+        // **THE SEARCH RAN AND ENDORSED NOTHING ⇒ THROW NOTHING.** The
         // kernel is the authority on which authored action is useful from here,
         // and it is the authority in BOTH directions — a negative is its answer,
         // not its silence.
         //
-        // ⛔⛔ **this arm used to fall through to `options.attacks.first()`, which
-        // in `Recovery` is `lifting_candidates` sorted by `lift_speed`
-        // descending** — *the move that pushes hardest against gravity*, chosen
-        // before anything knew where the body was, which is precisely the static
-        // ranking [`super::recovery::RecoveryLens::best_route`] exists to
-        // replace. `lifting_candidates`' own doc named the consequence in
-        // advance: *"If a caller ever takes `.first()` here as the recovery, the
-        // tiny-rising-aerial trap is back."*
+        // `lifting_candidates`' own doc named the consequence in advance: *"If a caller ever
+        // takes `.first()` here as the recovery, the tiny-rising-aerial trap is back."*
         //
-        // ⭐ **and it was not a rare branch — it was almost the whole branch.**
-        // Measured 2026-08-15 over CPU-versus-CPU matches on the smash stage:
-        // `Situation::Recovery` was a THIRD of every decision George Booul made,
-        // the search endorsed a route in **3 of 100** of them, and the remaining
-        // 97 pressed his Up-B out of this fallback. He spent a third of the match
-        // firing a recovery the kernel had just finished saying would not work,
-        // could not act while it played, and started three distinct moves out of
-        // sixteen authored.
+        // He spent a third of the match firing a recovery the kernel had just finished saying would
+        // not work, could not act while it played, and started three distinct moves out of sixteen
+        // authored.
         //
-        // ⚠ **and pressing it was not the safe half.** A grid over the real stage
+        // **and pressing it was not the safe half.** A grid over the real stage
         // (`excluded_middle` = `Set (0, -1020)`) says a straight-up burst ERASES
         // the drift that would have carried him back across, so from beside the
         // lip he rockets past it and returns to the same place; the search had
@@ -620,7 +581,7 @@ fn decide(
         // the edgeguard comes, which is the same fighting-game fact the
         // buttons-only baseline already encodes by going first.
         //
-        // ⚠ the movement half is untouched and still runs: `Recover` was chosen
+        // the movement half is untouched and still runs: `Recover` was chosen
         // above, the body is still steering home, and the next decision (five
         // ticks later) asks the kernel again from wherever the drift has got to.
         Some(_) => None,
@@ -652,13 +613,9 @@ fn decide(
         } else {
             0
         };
-        // ⛔ **THE PRESS CANNOT OUTLIVE THE DECISION THAT MEANT IT.**
-        // `cfg.interval()` is *"how long this body is COMMITTED to whatever it
-        // decides: exactly until it decides again"*, and the aimed stick above
-        // is held for exactly that long. A jitter that reached the next decision
-        // would mature a press against a stick the NEXT decision aimed —
-        // reachable at `execution_noise >= 1.0`, and it would press the new
-        // direction with the old button.
+        // **THE PRESS CANNOT OUTLIVE THE DECISION THAT MEANT IT.** `cfg.interval()` is *"how
+        // long this body is COMMITTED to whatever it decides: exactly until it decides again"*,
+        // and the aimed stick above is held for exactly that long.
         let jitter = jitter.min(cfg.interval().saturating_sub(1));
         state.pending_press = Some(PendingAttack {
             ticks: jitter,
@@ -666,12 +623,6 @@ fn decide(
         });
     }
 
-    // ⚠ **the trace is published LAST, because a decision is not finished until
-    // the attack half of it is made.** It used to run between the movement and
-    // the attack, so every fact it published named a verb and could not name a
-    // move — and the one question a platform-fighter brain is judged on
-    // (*"offstage, holding a real recovery, what did it press?"*) was structurally
-    // outside the instrument. Nothing else moved.
     trace_decision(
         view,
         &options,
@@ -687,7 +638,7 @@ fn decide(
                 .and_then(|verdict| verdict.route)
                 .and_then(|index| route_moves.get(index))
                 .map(|candidate| candidate.move_id.as_str()),
-            // ⭐ **the PROPOSALS, in probe order** — without them a reader cannot
+            // **the PROPOSALS, in probe order** — without them a reader cannot
             // tell "the search rejected the grapple" from "the grapple was never
             // proposed", and those want opposite fixes. A borrow, so an untraced
             // decision costs nothing: the ids are rendered behind the early
@@ -700,7 +651,7 @@ fn decide(
 /// **Everything one decision produced, in the terms [`trace_decision`]
 /// publishes.**
 ///
-/// ⚠ a struct rather than six more parameters, and not for tidiness: the trace
+/// a struct rather than six more parameters, and not for tidiness: the trace
 /// is the only consumer, so a field added here is a field the fact carries and
 /// a field the rendered line shows. Splitting them across an argument list is
 /// how the stderr half and the fact half drifted the first time.
@@ -720,32 +671,24 @@ struct DecisionSummary<'a, 'k> {
     /// search that found nothing, which is why both are published.
     recovery_move: Option<&'a str>,
     /// **Every route the repertoire PROPOSED**, in the order the lens probes
-    /// them ([`super::options::lifting_candidates`]). ⚠ this is what separates
+    /// them ([`super::options::lifting_candidates`]). this is what separates
     /// *"the search rejected the grapple"* from *"the grapple was never
     /// proposed"*, and those two want opposite fixes. Held as candidates rather
     /// than strings so a run that is not tracing allocates nothing.
     proposed_routes: &'a [&'k AttackCandidate],
 }
 
-// ⭐ **`TILT_DEFLECTION` MOVED to `crate::actor::attack_gesture` on 2026-08-19.**
-// It describes how far a stick is pushed to mean a TILT rather than a SMASH —
-// which is attack-gesture vocabulary, not a fact about the fighter brain. It
-// lived here and `brain/smash/emit.rs` reached across for it, which was one of
-// the three edges the generic brain had into this one (D166's carve). Moving it
-// to the module that owns the tilt/smash distinction removes that edge without
-// either brain naming the other.
+// Moving it to the module that owns the tilt/smash distinction removes that edge without either
+// brain naming the other.
 
 /// **AIM THE ATTACK STICK** — the direction half of a chosen move, written at
 /// DECISION time and held until the next decision, the way a hand holds a stick.
 ///
-/// ⭐ the axis is in the body's **gravity-local** frame, the same frame
+/// the axis is in the body's **gravity-local** frame, the same frame
 /// [`ActorControlFrame::locomotion`] is in and the same one a human's stick
 /// arrives in — `attack_dir_from_axis` multiplies `axis.x` by the body's
 /// `facing` to recover *forward*, so the CALLER owes it a facing-independent
 /// vector. Up is NEGATIVE y, the screen convention `InputState` carries.
-///
-/// ⛔⛔ **the two bugs this deletes, both measured on 2026-08-15 in a
-/// CPU-versus-CPU match, and both invisible to every test in the repo:**
 ///
 /// * **the mirror.** This wrote `Forward` as `+x` — a FACING-relative vector into
 ///   a gravity-local field — so the resolver multiplied by facing a second time
@@ -758,7 +701,7 @@ struct DecisionSummary<'a, 'k> {
 /// * **the accidental smash.** See
 ///   [`crate::actor::attack_gesture::TILT_DEFLECTION`].
 ///
-/// ⚠ a `Neutral` direction is a CENTRED stick, and centring it re-arms the
+/// a `Neutral` direction is a CENTRED stick, and centring it re-arms the
 /// flick detector — which is correct: the next directional press is then a fresh
 /// gesture rather than the tail of this one.
 fn aim_the_stick(
@@ -781,7 +724,7 @@ fn aim_the_stick(
         // multiplies a zero. Stated rather than folded into the arm below,
         // because "a grab is aimed like a tilt" would be a false sentence.
         AttackVerb::Grab => 0.0,
-        // ⚠ a SPECIAL has no tilt/smash distinction — `move_for_directional_verb`
+        // a SPECIAL has no tilt/smash distinction — `move_for_directional_verb`
         // only needs the direction to clear the deadzone — but it takes the same
         // partial deflection so that a special press can never leave a flick
         // armed behind it and turn the FOLLOWING tilt into a smash.
@@ -830,14 +773,6 @@ fn press_the_chosen_attack(binding: super::options::AttackBinding, frame: &mut A
 /// **Publish the decision as a structured causal fact — and render one line of
 /// it when `AMBITION_FIGHTER_TRACE=1`.**
 ///
-/// This used to be an `eprintln!` and nothing else. It exists because the last
-/// two attempts to fix the fighter walking off the stage were reasoning where a
-/// measurement was available — one produced a paralysis that read as a 3×
-/// improvement, the other made the number worse. What `ladder_probe` could see
-/// was WHERE the body died and how fast; what it could not see is which verb the
-/// brain picked and which ones the rollout struck off, and that is the whole
-/// question.
-///
 /// It is a FACT now, for three reasons the text line could not meet:
 ///
 /// * **it is queryable.** `explanation.first("fighter_decision").get("chose")`
@@ -852,11 +787,9 @@ fn press_the_chosen_attack(binding: super::options::AttackBinding, frame: &mut A
 ///   resimulated frame decided again and printed again, and two identical lines
 ///   are indistinguishable from one decision made twice. `Execution` says which.
 ///
-/// ⚠ **one authority.** The stderr line is RENDERED from the fact, so the two
-/// cannot drift. A second `eprintln!` carrying a field the fact lacks is the
-/// bug this replaces, one level up.
+/// **one authority.** The stderr line is RENDERED from the fact, so the two cannot drift.
 ///
-/// ⚠ **the tick is stamped by the scope owner, not by this function.** A brain
+/// **the tick is stamped by the scope owner, not by this function.** A brain
 /// five hops below the ECS does not know the world's clock, and a decision
 /// counter guessed here would be a second clock that no other domain could join
 /// against. `CausalLog::set_tick` is the one place with the answer.
@@ -906,13 +839,13 @@ fn trace_decision(
     // only the first is a fighter playing well.
     let recovery_searched = recovery.is_some();
     let recovery_regained = recovery.is_some_and(|verdict| verdict.regained());
-    // ⚠ **a negative is a claim about the SEARCHER**, so the search that produced
+    // **a negative is a claim about the SEARCHER**, so the search that produced
     // it is published beside it — reading `NoSupportFoundBy` as "cannot recover"
     // is the misreading `RecoveryLens`' own header spends four paragraphs on.
     let recovery_bounded_by = recovery
         .and_then(|verdict| verdict.outlook.bounded_by())
         .map(|probe| probe.policy.name);
-    // ⚠ the subject leads the line for the same reason the fact carries one: two
+    // the subject leads the line for the same reason the fact carries one: two
     // fighters on a stage produced two interleaved streams with nothing to tell
     // them apart, and this trace exists because reasoning about that failed.
     let line = format!(
@@ -969,7 +902,7 @@ fn trace_decision(
         .field("offered", format!("{offered:?}"))
         .field("vetoed", format!("{vetoed:?}"))
         .field("vetoed_count", vetoed.len() as i64)
-        // ⭐ **L1's answer, so every other field is readable as conditional on
+        // **L1's answer, so every other field is readable as conditional on
         // it.** `first("fighter_decision")` could say which verb a brain took
         // and never which QUESTION it was answering, so the histogram this
         // instrument exists for — `Situation::Recovery → the action selected` —
@@ -985,7 +918,7 @@ fn trace_decision(
             "recovery_bounded_by",
             recovery_bounded_by.unwrap_or("-").to_string(),
         )
-        // ⚠ the PROPOSAL list, so a `recovery_move` of "none" is readable: an
+        // the PROPOSAL list, so a `recovery_move` of "none" is readable: an
         // empty list means the repertoire offered nothing, a non-empty one means
         // the kernel declined everything it was offered.
         .field("recovery_routes", format!("{proposed:?}"))
@@ -1046,7 +979,7 @@ fn infer_choice(previous: FoeSample, current: FoeSample) -> Choice {
 
 /// Translate a movement verb into control-frame fields.
 ///
-/// ⚠ **the sign comes from the perceived foe, not from the actor's facing.**
+/// **the sign comes from the perceived foe, not from the actor's facing.**
 /// Facing is what the body currently shows and lags a decision; the direction
 /// that makes `Approach` mean approach is the one toward the thing being
 /// approached.
@@ -1055,19 +988,11 @@ fn apply_movement(
     view: crate::perception::Perceived<'_>,
     frame: &mut ActorControlFrame,
 ) {
-    // ⛔ **`locomotion.x` IS BODY-LOCAL, and this used to write world `x`.**
-    // The kernel says so at `LocalAxes`: *"controlled-body-local axes: +x local
-    // side/right … produced by resolving raw ScreenAxes against the body's
-    // current AccelerationFrame"*. `player.rs` obeys it; the smash brain obeys
-    // it through `side_face_toward_target`, which its comments call correct
-    // under any gravity. This brain wrote `(foe.pos.x - self.pos.x).signum()` —
-    // a WORLD sign — into that field, in every verb.
-    //
-    // ⚠ nothing caught it because the conversion is a REINTERPRETATION:
+    // nothing caught it because the conversion is a REINTERPRETATION:
     // `LocalAxes::from_vec(self.locomotion)` copies the components and renames
     // the type, so the type asserts a transform nobody performed.
     //
-    // ⚠ and nothing SAW it because the two conventions agree in the only
+    // and nothing SAW it because the two conventions agree in the only
     // configuration that gets played: under screen-down gravity `side` is world
     // `+x` and `to_local` is the identity, so this change is byte-identical
     // there. It diverges exactly where this brain already reasons correctly —
@@ -1075,12 +1000,9 @@ fn apply_movement(
     // gravity frame, and `is_punishable(foe, me.gravity_down)` reads it. The
     // rollout was frame-aware and the emit was not.
     let frame_axes = view.self_view.acceleration_frame();
-    // ⚠ **`f32::signum(0.0)` is `1.0`**, not `0.0` — so a delta that lies
-    // exactly along the body's gravity axis (nothing to the side at all) would
-    // come back as FULL THROTTLE sideways. The first version of this fix had
-    // that bug and the rotated-frame test caught it: forty ticks of `1.0`
-    // toward an axis the foe was not on. The deadzone is the same one
-    // `smash/emit.rs::signum_or` uses.
+    // **`f32::signum(0.0)` is `1.0`**, not `0.0` — so a delta that lies exactly along the
+    // body's gravity axis (nothing to the side at all) would come back as FULL THROTTLE
+    // sideways. The deadzone is the same one `smash/emit.rs::signum_or` uses.
     let side_toward = |world_delta: Vec2| {
         let side = frame_axes.to_local(world_delta).x;
         if side.abs() < 0.001 {
@@ -1094,32 +1016,13 @@ fn apply_movement(
         .map(|foe| side_toward(foe.pos - view.self_view.pos))
         .unwrap_or(0.0);
     frame.shield_held = false;
-    // **EVERY VERB AUTHORS THE WHOLE MOVEMENT INTENT.** `frame` arrives holding
-    // the last decision's answer, so a verb that merely adds to it inherits the
-    // rest — and `Jump` used to add a jump on top of whatever walk was already
-    // running. That is a body still walking in a direction THIS decision did not
-    // choose, and on a stage with edges it is the direction the veto had just
-    // struck off the list: veto Retreat, choose Jump, keep walking right.
+    // Behaviour is identical because nothing in this brain has ever written `.y` and `held` starts
+    // at `neutral()`, so it was 0.0 for the frame's whole life; the point is that the rule and the
+    // code now say the same thing. Facing is deliberately not cleared: which way a body looks
+    // between decisions is the held intent doing its job.
     //
-    // Lateral is cleared by the CALLER before any verb speaks, so a verb that
-    // does not set it (Jump, Blink) leaves the body with no walk rather than
-    // with the previous decision's.
-    //
-    // ⭐ **and each verb now writes the WHOLE `LocalAxes`, which is what the
-    // heading above always claimed.** It used to assign `locomotion.x` and leave
-    // `.y` to whatever the held frame carried — the code authored one component
-    // while its own rule said "the whole movement intent". Behaviour is
-    // identical because nothing in this brain has ever written `.y` and `held`
-    // starts at `neutral()`, so it was 0.0 for the frame's whole life; the point
-    // is that the rule and the code now say the same thing. Facing is deliberately not cleared: which
-    // way a body looks between decisions is the held intent doing its job.
-    //
-    // **AND THE JUMP BUTTON IS RELEASED THE SAME WAY.** `jump_held` was written
-    // `true` at two verbs and `false` nowhere, so one jump pinned the button down
-    // for the rest of the match — the `locomotion.x` leak again, one field over,
-    // and I fixed the stick and left the button. A held jump is a real input (it
-    // is what buys height), which is exactly why it has to be re-stated by
-    // whichever verb is chosen rather than inherited by whichever verb is not.
+    // A held jump is a real input (it is what buys height), which is exactly why it has to be
+    // re-stated by whichever verb is chosen rather than inherited by whichever verb is not.
     frame.jump_held = false;
     match verb {
         MovementVerb::Approach => {
@@ -1147,7 +1050,7 @@ fn apply_movement(
             // the stick is what carries it: `apply_dodge` rolls along
             // `local_stick.x`, falling back to facing when the stick is neutral.
             //
-            // ⭐ **away from a swing, into everything else**, which is the whole
+            // **away from a swing, into everything else**, which is the whole
             // of what separates the genre's two uses of the roll. A roll is
             // i-frames plus travel: spent AWAY from an attack it is the evade,
             // spent TOWARD a standing opponent it is the approach that cannot be
@@ -1161,7 +1064,7 @@ fn apply_movement(
             let roll = if threatened { -toward } else { toward };
             frame.burst_pressed = true;
             frame.locomotion = ae::LocalAxes::new(roll, 0.0);
-            // ⚠ facing tracks the FOE, not the roll. A body that rolls away
+            // facing tracks the FOE, not the roll. A body that rolls away
             // while turning its back would come out of the roll facing the
             // blastzone, and its next swing would point at nothing.
             frame.facing = toward;
@@ -1178,7 +1081,7 @@ fn apply_movement(
             // about — and up, because a body below the ledge needs height more
             // than it needs lateral progress.
             //
-            // ⚠ this was `-pos.x.signum()`, which is "toward the WORLD ORIGIN"
+            // this was `-pos.x.signum()`, which is "toward the WORLD ORIGIN"
             // and is only the stage centre for a stage built around x=0. Rooms in
             // this engine start at (0,0) and extend positive, so the origin is a
             // CORNER: every body on the left half of every stage recovered by

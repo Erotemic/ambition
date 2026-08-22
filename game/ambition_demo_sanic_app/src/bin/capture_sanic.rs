@@ -1,16 +1,11 @@
 //! **Photograph Sanic.**
 //!
-//! ⭐ **the SECOND caller of `ambition_render::capture`, and that is the point.**
+//! **the SECOND caller of `ambition_render::capture`, and that is the point.**
 //! A seam with one consumer is a guess. Everything hard is shared — target,
 //! camera adoption, readback, PNG, exit — and what is left here is genuinely
 //! Sanic's: which app to build and when its world is worth photographing.
 //!
-//! ⚠ **Sanic is the game Jon reported a bug in that was fixed BLIND** — *"in
-//! sanic the button text doesn't match what the controls really are"* (queue
-//! D17, fixed 2026-08-04 without ever seeing the screen). This is how that
-//! fix gets looked at.
-//!
-//! ⭐ **this binary is deliberately small, and that is the evidence.** Everything
+//! **this binary is deliberately small, and that is the evidence.** Everything
 //! hard — building a render target, pointing the cameras at it, reading the
 //! texture back, writing the PNG, exiting — is `ambition_render::capture`, shared
 //! and game-agnostic. What is left here is the part that genuinely differs
@@ -31,8 +26,7 @@ use ambition_platformer2d::render::capture::{
 };
 use bevy::prelude::*;
 
-/// Frames to advance before shooting. A demo boots its shell, loads a room and
-/// spawns a body; a capture taken before that is a picture of an empty world.
+/// Frames to advance before shooting.
 #[derive(Resource)]
 struct Warmup {
     remaining: u32,
@@ -42,13 +36,6 @@ struct Warmup {
     /// whole point is what happens once he is moving.
     walk_right: u32,
     /// Frames to let the LAST walking input actually be simulated.
-    ///
-    /// ⛔ **the walk counter was short by its final frame.** `hold_right_while_walking`
-    /// spends the last step and presses RIGHT, and `shoot_when_warm` — chained
-    /// immediately after it — requested the picture in that same `Update`. The
-    /// press is collected and simulated on a LATER frame than the one that asked
-    /// for the shot, so `--walk 1` photographed zero frames of walking and every
-    /// other count was one short (GPT 5.6, review through `f0f97f5`).
     ///
     /// One frame is enough: the input written this frame is collected in the
     /// same frame's `InputSet::Collect` (which the writer is now ordered before)
@@ -99,9 +86,9 @@ fn main() {
         }
     }
 
-    // ⚠ `OffscreenGpu`, never `Headless`: headless sets `backends: None`, so
+    // `OffscreenGpu`, never `Headless`: headless sets `backends: None`, so
     // there is no RenderApp and no texture to read. See `RenderMode`.
-    // ⚠ the GAMEPLAY route, not the default launcher home. Booting the launcher
+    // the GAMEPLAY route, not the default launcher home. Booting the launcher
     // and counting frames writes a blank PNG — no amount of warmup walks a menu
     // into a level, and that is the readiness contract `capture` hands back to
     // the caller. It is also literally what the first attempt produced.
@@ -121,7 +108,7 @@ fn main() {
         settle: 1,
     });
     app.add_systems(Startup, setup_capture_target);
-    // ⛔ **the synthetic input must be written BEFORE the frame collects it.**
+    // **the synthetic input must be written BEFORE the frame collects it.**
     // These sat in `Update` with no edge to `ambition_platformer2d::input::InputSet::Collect`,
     // which is also in `Update` — so whether a press written here was seen by
     // the same frame or the next one was left to whatever order Bevy happened to
@@ -143,7 +130,7 @@ fn main() {
 
 /// Count the world in, then ask for the picture.
 ///
-/// ⛔ **it waits for an ADOPTED camera, not just for frames.** A demo builds its
+/// **it waits for an ADOPTED camera, not just for frames.** A demo builds its
 /// cameras when its shell resolves a route, which is well after `Startup`;
 /// shooting before then reads back 960x540 pixels of `(0,0,0,0)` and reports
 /// success. That is not hypothetical — it is what the first two attempts wrote,
@@ -165,17 +152,14 @@ fn shoot_when_warm(
         warmup.remaining -= 1;
         return;
     }
-    // ⛔ **AND the walk has to finish.** This shot as soon as the warmup ran
-    // out, whatever `--walk` said — so `--warmup 10 --walk 300` took the picture
-    // on frame 10 with 290 frames of travel still owed, and the capture showed
-    // the spawn point. The flag asked for a journey and the tool photographed
-    // the departure lounge. `hold_right_while_walking` is chained BEFORE this,
-    // so the frame that spends the last walking step is the frame that shoots.
+    // **AND the walk has to finish.** This shot as soon as the warmup ran out, whatever
+    // `--walk` said — so `--warmup 10 --walk 300` took the picture on frame 10 with 290 frames
+    // of travel still owed, and the capture showed the spawn point. The flag asked for a
+    // journey and the tool photographed the departure lounge.
     if warmup.walk_right > 0 {
         return;
     }
-    // The last walking frame's press was written THIS frame at the earliest; let
-    // it be collected and simulated before the shutter. See `Warmup::settle`.
+    // See `Warmup::settle`.
     if warmup.settle > 0 {
         warmup.settle -= 1;
         return;
@@ -185,7 +169,7 @@ fn shoot_when_warm(
 
 /// Hold RIGHT while there are walking frames left.
 ///
-/// ⚠ **written into `ButtonInput` directly**, which is what `capture_scene`
+/// **written into `ButtonInput` directly**, which is what `capture_scene`
 /// does: the demo's binding layer reads the same resource a real keyboard fills,
 /// so this exercises the actual input path rather than a bypass.
 fn hold_right_while_walking(

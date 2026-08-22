@@ -163,12 +163,9 @@ impl PersistedItem {
 
 /// **Where one runtime occurrence is**, as a save file can say it.
 ///
-/// ⭐ **the same three answers the live ledger gives**, spelled for disk:
-/// `OccurrenceWhereabouts::{InCustody, Placed, Consumed}` in
-/// `ambition_platformer2d_shared_tangle::lifecycle`. It is deliberately the same
-/// vocabulary rather than a second one, because the durable horizon is a
-/// serialization of the value the checkpoint horizon already copies — not a
-/// third description of the same fact.
+/// It is deliberately the same vocabulary rather than a second one, because the durable horizon
+/// is a serialization of the value the checkpoint horizon already copies — not a third
+/// description of the same fact.
 ///
 /// ⛔ **no components, no velocity, no archetype.** A row says WHERE an
 /// occurrence is and nothing about what it is made of; what it IS comes back
@@ -249,9 +246,6 @@ impl PersistedCustody {
 /// **How to rebuild one instance the SIMULATION minted**, which no authored
 /// record anywhere can describe.
 ///
-/// ⭐⭐ **this is the minimal durable description, and it is the same one the
-/// checkpoint measured** (`items::pickup::minted_horizon::MintedItemDescription`):
-///
 /// ```text
 /// identity     occurrence      the occurrence's own SimId
 /// provenance   parent+sequence SpawnOrigin::Dynamic — what makes it re-mintable AGAIN
@@ -269,14 +263,7 @@ impl PersistedCustody {
 /// ⚠ **no position**, because the rows that reach here are the ones a hand was
 /// holding: the hand supplies the place.
 ///
-/// ⭐ **a minted instance lying on a floor IS described too, as of 2026-08-19**,
-/// and it still needs no position of its own: an
-/// `OccurrenceWhereabouts::Placed { room, at }` row already records where a
-/// resting occurrence lies, and the room build rebuilds it there from this
-/// description. ⚠ this doc previously said such an instance was "still
-/// undescribed", which was true and whose stated REASON — that the description
-/// remembers no position — was not. See the module note on
-/// `session::durable_horizon`.
+/// See the module note on `session::durable_horizon`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PersistedMintedItem {
     pub occurrence: String,
@@ -287,21 +274,14 @@ pub struct PersistedMintedItem {
 
 /// Where the player resumes: the last checkpoint they touched.
 ///
-/// A shrine has always claimed to be a save point — it logged "healed to full +
-/// saved" — while writing no checkpoint anywhere, because the save had no field
-/// for one and the shrine only called `set_changed()` on a value it never
-/// modified (GPT 5.6, 2026-07-27). Under a value-comparing autosave that marker
-/// commits nothing at all, so the claim was false twice over.
+/// Under a value-comparing autosave that marker commits nothing at all, so the claim was false
+/// twice over.
 ///
 /// Room id AND position, not just a room: a room is where you are, a checkpoint
 /// is where you STAND, and resuming at the room's authored spawn after resting
 /// at a shrine on the far side of it is the difference players notice.
 ///
-/// The position is INTEGER world pixels, and deliberately so. A checkpoint has no
-/// use for sub-pixel precision, and a float here would cost two things that
-/// matter more: `AmbitionGameSaveData` could no longer derive `Eq`, and a NaN — which
-/// compares unequal to itself — would make the value-comparing autosave rewrite
-/// the file on every single frame, forever.
+/// The position is INTEGER world pixels, and deliberately so.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PersistedCheckpoint {
     pub room_id: String,
@@ -391,10 +371,6 @@ pub const CURRENT_SAVE_VERSION: u32 = 4;
 
 /// What a file with no `version` field actually is: written by a build from
 /// before the field existed, i.e. v1.
-///
-/// This used to default to [`CURRENT_SAVE_VERSION`], which made every
-/// pre-versioning file CLAIM to be current — the one thing a version tag exists
-/// to prevent. Nothing read the tag, so nothing noticed.
 pub const PRE_VERSIONING_SAVE_VERSION: u32 = 1;
 
 fn default_save_version() -> u32 {
@@ -474,9 +450,7 @@ impl AmbitionGameSaveData {
             .unwrap_or_default()
     }
 
-    /// Set an encounter's state. Inserts a new entry if needed; replaces
-    /// existing. Encounters that fall back to `Untouched` are removed
-    /// from the list to keep the save file compact.
+    /// Set an encounter's state. Inserts a new entry if needed; replaces existing.
     pub fn set_encounter(&mut self, id: impl Into<String>, state: PersistedEncounterState) {
         let id = id.into();
         if matches!(state, PersistedEncounterState::Untouched) {
@@ -620,12 +594,6 @@ impl AmbitionGameSaveData {
     /// Bring a just-deserialized save up to [`CURRENT_SAVE_VERSION`], reporting
     /// what it found.
     ///
-    /// The version field has existed since v2 and was WRITTEN and never READ:
-    /// no migration, no compatibility check, no consumer anywhere in the
-    /// workspace. A tag nothing reads is not a tag, and the cost only arrives
-    /// once real player files exist — which is why this landed before release
-    /// rather than after.
-    ///
     /// Steps run in sequence so each one only has to know how to get from `n` to
     /// `n + 1`. v1 → v2 is deliberately EMPTY and deliberately present: the wire
     /// change was additive (`#[serde(default)]` on the new collections already
@@ -655,10 +623,9 @@ impl AmbitionGameSaveData {
                 // `#[serde(default)]`, so deserialization already produced the
                 // right empty value; the upgrade is the version stamp itself.
                 1 => {}
-                // v2 → v3: `checkpoint` was added. Additive and
-                // `#[serde(default)]`, so a v2 file already deserialized to
-                // `None` — which is the correct answer: it was written by a build
-                // where touching a shrine saved nothing.
+                // Additive and `#[serde(default)]`, so a v2 file already deserialized to `None`
+                // — which is the correct answer: it was written by a build where touching a
+                // shrine saved nothing.
                 2 => {}
                 // v3 → v4: `occurrences`, `custody` and `minted_items` were
                 // added. Additive and `#[serde(default)]`, so a v3 file already
@@ -681,8 +648,6 @@ impl AmbitionGameSaveData {
     }
 
     /// Clear all gameplay state while preserving the current schema version.
-    /// New gameplay fields must be included here; the exhaustive destructure and
-    /// reset regression test enforce that contract.
     pub fn reset_all(&mut self) {
         let Self {
             // Kept: the schema is still the current schema after a reset.
@@ -711,11 +676,6 @@ impl AmbitionGameSaveData {
         *wallet = 0;
         *inventory_saved = false;
         *checkpoint = None;
-        // ⭐ a reset remembers nothing about where anything was left, for the
-        // same reason `AuthoredOccurrences::forget_everything` clears the live
-        // ledger: a reset destroys the world those rows describe, and a
-        // surviving row would put a relocated object back at coordinates from a
-        // world that no longer exists.
         occurrences.clear();
         custody.clear();
         minted_items.clear();
@@ -832,13 +792,8 @@ mod tests {
         assert!(s.minted_items.is_empty());
     }
 
-    /// A file with no `version` field was written before the field existed —
-    /// it is v1, and saying so is the entire job of a version tag.
-    ///
-    /// This test previously asserted the opposite (`uses_current`), which made
-    /// every pre-versioning file claim to be the current shape. That was
-    /// harmless only because nothing read the tag; the moment a migration exists,
-    /// it is the difference between upgrading a file and misreading it.
+    /// That was harmless only because nothing read the tag; the moment a migration exists, it is
+    /// the difference between upgrading a file and misreading it.
     #[test]
     fn a_file_with_no_version_field_is_the_version_from_before_the_field() {
         let json = r#"{"encounters":[],"switches":[]}"#;
@@ -904,10 +859,7 @@ mod tests {
         assert_eq!(s.version, CURRENT_SAVE_VERSION + 7);
     }
 
-    /// A migration is only worth having if it is total. Every version from the
-    /// first to the current one must arrive at the current one — the loop has a
-    /// step for each, and a version added without a step is the failure this
-    /// catches.
+    /// A migration is only worth having if it is total.
     #[test]
     fn every_version_in_range_migrates_to_current() {
         for version in PRE_VERSIONING_SAVE_VERSION..=CURRENT_SAVE_VERSION {
@@ -972,11 +924,6 @@ mod tests {
     }
 
     /// A reset leaves NOTHING behind but the schema version.
-    ///
-    /// Written against the whole value rather than field by field: comparing to
-    /// a fresh save is what makes a newly-added field fail here the day it is
-    /// added, instead of quietly surviving every reset like `wallet` and `items`
-    /// did (GPT 5.6, 2026-07-27).
     #[test]
     fn reset_all_clears_every_collection() {
         let mut s = AmbitionGameSaveData::new();

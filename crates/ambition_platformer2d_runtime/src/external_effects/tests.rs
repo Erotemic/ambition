@@ -1,9 +1,4 @@
 //! The quarantine mechanism, driven through the REAL systems.
-//!
-//! Every case here runs `open_sim_effect_outbox` / `journal_sim_effects` /
-//! `release_confirmed_effects` / `discard_abandoned_predictions` themselves
-//! rather than reimplementing their rules, so a regression in the rule fails
-//! the test rather than the test's copy of it.
 
 use super::*;
 use bevy::ecs::message::MessageCursor;
@@ -306,19 +301,12 @@ fn the_journal_depth_tracks_the_unconfirmed_window() {
 
 /// **The camera shake, held to the confirmed boundary.** (P0.1)
 ///
-/// ⛔ these three cases exist because the shake's first rollback guard was a
+/// these three cases exist because the shake's first rollback guard was a
 /// `replaying_history` check inside the producer, and that check is blind to the
 /// case that matters. Under predicted remote input the FIRST execution of a frame
 /// is not a replay, so a hit that never really happened passed the guard and
 /// kicked the live camera; when the correction arrived there was nothing left to
 /// undo, because `CameraShakeState` is presentation and is not rewound.
-///
-/// ⭐ **nothing here is a re-proof of the journal.** The cases above already pin
-/// the rule with a stand-in message. What this drives is the REAL producer
-/// (`shake_camera_on_landed_hits`), the REAL applier
-/// (`apply_camera_shake_requests`) and the REAL amplitude the player would see,
-/// so a regression that reconnects the simulation to the camera directly fails
-/// here rather than passing on a message nobody applies.
 mod camera_shake {
     use super::*;
     use ambition_characters::actor::BodyCombat;
@@ -360,8 +348,6 @@ mod camera_shake {
                 * 4.0
         }
 
-        /// Arm (or clear) the body's hitlag: what "a hit landed this frame"
-        /// physically IS to every reader of it, the camera included.
         fn hitstop(&mut self, seconds: f32) {
             self.world
                 .entity_mut(self.body)
@@ -434,7 +420,7 @@ mod camera_shake {
 
     /// **A hit the correction erases never reaches the screen at all.**
     ///
-    /// ⛔ this is the clause a `replaying_history` guard structurally cannot
+    /// this is the clause a `replaying_history` guard structurally cannot
     /// satisfy: the pass that produced the phantom was not a replay.
     #[test]
     fn a_hit_the_correction_erases_never_shakes_the_camera() {
@@ -468,7 +454,7 @@ mod camera_shake {
 
     /// **A confirmed hit shakes the screen, exactly once.**
     ///
-    /// ⭐ the clause that makes the two above mean "held" rather than "broken".
+    /// the clause that makes the two above mean "held" rather than "broken".
     /// The count is the exactly-once half: `kick` is a `max`, so a shake released
     /// twice is invisible in the amplitude and obvious in the journal.
     #[test]

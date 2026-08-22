@@ -1,9 +1,5 @@
 //! **Four pointers, and every device that drives one.**
 //!
-//! Jon, 2026-08-05: *"the arrows or game stick or mouse should move a cursor
-//! that can click on elements."* — and 2026-08-20, one per seat, because that
-//! is what Smash does and one shared pointer made four people take turns.
-//!
 //! A cursor that three input sources drive is a seam, not a widget detail, and
 //! it is written here as one. Everything in this module is a plain value over
 //! rectangles: no Bevy queries, no entities, no assumption about what the
@@ -20,12 +16,6 @@
 //! portrait rather than between two, and the whole screen is reachable in a
 //! bounded number of presses.
 //!
-//! ⭐ **and since 2026-08-21 a HELD stick roams instead**, through
-//! `MenuControlFrame::nav`, which is the one non-edge direction on that frame
-//! and exists for exactly this. The snap did not go away: it is what a d-pad
-//! and a keyboard still get, and what a stick falls back to when it is flicked
-//! rather than held.
-//!
 //! ⚠ **each cursor has ONE position and no separate "focused element".** What it
 //! is over is re-derived from the rectangles every frame. Two representations of
 //! "where the cursor is" is how a highlight and a click end up disagreeing about
@@ -38,13 +28,6 @@ use bevy::prelude::{Entity, Vec2};
 /// A screen rectangle, in LOGICAL window pixels with a top-left origin — the
 /// same space `Window::cursor_position` reports and the same one
 /// `Node { position_type: Absolute, left, top }` writes back into.
-///
-/// ⚠ these come from [`super::layout`], NOT from reading nodes back out. A
-/// `bevy_ui` node's screen rect is `ComputedNode` (PHYSICAL px) +
-/// `UiGlobalTransform`, its plain `GlobalTransform` is identity for UI nodes,
-/// and none of it is measured until `PostUpdate` — three separate ways for a
-/// hit test to read a plausible zero. Deriving the rectangle and POSITIONING the
-/// node from it has none of those failure modes.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct HitRect {
     pub min: Vec2,
@@ -75,8 +58,6 @@ impl HitRect {
             && point.y <= self.max.y
     }
 
-    /// A rect a layout pass has not measured yet.
-    ///
     /// ⚠ a freshly spawned node reads ZERO until layout runs in `PostUpdate`,
     /// so every consumer here has to be able to say "not yet" rather than
     /// treat the origin as a real position.
@@ -154,11 +135,7 @@ const SIDEWAYS_PENALTY: f32 = 2.0;
 
 /// **Where one seat's pointer is and what is in its hand.**
 ///
-/// ⚠ **a VALUE since 2026-08-21, not a resource.** It was one shared cursor —
-/// *"Jon asked for a cursor, not for four of them"* — and four people at four
-/// pads took turns with it like a mouse. Smash gives every player their own
-/// hand and they all move at once; Jon's call, 2026-08-20, was to go there. See
-/// [`SelectCursors`], which owns one of these per seat.
+/// See [`SelectCursors`], which owns one of these per seat.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SelectCursor {
     /// Logical window pixels, top-left origin.
@@ -220,13 +197,10 @@ impl SelectCursor {
 /// table does not claim an input seat, a physical device and a match slot are
 /// the same thing.
 ///
-/// ⛔⛔ **and a MATCH SLOT is a third numbering, which this is not.** A seat's
-/// cursor, a seat's pad and a seat's menu frame agree; the CARD that seat
-/// drives is whichever one names its source, and
-/// [`SmashSelect::slot_driven_by`](crate::select::SmashSelect::slot_driven_by)
-/// is the only honest way to ask. This doc used to say all three were one
-/// numbering, and the select screen believed it: a roster with a CPU between
-/// two people routed the second person onto the CPU's card.
+/// **and a MATCH SLOT is a third numbering, which this is not.** A seat's cursor, a seat's pad and
+/// a seat's menu frame agree; the CARD that seat drives is whichever one names its source, and
+/// [`SmashSelect::slot_driven_by`](crate::select::SmashSelect::slot_driven_by) is the only honest
+/// way to ask.
 ///
 /// ⚠ **every seat has a cursor whether or not anybody is in it.** An absent
 /// seat's cursor costs two floats and is simply not drawn — the alternative is

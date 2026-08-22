@@ -7,9 +7,9 @@
 #   2. ambition_sfx_pack                 →  crates/ambition_platformer2d_actor_monolith/assets/audio/sfx.bank
 #
 # Usage:
-#   ./regen_sfx.sh              # render (incremental) + repack (default)
-#   ./regen_sfx.sh --force      # force re-render every cue, then repack
-#   ./regen_sfx.sh --skip-render  # only repack from existing renders
+# ./regen_sfx.sh              # render (incremental) + repack (default)
+# ./regen_sfx.sh --force      # force re-render every cue, then repack
+# ./regen_sfx.sh --skip-render  # only repack from existing renders
 #
 # Environment:
 #   AMBITION_SFX_PYTHON=/path/to/python  Override the tool-local .venv.

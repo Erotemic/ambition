@@ -4,9 +4,6 @@
 //! toolbox: `debug_portal_view_zones` (gizmo overlay), the
 //! `*_debug_dump*` chain (developer-action text/capture-texture dumps), and the
 //! `fmt_*` formatting helpers they share.
-//!
-//! Split out of `view_cones.rs` for the D-B module-size gate. It reads the parent
-//! module's config types, rig, and geometry re-exports via `use super::*`.
 use super::*;
 
 pub fn handle_portal_view_cone_dump_hotkey(

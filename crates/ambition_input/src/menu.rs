@@ -36,14 +36,14 @@ impl MenuInputFrame {
 ///
 /// Keyed by the local input SEAT (see [`crate::ParticipantId::slot`]).
 ///
-/// ⛔ **a seat is not a device, and the agreement between them is a POLICY
+/// **a seat is not a device, and the agreement between them is a POLICY
 /// rather than a fact.** The current local assignment derives a seat from source
 /// ORDER — it counts the sources this machine has taken up, so somebody who
 /// picks up pad three while pads one and two are unplugged is seat ZERO. A
 /// physical source, an input participant and a game's roster slot stay distinct
 /// concepts however the policy happens to line them up today.
 ///
-/// ⚠ **a sparse physical id reaching a dense channel is the bug
+/// **a sparse physical id reaching a dense channel is the bug
 /// `LocalChannelPlan` exists for** — a fighter was deaf for a whole match — so
 /// this numbering is a channel and must never be read back as hardware identity.
 ///
@@ -112,7 +112,7 @@ pub struct MenuControlFrame {
     pub scroll_y: f32,
     /// **HELD navigation, in SCREEN space: `+x` right, `+y` DOWN.**
     ///
-    /// ⭐ **the one non-edge direction on this frame, and it exists because a
+    /// **the one non-edge direction on this frame, and it exists because a
     /// FREE cursor cannot be built from edges.** Every other direction here is
     /// a just-pressed edge with repeat, which is exactly right for walking a
     /// list and unusable for a pointer: integrating an edge gives a cursor that
@@ -120,13 +120,13 @@ pub struct MenuControlFrame {
     /// that wants Smash's roaming hand needs the stick's actual deflection, so
     /// this carries it.
     ///
-    /// ⚠ **screen space, not stick space** — `+y` is DOWN, matching the
+    /// **screen space, not stick space** — `+y` is DOWN, matching the
     /// rectangles a UI hit-tests against and deliberately NOT matching
     /// [`Self::scroll_y`] one field up, whose positive is up. Two conventions
     /// on one struct is a real cost; the alternative was every consumer
     /// flipping a sign at the point of use, which is where sign errors live.
     ///
-    /// ⚠ **magnitude is meaningful.** A keyboard or d-pad reports a unit vector
+    /// **magnitude is meaningful.** A keyboard or d-pad reports a unit vector
     /// while a stick reports its deflection, so a consumer gets analog speed
     /// for free and must not re-normalise.
     ///

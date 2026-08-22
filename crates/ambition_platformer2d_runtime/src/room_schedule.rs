@@ -7,11 +7,6 @@
 //! [`RoomTransitionSet::Apply`], the phase between detection and reset. The
 //! engine fills it today (`crate::room_transition`); a game replacing the
 //! transition policy replaces what is in that set.
-//!
-//! It used to be described here as a gap a host pins itself into with
-//! `.after(detect_room_transition_system).before(reset_ecs_room_features)` — two
-//! engine leaf names in a sentence a host had to trust. Naming the phase is the
-//! same arrangement with the trust removed.
 
 use bevy::prelude::*;
 
@@ -33,9 +28,6 @@ impl Plugin for RoomTransitionSchedulePlugin {
                 ambition_platformer2d_actor_monolith::rooms::detect_room_transition_system
                     .run_if(gameplay_allowed)
                     .in_set(RoomTransitionSet::Detect),
-                // One reset over the unified actor cluster (NPCs + enemies).
-                // `RoomTransitionSet::Apply` is the phase between them — a real
-                // slot now, where the module docs used to describe one.
                 ambition_platformer2d_actor_monolith::features::reset_ecs_room_features.in_set(RoomTransitionSet::Reset),
             ),
         );

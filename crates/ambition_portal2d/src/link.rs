@@ -63,7 +63,7 @@ const DEAD_LINK_CHANNEL: u8 = 255;
 /// needs a boundary INSIDE the set, which `PortalSet::Transit` cannot give it
 /// (it is already in that set; pinning the parent would be a cycle).
 ///
-/// ⚠ ONE member. `equalize_pair_apertures` is chained immediately after and is
+/// ONE member. `equalize_pair_apertures` is chained immediately after and is
 /// the obvious candidate to include, but the adapter's rule is specifically
 /// "before links are resolved" — widening the set would silently also demand
 /// "before apertures are equalised", a stronger claim nobody has made.

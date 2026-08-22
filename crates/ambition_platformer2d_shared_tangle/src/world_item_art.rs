@@ -24,10 +24,8 @@ use crate::binding::{Namespace, Ref, Resolver};
 
 /// The world-item art ids every provider registered.
 ///
-/// This namespace is why a spark blossom fell through the world and never drew:
-/// the item carried a `sprite` id with no matching entry, and the renderer's map
-/// lookup simply missed. Registering nothing and misspelling something used to be
-/// the same silence.
+/// This namespace is why a spark blossom fell through the world and never drew: the item carried a
+/// `sprite` id with no matching entry, and the renderer's map lookup simply missed.
 pub struct WorldItemSprite;
 
 impl Namespace for WorldItemSprite {

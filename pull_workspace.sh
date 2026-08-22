@@ -7,11 +7,11 @@
 # arguments as include filters for submodule paths.
 #
 # Examples:
-#   ./pull_workspace.sh
-#   ./pull_workspace.sh formalizations submodules
-#   ./pull_workspace.sh --submodules-only third_party
-#   ./pull_workspace.sh --current-branches vendor
-#   ./pull_workspace.sh --remote external/foo
+# ./pull_workspace.sh
+# ./pull_workspace.sh formalizations submodules
+# ./pull_workspace.sh --submodules-only third_party
+# ./pull_workspace.sh --current-branches vendor
+# ./pull_workspace.sh --remote external/foo
 
 set -u
 set -o pipefail

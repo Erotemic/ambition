@@ -44,7 +44,7 @@ fn room_with_two_typos() -> RoomSpec {
             CharacterBrain::Patrol {
                 path_id: Some("ledge_patrl".to_owned()),
             },
-            // ⚠ the placement must name a creature now; these rows
+            // the placement must name a creature now; these rows
             // are about PATH binding, so any registered id serves.
             "fixture_walker",
         ),
@@ -58,7 +58,7 @@ fn room_with_two_typos() -> RoomSpec {
             CharacterBrain::Patrol {
                 path_id: Some("Ledge Patrol".to_owned()),
             },
-            // ⚠ the placement must name a creature now; these rows
+            // the placement must name a creature now; these rows
             // are about PATH binding, so any registered id serves.
             "fixture_walker",
         ),
@@ -70,7 +70,7 @@ fn room_with_two_typos() -> RoomSpec {
         aabb(96.0, 0.0),
         EnemySpawnSpec::new(
             CharacterBrain::Custom("snake_kooopa".to_owned()),
-            // ⚠ the placement must name a creature now; these rows
+            // the placement must name a creature now; these rows
             // are about PATH binding, so any registered id serves.
             "fixture_walker",
         ),
@@ -98,12 +98,7 @@ fn room_with_two_typos() -> RoomSpec {
 /// comes back naming what declared it, and the good references — including the
 /// one that addresses a path by display name rather than id — do not appear.
 ///
-/// ⛔ **the CHARACTER namespace left this sweep with the archetype roster**
-/// (AC6). A misspelled brain key used to resolve the generic `combatant` body
-/// silently, and this report was the only thing that could see it; construction
-/// refuses an identifier naming no character now, which is a stronger statement
-/// than a report. The bad pickup id is deliberately absent for the same reason:
-/// it fails construction outright, and one defect gets one authority.
+/// **the CHARACTER namespace left this sweep with the archetype roster** (AC6).
 #[test]
 fn construction_reports_every_unresolved_ref() {
     let room = room_with_two_typos();
@@ -127,10 +122,6 @@ fn construction_reports_every_unresolved_ref() {
     );
 }
 
-/// Two paths answering to one spelling is not a resolution failure — the first
-/// one wins and everything draws — so it used to pass in total silence, with the
-/// author's second declaration simply unreachable. It is reported now, as a
-/// warning rather than a binding failure, because the room is still publishable.
 #[test]
 fn a_room_that_declares_one_path_twice_says_so() {
     let mut room = room_with_two_typos();
@@ -169,7 +160,7 @@ fn normalized_path_name_is_not_a_false_binding_error() {
             CharacterBrain::Patrol {
                 path_id: Some("enemy_patrol_path_a".to_owned()),
             },
-            // ⚠ the placement must name a creature now; these rows
+            // the placement must name a creature now; these rows
             // are about PATH binding, so any registered id serves.
             "fixture_walker",
         ),

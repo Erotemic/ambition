@@ -111,7 +111,7 @@ pub fn rebuild_held_item_view(
 /// driven bodies and neither is more protected than the other
 /// ([[feedback-relativity-principle]]).
 ///
-/// ⚠ Note what this is NOT: it is not the nameplate index's `controlled` flag.
+/// Note what this is NOT: it is not the nameplate index's `controlled` flag.
 /// That flag lives on rows keyed by `FeatureId`, and the home avatar carries
 /// no `FeatureId` at all — so the flag is only ever true while possessing a
 /// feature actor. A label-occlusion rule built on it would have protected
@@ -151,7 +151,7 @@ pub struct GroundItemFact {
     pub item_id: String,
 }
 
-/// ⚠ **only items that are IN THE WORLD.** A picked-up item is no longer
+/// **only items that are IN THE WORLD.** A picked-up item is no longer
 /// destroyed — it keeps its entity and its identity and records that a body is
 /// carrying it (`ItemCustody`) — so "there is a `GroundItem` component" stopped
 /// meaning "there is an axe lying over there". The in-hand overlay is a separate
@@ -195,13 +195,12 @@ pub struct WorldItemFact {
     pub sprite: Option<String>,
     /// Still emerging from whatever produced it — draw it BEHIND the world.
     ///
-    /// ⛔ **DERIVED from the motion, never mirrored from the item.** `WorldItem`
-    /// carried an `emerging: bool` that Mary-O set `true` at spawn and NOTHING
-    /// ever set back to `false`, so a wand finished rising, began its ordinary
-    /// arc, and stayed drawn behind the world for the rest of its life (GPT 5.6
-    /// review of `1a05b98`, finding 3).
+    /// **DERIVED from the motion, never mirrored from the item.** `WorldItem` carried an
+    /// `emerging: bool` that Mary-O set `true` at spawn and NOTHING ever set back to `false`,
+    /// so a wand finished rising, began its ordinary arc, and stayed drawn behind the world for
+    /// the rest of its life.
     ///
-    /// ⚠ the motion already knew — `ItemMotion::emerging()` compares elapsed rise
+    /// the motion already knew — `ItemMotion::emerging()` compares elapsed rise
     /// against the authored one. A second mutable copy of a fact the simulation
     /// derives per frame can only ever go stale; this asks the one that cannot.
     pub emerging: bool,
@@ -315,9 +314,6 @@ pub fn rebuild_shrines_view(
     }));
 }
 
-/// Tick the shrine activation pulse SIM-side (it used to be decremented by
-/// the render animator — a render-owned sim write, the exact back-edge E4
-/// kills). Uses scaled time, so bullet-time slows the pulse with the world.
 pub fn tick_shrine_activation_pulse(
     world_time: Res<ambition_time::WorldTime>,
     mut activation: ResMut<ambition_platformer2d_actor_monolith::shrine::ShrineActivationPulse>,
@@ -342,7 +338,7 @@ pub struct HostileWieldedItemFact {
     pub wielder_height: f32,
 }
 
-/// ⛔ **A WIELDER AIMS AT WHAT IT IS FIGHTING, not at "the player".**
+/// **A WIELDER AIMS AT WHAT IT IS FIGHTING, not at "the player".**
 ///
 /// This took `Query<&BodyKinematics, PrimaryPlayerOnly>`, `single()`d it, and
 /// `return`ed without one — so in a match, where no session home avatar exists,
@@ -350,12 +346,9 @@ pub struct HostileWieldedItemFact {
 /// there WAS a player the fact was still wrong for a match: two fighters both
 /// aimed their weapons at a third body neither was fighting.
 ///
-/// ⭐ **relativity over player-centrism** (Jon's rule, and the reason this is
-/// worth changing rather than defaulting): the aim target is the wielder's OWN
-/// `ActorTarget`. The controlled subject is the fallback for a wielder with no
-/// target — an exploration enemy that has not acquired one still points its
-/// pistol at the person it is menacing — and a wielder with neither is simply
-/// aimed where it faces, which is a fact rather than a hole.
+/// The controlled subject is the fallback for a wielder with no target — an exploration enemy
+/// that has not acquired one still points its pistol at the person it is menacing — and a
+/// wielder with neither is simply aimed where it faces, which is a fact rather than a hole.
 #[allow(clippy::type_complexity)]
 pub fn rebuild_hostile_wielded_items_view(
     mut view: ResMut<HostileWieldedItemsView>,
@@ -411,11 +404,9 @@ pub fn rebuild_hostile_wielded_items_view(
     }
 }
 
-/// Per-projectile presentation pose (E4 slice 13): the open art-selection id
-/// plus the frame's kinematic facts, written on the projectile entity
-/// sim-side. Render queries ONLY this component — never the live
-/// `BodyKinematics` — and resolves `visual_id` through the content-owned
-/// `ProjectileVisualCatalog`. Removed when a pooled projectile stops being live.
+/// Render queries ONLY this component — never the live `BodyKinematics` — and resolves `visual_id`
+/// through the content-owned `ProjectileVisualCatalog`. Removed when a pooled projectile stops
+/// being live.
 #[derive(Component, Clone, Debug)]
 pub struct ProjectileView {
     pub visual_id: String,
@@ -465,10 +456,6 @@ pub fn rebuild_projectile_views(
     }
 }
 
-/// One dynamically-introduced feature's spawn facts (E4 slice 9): encounter
-/// mobs, staged duel actors, post-boss NPCs, reward chests, and loot the running
-/// simulation minted appear after room load, so render discovers them from THIS
-/// list instead of declaring the marker/config queries itself.
 #[derive(Clone, Debug)]
 pub struct DynamicFeatureFact {
     pub id: String,
@@ -645,23 +632,15 @@ pub fn rebuild_dynamic_feature_views(
             size: aabb.size(),
             visual_kind: FeatureVisualKind::Pickup,
             fighting: false,
-            // The static per-kind fallback, used only when the drop names no
-            // animated sheet or that sheet hasn't loaded. Resolved from the
-            // pickup's LIVE kind, exactly as the room-load pass resolves an
-            // authored pickup's from its spec — this was hardcoded to the coin
-            // and would have drawn a dropped heart as currency.
+            // The static per-kind fallback, used only when the drop names no animated sheet or
+            // that sheet hasn't loaded.
             sprite_key: game_assets::entity_sprite_for_runtime_pickup(pickup.kind()),
             prop_sheet: art.map(|art| art.0.clone()),
         });
     }
 }
 
-/// The live blink-destination preview, resolved sim-side (E4 slice 18): the
-/// SAME destination resolution the actual blink uses (precision aim via
-/// `blink_destination_to_point_clusters`, quick-tap along input/facing, both
-/// against the moving-platform-composed world), so the preview can never
-/// disagree with the eventual teleport endpoint. Render draws the ember
-/// ring; it computes nothing.
+/// Render draws the ember ring; it computes nothing.
 #[derive(Resource, Default, Clone, Copy, Debug)]
 pub struct BlinkPreviewFact {
     /// Ring visible this tick (blink held / aiming, ability owned, gameplay
@@ -685,7 +664,7 @@ pub struct BlinkPreviewFact {
 #[allow(clippy::type_complexity)]
 pub fn rebuild_blink_preview_fact(
     mut fact: ResMut<BlinkPreviewFact>,
-    // ⛔⛔ **THE ONE COLLISION READ-API, because the preview was resolving
+    // **THE ONE COLLISION READ-API, because the preview was resolving
     // against a DIFFERENT WORLD than the blink.** This took the room plus
     // `MovingPlatformSet` and composed `world_with_moving_platforms` itself,
     // under a comment claiming *"the moving-platform-aware temporary world is
@@ -699,9 +678,6 @@ pub fn rebuild_blink_preview_fact(
     // preview that disagrees with the action is worse than none.
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     mode: Res<bevy::prelude::State<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
-    // The home avatar's raw input actions. Discovered by the primary-player
-    // marker instead of a process-global scene-handle bag: `PlayerVisual` carries
-    // the leafwing `ActionState`, `PrimaryPlayer` selects the one home body.
     action_query: Query<
         &leafwing_input_manager::prelude::ActionState<
             ambition_input::Platformer2dInputActionMonolith,

@@ -54,17 +54,7 @@ const VOICEPRINTS: &[VoiceprintDef] = &[
     },
     VoiceprintDef {
         cue: CREATOR,
-        // ⛔ **`creator_final` and `hall_npc_creator_final` are GONE with the id.**
-        // Creator Final shared `npc_creator`'s spritesheet and manifest exactly,
-        // so the two ids were one person; the row was folded in on 2026-08-05
-        // and its hall node deleted with it. What still exists is the raid
-        // scene, whose node is `creator_final_normal` and whose speaker line
-        // reads `Creator:` — caught by the `creator` key on the speaker, and by
-        // the `creator` ALIAS on the dialogue id, which matches as a substring.
-        // Keeping the dead keys would have left two lines naming a character
-        // nobody can find.
-        //
-        // ⚠ **the tests here cannot tell**: a probe that deleted the `creator`
+        // **the tests here cannot tell**: a probe that deleted the `creator`
         // EXACT key as well left all three voiceprint tests green, because the
         // `creator` alias matches any key CONTAINING it. So for this cast the
         // exact keys are largely redundant with the alias, and nothing would
@@ -235,7 +225,7 @@ mod tests {
 
     /// **No exact key is hiding an alias that would steal it.**
     ///
-    /// ⛔ **`exact` is consulted BEFORE `aliases`, so an exact key silently masks
+    /// **`exact` is consulted BEFORE `aliases`, so an exact key silently masks
     /// a collision.** If one cue's alias is a substring of another cue's
     /// authored name, the authored name still resolves correctly — through the
     /// exact map — while every *undeclared* speaker label shaped like it goes to
@@ -245,7 +235,7 @@ mod tests {
     /// So this asks the same question with the exact map REMOVED. Every key must
     /// still land on its own cue through aliases alone.
     ///
-    /// ⚠ **a failure here does not mean "add an exact key"** — that is what
+    /// **a failure here does not mean "add an exact key"** — that is what
     /// hides it. It means two cues have overlapping alias vocabulary, and one of
     /// them needs a longer alias.
     #[test]

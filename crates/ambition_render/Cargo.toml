@@ -22,12 +22,12 @@ input = ["ambition_sim_view/input"]
 portal_render = ["dep:ambition_portal2d_presentation"]
 
 [dependencies]
-# ⛔ **OPTIONAL, and the ratchets are why.** `image` is a PNG ENCODER and it is
+# **OPTIONAL, and the ratchets are why.** `image` is a PNG ENCODER and it is
 # only ever used by the offscreen `capture` module — a development tool. Landing
 # it unconditionally widened the linked closure of every consumer of this crate,
 # including `fixtures/minimal_game` and `fixtures/external_consumer`, whose whole
 # purpose is to be small. The capability-footprint ratchet and three sub-workspace
-# lockfiles all went red within one suite run (2026-08-04), which is the guard
+# lockfiles all went red within one suite run, which is the guard
 # doing exactly its job: a debug tool must not be in a shipped game's dependency
 # graph.
 image = { version = "0.25", default-features = false, features = ["png"], optional = true }

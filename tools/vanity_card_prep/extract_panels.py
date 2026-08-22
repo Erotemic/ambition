@@ -59,8 +59,6 @@ def _bubble_sheet(cfg):
     return src_path(cfg, "ChatGPT Image May 13, 2026, 12_20_36 AM (3).png")
 
 
-# Scene-sheet grid — measured from pixel analysis.
-# To adjust: change config.yaml → chroma_key params, then re-run this script.
 SCENE_COL_SPANS = [(22, 478), (512, 947), (975, 1427)]
 SCENE_ROW_SPANS = [(136, 482), (582, 928)]
 

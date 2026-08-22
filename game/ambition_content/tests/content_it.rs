@@ -5,22 +5,17 @@
 //! engine graph from every `cargo test` of it. Which tests run is unchanged;
 //! filter a former target with `--test content_it -- <module_name>`.
 //!
-//! ⚠ `autotests = false` makes a forgotten `mod` line silently skip a whole
+//! `autotests = false` makes a forgotten `mod` line silently skip a whole
 //! file — `content_it_sync` is the guard that turns that into a failure.
 
 mod content_it_sync;
 
 mod aerial_authoring;
-// ⛔ `authored_spawns_resolve` DELETED 2026-08-13, on both its own tests' written
-// instructions. Its subject was the set of placements naming no character, and
-// that set is now EMPTY: Jon cast `under_town_skitter` as a Puppy Slug and ruled
-// the dive-drill's anonymous `Target` deletable. The countdown it kept
-// (`the_striker_row_lives_exactly_as_long_as_the_placement_that_needs_it`) said
-// so itself — *"if the skitter was CAST … delete the row, its note, its SURVIVORS
-// entry, and this test"* — and with both sides false it had become two absences
-// agreeing.
+// The countdown it kept (`the_striker_row_lives_exactly_as_long_as_the_placement_that_needs_it`)
+// said so itself — *"if the skitter was CAST … delete the row, its note, its SURVIVORS entry, and
+// this test"* — and with both sides false it had become two absences agreeing.
 //
-// ⭐ the surviving claim is STRONGER and lives in
+// the surviving claim is STRONGER and lives in
 // `worlds::tests::only_the_uncast_placements_still_ride_the_display_name_fallback`,
 // which now asserts the set is empty rather than counting it down.
 mod boss_fight_validator;

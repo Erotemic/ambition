@@ -53,11 +53,6 @@ impl EncounterSwitchIndex {
 
 pub fn rebuild_encounter_switch_index(
     mut index: ResMut<EncounterSwitchIndex>,
-    // ⭐ `SwitchFeature` / `SwitchOn` are defined a few lines below, in THIS
-    // file. They used to be named through `crate::features`, which re-exports
-    // them straight back from here — a module importing itself the long way
-    // round. `FeatureId` is a genuine outward edge (it resolves to
-    // `ambition_combat` under the `features` hub) and stays as it is.
     switches: Query<(&crate::features::FeatureId, &SwitchFeature, &SwitchOn)>,
 ) {
     index.links.clear();
@@ -151,9 +146,6 @@ mod switch_index_tests {
 use ambition_platformer2d_core as ae;
 use bevy::prelude::{Component, Message};
 
-/// A live Switch interactable (parsed once at LDtk spawn; see
-/// `spawn_room_feature_entity`). Moved here from the combat components at E2
-/// — the payload is encounter vocabulary.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct SwitchFeature {
     pub activation: SwitchActivation,

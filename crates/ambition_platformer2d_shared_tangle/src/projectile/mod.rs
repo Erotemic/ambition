@@ -34,7 +34,7 @@ pub mod spec;
 
 pub use body::{InFlightProjectile, ProjectileBody, ProjectileGameplay, ProjectileSolidHit};
 pub use collision::{resolve_world_collision, WorldHitOutcome, WorldHitPolicy};
-// ⚠ `ProjectileSpawn` is re-exported, not owned: authored projectile intent
+// `ProjectileSpawn` is re-exported, not owned: authored projectile intent
 // lives in the lower `ambition_projectile_spec` floor. The VFX crate no longer
 // transports projectile requests at all; keeping the vocabulary below this
 // physics primitive preserves its independent ownership and avoids making this

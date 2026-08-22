@@ -16,15 +16,15 @@
 #   - Shared-page ultrapack atlases, one per quality tier, into
 #     crates/ambition_platformer2d_actor_monolith/assets/sprite_packs/<tier>/.
 #   - Reduced-resolution per-sheet quality variants (sprites_0_5x / _0_25x /
-#     _potato). ⛔ this step is what a phone loads; skipping it silently falls
+#     _potato). this step is what a phone loads; skipping it silently falls
 #     the device back to full-resolution art.
 #
 # Usage:
-#   ./regen_sprites.sh                  # render + install everything (cache-skipped if fresh)
-#   ./regen_sprites.sh --force          # bypass the cache, re-render unconditionally
-#   ./regen_sprites.sh --list           # show registered targets for focused regen
-#   ./regen_sprites.sh --target <name>  # render + install one registered target
-#   ./regen_sprites.sh --target a --target b   # repeatable; renders both
+# ./regen_sprites.sh                  # render + install everything (cache-skipped if fresh)
+# ./regen_sprites.sh --force          # bypass the cache, re-render unconditionally
+# ./regen_sprites.sh --list           # show registered targets for focused regen
+# ./regen_sprites.sh --target <name>  # render + install one registered target
+# ./regen_sprites.sh --target a --target b   # repeatable; renders both
 #
 # Environment:
 #   AMBITION_SPRITE_PYTHON=/path/to/python  Override the sprite tool .venv.
@@ -37,8 +37,8 @@
 #   AMBITION_LINE_PROFILE_TEXT=1            Also write one detailed .txt sidecar.
 #
 # Focused variant work does not need this script at all:
-#   ./regen_visual_quality_variants.sh --target patent_clerk
-#   ./regen_visual_quality_variants.sh --target 'pirate_*' --tier 0_5x
+# ./regen_visual_quality_variants.sh --target patent_clerk
+# ./regen_visual_quality_variants.sh --target 'pirate_*' --tier 0_5x
 #
 # Caching:
 #   The renderer's Python sources + configs are fingerprinted into
@@ -77,9 +77,7 @@ print_help() {
 
 force_regen=0
 list_targets=0
-# `--target` ACCUMULATES. It used to assign, so a second one silently replaced
-# the first: `--target robot_slash --target player_robot_v3` rendered only the
-# player and reported success, which reads as "both are fresh" and is not.
+# `--target` ACCUMULATES.
 target_names=()
 make_gifs=0
 while [ "$#" -gt 0 ]; do
@@ -191,14 +189,9 @@ run_renderer_python() {
         fi
         return "$rc"
     else
-        # ⭐ **every renderer subprocess is TIMED**, profiler or not.
+        # **every renderer subprocess is TIMED**, profiler or not.
         #
-        # ⛔ this script's own cleanups have twice been argued from an unmeasured
-        # cost: twenty-one orphan targets were removed on 2026-08-05 because they
-        # "waste minutes per run", and nobody could say how many minutes, or
-        # whether the hand-maintained tackon list is the expensive part or a
-        # rounding error. A number costs one `date` call per subprocess and turns
-        # both questions into arithmetic.
+        # A number costs one `date` call per subprocess and turns both questions into arithmetic.
         local started_at finished_at rc
         started_at="$(date +%s)"
         if (cd "$renderer_dir" && "$python_bin" "$@"); then
@@ -215,13 +208,10 @@ run_renderer_python() {
 # `<seconds> <label>` for every renderer subprocess this run has finished.
 regen_timings=()
 
-# ⛔ **checks RECORD here; only the end of the script exits.** A postcondition
-# that exits where it stands cancels every stage after it, and this pipeline's
-# most expensive stages — ultrapack, and now the quality variants — are last.
-# One stale filename in a hand-maintained list used to throw away 1:13 of
-# rendering and leave the packs ten days old, while the run's own output still
-# read like it had finished. Failures are printed where they are found, the
-# remaining stages still run, and the exit code is settled at the bottom.
+# **checks RECORD here; only the end of the script exits.** A postcondition that exits where it
+# stands cancels every stage after it, and this pipeline's most expensive stages — ultrapack, and
+# now the quality variants — are last. Failures are printed where they are found, the remaining
+# stages still run, and the exit code is settled at the bottom.
 regen_failures=()
 
 # What the run COST, slowest first. Printed at the end of a full batch and after
@@ -235,13 +225,8 @@ print_regen_timings() {
     done
     echo ""
     echo "==> render cost: ${#regen_timings[@]} subprocess(es), ${total}s total"
-    # ⚠ awk rather than `head -12`, because this now runs at the END of a full
-    # batch (it used to run only after `--target`, where there are one or two
-    # rows). `head` closes the pipe once it has its twelfth line, which can
-    # SIGPIPE `sort`, and under `set -euo pipefail` that is a non-zero status
-    # for the last command of a run in which every stage succeeded. Not observed
-    # here — bash's short input never made `sort` write past the close — but the
-    # cost of not depending on that is one word.
+    # Not observed here — bash's short input never made `sort` write past the close — but the cost
+    # of not depending on that is one word.
     printf '%s\n' "${regen_timings[@]}" | sort -rn | awk 'NR <= 12' | while read -r seconds label; do
         printf '    %5ss  %s\n' "$seconds" "$label"
     done
@@ -333,14 +318,12 @@ regen_one_target() {
     # Every target installs to assets/sprites/ and owns any further subdirectory
     # behavior in its own Python `Target.install` hook — gnu_ton_boss,
     # gnu_ton_apple, interdimensional_gate, pirate_heavy, mockingbird_boss,
-    # sanic_support_entities, and (since 2026-08-04) `entities`.
+    # sanic_support_entities, and `entities`.
     #
-    # ⛔ **`entities` used to be a special case HERE**, rewriting dest_root to
-    # $entities_dir. That made this script right and the CLI wrong: anyone
-    # running `python3 -m ambition_sprite2d_renderer publish entities` installed
-    # a directory too high, where the runtime loader never looks, and nothing in
-    # the chain said so. A rule that lives in one of two callers is a rule the
-    # other caller breaks (queue D21).
+    # That made this script right and the CLI wrong: anyone running `python3 -m
+    # ambition_sprite2d_renderer publish entities` installed a directory too high, where the runtime
+    # loader never looks, and nothing in the chain said so. A rule that lives in one of two callers
+    # is a rule the other caller breaks.
 
     echo "==> sprite target: $target → $dest_root"
     run_renderer_python "publish-$target" -m ambition_sprite2d_renderer publish "$target" --dest-root "$dest_root"
@@ -365,17 +348,10 @@ if [ "${#target_names[@]}" -gt 0 ]; then
 fi
 
 # --- Publish roster -------------------------------------------------------
-# ⭐ **ONE list of what this script publishes, and it is a list of TARGETS.**
+# **ONE list of what this script publishes, and it is a list of TARGETS.**
 #
-# ⛔ there used to be a second list here, of 328 expected FILENAMES, and the two
-# drifted the way two lists always do. `player_robot_spritesheet.{png,yaml,ron}`
-# sat in it for months after the player sheet became `player_robot_v3`; no
-# target produced it and none could, so the postcondition was unsatisfiable —
-# and because it ran BEFORE the ultrapack step, every full regen aborted after
-# 1:13 of rendering with the packs left ten days stale, while the run's own
-# output still read like it had finished. In the other direction `patent_clerk`
-# was published and never listed, so a run whose patent-clerk render failed
-# reported every expected file present.
+# In the other direction `patent_clerk` was published and never listed, so a run whose patent-clerk
+# render failed reported every expected file present.
 #
 # The filenames are now DERIVED from these arrays by asking the renderer what
 # each target declares it installs (`Target.claimed_install_names`). A target
@@ -385,7 +361,7 @@ fi
 review_cues=(
     # Toon-target NPC variants already promoted.
     absurd_general architect kernel_guide vault_keeper
-    # ⛔ oiler is NOT here any more — see `tackon_targets`. His body comes from
+    # oiler is NOT here any more — see `tackon_targets`. His body comes from
     # the direct-SVG rig; leaving the review cue in place would have this loop
     # overwrite the rig's sheet with the toon render on every full run.
     merchant_prototype erdish raid_enforcer fascist_enforcer
@@ -403,24 +379,10 @@ review_cues=(
 faction_cues=(goblin_cantina_chieftain pulse_voyager_captain tech_bro_disruptor)
 
 tackon_targets=(
-    # ⛔ **Emmy is named here because the glob above cannot see her.**
-    # `rig_targets` globs `rigged/*.rig.json`, and her rig moved into
-    # `rigged/noether/noether_side.rig.json` when she became a multiview target —
-    # so for weeks she was published only by a STALE top-level
-    # `rigged/noether.rig.json` left behind by that move, whose 128x128 /
-    # ground_y=101 constants a sprite module then restated. That file is deleted
-    # (2026-08-16); this line is what keeps her published.
+    # That file is deleted; this line is what keeps her published.
     noether
-    # Oiler's body is the direct-SVG multiview rig
-    # (data/characters/oiler/oiler-multiview.svg + rigged/oiler/*.rig.json),
-    # not the toon render of configs/review/oiler.yaml. Jon, 2026-08-16:
-    # *"Oiler's sprite is still his python based one not his SVG based one. I
-    # would like to completely move the SVG one."* ⛔ do not put him back in
-    # `review_cues`: `character_catalog.ron` binds npc_oiler to ONE pair of
-    # filenames (`sprites/oiler_spritesheet.png` + `.ron`), so whichever
-    # publisher writes them last is the body both games draw.
     oiler
-    # ⛔ **The two Fighting Polygons are named here because a `--target` render is
+    # **The two Fighting Polygons are named here because a `--target` render is
     # not a PUBLISH ROSTER.** Both were rendered into this checkout one target at
     # a time (`regen_sprites.sh --target <name>`), which works and is the right
     # surgical tool — but generated art is gitignored, so a target that no batch
@@ -432,7 +394,7 @@ tackon_targets=(
     # only by accident of local history.
     pointed_polygon
     pugnacious_polygon
-    # ⚠ **NAMED HERE, not only reachable by `--target`.** The game loads
+    # **NAMED HERE, not only reachable by `--target`.** The game loads
     # `sprites/hud_stock_icon.png` by path from `STOCK_ICON_ASSET`, so a clone
     # that cannot produce it has a match HUD with holes where the stocks go —
     # the same trap the two polygons hit, one comment down.
@@ -475,24 +437,14 @@ tackon_targets=(
     # sprites/super_mary_o_spritesheet.*; without this publish a fresh
     # clone renders the demo character as a colored rectangle.
     super_mary_o
-    # Her power forms are SEPARATE targets in the same module (each a distinct
-    # SHEET, not a scaled copy): the grown form (`mary_o_tall` catalog row) and
-    # the fire-flower form (`mary_o_fire`, Jon bug #10). Both must publish or a
-    # fresh clone draws the powered-up player as a colored rectangle.
+    # Both must publish or a fresh clone draws the powered-up player as a colored rectangle.
     super_mary_o_tall
     super_mary_o_fire
     # Mary-O's gameplay provider binds these generated pickups through
     # WorldItemArt at sprites/props/<name>.png. Publish the source targets
     # here, then copy their canonical poses into props/.
-    #
-    # Her two power pickups. Jon replaced the milk carton with the magical
-    # girl's star wand and the spark blossom with the lantern (cinder beacon);
-    # the retired carton/blossom targets still render on request but nothing
-    # publishes or references them.
     super_mary_o_star_wand
     super_mary_o_cinder_beacon
-    # The star. Its shader has existed since it landed with nothing to switch
-    # it on; the pickup that does is `star.rs`.
     super_mary_o_cosmic_quasar
     # Fixed-canvas construction pieces. The pipe and pole body targets repeat
     # vertically; their top/finial and flag stay separate so level code can
@@ -527,8 +479,8 @@ tackon_targets=(
     # presentation seam remains generic.
     pirate_admiral_vfx
     ninja_shadow_oni_leader_vfx
-    # ⛔ these two were AUTHORED IN THE SUBMODULE AND NEVER LISTED HERE
-    # (found 2026-08-16). `george_booul_vfx` ships a published sheet only because
+    # these two were AUTHORED IN THE SUBMODULE AND NEVER LISTED HERE
+    # . `george_booul_vfx` ships a published sheet only because
     # someone ran it with a focused `--target`, so a fresh clone's regen would
     # silently drop it; `oiler_vfx` has a renderer target, no published sheet at
     # all, and no cues in `sfx.bank`. A regen roster that omits a real target is
@@ -575,12 +527,7 @@ tackon_targets=(
     viking_heavy_warrior
     viking_shieldmaiden
     viking_warrior
-    # weird_hermit's publisher was fixed 2026-05-24 to emit the
-    # canonical `<target>_spritesheet.{png,ron,yaml}` filenames + the
-    # runtime's standard SheetRow schema. Catalog entry now resolves.
     weird_hermit
-    # Catalog-backed Hall characters that previously depended on manually
-    # generated local assets and therefore disappeared on a fresh clone.
     willson
     ramen_nujan
     jeff_hinter
@@ -588,13 +535,10 @@ tackon_targets=(
     m_leblanc
     puppy_slug_velvet
     player_robot_fable
-    # ⛔ **The same class again, found 2026-08-05.** `mary_o_v2` and its two
-    # forms were in NO batch — their sheets existed only on machines that had
-    # once rendered them by hand, exactly like the five above. FOUR surfaces
-    # name them: the Mary-O demo's three forms, `pocket_runner`,
-    # `twintrack_traveler`, and Ambition's own versus arena (`arena_duelist_close`).
+    # FOUR surfaces name them: the Mary-O demo's three forms, `pocket_runner`, `twintrack_traveler`,
+    # and Ambition's own versus arena (`arena_duelist_close`).
     #
-    # ⚠ how it was NOTICED is the part worth keeping: not by a clone failing,
+    # how it was NOTICED is the part worth keeping: not by a clone failing,
     # but by six blank faces in a new character-select grid. `publish` emits a
     # target's PORTRAIT products as well as its sheet, so a target no batch
     # publishes has neither — and the portrait half is what was visible, because
@@ -602,23 +546,14 @@ tackon_targets=(
     mary_o_v2
     mary_o_v2_fire
     mary_o_v2_tall
-    # ⛔⛔ **AND THEN THE CENSUS, 2026-08-05.** Jon, on being told George Booul
-    # does not regen: *"Are there other characters that don't regen? If there
-    # are we need to fix that."* There were TWENTY-SIX — every catalog sheet
-    # stem this script never named, cross-checked against
-    # `sprite2d_renderer list`, and all 26 are registered targets that simply
-    # nothing ran.
+    # If there are we need to fix that."* There were TWENTY-SIX — every catalog sheet stem this
+    # script never named, cross-checked against `sprite2d_renderer list`, and all 26 are registered
+    # targets that simply nothing ran.
     #
-    # ⭐ they are almost all ONE cast: the mathematician / scientist NPCs of the
+    # they are almost all ONE cast: the mathematician / scientist NPCs of the
     # Hall. Their art has existed on developer machines for months and would
     # have been absent from a fresh clone, which is the same defect the five
     # rows above were added for and the same one `mary_o_v2` was.
-    #
-    # ⚠ **a hand-maintained allowlist is why this keeps happening.** Every
-    # character added since the last audit is orphaned by default, and the
-    # failure is invisible on any machine that once rendered it. The durable fix
-    # is a check that compares the assembled catalog against what this script
-    # publishes; until that exists, this list is what stands in for it.
     admiral_grass_hopper
     anne_druid
     carl_runga
@@ -710,7 +645,7 @@ publish_targets=(
 # The runtime-required file list. Consumed twice: by the cache fast-path below
 # (a deleted asset re-triggers a render) and by the postcondition at the end.
 #
-# ⚠ diagnostics are excluded because `sweep_runtime_diagnostics.py` MOVES them
+# diagnostics are excluded because `sweep_runtime_diagnostics.py` MOVES them
 # out of the runtime root at the end of every run — requiring them would make
 # the fast path unsatisfiable and force a full re-render every time.
 # `*_actor.ron` and the tileset/manifest `.ron` sidecars are excluded because
@@ -784,10 +719,8 @@ for pair in "${held_prop_map[@]}" "${construction_prop_map[@]}"; do
     expected_files+=("props/${pair##*:}.png")
 done
 
-# ⚠ a derivation that silently returns nothing would make both the fast path and
-# the postcondition vacuously true — the failure mode of every generated check.
-# The roster has published 800+ files for a year; anything under half that means
-# the helper broke, not that the roster shrank.
+# The roster has published 800+ files for a year; anything under half that means the helper broke,
+# not that the roster shrank.
 if [ "${#expected_files[@]}" -lt 400 ]; then
     echo "expected-file derivation produced only ${#expected_files[@]} entries" >&2
     echo "— the roster or the renderer registry is broken; refusing to run" >&2
@@ -1038,7 +971,7 @@ publish_cached_batch() {
 }
 
 # --- Reduced-resolution quality variants ----------------------------------
-# ⛔ **a sprite regen that does not run this leaves the phone on full-res art.**
+# **a sprite regen that does not run this leaves the phone on full-res art.**
 # The half / quarter / potato roots are what the runtime loads under the Low /
 # Medium / Potato quality profiles, and a sheet with no variant silently falls
 # back to full resolution. `regen_assets.sh` chained backgrounds → sprites →
@@ -1046,15 +979,7 @@ publish_cached_batch() {
 # re-opened that drift; 25 sheets — Mary-O's and the player's among them — had
 # no half-res sibling when it was measured.
 #
-# ⛔⛔ **AND THE CACHE-HIT EXIT SKIPPED IT** (Jon, 2026-08-12: *"When I change the
-# video quality in ambition, my sprite went from the robot v3 character to the
-# robot v2 character"*, and *"I see the new emmy sprite on the select screen, but
-# her character is the old sprite in the match"*). Both are one fact: 163 of 192
-# reduced-tier sheets were four days behind `sprites/`, so the reduced tiers drew
-# 08-08 art while full-res drew 08-11's. A quality change moves between the two
-# roots, which is why it looked like the character was being swapped.
-#
-# ⭐ THE FINGERPRINT CANNOT ANSWER THIS QUESTION. It covers renderer sources and
+# THE FINGERPRINT CANNOT ANSWER THIS QUESTION. It covers renderer sources and
 # the presence of full-res outputs; it says nothing about whether the reduced
 # tiers match them, and something that publishes art without reaching the bottom
 # of this script (an interrupted run, `AMBITION_QUALITY_VARIANTS=0`, a publish
@@ -1092,7 +1017,7 @@ then
     echo "==> regen cache hit: renderer sources + outputs unchanged — skipping sprite publication."
     echo "    Cache key: $fingerprint_file"
     echo "    Pass --force to re-render anyway."
-    # ⛔ NOT `exit 0` — see `run_quality_variants`. Skipping publication is what
+    # NOT `exit 0` — see `run_quality_variants`. Skipping publication is what
     # the cache key licenses; skipping the tier the key says nothing about is how
     # the reduced-resolution roots fell four days behind the art.
     if ! run_quality_variants; then
@@ -1103,10 +1028,8 @@ then
     exit 0
 fi
 
-# Cheap structural preflight before the first expensive render. A stale or
-# mistyped CharacterJob used to fail only when its turn reached `draw-review`,
-# after earlier batches had already spent minutes rendering. The adapter config
-# surface is small enough to validate up front.
+# Cheap structural preflight before the first expensive render. The adapter config surface is small
+# enough to validate up front.
 echo "==> validate sprite character configs"
 run_renderer_python validate-configs -m ambition_sprite2d_renderer validate-configs
 
@@ -1114,7 +1037,7 @@ echo "==> config-driven targets (robot / goblin / boss) → $sprites_dir"
 run_renderer_python draw-all -m ambition_sprite2d_renderer draw-all --out-dir "$sprites_dir"
 
 echo "==> entity sprites → $entities_dir"
-# ⚠ `$sprites_dir`, not `$entities_dir`: the target's own `install` hook adds the
+# `$sprites_dir`, not `$entities_dir`: the target's own `install` hook adds the
 # `entities/` leg now. Passing the subdirectory here as well would nest it
 # (`sprites/entities/entities/`) — see the note in `regen_one_target`.
 run_renderer_python publish-entities -m ambition_sprite2d_renderer publish entities --dest-root "$sprites_dir"
@@ -1259,15 +1182,6 @@ echo "==> postcondition: every runtime-required sprite file present"
 # are missing. The list comes from the publish roster near the top of this
 # script (it's also consumed by the cache-skip check), so adding a target is
 # all it takes to cover its products.
-#
-# ⛔ **this records a failure; it does not exit.** It used to `exit 1` here,
-# which meant a single wrong filename cancelled the ultrapack step, the LDtk
-# manifest, and (now) the quality variants — 1:13 of rendering thrown away and
-# the packs left ten days stale, over an entry no target had produced since
-# February. A check that can kill the work after it is a check whose blast
-# radius is the whole pipeline. The exit code is settled at the END of the run,
-# after every stage has had its turn; the fingerprint is not cached when
-# anything failed, so a failing run still re-renders next time.
 missing=()
 for rel in "${expected_files[@]}"; do
     if [ ! -f "$sprites_dir/$rel" ]; then
@@ -1316,14 +1230,12 @@ else
     echo "  (skipped — no python interpreter)"
 fi
 
-# --- Ultrapacked quality-tier sprite atlases (runtime install) ------------
-# Pool every published per-target sheet into shared, uniformly-sized atlas
-# pages at each quality tier, then write pages + a SpritePackCatalog into the
-# RUNTIME pack root assets/sprite_packs/<tier>/ (gitignored, generated).
-# Tier names match the runtime `TextureResolutionScale` enum (full / half /
-# quarter / potato) — the game's pack consumer selects the tier dir from the
-# active quality budget. `build.rs` bakes each tier's ultrapack.json. See
-# docs/planning/engine/data-driven-sprites-and-characters.md (W2).
+# --- Ultrapacked quality-tier sprite atlases (runtime install) ------------ Pool every
+# published per-target sheet into shared, uniformly-sized atlas pages at each quality tier, then
+# write pages + a SpritePackCatalog into the RUNTIME pack root assets/sprite_packs/<tier>/
+# (gitignored, generated). Tier names match the runtime `TextureResolutionScale` enum (full /
+# half / quarter / potato) — the game's pack consumer selects the tier dir from the active
+# quality budget. `build.rs` bakes each tier's ultrapack.json.
 #
 # Efficient by construction: the sheets were rendered ONCE above, so each tier
 # reads that pool (`--from-rendered`) and downsamples each isolated frame to
@@ -1382,7 +1294,7 @@ then
     #   1. Do the tiers agree with EACH OTHER? A transient IO flake once
     #      silently dropped 59 targets from one tier — scale must never change
     #      coverage, so unequal sets are a hard failure.
-    #   2. Do they agree with WHAT WAS RENDERED? ⛔ (1) alone cannot see
+    #   2. Do they agree with WHAT WAS RENDERED? (1) alone cannot see
     #      staleness: four equally-old tiers agree perfectly. The packs sat ten
     #      days old at 167 targets while a fresh pack held 181, and this check
     #      passed happily on every one of those days. So each catalog is also
@@ -1391,7 +1303,7 @@ then
     #      (a catalog older than the newest sheet is a stale pack, whatever the
     #      counts say).
     #
-    # ⚠ the sheets a pack does NOT cover are reported, not failed: ultrapack
+    # the sheets a pack does NOT cover are reported, not failed: ultrapack
     # skips manifests with no standard frame rows (bespoke targets, which it
     # names on stderr as it goes), and that set is content, not a defect.
     if ! "$python_bin" - "$pack_root" "$sprites_dir" <<'PYEOF'
@@ -1547,9 +1459,6 @@ else
     echo "  (skipped — ambition_ldtk_tools not importable from $ldtk_python)"
 fi
 
-# --- Reduced-resolution quality variants ----------------------------------
-# The stage itself is `run_quality_variants`, defined beside the cache-hit exit
-# because BOTH paths run it. Everything that used to be said here is said there.
 if ! run_quality_variants; then
     regen_failures+=("quality variants: generator reported a failure")
 fi

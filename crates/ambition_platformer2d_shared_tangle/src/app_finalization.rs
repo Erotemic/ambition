@@ -16,13 +16,6 @@
 //! headless acceptance runners. Every one of those apps has plugins whose
 //! `finish` has never run.
 //!
-//! Character preparation now DOES seal its staged registry in `Plugin::finish`
-//! (with a `PreStartup` backstop). A hand-driven app that skips finalization can
-//! therefore observe a different prepared cast from the production runner: green
-//! tests, wrong game. The historical migration that introduced the barrier is
-//! archived in
-//! `docs/archive/planning-superseded/2026-08-13/character-preparation-finalization-plan.md`.
-//!
 //! This helper keeps every manually driven App on the same lifecycle contract as
 //! a runner without scattering hand-written `finish()` calls across tests/tools.
 
@@ -31,7 +24,7 @@ use bevy::prelude::App;
 /// Bring a hand-driven `App` to the state a runner would leave it in, then run
 /// one update.
 ///
-/// ⚠ **NOT idempotent on Bevy's behalf.** `App::finish` walks the ENTIRE plugin
+/// **NOT idempotent on Bevy's behalf.** `App::finish` walks the ENTIRE plugin
 /// registry every time it is called and re-runs each plugin's `finish` — it does
 /// not remember which ones already ran. A plugin whose `finish` CONSUMES
 /// something must guard itself; character preparation republished an empty

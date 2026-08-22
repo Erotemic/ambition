@@ -15,13 +15,8 @@
 //!   `GamepadControlDirection`-with-threshold analog for the discrete
 //!   `MoveLeft/Right/Up/Down` gesture edges (double-tap-down morph, etc.).
 //!
-//! [`bind_touch_virtual_inputs`] adds the bindings to the PRIMARY
-//! participant's `InputMap` — the overlay is the machine's own screen, not a
-//! couch seat's. The context-sensitive behaviors that used to be special-cased
-//! (the Jump button acting as menu confirm, the Reset button acting as Back)
-//! are DECLARED double-bindings here: the gameplay verb routes only while the
-//! gameplay context owns input, the menu action always feeds the menu frame —
-//! the same routing every physical device gets.
+//! [`bind_touch_virtual_inputs`] adds the bindings to the PRIMARY participant's `InputMap` — the
+//! overlay is the machine's own screen, not a couch seat's.
 
 use bevy::ecs::system::lifetimeless::SRes;
 use bevy::ecs::system::StaticSystemParam;
@@ -278,9 +273,6 @@ fn set_touch_button(world: &mut World, action: TouchActionButton, held: bool) {
     };
 }
 
-/// The declared touch binding table: which `Platformer2dInputActionMonolith`s each virtual
-/// control feeds. Multi-action rows are the honest form of what used to be
-/// hidden branches (Jump/Interact confirm menus; Reset backs out).
 pub fn touch_bindings() -> Vec<(
     ambition_input::Platformer2dInputActionMonolith,
     TouchVirtualButton,
@@ -302,10 +294,8 @@ pub fn touch_bindings() -> Vec<(
         // keyboard/gamepad bindings feed.
         (A::Utility, TouchVirtualButton(B::FlyToggle)),
         (A::Shield, TouchVirtualButton(B::Shield)),
-        // The overlay's Grab button sends the same Grab action the Smash pad's
-        // North button and every keyboard preset's grab key send. The guard
-        // below (`every_button_the_overlay_can_draw_can_also_be_pressed`) is
-        // what caught this line missing the first time it was written.
+        // The overlay's Grab button sends the same Grab action the Smash pad's North button and
+        // every keyboard preset's grab key send.
         (A::Grab, TouchVirtualButton(B::Grab)),
         // Modifier is a gameplay slot exposed by the touch overlay, so it must
         // have a virtual-device binding just like keyboard and gamepad input.

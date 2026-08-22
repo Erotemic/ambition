@@ -66,7 +66,7 @@ REPO = Path(__file__).resolve().parents[2]
 #: fix instruction so the message can be pasted verbatim.
 SUBMODULE = "dev/ambition_dev_measurements"
 
-#: The directory the ledgers live in. ⚠ THE ONE LINE TO EDIT if it moves again.
+#: The directory the ledgers live in. THE ONE LINE TO EDIT if it moves again.
 MEASUREMENTS = REPO / SUBMODULE
 
 #: The command that turns an empty mount point into a working checkout.
@@ -88,7 +88,7 @@ LEDGERS: dict[str, Path] = {
     "carve_lineage": CARVE_LEDGER,
 }
 
-#: ⛔ NOT a ledger and NOT in the submodule — see the module docstring. A gate
+#: NOT a ledger and NOT in the submodule — see the module docstring. A gate
 #: input stays where the gate can always reach it.
 RATCHET_BASELINE = REPO / "dev" / "compile_ratchet_baseline.json"
 

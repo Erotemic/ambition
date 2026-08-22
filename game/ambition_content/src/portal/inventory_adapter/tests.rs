@@ -1,7 +1,3 @@
-//! Unit tests for the parent module, extracted from an inline
-//! `#[cfg(test)] mod tests` (test-organization campaign, 2026-07-10). Pure move:
-//! same test names + logic, now an adjacent child module with private access via
-//! `use super::*;`.
 
 use super::*;
 use ambition_portal2d::arm_portal_pickups;
@@ -78,12 +74,9 @@ fn picking_up_the_portal_gun_activates_it() {
 
 /// **Holding it and the catalog saying so are ONE fact, so they move together.**
 ///
-/// ⛔ this is the drift the shared transfer removed. `drop_portal_gun_system`
-/// detached the `PortalGun` component and left `OwnedItems::equipped` still
-/// naming the gun — so the inventory screen reported you were holding a gun that
-/// was lying on the floor. `throw_held_item_system` cleared its slot on the
-/// equivalent release; this hand-written copy of the same operation did not, and
-/// nothing could tell them apart because each caller kept its own copy.
+/// `throw_held_item_system` cleared its slot on the equivalent release; this hand-written copy
+/// of the same operation did not, and nothing could tell them apart because each caller kept
+/// its own copy.
 ///
 /// Both ends are asserted at BOTH moments deliberately: a release that cleared
 /// the slot unconditionally would satisfy the drop half and fail the pickup half,

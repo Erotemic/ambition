@@ -5,9 +5,8 @@ const R: f32 = 200.0;
 const SEGMENTS: usize = 8;
 const CORNER: ae::Vec2 = ae::Vec2::new(600.0, 400.0);
 const DT: f32 = 1.0 / 60.0;
-/// Fast enough to be momentum, slow enough that a 200px fillet can supply the
-/// centripetal demand (`v²·angle/r_body` vs `stick_factor · press`). A body
-/// that launches off the ramp is a level-design fact, not a winding bug.
+/// Fast enough to be momentum, slow enough that a 200px fillet can supply the centripetal
+/// demand (`v²·angle/r_body` vs `stick_factor · press`).
 const SPEED: f32 = 300.0;
 
 fn corner_for(o: RampOrientation) -> ae::Vec2 {
@@ -29,10 +28,6 @@ fn ramp_chain(o: RampOrientation) -> ae::SurfaceChain {
     let arc = surface_ramp_points(corner, R, o, SEGMENTS);
     let room = o.into_room();
 
-    // Long lead-ins on purpose: the joint at the fillet's mouth then sits at an
-    // arc length where a fixed-epsilon joint nudge used to round away (see
-    // `ambition_platformer2d_core::movement::surface_momentum::joint_nudge`). The oracle should ride a
-    // realistic chain, not a convenient one.
     let flat_far = ae::Vec2::new(corner.x + room.x * 8.0 * R, corner.y);
     let wall_far = ae::Vec2::new(corner.x, corner.y + room.y * 8.0 * R);
 
@@ -115,9 +110,7 @@ fn ride_into_the_corner(o: RampOrientation) -> ae::Vec2 {
     // braked the ceiling cases into a stop, which is a fact about `run`, not
     // about the ramp.
     let run = v_t.signum();
-    // Sample the moment the body clears the fillet onto the wall — NOT seconds
-    // later. A body that climbed the wall correctly decelerates under gravity
-    // and comes back down, and "it is falling" is not a winding bug. The ride
+    // Sample the moment the body clears the fillet onto the wall — NOT seconds later. The ride
     // enters through the ONE public movement gateway, like production.
     let frame = ae::MotionFrame::from_acceleration(gravity).expect("non-zero acceleration");
     for _ in 0..2000 {
@@ -139,7 +132,6 @@ fn ride_into_the_corner(o: RampOrientation) -> ae::Vec2 {
                 contact: ae::BodyContactField::NONE,
             },
         );
-        // Past the fillet's far tangent point, measured along the wall axis.
         if (scratch.kinematics.pos.y - corner.y) * room.y > R * 1.25 {
             break;
         }

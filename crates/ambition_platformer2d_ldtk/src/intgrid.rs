@@ -61,7 +61,7 @@ pub(super) fn int_grid_value_to_block(
             size,
             ae::BlinkWallTier::Hard,
         )),
-        // ⛔ **Reset tile: it returns the toucher to SPAWN, and it does not
+        // **Reset tile: it returns the toucher to SPAWN, and it does not
         // damage.** This comment said "damages the player on contact" for as
         // long as the value has existed, and it is the paint surface — so an
         // author who wanted spikes painted the value the comment described and
@@ -84,18 +84,6 @@ pub(super) fn int_grid_value_to_block(
 ///   2. Per-column vertical merge: adjacent rows that produced the
 ///      *exact same span* (same x extent, same value) are stacked into
 ///      one taller block.
-///
-/// This correctly handles:
-///   - Long horizontal floors (pass 1 merges them; pass 2 finds nothing
-///     more to do) → one block. Floor-walk friction fix preserved.
-///   - Vertical walls of N-cell-wide cells stacked vertically (pass 1
-///     produces N identical 1-tall blocks; pass 2 stacks them into one
-///     N×H block) → one block. Wall-slide grinding fix.
-///   - Staircase / diagonal patterns: pass 1 produces blocks of varying
-///     widths per row (1, 2, 3, …); pass 2 finds no two adjacent rows
-///     with the same span so nothing merges. Staircases stay per-row
-///     visually (matches the editor's rendering). Regression fix from
-///     the earlier greedy-row-major bug.
 ///
 /// Invariant: every cell ends up covered by exactly one rectangle.
 pub(super) fn merge_intgrid_rects(
@@ -251,11 +239,7 @@ pub(super) fn emit_climbable_regions_from_intgrid(
 
 #[cfg(test)]
 mod intgrid_tests {
-    //! Pure coverage for the IntGrid -> collision-rect lowering. The
-    //! two-pass `merge_intgrid_rects` is the bug-prone bit (past
-    //! floor-friction and wall-grind regressions came from it), so its
-    //! documented merge cases and the every-cell-covered-once invariant
-    //! are pinned here.
+    //! Pure coverage for the IntGrid -> collision-rect lowering.
     use super::*;
 
     const G: f32 = 16.0;
@@ -355,10 +339,9 @@ mod intgrid_tests {
         assert!(int_grid_value_to_block(99, min, size).is_err());
     }
 
-    /// §3.6 determinism contract (restored — dropped in the W3 carve):
-    /// tile-derived geometry is durably named by the level-scoped layer key +
-    /// the row-major merge ordinal; two separated runs get distinct, stable
-    /// ids.
+    /// §3.6 determinism contract (restored — dropped in the carve): tile-derived geometry is
+    /// durably named by the level-scoped layer key + the row-major merge ordinal; two separated
+    /// runs get distinct, stable ids.
     #[test]
     fn intgrid_blocks_carry_level_scoped_tile_layer_geo_ids() {
         let blocks = emit_collision_blocks_from_intgrid(

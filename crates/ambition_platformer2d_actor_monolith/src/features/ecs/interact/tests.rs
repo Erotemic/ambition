@@ -402,17 +402,10 @@ fn an_unpopulated_node_index_never_suppresses() {
     assert_eq!(state.dialogue_id(), "hall_player");
 }
 
-// ---------------------------------------------------------------------------
-// **The rest of the controlled-body interaction seam** (2026-08-19 review).
-//
 // The geometry half was already right — `interact_lands_on_the_controlled_
-// subject_not_the_vacated_home_avatar` above pins it. Two halves were not: the
-// interaction POSE was written unconditionally to whatever carried
-// `PrimaryPlayer`, and the buffered press was read from and cleared on SLOT 0
-// whichever seat was actually driving. Under possession the first shows up as
-// *"the possessed body opens the door and the body you left behind plays the
-// animation"*; the second is a co-op bug that single-player cannot see at all.
-// ---------------------------------------------------------------------------
+// subject_not_the_vacated_home_avatar` above pins it. Two halves were not: the interaction POSE
+// was written unconditionally to whatever carried `PrimaryPlayer`, and the buffered press was
+// read from and cleared on SLOT 0 whichever seat was actually driving.
 
 /// The resources `interact_ecs_actors_and_switches` needs, and nothing else.
 fn interaction_app() -> App {
@@ -432,12 +425,10 @@ fn interaction_app() -> App {
     app.add_message::<QuestAdvanceRequested>();
     app.add_message::<SwitchActivated>();
     app.add_message::<VfxMessage>();
-    // ⭐⭐ **the SEAT is spawned on the body, because it IS the input road.**
-    // `ActingParticipant` answers *which seat drives this body* off
-    // `DrivingParticipant`, and a fixture whose bodies carried no seat would hand
-    // every reader `None` — which `acting_slot` turns into `PRIMARY`. Both
-    // second-seat tests below would then pass by attributing seat 1's press to
-    // seat 0, which is the exact defect they exist to catch.
+    // ⭐⭐ **the SEAT is spawned on the body, because it IS the input road.** `ActingParticipant`
+    // answers *which seat drives this body* off `DrivingParticipant`, and a fixture whose
+    // bodies carried no seat would hand every reader `None` — which `acting_slot` turns into
+    // `PRIMARY`.
     //
     // ⚠ the possession reconcile is deliberately NOT here: it only moves the
     // primary seat between a home avatar and a possessed body, and no possession
@@ -580,11 +571,6 @@ fn a_second_seat_spends_its_own_buffered_interact() {
 }
 
 /// **The negative direction, with positive evidence that the road is live.**
-///
-/// Seat 0 is mashing interact and seat 1 — the seat actually driving the body in
-/// reach — is not. Nothing may happen. ⛔ this is the assertion the old code
-/// failed outright: it gated on slot 0, so seat 0's press worked seat 1's
-/// switch.
 #[test]
 fn a_seat_that_pressed_nothing_does_not_interact_on_another_seats_press() {
     use ambition_platformer2d_shared_tangle::markers::ControlledSubject;

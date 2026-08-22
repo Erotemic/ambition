@@ -2,29 +2,19 @@
 //! **WHAT ACTUALLY SURVIVES A ROLLBACK FOR A PROVOKED BODY** — through the real
 //! GGRS machinery, with nothing called by hand.
 //!
-//! ⛔⛔ **`reconcile_autonomous_actors` HAS NO PRODUCTION CALL SITE** (ledger
-//! D104, reported by GPT 5.6 and verified 2026-08-12). Every test of that
-//! function calls it directly, which proves the function works and says nothing
-//! about whether it runs. The only system in `AmbitionLoadWorldSet::Reconcile`
-//! is `reconcile_brain_bindings`, and it filters on `binding.active_preset()?` —
-//! `None` for `ProvokedDefault`, `ProvokedProfile` and `CharacterProfile`. So
-//! every provoked and every character-first body is SKIPPED by the only
-//! reconciler that runs.
+//! Every test of that function calls it directly, which proves the function works and says
+//! nothing about whether it runs. The only system in `AmbitionLoadWorldSet:Reconcile` is
+//! `reconcile_brain_bindings`, and it filters on `binding.active_preset?` — `None` for
+//! `ProvokedDefault`, `ProvokedProfile` and `CharacterProfile`. So every provoked and every
+//! character-first body is SKIPPED by the only reconciler that runs.
 //!
-//! ⭐ **this file is the question that answers "so is that a bug?"** If the
-//! registered codecs already restore the provoked state, the reconciler is
-//! redundant — 506 code lines of D73's acceptance list — and wiring it in would
-//! make things WORSE, because it rebuilt a full health pool over a damaged
-//! actor's restored HP. (The helper it used, `fresh_health_pool`, is itself gone
-//! as of D101: the LIVE provoke flip was its last caller, and provocation no
-//! longer writes health either.)
+//! (The helper it used, `fresh_health_pool`, is itself gone as of: the LIVE provoke flip was
+//! its last caller, and provocation no longer writes health either.)
 //!
-//! ⚠ **it drives a SYNC-TEST session at prediction distance 4**, so `SaveWorld`
-//! and `LoadWorld` genuinely run every frame and every frame is resimulated. A
-//! test that stepped a plain fixed-tick sim would exercise no rollback at all
-//! and pass without touching the thing it names.
+//! **it drives a SYNC-TEST session at prediction distance 4**, so `SaveWorld` and `LoadWorld`
+//! genuinely run every frame and every frame is resimulated.
 //!
-//! ⚠ **the provoked state is folded into the BASELINE, not written mid-window.**
+//! **the provoked state is folded into the BASELINE, not written mid-window.**
 //! A direct world write inside a live prediction window is not reproduced during
 //! resimulation, so it would be erased by the first rollback and the test would
 //! be measuring its own fixture rather than the codecs.
@@ -42,10 +32,6 @@ fn hall_sim() -> Platformer2dSimHarness {
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_required_start_room("hall_of_characters")
-            // ⭐ prediction distance 4: the session predicts and then RESIMULATES,
-            // so `LoadWorld` runs for real. `0` is what the shipped build uses and
-            // saves nothing (`rollback_lifecycle_reset`'s cost probe measured it),
-            // which would make this test vacuous.
             .with_sync_test_rollback_settings(4, 10),
     )
     .expect("the GGRS sync-test harness builds in the Hall")
@@ -53,20 +39,17 @@ fn hall_sim() -> Platformer2dSimHarness {
 
 /// **DID A ROLLBACK ACTUALLY HAPPEN?** — asked of the runtime, not assumed.
 ///
-/// ⛔⛔ **the first version of this file did not ask.** It asserted that provoked
-/// state SURVIVED a window it merely believed was a rollback window, and on that
-/// basis proposed deleting 506 lines. If the sync-test session had silently
-/// stopped rolling back — a changed harness default, a feature flag, a
-/// prediction distance that quietly became 0 — every assertion would still have
-/// passed, because state that is never disturbed always survives. A test whose
-/// subject can vanish while it stays green is not evidence.
+/// If the sync-test session had silently stopped rolling back — a changed harness default, a
+/// feature flag, a prediction distance that quietly became 0 — every assertion would still have
+/// passed, because state that is never disturbed always survives. A test whose subject can
+/// vanish while it stays green is not evidence.
 ///
-/// ⭐ `RollbackExecutionStats` is a permanent, always-on counter incremented by
+/// `RollbackExecutionStats` is a permanent, always-on counter incremented by
 /// `count_load_run` inside `AmbitionLoadWorldSet::Reconcile` — the very set the
 /// absent reconciler would have been installed in. There is no need to infer
 /// rollback from timing or from a cost probe; the runtime counts it.
 ///
-/// ⚠ **`lifetime_load_runs`, NOT `load_runs`**, and the type's own doc is why: a
+/// **`lifetime_load_runs`, NOT `load_runs`**, and the type's own doc is why: a
 /// rebase installs a NEW session and zeroes the per-session counters. These
 /// tests rebase, so the unprefixed field would report a number reset underneath
 /// them — which is the exact misreading that made the exit oracle look like a
@@ -138,12 +121,12 @@ fn stage_provoked_and_wounded(sim: &mut Platformer2dSimHarness) -> (Entity, i32)
 /// **THE CODECS ALREADY RESTORE A PROVOKED BODY, AND THE MISSING RECONCILER IS
 /// NOT A GAP.**
 ///
-/// ⭐ every component the absent `reconcile_autonomous_actors` would rebuild is
+/// every component the absent `reconcile_autonomous_actors` would rebuild is
 /// registered rollback state: `Brain` (cursor), `BrainBinding`, `BodyHealth`,
 /// `ActorSurfaceState`, `TemporaryControl` and `CombatCapabilities` (canonical),
 /// and `ActorConfig`, `ActionSet`, `Mounted`, `MountSlot`, `RidingOn` (clone).
 ///
-/// ⛔ **the HP assertion is the one that matters, and it is the one that would
+/// **the HP assertion is the one that matters, and it is the one that would
 /// BREAK if the reconciler were wired in as-is.** Its provoked reconstruction
 /// rebuilt a fresh pool from `max_health`, which would replace this body's
 /// restored half-HP with a full pool every single load — a damaged actor healing
@@ -151,10 +134,7 @@ fn stage_provoked_and_wounded(sim: &mut Platformer2dSimHarness) -> (Entity, i32)
 /// `rollback_lifecycle_reset`'s campaign note recorded as "a mid-brawl enemy
 /// full-heal".
 ///
-/// ⚠ **the LIVE flip had the same bug and it was reachable**: until D101 it ran
-/// `*em.health = fresh_health_pool(DEFAULT_PROVOKED_HEALTH)`, so being provoked
-/// resized a body AND healed it. That write is gone; this assertion now also
-/// covers the road a player actually takes.
+/// That write is gone; this assertion now also covers the road a player actually takes.
 #[test]
 fn a_provoked_wounded_body_survives_the_real_rollback_window() {
     let mut sim = hall_sim();
@@ -163,7 +143,7 @@ fn a_provoked_wounded_body_survives_the_real_rollback_window() {
         sim.step(AgentAction::default());
     }
     let (body, wounded) = stage_provoked_and_wounded(&mut sim);
-    // ⭐ read AFTER the rebase: the rebase installs a new session, and the
+    // read AFTER the rebase: the rebase installs a new session, and the
     // lifetime counter is the one that carries across it.
     let loads_before = load_runs(&mut sim);
 
@@ -204,26 +184,22 @@ fn a_provoked_wounded_body_survives_the_real_rollback_window() {
 /// **AND POSSESSION SURVIVES ONE TOO** — the other half of the absent
 /// reconciler, and the half that could have been a real production bug.
 ///
-/// ⛔ `reconcile_temporary_control` is the part of `reconcile_autonomous_actors`
+/// `reconcile_temporary_control` is the part of `reconcile_autonomous_actors`
 /// that could NOT obviously be redundant: it rebuilds mount links from stable
 /// ids and INSERTS a `MountSlot` that was absent at save, and a codec cannot
 /// insert what the snapshot never held (`construction/mod.rs` cites it for
 /// exactly that). If that mattered, possession and mounting across a rewind
 /// would be broken in production today — the function does not run.
 ///
-/// ⭐ this possesses a body for real, through the same Down+Interact hold the
-/// possession end-to-end suite uses, and then keeps simulating inside a live
-/// prediction window. `TemporaryControl` and `PossessionState`'s entity are both
-/// registered rollback state, and the entity-mapping codecs run in
-/// `LoadWorldSystems::Mapping` before anything else — which is what the
-/// hand-rolled `by_sim_id` rebuild in the absent reconciler was duplicating.
+/// this possesses a body for real, through the same Down+Interact hold the possession
+/// end-to-end suite uses, and then keeps simulating inside a live prediction window.
 #[test]
 fn possession_survives_the_real_rollback_window() {
     use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
     use ambition_platformer2d::actors::features::FeatureId;
     use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 
-    // ⚠ copied from `possession_end_to_end`'s helper rather than reinvented:
+    // copied from `possession_end_to_end`'s helper rather than reinvented:
     // `interact` is the EDGE and `interact_held` is the hold, and a version that
     // set only one of them would never commit a possession.
     fn down_interact(edge: bool) -> AgentAction {
@@ -248,7 +224,7 @@ fn possession_survives_the_real_rollback_window() {
         >();
         q.single(world).expect("primary player").pos
     };
-    // ⭐ **it NAMES its character** (D102). This said only
+    // This said only
 
     // `Custom("cellular_automaton_fighter")`, and that archetype row was
 

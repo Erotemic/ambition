@@ -35,11 +35,10 @@ const POCKET_CATALOG_RON: &str = r#"(
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
-            // ⭐ **AUTHORED, 2026-08-11** (GPT 5.6 §5). The pocket demo is a
-            // provider-acceptance fixture — it proves a provider can stand up a
-            // room and a character, not that it can fight — so the row's own
-            // peaceful kit is the honest answer and `HostCode` was borrowing the
-            // protagonist's combat to say nothing with it.
+            // The pocket demo is a provider-acceptance fixture — it proves a provider can stand up
+            // a room and a character, not that it can fight — so the row's own peaceful kit is the
+            // honest answer and `HostCode` was borrowing the protagonist's combat to say nothing
+            // with it.
             tags: ["player", "provider_acceptance"],
         ),
     },
@@ -114,19 +113,18 @@ pub fn install_pocket_content(app: &mut App) {
     );
     // **REGISTER THE CHARACTER, not only its catalog row.**
     //
-    // Pocket was the one provider that never migrated to the registration seam.
-    // A catalog fragment declares what a character IS; `register_character` is
-    // what makes the art pipeline know it exists — `declare_registered_characters`
-    // reads the PREPARED REGISTRY, so a catalog-only character is
-    // `UnknownCharacter` to the materializer and draws the marked placeholder.
+    // A catalog fragment declares what a character IS; `register_character` is what makes the
+    // art pipeline know it exists — `declare_registered_characters` reads the PREPARED
+    // REGISTRY, so a catalog-only character is `UnknownCharacter` to the materializer and draws
+    // the marked placeholder.
     //
     // Which is what it did: picking "Pocket" from the launcher showed a plain blue
     // box standing on the platform. No test failed, because no test looked at the
     // screen — and the art guard that names Pocket in its own comment inspects the
     // registry, which Pocket was absent from (found by capturing the route,
-    // 2026-07-29).
+    // ).
     //
-    // ⚠ the sheet TARGET, not the sheet FILE. `mary_o_v2_spritesheet.ron`
+    // the sheet TARGET, not the sheet FILE. `mary_o_v2_spritesheet.ron`
     // declares `target: "mary_o_v2"` and the registry is keyed by that. The
     // catalog row above pointed at `sprites/mary_o_spritesheet.*`, which does not
     // exist in this repository at all, so even the legacy path had nothing to load.
@@ -182,8 +180,7 @@ impl Plugin for PocketExperiencePlugin {
         .with_loading_activity(
             ambition_platformer2d::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID,
         )
-        // ⭐ **its own description says what it is: an architecture proof.**
-        // Jon, 2026-08-15: the game-selection shell should list games. This one
+        // **its own description says what it is: an architecture proof.**
         // is a fixture that exists so a FOURTH provider proves the seam composes,
         // and every test that drives it activates its route directly — so it
         // loses nothing by not being offered.

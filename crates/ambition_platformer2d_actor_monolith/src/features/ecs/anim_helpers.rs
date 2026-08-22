@@ -6,15 +6,9 @@
 
 use super::*;
 
-/// Advance every non-player actor's movement-driven anim overlays (landing /
-/// dash-startup) one frame, via the SAME [`crate::features::advance_body_anim_overlays`]
-/// the player tick runs — so `ambition_character_sprites::pick_actor_anim` can show
-/// those poses (fable review §A9). The home player ([`crate::actor::PlayerEntity`])
-/// is excluded (it advances its own overlays in the player tick), so no body is
-/// advanced twice; a possessed non-player body IS advanced here. Uses `sim_dt`
-/// (world-anchored animation), so the poses pause and slow with the sim. Scheduled
-/// right before [`rebuild_actor_anim_index`] (its reader) and skipped headless
-/// with it — these overlays are presentation-only.
+/// The home player ([`crate::actor::PlayerEntity`]) is excluded (it advances its own overlays
+/// in the player tick), so no body is advanced twice; a possessed non-player body IS advanced
+/// here. Uses `sim_dt` (world-anchored animation), so the poses pause and slow with the sim.
 pub fn advance_actor_anim_overlays(
     world_time: Res<ambition_time::WorldTime>,
     mut actors: Query<
@@ -60,11 +54,8 @@ pub fn ecs_breakable_state(
 
 
 
-// ✔ FOUR boss animation helpers LEFT for `ambition_boss_encounter::anim` on
-// 2026-08-21 (D33): every type they read is that crate's, and `ambition_sim_view`
-// was reaching them through this crate while already depending on it directly.
-// What stays here is not boss -- chest, breakable, and the actor overlay advance
-// that needs this crate's own `advance_body_anim_overlays`.
+// What stays here is not boss -- chest, breakable, and the actor overlay advance that needs this
+// crate's own `advance_body_anim_overlays`.
 pub use ambition_boss_encounter::anim::{
     boss_anim_state_for, ecs_boss_anim_state, ecs_boss_anim_state_and_entity,
     ecs_boss_animation_frame_sample,

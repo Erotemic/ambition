@@ -16,8 +16,6 @@
 //! no longer owns any `target_os = "android"` cfg branches or
 //! `BEVY_ASSET_ROOT` probes.
 //!
-//! ## Phase 6 cleanup (2026-05-24)
-//!
 //! Before Phase 6 this module duplicated character metadata in a
 //! `NPC_SPRITE_REGISTRY` table (display name + filename + sheet
 //! const) and a parallel `npc_sprite_label` display-name → catalog-
@@ -72,10 +70,7 @@ use ambition_sprite_sheet::PortraitSheetRegistry;
 ///   declarations of the same character exist and one of them is stale — exactly
 ///   the drift the single-registration seam is meant to end.
 pub fn sheet_for_declared_character(
-    // Sheets a PROVIDER authored (queue U1), consulted before the engine's
-    // baked cache. Threaded rather than reached for globally: two Apps in one
-    // process must not share one game's art declarations, which is the bug the
-    // baked index would have if it were writable.
+    // Sheets a PROVIDER authored, consulted before the engine's baked cache.
     authored: &sheets::AuthoredSheets,
     character_catalog: &CharacterCatalog,
     registered_target: Option<&str>,
@@ -109,13 +104,9 @@ pub fn sheet_for_declared_character(
 
 /// **Resolve a character's PORTRAIT, with the registered definition winning.**
 ///
-/// The other half of [`sheet_for_declared_character`], and deliberately the same
-/// shape — Jon, 2026-07-29, deciding this: *"a character portrait for a dialog
-/// box is ubiquitous for platformer 2d games, so it makes sense the engine has a
-/// mechanism to make it easy, although like most things with the engine, it
-/// should always be possible to ignore some part of it and roll your own."*
+/// The registry is optional; compositions may use the catalog convention or provide their own portrait path.
 ///
-/// ⛔ **`CharacterDefinition.portrait` was carried faithfully through preparation
+/// **`CharacterDefinition.portrait` was carried faithfully through preparation
 /// and read by NOTHING** for as long as it existed, because there was no
 /// target → art resolver for it to resolve through. Its own doc named the two
 /// honest ways out — build this, or delete the field — and named the third as
@@ -134,7 +125,7 @@ pub fn sheet_for_declared_character(
 ///   the sheet road: it means two declarations of one character exist and one of
 ///   them is stale.
 ///
-/// ⚠ **`None` for the registry is the opt-out, not an error.** A composition that
+/// **`None` for the registry is the opt-out, not an error.** A composition that
 /// installs no `PortraitSheetRegistry` falls straight through to the catalog
 /// convention, which is what "possible to ignore" has to mean in code. An
 /// unresolved TARGET does the same rather than failing: the sheet road's answer
@@ -181,10 +172,8 @@ pub fn portrait_for_declared_character(
             );
         }
     }
-    // ⛔ **the manifest's `image` is a BARE FILENAME** (`"alice_portraits.png"`)
-    // while every loader speaks asset-relative paths. Joining it to the
-    // manifest's own directory is the whole difference between a face and a
-    // silent 404 — the failure class `declared_art_resolves.rs` was written for.
+    // **the manifest's `image` is a BARE FILENAME** (`"alice_portraits.png"`) while every loader
+    // speaks asset-relative paths.
     let directory = manifest_path
         .rsplit_once('/')
         .map(|(head, _)| head)
@@ -274,7 +263,7 @@ pub fn sprite_body_collision_for_character_id_in(
 /// it to one produced `sprites/game://sprites/mine.png`: a path to nothing,
 /// which the silent-placeholder policy then rendered as a bare box. That is why
 /// "a consumer owns its own art" stopped at the asset reader and never reached a
-/// character (GPT 5.6, 2026-07-28).
+/// character.
 fn all_character_sprite_filenames_from_data(
     catalog: &CharacterCatalogData,
 ) -> Vec<(String, String, Option<String>)> {
@@ -299,7 +288,7 @@ pub fn all_character_sprite_filenames_in(
     all_character_sprite_filenames_from_data(character_catalog.data())
 }
 
-/// ⚠ **the tier vocabulary exists twice** — `ambition_persistence` owns the one
+/// **the tier vocabulary exists twice** — `ambition_persistence` owns the one
 /// a setting is written in, `ambition_sprite_sheet` owns the one a sheet lookup
 /// speaks — and these two functions are the whole bridge. They are written
 /// adjacent so a tier added to one enum and not the other stops compiling here
@@ -358,15 +347,11 @@ fn sprite_texture_scale(
 /// decoded, or decoded here. `false` = unknown token, or the asset catalog gated
 /// / failed the load (the caller keeps its placeholder rectangle).
 ///
-/// This used to be the only way a non-privileged character ever got art, and it
-/// was called from application crates. It is now an implementation detail of the
-/// engine materializer in [`crate::character_runtime`]; nothing outside the
-/// engine should reach for it, because an app that forgets to is an app whose
-/// characters silently render as rectangles.
-/// Which of the two halves of a decode failed — a sheet DESCRIPTION or its
-/// IMAGE. They are different bugs with different fixes, and reporting both as
-/// "no sheet resolved" sent one investigation into a metadata seam that was
-/// already correct (queue T2, 2026-07-28).
+/// It is now an implementation detail of the engine materializer in [`crate::character_runtime`];
+/// nothing outside the engine should reach for it, because an app that forgets to is an app whose
+/// characters silently render as rectangles. Which of the two halves of a decode failed — a sheet
+/// DESCRIPTION or its IMAGE. They are different bugs with different fixes, and reporting both as
+/// "no sheet resolved" sent one investigation into a metadata seam that was already correct.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SpriteMaterialization {
     Ready,
@@ -397,13 +382,10 @@ pub fn materialize_declared_character_sprite(
     token: &str,
 ) -> SpriteMaterialization {
     let cid = match sprites.sheet_state(token) {
-        // ⭐ **THE RE-ENTRY CACHE, and it is this line.** A character another room
-        // already prepared costs nothing to stage again: no sheet lookup, no
-        // atlas build, no handle request. Pinned by
-        // `re_demanding_a_resident_character_repeats_no_preparation`, which
-        // counts atlas layouts and goes 1 → 2 the moment this returns early no
-        // longer. It is why D124's remaining Hall cost is FIRST-VISIT work and
-        // wants a budget rather than another cache.
+        // **THE RE-ENTRY CACHE, and it is this line.** A character another room already
+        // prepared costs nothing to stage again: no sheet lookup, no atlas build, no handle
+        // request. Pinned by `re_demanding_a_resident_character_repeats_no_preparation`, which
+        // counts atlas layouts and goes 1 → 2 the moment this returns early no longer.
         ambition_sprite_sheet::character::CharacterSheetState::Ready(_) => {
             return SpriteMaterialization::Ready
         }
@@ -439,19 +421,6 @@ pub fn materialize_declared_character_sprite(
 }
 
 /// Declare every catalog character's sheet WITHOUT decoding any of it.
-///
-/// Nothing is privileged. There used to be four ids (`player`, `robot`,
-/// `goblin`, `sandbag`) that decoded here at startup because they were the
-/// "typed hot-path slots"; every other character deferred to room staging. That
-/// made eagerness a property of the ENGINE's opinion about four names, so a
-/// provider whose protagonist is an ordinary catalog id — Mary-O, Sanic — had its
-/// hero fall through to the placeholder rectangle, and the workaround was a
-/// hand-written materialization step in each application crate.
-///
-/// Eagerness is now whatever the DEMAND says: the engine materializer in
-/// [`crate::character_runtime`] decodes the ids a session actually stages, behind
-/// the reveal barrier. Startup does no sheet decoding at all, which is strictly
-/// less than the four it used to do.
 ///
 /// `asset_server`/`layouts`/`quality` are no longer needed to declare, but stay
 /// in the signature: this is still where a caller proves it HAS an asset pipeline,
@@ -508,13 +477,9 @@ pub fn load_character_sprites_in(
 /// `variant: None`). Gameplay collision is untouched; it reads the base record
 /// separately.
 ///
-/// ⭐ **the third element is the RESOLVED tier and it is not derivable from the
-/// budget**: only this function knows whether the upgrade happened, and both
-/// ways of failing it — no baked record, no image under the profile — land on
-/// the authored full-resolution PNG. Returning it is what lets
-/// [`CharacterSpriteAsset::resolved_tier`] be a fact rather than a hope; before
-/// it did, a `Half` budget over an unbaked sheet reported `Half` resident while
-/// full-res pixels sat in memory.
+/// **the third element is the RESOLVED tier and it is not derivable from the budget**: only
+/// this function knows whether the upgrade happened, and both ways of failing it — no baked
+/// record, no image under the profile — land on the authored full-resolution PNG.
 fn resolve_variant_pair(
     catalog: &Platformer2dAssetCatalog,
     base_id: &AssetId,
@@ -555,16 +520,12 @@ fn resolve_variant_pair(
 /// with it as [`CharacterSpriteAsset::requested_tier`] and the quality
 /// transition compares against that, so the two cannot disagree.
 ///
-/// ⛔ **it is the tier ASKED FOR, not the one the bytes came from, and that
-/// distinction is load-bearing.** Not every sheet has every variant baked, so a
-/// `Half` budget legitimately loads the authored full-res PNG for some
-/// characters. Keying the transition on the pixels makes such a realization
-/// permanently unequal to the active tier, so it would be retired and rebuilt
-/// every single frame, forever. Stamping what it ANSWERS makes the transition
-/// idempotent by construction: whatever the materializer produces is, by
-/// definition, this tier's answer, so the next comparison is equal.
+/// Keying the transition on the pixels makes such a realization permanently unequal to the
+/// active tier, so it would be retired and rebuilt every single frame, forever. Stamping what
+/// it ANSWERS makes the transition idempotent by construction: whatever the materializer
+/// produces is, by definition, this tier's answer, so the next comparison is equal.
 ///
-/// ⚠ **the fact about the pixels is not discarded, it is recorded separately** —
+/// **the fact about the pixels is not discarded, it is recorded separately** —
 /// [`resolve_variant_pair`] returns it and it becomes
 /// [`CharacterSpriteAsset::resolved_tier`], which is what residency reporting
 /// reads. Two questions, two fields; this function answers only the first.
@@ -621,12 +582,8 @@ fn load_sprite_pages(
     // function is the ONE place a realization is built, so it is the one place
     // that can stamp both halves of the answer at once.
     requested: TextureResolutionScale,
-    // The tier `page0_path` and `spec` actually came from — equal to
-    // `requested` when the variant existed, `Full` when the caller fell back to
-    // the authored PNG. ⛔ **the caller must not pass `requested` twice here.**
-    // Until 2026-08-09 this parameter was a single `tier` documented as "what it
-    // actually loaded" while every caller handed it the request, so a fallback
-    // realization reported the tier nobody had loaded (queue D52).
+    // The tier `page0_path` and `spec` actually came from — equal to `requested` when the
+    // variant existed, `Full` when the caller fell back to the authored PNG.
     resolved: TextureResolutionScale,
 ) -> CharacterSpriteAsset {
     let parent = page0_path
@@ -743,10 +700,8 @@ pub fn build_prop_sprite_asset_packed(
     let tuning = base_spec.tuning();
     let (spec, tier) =
         sheets::try_load_pack_spec_for_target(target, &tuning, sprite_texture_scale(scale))?;
-    // ⭐ `tier` is the pack the loader LANDED on — `full` when the requested
-    // tier was never generated — and it is the physical truth about every page
-    // path below. It used to be spent on the asset id and then dropped, and the
-    // realization was stamped with `scale` twice over (queue D52).
+    // `tier` is the pack the loader LANDED on — `full` when the requested tier was never
+    // generated — and it is the physical truth about every page path below.
     let resolved = persistence_texture_scale(
         ambition_sprite_sheet::sprite_packs::scale_for_pack_tier(tier)
             .expect("catalog_for_scale only ever answers with a tier dir name"),
@@ -780,7 +735,7 @@ pub fn build_prop_sprite_asset(
 /// [`ambition_sprite_sheet::fx::FX_SHEETS`], with no content, catalog or LDtk
 /// prop involved.
 ///
-/// ⭐⭐ **this is the registration that did not exist.** `spawn_effect` reaches
+/// **this is the registration that did not exist.** `spawn_effect` reaches
 /// for FX art from `ambition_render`, but until now the only way that art got
 /// loaded was for a GAME to declare it: Ambition's intro listed
 /// `generic_explosions` in its LDtk-prop table, and nothing else in the
@@ -919,7 +874,7 @@ mod sprite_body_collision_tests {
     /// manifest rebuilt it as `sprites/game://sprites/mine.png` — a path to
     /// nothing, silently placeheld into a bare box. The reader could reach the
     /// consumer's tree the whole time; nothing could ADDRESS it from a catalog
-    /// (GPT 5.6, 2026-07-28).
+    /// .
     #[test]
     fn a_source_qualified_spritesheet_keeps_its_source() {
         const CONSUMER: &str = r#"(
@@ -975,13 +930,6 @@ mod sprite_body_collision_tests {
         let frame_w = record.frame_width.max(1) as f32;
         let frame_h = record.frame_height.max(1) as f32;
 
-        // (1) ⛔ **this used to assert `render == legacy sprite_render_size(spec,
-        // ldtk)` unconditionally, and that claim was retired on 2026-08-04.** The
-        // LDtk spawn box no longer decides how big a character IS when its row —
-        // or its body kind — states a standing height; that was the whole defect
-        // (queue D4: nothing in the pipeline ever stated a height, so nothing
-        // could be consistent about one).
-        //
         // Both branches are asserted rather than one deleted, because "the legacy
         // path is untouched where no height applies" is half the contract and is
         // what keeps crawlers and any future unauthored kind working.
@@ -1064,11 +1012,7 @@ mod sprite_body_collision_tests {
         )
     }
 
-    /// **A character that names NOTHING keeps the catalog's answer.**
-    ///
-    /// This is the mechanical statement of Jon's *"it should always be possible
-    /// to ignore some part of it and roll your own"*: every one of the 144
-    /// portraits in the repo resolves this way and must keep doing so.
+    /// A character that names no portrait keeps the catalog result.
     #[test]
     fn a_character_with_no_portrait_target_gets_the_catalogs_derived_portrait() {
         let catalog = catalog_with_a_sheet();
@@ -1093,7 +1037,7 @@ mod sprite_body_collision_tests {
             "hero",
         )
         .expect("the named target resolves");
-        // ⛔ the manifest's own `image` is a BARE filename; the resolver joins it
+        // the manifest's own `image` is a BARE filename; the resolver joins it
         // to the manifest's directory. Without that this reads
         // "borrowed_face_portraits.png" and loads nothing, silently.
         assert_eq!(resolved.image, "sprites/borrowed_face_portraits.png");
@@ -1133,8 +1077,6 @@ mod sprite_body_collision_tests {
         .is_none());
     }
 
-    /// The registry indexes by TARGET as well as by path, which is the field it
-    /// used to read and discard.
     #[test]
     fn the_portrait_registry_can_be_asked_by_target() {
         let registry = portrait_registry();

@@ -227,12 +227,10 @@ fn missing_texture_falls_back_to_sprite_copy() {
     );
 }
 
-/// With a viewer in front of one face of the thin-wall pair, the NEAR
-/// portal's frame draws above the glass (always whole) while the FAR
-/// portal's frame drops under the window band — the open pane hides it
-/// with the rest of the far side, instead of the frame punching through
-/// the glass as a second portal (Jon: "I still see two portals when one
-/// should be covered by the cone").
+/// With a viewer in front of one face of the thin-wall pair, the NEAR portal's frame draws
+/// above the glass (always whole) while the FAR portal's frame drops under the window band —
+/// the open pane hides it with the rest of the far side, instead of the frame punching through
+/// the glass as a second portal.
 #[test]
 fn far_portal_frame_hides_under_the_glass() {
     let mut app = test_app();

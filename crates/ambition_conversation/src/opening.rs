@@ -4,16 +4,16 @@
 //! DIALOGUE rather than about interaction: who is speaking, who is being spoken
 //! to, whether the pair has anything to say, and which seat owns the box.
 //!
-//! ⛔ **this lived in `features/ecs/interact.rs`, and that placement was the
+//! **this lived in `features/ecs/interact.rs`, and that placement was the
 //! last thing pinning `ambition_dialog` into `features`.** The decomposition
 //! plan's step 5 is *put integration above the domains it joins*: pressing
 //! Interact is an INTERACTION fact (a body, a reach box, a buffered press) and
 //! entering a Yarn node is a DIALOGUE fact. `interact` owns the first and asks
 //! this for the second, so `features` names no dialogue type at all.
-//! (`docs/planning/engine/actor-monolith-decomposition.md`, measured 2026-08-08:
+//! (`docs/planning/engine/actor-monolith-decomposition.md`,
 //! the whole coupling was TWO production lines.)
 //!
-//! ⚠ **the port takes `&str` and `Entity` and nothing else.** It would have been
+//! **the port takes `&str` and `Entity` and nothing else.** It would have been
 //! easy to hand it the monolith's `NpcDialogueRequest` and add a third inward
 //! edge to this module; it takes the two strings out of that request instead, so
 //! the carve accounting in [`super`] does not grow.
@@ -35,13 +35,8 @@ use super::instance::ConversationInstanceId;
 pub struct DialogueDispatch<'w, 's> {
     /// What the SIMULATION believes about the live conversation. Rollback-owned.
     ///
-    /// ⛔ **`DialogState` used to be here beside it, and its removal is the
-    /// point.** The UI read-model is not rewound — deliberately, because
-    /// rewinding a typewriter would stutter the text box — so a simulation
-    /// system that TOUCHED it, in either direction, was reaching across the
-    /// rollback boundary. Reading it would branch on another timeline's state;
-    /// writing it (which this did, to open the runner) replays the write. The
-    /// box follows this resource now and nothing here names it.
+    /// Reading it would branch on another timeline's state; writing it (which this did, to open the
+    /// runner) replays the write. The box follows this resource now and nothing here names it.
     pub conversation: ResMut<'w, ActiveConversation>,
     /// WHEN a conversation opened, which is part of what it IS — see
     /// [`LiveConversation::instance`]. `Option` for the same reason preparation's
@@ -49,7 +44,7 @@ pub struct DialogueDispatch<'w, 's> {
     pub tick: Option<Res<'w, ambition_time::SimTick>>,
     /// Who drives a body, for attributing the conversation to a seat.
     ///
-    /// ⭐ the brain is what actually answers "whose body is this" — possession is
+    /// the brain is what actually answers "whose body is this" — possession is
     /// a brain transfer, so a possessed actor's conversation belongs to the seat
     /// that possessed it without this needing to know possession exists.
     pub driver: Query<'w, 's, &'static ambition_characters::brain::DrivingParticipant>,
@@ -59,7 +54,7 @@ pub struct DialogueDispatch<'w, 's> {
     pub nodes: Res<'w, ambition_dialog::DialogueNodeIndex>,
     /// The two bodies' STABLE identities, for the conversation's instance id.
     ///
-    /// ⛔ not the entities beside them: GGRS remaps entity handles on
+    /// not the entities beside them: GGRS remaps entity handles on
     /// `LoadWorld`, so an id built from one names a different body after a
     /// restore. A body with no `SimId` yields `None`, which is a weaker id
     /// rather than a wrong one — see [`ConversationInstanceId`].
@@ -95,7 +90,7 @@ impl DialogueDispatch<'_, '_> {
     /// no authored `__self` branch — so the caller can leave the interaction
     /// with no trace: no banner, no flags, no quest pump, no mode flip.
     ///
-    /// ⛔ **AND THE TEXT BOX IS NOT OPENED FROM HERE.** The caller runs in the
+    /// **AND THE TEXT BOX IS NOT OPENED FROM HERE.** The caller runs in the
     /// SIM schedule, so a rollback across the tick somebody pressed Interact
     /// replays it — and `DialogState::start` is not a harmless setter: it resets
     /// the line, the options and the typewriter and enqueues a
@@ -104,7 +99,7 @@ impl DialogueDispatch<'_, '_> {
     /// The box is a PROJECTION of the authority now, so everything it needs is
     /// stated here, at the tick the decision is made.
     ///
-    /// ⭐ **the whole value in one call**, and both bodies symmetrically: a
+    /// **the whole value in one call**, and both bodies symmetrically: a
     /// conversation the world keeps running through has to be able to ask about
     /// both — how far apart they are, whether either can hold station, whether
     /// either was hit — and none of that can be asked of a character id.
@@ -132,8 +127,8 @@ impl DialogueDispatch<'_, '_> {
             // the world at this tick, so a resimulation of it mints an equal id
             // and a narrative record from the original run still finds its own
             // conversation.
-            // ⚠ `SimId`, never these entities: `LoadWorld` remaps handles.
-            // ⭐ **and the CONTEXT, not just the bodies.** `speaker_id` above
+            // `SimId`, never these entities: `LoadWorld` remaps handles.
+            // **and the CONTEXT, not just the bodies.** `speaker_id` above
             // falls back to the initiator's `WornCharacter`, which is
             // rollback-owned: two corrected timelines can agree on the tick, the
             // node and both `SimId`s while entering Yarn as different characters.
@@ -155,17 +150,15 @@ impl DialogueDispatch<'_, '_> {
     /// **Which seat is DRIVING this body**, for the caller to attribute the
     /// conversation with.
     ///
-    /// ⭐ `DrivingParticipant` is what actually answers "whose body is this" —
+    /// `DrivingParticipant` is what actually answers "whose body is this" —
     /// a seat that possessed an actor and walked it up to an NPC is the answer
     /// here without this knowing possession exists.
     ///
-    /// ⚠ **it used to match `Brain::Player(slot)`, and the answer has not
-    /// changed** — that variant is gone, and possession moves this component
-    /// instead. What moved is the dependency: attributing a conversation never
-    /// required knowing how "who drives" is spelled. The component lives in
-    /// `ambition_characters::brain`, so this costs no new crate edge.
+    /// What moved is the dependency: attributing a conversation never required knowing how "who
+    /// drives" is spelled. The component lives in `ambition_characters::brain`, so this costs no
+    /// new crate edge.
     ///
-    /// ⛔ **it returns the SLOT, and the conversion to a participant is the
+    /// **it returns the SLOT, and the conversion to a participant is the
     /// caller's.** `ParticipantId` and `PlayerSlot` are two concepts sharing one
     /// number, and `crate::participant_seat` is the ONE place that correspondence
     /// lives — precisely because `ambition_input` and `ambition_characters` are
@@ -217,8 +210,6 @@ mod tests {
     /// is why: it must fire when you walk up to the Hall pedestal of the
     /// character you are wearing, not merely when a body interacts with its own
     /// placement.
-    ///
-    /// ⚠ moved here with the function it pins, from `features/ecs/interact`.
     #[test]
     fn character_identity_beats_placement_identity() {
         let interactable = ambition_interaction::Interactable::new(

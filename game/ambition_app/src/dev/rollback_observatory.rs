@@ -164,13 +164,7 @@ pub(crate) fn reset_for_content_reload(world: &mut World) {
 #[derive(Component)]
 struct RollbackProofText;
 
-/// ⛔ **`InputLatch` USED TO BE A MEMBER OF THIS SET, AND THAT WAS THE BUG.**
-/// The primary device→tick latch and its accumulator lived here, behind
-/// `dev_tools`, so a persona without developer tooling (the browser) had a live
-/// GGRS session and nothing feeding it — seat zero published neutral input every
-/// tick and the controlled body never moved. Ownership moved to
-/// `HostInputBindingsPlugin`, which is what actually has a device. This
-/// instrument observes rollback; it is not part of the input path.
+/// This instrument observes rollback; it is not part of the input path.
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum RollbackProofUpdateSet {
     Control,
@@ -258,24 +252,21 @@ impl Plugin for RollbackObservatoryPlugin {
 /// continuing for the rest of gameplay.
 /// Ask the ENGINE's session owner for the mode this instrument wants.
 ///
-/// ⭐ **this used to BE the session owner** — 120 lines that started, stopped and
-/// re-seated the local GGRS session, inside `#[cfg(feature = "dev_tools")]`. That
-/// made a developer tool the only thing in the app that could supply a session,
-/// so the GGRS host itself had to be gated on the same feature and a shipped
-/// build without dev tooling could not use one.
+/// That made a developer tool the only thing in the app that could supply a session, so the GGRS
+/// host itself had to be gated on the same feature and a shipped build without dev tooling could
+/// not use one.
 ///
-/// The lifecycle moved to the rollback backend's `local_session`, which owns it for
-/// every composition. What is left here is the part that really is a developer's:
-/// **how many frames the session should verify**, raised for a proof pulse and
-/// dropped back afterwards. The owner notices the policy changed and restarts.
+/// What is left here is the part that really is a developer's: **how many frames the session
+/// should verify**, raised for a proof pulse and dropped back afterwards. The owner notices the
+/// policy changed and restarts.
 ///
-/// ⚠ the frozen seating went with the lifecycle, deliberately — capturing it is
+/// the frozen seating went with the lifecycle, deliberately — capturing it is
 /// part of starting a session, not part of observing one.
 fn request_session_mode(world: &mut World) {
     let control = *world.resource::<RollbackObservatoryControl>();
     let settings = *world.resource::<RollbackProofSettings>();
     let handled_request = world.resource::<RollbackProofState>().handled_request;
-    // ⭐ **asked of the ownership AUTHORITY, not of the policy memo.**
+    // **asked of the ownership AUTHORITY, not of the policy memo.**
     // `LocalSessionOwnership::owns_session` used to answer this from
     // `started.is_some()`, which stayed `Some` after an external session was
     // installed over a local one — so the observatory would have believed it
@@ -486,12 +477,6 @@ fn finish_completed_proof_pulse(world: &mut World) {
         return;
     }
 
-    // ⭐ **hand the mode back to the OWNER instead of restarting the session
-    // here.** Dropping `check_distance` to the baseline is the whole of ending a
-    // pulse; `maintain_local_session` sees the policy changed and rebuilds. This
-    // used to stop and re-start the session itself, which is what made a
-    // developer tool a second owner of it — and re-froze the seating on a path
-    // that is the SAME gameplay session, not a new one.
     world
         .resource_mut::<rollback::local_session::LocalSessionPolicy>()
         .check_distance = 0;
@@ -697,14 +682,12 @@ mod tests {
     /// ONE — so the multi-handle session API, the per-seat latches and the
     /// two-stream harness all existed while the visible app started a
     /// single-player session and drove seats 1..3 from live device state
-    /// instead of confirmed GGRS input (GPT 5.6, 2026-07-28). Y1 had been
+    /// instead of confirmed GGRS input. Y1 had been
     /// marked closed on the strength of the harness.
     #[test]
     fn the_session_seats_one_handle_per_connected_controller() {
-        // Asked of `LocalSeatTopology`, which is the authority the session, the
-        // roster and the latches all read. This used to ask a private
-        // `session_players` helper in this file — a second copy of the same rule,
-        // and the copy the test watched was not the one the roster used.
+        // Asked of `LocalSeatTopology`, which is the authority the session, the roster and the
+        // latches all read.
         let pads = |count: usize| {
             let mut topology = ambition_platformer2d::input::LocalSeatTopology::default();
             topology.capture(

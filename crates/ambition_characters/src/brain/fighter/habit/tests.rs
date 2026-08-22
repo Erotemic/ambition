@@ -1,7 +1,7 @@
 use super::*;
 
-/// The whole model is a fixed-size table. `Situation × Choice` and nothing else,
-/// so there is no history to prune and no unbounded growth to fear.
+/// `Situation × Choice` and nothing else, so there is no history to prune and no unbounded
+/// growth to fear.
 #[test]
 fn the_model_is_bounded_by_the_product_of_two_closed_enums() {
     let mut m = HabitModel::new(0.9);
@@ -100,9 +100,6 @@ fn a_brain_that_does_not_read_gets_nothing_from_a_confident_model() {
     assert!(m.read_bonus(Situation::Neutral, Choice::Approach, 1.0) > 0.0);
 }
 
-/// An opponent who does the expected thing exactly as often as chance tells you
-/// nothing, and the bonus says so: it is measured against the uniform prior, not
-/// against zero.
 #[test]
 fn a_perfectly_random_opponent_is_worth_no_read() {
     let mut m = HabitModel::new(1.0);

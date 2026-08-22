@@ -138,8 +138,6 @@ fn frame_trim_reports_offset_and_size() {
     assert!(t1.is_identity());
 }
 
-/// `trimmed_render` is the identity for an untrimmed frame and keeps a
-/// logical point fixed in world space for a trimmed one.
 #[test]
 fn trimmed_render_identity_and_fixed_point() {
     let logical = UVec2::new(384, 529);

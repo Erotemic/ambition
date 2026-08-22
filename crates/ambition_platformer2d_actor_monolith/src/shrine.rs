@@ -4,18 +4,9 @@
 //! full** (health + mana) and acts as a **save point** (decided: one Interact
 //! does both).
 //!
-//! The save point is two systems, and it was neither of them until 2026-07-27.
-//! [`heal_save_shrine_system`] records a [`PersistedCheckpoint`] — room id plus
-//! position — into `AmbitionGameSave`, which the value-comparing autosave then commits
-//! to disk. [`restore_checkpoint_on_session_start`] puts the body back there when
-//! a session opens in that room.
-//!
-//! What was here before was `save.set_changed()` on a value the shrine never
-//! modified, plus a log line claiming it had saved. The autosave compares values,
-//! so the marker wrote nothing; and there was no checkpoint field to write into
-//! even if it had (GPT 5.6 review, 2026-07-27). Both halves matter: a checkpoint
-//! nothing records is a lie, and a checkpoint nothing restores is a number in a
-//! file.
+//! The autosave compares values, so the marker wrote nothing; and there was no checkpoint field
+//! to write into even if it had. Both halves matter: a checkpoint nothing records is a lie, and
+//! a checkpoint nothing restores is a number in a file.
 //!
 //! [`PersistedCheckpoint`]: ambition_persistence::save_data::PersistedCheckpoint
 //!
@@ -76,7 +67,7 @@ pub fn heal_save_shrine_system(
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
     >,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
-    // ⭐ **THE INSTANT, which is the half a `PersistedCheckpoint` cannot carry.**
+    // **THE INSTANT, which is the half a `PersistedCheckpoint` cannot carry.**
     // That value says WHERE the body comes back; this says WHEN the rest of the
     // world was last agreed, and every domain that has reset-relevant state
     // snapshots itself off it. `Option` so a narrow fixture with no horizon
@@ -109,10 +100,7 @@ pub fn heal_save_shrine_system(
     health.reset(); // health to full
     mana.meter.refill_full(); // mana to full
 
-    // THE CHECKPOINT. This used to be `save.set_changed()` and nothing else — a
-    // marker on a value the shrine never modified, which the value-comparing
-    // autosave correctly ignores, so resting at a "save point" wrote nothing to
-    // disk while the log line said it had (GPT 5.6, 2026-07-27).
+    // THE CHECKPOINT.
     //
     // Written for the PRIMARY player's session, not the possessed subject's body:
     // the checkpoint is where this player resumes, and a possessed actor's
@@ -130,7 +118,7 @@ pub fn heal_save_shrine_system(
             save.data_mut().checkpoint = Some(checkpoint);
         }
     }
-    // ⛔⛔ **RAISED UNCONDITIONALLY, and NOT inside the change guard above.**
+    // **RAISED UNCONDITIONALLY, and NOT inside the change guard above.**
     // Resting twice at the same shrine writes the same position, so that guard
     // is right about the FILE and would be badly wrong about the horizon: the
     // second rest is a real checkpoint at which the player may be carrying
@@ -138,7 +126,7 @@ pub fn heal_save_shrine_system(
     // the baseline describing the earlier visit, and a later death would take
     // back an object the player had legitimately banked.
     //
-    // ⚠ raised even when there is no room set, for the same reason the heal
+    // raised even when there is no room set, for the same reason the heal
     // above is: a composition with no rooms still has hands.
     if let Some(committed) = committed.as_mut() {
         committed.write(ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted);
@@ -186,11 +174,10 @@ pub fn restore_checkpoint_on_session_start(
         (ae::BodyClusterQueryData, &mut crate::features::MotionModel),
         crate::actor::PrimaryPlayerOnly,
     >,
-    // The body being RESUMED, by stable identity. A transition names the body it
-    // moves (D71): the resume is the primary avatar by definition — it is the
-    // body the save is about — and saying so is what keeps the commit from
-    // asking, several frames later, whoever happens to be controlled then.
-    // Disjoint from `bodies`, which borrows no `SimId`.
+    // The body being RESUMED, by stable identity. A transition names the body it moves: the
+    // resume is the primary avatar by definition — it is the body the save is about — and
+    // saying so is what keeps the commit from asking, several frames later, whoever happens to
+    // be controlled then. Disjoint from `bodies`, which borrows no `SimId`.
     subjects: Query<
         &ambition_platformer2d_shared_tangle::sim_id::SimId,
         crate::actor::PrimaryPlayerOnly,
@@ -211,13 +198,9 @@ pub fn restore_checkpoint_on_session_start(
         return;
     };
 
-    // ROUTE FIRST. The checkpoint's room is where the player rested, so it is
-    // where the session belongs — and until 2026-07-27 nothing acted on that.
-    // The room id was only COMPARED against whatever room the session happened
-    // to open, and a mismatch returned: rest in B, quit, start a session that
-    // opens in A, and the checkpoint was silently ignored. Worse, the handled
-    // latch was set BEFORE the comparison, so walking into B later in the same
-    // session did not apply it either (GPT 5.6, 2026-07-27).
+    // ROUTE FIRST. The room id was only COMPARED against whatever room the session happened to
+    // open, and a mismatch returned: rest in B, quit, start a session that opens in A, and the
+    // checkpoint was silently ignored.
     //
     // Requesting an ordinary transition rather than repointing the room set:
     // staging a room is a transaction with content, geometry and authorization
@@ -234,9 +217,7 @@ pub fn restore_checkpoint_on_session_start(
             .iter()
             .any(|room| room.id == checkpoint.room_id)
         {
-            // The checkpoint names a room this world does not have — a save from
-            // another game, or a room that was removed. Not fatal and not
-            // silent: the session keeps its own starting room.
+            // Not fatal and not silent: the session keeps its own starting room.
             bevy::log::warn!(
                 target: "ambition_platformer2d::shrine",
                 "checkpoint names room `{}`, which this world does not contain; \
@@ -246,7 +227,7 @@ pub fn restore_checkpoint_on_session_start(
             *applied_for = Some(generation);
             return;
         }
-        // ⚠ resolved BEFORE the latch: a session whose avatar has not been built
+        // resolved BEFORE the latch: a session whose avatar has not been built
         // yet cannot name its subject, and marking the route done would spend the
         // once-per-session request on a crossing nobody could describe. Try again
         // next tick instead.
@@ -255,12 +236,8 @@ pub fn restore_checkpoint_on_session_start(
         };
         let subject = subject.clone();
         *routed_for = Some(generation);
-        // ⭐ **the SAME description a loading zone records** (D71). This used to
-        // write a `RoomTransitionRequested` wrapping a SYNTHETIC loading zone —
-        // an invented door with an invented aabb — because the message could not
-        // describe a crossing that nobody walked through. The intent can: a resume
-        // is a body, a destination and an arrival, which is all a crossing ever
-        // was. The synthetic zone is deleted with the message, and so is the
+        // The intent can: a resume is a body, a destination and an arrival, which is all a
+        // crossing ever was. The synthetic zone is deleted with the message, and so is the
         // room-INDEX lookup that only existed to fill it.
         pending.record(
             boundary.map_or(0, |boundary| boundary.current),
@@ -271,7 +248,7 @@ pub fn restore_checkpoint_on_session_start(
                     arrival: ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32),
                     // A resume is not a walk off the side of a room.
                     edge_exit: false,
-                    // ⚠ silent on purpose: nobody opened a door.
+                    // silent on purpose: nobody opened a door.
                     zone_sfx: None,
                 },
             ),
@@ -304,23 +281,18 @@ pub fn restore_checkpoint_on_session_start(
 /// **Resume at the checkpoint because the player DIED** — the placement domain's
 /// leg of the reset horizon.
 ///
-/// ⭐⭐ **the room rebuild is not optional garnish; it is the only road that
-/// re-runs authored construction, and without it a restore DELETES things.** The
-/// occurrence leg puts the ledger back and the custody leg takes the unbanked
-/// object out of the hand; the object then exists nowhere until a rebuild reads
-/// the restored ledger and authors it from its record. ⛔ `RoomReplayRequested`
-/// is NOT that road — its own consumer's doc says so in as many words: it resets
-/// feature state in place, never sweeps `RoomScopedEntity`, and never re-runs
-/// authored construction. Driving it and asserting "the room came back" is
-/// measuring a road you did not take.
+/// `RoomReplayRequested` is NOT that road — its own consumer's doc says so in as many words: it
+/// resets feature state in place, never sweeps `RoomScopedEntity`, and never re-runs authored
+/// construction. Driving it and asserting "the room came back" is measuring a road you did not
+/// take.
 ///
-/// ⭐ **so a death is a checkpoint RESUME**, and it records the same description
+/// **so a death is a checkpoint RESUME**, and it records the same description
 /// [`restore_checkpoint_on_session_start`] records — a body, a destination, an
 /// arrival. That the two triggers reach one operation is the point: a session
 /// opening at a checkpoint and a death returning to one are the same question
 /// asked twice.
 ///
-/// ⚠ **with no checkpoint recorded, it rebuilds the ACTIVE room at its authored
+/// **with no checkpoint recorded, it rebuilds the ACTIVE room at its authored
 /// spawn.** That is the empty-baseline case rather than a missing one: a game
 /// with no checkpoints restores every authored occurrence to where its record
 /// puts it, which is exactly what a sandbox reset means.
@@ -348,17 +320,14 @@ pub fn resume_at_checkpoint_on_reset(
     let Some(room_set) = room_set.as_deref() else {
         return;
     };
-    // ⚠ the subject is resolved BEFORE anything is recorded: a transition names
-    // the body it moves (D71), and a session whose avatar has not been built
-    // cannot describe one.
+    // the subject is resolved BEFORE anything is recorded: a transition names the body it
+    // moves, and a session whose avatar has not been built cannot describe one.
     let Ok(subject) = subjects.single() else {
         return;
     };
     let active = room_set.active_spec();
     let (target_room, arrival) = match save.data().checkpoint.as_ref() {
-        // ⚠ a checkpoint naming a room this world does not contain is a save
-        // from another game or a room since removed. Not fatal: fall through to
-        // rebuilding where the player actually is.
+        // Not fatal: fall through to rebuilding where the player actually is.
         Some(checkpoint)
             if room_set
                 .rooms
@@ -381,7 +350,7 @@ pub fn resume_at_checkpoint_on_reset(
                 arrival,
                 // A death is not a walk off the side of a room.
                 edge_exit: false,
-                // ⚠ silent on purpose: nobody opened a door.
+                // silent on purpose: nobody opened a door.
                 zone_sfx: None,
             },
         ),

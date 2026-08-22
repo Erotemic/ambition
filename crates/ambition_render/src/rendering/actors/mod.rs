@@ -27,7 +27,7 @@ use ambition_sprite_sheet::game_assets::{self, EntitySprite, GameAssets};
 /// **Is this texture usable yet?** — the question four binders were asking as
 /// `Assets<Image>::get(..).is_some()`.
 ///
-/// ⛔ that read conflates three facts the engine should keep apart:
+/// that read conflates three facts the engine should keep apart:
 ///
 /// ```text
 /// asset loaded / ready  !=  CPU representation resident  !=  GPU resident
@@ -40,7 +40,7 @@ use ambition_sprite_sheet::game_assets::{self, EntitySprite, GameAssets};
 /// starts meaning "not yet evicted", and a body would go invisible the instant
 /// its texture began working.
 ///
-/// ⭐ **the discriminator is who OWNS the handle**, and `get_load_state` answers
+/// **the discriminator is who OWNS the handle**, and `get_load_state` answers
 /// it: `Some(..)` for anything the asset server is tracking, `None` for a handle
 /// the main world was handed directly (`reserve_handle`, `add`, a procedurally
 /// generated sprite). A server-owned sheet is asked the semantic question — the
@@ -49,7 +49,7 @@ use ambition_sprite_sheet::game_assets::{self, EntitySprite, GameAssets};
 /// its presence IS its readiness, which is also the honest answer for a game that
 /// builds a sprite itself.
 ///
-/// ⚠ behaviour is unchanged today under both branches: an image enters
+/// behaviour is unchanged today under both branches: an image enters
 /// `Assets<Image>` exactly when it finishes loading, and a FAILED load is false
 /// either way, so a body keeps its current pixels in every case that mattered
 /// before.
@@ -92,7 +92,7 @@ pub fn ensure_player_visual_sprite(
     >,
 ) {
     for entity in &players {
-        // `try_insert`: REPRODUCED (queue L24). A `PlayerVisual` is
+        // `try_insert`: REPRODUCED. A `PlayerVisual` is
         // session-scoped, and session teardown despawns the whole scope — so a
         // provider switch on the frame this safety net fires lands the sprite on
         // a dead entity.
@@ -136,18 +136,9 @@ pub fn bind_worn_character_presentation(
             // This body's OWN standing size, from the READ-MODEL. See the seed
             // below.
             //
-            // ⚠ it used to be `Option<&ae::BodyBaseSize>` — presentation naming a
-            // live sim cluster, which `engine.render-never-names-live-sim-state`
-            // forbids and went red on 2026-08-02. `BodyPoseView::base_size` is
-            // the same number where the component exists, and where it does NOT
-            // the view falls back to the body's CURRENT `size` while the old code
+            // `BodyPoseView:base_size` is the same number where the component exists, and where
+            // it does NOT the view falls back to the body's CURRENT `size` while the old code
             // fell back to the engine's default player size.
-            //
-            // ⭐ **that difference is an improvement, not a compromise.** The seed
-            // exists so the art-scale ratio is 1 for every form (see below); a
-            // body with no authored base got `size / DEFAULT` — non-1 for anything
-            // that is simply not default-sized, which is the exact bug the comment
-            // below describes. Reading the view gives ratio 1 for that body too.
             Option<&ambition_sim_view::BodyPoseView>,
         ),
         With<PlayerVisual>,
@@ -216,10 +207,6 @@ pub fn bind_worn_character_presentation(
             // sprite onto a body that is being destroyed has no meaning, and the
             // alternative — ordering presentation around teardown — makes the
             // render layer responsible for session lifecycle.
-            //
-            // (Surfaced 2026-07-27 by adding ONE system to the render chain,
-            // which moved a command-flush boundary. A hazard that a no-op can
-            // trip was already a hazard.)
             commands.entity(entity).try_insert((
                 sprite,
                 anchor,
@@ -231,8 +218,7 @@ pub fn bind_worn_character_presentation(
                 PlayerSpriteCharacter {
                     id: worn.id().to_string(),
                 },
-                // Which realization this presentation came from. Without it the
-                // quality binder later in this same chain would see an unstamped
+                // Without it the quality binder later in this same chain would see an unstamped
                 // body and immediately rebuild what was just built.
                 BoundSpriteQuality {
                     scale: asset.resolved_tier,
@@ -277,9 +263,6 @@ pub fn sync_visuals(
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_core::RoomGeometry,
     >,
-    // The primary player body is discovered by its canonical marker, not a
-    // process-global handle bag: the home avatar is session-scoped, so after a
-    // teardown there is simply no primary player and this system no-ops.
     primary_player: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     assets: Option<Res<GameAssets>>,
     feature_views: Res<FeatureViewIndex>,
@@ -319,21 +302,15 @@ pub fn sync_visuals(
     mut last_player_render_size: Local<Option<Option<BVec2>>>,
     // **The other two multipliers between `custom_size` and what a player SEES.**
     //
-    // The size instrument above watched `custom_size` alone, and against Jon's
-    // "the main character flashes at a larger scale and then resizes" it reported
-    // NOTHING: one `first observed at 92x92`, no transition, no unsized warning
-    // (2026-07-30 desktop capture). So the sprite's own size was never wrong, and
-    // the instrument's silence RULED OUT the two hypotheses it was built for
-    // rather than confirming either.
+    // So the sprite's own size was never wrong, and the instrument's silence RULED OUT the two
+    // hypotheses it was built for rather than confirming either.
     //
     // What is left is everything else on the path to pixels: the entity's own
-    // `Transform::scale`, and the camera's orthographic scale. Both multiply the
-    // same quad, and a transient in either reads exactly like a sprite resize.
-    // Watching the drawn size instead of one of its factors is the difference
-    // between an instrument that can only confirm a guess and one that can
-    // localise.
-    // ⭐ **the view this camera presents** (D116 M2). Was `Res<CameraViewState>`,
-    // a process-global that with two views could not say whose framing this is.
+    // `Transform:scale`, and the camera's orthographic scale. Both multiply the same quad, and
+    // a transient in either reads exactly like a sprite resize. Watching the drawn size instead
+    // of one of its factors is the difference between an instrument that can only confirm a
+    // guess and one that can localise. Was `Res<CameraViewState>`, a process-global that with
+    // two views could not say whose framing this is.
     camera_view: ambition_sim_view::PresentedViewState,
     mut last_player_draw_scale: Local<Option<(BVec2, f32)>>,
 ) {
@@ -360,19 +337,13 @@ pub fn sync_visuals(
                 // nothing here to compute: the quad is the frame at the authored
                 // scale, produced beside the collision box from that one number.
                 //
-                // This branch exists because the one below cannot express it.
-                // `standing_render * (base_size / standing_collision)` is a
-                // guess about the art CORRECTED by how far the box has drifted
-                // from a baseline — two independent quantities reconciled by a
-                // ratio. That is exactly the coupling Jon reported ("the box and
-                // the sprite seem to be not independent of each other"): growing
-                // Mary-O swapped in a sheet whose art is ALREADY taller and then
-                // scaled it again by the height gain, drawing her tall form far
-                // larger than the body it belonged to. Here the box and the quad
-                // are two readings of one number, so there is no ratio and
-                // nothing to double-count.
+                // This branch exists because the one below cannot express it. `standing_render *
+                // (base_size / standing_collision)` is a guess about the art CORRECTED by how far
+                // the box has drifted from a baseline — two independent quantities reconciled by a
+                // ratio. Here the box and the quad are two readings of one number, so there is no
+                // ratio and nothing to double-count.
                 sprite.custom_size = Some(BVec2::new(authored.x, authored.y));
-                // ⭐ **and the PLACEMENT comes from the same publisher as the
+                // **and the PLACEMENT comes from the same publisher as the
                 // size, rather than being re-derived here.** A sheet frame is not
                 // its character: the art sits somewhere inside the frame, usually
                 // off-centre, so a quad centred on the body draws the character
@@ -386,7 +357,7 @@ pub fn sync_visuals(
                 // a box bottom of 158 and his authored box is centred on 114.5
                 // against a frame centre of 112).
                 //
-                // ⚠ the anchor becomes CENTER and the offset moves the quad,
+                // the anchor becomes CENTER and the offset moves the quad,
                 // which is what the actor path does. Sheet pixel space and world
                 // space share +y down, but Bevy's UI/render y runs UP — hence the
                 // negated y, the same conversion `sync_sprite_posed_bodies`
@@ -418,13 +389,9 @@ pub fn sync_visuals(
                 let scale_x = pose.base_size.x / baseline.standing_collision.x.max(1.0);
                 let scale_y = pose.base_size.y / baseline.standing_collision.y.max(1.0);
                 if animator.is_some_and(|a| a.spec.maps(pose.anim)) {
-                    // The sheet natively owns this pose's row: the art already
-                    // depicts the compact stance at world scale inside the fixed
-                    // logical frame (a curled ball, a crouch), so it renders at
-                    // the FULL standing frame size. The sim lowered `pos` to the
-                    // compact AABB's center to keep the feet planted — reverse
-                    // exactly that shift so the standing-frame render puts its
-                    // feet back on the same ground line.
+                    // The sim lowered `pos` to the compact AABB's center to keep the feet
+                    // planted — reverse exactly that shift so the standing-frame render puts
+                    // its feet back on the same ground line.
                     sprite.custom_size = Some(BVec2::new(
                         baseline.standing_render.x * scale_x,
                         baseline.standing_render.y * scale_y,
@@ -455,13 +422,6 @@ pub fn sync_visuals(
                     ));
                 }
             } else if !*warned_unsized_player {
-                // The third case, which had no branch: a TEXTURED player sprite
-                // with no `PlayerSpriteBaseline`. Neither arm above assigns
-                // `custom_size`, and a Bevy sprite with `custom_size: None`
-                // draws at its atlas frame's NATIVE pixel size — on a 4000px
-                // sheet, enormously oversized, until something inserts the
-                // baseline and the next frame snaps it down.
-                //
                 // Every bind site inserts sprite and baseline together, so this
                 // should be unreachable. Say so out loud rather than silently
                 // rendering the wrong size: if the line never appears, the
@@ -516,10 +476,7 @@ pub fn sync_visuals(
                 }
             }
 
-            // The two factors `custom_size` does NOT capture. Reported together
-            // because they are indistinguishable to the eye and only their
-            // PRODUCT is what the player sees — naming which one moved is the
-            // whole value of the line.
+            // The two factors `custom_size` does NOT capture.
             //
             // Camera scale is the divisor: a smaller orthographic scale shows
             // less world in the same viewport, which draws every quad bigger. So
@@ -643,17 +600,11 @@ fn state_aware_entity_sprite(view: &ambition_sim_view::FeatureView) -> Option<En
 /// system overwrites those components, so this is the only record of which
 /// generation of the art a body is actually SHOWING.
 ///
-/// ⭐ **it is copied from the realization's
-/// [`resolved_tier`](ambition_sprite_sheet::character::CharacterSpriteAsset::resolved_tier),
-/// never from the active setting.** Those are different facts and the difference
-/// is the whole bug: the setting moves the instant Apply is pressed, while the
-/// realization moves whenever the decode finishes — some frames later. Stamping
-/// from the setting marks a body converged while it is still drawing old pixels,
-/// and then it is never revisited. Comparing against the realization asks the
-/// only question with an answer: *is this body drawn from the sheet the table
-/// currently holds?*
+/// Stamping from the setting marks a body converged while it is still drawing old pixels, and
+/// then it is never revisited. Comparing against the realization asks the only question with an
+/// answer: *is this body drawn from the sheet the table currently holds?*
 ///
-/// ⛔ **RESOLVED, not
+/// **RESOLVED, not
 /// [`requested_tier`](ambition_sprite_sheet::character::CharacterSpriteAsset::requested_tier),
 /// and the question decides it.** This component is a statement about PIXELS —
 /// which generation of the art is on screen — so it must move exactly when the
@@ -675,12 +626,7 @@ pub struct PlayerSpriteCharacter {
     pub id: String,
 }
 
-// ⛔ **`active_sprite_scale` IS DELETED, and the reason is the whole point of
-// the D52 prop fix.** It answered *"what tier is REQUESTED"*, and its only
-// caller in this file was `refresh_prop_sprites_on_game_assets_change`, which
-// stamped that answer onto a prop rebuilt from a DIFFERENT tier's asset. Every
-// other binding site here asks the resident realization (`asset.resolved_tier`)
-// instead.
+// Every other binding site here asks the resident realization (`asset.resolved_tier`) instead.
 //
 // ⇒ removing it makes the rule structural rather than remembered: **there is no
 // longer a way to reach for the requested setting from this file**, so the next
@@ -700,13 +646,10 @@ pub struct PlayerSpriteCharacter {
 /// un-registered actor keeps its terminal-rectangle placeholder.
 /// **Which sprite upgrader owns this body.**
 ///
-/// A boss is also an actor — post-unification there is one body vocabulary — so a
-/// boss's id is in `ActorRenderIndex` *and* `BossRenderIndex`. Before this rule,
-/// arbitration was accidental: `upgrade_actor_sprites` ran first, resolved no
-/// character sheet for "Mockingbird", fell back to the **generic enemy sheet**, and
-/// inserted a `CharacterAnimator`. `upgrade_boss_sprites` is filtered
-/// `Without<CharacterAnimator>`, so it then skipped that boss forever and its
-/// dedicated sheet was never bound. Every boss in the game drew a generic body.
+/// A boss is also an actor — post-unification there is one body vocabulary — so a boss's id is
+/// in `ActorRenderIndex` *and* `BossRenderIndex`. `upgrade_boss_sprites` is filtered
+/// `Without<CharacterAnimator>`, so it then skipped that boss forever and its dedicated sheet
+/// was never bound. Every boss in the game drew a generic body.
 ///
 /// System ORDER cannot fix that (swapping them just moves the overwrite), and a
 /// `Without<BossAnimator>` filter cannot either (the boss upgrader legitimately
@@ -759,12 +702,8 @@ pub fn upgrade_actor_sprites(
         // shark riders should normally keep the same visual/collision scale
         // across mount and dismount.
         //
-        // ⚠ this is only HALF of "nothing to do": the quality half cannot be
-        // answered until the realization is in hand, so the early-out moves
-        // below the lookup. It used to sit here, keyed on the active setting and
-        // guarded by `assets.is_changed()` — a ONE-FRAME window that closes
-        // before an `asset_server.load` finishes decoding, which is why a body
-        // could sit on retired pixels forever after a quality change.
+        // this is only HALF of "nothing to do": the quality half cannot be answered until the
+        // realization is in hand, so the early-out moves below the lookup.
         let kind_bound = bound.is_some_and(|b| b.matches(view.kind, view.size));
         // IDENTITY decides which upgrader owns a body, not which one ran first.
         if !actor_sprite_path_owns(&visual.id, &boss_render) {
@@ -781,22 +720,7 @@ pub fn upgrade_actor_sprites(
         // migration is the one that leaves it blank so kernel→goblin keeps its
         // visual gag), then the actor's ART IDENTITY, then its display name.
         //
-        // ⛔ **the identity step was missing, and the art was the ONE thing bound
-        // off presentation** (queue D56). `sprite_character_id` is what a spawn
-        // resolves and what already reaches the barks, the hurt feedback, the
-        // sprite-derived collision box and the authored attack volumes — every
-        // identity-shaped fact except the picture. So
-        // `EnemySpawnSpec::character_id`, added 2026-08-06 so a level's LABEL and
-        // its art identity could differ, could not do the job it exists for: any
-        // spawn whose id differed from its name was un-arted by this path.
-        //
-        // ⚠ **nothing in the game changes today** — 0 of 65 authored
-        // `EnemySpawn`s set `character_id`, which is why the defect had no
-        // witnesses. That is exactly what makes this safe to land alone, and it
-        // is the prerequisite for D48: authoring ids would otherwise un-art every
-        // level it touched.
-        //
-        // ⭐ the display name stays LAST rather than being deleted. A direct
+        // the display name stays LAST rather than being deleted. A direct
         // `EnemySpawn` with no id still resolves by name — intro raiders pick up
         // their sheet without a duplicate enemy-side registry entry.
         let override_name = actor.sprite_override_name.as_deref();
@@ -807,20 +731,13 @@ pub fn upgrade_actor_sprites(
             .or_else(|| art_identity.and_then(|n| assets.characters.sheet(n)))
             .or_else(|| actor_name.and_then(|n| assets.characters.sheet(n)));
         let Some(character_asset) = named else {
-            // §4.10, Jon's ruling: there is NO fallback sheet. An actor whose own
-            // sheet does not resolve draws the marked placeholder rectangle,
+            // An actor whose own sheet does not resolve draws the marked placeholder rectangle,
             // everywhere, and the binding report names the id.
             //
-            // A fighting actor used to borrow the GOBLIN's sheet here. That made
-            // missing art invisible — a body with no sprite of its own looked like
-            // a deliberate goblin, so nobody ever went and drew it. Ambition's own
-            // enemies visibly regress until each gets art, which is the point: it
-            // turns silent debt into visible work.
-            //
-            // ⚠ but a body that is ALREADY bound is drawing something valid, and
-            // its sheet being momentarily absent means a quality transition
-            // retired the realization and the new one has not landed yet. The
-            // warning is about placeholders, so it stays about placeholders.
+            // That made missing art invisible — a body with no sprite of its own looked like a
+            // deliberate goblin, so nobody ever went and drew it. Ambition's own enemies visibly
+            // regress until each gets art, which is the point: it turns silent debt into visible
+            // work.
             if kind_bound {
                 continue;
             }
@@ -858,11 +775,6 @@ pub fn upgrade_actor_sprites(
         // colored fallback with an atlas sprite until the texture is actually
         // present in Assets<Image>; otherwise a failed or delayed load renders
         // the NPC/enemy invisible.
-        //
-        // ⭐ this is also the DELAY the quality transition is allowed: the body
-        // keeps showing the old pixels until the new ones decode, and because
-        // the decision above is a comparison rather than a one-frame event, the
-        // next frame asks again.
         if !texture_is_ready(&asset_server, &images, &character_asset.texture) {
             continue;
         }
@@ -898,7 +810,7 @@ pub fn upgrade_actor_sprites(
         // is oriented (see `update_enemy_actors`). No per-family special-casing.
         // The trimmed-sheet render basis is the sprite's own size + anchor, so
         // the renderer self-captures it — nothing to thread in here.
-        // `try_insert`: REPRODUCED (queue L24), and the same shape as the boss
+        // `try_insert`: REPRODUCED, and the same shape as the boss
         // twin — these are `FeatureVisual` entities, which
         // `despawn_dead_dynamic_feature_visuals` retires the moment a feature's
         // view disappears. An actor dying on the frame its sheet finishes
@@ -925,12 +837,7 @@ pub fn upgrade_actor_sprites(
 /// asset, restoring the spawn-time animation invariants rather than trying to
 /// carry an atlas cursor across a different texture and layout.
 ///
-/// ⛔ **it used to return early unless `GameAssets.is_changed()`, and that is
-/// exactly what made a quality change not converge.** The new pages are
-/// `asset_server.load`ed, so they arrive several frames after the table changed —
-/// by which time the one-frame change window has closed, `images.get` had been
-/// answering `None` throughout it, and nothing looked again. The condition that
-/// remains is a comparison against the realization's own tier, which is true for
+/// The condition that remains is a comparison against the realization's own tier, which is true for
 /// as long as the body is stale and stops being true the moment it is not.
 pub fn refresh_player_sprites_for_resident_quality(
     mut commands: Commands,
@@ -980,7 +887,7 @@ pub fn refresh_player_sprites_for_resident_quality(
              tier={:?} (seed: live pose, trigger: resident realization moved)",
             start_id, collision.x, collision.y, render.x, render.y, asset.resolved_tier,
         );
-        // `try_insert`: REPRODUCED (queue L24). Same `PlayerVisual` target as the
+        // `try_insert`: REPRODUCED. Same `PlayerVisual` target as the
         // bare-player safety net, reached on a very different frame — a
         // confirmed quality-profile switch rebuilds `GameAssets`, and a provider
         // switch in the same frame despawns the session scope this visual
@@ -1016,28 +923,18 @@ pub fn refresh_prop_sprites_on_game_assets_change(
     let Some(assets) = assets else {
         return;
     };
-    // ⛔ **THE STAMP IS THE RESIDENT REALIZATION'S TIER, NEVER THE REQUESTED
-    // SETTING** (fixed 2026-08-09; GPT 5.6 review, verified before landing).
-    //
-    // This used to read `active_sprite_scale(quality)` and stamp THAT, while
-    // rebuilding from whatever asset the preserved prop table still held. A prop
-    // resident at `Half` under a `Full` request was therefore rebuilt from the
-    // same `Half` asset and marked `Full` — after which `q.scale == scale` was
-    // true forever and nothing would look at it again. **Falsely current, and
-    // permanently.**
+    // **THE STAMP IS THE RESIDENT REALIZATION'S TIER, NEVER THE REQUESTED
+    // SETTING**.
     //
     // The actor path forty lines up (`BoundSpriteQuality { scale: asset.resolved_tier }`)
     // always did this correctly; the two disagreed inside one file. Asking the
     // asset is also what makes the comparison self-limiting: once stamped from
     // `asset.resolved_tier`, the next frame matches and the loop settles.
     //
-    // ⚠ **this makes the stamp HONEST; it does not yet make the prop CURRENT.**
-    // Props carry no rematerialization recipe, so `demote_stale_realizations`
-    // cannot retire them and the table keeps the old asset — see queue D52. The
-    // difference is that a stale prop is now VISIBLE to whoever fixes that,
-    // instead of claiming to be up to date.
+    // The difference is that a stale prop is now VISIBLE to whoever fixes that, instead of claiming
+    // to be up to date.
     //
-    // ⛔ the `assets.is_changed()` early-out is gone with it, for the reason the
+    // the `assets.is_changed()` early-out is gone with it, for the reason the
     // actor path dropped its own: images decode asynchronously, so the frame
     // `GameAssets` changes is not the frame the texture is usable. The
     // tier comparison below is the convergence check and it is cheap.
@@ -1051,10 +948,6 @@ pub fn refresh_prop_sprites_on_game_assets_change(
         if !texture_is_ready(&asset_server, &images, &asset.texture) {
             continue;
         }
-        // Rebuild EXACTLY what `spawn_room_prop` built, through the SAME builder
-        // — this used to hardcode character sizing + a feet anchor and reverted
-        // every authored presentation fact each time it ran (see the builder).
-        // `animate_props` will capture the matching trim basis on its next tick.
         let bundle =
             crate::rendering::world::prop_sprite_bundle(prop.draw, prop.flip_y, asset, prop.size);
         commands.entity(entity).insert((

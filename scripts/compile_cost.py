@@ -75,14 +75,10 @@ import measurement_paths  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# ⛔ declared in ONE place — `scripts/lib/measurement_paths.py`. Three scripts
-# used to spell these paths out independently.
 LEDGER = measurement_paths.SCENARIO_LEDGER
 
-# The marker is appended and removed; it is a plain private fn so it compiles in
-# any Rust module and triggers a real recompile rather than an mtime-only one.
-# (An mtime-only touch measured 4.4s where a real edit measured 8.1s — reporting
-# the touch would have overstated incremental's benefit by ~2x.)
+# The marker is appended and removed; it is a plain private fn so it compiles in any Rust module and
+# triggers a real recompile rather than an mtime-only one.
 MARKER = "\n#[allow(dead_code)]\nfn _compile_cost_probe(x: u32) -> u32 {{ x.wrapping_add({salt}) }}\n"
 
 
@@ -148,7 +144,7 @@ def measure(scenario: Scenario, env: dict[str, str], *, verbose: bool = True) ->
     if not target.exists():
         raise SystemExit(f"⛔ {scenario.edit} does not exist; fix the scenario before trusting it")
 
-    # ⛔ refuse on a dirty target. Reverting would otherwise mean choosing
+    # refuse on a dirty target. Reverting would otherwise mean choosing
     # between restoring the probe's baseline and keeping somebody's live edit.
     if git("status", "--porcelain", "--", scenario.edit):
         raise SystemExit(
@@ -257,9 +253,6 @@ def main(argv: list[str] | None = None) -> int:
     if shutil.which("cargo") is None:
         raise SystemExit("⛔ cargo not on PATH; this measures cargo and cannot proxy it")
 
-    # ⛔ checked HERE, before a single build runs. Every scenario below is a real
-    # cargo invocation measured in minutes, and finding out afterwards that the
-    # ledger is unreachable throws the measurement away along with the wait.
     if not args.no_record:
         measurement_paths.require_writable(LEDGER)
 

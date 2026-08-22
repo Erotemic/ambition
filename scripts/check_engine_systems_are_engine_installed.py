@@ -23,7 +23,7 @@ demos, `fixtures/external_consumer`, anything built through `PlatformerApp` —
 gets an engine that half-runs. The tests stay green because the shipped app is
 what the acceptance tests drive.
 
-## What this checks
+# # What this checks
 
 For every `add_systems` call in an APP crate, take the systems whose path names
 an ENGINE crate. If no engine crate registers that same system anywhere, this
@@ -36,7 +36,7 @@ feature only one game has. The point is not that every engine system belongs in
 an engine plugin; it is that the choice is *made* and written down, instead of
 being whatever the app happened to wire in 2024.
 
-## What it deliberately is not
+# # What it deliberately is not
 
 Not a parser. It matches `add_systems(` call sites by paren balance and reads
 qualified paths out of the text between them — enough to see `foo::bar::baz` and
@@ -71,28 +71,21 @@ APP_ROOTS = ["game"]
 # Where an engine plugin may register a system so that every composition gets it.
 ENGINE_ROOTS = ["crates"]
 
-# ⚠ **PRESENTATION only, and the narrowing is the point.** The first version of
-# this script asked the question of every engine crate and reported 42 systems (18
-# once ordering edges stopped being read as registrations), of
-# which most are a game legitimately composing its own sim features, HUD and
-# menus. A guard with 42 waivers is a guard nobody reads — this file's sibling
-# says so in its own docstring — and the class that has actually bitten is
-# PRESENTATION BINDING, three times, all in the render crate: a label pass, a
-# theme load, a layer sync. So the question is asked where the answer has been
-# wrong.
+# A guard with 42 waivers is a guard nobody reads — this file's sibling says so in its own
+# docstring — and the class that has actually bitten is PRESENTATION BINDING, three times, all
+# in the render crate: a label pass, a theme load, a layer sync. So the question is asked where
+# the answer has been wrong.
 #
 # Widening this is a deliberate act with a cost: run `--list --all` first and
 # read what comes back before deciding the rest is signal.
 RENDER_PATH_PREFIXES = (
     "ambition_render::",
     "ambition_platformer2d::render::",
-    # ⭐ WIDENED 2026-08-02, by running `--all --list` and reading it, which is
-    # what the note above asks for. The finding is about this list rather than
-    # about any one system: **the narrowing is by PATH, and presentation is not
-    # only in the render crate.** `dialog_reveal_tick` owns the typewriter
-    # timing — its own doc says "this is presentation only" — and lives in
-    # `ambition_dialog`, so no prefix here could ever see it. The class this
-    # guard exists for was hiding one module outside the paths it looked at.
+    # The finding is about this list rather than about any one system: **the narrowing is by PATH,
+    # and presentation is not only in the render crate.** `dialog_reveal_tick` owns the typewriter
+    # timing — its own doc says "this is presentation only" — and lives in `ambition_dialog`, so no
+    # prefix here could ever see it. The class this guard exists for was hiding one module outside
+    # the paths it looked at.
     "ambition_platformer2d::dialog::",
     "ambition_dialog::",
 )
@@ -178,14 +171,9 @@ WAIVERS: dict[str, str] = {
     "sync_portal_sprite_animation": ("portal, as above."),
     "sync_portal_ring_rotation_system": ("portal, as above."),
     "hide_portal_loading_zone_visuals": ("portal, as above."),
-    # ⛔ `sync_portal_quality_budget`'s waiver was DELETED on 2026-08-04, and how
-    # it read is the lesson: *"portal, feature-gated, Ambition's."* That is a
-    # true and correct answer to the question this file asks — should this engine
-    # system live in an engine plugin? — and it was silent about the one that bit.
-    # The system took `Res<ResolvedVisualQuality>`, which `VisualQualityPlugin`
-    # owns and no other composition installed, so it PANICKED everywhere but the
-    # shipped app. A waiver answers this checker's question; this checker's
-    # question was never the dangerous one (queue D16).
+    # The system took `Res<ResolvedVisualQuality>`, which `VisualQualityPlugin` owns and no other
+    # composition installed, so it PANICKED everywhere but the shipped app. A waiver answers this
+    # checker's question; this checker's question was never the dangerous one.
     #
     # The system lives in `VisualQualityPlugin` now, beside its resource, so
     # there is nothing left to waive.
@@ -228,22 +216,18 @@ WAIVERS: dict[str, str] = {
 
 # ── OPEN rows: the engine SHOULD own these, and a blocker is recorded ──
 #
-# ⚠ **not the same thing as a waiver, and kept apart on purpose.** A waiver says
+# **not the same thing as a waiver, and kept apart on purpose.** A waiver says
 # "this belongs to a GAME"; an entry here says "this belongs to the ENGINE, the
 # move is not mechanical, and here is the specific question it waits on". Merging
 # the two would let "we have not done it" hide inside "we decided not to".
 #
-# ⚠ EMPTY, and emptied by doing the work rather than by relaxing the bar. Two
-# dialogue rows landed here on 2026-08-02 with a blocker that turned out to be
-# OVERSTATED: I claimed moving them needed a decision about "which schedule owns
-# dialogue input under GGRS". Bevy runs `PreUpdate` → `RunFixedMainLoop` →
-# `Update`, and every host puts the sim ahead of `Update` — so the
-# `.after(CoreSimulation)` pin is load-bearing under `RenderFrame` (where
-# `sim_schedule()` IS `Update`) and merely decorative under the other two, while
-# being correct in all three. No rewind was ever involved: neither `DialogState`
-# nor `MenuControlFrame` is rollback state.
+# EMPTY, and emptied by doing the work rather than by relaxing the bar. Bevy runs `PreUpdate` →
+# `RunFixedMainLoop` → `Update`, and every host puts the sim ahead of `Update` — so the
+# `.after(CoreSimulation)` pin is load-bearing under `RenderFrame` (where `sim_schedule()` IS
+# `Update`) and merely decorative under the other two, while being correct in all three. No rewind
+# was ever involved: neither `DialogState` nor `MenuControlFrame` is rollback state.
 #
-# ⭐ the test on this registry is what forced the issue. Once the blocker was
+# the test on this registry is what forced the issue. Once the blocker was
 # retracted the entry stopped naming one — exactly the "TODO with a ratchet's
 # authority" that test rejects. Both systems now live in the monolith's
 # `YarnBindingsPlugin`, beside the rest of the dialogue feature.
@@ -251,20 +235,14 @@ OPEN_ROWS: dict[str, str] = {}
 
 # ── The ratchet ──
 #
-# What is left after the waivers: engine presentation that ONE composition
-# installs, where the honest answer is "this is probably a defect and has not
-# been fixed yet". Each is a system whose absence draws nothing and says nothing.
+# Each is a system whose absence draws nothing and says nothing.
 #
-# ⚠ **The number may not GROW, and it may not silently shrink either.** A budget
-# that is never tightened is a budget that rots into a permanent allowance — the
-# footprint ratchet in `check_absence_contracts.py` carries the same rule for the
-# same reason. Fix one, lower this by one, in the same commit.
+# **The number may not GROW, and it may not silently shrink either.** A budget that is never
+# tightened is a budget that rots into a permanent allowance — the footprint ratchet in
+# `check_absence_contracts.py` carries the same rule for the same reason.
 #
-# ⚠ **It is ZERO, and that is a claim about DECISIONS, not about perfection.**
-# Every engine presentation system a game registers alone is now either moved or
-# waived with a reason above. The budget stays as the mechanism: the next one
-# somebody adds fails this check, and the fix is either a move or a sentence
-# saying why the engine should not own it.
+# The budget stays as the mechanism: the next one somebody adds fails this check, and the fix is
+# either a move or a sentence saying why the engine should not own it.
 UNCLAIMED_BUDGET = 0
 
 _BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.S)

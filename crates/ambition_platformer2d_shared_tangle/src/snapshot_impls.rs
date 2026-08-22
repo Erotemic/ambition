@@ -1,14 +1,11 @@
 //! `SnapshotState` for this crate's own types — the rollback wire format.
 //!
-//! ⚠ These impls live HERE, beside the types they encode, because
-//! `ambition_platformer2d_core::snapshot` owns the trait and the orphan rule binds an
-//! impl to the crate owning the trait OR the type. Until 2026-07-30 the trait
-//! sat in `ambition_platformer2d_runtime`, above every domain crate, so the only place all
-//! ~100 of them could compile was one 2688-line file in `ambition_platformer2d_runtime`. The
-//! orphan rule is what proves this file is in the right crate: if a type moves,
-//! this stops compiling rather than drifting.
+//! These impls live HERE, beside the types they encode, because
+//! `ambition_platformer2d_core::snapshot` owns the trait and the orphan rule binds an impl to the
+//! crate owning the trait OR the type. The orphan rule is what proves this file is in the right
+//! crate: if a type moves, this stops compiling rather than drifting.
 //!
-//! ⚠ A field added to an encoded type is a WIRE FORMAT change. Encode and
+//! A field added to an encoded type is a WIRE FORMAT change. Encode and
 //! decode must stay in the same order, and `snapshot_unit_enum!` codes are
 //! authored per variant so inserting one never renumbers the rest.
 
@@ -54,10 +51,8 @@ impl SnapshotState for crate::sim_id::SimId {
 
 /// Provenance is snapshot state, not derived state.
 ///
-/// A blob-rebuilt entity has to be able to say where it came from, because that
-/// is precisely when nothing else can: its spawner may itself have been rebuilt,
-/// and the room that authored it is long past. This is the durable fact that
-/// replaced splitting a `/`-delimited parent out of the entity's own `SimId`.
+/// This is the durable fact that replaced splitting a `/`-delimited parent out of the entity's
+/// own `SimId`.
 impl SnapshotState for crate::construction::TransactionId {
     fn encode(&self, out: &mut Vec<u8>) {
         put_str(out, self.as_str());

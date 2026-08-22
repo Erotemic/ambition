@@ -446,14 +446,8 @@ impl DevSnapshot {
     }
 }
 
-/// The settings-option ids surfaced by each settings category on the SYSTEM
-/// face, in pause-menu page order. This now mirrors the OLD pause menu's pages
-/// 1:1 for the player-facing set (Phase C1 parity): Video carries the basic
-/// display/camera/accessibility rows plus the whole shader subpage; Controls
-/// carries every stick/trigger/burst/menu row; Gameplay carries
-/// difficulty/assist/damage plus the HUD + trace toggles. Nothing the pause
-/// menu shows is dropped here, so the System face is at full parity once the
-/// pause menu is deleted.
+/// The settings-option ids surfaced by each settings category on the SYSTEM face, in pause-menu
+/// page order.
 fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
     match id {
         // Video includes the basic rows followed by all shader controls.

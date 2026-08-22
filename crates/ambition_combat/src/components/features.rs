@@ -41,8 +41,7 @@ impl FeatureName {
 /// conversion.
 pub use ae::CenteredAabb;
 
-// `ActorPose` moved to `ambition_characters::actor::pose` (actor-system vocabulary;
-// Stage 22 unified-actor work). Re-exported below so kit paths keep working.
+// Re-exported below so kit paths keep working.
 pub use ambition_characters::actor::pose::ActorPose;
 
 /// Explicit persistence key. Kept separate from `FeatureId` so migrated features

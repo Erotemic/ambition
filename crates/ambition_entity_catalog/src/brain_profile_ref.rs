@@ -1,7 +1,7 @@
 //! **Naming a shared autonomous-controller policy**, in the two forms an
 //! authored reference and a resolved identity need to be.
 //!
-//! ⚠ **they live HERE, beside `CharacterId`, rather than with `BrainProfile`
+//! **they live HERE, beside `CharacterId`, rather than with `BrainProfile`
 //! itself** — because both AUTHORING surfaces name a policy and only one of them
 //! can see the brain crate. A `CharacterDefinition` names one, and so does an
 //! `EnemySpawn` placement (`ambition_platformer2d_world`, which does not and
@@ -12,14 +12,14 @@
 /// **A provider-relative reference to a shared `BrainProfile`**, as a
 /// character authored it.
 ///
-/// ⭐ **content writes the LOCAL name.** A definition in provider `ambition`
+/// **content writes the LOCAL name.** A definition in provider `ambition`
 /// authors `medium_striker`, not `ambition::medium_striker` — because whether
 /// the surrounding catalog has already been namespaced is an assembly detail,
 /// and an author who has to know it will get it wrong in exactly the cases that
 /// matter (a fragment used by two hosts, a demo lifted into the multi-game
 /// shell). Preparation resolves it against the DEFINITION's own provider.
 ///
-/// ⚠ **an already-qualified reference is honoured.** A character may name
+/// **an already-qualified reference is honoured.** A character may name
 /// another provider's policy deliberately — that is what makes a policy shared
 /// across a composition rather than within one package — so a `::` in the
 /// authored text means "I meant this exact one".

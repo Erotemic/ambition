@@ -71,9 +71,6 @@ pub enum PresentationOwnershipClass {
     GameplaySession,
 }
 
-/// Explicit classification for cross-cutting presentation systems that used to
-/// rely on convention. Hosts may extend this table, but changing a class is a
-/// deliberate architecture decision visible to policy tests.
 #[derive(Resource, Clone, Debug, Eq, PartialEq)]
 pub struct PresentationOwnershipPolicy {
     classes: BTreeMap<&'static str, PresentationOwnershipClass>,

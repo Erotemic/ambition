@@ -326,7 +326,7 @@ fn validate_quest_conditions(
         .map(|track| track.id.as_str())
         .collect::<BTreeSet<_>>();
 
-    // ⚠ **the same book the plugin installs**, read from the prepared pack rather
+    // **the same book the plugin installs**, read from the prepared pack rather
     // than from a process-global the validator happens to share with whatever
     // App ran first. That sharing is exactly what made the old seam look
     // provider-local while not being.
@@ -334,12 +334,9 @@ fn validate_quest_conditions(
         ambition_encounter::content_schema::lowered_encounter_waves(crate::pack::prepared())
             .cloned()
             .map(ambition_encounter::EncounterWaveBook);
-    // ⭐ **the validator converts, because the loader no longer speaks LDtk**
-    // (D136). Holding an `LdtkProject` is legitimate HERE — validating the map is
-    // this function's job — but asking the encounter loader to read one was the
-    // edge that kept the map format in the actor monolith. A conversion failure
-    // is reported by `validate_ldtk_room_links` already, so this stays quiet
-    // rather than duplicating that diagnosis.
+    // Holding an `LdtkProject` is legitimate HERE — validating the map is this function's job —
+    // but asking the encounter loader to read one was the edge that kept the map format in the
+    // actor monolith.
     let rooms = project
         .to_room_set(
             &crate::worlds::world_manifest(),
@@ -425,19 +422,13 @@ fn validate_quest_conditions(
     }
 }
 
-/// ⚠ **The content compiler now checks this too, for pack-supplied content.**
+/// **The content compiler now checks this too, for pack-supplied content.**
 /// `boss_encounter` emits a `music_track` reference per non-empty phase field,
 /// so an unknown track in Ambition's own encounters is refused at reference
 /// resolution — before startup, with the field named.
 ///
-/// This is NOT dead: it reads the ASSEMBLED catalog, so it still covers a
-/// provider that contributes bosses WITHOUT shipping a content pack. It can be
-/// deleted when every boss-contributing provider goes through the compiler —
-/// and not before, because deleting startup validation to make a migration look
-/// finished is exactly the overclaiming this campaign keeps having to walk back.
-///
-/// Two checks that AGREE are redundant; two that disagree are the defect. These
-/// two apply the same rule to the same four fields, so the overlap is safe.
+/// This is NOT dead: it reads the ASSEMBLED catalog, so it still covers a provider that
+/// contributes bosses WITHOUT shipping a content pack.
 fn validate_boss_music_tracks(
     music: &MusicRegistry,
     boss_catalog: &ambition_boss_encounter::BossCatalog,

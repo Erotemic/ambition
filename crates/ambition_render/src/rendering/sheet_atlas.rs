@@ -14,12 +14,9 @@
 //! whole story here; if an effect ever needs paging/trim it graduates to the
 //! `CharacterAnimator` path that already drives both.
 //!
-//! Name resolution goes through the binding boundary. These adapters used to
-//! return `Option` per fact and every caller spelled the miss `unwrap_or(0)` /
-//! `unwrap_or(1)`, so a regenerated sheet that renamed a row drew frame 0 for
-//! one frame and said nothing. Now a miss is recorded in the caller's
-//! [`BindingLedger`] and the caller reports it; the visible fallback stays, but
-//! the run also says what it could not find.
+//! Name resolution goes through the binding boundary. Now a miss is recorded in the caller's
+//! [`BindingLedger`] and the caller reports it; the visible fallback stays, but the run also says
+//! what it could not find.
 
 use ambition_platformer2d_shared_tangle::binding::BindingLedger;
 use ambition_sprite_sheet::character::build_atlas_layout;

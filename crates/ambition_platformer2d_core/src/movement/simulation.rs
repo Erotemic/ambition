@@ -11,7 +11,7 @@ const LADDER_JUMP_BOOST_TIME: f32 = 0.10;
 
 /// The ground leap itself, factored out because a body with a jump-squat pays
 /// it a few ticks after the press and a body without one pays it on the press
-/// tick — the SAME leap either way. ⛔ do not inline a second copy into the
+/// tick — the SAME leap either way. do not inline a second copy into the
 /// squat-expiry branch; the launch band, the air-jump refill and the `Jump` op
 /// are one rule.
 fn launch_ground_jump(
@@ -62,7 +62,7 @@ fn tick_jump_squat(
     events: &mut FrameEvents,
 ) {
     state.jump_squat_timer = (state.jump_squat_timer - dt).max(0.0);
-    // ⚠ an authored squat is a WHOLE NUMBER OF FRAMES times `dt`, and f32
+    // an authored squat is a WHOLE NUMBER OF FRAMES times `dt`, and f32
     // subtraction does not land on zero: a 3-frame squat leaves ~3e-9s behind
     // and the body crouches forever. A remainder far below a tick is not a
     // crouch frame.
@@ -70,7 +70,7 @@ fn tick_jump_squat(
         return;
     }
     state.jump_squat_timer = 0.0;
-    // ⭐ a squat is a COMMITMENT, and the thing you can be knocked out of.
+    // a squat is a COMMITMENT, and the thing you can be knocked out of.
     // Losing the floor mid-crouch (struck, platform gone) voids the leap rather
     // than owing it in the air; that is the whole point of the startup existing.
     if !ground.on_ground {
@@ -87,9 +87,8 @@ fn tick_jump_squat(
         tuning,
         events,
     );
-    // The release edge that would have shortened this hop landed DURING the
-    // crouch, where there was no ascent to cut. Honour it now through the body's
-    // own variable-jump law instead of authoring a second "short hop" number.
+    // Honour it now through the body's own variable-jump law instead of authoring a second "short
+    // hop" number.
     if !input.jump_held() {
         super::abilities::cut_ascent_now(kinematics, state, abilities, frame, tuning);
     }
@@ -243,7 +242,7 @@ pub fn handle_jump_buffer_clusters(
             state.jump_squat_timer = tuning.locomotion.jump_squat_time;
             state.buffer_jump = 0.0;
             state.coyote_timer = 0.0;
-            // ⚠ the press tick is the FIRST crouch frame, not a free one before
+            // the press tick is the FIRST crouch frame, not a free one before
             // it. Charging the whole squat and waiting for the next tick would
             // make an N-frame authored squat cost N+1, and a squat shorter than
             // one tick cost a whole one instead of nothing.
@@ -274,14 +273,14 @@ pub fn handle_jump_buffer_clusters(
             );
         }
     } else if jump_state.footstool_claimed && tuning.abilities.footstool.is_enabled() {
-        // ⭐⭐ **AHEAD OF THE AIR JUMP, and that ordering IS the mechanic.** The
+        // **AHEAD OF THE AIR JUMP, and that ordering IS the mechanic.** The
         // press resolves as a footstool and costs nothing: a body that has spent
         // every midair jump can still bounce off a head, which is the genre's
         // rule. When this was applied AFTER the kernel by overwriting velocity,
         // the same footstool cost an air jump when you had one and nothing when
         // you did not — one input edge with two meanings.
         //
-        // ⚠ the claim is spent here, so one press is one footstool however many
+        // the claim is spent here, so one press is one footstool however many
         // heads are under the feet. The pair pass owns WHICH head; this owns
         // what the press means.
         jump_state.footstool_claimed = false;

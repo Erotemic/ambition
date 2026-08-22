@@ -5,16 +5,10 @@
 //! with the wrong argument count crashes the *running game*, not any test —
 //! exactly the `<<give_item "sealednote">>` panic ("Passed too few arguments to
 //! YarnFn") that shipped and crashed on taking Alice's note (fixed `9c52e787`).
-//!
-//! This is a pure-text check (no Yarn runtime — `#[cfg(test)]` only, so it runs
-//! in every test configuration including lean/headless ones): every fixed-arity
-//! command call in `assets/dialogue/**/*.yarn` must pass the right number of
-//! arguments, so the whole class of crash is caught at `cargo test` time.
 
-/// Fixed-arity Yarn commands and their expected argument counts. MUST match the
-/// `In<...>` tuple arities of the generic commands in `ambition_dialog` and
-/// the game commands in `dialog/yarn_bindings.rs` (both are `ui`-gated, so
-/// this table is duplicated here to remain runtime-independent): no `In` ⇒ 0, `In<T>` ⇒ 1, `In<(A, B)>` ⇒ 2.
+/// MUST match the `In<...>` tuple arities of the generic commands in `ambition_dialog` and the
+/// game commands in `dialog/yarn_bindings.rs` (both are `ui`-gated, so this table is duplicated
+/// here to remain runtime-independent): no `In` ⇒ 0, `In<T>` ⇒ 1, `In<(A, B)>` ⇒ 2.
 const FIXED_ARITY_COMMANDS: &[(&str, usize)] = &[
     ("present_speaker", 1),
     ("portrait_clip", 1),
@@ -79,10 +73,8 @@ struct CommandCall {
     arg_count: usize,
 }
 
-/// Extract every `<<command ...>>` call whose first token is a known fixed-arity
-/// command. Yarn built-ins (`if`/`set`/`jump`/…) and inline functions
-/// (`can_afford(…)`, called inside `<<if …>>`) are naturally skipped — they
-/// aren't in the table.
+/// Yarn built-ins (`if`/`set`/`jump`/…) and inline functions (`can_afford(…)`, called inside
+/// `<<if …>>`) are naturally skipped — they aren't in the table.
 fn extract_command_calls(file: &str, text: &str) -> Vec<CommandCall> {
     let mut calls = Vec::new();
     for (i, line) in text.lines().enumerate() {

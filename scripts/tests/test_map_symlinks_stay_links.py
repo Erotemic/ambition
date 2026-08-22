@@ -113,7 +113,7 @@ def test_every_link_points_into_the_map_submodule():
     rather than a sentence anyone can act on. One defect, one readable failure.
     """
     for mode, path in _tracked_ldtk():
-        # ⚠ BOTH conditions, and the second is not redundant: a TYPECHANGE
+        # BOTH conditions, and the second is not redundant: a TYPECHANGE
         # leaves the index saying 120000 while the worktree holds a regular
         # file, so an index-only filter reaches `readlink` on a real file and
         # raises `OSError: Invalid argument` instead of failing readably.

@@ -150,17 +150,14 @@ mod composition_tests {
 
     /// **Adding the load coordinator twice, in either order, must not crash.**
     ///
-    /// This is the composition hazard the Phase-6 external fixture hit: the
-    /// engine group needs the coordinator because a room transition IS a load
-    /// plan, and a shell host needs it too, and `MinimalLoadShellPlugins` adds it
-    /// as a group member — which a `PluginGroupBuilder` cannot make conditional.
-    /// Whether an app booted therefore depended on which groups it composed, and
-    /// the failure was a hard Bevy panic with no hint about the rule it broke.
+    /// This is the composition hazard the Phase-6 external fixture hit: the engine group needs the
+    /// coordinator because a room transition IS a load plan, and a shell host needs it too, and
+    /// `MinimalLoadShellPlugins` adds it as a group member — which a `PluginGroupBuilder` cannot
+    /// make conditional.
     ///
-    /// Both in-repo demos were updated when ownership moved. The external
-    /// consumer, invisible to a repo grep, sat red until somebody read the panic.
-    /// An engine a stranger composes cannot have rules discoverable only by
-    /// crashing, so this is the test that says the rule no longer exists.
+    /// The external consumer, invisible to a repo grep, sat red until somebody read the panic.
+    /// An engine a stranger composes cannot have rules discoverable only by crashing, so this
+    /// is the test that says the rule no longer exists.
     #[test]
     fn adding_the_load_coordinator_twice_is_a_no_op() {
         let mut app = App::new();

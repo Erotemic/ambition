@@ -1,7 +1,7 @@
 //! **Drive the local participant from a script, through the production input
 //! pipeline.**
 //!
-//! ⛔⛔ **THIS EXISTS BECAUSE EIGHT FIXTURES INDEPENDENTLY LEARNED THE SAME
+//! **THIS EXISTS BECAUSE EIGHT FIXTURES INDEPENDENTLY LEARNED THE SAME
 //! ORDERING, AND FIVE OF THEM LEARNED IT THE HARD WAY.** A scripted control
 //! frame written in `PreUpdate` is overwritten by the participant pipeline in
 //! `Update` — the pipeline lives behind `ambition_platformer2d/input`, which
@@ -15,7 +15,7 @@
 //! that nobody pressed anything dressed up as a proof that pressing did
 //! nothing.
 //!
-//! ⭐ **so the ordering is stated ONCE, against the authority rather than
+//! **so the ordering is stated ONCE, against the authority rather than
 //! against a guess:**
 //!
 //! ```text
@@ -27,17 +27,8 @@
 //!                                      `Update` it lands
 //! ```
 //!
-//! ⚠ ordering against a set or system nobody composed is a no-op, so a headless
+//! ordering against a set or system nobody composed is a no-op, so a headless
 //! frame-stepped composition (which has no latch) is unaffected by both edges.
-//!
-//! ⚠ **the local participant, singular — and it now says WHICH seat rather than
-//! implying one.** This writes
-//! [`PlayerSlot::PRIMARY`](ambition_characters::brain::PlayerSlot::PRIMARY)'s row
-//! of [`SeatRawFrames`](ambition_characters::brain::SeatRawFrames), the seat every
-//! one of these fixtures scripts. It used to write the global `ControlFrame`,
-//! where "the primary seat" was not stated anywhere — it was what that resource
-//! happened to mean. Scripting a second seat is one line from here the day a
-//! fixture wants it; until then the limit is visible instead of structural.
 
 use bevy::prelude::*;
 
@@ -54,10 +45,7 @@ pub struct ScriptedControls(pub ControlFrame);
 /// **What the SIMULATION actually received** — the other half of the pair, and
 /// the reason a false-green negative test is harder to write now.
 ///
-/// ⭐ it counts what the sim's own slot table carried, not what the fixture
-/// asked for. A script whose write is overwritten before the sim sees it
-/// requests plenty and delivers nothing, which is exactly the state that used
-/// to read as a passing negative proof.
+/// it counts what the sim's own slot table carried, not what the fixture asked for.
 #[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct ScriptedControlsObserved {
     /// Frames on which the script asked for something other than neutral.
@@ -75,19 +63,15 @@ impl ScriptedControlsObserved {
 
     /// **Positive evidence to pair with a negative assertion.**
     ///
-    /// ⛔ call this in any test whose claim is that something did NOT happen.
+    /// call this in any test whose claim is that something did NOT happen.
     /// Without it, "the ability never fired" and "the button never arrived" are
     /// the same green.
     ///
-    /// ⚠⚠ **DELIVERY IS OBSERVED ONE FRAME LATE, so this is an END-OF-RUN check
-    /// and not a first-frame precondition.** Bevy runs `FixedUpdate` BEFORE
-    /// `Update` within a frame, so the slot table this reads was published from
-    /// the frame written on the PREVIOUS `app.update()`. Asserting it
-    /// immediately after the first scripted press reports `1 requested, 0
-    /// delivered` on a perfectly healthy pipeline — which is how it was first
-    /// misused, and the reason the contract is written down here rather than
-    /// left for each caller to rediscover. For the same-frame question ("did my
-    /// write survive routing?"), read `ControlFrame` right after the update.
+    /// Asserting it immediately after the first scripted press reports `1 requested, 0
+    /// delivered` on a perfectly healthy pipeline — which is how it was first misused, and the
+    /// reason the contract is written down here rather than left for each caller to rediscover.
+    /// For the same-frame question ("did my write survive routing?"), read `ControlFrame` right
+    /// after the update.
     #[track_caller]
     pub fn assert_the_script_reached_the_simulation(&self) {
         assert!(
@@ -114,26 +98,17 @@ pub fn drive_the_local_participant(app: &mut App) {
         Update,
         write_scripted_controls
             .after(ambition_input::InputSet::Route)
-            // ⛔⛔ **the BOUNDARY SET, never a named system.** This said
-            // `.before(commit_seat_raw_frames)`, and that system exists only on a
-            // host with a frame→tick latch — so on a frame-stepped composition
-            // the edge was vacuous and the scripted write raced the publish,
-            // landing a frame late or not at all. Ordering against a system
-            // nobody composed is a silent no-op; ordering against
-            // `PrimarySlotInputCommit` is the same guarantee on every host,
-            // which is why the boundary is a set.
+            // Ordering against a system nobody composed is a silent no-op; ordering against
+            // `PrimarySlotInputCommit` is the same guarantee on every host, which is why the
+            // boundary is a set.
             .before(ambition_platformer2d_runtime::host_input::PrimarySlotInputCommit)
-            // ⚠ **and the latch fold by name, because it is in ANOTHER
-            // schedule.** On a fixed-tick or rollback host the commit set lives
-            // in the sim schedule while the fold runs in `Update`, and a
-            // cross-schedule set edge orders nothing. Both edges are stated; each
-            // is vacuous exactly where the other applies.
+            // Both edges are stated; each is vacuous exactly where the other applies.
             .before(ambition_platformer2d_runtime::host_input::commit_seat_raw_frames)
             .before(
                 ambition_platformer2d_runtime::host_input::publish_seat_controls_when_nobody_else_does,
             ),
     );
-    // ⚠ **`Last`, and it reads the SLOT TABLE.** The observation has to come
+    // **`Last`, and it reads the SLOT TABLE.** The observation has to come
     // from the far side of the pipeline or it would only be restating the write
     // — and the slot table is what the brains read, so a frame counted here is
     // a frame gameplay could act on.

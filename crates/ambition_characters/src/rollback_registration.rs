@@ -71,28 +71,23 @@ where
     registrar.rollback_component_canonical::<crate::actor::BodyWallet>(OWNER, "body.wallet");
     registrar
         .rollback_component_clone::<crate::brain::ScriptedControl>(OWNER, "actor.scripted_control");
-    // **WHO DRIVES THIS BODY — REGISTERED, and it used to be DECLARED DERIVED.**
+    // the declaration's own justification was *"reprojected every tick from `Brain::Player` —
+    // which IS registered, above"*, and that upstream is GONE: `Brain` is AI policy only now,
+    // and the seat a participant drives from is authored onto the body at its spawn/seat site
+    // and lives nowhere else.
     //
-    // ⭐⭐ the declaration's own justification was *"reprojected every tick from
-    // `Brain::Player` — which IS registered, above"*, and that upstream is GONE:
-    // `Brain` is AI policy only now, and the seat a participant drives from is
-    // authored onto the body at its spawn/seat site and lives nowhere else. A
-    // derive whose input has been deleted is a component nothing puts back, so a
-    // rewind would restore a body that no participant drives — the exact failure
-    // the derived declaration was safe from only while the upstream existed.
-    //
-    // ⚠ `control::project_driving_participant` still MOVES it (a possession
+    // `control::project_driving_participant` still MOVES it (a possession
     // redirects the primary seat), and that is a reconcile over registered state,
     // not a reprojection of it: it reads `PossessionState`, which is registered
     // rollback state in the actor domain, and touches nothing else.
     //
-    // ⛔⛔ **"it is a derive" is not a thing the coverage guard can infer, and I
+    // **"it is a derive" is not a thing the coverage guard can infer, and I
     // learned that the expensive way.** `rollback_coverage` offers exactly three
     // outcomes — registered, DECLARED derived, or waived — and a component that
     // is genuinely reprojected but says so nowhere fails all three. Eight
     // coverage tests plus `rollback_exit_oracle` went red on main for one missing
     // declaration. This row now takes the FIRST outcome.
-    // ⛔⛔ **PROBED, not bare-clone: the SLOT NUMBER is the state.**
+    // **PROBED, not bare-clone: the SLOT NUMBER is the state.**
     // A bare `rollback_component_clone` gives the localizer a PRESENCE-ONLY
     // probe — it satisfies the coverage sweep while seeing nothing of the value.
     // So a rewind that restored `DrivingParticipant(PlayerSlot(1))` where the
@@ -100,7 +95,7 @@ where
     // about WHO IS DRIVING with nothing to detect it. That is the desync this
     // component was created to make impossible, reintroduced one layer down.
     //
-    // ⚠ the same shape as `ControlHolds` above, for the same reason: a small
+    // the same shape as `ControlHolds` above, for the same reason: a small
     // integer that fully determines the value belongs in the checksum.
     registrar.rollback_component_clone_probed::<crate::brain::DrivingParticipant>(
         OWNER,
@@ -158,15 +153,10 @@ where
         OWNER,
         "message.actor_action",
     );
-    // ⭐ **the PLATFORM-FIGHTER half of a capture** — pummel count, hold age and
+    // **the PLATFORM-FIGHTER half of a capture** — pummel count, hold age and
     // escape progress. Authoritative sim state for exactly the reason its
     // relation half is: a rewind past a pummel must undo the pummel, and a
     // rewind past a mash must undo the progress it bought.
-    //
-    // ⚠ it joined this domain on 2026-08-19 when those three fields left
-    // `ambition_combat::capture::CapturedBy`. The relation stays registered by
-    // `ambition_combat`; this is a second, separately-owned row rather than a
-    // widening of that one, which is the whole point of the split.
     registrar.rollback_component_canonical::<crate::smash_capture::SmashHoldState>(
         OWNER,
         "smash.hold_state",

@@ -4,11 +4,6 @@
 //! `game/ambition_app/src/headless.rs`. This test drives the
 //! sim through a sequence of `ControlFrame`s across several
 //! `app.update()` calls and asserts on the cumulative event timeline.
-//!
-//! Pinned by `docs/archive/historical-roadmaps/events-refactor-plan.md` (Slice 5 acceptance):
-//! a scripted gameplay test that exercises the full sim/presentation
-//! seam without any visible plugin (AudioPlugin / RenderPlugin /
-//! InputPlugin / inspector / Avian2D).
 
 use ambition_platformer2d::input::ControlFrame;
 use ambition_platformer2d::platformer::schedule::GameMode;
@@ -32,19 +27,13 @@ fn build_minimal_sim_app() -> App {
     app.add_plugins(StatesPlugin);
     app.init_state::<GameMode>();
 
-    // ⭐ **K2b edit 2: composed the way a player runs it.** This used to add the
-    // simulation plugin alone and take the `SessionRoot` it published at
-    // PLUGIN-BUILD time — the second way to start a game. That publisher is
-    // gone, so the fixture composes the shell host booted to the gameplay route,
+    // That publisher is gone, so the fixture composes the shell host booted to the gameplay route,
     // which is the only way now.
     ambition_app::app::shell_host::compose_ambition_gameplay_host(&mut app);
 
-    // ⚠ **one update is no longer enough.** A build-time root exists before the
-    // first frame; a shell activation reaches `Ready` over a load barrier and
-    // eight preparation work items. Wait for the session world rather than
-    // guessing a frame count, and PANIC with the budget when it never arrives —
-    // returning an un-activated App would fail every test built on this fixture
-    // somewhere far less informative.
+    // Wait for the session world rather than guessing a frame count, and PANIC with the budget
+    // when it never arrives — returning an un-activated App would fail every test built on this
+    // fixture somewhere far less informative.
     ambition_platformer2d::platformer::lifecycle::settle_until_session_world(
         &mut app,
         ambition_platformer2d::platformer::lifecycle::SESSION_SETTLE_FRAMES,
@@ -55,10 +44,9 @@ fn build_minimal_sim_app() -> App {
     app
 }
 
-/// ⛔ **through the SEAM, not at the resource.** `ControlFrame` is seat zero's
-/// OUTPUT mirror since D175; assigning it delivers a press to nobody, and a
-/// fixture that does so asserts against a simulation that never received an
-/// input.
+/// **through the SEAM, not at the resource.** `ControlFrame` is seat zero's OUTPUT mirror
+/// since; assigning it delivers a press to nobody, and a fixture that does so asserts against a
+/// simulation that never received an input.
 fn write_control_frame(app: &mut App, frame: ControlFrame) {
     ambition_platformer2d::sim::drive_control_frame(app.world_mut(), frame);
 }
@@ -107,13 +95,9 @@ fn scripted_reset_press_emits_reset_message() {
     );
 }
 
-/// Press a sequence of inputs (Reset then Jump then idle) across
-/// several frames and assert the sim runs cleanly to completion. The
-/// minimal-plugin App must accept arbitrary `ControlFrame` sequences
-/// without panicking, regardless of which combination of presses
-/// fires. Frames are deliberately heterogeneous so a regression that
-/// breaks one specific input combo (e.g. "Reset then Jump on the
-/// next frame") would surface here.
+/// Press a sequence of inputs (Reset then Jump then idle) across several frames and assert the sim
+/// runs cleanly to completion. The minimal-plugin App must accept arbitrary `ControlFrame`
+/// sequences without panicking, regardless of which combination of presses fires.
 #[test]
 fn scripted_heterogeneous_input_sequence_runs_to_completion() {
     let mut app = build_minimal_sim_app();

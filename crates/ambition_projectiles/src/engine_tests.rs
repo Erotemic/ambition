@@ -1,10 +1,4 @@
 //! Unit tests for the reusable projectile primitives.
-//!
-//! These used to live under `ambition_platformer2d_actor_monolith::projectile::engine_tests` when the
-//! actor crate was also the projectile facade.  Their subject is the projectile
-//! kit itself now: motion-buffer gesture recognition, spawner cooldown/resource
-//! gating, kind tuning, and `ProjectileBody` flight + world-collision behavior
-//! re-exported from `ambition_platformer2d_shared_tangle::projectile`.
 
 use ambition_platformer2d_core::Vec2;
 
@@ -437,10 +431,8 @@ fn motion_direction_uses_y_down_like_sandbox() {
     );
 }
 
-/// End-to-end: a Down → Right sequence pushed using the same
-/// convention `charge_projectile_input` uses must be
-/// recognized as the grace QCF. This is the test that would
-/// have failed (and caught the sign-flip bug) before the fix.
+/// End-to-end: a Down → Right sequence pushed using the same convention
+/// `charge_projectile_input` uses must be recognized as the grace QCF.
 #[test]
 fn down_then_right_via_from_axis_recognizes_grace_qcf() {
     let mut buf = MotionInputBuffer::new(0.5);

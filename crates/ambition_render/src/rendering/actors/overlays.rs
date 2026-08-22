@@ -1,7 +1,5 @@
 //! Post-sync visual overlays / dev sprite overrides: hide-sprites & placeholder
 //! art toggles plus the gradient-lane debug visual.
-//!
-//! Split out of the former 883-line `actors/mod.rs` (2026-06-15).
 
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
@@ -85,11 +83,8 @@ const GRADIENT_LANE_STRIKE_COLOR: Color = Color::srgba(1.0, 0.32, 0.20, 0.75);
 /// the column reads as a foreground hazard.
 const GRADIENT_LANE_VISUAL_Z: f32 = 10.5;
 
-/// Spawn/update/despawn a vertical column visual for every boss
-/// currently telegraphing or striking `HazardColumn`. The lane rect is
-/// resolved SIM-side into `BossFrameIndex` from the same volume math as
-/// damage (E4 slice 7), so the visible rectangle always matches the
-/// damage geometry — this system only mirrors rows into sprites.
+/// Spawn/update/despawn a vertical column visual for every boss currently telegraphing or striking
+/// `HazardColumn`.
 pub fn manage_gradient_lane_visual(
     mut commands: Commands,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<

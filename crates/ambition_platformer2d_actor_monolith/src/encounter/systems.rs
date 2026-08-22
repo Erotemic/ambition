@@ -39,26 +39,22 @@ use super::{load_encounter_specs_from_rooms, EncounterSwitchIndex, SwitchActivat
 /// down with everything else it owns. An unscoped authority would survive
 /// retirement while `SessionTeardownPlugin` clears the registry — and the
 /// next session's repopulation would then mint a DUPLICATE entity (and a
-/// duplicate `SimId::encounter`) per spec (GPT-5.6 review, 2026-07-16).
+/// duplicate `SimId::encounter`) per spec.
 pub fn populate_encounter_registry(
     mut commands: ambition_platformer2d_shared_tangle::lifecycle::SessionCommands,
     mut registry: ResMut<EncounterRegistry>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
-    // ⭐⭐ **W4, and it is done**: encounters come off the ROOM IR now, not off
-    // an `LdtkProject`. `EncounterTrigger` and `LockWall` are ordinary emissions
-    // like every other authored family, which is what took the LDtk crate out of
-    // this file (D136).
+    // **, and it is done**: encounters come off the ROOM IR now, not off an `LdtkProject`.
+    // `EncounterTrigger` and `LockWall` are ordinary emissions like every other authored
+    // family, which is what took the LDtk crate out of this file.
     //
-    // ⚠ Optional because a composition may have no rooms installed — a headless
+    // Optional because a composition may have no rooms installed — a headless
     // fixture, a shell at a non-gameplay route.
     rooms: Option<
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
     >,
-    // ⭐ **the App's authored wave book.** Optional for the same reason the
-    // project is: a composition with no authored encounters is an empty set, not
-    // an error. It used to be read out of a process-global inside the loader,
-    // which meant the first provider built in a process defined encounters for
-    // every App after it.
+    // **the App's authored wave book.** Optional for the same reason the project is: a composition
+    // with no authored encounters is an empty set, not an error.
     waves: Option<Res<ambition_encounter::EncounterWaveBook>>,
 ) {
     if registry.specs_loaded {
@@ -71,15 +67,9 @@ pub fn populate_encounter_registry(
     let Some(scope) = commands.spawn_scope() else {
         return;
     };
-    // ⛔⛔ **this used to LATCH `specs_loaded` when the project was absent, and
-    // that must not carry over.** `ActiveLdtkProject` is a resource inserted at
-    // asset load; the room set is a component on the SESSION ROOT, installed by
-    // the same lifecycle event that gives this system its spawn scope — so
-    // "absent" here can mean "one tick early" in a way it could not before, and
-    // latching on it would lose every encounter in the run. Returning without
-    // latching costs one `Option` test per tick and cannot.
-    // ⚠ nothing outside this system reads `EncounterRegistry::specs_loaded`
-    // (checked), so never latching in a room-less composition is inert.
+    // Returning without latching costs one `Option` test per tick and cannot. nothing outside this
+    // system reads `EncounterRegistry::specs_loaded` (checked), so never latching in a room-less
+    // composition is inert.
     let Some(rooms) = rooms else {
         return;
     };
@@ -134,7 +124,7 @@ pub fn populate_encounter_registry(
 /// which is what "runs late in the frame" meant when a renderer named this
 /// function to say so.
 ///
-/// ⚠ ONE member — the wave drive is the thing that decides gate state.
+/// ONE member — the wave drive is the thing that decides gate state.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct WaveEncounterDriven;
 
@@ -380,13 +370,6 @@ pub fn drive_wave_encounters(
         quests.push_event(ambition_persistence::quest::QuestAdvanceEvent::FlagSet(
             "test_switch_toggled".into(),
         ));
-        // Hub gravity switch: a `Switch` whose `action` is "FlipGravity" INVERTS
-        // the room's ambient gravity ([`crate::physics::BaseGravity`]) — "down"
-        // becomes the opposite of wherever it currently points, so the switch
-        // still works after a Noether-Chamber sideways SetGravity (fable review
-        // 2026-07-02 §B13: the old `dir.y = -dir.y` was a no-op on sideways
-        // gravity). Done as a deferred world command so this system needn't take
-        // `BaseGravity` as another param (Bevy's tuple limit).
         if activation.action.as_str() == "FlipGravity" {
             commands.queue(|world: &mut bevy::prelude::World| {
                 let mut base = world.resource_mut::<crate::physics::BaseGravity>();
@@ -530,10 +513,8 @@ pub fn apply_wave_encounter_effects(
         return;
     }
 
-    // Completion effects: auto-flip the linked switch to on (green) so the
-    // player can see they finished it, surface a celebration banner, and
-    // advance any "clear encounter" quest step. (Mob despawn moved to the
-    // ownership-driven cleanup adapter, E10.)
+    // Completion effects: auto-flip the linked switch to on (green) so the player can see they
+    // finished it, surface a celebration banner, and advance any "clear encounter" quest step.
     for encounter_id in &completed_wave_ids {
         if let Some(switch_id) = switch_index.switch_id_for_encounter(encounter_id) {
             save.data_mut().set_switch(&switch_id, true);
@@ -638,7 +619,7 @@ pub fn apply_encounter_cleanup(
     // canonical simulation identity (not a type-specific marker query) means a
     // snapshot-restored participant, whose entity CACHE is nulled by design,
     // still cleans up correctly even if the encounter ends before a
-    // specialized adapter re-heals the cache (GPT-5.6 review, 2026-07-16).
+    // specialized adapter re-heals the cache.
     sim_entities: Query<(Entity, &ambition_platformer2d_shared_tangle::sim_id::SimId)>,
 ) {
     let mut ended: Vec<String> = Vec::new();

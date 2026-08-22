@@ -185,11 +185,6 @@ fn melee_smash_swings_when_target_is_point_blank() {
         )),
         ..ActionSet::peaceful()
     };
-    // 20px is inside STRIKER_DEFAULT.too_close_distance, but a
-    // melee-capable Smash actor should take the point-blank swing
-    // instead of backing away forever. This pins the cove-pirate
-    // regression where provoked NPCs approached, then held range
-    // without ever swinging when the player was beside them.
     let snap = snap_with_target_at_x(20.0);
     let mut frame = crate::actor::control::ActorControlFrame::neutral();
     tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
@@ -380,11 +375,7 @@ fn sprint_striker_cfg() -> SmashCfg {
 /// 253) opens the locomotion throttle all the way instead of walking at the
 /// partial one.
 ///
-/// ⛔⛔ and it must NOT press the burst button. That press used to ride along
-/// with the throttle here; on a smash fighter (`dodge`, no `dash` — D146) the
-/// kernel resolves it as a DODGE ROLL, so a brain that meant *run at them* would
-/// have thrown an evade instead. `burst_pressed` is asserted false deliberately —
-/// the throttle alone is the whole action.
+/// and it must NOT press the burst button.
 #[test]
 fn closing_a_large_gap_is_throttle_and_never_a_burst_press() {
     let cfg = sprint_striker_cfg();
@@ -662,9 +653,8 @@ fn defense_over_approach(cfg: &SmashCfg, closing_px_s: f32, start_x: f32) -> (bo
     (blinked, shielded)
 }
 
-/// Layered defense: a fast committed lunge is met with a BLINK; an ordinary
-/// walk-in is met with a BLOCK. This is the readable defensive game the duel
-/// was missing.
+/// Layered defense: a fast committed lunge is met with a BLINK; an ordinary walk-in is met with
+/// a BLOCK.
 #[test]
 fn defense_blinks_a_lunge_and_blocks_a_walk_in() {
     let cfg = crisp_duelist(); // blink ≥ 230, shield ≥ 70
@@ -697,11 +687,9 @@ fn defense_reactivity_zero_never_defends() {
 /// arms the regroup window and RUNS away at full throttle instead of trading at
 /// point-blank.
 ///
-/// ⛔ it used to prove the break-off by watching for `burst_pressed`, which was
-/// the emitter's stowaway press and not the retreat at all. The retreat is
-/// LOCOMOTION away from the opponent, so that is what this measures — and the
-/// press must stay off, or a fleeing duelist would roll toward whatever the
-/// stick happened to be aimed at.
+/// The retreat is LOCOMOTION away from the opponent, so that is what this measures — and the press
+/// must stay off, or a fleeing duelist would roll toward whatever the stick happened to be aimed
+/// at.
 #[test]
 fn duelist_regroups_and_runs_after_taking_damage() {
     let cfg = crisp_duelist(); // sprint_to_close + regroup enabled
@@ -785,10 +773,9 @@ fn snap_rotated(down: ae::Vec2, target: ae::Vec2) -> BrainSnapshot {
     s
 }
 
-/// Under gravity rotated 90° (down = screen `+x`), the reactive evade points
-/// AGAINST gravity (screen `-x`), not screen `-y`. The old code hard-coded
-/// `-y`, which would dodge sideways into a wall under this orientation. The
-/// dodge must climb the open vertical space whatever the gravity frame.
+/// Under gravity rotated 90° (down = screen `+x`), the reactive evade points AGAINST gravity
+/// (screen `-x`), not screen `-y`. The dodge must climb the open vertical space whatever the
+/// gravity frame.
 #[test]
 fn evade_dodges_against_gravity_under_rotated_gravity() {
     let cfg = crisp_striker_cfg(); // reaction_delay_s = 0
@@ -816,11 +803,9 @@ fn evade_dodges_against_gravity_under_rotated_gravity() {
     );
 }
 
-/// Grounded APPROACH is gravity-relative: under gravity rotated 90° (down =
-/// screen `+x`), the run axis is screen-vertical, so a target offset along
-/// screen `+y` must drive `locomotion.x` (the body's local-side run scalar)
-/// toward it. The old code keyed the run on screen `to_target_x` (here 0), so it
-/// would NOT pursue — this pins the relativity fix for the player's gravity flip.
+/// Grounded APPROACH is gravity-relative: under gravity rotated 90° (down = screen `+x`), the run
+/// axis is screen-vertical, so a target offset along screen `+y` must drive `locomotion.x` (the
+/// body's local-side run scalar) toward it.
 #[test]
 fn grounded_approach_runs_toward_target_under_rotated_gravity() {
     let cfg = crisp_striker_cfg(); // reaction_delay 0, grounded striker
@@ -953,10 +938,7 @@ fn hybrid_flight_has_landing_hysteresis() {
 /// **Whether a body may block while AIRBORNE is the game's rule, not the
 /// brain's.**
 ///
-/// ⛔ **it was hardcoded here**: both the reactive-block arm and the hold below
-/// it read `obs.self_on_ground` directly, so "shielding is grounded-only" was a
-/// fact about `brain/smash` rather than a policy a game states. Smash Siblings
-/// wants that rule; another game on this engine may not, and answering it meant
+/// Smash Siblings wants that rule; another game on this engine may not, and answering it meant
 /// editing the brain.
 ///
 /// `awaiting-maintainer-decision.md` #9 ("Can a flying fighter shield?") records
@@ -1072,11 +1054,6 @@ fn a_holding_cpu_neither_walks_nor_grabs_again() {
 }
 
 /// **A CAPTIVE STRUGGLES, AND ASKS FOR NOTHING ELSE.**
-///
-/// ⭐ **the test the old note promised.** It used to assert that a held CPU
-/// requested nothing at all, "because escape does not exist yet". It does now,
-/// and a captive that still asked for nothing would be a body choosing to be
-/// held — which is what made a human's grab last as long as they felt like.
 ///
 /// Two claims, and the second is why this is not just "it presses":
 ///

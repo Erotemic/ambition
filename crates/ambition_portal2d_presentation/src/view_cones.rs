@@ -16,18 +16,13 @@
 //! the static, always-on `view_cone`, or [`PortalViewConeMode::Off`] to hide
 //! view windows entirely.
 //!
-//! ## How a rig works
-//! Per placed portal with a placed partner, a **rig**: one offscreen image, a
-//! capture `Camera2d` framing the partner-side source rect, and a window
-//! `Mesh2d` set into the entry's surface. The window source wedge comes from
-//! [`view::view_cone`](ambition_portal2d::view::view_cone) (the body map, same as
-//! the transit sprite copy) so the window and the copy read as one continuous
-//! image; its rotation/mirror lives entirely in the per-vertex **UV mapping**
-//! (computed inline below), and the capture camera stays axis-aligned. The
-//! capture
-//! renders into a fixed **square** texture; non-square source rects are stored
-//! stretched and un-stretched by the UVs (mesh geometry is world-space), so the
-//! texture never needs resizing as the viewer-dependent rect changes shape.
+//! ## How a rig works Per placed portal with a placed partner, a **rig**: one offscreen image,
+//! a capture `Camera2d` framing the partner-side source rect, and a window `Mesh2d` set into
+//! the entry's surface. The window source wedge comes from
+//! [`view::view_cone`](ambition_portal2d::view::view_cone) (the body map, same as the transit
+//! sprite copy) so the window and the copy read as one continuous image; its rotation/mirror
+//! lives entirely in the per-vertex **UV mapping** (computed inline below), and the capture
+//! camera stays axis-aligned.
 //!
 //! Because the cone follows a moving viewer, rigs are **updated in place every
 //! frame** (mesh attributes + camera transform/projection + visibility) and
@@ -137,13 +132,6 @@ fn capture_render_layers(
     layers
 }
 
-/// Host seam: the controlled character's eye + the world's solid occluders,
-/// used to compute the viewer-dependent visible wedge through each aperture.
-/// The host (in Ambition: `crate::portal::sync_portal_viewer`) sets `eye` from
-/// the possessed actor or the primary player and fills `occluders` from its
-/// collision world each frame. `present == false` ⇒ no controlled viewer this
-/// frame; dynamic mode closes the view window, while static mode ignores the
-/// viewer seam.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct PortalViewer {
     /// Whether a controlled-character eye is available this frame.
@@ -405,11 +393,9 @@ impl PortalCaptureCameraMode {
 
 impl Default for PortalCaptureCameraMode {
     fn default() -> Self {
-        // ConeRect: the capture frames the tight source rect, so the fixed
-        // texture's density is spent entirely on what the window shows. Its
-        // historical parallax problem (background evaluated at the framing
-        // center) is gone — parallax copies anchor at the rig's
-        // `parallax_anchor` (the mapped host camera), independent of framing.
+        // Its historical parallax problem (background evaluated at the framing center) is gone
+        // — parallax copies anchor at the rig's `parallax_anchor` (the mapped host camera),
+        // independent of framing.
         Self::ConeRect
     }
 }
@@ -533,10 +519,6 @@ pub struct PortalViewConeConfig {
     /// `ViewCone::source` rect, in the portal's channel color, in front of its
     /// partner) and the entry window.
     pub debug_outline: bool,
-    /// Debug: draw the line-of-sight rays used to decide whether the viewer can
-    /// see into the portal. In low quality this is four rays; in medium quality
-    /// it is four viewer corners times three aperture samples. Rays that reach
-    /// the aperture are drawn brightly; blocked rays are truncated at the blocker.
     pub debug_los_rays: bool,
     /// Debug dump portal filter. Empty means dump all portals. A name like
     /// `c136` or `c137` resolves to that portal and its paired portal, so the
@@ -655,11 +637,6 @@ impl PortalViewRig {
 /// a "pixel-perfect" capture must match, or the window reads blurrier than the
 /// world around it. Falls back to 1.0 when the window or host view is
 /// unavailable (headless, first frame).
-///
-/// The numerator is the GAMEPLAY viewport, not the window: under a fixed-aspect
-/// presentation profile the main camera spends `visible_view` across the
-/// gameplay rectangle only, and dividing by the whole window would overstate
-/// the density by the pillarbox ratio and oversample every capture.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct GameplayScreenDensity<'w, 's> {
     windows: Query<'w, 's, &'static Window, With<bevy::window::PrimaryWindow>>,

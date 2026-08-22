@@ -1,11 +1,7 @@
 //! **A replay request actually replays the act** — in the standalone binary.
 //!
-//! The Sanic half of tracks §2.5. `cycle_act_after_clear` restarts the act by
-//! emitting the engine's generic `RoomReplayRequested`, and until 2026-07-21
-//! the only consumer of that message was registered by `ambition_app` — which
-//! this crate does not depend on. So the shipped standalone binary asked for a
-//! restart that never came: Sanic was not returned to spawn, the rings were not
-//! restored, the badniks did not respawn.
+//! So the shipped standalone binary asked for a restart that never came: Sanic was not returned to
+//! spawn, the rings were not restored, the badniks did not respawn.
 //!
 //! The existing completion proof (`act_completion.rs`) could not catch it: it
 //! stops 30 frames into a 4-second `ACT_CLEAR_DWELL`, so `cycle_act_after_clear`
@@ -124,14 +120,11 @@ fn a_replay_request_returns_the_body_to_spawn() {
 
 /// **The act clear restarts the act** — through the FULL `ACT_CLEAR_DWELL`.
 ///
-/// `cycle_act_after_clear` counts the results card down and then asks for a
-/// replay. The existing completion run (`act_completion.rs`) stops 30 frames
-/// into that 4-second dwell, so it never reaches the line that emits, and it
-/// cannot be extended to: past the goal the script's held stick carries Sanic
-/// off the end of the speedway into a pit death, whose respawn returns him to
-/// spawn and rebuilds the room for reasons unrelated to the restart. (That the
-/// act is clearable and then immediately fatal is a content matter, logged
-/// rather than fixed here.)
+/// `cycle_act_after_clear` counts the results card down and then asks for a replay. The
+/// existing completion run (`act_completion.rs`) stops 30 frames into that 4-second dwell, so
+/// it never reaches the line that emits, and it cannot be extended to: past the goal the
+/// script's held stick carries Sanic off the end of the speedway into a pit death, whose
+/// respawn returns him to spawn and rebuilds the room for reasons unrelated to the restart.
 ///
 /// So this drives the beat under controlled conditions: park him off spawn
 /// somewhere he will stay, stamp the cleared phase the goal would have stamped,

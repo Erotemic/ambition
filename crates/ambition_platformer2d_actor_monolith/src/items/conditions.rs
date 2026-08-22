@@ -1,13 +1,13 @@
 //! **What the inventory domain lets authored content ask about the bag.**
 //!
-//! ⚠ **`inventory.holds` is not `custody.is_held`, and the two must not be
+//! **`inventory.holds` is not `custody.is_held`, and the two must not be
 //! folded.** `custody.is_held(<occurrence>)` asks whether one *authored object in
 //! the world* is in somebody's hands; this asks whether the player is *carrying
 //! at least one of a KIND*. A room can contain three health cells and the answers
 //! differ for every one of them. Two questions, two domains, and the day either
 //! changes shape the other is untouched.
 //!
-//! ⭐ **this is the provider that made an authored Yarn function unnecessary.**
+//! **this is the provider that made an authored Yarn function unnecessary.**
 //! `inventory_has("HealthPotion")` was a closure over a `YarnStateMirror` slice
 //! that `ambition_content` refilled every frame from `OwnedItems` — a whole
 //! second copy of the bag, keyed by a hand-maintained legacy-alias table, so that
@@ -15,7 +15,7 @@
 //! the closure, the slice, the refill and the alias table; the authored `.yarn`
 //! asks `condition("inventory.holds", "HealthPotion")` and reads the live bag.
 //!
-//! ⚠ **loose spelling is [`Item::from_dialog_id`]'s, not a second rule.** It
+//! **loose spelling is [`Item::from_dialog_id`]'s, not a second rule.** It
 //! already normalises case and punctuation and already carries the one legacy
 //! alias; the mirror re-implemented both, which is exactly the drift a second
 //! definition site invites.
@@ -47,7 +47,7 @@ pub fn holds_descriptor() -> ConditionDescriptor {
 
 /// `inventory.holds` — see [`holds_descriptor`].
 ///
-/// ⚠ **an unknown item KIND is `Unanswerable`, an owned count of zero is
+/// **an unknown item KIND is `Unanswerable`, an owned count of zero is
 /// `NotSatisfied`, and the split matters.** *"Do you have a Grapple"* asked in a
 /// composition whose catalog has no such item is not "no, you have none" — it is
 /// a question about a thing that does not exist, and an author who misspelled an
@@ -71,7 +71,7 @@ pub fn holds(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
 
 /// Publishes the inventory domain's conditions.
 ///
-/// ⭐ one plugin for one registration line, matching
+/// one plugin for one registration line, matching
 /// [`WorldFactConditionsPlugin`](crate::world_facts::WorldFactConditionsPlugin):
 /// composition adds it, and nothing else in the engine learns that the bag can
 /// be asked about.
@@ -105,10 +105,10 @@ mod tests {
         assert_eq!(ask(world, "health_potion"), ConditionOutcome::Satisfied);
         assert_eq!(ask(world, "healthcell"), ConditionOutcome::Satisfied);
 
-        // ⚠ a kind the catalog knows but the bag does not hold is NOT satisfied.
+        // a kind the catalog knows but the bag does not hold is NOT satisfied.
         assert_eq!(ask(world, "gunsword"), ConditionOutcome::NotSatisfied);
 
-        // ⭐ and a kind that does not exist is UNANSWERABLE, not "no" — an
+        // and a kind that does not exist is UNANSWERABLE, not "no" — an
         // authored typo must be reported, not silently answered forever.
         assert!(matches!(
             ask(world, "definitely_not_an_item"),

@@ -1,4 +1,4 @@
-//! ⚠ **these tests build their own `App`**, the same shape the command
+//! **these tests build their own `App`**, the same shape the command
 //! contract's own tests use and with the same honest limit: they are about
 //! PREPARATION — its refusals, its one door, and the fact that a prepared call
 //! carries no text. That real content prepares real rules is proved by
@@ -13,7 +13,7 @@ use crate::authored_logic::{
     ConditionDescriptor, ParamKind, ParamSpec, PublishCommand, PublishCondition,
 };
 
-/// Whatever state the test's own domain owns. ⚠ **a domain nothing in this
+/// Whatever state the test's own domain owns. **a domain nothing in this
 /// engine has ever heard of**, which is the point: if preparing an authored call
 /// needed a central list of kinds, this module could not be written outside it.
 #[derive(Resource, Default)]
@@ -82,14 +82,14 @@ fn app_with_gossip() -> App {
 /// **AUTHORED TEXT FROM A DOMAIN THE ENGINE NEVER HEARD OF BECOMES A CALL THE
 /// SIMULATION MAKES — AND THE VALIDATION HAPPENS BEFORE THE TICK.**
 ///
-/// ⭐⭐ **this is M2's behavioural acceptance, and it is three claims in one test
-/// because any one of them alone would pass with the others broken.**
+/// **this is behavioural acceptance, and it is three claims in one test because any one of them
+/// alone would pass with the others broken.**
 ///
 /// 1. **Nothing central was edited.** This module publishes `gossip.spread` and
 ///    prepares a call naming it, using only the public surface. A central
 ///    registry of authorable kinds would make this uncompilable.
 /// 2. **Preparation is not performance.** The rumour is silent while the line is
-///    only PREPARED, and again while the request is only WRITTEN. ⚠ both terms
+///    only PREPARED, and again while the request is only WRITTEN. both terms
 ///    are observed, so this cannot pass with the dispatcher deleted.
 /// 3. **The prepared call carries no text.** What reaches the dispatcher is an
 ///    id and two [`AuthoredArg`]s; the authored line is gone. ⇒ there is nothing
@@ -135,13 +135,12 @@ fn an_authored_line_from_a_foreign_domain_prepares_then_runs() {
 /// **EVERY WAY AN AUTHORED LINE CAN BE WRONG IS REFUSED AT PREPARE TIME, WITH A
 /// REASON NAMING THE PART THAT IS WRONG.**
 ///
-/// ⛔ **the failure this pins is a preparer that cannot say no.** A `prepare`
-/// that returned `Ok` for everything would satisfy every other test in this file
-/// — the call would still run, the argument would still be an `AuthoredArg`, and
-/// the wrongness would surface on a tick as a catalog refusal, which is exactly
-/// where M2 says it must not surface.
+/// **the failure this pins is a preparer that cannot say no.** A `prepare` that returned `Ok`
+/// for everything would satisfy every other test in this file — the call would still run, the
+/// argument would still be an `AuthoredArg`, and the wrongness would surface on a tick as a
+/// catalog refusal, which is exactly where says it must not surface.
 ///
-/// ⚠ **the good line is prepared in the same test on purpose**: a preparer that
+/// **the good line is prepared in the same test on purpose**: a preparer that
 /// refused EVERYTHING would pass the refusal half and be just as broken.
 #[test]
 fn preparation_refuses_before_the_tick_what_a_tick_would_otherwise_discover() {
@@ -192,7 +191,7 @@ fn preparation_refuses_before_the_tick_what_a_tick_would_otherwise_discover() {
 
 /// **A PREPARED REFERENCE IS A `SimId` MINTED BY `SimId`'s OWN CONSTRUCTORS.**
 ///
-/// ⛔ the shape this refuses is `SimId::from_snapshot(text)` — the one
+/// the shape this refuses is `SimId::from_snapshot(text)` — the one
 /// constructor that takes a raw string, and the one that skips the escaping the
 /// id encoding's injectivity depends on. An authored id containing the
 /// separator proves which road was taken: through the constructor it is escaped,
@@ -237,10 +236,7 @@ fn an_authored_reference_goes_through_the_identity_vocabulary() {
 
 /// **A PREPARED QUESTION IS VALIDATED ONCE AND ASKED EVERY TICK.**
 ///
-/// ⭐ this is the condition half of M2's *"validation occurs before runtime"*:
-/// the caller holds a `PreparedCondition`, so the per-tick path is
-/// [`ConditionCatalog::ask`] and nothing on it can be malformed. The wall that
-/// pays for this is `world::gated_lock_walls`.
+/// The wall that pays for this is `world:gated_lock_walls`.
 #[test]
 fn a_prepared_question_is_validated_once_and_asked_without_reassembly() {
     let mut app = app_with_gossip();
@@ -271,7 +267,7 @@ fn a_prepared_question_is_validated_once_and_asked_without_reassembly() {
          is what makes preparing it once legitimate"
     );
 
-    // ⚠ and the condition half refuses at prepare time too, or "prepared" would
+    // and the condition half refuses at prepare time too, or "prepared" would
     // mean something different on each side of the contract.
     assert!(conditions
         .prepare(ConditionId::new("gossip", "is_admired"), &["encounter:x"])

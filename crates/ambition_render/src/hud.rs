@@ -14,9 +14,7 @@
 //! [`ambition_sim_view::PlayerHudFacts`] snapshot (E4 slices
 //! 5+6+16) — it never queries live body clusters.
 
-/// The DECLARED-HUD renderer: whatever the active route's game said its HUD
-/// reads. This module's widget is Ambition's own fixed HP/MP/$ row, which is
-/// precisely why a second game needed a seam.
+/// The DECLARED-HUD renderer: whatever the active route's game said its HUD reads.
 pub mod declared;
 
 use bevy::prelude::*;
@@ -184,11 +182,6 @@ pub fn spawn_player_hud(
 
 /// Put the HUD in the reserved surround when the active profile offers one.
 ///
-/// The proving consumer for [`ResolvedControlRegions::hud`]: a fixed-aspect
-/// profile that reserves surround for HUD was, until this existed, reserving it
-/// for nobody — the bars stayed pinned over the gameplay rectangle while a
-/// whole column sat empty beside them.
-///
 /// The whole author API is the three lines below: ask the resolved layout for a
 /// named region, take it if the HUD fits, otherwise keep overlaying. No
 /// responsive framework, no layout negotiation — a HUD knows its own size.
@@ -224,7 +217,7 @@ pub fn place_player_hud(
 /// This built-in HP/MP/$ row is AMBITION's own HUD (see the module docs). Hide it
 /// whenever the active route's game declared its OWN HUD — Sanic's rings,
 /// Mary-O's score/coins/lives — so the vitals bars never overlay a game that has
-/// no health or mana (Jon bug #36). Ambition declares no custom HUD, so its
+/// no health or mana. Ambition declares no custom HUD, so its
 /// built-in row stays visible; a game that genuinely wants vitals can declare a
 /// health slot of its own.
 ///
@@ -356,10 +349,6 @@ mod tests {
 
     /// The proving vertical slice: a profile that reserves surround for HUD
     /// actually gets the HUD put there.
-    ///
-    /// Driven through Mary O's REAL declared profile rather than a hand-built
-    /// one, because the claim being made is about a shipping game: its 4:3
-    /// viewport was reserving a surround column that nothing ever moved into.
     #[test]
     fn a_reserved_surround_profile_puts_the_hud_in_the_surround() {
         // 16:9 leaves 4:3 gameplay 1440 wide, so each side surround is 240px —
@@ -466,7 +455,6 @@ mod tests {
         assert_eq!(money_text.as_deref(), Some("$7"));
     }
 
-    /// Jon bug #36: the built-in HP/MP/$ row is Ambition's own; it must hide when
     /// another game declares its own HUD, so vitals never overlay Sanic's rings or
     /// Mary-O's score.
     #[test]

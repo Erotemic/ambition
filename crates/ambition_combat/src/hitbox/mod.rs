@@ -20,11 +20,9 @@
 //! - `tick_and_despawn_hitboxes` (this module) advances every
 //!   hitbox's lifetime and despawns expired ones.
 //!
-//! `HitboxAnchor::FollowOwner` re-resolves the hitbox AABB each
-//! tick from the owner entity's position, so a moving attacker's
-//! swing tracks the actor without a per-frame component update.
-//! `HitboxAnchor::World` (Task B groundwork) is a fixed
-//! world-space rectangle for hazards / boss specials.
+//! `HitboxAnchor::FollowOwner` re-resolves the hitbox AABB each tick from the owner entity's
+//! position, so a moving attacker's swing tracks the actor without a per-frame component
+//! update.
 
 use bevy::ecs::query::QueryData;
 use bevy::prelude::{Commands, Entity, Has, Message, MessageWriter, Query, Res, With};
@@ -41,10 +39,8 @@ use crate::actor_faction_from_hit_side;
 use ambition_time::WorldTime;
 use ambition_vfx::vfx::VfxMessage;
 
-// The hitbox COMPONENTS moved to the reusable `ambition_vfx` crate (the
-// damage-box primitive). Re-exported here so `combat::hitbox::Hitbox`
-// (and `features::Hitbox`) paths are unchanged; the SYSTEMS below (damage
-// resolution, melee spawn, lifecycle) stay in the lib.
+// Re-exported here so `combat::hitbox::Hitbox` (and `features::Hitbox`) paths are unchanged;
+// the SYSTEMS below (damage resolution, melee spawn, lifecycle) stay in the lib.
 pub use crate::strike::{
     HitSide, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime,
 };
@@ -65,7 +61,6 @@ pub struct LandedBodyHit {
     pub attacker: Entity,
     /// Concrete body selected by the shared victim resolver.
     pub victim: Entity,
-    /// Exact world-space strike geometry used to resolve the contact.
     pub volume: ae::CombatVolume,
     /// Representative world-space contact point for effects/presentation.
     pub contact: ae::Vec2,
@@ -77,7 +72,7 @@ pub struct LandedBodyHit {
 /// evaluated here because it depends on the struck body's accumulated damage
 /// and weight; the resulting event no longer carries unresolved growth.
 ///
-/// ⭐ **`ruleset_growth` is what a stage says when the MOVE says nothing.** An
+/// **`ruleset_growth` is what a stage says when the MOVE says nothing.** An
 /// authored volume's own `knockback_growth` wins outright; a swing derived from the
 /// `simple_melee` prefab carries `0.0`, which is every basic attack in the game,
 /// and without this every one of them launched a 150% opponent exactly as far as
@@ -150,10 +145,9 @@ pub fn strike_reaches_victim(
 
 /// **The body a strike lands on** — one entity role, named once.
 ///
-/// Every damage family asks the same questions of the thing it hit: where is it,
-/// whose side is it on, may it be struck at all, what silhouette does it present,
-/// and which way does *its* frame call "away". Before this type each family spelled
-/// that role as its own positional tuple, and the tuples had already drifted:
+/// Every damage family asks the same questions of the thing it hit: where is it, whose side is
+/// it on, may it be struck at all, what silhouette does it present, and which way does *its*
+/// frame call "away".
 ///
 /// * [`apply_hitbox_damage`] (melee) carried the published silhouette inline;
 /// * `apply_feature_hit_events` could not — its tuple was at the ARITY ceiling, so
@@ -173,11 +167,9 @@ pub fn strike_reaches_victim(
 /// means fall back to the coarse box, no `BodyHealth` means it cannot be a corpse,
 /// no `BodyShieldState` means it cannot parry.
 ///
-/// ⛔ **Do not add a required field to widen a caller's victim set.** Requiring a
-/// component silently DROPS every body without it from the query, which is the
-/// "my hit does nothing" bug. A caller that genuinely wants a narrower set says so
-/// in its own [`With`] filter, where the narrowing is visible at the call site —
-/// that is exactly how melee keeps its combat-body-only victim set below.
+/// A caller that genuinely wants a narrower set says so in its own [`With`] filter, where the
+/// narrowing is visible at the call site — that is exactly how melee keeps its combat-body-only
+/// victim set below.
 #[derive(QueryData)]
 pub struct StrikeVictim {
     pub entity: Entity,
@@ -187,9 +179,7 @@ pub struct StrikeVictim {
     /// Authored allegiance. Run it through [`StrikeVictimItem::effective_faction`]
     /// rather than reading it raw — a possessed body fights as its driver's side.
     pub faction: &'static ActorFaction,
-    /// **Who drives this body**, if anybody. The one input to effective
-    /// allegiance; it used to be `Option<&Brain>` back when a driver could only
-    /// be named by swapping the body's AI policy for one.
+    /// **Who drives this body**, if anybody.
     pub driver: Option<&'static ambition_characters::brain::DrivingParticipant>,
     /// The published silhouette, when this body publishes one. See
     /// [`strike_reaches_victim`] for why absent and empty mean opposite things.
@@ -287,12 +277,7 @@ pub fn apply_hitbox_damage(
     // (fall back to the default: friendly fire OFF — same-faction allies safe).
     // AE6: resolved match rules, not the world's baseline toggle.
     tuning: Option<Res<crate::rules::ResolvedCombatTuning>>,
-    // ONE victim query for every body with a published footprint (fable review
-    // 2026-07-02 §A3 — this system used to run separate actor and player victim
-    // loops whose faction rules and hurtboxes had drifted), named as the role it
-    // is: [`StrikeVictim`].
-    //
-    // ⭐ **The vulnerability cluster is a FILTER here, and it is now spelled as
+    // **The vulnerability cluster is a FILTER here, and it is now spelled as
     // one.** It was four REQUIRED members of the data tuple bound to `_vuln` and
     // never read — since §A2 i-frames are consumed by `resolve_body_hit` on the
     // victim side, never decided here. Its remaining job is to say "only real
@@ -300,10 +285,6 @@ pub fn apply_hitbox_damage(
     // data it read like an input; as a filter it reads like the narrowing it is,
     // and the victim SET is byte-identical either way (`With<T>` and `&T` match
     // the same archetypes).
-    //
-    // ⚠ this filter is why melee's victim set is narrower than the projectile
-    // path's, which carries no such `With`. That difference used to be invisible,
-    // buried in whether one tuple wrote `Option<(..)>` and the other did not.
     victims: Query<
         StrikeVictim,
         (
@@ -328,13 +309,9 @@ pub fn apply_hitbox_damage(
     // answer is worth less. Read-only, looked up by owner, like the three above.
     attacker_stale: Query<&crate::stale::BodyStaleMoves>,
     attacker_playback: Query<&crate::moveset::MovePlayback>,
-    // The attacker's own move state, read for ONE thing: the per-strike dedup
-    // accumulator that keeps a multi-tick Active window from re-smashing the same
-    // breakable every frame. `MovePlayback` is authoritative move-timeline state
-    // (rollback-registered and checksummed), which is why the ignore list is read
-    // from here and not from the `BodyMelee.swing` projection that used to gate
-    // this emit — the projection is rebuilt every frame and wiped the accumulator.
-    // A body with no playback answers with an empty list and still strikes.
+    // The attacker's own move state, read for ONE thing: the per-strike dedup accumulator that
+    // keeps a multi-tick Active window from re-smashing the same breakable every frame. A body with
+    // no playback answers with an empty list and still strikes.
     attacker_moves: Query<&crate::moveset::MovePlayback>,
     // A live Hitbox is already authoritative gameplay state. Moveset strikes
     // exist only while their active window exists; `BodyMelee.swing` is a
@@ -400,7 +377,7 @@ pub fn apply_hitbox_damage(
                 if victim.entity == hitbox.owner {
                     continue;
                 }
-                // Structural tangibility gate (Jon 2026-07-22): a dead body is
+                // Structural tangibility gate: a dead body is
                 // an intangible corpse — the swing passes through it. Skipping
                 // here means NO event and NO impact VFX are produced at the
                 // corpse, so a dead thing neither interacts nor presents. (The
@@ -444,11 +421,11 @@ pub fn apply_hitbox_damage(
                     victim_weight,
                     ruleset_growth,
                 );
-                // ⭐ **RAGE, and it is the mirror of the percent mechanic.** The
+                // **RAGE, and it is the mirror of the percent mechanic.** The
                 // victim's damage already scaled that launch; without this the
                 // fighter behind is punished twice — easier to launch and no
                 // harder to launch with. `1.0` in a game that declares no rage.
-                // ⭐ **RAGE and STALING are one multiplier, applied once.** They
+                // **RAGE and STALING are one multiplier, applied once.** They
                 // pull opposite ways on purpose — a hurt fighter hits harder, a
                 // repeated move hits softer — and a game that declares neither
                 // gets exactly `1.0` from both.
@@ -482,16 +459,12 @@ pub fn apply_hitbox_damage(
                 hit_events.write(HitEvent {
                     strike_sfx: hitbox.strike_sfx,
                     volume: world_volume.clone(),
-                    // ⚠ the DAMAGE stales with the launch. A move worn out that
+                    // the DAMAGE stales with the launch. A move worn out that
                     // still filled the percent meter at full rate would be half a
                     // mechanic — and `max(1)` keeps a fully stale hit a hit.
                     damage: ((hitbox.damage as f32 * stale).round() as i32).max(1),
                     source: source_kind.clone(),
                     attacker: Some(hitbox.owner),
-                    // The victim, named. ⛔ this used to fork on
-                    // `victim.is_player` to pick between two target variants —
-                    // a producer classifying its victim for the benefit of a
-                    // consumer's routing. The entity says it already.
                     target: HitTarget::Body(victim.entity),
                     mode: HitMode::Knockback,
                     knockback,
@@ -509,16 +482,7 @@ pub fn apply_hitbox_damage(
 
             // THE UNRESOLVED HALF OF THE SAME STRIKE.
             //
-            // The loop above resolved every real combat body by identity. It could
-            // not resolve two things that a swing nevertheless hits: a breakable,
-            // and a boss whose HP and phase live on an encounter rather than on a
-            // body carrying the combat cluster. Neither matches `StrikeVictim`, so
-            // neither has an entity this system may name — and when the player's
-            // melee stopped broadcasting, both stopped being hittable at all. That
-            // was the regression `boss_contact_iframes` and `rollback_exit_oracle`
-            // caught: the swing connected with nothing, all day, in both games.
-            //
-            // ⛔ so the broadcast is not restored as a second melee path. It is
+            // so the broadcast is not restored as a second melee path. It is
             // published as what it is — [`HitTarget::UnresolvedFeatures`], the part
             // of this strike whose targets are still unnamed — and the resolver
             // above stays the one authority on bodies. The consumer scans bosses
@@ -530,7 +494,7 @@ pub fn apply_hitbox_damage(
             // used to gate this emit — a read-model must never decide whether a
             // strike can damage, and that projection is rebuilt every frame.
             //
-            // ⭐ **EVERY body-owned melee publishes it, not just the player's.**
+            // **EVERY body-owned melee publishes it, not just the player's.**
             // The gate here was `matches!(source_kind, PlayerSlash)`, and that
             // one permission was standing in for a rule nobody had written down:
             // the boss scan applied no relationship policy, so "only the player
@@ -539,7 +503,7 @@ pub fn apply_hitbox_damage(
             // swing smashing a crate or reaching a boss is the body-generic
             // answer rather than a new special case.
             //
-            // ⚠ lifting it desynced the rollback suite, and the cause was NOT
+            // lifting it desynced the rollback suite, and the cause was NOT
             // where I predicted. `stage_player_victim_hit_events` staged this
             // unresolved half into the player-victim FIFO — its fallback arm
             // reads `!seeks_victims()`, and an enemy swing's cause is filed
@@ -566,10 +530,9 @@ pub fn apply_hitbox_damage(
         }
 
         match hitbox.source {
-            // A World-anchored Player strike is a fixed AOE (the wielded boss-
-            // style shockwave), not body-owned melee. Keep its broadcast semantics
-            // until that separate primitive is refactored: fire once per strike via
-            // the owner sentinel and let the feature resolver fan out the volume.
+            // Keep its broadcast semantics until that separate primitive is refactored: fire
+            // once per strike via the owner sentinel and let the feature resolver fan out the
+            // volume.
             HitSide::Player => {
                 debug_assert!(matches!(hitbox.anchor, HitboxAnchor::World { .. }));
                 if hits.hit.insert(hitbox.owner) {

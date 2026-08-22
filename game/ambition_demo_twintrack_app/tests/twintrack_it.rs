@@ -97,13 +97,6 @@ fn views(app: &mut App) -> Vec<(LocalViewId, ViewPlacement, Option<Entity>)> {
 
 /// **WHERE A PANE ACTUALLY POINTED**, read off the snapshot the camera resolve
 /// published for that view.
-///
-/// ⛔ **the outcome, not the mechanism.** These assertions used to read which
-/// `ViewSubject` component the view carried, which is a fact about how the demo
-/// spells its intent rather than about where the camera ended up — so they went
-/// red when the spelling changed to `ViewParticipant` and the framing did not
-/// move an inch. A pane following the wrong body has a different follow point,
-/// which is what both tests are really about.
 fn pane_follow_point(app: &mut App, id: LocalViewId) -> Option<Vec2> {
     let mut query = app.world_mut().query_filtered::<(
         &LocalViewId,
@@ -280,7 +273,7 @@ fn complete_light_tag(app: &mut App) {
     for expected_hit in 1..=LIGHT_TAG_ROUNDS {
         wait_for_transmitter(app);
         idle(app, 3);
-        // ⭐ **the TRAVELER's aim, named.** The targeting view holds one row per
+        // **the TRAVELER's aim, named.** The targeting view holds one row per
         // observer, and reading it through `Deref` takes the first row in label
         // order — which is the LABORATORY twin's, since Emmy became an observer
         // too. She stands at the other end of the plaza, so her intercept
@@ -763,7 +756,7 @@ fn dual_observer_view(app: &mut App) -> TwinTrackDualObserverView {
 /// Pin the traveler onto the beacons' midpoint with a chosen velocity and run
 /// until both observers have a reading of the same flash pair.
 ///
-/// ⚠ **re-pinned every tick on purpose.** Free flight drags the velocity down
+/// **re-pinned every tick on purpose.** Free flight drags the velocity down
 /// and carries the body off the midpoint, and both of those would quietly turn
 /// this into a test about distance instead of a test about frames.
 fn settle_dual_observer(app: &mut App, velocity: Vec2) -> TwinTrackDualObserverView {
@@ -772,7 +765,7 @@ fn settle_dual_observer(app: &mut App, velocity: Vec2) -> TwinTrackDualObserverV
         set_traveler_state(app, beacon_midpoint(), velocity);
         idle(app, 1);
         last = dual_observer_view(app);
-        // ⚠ **both panes must be reading ONE pair of events.** Two panes
+        // **both panes must be reading ONE pair of events.** Two panes
         // comparing two different flash pairs would "disagree" for a reason
         // that has nothing to do with relativity, so this is a precondition of
         // the measurement rather than part of it.
@@ -884,7 +877,7 @@ fn light_pulse_view(app: &mut App) -> TwinTrackLightPulseView {
 /// Pin the traveler onto the emitter with a chosen velocity and run until both
 /// observers are reading the SAME flare.
 ///
-/// ⚠ **re-pinned every tick for the same reason `settle_dual_observer` is.**
+/// **re-pinned every tick for the same reason `settle_dual_observer` is.**
 /// Free flight drags the velocity down, and a decayed velocity would turn a
 /// test about the second postulate into a test about a slow observer.
 fn settle_light_pulse(app: &mut App, velocity: Vec2) -> TwinTrackLightPulseView {
@@ -920,7 +913,7 @@ fn both_observers_measure_the_light_pulse_at_the_invariant_speed() {
         "the lab twin should be at rest, was {}",
         lab.beta
     );
-    // ⚠ a band, not a point. Flight drag bleeds a few units per tick off the
+    // a band, not a point. Flight drag bleeds a few units per tick off the
     // pinned velocity between the pin and the read, and pinning the number
     // exactly would make this a test about drag.
     assert!(
@@ -942,7 +935,7 @@ fn both_observers_measure_the_light_pulse_at_the_invariant_speed() {
     }
     assert!(view.speed_is_invariant_for_both());
 
-    // ⛔ the falsifier that makes this more than "the pulse moved": a fast
+    // the falsifier that makes this more than "the pulse moved": a fast
     // projectile would hand the traveler `c - v` for the ray it chases.
     let galilean = f64::from(INVARIANT_SPEED) * (1.0 - f64::from(traveler.beta));
     let chased = traveler.ray(PulseRay::TowardOmega).measured_speed;
@@ -1021,14 +1014,14 @@ fn the_two_observers_time_one_light_cone_arrival_differently() {
     );
 }
 
-/// **⛔⛔ TWO PARTICIPANTS, TWO BODIES, ONE SIMULATION — and each seat moves
+/// **TWO PARTICIPANTS, TWO BODIES, ONE SIMULATION — and each seat moves
 /// only its own.**
 ///
 /// The exhibit's whole claim is that two observers of one Minkowski simulation
-/// disagree, and until 2026-08-20 only one of those observers was a person: the
+/// disagree, and until only one of those observers was a person: the
 /// laboratory twin was a bare entity with a clock and no way to be driven.
 ///
-/// ⚠ **the falsifier is the OTHER body in every direction.** A composition that
+/// **the falsifier is the OTHER body in every direction.** A composition that
 /// routed both seats through one control frame — which is what a second
 /// participant that never got its own `InputParticipant` would degrade to —
 /// passes "the twin moved" and fails here, because the traveler moves with her.
@@ -1066,7 +1059,7 @@ fn each_seat_moves_its_own_body_and_leaves_the_others_alone() {
          {traveler_held}): the two seats are sharing one control frame",
     );
 
-    // And back the other way, in a FRESH plaza. ⚠ not a continuation of the run
+    // And back the other way, in a FRESH plaza. not a continuation of the run
     // above: free flight has drag rather than a brake, so a twin that was just
     // pushed for 45 ticks is still coasting, and "did the other body move" then
     // measures the previous phase instead of this one.
@@ -1097,14 +1090,13 @@ fn each_seat_moves_its_own_body_and_leaves_the_others_alone() {
     );
 }
 
-/// **⛔ THE SPLIT IS THE SHAPE OF THE GAME, not a view mode you have to find.**
+/// **THE SPLIT IS THE SHAPE OF THE GAME, not a view mode you have to find.**
 ///
-/// Jon's report (2026-08-20): *"I did not see a split screen in twin track."* It
 /// existed, as `TwinTrackViewMode::SplitObservers`, reachable only by walking to
 /// an in-world console and cycling it — and even then it was an opaque diagram
 /// over the top of one gameplay camera, not two gameplay views.
 ///
-/// ⚠ **the two placements must be DISJOINT, which is the part a shared rectangle
+/// **the two placements must be DISJOINT, which is the part a shared rectangle
 /// passes.** Two views both claiming the whole display draw on top of each other
 /// and look, from any single-view assertion, entirely healthy.
 #[test]
@@ -1138,7 +1130,7 @@ fn the_plaza_opens_split_between_its_two_participants() {
          {twin_pos} — it is following whatever the session is following, not \
          its own participant",
     );
-    // ⭐ and the LEFT pane names nobody on purpose: a view with no `ViewSubject`
+    // and the LEFT pane names nobody on purpose: a view with no `ViewSubject`
     // frames the session's controlled body, which is seat zero's — including
     // while that seat is possessing something else. Naming it here would be a
     // second answer to a question the engine already answers.
@@ -1148,12 +1140,7 @@ fn the_plaza_opens_split_between_its_two_participants() {
          on who seat zero is driving",
     );
 
-    // ⛔⛔ **AND THE CAMERAS ACTUALLY LOOK THERE.** A `ViewSubject` the resolve
-    // ignores is the exact defect this slice exists to remove: the followed
-    // body, the framing focus and the reference-frame down axis were resolved
-    // ONCE above the per-view loop, so N observers still shared one answer to
-    // *what is everybody looking at*. Two views naming two bodies must resolve
-    // two follow points.
+    // Two views naming two bodies must resolve two follow points.
     set_traveler_state(&mut app, LAB_POS + Vec2::new(900.0, 0.0), Vec2::ZERO);
     idle(&mut app, 4);
     let follows = follow_points(&mut app);
@@ -1177,15 +1164,14 @@ fn the_plaza_opens_split_between_its_two_participants() {
     );
 }
 
-/// **⚠ ONE CONTROLLER IS A COMPLETE, SUPPORTED SESSION.**
+/// **ONE CONTROLLER IS A COMPLETE, SUPPORTED SESSION.**
 ///
-/// Jon's ruling: *"If there is no second controller just let the second screen
 /// do nothing and have the character be uncontrolled"* — and then *"it will
 /// still be useful to watch it as an observer."* Both sentences are asserted
 /// here: nothing is driving the twin, so she does not move, and her pane keeps
 /// framing her regardless.
 ///
-/// ⛔ **the failure this forbids is a seat with no pad reading somebody ELSE's
+/// **the failure this forbids is a seat with no pad reading somebody ELSE's
 /// pad.** `assign_local_seat_devices` clears an association it cannot satisfy
 /// rather than falling back to any-pad, which is exactly the leafwing default
 /// that would have made player one's stick move both bodies.
@@ -1215,23 +1201,14 @@ fn with_nobody_in_the_second_seat_the_twin_stands_still_and_stays_watched() {
     );
 }
 
-/// **⛔⛔ A PANE BELONGS TO A PERSON, NOT TO A BODY.**
+/// **A PANE BELONGS TO A PERSON, NOT TO A BODY.**
 ///
-/// The second pane used to write `ViewSubject(laboratory_twin)` — Emmy, by
-/// entity — so it followed her and not participant one. The moment that
-/// participant possessed something else, transferred, or was handed a different
-/// body, the pane would sit on a body nobody was driving while the person it
-/// belongs to walked off camera. The FIRST pane already refused this mistake by
-/// naming nothing at all: a view with no subject frames the session's controlled
-/// body, which is *the entity holding `DrivingParticipant(PRIMARY)`*. Seat zero
-/// had a participant-following pane and nobody else had a way to say it.
-///
-/// ⚠ **the seat is moved directly rather than through a possession**, because
+/// **the seat is moved directly rather than through a possession**, because
 /// what is under test is the VIEW's resolution, not any particular way of
 /// changing who drives what. `DrivingParticipant` is the one authority either
 /// road goes through.
 ///
-/// ⭐ the two positions must DIFFER, or a pane that never moved would pass.
+/// the two positions must DIFFER, or a pane that never moved would pass.
 #[test]
 fn the_second_pane_follows_its_participant_to_a_new_body() {
     use ambition_demo_twintrack::LAB_TWIN_SLOT;
@@ -1286,16 +1263,9 @@ fn the_second_pane_follows_its_participant_to_a_new_body() {
     );
 }
 
-/// **⛔⛔ A SEAT COUNT WITHOUT AN ASSIGNMENT POLICY IS A DEAD SECOND SEAT.**
+/// **A SEAT COUNT WITHOUT AN ASSIGNMENT POLICY IS A DEAD SECOND SEAT.**
 ///
-/// Measured on real hardware before this test existed (Jon, 2026-08-20): *"I
-/// have a keyboard and controller hooked up to twin track, but they both control
-/// patent clerk, neither controls emmy."* Both seats existed and seat one was
-/// inert, because the default policy is `UnifiedPrimary` — every local device
-/// drives the primary participant — so the one pad joined the keyboard on seat
-/// zero instead of claiming seat one.
-///
-/// ⚠ **this asserts the DECLARATION, and says so.** The integration suite builds
+/// **this asserts the DECLARATION, and says so.** The integration suite builds
 /// without the `input` feature: there are no `InputParticipant`s, no gamepads and
 /// no device-assignment pass here, so it cannot watch a pad reach Emmy. What it
 /// can do is refuse to let the declaration go missing again. The mechanism the
@@ -1304,7 +1274,7 @@ fn the_second_pane_follows_its_participant_to_a_new_body() {
 /// `JoinToClaim`, one keyboard player beside one pad player puts the pad on
 /// SEAT TWO and makes the keyboard seat deaf to it.
 ///
-/// ⛔ and the retirement half is asserted too. Both resources are process-global
+/// and the retirement half is asserted too. Both resources are process-global
 /// and TwinTrack is one route in a host that also runs Mary-O and Smash.
 #[test]
 fn the_plaza_declares_two_seats_and_a_couch_policy_only_while_it_is_live() {
@@ -1344,7 +1314,7 @@ fn the_plaza_declares_two_seats_and_a_couch_policy_only_while_it_is_live() {
     );
 }
 
-/// **⛔⛔ THE PLAZA HAS TWO OBSERVERS, AND THEY SEE DIFFERENT SKIES.**
+/// **THE PLAZA HAS TWO OBSERVERS, AND THEY SEE DIFFERENT SKIES.**
 ///
 /// The per-observer optical and targeting views landed with ZERO adopters —
 /// every consumer read the first row through `Deref`, which is one observer's
@@ -1352,10 +1322,7 @@ fn the_plaza_declares_two_seats_and_a_couch_policy_only_while_it_is_live() {
 /// her own `RelativisticObserver2d`, so the resources publish two rows and the
 /// exhibit's claim is made of measured numbers rather than of a diagram.
 ///
-/// ⚠ **the falsifier is that the two rows must DISAGREE.** Two rows carrying the
-/// same numbers would mean the publisher had computed one image and copied it,
-/// which is exactly what the `Deref` did and what this replaces. They disagree
-/// because they must: the traveler is moving and the laboratory twin is not, so
+/// They disagree because they must: the traveler is moving and the laboratory twin is not, so
 /// they disagree about the light's arrival time, its direction and its colour.
 #[test]
 fn both_observers_publish_their_own_sky_and_the_two_disagree() {

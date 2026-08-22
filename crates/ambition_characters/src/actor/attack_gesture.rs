@@ -86,19 +86,14 @@ impl Default for AttackGestureTuning {
 
 /// **How far the brain pushes the stick for a move that is NOT a smash.**
 ///
-/// ⭐ between the body's `directional_deadzone` (0.5) and its `flick_threshold`
+/// between the body's `directional_deadzone` (0.5) and its `flick_threshold`
 /// (0.8), and both halves are load-bearing: below the deadzone the direction
 /// does not register at all and the press falls back to the neutral move; at or
 /// above the flick threshold [`crate::actor::attack_gesture::resolve_attack_gesture`]
 /// records a FLICK, and a press inside the flick window is a **smash whatever
 /// the strength hint says** (`strong_hint || recent_matches`).
 ///
-/// ⛔ so a brain that shoved the stick to 1.0 for every direction could not ask
-/// for a tilt at all — which is what it did until 2026-08-15, and why George's
-/// forward TILT was measured 8–12 times per match in the decision log while the
-/// body's own move ledger recorded `smash_forward`.
-///
-/// ⚠ the numbers it sits between are `AttackGestureTuning`'s DEFAULTS, and the
+/// the numbers it sits between are `AttackGestureTuning`'s DEFAULTS, and the
 /// brain cannot see a body's tuning. A body that retunes them far enough to
 /// swallow this deflection loses the CPU's tilts and keeps everything else; that
 /// is a coupling worth stating rather than a fact worth threading, because the
@@ -133,7 +128,7 @@ impl Default for AttackGestureState {
 
 /// Reduce an attack axis to a facing-relative direction. Vertical wins ties so
 /// a clear up/down aim is not lost to slight horizontal drift.
-/// ⚠ takes [`ae::LocalAxes`] rather than a bare `Vec2`: `axis.x * facing` is a
+/// takes [`ae::LocalAxes`] rather than a bare `Vec2`: `axis.x * facing` is a
 /// body-LOCAL side product, and reading a world vector here would pick the wrong
 /// tilt under any rotated gravity.
 pub fn attack_dir_from_axis(axis: ae::LocalAxes, facing: f32, deadzone: f32) -> AttackDir {

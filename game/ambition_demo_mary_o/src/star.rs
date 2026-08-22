@@ -1,17 +1,8 @@
 //! **The pocket quasar** — Mary-O's super-star.
 //!
-//! Jon: *"Super maryo needs a super-star equivalent? We already have a 'super
 //! star' invincibility music track ready to go. We need to use a shader for her
 //! invisible mode. … Her super star equivalent prop will be the 'cosmic quasar'
 //! or 'pocket quasar' or something like a big bright galaxy."*
-//!
-//! Every piece of that already existed except the one that connects them. The
-//! shader ([`crate::quasar_shader`]) has been waiting on `BodyOffense::invincible`
-//! since it landed; the art is the generated `super_mary_o_cosmic_quasar` prop;
-//! the music is the authored `invincible_maryo` score. What was missing is that
-//! **nothing in the workspace has ever written `BodyOffense::invincible`** — it
-//! was a field with no producer and no consumer outside the shader, so the
-//! overlay could not have drawn once. This module is its producer.
 //!
 //! ## Untouchable is a SET, so the star does not have to know about beats
 //!
@@ -48,8 +39,6 @@ pub const QUASAR_SPRITE: &str = "super_mary_o_cosmic_quasar";
 /// The quasar's half-extent — a round pickup, sized from the generated prop.
 pub const QUASAR_HALF: ae::Vec2 = ae::Vec2::new(13.0, 13.0);
 
-/// How long the star lasts. Classic-length: long enough to change how you play a
-/// screen, short enough that you feel it end. BLIND until Jon plays it.
 pub const STAR_SECONDS: f32 = 10.0;
 
 /// This beat's claim on the encounter layer's priority music tier, mirroring the
@@ -78,7 +67,6 @@ pub fn pocket_quasar() -> EquipmentRow {
 /// and harming what she touches. The engine knows both traits and neither knows
 /// about Mary-O.
 ///
-/// Jon: "There should be an elegant way to represent the idea of I'm invincible
 /// and I hurt everything I touch and compose those together." This line is that
 /// — adding a third trait later is a `.with()`, not a new mode.
 pub const COSMIC_QUASAR_SUPER_STATE: Empowerment =
@@ -156,10 +144,10 @@ mod tests {
                 },
             ))
             .id();
-        // The grant, and the engine's clock ordered behind it — the same two
-        // statements the real composition makes. The clock itself is no longer
-        // this harness's to schedule: `EmpowermentLifecyclePlugin` installs it
-        // in `EmpowermentExpiry`, which is the whole point of D152.
+        // The grant, and the engine's clock ordered behind it — the same two statements the
+        // real composition makes. The clock itself is no longer this harness's to schedule:
+        // `EmpowermentLifecyclePlugin` installs it in `EmpowermentExpiry`, which is the whole
+        // point of.
         app.add_systems(Update, begin_star_power);
         app.add_plugins(
             ambition_platformer2d::actors::features::empowerment::EmpowermentLifecyclePlugin,

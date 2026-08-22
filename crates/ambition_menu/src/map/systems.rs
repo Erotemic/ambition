@@ -6,7 +6,7 @@
 use bevy::prelude::*;
 
 use super::MapMenuState;
-// ⚠ only `populate_map_rooms` builds one, and that is behind `ldtk`.
+// only `populate_map_rooms` builds one, and that is behind `ldtk`.
 #[cfg(feature = "ldtk")]
 use super::MapRoomNode;
 

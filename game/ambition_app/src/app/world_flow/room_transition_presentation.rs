@@ -40,17 +40,6 @@ const ROOM_TRANSITION_EXPERIENCE: &str = "ambition.room-transition";
 /// One member ([`drive_room_transition_presentation`]), and it exists so the
 /// ordering against the presentation floor's census is a NAMED, testable edge
 /// rather than an attribute nobody can check.
-///
-/// ⛔ the edge it carries is not optional. The cover retires when
-/// [`ambition_platformer2d::render::rendering::UnclaimedFeatureViews`] is empty;
-/// that is a `Resource`, so reading it before its publisher runs yields LAST
-/// FRAME's answer, and a one-frame-stale zero retires the cover during exactly
-/// the gap it exists to hide.
-/// `room_boundary_unclaimed_views::the_room_transition_cover_is_ordered_after_the_unclaimed_census`
-/// pins both halves — that the edge exists, and that both ends have members in
-/// `Update`, because a cross-schedule `.after` is silently vacuous in Bevy.
-/// ⚠ removing the `configure_sets` below makes that test fail; measured
-/// 2026-08-09, not assumed.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct RoomTransitionCoverSet;
 
@@ -114,7 +103,6 @@ pub(crate) struct RoomTransitionTimingSample {
     pub(crate) loading_foreground_visible_duration: Duration,
 }
 
-/// Bounded evidence for transition budgeting and regression probes.
 #[derive(Resource, Debug)]
 pub(crate) struct RoomTransitionTelemetry {
     samples: VecDeque<RoomTransitionTimingSample>,
@@ -248,7 +236,7 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
             (
                 contribute_room_transition_assets_system,
                 poll_room_transition_asset_readiness_system,
-                // ⛔ **the census must be THIS frame's.** The presentation floor
+                // **the census must be THIS frame's.** The presentation floor
                 // republishes `UnclaimedFeatureViews` at the tail of the visual
                 // chain; the cover retires on it being empty. Both ends are in
                 // `Update` — checked, not assumed, because an `.after` across
@@ -296,7 +284,7 @@ fn drive_room_transition_presentation(
     // Features the sim published that no render family has drawn yet. The cover
     // waits on these: see the retirement block below.
     //
-    // ⛔ **NOT the magenta placeholders.** That marker is a diagnostic with a
+    // **NOT the magenta placeholders.** That marker is a diagnostic with a
     // grace period, so its population is deliberately EMPTY during the first
     // frames of a room draw — precisely the frames the cover must not retire in.
     // See `UnclaimedFeatureViews`, and `RoomTransitionCoverSet` for the ordering
@@ -425,29 +413,20 @@ fn drive_room_transition_presentation(
 
     // **PRESENTABLE, not merely committed.**
     //
-    // One update after commit was the old condition, and it is enough for a room
-    // whose visuals all spawn in that update. It is not a general condition:
-    // render families spawn through `Commands`, and a room with many actors takes
-    // several flushes to draw. `draw_unclaimed_feature_views` fills the gap with a
-    // deliberately-ugly magenta box — a DIAGNOSIS, per its own docs — so retiring
-    // the cover here showed the player that diagnosis as a stage of loading.
+    // It is not a general condition: render families spawn through `Commands`, and a room with
+    // many actors takes several flushes to draw. `draw_unclaimed_feature_views` fills the gap
+    // with a deliberately-ugly magenta box — a DIAGNOSIS, per its own docs — so retiring the
+    // cover here showed the player that diagnosis as a stage of loading.
     //
-    // Jon, 2026-07-30, on the Hall: *"It flashes squares, which then flash the
     // placeholder sprite, and then it flashes to the characters. It looks
     // disorienting. its not smooth. It doesn't work. It would just be better to
     // have a loading screen if the load is going to take a hot second."* And on
     // the way out too, because leaving is another transition.
     //
-    // ⚠ this is a retirement condition, NOT a commit precondition, and the
-    // difference is load-bearing: the target room's feature views do not exist
-    // until it commits, so a barrier that waited for them before committing would
-    // wait forever.
-    //
-    // ⭐ **it counts UNDRAWN VIEWS, not magenta boxes, and that distinction is
-    // the 2026-08-09 fix.** Counting boxes meant the cover could not tell "the
+    // **it counts UNDRAWN VIEWS, not magenta boxes, and that distinction is
+    // the fix.** Counting boxes meant the cover could not tell "the
     // art has not arrived yet" from "the art will never arrive", because the box
     // is a diagnosis of the second and was being read as evidence of the first.
-    // Jon saw magenta on ordinary room changes while this cover logged ZERO
     // give-ups — the two facts were both true because the thing it waited on was
     // never the thing it needed to know.
     let unsettled = unclaimed.len();
@@ -456,9 +435,7 @@ fn drive_room_transition_presentation(
         .map(|committed| time.elapsed().saturating_sub(committed))
         .unwrap_or_default();
     if unsettled > 0 {
-        // ⛔ never a hang. A feature that NO family will ever claim is a real bug
-        // this diagnostic exists to show, and holding a black screen over it
-        // forever would hide the bug behind a worse one.
+        // never a hang.
         if since_commit < config.presentation_settle_deadline {
             return;
         }
@@ -577,18 +554,14 @@ fn handle_room_transition_presentation_events(
                 // extra confirmation after readiness.
             }
             LoadPresentationEvent::RetryRequested { .. } => {
-                // ⭐⭐ **RETRY RE-ISSUES NOTHING, and that is the whole change.**
+                // **RETRY RE-ISSUES NOTHING, and that is the whole change.**
                 //
-                // It re-minted a `RoomTransitionRequested` from the failed
-                // transaction — a description that could not name a body, so a
-                // retry after a possession change transited whoever was driving
-                // by then. The crossing is now a `PendingLifecycleCommit` record
-                // that only a SUCCESSFUL commit clears (D71), so the intent this
-                // transaction failed on is still sitting there, subject included.
-                // Dropping the transaction is the entire retry: `begin` opens a
-                // fresh one for the same crossing on the next frame.
+                // It re-minted a `RoomTransitionRequested` from the failed transaction — a
+                // description that could not name a body, so a retry after a possession change
+                // transited whoever was driving by then. Dropping the transaction is the entire
+                // retry: `begin` opens a fresh one for the same crossing on the next frame.
                 //
-                // ⛔ and re-recording it would have been worse than redundant.
+                // and re-recording it would have been worse than redundant.
                 // `PendingLifecycleCommit` is ROLLBACK STATE and this system runs
                 // in `Update`, which never rewinds — writing it here would drift
                 // from the peers' copy on every rewind, silently.
@@ -606,38 +579,26 @@ fn handle_room_transition_presentation_events(
                     owner: expected_owner,
                 });
             }
-            // ⛔⛔ **CANCEL IS RETRY WEARING ANOTHER NAME, AND THE CROSSING
-            // CANNOT BE ABANDONED FROM HERE AT ALL.** Censused 2026-08-15 (D71's
-            // cancellation asymmetry). What abandonment needs is for the
-            // `PendingLifecycleCommit` intent to STOP being pending — and the
-            // arm above spells out why this system may not do that: the intent is
-            // ROLLBACK STATE and this runs in `Update`, which never rewinds, so a
-            // write here drifts from the peers' copy silently. So this arm does
-            // the only thing it can — drop the transaction — and
-            // `begin_room_transition_load_system` sees the same still-pending
-            // intent on the very next frame and opens an identical transaction,
-            // new sequence and all. Escape during a Hall load therefore RESTARTS
-            // the load (discarding a prepared plan and its asset manifest); it
-            // does not leave it. `shell_actions.back` is ungated by phase
-            // (`basic_load_keyboard`), so this is reachable throughout, not only
-            // on a failure.
+            // What abandonment needs is for the `PendingLifecycleCommit` intent to STOP being
+            // pending — and the arm above spells out why this system may not do that: the intent is
+            // ROLLBACK STATE and this runs in `Update`, which never rewinds, so a write here drifts
+            // from the peers' copy silently. So this arm does the only thing it can — drop the
+            // transaction — and `begin_room_transition_load_system` sees the same still-pending
+            // intent on the very next frame and opens an identical transaction, new sequence and
+            // all. Escape during a Hall load therefore RESTARTS the load (discarding a prepared
+            // plan and its asset manifest); it does not leave it. `shell_actions.back` is ungated
+            // by phase (`basic_load_keyboard`), so this is reachable throughout, not only on a
+            // failure.
             //
-            // ⚠ **the asymmetry is real and is NOT fixed by clearing the intent
-            // from here.** Every other route that abandons a crossing does it
-            // INSIDE the simulation, where a retraction rewinds with everything
-            // else: a void crossing is dropped by `commit_confirmed_lifecycle`'s
-            // `CommitOutcome::Cancelled`, and a corrected input that erases the
-            // trigger un-records the intent as ordinary rollback state. A player
-            // pressing Escape is a player INTENT, and the deterministic channel
-            // for one is the input stream the sim already reads — not a
-            // presentation message, which `clear_message_on_rollback` wipes. That
-            // is a slice with a design decision in it (does a crossing become
-            // abandonable at all, or is a transition committed-on-request once the
-            // body has crossed the zone?), so it is NAMED here rather than
-            // improvised: the honest answer today is that a room transition is
-            // committed on request, and this arm is a restart button.
+            // A player pressing Escape is a player INTENT, and the deterministic channel for one is
+            // the input stream the sim already reads — not a presentation message, which
+            // `clear_message_on_rollback` wipes. That is a slice with a design decision in it (does
+            // a crossing become abandonable at all, or is a transition committed-on-request once
+            // the body has crossed the zone?), so it is NAMED here rather than improvised: the
+            // honest answer today is that a room transition is committed on request, and this arm
+            // is a restart button.
             //
-            // ⚠ Quit rides the same arm and wants the same drop for a different
+            // Quit rides the same arm and wants the same drop for a different
             // reason — it is leaving the session, so the transaction must not
             // outlive it.
             LoadPresentationEvent::CancelRequested { .. }

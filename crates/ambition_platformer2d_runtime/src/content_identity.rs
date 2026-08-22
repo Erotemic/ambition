@@ -241,8 +241,6 @@ impl PreparedContentBuilder {
 }
 
 /// Exact immutable prepared definition attached to the canonical session root.
-/// The `Arc` is authoritative shared ownership, not a synchronized mirror: no
-/// mutation API exists and candidates remain detached until commit.
 #[derive(Component, Clone)]
 pub struct PreparedContent(Arc<PreparedContentData>);
 

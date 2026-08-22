@@ -66,7 +66,7 @@ pub struct RulesetOwnsDeath;
 
 /// **This body is IN a fight right now.**
 ///
-/// ⛔ **the engine had TWO proxies for this fact and neither one was it.**
+/// **the engine had TWO proxies for this fact and neither one was it.**
 /// [`CombatStanding::of`] asked [`RulesetOwnsDeath`] — which answers *"who owns
 /// the consequence when this body dies"*, a different question that happens to
 /// correlate in today's Smash implementation. The stand-down guard in
@@ -75,14 +75,14 @@ pub struct RulesetOwnsDeath;
 /// down, or standing on the slot board with no stocks left, and no single thing
 /// could be asked whether it was fighting.
 ///
-/// ⭐ **presence is the whole component**, and its lifecycle is the two moments
+/// **presence is the whole component**, and its lifecycle is the two moments
 /// that already decide this: a ruleset attaches it when it enters a body into a
 /// fight (`prepared_match`'s seating, beside [`RulesetOwnsDeath`]) and removes it
 /// when the body is out (`spend_fighter_stocks`, with
 /// [`FighterEliminated`](crate::stocks::FighterEliminated)). Any other ruleset —
 /// rounds, lives, a training mode, a pre-round freeze — has the same two moments.
 ///
-/// ⚠ **it is not a disposition and must never become one.**
+/// **it is not a disposition and must never become one.**
 /// [`ActorDisposition`] is an AI/SOCIAL fact — does this actor chase and attack —
 /// and the state a platform fighter is in for most of a round is the one that was
 /// inexpressible while those were one field:
@@ -95,7 +95,6 @@ pub struct ActiveCombatant;
 
 /// **How many times this fighter may still be killed.** (Smash Siblings)
 ///
-/// Jon's spec for the mode is *"3 stock, no items"* and *"when you lose your
 /// stock you are dead"* — so a death spends one and elimination is running out,
 /// not a health bar reaching zero.
 ///
@@ -172,7 +171,7 @@ impl ActorDisposition {
 /// **Why a body is in a fight**, which is not the same question as how it feels
 /// about anybody.
 ///
-/// ⛔ **[`ActorDisposition`] was answering two questions, and one of them was
+/// **[`ActorDisposition`] was answering two questions, and one of them was
 /// not its own.** `apply_actor_hit` reads the
 /// disposition first: a `Peaceful` body takes NO health damage — it accumulates
 /// strikes and barks instead, which is exactly right for a town NPC and exactly
@@ -182,7 +181,7 @@ impl ActorDisposition {
 /// BRAIN, so two participant-driven fighters hold no target, both stood down to
 /// `Peaceful`, and neither could hurt the other.
 ///
-/// ⭐ **the two facts that answer it, together.** A ruleset owning a body's
+/// **the two facts that answer it, together.** A ruleset owning a body's
 /// death is a stated decision — two people entered this fighter into a match —
 /// and it outranks whatever the AI currently thinks. Social hostility answers
 /// for everybody else. What was inexpressible before, and is the state a
@@ -207,13 +206,9 @@ pub enum CombatStanding {
 impl CombatStanding {
     /// `active_combatant` is the [`ActiveCombatant`] marker.
     ///
-    /// ⛔ **this used to ask `RulesetOwnsDeath`, and the two are different
-    /// questions.** That one answers *"who owns the consequence when this body
-    /// dies"*; it correlates with being in a fight in today's Smash
-    /// implementation and does not mean it. A pre-round fighter, an eliminated
-    /// one, a training dummy and a ruleset-managed body outside an active phase
-    /// each break the correlation, and the eliminated case is reachable today —
-    /// the body stays standing until a ruleset removes it.
+    /// A pre-round fighter, an eliminated one, a training dummy and a ruleset-managed body outside
+    /// an active phase each break the correlation, and the eliminated case is reachable today — the
+    /// body stays standing until a ruleset removes it.
     pub fn of(disposition: ActorDisposition, active_combatant: bool) -> Self {
         if active_combatant {
             Self::Combatant
@@ -231,7 +226,6 @@ impl CombatStanding {
         matches!(self, Self::Combatant)
     }
 
-    /// Whether a landed hit takes health, rather than provoking.
     pub fn takes_damage(self) -> bool {
         !matches!(self, Self::Bystander)
     }
@@ -273,7 +267,7 @@ pub struct ActorSpriteOffset(pub ae::Vec2);
 /// from THIS size; absent ⇒ it publishes from `kin.size` (the ordinary actor,
 /// whose collision box IS its footprint).
 ///
-/// This is the envelope split (fable-review-2026-07-04 AJ5.1): a giant boss has
+/// This is the envelope split: a giant boss has
 /// a composite render/whole-creature envelope much larger than its collision
 /// box, and that envelope — not the collision box — is the coarse hurtbox a
 /// duelist's swing must overlap. Making the divergence an explicit component
@@ -375,17 +369,11 @@ pub struct CombatKit {
     pub innate_melee: Option<ambition_characters::brain::MeleeActionSpec>,
     pub innate_ranged: Option<ambition_characters::brain::RangedActionSpec>,
     /// The innate SPECIAL, and it has to be here for the same reason the other
-    /// two are (GPT 5.6, 2026-07-29).
+    /// two are.
     ///
-    /// ⚠ this field was missing while the type was documented as *the durable
-    /// source of capability*, and `to_action_set` rebuilt the rest of the set
-    /// through `..Default::default()` — so `special` came back `None`. Three
-    /// production paths reconstruct a live `ActionSet` from this baseline
-    /// (autonomous/peaceful reconciliation, brain command-mode changes, and
-    /// mount/dismount), and each of them silently revoked a character's special
-    /// the first time it ran. The `ActorMoveset` timeline survived, so the move
-    /// still EXISTED and the brain simply stopped knowing it could press it —
-    /// a capability loss with no error and no missing animation.
+    /// Three production paths reconstruct a live `ActionSet` from this baseline
+    /// (autonomous/peaceful reconciliation, brain command-mode changes, and mount/dismount),
+    /// and each of them silently revoked a character's special the first time it ran.
     pub innate_special: Option<ambition_characters::brain::SpecialActionSpec>,
     pub move_style: ambition_characters::brain::MoveStyleSpec,
 }
@@ -900,10 +888,8 @@ mod combat_kit_tests {
     /// dropped `special`, because `to_action_set` filled the rest of the struct
     /// with `..Default::default()`.
     ///
-    /// The failure had no symptom to look for: the `ActorMoveset` timeline
-    /// survives, so the special still exists and merely stops being pressed.
-    /// Asserting the whole round trip is the only shape that catches the NEXT
-    /// field somebody adds to `ActionSet` and forgets here.
+    /// Asserting the whole round trip is the only shape that catches the NEXT field somebody adds
+    /// to `ActionSet` and forgets here.
     #[test]
     fn the_durable_kit_round_trips_every_capability_including_the_special() {
         let authored = ActionSet {
@@ -930,7 +916,7 @@ mod combat_kit_tests {
 
     /// **The state a platform fighter is in for most of a round.**
     ///
-    /// ⛔ it was inexpressible while one field answered two questions: a fighter
+    /// it was inexpressible while one field answered two questions: a fighter
     /// somebody entered into a match had to be socially `Hostile` merely to be
     /// damageable, and AI targeting hunts live foes for a BRAIN — so two
     /// human-driven fighters held no target, both stood down to `Peaceful`, and
@@ -963,11 +949,9 @@ mod combat_kit_tests {
     /// **Being in a fight is not the same fact as whose business your death
     /// is**, and the eliminated fighter is where the two come apart.
     ///
-    /// ⚠ `CombatStanding::of` used to be handed `RulesetOwnsDeath`. An
-    /// eliminated fighter still carries that marker — the match still owns its
-    /// KO — and its body stays standing until a ruleset removes it, so it went
-    /// on being a damageable combatant with no stocks left, holding attack state
-    /// and a place on the anti-clump board.
+    /// An eliminated fighter still carries that marker — the match still owns its KO — and its body
+    /// stays standing until a ruleset removes it, so it went on being a damageable combatant with
+    /// no stocks left, holding attack state and a place on the anti-clump board.
     #[test]
     fn an_eliminated_fighter_is_no_longer_a_combatant() {
         // Elimination removes the participation marker and leaves death

@@ -1,11 +1,10 @@
 //! **The spikes cost rings, not the run** — driven through the real headless
 //! demo, on the real speedway geometry.
 //!
-//! Jon, from play: *"Sanic hitting the spikes should not be an insta kill. It
 //! should hurt him and knock out his rings. Sanic should only die after getting
 //! hit with 0 rings."*
 //!
-//! ⛔ **the ring shield was never the broken part.** It is implemented and
+//! **the ring shield was never the broken part.** It is implemented and
 //! pinned (`ambition_demo_sanic::tests` — a hit with rings never reaches HP, it
 //! costs every ring, and they scatter as real collectible pickups). What did not
 //! happen was the HIT: the mid-course strip was authored as a `HazardBlock`,
@@ -13,7 +12,7 @@
 //! rings was returned to the start line with his purse intact and the shield
 //! never heard about it. The strip is a `DamageVolume` now.
 //!
-//! ⚠ **this asserts the four cases as a SET, and each one poisons a different
+//! **this asserts the four cases as a SET, and each one poisons a different
 //! wrong fix.** Making the pit hurt instead of reset passes the first case and
 //! fails the third. Removing the strip passes the first two and fails all four
 //! by making them vacuous, which is why every case also proves the strip was
@@ -46,12 +45,12 @@ struct Outcome {
     /// the player still has rings.
     sent_home: bool,
     /// How many times the engine published its authoritative *"the local
-    /// player's attempt ended"* fact. ⚠ this is what separates the two ways of
+    /// player's attempt ended"* fact. this is what separates the two ways of
     /// being sent home: the pit's reset and a lethal hit both move the body, and
     /// only [`ActorDiedMessage`] says the difference out loud.
     deaths: usize,
     /// Furthest right the body's leading EDGE got, so a case cannot pass by
-    /// never arriving. ⚠ the edge, not the centre: a 30px-wide body touches the
+    /// never arriving. the edge, not the centre: a 30px-wide body touches the
     /// strip with 15px still to go, and a centre-based check called the
     /// zero-ring death "vacuous" at max_x=5640 of a strip starting at 5648.
     max_right: f32,
@@ -72,9 +71,6 @@ fn boot() -> App {
     let mut app = build_demo_app();
     app.init_resource::<DeathsSeen>();
     app.add_systems(Last, count_deaths);
-    // A fixed-tick host without a pinned clock runs a machine-speed-dependent
-    // number of ticks per update, and the same script would then cover a
-    // different distance on every run.
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
@@ -130,18 +126,15 @@ fn displace(app: &mut App, to: Vec2) {
 
 /// **Hold Right, in a way that does not depend on which composition this is.**
 ///
-/// ⛔⛔ **THIS WAS A TWO-ARM `#[cfg(feature = "input")]` FORK, AND THE CFG READ
-/// THE WRONG CRATE'S FEATURE.** The arm that writes `ControlFrame` directly was
-/// selected by THIS crate's `input` flag, while the thing that overwrites such a
-/// write is `ambition_platformer2d/input` — the participant pipeline in the
-/// dependency, which workspace feature unification turns on regardless. So the
-/// file compiled either way and the two arms did not correspond to the two
-/// compositions at all: under `-p ambition_demo_sanic_app -p ambition_app`, all
-/// four cases walked to x=5615 of the strip at x=5648 and reported themselves
-/// vacuous. The prescribed per-crate test command never selected that
-/// composition, so the gate had reported them green since 2026-08-09.
+/// **THIS WAS A TWO-ARM `#[cfg(feature = "input")]` FORK, AND THE CFG READ THE WRONG CRATE'S
+/// FEATURE.** The arm that writes `ControlFrame` directly was selected by THIS crate's `input`
+/// flag, while the thing that overwrites such a write is `ambition_platformer2d/input` — the
+/// participant pipeline in the dependency, which workspace feature unification turns on regardless.
+/// So the file compiled either way and the two arms did not correspond to the two compositions at
+/// all: under `-p ambition_demo_sanic_app -p ambition_app`, all four cases walked to x=5615 of the
+/// strip at x=5648 and reported themselves vacuous.
 ///
-/// ⭐ **there is one seam now and it is composition-independent by
+/// **there is one seam now and it is composition-independent by
 /// construction**: `scripted_input` writes after the pipeline's routing stage
 /// and before the frame→tick latch, so it wins under a build that HAS a
 /// device bridge and works unchanged under one that does not. No cfg, no arms,
@@ -230,16 +223,11 @@ fn walk_right_into(from_x: f32, rings: i32, super_form: bool, frames: usize) -> 
             out.sent_home = true;
             break;
         }
-        // ⚠ **stop at the FIRST thing that happens to him.** Running on past a
-        // successful hit re-collects the rings he just dropped (they are real
-        // pickups and he is still holding Right), and the first draft of this
-        // read 14 rings back at the finish line and called the spend a failure.
-        // ⚠ **unless he DIED, in which case keep going** (ADR 0033). The reset
-        // is a CONSEQUENCE now rather than a same-frame reflex inside the hit
-        // resolver, so the frame his HP changes is no longer the frame he
-        // arrives back at the start line — the two used to coincide, and the
-        // `sent_home` check above happened to win the race. The ring-recollection
-        // hazard this break exists for cannot bite on a death: he is out of play
+        // **stop at the FIRST thing that happens to him.** Running on past a successful hit
+        // re-collects the rings he just dropped (they are real pickups and he is still holding
+        // Right), and the first draft of this read 14 rings back at the finish line and called the
+        // spend a failure. **unless he DIED, in which case keep going** (ADR 0033). The
+        // ring-recollection hazard this break exists for cannot bite on a death: he is out of play
         // and the level is about to be put back.
         if out.deaths == 0 && (out.rings != rings || out.hp != hp0) {
             break;
@@ -253,14 +241,6 @@ fn walk_right_into(from_x: f32, rings: i32, super_form: bool, frames: usize) -> 
 }
 
 /// Every case must actually reach the strip, or it proves nothing about it.
-///
-/// ⚠ **`sent_home` also counts as arriving.** The last position sampled before
-/// a reset is the frame BEFORE it, so a body teleported on contact records a
-/// leading edge two pixels short of the strip it just touched — measured at
-/// 5646 of 5648 during the poison run that re-authored the strip as a
-/// `HazardBlock`. Requiring the edge unconditionally would have reported the
-/// real regression as "this case is vacuous", which is a true sentence about
-/// the wrong thing.
 fn assert_reached_the_strip(what: &str, out: &Outcome) {
     assert!(
         out.max_right >= SPIKES_LEFT_X || out.sent_home,

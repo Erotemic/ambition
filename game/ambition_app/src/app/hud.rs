@@ -93,8 +93,6 @@ pub(super) fn update_hud(
     let _quest_registry = &progression.quests;
     let cutscene = &progression.cutscene;
     let map_state = &progression.map;
-    // The HUD text root is the one session-scoped `HudText` entity — discovered
-    // by marker, not through a process-global handle that dangles post-teardown.
     let Ok(mut text) = query.single_mut() else {
         return;
     };

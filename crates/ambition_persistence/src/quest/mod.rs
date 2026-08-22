@@ -1,10 +1,8 @@
 //! Quest data types and progression rules.
 //!
-//! A quest is a fixed-order list of named steps. Progression is driven
-//! by *advance events* (the sandbox feeds them in from gameplay):
-//! talking to an NPC, defeating a boss, picking up an item, entering a
-//! room. Each step declares the events that satisfy it; when the
-//! current step's predicate is met, the quest advances.
+//! Progression is driven by *advance events* (the sandbox feeds them in from gameplay): talking
+//! to an NPC, defeating a boss, picking up an item, entering a room. Each step declares the
+//! events that satisfy it; when the current step's predicate is met, the quest advances.
 //!
 //! This module is intentionally Bevy-free so the same data can be
 //! serialized into the save file (`PersistedQuest`) and used from
@@ -342,11 +340,8 @@ mod tests {
         assert!(!cond.matches(&QuestAdvanceEvent::NpcTalked("librarian".into())));
     }
 
-    /// Full 6×6 matrix: each condition kind matches *only* its
-    /// corresponding event kind (same id), and nothing else. Guards every
-    /// arm of `QuestStepCondition::matches` against a copy-paste that pairs
-    /// a condition with the wrong event variant — the kind of silent quest
-    /// bug that strands progression.
+    /// Full 6×6 matrix: each condition kind matches *only* its corresponding event kind (same
+    /// id), and nothing else.
     #[test]
     fn every_step_condition_matches_only_its_own_event_kind() {
         use QuestAdvanceEvent as E;
@@ -392,8 +387,6 @@ mod tests {
     }
 }
 
-/// Feed a structured quest event into `QuestRegistry`. (Moved here from the
-/// combat event roster at E2 — quest owns its advance vocabulary; the writers
-/// are the interact/bus/pickup glue systems.)
+/// Feed a structured quest event into `QuestRegistry`.
 #[derive(bevy::prelude::Message, Clone, Debug, PartialEq)]
 pub struct QuestAdvanceRequested(pub QuestAdvanceEvent);

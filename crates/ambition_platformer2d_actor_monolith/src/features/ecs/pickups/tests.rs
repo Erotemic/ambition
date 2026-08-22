@@ -179,8 +179,6 @@ fn collect_is_a_noop_with_no_player() {
     );
 }
 
-/// **A pickup with no magnet does not move**, which is the whole change: the
-/// engine used to attract every pickup in every game.
 #[test]
 fn a_pickup_that_declares_no_magnet_stays_where_it_landed() {
     let mut app = App::new();

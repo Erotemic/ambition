@@ -115,12 +115,9 @@ impl BodyPresentationSource {
 /// Marks a [`BodyPresentationSource`] the per-tick DERIVATION granted, and may
 /// therefore retract.
 ///
-/// Without this the derivation cannot tell "a body that stopped wearing a character,
-/// whose claim on that provider must be dropped" from "an entity whose source came
-/// from somewhere else entirely" — and it would delete the second one. A projectile
-/// inherits its firer's source at spawn and has no worn character of its own, so
-/// under a single unmarked component every bolt lost its provenance on the tick
-/// after it was fired, and impacted in the session's voice.
+/// A projectile inherits its firer's source at spawn and has no worn character of its own, so
+/// under a single unmarked component every bolt lost its provenance on the tick after it was
+/// fired, and impacted in the session's voice.
 ///
 /// So: the derivation retracts only what the derivation granted. Anything else that
 /// stamps a source owns its lifetime, which for a projectile is exactly the
@@ -302,13 +299,11 @@ impl BodySfxWriter<'_, '_> {
     /// Emit a cue owned by a named CONTENT PROVIDER rather than by a body or by
     /// the session.
     ///
-    /// The third case, and the one that was missing. A course's own furniture
-    /// makes sound that no body caused: Sanic's distance markers and act-clear
-    /// fanfare, a monitor popping, a Mary-O brick smashing. None of those belong
-    /// to a character, so `write_for` is wrong; none of them belong to whoever is
-    /// HOSTING, so `write_global` is wrong too — under a shell host that is the
-    /// launcher's provider, and a crossover session would hear the wrong bank
-    /// answer for the course's own cues.
+    /// A course's own furniture makes sound that no body caused: Sanic's distance markers and
+    /// act-clear fanfare, a monitor popping, a Mary-O brick smashing. None of those belong to a
+    /// character, so `write_for` is wrong; none of them belong to whoever is HOSTING, so
+    /// `write_global` is wrong too — under a shell host that is the launcher's provider, and a
+    /// crossover session would hear the wrong bank answer for the course's own cues.
     ///
     /// Ownership still comes from the active session context, exactly as
     /// [`SfxWriter::write_from`] does: naming a source says who authored the

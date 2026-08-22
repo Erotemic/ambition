@@ -86,12 +86,6 @@ fn the_player_robot_fights_the_player_with_its_own_full_kit() {
     // Drop the protagonist's own body a medium stride away — far enough to open
     // with the signature Hadouken, close enough to then melee the human.
     let (p, start_hp) = player(sim.world_mut());
-    // ⭐ **THE CHARACTER, not the archetype** (ledger D83). This named
-    // `player_robot` — an eighty-line row holding the robot's body, its
-    // controller policy and a respawn rule at once — and got its fight from
-    // there. The body and the policy live on the lineage now, and the kit is
-    // the character's `robot_duelist_kit`, so the fight this test measures is
-    // the one the CHARACTER describes.
     sim.spawn_enemy_character_at(
         ROBOT_ID,
         "Player",

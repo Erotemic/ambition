@@ -48,11 +48,7 @@ pub struct ResolvedReference {
 
 /// A stable 64-bit content fingerprint.
 ///
-/// FNV-1a over the canonical bytes, hand-rolled rather than pulled from a
-/// crate: it must be identical on every platform and across every toolchain
-/// version, and `DefaultHasher` explicitly is not (it is randomised per process
-/// and unstable across releases). Determinism is the entire point — this repo
-/// already treats a moving hash as a desync.
+/// Determinism is the entire point — this repo already treats a moving hash as a desync.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ContentFingerprint(pub u64);
 

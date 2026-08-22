@@ -182,13 +182,8 @@ pub fn fire_dive_system(
     // The dash corridor cuts everything between start and landing — a one-shot
     // PlayerSlash volume (spares the player, shoves enemies along the dash).
     //
-    // ⭐ **the shove is a real `HitKnockback` now, and it arrives at its authored
-    // strength.** It used to ride `HitSource::Melee { knock_x }`, a second
-    // physics channel this was the only producer for — and the consumer read only
-    // its SIGN, substituting `FeelScale(1.0)`, so `DIVE_KNOCKBACK` had no effect
-    // on anything for as long as the channel existed. ⚠ **so the shove is 1.4×
-    // what shipped**: that is the authored number finally being used, not a new
-    // one, and it is a constant above if it wants tuning.
+    // **so the shove is 1.4× what shipped**: that is the authored number finally being used,
+    // not a new one, and it is a constant above if it wants tuning.
     let corridor: ambition_platformer2d_core::CombatVolume = dive_corridor(from, target).into();
     let corridor_center = corridor.center();
     hits.write(crate::features::HitEvent {

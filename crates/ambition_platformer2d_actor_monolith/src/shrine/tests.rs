@@ -117,7 +117,7 @@ fn no_heal_without_interact_or_when_not_touching() {
 /// The shrine claimed both halves and delivered neither: it called
 /// `save.set_changed()` on a value it never modified — which the value-comparing
 /// autosave correctly ignores — and there was no checkpoint field to write into
-/// even if the marker had worked (GPT 5.6, 2026-07-27). It healed, logged
+/// even if the marker had worked. It healed, logged
 /// "healed to full + saved", and persisted nothing.
 ///
 /// Both halves in one test on purpose. Either alone is worthless: a checkpoint
@@ -244,9 +244,7 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
     );
 }
 
-/// A checkpoint recorded in ANOTHER room must not be applied here. Teleporting a
-/// body to coordinates from a different room is the exact failure the room id
-/// exists to prevent, and it is the failure mode a position-only checkpoint has.
+/// A checkpoint recorded in ANOTHER room must not be applied here.
 #[test]
 fn a_checkpoint_from_another_room_leaves_the_body_where_it_spawned() {
     use ambition_platformer2d_shared_tangle::lifecycle::{
@@ -277,8 +275,8 @@ fn a_checkpoint_from_another_room_leaves_the_body_where_it_spawned() {
             Vec::new(),
         ),
     );
-    // The slot a transition is recorded into (D71): production initializes it in
-    // sim-core resources, so a fixture running this system owes it too.
+    // The slot a transition is recorded into: production initializes it in sim-core resources,
+    // so a fixture running this system owes it too.
     app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
     app.add_systems(Update, restore_checkpoint_on_session_start);
     let body = app
@@ -302,13 +300,6 @@ fn a_checkpoint_from_another_room_leaves_the_body_where_it_spawned() {
 }
 
 /// **A checkpoint in ANOTHER room of this world routes the session to it.**
-///
-/// This is what "resume where you last rested" means, and until 2026-07-27 it
-/// did not happen: the saved room id was only COMPARED against whatever room
-/// the session opened, and a mismatch returned. Rest in B, quit, start a
-/// session that opens in A, and the checkpoint was silently ignored — and the
-/// handled latch was set BEFORE the comparison, so walking into B later in that
-/// same session did not apply it either.
 ///
 /// Distinct from `a_checkpoint_from_another_room_leaves_the_body_where_it_spawned`,
 /// which covers a room this world does NOT contain. Refusing to teleport a body
@@ -351,25 +342,21 @@ fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
             Vec::new(),
         ),
     );
-    // ⚠ **the resume needs a body to name.** A transition states WHICH body is
-    // crossing (D71), and the resume's answer is the avatar the save is about —
-    // so a fixture with no avatar at all models nothing the game can do. The
-    // `SimId` is what `ensure_sim_id` files a `PrimaryPlayer` under on every host.
+    // The `SimId` is what `ensure_sim_id` files a `PrimaryPlayer` under on every host.
     app.world_mut().spawn((
         PlayerEntity,
         PrimaryPlayer,
         ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
     ));
-    // The slot a transition is recorded into (D71): production initializes it in
-    // sim-core resources, so a fixture running this system owes it too.
+    // The slot a transition is recorded into: production initializes it in sim-core resources,
+    // so a fixture running this system owes it too.
     app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
     app.add_systems(Update, restore_checkpoint_on_session_start);
     app.update();
 
-    // ⭐ **the resume records the SAME intent a loading zone records** (D71). It
-    // wrote a `RoomTransitionRequested` around a synthetic door; the message is
-    // gone and so is the invented zone. The intent names its room by AUTHORED ID,
-    // which is also what made the index lookup here deletable.
+    // It wrote a `RoomTransitionRequested` around a synthetic door; the message is gone and so
+    // is the invented zone. The intent names its room by AUTHORED ID, which is also what made
+    // the index lookup here deletable.
     fn recorded(app: &App) -> Option<crate::session::lifecycle_commit::PendingIntent> {
         app.world()
             .resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
@@ -400,11 +387,7 @@ fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
         "the transition must arrive AT the checkpoint, not at the room's own spawn"
     );
 
-    // Once per session: a transition takes several frames to commit, and
-    // re-requesting every frame would restart it forever. ⚠ the intent SURVIVES
-    // until its commit clears it, so "asked again" is no longer a second message
-    // but a second RECORD — which `PendingLifecycleCommit` is earliest-sticky
-    // against. Clearing the slot is what makes the question askable at all.
+    // Clearing the slot is what makes the question askable at all.
     app.world_mut()
         .resource_mut::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
         .take();

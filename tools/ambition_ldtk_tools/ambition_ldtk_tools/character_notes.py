@@ -11,7 +11,7 @@ This module is the join. It normalizes ``ACTOR_METADATA`` into the three fields
 `CharacterCatalogEntry` carries (`authoring_description`, `gameplay_description`,
 `fallback_dialogue`) and reports what a target failed to supply.
 
-## Why normalization is the whole job
+# # Why normalization is the whole job
 
 The targets do not agree on a shape, because each was authored separately:
 
@@ -29,7 +29,7 @@ would mean a character whose notes quietly flatten to `""`. So this flattens
 deterministically and **names every gap** (:func:`missing_fields`) so an empty
 description is a reported fact rather than an invisible one.
 
-## What the suggested barks become
+# # What the suggested barks become
 
 EVERY key under ``dialogue_hints`` folds into the catalog's single
 ``fallback_dialogue`` pool, barks first — not a fixed list of spellings, because
@@ -42,7 +42,7 @@ Short barks lead so rotation 0 -- the line a player hears first -- is punchy.
 Promoting a line into a real situation pool later silences the fallback for that
 situation only.
 
-## Usage
+# # Usage
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools:tools/ambition_sprite2d_renderer \\
@@ -64,8 +64,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 DEFAULT_CATALOG = "game/ambition_content/assets/data/character_catalog.ron"
-# New rows land immediately before this row. An existing, stable id keeps the
-# insert deterministic without needing to parse RON.
+# An existing, stable id keeps the insert deterministic without needing to parse RON.
 SPLICE_ANCHOR = '        "npc_carl_stargan": ('
 # The safest posture for a character that has art but no authored kit yet.
 DEFAULT_BRAIN = "patrol_peaceful"
@@ -196,15 +195,7 @@ def fallback_pool(dialogue_hints: Any) -> tuple[str, ...]:
     # `suggested_barks` is what the targets actually author. Accept both rather
     # than making a character mute over a key name.
     #
-    # ⛔ **the allowlist was the bug it was written to prevent.** That comment
-    # names the failure exactly — "mute over a key name" — and then hard-codes
-    # three spellings, so `patent_clerk.py` and `python_goras.py`, which spell it
-    # `fallback_lines`, had six lines each read as nothing. Nothing reported it:
-    # both targets also author `barks`, so the pool came back non-empty and the
-    # gap report stayed quiet. A silent partial read is worse than the mute
-    # character this was guarding against, because mute is visible.
-    #
-    # ⭐ so the rule is now the CAPABILITY, not the name: everything under
+    # so the rule is now the CAPABILITY, not the name: everything under
     # `dialogue_hints` is dialogue by construction, so every key is read. The
     # known spellings lead, in the authored precedence (short barks before
     # longer fallback prose); anything new follows in sorted order, which keeps

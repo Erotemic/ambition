@@ -27,10 +27,6 @@ use ambition_portal2d::{
 #[cfg(feature = "portal_render")]
 use ambition_portal2d_presentation::PortalAimHint;
 
-/// Aim direction for a fired portal: right-stick aim, else movement axis, else
-/// straight ahead along facing. (Moved out of portal core so the core fire
-/// system consumes a resolved `FirePortalGun { aim }` instead of reading the
-/// control frame.)
 pub fn pick_aim(control: &ControlFrame, facing: f32) -> Vec2 {
     let aim = Vec2::new(control.aim_x, control.aim_y);
     if aim.length() > 0.2 {
@@ -58,12 +54,9 @@ pub fn portal_input_adapter_system(
     slots: Res<SlotControls>,
     // The controlled body: its brain (→ slot), position and held gun (if any).
     //
-    // ⭐⭐ **READ-ONLY with respect to `ActorControl`, and that is the fix.**
-    // This system used to carry `&mut ActorControl` and spend the Attack press
-    // itself. A producer cannot know whether the action it names will be
-    // ACCEPTED — the drop is refused for a body holding a throwable, the fire is
-    // refused for an inactive gun — so spending the press here spent it for
-    // actions that never happened. See the drop branch below.
+    // A producer cannot know whether the action it names will be ACCEPTED — the drop is refused for
+    // a body holding a throwable, the fire is refused for an inactive gun — so spending the press
+    // here spent it for actions that never happened. See the drop branch below.
     holders: Query<(
         Option<&DrivingParticipant>,
         &BodyKinematics,
@@ -113,15 +106,10 @@ pub fn portal_input_adapter_system(
             // Shield+Attack is the drop gesture — an INTENT, not a claim on the
             // press.
             //
-            // ⛔⛔ **THIS USED TO CLEAR `melee_pressed` RIGHT HERE, AND IT BROKE
-            // THROWING.** `drop_portal_gun_system` deliberately answers the
-            // intent only for `(With<PortalGun>, Without<HeldItem>)` — a
-            // throwable in hand takes precedence, which its own comment says. So
-            // a body holding a laser sword pressed Shield+Attack, this spent the
-            // press, the drop refused the intent, and
-            // `throw_held_item_system` — whose Shield+Attack throw is the
-            // correct answer — found `melee_pressed == false` and did nothing.
-            // The item could not be thrown at all.
+            // So a body holding a laser sword pressed Shield+Attack, this spent the press, the drop
+            // refused the intent, and `throw_held_item_system` — whose Shield+Attack throw is the
+            // correct answer — found `melee_pressed == false` and did nothing. The item could not
+            // be thrown at all.
             //
             // ⇒ the press is spent where the action COMMITS. That also removes
             // an ordering question rather than answering it: the drop and the
@@ -133,36 +121,29 @@ pub fn portal_input_adapter_system(
             fire.write(FirePortalGun {
                 aim: pick_aim(control, kin.facing),
             });
-            // ⭐ **the press IS spent for a fire (queue D60) — but at the seam
-            // that accepts it.** A weapon in hand owns the Attack press, and
-            // `trigger_moveset_moves` arbitrates that from `HeldItem` — which
-            // the portal gun is not, and must not become (its own component is
-            // the right shape). So the arbiter cannot see this gun, and the
-            // wearer's jab would answer the very same press: two mechanisms, one
-            // button, exactly D51's bug.
+            // **the press IS spent for a fire — but at the seam that accepts it.** A weapon in
+            // hand owns the Attack press, and `trigger_moveset_moves` arbitrates that from
+            // `HeldItem` — which the portal gun is not, and must not become (its own component
+            // is the right shape).
             //
-            // ⛔ **but not HERE.** `resolve_portal_fire_intent` refuses a gun
+            // **but not HERE.** `resolve_portal_fire_intent` refuses a gun
             // that is not `active`, so spending the press in this branch spent it
             // for fires that never happened, exactly as the drop branch above
             // did. It is consumed there, after the gun has actually answered.
             //
-            // ⛔ still not special-cased in the arbiter: a third branch in
+            // still not special-cased in the arbiter: a third branch in
             // `trigger_moveset_moves` naming `PortalGun` would add a path to the
             // one place whose entire job is having a single one. Marking the
             // press spent where it is spent is the mechanism the pickup and the
             // throw already use, and it crosses the phase boundary for free —
             // both run in `PlayerSimulation`, the trigger looks in `Combat`.
             //
-            // ⚠ **no verb is revoked, and that is deliberate.** D51's lesson is
-            // that taking the wearer's `attack` away also takes the on-screen
-            // Attack button, because `touch_action_available` draws it only
-            // while the scheme carries an Attack label. The gun stays tappable
-            // on a phone because the slot is untouched.
+            // The gun stays tappable on a phone because the slot is untouched.
         } else {
             // Plain Attack while NOT holding the gun is a pickup attempt
             // (consumed only if overlapping an armed pickup).
             //
-            // ⚠ **NOT consumed here.** The grant path clears the press itself
+            // **NOT consumed here.** The grant path clears the press itself
             // when it actually picks something up (`items::pickup`), and a press
             // that grabs nothing must still reach the wearer's jab — swinging at
             // empty air is the correct answer to "Attack while holding nothing".
@@ -208,11 +189,8 @@ mod tests {
         }
         let body = body.id();
         app.insert_resource(ControlledSubject(Some(body)));
-        // ⭐ **the COMPOSED path, not the adapter alone.** The adapter is a
-        // read-only intent producer now; the press is spent by whichever system
-        // ACCEPTS the action. A fixture that ran only the adapter could no
-        // longer see whether a press was answered at all — and testing the
-        // producer in isolation is exactly how the drop regression survived.
+        // **the COMPOSED path, not the adapter alone.** The adapter is a read-only intent producer
+        // now; the press is spent by whichever system ACCEPTS the action.
         app.add_message::<ambition_portal2d::PortalFireIntent>();
         app.add_systems(
             Update,
@@ -233,14 +211,13 @@ mod tests {
             .melee_pressed
     }
 
-    /// ⭐⭐ **the gun answers the press, so the jab must not** (queue D60).
+    /// **the gun answers the press, so the jab must not**.
     ///
-    /// `trigger_moveset_moves` arbitrates the Attack press from `HeldItem`, and
-    /// the portal gun is its own component — so the arbiter cannot see it and
-    /// the wearer's jab answered the same press. Two mechanisms, one button:
-    /// D51's bug in a second place.
+    /// `trigger_moveset_moves` arbitrates the Attack press from `HeldItem`, and the portal gun
+    /// is its own component — so the arbiter cannot see it and the wearer's jab answered the
+    /// same press.
     ///
-    /// ⚠ **this now runs the adapter AND the resolver**, because the press is
+    /// **this now runs the adapter AND the resolver**, because the press is
     /// spent where the fire is accepted rather than where it is requested. The
     /// outcome is identical for a real fire; what changed is that a REFUSED
     /// action can no longer eat the press.

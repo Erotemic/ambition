@@ -11,11 +11,6 @@
 //! fire from the trace recorder diffing `body_mode` between snapshots,
 //! so this driver does not push events itself.
 //!
-//! Body-mode mutations happen directly on `BodyKinematics` +
-//! `BodyModeState` cluster components via
-//! `try_change_body_mode_clusters` — no `ae::Player` aggregate, no
-//! `engine_player_bridge` round-trip (both deleted 2026-05-28).
-//!
 //! Input model:
 //! - Standing + Down held + grounded → Crouching.
 //! - Standing/Crouching + double-tap Down + grounded → MorphBall.
@@ -148,7 +143,7 @@ pub fn update_body_mode(
 
         // Consume the double-tap-down edge (from the controller's slot) regardless of
         // branch so we don't latch a stale signal across frames or gameplay states.
-        // ⚠ **a slot that does not exist has pressed nothing.** `get_mut` fails
+        // **a slot that does not exist has pressed nothing.** `get_mut` fails
         // closed rather than clamping onto the last valid participant, so this
         // reads `false` instead of silently consuming somebody else's edge.
         let double_tap_down = slot_gestures
@@ -160,13 +155,9 @@ pub fn update_body_mode(
             jump_state.ladder_drop_through_hold_lock = false;
         }
 
-        // Climbing exits: plain jump / the burst press pushes off, losing contact
-        // drops the mode. Jump+Up is handled by movement as a climb-speed
-        // boost while keeping the ladder state.
-        // Engine's `integrate_climb` defensive-zeros velocity if contact
-        // is None mid-climb, so the visible result of a contact loss is a
-        // one-frame velocity stall before this driver flips back to
-        // Standing — acceptable for the first slice.
+        // Climbing exits: plain jump / the burst press pushes off, losing contact drops the
+        // mode. Jump+Up is handled by movement as a climb-speed boost while keeping the ladder
+        // state.
         if mode == ae::BodyMode::Climbing {
             if jump_pressed && down_held {
                 jump_state.ladder_drop_through_timer = ae::movement::ONE_WAY_DROP_THROUGH_GRACE;

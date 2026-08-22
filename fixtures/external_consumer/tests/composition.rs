@@ -1,5 +1,3 @@
-//! **Campaign A3: `PlatformerApp` stands the fixture up on BOTH faces.**
-//!
 //! The other test files in this fixture assert what Outlander DOES — it
 //! activates, it walks, its gate transits a body, its character is drawn. This
 //! one asserts only that the composition RESOLVES, on each host face, from one
@@ -7,8 +5,6 @@
 //! `gameplay.rs` going green tells you the headless face composes and says
 //! nothing whatsoever about the windowed one, which is exactly the asymmetry
 //! that let three hand-ordered builders drift apart before A4 deleted them.
-//!
-//! # What "one path" is measured as here
 //!
 //! Not "both faces work" — both faces worked before, via separate builders that
 //! each restated the engine's ordering rules and disagreed about four of them.
@@ -46,10 +42,7 @@ fn platformer_app_composes_the_fixture_headless() {
         .mount(the_one_module())
         .try_build()
         .expect("the headless face composes the fixture's one module");
-    // A composed app is not an empty one. The sim schedule is what the module's
-    // own systems joined through `sim_schedule()`, so its absence would mean the
-    // face installed no engine at all — the failure mode a "did it panic?" test
-    // cannot distinguish from success.
+    // A composed app is not an empty one.
     assert!(
         app.get_schedule(bevy::prelude::FixedUpdate).is_some(),
         "the headless face pins the sim to a fixed step (rule 8), so FixedUpdate \
@@ -102,12 +95,10 @@ fn a_face_that_cannot_honor_a_request_says_so() {
 
 /// **A declared route nothing registers is REFUSED, not silently empty.**
 ///
-/// This is the blind agent's finding of 2026-07-30, turned into the check that
-/// should have existed. It declared a gameplay route no experience registered
-/// and got a host that built clean, ran 60 ticks, and spawned zero entities —
-/// while `ambition_platformer2d::app`'s own module docs claimed rule 7 was enforced "by TYPE,
-/// so the empty host is unreachable rather than merely documented". What was
-/// enforced was that a *string* had been supplied.
+/// It declared a gameplay route no experience registered and got a host that built clean, ran 60
+/// ticks, and spawned zero entities — while `ambition_platformer2d::app`'s own module docs claimed
+/// rule 7 was enforced "by TYPE, so the empty host is unreachable rather than merely documented".
+/// What was enforced was that a *string* had been supplied.
 ///
 /// An overclaimed guarantee is worse than an absent one, because it tells a
 /// consumer to stop looking. The refusal must also NAME the registered routes:
@@ -126,7 +117,7 @@ fn a_declared_route_no_capability_registers_is_refused() {
             module
                 .experience(outlander::OUTLANDER_EXPERIENCE)
                 .launcher_route(outlander::OUTLANDER_LAUNCHER_ROUTE)
-                // Registered by nobody. Before this check, sixty quiet ticks.
+                // Registered by nobody.
                 .gameplay_route("ghost/gameplay")
                 .capability(outlander::OutlanderExperiencePlugin);
         }
@@ -141,7 +132,7 @@ fn a_declared_route_no_capability_registers_is_refused() {
         reported.contains("ghost/gameplay"),
         "the refusal must name the route that does not exist; got {reported:?}"
     );
-    // ⚠ The route named as available is the LAUNCHER, not the gameplay route,
+    // The route named as available is the LAUNCHER, not the gameplay route,
     // and that changed under this test rather than being got wrong once.
     // Since slice C, `playable()` is what registers a gameplay route; this
     // module never calls it, so the only registered route is the one

@@ -59,15 +59,6 @@ enum Bridge {
     Latch,
     /// SLOT vocabulary → frame: the frame published as an OUTPUT, for the
     /// consumers that want to know what seat zero actually received.
-    ///
-    /// ⛔⛔ **this variant used to be `FrameToSlot` and the direction REVERSED,
-    /// which is the whole of D175's third link.** The global frame was the input
-    /// bus: a device wrote it, four systems shaped it, and one copy fanned it
-    /// into `SlotControls[0]` — so shaping was seat zero's by construction and
-    /// player two could not fast-fall. Seats are shaped in `SeatRawFrames` and
-    /// committed together now, and the frame is a mirror of row zero. ⇒ a
-    /// frame→slot bridge would be a CYCLE, so the word for it is gone rather
-    /// than left available.
     SlotToFrame,
     /// frame ↔ an adapter's intent struct, in the input phase.
     IntentBridge,

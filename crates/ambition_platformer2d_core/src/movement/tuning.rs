@@ -145,22 +145,13 @@ pub const PARRY_WINDOW_TIME: f32 = 0.15;
 /// **WHEN THE PERFECT-SHIELD WINDOW OPENS** — and the two settings are two
 /// GAMES, not two candidates.
 ///
-/// ⭐⭐ **Jon, 2026-08-20**: *"Our point is to build a smash-like game, not
-/// exactly ultimate. It would be nice if there was a set of knobs we could tune
-/// to reproduce ultimate"* and *"if ultimate does it I do want a setting for get
-/// ultimate, so release style shielding is in scope as an option."* ⇒ where the
-/// games differ from EACH OTHER the answer is a knob; picking one throws the
-/// other away.
-///
 /// ```text
 /// OnRaise    Smash 4's, and ours since the parry existed
 /// OnRelease  Ultimate's — it moved the perfect shield off the press
 /// ```
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ParryTiming {
-    /// **The window opens when the guard GOES UP.** Rewards a read made BEFORE
-    /// the hit: commit early, be right. The default, so no existing body's feel
-    /// changes.
+    /// The default, so no existing body's feel changes.
     #[default]
     OnRaise,
     /// **The window opens when the guard COMES DOWN.** Makes the shield a
@@ -170,23 +161,13 @@ pub enum ParryTiming {
     OnRelease,
 }
 
-/// Ledge momentum-carry defaults. See [`LedgeMomentumTuning`] for the
-/// per-field semantics. Tuned for Jon's "moving → grab → quick getup
-/// gives a boost; sitting still on the ledge does not" feel:
-/// - 250 ms window matches the existing regrab cooldown so the
-///   "fresh grab" feel window is symmetric.
-/// - x_gain = 0.85 carries most of the incoming run speed; the
-///   previous 0.65 left too little kick once the cap clipped a
-///   typical 270 px/s approach down to ~175 px/s.
-/// - y_gain = 0.45 — only meaningful for ledge-jump (vertical hop);
-///   climb / roll / attack finish zero this out entirely so they
-///   don't launch the player off the platform they just landed on.
-/// - Caps pin the boost so an extreme dash → ledge approach doesn't
-///   exit at dash speed; ~jump_speed feels like the right ceiling.
-/// - getup_speedup_gain shortens the climb/roll/attack transition
-///   when momentum was carried, so the animation itself feels
-///   continuous instead of "stop and go." 1.0 = full momentum
-///   roughly halves the transition; 0.0 disables the speedup.
+/// Ledge momentum-carry defaults. See [`LedgeMomentumTuning`] for per-field semantics.
+/// Moving into a ledge grab can boost a quick getup; a stationary grab does not:
+/// - 250 ms window matches the existing regrab cooldown so the "fresh grab" feel window is symmetric.
+/// - x_gain = 0.85 carries most of the incoming run speed; the previous 0.65 left too little kick once the cap clipped a typical 270 px/s approach down to ~175 px/s.
+/// - y_gain = 0.45 — only meaningful for ledge-jump (vertical hop); climb / roll / attack finish zero this out entirely so they don't launch the player off the platform they just landed on.
+/// - Caps pin the boost so an extreme dash → ledge approach doesn't exit at dash speed; ~jump_speed feels like the right ceiling.
+/// - getup_speedup_gain shortens the climb/roll/attack transition when momentum was carried, so the animation itself feels continuous instead of "stop and go." 1.0 = full momentum roughly halves the transition; 0.0 disables the speedup.
 pub const LEDGE_BOOST_WINDOW: f32 = 0.25;
 pub const LEDGE_BOOST_X_GAIN: f32 = 0.85;
 pub const LEDGE_BOOST_Y_GAIN: f32 = 0.45;
@@ -277,12 +258,8 @@ impl LedgeMomentumTuning {
 /// The session's ACTIVE movement tuning: the one authority every simulation
 /// system reads.
 ///
-/// Neutral by construction. Content hydrates it from authored data; a developer
-/// build lets the F3 inspector edit it through
-/// `ambition_dev_tools`'s adapter. The simulation does not know which of those
-/// happened, which is the point — before this existed, sim systems read the
-/// inspector's mirror directly, so a shipping build still depended on the
-/// editor.
+/// Neutral by construction. Content hydrates it from authored data; a developer build lets the
+/// F3 inspector edit it through `ambition_dev_tools`'s adapter.
 ///
 /// A body may still override the session default by carrying its own
 /// [`super::super::AuthoredMovementTuning`]; this is the fallback every body
@@ -333,17 +310,13 @@ pub struct MovementTuning {
     #[serde(default)]
     pub carried_decay: f32,
     pub max_run_speed: f32,
-    /// **Top horizontal speed while AIRBORNE.** `0.0` = inherit
-    /// [`Self::max_run_speed`], which is what every body did before this field
-    /// existed and what every body still does until it authors otherwise.
-    ///
-    /// ⛔ **air ACCELERATION was authored and air TOP SPEED was not**, so a
+    /// **air ACCELERATION was authored and air TOP SPEED was not**, so a
     /// body's ground run cap governed its drift — the accidental reuse of
     /// ground locomotion the combat campaign names. In a platform fighter air
     /// speed is a per-character stat and a slow-running heavy can still drift
     /// fast; expressing that was impossible.
     ///
-    /// ⚠ **the sentinel is deliberate, not laziness.** `Option<f32>` would cost
+    /// **the sentinel is deliberate, not laziness.** `Option<f32>` would cost
     /// a bool in the motion codec's frozen wire layout for a value whose
     /// "unset" case is exactly "the other number"; `0.0` is not a meaningful
     /// air speed (a body that cannot drift at all authors its `air_accel` to
@@ -355,12 +328,12 @@ pub struct MovementTuning {
     /// RUN.** Published every tick as `BodyMotionFacts::running`, and read by
     /// the move selector so an Attack press while running is the running attack.
     ///
-    /// ⛔ **this is NOT the traversal dash.** `AbilitySet::dash` is a discrete
+    /// **this is NOT the traversal dash.** `AbilitySet::dash` is a discrete
     /// charge-gated burst that REPLACES the velocity vector; a platform
     /// fighter's dash attack comes out of ordinary grounded locomotion and a
     /// fighter kit that switches the burst off still has one.
     ///
-    /// ⚠ a body that wants no gait distinction authors `1.0` and reaches a run
+    /// a body that wants no gait distinction authors `1.0` and reaches a run
     /// only at full tilt; `0.0` would call a standstill a run.
     #[serde(default = "default_run_commit_frac")]
     pub run_commit_frac: f32,
@@ -424,7 +397,7 @@ pub struct MovementTuning {
     /// the leap happens on the press tick, which is what every classic
     /// platformer does and what Mary-O's SMB1 convergence requires.
     ///
-    /// ⭐ this is the number that makes a jump COMMITTAL. A body with a squat
+    /// this is the number that makes a jump COMMITTAL. A body with a squat
     /// can be struck out of its own takeoff, and its opponent can react to the
     /// crouch; a body without one cannot be. It is authored per body precisely
     /// because those are different games, not two settings of one game.
@@ -466,17 +439,15 @@ pub struct MovementTuning {
     /// tick of HITLAG, in px. `0.0` (the default) = no SDI, which is every body
     /// until one authors a fighter.
     ///
-    /// ⭐ **the defensive half of a mechanic whose offensive half already
+    /// **the defensive half of a mechanic whose offensive half already
     /// ships.** DI ([`crate::hit_response::di_adjust`]) bends the launch you are
     /// about to take; SDI moves you out of the NEXT hit's way while the current
     /// one is still frozen, and it is what makes a combo answerable rather than
     /// a sentence.
     ///
-    /// ⚠ **a HOLD, where the genre counts INPUTS.** Ultimate rewards each fresh
-    /// stick input, so mashing beats holding; this rewards the hold at a fixed
-    /// rate. The simplification is stated rather than hidden: an edge-counting
-    /// version needs per-window state inside the rollback window, and the total
-    /// is bounded either way by how long the hitlag lasts.
+    /// The simplification is stated rather than hidden: an edge-counting version needs
+    /// per-window state inside the rollback window, and the total is bounded either way by how
+    /// long the hitlag lasts.
     #[serde(default)]
     pub sdi_step: f32,
     /// See [`ShieldTuning`].
@@ -489,10 +460,8 @@ pub struct MovementTuning {
     /// Momentum-carry parameters for ledge getups. Set to
     /// `LedgeMomentumTuning::OFF` to disable the mechanic.
     ///
-    /// `#[serde(default)]` so any tuning files serialized before this
-    /// field existed (e.g. `assets/ambition/platformer_defaults.ron` baked at
-    /// boot) deserialize with `LedgeMomentumTuning::DEFAULT` instead
-    /// of panicking on `MissingStructField`.
+    /// `assets/ambition/platformer_defaults.ron` baked at boot) deserialize with
+    /// `LedgeMomentumTuning::DEFAULT` instead of panicking on `MissingStructField`.
     #[serde(default)]
     pub ledge_momentum: LedgeMomentumTuning,
 }
@@ -1078,7 +1047,7 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     dodge_roll_time: DODGE_ROLL_TIME,
     dodge_roll_speed: DODGE_ROLL_SPEED,
     dodge_roll_cooldown: DODGE_ROLL_COOLDOWN,
-    // ⛔ **ZERO in the default tuning, and that is the decision, not an
+    // **ZERO in the default tuning, and that is the decision, not an
     // oversight.** An airborne dash press already MEANS something for a body
     // with the dash ability — it is the protagonist's air dash, a traversal
     // move — and a default-on air dodge would quietly take that press away from
@@ -1088,16 +1057,16 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     air_dodge_time: 0.0,
     air_dodge_speed: AIR_DODGE_SPEED,
     air_dodge_endlag: AIR_DODGE_ENDLAG,
-    // ⛔ zero for the same reason the air dodge is: a wandering enemy that got
+    // zero for the same reason the air dodge is: a wandering enemy that got
     // knocked down and had to stand up would be a different game.
     tumble_speed: 0.0,
-    // ⛔ zero for the same reason: an exploration body's grounded evade is the
+    // zero for the same reason: an exploration body's grounded evade is the
     // roll, and a second one it never asked for would take that press away.
     spot_dodge_time: 0.0,
-    // ⚠ Smash 4's, which is what the parry has always been here — a knob's
+    // Smash 4's, which is what the parry has always been here — a knob's
     // default is the behaviour that already shipped.
     parry_timing: ParryTiming::OnRaise,
-    // ⛔ zero for the same reason: a body that cannot be launched has nothing to
+    // zero for the same reason: a body that cannot be launched has nothing to
     // influence its way out of.
     sdi_step: 0.0,
     parry_window_time: PARRY_WINDOW_TIME,
@@ -1110,12 +1079,12 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
 mod air_speed_tests {
     use super::*;
 
-    /// ⭐⭐ **Air acceleration was authored and air TOP SPEED was not**, so a
+    /// **Air acceleration was authored and air TOP SPEED was not**, so a
     /// body's ground run cap governed its drift — accidental reuse of ground
     /// locomotion, and the reason a slow-running heavy that drifts fast could
     /// not be expressed.
     ///
-    /// ⛔ **the poison is the inherit case**, and it is the one that matters:
+    /// **the poison is the inherit case**, and it is the one that matters:
     /// every body in the game authors nothing here, so an accessor that failed
     /// to fall back would silently pin the whole cast to zero air speed.
     #[test]

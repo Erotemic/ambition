@@ -44,11 +44,7 @@ pub use crate::platformer_runtime::body::BodyKinematics;
 
 /// Per-tick actor-control scalars: respawn countdown + last-evaluated AI mode.
 ///
-/// Every body-generic fact has moved to the shared body components: liveness +
-/// health → [`ambition_characters::actor::BodyHealth`] (`alive` is `health.alive()`, not a shadow
-/// flag); the reaction timers (damage-blink `hit_flash` + post-hit i-frame) →
-/// [`ambition_characters::actor::BodyCombat`], the SAME fields the player carries. What remains
-/// here is genuinely actor-only (the player respawns via its own SafetyState; AI
+/// What remains here is genuinely actor-only (the player respawns via its own SafetyState; AI
 /// mode is a brain concept).
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct ActorStatus {
@@ -56,12 +52,9 @@ pub struct ActorStatus {
     pub ai_mode: ambition_characters::actor::ai::CharacterAiMode,
 }
 
-/// Post-hit i-frame window for a body on the actor path, written onto the body's
-/// authoritative [`ambition_characters::actor::BodyCombat::damage_invuln_timer`] on a landed hit
-/// (the SAME field the player gates re-hits on). Deliberately shorter than the
-/// player's attack cadence (~0.4 s swipe) so it never eats an intended combo hit,
-/// yet long enough to collapse a 60 fps contact/overlap stream to a single hit per
-/// window. Feel-tunable.
+/// Deliberately shorter than the player's attack cadence (~0.4 s swipe) so it never eats an
+/// intended combo hit, yet long enough to collapse a 60 fps contact/overlap stream to a single hit
+/// per window. Feel-tunable.
 pub const ACTOR_DAMAGE_IFRAME_S: f32 = 0.2;
 
 /// Authored configuration + identity for an actor (any disposition). Archetype-
@@ -95,21 +88,18 @@ pub struct ActorConfig {
     /// use — without reaching into the presentation registry. See
     /// [`CombatGeometry`].
     ///
-    /// ⛔ **NOT the body's gameplay character authority, and `WornCharacter`
-    /// OUTRANKS it** (AC7.1). Its doc used to open "uniform gameplay-side
-    /// sprite identity", which reads like the one answer to *which character is
-    /// this body*. It is not: every seam that resolves a character asks
-    /// `WornCharacter` first and falls back to a sprite id only for a body that
-    /// wears nothing — see `presentation.rs`'s `worn … .or_else(tuning
-    /// .sprite_character_id)`. That precedence is what lets a body SWAP its
-    /// character at runtime (Sanic's transformation) and take its new
-    /// repertoire and volumes with it while this field stays put.
+    /// **NOT the body's gameplay character authority, and `WornCharacter` OUTRANKS it** (AC7.1). It
+    /// is not: every seam that resolves a character asks `WornCharacter` first and falls back to a
+    /// sprite id only for a body that wears nothing — see `presentation.rs`'s `worn …
+    /// .or_else(tuning .sprite_character_id)`. That precedence is what lets a body SWAP its
+    /// character at runtime (Sanic's transformation) and take its new repertoire and volumes with
+    /// it while this field stays put.
     pub sprite_character_id: Option<String>,
     /// **Does this body's autonomous driver share one deterministic cognitive
     /// stream with its twins?** Resolved from the character at construction — see
     /// [`ambition_characters::actor::CharacterDefinition::preserves_mirror_symmetry`].
     ///
-    /// ⭐⭐ **it lives HERE, on the config, because three roads build this body's
+    /// **it lives HERE, on the config, because three roads build this body's
     /// brain and they must not disagree**: a match seat, a room spawn, and a
     /// rewind/live restore all go through
     /// [`enemy_default_brain`](crate::features::ecs::enemy_default_brain), and
@@ -119,7 +109,7 @@ pub struct ActorConfig {
     /// registry the restore road cannot reach would let a rewound Emmy think
     /// different thoughts from the one that was standing there a frame ago.
     ///
-    /// ⚠ `ActorConfig` is registered `rollback_component_clone`, so this rewinds
+    /// `ActorConfig` is registered `rollback_component_clone`, so this rewinds
     /// with the rest of the config and costs no wire format.
     pub preserves_mirror_symmetry: bool,
 }
@@ -180,7 +170,7 @@ impl ActorBody {
     /// `AbilitySet` the player runs, so there is no parallel enemy-only mask.
     /// `base_size` is the body's IDENTITY size — what it returns to on a reset.
     ///
-    /// ⚠ it is a parameter because `BodyBaseSize::default()` is the default
+    /// it is a parameter because `BodyBaseSize::default()` is the default
     /// PLAYER size, and no enemy or boss spawn path ever wrote it. Every
     /// non-player body in the game carried a base size that was not its own,
     /// invisibly, because `base_size` is read only by `reset_body_clusters` and
@@ -380,8 +370,6 @@ impl<'w, 's> ActorClusterQueryDataItem<'w, 's> {
     }
 }
 
-/// Owned seed used to construct the enemy ECS component cluster before spawn.
-/// Runtime systems should query [`ActorClusterQueryData`] instead.
 #[derive(Clone, Debug)]
 pub struct ActorClusterSeed {
     pub kin: BodyKinematics,
@@ -392,14 +380,6 @@ pub struct ActorClusterSeed {
     /// **The body's shared combat component**, seeded here for the same reason
     /// `health` is: it is a component every body carries, the player included,
     /// and the seed is where a body's components are decided.
-    ///
-    /// ⛔ **its authored flag used to be seeded twice** (AC6.2). The character's
-    /// `practice_target` became `ActorTuning::is_sandbag`, and
-    /// `actor_component_snapshot` then copied THAT into
-    /// `BodyCombat::training_dummy` — so one authored fact had two runtime
-    /// carriers and two view fields published from them. The reaction timers
-    /// start at rest here; nothing else about a fresh body's combat state is
-    /// decided anywhere later.
     pub combat: ambition_characters::actor::BodyCombat,
     pub surface: ActorSurfaceState,
     pub attack: BodyMelee,
@@ -488,20 +468,15 @@ fn actor_hurt_feedback(
 impl ActorClusterSeed {
     /// **Put this un-spawned body somewhere, once.**
     ///
-    /// A seed's placement is TWO fields — where the body starts
-    /// (`kin.pos`) and where a respawn returns it (`config.spawn.pos`) — and they
-    /// are the same fact. They were written as two adjacent statements at the one
-    /// call site that moves a seed off its constructed position (the patrol-path
-    /// placement), which is a hand-kept agreement: a caller that set one and
-    /// forgot the other would spawn a body that teleports on its first death, and
-    /// nothing would say so.
+    /// A seed's placement is TWO fields — where the body starts (`kin.pos`) and where a respawn
+    /// returns it (`config.spawn.pos`) — and they are the same fact.
     ///
-    /// ⚠ **this is a SEED, not a body**, which is the whole reason a bare write
+    /// **this is a SEED, not a body**, which is the whole reason a bare write
     /// is not the answer even though ADR 0024's pose authority is about live
     /// bodies. There is no entity yet, no `MotionModel` to reconcile and no frame
     /// to transit through, so `transit_body` cannot be called here at all — the
     /// thing worth having is not an authority call, it is ONE name for the fact.
-    /// ⛔ `engine.pose-writes-are-authority-only` cannot tell a pre-spawn seed
+    /// `engine.pose-writes-are-authority-only` cannot tell a pre-spawn seed
     /// from a live body (it matches the receiver's NAME), so it read the old pair
     /// as a bare relocation; see that policy's rationale.
     pub(crate) fn place_at(&mut self, pos: ae::Vec2) {
@@ -509,13 +484,6 @@ impl ActorClusterSeed {
         self.config.spawn.pos = pos;
     }
 
-    // ⛔⛔ **`new_in` WAS HERE AND IS DELETED (AC6, 2026-08-13) — the ARCHETYPE
-    // CONSTRUCTOR.** It took an `ArchetypeSpec` and read a body out of it: max
-    // health, `default_size`, aerial-ness, tuning, brain profile, movement kit
-    // and combat capabilities. Three spawn roads reached it, each having first
-    // settled for the generic `combatant` row whenever the identifier resolved
-    // nothing, so a misspelling produced a complete, plausible, wrong body.
-    //
     // ⇒ [`Self::new_character_in`] is the only body constructor. A body is what
     // its CHARACTER says it is, and an identifier that names no character is a
     // construction refusal rather than a silent downgrade.
@@ -565,19 +533,12 @@ impl ActorClusterSeed {
         };
         // **DOES THIS BODY FLY? ASK THE CHARACTER, THEN THE CATALOG.**
         //
-        // ⛔ two spawn paths decided aerial-ness and NEITHER asked the character:
-        // this one read the catalog's `body_kind: Floating`, the hostile
-        // `EnemySpawn` path read `ArchetypeSpec::flies` (see the doc on that
-        // field, which names the split). The Perfect Cellular Automaton is the
-        // live disagreement — `Floating` in its catalog row, played grounded by
-        // the shipped duel — and D89 is the ruling: `body_kind` describes a
-        // SHAPE and stopped deciding whether a body flies.
+        // two spawn paths decided aerial-ness and NEITHER asked the character: this one read
+        // the catalog's `body_kind: Floating`, the hostile `EnemySpawn` path read
+        // `ArchetypeSpec:flies` (see the doc on that field, which names the split).
         //
-        // ⭐ **A PREPARED CHARACTER ALWAYS ANSWERS**, and getting that precise
-        // matters more than it sounds. `finalize_character` resolves
-        // `baseline_free_flight: None` to `Some(false)` — D89's ruling that
-        // silence is GROUNDED — so a registered character is never mute here and
-        // the catalog can never overrule one.
+        // **A PREPARED CHARACTER ALWAYS ANSWERS**, and getting that precise matters more than
+        // it sounds.
         //
         // ⇒ the catalog rule below is therefore NOT a tiebreak between two
         // authorities. It answers for a character with NO PREPARED ENTRY AT ALL,
@@ -619,38 +580,31 @@ impl ActorClusterSeed {
             .and_then(PathMotion::start_pos)
             .unwrap_or_else(|| actor_spawn_center_for_collision(aabb, collision_size));
         // Body locomotion CAPABILITY vs AI POLICY (control-refactor convergence):
-        // `max_run_speed` is the body's PHYSICAL top speed under direct control —
-        // the same capability the player body has, so a possessed NPC is
-        // responsive, not stuck at stroll pace. `patrol_speed`/`chase_speed` are
-        // AI POLICY: the peaceful brain expresses them as NORMALIZED intent
-        // (`locomotion_for(patrol_speed)` = patrol_speed / max_run_speed), which the
-        // integrator scales back — so autonomous patrol still ambles at
-        // NPC_PATROL_SPEED while the SAME body sprints at `max_run_speed` when a
-        // player drives it. (Was: all three = NPC_PATROL_SPEED, conflating policy
-        // with capability — the "possessed NPC moves extremely slowly" bug.)
+        // `max_run_speed` is the body's PHYSICAL top speed under direct control — the same
+        // capability the player body has, so a possessed NPC is responsive, not stuck at stroll
+        // pace. `patrol_speed`/`chase_speed` are AI POLICY: the peaceful brain expresses them
+        // as NORMALIZED intent (`locomotion_for(patrol_speed)` = patrol_speed / max_run_speed),
+        // which the integrator scales back — so autonomous patrol still ambles at
+        // NPC_PATROL_SPEED while the SAME body sprints at `max_run_speed` when a player drives
+        // it.
         //
-        // ⭐⭐ **AND THE BODY'S TWO NUMBERS COME FROM THE CHARACTER WHEN IT HAS
-        // ONE** (P1.10, 2026-08-12). `max_health: 1` and the shared
+        // **AND THE BODY'S TWO NUMBERS COME FROM THE CHARACTER WHEN IT HAS
+        // ONE**. `max_health: 1` and the shared
         // `MAX_RUN_SPEED` are what a placement gets when nothing knows who it is
         // — which was every NPC, including an exploding mite and a burning
         // flying shark standing in a room with one hit point and the player's
         // top speed. A character that states its own vitals and locomotion is
         // the authority on both.
         //
-        // ⛔ **`patrol_speed` / `chase_speed` STAY.** They are AI POLICY, and the
+        // **`patrol_speed` / `chase_speed` STAY.** They are AI POLICY, and the
         // three authorities do not blur here of all places: how fast a body CAN
         // move is the body's fact, how fast it CHOOSES to amble is the
         // controller's. A character authoring `run_speed: 400.0` must not make
         // its idle stroll a sprint.
         //
-        // ⛔ **and `respawn` stays `DeadStaysDead`** for the same reason, one
+        // **and `respawn` stays `DeadStaysDead`** for the same reason, one
         // authority over: an NPC is a unique named placement (ADR 0022), and
         // that is a fact about the PLACEMENT, not about the creature.
-        //
-        // ⚠ measured before landing: 163 NPC placements name 129 distinct
-        // characters and TWELVE name one migrated far enough to answer. This
-        // moves twelve bodies, not a hundred — the distinction that separates a
-        // migration from the ~100-NPC regression this campaign paid for once.
         let authored_body = character_id
             .and_then(|cid| prepared.and_then(|prepared| prepared.get(cid)))
             .and_then(|prepared| prepared.body_blueprint().ok());
@@ -686,10 +640,10 @@ impl ActorClusterSeed {
         // `Passive`; `NpcActorSpawnPlan::peaceful` overwrites it to `Patrol` iff the
         // resolved brain is a Patrol brain.
         let config_brain = ambition_entity_catalog::placements::CharacterBrain::Passive;
-        // ⭐⭐ **ONE CONSTRUCTION PATH: A MIGRATED NPC IS BUILT FROM ITS
+        // **ONE CONSTRUCTION PATH: A MIGRATED NPC IS BUILT FROM ITS
         // CHARACTER, then dressed as a placement** (P1.10).
         //
-        // ⛔ patching two fields onto the peaceful seed was never the finish
+        // patching two fields onto the peaceful seed was never the finish
         // line, and the fields it did NOT patch say why: this road hands every
         // body `AbilitySet::NONE`, `CombatCapabilities::default()`, no contact
         // damage, no `surface_walker`, no `ranged_visual` and a default brain
@@ -711,14 +665,11 @@ impl ActorClusterSeed {
                 config_brain.clone(),
                 paths,
             );
-            // ⛔ **THE PLACEMENT'S THREE FACTS, and only those.**
+            // **THE PLACEMENT'S THREE FACTS, and only those.**
             //
-            // `is_hostile` — hostility is a RELATIONSHIP, not a body fact
-            // (`BrainProfile.attacks_player` was deleted for saying otherwise).
-            // `new_character_in` defaults it true because every match seat is a
-            // combatant; an NPC placement is the other answer, and the aggression
-            // component `NpcActorSpawnPlan::peaceful` sets is the same claim said
-            // to the brain.
+            // `new_character_in` defaults it true because every match seat is a combatant; an
+            // NPC placement is the other answer, and the aggression component
+            // `NpcActorSpawnPlan::peaceful` sets is the same claim said to the brain.
             seed.config.tuning.is_hostile = false;
             // The patrol PATH is authored on the interactable, and a body that
             // starts on one starts at its first waypoint.
@@ -730,7 +681,7 @@ impl ActorClusterSeed {
             // catalog id it named, exactly as it did before.
             seed.config.sprite_character_id = character_id.map(String::from);
             seed.hurt_feedback = actor_hurt_feedback(catalog, character_id);
-            // ⚠ `respawn` is already `DeadStaysDead` on that road — a match
+            // `respawn` is already `DeadStaysDead` on that road — a match
             // seat's death is the match's business and an NPC's is permanent
             // (ADR 0022), and the two happen to agree. Stated here so the
             // agreement is a fact somebody checked rather than a coincidence.
@@ -752,13 +703,10 @@ impl ActorClusterSeed {
                 respawn_timer: 0.0,
                 ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
             },
-            // ⭐ **THE POOL HAS ONE OWNER** (AC6.2). This read `tuning.max_health`
-            // — itself introduced (P1.10) to stop a second literal `1` written
-            // beside this one from agreeing by coincidence. The fix was right and
-            // one level short: the tuning copy was still a second place the pool
-            // was written down. `BodyHealth` is where a body's health lives, for
-            // the player and for every actor, so it is the only thing that holds
-            // it now.
+            // **THE POOL HAS ONE OWNER** (AC6.2). This read `tuning.max_health` — itself
+            // introduced (P1.10) to stop a second literal `1` written beside this one from
+            // agreeing by coincidence. `BodyHealth` is where a body's health lives, for the
+            // player and for every actor, so it is the only thing that holds it now.
             health: ambition_characters::actor::BodyHealth::new(
                 ambition_characters::actor::Health::new(max_health),
             ),
@@ -783,7 +731,7 @@ impl ActorClusterSeed {
                 sprite_override_npc_name: None,
                 // Peaceful actors already resolved their catalog id above.
                 sprite_character_id: character_id.map(String::from),
-                // ⚠ this road takes no `CharacterBodyBlueprint`, so no authored
+                // this road takes no `CharacterBodyBlueprint`, so no authored
                 // character trait reaches it. A peaceful catalog NPC has no CPU
                 // fighter brain to give a stream to, so `false` is the answer
                 // rather than a gap — and if this road ever grows a fighter, it
@@ -802,14 +750,6 @@ impl ActorClusterSeed {
 
     /// **A BODY, BUILT FROM ITS CHARACTER.**
     ///
-    /// ⭐ **the seat's body no longer comes from an enemy archetype.** A match
-    /// seat used to build through [`Self::new_in`], which starts
-    /// `roster.spec_for_brain(&brain)` and takes health, tuning, capabilities,
-    /// movement kit and aerial-ness off that row — so every fighter on the smash
-    /// grid was physically a `combatant`, wearing a character. Jon's brief calls
-    /// this out by name: *"No ordinary constructor should first build an
-    /// `ArchetypeSpec` creature and then patch the character over it."*
-    ///
     /// This is the same shape as [`Self::new_peaceful_npc_in`], which has built
     /// bodies without an archetype since it was written — proof the pattern was
     /// available the whole time, for the one population that never went through
@@ -821,18 +761,18 @@ impl ActorClusterSeed {
     /// controller  the BrainProfile passed in           (policy, not a body)
     /// ```
     ///
-    /// ⚠ **the tuning is a FIGHTER default, not a character fact — yet.** Run
+    /// **the tuning is a FIGHTER default, not a character fact — yet.** Run
     /// speed, contact damage and the rest still have no authoring surface on a
-    /// definition (campaign P1.8), so they are stated here, once, where a match
+    /// definition, so they are stated here, once, where a match
     /// can see them, rather than borrowed from whichever archetype a seat
     /// happened to name. Each becomes a character fact as its field lands.
     pub(crate) fn new_character_in(
         authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
         catalog: &CharacterCatalog,
         id: impl Into<String>,
-        // ⭐⭐ **THE PREPARED CHARACTER, AS ONE VALUE** (Jon's redirect §4).
+        // **THE PREPARED CHARACTER, AS ONE VALUE**.
         //
-        // ⛔ this took eleven pre-unpacked arguments — character id, display
+        // this took eleven pre-unpacked arguments — character id, display
         // name, max health, brain profile, locomotion, contact damage, dream
         // seed, practice target — every one of them already resolved on the same
         // prepared definition, re-listed by every caller. That is a
@@ -843,7 +783,7 @@ impl ActorClusterSeed {
         // how `practice_target`, the patrol path and an authored `run_speed: 0.0`
         // each went missing on this road while being correct on the other.
         //
-        // ⚠ **completeness is the blueprint's EXISTENCE**, so nothing in here
+        // **completeness is the blueprint's EXISTENCE**, so nothing in here
         // asks whether the character said enough — see
         // `PreparedCharacterDefinition::body_blueprint`.
         body: crate::character_runtime::CharacterBodyBlueprint<'_>,
@@ -867,7 +807,7 @@ impl ActorClusterSeed {
             ranged_vfx,
             ..
         } = body;
-        // ⚠ **a body with no policy still needs one to be paced against.** The
+        // **a body with no policy still needs one to be paced against.** The
         // default is the shared middling striker, which is what every
         // character-first body got before a definition could name a profile.
         let brain_profile = autonomous_profile.unwrap_or_default();
@@ -882,21 +822,21 @@ impl ActorClusterSeed {
             ldtk_collision,
         );
         let collision_size = sprite_body.map_or(ldtk_collision, |body| body.collision);
-        // ⭐ **ASKED ONCE, AT PREPARATION.** This read
+        // **ASKED ONCE, AT PREPARATION.** This read
         // `locomotion.baseline_free_flight || catalog.body_kind(character_id) == Floating` — a
-        // constructor rediscovering what the character is (Jon's redirect §14).
+        // constructor rediscovering what the character is.
         // The fold now happens in `finalize_character`, so `flies` on a prepared
         // character already carries the catalog's answer for every body that did
         // not state one.
-        // ⚠ silence reads as GROUNDED here: preparation has already folded the
+        // silence reads as GROUNDED here: preparation has already folded the
         // catalog answer in, so an unresolved  at construction means no
         // authority said this body flies.
         let is_aerial = locomotion.baseline_free_flight.unwrap_or(false);
         let pos = actor_spawn_center_for_collision(aabb, collision_size);
-        // ⭐ **THE CHARACTER'S OWN TOP SPEED WHEN IT STATES ONE.** A fighter
+        // **THE CHARACTER'S OWN TOP SPEED WHEN IT STATES ONE.** A fighter
         // default otherwise: the stage has to give a body that has never said
         // how fast it is SOMETHING, and a match is the one place that may.
-        // ⛔ **an authored `0.0` is a SPEED, not a silence.** This filtered
+        // **an authored `0.0` is a SPEED, not a silence.** This filtered
         // zeroes out and fell through to the stage default, which conflates *"I
         // did not say"* with *"I do not move"* — the same conflation P0.1 exists
         // to delete, and `CharacterLocomotion::run_speed`'s own doc says a zero
@@ -905,7 +845,7 @@ impl ActorClusterSeed {
         // top speed. Only an ABSENT locomotion block takes the default.
         let run_speed = locomotion.run_speed;
         let tuning = crate::features::ecs::actor_tuning::ActorTuning {
-            // ⭐ **the PROFILE's pacing against the BODY's top speed** — §4.7's
+            // **the PROFILE's pacing against the BODY's top speed** — §4.7's
             // brain→body seam, both halves finally stated by their own
             // authority. These were `run_speed * 0.5` and `run_speed`, hard
             // coded, so every character-first body ambled at exactly half pace
@@ -926,31 +866,15 @@ impl ActorClusterSeed {
             cling_breaks_on_hit: locomotion.cling_breaks_on_hit,
             // A match seat is a combatant whoever drives it; the disposition the
             // body carries is set by realization, and this is the tuning half.
-            //
-            // ⛔ **NOT the profile's answer** — it does not have one, and used
-            // to (`BrainProfile.attacks_player`, deleted 2026-08-11, Jon's
-            // redirect §6). Hostility is a relationship, so it belongs to the
-            // PLACEMENT: `spawn_enemy_with_faction_into` overwrites this from
-            // the authored `SpawnDisposition` on the very next line it runs, and
-            // the sandbox giant — the mount whose rider is the threat, and the
-            // case that motivated the profile field — now says `Peaceful` there.
-            // A body built here with no placement to speak for it is a
-            // combatant, which is what every seat is.
             is_hostile: true,
-            // ⚠ a fighter's death is the MATCH's business (stocks, blast zones),
+            // a fighter's death is the MATCH's business (stocks, blast zones),
             // never a room's respawn policy.
             respawn: ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead,
             is_aerial,
-            // ⭐⭐ **WHAT THIS CHARACTER'S PROJECTILE LOOKS LIKE.**
+            // **WHAT THIS CHARACTER'S PROJECTILE LOOKS LIKE.**
             //
-            // ⛔ **the field was destructured here and DROPPED**, which the
-            // compiler had been reporting as an unused binding — and the warning
-            // was the tell for a live bug, not noise. `CharacterDefinition::
-            // ranged_vfx` had exactly ONE reader in the repository and it was a
-            // TEST, so a character-first robot still fired the unadorned rock
-            // that D83 was closed for. `brain_effects` reads
-            // `tuning.ranged_visual` when it spawns the shot; the archetype road
-            // filled that in and this road left it empty.
+            // `brain_effects` reads `tuning.ranged_visual` when it spawns the shot; the
+            // archetype road filled that in and this road left it empty.
             ranged_visual: ranged_vfx.unwrap_or_default().to_string(),
             ..Default::default()
         };
@@ -968,9 +892,7 @@ impl ActorClusterSeed {
             health: ambition_characters::actor::BodyHealth::new(
                 ambition_characters::actor::Health::new(max_health.max(1)),
             ),
-            // ⭐ **THE CHARACTER'S OWN `practice_target`, written ONCE** (AC6.2).
-            // It used to go into `ActorTuning::is_sandbag` and be copied from
-            // there into this component by `actor_component_snapshot`.
+            // **THE CHARACTER'S OWN `practice_target`, written ONCE** (AC6.2).
             combat: ambition_characters::actor::BodyCombat {
                 training_dummy: practice_target,
                 ..Default::default()
@@ -991,26 +913,15 @@ impl ActorClusterSeed {
                     size: collision_size,
                 },
                 sprite_override_npc_name: None,
-                // ⭐ the CHARACTER, stated rather than resolved from a display
+                // the CHARACTER, stated rather than resolved from a display
                 // name. A seat knows exactly which character it is seating.
                 sprite_character_id: Some(character_id.to_string()),
-                // ⭐ **the character's own answer, carried on the blueprint** —
+                // **the character's own answer, carried on the blueprint** —
                 // so a seat, a room spawn and a rewind rebuild all give this
                 // body the same cognitive stream.
                 preserves_mirror_symmetry,
             },
-            // ⛔ **this was `ActorMotionPath(None)`, unconditionally**, and it
-            // is the shape of defect this campaign keeps finding: the archetype
-            // road resolves a `Patrol { path_id }` placement into a
-            // `PathMotion` and the character-first road silently did not, so the
-            // first patrolling creature to migrate would have stopped
-            // patrolling — with nothing to read, because a body that stands
-            // still looks like a body whose path was authored badly. No migrated
-            // placement uses `Patrol` TODAY, which is exactly why it was
-            // invisible; the intro's three lab slugs are the ones that would
-            // have found it.
-            //
-            // ⚠ a practice target is skipped for the same reason the archetype
+            // a practice target is skipped for the same reason the archetype
             // road skips it: a dummy on a patrol path is a dummy that walks away
             // from the player practising on it.
             motion: ActorMotionPath(match &config_brain {
@@ -1022,9 +933,9 @@ impl ActorClusterSeed {
                 }
                 _ => None,
             }),
-            // ⭐ **THE CHARACTER'S OWN VERBS, when it authored any.**
+            // **THE CHARACTER'S OWN VERBS, when it authored any.**
             //
-            // ⛔ this granted `AbilitySet::NONE` unconditionally, on the reading
+            // this granted `AbilitySet::NONE` unconditionally, on the reading
             // that the MATCH declares what a fighter may do (`seat_abilities`)
             // and writes the real set in the same flush. That is true of a
             // SEATED body and false of every other one built here: the duel
@@ -1032,7 +943,7 @@ impl ActorClusterSeed {
             // came out unable to blink, shield or dash — abilities its archetype
             // row had granted and its character now states.
             //
-            // ⚠ a seat is unaffected: `seat_abilities` still intersects, and a
+            // a seat is unaffected: `seat_abilities` still intersects, and a
             // character that authored nothing still gets `NONE` here and the
             // mode's set there.
             body: ActorBody::from_kit(
@@ -1213,14 +1124,6 @@ impl ActorClusterSeed {
     /// Content-free convenience constructor for unit tests: a NEUTRAL body,
     /// built by the ONE production constructor.
     ///
-    /// ⛔ **it used to resolve a fixture ARCHETYPE ROW from the brain key** —
-    /// `fixture_roster_with_mount().generic_body_for_a_test_fixture(&brain)` —
-    /// so an engine unit test named a creature-ish string (`pirate_raider`,
-    /// `small_skitter`, `fixture_mount`) and received a body shaped by a table
-    /// AC6 deleted. A test that needs a body with particular facts states them:
-    /// build a [`crate::character_runtime::CharacterBodyBlueprint`] and call
-    /// [`Self::new_character_in`], which is what production does.
-    ///
     /// The numbers here are the ones the deleted `combatant` row carried, so a
     /// test that did not care which row it got sees the body it always saw.
     pub fn new(
@@ -1271,11 +1174,6 @@ impl ActorClusterSeed {
 mod tests {
     /// A blueprint the way a prepared character produces one, for the
     /// construction tests.
-    ///
-    /// ⚠ built by hand rather than through `PreparedCharacterDefinition`
-    /// because these tests are ABOUT the constructor: routing them through
-    /// preparation would make a constructor regression indistinguishable from a
-    /// preparation one.
     #[cfg(test)]
     fn test_blueprint<'a>(
         character_id: &'a str,
@@ -1305,20 +1203,14 @@ mod tests {
 
     /// **A CHARACTER-FIRST BODY FIRES ITS OWN PROJECTILE, NOT A ROCK.**
     ///
-    /// ⛔⛔ **D83 was closed for the archetype road and left open for this one**,
-    /// and the tell was a compiler warning nobody read as a symptom.
-    /// `new_character_in` destructured `ranged_vfx` off the blueprint and never
-    /// used it, so `ActorTuning::ranged_visual` — the field `brain_effects` reads
-    /// when it spawns the shot — stayed EMPTY for every character-first body.
+    /// `new_character_in` destructured `ranged_vfx` off the blueprint and never used it, so
+    /// `ActorTuning:ranged_visual` — the field `brain_effects` reads when it spawns the shot —
+    /// stayed EMPTY for every character-first body.
     ///
-    /// ⚠ **`CharacterDefinition::ranged_vfx` had exactly one reader in the
+    /// **`CharacterDefinition::ranged_vfx` had exactly one reader in the
     /// repository and it was a TEST** asserting the value is authored. It was:
     /// authored, carried, and dropped one step from use. An "is it authored"
     /// assertion cannot see that.
-    ///
-    /// The poison is the same shape as the bug — a character that authors NO art
-    /// must still get the empty default, or this fix hands every body somebody
-    /// else's Hadouken.
     #[test]
     fn a_characters_authored_projectile_art_reaches_its_tuning() {
         let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
@@ -1411,14 +1303,14 @@ mod tests {
     /// **A PROFILE'S PACING REACHES THE BODY, and a mount that never hunts can
     /// say so.**
     ///
-    /// ⛔ these were `run_speed * 0.5` and `run_speed` and `true`, hard coded in
+    /// these were `run_speed * 0.5` and `run_speed` and `true`, hard coded in
     /// this constructor, so every character-first body ambled at exactly half
     /// pace and treated the player as prey. That is the whole reason
     /// `pirate_shark_rider` (patrol 0.4783) and `giant_gnu` (`is_hostile:
     /// false`, a mount whose RIDER is the threat) could not migrate: the
     /// migration would have silently rounded a tuned amble and made a prop hunt.
     ///
-    /// ⚠ the fixture authors an absurd 0.25/0.75 rather than anything near the
+    /// the fixture authors an absurd 0.25/0.75 rather than anything near the
     /// old defaults, so a constructor that ignored the profile could not pass by
     /// coincidence.
     #[test]
@@ -1493,13 +1385,6 @@ mod tests {
             "an ordinary body is not a practice target"
         );
 
-        // **A PRACTICE TARGET SAYS SO.** The flag has four live consumers — the
-        // save sync excludes it, the AI read-model skips its patrol, and two
-        // sprite reads select on it — and this constructor wrote `false` for it
-        // via `..Default::default()`, which is why the sandbags could not leave
-        // `character_archetypes.ron` (ledger D77). ⚠ it is read off `BodyCombat`
-        // since AC6.2; the `ActorTuning::is_sandbag` copy it used to be asserted
-        // through was a second carrier of the character's `practice_target`.
         let dummy = ActorClusterSeed::new_character_in(
             &authored,
             &catalog,
@@ -1524,14 +1409,14 @@ mod tests {
 
     /// **A CHARACTER-FIRST BODY STILL WALKS ITS PLACEMENT'S PATROL PATH.**
     ///
-    /// ⛔ this constructor wrote `ActorMotionPath(None)` unconditionally while
+    /// this constructor wrote `ActorMotionPath(None)` unconditionally while
     /// the archetype road resolved `Patrol { path_id }` into a `PathMotion`, so
     /// the first patrolling creature to migrate would have stopped patrolling —
     /// and a body standing still looks exactly like a body whose path was
     /// authored badly, so there would have been nothing to read. No migrated
     /// placement uses `Patrol` today, which is precisely why it was invisible.
     ///
-    /// ⚠ the practice-target control is the archetype road's rule kept: a dummy
+    /// the practice-target control is the archetype road's rule kept: a dummy
     /// on a patrol path is a dummy that walks away from whoever is practising.
     #[test]
     fn a_character_first_body_walks_the_patrol_path_its_placement_names() {
@@ -1604,18 +1489,9 @@ mod tests {
 
         assert_eq!(center, authored.center());
     }
-    // ⛔ **`mod character_intrinsics` DELETED 2026-08-13 with the method it
-    // tested** (AC5, D73 checklist item 9). Its two tests pinned the PRECEDENCE
-    // rule the deleted body-assist seam performed — a character's authored facts
-    // outrank the archetype's, and a character that authors nothing changes
-    // nothing — which is exactly the property that let the migration move one
-    // fact at a time without moving every mob's health at once.
-    //
-    // ⭐ that rule has no code left to govern. Every registered character can
-    // build its own body and every shipped placement names one, so a body is
-    // built from a character or from an archetype and never from one patched
-    // over the other. AGENTS.md: migration-only matrices are removed when the
-    // migration completes.
+    // that rule has no code left to govern. Every registered character can build its own body
+    // and every shipped placement names one, so a body is built from a character or from an
+    // archetype and never from one patched over the other.
 }
 
 #[cfg(test)]

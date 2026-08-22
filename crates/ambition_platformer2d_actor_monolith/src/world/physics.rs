@@ -40,10 +40,7 @@ pub use ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings;
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PhysicsRoomEntity;
 
-/// A body that has been disabled and hidden, but not yet despawned. Giving
-/// Avian a short grace period to observe `RigidBodyDisabled`/`ColliderDisabled`
-/// before entity removal avoids noisy wake attempts against already-removed
-/// bodies during debris cleanup and room transitions.
+/// A body that has been disabled and hidden, but not yet despawned.
 #[cfg(feature = "physics_debris")]
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PendingPhysicsDespawn {
@@ -58,9 +55,7 @@ pub struct PhysicsDebris {
     pub lifetime: f32,
 }
 
-// `PhysicsDebrisCue` / `DebrisBurstMessage` moved to `ambition_vfx::vfx`
-// (E2): they are effect vocabulary a sim system EMITS — same family as
-// `VfxMessage`. The Avian subscriber below stays here (the adapter half).
+// The Avian subscriber below stays here (the adapter half).
 #[cfg(any(test, feature = "physics_debris"))]
 use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 
@@ -166,10 +161,7 @@ pub fn complete_pending_physics_despawns(
 /// should compile/run regardless of whether debris bodies actually exist.
 #[cfg(feature = "physics_debris")]
 pub fn retire_physics_entity(commands: &mut Commands, entity: Entity) {
-    // `try_insert`, for the same reason as the plain-despawn arm it sits beside
-    // in `retire_outgoing`: the outgoing roster is collected before the frame's
-    // commands flush, so an entity in it can already be gone. Disabling the
-    // physics of a body that no longer exists is the outcome this wants.
+    // Disabling the physics of a body that no longer exists is the outcome this wants.
     commands.entity(entity).try_insert((
         RigidBodyDisabled,
         ColliderDisabled,

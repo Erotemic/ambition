@@ -6,14 +6,6 @@
 //! body it lunges through is about the ENGINE, and it needs a body, not a
 //! particular authored one.
 //!
-//! ⭐⭐ **so the target is spawned by this test now** (2026-08-13). The room used
-//! to hold an anonymous `EnemySpawn` called "Target" — AI-invented placeholder
-//! content Jon does not care about preserving, and the LAST placement in any
-//! shipped world naming no character, which made it the one thing standing
-//! between the campaign and a required `character_id`. His ruling was to remove
-//! it and *"adjust broader tests if necessary to test the underlying engine
-//! behavior somewhere more appropriate"*.
-//!
 //! ⇒ **more appropriate is right here.** A test that spawns the body it measures
 //! states its own preconditions; the old one asserted an engine property and
 //! depended on a room's furniture to hold it up. `spawn_enemy_character_at`
@@ -24,15 +16,13 @@ use crate::common::{base, fixed_60hz_room_sim};
 
 use ambition_app::{AgentAction, Platformer2dSimHarness};
 
-/// Current HP of each target (enemies carry `BodyHealth`; the player carries
-/// player-side health, so this is the target line). Dead-but-not-despawned
-/// targets show `current <= 0`, so HP distinguishes "killed" from "survived".
-/// ⛔ **this counted the PLAYER too, and that made the test unsatisfiable.**
-/// It queried every `BodyHealth` in the world, so its readout was
-/// `[player, target]` — and the assertion below demands `after_alive == 0`,
-/// i.e. NO living body, while the assertion above it demands `resets == 0`,
-/// i.e. the player survived the crossing. Both cannot hold. The name said
-/// `enemy_hps` and the query said "everything with health".
+/// Current HP of each target (enemies carry `BodyHealth`; the player carries player-side
+/// health, so this is the target line). Dead-but-not-despawned targets show `current <= 0`, so
+/// HP distinguishes "killed" from "survived". **this counted the PLAYER too, and that made the
+/// test unsatisfiable.** It queried every `BodyHealth` in the world, so its readout was
+/// `[player, target]` — and the assertion below demands `after_alive == 0`, i.e. NO living
+/// body, while the assertion above it demands `resets == 0`, i.e. Both cannot hold. The name
+/// said `enemy_hps` and the query said "everything with health".
 fn enemy_hps(sim: &mut Platformer2dSimHarness) -> Vec<i32> {
     let mut q = sim.world_mut().query_filtered::<
         &ambition_platformer2d::characters::actor::BodyHealth,
@@ -41,32 +31,18 @@ fn enemy_hps(sim: &mut Platformer2dSimHarness) -> Vec<i32> {
     q.iter(sim.world()).map(|h| h.health.current).collect()
 }
 
-// ⛔ **UN-IGNORED 2026-08-05, and the reason it carried for 39 days was wrong.**
+// The 4-HP target **died**. Nothing about the kill outcome had moved.
 //
-// The ignore said: *"the dive's downward strike now clips a 4-HP target by one
-// point instead of killing it … only the exact kill outcome moved."* Measured by
-// running it with `--nocapture`, which is all it ever needed: `target HP
-// [20, 4] -> [20, 0]`. The 4-HP target **died**. Nothing about the kill outcome
-// had moved.
+// What was actually broken was this file. `enemy_hps` queried every `BodyHealth` in the world
+// including the PLAYER's, so `after_alive == 0` demanded that the player be dead as well —
+// while the assertion two lines above demands `resets == 0`, that the player crossed cleanly.
 //
-// What was actually broken was this file. `enemy_hps` queried every `BodyHealth`
-// in the world including the PLAYER's, so `after_alive == 0` demanded that the
-// player be dead as well — while the assertion two lines above demands
-// `resets == 0`, that the player crossed cleanly. The test could not pass, and
-// the diagnosis was written in the same commit as the refactor it blamed
-// (`cc8e3c08f1`), which is how a self-contradictory assertion became a
-// "re-tune later" for over a month.
-//
-// ⚠ it was also in NO ledger row, so nothing was tracking it. An `#[ignore]` is
+// it was also in NO ledger row, so nothing was tracking it. An `#[ignore]` is
 // the one suppression the suite reports as a PASS.
 #[test]
 fn dive_drill_lunges_through_the_targets() {
     let mut sim = fixed_60hz_room_sim("dive_drill");
 
-    // ⭐ the body this test measures, staged where the room's placeholder used to
-    // stand (x=540, on the far ledge across the gap). A Puppy Slug because it is
-    // a real buildable character with a small body and no ranged answer — the
-    // test is about the dive, not about surviving a fight.
     sim.spawn_enemy_character_at(
         "dive_drill_target",
         "Dive Target",

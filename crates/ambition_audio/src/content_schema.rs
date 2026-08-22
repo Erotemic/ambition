@@ -6,11 +6,9 @@
 //!
 //! ## These reuse `validate()`, they do not re-implement it
 //!
-//! ⚠ [`MusicRegistry::validate`] and [`SfxRegistry::validate`] already exist and
-//! already run — `AudioCatalogFragment::new` calls them at App-build time. A
-//! handler that re-derived those rules would be a SECOND validator for one
-//! file, which is the exact defect this crate exists to remove, reintroduced
-//! inside it. So the handlers call the same method and map its message.
+//! [`MusicRegistry::validate`] and [`SfxRegistry::validate`] already exist and already run —
+//! `AudioCatalogFragment::new` calls them at App-build time. So the handlers call the same
+//! method and map its message.
 //!
 //! What migrating buys, then, is not "validation where there was none":
 //!
@@ -27,9 +25,7 @@
 //!
 //! ## `music_registry.ron` is GENERATED
 //!
-//! ⛔ By `scripts/regen_music_registry.py`. A refusal here is a bug in the
-//! GENERATOR or in the asset tree, never something to hand-fix in the file —
-//! the next render overwrites it. The fix lines say so.
+//! By `scripts/regen_music_registry.py`.
 
 use std::sync::Arc;
 
@@ -91,22 +87,22 @@ impl ContentSchemaHandler for MusicRegistrySchema {
             );
         }
 
-        // ⛔ **REGISTRY-LEVEL STATE MUST REACH THE FINGERPRINT.** The pack
+        // **REGISTRY-LEVEL STATE MUST REACH THE FINGERPRINT.** The pack
         // fingerprint is taken over `out.define(...)` entries only — not the
         // lowered artifact, not the source bytes. Defining one entry per TRACK
         // therefore left `default_track` and the track ORDER contributing
         // nothing: two packs that start on different music, or sequence the
         // radio differently, fingerprinted identically. Both are runtime-real
         // (`AudioLibrary` resolves the default at startup and indexes
-        // `music_tracks[next]` for next/prev). (GPT 5.6 review, finding 1.)
+        // `music_tracks[next]` for next/prev).
         out.define(facet.content_id_in(MUSIC_REGISTRY_SCHEMA, "registry"), {
-            // ⛔ **serialized, not `join(",")`.** A track id is only required
+            // **serialized, not `join(",")`.** A track id is only required
             // to be non-empty and unique — commas are legal — so an
             // unescaped delimiter let two different orders encode
             // identically: `["a", "b,c", "a,b", "c"]` and
             // `["a,b", "c", "a", "b,c"]` both flatten to `a,b,c,a,b,c`, with
             // the per-track entries unchanged, so the whole fingerprint
-            // held still while the order moved. (GPT 5.6 review, finding 4.)
+            // held still while the order moved.
             let order: Vec<&str> = registry.tracks.iter().map(|t| t.id.as_str()).collect();
             format!(
                 "default_track={}\norder={}",

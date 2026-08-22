@@ -41,11 +41,7 @@ pub use crate::combat::util::{body_vulnerable, shield_blocks_hit};
 // knockback-scaling LAW is combat model vocabulary.
 pub use crate::combat::util::scaled_knockback;
 
-// THE directional-influence law (CM2) moved to the floor with the rest of the
-// hit-response kernel (`ambition_platformer2d_core::hit_response`, FB6b) so the
-// fighter brain's shadow rollout applies the SAME rotation the victim path
-// does. Re-exported here because this is where its consumers learned to name
-// it.
+// Re-exported here because this is where its consumers learned to name it.
 pub use ae::hit_response::di_adjust;
 
 
@@ -64,16 +60,15 @@ pub struct BodyHitFeel {
     pub block_invuln_floor: f32,
     /// Hitstop when a worn ARMOR row absorbs the hit instead of HP taking it.
     ///
-    /// ⚠ absorbing a hit is not a quiet event — losing a form is the most
-    /// consequential thing short of dying — and this branch returns before the
-    /// damaging path's beat, so without a number here it had none. Jon reported
-    /// exactly that: *"there needs to be a bit of hitstun when maryo gets hit."*
+    /// absorbing a hit is not a quiet event — losing a form is the most consequential thing short
+    /// of dying — and this branch returns before the damaging path's beat, so without a number here
+    /// it had none.
     pub armor_hitstop_time: f32,
 }
 
 /// **A raised guard, and everything a block costs the body behind it.**
 ///
-/// ⛔ one argument rather than three, because the three costs are one decision.
+/// one argument rather than three, because the three costs are one decision.
 /// A caller that could pass the state without the velocity would be a caller
 /// that could take the block and forget the shove.
 pub struct GuardUnderFire<'a> {
@@ -89,23 +84,15 @@ pub struct GuardUnderFire<'a> {
 /// What [`resolve_body_hit`] decided about one hit on one body.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BodyHitResolution {
-    /// The hit doesn't register at all: the body is inside its post-hit
-    /// i-frame window, or already dead. No state was touched — the caller
-    /// plays no feedback and records no landed hit.
     Ignored,
     /// The body's raised shield consumed the hit: no damage, but the hit DID
     /// register (guard i-frame armed; the caller plays block feedback).
     Blocked,
-    /// A worn armor equipment row absorbed the hit (A3
-    /// `OnHit::ConsumeAsArmor`): no HP damage, the row was spent (removed or
-    /// downgraded), and the SAME brief i-frames a damaging hit arms are armed.
     /// The hit registered, but it never reaches HP or the death path.
     Armored,
     /// A wallet-backed shield absorbed the hit before HP/death resolution.
     /// `spent` is the entire positive balance consumed by the resolver.
     WalletShielded { spent: i32 },
-    /// The hit landed. `damage` is the post-multiplier amount applied; `died`
-    /// is whether it killed the body.
     Damaged { damage: i32, died: bool },
 }
 
@@ -117,17 +104,15 @@ pub enum BodyHitResolution {
 /// rejected" vocabulary — and it was reaching nobody but the caller. This is the
 /// smallest way to let it out.
 ///
-/// ⚠ **written only under the `causal` feature.** A build with no inspector
+/// **written only under the `causal` feature.** A build with no inspector
 /// pays nothing: no message, no write, no registration. The alternative was
 /// instrumenting the resolver itself, which would have put an observer's
 /// concern inside the one function every body's damage goes through.
 ///
-/// ⚠ **nothing in the simulation reads this.** It is a fact ABOUT a decision
+/// **nothing in the simulation reads this.** It is a fact ABOUT a decision
 /// already made, so a reader cannot change the decision — the same property
 /// that makes the stock-lifecycle observer safe.
 #[cfg(feature = "causal")]
-// Not `Copy`: `HitSource` carries data. Cloned at the one write site, which
-// happens once per landed hit rather than per frame.
 #[derive(bevy::prelude::Message, Clone, Debug, PartialEq)]
 pub struct BodyHitResolved {
     pub body: bevy::prelude::Entity,
@@ -187,13 +172,6 @@ impl<'a> WalletArmor<'a> {
     }
 }
 
-/// THE one victim-side hit resolver every body shares (fable review 2026-07-02
-/// §A2): consume-time i-frame gate → directional shield block → scaled damage →
-/// death flag → hit-flash/i-frame arming. The player and actor consumers both
-/// call this; what stays outside is genuine per-body POLICY (difficulty
-/// multiplier choice, death→respawn vs death→drops, peaceful-actor barks,
-/// knockback style — the last is step 6 of the §A2 plan).
-///
 /// MECHANICS contract:
 /// - i-frames are consumed HERE, at consume time, for every body — no emitter
 ///   decides them (an emitter may still read `body_vulnerable` to early-out or
@@ -208,7 +186,7 @@ pub fn resolve_body_hit(
     mut health: Option<&mut BodyHealth>,
     armor: Option<&mut WornEquipment>,
     wallet_shield: Option<WalletArmor<'_>>,
-    // ⭐ the GUARD ITSELF, not just whether it is up. A block spends integrity,
+    // the GUARD ITSELF, not just whether it is up. A block spends integrity,
     // charges shieldstun and shoves the defender, and every one of those costs
     // belongs inside the decision that grants the block rather than in a
     // follow-up the next caller can forget.
@@ -248,7 +226,7 @@ pub fn resolve_body_hit(
             return BodyHitResolution::Ignored;
         }
     }
-    // ⭐ **a spent guard covers less of the body**, so "is the guard up" and
+    // **a spent guard covers less of the body**, so "is the guard up" and
     // "does the guard reach this hit" are two questions and a poke answers the
     // second one no. A body whose shield is not a resource covers everything,
     // which is every body outside a match.
@@ -269,7 +247,7 @@ pub fn resolve_body_hit(
         combat.damage_invuln_timer = combat.damage_invuln_timer.max(feel.block_invuln_floor);
         if let Some(guard) = shield {
             ae::body_clusters::spend_shield_on_block(guard.state, guard.tuning, raw_damage);
-            // ⭐ **the third cost, and the one that is about SPACE.** Integrity
+            // **the third cost, and the one that is about SPACE.** Integrity
             // is the resource, shieldstun is the tempo, and this is the ground:
             // hold a guard near a ledge and the hits themselves walk you toward
             // it. Lateral only — a block pushes you back, never up or into the
@@ -286,24 +264,16 @@ pub fn resolve_body_hit(
         }
         return BodyHitResolution::Blocked;
     }
-    // A3 armor-on-hit (shield beats armor beats damage): a worn armor row spends
-    // itself BEFORE the hit reaches HP. The wearer takes zero HP damage and gets
-    // the same brief i-frames a damaging hit arms. Generic — any body carrying a
-    // `WornEquipment` with a `ConsumeAsArmor` row gets this; the player is the
-    // only wirer today. `never_dies` bodies still spend armor (a downgrade is a
+    // Generic — any body carrying a `WornEquipment` with a `ConsumeAsArmor` row gets this; the
+    // player is the only wirer today. `never_dies` bodies still spend armor (a downgrade is a
     // state change worth honoring), then reach the no-death path below anyway.
     if let Some(armor) = armor.filter(|_| !unstoppable) {
         if armor.consume_armor().is_some() {
             combat.hit_flash = feel.hit_flash;
             combat.damage_invuln_timer = feel.damage_invuln_time;
-            // ⛔ **AND THE BEAT, which this branch used to skip.** Jon, from play:
-            // *"there needs to be a bit of hitstun when maryo gets hit."* Spending
-            // armor returns EARLY, so it never reached the hitstop the damaging
-            // path arms below — and losing a form is the most consequential thing
-            // that happens to her short of dying. She shrank mid-stride with no
-            // beat, which reads as the hit not landing at all.
+            // She shrank mid-stride with no beat, which reads as the hit not landing at all.
             //
-            // ⚠ the hitstop only; NOT the recoil lock or the carried launch. Those
+            // the hitstop only; NOT the recoil lock or the carried launch. Those
             // belong to being THROWN, and armor absorbs the throw — that is what
             // absorbing means. What is owed is the pause that says it happened.
             combat.hitstop_timer = combat.hitstop_timer.max(feel.armor_hitstop_time);
@@ -319,14 +289,9 @@ pub fn resolve_body_hit(
     {
         combat.hit_flash = feel.hit_flash;
         combat.damage_invuln_timer = feel.damage_invuln_time;
-        // ⛔ **AND THE BEAT — the same one the armor branch above was fixed for,
-        // and this branch went on skipping.** Jon, from play: *"When SANIC is hit
-        // … he should also have some hitstun."* Losing the purse is the same
-        // event as losing a form: the most consequential thing short of dying,
-        // and it happened with no pause at all, which reads as the hit not
-        // landing. The rings burst out of a body that never flinched.
+        // The rings burst out of a body that never flinched.
         //
-        // ⚠ the hitstop ONLY, exactly as for armor. The recoil lock and the
+        // the hitstop ONLY, exactly as for armor. The recoil lock and the
         // carried launch belong to being THROWN, and the caller already keeps
         // the physical reaction — a `HitMode::Knockback` still knocks the body
         // off its ledge. What is owed here is the pause that says it happened.
@@ -348,13 +313,8 @@ pub fn resolve_body_hit(
     BodyHitResolution::Damaged { damage, died }
 }
 
-// ⛔ **`death_respawn_player` IS DELETED** (ADR 0033). It was the engine's death
-// handler and it was a RESPAWN handler: teleport to `world.spawn`, refill mana,
-// re-anchor safety, reset the sim clock, `anim.reset()`, `combat.reset()`,
-// `health.reset()` to full, i-frames, a banner — and then, last, announce that a
-// death had happened. Every ruleset that wanted a death to MEAN something had to
-// claw the body back from that, which is what Mary-O's death beat was: six
-// counter-measures, none of them about dying.
+// Every ruleset that wanted a death to MEAN something had to claw the body back from that,
+// which is what Mary-O's death beat was: six counter-measures, none of them about dying.
 //
 // The respawn is a CONSEQUENCE now. It happens through the one shared road
 // (`reset_sandbox`, reached by `RoomReplayRequested`) when the game's authored
@@ -380,7 +340,7 @@ pub struct BodyDeathWriters<'w> {
     /// this bundle rather than a new parameter because it is written from the
     /// same two places, at the same moment, from the same value.
     ///
-    /// ⚠ **`Option`, and that is the difference between this and
+    /// **`Option`, and that is the difference between this and
     /// `BodyKnockedOut` above.** A knockout is a message the SIMULATION acts on,
     /// so a composition that fails to register it is broken and should say so
     /// loudly. This one is read by an INSTRUMENT and by nothing else, so a
@@ -446,10 +406,8 @@ pub(crate) fn handle_player_damage_events(
     let Some(damage) = damage_events.first().cloned() else {
         return false;
     };
-    // Consume-time vulnerability (§A2): any held invulnerability REASON,
-    // dodge-roll i-frames, and an active parry drop the event before any state
-    // mutates. The post-hit i-frame window is consumed inside the resolver —
-    // the SAME rule for every body; emitters no longer decide it.
+    // The post-hit i-frame window is consumed inside the resolver — the SAME rule for every
+    // body; emitters no longer decide it.
     if !body_vulnerable(
         player_health
             .as_deref()
@@ -471,7 +429,7 @@ pub(crate) fn handle_player_damage_events(
     // difficulty-scaled damage, death flag, hit-flash + i-frame arming.
     // Difficulty is player POLICY: easy halves incoming damage, hard doubles
     // it, plus the fine-grained gameplay multiplier and assist factor.
-    // ⚠ read BEFORE the guard borrows the velocity mutably: both live on
+    // read BEFORE the guard borrows the velocity mutably: both live on
     // `BodyKinematics`, and `pos`/`facing` are `Copy`.
     let facing_now = clusters.kinematics.facing;
     let pos_now = clusters.kinematics.pos;
@@ -617,14 +575,9 @@ pub(crate) fn handle_player_damage_events(
             }
         }
         BodyHitResolution::Damaged { died: true, .. } => {
-            // ⭐ **ONE DEATH ARM** (ADR 0033). This used to be two: a
-            // `RulesetOwnsDeath` arm that voiced the death and left the body
-            // alone, and an exploration arm that teleported the body to spawn,
-            // full-healed it, printed *"PLAYER DOWN: respawned at room start
-            // with full HP"*, and only THEN announced the death. The second was
-            // an undo racing everything that wanted to react — and it was
-            // unreachable for a match, which is how seat 0 came to be unable to
-            // lose (GPT 5.6, 2026-07-27).
+            // **ONE DEATH ARM** (ADR 0033). The second was an undo racing everything that wanted to
+            // react — and it was unreachable for a match, which is how seat 0 came to be unable to
+            // lose.
             //
             // Both arms want the same thing, and the ruleset arm was already
             // it: the body DIES OUT LOUD and stays where it is. Health stays at
@@ -730,11 +683,6 @@ pub(crate) fn safe_respawn_player(
     motion_model: &mut ae::MotionModel,
 ) {
     let to = safety.last_safe_pos;
-    // The follow-up `refresh_movement_resources_clusters` that used to sit here is
-    // GONE: the reset takes the live air-jump count now and already restores dash
-    // charges from the same `BodyAbilities`, so the second call restated its
-    // answer. Four of five call sites performed that ritual and one did not,
-    // which is the whole argument for folding it in.
     ae::reset_body_clusters(motion_model, clusters, to, tuning.air_jumps);
     combat.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;
     combat.hitstun_timer = 0.0;
@@ -753,23 +701,16 @@ pub(crate) fn safe_respawn_player(
 /// side away from the hit's source (falling back to the stored event dir, then
 /// away from facing), launched with a rise against the body's gravity.
 ///
-/// `FeelScale` magnitudes preserve the standard per-source feel vector used by
-/// contact damage, hazards, and projectiles. `LaunchSpeed` magnitudes preserve
-/// the absolute engine-unit speed authored by melee move volumes. The latter is
-/// deliberately NOT multiplied by the feel vector: doing so was the goblin-hit
-/// teleport regression (`120 px/s` was interpreted as a `120x` multiplier).
-/// THE frame-agnostic knockback velocity for ANY struck body (§A2 step 6).
-/// The math is the floor's (`ae::hit_response::knockback_velocity` — FB6b, so
-/// the shadow rollout predicts with the same formula); this wrapper owns only
-/// the boss/enemy feel selection, which is a fact about THIS game's tuning
-/// rows and not about knockback.
-/// ⚠ **TEST-ONLY, and that is the finding.** The 07-30 handoff flagged this and
-/// `knockback_reaction_scale` as two `dead_code` warnings that might be orphans
-/// of the saturating-meter problem (S4). They are not: their production callers
-/// moved into `ae::hit_response` with the kernel carve (FB6b), and what is left
-/// is the historical local NAME that this module's tests read against. Scoped to
-/// `test` rather than deleted, because a test asserting the wrapper's feel
-/// selection is asserting something the kernel's own tests do not.
+/// `FeelScale` magnitudes preserve the standard per-source feel vector used by contact damage,
+/// hazards, and projectiles. `LaunchSpeed` magnitudes preserve the absolute engine-unit speed
+/// authored by melee move volumes. THE frame-agnostic knockback velocity for ANY struck body (§A2
+/// step 6). The math is the floor's (`ae::hit_response::knockback_velocity` — FB6b, so the shadow
+/// rollout predicts with the same formula); this wrapper owns only the boss/enemy feel selection,
+/// which is a fact about THIS game's tuning rows and not about knockback. **TEST-ONLY, and that is
+/// the finding.** The 07-30 handoff flagged this and `knockback_reaction_scale` as two `dead_code`
+/// warnings that might be orphans of the saturating-meter problem (S4). Scoped to `test` rather
+/// than deleted, because a test asserting the wrapper's feel selection is asserting something the
+/// kernel's own tests do not.
 #[cfg(test)]
 pub(crate) fn resolved_body_knockback_velocity(
     victim_pos: ae::Vec2,
@@ -804,14 +745,11 @@ fn knockback_reaction_scale(knockback: Option<&crate::combat::HitKnockback>) -> 
     )
 }
 
-// ✔ `BodyReaction`, `BodyReactionOutcome` and `apply_body_hit_reaction` LEFT for
-// `ambition_combat::hit_reaction` on 2026-08-21 (D33). The function was
-// body-generic -- its only non-primitive path was `combat::HitKnockback` -- and
-// being `pub(crate)` was the sole reason the capture systems could not leave
-// this crate. What stays here is the PLAYER half: `apply_player_hit_events`,
-// `publish_kernel_reset_death` and `void_pending_player_hits_at_lifecycle_
-// boundaries` all take `PlayerSafetyState`/`PlayerBodyFrameOutput`, which are
-// the avatar's, not combat's.
+// The function was body-generic -- its only non-primitive path was `combat::HitKnockback` -- and
+// being `pub(crate)` was the sole reason the capture systems could not leave this crate. What stays
+// here is the PLAYER half: `apply_player_hit_events`, `publish_kernel_reset_death` and
+// `void_pending_player_hits_at_lifecycle_ boundaries` all take
+// `PlayerSafetyState`/`PlayerBodyFrameOutput`, which are the avatar's, not combat's.
 pub(crate) use ambition_combat::hit_reaction::{apply_body_hit_reaction, BodyReactionOutcome};
 pub(crate) use ambition_combat::hit_reaction::{hit_response_tuning, VictimStance};
 #[cfg(feature = "causal")]
@@ -827,7 +765,7 @@ pub(crate) use ambition_combat::hit_reaction::BodyReaction;
 /// knockback arms are already near-identical and a third near-identical block
 /// is how they drift.
 ///
-/// ⚠ **it exists in BOTH feature configurations** — a no-op without `causal` —
+/// **it exists in BOTH feature configurations** — a no-op without `causal` —
 /// so the call sites carry no `cfg` and the returned reaction is never an
 /// unused binding. Gating the function instead meant two conditional blocks at
 /// the call sites and a warning in the build that has no inspector, which is
@@ -903,10 +841,6 @@ pub(crate) fn apply_player_knockback(
         &mut *clusters.dodge,
         tuning.air_jumps,
     );
-    // CM8: THE one victim-side reaction. The player carries the rich hurt
-    // profile (its red "you got hurt" burst + debris) that used to be emitted
-    // attacker-side keyed on `is_player`; the striking attack's `strike_sfx`
-    // overrides the sound so an enemy sword and a hazard are heard apart.
     crate::combat::util::emit_hit_feedback(
         sfx,
         vfx,
@@ -963,12 +897,10 @@ pub fn incoming_player_damage_multiplier(
 /// consumer that wanted it — Mary-O's lives — had to infer death from
 /// `BodyLifetime.resets` instead.
 ///
-/// That inference is the bug this exists to remove. Six unrelated callers bump
-/// `resets`: two real deaths, a room load, an avatar rebuild, a sandbox reset,
-/// and **a room replay's own reset**. Mary-O read the replay's bump as a fresh
-/// death, spent another life, and requested another replay — an unbounded loop
-/// that drained the whole lives counter many times a second in the hosted app.
-/// A counter cannot carry a reason; a message can.
+/// Six unrelated callers bump `resets`: two real deaths, a room load, an avatar rebuild, a sandbox
+/// reset, and **a room replay's own reset**. Mary-O read the replay's bump as a fresh death, spent
+/// another life, and requested another replay — an unbounded loop that drained the whole lives
+/// counter many times a second in the hosted app. A counter cannot carry a reason; a message can.
 ///
 /// Scoped to the primary player because "died" here means "the local player's
 /// attempt ended". An actor's own hazard reaction is its business — it never
@@ -1014,21 +946,15 @@ fn death_source_of(cause: ae::ResetCause) -> crate::combat::HitSource {
 /// Stage this frame's hits that belong to the controlled-body victim resolver
 /// into its rollback-registered FIFO.
 ///
-/// A `HitTarget::Body(entity)` is already victim-resolved and wins over the
-/// legacy source-direction partition. That is what lets body-owned melee stay
-/// controller-independent: a `PlayerSlash` produced by one fighter can target
-/// another human-controlled body without being thrown away as an attacker-side
-/// broadcast. Untargeted/broadcast events keep the old source filter until that
-/// separate event-vocabulary cleanup lands.
+/// A `HitTarget::Body(entity)` is already victim-resolved and wins over the legacy
+/// source-direction partition. That is what lets body-owned melee stay controller-independent:
+/// a `PlayerSlash` produced by one fighter can target another human-controlled body without
+/// being thrown away as an attacker-side broadcast.
 ///
-/// ⭐ **whether a resolved victim belongs to THIS resolver is asked of the
-/// world, not read off the event.** The target used to be stamped
-/// `HitTarget::Player(e)` by whichever producer resolved it, and this system
-/// trusted the stamp. It is one variant now, so the question is answered where
-/// the answer actually lives: is that entity in the human-controlled
-/// population? ⛔ without the check the FIFO would stage every body's hit —
-/// including hits the actor consumer owns — into rollback-registered state that
-/// then has to be snapshotted and checksummed every frame.
+/// It is one variant now, so the question is answered where the answer actually lives: is that
+/// entity in the human-controlled population? without the check the FIFO would stage every body's
+/// hit — including hits the actor consumer owns — into rollback-registered state that then has to
+/// be snapshotted and checksummed every frame.
 ///
 /// Runs at the END of the Combat phase, after every `HitEvent` writer, so the
 /// hand-off from message channel to snapshot state happens same-frame; only
@@ -1044,14 +970,14 @@ pub fn stage_player_victim_hit_events(
     for event in hit_events.read() {
         let mine = match event.target {
             HitTarget::Body(victim) => controlled_bodies.contains(victim),
-            // ⛔ **NAMES NO BODY, so it can never be a hit on one.** This is the
+            // **NAMES NO BODY, so it can never be a hit on one.** This is the
             // half of a strike aimed at the things a body resolver could not
             // name — a crate, a boss encounter. It fell into the arm below and
             // was staged into this rollback-registered FIFO, because the arm
             // reads `!seeks_victims()` and an enemy swing's cause is filed
             // victim-side by the direction words.
             //
-            // ⚠ that is what desynced the rollback suite the moment every body
+            // that is what desynced the rollback suite the moment every body
             // could broadcast, and the localizer named this resource — not the
             // boss encounter I had guessed. `which_component_does_the_lifecycle_reset_divergence_live_in`.
             HitTarget::UnresolvedFeatures => false,
@@ -1066,12 +992,6 @@ pub fn stage_player_victim_hit_events(
 /// Void the staged victim-hit FIFO when this frame crossed a room-lifecycle
 /// boundary, so a hit staged by the OLD population can never land on the
 /// player in the NEW one.
-///
-/// The window is real: the FIFO's drain (`apply_player_hit_events`) is gated
-/// on `gameplay_allowed`, and every boundary suspends gameplay first — so a
-/// hit staged the frame before a transition sits in the queue through the
-/// whole covered load and would land on the first resumed frame, thrown by an
-/// enemy that no longer exists in a room the player already left.
 ///
 /// Two messages cover every boundary: [`ResetRoomFeaturesEvent`] is the
 /// same-room reset (player reset input, room replay), and
@@ -1092,14 +1012,14 @@ pub fn void_pending_player_hits_at_lifecycle_boundaries(
 
 /// **The set `apply_player_hit_events` runs in.**
 ///
-/// ⛔ four GAME call sites order against this function by name — one in
+/// four GAME call sites order against this function by name — one in
 /// `ambition_demo_mary_o`, three in `ambition_demo_sanic`, all reaching through
 /// the facade for an engine leaf (`actors::features::ecs::damage_apply::…`).
 /// That path is itself the tell: a consumer that has to spell four module levels
 /// to place its own system is depending on engine internals, which is what the
 /// facade exists to prevent.
 ///
-/// ⚠ ONE member, for the same reason as
+/// ONE member, for the same reason as
 /// [`crate::world::overlay::FeatureWorldOverlaySet`]: the system beside it in the
 /// tuple (`publish_kernel_reset_death`) is deliberately NOT gated on
 /// `gameplay_allowed` while this one is, so a set spanning both would hand
@@ -1109,15 +1029,6 @@ pub fn void_pending_player_hits_at_lifecycle_boundaries(
 pub struct PlayerHitResolutionSet;
 
 pub fn apply_player_hit_events(
-    // Bundled into one tuple param to stay under Bevy's 16-system-param ceiling
-    // (S3e's relational `relations` + `attacker_factions` pushed this to 17).
-    // `class_b` is the §3.2 transit ledger — death and hazard respawn are both
-    // Class-B remaps, and this system is where the victim's entity id is known.
-    // CM8: `debris_writer` is bundled here rather than added as a top-level
-    // param — this system already sits at Bevy's 16-param ceiling (hence the
-    // tuple). It carries the player's hurt-debris puff into the ONE victim-side
-    // reaction, so the player keeps the impact debris that used to fire
-    // attacker-side.
     (mut class_b, mut debris_writer, mut wallet_shield_spent, body_sources, heavy_attackers): (
         Option<ResMut<ambition_platformer2d_shared_tangle::class_b::ClassBRemapLog>>,
         MessageWriter<DebrisBurstMessage>,
@@ -1132,9 +1043,6 @@ pub fn apply_player_hit_events(
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<Platformer2dFeelTuningMonolith>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
-    // The composed collision read-API, replacing the room + moving-platform set
-    // this tuple used to carry and the overlay beside it. Three params became one,
-    // which is three back under the ceiling the tuple exists to dodge.
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     mut sim_state: ResMut<RoomTransitionCooldown>,
     mut clock_resets: MessageWriter<ClockResetRequest>,
@@ -1200,8 +1108,7 @@ pub fn apply_player_hit_events(
         // `apply_actor_hit_events` on the same `HitEvent` stream; the two differ
         // only in the feel/save consequences the local human is owed.
         //
-        // ⛔ **AND A BODY THAT HAS ALREADY LOST IS NOT A TARGET** (ADR 0033).
-        // Jon, from play: *"when maryo is in her death animation, she still gets
+        // **AND A BODY THAT HAS ALREADY LOST IS NOT A TARGET** (ADR 0033).
         // hit by enemies."* Mary-O answered that by granting herself
         // `Invulnerability::SCRIPTED` for the beat — a game holding a grant open
         // for a state the engine could see all along. "Out of play" IS "no
@@ -1237,15 +1144,9 @@ pub fn apply_player_hit_events(
 
     let difficulty_multiplier = incoming_player_damage_multiplier(&user_settings.gameplay);
     let tuning = active_tuning.0;
-    // AE6: DIRECTIONAL INFLUENCE IS A MATCH RULE, folded into this system's
-    // local copy of the world's feel. The versus stage used to get the same
-    // effect by WRITING `Platformer2dFeelTuningMonolith` on route entry and putting it back
-    // on exit — correct by discipline, and one crash between the two away from
-    // leaving the borrow outstanding. Nothing is written now, so there is
-    // nothing to restore.
     let mut feel = *feel_tuning;
     feel.di_max_angle = combat_rules.di_max_angle;
-    // ⭐ the same fold, for the same reason: a stage's rule is the authority and
+    // the same fold, for the same reason: a stage's rule is the authority and
     // the baseline is only what an undeclared world keeps.
     feel.meteor_lock_time = combat_rules.meteor_lock_time;
     feel.crouch_cancel_scale = combat_rules.crouch_cancel_scale;
@@ -1255,9 +1156,6 @@ pub fn apply_player_hit_events(
         return;
     };
     let Some(safe_world) = collision.solids() else {
-        // No room loaded: there is nowhere to place a body, so there is nothing
-        // this system can resolve. Previously the room arrived as a `Single` and
-        // Bevy skipped the system outright; this is that skip, written down.
         return;
     };
 

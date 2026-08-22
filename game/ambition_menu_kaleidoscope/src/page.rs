@@ -1,7 +1,3 @@
-//! Cube page-rendering: turns a `MenuPageModel` into the cube's 3D panel / text
-//! / control / icon / scrollbar / selection-corner / nav-arrow entities. Split
-//! out of the kaleidoscope renderer god-module; `super::*` brings the depth
-//! constants, marker components, and config it spawns against.
 
 use super::*;
 pub(super) fn render_page_model<PageId, Action>(
@@ -553,7 +549,7 @@ fn spawn_selection_corners(
 ) {
     let color = Color::WHITE;
     let base_alpha = color.alpha();
-    // PERF (2026-06-10): all 8 corner pieces are the SAME white plane, toggled
+    // PERF: all 8 corner pieces are the SAME white plane, toggled
     // only by VISIBILITY (`sync_selection_corner_visuals`) and never recolored, so
     // they share ONE material handle instead of each `materials.add()`-ing its own
     // (8 -> 1 per control; ~190 -> 24 across the inventory grid — fewer

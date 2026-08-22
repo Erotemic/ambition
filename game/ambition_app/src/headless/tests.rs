@@ -1,23 +1,14 @@
-//! Unit tests for the parent module, extracted from an inline
-//! `#[cfg(test)] mod tests` (test-organization campaign, 2026-07-10). Pure move:
-//! same test names + logic, now an adjacent child module with private access via
-//! `use super::*;`.
 
 use super::*;
 use ambition_platformer2d::input::ControlFrame;
-// ⛔ **presses go through the SEAM, not at the resource.** `ControlFrame` is
-// seat zero's OUTPUT mirror since D175; assigning it delivers a press to nobody
-// and a fixture doing so asserts its way to a green run against a simulation
-// that never received an input.
+// **presses go through the SEAM, not at the resource.** `ControlFrame` is seat zero's OUTPUT
+// mirror since; assigning it delivers a press to nobody and a fixture doing so asserts its way
+// to a green run against a simulation that never received an input.
 use ambition_platformer2d::sfx::SfxMessage;
 use ambition_platformer2d::sim::drive_control_frame;
 use bevy::ecs::message::Messages;
 
-/// ⭐ **K2b edit 2: the ONE composition, shell and all.**
-///
-/// This used to add the simulation plugin by itself and take the `SessionRoot`
-/// it published at plugin-build time. That root is gone, so the fixture composes
-/// what a player runs: the shell host, booted straight to the gameplay route.
+/// **K2b edit 2: the ONE composition, shell and all.**
 fn sandbox_sim_app() -> App {
     let mut app = App::new();
     ambition_platformer2d::runtime::add_headless_foundation(&mut app);
@@ -25,13 +16,9 @@ fn sandbox_sim_app() -> App {
     app
 }
 
-/// ⚠ **one `update()` is no longer enough, and that is the whole shape of K2b.**
-/// A build-time root exists before the first frame; a shell activation reaches
-/// `Ready` over a load barrier and eight preparation work items. The settle
-/// helper waits for the session world rather than guessing a frame count, and
-/// PANICS with the budget when it does not arrive — a fixture that silently
-/// returned an un-activated App would make every test using it fail somewhere
-/// less informative.
+/// The settle helper waits for the session world rather than guessing a frame count, and PANICS
+/// with the budget when it does not arrive — a fixture that silently returned an un-activated
+/// App would make every test using it fail somewhere less informative.
 fn initialized_sandbox_sim_app() -> App {
     let mut app = sandbox_sim_app();
     ambition_platformer2d::platformer::lifecycle::settle_until_session_world(
@@ -98,13 +85,6 @@ fn sim_emits_sfx_reset_when_control_frame_requests_reset() {
     );
 }
 
-/// Sustained run check: drive the full sim for 60 ticks and
-/// verify the brain action counter is present and its
-/// `last_frame` is internally consistent (≤ total). Catches a
-/// future regression where the brain tick + resolver path
-/// starts panicking somewhere mid-room (player loading the wrong
-/// room and brain seeing inconsistent state) or where the
-/// counter resource gets reset/leaked between frames.
 #[test]
 fn sim_completes_60_ticks_with_counter_intact() {
     use ambition_platformer2d::characters::brain::BrainActionCounter;

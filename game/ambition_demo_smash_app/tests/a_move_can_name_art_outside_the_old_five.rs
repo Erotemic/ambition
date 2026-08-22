@@ -9,7 +9,7 @@
 //! the cue the bank packed for that same row — one name, three answers, no
 //! translation table.
 //!
-//! ⚠ this does NOT assert the sheet is decoded in this app, and the reason is a
+//! this does NOT assert the sheet is decoded in this app, and the reason is a
 //! finding rather than an omission: the Smash shell installs no
 //! `PlatformerAssetsPlugin` at all (Mary-O, Sanic and Twintrack each do), so
 //! `GameAssets` does not exist in this process and no sheet-driven visual —

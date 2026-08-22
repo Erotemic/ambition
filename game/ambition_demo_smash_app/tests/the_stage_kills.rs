@@ -33,12 +33,6 @@ fn the_shell_boots_onto_the_authored_stage() {
 }
 
 /// **The blast margin is reachable from the platform.**
-///
-/// Measured against the loaded world rather than the authored constant, so a
-/// preparation step that dropped or rewrote the margins fails here. The
-/// assertion is a RATIO, not a distance: what matters is that the edge is close
-/// enough to the platform that a launch crosses it, and that is the number a
-/// future stage resize would silently break.
 #[test]
 fn the_worlds_edge_sits_within_a_launch_of_the_platform() {
     let world = ambition_demo_smash::smash_stage().world;
@@ -51,7 +45,7 @@ fn the_worlds_edge_sits_within_a_launch_of_the_platform() {
     let to_the_left = platform.left() + side_margin;
     let to_the_right = (world.size.x - platform.right()) + side_margin;
 
-    // ⚠ **a RATIO against the platform, not a bound against the world.** The
+    // **a RATIO against the platform, not a bound against the world.** The
     // first version of this test asserted `distance < world.size.x` and passed
     // over a stage where a knocked-off fighter crossed 490px of nothing — more
     // than the platform's entire width — because 490 < 960 is true and says
@@ -72,11 +66,7 @@ fn the_worlds_edge_sits_within_a_launch_of_the_platform() {
 }
 
 /// **The demo opens on character select, and the battle starts when the players
-/// lock in.** (Jon, 2026-07-31)
-///
-/// The whole path, through the real shell: boot lands on select, two seats join
-/// and commit, and the roster the screen decided is published before the route
-/// leaves for the stage.
+/// lock in.**
 ///
 /// That ORDER is the correctness argument rather than an implementation detail.
 /// Seating reads `MatchParticipantRoster` on the sim schedule; if the route
@@ -110,7 +100,7 @@ fn the_demo_opens_on_select_and_the_battle_starts_when_players_lock_in() {
         "a roster exists before anybody chose, so the select screen is decoration"
     );
 
-    // Two players join and commit. ⚠ this test is about the STAGE, so it sets
+    // Two players join and commit. this test is about the STAGE, so it sets
     // the decision directly and then asks for the start the screen's button
     // would ask for. `the_screen_decides.rs` is where the button is pressed.
     decide_a_two_player_match(&mut app);
@@ -174,13 +164,8 @@ fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
          this test is about to prove nothing",
     );
 
-    // ⭐⭐ **WATCH FOR THE RESTART ANNOUNCEMENT**, before the launch that causes
-    // it (ledger D90). `BodyLifetime::restart_pending` is a ONE-SIM-TICK flag —
-    // the reset raises it and `announce_body_restarts` clears it in the next
-    // `WorldPrep` — and a fixed-tick host advances several sim ticks per
-    // `app.update()`, so sampling the flag between updates can miss it entirely.
-    // The engine publishes this trigger for exactly that reason; an observer
-    // cannot miss what a poll can.
+    // The engine publishes this trigger for exactly that reason; an observer cannot miss what a
+    // poll can.
     #[derive(bevy::prelude::Resource, Default)]
     struct Restarts(Vec<bevy::prelude::Entity>);
     app.init_resource::<Restarts>();
@@ -228,7 +213,7 @@ fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
         }
     }
 
-    // ⚠ **the loop above BREAKS on the stock change, and the restart comes after
+    // **the loop above BREAKS on the stock change, and the restart comes after
     // it.** The spend and the ruleset's respawn are different steps in different
     // phases, so asserting the announcement without letting the frame finish
     // measures the gap between them rather than the engine.
@@ -249,9 +234,6 @@ fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
     );
 
     // NON-VACUITY: the fighter that was NOT launched still has everything.
-    // Without this the test would pass just as happily on a stock counter that
-    // decremented on its own, which is the failure mode of every "did the number
-    // change" assertion.
     assert_eq!(
         stocks_of(&mut app, 0),
         Some(before),
@@ -259,10 +241,6 @@ fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
          is moving on its own and this test proves nothing about the blast gate"
     );
 
-    // ⭐⭐ **AND THE BODY ANNOUNCED THAT IT STARTED AGAIN** (ledger D90). A stock
-    // spent without an announcement leaves every provider holding round-or-life
-    // state — a charge meter, a combo counter, a per-life buff — carrying it into
-    // the next stock. That is invisible in a stock count and visible in a fight.
     {
         let untouched = {
             let world = app.world_mut();
@@ -278,7 +256,7 @@ fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
             "the knocked-out fighter respawned without a `BodyRestarted`, so \
              nothing downstream can know its life began again: {seen:?}"
         );
-        // ⚠ non-vacuity, the same shape as the stock assertion above: an
+        // non-vacuity, the same shape as the stock assertion above: an
         // announcement everybody gets says nothing about this knockout.
         assert!(
             !seen.contains(&untouched),
@@ -286,7 +264,7 @@ fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
         );
     }
 
-    // ⚠ **and it came back where the RULESET says**, not where it died. A body
+    // **and it came back where the RULESET says**, not where it died. A body
     // that respawns at its blast position is outside the stage and falls again.
     {
         use ambition_platformer2d::actor::BodyKinematics;
@@ -312,11 +290,9 @@ fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
 /// was unit-tested against hand-built `Perceived` values; nothing had ever put
 /// the rig on a body and let it decide what to do about somebody else.
 ///
-/// The assertion is deliberately weak on WHAT it does and strict on THAT it
-/// does: a brain that travels and connects is working, and pinning a distance or
-/// a damage number here would be pinning the tuning of a demo rather than the
-/// rig. What it must never do is what it did for an hour on 2026-07-31 — stand
-/// perfectly still while every test passed.
+/// The assertion is deliberately weak on WHAT it does and strict on THAT it does: a brain that
+/// travels and connects is working, and pinning a distance or a damage number here would be pinning
+/// the tuning of a demo rather than the rig.
 #[test]
 fn the_fighter_brain_engages_rather_than_standing_still() {
     use ambition_platformer2d::actor::MatchSeat;
@@ -327,13 +303,11 @@ fn the_fighter_brain_engages_rather_than_standing_still() {
     for _ in 0..30 {
         app.update();
     }
-    // ⛔⛔ **BOTH SEATS MUST BE CPUs, and this called the helper that makes seat 0
-    // HUMAN** (2026-08-11). The comment here already said what it needed — *"a
-    // human with no controller correctly does nothing"* — and then asked for a
-    // roster whose first seat is exactly that. So this measured one CPU pacing
-    // around a statue and called it "the brain never commits".
+    // **BOTH SEATS MUST BE CPUs, and this called the helper that makes seat 0 HUMAN**. The comment
+    // here already said what it needed — *"a human with no controller correctly does nothing"* —
+    // and then asked for a roster whose first seat is exactly that.
     //
-    // ⚠ `smash_roster_at_levels` is the helper that seats EVERY slot as a CPU;
+    // `smash_roster_at_levels` is the helper that seats EVERY slot as a CPU;
     // its own doc says so. Same rungs on both sides, so neither fighter has a
     // ladder advantage and the measurement is about engagement rather than skill.
     app.world_mut()
@@ -350,20 +324,7 @@ fn the_fighter_brain_engages_rather_than_standing_still() {
                 ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
             ),
         ));
-    // ⚠ the sampling window has to sit inside the fighter's LIFE. This test used
-    // to sample at ticks 240 and 480, and seat 1 is eliminated around tick 400 —
-    // it self-KOs three times in the first seven seconds (see `ladder_probe`),
-    // so the second sample found one body and the zip below silently compared
-    // seat 0 against itself. "Neither fighter moved" was the message for "one
-    // fighter was dead", which is a different bug with a different fix.
-    // ⛔⛔ **THE WARM-UP HAS TO OUTLAST THE COUNTDOWN** (2026-08-11). This was
-    // 60 ticks, and the stage opens `opens_suspended` with
-    // `opening_countdown_ticks = 3 * 60` — every fighter carries `ScriptedControl`
-    // for the whole 3-2-1-GO. So the sampling window sat ENTIRELY inside the hold
-    // and reported *"neither fighter moved"* about fighters that were correctly
-    // forbidden to move.
-    //
-    // ⚠ the countdown is the campaign's own feature, so this is a stale WINDOW
+    // the countdown is the campaign's own feature, so this is a stale WINDOW
     // rather than a stale assertion: a fighter brain that emits nothing is still
     // exactly what this test is for, and the number below is read from the
     // ruleset rather than restated.
@@ -427,16 +388,9 @@ fn the_fighter_brain_engages_rather_than_standing_still() {
 
 /// **An eliminated fighter leaves the stage.**
 ///
-/// `ambition_combat::stocks` is explicit that a fighter with no stocks "is still
-/// standing until a ruleset removes it", and for a day this ruleset did not.
-/// Measured over sixty seconds of real fighting: the loser fell out of the
-/// world, was correctly eliminated, and then KEPT FALLING — taking a fresh
-/// `LeftTheWorld` hit every tick, reaching y=34430 and 270900%.
-///
-/// Nothing upstream was wrong. The stock was spent exactly once, the engine's
-/// `Without<FighterEliminated>` filter held, and the body simply never stopped
-/// being a body. That is the gap between "the count is correct" and "the match
-/// is over".
+/// The stock was spent exactly once, the engine's `Without<FighterEliminated>` filter held, and
+/// the body simply never stopped being a body. That is the gap between "the count is correct"
+/// and "the match is over".
 #[test]
 fn an_eliminated_fighter_does_not_keep_falling_forever() {
     use ambition_platformer2d::actor::MatchSeat;
@@ -468,9 +422,7 @@ fn an_eliminated_fighter_does_not_keep_falling_forever() {
         }
     }
 
-    // A percent this side of absurd. Before eliminated fighters were removed
-    // this reached 2709.0, because a body below the stage is knocked out of the
-    // world again on every tick forever.
+    // A percent this side of absurd.
     assert!(
         peak < 20.0,
         "a fighter reached {:.0}% over one minute — a body that keeps falling \
@@ -482,19 +434,12 @@ fn an_eliminated_fighter_does_not_keep_falling_forever() {
 
 /// **THE 3-2-1-GO IS ON THE SCREEN.**
 ///
-/// ⛔⛔ reported from the couch, 2026-08-15: *"I think there is also a countdown
-/// to start the match, but there is no visual indication of that countdown, like
-/// a 3, 2, 1, go."* There WAS a countdown — the fighters are held and released
-/// by it — and it announced itself into a channel nothing draws. Every existing
-/// test proved the HOLD (the fighters do not move during the ceremony); none
-/// asked whether a player could see why.
-///
-/// ⭐ so this watches the slot the stage DECLARES, `smash_announce`: the centred
+/// so this watches the slot the stage DECLARES, `smash_announce`: the centred
 /// card the HUD renders, beside the fighter percents that were always visible.
 /// Before the rewiring the slot was declared and never written once, so this
 /// finds an empty card for the whole ceremony.
 ///
-/// ⚠ **it asserts the COUNT, not the tick.** Which frame carries "2" is a tuning
+/// **it asserts the COUNT, not the tick.** Which frame carries "2" is a tuning
 /// fact about `opening_countdown_ticks`; that a player is counted in with three
 /// numbers and then told to go is the genre's shape and the thing that was
 /// missing.
@@ -568,15 +513,6 @@ fn the_opening_countdown_is_something_a_player_can_see() {
 
 /// **THE CAMERA COMES BACK NO FASTER THAN IT LEFT.**
 ///
-/// ⛔⛔ reported from the couch, 2026-08-15: *"the camera zooms out when someone
-/// flys off the stage, and that is good, but when they die in the blast zone
-/// instead of having a smooth camera transition back, it just snaps back to the
-/// main stage."*
-///
-/// Both halves of that sentence are one number, which is why this measures the
-/// RATIO rather than either rate. Measured before the fix, over four knockouts
-/// in one CPU-versus-CPU match:
-///
 /// ```text
 ///   widest single-frame OPEN    49.3      (a ramp over 7-8 frames, 800 -> 1115)
 ///   widest single-frame CLOSE  360.9      (one frame, straight back to 800)
@@ -587,7 +523,7 @@ fn the_opening_countdown_is_something_a_player_can_see() {
 /// out of play and the cast's bounding box collapses between two frames. After
 /// easing only the close, the same run reads `open 57.5 / close 68.9`.
 ///
-/// ⚠ **the non-vacuity guard is the OPEN**, and it is doing real work: a match
+/// **the non-vacuity guard is the OPEN**, and it is doing real work: a match
 /// where nobody was ever launched far enough to widen the frame would satisfy
 /// any ratio at all, and this fixture is a live fight rather than a scripted
 /// one.
@@ -631,7 +567,7 @@ fn the_camera_closes_no_faster_than_it_opened() {
             if view.x > previous.x {
                 widest_open = widest_open.max(step);
             } else if view.x < previous.x {
-                // ⚠ skip the opening frames: the first resolve ADOPTS the cast's
+                // skip the opening frames: the first resolve ADOPTS the cast's
                 // framing rather than easing to it, which is correct (a match
                 // opens already framed) and is not a transition anybody sees.
                 if tick > 60 {
@@ -657,14 +593,10 @@ fn the_camera_closes_no_faster_than_it_opened() {
 
 /// **A MATCH SOMEBODY WINS ACTUALLY ENDS.**
 ///
-/// ⛔⛔ reported from the couch, 2026-08-15: *"there seems like several cases
-/// where everyone but one player dying will not cause a match to end
-/// correctly."* Every other test in this file measures a KNOCKOUT — the launch,
-/// the blast boundary, the stock spend, the respawn, the body that stops
-/// falling. None of them asks the question a viewer asks, which is whether the
-/// match is over when only one fighter is left.
+/// None of them asks the question a viewer asks, which is whether the match is over when only one
+/// fighter is left.
 ///
-/// ⚠ **"several cases" is the shape of a SCHEDULING AMBIGUITY, and that is what
+/// **"several cases" is the shape of a SCHEDULING AMBIGUITY, and that is what
 /// it was.** `decide_stocks_match` reads the sides off the bodies that still
 /// exist; `take_eliminated_fighters_out_of_play` despawns an eliminated body.
 /// Both sat in `CombatSet::Settle` with nothing ordering them, and the ruleset's
@@ -674,12 +606,12 @@ fn the_camera_closes_no_faster_than_it_opened() {
 /// match ended depended on how the scheduler broke a tie, which is why it
 /// happened in some compositions and not others.
 ///
-/// ⭐ PROBED RED: with `take_eliminated_fighters_out_of_play` ordered
+/// PROBED RED: with `take_eliminated_fighters_out_of_play` ordered
 /// `.before(MatchOutcomeDecided)` instead of after — the broken order, made
 /// explicit — this runs a full match, watches a fighter be eliminated, and never
 /// settles.
 ///
-/// ⚠ **the elimination is asserted first**, because a match that simply never
+/// **the elimination is asserted first**, because a match that simply never
 /// got anybody killed would settle nothing and the claim below would be about a
 /// fight that did not happen.
 #[test]
@@ -709,7 +641,7 @@ fn a_match_whose_last_loser_is_removed_still_decides() {
             ),
         ));
 
-    // ⚠ **seats, not stocks.** A fighter reduced to zero is ELIMINATED and
+    // **seats, not stocks.** A fighter reduced to zero is ELIMINATED and
     // removed in the same breath, so a poll of `FighterStocks` never sees the
     // zero — which is the very removal this test is about. The cast SHRINKING is
     // the observation that survives it.
@@ -727,9 +659,8 @@ fn a_match_whose_last_loser_is_removed_still_decides() {
                 fewest_seats = fewest_seats.min(seats);
             }
         }
-        // ⚠ **the LIVE match's verdict** (D147). A stocks verdict names the
-        // match it belongs to, so "has anything been decided" is not the
-        // question — "has THIS one" is.
+        // A stocks verdict names the match it belongs to, so "has anything been decided" is not
+        // the question — "has THIS one" is.
         if the_live_match_is_settled(app.world()) {
             settled_on = Some(tick);
             break;
@@ -751,13 +682,6 @@ fn a_match_whose_last_loser_is_removed_still_decides() {
     );
 }
 
-/// ⛔⛔ **DELETED 2026-08-11 (ledger D90): `losing_a_stock_announces_a_body_
-/// restart`.** It teleported a fighter to `y = 100_000` and waited for
-/// `BodyLifetime::restart_pending` to appear.
-///
-/// Two things were wrong with it, and the second only became visible after the
-/// first was measured:
-///
 /// 1. **a raw `BodyKinematics::pos` write is not "this fighter lost a stock".**
 ///    Measured: one app update later the body sat at a normal stage position with
 ///    all THREE stocks — something noticed the nonsense position and relocated
@@ -768,7 +692,7 @@ fn a_match_whose_last_loser_is_removed_still_decides() {
 ///    advances several sim ticks per `app.update()`. Polling it between updates
 ///    can miss it entirely, whatever caused it.
 ///
-/// ⭐ **its intent is fully covered by
+/// **its intent is fully covered by
 /// `a_launched_fighter_is_taken_by_the_world_and_spends_a_stock`**, which causes
 /// a REAL knockout — a real launch, the real blast boundary — and now proves the
 /// whole chain from one: exactly one stock spent, the other fighter untouched, a
@@ -778,11 +702,9 @@ fn a_match_whose_last_loser_is_removed_still_decides() {
 /// **This demo's own CPU roster is seatable by its own composition.**
 /// (API 1.0 row (g))
 ///
-/// The bug this guards shipped twice on 2026-07-31 — here and on the versus
-/// stage. A `ControllerBinding::Cpu { brain_profile }` is looked up in the
-/// composition's `CharacterRoster` ARCHETYPE table, and `spec_for_brain` falls
-/// back to a generic row whose brain is `stand_still` when the key is absent.
-/// The match composes, seats, and runs; the opponent never moves.
+/// A `ControllerBinding::Cpu { brain_profile }` is looked up in the composition's `CharacterRoster`
+/// ARCHETYPE table, and `spec_for_brain` falls back to a generic row whose brain is `stand_still`
+/// when the key is absent. The match composes, seats, and runs; the opponent never moves.
 ///
 /// Asked here rather than at the select screen, and that is the point: every
 /// seat the screen produces is a HUMAN, and a human seat asks the archetype
@@ -794,12 +716,7 @@ fn the_demos_cpu_roster_is_satisfiable_by_its_own_composition() {
     for _ in 0..30 {
         app.update();
     }
-    // ⭐ **THE authority a seat's policy lives in.** This asked an archetype
-    // table alone (2026-08-11), so the day this demo published its CPU ladder as
-    // real `BrainProfile`s and deleted its archetype fragment, four perfectly
-    // seatable fighters were reported unseatable; it then asked both, and asks
-    // the only one since P2.18 deleted the archetype arm. The question — *can
-    // this demo fill the seats it declares?* — has never changed.
+    // The question — *can this demo fill the seats it declares?* — has never changed.
     let profiles = app
         .world()
         .get_resource::<ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry>()
@@ -826,18 +743,13 @@ fn the_demos_cpu_roster_is_satisfiable_by_its_own_composition() {
 
 /// Two controller slots with a fighter each, and START asked for.
 ///
-/// ⚠ **`StartRequested` as well as the picks.** The screen no longer leaves on
+/// **`StartRequested` as well as the picks.** The screen no longer leaves on
 /// readiness alone — a test that set only the decision would sit on the select
 /// route forever and blame the stage.
 fn decide_a_two_player_match(app: &mut bevy::prelude::App) {
     use ambition_demo_smash::select::{SlotOccupant, SmashRoster, SmashSelect};
 
-    // **BY ID, not by grid position.** This test is about the STAGE, so it names
-    // the two fighters it wants and finds where the roster put them — an index
-    // would silently become a different character the next time somebody edits
-    // `SMASH_ROSTER`, which is the list Jon asked to be easy to edit.
-    //
-    // ⚠ and seat 0 deliberately takes a fighter that is NOT the stage's
+    // and seat 0 deliberately takes a fighter that is NOT the stage's
     // starting character — see below.
     let index_of = |app: &bevy::prelude::App, id: &str| -> usize {
         app.world()
@@ -846,10 +758,6 @@ fn decide_a_two_player_match(app: &mut bevy::prelude::App) {
             .position(|candidate| candidate == id)
             .unwrap_or_else(|| panic!("`{id}` is not on this composition's grid"))
     };
-    // ⭐ **seat 0 takes GEORGE BOOUL, not the stage's starting character.** That
-    // combination seated NOBODY until 2026-08-05 — seating adopts the primary
-    // body and returned from the whole system when the ids disagreed — so this
-    // is the case, not an arbitrary pick.
     let first = index_of(app, ambition_demo_smash::SMASH_GEORGE_BOOUL);
     let second = index_of(app, ambition_demo_smash::SMASH_OPPONENT_ID);
     {
@@ -873,13 +781,13 @@ fn decide_a_two_player_match(app: &mut bevy::prelude::App) {
 /// why FB6e's `l3_earns_its_depth` is still owed §8's suite and the
 /// survival/damage ratios.
 ///
-/// ⛔ **the assertion that matters is that the two seats DIFFER.** A rig built on
+/// **the assertion that matters is that the two seats DIFFER.** A rig built on
 /// a roster that quietly put both fighters on the same rung would report a 50%
 /// win rate at every level and read as "the ladder is flat" rather than as a
 /// broken fixture — the most expensive kind of wrong answer, because it looks
 /// like a finding.
 ///
-/// ⚠ and both profiles must be SATISFIABLE by the demo's own archetype table,
+/// and both profiles must be SATISFIABLE by the demo's own archetype table,
 /// for the same reason its sibling above checks: `spec_for_brain` falls back to
 /// a generic row rather than failing, so an unregistered level is a fight
 /// against a statue that reports itself as a fight.
@@ -891,7 +799,7 @@ fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
     for _ in 0..30 {
         app.update();
     }
-    // ⭐ the demo's PUBLISHED policies — its CPU ladder lives here now, not in an
+    // the demo's PUBLISHED policies — its CPU ladder lives here now, not in an
     // archetype fragment (that fragment is deleted), and since P2.18 there is
     // nowhere else a seat's policy could come from.
     let published = app
@@ -900,7 +808,7 @@ fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
         .expect("the composition assembles its published policies")
         .clone();
 
-    // ⛔ **THE LADDER IS SPARSE, and a rig has to know it.** `SMASH_ROSTER_RON`
+    // **THE LADDER IS SPARSE, and a rig has to know it.** `SMASH_ROSTER_RON`
     // registers `duelist_l{1,3,5,6,9}` and nothing between — the rungs
     // `ladder_probe` happens to run. The first draft of this test asked for
     // level 8 and failed, which is the right outcome: `spec_for_brain` falls
@@ -925,7 +833,7 @@ fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
             other => panic!("a ladder seat is not a CPU: {other:?}"),
         })
         .collect();
-    // ⚠ built from the CONSTANT, not spelled out. The first draft guessed
+    // built from the CONSTANT, not spelled out. The first draft guessed
     // `smash_duelist_l9` and the real prefix is `duelist` — a restated name is a
     // second authority on a string, which is the mistake five other checks in
     // this tree were written after making.
@@ -943,15 +851,11 @@ fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
         "the two seats must sit on DIFFERENT rungs, or every measurement built \
          on this reads 50% and looks like a flat ladder rather than a broken rig"
     );
-    // ⭐ **the ONE authority a seat's policy can live in**, resolved in this
+    // **the ONE authority a seat's policy can live in**, resolved in this
     // demo's own provider exactly as `seat_brain_profile` resolves it.
     //
-    // ⛔ this was `archetypes.has_brain_key(profile) || published.get(..)`, and
-    // the first term made the guard unfalsifiable in the direction that matters:
-    // an archetype table could answer for a rung whose policy was never
-    // published, which is the state D87's deletion was supposed to have ended.
-    // `seat_brain_profile` has one arm since 2026-08-13 (P2.18), so a term that
-    // seating cannot use has no business in a guard about what seating can do.
+    // `seat_brain_profile` has one arm (P2.18), so a term that seating cannot use has no
+    // business in a guard about what seating can do.
     let resolves = |profile: &str| {
         published
             .get(&ambition_platformer2d::entity_catalog::BrainProfileId::new(
@@ -959,10 +863,7 @@ fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
             ))
             .is_some()
     };
-    // ⭐ **and each rung RESOLVES**, which is the property that keeps a ladder a
-    // ladder. ⛔ this asked the ARCHETYPE table — the authority this demo stopped
-    // using when it published its rungs as real `BrainProfile`s and deleted its
-    // archetype fragment. The question is unchanged; the place to ask it moved.
+    // **and each rung RESOLVES**, which is the property that keeps a ladder a ladder.
     for profile in profiles.iter().flatten() {
         assert!(
             resolves(profile),
@@ -971,7 +872,7 @@ fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
              fights a statue while reporting a fight"
         );
     }
-    // ⭐ **every ADJACENT PAIR is satisfiable**, which is the property a ladder
+    // **every ADJACENT PAIR is satisfiable**, which is the property a ladder
     // rig needs and the one a single spot-check would not have given: N vs N−1
     // over the registered rungs is (3,1), (5,3), (6,5), (9,6).
     for pair in RUNGS.windows(2) {
@@ -1010,42 +911,23 @@ fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
     );
 }
 
-/// **THE THREE PLATFORM-FIGHTER VERBS REACH A LIVE SEATED BODY** — campaign
-/// P4.29 (shield/parry), P4.30 (grounded dodge) and P4.32 (ledge), whose rows
-/// all read *"authored, ▢ unverified in play"*.
+/// **the gap those three ▢ marks name is not a capability, it is a MEASUREMENT.** The verbs are
+/// authored on the fighters' `CharacterDefinition` and the engine has had the machinery all
+/// along — a bubble shield with a parry window, a dodge roll with i-frames, a full ledge
+/// system. Every step of that had its own test; the chain did not.
 ///
-/// ⭐ **the gap those three ▢ marks name is not a capability, it is a
-/// MEASUREMENT.** The verbs are authored on the fighters' `CharacterDefinition`
-/// and the engine has had the machinery all along — a bubble shield with a parry
-/// window, a dodge roll with i-frames, a full ledge system. What nothing checked
-/// was the whole distance between the two: a definition authors an `AbilitySet`,
-/// preparation folds it, seating builds a body, and a match may narrow it
-/// (`fighter_abilities` carries a ceiling, so a stage that forgot a verb
-/// silently removes it). Every step of that had its own test; the chain did not.
-///
-/// ⛔ **which is exactly how these three went missing before.** The row records
-/// it: a capability had ONE authoring surface, the enemy archetype, so a fighter
-/// seating through `combatant` could not have them; the match then stamped one
-/// flat set over every body, and three verbs were simply absent from that set.
 /// Both halves would pass a test of either end alone.
 ///
-/// ⚠ **and the poison is a verb the fighters DELIBERATELY do not author.**
+/// **and the poison is a verb the fighters DELIBERATELY do not author.**
 /// `fly` and `blink` are the exploration protagonist's traversal kit and are
 /// stated absent on purpose ("this is a platform fighter's ground game").
-///
-/// ⛔⛔ **THE CONTRACT CHANGED ON 2026-08-16 AND THIS TEST IS WHERE IT SHOWS.**
-/// It was measured under a lone mask (run 2026-08-13):
 ///
 /// ```text
 ///   character drops `shield`         -> body cannot shield   (character NECESSARY)
 ///   character adds `fly`, mask omits -> body still cannot    (mask NECESSARY)
 /// ```
 ///
-/// The first row is what Jon overruled — *"in smash all characters should be
-/// sure they are granted the basic smash abilities"* — because a mask can only
-/// ever REMOVE, so a fighter whose kit was written for somewhere else arrived
-/// here missing verbs and the stage had no way to say otherwise. This stage
-/// declares [`MatchAbilities::levelled`] now, so the contract reads:
+/// This stage declares [`MatchAbilities::levelled`] now, so the contract reads:
 ///
 /// ```text
 ///   character drops `shield`, stage GRANTS it   -> body CAN shield   (the floor holds)
@@ -1059,7 +941,7 @@ fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
 /// all along — those three verbs reach every seat because the stage says so, not
 /// because three fighters happened to author them.
 ///
-/// ⚠ **the fighters here author the kit anyway**, so this seats bodies that
+/// **the fighters here author the kit anyway**, so this seats bodies that
 /// agree with the stage. The disagreement — a character SHORT of the kit — is
 /// pinned where it can be constructed on purpose, in
 /// `prepared_match::tests::a_levelling_match_hands_every_fighter_the_kit_it_declares`.
@@ -1094,7 +976,7 @@ fn a_seated_fighter_carries_the_verbs_its_character_authored_and_not_the_engines
     );
 
     for (seat, abilities) in &seated {
-        // ⭐ P4.29 / P4.30 / P4.32, on the LIVE body, through the real route.
+        // P4.29 / P4.30 / P4.32, on the LIVE body, through the real route.
         assert!(
             abilities.shield,
             "seat {seat} cannot shield, so P4.29's authored capability does not \
@@ -1107,7 +989,7 @@ fn a_seated_fighter_carries_the_verbs_its_character_authored_and_not_the_engines
             abilities.ledge_grab,
             "seat {seat} cannot grab a ledge (P4.32)"
         );
-        // ⛔ THE POISON: verbs these fighters state they do NOT have.
+        // THE POISON: verbs these fighters state they do NOT have.
         assert!(
             !abilities.fly && !abilities.blink_through_hard_walls,
             "seat {seat} came out able to fly or blink, which its character does \
@@ -1119,15 +1001,7 @@ fn a_seated_fighter_carries_the_verbs_its_character_authored_and_not_the_engines
 
 /// **YOU CAN SEE THE THING THAT DECIDES EVERY MATCH.**
 ///
-/// ⛔⛔ **every stock in a platform fighter is spent OFF the stage, and the
-/// camera was framing the empty platform while it happened** (queue D128 item 2,
-/// measured 2026-08-16 by photographing a real two-CPU match through the shipped
-/// shell). f330 drew a fighter past the left screen edge, f345 drew the other
-/// one behind the virtual joystick, and at f360 the stage was EMPTY — both
-/// fighters gone, camera still on the platform, the knockout happening
-/// off-screen. A watcher could not see the one moment the genre is about.
-///
-/// ⭐ **the framing policy was never the problem** — `frame_the_cast` already
+/// **the framing policy was never the problem** — `frame_the_cast` already
 /// framed every live seat. Three things downstream threw that framing away, and
 /// this test is red on each of them:
 ///
@@ -1146,7 +1020,7 @@ fn a_seated_fighter_carries_the_verbs_its_character_authored_and_not_the_engines
 ///                         edge at the moment of the knockout.
 /// ```
 ///
-/// ⚠ **the non-vacuity guard is the LEAVING**, and it is doing real work: a
+/// **the non-vacuity guard is the LEAVING**, and it is doing real work: a
 /// match where nobody was ever knocked off the platform keeps every fighter
 /// inside any frame at all, and this fixture is a live fight rather than a
 /// scripted one. So it first proves a body reached the blast zone — OUTSIDE the
@@ -1249,25 +1123,20 @@ fn every_live_fighter_stays_inside_the_frame() {
 
 /// **AND THE FRAME DOES NOT CUT WHEN A FIGHTER LEAVES PLAY.**
 ///
-/// The companion to [`the_camera_closes_no_faster_than_it_opened`], and it
-/// exists because that one made this one reachable. That test measures the view
-/// SIZE, which was the only thing the cast framing could move while the room
-/// clamp had the centre pinned at the world's middle. Now that the centre
-/// travels — it must, or a fighter cannot be followed off the stage — it has
-/// the same discontinuity the size had: an eliminated body is taken out of play
-/// and the cast's box collapses between two frames, jumping its centre back to
-/// the platform.
+/// The companion to [`the_camera_closes_no_faster_than_it_opened`], and it exists because that
+/// one made this one reachable. Now that the centre travels — it must, or a fighter cannot be
+/// followed off the stage — it has the same discontinuity the size had: an eliminated body is
+/// taken out of play and the cast's box collapses between two frames, jumping its centre back
+/// to the platform.
 ///
-/// ⭐ measured on this fixture before the framing was carried as an eased BOX:
-/// a 248.8-unit collapse of the cast's own centre came out as a **209.6-unit
-/// camera step in one frame**, against ~33 in an ordinary frame. It is now 27.
+/// It is now 27.
 ///
-/// ⚠ **it compares the ELIMINATION frame against the ordinary ones**, which is
+/// **it compares the ELIMINATION frame against the ordinary ones**, which is
 /// the only comparison that means anything here: a cast centre that is tracking
 /// a fast fight moves a long way per frame quite correctly, and a threshold in
 /// units would be a guess about how hard fighters hit.
 ///
-/// ⚠ **the non-vacuity guard is the JUMP the framing had to absorb**: a match
+/// **the non-vacuity guard is the JUMP the framing had to absorb**: a match
 /// where the two fighters happened to be standing together at the knockout
 /// collapses its own centre by nothing at all, and would satisfy this however
 /// broken the absorption was.
@@ -1361,24 +1230,18 @@ fn the_framing_centre_absorbs_an_elimination_instead_of_cutting() {
     );
 }
 
-/// **THE SECOND MATCH ON THE SAME STAGE COUNTS IN, TAKES THE CARD DOWN, ENDS,
-/// AND STOPS.** (D140)
+/// **THE SECOND MATCH ON THE SAME STAGE COUNTS IN, TAKES THE CARD DOWN, ENDS, AND STOPS.**
 ///
-/// ⛔⛔ reported from the couch, 2026-08-16 (Jon): *"cpu vs cpu on a fresh match,
-/// got seat 2 wins. Running back and doing another cpu vs cpu after gets a 3 2 1
-/// go, but the GO stays on the screen for the entire match, and the match does
-/// not end. I can quit to title and then do another match which does a 3, 2, 1,
-/// go, but again the go still appears on the screen, and the match does not end
-/// when there is only 1 player left."*
+/// Running back and doing another cpu vs cpu after gets a 3 2 1 go, but the GO stays on the screen
+/// for the entire match, and the match does not end. I can quit to title and then do another match
+/// which does a 3, 2, 1, go, but again the go still appears on the screen, and the match does not
+/// end when there is only 1 player left."*
 ///
-/// ⭐⭐ **THE SECOND MATCH IS THE TEST, and it is why every other one here
-/// missed this.** `the_opening_countdown_is_something_a_player_can_see` watches
-/// one ceremony; `a_launched_fighter_is_taken_by_the_world_and_spends_a_stock`
-/// spends one stock; the host's `coming_back_to_the_select_screen_offers_a_fresh_match`
-/// starts a second match and never plays it. Each is green about exactly what it
-/// claims. The defect lived in what the FIRST match left behind, so a suite of
-/// single-match tests could not see it however many of them there were — Jon's
-/// own note, *"I thought we had tests for that"*, is the finding.
+/// **THE SECOND MATCH IS THE TEST, and it is why every other one here missed this.**
+/// `the_opening_countdown_is_something_a_player_can_see` watches one ceremony;
+/// `a_launched_fighter_is_taken_by_the_world_and_spends_a_stock` spends one stock; the host's
+/// `coming_back_to_the_select_screen_offers_a_fresh_match` starts a second match and never plays
+/// it. Each is green about exactly what it claims.
 ///
 /// So this plays two identical matches through one app and asserts they are the
 /// same match twice. What it pins:
@@ -1425,8 +1288,6 @@ fn a_second_match_on_the_same_stage_counts_in_and_ends() {
         app.update();
     }
 
-    // ⚠ **CPU vs CPU, which is Jon's repro**, and ONE stock so the end arrives
-    // from a single launch rather than from minutes of fighting.
     let play = |app: &mut App| -> Played {
         let before = app.world().resource::<Decisions>().0.len();
         let mut roster = ambition_demo_smash::smash_roster_at_levels(
@@ -1467,21 +1328,13 @@ fn a_second_match_on_the_same_stage_counts_in_and_ends() {
             // body thrown at 2400px/s crosses this stage's blast margin in a
             // handful of ticks, and on one stock that is the match.
             //
-            // ⛔ **AS SOON AS, not thirty ticks later.** This test asserts WHICH
-            // fighter's card comes up, and every tick between the release and
-            // the script is a tick in which the CPUs can decide that themselves —
-            // measured 2026-08-20, when body contact made them actually engage
-            // and seat 2 won a match this test says seat 0 wins. The sibling
-            // four-way's own note already says it: a claim about the WORDING of a
-            // card must not depend on combat tuning.
+            // The sibling four-way's own note already says it: a claim about the WORDING of a card
+            // must not depend on combat tuning.
             if !launched && tick > countdown + 2 {
                 let world = app.world_mut();
                 let mut query = world.query::<(&MatchSeat, &mut BodyKinematics)>();
                 for (seat, mut kin) in query.iter_mut(world) {
                     if seat.0 == 1 {
-                        // Toward the NEARER edge — see the four-way's note: a
-                        // fixed direction makes crossing the margin depend on
-                        // where the CPU wandered before this fired.
                         let toward = if kin.pos.x * 2.0 > world_width {
                             1.0
                         } else {
@@ -1502,7 +1355,7 @@ fn a_second_match_on_the_same_stage_counts_in_and_ends() {
                 .is_some_and(|active| {
                     active.route_id.as_str() == ambition_demo_smash::SMASH_GAMEPLAY_ROUTE
                 });
-            // ⚠ **only while the STAGE is up.** The card the previous match
+            // **only while the STAGE is up.** The card the previous match
             // ended on is still in `HudReadouts` while the select screen shows —
             // it is the experience's HUD DECLARATION that stops it being drawn,
             // not the readout — so recording it off-stage would make every match
@@ -1520,10 +1373,7 @@ fn a_second_match_on_the_same_stage_counts_in_and_ends() {
                 }
             }
 
-            // ⭐ **the FREEZE, measured as distance rather than as a resource.**
-            // Reading `ClockState::time_scale` would assert that a number was
-            // written; this asks the only question Jon asked — *"the time in the
-            // game should freeze"* — of the bodies themselves.
+            // Measure freeze from body motion rather than only inspecting the clock resource.
             let ended = app.world().resource::<Decisions>().0.len() > before;
             if ended && on_stage {
                 let now = cast(app);
@@ -1593,7 +1443,7 @@ fn a_second_match_on_the_same_stage_counts_in_and_ends() {
              {winner:?} and said {:?}",
             played.said
         );
-        // ⚠ **half a pixel over ~350 ticks.** Not zero: the clock RAMPS to a
+        // **half a pixel over ~350 ticks.** Not zero: the clock RAMPS to a
         // stop rather than snapping, which is the feel the time-control
         // smoother exists for, so the frame the winner is named still carries a
         // fraction of a step. What must not happen is the match playing on.
@@ -1606,9 +1456,8 @@ fn a_second_match_on_the_same_stage_counts_in_and_ends() {
     }
 }
 
-/// **A FOUR-WAY FREE-FOR-ALL ENDS WHEN ONE FIGHTER IS LEFT.** (D140)
+/// **A FOUR-WAY FREE-FOR-ALL ENDS WHEN ONE FIGHTER IS LEFT.**
 ///
-/// Jon named this shape twice — *"sometimes in a 4 player cpu battle, when
 /// someone wins it ends with 'Go'"* and *"when there is only 1 player alive or 1
 /// team alive for team matches the time in the game should freeze"* — and the
 /// sibling test above plays a duel. The predicate is `last_side_standing`, which
@@ -1617,7 +1466,7 @@ fn a_second_match_on_the_same_stage_counts_in_and_ends() {
 /// the first surviving side would answer both the same way while only one of
 /// them is right.
 ///
-/// ⚠ **the same two fighters twice.** The standalone demo declares two
+/// **the same two fighters twice.** The standalone demo declares two
 /// characters (the stand-ins for the robot lineage), so a four-seat match here
 /// is a mirror match — which is also the case worth having, because four bodies
 /// wearing two characters is where a side keyed on the CHARACTER rather than the
@@ -1666,7 +1515,7 @@ fn a_four_way_free_for_all_ends_when_one_fighter_is_left() {
     let world_width = ambition_demo_smash::smash_stage().world.size.x;
     let mut seated = 0usize;
     let mut launched = false;
-    // ⚠ **it STOPS a few ticks after the end, and that is not impatience.** The
+    // **it STOPS a few ticks after the end, and that is not impatience.** The
     // stage takes itself back to the select screen 4.5s later and the card comes
     // down with it (`return_to_the_select_screen_when_the_match_ends`), so a
     // loop that ran to a fixed budget would read an empty slot and blame the
@@ -1690,15 +1539,8 @@ fn a_four_way_free_for_all_ends_when_one_fighter_is_left() {
             let mut query = world.query::<(&MatchSeat, &mut BodyKinematics)>();
             for (seat, mut kin) in query.iter_mut(world) {
                 if seat.0 > 0 {
-                    // ⛔ **TOWARD THE NEARER EDGE, not by seat parity.** The
-                    // parity version launched a body standing near the LEFT edge
-                    // all the way across the stage, so whether it crossed the
-                    // blast margin depended on where its CPU happened to have
-                    // wandered when this fired — measured 2026-08-20, when body
-                    // contact moved the fighters and one launch came down eighty
-                    // pixels short. This test's own comment says every
-                    // elimination is one it CAUSES; a launch aimed at the far
-                    // side was the one thing about it that was still a race.
+                    // This test's own comment says every elimination is one it CAUSES; a launch
+                    // aimed at the far side was the one thing about it that was still a race.
                     let toward = if kin.pos.x * 2.0 > world_width {
                         1.0
                     } else {
@@ -1751,7 +1593,7 @@ fn a_four_way_free_for_all_ends_when_one_fighter_is_left() {
     );
 }
 
-/// **A TEAM WINS AS A TEAM, EVEN AFTER ONE OF ITS MEMBERS IS GONE.** (D148)
+/// **A TEAM WINS AS A TEAM, EVEN AFTER ONE OF ITS MEMBERS IS GONE.**
 ///
 /// The winner card states its own rule: a team keeps its own name, and only a
 /// side of ONE is swapped for the fighter's. It decided which by COUNTING THE
@@ -1760,19 +1602,13 @@ fn a_four_way_free_for_all_ends_when_one_fighter_is_left() {
 /// two-person team that lost a member early has exactly one body left at
 /// victory and the card called it a solo.
 ///
-/// ⭐ **body residency used to recover match-participant identity**, which is
-/// the error this campaign keeps paying for. How many fighters a side HAS is a
-/// fact about the match that was PREPARED; how many are standing is a fact about
-/// right now, and the two stop agreeing the first time somebody dies.
+/// How many fighters a side HAS is a fact about the match that was PREPARED; how many are standing
+/// is a fact about right now, and the two stop agreeing the first time somebody dies.
 ///
-/// ⚠ **the non-vacuity guard is the early elimination.** A run where the
-/// teammate was still standing at the end would satisfy the assertion for the
-/// wrong reason — the census would have found two bodies and printed the team
-/// anyway — so this asserts that seat 1's body was GONE before the match was
-/// decided. That is the state the census-based version got wrong, and without
-/// it this test would have passed on the broken code.
+/// That is the state the census-based version got wrong, and without it this test would have
+/// passed on the broken code.
 ///
-/// ⚠ the solo half of the rule is asserted by
+/// the solo half of the rule is asserted by
 /// `a_four_way_free_for_all_ends_when_one_fighter_is_left` and
 /// `a_second_match_on_the_same_stage_counts_in_and_ends`, both of which expect a
 /// FIGHTER'S NAME — so a "fix" that always printed the side would go red there.
@@ -1798,9 +1634,7 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
         app.update();
     }
 
-    // Two teams of two. `smash_roster*` gives every seat its own side by
-    // default (`seat 1`, `seat 2`, …) — this is the team match Jon named, and
-    // it is the shape the card's own rule was written for.
+    // Two teams of two.
     let mut roster = ambition_demo_smash::smash_roster_at_levels(
         [
             ambition_demo_smash::SMASH_CHARACTER_ID,
@@ -1831,13 +1665,8 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
         seats
     };
     let world_width = ambition_demo_smash::smash_stage().world.size.x;
-    // ⛔ **TOWARD THE NEARER EDGE, and `speed` is a MAGNITUDE now.** The signed
-    // version aimed a fixed direction per seat, so whether a body crossed the
-    // blast margin depended on where its CPU had wandered when this fired —
-    // measured 2026-08-20, when body contact moved the fighters and one launch
-    // came down short. This test's own note says every elimination is one it
-    // CAUSES on a fixed schedule; a launch aimed at the far side was the one
-    // thing about it that was still a race.
+    // This test's own note says every elimination is one it CAUSES on a fixed schedule; a launch
+    // aimed at the far side was the one thing about it that was still a race.
     let launch = |app: &mut App, seat_wanted: usize, speed: f32| {
         let world = app.world_mut();
         let mut query = world.query::<(&MatchSeat, &mut BodyKinematics)>();
@@ -1854,7 +1683,7 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
         }
     };
 
-    // ⚠ **NOTHING HERE WAITS ON THE FIGHT, and that is deliberate.** Every
+    // **NOTHING HERE WAITS ON THE FIGHT, and that is deliberate.** Every
     // elimination is one this test causes, on a fixed schedule: Red's teammate
     // leaves at twice the speed and twenty ticks ahead of Blue, so the census
     // has exactly one Red body when the match ends. A version that let four CPUs
@@ -1869,17 +1698,17 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
         if tick == countdown {
             seated = seats_now(&mut app).len();
         }
-        // ⚠ after the ceremony RELEASES the cast — a body held by
+        // after the ceremony RELEASES the cast — a body held by
         // `ScriptedControl` is placed by the respawn rule every tick, so a
         // velocity written during the count is simply overwritten.
-        // ⛔ **as soon as the ceremony releases, for the reason the sibling
+        // **as soon as the ceremony releases, for the reason the sibling
         // second-match test now records: every tick between the release and the
         // script is a tick in which the CPUs can decide the match themselves.
         if tick == countdown + 3 {
             launch(&mut app, 1, -4_800.0);
         }
         if tick == countdown + 8 {
-            // ⚠ **the same speed as seat 1's, because the SPEED was never the
+            // **the same speed as seat 1's, because the SPEED was never the
             // claim.** A body starting near the middle of the stage has further
             // to travel than one already near an edge, and at 2400px/s the
             // controller's decay can bring it down inside the world — which
@@ -1906,7 +1735,7 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
         seated, 4,
         "the stage seated {seated} fighters, so this was not a two-versus-two"
     );
-    // ⭐ **THE NON-VACUITY GUARD, and it is the whole fixture.** If seat 1 were
+    // **THE NON-VACUITY GUARD, and it is the whole fixture.** If seat 1 were
     // still standing when the match ended, the census would have found two Red
     // bodies and printed the team for the wrong reason — the assertion below
     // would pass on the broken code. Red must be ONE body and TWO participants
@@ -1943,20 +1772,7 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
     );
 }
 
-/// **PRODUCT ACCEPTANCE: TWO CPUs WEARING ONE CHARACTER STOP BEING A PERFECT
-/// REFLECTION OF EACH OTHER, MEASURED ON THE REAL STAGE.** (queue D128, 2026-08-17)
-///
-/// ⛔⛔ **the reported defect was that same-character CPU-vs-CPU matches are
-/// perfectly symmetric**, and it was literally true: the fighter brain seeded its
-/// noise stream from difficulty alone, so two seats at one rung drew byte-identical
-/// noise, and — seated at mirrored spawns on a symmetric stage — they stayed exact
-/// mirror images of each other for the whole match.
-///
-/// ⭐⭐ **THE METRIC IS MIRROR ERROR, NOT DISTANCE, and getting that wrong made a
-/// first draft of this test vacuous.** Two bodies drift apart on this stage
-/// whatever their brains do, so *"the gap grew"* passes with the defect fully
-/// present — it was measuring collision, not cognition. What "a perfect reflection"
-/// means is that seat 1 is seat 0 flipped about the spawn midline:
+/// What "a perfect reflection" means is that seat 1 is seat 0 flipped about the spawn midline:
 ///
 /// ```text
 /// mirror error = |(x0 − mid) + (x1 − mid)|  +  |y0 − y1|
@@ -1965,26 +1781,12 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
 /// own streams     grows              (two fighters)
 /// ```
 ///
-/// ⛔⛔ **AND THE DIAGNOSIS ABOVE IS SUPERSEDED (review, 2026-08-19): the shared
-/// stream is FIXED, so a red verdict here no longer means "one mind twice".** The
-/// seats draw different samples and genuinely fight; what remains is that a
-/// symmetric stage gives two different minds nothing to disagree about, which at
-/// difficulty 5 is 0–1 frames of execution noise. That is a fairness question for
-/// the maintainer (queue D167), not a defect in the brain — and it is why the
-/// failure message below says so instead of naming a cause that is gone.
-///
-/// ⚠ **the spawns really are mirrored** — measured at 224 and 416 about a midline
-/// of 320 — so the two fighters begin in circumstances that are symmetric rather
-/// than merely similar. That is what makes this a fair test of the fighters: the
-/// stage is handing them a symmetric problem, and the question is whether they
-/// answer it identically.
-///
 /// ## What this test deliberately does NOT cover, and where that lives
 ///
-/// ⚠ **the authored EXCEPTION cannot be measured here**, for a composition reason
+/// **the authored EXCEPTION cannot be measured here**, for a composition reason
 /// rather than a gap: Emmy Ethereal is one of Ambition's catalog characters and
 /// this standalone demo app does not compose `ambition_content`, so
-/// `smash_roster_at_levels(["npc_emmy_noether", …])` seats nothing at all. ⛔ do not
+/// `smash_roster_at_levels(["npc_emmy_noether", …])` seats nothing at all. do not
 /// "fix" that by teaching this app Ambition's cast — the demo host's own roster is
 /// the point of the demo host.
 ///
@@ -2010,8 +1812,6 @@ fn two_cpus_wearing_one_character_stop_being_a_perfect_reflection() {
     for _ in 0..30 {
         app.update();
     }
-    // ⚠ **the same character in BOTH seats at the SAME rung** — the exact
-    // configuration that used to produce one mind played twice.
     let character = ambition_demo_smash::SMASH_CHARACTER_ID;
     let roster = ambition_demo_smash::smash_roster_at_levels([character, character], &[5, 5]);
     let countdown = roster.opening_countdown_ticks as usize;
@@ -2078,28 +1878,17 @@ fn two_cpus_wearing_one_character_stop_being_a_perfect_reflection() {
 
 /// **THE STAGE GRANTS BODY CONTACT TO ITS CAST, AND THE SNAPSHOT CARRIES IT.**
 ///
-/// Jon's ruling on §25 (2026-08-20) made body contact expressible; the engine
 /// owns an unnamed constraint and this ruleset grants it, which is the whole of
 /// what smash contributes. This test is the WIRING half of that claim: in a real
 /// match, on the real stage, both seated fighters carry the capability and both
 /// reach the pre-integration snapshot the movement phase reads.
 ///
-/// ⚠ **and it says what it does NOT prove, because the last attempt at this was
-/// deleted for exactly that.** `bbbc5e46c` removed an acceleration-based jostle
-/// with eight passing unit tests that moved nothing in a game — its fixture had
-/// no movement kernel in it. Whether the constraint survives the controller is
-/// proven where the controller runs:
+/// Whether the constraint survives the controller is proven where the controller runs:
 /// `ambition_platformer2d_core::movement::kernel::tests::a_grounded_body_walking_into_another_one_is_stopped_by_the_real_sweep`
-/// holds RIGHT for a second against the `approach()` overwrite that erased the
-/// force version, and measures the distance. This test only says the two are
-/// connected.
+/// holds RIGHT for a second against the `approach()` overwrite that erased the force version,
+/// and measures the distance. This test only says the two are connected.
 ///
-/// ⛔ **the emergent MATCH behaviour is deliberately not asserted here.** Two
-/// CPUs launch each other constantly, land overlapped — which this pass never
-/// separates, by Jon's ruling — and a closest-approach statistic over such a
-/// match measures the launches, not the walking. That is a feel question for
-/// Jon and a re-measurement to take after he has looked at it, not a number to
-/// invent in a test.
+/// That is a feel question for invent in a test.
 #[test]
 fn the_stage_grants_body_contact_to_both_seated_fighters() {
     use ambition_platformer2d::actor::MatchSeat;

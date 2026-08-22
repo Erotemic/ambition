@@ -77,9 +77,8 @@ pub struct PressArm<T> {
 /// right one for anything with rows.
 pub type RowPress = PressArm<usize>;
 
-// Hand-written so an arm over a target that has no `Default` still has one.
-// `#[derive(Default)]` would demand `T: Default`, which a menu-action enum has
-// no reason to satisfy.
+// `#[derive(Default)]` would demand `T: Default`, which a menu-action enum has no reason to
+// satisfy.
 impl<T> Default for PressArm<T> {
     fn default() -> Self {
         Self {

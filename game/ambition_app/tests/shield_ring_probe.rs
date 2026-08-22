@@ -1,6 +1,5 @@
 //! **PROBE (print-only): where does the bubble-shield ring actually get put?**
 //!
-//! Jon, 2026-08-08: *"The main character shield sprite has the bubble in the
 //! wrong place, just kinda to the upper left."* Reproduced with
 //!
 //! ```text
@@ -31,7 +30,7 @@
 //!    converts to, and the camera's `orthographic_scale` — the divisor between
 //!    the WORLD pixels every size above is in and the SCREEN pixels a
 //!    screenshot is measured in
-//! 7. ⭐ **every sprite within 150 bevy units of the player, marker-free** —
+//! 7. **every sprite within 150 bevy units of the player, marker-free** —
 //!    with its `Anchor` and the drawn-centre displacement that anchor implies.
 //!    Items 1–5 can only find things already known to be the shield, and the
 //!    capture shows two artefacts; this is the one query that can see a
@@ -43,18 +42,16 @@
 //! cargo test -p ambition_app --test app_it -- shield_ring_probe --ignored --nocapture
 //! ```
 //!
-//! ⚠ **it lives in `ambition_app`, not `ambition_render`, for a link reason**,
+//! **it lives in `ambition_app`, not `ambition_render`, for a link reason**,
 //! not an ownership one: `cargo test -p ambition_render` cannot link in the
-//! shared target dir (queue D59). `ShieldRingsView` is `ambition_sim_view` and
+//! shared target dir. `ShieldRingsView` is `ambition_sim_view` and
 //! `BubbleShieldVisual` is `ambition_render`; the app suite is the narrowest
 //! scope that can see both AND boot the composition the capture photographed.
 //!
-//! ⚠ **`NoWindow`, where the capture used `OffscreenGpu`.** The only difference
+//! **`NoWindow`, where the capture used `OffscreenGpu`.** The only difference
 //! is the wgpu backend — no render app, therefore no pixels — and every quantity
 //! printed here is decided on the main-world side of that line. What this
 //! harness cannot see is anything a rasterizer does with the numbers.
-//!
-//! # ⭐ WHAT IT MEASURED, 2026-08-09 — the misplaced bubble is PAINTED ART
 //!
 //! The engine's ring is innocent, and the numbers say so without appeal:
 //!
@@ -68,29 +65,23 @@
 //!   at rest, its `Anchor` is dead centre, and no other sprite in the world
 //!   draws the shield texture
 //!
-//! ⇒ the ring Jon can see up and to the left is **not this sprite**. It is the
-//! character's own `block` animation frame:
-//! `assets/sprites/player_robot_v3_spritesheet.png` paints a thin cyan bubble
-//! INTO the art, beside the robot instead of around it. The tell is in the
-//! sidecar and needs no picture — every other row of that sheet is a `~71 x 101`
-//! frame at `off: (79, 57)`, and `block` is `119..126 x 144..149` at
-//! `off: (22..25, 12..17)`. That is where the sprite's `custom_size` jumps from
-//! `37.45 x 53.80` to `63.30 x 75.96` the instant the guard goes up — a `120 x
-//! 144` frame at the sheet's own `0.5275` world-per-pixel, exactly.
+//! It is the character's own `block` animation frame:
+//! `assets/sprites/player_robot_v3_spritesheet.png` paints a thin cyan bubble INTO the art, beside
+//! the robot instead of around it. The tell is in the sidecar and needs no picture — every other
+//! row of that sheet is a `~71 x 101` frame at `off: (79, 57)`, and `block` is `119..126 x
+//! 144..149` at `off: (22..25, 12..17)`. That is where the sprite's `custom_size` jumps from `37.45
+//! x 53.80` to `63.30 x 75.96` the instant the guard goes up — a `120 x 144` frame at the sheet's
+//! own `0.5275` world-per-pixel, exactly.
 //!
-//! ⚠ **`player_robot_v3` is the only sheet in the cast shaped like this**: of
+//! **`player_robot_v3` is the only sheet in the cast shaped like this**: of
 //! the 37 sheets carrying both `idle` and `block`, its block frame is `1.77x`
 //! wider and `1.45x` taller than its idle, and the next worst (alice, bob) are
 //! `1.40x` wider and the SAME height — an arm extending, which is what a guard
 //! pose should cost. Alice and Bob draw their shield arc in front of the body;
 //! v3 draws a detached circle.
 //!
-//! ⛔ so the fix is in the ART GENERATOR, not in any positioning expression, and
-//! this file must not grow one. Two things are worth knowing before anyone
-//! touches it: what Jon called "a glow centred on the robot" IS
-//! [`BubbleShieldVisual`] doing its job (`Srgba(0.5, 0.8, 1.0, 0.55)` behind the
-//! body), and the two artefacts are therefore a correct engine ring and an
-//! incorrect painted one, not two rings from one generator.
+//! so the fix is in the ART GENERATOR, not in any positioning expression, and this file must not
+//! grow one.
 
 use std::time::Duration;
 
@@ -376,7 +367,7 @@ fn print_snapshot(app: &mut App, label: &str) {
 
     // ── EVERY DRAWABLE STANDING NEAR THE PLAYER ─────────────────────────────
     //
-    // ⭐ **the query that is not keyed to a marker, and that is the point.**
+    // **the query that is not keyed to a marker, and that is the point.**
     // Items 1–5 can only find things that are already known to be the shield;
     // a capture taken with the shield up shows TWO ring-shaped artefacts and
     // this crate owns exactly one of them, so the instrument has to be able to
@@ -448,13 +439,6 @@ fn print_snapshot(app: &mut App, label: &str) {
         }
     }
 
-    // ⭐ **THE UNIT CONVERSION, without which every number above is unfalsifiable
-    // against an eyeballed screenshot.** The sizes printed here are WORLD pixels;
-    // what Jon measured off a capture is SCREEN pixels, and the divisor between
-    // them is the orthographic scale — *"a smaller orthographic scale shows less
-    // world in the same viewport, which draws every quad bigger"*
-    // (`rendering/actors/mod.rs`). A ring that is 46.6 world px wide is not 46.6
-    // px in a photograph unless that scale happens to be 1.
     let local_view = ambition_platformer2d::sim_view::the_only_view(app.world_mut());
     if let Some(camera) =
         app.world()
@@ -553,7 +537,7 @@ fn print_where_the_bubble_shield_ring_is_put() {
 
     // ── Walk right with the shield still up ─────────────────────────────────
     //
-    // ⭐ this is the half that separates "anchored to the body" from "anchored
+    // this is the half that separates "anchored to the body" from "anchored
     // to the camera": while the camera follows the player, BOTH read as
     // travelling with him on screen, and only the world-space numbers tell them
     // apart.

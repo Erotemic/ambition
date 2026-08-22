@@ -62,9 +62,8 @@ pub use cli::{
 pub use feedback::{GameplayFeedbackWriters, ProgressionResources};
 pub use hud::update_quest_panel;
 pub use player_clone::{PlayerClone, SpawnPlayerCloneRequest};
-// `PlayerBodyFrameOutput` moved to `ambition_platformer2d::actors::avatar` (the movement
-// phase that writes it is now the unified `integrate_sim_bodies`). Re-exported here
-// so existing `ambition_app::app::PlayerBodyFrameOutput` paths (tests) keep working.
+// Re-exported here so existing `ambition_app::app::PlayerBodyFrameOutput` paths (tests) keep
+// working.
 pub use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
 pub use player_tick::sync_player_presentation;
 pub use plugins::{

@@ -1,6 +1,5 @@
 //! **The room-transition cover, on the most expensive transition the game has.**
 //!
-//! Jon, 2026-07-30: *"the hall of characters just takes a long time to load. And
 //! I thought we had a loading screen to help with these sorts of transitions
 //! where loading was actually necessary."*
 //!
@@ -19,7 +18,7 @@
 //! * the reveal is HELD while assets are outstanding — the cover is still up and
 //!   the room has not committed.
 //!
-//! ⚠ **it cannot say anything about GPU-side cost**, and that is where the real
+//! **it cannot say anything about GPU-side cost**, and that is where the real
 //! stutter lives. `NoWindow` decodes almost nothing (24 images here against 266
 //! in the shipped binary), so the barrier here waits on handles that never
 //! settle. The desktop capture is the instrument for that half: PNG decode
@@ -64,8 +63,6 @@ fn foreground_visible(app: &App) -> bool {
         .is_some_and(|active| active.phase != LoadForegroundPhase::HiddenGrace)
 }
 
-/// Step in REAL time — the asset threads need wall clock, and the reveal grace
-/// is measured in it.
 fn step(app: &mut App) {
     app.update();
     std::thread::sleep(std::time::Duration::from_millis(8));
@@ -136,9 +133,8 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
         )
     };
 
-    // A transition names the body that is crossing (D71). This one is recorded
-    // rather than walked, so the test names the avatar the same way detection
-    // would.
+    // This one is recorded rather than walked, so the test names the avatar the same way
+    // detection would.
     let subject = {
         let world = app.world_mut();
         let mut q = world.query_filtered::<
@@ -164,15 +160,7 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
                 },
             ),
         );
-    // ⚠ **step until the cast bill ARRIVES, rather than assuming it arrives on
-    // the next frame.** Two things moved under this test on 2026-08-14 (D71) and
-    // neither is what it measures: the shipped host defers a crossing until its
-    // recording frame is confirmed, and the readiness transaction now opens
-    // host-side in `Update` while the asset manifest is built from the sim
-    // schedule — so the bill lands a frame after the transaction opens rather
-    // than inside it.
-    //
-    // ⛔ **the loop must not be the assertion.** It waits for the cast to grow AT
+    // **the loop must not be the assertion.** It waits for the cast to grow AT
     // ALL and then measures that same frame, so a Hall that trickled its
     // characters in ten at a time still fails the bill below. A loop that waited
     // for `>= MINIMUM_HALL_CAST` would pass by waiting, which is the shape this
@@ -241,18 +229,12 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
 
     // ── And it can say WHAT it is waiting for ───────────────────────────────
     //
-    // ⛔ **"99%" is not an answer, and until 2026-08-15 it was the only one the
-    // engine had.** Jon watched a real browser sit at 99% entering this exact
-    // room; `LoadPresentationModel::from_snapshot` clamps every un-Ready barrier
-    // to `0.999`, so the number means *"not Ready"* and nothing else. The poll
-    // computed `RoomAssetReadiness`, which names every pending asset, and kept
-    // `(settled, total)` — throwing the names away every frame while the player
-    // stared at a number that could not move.
+    // The poll computed `RoomAssetReadiness`, which names every pending asset, and kept `(settled,
+    // total)` — throwing the names away every frame while the player stared at a number that could
+    // not move.
     //
-    // ⚠ **this test is the natural customer** because a `NoWindow` host decodes
-    // almost nothing (see the header), so the Hall's barrier here genuinely never
-    // settles. That used to be an awkward limitation of the fixture; it is the
-    // ideal stall to interrogate.
+    // **this test is the natural customer** because a `NoWindow` host decodes almost nothing (see
+    // the header), so the Hall's barrier here genuinely never settles.
     let mut report = None;
     let mut outcome = String::from("ran out of frames while the barrier was still un-Ready");
     for _ in 0..600 {
@@ -284,11 +266,7 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
             active.asset_readiness_complete
         );
     }
-    // ⭐ **AND WHAT THE PHASES COST**, printed rather than asserted: these are the
-    // two numbers D124 needs, they record on wasm as well as here now, and a
-    // threshold on them would be a performance assertion inside a correctness
-    // test. Read them from the run output when the burst is what you are
-    // studying.
+    // Read them from the run output when the burst is what you are studying.
     {
         let state = app
             .world()
@@ -314,7 +292,7 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
          computed and dropped again and a stuck load is back to reporting 99%",
         )
     });
-    // ⭐ and the explanation has to NAME things. A stall report that says only
+    // and the explanation has to NAME things. A stall report that says only
     // "still waiting" is the 99% problem with more words.
     assert!(
         report.contains("Still pending:") && report.contains("hall_of_characters"),

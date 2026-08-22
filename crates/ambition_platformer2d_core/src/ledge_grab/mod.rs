@@ -56,14 +56,9 @@ pub const LEDGE_GRAB_INVULN_TIME: f32 = 0.50;
 
 /// **How long a body must spend OFF a ledge to earn the full window.**
 ///
-/// ⭐ **this is what stops ledge camping, and the mechanism is airtime rather
-/// than a regrab counter.** Ultimate buys ledge intangibility with the time you
-/// spent in the air before you caught the edge — a fighter that drops and
-/// immediately re-catches earns almost none, and one that was actually knocked
-/// off and recovered earns all of it. A counter would punish the recovery as
-/// hard as the stall; the clock only punishes the stall.
+/// A counter would punish the recovery as hard as the stall; the clock only punishes the stall.
 ///
-/// ⚠ **the CURVE is rough and the numbers are placeholders.** What is confirmed
+/// **the CURVE is rough and the numbers are placeholders.** What is confirmed
 /// about the genre is the shape — airtime buys the window — not the constants.
 pub const LEDGE_INVULN_FULL_AIRTIME: f32 = 1.20;
 
@@ -173,8 +168,6 @@ pub enum LedgeGrabQuality {
     /// The ledge face and top lip were both inside the original tight
     /// chin/face probe window.
     Precise,
-    /// The widened safety-net probe caught the player outside the old
-    /// precision window.
     Forgiving,
 }
 
@@ -200,15 +193,7 @@ pub struct LedgeGrabState {
     pub getup_kind: LedgeGetupKind,
     /// Seconds spent in the pull-up / roll transition.
     pub climb_elapsed: f32,
-    /// Velocity the player carried into the ledge at the moment of
-    /// grab. Used to grant a momentum-carry boost to early getup
-    /// options (climb / roll / attack / vertical jump) per the
-    /// `AxisSweptParams::ledge_momentum` parameters. Capped + decayed
-    /// by [`ledge_boost`]; pure data, no behavior change unless that
-    /// helper actually consumes it.
     pub momentum_at_grab: Vec2,
-    /// Whether the grab landed inside the original tight chin/face
-    /// probe or through the widened safety-net band.
     pub grab_quality: LedgeGrabQuality,
 }
 

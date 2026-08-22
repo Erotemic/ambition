@@ -1,13 +1,11 @@
 //! Composable movement-ability functions — the limbs of the shared spine.
 //!
-//! Each `apply_<verb>` is a self-contained step the integration calls in a fixed
-//! order. Splitting the movement monolith into these named units is the first
-//! move toward the "shared physics spine + composable ability limbs" architecture
-//! (see `docs/concepts/one-body-one-path.md`): an ability
-//! reads + writes ONLY its own cluster fields, so it can later become an opt-in
-//! component+system an actor carries or not — and an actor (enemy, NPC, boss,
-//! player) is then a different *instance* of one system, differing only in which
-//! ability components + tuning it holds.
+//! Splitting the movement monolith into these named units is the first move toward the "shared
+//! physics spine + composable ability limbs" architecture (see
+//! `docs/concepts/one-body-one-path.md`): an ability reads + writes ONLY its own cluster
+//! fields, so it can later become an opt-in component+system an actor carries or not — and an
+//! actor (enemy, NPC, boss, player) is then a different *instance* of one system, differing
+//! only in which ability components + tuning it holds.
 
 use super::events::FrameEvents;
 use super::input::InputState;
@@ -30,7 +28,7 @@ use crate::MotionFrame;
 /// both and is mid-dodge-cooldown DASHES; a body that owns only ONE of them
 /// still buffers the press, because owning EITHER earns the button.
 ///
-/// ⛔⛔ **the reason this is a named value and not two booleans**: an autonomous
+/// **the reason this is a named value and not two booleans**: an autonomous
 /// driver was choosing its maneuver from `can_dodge` / `can_dash`, which are
 /// CAPABILITIES. So a brain could decide *I am dodging* while the kernel — whose
 /// dodge declined on cooldown without consuming the buffered press — dashed
@@ -38,7 +36,7 @@ use crate::MotionFrame;
 /// test could see it because the tests varied the two capability flags, which
 /// were never the thing that decides.
 ///
-/// ⚠ **availability, not intent** — the buffered press is deliberately NOT an
+/// **availability, not intent** — the buffered press is deliberately NOT an
 /// input here. Perception asks *what would a press mean*, one phase before any
 /// press exists; the `apply_` steps ask the same question and add their own
 /// buffer check. One rule, two callers, in the shape [`resolve_shield`] already
@@ -100,7 +98,7 @@ fn available_dodge(
     if ground.on_ground {
         return (dodge.cooldown <= 0.0).then_some(BurstManeuver::GroundDodge);
     }
-    // ⛔ the budget is checked WITHOUT consuming the buffered press, so a body
+    // the budget is checked WITHOUT consuming the buffered press, so a body
     // that has already dodged this airtime leaves it standing and the press goes
     // on to mean what it would have meant without the dodge ability at all —
     // which is a dash. That fall-through is deliberate, and it is exactly why
@@ -137,7 +135,7 @@ pub(super) fn apply_intent(
     if input.jump_pressed() && abilities.abilities.jump {
         state.buffer_jump = tuning.locomotion.jump_buffer;
     }
-    // ⛔⛔ **THE BURST PRESS IS GATED ON OWNING A BURST, NOT ON OWNING DASH.**
+    // **THE BURST PRESS IS GATED ON OWNING A BURST, NOT ON OWNING DASH.**
     // This read `abilities.abilities.dash` alone, so a body authored
     // `dodge: true, dash: false` could never dodge: nothing ever filled the
     // buffer `apply_dodge` spends, and the dodge ability was inert on every body
@@ -191,7 +189,7 @@ pub(super) fn apply_fly_toggle(
 /// air dodge        airborne, unspent   full 2D stick      this trip through the air
 /// ```
 ///
-/// ⚠ **an air dodge with `air_dodge_time <= 0.0` is a body that has none.** The
+/// **an air dodge with `air_dodge_time <= 0.0` is a body that has none.** The
 /// tuning defaults are `#[serde(default)]`, so every authored body baked before
 /// the maneuver existed keeps exactly the movement it had; a body opts in by
 /// authoring a window.
@@ -218,15 +216,15 @@ pub(super) fn apply_dodge(
     };
     let local_stick = input.local_axis();
     if evade == BurstManeuver::GroundDodge {
-        // ⭐ **SPOT DODGE — down on the stick evades IN PLACE.** The grounded
+        // **SPOT DODGE — down on the stick evades IN PLACE.** The grounded
         // evade had exactly one shape, so the option a fighter takes when there
         // is nowhere to roll TO — cornered, on a platform, waiting out a
-        // committed swing — did not exist. ⚠ a body that authors no window keeps
+        // committed swing — did not exist. a body that authors no window keeps
         // the roll it always had: the press is not taken away from anybody.
         if local_stick.y > crate::movement::tuning::SPOT_DODGE_STICK
             && tuning.abilities.spot_dodge_time > 0.0
         {
-            // ⚠ the DESCENT is kept and everything else zeroed: a body standing
+            // the DESCENT is kept and everything else zeroed: a body standing
             // on a floor has none, and one that spot-dodged off a ledge edge
             // must not hang in the air for the window.
             kinematics.vel = frame.down() * kinematics.vel.dot(frame.down()).max(0.0);
@@ -264,7 +262,7 @@ pub(super) fn apply_dodge(
     } else {
         bevy_math::Vec2::ZERO
     };
-    // ⚠ **local `y` points toward the FEET**, the same convention
+    // **local `y` points toward the FEET**, the same convention
     // `wants_drop_through` reads — so the stick's y composes with `down()`, not
     // against it. Negating here would have aimed every "dodge down through the
     // stage" upward, which is the exact input a recovering body uses.
@@ -318,7 +316,7 @@ pub fn resolve_shield(
             if fresh {
                 *parry_window_timer = parry_window_time;
             }
-            // ⚠ dropping the guard ENDS the window it opened. Without this the
+            // dropping the guard ENDS the window it opened. Without this the
             // press-timed parry would keep covering a body that is no longer
             // guarding, which is the release-timed reading arrived at by
             // accident rather than by declaration.
@@ -326,7 +324,7 @@ pub fn resolve_shield(
                 *parry_window_timer = 0.0;
             }
         }
-        // ⭐ the FALLING edge arms it, and nothing closes it early: the window is
+        // the FALLING edge arms it, and nothing closes it early: the window is
         // live while the guard is DOWN, which is the whole mechanic.
         crate::ParryTiming::OnRelease => {
             if released {
@@ -384,7 +382,7 @@ pub(super) fn apply_jump_release(
 /// the caller. Split out because a jump-squat swallows the release edge — the
 /// button can come up mid-crouch, when there is no ascent to shorten — so the
 /// squat's takeoff replays the cut at the instant the body actually leaves the
-/// ground. ⛔ that is a deferred release, not a second "short hop" mechanic:
+/// ground. that is a deferred release, not a second "short hop" mechanic:
 /// whichever [`super::tuning::AxisJumpLaw`] the body authored still decides
 /// what shortening means.
 pub(super) fn cut_ascent_now(
@@ -478,23 +476,6 @@ mod burst_maneuver_tests {
     }
 
     /// **A BODY THAT OWNS THE DODGE AND NOT THE DASH ACTUALLY DODGES.**
-    ///
-    /// ⛔⛔ the regression this pins: `apply_intent` gated the shared burst press
-    /// on `abilities.dash`, so `dodge: true, dash: false` filled no buffer and
-    /// `apply_dodge` returned on its `buffer_burst <= 0.0` guard every single
-    /// time. Nothing saw it, because the one shipped body carrying the dodge
-    /// carried the dash beside it — and the moment a game drops the traversal
-    /// burst from its kit (D146: dash leaves the smash vocabulary) every fighter
-    /// loses the evade silently.
-    ///
-    /// ⭐ it goes through `apply_intent` on purpose. Writing `buffer_burst`
-    /// directly is what every other test here does, and that is exactly the step
-    /// with the bug in it — a test that skipped it would have passed before the
-    /// fix.
-    ///
-    /// The poison row is the third: a body owning NEITHER verb must still buffer
-    /// NOTHING, or the gate has simply been replaced by `true` and the first two
-    /// rows prove nothing about it.
     #[test]
     fn the_burst_press_belongs_to_whichever_burst_the_body_owns() {
         let tuning = AxisSweptParams::default();
@@ -667,21 +648,21 @@ mod burst_maneuver_tests {
 
     /// **THE RESOLVER AND THE BODY ANSWER THE SAME QUESTION.**
     ///
-    /// ⛔⛔ this is the whole reason [`resolve_burst_maneuver`] exists. An
+    /// this is the whole reason [`resolve_burst_maneuver`] exists. An
     /// autonomous driver was choosing its maneuver from the body's
     /// CAPABILITIES, and a dodge on cooldown declines without consuming the
     /// buffered press — so `apply_dash` takes it and the body dashes while the
     /// brain goes on saying "dodge". Every state below is a state a Smash
     /// fighter is in several times a match.
     ///
-    /// ⭐ the second row is the poison: on a body owning both, the ONLY thing
+    /// the second row is the poison: on a body owning both, the ONLY thing
     /// separating a roll from a dash is the cooldown, so a resolver that
     /// answered from capabilities would give the same answer for both rows and
     /// this test would be measuring nothing.
     #[test]
     fn what_the_resolver_says_is_what_the_body_does() {
         let abilities = both_abilities();
-        // ⛔⛔ **NOT `AxisSweptParams::default()` UNMODIFIED.** Its
+        // **NOT `AxisSweptParams::default()` UNMODIFIED.** Its
         // `air_dodge_time` is 0.0, so on default tuning the air-dodge branch can
         // never fire and both airborne rows below would agree for the wrong
         // reason — the `AirDodge` variant would go entirely unexercised while
@@ -870,10 +851,9 @@ mod resolve_shield_tests {
 
     /// **THE TWO SETTINGS ARE TWO GAMES, AND BOTH ARE REACHABLE.**
     ///
-    /// ⭐ Jon, 2026-08-20: *"if ultimate does it I do want a setting for get
     /// ultimate, so release style shielding is in scope as an option."*
     ///
-    /// ⛔ **the pair is the assertion.** A test of `OnRelease` alone would pass
+    /// **the pair is the assertion.** A test of `OnRelease` alone would pass
     /// on an implementation that had simply MOVED the parry rather than made it
     /// a knob, and that is the change this is deliberately not: `OnRaise` is
     /// Smash 4's and stays the default, so no shipped body's feel moves.
@@ -907,7 +887,7 @@ mod resolve_shield_tests {
         );
         assert!(!active, "the guard came down");
         assert_eq!(parry, 0.2, "the release did not open the window");
-        // ⛔ and it is a PARRY while the guard is down, which is the whole
+        // and it is a PARRY while the guard is down, which is the whole
         // mechanic and the reason `parrying()` cannot ask for `active`.
         let shield = crate::BodyShieldState {
             active,

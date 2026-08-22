@@ -343,14 +343,10 @@ def main() -> int:
 
     # A REMOVAL GUARD, on both paths.
     #
-    # The registry is a projection of `audio/music/generated/<cue>/full.ogg`,
-    # and those OGGs are build artifacts nobody commits. So regenerating on a
-    # machine that has not rendered every cue does not report a difference of
-    # opinion about the roster — it deletes real content, and says "regenerated"
-    # while doing it. That happened on 2026-07-27: seven cues vanished from the
-    # shipped registry as a side effect of an unrelated fresh-clone fix, and one
-    # test happened to name one of the seven, which is the only reason anybody
-    # noticed the other six.
+    # The registry is a projection of `audio/music/generated/<cue>/full.ogg`, and those OGGs are
+    # build artifacts nobody commits. So regenerating on a machine that has not rendered every cue
+    # does not report a difference of opinion about the roster — it deletes real content, and says
+    # "regenerated" while doing it.
     #
     # Adding is still free. This generator's own docstring calls registration an
     # invariant rather than a chore, and it stays one — it is REMOVAL that needs

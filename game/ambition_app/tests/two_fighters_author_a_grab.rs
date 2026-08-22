@@ -1,12 +1,12 @@
 //! **The capture vocabulary is not tied to one provider.**
 //!
-//! ⭐ **the deliberate falsifier for stage J.** George Booul's table lives in
+//! **the deliberate falsifier for stage J.** George Booul's table lives in
 //! `ambition_demo_smash` — the game that owns the stage — and the Pirate
 //! Admiral's lives in `ambition_content`, the named-content crate. If the
 //! capture authoring had quietly grown a dependency on one game's own helpers,
 //! only one of these two could have been written.
 //!
-//! ⚠ this reads the CONTRACTS rather than driving a match, on purpose. What is
+//! this reads the CONTRACTS rather than driving a match, on purpose. What is
 //! under test is that two providers can SAY a grab; that a said grab is caught,
 //! held, pummelled and thrown is pinned by the capture runtime's own guards.
 
@@ -40,11 +40,11 @@ fn two_providers_each_author_a_grab_a_pummel_and_a_throw() {
                  a button with nothing behind it"
             );
         }
-        // ⚠ **INVERTED 2026-08-20.** This asserted the other three throws were
+        // **INVERTED.** This asserted the other three throws were
         // ABSENT, which was true of both fighters when it was written and is
         // true of neither now: the admiral took the roster's back/up/down pass
         // and George authored his three as a modus tollens, a tautology and a
-        // reductio. ⛔ the claim it was making — an absent throw is absent, not
+        // reductio. the claim it was making — an absent throw is absent, not
         // silently substituted — is NOT dropped, and was never this test's to
         // keep: `smash_capture`'s own tests build a forward-only kit and assert
         // `bound()` yields three verbs and not six.
@@ -95,7 +95,7 @@ fn each_authored_grab_carries_a_live_capture_attempt() {
     }
 }
 
-/// **⛔ THE TWO FIGHTERS DID NOT CLONE ONE SPEC.**
+/// **THE TWO FIGHTERS DID NOT CLONE ONE SPEC.**
 ///
 /// The whole reason two customers were required. If a later hand copies one
 /// fighter's grab onto another and edits the id, this is what notices — and

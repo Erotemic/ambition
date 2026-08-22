@@ -1,34 +1,21 @@
 #!/usr/bin/env bash
 # **WHICH TREE THE GOAL GUARD JUDGES**, resolved once for both hooks.
 #
-# The guard itself is right: `goal_guard.py::repo_root()` resolves through
-# `__file__`, so a worktree's own copy resolves to the worktree and reads the
-# worktree's `.goal/`. What was wrong was WHICH COPY the hook ran.
+# The guard itself is right: `goal_guard.py::repo_root()` resolves through `__file__`, so a
+# worktree's own copy resolves to the worktree and reads the worktree's `.goal/`.
 #
-# ⛔⛔ **TWO OPPOSITE TRAPS, and a fix for either one alone re-opens the other.**
+# **TWO OPPOSITE TRAPS, and a fix for either one alone re-opens the other.**
 #
-#   `$CLAUDE_PROJECT_DIR` only — the shape this replaces. A session that started
-#   in the main checkout and then entered a worktree still carries it pointing at
-#   MAIN, so the hook ran main's copy and judged main's working tree. Measured by
-#   the smash-parity lane: *"main had 132 dirty files and 2 compile errors while
-#   this branch was clean at 445/0."* ⚠ the tell is `.goal/` being absent in the
-#   worktree — it is gitignored, so a worktree never has one.
+# `$CLAUDE_PROJECT_DIR` only — the shape this replaces. A session that started in the main checkout
+# and then entered a worktree still carries it pointing at MAIN, so the hook ran main's copy and
+# judged main's working tree.
 #
-#   `$PWD` only — worse, and it has already happened. One `cd` into a NESTED git
-#   repository resolved a root with no `.goal/active.json`, so the guard took its
-#   *"not armed: ordinary sessions are untouched"* path and SILENTLY RELEASED a
-#   72-hour run (2026-08-05; `docs/tools/goal-guard.md`).
+# `$PWD` only — worse, and it has already happened.
 #
-# ⭐ **the discriminator is the COMMON GIT DIR.** A worktree of this repository
+# **the discriminator is the COMMON GIT DIR.** A worktree of this repository
 # shares one with the main checkout; a nested repository does not. So `$PWD` wins
 # when it is the same repository, and `$CLAUDE_PROJECT_DIR` wins otherwise — the
 # worktree case is served without giving a stray `cd` any authority at all.
-#
-# ⚠ **it is a script rather than shell inside `.claude/settings.json` so that it
-# can be RUN.** The settings entry could not be exercised except by ending a
-# turn, which is the one place a mistake takes the whole standing-goal mechanism
-# down with it. `scripts/tests/test_goal_guard_hook.py` runs this against a real
-# worktree.
 #
 # Usage: goal_guard_hook.sh [args passed through to goal_guard.py]
 set -uo pipefail

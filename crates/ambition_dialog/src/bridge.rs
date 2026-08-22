@@ -247,11 +247,8 @@ fn dispatch_pending_dialog_requests(
 
 /// Write the conversation's identity context into the runner's variable storage.
 ///
-/// This is the ONLY place the engine writes a Yarn `$variable`; everything else
-/// content reads is a library FUNCTION over the state mirror. Identity is
-/// different: it is fixed for the whole conversation and content branches on it
-/// at line zero, so a variable — set once, before the node starts — is the right
-/// shape, and it costs no per-line mirror read.
+/// This is the ONLY place the engine writes a Yarn `$variable`; everything else content reads
+/// is a library FUNCTION over the state mirror.
 fn publish_dialogue_context(runner: &mut DialogueRunner, context: &DialogueContext) {
     let storage = runner.variable_storage_mut();
     let vars: [(&str, YarnValue); 3] = [

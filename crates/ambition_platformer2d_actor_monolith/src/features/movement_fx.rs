@@ -7,12 +7,6 @@
 //! `ambition_render`, so this carries no render dependency. It is called from the
 //! host's player-tick control/sim phases; it lived in `ambition_app` only because
 //! it was authored beside that glue.
-//!
-//! Player-centrism note: [`handle_player_events`] is still named "player" and
-//! arms `Player*State`, but its SFX/VFX half is the body-generic
-//! [`emit_movement_fx`] — the SAME emitter the actor tick runs, so an AI fighter
-//! that jumps/dashes/dodges/wall-jumps produces the same dust + SFX the player
-//! does (fable review 2026-07-02 §A8).
 
 use bevy::prelude::MessageWriter;
 
@@ -113,12 +107,9 @@ pub fn arm_movement_anim_overlays(anim: &mut BodyAnimFacts, events: &ae::FrameEv
 /// into `SfxMessage`/`VfxMessage` facts at the body's position, plus the
 /// grounded-transition landing dust.
 ///
-/// Carries NO body-specific state — the wall-jump anim pose, the blink-camera
-/// lerp, and the action hit-flash stay with each caller ([`handle_player_events`]
-/// arms them for the player; the actor tick does not). This is the ONE emit site
-/// the actor path and the player path share, retiring the old blink-only actor
-/// branch + its hand-copied second blink emit (the "parallel emission site" bug —
-/// fable review §A8).
+/// Carries NO body-specific state — the wall-jump anim pose, the blink-camera lerp, and the
+/// action hit-flash stay with each caller ([`handle_player_events`] arms them for the player;
+/// the actor tick does not).
 #[allow(clippy::too_many_arguments)]
 pub fn emit_movement_fx(
     sfx: &mut SfxWriter,
@@ -168,7 +159,7 @@ pub fn emit_movement_fx(
                     kind: ParticleKind::Dust,
                 });
             }
-            // ⚠ **the spot dodge is quieter and lower.** It covers no ground, so
+            // **the spot dodge is quieter and lower.** It covers no ground, so
             // the roll's wide kick-up would read as travel that did not happen;
             // a small puff at the feet is the tell that the body stood still and
             // meant to.
@@ -317,7 +308,7 @@ pub fn emit_movement_fx(
             | ae::MovementOp::LedgeDrop
             | ae::MovementOp::WallCling
             | ae::MovementOp::WallClimb
-            // ⚠ the crawl edges are published for the CAUSAL LOG, not for
+            // the crawl edges are published for the CAUSAL LOG, not for
             // presentation. What a body seating on a ceiling should sound like is
             // a game-feel choice, and inventing one here to satisfy the match
             // would ship an effect nobody asked for. Silent on purpose; this arm

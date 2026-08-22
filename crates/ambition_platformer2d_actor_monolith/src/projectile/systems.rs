@@ -35,15 +35,13 @@ const PARRY_HEAL: i32 = 1;
 /// now that damage is attribution-driven. The SAME mechanic
 /// for the player and any shielding actor (a possessed body, a mixed-faction
 /// duelist); the player's parry HEAL stays a player-facing reward at the call site
-/// (fable review 2026-07-02 §A10).
+/// .
 ///
 /// # Combat ownership moves; the bolt's VOICE does not (H1/H7)
 ///
-/// ⭐ **the allegiance is REWRITTEN, not dropped.** The shot's side is a stamp it
-/// carries (D150), so a parry is the one thing entitled to overwrite it: this is
-/// the parrier's bolt now. Before the stamp existed the re-own worked by making
-/// the next tick's owner LOOKUP find a different body, which is the same mechanism
-/// that lost the shot's allegiance entirely when a firer died.
+/// Before the stamp existed the re-own worked by making the next tick's owner LOOKUP find a
+/// different body, which is the same mechanism that lost the shot's allegiance entirely when a
+/// firer died.
 ///
 /// The re-own above is a combat fact: damage now routes off the parrier's faction.
 /// It deliberately does NOT re-stamp `BodyPresentationSource`, so the shot's impact
@@ -390,13 +388,10 @@ struct PlayerProjectileTickInfo {
 #[allow(clippy::too_many_arguments)]
 /// **The set `step_projectiles` runs in.**
 ///
-/// ⛔ `ambition_platformer2d_host` orders two RENDER passes against this function
-/// by name — `sync_projectile_visuals` and `sync_projectile_charge_visuals`, both
-/// `.after(projectile_schedule::step_projectiles)` — so presentation reaches
-/// through the runtime's re-export into a monolith leaf to place itself. The
-/// comment beside them says why the edge is real ("both after the step so a
-/// projectile fired this frame is visible this frame rather than one frame
-/// late"); what was missing was a name to hang it on.
+/// ⛔ `ambition_platformer2d_host` orders two RENDER passes against this function by name —
+/// `sync_projectile_visuals` and `sync_projectile_charge_visuals`, both
+/// `.after(projectile_schedule::step_projectiles)` — so presentation reaches through the
+/// runtime's re-export into a monolith leaf to place itself.
 ///
 /// ⚠ ONE member. The two systems beside it in the tuple —
 /// `charge_projectile_input` and `materialize_projectiles_for_next_tick` — are
@@ -416,9 +411,7 @@ pub fn step_projectiles(
             &mut BodyKinematics,
             &mut ProjectileGameplay,
             Option<&ProjectileOwner>,
-            // D150: the shot's OWN side of the fight, stamped immediately after
-            // materialization and read every tick after. `None` is reserved for
-            // a genuinely ownerless/environmental volley.
+            // `None` is reserved for a genuinely ownerless/environmental volley.
             Option<&ProjectileAllegiance>,
             &ProjectileSeq,
             Option<&crate::projectile::ProjectileKind>,
@@ -444,20 +437,14 @@ pub fn step_projectiles(
     // because the boss-facing hit path is `ecs_bosses` below; including them would
     // double-damage.
     //
-    // ⭐ **Now the SAME NAMED ROLE melee uses** — [`StrikeVictim`], owned by
-    // `ambition_combat::hitbox` beside the victim-geometry rule. The comment here
-    // used to claim this loop shared "the SAME published hurtbox" as melee; it did
-    // not, because the tuple that would have carried `DamageableVolumes` had run
-    // out of arity and the claim was never anything but prose. Sharing the type
-    // makes the claim checkable — and it exposed a bolt landing on a body a sword
-    // passes through. The INTANGIBILITY half of that is closed in the loop below;
-    // the precision half is still open, and says so there.
+    // **Now the SAME NAMED ROLE melee uses** — [`StrikeVictim`], owned by `ambition_combat::hitbox`
+    // beside the victim-geometry rule. Sharing the type makes the claim checkable — and it exposed
+    // a bolt landing on a body a sword passes through. The INTANGIBILITY half of that is closed in
+    // the loop below; the precision half is still open, and says so there.
     //
-    // ⚠ NO `With` filter on the vulnerability cluster, deliberately, and unlike
-    // melee: a shot must be able to hit any body with a hurtbox and a faction,
-    // including a simple feature body carrying no shield/dodge state at all.
-    // Narrowing here would silently drop those bodies (the required-components-skip
-    // trap), which is exactly how a "my projectile does nothing" bug is born.
+    // ⚠ NO `With` filter on the vulnerability cluster, deliberately, and unlike melee: a shot
+    // must be able to hit any body with a hurtbox and a faction, including a simple feature
+    // body carrying no shield/dodge state at all.
     victims: Query<
         ambition_combat::hitbox::StrikeVictim,
         (Without<LiveProjectile>, Without<BossConfig>),
@@ -505,19 +492,9 @@ pub fn step_projectiles(
     //   firer feuds with (an `Npc` duelist's bolt). Read-only, so it may overlap
     //   `victims`.
     //
-    //   ⛔⛔ **THE TEAM JOINED IT 2026-08-16, and its absence was Jon's report**:
-    //   *"PCA's glider doesn't do any damage or hit anyone."* Measured on the
-    //   shipped stage, both seats come back `ActorFaction::Player` with teams
-    //   `seat 1` and `seat 2` — melee asks `team_allows_damage` and lands, this
-    //   loop asked `damage_lands` and spared every shot as an ally. It was never
-    //   about the glider: NO projectile from ANY fighter could hit anybody on a
-    //   crossover grid, because a Hall NPC and a demo protagonist are not
-    //   enemies of each other outside the match. `StrikeVictim` has carried the
-    //   victim's `team` the whole time — *"Outranks faction for 'may this
-    //   land'"* — and this was the one caller that never asked for it.
+    // ⛔⛔ **THE TEAM JOINED IT, and its absence was the rule**: *"PCA's glider doesn't do any damage or hit anyone."* Measured on the shipped stage, both seats come back `ActorFaction:Player` with teams `seat 1` and `seat 2` — melee asks `team_allows_damage` and lands, this loop asked `damage_lands` and spared every shot as an ally. It was never about the glider: NO projectile from ANY fighter could hit anybody on a crossover grid, because a Hall NPC and a demo protagonist are not enemies of each other outside the match. `StrikeVictim` has carried the victim's `team` the whole time — *"Outranks faction for 'may this land'"* — and this was the one caller that never asked for it.
     // - `boss_catalog` — App-local authored boss geometry used by the hit predicate.
-    // - `visual_catalog` — the open, content-owned projectile art registry; the
-    //   detonation-FX pick resolves a shot's visual id through it.
+    // - `visual_catalog` — the open, content-owned projectile art registry; the detonation-FX pick resolves a shot's visual id through it.
     (owner_combat, boss_catalog, visual_catalog): (
         Query<(
             &ActorFaction,
@@ -565,18 +542,10 @@ pub fn step_projectiles(
             .and_then(|art| art.expiry_vfx);
         let owner_entity = owner.map(|o| o.0);
         let owner_combat_data = owner_entity.and_then(|e| owner_combat.get(e).ok());
-        // **The shot's side, CARRIED BY THE SHOT** (D150). Stamped immediately
-        // after materialization and read on every tick after, so the answer stops
-        // depending on whether the firer is still resident.
+        // Stamped immediately after materialization and read on every tick after, so the answer
+        // stops depending on whether the firer is still resident.
         //
-        // ⛔⛔ **it used to be re-derived every tick from the owner ENTITY, and a
-        // miss was read as "ownerless" — which this loop treats as INDISCRIMINATE,
-        // "there is no one to be friendly to".** That is the right reading for an
-        // environmental volley and a disaster for a fighter's bolt: a stocks
-        // ruleset DESPAWNS a fighter who spends their last stock
-        // (`take_eliminated_fighters_out_of_play`), so the tick after they lost,
-        // their shot in flight turned on their own team. A shot does not become
-        // neutral because the body that fired it stopped being resident.
+        // A shot does not become neutral because the body that fired it stopped being resident.
         //
         // ⚠ **freezing is not memoising a lookup** — the stamp is the AUTHORITY
         // from here on, which is what lets a parry deliberately REWRITE it
@@ -602,12 +571,9 @@ pub fn step_projectiles(
         // The firer's personal grudge — the per-entity damage override (a duelist's
         // shot lands on the rival it feuds with even at the same faction).
         //
-        // ⚠ deliberately NOT frozen onto the shot beside the allegiance, and the
-        // reasoning was AUDITED 2026-08-18 rather than inherited. A grudge is a
-        // feud the firer holds *now*, not a side the shot was launched on, and
-        // `dissolve_settled_grudges` already gives it a semantic end (either body
-        // reaching zero health) that has nothing to do with residency. So the
-        // live read is the right read.
+        // A grudge is a feud the firer holds *now*, not a side the shot was launched on, and
+        // `dissolve_settled_grudges` already gives it a semantic end (either body reaching zero
+        // health) that has nothing to do with residency. So the live read is the right read.
         //
         // ⛔ **but it was only defensible once the line below stopped inverting.**
         // A missing owner made the shot INDISCRIMINATE, so "the firer is gone, so
@@ -631,18 +597,8 @@ pub fn step_projectiles(
         // A truly ownerless volley — environmental damage that hurts every body
         // it overlaps, friend or foe, because there is no one to be friendly to.
         //
-        // ⛔⛔ **THIS USED TO READ `allegiance.is_none()` ALONE, and that is a
-        // different question wearing the same words.** The comment says "never
-        // had an owner"; the expression said "the owner lookup came back empty",
-        // and those diverge exactly when it matters. `owner_combat` requires a
-        // non-optional `&ActorFaction`, so it returns `Err` for a NAMED owner
-        // that is merely gone — or alive but factionless — and on the shot's
-        // FIRST step that also means no stamp is taken, so the bolt stays
-        // unstamped and re-asks (and re-fails) every tick for the rest of its
-        // life. A named firer that could not be resolved was therefore promoted
-        // to environmental hazard: hostile to its own team, permanently. That is
-        // the D150 failure surviving inside the one window D150's stamp does not
-        // cover — the tick before the stamp exists.
+        // A named firer that could not be resolved was therefore promoted to environmental
+        // hazard: hostile to its own team, permanently.
         //
         // ⇒ **an owner NAMED is the disqualifier, not an owner RESOLVED.**
         // `ProjectileOwner` is healed across a rewind from durable provenance,
@@ -691,14 +647,10 @@ pub fn step_projectiles(
         // i-frames resolved at CONSUME time, and victim KIND picking only
         // payload policy (the player's parry-heal reward).
         //
-        // ⛔ **a Player-faction shot used to take a different road entirely** —
-        // it broadcast `HitTarget::Volume` and let the legacy
-        // "iterate-and-take-primary" consumer work out who it meant. So the same
-        // bolt, fired by an enemy, named its victim and carried knockback; fired
-        // by the player it named nobody and carried none, skipped the published
-        // silhouette, could not be PARRIED, and never asked about a grudge. Four
-        // rules that only existed on one side of a fork whose whole content was
-        // who pulled the trigger.
+        // So the same bolt, fired by an enemy, named its victim and carried knockback; fired by the
+        // player it named nobody and carried none, skipped the published silhouette, could not be
+        // PARRIED, and never asked about a grudge. Four rules that only existed on one side of a
+        // fork whose whole content was who pulled the trigger.
         {
             let mut struck = false;
             let mut reflected = false;
@@ -706,13 +658,10 @@ pub fn step_projectiles(
                 if Some(victim.entity) == owner_entity {
                     continue;
                 }
-                // An owned shot lands on a faction-foe OR a same-faction body its
-                // firer holds a grudge against; an indiscriminate (ownerless) shot
-                // lands on everyone — there is no ally to spare.
-                // ⭐ `damage_lands_BETWEEN`, so the TEAMS decide when both
-                // bodies are seated and the factions decide when they are not.
-                // The plain `damage_lands` this used to call cannot see a match
-                // at all — see the note on `owner_combat` above.
+                // An owned shot lands on a faction-foe OR a same-faction body its firer holds a
+                // grudge against; an indiscriminate (ownerless) shot lands on everyone — there is
+                // no ally to spare. `damage_lands_BETWEEN`, so the TEAMS decide when both bodies
+                // are seated and the factions decide when they are not.
                 let can_hit = indiscriminate
                     || allegiance.as_ref().is_some_and(|side| {
                         ambition_combat::targeting::damage_lands_between(
@@ -764,14 +713,9 @@ pub fn step_projectiles(
                     reflected = true;
                     break;
                 }
-                // CM8: vulnerability is no longer read here to MUTE feedback —
-                // the ONE victim-side reaction fires only on a landed hit, so a
-                // dodged / parried / i-framed hit is muted for free at consume
-                // time (`resolve_body_hit`). (`vuln` is still read for the parry /
-                // shield reflect branch above.)
-                // Knockback side in the victim's LOCAL frame (fable review
-                // 2026-07-02 §B11): a screen-X difference degenerates exactly when
-                // sideways gravity separates the pair along world-Y.
+                // CM8: vulnerability is no longer read here to MUTE feedback — the ONE
+                // victim-side reaction fires only on a landed hit, so a dodged / parried /
+                // i-framed hit is muted for free at consume time (`resolve_body_hit`).
                 let side = victim.knockback_side();
                 let knock_dir = (victim_body.center() - kin.pos).dot(side).signum();
                 let knock_dir = if knock_dir.abs() < 0.001 {
@@ -794,9 +738,6 @@ pub fn step_projectiles(
                     // The victim, named — no producer-side classification.
                     target: HitTarget::Body(victim.entity),
                     mode: HitMode::Knockback,
-                    // EVERY victim rides the same resolved knockback (§A2 step 6).
-                    // The actor branch used to pass `None`, so an actor struck by
-                    // the very bolt that launched the player simply absorbed it.
                     knockback: Some(HitKnockback {
                         dir: knock_dir,
                         magnitude: HitKnockbackMagnitude::FeelScale(0.85),
@@ -841,9 +782,8 @@ pub fn step_projectiles(
             // the identified hit it just took. The consumer skips its actor scan
             // on this target for that reason.
             //
-            // ⚠ this is the half that used to be a Player-faction privilege. A
-            // hostile bolt could not break a crate at all — not by policy, just
-            // because the other side of the fork was the only one that looked.
+            // A hostile bolt could not break a crate at all — not by policy, just because the other
+            // side of the fork was the only one that looked.
             let unresolved = HitEvent {
                 strike_sfx: None,
                 volume: kin.aabb().into(),
@@ -960,11 +900,8 @@ mod parry_tests {
 
     /// **H7: a reflected shot keeps its firer's voice; the clang is the parrier's.**
     ///
-    /// The re-own is a COMBAT fact — damage routes off the parrier's faction from
-    /// the next tick. It is not a presentation fact, and the two were easy to
-    /// conflate now that a projectile carries a source at all (GPT 5.6 asked for
-    /// whichever policy is intended to be pinned, since neither follows from the
-    /// other).
+    /// The re-own is a COMBAT fact — damage routes off the parrier's faction from the next
+    /// tick.
     ///
     /// The choice: a fireball does not become a different fireball because somebody
     /// swatted it back, so its impact keeps sounding like whoever made it. Parrying,
@@ -1053,11 +990,8 @@ mod parry_tests {
             .get::<ProjectileOwner>(proj)
             .expect("the parried shot is re-owned to the parrier");
         assert_eq!(owner.0, parrier, "re-owned to the body that parried it");
-        // ⭐ **and the SIDE moves with the handle** (D150). The shot's allegiance
-        // is a stamp it carries, so the re-own has to overwrite it deliberately —
-        // before the stamp existed, changing the owner handle was the whole
-        // mechanism, and that is the same mechanism that lost a shot's side when
-        // its firer died.
+        // The shot's allegiance is a stamp it carries, so the re-own has to overwrite it
+        // deliberately
         assert_eq!(
             world.get::<ProjectileAllegiance>(proj),
             Some(&ProjectileAllegiance {

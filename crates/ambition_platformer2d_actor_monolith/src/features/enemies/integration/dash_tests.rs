@@ -90,13 +90,11 @@ fn a_dash_capable_body_covers_more_ground_than_a_walker_over_the_window() {
     );
 }
 
-/// B2 (fable review §B2): a non-surface-walker's published reference-frame
-/// normal must track LIVE gravity at its position, not stay pinned to the
-/// spawn constant `(0,-1)`. Consumers derive the body frame as
-/// `-surface_normal` (shield block side, slash knockback, ranged muzzle/aim);
-/// if it stayed screen-down, a body under sideways/inverted gravity would
-/// block/recoil/fire in the down-gravity frame while its movement obeyed the
-/// real field. Regression guard for the `!surface_walker` LIVE write.
+/// B2 (fable review §B2): a non-surface-walker's published reference-frame normal must track LIVE
+/// gravity at its position, not stay pinned to the spawn constant `(0,-1)`. Consumers derive the
+/// body frame as `-surface_normal` (shield block side, slash knockback, ranged muzzle/aim); if it
+/// stayed screen-down, a body under sideways/inverted gravity would block/recoil/fire in the
+/// down-gravity frame while its movement obeyed the real field.
 #[test]
 fn a_non_surface_walker_keeps_its_frame_normal_live_under_gravity() {
     let world = floored_world();
@@ -211,11 +209,8 @@ fn a_staggered_body_loses_input_authority_like_the_player() {
         },
         12,
     );
-    // ⭐⭐ **D108's third half, guarded here** (2026-08-13): LANDING LAG alone
-    // must lock an actor exactly as recoil does. This road used to fill the
-    // hard-lock slot with `recoil_lock_timer` only, so a CPU's landing lag was
-    // set, decayed and rolled back correctly and locked nothing — and no test
-    // said so, because none passed landing lag down this road at all.
+    // ** third half, guarded here**: LANDING LAG alone must lock an actor exactly as recoil
+    // does.
     let landing_lagged = walk_run_staggered(
         BodyCombat {
             landing_lag_timer: 1.0,
@@ -352,15 +347,6 @@ fn an_aerial_body_steers_toward_its_velocity_target_through_the_flight_limb() {
 
 /// **A GROUNDED body with the fly kit takes to the air when it asks to** — the
 /// claim `duel_arena`'s `fly_frames > 0` currently bets on emergently.
-///
-/// ⚠ **written on a clean tree, before anything needed it** (the F0e discipline
-/// three tests up: *"the argument above was written down on a CLEAN tree,
-/// before this change existed, precisely so that it could not be mistaken for
-/// one"*). Queue D74 measured that the duel assertion reds when an unrelated
-/// character is registered, because it asserts a RARE REACTIVE behaviour
-/// happens at least once in a 30-second bout and registering a character moves
-/// the fight's whole trajectory. This proves the same wiring without an opinion
-/// about the AI's mood.
 ///
 /// ⛔ **distinct from `an_aerial_body_steers_toward_its_velocity_target…`
 /// directly above**, which flies a body that is aerial by construction

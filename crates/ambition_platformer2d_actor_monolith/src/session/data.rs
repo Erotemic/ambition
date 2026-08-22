@@ -5,14 +5,12 @@
 //! `Platformer2dGameplayDefaults` as a real Bevy asset type; `load_embedded` gives us a
 //! synchronous bootstrap path until the sandbox grows a loading state.
 //!
-//! Bevy resolves `ambition/platformer_defaults.ron` relative to the sandbox crate asset
-//! root (`crates/ambition_platformer2d_actor_monolith/assets`) when this package is run through
-//! Cargo, so the embedded copy intentionally lives there too. World/room
-//! authoring has moved to LDtk; this RON asset intentionally owns only
-//! non-spatial sandbox tuning. Audio lives in its own App-local registries
-//! (a provider registers an `ambition_audio::catalog::AudioCatalogFragment`;
-//! hosts read them from the `AudioCatalogRegistry` resource) — SFX and music are
-//! separate concerns from gameplay tuning and from each other.
+//! Bevy resolves `ambition/platformer_defaults.ron` relative to the sandbox crate asset root
+//! (`crates/ambition_platformer2d_actor_monolith/assets`) when this package is run through
+//! Cargo, so the embedded copy intentionally lives there too. Audio lives in its own App-local
+//! registries (a provider registers an `ambition_audio::catalog::AudioCatalogFragment`; hosts
+//! read them from the `AudioCatalogRegistry` resource) — SFX and music are separate concerns
+//! from gameplay tuning and from each other.
 
 use ambition_platformer2d_core as ae;
 use bevy::asset::{Asset, AssetServer};
@@ -105,9 +103,8 @@ pub fn load_data_asset_handle(
     commands.insert_resource(Platformer2dGameplayDefaultsHandle(asset_server.load(path)));
 }
 
-// Spatial/world authoring moved to LDtk. This module intentionally contains
-// only non-spatial sandbox tuning; the audio data schema lives DOWN in the
-// `ambition_audio` crate. Re-exported so every `crate::session::data::*`
+// This module intentionally contains only non-spatial sandbox tuning; the audio data schema
+// lives DOWN in the `ambition_audio` crate. Re-exported so every `crate::session::data::*`
 // audio path resolves unchanged.
 pub use ambition_audio::spec::{
     MusicRegistry, MusicTrack, SfxRegistry, SfxSpec, SoundCueKey, WaveformSpec,

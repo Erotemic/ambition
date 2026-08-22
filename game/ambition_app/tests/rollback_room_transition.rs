@@ -20,18 +20,12 @@
 //! entity generations) AND the sim stays checksum-clean across and past the
 //! commit.
 //!
-//! **History.** It was written RED (2026-07-23): `GGRS sync-test checksum mismatch
-//! at frames [9, 10, 11]` while `active == combat_calibration_lab` — the
-//! divergence landed in the transition LOAD phase, as the body overlapped the
-//! exit and the multi-tick transaction engaged, BEFORE the room flipped, because
-//! the transaction machinery ran eagerly on a speculative frame while its own
-//! progress state is not rollback-registered. It is now GREEN under **Track B**:
-//! `detect_room_transition_system` records a `LifecycleIntent::Transition` under a
-//! rollback host instead of engaging the load machine, and
-//! `lifecycle_commit::commit_confirmed_lifecycle` reconstructs the target room in
-//! the exclusive world and rebases the session once the frame is confirmed — so
-//! the reconstruction never runs on a speculative frame and resim cannot diverge.
-//! The same room brawled 2400 frames clean (`rollback_lifecycle_reset`).
+//! It is now GREEN under **Track B**: `detect_room_transition_system` records a
+//! `LifecycleIntent::Transition` under a rollback host instead of engaging the load machine, and
+//! `lifecycle_commit::commit_confirmed_lifecycle` reconstructs the target room in the exclusive
+//! world and rebases the session once the frame is confirmed — so the reconstruction never runs on
+//! a speculative frame and resim cannot diverge. The same room brawled 2400 frames clean
+//! (`rollback_lifecycle_reset`).
 
 #![cfg(feature = "rl_sim")]
 
@@ -41,9 +35,9 @@ use ambition_app::rl_sim::{
 use bevy::prelude::{Entity, With};
 use std::collections::HashSet;
 
-/// `combat_calibration_lab` is the harness room the in-place reset tests already
-/// prove builds+runs; its right-edge `EdgeExit` (`combat_lab_to_boss`, LDtk px
-/// [1264,560] w16×h176) leads to `first_system_boss`.
+/// `combat_calibration_lab` is the harness room the in-place reset tests already prove
+/// builds+runs; its right-edge `EdgeExit` (`combat_lab_to_boss`, LDtk px [1264,560] ×h176)
+/// leads to `first_system_boss`.
 const SOURCE_ROOM: &str = "combat_calibration_lab";
 const TARGET_ROOM: &str = "first_system_boss";
 
@@ -234,10 +228,6 @@ fn a_transition_intent_is_recorded_then_committed_exactly_once() {
     );
 }
 
-/// **Finding 1 — edge-exit momentum is preserved.** The canonical transition
-/// keeps the body's velocity across an `EdgeExit` (you flow through the seam, you
-/// don't stop). The reduced committer zeroed it; the faithful committer restores
-/// it. A zeroing regression leaves the arrival velocity at 0.
 #[test]
 fn an_edge_exit_transition_preserves_the_body_momentum() {
     let mut sim = repro_sim();
@@ -272,12 +262,8 @@ fn an_edge_exit_transition_preserves_the_body_momentum() {
     assert!(committed, "the edge-exit transition committed");
 }
 
-/// **Finding 2 poison test.** A lifecycle rebase installs a fresh
-/// `RollbackSessionStatus`, which would ERASE a `SyncTestMismatch` reported on
-/// the same update the intent confirms — laundering a diverged session into a
-/// clean baseline. The committer must instead REFUSE to rebase over an unhealthy
-/// session, so the diagnostic survives, no discontinuity is claimed, and the
-/// intent stays pending.
+/// The committer must instead REFUSE to rebase over an unhealthy session, so the diagnostic
+/// survives, no discontinuity is claimed, and the intent stays pending.
 #[test]
 fn a_confirmed_commit_refuses_to_rebase_over_a_diverged_session() {
     let mut sim = repro_sim();
@@ -328,9 +314,9 @@ fn a_confirmed_commit_refuses_to_rebase_over_a_diverged_session() {
     );
 }
 
-/// ⭐⭐ **the door still makes a sound on the rollback host.**
+/// **the door still makes a sound on the rollback host.**
 ///
-/// ⛔ it did not. The eager commit plays the zone's cue from
+/// it did not. The eager commit plays the zone's cue from
 /// `RoomTransitionRequested::zone_sfx`; the deferred committer emitted nothing at
 /// all, so on the shipped rollback binary every door and every portal was
 /// SILENT. Nothing failed, no test noticed, and the cue was computed at detection
@@ -396,22 +382,13 @@ fn open_transaction(sim: &Platformer2dSimHarness) -> Option<(u64, u64, bool)> {
         })
 }
 
-/// ⛔⛔ **A TRANSACTION AUTHORIZED UNDER EPOCH E MUST NOT BUILD THE WORLD UNDER
+/// **A TRANSACTION AUTHORIZED UNDER EPOCH E MUST NOT BUILD THE WORLD UNDER
 /// EPOCH E+1.**
 ///
-/// The readiness transaction's whole claim is that the assets a room needs were
-/// proven present before the world was torn down. A content epoch moving is the
-/// engine saying *"anything a prepared plan assumed may no longer hold"* — so an
-/// authorization granted before the move is spent, and committing under it would
-/// reconstruct the room from a plan nobody re-checked, with the source roster
-/// already despawned and no way back.
+/// `authorized_plan` compares `active.content_epoch` against the live epoch and returns `Wait`;
+/// the eager side discards the transaction outright.
 ///
-/// `authorized_plan` compares `active.content_epoch` against the live epoch and
-/// returns `Wait`; the eager side discards the transaction outright. Both were
-/// written in the D71 convergence and NEITHER had a test — this is the one that
-/// would have caught their absence.
-///
-/// ⚠ **the invariant is not "the room never changes".** Bumping the epoch does
+/// **the invariant is not "the room never changes".** Bumping the epoch does
 /// not cancel the crossing: readiness re-opens a transaction under the NEW epoch
 /// and that one commits, which is the desired behaviour. What must never happen
 /// is the room changing under the transaction that was authorized before the
@@ -424,9 +401,8 @@ fn a_transaction_authorized_under_a_stale_content_epoch_never_commits() {
     let floor_y = player_y(&mut sim);
     sim.teleport_player((1200.0, floor_y));
 
-    // Walk into the exit until a transaction reaches CommitAuthorized. That is
-    // the exact state the poison targets: readiness has finished, the plan is
-    // prepared, and the only thing left is to build the world from it.
+    // That is the exact state the poison targets: readiness has finished, the plan is prepared,
+    // and the only thing left is to build the world from it.
     let mut poisoned = None;
     for _ in 0..240 {
         let obs = sim.step(AgentAction::move_x(1.0));
@@ -449,7 +425,7 @@ fn a_transaction_authorized_under_a_stale_content_epoch_never_commits() {
          regression in the transaction path rather than a slow test",
     );
 
-    // ⭐ THE POISON. The world's content moves out from under the authorization.
+    // THE POISON. The world's content moves out from under the authorization.
     {
         let world = sim.world_mut();
         let mut epoch = world
@@ -462,11 +438,8 @@ fn a_transaction_authorized_under_a_stale_content_epoch_never_commits() {
         );
     }
 
-    // ⚠ **sample BEFORE the step, not after.** A commit RETIRES the transaction
-    // it committed, so reading the state after the room flips shows `None` and
-    // tells you nothing about which authorization built the world. The
-    // transaction authorized on the frame the room changes is the one that
-    // changed it, and it is only visible from the near side of that step.
+    // The transaction authorized on the frame the room changes is the one that changed it, and
+    // it is only visible from the near side of that step.
     let mut committing = None;
     let mut flipped = false;
     for _ in 0..480 {
@@ -488,7 +461,7 @@ fn a_transaction_authorized_under_a_stale_content_epoch_never_commits() {
          under the current epoch, and a test that passed by never transitioning would \
          be pinning a deadlock instead of the invariant."
     );
-    // ⛔⛔ **BOTH TERMS, OR THIS ASSERTS NOTHING.** `assert_ne!(None, Some(n))`
+    // **BOTH TERMS, OR THIS ASSERTS NOTHING.** `assert_ne!(None, Some(n))`
     // passes for free, so a run where no transaction was ever authorized after
     // the bump would report success while having observed nothing at all. The
     // room changed, so a REPLACEMENT authorization must exist — name it first,
@@ -513,26 +486,19 @@ fn base_gravity_dir(sim: &Platformer2dSimHarness) -> Option<bevy::prelude::Vec2>
         .map(|gravity| gravity.dir)
 }
 
-/// ⛔⛔ **A ROOM YOU LEFT MUST NOT KEEP SIMULATING THE ROOM YOU ENTERED.**
+/// **A ROOM YOU LEFT MUST NOT KEEP SIMULATING THE ROOM YOU ENTERED.**
 ///
 /// The eager commit path calls `RoomTransitionCombatReset::clear_carryover` —
 /// despawn every in-flight enemy projectile, return `BaseGravity` to its default
 /// — because a fresh room must not inherit hostile shots or a gravity frame from
 /// the one just left. `commit_transition`, the CONFIRMED path the shipped
-/// rollback host actually runs, calls neither: measured 2026-08-14, neither
+/// rollback host actually runs, calls neither: neither
 /// `clear_carryover` nor `BaseGravity` appears anywhere in `lifecycle_commit.rs`.
 ///
 /// Two hosts, one game, two rules — which is what a "mirrors X" fork buys, and
 /// what the ONE-application-operation convergence exists to end.
 ///
-/// ⭐ **THIS WAS RED, AND IT IS THE CONVERGENCE'S PROOF.** Written 2026-08-14
-/// against the forked implementation, it failed with `left: Vec2(-0.0, -1.0)` —
-/// the previous room's flipped gravity, still in force after the door — against
-/// the `Vec2(0.0, 1.0)` default the eager host resets to. It went green when
-/// `commit_transition` stopped being a second implementation and started calling
-/// `RoomTransitionApplication::apply`, the one operation both hosts share.
-///
-/// ⛔ **so do not satisfy it in future by pasting a reset into one host.** What
+/// **so do not satisfy it in future by pasting a reset into one host.** What
 /// makes it hold is that there is nowhere to paste: one operation, two callers.
 /// A fix that touches only `commit_transition` has re-forked the thing this
 /// test exists to prove is not forked.

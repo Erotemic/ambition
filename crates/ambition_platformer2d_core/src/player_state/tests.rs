@@ -371,16 +371,10 @@ fn resource_meter_fraction_handles_zero_max() {
     assert_eq!(m.fraction(), 0.0);
 }
 
-/// Regression test for the morph_lab tunnel: a one-grid-cell
-/// (16 px) gap between a ceiling at y=336 and a floor at y=352
-/// must allow MorphBall through and block every other body
-/// mode (Standing, Crouching, Crawling, Sliding). The morph-ball
-/// shape is decoupled from `base_size` precisely so the
-/// discriminator survives changes to the player's standing
-/// dimensions — earlier the multiplier-based morph ball became
-/// 16.5 px when `base_size.x` grew to 30, snagging on the
-/// 16-px tunnel even though the player had transitioned into
-/// morph mode.
+/// The morph-ball shape is decoupled from `base_size` precisely so the discriminator survives
+/// changes to the player's standing dimensions — earlier the multiplier-based morph ball became
+/// 16.5 px when `base_size.x` grew to 30, snagging on the 16-px tunnel even though the player had
+/// transitioned into morph mode.
 #[test]
 fn morphball_fits_one_grid_cell_tunnel() {
     // A "tunnel" sandwich: floor at y=352, low ceiling at y=336.

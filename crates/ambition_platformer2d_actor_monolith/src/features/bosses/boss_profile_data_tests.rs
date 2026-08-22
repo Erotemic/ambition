@@ -39,17 +39,10 @@ fn legacy_baseline_pins() {
     assert!(matches!(mocker.attack_pattern, BossAttackPattern::Cycle));
 }
 
-/// **⭐ THE ACCEPTANCE TEST for the missing eye beam.** Jon reported that the
-/// Smirking Behemoth chases correctly but never fires, both after a dialogue
-/// replay and after an ordinary room re-entry — so the fault was never in
-/// construction, it was in the boss's own decision to stop approaching.
-///
-/// The authored profile is a CONTACT chase: `engage_distance = 0`, no standoff
-/// ring, `suppress_attacks_while_moving`. Its Approach was ended by a
-/// centre-to-centre test against a 4px epsilon, which a 208px-wide body cannot
-/// satisfy, so it approached forever and stayed silent forever. This drives the
-/// REAL authored row rather than a hand-built one, because the numbers that
-/// produced the bug are authored numbers.
+/// The authored profile is a CONTACT chase: `engage_distance = 0`, no standoff ring,
+/// `suppress_attacks_while_moving`. Its Approach was ended by a centre-to-centre test against a 4px
+/// epsilon, which a 208px-wide body cannot satisfy, so it approached forever and stayed silent
+/// forever.
 #[test]
 fn a_contact_boss_standing_against_its_target_fires_its_authored_attack() {
     use ambition_characters::brain::{
@@ -96,13 +89,9 @@ fn a_contact_boss_standing_against_its_target_fires_its_authored_attack() {
     let mut out = ambition_characters::actor::control::ActorControlFrame::neutral();
     let mut fired_after_s: Option<f32> = None;
     let dt = 1.0 / 60.0;
-    // Ten seconds. The authored phase-1 script rests 1.4s and then leaves that
-    // beat on an authored 0.55/s idle chance, so the wait is a real draw from
-    // the boss's deterministic stream rather than a fixed duration — a few
-    // seconds, generously bounded here. What it is NOT is the pre-fix
-    // behaviour: a boss whose contact chase never closes gets one attacking
-    // tick per `approach_duration_s` (8s), which stretched this three-beat
-    // script to minutes of wall clock.
+    // Ten seconds. What it is NOT is the pre-fix behaviour: a boss whose contact chase never
+    // closes gets one attacking tick per `approach_duration_s` (8s), which stretched this
+    // three-beat script to minutes of wall clock.
     for tick in 0..600 {
         let ctx = BossPatternContext {
             encounter_phase: ambition_boss_encounter::BossEncounterPhase::Phase1,

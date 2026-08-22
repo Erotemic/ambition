@@ -1,7 +1,3 @@
-//! Unit tests for the parent module, extracted from an inline
-//! `#[cfg(test)] mod tests` (test-organization campaign, 2026-07-10). Pure move:
-//! same test names + logic, now an adjacent child module with private access via
-//! `use super::*;`.
 
 use super::*;
 
@@ -25,17 +21,7 @@ fn chain_table_has_no_trigger_equals_target() {
     }
 }
 
-// ⭐ **THE LOCK-WALL TESTS MOVED WITH THE CAPABILITY** (2026-08-15) to
-// `ambition_platformer2d_actor_monolith::world::gated_lock_walls`. Their
-// invariants survive restated against the authored `gated_by` field instead of
-// the const table that used to hold the pairing — including the hot-reload cache
-// invalidation regression, which is the one worth not losing.
 
-// The Yarn migration retired `redirect_post_quest_dialog`:
-// boss-cleared / flag-set redirects are now inline `<<if>>`
-// branches inside the `.yarn` files. The runtime is exercised
-// by running the actual dialog; the tests above used to pin
-// the per-frame redirect dispatch, which no longer exists.
 
 /// Setting `bob_field_survey_received` should cause the
 /// emit_intro_flag_chains system to write
@@ -130,9 +116,6 @@ fn cartography_quest_advances_through_alice_bob_p5() {
 
     assert_eq!(step(&app), 0, "quest starts at step 0");
 
-    // Step 1: alice's note. Set the source flag directly so the
-    // chain promotion landed in save + bus same-frame; the quest
-    // step condition watches FlagSet("alice_route_note_carried").
     app.world_mut()
         .resource_mut::<AmbitionGameSave>()
         .data_mut()
@@ -212,7 +195,7 @@ fn emit_chains_promotes_p5_to_route_memory() {
 /// **THE INTRO WORLD SAYS WHICH FLAG OPENS WHICH WALL — in the level, not in
 /// Rust.**
 ///
-/// ⛔⛔ **the engine tests pin the FUNCTION; this pins the WIRING**, and that
+/// **the engine tests pin the FUNCTION; this pins the WIRING**, and that
 /// distinction has cost this project a session before: enemy facing was plumbed,
 /// tested and green the entire time enemies walked the wrong way, because
 /// nothing asserted the authored world ever *said* which way.
@@ -222,7 +205,7 @@ fn emit_chains_promotes_p5_to_route_memory() {
 /// would produce two walls that simply never appear. No error, no warning — the
 /// player just walks through a door that was supposed to be locked.
 ///
-/// ⚠ this reads the shipped `.ldtk` rather than a fixture, on purpose. A
+/// this reads the shipped `.ldtk` rather than a fixture, on purpose. A
 /// regenerate, an editor session, or a careless merge is exactly what this
 /// defends against, and none of those touch a fixture.
 #[test]
@@ -260,7 +243,7 @@ fn the_intro_world_authors_the_flag_that_opens_each_gated_wall() {
         }
     }
 
-    // ⭐ the non-vacuity guard: a world that lost its LockWalls entirely would
+    // the non-vacuity guard: a world that lost its LockWalls entirely would
     // satisfy every assertion below by having nothing to check.
     assert!(
         lock_walls >= 2,

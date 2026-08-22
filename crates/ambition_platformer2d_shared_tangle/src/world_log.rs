@@ -1,13 +1,5 @@
 //! `[game-mode]` / `[world-event]` — the coarse world-state log.
 //!
-//! **Why this exists.** On 2026-08-08 an Android build froze after a visual-quality
-//! change: menus responded, the character did not move. The device log showed a
-//! quality change, a menu close, and a spurious 0.6s suspend/resume pair — and
-//! nothing else, because **`GameMode` transitions were logged nowhere in this
-//! repository**. The suspect (`apply_android_suspend_to_game_mode`) turns entirely
-//! on whether a mode change landed BEFORE or AFTER the resume edge read the mode,
-//! and no instrument could answer that.
-//!
 //! ## The marker convention
 //!
 //! Plain `eprintln!` with a `[marker]` prefix, matching
@@ -18,15 +10,12 @@
 //! New markers must be added to that script's `marker_regex` or they will not
 //! appear in a profile timeline.
 //!
-//! ## ⭐ Every line carries a FRAME NUMBER, not just a timestamp
+//! ## Every line carries a FRAME NUMBER, not just a timestamp
 //!
-//! Bevy applies `NextState` in a deferred [`StateTransition`] schedule that runs
-//! between `PreUpdate` and `Update`, so a system that calls `NextState::set` in
-//! `Update` does not see the effect until the NEXT frame. A wall-clock stamp
-//! cannot distinguish "same frame" from "adjacent frame" — two events 0.3ms apart
-//! may be either — and that distinction IS the Android bug. So the frame index is
-//! part of the line format, and every marker in this module shares one source for
-//! it.
+//! Bevy applies `NextState` in a deferred [`StateTransition`] schedule that runs between
+//! `PreUpdate` and `Update`, so a system that calls `NextState::set` in `Update` does not see
+//! the effect until the NEXT frame. So the frame index is part of the line format, and every
+//! marker in this module shares one source for it.
 //!
 //! [`bevy::diagnostic::FrameCount`] is that source, [`mirror_frame_count`] projects
 //! it into a process-global so a log site deep inside a helper function needs no
@@ -36,7 +25,7 @@
 //!
 //! ## Portability
 //!
-//! ⚠ This module deliberately does NOT use `ambition_dev_tools::profiling`'s
+//! This module deliberately does NOT use `ambition_dev_tools::profiling`'s
 //! `#[cfg(not(target_arch = "wasm32"))]` fork. That fork exists because
 //! `std::time::Instant::now()` panics on wasm; [`bevy::platform::time::Instant`]
 //! is the same API backed by `web_time` there, so ONE implementation compiles and
@@ -79,10 +68,8 @@ static FRAME: AtomicU32 = AtomicU32::new(0);
 /// Lines emitted so far, against [`WORLD_LOG_CAP`].
 static LINES: AtomicUsize = AtomicUsize::new(0);
 
-/// The last `(mode, cause)` handed to [`note_game_mode_request`], so a setter that
-/// re-asks every frame while its condition holds prints once instead of at 60Hz.
-/// Cleared whenever a transition actually lands, so a genuine re-ask after the
-/// world moved is reported again.
+/// The last `(mode, cause)` handed to [`note_game_mode_request`], so a setter that re-asks
+/// every frame while its condition holds prints once instead of at 60Hz.
 static LAST_REQUEST: Mutex<Option<(GameMode, &'static str)>> = Mutex::new(None);
 
 /// The frame index every marker line stamps. Reads the [`FRAME`] projection, so
@@ -122,7 +109,7 @@ pub fn log_line(marker: &str, body: Arguments<'_>) {
 /// Emit a `[world-event]` line: a coarse world transition (room change, session
 /// start/end, a room reset, a boss phase).
 ///
-/// ⛔ Call this AT the site that already owns the event, never from a second
+/// Call this AT the site that already owns the event, never from a second
 /// system that re-derives it. Most of these facts already have exactly one
 /// authoritative site — some of which already emit a `tracing` line — and this
 /// marker is an additional SINK at that same site, not a parallel emission point.
@@ -173,8 +160,6 @@ pub fn mirror_frame_count(count: Option<Res<FrameCount>>) {
     }
 }
 
-/// **`[game-mode]` — every `GameMode` transition, with the frame it landed on.**
-///
 /// Observes `State<GameMode>` rather than reading `StateTransitionEvent`, because
 /// the question this answers is "what is the mode now", and a `Local` copy makes
 /// the very first observation reportable too (`initial`) without a second code

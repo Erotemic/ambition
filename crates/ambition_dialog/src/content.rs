@@ -12,10 +12,8 @@
 //!   vestigial fields retained only for the runtime option shape;
 //!   they're set to `None` / `false` by the bridge.
 //!
-//! The pre-migration `DialogTree` / `DialogNode` / `DialogRedirectRule`
-//! / `DialogRegistry` types and the RON registry loader have been
-//! retired. Boss-cleared / flag-set redirects are now inline
-//! `<<if boss_cleared("x")>>` branches inside the `.yarn` files.
+//! Boss-cleared / flag-set redirects are now inline `<<if boss_cleared("x")>>` branches inside
+//! the `.yarn` files.
 
 /// Option emitted by Yarn's `PresentOptions` event, in the shape
 /// the existing UI renderer expects. The bridge fills `label` from

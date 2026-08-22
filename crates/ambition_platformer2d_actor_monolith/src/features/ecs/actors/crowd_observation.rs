@@ -5,12 +5,12 @@
 //! `tick_actor_brains`, which made the boundary between "look at the world" and
 //! "decide what this body does" a matter of reading far enough down.
 //!
-//! ⭐ **the phases are what make it legible, not the line count.** Observation
+//! **the phases are what make it legible, not the line count.** Observation
 //! reads every body once and derives; decision reads the derived facts per body.
 //! Nothing here touches ECS state, so the derivations are ordinary values a test
 //! can build without an App.
 //!
-//! ⚠ **liveness arrives from TWO populations and that is the seam to watch.**
+//! **liveness arrives from TWO populations and that is the seam to watch.**
 //! A body's foe is often outside the actor query — a controlled home body carries
 //! no actor cluster — so the caller notes that population separately. That second
 //! source is the visible tip of the split the kernel still has to close: one body
@@ -96,7 +96,7 @@ impl CrowdObservation {
                     .map(|foe_id| (id.clone(), foe_id.clone()))
             })
             .collect();
-        // ⛔ **CANONICAL ORDER, and it is not cosmetic.** This slice is built by
+        // **CANONICAL ORDER, and it is not cosmetic.** This slice is built by
         // iterating a Bevy Query, whose order is not stable and is outright
         // reshuffled by GGRS entity recreation on rollback. Both derivations
         // below break ties over it — `compute_nearest_neighbors` keeps the
@@ -192,7 +192,7 @@ mod tests {
     /// **Liveness answers for both populations through one accessor.**
     ///
     /// A fighter's foe is often a controlled body, which carries no actor
-    /// cluster and so never reaches `note_actor`. ⛔ an unknown body reads as
+    /// cluster and so never reaches `note_actor`. an unknown body reads as
     /// ALIVE: a brain that has not seen something die must not act as though it
     /// has.
     #[test]

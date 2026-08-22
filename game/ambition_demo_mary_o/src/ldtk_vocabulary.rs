@@ -1,12 +1,6 @@
 //! **Mary-O's own LDtk nouns**, so a level is authored by filling in FIELDS
 //! rather than by typing a name convention exactly right.
 //!
-//! Jon, 2026-08-04: *"make sure it is easy for authors to write blocks that
-//! contain items and to place warp pipes and moving platforms."* Before this, a
-//! ?-block was a `Solid` entity that had to be named `power_block_2` — the index
-//! mattered, the spelling mattered, and what the block CONTAINED could not be
-//! said at all. GPT 5.6's Mary-O spec asks for the same thing in §4.
-//!
 //! ## The seam, and why no engine change was needed
 //!
 //! `LdtkVocabulary` lets a game hand its own entity converters to a conversion.
@@ -14,13 +8,11 @@
 //! the first, and being its first real user is what turned up that it was a
 //! process-global `OnceLock` rather than a parameter.
 //!
-//! A converter's only output is `RoomEmission`, whose channels are engine-owned
-//! types — so a game-specific PAYLOAD still has nowhere typed to land, and the
-//! authored block reaches the runtime carrying a `name` and nothing else. The
-//! trade-off is written up in
-//! `docs/archive/planning-superseded/2026-08-13/proposal-authored-vocabulary-2026-08-04.md` §4.
+//! A converter's only output is `RoomEmission`, whose channels are engine-owned types — so a
+//! game-specific PAYLOAD still has nowhere typed to land, and the authored block reaches the
+//! runtime carrying a `name` and nothing else.
 //!
-//! ⭐ **so the name convention did not go away — it stopped being something a
+//! **so the name convention did not go away — it stopped being something a
 //! HUMAN types.** The author picks `kind: Power` from a dropdown; this converter
 //! encodes it; [`block_look_of`] decodes it. A convention two pieces of Mary-O
 //! share is an implementation detail. A convention an author has to spell
@@ -32,7 +24,7 @@
 //! maryo_block:<kind>:<iid>
 //! ```
 //!
-//! ⚠ **the iid, not an ordinal.** An index cannot come from here — a converter
+//! **the iid, not an ordinal.** An index cannot come from here — a converter
 //! sees ONE entity and has no idea how many others exist — and that is the good
 //! kind of pressure: an ordinal was never a durable identity anyway, since
 //! inserting a block renumbers every one after it. The LDtk iid survives moves,
@@ -44,49 +36,25 @@ use ambition_platformer2d::ldtk_map::{LdtkEntityCtx, RoomEmission};
 
 /// **What one of Mary-O's reactive blocks LOOKS LIKE.**
 ///
-/// ⛔ **this used to decide what the block DID as well, and that was the bug.**
-/// Jon, 2026-08-04: *"It should be possible to spawn a block that looks like a
-/// brick but really has a powerup."* With one enum answering both questions that
-/// was unsayable — `Brick` meant masonry art AND breaks AND holds nothing, all
-/// at once. Appearance and contents are separate fields now, and the classic
-/// hidden-powerup brick is the case that proves they had to be.
-///
-/// ⚠ deliberately Mary-O's enum and not an engine one. The spec is explicit that
+/// deliberately Mary-O's enum and not an engine one. The spec is explicit that
 /// the engine must not interpret Mary-O's progression: LDtk authors WHICH block
 /// and WHERE, and this crate decides what that means.
 ///
-/// ⛔ **`Quasar` was a LOOK that named its CONTENTS, and it is gone** (GPT 5.6,
-/// 2026-08-05: *"keep block appearance independent from what the block
-/// contains"*). It was the split's own counter-example surviving inside the
-/// split: it dressed to `BonusBlockTile`, exactly like `Question`, so the ONLY
-/// thing it said that `Question` did not was what came out — which is the other
-/// field's whole job. The two blocks that authored it now say
-/// `kind: Question, contents: AlwaysQuasar` and look identical because they
-/// always did. A level still saying `Quasar` is REFUSED at load with that
-/// replacement named, rather than quietly becoming a wall.
+/// The two blocks that authored it now say `kind: Question, contents: AlwaysQuasar` and look
+/// identical because they always did. A level still saying `Quasar` is REFUSED at load with
+/// that replacement named, rather than quietly becoming a wall.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MaryOBlockLook {
     /// The ?-block. Wears its own texture, and an inert one once spent.
     Question,
-    /// Masonry. ⭐ **breakable only when it holds NOTHING** — see
-    /// [`MaryOBlockContents::breaks_when_empty`]. A brick with something in it
-    /// behaves like a ?-block wearing brick art, which is exactly the classic
-    /// behaviour and exactly what Jon asked for.
+    /// Masonry. **breakable only when it holds NOTHING** — see
+    /// [`MaryOBlockContents::breaks_when_empty`].
     Brick,
-    /// **Nothing at all, until it is struck.** Jon: *"a 'cammo' and 'hidden'
-    /// reward block where the block looks like a brick or is invisible but it
-    /// really is a reward block of some sort."* The cammo half needed no new
-    /// variant — `Brick` + non-empty contents already says it — so this is only
-    /// the invisible half.
+    /// **Nothing at all, until it is struck.** The cammo half needed no new variant — `Brick` +
+    /// non-empty contents already says it — so this is only the invisible half.
     ///
-    /// ⚠ **NOT a floor, and only a rising HEAD collides.** `reactive_block`
-    /// emits `BlockKind::BonkOnly` for this look: she cannot stand on it and
-    /// cannot bump it from the side, which is Jon's *"you should not be able to
-    /// stand on an invisible block."*
-    ///
-    /// ⛔ this comment said *"still SOLID while invisible"* for a day after the
-    /// conversion stopped being true — a doc describing the behaviour it
-    /// replaced. (GPT 5.6, `d46a0f7`.)
+    /// **NOT a floor, and only a rising HEAD collides.** `reactive_block` emits
+    /// `BlockKind::BonkOnly` for this look: she cannot stand on it or bump it from the side.
     ///
     /// ▢ **the classic block becomes a visible solid once struck, and that is
     /// NOT implemented.** It stays pass-through forever today; the transition
@@ -109,10 +77,7 @@ impl MaryOBlockLook {
         // Case-insensitive because an author typing into a free-text field is a
         // real possibility until the enum def lands in the project.
         //
-        // ⚠ `power` and `power_block` still parse. The field was called `kind`
-        // with a `Power` value in every block the shipped level authors, and
-        // renaming a concept must not silently invalidate a file Jon has already
-        // edited by hand.
+        // `power` and `power_block` still parse.
         match value.trim().to_ascii_lowercase().as_str() {
             "question" | "power" | "power_block" | "bonus" | "?" => Some(Self::Question),
             "brick" => Some(Self::Brick),
@@ -123,28 +88,14 @@ impl MaryOBlockLook {
 }
 
 /// **A thing a block can hold.**
-///
-/// ⭐ **open on purpose.** Jon: *"In the future we could level towards something
-/// else (e.g. bubble flowers or other maryo pickups, so leave that seam open)."*
-/// Adding a rung is adding a variant and the one match arm that builds its
-/// reward — no other code in this file knows how many there are.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MaryOPickup {
     /// The star wand: small → tall.
     Wand,
     /// The cinder beacon: tall → fire.
     Lantern,
-    /// The pocket quasar. ⚠ **not a rung** — gating invincibility behind two
-    /// powerups would mean a small Mary-O could never have it, so any form takes
-    /// one (Jon: *"a quasar is not part of the wand → lantern item progression.
     /// Any form of maryo should be able to get the quasar"*).
     Quasar,
-    /// A coin. ⚠ **not a rung and not an ITEM** — Jon: *"the coins don't spawn
-    /// as items, they just play an animation and your coin count goes up."*
-    /// Every other pickup here names something that pops out of the block and
-    /// has to be caught; this one is credited on the bonk. `powerups::BlockPayout`
-    /// is where that difference lives, because it is a difference in what
-    /// HAPPENS rather than in what the author writes.
     Coin,
 }
 
@@ -182,14 +133,7 @@ pub enum MaryOBlockContents {
     /// level-towards lantern powerup"* — a small Mary-O gets the wand, a tall
     /// one gets the lantern. This is what every ?-block in 1-1 does.
     Toward(MaryOPickup),
-    /// **N coins, one per hit, then spent.** Jon: *"a block that contains coins
-    /// (i.e. the multi-coin block where num-coins=1 is the default instance of
-    /// that block). It just visually pops out a coin when you jump up into it.
-    /// It's not a real coin entity, just a vfx and your coin count directly goes
-    /// up by 1. When the counter goes to zero the brick becomes spent until
-    /// reset."*
-    ///
-    /// ⭐ **`Coins(1)` is deliberately NOT the same authored word as
+    /// **`Coins(1)` is deliberately NOT the same authored word as
     /// `Always(Coin)`, and they behave identically.** The count is the whole
     /// content of this variant, so one is the honest default rather than a
     /// special case — an author writes `Coins` and gets the classic single-coin
@@ -214,10 +158,6 @@ impl MaryOBlockContents {
             return Some(Self::Empty);
         }
         let lower = value.to_ascii_lowercase();
-        // `Coins`, `Coins5`, `coins = 5`. A bare `Coins` is ONE — Jon's
-        // "num-coins=1 is the default instance of that block" — so the common
-        // case needs no number, and a count of zero is refused rather than
-        // silently authoring a block that owes nothing.
         if let Some(rest) = lower.strip_prefix("coins") {
             let rest = rest.trim_start_matches([' ', '=', '_', '-']);
             if rest.is_empty() {
@@ -243,7 +183,7 @@ impl MaryOBlockContents {
         matches!(self, Self::Empty)
     }
 
-    /// ⭐ **breakability is DERIVED, not authored.** A brick with something in
+    /// **breakability is DERIVED, not authored.** A brick with something in
     /// it must not shatter — the item would have nowhere to come from — so the
     /// author never has to keep two fields consistent. This is the rule that
     /// makes "a block that looks like a brick but really has a powerup" work
@@ -263,7 +203,7 @@ pub struct MaryOBlock {
 impl MaryOBlock {
     /// What a block of this look holds when the author says nothing.
     ///
-    /// ⚠ **these defaults are chosen to leave the SHIPPED LEVEL unchanged.**
+    /// **these defaults are chosen to leave the SHIPPED LEVEL unchanged.**
     /// Every block in `mary_o.ldtk` today authors a `kind` and no `contents`, so
     /// the field has to be optional and its default has to reproduce exactly
     /// what that block did before the split — a ?-block levels toward the
@@ -300,7 +240,7 @@ const ENCODED_PREFIX: &str = "maryo_block:";
 /// maryo_block:<look>:<contents>:<iid>
 /// ```
 ///
-/// ⚠ **three fields now, and the iid stays LAST** so it keeps being the only
+/// **three fields now, and the iid stays LAST** so it keeps being the only
 /// part that may contain anything. [`decode`] splits from the front exactly
 /// twice for the same reason.
 ///
@@ -320,13 +260,7 @@ pub fn encoded_name(block: MaryOBlock, iid: &str) -> String {
 pub fn reactive_block(block: MaryOBlock, iid: &str, min: ae::Vec2, size: ae::Vec2) -> ae::Block {
     let mut lowered = ae::Block::solid(encoded_name(block, iid), min, size);
     lowered.id = ae::GeoId::placement(ae::PlacementId::new(iid.to_string()), 0);
-    // ⛔ **A HIDDEN BLOCK IS NOT A FLOOR.** (Jon, 2026-08-05: *"you should not
-    // be able to stand on an invisible block."*) It was lowered `Solid` and
-    // merely drawn transparent, so it held her up before she had found it —
-    // invisible and intangible are different claims and only one of them was
-    // being made.
-    //
-    // ⚠ **not "no collision"**: the bonk is a `ContactKind::Head` contact the
+    // **not "no collision"**: the bonk is a `ContactKind::Head` contact the
     // collision system produces, so a block with nothing to hit cannot be struck
     // and the reward disappears with the floor. `BlockKind::BonkOnly` is the
     // mirror of `OneWay` — solid ONLY against a head coming up into it — which
@@ -339,19 +273,12 @@ pub fn reactive_block(block: MaryOBlock, iid: &str, min: ae::Vec2, size: ae::Vec
 
 /// The block this authored NAME describes, or `None` when the name did not come
 /// from [`convert_mary_o_block`].
-///
-/// This is the whole decode side: every Mary-O system that used to ask
-/// `power_block_index_for(id) -> Option<usize>` asks this instead, which is a
-/// question about the block rather than about its position in a Rust array.
 pub fn block_of(name: &str) -> Option<MaryOBlock> {
     let rest = name.strip_prefix(ENCODED_PREFIX)?;
     let (look, rest) = rest.split_once(':')?;
     let look = MaryOBlockLook::parse(look)?;
-    // ⚠ **a name with only two fields is the OLD encoding**, and it decodes to
-    // this look's default contents rather than to `None`. Nothing shipped writes
-    // one — but a `RoomGeometry` restored from a snapshot taken before the split
-    // would, and answering `None` there would turn every reactive block in that
-    // save into a plain wall.
+    // **a name with only two fields is the OLD encoding**, and it decodes to this look's
+    // default contents rather than to `None`.
     let Some((contents, _iid)) = rest.split_once(':') else {
         return Some(MaryOBlock::plain(look));
     };
@@ -366,7 +293,7 @@ pub fn block_look_of(name: &str) -> Option<MaryOBlockLook> {
 
 /// `MaryOBlock` → a one-tile solid carrying its kind in its name.
 ///
-/// ⚠ **a missing or unknown `kind` is a REFUSAL, not a default.** A block that
+/// **a missing or unknown `kind` is a REFUSAL, not a default.** A block that
 /// silently became a plain wall is the worst outcome available: it still stops
 /// the player, so the level looks whole and one bonus is quietly gone. The
 /// author gets told at load which entity and what the choices are.
@@ -375,8 +302,8 @@ pub fn convert_mary_o_block(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, Str
     let authored =
         ambition_platformer2d::ldtk_map::field_string(entity, "kind").unwrap_or_default();
     let Some(look) = MaryOBlockLook::parse(&authored) else {
-        // ⭐ **the retired word gets its own sentence.** `Quasar` was a real
-        // authored value in this very file until 2026-08-05, so an author who
+        // **the retired word gets its own sentence.** `Quasar` was a real
+        // authored value in this very file until, so an author who
         // reaches for it is remembering correctly and needs the replacement
         // rather than a list they have to diff against their memory.
         let hint = if authored.trim().eq_ignore_ascii_case("quasar") {
@@ -390,10 +317,7 @@ pub fn convert_mary_o_block(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, Str
             entity.iid
         ));
     };
-    // ⚠ **`contents` is OPTIONAL and its default depends on the look**, which is
-    // what lets the shipped level — every block of which authors a `kind` and no
-    // `contents` — keep behaving exactly as it did before the split. An author
-    // opts in to a hidden powerup; nobody has to migrate.
+    // An author opts in to a hidden powerup; nobody has to migrate.
     let contents = match ambition_platformer2d::ldtk_map::field_string(entity, "contents") {
         Some(authored) if !authored.trim().is_empty() => {
             let Some(contents) = MaryOBlockContents::parse(&authored) else {
@@ -408,7 +332,7 @@ pub fn convert_mary_o_block(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, Str
         _ => MaryOBlock::default_contents(look),
     };
     let block = MaryOBlock::new(look, contents);
-    // ⚠ **`reactive_block` stamps the durable identity, because `Block::solid`
+    // **`reactive_block` stamps the durable identity, because `Block::solid`
     // does not.** Its own doc says so — *"fixture constructors default to
     // `GeoSource::Anon`; the IR emission paths assign real sources"* — and this
     // IS an IR emission path. Every authored block shared ONE anonymous id until
@@ -423,44 +347,18 @@ pub fn convert_mary_o_block(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, Str
 
 // ── THE WARP TUBE ──────────────────────────────────────────────────────────
 //
-// Jon, 2026-08-04: *"The pipe placements need to be linkable with a better
 // schema (maybe similar to how we do portals)."*
 //
-// ⛔ **the pairing used to be a SUBSTRING OF A NAME.** A pipe half was a plain
-// `Solid` called `warp_pipe_<link>_<up|down>`, and the runtime found its four
-// halves by spelling those four names in Rust. The comment that stood over
-// those constants said what was wrong with it: *"a typo pairs nothing and only
-// a load-time check can catch it."* It could not catch it either — a
-// `warp_pipe_dscent_down` still converted, still stood there solid, and simply
-// stopped being half of a tube.
+// * `link` — who my partner is. Two halves sharing one are ONE tube.
+// * `mouth` — which way my open face points, `Up` or `Down`. This is the portal's `normal` for a thing that is always vertical, and it is what decides the PRESS: you press DOWN into an up-facing mouth and UP into a
+// down-facing one. **the rule — a pipe answers UP or DOWN, never a generic Interact — is this field.**
+// * `role` — `Entrance` or `Exit`. A portal pair is symmetric and a warp tube is not: 1-1's descent tube swallows you at the surface and spits you out underground, and its ascent tube does the reverse. Without this the two vault halves are geometrically identical (both hang from the ceiling, mouth down) and nothing could say which one you may press UP into.
 //
-// ⭐ **the fix is the portal's shape**, which is what Jon pointed at:
-// `convert_portal` carries an explicit `link` string that names its partner and
-// a `normal` saying which surface it sits on, and it pairs by that link rather
-// than by anything about its name. A pipe half now authors the same three
-// answers as FIELDS:
-//
-// * `link`  — who my partner is. Two halves sharing one are ONE tube.
-// * `mouth` — which way my open face points, `Up` or `Down`. This is the
-//   portal's `normal` for a thing that is always vertical, and it is what
-//   decides the PRESS: you press DOWN into an up-facing mouth and UP into a
-//   down-facing one. **Jon's rule — a pipe answers UP or DOWN, never a generic
-//   Interact — is this field.**
-// * `role`  — `Entrance` or `Exit`. A portal pair is symmetric and a warp tube
-//   is not: 1-1's descent tube swallows you at the surface and spits you out
-//   underground, and its ascent tube does the reverse. Without this the two
-//   vault halves are geometrically identical (both hang from the ceiling,
-//   mouth down) and nothing could say which one you may press UP into.
-//
-// ⚠ **`PlacementSchema` could NOT carry this.** It is a closed enum in
-// `ambition_entity_catalog` with a fingerprinted `PlacementKind::stable_id`
-// beside it, so a `Pipe` variant would put one game's noun in the engine's
-// construction-schema contract — exactly what `MaryOBlock`'s own header refuses
-// ("the engine must not interpret Mary-O's progression"). A pipe is also SOLID
-// GEOMETRY, which a placement is not: its collision is the tube you walk into.
-// So it lowers to a `Block` carrying its authored answers in the one channel a
-// block has, the same trade-off `maryo_block:` makes, written up in
-// `docs/archive/planning-superseded/2026-08-13/proposal-authored-vocabulary-2026-08-04.md` §4.
+// **`PlacementSchema` could NOT carry this.** It is a closed enum in `ambition_entity_catalog` with
+// a fingerprinted `PlacementKind::stable_id` beside it, so a `Pipe` variant would put one game's
+// noun in the engine's construction-schema contract — exactly what `MaryOBlock`'s own header
+// refuses ("the engine must not interpret Mary-O's progression"). A pipe is also SOLID GEOMETRY,
+// which a placement is not: its collision is the tube you walk into.
 
 /// **Which way a pipe half's OPEN FACE points**, and so which press enters it.
 ///
@@ -496,7 +394,7 @@ impl MaryOPipeMouth {
 
 /// **Which END of a tube this half is.**
 ///
-/// ⭐ the one place a warp tube is NOT a portal. A portal pair is symmetric, so
+/// the one place a warp tube is NOT a portal. A portal pair is symmetric, so
 /// `link` alone is the whole relation; a warp tube is directed, and the two
 /// halves of 1-1's descent are told apart by nothing else — both are 96×148
 /// boxes in the same column, one hanging from the vault ceiling.
@@ -556,7 +454,7 @@ const PIPE_ENCODED_PREFIX: &str = "maryo_pipe:";
 /// maryo_pipe:<link>:<mouth>:<role>:<iid>
 /// ```
 ///
-/// ⚠ **the iid stays LAST**, as in `maryo_block:`, so it keeps being the only
+/// **the iid stays LAST**, as in `maryo_block:`, so it keeps being the only
 /// field that may contain anything — which is why a `link` containing a colon
 /// is refused at conversion rather than silently splitting into two.
 pub fn pipe_encoded_name(pipe: &MaryOPipe, iid: &str) -> String {
@@ -595,12 +493,12 @@ pub fn pipe_of(name: &str) -> Option<MaryOPipe> {
 
 /// `MaryOPipe` → a solid tube half carrying its link, mouth and role.
 ///
-/// ⚠ **every field is REQUIRED and a bad one is a refusal**, for the reason
+/// **every field is REQUIRED and a bad one is a refusal**, for the reason
 /// `MaryOBlock`'s `kind` is: a pipe half that quietly stopped being half of a
 /// tube is still a solid green box in the level, so nothing looks wrong and the
 /// warp is simply gone. The author gets told at load which entity and why.
 ///
-/// ⚠ the PAIRING is not checked here and cannot be — a converter sees ONE
+/// the PAIRING is not checked here and cannot be — a converter sees ONE
 /// entity and has no idea what else the level holds. `pipe_tubes` in `lib.rs`
 /// is the load-time check that a link has both its halves.
 pub fn convert_mary_o_pipe(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
@@ -654,16 +552,11 @@ pub fn convert_mary_o_pipe(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, Stri
 
 /// **Mary-O's LDtk vocabulary**: the engine's nouns plus her own.
 ///
-/// ⭐ **this is a VALUE now, and that is the whole change.** It used to be
-/// `install()`, writing into a process-global `OnceLock` where the first caller
-/// won and every later one was ignored with an error log — so two games, a game
-/// and a tool, or two test Apps in one process could not disagree. The reason
-/// given for the global was that conversion runs from pure non-system code with
-/// no `World` in hand, which is true and argues for a PARAMETER rather than for
-/// ambient state: a value passed in is exactly as reachable from a tool as from
-/// a system.
+/// The reason given for the global was that conversion runs from pure non-system code with no
+/// `World` in hand, which is true and argues for a PARAMETER rather than for ambient state: a value
+/// passed in is exactly as reachable from a tool as from a system.
 ///
-/// ⚠ **it still belongs to the READER, not to the plugin.** `MaryOBlock` is
+/// **it still belongs to the READER, not to the plugin.** `MaryOBlock` is
 /// hers and conversion refuses an identifier it cannot convert, loudly and by
 /// design — so every test, tool and probe that loads her level has to say this,
 /// or get nine refusals. Handing it over at the load is what makes that
@@ -684,7 +577,7 @@ pub fn vocabulary() -> ambition_platformer2d::ldtk_map::LdtkVocabulary {
 
 /// **Every LDtk noun Mary-O owns**, and the list [`install`] is checked against.
 ///
-/// ⭐ **this exists so the AUTHORING TOOLS can be told the truth.** The Python
+/// **this exists so the AUTHORING TOOLS can be told the truth.** The Python
 /// validator cannot run Rust, so it reads a declared manifest —
 /// `assets/worlds/mary_o.entities.json` — to know that `MaryOBlock` is
 /// convertible. A declaration nobody checks is just a wish, so this slice and
@@ -707,7 +600,7 @@ fn the_retired_quasar_look_resolves_to_nothing_at_all() {
     assert_eq!(MaryOBlockLook::parse("Quasar"), None);
     assert_eq!(MaryOBlockLook::parse("quasar_block"), None);
     assert_eq!(block_of("maryo_block:Quasar:Solid-1"), None);
-    // ⚠ and the words it was NOT: `quasar` still names a PICKUP, which is the
+    // and the words it was NOT: `quasar` still names a PICKUP, which is the
     // whole point of the split. Deleting both would have been the easy mistake.
     assert_eq!(MaryOPickup::parse("quasar"), Some(MaryOPickup::Quasar));
     assert_eq!(
@@ -716,10 +609,9 @@ fn the_retired_quasar_look_resolves_to_nothing_at_all() {
     );
 }
 
-/// **Only the HIDDEN look loses its floor.** (Jon, 2026-08-05: *"you should not
-/// be able to stand on an invisible block."*)
+/// **Only the HIDDEN look loses its floor.**
 ///
-/// ⚠ the control is the point: a ?-block and a brick are both still `Solid`, so
+/// the control is the point: a ?-block and a brick are both still `Solid`, so
 /// this pins the DIFFERENCE rather than asserting that some block somewhere is
 /// pass-through.
 #[test]
@@ -754,11 +646,10 @@ mod tests {
 
     /// Every `"identifier": "..."` in the tooling manifest.
     ///
-    /// ⚠ **a hand-rolled scan, on purpose.** This crate's manifest is
-    /// deliberately two dependencies wide — its own comment: *"a downstream game
-    /// names `ambition_platformer2d` + `bevy`, and NOTHING ELSE"* — and pulling
-    /// in a JSON parser to read one list of strings would spend that claim on a
-    /// test. The file's shape is fixed and we own it.
+    /// **a hand-rolled scan, on purpose.** This crate's manifest is deliberately two
+    /// dependencies wide — its own comment: *"a downstream game names `ambition_platformer2d` +
+    /// `bevy`, and NOTHING ELSE"* — and pulling in a JSON parser to read one list of strings
+    /// would spend that claim on a test.
     fn manifest_identifiers(json: &str) -> Vec<String> {
         let mut found = Vec::new();
         for chunk in json.split("\"identifier\"").skip(1) {
@@ -778,16 +669,15 @@ mod tests {
 
     /// **What the tools are told Mary-O owns is what Mary-O installs.**
     ///
-    /// ⛔ **this is the half that makes the LDtk validator's vocabulary honest.**
+    /// **this is the half that makes the LDtk validator's vocabulary honest.**
     /// The validator cannot run Rust, so it trusts
     /// `assets/worlds/mary_o.entities.json` when it sees a `MaryOBlock`. Its
     /// first version instead trusted the project's own `defs.entities` — and a
-    /// GPT 5.6 review reproduced the hole that opens: a `BogusEntity` definition
     /// plus an instance of it validated clean with no converter anywhere,
     /// because `defs` is written by the same generator that writes the
     /// instances. The file was being compared against itself.
     ///
-    /// ⭐ **so the manifest is a DECLARATION and this is the audit.** A noun
+    /// **so the manifest is a DECLARATION and this is the audit.** A noun
     /// declared here with no converter behind it fails here; a converter
     /// installed without being declared makes every level using it fail
     /// validation. Neither list is derived from the other, so a lie in either
@@ -818,7 +708,7 @@ mod tests {
 
     /// Round-trip: what the converter encodes, the runtime decodes.
     ///
-    /// ⚠ this is the ONE thing worth pinning about the encoding — that the two
+    /// this is the ONE thing worth pinning about the encoding — that the two
     /// halves agree — because they are the only two readers and a silent
     /// disagreement makes an authored bonus block into a plain wall.
     #[test]
@@ -828,7 +718,7 @@ mod tests {
             MaryOBlockLook::Brick,
             MaryOBlockLook::Hidden,
         ] {
-            // ⭐ **every look crossed with every contents**, because the whole
+            // **every look crossed with every contents**, because the whole
             // point of the split is that the two are independent — and a
             // round-trip that only ever tried a look with its own default would
             // be green over an encoder that dropped the contents field entirely.
@@ -869,7 +759,7 @@ mod tests {
     fn every_pipe_half_survives_the_name_it_is_encoded_into() {
         for mouth in [MaryOPipeMouth::Up, MaryOPipeMouth::Down] {
             for role in [MaryOPipeRole::Entrance, MaryOPipeRole::Exit] {
-                // ⚠ a link with a hyphen and one with a digit, because a link is
+                // a link with a hyphen and one with a digit, because a link is
                 // whatever an author types and the encoding must not care.
                 for link in ["descent", "ascent", "vault-2", "b3"] {
                     let pipe = MaryOPipe::new(link, mouth, role);
@@ -943,7 +833,6 @@ mod tests {
 mod multi_coin_block_tests {
     use super::*;
 
-    /// ⭐ Jon: *"the multi-coin block where num-coins=1 is the default instance
     /// of that block."* So a bare `Coins` must be the classic single-coin block
     /// — an author who wants the common case writes no number.
     #[test]
@@ -962,7 +851,7 @@ mod multi_coin_block_tests {
         );
     }
 
-    /// ⛔ **zero is refused rather than accepted as an empty block.** A
+    /// **zero is refused rather than accepted as an empty block.** A
     /// `Coins0` would author a block that flinches, changes art and owes
     /// nothing — indistinguishable in play from a bug, and `Empty` already says
     /// that on purpose.
@@ -991,7 +880,7 @@ mod multi_coin_block_tests {
         }
     }
 
-    /// ⛔ **POISON: `Coins` must not swallow another word that starts with it.**
+    /// **POISON: `Coins` must not swallow another word that starts with it.**
     /// The parser strips the prefix and then reads a number, so anything else
     /// following must be refused rather than silently read as a count.
     #[test]

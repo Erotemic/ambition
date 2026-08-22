@@ -29,8 +29,7 @@ fn arm(weight: f32, when: Option<SituationBucket>, id: &str) -> WeightedArm {
     }
 }
 
-/// A fixed sequence of draws, so a `Select` test asserts on the ARM, not on
-/// the LCG. The RNG's own determinism is the ticker's business.
+/// The RNG's own determinism is the ticker's business.
 fn draws(values: &[f32]) -> impl FnMut() -> f32 + '_ {
     let mut i = 0;
     move || {
@@ -123,9 +122,7 @@ fn the_weighted_roll_partitions_the_unit_interval_in_authored_order() {
     );
 }
 
-/// An ineligible arm is not in the denominator. Without this, a table that is
-/// half far-range arms would silently under-weight its near-range ones the
-/// moment the player closed in — the exact bug a "roll then filter" order has.
+/// An ineligible arm is not in the denominator.
 #[test]
 fn an_ineligible_arm_leaves_the_denominator_too() {
     let mut c = ctx();

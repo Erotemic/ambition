@@ -10,14 +10,9 @@ use crate::model::{CustomMeta, Diagnostic, Report, Scope, Severity};
 use crate::workspace::{self, Workspace};
 
 const POLICY_ID: &str = "engine.canonical-session-world-only";
-/// ⚠ **membership here means "component on the session root", NOT "field of
-/// `PlatformerSessionWorld`".** `LdtkRuntimeIndex` left the bundle on 2026-08-16
-/// (D135) because an authoring format's state is not something every game owes;
-/// it is installed as a separate component on the same root by the road that
-/// installed the format. It stays on this list because the rule it is subject to
-/// — never a process `Resource`, never reachable through `Res`/`ResMut` — is
-/// about WHERE live session state lives, and that answer did not change. A type
-/// leaving the canonical bundle is not a licence to project it globally.
+/// It stays on this list because the rule it is subject to — never a process `Resource`, never
+/// reachable through `Res`/`ResMut` — is about WHERE live session state lives, and that answer did
+/// not change. A type leaving the canonical bundle is not a licence to project it globally.
 const TARGETS: &[&str] = &[
     "RoomSet",
     "RoomGeometry",

@@ -4,11 +4,6 @@
 //! finishers"* — heavyweight, controller, finishers — and those three
 //! words are the table. See the module doc; the design was already
 //! written down and nobody had read it back.
-//!
-//! ⛔ MOVES ONLY, and the classification mechanic (MASS / ENERGY / MOVING
-//! / AT REST, reference frames, the elevator recovery) is deliberately NOT
-//! here: those are systems, not swings, and writing them as move windows
-//! would be the wholesale-migration failure mode wearing a content commit.
 
 use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
 
@@ -26,7 +21,6 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             ..Default::default()
         })
         .with_moveset(crate::patent_clerk_moveset::patent_clerk_moveset());
-    // ⭐ Jon 2026-08-13: **6**, and the reasoning that makes it safe to write is
     // his — *"these are ordinary tuning values that can be changed later if they
     // feel wrong in play … do not retain fallback health or incomplete body
     // definitions because we are waiting for balance decisions."* Six rather

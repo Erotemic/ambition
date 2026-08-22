@@ -9,17 +9,7 @@ use ambition_time::ClockObserver;
 
 /// **The reaction-timer clock forks on purpose, and each side is pinned.**
 ///
-/// ⛔⛔ **I "fixed" this fork and it cost seven boss tests.** The actor and boss
-/// ticks decay on `world_time.sim_dt()`; the CONTROLLED body decays on the raw
-/// frame delta, which reads as the one population that would ignore bullet-time
-/// — so I moved it onto the sim clock. `boss_contact_iframes`,
-/// `boss_lifecycle` and `boss_motion_parity` went red immediately, and they were
-/// right: **hitstop is a `sim_clock` requester.** A connect asks the sim clock
-/// down, so decaying `hitstop_timer` on `sim_dt()` slows the timer that ENDS
-/// the freeze by the freeze itself, and stretches the i-frame and hitstun
-/// windows measured against the same scale.
-///
-/// ⭐ **i-frames are a promise in REAL seconds** — a bullet-time moment must not
+/// **i-frames are a promise in REAL seconds** — a bullet-time moment must not
 /// hand out longer invulnerability — the same reason the double-tap gesture
 /// windows are unscaled.
 ///
@@ -125,8 +115,6 @@ fn smoother_ramps_sim_state_time_scale_toward_target() {
                 .chain(),
         );
 
-    // Pump a fixed 16ms tick into Bevy's Time so the smoother
-    // sees a non-zero frame_dt.
     let frame = std::time::Duration::from_millis(16);
     for _ in 0..30 {
         app.world_mut().write_message(ClockScaleRequest {
@@ -195,10 +183,6 @@ fn gameplay_systems_must_not_read_res_time_directly() {
             "time/time_control/mod.rs",
             "smoother / clock-scale dispatch is the controller, not a consumer",
         ),
-        // Cutscenes intentionally suspend bullet-time and run on the
-        // wall clock so banner/fade beats advance independent of any
-        // sim time-scale. The playback system moved here from
-        // `ambition_render::cutscene` (runtime extraction, 2026-06-25).
         ("cutscene.rs", "cutscene beats are wall-clock by design"),
         // VFX particles are presentation; the design decision
         // is wall-clock so juice survives bullet-time. Revisit
@@ -254,9 +238,7 @@ fn gameplay_systems_must_not_read_res_time_directly() {
             "app/sim_systems.rs",
             "input timers + attack advance still compute scaled dt manually — ADR 0011 follow-up",
         ),
-        // `attack_advance_system` was drained out of `app/world_flow/attack.rs`
-        // into the combat runtime (commit b30cfe7f); it still wraps its own
-        // sandbox_dt for the attack phase machine. Same ADR 0011 follow-up.
+        // Same ADR 0011 follow-up.
         (
             "combat/attack.rs",
             "attack advance wraps its own sandbox_dt() — ADR 0011 follow-up",
@@ -265,7 +247,7 @@ fn gameplay_systems_must_not_read_res_time_directly() {
             "app/input_systems.rs",
             "input buffer decay; ADR 0011 player-clock follow-up",
         ),
-        // ⛔⛔ **THE OLD JUSTIFICATION WAS FALSE, AND CORRECTING IT NAIVELY COST
+        // **THE OLD JUSTIFICATION WAS FALSE, AND CORRECTING IT NAIVELY COST
         // SEVEN BOSS TESTS.** It read *"the reaction timers still compute their
         // own scaled dt manually"*, and the file contains no scaling — so the
         // obvious repair was to move the decay onto `world_time.sim_dt()` like
@@ -275,12 +257,11 @@ fn gameplay_systems_must_not_read_res_time_directly() {
         // slowed by the freeze it exists to end, and the i-frame and hitstun
         // windows would stretch with it.
         //
-        // ⇒ the CLOCK was always right and only the SENTENCE was wrong. That is
-        // the trap worth remembering: a false justification does not mean the
-        // decision under it is false, and "consolidating" a fork nobody
-        // explained is how a deliberate one gets undone.
+        // That is the trap worth remembering: a false justification does not mean the decision
+        // under it is false, and "consolidating" a fork nobody explained is how a deliberate
+        // one gets undone.
         //
-        // ⭐ what is on the raw clock here, and why: reaction timers (i-frames
+        // what is on the raw clock here, and why: reaction timers (i-frames
         // are a promise in REAL seconds — bullet-time must not hand out longer
         // invulnerability), the double-tap gesture windows (slowing the world
         // must not widen a double-tap), and the presentation flash, which is
@@ -384,11 +365,8 @@ fn gameplay_systems_must_not_read_res_time_directly() {
     }
 }
 
-/// Integration check: with `WorldTime::scaled_dt` at 0.25, a
-/// timer driven by `sim_dt()` advances at exactly 0.25× the
-/// wall-clock dt. This pins the contract that bullet-time
-/// downstream consumers actually slow down — the exact bug the
-/// `Res<Time>` -> `Res<WorldTime>` refactor was meant to fix.
+/// Integration check: with `WorldTime::scaled_dt` at 0.25, a timer driven by `sim_dt()`
+/// advances at exactly 0.25× the wall-clock dt.
 #[test]
 fn world_time_sim_dt_respects_time_scale() {
     use ambition_time::WorldTime;

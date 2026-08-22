@@ -81,7 +81,7 @@ pub const GAMEPLAY_CONTEXT: InputContextId = InputContextId("gameplay");
 // These sit BETWEEN the shell and gameplay: they appear while a session is
 // live, and a shell overlay still outranks them.
 //
-// ⚠ **an in-session surface is not the same fact as a stopped world.** Pausing
+// **an in-session surface is not the same fact as a stopped world.** Pausing
 // stops the world — global, `GameMode`, every seat. A surface owning a seat's
 // input does not: one player reading a dialogue box while another keeps
 // running is the ordinary state of a couch, and it is the thing this engine
@@ -102,13 +102,9 @@ pub const SELECT_CONTEXT: InputContextId = InputContextId("select");
 
 /// **The universal pause menu owns input while it is open.**
 ///
-/// ⛔ it did not exist until 2026-08-01, and the gap was VISIBLE: with the pause
-/// menu open over the character-select screen, the arrows drove BOTH — the
-/// menu's cursor and the CPU count. Neither could consume the other's edge
-/// because they read different channels (`MenuControlFrame` and
-/// `SeatMenuFrames`), and a demo cannot even NAME `ShellPauseMenu`
-/// (`basic_shell_presentation` is not in `all_capabilities`, which is the oracle
-/// rule working as intended).
+/// Neither could consume the other's edge because they read different channels (`MenuControlFrame`
+/// and `SeatMenuFrames`), and a demo cannot even NAME `ShellPauseMenu` (`basic_shell_presentation`
+/// is not in `all_capabilities`, which is the oracle rule working as intended).
 ///
 /// So the answer is not a feature edge from a demo to the shell — it is the
 /// claim system that was already built for exactly this: the pause menu
@@ -220,10 +216,6 @@ impl ParticipantContexts {
 /// participant's actions". `owner` is the highest-priority claim; `open`
 /// additionally lists non-capturing claims above it. Empty = disabled/no
 /// target (no surface claims input; every routed output stays neutral).
-///
-/// This is a VALUE, one per seat, stored in [`SeatInputContexts`]. It used to
-/// be the resource itself, folded from `ParticipantId::PRIMARY` — see that
-/// type's docs for why the fold was the wrong shape.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ActiveInputContext {
     open: Vec<InputContextId>,
@@ -268,7 +260,7 @@ static NO_CONTEXT: ActiveInputContext = ActiveInputContext { open: Vec::new() };
 /// * a seat with no controlled body owning a context distinct from seat 0's;
 /// * any per-seat surface at all, since seat N's claim could not reach a router.
 ///
-/// ⚠ **pause is NOT the counterexample it looks like.** "Seat 0 pauses, seat 1
+/// **pause is NOT the counterexample it looks like.** "Seat 0 pauses, seat 1
 /// keeps playing" would be wrong, and this change does not cause it: pausing is
 /// a `GameMode` transition, and every router already gates on
 /// `mode.allows_gameplay()` independently of context. A claim here answers *who

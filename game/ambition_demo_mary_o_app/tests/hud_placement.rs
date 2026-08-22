@@ -15,8 +15,7 @@ use ambition_demo_mary_o_app::{build_windowed_demo_app, RenderMode};
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, Window, WindowResolution};
 
-/// An ordinary widescreen monitor. Mary-O's fixed 4:3 profile PILLARBOXES here,
-/// so the reserved surround is Left/Right — which is the case both bugs missed.
+/// An ordinary widescreen monitor.
 const DISPLAY: ae::Vec2 = ae::Vec2::new(1920.0, 1080.0);
 
 fn windowed_app() -> App {
@@ -73,10 +72,6 @@ fn the_readouts_sit_in_the_surround_and_the_card_is_actually_centred() {
         };
 
         if let Val::Px(width) = node.width {
-            // The CARD: spans the gameplay rect so its centred text is centred
-            // on the LEVEL. The bug was `left: 50%`, which puts the node's left
-            // EDGE at the middle of the screen — the card then begins at centre
-            // and overflows right, which reads as "the HUD is in the middle".
             assert_eq!(
                 left, gameplay.min.x,
                 "a centred card starts at the gameplay rect, not at its middle"
@@ -90,12 +85,9 @@ fn the_readouts_sit_in_the_surround_and_the_card_is_actually_centred() {
             // The READOUTS: genuinely PLACED in a reserved region, not merely
             // sitting somewhere that looks fine.
             //
-            // Compared against `OVERLAY_ANCHOR` by name, because on a widely
-            // pillarboxed display the overlay corner also lands inside the
-            // surround — so "is it clear of the gameplay rect" cannot tell
-            // "placed where it asked" from "never moved at all". `hud.rs`
-            // makes the anchor public saying exactly that, and a first version
-            // of this assertion ignored it and passed against the bug.
+            // Compared against `OVERLAY_ANCHOR` by name, because on a widely pillarboxed
+            // display the overlay corner also lands inside the surround — so "is it clear of
+            // the gameplay rect" cannot tell "placed where it asked" from "never moved at all".
             assert!(
                 left + 120.0 <= gameplay.min.x,
                 "readout {text:?} at x={left} must sit clear of the gameplay \

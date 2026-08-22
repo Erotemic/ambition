@@ -227,17 +227,9 @@ fn boss_animation_key_for_sample(
 
 #[cfg(test)]
 mod sample_key_agrees_with_profile_keys_tests {
-    //! ⭐ **MOVED HERE 2026-08-21, completing `9ea8ea2fa`'s carve.** This module
-    //! sat in `ambition_platformer2d_actor_monolith`'s `anim_helpers.rs` and
-    //! broke that crate's test build the moment boss animation moved out:
-    //! `boss_anim_for_attack_profile` and `boss_animation_key_for_sample` are
-    //! PRIVATE to this module, so nothing outside could call them.
-    //!
-    //! ⛔ the alternative was widening both to `pub` so a foreign crate could
-    //! keep testing them — which is the carve running backwards. Every symbol
-    //! this test needs now lives here, so the test does too, and the functions
-    //! stay private. D33's question, answered: the concept ended up in the
-    //! crate that owns it.
+    //! ⛔ the alternative was widening both to `pub` so a foreign crate could keep testing them
+    //! — which is the carve running backwards. Every symbol this test needs now lives here, so
+    //! the test does too, and the functions stay private.
     use super::*;
     use ambition_characters::brain::BossAttackProfile;
 

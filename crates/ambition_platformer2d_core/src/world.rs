@@ -30,19 +30,14 @@ pub enum BlockKind {
     /// BELOW.** A body falls through it, walks through it, and stands where it
     /// is as if it were not there — and a head that comes up into it hits it.
     ///
-    /// ⛔ **it exists because "invisible" and "intangible" are different
-    /// claims.** Mary-O's hidden reward blocks were drawn transparent and left
-    /// `Solid`, so they were invisible FLOORS: she could land on nothing. (Jon,
-    /// 2026-08-05: *"you should not be able to stand on an invisible block."*)
-    ///
-    /// ⚠ **and it is not "no collision".** A head-bonk is a CONTACT the
+    /// **and it is not "no collision".** A head-bonk is a CONTACT the
     /// collision system produces, so a block with no collision cannot be struck
     /// at all and the reward would vanish with the floor. One-sided solidity is
     /// the only shape that keeps both.
     BonkOnly,
     /// Reset surface. Hitting this returns the player to spawn.
     ///
-    /// ⛔ **It is not a damage surface, and the name invites reading it as one.**
+    /// **It is not a damage surface, and the name invites reading it as one.**
     /// Touching this flags [`crate::ResetCause::Hazard`] and the body's owner
     /// teleports it home; no health, currency, or i-frame is consulted anywhere
     /// on the road. That is exactly right for a pit floor — falling out is not
@@ -57,7 +52,7 @@ pub enum BlockKind {
     Hazard,
     /// Pogo target that refreshes movement resources when struck downward.
     PogoOrb,
-    /// Momentum-conversion surface. It applies a fixed impulse on touch.
+    /// Momentum-conversion surface.
     Rebound { impulse: Vec2 },
 }
 
@@ -90,36 +85,17 @@ pub struct Block {
     /// (player, clone, enemy, slug), with no per-actor wiring. A static solid is
     /// just the `velocity == ZERO` degenerate case.
     ///
-    /// ⛔⛔ **this field MEANS TWO THINGS AT ONCE, and the only reason that has
-    /// never hurt is that its ONE producer cannot tell them apart** (measured
-    /// D115 K6, 2026-08-15 — `MovingPlatformState::as_collision_block` is the
-    /// only site that ORIGINATES a non-zero value; [`Self::boundary_chain`] and
-    /// the portal carve merely propagate it). The two quantities are:
+    /// The two quantities are:
     ///
-    /// 1. **displacement** — how far this solid moved since last frame. It
-    ///    defines the solid's PREVIOUS pose: `ledge_grab::ledge_carry_for_frame`
-    ///    recovers it as `block.aabb.translated(-block.velocity)`, and selects a
-    ///    carrier at all by `velocity != ZERO`.
-    /// 2. **surface drag** — what a supported body inherits, surfaced as
-    ///    `Contact::surface_velocity` in `collision_semantics`.
-    ///
-    /// For a moving platform these are the same vector. For a **conveyor belt**
-    /// they are not: displacement is `ZERO` and drag is not. A belt authored as
-    /// `Block { velocity: drag }` would therefore be picked as a ledge carrier
-    /// (dragging a body that merely hangs off its lip) and be handed a previous
-    /// pose it never occupied. ⇒ **split this into `displacement` and
-    /// `surface_drag` when the second customer arrives — before adding a
-    /// `BlockKind` or an authoring field for it**, not after.
+    /// For a moving platform these are the same vector. For a **conveyor belt** they are not:
+    /// displacement is `ZERO` and drag is not.
     pub velocity: Vec2,
     /// **Placeholder art override.** `None` (the default) draws the block through
     /// the shared per-`BlockKind` art.
     ///
-    /// That shared art assumes a block's footprint roughly matches its texture's
-    /// aspect ratio, which is true for platforms and walls and false for anything
-    /// a game authors as a long thin shape — a pole, a beam, a rope. Stretching a
-    /// 128px platform texture down a 16x288 column smears it into something that
-    /// reads as a rendering bug, and until now content had no way to say "this
-    /// shape has no art yet". Setting a colour says exactly that, and the render
+    /// That shared art assumes a block's footprint roughly matches its texture's aspect ratio,
+    /// which is true for platforms and walls and false for anything a game authors as a long
+    /// thin shape — a pole, a beam, a rope. Setting a colour says exactly that, and the render
     /// draws a flat quad instead: an honest placeholder rather than a smear.
     ///
     /// Presentation only — collision never reads it.
@@ -419,7 +395,6 @@ pub struct ClimbableContact {
     /// Top edge of the climbable region. Used by movement to detect
     /// "stepping off the top of a ladder onto solid ground".
     pub top_y: f32,
-    /// Bottom edge — used to detect "dropping off the bottom".
     pub bottom_y: f32,
     /// X-center of the region. Movement may snap the player to this
     /// for ladder-rung-style alignment.
@@ -502,10 +477,6 @@ pub struct SurfaceFrame {
     pub segment: usize,
 }
 
-/// The first richer-than-AABB world primitive (fable review 2026-07-05, AJ10
-/// layer 2): a polyline surface a momentum body can ride along — slopes,
-/// hills, valleys, and (when `closed`) full loops.
-///
 /// Conventions:
 /// - One-sided by winding: bodies ride the `+normal` side, where
 ///   `normal = (t.y, -t.x)`. Author floors left→to→right (normals up, with y
@@ -607,8 +578,6 @@ impl SurfaceChain {
         self
     }
 
-    /// Arc length of point/vertex `vertex` measured from the beginning of an
-    /// open chain. For a closed chain, vertex `0` is also the wrap point.
     pub fn arc_at_vertex(&self, vertex: usize) -> f32 {
         (0..vertex.min(self.segment_count()))
             .map(|i| self.segment_length(i))
@@ -872,24 +841,12 @@ pub struct World {
     /// simulator only queries `climbable_at`, never iterates this list
     /// directly.
     pub climbable_regions: Vec<ClimbableRegion>,
-    /// Rideable surface chains (fable review 2026-07-05 AJ10). EMPTY for
+    /// Rideable surface chains. EMPTY for
     /// every AABB-only room — the zero-chain case takes the existing fast
     /// paths untouched; only surface-momentum bodies ever read this list.
     pub chains: Vec<SurfaceChain>,
-    /// How far past `size`, measured ALONG the fall direction, a body may
-    /// drift before the world declares it gone
-    /// ([`ResetCause::LeftTheWorld`](crate::movement::ResetCause::LeftTheWorld)).
-    ///
-    /// This is a platformer's pit depth and a platform fighter's blast zone —
-    /// the same number, and it belongs to the STAGE. It used to be a `200.0`
-    /// literal duplicated in the two out-of-bounds gates, which meant no room
-    /// could disagree with it and no fighting stage could be built on it.
     #[serde(default = "World::default_blast_margin")]
     pub blast_margin: f32,
-    /// How far past `size`, measured along the SIDE axis, a body may drift
-    /// before the world declares it gone. `None` — the default — means the
-    /// sides are not a blast zone at all.
-    ///
     /// Opt-in because the two genres this engine serves disagree completely
     /// about what a side edge MEANS. A platformer walking off the left edge of
     /// a room is transitioning to the next room, and killing there would break
@@ -975,12 +932,8 @@ impl World {
         })
     }
 
-    /// Attribute a world point + outward CARDINAL normal to the identified
-    /// block face it lies on (within `max_dist` of the face plane, inside the
-    /// face extent) — the inverse of [`Self::resolve_face`], used to attach a
-    /// just-placed portal to its host. Anonymous (fixture/derived) blocks are
-    /// skipped: only durably-identified geometry can host. Ties resolve to the
-    /// smallest plane distance.
+    /// Anonymous (fixture/derived) blocks are skipped: only durably-identified geometry can host.
+    /// Ties resolve to the smallest plane distance.
     pub fn attribute_face(
         &self,
         point: Vec2,
@@ -1196,9 +1149,8 @@ impl World {
     /// sources (LDtk IntGrid, LDtk entity, generated) all look
     /// identical to the simulator. Mirrors `water_at`.
     pub fn climbable_at(&self, body: Aabb) -> Option<ClimbableContact> {
-        // AMBITION_REVIEW(discrete_ok): climbable is an ENTER/EXIT state region
-        // (same rationale as `water_at`). Thin-strip tunnels are an authoring
-        // defect `thin_region_warnings` catches, not a per-frame sweep concern.
+        // AMBITION_REVIEW(discrete_ok): climbable is an ENTER/EXIT state region (same rationale
+        // as `water_at`).
         let region = self
             .climbable_regions
             .iter()
@@ -1223,9 +1175,6 @@ impl World {
             .any(|block| predicate(block) && body.strict_intersects(block.aabb))
     }
 
-    /// The first block matching `predicate` that `body` overlaps, if any. Used to
-    /// read the surface a body is resting on — e.g. a moving platform's `velocity`,
-    /// so the sweep can carry the rider.
     pub fn first_overlapping_block<F>(&self, body: Aabb, mut predicate: F) -> Option<&Block>
     where
         F: FnMut(&Block) -> bool,
@@ -1318,9 +1267,6 @@ pub const MIN_STATE_REGION_THICKNESS: f32 = MAX_EXPECTED_BODY_SPEED / 60.0;
 /// The active room's authored static spatial geometry — collision blocks,
 /// water/climbable regions, bounds, spawn — exposed as a Bevy resource wrapping
 /// [`World`].
-///
-/// (Formerly `GameWorld`; renamed because the old name named what it *wasn't*
-/// — disambiguation from `bevy::ecs::World` — rather than what it is.)
 ///
 /// This is the authored BASE, write-once-per-room: it is replaced wholesale at
 /// a room boundary (load / reset / LDtk hot-reload), not mutated incrementally

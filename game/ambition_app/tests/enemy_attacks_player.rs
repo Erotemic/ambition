@@ -1,6 +1,5 @@
 //! Regression: a normal hostile enemy spawned next to the player must ATTACK it.
 //!
-//! Jon reported (2026-06-28) that normal enemies in the enemy room — and pirates
 //! that turn hostile — stopped attacking after a series of unifications: they just
 //! stand there. Bosses are fine. This pins the melee chain for a plain
 //! `ActorFaction::Enemy`, `hostile_to_player` actor: brain commits melee →
@@ -80,12 +79,8 @@ fn a_hostile_enemy_next_to_the_player_attacks_it() {
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
         .expect("sandbox sim builds");
 
-    // Drop a melee fighter (the duel PCA archetype) a short stride from the player
-    // so it is immediately in engage range — same archetype that DOES attack in the
-    // duel, but here a normal Enemy-faction `hostile_to_player` actor aimed at the
-    // human, which is the path Jon reported broken.
     let p = player_pos(sim.world_mut());
-    // ⭐ **it NAMES its character** (D102). This said only
+    // This said only
 
     // `Custom("cellular_automaton_fighter")`, and that archetype row was
 

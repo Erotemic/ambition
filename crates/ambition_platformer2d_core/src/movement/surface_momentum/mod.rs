@@ -12,39 +12,11 @@
 //!
 //! Physics rules (v1, deliberately small — the feel pass tunes numbers, the
 //! STRUCTURE is the deliverable):
-//! - Gravity projects onto the tangent (`g·t̂ * slope_factor`) — slopes
-//!   accelerate downhill, decelerate uphill. Input accelerates along the
-//!   tangent up to `top_speed`; slope may exceed it.
-//! - **Stick rules.** On a straight run: shed the surface when gravity does
-//!   not meaningfully press the body on (`L = g·(-n̂) < press threshold`) AND
-//!   `|v_t| < min_stick_speed` — walls and ceilings hold only a fast body.
-//!   At a CONVEX joint (surface bends away from the rideable side,
-//!   `cross(t_i, t_j) > 0`): launch when the centripetal demand
-//!   `v_t²·θ / r_smooth` exceeds what the pressing load can supply
-//!   (`stick_factor · max(L, 0)`). Concave joints (loop interiors) always
-//!   follow — the surface can push.
-//! - **No pushout** (M10): all airborne motion is swept to TOI; landing snaps
-//!   only by the contact-range discipline; nothing teleports. A deflected
-//!   body SLIDES its remaining tick along the surviving velocity (bounded
-//!   sub-sweeps) — dropping the remainder froze bodies against non-attachable
-//!   contacts while velocity kept integrating.
-//! - Chains are one-sided: a body approaching from the back side passes
-//!   through. A solid [`Block`](crate::world::Block) IS a surface too — its
-//!   exterior boundary is a closed rectangular chain
-//!   ([`Block::boundary_chain`](crate::world::Block::boundary_chain)), so the
-//!   ONE riding model covers authored chains and ordinary room geometry
-//!   alike: a momentum body lands on, runs along, and jumps from block floors
-//!   with the same stick/joint rules. Block corners are convex joints whose
-//!   entered face carries no pressing load, so walking off an edge launches
-//!   (correct) and a body can never wrap around a block by accident.
-//! - **Landing is load-bearing**: an airborne body ATTACHES only to a surface
-//!   gravity presses it onto (`g·(-n̂) > 0` — floors and up-slopes in the
-//!   local gravity frame). Walls and ceilings hit from the air deflect (the
-//!   into-surface velocity dies, flight continues) — wall/ceiling riding is
-//!   reached by CONTINUITY (riding through a loop or an authored curve),
-//!   never by bonking into a corridor roof. Frame-agnostic by construction.
-//!   One-ways/hazards/pogo/rebound blocks are gameplay-layer concerns, not
-//!   follower collision (same split as the kinematic sweep).
+//! - Gravity projects onto the tangent (`g·t̂ * slope_factor`) — slopes accelerate downhill, decelerate uphill. Input accelerates along the tangent up to `top_speed`; slope may exceed it.
+//! - **Stick rules.** On a straight run: shed the surface when gravity does not meaningfully press the body on (`L = g·(-n̂) < press threshold`) AND `|v_t| < min_stick_speed` — walls and ceilings hold only a fast body. At a CONVEX joint (surface bends away from the rideable side, `cross(t_i, t_j) > 0`): launch when the centripetal demand `v_t²·θ / r_smooth` exceeds what the pressing load can supply (`stick_factor · max(L, 0)`). Concave joints (loop interiors) always follow — the surface can push.
+//! - **No pushout**: all airborne motion is swept to TOI; landing snaps only by the contact-range discipline; nothing teleports. A deflected body SLIDES its remaining tick along the surviving velocity (bounded sub-sweeps) — dropping the remainder froze bodies against non-attachable contacts while velocity kept integrating.
+//! - Chains are one-sided: a body approaching from the back side passes through. A solid [`Block`](crate:world:Block) IS a surface too — its exterior boundary is a closed rectangular chain ([`Block:boundary_chain`](crate:world:Block:boundary_chain)), so the ONE riding model covers authored chains and ordinary room geometry alike: a momentum body lands on, runs along, and jumps from block floors with the same stick/joint rules. Block corners are convex joints whose entered face carries no pressing load, so walking off an edge launches (correct) and a body can never wrap around a block by accident.
+//! - **Landing is load-bearing**: an airborne body ATTACHES only to a surface gravity presses it onto (`g·(-n̂) > 0` — floors and up-slopes in the local gravity frame). Walls and ceilings hit from the air deflect (the into-surface velocity dies, flight continues) — wall/ceiling riding is reached by CONTINUITY (riding through a loop or an authored curve), never by bonking into a corridor roof. Frame-agnostic by construction. One-ways/hazards/pogo/rebound blocks are gameplay-layer concerns, not follower collision (same split as the kinematic sweep).
 //!
 //! Everything here is vector math — no cardinal-axis assumptions — so the C4
 //! rotation rig holds by construction (see tests).
@@ -155,10 +127,8 @@ pub struct OcclusionSpan {
     pub last_segment: usize,
 }
 
-/// A launching circle can straddle at most a handful of foreign-lane runs; the
-/// cap keeps the body `Copy` and the snapshot fixed-size. Collection order is
-/// deterministic (chain index, then segment index), so an overflow drops the
-/// same spans on every replay.
+/// Collection order is deterministic (chain index, then segment index), so an overflow drops
+/// the same spans on every replay.
 pub const MAX_OCCLUSION_SPANS: usize = 4;
 
 /// The set of [`OcclusionSpan`]s an airborne body is suppressing, packed
@@ -470,7 +440,7 @@ fn step_riding(
     // 2b) OBSTRUCTION. A rider knows the chain under it and nothing else, so a
     // solid block standing in its path was invisible: a momentum character ran
     // straight through the wall of any room built out of blocks and off the edge
-    // of the world. (Found 2026-07-27 by putting Sanic in the versus arena — he
+    // of the world. (Found by putting Sanic in the versus arena — he
     // left it.) The airborne arm has always swept solids; this is the same sweep
     // on the riding arm.
     //
@@ -1637,15 +1607,9 @@ fn release_cleared_occlusions(body: &mut SurfaceBody, world: &World, dt: f32) {
 
 /// Ignore a numerically immediate, nearly tangent chain contact.
 ///
-/// A circle released from a polygonal track joint is EXACTLY tangent to the
-/// departure segment (penetration zero, not merely small) and may overlap the
-/// neighboring segment by a few hundredths of a pixel. Parry reports either
-/// as a TOI-zero hit. Reattaching on that hit creates the visible "caught on
-/// the rail" limit cycle: the launch parks the body at the joint, the
-/// recapture re-attaches it at the same arc, and the pair repeat every tick
-/// with the position frozen at full reported speed. Genuine landings have
-/// either meaningful separation before impact (a real TOI) or a substantial
-/// into-surface component, so they remain collision candidates.
+/// A circle released from a polygonal track joint is EXACTLY tangent to the departure segment
+/// (penetration zero, not merely small) and may overlap the neighboring segment by a few
+/// hundredths of a pixel. Parry reports either as a TOI-zero hit.
 fn grazing_chain_contact_at_release(
     center: Vec2,
     radius: f32,
@@ -1817,13 +1781,6 @@ fn first_circle_hit(
 }
 
 /// The first SOLID BLOCK face this travel runs into.
-///
-/// Split out of [`first_circle_hit`] because the riding arm needs the block
-/// half ALONE. Chains are the ride network — a rider curving along one is
-/// perpetually "penetrating" the segment ahead of it when you approximate the
-/// arc by a chord, so sweeping chains from the riding arm stops a body on the
-/// very surface it is riding. Blocks are the other thing in the room, and
-/// running into one is exactly what a rider needs to be told about.
 fn first_block_hit(
     world: &World,
     center: Vec2,

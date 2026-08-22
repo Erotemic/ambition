@@ -119,7 +119,7 @@ CONFIG = {
     # `dot`. The JSON graphs above already carry every edge, so the picture is a
     # convenience for a human reader, not a fact only it holds.
     #
-    # ⚠ the RESOLVED graph is drawn only when it was resolved. When cargo was
+    # the RESOLVED graph is drawn only when it was resolved. When cargo was
     # unavailable the JSON says so in `available`/`reason` and ships anyway, so
     # the missing .dot beside it is explained by a file in the same directory —
     # which is the only reason skipping it here is not a silent absence.

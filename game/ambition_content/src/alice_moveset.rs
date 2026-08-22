@@ -1,11 +1,5 @@
 //! **Alice's repertoire** — the cryptographer, and the one who SENDS.
 //!
-//! ⭐ **written 2026-08-16** (Jon: *"Let's complete the kit for all characters,
-//! authoring new moves when we need to."*). Measured before a line of it, Alice
-//! was one of four fighters on the grid at **0/16**: no table, no action set, and
-//! — the finding that came with the census — no unarmed floor reaching her body
-//! either. Every press was silence.
-//!
 //! ## The character, from her own name
 //!
 //! Alice and Bob are the two names cryptography uses for the two ends of a
@@ -22,12 +16,7 @@
 //!   bob       26 px     0.07 s          16          slow, and it lands
 //! ```
 //!
-//! ⚠ **her effects are the generic vocabulary, deliberately.** She has no
-//! authored FX sheet of her own — Jon: *"It doesn't have to be fancy we can use
-//! generic sfx / vfx"* — so every burst below is a row the shipped generic
-//! sheets carry (`rune_burst`, `rune_circle`, `magic_seal_break`,
-//! `four_point_glint`, `phase_ripple`). The day she gets her own art, this file
-//! is where the names change and nothing else does.
+//! The day she gets her own art, this file is where the names change and nothing else does.
 
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
@@ -291,7 +280,7 @@ pub fn alice_moveset() -> MovesetContract {
     let n_b = on_contact(n_b, "player.hit");
 
     // **SIDE — `key_exchange`.** She crosses the gap and arrives having already
-    // agreed the terms. ⭐ `Set`, so the distance is the move's and not her
+    // agreed the terms. `Set`, so the distance is the move's and not her
     // momentum's.
     let side_b = strike(
         "key_exchange",
@@ -356,16 +345,13 @@ pub fn alice_moveset() -> MovesetContract {
     let down_b = vfx_at(down_b, 0.15, "magic_seal_break", (0.0, 16.0), SEAL_FX);
     let down_b = on_contact(down_b, "player.hit");
 
-    // ── 2026-08-16: THE OTHER POSTURE ────────────────────────────────────────
-    //
-    // Jon: *"A down-b that has special airborne properties should also have an
     // effect on ground. Think of bowser down b. In the air he just does a
     // downward slam, but on the ground, it causes him to jump in an arc and then
     // slam. Specials can have different effects in different contexts that
     // should be ok, and makes for a richer smash game, although in most cases
     // they shouldn't be context dependent."*
     //
-    // ⛔ a special gated to ONE posture is not answered in the other — the
+    // a special gated to ONE posture is not answered in the other — the
     // directional chain walks straight past it to the NEUTRAL special, so a
     // player pressing down-B in the air got the neutral-B. `special_air_down`
     // sits ahead of `special_down` in that chain and has the whole time; this is
@@ -393,7 +379,7 @@ pub fn alice_moveset() -> MovesetContract {
     // **ALICE'S CAPTURE KIT.** Quick and low-committal: the shortest startup on the
     // roster and a middling pummel. Her throw stays flat-ish and pushes for stage
     // control rather than for a kill.
-    // ⚠ the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
+    // the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
     // and each table's own `every_clip_names_a_row_..._sheet_carries` guard says
     // so. `ClipBinding`'s fallbacks would have covered it at runtime, but a move
     // that NAMES a row nobody publishes is a lie the guard is right to refuse.
@@ -477,12 +463,11 @@ pub fn alice_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: up_b,
-        // ⭐ **AUTHORED 2026-08-19, at Jon's ask that every fighter in the smash
-        // roster have a grab.** The transitional `None` is gone: capture was
-        // proven on George and the Pirate Admiral, and the whole point of
-        // proving it was to stop being the only two.
+        // **AUTHORED, at the rule that every fighter in the smash roster have a grab.** The
+        // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
+        // the whole point of proving it was to stop being the only two.
         //
-        // ⚠ the VALUES are per character on purpose. A roster whose grabs are
+        // the VALUES are per character on purpose. A roster whose grabs are
         // twelve copies of one number set is one grab wearing twelve names.
         capture: SmashCaptureRepertoire {
             cues: CaptureCues::GENERIC,
@@ -505,8 +490,6 @@ pub fn alice_moveset() -> MovesetContract {
 mod tests {
     use super::*;
 
-    // ⭐⭐ **RETIRED 2026-08-16 — the per-file verb-map test.**
-    //
     // Fourteen fighters each carried a copy of it: every bound verb names a move
     // this table defines, and the table binds the whole vocabulary. Both are now
     // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb

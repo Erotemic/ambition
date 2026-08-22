@@ -75,11 +75,6 @@ pub const TWINTRACK_LAUNCHER_ROUTE: &str = "twintrack_launcher";
 pub const TWINTRACK_CHARACTER_ID: &str = "twintrack_traveler";
 /// **The SECOND participant's character** — Emmy, at rest in the laboratory
 /// until somebody on a second controller moves her.
-///
-/// ⚠ she is the LABORATORY TWIN, not a third body beside it. The plaza's
-/// at-rest observer used to be a prop nobody could reach: a bare entity with a
-/// clock, a worldline and no way to be driven. Making the exhibit's reference
-/// frame a person is what makes the second pane worth watching.
 pub const TWINTRACK_LAB_TWIN_CHARACTER_ID: &str = "twintrack_lab_twin";
 pub const TWINTRACK_ROOM_ID: &str = "twintrack_plaza";
 
@@ -96,19 +91,14 @@ pub const ROOM_HEIGHT: f32 = 900.0;
 pub const LAB_POS: Vec2 = Vec2::new(720.0, 450.0);
 pub const VIEW_CONSOLE_POS: Vec2 = Vec2::new(470.0, 700.0);
 pub const DJ_POS: Vec2 = Vec2::new(1_010.0, 680.0);
-// AMBITION_REVIEW(spatial): the light-tagger's OFFSET FROM `LAB_POS` IS THE
-// LESSON, not decoration. The tagger flies +x (orbit phase -PI/2 puts it at the
-// bottom of a 4 km arc), so the angle between "where you SEE it" and "where you
-// must AIM" is the TRANSVERSE fraction of that velocity as seen from the
-// observer at `LAB_POS` — i.e. it is set by `TAG_START_POS.y - LAB_POS.y`. Put
-// the tagger on the observer's eye line and the lead angle goes to zero: the
-// red visible-image marker, the green intercept marker and the cyan aim ray all
-// collapse onto one another and the overlay teaches nothing. The 2026-08-12
-// plaza relayout did exactly that (it moved the lab to x=720 and left the
-// tagger at y=455, five pixels off the lab's eye height), which is why
-// `photon_fox_visible_image_and_future_light_intercept_are_distinct` went red.
-// The 150 px offset restored here is the one the SR-3 overlay was authored
-// against. Keep the tagger well off `LAB_POS.y`; `x` is free.
+// AMBITION_REVIEW(spatial): the light-tagger's OFFSET FROM `LAB_POS` IS THE LESSON, not decoration.
+// The tagger flies +x (orbit phase -PI/2 puts it at the bottom of a 4 km arc), so the angle between
+// "where you SEE it" and "where you must AIM" is the TRANSVERSE fraction of that velocity as seen
+// from the observer at `LAB_POS` — i.e. it is set by `TAG_START_POS.y - LAB_POS.y`. Put the tagger
+// on the observer's eye line and the lead angle goes to zero: the red visible-image marker, the
+// green intercept marker and the cyan aim ray all collapse onto one another and the overlay teaches
+// nothing. The 150 px offset restored here is the one the SR-3 overlay was authored against. Keep
+// the tagger well off `LAB_POS.y`; `x` is free.
 pub const TAG_START_POS: Vec2 = Vec2::new(1_060.0, 300.0);
 const TAG_ORBIT_CENTER: Vec2 = Vec2::new(1_060.0, 4_300.0);
 
@@ -334,7 +324,7 @@ pub enum TwinTrackViewMode {
     Spacetime,
     /// Two observers side by side, each pane resolved in its own frame.
     ///
-    /// ⚠ **appended on purpose.** The discriminant is the snapshot byte, so a
+    /// **appended on purpose.** The discriminant is the snapshot byte, so a
     /// new variant may only be added at the end or every stored view mode
     /// shifts under an old save.
     SplitObservers,
@@ -547,7 +537,7 @@ pub fn install_twintrack_content(app: &mut App) {
                 TWINTRACK_EXPERIENCE,
             )
             .with_sheet("noether")
-            // ⛔ **a character has to author its own locomotion to be BUILT.**
+            // **a character has to author its own locomotion to be BUILT.**
             // The traveler never needed this: the starting character is worn by
             // the session's home avatar, which brings its own body. A second
             // participant goes through ordinary actor construction, and that
@@ -764,7 +754,7 @@ impl Plugin for TwinTrackExperiencePlugin {
             )),
         );
 
-        // ⚠ an `Update` read model, not a simulation system. It writes no
+        // an `Update` read model, not a simulation system. It writes no
         // canonical state and holds no memo, so it is deliberately absent from
         // the rollback registration above; see `TwinTrackDualObserverView`.
         app.init_resource::<TwinTrackDualObserverView>()
@@ -861,12 +851,6 @@ fn install_twintrack_session(
         .consuming(),
     ));
 
-    // ⭐ **THE LABORATORY TWIN IS A PERSON NOW.** She used to be spawned here as
-    // a bare entity — a clock, a worldline and a 32-unit box — which is exactly
-    // why nobody could ever drive the frame the whole exhibit is measured
-    // against. `participants` asks the actor construction road for her body and
-    // adopts it the moment it exists; everything the old literal said is on
-    // `adopt_the_laboratory_twin`, beside the seat that makes it playable.
     spawns.write(participants::laboratory_twin_request());
 
     spawn_character(
@@ -980,7 +964,7 @@ fn install_twintrack_session(
 
 fn spawn_character(
     commands: &mut Commands,
-    // ⚠ a `SessionScopeId`, not an `Entity` — `SessionRoot` stopped carrying a
+    // a `SessionScopeId`, not an `Entity` — `SessionRoot` stopped carrying a
     // raw handle, and `SessionScopedEntity` is what consumes this.
     root: SessionScopeId,
     character: TwinTrackCharacter,
@@ -1444,7 +1428,7 @@ fn publish_twintrack_hud(
     signals: Res<RelativitySignalView2d>,
     optics: Res<RelativisticOpticalView2d>,
     targeting: Res<RelativisticTargetingView2d>,
-    // ⭐ **WHOSE eyes this line is written from.** Both resources hold one row
+    // **WHOSE eyes this line is written from.** Both resources hold one row
     // per observer, and reading them through `Deref` takes the FIRST row in
     // label order — which became the laboratory twin the moment she became an
     // observer, because "laboratory" sorts before "traveler". This teacher line

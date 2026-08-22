@@ -18,26 +18,20 @@ use ambition_characters::brain::{
 
 /// **WHAT A BODY THAT AUTHORED NO FIGHTING KIT FIGHTS WITH.**
 ///
-/// ⭐⭐ **two scaffolds in this campaign are the SAME missing authority, and this
-/// is it** (found 2026-08-12 by measuring both). `smash_fighter_kit()` grants one
-/// generic swipe to any seated fighter whose character says nothing (P3.24), and
-/// the PROVOCATION path hands a peaceful body a whole archetype for the same
-/// reason (P2.20) — a Hall NPC authors `peaceful`, so without a granted kit a
-/// provoked one would have nothing to swing. Both are "a default fighting kit",
-/// spelled twice, and neither could be deleted while the concept had no name.
+/// **two scaffolds in this campaign are the SAME missing authority, and this is it**.
+/// `smash_fighter_kit` grants one generic swipe to any seated fighter whose character says
+/// nothing (P3.24), and the PROVOCATION path hands a peaceful body a whole archetype for the
+/// same reason (P2.20) — a Hall NPC authors `peaceful`, so without a granted kit a provoked one
+/// would have nothing to swing.
 ///
-/// ⚠ **the numbers are `combatant`'s, verbatim and verified.**
-/// `hostile_brain_id_for_actor()` returns the literal `"combatant"` — its last
-/// matcher arm was deleted with the characters that answered it — so every body
-/// reaching the provocation fallback already gets exactly this. The test below
-/// asserts the two are equal rather than trusting the transcription, and it is
+/// The test below asserts the two are equal rather than trusting the transcription, and it is
 /// the equivalence baseline the roster's own deletion needs.
 ///
-/// ⛔ this is a FALLBACK, not a design. Every character that authors its own
+/// this is a FALLBACK, not a design. Every character that authors its own
 /// repertoire stops consuming it, which is the same falling-adopter-count P3.24
 /// measures — and when the count is zero this function is deleted, not retuned.
 ///
-/// ⛔⛔ **AND IT IS NOT THE ONLY ONE, WHICH IS THE POINT.** Smash's
+/// **AND IT IS NOT THE ONLY ONE, WHICH IS THE POINT.** Smash's
 /// `smash_fighter_kit()` answers the same question with different numbers —
 /// `0.22/0.08/0.26`, 4 damage, 34 reach, against this one's `0.28/0.08/0.32`,
 /// 1 damage, 28 reach. Faster, harder, longer: a platform fighter's floor rather
@@ -68,25 +62,18 @@ pub(crate) fn default_fighting_kit() -> CombatKit {
 
 /// **THE POLICY A BODY IS DRIVEN BY WHEN IT IS PROVOKED AND SAYS NOTHING.**
 ///
-/// ⭐ the twin of [`default_fighting_kit`] one authority over: that one answers
+/// the twin of [`default_fighting_kit`] one authority over: that one answers
 /// *what does it swing*, this one answers *how does it fight*. They were the two
 /// halves the `combatant` archetype row was doing at once, and separating them
 /// is what lets the row die — a body is not a policy, and neither is a kit.
 ///
-/// ⛔ **what this replaces is a ROSTER LOOKUP inside provocation.** The generic
-/// branch called `spec_for_brain(Custom("combatant"))` to get a `BrainProfile`,
-/// which is the last reason that path knew the archetype ontology existed at
-/// all. `an_engine_default_provoked_policy_matches_the_combatant_row` pins the
-/// numbers against the row while the row survives; when it goes, the constant
-/// stands alone and nothing has to change.
+/// `an_engine_default_provoked_policy_matches_the_combatant_row` pins the numbers against the
+/// row while the row survives; when it goes, the constant stands alone and nothing has to
+/// change.
 ///
-/// ⚠ **its home is the SESSION RULESET, not here** — the same journey
-/// `unarmed_melee` took (P3.24): named in the engine first so the question is
-/// askable, moved to `DeclaredCombatRules` once a second experience wants a
-/// different answer. A stage that wants provoked bodies to fight differently
-/// says so there; nothing says so yet.
+/// A stage that wants provoked bodies to fight differently says so there; nothing says so yet.
 ///
-/// ⛔ deliberately NOT a ranged policy. `medium_striker` carried a thrown rock,
+/// deliberately NOT a ranged policy. `medium_striker` carried a thrown rock,
 /// and using it here turned every provoked NPC — the kernel guide, a merchant —
 /// into a rock-thrower instead of a melee attacker like the pirates.
 pub(crate) fn default_provoked_policy() -> crate::features::ecs::actor_tuning::BrainProfile {
@@ -100,21 +87,13 @@ pub(crate) fn default_provoked_policy() -> crate::features::ecs::actor_tuning::B
     }
 }
 
-// ⛔ `DEFAULT_PROVOKED_HEALTH: i32 = 4` stood here, and naming it *provoked* was
-// the tell: a health pool supplied by provocation is a body mutation whatever
-// number it holds (D101). The constant is
-// `ambition_characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH` now — the pool a
-// body gets when no authority describes it, asked at construction — and
-// provocation no longer writes health at all. The VALUE is unchanged and D96
-// item 7 still owns it.
+// The constant is `ambition_characters:actor:DEFAULT_UNAUTHORED_BODY_HEALTH` now — the pool a
+// body gets when no authority describes it, asked at construction — and provocation no longer
+// writes health at all.
 
-// ⛔⛔ **`enemy_combat_kit_for_spec` WAS HERE AND IS DELETED (AC6)** with its two
-// siblings `enemy_default_action_set` and `held_item_for_spec`. All three read a
-// body's weapons off an `ArchetypeSpec` — the melee timings, the ranged spec, the
-// gait, the held item, the signature move — and their one production caller was
-// `EnemyActorSpawnPlan::hostile`, which asked them only when the seed carried an
-// archetype. A character-first seed never did, so they had already stopped
-// answering for any shipped body before the type they read went.
+// All three read a body's weapons off an `ArchetypeSpec` — the melee timings, the ranged spec,
+// the gait, the held item, the signature move — and their one production caller was
+// `EnemyActorSpawnPlan::hostile`, which asked them only when the seed carried an archetype.
 //
 // ⇒ what a body fights with comes from its CHARACTER, through the one persona
 // writer (`grant_prepared_character_body`).
@@ -128,16 +107,7 @@ pub(super) fn action_set_from_combat_kit(
 
 /// **WHICH DETERMINISTIC COGNITIVE STREAM THIS FIGHTER THINKS ON.**
 ///
-/// ⛔⛔ **this used to be `0x5F37_7A11 * (level + 1)` and nothing else, which
-/// made every CPU on one rung the SAME MIND.** Two equally skilled fighters got
-/// byte-identical noise, so a same-character CPU-vs-CPU match played as a perfect
-/// reflection — not because the game was mirroring anything, but because both
-/// brains were drawing from one stream and seeing a symmetric stage. The old
-/// comment said this out loud (*"two fighters on one rung are the same
-/// fighter"*) and treated it as the goal; as the default it is a defect, because
-/// a viewer watching two Georges is watching one George twice.
-///
-/// ⚠ **the fix is not randomness.** The stream must stay deterministic and
+/// **the fix is not randomness.** The stream must stay deterministic and
 /// replayable, so what it gains is a STABLE SEMANTIC IDENTITY, never a clock, a
 /// process-global RNG, or a Bevy `Entity`:
 ///
@@ -146,33 +116,30 @@ pub(super) fn action_set_from_combat_kit(
 /// authored  seed_from_id(<character>)   ⊕ level   shared by every twin
 /// ```
 ///
-/// ⭐ **`enemy.id` is already the participant**, not the character:
+/// **`enemy.id` is already the participant**, not the character:
 /// `PreparedSeat::feature_id` mints `"<character>#seat<n>"` precisely so a mirror
 /// match is two bodies rather than one, and this file's every OTHER template
 /// (Smash, brute, skirmisher, sniper, aerial) already varies off it through
 /// `seed_from_id`. The fighter template was the sole outlier — so this is the
 /// file's own established rule reaching the one brain that had missed it.
 ///
-/// ⭐ **and the level still mixes in**, so raising a CPU's difficulty gives it a
+/// **and the level still mixes in**, so raising a CPU's difficulty gives it a
 /// different stream as well as different weights. That is the one thing the old
 /// seed got right and it is kept.
 ///
 /// ## The authored exception
 ///
-/// A character may ask for the old behaviour BY NAME — see
-/// [`ActorConfig::preserves_mirror_symmetry`], authored on the character and
-/// carried here so every construction road agrees. Emmy Ethereal is the one
-/// customer: her whole subject is that a symmetry implies a conservation law, and
-/// two of her thinking identical thoughts about a symmetric stage is the joke
-/// made mechanical.
+/// Emmy Ethereal is the one customer: her whole subject is that a symmetry implies a
+/// conservation law, and two of her thinking identical thoughts about a symmetric stage is the
+/// joke made mechanical.
 ///
-/// ⛔ **the exception drops the PARTICIPANT term and substitutes the CHARACTER's
+/// **the exception drops the PARTICIPANT term and substitutes the CHARACTER's
 /// own name — it does not zero the seed.** Zeroing would hand every
 /// mirror-preserving character in the game one shared stream, so two Emmys and
 /// two of somebody else would all think alike; keying on the character keeps the
 /// trait per-character while still collapsing twins.
 ///
-/// ⛔⛔ **and it synchronises NOTHING per tick.** All it decides is where two
+/// **and it synchronises NOTHING per tick.** All it decides is where two
 /// streams START. The mirror is then an emergent consequence of *identical
 /// cognition + symmetric information*, and it breaks by itself the moment the two
 /// Emmys observe different worlds — which is correct, and is the difference
@@ -180,24 +147,11 @@ pub(super) fn action_set_from_combat_kit(
 ///
 /// ## How long two ordinary CPUs take to LOOK different, and two rejected fixes
 ///
-/// ⚠ **the seed is per-participant and correct, and two same-character CPUs still
-/// mirror each other for about eight seconds.** Measured through the composed host
-/// at rung 5 (`ambition_app`'s `smash_cpu_cognition`): the reflection breaks at
-/// **488 frames**. Jon saw the same thing in play — *"it took a while for Booule to
-/// desync, but they eventually did… the desync for non-Emmy CPUs probably should
-/// happen sooner"*.
-///
-/// ⭐⭐ **THE CAUSE IS NOT THE SEED, IT IS THAT A DIFFERENT RNG CANNOT SEPARATE TWO
-/// BODIES DOING THE SAME THING.** The stream has exactly ONE consumer in the whole
-/// fighter brain — the press-timing jitter, and only when a decision commits to an
-/// attack (`decision.rs`: *"spending samples on press TIMING only"*). Both fighters
-/// open the match walking toward each other, and two bodies walking at one speed
-/// stay mirrored whatever their streams say. So they DO diverge from the first
-/// frame — measured at 0.0002px against Emmy's 0.00003px of float noise over the
-/// same window — it is simply sub-pixel until it compounds.
-///
-/// ⛔⛔ **TWO FIXES WERE BUILT, MEASURED AND REVERTED (2026-08-17). Read this before
-/// building a third.**
+/// **THE CAUSE IS NOT THE SEED, IT IS THAT A DIFFERENT RNG CANNOT SEPARATE TWO BODIES DOING THE
+/// SAME THING.** The stream has exactly ONE consumer in the whole fighter brain — the press-timing
+/// jitter, and only when a decision commits to an attack (`decision.rs`: *"spending samples on
+/// press TIMING only"*). Both fighters open the match walking toward each other, and two bodies
+/// walking at one speed stay mirrored whatever their streams say.
 ///
 /// ```text
 /// per-participant DECISION PHASE   488 → 220 frames, and it BROKE FIVE
@@ -213,9 +167,9 @@ pub(super) fn action_set_from_combat_kit(
 ///
 /// ⇒ **what would actually move it is asymmetric CIRCUMSTANCES, not more
 /// randomness** — and the one already on the books is a per-seat spawn offset
-/// (queue D128 defect 3, open). Two fighters who start somewhere different take a
+/// . Two fighters who start somewhere different take a
 /// genuinely different first decision, and everything follows from that.
-/// ⚠ it will also shorten Emmy's mirror, for a good reason; `smash_cpu_cognition`
+/// it will also shorten Emmy's mirror, for a good reason; `smash_cpu_cognition`
 /// says so at the assertion that would notice.
 fn fighter_cognition_seed(enemy: &ActorConfig, level: u8) -> u64 {
     // A participant id is `"<character>#seat<n>"`; the character alone is what is
@@ -230,7 +184,7 @@ fn fighter_cognition_seed(enemy: &ActorConfig, level: u8) -> u64 {
     } else {
         enemy.id.as_str()
     };
-    // ⚠ MIX, not add: `seed_from_id` is a 32-bit FNV-1a, so shifting it into the
+    // MIX, not add: `seed_from_id` is a 32-bit FNV-1a, so shifting it into the
     // high half and folding the level in below keeps two nearby levels of one
     // participant far apart in the stream rather than adjacent.
     ((seed_from_id(identity) as u64) << 32) ^ 0x5F37_7A11_u64.wrapping_mul(level as u64 + 1)
@@ -239,7 +193,7 @@ fn fighter_cognition_seed(enemy: &ActorConfig, level: u8) -> u64 {
 /// Build the enemy's default `Brain` from its resolved controller profile.
 pub(crate) fn enemy_default_brain(
     enemy: &ActorConfig,
-    // ⭐ **THE BODY'S OWN VERBS**, not a policy's opinion of them. See
+    // **THE BODY'S OWN VERBS**, not a policy's opinion of them. See
     // [`smash_cfg_from_spec`]: a driver may only consider what this body can
     // actually do, so the same profile on a different body produces a driver
     // that reaches for different things.
@@ -453,25 +407,20 @@ pub(super) fn dismounted_rider_brain_and_action_set(
     // the entity so the runtime dismount never re-reads the roster enum.
     let mut action_set = kit.to_action_set(held_item);
     if action_set.melee.is_none() {
-        // ⭐ **THE RIDER'S OWN SWING FIRST** (ledger D84). This reached straight
-        // for `pirate_raider`'s melee — the THIRD reader of the provocation
-        // matcher's archetypes, and the one a placement census could not see
-        // because it counts levels rather than code. A rider whose character
-        // authors a swing was being handed a stranger's on the way down.
+        // This reached straight for `pirate_raider`'s melee — the THIRD reader of the provocation
+        // matcher's archetypes, and the one a placement census could not see because it counts
+        // levels rather than code. A rider whose character authors a swing was being handed a
+        // stranger's on the way down.
         action_set.melee = prepared
             .zip(rider.sprite_character_id.as_deref())
             .and_then(|(registry, character)| {
                 registry.get(character)?.kit.action_set()?.melee.clone()
             })
-            // ⛔⛔ **THIS NAMED A ROW THAT NO LONGER EXISTS.** It asked the
-            // roster for `pirate_raider`'s melee — and that row was deleted on
-            // 2026-08-11 when the raider became `npc_pirate_raider` and authored
-            // its own body. `spec_for_brain` cannot fail, so every dismounted
-            // rider whose character authored no swing has been given
-            // `combatant`'s ever since, silently, while this code read as though
-            // it were handing out a pirate's.
+            // `spec_for_brain` cannot fail, so every dismounted rider whose character authored
+            // no swing has been given `combatant`'s ever since, silently, while this code read
+            // as though it were handing out a pirate's.
             //
-            // ⭐ the engine's default fighting kit is what it was ACTUALLY
+            // the engine's default fighting kit is what it was ACTUALLY
             // getting — `default_fighting_kit` is pinned equal to `combatant`'s
             // melee (P3.24) — so this is the same swing with the lie removed,
             // and it stops depending on a row at all.
@@ -575,17 +524,13 @@ fn smash_cfg_from_spec(
         // ranged + dash + jump). Kept off for the other strikers so it
         // doesn't blanket-change every melee enemy's feel.
         sprint_to_close: profile.smash_sprint_to_close,
-        // ⭐⭐ **THE BODY'S VERBS, ASKED — not a policy's copy of them.**
+        // **THE BODY'S VERBS, ASKED — not a policy's copy of them.**
         //
-        // ⛔ these three read `profile.smash_can_blink/_fly/_shield` until
-        // 2026-08-11 (Jon's redirect §7): capability mirrors on a controller
-        // policy, which the profile's own doc already called wrong. They made
-        // reuse a lie — the SAME shared profile on a body with no blink limb
-        // would still have told its driver to try blinking, and on a body that
-        // CAN blink but was authored by somebody who forgot the mirror, the
-        // driver would never reach for it.
+        // They made reuse a lie — the SAME shared profile on a body with no blink limb would still
+        // have told its driver to try blinking, and on a body that CAN blink but was authored by
+        // somebody who forgot the mirror, the driver would never reach for it.
         //
-        // ⭐ this is the compositional behaviour the whole campaign is for:
+        // this is the compositional behaviour the whole campaign is for:
         // `medium_striker` + a PCA body considers the PCA's abilities;
         // `medium_striker` + a puppy slug cannot invent them.
         //
@@ -618,10 +563,6 @@ mod ladder_projection_tests {
          utility_weights: (reach_fit: 1.0, frame_advantage: 0.20, kill_potential: 0.00, stage_risk: -0.20, expected_payoff: 0.00)),
     ]";
 
-    /// ⚠ **the seed is arbitrary and DISTINCTIVE on purpose.** It stands for
-    /// "whatever stream construction chose", so
-    /// [`the_projection_carries_the_stream_it_was_handed`] can tell carrying it
-    /// apart from re-deriving it — which is the bug that pass used to have.
     const CONSTRUCTED_STREAM: u64 = 0xC0FF_EE00_D15E_A5E5;
 
     fn fighter_brain(level: u8) -> Brain {
@@ -652,9 +593,7 @@ mod ladder_projection_tests {
 
     /// **A spawned fighter reads the game's rung.**
     ///
-    /// ⛔ the property that was broken: `for_level` hands EVERY rung
-    /// `UtilityWeights::default()`, which is `v1()`, which is the authored level
-    /// NINE. So a level-1 CPU priced a kill move exactly as the hardest one did.
+    /// So a level-1 CPU priced a kill move exactly as the hardest one did.
     #[test]
     fn a_spawned_fighter_takes_the_authored_rung_over_the_floor() {
         let mut app = App::new();
@@ -697,7 +636,7 @@ mod ladder_projection_tests {
         );
     }
 
-    /// ⚠ **idempotent**, which is what makes it safe to run on a change-detection
+    /// **idempotent**, which is what makes it safe to run on a change-detection
     /// filter that does not rewind. A second pass must land on the same value.
     #[test]
     fn projecting_twice_lands_on_the_same_brain() {
@@ -720,18 +659,10 @@ mod ladder_projection_tests {
         );
     }
 
-    /// ⛔⛔ **THE PROJECTION MUST NOT RE-CHOOSE THE COGNITIVE STREAM.**
+    /// **THE PROJECTION MUST NOT RE-CHOOSE THE COGNITIVE STREAM.**
     ///
-    /// This is the second half of the same-character CPU symmetry defect, and it
-    /// is the half that would have silently undone the first. The pass rebuilds
-    /// `FighterState` to re-derive the profile-cached fields, and it used to
-    /// rebuild it with `0x5F37_7A11 * (level + 1)` — so however carefully
-    /// construction had chosen a per-participant stream, this pass overwrote it
-    /// with a level-only one a moment later and every CPU on a rung was one mind
-    /// again.
-    ///
-    /// ⚠ the fixture seed is deliberately nothing the old formula could produce,
-    /// so a regression cannot pass by coincidence.
+    /// This is the second half of the same-character CPU symmetry defect, and it is the half that
+    /// would have silently undone the first.
     #[test]
     fn the_projection_carries_the_stream_it_was_handed() {
         let mut app = App::new();
@@ -759,7 +690,7 @@ mod ladder_projection_tests {
         );
     }
 
-    /// ⚠ **a level the ladder does not author keeps the floor** rather than
+    /// **a level the ladder does not author keeps the floor** rather than
     /// failing — the same fallback `profile_for_level` states, so the two agree.
     #[test]
     fn an_unauthored_level_keeps_the_floor() {
@@ -781,7 +712,7 @@ mod ladder_projection_tests {
 /// **WHO THINKS WHAT — the CPU cognition-stream policy and its one authored
 /// exception.** See [`fighter_cognition_seed`].
 ///
-/// ⭐ these read `state.noise` at construction, which IS the stream: `FighterCfg`
+/// these read `state.noise` at construction, which IS the stream: `FighterCfg`
 /// stores the seed there verbatim and every later sample advances from it. It is
 /// the smallest deterministic property that answers *"are these two fighters the
 /// same mind?"*, so nothing here is probabilistic and nothing has to run a match.
@@ -822,9 +753,6 @@ mod cognition_stream_tests {
         }
     }
 
-    /// ⛔⛔ **THE DEFECT, PINNED: two CPUs wearing one character at one difficulty
-    /// were the SAME MIND.**
-    ///
     /// The seed was `0x5F37_7A11 * (level + 1)` and nothing else, so a
     /// same-character CPU-vs-CPU match was a perfect reflection — two brains
     /// drawing byte-identical noise while reading a symmetric stage. A viewer
@@ -865,7 +793,7 @@ mod cognition_stream_tests {
         );
     }
 
-    /// ⭐ **difficulty still contributes**, which the old seed got right and the
+    /// **difficulty still contributes**, which the old seed got right and the
     /// fix keeps: raising a CPU's rung changes how it thinks as well as what it
     /// weighs.
     #[test]
@@ -878,7 +806,7 @@ mod cognition_stream_tests {
         );
     }
 
-    /// ⭐ **and the ordinary symmetry-breaker is the PARTICIPANT, not the
+    /// **and the ordinary symmetry-breaker is the PARTICIPANT, not the
     /// character.** Two different characters differ anyway — that is not the
     /// property under test — so this pins the thing that would be wrong if
     /// somebody "fixed" the defect with per-character seed constants: seats of one
@@ -897,7 +825,7 @@ mod cognition_stream_tests {
         );
     }
 
-    /// ⭐⭐ **EMMY'S AUTHORED EXCEPTION: her twins think alike on purpose.**
+    /// **EMMY'S AUTHORED EXCEPTION: her twins think alike on purpose.**
     ///
     /// Two seats, two participants, one stream — because the character asked for
     /// it, not because the default leaked. This is what makes an Emmy-vs-Emmy
@@ -912,7 +840,7 @@ mod cognition_stream_tests {
         );
     }
 
-    /// ⛔ **the exception drops the PARTICIPANT term; it does not zero the seed.**
+    /// **the exception drops the PARTICIPANT term; it does not zero the seed.**
     ///
     /// A `rng_seed = 0` style implementation would hand every mirror-preserving
     /// character in the game ONE shared stream, so two Emmys and two of somebody
@@ -927,7 +855,7 @@ mod cognition_stream_tests {
         );
     }
 
-    /// ⭐ **the exception still respects difficulty**, so two Emmys on different
+    /// **the exception still respects difficulty**, so two Emmys on different
     /// rungs are not forced to agree — the trait shares a stream between EQUALLY
     /// CONFIGURED twins, which is what makes the mirror a fair one.
     #[test]
@@ -939,7 +867,7 @@ mod cognition_stream_tests {
         );
     }
 
-    /// ⚠ **a body with no seat suffix keeps a stream of its own.** A room spawn's
+    /// **a body with no seat suffix keeps a stream of its own.** A room spawn's
     /// id is not `"<character>#seat<n>"`, and the exception's `split_once` must
     /// fall back to the whole id rather than silently joining every unsuffixed
     /// body of that character to one stream.
@@ -957,7 +885,7 @@ mod cognition_stream_tests {
         );
     }
 
-    /// ⛔⛔ **THE TRAIT DECIDES A STREAM AND NOTHING ELSE.** It must not reach the
+    /// **THE TRAIT DECIDES A STREAM AND NOTHING ELSE.** It must not reach the
     /// profile, the difficulty or the template — if it ever starts shaping how a
     /// fighter decides rather than which stream it decides from, the mirror has
     /// stopped being emergent and become a policy.
@@ -989,15 +917,6 @@ mod cognition_stream_tests {
     }
 }
 
-// ⛔⛔ **`mod tests` WAS HERE AND IS EMPTY OF SUBJECTS, so it is deleted** (AC6).
-// It held five archetype-table tests: two that pinned engine constants against
-// the reserved `combatant` row while it survived
-// (`the_undescribed_respawn_policy_matches_the_combatant_row`,
-// `an_engine_default_provoked_policy_matches_the_combatant_row` — both of which
-// said in as many words that they go WITH the row rather than being weakened),
-// and three that measured `medium_striker`'s row through
-// `enemy_default_action_set`.
-//
 // ⇒ the constants those pins protected are unchanged, which is what the pins
 // were for: `UNDESCRIBED_BODY_RESPAWN` and `default_provoked_policy()` are now
 // the only authorities on their questions and they say what the row said. The
@@ -1006,7 +925,7 @@ mod cognition_stream_tests {
 
 /// **A fighter brain gets the GAME's rung, not the engine's floor.**
 ///
-/// ⛔ **this is a PROJECTION because threading was tried and cascaded.** The
+/// **this is a PROJECTION because threading was tried and cascaded.** The
 /// ladder is authored content that lives in the pack, above this crate, and it is
 /// needed at the LEAF of a spawn tree whose roots are many and unalike — a match
 /// activation, a hostility reconciler, an encounter wave, a thrown puppy-slug
@@ -1014,29 +933,18 @@ mod cognition_stream_tests {
 /// ladder to a brain builder reached 323 lines without compiling once. A value
 /// with that shape is projected, not threaded.
 ///
-/// ⚠ **at INSERTION, and that is not a detail.** `FighterState::new` caches
+/// **at INSERTION, and that is not a detail.** `FighterState::new` caches
 /// `DelayedPerception::from_reaction_ms(profile.reaction_ms)` and
 /// `HabitModel::new(profile.read_weight)` — the two axes that matter most — so
 /// overwriting `cfg.profile` alone after the fact would change nothing the player
 /// could see. The state has to be rebuilt, and the only moment that costs nothing
 /// is before any habit has accumulated.
 ///
-/// ⛔⛔ **THIS MUST NOT RE-CHOOSE THE STREAM, AND IT USED TO.** It rebuilt the
-/// state with `0x5F37_7A11 * (level + 1)` — the same participant-blind constant
-/// [`fighter_cognition_seed`] replaced — so whatever stream construction had
-/// chosen was overwritten a moment later by a level-only one. That is how the
-/// same-character CPU symmetry would have survived a fix at the construction
-/// seam alone: two roads seeded the same brain and the second one won.
+/// **it now CARRIES the stream instead**, which is both the fix and the more honest operation:
+/// this pass exists to re-derive the profile-cached fields (`DelayedPerception`, `HabitModel`),
+/// and a fighter's position in its own noise stream is not a profile-cached field.
 ///
-/// ⭐ **it now CARRIES the stream instead**, which is both the fix and the more
-/// honest operation: this pass exists to re-derive the profile-cached fields
-/// (`DelayedPerception`, `HabitModel`), and a fighter's position in its own noise
-/// stream is not a profile-cached field. Carrying `state.noise` is therefore
-/// correct whenever this runs, not merely on the tick it happens to run today —
-/// so it does not quietly depend on `Added<Brain>` firing before the first
-/// sample is drawn.
-///
-/// ⭐ **idempotent, which is what makes it safe under change detection.** It runs
+/// **idempotent, which is what makes it safe under change detection.** It runs
 /// on `Added<Brain>` and rewrites only when the authored rung differs from what
 /// is there, so running it twice — or after a rollback re-inserts a brain — lands
 /// on the same value. `Added` not rewinding is therefore harmless: the snapshot
@@ -1062,21 +970,13 @@ pub fn project_authored_fighter_ladder(
             continue;
         }
         cfg.profile = *rung;
-        // ⭐ the stream this fighter was CONSTRUCTED on, carried across the
-        // rebuild. See the ⛔⛔ note above: reseeding here is what would undo
+        // the stream this fighter was CONSTRUCTED on, carried across the
+        // rebuild. See the note above: reseeding here is what would undo
         // `fighter_cognition_seed`.
         let stream = state.noise;
         **state = ambition_characters::brain::fighter::FighterState::new(cfg, stream);
     }
 }
 
-// ⛔⛔ **`default_fighting_kit_tests` WAS HERE AND IS DELETED, exactly as its one
-// test asked to be** (AC6). `the_default_kit_equals_what_the_provocation_fallback_builds`
-// pinned `default_fighting_kit()` against the `combatant` row's kit so that
-// naming the concept in the engine was provably a rename rather than a retune —
-// and it said so: *"when `combatant` is finally deleted this test goes with it,
-// and by then the default has to be a DECISION somebody made rather than a
-// copy."*
-//
 // ⇒ the row is gone and the constant is unchanged, so the decision is made:
 // `default_fighting_kit()` is the only authority on what a provoked body swings.

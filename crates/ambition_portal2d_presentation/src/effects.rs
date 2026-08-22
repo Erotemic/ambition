@@ -8,10 +8,6 @@
 //! the bare clipped body pieces — as the profiling baseline). The host
 //! surfaces [`PortalEffectSelection`] in its developer menu (in Ambition: the
 //! Developer screen's "Portal FX" row).
-//!
-//! (The legacy `TransitMasks` effect — opaque boxes over the invisible body
-//! slices — was deleted once the texture-clipped pieces landed: the clip
-//! shader IS the finished version of what the boxes approximated.)
 
 use bevy::prelude::*;
 

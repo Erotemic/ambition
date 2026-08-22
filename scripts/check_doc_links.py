@@ -111,12 +111,6 @@ def main() -> int:
 
     root = Path(args.root).resolve()
     errors: list[str] = []
-    # ⛔ **what this check EXAMINED, not just what it found.** "passed" with no
-    # count is indistinguishable from a run whose file collection returned
-    # nothing — a path rename inside `iter_markdown`, a bad `--root`, a glob that
-    # stopped matching — and this is the gate a doc edit is checked against. It
-    # reported a clean pass on every commit of 2026-08-02 and nobody could have
-    # told a real one from an empty one.
     documents = 0
     links = 0
 

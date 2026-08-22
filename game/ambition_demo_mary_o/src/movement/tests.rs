@@ -171,12 +171,6 @@ fn her_authored_gait_makes_speed_something_she_builds_and_keeps() {
          it does not snap to it"
     );
 
-    // THE classic relationship, and the reason this is an assertion rather than
-    // a magic number: in the games this converts, ground friction IS the walk
-    // acceleration, so coasting to a stop takes exactly as long as winding up to
-    // top speed. An earlier pass stiffened the coast to ~3x to kill the slide;
-    // that flourish is reverted, and this pins the faithful equality so the next
-    // "it feels slidey" impulse has to argue with the source material.
     let coast_time = tuning.max_run_speed / momentum.ground_coast_decel;
     assert!(
         (coast_time - wind_up).abs() < 1.0e-4,
@@ -397,25 +391,11 @@ fn the_slot_label_follows_the_power_state() {
     );
 }
 
-/// **THE CLASSIC TWO-ON-SCREEN RULE, ENFORCED BY COUNTING HER LIVE SHOTS** —
-/// Jon's observation *"in mary-o she can only have 1 fireball out a time. We
-/// should allow her to have 2 out a time"* (ledger D109).
-///
-/// ⛔ **the rule was implemented and guarded by nothing.** `MAX_LIVE_SPARKS`
-/// appeared in exactly two places — its own declaration and the gate below — so
-/// a one-character edit restored the behaviour Jon reported and no test noticed.
-///
-/// ⚠ **asserting `MAX_LIVE_SPARKS == 2` would be worthless.** The rule is not
+/// **asserting `MAX_LIVE_SPARKS == 2` would be worthless.** The rule is not
 /// the number, it is that the gate COUNTS her live shots against it; a version
 /// that read the constant and compared against something else would pass. So
 /// this fires with the screen empty, with one spark up, and with the cap
 /// reached, and only the third refuses.
-///
-/// ⛔⛔ **AND THE MECHANISM ALONE IS NOT ENOUGH — the first version of this test
-/// passed with `MAX_LIVE_SPARKS = 1`.** Deriving every expectation from the
-/// constant made it blind to the constant, so it held for any cap ≥ 1 — and the
-/// cap being 1 IS the thing Jon reported. A guard that cannot see the reported
-/// bug is not a guard.
 ///
 /// ⇒ so this asserts BOTH: the gate counts her live shots (the mechanism, which
 /// survives a retune), and the cap is at least two (the product decision, which
@@ -461,7 +441,6 @@ fn she_may_have_max_live_sparks_out_at_once_and_not_one_more() {
         !fires_with(MAX_LIVE_SPARKS),
         "she fires past the cap with {MAX_LIVE_SPARKS} already live"
     );
-    // ⛔ THE PRODUCT DECISION, and the half that actually sees Jon's report.
     assert!(
         MAX_LIVE_SPARKS >= 2,
         "Mary-O may only have {MAX_LIVE_SPARKS} spark out at a time. Jon asked \

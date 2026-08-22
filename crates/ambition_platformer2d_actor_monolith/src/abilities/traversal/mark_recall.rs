@@ -1,10 +1,5 @@
 //! Mark / Recall — a held item that drops a teleport mark and recalls to it.
 //!
-//! Canon ability ([`crate::items::Item::MarkRecall`]): Jon's design — a teleport
-//! used for fast travel and combat repositioning (the "Recall" half of the
-//! blink family). It's implemented as a **held item** so it reuses the whole
-//! equip / stash / throw plumbing instead of inventing an ability-dispatch path:
-//!
 //! - Equip it (walk over the ground item, or equip the catalog slot), and while
 //!   it's held a plain `Attack` **drops / moves the mark** at the player's feet.
 //! - The `Blink` button **recalls** the player to the mark (instant teleport).

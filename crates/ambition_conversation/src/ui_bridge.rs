@@ -25,14 +25,14 @@
 //!   tick after it with the conversation still holding a body and capturing a
 //!   seat, and re-observed the end afterwards at a different simulation time.
 //!
-//! ⭐ **so opening is a PROJECTION and ending is a STAMPED NARRATIVE INPUT.** The
+//! **so opening is a PROJECTION and ending is a STAMPED NARRATIVE INPUT.** The
 //! simulation decides that a conversation exists; presentation reads that and
 //! opens the runner. The narrative decides that it is over; that observation goes
 //! into [`super::NarrativeInputLedger`] with the tick it applies from, and the
 //! ledger is not rewound — because it is the record of what arrived from
 //! outside, and rewinding an input erases it.
 //!
-//! ⚠ **the ending is not a special case any more.** It is one payload type in a
+//! **the ending is not a special case any more.** It is one payload type in a
 //! ledger every gameplay-bearing narrative fact crosses through; see
 //! [`super::ledger`] for the four rules and
 //! the `dialog` module for which commands are which.
@@ -61,7 +61,7 @@ pub struct ConversationEnded {
 /// exactly right: this IS the moment the runner finished, observed once, in real
 /// time.
 ///
-/// ⚠ **observed once per conversation**, and the idempotence is load-bearing
+/// **observed once per conversation**, and the idempotence is load-bearing
 /// rather than an optimization: the condition stays true until the authority
 /// closes, and re-stamping a later tick on each of those frames would mean a
 /// rewind replays an end the original run applied earlier. That is what
@@ -83,7 +83,7 @@ pub fn publish_the_narrative_end(
 
 /// **The narrative finished, so the simulation's conversation is over.** (sim)
 ///
-/// ⭐ **it reads a released record, not a delivered event.** The ledger hands
+/// **it reads a released record, not a delivered event.** The ledger hands
 /// this over on the tick it was stamped for and on every replay of that tick, so
 /// the conversation ends at the same `SimTick` in the replay as it did in the
 /// original run — which is what "the hold, the scripted control and the input
@@ -92,7 +92,7 @@ pub fn publish_the_narrative_end(
 /// It runs at the HEAD of the continuity chain so a conversation that ended this
 /// frame is not first judged for separation and barked about on its way out.
 ///
-/// ⚠ **what this does NOT make deterministic**: the Yarn runner itself. It is
+/// **what this does NOT make deterministic**: the Yarn runner itself. It is
 /// content executing outside the simulation, so WHICH tick it finishes on is
 /// still decided by presentation. What is now true is that whichever tick it
 /// finished on, every replay of that tick agrees.
@@ -111,27 +111,18 @@ pub fn close_conversation_on_narrative_end(
 /// **The text box shows whatever conversation the simulation is having.**
 /// (presentation)
 ///
-/// ⛔ **this used to be a `DialogState::start` call inside the interaction
-/// system**, which is a simulation system: it runs in the sim schedule, so a
-/// rollback across the tick somebody pressed Interact REPLAYS it — resetting the
-/// line, the options and the typewriter of a box the player is already reading,
-/// and enqueueing a second `runner.start_node`. The snapshot deliberately does
-/// not rewind the text box; replaying the side effect rewound it anyway.
+/// The snapshot deliberately does not rewind the text box; replaying the side effect rewound it
+/// anyway.
 ///
-/// ⭐ **the memo means "the box is ATTACHED to this conversation", not "I
-/// projected this once"**, and the difference is a reachable defect. It used to
-/// mean the latter, and it was never cleared: a predicted remote hit breaks the
-/// conversation, presentation closes the box at the end of that frame, the real
-/// input arrives and the correction restores the SAME conversation — and the memo
-/// refused to rebuild it. The simulation went on holding the talker and
-/// capturing a seat while the player looked at nothing.
+/// The simulation went on holding the talker and capturing a seat while the player looked at
+/// nothing.
 ///
-/// ⚠ **opening and closing are ONE system for that reason.** They were two, and
+/// **opening and closing are ONE system for that reason.** They were two, and
 /// the closing half wrote no bookkeeping at all, so presentation's record of what
 /// it had done outlived the thing it was a record of. A projection is current
 /// derived state or it is not a projection.
 ///
-/// ⚠ the three cases, and each one is a rule:
+/// the three cases, and each one is a rule:
 ///
 /// * **no authority** → close the box AND detach. Nothing is being said.
 /// * **a conversation this box is not attached to** → start the runner. This
@@ -141,7 +132,7 @@ pub fn close_conversation_on_narrative_end(
 ///   restores the authority with the same instance, and restarting the runner
 ///   under a player who is mid-sentence is the defect the memo exists for.
 ///
-/// ⚠ the memo is a `Local`, and it belongs there: it is presentation's record of
+/// the memo is a `Local`, and it belongs there: it is presentation's record of
 /// presentation's own state, on the side of the seam that is not rewound.
 pub fn project_the_dialog_ui_from_the_conversation(
     conversation: Res<ActiveConversation>,
@@ -149,7 +140,7 @@ pub fn project_the_dialog_ui_from_the_conversation(
     mut attached: Local<Option<ConversationInstanceId>>,
 ) {
     let Some(live) = conversation.live() else {
-        // ⚠ the close is UNCONDITIONAL on the box, not on the memo: a box opened
+        // the close is UNCONDITIONAL on the box, not on the memo: a box opened
         // by something that is not a conversation (a cutscene, a scripted
         // request through the bridge) is closed here exactly as it was before
         // these two systems were one, and narrowing that to "only what I opened"
@@ -164,10 +155,8 @@ pub fn project_the_dialog_ui_from_the_conversation(
         return;
     }
     *attached = Some(live.instance.clone());
-    // ⭐ **the memo and the context now come from the SAME value**, which is what
-    // makes "am I already attached" a sound question to ask (D29). While the
-    // context was a sibling of the instance id, a correction that re-wore the
-    // initiator produced an equal id, this returned early above, and Yarn kept
-    // running with the abandoned branch's `$speaker_id` in its variable storage.
+    // While the context was a sibling of the instance id, a correction that re-wore the
+    // initiator produced an equal id, this returned early above, and Yarn kept running with the
+    // abandoned branch's `$speaker_id` in its variable storage.
     dialog.start(live.dialogue_id(), &live.speaker_name, live.context());
 }

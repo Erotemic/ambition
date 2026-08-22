@@ -17,7 +17,7 @@ use bevy::prelude::{Res, ResMut};
 /// Live tuning edits apply after it, so an edit lands before the input→brain
 /// chain consumes the tick's dt.
 ///
-/// ⚠ ONE member, and it is the TAIL of its chain: the systems before it snapshot
+/// ONE member, and it is the TAIL of its chain: the systems before it snapshot
 /// and scale world time, and this publishes the result. A wider set would move
 /// the boundary earlier, to a point where `SimDt` is not yet written.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]

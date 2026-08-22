@@ -1,25 +1,18 @@
 //! **The primitives a character's move table is written with** — shared, because
 //! the second character to author one must not begin by copying the first.
 //!
-//! ⭐⭐ **IT MOVED DOWN HERE ON 2026-08-16, and the reason is the same one that
-//! moved `build_actor_moveset`**: it lived in `ambition_content`, so a character
-//! belonging to any OTHER provider could not use it. Mary-O and Sanic are
-//! registered by their own demos, both were 0/16 on the smash grid, and neither
-//! demo depends on Ambition's content crate — so completing their kits meant
-//! either a fourth copy of these helpers or moving the one copy to a crate
-//! everybody already has. `ambition_characters` is where the character model
-//! lives and where `moveset_prefabs` already derives a table from an action set;
-//! authoring one by hand belongs beside it.
+//! Mary-O and Sanic are registered by their own demos, both were 0/16 on the smash grid, and
+//! neither demo depends on Ambition's content crate — so completing their kits meant either a
+//! fourth copy of these helpers or moving the one copy to a crate everybody already has.
+//! `ambition_characters` is where the character model lives and where `moveset_prefabs` already
+//! derives a table from an action set; authoring one by hand belongs beside it.
 //!
 //! ⚠ `ambition_demo_smash` still carries its OWN fork of these (`crate::moveset`
 //! in that crate, with a `Feel` tag this one has no concept of). Unifying it is
 //! its own change and would expose what the fork hides; it is not this one.
 //!
-//! ⭐ these came out of `player_robot_moveset.rs` when the goblin needed a real
-//! repertoire (Jon's second redirect, P6: `smash_fighter_kit()`'s goal is
-//! DELETION, and every character that gains a table removes an adopter). They
-//! were never robot-specific — `strike` is *startup, one active window carrying
-//! one volume, recovery*, which is the shape of nearly every move in the genre.
+//! They were never robot-specific — `strike` is *startup, one active window carrying one volume,
+//! recovery*, which is the shape of nearly every move in the genre.
 //!
 //! ⚠ **a move states what it IS, never what a mode does with it.** Startup,
 //! active frames, recovery, hitbox geometry, damage, base launch and growth are
@@ -33,15 +26,9 @@ use ambition_entity_catalog::{
     MoveWindow, VolumeShape, WindowTag,
 };
 
-// ⭐⭐ **`grounded_only` / `airborne_only` / `either_posture` were DELETED here on
-// 2026-08-16, and their absence is the point.** Every one of their callers was a
-// smash move hand-setting the gate its SLOT already implies — fourteen tables,
-// every move, and all fourteen agreed with the slot without exception. The
-// posture now follows from the slot in
-// [`crate::smash_repertoire::SmashRepertoire`], which is the only place in the
-// repo that knows what a tilt or an aerial IS. Leaving the helpers here would
-// have left the per-move override available to a fighter that did not mean to
-// take it.
+// The posture now follows from the slot in [`crate::smash_repertoire::SmashRepertoire`], which is
+// the only place in the repo that knows what a tilt or an aerial IS. Leaving the helpers here would
+// have left the per-move override available to a fighter that did not mean to take it.
 
 fn event(mut m: MoveSpec, at_s: f32, kind: MoveEventKind) -> MoveSpec {
     m.events.push(MoveEvent { at_s, kind });
@@ -67,12 +54,9 @@ pub fn impulse(m: MoveSpec, at_s: f32, local: (f32, f32), mode: ImpulseMode) -> 
 /// windup you can hear and a swing you can hear are two events and not two
 /// systems.
 ///
-/// ⛔⛔ **for a sound of the move's OWN — a grunt, a charge whine, a metal
-/// chink — never for a burst's paired cue** (D149). A [`vfx`] burst is heard on
-/// its own; writing `sfx(m, t, "vfx.<family>.<row>")` beside one plays it TWICE.
-/// Fourteen tables did exactly that, 74 times, because a `Vfx` event used to be
-/// silent. If the sound is genuinely not the row's default, say so ON the burst
-/// with [`vfx_cued`].
+/// A [`vfx`] burst is heard on its own; writing `sfx(m, t, "vfx.<family>.<row>")` beside one
+/// plays it TWICE. If the sound is genuinely not the row's default, say so ON the burst with
+/// [`vfx_cued`].
 pub fn sfx(m: MoveSpec, at_s: f32, cue: &str) -> MoveSpec {
     event(
         m,
@@ -112,12 +96,6 @@ pub fn vfx(m: MoveSpec, at_s: f32, effect: &str) -> MoveSpec {
 /// **A burst that says WHERE and HOW BIG**, in the same body-local numbers the
 /// move's strike volumes use.
 ///
-/// Jon, 2026-08-16: *"try to make the hitboxes and vfx placement make sense,
-/// right now we are seeing crazy upscaled vfx and very tiny hitboxes"*. Plain
-/// [`vfx`] draws at the owner's centre at the presentation default size, which
-/// is the right identity for an effect ABOUT the fighter (a transformation, a
-/// shield) and the wrong one for a swing: the spark belongs on the box.
-///
 /// ⭐ pass a volume's own `offset` as `at` and the two cannot disagree.
 pub fn vfx_at(m: MoveSpec, at_s: f32, effect: &str, at: (f32, f32), scale: f32) -> MoveSpec {
     event(
@@ -133,13 +111,6 @@ pub fn vfx_at(m: MoveSpec, at_s: f32, effect: &str, at: (f32, f32), scale: f32) 
 }
 
 /// **A PLACED BURST THAT DOES NOT SOUND LIKE ITS OWN ROW.**
-///
-/// ⭐ the exception [`vfx`]'s default exists to make rare. Ten of the shipped
-/// effect rows are SUSTAINED — a stream, an orbit, a held field — and the bank
-/// packs their sound as the looping variant `vfx.<family>.<row>.loop` rather
-/// than as the plain row cue. A burst of one of those says so here, in ONE
-/// authored thing, instead of pairing itself with a hand-written [`sfx`] event
-/// the way fourteen tables used to.
 ///
 /// ⛔ **`cue` is a bank cue name, not an effect row name.** An id neither the
 /// registry nor the packed bank authorizes is counted and dropped, not heard —
@@ -358,7 +329,7 @@ pub fn strike(
         clip: ClipBinding {
             clip: clip.to_string(),
             // ⭐⭐ **THE AUTHORED FALLBACK CHAIN** (sprite redirect P0/P1,
-            // 2026-08-11). A move names the exact row it wants — `smash_forward`,
+            // ). A move names the exact row it wants — `smash_forward`,
             // `air_back` — and this is what it settles for when a sheet does not
             // have it. Robot v3's new sheet has 132 rows and draws the exact
             // clip; a lean sheet with `attack` draws that; one with only `slash`

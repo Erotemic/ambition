@@ -406,18 +406,32 @@ deaf for a whole match — so `ambition_input::menu` and the select cursor now s
 
 **(e) ▢ `SlotOccupant::Controller { device: usize }` SHOULD CARRY A NAMED SOURCE
 KEY**, not a bare `usize` whose meaning comes from the current assignment
-policy. 127 sites mention `device` across the smash demo; the reviewer deferred
-it explicitly and so does this row. ⛔ do not start it as a side effect of
-something else, and do not rename half of it.
+policy. 127 sites mention `device` across the smash demo; deferred deliberately.
+⛔ do not start it as a side effect of something else, and do not rename half.
 
-**(f) ▢ FORENSIC HISTORY IS CROWDING OUT THE CONTRACT in production comments.**
-Dates, queue ids, prior failed theories and per-incident measurements are
-accumulating in `body_contact.rs`, `seating.rs` and the input systems until the
-current invariant is hard to find. ⚠ **this is a TRIM, not a purge**: the
-warnings that explain a non-obvious invariant are load-bearing and have each
-prevented a re-do (the acceleration-term one has prevented it twice). What moves
-out is the per-incident narrative — which test went red on which date — and its
-home is the regression test, this ledger, or the commit message.
+**(f) ✔ RETIRED INTO POLICY 2026-08-22.** Jon: comments had become *"excessive
+and unprofessional"*. The rule now lives in `AGENTS.md` § Comments — concise,
+substantive, unlikely to go stale; the contract in source, the history in the
+commit, the ledger or the test — and it is applied opportunistically while
+passing through a file rather than as a campaign. A ledger row would have made
+it a project; it is a standing habit.
+
+**(g) ✔ THE SECOND GPT REVIEW (of `a5b9dbf28`) IS WORKED, 2026-08-22.**
+
+| finding | outcome |
+| --- | --- |
+| SDI bypassed collision during hitlag | ✔ `shift_frozen_body` sweeps; four tests (wall, repeats, thin wall, oriented box) all fail against the naked write |
+| possession still consumed the global mirror | ✔ reads `SlotControls[PRIMARY]`; primary-only is now policy, not mechanism. `slot0-gesture` waiver category deleted — 11 `ControlFrame` holders this morning, 3 now, all readers |
+| portal transit shaping was primary-only | ✔ per-seat; `PlayerMovementIntent` deleted with its two mirror systems, three brackets, init and rollback registration (−437 lines) |
+| contradictory pre/post-latch contracts | ✔ reconciled: proposal-side stages run before the commit, stages deriving from confirmed input run in the sim schedule |
+| `BodyContactBlocker.velocity` overclaimed | ✔ renamed `entry_velocity`; the division is documented as a conservative approximation |
+| select cursor clamped an identity | ✔ debug-asserts and logs instead of silently meaning another player |
+
+⛔ **the SDI fix carries the reviewer's wider point, which outlives it**: moving
+a bare pose write into `movement/authority.rs` satisfies the source scanner
+*because* that directory is skipped as the home of sanctioned authorities.
+Naming an authority is not being one — a source-text ratchet cannot enforce a
+spatial invariant.
 
 - ▢ **D179 — ONE CONTACT DEFECT LEFT; THE SPLIT AND THE SCOPING ARE CLOSED.** (found
   2026-08-21, by GPT review of `f8ad04f9a`)

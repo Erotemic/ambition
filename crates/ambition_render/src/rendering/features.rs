@@ -166,69 +166,11 @@ pub fn despawn_dead_dynamic_feature_visuals(
     }
 }
 
-/// **Nothing the sim publishes goes undrawn.** (Jon, 2026-07-27)
-///
-/// Every render family discovers its own population — the authored room pass
-/// takes `spec.enemy_spawns`, the dynamic pass takes `EncounterMob` / staged
-/// actors / reward chests — and a body that fits none of them is simply never
-/// drawn. Not drawn wrong, not drawn as a placeholder: absent. A versus fighter
-/// shipped that way, with a body, a published view, a hurtbox, a moveset and no
-/// picture, and the reason the placeholder did not cover it is that a
-/// placeholder stands in for art that failed to RESOLVE, and nothing had been
-/// asked to resolve any.
-///
-/// So this is the floor: if the sim published a view for it and no family
-/// claimed it, it gets a marked rectangle. Deliberately ugly — it is a
-/// diagnosis, not a design, and a fighter that looks like a coloured box is a
-/// bug somebody will fix, where a fighter that looks like nothing is a bug
-/// somebody has to notice first.
-///
-/// Runs AFTER every family's own spawn, and skips any id that already has a
-/// visual, so it can only ever fill a genuine gap.
-///
-/// A stand-in it draws is MARKED ([`UnclaimedBodyPlaceholder`]) and is not a
-/// claim on the id: `spawn_dynamic_feature_visuals` ignores it when deciding
-/// what still needs drawing and retires it when the real visual arrives. Without
-/// that, a placeholder drawn on a frame where a family was not yet ready would
-/// lock the feature into magenta forever — the diagnosis outliving the bug it
-/// diagnosed (GPT 5.6, 2026-07-27).
-///
-/// ⛔ **and that retirement covered only HALF the population.**
-/// `spawn_dynamic_feature_visuals` walks `DynamicFeatureViews` — the
-/// dynamically-discovered features — while stand-ins are spawned here from
-/// `FeatureViewIndex`, which holds *every* feature. A stand-in drawn for an
-/// AUTHORED brick or coin appeared in the first list and never the second, so
-/// neither retirement path could reach it and it lived until the room unloaded.
-///
-/// That is what put Jon's screen black across a level change (2026-08-05): the
-/// room-transition cover holds until no `UnclaimedBodyPlaceholder` remains, and
-/// on the frame after a commit the destination room's authored features are
-/// already in the view index while `respawn_room_visuals_on_request` — which is
-/// in `Update`, with no ordering against this chain's simulation phase — has not
-/// drawn them yet. Every authored feature got a permanent stand-in, and the
-/// cover sat out its full 8-second give-up deadline. The screen was black
-/// because the diagnosis outlived the bug, exactly as the paragraph above warns,
-/// for the population that paragraph did not cover.
-///
-/// So retirement lives HERE now, beside the spawn, keyed on the same list. One
-/// system owns both halves of "is this id claimed", which is the only way the
-/// two can not disagree.
-///
-/// ⚠ the ordering hole is real and is NOT fixed here: an `.after()` from a
-/// simulation-phase set to an `Update` system is silently vacuous in Bevy, so
-/// pointing this chain at the room spawner would look like a fix and do nothing.
-/// The cost of the race is now one frame of magenta instead of eight seconds of
-/// black, and the schedule question is a ledger row.
-///
-/// ## ⭐⭐ TWO ANSWERS, and they used to share one entity
-///
-/// This pass publishes [`UnclaimedFeatureViews`] — *which published views have a
-/// body nobody has drawn* — and, separately and later, draws the magenta
-/// stand-in. They were one thing until 2026-08-09, and the conflation is the
-/// reason Jon saw magenta flash on every room change while the cover logged
-/// **zero** give-ups: the cover was reading the DIAGNOSTIC for a question the
-/// diagnostic does not answer. See [`UnclaimedFeatureViews`] for the two
-/// questions and why no single timing can serve both.
+/// Publish the set of feature views not yet claimed by a renderer and draw a
+/// marked fallback rectangle for them. Family-specific renderers run first. A
+/// fallback is not itself a claim and is retired as soon as a real visual
+/// appears. Publishing remains valid without a session world; only fallback
+/// drawing requires world geometry.
 pub fn draw_unclaimed_feature_views(
     mut commands: Commands,
     // ⚠ **`Option`, and that is load-bearing.** `SessionWorldRef` is a `Single`,

@@ -78,20 +78,9 @@ impl AssetReader for LayeredAssetReader {
         }
     }
 
-    /// **Metadata follows the layer that supplied the ASSET.**
-    ///
-    /// This used to fall back independently, so a consumer that overrode
-    /// `sprites/foo.png` and authored no `.meta` for it silently received the
-    /// ENGINE's metadata for the engine's different `sprites/foo.png` — sampler
-    /// settings, atlas layout and loader choice describing a file it is not
-    /// describing (GPT 5.6, 2026-07-28). Wrong metadata is worse than missing
-    /// metadata: missing means "use the defaults", wrong means "this image is
-    /// something else".
-    ///
-    /// So the asset decides the layer, and the meta comes from there or not at
-    /// all. Routing costs one extra open of a file the loader is about to read
-    /// anyway, which is the honest price of asking the same question `read`
-    /// answers rather than a second question that can disagree with it.
+    /// Metadata is read from the same layer that supplied the asset.
+    /// An authored override without metadata does not inherit metadata for the
+    /// shadowed shared asset.
     async fn read_meta<'a>(
         &'a self,
         path: &'a Path,
@@ -105,19 +94,9 @@ impl AssetReader for LayeredAssetReader {
         }
     }
 
-    /// **Both layers, merged** — a directory that exists in the authored tree
-    /// used to HIDE the shared one entirely.
-    ///
-    /// The single-file case falls back per path, so `game://sprites/engine.png`
-    /// stays readable; but enumerating `game://sprites` returned only the
-    /// consumer's own entries, so anything that discovers assets by listing a
-    /// folder saw a tree with the engine's sprites missing while every one of
-    /// them was still individually loadable. An overlay whose listing disagrees
-    /// with its reads is not an overlay (GPT 5.6, 2026-07-28).
-    ///
-    /// Sorted and deduplicated: a merged listing has to have SOME order, and
-    /// filesystem order differs between machines — which is the class of
-    /// nondeterminism ADR 0023 exists to keep out of this codebase.
+    /// Merge both layers when listing a directory.
+    /// Results are sorted and deduplicated so enumeration is deterministic and
+    /// consistent with per-path fallback reads.
     async fn read_directory<'a>(
         &'a self,
         path: &'a Path,
@@ -154,14 +133,9 @@ impl AssetReader for LayeredAssetReader {
         )))
     }
 
-    /// **The layer that owns the path answers**, so this cannot contradict
-    /// [`Self::read`].
-    ///
-    /// This used to ask the shared layer whenever the authored layer said
-    /// `false`. An authored FILE shadowed by a shared DIRECTORY of the same name
-    /// then reported "directory" while `read` happily returned the file's bytes,
-    /// which is a contradiction a caller has no way to resolve (GPT 5.6,
-    /// 2026-07-28).
+    /// Directory status comes from the layer that owns the path, matching
+    /// [`Self::read`]. An authored file therefore shadows a shared directory of
+    /// the same name.
     async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
         if self.authored.is_directory(path).await.unwrap_or(false) {
             return Ok(true);

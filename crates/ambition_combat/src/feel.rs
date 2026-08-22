@@ -1,48 +1,7 @@
-//! **FEEL TUNING — the numbers that decide how the game FEELS, in the crate that
-//! owns the rules they modify.**
+//! Live gameplay-feel tuning owned by the combat domain.
 //!
-//! ⭐⭐ **carved out of `ambition_platformer2d_actor_monolith` on 2026-08-21
-//! (D33), and the line count is beside the point.** Jon: *"loc is the proxy. the
-//! real win is conceptual domain separation."* This struct had NO monolith
-//! coupling at all — both `crate::` paths inside it already resolved into
-//! `ambition_combat` (`events::DEFAULT_*` and `events::FeatureCombatTuning`).
-//! It was simply sitting above the crate that owns everything it touches.
-//!
-//! ⛔⛔ **and FOUR crates BELOW the monolith were already depending on it in
-//! PROSE, which is the shape that made this urgent.** `ambition_combat`,
-//! `ambition_platformer2d_core`, `ambition_platformer2d_shared_tangle` and
-//! `ambition_platformer2d_runtime` all cite its fields by name in comments and
-//! then RESTATE its constants locally, because they could not name the type:
-//!
-//! ```text
-//! core/movement/tests/glide_and_air.rs   const HITSTUN_S = 0.24;  // `…::enemy_hitstun_time`
-//! shared_tangle/camera_ease.rs           "…restating 0.070 in this crate"
-//! combat/rules.rs                        "`…::default().di_max_angle`"
-//! ```
-//!
-//! A doc block naming your invariant IS a dependency — one the compiler cannot
-//! check and that drifts silently the day a number changes.
-//!
-//! ✔ **FOLLOWED THROUGH the same day, and only ONE of the four could be fixed**
-//! — the claim above said "three", and measuring it said otherwise.
-//! `ResolvedCombatTuning::default()` READS `di_max_angle` from here now
-//! (`6cbf5d2de`) instead of writing `0.0` beside a comment claiming they match.
-//! ⚠ the other three CANNOT: `platformer2d_core`'s glide test and
-//! `shared_tangle::camera_ease` sit BELOW this crate and cannot name the type at
-//! all, so their restatements are the only option available. ⛔ that is
-//! structural, not unfinished work, and not a reason to add a dependency edge.
-//!
-//! ⚠ **the type keeps its name for now, and the name is wrong.** Nothing here is
-//! a monolith any more. Renaming is mechanical and compiler-checked across ~116
-//! references, and it is deliberately NOT bundled with a move — a rename diff
-//! and a relocation diff are hard to review together.
-
-//! Sandbox game-feel tuning.
-//!
-//! Holds the live-tunable resource that gameplay systems read for time scales,
-//! input windows, knockback, hitstun, and combat windup/active timings. These
-//! are gameplay knobs (not dev/inspector toggles), so they live in their own
-//! module rather than under `dev_tools`.
+//! These values control time scales, input windows, hit reactions, knockback, and
+//! combat timings. They are gameplay parameters rather than developer-tool state.
 
 use bevy::prelude::*;
 

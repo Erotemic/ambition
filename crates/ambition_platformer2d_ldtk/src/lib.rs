@@ -1,76 +1,18 @@
-//! LDtk world-composition adapter and validator for the sandbox.
+//! LDtk authoring adapter for the platformer world IR.
 //!
-//! Ambition keeps its gameplay model typed in Rust. LDtk is an authoring
-//! frontend: this module validates the subset of LDtk entities Ambition
-//! currently understands and materializes Ambition runtime rooms directly
-//! from LDtk-authored data.
+//! Gameplay/world concepts remain typed in Rust; LDtk is one backend that validates
+//! authored entities and lowers them into `ambition_platformer2d_world`. Format-
+//! independent world manifests stay in the world crate.
 //!
-//! ⭐ **WHY THIS IS A SEPARATE CRATE FROM `ambition_platformer2d_world`:
-//! ADR 0021, authoring-backend-agnostic world IR.** World IR is pure authored
-//! input; LDtk is ONE backend that converts into it, and a generated/RON/test
-//! backend is a peer rather than a special case. That decision minted both
-//! crates and the boundary tests that ratchet the dependency direction.
-//!
-//! ⚠ the citation is here because the ADR was reachable from NOTHING until
-//! 2026-08-21 — a census of 267 docs found it the only implemented decision
-//! with zero referrers, while its neighbours (0019, 0020, 0022, 0023) each had
-//! one to three. A decision nobody can find is one somebody re-litigates.
-//!
-//! ## Submodule layout (post-2026-05-09 split)
-//!
-//! Submodules are private (`mod`); user-facing types are re-exported
-//! from the root of this module.
-//!
-//! - `project` — JSON deserialization types ([`LdtkProject`],
-//!   [`LdtkLevel`], [`LdtkLayerInstance`], [`LdtkEntityInstance`],
-//!   [`LdtkFieldInstance`], [`ActiveLdtkProject`]).
-//! - `loading` — file-loading policy
-//!   ([`LdtkProject::load_default`] (catalog-aware),
-//!   [`LdtkProject::load_default_for_dev`] (no-catalog test/headless
-//!   helper), `load_from_disk_at`, `load_from_path`). Each takes the
-//!   caller's `ambition_platformer2d_world::world_manifest::WorldManifest`
-//!   — there is no ambient one.
-//! - `conversion` — LDtk → Ambition runtime conversion
-//!   ([`LdtkProject::to_room_set`], `entity_to_runtime`).
-//! - `contract` — the AUTHORING contract those converters enforce, as one
-//!   data file the Python authoring loop reads too
-//!   ([`contract::contract`], `ldtk_entity_contract.json`). Its `prover`
-//!   asserts every claim against the real converters in both directions, so
-//!   the two languages cannot drift.
-//! - `bevy_runtime` — bevy_ecs_ldtk plugin glue + runtime-spine
-//!   indexing.
-//! - ⛔ **no `hot_reload`.** `LdtkHotReloadState`/`poll_ldtk_file_changes` —
-//!   an `Option<PathBuf>`, a poll timer, an mtime, and a status string — moved
-//!   to `ambition_dev_tools::hot_reload` on 2026-08-16 (D136) as
-//!   `WorldSourceHotReload`/`poll_world_source_changes`. Nothing in it knew
-//!   about LDtk except the text of its status strings; its consumers are the
-//!   developer controls, which is where it now lives.
-//! - `intgrid`, `fields`, `surfaces` — IntGrid emission, field
-//!   accessors, typed `Surface` parsing.
-//! - ⛔ **no `manifest`.** `WorldManifest`/`WorldSource` — a game's
-//!   declaration of which authored world documents it ships — moved to
-//!   `ambition_platformer2d_world::world_manifest` on 2026-08-16 (D136).
-//!   They are an asset catalog, not this format's vocabulary, and holding
-//!   them here is what forced `ambition_platformer2d` to depend on this
-//!   crate unconditionally.
-//! - `tests` (cfg(test) only) — internal tests, split by topic
-//!   (`embedded_project`, `intgrid`, `kinematic_paths`, `metadata`,
-//!   `surfaces`).
+//! `bevy_ecs_ldtk` integration is available only with the `ldtk_runtime` feature;
+//! pure project parsing, validation, conversion, fields, and surfaces do not require
+//! that runtime feature.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use ambition_platformer2d_core as ae;
 
-// ⛔⛔ **THE GATE THIS MODULE'S OWN DOC ASKED FOR AND DID NOT HAVE.** It says it
-// "isolates everything that needs `bevy_ecs_ldtk` types", and `ldtk_runtime` is
-// the feature that supplies that crate — but the module was declared
-// unconditionally, so `--no-default-features` did not compile at all. Two
-// consumers (`ambition_platformer2d_runtime`, `ambition_menu`) declare this
-// dependency `default-features = false`, and BOTH of those declarations were
-// fiction: the workspace only built because feature unification turned
-// `ldtk_runtime` on from somewhere else. ⇒ measured 2026-08-18 by
-// `cargo check -p ambition_menu --features ldtk`, a legitimate configuration
-// that had never been built on its own.
+// Only the Bevy runtime adapter requires `bevy_ecs_ldtk`.
 #[cfg(feature = "ldtk_runtime")]
 pub mod bevy_runtime;
 pub mod contract;
@@ -89,15 +31,8 @@ pub use bevy_runtime::*;
 pub use conversion::{
     kinematic_path_lookup_id, LdtkEntityConverter, LdtkEntityCtx, LdtkVocabulary, RoomEmission,
 };
-// ⛔ **`WorldManifest`/`WorldSource` are NOT re-exported here, and the absence
-// is the point.** They moved DOWN to
-// `ambition_platformer2d_world::world_manifest` on 2026-08-16 (D136): a
-// declaration of which authored world documents a game ships is an asset
-// catalog, not this format's vocabulary, and while it lived here it forced
-// `ambition_platformer2d`'s own LDtk edge to stay unconditional
-// (`game_assets` takes a `WorldManifest` in an ungated signature). A
-// convenience re-export from this crate would put that edge straight back.
-// Readers name the world crate.
+// World manifests are format-independent and are intentionally not re-exported
+// from the LDtk adapter; callers name `ambition_platformer2d_world` directly.
 pub use ambition_platformer2d_world::ron_room::{
     load_ron_rooms, room_doc_from_ron, room_doc_to_ron, RonRoomDoc,
 };
@@ -110,9 +45,7 @@ pub use surfaces::{
     SurfaceContact, SurfaceRespawn,
 };
 
-// Field accessors for converter authors (content converters parse their
-// authored fields through these) and historical internal callers
-// (e.g. `crate::encounter`).
+// Field accessors used by entity converters.
 pub use fields::{field_bool, field_f32, field_i32, field_string};
 
 use fields::{

@@ -17,25 +17,8 @@ use bevy::prelude::Resource;
 /// compiled backend instead of installing hidden Bevy-UI systems.
 pub const BEVY_UI_MENU_BACKEND_ENABLED: bool = cfg!(feature = "bevy_ui_menu");
 
-/// Build-time switch for the experimental 3D cube menu backend.
-///
-/// The normal visible desktop/Android personas enable this feature so both
-/// platforms exercise the same menu stack. Minimal/headless builds can leave it
-/// off, and backend selection will gracefully collapse to any other compiled
-/// backend.
-///
-/// ⛔ **NEVER ON THE WEB** (Jon, 2026-08-14: *"there is an issue with
-/// kaleidoscope in web"*). The browser gets the flat Bevy-UI menu, full stop.
-///
-/// ⚠ **the `target_arch` term is not redundant with the feature.** The browser
-/// personas already leave `kaleidoscope_menu` out of their feature lists, and
-/// that was not enough on its own: Cargo features are additive and unify across
-/// a build, so any `--features` composition, a `--use-default-features` web
-/// build, or a future dependency that forwards the flag turns the cube back on
-/// silently. Answering the question at the SELECTION — which is what this
-/// constant is for, per its neighbours' doc — makes the cube unreachable on wasm
-/// however the feature arrives, and collapses a saved `LunexKaleidoscope`
-/// setting to the grid through [`InventoryUiBackend::effective`].
+/// Build-time switch for the 3D cube menu backend. It is disabled on wasm even
+/// if the Cargo feature is unified into the build; web falls back to Bevy UI.
 pub const KALEIDOSCOPE_MENU_BACKEND_ENABLED: bool =
     cfg!(feature = "kaleidoscope_menu") && !cfg!(target_arch = "wasm32");
 

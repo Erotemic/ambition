@@ -33,44 +33,12 @@ pub struct Lineage {
     pub source_fingerprint: Option<String>,
 }
 
-/// Physical limits and vitals. Gameplay numbers, flat.
+/// Physical limits and vitals. Optional fields distinguish "not authored" from
+/// an explicit value, allowing body construction defaults to remain authoritative
+/// when the character definition does not override them.
 ///
-/// ⚠ **both fields are `Option` and that is load-bearing**, for the same reason
-/// every other kit field on a definition is: `None` means *the author said
-/// nothing*, which is a question, and `Some` is an answer that outranks whatever
-/// would have answered it.
-///
-/// They used to be flat, with `max_health` defaulting to `1`. That default was
-/// indistinguishable from an authored one-hit glass cannon — so the value could
-/// not be applied to a body without nerfing every character that had never
-/// thought about health, which is why only the SEATING path ever read it and the
-/// worn path read the catalog instead. Two construction paths, two answers, one
-/// character (GPT 5.6, 2026-07-29). Making the absence expressible is what lets
-/// one applier serve every path.
-/// **THE POOL A BODY GETS WHEN NO AUTHORITY DESCRIBES IT.**
-///
-/// ⭐ this number used to be spelled `DEFAULT_PROVOKED_HEALTH`, and it lived in
-/// the monolith's brain builders because the only place that supplied it was
-/// generic PROVOCATION: a peaceful placement spawned at `1`, so being struck
-/// replaced the body's whole `BodyHealth` with a fresh 4-point pool. That is a
-/// body mutation dressed as a mood change, and it was the last one left in
-/// `provoked_projection` (ledger D101).
-///
-/// ⇒ the repair is one level up, exactly where the `1` was: an undescribed body
-/// is undescribed whether or not anybody has hit it yet. Being provoked is not
-/// an argument that a creature has a different body, so the default moved to the
-/// two places that answer *how tough is a body nobody has authored* — the
-/// character body blueprint and the peaceful-NPC seed — and provocation stopped
-/// writing health at all.
-///
-/// ⚠ **the NUMBER is still D96 item 7 and still Jon's.** What changed is the
-/// AUTHORITY, not the value: 4 before, 4 after, and answering the ledger row is
-/// an edit to this one constant plus whichever characters state their own.
-///
-/// ⚠ a peaceful body takes no health damage at all (`actor_hit` accumulates
-/// strikes and explicitly does not damage a talkable NPC), so raising the
-/// peaceful default from 1 to this is inert until the body is hostile — which is
-/// why the move is a refactor rather than a rebalance.
+/// Default health for a body with no authored health authority. Provocation does
+/// not replace the body's health pool.
 pub const DEFAULT_UNAUTHORED_BODY_HEALTH: i32 = 4;
 
 #[derive(Debug, Clone, Default, PartialEq)]

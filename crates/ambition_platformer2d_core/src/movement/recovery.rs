@@ -1,88 +1,15 @@
-//! **Can this body still get back to something to stand on?**
+//! Reachability probe for whether a body can regain support.
 //!
-//! The sibling of [`containment`](crate::movement::containment), and the same
-//! shape: put a body in a world, drive the REAL kernel, report what happened.
-//! Containment asks whether a movement POLICY stays in a room. This asks
-//! whether a particular BODY, from where it is right now and with the verbs and
-//! numbers it actually carries, can regain support.
+//! The probe clones the body and drives the real movement kernel. A negative
+//! result is bounded by the chosen [`RecoveryPolicy`] and horizon; it means that
+//! search found no support, not that the body has no possible recovery.
 //!
-//! ## Why this is a measurement and not a rule
+//! Movement performed outside the kernel, such as portal transit, grapples, or
+//! later external impulses, is outside the probe. Moving geometry is sampled at
+//! its current pose.
 //!
-//! The rule was tried. A fighter-brain rollout priced a KO from *"airborne,
-//! below the platform top, outside the ground span ⇒ already dead"*, measured a
-//! sixfold survival improvement, and the rule was **removed anyway** (Jon,
-//! 2026-08-14) because it is not body-generic: air movement, an unspent jump,
-//! flight, a wall, a ledge grab, a recovery attack, an impulse, a portal or a
-//! grapple each falsify it. It happened to hold for one stage and one fighter.
-//!
-//! ⭐ **so this module states no rule about bodies at all.** It clones the body,
-//! hands it to [`step_motion`], and watches. Every capability the kernel
-//! implements — air jumps, glide, fast fall, wall cling and wall jump, dash,
-//! blink, ledge grab, swim, flight, one-way platforms, moving-platform carry,
-//! hazards, the blast margin — is honoured *to the exact extent the probe's
-//! input policy presses it*, gated by the body's own [`AbilitySet`] and its own
-//! [`AxisSweptParams`](crate::AxisSweptParams). There is no
-//! list of capabilities here to fall out of date, which is precisely the failure
-//! mode the deleted rule had.
-//!
-//! ## ⛔ THE SEARCH IS NOT THE BODY
-//!
-//! Two separable things live in one call, and only one of them is trustworthy in
-//! general:
-//!
-//! * **the ROLLOUT** — the real kernel, driven on a clone of the real body. This
-//!   is the body-generic half and it is why any of this is worth anything.
-//! * **the INPUT POLICY** — [`RecoveryPolicy`], what the probe presses. The
-//!   default ([`RecoveryPolicy::DRIFT_AND_JUMP`]) is a cheap steering heuristic:
-//!   three ordered sides plus a jump re-pressed at the apex. **It presses no
-//!   other verb.** A body whose only way home is a dash, a blink, a flight
-//!   toggle or a fast fall is reported as not recovering — a report that is
-//!   *right about the search and wrong about the body*.
-//!
-//! ⭐ **and a policy may now spend one thing that is not a button.** A
-//! [`RecoveryBurst`] is a commanded displacement at a known step —
-//! [`RecoveryPolicy::drift_jump_and_burst`] — which is how a caller holding a
-//! body's authored recovery MOVE gets a verdict that considered it. The kernel
-//! is handed a velocity and a step count and learns nothing about attacks;
-//! deciding that a particular move supplies those numbers is the caller's job.
-//!
-//! ⇒ so a negative is [`RecoveryOutlook::NoSupportFoundBy`] and it carries the
-//! [`RecoveryProbe`] that produced it. *"My search did not find a way"* and *"no
-//! way exists"* are different claims and only the first is available here; a
-//! consumer may still act on it, but the value will not let it claim the second.
-//! A caller wanting a stronger claim runs a stronger policy
-//! ([`RecoveryProbe::with_policy`]) and gets a negative bounded by THAT one.
-//!
-//! ⭐ and the two halves can be told apart *after the fact*: `reset` separates
-//! the world ending every effort from the horizon ending them, and re-probing the
-//! identical body and world under a different [`RecoveryPolicy`] separates the
-//! policy from the kernel — which is exactly what
-//! `a_negative_is_a_fact_about_the_search_not_the_body` does.
-//!
-//! ⛔ **and it does not decide what the answer MEANS.** Like `FrameEvents`, this
-//! reports what physically happened; a brain, an authoring validator or an LLM
-//! decides whether "this search found no support" is a death, a level-design bug,
-//! or a reason to turn around.
-//!
-//! ## What it does NOT cover, and these are gaps of the KERNEL, not assumptions
-//! ## of this query
-//!
-//! `step_motion` is the whole world here, so anything that moves a body from
-//! OUTSIDE it is invisible: portal transit, a grapple (which is a held item, not
-//! an ability flag), knockback, and any launch a game writes
-//! into `BodyFlightState::pending_launch` after the probe was taken. Geometry is
-//! whatever `world` contains at the instant of the call — a moving platform is
-//! frozen where it stands, so a route that only exists while the platform is
-//! elsewhere will not be found. These are a different limit from the policy one
-//! above: no policy can press its way out of them.
-//!
-//! ## Cost, and rollback
-//!
-//! [`RecoveryPolicy::efforts`] times [`RecoveryProbe::steps`] kernel steps, on a
-//! CLONE. It mutates nothing, caches nothing, and latches nothing across frames, so it is
-//! **not rollback state** and owes no registration — recompute it whenever the
-//! answer is wanted. It is far too expensive to run per body per tick; it is
-//! sized for analysis, authoring validation, and offline reasoning.
+//! The probe mutates no world state and carries no rollback state. It is intended
+//! for analysis and authoring checks, not per-body per-tick simulation.
 
 use crate::abilities::{AbilityGrant, AbilitySet};
 use crate::body_clusters::BodyClusterScratch;

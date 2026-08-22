@@ -1,82 +1,14 @@
-//! **FOOTSTOOL — jumping off another fighter's head.**
+//! Footstool interaction: jumping off another body.
 //!
-//! ⭐ **carved out of `ambition_platformer2d_actor_monolith` on 2026-08-21
-//! (D33).** A footstool is a platform-fighter mechanic between two bodies; it
-//! belongs with the rest of combat, not in the crate that happens to own actor
-//! wiring. The module and its tests together named exactly ONE path outside the
-//! crate — `MotionModel`, which is `ambition_platformer2d_core`'s and was only
-//! ever reached through the monolith's re-export.
+//! Arbitration runs before the movement kernel and claims the jump press through
+//! [`ae::BodyJumpState::footstool_claimed`], so a successful footstool does not
+//! consume an air jump. Contact is therefore judged from the previous tick's
+//! resolved positions.
 //!
-//! ⚠ **nothing in the monolith registered it.** The smash demo does, through the
-//! facade — so this module was sitting in a crate that neither owned its concept
-//! nor used it.
-
-//! **The footstool: jumping off another body's head.**
-//!
-//! The other body-vs-body interaction beside [`super::capture`], and it is built
-//! the same way for the same reasons — one read-only pass that DECIDES, a
-//! deterministic order over the decisions, then one pass that applies them.
-//!
-//! ```text
-//! a CAPTURE    volume overlap        -> a relationship that outlives the move
-//! a FOOTSTOOL  feet on a head + jump -> two impulses and a stun, over at once
-//! ```
-//!
-//! ## ⭐⭐ It CLAIMS the press; it does not overwrite the result
-//!
-//! This runs BEFORE the movement kernel and writes
-//! [`ae::BodyJumpState::footstool_claimed`], which the kernel's jump chain
-//! consumes AHEAD of the air jump. So a footstool costs no air jump, and a body
-//! that has spent every midair jump can still take one.
-//!
-//! ⛔ **the first version ran in `Settle` and merely wrote the bounce velocity
-//! afterwards**, on the argument that whoever wrote velocity first, the
-//! footstool was what the tick ended with. That argument is true about the
-//! VELOCITY and false about everything else: the kernel had already spent an air
-//! jump and emitted `MovementOp::DoubleJump`, so the identical footstool cost a
-//! charge when you had one and nothing when you did not. One input edge, two
-//! meanings. Arbitration has to happen before the commit, not after it.
-//!
-//! ⚠ **the price is that contact is judged from the PREVIOUS tick's resolved
-//! positions**, because a claim must be made before this tick's movement. At
-//! 60Hz that is the standard trade in this genre, and it is the correct half to
-//! give up: a frame of latency on the read is invisible, and a jump charge spent
-//! or not spent is not.
-//!
-//! ## What both ends must agree to
-//!
-//! ⚠ **a body whose [`ae::FootstoolTuning`] is `OFF` — the engine default — is
-//! not a platform and cannot stand on one.** Heads are not platforms in the
-//! exploration game, and a wandering enemy that could be jumped off would be a
-//! different game for that side.
-//!
-//! ⚠ **the two bodies must share a gravity frame.** Each carries its own
-//! resolved frame, so *whose head* is only a question with an answer when both
-//! agree which way is down; a pair that disagrees is refused rather than judged
-//! in the stomper's frame, which is what the first version did.
-//!
-//! ⚠ **and the match's team policy decides whether a teammate may be stood on.**
-//! Not through `damage_lands_between` — a footstool deals no damage, and
-//! borrowing the damage question made the mechanic's reachability depend on a
-//! rule about hurting people. The friendly-fire flag is read directly, so a
-//! teams match with Team Attack off refuses the pair, which is the genre's rule.
-//!
-//! ## The victim's reaction is TWO reactions, or NONE
-//!
-//! ⭐ **the PHANTOM footstool**: a victim who is in the middle of a move takes
-//! no reaction at all and follows through, while the stomper still gets the
-//! bounce. It is the genre's rule and a real technique in it — Ultimate players
-//! farm the bounce off a committed opponent to escape disadvantage — and
-//! without it a footstool would be a free interrupt of any attack it landed on.
-//!
-//!
-//! ⭐ **when there IS a reaction, grounded and airborne are different mechanics, and Ultimate treats them
-//! that way.** A grounded target has nowhere to be shoved and takes a brief
-//! flinch — which is what makes a grounded footstool a combo STARTER — while an
-//! airborne one is driven down into a tumble that cannot be cancelled early
-//! (a footstool produces no real knockback, so there is nothing to meteor-cancel
-//! out of). Both are techable on landing. The split itself lives in
-//! [`ae::footstool_victim`], because a tumble is model-private state.
+//! Both bodies must enable footstools, share a gravity frame, and satisfy the
+//! match's teammate policy. A victim already committed to a move receives no
+//! reaction; otherwise grounded victims flinch and airborne victims tumble.
+//! Decisions are collected read-only, ordered deterministically, then applied.
 
 use bevy::prelude::*;
 

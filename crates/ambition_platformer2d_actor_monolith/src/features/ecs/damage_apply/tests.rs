@@ -1,8 +1,3 @@
-//! Unit tests for the parent module, extracted from an inline
-//! `#[cfg(test)] mod tests` (test-organization campaign, 2026-07-10). Pure move:
-//! same test names + logic, now an adjacent child module with private access via
-//! `use super::*;`.
-
 use super::*;
 // The parent module imports only the handful of Bevy items its systems need,
 // so the App-level tests below bring in their own.

@@ -122,22 +122,8 @@ pub fn sprite_frame_basis(
     layouts: &Assets<TextureAtlasLayout>,
     images: &Assets<Image>,
 ) -> Option<SpriteFrameBasis> {
-    // ⭐ **AN ATLASED SPRITE NEVER TOUCHES `Assets<Image>` HERE, and that is the
-    // point rather than a micro-optimisation.** This used to open by fetching the
-    // image for one reason — `texture_descriptor.size`, to normalise the frame
-    // rect — and `TextureAtlasLayout` already carries exactly that as `size`.
-    //
-    // ⛔ the dependency was load-bearing in a direction nobody intended. Bevy
-    // loads images as `RenderAssetUsages::MAIN_WORLD | RENDER_WORLD`, which keeps
-    // every decoded sheet's full RGBA in main-world RAM for the lifetime of the
-    // handle — measured at **1803 MB** entering Hall of Characters (2026-07-30).
-    // Dropping `MAIN_WORLD` would free essentially all of it, and this lookup was
-    // the only main-world reader of a loaded sprite sheet standing in the way. It
-    // wanted two integers the atlas layout already knew.
-    //
-    // ⚠ the whole-image branch still needs the image, because a sprite with no
-    // atlas has no other source for its own dimensions. That is the honest
-    // remaining case, and it is props rather than characters.
+    // Atlased sprites derive dimensions from the atlas layout so they do not
+    // require main-world image access. Whole-image sprites still need the image.
     let (uv_rect, frame_px) = if let Some(atlas) = sprite.texture_atlas.as_ref() {
         let layout = layouts.get(&atlas.layout)?;
         let rect = layout.textures.get(atlas.index)?;

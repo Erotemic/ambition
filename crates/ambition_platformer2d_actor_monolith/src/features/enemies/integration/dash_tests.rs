@@ -1,8 +1,3 @@
-//! Unit tests for the parent module, extracted from an inline
-//! `#[cfg(test)] mod dash_tests` block (test-organization campaign, 2026-07-10).
-//! Pure move: same test names + logic, now an adjacent child module (a direct
-//! sibling, so `super` path depth is unchanged) with `use super::*;`.
-
 //! S3d: dash as a body-enforced capability. These drive the REAL grounded
 //! integration (`ActorMut::update` → the shared spine), so they prove the
 //! body owns the burst — a possessing human and an AI brain dash identically

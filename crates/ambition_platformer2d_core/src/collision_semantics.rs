@@ -1,30 +1,6 @@
-//! Shared collision-semantics kernel: the gravity-relative support/surface
-//! truths every actor body agrees on.
-//!
-//! ⭐ **ONE sweep consumes these primitives** — [`crate::movement::collision`],
-//! the body movement sweep, with jump-buffer / dash / blink / climb / wall-state
-//! affordances layered on top. **Every actor goes through it**: controlled,
-//! scripted, AI and remote alike.
-//!
-//! ⛔ **this header used to say "two sweeps" and name
-//! `ambition_platformer2d_shared_tangle::kinematic` as the generic enemy/NPC one.
-//! That module was DELETED on 2026-08-14 (D126.2)** — it had zero production
-//! callers and 26 test invocations, all inside its own test file, so its only
-//! caller was the thing testing it. The two sweeps really did once carry private,
-//! *almost* identical copies of these helpers, which is the dangerous kind of
-//! duplication: they agreed at the design level while free to drift at the
-//! implementation level (one-way landing eligibility, support-face tolerances,
-//! non-down gravity). Extracting them here removed the drift; deleting the second
-//! sweep removed the fork. ⚠ **the "both sweeps" phrasing survived the second
-//! event and is what made a dead path read as live** — if you find another
-//! sentence claiming two sweeps, it is stale.
-//! The richer *affordances* (depenetration strategy, wall-cling, climb passage,
-//! ability tuning) stay in each sweep — only the pure classification/geometry
-//! truths live here.
-//!
-//! Everything here is a pure function of `(BlockKind, Aabb, gravity_dir, …)` —
-//! no `World`, no ECS, no per-frame state — so it is trivially testable across
-//! all four cardinal gravity directions (see the `tests` module).
+//! Gravity-relative collision classification and geometry shared by actor
+//! movement. These helpers are pure functions of world primitives and carry no
+//! ECS or per-frame state; movement-specific affordances remain in the sweep.
 
 use crate::geometry::{Aabb, AabbExt};
 use crate::world::{Block, BlockKind, World};

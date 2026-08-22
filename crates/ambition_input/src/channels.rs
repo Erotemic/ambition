@@ -1,76 +1,9 @@
-//! **A local input SOURCE is not a control CHANNEL, and one integer meant
-//! both.**
+//! Mapping between local input sources and dense session control channels.
 //!
-//! Three concepts share the shape of a small number, and the engine had one
-//! word for all of them:
-//!
-//! ```text
-//! LocalInputSource  the thing a person picked up  — sparse, chosen in a lobby
-//! ParticipantId     the seat at the machine       — dense, one per person here
-//! PlayerSlot        the seat the simulation reads — dense, == the GGRS handle
-//! ```
-//!
-//! ⛔ **the sparse one leaked into the dense ones, and a match stopped
-//! responding.** A character-select screen deliberately keeps SOURCE numbers:
-//! its own test says renumbering them would hand somebody the wrong controller.
-//! A roster therefore legitimately says *"the human in this seat holds source
-//! 3"*. That number was then used as the rollback channel — `PlayerSlot(3)` —
-//! while the session was sized by COUNTING the humans, so GGRS created handles
-//! `0..n` and nothing ever wrote handle 3. Reported by review (GPT 5.6,
-//! 2026-08-07) and reachable three ways:
-//!
-//! * two humans on sources 0 and 3 get a two-handle session, and the second
-//!   fighter is deaf for the whole match;
-//! * pick two seats and set the FIRST to CPU — the remaining human is on source
-//!   1 in a one-handle session, so nobody can move;
-//! * the shipped Smash couch, where the keyboard is source 0 and two pad players
-//!   are sources 1 and 2 — three participants for two channels.
-//!
-//! ⭐ **the plan is what makes the two numbers stop pretending to be one.** A
-//! session decides, once, which source drives which channel. Channels stay dense
-//! because the rollback host requires it; sources stay whatever the lobby said,
-//! because that is who is holding what.
-//!
-//! ```text
-//! lobby     KEYBOARD ─┐          ┌─ channel 0 ─ GGRS handle 0 ─ PlayerSlot(0)
-//!           pad 0    ─┼ the plan ┤
-//!           pad 2    ─┘          └─ channel 1 ─ GGRS handle 1 ─ PlayerSlot(1)
-//! ```
-//!
-//! ⚠ **channel is spelled [`ParticipantId`] on purpose.** It is already the
-//! dense seat identity that `SlotControls`, the per-seat latches and the GGRS
-//! handle order all key on, and `ambition_platformer2d_actor_monolith`'s
-//! `participant_seat` owns its one correspondence with `PlayerSlot`. A third
-//! newtype for the same integer would be a third thing to keep in step; what was
-//! missing is the SOURCE, and the map.
-//!
-//! ## ⛔ …and that spelling is a LEAK, not the model
-//!
-//! The behavioural defect above is fixed. The identity conflation under it is
-//! not, and new code must not harden it. The chain this engine is heading for:
-//!
-//! ```text
-//! LocalInputSource / InputSourceId   what somebody picked up
-//!   → ParticipantId                  the PERSON — survives relaunch, seat
-//!                                    reassignment, possession, a dead body
-//!   → SessionSeatId                  a seat in THIS session's topology
-//!   → ControlChannelId               a deterministic input channel
-//!   → PlayerSlot                     what the simulation reads
-//!   → the controlled actor
-//! ```
-//!
-//! Two of those do not exist, and this type currently uses [`ParticipantId`] for
-//! the fourth. The lifetimes are genuinely different: a participant outlives the
-//! session, a channel belongs to one session's topology and dies with it.
-//! `participant_seat`'s own docs already say the two "only currently share a
-//! number and should eventually become a data mapping".
-//!
-//! **The standing rule until they are separated:** do not add new ARITHMETIC
-//! equality between `ParticipantId` and `PlayerSlot` or a GGRS handle. Route
-//! through [`LocalChannelPlan`], which is the map, and let a future
-//! `ControlChannelId` replace the spelling in one place instead of in every
-//! caller that did the arithmetic itself. Tracked in
-//! `docs/planning/tracks.md`.
+//! Device/source ids are sparse lobby identities; rollback channels are dense
+//! session identities. [`LocalChannelPlan`] is the explicit mapping between
+//! them. New code must not infer a channel or [`PlayerSlot`](crate::PlayerSlot)
+//! by arithmetic on a source id or participant id.
 
 use crate::participant::ParticipantId;
 

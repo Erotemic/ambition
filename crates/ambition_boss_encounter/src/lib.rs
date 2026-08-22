@@ -1,66 +1,13 @@
-//! Ambition's boss-fight coordinator — the BOSS DOMAIN, carved out of the actor
-//! monolith 2026-08-17 (D33). Distinct from the generic enemy-wave system in
-//! `ambition_encounter`.
+//! Boss encounter domain.
 //!
-//! Boss HP/phase state is ENTITY-LOCAL (`BossEncounter.health` +
-//! `BossEncounter.encounter: ActorPhaseState`); this crate bridges it to the
-//! in-arena boss ECS clusters (`BossClusterQueryData` / `BossRef`, `clusters`),
-//! the optional first-class encounter entity (`EncounterDef` + `EncounterScript`),
-//! and the adaptive music + cutscene + save-state systems. The registry is a
-//! read-only `BossProfile` data catalog.
+//! Boss health and phase state are entity-local. This crate owns boss catalogs,
+//! cluster views, encounter scripts, rewards, events, attack geometry, sprites, and
+//! the systems that synchronize those pieces. Generic encounter timeline vocabulary
+//! remains in `ambition_encounter`.
 //!
-//! `lib.rs` is intentionally a facade: type ownership, registration, update
-//! systems, rewards, and event publication live in child modules so future boss
-//! work doesn't pile into the entry point. Children:
-//! `behavior`/`profile`/`specs`/`roster` (data schemas + App-local catalog views),
-//! `clusters` (the authoritative boss components + borrow views),
-//! `registry` (`BossEncounterRegistry` resource), `systems` (per-frame tick +
-//! HP mirror), `encounter_entity`/`encounter_script` (the optional encounter
-//! entity + its scripted beats), `events` (event publication), `rewards`
-//! (reward chests), `ids` (id slugging), `attack_geometry` (hitbox math),
-//! `sprites` (boss spritesheets).
-//!
-//! Each `BossSpawn` LDtk entity in the active room maps to one encounter id
-//! (defaulting to the boss `name`). When the player enters the room the
-//! encounter goes Dormant -> Intro and the cutscene queue is asked to play
-//! `boss_intro_<id>`. From that point the phase machine drives transitions;
-//! this crate mirrors them onto the boss cluster, the audio request, and the
-//! save resource.
-//!
-//! # What made this a carve
-//!
-//! ⭐ **the two relocations came FIRST, and without them this was a facade
-//! move.** The boss DATA MODEL used to live in the monolith's `features` hub
-//! (`features::ecs::boss_clusters`, `BossOverrides` in the spawner,
-//! `sync_boss_reward_chests_ecs` in the reward table); the earlier D33 slice
-//! moved all ten symbols here, which dropped this domain's outward edges from
-//! 49 sites to 21 — none of them boss vocabulary.
-//!
-//! ⭐ **and the honest instrument found exactly two real blockers left.**
-//! Counting `crate::` on NON-COMMENT lines (a `use`-grep undercounts this
-//! repository badly; a raw `crate::` grep measures its prose), every sibling
-//! name this code reached was a re-export of a crate BELOW the monolith —
-//! `BodyKinematics`, `CenteredAabb`, `FeatureId`, `FeatureSimEntity`,
-//! `GameplayBanner`, `ChestFeature`, `Opened`, `FallingChest`,
-//! `BossRewardChest` — except:
-//!
-//! * `CutsceneTriggerQueue`, which moved DOWN to `ambition_cutscene` beside the
-//!   script format it triggers, and
-//! * `MountDied`, which moved DOWN to
-//!   `ambition_platformer2d_shared_tangle::body` because two domains share it:
-//!   the monolith's mount coupling writes it and this crate reads it.
-//!
-//! ⚠ **the monolith still names this crate 200+ times and that is fine** — the
-//! arrow points down. What would have blocked the carve is an edge pointing the
-//! other way, and after the relocations there was none.
-//!
-//! # Ordering
-//!
-//! The `Progression` phase chain that drives the per-frame boss tick is
-//! registered by `ambition_platformer2d_runtime`, not here; this crate owns the
-//! CONTENT SLOTS in that chain ([`ContentEncounterScriptSet`],
-//! [`ContentEncounterVictorySet`], [`ContentQuestRewardSet`]) so a named game
-//! can interleave without the engine chain ever naming a content system.
+//! The runtime owns the outer progression schedule; this crate exposes named content
+//! sets so game-specific systems can interleave without the runtime depending on
+//! boss content.
 
 pub mod anim;
 pub mod attack_geometry;

@@ -1,68 +1,13 @@
-//! Bevy visual synchronization for engine state.
+//! Bevy presentation systems that project simulation/view state into visuals.
 //!
-//! Render-only component tags and visual sync systems. This module mirrors
-//! player and world state from ECS components into Bevy transforms / sprites.
-//!
-//! ## Submodule layout (post-2026-05-09 split)
-//!
-//! - [`primitives`] — marker components ([`PlayerVisual`],
-//!   [`HudText`], [`QuestPanelText`], [`RoomVisual`],
-//!   [`FeatureVisual`], [`HealthOverlayVisual`]) plus color / Z /
-//!   feature-kind helpers and `spawn_world_label`.
-//! - [`actors`] — per-frame sync of player + enemy + boss sprites
-//!   and animation. Owns [`sync_visuals`], [`animate_player`],
-//!   [`animate_characters`], [`animate_bosses`], [`upgrade_actor_sprites`],
-//!   [`upgrade_boss_sprites`].
-//! - [`world`] — static room visuals. Owns [`spawn_room_visuals`],
-//!   [`spawn_block`], [`spawn_loading_zone`], [`spawn_grid`],
-//!   [`spawn_room_object`].
-//! - [`features`] — runtime-spawned feature visuals via
-//!   [`spawn_dynamic_feature_visuals`].
-//! - [`health`] — debug health-bar overlay
-//!   ([`sync_health_overlays`]).
-//! - [`nameplates`] — player-facing actor/door labels
-//!   ([`sync_actor_nameplates`]). It publishes each plate's WANTED anchor and
-//!   opacity; it does not place it.
-//! - [`label_layout`] — the ONE ranked placement pass over every world-label
-//!   family ([`layout_world_labels`]). Single writer of a label's transform,
-//!   visibility and colour, so authored signage, fixture plates and actor
-//!   plates are ranked against each other instead of each family only against
-//!   itself.
-//! - [`parallax`] — optional generated sky/background/atmosphere layers
-//!   ([`spawn_parallax_layers`], [`mirror_parallax_layers_per_view`],
-//!   [`sync_parallax_layers`]). Per-view like the two label families: a panel's
-//!   offset and size come from the camera that draws it and that camera's own
-//!   viewport, never from a window global.
-//! - [`camera`] — player-following camera with eased zoom around
-//!   encounter transitions ([`camera_follow`]).
-//! - [`view_isolation`] — the render-side half of `PresentedForView`: which
-//!   camera may DRAW a given view's projections
-//!   ([`view_isolation::isolate_per_view_projections`]). Per-view transforms
-//!   without per-view visibility is half a projection.
-//! - [`debug_viz`] — the engine-generic F1 debug gizmo layers (world
-//!   blocks, surface chains, read-model body/feature boxes) + the opt-in
-//!   [`debug_viz::DebugVizPlugin`] a game host adds to get them.
+//! This module owns sprite/world synchronization, per-view projections, camera
+//! presentation, labels, parallax, and debug visualization. Simulation authority
+//! remains outside the render crate.
 
-/// **Every pass that decides an actor sprite's handle, tint or visibility.**
+/// All systems that can decide an actor sprite's handle, tint, or visibility.
 ///
-/// The dev-tool sprite OVERRIDES (placeholder-sprites, hide-sprites) have to run
-/// after all of them or the toggle is nondeterministic — the comment at that
-/// registration records sprites "sporadically remaining visible" when Bevy chose
-/// the other order. Saying so used to take four `.after` edges naming four
-/// functions in two crates, three of them reached through the facade from the
-/// app.
-///
-/// ⚠ FOUR members, and unusually for this campaign that is the whole point
-/// rather than a compromise: the boundary IS "all of them", so the set is
-/// exactly as wide as the claim. A new sprite pass joins here and the override
-/// keeps working; under the old style it silently did not.
-///
-/// ⚠ `sync_projectile_visuals` is registered by `ambition_platformer2d_host`,
-/// not by this crate's plugin, so the set spans a composition boundary. That is
-/// legitimate — a set is a NAME, and the crate that owns the name need not own
-/// every registration — but it does mean a composition that installs the render
-/// plugin and not the host gets a three-member set. The override is `.after` it
-/// either way, which stays correct.
+/// Dev-tool sprite overrides run after this set. Any new sprite-authority pass
+/// must join the set, including passes registered by another composing crate.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SpriteVisualSync;
 

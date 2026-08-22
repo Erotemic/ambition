@@ -972,20 +972,9 @@ pub struct TouchActionLabel(pub TouchActionButton);
 /// instead of to stale text. The failure is unrepresentable rather than guarded.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct ButtonVerb {
-    /// The label baked in at spawn: what this button says when the prompt offers
-    /// it no verb. Also the permanent text of the buttons that carry no
-    /// contextual meaning at all — which is Start and Reset, and ONLY those two:
-    /// they are exactly the buttons [`touch_button_slot`] answers `None` for.
-    ///
-    /// ⛔ **FlyToggle used to be listed here and never belonged.**
-    /// `touch_button_slot` maps it to [`ControlSlot::Utility`], so it has always
-    /// been as contextual as Attack — and grouping it with the two genuinely
-    /// static buttons is what made "the Fly label is a hardcoded constant"
-    /// believable to a reader diagnosing Jon's *"Sanic's transform button still
-    /// reads 'fly'"* (2026-08-08). It was not: the prompt was publishing the word
-    /// "Fly Toggle" from the ENGINE's own `fly_toggle` movement action, because
-    /// Sanic consumed the Utility edge without ever declaring what it does with
-    /// it. The fallback was never reached.
+    /// Spawn-time fallback label. Only buttons without a contextual
+    /// [`ControlSlot`] keep this text permanently; gameplay-slot labels come from
+    /// the active prompt.
     fallback: &'static str,
     /// What the prompt says this frame, if anything. `String` (not
     /// `&'static str`) so authored `InteractVariant::Custom` prompts flow
@@ -2157,22 +2146,9 @@ mod prompt_tests {
         );
     }
 
-    /// **Every button the overlay can DRAW can also be PRESSED.**
-    ///
-    /// Two tables decide a touch button's life and they lived in different files:
-    /// `touch_button_slot` says which `ControlSlot` it labels — and therefore
-    /// whether it is shown and hit-tested at all — while
-    /// `virtual_device::touch_bindings` says what pressing it sends. Nothing tied
-    /// them together, so a button could have a slot and no binding: drawn,
-    /// labelled from the scheme, tappable, inert.
-    ///
-    /// ⛔ **`Modifier` was exactly that until 2026-08-04, and it is Mary-O's RUN
-    /// button** (her prompt is `Jump`, `Modifier` "Run", `Interact` — queue
-    /// D15c). Keyboard and gamepad both bound it; touch did not. On a phone she
-    /// could not run.
-    ///
-    /// ⚠ the implication only runs ONE way. `Start` and `Reset` are bound and
-    /// carry no gameplay slot, which is correct — they are shell verbs.
+    /// Every gameplay slot exposed by the touch overlay must have a virtual-device
+    /// binding. Shell-only buttons such as Start and Reset may be bound without a
+    /// gameplay slot.
     #[test]
     fn every_button_the_overlay_can_draw_can_also_be_pressed() {
         let bound: std::collections::HashSet<TouchActionButton> =

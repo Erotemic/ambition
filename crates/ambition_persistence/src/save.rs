@@ -179,21 +179,9 @@ pub fn load_save(path: &Path) -> LoadedSave {
     }
 }
 
-/// Commit a save through a temp file, so a crash mid-write cannot leave a
-/// half-written save where a whole one used to be.
-///
-/// The replacement step is where portability bites. `fs::rename` replaces an
-/// existing destination on Unix and is documented as platform-dependent
-/// otherwise: on Windows it maps to `MoveFileEx` WITHOUT
-/// `MOVEFILE_REPLACE_EXISTING`, so the FIRST save succeeds (no destination yet)
-/// and every save after it fails because the destination exists (GPT 5.6,
-/// 2026-07-27). A desktop game that saves exactly once is not a saving game.
-///
-/// The fallback is ordered so the original is never the thing that goes missing:
-/// try the atomic rename first; only if it fails do we move the live file ASIDE,
-/// put the new one in place, and delete the backup. If the second rename fails
-/// after the backup moved, the backup is restored — so the failure modes are
-/// "old save kept" or "new save written", never "neither".
+/// Commit through a temp file. If replacing the destination by rename is not
+/// supported, move the old file aside first and restore it if installing the new
+/// file fails. A failed save must leave either the old or the new file intact.
 pub fn write_save(path: &Path, save: &AmbitionGameSaveData) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
@@ -254,17 +242,8 @@ pub fn load_save_at_startup(
     let upgraded = loaded.upgraded;
     save.0 = loaded.data;
     writable.0 = loaded.writable;
-    // Seed the persisted shadow with what is ACTUALLY on disk, which is not
-    // always what was just loaded.
-    //
-    // When nothing was migrated the two agree, and recording the value stops the
-    // first frame rewriting the file it just finished reading. When a migration
-    // ran they DIFFER: the in-memory save is upgraded and the file is not.
-    // Recording the upgraded value there told the autosave its work was done, so
-    // the file stayed on the old schema until some unrelated gameplay state
-    // happened to change — and a player who loaded and quit re-migrated on every
-    // startup, forever (GPT 5.6, 2026-07-27). `None` means "disk does not match",
-    // which is the truth, and the first autosave commits the upgrade.
+    // The shadow represents disk state. After an in-memory migration, leave it
+    // empty so the first autosave commits the upgraded schema.
     last.0 = if upgraded { None } else { Some(save.0.clone()) };
     if loaded.writable {
         info!(
@@ -641,16 +620,7 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
     }
 
-    /// **The migration reaches the DISK, not just memory.**
-    ///
-    /// Startup used to record the migrated value as `LastPersistedSave` — "what
-    /// is on disk" — when what was on disk was still the old version. The autosave
-    /// then compared equal and skipped, so the file stayed on the old schema until
-    /// some unrelated gameplay state happened to change, and a player who loaded
-    /// and quit re-migrated on every single startup (GPT 5.6, 2026-07-27).
-    ///
-    /// No gameplay mutation here on purpose: loading and doing NOTHING is the case
-    /// that was broken.
+    /// A migrated save is committed to disk without requiring a gameplay change.
     #[test]
     fn a_migration_is_committed_without_waiting_for_unrelated_gameplay() {
         let _g = crate::lock_data_dir();

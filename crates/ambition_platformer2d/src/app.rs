@@ -1,77 +1,21 @@
-//! **Standing up a game.** The engine owns composition ordering; the consumer
-//! states policy.
+//! High-level platformer application composition.
 //!
-//! This surface landed during slice A3 of the archived API 1.0 campaign and
-//! implements the call-site shape preserved in `docs/sdk/api-prototype.md`.
-//! Current SDK evolution lives in `docs/planning/engine/public-sdk-1.0.md`. ADR 0031
-//! decision 4: *a consumer states policy — windowed or headless, which
-//! experience, where it starts. It does not sequence asset sources, engine
-//! plugin groups, host groups, shell composition, asset preparation and
-//! presentation. Every ordering constraint the engine knows is a rule the
-//! engine states once.*
+//! Consumers state policy; this module owns engine installation order. In
+//! particular, asset sources precede `AssetPlugin`, engine state precedes engine
+//! plugins, engine plugins precede host/shell plugins, and platformer assets are
+//! prepared after content registration but before presentation.
+//!
+//! [`PlatformerApp::try_build`] refuses missing or unserved initial routes. Manual
+//! stepping pins frame dt to the configured simulation tick. This module sequences
+//! composition only; gameplay behavior remains in the domain crates.
 //!
 //! ```ignore
 //! use ambition_platformer2d::app::prelude::*;
 //!
-//! fn main() {
-//!     PlatformerApp::windowed("My Game")
-//!         .mount(MyModule::default())
-//!         .run();
-//! }
+//! PlatformerApp::windowed("My Game")
+//!     .mount(MyModule::default())
+//!     .run();
 //! ```
-//!
-//! # The eight rules this module owns
-//!
-//! Every one was a line a third party had to write in the right place, and four
-//! of them failed SILENTLY — which [the growth
-//! method](../../../docs/concepts/api-growth.md) §3a prices at
-//! triple, because a leak that panics teaches and a leak that falls back
-//! quietly does not.
-//!
-//! 1. declared asset sources register **before** any `AssetPlugin` builds —
-//!    Bevy seals its sources there. *(silent: assets resolve against the engine
-//!    tree)*
-//! 2. `AssetPlugin.file_path` is the engine's own asset root. *(silent: engine
-//!    content does not load)*
-//! 3. a GPU-less window needs five disables plus `RenderPlugin { backends:
-//!    None }`.
-//! 4. `init_engine_states` before the engine plugin groups. *(panic)*
-//! 5. engine plugins, then host plugins, then the shell. *(panic)*
-//! 6. `PlatformerAssetsPlugin` **after** the content that registers the
-//!    catalogs it reads and **before** the presentation that draws what it
-//!    installs. *(silent: unskinned bodies)*
-//! 7. a host that names no initial route prepares and activates nothing.
-//!    *(silent: an earlier draft of the fixture's headless binary "ran" 120
-//!    ticks of an empty host)*
-//! 8. manual stepping pins the frame dt to the tick dt, read back out of the
-//!    world after the plugins built it. *(silent: frame dt drifts from tick
-//!    dt)*
-//!
-//! Rule 7 is not enforced by ordering but by REFUSAL, in two steps:
-//! [`PlatformerApp::try_build`] rejects a module that declares no gameplay
-//! route, **and** rejects one whose declared route no mounted capability
-//! registers — naming the routes that do exist.
-//!
-//! ⚠ Only the first half existed until 2026-07-30, while this paragraph claimed
-//! "the empty host is unreachable rather than merely documented". It was
-//! reachable: what was enforced is that a STRING had been supplied. The blind
-//! agent run declared a route nothing served and got a host that built clean,
-//! ran 60 ticks and spawned zero entities. An overclaimed guarantee is worse
-//! than an absent one — it tells a consumer to stop looking — and the agent
-//! found it only because it independently counted entities.
-//!
-//! # What this is not
-//!
-//! **It owns no behavior.** It re-exports contracts and sequences installs.
-//! ADR 0031: *"if the facade ever grows a leaf system, it has become the next
-//! monolith and this ADR has failed."* Assembly is not a leaf system, and the
-//! umbrella is already where `game_assets` lives for the same reason — it is
-//! the one surface allowed to see layers that may not see each other.
-//!
-//! **It is not a runtime.** ADR 0031 decision 5: a studio with an existing
-//! Bevy `App` adds this without surrendering the `App`
-//! ([`PlatformerApp::install_into`]). The engine owns ordering *within its own
-//! installation*, not the consumer's process.
 
 use bevy::app::Plugins;
 use bevy::prelude::*;

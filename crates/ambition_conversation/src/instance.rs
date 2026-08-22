@@ -1,105 +1,16 @@
-//! **Which conversation this is, in a form a corrected timeline agrees with.**
+//! Deterministic identity for one logical conversation.
 //!
-//! A narrative fact that crosses back into the simulation — the runner ran out
-//! of lines, the player bought something, a choice provoked a fight — has to say
-//! WHICH conversation produced it, or it applies to whatever happens to be live
-//! when the simulation gets around to reading it. Naming the Yarn node is not
-//! enough: talk to the same NPC twice and both conversations are `"chat"`.
+//! The id must be re-mintable during resimulation from the conversation's opening
+//! semantics, not from process-local identity or prior history. It includes the
+//! opening tick, Yarn node, both bodies' `SimId`s, and the speaker/listener ids
+//! visible to Yarn.
 //!
-//! ## The contract, which is stronger than "a unique number"
+//! Presentation (`speaker_name`) and control routing (`ConversationInputOwner`) do
+//! not affect identity. Entity handles are also excluded because rollback may remap
+//! them.
 //!
-//! > **The id must be deterministically re-mintable by resimulation, from the
-//! > conversation's own opening facts.**
-//!
-//! That is what rules out both of the obvious answers:
-//!
-//! * a **nonce** cannot be re-minted at all, so a resimulated tick would mint a
-//!   different one and every record from the original run would stop matching;
-//! * a **rollback-rewound counter** re-mints perfectly and is still wrong. It
-//!   encodes HISTORY — how many conversations preceded this one — so a corrected
-//!   branch that opened a *different* conversation mints the same number for it,
-//!   and the abandoned branch's records apply to a conversation that never had
-//!   them. The counter would rewind exactly as designed and hand the record to
-//!   the wrong conversation anyway.
-//!
-//! So the id is a function of CONTENT: when it opened, which node, which two
-//! bodies, and **what Yarn is entered with**.
-//!
-//! ## ⭐ The rule for what belongs in it
-//!
-//! > **If two authoritative openings can make Yarn observe different narrative
-//! > semantics, they must not share an identity.**
-//!
-//! That is the test — not "is it a field on the conversation". It admits the
-//! [`ambition_dialog::DialogueContext`] ids, which the bridge publishes as
-//! `$speaker_id`, `$listener_id` and `$speaker_is_self` for content to branch on,
-//! and it excludes two things that look eligible:
-//!
-//! * ⛔ **`speaker_name` is PRESENTATION.** It is the display string the box
-//!   shows when a line carries no prefix; a localization changing it is not a
-//!   different conversation, and Yarn never sees it.
-//! * ⛔ **`ConversationInputOwner` is CONTROL ROUTING**, and putting it here
-//!   would be actively harmful. It publishes nothing into Yarn and selects no
-//!   node — it decides which seats the box captures, and
-//!   `declare_in_session_input_contexts` re-reads it off the rollback-owned
-//!   authority every tick, so a correction repairs it without identity's help.
-//!   Meanwhile it is derived from the initiator's `Brain`, which possession
-//!   transfers at runtime: keying on it would make "somebody else took over the
-//!   body mid-sentence" a *different conversation*, so the in-flight narrative
-//!   end would stop matching and the projection would restart the runner from the
-//!   top under a player who is mid-sentence. That is the exact defect the
-//!   projection's attachment memo exists to prevent.
-//!
-//! ⚠ **the desync probe in `crate::rollback_registration` hashes more than
-//! this on purpose, and that is not a contradiction.** Its question is *"do two peers
-//! agree about the live conversation"*, which covers every authoritative field;
-//! this type's question is *"is this the same conversation"*. `input_owner` is a
-//! yes to the first and a no to the second.
-//!
-//! ## Why `SimId` AND the character ids, rather than either alone
-//!
-//! * ⛔ **not `Entity`** — GGRS remaps entity handles on `LoadWorld`, so an id
-//!   built from one names a different body after a restore. This is the same
-//!   reason `SimId` exists at all.
-//! * **the `SimId`s alone are not enough**, and this is what the GPT 5.6 review
-//!   (D29) found. A body's dialogue identity is not fixed: for a body with no
-//!   authored `ActorIdentity` it is the `WornCharacter` it currently wears, which
-//!   is rollback-owned and runtime-mutable. Two corrected timelines can therefore
-//!   agree on the tick, the node and both `SimId`s while entering Yarn with a
-//!   different `$speaker_id` — one conversation by the old id, two by any honest
-//!   reading of what the player is in.
-//! * **the character ids alone are not enough either**, which is what the earlier
-//!   revision of this paragraph was right about: they are CHARACTER ids, and two
-//!   identical NPCs standing in one room share theirs. The review's own
-//!   counterexample (talker A replaced by talker B, same node, same tick) is
-//!   exactly what a character id cannot separate.
-//!
-//! Neither pair subsumes the other, so the id carries both.
-//!
-//! ⭐ **and the context is stored HERE rather than beside this** — see
-//! [`Self::context`]. `LiveConversation` used to carry a `DialogueContext` as a
-//! sibling of its instance id, which was one question with two answers to keep in
-//! step; the answer that mattered was in the field whose whole job is identity,
-//! and it was the one that did not have it.
-//!
-//! ## A struct, not a flattened string
-//!
-//! `SimId` is a string because a desync report has to read as a sentence, and it
-//! pays for that with an escape function so that `placement("giant/0")` and
-//! `spawned(placement("giant"), 0)` cannot collide. Nothing here needs to pay
-//! that: separate fields are injective for free, and [`Display`] still prints the
-//! readable form for a report.
-//!
-//! ## ⚠ Still open: a composition with no clock
-//!
-//! A composition that never advances `SimTick` maps every opening to tick zero,
-//! so two visits to one NPC through one node, with the same identities on both
-//! sides, are one conversation. The fix above narrows that — a re-wear between
-//! the two visits now separates them — and does not close it. It is a degenerate
-//! clock rather than a hole in this type (every shipped composition gets
-//! `SimTick` from `ambition_platformer2d_runtime`'s sim core and advances it once
-//! per step), and calling it that is not the same as answering it. See
-//! [`Self::opened_at`].
+//! A host must advance `SimTick`: repeated identical openings at a permanently
+//! zero tick cannot be distinguished.
 
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 

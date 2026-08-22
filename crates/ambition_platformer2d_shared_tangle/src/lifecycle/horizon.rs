@@ -1,72 +1,11 @@
-//! **The RESET horizon: what a death puts back, and what it does not.**
+//! Checkpoint reset horizon shared across lifecycle domains.
 //!
-//! # Three horizons, and they are three because they disagree
-//!
-//! ```text
-//! current world truth   what is true right now, after everything that has happened
-//! checkpoint truth      what a death/retry restores
-//! durable save truth    what survives closing the program
-//! ```
-//!
-//! ⛔ **these are not three views of one value and must never be collapsed into
-//! one.** Ordinary room unload/reload preserves *current* truth — walking out of
-//! a room and back in changes nothing about what happened in it. A debug
-//! "restore authored room" deliberately reconstructs *authored source* state,
-//! which is a fourth thing again. Save/load is a serialization horizon with its
-//! own compatibility rules. All four involve reconstruction, and that shared
-//! mechanism is exactly why they get conflated.
-//!
-//! # The maintainer's rule (2026-08-15), and why it is not an item rule
-//!
-//! > Death/retry restores the latest committed checkpoint.
-//!
-//! ```text
-//! C0: key on pedestal
-//!   pick up key, die before committing        → reset to C0: key back on the pedestal
-//!   pick up key again, commit C1, die         → reset to C1: key still held, pedestal empty
-//!   after C1 pick up a temporary item, die    → key still held, temporary item back at its C1 place
-//! ```
-//!
-//! ⛔⛔ **do not encode this as `KeyItem => survives death`.** The third line is
-//! the one that kills the item-kind reading: an ordinary item survives if its
-//! new disposition was committed, and a key item reverts if acquiring it
-//! happened after the current checkpoint. The checkpoint decides, and the kind of
-//! thing never enters the question. A kind rule is a second authority that starts
-//! disagreeing with the checkpoint the first time content changes.
-//!
-//! # ⭐ The baseline is a PROJECTION OF DOMAINS, not a resource
-//!
-//! ```text
-//! checkpoint baseline = snapshot of each authoritative domain, taken by that domain
-//! ```
-//!
-//! ⛔ **not** one giant resource into which every reset-relevant fact is stuffed.
-//! That shape reads as economical and costs the thing this module exists to
-//! keep: the occurrence ledger answers *what happened to an authored
-//! occurrence*, the custody state answers *what a body carries*, and they are
-//! different questions with different owners, different lifetimes and different
-//! producers. A combined resource makes every future domain that wants a reset
-//! fact edit one struct, and makes every reader of that struct able to reach
-//! facts it has no business knowing.
-//!
-//! The shared layer owns the vocabulary plus its own typed domain contribution:
-//! [`LifecycleCheckpointHorizonPlugin`] installs the occurrence/custody baselines
-//! and their systems, while the host owns only cross-domain phase placement. Other
-//! domains contribute their own plugins rather than extending a central type list.
-//!
-//! ⛔ **there is still no erased registry.** A registry of unrelated baseline
-//! values would need `Any` / `TypeId` or boxed callbacks and would recreate the
-//! hand-kept census behind a dynamic facade. Typed Bevy plugins and the existing
-//! rollback registrar give each domain a compile-time offer without creating a
-//! universal mutable service locator.
-//!
-//! # The two messages
-//!
-//! [`CheckpointCommitted`] and [`ResetToCheckpoint`] are deliberately NOT the
-//! existing `RoomReplayRequested`. That channel means *rebuild the active room*
-//! and content emits it on a level **completion** as well as on a death — a flag
-//! touched, an act cleared. Restoring a reset baseline when the player just WON
-//! would take the reward back off them.
+//! Current world state, checkpoint state, durable save state, and authored
+//! source state are distinct reconstruction horizons. Death/retry restores the
+//! latest committed checkpoint regardless of item kind. Each authoritative
+//! domain owns and snapshots its own checkpoint contribution; this module owns
+//! the shared commit/reset vocabulary and shared lifecycle contributions rather
+//! than a central erased baseline registry.
 
 use bevy::prelude::{App, IntoScheduleConfigs, Message, Plugin, SystemSet};
 

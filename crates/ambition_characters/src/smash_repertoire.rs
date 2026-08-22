@@ -1,67 +1,16 @@
-//! **THE STANDARD SMASH REPERTOIRE — the vocabulary and the bookkeeping, once.**
+//! Standard Smash action grammar and repertoire bookkeeping.
 //!
-//! ⭐⭐ **Jon's rule for this seam, 2026-08-16**: *"Centralize the vocabulary and
-//! validation, not the fighter design."* Every fighter supplies its own bespoke
-//! [`MoveSpec`]s. What it no longer supplies is a hand-copied verb map, a
-//! hand-set posture gate on every move, and a private test asserting that the
-//! two agree — fourteen copies of the same seventeen strings, which is fourteen
-//! places for a typo to become silence at the press.
+//! Fighters author their own [`MoveSpec`]s; this module centralizes the standard
+//! slots, their posture gates, and validation. [`SmashRepertoire`] is a struct with
+//! no `Default`, so a missing standard slot is a compile-time error at the fighter
+//! definition.
 //!
-//! And his acceptance criterion, which is what fixes the shape below: *"Adding
-//! the next standard Smash action should require extending the Smash grammar
-//! once, rather than manually updating fourteen copies of infrastructure."*
+//! Ground attacks are grounded-only, aerials are airborne-only, and specials are
+//! available in either posture unless the down special provides distinct grounded
+//! and airborne forms. The contextual down-special forms share one input slot.
 //!
-//! ## Why a struct literal and not a builder
-//!
-//! A builder can only refuse an incomplete repertoire at RUN time. This is a
-//! plain struct with no `Default` and no private fields, so **omitting a slot or
-//! misspelling one is a compile error in the fighter's own file** — the
-//! strongest available form of "a missing slot fails at authoring time". It is
-//! also why `SmashRoster`'s completeness ratchet has nothing left to catch here:
-//! a verb cannot dangle when there is no string to get wrong.
-//!
-//! ## Sixteen PRESSES, seventeen VERBS
-//!
-//! ⚠ `special_air_down` is not a seventeenth press. It is the AIRBORNE FORM of
-//! the down-B — Jon's Bowser ruling: *"A down-b that has special airborne
-//! properties should also have an effect on ground. Think of bowser down b. In
-//! the air he just does a downward slam, but on the ground, it causes him to jump
-//! in an arc and then slam. Specials can have different effects in different
-//! contexts."* One slot, two moves; see [`DownSpecial`].
-//!
-//! ## The posture follows the SLOT
-//!
-//! ```text
-//!   jab, tilts, smashes        grounded    an airborne body falls THROUGH to its aerials
-//!   aerials                    airborne    a grounded press must not reach a landing cost
-//!   neutral / side / up-B      either      a recovery you can only press standing is not one
-//!   down-B, one form           either
-//!   down-B, two forms          one each
-//! ```
-//!
-//! ⭐ that table was not decided here — it was MEASURED off all fourteen tables
-//! before this module existed, and all fourteen already agreed with it, every
-//! move, with no exception. So the gate is not a per-move decision any more; it
-//! is what the slot MEANS. A fighter that one day needs an unusual gate extends
-//! this grammar (which is one edit) rather than opting out of it silently.
-//!
-//! ## ⛔ This is SMASH's vocabulary, and it lives here on purpose
-//!
-//! `ForwardSmash` / `NeutralAir` are NOT universal engine concepts and must not
-//! become ones — Jon was explicit. They stop at the smash-shaped layer: this
-//! module lowers the whole repertoire into the generic [`MovesetContract`] the
-//! engine already speaks, and the engine learns nothing new. It sits in
-//! `ambition_characters` beside [`crate::brain::smash`] and
-//! [`crate::moveset_authoring`] because that is the crate every provider and
-//! demo already has, so a fighter in any game can reach it with no new dep edge.
-//!
-//! ⚠ **and the sixteen slots are NOT what D166's first facet migrated.**
-//! [`crate::smash_fighter`] carries the CAPTURE kit as authored values, because
-//! that kit is pure numbers. These slots are not: a fighter builds each one by
-//! COMPOSING helpers (`strike`, `impulse`, `on_hit`, `committed_tail`, `feel`),
-//! and George's file states a law about the shape of his whole table in a
-//! `debug_assert` beside them. That composition IS the design, and flattening it
-//! into RON would trade authored reasoning for a wall of numbers.
+//! Smash vocabulary stops here and lowers into the generic [`MovesetContract`];
+//! engine-level move execution does not depend on Smash-specific action names.
 
 use ambition_entity_catalog::{MoveGates, MoveSpec, MovesetContract};
 

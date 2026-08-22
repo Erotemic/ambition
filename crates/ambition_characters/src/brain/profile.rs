@@ -1,45 +1,12 @@
-//! **A reusable autonomous-controller profile** — how a non-human participant
-//! CHOOSES, separated from what the body IS.
+//! Reusable autonomous-controller policy.
 //!
-//! ```text
-//! CharacterDefinition   what this character is and can do   (body)
-//! BrainProfile          how an autonomous driver decides    (this file)
-//! SpawnContext          what is true about this instance    (placement)
-//! ```
+//! A [`BrainProfile`] describes how an autonomous controller chooses; body
+//! capabilities remain authoritative on the body. A profile may express normalized
+//! effort and spatial thresholds, but it must not manufacture abilities or duplicate
+//! body limits such as absolute movement speed.
 //!
-//! ⭐ **this is the second of Jon's three authorities**
-//! (historical D73 record:
-//! `docs/archive/planning-superseded/2026-08-13/overnight-campaign-2026-08-11.md`),
-//! and the one the old enemy
-//! archetype hid best. The retired `ArchetypeSpec` used to state a body's health, mass, hurtboxes
-//! and repertoire in the same row as its aggro radius and its Smash tactics, so
-//! two characters that fight alike could not share a policy without also sharing
-//! a body. D73 deleted that body/policy coupling; a reusable `BrainProfile` now
-//! remains controller policy rather than another body authority.
-//!
-//! ⛔ **a controller supplies INTENT and never manufactures a capability**, and
-//! as of 2026-08-11 there is no longer an exception. A `smash_can_blink` /
-//! `_fly` / `_shield` trio used to sit here mirroring the body's own verbs so
-//! the Smash driver knew which options were worth attempting; they are deleted
-//! (Jon's redirect §7), and `smash_cfg_from_spec` asks the body's live
-//! `AbilitySet` instead.
-//!
-//! ⭐ that is what makes a profile genuinely reusable rather than nominally so.
-//! A mirror describes ONE body, so the same shared policy on a second body
-//! either told its driver to reach for a verb the body does not have, or hid one
-//! it does. Now: the same profile on a PCA considers the PCA's abilities, and on
-//! a puppy slug it cannot invent them.
-//!
-//! ## Why the numbers here are DISTANCES and not SPEEDS
-//!
-//! A profile authors *"notice at 220px, commit at 36px"* and never *"chase at
-//! 110px/s"*. Absolute locomotion is the BODY's: §4.7 has the brain→body seam
-//! carrying normalized effort, and the archetype vocabulary already respects it
-//! (`run_speed` on the body, `patrol_effort`/`chase_effort` as fractions of it).
-//! The catalog's older `brain_presets` rows do author absolute speeds
-//! (`MeleeBrute(chase_speed: 110.0, ..)`), which is the same fork seen from the
-//! other side and is the thing to fix when the two vocabularies merge — not a
-//! precedent to copy.
+//! The same profile can therefore drive different bodies while respecting each
+//! body's live capabilities and movement parameters.
 
 use super::CharacterBrainTemplate;
 

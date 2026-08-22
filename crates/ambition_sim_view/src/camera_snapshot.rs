@@ -1611,60 +1611,15 @@ pub fn resolve_camera_observation(
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct CameraObservationSet;
 
-/// The observation seam's plugin: owns the observer-input resources + the
-/// published snapshot, and schedules the ONE resolve per FRAME. Part of
-/// [`PlatformerEnginePlugins`] — headless apps get a live snapshot too.
+/// Camera observation runs once per rendered frame in `Update`.
 ///
-/// # Why `Update` and not the sim schedule
+/// The resolve consumes viewport/video presentation inputs and integrates
+/// [`CameraEaseState`], so it must not run in a rollback or fixed simulation
+/// schedule. Simulation completes before `Update`; camera presentation then
+/// observes the resulting frame.
 ///
-/// The resolve is an OBSERVER, and specifically a *visible-host* observer: its
-/// inputs include the physical viewport and video settings, it integrates
-/// [`CameraEaseState`] on the render clock, and its sole consumer is
-/// `camera_follow` in `Update`. Nothing in the simulation reads
-/// [`ResolvedCameraSnapshot`].
-///
-/// Registering it into `app.sim_schedule()` made that relationship
-/// inexpressible, because Bevy ordering is SCHEDULE-LOCAL. `.before`/`.after`
-/// edges between this system and the `Update`-side presentation cluster were
-/// silently inert whenever the sim was not itself in `Update` — so fixed-tick
-/// and GGRS hosts could apply a physical `Camera.viewport` from this frame's
-/// layout while the snapshot still described last frame's. It was also wrong on
-/// its own terms: on `FixedUpdate` the camera eased zero or two times per
-/// rendered frame, and under GGRS it re-integrated the ease state on every
-/// rollback resimulation step (no camera state is rollback-registered).
-///
-/// `Update` is truthful for all three hosts. `FixedUpdate` runs inside
-/// `RunFixedMainLoop` and GGRS drives `GgrsSchedule` from `PreUpdate`; both
-/// complete before `Update` in the same frame, so the sim is always finished
-/// advancing before the camera observes it. This preserves the E4-17 invariant
-/// that mattered — ONE writer of [`CameraEaseState`], render only consumes —
-/// and changes only which clock it observes on.
-/// **Live camera diagnostics and feel-lab data — ON THE VIEW.**
-///
-/// Written by `camera_follow` after the presentation deltas are applied. Overlays
-/// and HUD read it so they show the *actual* gameplay view rather than a
-/// recomputed approximation that drifts when aspect or encounter policy changes.
-///
-/// ⛔⛔ **IT WAS A PROCESS-GLOBAL `Resource` NAMED "THE" GAMEPLAY VIEW** (D116
-/// M2, 2026-08-14) — the sixth of exactly that shape, after M2a deleted five.
-/// With two views a global cannot answer *whose*, and every reader would have
-/// drawn one view's framing over both.
-///
-/// ⚠ **the reader count was FOUR, not five.** The census that moved this
-/// component listed a fifth — `rendering/foreground.rs` — which was an orphaned
-/// file: no `mod foreground;` declared it anywhere, so it was never compiled,
-/// and it named three `ambition_sprite_sheet` symbols that do not exist. It was
-/// migrated to the new reader and deleted unbuilt. The four real readers were
-/// label layout, nameplates, the actor draw's `[sprite-size]` `eprintln`, and the
-/// debug overlay; the first two are now keyed by view and read their own view's
-/// state directly, leaving [`PresentedViewState`] to the two diagnostics.
-///
-/// ⭐ **it lives here rather than in `ambition_render` because it is not render
-/// state.** Every field is a projection of [`CameraSnapshot2d`], which this
-/// module already owns; the only thing render contributed was the `Resource`
-/// derive. Moving it removes a crate dependency from the answer to "where does
-/// the view keep its facts", and lets it be SPAWNED WITH THE VIEW below — so a
-/// reader never sees a frame where the view exists and this does not.
+/// [`CameraViewState`] stores diagnostics on each view rather than in a global
+/// resource so multi-view readers always consume the state for their own view.
 #[derive(bevy::prelude::Component, Clone, Debug)]
 pub struct CameraViewState {
     pub base_view: ambition_platformer2d_core::Vec2,

@@ -154,13 +154,8 @@ pub fn spawn_declared_hud(
     active_session: Option<Res<ActiveSessionScope>>,
     fonts: Option<Res<crate::ui_fonts::UiFonts>>,
     existing: Query<(Entity, &DeclaredHudSlot, Option<&DeclaredHudSpec>)>,
-    // EVERYTHING this pass owns, slots AND gauges. The retire sweeps used to
-    // query `DeclaredHudSlot` only, and the gauge is a sibling root rather than
-    // a child of its slot — so a declaration rebuilt while a session stayed live
-    // despawned the text and left the bar, and the replacement bar rendered on
-    // top of it. Repeated style or layout changes accumulated duplicate bars
-    // (GPT 5.6, 2026-07-27). One marker every spawn below carries, so the sweep
-    // cannot miss a family somebody adds later.
+    // Query every root owned by this pass, including sibling gauge roots, so a
+    // declaration rebuild retires the complete previous HUD.
     owned: Query<Entity, With<DeclaredHudRoot>>,
 ) {
     let declared = active.slots();
@@ -618,23 +613,10 @@ fn drawn_stocks(remaining: u32) -> (u32, Option<u32>) {
     }
 }
 
-/// **How wide a row of `count` panels spreads**, given the width it may use.
-///
-/// ⛔ **panels butted edge to edge is not "distributed"** — the first capture
-/// put a 1v1 as two touching panels in the middle of a 1280px screen, which
-/// reads as one wide box rather than as two players. A platform fighter spreads
-/// them: the more players, the more of the screen the row occupies, and two
-/// players sit well apart.
+/// Width occupied by a row of player panels within the available gameplay area.
 fn panel_row_span(available: f32, count: usize) -> f32 {
-    // ⭐ **a fraction of the SCREEN, not a multiple of the panels.** Sizing the
-    // row from the panels put a 1v1 in a 396px huddle in the middle of a 1280px
-    // screen (photographed 2026-08-21, second capture) — technically spread,
-    // and nothing like the genre, which puts two players near the quarter and
-    // three-quarter marks and lets four fill the width. The row is as wide as
-    // the screen allows whatever the count; what changes with the count is how
-    // many panels share it.
-    //
-    // ⚠ still floored at the panels' own width, or five players would overlap.
+    // Base span on available screen width, but never below the total panel width
+    // needed to avoid overlap.
     (available * ROW_FRACTION).max(PANEL_W * count.max(1) as f32)
 }
 
@@ -969,13 +951,7 @@ mod tests {
         ));
     }
 
-    /// **A rebuilt declaration leaves exactly one gauge per slot.**
-    ///
-    /// The gauge is a SIBLING root, not a child of its slot, and the retire
-    /// sweeps used to query `DeclaredHudSlot` alone — so restyling a slot while
-    /// a session stayed live despawned the text, spawned a replacement, and left
-    /// the old bar rendering underneath the new one. Repeated layout or style
-    /// changes accumulated bars (GPT 5.6, 2026-07-27).
+    /// Rebuilding a declaration leaves exactly one gauge root per slot.
     #[test]
     fn restyling_a_slot_does_not_accumulate_gauge_bars() {
         let mut app = App::new();

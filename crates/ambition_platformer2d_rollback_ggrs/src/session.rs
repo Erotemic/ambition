@@ -215,25 +215,9 @@ pub struct RollbackSessionContract {
 pub struct SyncTestSettings {
     pub check_distance: usize,
     pub max_prediction_window: usize,
-    /// How many players the session carries. (queue Y1)
-    ///
-    /// The FIELD arrived on 2026-07-28; the shipped host started setting it the
-    /// same day. Until then it was one — invisible while the game was one-player,
-    /// and a coverage gap the week C4 shipped a 2–4 player couch versus mode: the
-    /// rollback oracle proved determinism for ONE input stream while the game
-    /// seated four. A desync in seat two's input handling had nowhere to show up.
-    ///
-    /// ⚠ **every construction of this struct must set it.** `..Default::default()`
-    /// silently means one player, and the proof-pulse restore path was still doing
-    /// that a day after the other two paths were fixed — a four-player match came
-    /// back from F9 with one handle while the roster still held four fighters
-    /// (GPT 5.6, 2026-07-29). The value comes from the session's frozen
-    /// `LocalSeatTopology`, never from a fresh sample of live devices.
-    ///
-    /// Every player is `PlayerType::Local` — a sync test has no remote peer by
-    /// definition. What it buys is not networking, it is that N input streams go
-    /// through save/rewind/resimulate and are checksum-compared, which is the
-    /// precondition for any of them being remote later.
+    /// Number of local input streams in the sync-test session.
+    /// Callers derive this from the session's frozen seating/topology rather than
+    /// resampling connected devices.
     pub players: usize,
 }
 
@@ -259,28 +243,15 @@ impl SyncTestSettings {
 pub enum RollbackSessionOwnership {
     LocalSyncTest {
         settings: SyncTestSettings,
-        /// **WHO started it**, which `LocalSyncTest` alone never said.
-        ///
-        /// ⛔ **the variant used to name the session KIND, and a consumer read
-        /// that as ownership.** Match activation, the dev observatory and the
-        /// local maintainer all start sync-test sessions, so "is this a
-        /// sync-test session" and "is this MINE" are different questions with
-        /// the same answer shape. Answering the first while meaning the second
-        /// made the maintainer rebuild a two-player match session as one player
-        /// (2026-08-04, caught by
-        /// `two_local_seats_drive_independently_under_a_rollback_host`).
+        /// Starter that owns this local sync-test session.
         owner: SyncTestOwner,
     },
     External,
 }
 
 /// Which starter owns a live sync-test session.
-///
-/// ⭐ **this is the distinction that lets `LocalSessionOwnership` stop claiming
-/// ownership.** The maintainer had to keep a shadow `started: Option<policy>`
-/// precisely because the ownership resource could not tell its own sessions from
-/// anybody else's — and a shadow that can disagree with the authority is the
-/// defect the GPT 5.6 review named first.
+/// The local maintainer may rebuild only sessions it started; caller-owned and
+/// external sessions are left alone.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SyncTestOwner {
     /// `maintain_local_session` started it and may stop or rebuild it.
@@ -290,27 +261,8 @@ pub enum SyncTestOwner {
     Caller,
 }
 
-/// Settings for `players` local streams, at the standard rollback depth.
-///
-/// **THE ONLY WAY to get settings without naming every field**, and it takes the
-/// player count as an argument, which is the whole point of the `Default` impl
-/// this replaced.
-///
-/// That impl guessed ONE, and the guess was wrong in production three separate
-/// times: the initial session, the hot-reload rebase and the proof-pulse restore
-/// each built a one-handle session while the game seated up to four (queue H3,
-/// H4; GPT 5.6, 2026-07-28 and -29). Each was repaired individually and the
-/// fourth site would have been free to make the same mistake, because the rule
-/// keeping them right lived in a doc comment saying "every construction of this
-/// struct must set it" — a load-bearing negative nothing enforced.
-///
-/// The split is between TUNING and TOPOLOGY. `check_distance` and
-/// `max_prediction_window` are tuning: a default is a real answer, and a
-/// third-party consumer should be able to name only the ones it cares about and
-/// keep compiling when the engine adds another (which is exactly what
-/// `fixtures/external_consumer` exists to prove). How many people are playing is
-/// not tuning, and there is no honest default for it — so it is an argument, and
-/// a caller that has not decided cannot type this.
+/// Construct standard sync-test tuning for an explicit player count.
+/// Player count is topology, not tuning, so it is required instead of defaulted.
 impl SyncTestSettings {
     pub fn for_players(players: usize) -> Self {
         Self {

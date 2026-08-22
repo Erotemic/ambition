@@ -1,37 +1,18 @@
-//! **When a conversation ends, and the bark that says so.**
-//!
-//! The consumer of Jon's continuity design
-//! (`docs/planning/engine/dialogue-continuity.md`). Since `GameMode::Dialogue`
-//! left the suspend set, a conversation is a SUSTAINED condition rather than a
-//! modal state — bodies keep moving, hits keep landing, and a text box that
-//! survives either is a text box floating over two people who are no longer
-//! talking.
+//! Conversation continuity rules and cut notifications. Dialogue does not
+//! suspend body simulation, so participant contact and damage can end a live
+//! conversation.
 
 use bevy::prelude::*;
 
 use ambition_characters::actor::BodyCombat;
 use ambition_dialog::DialogueBreak;
-// ⚠ `CenteredAabb` through core's re-export, NOT `ambition_geometry` where it is
-// defined: the monolith does not depend on that crate directly, and reaching for
-// the definition site would add a dependency edge — which the contracts job
-// fails until `fixtures/minimal_game/Cargo.lock` is regenerated, for a type that
-// is already in reach.
+// Use the core re-export to avoid adding a direct geometry dependency.
 use ambition_platformer2d_core::{AabbExt, CenteredAabb};
 
 use super::authority::ActiveConversation;
 
-/// **A conversation was cut, and this body should say so.**
-///
-/// ⛔ **the PORT, and it is why this module can leave the crate.** Asking "what
-/// line does this character say" is a CAST question — it needs the character
-/// catalog, the prepared registry, and the character-id lookup that resolves an
-/// `Interactable` to a voice, none of which is about continuity. Doing it here
-/// meant continuity reached back into `crate::features` and
-/// `crate::character_runtime` for the only two inward edges this module has.
-///
-/// ⭐ so continuity says WHO should speak and the cast answers WHAT they say.
-/// The speaking body is named; the responder owns the pool, the fallback, the
-/// rotation and the bubble.
+/// Requests a bark from the body whose conversation was cut. This continuity
+/// layer names the speaker; cast/content code chooses the line.
 #[derive(Message, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ConversationCutBark {
     /// The body that should speak — the one carrying an `ActorInteraction`, so
@@ -39,29 +20,10 @@ pub struct ConversationCutBark {
     pub speaker: Entity,
 }
 
-/// **Break a conversation the world has carried its participants out of.**
-///
-/// ⭐ **symmetric, and that is load-bearing.** It reads
-/// [`ActiveConversation::participants`], which yields BOTH bodies, and folds
-/// them into one `any_struck` before asking. There is deliberately no place in
-/// this system for "was the player hit" — an NPC knocked off a ledge mid-sentence
-/// has ended the conversation just as surely as the player being knocked across
-/// the room. Jon: *"both characters should hover"*.
-///
-/// ⚠ **the reach test is the interaction's own**, not a second authored range:
-/// the same `strict_intersects` of the two bodies' AABBs that decided the
-/// conversation could START decides it can continue. Two ranges would drift, and
-/// the symptom — a conversation you can begin but not sustain, or one that
-/// follows you across a room — is the kind nobody reports as a range bug.
-///
-/// A conversation with fewer than two in-world participants (scripted dialogue,
-/// a system-started box) cannot be walked away from, and is left alone.
-///
-/// ⚠ **this no longer takes the hold.** It did until 2026-08-07, and holding
-/// inside the rule that decides whether to STOP holding is what let a rewind
-/// strand the two halves apart. The hold is now
-/// [`super::hold::project_conversation_hold`], which reads the same authority
-/// this one writes.
+/// Break a conversation when either in-world participant is struck or when the
+/// two participant AABBs no longer intersect. The reach predicate is the same
+/// one used to start interaction. Scripted conversations with fewer than two
+/// in-world participants are not subject to separation.
 pub fn break_dialogue_on_hit_or_separation(
     mut conversation: ResMut<ActiveConversation>,
     bodies: Query<(&CenteredAabb, Option<&BodyCombat>)>,

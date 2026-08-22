@@ -1,5 +1,4 @@
-//! The surface-follower solver — momentum locomotion over [`SurfaceChain`]s
-//! (fable review 2026-07-05, AJ10 layer 3).
+//! Surface-follower solver: momentum locomotion over [`SurfaceChain`]s.
 //!
 //! The ONE new mover. A surface-momentum body is a **circle proxy** that is
 //! either ballistic (`Airborne`) or attached to a surface (`Riding { on, s,

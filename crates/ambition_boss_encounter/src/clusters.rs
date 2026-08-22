@@ -1,28 +1,9 @@
-//! Authoritative ECS components for a boss actor + the `BossMut` /
-//! `BossRef` views the per-tick systems mutate / read in place.
+//! Authoritative boss ECS components and `BossMut` / `BossRef` views.
 //!
-//! Bosses follow the enemy / NPC cluster pattern: real ECS state split across
-//! [`BossConfig`] (identity, spawn anchor, brain, behavior profile) and
-//! [`BossEncounter`] (encounter phase, derived sprite metrics, entity-local
-//! phase machine — HP/liveness live on the shared `BodyHealth`, damage-blink on
-//! `BodyCombat::hit_flash`, like every body). The boss carries the shared
-//! [`BodyKinematics`] component (pos / vel / size / facing) — the same component
-//! the player and enemies/NPCs use. Since the archetype swap (AS4c) a boss IS an
-//! aerial actor: its body integrates through the SHARED flight limb
-//! (`integrate_boss_bodies` → `ActorMut::update`, direct-velocity), NOT a bespoke
-//! float. A `&mut BodyKinematics` boss query is kept disjoint from player/enemy
-//! ones with `With<BossConfig>` / `Without<BossConfig>` filters (boss / enemy /
-//! player are mutually exclusive archetypes).
-//!
-//! [`BossConfig`] doubles as the *is-a-boss* marker component — every boss
-//! entity carries exactly one, no other actor does — so boss / non-boss systems
-//! filter on `With<BossConfig>` / `Without<BossConfig>`.
-//!
-//! Lives HERE, with the boss domain, since D33 (2026-08-17). It used to sit in
-//! `features::ecs::boss_clusters`, which made the hub re-export boss vocabulary
-//! back to this module's own children — `boss_encounter` and `features` each
-//! depended on the other for the same eight types. The dependency is one-way
-//! now: `features` names `crate::`, never the reverse.
+//! [`BossConfig`] owns identity and authored policy and is also the boss marker.
+//! [`BossEncounter`] owns encounter-only state. Health, combat state, and
+//! kinematics use the same shared body components as other actors. Mutable boss
+//! queries stay disjoint from other actor archetypes through the marker.
 
 use super::behavior::{
     canonical_boss_id_from, ActorSpriteMetrics, BossBehaviorProfile, BossBehaviorProfileExt,
@@ -48,14 +29,8 @@ pub struct BossConfig {
     pub behavior: BossBehaviorProfile,
 }
 
-/// Mutable per-tick boss ENCOUNTER status: active phase, sprite-derived body
-/// metrics, and the entity-local phase machine.
-///
-/// §A1 authority flip (fable review 2026-07-02): health / liveness / hit-flash
-/// are NOT here anymore — a boss's HP authority is the same [`ambition_characters::actor::BodyHealth`]
-/// every body carries (alive = `health.alive()`), and its damage-blink is
-/// [`ambition_characters::actor::BodyCombat::hit_flash`]. What remains is genuinely
-/// encounter-specific.
+/// Mutable encounter-only boss state. Health, liveness, and hit flash live on
+/// the shared body components.
 #[derive(Component, Clone, Debug)]
 pub struct BossEncounter {
     /// Active encounter phase. Forwarded by `sync_boss_encounter_phase`

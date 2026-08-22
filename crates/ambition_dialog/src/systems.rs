@@ -341,21 +341,8 @@ fn effective_dialog_tap_mode(
     configured: MenuTapMode,
     _active_input: Option<ActiveDevice>,
 ) -> MenuTapMode {
-    // ⛔ **the touch PROMOTION is gone (2026-08-04).** This used to upgrade
-    // `SingleTapWithDestructiveGuard` to `TapToSelectThenConfirm` whenever the
-    // active input was touch, so every dialogue choice on a phone cost two
-    // deliberate taps. It existed for one reason: activation happened on PRESS,
-    // so a finger that landed on a row and then slid had already chosen it.
-    //
-    // ⭐ activation is on RELEASE now, with a drag cancelling the press
-    // (`ambition_ui_nav::RowPress`) — so a slide is navigation and a tap is a
-    // choice, and the promotion has nothing left to protect against. Jon, from a
-    // Pixel 5: dialogue *"is frustrating and error prone"*, and two taps per
-    // choice was the frustration.
-    //
-    // ⚠ the argument stays so the signature still says the device is part of
-    // this decision. A game that WANTS two-tap on touch should say so in its
-    // configured mode, not have it imposed.
+    // Device type does not override the configured tap policy. Drag rejection is
+    // handled by the press/release gesture state.
     configured
 }
 

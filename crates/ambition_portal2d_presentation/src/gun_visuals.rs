@@ -36,14 +36,9 @@ const PORTAL_GUN_DISPLAY: Vec2 = Vec2::new(52.0, 24.0);
 /// to point where the host says the portal opener is aiming. This is a gun UI
 /// affordance, not part of portal topology or transit math.
 ///
-/// Mid-transit the gun decomposes exactly like the body it is attached to
-/// (see `sync_portal_body_pieces`): one copy per chart, each texture-clipped
-/// at its portal plane, on the main-camera-only layer. A single gun drawn at
-/// the authoritative pose SNAPPED by the pair separation at the centroid
-/// crossing — the one visibly teleporting attachment on an otherwise
-/// continuous body (Jon's "body movement has a snap"). Without the clip
-/// assets (headless host / texture not yet loaded) the single-gun fallback
-/// keeps the old behavior.
+/// During transit the gun follows the body's chart decomposition: one clipped
+/// copy per chart on the main-camera layer. Without clip assets, use the
+/// single-gun fallback.
 pub fn sync_portal_mode_indicator(
     mut commands: Commands,
     aim_hint: Option<Res<PortalAimHint>>,

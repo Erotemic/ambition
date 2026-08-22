@@ -382,19 +382,9 @@ pub fn advance_presented_feature_poses(
     presented.poses.retain(|id, _| views.get(id).is_some());
 }
 
-/// Ordering handle: the presented poses are resampled before ANY consumer —
-/// the camera resolve and the whole presentation visual sync alike.
-///
-/// **A consumer that reads a presented pose must order `.after` this set.** Not
-/// ordering is not "runs late enough in practice": the resample WRITES
-/// [`PresentedPose`], so an unordered reader merely conflicts with it, and Bevy
-/// resolves a conflict by picking an order — one that is stable for a given
-/// schedule build and therefore silently, consistently WRONG. A reader placed
-/// before the resample sees last frame's presented pose while the camera sees
-/// this frame's, and the two disagree by one frame of motion every frame: a
-/// sawtooth at the tick rate, which is the exact artifact this module exists to
-/// remove. The debug collision-box overlay had no such edge and shook for that
-/// reason (Jon, 2026-07-29).
+/// Ordering handle for presented-pose resampling.
+/// Consumers of [`PresentedPose`] must run after this set or they may read the
+/// previous frame's pose while other presentation reads the current one.
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PresentedPoseSet;
 

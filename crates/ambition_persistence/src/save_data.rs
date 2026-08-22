@@ -680,20 +680,9 @@ impl AmbitionGameSaveData {
         SaveCompatibility::Migrated { from }
     }
 
-    /// Wholesale clear all gameplay state. Keeps `version` so the schema remains
-    /// current.
-    ///
-    /// **Every field except the version, and that is the point.** This used to
-    /// clear six of the nine collections and silently keep `items`, `wallet` and
-    /// `inventory_saved` — so a "reset save" would have left the player their
-    /// money, their inventory, and the flag saying the inventory had been saved
-    /// before (which suppresses the starter set). Nothing in the shipping game
-    /// calls this yet, which is exactly why it was worth fixing now: the defect
-    /// costs nothing today and is a silently-wrong reset button the day someone
-    /// wires one up (GPT 5.6, 2026-07-27).
-    ///
-    /// A field added to `AmbitionGameSaveData` and not cleared here is the same bug
-    /// again; `reset_all_clears_every_collection` is written to fail on that.
+    /// Clear all gameplay state while preserving the current schema version.
+    /// New gameplay fields must be included here; the exhaustive destructure and
+    /// reset regression test enforce that contract.
     pub fn reset_all(&mut self) {
         let Self {
             // Kept: the schema is still the current schema after a reset.

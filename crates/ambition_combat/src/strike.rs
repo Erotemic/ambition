@@ -1,20 +1,8 @@
-//! **The live strike: the authoritative damage volume and its lifecycle state.**
+//! Authoritative live strike volume and lifecycle state.
 //!
-//! ⛔ **these types lived in `ambition_vfx` until 2026-08-09, and that was the
-//! campaign's clearest ownership inversion.** A `Hitbox` is not a picture: it
-//! carries damage, authored knockback, launch direction, owner identity and the
-//! per-strike dedup set, and the whole combat resolver reads it. A presentation
-//! crate owning simulation truth is how a read model ends up gating whether
-//! combat happens.
-//!
-//! ⚠ what did NOT move is [`HitSide`] and the `Effect` / `EffectRequest`
-//! vocabulary. `ambition_projectiles` names `Effect` and sits below this crate,
-//! so hoisting the request seam would hand it a dependency on all of combat.
-//! The tag stays a small enum on a message; the authority is here.
-//!
-//! ⚠ and the move only became possible once `ambition_render` stopped naming
-//! `Hitbox` directly — it reads `CombatGeometryView` now. Otherwise this hoist
-//! would have forced a render → combat edge, which is the wrong direction.
+//! Simulation truth for damage, knockback, ownership, and per-strike hit
+//! deduplication lives here. Presentation reads the combat geometry view instead
+//! of depending on live strike components.
 
 use bevy::prelude::{Commands, Component, Entity, MessageReader, Name};
 
@@ -61,24 +49,13 @@ pub struct Hitbox {
     /// Explicitly unit-bearing knockback. Do not collapse feel multipliers and
     /// authored engine-unit speeds back into a bare scalar.
     pub knockback: HitboxKnockback,
-    /// Authored launch DIRECTION in the victim's gravity frame (CM1,
-    /// smash-style fixed launch angles): `x` = lateral, mirrored to point away
-    /// from the hit's source; **`y` = toward the feet**, the authoring
-    /// contract's own `+y = gravity-down`
-    /// ([`HitVolume::launch_dir`](ambition_entity_catalog::HitVolume)) — so an
-    /// up-launcher authors `(0, -1)` and a spike authors `(0, 1)`. Direction
-    /// only — the resolver applies the speed carried by
-    /// `HitboxKnockback::LaunchSpeed`. `None` uses the standard feel diagonal at
-    /// that authored speed.
-    ///
-    /// ⛔ this said "`y` = upward against gravity" until D155, disagreeing with
-    /// the authored data it carries; the resolver believed the doc and inverted
-    /// every authored launch in the game.
+    /// Authored launch direction in the victim's gravity frame: `x` is lateral
+    /// and mirrored away from the source; `y` is toward the feet (`+y` is
+    /// gravity-down). Thus `(0, -1)` launches up and `(0, 1)` spikes down.
+    /// `None` uses the standard feel diagonal at the authored speed.
     pub launch_dir: Option<ae::Vec2>,
-    /// The owner's gravity "down" baked at spawn — the frame a non-box `shape`
-    /// is placed in, so an authored slash arc / cone rotates with the body's
-    /// gravity instead of pinning to screen-down (fable review 2026-07-02 §B10).
-    /// World-anchored hazards author in world space and pass screen-down.
+    /// Owner gravity-down at spawn, used to orient non-box shapes. World-anchored
+    /// hazards author directly in world space.
     pub frame_down: ae::Vec2,
     /// Authored STRIKE SOUND identity (CM8): the sound THIS attack makes when it
     /// lands, carried from the volume's `hit_sfx` tag so a sword and a goblin

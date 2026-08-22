@@ -484,16 +484,8 @@ pub fn rebuild_feature_view_index(
 #[derive(Clone, Debug, PartialEq)]
 pub struct ActorRenderView {
     pub name: String,
-    /// **The actor's ART IDENTITY** — `ActorConfig::sprite_character_id`, the
-    /// catalog id a spawn already resolves.
-    ///
-    /// ⛔ **the one thing bound off presentation used to be the art.** That id
-    /// reaches the barks, the hurt feedback, the sprite-derived collision box
-    /// and the authored attack volumes; only the SHEET was looked up by display
-    /// name, so `EnemySpawnSpec::character_id` — added 2026-08-06 precisely so a
-    /// level's LABEL and its art identity could differ — could not do the job it
-    /// exists for. Any spawn whose id differed from its name was un-arted by
-    /// this path (queue D56).
+    /// Catalog identity used for art lookup. It is independent of the actor's
+    /// display name.
     pub sprite_character_id: Option<String>,
     pub sprite_override_name: Option<String>,
     pub is_sandbag: bool,

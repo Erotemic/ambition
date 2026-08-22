@@ -71,19 +71,7 @@ impl Platformer2dSimHarnessOptions {
         self
     }
 
-    /// Builder: set the starting room id and REFUSE to boot without it.
-    ///
-    /// ⭐ what almost every test means. Of the `with_start_room` literals in the
-    /// tree, every one named a real room id except a single deliberate negative
-    /// — so the tolerance protected a caller that does not exist yet, while the
-    /// tests it silently covered for are the ones that would rather fail.
-    ///
-    /// ⚠ **and the callers HAVE since been migrated** (D125, 2026-08-17): every
-    /// test and tool that names a room asks for it here. What still asks
-    /// tolerantly is the negative test that pins the promise, and
-    /// `collision_invariant_oracle::run_episode`, whose `""` means *"do not
-    /// override the authored start"* — so it passes no room at all rather than
-    /// asking tolerantly for one.
+    /// Builder: require the named starting room to resolve or refuse to boot.
     pub fn with_required_start_room(mut self, room_id: impl Into<String>) -> Self {
         self.start_room = Some(room_id.into());
         self.start_room_must_resolve = true;
@@ -131,11 +119,8 @@ impl Platformer2dSimHarnessOptions {
         self
     }
 
-    /// Builder: how many SEATS the sync-test session carries. (queue Y1)
-    ///
-    /// Only meaningful alongside a sync-test mode; on a disabled rollback it is
-    /// a no-op rather than an error, because "how many seats would rewind" is
-    /// not a question a non-rewinding harness has an answer to.
+    /// Builder: number of seats in a sync-test session. No-op when rollback is
+    /// disabled.
     pub fn with_rollback_players(mut self, count: usize) -> Self {
         if let RollbackMode::SyncTest { players, .. } = &mut self.rollback {
             *players = count;
@@ -151,12 +136,7 @@ pub enum RollbackMode {
     SyncTest {
         check_distance: usize,
         max_prediction_window: usize,
-        /// Seats in the session. (queue Y1)
-        ///
-        /// One until 2026-07-28, which meant the rollback oracle proved
-        /// determinism for ONE input stream while the shipped game seated four.
-        /// A second stream is not a bigger version of the first: it is the only
-        /// way a desync in seat two's input handling has anywhere to show up.
+        /// Number of input seats represented in the sync-test session.
         players: usize,
     },
 }

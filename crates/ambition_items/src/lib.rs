@@ -1,26 +1,6 @@
-//! Canonical finite item catalog — the game's complete set of pickup items.
-//!
-//! Jon's design call (2026-06-03): the inventory menu is modeled on the
-//! Ocarina-of-Time "Select Item" subscreen, which is a **6 × 4 = 24-slot grid**
-//! (`submodules/ambition_menu/DESIGN-OOT-DEMO.md`: "The Items page uses a
-//! 6 × 4 item grid based on OoT's inventory slot order"). That slot count is not
-//! just a UI detail — **24 is the finite number of distinct pickup items in this
-//! game.** Every collectible/equippable/usable item the player can ever hold maps
-//! to exactly one of these 24 slots, in a fixed grid order.
-//!
-//! This module is the source of truth for that set. It is deliberately
-//! presentation-independent: the unified tabbed menu renders
-//! it, but pickups, dialogue (`<<give_item>>` / the `inventory.holds` authored
-//! condition), and the equip path all read/write [`OwnedItems`] here. The
-//! menu can be cut without touching this catalog.
-//!
-//! Some slots map to systems that already exist (portal gun, axe, javelin,
-//! gun-sword, fireball, bubble shield, health/mana cells). Others are
-//! reserved placeholders for
-//! planned items (puppy-slug gun, grapple, morph ball, bombs, the Alice/Bob
-//! cartography key items) — they still occupy a real, stable slot so the grid
-//! shows "every item you could ever have," OoT-style, with un-acquired entries
-//! dimmed.
+//! Canonical 24-slot item catalog and owned-item state. The fixed slot order is
+//! gameplay data and is independent of the menu renderer; pickups, dialogue,
+//! equipment, and inventory presentation share this authority.
 
 pub mod equipment;
 pub mod shop;
@@ -180,16 +160,8 @@ static ITEM_CATALOG_OVERRIDE: std::sync::OnceLock<ItemCatalog> = std::sync::Once
 /// Install the authored item catalog — `ambition_content` calls this at
 /// plugin-build time alongside the other roster installs.
 pub fn install_item_catalog(catalog: ItemCatalog) {
-    // ⛔ **a SECOND, DIFFERENT catalog used to be swallowed.** `let _ = set(..)`
-    // means the first provider in the process defines items for every App built
-    // after it — two games, or a game and a tool, in one process silently share
-    // the first one's content. That is the worst available behaviour: the seam
-    // looks provider-local and is not (GPT 5.6 review, 2026-08-04).
-    //
-    // ⚠ **identical re-installation is NORMAL and stays silent** — two Apps
-    // built from the same provider in one test binary do it constantly. Only a
-    // DIFFERENT catalog is a conflict, and it is loud until this family becomes
-    // an App resource selected through provider context.
+    // This seam is process-global. Identical reinstallation is allowed; a
+    // different second catalog is a conflict and must be reported.
     if let Err(rejected) = ITEM_CATALOG_OVERRIDE.set(catalog) {
         if ITEM_CATALOG_OVERRIDE.get() != Some(&rejected) {
             bevy::log::error!(

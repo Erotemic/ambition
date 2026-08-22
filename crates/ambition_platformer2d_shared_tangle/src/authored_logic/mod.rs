@@ -1,99 +1,11 @@
-//! **The condition contract: how a domain lets authored content ask it a
-//! question.**
+//! Extensible authored condition and command contracts.
 //!
-//! ⭐ **its COMMAND twin lives in [`commands`]** — how a domain lets authored
-//! content tell it to do something. The two halves share this module's scalar
-//! vocabulary ([`ParamKind`], [`ParamSpec`], [`AuthoredArg`]) and its id
-//! spelling rule, and nothing else: a question is answered from `&World` and a
-//! verb is performed against `&mut World`, which is why one of them needs a
-//! phase, an authority and a rollback story and the other does not.
-//!
-//! # What this is for
-//!
-//! Authoring in this engine is strong for **nouns** — characters, items, rooms,
-//! encounters, platforms, portals — and weak for **verbs and relationships over
-//! time**. *"When two switches are active, power a lift"*, *"when this flag is
-//! set, the wall is gone"*, *"while the player is carrying the key"* all
-//! currently fall through into bespoke Rust, one hand-written system and one
-//! hand-kept const table at a time.
-//!
-//! ⭐ **the census that opened this found the gap is on the CONDITION side.** The
-//! effect side already has five-plus typed command buses and already learned the
-//! lesson the hard way: a monolithic `GameplayEffect` enum was built here and
-//! deleted. There is no shared condition type anywhere in the workspace, which is
-//! why every gate re-derives its own question.
-//!
-//! # The one rule that shapes everything here
-//!
-//! > **A new domain must be able to publish a condition without editing anything
-//! > central.**
-//!
-//! That is the falsifier, and it is tested rather than asserted: the test suite
-//! registers a provider **from the test crate**, using only this module's public
-//! surface, and requires it to appear in the catalog and evaluate. If that works,
-//! no central registry of condition *kinds* exists, because a test crate could
-//! not have edited one.
-//!
-//! ⚠ **[`AuthoredArg`] is a closed enum and is NOT the thing that rule
-//! forbids.** The non-goal is a central enum of *operations* — a god
-//! `EngineEffect` every domain must extend. This is a scalar value type, the
-//! same role JSON's value enum plays: domains extend the set of *questions*
-//! freely, and nobody needs a new kind of *number*.
-//!
-//! ⭐ **and it is spelled `AuthoredArg` rather than `ConditionArg` because the
-//! COMMAND half takes the same values.** A prepared argument is a prepared
-//! argument; a second four-variant enum with the same four variants would have
-//! been a fork declared in its own name, and the two copies would have drifted
-//! the first time one of them learned a kind.
-//!
-//! # What this deliberately is NOT
-//!
-//! ⛔ **no expression language, no interpreter, no `UniversalRuleVM`, no
-//! Lua/Rhai.** Nothing here parses a string during simulation. A condition is a
-//! registered id plus prepared arguments; evaluating it calls the owning
-//! domain's function.
-//!
-//! ⛔ **no sequencer.** The census found three genuinely different execution
-//! machines already shipping — a monotonic cursor, a reversible cycling timer,
-//! and a subroutine stack with interrupts — and one shared form covering all
-//! three needs a branch naming its customer. A domain that needs a timeline
-//! keeps its own.
-//!
-//! ⛔ **conditions are not phrased against ECS component layout.** A rule that
-//! reads a component is coupled to an implementation detail the owning domain is
-//! entitled to change. The domain answers; the rule asks.
-//!
-//! # ✔ THE DELETION GATE — PAID, 2026-08-15
-//!
-//! This module opened as pure addition, which by this project's own rule is not
-//! yet progress, so it named the deletion it had to earn:
-//! `INTRO_FLAG_GATED_LOCK_WALLS` in `ambition_content` — a hand-kept const table
-//! pairing lock-wall ids with save flags, read by a bespoke system that walked
-//! every LDtk level to rediscover which wall is which. The gate was stated
-//! sharply: *if that deletion does not land, this contract has not earned its
-//! place.*
-//!
-//! ⭐ **it landed** — `7de08d7cf`, *"Put the reason a wall opens in the level
-//! instead of the compiler"*. A `LockWall` now carries its own authored gating
-//! condition, and the table, the id matching and the level walk all went with
-//! it. Confirmed absent from the tracked tree 2026-08-17; the only surviving
-//! mentions are prose like this one.
-//!
-//! ⚠ **the gate stays written down rather than deleted**, because it is the
-//! standard the SECOND half owes too — and the second half has now been held to
-//! it. See [`commands`] for the command contract, and
-//! `docs/planning/engine/authored-gameplay-logic-and-orchestration.md` for what
-//! it paid: **not** `KERNEL_FACES`, which was named up front and REFUSED with
-//! cause (it needs an authored LDtk surface carrying a command's arguments,
-//! which is M2's job), but `cmd_set_flag` / `cmd_clear_flag` in
-//! `ambition_content::yarn_vocabulary` — two hand-written Bevy systems differing
-//! by one bool, plus their registrations and the narrative-ledger install that
-//! served only them.
-//!
-//! ⭐⭐ **so authored content now asks and tells through one road each.**
-//! `condition("world.flag_set", …)` and `command("world.set_flag", …)` are the
-//! same mechanism pointed in two directions, and neither has a bridge that
-//! learns a name.
+//! Domains register condition ids that evaluate from `&World` and command ids
+//! that mutate through the command runner; adding a domain does not require a
+//! central operation enum. Both sides share scalar [`AuthoredArg`] vocabulary
+//! and `<domain>.<leaf>` id spelling. Conditions remain domain-owned questions,
+//! not expressions over ECS component layout, and commands remain separately
+//! scheduled/authorized mutations.
 
 use std::collections::BTreeMap;
 

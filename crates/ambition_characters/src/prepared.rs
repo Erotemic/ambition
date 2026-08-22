@@ -1341,10 +1341,8 @@ fn resolve_autonomous_profile(
     provider: &str,
     inline: Option<crate::brain::BrainProfile>,
     named: Option<&crate::brain::BrainProfileRef>,
-    // ⭐ **the POLICY authority, not the character catalog** (Jon's redirect
-    // §11). They are assembled from the same provider fragment today, which is a
-    // packaging fact rather than an ownership one: a catalog says who exists, a
-    // profile registry says what may drive a body.
+    // Autonomous policy resolves from the profile registry, not the character
+    // catalog; sharing a provider fragment does not merge those authorities.
     profiles: Option<&crate::actor::character_catalog::BrainProfileRegistry>,
 ) -> Option<crate::brain::BrainProfile> {
     match (inline, named) {
@@ -1357,28 +1355,9 @@ fn resolve_autonomous_profile(
         (Some(inline), None) => Some(inline),
         (None, None) => None,
         (None, Some(named)) => {
-            // ⛔⛔ **THE EMPTY-REGISTRY CASE USED TO WARN AND RETURN `None`, AND
-            // THAT WAS THE SAME MISTAKE ONE LAYER DOWN** (GPT 5.6 review,
-            // priority 6; corrected 2026-08-12). A missing registry made an
-            // explicitly named policy evaporate, while a registry that merely
-            // lacked the name panicked — so the SAME authoring error produced a
-            // content error or a silent absence depending on a composition
-            // detail the author cannot see.
-            //
-            // ⭐ and "absent" is not what an unresolved reference means. A
-            // character that names NO policy leaves the archetype in charge on
-            // purpose; a character that names one nobody published leaves the
-            // archetype in charge while the definition says otherwise — the
-            // explicit-`CharacterId` mistake P0.1 made a construction error, in
-            // exactly this shape.
-            //
-            // ⚠ **a headless host is not the exception this looked like.** A
-            // composition that publishes no registry is perfectly valid for every
-            // character that names no shared policy; it is only invalid the
-            // moment one does. Measured before changing: the three production
-            // definitions that name a profile (`robot_duelist`, `medium_striker`
-            // twice) all ship in `ambition_content`, which publishes the registry
-            // beside the catalog assembly reads.
+            // An explicitly named profile must resolve. No registry is valid only
+            // for characters that name no shared profile; treating an unresolved
+            // reference as absence would contradict the authored definition.
             let profiles = profiles.filter(|profiles| !profiles.is_empty());
             let Some(profiles) = profiles else {
                 panic!(
@@ -1835,47 +1814,12 @@ impl std::fmt::Display for CharacterRegistrationError {
 
 impl std::error::Error for CharacterRegistrationError {}
 
-// ─────────────────────────────────────────────────────────────────────────────
-// THE TWO PUBLIC SEAMS, AND WHY THERE ARE EXACTLY TWO
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// **A character that has been PREPARED and not yet FOLDED** — the partial
-/// phase, as a value you can hold and cannot look inside.
+/// Prepared character state held behind the registration/finalization barrier.
 ///
-/// ⛔⛔ **this exists because module privacy stopped being enough.** While
-/// `prepare_character`, `finalize_character` and `PreparedCharacterOverrides`
-/// all lived in one module inside the actor monolith, "you cannot fold a
-/// character early" was enforced by `pub`-lessness: nobody outside the file
-/// could name the partial or the fold. Moving the model down (campaign P1.7)
-/// breaks that, because the App extension that stages a registration and the
-/// barrier that closes it BOTH live up in the monolith and both need to hold
-/// this value. The mechanical fix — publish the two functions — puts the
-/// ordering hazard `CharacterPreparationPlugin::finish` was built to remove back
-/// on the production surface.
-///
-/// ⭐ **so the barrier is a TYPE now** — and, since 2026-08-12, a type nobody
-/// outside this module can name at all. This is the [`ambition_binding::Bound`]
-/// pattern the repository already runs: `Bound<N>` has no public constructor, so
-/// a consumer cannot hold one it did not resolve.
-///
-/// ⛔⛔ **AND THE FIRST VERSION OF THAT CLAIM WAS FALSE, WHICH IS WHY THE
-/// LIFECYCLE IS DOWN HERE NOW** (GPT 5.6 review, priority 2). This type was
-/// opaque but `pub`, minted by a `pub fn prepare_for_registration` and consumed
-/// by a `pub fn finalize_cast`. An opaque field prevents nothing when both ends
-/// of the pipe are public: any production caller could write
-/// `finalize_cast([prepare(..).staged], whatever_catalog_exists_right_now, ..)`
-/// and get exactly the early fold `CharacterPreparationPlugin` exists to remove.
-/// "Unspellable" was measured on the FIELD and claimed about the OPERATION.
-///
-/// ⇒ the fold is not a public capability of this crate. What the outside world
-/// can do is CONTRIBUTE a definition ([`stage_authored_character`]) and READ the
-/// finished [`PreparedCharacterRegistry`]; when the fold happens is the
-/// lifecycle's decision, and the lifecycle is [`CharacterPreparationPlugin`],
-/// here, beside the private functions it drives.
-///
-/// ⚠ the two accessors read IDENTITY, which is not folding. Staging needs them
-/// to reject a blank id and a display name another id already claims, both of
-/// which must happen before anything is staged.
+/// Production callers contribute definitions and read the finished
+/// [`PreparedCharacterRegistry`]; the private lifecycle controls when staged
+/// definitions are folded. The accessors below expose only identity needed for
+/// duplicate validation before staging completes.
 #[derive(Debug, Clone)]
 struct StagedCharacter {
     inner: PreparedCharacterOverrides,

@@ -1,54 +1,9 @@
-//! **Shapes, boxes and reference frames — the part of the engine that is not
-//! about platformers.**
+//! General geometry and reference-frame primitives.
 //!
-//! Carved out of `ambition_platformer2d_core` (2026-08-01) because the census in
-//! `scripts/core_import_census.py` showed general-named crates taking a
-//! genre-named dependency for things with no genre in them. `ambition_vfx`
-//! wanted exactly four items — `Vec2`, `Aabb`, `CombatVolume`, `VolumeShape` —
-//! and nothing platformer-specific at all.
-//!
-//! ## Why THESE four modules, and why they were the right first carve
-//!
-//! They are already self-contained, which was checked rather than assumed:
-//!
-//! ```text
-//! geometry.rs        bevy_math, parry2d, Vec2
-//! combat_volume.rs   parry2d, Aabb, AabbExt, Vec2
-//! volume_shape.rs    AccelerationFrame, CombatVolume, Vec2
-//! reference_frame.rs Vec2
-//! swing_shape.rs     AabbExt, CombatVolume, Vec2   (merged from `shaped-volumes`)
-//! ```
-//!
-//! No rooms, no blocks, no ledges, no portals — and every trait they implement
-//! is `Default`, `Deref` or `From`, so nothing moved into an orphan-rule
-//! problem (which is what adjudicates crate placement here, not taste).
-//!
-//! ⚠ **and unlike the other general thing still stuck in the core crate — the
-//! snapshot codec — none of this moves the ROLLBACK FINGERPRINT.** The
-//! fingerprint hashes `std::any::type_name`, so relocating a snapshot type
-//! rewrites the schema baseline; that is the S30 fork, and it is Jon's to
-//! decide. This carve carries no such cost, which is why it went first.
-//!
-//! ## `Vec2` and `Aabb` are not ours either
-//!
-//! `Vec2` is `bevy_math`'s, re-exported; `Aabb` is an alias for its `Aabb2d`.
-//! Half the reason the old dependency looked load-bearing was that consumers
-//! reached *through* a platformer crate for a maths type. Anything that needs
-//! only those should depend on `bevy_math` directly and skip this crate too.
-//!
-//! ## ⛔ What this carve did NOT buy (measured 2026-08-02)
-//!
-//! `ambition_vfx` no longer NAMES `ambition_platformer2d_core` in its manifest —
-//! but core is still in its build closure, reached through
-//! `ambition_platformer2d_shared_tangle`, which it also depends on. The same is
-//! true of all four crates carved off core so far. `cargo tree --edges normal -i
-//! ambition_platformer2d_core` says so.
-//!
-//! So read the census number as *"manifests that claim core"*, never *"crates
-//! that compile without it"*. What this crate genuinely provides is an honest
-//! manifest, a floor with its own `forbidden: "*"` contract, and no route for a
-//! NEW direct use to appear. It is not decoupling, and an earlier version of
-//! this doc implied it was.
+//! This crate contains platformer-independent shapes, combat volumes, swing shapes,
+//! and frame math. `Vec2` is re-exported from `bevy_math` and `Aabb` aliases Bevy's
+//! `Aabb2d`; callers that need only those upstream math types should depend on
+//! `bevy_math` directly.
 
 pub mod combat_volume;
 pub mod geometry;

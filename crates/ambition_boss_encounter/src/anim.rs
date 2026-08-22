@@ -1,20 +1,4 @@
-//! **BOSS ANIMATION STATE — read from a boss, in the crate that owns bosses.**
-//!
-//! ⭐ **carved out of `ambition_platformer2d_actor_monolith` on 2026-08-21
-//! (D33).** These four helpers lived in a module called `anim_helpers`, of whose
-//! seven public functions FOUR were boss-only — the tell that a module's name is
-//! one domain and its contents are two. Every type they touch is this crate's
-//! (`BossCatalog`, `BossRef`, `BossClusterRef`, `sprites::BossAnim*`,
-//! `attack_geometry::BossAnimationFrameSample`) plus `ambition_characters`.
-//!
-//! ⭐ **it cost no dependency edge.** `ambition_sim_view` was reading
-//! `boss_anim_state_for` THROUGH the monolith while already depending on this
-//! crate directly — so the move deletes a reason for sim_view to reach into a
-//! game-behaviour crate rather than adding one.
-//!
-//! ⚠ the three helpers that stayed are not boss: chest-opened, breakable state,
-//! and the actor overlay advance, which needs the monolith's own
-//! `advance_body_anim_overlays`.
+//! Boss animation-state derivation from boss-owned runtime state.
 
 use ambition_combat::components::FeatureId;
 use bevy::prelude::*;

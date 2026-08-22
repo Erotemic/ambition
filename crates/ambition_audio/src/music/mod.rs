@@ -90,52 +90,12 @@ pub fn silence_music_backend(
     music_state.silence();
 }
 
-/// Does the base track SURVIVE this change of audio context?
+/// Whether the current base track can continue across an audio-context change.
 ///
-/// ⭐ **The same song, chosen by a different owner, is still the same song.**
-/// Frontend audio is keyed by the ACTIVATION that selected it, so walking from
-/// the startup cards to the launcher is a new `Frontend(_)` owner — and every
-/// context-change path then stopped the channel and started the identical title
-/// track again from zero, because `FrontendAudioProfile` names one title theme
-/// for the whole provider. The audible result was the title music restarting on
-/// the handoff, which nobody had declared and nobody wanted. (Jon, 2026-08-03.)
-///
-/// Arbitrating by IDENTITY rather than by owner needs no route to name another
-/// route: a screen declares its own track, and playing a track that is already
-/// playing is a no-op. A per-route "continue what the last one played" flag
-/// would make continuity a property of the PAIR of screens, which is the
-/// coupling that makes adding a third screen a question.
-///
-/// ⚠ **frontend to frontend only, deliberately.** A gameplay session handing
-/// back to a title screen must still stop and reset even when the base track
-/// happens to match: what it is carrying — adaptive layers, a director mid-cue,
-/// a room request — is exactly what the title screen is not, and only the reset
-/// path clears it.
-///
-/// ⚠ this predicate lives HERE, next to the silencer, because two separate
-/// systems perform this reset (the context-change reset and the frontend policy
-/// application). One rule, applied at both, rather than the same condition
-/// written twice and drifting.
-/// ⛔ **it is NOT a comparison of owners, and the first two attempts were.**
-/// Measured with the play counter rather than reasoned about: one handoff from
-/// the startup cards to the launcher produced SIX generations — silence,
-/// silence, play, silence, silence, play — because the audio owner passes
-/// through `None` between activations. Any rule of the form "the previous owner
-/// and the next owner are both frontends" is false at exactly the moment it is
-/// asked. The stable fact is the PROFILE, which does not blink out between two
-/// screens.
-///
-/// ⭐ **that stability survived frontend audio becoming per-route** (2026-08-07),
-/// which is the change that looked most likely to take it away. The profile now
-/// comes from `FrontendAudioRegistry::in_effect`, which is replaced by the next
-/// activation rather than cleared by the previous deactivation — see that
-/// field's docs, including the measurement showing the two are drained in one
-/// system run so nothing observes a gap between them either way.
-///
-/// Two routes resolving to the same profile still hand off without restarting
-/// the song. Two resolving to DIFFERENT profiles now correctly change it, which
-/// is the whole point of the key: the launcher and smash's character select are
-/// different screens with different scores, and before this they could not be.
+/// Frontend-to-frontend handoffs preserve an already-playing identical title
+/// track. Entering or leaving gameplay still resets the director and adaptive
+/// layers, even when the base track id matches. The decision uses stable track
+/// identity rather than the transient context owner.
 pub fn title_theme_keeps_playing(
     title_track: Option<&str>,
     incoming_owner: Option<ambition_sfx::AudioContextOwner>,

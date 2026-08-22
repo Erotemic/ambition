@@ -1,29 +1,12 @@
-//! **Turning "the player pressed a thing" into a persisted binding override.**
-//!
-//! The last clause of `character-actions.md` P1, and the half the override model
-//! shipped without: `ControlSettings::binding_overrides` has been persisted and
-//! honoured since 2026-08-06, and NOTHING in the game could set one. The feature
-//! was reachable only by hand-editing a settings file.
-//!
-//! This module is the CAPTURE — pure, so the rule lives in one testable place
-//! and a menu screen is presentation over it rather than the owner of the
-//! policy. What a rebind row looks like, which actions it lists, and how a
-//! player arms it belong to the menu module (D3 sequenced that after PA3's
-//! convergence, so the rows are built ON it).
+//! Pure capture of physical input into persisted binding overrides. Menu
+//! presentation and arming policy live outside this module.
 
 use crate::bindings::{ActionBindings, PhysicalControl};
 use crate::settings::{BindingOverride, OverrideControl};
 use crate::Platformer2dInputActionMonolith;
 
-/// The control a capture accepted, if the press was bindable.
-///
-/// ⚠ **`PhysicalControl::Other` is refused**, and that is the whole reason this
-/// is not just "take the first press". That arm exists so the PROJECTION can be
-/// total — it carries the debug form of an input the classifier could not name,
-/// rather than dropping it and telling a player an action has no control. A
-/// binding is the other direction: an override must be constructible, and
-/// storing a control nothing can rebuild is a settings file that loads into
-/// silence.
+/// The control a capture accepted. `PhysicalControl::Other` is not persistable
+/// and is therefore refused.
 pub fn bindable(control: &PhysicalControl) -> Option<OverrideControl> {
     match control {
         PhysicalControl::Key(key) => Some(OverrideControl::Key(*key)),
@@ -51,18 +34,9 @@ pub fn capture(
     })
 }
 
-/// Every OTHER action this control is already bound to, in the seat's live map.
-///
-/// ⚠ **a duplicate binding is not refused here, it is REPORTED.** leafwing
-/// allows one control to drive several actions and the game uses that already —
-/// Escape is both `Start` and `MenuBack`, deliberately. So a capture that
-/// refused every collision would forbid a shape the game itself ships. What a
-/// rebind screen owes the player is knowing: "this is also Attack" is
-/// information they can act on, and silently stealing a control from another
-/// action is the thing that reads as a bug.
-///
-/// Returns the other actions' stable names, in the projection's canonical order,
-/// so two runs and two machines list them the same way.
+/// Other actions already bound to this control, in canonical order. Duplicate
+/// bindings are reported rather than rejected because one control may drive
+/// multiple actions.
 pub fn also_bound_to(
     bindings: &ActionBindings,
     action: &Platformer2dInputActionMonolith,

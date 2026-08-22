@@ -1,47 +1,9 @@
-//! **THE CAPTURE SYSTEMS — the ECS half of the domain whose vocabulary is this
-//! module's parent.**
+//! ECS systems for capture acquisition, hold, pummels, throws, and release.
 //!
-//! ⭐⭐ **carved out of `ambition_platformer2d_actor_monolith` on 2026-08-21
-//! (D33), and the 1,900 lines are NOT the point.** Jon: *"loc is the proxy. the
-//! real win is conceptual domain separation."* Capture was one concept living in
-//! two crates — `captive_of` / `CapturedBy` / `CaptureAttemptRequested` next
-//! door, and every system that reads or writes them in a game-behaviour crate
-//! that has nothing to do with grabbing. Acquiring a capture, ticking its hold,
-//! constraining the captive's body, restricting the captor, releasing it, and
-//! applying pummels and throws are all the same subject as the relationship.
-//!
-//! ⛔⛔ **THREE THINGS HELD IT HERE, and none of them was real coupling** — the
-//! whole module named exactly five paths outside its own crate, and each was
-//! fixed by putting a type where it belonged rather than by changing anything
-//! about capture:
-//!
-//! ```text
-//! ActorSurfaceState              monolith -> platformer2d_core   6c4592021
-//! Platformer2dFeelTuningMonolith monolith -> ambition_combat     d6db434f4
-//! apply_body_hit_reaction        monolith -> ambition_combat     403a32155
-//!                                (it was `pub(crate)` -- a whole domain
-//!                                 pinned by a visibility modifier)
-//! ActorFaction / CenteredAabb    already in `characters`/`geometry`, merely
-//!                                reached through the monolith's re-export
-//! ```
-//!
-//! ⚠ **the first attempt at this carve FAILED and the failure is instructive**:
-//! it read the `use` statements, concluded "no monolith coupling", and hit two
-//! `crate::` paths spelled inline inside a function body. A carve's coupling is
-//! not what a file imports — it is every path it names.
-
-//! **Acquisition: turning a live grab volume into a capture relationship.**
-//!
-//! The body half of capture. It lives here rather than in the Smash game because
-//! it needs body facts — liveness, kinematics, ground state, published
-//! silhouette, the move a victim is currently playing — and rather than in a new
-//! crate because a grab is not a reason to carve one.
-//!
-//! ⛔ **a shield does NOT block a grab**, and this is the road where that is
-//! true rather than a comment. A capture never consults [`BodyShieldState`]:
-//! the whole rock-paper-scissors triangle rests on a grab beating the thing
-//! that beats an attack, and asking the shield here would quietly delete the
-//! third leg.
+//! Capture acquisition requires the body state needed by the full relationship so
+//! a capture cannot be established that later lifecycle stages cannot process.
+//! Shields do not block grabs. Decisions are made read-only and applied afterward
+//! in deterministic order.
 
 use bevy::math::bounding::IntersectsVolume as _;
 use bevy::prelude::*;

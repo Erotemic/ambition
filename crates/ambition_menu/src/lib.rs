@@ -632,28 +632,8 @@ pub struct MenuDynamicText {
 #[derive(Component, Clone, Debug, Default, PartialEq, Eq)]
 pub struct MenuDynamicTextContent(pub String);
 
-/// **A menu text node's size, as a PERCENTAGE OF VIEWPORT HEIGHT.**
-///
-/// [`MenuNode::Text`]'s `size` field never had a documented unit, and the two
-/// renderer backends read it as two different things. The kaleidoscope backend
-/// has always passed it to `UiTextSize::from(Rh(size))` — Lunex's
-/// relative-to-height — so every call site in the tree was authored as a
-/// percentage: a `5.2` title, a `2.6` footer. The `bevy_ui` backend assigned the
-/// same number straight to `TextFont::font_size`, which is PIXELS.
-///
-/// So every heading and footer the flat renderer drew was between two and five
-/// pixels tall. Jon reported it as "the 'ambition' and whatever text is at the
-/// bottom is WAY too small" on the title screen, and it was never a taste
-/// question or a launcher bug — it was one field with two meanings, and the
-/// launcher just happened to be where somebody looked (2026-07-28).
-///
-/// Percentage is the meaning that stays. `x` and `y` beside it are already
-/// percentages in both backends, every call site was written that way, and a
-/// pixel font size is the one choice that cannot survive a resolution change.
-///
-/// The `bevy_ui` backend cannot express this natively — Bevy's `font_size` is
-/// pixels, full stop — so it carries this component and
-/// [`resolve_menu_text_size`] converts against the live window each frame.
+/// Menu text size as a percentage of viewport height. The Bevy-UI backend
+/// converts this value to pixels against the live window each frame.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct MenuTextHeightFraction(pub f32);
 

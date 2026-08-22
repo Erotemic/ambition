@@ -1,35 +1,9 @@
-//! **Round scope** — the lifetime of one round of a match (Campaign 3A).
+//! Round-scoped entity lifetime.
 //!
-//! A *round* is the shortest gameplay lifetime this engine names. Projectiles in
-//! flight, strike volumes, temporary summons and round-local ability effects all
-//! belong to the round that created them and must not cross its boundary.
-//!
-//! **The problem this exists to remove.** `begin_round` in the versus rules
-//! opened with:
-//!
-//! ```ignore
-//! for shot in projectiles { commands.entity(shot).try_despawn(); }
-//! ```
-//!
-//! — one hand-written query naming one transient family. Every family added
-//! afterwards (a strike volume, a summon, a lingering hitbox) needs another
-//! query in that function, and the failure mode of forgetting one is silent: an
-//! entity from the previous round is simply still there, doing whatever it does,
-//! in a round that never asked for it. A round boundary that must enumerate the
-//! world's transient families is a boundary that is wrong by default.
-//!
-//! **⚠ round scope is a LIFETIME, not a provenance.** `SpawnOrigin::Dynamic`
-//! already classifies "the running simulation minted this: a projectile, a
-//! summoned minion, a dropped item", and it is tempting to cull on that instead.
-//! It would be wrong: a dropped item is dynamic and should survive a round, a
-//! boss's summon may be part of an encounter that spans rounds. Where an entity
-//! CAME FROM does not say how long it should live, and the day those two
-//! disagree is the day a dropped reward vanishes at a round boundary with
-//! nothing in the code saying why.
-//!
-//! Mirrors [`super::session`] deliberately: same id-carrying component, same
-//! captured-at-spawn scope, same `apply_to`. A second scope with a different
-//! shape would be a second thing to learn.
+//! Projectiles, strike volumes, temporary summons, and other effects that must
+//! not cross a round boundary carry [`RoundScopedEntity`]. Scope is explicit
+//! lifetime policy, not spawn provenance: dynamically spawned entities may have
+//! longer lifetimes. The active round id and allocator are rollback state.
 
 use bevy::prelude::*;
 
@@ -41,47 +15,21 @@ use bevy::prelude::*;
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct RoundScopeId(pub u64);
 
-/// Lifetime-scope marker: **despawn when this round ends.**
-///
-/// Named for the local vocabulary ([`super::markers::RoomScopedEntity`],
-/// `SessionScopedEntity`) rather than the campaign document's `OwnedByRound`
-/// sketch. Three scope markers that read alike are one concept; a fourth spelled
-/// differently is a fourth thing to remember.
+/// Lifetime-scope marker: despawn when this round ends.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RoundScopedEntity(pub RoundScopeId);
 
-/// The current round and its deterministic allocator.
-///
-/// ⚠ **`Clone` because this is ROLLBACK STATE, and it was not registered for as
-/// long as both existed (found 2026-08-03 by the shipped-composition resource
-/// sweep).** `settle_versus_round` holds `ResMut<ActiveRoundScope>` and calls
-/// [`Self::begin`], and it is registered in `app.sim_schedule()` — `GgrsSchedule`
-/// in the shipped host, i.e. INSIDE the rollback window. So a rewind across a
-/// round boundary re-ran the mint against a `next_raw` that had never rewound:
-/// the resimulated timeline allocated a DIFFERENT `RoundScopeId` from the one it
-/// was reproducing, and `RoundScopedEntity` culling keys entity lifetime off
-/// exactly that id.
-///
-/// ⭐ the comment beside that system's registration already knew the shape —
-/// *"the restored score depended on presentation-frame history that resimulation
-/// does not replay. Calling a system 'the presentation half' does not make the
-/// resource it writes presentational."* — and the round scope it writes was the
-/// piece that never followed.
+/// Current round plus deterministic allocator. Both fields are rollback state;
+/// rewinding across a round boundary must reproduce the same minted id.
 #[derive(Resource, Default, Debug, Clone)]
 pub struct ActiveRoundScope {
     current: Option<RoundScopeId>,
     next_raw: u64,
 }
 
-/// ⭐ **The value, not merely the presence.** `ActiveRoundScope` is always
-/// present, so a presence-only probe would report "still there" across a rewind
-/// that allocated a different round id — which is the entire defect. The exit
-/// oracle refuses a presence probe here for exactly that reason, and this is what
-/// gives it something to compare.
-///
-/// `Option<RoundScopeId>` has no snapshot primitive, so it encodes as a presence
-/// flag plus the raw id: absent and `RoundScopeId(0)` stay distinguishable, which
-/// matters because 0 is the FIRST round a match mints.
+/// Snapshot the actual round id and allocator value, not just resource
+/// presence. `Option<RoundScopeId>` encodes as a presence flag plus raw id so
+/// absence stays distinct from the valid first id `0`.
 impl ambition_platformer2d_core::snapshot::SnapshotState for ActiveRoundScope {
     fn encode(&self, out: &mut Vec<u8>) {
         ambition_platformer2d_core::snapshot::put_bool(out, self.current.is_some());

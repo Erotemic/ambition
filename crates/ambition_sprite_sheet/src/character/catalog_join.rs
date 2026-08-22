@@ -166,13 +166,8 @@ pub fn sprite_body_collision_for_character_id_from_data(
         .standing_height
         .or_else(|| entry.body_kind.default_standing_height())
         .filter(|height| *height > 0.0);
-    // Both branches are the SAME shape — `frame x scale` — and differ only in
-    // where the scale comes from. That is what lets the renderer's own sizing
-    // (`sprite_render_size`, which fits the body into whatever box it is handed)
-    // reproduce this quad exactly from the collision box below, instead of
-    // re-applying `collision_scale` to an already-sprite-derived box and
-    // ballooning the sprite. Those two publishers disagreed by up to **196%**
-    // before the bbox-quad route (queue D44, 2026-08-08).
+    // Both branches produce `frame x scale`; the renderer must not apply
+    // `collision_scale` again to the resulting collision box.
     let scale = match standing_height {
         Some(height) if body_h > 0.0 => height / body_h,
         // ⚠ **the legacy scale, written out rather than borrowed.** It used to

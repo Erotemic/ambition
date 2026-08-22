@@ -3800,6 +3800,33 @@ Ledger price, exactly as the four-artifact table below predicts: the `.txt`
 fingerprint unchanged, no version bump, one full-path line in
 `rollback-schema-baseline.json` re-pointed.
 
+⛔ **`character_sprites::assets` (1,808 lines) — MEASURED AND NOT CARVE-READY,
+and the module's own doc was wrong about why (2026-08-22).** Its destination
+exists and is named: `{anim, posed_body, attack_hitbox}` left for
+`ambition_character_sprites` on 2026-08-09 and `assets` is the remainder. The
+doc said it stayed because of three couplings; all three measure stale —
+`Platformer2dAssetCatalog`/`ids` are `ambition_asset_manager` re-exports, the
+`ambition_persistence` edge is ONE type (`TextureResolutionScale`) that
+`ambition_sprite_sheet` already carries into the destination, and
+*"bidirectionally coupled to the character-runtime materializer"* is not
+bidirectional at all — `assets` names `character_runtime` in two doc comments
+and nowhere else.
+
+⇒ ⭐ **the real gate is DIRECTION, not coupling.** `character_runtime` calls
+DOWN into `assets`, so carving it would give the monolith a dependency on
+`ambition_character_sprites` — precisely the edge the 2026-08-09 carve was
+shaped to avoid (its own note: keeping the registration behind *"would have made
+the owner depend on the carve, which is the shape that lengthens the workspace's
+serial compile chain"*). ⇒ **it moves when `character_runtime` stops calling
+down, or it moves WITH `character_runtime`.** The corrected reasons are in the
+module's own doc so the next reader does not re-derive them.
+
+⚠ **and one sub-lesson, paid for by a compile error**: `crate::assets::platformer_assets`
+is MOSTLY a re-export of `ambition_asset_manager::platformer_assets`, which is
+not the same as being one — `scaled_asset_id` is a real adapter that takes a
+`TextureResolutionScale` where the underlying function takes an
+`Option<&str>` suffix. ⇒ resolve the NAMES, not the module.
+
 ⭐⭐ **THE FIFTH GATE, RUN ACROSS EVERY MODULE — 2026-08-21.** Which modules hold
 rollback-registered types (asked of the monolith's `rollback_registration.rs`,
 because a module can be rollback state without containing one line that says so):

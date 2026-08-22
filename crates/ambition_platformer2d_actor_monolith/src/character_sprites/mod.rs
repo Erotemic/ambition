@@ -11,10 +11,30 @@
 //!
 //! [`assets`] — the actor/content JOIN: `load_character_sprites_in`,
 //! `sheet_for_character_id_in`, catalog-driven body collision, prop sprite
-//! construction. It stays because it is bidirectionally coupled to
-//! `crate::assets::platformer_assets`, `ambition_persistence::settings` and the
-//! character-runtime materializer, which is the coupling `character_runtime`
-//! shares.
+//! construction.
+//!
+//! ⛔⛔ **THE THREE REASONS THIS PARAGRAPH USED TO GIVE FOR IT STAYING ARE ALL
+//! STALE (measured 2026-08-22), AND THE REAL ONE WAS NOT AMONG THEM.** It said
+//! `assets` was *"bidirectionally coupled to `crate::assets::platformer_assets`,
+//! `ambition_persistence::settings` and the character-runtime materializer"*:
+//!
+//! * `platformer_assets` — the two names taken from it, `Platformer2dAssetCatalog`
+//!   and `ids`, are re-exports of `ambition_asset_manager::platformer_assets`.
+//!   (⚠ the module is not PURELY a re-export — `scaled_asset_id` is a real
+//!   one-line adapter over it — so resolve the NAMES, not the module.)
+//! * `ambition_persistence::settings` — exactly one type,
+//!   `TextureResolutionScale`, and `ambition_sprite_sheet` already carries that
+//!   edge and is already a dependency of `ambition_character_sprites`.
+//! * *"bidirectionally"* — it is not. `assets` names `character_runtime` in two
+//!   DOC COMMENTS and nowhere else; the calls all run the other way.
+//!
+//! ⭐ **and that last measurement is what actually blocks the carve.**
+//! `character_runtime::materialize_declared_character_sprite` and friends call
+//! DOWN into this module, so moving it to `ambition_character_sprites` would
+//! give the monolith a dependency on that crate — the exact edge the 2026-08-09
+//! carve was shaped to avoid, for the serial-compile-chain reason stated below.
+//! ⇒ the gate is not coupling, it is DIRECTION: this moves when
+//! `character_runtime` stops calling down, or moves with it.
 //!
 //! ⭐ **the DERIVATIONS moved out, 2026-08-09.** `{anim, posed_body,
 //! attack_hitbox}` are `ambition_character_sprites` now — a sibling crate this
@@ -54,8 +74,8 @@ mod tests;
 )]
 pub use assets::{
     all_character_sprite_filenames_in, build_npc_sprite_asset, build_prop_sprite_asset,
-    build_prop_sprite_asset_packed, character_sprite_tier, load_character_sprites_in, load_fx_sheets,
-    load_prop_sheet_for_target, materialize_declared_character_sprite,
+    build_prop_sprite_asset_packed, character_sprite_tier, load_character_sprites_in,
+    load_fx_sheets, load_prop_sheet_for_target, materialize_declared_character_sprite,
     portrait_for_declared_character, sheet_for_character_id_in, sheet_for_declared_character,
     sprite_body_collision_for_character_id_in, SpriteMaterialization,
 };

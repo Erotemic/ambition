@@ -186,8 +186,22 @@ CLEAN; its manifest declares `MaryOBlock` and always did. Only `sandbox.ldtk`
 genuinely fails, with 4 false-positive errors: cross-world `LoadingZone` targets
 the single-file validator cannot see into a sibling world.
 
-▢ **the fix is cross-world resolution (or a documented suppression) for four
-edges, and nothing for Mary-O.** ⛔ do NOT hand-write an entities manifest for
+✔✔ **CROSS-WORLD RESOLUTION LANDED — verified 2026-08-22, and all ten worlds
+pass with zero errors.** `validate.py:725` builds a `(activeArea, zone_id)` index
+over the secondary world files *"so cross-file `LoadingZone.target_room`
+references don't false-positive"*, and the check is still live rather than
+weakened: poisoning one `target_room` in a copy produces **exactly one** error
+naming the poison, while an unpoisoned sibling in the same directory passes.
+
+⛔⛔ **AND THE VALIDATOR IS LOCATION-SENSITIVE, WHICH LOOKS EXACTLY LIKE THE OLD
+BUG.** Validating a world file copied AWAY from its siblings reproduces all four
+cross-world errors, because the secondary-world index resolves paths relative to
+the file. ⇒ this row's *"invocation, because getting it wrong looks like
+success"* has a twin: **getting the LOCATION wrong looks like failure.** Validate
+worlds in place, or copy the whole directory.
+
+~~▢ the fix is cross-world resolution (or a documented suppression) for four
+edges, and nothing for Mary-O.~~ ⛔ do NOT hand-write an entities manifest for
 the map_assets copy: that file is *"the same shape `def register-entity --spec`
 consumes"*, i.e. what editor definitions are GENERATED from, so a second copy
 is a fork of an authoring source.

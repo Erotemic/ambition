@@ -647,12 +647,23 @@ in. The one that was still open was `parallax.rs`, which did not invent a focus 
 LEFT a position at the origin: `.single()` on the main camera returned
 `Err(MultipleEntities)` the instant a second camera existed, and every screen-sized
 backdrop panel stayed at its spawn transform. It declines now.
-▢ **what is still latent**: a view whose `CameraViewState` was never written (no
+✔✔ **BOTH LATENT ITEMS ARE CLOSED — verified 2026-08-22.**
+* the never-written `CameraViewState` cannot happen: it is spawned WITH the view
+  in `camera_snapshot.rs`'s view bundle, under its own comment *"a reader must
+  never see a frame where the view exists and its state does not"*.
+* `MainCameraEntity` no longer loses a writer silently — `publish_main_camera`
+  is **first-writer-wins, LOUDLY**, `tracing::error!`ing the second rig and
+  saying to address several rigs by `MainCamera` + `PresentsView` instead. And
+  the production reader is gone: the kaleidoscope scrim *"used to borrow the
+  gameplay camera through the `MainCameraEntity` resource"*, while
+  `camera_follow` resolves each camera through its own `PresentsView` link.
+
+~~▢ what is still latent: a view whose `CameraViewState` was never written (no
 `camera_follow` in the composition, or a view bound to no camera yet) reports a
 default focus, which IS the world origin — the fallback survives as a component
 DEFAULT rather than as an `unwrap_or`. It is invisible today because such a view's
 projections are isolated onto a band no camera renders, and it becomes visible the
-moment anything draws for a view before its camera resolves.
+moment anything draws for a view before its camera resolves.~~
 ⚠ `MainCameraEntity` is a SEVENTH process-global *"the main camera"* resource that
 this layout has to answer for. Census 2026-08-20: **two writers**
 (`ambition_render::platformer_presentation::spawn_main_camera`,

@@ -7,7 +7,6 @@ use crate::projectile::ProjectileKind;
 
 use super::{
     advance_time, dummy_world, min_app, projectile_test_app, shape_primary, tap_projectile,
-    ControlFrame,
 };
 
 #[test]

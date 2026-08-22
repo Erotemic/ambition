@@ -328,12 +328,10 @@ mod schedule_tests {
 
     use bevy::prelude::*;
 
-    use ambition_input::ControlFrame;
-    use ambition_platformer2d_actor_monolith::actor::{PlayerEntity, PrimaryPlayer};
     use ambition_platformer2d_actor_monolith::schedule::configure_platformer2d_simulation_phases;
     use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
 
-    // A `ControlFrame` writer whose ONLY scheduling constraint is set
+    // A seat-frame writer whose ONLY scheduling constraint is set
     // membership: `InputSet::Route`. It carries no manual ordering against
     // the consumer, so it can only land before the consume if the structural
     // `InputSet::Route.before(PrimarySlotInputCommit)` contract holds.

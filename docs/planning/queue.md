@@ -1243,6 +1243,40 @@ lines of `brain/fighter` + `brain/smash` still sit in `ambition_characters`, a
 floor crate every composition links. That was measured and recorded as blocked
 (`cd4f10f1f`); ⚠ **do not price it as a move.**
 
+⭐⭐ **A CANDIDATE MECHANISM, MEASURED 2026-08-22 — static generic dispatch,
+which is not erasure.** The row says what would unblock this is *"a way for a
+closed enum to be extended from above without erasure, and nobody has one"*.
+Here is one, with its price, so the next session argues with numbers:
+
+```text
+FighterCfg     8 lines      the DATA the enum names by value, that the catalog
+FighterState  22            resolver builds and snapshot_impls encodes
+SmashCfg     157            ⇒ 253 lines, and they STAY
+SmashState    66
+─────────────────
+behaviour  ~15,675          decision, rollout, options, arena, recovery + tests
+```
+
+⇒ `ambition_characters` keeps the 253 lines and declares a TRAIT for the two
+ticks; `tick_state_machine_with_actions<P: PlatformFighterPolicy>` dispatches the
+`Fighter` / `Smash` arms through `P`; the behaviour implements it from a crate
+above. No `Any`, no `TypeId`, no id, no registry — a missing implementation is a
+COMPILE error, which is the property the review's refusal was protecting.
+
+⛔ **and the naive version of this is REFUTED, which is why the trait is needed.**
+"Move the behaviour, keep the data" does not work on its own: `tick_state_machine`
+is ONE function matching every variant and it dispatches DOWN at
+`state_machine/mod.rs:168,171`, so behaviour placement follows the enum unless
+something is threaded through the tick.
+
+⚠ **the price is in the TESTS, not the callers.** Production call sites of
+`Brain::tick*` outside the crate: **three** (`actors/update.rs`, `bosses/tick.rs`,
+the projectile body) — all in the monolith, which is exactly where a concrete
+policy type would be named. But `state_machine/tests.rs` calls the tick **44
+times**, mostly for OTHER variants, and every one would have to name a policy.
+⚠ and the open sub-problem: what a composition with NO platform fighter passes,
+given Rust has no default type parameter on functions.
+
 ⚠ **the paragraph below is the ORIGINAL design statement, kept because it is
 still the right shape — but read it as HISTORY: it describes work that landed.**
 Two typed components, neither erased: control authority (the participant slot a

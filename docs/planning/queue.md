@@ -7117,13 +7117,17 @@ ambition_ui_nav        `RowPress` is a FIELD on a dialog runtime struct, plus
                        interaction across runtime.rs and systems.rs  ⇒ woven in
 ambition_sfx_bank      `ambition_sfx` takes `fnv1a_64` from it — the SfxId HASH,
                        plus SfxBank/EntryRecord/Codec/BankError        ⇒ foundational
-ambition_settings_menu ONE file (`game_shell/pause_menu.rs`), 15 refs, all
-                       `SettingsOptionId`                              ⇒ a boundary CALL
+ambition_settings_menu ONE file (`game_shell/pause_menu.rs`): FOUR of the enum's
+                       61 variants (Mute / Master / Music / Sfx volume) plus
+                       `apply_settings_option`                         ⇒ a boundary CALL
 ```
 
 ⇒ **none is mechanical.** The first two are genuine dependencies; the third is a
-real capability question ("a game shell whose pause menu has no audio rows"),
-which is a decision rather than a gate.
+real capability question — and the honest framing is that the shell REUSES the
+settings IR rather than duplicating four volume rows, which is good design. What
+it costs is a 2,423-line UI crate in every game's closure so that the pause menu
+can change the volume. ⇒ *"a game shell whose pause menu cannot change volume"*
+is the actual question, and it is Jon's.
 
 ⚠ **and `ambition_sfx_bank` is NOT a decomposition node** — I checked, because the
 baseline's `ambition_binding` entry would have licensed reclassifying it instead

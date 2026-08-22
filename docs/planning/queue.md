@@ -1928,7 +1928,27 @@ read IDENTICALLY in the code today, and they must not: **an exemption list is a
 TODO LIST**, and a granted capability a character has no content for owes a NAMED
 GAP WITH AN OWNER, not a quietly different tuning number.
 * ▢ **Mary-O: author a tumble, a get-up and an air jump for her FIGHTER self**
-  (her own crate, beside `smash_moveset.rs`). She authors `air_jumps: 0` for her
+  (her own crate, beside `smash_moveset.rs`).
+  ⭐ **PRICED 2026-08-22, and the three parts are blocked by three DIFFERENT
+  things — none of them "nobody has done it yet".**
+  * the **air jump** is not a free number and **must not be added to
+    `MatchBody`.** That type's own doc refuses it in advance: *"adding a field
+    here is declaring that a MODE owns that number for every fighter alive,
+    which is exactly the claim that must not be made casually"*, and it names
+    this very case as the intended behaviour — *"Mary-O keeps her SMB1
+    convergence on a platform-fighter stage and gets an air dodge; the crawler
+    keeps its crawl."* A fighter-self air jump therefore needs a SECOND tuning
+    for one character, which is the `SmashFighterFacet` D146 deliberately
+    deferred. ⇒ blocked on that deferral, not on effort.
+  * the **tumble and get-up** are ART, and Jon already said so.
+  * ⚠ **and the gap is real and specific**: she authors `air_jumps: 0` while
+    `SMASH_FIGHTER_KIT` grants `double_jump`, so hers is a dead grant of exactly
+    the class `the_stages_body_opens_a_window_for_every_verb_the_stage_grants`
+    catches — except that guard composes `SMASH_FIGHTER_BODY.over(DEFAULT_TUNING)`,
+    *"the body twelve of the fourteen grid fighters actually get"*, and the two
+    that brought their own tuning are the only ones that can contradict the kit.
+    ⇒ **the population the guard cannot see is exactly the population where the
+    defect lives.** She authors `air_jumps: 0` for her
   SMB1 convergence at home; her fighter self wants one, the way Ultimate's Mario
   has one. `air_jumps` is per-fighter in the genre and is NOT a mode's number.
 * ▢ **Sanic moves by `SurfaceMomentum`**, which has no `AxisManeuverState`, so no

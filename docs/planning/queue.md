@@ -357,20 +357,32 @@ post-bonk 0   item (208.0, 304.0)   body (182.4, 336.0)   worn=false
 post-bonk 7   item (208.0, 294.8)   body (183.2, 353.5)   worn=false
 ```
 
-⇒ the wand emerges from the block and RISES (y falling, block top is 288). By
-the end of the 600-frame chase it does not exist and is not worn: *"She is at
-Vec2(233.3, 400.0) … items are []"*.
+⇒ the wand emerges, rises to `y = 272.5` — resting exactly on the block's top
+edge at 288 — and then WALKS right along it. That part is correct and is the
+genre's rule: `wand_reward` is `rises_from_a_block(ItemMotionPlan::walker(..))`,
+and the walker carries `DEFAULT_ITEM_GRAVITY`, so it is meant to leave the block
+and fall to where a walking player meets it.
 
-⛔ **so it is lost between emerging and being collectible**, and the question is
-content-and-feel, not a fixture bug: `chase_until_worn` only WALKS toward the
-item's x. If the wand comes to rest on TOP of the block it is unreachable on
-foot, which is not what the genre does — a Mario mushroom emerges and then
-slides along the ground to where a walking player meets it.
+⛔ **SHE NEVER FOLLOWS IT, AND THAT IS THE ACTUAL DEFECT.** Traced across the
+chase, her x is `201.1302` on frame 18 and still `201.1302` on frame 54 while
+the wand walks 208 → 235:
 
-⇒ **research the genre's rule and ship it** rather than escalating: the reward
-should leave the block and become reachable without a second platforming act.
-⚠ do NOT "fix" this by teaching the fixture to jump onto the block; that would
-assert a game nobody can play.
+```text
+chase 18   item (208.0, 280.4)    body (201.1302, 400.0)
+chase 54   item (235.5, 272.5)    body (201.1302, 400.0)   ← unchanged
+```
+
+⇒ **she is stopped dead just short of the block, on the floor at y=400** — and
+the ground under that block is HIGHER than the floor she is standing on, which
+is the same geometry fact D182 measured from the other direction. So the reward
+is paid onto a ledge the payee cannot climb by walking.
+
+⚠ **the question is level geometry and feel, not the item.** Either the block
+belongs where a grounded player can collect what it pays, or the payout has to
+travel to her. ⛔ do NOT "fix" it by teaching the fixture to jump — that would
+assert a game whose reward needs a platforming act the level never teaches.
+⭐ next step is a measurement, not a decision: what is the ground height profile
+around x=192..224 in 1-1, and is the step authored or accidental?
 
 ⭐ the sibling defect in the same area is FIXED and is the reason this one is
 now visible — see D182.

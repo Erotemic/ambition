@@ -275,3 +275,69 @@ fn a_body_whose_pose_is_written_each_tick_does_not_re_land_each_tick() {
          hundred voices a second of one cue"
     );
 }
+
+/// ⛔⛔ **A CARRIER THAT CLEARS THE GROUND FLAG MUST CLEAR THE BASELINE WITH IT.**
+///
+/// Jon, 2026-08-22: *"Grabbing a character still pushes them into the ground
+/// causing sfx to play repeatedly."* Measured: **120 landings in 120 ticks.**
+///
+/// ⭐⭐ **the two carry tests above miss it by one variable, and that is the
+/// lesson.** Both re-place the body every tick and both pass, because neither
+/// touches `on_ground` — and the real carriers do. `constrain_captive_bodies`
+/// and the mount's saddle pin each wrote `on_ground = false` beside the pose,
+/// which does not say *"this body is being carried"*, it says **"this body was
+/// AIRBORNE last tick"**. The kernel then samples support at the forced pose,
+/// reads `false -> true`, and reports a LANDING: an `SfxMessage::Land` and a
+/// dust puff at the feet, every tick, for the length of the grab.
+///
+/// `BodyGroundState::invalidate()` is the call that already meant this — *"after
+/// a discrete pose change … the next movement step establishes a new baseline"*
+/// — and a carry is a discrete pose change happening every tick. A carried body
+/// has no contact HISTORY to transition from, which is a different claim from
+/// having been in the air.
+#[test]
+fn a_carrier_that_clears_the_ground_flag_does_not_re_land_the_body_each_tick() {
+    let world = test_world();
+    let mut scratch = crate::body_clusters::BodyClusterScratch::new_with_abilities(
+        world.spawn,
+        AbilitySet::sandbox_all(),
+    );
+    for _ in 0..30 {
+        step_scratch(&world, &mut scratch, InputState::default());
+    }
+    assert!(scratch.ground.on_ground, "the fixture starts grounded");
+    let carried_at = scratch.kinematics.pos;
+
+    let mut landings = 0usize;
+    let mut grounded_samples = 0usize;
+    for _ in 0..120 {
+        // THE CARRY, both halves of it, exactly as a captor and a mount write it.
+        scratch.kinematics.pos = carried_at;
+        scratch.ground.invalidate();
+        let events = step_scratch(&world, &mut scratch, InputState::default());
+        if matches!(
+            events.ground_contact,
+            crate::movement::GroundContactTransition::Landed { .. }
+        ) {
+            landings += 1;
+        }
+        if scratch.ground.on_ground {
+            grounded_samples += 1;
+        }
+    }
+
+    //  the zero floor. The hold is ON the floor line, so every tick DOES
+    // sample support — a run that never touched geometry would report zero
+    // landings while measuring nothing, which is how the two tests above missed
+    // this in the first place.
+    assert!(
+        grounded_samples > 0,
+        "the carried body never touched the floor, so this measured nothing"
+    );
+    assert_eq!(
+        landings, 0,
+        "a carried body re-landed {landings} time(s) in 120 ticks — with \
+         `on_ground = false` instead of `invalidate()` this is 120, one \
+         `SfxMessage::Land` and one dust puff per tick for the whole grab"
+    );
+}

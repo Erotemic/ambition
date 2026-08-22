@@ -319,7 +319,12 @@ pub fn sync_riders_to_mounts(
         ae::movement::constrain_body_pose(rider.kin, mount_c.kin.pos + rider_local, ae::Vec2::ZERO);
         rider.kin.facing = mount_c.kin.facing;
         rider.surface.gravity_scale = 0.0;
-        rider.ground.on_ground = false;
+        // ⛔ `invalidate()` for the same reason a captive gets it: the saddle pin
+        // is a discrete pose write every tick, so clearing the flag without the
+        // BASELINE leaves the kernel believing the rider was airborne — and a
+        // saddle that puts a rider against geometry then re-lands it every tick.
+        // Latent on `pirate_sky_lookout` only because its riders are in the sky.
+        rider.ground.invalidate();
         // Keep the CenteredAabb mirror in sync so damage / spatial
         // queries on the same tick see the rider where it visually
         // sits. update_ecs_actors writes this from rider.kin.pos at the

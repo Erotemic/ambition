@@ -821,6 +821,70 @@ mod tests {
         );
     }
 
+    /// ⛔⛔ **A HELD BODY'S CONTACT BASELINE IS INVALIDATED, NOT JUST ITS FLAG.**
+    ///
+    /// Jon, 2026-08-22: *"Grabbing a character still pushes them into the ground
+    /// causing sfx to play repeatedly."* This system used to write
+    /// `on_ground = false` beside the pose, which does not say *"carried"* — it
+    /// says **"airborne last tick"**. The kernel then samples support at the
+    /// forced pose, reads `false -> true`, and reports a LANDING: an
+    /// `SfxMessage::Land` and a dust puff at the feet, EVERY TICK.
+    ///
+    ///  this asserts `contact_initialized`, which is the half that was
+    /// missing. `on_ground` was already false and stayed false, so a test that
+    /// only read the flag agreed with the bug. The behavioural half — 120
+    /// landings in 120 ticks — is
+    /// `movement::tests::contacts::a_carrier_that_clears_the_ground_flag_does_not_re_land_the_body_each_tick`
+    /// in the core; this one pins the WIRING that test cannot see.
+    #[test]
+    fn a_held_bodys_contact_baseline_is_invalidated_every_tick() {
+        let mut app = App::new();
+        app.add_systems(Update, constrain_captive_bodies);
+        let captor = grounded_body(&mut app, "captor", ae::Vec2::new(100.0, 50.0));
+        let victim = grounded_body(&mut app, "victim", ae::Vec2::new(400.0, 400.0));
+        app.world_mut().entity_mut(victim).insert((
+            CapturedBy {
+                captor,
+                hold_offset_local: ae::Vec2::new(20.0, -4.0),
+                prior_gravity_scale: 1.0,
+            },
+            fresh_hold(),
+        ));
+
+        // The fixture starts with a settled, believed baseline — exactly what a
+        // body that was standing when it got grabbed carries in.
+        assert!(
+            app.world()
+                .get::<ambition_platformer2d_core::BodyGroundState>(victim)
+                .unwrap()
+                .contact_initialized,
+            "the fixture must start with a real baseline or this measures nothing"
+        );
+
+        for tick in 0..3 {
+            app.update();
+            let ground = app
+                .world()
+                .get::<ambition_platformer2d_core::BodyGroundState>(victim)
+                .unwrap();
+            assert!(
+                !ground.contact_initialized,
+                "tick {tick}: the hold left the captive's contact BASELINE \
+                 standing, so the next kernel step reads airborne -> grounded \
+                 and voices a landing",
+            );
+            assert!(
+                !ground.on_ground,
+                "tick {tick}: a held body is not standing"
+            );
+            // Put the baseline back, as a kernel step would.
+            app.world_mut()
+                .get_mut::<ambition_platformer2d_core::BodyGroundState>(victim)
+                .unwrap()
+                .contact_initialized = true;
+        }
+    }
+
     /// A CAPTOR KEEPS ITS ATTACK PRESS AND LOSES EVERYTHING ELSE.
     ///
     /// Both halves matter and they fail in opposite directions: strip the attack
@@ -1494,7 +1558,15 @@ pub fn constrain_captive_bodies(
         // Gravity is SUSPENDED, not deleted — `CapturedBy::prior_gravity_scale`
         // holds what to give back.
         surface.gravity_scale = 0.0;
-        ground.on_ground = false;
+        // ⛔⛔ **`invalidate()`, NOT `on_ground = false`.** A hold writes the
+        // captive's pose discretely every tick, which is precisely the "discrete
+        // pose change" this call exists for: it clears the contact BASELINE as
+        // well as the flag. Setting only the flag tells the kernel this body was
+        // AIRBORNE last tick, so the moment the hold puts it against the floor
+        // the kernel reads `false -> true` and reports a LANDING — every tick,
+        // for as long as the grab lasts. That is one `SfxMessage::Land` and one
+        // dust puff per tick, which is what a grab sounded and looked like.
+        ground.invalidate();
         //  the coarse-box mirror moves in the SAME tick, exactly as the mount's
         // does: combat and presentation both read it, and a captive whose damage
         // box stayed where it was grabbed could be hit in mid-air by a strike

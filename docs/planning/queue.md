@@ -492,13 +492,35 @@ it a project; it is a standing habit.
 | portal transit shaping was primary-only | ✔ per-seat; `PlayerMovementIntent` deleted with its two mirror systems, three brackets, init and rollback registration (−437 lines) |
 | contradictory pre/post-latch contracts | ✔ reconciled: proposal-side stages run before the commit, stages deriving from confirmed input run in the sim schedule |
 | `BodyContactBlocker.velocity` overclaimed | ✔ renamed `entry_velocity`; the division is documented as a conservative approximation |
-| select cursor clamped an identity | ✔ debug-asserts and logs instead of silently meaning another player |
+| select cursor clamped an identity | ✔ and then FINISHED 2026-08-22 — the debug-assert kept the clamp in release, so a bad seat still moved another player's cursor. `seat`/`seat_mut` now return `Option` and `try_grab` refuses. See (h) |
 
 ⛔ **the SDI fix carries the reviewer's wider point, which outlives it**: moving
 a bare pose write into `movement/authority.rs` satisfies the source scanner
 *because* that directory is skipped as the home of sanctioned authorities.
 Naming an authority is not being one — a source-text ratchet cannot enforce a
 spatial invariant.
+
+**(h) ✔ THE THIRD GPT REVIEW (of `bce58a83b`) IS WORKED, 2026-08-22.** Its
+seven-item order was followed; each claim was grepped against HEAD first, and two
+did not survive that.
+
+| finding | outcome |
+| --- | --- |
+| `SelectCursors` still clamps a bad seat onto a real player | ✔ accessors return `Option`; `try_grab` refuses. Test pins that the LAST seat is untouched by a request past the end |
+| `body_driving_seat` picks the first of two claimants | ✔ returns `None`. Its `debug_assert!(false)` went too: debug panicked while release drove an arbitrary body, so the builds disagreed about what a violated invariant DOES — which is why the release behaviour was never seen, and why it could not be tested |
+| `shape_seat_frame` dual-writes raw + published | ◐ recorded as decision §31; the requested caller-count guard DECLINED as meta-test machinery |
+| control vocabulary accumulating under `brain` | ✔ 321 lines to `ambition_characters::control`, ~250 refs re-pointed, no migration re-export |
+| `LimbSlot` is a closed enum documented to grow per content | ✔ validated open id (`Copy`, bytewise order, `[a-z0-9_]`); probe key is an FNV hash where an enum cast stood |
+| projectile collision is endpoint-only, first-victim-wins | ▢ recorded beside the bolt ruling; ⚠ one correction — projectiles ARE sorted by spawn sequence, so it is arbitrary arbitration, not a desync |
+| gesture timers read `Res<Time>` under a policy waiver | ✔ `WorldTime::wall_dt()`, plus the `.after(refresh_world_time)` edge the review did not mention: a snapshot has an ordering dependency Bevy's `Time` does not |
+| stale contracts in touched files | ✔ `PlayerMovementIntent` (4 files), possession-as-brain-transfer (3), primary-owns-the-global-frame (2), and four `[[memory links]]` that must never be in the repo |
+
+⇒ ⚠ **two of its claims did NOT hold at HEAD**: the projectile loop's comment
+already described the shared victim geometry correctly, and `brain`'s module doc
+no longer claimed control authority flowed through it. ⭐ the rule that caught
+both is this ledger's own — grep for the thing a report says is there before
+acting on it, including when the report is a careful review.
+
 
 - ▢ **D179 — ONE CONTACT DEFECT LEFT; THE SPLIT AND THE SCOPING ARE CLOSED.** (found
   2026-08-21, by GPT review of `f8ad04f9a`)

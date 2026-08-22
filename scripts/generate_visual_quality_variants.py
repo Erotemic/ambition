@@ -1091,9 +1091,6 @@ def assert_one_manifest_per_page(claims: dict[Path, list[Path]], src: Path) -> N
     every file is present, and the asset contract is satisfied. It surfaces on
     a device as one character cropping garbage out of a correct-looking sheet.
 
-    Found 2026-08-02 (queue-72h S52): a `pirate_heavy_spritesheet.ron` left
-    behind in May, after that target was split into per-variant sheets, still
-    named Broadside Bess's page. It won the write and she rendered mis-cropped.
 
     ⚠ counts distinct FILES, not records: one multi-record manifest sharing a
     page across its own records (the lab props) is the legitimate case.

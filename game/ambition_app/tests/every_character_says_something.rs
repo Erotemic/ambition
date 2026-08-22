@@ -35,12 +35,8 @@ use ambition_app::app::{build_visible_app, VisibleRenderMode};
 #[test]
 fn every_composed_character_can_say_at_least_one_line() {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
-    // THE BARRIER, or the registry is not the cast. `register_character`
-    // queues a definition; the prepared registry is PUBLISHED once, whole, at
-    // `Plugin::finish`. Reading it off a freshly built App finds a partial cast
-    // — which is how the first version of this test reported three characters
-    // mute that had voices, and would equally have reported a real one silent
-    // as fine.
+    // Finalize before reading the cast: character registration is queued and the
+    // prepared registry is published as a whole during `Plugin::finish`.
     ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
     let catalog = app.world().resource::<CharacterCatalog>();
     let registry = app

@@ -40,13 +40,8 @@ fn set_membership(
                 .systems()
                 .expect("initialized above, so the systems are enumerable")
             {
-                // EXCLUDE `SystemTypeSet`. Bevy puts every system into an
-                // automatic per-system-type set so that `.after(my_system)` can
-                // resolve. Counting those made the first draft of this census
-                // report 97% "in a set" — a measure of Bevy's own bookkeeping,
-                // not of authored structure, and it would have said the gating
-                // work was nearly free. Sampling the parent NAMES is what caught
-                // it; the sample showed `SystemTypeSet(fn …)` and nothing else
+                // Exclude Bevy's automatic `SystemTypeSet`; this census measures
+                // authored schedule structure, not per-system bookkeeping sets.
                 // for row after row.
                 //
                 // and this is done STRUCTURALLY, without naming anything.

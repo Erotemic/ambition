@@ -363,10 +363,8 @@ fn spawn_fighter(
         .get(character_id)
         .expect("the fighter must be registered before it is staged")
         .clone();
-    // Deliberately WIDER than the authored torso: if the body's bounding box and
-    // its authored silhouette are the same rectangle, no test here can tell which
-    // one damage consulted. That is not a hypothetical — the first version of these
-    // tests used a 20-wide body and proved nothing.
+    // Keep the body wider than the authored torso so the test can distinguish
+    // body bounds from the authored damage silhouette.
     let body = Vec2::new(40.0, 32.0);
     // ...and that is ASSERTED, not commented. Read the authored width off the definition and
     // check it here, so widening the torso breaks the fixture that depends on it being narrow

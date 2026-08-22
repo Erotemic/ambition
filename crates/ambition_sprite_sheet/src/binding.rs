@@ -1,11 +1,7 @@
-//! The [`AnimRow`] namespace: resolving an animation name against the sheet that
-//! actually has the rows.
+//! Typed animation-row binding for one sprite sheet.
 //!
-//! So there is no name→row lookup on `SheetRecord` any more. A consumer asks the
-//! sheet for its [`Resolver`], resolves through a
-//! [`BindingLedger`](ambition_platformer2d_shared_tangle::binding::BindingLedger),
-//! and then indexes the rows with the resulting [`Bound`] — which it can only
-//! hold because the row exists.
+//! Resolve names through the sheet's [`Resolver`], then index with the resulting
+//! [`Bound`].
 
 use ambition_platformer2d_shared_tangle::binding::{Bound, Namespace, Ref, Resolver};
 
@@ -38,37 +34,10 @@ impl SheetRecord {
         Resolver::new(self.rows.iter().map(|row| row.animation.as_str()))
     }
 
-    /// The row a resolved reference names.
+    /// Return the first row in `chain` that this sheet contains.
     ///
-    /// `Bound<AnimRow>` proves the row existed in SOME sheet, not in THIS one:
-    /// the namespace marker names the family, never the authority that assigned
-    /// the slot, so `sheet_b.row(&sheet_a_bound)` type-checks. Two sheets with
-    /// different layouts would then silently return an unrelated row at the same
-    /// index, or panic out of bounds.
-    ///
-    /// So the agreement is checked here, for real — an `assert!`, not a
-    /// `debug_assert!`, because a release build is exactly where a wrong row is
-    /// least visible. It costs one short string compare against a slot we are
-    /// about to index anyway. Using a bound from another sheet is a programmer
-    /// error, not a content typo, so it is loud rather than degradable.
-    /// The first row of `chain` this sheet actually has.
-    ///
-    /// the seam that lets an authored CLIP be drawn without an engine enum
-    /// variant. A `MoveSpec` names its clip
-    /// and its fallbacks — `smash_forward`, then `attack_side`, then `slash` —
-    /// and the runtime's typed `CharacterAnim` vocabulary cannot grow one variant
-    /// per expressive row without becoming the 271-entry fighter-motion catalog.
-    /// A full sheet draws the exact clip; a lean one falls through to something
-    /// it does have; a sheet with none of them gets `None` and the caller's
-    /// semantic ladder answers instead.
-    ///
-    /// it returns `Option`, never index 0. The habit this replaces is
-    /// `row_index_of(name).unwrap_or(0)`, which draws IDLE for a missing attack
-    /// row and looks like a character that simply does not swing.
-    ///
-    /// order is the AUTHOR's, not this function's: the chain is tried left to
-    /// right and the first hit wins, so a fallback list is a preference and not a
-    /// set.
+    /// Chain order is authored fallback priority. Missing every row returns
+    /// `None`; it never substitutes row 0.
     pub fn first_bound_row<'a>(
         &self,
         chain: impl IntoIterator<Item = &'a str>,
@@ -77,6 +46,10 @@ impl SheetRecord {
         chain.into_iter().find_map(|name| rows.bind(name))
     }
 
+    /// Return the row named by `bound`.
+    ///
+    /// `Bound<AnimRow>` identifies the namespace, not the resolver instance, so
+    /// the slot/id pair is checked against this sheet to reject cross-sheet binds.
     pub fn row(&self, bound: &BoundAnimRow) -> &SheetRow {
         let found = self.rows.get(bound.slot());
         assert_eq!(

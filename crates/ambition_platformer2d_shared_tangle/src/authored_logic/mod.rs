@@ -224,10 +224,8 @@ impl ConditionOutcome {
 ///
 /// Answer a question about identities, not about a sequence.
 ///
-///  `&World` and not `&mut World`, which a first draft assumed was
-/// impossible. `World::try_query` builds a `QueryState` from a shared
-/// reference, so an evaluator can query without the exclusive access that would
-/// make every condition serialise against every other.  and its `None` arm is
+/// `&World` is sufficient: `World::try_query` permits evaluation without
+/// exclusive world access. Its `None` arm is
 /// meaningful rather than a nuisance: a domain asking about a component no
 /// installed plugin registered is genuinely *unanswerable*, not false — which is
 /// the same distinction [`ConditionOutcome`] exists to keep.

@@ -1,33 +1,10 @@
-//! LDtk file-loading policy.
+//! LDtk file-loading policy for worlds declared by a `WorldManifest`.
 //!
-//! Decides whether the live build reads a world's checked-in file from
-//! disk, an env-override path, or the statically embedded copy — for
-//! every world the caller's [`WorldManifest`] declares.
-//! Pure I/O policy — no validation or runtime conversion lives here, and
-//! no world is named here (the manifest rows carry identity, paths, and
-//! embedded fallbacks).
-//!
-//! Per row, the path is selected by
-//! [`crate::assets::platformer_assets::Platformer2dAssetCatalog`] under the active
-//! [`ambition_asset_manager::AssetProfile`]:
-//! - `DesktopDevLoose` / `DesktopInstalled` / `SteamDeckInstalled` →
-//!   `LocalPath` resolved against the canonical assets root.
-//! - `AndroidBundle` / `IosBundle` / `WebStatic` / `BundledStatic` →
-//!   the row's `embedded_text` (present when the authoring crate built
-//!   with its static-embed feature).
-//! - `WebHttp` → HTTP candidate if authored; currently falls back to
-//!   embedded.
-//! - `NoAssets` / `Headless` → `Disabled` → loader returns the
-//!   required-asset error for the primary world.
-//!
-//! ## Multi-file world composition
-//!
-//! Secondary worlds are authored against the same project defs as the
-//! primary (cloned via `python -m ambition_ldtk_tools world init`) so their
-//! entity/layer uids match — the runtime simply appends their `levels`
-//! arrays into the merged in-memory `LdtkProject` without remapping.
-//! Every level keeps its own iid, activeArea, and LoadingZone targets, so
-//! cross-file room transitions work via the standard target_room mechanism.
+//! Asset profile selects loose/installed paths, embedded text, HTTP candidates,
+//! or disabled/headless behavior; validation and runtime conversion live
+//! elsewhere. Secondary projects share the primary project definitions, so their
+//! level arrays can be appended without uid remapping while retaining level iids
+//! and cross-file room targets.
 
 use std::fs;
 use std::path::Path;

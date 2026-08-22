@@ -75,14 +75,8 @@ mod tests {
     /// One authored tile; this is a grid unit, not a placement coordinate.
     const T: f32 = crate::T;
 
-    /// The IntGrid cell — half a tile, and the smallest hole an author can make.
-    ///
-    /// the sweeps below step by CELL, not by tile, and that is not fussiness.
-    /// The first draft walked in whole tiles and probed with a quarter-tile box,
-    /// which leaves 16px of every tile unexamined: a probe that erased one roof
-    /// cell left the test GREEN, because the box straddled the cell next to the
-    /// hole. A check whose resolution is coarser than the thing it checks is a
-    /// check that passes for the wrong reason.
+    /// IntGrid cell size: the smallest authored hole. Sweeps step at this
+    /// resolution so no cell can be skipped by a coarser tile-sized probe.
     const CELL: f32 = T * 0.5;
 
     /// Is anything solid in this cell?

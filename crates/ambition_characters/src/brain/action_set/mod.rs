@@ -994,42 +994,14 @@ pub fn resolve(
 #[cfg(test)]
 mod tests;
 
-// THE ONE FIELD TYPE THAT KEPT `CharacterDefinition` IN THE MONOLITH.
-//
-// Asking it once, the answer was short: every other field on that struct is already an
-// `ambition_characters`, `ambition_platformer2d_core` or `ambition_entity_catalog` type — and
-// `ranged_execution` was a monolith one, so the struct could not follow.
-//
-// It belongs here on its own merits, not only to unblock a move. It decides how
-// an `ActionSet`'s `ranged` and `special` presets fold into a body's moves,
-// which is a question about the action set sitting one screen up; the crate that
-// happens to BUILD the character today is not the authority on how that
-// character fires. Its own doc already says as much about the `HostCharge`
-// rename: *"Charging is a fact about a CHARACTER's ranged attack, not about
-// which crate happens to build that character today."*
-
-/// A body that fires has exactly one mechanism for it, and which one it is
-/// decides more than it looks:
-///
-/// * whether the action set's `ranged` preset folds into the derived moveset,
-/// * whether its `special` preset does,
-/// * whether the protagonist's blade SFX is stamped over the derived melee,
-/// * and whether the body carries `ChargesProjectiles` and its projectile state.
-///
-/// A fifth consultation could have been written in a third spelling without contradicting
-/// anything, which is what the queue meant by warning that a new name is only worth having if
-/// it becomes the SOLE switch.
-///
-/// It is not a component. `ChargesProjectiles` is the runtime marker and stays
-/// exactly as it was; this is the derivation-time decision that installs it.
+/// Derivation-time choice for how a body's ranged input executes. This is the
+/// sole switch for folding ranged/special presets, applying ranged presentation,
+/// and installing charge-projectile runtime state. `ChargesProjectiles` remains
+/// the runtime marker.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum RangedExecution {
-    /// A CHARGEABLE PROJECTILE owns the ranged press — hold to build, release
-    /// to fire.
-    ///
-    /// its ranged verb is NOT a moveset move — folding one in would make one
-    /// press do two things, which is the test that went red when the queue's H2
-    /// first tried passing `set.ranged` unconditionally.
+    /// A chargeable projectile owns the ranged press; do not also fold the
+    /// action set's ranged verb into the moveset.
     ChargedProjectile,
     /// A moveset verb derived from the action set's own `ranged` preset.
     ///

@@ -1,15 +1,7 @@
-//! The real Sanic lifecycle, gate-enforced.
+//! End-to-end Sanic lifecycle through the real headless host.
 //!
-//! The first required campaign milestone: Sanic is a real composable experience
-//! with direct standalone entry, host-relative Quit to Home, complete
-//! activation-scoped teardown, and repeatable relaunch — proven by driving the
-//! actual `build_demo_app()` host (foundation + engine + host + shell + the Sanic
-//! provider) headlessly and asserting on the real simulation.
-//!
-//! This is not a shell-only mock: the player body is `simulation_world`'s real
-//! output, the act state is the mode/session-scoped rules owner, and teardown is
-//! the generic `SessionScopeRetired` sweep. A leak or a duplicate would show up as
-//! a surviving player, a stale act state, or an orphaned session-scoped entity.
+//! The test covers standalone entry, host-relative Quit to Home, activation-scoped
+//! teardown, and repeatable relaunch using real simulation state.
 
 use bevy::prelude::*;
 

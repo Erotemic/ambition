@@ -400,30 +400,15 @@ fn every_state_bearing_rollback_registration_owns_a_localization_probe() {
     );
 }
 
-/// Every probe that can see only PRESENCE is written down, with a reason.
+/// Every presence-only rollback probe is enumerated with a reason.
 ///
-/// The test above compares type NAMES, which a presence-only probe satisfies while
-/// reporting nothing about the value. So "254 of 254 probed"
-/// was true and weaker than it read: a restore that put back the right NUMBER of
-/// `ProjectileOwner`s and pointed one bolt at the wrong body changed no census.
-///
-/// The response is not to demand a value projection everywhere — some registrations
-/// genuinely have none, and a checksum the GGRS aggregate must not see cannot be
-/// invented here. It is to make the weakness ENUMERATED. Every presence-only probe
-/// appears below with the reason it is weak; a new one fails this test until somebody
-/// writes down why, and an entry that stops being presence-only fails it too, so the
-/// list cannot rot into a description of an older world.
-///
-/// This is the same discipline as the coverage sweep's waiver list, applied to the
-/// other axis: the sweep says which types are unlooked-at, and this says which of the
-/// looked-at ones are only counted.
+/// Presence counts cannot detect value corruption, so new weak probes must be
+/// explicitly justified. Registrations that gain value probes must also leave this
+/// list, keeping the weakness inventory synchronized with probe strength.
 #[test]
 fn every_presence_only_probe_is_named_with_its_reason() {
-    // EXACT full Rust type names, and a reason each. Substring fragments were the
-    // first version and manufactured their own false confidence: an entry reading
-    // `"::Encounter"` silently absolved a future `EncounterMutableRuntimeState`
-    // . An allowlist that approximately matches is one that
-    // grows without anybody deciding.
+    // Require exact Rust type names plus a reason. Substring allowlists can
+    // accidentally exempt future types that merely share a name fragment.
     //
     // DERIVED registrations are not listed here. Their justification is the rebuild
     // promise they already declare at the registration site — `declare_rollback_derived_*`
@@ -1060,20 +1045,9 @@ fn walk_the_combat_route(sim: &mut Platformer2dSimHarness) -> RouteWalk {
     walk_the_combat_route_with(sim, targets)
 }
 
-/// The route, against targets somebody else already identified.
-///
-/// the population sweep could not use `walk_the_combat_route`, and that is
-/// why it could never finish. The sweep's whole question is *"does the
-/// divergence still need this class?"*, so it DESPAWNS a class and re-runs — and
-/// the route's first act was to assert that class is present. `no_brick` removed
-/// every `BreakableFeature` and then the calibration refused to proceed with
-/// *"the calibration lab must author a breakable named `calibration_brick` …
-/// Present: []"*, which reads as a broken room and was a broken question.
-///
-/// the guard is right and stays — a fixture's health belongs in its own assertion, three
-/// times over in this ledger. So the sweep calibrates the intact world, despawns, and walks
-/// with the ids it already has; every consumer of `OracleTargets` is an `.any()` or a
-/// `.find().map()` and tolerates a target that is now gone.
+/// Walk the route using targets identified while the intact fixture was
+/// calibrated. Population-isolation runs may despawn a target afterward, so
+/// target lookups in this path must tolerate absence.
 fn walk_the_combat_route_with(
     sim: &mut Platformer2dSimHarness,
     targets: OracleTargets,
@@ -1280,17 +1254,9 @@ fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
         "the armor row was never consumed in {frames_run} frames — the oracle \
          never exercised equipment state"
     );
-    // A16: these two are asserted again, and the route reaches them.
-    //
-    // The inverted guard is what reported that the route had started reaching them.
-    //
-    // What was actually wrong was the STEERING, not the props: the policy aimed at
-    // the brick's centre, walked into a 48x48 block whose top face stands 32 above
-    // the floor, and the route's periodic hop put the player ON it — swinging
-    // horizontally over the thing it was trying to break, for 2400 frames. It now
-    // stops clear of the face and does not hop while the brick is the objective.
-    // The switch was never unreachable; it was simply gated behind the brick in
-    // route order.
+    // The route must physically exercise both targets. Stop clear of the brick
+    // face and suppress hopping while it is the objective so horizontal attacks
+    // can connect before proceeding to the switch.
     assert!(
         events.brick_broken,
         "the brick was never broken in {frames_run} frames — Track 0's exit \

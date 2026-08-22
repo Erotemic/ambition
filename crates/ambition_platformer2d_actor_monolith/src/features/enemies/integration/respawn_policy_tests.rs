@@ -82,15 +82,8 @@ fn a_room_reset_restores_a_live_actor_to_full_health_regardless_of_policy() {
     );
 }
 
-/// A respawn RESTARTS the body, and says so. (Campaign 3B)
-///
-/// `reset_to_spawn` moved the body with `transit_body` under the comment
-/// "respawn is a discrete transit (ADR 0024 authority)". That is right about the
-/// POSE and silent about everything else: `transit_body` documents that maneuver
-/// state (coyote, buffers, dash timers) is deliberately KEPT — true of a blink,
-/// false of coming back from the dead — and it does not raise
-/// `restart_pending`, so `ae::BodyRestarted` never fired for an enemy and no
-/// provider ever heard that one had respawned.
+/// Respawn is a body restart, not merely a transit: it resets maneuver state and
+/// raises `BodyRestarted` while preserving the body's authored size.
 #[test]
 fn a_respawn_announces_a_restart_and_keeps_the_bodys_own_size() {
     let size = ae::Vec2::new(24.0, 40.0);

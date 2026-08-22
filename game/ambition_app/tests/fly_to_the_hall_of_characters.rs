@@ -120,10 +120,8 @@ fn flying_to_the_hall_of_characters_door_and_pressing_interact_loads_the_hall() 
         let here = body_pos(&mut sim);
         closest = closest.min((target - here).length());
         let to = target - here;
-        // INTERACT ONLY INSIDE THE TARGET ZONE, and the first version of this test got it
-        // wrong in an instructive way. Holding interact for the whole flight means "enter the
-        // first door I brush past": the hub authors eighteen of them, and she took
-        // `pirate_cove` on the way to the hall.
+        // Interact only inside the target zone; holding interact during transit can
+        // activate unrelated doors along the route.
         let inside = here.x >= door.aabb.min.x
             && here.x <= door.aabb.max.x
             && here.y >= door.aabb.min.y

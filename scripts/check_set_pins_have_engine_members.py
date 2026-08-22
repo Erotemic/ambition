@@ -79,10 +79,8 @@ def _sources(repo: Path):
 def collect(repo: Path = REPO) -> list[tuple[str, str, list[str], list[str]]]:
     """(set, defining_crate, engine crates pinning it, crates registering members)."""
     game_root = repo / GAME_ROOT
-    # derived per call, never cached in a module global. The first version
-    # cached it, and the guard's own test suite walks SYNTHETIC trees before
-    # asserting against the real one — the real-tree assertion would have run
-    # with a fake crate list and quietly meant nothing.
+    # Derive this per call because tests run the collector against synthetic
+    # trees before querying the real repository.
     game_crates = {p.name for p in game_root.iterdir()} if game_root.is_dir() else set()
 
     defined: dict[str, str] = {}

@@ -1,33 +1,9 @@
-"""Every character a catalog names has a sheet `regen_sprites.sh` publishes.
+"""Every assembled character must be published by the root sprite regeneration script.
 
-Generated art is **gitignored**. A character whose spritesheet no regen batch
-produces therefore exists only on machines that once rendered it by hand, and is
-simply absent from a fresh clone — with nothing anywhere saying so, because every
-developer who could notice already has the file.
-
-⛔ **This has now been found three times, each time by accident.**
-
-* five Hall characters, recorded in `regen_sprites.sh` itself as *"previously
-  depended on manually generated local assets and therefore disappeared on a
-  fresh clone"*;
-* `mary_o_v2` and its two forms, 2026-08-05, found because six portraits were
-  blank in a new character-select grid — four separate surfaces named that sheet
-  family and none of them published it;
-* and then twenty-six more the same day, when Jon asked the obvious next
-  question: *"Are there other characters that don't regen? If there are we need
-  to fix that."* Almost all of them were one cast — the Hall's mathematician and
-  scientist NPCs.
-
-The batch list is hand-maintained, so **every character added since the last
-audit is orphaned by default** and the failure is invisible to whoever added it.
-That is what this test is for: the population is the assembled cast, not a list
-somebody remembered to extend.
-
-⚠ **it reads the SCRIPT rather than running it.** A regen is minutes of
-rendering; the question here is only whether a target is NAMED, which is the
-part that rots. Whether the render then succeeds is `expected_files`' job, and it
-runs in the same script.
-"""
+Generated sprite assets are gitignored, so a target omitted from the regen roster
+can exist on one developer machine and disappear on a fresh checkout. The test
+derives the expected population from the assembled cast and checks that
+`regen_sprites.sh` names each required target."""
 
 from __future__ import annotations
 

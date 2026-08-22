@@ -1,11 +1,7 @@
-"""Smoke tests for the read-only spatial-query subcommands added 2026-06-02.
+"""Smoke tests for read-only LDtk spatial-query commands.
 
-`intgrid query`, `entity measure`, and `gates audit` answer the placement
-questions an LLM map author has before adding a gate (see
-docs/concepts/llm-spatial-authoring-discipline.md). They never mutate the
-project, so these tests build a tiny in-memory LDtk file and assert on the
-stdout each command prints.
-"""
+The suite covers IntGrid queries, entity measurement, and gate auditing used to
+inspect room geometry before authoring edits."""
 
 from __future__ import annotations
 

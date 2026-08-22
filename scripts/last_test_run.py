@@ -1,32 +1,14 @@
 #!/usr/bin/env python3
-"""What did the last `run_tests.py` actually say — and is that answer FRESH?
+"""Read the last `run_tests.py` result and reject stale answers.
 
-⛔ **This exists because the status file reported a run that never happened.**
-Twice on 2026-08-04 a `run_tests.py` invocation failed before it started (a shell
-left inside the renderer submodule, so `scripts/run_tests.py` resolved to a path
-that does not exist, exit 2). The one-liner used to read the result —
-`json.load(...)["completed"]` — printed the PREVIOUS run's per-job table, and
-both times that table said 5/5 green.
+Exit status is the verdict: 0 when every job passed, 1 when a job failed, and 2
+when the status is missing, unfinished, stale, or claims a dead process is still
+running.
 
-⚠ The near-miss was caught by noticing the timings were byte-identical to the run
-before. That is luck, not method. A reader that cannot tell a fresh result from
-an old one belongs to the same family as a check that cannot fail: it reports the
-success condition regardless of what happened.
+Usage::
 
-⭐ **The writer was never the problem.** `run_tests.py` already stamps `pid` and
-`started` into the payload. The gap was that no reader existed, so every caller
-hand-rolled the query and left the freshness check out — and a fact everyone
-re-derives is a fact someone will derive wrong.
-
-So: this is the reader, the exit code is the answer, and it REFUSES rather than
-reports when it cannot vouch for what it found.
-
-    python3 scripts/last_test_run.py            # verdict, or a refusal
-    python3 scripts/last_test_run.py --max-age 5
-
-Exit codes: 0 every job passed; 1 a job failed; 2 the answer is not trustworthy
-(stale, unfinished, missing, or a dead run still marked running).
-"""
+    python3 scripts/last_test_run.py
+    python3 scripts/last_test_run.py --max-age 5"""
 
 from __future__ import annotations
 

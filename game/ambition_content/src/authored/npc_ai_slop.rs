@@ -1,13 +1,7 @@
-//! The Hall's AI Slop, as a placed enemy. One spawn in the sandbox,
-//! one archetype row, and the same creature already standing on a Hall
-//! pedestal — which is the ontology this campaign is about: one
-//! character, two contexts.
+//! AI Slop definition shared by Hall and placed-enemy contexts.
 //!
-//! its catalog row's `default_brain` is `melee_brute_striker`, and that
-//! is NOT what this authors. The catalog default is what a PEACEFUL Hall
-//! NPC of this character does; the profile below is what the placed enemy
-//! does, and they are allowed to differ because the first is a catalog
-//! fact and the second is this character's own default policy.
+//! The catalog default controller describes the peaceful Hall use; the profile
+//! here describes the placed enemy and may differ by context.
 
 use ambition_characters::actor::{CharacterLocomotion, ContactDamage};
 use ambition_characters::brain::{BrainProfile, CharacterBrainTemplate, MoveStyleSpec};

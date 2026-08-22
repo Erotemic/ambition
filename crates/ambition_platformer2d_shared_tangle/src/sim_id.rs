@@ -1,87 +1,24 @@
-//! `SimId` — the one identity vocabulary for snapshot, replay, and netcode.
+//! Stable deterministic identity for snapshot, replay, and netcode.
 //!
-//! > *"One identity vocabulary, shared with SimView. Every snapshot-registered
-//! > entity carries a `SimId` — the EXISTING stable ids, not a new system: actors
-//! > use `ActorConfig.id` (== LDtk iid; placement identity), player bodies use
-//! > their slot, dynamically-spawned sim entities (projectiles, dropped items,
-//! > spawned adds) get a deterministic sequence id minted at spawn (`(spawner
-//! > SimId, per-spawner counter)` — deterministic because the sim is;
-//! > wall-clock/Entity-index ids are forbidden). … `Entity` values never appear in
-//! > a blob."*
-//!
-//! This module is that vocabulary. It is deliberately NOT a new id scheme: every
-//! constructor wraps an identity the sim already has.
-//!
-//! ## Why an entity index is not an identity
-//!
-//! `Entity` is a slot in an allocator. Two sims fed the same inputs can hand the
-//! same body different indices — spawn order across archetypes is not part of the
-//! game's state. A snapshot keyed on `Entity` restores into a different world; a
-//! desync hash keyed on `Entity` cries wolf every run. So a `SimId` is a *string
-//! derived from the game's own facts*, and the constructors below are the only
-//! facts there are.
-//!
-//! ## Why a `String` and not a `u64` hash
-//!
-//! Because a desync report has to be readable. `feature:BossSpawn-4308/3` names a
-//! projectile fired by a boss; `9f3ac21e` names nothing. The ids are compared and
-//! sorted, never hashed for lookup, so the cost is a `strcmp` on a path that runs
-//! once per snapshot, not once per frame.
+//! Ids come from gameplay identity, never Bevy `Entity` allocation or wall time.
+//! Dynamic descendants use `(spawner SimId, per-spawner counter)`, and readable
+//! strings keep desync reports diagnosable.
 
 use bevy::prelude::Component;
 
-/// A stable, deterministic identity for one simulated entity.
+/// Stable ordered identity for one simulated entity.
 ///
-/// Ordered, so a snapshot's entity rows sort into a canonical sequence regardless
-/// of the archetype layout Bevy's `Query` happened to walk (see
-/// `ambition_platformer2d_runtime::rollback` checksum projections).
-///
-/// ## An identity ALWAYS carries the stream its descendants are minted from
-///
-/// [`SimIdCounter`] is not a separate opt-in fact: [`SimId::spawned`] is the only
-/// way to name a dynamically-spawned entity, and it needs a counter *on the
-/// spawner*. So "identified" and "able to be descended from" are the same
-/// condition, and the pairing is structural rather than remembered at each mint
-/// site.
-///
-/// it was remembered at two of the six sites that mint an id. `ensure_sim_id` and Sanic's
-/// scattered rings inserted the pair; the construction executor — which is how every authored
-/// actor, including every boss, reaches the world — inserted the `SimId` alone. Because
-/// `ensure_sim_id` is filtered `Without<SimId>` it then skipped those bodies entirely, so they were
-/// never backfilled. `apply_summon_effects` requires both, so the gradient sentinel's Minima Trap
-/// warned and summoned nothing — a shipped boss with a dead special.
-///
-/// `#[require]` rather than an insert in the executor: the executor is one site
-/// of six, and repairing it alone leaves the same hole at the rest — the
-/// split-offspring path and the strike-volume path each mint a bare `SimId` too.
-/// A required component makes the invariant a property of the TYPE, so a future
-/// mint site cannot omit it.
-///
-/// it never overwrites. A required component is supplied only when absent,
-/// so a snapshot restore that puts back `SimIdCounter(7)` keeps 7, and nothing
-/// double-mints on rollback. `Default` is `0`, which is what a freshly built body
-/// has anyway.
+/// Ordering gives snapshots a canonical entity sequence. Every `SimId` also
+/// requires a [`SimIdCounter`], so any identified entity can mint deterministic
+/// descendants. Required components do not overwrite restored counter values.
 #[derive(Component, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[require(SimIdCounter)]
 pub struct SimId(String);
 
-/// Make one authored segment safe to concatenate.
+/// Percent-escape structural separators in one authored id segment.
 ///
-/// `/` is the structural separator between segments and `:` between a namespace
-/// and its body, so an authored id containing either would produce a string that
-/// parses — to a reader, or to a future tool — as a different identity. Without
-/// this, `placement("giant/0")` and `spawned(placement("giant"), 0)` are the SAME
-/// STRING, and a collision there merges two distinct
-/// entities on restore, misattributes a reference probe, or despawns the wrong
-/// body.
-///
-/// Percent-escaping rather than rejection, because an authored id with a slash in
-/// it is not a mistake the engine gets to veto — LDtk hands over whatever the
-/// designer typed. `%` is escaped first so the encoding stays reversible, which is
-/// what makes it injective: distinct inputs cannot produce the same output.
-///
-/// The common case costs nothing. An id with no reserved character passes through
-/// unchanged, so the ids in a desync report still read as sentences.
+/// Escaping `%`, `/`, and `:` keeps concatenated identities injective while
+/// preserving ordinary authored ids verbatim for readable diagnostics.
 fn escape_segment(segment: &str) -> std::borrow::Cow<'_, str> {
     if !segment.contains(['%', '/', ':']) {
         return std::borrow::Cow::Borrowed(segment);

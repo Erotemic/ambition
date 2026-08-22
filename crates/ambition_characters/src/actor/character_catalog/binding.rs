@@ -63,29 +63,15 @@ impl std::fmt::Display for BrainPresetId {
     }
 }
 
-/// An AUTHORED, provider-relative reference to a brain profile — what
-/// content writes, before anything has resolved it.
+/// Authored, provider-relative reference to a brain profile.
 ///
-///  the distinction from [`BrainPresetId`] is the whole reason this type
-/// exists. `"combatant"` and `"hall::combatant"` are different statements, and
-/// for a while both travelled as a `BrainPresetId` — which meant the newtype
-/// stopped distinguishing anything it was introduced to distinguish. A
-/// reference is provider-RELATIVE and may be ambiguous until a character's own
-/// namespace resolves it; an id is the canonical key into `brain_presets`.
+/// A reference such as `"combatant"` is qualified against the character's
+/// namespace before becoming the canonical [`BrainPresetId`] such as
+/// `"hall::combatant"`. Resolution currently occurs at spawn.
+/// TODO(compat-remove): resolve brain references during preparation and carry
+/// `BrainPresetId` in prepared definitions.
 ///
-/// ```text
-/// authored placement / definition   BrainPresetRef      "combatant"
-///         ↓ qualify against the character's namespace
-/// resolved identity                 BrainPresetId        "hall::combatant"
-/// ```
-///
-///  resolution happens at SPAWN today, in [`resolve_initial_brain`], not at preparation.
-/// So a `PreparedCharacterDefinition` still carries a reference rather than an id — which is
-/// honest about where the work happens, and is itself a thing to fix: a prepared definition
-/// should hold resolved identities.
-///
-///  not to be confused with `content_schema::BrainPresetRef`, which is a
-/// zero-sized CONTENT-KIND tag for the cross-content validator, not a value.
+/// Distinct from `content_schema::BrainPresetRef`, the zero-sized validator tag.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct BrainPresetRef(pub String);
 

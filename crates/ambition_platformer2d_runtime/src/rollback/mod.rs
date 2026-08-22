@@ -106,21 +106,6 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
             ENGINE,
             "resource.quest_registry",
         )
-        // G2b: id → live encounter entity, remapped on every load. A presence probe over a
-        // singleton resource sees "still present"; this sees an id pointing at the wrong
-        // encounter. Folded in the map's own (sorted) key order, so a permutation between two
-        // ids is a difference. G2b: probed through the possessed/home pair's stable identities.
-        // A presence probe over a singleton resource sees "still present" and nothing else —
-        // and a restore that exchanged the possessed body for the home avatar would invert the
-        // whole possession while folding the same census, which is why the ORDER of the pair is
-        // folded in. Cross-frame FIFO: produced in `GameplayEffects`, drained in
-        // `EncounterSimulation` — which is ordered EARLIER, so the queue is non-empty across a
-        // save boundary and a rewind would otherwise replay switch activations the confirmed
-        // timeline already applied . Latent until something mutates them in-session, but a
-        // rewind that keeps a predicted faction flip would be a silent desync — registered
-        // ahead of the first mutating feature (Phase 5 resource-coverage pass). Cross-frame
-        // FIFO: victim-side hits staged in `Combat`, drained by `apply_player_hit_events` in
-        // the NEXT frame's `PlayerSimulation` — same shape as `SwitchActivationQueue` above.
 ;
 
     // Core body state.
@@ -231,26 +216,12 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     // a rules value independently of the declaration that produced it, and the
     // two could then disagree for a frame.
 ;
-    // Scope, projectile, and encounter state. Derived state: one maintenance path, never
-    // restore-only repair code. `ProjectileOwner(Entity)` is now the single firing-occurrence
-    // reference, restored/remapped as entity-bearing rollback state rather than re-derived from
-    // presentation or configuration identity. This was DECLARED DERIVED, on the promise that
-    // `heal_projectile_owners` re-resolves it from `SpawnOrigin::Dynamic { parent }`. The promise
-    // is not kept: that system's query requires `&SpawnOrigin`, and enemy projectiles carry NONE —
-    // measured, `has_origin=false` for every live projectile in the oracle route. So after
-    // bevy_ggrs recreated the entity the component was simply gone, the shot's `HitEvent` was
-    // emitted with `attacker: None`, and the firer's `ranged` move never learned it connected. That
-    // is the equipment oracle's divergence: `MovePlayback.landed_hit` true on three passes and
-    // false on the fourth.
+    // `ProjectileOwner(Entity)` is authoritative entity-bearing rollback state
+    // and is restored with entity remapping; not every projectile carries a
+    // `SpawnOrigin` from which ownership could be re-derived.
     //
-    // It is now ordinary rollback state with entity remapping — the same pairing
-    // `MovePlayback` uses for its own `live_boxes` handles. A derived declaration
-    // is only as good as the system that honours it, and this one names a
-    // component the system cannot even see.
-    // The boss's SIM-OWNED animation cursor, and the hurtbox sample derived from
-    // it. Neither was rollback state, and the coverage sweep never visited a room
-    // with a boss in it, so nothing said so. See `rollback_coverage`'s boss-arena
-    // sweep, added with this.
+    // Boss simulation animation state is also covered here so rollback restores
+    // the cursor that drives derived hurtbox samples.
 
     // G2: probed through the OWNER's stable `SimId`, not by counting carriers.
     registrar

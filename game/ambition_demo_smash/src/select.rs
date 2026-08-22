@@ -14,35 +14,11 @@ use crate::{MatchParticipant, MatchParticipantRoster};
 /// same one `SlotControls` holds.
 pub const MAX_SMASH_SEATS: usize = 4;
 
-/// THE GRID. Edit this list.
+/// Ordered fighter IDs requested by the select grid.
 ///
-/// game in the future, so make it easy to have the exact number of characters
-/// configurable. We may go more than 8."* This is that list, and it is the only
-/// place a fighter is named — the grid reads its column count from the length,
-/// the layout balances the rows around it, and nothing else has an opinion about
-/// how many there are.
-///
-/// it is a WISH LIST, not a guarantee. Ids the composition around this
-/// demo does not carry are dropped by [`SmashRoster::assemble`] — Mary-O, Sanic
-/// and Solid Snake are declared by the demos they belong to, so the standalone
-/// smash app offers only the fighters it declares itself, and the multi-game
-/// host offers the whole crossover cast. Order is preserved.
-///
-/// do not add a fighter by declaring a COPY of it here. The first draft
-/// did exactly that — its own `smash_mary_o`, `smash_sanic`, `smash_solid_snake`
-/// and `smash_super_sanic` on the sheets those characters already use — and the
-/// assembled catalog refused all four:
-///
-/// ```text
-/// characters 'mary_o' and 'smash_mary_o' share display_name 'Mary-O'
-/// characters 'sanic' and 'smash_sanic' share display_name 'Sanic'
-/// characters 'smash_solid_snake' and 'solid_snake' share display_name …
-/// characters 'smash_super_sanic' and 'super_sanic' share display_name …
-/// ```
-///
-/// Which is the right answer to the wrong question: a crossover stage does not
-/// need copies of the cast, it needs the cast. Characters are shared BY ID, and
-/// display-name uniqueness is how that rule is enforced.
+/// Layout derives from this list's length. [`SmashRoster::assemble`] drops IDs
+/// unavailable in the current composition while preserving order. Cross-game
+/// fighters are shared by ID; do not declare duplicate character copies here.
 pub const SMASH_ROSTER: &[&str] = &[
     // Just robot v3 is fine."* Chasing that found the reason it had a second name at all: the demo
     // declared its OWN row on `player_robot_v3_spritesheet.png` while the content catalog already

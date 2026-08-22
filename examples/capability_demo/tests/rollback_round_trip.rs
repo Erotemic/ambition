@@ -1,31 +1,9 @@
-//! The GGRS round-trip the review asked for and the sentinel could not run.
+//! GGRS round-trip for capability-owned rollback state.
 //!
-//! Every other proof in this crate checks that the capability OFFERS its four
-//! halves and that a composition installs them. None of them proved the offer
-//! is sufficient: that after a real rewind the cooldown, the profile and the
-//! velocity are what they were. The queue recorded it as deferred —
-//!
-//! > *"a GGRS round-trip asserting cooldown, profile and velocity after a real
-//! > rewind. That needs a rollback host, and `capability_demo` has none —
-//! > building one inside the sentinel would make it a host. Recorded rather
-//! > than faked."*
-//!
-//! — which is answered by `Platformer2dSimHarness::app_mut()`: a fixture can
-//! now install systems onto a rollback session instead of a crate having to
-//! become a host. And the sentinel is untouched, because this arrives as a
-//! dev-dependency. The footprint ratchet reads `cargo tree --edges normal`,
-//! so the capability's own closure is exactly what it was; the same reasoning
-//! `ambition_platformer2d_runtime` and the SDK already sit here under.
-//!
-//! a sync test is not a flavour of "run it twice". Every frame is saved,
-//! rewound and resimulated, and `rollback_health` compares the checksums. So an
-//! assertion here is not about one frame's value — it is that the value is
-//! reconstructible from the snapshot on every frame it existed.
-//!
-//! if `PulseCooldown` were NOT registered, this is the test that fails: the
-//! body would restore and the gate would not, and a pulse would fire twice from
-//! one charge on the resimulated frame. That is the desync the offer exists to
-//! prevent, and until now nothing ran it.
+//! The harness installs the capability on a real rollback session and verifies
+//! cooldown, profile, and velocity reconstruct from snapshots across rewind and
+//! resimulation. Missing `PulseCooldown` registration would allow a pulse to fire
+//! twice from one charge on a resimulated frame.
 
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::input::ControlFrame;

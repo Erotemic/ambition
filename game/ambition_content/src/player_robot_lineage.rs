@@ -1,35 +1,10 @@
-//! The player robot's incarnations, emitted from one source.
+//! Player Robot incarnations generated from shared source.
 //!
-//! The protagonist has been rebuilt twice, and Ambition's answer to that is not
-//! a changelog. `npc_player_robot_v2`'s catalog row says it outright: an old
-//! build is *"preserved as a CHARACTER rather than as history, [because]
-//! Ambition wants old versions of yourself to be things you can meet, talk to,
-//! and fight, so this keeps its own id, its own sheet, and its own pedestal
-//! instead of living in a git object."*
-//!
-//! # These are separate characters, not variants of one
-//!
-//! That distinction is the whole design and it is easy to lose. A "player robot" with a version
-//! *parameter* would be one character wearing three coats, and every system downstream would have
-//! to learn what a version is in order to ask anything useful.
-//!
-//! # What the sharing is, and what it is NOT
-//!
-//! §4.3's rule, stated on [`Lineage`]: *"two independent, fully-resolved
-//! products with distinct stable ids, emitted by one generator from shared
-//! source. The engine never learns what a mode is — there is no patch layer
-//! and no override precedence."*
-//!
-//! So the sharing lives HERE, in a generator, and stops at the door. What comes
-//! out is three complete definitions. [`Incarnation`] is the part that differs;
-//! [`definition`] is the part they have in common. Adding v4 is a struct literal
-//! — which is the same shape `versus_fighters::DuelistNumbers` uses for the two
-//! duelists, and for the same reason.
-//!
-//! [`Lineage::derived_from`] is provenance, not authority. It records that
-//! v3 replaced v2; nothing resolves through it, and no field of v3 is inherited
-//! from v2. A reader who treats it as an inheritance edge has reintroduced the
-//! patch layer this design exists to refuse.
+//! Each incarnation is a complete character with its own stable id; the engine
+//! does not interpret a version parameter or apply an inheritance/patch chain.
+//! [`Incarnation`] contains per-version data, while [`definition`] authors the
+//! shared body/moves. [`Lineage::derived_from`] records provenance only and is
+//! never an authority for field resolution.
 
 use ambition_entity_catalog::{
     HurtboxDoc, HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, VolumeShape,
@@ -63,22 +38,8 @@ pub struct Incarnation {
     pub replaces: Option<&'static str>,
 }
 
-// no `voice` field, and its removal is AF4b.
-//
-// It was authored here AND in `character_catalog.ron`, with v0's two lines
-// duplicated verbatim between them — and the duplicate was not symmetric. The
-// catalog outranks a definition's voice (`npc_ambient_bark_line` asks
-// `catalog.bark_line` first; the definition answers only when the catalog had
-// nothing), and `CatalogEntry::bark` falls through `barks.pick` to
-// `fallback_dialogue`. So `player_robot_v2`, which authored BOTH, could never
-// reach its Rust voice at all — it was dead, and the test asserting every
-// incarnation "says something" was green over it because it read the struct
-// rather than the runtime.
-//
-// v0 and v3 authored only `barks.hall`, so their Rust lines DID speak — but only
-// away from a pedestal, which is the one place they are usually seen. Both rows
-// gained a `fallback_dialogue` carrying exactly those lines, so the voice they
-// had is the voice they keep, from one authority.
+// Voice is catalog-authored for the robot lineage. `fallback_dialogue` provides
+// the lowest-precedence lines, so the Rust definitions do not duplicate dialogue.
 
 /// v0 — the original. Its own bark: *"Version zero. Everything after me was
 /// a patch note."*
@@ -155,24 +116,9 @@ fn definition_from(
         crate::AMBITION_CONTENT_PROVIDER,
     )
     .with_sheet(sheet);
-    // Hand the body to the art, for whichever incarnation authored one.
-    //
-    // not independent of each other. Shouldn't the sprite sheet generator be authoring the
-    // collision boxes for the characters?"* It should, and the engine has offered
-    // `BodySource::SpriteAuthored { world_per_pixel }` since §4.11 — every NPC and enemy derives
-    // its box from published sprite metrics and Mary-O's three forms use this exact seam. The
-    // player robot used neither: they kept the engine's default 30×48 constant while their sprite
-    // was drawn through a hand-tuned `collision_scale`, and the two were never reconciled. That is
-    // the report.
-    //
-    // the SCALE is derived and the HEIGHT is the authored quantity, the
-    // same direction Mary-O's `MARY_O_STANDING_HEIGHT` takes and for the same
-    // reason: the sheets are regenerated regularly, every regeneration
-    // re-measures, and a scale pinned to today's pixel count silently changes
-    // how tall they stand the first time a crop moves by a pixel. Levels are
-    // authored against the standing height, so that is what must hold still.
-    //
-    // Absence is the answer, not an omission to fix here.
+    // Derive collision scale from published sprite metrics while keeping the
+    // canonical standing height stable across sheet regeneration. Incarnations
+    // without authored body metrics retain their existing body source.
     if let Some(body_px) = ambition_platformer2d::character_sprites::authored_body_pixel_size(sheet)
     {
         // the robot's canonical height IS the engine's default playable body: 48 world pixels,
@@ -190,29 +136,9 @@ fn definition_from(
                 .with_hurtboxes(forgiving_hurtbox(body_px * world_per_pixel));
         }
     }
-    // THE CURRENT INCARNATION CARRIES THE MOVES.
-    //
-    // the protagonist's repertoire was Smash-only until now. The eleven
-    // authored timelines — jab, three tilts, three smashes, five aerials, with
-    // landing lag and auto-cancel — lived in `ambition_demo_smash` attached to
-    // shadow identities (`smash_duelist_a/b`) wearing Robot art, so the real
-    // robot could not throw any of them and the demo was proving the
-    // architecture on characters nobody plays.
-    //
-    // the ACTION SET is still the host's (`playable_kit: HostCode`): what the robot may DO is
-    // progression-gated, and what its swings ARE is not. Those are different questions and this
-    // answers only the second. Eleven authored timelines — jab, three tilts, three smashes,
-    // five aerials, with landing lag and auto-cancel — lived in `ambition_demo_smash` attached
-    // to shadow identities wearing Robot art, so the real robot could throw none of them.
-    //
-    // the ACTION SET is still the host's (`playable_kit: HostCode`): what the robot may DO is
-    // progression-gated, and what its swings ARE is not. THE BODY EVERY INCARNATION SHARES,
-    // migrated off the `player_robot` ARCHETYPE row.
-    //
-    // the lineage shares one body, so this is stated once rather than per
-    // incarnation: v0, v2 and v3 are the same robot at three ages, and the
-    // exhibition duel in the arena fields v2 against the PCA precisely because
-    // it IS the player's body seen from outside.
+    // All incarnations share the same authored body and moveset. The host still
+    // owns progression-gated action availability; these timelines define what
+    // the robot's attacks are, not which actions are currently permitted.
     definition.vitals.max_health = Some(60);
     definition = definition
         .with_locomotion(ambition_characters::actor::CharacterLocomotion {
@@ -390,11 +316,8 @@ fn forgiving_hurtbox(body_world: ambition_platformer2d_core::Vec2) -> HurtboxDoc
 
 /// Register every incarnation as a character in its own right.
 ///
-/// The KIT is deliberately not authored here: each incarnation's catalog row
-/// already states what it can do, and preparation folds that row in at the
-/// finalization barrier. Authoring it a second time on the definition would be
-/// two declarations of one fact — exactly the split the character-authority
-/// campaign exists to remove.
+/// Kits remain catalog-authored and are folded in during preparation; do not
+/// duplicate them on these definitions.
 pub fn register(app: &mut bevy::prelude::App) {
     // Parsed ONCE for the whole lineage. Three strings do not justify three
     // parses of the roster, and the cast is only going to grow.

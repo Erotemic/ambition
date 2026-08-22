@@ -1,33 +1,10 @@
-//! What the world-fact domain lets authored content ask — and tell — about
-//! flags.
+//! Authored-logic domain for durable world flags.
 //!
-//! A world fact is the flat, durable "this happened" vocabulary the save layer
-//! carries: a door has been unlocked, an intro beat is past, a boss is defeated.
-//! It is written by `SetFlagRequested` and read by
-//! [`AmbitionGameSaveData::flag`](ambition_persistence::save_data::AmbitionGameSaveData::flag).
-//!
-//! this is the SECOND provider, and its only architectural job is to be a
-//! different domain from the first. The milestone's acceptance is that adding
-//! it edits nothing central — no enum, no match arm, no registration table
-//! belonging to anyone else. It publishes through the same three-line surface a
-//! crate outside this workspace would use.
-//!
-//! and it is where the COMMAND half started, for the same reason. The
-//! two halves' names sat next to each other with a hole between them:
-//!
-//! ```text
-//! world.flag_set(<flag>)   published here, and it had consumers
-//! world.set_flag(<flag>)   absent — every authored flag write was bespoke Rust
-//! ```
-//!
-//! a domain publishes both from one plugin, because a domain is one thing.
-//! Nothing central learned that world facts have a verb either.
-//!
-//! it lives in this crate rather than beside `SetFlagRequested` because
-//! `ambition_combat`, which owns that message, does not depend on
-//! `ambition_persistence`, which owns the answer. Reading a flag needs both. //! adding that dependency edge to make the placement prettier would be paying a
-//! compile-graph cost for a doc-comment's sake — and this crate is already where
-//! every other flag consumer lives.
+//! Conditions read flags from `AmbitionGameSaveData`; commands request flag
+//! writes through `SetFlagRequested`. The provider publishes both halves without
+//! adding central enums/match arms. It lives here because resolving a flag spans
+//! persistence and combat-owned write vocabulary without adding a new dependency
+//! edge between those crates.
 
 use ambition_platformer2d_shared_tangle::authored_logic::{
     AuthoredArg, CommandDescriptor, CommandId, CommandOutcome, ConditionDescriptor, ConditionId,

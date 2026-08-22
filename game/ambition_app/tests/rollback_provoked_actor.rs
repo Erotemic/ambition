@@ -127,14 +127,8 @@ fn stage_provoked_and_wounded(sim: &mut Platformer2dSimHarness) -> (Entity, i32)
 /// and `ActorConfig`, `ActionSet`, `Mounted`, `MountSlot`, `RidingOn` (clone).
 ///
 /// the HP assertion is the one that matters, and it is the one that would
-/// BREAK if the reconciler were wired in as-is. Its provoked reconstruction
-/// rebuilt a fresh pool from `max_health`, which would replace this body's
-/// restored half-HP with a full pool every single load — a damaged actor healing
-/// itself on every rollback frame, which is precisely the class of divergence
-/// `rollback_lifecycle_reset`'s campaign note recorded as "a mid-brawl enemy
-/// full-heal".
-///
-/// That write is gone; this assertion now also covers the road a player actually takes.
+/// Provoked reconstruction must preserve restored current health rather than
+/// rebuilding a fresh pool from `max_health` on rollback loads.
 #[test]
 fn a_provoked_wounded_body_survives_the_real_rollback_window() {
     let mut sim = hall_sim();

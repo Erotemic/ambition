@@ -252,10 +252,8 @@ fn two_orders_of_comma_bearing_track_ids_do_not_collide() {
             .map(|id| format!(r#"(id: "{id}", display_name: "n")"#))
             .collect::<Vec<_>>()
             .join(",");
-        // default_track is held CONSTANT: my first version used `ids[0]`,
-        // which differs between the two permutations and distinguished them by
-        // itself — so the test passed against the buggy `join(",")` and proved
-        // nothing. The ORDER must be the only thing that differs.
+        // Hold `default_track` constant so track ordering is the only difference
+        // between the two fingerprints.
         let text = format!("(default_track: \"a\", tracks: [{tracks}])");
         music_fingerprint(name, &text)
     };

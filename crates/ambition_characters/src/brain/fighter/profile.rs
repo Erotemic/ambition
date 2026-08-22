@@ -1,36 +1,11 @@
-//! FB4a — the difficulty ladder, as data; and the humanity checks it can keep.
+//! Data-driven fighter-brain difficulty profiles.
 //!
-//! `docs/planning/engine/fighter-brain.md` §4: *"`FighterBrainProfile` (RON):
-//! `reaction_ms` (L9 ≈ 150, L1 ≈ 500), `apm_cap`, `execution_noise` (timing/aim
-//! jitter σ), `rollout_depth` / `rollout_k` (0 disables L3), `read_weight`
-//! (opponent-model usage), `utility_weights`. Levels 1–9 are nine authored rows.
-//! Games/demos ship their own rows — it's content."*
-//!
-//! ## The one humanity check that is now STRUCTURAL
-//!
-//! §3 asks a test to *"assert the delay buffer is on the ONLY read path"* and to
-//! prove *"no same-tick perceive→act"*. FB1 built the buffer and said out loud
-//! that nothing forced a brain through it.
-//!
-//! Nothing has to. [`crate::perception::Perceived`] has a private field, and only
-//! [`crate::perception::DelayedPerception::perceive`] mints one. L1's `classify`
-//! and L2's `generate_options` take a `Perceived`, so a brain layer that wanted
-//! to read the live world would have to edit `perception.rs` to name it. A test
-//! can be forgotten and a grep lint can be argued with; a type cannot.
-//!
-//! The one door is `Perceived::cheating`, whose name is the documentation. It is
-//! for RL rigs, replay fixtures, and the brain layers' own unit tests.
-//! [`FighterBrainProfile::delay`] never calls it, and
-//! `no_shipped_profile_reacts_instantly` is why.
-//!
-//! ## What FB4 still owes
-//!
-//! - The APM cap is DATA here, not enforcement. *"Input-rate histograms within
-//!   the APM cap"* needs a brain that emits inputs, and nothing above L2 does.
-//! - The ladder self-play rig (level *n* beats *n−1* in ≥ 60% of headless
-//!   matches) needs the same. It is also the instrument that calibrates
-//!   [`super::options::UtilityWeights`] — §FB6 is explicit that the weights are not
-//!   divined up front, and FB2 found the hole that will make the ladder say so.
+//! Profiles author reaction delay, input-rate limits, execution noise, rollout
+//! depth/breadth, read weight, and utility weights for ladder levels. Live brain
+//! layers consume [`crate::perception::Perceived`], which can only be produced by
+//! delayed perception in normal gameplay; the explicit `Perceived::cheating`
+//! constructor is reserved for rigs/tests. Shipped profiles never use zero
+//! reaction delay.
 
 use crate::perception::DelayedPerception;
 

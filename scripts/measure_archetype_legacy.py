@@ -1,30 +1,10 @@
 #!/usr/bin/env python3
-"""**How much of the enemy-archetype ontology is still standing** (campaign P5.42).
+"""Measure how much of the retired enemy-archetype implementation remains.
 
-D73's acceptance signal is a DELETION, sized in the brief as ~3,755 lines across
-six components. This measures the same six, repeatably, so progress is read off
-the tree rather than remembered.
-
-⛔⛔ **STATE THE UNITS, and this script exists because two different ones give
-opposite answers.** Measured 2026-08-12:
-
-    production lines (comments included)   3,360   against a 3,755 baseline
-    CODE lines (comments excluded)         ~1,988
-
-The campaign writes very long explanatory comments — `archetype_spec.rs` is 320
-lines of which 119 are code and 191 are commentary — so a line count overstates
-the remaining MODEL by roughly two-fold. A report that does not say which unit it
-used is not a measurement.
-
-⛔ two ways an earlier version of this got it wrong, both silently:
-
-  * whole `*_tests.rs` files were counted as production, because they carry no
-    inline `#[cfg(test)]` — 719 lines in one directory
-  * `#[cfg(test)]` on a `fn` (not a `mod`) was not detected, so a 257-line test
-    fixture counted as legacy
-
-Together those said the legacy had GROWN by 388 lines when it had shrunk by 395.
-"""
+The report tracks the named legacy components using production-code lines rather
+than test fixtures. It distinguishes physical lines from code lines so large
+comments do not masquerade as remaining model implementation. The component
+list and historical baselines below define the migration surface being measured."""
 
 from __future__ import annotations
 

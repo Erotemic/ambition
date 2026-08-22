@@ -468,21 +468,9 @@ fn apply_worn_character_kit(
             let execution = prepared.map_or(RangedExecution::MovesetVerb, |prepared| {
                 prepared.ranged_execution
             });
-            // THE GRANT COVERS THE ACTION SET, NOT THE MOVES, and passing
-            // `None` here meant it covered both. A character that authored its
-            // own eleven-move repertoire — jab, tilts, three smashes, five
-            // aerials — was seated with a moveset DERIVED from the stage's
-            // borrowed action set instead: one swipe, answering every direction
-            // and both strengths, which is the "generic characters walking
-            // around an arena" the campaign is about. The authored timelines had
-            // no reader on the one path that seats a fighter.
-            //
-            // the rule this restores is the one the field's own doc states:
-            // an ability is *may this body attack*, and levelling that is
-            // fairness; a moveset is *what the attack IS*, and levelling it
-            // erases the character. So a borrowed peaceful NPC still receives
-            // the stage's kit — it authored no moves to protect — and a real
-            // fighter keeps its own.
+            // A granted action set controls which attacks are available, not what
+            // authored moves are. Preserve a character's own moveset when present;
+            // only derive fallback moves for bodies that authored none.
             let authored = prepared.and_then(|prepared| prepared.authored_moveset.clone());
             let derived = derive_persona_moveset(kit, execution, authored);
             (kit.clone(), derived, execution)
@@ -536,27 +524,9 @@ fn apply_worn_character_kit(
                 }
             }
         };
-    // AND `CombatKit`, WHICH IS THE SAME BASELINE.
-    //
-    // `ActionSet` is the hot per-frame resolver; `CombatKit` is the DURABLE
-    // source of the same capability, and its own doc says so — "what the actor
-    // can do innately, before current held-item overlays are applied". Several
-    // subsystems reconstruct an `ActionSet` from it rather than reading the live
-    // one: `apply_catalog_mode` on a brain command, the mount pair, autonomous
-    // reconciliation.
-    //
-    // Seating seeds it from `ActionSet::default()` — an empty kit, matching what
-    // an enemy spawn does before its archetype fills one in — and this writer
-    // then installed the real action set, moveset and identity kit and left the
-    // durable one at the placeholder. So a seated fighter could act through its
-    // live `ActionSet` and then LOSE its innate attacks the moment anything
-    // rebuilt them from the stale baseline.
-    //
-    // That is precisely the split this campaign exists to remove: one identity,
-    // one writer, every derived baseline published together. Equipment stays an
-    // overlay — `CombatKit` is the INNATE kit, so it is built from the identity's
-    // set exactly as `IdentityKit` is, and a granted verb is layered over it
-    // rather than baked into it.
+    // Publish `CombatKit` with the live `ActionSet`: it is the durable innate
+    // baseline used to reconstruct capabilities. Equipment and granted verbs stay
+    // overlays rather than being baked into that baseline.
     if let Some(combat_kit) = combat_kit {
         *combat_kit = crate::combat::components::CombatKit::from_action_set(&set);
     }

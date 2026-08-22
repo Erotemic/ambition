@@ -1,40 +1,15 @@
 #!/usr/bin/env python3
-"""Does the workspace compile without a single warning?
+"""Run the normal Cargo check and fail if it emits Rust warnings.
 
-`.github/workflows/test.yml` sets `RUSTFLAGS: -D warnings`, so any warning is a
-red build there. **Nothing local applies that flag** — `cargo check`, `cargo
-check --workspace --all-targets`, and the goal's own `cargo check -p
-ambition_app` all pass happily with warnings present. On 2026-08-02 five had
-accumulated in the tree, two of them from earlier the same session, and the only
-thing that would ever have said so was a push.
+The checker parses diagnostics instead of setting `RUSTFLAGS=-D warnings`, so it
+reuses the normal build fingerprint and cache. Cached crates do not re-emit old
+warnings; `--fresh` requests the stronger cold-check behavior when needed.
 
-This closes the asymmetry from the local side.
+Usage::
 
-## why it does NOT set `RUSTFLAGS=-D warnings`, which is the obvious fix
-
-`RUSTFLAGS` is part of cargo's fingerprint. Setting it — in
-`.cargo/config.toml`, or per-invocation here — invalidates every artifact built
-without it and forces a full rebuild of the workspace. This target directory has
-carried ~300 GB of `debug/deps` and has filled the volume to 100% three times
-(S14, S14-again, S33). The obvious fix for a warnings gap is a good way to
-reproduce the disk outage.
-
-So this runs the SAME `cargo check` everyone else runs — same flags, same
-fingerprint, same cache — and reads its diagnostics instead. Warnings are on
-stderr whether or not they are fatal; the only thing `-D warnings` adds is the
-exit code, and an exit code is something a script can supply for free.
-
-⚠ **the consequence, stated rather than hidden: cargo does not re-emit warnings
-for a crate it did not rebuild.** A cached-clean workspace prints nothing and
-this check passes, which is correct for "did the last build warn" and is NOT the
-same claim as "a cold build would be silent". CI still owns that claim, and
-should. `--fresh` forces the stronger version when you have the disk for it.
-
-Usage:
     python3 scripts/check_no_warnings.py
-    python3 scripts/check_no_warnings.py --fresh      # touch the tree first
-    python3 scripts/check_no_warnings.py -p ambition_app
-"""
+    python3 scripts/check_no_warnings.py --fresh
+    python3 scripts/check_no_warnings.py -p ambition_app"""
 
 from __future__ import annotations
 
@@ -58,11 +33,8 @@ CARGO = os.path.expanduser("~/.cargo/bin/cargo")
 if not os.path.exists(CARGO):
     CARGO = "cargo"
 
-# the FIRST version of this parser had it exactly backwards, and only a probe said so. In
-# `--message-format=short` a real diagnostic carries a `path:line:col:` prefix, and a line that
-# STARTS with `warning:` at column zero is cargo's per-crate SUMMARY ("`x` (lib) generated 1
-# warning", "1 warning emitted"). Matching `^warning:` therefore reported the summaries — which are
-# noise, and double-count — while dropping every actual warning.
+# In `--message-format=short`, real diagnostics carry a `path:line:col:` prefix.
+# Column-zero `warning:` lines are Cargo summaries and would double-count.
 _WARNING = re.compile(r"^(?P<where>\S+?:\d+:\d+): warning: (?P<what>.*)$", re.M)
 
 

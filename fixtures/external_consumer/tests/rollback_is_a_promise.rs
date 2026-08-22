@@ -87,9 +87,8 @@ fn the_participant_count_comes_from_the_composition() {
 
 /// Property 3's other half: a host not composed for rollback refuses.
 ///
-/// Outlander's fixed-step face is a real composition that ships, so this is not
-/// a synthetic host. Calling `start` on it must be a stated error rather than a
-/// session that quietly does nothing — the campaign's rule for every face.
+/// A fixed-step host must refuse rollback explicitly rather than starting a
+/// session that does nothing.
 #[test]
 fn a_fixed_step_host_refuses_rather_than_pretending() {
     let mut app = outlander::build_outlander_app();
@@ -149,14 +148,8 @@ fn the_baseline_includes_state_the_engine_never_heard_of() {
 
 /// Property 5: lifecycle rebasing.
 ///
-/// Proof pulses, hot-reload rebases and lifecycle commits are all the same
-/// session RESTARTED. A restart rebases frame zero onto the CURRENT live world;
-/// the hazard the campaign names is an un-rebased `world_mut` write, which
-/// replays a world that never had it.
-///
-/// ENFORCED: restarting is `start` again, which performs the same rebase — so a
-/// consumer cannot restart by a different route than it started by, and cannot
-/// re-declare the participant count while doing it.
+/// Restarting uses the same `start` path and rebases frame zero onto the current
+/// live world without re-declaring participant count.
 #[test]
 fn a_restarted_session_rebases_onto_the_live_world() {
     let mut app = outlander::build_outlander_rollback_app().expect("rollback host");

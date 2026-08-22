@@ -244,18 +244,9 @@ pub fn tick_fighter(
         return;
     }
 
-    // EMIT the held intent first, so every tick produces the same frame the last
-    // decision asked for. Edges are cleared below unless something arms them
-    // this tick — a `melee_pressed` that stayed true would be a button held down
-    // forever.
-    // `clear_edges`, not three fields by hand. This open-coded melee,
-    // jump and dash — and `MovementVerb::Blink` sets `blink_pressed`, which was
-    // not among them, so one Blink decision emitted a press edge on EVERY tick
-    // until the next decision overwrote it.
-    // Cooldowns masked some of it; the control stream was still several presses
-    // for one choice. The helper was incomplete too — it is complete now, and
-    // this is the caller that proves it: an edge added to the frame and not to
-    // `clear_edges` re-fires here.
+    // Emit held intent, then clear every edge-triggered input before this tick's
+    // decision. New press edges must be added to `clear_edges` or they will latch
+    // across ticks.
     let mut frame = state.held.clone();
     frame.clear_edges();
 

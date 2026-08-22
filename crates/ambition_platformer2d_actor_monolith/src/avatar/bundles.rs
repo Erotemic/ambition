@@ -140,17 +140,8 @@ impl PlayerSimulationBundle {
         health: ambition_characters::actor::Health,
     ) -> Self {
         let action_set = default_player_action_set(scratch.abilities.abilities);
-        // ONE construction for the host code kit's moves.
-        //
-        // This built them inline — `build_actor_moveset(None, melee, None,
-        // special)` then the robot-blade SFX stamp — and so does the persona
-        // derive. Two places deciding what the host kit swings, agreeing only
-        // because a comment in the other one said they did: *"so this agrees with
-        // `PlayerSimulationBundle::from_scratch`, which builds the same code kit
-        // and applies the same overlay."* An agreement asserted in prose is one
-        // that diverges the first time either side learns something — a ranged
-        // rule, a second cue family — and this campaign is otherwise about
-        // removing exactly that.
+        // Build host-kit moves through the same persona derivation path so move
+        // construction has one authority.
         let moveset = crate::combat::moveset::ActorMoveset(
             crate::avatar::starting_character::derive_persona_moveset(
                 &action_set,

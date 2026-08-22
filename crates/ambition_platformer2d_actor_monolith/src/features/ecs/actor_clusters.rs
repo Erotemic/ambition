@@ -1300,19 +1300,9 @@ mod tests {
         );
     }
 
-    /// A PROFILE'S PACING REACHES THE BODY, and a mount that never hunts can
-    /// say so.
-    ///
-    /// these were `run_speed * 0.5` and `run_speed` and `true`, hard coded in
-    /// this constructor, so every character-first body ambled at exactly half
-    /// pace and treated the player as prey. That is the whole reason
-    /// `pirate_shark_rider` (patrol 0.4783) and `giant_gnu` (`is_hostile:
-    /// false`, a mount whose RIDER is the threat) could not migrate: the
-    /// migration would have silently rounded a tuned amble and made a prop hunt.
-    ///
-    /// the fixture authors an absurd 0.25/0.75 rather than anything near the
-    /// old defaults, so a constructor that ignored the profile could not pass by
-    /// coincidence.
+    /// Character-first construction must preserve profile-authored patrol/chase
+    /// pacing and hostility. The fixture uses deliberately distinct values so a
+    /// constructor that substitutes defaults cannot pass by coincidence.
     #[test]
     fn a_character_first_body_paces_and_targets_by_its_profile() {
         const CATALOG: &str = r#"(

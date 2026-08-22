@@ -1,68 +1,15 @@
 #!/usr/bin/env python3
-"""Generate the Hall of Characters area spec from the character
-catalog.
+"""Generate the Hall of Characters area from the assembled character roster.
 
-⛔ THE HALL IS NOT A SPECIAL CASE. It is a dual purpose stress test AND
-exhibition (Jon, 2026-07-30), those characters will eventually get real brains,
-and the only special thing about it is that this script generates it. When it is
-slow, fix the ENGINE — not the Hall's art quality, not by excluding it from a
-load path. See "The Hall of Characters is NOT a special case" in AGENTS.md.
+The Hall is normal game content and doubles as a roster-scale stress case; engine
+loading behavior should not special-case it. Catalog characters and configured
+provider-owned characters are laid out on derived main floors and basement rows,
+so capacity grows with the roster. Runtime nameplates use character identity;
+the generated area does not author duplicate display labels.
 
-Phase 5 of the character-catalog refactor (see
-`TODO-character-catalog-and-hall.md`). Reads
-`game/ambition_content/assets/data/character_catalog.ron`, lays out
-one pedestal per character, and emits
-`tools/ambition_ldtk_tools/specs/hall_of_characters_area.ron`.
-
-Each pedestal's name is drawn by the runtime actor nameplate (which reads
-the character's own identity), so the hall authors no per-pedestal name
-label of its own.
-
-## Layout
-
-   +-------------------------------------------------------+ y = 0
-   | ▒ ceiling ▒                                            |
-   |  🧍 🧍 🧍 ...  16 slots × 128 px                       |  Floor 6 (top / newest)
-   | ─[ladder]──[ladder]── OneWayPlatform ──                |
-   |  🧍 🧍 🧍 ...                                          |  Floor 5
-   | ─[ladder]──[ladder]── OneWayPlatform ──                |
-   |   ...                                                  |  Floors 4..2
-   | ─[ladder]──[ladder]── OneWayPlatform ──                |
-   |  🧍 🧍 🧍 ...                                          |  Floor 1 (hub entry)
-   | ▒▒▒▒▒▒▒▒[drop hole]▒▒▒▒▒▒▒▒▒                          |
-   |                                                        |
-   |  🦖 🛸 🪲 🧙 🐻  ...                                   |  Basement row 1 (5 × 256)
-   |  🦖 🛸 ...                                             |  Basement row 2 (overflow)
-   | ▒▒▒▒▒▒▒▒[ladder back up]▒▒▒▒▒▒▒▒                      |
-   +-------------------------------------------------------+
-
-The hall GROWS to fit its roster: the number of main-hall floors and basement
-rows is DERIVED from the character counts (`main_floors_for` /
-`basement_rows_for`), so any number of characters is accommodated with no fixed
-capacity cap. Adding characters just makes the hall taller.
-
-  HALL_WIDTH_PX           = 2048
-  MAIN_SLOT_WIDTH_PX      = 128
-  MAIN_SLOT_HEIGHT_PX     = 192
-  MAIN_SLOTS_PER_FLOOR    = 16    (floors = ceil(main_count / 16))
-  BASEMENT_SLOT_WIDTH_PX  = 512
-  BASEMENT_SLOT_HEIGHT_PX = 384
-  BASEMENT_SLOTS_PER_ROW  = 4     (rows = ceil(basement_count / 4))
-
-Provider-owned characters (Sanic, Mary-O, ...) are not in this catalog file;
-they are exhibited by referencing their canonical ids in `PROVIDER_HALL_ENTRIES`
-and resolved at runtime against the assembled catalog.
-
-## Usage
-
-```bash
-PYTHONPATH=tools/ambition_ldtk_tools \\
-python -m ambition_ldtk_tools.generate_hall_of_characters
-```
-
-Re-running with no catalog changes produces a byte-identical spec
-(idempotent — characters are emitted in catalog key order).
-"""
+The command writes the Hall area spec deterministically in catalog order. The
+Hall itself lives in its secondary LDtk world; the hub-side door remains
+hand-authored in the main world."""
 
 from __future__ import annotations
 

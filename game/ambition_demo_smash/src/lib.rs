@@ -1,34 +1,9 @@
-//! The stocks demo — a platform fighter where the world does the killing.
+//! Standalone stocks-based platform-fighter demo.
 //!
-//! versus can be a generic fighter demo and test things smash doesn't."* So the
-//! shipped versus stage keeps its ROUNDS settled on health — a generic fighter,
-//! testing what a health-based ruleset tests — and this is the stocks one.
-//!
-//! ## What it is for, in order
-//!
-//! 1. It is the stocks loop's first real consumer. `ambition_combat::stocks`
-//!    owns the COUNT — spend one, decide whether that was the last, mark the
-//!    fighter eliminated, clear the meter. It deliberately does not know where a
-//!    body goes or when a match is over, because those need a stage and a
-//!    scoreboard. This crate is what supplies them, and the split is only real
-//!    once something on the other side of it exists.
-//!
-//! 2. It is the E9 oracle for a stocks game. Like the Sanic demo it depends
-//!    on `ambition_platformer2d` + `bevy` and nothing else. If declaring a stocks match needs
-//!    a type the umbrella does not re-export, that is an engine leak and it
-//!    fails to compile HERE — which is the whole reason a second consumer is
-//!    worth its weight.
-//!
-//! ## Why "the world does the killing" is the entire design
-//!
-//! A stocks fighter is `DeathPolicy::Unbounded`: its damage meter climbs past
-//! 100% and never kills it. What kills it is leaving the stage. That is not a
-//! rule this crate implements — the engine's blast-zone gate already owns it,
-//! and `BodyKnockedOut` is written from the same `RulesetOwnsDeath` arm that
-//! already decided a match rather than the world owns the body's death.
-//!
-//! What this crate owns is the two answers the engine refuses to guess: WHERE a
-//! respawning fighter comes back, and WHAT HAPPENS when one side is left.
+//! Combat damage does not kill a stocks fighter; leaving the stage emits the
+//! ruleset-owned knockout signal. The combat crate owns stock accounting, while
+//! this demo supplies stage-specific respawn placement and match completion. It
+//! also serves as an external-style consumer of the umbrella platformer API.
 
 // no `ambition_platformer2d::prelude::*`. Declaring a match needs the ACTOR
 // vocabulary, not the room-authoring one, and reaching for the prelude here
@@ -1049,39 +1024,10 @@ fn take_eliminated_fighters_out_of_play(
 /// READ rather than glimpsed on the way out.
 const RETURN_TO_SELECT_AFTER: f32 = 4.5;
 
-/// When the match ends, go back and choose again.
-///
-/// game ends it goes back to the character select screen."* Recorded as a
-/// decision that day (`maintainer-decisions.md`) and never built — the banner
-/// went up, and the demo then sat on a decided stage with nothing left to
-/// decide and no way back but the pause menu.
-///
-/// `Update` and REAL time, not the sim schedule. Leaving a match is shell
-/// lifecycle: the countdown must keep running while the simulation is over, and
-/// the route change is a shell command, not a rule.
-///
-/// armed once. `StocksMatchDecided` is written from the sim, so a rollback
-/// can re-deliver it; re-arming on the second copy would restart the countdown
-/// and hold the players on a finished match.
-/// A match on this stage always plays by smash's rules, however it was
-/// entered.
-///
-/// ```text
-/// crouch_cancel_scale = 1.0    declared 0.85 by smash   ← the BASELINE
-/// DeclaredCombatRules present = false
-/// ```
-///
-/// a safety net, not a second authority. The lobby is still the declarer:
-/// it computes the ruleset from the cast it just assembled and refreshes it on
-/// every battle start. This only notices that the stage is live with somebody
-/// else's rules — or none — and puts smash's on. Re-entering by the ordinary
-/// road is untouched, because by the time this runs the lobby's declaration is
-/// already ours.
-///
-/// keyed by OWNER, like every other giveback here. A world where versus
-/// declared last and smash's stage is somehow live is a bug worth correcting;
-/// one where our own declaration is already present is the normal case and must
-/// not be rewritten every frame.
+/// Ensure the Smash gameplay route carries Smash-owned combat rules. The lobby
+/// normally publishes them when a battle starts; this is a route-level safety
+/// net for direct or stale entry and does not rewrite an already-correct
+/// declaration.
 fn the_stage_always_plays_by_smash_rules(
     mut commands: bevy::prelude::Commands,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
@@ -1139,6 +1085,9 @@ fn smash_fighters_are_solid_to_each_other(
     }
 }
 
+/// Return to character select after a decided match has left its winner card
+/// visible for [`RETURN_TO_SELECT_AFTER`]. The countdown runs on frame/real time
+/// and arms only once even if rollback re-delivers the decision message.
 fn return_to_the_select_screen_when_the_match_ends(
     mut decided: bevy::prelude::MessageReader<ambition_platformer2d::actor::StocksMatchDecided>,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
@@ -1195,21 +1144,10 @@ fn announce_the_winner(
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
     for outcome in decided.read() {
-        // a TEAM keeps its own name. Substituting one member's name for
-        // "Red" would name a player on a side that won together, so the swap
-        // only happens for a side of one — which is the only case where the
-        // side and the fighter are the same thing.
-        //
-        // This counted the fighters still standing on the winning side, which is a different
-        // question the moment anybody dies: `take_eliminated_fighters_out_of_play` despawns an
-        // eliminated body, so Red = Alice + Bob with Alice knocked out early has exactly ONE
-        // Red body at victory and the card announced `WINNER: Bob` — contradicting the rule
-        // stated one paragraph above it. Body residency recovering match-participant identity,
-        // which is the error this campaign keeps paying for.
-        //
-        // and the fallback is the SIDE, not a panic. A simultaneous
-        // ring-out despawns every body, so a card can legitimately be asked to
-        // name a winner with nobody left standing to ask.
+        // Keep a team's name unless the winning side has exactly one participant.
+        // Resolve participant identity from the match roster, not surviving bodies;
+        // simultaneous ring-outs may leave no resident winner body, so the side name
+        // remains the fallback.
         let named = outcome.winner.as_deref().map(|side| {
             // A composition with no prepared plan cannot say how big a side is,
             // and the honest answer for an unknown size is the side's own name.
@@ -1982,11 +1920,8 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
                 .releasing_owned::<
                     ambition_platformer2d::input::DeclaredBindingLayout,
                 >(|layout, owner| layout.is_declared_by(owner.as_str()))
-                // A RESTART IS FRESH. `resetting`, never `releasing`: the
-                // screen's systems take these as plain `ResMut`, so REMOVING
-                // them panics the app on the frame the experience ends — which
-                // is what the first draft did, and what the reproduction caught.
-                // They must exist and must not carry the last match's answer.
+                // Restart resources in place: systems require them as `ResMut`, but
+                // they must not retain the previous match's state.
                 .resetting::<select::SmashSelect>()
                 .resetting::<select_screen::StartRequested>()
                 // The same rule one latch over: a "leave" that outlived the
@@ -2085,23 +2020,8 @@ pub const SMASH_GEORGE_BOOUL: &str = "smash_george_booul";
 // not this one; a roster where the choice already changed the match would have
 // made the select screen impossible to judge on its own terms.
 
-/// this demo authors its own two fighters, and the reason is a leak worth
-/// recording.
-///
-/// The first version borrowed Ambition's robot lineage — a crossover stage
-/// fighting the cast the game already ships, which is the more interesting
-/// claim. It does not compile as a claim: that lineage lives in
-/// `game/ambition_content`, which is ABOVE the facade, so a demo naming it would
-/// break the `ambition_platformer2d` + `bevy` rule that makes this crate an oracle at all.
-///
-/// The engine caught it the only way it could — at BOOT, with
-/// `character_catalog: Resource does not exist`, because the demo had declared a
-/// starting character no catalog in its own composition contained. Not at
-/// compile time, and not by any test in the content crate: only by running.
-///
-/// So the demo is self-contained, and the crossover claim moves to where it
-/// belongs — Ambition HOSTING this experience alongside its own, where both
-/// catalogs are present.
+/// This demo authors its own fighters so it depends only on the public facade.
+/// Cross-game roster composition belongs in the host, where both catalogs exist.
 const SMASH_CATALOG_RON: &str = r#"(
     autonomous_profiles: {
         // THE STAGE'S CPU POLICY, PUBLISHED.

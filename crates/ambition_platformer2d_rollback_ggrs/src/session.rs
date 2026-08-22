@@ -1642,9 +1642,8 @@ fn report_input_written_to_the_wrong_seam(
 mod wrong_seam_tests {
     use super::*;
 
-    /// Runs the REAL system and reads the fact it publishes.  the first version
-    /// of this helper re-derived the predicate itself and asserted on that — a
-    /// test that passes whether or not the system is registered at all.
+    /// Run the real system and assert on the fact it publishes rather than
+    /// re-deriving the predicate in the test.
     fn reported(live_session: bool, drive_control: bool, drive_pending: bool) -> bool {
         let mut app = bevy::prelude::App::new();
         app.init_resource::<ControlFrame>();

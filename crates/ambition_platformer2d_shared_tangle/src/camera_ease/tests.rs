@@ -189,12 +189,8 @@ fn only_a_hit_harder_than_standard_moves_the_camera() {
 
 /// The reference is the ROUTE's number, not this crate's.
 ///
-///  restating `0.070` here would be a second literal agreeing with
-/// `Platformer2dFeelTuningMonolith::hitlag_time` by coincidence — the shape that
-/// has already cost this campaign a health pool. A route that retunes its hitlag
-/// must retune its camera WITH it, in the same direction, and this is what says
-/// so: the same absolute freeze is a heavy hit under a snappy route and nothing
-/// at all under a heavy one.
+/// Read the route's hitlag tuning rather than restating a literal. A route that
+/// retunes hitlag must move the camera threshold with it.
 #[test]
 fn a_routes_own_hitlag_decides_what_counts_as_a_hard_hit() {
     let freeze = 0.140;

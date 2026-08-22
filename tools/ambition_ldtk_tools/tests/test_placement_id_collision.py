@@ -1,14 +1,7 @@
-"""**One authored `id` must not name things in two rooms** — ledger D125.
+"""Authored placement ids must be globally unique where they enter the global `SimId` namespace.
 
-`SimId::placement(id)` is a GLOBAL namespace whose uniqueness was only ever
-checked per room, which the ledger recorded as a carried risk: *"two rooms
-authoring one id would suppress both"*. An authored rule reaches that namespace
-through `placement:<id>`, so the collision becomes reachable the moment somebody
-writes one.
-
-⭐ the guard is GREEN on the shipped worlds, so these tests are what say it can
-fail at all.
-"""
+The test detects duplicate placement ids across rooms rather than validating each
+room in isolation."""
 
 from __future__ import annotations
 

@@ -73,13 +73,7 @@ def test_a_32px_texture_is_reassembled_from_its_four_quadrants(tmp_path):
 
 
 def test_the_art_goes_on_its_own_layer_so_collision_stays_visible():
-    """⛔ the regression Jon reported: *"I can't see the collision surfaces."*
-
-    A rule that matches replaces the cell's colour with its tile, so art and
-    collision cannot share a layer — whichever one draws, the other is gone. The
-    art belongs on an AutoLayer that READS the collision, which is the only
-    arrangement where both can be looked at.
-    """
+    """Editor art must use a separate AutoLayer so collision stays visible."""
     art = editor_art.Placement("solid_tile", x=0, y=0, w=32, h=32)
     collision = {
         "identifier": "Collision",
@@ -186,14 +180,10 @@ def test_closing_a_string_into_an_enum_refuses_a_value_it_cannot_spell():
 
 
 def test_the_art_layer_arrives_with_its_tiles_already_in_it():
-    """⛔ LDtk does NOT re-evaluate an auto-layer's rules when it opens a file.
+    """Generated AutoLayers must include their `autoLayerTiles` cache.
 
-    The rules can be perfect and the layer still draw nothing, because the
-    editor renders `autoLayerTiles` — its own cache — and a generated layer
-    arrives with whatever the generator put there. Jon opened the first version
-    to a flat grey slab for exactly this reason. The cache is a pure function of
-    cells the file already carries, so writing it is safe; leaving it empty is
-    the same as not shipping the art at all.
+    LDtk does not re-evaluate rules when merely opening the file, and the cache
+    is a pure function of the authored cells.
     """
     art = editor_art.Placement("solid_tile", x=0, y=0, w=32, h=32)
     collision = {

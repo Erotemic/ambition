@@ -1,30 +1,9 @@
-//! ONE CHARACTER'S PRIVATE SOUND POLICY — the canonical robot protagonist's
-//! blade presentation, applied as an explicit post-build overlay.
+//! Canonical Player Robot slash presentation overlay.
 //!
-//! the test is "does character PREPARATION call it", not "was it next to
-//! something preparation calls". Measured: `apply_player_robot_slash_sfx` has
-//! exactly ONE production caller in the workspace,
-//! `avatar/starting_character.rs`, the protagonist road. `prepare_character`
-//! never reaches it. So what travelled down was canonical player-robot
-//! presentation policy dressed as character-domain machinery, in the crate whose
-//! whole point is being the reusable authored-template layer.
-//!
-//! the generic inputs it reads STAYED down, correctly: `SWING_SFX_CUE`,
-//! `SLASH_ARC_VFX` and `SLASH_POKE_VFX` are what the builders themselves author
-//! into every moveset, so they are builder vocabulary rather than one
-//! character's. The line is not "anything with a cue in it" — it is whether
-//! preparation needs it.
-//!
-//! and it is home beside its PINS. The three ids below are asserted equal
-//! to `ambition_sfx::ids` entries at compile time (see `moveset/mod.rs`), and
-//! those assertions could never leave this crate: `ambition_characters` cannot
-//! see `ambition_sfx` and should not. Text in one crate and its proof in another
-//! is what the first move created; this puts them back together.
-//!
-//! ⇥ the further destination is CONTENT. The canonical Player Robot is authored in
-//! `game/ambition_content`, and its slash presentation ideally belongs there with it. What stops
-//! that today is the caller: the protagonist road lives in the actor monolith, which cannot see a
-//! game's content crate.
+//! Generic slash cue/VFX vocabulary remains in `ambition_characters`; this module
+//! owns the robot-specific cue ids and their compile-time pins to `ambition_sfx`.
+//! The overlay is applied only by protagonist construction, not generic character
+//! preparation.
 
 use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX, SWING_SFX_CUE};
 use ambition_characters::technique::{set_pogo_sfx, POGO_BOUNCE_KEY};

@@ -47,9 +47,8 @@ pub mod crowd;
 mod snapshot_impls;
 pub mod stale;
 pub mod stocks;
-/// The live strike: the authoritative damage volume, its lifecycle state, and
-/// the effect executor that spawns world-anchored ones. Hoisted out of
-/// `ambition_vfx` (campaign item 7) — see the module doc.
+/// Authoritative strike damage volumes, lifecycle state, and world-anchored
+/// effect execution.
 pub mod strike;
 pub mod targeting;
 pub mod util;

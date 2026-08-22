@@ -1,62 +1,20 @@
 #!/usr/bin/env python3
-"""Read the compile telemetry ledgers and render one self-contained HTML page.
+"""Render compile telemetry as a self-contained HTML report.
 
-⛔ **this reads; it never measures.** It runs no build, invokes no cargo, and
-writes no ledger. `scripts/compile_collect.py` and `scripts/compile_cost.py` are
-the writers; `dev/compile_telemetry_schema.md` is the contract between them and
-this file. If a column here disagrees with that document, the document wins.
+This script is read-only: it performs no builds and writes no telemetry. Missing
+measurement ledgers are treated as empty data so the report remains useful in a
+clone where the measurements submodule has not been initialized.
 
-⭐ **being a reader is what lets this file DEGRADE where a writer must refuse.**
-The ledgers live in the `dev/ambition_dev_measurements` submodule, so on a clone
-without `--recursive` every one of them is absent. That is the same case as a
-fresh clone that has run no collector, which this page already renders honestly —
-`load_jsonl` reports `missing`, every section prints its own n, and each empty
-section names the path it looked at. A writer in that situation would create a
-stray file inside an uninitialised submodule and must refuse instead; see
-`scripts/lib/measurement_paths.py`.
+Comparable build state is derived from recorded fresh/dirty counters rather than
+configuration labels. Every section reports its sample count, and line-based
+costs are presented as within-crate proxies rather than interchangeable
+cross-crate timings. Charts, CSS, and scripts are embedded in the output.
 
-Jon, 2026-08-08: *"basically we should start recording this so we can build
-statistics and gain more insights into how to optimize compile time in maybe non
-obvious ways."* The recording landed first. This is the half that looks at it.
+Usage::
 
-# # The honesty rules this page obeys
-
-⛔ **a trend line through one sample is the prettiest way this work could lie.**
-`compile_graph.jsonl` and `carve_lineage.jsonl` hold ONE row each. Where
-there is one point this draws one point and says "1 snapshot" on the page, in the
-place a reader would otherwise infer a series. Every section prints its own n.
-
-⚠ **a build is the atomic comparable unit, not a configuration label.** Seven
-builds are recorded under three configuration names, and one of them —
-`cargo-timing-20260808T111707964Z`, labelled `dev/first-party` — has
-`build_fresh_units: 0`, meaning nothing was cached and it recompiled all 688
-units. Grouping by the label averages a 540s cold build into two honest 188s and
-210s rebuilds. So this derives `cache_state` from the cached-unit counts and
-flags the row whose label disputes them, rather than trusting `phase`.
-
-⚠ **both denominators are named before anything is divided.** Codegen is ~80% of
-the unit-seconds that carry a frontend/codegen split and ~73% of ALL
-unit-seconds, because build scripts, bins and the app's `cdylib` emit no
-metadata and so have no split at all. Quoting one of those without its
-denominator is how one measurement becomes two findings.
-
-⚠ **`lines` is a proxy that is wrong by an order of magnitude BETWEEN crates**
-and reliable for one crate against itself over time — the schema says so, and
-this page repeats it next to every ms/line number rather than in a footnote.
-
-# # Self-containment
-
-⛔ **no CDN, no webfont, no external stylesheet, no remote image, no fetch.**
-Every chart is inline SVG this file generates; all CSS and the one small script
-are inlined. The page is meant to survive a Content-Security-Policy that blocks
-every external host, where a silent fallback to a default font or a blank chart
-would be worse than no page at all.
-
-Usage:
-    python3 scripts/compile_report.py                     # -> dev/compile_report.html
+    python3 scripts/compile_report.py
     python3 scripts/compile_report.py -o /tmp/report.html
-    python3 scripts/compile_report.py --print-summary     # text digest, no file
-"""
+    python3 scripts/compile_report.py --print-summary"""
 
 from __future__ import annotations
 

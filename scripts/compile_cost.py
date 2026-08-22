@@ -1,58 +1,20 @@
 #!/usr/bin/env python3
-"""Measure what an edit COSTS to rebuild, and record it so the number moves.
+"""Measure the marginal rebuild cost of a source edit.
 
-⛔ **This exists because "compile time is too long" is not a measurement.**
-Jon, 2026-08-07: *"Currently compile time is too long even after a warm
-recompile… We are wasting so much time on compiles and links, especially when
-agents run tests."* ADR 0013 prescribes `cargo build --timings` "quarterly",
-which is a thing nobody does and which answers a different question anyway — it
-profiles ONE build rather than tracking the edit→feedback loop over time.
+Each scenario warms its Cargo command, makes a temporary real edit to a clean
+source file, times the rebuild, then restores the original bytes from memory.
+The script refuses to probe a target file that is already dirty and never uses
+Git to revert user work. Builds sharing a target directory must run serially.
 
-## What it measures
+Results can be appended to the compile telemetry ledger or printed without
+recording.
 
-An EDIT, not a build. Each scenario appends a tiny function to a real source
-file, runs a real cargo command, and reverts. That is the loop a person or an
-agent actually pays for, and it is the only number that falls when the monolith
-is carved.
+Usage::
 
-⚠ **the scenarios differ by more than their name suggests**, and the differences
-are the finding rather than noise:
-
-* `check` is the AGENTS.md gate, and it is frontend-only — no codegen, no link.
-* `test-build` is what an agent pays before a single test runs. Measured
-  2026-08-07 it was **12x** the check for the same edit, because `opt-level = 1`
-  on workspace crates makes codegen the dominant cost.
-* `relink` isolates the link step, which turned out NOT to be the problem
-  (9.3s to relink a 769 MB binary with mold) despite being the obvious suspect.
-
-## Honesty rules this obeys
-
-⛔ **Never `git checkout` to revert.** A probe that reverts with git deletes
-whatever uncommitted work was in the file. This writes the original bytes back
-from memory, and refuses to run at all if the target file is already dirty.
-
-⚠ **A cold cache measures the wrong thing.** Every scenario warms first with the
-identical command, so what is timed is the marginal cost of the edit rather than
-whatever the tree happened to owe. Without this the same scenario measured 4m52s
-and then 9.3s, and only the second was the answer.
-
-⛔ **ONE cargo build at a time, per target dir.** Any flag that changes a
-fingerprint — `CARGO_INCREMENTAL`, `CARGO_PROFILE_*`, a feature set — makes a
-second concurrent build rebuild everything the first one just built, and then
-the first rebuilds it back. Measured 2026-08-07: a warm no-op that should have
-been under a second reported **222s** because an incremental-on build was
-running beside an incremental-off one in the same target dir. The reading looks
-like a slow machine, not like a mistake, which is what makes it dangerous.
-Use a separate `CARGO_TARGET_DIR` when comparing two configurations, or run
-them strictly in sequence (this repo already knows the worktree version of this
-rule: never share a target dir across worktrees).
-
-Usage:
-    python scripts/compile_cost.py                 # every scenario, append to dev/
+    python scripts/compile_cost.py
     python scripts/compile_cost.py --scenario check
-    python scripts/compile_cost.py --no-record     # measure without recording
-    python scripts/compile_cost.py --env CARGO_INCREMENTAL=1 --label incremental
-"""
+    python scripts/compile_cost.py --no-record
+    python scripts/compile_cost.py --env CARGO_INCREMENTAL=1 --label incremental"""
 
 from __future__ import annotations
 

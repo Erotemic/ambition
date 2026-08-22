@@ -637,17 +637,11 @@ fn complete_press_sequence_if_spent(
     eprintln!("capture_scene: press sequence complete; waiting for the state it asked for");
 }
 
-/// Silence the developer overlays unless the caller asked for them.
+/// Silence developer overlays unless requested.
 ///
-/// a SYSTEM, not a one-shot insert at build time. Settings are loaded and
-/// re-applied during startup, so a value written before the first update is
-/// overwritten by the load — which is exactly what the first version of this did,
-/// silently, leaving every overlay on screen. Forcing it each frame is
-/// order-independent, and for a capture tool that costs nothing.
-///
-/// Written as SETTINGS rather than by disabling plugins, because the settings are
-/// what a player toggles: a clean capture is a configuration a player can reach,
-/// not a special build that might diverge from one.
+/// Enforce this as a system because startup reloads settings after construction.
+/// Use normal player settings rather than disabling plugins so captures exercise
+/// the same presentation configuration as the game.
 fn silence_dev_overlays(
     config: Res<SceneCaptureConfig>,
     mut settings: ResMut<ambition_platformer2d::persistence::settings::UserSettings>,

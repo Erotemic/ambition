@@ -1,9 +1,4 @@
-"""Test the spawn-overlap warning added 2026-05-24 to
-`_check_intro_authoring_hygiene`. Builds a minimal in-memory LDtk
-project with two NpcSpawn entities whose rects overlap, runs the
-hygiene check, and asserts the warning fires.
-
-Pairs with the existing DebugLabel-overlap check tests."""
+"""Tests that authoring validation warns on overlapping spawn rectangles."""
 
 from __future__ import annotations
 

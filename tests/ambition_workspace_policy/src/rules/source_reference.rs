@@ -82,8 +82,7 @@ pub fn check(ws: &Workspace, policy: &Policy, report: &mut Report) {
         }
     }
 
-    // A source scan that reads zero files is a green that means nothing — the
-    // exact false-green shape the whole campaign is guarding against.
+    // Require a non-empty source scan so the policy cannot pass vacuously.
     assert!(
         scanned > 0,
         "policy `{}` (forbidden-source-reference) scanned 0 files under {:?} — \

@@ -1,33 +1,8 @@
-//! Room-scoped generated background/parallax spawning and camera-relative motion.
+//! Room-scoped generated parallax with one panel set per local view.
 //!
-//! Crate choice note: this stays local instead of pulling in a parallax plugin.
-//! The sandbox already owns camera follow / room transitions, and generated
-//! background assets are optional. A few small components keep the current
-//! fallback-friendly loading behavior without forcing the room renderer through
-//! an external API.
-//!
-//! # ONE PANEL SET PER LOCAL VIEW
-//!
-//! a parallax panel's transform is a function of the camera that draws
-//! it, so one shared panel cannot serve two views. The offset is derived from
-//! where the camera stands inside the room, and the panel's SIZE and travel
-//! budget are derived from that camera's viewport rectangle — two observers
-//! looking at opposite ends of one room, through two halves of one screen, want
-//! two different values for both. There is no number a single shared entity
-//! could hold that is right for both, which is the same reason world labels and
-//! nameplates became per-view projections (`d09229ceb`).
-//!
-//! So this family joins them, through the SAME vocabulary rather than a second
-//! one: the room spawns one ROOT panel set,
-//! [`mirror_parallax_layers_per_view`] claims it for the lowest-id view and
-//! copies it for every view past the first, each copy keyed by
-//! [`ambition_sim_view::PresentedForView`], and
-//! [`super::view_isolation::isolate_per_view_projections`] decides which camera
-//! may draw which set.
-//!
-//! They are re-derived each frame from the owning view's
-//! [`ambition_sim_view::camera_snapshot::CameraViewport`], which in a single-view composition still
-//! defaults to exactly those constants.
+//! A panel's transform and travel depend on its observer's viewport, so additional
+//! views receive mirrored sets keyed by [`ambition_sim_view::PresentedForView`].
+//! Each set is re-derived from its owning view's camera viewport every frame.
 
 use ambition_platformer2d_core as ae;
 use bevy::camera::visibility::RenderLayers;
@@ -44,14 +19,10 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 use ambition_platformer2d_world::rooms::RoomMetadata;
 use ambition_sprite_sheet::game_assets::{GameAssets, ParallaxLayerAsset, ParallaxTheme};
 
-/// A camera-relative background panel.
+/// Camera-relative background panel.
 ///
-/// four of these fields are the layer's SPEC and one is DERIVED.
-/// `factor`, `z`, `panel_scale` and `world_size` are decided when the room
-/// spawns the panel and never change; [`Self::travel`] is re-resolved every
-/// frame by [`sync_parallax_layers`] from the viewport of the view this panel
-/// belongs to, because a view's rectangle is not knowable at spawn time and stops
-/// being a single answer the moment a session has two views.
+/// Layer parameters are fixed at spawn; [`Self::travel`] is derived each frame
+/// from the owning view's viewport.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct ParallaxLayerVisual {
     /// 0.0 is screen locked; 1.0 tracks gameplay/world motion.
@@ -87,13 +58,8 @@ pub struct BoundParallaxLayer {
     asset: ParallaxLayerAsset,
 }
 
-/// A mirrored copy of a room's parallax panel, naming the panel it was copied
-/// from.
-///
-/// The link is what makes the copy's life derivative: when the room despawns the
-/// root, the copy goes with it rather than lingering as a backdrop belonging to
-/// nothing. It is also what separates ROOTS from COPIES in every query below —
-/// the same job `MirroredWorldLabel` does one family over.
+/// Mirrored parallax panel linked to its room-owned root for lifecycle and
+/// root/copy query separation.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct MirroredParallaxLayer {
     pub root: Entity,

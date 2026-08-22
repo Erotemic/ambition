@@ -481,9 +481,8 @@ pub mod rollback;
 /// `ron_room` is deliberately absent. It is an authoring backend, nothing
 /// outside the engine reaches for it, and the mirror was publishing it anyway.
 ///
-/// This is the first module to get the treatment; the rest of the crate mirrors
-/// in this file are still mirrors, and each is a leak the campaign's ratchets
-/// still count.
+/// TODO(compat-remove): replace the remaining implementation-shaped crate mirrors
+/// with intentional domain API surfaces, then remove the mirrors.
 pub mod world {
     /// Everything needed to author a room, in one import.
     pub use ambition_platformer2d_world::prelude;

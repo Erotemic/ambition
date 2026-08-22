@@ -863,19 +863,9 @@ fn the_title_screen_says_choose_game_and_is_readable() {
     );
 }
 
-/// The title screen must not advertise verbs nobody can press.
-///
-/// The prompt read-model was not wrong; it was answering a different question.
-/// It describes what the CONTROLLED SUBJECT can do, and it keeps describing that
-/// perfectly well while a menu owns input. "Can anybody drive this right now" is
-/// a question about the input context, and that is what the overlay now asks.
-///
-/// This asserts the buttons' own `Visibility`, NOT `ViewVisibility`. The first
-/// version read the computed flag and passed while proving nothing: this
-/// composition never runs the render app that computes it, so every button read
-/// as invisible and the check was vacuous. A test that cannot fail is worse than
-/// no test, and this one only caught itself because it was asked to prove it
-/// could see the launcher too.
+/// The title screen must not advertise gameplay verbs while a menu owns input.
+/// Assert authored `Visibility`, not render-computed `ViewVisibility`, because
+/// this headless composition does not run the render visibility pass.
 #[test]
 fn the_title_screen_does_not_show_gameplay_touch_buttons() {
     use ambition_platformer2d::touch_input::layout::TouchActionButton;
@@ -1001,12 +991,8 @@ fn the_title_screen_menu_opens_and_mutes_the_game() {
         "Escape on the title screen did not open the shell menu"
     );
 
-    // `UserSettings` is loaded from the real settings file at startup and
-    // `save_settings_on_change` writes it back, so this test edits the
-    // DEVELOPER'S actual config. The first version asserted the fixture started
-    // unmuted, muted the machine it ran on, and then failed on every subsequent
-    // run — passing alone and failing in the suite, which is the signature of a
-    // test with a side effect outside the process.
+    // Isolate `UserSettings`: startup loads and saves the real settings file, so
+    // this test must not mutate developer configuration outside the process.
     //
     // So: snapshot everything, assert a FLIP rather than a value, and put the
     // whole resource back. Leaving somebody's game muted because a test ran is

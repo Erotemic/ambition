@@ -44,19 +44,9 @@ pub struct Vitals {
     /// carried exactly this `Option` meaning since it was added; finalization
     /// folds the two, definition first.
     pub max_health: Option<i32>,
-    /// Reaches a body as `Mass` (the monolith's `features::ecs::mount`), which drives the mount
-    /// pair's mass-weighted centre of gravity (ADR 0020): a heavy mount keeps the
-    /// COG near itself, so the lighter rider orbits it on a gravity flip.
-    ///
-    /// `None` leaves the body's own mass alone — which for a seated fighter is
-    /// the one its roster archetype set. Authoring `Some(1.0)` and saying nothing
-    /// are different claims even though 1.0 is the ambient default, and only the
-    /// first one may overwrite an archetype.
-    ///
-    /// The grep was right about the FIELD and wrong about the concept: `Mass` already existed,
-    /// already rewound, and was populated from the ROSTER archetype and never from here. So
-    /// this was not a dead field, it was a second declaration of a fact only the roster could
-    /// state — and "delete it" was very nearly the recommendation.
+    /// Reaches the body as `Mass`, which drives the mount pair's mass-weighted
+    /// center of gravity. `None` preserves the body's existing mass; `Some(1.0)`
+    /// is an explicit authored override even though `1.0` is the ambient default.
     pub mass: Option<f32>,
     /// How hard this body is to LAUNCH — the knockback weight, reaching a
     /// body as `CombatTuning::weight` (`ambition_combat`). `1.0` is
@@ -124,17 +114,9 @@ pub struct CharacterDefinition {
     /// Select-screen portrait. Loads WITHOUT the sheet, so an enumeration screen
     /// costs no sheet decode.
     ///
-    /// This declares a portrait TARGET — a name. Dialogue resolves a speaker's
-    /// portrait through `CharacterCatalog::portrait_ref`, which yields concrete
-    /// `{ image, manifest, default_clip }` paths. There is no
-    /// target → portrait-art resolver anywhere, so an authored target has nothing
-    /// to resolve THROUGH and reaches nothing.
-    ///
-    /// Either that resolver gets built — the sheet path is exactly this shape,
-    /// `SheetTarget` resolving a name to a manifest — or this field goes and the
-    /// catalog owns portraits outright.  what it must NOT become is a copy of
-    /// the catalog's concrete paths: two places declaring the same art is the
-    /// split this campaign exists to remove.
+    /// This is an unresolved portrait target name. Either resolve it through a
+    /// dedicated target resolver or let the catalog own concrete portrait paths;
+    /// do not duplicate concrete art paths here.
     pub portrait: Option<String>,
     /// Lines this character says when nothing more specific does.
     ///
@@ -184,15 +166,7 @@ pub struct CharacterDefinition {
     pub action_set: Option<crate::brain::ActionSet>,
     /// How this character MOVES — the state-free movement policy.
     ///
-    /// The third leg of an identity's kit, beside the action set and the moveset,
-    /// and the last one that was still exclusively the catalog's. A provider
-    /// authoring a character that runs on momentum rather than swept axes had to
-    /// say so in a catalog row even when it authored everything else on the
-    /// definition ( / campaign R-a, deferred from the first slice
-    /// deliberately and landed ).
-    ///
-    /// `None` means the catalog row stands, which is every character that has not
-    /// authored one.
+    /// `None` leaves the catalog row's movement policy in force.
     pub motion_model: Option<ambition_platformer2d_core::MotionModelSpec>,
     /// Per-character axis FEEL — run accel, jump speed, coyote time, the rest.
     ///
@@ -533,19 +507,9 @@ impl CharacterDefinition {
         self
     }
 
-    /// Give this character a face, by naming a portrait TARGET.
-    ///
-    ///  the field existed for months and was unauthorable: there was no
-    /// builder, so `portrait: None` in the constructor was the only value it
-    /// ever held, and nothing read it either. Both halves are closed now — see
-    /// `character_sprites::assets::portrait_for_declared_character` for what a
-    /// target resolves THROUGH.
-    ///
-    ///  a NAME (`"alice"`), not a path. Paths are what the catalog derives from
-    /// the gameplay sheet's own name; a definition naming concrete paths would
-    /// be the second declaration of the same art that this field's doc forbids.
-    /// A character that authors nothing here keeps the catalog's answer, which
-    /// is how every character in the repo resolves today.
+    /// Name this character's portrait target. This is a logical target name, not
+    /// an asset path; asset resolution derives the concrete path. Omitting it
+    /// preserves the catalog-provided portrait choice.
     pub fn with_portrait(mut self, portrait: impl Into<String>) -> Self {
         self.portrait = Some(portrait.into());
         self
@@ -595,21 +559,9 @@ impl CharacterDefinition {
 mod authority_tests {
     use super::*;
 
-    /// WHAT A CHARACTER IS ALLOWED TO KNOW — first failure mode, guarded from the
-    /// destination side.
-    ///
-    /// `ArchetypeSpec` now has the same exhaustive destructure saying where each of its 49
-    /// fields goes. This is the other half: a field arriving HERE has to be justified as
-    /// something a body may state.
-    ///
-    ///  the DEFAULT CONTROLLER group is the subtle one and is deliberately
-    /// not empty. A character may state the policy it comes with — the goblin
-    /// names `medium_striker`, the shark riders carry one inline — and that is
-    /// the campaign's own design, not a leak: *"one adopter does not earn the
-    /// indirection."* What must stay true is that a DEFAULT is replaceable.
-    /// Changing the controller does not change the body; a body that could
-    /// not be driven by another mind would be the failure this group is watched
-    /// for.
+    /// A character definition may state only body-owned facts. A default
+    /// controller is allowed as replaceable policy; changing the controller must
+    /// not change body identity.
     #[allow(dead_code)]
     fn a_character_states_only_what_a_body_may_state(definition: &CharacterDefinition) {
         let CharacterDefinition {

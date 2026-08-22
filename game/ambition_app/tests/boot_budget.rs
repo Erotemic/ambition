@@ -69,19 +69,9 @@ fn boot_and_settle() -> bevy::app::App {
     app
 }
 
-/// How long a poll waits in REAL time before re-reading the census.
-///
-/// Now it waits in the clock the decoders actually run in.
-///
-/// and this was NOT the reason this guard reads low. Probed before
-/// believing it: with a 5-second real-time settle the count sits at
-/// 19 images and never moves. The gap against the shipped binary's own
-/// `[image-census]` — 11.1 MP / 19 images here versus 82.5 MP / 112 images at
-/// five seconds there — is a COMPOSITION difference, not a timing one. This
-/// boots to the title screen; the desktop binary has additionally run the startup
-/// room's character demand and `load_game_assets`' eager boss sheets by then. So
-/// the settle is honest now and the budget still measures a smaller world than
-/// the one that is slow. Filed as AG1.
+/// Poll interval in real time, matching the clock used by asset decoders.
+/// This title-screen composition measures fewer assets than full desktop startup,
+/// which also demands startup-room characters and eager boss sheets.
 const SETTLE_POLL: std::time::Duration = std::time::Duration::from_millis(25);
 /// Consecutive quiet polls before the world counts as settled — 500ms of real
 /// silence, which is longer than any single sheet takes to decode.

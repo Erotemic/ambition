@@ -250,8 +250,7 @@ fn reformatting_the_item_grid_does_not_move_the_fingerprint() {
 /// resolves.
 #[test]
 fn a_dialog_id_the_runtime_lookup_can_never_resolve_is_refused() {
-    // leading/trailing whitespace is IN this list because the first version of
-    // the check trimmed before comparing and therefore could not see it.
+    // Include leading/trailing whitespace because normalization must reject it.
     for spelling in [
         "PortalGun",
         "portal_gun",

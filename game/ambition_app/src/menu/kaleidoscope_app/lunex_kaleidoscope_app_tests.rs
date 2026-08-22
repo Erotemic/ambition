@@ -2379,14 +2379,9 @@ fn game_cube_configuration_overlays_the_live_world_camera() {
     );
 }
 
-/// A rebind row arms, then the NEXT press becomes the binding.
-///
-/// the trap this pins: selecting the row is itself a key press, and it is
-/// still in `get_just_pressed` when the capture runs later the same frame. The
-/// first version ran the capture after the dispatch and called that the fix — it
-/// is not, because a just-pressed set is a fact about the FRAME, not about where
-/// in the frame you read it. Without `settle`, confirming a rebind row binds
-/// that action to the confirm key, and every action in the list ends up on it.
+/// A rebind row arms first; only a subsequent press becomes the binding.
+/// The confirm press remains `just_pressed` for the whole frame, so capture must
+/// wait for the settle boundary.
 #[test]
 fn arming_a_rebind_does_not_capture_the_key_that_armed_it() {
     use ambition_platformer2d::input::{InputParticipant, KeyboardPreset, SeatBindings};

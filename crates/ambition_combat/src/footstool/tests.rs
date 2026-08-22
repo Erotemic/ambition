@@ -518,11 +518,8 @@ fn team_attack_lets_a_teammate_be_stood_on() {
     assert_eq!(fall_of(&app, victim), rules.press_speed);
 }
 
-/// TWO BODIES UNDER DIFFERENT GRAVITY HAVE NO SHARED "HEAD".
-///
-/// the first version read the VICTIM's box in the STOMPER's frame, so under
-/// mixed gravity it judged a head that the victim does not have. Refused, rather
-/// than answered in one of the two frames.
+/// Bodies under different gravity frames have no shared notion of "head", so
+/// the footstool relation is refused rather than evaluated in either frame.
 #[test]
 fn a_pair_that_disagrees_about_down_is_refused() {
     use ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame;

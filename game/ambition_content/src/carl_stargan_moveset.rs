@@ -1,36 +1,9 @@
-//! Carl Stargan's repertoire — cosmic perspective, as a fighter.
+//! Carl Stargan moveset.
 //!
-//! Twelve of his effects were rendered and bound to nothing.
-//!
-//! ## The character, from his own vocabulary
-//!
-//! A populariser of scale: the pale blue dot is a pixel and the cosmic calendar
-//! is fourteen billion years on one page. One idea runs the table:
-//!
-//! ```text
-//!   REACH IS BOUGHT WITH TIME    his longest move is his slowest, always
-//! ```
-//!
-//! Sort his forward line by how far it reaches and the startup never goes down.
-//! What it buys is a fighter you can read: the thing that threatens half the
-//! stage is also the thing you can see coming, and his jab is instant because it
-//! barely leaves his sleeve.
-//!
-//! that discipline is not his alone — I tried to poison it against Oiler
-//! and the poison failed, because his forward line is monotonic too. Recorded
-//! rather than quietly dropped: it is a property of tables authored with care,
-//! not a distinguishing trait.
-//!
-//! the SPREAD is what is his. `billions_and_billions` reaches
-//! [`FURTHEST_REACH`] against a jab at [`NEAREST_REACH`] — over four times, where
-//! the other authored fighters sit far below that — which is "the very small and
-//! the very large" stated in hitboxes, and it carries its own comparison.
-//!
-//! ## Effects sit on the box that throws them
-//!
-//! one cue carries a `.loop` suffix its row does not
-//! (`vfx.carl_stargan.nebula_breath.loop`), so the derived `vfx.<family>.<row>`
-//! name misses the bank for that one.
+//! Reach is bought with startup time, and his repertoire spans a particularly
+//! wide distance range from jab to `billions_and_billions`. Effects are authored
+//! on the move that emits them; cue names are explicit where the bank id does not
+//! follow the default family/row convention.
 
 use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX};
 use ambition_characters::smash_capture::{

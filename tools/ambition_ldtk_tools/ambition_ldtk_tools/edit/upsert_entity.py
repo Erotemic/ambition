@@ -1,87 +1,19 @@
 #!/usr/bin/env python3
-"""Make a project's entity DEFINITIONS agree with a declared manifest.
+"""Reconcile an LDtk project's entity definitions with a declared manifest.
 
-`def register-entity` creates a noun and refuses one that already exists.
-`def update-entity` bolts a field onto a noun that does. Neither can express
-the thing a game actually needs after its level has been authored: *"here is
-the vocabulary, make the project match it"* — new fields, moved defaults,
-retired fields, a wider block, a rewritten doc string, all in one pass, run as
-often as you like. That is this command.
+Existing entity and field UIDs are preserved so authored instances keep valid
+references. Keys outside the manifest's vocabulary contract, such as editor
+placement and tile presentation metadata, are retained. New identifiers are
+created using the same rules as `def register-entity`.
 
-## Why a third verb rather than a flag on `register-entity`
+Removing a field or changing its type may destroy instance values. The command
+refuses that operation when non-null values exist unless the exact
+`ENTITY.FIELD` is authorized with `--drop-instance-values`; stale or unnecessary
+authorizations are rejected. Fields with no retained values may be retired
+without an override.
 
-A `--force` on `register-entity` would have been fewer lines and it is the
-wrong shape. `register-entity`'s refusal is not an inconvenience, it is the
-command's meaning: *I believe this noun is new; tell me if I am wrong.* Fold
-the destructive path in behind a flag and that meaning becomes conditional —
-every existing invocation of the safe command sits one word away from the one
-that rewrites definitions instances depend on, and the refusal that documents
-the boundary stops existing. A separate verb keeps the boundary where a reader
-can see it: `register` creates, `update` extends, `upsert` reconciles, and you
-have to *name* the destructive one to get it.
-
-## What it preserves, and why it has to
-
-The UIDs. Every `entityInstance` references its definition by `defUid`, and
-every `fieldInstance` references its field definition the same way, so minting
-a fresh uid for an existing identifier orphans every placement in every level —
-the file still parses and the level is gone. So an identifier that already
-exists keeps its `uid`, a field identifier that already exists keeps its
-`uid`, and the values instances carry are simply left alone: nothing has to
-migrate them because nothing they point at moved.
-
-The editor's own authoring. A manifest declares a *vocabulary* — identifiers,
-types, defaults, size, colour, docs. It cannot express `tileRect`, `pivotX`,
-`editorDisplayPos` or the twenty other keys an author sets in the LDtk GUI, so
-a key the manifest does not mention is left exactly as it was rather than reset
-to this tool's construction default. Treating silence as "restore the default"
-would make every sync quietly undo the editor work it was supposed to be safe
-alongside — the same accidental clobber the refusal above exists to prevent,
-just spelled differently.
-
-## What it refuses
-
-A field the manifest stops declaring is retired, and a field whose type changes
-is rebuilt — both of which delete the `fieldInstance` records that carried
-values, because a `fieldInstance` whose definition is gone fails validation
-outright and one whose `__type` no longer matches its `__value` is a lie
-`repair` would go on to launder. When any instance actually holds a non-null
-value for such a field, that is not a schema edit, it is a decision about the
-author's data, and the tool stops and says exactly which values die.
-
-The opt-in is `--drop-instance-values ENTITY.FIELD`, repeatable, and it names
-the field paths whose instance values may be destroyed — never a bare
-`--force`. Two reasons. A blanket flag written for one migration silently
-authorizes the *next* one, which is the shape of a check that cannot fail; and
-a path-scoped flag is refused when it names something that would not have been
-lost, so a stale opt-in left behind in a script is a red run rather than a
-loaded gun. That refusal is what keeps this command usable from
-`sync_mary_o_ldtk_defs.py`: a sync that must be safe to re-run forever can
-never carry a standing opt-in, because the second run would reject it.
-
-Fields the manifest drops that *no* instance carries a value for are retired
-silently. The gate is on data at risk, not on the shape of the diff.
-
-## Usage
-
-```bash
-PYTHONPATH=tools/ambition_ldtk_tools \
-python -m ambition_ldtk_tools def upsert-entity \
-    game/ambition_demo_mary_o/assets/worlds/mary_o.entities.json \
-    --ldtk game/ambition_demo_mary_o/assets/worlds/mary_o.ldtk \
-    --in-place --game-owned
-```
-
-The spec is the same `{"entities": [...]}` shape `register-entity` consumes —
-which is also the sidecar manifest `validate` reads as a game's declared
-vocabulary, so one file is the vocabulary, the editor definitions, and what
-validation trusts.
-
-An identifier the project does not have yet is CREATED, on the same terms
-`register-entity` would have created it (including `--game-owned`), so a caller
-reconciling a manifest makes one call rather than sorting its own entities into
-new and existing.
-"""
+The manifest uses the same `{"entities": [...]}` vocabulary consumed by the
+entity-definition tooling and validation."""
 
 from __future__ import annotations
 

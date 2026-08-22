@@ -480,36 +480,10 @@ pub fn apply_hitbox_damage(
                 hits.hit.insert(victim.entity);
             }
 
-            // THE UNRESOLVED HALF OF THE SAME STRIKE.
-            //
-            // so the broadcast is not restored as a second melee path. It is
-            // published as what it is — [`HitTarget::UnresolvedFeatures`], the part
-            // of this strike whose targets are still unnamed — and the resolver
-            // above stays the one authority on bodies. The consumer scans bosses
-            // and breakables for it and MUST NOT scan bodies, which have already
-            // taken their identified hit.
-            //
-            // Dedup rides `MovePlayback.hit_targets`, the move's own authoritative
-            // per-strike accumulator, NOT the `BodyMelee.swing` projection that
-            // used to gate this emit — a read-model must never decide whether a
-            // strike can damage, and that projection is rebuilt every frame.
-            //
-            // EVERY body-owned melee publishes it, not just the player's.
-            // The gate here was `matches!(source_kind, PlayerSlash)`, and that
-            // one permission was standing in for a rule nobody had written down:
-            // the boss scan applied no relationship policy, so "only the player
-            // may broadcast" WAS the boss's who-may-hurt-me rule. With the scan
-            // adjudicating properly the permission is free to go, and an enemy's
-            // swing smashing a crate or reaching a boss is the body-generic
-            // answer rather than a new special case.
-            //
-            // lifting it desynced the rollback suite, and the cause was NOT
-            // where I predicted. `stage_player_victim_hit_events` staged this
-            // unresolved half into the player-victim FIFO — its fallback arm
-            // reads `!seeks_victims()`, and an enemy swing's cause is filed
-            // victim-side by the direction words. The per-component localizer
-            // named the resource in one run; see
-            // `which_component_does_the_lifecycle_reset_divergence_live_in`.
+            // Publish the unresolved feature half of the strike after body targets
+            // have been resolved. Feature consumers may scan bosses/breakables but
+            // must not damage bodies again. Per-strike dedup is authoritative in
+            // `MovePlayback.hit_targets`, not the `BodyMelee` read model.
             {
                 hit_events.write(HitEvent {
                     strike_sfx: hitbox.strike_sfx,

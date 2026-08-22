@@ -1,35 +1,11 @@
-//! Generic rider / mount relationship between two ECS actor entities.
+//! Generic rider/mount relationship between separate actor entities.
 //!
-//! Replaces the legacy "fused archetype" model (`PirateOnShark` /
-//! `PirateHeavyOnShark` as single entities with a second HP pool +
-//! second hitbox). Mount and rider are now SEPARATE entities; a
-//! [`RidingOn`] component on the rider points at the mount entity,
-//! and [`MountSlot`] on the mount holds the rider's `Entity` back so
-//! either side can resolve the link.
-//!
-//! Per-tick coupling: [`sync_riders_to_mounts`] snaps the rider's
-//! position / facing to the mount's position + the mount's
-//! [`Mountable::rider_offset`]. The rider's brain still runs (it
-//! computes a fire intent toward the target from the snapped
-//! position); the snap each frame nullifies its movement intent.
-//!
-//! Dissolution: [`enforce_mount_rider_link`] runs after the damage
-//! pass. When the mount dies the rider's gravity flips back on and
-//! its brain + action set are swapped through the shared dismounted
-//! rider builder (so a pirate falling off a dead shark walks toward
-//! the player and swings melee, rather than orbit-and-firing a
-//! gun-sword it no longer has the platform to wield). When the rider
-//! dies the mount keeps running with its own brain.
-//!
-//! Any character can be a mount if it carries [`Mountable`] data and
-//! any character can be a rider if it has a target to ride. Authored
-//! pairs come from two linked LDtk `EnemySpawn`s (a rider with a
-//! `mounted_on` entity-ref); the room construction planner turns each
-//! pair into a planned `ambition.mount` relation whose engine-owned
-//! wiring installs BOTH ends at commit (`RidingOn` + `Mounted` on the
-//! rider, `MountSlot` on the mount), verified at the room boundary.
-//! There is no "shark-rider knowledge" in the engine — the whole
-//! relationship is data (ADR 0020).
+//! `RidingOn` links the rider to a `MountSlot`; per-tick coupling publishes the
+//! rider pose from the mount while the rider brain may still author actions.
+//! Link enforcement handles either side dying: a dead mount releases the rider
+//! into its dismounted behavior, while a dead rider leaves the mount independent.
+//! Authored pairs are lowered from linked placements into the same engine-owned
+//! relation; the engine contains no mount-species special case.
 
 use bevy::prelude::{Commands, Component, Entity, MessageWriter, Query, Res, With, Without};
 

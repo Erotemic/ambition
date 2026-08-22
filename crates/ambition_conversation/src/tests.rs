@@ -403,18 +403,9 @@ fn replaying_the_opening_tick_does_not_reopen_the_box() {
     );
 }
 
-/// TWO conversations finish inside the window, and a rewind replays BOTH.
-///
-/// the record was DEPTH ONE, and the argument for it was about how fast a
-/// human reads. The second end overwrote the first, so a rewind reaching back
-/// past both replayed only the later one: the earlier conversation was restored
-/// live and stayed live for the rest of the replayed branch, holding a body and
-/// capturing a seat that the original timeline had already released.
-///
-/// "a player has to read the first one" is not an engine invariant.
-/// Dialogue can be scripted, system-started, one line long, or auto-advancing;
-/// the cut-rope room reaches `<<reset_cut_rope_room>>` before the player has
-/// dismissed the line it is on. Correctness cannot rest on reading speed.
+/// Two conversations may finish inside one rollback window; both completion
+/// records must survive so rewinding past both replays both. Correctness cannot
+/// depend on reading speed because conversations may be scripted or auto-advancing.
 #[test]
 fn two_narrative_ends_in_one_window_both_replay() {
     let mut app = narrative_app(100);

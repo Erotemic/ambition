@@ -1,33 +1,8 @@
-//! Where the occurrence an authored definition minted actually IS.
+//! Tracks where occurrences created from authored definitions currently belong.
 //!
-//! authored DEFINITION identity is not runtime OCCURRENCE identity. A room is a set of
-//! authored records; building it MINTS one occurrence per record and stamps it with the
-//! record's identity ([`SimId::placement`](crate::sim_id::SimId::placement)).
-//!
-//! # THREE HORIZONS, and this file owns exactly one
-//!
-//! 1. CURRENT — what is true now. Owned HERE, by
-//!    [`AuthoredOccurrences`]. Its loaded window is the live world (an entity
-//!    with its `ItemCustody`, its position, its components); this ledger is the
-//!    part of the current world that the loaded window cannot hold, because the
-//!    room it describes is not built. Every row is republished from live state
-//!    while that state is loaded — see [`AuthoredOccurrences::rewind_argument`].
-//! 2. BASELINE — what a death/retry restores to: the current whereabouts
-//!    as they stood at the last committed checkpoint. It does not exist, and
-//!    it is a COPY of this ledger, not a second kind of row. See
-//!    [`AuthoredOccurrences::baseline_is_a_copy_of_this`] for what would have to
-//!    exist and why an item-KIND rule is the wrong shape.
-//! 3. ✔ DURABLE SAVE — the same value across process lifetimes. Built
-//! : `AmbitionGameSaveData:occurrences` is these rows, spelled
-//!    for disk with integer pixels, and
-//!    `session::durable_horizon` in the monolith is the pair of systems that
-//!    writes and reads them. A LOAD adopts this ledger, adopts the three
-//!    baselines from the same file, and asks for one `ResetToCheckpoint` — so
-//!    the reconstruction it performs is the road a death already takes, and
-//!    there is still exactly one authority on what a room owes the world.
-//!
-//! That is also what makes a baseline copy of it cheap and complete: "no row" means "as
-//! authored", which is the correct baseline for everything nobody has touched.
+//! The live ledger fills the part of current world state that unloaded rooms
+//! cannot represent. Checkpoint state is a copy of this ledger; durable saves
+//! serialize the same values. No row means the occurrence remains as authored.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -322,16 +297,9 @@ impl AuthoredOccurrences {
         }
     }
 
-    /// A reset remembers nothing.
-    ///
-    /// The sandbox reset destroys the occurrences a whereabouts row is about —
-    /// the room AND the hand — and rebuilds the start room from its authored
-    /// records alone. A surviving row would put a relocated object back at
-    /// coordinates from a world that no longer exists.
-    ///
-    /// and this is the degenerate case of the BASELINE horizon: a reset is
-    /// "restore the empty baseline". See
-    /// [`Self::baseline_is_a_copy_of_this`].
+    /// Clear occurrence whereabouts for a full session reset. The rebuilt start
+    /// room is authored from records again, so coordinates/custody from the old
+    /// world must not survive.
     pub fn forget_everything(&mut self) {
         if !self.rows.is_empty() {
             self.rows.clear();
@@ -342,68 +310,18 @@ impl AuthoredOccurrences {
         self.rows.is_empty()
     }
 
-    /// Why this is still declared DERIVED to the rollback registry, and the
-    /// exact condition that would make that a lie.
-    ///
-    /// Every row is republished from live state on every tick that the state is
-    /// live: [`project_custody_onto_authored_occurrences`] rebuilds the custody
-    /// leg from `InCustodyOf`, and the placement producer rebuilds a `Placed`
-    /// row from the occurrence's own position while its room is loaded. A rewind
-    /// therefore restores the world and the next step restores the ledger.
-    ///
-    /// An object cannot change rooms without being carried, so a live object contradicting its own
-    /// row is a stale duplicate, not a move — see `record_placed_ground_items`. That narrows the
-    /// population and does not weaken the re-derivation argument below: every row this producer
-    /// WOULD write is still rewritten each tick.
-    ///
-    /// the one value a rewind cannot recompute is a `Placed` row whose room
-    /// is not loaded — and a room stops being loaded only at a room TRANSITION,
-    /// which a frame rollback never crosses (a transition commits from
-    /// `commit_confirmed_lifecycle`, at a confirmed frame). So the frozen value
-    /// is frozen on the far side of a boundary the rewind window does not reach.
-    ///
-    /// that argument dies the day [`OccurrenceWhereabouts::Consumed`]
-    /// gains a producer, because that row is written mid-frame from an event
-    /// and no live state re-derives it. It owes a registration with a real VALUE
-    /// projection (the rows, not a presence probe) at the same moment.
-    ///
-    /// UNVERIFIED: no rollback host was run against this file. The claim
-    /// above is an argument, not a measurement.
+    /// Rollback contract for this derived ledger. Live custody and placement
+    /// producers republish their rows every tick, while room transitions commit
+    /// beyond the frame-rollback boundary. If a non-rederived whereabouts state
+    /// (such as `Consumed`) gains a producer, this ledger must become registered
+    /// value state with a value-sensitive probe.
     pub const fn rewind_argument() {}
 
-    /// This ledger's contribution to the BASELINE horizon is a copy of
-    /// itself — see [`OccurrenceBaseline`], which is that copy.
-    ///
-    /// * a key picked up after has an `InCustody` row that the C0
-    ///   copy does not; restoring the copy leaves no row, so the pedestal
-    ///   authors it again;
-    /// * acquiring it and then committing C1 copies the row, so a later death
-    ///   restores the row and the pedestal stays empty;
-    /// * a temporary item picked up AFTER C1 reverts too, for the same one
-    ///   reason — its row is not in the C1 copy either. This is the line that
-    ///   makes the rule checkpoint-shaped rather than item-shaped, and a
-    ///   `KeyItem => always persists` rule satisfies the first two and fails it.
-    ///
-    /// so do not write an item-kind rule. A key persists because acquiring
-    /// it committed a checkpoint, not because of what it is; a kind rule is a
-    /// second authority that disagrees with the checkpoint the moment content
-    /// changes.
-    ///
-    /// and the second half of that custody leg is closed too (,
-    /// third leg). An occurrence whose baseline says a body was carrying it and
-    /// which has NO live entity anywhere — carried out, put down, and destroyed
-    /// when that room unloaded — is MATERIALIZED back into that hand from the
-    /// record that minted it, reached BY IDENTITY rather than by room. That leg
-    /// cannot live in this crate: it spawns, and what it spawns belongs to a
-    /// family this crate has never heard of. It is
-    /// `items::pickup::restore_custody_to_checkpoint`.
-    ///
-    /// note which question that answers and which it leaves alone. A row
-    /// of this ledger is still never a spawn instruction: [`Self::outlook_for`]
-    /// answers `Suppressed` for `InCustody` in every room, and that stays
-    /// exactly right, because a thing in a hand is not a thing in a room.
-    /// Materialization is the one reconstruction road that is not a room's, and
-    /// it is the custody domain's precisely because of that.
+    /// Checkpoint baselines copy the entire occurrence ledger. Restoring that copy
+    /// makes post-checkpoint custody/placement changes disappear regardless of item
+    /// kind. Missing live entities that the baseline says were in custody are
+    /// materialized by the custody domain from their authored identity; this ledger
+    /// remains a whereabouts record, not a spawn instruction.
     pub const fn baseline_is_a_copy_of_this() {}
 
     /// A reinstatement is NOT room-local, and the residency it restores is

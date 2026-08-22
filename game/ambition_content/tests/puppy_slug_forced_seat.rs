@@ -223,13 +223,8 @@ fn a_body_that_cannot_jump_is_not_given_a_jump_by_the_stage() {
     );
 }
 
-/// *"The point of a slug is that it shows that it is spawned happily even
-/// though it basically has no moves."* The acceptance criterion is not that it
-/// fights well; it is that a body carrying ONE verb seats, simulates and
-/// survives on a stage built for fighters, rather than crashing, freezing, or
-/// being quietly topped up into a humanoid. That is the compositional claim the
-/// whole character-template campaign is for, and a creature with one verb is the
-/// sharpest instrument for it.
+/// A body with only one authored verb can be seated and simulated on a fighter
+/// stage without being padded into a generic humanoid kit.
 #[test]
 fn a_creature_with_one_verb_still_seats_and_simulates() {
     let mut app = seating_app_with_the_real_cast();

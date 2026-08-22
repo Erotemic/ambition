@@ -1,28 +1,8 @@
-"""The planning docs' own bookkeeping must cite something a machine can check.
+"""Planning bookkeeping must cite machine-checkable current facts.
 
-⛔ **Four instances of ONE defect on 2026-08-08**, each a hand-written cache of a
-machine-checkable fact, going stale inside the file whose job is to be current:
-
-* `docs/planning/README.md` — heading *"Where the open work is"* — pointed at the
-  2026-08-06 ledger as *"the live run ledger. This is the current work"*, two days
-  after that run ended, sending every new reader to a retired file carrying 24
-  open marks that were not work;
-* the live ledger's standing-state block said the rollback schema was at v17
-  while `registry.rs` had said **18** since that morning;
-* the same block's suite baseline said 318 when the suite was 319;
-* a navigation table was wrong within two hours of being written.
-
-⭐ **the repo already has the rule and did not apply it to itself.**
-`docs/planning/README.md` says: *write a status as a CITATION, not a SITUATION —
-name something a reader confirms or refutes in one grep.* These are the docs'
-bookkeeping failing their own standard.
-
-⚠ **what this can and cannot check.** It checks facts with a machine-readable
-source of truth. A suite count needs the suite; a claim about what a design MEANS
-needs a reader. Those stay human, and this file does not pretend otherwise —
-adding a check here for something unverifiable would be the
-`a_check_that_cannot_fail` defect one layer up.
-"""
+These tests verify pointers and status claims that have a repository source of
+truth. Design interpretation and other non-machine-checkable claims remain human
+review concerns rather than being encoded as pretend guards."""
 
 from __future__ import annotations
 
@@ -65,12 +45,7 @@ def test_the_live_ledger_is_not_an_archived_one():
 
 
 def test_an_archived_ledger_has_no_open_marks():
-    """⛔ Archiving a ledger with real rows in it buries the work.
-
-    Twice on 2026-08-08 a retired ledger looked archivable and held live rows —
-    an unguarded room-scope fix, and a continuity row that had been open since
-    the day it was filed. Both were carried forward before the move.
-    """
+    """Archived ledgers must contain no open work markers."""
     archive = REPO / "docs" / "archive"
     # `*-closed-sections.md` are EXCLUDED, and the exclusion is their own
     # contract rather than a convenience: those files archive individual sections
@@ -164,14 +139,7 @@ def test_no_ledger_row_is_marked_both_open_and_closed():
 
 
 def test_the_contradiction_check_actually_catches_one():
-    """The probe. A checker for a defect nobody can reproduce is not a checker.
-
-    ⭐ **also probed against the REAL defect, not just this synthetic one.** Run
-    against `0e415e62a:docs/planning/queue-72h-2026-08-08.md` — the ledger one
-    commit before the marker cleanup — it returns exactly `{D29, D31, D32}`,
-    the three rows that had a verdict written above them and kept their `▢`.
-    A synthetic case proves the regex; real data proves the checker.
-    """
+    """A synthetic contradictory marker must be detected by the checker."""
     defective = (
         "- ✔ **D29 landed, and here is why**\n"
         "  some prose\n"

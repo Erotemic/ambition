@@ -214,16 +214,7 @@ def _sfx(name: str, rms: float, owner: str = 'someone') -> al.Item:
 
 
 def test_the_loudest_sound_finding_can_actually_fire():
-    """⛔ **a finding that cannot fire reads as a pass**, which is the worst
-    failure an instrument has: the report says "no outliers" and everybody
-    believes it.
-
-    The first version of this section reached the metric with
-    `getattr(item, metric)` while the metric is a dict KEY, so every value came
-    back `None`, every sound was skipped, and it printed a clean sweep over a
-    corpus that contains an 11 dB outlier. This pins the fire path: one planted
-    screamer in an otherwise tight population must appear by name.
-    """
+    """A planted loudness outlier must appear in the finding by name and owner."""
     quiet = [_sfx(f'quiet.{n}', -24.0 + (n % 5) * 0.5) for n in range(40)]
     screamer = _sfx('a.screamer', -6.0, owner='loud_provider')
     lines = al._loudest_sounds_finding({'sfx': quiet + [screamer]})

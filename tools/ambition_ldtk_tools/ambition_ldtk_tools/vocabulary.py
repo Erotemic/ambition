@@ -1,43 +1,14 @@
 #!/usr/bin/env python3
-"""**What can I place here, and what may I say about it?**
+"""Read the entity vocabulary and authored field conventions from an LDtk project.
 
-The two questions an author asks first, and the two the toolbox could not
-answer. `entity query` lists what a level ALREADY holds; `room describe`
-summarises one room; `def register-entity` / `def upsert-entity` WRITE
-definitions. Nothing read the vocabulary back out, so discovering that
-`MaryOBlock.kind` is a closed enum, that `PickupSpawn.kind` is a
-colon-separated string with a shape, or that `EnemySpawn.character_id` even
-EXISTS meant opening the `.ldtk` and reading `defs.entities` by hand.
+`vocabulary list` reports placeable entity definitions and their fields.
+`vocabulary check` finds placements that omit a field authored by every peer of
+the same entity kind. The check is a consistency signal rather than a schema:
+optional fields are not required unless current content establishes them as
+universal.
 
-⛔ **AND A TYPED FIELD DEF IS NOT THE ANSWER EITHER, WHICH IS THE POINT OF THE
-CENSUS.** Most authored vocabulary in this project is `String`: `PickupSpawn`
-`kind`, `Prop.kind`, `EnemySpawn` `character_id` / `respawn`,
-`MaryOBlock.contents`, `KinematicPath.mode`, `LoadingZone.activation`,
-`BreakablePlatform.trigger`. Their legal values live in a Rust parser, and
-re-declaring that list here is exactly how three copies of a convention drift
-apart. So this does not declare anything: it COUNTS what the world already
-authors. `respawn` reads as an opaque string until you are told that 24 of 24
-enemies in this file say `OnRoomReenter`, at which point the answer is obvious
-and it came from the content rather than from a second authority.
-
-⭐ **`check` is that census turned into a diagnostic, and it found a real
-defect the first time it ran.** `mary_o_1_3` was authored on 2026-08-15 through
-`area create` + `repair` + `validate` — all three green — with six `EnemySpawn`
-entities carrying no `character_id`. The converter REFUSES that
-(`convert_enemy_spawn`: *"a placement states which creature it places"*), so
-the room would have panicked the game on load, and the whole Python authoring
-loop had no way to say so. `check` says it without knowing anything about Rust:
-every other `EnemySpawn` in the file authors the field, and these do not.
-
-    vocabulary list  --ldtk W [--identifier ID]   what may I place, and what may I say
-    vocabulary check --ldtk W [--level L]         who is the odd one out
-
-⚠ **`check` is a CONSISTENCY signal, not a specification.** A field that only
-some placements want (`EnemySpawn.mounted_on`, `MovingPlatform.loop_dy`) is
-never flagged, because the rule only fires at 100%. The first placement of a
-genuinely optional-but-always-used-so-far field will be a false positive; that
-is the honest cost of deriving the rule from content instead of restating it.
-"""
+String-valued conventions remain content-derived here instead of being
+redeclared as a second list of legal values."""
 
 from __future__ import annotations
 

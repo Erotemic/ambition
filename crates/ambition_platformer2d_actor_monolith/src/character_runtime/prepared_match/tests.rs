@@ -974,13 +974,10 @@ fn a_match_grant_does_not_overwrite_a_characters_authored_moves() {
     );
 }
 
-/// A seated fighter moves the way its DEFINITION says. (campaign R-a)
+/// A seated fighter uses the movement model authored by its definition.
 ///
-/// A character whose definition says "momentum" and whose catalog row says nothing should not
-/// move like a swept-axis walker because it happens to be seated rather than worn.
-///
-/// Applied through `switch_motion_model`, so this also pins the ADR 0024 rule:
-/// the component is transitioned, never replaced.
+/// Apply changes through `switch_motion_model`; the component is transitioned,
+/// never replaced.
 #[test]
 fn a_seated_fighter_moves_by_its_definitions_motion_model() {
     use ambition_platformer2d_core::MotionModelSpec;
@@ -1019,14 +1016,8 @@ fn a_seated_fighter_moves_by_its_definitions_motion_model() {
     );
 }
 
-/// Movement FEEL reaches a seated fighter, and an unauthored one is left alone.
-///
-/// The last kit-adjacent field, and the one whose `None` is an ANSWER rather
-/// than a default: `AuthoredMovementTuning`'s presence means "this body's tuning
-/// is authored, not the shared dev tuning", so a character that authored none
-/// must end with NO marker.
-///
-/// Both go through one resolver now, which is the discipline this whole campaign is about.
+/// Authored movement tuning reaches seated fighters; unauthored fighters retain
+/// no `AuthoredMovementTuning` marker so shared development tuning remains active.
 #[test]
 fn a_seated_fighter_gets_authored_movement_feel_and_only_when_authored() {
     let mut app = seating_app();
@@ -1237,9 +1228,8 @@ fn a_declared_countdown_holds_every_seat_until_it_ends() {
     }
 
     finalize_and_update(&mut app);
-    // both terms must be OBSERVED. The first version of this loop ran to
-    // `TICKS` and every iteration took the "still held" branch — the release
-    // assertion was never evaluated once, and it passed.
+    // Observe both the held and released states so the release assertion cannot
+    // pass vacuously.
     let (mut saw_held, mut saw_released) = (false, false);
     for now in 1..=u64::from(TICKS) + 1 {
         app.insert_resource(ambition_time::SimTick(now));

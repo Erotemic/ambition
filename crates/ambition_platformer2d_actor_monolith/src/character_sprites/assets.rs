@@ -106,15 +106,9 @@ pub fn sheet_for_declared_character(
 ///
 /// The registry is optional; compositions may use the catalog convention or provide their own portrait path.
 ///
-/// `CharacterDefinition.portrait` was carried faithfully through preparation
-/// and read by NOTHING for as long as it existed, because there was no
-/// target → art resolver for it to resolve through. Its own doc named the two
-/// honest ways out — build this, or delete the field — and named the third as
-/// forbidden: the definition must not become a COPY of the catalog's concrete
-/// paths, because two places declaring the same art is the split the
-/// single-registration campaign exists to remove.
-///
-/// So the roads stay separate and end at one type:
+/// Registered portrait targets resolve through manifests while catalog rows may
+/// still derive concrete portrait paths. Keep those authoring roads separate and
+/// converge them on one resolved portrait type:
 ///
 /// * a registered target names a portrait PRODUCT (`"alice"`), resolved
 ///   through the manifests' own `target` field. A provider that registers a

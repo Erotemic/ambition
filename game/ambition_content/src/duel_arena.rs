@@ -69,23 +69,8 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
                 brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                     "cellular_automaton_fighter".to_string(),
                 ),
-                // See the constant. was `None`, AND THE REASON WAS MEASURED.
-                // `perfect_cellular_automaton` now authors its whole body — 60 HP, the swipe, the
-                // glider, the Cellular Pulse, its four capabilities and its Smash policy — so this
-                // line is one word from flipping. It does not flip yet: naming the character makes
-                // `duel_fighters_actually_enact_their_abilities_on_the_body` fail on *"PCA: shield
-                // must actually go up on the body (got 0 frames)"*.
-                //
-                // two hypotheses are already RULED OUT, so the next session
-                // does not repeat them: it is not the placement brain (`Passive`
-                // and `Custom("cellular_automaton_fighter")` fail identically),
-                // and it is not the special slot contending with the pulse
-                // (freeing it changes nothing). The body's capability assertions
-                // pass — only the ACTIVATION count is zero — so the next probe
-                // belongs on the brain's decision, not the body's kit.
-                //
-                // do not flip this to make the row deletable. A duel where the
-                // PCA never blocks is a worse game than one archetype row.
+                // Use the authored PCA character definition; the custom brain remains
+                // responsible for deciding when to enact its defensive abilities.
                 character: ambition_entity_catalog::CharacterId::from(DUEL_PCA_CHARACTER),
             },
         },

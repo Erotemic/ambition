@@ -278,10 +278,8 @@ fn hold_right_while_walking(
     }
     warmup.walk_right -= 1;
     keys.press(KeyCode::ArrowRight);
-    // walking alone cannot cross a side-scroller. The first version held
-    // only Right and she died to the first snake — the capture came back at the
-    // spawn point with a life spent, which looks exactly like the flag not
-    // working. A traversal that cannot jump reaches the first hazard and stops.
+    // Capture traversal needs jumping as well as rightward movement to clear
+    // ordinary side-scroller hazards.
     //
     // A periodic hop is not a solution to the level, it is enough to keep moving
     // past the early enemies; a capture that needs a specific route wants a real

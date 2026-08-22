@@ -1,24 +1,10 @@
-//! Looped preview of the programmatic startup vanity card.
-//!
-//! A visible change verified by a compile is a change nobody has seen. This
-//! boots the REAL shell sequence — the same `ShellSequenceCatalog`, the same
-//! registered segment kind, the same completion command the startup run-in
-//! uses — around that one card, and routes back to itself when it finishes, so
-//! the beat replays until the window is closed.
+//! Looped preview of the programmatic startup vanity card using the real shell
+//! sequence and completion path.
 //!
 //!     cargo run -p ambition_app_tools --bin preview_vanity_card
 //!
-//! no `--features visible`. That was true when this bin lived in
-//! `ambition_app`, where `visible` is a default feature; `ambition_app_tools`
-//! declares only `causal`, and cargo hard-errors on a feature a package does
-//! not have — so the documented command could not run at all.
-//!
-//! Set `AMBITION_PREVIEW_SCALE_FACTOR=3` to preview at a phone's pixel density
-//! rather than the desktop's, which is the axis a resolution proxy cannot reach.
-//!
-//! It composes NO gameplay: no session, no simulation, no launcher. If the card
-//! draws here and not in the game, the difference is host composition, not the
-//! card.
+//! Set `AMBITION_PREVIEW_SCALE_FACTOR=3` to emulate a phone-scale pixel density.
+//! The preview composes shell presentation only: no session, simulation, or launcher.
 
 use bevy::prelude::*;
 

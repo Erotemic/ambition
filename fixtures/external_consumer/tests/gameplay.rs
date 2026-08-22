@@ -190,15 +190,8 @@ fn a_consumer_owns_its_own_asset_tree_and_still_sees_the_engines() {
     );
 }
 
-/// A third party who authors bad content is TOLD WHAT IS WRONG. (Phase 6,
-/// Milestone E's remaining clause)
-///
-/// The campaign doc lists this one as open: "deliberate authoring failures
-/// produce actionable diagnostics (the `from_ron` seams reject malformed
-/// content; a systematic error-quality pass remains open)". Rejecting is the
-/// easy half. The half that decides whether somebody can build a game on this
-/// engine is whether the rejection says which FILE, which ID, and which FIELD —
-/// from outside the workspace, where the reader cannot go and read the parser.
+/// Authoring failures exposed through the public API must name the file, ID, or
+/// field the external consumer needs to change.
 ///
 /// Every case below asserts on the message a consumer would actually see. The
 /// requirement is deliberately concrete: the message must name the thing the
@@ -333,22 +326,9 @@ fn a_consumer_authors_an_enemy_through_the_character_definition_seam() {
     assert_eq!(profile.attack_range, 0.0);
 }
 
-/// A third party can say what its own character LOOKS LIKE.
-///
-/// Owning the art was two gaps, not one. The first was addressing — a catalog
-/// path was reduced to a basename and rebuilt under the engine's sprite folder,
-/// so `game://sprites/outlander.png` became `sprites/game://sprites/outlander.png`.
-/// The second is this one, and it was the larger: sheet METADATA — frame size,
-/// rows, where the body sits — was read only from a table baked at build time
-/// from `crates/ambition_platformer2d_actor_monolith/assets/sprites`. `manifest_target()` does not
-/// return a path; it strips `_spritesheet.ron` and returns a NAME to look up in
-/// that table. So a consumer could ship any art it liked and its character still
-/// resolved no spec and drew the placeholder rectangle.
-///
-/// This asserts the seam from where it matters: an App composed exactly as
-/// `OutlanderModule` declares it, asking the ENGINE's own resolution
-/// function for a character the ENGINE has never heard of, and getting back the
-/// frame size this crate authored.
+/// External character art resolves through consumer-authored sheet metadata.
+/// The test composes Outlander through the public API and asks the engine's
+/// resolver for frame dimensions authored only by the external consumer.
 #[test]
 fn a_consumer_authors_the_sheet_its_own_character_renders_from() {
     use ambition_platformer2d::character::AuthoredSheetAppExt;

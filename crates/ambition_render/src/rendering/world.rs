@@ -584,32 +584,12 @@ impl BoundEntitySprite {
     }
 }
 
-/// Apply a game's own art choice for a block, rewriting the binding the
-/// kind-derived spawn left behind. See [`BlockArt`].
+/// Apply game-authored [`BlockArt`] over the kind-derived block presentation.
 ///
-/// it writes `BoundEntitySprite`, not just the `Sprite`. That component is the RESOLVED
-/// binding, and `refresh_entity_sprite_handles_on_game_assets_change` re-derives every sprite's
-/// image from it when `GameAssets` reloads.
-///
-/// a block with no `BlockArt` is not touched at all. The kind-derived
-/// texture stays the default for every block in every game; this seam exists for
-/// the ones a game has something to say about.
-///
-/// Mary-O's 1-2 paints every block in the room, and the result was a cavern whose ?-blocks could
-/// not wear a bonus plate and whose spent blocks could not look spent. The binding is CREATED here
-/// now: an authored colour says what to draw *until* a game names art, and naming art is what ends
-/// it.
-///
-/// ✔ and a HIDDEN block does reveal itself now. That reconcile now skips a name the same
-/// overlay is re-adding; nothing on the render side spawns a visual for the overlay's genuinely
-/// NEW blocks (only `gate_solids` has one, in `sync_lock_wall_visuals`), which is a different
-/// gap and still open.
-///
-/// and it clears the authored tint when it takes over. `Sprite::color`
-/// multiplies into the image, so leaving a placeholder colour on would stain the
-/// named art — and a fully transparent placeholder (how a hidden block is drawn
-/// before discovery) would bind the reveal texture and still draw nothing. That
-/// case is the proof the clear is required rather than tidy.
+/// Update `BoundEntitySprite` as well as `Sprite` so asset reloads preserve the
+/// resolved binding. Blocks without authored art retain their kind-derived texture.
+/// Clear the placeholder tint when named art takes over because `Sprite::color`
+/// multiplies the image and can keep hidden or tinted placeholders invisible.
 pub fn apply_block_art(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,

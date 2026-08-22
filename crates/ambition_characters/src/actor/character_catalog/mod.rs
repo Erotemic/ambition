@@ -384,23 +384,9 @@ impl CharacterCatalog {
         self.get(character_id)?.max_health
     }
 
-    /// THE MOVEMENT MODEL A CHARACTER'S ROW ASKS FOR — momentum when it
-    /// authors momentum params, axis-swept seeded with its own axis feel
-    /// otherwise.
-    ///
-    /// this lived in the actor monolith as
-    /// `avatar::starting_character::motion_model_spec_for_character_id`, and its only inputs were
-    /// this catalog and `ambition_platformer2d_core` — both visible from here. Nothing about it was
-    /// avatar-domain; it was a projection of a catalog row that happened to be written next to its
-    /// first caller.
-    ///
-    /// the catalog answers a question about its own rows now, which is the
-    /// shape every other accessor here already has.
-    ///
-    /// an un-authored character starts from the shared default; a character
-    /// that authors its own axis feel seeds the model so the FIRST frame is
-    /// already correct (the live integrator then refreshes from the body's
-    /// `AuthoredMovementTuning` each tick).
+    /// Resolve the movement model requested by this catalog row: momentum when
+    /// momentum parameters are authored, otherwise axis-swept seeded with authored
+    /// axis feel. Unauthored characters use the shared default.
     pub fn motion_model_spec(
         &self,
         character_id: &str,

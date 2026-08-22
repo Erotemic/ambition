@@ -760,7 +760,7 @@ fn a_grounded_body_walks_in_every_gravity_not_just_the_vertical_ones() {
 
     for down in [
         ae::Vec2::new(0.0, 1.0),  // ordinary floor
-        ae::Vec2::new(0.0, -1.0), // ceiling: upside down — Jon reports this WORKS
+        ae::Vec2::new(0.0, -1.0), // ceiling: upside down
         ae::Vec2::new(1.0, 0.0),  // wall on the right — reported BROKEN
         ae::Vec2::new(-1.0, 0.0), // wall on the left  — reported BROKEN
     ] {

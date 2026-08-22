@@ -125,9 +125,8 @@ impl<M: Message> ExternalEffectJournal<M> {
 
 /// Lift the live channel aside and give the sim an empty one to write into.
 ///
-/// Paired with [`journal_sim_effects`], which puts it back. See the module docs
-/// on why this is a swap and not a clear — the sim is not the only writer, and
-/// discarding what the menu queued is how the first version of this broke.
+/// Paired with [`journal_sim_effects`], which restores the lifted channel. This
+/// swaps rather than clears because simulation is not the only writer.
 pub fn open_sim_effect_outbox<M: Message>(
     mut messages: ResMut<Messages<M>>,
     mut journal: ResMut<ExternalEffectJournal<M>>,

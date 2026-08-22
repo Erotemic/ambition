@@ -1,21 +1,7 @@
-"""A pedestal that names a conversation nobody wrote stands there silent.
+"""Hall dialogue references and Yarn nodes must agree in both directions.
 
-Every hall character pairs a catalog `hall_dialogue_id: Some("hall_npc_x")` with
-a `title: hall_npc_x` node in a Yarn file, and the pairing is made BY HAND — six
-times on 2026-08-05 alone, four for newly cast characters and two for the
-snakes-on-planes pair.
-
-⛔ **nothing checked it.** `every_character_says_something` asserts a character
-has a LINE available, which a `barks.hall` entry satisfies on its own — so a row
-whose `hall_dialogue_id` points at a node that was never written, or at one
-deleted with a removed character, is silent when a player walks up to it and
-green in the suite. Twenty-one characters were removed that same day and their
-nodes deleted with them; getting one id wrong in either direction is a typo away.
-
-⚠ **both directions.** A node nobody names is dead prose that survives every
-cleanup, and it is how the file grows. It is reported separately because it is a
-weaker fault than a mute pedestal.
-"""
+Every catalog `hall_dialogue_id` must resolve to a node, preventing mute
+pedestals. Unreferenced hall nodes are reported separately as dead prose."""
 
 from __future__ import annotations
 
@@ -36,17 +22,9 @@ _NODE = re.compile(r"^title:\s*([A-Za-z_0-9]+)\s*$", re.M)
 
 @cache
 def _declared_ids() -> set[str]:
-    """Every pedestal id, from EVERY provider that stages hall characters.
+    """Return pedestal dialogue IDs from every provider that stages hall characters.
 
-    ⛔⛔ **this read the RON catalog alone, and the hall stopped being one
-    provider's** (2026-08-14). AC6's content half moved the two plane swarms to
-    Mary-O, which declares its rows in RUST — `hall_dialogue_id:
-    Some("hall_npc_snakes_on_a_paper_plane")` in `game/ambition_demo_mary_o/src`
-    — so their conversations read as prose nobody names and the check called two
-    live pedestals dead. It was the weaker half of the test reporting a fault
-    that did not exist, which is worse than not reporting one.
-
-    ⭐ the same regex matches both forms: a RON row and a Rust literal spell the
+    Hall rows may be declared in RON or Rust; the same ID pattern matches both.
     field identically, so widening the scan is a wider glob, not a second parser.
     """
     text = [CATALOG.read_text(encoding="utf8")]

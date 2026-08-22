@@ -45,15 +45,8 @@ fn the_worlds_edge_sits_within_a_launch_of_the_platform() {
     let to_the_left = platform.left() + side_margin;
     let to_the_right = (world.size.x - platform.right()) + side_margin;
 
-    // a RATIO against the platform, not a bound against the world. The
-    // first version of this test asserted `distance < world.size.x` and passed
-    // over a stage where a knocked-off fighter crossed 490px of nothing — more
-    // than the platform's entire width — because 490 < 960 is true and says
-    // nothing. The picture caught it; the test did not.
-    //
-    // One platform-width of travel is the budget. Past that a launch stops
-    // reading as a knockout and starts reading as a body drifting offscreen
-    // while the game waits.
+    // Bound knockout travel against platform width, not world width. One
+    // platform-width is the budget before a launch reads as offscreen drift.
     let budget = platform.width();
     for (side, distance) in [("left", to_the_left), ("right", to_the_right)] {
         assert!(
@@ -324,10 +317,8 @@ fn the_fighter_brain_engages_rather_than_standing_still() {
                 ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
             ),
         ));
-    // the countdown is the campaign's own feature, so this is a stale WINDOW
-    // rather than a stale assertion: a fighter brain that emits nothing is still
-    // exactly what this test is for, and the number below is read from the
-    // ruleset rather than restated.
+    // Derive the window from the ruleset; a fighter brain that emits nothing is
+    // still the scenario under test.
     let countdown = ambition_demo_smash::smash_roster([
         ambition_demo_smash::SMASH_CHARACTER_ID,
         ambition_demo_smash::SMASH_OPPONENT_ID,
@@ -808,12 +799,8 @@ fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
         .expect("the composition assembles its published policies")
         .clone();
 
-    // THE LADDER IS SPARSE, and a rig has to know it. `SMASH_ROSTER_RON`
-    // registers `duelist_l{1,3,5,6,9}` and nothing between — the rungs
-    // `ladder_probe` happens to run. The first draft of this test asked for
-    // level 8 and failed, which is the right outcome: `spec_for_brain` falls
-    // back to a generic row rather than erroring, so an unregistered rung fights
-    // a statue and reports a fight.
+    // Use a registered sparse ladder rung. Unregistered levels fall back to a
+    // generic row and would not exercise the authored ladder behavior.
     const RUNGS: &[u8] = &[1, 3, 5, 6, 9];
 
     let roster = ambition_demo_smash::smash_roster_at_levels(
@@ -833,10 +820,7 @@ fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
             other => panic!("a ladder seat is not a CPU: {other:?}"),
         })
         .collect();
-    // built from the CONSTANT, not spelled out. The first draft guessed
-    // `smash_duelist_l9` and the real prefix is `duelist` — a restated name is a
-    // second authority on a string, which is the mistake five other checks in
-    // this tree were written after making.
+    // Build the ID from the canonical constant rather than restating its prefix.
     let expected: Vec<Option<String>> = [9, 6]
         .iter()
         .map(|level| {
@@ -911,40 +895,12 @@ fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
     );
 }
 
-/// the gap those three ▢ marks name is not a capability, it is a MEASUREMENT. The verbs are
-/// authored on the fighters' `CharacterDefinition` and the engine has had the machinery all
-/// along — a bubble shield with a parry window, a dodge roll with i-frames, a full ledge
-/// system. Every step of that had its own test; the chain did not.
+/// The stage ability policy is both a floor and a ceiling.
 ///
-/// Both halves would pass a test of either end alone.
-///
-/// and the poison is a verb the fighters DELIBERATELY do not author.
-/// `fly` and `blink` are the exploration protagonist's traversal kit and are
-/// stated absent on purpose ("this is a platform fighter's ground game").
-///
-/// ```text
-///   character drops `shield`         -> body cannot shield   (character NECESSARY)
-///   character adds `fly`, mask omits -> body still cannot    (mask NECESSARY)
-/// ```
-///
-/// This stage declares [`MatchAbilities::levelled`] now, so the contract reads:
-///
-/// ```text
-///   character drops `shield`, stage GRANTS it   -> body CAN shield   (the floor holds)
-///   character adds `fly`, stage does not PERMIT -> body still cannot (the ceiling holds)
-/// ```
-///
-///  two statements, and each is load-bearing on a different row. The second is
-/// unchanged and is still the one that matters most: authoring a capability onto
-/// a character is NOT enough to smuggle it into a mode. The first is now the
-/// stage's promise rather than the character's, which is what P4.29/30/32 wanted
-/// all along — those three verbs reach every seat because the stage says so, not
-/// because three fighters happened to author them.
-///
-/// the fighters here author the kit anyway, so this seats bodies that
-/// agree with the stage. The disagreement — a character SHORT of the kit — is
-/// pinned where it can be constructed on purpose, in
-/// `prepared_match::tests::a_levelling_match_hands_every_fighter_the_kit_it_declares`.
+/// `MatchAbilities::levelled` grants the stage's common fighter kit even when a
+/// character omits a verb, while abilities outside the permitted set remain
+/// unavailable even if the character authors them. Per-character extras cannot
+/// escape the mode policy.
 #[test]
 fn a_seated_fighter_carries_the_verbs_its_character_authored_and_not_the_engines() {
     use ambition_platformer2d::actor::MatchSeat;
@@ -1772,37 +1728,11 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
     );
 }
 
-/// What "a perfect reflection" means is that seat 1 is seat 0 flipped about the spawn midline:
-///
-/// ```text
-/// mirror error = |(x0 − mid) + (x1 − mid)|  +  |y0 − y1|
-///                 ^ equal and opposite            ^ same height
-/// shared stream   stays ~0 all match  (the reflection)
-/// own streams     grows              (two fighters)
-/// ```
-///
-/// ## What this test deliberately does NOT cover, and where that lives
-///
-/// the authored EXCEPTION cannot be measured here, for a composition reason
-/// rather than a gap: Emmy Ethereal is one of Ambition's catalog characters and
-/// this standalone demo app does not compose `ambition_content`, so
-/// `smash_roster_at_levels(["npc_emmy_noether", …])` seats nothing at all. do not
-/// "fix" that by teaching this app Ambition's cast — the demo host's own roster is
-/// the point of the demo host.
-///
-///  each half of the exception is pinned where it is observable:
-///
-/// ```text
-/// Emmy AUTHORS the trait, through the one cast table
-///     ambition_content   authored::npc_emmy_noether::tests
-/// the trait survives preparation to the seat blueprint
-///     ambition_characters  prepared_tests::mirror_symmetry_survives_preparation_…
-/// two seated CPU twins of a mirror-preserving character share one stream, and
-/// two of an ordinary character do not — through real seating + activation
-///     actor_monolith  prepared_match::tests::{a_mirror_preserving_…, two_cpu_seats_…}
-/// shared stream + symmetric info → same behaviour; + ASYMMETRIC info → may differ
-///     ambition_characters  decision::tests::the_same_seed_{produces_…, shown_a_different_world_…}
-/// ```
+/// Two ordinary CPU seats wearing the same character should not remain a
+/// perfect spatial reflection. Mirror error compares equal-and-opposite X about
+/// the spawn midpoint plus Y disagreement. Character-authored mirror-preserving
+/// behavior is covered separately in content, preparation, seating, and decision
+/// tests because this standalone demo does not compose Ambition's character set.
 #[test]
 fn two_cpus_wearing_one_character_stop_being_a_perfect_reflection() {
     use ambition_platformer2d::actor::{BodyKinematics, MatchSeat};

@@ -111,11 +111,8 @@ fn changing_the_quality_profile_never_changes_which_character_a_token_resolves_t
 
     let after = resident(&app);
 
-    // PROVE THE TRANSITION HAPPENED FIRST. The identity assertion below
-    // compares FILE ROOTS, which a tier move does not change — so without this,
-    // a quality change that did nothing at all would pass it. That is the
-    // "check that cannot fail" this repo names outright, and the first draft of
-    // this test had it.
+    // Prove the quality transition changed resolved assets before checking
+    // identity, because stable file roots alone cannot show the transition ran.
     let moved: Vec<&String> = before
         .iter()
         .filter(|(token, path)| after.get(*token).is_some_and(|now| now != *path))

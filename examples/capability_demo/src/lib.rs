@@ -1,39 +1,11 @@
-//! A shockwave pulse — and the sentinel that proves a capability is a
-//! capability.
+//! Small capability-integration sentinel: charge a pulse, fire it, and push
+//! nearby bodies away.
 //!
-//! The mechanic is small on purpose: a body charges a pulse, fires it, and
-//! nearby bodies are pushed away from it. What matters is that this crate
-//! contributes ALL FOUR halves of the capability contract without editing
-//! anything central:
-//!
-//! ```text
-//! behaviour            → this crate's systems
-//! + authored schema    → `pulse_schema()`, registered with the content compiler
-//! + semantic action    → `PULSE_ACTION`, registered with the action registry
-//! + rollback state     → `PulseCooldown`, registered through `AmbitionRollbackApp`
-//! + causal facts       → `pulse_fired`, published to the causal log
-//! ```
-//!
-//! the Cargo manifest is half the proof, and only half. There is no
-//! DIRECT `ambition_platformer2d_actor_monolith` dependency, no game and no content crate, so this
-//! crate's source cannot name an actor-crate item — the mechanic defines its own
-//! [`PulseBody`] and [`PulseAffected`] rather than borrowing `BodyKinematics`,
-//! and the compiler enforces that rather than a comment.
-//!
-//! But `ambition_platformer2d_actor_monolith` IS in the TRANSITIVE closure, through
-//! `ambition_platformer2d_runtime`, and pretending otherwise would make this sentinel lie. Rollback
-//! registration lives in the runtime and only a crate above it can own a schema directly, so a
-//! capability that wants its own rollback state links the whole simulation whether it uses it or
-//! not.
-//!
-//! ## What is honestly still wired by hand
-//!
-//! The semantic action is DECLARED and cannot yet carry a device binding of its
-//! own — that waits on `InputMap<SemanticAction>` (see the program doc). So a
-//! consumer fires a pulse by writing [`PulseRequested`], which is what an input
-//! router will do once the binding exists. The declaration is real; the last
-//! wire is not, and pretending otherwise would make this sentinel lie about the
-//! thing it exists to measure.
+//! The crate owns the capability's behavior, authored schema, semantic action,
+//! rollback state, and causal facts without a direct actor-monolith dependency.
+//! `PulseBody`/`PulseAffected` keep the example independent of actor-domain types.
+//! The action is declared, but input currently reaches the capability by writing
+//! `PulseRequested` until semantic actions own device bindings.
 
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use bevy::prelude::*;
@@ -112,20 +84,10 @@ pub struct PulseBody {
     pub vel: ambition_platformer2d_core::Vec2,
 }
 
-/// Install the mechanic's behaviour.
+/// Install the mechanic's behavior.
 ///
-/// it does NOT register rollback state, and that is the fix rather than an
-/// omission. The first version did, through `AmbitionRollbackApp`, and the
-/// cost was a dependency on `ambition_platformer2d_runtime` — the whole simulation, dragged
-/// into a mechanic that uses none of it, because the registration trait lives up
-/// there.
-///
-/// It also broke the pattern the other two contributions already follow. A
-/// capability OFFERS a content schema ([`pulse_schema`]) and OFFERS a semantic
-/// action ([`PULSE_ACTION`]); the composition installs them, because the
-/// registry belongs to whoever is composing. Rollback is the same kind of thing.
-/// [`ROLLBACK_STATE`] is the offer; a host with the trait in scope installs it,
-/// which is one line and is shown in this crate's tests.
+/// The capability offers content, semantic action, and rollback declarations;
+/// the host composition installs each declaration into the registries it owns.
 #[derive(Debug, Default)]
 pub struct PulsePlugin {
     /// What the composition compiled, or `None` for the built-in defaults.

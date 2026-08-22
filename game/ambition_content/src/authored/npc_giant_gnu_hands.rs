@@ -1,11 +1,7 @@
-//! THE GIANT'S HANDS. Two bodies of one character: the rig spawns a
-//! left and a right from this single definition, which is a reusable
-//! authored template doing exactly what the campaign is about.
+//! Giant hand character reused for both left and right bodies.
 //!
-//! its collision envelope does NOT come across, and could not: a hand
-//! is sized at PLAN time as 0.7 of the giant's own half-extent, so the
-//! row's `default_size: (154.0, 154.0)` was 220 × 0.7 written down a
-//! second time. The geometry is derived; the row was restating it.
+//! Collision size is derived by the spawn plan from the giant's extent rather
+//! than duplicated in the character definition.
 
 use ambition_characters::actor::CharacterLocomotion;
 use ambition_characters::brain::{BrainProfile, CharacterBrainTemplate, MoveStyleSpec};

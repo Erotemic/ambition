@@ -1,25 +1,8 @@
-"""Every symlink git tracks points at something that exists.
+"""Every symlink tracked by Git must resolve to an existing target.
 
-⛔ `game/ambition_content/assets/sprites` dangled through a completely clean
-`cargo check --workspace --all-targets`, and would have through the test suite
-too. A `git mv` during the crate rename moved the symlink's TARGET and left the
-link text pointing at the old path; nothing in the build reads that directory, so
-nothing failed. The first symptom available was a game with no sprites, at
-runtime, in whichever composition happened to load them first.
-
-That is the worst shape a defect can have here: the repository is internally
-inconsistent, every automated check is green, and the only detector is a person
-launching the right game.
-
-⚠ **the check must follow the link, not merely find it.** `Path.exists()` on a
-symlink already resolves the target (it is `stat`, not `lstat`), which is exactly
-the behaviour wanted — but `Path.is_symlink()` does NOT, so an
-`is_symlink() and ...` guard that reads naturally can end up asserting nothing.
-The mode bits from `git ls-files -s` are the authority for "this is a symlink";
-the filesystem answers whether it resolves.
-
-Cheap enough to sit in the fast loop: one `git ls-files`, one `stat` per link.
-"""
+Git mode bits determine which paths are symlinks; filesystem resolution then
+checks their targets. This catches repository paths that remain tracked and
+syntactically valid but point at moved or missing content."""
 
 from __future__ import annotations
 

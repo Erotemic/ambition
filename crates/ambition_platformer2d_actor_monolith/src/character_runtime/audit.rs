@@ -170,12 +170,9 @@ pub enum CharacterAuthorityConflict {
         registry_sheet: String,
         catalog_sheet: String,
     },
-    /// One id, two PROVIDERS. The sharpest form of the split, and the one the
-    /// first version of this audit did not check: the
-    /// provider is what authorizes a presentation source and what selects a cue
-    /// bank, and `provider_of_character` prefers the registry while everything
-    /// reading `CharacterCatalogOwners` gets the other answer. A character can end
-    /// up constructed from catalog provider A and SOUNDING like registry provider B.
+    /// One character ID resolving to two providers. Provider identity controls
+    /// both presentation authorization and cue-bank selection, so disagreement is
+    /// an authority split.
     ProviderDisagreement {
         character_id: String,
         registry_provider: String,
@@ -453,16 +450,9 @@ mod authority_parity_tests {
         assert_eq!(audit_character_authority_parity(app.world()), Vec::new());
     }
 
-    /// H3: the field with teeth. Two authorities, two different AUTHORS for
-    /// one character.
-    ///
-    /// Sharper than the sheet disagreement, because the provider is what
-    /// authorizes a presentation source and what selects a cue bank —
-    /// `provider_of_character` prefers the registry while everything reading
-    /// `CharacterCatalogOwners` gets the other answer, so the character is built as
-    /// one provider's and sounds like the other's. The first version of this audit
-    /// explained that exact hazard in its own doc comment and then checked only art
-    /// and display names.
+    /// H3: two authorities assign different providers to one character.
+    /// Provider disagreement can split construction ownership from presentation
+    /// and audio ownership.
     #[test]
     fn a_character_authored_by_two_different_providers_is_a_conflict() {
         let mut app = app_with_catalog();

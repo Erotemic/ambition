@@ -1,35 +1,11 @@
-//! Does a higher rung beat a lower one? (FB6e — the ladder rig)
+//! Compare adjacent registered AI ladder rungs in CPU-vs-CPU matches.
 //!
 //! `cargo run -p ambition_demo_smash_app --bin ladder_rig`
 //!
-//! the measurement `ladder_probe` could not make. That probe seats ONE
-//! fighter against a human seat with no controller — a body that never acts — so
-//! every stock lost is a self-KO. That makes its number unusually clean (*"did it
-//! kill itself"*) and makes a FIGHT impossible to observe. FB6e's
-//! `l3_earns_its_depth` and §8's survival/damage ratios both need two fighters,
-//! and until `smash_roster_at_levels` no roster could express one.
-//!
-//! THE LADDER IS SPARSE. `SMASH_ROSTER_RON` registers
-//! `duelist_l{1,3,5,6,9}` and nothing between, so "N vs N−1" over the registered
-//! rungs is (3,1), (5,3), (6,5), (9,6) — four pairs, not eight. Asking for an
-//! unregistered rung does not error: `spec_for_brain` hands back a generic row,
-//! so the fighter is a statue and the rig would report a landslide as a finding.
-//! `a_ladder_roster_seats_two_cpus_at_two_different_levels` is the guard.
-//!
-//! ## What it reports, and what each column cannot say
-//!
-//! * time to elimination for each seat — the outcome, and the column that
-//!   discriminates. The seat that lasts longer won.
-//! * stocks left, because a seat that survives the clock with three is a
-//!   different result from one that survives with one, and time cannot tell
-//!   those apart.
-//!
-//! pair every "it won" with "and it engaged", exactly as `ladder_probe`'s
-//! own header does. A fighter that stands still beats one that walks off the
-//! stage, and this repository has already read that as a 3× improvement once.
-//!
-//! the median over seeds, never one run. The brain's noise stream is
-//! seeded, and `ladder_probe` reported single samples as answers for a week.
+//! The registered ladder is sparse: levels 1, 3, 5, 6, and 9. The rig reports
+//! time to elimination, stocks remaining, and engagement evidence for each pair,
+//! using medians across deterministic seeds. Unregistered levels are invalid for
+//! this measurement because their generic fallback does not represent a ladder rung.
 
 use ambition_demo_smash_app::build_demo_app;
 use ambition_platformer2d::actor::{FighterStocks, MatchSeat};
@@ -52,13 +28,8 @@ const DEFAULT_SEEDS: usize = 15;
 
 /// What one match said.
 ///
-/// TIME, not stocks — and the first draft of this file got it wrong.
-/// `ladder_probe`'s own header records the lesson: *"it was stocks until
-/// and stocks turned out to be a saturated metric: every level lost
-/// all three, so the column read `3 3 3 3 3` and could not have reported an
-/// improvement if one had happened."* Run as a fight, both seats lose all three
-/// inside a minute, so a stocks column reads `0 : 0` at every rung and says
-/// "tie" about matches that were not close.
+/// Use elapsed time rather than stocks because stock counts saturate when both
+/// seats lose all lives and cannot distinguish match quality.
 #[derive(Clone, Copy, Debug)]
 struct Bout {
     /// Tick each seat was eliminated on, or `TICKS` for a seat that survived.
@@ -387,18 +358,11 @@ fn run_bout_at(
     let mut stocks = [ambition_demo_smash::STARTING_STOCKS; 2];
     let mut eliminated = [TICKS; 2];
     let mut peak_percent = [0.0f32; 2];
-    // a seat that has not ARRIVED yet is not an eliminated one, and the
-    // first draft could not tell them apart. Seating is a transaction that
-    // takes frames, so both seats are absent on tick 0 — and reading absence as
-    // elimination reported every rung dying at 0.0s, which looks like a finding
-    // and is a fixture that never started.
+    // A seat is not eliminated until seating has completed; bodies may be absent
+    // during the seating transaction.
     let mut appeared = [false; 2];
-    // the seed has to be WRITTEN, and the first draft took it and dropped
-    // it. `run_bout(_seed)` ignored its argument, so "median of 7 seeds" was
-    // one deterministic match reported seven times — and the giveaway was that
-    // 3 seeds and 7 seeds printed byte-identical columns. `ladder_probe` seeds
-    // the same way: the noise stream lives on the live `FighterState`, so it can
-    // only be set once a brain exists, which is after seating.
+    // Apply the seed to the live `FighterState` after seating, when the brain and
+    // its noise stream exist.
     let mut seeded = false;
     let mut placed = start.is_none();
     for tick in 0..TICKS {

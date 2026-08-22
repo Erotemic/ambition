@@ -1,45 +1,10 @@
 #!/usr/bin/env python3
-"""A crate that was renamed must not still be named anywhere that is LIVE.
+"""Reject retired crate or type names in live repository content.
 
-Written 2026-08-01, immediately after the `platformer2d` rename, because that
-rename hit the same defect three separate times and each occurrence was found by
-a test failure whose message was about something else entirely.
-
-# # Why a substring search, and not a smarter one
-
-The rename itself used a word-boundary rule — `\\bambition_portal\\b` cannot eat
-`ambition_portal_presentation`, which is exactly right for rewriting Rust paths.
-It is exactly WRONG for verifying the result, because the character before a
-crate name is not always what it looks like:
-
-    "relation\\tambition.limb\\tambition_actors\\tlimb-rig\\t"
-    re.compile(r"\\bambition::([a-z_][a-z0-9_]*)")
-
-In both, the character preceding the name is a letter — the `t` of `\\t`, the `b`
-of `\\b` — so a boundary-anchored sweep skips them, AND SO DOES THE GREP THAT
-CHECKS THE SWEEP. Three real cases survived that way: two construction-registry
-assertions comparing owner strings as DATA, and the SDK-docs guard's module
-pattern, which failed with "these modules are a compatibility PROMISE and the SDK
-never mentions them".
-
-So this check is deliberately the dumbest possible search. A plain substring has
-no blind spot to share with the tool that did the renaming.
-
-# # Why an explicit list, and not "any name that is not a workspace member"
-
-That was tried first and is unusable: 128 distinct `ambition_*` tokens in this
-tree name Python packages, shell functions, JSON keys, LDtk layers, asset
-manifests and identifiers. A ratchet with an explicit list has no false
-positives, and the maintenance it asks for is one line at the moment somebody
-renames a crate — which is the moment they are already editing everything else.
-
-# # Scope
-
-Historical records are EXEMPT and must stay exempt. A linker transcript that
-says `libambition_actors.so`, a review from July, a `# was:` line recording a
-policy id's former name — those are records of what happened, and rewriting them
-would make the record wrong.
-"""
+The checker uses an explicit retired-name map and a plain substring search so
+escaped regex/text representations are not missed. Historical records are
+excluded from the live-content scan because their old names are evidence rather
+than active references. Add a row when a crate or tracked type is renamed."""
 
 from __future__ import annotations
 

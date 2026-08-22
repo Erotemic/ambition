@@ -317,33 +317,13 @@ const GAP_CANDIDATES: [AbilityGrant; 3] = [
     AbilityGrant::WallMobility,
 ];
 
-/// Which authored grant would have made this position recoverable?
+/// Return the authored grant that would make this position recoverable.
 ///
-/// The plan's *"which capability blocks the route"*, answered in the engine's
-/// own authoring vocabulary rather than a new one: union one [`AbilityGrant`]
-/// onto the body's kit, top up only the budget that grant newly pays for, and
-/// re-probe. `None` when the body already recovers, when nothing in the tried
-/// list changes the answer, or when the grant it needs is not in the list.
-///
-///  the list is short on purpose, and it is bounded TWICE.
-///
-/// First by expressibility: a grant is tried only when granting it is completely
-/// expressed by the [`AbilitySet`] plus a resource top-up.
-/// [`AbilityGrant::FreeFlight`] and [`AbilityGrant::SandboxAll`] are excluded
-/// because permanent flight is LATCHED into `BodyFlightState` when a body is
-/// built (`fly && !fly_toggle`), not derived from the ability set — granting
-/// `fly` to an already-built body would report a capability that does not
-/// actually fly.
-///
-///  and second by the PROBE'S POLICY: a grant can only change the answer if
-/// `probe.policy` presses the verb it grants. Every candidate here is reachable
-/// by [`RecoveryPolicy::DRIFT_AND_JUMP`] (a side, a jump, and a wall the jump
-/// kicks off). [`AbilityGrant::FastFall`] is excluded because falling faster
-/// never puts a surface in reach — but a dash or a blink grant would be excluded
-/// for a *different* reason: the default policy would never press them, so it
-/// would report them as no help when they were the whole answer. Widening this
-/// list therefore owes BOTH arguments, and the second one usually means widening
-/// the policy first.
+/// Each candidate is added to the body's ability set, its newly available budget
+/// is topped up, and recovery is re-probed. Candidates are limited to grants that
+/// can be represented on an already-built body and verbs exercised by the probe's
+/// recovery policy; otherwise the diagnostic would claim capabilities the probe
+/// cannot actually test.
 pub fn recovery_capability_gap(
     world: &World,
     body: &BodyClusterScratch,

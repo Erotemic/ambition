@@ -1,72 +1,24 @@
-//! WHO IS CARRYING WHOM, for BODIES — the one owner of
-//! [`InCustodyOf`](ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf)
-//! on everything that is not an item.
+//! Projects body custody from authoritative roots and attachment relations.
 //!
-//! It is not the only one now: the rule closes transitively over mounts and limbs to any depth, and
-//! a carry, a vehicle, scripted transport or a room-capable capture would each be another ROOT.
-//! Leaving it in the possession ability meant every one of those had to modify possession in order
-//! to participate, which is feature-centric ownership of a body-generic fact.
-//!
-//!  possession supplies one INPUT here; it does not own the law. The roots
-//! are read at the top of [`project_body_custody`] and the closure below them is
-//! shared. Adding a second root is a few lines *in this file*, beside the first,
-//! rather than an edit to somebody's ability.
-//!
-//! deliberately concrete and typed. There is no registry, no erased
-//! callback and no generic attachment graph: the engine has exactly two
-//! attachment relations (`RidingOn`, `Limb`) and one root (`PossessionState`),
-//! and a framework for three facts is harder to read than the three facts. When a
-//! third relation arrives it joins the `edges` list; when the list stops being
-//! legible, that is the evidence for abstracting it.
-//!
-//! the schedule reads
-//! [`BodyCustodySettled`](ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled),
-//! not this module. The item road's residency projection depends on this
-//! having run, and it says so by ordering against the set the system carries —
-//! so this move cost no reader an edit.
+//! This module owns `InCustodyOf` for non-item bodies. Possession supplies one
+//! custody root; mounts and limbs propagate custody transitively. The schedule
+//! exposes completion through `BodyCustodySettled`.
 
 use ambition_characters::actor::limb::Limb;
 use bevy::prelude::*;
 
 use crate::abilities::traversal::possession::PossessionState;
 
-/// Re-derive, every tick, which bodies are in whose custody.
+/// Re-derive non-item body custody each tick from rollback-authoritative roots.
 ///
-/// The ROOTS are read first (today: [`PossessionState`] — possession is custody
-/// of a body, and it is one reason a body travels rather than the definition of
-/// one), and everything after them is the shared closure.
+/// Possession is custody, and custody is transitive: a ridden mount follows a
+/// rider that is itself traveling, while an independently controlled mount remains
+/// room-scoped. This system is the sole owner of `InCustodyOf` for non-item bodies.
 ///
-/// possession is custody of a body, so it uses the same vocabulary a carried object does —
-/// `InCustodyOf`, whose own doc says *"the LIFETIME is unchanged, and that is deliberate"* and
-/// names *"a possessed actor"* among the custodians.
-///
-/// AND THE RULE IS TRANSITIVE, WHICH IS WHY THIS IS ONE SYSTEM AND NOT
-/// TWO — and, why it is not an ability's either. A mount is in its RIDER's custody exactly while that rider is itself
-/// travelling, so a piloted mount rides through a door with its pilot while an
-/// AI-piloted one stays room furniture. it was two systems for one afternoon
-/// and they FOUGHT: the mount's projection granted the marker in `WorldPrep` and
-/// this one retracted it in `PlayerSimulation` on the same tick, because
-/// `InCustodyOf` has no field saying who granted it and no structural
-/// discriminator separates the populations — every actor carries
-/// `TemporaryControl`, and a mount carries `MountSlot` whether ridden or not.
-///  one component, one owner: the whole non-item body population is decided
-/// here, in one pass, and the retraction cannot disagree with the grant.
-///
-/// IT IS A DERIVE AND NOT A FOLLOW-UP CALL, for a rollback reason.
-/// `InCustodyOf` is registered as a DERIVED component on the strength of one
-/// sentence — *"room residency reprojected from `ItemCustody` every tick"* — and
-/// that sentence is what excuses it from the snapshot. A possessed body has no
-/// `ItemCustody`; writing the marker at the possess site would create a
-/// population nothing reprojects, and a rewind past the possession would drop it
-/// with nothing to put it back. Reading `PossessionState`, which IS rollback
-/// state, keeps the excuse true.
-///
-/// the retraction arm is scoped by `Without<GroundItem>`, because the item
-/// domain owns the marker on objects and reprojects it from its own authority.
-///
-/// compared before writing, like its item sibling: an unconditional insert
-/// would mark the component changed on every tick of a possession, and change
-/// ticks do not rewind.
+/// `InCustodyOf` remains derived rollback state because it is reconstructed from
+/// registered roots such as `PossessionState`. `GroundItem` is excluded because
+/// the item domain owns its custody projection. Writes are change-checked so
+/// reconciliation does not create unrewound change-tick churn.
 pub fn project_body_custody(
     mut commands: Commands,
     state: Res<PossessionState>,

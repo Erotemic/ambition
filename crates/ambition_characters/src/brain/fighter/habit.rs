@@ -1,36 +1,10 @@
-//! FB5 — the opponent model: the "reads".
+//! Bounded opponent-habit model used by fighter brains.
 //!
-//! `docs/planning/engine/fighter-brain.md` §1:
-//!
-//! > *"Opponent modeling (the 'reads'): a small frequency memory over the
-//! > opponent's observed choices in bucketed situations (tech direction, ledge
-//! > option, approach habit) with decay. Level-9 reads = sampling the model; lower
-//! > levels ignore it. Bounded, inspectable, and it's the honest version of what
-//! > human top players do."*
-//!
-//! Honest is the operative word. The model observes only what the view already
-//! showed — *what the opponent DID, in a situation the brain could name* — and
-//! never what they are about to do. A brain that reads you is not a brain that can
-//! see your controller.
-//!
-//! ## Bounded and inspectable, by construction
-//!
-//! - Bounded: `(Situation, Choice)` is a small closed product — 5 × N — so the
-//!   whole model is a fixed-size table, not a growing history. Nothing to prune.
-//! - Inspectable: [`HabitModel::frequency`] answers *"how often, out of what?"*
-//!   in one call, and [`HabitModel::rows`] walks the whole thing in a stable order.
-//! - Deterministic: a `BTreeMap`, not the sketch's `HashMap`. §5's sketch notes
-//!   the counts are "read-only lookups, determinism-safe", which is true of the
-//!   LOOKUP and false of any iteration — and a trace, a snapshot, and FB6's
-//!   rollouts all iterate. ADR 0023 bans std-hash iteration where the sim can
-//!   observe the order.
-//!
-//! ## Decay is what makes it a READ rather than a census
-//!
-//! An opponent who spot-dodged nine times and then stopped is not a spot-dodger. A
-//! plain count says otherwise forever. [`HabitModel::observe`] decays every row of
-//! the situation it saw before crediting the choice, so a habit fades at a rate the
-//! difficulty chooses and a recent switch outweighs an old pattern.
+//! The model records only observed choices in named situations, never future
+//! input. A fixed `(Situation, Choice)` vocabulary bounds storage; `BTreeMap`
+//! keeps iteration deterministic and inspectable. Observation decays existing
+//! counts before crediting the newest choice so recent behavior outweighs old
+//! habits.
 
 use std::collections::BTreeMap;
 

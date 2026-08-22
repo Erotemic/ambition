@@ -1277,12 +1277,8 @@ pub struct ButtonPressed(pub bool);
 /// they are shell verbs with no ability slot at all, which is exactly what
 /// `touch_button_slot` already returns `None` for.
 ///
-///  `Option`, not a fallback. The first version of this returned
-/// `Platformer2dInputActionMonolith::Jump` behind a `debug_assert!(false, ..)` for a button with
-/// no slot — which is the pattern this repo swept a day earlier: the release
-/// path drove JUMP from an unclassifiable button and the assert WAS the
-/// handling. A button nobody can classify gets no glyph and no press, which is
-/// the truthful answer and needs no alarm.
+/// Returns `None` rather than inventing a fallback action for an unclassifiable
+/// button. Such a button receives neither glyph nor press.
 fn touch_action_to_sandbox_action(
     action: TouchActionButton,
 ) -> Option<Platformer2dInputActionMonolith> {

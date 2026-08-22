@@ -1,34 +1,15 @@
 #!/usr/bin/env python3
-"""Is there room on the volume cargo writes to?
+"""Check free space on the filesystem Cargo actually writes to.
 
-⛔ **this volume has filled to 100% three times.** 2026-07-31 twice (S14 and
-again four hours later), and 2026-08-02 during a long autonomous run. Every time
-the symptom was the same and the cause appeared nowhere in it: a mid-build ENOSPC
-surfaces as **a wall of unrelated compile errors**, so the reader debugs a
-phantom regression in whichever crate was unlucky.
+The target directory follows `CARGO_TARGET_DIR`, then `.cargo/config.toml`, then
+the repository-local `target/`. The default threshold is sized for a full suite;
+callers performing smaller work may request a lower floor.
 
-`run_tests.py` has refused below a floor since S14, and that refusal works. The
-hole it does not cover is the one that filled the disk on 2026-08-02: **a bare
-`cargo test --workspace` typed directly.** The guard lived inside the suite
-runner, and the command an agent or a human actually reaches for when they want
-"just run the tests" goes straight past it.
+Usage::
 
-So the check moves here, where anything can call it, and `run_tests.py` imports
-it rather than keeping a second copy.
-
-## Why a floor of tens of gigabytes and not "some free space"
-
-A full suite is ~28 feature jobs, and **every feature combination is a separate
-variant of the dependency graph that cargo never prunes** — measured at ~295 G of
-`debug/deps` in one day. `CARGO_INCREMENTAL=0` fixed the incremental half of the
-2026-07-31 fill and not this half. So the floor is a floor for a SUITE; a single
-`cargo check` needs far less, which is why the threshold is an argument.
-
-Usage:
-    python3 scripts/check_disk_headroom.py            # suite floor (40 GB)
-    python3 scripts/check_disk_headroom.py --min-gb 5 # enough for one build
-    python3 scripts/check_disk_headroom.py --quiet    # exit code only
-"""
+    python3 scripts/check_disk_headroom.py
+    python3 scripts/check_disk_headroom.py --min-gb 5
+    python3 scripts/check_disk_headroom.py --quiet"""
 
 from __future__ import annotations
 
@@ -46,15 +27,7 @@ MIN_FREE_GB = 40.0
 
 
 def target_dir() -> Path:
-    """Where cargo actually writes — which is NOT always under the repo.
-
-    ⚠ **this function exists because the first version of the disk guard read
-    the wrong filesystem.** It measured the REPO's volume, and this checkout has
-    the repo on a 1.8 TB disk while `.cargo/config.toml` points `target-dir` at
-    `/home/joncrall/ambition-target` on a 387 GB one. The guard would have
-    reported 380 GB free while the volume that actually fills had two — a green
-    instrument answering a question nobody asked.
-    """
+    """Resolve the Cargo target directory from environment, config, or repo default."""
     if env := os.environ.get("CARGO_TARGET_DIR"):
         return Path(env)
     config = REPO / ".cargo" / "config.toml"

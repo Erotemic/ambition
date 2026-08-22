@@ -1,39 +1,9 @@
-//! The Shadow Oni Leader's repertoire — the counter-puncher, written from
-//! his own barks.
+//! Shadow Oni Leader moveset.
 //!
-//! His catalog row carries no design note; it carries five lines, and they are a design note:
-//!
-//! > *"Your form is loud."* · *"A warning: one breath left."* · *"The shadow
-//! > answers."* · *"I permit your gaze. Note the word 'permit'."* · *"A leader's
-//! > hardest order is the one obeyed instantly."*
-//!
-//! Three of those decide this table and none of them is mine:
-//!
-//! * *the shadow ANSWERS* → he does not open. He replies, and he replies
-//!   faster than anybody on the grid — the quickest startups in the game.
-//! * *one breath left* → and the reply is a single instant. His active
-//!   windows are the shortest in the game: you have to be exactly there,
-//!   exactly then, or the answer passes through empty air.
-//! * *the order obeyed instantly* → an order cannot be recalled. Every one of
-//!   his moves carries recovery of more than three times its own active
-//!   window, which is the longest commitment-to-payoff ratio on the grid.
-//!
-//! ```text
-//!               startup   active   recovery      the trade
-//!   goblin       0.04      0.05      0.12         fast and cheap
-//!   oni leader   0.03      0.04      0.20         faster, and it COSTS
-//! ```
-//!
-//! this is a different AXIS, not a fifth set of numbers. The four tables
-//! that exist vary reach, damage and speed together — a goblin is smaller and
-//! quicker and weaker, an admiral longer and slower and harder. The oni varies
-//! the SHAPE of a swing: same reach band as a striker, and a window you either
-//! meet or miss. A character whose numbers only slide along the existing axis is
-//! the previous table renumbered, which is what the comparative tests below
-//! exist to refuse.
-//!
-//! the ninja fantasy is NOT in here — no teleport, no clone, no smoke. Those are abilities
-//! and techniques; a moveset says what a hit IS.
+//! His attack identity is counter-punching: very fast startup, very short active
+//! windows, and long recovery. The repertoire varies timing/commitment rather
+//! than adding teleport, clone, or smoke mechanics; those belong to abilities or
+//! techniques rather than hit definitions.
 
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,

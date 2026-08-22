@@ -227,43 +227,12 @@ fn boss_animation_key_for_sample(
 
 #[cfg(test)]
 mod sample_key_agrees_with_profile_keys_tests {
-    //!  the alternative was widening both to `pub` so a foreign crate could keep testing them
-    //! — which is the carve running backwards. Every symbol this test needs now lives here, so
-    //! the test does too, and the functions stay private.
     use super::*;
     use ambition_characters::brain::BossAttackProfile;
 
-    /// Does the sample's KEY name a row the PROFILE claims?
-    ///
-    /// This single fact decides whether the `BossAnim`→`CharacterAnim` fold's
-    /// first slice is a rename or a redesign, and it is why that slice is
-    /// blocked on this file rather than on the four readers everyone looks at.
-    ///
-    /// `BossAnimationFrameSample` carries two identities: `profile` (which
-    /// attack is driving) and `animation_key` (which row is rendered). Four
-    /// production sites compare the PROFILE. Replacing them with a key
-    /// comparison — the thing that would let the sample drop `BossAttackProfile`
-    /// and become character-generic — is only safe if the key the WRITER emits
-    /// is always a row that profile claims.
-    ///
-    /// [`boss_animation_key_for_sample`] deliberately overrides the key for four
-    /// GNU-ton profiles ("the damageable head/body box should follow the
-    /// rendered row"), so the two are NOT the same string. The question is
-    /// whether the override still lands inside
-    /// `boss_animation_keys_for_profile`'s list — and for these it does:
-    ///
-    /// ```text
-    ///   head_descent          → "head_down"   ∈ [gnu_head_descent, head_down]
-    ///   converging_shockwave  → "hand_slam"   ∈ [gnu_shockwave, hand_slam]
-    ///   hand_slam             → "hand_slam"   ∈ [gnu_hand_slam, hand_slam]
-    ///   hand_sweep            → "hand_sweep"  ∈ [gnu_hand_sweep, hand_sweep]
-    /// ```
-    ///
-    ///  a fifth override is NOT covered here and is the open half:
-    /// `("apple_rain", SpikeHalo) => "head_down"`. `apple_rain` is a
-    /// `Special`, so its key list comes from the App-local `BossCatalog` at
-    /// runtime, and the engine cannot know whether `head_down` is in it. That
-    /// case has to be answered against a real catalog, not here.
+    /// Hardcoded sample-key overrides must name a row claimed by the driving
+    /// attack profile. `apple_rain` is excluded because its special-profile row
+    /// list comes from the runtime `BossCatalog`.
     #[test]
     fn every_hardcoded_sample_key_names_a_row_its_profile_claims() {
         let catalog = crate::test_boss_catalog();

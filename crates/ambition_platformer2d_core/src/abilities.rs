@@ -650,26 +650,11 @@ impl MatchAbilities {
         }
     }
 
-    /// The verbs a body seated under these rules actually has.
+    /// Resolve authored verbs under this ruleset's floor and ceiling.
     ///
-    /// why that was worse than it looked. It is most damaging in exactly
-    /// the use these docs propose: `granted = the common kit`,
-    /// `permitted = the common kit + wall jump`, meaning *"the one character who
-    /// authored a wall jump keeps it"*. Under the old default every character
-    /// who authored NOTHING took the wall jump too — so the ceiling could never
-    /// be widened for one fighter without widening it for everybody who had not
-    /// spoken.
-    ///
-    /// `levelled` is unaffected, and that is what made the change safe.
-    /// Its `granted == permitted`, so `NONE ∪ granted ∩ permitted` is still the
-    /// whole kit — the smash stage seats fourteen fighters through it and not
-    /// one of them moves. Only `at_most` changes, and its single adopter's two
-    /// fighters were dressed first (`a480c1381`) precisely so this could land
-    /// without costing anybody a verb.
-    ///
-    ///  a CEILING-ONLY mode now promises nothing, which is what a ceiling
-    /// means. A mode that wants every fighter to have a floor says so with
-    /// [`Self::levelled`].
+    /// Missing authored abilities contribute `NONE`; `granted` supplies the
+    /// floor and `permitted` supplies the ceiling. [`Self::at_most`] therefore
+    /// grants nothing by itself, while [`Self::levelled`] supplies its full kit.
     pub fn apply(self, authored: Option<AbilitySet>) -> AbilitySet {
         authored
             .unwrap_or(AbilitySet::NONE)

@@ -577,11 +577,7 @@ fn authored_npc_takes_its_label_from_the_catalog_display_name() {
     );
 }
 
-/// The caller-level guard for identity inversion.
-///
-/// Reading a body's health off that chain infers gameplay identity from presentation identity,
-/// which is the arrow the character-template campaign exists to reverse. Nothing in the tree
-/// noticed; this module is where it would have.
+/// Guard against inferring gameplay identity from presentation identity.
 mod authored_enemy_reads_its_character {
     use super::*;
 
@@ -1042,18 +1038,9 @@ mod authored_enemy_reads_its_character {
         q.iter(world).next().map(|held| held.spec.id.clone())
     }
 
-    /// A COMPLETE character is BUILT, not patched.
-    ///
-    /// the difference this asserts is the campaign's central one. Both spawns
-    /// below name the same character; the first is half-migrated and receives
-    /// the archetype's body with the character's health written over it, and the
-    /// second states how it moves and therefore gets a body made of nothing but
-    /// itself.
-    ///
-    /// The tell is a fact the ARCHETYPE authors and the character does not
-    /// mention: `medium_striker` says `is_hostile: false`. A patched body
-    /// carries that; a built one carries the constructor's own answer. Run speed
-    /// is the positive half — 77 px/s exists nowhere but the definition.
+    /// A complete character is built from its definition rather than patched
+    /// onto an archetype body. The assertions distinguish archetype-owned facts
+    /// from values authored only by the character definition.
     #[test]
     fn a_complete_character_is_built_from_itself_rather_than_from_an_archetype() {
         let (max, speed, contact) = spawn_with(prepared_complete(), "npc_busy_beaver");

@@ -723,34 +723,12 @@ fn apply_intent(
     }
 }
 
-/// THE DUPLICATE INTEGRATOR, AND ITS DELETION GATE IS NOW NAMED.
+/// Approximate shadow integrator used by the rollout search.
 ///
-/// the seam that replaces it exists AND now has a consumer:
-/// `ae::movement::recovery` drives the real kernel over a cloned
-/// [`ae::BodyClusterScratch`] against a real `&ae::World`, so every verb the body
-/// owns is honoured by the code that owns it.
-/// [`super::recovery::RecoveryLens`] lowers a `Perceived` view into exactly that
-/// pair, and [`refine_by_rollout`] asks it once per movement line that leaves the
-/// ground.
-///
-/// Delete this function when all three hold:
-/// 1. ✔ MET — the brain can obtain a `&ae::World` for the room it is fighting
-///    in. `RecoveryLens::from_view` builds one from the PERCEIVED terrain and the
-///    stage box, which keeps the no-cheat contract and takes no dependency on
-///    `ambition_platformer2d_world`;
-/// 2. one real kernel step per shadow step is measured against the
-///    `rollout_k × (1 + rollout_depth)` budget and is affordable, OR the rollout
-///    is restructured so the kernel runs at a coarser cadence than the search.
-///    the lens is the SECOND of those, taken deliberately: the search stays
-///    cheap and approximate and the kernel is paid for once, at the terminal
-///    question. What is still owed is the measurement — no bench has priced a
-///    decision with the lens attached;
-/// 3. `ladder_rig --scenarios` re-runs green — that suite is the only instrument
-///    that has ever seen a shadow-physics divergence (it caught the 1400/160/420
-///    gap), so a swap without it is a guess.
-///
-/// Until then the divergence is bounded ONLY by `ShadowTuning::for_body`
-/// copying the numbers, and the terrain model here is still one plane.
+/// `RecoveryLens` can evaluate terminal movement with the real movement kernel;
+/// this cheaper step still models only a single terrain plane.
+/// TODO(compat-remove): replace this integrator with the real kernel once its
+/// decision cost is budgeted and `ladder_rig --scenarios` remains green.
 fn integrate(f: &mut ShadowFighter, dt: f32, down: ae::Vec2, tuning: &ShadowTuning) {
     if f.koed {
         return;
@@ -1335,35 +1313,14 @@ pub fn refine_by_rollout(
     })
 }
 
-/// The movement veto rolls further than attack refinement does, and the ratio
-/// is the point. The two questions live on different timescales:
+/// Movement safety needs a longer horizon than attack refinement: attacks are
+/// resolved over frames, while walking off a stage is a seconds-scale event.
+/// With the shipped depth of 12, `16×` gives 192 ticks (3.2 s), enough to cover
+/// a default-speed crossing of the stage plus the following fall.
 ///
-/// * *will this attack connect* is a FRAMES question. A shipped `rollout_depth`
-///   of 12 is 0.2 s at 60 Hz, which is a startup plus an active span — exactly
-///   the right window, and deliberately short because the cost is multiplied by
-///   `rollout_k`.
-/// * *will walking this way kill me* is a SECONDS question. At 160 px/s a body
-///   is two seconds from the edge of a 640 px stage, and 0.2 s of lookahead
-///   cannot see a walk-off at all. `ladder_probe` measured this as a depth A/B
-///   that moved NOTHING: 7.2 s to first self-KO at `rollout_depth` 0 and 12
-///   alike, because both horizons were blind to the thing doing the killing.
-///
-/// 16× is sized to the second number: at 160 px/s a body needs 2.0 s to walk
-/// from the middle of a 640 px stage to its edge, so 12 × 16 = 192 ticks = 3.2 s
-/// covers that crossing with room for the fall that follows it.
-///
-/// and the line is NOT the verb sustained for all of it — see
-/// [`commit_ticks`](refine_by_rollout). Sustaining a walk for 3.2 s is 512 px,
-/// which is wider than the stage; every lateral verb would be fatal from every
-/// position, the veto would fire on every decision, and the "fighter" would be a
-/// body that had reasoned itself into never moving. That is what the first cut
-/// of this did, and the survival number went UP, which is exactly how a
-/// paralysis reads on a metric that counts staying alive.
-///
-/// The cost is `modelled_verbs × depth × 16` steps against `rollout_k × depth`
-/// for attacks; there are four modelled verbs, and FB6e's bench pin
-/// (`the_worst_shipped_budget_is_cheap_enough_to_be_a_non_event`) is what says
-/// whether that is still free.
+/// Only the initial [`commit_ticks`](refine_by_rollout) sustain the candidate
+/// verb; extending it across the full horizon would make every lateral choice
+/// appear fatal. The rollout budget test guards the added search cost.
 pub const MOVEMENT_HORIZON_MULTIPLE: u32 = 16;
 
 /// How much of a body's ground speed it can steer with while airborne, once its

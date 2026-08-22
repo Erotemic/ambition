@@ -97,11 +97,8 @@ fn archetype_constants(root: &std::path::Path) -> Vec<(String, String)> {
                     if !trimmed.starts_with("const ") && !trimmed.starts_with("pub const ") {
                         continue;
                     }
-                    // the NAME must END in `_ARCHETYPE`, not merely contain it.
-                    // The first version matched `CHARACTER_ARCHETYPES_FILE` and
-                    // friends and reported a RON path as an unresolvable creature
-                    // — a scanner that over-matches gets muted exactly as fast as
-                    // one that under-matches.
+                    // Match only names ending in `_ARCHETYPE`; broader substring
+                    // matches capture unrelated constants such as file paths.
                     let Some(name_end) = trimmed.find(':') else {
                         continue;
                     };

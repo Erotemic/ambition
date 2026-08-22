@@ -1,15 +1,8 @@
-"""Every crate's `MODULES.md` matches the tree it describes.
+"""Every crate's generated `MODULES.md` block must match its module tree.
 
-`scripts/modules_md.py` has had a check mode the whole time and **nothing ever
-called it**, so the D-B navigability standard was maintained by whoever
-remembered. On 2026-08-01, regenerating found nineteen crates stale and three
-with no map at all — a map is the first thing an agent reads about a crate, and a
-stale one is a confident description of a shape that has moved.
-
-⚠ this lives in `scripts/tests/` rather than as a new `run_tests.py` job because
-that suite already runs FIRST and cheaply in the backbone, for exactly the reason
-this check exists: *"a guard nobody executes is not a guard."*
-"""
+The test runs the same check mode used by `scripts/modules_md.py`, ensuring module
+maps and module `//!` summaries cannot drift merely because regeneration was
+forgotten."""
 
 from __future__ import annotations
 

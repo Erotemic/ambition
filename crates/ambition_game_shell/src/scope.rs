@@ -1,35 +1,12 @@
-//! State that lives exactly as long as one experience's stay on its routes.
+//! Route-scoped state ownership for one provider/experience family.
 //!
-//! A provider may publish world state that only makes sense while it is the
-//! experience on screen: a decided roster, a lobby's cursor, the seat count a
-//! match agreed on. Those are global resources, so leaving the experience does
-//! not remove them and the next experience inherits them.
-//!
-//! # The rule
-//!
-//! An [`ExperienceScope`] names one OWNER (a [`ShellExperienceId`]), the set of
-//! experiences that count as *inside* it, and the state to release the moment
-//! the active route stops being inside. Entering is not an event anything has to
-//! catch — the scope is inside whenever the router says so, and leaving is the
-//! edge that releases.
-//!
-//! release is OWNER-SCOPED, never "remove the resource". Two experiences
-//! publish into the same global resource (`MatchParticipantRoster` is the one
-//! this was built for), so a scope that removed it unconditionally would be one
-//! game deleting another's match. [`ExperienceScopeBuilder::releasing_owned`]
-//! asks the value who published it and leaves a stranger's alone.
-//!
-//! a scope covers more than one experience id when a provider has more than
-//! one. A character select is a frontend experience and the match is a
-//! gameplay one; moving between them is not leaving, and a scope that named only
-//! the gameplay id would release the roster on the frame the lobby handed it
-//! over. `covering` is how a provider says which ids are still itself.
-//!
-//! the release systems live in [`crate::AmbitionGameShellPlugin`]. A harness
-//! that composes a provider without the shell registers scopes that nothing
-//! runs, which is the same deal every other shell facility offers — unless it
-//! registers [`release_departed_experience_state`] itself, which is public for
-//! exactly that composition.
+//! [`ExperienceScope`] names an owner, the experiences considered inside the
+//! scope, and state to release when routing leaves that set. Release is
+//! owner-aware rather than unconditional because several experiences may publish
+//! the same global resource. A provider can cover frontend and gameplay routes
+//! in one scope so transitions between its own routes do not discard state.
+//! Shell composition installs the release systems; standalone harnesses may call
+//! the public release system explicitly.
 
 use std::collections::BTreeSet;
 

@@ -299,10 +299,11 @@ pub enum HitTarget {
     /// see". A consumer that treats the two alike damages every combat body a
     /// second time, on top of the identified hit it already took.
     ///
-    /// so it exists to keep an unresolved broadcast from masquerading as a
-    /// body hit, which is the shape the combat campaign is removing. When
-    /// bosses and breakables become resolvable victims in their own right, this
-    /// variant goes away with them; it does not become the general answer.
+    /// Keeps unresolved feature broadcasts distinct from already resolved body
+    /// hits.
+    ///
+    /// TODO(compat-remove): remove this variant once bosses and breakables are
+    /// resolvable victims in their own right.
     UnresolvedFeatures,
 }
 

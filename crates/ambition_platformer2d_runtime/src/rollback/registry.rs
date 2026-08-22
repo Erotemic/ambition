@@ -40,21 +40,10 @@ pub enum RollbackEntryKind {
 }
 
 impl RollbackEntryKind {
-    /// True when this registration means "the rollback carries this type's VALUE
-    /// across a save/load", and therefore that a localizer must be able to see it.
-    ///
-    /// The distinction is what makes probe coverage testable rather than asserted:
-    /// the other kinds accompany a state registration for the same type (entity
-    /// remapping, `Rollback` requirement) or describe something with no restored
-    /// value at all (a message channel that is cleared, a dynamic anchor). Only
-    /// these carry state, and every one of them must own a probe.
-    ///
-    /// `Derived` is included deliberately. Derived state is not snapshotted, but its
-    /// contract — "the named system rebuilds it before anything reads it" — is
-    /// exactly what the resimulation-boundary comparison tests, and
-    /// `ProjectileOwner` was a `declare_rollback_derived` naming a system whose query
-    /// could not see enemy projectiles. A derived declaration with no probe is a
-    /// promise with no auditor.
+    /// Whether this registration carries or reconstructs a value that rollback
+    /// localization must observe. `Derived` counts because its reconstruction
+    /// contract must also be checked across a resimulation boundary; message-clear,
+    /// remapping helpers, required markers, and dynamic anchors do not carry values.
     pub fn carries_state(self) -> bool {
         match self {
             Self::ComponentCanonical

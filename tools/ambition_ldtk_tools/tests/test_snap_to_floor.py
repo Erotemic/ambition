@@ -1,14 +1,7 @@
-"""Tests for the generic floor-snap (`snap_entity_to_surface`) and the
-`entity snap-to-floor` CLI added 2026-06-04.
+"""Tests for generic floor snapping and the `entity snap-to-floor` command.
 
-The snap reads a level's Collision IntGrid and drops a rect so its bottom
-rests on the first Solid(1) or OneWayUp(2) surface beneath its x-span. The
-OneWayUp case is the one that matters in practice: the hub's main floor is
-authored as one-way platforms, which `entity measure` (Solid-only) reports
-as `down=edge` — so a hand-picked y floats. These tests pin that one-way
-platforms count as floor, that the lowest surface wins by default, that
-`prefer_y` biases the choice, and that a gap raises rather than floating.
-"""
+Snapping reads the active Collision IntGrid and lowers an entity rectangle until
+its bottom rests on the first supported Solid or OneWayUp surface beneath it."""
 
 from __future__ import annotations
 

@@ -2,10 +2,8 @@
 //!
 //! The second customer of the architecture Sanic proved: Mary-O is a real
 //! composable experience with direct standalone entry, host-relative Quit to
-//! Home, complete activation-scoped teardown, and repeatable relaunch — proven by
-//! driving the actual `build_demo_app()` host headlessly. That two unrelated
-//! demos pass the identical lifecycle proof against the identical session-scope +
-//! provider + shell machinery is the campaign's shared-architecture claim.
+//! Home, complete activation-scoped teardown, and repeatable relaunch through
+//! the actual headless `build_demo_app()` host.
 
 use bevy::prelude::*;
 

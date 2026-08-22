@@ -1,50 +1,17 @@
-//! A LOCAL VIEW: one observer of the simulation, on this machine.
+//! Per-observer presentation state for one local simulation view.
 //!
-//! One simulation may publish N observer views — split screen, a spectator, a
-//! replay, an inspection window. Today Ambition has exactly one, and the point
-//! of this module is that ONE is a count rather than an assumption: the single
-//! view is the one-entry case, not a separate architecture that a second view
-//! would have to replace.
-//!
-//!  `FeatureViewIndex` is not this. It is a per-FEATURE render read-model
-//! that happens to share the word "view". Local-view identity did not exist at
-//! HEAD; nothing needed deleting to make room for it.
-//!
-//! # What belongs on a view
-//!
-//! Facts that answer *for this observer*: its viewport rectangle, its framing
-//! and safe-area policy, the reference frame it presents in, the snapshot it
-//! resolved, and the easing state that snapshot integrates. Those are components
-//! on the view entity, so asking them requires naming WHICH view — which is
-//! exactly the question a process-global resource cannot be asked.
-//!
-//! # What does not
-//!
-//! - `ResolvedGameplayPresentation` is a DISPLAY resolve: one physical screen,
-//!   its safe-area insets and control occupancy. It becomes per-view when layout
-//!   splits, which is a later phase.
-//! - `CameraViewState` is a render-side diagnostic mirror for the debug overlay
-//!   and nameplates.
-//! - `CameraShakeState`'s per-view semantics are an open feel question (does
-//!   shake belong to the view or to the world?), and guessing it here would
-//!   answer a design question by refactor.
+//! View entities own observer-specific viewport, framing/reference-frame, and
+//! snapshot/easing state. Display-wide presentation and diagnostic mirrors remain
+//! separate resources.
 
 use bevy::prelude::{Component, Entity};
 
 /// Marks an entity as one local observer of the simulation.
-///
-/// The identity is the ENTITY. There is no side table mapping ids to views and
-/// no registry to keep in sync — a view is spawned, queried and despawned like
-/// anything else in the world.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct LocalView;
 
-/// A stable, human-meaningful ordinal for a local view.
-///
-///  not an index into anything. It exists so a log line, a debug overlay
-/// or a saved layout can name a view without holding an `Entity` (which is
-/// recycled, and whose bits are not stable across runs). Systems address views
-/// by querying, never by looking up an ordinal.
+/// Stable ordinal for diagnostics and saved layout; systems still address views
+/// by querying their entities.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct LocalViewId(pub u8);
 
@@ -54,24 +21,10 @@ impl LocalViewId {
     pub const FIRST: Self = Self(0);
 }
 
-/// WHERE A VIEW SITS INSIDE THE GAMEPLAY RECTANGLE, as a fraction of it.
+/// Fractional placement of one view inside the resolved gameplay rectangle.
 ///
-/// The publisher now carves that rect by this component, so a composition states its layout as data
-/// on the views it already owns.
-///
-///  a FRACTION, never pixels. The gameplay rectangle is resolved from the
-/// window, the safe area and the on-screen controls every frame; a placement in
-/// pixels would be a second, staler answer to a question the display resolve has
-/// already answered, and it would be wrong the moment the window is dragged
-/// between monitors.
-///
-///  absent means FULL, and that is what every single-view composition is.
-/// Nothing has to opt in for the shipped picture to stay byte-identical.
-///
-///  it is not a POLICY. Adaptive share/split — merge two views when their
-/// subjects are close, split with hysteresis when they separate — is a system
-/// that WRITES this component. Encoding "adaptive" in the component itself would
-/// put a decision in the place the decision's OUTPUT belongs.
+/// Layout policy writes this component; it stores only the resulting rectangle.
+/// Absence/default means the full gameplay area.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct ViewPlacement {
     /// Top-left corner, as a fraction of the gameplay rectangle.
@@ -93,12 +46,8 @@ impl ViewPlacement {
         max: ambition_platformer2d_core::Vec2::ONE,
     };
 
-    /// Vertical slice `index` of `of`, left to right.
-    ///
-    ///  `of == 0` is FULL rather than a division by zero, and `index`
-    /// saturates at the last column: a caller that has miscounted its views gets
-    /// a legible picture and a wrong one, not a NaN rectangle that silently
-    /// removes the view from the screen.
+    /// Vertical slice `index` of `of`, left to right. Degenerate counts return
+    /// `FULL`; out-of-range indices clamp to the final column.
     pub fn column(index: usize, of: usize) -> Self {
         if of <= 1 {
             return Self::FULL;
@@ -111,14 +60,8 @@ impl ViewPlacement {
         }
     }
 
-    /// This placement's rectangle within a gameplay rectangle given as
-    /// `(origin, size)` in logical pixels — the shape
-    /// [`crate::camera_snapshot::CameraViewport`] holds.
-    ///
-    ///  the size FLOORS at one pixel. A zero-width viewport is a division
-    /// by zero in every orthographic-scale consumer downstream, and a placement
-    /// with `min == max` is a caller error that should show as a sliver rather
-    /// than as NaN framing.
+    /// Resolve this fractional placement inside `(origin, size)` logical pixels.
+    /// Output size is clamped to at least one pixel per axis.
     pub fn carve(
         self,
         origin: ambition_platformer2d_core::Vec2,

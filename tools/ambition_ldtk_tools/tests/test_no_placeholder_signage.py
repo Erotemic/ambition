@@ -1,25 +1,7 @@
-"""**No room ships a sign with the field default still in it.** (2026-07-29)
+"""Player-visible DebugLabel signage must not ship with placeholder field defaults.
 
-`drain_alley` had a `DebugLabel` reading `Label` — the LDtk field's default,
-placed and never filled in. It rendered, in the shipped intro world, in the room
-between the under-town grate and the System Boss shortcut.
-
-# Why this is signage and not debug output
-
-The name says debug; the contents do not. There are 134 of these across the
-authored worlds and they carry the game's instructional voice —
-*"Ratchet Climb: hop straight UP through each plate; they catch you on top."*,
-*"Wall Run: walk right into the field — down rotates, walk UP the right wall."*
-So they render for players by design, and a placeholder among them is shipped
-text, not a leftover console line.
-
-# Why a test rather than one more careful read
-
-It was found by looking at a capture, and looking does not scale to 134 labels
-across five worlds — the other 133 were fine, so a sweep by eye had a 1-in-134
-chance of catching this per glance. The set of values worth refusing is small and
-knowable, which is exactly when a guard beats attention.
-"""
+These labels carry authored instructional text in game worlds. The test rejects a
+small known set of placeholder values while allowing ordinary authored signage."""
 
 from __future__ import annotations
 

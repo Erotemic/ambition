@@ -1,19 +1,9 @@
-"""**WHICH TREE THE GOAL GUARD JUDGES**, pinned against a real worktree.
+"""Resolve goal-guard hooks against the correct Git worktree.
 
-The resolver in `scripts/goal_guard_hook.sh` sits between two failures that
-have both actually happened, and a fix for either one alone re-opens the other:
-
-- taking `$CLAUDE_PROJECT_DIR` unconditionally made a worktree session judge the
-  MAIN checkout — *"main had 132 dirty files and 2 compile errors while this
-  branch was clean at 445/0"*;
-- taking `$PWD` unconditionally made one `cd` into a nested repository resolve a
-  root with no `.goal/active.json`, so the guard took its "not armed" path and
-  SILENTLY RELEASED a 72-hour run (2026-08-05).
-
-⚠ **the fixtures are real `git worktree` and real nested repositories**, because
-the discriminator IS a git fact (the common git dir) and a mocked one would
-agree with whatever the script asked it.
-"""
+Fixtures use real worktrees and nested repositories because repository identity
+is the behavior under test. The hook must follow the active worktree without
+being redirected by a nested repository or by a project-directory hint that
+points at another checkout."""
 
 import subprocess
 from pathlib import Path
@@ -75,11 +65,7 @@ def test_a_worktree_session_judges_its_own_tree(tmp_path):
 
 
 def test_a_stray_cd_into_a_nested_repository_keeps_the_declared_tree(tmp_path):
-    """⛔ the 2026-08-05 failure: a nested repo silently released a 72-hour run.
-
-    ⚠ the nested repository carries its OWN guard, which is what makes it a
-    convincing wrong answer — the walk finds one and it is not this project's.
-    """
+    """A nested repository must not override the explicitly declared project tree."""
     main = _repo(tmp_path / "main")
     nested = _repo(main / "vendor" / "other")
 

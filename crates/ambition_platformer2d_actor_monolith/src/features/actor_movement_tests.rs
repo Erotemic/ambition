@@ -259,26 +259,9 @@ fn peaceful_npc_brain_is_not_hostile() {
         "peaceful NPC brain must report !is_hostile"
     );
 }
-/// what it knew is not lost. The grounded-hybrid reading it pinned — a body that prefers
-/// the ground and carries flight for traversal — is exactly what `baseline_free_flight:
-/// Some(false)` plus an intrinsic fly capability says on her definition, and the row records
-/// the measurement that proved parity before the row was deleted.
-
-// There is no table, no lookup and no fallback: a body is built from a character, and a name
-// that resolves none is a construction refusal rather than a downgrade to a generic body.
-//
-// Those numbers live on `CharacterDefinition` now, and a character that cannot state a body refuses
-// to build one (`body_blueprint` → `MissingCharacterFacts`), which is the same claim enforced at
-// construction instead of asserted over a file.
-
-// Four of the five are gone: `small_lurker` and `large_colossus` were placed in zero levels, and
-// `small_skitter` and `large_brute` had their sandbox placements recast over real characters. A
-// ladder with one rung is not an invariant, and restating it against rows that no longer describe a
-// size class would be the test agreeing with itself.
-//
-// what the ladder was FOR — that a bigger creature takes more punishment and
-// deals more — is now a per-character claim, and belongs beside each character's
-// own numbers rather than in a cross-archetype sweep.
+// Bodies are constructed from `CharacterDefinition`; unresolved or incomplete
+// definitions are construction errors rather than fallbacks to generic archetypes.
+// Per-character durability and contact tuning are tested beside each character.
 
 // The remaining patrol-collision test builds its own collision world inline.
 

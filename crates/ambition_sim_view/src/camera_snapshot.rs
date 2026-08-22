@@ -1520,40 +1520,13 @@ impl From<&CameraSnapshot2d> for CameraViewState {
     }
 }
 
-/// The view state a draw system should read: the one the MAIN CAMERA presents.
+/// Resolve the single view presented by the main camera for diagnostics.
 ///
-///  one resolver, not five copies of a lookup. `camera_follow` already had
-/// to answer "which view is this camera for"; the moment the five former `Res`
-/// readers each needed the same answer, spelling it five times would have been
-/// five chances to disagree — and the disagreement would be silent, because each
-/// would still draw *something*.
-///
-/// The rule is the link's: a camera that NAMES its view presents that one; a
-/// camera that names none is a single-view composition (every fixture, and every
-/// host until the split lands) and takes the only view. With several views and no
-/// link it REFUSES rather than picking, so a second view arriving without a
-/// second link is loud instead of arbitrary.
-///
-///  AND THAT IS ONLY HALF THE AMBIGUITY. "THE PRESENTED VIEW" IS A SINGLE-VIEW CONTRACT,
-/// AND IT SAYS SO OUT LOUD. The first cut of this resolver read `cameras.iter.next` — which
-/// is fine while one main camera exists and is exactly wrong the moment split-screen arrives:
-/// two cameras each correctly naming a DIFFERENT view would not produce two views, they would
-/// produce whichever camera the archetype iteration happened to yield first, handed to every
-/// consumer.
-///
-/// So the refusal is symmetric: several VIEWS and no link refuses, and several
-/// main CAMERAS refuses, because at that point "the" presented view is not a
-/// question with an answer. Nothing in the tree spawns two `MainCamera`s today;
-/// the second one is the event this is here to be loud about.
-///
-///  AND EVERY REMAINING READER IS A DIAGNOSTIC, WHICH IS THE POINT. The two
-/// draw systems that once read this — the world-label placement pass and the
-/// nameplate sync — do not any more: a draw system owes EVERY view a picture, so
-/// it iterates views and builds one set of entities per view, keyed by
-/// [`crate::local_view::PresentedForView`]. What is left are the actor draw's
-/// `[sprite-size]` `eprintln` and the debug overlay, and for those "the presented
-/// view" is the honest question — a single-view diagnostic that should go quiet
-/// rather than pick when the answer stops being unique.
+/// A camera with `PresentsView` selects that view. An unlinked single-camera,
+/// single-view composition selects its only view. Multiple views without a link,
+/// or multiple main cameras, are ambiguous and return no presented view rather
+/// than choosing by iteration order. Draw systems that support multiview should
+/// iterate views directly instead of using this single-view helper.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct PresentedViewState<'w, 's> {
     cameras: bevy::prelude::Query<
@@ -2502,12 +2475,7 @@ mod observer_roll_continuity_tests {
         // Just below +π easing to just above -π: 0.02 radians of turn, not a
         // full rotation backwards.
         //
-        //  assert on the ANGULAR distance travelled, not on `next > current`.
-        // The first version of this test compared the raw numbers and failed on
-        // correct behaviour: turning +0.02 from +3.1316 lands on -3.1316, which
-        // is numerically smaller while being a forward hair's turn. That is
-        // precisely the confusion `ease_roll_radians` exists to prevent, made by
-        // its own test.
+        // Assert angular distance rather than numeric ordering across the ±π wrap.
         let current = PI - 0.01;
         let target = -PI + 0.01;
         let next = ease_roll_radians(current, target, dt);

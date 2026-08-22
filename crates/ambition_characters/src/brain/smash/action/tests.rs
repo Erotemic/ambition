@@ -62,14 +62,8 @@ fn engage_with_melee_in_range_emits_attack() {
     );
 }
 
-/// AN AMBITION ENEMY AIMS ITS SWING, WHICH IS HOW IT REACHES ITS OWN
-/// DIRECTIONAL MOVES.
-///
-///  the campaign row said Ambition's enemies "do not choose from their
-/// movesets", and re-measuring says otherwise — but nothing PINNED the half that
-/// is true. The `Fighter` brain enumerates a scored
-/// `attack_kit`; the `Smash` brain does not, and `attack_kit_of` returns an empty
-/// `Vec` for it on purpose. What it does instead is aim: `MeleeAttack { dir }`
+/// A Smash brain reaches directional moves by aiming its melee action. Unlike a
+/// Fighter brain it does not enumerate a scored `attack_kit`; `MeleeAttack { dir }`
 /// becomes `ActorControlFrame::attack_axis` in `emit`, and
 /// `resolve_attack_gestures` turns that axis into `attack_up` / `attack_down` /
 /// `attack_forward` out of the body's OWN `MovesetContract`, falling back to the

@@ -1,28 +1,9 @@
 #![cfg(feature = "rl_sim")]
-//! THE SAME CHARACTER, BUILT TWO WAYS, IS THE SAME BODY. (AC5.5)
+//! A character built through NPC placement and runtime summon retains the same
+//! intrinsic body definition while contextual policy differs.
 //!
-//! The campaign's central proposition, stated as the thing a player would
-//! notice: *"a character used as an NPC, hostile actor, encounter participant,
-//! runtime summon, or match fighter is the same body definition in different
-//! context. Controller changes and provocation change policy/relationship; they
-//! do not reconstruct the body."*
-//!
-//! AC5 deleted the patch road: every registered character can build its own body, and every shipped
-//! placement names one.
-//!
-//! two REAL roads, not one road called twice. The Hall stages its cast as
-//! authored `NpcSpawn` placements — the interactable/NPC construction road — and
-//! `spawn_enemy_character_at` is the runtime-summon road that a boss cascade or a
-//! wave spawner uses. They are different entry points with different context
-//! (disposition, controller, session), which is the whole point: if the intrinsic
-//! facts agree across those two, "context does not reconstruct the body" is a
-//! measurement rather than a diagram.
-//!
-//! the contextual facts are asserted to DIFFER, deliberately. A test that
-//! only proved sameness would pass just as happily if both roads produced one
-//! identical thing with no context at all — which would mean the axes had been
-//! fused rather than separated. Disposition is the tell: the Hall's slug is
-//! peaceful and the summoned one is hostile, and they are the same body.
+//! The Hall path and summon path are intentionally distinct construction entry
+//! points. The test asserts both intrinsic equality and contextual difference.
 
 use crate::common::{base, fixed_60hz_room_sim};
 
@@ -33,21 +14,10 @@ use ambition_platformer2d::characters::actor::BodyHealth;
 
 const CHARACTER: &str = "npc_puppy_slug";
 
-/// The intrinsic facts a BODY owns, per the campaign's doctrine 3 — durability,
-/// locomotion, and the physics weight that decides how far a hit sends it. These
-/// must not depend on how the body got here.
+/// Intrinsic body facts that must not depend on construction context.
 ///
-/// GEOMETRY IS DELIBERATELY NOT IN HERE, and the reason is a measurement
-/// rather than a judgement. With size included, this test goes red: the Hall's
-/// slug is 84.18 × 21.93 and the summoned one is 56.12 × 14.62 — the same body
-/// at exactly 1.5×, on both axes. Health, speed and weight agree exactly.
-///
-/// that 1.5 is unexplained and it is NOT the character's `collision_scale`, which is 1.4.
-/// `NpcActorSpawnPlan::spawn_into` carries a comment about `collision_scale` being re-applied
-/// and "ballooning the sprite", so the hazard is known to exist on this seam.
-///
-/// Adding `size` back is how you re-open it, and it will be red until somebody explains the
-/// 1.5.
+/// Geometry is excluded because the NPC and summon paths still disagree on body
+/// size. Add it once that scaling discrepancy is resolved.
 #[derive(Debug, PartialEq)]
 struct IntrinsicBody {
     max_health: i32,

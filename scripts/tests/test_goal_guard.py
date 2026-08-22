@@ -1,16 +1,8 @@
 """Poison tests for the deterministic goal guard.
 
-A guardrail that has never been shown to FAIL proves nothing (this repo has the
-scar tissue: three green room-replay proofs of a beat that had no consumer). So
-every test here first establishes the guard can say "no", and the interesting
-ones are the cases where a plausible implementation would wrongly say "yes":
-
-* a transcript that claims the work is finished (the actual 2026-07-25 bug),
-* a check that times out rather than answering,
-* a guard that crashes while a goal is armed.
-
-Each of those must resolve to STILL OPEN. "We could not tell" is not "done".
-"""
+Cases that cannot establish completion—failed checks, timeouts, crashes, or mere
+transcript claims—must remain open. The suite verifies both the blocking outcome
+and the reason surfaced by the guard."""
 
 from __future__ import annotations
 
@@ -117,8 +109,7 @@ def test_the_block_names_the_open_item(repo: Path) -> None:
 
 
 def test_it_tells_the_agent_a_summary_will_not_end_the_turn(repo: Path) -> None:
-    """The 2026-07-25 failure was a status report read as completion. The block
-    text has to name that move specifically, or the next run reinvents it."""
+    """A status report must not be mistaken for completion."""
     arm(repo, checks=[FAIL])
     reason = run(repo)["reason"].lower()
     assert "status report" in reason and "does not close an item" in reason
@@ -159,10 +150,11 @@ def test_a_transcript_claiming_success_does_not_release_it(repo: Path) -> None:
 
 
 def test_it_keeps_blocking_even_when_stop_hook_active_is_set(repo: Path) -> None:
-    """Claude Code's docs tell hooks to return success while `stop_hook_active`
-    is true. A goal hook that obeys blocks exactly once and then lets go — the
-    same hole in a different shape. The runtime's own consecutive-block cap is
-    the loop guard; this one holds."""
+    """`stop_hook_active` must not bypass an open goal.
+
+    The runtime owns consecutive-block loop protection; this guard keeps
+    enforcing the repository checks.
+    """
     arm(repo, checks=[FAIL])
     out = run(repo, stdin={"stop_hook_active": True})
     assert out.get("decision") == "block"
@@ -208,9 +200,7 @@ def test_a_crash_while_armed_blocks_rather_than_releases(repo: Path) -> None:
 
 
 def test_an_unarmed_repo_is_completely_untouched(repo: Path) -> None:
-    """This config is committed, so it runs in Jon's ordinary sessions too. If
-    it emitted anything at all when no goal is armed, it would be a nuisance
-    that gets deleted, and then it protects nothing."""
+    """An unarmed repository must produce no hook output or side effects."""
     assert run(repo) == {}
 
 
@@ -319,8 +309,7 @@ def test_a_pause_lets_exactly_this_turn_end(repo: Path) -> None:
 
 
 def test_the_goal_is_still_armed_after_a_pause(repo: Path) -> None:
-    """THE poison. A pause that quietly behaves like `--clear` is the 2026-07-25
-    bug with better manners: the run ends and nobody is told it ended."""
+    """A one-shot pause must leave the goal armed for the next turn."""
     arm(repo, checks=[FAIL], max_stalled_blocks=0)
     cli(repo, "--pause")
     run(repo)  # spends it
@@ -473,20 +462,10 @@ def test_inject_restates_the_open_items(repo: Path) -> None:
 
 
 def test_inject_never_runs_the_checks(repo: Path) -> None:
-    """The wedge fix, pinned.
+    """Session injection must never execute goal checks.
 
-    This used to assert that inject was SILENT when every check passed — which
-    it could only know by RUNNING them. On 2026-07-27 a goal whose checks
-    included a 900s `cargo check` did exactly that at SessionStart, startup hung
-    until the IDE gave up at 60s, and the only way back into the repository was
-    to move `.goal/active.json` aside. A guard that can lock you out of the repo
-    it guards is worse than no guard, so inject now reads the Stop hook's cache
-    and nothing else.
-
-    The consequence is that "the goal is met" is no longer a state inject can
-    observe, and the old test was asserting an ability that was removed on
-    purpose. What replaces it is the property the fix actually bought: a check
-    that would take forever, or fail loudly, is never executed here.
+    Injection reads cached Stop-hook state only, so expensive or failing checks
+    cannot block session startup.
     """
     forever = {"name": "would wedge startup", "cmd": "sleep 600"}
     arm(repo, checks=[forever])
@@ -512,18 +491,7 @@ def test_inject_is_silent_when_unarmed(repo: Path) -> None:
 
 
 def test_a_nested_git_repo_does_not_hide_the_goal(repo: Path) -> None:
-    """The one that cost 4h12m on 2026-08-05.
-
-    `repo_root()` asked `git rev-parse --show-toplevel`, under a docstring
-    claiming that made the guard work "from any cwd a hook happens to have". This
-    tree contains a nested repository (`tools/ambition_sprite2d_renderer`), so one
-    `cd` into it and the guard resolved to the SUB-repo, where `.goal/active.json`
-    does not exist. `mode_stop` then took its "not armed: ordinary sessions are
-    untouched" path and released a 72-hour run, silently, having verified nothing.
-
-    A guard that answers "no goal is armed" because of where it was standing is
-    the same failure as a judge persuaded by prose, with fewer words.
-    """
+    """Nested repositories must not change which repository owns the goal."""
     nested = repo / "tools" / "sub_repo"
     nested.mkdir(parents=True)
     git(nested, "init", "-q")
@@ -632,8 +600,7 @@ def test_an_unreadable_transcript_blocks_rather_than_stands_down(repo: Path) -> 
 
 
 def test_a_stalled_wait_is_asked_about_on_the_heartbeat(repo: Path) -> None:
-    """In-flight work hangs, and from here a hung task and a slow one look
-    identical. Jon, 2026-08-15: ask how the subagents are doing."""
+    """A stale in-flight wait should prompt a short progress check."""
     arm(repo, checks=[FAIL])
     tp = transcript(repo, launched("toolu_A"))
     run(repo, stdin={"transcript_path": tp})
@@ -700,9 +667,7 @@ def test_a_compact_brings_the_whole_goal_back(repo: Path) -> None:
 
 
 def test_arming_over_a_live_goal_archives_the_one_it_replaces(repo: Path) -> None:
-    """The 2026-08-15 data loss. `--arm` was a bare copy over `active.json`, and
-    `.goal/` is gitignored, so re-arming erased a live 72-hour goal that existed
-    nowhere else. Every OTHER exit from a run had written a receipt for years."""
+    """Re-arming over a live goal must archive the replaced goal first."""
     arm(repo, goal="THE GOAL THAT WAS ALREADY RUNNING", checks=[FAIL])
     replacement = repo / "next.json"
     replacement.write_text(
@@ -822,14 +787,10 @@ def _roster(repo: Path) -> list[str]:
 
 
 def test_a_bare_clear_refuses_to_disarm_a_roster_it_does_not_own(repo: Path) -> None:
-    """⛔⛔ **One lane standing down used to release every other lane.**
+    """A bare clear must refuse when multiple sessions own the goal.
 
-    On 2026-08-20 an agent finished its work, typed `--clear`, and silently
-    disarmed a second session that was still running — its Stops stopped being
-    blocked and nobody noticed until the human asked why it had gone quiet. The
-    guard cannot know which window typed the command, so the only safe answer
-    when several sessions hold the goal is to refuse and make the caller say
-    which one it is.
+    Without an explicit session, the guard cannot know which owner should be
+    released.
     """
     arm(repo, goal="shared work", checks=[])
     _cli(repo, "--own", "sess-A")
@@ -924,11 +885,7 @@ def _cli(repo: Path, *args: str) -> str:
 
 
 def test_an_unshared_goal_still_holds_exactly_one_session(repo: Path) -> None:
-    """⛔ **the property sharing must not spend by accident.** A goal one session
-    claimed does not reach out and hold every other window in the repository —
-    a quick question in a second terminal is untouched by a run it is not doing.
-    This is the behaviour every goal armed before 2026-08-20 had, and it is
-    still the default."""
+    """An unshared goal must hold only the session that claimed it."""
     arm(repo, checks=[FAIL], max_stalled_blocks=99)
     assert _stop(repo, "first")["decision"] == "block"
     assert _stop(repo, "second") == {}, "an unshared goal held a session that never claimed it"

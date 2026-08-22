@@ -1,35 +1,9 @@
-//! The checkpoint decides what a death takes back — not what kind of thing it
-//! is.
+//! Checkpoint restoration is temporal, not item-kind-specific.
 //!
-//! ```text
-//! C0: a reward is authored on its pedestal
-//!   pick it up, die before committing      → it is back on the pedestal, and you do not have it
-//!   pick it up again, commit C1, die       → you still have it, and the pedestal stays empty
-//!   after C1 pick up something else, die   → you still have the first, the second went back
-//! ```
-//!
-//! the third line is the whole test, and it is why `KeyItem => survives
-//! death` is the wrong shape. An item-kind rule satisfies the first two lines
-//! and fails the third: the thing that decides is WHEN the acquisition happened
-//! relative to the last committed checkpoint, and the kind of object never enters
-//! the question. Encoding a kind rule would put a second authority beside the
-//! checkpoint, and the two start disagreeing the first time content changes.
-//!
-//! # What this drives, and what it refuses to drive
-//!
-//! Every beat goes through an ordinary road: the authored LDtk ground item, the
-//! real pressed pickup, a real `HealShrine` touched with a real `Interact`, and
-//! a real death report. nothing here writes `CheckpointCommitted`,
-//! `ResetToCheckpoint`, `OccurrenceBaseline` or `CustodyBaseline` directly.
-//! Writing the baseline by hand and then asserting the baseline would be a test
-//! of `clone()`; the claim under test is that the death road and the checkpoint
-//! road MEET, and only production wiring can be wrong about that.
-//!
-//! the one thing constructed rather than authored is the shrine, because no
-//! room in this world authors one next to a ground item. It is spawned as the
-//! ordinary component the LDtk lowering produces, at the body's own position, so
-//! `heal_save_shrine_system` runs against it exactly as it would in a room that
-//! authored it.
+//! Items acquired after the current checkpoint return to their authored state on
+//! death; items already present in the committed checkpoint remain where that
+//! baseline recorded them. The test drives production pickup, checkpoint, and
+//! death paths rather than mutating baseline resources directly.
 
 use ambition_app::{AgentAction, Platformer2dSimHarness};
 use ambition_platformer2d::engine_core::{AabbExt, ControlFrame};

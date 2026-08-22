@@ -1,24 +1,7 @@
-"""Every sub-workspace's `Cargo.lock` still resolves.
+"""Tracked lockfiles in independent sub-workspaces must resolve without updates.
 
-Independent workspaces may carry their own TRACKED lockfiles. Their independent
-resolution is what makes them proof that a third party can build against the
-umbrella crate. An ignored machine-local lockfile is not repository state and
-must not change the population this guard checks.
-
-The cost is that changing a dependency anywhere in the main workspace can
-invalidate those lockfiles, and nothing in the fast loop says so. `cargo test` in each
-does eventually — but those are non-fast jobs at the end of the suite, so the
-feedback arrives minutes later attached to a job that looks unrelated.
-
-⚠ **this has now bitten three times**, most recently on 2026-08-01 when removing
-`ambition_platformer2d_core` from two crates left all three stale. The footprint
-ratchet caught `minimal_game` only, because that is the one workspace it happens
-to run in; the other two were found by hand afterwards. One of them was already
-committed by then.
-
-`cargo tree --locked` is the whole check: it refuses to update the lockfile and
-exits non-zero if resolution would need to. No network, no build.
-"""
+The check runs `cargo tree --locked` in each tracked sub-workspace. Machine-local
+ignored lockfiles are not repository state and do not affect the checked set."""
 
 from __future__ import annotations
 

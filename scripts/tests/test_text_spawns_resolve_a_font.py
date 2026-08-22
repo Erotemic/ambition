@@ -1,44 +1,10 @@
-"""Every `Text` the MENU renderer spawns names the font it draws with.
+"""Menu text spawns must resolve an explicit font handle.
 
-
-Bevy's `TextFont` is a REQUIRED COMPONENT of `Text`. Spawning `Text::new(label)`
-with no `TextFont` is therefore not "unstyled" — Bevy inserts
-`TextFont::default()`, whose handle is `Handle::<Font>::default()`, and
-`bevy_text` inserts its built-in `FiraMono-subset.ttf` at that asset id.
-
-Through that handle, every `ambition_menu` surface in every game drew a hollow
-TOFU BOX for `·` (U+00B7) and `—` (U+2014) for a week. It was worked around by
-respelling a launcher footer with `|` rather than diagnosed, and ten hypotheses
-died before the cause was found — each of them checked the fonts the REPOSITORY
-ships (`JetBrainsMono-Regular.ttf`, `InterDisplay-Regular.otf`, both of which
-carry those glyphs) and none asked what `Handle::default()` points at.
-
-Probed 2026-08-01: forcing the default handle back at every menu text spawn
-and re-capturing `--route ambition_launcher` reproduces the hollow box on that
-exact string; restoring the resolved handle removes it.
-
-## Why this is scoped to the menu renderer
-
-⚠ the tempting generalization — "any `Text` without a font tofus" — is NOT
-established, and a repo-wide sweep found 18 such spawns. At least one of them
-demonstrably does NOT tofu: `ambition_demo_smash`'s select screen spawns `Text`
-with no `TextFont` at all and renders `·`, `—` and `…` correctly at 1280x720
-(captured the same day). Same codepoint, same default handle, different outcome,
-so something about the menu's own text path is the other half of the cause.
-
-A guard is only worth what its premise is worth. This one guards the path where
-the defect is measured, so it cannot cry wolf; the wider sweep is recorded as an
-open question in `docs/planning/queue-24h-2026-07-26.md` (Z1) rather than
-enforced on a theory. ⚠ if the mechanism is ever explained and turns out to be
-general, widen `MENU_RENDER_PATHS` — do not widen it before then.
-
-## What counts as resolving a font
-
-Anything that puts a real handle in scope for the spawn: a `TextFont` with a
-`font:` field, or a value built from one. Falling back to the subset when a
-composition loads NO fonts is fine and stays fine — what this forbids is
-arriving there silently, with no seam through which a host could pass a face.
-"""
+Bevy supplies a default `TextFont` when none is provided, and that fallback does
+not cover every glyph used by Ambition menus. These tests stay scoped to the menu
+renderer, where the failure is established, and accept any spawn path that puts
+a real font handle in scope. Composition with no loaded fonts may still use the
+engine fallback."""
 
 from __future__ import annotations
 

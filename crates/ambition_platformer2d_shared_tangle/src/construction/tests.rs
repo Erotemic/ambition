@@ -1523,28 +1523,11 @@ fn relation_metadata_conflicts_are_rejected_and_identical_ones_are_idempotent() 
     );
 }
 
-/// A registration cannot supply executable behaviour at all.
+/// Registration metadata cannot carry executable relation behavior.
 ///
-/// The first-wins hazard this replaces was concrete: `try_register_relation`
-/// took a `RelationOps` and decided idempotence on METADATA alone, so two
-/// registrations agreeing on owner/source/schema and disagreeing on the wiring
-/// function were accepted as "the same registration" and the first one won.
-/// The dump and the prepared-content fingerprint were byte-identical either way,
-/// so two builds could execute different construction behaviour under the same
-/// declared content identity, decided by plugin insertion order.
-///
-/// An earlier attempt compared `std::ptr::fn_addr_eq` instead, which a registry
-/// contract cannot rest on: the compiler may merge two identical functions to
-/// one address and emit one function at several addresses across codegen units,
-/// so the same pair of registrations could conflict or not between builds. And
-/// pointer comparison never caught the realistic case anyway — editing a
-/// function's body does not move it.
-///
-/// Both are gone because the table holds no functions. Wiring is resolved by
-/// `ConstructionDomain::dispatch_relation`, one exhaustive match in the domain
-/// that defines the relation enum, so there is nothing here to race for.
-/// `relation_registration_order_changes_neither_the_dump_nor_behaviour` proves
-/// the consequence end-to-end.
+/// Wiring is resolved by `ConstructionDomain::dispatch_relation`, an exhaustive
+/// domain-owned match. This keeps behavior independent of registration order and
+/// avoids function-pointer identity as part of registry equivalence.
 #[test]
 fn a_relation_registration_declares_identity_and_nothing_executable() {
     let mut registry = ConstructionRegistry::<Toy>::default();

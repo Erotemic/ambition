@@ -1,10 +1,8 @@
 //! The one experience this game registers: a floor, and a body that can walk on
 //! it.
 //!
-//! Everything here is the answer to "what is the SMALLEST thing that is still a
-//! game?" — and every line that turned out to be mandatory is a line the
-//! campaign gets to look at, because a mandatory line in a minimal game is a
-//! tax on every game.
+//! Keep this experience minimal: every required declaration is part of the
+//! baseline cost paid by all games.
 
 use ambition_platformer2d::world::prelude::*;
 

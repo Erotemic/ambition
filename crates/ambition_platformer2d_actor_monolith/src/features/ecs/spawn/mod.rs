@@ -421,36 +421,10 @@ impl RoomFeatureConstructionPlan {
             &paths,
             construction.prepared,
         ));
-        // AND NOW THE ONE QUESTION AN AUTHORED RECORD CANNOT ANSWER ABOUT
-        // ITSELF: what became of the occurrence it minted last time? Authored
-        // DEFINITION identity is not runtime OCCURRENCE identity — a record is
-        // a recipe, `SimId::placement(..)` names the thing the recipe made —
-        // and a rebuild owes the world a fresh occurrence only for the records
-        // whose last one is neither alive elsewhere nor deliberately gone.
-        //
-        // this asks a DISPOSITION, not "is something with this id alive".
-        // The second sentence has no room for a permanently destroyed object,
-        // which must also not be re-authored and is not alive anywhere; the
-        // ledger answers both with one call. It is also why the filter is here
-        // and not in the room transition: nothing on this road knows that items
-        // exist, or that a carried thing is what put a row in the ledger.
-        //
-        // AND THE ANSWER HAS THREE ARMS, NOT TWO. An occurrence that was
-        // carried across this room and PUT DOWN belongs to this room at
-        // coordinates the record knows nothing about; rebuilding the room owes
-        // the world that occurrence, with its own identity, WHERE IT WAS LEFT.
-        // Reading `Reinstated` as "author it" and dropping the position is how a
-        // relocation silently becomes a teleport back to the authored spot.
-        //
-        // AND THE ANSWER IS NOT A FUNCTION OF THIS ROOM'S RECORDS ALONE.
-        // An occurrence lying in this room may have been minted by a record next
-        // door — carried here and put down — and this room owes the world that
-        // occurrence exactly as much as it owes the ones it authors. Its home
-        // room has already been told not to author it, so a build that services
-        // only its own records deletes the object permanently. The foreign leg
-        // below is the other half of that one decision, and the two arrive
-        // together because [`OccurrenceContinuity`] carries the world's
-        // definitions beside the ledger.
+        // Continuity decides whether each authored occurrence is rebuilt at its
+        // authored position, reinstated where it was left, or suppressed because
+        // it lives elsewhere/is gone. The outlook also contributes foreign
+        // occurrences that now belong to this room.
         let outlook = construction
             .continuity
             .map(|continuity| continuity.remembered.outlook_for(&room.id))

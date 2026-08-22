@@ -44,9 +44,9 @@
 //!
 //! ⚠ **`Controller` carries WHICH input source, and that is the whole couch bug
 //! in one field.** Two slots both meaning "a person" is ambiguous the moment
-//! there are two sources in the room. [`SmashSelect::cycle_occupant`] therefore
-//! takes the source that actually pressed the card: it never guesses ownership
-//! from whichever unclaimed device happens to sort first.
+//! there are two sources in the room. The select model therefore exposes an
+//! explicit source→slot claim: a cursor may claim a card by selecting a fighter,
+//! while a role-button press may deliberately seat another connected source.
 
 #[cfg(test)]
 use crate::STARTING_STOCKS;
@@ -414,32 +414,74 @@ impl SmashSelect {
         self.slots.iter().copied().enumerate()
     }
 
-    /// **Toggle one slot between absent / the requesting person / CPU.**
+    /// Assign one connected input source to one absent match slot.
     ///
-    /// The requester is explicit. An empty card does not guess which unused
-    /// controller "must have meant" the press: if the input source that pressed
-    /// this button is not seated yet, that source takes the card. If the
-    /// requester already owns another card, the empty card skips the human rung
-    /// and becomes CPU.
+    /// This is the single ownership primitive for human seats. It refuses to
+    /// steal an occupied card or duplicate a source that already owns another
+    /// card; callers choose *which* slot/source pair they are asking for.
+    pub fn assign_controller(&mut self, slot: usize, source: usize) -> bool {
+        if slot >= MAX_SMASH_SEATS
+            || self.slots[slot].occupant != SlotOccupant::Absent
+            || self.slot_driven_by(source).is_some()
+        {
+            return false;
+        }
+        self.set_occupant(slot, SlotOccupant::Controller { device: source });
+        true
+    }
+
+    /// Return this source's slot, claiming the first absent card if needed.
+    ///
+    /// Character selection uses this path: an unseated connected participant may
+    /// move a cursor immediately, and the first A press on a fighter both joins
+    /// the lobby and makes that fighter the new slot's choice.
+    pub fn slot_for_or_claim(&mut self, source: usize) -> Option<usize> {
+        if let Some(slot) = self.slot_driven_by(source) {
+            return Some(slot);
+        }
+        let slot = self
+            .slots
+            .iter()
+            .position(|card| card.occupant == SlotOccupant::Absent)?;
+        self.assign_controller(slot, source).then_some(slot)
+    }
+
+    /// Cycle a role button through Human / CPU / Absent.
+    ///
+    /// On an absent card, prefer the source that pressed the button when that
+    /// source is unseated. Otherwise seat the first connected, unseated source;
+    /// this is what lets player one enable a card for player two after a second
+    /// controller connects. If every connected source is already seated, the
+    /// card becomes CPU.
     ///
     /// `Absent` is a lifecycle boundary. Leaving the lobby removes the active
     /// fighter choice; re-entering starts on Random. Controller <-> CPU keeps the
     /// current pick because only the controller policy changed, not the chair.
-    pub fn cycle_occupant(&mut self, slot: usize, requesting_source: usize) {
+    pub fn cycle_role(
+        &mut self,
+        slot: usize,
+        requesting_source: usize,
+        connected_sources: &[usize],
+    ) {
         if slot >= MAX_SMASH_SEATS {
             return;
         }
-        let next = match self.slots[slot].occupant {
-            SlotOccupant::Absent if self.slot_driven_by(requesting_source).is_none() => {
-                SlotOccupant::Controller {
-                    device: requesting_source,
+        match self.slots[slot].occupant {
+            SlotOccupant::Absent => {
+                let next_human = connected_sources
+                    .iter()
+                    .copied()
+                    .filter(|source| self.slot_driven_by(*source).is_none())
+                    .min_by_key(|source| (*source != requesting_source, *source));
+                if let Some(source) = next_human {
+                    let _ = self.assign_controller(slot, source);
+                } else {
+                    self.set_occupant(slot, SlotOccupant::Cpu);
                 }
             }
-            SlotOccupant::Absent => SlotOccupant::Cpu,
-            SlotOccupant::Controller { .. } => SlotOccupant::Cpu,
-            SlotOccupant::Cpu => SlotOccupant::Absent,
-        };
-        self.set_occupant(slot, next);
+            SlotOccupant::Controller { .. } => self.set_occupant(slot, SlotOccupant::Cpu),
+            SlotOccupant::Cpu => self.set_occupant(slot, SlotOccupant::Absent),
+        }
     }
 
     /// **The roster slot this local input SOURCE drives, if any.**
@@ -462,8 +504,8 @@ impl SmashSelect {
     /// stops existing.
     ///
     /// `None` for a source nobody has seated. That is a real state, not a
-    /// fault: a pad plugged in before anyone presses the role button has no
-    /// card yet, and it must not get somebody else's.
+    /// fault: a newly connected participant may move a cursor before selecting
+    /// a fighter or explicitly taking a card, and it must not get somebody else's.
     pub fn slot_driven_by(&self, device: usize) -> Option<usize> {
         self.slots
             .iter()

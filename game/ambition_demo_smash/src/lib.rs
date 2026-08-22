@@ -3842,6 +3842,91 @@ mod pause_arbitration_tests {
         );
     }
 
+    /// An unseated connected participant may join by doing the thing they came
+    /// here to do: choosing a fighter. The press claims the first absent match
+    /// card and the same press chooses the portrait; no role-button preflight is
+    /// required.
+    #[test]
+    fn an_unseated_connected_cursor_claims_a_slot_when_it_selects_a_fighter() {
+        let mut app = app_with(false);
+        // Seat P1 through the fixture's real role-button press, then make seat 1
+        // present in the same per-seat input table production fills for a second
+        // connected participant.
+        app.update();
+        seat_presses(&mut app, 0, MenuControlFrame::default());
+        seat_presses(&mut app, 1, MenuControlFrame::default());
+
+        let layout = select_screen::layout::SelectLayout::for_viewport(
+            None,
+            select::SmashRoster::default().cell_count(),
+        );
+        let face = layout.portrait(1).expect("a grid with a second cell");
+        app.world_mut()
+            .resource_mut::<select_screen::cursor::SelectCursors>()
+            .seat_mut(1)
+            .move_to(face.center());
+        seat_presses(
+            &mut app,
+            1,
+            MenuControlFrame {
+                select: true,
+                ..Default::default()
+            },
+        );
+        app.update();
+
+        let select = app.world().resource::<select::SmashSelect>();
+        assert_eq!(
+            select.slot(1).occupant,
+            select::SlotOccupant::Controller { device: 1 },
+            "the second connected cursor selected a fighter but never joined"
+        );
+        assert_eq!(
+            select.slot(1).pick,
+            Some(select::SlotPick::Fighter(1)),
+            "the join press was consumed by seating instead of also choosing its fighter"
+        );
+    }
+
+    /// A seated player may explicitly open an empty human card for another
+    /// connected participant. This is distinct from implicit join-on-selection:
+    /// the requester chooses the roster POSITION, while the model assigns the
+    /// first connected source that is not already seated.
+    #[test]
+    fn player_one_can_enable_a_slot_for_a_connected_second_player() {
+        let mut app = app_with(false);
+        app.update(); // the fixture seats source 0 in slot 0
+        seat_presses(&mut app, 0, MenuControlFrame::default());
+        // A neutral row is still evidence that source 1 exists; production
+        // `populate_seat_menu_frames` writes one row per InputParticipant.
+        seat_presses(&mut app, 1, MenuControlFrame::default());
+
+        let role = select_screen::layout::SelectLayout::for_viewport(
+            None,
+            select::SmashRoster::default().cell_count(),
+        )
+        .role_button(1);
+        app.world_mut()
+            .resource_mut::<select_screen::cursor::SelectCursors>()
+            .seat_mut(0)
+            .move_to(role.center());
+        seat_presses(
+            &mut app,
+            0,
+            MenuControlFrame {
+                select: true,
+                ..Default::default()
+            },
+        );
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<select::SmashSelect>().slot(1).occupant,
+            select::SlotOccupant::Controller { device: 1 },
+            "enabling the second card ignored the connected, unseated second participant"
+        );
+    }
+
     /// **A LOBBY WITH A CPU BETWEEN TWO PEOPLE ROUTES THE SECOND ONE HOME.**
     ///
     /// The roster is SPARSE and it is not in input-seat order. Explicit join

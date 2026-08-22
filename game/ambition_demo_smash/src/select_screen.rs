@@ -1185,6 +1185,31 @@ pub(crate) fn drive_the_cursor(
         }
     }
 
+    // Which input participants are actually present on this surface. This is
+    // deliberately derived from the per-seat menu frames: that table is already
+    // produced once per `InputParticipant`, so consulting device order here would
+    // create a second answer to "who can use a cursor?".
+    let mut connected_sources: Vec<usize> = inputs
+        .seat_frames
+        .as_deref()
+        .map(|frames| {
+            frames
+                .seats()
+                .map(|(seat, _)| seat as usize)
+                .filter(|seat| *seat < MAX_SMASH_SEATS)
+                .collect()
+        })
+        .unwrap_or_default();
+    // Headless/touch-only compositions may have no per-seat producer. Seat zero
+    // is still the desktop/touch cursor, and active fingers below are real cursor
+    // owners for the duration of their gesture.
+    if connected_sources.is_empty() {
+        connected_sources.push(DESKTOP_SEAT);
+    }
+    connected_sources.extend(local.fingers.values().copied());
+    connected_sources.sort_unstable();
+    connected_sources.dedup();
+
     // ── the page, which is the ONE part of the grid every seat shares ────
     // ⚠ **clamped against the LAYOUT's count, not against a remembered one.**
     // How many pages exist is a fact about the viewport and the roster, and the
@@ -1337,19 +1362,17 @@ pub(crate) fn drive_the_cursor(
                 (None, Some(slot), _) => {
                     cursors.try_grab(seat, slot);
                 }
-                // **PRESSING A FIGHTER WITH AN EMPTY HAND CHOOSES IT.** Jon,
-                // 2026-08-21: *"shouldn't I be able to just click on a character
-                // or press choose on a character to select?"* The token travels
-                // there afterwards, so the screen reads the same and
-                // `SmashSelect` sees the same decision either way it was asked.
-                //
-                // ⚠ **a seat with no card taps nothing.** A pad plugged in
-                // before its owner pressed a role button drives no slot, and
-                // writing the pick into card `seat` on its behalf is how the
-                // second person used to choose the CPU's fighter.
+                // **PRESSING A FIGHTER WITH AN EMPTY HAND CHOOSES IT.** A
+                // connected participant does not need to visit a role button
+                // first: if this source has no match slot yet, the same action
+                // atomically claims the first absent card and chooses the fighter.
+                // The source→slot relation remains explicit; we never write card
+                // `seat` merely because the cursor happens to be seat-keyed.
                 (None, _, Some(SelectTarget::Portrait(cell))) => {
-                    if let (Some(own), Some(pick)) = (own_slot, fighters.cell(cell)) {
-                        select.set_pick(own, pick);
+                    if let Some(pick) = fighters.cell(cell) {
+                        if let Some(own) = select.slot_for_or_claim(seat) {
+                            select.set_pick(own, pick);
+                        }
                     }
                 }
                 // **TURNING THE PAGE IS LEGAL WITH A TOKEN IN HAND**, and it has
@@ -1377,7 +1400,7 @@ pub(crate) fn drive_the_cursor(
                 // state. A token is either carried or placed on its selection.
                 (Some(_), _, _) => {}
                 (None, None, Some(SelectTarget::RoleButton(slot))) => {
-                    select.cycle_occupant(slot, seat);
+                    select.cycle_role(slot, seat, &connected_sources);
                 }
                 (None, None, Some(SelectTarget::Start)) => {
                     if select.ready() {
@@ -1626,7 +1649,7 @@ pub fn sync_select_tokens_and_cursors(
     fighters: Res<SmashRoster>,
     page: Res<SelectPage>,
     windows: Query<&Window>,
-    devices: Option<Res<ambition_platformer2d::input::LocalDeviceOrder>>,
+    offer: Option<Res<ambition_platformer2d::input::LocalSeatOffer>>,
     mut tokens: Query<
         (&SlotToken, &mut Node, &mut Visibility),
         Without<CursorNode>,
@@ -1637,14 +1660,9 @@ pub fn sync_select_tokens_and_cursors(
     >,
 ) {
     let layout = current_layout(&windows, &fighters, &page);
-    let offered_seats = devices
+    let offered_seats = offer
         .as_deref()
-        .map(|devices| {
-            crate::select::seats_offered_under(
-                devices,
-                ambition_platformer2d::input::sources::InputAssignmentPolicy::JoinToClaim,
-            )
-        })
+        .map(|offer| offer.seats() as usize)
         .unwrap_or(1);
 
     for (token, mut node, mut visibility) in &mut tokens {
@@ -1679,7 +1697,9 @@ pub fn sync_select_tokens_and_cursors(
         // Cursors are indexed by INPUT seat, not by match-roster slot. Looking
         // at `select.slot(seat)` here creates a phantom hand for a CPU hole in a
         // sparse roster (human / CPU / human) and can hide the actual second
-        // person's hand. The local input offer is the authority for hands.
+        // person's hand. `LocalSeatOffer` is the authority for how many local
+        // input participants this frontend is offering, so presentation does not
+        // re-derive the same count from connected devices.
         if seat >= offered_seats {
             set_visibility(&mut visibility, Visibility::Hidden);
             continue;
@@ -1765,10 +1785,10 @@ mod touch_tests {
     /// **TWO FINGERS ARE TWO PLAYERS**, which is the whole point of per-seat
     /// cursors and the thing one shared pointer could never do.
     ///
-    /// ⚠ **the second finger has to land on the SECOND SEAT'S TOKEN.** That is
-    /// what claims a seat; a finger landing anywhere else while seat 0 is busy
-    /// still claims nothing, which is what keeps a stray thumb from hijacking
-    /// somebody's drag (the test below).
+    /// ⚠ **the second finger has to land on the SECOND CURSOR'S TOKEN.** That
+    /// assigns the gesture to that cursor; a finger landing anywhere else while
+    /// cursor 0 is busy still claims no cursor, which keeps a stray thumb from
+    /// hijacking somebody's drag (the test below).
     #[test]
     fn two_fingers_drag_two_seats_tokens_at_once() {
         let mut app = screen();
@@ -2285,8 +2305,8 @@ mod touch_tests {
     /// **A SECOND FINGER ON NOBODY'S TOKEN IS NOT A SECOND CURSOR.**
     ///
     /// ⚠ **narrowed 2026-08-21, and the narrowing is the feature.** A second
-    /// finger IS allowed to be a second player now — by landing on that
-    /// player's token, which is what claims a seat (see
+    /// finger IS allowed to drive the second cursor now — by landing on that
+    /// cursor's token, which is what assigns the gesture (see
     /// `two_fingers_drag_two_seats_tokens_at_once`). What is still refused is
     /// the case here: a finger that claims nothing, because it landed on a
     /// portrait rather than on a free token while seat 0 was busy.

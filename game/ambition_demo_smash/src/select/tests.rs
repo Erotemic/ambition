@@ -102,20 +102,20 @@ fn two_decided() -> SmashSelect {
     select
 }
 
-/// **The button's three rungs, in Jon's order.** Empty seats the person who
-/// pressed it; a second press hands that chair to the machine; a third empties
-/// it again.
+/// **The button's three rungs, in Jon's order.** With an available human
+/// source, an empty card becomes Human; a second press hands that chair to the
+/// machine; a third empties it again.
 #[test]
 fn the_slot_button_cycles_absent_controller_cpu() {
     let mut select = SmashSelect::default();
-    select.cycle_occupant(0, 0);
+    select.cycle_role(0, 0, &[0]);
     assert_eq!(
         select.slot(0).occupant,
         SlotOccupant::Controller { device: 0 }
     );
-    select.cycle_occupant(0, 0);
+    select.cycle_role(0, 0, &[0]);
     assert_eq!(select.slot(0).occupant, SlotOccupant::Cpu);
-    select.cycle_occupant(0, 0);
+    select.cycle_role(0, 0, &[0]);
     assert_eq!(select.slot(0).occupant, SlotOccupant::Absent);
 }
 
@@ -128,8 +128,9 @@ fn the_slot_button_cycles_absent_controller_cpu() {
 #[test]
 fn two_controller_slots_never_share_one_device() {
     let mut select = SmashSelect::default();
+    let connected = [0, 1, 2, 3];
     for slot in 0..MAX_SMASH_SEATS {
-        select.cycle_occupant(slot, slot);
+        select.cycle_role(slot, slot, &connected);
     }
     let devices: Vec<usize> = (0..MAX_SMASH_SEATS)
         .filter_map(|slot| select.slot(slot).occupant.device())
@@ -141,40 +142,77 @@ fn two_controller_slots_never_share_one_device() {
     );
 }
 
-/// A participant already seated elsewhere cannot become a second human slot.
-/// Pressing an empty card while already seated promotes that card directly to
-/// CPU instead of guessing at some other free input source.
+/// A seated player may enable an empty card for another connected person.
+///
+/// The role button is roster editing, not ownership-by-click: when P1 already
+/// owns slot 0 and P2 is connected but unseated, P1 can turn slot 1 into P2's
+/// human card without P2 having to press that card first.
 #[test]
-fn an_already_seated_participant_turns_an_empty_card_into_cpu() {
+fn a_seated_participant_can_enable_a_card_for_another_connected_source() {
     let mut select = SmashSelect::default();
-    select.cycle_occupant(0, 0);
+    select.cycle_role(0, 0, &[0, 1]);
     assert_eq!(
         select.slot(0).occupant,
         SlotOccupant::Controller { device: 0 }
     );
 
-    select.cycle_occupant(1, 0);
+    select.cycle_role(1, 0, &[0, 1]);
     assert_eq!(
         select.slot(1).occupant,
-        SlotOccupant::Cpu,
-        "a participant already seated in slot 0 was duplicated into slot 1"
+        SlotOccupant::Controller { device: 1 },
+        "P1 enabled a second human card but the connected P2 source was not seated"
     );
 }
 
-/// Once a participant's old slot becomes absent, that participant may join a
-/// different slot. The requester is explicit; no global free-device search is
-/// involved.
+/// With no unseated connected participant left, an empty card advances to CPU.
+#[test]
+fn an_empty_card_becomes_cpu_when_every_connected_source_is_already_seated() {
+    let mut select = SmashSelect::default();
+    select.cycle_role(0, 0, &[0]);
+    select.cycle_role(1, 0, &[0]);
+    assert_eq!(select.slot(1).occupant, SlotOccupant::Cpu);
+}
+
+/// Once a participant's old slot becomes absent, that source is available for
+/// another card again.
 #[test]
 fn an_absent_slot_releases_its_participant_for_another_card() {
     let mut select = SmashSelect::default();
-    select.cycle_occupant(0, 0); // controller
-    select.cycle_occupant(0, 0); // cpu
-    select.cycle_occupant(0, 0); // absent
-    select.cycle_occupant(1, 0);
+    select.cycle_role(0, 0, &[0]); // controller
+    select.cycle_role(0, 0, &[0]); // cpu
+    select.cycle_role(0, 0, &[0]); // absent
+    select.cycle_role(1, 0, &[0]);
     assert_eq!(
         select.slot(1).occupant,
         SlotOccupant::Controller { device: 0 }
     );
+}
+
+/// Selecting a fighter is itself a valid join action for an unseated source.
+#[test]
+fn an_unseated_source_claims_the_first_absent_card_on_selection() {
+    let mut select = SmashSelect::default();
+    select.set_occupant(0, SlotOccupant::Cpu);
+
+    let slot = select
+        .slot_for_or_claim(1)
+        .expect("an absent card remained for the connected source");
+
+    assert_eq!(slot, 1);
+    assert_eq!(
+        select.slot(1).occupant,
+        SlotOccupant::Controller { device: 1 }
+    );
+    assert_eq!(select.slot(1).pick, Some(SlotPick::Random));
+}
+
+/// Claiming is idempotent: a source that already owns a card keeps that card.
+#[test]
+fn selecting_again_does_not_move_an_existing_human_between_cards() {
+    let mut select = SmashSelect::default();
+    assert_eq!(select.slot_for_or_claim(1), Some(0));
+    assert_eq!(select.slot_for_or_claim(1), Some(0));
+    assert_eq!(select.slot(1).occupant, SlotOccupant::Absent);
 }
 
 /// **A THIRD PLAYER JOINS ON RANDOM AND THE MATCH STAYS READY.**
@@ -293,14 +331,14 @@ fn two_cpus_are_a_match_and_a_person_can_join_them() {
 #[test]
 fn absent_clears_the_pick_and_rejoin_starts_on_random() {
     let mut select = SmashSelect::default();
-    select.cycle_occupant(0, 0);
+    select.cycle_role(0, 0, &[0]);
     select.set_pick(0, 5);
-    select.cycle_occupant(0, 0); // → CPU
+    select.cycle_role(0, 0, &[0]); // → CPU
     assert_eq!(select.slot(0).pick, Some(SlotPick::Fighter(5)));
-    select.cycle_occupant(0, 0); // → absent
+    select.cycle_role(0, 0, &[0]); // → absent
     assert_eq!(select.slot(0).pick, None);
 
-    select.cycle_occupant(0, 0); // → controller again
+    select.cycle_role(0, 0, &[0]); // → controller again
     assert_eq!(
         select.slot(0).pick,
         Some(SlotPick::Random),
@@ -431,7 +469,7 @@ fn an_untouched_screen_is_not_a_match() {
 #[test]
 fn a_slot_past_the_ceiling_is_ignored_rather_than_a_crash() {
     let mut select = SmashSelect::default();
-    select.cycle_occupant(MAX_SMASH_SEATS, 0);
+    select.cycle_role(MAX_SMASH_SEATS, 0, &[0]);
     select.set_pick(MAX_SMASH_SEATS, 0);
     select.seed_pick(MAX_SMASH_SEATS, &fighters());
     assert_eq!(select.participating(), 0);

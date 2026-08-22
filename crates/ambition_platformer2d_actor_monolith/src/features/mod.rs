@@ -16,6 +16,7 @@
 //! chatter registry), and the private `ecs` tree (cluster components + the
 //! per-actor tick/spawn/damage systems).
 
+use ambition_characters::actor::limb::fan_out_limb_intents;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
@@ -152,12 +153,12 @@ pub use ecs::{
     dissolve_settled_grudges, drive_boss_animators, ecs_boss_anim_state,
     ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample, ecs_breakable_state,
     ecs_chest_opened, ecs_hit_event_hits_actor, ecs_hit_event_hits_boss,
-    ecs_hit_event_hits_breakable, enforce_mount_rider_link, fan_out_limb_intents,
-    integrate_boss_bodies, integrate_sim_bodies, interact_ecs_actors_and_switches,
-    magnetize_pickups, open_ecs_chests, project_boss_attack_state_from_move,
-    rebuild_feature_ecs_world_overlay, refresh_body_damageable_volumes,
-    refresh_boss_damageable_volumes, refresh_breakable_damageable_volumes, reset_ecs_room_features,
-    route_boss_strikes_to_limbs, select_actor_targets, snapshot_body_contact, spawn_encounter_mob,
+    ecs_hit_event_hits_breakable, enforce_mount_rider_link, integrate_boss_bodies,
+    integrate_sim_bodies, interact_ecs_actors_and_switches, magnetize_pickups, open_ecs_chests,
+    project_boss_attack_state_from_move, rebuild_feature_ecs_world_overlay,
+    refresh_body_damageable_volumes, refresh_boss_damageable_volumes,
+    refresh_breakable_damageable_volumes, reset_ecs_room_features, route_boss_strikes_to_limbs,
+    select_actor_targets, snapshot_body_contact, spawn_encounter_mob,
     spawn_projectiles_from_brain_actions, spawn_room_feature_entities_from_plan,
     steer_mount_from_rider, sync_actor_poses_from_feature_aabbs, sync_actor_read_model,
     sync_boss_actor_components, sync_boss_encounter_phase, sync_ecs_actors_with_save,
@@ -168,13 +169,12 @@ pub use ecs::{
     ActorConstructionContext, ActorSteering, CanPilot, ChallengeRequested, ControlGrant,
     EncounterMobSeed, FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity,
     FeatureWorldOverlaySet, FriendlyFire, HazardFeature, HazardTickSet, HeldItem, Hitbox,
-    HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime, Limb, LimbIntents, LimbRig,
-    LimbRouteState, LimbSlot, Mass, MountClass, MountDeathImpact, MountRiderLinkEnforced,
-    MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, OccurrenceContinuity,
-    PendingChallenge, PickupArt, PickupCollect, PickupCollectLock, PickupMagnetize, RidingOn,
-    RoomContentStagingError, RoomContentStagingRegistrationError, RoomContentStagingRegistry,
-    RoomFeatureConstructionError, RoomFeatureConstructionPlan, RoomFeatureConstructionReceipt,
-    SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
+    HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime, Mass, MountClass, MountDeathImpact,
+    MountRiderLinkEnforced, MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize,
+    OccurrenceContinuity, PendingChallenge, PickupArt, PickupCollect, PickupCollectLock,
+    PickupMagnetize, RidingOn, RoomContentStagingError, RoomContentStagingRegistrationError,
+    RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
+    RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };
 pub use ecs::{AxisSweptMotion, MomentumMotion, MotionModel};
 pub use enemies::{

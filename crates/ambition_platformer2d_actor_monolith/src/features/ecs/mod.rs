@@ -87,10 +87,10 @@ pub use actors::{
     actor_component_snapshot, enemy_component_snapshot, sync_actor_components_from_cluster,
 };
 pub use actors::{
-    apply_actor_contact_damage, fan_out_limb_intents, integrate_sim_bodies,
-    route_boss_strikes_to_limbs, snapshot_body_contact, sync_actor_poses_from_feature_aabbs,
-    sync_actor_read_model, tick_actor_brains, tick_npc_idle_barks, ActorSteering, AxisSweptMotion,
-    Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot, MomentumMotion, MotionModel,
+    apply_actor_contact_damage, integrate_sim_bodies, route_boss_strikes_to_limbs,
+    snapshot_body_contact, sync_actor_poses_from_feature_aabbs, sync_actor_read_model,
+    tick_actor_brains, tick_npc_idle_barks, ActorSteering, AxisSweptMotion, MomentumMotion,
+    MotionModel,
 };
 pub use aggression::{
     apply_actor_stimuli, arm_requested_challenges, tick_pending_challenges, ChallengeRequested,
@@ -107,6 +107,7 @@ pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
 pub use crate::world::overlay::{
     rebuild_feature_ecs_world_overlay, FeatureEcsWorldOverlay, FeatureWorldOverlaySet,
 };
+pub use ambition_combat::hit_camera_shake::shake_camera_on_landed_hits;
 pub use bosses::boss_component_snapshot;
 #[allow(
     unused_imports,
@@ -129,7 +130,6 @@ pub use encounter_rewards::{clear_encounter_reward_ecs, sync_encounter_reward_ch
 pub use falling_chest::update_ecs_falling_chests;
 pub use hazards::{update_ecs_hazards, HazardTickSet};
 pub use held_items::HeldItem;
-pub use ambition_combat::hit_camera_shake::shake_camera_on_landed_hits;
 pub use hitbox::{
     apply_hitbox_damage, tick_and_despawn_hitboxes, Hitbox, HitboxAnchor, HitboxHits,
     HitboxKnockback, HitboxLifetime,

@@ -24,6 +24,7 @@
 //! depends on THIS crate, so naming it from here was a dependency cycle.
 
 use super::{BossAttackPattern, BossAttackProfile, BossMovementProfile};
+use crate::actor::limb::LimbSlot;
 use ambition_platformer2d_core as ae;
 
 /// One body-local strike rectangle, expressed as DATA rather than an imperative
@@ -269,17 +270,17 @@ pub enum LimbMotion {
     Hold,
 }
 
-/// Q18 (G3): a strike's limb ROUTE — which of the mount's limb slots it drives
-/// (`"hand_left"` / `"hand_right"`), and the [`LimbMotion`] each performs. Keyed
-/// by move id inside [`BossBehaviorProfile::limb_routing`]. Authored in RON:
-/// `("hand_slam", (slots: ["hand_left", "hand_right"], motion: SlamDown))`.
+/// Q18 (G3): a strike's limb ROUTE — which of the mount's limb slots it drives,
+/// and the [`LimbMotion`] each performs. Keyed by move id inside
+/// [`BossBehaviorProfile::limb_routing`]. Authored in RON:
+/// `("hand_slam", (slots: [HandLeft, HandRight], motion: SlamDown))`.
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LimbRoute {
-    /// Slot names the strike drives. `"hand_left"` / `"hand_right"` map to
-    /// `LimbSlot` via `LimbSlot::from_route_str`; unknown names
-    /// are ignored (a route to a slot the rig doesn't carry is simply inert).
-    pub slots: Vec<String>,
+    /// The slots the strike drives. A route to a slot the rig doesn't carry is
+    /// simply inert — but a slot that doesn't EXIST is now a content load
+    /// error, where the `Vec<String>` this replaced dropped it in silence.
+    pub slots: Vec<LimbSlot>,
     /// How each named slot moves during the strike.
     pub motion: LimbMotion,
 }

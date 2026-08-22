@@ -1543,7 +1543,8 @@ fn a_mount_you_are_riding_crosses_the_door_with_you() {
 fn a_limbed_mount_crosses_the_door_with_all_of_its_parts() {
     use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
     use ambition_platformer2d::actors::actor::BodyKinematics;
-    use ambition_platformer2d::actors::features::{LimbRig, RidingOn};
+    use ambition_platformer2d::actors::features::RidingOn;
+    use ambition_platformer2d::characters::actor::limb::LimbRig;
     use ambition_platformer2d::characters::brain::Brain;
 
     let mut sim = fixed_60hz_room_sim("gnu_ton_arena");
@@ -1684,7 +1685,8 @@ fn a_limbed_mount_crosses_the_door_with_all_of_its_parts() {
 fn the_whole_attachment_closure_is_recorded_as_being_in_custody() {
     use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
     use ambition_platformer2d::actors::actor::BodyKinematics;
-    use ambition_platformer2d::actors::features::{LimbRig, RidingOn};
+    use ambition_platformer2d::actors::features::RidingOn;
+    use ambition_platformer2d::characters::actor::limb::LimbRig;
     use ambition_platformer2d::characters::brain::Brain;
     use ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences;
 

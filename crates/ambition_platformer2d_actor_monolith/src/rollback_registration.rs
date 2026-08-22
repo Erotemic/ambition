@@ -175,26 +175,6 @@ where
         OWNER,
         "actor.transform_beat_requested",
     );
-    registrar.rollback_component_clone_entity_map::<crate::features::LimbRig>(
-        OWNER,
-        "limb.rig",
-        |rig| {
-            rig.limbs
-                .iter()
-                .map(|(slot, limb)| (*slot as u64, *limb))
-                .collect()
-        },
-    );
-    registrar.rollback_map_entities::<crate::features::LimbRig>(OWNER, "map.limb_rig");
-    registrar.rollback_component_clone_entity_ref::<crate::features::Limb>(
-        OWNER,
-        "limb.member",
-        |limb| limb.of,
-    );
-    registrar.rollback_map_entities::<crate::features::Limb>(OWNER, "map.limb_member");
-    registrar
-        .rollback_component_clone::<crate::features::LimbRouteState>(OWNER, "limb.route_state");
-    registrar.rollback_component_clone::<crate::features::LimbIntents>(OWNER, "limb.intents");
     registrar.rollback_component_clone::<crate::features::CanPilot>(OWNER, "mount.can_pilot");
     registrar.rollback_component_clone::<crate::features::Mass>(OWNER, "mount.mass");
     registrar.rollback_component_clone_entity_set::<crate::features::MountSlot>(

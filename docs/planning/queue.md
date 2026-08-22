@@ -3970,6 +3970,74 @@ crate entirely** — three modules measured this way in one day and all three we
 mostly laundering. Resolve every name to its defining crate first; the count that
 matters is the one left over.
 
+✔✔ **AND 66 OF THOSE 91 ARE GONE — THE LIMB VOCABULARY MOVED DOWN (2026-08-22).**
+`LimbSlot`, `LimbRig`, `Limb`, `LimbRouteState`, `LimbIntents` and
+`fan_out_limb_intents` → `ambition_characters::actor::limb`. **Zero new edges**:
+the destination already had `ambition_platformer2d_core` and `bevy`, which is
+everything the data half named. `limbs.rs` went 459 → 221 lines and keeps only the
+half that reads a MOUNT — its kinematics, its clung surface, the `MountSlot` link
+to the rider being translated.
+
+⭐⭐ **THE TELL WAS IN THE DESTINATION'S OWN DOC, and it was a `Vec<String>`.**
+`LimbRoute` — which AUTHORS which slots a strike drives — is *defined* in
+`ambition_characters::brain::boss_pattern::profile` and only re-exported by
+`ambition_boss_encounter`. It held `pub slots: Vec<String>` with a doc reading
+*"`"hand_left"` / `"hand_right"` map to `LimbSlot` via `LimbSlot::from_route_str`;
+unknown names are ignored"*. ⇒ **the crate that authors limb routes was spelling
+its own vocabulary as strings for the sole purpose of crossing a crate boundary
+that should not have existed** — so this was a UNIFICATION, not a relocation, and
+`slots` is now `Vec<LimbSlot>`. `from_route_str` and its silent `filter_map` drop
+are DELETED, and the RON authors `slots: [HandLeft, HandRight]` exactly as its
+sibling `motion: SlamDown` already did. ⭐ a slot name that does not exist is now
+a content LOAD error where it used to vanish without a word.
+
+⇒ ⭐ **when a lower crate stringly-types a vocabulary, grep the string for the
+converter — the converter's existence is the measurement.** Nothing else in this
+row's tables would have pointed at limbs: they price COUNTS, and this edge was
+visible instead as a type spelled the wrong way in the destination.
+
+⚠ **the cycle is NARROWED, NOT BROKEN, and say so precisely.** Applying this row's
+own rule — resolve each name to its defining crate — construction's monolith-owned
+references into `features/ecs` go **91 → 26**, and all 26 survivors are ONE symbol:
+`RoomContentStagingRegistry` from `features/ecs/spawn/content_staging.rs`. The
+reverse direction (spawn → `construction/mod.rs`, ~15) is untouched. ⇒ **the next
+slice on this edge is named exactly: `RoomContentStagingRegistry`.** ⛔ do not read
+the 106 `LimbSlot`/`LimbRig`/`Limb` spellings still in `construction/` as coupling —
+every one of them now resolves to `ambition_characters`, which is the same
+laundering trap `body_mode` paid for two entries down.
+
+⭐ **ledger price: NO schema change, but the four-artifact table below is missing
+one artifact.** All four registrations (`limb.rig`, `limb.member`,
+`limb.route_state`, `limb.intents`) plus both `map.*` entity-mappings moved from
+the monolith's `rollback_registration.rs` to `ambition_characters`. The `.txt`
+fingerprint keys on BARE TYPE NAMES and carries no owner column, so **not one line
+of it changed**, and no version bump. These are clone-only registrations with no
+`SnapshotState` impls, so the orphan rule had nothing to adjudicate and
+`rollback-schema-baseline.json` has no entry for them.
+
+⛔⛔ **AND A FIFTH PATH-KEYED LIST FOUND THE MOVE THAT THE OTHER FOUR DID NOT —
+`rollback_exit_oracle.rs`'s PRESENCE-PROBE WAIVER LIST.** It keys on the FULL TYPE
+PATH, and it reddened with *"2 registration(s) carry a presence-only localization
+probe and are not named in this test's list"* for `LimbIntents` and
+`LimbRouteState` — after the gate, the monolith suite, the content suite and the
+absence contracts were all green. ⇒ **add it to the artifact table**: a move
+re-points its two entries, and the instrument is doing its job, not misfiring — a
+waiver keyed by path cannot follow a type it does not know moved.
+
+⚠ **and the app gate did not catch this one — another package's TEST targets did.**
+`cargo check -p ambition_app --all-targets` was clean and zero-warning while
+`cargo test -p ambition_platformer2d_actor_monolith` still had 24 unresolved
+imports, in function-local `use crate::features::{…}` blocks a prefix grep does not
+see. ⇒ a carve out of the monolith is not verified until the monolith's OWN suite
+builds.
+
+⭐ **one behaviour rule moved with the type instead of being copied.**
+`LimbRouteState`'s edge memo was read and then written by the router in two
+separate statements; it is now `begin_strike(active_move) -> bool`, which advances
+the memo INSIDE the onset question. A caller that could read without advancing
+would emit the strike edge every tick the strike is live — the exact bug the memo
+exists to prevent — so the two steps are one call.
+
 ⭐⭐ **`body_mode` MEASURED, AND ITS COUPLING WAS RE-EXPORT LAUNDERING — 2026-08-22.**
 The table above prices `body_mode` at 8 outbound `crate::` references. Reading
 what those 8 references NAME: 11 of the 12 symbols already live outside the

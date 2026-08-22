@@ -39,6 +39,7 @@
 //!   parent in [`SpawnOrigin::Dynamic`] rather than implying it by spelling.
 
 use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
+use ambition_characters::actor::limb::{Limb, LimbRig, LimbSlot};
 use ambition_platformer2d_shared_tangle::construction::{
     ConstructionDomain, ConstructionExecCtx, ConstructionPlan, ConstructionRegistrationError,
     ConstructionRegistry, ConstructionRequest, ConstructionRoot, RecipeDispatch, RecipeId,
@@ -151,7 +152,7 @@ pub enum ActorRelation {
     Grudge,
     /// Which slot of the host's rig this limb fills, and where it rests.
     Limb {
-        slot: crate::features::LimbSlot,
+        slot: LimbSlot,
         home_offset: ambition_platformer2d_core::Vec2,
     },
     /// A rider seated on a mount. Fully described by who rides what: the saddle
@@ -757,11 +758,13 @@ fn construct_placement(
 // ── Relations ────────────────────────────────────────────────────────────────
 
 /// Stable dump/diagnostic key for a limb slot. Byte-stable because it reaches
-/// the plan dump, and matching the `snake_case` the route authoring already uses.
-fn limb_slot_key(slot: crate::features::LimbSlot) -> &'static str {
+/// the plan dump, so it is spelled INDEPENDENTLY of the variant: route
+/// authoring names slots as `LimbSlot` variants now, and a dump key that
+/// followed a rename would silently rewrite every recorded plan.
+fn limb_slot_key(slot: LimbSlot) -> &'static str {
     match slot {
-        crate::features::LimbSlot::HandLeft => "hand_left",
-        crate::features::LimbSlot::HandRight => "hand_right",
+        LimbSlot::HandLeft => "hand_left",
+        LimbSlot::HandRight => "hand_right",
     }
 }
 
@@ -782,7 +785,7 @@ fn wire_limb(limb: Entity, host: Entity, relation: &ActorRelation, ctx: &mut Ctx
         unreachable!("dispatch_relation pairs this fn with the Limb variant")
     };
     let (slot, home_offset) = (*slot, *home_offset);
-    ctx.commands.entity(limb).insert(crate::features::Limb {
+    ctx.commands.entity(limb).insert(Limb {
         of: host,
         slot,
         home_offset,
@@ -791,10 +794,10 @@ fn wire_limb(limb: Entity, host: Entity, relation: &ActorRelation, ctx: &mut Ctx
         let Ok(mut host_ref) = world.get_entity_mut(host) else {
             return;
         };
-        if let Some(mut rig) = host_ref.get_mut::<crate::features::LimbRig>() {
+        if let Some(mut rig) = host_ref.get_mut::<LimbRig>() {
             rig.limbs.insert(slot, limb);
         } else {
-            host_ref.insert(crate::features::LimbRig::from_pairs([(slot, limb)]));
+            host_ref.insert(LimbRig::from_pairs([(slot, limb)]));
         }
     });
 }
@@ -818,7 +821,7 @@ fn verify_limb(
     let ActorRelation::Limb { slot, home_offset } = relation else {
         unreachable!("dispatch_relation pairs this fn with the Limb variant")
     };
-    let Some(attached) = world.get::<crate::features::Limb>(limb) else {
+    let Some(attached) = world.get::<Limb>(limb) else {
         return RelationCheck::NotInstalled;
     };
     if attached.of != host {
@@ -834,13 +837,13 @@ fn verify_limb(
             field: "home_offset",
         };
     }
-    let Some(rig) = world.get::<crate::features::LimbRig>(host) else {
+    let Some(rig) = world.get::<LimbRig>(host) else {
         return RelationCheck::ReverseMismatch { found: None };
     };
     // The rig must file this limb under the planned slot, and nowhere else. A
     // slot-keyed map cannot hold the same key twice, but it CAN hold one limb
     // under two different slots — which drives it from two intent streams.
-    let occupants: Vec<crate::features::LimbSlot> = rig
+    let occupants: Vec<LimbSlot> = rig
         .limbs
         .iter()
         .filter(|(_, &entity)| entity == limb)
@@ -863,11 +866,11 @@ fn verify_limb(
 /// asks "did MY relation land"; a host whose rig gained an extra limb from
 /// somewhere else answers yes to every such question while carrying a rig the
 /// plan never described. Callers compare this against the committed
-/// [`crate::features::LimbRig`] to check composition rather than membership.
+/// [`LimbRig`] to check composition rather than membership.
 pub fn planned_rig_for_host(
     plan: &ActorConstructionPlan,
     host: &SimId,
-) -> std::collections::BTreeMap<crate::features::LimbSlot, SimId> {
+) -> std::collections::BTreeMap<LimbSlot, SimId> {
     plan.relations()
         .iter()
         .filter(|relation| relation.to() == host)
@@ -892,7 +895,7 @@ pub fn planned_rig_for_host(
 /// - every planned slot occupied, by exactly the planned limb's committed entity;
 /// - no slot the plan did not describe;
 /// - no limb entity appearing in two slots;
-/// - each occupant's forward [`crate::features::Limb`] agreeing on host AND slot
+/// - each occupant's forward [`Limb`] agreeing on host AND slot
 ///   (which catches a stale host generation: `Limb.of` carries the full
 ///   `Entity`, so an old generation compares unequal);
 /// - a row with no planned limbs carrying no rig entries at all.
@@ -915,8 +918,8 @@ pub fn verify_rig_composition(
             // there is no world-side rig to compare.
             continue;
         };
-        let committed: std::collections::BTreeMap<crate::features::LimbSlot, Entity> = world
-            .get::<crate::features::LimbRig>(host_entity)
+        let committed: std::collections::BTreeMap<LimbSlot, Entity> = world
+            .get::<LimbRig>(host_entity)
             .map(|rig| rig.limbs.clone())
             .unwrap_or_default();
         if planned.is_empty() && committed.is_empty() {
@@ -930,7 +933,7 @@ pub fn verify_rig_composition(
         };
         // Slot-keyed comparison over the UNION of both sides, so surplus slots
         // are as visible as missing ones.
-        let slots: std::collections::BTreeSet<crate::features::LimbSlot> =
+        let slots: std::collections::BTreeSet<LimbSlot> =
             planned.keys().chain(committed.keys()).copied().collect();
         for slot in slots {
             match (planned.get(&slot), committed.get(&slot)) {
@@ -938,7 +941,7 @@ pub fn verify_rig_composition(
                     match receipt.entity(limb_sim) {
                         Some(expected) if expected == occupant => {
                             // Right occupant; now the forward half must agree.
-                            match world.get::<crate::features::Limb>(occupant) {
+                            match world.get::<Limb>(occupant) {
                                 None => fault(format!(
                                     "slot {slot:?} occupant `{limb_sim}` carries no Limb component"
                                 )),
@@ -979,7 +982,7 @@ pub fn verify_rig_composition(
         }
         // A limb entity answering to two slots is one body wearing two names —
         // invisible to the per-slot pass when each slot individually "matches".
-        let mut seen: std::collections::BTreeMap<Entity, crate::features::LimbSlot> =
+        let mut seen: std::collections::BTreeMap<Entity, LimbSlot> =
             std::collections::BTreeMap::new();
         for (&slot, &occupant) in &committed {
             if let Some(&first) = seen.get(&occupant) {
@@ -1426,8 +1429,7 @@ pub fn preflight_actor_relations(
     // Ordered accumulators: a diagnostic that names "the two limbs in this slot"
     // must name them in the same order every run.
     let mut hosts_of_limb: BTreeMap<&SimId, Vec<SimId>> = BTreeMap::new();
-    let mut limbs_in_slot: BTreeMap<(&SimId, crate::features::LimbSlot), Vec<SimId>> =
-        BTreeMap::new();
+    let mut limbs_in_slot: BTreeMap<(&SimId, LimbSlot), Vec<SimId>> = BTreeMap::new();
     let mut mounts_of_rider: BTreeMap<&SimId, Vec<SimId>> = BTreeMap::new();
     let mut riders_of_mount: BTreeMap<&SimId, Vec<SimId>> = BTreeMap::new();
 

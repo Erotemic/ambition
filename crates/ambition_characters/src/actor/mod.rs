@@ -24,6 +24,8 @@ pub use death_traits::CharacterDeathTraits;
 /// The pool an undescribed body gets — surfaced flat because its two consumers
 /// are the character blueprint and the NPC spawn seed, in another crate.
 pub use definition::DEFAULT_UNAUTHORED_BODY_HEALTH;
+pub mod limb;
+pub use limb::{fan_out_limb_intents, Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot};
 pub mod intrinsics;
 pub use intrinsics::{CharacterLocomotion, CharacterMount, ContactDamage};
 pub mod worn;

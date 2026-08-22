@@ -30,6 +30,26 @@ where
         "boss.attack_intent",
     );
     registrar.rollback_component_cursor::<crate::brain::Brain>(OWNER, "actor.brain");
+    registrar.rollback_component_clone_entity_map::<crate::actor::limb::LimbRig>(
+        OWNER,
+        "limb.rig",
+        |rig| {
+            rig.limbs
+                .iter()
+                .map(|(slot, limb)| (*slot as u64, *limb))
+                .collect()
+        },
+    );
+    registrar.rollback_map_entities::<crate::actor::limb::LimbRig>(OWNER, "map.limb_rig");
+    registrar.rollback_component_clone_entity_ref::<crate::actor::limb::Limb>(
+        OWNER,
+        "limb.member",
+        |limb| limb.of,
+    );
+    registrar.rollback_map_entities::<crate::actor::limb::Limb>(OWNER, "map.limb_member");
+    registrar
+        .rollback_component_clone::<crate::actor::limb::LimbRouteState>(OWNER, "limb.route_state");
+    registrar.rollback_component_clone::<crate::actor::limb::LimbIntents>(OWNER, "limb.intents");
     registrar.rollback_component_canonical::<crate::actor::character_catalog::BrainBinding>(
         OWNER,
         "actor.brain_binding",

@@ -29,6 +29,7 @@
 //! having run, and it says so by ordering against the set the system carries —
 //! so this move cost no reader an edit.
 
+use ambition_characters::actor::limb::Limb;
 use bevy::prelude::*;
 
 use crate::abilities::traversal::possession::PossessionState;
@@ -83,7 +84,7 @@ pub fn project_body_custody(
     // rider → mount → limbs is three links, and `gnu_ton_arena` authors exactly
     // that. Measured before the fix: the rider and mount crossed into
     // `hall_of_bosses` and the mount arrived HANDLESS.
-    limbs: Query<(Entity, &crate::features::Limb)>,
+    limbs: Query<(Entity, &Limb)>,
     // ⛔ **`RoomScopedEntity`, NOT `RoomResident`, and the difference is a TICK.**
     // `RoomResident` excludes anything wearing `InCustodyOf` — the very marker
     // this system writes — so reading it here makes the rule depend on its own

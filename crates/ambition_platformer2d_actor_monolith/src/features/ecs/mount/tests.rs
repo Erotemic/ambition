@@ -4,6 +4,7 @@
 use super::super::CenteredAabb;
 use super::*;
 use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
+use ambition_characters::actor::limb::LimbSlot;
 use ambition_characters::brain::DrivingParticipant;
 use bevy::prelude::*;
 
@@ -889,13 +890,13 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
 /// active strike, the same limbs fall back to their home-station intent.
 #[test]
 fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge() {
-    use crate::features::{
-        fan_out_limb_intents, route_boss_strikes_to_limbs, ActorSurfaceState, BodyKinematics, Limb,
-        LimbIntents, LimbRig, LimbRouteState, LimbSlot,
-    };
+    use crate::features::{route_boss_strikes_to_limbs, ActorSurfaceState, BodyKinematics};
     use ambition_boss_encounter::BossConfig;
     use ambition_boss_encounter::BossProfile;
     use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::actor::limb::{
+        fan_out_limb_intents, Limb, LimbIntents, LimbRig, LimbRouteState,
+    };
     use ambition_characters::brain::{ActorControl, BossAttackProfile, BossAttackState};
 
     let profile = BossProfile::from_id(
@@ -964,12 +965,9 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
     let hand_l = spawn_hand(&mut app, LimbSlot::HandLeft, home_l);
     let hand_r = spawn_hand(&mut app, LimbSlot::HandRight, home_r);
     app.world_mut().entity_mut(giant).insert(LimbRig {
-        limbs: [
-            (crate::features::LimbSlot::HandLeft, hand_l),
-            (crate::features::LimbSlot::HandRight, hand_r),
-        ]
-        .into_iter()
-        .collect(),
+        limbs: [(LimbSlot::HandLeft, hand_l), (LimbSlot::HandRight, hand_r)]
+            .into_iter()
+            .collect(),
     });
 
     // The RIDER boss carries the authored behavior (with limb_routing) and is driven
@@ -1052,13 +1050,13 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
 /// and the moveset is the production `boss_attack_moveset` build.
 #[test]
 fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
-    use crate::features::{
-        fan_out_limb_intents, route_boss_strikes_to_limbs, ActorSurfaceState, BodyKinematics, Limb,
-        LimbIntents, LimbRig, LimbRouteState, LimbSlot,
-    };
+    use crate::features::{route_boss_strikes_to_limbs, ActorSurfaceState, BodyKinematics};
     use ambition_boss_encounter::BossConfig;
     use ambition_boss_encounter::{BossEncounterPhase, BossProfile, PhaseTrigger};
     use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::actor::limb::{
+        fan_out_limb_intents, Limb, LimbIntents, LimbRig, LimbRouteState,
+    };
     use ambition_characters::brain::{
         ActorControl, BossAttackIntent, BossAttackState, BossCapability, Brain, PlayerSlot,
         SlotControls,
@@ -1162,12 +1160,9 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
     let hand_l = spawn_hand(&mut app, LimbSlot::HandLeft, ae::Vec2::new(-60.0, 20.0));
     let hand_r = spawn_hand(&mut app, LimbSlot::HandRight, ae::Vec2::new(60.0, 20.0));
     app.world_mut().entity_mut(giant).insert(LimbRig {
-        limbs: [
-            (crate::features::LimbSlot::HandLeft, hand_l),
-            (crate::features::LimbSlot::HandRight, hand_r),
-        ]
-        .into_iter()
-        .collect(),
+        limbs: [(LimbSlot::HandLeft, hand_l), (LimbSlot::HandRight, hand_r)]
+            .into_iter()
+            .collect(),
     });
 
     // The POSSESSED rider boss: the real cluster components + the production

@@ -501,12 +501,12 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "ambition_platformer2d_actor_monolith::features::ecs::actor_clusters::ActorConfig",
             "authored actor definition; nothing writes it after spawn",
         ),
-                (
-            "ambition_platformer2d_actor_monolith::features::ecs::actors::limbs::LimbIntents",
+        (
+            "ambition_characters::actor::limb::LimbIntents",
             "republished every tick by the limb router",
         ),
-                (
-            "ambition_platformer2d_actor_monolith::features::ecs::actors::limbs::LimbRouteState",
+        (
+            "ambition_characters::actor::limb::LimbRouteState",
             "republished every tick by the limb router",
         ),
         (

@@ -8,6 +8,7 @@ use super::brain_builders::enemy_default_brain;
 use super::*;
 use ambition_boss_encounter::{BossCatalog, BossClusterScratch, BossConfig, BossOverrides};
 use ambition_characters::actor::character_catalog::CharacterCatalog;
+use ambition_characters::actor::limb::{LimbIntents, LimbRouteState, LimbSlot};
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
@@ -1665,7 +1666,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
 ///
 /// The rig MEMBERSHIP (`LimbRig`) is installed by the `ambition.limb` relation
 /// wiring, one entry per hand; the two host-owned scratch components
-/// ([`super::LimbIntents`], [`super::LimbRouteState`]) belong to the host itself
+/// ([`LimbIntents`], [`LimbRouteState`]) belong to the host itself
 /// and are inserted here. `spawn_giant_hand_limbs` used to insert all three
 /// together while also minting the hand bodies; now the hands are their own plan
 /// rows and only their back-link is a relation.
@@ -1693,10 +1694,9 @@ pub(crate) fn populate_giant_host_into(
         paths,
         faction,
     );
-    commands.entity(root).insert((
-        super::LimbIntents::default(),
-        super::LimbRouteState::default(),
-    ));
+    commands
+        .entity(root)
+        .insert((LimbIntents::default(), LimbRouteState::default()));
 }
 
 /// Populate one giant hand body onto an executor-allocated root. The `Limb`
@@ -1735,7 +1735,7 @@ pub(crate) fn populate_giant_hand_into(
 /// One giant hand's fully-resolved construction facts, computed at PLAN time
 /// from the giant's authored box — no `Entity`, no live world.
 pub struct GiantHandPlan {
-    pub slot: super::LimbSlot,
+    pub slot: LimbSlot,
     /// Stable spawned identity under the giant, deterministic across runs.
     pub ordinal: u64,
     /// Stable feature id, derived from the giant's authored id and the fixed side.
@@ -1826,8 +1826,8 @@ pub(crate) fn giant_hand_plans(giant_id: &str, giant_aabb: ae::Aabb) -> Vec<Gian
     let home_l = ae::Vec2::new(-giant_half.x * 0.55, giant_half.y * 0.15);
     let home_r = ae::Vec2::new(giant_half.x * 0.55, giant_half.y * 0.15);
     [
-        (super::LimbSlot::HandLeft, home_l, "left"),
-        (super::LimbSlot::HandRight, home_r, "right"),
+        (LimbSlot::HandLeft, home_l, "left"),
+        (LimbSlot::HandRight, home_r, "right"),
     ]
     .into_iter()
     .enumerate()

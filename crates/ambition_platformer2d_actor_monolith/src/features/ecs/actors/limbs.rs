@@ -1,161 +1,25 @@
-//! The limb rig — driven limb bodies fanned out from ONE pilot intent
-//! (fable review 2026-07-05, AJ12 / R10.1).
+//! The limb STRIKE ROUTER — translate a rider-boss's live strike into per-limb
+//! intents on the mount it rides (fable review 2026-07-05, AJ12 / R10.1, Q18).
 //!
-//! Generalizes `steer_mount_from_rider` from 1→1 to 1→N: a HOST body (the
-//! giant gnu; any mount or actor with articulated parts) carries a
-//! [`LimbRig`] naming its limb bodies; the brain that drives the host writes
-//! a per-limb intent table ([`LimbIntents`]); [`fan_out_limb_intents`] copies
-//! each slot's frame onto that limb's `ActorControl`. Limbs are ORDINARY
-//! actor bodies — `ActorControl` + `ActorMoveset`, **no `Brain`, no
-//! `BossConfig`, no `BodyHealth`** — so integration, moveset triggering,
-//! FollowOwner hitboxes, and damage attribution all pick them up unchanged
-//! (the multi-limb draft's research finding: the downstream sim is already
-//! N-body-safe; per-entity `MovePlayback` singletons are exactly WHY two
-//! hands attacking at once are two entities).
+//! The limb VOCABULARY — [`LimbSlot`], [`LimbRig`], [`Limb`], [`LimbIntents`],
+//! [`LimbRouteState`] and the [`fan_out_limb_intents`] copy — lives in
+//! `ambition_characters::actor::limb`, beside the `LimbRoute` that AUTHORS a
+//! route. What stays here is the half that reads a MOUNT: its kinematics, its
+//! clung surface, and the `MountSlot` link to the rider whose `BossAttackState`
+//! is being translated.
 //!
-//! This is a MOUNT-level capability, not boss machinery: a mech with arms is
-//! the same component set. The coordinator is whatever brain currently drives
-//! the host — gnuton's scripted `BossPattern` through the ADR 0020
-//! `ControlGrant`, or the player after possession (M5) — because the fan-out
-//! reads only data on the host.
-//!
-//! Determinism: limbs fan out in `LimbSlot` order — the rig is keyed by slot,
-//! so iteration order is a property of the CONTENT rather than of when anything
-//! spawned, and never `Entity` iteration order; a slot with no intent this
-//! tick gets an explicit NEUTRAL frame, so stale intents can't drift.
-//!
-//! Schedule contract (registration lands with the first production rig,
-//! R10.3/R10.4): after the host's brain tick (which writes `LimbIntents`) and
-//! `steer_mount_from_rider`, before `integrate_sim_bodies` — the same slot
-//! the mount steer occupies.
-
-use std::collections::BTreeMap;
+//! Schedule contract: after the host's brain tick and `steer_mount_from_rider`,
+//! before `integrate_sim_bodies` — the same slot the mount steer occupies.
 
 use ambition_characters::actor::control::ActorControlFrame;
-use ambition_characters::brain::{ActorControl, BossAttackState};
+use ambition_characters::actor::limb::{Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot};
+use ambition_characters::brain::BossAttackState;
 use ambition_platformer2d_core as ae;
-use bevy::prelude::{Component, Entity, Query, With};
+use bevy::prelude::Query;
 
+use crate::features::{ActorSurfaceState, BodyKinematics, MountSlot};
 use ambition_boss_encounter::BossConfig;
 use ambition_boss_encounter::{LimbMotion, LimbRoute};
-use crate::features::{ActorSurfaceState, BodyKinematics, MountSlot};
-
-/// Which limb of the rig a body is. Grows per content (a serpent boss adds
-/// variants); ordered so `LimbIntents`' BTreeMap iterates deterministically.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum LimbSlot {
-    HandLeft,
-    HandRight,
-}
-
-impl LimbSlot {
-    /// Map an authored route slot name (`"hand_left"` / `"hand_right"`) onto a
-    /// slot. Returns `None` for an unknown name so a route to a slot the rig
-    /// doesn't carry is simply inert (Q18). Snake_case matches the RON authoring.
-    pub fn from_route_str(name: &str) -> Option<LimbSlot> {
-        match name {
-            "hand_left" => Some(LimbSlot::HandLeft),
-            "hand_right" => Some(LimbSlot::HandRight),
-            _ => None,
-        }
-    }
-}
-
-/// On the HOST body: its driven limbs, **keyed by the slot each one fills**. The
-/// rig owns no behavior — it is a relationship, like `MountSlot`.
-///
-/// This was a `Vec<Entity>` "in spawn order (the stable fan-out order)", and
-/// that description overstated what the order did: nothing reads the rig
-/// positionally. [`fan_out_limb_intents`] looked up each limb's own `Limb::slot`
-/// to find its intent, so the vector supplied membership and the limb supplied
-/// meaning — two places holding one fact, with a vector able to contain the same
-/// limb twice (driving it twice per frame) or two limbs claiming one slot.
-///
-/// A `BTreeMap<LimbSlot, Entity>` makes both unrepresentable, gives iteration a
-/// deterministic order derived from the slot rather than from when anything
-/// spawned, and makes "the host's rig composition" an exactly checkable value.
-#[derive(Component, Clone, Default, Debug)]
-pub struct LimbRig {
-    pub limbs: BTreeMap<LimbSlot, Entity>,
-}
-
-impl LimbRig {
-    /// A rig holding exactly these slot→limb pairs.
-    pub fn from_pairs(pairs: impl IntoIterator<Item = (LimbSlot, Entity)>) -> Self {
-        Self {
-            limbs: pairs.into_iter().collect(),
-        }
-    }
-
-    pub fn get(&self, slot: LimbSlot) -> Option<Entity> {
-        self.limbs.get(&slot).copied()
-    }
-
-    /// Which slot this limb occupies, if any. Answerable at all only because
-    /// the rig is keyed by slot.
-    pub fn slot_of(&self, limb: Entity) -> Option<LimbSlot> {
-        self.limbs
-            .iter()
-            .find(|(_, &entity)| entity == limb)
-            .map(|(&slot, _)| slot)
-    }
-}
-
-/// On each LIMB body: which host it belongs to and which slot it fills.
-#[derive(Component, Clone, Debug)]
-pub struct Limb {
-    pub of: Entity,
-    pub slot: LimbSlot,
-    /// Host-local (body-frame) idle anchor, in pixels. When the limb has no
-    /// routed strike intent this tick, `route_boss_strikes_to_limbs` steers its
-    /// `velocity_target` toward `host.pos + gravity_frame(home_offset)` — the
-    /// idle pose source that replaces the deleted per-frame hand animation (Q18,
-    /// station-keeping).
-    pub home_offset: ae::Vec2,
-}
-
-/// On the HOST (mount) body carrying a [`LimbRig`]: the router's per-mount edge
-/// memory. Holds the move id whose STRIKE currently drives limbs so a
-/// `melee_pressed` edge fires exactly once — at the Active-window onset — instead
-/// of every tick the strike is live (Q18: "a `melee_pressed` edge at Active
-/// onset"). `None` when no routed strike is active.
-#[derive(Component, Clone, Default, Debug)]
-pub struct LimbRouteState {
-    active_move: Option<String>,
-}
-
-/// On the HOST body: the per-limb intent table its driving brain writes each
-/// tick (the boss pattern maps attack steps onto per-limb velocity targets +
-/// attack edges here; a possessing player's verb map writes here via M5).
-#[derive(Component, Clone, Default, Debug)]
-pub struct LimbIntents(pub BTreeMap<LimbSlot, ActorControlFrame>);
-
-/// Copy each rigged limb's intent onto its `ActorControl` — the 1→N sibling
-/// of `steer_mount_from_rider`'s 1→1 copy. A slot with no intent this tick is
-/// explicitly neutralized (no stale frames). Runs after the host brain tick,
-/// before `integrate_sim_bodies`.
-pub fn fan_out_limb_intents(
-    hosts: Query<(&LimbRig, &LimbIntents)>,
-    mut limbs: Query<&mut ActorControl, With<Limb>>,
-) {
-    for (rig, intents) in &hosts {
-        // The RIG's key is the slot, so the intent a limb receives is decided by
-        // the host's own record of what that limb is for. Reading the limb's
-        // `Limb::slot` instead — as this used to — asked the driven body which
-        // instrument it was playing, which is the wrong end of the relationship
-        // and diverges silently if the two ever disagree.
-        for (&slot, &limb_entity) in &rig.limbs {
-            let Ok(mut control) = limbs.get_mut(limb_entity) else {
-                continue; // despawned/unspawned limb: the rig tolerates gaps
-            };
-            control.0 = intents
-                .0
-                .get(&slot)
-                .copied()
-                .unwrap_or_else(ActorControlFrame::neutral);
-        }
-    }
-}
 
 /// Idle station-keeping gain (1/s): how hard a limb steers back toward its home
 /// anchor when it has no strike this tick. `velocity_target = (home - pos) * gain`.
@@ -227,16 +91,11 @@ fn resolve_active_route(state: &BossAttackState, cfg: &BossConfig) -> Option<Act
         .iter()
         .find(|(key, _)| key == &move_id)
         .map(|(_, route)| route)?;
-    let slots = route
-        .slots
-        .iter()
-        .filter_map(|s| LimbSlot::from_route_str(s))
-        .collect();
     Some(ActiveLimbRoute {
         move_id,
         motion: route.motion,
         phase,
-        slots,
+        slots: route.slots.clone(),
     })
 }
 
@@ -335,13 +194,12 @@ pub fn route_boss_strikes_to_limbs(
 
         // A routed STRIKE (Active phase) whose move id differs from last tick's is
         // an onset → one `melee_pressed` edge. Startup / no-strike clears the memo.
-        let active_strike_move = active
-            .as_ref()
-            .filter(|r| r.phase == LimbPhase::Active)
-            .map(|r| r.move_id.clone());
-        let onset = matches!(&active_strike_move, Some(m)
-            if route_state.active_move.as_deref() != Some(m.as_str()));
-        route_state.active_move = active_strike_move;
+        let onset = route_state.begin_strike(
+            active
+                .as_ref()
+                .filter(|r| r.phase == LimbPhase::Active)
+                .map(|r| r.move_id.clone()),
+        );
 
         for (&slot, &limb_entity) in &rig.limbs {
             let Ok((limb, limb_kin)) = limbs.get(limb_entity) else {
@@ -359,101 +217,5 @@ pub fn route_boss_strikes_to_limbs(
             };
             intents.0.insert(slot, frame);
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ambition_platformer2d_core as ae;
-    use bevy::prelude::{App, Update};
-
-    #[test]
-    fn pilot_intents_fan_out_to_the_right_limbs_and_absent_slots_neutralize() {
-        let mut app = App::new();
-        app.add_systems(Update, fan_out_limb_intents);
-
-        let host = app.world_mut().spawn_empty().id();
-        let hand_l = app
-            .world_mut()
-            .spawn((
-                Limb {
-                    of: host,
-                    slot: LimbSlot::HandLeft,
-                    home_offset: ae::Vec2::ZERO,
-                },
-                ActorControl(ActorControlFrame::neutral()),
-            ))
-            .id();
-        let hand_r = app
-            .world_mut()
-            .spawn((
-                Limb {
-                    of: host,
-                    slot: LimbSlot::HandRight,
-                    home_offset: ae::Vec2::ZERO,
-                },
-                ActorControl(ActorControlFrame::neutral()),
-            ))
-            .id();
-
-        // The pilot's brain writes two DIVERGING limb intents: left hand
-        // sweeps left and strikes; right hand climbs.
-        let mut intents = LimbIntents::default();
-        let mut left = ActorControlFrame::neutral();
-        left.velocity_target = ae::WorldVec2::new(-300.0, 0.0);
-        left.melee_pressed = true;
-        intents.0.insert(LimbSlot::HandLeft, left);
-        let mut right = ActorControlFrame::neutral();
-        right.velocity_target = ae::WorldVec2::new(0.0, -200.0);
-        intents.0.insert(LimbSlot::HandRight, right);
-        app.world_mut().entity_mut(host).insert((
-            LimbRig::from_pairs([(LimbSlot::HandLeft, hand_l), (LimbSlot::HandRight, hand_r)]),
-            intents,
-        ));
-
-        app.update();
-
-        let l = app.world().get::<ActorControl>(hand_l).unwrap();
-        assert_eq!(l.0.velocity_target, ae::WorldVec2::new(-300.0, 0.0));
-        assert!(l.0.melee_pressed, "left hand got its strike edge");
-        let r = app.world().get::<ActorControl>(hand_r).unwrap();
-        assert_eq!(r.0.velocity_target, ae::WorldVec2::new(0.0, -200.0));
-        assert!(!r.0.melee_pressed, "intents do not bleed across slots");
-
-        // Next tick the pilot only drives the right hand: the left hand is
-        // explicitly neutralized, not left running its stale sweep.
-        let mut only_right = LimbIntents::default();
-        let mut r2 = ActorControlFrame::neutral();
-        r2.velocity_target = ae::WorldVec2::new(150.0, 0.0);
-        only_right.0.insert(LimbSlot::HandRight, r2);
-        app.world_mut().entity_mut(host).insert(only_right);
-        app.update();
-
-        let l = app.world().get::<ActorControl>(hand_l).unwrap();
-        assert_eq!(
-            l.0.velocity_target,
-            ae::WorldVec2::ZERO,
-            "stale intent cleared"
-        );
-        assert!(!l.0.melee_pressed);
-        let r = app.world().get::<ActorControl>(hand_r).unwrap();
-        assert_eq!(r.0.velocity_target, ae::WorldVec2::new(150.0, 0.0));
-    }
-}
-
-impl bevy::ecs::entity::MapEntities for LimbRig {
-    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
-        // Keys are slots, not entities, so remapping touches values only and
-        // cannot collide two limbs onto one key.
-        for entity in self.limbs.values_mut() {
-            *entity = mapper.get_mapped(*entity);
-        }
-    }
-}
-
-impl bevy::ecs::entity::MapEntities for Limb {
-    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
-        self.of = mapper.get_mapped(self.of);
     }
 }

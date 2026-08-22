@@ -1012,6 +1012,19 @@ work that already landed has cost this project four sessions. Grep for the thing
 a row says is missing BEFORE working it, and if HEAD contradicts the doc, update
 the doc.
 
+⭐ **INTAKE RE-SWEPT 2026-08-22 and it is CLEAN — no stranded work to promote.**
+Fourteen planning docs are reachable from no ledger row; every one has ZERO open
+markers, and all five with a recent mtime were last touched by an AGENT doing doc
+trims, not by Jon dropping work (`git log -1 --format='%an | %s' -- <doc>` is the
+cheap discriminator, and it is the one worth running before promoting on mtime
+alone). ⇒ this row's original "14 are reference with no open work" still holds.
+
+⛔ **and one of the fourteen was a FALSE POSITIVE from my own test.**
+`demos/sanic.md` is reachable — `tracks.md:293` names it *"Sanic / Super Mary-O /
+Hollow Lite"* and `status.md:487` repeats it. A stranded-doc sweep that greps
+BASENAMES misses every doc referred to by title, which is how a live acceptance
+doc reads as orphaned. Grep the title too, or grep the directory name.
+
 ⚠ two of `character-actions.md`'s four are explicitly *"decide only when a real
 repertoire exceeds prompt capacity"* — they are waiting on a customer, not on
 effort, and should stay ▢ until one exists.

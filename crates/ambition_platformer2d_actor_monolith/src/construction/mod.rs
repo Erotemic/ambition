@@ -134,7 +134,7 @@ pub fn relation_mount() -> RelationKind {
 /// carries, in one value.
 ///
 /// **`Limb` carries the slot and the home offset because both are stated
-/// relative to the HOST.** `LimbSlot::HandLeft` is meaningless without saying
+/// relative to the HOST.** `LimbSlot::HAND_LEFT` is meaningless without saying
 /// left hand *of what*, and `home_offset` is documented as a "host-local
 /// (body-frame) idle anchor" — it is read as `host.pos + gravity_frame(offset)`.
 /// Neither is a property the limb owns on its own, so neither belongs in the
@@ -413,7 +413,7 @@ pub enum ActorConstructionError {
     /// so committing this would silently drop one of them.
     LimbSlotTaken {
         host: SimId,
-        slot: &'static str,
+        slot: String,
         limbs: Vec<SimId>,
     },
     /// One rider declares two mounts.
@@ -757,13 +757,11 @@ fn construct_placement(
 
 // ── Relations ────────────────────────────────────────────────────────────────
 
-/// Stable dump/diagnostic key for a limb slot. It is independent of variant names
-/// so renaming a `LimbSlot` does not rewrite recorded plans.
-fn limb_slot_key(slot: LimbSlot) -> &'static str {
-    match slot {
-        LimbSlot::HandLeft => "hand_left",
-        LimbSlot::HandRight => "hand_right",
-    }
+/// Stable dump/diagnostic key for a limb slot — now just the authored name,
+/// since `LimbSlot` IS that name. The hand-written match this replaced had to
+/// gain an arm per anatomy, which is the cost an open slot id removes.
+fn limb_slot_key(slot: LimbSlot) -> String {
+    slot.as_str().to_owned()
 }
 
 /// Wire a limb to its host: `Limb` on the limb, an entry in the host's

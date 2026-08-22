@@ -962,12 +962,15 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
             ))
             .id()
     };
-    let hand_l = spawn_hand(&mut app, LimbSlot::HandLeft, home_l);
-    let hand_r = spawn_hand(&mut app, LimbSlot::HandRight, home_r);
+    let hand_l = spawn_hand(&mut app, LimbSlot::HAND_LEFT, home_l);
+    let hand_r = spawn_hand(&mut app, LimbSlot::HAND_RIGHT, home_r);
     app.world_mut().entity_mut(giant).insert(LimbRig {
-        limbs: [(LimbSlot::HandLeft, hand_l), (LimbSlot::HandRight, hand_r)]
-            .into_iter()
-            .collect(),
+        limbs: [
+            (LimbSlot::HAND_LEFT, hand_l),
+            (LimbSlot::HAND_RIGHT, hand_r),
+        ]
+        .into_iter()
+        .collect(),
     });
 
     // The RIDER boss carries the authored behavior (with limb_routing) and is driven
@@ -1157,12 +1160,15 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
             ))
             .id()
     };
-    let hand_l = spawn_hand(&mut app, LimbSlot::HandLeft, ae::Vec2::new(-60.0, 20.0));
-    let hand_r = spawn_hand(&mut app, LimbSlot::HandRight, ae::Vec2::new(60.0, 20.0));
+    let hand_l = spawn_hand(&mut app, LimbSlot::HAND_LEFT, ae::Vec2::new(-60.0, 20.0));
+    let hand_r = spawn_hand(&mut app, LimbSlot::HAND_RIGHT, ae::Vec2::new(60.0, 20.0));
     app.world_mut().entity_mut(giant).insert(LimbRig {
-        limbs: [(LimbSlot::HandLeft, hand_l), (LimbSlot::HandRight, hand_r)]
-            .into_iter()
-            .collect(),
+        limbs: [
+            (LimbSlot::HAND_LEFT, hand_l),
+            (LimbSlot::HAND_RIGHT, hand_r),
+        ]
+        .into_iter()
+        .collect(),
     });
 
     // The POSSESSED rider boss: the real cluster components + the production

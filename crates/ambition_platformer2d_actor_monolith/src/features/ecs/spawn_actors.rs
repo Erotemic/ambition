@@ -1820,8 +1820,8 @@ pub(crate) fn giant_hand_plans(giant_id: &str, giant_aabb: ae::Aabb) -> Vec<Gian
     let home_l = ae::Vec2::new(-giant_half.x * 0.55, giant_half.y * 0.15);
     let home_r = ae::Vec2::new(giant_half.x * 0.55, giant_half.y * 0.15);
     [
-        (LimbSlot::HandLeft, home_l, "left"),
-        (LimbSlot::HandRight, home_r, "right"),
+        (LimbSlot::HAND_LEFT, home_l, "left"),
+        (LimbSlot::HAND_RIGHT, home_r, "right"),
     ]
     .into_iter()
     .enumerate()

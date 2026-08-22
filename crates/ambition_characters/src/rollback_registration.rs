@@ -36,7 +36,7 @@ where
         |rig| {
             rig.limbs
                 .iter()
-                .map(|(slot, limb)| (*slot as u64, *limb))
+                .map(|(slot, limb)| (slot.probe_key(), *limb))
                 .collect()
         },
     );

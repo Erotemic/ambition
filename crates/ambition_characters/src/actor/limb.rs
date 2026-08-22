@@ -16,12 +16,141 @@ use bevy::prelude::{Component, Entity, Query, With};
 use crate::actor::control::ActorControlFrame;
 use crate::brain::ActorControl;
 
-/// Stable authored limb slot. Enum ordering defines deterministic rig iteration.
-/// Invalid RON slot names fail deserialization.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Deserialize)]
-pub enum LimbSlot {
-    HandLeft,
-    HandRight,
+/// Longest authored slot name. Inline storage keeps [`LimbSlot`] `Copy`, which
+/// is what lets it be a `BTreeMap` key and travel through rollback by value.
+const LIMB_SLOT_CAP: usize = 24;
+
+/// An authored limb slot name: `"hand_left"`, `"tail"`, `"wing_left"`.
+///
+/// ⭐ **OPEN, not an enum.** This was `enum LimbSlot { HandLeft, HandRight }`
+/// documented as *"grows per content (a serpent boss adds variants)"* — which is
+/// the wrong growth direction for an engine type, because it makes the shared
+/// character crate the registry of every body part any content pack imagines.
+/// Nothing in the engine branches on WHICH slot: it needs a typed name,
+/// deterministic ordering, validation, and exact rig composition, and a
+/// validated newtype gives all four (GPT review, 2026-08-22).
+///
+/// ⛔ **validated, not a bare `String`.** `from_str` refuses anything that is
+/// not non-empty `[a-z0-9_]` within [`LIMB_SLOT_CAP`], so a typo in authored
+/// content is a load error rather than a route that silently drives nothing.
+///
+/// Ordering is bytewise over the zero-padded name, so rig iteration is decided
+/// by the CONTENT and is stable across runs.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct LimbSlot {
+    name: [u8; LIMB_SLOT_CAP],
+    len: u8,
+}
+
+/// Why an authored slot name was refused.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LimbSlotError {
+    Empty,
+    TooLong,
+    /// Carries the offending byte.
+    BadChar(u8),
+}
+
+impl std::fmt::Display for LimbSlotError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LimbSlotError::Empty => write!(f, "a limb slot name cannot be empty"),
+            LimbSlotError::TooLong => {
+                write!(f, "a limb slot name may be at most {LIMB_SLOT_CAP} bytes")
+            }
+            LimbSlotError::BadChar(b) => write!(
+                f,
+                "a limb slot name may only contain [a-z0-9_]; found {:?}",
+                *b as char
+            ),
+        }
+    }
+}
+
+impl LimbSlot {
+    /// The two slots the engine itself names, for facing-side selection.
+    pub const HAND_LEFT: LimbSlot = LimbSlot::literal(b"hand_left");
+    pub const HAND_RIGHT: LimbSlot = LimbSlot::literal(b"hand_right");
+
+    /// Const constructor for the engine's own well-known slots. Panics at
+    /// COMPILE time on a bad literal, so these cannot drift from `from_str`'s
+    /// rule without failing the build.
+    const fn literal(bytes: &[u8]) -> LimbSlot {
+        assert!(!bytes.is_empty(), "a limb slot literal cannot be empty");
+        assert!(bytes.len() <= LIMB_SLOT_CAP, "limb slot literal too long");
+        let mut name = [0u8; LIMB_SLOT_CAP];
+        let mut i = 0;
+        while i < bytes.len() {
+            let b = bytes[i];
+            assert!(
+                b == b'_' || b.is_ascii_lowercase() || b.is_ascii_digit(),
+                "a limb slot literal may only contain [a-z0-9_]"
+            );
+            name[i] = b;
+            i += 1;
+        }
+        LimbSlot {
+            name,
+            len: bytes.len() as u8,
+        }
+    }
+
+    pub fn from_str(name: &str) -> Result<LimbSlot, LimbSlotError> {
+        let bytes = name.as_bytes();
+        if bytes.is_empty() {
+            return Err(LimbSlotError::Empty);
+        }
+        if bytes.len() > LIMB_SLOT_CAP {
+            return Err(LimbSlotError::TooLong);
+        }
+        let mut stored = [0u8; LIMB_SLOT_CAP];
+        for (i, &b) in bytes.iter().enumerate() {
+            if !(b == b'_' || b.is_ascii_lowercase() || b.is_ascii_digit()) {
+                return Err(LimbSlotError::BadChar(b));
+            }
+            stored[i] = b;
+        }
+        Ok(LimbSlot {
+            name: stored,
+            len: bytes.len() as u8,
+        })
+    }
+
+    pub fn as_str(&self) -> &str {
+        // Validated ASCII on every construction path, including `literal`.
+        std::str::from_utf8(&self.name[..self.len as usize]).unwrap_or("")
+    }
+
+    /// A deterministic key for the rollback localization probe, which folds it
+    /// into a checksum. FNV-1a over the name — the enum discriminant this
+    /// replaces served the same purpose.
+    pub fn probe_key(&self) -> u64 {
+        let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+        for &b in &self.name[..self.len as usize] {
+            hash ^= b as u64;
+            hash = hash.wrapping_mul(0x100_0000_01b3);
+        }
+        hash
+    }
+}
+
+impl std::fmt::Debug for LimbSlot {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "LimbSlot({:?})", self.as_str())
+    }
+}
+
+impl std::fmt::Display for LimbSlot {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for LimbSlot {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<LimbSlot, D::Error> {
+        let raw = <&str as serde::Deserialize>::deserialize(d)?;
+        LimbSlot::from_str(raw).map_err(serde::de::Error::custom)
+    }
 }
 
 /// Host-owned mapping from limb slot to limb entity.
@@ -125,6 +254,61 @@ mod tests {
     use super::*;
     use bevy::prelude::{App, Update};
 
+    /// An open slot id must still refuse nonsense, or content typos become
+    /// routes that silently drive nothing — the failure the old enum prevented
+    /// and the reason this is validated rather than a bare `String`.
+    #[test]
+    fn a_slot_name_is_validated_and_orders_by_its_bytes() {
+        assert_eq!(LimbSlot::from_str("tail").unwrap().as_str(), "tail");
+        assert_eq!(
+            LimbSlot::from_str("wing_left").unwrap().as_str(),
+            "wing_left"
+        );
+        assert_eq!(LimbSlot::HAND_LEFT.as_str(), "hand_left");
+
+        assert_eq!(LimbSlot::from_str(""), Err(LimbSlotError::Empty));
+        assert_eq!(
+            LimbSlot::from_str("Hand_Left"),
+            Err(LimbSlotError::BadChar(b'H')),
+            "an authored name is lowercase; accepting both spellings makes two \
+             names for one slot"
+        );
+        assert_eq!(
+            LimbSlot::from_str("hand-left"),
+            Err(LimbSlotError::BadChar(b'-'))
+        );
+        assert_eq!(
+            LimbSlot::from_str(&"x".repeat(LIMB_SLOT_CAP + 1)),
+            Err(LimbSlotError::TooLong)
+        );
+
+        // Rig iteration order is the CONTENT's, and it is plain lexicographic —
+        // including the prefix case, which zero padding is what gets right.
+        let mut sorted = [
+            LimbSlot::from_str("wing_left").unwrap(),
+            LimbSlot::HAND_RIGHT,
+            LimbSlot::from_str("hand").unwrap(),
+            LimbSlot::HAND_LEFT,
+        ];
+        sorted.sort();
+        assert_eq!(
+            sorted.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
+            vec!["hand", "hand_left", "hand_right", "wing_left"]
+        );
+
+        // The probe key stands in for the discriminant the rollback census used
+        // to fold in; distinct slots must not collapse to one digest entry.
+        assert_ne!(
+            LimbSlot::HAND_LEFT.probe_key(),
+            LimbSlot::HAND_RIGHT.probe_key()
+        );
+        assert_eq!(
+            LimbSlot::HAND_LEFT.probe_key(),
+            LimbSlot::from_str("hand_left").unwrap().probe_key(),
+            "the same name must key the same, however it was built"
+        );
+    }
+
     #[test]
     fn pilot_intents_fan_out_to_the_right_limbs_and_absent_slots_neutralize() {
         let mut app = App::new();
@@ -136,7 +320,7 @@ mod tests {
             .spawn((
                 Limb {
                     of: host,
-                    slot: LimbSlot::HandLeft,
+                    slot: LimbSlot::HAND_LEFT,
                     home_offset: ae::Vec2::ZERO,
                 },
                 ActorControl(ActorControlFrame::neutral()),
@@ -147,7 +331,7 @@ mod tests {
             .spawn((
                 Limb {
                     of: host,
-                    slot: LimbSlot::HandRight,
+                    slot: LimbSlot::HAND_RIGHT,
                     home_offset: ae::Vec2::ZERO,
                 },
                 ActorControl(ActorControlFrame::neutral()),
@@ -160,12 +344,15 @@ mod tests {
         let mut left = ActorControlFrame::neutral();
         left.velocity_target = ae::WorldVec2::new(-300.0, 0.0);
         left.melee_pressed = true;
-        intents.0.insert(LimbSlot::HandLeft, left);
+        intents.0.insert(LimbSlot::HAND_LEFT, left);
         let mut right = ActorControlFrame::neutral();
         right.velocity_target = ae::WorldVec2::new(0.0, -200.0);
-        intents.0.insert(LimbSlot::HandRight, right);
+        intents.0.insert(LimbSlot::HAND_RIGHT, right);
         app.world_mut().entity_mut(host).insert((
-            LimbRig::from_pairs([(LimbSlot::HandLeft, hand_l), (LimbSlot::HandRight, hand_r)]),
+            LimbRig::from_pairs([
+                (LimbSlot::HAND_LEFT, hand_l),
+                (LimbSlot::HAND_RIGHT, hand_r),
+            ]),
             intents,
         ));
 
@@ -183,7 +370,7 @@ mod tests {
         let mut only_right = LimbIntents::default();
         let mut r2 = ActorControlFrame::neutral();
         r2.velocity_target = ae::WorldVec2::new(150.0, 0.0);
-        only_right.0.insert(LimbSlot::HandRight, r2);
+        only_right.0.insert(LimbSlot::HAND_RIGHT, r2);
         app.world_mut().entity_mut(host).insert(only_right);
         app.update();
 

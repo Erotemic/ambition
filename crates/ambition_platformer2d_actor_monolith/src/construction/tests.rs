@@ -1559,7 +1559,7 @@ fn a_limb_relation_wires_the_limb_and_the_hosts_rig() {
         &["giant", "hand"],
         "hand",
         "giant",
-        hand(LimbSlot::HandLeft),
+        hand(LimbSlot::HAND_LEFT),
     );
     let (mut world, receipt, baseline) = commit_bare(&plan);
     let limb = receipt.entity(&SimId::placement("hand")).expect("built");
@@ -1567,12 +1567,12 @@ fn a_limb_relation_wires_the_limb_and_the_hosts_rig() {
 
     let attached = world.get::<Limb>(limb).expect("the limb side landed");
     assert_eq!(attached.of, host);
-    assert_eq!(attached.slot, LimbSlot::HandLeft);
+    assert_eq!(attached.slot, LimbSlot::HAND_LEFT);
     assert_eq!(attached.home_offset, ae::Vec2::new(12.0, -4.0));
 
     let rig = world.get::<LimbRig>(host).expect("the host side landed");
     assert_eq!(
-        rig.get(LimbSlot::HandLeft),
+        rig.get(LimbSlot::HAND_LEFT),
         Some(limb),
         "the rig files the limb under exactly its planned slot"
     );
@@ -1592,7 +1592,7 @@ fn a_limb_missing_from_its_hosts_rig_is_detected() {
         &["giant", "hand"],
         "hand",
         "giant",
-        hand(LimbSlot::HandRight),
+        hand(LimbSlot::HAND_RIGHT),
     );
     let (mut world, receipt, baseline) = commit_bare(&plan);
     let host = receipt.entity(&SimId::placement("giant")).expect("built");
@@ -1620,7 +1620,7 @@ fn a_limb_whose_slot_was_rewritten_is_detected() {
         &["giant", "hand"],
         "hand",
         "giant",
-        hand(LimbSlot::HandLeft),
+        hand(LimbSlot::HAND_LEFT),
     );
     let (mut world, receipt, baseline) = commit_bare(&plan);
     let limb = receipt.entity(&SimId::placement("hand")).expect("built");
@@ -1628,7 +1628,7 @@ fn a_limb_whose_slot_was_rewritten_is_detected() {
 
     world.entity_mut(limb).insert(Limb {
         of: host,
-        slot: LimbSlot::HandRight,
+        slot: LimbSlot::HAND_RIGHT,
         home_offset: ae::Vec2::new(12.0, -4.0),
     });
 
@@ -1657,12 +1657,12 @@ fn two_limbs_accumulate_into_one_rig_keyed_by_slot() {
     let mut left = bare_request("giant/0");
     left.relations.push(RelationRequest {
         to: giant.clone(),
-        relation: hand(LimbSlot::HandLeft),
+        relation: hand(LimbSlot::HAND_LEFT),
     });
     let mut right = bare_request("giant/1");
     right.relations.push(RelationRequest {
         to: giant.clone(),
-        relation: hand(LimbSlot::HandRight),
+        relation: hand(LimbSlot::HAND_RIGHT),
     });
 
     // Declared right-first on purpose: canonical ordering, not arrival order,
@@ -1682,8 +1682,8 @@ fn two_limbs_accumulate_into_one_rig_keyed_by_slot() {
     let rig = world
         .get::<LimbRig>(host_entity)
         .expect("the rig accumulated");
-    assert_eq!(rig.get(LimbSlot::HandLeft), Some(left_entity));
-    assert_eq!(rig.get(LimbSlot::HandRight), Some(right_entity));
+    assert_eq!(rig.get(LimbSlot::HAND_LEFT), Some(left_entity));
+    assert_eq!(rig.get(LimbSlot::HAND_RIGHT), Some(right_entity));
     assert_eq!(rig.limbs.len(), 2, "exactly the two declared limbs");
     assert_eq!(verify_bare(&mut world, &plan, &receipt, &baseline), Ok(()));
 }
@@ -1786,7 +1786,7 @@ fn a_limb_filed_under_the_wrong_slot_is_detected() {
         &["giant", "hand"],
         "hand",
         "giant",
-        hand(LimbSlot::HandLeft),
+        hand(LimbSlot::HAND_LEFT),
     );
     let (mut world, receipt, baseline) = commit_bare(&plan);
     let host = receipt.entity(&SimId::placement("giant")).expect("built");
@@ -1795,7 +1795,7 @@ fn a_limb_filed_under_the_wrong_slot_is_detected() {
     // File the same limb under the OTHER slot, leaving `Limb.slot` right.
     let mut rig = world.get_mut::<LimbRig>(host).expect("the rig landed");
     rig.limbs.clear();
-    rig.limbs.insert(LimbSlot::HandRight, limb);
+    rig.limbs.insert(LimbSlot::HAND_RIGHT, limb);
 
     let violations = verify_bare(&mut world, &plan, &receipt, &baseline)
         .expect_err("a limb filed under the wrong slot must be detected");
@@ -1824,7 +1824,7 @@ fn a_limb_with_a_corrupted_home_offset_is_detected() {
         &["giant", "hand"],
         "hand",
         "giant",
-        hand(LimbSlot::HandLeft),
+        hand(LimbSlot::HAND_LEFT),
     );
     let (mut world, receipt, baseline) = commit_bare(&plan);
     let limb = receipt.entity(&SimId::placement("hand")).expect("built");
@@ -1949,11 +1949,11 @@ fn two_limbs_in_one_slot_are_rejected() {
     let mut b = minion_request("hand_b", "giant_gnu_hands");
     a.relations.push(RelationRequest {
         to: host.sim_id.clone(),
-        relation: hand(LimbSlot::HandLeft),
+        relation: hand(LimbSlot::HAND_LEFT),
     });
     b.relations.push(RelationRequest {
         to: host.sim_id.clone(),
-        relation: hand(LimbSlot::HandLeft),
+        relation: hand(LimbSlot::HAND_LEFT),
     });
     assert!(matches!(
         preflight(vec![host, a, b]),
@@ -1969,11 +1969,11 @@ fn a_limb_with_two_hosts_is_rejected() {
     let mut limb = minion_request("hand", "giant_gnu_hands");
     limb.relations.push(RelationRequest {
         to: host_a.sim_id.clone(),
-        relation: hand(LimbSlot::HandLeft),
+        relation: hand(LimbSlot::HAND_LEFT),
     });
     limb.relations.push(RelationRequest {
         to: host_b.sim_id.clone(),
-        relation: hand(LimbSlot::HandRight),
+        relation: hand(LimbSlot::HAND_RIGHT),
     });
     assert!(matches!(
         preflight(vec![host_a, host_b, limb]),
@@ -2227,8 +2227,8 @@ fn a_committed_giant_has_a_verified_two_hand_rig() {
     let rig = world
         .get::<LimbRig>(host_entity)
         .expect("the host carries a rig");
-    assert_eq!(rig.get(LimbSlot::HandLeft), Some(hand_l));
-    assert_eq!(rig.get(LimbSlot::HandRight), Some(hand_r));
+    assert_eq!(rig.get(LimbSlot::HAND_LEFT), Some(hand_l));
+    assert_eq!(rig.get(LimbSlot::HAND_RIGHT), Some(hand_r));
     assert_eq!(rig.limbs.len(), 2);
     // The host owns the router's scratch state.
     assert!(world.get::<LimbIntents>(host_entity).is_some());
@@ -2381,8 +2381,8 @@ fn a_staged_giant_commits_into_a_published_room_with_a_wired_rig() {
     let rig = world
         .get::<LimbRig>(host_entity)
         .expect("the staged host carries a rig");
-    assert_eq!(rig.get(LimbSlot::HandLeft), Some(hand_l));
-    assert_eq!(rig.get(LimbSlot::HandRight), Some(hand_r));
+    assert_eq!(rig.get(LimbSlot::HAND_LEFT), Some(hand_l));
+    assert_eq!(rig.get(LimbSlot::HAND_RIGHT), Some(hand_r));
 }
 
 /// **The authored giant host carries the room's frozen kinematic paths** — the
@@ -2548,7 +2548,7 @@ fn an_extra_unplanned_rig_entry_is_fatal() {
         .get_mut::<LimbRig>(host_entity)
         .expect("rig")
         .limbs
-        .insert(LimbSlot::HandRight, interloper);
+        .insert(LimbSlot::HAND_RIGHT, interloper);
     assert!(rig_faults(&plan, &receipt, &world) > 0);
     // And the outer roster pass still passes its OWN checks minus the rig —
     // proving the composition pass is the one that catches this.
@@ -2571,7 +2571,7 @@ fn a_duplicated_limb_entity_across_slots_is_fatal() {
         .get_mut::<LimbRig>(host_entity)
         .expect("rig")
         .limbs
-        .insert(LimbSlot::HandRight, hand_l);
+        .insert(LimbSlot::HAND_RIGHT, hand_l);
     assert!(rig_faults(&plan, &receipt, &world) > 0);
 }
 
@@ -2586,7 +2586,7 @@ fn a_missing_planned_slot_is_fatal() {
         .get_mut::<LimbRig>(host_entity)
         .expect("rig")
         .limbs
-        .remove(&LimbSlot::HandLeft);
+        .remove(&LimbSlot::HAND_LEFT);
     assert!(rig_faults(&plan, &receipt, &world) > 0);
 }
 
@@ -2602,8 +2602,8 @@ fn a_swapped_rig_with_correct_forward_limbs_is_fatal() {
     let hand_r = receipt.entity(&SimId::spawned(&host, 1)).expect("right");
     {
         let mut rig = world.get_mut::<LimbRig>(host_entity).expect("rig");
-        rig.limbs.insert(LimbSlot::HandLeft, hand_r);
-        rig.limbs.insert(LimbSlot::HandRight, hand_l);
+        rig.limbs.insert(LimbSlot::HAND_LEFT, hand_r);
+        rig.limbs.insert(LimbSlot::HAND_RIGHT, hand_l);
     }
     assert!(rig_faults(&plan, &receipt, &world) > 0);
 }
@@ -2679,9 +2679,9 @@ fn reconstructing_from_any_giant_cluster_member_rebuilds_all_three_fresh() {
         let rig = world
             .get::<LimbRig>(new_host)
             .expect("the rebuilt host carries a rig");
-        assert_eq!(rig.get(LimbSlot::HandLeft), Some(new_l));
-        assert_eq!(rig.get(LimbSlot::HandRight), Some(new_r));
-        for (hand, slot) in [(new_l, LimbSlot::HandLeft), (new_r, LimbSlot::HandRight)] {
+        assert_eq!(rig.get(LimbSlot::HAND_LEFT), Some(new_l));
+        assert_eq!(rig.get(LimbSlot::HAND_RIGHT), Some(new_r));
+        for (hand, slot) in [(new_l, LimbSlot::HAND_LEFT), (new_r, LimbSlot::HAND_RIGHT)] {
             let limb = world
                 .get::<Limb>(hand)
                 .expect("the rebuilt hand carries a Limb");

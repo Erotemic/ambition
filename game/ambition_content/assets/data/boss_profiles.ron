@@ -300,9 +300,9 @@
         // head_descent stays a host-body move (no limb route) and apple_rain stays a
         // Special — neither appears here, so they route to NO limb (unchanged).
         limb_routing: [
-            ("hand_slam", (slots: [HandLeft, HandRight], motion: SlamDown)),
-            ("hand_sweep", (slots: [HandLeft, HandRight], motion: SweepAcross)),
-            ("converging_shockwave", (slots: [HandLeft, HandRight], motion: SlamDown)),
+            ("hand_slam", (slots: ["hand_left", "hand_right"], motion: SlamDown)),
+            ("hand_sweep", (slots: ["hand_left", "hand_right"], motion: SweepAcross)),
+            ("converging_shockwave", (slots: ["hand_left", "hand_right"], motion: SlamDown)),
         ],
         // G5 (R10.6): the possessed-verb map — possess the scholar and your
         // controller verbs command his kit through the same directional-verb

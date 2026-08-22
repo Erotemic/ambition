@@ -7104,11 +7104,33 @@ ambition_ui_nav          0                  ← ambition_dialog ← ambition_con
 ```
 
 ⇒ they wait on a gate in `ambition_sfx`, `ambition_dialog` and the game-shell
-chain, **not on the monolith carve** — three separate small pieces of work rather
-than one big one. ⚠ each is a REAL gate, not a manifest tweak: making the dep
-optional and building without it costs 6 / 4 / — compile errors respectively, so
-the code coupling is genuine (unlike LDtk and portal, where the code was already
-`#[cfg]`d and only the manifest lagged).
+chain, **not on the monolith carve**.
+
+⛔⛔ **BUT "THREE SMALL PIECES OF WORK" WAS WRONG — I WROTE IT FROM AN ERROR COUNT
+AND THEN READ THE SURFACES.** A compile-error count from a failed build is a
+FLOOR, not a measure: cargo stops early, so "4 errors" is the first batch and not
+the cost. Reading what each actually holds:
+
+```text
+ambition_ui_nav        `RowPress` is a FIELD on a dialog runtime struct, plus
+                       MenuFocusState / DialogChoiceSlot / resolve_selectable_row_
+                       interaction across runtime.rs and systems.rs  ⇒ woven in
+ambition_sfx_bank      `ambition_sfx` takes `fnv1a_64` from it — the SfxId HASH,
+                       plus SfxBank/EntryRecord/Codec/BankError        ⇒ foundational
+ambition_settings_menu ONE file (`game_shell/pause_menu.rs`), 15 refs, all
+                       `SettingsOptionId`                              ⇒ a boundary CALL
+```
+
+⇒ **none is mechanical.** The first two are genuine dependencies; the third is a
+real capability question ("a game shell whose pause menu has no audio rows"),
+which is a decision rather than a gate.
+
+⚠ **and `ambition_sfx_bank` is NOT a decomposition node** — I checked, because the
+baseline's `ambition_binding` entry would have licensed reclassifying it instead
+of counting it. Its introducing commit is *"sfx: introduce binary sound bank
+format and runtime contract"*: a new format, not code the sentinel was already
+linking under another name. The `ambition_binding` precedent does not apply and
+the count stands.
 
 ⚠ **and `ambition_cutscene` is the near-miss worth naming.** Its whole hold is
 ONE type — `CutsceneTriggerQueue`, used in two files of `ambition_boss_encounter`

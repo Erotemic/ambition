@@ -781,7 +781,8 @@ either system past the commit makes the graph unsolvable. Bevy says so directly:
 *"system set `InteractionInputBuffered` and system `interaction_input_system`
 have both `in_set` and `before`-`after` relationships"*.
 
-⇒ ▢ **the remaining step is a `SlotGestures` SPLIT, not another table.** The
+⇒ ⛔ **[RETRACTED IN THE PARAGRAPH BELOW — do not act on this one.]** ~~the
+remaining step is a `SlotGestures` SPLIT, not another table.~~ The
 double-tap WINDOW timers are device-clock state, like the latch, and belong in
 the `Update` device window beside the producer; the PENDING flags and the
 interact buffer are sim state a rollback must restore. Splitting them lets both
@@ -1960,6 +1961,34 @@ button.** In the genre shield+direction is a roll, shield on the spot is a spot
 dodge, and shield in the air is an air dodge — none of them a separate burst
 button, which is where they live here. It needed Shield to be a real action
 first; it is one now.
+
+⛔⛔ **AND THE NAIVE READING OF THAT SENTENCE MAKES GUARDING IMPOSSIBLE — priced
+2026-08-22, still not done.** "Dodges come off the shield button" is not "the
+shield press IS a dodge": in the genre you press shield to RAISE A GUARD, and it
+is the stick input WHILE guarding that rolls or spot-dodges. Wiring the press
+itself to a dodge means every guard raise spot-dodges and the shield can never
+be held. The rule to implement is:
+
+```text
+airborne + shield press          → AirDodge (immediate; the one press-driven case)
+grounded + shield held + tilt    → roll in that direction
+grounded + shield held + down    → spot dodge
+grounded + shield press alone    → raise the guard, no dodge
+burst button                     → keeps Dash, loses both dodges
+```
+
+⭐ **the seam is already the right shape and the cost is small.**
+`resolve_burst_maneuver` (`movement/abilities.rs`) already returns
+`GroundDodge | AirDodge | Dash` from one press, and the kernel's input surface
+ALREADY carries `shield_held` — `movement/input.rs:274`, whose own section
+comment lists *"shield deploy + dodge roll"* as a thing it exists for. What is
+missing is the shield EDGE (the `ControlFrame` has one; `InputState` exposes only
+the level) and a split of the single `apply_burst_buffer` condition, which today
+arms on `burst_pressed && (dash || dodge)`.
+
+⚠ and the slot question comes with it: `ControlSlot::Burst` is earned by
+`dash || dodge` today (`movement_actions`), and after this it is earned by `dash`
+alone while Shield carries the dodges.
 
 **3 ✔ THE PAD LAYOUT, AS A PROFILE RATHER THAN A DEFAULT — CLOSED 2026-08-16.**
 Jon's layout, live on a pad: A=normal, X=special, B=jump, Y=grab (blank, see

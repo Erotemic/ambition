@@ -1165,7 +1165,14 @@ speculative. ⚠ gravity is a successful construction-VOCABULARY extraction, not
 fully extracted domain: its construction lives in `shared_tangle` while its
 scheduling/runtime ownership is still in the actor monolith.
 
-▢ **SMASH: THE MEASUREMENT STANDS, THE ASSERTION TEXT DOES NOT.** ⚠ TAKEN by the
+✔✔ **SMASH: DONE — the assertion text landed with the smash-parity merge, verified
+2026-08-22.** `the_stage_kills.rs:2070` now reads *"⛔ this is NOT one mind played
+twice — the two seats draw from different streams, and the sibling guards listed
+above prove it… Whether that is acceptable is a product decision (queue D167); do
+NOT answer it by unmirroring the spawns or by adding noise"*, which is the whole
+of what this item asked for.
+
+~~▢ SMASH: THE MEASUREMENT STANDS, THE ASSERTION TEXT DOES NOT.~~ ⚠ TAKEN by the
 smash lane 2026-08-20 (`smash-parity`), assertion text only. "One mind
 played twice" is FALSIFIED — the CPUs have different RNG streams, draw different
 samples, fight, overlap attack range, create live hitboxes, land hits and take
@@ -1947,9 +1954,13 @@ which is nobody's design.
 ▢ **AND: smash-correct dodging should eventually come off the SHIELD button,
 not the burst button.** In the genre a dodge is shield + direction. Recorded,
 not done — it belongs with item 2/3 below.
-▢ minor: `resolve_dash` (`affordances/resolvers.rs`) still labels the grounded
+✔ ~~minor: `resolve_dash` (`affordances/resolvers.rs`) still labels the grounded
 prompt "Dash" for a body that now rolls; it reads `is_aerial` and never the
-ability set. HUD naming, not behaviour.
+ability set.~~ **FIXED — verified 2026-08-22.** Neither the file nor the function
+exists any more (`affordances` was carved to `ambition_sim_view` and then mostly
+deleted), and the label now reads exactly the thing the row said it never did:
+`action_scheme.rs:384` is `let burst_word = if abilities.dodge { "Dodge" } else
+{ "Dash" };`, with `control_prompt.rs:98` mapping `ControlSlot::Burst => "Dodge"`.
 
 **2 ✔ SHIELD IS ITS OWN SEMANTIC ACTION — CLOSED 2026-08-16.** Jon's three
 criteria: *"Shield input -> can hold/release shield. Special input -> activates

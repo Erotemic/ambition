@@ -2939,11 +2939,35 @@ fn capture_context_moveset() -> MovesetContract {
     }
 }
 
+/// The same cast with every capture move GATED GROUNDED, which is how the smash
+/// capture kit actually authors them (`SmashCaptureRepertoire::bound`).
+fn grounded_capture_moveset() -> MovesetContract {
+    let mut contract = capture_context_moveset();
+    for spec in &mut contract.moves {
+        if matches!(spec.id.as_str(), "grab" | "pummel" | "fthrow") {
+            spec.gates.grounded = Some(true);
+        }
+    }
+    contract
+}
+
 /// Build an app with the trigger chain, a captor carrying `frame`, and — when
 /// `held` — a captive already in that captor's hold. Returns the captor.
 fn capture_context_app(
     frame: ambition_characters::actor::control::ActorControlFrame,
     held: bool,
+) -> (App, Entity) {
+    capture_context_app_in(frame, held, capture_context_moveset(), None)
+}
+
+/// The same, with an explicit contract and an explicit stance. `grounded: None`
+/// leaves the body without a `BodyGroundState` at all, which the selector reads
+/// as grounded — the default the simpler fixture above relies on.
+fn capture_context_app_in(
+    frame: ambition_characters::actor::control::ActorControlFrame,
+    held: bool,
+    contract: MovesetContract,
+    grounded: Option<bool>,
 ) -> (App, Entity) {
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
@@ -2963,10 +2987,18 @@ fn capture_context_app(
                 ..Default::default()
             },
             ActorFaction::Enemy,
-            ActorMoveset(capture_context_moveset()),
+            ActorMoveset(contract),
             ActorControl(frame),
         ))
         .id();
+    if let Some(on_ground) = grounded {
+        app.world_mut()
+            .entity_mut(captor)
+            .insert(ambition_platformer2d_core::BodyGroundState {
+                on_ground,
+                ..Default::default()
+            });
+    }
     if held {
         app.world_mut().spawn(crate::capture::CapturedBy {
             captor,
@@ -3140,5 +3172,68 @@ fn a_melee_weapon_in_hand_answers_with_its_own_swing() {
     assert_ne!(
         played, "swat",
         "the wearer's own repertoire answered while a weapon was in hand"
+    );
+}
+
+/// THE PROBE. AN AIRBORNE BODY REACHES NO CAPTURE MOVE, HOLDING OR NOT.
+///
+/// `SmashCaptureRepertoire::bound` gates its whole vocabulary grounded-only and
+/// says why: an aerial grab is a named FUTURE technique, and "a grab that
+/// answered an airborne press would be one of them by accident." The selector
+/// asked for capture verbs through the ungated exact-verb lookup, so it started
+/// them anyway — the free body's grab, and then every pummel and throw a captor
+/// carried into the air.
+///
+/// The invariant outlives the fix: what a press may start is the intersection of
+/// what the fighter AUTHORS and what their STANCE permits. It is asserted in
+/// both capture contexts because they are different branches of the selector,
+/// and fixing one lookup would not have proven the other reads it.
+#[test]
+fn an_airborne_body_reaches_no_grounded_only_capture_move() {
+    let press = |grab: bool| {
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+        if grab {
+            frame.grab_pressed = true;
+        } else {
+            frame.melee_pressed = true;
+        }
+        frame
+    };
+
+    // FREE, airborne: the grab does not start.
+    let (app, captor) =
+        capture_context_app_in(press(true), false, grounded_capture_moveset(), Some(false));
+    assert_eq!(
+        played(&app, captor),
+        None,
+        "an airborne press started a grab the capture kit declares grounded-only"
+    );
+
+    // HOLDING, airborne: the pummel does not start either.
+    let (app, captor) =
+        capture_context_app_in(press(false), true, grounded_capture_moveset(), Some(false));
+    assert_eq!(
+        played(&app, captor),
+        None,
+        "a captor carried into the air still pummelled, so the capture branch \
+         never read the gate its own repertoire authored"
+    );
+
+    //  NON-VACUITY, and it is the whole test. Every assertion above passes if
+    // the fixture simply never starts a move — so the same presses, same
+    // contract, on the GROUND must reach exactly the moves they name.
+    let (app, captor) =
+        capture_context_app_in(press(true), false, grounded_capture_moveset(), Some(true));
+    assert_eq!(
+        played(&app, captor).as_deref(),
+        Some("grab"),
+        "a grounded press stopped reaching its own grab"
+    );
+    let (app, captor) =
+        capture_context_app_in(press(false), true, grounded_capture_moveset(), Some(true));
+    assert_eq!(
+        played(&app, captor).as_deref(),
+        Some("pummel"),
+        "a grounded captor stopped reaching its own pummel"
     );
 }

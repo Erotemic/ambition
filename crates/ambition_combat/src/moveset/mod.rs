@@ -1203,26 +1203,30 @@ pub fn trigger_moveset_moves(
         // directional throw verbs while holding a captive; throws ignore strike
         // charge strength, and an unauthored throw resolves to no move.
         let holding_captive = crate::capture::captive_of(entity, &captives).is_some();
+        //  every branch below asks for a move IN THIS STANCE. The capture kit
+        // declares its whole vocabulary grounded-only, and a captor carried into
+        // the air was still able to pummel and throw because the exact-verb
+        // lookup did not read the gate its own repertoire had authored.
         let (spec, verb_names): (Option<MoveSpec>, &[&str]) = if holding_captive {
             match gesture.pressed.map(|intent| intent.direction) {
                 Some(AttackDir::Neutral) => (
-                    moveset.0.move_for_verb(CAPTURE_PUMMEL_VERB).cloned(),
+                    moveset.0.move_for_verb_in_stance(CAPTURE_PUMMEL_VERB, grounded).cloned(),
                     &[CAPTURE_PUMMEL_VERB][..],
                 ),
                 Some(AttackDir::Forward) => (
-                    moveset.0.move_for_verb(CAPTURE_THROW_FORWARD_VERB).cloned(),
+                    moveset.0.move_for_verb_in_stance(CAPTURE_THROW_FORWARD_VERB, grounded).cloned(),
                     &[CAPTURE_THROW_FORWARD_VERB][..],
                 ),
                 Some(AttackDir::Back) => (
-                    moveset.0.move_for_verb(CAPTURE_THROW_BACK_VERB).cloned(),
+                    moveset.0.move_for_verb_in_stance(CAPTURE_THROW_BACK_VERB, grounded).cloned(),
                     &[CAPTURE_THROW_BACK_VERB][..],
                 ),
                 Some(AttackDir::Up) => (
-                    moveset.0.move_for_verb(CAPTURE_THROW_UP_VERB).cloned(),
+                    moveset.0.move_for_verb_in_stance(CAPTURE_THROW_UP_VERB, grounded).cloned(),
                     &[CAPTURE_THROW_UP_VERB][..],
                 ),
                 Some(AttackDir::Down) => (
-                    moveset.0.move_for_verb(CAPTURE_THROW_DOWN_VERB).cloned(),
+                    moveset.0.move_for_verb_in_stance(CAPTURE_THROW_DOWN_VERB, grounded).cloned(),
                     &[CAPTURE_THROW_DOWN_VERB][..],
                 ),
                 None => (None, &[][..]),
@@ -1301,8 +1305,11 @@ pub fn trigger_moveset_moves(
                 && gesture_grounded
                 && moveset
                     .0
-                    .move_for_verb(&ambition_entity_catalog::dash_stance_verb(ATTACK_VERB))
-                    .is_some_and(|mv| mv.gates.permits(gesture_grounded));
+                    .move_for_verb_in_stance(
+                        &ambition_entity_catalog::dash_stance_verb(ATTACK_VERB),
+                        gesture_grounded,
+                    )
+                    .is_some();
             let spec = if let Some(held) = held {
                 held_weapon_attack_move(&held.spec, dir, gesture_grounded)
             } else {
@@ -1364,7 +1371,7 @@ pub fn trigger_moveset_moves(
             // plays to completion before another starts (its duration is a cadence
             // gate; the body-side refire cooldown remains the hard rate floor).
             (
-                moveset.0.move_for_verb(RANGED_VERB).cloned(),
+                moveset.0.move_for_verb_in_stance(RANGED_VERB, grounded).cloned(),
                 &[RANGED_VERB],
             )
         } else {

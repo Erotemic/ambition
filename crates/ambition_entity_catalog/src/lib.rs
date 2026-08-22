@@ -1440,9 +1440,28 @@ impl MovesetContract {
         self.moves.iter().find(|m| m.id == id)
     }
 
-    /// Resolve an input verb to its move.
+    /// Resolve an input verb to its move, IGNORING its gates.
+    ///
+    /// This answers "does this fighter author the verb at all" — what a display
+    /// row or an authorship check wants. A SELECTOR deciding what a press starts
+    /// wants [`Self::move_for_verb_in_stance`], because an authored move whose
+    /// gates refuse the body's stance is not a move that press may start.
     pub fn move_for_verb(&self, verb: &str) -> Option<&MoveSpec> {
         self.move_by_id(self.verbs.get(verb)?)
+    }
+
+    /// The move an input verb names, when the body's stance PERMITS it.
+    ///
+    /// The gated exact-verb lookup, and the one a selector should reach for. Its
+    /// siblings [`Self::move_for_flat_verb`] and
+    /// [`Self::move_for_directional_verb`] already refuse a move whose gates
+    /// disagree with the stance; a bare `move_for_verb` in a selector is that
+    /// same check written as "remembered to", and it was forgotten in seven
+    /// places — every capture verb among them, which is how an AIRBORNE press
+    /// started a grab the capture kit declares grounded-only.
+    pub fn move_for_verb_in_stance(&self, verb: &str, grounded: bool) -> Option<&MoveSpec> {
+        self.move_for_verb(verb)
+            .filter(|mv| mv.gates.permits(grounded))
     }
 
     /// Resolve a directional attack to its move: the first verb in the
@@ -1505,7 +1524,10 @@ impl MovesetContract {
                 return Some(mv);
             }
         }
-        self.move_for_verb(base)
+        // GATED, like the running variant above and like every candidate the
+        // directional chain considers. A standing move whose gates refuse this
+        // stance is not the answer to the press -- there simply is no answer.
+        self.move_for_verb_in_stance(base, grounded)
     }
 
     pub fn move_for_directional_verb(

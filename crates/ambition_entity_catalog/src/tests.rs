@@ -437,20 +437,47 @@ fn a_running_body_reaches_with_its_running_grab() {
     let pick = |grounded, running| {
         with_dash_grab
             .move_for_flat_verb("grab", grounded, running)
-            .unwrap()
-            .id
-            .clone()
+            .map(|mv| mv.id.clone())
     };
-    assert_eq!(pick(true, true), "grab_run", "a run did not own the press");
     assert_eq!(
-        pick(true, false),
-        "grab",
-        "a standing grab became the running one"
+        pick(true, true).as_deref(),
+        Some("grab_run"),
+        "a run did not own the press"
     );
     assert_eq!(
+        pick(true, false).as_deref(),
+        Some("grab"),
+        "a standing grab became the running one"
+    );
+    // ⛔ NOTHING, not the standing grab. Both variants here are `grounded: Some(true)`
+    // -- the gate the capture kit authors on its whole vocabulary, because an
+    // aerial grab is a named FUTURE technique. This assertion used to read
+    // `"grab"`, which said out loud that an airborne press starts a grounded-only
+    // move; the selector agreed with it, so the pair was a bug and its receipt.
+    assert_eq!(
         pick(false, true),
-        "grab",
-        "a running grab was thrown in the air"
+        None,
+        "an airborne press started a grounded-only grab"
+    );
+    assert_eq!(
+        pick(false, false),
+        None,
+        "an airborne press started a grounded-only grab"
+    );
+
+    // ⭐ and the gate is what refuses it, not the verb: an UNGATED standing grab
+    // still answers an airborne press. Without this the assertions above would
+    // also pass if the lookup had simply stopped resolving `base`.
+    let ungated = MovesetContract {
+        verbs: BTreeMap::from([("grab".to_string(), "grab".to_string())]),
+        moves: vec![bare_move("grab", None)],
+    };
+    assert_eq!(
+        ungated
+            .move_for_flat_verb("grab", false, false)
+            .map(|mv| mv.id.as_str()),
+        Some("grab"),
+        "an ungated grab must still answer an airborne press"
     );
 
     // ⛔ **the WORD is spelled once.** `GRAB_DASH_VERB` exists only because the

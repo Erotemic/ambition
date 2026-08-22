@@ -2052,6 +2052,16 @@ wanted  a character DECLARES its height in one shared unit; render size derives
    that word is Jon's, and it is what separates this from a gate. ⚠ pick the
    tolerance from the measured population and state it; do not invent a round
    one.
+   ⛔⛔ **AND MEASURING THE POPULATION FIRST KILLED THE PREMISE — do not build
+   this warn yet.** The ruling says drift *"far from 1.0"*; across the 95 catalog
+   characters with a resolvable height and a body bbox the scale runs **0.188 →
+   0.571, median 0.320**, and nothing is near 1.0 — every sheet is authored two
+   to five times larger than the size it draws at. A tolerance around 1.0 warns
+   on 100% of the cast, the mirror of a check that cannot fail. ⇒ what the spread
+   really says is that the cast shares no art RESOLUTION, which is worth warning
+   about but is a different comparison. Filed as **decision 28** in
+   `awaiting-maintainer-decision.md` with the three options; the tolerance cannot
+   be chosen before it is answered.
 3. **landmarks are OPTIONAL SLOTS** — head/feet/hands/sockets authored where
    useful, and every consumer must work without them. ⛔ never make one required
    to satisfy a consumer. ⚠ we may eventually have skeletons available in game,

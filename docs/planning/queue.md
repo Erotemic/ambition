@@ -1816,11 +1816,17 @@ through ONE NAMED COMPOSITION SEAM, never a reach-in.**
 |---|---|---|
 | abilities | `effective_abilities` — stated once | cheap |
 | body | `MatchRules::body_over` — stated once | cheap |
-| `knockback_weight` | `install_smash_content` MUTATES `definition.vitals` in a loop | ⛔ **a reach-in** |
+| `knockback_weight` | ~~`install_smash_content` MUTATES `definition.vitals` in a loop~~ → `smash_reading_of_character` | ✔ **normalized** |
 
-▢ normalize the third onto the same seam as the other two. No direction is
-implied and no decision is taken by doing so — it is the shape that makes either
-answer a one-edit change later.
+✔✔ **THE THIRD IS NORMALIZED — verified at HEAD 2026-08-22.** `install_smash_content`
+performs no `definition.vitals` assignment at all; the only three mentions left in
+that crate are one struct-update `..definition.vitals` and two COMMENTS recording
+what used to stand there. The interpretation lives in `smash_reading_of_character`,
+a pure function, and its own doc says *"grepping the name below finds every place
+the smash ruleset interprets authored character data."* ⇒ this ▢ was on landed
+work; the marker is struck rather than the paragraph deleted, because the
+invariant it states — *every game-adjusts-a-character edit goes through ONE NAMED
+COMPOSITION SEAM, never a reach-in* — is the part worth keeping.
 
 ⭐⭐ **THE SHARPENED VERSION — "DEFER THE UNIVERSAL CHOICE, BUT NOT THE
 BOUNDARY."** (GPT's framing, Jon endorsed: *"I agree with them"*, 2026-08-16.)

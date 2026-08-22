@@ -345,50 +345,47 @@ without the resolver still runs the guard. Breaking that hook takes the whole
 standing-goal mechanism down, and it can only be exercised by ending a turn,
 which is why the logic moved into a script a test can run.
 
-- ▢ **D181 — THE WAND A ?-BLOCK PAYS IS LOST BEFORE A WALKING PLAYER CAN TAKE
-  IT.** (measured 2026-08-22)
+- ▢ **D181 — SHE STOPS DEAD AT x=201.13 WITH FULL RUN INPUT, AND AN ENEMY IS
+  CLOSING ON HER.** (measured 2026-08-22)
 
 `level_1_acceptance::a_grown_mary_o_bonks_a_question_block_and_wears_the_fire_flower`
-has been red for some time. The strike is fine — `struck_first` passes — and the
-reward IS minted:
+is the one red test in `ambition_demo_mary_o_app`. Measured rather than
+reasoned, and two earlier framings of this row were wrong and are struck:
+
+⛔ **NOT "the wand is unreachable".** Tracked to rest: it falls off the block and
+walks along the floor at `y = 400.5`, which is her own standing height.
 
 ```text
-post-bonk 0   item (208.0, 304.0)   body (182.4, 336.0)   worn=false
-post-bonk 7   item (208.0, 294.8)   body (183.2, 353.5)   worn=false
+wand   0    (263.0, 388.8)   still falling
+wand  20    (281.3, 400.5)   on the floor
+wand 220    (464.7, 400.5)   walking right, reachable the whole way
 ```
 
-⇒ the wand emerges, rises to `y = 272.5` — resting exactly on the block's top
-edge at 288 — and then WALKS right along it. That part is correct and is the
-genre's rule: `wand_reward` is `rises_from_a_block(ItemMotionPlan::walker(..))`,
-and the walker carries `DEFAULT_ITEM_GRAVITY`, so it is meant to leave the block
-and fall to where a walking player meets it.
+⛔ **NOT "the ?-block bonk is broken".** The head contact fires:
+`Head/Block { kind: Solid, … MaryOBlock-106885 }` at head = 320.0, the exact
+underside.
 
-⛔ **SHE NEVER FOLLOWS IT, AND THAT IS THE ACTUAL DEFECT.** Traced across the
-chase, her x is `201.1302` on frame 18 and still `201.1302` on frame 54 while
-the wand walks 208 → 235:
+⇒ **what IS wrong is that she stops.** During the chase she walks 182 → 201.13
+and then holds still for 20+ frames while the brain is being handed full run
+input:
 
 ```text
-chase 18   item (208.0, 280.4)    body (201.1302, 400.0)
-chase 54   item (235.5, 272.5)    body (201.1302, 400.0)   ← unchanged
+chase 15   bx 195.55   axis 1.00   loco 0.6    stomp false
+chase 20   bx 201.13   axis 0.86   loco 0.52   stomp TRUE
+chase 35   bx 201.13   axis 1.00   loco 0.6    stomp TRUE   ← unchanged
 ```
 
-⇒ **her x does not change across the chase**, which looked like a standstill and
-is not: a body at that pose walks and jumps normally (see D182's differential).
-What the chase actually shows is that she never gains the height to follow, and
-D182 records the head contact at that spot failing to register at all.
+⚠ **an enemy body is right there and closing** — `(217.9, 411.3)` → `(214.9,
+411.3)` against her right edge at 211.8 — and ⛔ **it is NOT body contact**:
+neither body carries a `BodyContact` component, so today's contact work is not
+the mechanism.
 
-⛔ **and D182's retractions apply here too** — the head contact under that block
-fires correctly when measured, so do not inherit "the bonk is broken" from it.
-⛔ do NOT "fix" this by teaching the fixture to jump onto the block; that would
-assert a game nobody can play.
-
-⭐ **next step**: `chase_until_worn` only walks, and the wand rests on the block
-top at y=272.5 while she is on the floor at y=400. Establish first whether the
-reward is reachable on foot in the shipped level at all — that is the genre
-question, and it is research rather than a decision.
-
-⭐ the sibling defect in the same area is FIXED and is the reason this one is
-now visible — see D182.
+⭐ **and the untested branch is the stomp.** `should_stomp()` is true from frame
+15, and the real `chase_until_worn` jumps when it is; the probe above deliberately
+did not, to isolate walking. So the open question is narrow: **what stops a
+grounded body walking into an enemy that has no body contact, and does the stomp
+branch clear it?** Instrument the movement kernel's horizontal resolve at that
+pose — the proposed delta against what the sweep returns.
 
 - ✔ **D182 — `two_rooms::she_crosses_wearing_the_form_she_earned` IS GREEN, AND
   EVERY MECHANISM I PROPOSED FOR IT WAS WRONG.** (2026-08-22)

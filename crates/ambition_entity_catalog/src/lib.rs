@@ -786,13 +786,8 @@ impl MoveGates {
 pub struct MoveSpec {
     /// Stable move id (`"jab"`, `"tilt_up"`, `"sandbag_swat"`).
     pub id: String,
-    /// Player-facing label. `None` falls back to a title-cased [`Self::id`]
-    /// via [`MoveSpec::display`] — which is the right answer for almost every
-    /// move, and the reason this is `Option` rather than a required string.
-    ///
-    /// ⚠ authored on the MOVE, so a shared prefab names its move once for
-    /// every character that adopts it. A per-character rename would be a
-    /// different feature and does not belong here.
+    /// Optional player-facing label. [`MoveSpec::display`] title-cases
+    /// [`Self::id`] when absent. Shared move prefabs therefore share this label.
     #[serde(default)]
     pub display_name: Option<String>,
     pub clip: ClipBinding,

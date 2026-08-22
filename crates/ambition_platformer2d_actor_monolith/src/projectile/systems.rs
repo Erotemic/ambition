@@ -729,31 +729,9 @@ pub fn step_projectiles(
                     continue;
                 }
                 let victim_body = victim.aabb.aabb();
-                // ⭐⭐ **A BOLT HITS WHAT A SWORD HITS** (Jon, decision 1,
-                // 2026-08-17). One victim-geometry rule for everything: the shot
-                // asks the victim the same question melee and feature hits ask,
-                // so a crouching or ledge-hanging fighter reads the same to both
-                // and an authored hurtbox means one thing.
-                //
-                // This subsumes the intangibility check that stood here — a body
-                // whose `DamageableVolumes` list is EMPTY offers no target, and
-                // `reached_by` answers that for free, which is why
-                // `is_intangible` must not also be asked (see its doc). Absence
-                // is still not emptiness: a body with no component at all falls
-                // back to its coarse box inside the shared rule.
-                //
-                // ⛔ it retires `strict_intersects` for projectiles, which
-                // rejected edge-touching where the shared rule accepts it, and a
-                // shot that lands today on a body whose authored volume is
-                // tighter than its AABB will start missing. Both are the point.
-                //
-                // ⚠ **cost, measured rather than assumed** (the ruling asked):
-                // per-volume overlap now runs per projectile per victim per tick.
-                // `strike_reaches_victim` walks the published list, which is 1–2
-                // volumes for every shipped body, and the loop it replaces was
-                // already an AABB test per victim — so this is a small constant
-                // factor on a loop bounded by live shots × candidate victims, not
-                // a new order of growth.
+                // Projectiles use the same published victim geometry as melee.
+                // An empty `DamageableVolumes` is intangible; absence falls back to
+                // the coarse body box inside `reached_by`.
                 if !victim.reached_by(&kin.aabb().into()) {
                     continue;
                 }

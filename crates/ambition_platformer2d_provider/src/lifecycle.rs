@@ -656,18 +656,8 @@ fn add_world_fingerprint_sections(
         )
         .map_err(|error| ContentDiagnostic::new("world.initial-state", error.to_string()))?;
 
-    // The LDtk index carries deterministic area-to-level membership and area
-    // bounds used by streaming/level selection. Its mutable revision/sync
-    // cursors are deliberately excluded.
-    //
-    // ⚠ a RON-authored definition installs NO index, and the section it writes
-    // is byte-for-byte what an empty index wrote before the field became
-    // optional: one `area\t<id>\t\t-` row per room. That equality is the reason
-    // this slice does not move any content fingerprint.
-    // ⭐ **the per-area lookup, gated ONCE.** Without the `ldtk` capability a
-    // game has no installed index by construction, so both answers collapse to
-    // constants — and to exactly what a RON-authored game already wrote, which
-    // is why this section's bytes (and the content fingerprint) do not move.
+    // Include deterministic area membership and bounds when an LDtk index exists.
+    // Mutable revision/sync cursors are excluded; RON-authored games have no index.
     #[cfg(feature = "ldtk")]
     let area_rows = |area_id: &str| -> (Vec<String>, String) {
         let index = source.installed_ldtk_index();

@@ -648,13 +648,7 @@ mod tests {
         m
     }
 
-    /// **An authored move label reaches the control prompt.**
-    ///
-    /// `MoveSpec::display()` title-cased the id and nothing could override it,
-    /// so `"attack_air_down"` could only ever read "Attack Air Down" where the
-    /// genre says "Down Air". The consumer was already live — `combat_actions`
-    /// fills each slot's `display_name` from `mv.display()` — so the whole gap
-    /// was the authored field.
+    /// An authored move label overrides the title-cased id in the control prompt.
     #[test]
     fn an_authored_move_label_beats_the_title_cased_id() {
         let mut m = moveset(&["attack"]);
@@ -666,7 +660,6 @@ mod tests {
             .expect("the attack slot is claimed");
         assert_eq!(attack.display_name.as_deref(), Some("Down Air"));
 
-        // ...and the fallback is untouched for every move that authors none.
         let plain = combat_actions(
             &abilities(|a| a.attack = true),
             Some(&moveset(&["attack"])),

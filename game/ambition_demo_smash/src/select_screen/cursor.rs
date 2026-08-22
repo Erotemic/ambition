@@ -238,10 +238,7 @@ pub struct SelectCursors {
 }
 
 impl SelectCursors {
-    /// ⛔ **an out-of-range seat is a bug, not a neighbour.** A seat is an
-    /// identity; clamping it hands one person another's cursor and surfaces
-    /// downstream as UI weirdness. Loud in debug, survivable in release — the
-    /// shape `body_driving_seat` uses for its own invariant.
+    /// Out-of-range seats are invalid identities and must not be clamped to another cursor.
     fn checked(seat: usize) -> usize {
         debug_assert!(
             seat < crate::select::MAX_SMASH_SEATS,

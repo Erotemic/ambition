@@ -12,9 +12,7 @@ use bevy::prelude::*;
 use ambition_characters::brain::{DrivingParticipant, PlayerSlot, SeatRawFrames, SlotControls};
 use ambition_platformer2d_actor_monolith::actor::{PlayerEntity, PrimaryPlayer};
 
-/// The seat surface the warp reads and writes. It used to be the global
-/// `ControlFrame`, bracketed by two mirror systems; the warp addresses a seat
-/// directly now, so these drive and read the same table the game does.
+/// Seat-local input surface read and written by the portal warp.
 fn hold_x(app: &mut App, axis_x: f32) {
     let mut raw = app.world_mut().resource_mut::<SeatRawFrames>();
     let mut frame = raw.get(PlayerSlot::PRIMARY);

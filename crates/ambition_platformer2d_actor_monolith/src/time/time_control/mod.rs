@@ -1,11 +1,7 @@
-//! **What Ambition asks of the clock**, and the one line it writes about it.
+//! Ambition-specific clock requests and world-log reporting.
 //!
-//! ⭐ the ARBITRATION — who may change which clock, and the regime table that
-//! decides — is `ambition_time::time_control`. It needs nothing but that crate.
-//! What is here is the half that could not go with it: the intent this game
-//! emits (hitstop, bullet-time blink, dev slowmo), which reads combat feel,
-//! character health and developer state; and the world-log reporter, which
-//! writes through `shared_tangle`.
+//! Clock arbitration lives in `ambition_time::time_control`; this module emits
+//! game-policy requests such as hitstop, bullet-time, and developer slow-motion.
 
 use bevy::prelude::*;
 
@@ -148,30 +144,11 @@ pub fn smooth_sim_clock_toward_target_system(
     clock.time_scale = crate::move_toward(clock.time_scale, target.sim_clock, rate * frame_dt);
 }
 
-/// **`[sim-clock]` — is the simulation actually advancing?**
+/// Report sim-clock target changes and frozen/running transitions.
 ///
-/// ⭐ A pause in this engine is **two globals, not one**: `GameMode` and this
-/// clock. A previous investigation into a frozen game got a completely clean
-/// `GameMode` census back and lost the session to it — the culprit was
-/// [`ClockState::time_scale`] sitting at zero (see the test docstring on
-/// `game/ambition_app/tests/smash_in_the_host.rs`, "two globals the pause writes
-/// and the session does not own"). `[game-mode]` alone would reproduce exactly
-/// that dead end, so the clock reports beside it under the same frame number.
-///
-/// **Edge-triggered, never per-frame.** Two things are worth a line: the live
-/// scale crossing the frozen/running boundary (the simulation stopped or started),
-/// and [`RequestedClockScale::sim_clock`] moving (somebody decided a new pace).
-/// The frames in between are a smoother ramp toward an already-reported target and
-/// say nothing new, so bullet-time costs two lines, not sixty.
-///
-/// Causation comes free: [`ClockScaleRequest`] and [`ClockResetRequest`] already
-/// carry `requester` + a grep-able `reason`, so the line names who asked. A change
-/// with no request attached is the [`apply_suspended_time_scale_system`] path —
-/// i.e. `GameMode`, and the `[game-mode]` line on the same frame completes it.
-/// A scale this close to zero means the world is not advancing. Comparing against
-/// an epsilon rather than `== 0.0` because [`smooth_sim_clock_toward_target_system`]
-/// ramps, so the live scale approaches zero asymptotically-looking values before
-/// `move_toward` clamps it.
+/// Reports are edge-triggered rather than per-frame. Request metadata identifies
+/// the requester and reason; changes without a request come from suspended-gameplay
+/// clock control. Frozen detection uses an epsilon because the live scale is smoothed.
 const SIM_CLOCK_FROZEN_EPS: f32 = 1e-4;
 
 pub fn report_sim_clock_changes(

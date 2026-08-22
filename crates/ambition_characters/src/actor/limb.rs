@@ -1,33 +1,12 @@
-//! The limb rig — driven limb bodies fanned out from ONE pilot intent
-//! (fable review 2026-07-05, AJ12 / R10.1).
+//! Limb-control vocabulary shared by articulated actors.
 //!
-//! Generalizes `steer_mount_from_rider` from 1→1 to 1→N: a HOST body (the
-//! giant gnu; any mount or actor with articulated parts) carries a
-//! [`LimbRig`] naming its limb bodies; the brain that drives the host writes
-//! a per-limb intent table ([`LimbIntents`]); [`fan_out_limb_intents`] copies
-//! each slot's frame onto that limb's `ActorControl`. Limbs are ORDINARY
-//! actor bodies — `ActorControl` + `ActorMoveset`, **no `Brain`, no
-//! `BossConfig`, no `BodyHealth`** — so integration, moveset triggering,
-//! FollowOwner hitboxes, and damage attribution all pick them up unchanged.
+//! A host carries a [`LimbRig`] and [`LimbIntents`]; [`fan_out_limb_intents`]
+//! copies each slot's frame to the corresponding limb's `ActorControl`. Limbs
+//! are ordinary actor bodies without their own brain or health.
 //!
-//! This is a MOUNT-level capability, not boss machinery: a mech with arms is
-//! the same component set. The coordinator is whatever brain currently drives
-//! the host — a scripted `BossPattern` through the ADR 0020 `ControlGrant`, or
-//! the player after possession — because the fan-out reads only data on the
-//! host.
-//!
-//! Determinism: limbs fan out in [`LimbSlot`] order — the rig is keyed by slot,
-//! so iteration order is a property of the CONTENT rather than of when anything
-//! spawned, and never `Entity` iteration order; a slot with no intent this
-//! tick gets an explicit NEUTRAL frame, so stale intents can't drift.
-//!
-//! ⭐ The VOCABULARY lives here, in the character domain, because this is where
-//! a limb route is AUTHORED: `LimbRoute` names the slots a strike drives, and
-//! it named them as `String` for as long as `LimbSlot` lived up in the
-//! platformer monolith — a stringly-typed round-trip whose only job was to
-//! cross a crate boundary that should not have existed. The STRIKE ROUTER that
-//! reads a mount's kinematics still lives with the mount; only the vocabulary
-//! and the fan-out (which touch nothing but character control) live here.
+//! The rig is keyed by [`LimbSlot`] for deterministic fan-out, and a missing
+//! intent explicitly neutralizes that limb. Mount-specific strike routing stays
+//! with the mount code.
 
 use std::collections::BTreeMap;
 
@@ -37,38 +16,22 @@ use bevy::prelude::{Component, Entity, Query, With};
 use crate::actor::control::ActorControlFrame;
 use crate::brain::ActorControl;
 
-/// Which limb of the rig a body is. Grows per content (a serpent boss adds
-/// variants); ordered so [`LimbIntents`]' BTreeMap iterates deterministically.
-///
-/// Authored directly in RON as a unit variant (`slots: [HandLeft, HandRight]`),
-/// the same way its sibling `LimbMotion` is — so a slot name that does not
-/// exist is a content LOAD error rather than a silently dropped route.
+/// Stable authored limb slot. Enum ordering defines deterministic rig iteration.
+/// Invalid RON slot names fail deserialization.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Deserialize)]
 pub enum LimbSlot {
     HandLeft,
     HandRight,
 }
 
-/// On the HOST body: its driven limbs, **keyed by the slot each one fills**. The
-/// rig owns no behavior — it is a relationship, like `MountSlot`.
-///
-/// This was a `Vec<Entity>` "in spawn order (the stable fan-out order)", and
-/// that description overstated what the order did: nothing reads the rig
-/// positionally. [`fan_out_limb_intents`] looked up each limb's own [`Limb::slot`]
-/// to find its intent, so the vector supplied membership and the limb supplied
-/// meaning — two places holding one fact, with a vector able to contain the same
-/// limb twice (driving it twice per frame) or two limbs claiming one slot.
-///
-/// A `BTreeMap<LimbSlot, Entity>` makes both unrepresentable, gives iteration a
-/// deterministic order derived from the slot rather than from when anything
-/// spawned, and makes "the host's rig composition" an exactly checkable value.
+/// Host-owned mapping from limb slot to limb entity.
+/// Slot keys prevent duplicate slots and give deterministic iteration order.
 #[derive(Component, Clone, Default, Debug)]
 pub struct LimbRig {
     pub limbs: BTreeMap<LimbSlot, Entity>,
 }
 
 impl LimbRig {
-    /// A rig holding exactly these slot→limb pairs.
     pub fn from_pairs(pairs: impl IntoIterator<Item = (LimbSlot, Entity)>) -> Self {
         Self {
             limbs: pairs.into_iter().collect(),
@@ -79,8 +42,7 @@ impl LimbRig {
         self.limbs.get(&slot).copied()
     }
 
-    /// Which slot this limb occupies, if any. Answerable at all only because
-    /// the rig is keyed by slot.
+    /// Return the slot assigned to `limb`, if present.
     pub fn slot_of(&self, limb: Entity) -> Option<LimbSlot> {
         self.limbs
             .iter()
@@ -94,32 +56,20 @@ impl LimbRig {
 pub struct Limb {
     pub of: Entity,
     pub slot: LimbSlot,
-    /// Host-local (body-frame) idle anchor, in pixels. When the limb has no
-    /// routed strike intent this tick, the strike router steers its
-    /// `velocity_target` toward `host.pos + gravity_frame(home_offset)` — the
-    /// idle pose source that replaces the deleted per-frame hand animation
-    /// (station-keeping).
+    /// Host-local idle anchor in pixels. With no routed strike, the router steers
+    /// the limb toward this offset in the host's gravity frame.
     pub home_offset: ae::Vec2,
 }
 
-/// On the HOST (mount) body carrying a [`LimbRig`]: the router's per-mount edge
-/// memory. Holds the move id whose STRIKE currently drives limbs so a
-/// `melee_pressed` edge fires exactly once — at the Active-window onset —
-/// instead of every tick the strike is live. `None` when no routed strike is
-/// active.
+/// Remembers the move currently driving limbs so `melee_pressed` fires only on
+/// the active-window onset.
 #[derive(Component, Clone, Default, Debug)]
 pub struct LimbRouteState {
     active_move: Option<String>,
 }
 
 impl LimbRouteState {
-    /// Advance the edge memo to this tick's actively-striking move (`None` for a
-    /// telegraph or no strike at all) and report whether that is an ONSET — a
-    /// different move than the one driving limbs last tick.
-    ///
-    /// The rule and the memo it reads are ONE step: a caller that could observe
-    /// the memo and then forget to advance it would emit the strike edge every
-    /// tick the strike is live, which is the exact bug the memo exists to stop.
+    /// Advance the active-move memo and report whether a new strike began.
     pub fn begin_strike(&mut self, active_strike_move: Option<String>) -> bool {
         let onset = matches!(&active_strike_move, Some(m)
             if self.active_move.as_deref() != Some(m.as_str()));
@@ -128,26 +78,19 @@ impl LimbRouteState {
     }
 }
 
-/// On the HOST body: the per-limb intent table its driving brain writes each
-/// tick (a boss pattern maps attack steps onto per-limb velocity targets +
-/// attack edges here; a possessing player's verb map writes here too).
+/// Host-owned per-limb control intents for the current tick.
 #[derive(Component, Clone, Default, Debug)]
 pub struct LimbIntents(pub BTreeMap<LimbSlot, ActorControlFrame>);
 
-/// Copy each rigged limb's intent onto its `ActorControl` — the 1→N sibling
-/// of `steer_mount_from_rider`'s 1→1 copy. A slot with no intent this tick is
-/// explicitly neutralized (no stale frames). Runs after the host brain tick,
-/// before body integration.
+/// Copy host limb intents into each rigged limb's `ActorControl`.
+/// Missing slot intents are neutralized. Runs after host brain updates and before integration.
 pub fn fan_out_limb_intents(
     hosts: Query<(&LimbRig, &LimbIntents)>,
     mut limbs: Query<&mut ActorControl, With<Limb>>,
 ) {
     for (rig, intents) in &hosts {
-        // The RIG's key is the slot, so the intent a limb receives is decided by
-        // the host's own record of what that limb is for. Reading the limb's
-        // `Limb::slot` instead — as this used to — asked the driven body which
-        // instrument it was playing, which is the wrong end of the relationship
-        // and diverges silently if the two ever disagree.
+        // The host rig is authoritative for slot membership; do not derive the
+        // slot from the limb's forward link, which may disagree with the rig.
         for (&slot, &limb_entity) in &rig.limbs {
             let Ok(mut control) = limbs.get_mut(limb_entity) else {
                 continue; // despawned/unspawned limb: the rig tolerates gaps

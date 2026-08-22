@@ -24,24 +24,9 @@ fn closing(center_x: f32, center_y: f32, speed: f32) -> BodyContactBlocker {
     BodyContactBlocker::new(body(center_x, center_y), Vec2::new(speed, 0.0))
 }
 
-/// **A FIELD FOR A MOVER PROPOSING `delta_along`, whose velocity and step
-/// AGREE.** `dt` is `1.0` throughout this file, so the two numbers are the same
-/// one.
-///
-/// ⚠ **that agreement is this FIXTURE's, not production's.** The snapshot is
-/// sampled before any controller runs, so a body starting, stopping or reversing
-/// this tick carries an ENTRY velocity that did not produce the step being
-/// constrained. What the fixture must not do is claim a stationary body is
-/// proposing motion — see below — but neither should it be read as saying
-/// production always agrees.
-///
-/// ⛔⛔ **there is no way to build a field here that claims a stationary body is
-/// proposing motion, and that is deliberate.** The constructor that did
-/// (`BodyContactField::new`, deleted 2026-08-21) promised "every share it
-/// computes is the whole gap" — and four tests in this file bought that promise
-/// while asking for thirty units of motion from a body they described as
-/// standing still. No production caller can be in that state, so the branch that
-/// decides what to do when NEITHER body is moving was never once exercised here.
+/// Build a contact field whose entry velocity matches `delta_along` (`dt == 1`).
+/// Production may start, stop, or reverse after the snapshot; this fixture only
+/// forbids the inconsistent case of a stationary body proposing nonzero motion.
 fn field(
     blockers: &[BodyContactBlocker],
     resistance: f32,

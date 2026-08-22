@@ -1661,15 +1661,9 @@ pub(crate) fn spawn_enemy_with_faction_into(
     // twins rather than arms of a road-selection match.
 }
 
-/// Populate a `"giant"`-class LIMBED HOST onto an executor-allocated root: the
-/// ordinary enemy body, plus the host-side rig state the limb router reads.
-///
-/// The rig MEMBERSHIP (`LimbRig`) is installed by the `ambition.limb` relation
-/// wiring, one entry per hand; the two host-owned scratch components
-/// ([`LimbIntents`], [`LimbRouteState`]) belong to the host itself
-/// and are inserted here. `spawn_giant_hand_limbs` used to insert all three
-/// together while also minting the hand bodies; now the hands are their own plan
-/// rows and only their back-link is a relation.
+/// Populate a limbed host with the host-owned [`LimbIntents`] and
+/// [`LimbRouteState`]. [`LimbRig`] membership is installed by `ambition.limb`
+/// relation wiring.
 pub(crate) fn populate_giant_host_into(
     commands: &mut Commands,
     catalog: &CharacterCatalog,

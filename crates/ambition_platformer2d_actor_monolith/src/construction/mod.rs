@@ -757,10 +757,8 @@ fn construct_placement(
 
 // ── Relations ────────────────────────────────────────────────────────────────
 
-/// Stable dump/diagnostic key for a limb slot. Byte-stable because it reaches
-/// the plan dump, so it is spelled INDEPENDENTLY of the variant: route
-/// authoring names slots as `LimbSlot` variants now, and a dump key that
-/// followed a rename would silently rewrite every recorded plan.
+/// Stable dump/diagnostic key for a limb slot. It is independent of variant names
+/// so renaming a `LimbSlot` does not rewrite recorded plans.
 fn limb_slot_key(slot: LimbSlot) -> &'static str {
     match slot {
         LimbSlot::HandLeft => "hand_left",
@@ -859,14 +857,7 @@ fn verify_limb(
     }
 }
 
-/// The exact rig a plan describes for one host: every limb relation naming it,
-/// as slot → limb identity.
-///
-/// Separate from [`verify_limb`] because it is a different question. That one
-/// asks "did MY relation land"; a host whose rig gained an extra limb from
-/// somewhere else answers yes to every such question while carrying a rig the
-/// plan never described. Callers compare this against the committed
-/// [`LimbRig`] to check composition rather than membership.
+/// Planned slot-to-limb identity map for one host, used to verify exact rig composition.
 pub fn planned_rig_for_host(
     plan: &ActorConstructionPlan,
     host: &SimId,
@@ -881,28 +872,12 @@ pub fn planned_rig_for_host(
         .collect()
 }
 
-/// Compare every planned row's committed rig against the EXACT composition the
-/// plan described for it — the composition question [`verify_limb`] cannot ask.
+/// Verify that every committed [`LimbRig`] exactly matches the construction plan.
 ///
-/// The per-relation postcondition pass proves each planned limb landed; it is
-/// structurally blind to a rig that ALSO holds something the plan never named
-/// (an extra slot, a duplicated limb entity, a second intent stream's leftover),
-/// because no planned relation points at the surplus. This pass derives the
-/// expected slot→identity map from the plan ([`planned_rig_for_host`]), resolves
-/// identities to entities through the receipt (which pins generation, not just
-/// index), and demands slot-for-slot equality both ways:
-///
-/// - every planned slot occupied, by exactly the planned limb's committed entity;
-/// - no slot the plan did not describe;
-/// - no limb entity appearing in two slots;
-/// - each occupant's forward [`Limb`] agreeing on host AND slot
-///   (which catches a stale host generation: `Limb.of` carries the full
-///   `Entity`, so an old generation compares unequal);
-/// - a row with no planned limbs carrying no rig entries at all.
-///
-/// Runs over ALL planned rows, not just giant hosts, so an unplanned rig
-/// appearing on any committed row is a finding. Read-only; violations surface as
-/// [`RosterViolation::RigComposition`], which is fatal.
+/// Per-relation checks cannot detect surplus rig entries, so this pass compares the
+/// full slot-to-entity map, rejects duplicate or unplanned membership, and verifies
+/// each occupant's forward [`Limb`] agrees on host and slot. Violations are returned
+/// as [`RosterViolation::RigComposition`].
 pub fn verify_rig_composition(
     plan: &ActorConstructionPlan,
     receipt: &ambition_platformer2d_shared_tangle::construction::ConstructionReceipt,

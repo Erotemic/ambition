@@ -1,40 +1,17 @@
-//! ADR 0010 — time-control authority as data.
+//! Time-control authority as data.
 //!
-//! ⭐ **the ARBITRATION lives here, the game policy that produces requests does
-//! not.** This crate already owned the vocabulary — [`ClockDomain`],
-//! [`ClockState`], [`ClockObserver`] — while who-may-change-a-clock sat in the
-//! actor monolith, so the two halves of one ADR were in two crates and the
-//! policy half dragged combat feel, character health and developer tooling in
-//! with it. What moved needs nothing but this crate; what stayed
-//! (`emit_player_time_intent_system` and the feel-tuned ramp) is Ambition
-//! asking, not the engine deciding.
-//!
-//! Gameplay code never mutates [`ClockState::time_scale`]
-//! (or any future per-domain clock) directly. Instead it writes a
-//! [`ClockScaleRequest`] or [`ClockResetRequest`] message naming the
-//! [`ClockDomain`] it wants to affect, the requested `scale`, and the
-//! [`ClockRequester`] doing the asking. [`apply_clock_scale_requests`] consults
-//! the active [`RegimePolicy`] and either grants, denies, rebinds, or broadcasts
-//! the request.
-//!
-//! In the default [`Regime::Solo`] regime — single-player —
-//! every requester is granted. The shape of the dispatch is the same
-//! as it will be in CoopConsensual / Competitive / RLDeterministic
-//! regimes; what changes is only the policy table.
-//!
-//! See ADR 0010 §Vocabulary, ADR 0011 §Two time-control operations.
+//! Gameplay emits [`ClockScaleRequest`] or [`ClockResetRequest`] instead of
+//! mutating [`ClockState::time_scale`] directly. [`apply_clock_scale_requests`]
+//! applies the active [`RegimePolicy`] to each request. [`Regime::Solo`] grants
+//! every requester; other regimes change the policy table rather than the callers.
 
 use bevy::prelude::*;
 
 use crate::{ClockDomain, ClockObserver, ClockState};
 
-/// Who is asking for a clock change. Encoded as data so a policy
-/// table can grant/deny based on identity without hard-coding which
-/// systems are allowed to touch which clocks.
-///
-/// ADR 0010 calls this the `requester` field of `ClockScaleRequest`.
+/// Identity of the requester, used by [`RegimePolicy`] to authorize clock changes.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-#[allow(dead_code)] // `Scripted` + `Boss` are reserved per ADR 0010 (narrative authority).
+#[allow(dead_code)] // Reserved for narrative and boss clock authority.
 pub enum ClockRequester {
     /// A player ability (today: bullet-time blink) or future player-
     /// triggered time mechanic.
@@ -45,9 +22,7 @@ pub enum ClockRequester {
     Scripted,
     /// The engine itself — game-mode pause / suspended-gameplay zeroing.
     Engine,
-    /// A boss (or other in-world entity) that has been granted time
-    /// authority by a room-scoped policy override. ADR 0010 §Narrative
-    /// authority: "the boss got root on the simulator."
+    /// An in-world entity granted clock authority by room-scoped policy.
     Boss,
 }
 
@@ -60,7 +35,7 @@ pub enum ClockRequester {
 /// scope (e.g., CoopConsensual sharing a player's bullet-time across
 /// all PlayerClocks).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-#[allow(dead_code)] // `Rebind` + `Broadcast` are reserved per ADR 0010 (CoopConsensual / Regimes).
+#[allow(dead_code)] // Some policy variants are not selected by current hosts.
 pub enum Permission {
     Grant,
     Deny,
@@ -68,17 +43,12 @@ pub enum Permission {
     Broadcast,
 }
 
-/// The active permission table. ADR 0010 §Regimes — adding a regime
-/// is a data change, not a code change.
+/// Active clock permission policy.
 ///
-/// `Solo` is the SP default: permissive, every request granted.
-/// `RLDeterministic` denies all clock-scale requests so training
-/// runs and CI use a fixed timestep. `Cinematic` defers player
-/// requests while scripted authority holds; useful during cutscenes.
-///
-/// Future: `CoopConsensual` and `Competitive` (ADR 0010 §Regimes).
+/// `Solo` grants every request; `RLDeterministic` denies scale changes; `Cinematic`
+/// defers player requests while scripted authority holds.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-#[allow(dead_code)] // RLDeterministic + Cinematic regimes reserved per ADR 0010.
+#[allow(dead_code)] // Non-solo regimes are not selected by current hosts.
 pub enum Regime {
     Solo,
     RLDeterministic,
@@ -138,12 +108,8 @@ pub struct ClockScaleRequest {
     pub reason: &'static str,
 }
 
-/// A request to snap a named clock back to its neutral scale. This is separate
-/// from [`ClockScaleRequest`] because reset/respawn/room-transition semantics
-/// historically snapped the current sim clock to `1.0`; routing those events
-/// through the regular scale target would make the smoother ramp up over later
-/// frames instead. Gameplay callers emit this intent and the time-control owner
-/// mutates both the requested target and the live [`ClockState`].
+/// Request an immediate reset of a named clock to neutral scale.
+/// Separate from [`ClockScaleRequest`] so reset/respawn/transition can bypass smoothing.
 #[derive(Message, Copy, Clone, Debug)]
 pub struct ClockResetRequest {
     pub domain: ClockDomain,
@@ -188,42 +154,12 @@ impl Default for RequestedClockScale {
     }
 }
 
-/// Drain pending [`ClockScaleRequest`] messages, run them through
-/// the active [`RegimePolicy`], and store the granted scales in
-/// [`RequestedClockScale`].
+/// Apply granted clock-scale requests to [`RequestedClockScale`].
 ///
-/// This system DOES NOT mutate [`ClockState::time_scale`]
-/// directly — that's the smoother's job. The split exists so the
-/// policy table sees every requester (auditability, telemetry) and
-/// so multiple per-frame requesters can land in a sensible order
-/// before the smoother converts the resulting target into the
-/// current frame's time_scale.
-///
-/// **Multiple requests in one frame: the STRONGEST slow wins, not the last one.**
-///
-/// Every requester in this engine asks time to slow — hitstop asks for 0.0,
-/// bullet-time and a transformation beat ask for a fraction, and "nothing is
-/// happening" is expressed as 1.0. So the granted requests reduce by `min`,
-/// which is what "the strongest effect in force" means and is the only reduction
-/// that does not depend on schedule order, query order, or which player ran last.
-///
-/// It used to be last-wins, and that was a live bug rather than a latent one:
-/// `emit_player_time_intent_system` writes a request EVERY frame, falling through
-/// to 1.0 when it has nothing to say, and it runs in the frame tail — after
-/// `PlayerSimulation`, where the transformation beat writes its 0.35. The beat's
-/// dilation was therefore written and then overwritten within the same frame,
-/// every frame, and the transformation slow-motion never once reached the clock.
-/// Its unit test asserted the message contents and never ran this reducer, so it
-/// stayed green throughout.
-///
-/// A requester that wants time to run FAST would not compose under `min` and is
-/// deliberately not modelled — no such requester exists, and inventing a
-/// precedence lattice for a hypothetical one would be harder to reason about than
-/// this. Add the lattice when the second kind of requester actually arrives.
-///
-/// A frame with no granted requests leaves the target untouched rather than
-/// snapping to 1.0: absence of an opinion is not an opinion. `ClockResetRequest`
-/// is the way to say "back to normal now".
+/// Multiple requests reduce by `min`, so the strongest slowdown wins independently
+/// of schedule or query order. A frame with no granted request leaves the target
+/// unchanged; callers use [`ClockResetRequest`] to request a return to normal speed.
+/// Fast-forward requests are not currently modeled by this reduction.
 pub fn apply_clock_scale_requests(
     mut requests: MessageReader<ClockScaleRequest>,
     policy: Res<RegimePolicy>,
@@ -235,15 +171,11 @@ pub fn apply_clock_scale_requests(
             Permission::Grant => req.domain,
             Permission::Deny => continue,
             Permission::Rebind(other) => other,
-            // SP today has one player + one sim clock; broadcast collapses to
-            // SimClock. CoopConsensual will fan out to every PlayerClock here.
+            // Solo has one player clock, so broadcast currently collapses to `SimClock`.
             Permission::Broadcast => ClockDomain::SimClock,
         };
         match domain {
-            // ADR 0011 §Two time-control operations — in SP the
-            // "boost-player-proper-time" path collapses onto SimClock (one
-            // observer, one frame). When MP lands, this arm diverges into
-            // per-PlayerClock targets.
+            // Solo has one player clock, so this currently targets `SimClock`.
             ClockDomain::SimClock | ClockDomain::PlayerClock(_) => {
                 strongest = Some(strongest.map_or(req.scale, |held: f32| held.min(req.scale)));
             }
@@ -291,7 +223,7 @@ fn reset_domain(target: &mut RequestedClockScale, clock: &mut ClockState, domain
 /// The host schedule runs this FIRST (under `run_if(gameplay_suspended)`), before
 /// `refresh_world_time` snapshots the scale — otherwise `WorldTime::scaled_dt`
 /// stays non-zero on the first suspended frame and presentation systems tick once
-/// after pause lands (ADR 0010 §"Suspended time"). The ordering lives in the app's
+/// after pause. The ordering lives in the app's
 /// `register_player_input_systems`; the logic is body-generic time control and
 /// lives here.
 pub fn apply_suspended_time_scale_system(

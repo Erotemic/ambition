@@ -440,32 +440,10 @@ fn list_what_the_shipped_ceiling_is_still_holding() {
     }
 }
 
-/// **Print what every waiver is actually covering.** (A18)
+/// Print the concrete types covered by each rollback waiver.
 ///
-/// Not an assertion — a listing, so the claims can be re-read against reality.
-/// `BossAnimFrame` was swallowed by `ambition_sprite_sheet::` ("sprite metadata /
-/// asset binding") while being a sim-owned cursor that boss hurtbox geometry
-/// derives from. A prefix waiver assumes a crate holds exactly one kind of thing,
-/// and crates grow.
-///
-/// ⚠ **AND MOST WAIVERS ARE PREFIXES — counted 2026-08-22: 22 of the 31 component
-/// waivers and 24 of the 108 resource waivers are crate-wide or generic-prefix,
-/// including `ambition_sprite_sheet::`, the one named above as having already
-/// swallowed a real defect.** That is the standing risk, and reading this listing
-/// cannot retire it: a prefix's danger is the type nobody has written yet, which
-/// no sample of two rooms can enumerate. What the listing IS for is checking that
-/// the concrete types a prefix covers TODAY all match the reason it gives — a row
-/// whose reason does not describe it is a prefix that has grown past its
-/// justification, which is exactly how `BossAnimFrame` got through.
-///
-/// ✔ **`ambition_sprite_sheet::` audited 2026-08-22 and it is CLEAN.** It holds
-/// five components — `BossAnimFrame`, `BossAnimator`, `CharacterAnimator`,
-/// `ActorAnimOverride`, `SpritePosedBody`. `BossAnimFrame` is registered now
-/// (`ambition_boss_encounter::register_rollback_state`, a rewound cursor), and
-/// the other four are written at spawn and never mutated — `SpritePosedBody` has
-/// no `&mut` site in the workspace — so "sprite metadata / asset binding"
-/// describes them. ⚠ this says nothing about the OTHER 21 prefixes, and nothing
-/// about next month: it is the check being demonstrated, not retired.
+/// Prefix waivers can grow to cover types their reason no longer describes, so this
+/// audit listing is for comparing each current type against its waiver rationale.
 #[test]
 #[ignore = "audit listing: prints what each waiver covers; read it, do not assert on it"]
 fn list_what_every_waiver_actually_covers() {

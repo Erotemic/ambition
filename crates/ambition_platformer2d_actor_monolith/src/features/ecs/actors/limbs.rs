@@ -1,15 +1,8 @@
-//! The limb STRIKE ROUTER — translate a rider-boss's live strike into per-limb
-//! intents on the mount it rides (fable review 2026-07-05, AJ12 / R10.1, Q18).
+//! Translate a rider-boss strike into per-limb intents on its mount.
 //!
-//! The limb VOCABULARY — [`LimbSlot`], [`LimbRig`], [`Limb`], [`LimbIntents`],
-//! [`LimbRouteState`] and the [`fan_out_limb_intents`] copy — lives in
-//! `ambition_characters::actor::limb`, beside the `LimbRoute` that AUTHORS a
-//! route. What stays here is the half that reads a MOUNT: its kinematics, its
-//! clung surface, and the `MountSlot` link to the rider whose `BossAttackState`
-//! is being translated.
-//!
-//! Schedule contract: after the host's brain tick and `steer_mount_from_rider`,
-//! before `integrate_sim_bodies` — the same slot the mount steer occupies.
+//! Limb vocabulary and fan-out live in `ambition_characters::actor::limb`; this
+//! module owns the mount-specific routing that reads mount kinematics and rider
+//! attack state. It runs after host brain/mount steering and before body integration.
 
 use ambition_characters::actor::control::ActorControlFrame;
 use ambition_characters::actor::limb::{Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot};

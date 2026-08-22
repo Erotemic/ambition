@@ -85,14 +85,8 @@ pub fn step_body(
         return ae::step_motion(model, clusters, ctx);
     }
     if combat.is_in_hitlag() {
-        // ⭐ **SDI: the ONE thing a body may still do while frozen.** Hitlag is
-        // a WINDOW rather than merely a pause, and this is what makes it one —
-        // the victim shifts itself out of the next hit's way while the current
-        // one is still stopped. Its offensive twin, DI, already rides the launch
-        // this same freeze precedes.
-        //
-        // ⛔ **swept, because this tick's `step_motion` will not sweep it** —
-        // `dt` is zeroed below and the kernel returns before its collision pass.
+        // SDI is allowed during hitlag, but `step_motion` does not sweep when
+        // `dt == 0`; sweep the displacement here so it cannot enter geometry.
         ae::movement::shift_frozen_body(
             ctx.world,
             clusters.kinematics,

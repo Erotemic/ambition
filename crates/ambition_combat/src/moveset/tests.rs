@@ -3153,12 +3153,7 @@ fn a_captor_cannot_reach_its_ordinary_special() {
     );
 }
 
-// ── A weapon in hand owns the Attack press ────────────────────────────────
-//
-// Jon: *"When I have the laser sword in ambition and I use it, I incorrectly
-// still use my normal jab attack."* The `ActionSet` and the moveset are a UNION
-// for the Attack slot, and equipping only ever displaced the `ActionSet` half —
-// so the wearer's own `attack` verb kept answering beside the weapon.
+// A held weapon owns the Attack press; the wearer's normal attack must not run beside it.
 
 /// A body with its own `attack` verb, pressing it, nothing playing.
 fn spawn_pressing_body(app: &mut App) -> Entity {

@@ -39,10 +39,5 @@ ambition_sfx = { path = "../ambition_sfx" }
 ambition_vfx = { path = "../ambition_vfx" }
 # Serde derives on the shot kind + visual-kind art descriptors (ron-room bake).
 serde = { workspace = true }
-# ECS component/message/resource derives.
-# ⚠ `bevy_log` is NAMED here rather than inherited. `diagnostics.rs` uses
-# `bevy::prelude::info`, which only exists with that feature — and it was
-# arriving through `ambition_portal2d`'s own bevy features until that dep became
-# optional. A crate that needs a feature declares it; feature unification is not
-# a dependency.
+# ECS derives plus logging used directly by `diagnostics.rs`.
 bevy = { version = "0.18.1", default-features = false, features = ["bevy_log"] }

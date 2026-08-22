@@ -82,7 +82,7 @@ you add a `▢`, and before you work one.
 |---|---|---|
 | Full hop, double jump, wall jump, fast fall | ✔ | `core::movement` |
 | Jump squat, and a release inside it short-hops | ✔ | `movement/simulation.rs::tick_jump_squat` |
-| Short hop as its own authored height (not a velocity cut) | ▢ | — |
+| Short hop as its own authored height (not a velocity cut) | ~ | the MECHANIC ships — releasing jump during jump-squat shortens the hop, deferred to takeoff through the body's own `AxisJumpLaw` (`cut_ascent_now`, guarded by `a_button_released_during_the_squat_still_shortens_the_hop`). Only Ultimate's per-fighter authored HEIGHT is absent, and `abilities.rs` + `simulation.rs` refuse it in writing: *"not a second short hop mechanic"*, *"two mechanisms for one feel knob"*. ⇒ this is a ruled difference, not a gap — reopen only with a fighter that needs a height its jump law cannot express |
 | Footstool jump — claims the press, costs no air jump, 4f i-frames, Team-Attack gated | ✔ | `features/ecs/footstool.rs`; grounded victim flinches, airborne one tumbles (`ae::footstool_victim`) |
 | Phantom footstool (a target mid-move is not interrupted) | ✔ | the stomper still takes the bounce; `BodyMelee::phase()` is the committed test |
 | Jostle / body pushback between fighters | ✔ | LANDED `da884be08`. AVOID PUSHOUT is about PORTALS (§25); body contact is an OPT-IN capability of the movement SWEEP — proposed motion constrained BEFORE integration, never separated after — and smash grants it to its cast. ⭐ it turned the whole suite green, 26/7 → 34/0. ⛔ an acceleration term cannot work: the kernel overwrites `vx` toward the input target. ▢ the resistance number (0.85) is an unmeasured feel choice |

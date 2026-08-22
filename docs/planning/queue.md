@@ -345,47 +345,32 @@ without the resolver still runs the guard. Breaking that hook takes the whole
 standing-goal mechanism down, and it can only be exercised by ending a turn,
 which is why the logic moved into a script a test can run.
 
-- ▢ **D181 — SHE STOPS DEAD AT x=201.13 WITH FULL RUN INPUT, AND AN ENEMY IS
-  CLOSING ON HER.** (measured 2026-08-22)
+- ✔ **D181 — THE CHASE WALKED SMALL MARY-O INTO A SNAKE, AND THE "STALL" WAS HER
+  CORPSE.** (found and fixed 2026-08-22)
 
-`level_1_acceptance::a_grown_mary_o_bonks_a_question_block_and_wears_the_fire_flower`
-is the one red test in `ambition_demo_mary_o_app`. Measured rather than
-reasoned, and two earlier framings of this row were wrong and are struck:
+`ambition_demo_mary_o_app` is green: 39 pass, 0 fail. Two framings of this row
+were struck by measurement before the real one held.
 
-⛔ **NOT "the wand is unreachable".** Tracked to rest: it falls off the block and
-walks along the floor at `y = 400.5`, which is her own standing height.
+⛔ **NOT "the wand is unreachable"** — tracked to rest, it falls off the block and
+walks the floor at `y = 400.5`, her own standing height, for 220+ frames.
+⛔ **NOT "the ?-block bonk is broken"** — `Head/Block { kind: Solid, …
+MaryOBlock-106885 }` fires at head = 320.0, the exact underside.
 
-```text
-wand   0    (263.0, 388.8)   still falling
-wand  20    (281.3, 400.5)   on the floor
-wand 220    (464.7, 400.5)   walking right, reachable the whole way
-```
+⇒ **she was DEAD.** At the stall: `out_of_play = 1`, `damage_invuln = 0.55`,
+`vel = ZERO` while the brain handed her `loco = 0.6`, no control holds, and no
+world block within 24px. A frozen corpse reads exactly like a body ignoring
+input — `halt_body` doing precisely what the death rule asks of it.
 
-⛔ **NOT "the ?-block bonk is broken".** The head contact fires:
-`Head/Block { kind: Solid, … MaryOBlock-106885 }` at head = 320.0, the exact
-underside.
+⇒ **the harness's stomp reach assumed a STANDING threat.** `should_stomp()`
+fired under 96px, but a snake walking toward her closes the gap from both sides
+and the press takes two ticks to reach the sim before the rise starts. She was
+still grounded when they met, and a small Mary-O dies to one hit. `STOMP_REACH_PX`
+is 176 and named; falsified by putting 96 back, which kills the test.
 
-⇒ **what IS wrong is that she stops.** During the chase she walks 182 → 201.13
-and then holds still for 20+ frames while the brain is being handed full run
-input:
-
-```text
-chase 15   bx 195.55   axis 1.00   loco 0.6    stomp false
-chase 20   bx 201.13   axis 0.86   loco 0.52   stomp TRUE
-chase 35   bx 201.13   axis 1.00   loco 0.6    stomp TRUE   ← unchanged
-```
-
-⚠ **an enemy body is right there and closing** — `(217.9, 411.3)` → `(214.9,
-411.3)` against her right edge at 211.8 — and ⛔ **it is NOT body contact**:
-neither body carries a `BodyContact` component, so today's contact work is not
-the mechanism.
-
-⭐ **and the untested branch is the stomp.** `should_stomp()` is true from frame
-15, and the real `chase_until_worn` jumps when it is; the probe above deliberately
-did not, to isolate walking. So the open question is narrow: **what stops a
-grounded body walking into an enemy that has no body contact, and does the stomp
-branch clear it?** Instrument the movement kernel's horizontal resolve at that
-pose — the proposed delta against what the sweep returns.
+⭐ **the whole row is an argument for the differential.** Four mechanisms were
+proposed across D181/D182 and three died to an A/B that ran the same code at two
+inputs. The one that survived came from asking the world what it thought, not
+from reasoning about a symptom.
 
 - ✔ **D182 — `two_rooms::she_crosses_wearing_the_form_she_earned` IS GREEN, AND
   EVERY MECHANISM I PROPOSED FOR IT WAS WRONG.** (2026-08-22)

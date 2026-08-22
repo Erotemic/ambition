@@ -110,10 +110,17 @@ impl Body {
     /// From the top a stomp is always safe; from the side, with no armor left,
     /// it is the end of the attempt. The window is a running jump's worth of
     /// approach, so she leaves the ground before the gap closes.
+    /// ⚠ **the gap has to cover a CLOSING pair, not a standing one.** A snake
+    /// walking toward her shuts the distance from both sides, and the press
+    /// takes two ticks to reach the sim before the rise even starts — at 96px
+    /// she was still grounded when they met, and a small Mary-O dies to one hit.
     fn should_stomp(&self) -> bool {
-        self.on_ground && self.threat_ahead.is_some_and(|gap| gap < 96.0)
+        self.on_ground && self.threat_ahead.is_some_and(|gap| gap < STOMP_REACH_PX)
     }
 }
+
+/// How far ahead a threat has to be before the chase commits to stomping it.
+const STOMP_REACH_PX: f32 = 176.0;
 
 /// Where every collectible in the room IS, which is the question the wand row
 /// needs answered before anybody touches the pickup path.

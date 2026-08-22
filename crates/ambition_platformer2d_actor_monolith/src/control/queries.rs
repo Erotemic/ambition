@@ -60,7 +60,9 @@ pub fn body_driving_seat(
         // Keep invariant handling identical in debug and release: log and
         // refuse ambiguous control authority.
         bevy::log::error!(
-            "control invariant: {} entities hold DrivingParticipant({slot:?}); using the first",
+            "control invariant: {} entities hold DrivingParticipant({slot:?}); \
+             refusing ambiguous authority, so this seat drives nothing until one \
+             of them vacates",
             extra + 1,
         );
         // Ambiguous control identity drives no body this tick.

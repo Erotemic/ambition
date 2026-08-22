@@ -980,6 +980,11 @@ fn place_respawning_fighters(
         // each other. `Option` because a body without one is not a seated
         // fighter, and this system must not stop placing it.
         Option<&ambition_platformer2d::actor::MatchSeat>,
+        // The swing this fighter was mid-way through when it lost the stock.
+        // Needed by VALUE, not just as a component to strip: cancelling a move
+        // means despawning the strike boxes it derived, and only the playback
+        // knows which entities those are.
+        Option<&mut ambition_platformer2d::combat::moveset::MovePlayback>,
     )>,
 ) {
     for event in spent.read() {
@@ -989,7 +994,7 @@ fn place_respawning_fighters(
         if event.eliminated {
             continue;
         }
-        let Ok((clusters, mut model, seat)) = bodies.get_mut(event.body) else {
+        let Ok((clusters, mut model, seat, playback)) = bodies.get_mut(event.body) else {
             continue;
         };
         let seat = seat.map_or(0, |seat| seat.0);
@@ -1024,9 +1029,17 @@ fn place_respawning_fighters(
         // survive the stock it cost, and leaving it on would mean the returning
         // body is "acting" on the frame it materialises — which spends the
         // protection below before its owner has touched the controller.
-        commands
-            .entity(event.body)
-            .try_remove::<ambition_platformer2d::combat::moveset::MovePlayback>();
+        //  through the ONE teardown path, which despawns the strike boxes
+        // the swing derived rather than leaving them for the next tick's
+        // orphan sweep. Stripping the component alone is a second meaning of
+        // "cancel this move", and the boxes outlive the move that owns them.
+        if let Some(mut playback) = playback {
+            ambition_platformer2d::combat::moveset::cancel_move_playback(
+                &mut commands,
+                event.body,
+                &mut playback,
+            );
+        }
         commands.entity(event.body).try_insert(
             ambition_platformer2d::actors::features::empowerment::Empowered::for_seconds(
                 ambition_platformer2d::actors::features::empowerment::Empowerment::UNTOUCHABLE,

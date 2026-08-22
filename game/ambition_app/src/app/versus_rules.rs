@@ -152,6 +152,10 @@ type FighterQuery<'w, 's> = Query<
         &'static mut BodyHealth,
         ae::BodyClusterQueryData,
         &'static mut ambition_platformer2d::actors::features::MotionModel,
+        // The swing a fighter was mid-way through when the round ended. Carried
+        // by VALUE because cancelling a move means despawning the strike boxes
+        // it derived, and only the playback knows which entities those are.
+        Option<&'static mut ambition_platformer2d::combat::moveset::MovePlayback>,
     ),
 >;
 
@@ -496,7 +500,7 @@ fn begin_round(
     // culls whatever belonged to the last one.
     rounds.begin();
     let centre = geometry.0.spawn;
-    for (entity, seat, _, mut health, item, mut model) in fighters.iter_mut() {
+    for (entity, seat, _, mut health, item, mut model, playback) in fighters.iter_mut() {
         health.health.current = health.health.max;
         let (at, facing) = seat_placement(seat.0, centre);
         let mut item = item;
@@ -523,9 +527,17 @@ fn begin_round(
             ae::DEFAULT_TUNING.air_jumps,
         );
         clusters.kinematics.facing = facing;
-        commands
-            .entity(entity)
-            .try_remove::<ambition_platformer2d::combat::moveset::MovePlayback>();
+        //  through the ONE teardown path. Stripping the component alone
+        // leaves the swing's strike boxes standing until the next tick's orphan
+        // sweep, so an entity from the previous round outlives the round -- the
+        // exact thing the `rounds.begin()` above exists to stop.
+        if let Some(mut playback) = playback {
+            ambition_platformer2d::combat::moveset::cancel_move_playback(
+                commands,
+                entity,
+                &mut playback,
+            );
+        }
         // The controls deliberately do NOT come back here.
         //
         // A round now opens on a COUNTDOWN, and the fighters are reset and visible through all

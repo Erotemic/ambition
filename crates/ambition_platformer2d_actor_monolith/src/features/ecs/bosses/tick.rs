@@ -139,13 +139,17 @@ pub fn sync_boss_encounter_phase(
 /// attacks use the possessor's effective faction.
 pub fn trigger_boss_attack_moves(
     mut commands: Commands,
-    bosses: Query<
+    mut bosses: Query<
         (
             Entity,
             &BossAttackIntent,
             &crate::combat::moveset::ActorMoveset,
             &crate::actor::BodyKinematics,
-            Option<&crate::combat::moveset::MovePlayback>,
+            // MUTABLE so an interrupted windup can go through the one teardown
+            // path below. A windup carries no strike boxes yet, so nothing is
+            // leaking today -- but "cancel this move" having one meaning is what
+            // keeps the next interrupt from being the one that does.
+            Option<&mut crate::combat::moveset::MovePlayback>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -159,7 +163,7 @@ pub fn trigger_boss_attack_moves(
             .map(|w| w.start_s)
             .unwrap_or(0.0)
     };
-    for (entity, attack_intent, moveset, kin, playback) in &bosses {
+    for (entity, attack_intent, moveset, kin, playback) in &mut bosses {
         // The driver's per-tick INTENT this frame (§A1 split — written by the boss
         // pattern OR possession before the combat phase): a Telegraph step wants the
         // move played from its windup (`t0 = 0`), a Strike/possession step with no
@@ -174,14 +178,12 @@ pub fn trigger_boss_attack_moves(
         // This is the telegraph-edge trigger's parity with the old strike-edge behavior: an
         // interrupted windup must NOT strike. A move already in its Active window is committed
         // (the Smash convention) and runs to completion.
-        if let Some(pb) = playback {
+        if let Some(mut pb) = playback {
             let move_profile = BossAttackProfile::from_move_id(&pb.spec.id);
             let in_windup = pb.t < active_start(&pb.spec);
             let intent_wants_this = intent.is_some_and(|(p, _)| *p == move_profile);
             if in_windup && !intent_wants_this {
-                commands
-                    .entity(entity)
-                    .remove::<crate::combat::moveset::MovePlayback>();
+                crate::combat::moveset::cancel_move_playback(&mut commands, entity, &mut pb);
             }
             continue;
         }

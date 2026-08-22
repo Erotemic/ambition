@@ -37,6 +37,36 @@ from pathlib import Path
 # assertion INSIDE the allowed file rather than renaming it back.
 ABSENCE_CONTRACTS: list[dict] = [
     {
+        "id": "ending-a-move-goes-through-the-one-teardown-path",
+        "paths": [
+            "crates/",
+            "game/",
+            # `cancel_move_playback` IS the path, and it is the removal.
+            ":(exclude)crates/ambition_combat/src/moveset/mod.rs",
+        ],
+        # POSIX ERE -- `git grep` does not take non-capturing groups. Matching
+        # `remove::<` as a substring covers `try_remove::<` too, which is the
+        # spelling two of the three offenders used.
+        "patterns": [r"remove::<[ A-Za-z0-9_:]*MovePlayback"],
+        "reason": (
+            "ENDING A MOVE MEANS ENDING ITS STRIKE BOXES. A move's hit volumes are "
+            "spawned entities the playback owns by id; stripping `MovePlayback` on "
+            "its own orphans them, and they stand until the next tick's "
+            "`retire_orphaned_strike_volumes` sweep. `cancel_move_playback` is the "
+            "one teardown path and despawns both. "
+            "This has been rediscovered twice. The helper's own doc records FOUR "
+            "hand-copies, one of them carrying the comment 'Tear down exactly as "
+            "natural completion does (the ONE teardown path)' -- a claim the code "
+            "made true by duplication. Three more survived that consolidation: the "
+            "smash respawn, the versus round reset, and an interrupted boss windup. "
+            "A comment cannot hold this invariant, because the wrong version is one "
+            "line shorter and reads correct. "
+            "If a site genuinely has no boxes to despawn (a windup, say), call the "
+            "helper anyway -- it is a no-op there, and being a no-op is not a reason "
+            "to keep a second meaning of 'cancel this move' alive."
+        ),
+    },
+    {
         "id": "the-generic-brain-does-not-grow-new-platform-fighter-edges",
         "paths": [
             "crates/ambition_characters/src/brain/",

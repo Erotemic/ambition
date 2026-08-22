@@ -75,6 +75,24 @@ did not panic" agrees with a function that does nothing. `run_game.sh` learned
 `twintrack` (the fourth demo shell, previously reachable only by hand-writing the
 cargo invocation), and `--ticks` stopped being ignored by the smash shell.
 
+⛔⛔ **AND I SHIPPED D175 WITH 20 `app_it` TESTS RED.** The background job that
+ran them printed two suites; I greped the output, read `test result: ok. 187
+passed` off the FIRST one, and never saw the twenty `... FAILED` lines below it.
+The task notification said *exit code 0* because the command ended in `| grep` —
+the pipeline's status is the grep's. ⇒ **grep for FAILURES and read the LAST
+result line**, and treat a piped test command's exit code as meaningless.
+
+The defect underneath was one wrong predicate. `SeatRawFrames` is this tick's
+input only on a frame-stepped host; a latch host has drained into `SlotControls`
+already, and a rollback host had it published there by the SESSION. Every stage
+that read the raw row inherited that, and the gesture derivation wrote what it
+read back into the slot — so under rollback it overwrote GGRS's confirmed input
+with a neutral row and both seats went silent through a rewind. Asked once now:
+`another_authority_publishes`, with `seat_frame_this_tick` to read and
+`shape_seat_frame` to write. Reads pick the authoritative table; writes go to
+both, because which is authoritative depends on the host and which a shaped value
+must reach does not.
+
 ⛔⛔ **THE RECURRING LESSON, and it is the sharpest kind of unfalsifiable check.**
 Three Mary-O fixtures asserted *"a scripted press did not survive into the
 simulation"* by reading `ControlFrame` — **the resource the scripted stage writes

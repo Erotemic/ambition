@@ -6907,7 +6907,44 @@ in the one place nobody reads. ⭐ **and the optional dep is still a preconditio
 not a wasted step**: with it unconditional the counter could not move no matter
 what those two did.
 
-⛔⛔ **AND THOSE TWO LINES CANNOT SIMPLY BE DELETED — probed, 2026-08-18.**
+✔✔ **AND THEY CAN NOW — AND THEY ARE GONE (2026-08-22). `ambition_platformer2d_ldtk`
+LEFT THE MOVEMENT-ONLY CLOSURE: 44 → 43, `never_asked_for` 17 → 16**, and
+third-party `bevy_ecs_ldtk` went with it. The ratchet is re-frozen at the new
+floor, so a regression back cannot pass silently.
+
+⭐ **it was THREE edges, and the row only named two.** The third was
+`ambition_platformer2d_runtime` naming the LDtk crate UNCONDITIONALLY for its own
+`LdtkWorldPlugin` and one `Option<LdtkRuntimeIndex>` slot on
+`PreparedPlatformerSource` — five lines of code. That dep is `optional` now
+behind a runtime `ldtk` feature, forwarded through the provider and the facade
+and folded into `all_capabilities`, so a game that asks for every capability has
+an LDtk world and a movement-only game has neither the feature nor the crate.
+
+⭐⭐ **and the reason the other two could fall is that the probe result had gone
+STALE.** This row recorded *"the MONOLITH itself does not build without
+`ldtk_runtime`"*. Re-probed: `cargo check -p ambition_platformer2d_actor_monolith
+--no-default-features --features visible` is **zero errors**. The cfg-gating
+landed in the four months between; the recorded blocker outlived it. ⇒ **re-run a
+probe before believing a blocker, exactly as you would re-grep a ▢.**
+
+⚠ **the content fingerprint did NOT move, and that had to be checked.** The
+provider writes `world.runtime-index` from the installed index; without the
+capability there is none, and an absent index writes byte-for-byte what a
+RON-authored game already wrote (one `area\t<id>\t\t-` row per room). The
+provider's own comment states that equality, which is what makes this a
+link-closure change rather than a content-identity one.
+
+⛔ **and a mid-course error worth keeping**: I first read *"`ambition_sim_view`
+no longer hard-codes the features"* off a single-line grep. It does — the list is
+a multi-line TOML array, and `grep 'features.*ldtk'` cannot see it. The row's
+original diagnosis was right all along.
+
+⚠ price: two tracked lockfiles (`minimal_game`, `capability_demo`) and one
+gitignored one (`external_consumer`) — regenerate all of them, and Outlander
+needs `CARGO_TARGET_DIR` pointed somewhere writable to verify.
+
+⛔⛔ **THE ORIGINAL PROBE, KEPT AS HISTORY — its conclusion is the one corrected
+above. Probed, 2026-08-18.**
 Dropping `ldtk_runtime`/`portal` from `ambition_sim_view` fails to compile, and
 **not in `sim_view`**: the MONOLITH itself does not build without `ldtk_runtime`.
 Its own subsystem-gate comment already admits this — *"Code inside these

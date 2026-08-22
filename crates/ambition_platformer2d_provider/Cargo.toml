@@ -7,6 +7,9 @@ authors.workspace = true
 description = "The platformer experience-provider protocol: authored catalog identity, one shared preparation/activation lifecycle, and session construction for shell-hosted platformer providers."
 
 [features]
+# Forwarded: a game with an LDtk world enables this and the runtime installs
+# `LdtkWorldPlugin`. Default-OFF, so a movement-only game links no LDtk.
+ldtk = ["ambition_platformer2d_runtime/ldtk"]
 default = []
 # Adaptive-music readiness checks name the Kira-side catalog registry.
 audio = ["ambition_audio/kira"]

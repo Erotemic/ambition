@@ -474,6 +474,7 @@ mod tests {
         if let Some(move_id) = attack_move {
             m.verbs = BTreeMap::from([("attack".to_string(), move_id.to_string())]);
             m.moves = vec![MoveSpec {
+                display_name: None,
                 landing_lag_s: None,
                 autocancel_after_s: None,
                 id: move_id.to_string(),

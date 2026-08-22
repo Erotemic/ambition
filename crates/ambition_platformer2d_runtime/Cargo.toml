@@ -20,11 +20,15 @@ description = "The platformer ENGINE face (demo plan E5): a `PlatformerEnginePlu
 # `ldtk_runtime`. The workspace built anyway because feature unification turned
 # the feature on from elsewhere — so the manifest said one thing and the build
 # did another. Say what is needed.
-ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-features = false, features = ["ldtk_runtime"] }
+# ⭐ **OPTIONAL, because an LDtk world is something a game HAS, not something the
+# engine runtime is.** This was the last unconditional edge dragging
+# `ambition_platformer2d_ldtk` (and third-party `bevy_ecs_ldtk`) into the
+# movement-only sentinel's link closure — every other one is already `optional`.
+# A game with an LDtk world enables `ldtk` and gets `LdtkWorldPlugin`.
+ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-features = false, optional = true }
 ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, features = [
     "headless",
     "input",
-    "portal_ldtk",
 ] }
 # Conversation continuity, named directly since it left the actor monolith
 # (2026-08-17). The domain now owns its rollback declaration; this host composes
@@ -100,3 +104,6 @@ causal = ["dep:ambition_causal", "ambition_platformer2d_actor_monolith/causal", 
 # optional subsystems the plugin group conditionally bundles. Kept minimal for
 # the first assembly; widened as more plugins migrate in.
 portal = ["ambition_platformer2d_actor_monolith/portal"]
+# The LDtk runtime spine and its rollback row, offered to a game that has an
+# LDtk world. Default-OFF: see the dependency's own note.
+ldtk = ["dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/ldtk_runtime"]

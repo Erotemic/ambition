@@ -62,6 +62,7 @@ mod host_invariant_tests;
 pub mod input_drive;
 pub mod input_stream;
 /// The opt-in LDtk world install: the format's runtime spine + its rollback row.
+#[cfg(feature = "ldtk")]
 pub mod ldtk_world;
 mod mode_scope;
 mod player_schedule;
@@ -113,6 +114,7 @@ pub use sim_core_resources::SimCoreResourcesPlugin;
 pub use ambition_time::SimTick;
 /// The per-tick input recorder (netcode N0.2).
 pub use input_stream::{input_stream_recording, record_input_stream, InputStreamRecorder};
+#[cfg(feature = "ldtk")]
 pub use ldtk_world::LdtkWorldPlugin;
 
 /// Host-facing input seams that are implemented by the simulation heart but

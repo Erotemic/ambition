@@ -24,9 +24,10 @@ use bevy::prelude::*;
 
 use ambition_encounter::EncounterMusicRequest;
 use ambition_platformer2d_actor_monolith::avatar::{InitialBodyPolicy, StartingCharacter};
-use ambition_platformer2d_ldtk::LdtkRuntimeIndex;
 use ambition_platformer2d_actor_monolith::rooms::{ActiveRoomMetadata, RoomMusicRequest, RoomSet};
 use ambition_platformer2d_core::RoomGeometry;
+#[cfg(feature = "ldtk")]
+use ambition_platformer2d_ldtk::LdtkRuntimeIndex;
 
 #[derive(Component, Clone, Debug, Eq, PartialEq)]
 pub struct PlatformerSessionCatalogs {
@@ -62,6 +63,7 @@ pub struct PreparedPlatformerSource {
     /// **The active-area index an authoring FORMAT installed, if any.** `None`
     /// for every RON-authored game, which is what makes this optional rather
     /// than a field they fill with an empty value — see the module header.
+    #[cfg(feature = "ldtk")]
     installed_ldtk_index: Option<LdtkRuntimeIndex>,
 }
 
@@ -81,6 +83,7 @@ impl PreparedPlatformerSource {
             active_room,
             initial_body: InitialBodyPolicy::SpawnCharacter(starting_character.clone()),
             starting_character,
+            #[cfg(feature = "ldtk")]
             installed_ldtk_index: None,
         }
     }
@@ -112,6 +115,7 @@ impl PreparedPlatformerSource {
             active_room,
             starting_character: catalog_default,
             initial_body: InitialBodyPolicy::NoInitialBody,
+            #[cfg(feature = "ldtk")]
             installed_ldtk_index: None,
         }
     }
@@ -124,6 +128,7 @@ impl PreparedPlatformerSource {
     /// the absence is the honest statement that no world was installed, where
     /// an empty index was a value five games had to invent.
     #[must_use]
+    #[cfg(feature = "ldtk")]
     pub fn with_installed_ldtk_index(mut self, index: LdtkRuntimeIndex) -> Self {
         self.installed_ldtk_index = Some(index);
         self
@@ -151,6 +156,7 @@ impl PreparedPlatformerSource {
     /// The installed active-area index, or `None` when no authoring format
     /// installed one. ⚠ read it as a question, never unwrapped: a RON-authored
     /// session legitimately has no answer.
+    #[cfg(feature = "ldtk")]
     pub fn installed_ldtk_index(&self) -> Option<&LdtkRuntimeIndex> {
         self.installed_ldtk_index.as_ref()
     }
@@ -179,6 +185,7 @@ impl PreparedPlatformerSource {
             active_room,
             starting_character: self.starting_character.clone(),
             initial_body: self.initial_body.clone(),
+            #[cfg(feature = "ldtk")]
             installed_ldtk_index: self.installed_ldtk_index.clone(),
         }
     }
@@ -199,6 +206,7 @@ impl PreparedPlatformerSource {
         // Only a session that HAS an installed index has an active area to
         // normalize; a RON-authored one tracks its active room in `RoomSet`
         // alone, which the clone above already carries.
+        #[cfg(feature = "ldtk")]
         if let Some(index) = candidate.installed_ldtk_index.as_mut() {
             index.set_active_area(active_spec.id.clone());
         }

@@ -7,6 +7,10 @@ authors.workspace = true
 description = "Facade crate for composing Ambition-derived platformer games from one engine surface."
 
 [features]
+# **A game with an LDtk world enables this.** Default-OFF: it is the edge that
+# put `ambition_platformer2d_ldtk` and third-party `bevy_ecs_ldtk` in a
+# movement-only game's link closure (D136).
+ldtk = ["ambition_platformer2d_provider/ldtk"]
 # The causal inspector, off by default: a game that never opens one must not
 # link one. Forwards to the runtime's host half and the foundation vocabulary.
 causal = ["ambition_platformer2d_runtime/causal", "dep:ambition_causal"]
@@ -49,6 +53,9 @@ default = ["all_capabilities"]
 all_capabilities = [
     "rollback",
     "relativity",
+    # A game asking for EVERY capability has an LDtk world; a movement-only
+    # game asks for neither this nor the crate behind it.
+    "ldtk",
     "ambition_cutscene",
     "ambition_dialog",
     "ambition_encounter",

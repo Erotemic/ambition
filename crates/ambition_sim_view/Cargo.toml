@@ -19,9 +19,7 @@ input = ["ambition_platformer2d_actor_monolith/input"]
 # The sim this crate observes (Tier 3 → Tier 4 arrow; render depends on THIS
 # crate for views instead of querying the sim heart).
 ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, features = [
-    "ldtk_runtime",
     "input",
-    "portal",
 ] }
 ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_combat = { path = "../ambition_combat" }

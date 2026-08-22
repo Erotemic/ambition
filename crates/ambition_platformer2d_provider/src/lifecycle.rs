@@ -664,7 +664,22 @@ fn add_world_fingerprint_sections(
     // is byte-for-byte what an empty index wrote before the field became
     // optional: one `area\t<id>\t\t-` row per room. That equality is the reason
     // this slice does not move any content fingerprint.
-    let installed_index = source.installed_ldtk_index();
+    // ⭐ **the per-area lookup, gated ONCE.** Without the `ldtk` capability a
+    // game has no installed index by construction, so both answers collapse to
+    // constants — and to exactly what a RON-authored game already wrote, which
+    // is why this section's bytes (and the content fingerprint) do not move.
+    #[cfg(feature = "ldtk")]
+    let area_rows = |area_id: &str| -> (Vec<String>, String) {
+        let index = source.installed_ldtk_index();
+        let iids = index.map(|i| i.level_iids_for(area_id)).unwrap_or_default();
+        let bounds = index.and_then(|i| i.area_bounds(area_id)).map_or_else(
+            || "\t-".to_string(),
+            |b| format!("\t{},{},{},{}", b.min_x, b.min_y, b.max_x, b.max_y),
+        );
+        (iids, bounds)
+    };
+    #[cfg(not(feature = "ldtk"))]
+    let area_rows = |_area_id: &str| -> (Vec<String>, String) { (Vec::new(), "\t-".to_string()) };
     let mut runtime_index = String::new();
     let mut area_ids = source
         .room_set()
@@ -675,22 +690,13 @@ fn add_world_fingerprint_sections(
     area_ids.sort_unstable();
     area_ids.dedup();
     for area_id in area_ids {
-        let mut level_iids = installed_index
-            .map(|index| index.level_iids_for(area_id))
-            .unwrap_or_default();
+        let (mut level_iids, bounds) = area_rows(area_id);
         level_iids.sort();
         runtime_index.push_str("area\t");
         runtime_index.push_str(area_id);
         runtime_index.push('\t');
         runtime_index.push_str(&level_iids.join(","));
-        if let Some(bounds) = installed_index.and_then(|index| index.area_bounds(area_id)) {
-            runtime_index.push_str(&format!(
-                "\t{},{},{},{}",
-                bounds.min_x, bounds.min_y, bounds.max_x, bounds.max_y,
-            ));
-        } else {
-            runtime_index.push_str("\t-");
-        }
+        runtime_index.push_str(&bounds);
         runtime_index.push('\n');
     }
     builder
@@ -1201,6 +1207,7 @@ impl PlatformerSessionBuilder<'_, '_> {
         // session root — which is what the LDtk systems' `SessionWorldRef`
         // reads as "no LDtk world here", instead of an empty index that made
         // them run and find nothing every tick.
+        #[cfg(feature = "ldtk")]
         let installed_ldtk_index = prepared_content.source().installed_ldtk_index().cloned();
         let prepared_identity: PreparedContentIdentity = prepared_content.identity();
         // Live moving-platform state derives from the activating room. Rooms
@@ -1286,6 +1293,10 @@ impl PlatformerSessionBuilder<'_, '_> {
             scope,
         });
 
+        // A format installs its own index; without the capability there is none
+        // to install, and the session root simply has no such component — which
+        // is exactly what the LDtk systems read as "no LDtk world here".
+        #[cfg(feature = "ldtk")]
         if let Some(index) = installed_ldtk_index {
             self.commands.entity(world).insert(index);
         }

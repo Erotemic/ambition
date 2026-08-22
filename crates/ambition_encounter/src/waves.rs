@@ -1,10 +1,8 @@
 //! Wave POLICY: the spawn-cadence director for wave/arena encounters.
 //!
-//! E8/E9 split the old wave state machine in two. The LIFECYCLE
-//! (inactive/starting/active/completed/failed, elapsed time, signals, the
-//! objective decision) is the generic [`EncounterLifecycle`](crate::EncounterLifecycle);
-//! this module keeps only what is genuinely wave-shaped — which mob spawns
-//! when. Completion is not decided here: the director publishes the
+//! Generic lifecycle state lives in [`EncounterLifecycle`](crate::EncounterLifecycle);
+//! this module owns only wave-specific spawn cadence. Completion is not decided
+//! here: the director publishes the
 //! [`WAVES_EXHAUSTED_SIGNAL`] once the last wave has fully spawned, and the
 //! authored objective ("that signal received AND every minion defeated")
 //! completes through the generic reducer like any other encounter.

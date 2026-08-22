@@ -1,7 +1,4 @@
 //! Camera zones, clamp modes, and kinematic path specs.
-//!
-//! Split out of the former 823-line `rooms/mod.rs` (2026-06-15); the
-//! parent re-exports every type so `rooms::*` paths are unchanged.
 
 use ambition_platformer2d_core as ae;
 use std::borrow::Cow;
@@ -62,12 +59,7 @@ pub struct CameraZoneSpec {
 /// (`docs/planning/demos/super-mary-o.md` M2: *"one-way forward scroll +
 /// no-backtrack clamp"*).
 ///
-/// **Narrow on purpose.** There is exactly one shipped need — Mary-O's level
-/// scrolls right and never left — so there is exactly one non-default variant.
-/// A `ForwardOnly { axis, direction }` generalization waits for a second consumer
-/// (grow, don't mint). The axis is SCREEN `+x`, not gravity-relative: a
-/// side-scroller's no-backtrack rule is a statement about the level's authored
-/// direction of travel, and rotating gravity does not rotate the level.
+/// Forward-only scrolling uses world/screen `+x` and is independent of gravity.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum CameraScrollPolicy {
     /// The camera follows wherever the focus goes. Every zone before M2.
@@ -101,10 +93,7 @@ impl CameraScrollPolicy {
 /// the other side is a fresh scroll rather than a camera pinned to wherever it
 /// stopped an hour ago.
 ///
-/// Deliberately monotone and stateless-looking: the camera never eases BACKWARD to
-/// meet a watermark, it simply refuses to go below it. Easing backward would let a
-/// player standing still watch the view creep, which is the bug this clamp exists
-/// to prevent.
+/// The clamp is monotone: it never eases backward toward the watermark.
 pub fn apply_forward_only_x(target_x: f32, watermark: &mut Option<f32>) -> f32 {
     // A non-finite target would poison the watermark for the rest of the visit.
     if !target_x.is_finite() {
@@ -151,35 +140,9 @@ impl KinematicPathSpec {
         }
     }
 
-    /// Every spelling accepted by [`Self::matches_id`] — the ONE authority.
-    ///
-    /// Validation and runtime resolution must share this exact set, and there
-    /// have now been TWO forks of it, in opposite directions:
-    ///
-    /// - the binding sweep once knew only the authored id and name, so it
-    ///   reported `enemy_patrol_path_a` as broken content — reporting a working
-    ///   reference as broken is worse than not checking at all;
-    /// - ⛔ and then the SPAWN road turned out to be the one missing the slug.
-    ///   `matches_id` accepted it, so validation said the reference was fine
-    ///   while the lookup table lowering built had never heard of it and the
-    ///   patroller silently spawned with no motion. Fixed by generating that
-    ///   table from this function — see [`kinematic_path_lookup`].
-    ///
-    /// ⚠ so a claim that some consumer "mirrors" this set is worth nothing;
-    /// check that it CALLS it.
-    ///
-    /// The derived name slug is a spelling in its own right: a spec may carry a
-    /// blank `id` (a room built in Rust rather than converted), and its name is
-    /// then the only thing naming it.
-    ///
-    /// ⭐ **it used to be a THIRD, DIFFERENT spelling, because LDtk minted ids
-    /// with a slug rule of its own** that collapsed `_path_` away
-    /// (`enemy patrol path A` → `enemy_patrol_a`) where this crate's did not
-    /// (`enemy_patrol_path_a`). That gap is what this alias was really bridging,
-    /// and bridging is what forked twice above. Conversion now mints through
-    /// [`kinematic_path_name_slug`] — the same rule — so a converted path that
-    /// authors no `id` HAS the slug as its id and the two agree by construction
-    /// instead of by a third spelling.
+    /// Every spelling accepted by [`Self::matches_id`]. Validation, conversion,
+    /// and runtime lookup must use this same alias set. A path without an
+    /// authored id is also reachable by [`kinematic_path_name_slug`] of its name.
     pub fn resolution_aliases(&self) -> impl Iterator<Item = Cow<'_, str>> {
         kinematic_path_aliases(&self.id, &self.name)
     }
@@ -189,14 +152,9 @@ impl KinematicPathSpec {
     }
 }
 
-/// [`KinematicPathSpec::resolution_aliases`] for a path that is not a spec yet —
-/// the same rule, reachable from a caller holding only the two authored strings.
-///
-/// It exists because the LDtk content validator runs on raw JSON, BEFORE any
-/// world IR is built, so it could not ask a spec which spellings resolve and
-/// grew its own slug rule instead. That copy drifted, which is how a reference
-/// the runtime resolves became a startup abort in waiting. There is one rule,
-/// and every oracle asks it.
+/// [`KinematicPathSpec::resolution_aliases`] for callers that only have the two
+/// authored strings. Raw-content validation uses this before world IR exists so
+/// validation and runtime lookup share one alias rule.
 pub fn kinematic_path_aliases<'a>(
     id: &'a str,
     name: &'a str,
@@ -206,53 +164,18 @@ pub fn kinematic_path_aliases<'a>(
         .chain(name_slug(name).map(Cow::Owned))
 }
 
-/// **The ONE way a kinematic path's display name becomes an id.**
-///
-/// A path that authors no explicit `id` is looked up by the slug of its name,
-/// so this rule decides what every reference to that path must be spelled —
-/// which makes a SECOND copy of it a silent mismatch generator. There was one:
-/// the LDtk converter minted ids with a near-identical rule that additionally
-/// collapsed `_path_` away, so `enemy patrol path A` became `enemy_patrol_a`
-/// here and `enemy_patrol_path_a` there. The gap was papered over with an extra
-/// resolution alias, that alias was then implemented in three places, two of
-/// them got it wrong in opposite directions, and sandbox's basement patroller
-/// stood still for months while two validators called it healthy.
-///
-/// ⛔ so conversion does not mint ids any more, it ASKS. The collapse is gone
-/// with the rule that owned it: a name slugs to exactly its alphanumerics,
-/// lowercased, with every other run of characters becoming one `_`.
+/// Canonical conversion from a kinematic path display name to an id. A name
+/// slugs to lowercase alphanumerics with each other run collapsed to one `_`.
+/// Conversion, validation, and lookup must call this rule rather than reproduce
+/// it.
 pub fn kinematic_path_name_slug(name: &str) -> Option<String> {
     name_slug(name)
 }
 
-/// Every `(spelling, path)` pair a room's authored paths answer to — the table
-/// the lowering roads resolve a string reference against.
-///
-/// Generated from [`KinematicPathSpec::resolution_aliases`], the same authority
-/// [`KinematicPathSpec::matches_id`] and the construction binding sweep use, so
-/// **a reference the sweep calls resolvable is one the body actually rides.**
-///
-/// ⛔ it was not, and the disagreement was live in shipped content. The spawn
-/// road built its own table from the authored id and name ONLY, dropping the
-/// normalized name slug that `resolution_aliases` accepted. Sandbox's basement
-/// path authors no `id` and is named `enemy patrol path A`, so LDtk derived the
-/// COMPACTED lookup id `enemy_patrol_a` (its own slug rule collapsed `_path_`)
-/// while the placement references the raw slug `enemy_patrol_path_a`. The
-/// binding sweep resolved it, both content validators passed, and the runtime
-/// table — holding only `enemy_patrol_a` and `enemy patrol path A` — did not, so
-/// the gallery's patroller silently spawned with no motion and stood still. Two
-/// green oracles and a dead demo is exactly the failure a binding boundary
-/// exists to make impossible.
-///
-/// ⭐ the SECOND slug rule that made those three spellings necessary is now
-/// deleted (see [`kinematic_path_name_slug`]): that same path's id is
-/// `enemy_patrol_path_a`, which is what the placement already says, so the
-/// reference resolves by the path's own id rather than by an alias.
-///
-/// First declaration wins, matching the sweep's duplicate reporting: a second
-/// path answering to a spelling already taken is unreachable, not an override.
-/// A blank spelling is registered by nobody — a bare `Patrol:` must find
-/// nothing, not collide with a spec that happens to carry an empty id.
+/// Every `(spelling, path)` pair a room's authored paths answer to. Generated
+/// from [`KinematicPathSpec::resolution_aliases`] so validation and runtime
+/// resolution accept the same references. First declaration wins; blank
+/// spellings are ignored.
 pub fn kinematic_path_lookup(
     specs: &[KinematicPathSpec],
 ) -> Vec<(String, ambition_platformer2d_core::KinematicPath)> {
@@ -309,9 +232,7 @@ mod kinematic_path_lookup_tests {
     /// body rides through this table, and any spelling only one of them knows
     /// is a reference reported healthy that does not move anything.
     ///
-    /// The fixture is the shipped shape that broke: sandbox's basement path
-    /// authors no `id` and is named `enemy patrol path A`, so conversion derives
-    /// its id from the name — and the placement references `enemy_patrol_path_a`.
+    /// Covers a path whose id is derived from a spaced authored name and referenced by slug.
     #[test]
     fn every_spelling_matches_id_accepts_is_in_the_lookup_table() {
         let specs = vec![spec("enemy_patrol_path_a", "enemy patrol path A")];
@@ -334,10 +255,7 @@ mod kinematic_path_lookup_tests {
         assert!(!specs[0].matches_id("enemy_patrol_b"));
         assert!(!lookup.iter().any(|(alias, _)| alias == "enemy_patrol_b"));
 
-        // ⛔ and the SECOND poison pins the deletion: `enemy_patrol_a` is what
-        // the converter's own slug rule used to mint for this name, collapsing
-        // `_path_` away. That rule is gone, so nothing answers to it any more —
-        // if it comes back, a second id-minting authority came back with it.
+        // A spelling from a different slug rule must not resolve.
         assert!(!specs[0].matches_id("enemy_patrol_a"));
         assert!(!lookup.iter().any(|(alias, _)| alias == "enemy_patrol_a"));
     }
@@ -383,9 +301,7 @@ mod scroll_policy_tests {
         assert_eq!(apply_forward_only_x(41.0, &mut w), 41.0);
     }
 
-    /// **Never eases backward to meet the watermark.** A camera that crept toward a
-    /// high-water mark while the player stood still would be a bug that looked like
-    /// a feature for exactly one playtest.
+    /// The camera never eases backward toward its high-water mark.
     #[test]
     fn a_standing_player_sees_a_still_camera() {
         let mut w = Some(100.0);

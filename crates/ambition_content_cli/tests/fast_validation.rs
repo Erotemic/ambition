@@ -2,16 +2,9 @@
 //!
 //! > valid character addition → validates without rebuilding Rust
 //!
-//! Before this, Ambition's catalog reached the runtime through `include_str!`
-//! (`game/ambition_content/src/character_catalog.rs:12`) and the public facade
-//! took the same `&'static str` shape, so editing one character's stats cost a
-//! ~10 minute rebuild. That is a fine shape for a shipped binary and an
-//! impossible one to author in.
-//!
-//! These tests spawn the ALREADY-BUILT binary and never invoke cargo. The
-//! content they edit lives in a temp directory the binary has never seen, which
-//! is what makes "no rebuild" a fact about the code rather than a claim about
-//! it: a binary that had embedded this content could not read it at all.
+//! These tests spawn the already-built binary and edit content in a temporary
+//! directory the binary has never seen. Successful validation therefore proves
+//! that content changes do not require rebuilding Rust.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -225,24 +218,9 @@ fn the_shipped_pack_has_no_schema_reference_or_conflict_errors() {
 
 #[test]
 fn the_strict_asset_path_still_refuses_on_real_content() {
-    // The probe for the test above: with assets REQUIRED, real content whose art
-    // is absent must be refused. Without this, "advisory" would be
-    // indistinguishable from "the asset check does not work".
-    //
-    // ⛔ **this used to run against the SHIPPED pack and assert exit 1**, on the
-    // standing assumption that some of its art was still missing. That made the
-    // test a measure of how incomplete the art was, not of whether the strict
-    // path discriminates — and on 2026-08-03 the last of it landed (270 assets,
-    // all resolved), the CLI correctly returned 0, and the test failed for the
-    // best possible reason. Its own comment warned about exactly this shape one
-    // line up: *"an allowlist rots the moment the art lands."* A test that
-    // depends on absence rots the same way, and this one outlived the condition
-    // it was written under.
-    //
-    // ⚠ **the fix keeps REAL content and removes the dependency on the art being
-    // incomplete.** `Sandbox` copies the shipped catalog into a temp pack with no
-    // assets beside it, so every reference is genuinely unresolvable — the same
-    // discrimination, on a pack that cannot quietly become complete.
+    // Copy the shipped catalog into a pack with no assets so strict validation
+    // has genuinely unresolved references independent of the shipped pack's
+    // current completeness.
     let sandbox = Sandbox::with_shipped_catalog("strict_assets");
     let output = Command::new(CLI)
         .arg(&sandbox.root)

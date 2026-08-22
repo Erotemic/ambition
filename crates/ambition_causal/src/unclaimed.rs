@@ -1,39 +1,11 @@
-//! **Velocity changes no operation claims — the detector, made portable.**
+//! Detect velocity steps larger than the caller's integrator can produce when
+//! no operation on that tick claims the change.
 //!
-//! A body's velocity moved by more than the integrator can produce, and nothing
-//! in the tick named a writer. That question took the S51 thread six reading
-//! cycles and eight eliminations before an instrument answered it in one run, so
-//! it lives here rather than inside the one probe that needed it first.
-//!
-//! ## What it does NOT know
-//!
-//! Deliberately nothing about platformers, hosts, or ECS. It takes a subject
-//! key, a velocity, and whether the tick carried any operation — so any
-//! composition that publishes those can use it, which is the whole point: the
-//! trace that motivated it was taken in the SANDBOX and the first detector was
-//! wired into the smash LADDER, two compositions that never see each other's
-//! bodies.
-//!
-//! ## Three traps, all paid for
-//!
-//! ⛔ **the threshold belongs to the CALLER**, because only the caller knows its
-//! own kernel constants. The first version hardcoded `25.0` from a grep that
-//! missed `pub const RUN_ACCEL = 5200.0` and was 5.8× too low; the second
-//! carried a 1.5× "safety margin" for per-character tuning that does not exist
-//! in the tree, putting the bar ABOVE the ramp it was built to find. Pass
-//! `max_integrator_step` derived from the constants you actually integrate with.
-//!
-//! ⛔ **state resets when the tick does not advance.** A process that runs many
-//! matches under one subject id will otherwise compare the last tick of one
-//! against the first of the next and report the difference as a step. That
-//! produced six spurious findings on the first run, character-identical to the
-//! real ones — an artifact shaped exactly like the thing it hunts.
-//!
-//! ⚠ **an empty operation list is not proof that nothing explains the step.**
-//! A velocity kill at tick N caused by a knockout at tick N−k shows no
-//! explaining fact on tick N, and a tick-scoped explanation cannot join them.
-//! Read a finding as *"no operation on this tick claims it"*, never as *"this is
-//! unexplained"*.
+//! The detector is independent of ECS and game composition. The caller supplies
+//! `max_integrator_step` from its actual integration constants. State resets when
+//! ticks do not advance so separate runs are never compared. A finding means
+//! only that no operation on the same tick claims the step; delayed causes from
+//! earlier ticks remain possible.
 
 use std::collections::HashMap;
 
@@ -70,14 +42,10 @@ impl UnclaimedStepDetector {
 
     /// Offer one subject's velocity for one tick.
     ///
-    /// `had_operation` is whether the tick carried ANY kernel operation for this
-    /// subject; a step is reported only when it did not. `max_integrator_step`
-    /// is the largest per-tick change the caller's integrator can produce
-    /// without announcing anything — see the module note about deriving it.
-    ///
-    /// ⚠ call this for every tick, not only the ones being printed. The S51
-    /// ramp survived six cycles because the trace SAMPLED one tick in five and
-    /// the ramp was three ticks long; the data was there the whole time.
+    /// `had_operation` reports whether the tick carried any kernel operation for
+    /// this subject. `max_integrator_step` is the largest per-tick change the
+    /// caller's integrator can produce without an operation claim. Call this for
+    /// every tick so short steps are not skipped by display sampling.
     pub fn observe(
         &mut self,
         tick: u64,

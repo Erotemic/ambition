@@ -16,40 +16,13 @@ pub mod world_manifest;
 
 pub use debug_label::{DebugLabel, DebugLabelKind};
 
-/// **Everything needed to author a room, in one import.**
-///
-/// The domain prelude `docs/sdk/api-prototype.md` §5 specified, and ADR 0031's
-/// public module list already names `ambition_platformer2d::world` as semantic surface.
-///
-/// ⚠ It re-exports the GEOMETRY vocabulary too, and that is the point. The
-/// movement-only minimal game had to name `ambition_platformer2d::engine_core` — an
-/// implementation crate the facade mirrors — for nothing more than `Vec2`,
-/// `World` and `Block` while describing a floor. A consumer reaching into a
-/// crate called `engine_core` to place a rectangle is the namespace mirror
-/// leaking, and it is a leak only a SECOND consumer surfaced: Outlander names
-/// that crate for real simulation vocabulary too, so its appearance there
-/// proves nothing.
-///
-/// Domain prelude, not a root one. `ambition_platformer2d::prelude` re-exports twenty-five
-/// crate mirrors; an agent told to import all of them has been told nothing
-/// about which four matter.
+/// Domain prelude for authored room data, including the geometry vocabulary
+/// needed to describe room solids.
 pub mod prelude {
     pub use crate::rooms::{RoomMetadata, RoomSpec};
     pub use ambition_platformer2d_core::{Block, RoomGeometry, Vec2};
 
-    /// The authored world IR, under a name that does not collide with Bevy.
-    ///
-    /// ⚠ Exported as `AuthoredWorld`, not `World`, and the rename is the whole
-    /// reason this line is separate. `ambition_platformer2d_core::World` and
-    /// `bevy::prelude::World` are different types with the same name, and
-    /// essentially every Bevy game writes `use bevy::prelude::*`. A glob prelude
-    /// that cannot sit beside that one is a prelude nobody can use.
-    ///
-    /// Found by migrating the SECOND consumer: Outlander imports both, and the
-    /// collision turned `World::new(name, size, spawn, blocks)` into a
-    /// type error against Bevy's zero-argument `World::new`. The minimal game
-    /// never noticed because it imports no Bevy at all — which is exactly the
-    /// blind spot a single consumer leaves.
+    /// Authored world IR, renamed to avoid colliding with `bevy::prelude::World`.
     pub use ambition_platformer2d_core::World as AuthoredWorld;
 }
 

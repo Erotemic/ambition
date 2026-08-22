@@ -1,16 +1,8 @@
 //! **A debounced mtime watch over the authored world file, and the
 //! transactional reload it offers the developer controls.**
 //!
-//! ⭐ **this is an engine concept that spent its life wearing an LDtk name.**
-//! Until 2026-08-16 it was `ambition_platformer2d_ldtk::LdtkHotReloadState` +
-//! `poll_ldtk_file_changes`, and the only thing in it that knew about LDtk was
-//! the text of its status strings. What it actually is: an `Option<PathBuf>`, a
-//! poll timer, a last-seen `SystemTime`, and a pending/applied/failed status —
-//! the same shape for any authoring format a game watches on disk. It lived in
-//! the format crate because that is where someone first needed it, which is the
-//! same finding as `WorldManifest` one slice earlier.
-//!
-//! It lives here because its consumers are the developer controls: the
+//! This watcher is format-agnostic. It lives here because its consumers are
+//! the developer controls: the
 //! Developer settings page's auto-apply row sits directly beside rows sourced
 //! from [`DeveloperRuntimeState`](crate::dev_tools::DeveloperRuntimeState) and
 //! [`DeveloperTools`](crate::dev_tools::DeveloperTools), both of which are this

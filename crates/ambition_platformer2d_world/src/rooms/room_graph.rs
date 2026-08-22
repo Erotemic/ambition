@@ -1,7 +1,4 @@
 //! RoomSpec + the transition graph types.
-//!
-//! Split out of the former 823-line `rooms/mod.rs` (2026-06-15); the
-//! parent re-exports every type so `rooms::*` paths are unchanged.
 
 use super::*;
 
@@ -32,27 +29,8 @@ pub struct RoomSpec {
     /// LDtk-authored localized-gravity zones. See [`GravityZoneSpec`].
     pub gravity_zones: Vec<GravityZoneSpec>,
 
-    // Six authored entity families -- hazards, interactables, pickups, chests,
-    // breakables, portals -- lower through the single `placements` channel
-    // (fable audit F9.2 arc exit), and adding a seventh of THAT kind is one
-    // `PlacementSchema` variant plus one lowering interpreter, with no edit
-    // here.
-    //
-    // ⛔ **this comment used to end "there are no typed per-family Vecs" and
-    // that was already wrong when written** (`enemy_spawns`, `boss_spawns`,
-    // `debug_labels`, `mount_links` are right below it) and is more wrong now:
-    // `encounter_triggers`, `lock_walls` and `switch_commands` joined on
-    // 2026-08-17/18 when three runtime readers were inverted off the LDtk
-    // project onto the room IR. The F9.2 claim was true of the SIX families it
-    // was about; as a claim about the struct it never held.
-    //
-    // ⚠ **so watch the count.** Each new independent domain family that needs a
-    // central edit HERE is evidence for a different shape: a small room core
-    // plus domain-owned prepared room facets, the way character facets are
-    // heading. Three arrivals in two days is a signal, not yet a verdict --
-    // deliberately NOT replaced with a dynamic registry today, because the
-    // three arrivals were one migration and not three independent demands.
-    // Keep this boundary cheap to restitch and count the next one.
+    // Generic placement families lower through `placements`; the typed vectors
+    // below are domain-specific room facets that still need direct access here.
     pub enemy_spawns: Vec<Authored<crate::rooms::EnemySpawnSpec>>,
     pub boss_spawns: Vec<Authored<ambition_entity_catalog::placements::BossBrain>>,
     pub debug_labels: Vec<Authored<crate::debug_label::DebugLabel>>,
@@ -62,9 +40,7 @@ pub struct RoomSpec {
     /// `ambition.mount` relation, matched by
     /// `FeatureId` and installs the `RidingOn`/`MountSlot` link.
     pub mount_links: Vec<(String, String)>,
-    /// Authored placement RECORDS (the [W-b] schema-over-record channel).
-    /// Converters dual-emit into this alongside their legacy typed family
-    /// until W-queue step 3's lowering interpreters take over spawning.
+    /// Authored placement records consumed by the lowering registry.
     pub placements: Vec<crate::placements::PlacementRecord>,
     /// Authored encounter trigger volumes in this room (at most one today).
     /// Carried so `load_encounter_specs` can read a ROOM rather than an

@@ -1,29 +1,12 @@
-//! Whether a trace dump is allowed to reach disk.
+//! Policy controlling whether gameplay traces may write files.
 //!
-//! The recorder has always been careful about WHEN it arms an automatic dump —
-//! it disarms after the first one, suppresses a window around teleports, and
-//! waits for enough lead-up frames to be worth reading. What it never had was a
-//! way to say "not at all". On a machine that plays the game regularly that
-//! adds up: every confirmed out-of-bounds writes a JSON blob plus a markdown
-//! report into `debug_traces/`, nothing prunes them, and the directory grows
-//! without anyone asking it to.
-//!
-//! So automatic dumps are now **opt-in**. A developer chasing an OOB turns them
-//! on for that session; everyone else gets a recorder that still records — the
-//! ring buffer, the events, the OOB detection, and the on-screen status are all
-//! unchanged — and simply stops writing files nobody asked for.
-//!
-//! **Manual dumps are never gated.** Pressing F8 is a request, not a default,
-//! and a switch that swallowed it would be a bug rather than a saving.
+//! Automatic OOB/teleport dumps are opt-in; recording and in-memory diagnostics
+//! remain active regardless. Manual dumps are always allowed because they are an
+//! explicit developer request.
 
 use bevy::ecs::resource::Resource;
 
-/// Environment variable that opts into automatic trace dumps.
-///
-/// An env var rather than a build feature or a settings entry: the person who
-/// wants this is mid-investigation and wants it for one run, without a rebuild
-/// and without leaving a toggle switched on in a config file they will forget
-/// about. Matches the existing `AMBITION_*` dev-toggle convention.
+/// Environment variable for opting into automatic trace dumps for a run.
 pub const AUTO_DUMP_ENV: &str = "AMBITION_TRACE_AUTO_DUMP";
 
 /// Which trace dumps are permitted to write files.

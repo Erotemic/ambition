@@ -1,12 +1,8 @@
 //! `DevToolsSimPlugin` — the dev-tools DOMAIN plugin for the simulation App.
 //!
-//! Track 6 (decisions-2026-07-16 #9): domain crates install their own local
-//! resources and systems and expose public SETS; the sim assembly orders sets
-//! instead of naming leaf systems. This plugin owns the dev-editable sim
-//! resources (formerly initialized inside the runtime's core-resources bundle)
-//! and registers the two live-edit sync systems into the public sets below —
-//! `ambition_platformer2d_runtime` now only positions [`DevEditApplySet`] /
-//! [`DevInspectorMirrorSet`] in its phase chains.
+//! Owns the dev-editable simulation resources and registers their live-edit
+//! systems into public sets. The runtime positions those sets in its phase
+//! chains without naming the leaf systems.
 
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use bevy::prelude::{App, IntoScheduleConfigs, Plugin, SystemSet};
@@ -45,12 +41,8 @@ impl Plugin for DevToolsSimPlugin {
                 // reads it. Sim systems never see the inspector mirror.
                 crate::dev_tools::apply_editable_movement_tuning,
                 crate::sync_live_player_dev_edits_system,
-                // ⛔ moved out of the APP's `Update` chain on 2026-08-02. It
-                // mutates `BodyBaseSize`, which is rollback state, so under GGRS
-                // the size rewound and this edit never replayed with it. This
-                // crate already had the right home -- a sim-schedule set for
-                // exactly "a dev edit is applied to the body" -- and the
-                // registration was simply somewhere else.
+                // This mutates rollback state, so it must run in the simulation
+                // schedule with the other developer edits.
                 crate::dev_tools::sync_developer_body_profile,
             )
                 .chain()

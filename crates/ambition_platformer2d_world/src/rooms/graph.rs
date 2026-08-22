@@ -38,11 +38,8 @@ impl RoomSet {
             by_id.insert(room.id.clone(), (index, node));
         }
 
-        // Unknown ROOMS are reported here; unknown ZONES are reported by
-        // `layout_warnings`, which session setup and LDtk reload already run and
-        // which owns graph/zone consistency. A binding-style sweep briefly lived
-        // here too and was deleted: it re-derived the same invariant beside an
-        // authority that already had it, which is worse than a plainer message.
+        // Unknown rooms are reported here. Unknown zones are owned by
+        // `layout_warnings`, which checks graph/zone consistency.
         for link in &links {
             let Some((_, from_node)) = by_id.get(&link.from_room).copied() else {
                 eprintln!(

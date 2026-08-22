@@ -186,13 +186,8 @@ impl AggregateOutcome {
     }
 }
 
-/// Whether a schema has defined how its sources' fragments combine.
-///
-/// ⭐ **the return value IS the declaration.** The alternative was a field on
-/// [`SchemaRegistration`] — but then a schema could say "I aggregate" and not
-/// implement the merge, or implement it and forget to say so, and the compiler
-/// would have two facts that can disagree about one thing. Asking the handler
-/// leaves one.
+/// Whether a schema defines how source fragments combine. The handler's return
+/// value is the declaration, so merge behavior has one source of truth.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Aggregation {
     /// This schema has no merge rule: one source lowers the artifact and a
@@ -213,23 +208,9 @@ pub trait ContentSchemaHandler: Send + Sync {
     /// forgetting is how a typo becomes a mechanic that silently never fires.
     fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome);
 
-    /// Merge every fragment this schema's sources lowered into the ONE artifact
-    /// the runtime consumes, and judge the aggregate.
-    ///
-    /// The default is [`Aggregation::Undefined`]: a schema that says nothing
-    /// here is a one-source schema, and a second source that lowers is refused.
-    ///
-    /// ⛔ **a schema that defines this is called for ONE source too**, and that
-    /// is the point rather than an accident. The tempting rule is "aggregate
-    /// only when there are two or more", and under it a pack that declared a
-    /// single file would lower a FRAGMENT where the runtime expects the
-    /// COLLECTION — the artifact's TYPE would depend on how many files an author
-    /// happened to write, and the failure would appear the day someone deleted
-    /// the eighth encounter.
-    ///
-    /// ⚠ fragments arrive in the order their sources are DECLARED in the
-    /// manifest. A merge with override semantics needs a defined order, and
-    /// declared order is the one an author can see and diff.
+    /// Merge every lowered fragment into the runtime artifact. Aggregation is
+    /// invoked even for one source so artifact type is independent of source
+    /// count. Fragments arrive in manifest declaration order.
     fn aggregate(
         &self,
         fragments: &[LoweredFragment<'_>],

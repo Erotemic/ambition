@@ -319,17 +319,10 @@ fn a_nested_scope_does_not_leak_into_the_outer_dump() {
     assert_eq!(inner.facts().next().unwrap().kind(), "inner");
 }
 
-/// ⛔ **A fact published on another thread is LOST, and the loss is COUNTED.**
-///
-/// The sink is thread-local, which is sound for the pure call tree it was built
-/// for and unsound for Bevy's multithreaded scheduler. Silent loss would be the
-/// unacceptable part — an explanation missing a domain would read as "that
-/// domain did not act" rather than "nobody was listening on that thread".
+/// Facts published off the sink's thread are counted as lost.
 #[test]
 fn a_fact_published_off_thread_is_counted_rather_than_vanishing() {
-    // ⛔ the globals this reads are PROCESS-wide and tests run in parallel: any
-    // other test holding a sink open makes the last assertion below see a
-    // "somebody is listening" that is not this test's. See the lock's docs.
+    // The sink diagnostics are process-global, so serialize this test.
     let _serialised = crate::sink::global_sink_test_lock();
     reset_lost_offthread();
     let before = facts_lost_offthread();
@@ -338,8 +331,7 @@ fn a_fact_published_off_thread_is_counted_rather_than_vanishing() {
         record(fact("here", 1, domains::BRAIN).about(body()));
         std::thread::scope(|scope| {
             scope.spawn(|| {
-                // A worker thread with no sink of its own — exactly what a Bevy
-                // system running off the main thread would be.
+                // Worker thread has no sink of its own.
                 record(fact("elsewhere", 1, domains::BRAIN).about(body()));
             });
         });
@@ -353,19 +345,13 @@ fn a_fact_published_off_thread_is_counted_rather_than_vanishing() {
         "and the one that got away is a NUMBER, not a silence"
     );
 
-    // With no sink open anywhere, an unrecorded fact is instrumentation being
-    // off — the ordinary shipped path — and must not inflate the counter.
+    // Publishing with instrumentation disabled is not an off-thread loss.
     let after_scope = facts_lost_offthread();
     record(fact("nobody_listening", 1, domains::BRAIN));
     assert_eq!(facts_lost_offthread(), after_scope);
 }
 
-/// ⛔ **Two lifecycle generations at one tick are two answers, not one chain.**
-///
-/// Frames restart at zero on every session, so generation 1 tick 20 and
-/// generation 2 tick 20 are different moments. Merging them would put a fact
-/// from a session that no longer exists into an explanation of the current one.
-/// (GPT 5.6 review, finding 6.)
+/// Equal tick numbers in different lifecycle generations produce separate explanations.
 #[test]
 fn one_tick_in_two_generations_is_two_explanations() {
     // The sink counters are PROCESS globals and tests run in
@@ -395,7 +381,7 @@ fn one_tick_in_two_generations_is_two_explanations() {
         "and neither borrows the other's fact"
     );
 
-    // The single-answer call takes the LATEST, and says which it took.
+    // The single-answer query selects the latest generation.
     let latest = log.explain(20, &body());
     assert_eq!(latest.generation(), Some(2));
     assert_eq!(
@@ -406,12 +392,7 @@ fn one_tick_in_two_generations_is_two_explanations() {
     assert!(latest.render().contains("generation 2"));
 }
 
-/// ⛔ **An original tick and its resimulation are two answers.**
-///
-/// This is the one that would break a required question. Under a rollback host
-/// the same tick runs twice; if both land in one explanation, `execution()`
-/// returns whichever fact sorted first and "was this a replay?" becomes a coin
-/// flip. (GPT 5.6 review, finding 6.)
+/// Original and resimulated executions of one tick produce separate explanations.
 #[test]
 fn an_original_tick_and_its_resimulation_do_not_share_an_explanation() {
     // The sink counters are PROCESS globals and tests run in
@@ -446,7 +427,7 @@ fn an_original_tick_and_its_resimulation_do_not_share_an_explanation() {
         "and the replay keeps its own — a merge would have reported one of them for both"
     );
 
-    // And the single-answer call is UNAMBIGUOUS about which it describes.
+    // The single-answer query selects the latest execution.
     let latest = log.explain(20, &body());
     assert_eq!(latest.execution(), Some(Execution::Resimulated));
     assert_eq!(latest.facts().len(), 1);
@@ -458,8 +439,7 @@ fn an_original_tick_and_its_resimulation_do_not_share_an_explanation() {
 /// one session generation collapsed together. Rollback executes a tick more than
 /// once routinely, those attempts can produce DIFFERENT facts, and that
 /// disagreement is exactly when somebody opens an inspector — at which point it
-/// could not say which attempt produced a result (GPT 5.6, 2026-08-01,
-/// finding 6).
+/// could not say which attempt produced a result
 ///
 /// ⚠ an ORIGINAL execution is always attempt 0. Numbering it by how many
 /// rollbacks happened to precede it would make one unchanged original tick

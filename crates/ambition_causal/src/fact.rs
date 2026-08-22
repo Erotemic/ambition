@@ -216,7 +216,7 @@ pub struct CausalFact {
     /// once within a generation, and two attempts can produce different facts —
     /// that is the whole reason to look. Without this the inspector groups them
     /// into one explanation and cannot say which attempt produced a result
-    /// (GPT 5.6, 2026-08-01, finding 6).
+    ///
     ///
     /// `0` is the original execution. The HOST bumps it, for the same reason it
     /// stamps the tick: a domain five hops down cannot know a rewind happened.

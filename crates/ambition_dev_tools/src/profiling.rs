@@ -105,21 +105,9 @@ pub fn report_schedule_census(schedules: Res<Schedules>, mut reported: Local<boo
     eprintln!("[schedule-census] total (visible schedules): {total} systems");
 }
 
-/// Steady-state twin of [`report_startup_phases`].
-///
-/// The startup logger measures Startup-schedule systems and stops. That window
-/// is genuinely fast (~100ms), which made a multi-second launch hitch look
-/// undiagnosable: the cost is the ASYNC asset pipeline landing over the frames
-/// AFTER the first one, where no instrument was watching. This one watches the
-/// frames.
-///
-/// Two outputs, both plain stderr so `scripts/profile_desktop.sh` stamps them
-/// into the timeline chunk they occurred in:
-///
-/// - `[frame-spike]` — one line per frame slower than [`Self::SPIKE_MS`], so a
-///   stutter gets a TIMESTAMP that can be lined up against a profile chunk.
-/// - `[frame-census]` — a periodic percentile summary, so "is it smooth now"
-///   is answerable from a log rather than from a number on the screen.
+/// Steady-state frame timing. Emits `[frame-spike]` for frames slower than
+/// [`Self::SPIKE_MS`] and periodic `[frame-census]` percentile summaries to
+/// stderr for correlation with profile timelines.
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Resource)]
 pub struct FrameCensus {

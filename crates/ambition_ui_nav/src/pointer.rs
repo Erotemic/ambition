@@ -54,30 +54,12 @@ impl MenuFocusState {
 
 /// **What a pointer went DOWN on, and where.**
 ///
-/// ⛔ **activating on PRESS is why touch needed two taps.** A finger that
-/// presses a row and then slides — scrolling a list, moving a stick — has
-/// activated it the moment it landed, so the only way to make dragging safe was
-/// to promote touch to tap-to-select-then-confirm. Jon reported the result from
-/// a Pixel 5: dialogue *"is frustrating and error prone"* because every choice
-/// costs two deliberate taps.
+/// Arm on press, cancel past the drag threshold, and activate on release. This
+/// permits one-tap selection without turning a drag gesture into activation.
 ///
-/// ⭐ **release-with-drag-cancel is the primitive that removes the need for the
-/// promotion**, and this repo already had it — the kaleidoscope menu's
-/// `kaleidoscope_pointer_press`/`_release` pair arms an action at press,
-/// cancels it past a drag threshold, and dispatches on release. That is the
-/// behaviour, lifted to the shared row vocabulary so dialogue and every other
-/// selectable list get it rather than one menu (GPT 5.6 review, 2026-08-04).
-///
-/// ⚠ **the identity is NEVER an entity.** A windowed list and a rebuilding
-/// perspective cube both respawn their controls between press and release, so
-/// an entity-keyed arm is a dangling handle by the time the finger lifts — the
-/// historical `Pointer<Click>` failure, which requires press and release to
-/// resolve to the same entity.
-///
-/// What the identity IS depends on what the surface can name stably, which is
-/// why this is generic: a flat list keys on the ROW INDEX ([`RowPress`]), and a
-/// surface whose cells have no stable ordinal keys on the ACTION the control
-/// carries. Both survive a rebuild; an entity does not.
+/// The target identity must survive control-entity rebuilds between press and
+/// release. Flat lists use a row index ([`RowPress`]); other surfaces may use a
+/// stable action identity.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PressArm<T> {
     /// What the pointer went down on.
@@ -111,9 +93,8 @@ impl<T> Default for PressArm<T> {
 /// How far a pointer may travel between press and release and still count as a
 /// tap, in logical pixels.
 ///
-/// ⚠ generous on purpose. A thumb rolls several pixels on a deliberate tap, and
-/// a threshold tuned on a mouse turns real taps into ignored drags — which reads
-/// as an unresponsive UI, the failure this whole change exists to remove.
+/// Generous enough for normal thumb movement during a deliberate tap while
+/// still distinguishing a drag.
 pub const ROW_TAP_SLOP_PX: f32 = 16.0;
 
 impl<T: Clone + PartialEq> PressArm<T> {

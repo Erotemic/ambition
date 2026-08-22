@@ -1,7 +1,4 @@
 //! Room metadata, music request, and visual profile.
-//!
-//! Split out of the former 823-line `rooms/mod.rs` (2026-06-15); the
-//! parent re-exports every type so `rooms::*` paths are unchanged.
 
 use bevy_ecs::prelude::Component;
 
@@ -142,11 +139,8 @@ pub struct RoomMetadata {
     /// across an active area's member levels, like every other string field
     /// here.
     ///
-    /// That sentence was aspirational until 2026-07-28: the reader existed, but
-    /// no project DECLARED the field, so every LDtk room composed with
-    /// `mode: None` and all five modes in the repo were assigned in Rust. The
-    /// def is now registered in every `.ldtk` project, so an LDtk-authored room
-    /// can join its own demo's ruleset.
+    /// The field is declared in each LDtk project, so an authored room can select
+    /// its own ruleset.
     pub mode: Option<String>,
     /// How far past this room's bounds, along the fall direction, a body may
     /// drift before the world declares it gone
@@ -180,13 +174,8 @@ pub struct RoomMetadata {
     /// place, which is the classic arcade answer and a real destination rather
     /// than the absence of one.
     ///
-    /// ⛔ **this exists because "where does this level go next" was the LAST
-    /// Rust cost of authoring a level (2026-08-15).** Mary-O's `exit_for_room`
-    /// was an if/else chain over room ids; every other property of a level —
-    /// its geometry, its blocks, its enemies, its links, its goal pole, its
-    /// roster entry — is read off the LDtk file, and a third level still cost
-    /// one arm here. Worse, the chain had already reddened a test that had
-    /// pinned *"finishing 1-2 returns to 1-1"* — true only while 1-2 was last.
+    /// Keeping this in room metadata lets authored content define progression
+    /// without a room-id dispatch table in Rust.
     ///
     /// ⚠ **the engine does not check that the named room EXISTS.** It cannot:
     /// a level file states an id and only the loaded `RoomSet` knows which

@@ -1,25 +1,9 @@
-//! **An open inventory OWNS the input, and says so.**
+//! Inventory input-context ownership.
 //!
-//! Until now the fact "the inventory has the controls" was spelled
-//! `GameMode::Paused && inventory.visible` at every site that needed it — the
-//! exact derivation `ambition_input::participant` forbids in its own header:
-//! *"nothing derives input ownership from `GameMode` or from the presence of a
-//! controlled body"*. Two authorities for one question, and the mode is the one
-//! that is wrong: `Paused` is a fact about the WORLD (stopped for everybody),
-//! while owning input is a fact about a SEAT.
-//!
-//! The gap that spelling left is not hypothetical. A composition that never
-//! registers `GameMode` — a demo, a capture harness — had the inventory open
-//! with gameplay still routing underneath it, so the cube's own navigation keys
-//! also drove the actor behind it. There was nothing to fix at each router,
-//! because the router had no way to be told.
-//!
-//! ## Backend-agnostic on purpose
-//!
-//! The claim reads [`InventoryUiState::visible`], which BOTH inventory
-//! frontends already drive (the 3D kaleidoscope and the bevy_ui grid), rather
-//! than either backend's private state. So the two cannot disagree about who
-//! owns the input, and a third frontend gets the claim by raising the same flag.
+//! While [`InventoryUiState::visible`] is true, this module declares the shared
+//! inventory context for participants. Ownership comes from the backend-neutral
+//! inventory model rather than game mode or renderer-specific state, so all
+//! inventory frontends route input consistently.
 
 use bevy::prelude::*;
 
@@ -32,11 +16,8 @@ use crate::InventoryUiState;
 /// Declare [`INVENTORY_CONTEXT`] while the inventory surface is open, and
 /// retract it when it closes.
 ///
-/// The claim goes to every participant because today's inventory is a global
-/// surface — one screen, opened by whoever pressed the key, over a world that
-/// stops. A per-seat inventory (one player in their bag while another keeps
-/// playing) is a change HERE and nowhere else, which is the whole reason the
-/// resolved context is keyed by seat.
+/// The current inventory surface is global, so the claim is declared for every
+/// participant. A future per-seat inventory can narrow the claim here.
 pub fn declare_inventory_input_context(
     overlay: Option<Res<InventoryUiState>>,
     mut participants: Query<&mut ParticipantContexts, With<InputParticipant>>,

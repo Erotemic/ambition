@@ -1,19 +1,7 @@
 //! The `encounter_waves` authored-content schema, owned by this capability.
 //!
-//! ⛔ **this family had TWO readers of one file, which is the shape the content
-//! compiler exists to remove.** `AmbitionContentPlugin` did
-//! `ron::from_str(include_str!("…/goblin_encounter.ron")).expect(…)` at
-//! plugin-build time and handed the result to a process-global holder. So the
-//! pack could validate a file the runtime never consulted, and the runtime could
-//! panic on a file the pack never saw — with a serde message, at startup, in a
-//! game (GPT 5.6 review G3; authoring-loop program's `encounter waves` row).
-//!
-//! ⭐ **the migration is worth doing for what it FINDS, not for tidiness.** The
-//! program doc puts it plainly after `items.ron`: *"migrating a family finds bugs
-//! the old reader could not see."* `items.ron` turned out to be positional, so
-//! deleting one row silently re-authored twenty-three. The invariant below is
-//! this family's version of that question — **what can a wave book say that its
-//! own parser accepts and the runtime cannot use?**
+//! The content compiler is the single reader for this family: validation and
+//! runtime lowering operate on the same parsed wave book.
 //!
 //! An encounter with NO waves parses perfectly and means something the author
 //! cannot have intended: the loader falls back to marker-derived spawns, which is
@@ -113,14 +101,8 @@ fn declare(facet: &FacetSource<'_>, book: &EncounterWaveBook, out: &mut FacetOut
             );
         }
 
-        // ⛔⛔ **DEFINE the encounter, or it has no IDENTITY in the pack.**
-        // This schema lowered its book and defined nothing, and the pack
-        // fingerprint is built from `define`d rows — so editing a wave's delay,
-        // its mob roster, or the wave ORDER changed what the game runs and left
-        // the pack's identity byte-identical. Two peers could carry different
-        // encounters and agree they had the same content (GPT 5.6 review of
-        // `1a05b98`, finding 1 — against this schema, five commits after I wrote
-        // it).
+        // Define every encounter that contributes runtime content so wave edits
+        // also change the pack fingerprint used for compatibility checks.
         //
         // ⚠ `Debug` is canonical for THIS vocabulary and it is worth saying why,
         // because it is not canonical in general: `EncounterWaveSpec` and

@@ -771,7 +771,7 @@ fn an_unchecked_asset_source_says_so_instead_of_looking_verified() {
 /// runtime representation — "validated and then ignored", which is the one thing
 /// a content compiler must never certify. `AuthoringOnly` is how a schema says
 /// it deliberately reaches no runtime, and saying it explicitly is the point.
-/// (GPT 5.6 review, finding 2.)
+///
 #[test]
 fn a_runtime_schema_that_lowers_nothing_is_refused() {
     struct Inert;
@@ -828,7 +828,7 @@ fn a_runtime_schema_that_lowers_nothing_is_refused() {
 /// the runtime artifact holds only the last — validation and the running game
 /// seeing different content. Only the HANDLER knows whether two of its artifacts
 /// union, override or conflict, so a generic merge here would be the compiler
-/// guessing. (GPT 5.6 review, finding 3.)
+/// guessing.
 ///
 /// `habitat` never said, so it is still refused; the refusal now names BOTH
 /// files, because "which two" is the first thing a reader asks.
@@ -864,12 +864,7 @@ fn two_sources_lowering_one_schema_is_refused_rather_than_silently_last_wins() {
     );
 }
 
-/// **The aggregation contract: many sources, one artifact.**
-///
-/// Three families are shaped this way — nine boss encounters, seven dialogue
-/// files, the LDtk worlds — and before this each of them either had to be
-/// `AuthoringOnly` (validated, then reparsed by the runtime) or crammed into a
-/// single file.
+/// Aggregating schemas merge all declared sources into one runtime artifact.
 #[test]
 fn an_aggregating_schema_merges_every_source_into_one_artifact() {
     let pack = Pack::empty("aggregate_many");
@@ -893,18 +888,9 @@ fn an_aggregating_schema_merges_every_source_into_one_artifact() {
     assert_eq!(burrows.len(), 2, "both, not the last one");
 }
 
-/// ⛔⛔ **THE TRAP, and the reason this probe exists at all.**
-///
-/// The tempting implementation is "aggregate only when there are two or more
-/// fragments — one source can be lowered straight through". Under it this pack
-/// lowers a `BurrowFile` where the runtime asks for a `BurrowMap`, so **the
-/// artifact's TYPE depends on how many files an author happened to write.** It
-/// would work at nine encounters and break the day someone deleted the eighth,
-/// with a `None` from a downcast and no diagnostic anywhere.
-///
-/// ⚠ this is only a real probe because the fragment type and the artifact type
-/// DIFFER. A toy that lowered `Vec<String>` fragments into a `Vec<String>`
-/// artifact would pass under the broken rule too.
+/// Aggregation runs even for one source so the runtime artifact type cannot
+/// depend on how many files the author declared. The fixture deliberately uses
+/// different fragment and aggregate types.
 #[test]
 fn an_aggregating_schema_is_asked_to_merge_even_a_single_source() {
     let pack = Pack::empty("aggregate_one");
@@ -989,7 +975,7 @@ fn fragments_reach_the_merge_in_the_order_the_manifest_declares() {
 /// session-compatibility check, the thing that says whether two builds carry the
 /// same content. A value that moves with the checkout path answers none of
 /// those. Asset PROVENANCE (where a file resolved) stays available for
-/// diagnostics and stays out of identity. (GPT 5.6 review, finding 5.)
+/// diagnostics and stays out of identity.
 #[test]
 fn the_fingerprint_does_not_move_with_the_checkout_path() {
     fn pack_with_art(name: &str) -> Pack {

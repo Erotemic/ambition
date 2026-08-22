@@ -1,7 +1,4 @@
 //! Gate portals — phase state machine + registry.
-//!
-//! Split out of the former 823-line `rooms/mod.rs` (2026-06-15); the
-//! parent re-exports every type so `rooms::*` paths are unchanged.
 
 use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 use bevy_ecs::prelude::Resource;
@@ -51,12 +48,8 @@ impl GatePortalPhase {
     }
 }
 
-/// One portal's AUTHORED configuration.
-///
-/// ⛔ **no live phase here.** This value is written once, by the content plugin
-/// that authors the portal, and never again; the phase it used to carry is
-/// integrated every simulated tick and lives in [`GatePortalPhases`]. See that
-/// type for why the two cannot share a resource.
+/// One portal's authored configuration. Live phase is integrated separately in
+/// [`GatePortalPhases`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GatePortalConfig {
     /// The switch whose on/off state commands this portal's boot /
@@ -77,16 +70,9 @@ pub struct GatePortalConfig {
 /// only while the zone's phase (in [`GatePortalPhases`]) is `On`. Empty by
 /// default — populated by story-content plugins.
 ///
-/// Replaces the earlier `GatedZoneRegistry` (which only tracked
-/// the switch and treated the zone as a thin switch-gate). The
-/// portal's *own* state is what gates traversal — the switch just
-/// drives the boot/shutdown sequence — so the readiness check lives
-/// beside the portal, not in the switch system.
-///
-/// ⭐ **this resource is genuinely authored, and it was not before 2026-08-15.**
-/// It carried each portal's live `phase` alongside the authored strings, which
-/// made its rollback waiver ("authored gate portals") a wrong answer to the
-/// checker's question — see [`GatePortalPhases`].
+/// The portal's own live phase gates traversal; the switch only commands the
+/// boot/shutdown sequence. Authored configuration therefore stays here while
+/// live rollback state lives in [`GatePortalPhases`].
 #[derive(Resource, Default, Debug, Clone, PartialEq, Eq)]
 pub struct GatePortalRegistry {
     pub portals: std::collections::HashMap<String, GatePortalConfig>,
@@ -115,54 +101,21 @@ impl GatePortalRegistry {
     }
 }
 
-/// **Every registered portal's LIVE phase — rollback state.**
+/// Every registered portal's live rollback phase. The phase is integrated in
+/// the simulation schedule and gates traversal, so its elapsed timer is
+/// authoritative rollback state rather than a derived cache.
 ///
-/// `tick_portal_phases_system` integrates each phase forward by
-/// `WorldTime::scaled_dt` in the SIM schedule (`GgrsSchedule` under the shipped
-/// rollback host), and `detect_room_transition_system` — in the same schedule —
-/// refuses a crossing unless the phase reads `On`. So this is per-frame
-/// authoritative state, and the two facts together are what make it rewindable
-/// state rather than a cache:
-///
-/// - the phase is a TIME INTEGRAL of the switch, not a function of it. The
-///   switch lives in `AmbitionGameSave`, which IS rollback-registered, so a
-///   rewind restores the input and — before this type existed — left the
-///   integrator holding the speculative timeline's elapsed. `Opening` runs
-///   [`PORTAL_OPENING_DURATION_SECS`] ≈ 38 ticks at 60 Hz, which is far wider
-///   than any rollback depth: the window is not a corner case, it is the
-///   ordinary case for a player who just flipped the switch.
-/// - the phase decides a room transition. Two peers whose `elapsed` differ by
-///   the depth of their last rollback promote `Opening → On` on different
-///   frames, so one records a crossing the other refuses. That is a desync, not
-///   a visual difference.
-///
-/// ⚠ **kept separate from [`GatePortalRegistry`] on purpose.** Registering the
-/// merged resource would have put the AUTHORED half under the snapshot too, and
-/// the content plugin that populates it runs in `Update` behind a one-shot
-/// `installed` flag that does NOT rewind — so a rewind to a frame before the
-/// populate would have restored an empty registry that nothing ever refills,
-/// and `is_portal` would then answer `false` for a gate that exists. Authored
-/// content and simulated state are different concerns; only the second one
-/// rewinds.
-///
-/// ⛔⛔ **`BTreeMap`, and the ordering is the TYPE'S job rather than the
-/// reader's.** This was a `std::collections::HashMap` whose one reader
-/// (`gate_portal_phases_checksum`) collected and sorted before folding — correct,
-/// and correct only for as long as every future reader remembered to. `RandomState`
-/// is seeded per map instance, so an unsorted iteration here would fold zone
-/// phases in an order that differs between two peers holding identical state, and
-/// the desync detector would manufacture desyncs (ADR 0023 N0.3). An ordered
-/// container makes that unreachable instead of merely unwritten: `.iter()` is
-/// key order, for every reader, forever.
+/// Kept separate from [`GatePortalRegistry`]: authored portal configuration is
+/// not simulated state and must not be restored from rollback snapshots.
+/// `BTreeMap` provides deterministic key-order iteration for checksums/readers.
 #[derive(Resource, Default, Debug, Clone, PartialEq)]
 pub struct GatePortalPhases {
     pub phases: std::collections::BTreeMap<String, GatePortalPhase>,
 }
 
 impl GatePortalPhases {
-    /// A zone with no recorded phase is in the default phase (`Off`) — the same
-    /// answer `register` used to seed, so a portal that has not ticked yet is
-    /// shut rather than open.
+    /// A zone with no recorded phase defaults to `Off`, so an unticked portal
+    /// is shut rather than open.
     pub fn phase(&self, zone_id: &str) -> GatePortalPhase {
         self.phases.get(zone_id).copied().unwrap_or_default()
     }
@@ -190,22 +143,9 @@ impl GatePortalPhases {
 /// checksum that saw only *which zones have a phase* would agree with the bug.
 /// Every field that decides when `Opening` becomes `On` is projected here.
 ///
-/// ⛔ **keys are folded in KEY ORDER, and the container is what guarantees it.**
-/// Hashing zone phases in an arbitrary order would make the checksum disagree
-/// between two peers holding identical state — a desync detector that
-/// manufactures desyncs. `phases` was a `HashMap` and this function collected +
-/// sorted to defend against that; it is a `BTreeMap` now, so `.iter()` IS key
-/// order and there is no second discipline to remember. See the field's own note.
-///
-/// ⚠ **it lives beside the type, not in the rollback runtime.** It moved here
-/// because it is domain semantics: it names every [`GatePortalPhase`] variant
-/// and the field each one carries, so adding a variant must break an exhaustive
-/// match in THIS file rather than in the netcode crate — the same argument
-/// `snapshot_impls` makes for this crate's wire codecs. The encoders are
-/// `ambition_platformer2d_core`'s, which this crate already depends on, so the
-/// move costs no dependency edge. ⭐ **and the registration followed it**: see
-/// [`register_gate_portal_rollback_state`] — the runtime no longer names this
-/// type at all.
+/// Keys are folded in `BTreeMap` order so identical phase state produces the
+/// same checksum on every peer. The projection lives with the domain type so an
+/// added [`GatePortalPhase`] variant must update the exhaustive match here.
 pub fn gate_portal_phases_checksum(phases: &GatePortalPhases) -> u64 {
     use ambition_platformer2d_core::snapshot::{checksum_bytes, put_f32, put_str, put_u64, put_u8};
 
@@ -229,38 +169,14 @@ pub fn gate_portal_phases_checksum(phases: &GatePortalPhases) -> u64 {
     checksum_bytes(&bytes)
 }
 
-/// The owner label on this domain's rollback registrations — **this crate**,
-/// because this crate now does the registering.
-///
-/// ⚠ `owner` is an organisational label: it is not in `schema_dump` and not
-/// hashed into the schema fingerprint (that is exactly why it left the wire form
-/// in schema v5), so moving the registration down here is a no-op for the
-/// recorded baseline. It IS matched by `missing_required_state`, which is why it
-/// is a named constant a `RequiredRollbackState` declaration can reuse verbatim.
+/// Owner label for this domain's rollback registrations. It is organizational,
+/// not part of the schema fingerprint, and is reused by required-state checks.
 pub const GATE_PORTAL_ROLLBACK_OWNER: &str = "ambition_platformer2d_world";
 
-/// **Install the gate-portal domain's rollback state.**
-///
-/// ⭐ **this is the domain naming its own type.** It used to be one line in
-/// `ambition_platformer2d_runtime::rollback::register_engine_rollback_state`,
-/// on the argument that `bevy_ggrs` registration is generic over the concrete
-/// type and only the netcode crate may name `bevy_ggrs`. The first half is true
-/// and the second half is a boundary worth keeping — but neither implies the
-/// netcode crate must own the LIST. It takes a [`RollbackRegistrar`] and the
-/// host passes one in; the monomorphisation happens at the host's call
-/// site, and this crate stays `bevy_ggrs`-free (its whole path-dependency
-/// closure is seven crates, none of which names it).
-///
-/// ⛔⛔ **registered with a VALUE projection, not a presence probe.** The whole
-/// defect this closes is an INTEGRATOR running ahead of the input that drove it:
-/// a probe that saw only *which zones have a phase* would restore that phases
-/// exist, say nothing about `elapsed`, and pass while reproducing the bug. See
-/// [`gate_portal_phases_checksum`] for what is folded, and [`GatePortalPhases`]
-/// for why the timer is authoritative rather than a cache.
-///
-/// ⚠ **taken by `&mut impl`, not `&mut dyn`.** The registrar's methods are
-/// generic, so the trait is not object-safe by construction, and must not become
-/// so — see the trait's own note.
+/// Install gate-portal rollback state through the domain-neutral
+/// [`RollbackRegistrar`]. Registration uses a value projection so authoritative
+/// phase timers participate in restore/desync checks. The registrar is generic
+/// because its registration methods are not object-safe.
 pub fn register_gate_portal_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
@@ -323,10 +239,7 @@ pub fn tick_gate_portal_phase(phase: &mut GatePortalPhase, switch_on: bool, dt: 
 
 #[cfg(test)]
 mod tests {
-    //! Gate-portal PHASE-transition unit tests. These pin the pure world-owned
-    //! state machine (`tick_gate_portal_phase` + `GatePortalPhase`); they
-    //! travelled here from `ambition_platformer2d_actor_monolith::world::rooms::tests` (fable audit
-    //! F5.4 test-travel) so a gate-portal regression fails IN this crate.
+    //! Gate-portal phase-transition tests for the world-owned state machine.
     use super::*;
 
     #[test]
@@ -501,17 +414,9 @@ mod tests {
         );
     }
 
-    /// ⛔ **the projection must not read INSERTION order, and the container must
-    /// not have one to read.** Two peers holding identical state build their maps
-    /// by different routes; folding in anything but key order would report a
-    /// desync between two worlds that agree.
-    ///
-    /// ⭐ **this asserts the CONTAINER's property, not just the checksum's.** The
-    /// checksum used to collect-and-sort, so a revert of `phases` to a `HashMap`
-    /// would leave this test green while re-arming the hazard. The key-sequence
-    /// assertion below is the half that goes red on that revert — with a `HashMap`
-    /// the two maps carry different per-instance `RandomState` seeds and iterate
-    /// in two different arbitrary orders, neither of them sorted.
+    /// The projection and its container must use key order so peers with
+    /// identical state produce identical checksums regardless of insertion path.
+    /// This test checks both the checksum and container iteration order.
     #[test]
     fn the_phase_projection_folds_in_key_order_whatever_the_insertion_order() {
         let entries: Vec<(&str, GatePortalPhase)> = vec![

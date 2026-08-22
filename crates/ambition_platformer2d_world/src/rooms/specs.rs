@@ -1,7 +1,4 @@
 //! Authored room content specs (props, items, portals, shrines, gravity zones).
-//!
-//! Split out of the former 823-line `rooms/mod.rs` (2026-06-15); the
-//! parent re-exports every type so `rooms::*` paths are unchanged.
 
 use ambition_platformer2d_core as ae;
 
@@ -88,12 +85,8 @@ impl PropDraw {
 
 /// LDtk-authored held item resting on the ground, pick-up-able with `Attack`.
 ///
-/// Resolved to a [`crate::items::pickup::GroundItem`] at room load by looking
-/// `held_item` up in the brain held-item registry
-/// (`ambition_characters::brain::held_item_by_id`). This is the authored-placement home for
-/// the gauntlet / weapon pickups that the debug `spawn_debug_ground_items_once`
-/// table used to drop near the player — kept off `World::objects` for the same
-/// reason as [`PropSpec`] (the engine never sees them).
+/// Resolved to a [`crate::items::pickup::GroundItem`] at room load through the
+/// held-item registry. Kept as room placement IR rather than `World::objects`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct GroundItemSpec {
     /// LDtk iid — stable across rebuilds for save/debug joins.
@@ -103,10 +96,7 @@ pub struct GroundItemSpec {
     /// Held-item registry id, e.g. `meteor`, `bomb`, `puppy_slug_gun`,
     /// `gun_sword`. Resolved via `ambition_characters::brain::held_item_by_id`.
     ///
-    /// An unregistered id REFUSES construction (`UnknownHeldItem`) — it does not
-    /// skip at spawn, whatever this comment used to say. The planned-construction
-    /// campaign made it a hard boundary check and left the note behind; the room
-    /// binding sweep found the contradiction.
+    /// An unregistered id refuses construction with `UnknownHeldItem`.
     pub held_item: String,
     /// World-space center of the pickup box.
     pub pos: ae::Vec2,
@@ -128,17 +118,11 @@ pub struct PortalGunSpawnSpec {
     pub half_extent: ae::Vec2,
 }
 
-/// Authored/runtime portal channel color — now owned by the Tier-0 catalog and
-/// re-exported here so `rooms::PortalChannelColorSpec` paths stay stable (fable
-/// audit F9.2). See [`ambition_entity_catalog::placements::PortalChannelColorSpec`].
+/// Portal channel color, re-exported here to keep the room-spec API stable.
 pub use ambition_entity_catalog::placements::PortalChannelColorSpec;
 
-/// LDtk-authored static portal — the runtime-facing spec carrying kernel `Vec2`
-/// (`pos`/`normal`). The Tier-0 MIRROR carried on the `placements` channel is
-/// [`ambition_entity_catalog::placements::PortalSchema`]; the actor portal
-/// lowering reconstructs this from a placement record (fable audit F9.2). Pure
-/// room IR; the Ambition portal adapter lowers it to a runtime `PlacedPortal` at
-/// room load.
+/// LDtk-authored static portal in room IR. The portal adapter lowers it to a
+/// runtime `PlacedPortal`; placement MIR uses `ambition_entity_catalog::placements::PortalSchema`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PortalSpec {
     /// LDtk iid — stable across rebuilds for save/debug joins.
@@ -176,20 +160,9 @@ pub struct ShrineSpec {
     pub half_extent: ae::Vec2,
 }
 
-/// **An authored encounter's trigger volume**, in the room IR.
-///
-/// ⭐⭐ **this exists so an encounter can be read off a ROOM instead of off an
-/// `LdtkProject`** (D136). `EncounterTrigger` and `LockWall` were the two
-/// markers the converter deliberately dropped — *"read by their own consumers
-/// off the raw `LdtkProject`; they never join the emission stream"* — and that
-/// sentence is why five production files still need the LDtk crate, which is
-/// what stands between the workspace and its capability-footprint number.
-///
-/// ⚠ **the IR type and `ambition_encounter`'s domain type are deliberately
-/// separate, and that is layering rather than a fork.** The world crate is
-/// below the encounter crate and must not learn what an encounter IS; it
-/// carries WHERE one was authored, and the loader converts. The conversion is
-/// stated at both ends so a reader meets the pair on purpose.
+/// Authored encounter trigger geometry in the room IR. The world layer carries
+/// where the trigger was authored; the encounter loader converts it to the
+/// encounter domain type.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct EncounterTriggerSpec {
     /// The authored `id` field, or empty when the author left it blank — the
@@ -203,18 +176,10 @@ pub struct EncounterTriggerSpec {
     pub camera_zoom: Option<f32>,
 }
 
-/// **A `Switch`'s authored `on_activate` line**, in the room IR.
-///
-/// ⭐⭐ **a typed family and NOT a field on `InteractableSpec`, deliberately**
-/// (D136). The switch already emits an interactable — but `InteractableSpec` is
-/// a variant of the CLOSED Tier-0 `PlacementSchema`, whose kinds are *"an
-/// explicit compatibility contract [that] may only change with a
-/// fingerprint-schema bump"*. Widening it would put a netcode/replay schema
-/// event behind a load-time authored string that exactly one consumer reads.
-///
-/// ⚠ **most switches emit none.** `on_activate` is optional: a switch without
-/// one is driven by its `action`/`target_encounter` pair as before, and
-/// `authored_switch_commands` is the only reader.
+/// A switch's authored `on_activate` line in the room IR. It remains a typed
+/// room facet instead of widening the closed Tier-0 `PlacementSchema` for a
+/// command string consumed only by switch-command lowering. Most switches omit
+/// it and use their normal action/target fields.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SwitchCommandSpec {
     /// The switch's authored `id` — the key `SwitchActivation` joins on.
@@ -327,27 +292,8 @@ impl SpawnFacing {
 
 /// **An authored enemy's BEHAVIOUR and its ART are two different identities.**
 ///
-/// Before this existed the payload was a bare `CharacterBrain` and the art was
-/// joined by matching `Authored::name` — a human-readable display name — against
-/// the character catalog. That join has a documented, silent failure: renaming a
-/// character un-arts every level that placed it, because nothing connects the two
-/// but a string a human typed twice. Two demos carried a hand-written
-/// `name_enemies_for_render` pass to patch the name back in after conversion, and
-/// a third was about to be written.
-///
-/// ⭐ **the shape is borrowed from next door.** `NpcSpawn` already authors a
-/// `character_id`, and `MovingPlatform` was given an authored `id` on 2026-08-05
-/// for the same reason — *a name is presentation, and this repo has twice paid
-/// for keying gameplay on one*. `EnemySpawn` was the remaining placement that
-/// takes an identity and does not read one.
-///
-/// ⭐ **the display-name road is GONE (2026-08-14).** This doc used to say the
-/// id was optional because every level resolved through
-/// `CharacterCatalog::id_for_authored_identity` — an id first, a display name
-/// second — and that requiring it would break existing world files. The census
-/// refuted the premise: 184 authored `EnemySpawn` entities, 0 without an id. So
-/// the field is required, the lowering REFUSES a placement that authors none,
-/// and there is no second road left to test.
+/// `brain` selects behavior while `character_id` selects the body. Gameplay
+/// identity never depends on the editor-facing display name.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct EnemySpawnSpec {
     /// What it DOES: which driver policy plays this placement of the character.
@@ -361,12 +307,7 @@ pub struct EnemySpawnSpec {
     /// repertoire) and presentation is a projection of it. Which sprite a body
     /// wears therefore never determines which character it is.
     ///
-    /// ⭐ **REQUIRED, since 2026-08-14.** It was `Option` "only during the
-    /// migration", and the migration is over: measured across every `.ldtk` in
-    /// the repo — the content worlds, both demos, and the `ambition_map_assets`
-    /// submodule — **184 `EnemySpawn` entities, 0 without an id.** AC6.1 deleted
-    /// the archetype road an absent id used to fall back to, so the last thing
-    /// absence could mean was already gone.
+    /// Required: every enemy placement names the character it instantiates.
     ///
     /// ⛔ the lowering REFUSES an authored entity with no id rather than
     /// defaulting one. Defaulting is what made "which character is this" a
@@ -375,60 +316,26 @@ pub struct EnemySpawnSpec {
     pub character_id: ambition_entity_catalog::CharacterId,
     /// Which way this occurrence initially faces.
     ///
-    /// `Right` is the compatibility default because character-first actor
-    /// construction historically initialized `BodyKinematics::facing` to
-    /// `+1.0`. LDtk and other authoring surfaces may state `Left` explicitly
-    /// without teaching the character or its controller about stage direction.
+    /// `Right` preserves the default `+1.0` runtime facing. Authoring surfaces
+    /// may state `Left` explicitly without coupling character/controller data to
+    /// stage direction.
     #[serde(default, skip_serializing_if = "SpawnFacing::is_default")]
     pub facing: SpawnFacing,
-    /// **When this body comes back after it dies** (ADR 0022).
-    ///
-    /// ⭐ **a PLACEMENT fact with nowhere to be authored, until now.** Respawn
-    /// is the one thing in an enemy archetype row that is neither the
-    /// character's nor the controller's — the same creature is a permanent
-    /// casualty in a story room and a repopulating trash mob in a corridor, and
-    /// the row could only say one. It lived there because a placement had no
-    /// field for it, which is exactly the shape a migrated character exposes:
-    /// with the mites' rows deleted, their respawn policy arrives through the
-    /// `combatant` FALLBACK, and that is luck rather than authorship.
-    ///
-    /// `None` = "this placement did not say", and the engine answers with the
-    /// NAMED default `UNDESCRIBED_BODY_RESPAWN` (`OnRoomReenter` today). ⚠ it
-    /// used to say *"the archetype's policy"* — there is no archetype, and the
-    /// lookup that supplied one could not fail, so every body reached it and
-    /// none of them chose it.
+    /// Placement-specific respawn policy. `None` means the placement did not
+    /// specify one, so construction uses `UNDESCRIBED_BODY_RESPAWN`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub respawn: Option<ambition_entity_catalog::placements::RespawnPolicy>,
-    /// **How this body feels about the player when it spawns.**
-    ///
-    /// ⭐ the last spawn-context fact an enemy ARCHETYPE owned: a row could say
-    /// `is_hostile: false`, which made "ambient wildlife that never aggros"
-    /// a property of the creature rather than of this placement of it.
-    ///
-    /// `None` = whatever CHARACTER CONSTRUCTION resolved — the creature's own
-    /// answer, kept. An authored disposition overrules it, which is the only
-    /// thing a placement is entitled to say here. ⚠ it used to say *"the
-    /// archetype's answer"*, and that was the defect: the fallback read the
-    /// generic `combatant` row's `hostile_by_default: true` and handed the giant
-    /// GNU — a mount whose profile states it seeks nobody — its hostility back
-    /// one line after construction had resolved it correctly.
+    /// Placement-specific initial disposition. `None` keeps the disposition
+    /// resolved by character construction; an authored value overrides it for
+    /// this occurrence.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disposition: Option<ambition_entity_catalog::placements::SpawnDisposition>,
     /// **WHO DRIVES THIS ONE** — the shared controller policy this placement
     /// wants, by provider-relative name.
     ///
-    /// ⭐⭐ **the third authority's missing half.** A character states what a
-    /// body IS and a `BrainProfile` states how a driver decides, but until now
-    /// only the CHARACTER could name a profile — so one creature had exactly one
-    /// way to be played everywhere it appeared. That is the enemy-archetype
-    /// ontology surviving one level down: body and driver fused, just at a
-    /// finer grain.
-    ///
-    /// What it buys is the demonstration Jon asked for in place of the
-    /// one-of-each archetype museum: *the same controller policy can drive
-    /// distinct bodies, and the same body can use distinct policies.* A goblin
-    /// that patrols a corridor and a goblin that guards a door are one creature
-    /// and two placements, not two creatures.
+    /// This separates body identity from controller policy: the same character
+    /// can use different profiles at different placements, and one profile can
+    /// drive different characters.
     ///
     /// `None` = the character's own profile, which is every level authored so
     /// far. ⛔ a name that resolves to nothing is a construction ERROR, the same
@@ -461,12 +368,8 @@ impl EnemySpawnSpec {
     /// **The PRESENTATION identity this spawn wears** — which sheet, portrait
     /// and animation set the renderer should bind.
     ///
-    /// ⛔⛔ **the `name` parameter and the display-name fallback are GONE.** This
-    /// took `name: &str` and returned it unchanged when no id was authored,
-    /// which made a display name that happens to match a character into a
-    /// gameplay-adjacent join — tolerable for pixels, because a wrong sheet is
-    /// visible, and the exact silent coincidence the id exists to replace. With
-    /// the id required there is nothing to fall back FROM.
+    /// Presentation resolves from the required character id; display names are
+    /// not identity fallbacks.
     ///
     /// Kept as a named accessor rather than inlined because presentation and
     /// gameplay asking the same question through two names is what made the
@@ -477,10 +380,7 @@ impl EnemySpawnSpec {
 
     /// **Which `CharacterDefinition` this spawn instantiates.**
     ///
-    /// ⭐ no fallback and no `Option`: a placement states its character or it is
-    /// not a placement. `None` used to mean *"this placement did not say"*, which
-    /// construction answered with the legacy archetype — a road AC6.1 deleted, so
-    /// the last thing absence could mean went with it.
+    /// No fallback and no `Option`: every placement states its character.
     pub fn gameplay_character_id(&self) -> &ambition_entity_catalog::CharacterId {
         &self.character_id
     }
@@ -512,10 +412,6 @@ impl EnemySpawnSpec {
         self
     }
 }
-
-// ⛔ **`From<CharacterBrain>` is DELETED.** It said a brain alone is a
-// placement, which is the exact claim the required `character_id` refutes: a
-// controller is not a creature, and a spec built from one named no body at all.
 
 /// Pure authored damage-volume payload carried by [`RoomSpec`]. Runtime combat
 /// crates lower this to their live `DamageVolume`; the world IR only stores
@@ -549,25 +445,21 @@ impl HazardVolumeSpec {
     }
 }
 
-/// Authored interaction payload — now owned by the Tier-0 catalog and carried
-/// through the single `PlacementRecord` channel (fable audit F9.2). Re-exported
-/// here so `rooms::InteractableSpec` paths stay stable for authoring/lowering.
+/// Tier-0 authored interaction payload, re-exported here to keep the room
+/// authoring/lowering path stable.
 pub use ambition_entity_catalog::placements::{InteractableSpec, InteractionKindSpec};
 
-/// Authored pickup payload — now owned by the Tier-0 catalog and carried
-/// through the single `PlacementRecord` channel (fable audit F9.2). Re-exported
-/// here so `rooms::PickupSpec` / `rooms::PickupKind` paths stay stable.
+/// Tier-0 authored pickup payload, re-exported here to keep the room
+/// authoring/lowering path stable.
 pub use ambition_entity_catalog::placements::PickupSpec;
 pub use ambition_entity_catalog::PickupKind;
 
-/// Authored chest payload — now owned by the Tier-0 catalog and carried through
-/// the single `PlacementRecord` channel (fable audit F9.2). Re-exported here so
-/// `rooms::ChestSpec` / `rooms::ChestStateSpec` paths stay stable.
+/// Tier-0 authored chest payload, re-exported here to keep the room
+/// authoring/lowering path stable.
 pub use ambition_entity_catalog::placements::{ChestSpec, ChestStateSpec};
 
-/// Authored breakable payload + its state/trigger/collision enums — now owned by
-/// the Tier-0 catalog and carried through the single `PlacementRecord` channel
-/// (fable audit F9.2). Re-exported here so `rooms::Breakable*` paths stay stable.
+/// Tier-0 authored breakable payload and related enums, re-exported here to
+/// keep the room authoring/lowering path stable.
 pub use ambition_entity_catalog::placements::{
     BreakableCollisionSpec, BreakableSpec, BreakableStateSpec, BreakableTriggerSpec,
 };
@@ -590,17 +482,8 @@ mod enemy_spawn_identity_tests {
         assert_eq!(SpawnFacing::Left.sign(), -1.0);
     }
 
-    /// **The two identities agree BY CONSTRUCTION, and that is the whole change.**
-    ///
-    /// ⛔⛔ this module used to assert the opposite and was right to:
-    /// `an_unauthored_spawn_wears_a_name_but_claims_no_character` pinned that art
-    /// fell back to the display name while the gameplay accessor returned
-    /// `None` — a documented silent join, tolerable only because a wrong sheet
-    /// is visible. That state is now unrepresentable: `character_id` is
-    /// required, `presentation_identity` takes no name to fall back to, and
-    /// `gameplay_character_id` has no `None` to return. A test demanding a value
-    /// the type can no longer hold is a product decided against, not a
-    /// regression, so it is deleted rather than weakened.
+    /// Presentation and gameplay identity are both derived from the required
+    /// `character_id`, so they cannot disagree.
     #[test]
     fn presentation_and_gameplay_cannot_disagree_about_the_character() {
         let spec = EnemySpawnSpec::new(

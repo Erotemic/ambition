@@ -1,36 +1,14 @@
-//! Hand-maintained SFX ids for reusable gameplay and presentation semantics.
+//! Hand-maintained ids for reusable gameplay/presentation SFX. Provider-specific
+//! cast, story, and named-content ids belong with their provider/content.
 //!
-//! Provider-specific cast, story, and named-content cue ids belong in the
-//! provider/content crate rather than this generic runtime contract.
-//!
-//! Adding to this list is purely an ergonomics call: the bank stores everything
-//! regardless. Use `SfxId::from_static("foo.bar")` at the call site for one-off
-//! or rare SFX. IDs match the catalog produced by `ambition_sfx_renderer` under
-//! `tools/ambition_sfx_renderer/output/`. When in doubt, run:
-//!
-//! ```text
-//! python3 tools/ambition_sfx_pack/pack.py --dump
-//! ```
-//!
-//! and grep `crates/ambition_platformer2d_actor_monolith/assets/audio/sfx.bank.txt`.
-//!
-//! # Why a macro
-//!
-//! An [`SfxId`] is a one-way FNV-1a hash, so a diagnostic that has only the id
-//! can print `SfxId(0x9f3c…)` and nothing else — which is exactly as useful as
-//! the bare counter the audio miss path used to keep. Declaring the ids through
-//! [`sfx_ids!`] emits the constants AND a `(id, name)` table beside them, so
-//! [`name_of`] can turn a hash back into the string an author wrote. The table
-//! cannot drift from the constants because there is only one declaration.
+//! One-off cues may use `SfxId::from_static` directly. [`sfx_ids!`] emits both
+//! constants and the `(id, name)` table used by diagnostics, keeping the
+//! one-way hash and its human-readable spelling in one declaration.
 
 use crate::SfxId;
 
-/// Declare an id constant and record its authored spelling in [`NAMED`].
-///
-/// Two things must stay true of every engine cue: the constant hashes its own
-/// name, and the name is recoverable from the hash. Writing them separately
-/// would let the second rot silently, which is the failure mode this whole
-/// module is trying to fix elsewhere.
+/// Declare an id constant and record the same authored spelling in [`NAMED`]
+/// for reverse diagnostic lookup.
 #[macro_export]
 macro_rules! sfx_ids {
     ($($(#[$note:meta])* $name:ident => $spelling:literal),* $(,)?) => {
@@ -100,9 +78,7 @@ sfx_ids! {
     HAZARD_SAW_LOOP => "hazard.saw.loop",
 
     // UI
-    //pub const UI_MENU_MOVE: SfxId = SfxId::from_static("ui.menu.move");
-    // Test to see if the move icon sounds better than the original move version:
-    // yes it is much better as of 2026-06-07, not sure if we need separate icon sounds
+    // Menu movement currently uses the icon-move cue.
     UI_MENU_MOVE => "ui.menu.move_icon",
 
     UI_MENU_ACCEPT => "ui.menu.accept",

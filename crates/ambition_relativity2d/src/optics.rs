@@ -134,17 +134,9 @@ pub struct OpticalSourceObservation2d {
     pub rest_intensity: f32,
 }
 
-/// **One observer's own past-light-cone image of the world.**
-///
-/// ⛔ **this used to BE the resource, and there could only ever be one of it.**
-/// `publish_optical_view` resolved its observer with `observers.single()`, so a
-/// second [`RelativisticObserver2d`] did not produce a second image — it made
-/// that call `Err` and blanked the only image there was. Two observers of one
-/// world disagree about what they SEE — a different retarded event per source,
-/// a different aberration, a different Doppler shift — exactly as much as they
-/// disagree about the order of events, and that disagreement is the physics
-/// this module exists to publish. The row therefore left the resource, and
-/// [`RelativisticOpticalView2d`] holds one of these per observer.
+/// One observer's past-light-cone image of the world. Each observer owns an
+/// independent view because observers may reconstruct different source events,
+/// aberration, and Doppler shifts.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ObserverOpticalView2d {
     pub model_id: Option<&'static str>,
@@ -171,35 +163,12 @@ static NO_OBSERVER_OPTICAL_VIEW: ObserverOpticalView2d = ObserverOpticalView2d {
     missed_sources: 0,
 };
 
-/// Presentation/perception-facing optical state: **one image per observer**.
-///
-/// ⭐ **keyed by the OBSERVER ENTITY, not by a presentation view id.** The two
-/// candidates are not interchangeable and only one of them owns this value:
-///
-/// - This resource is written inside the SIMULATION schedule
-///   (`Platformer2dSimulationPhaseMonolith::FeatureViewSync`), out of simulation
-///   facts only — canonical [`BodyKinematics`], session coordinate time, and the
-///   bounded worldline history — and it is declared to rollback as DERIVED
-///   simulation state. An observer is one of those facts. A `LocalViewId` is
-///   not: it counts the cameras a particular machine happens to be running, so
-///   keying on it would make rollback-derived state change shape when a player
-///   opens a second viewport, and would make a simulation crate depend on
-///   `ambition_sim_view`.
-/// - The observer key also survives the case a view id cannot express: an
-///   observer nobody is looking through (an AI, a recorded worldline, a replay
-///   probe) still has a well-defined past light cone.
-///
-/// Choosing WHICH observer a given screen looks through is the presentation
-/// question, and it belongs where the cameras are — a view holds an observer
-/// entity and asks [`Self::for_observer`]. That mapping is deliberately not
-/// stored here: keying on both would give one image two owners.
+/// Presentation/perception optical state: one image per simulation observer.
+/// Keyed by observer entity because this is rollback-derived simulation state;
+/// mapping a presentation view to an observer belongs to the view layer.
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct RelativisticOpticalView2d {
-    /// ⚠ **ordered, not a `HashMap`** — a consumer that draws every observer's
-    /// image iterates this, and Bevy query order is not deterministic. The
-    /// writer sorts by the authored observer label, then by entity bits to
-    /// break a duplicate-label tie, so the same world publishes the same order
-    /// on every peer and every rewind.
+    /// Ordered deterministically by authored observer label, then entity bits.
     views: Vec<(Entity, ObserverOpticalView2d)>,
 }
 
@@ -320,16 +289,9 @@ fn publish_optical_view(
         &BodyKinematics,
         Option<&ProperTimeElapsed>,
     )>,
-    // ⛔ **`&WorldlineTracked2d` IS the join, and it used to be a string.** The
-    // source's own `label` was looked up in the history map, so an optical
-    // source and the worldline it reads were two independently typed names: a
-    // typo silently produced a missing source, and a DUPLICATE let one entity
-    // borrow another's past light cone. Requiring the tracked component means a
-    // source reads the history of the entity it IS — the relationship cannot be
-    // omitted or mistyped, because it is not written down twice.
-    //
-    // ⚠ a source with no tracked worldline is now unqueryable rather than
-    // "missed": it has no history to reconstruct from, which was always true.
+    // Join optics to worldline history through the tracked component on the
+    // same entity; a source without worldline tracking has no reconstructable
+    // history and does not enter this query.
     sources: Query<(Entity, &OpticalSource2d, &WorldlineTracked2d)>,
     worldlines: Res<WorldlineHistoryView2d>,
     mut views: ResMut<RelativisticOpticalView2d>,
@@ -865,9 +827,7 @@ mod tests {
         );
     }
 
-    /// ⛔ **the bug this whole shape exists to kill.** `observers.single()` made
-    /// a second observer blank the view that already worked; this asserts the
-    /// legacy field path still answers with two observers on the field.
+    /// Adding a second observer must not clear the primary observer's view.
     #[test]
     fn a_second_observer_no_longer_blanks_the_first() {
         let (app, spawned) = publish_with(&[OBSERVER_ALPHA, OBSERVER_BETA]);
@@ -882,15 +842,14 @@ mod tests {
         );
     }
 
-    /// The one-observer world reads exactly as it did before the split, and
-    /// adding a second observer does not perturb the first one's numbers.
+    /// Adding another observer does not change an existing observer's optical result.
     #[test]
     fn one_observer_reads_exactly_as_it_did_before() {
         let (alone_app, alone_spawned) = publish_with(&[OBSERVER_ALPHA]);
         let alone = alone_app.world().resource::<RelativisticOpticalView2d>();
         assert_eq!(alone.len(), 1);
 
-        // Field access through `Deref` is the pre-split reading.
+        // `Deref` exposes the primary observer view.
         assert_eq!(alone.model_id, Some("minkowski"));
         assert_eq!(
             alone.observer.as_ref().map(|observer| observer.entity),
@@ -919,10 +878,7 @@ mod tests {
         );
     }
 
-    /// ⚠ the falsifier for the sort: the SAME world spawned in the OPPOSITE
-    /// order must publish the same rows in the same order. Bevy query order is
-    /// not a promise, so a consumer iterating these rows would otherwise be
-    /// order-dependent — which this repo treats as a desync.
+    /// Published row order is deterministic and independent of Bevy spawn/query order.
     #[test]
     fn rows_are_published_in_label_order_not_spawn_order() {
         let (forward_app, forward_spawned) = publish_with(&[OBSERVER_ALPHA, OBSERVER_BETA]);
@@ -945,8 +901,7 @@ mod tests {
         assert_eq!(labels(forward), vec!["alpha".to_owned(), "beta".to_owned()]);
         assert_eq!(labels(reverse), labels(forward));
 
-        // ⚠ and the order is not merely stable — it is keyed to the right row:
-        // alpha's numbers travel with alpha, whichever position it was spawned in.
+        // Each observer keeps its own values after sorting.
         assert_eq!(
             beacon_numbers(
                 forward

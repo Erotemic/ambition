@@ -1,33 +1,10 @@
-//! **`encounter.signal` — the encounter domain's authored verb.**
+//! Authored `encounter.signal` command.
 //!
-//! The lifecycle reducer has always been driven by one generic message
-//! ([`EncounterCommand`]), and every emitter of that message so far has been a
-//! hand-written Rust system holding a `&'static str` encounter id. This
-//! publishes the same verb into the shared command catalog, so authored content
-//! can name it without a system and without an id in a compiler.
-//!
-//! ⭐ **it is the SECOND provider of the command contract, and it edits nothing
-//! central to be one.** `world.set_flag` lives in the world-facts domain; this
-//! lives here, beside the reducer it feeds. Neither names the other.
-//!
-//! # ⭐⭐ Why the target is a prepared REFERENCE and not a name
-//!
-//! [`EncounterCommand`] carries an encounter id as a `String`, and the shortest
-//! version of this verb would have taken `ParamKind::Name` and passed it
-//! straight through. It takes a [`SimId`] instead, and the difference is
-//! visible in behaviour rather than in taste:
-//!
-//! - a **name** that matches nothing produces an `EncounterCommand` addressed to
-//!   an encounter that does not exist. The reducer skips it, silently, forever —
-//!   the exact failure mode of a typo'd id in a const table.
-//! - a **reference** is resolved here, against the live occurrences, and an
-//!   unresolvable one is [`CommandOutcome::Refused`] with a reason naming the
-//!   identity. An author gets a sentence instead of a puzzle.
-//!
-//! ⚠ **and the id the reducer receives is read off the resolved occurrence**,
-//! never recovered from the reference's spelling. [`SimId`]'s own docs say the
-//! string is *"not parsed"* and that nothing may recover a fact from it; this
-//! obeys that by looking the occurrence up and asking it for its own id.
+//! The command publishes the encounter domain's existing [`EncounterCommand`]
+//! through the shared authored-command catalog. Its target uses a prepared
+//! [`SimId`] reference rather than a free-form name: unresolved targets are
+//! refused during command preparation, and execution reads the encounter id from
+//! the resolved occurrence rather than parsing identity back out of the string.
 
 use bevy::prelude::{App, World};
 

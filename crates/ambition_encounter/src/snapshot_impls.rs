@@ -1,12 +1,8 @@
 //! `SnapshotState` for this crate's own types — the rollback wire format.
 //!
-//! ⚠ These impls live HERE, beside the types they encode, because
-//! `ambition_platformer2d_core::snapshot` owns the trait and the orphan rule binds an
-//! impl to the crate owning the trait OR the type. Until 2026-07-30 the trait
-//! sat in `ambition_platformer2d_runtime`, above every domain crate, so the only place all
-//! ~100 of them could compile was one 2688-line file in `ambition_platformer2d_runtime`. The
-//! orphan rule is what proves this file is in the right crate: if a type moves,
-//! this stops compiling rather than drifting.
+//! These impls live beside the types they encode. The orphan rule keeps the
+//! snapshot implementation with either the trait or the type, so moving a type
+//! forces its codec to move with it.
 //!
 //! ⚠ A field added to an encoded type is a WIRE FORMAT change. Encode and
 //! decode must stay in the same order, and `snapshot_unit_enum!` codes are

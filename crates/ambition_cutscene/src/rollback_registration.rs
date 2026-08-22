@@ -23,16 +23,8 @@ where
         OWNER,
         "cutscene.playback",
     );
-    // ⛔ **WHICH ROOM THE TRIGGER LAST SAW, and it was a system `Local`.** Bevy
-    // locals are not rewound, so: enter room B, the local moves A→B and the
-    // room's cutscene is queued; a rollback restores a frame in room A; the
-    // local STAYS at B; resimulation enters B again, the trigger sees no change
-    // and emits nothing — and with `ActiveCutscene` restored to its pre-trigger
-    // state the cutscene is skipped entirely.
-    //
-    // ⚠ **the coverage waiver claimed the save-game seen flag would deduplicate
-    // a re-fire.** It cannot deduplicate one that never happens. (GPT 5.6
-    // through `32eb27a`, finding 3.)
+    // The trigger's last-room state must rewind with the cutscene; otherwise a
+    // resimulation can suppress a transition that should fire again.
     registrar.rollback_resource_optional_canonical::<crate::LastCutsceneRoom>(
         OWNER,
         "cutscene.last_room",

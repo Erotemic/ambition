@@ -176,7 +176,7 @@ fn every_fighter_on_the_grid_can_fight_its_mirror() {
     for id in &ids {
         let (taken, hitstun, moves, top, kit, distinct, reachable, asked) = mirror_bout(id);
         println!(
-            "[grid-sweep] {id:<30} {:>8.0}% {:>8.0}% {:>9} {:>7} {:>4}/{:>3}/{:<4}  {top:<28} {asked}",
+            "[grid-sweep] {id:<30} {:>8.0}% {:>8.0}% {:>9} {:>7} {:>4}/{:>3}/{:<4}  {top:<46} {asked}",
             taken[0] * 100.0,
             taken[1] * 100.0,
             hitstun[0] + hitstun[1],
@@ -237,6 +237,7 @@ fn mirror_bout(
     // missing reach, hit volumes, or a victim it can legally strike.
     let mut started = std::collections::BTreeMap::<String, usize>::new();
     let mut situations = std::collections::BTreeMap::<String, usize>::new();
+    let mut gaps: Vec<f32> = Vec::new();
     let mut live = std::collections::BTreeMap::<bevy::prelude::Entity, (String, f32)>::new();
     for _ in 0..(countdown + TICKS) {
         app.update();
@@ -254,6 +255,20 @@ fn mirror_bout(
                 if combat.is_some_and(|c| c.hitstun_timer > 0.0) {
                     hitstun[seat.0] += 1;
                 }
+            }
+        }
+        {
+            let mut bodies = world.query::<(
+                &MatchSeat,
+                &ambition_platformer2d::actors::actor::BodyKinematics,
+            )>();
+            let xs: Vec<f32> = bodies
+                .iter(world)
+                .filter(|(seat, _)| seat.0 < 2)
+                .map(|(_, kin)| kin.pos.x)
+                .collect();
+            if xs.len() == 2 {
+                gaps.push((xs[0] - xs[1]).abs());
             }
         }
         // WHICH QUESTION IS THE BRAIN ANSWERING? `situation_of` is the classifier
@@ -364,6 +379,51 @@ fn mirror_bout(
         .max_by_key(|(id, count)| (**count, std::cmp::Reverse((*id).clone())))
         .map(|(id, count)| format!("{id}×{count}"))
         .unwrap_or_else(|| "—".to_string());
+    // DID THEY EVER MEET? Two fighters that never close the distance are in
+    // `Neutral` forever by construction — nobody has anything — and 98% Neutral
+    // with four presses a minute has two completely different explanations: they
+    // met and did nothing, or they never met. The gap between the bodies is what
+    // separates those, and it costs one subtraction a tick.
+    //
+    // ⚠ measured only while BOTH are present, so a KO's absence does not read as
+    // infinite distance.
+    let median_gap = {
+        let mut sorted = gaps.clone();
+        sorted.sort_by(f32::total_cmp);
+        sorted.get(sorted.len() / 2).copied().unwrap_or(-1.0)
+    };
+    // HOW LONG DOES THE MOVE THEY KEEP THROWING LAST? Four presses in sixty
+    // seconds is what a body looks like when one move owns it for fifteen
+    // seconds at a time — the offers exist, and the body is never free to take
+    // one. `total_s` is the move's own authored length, asked of the same table
+    // the brain is scored out of.
+    let top_id = started
+        .iter()
+        .max_by_key(|(id, count)| (**count, std::cmp::Reverse((*id).clone())))
+        .map(|(id, _)| id.clone());
+    let top_secs = {
+        let world = app.world_mut();
+        top_id
+            .as_ref()
+            .and_then(|wanted| {
+                world
+                    .query::<(
+                        &MatchSeat,
+                        &ambition_platformer2d::combat::moveset::ActorMoveset,
+                    )>()
+                    .iter(world)
+                    .next()
+                    .and_then(|(_, moveset)| {
+                        moveset
+                            .0
+                            .moves
+                            .iter()
+                            .find(|spec| &spec.id == wanted)
+                            .map(|spec| spec.frame_data().total_s)
+                    })
+            })
+            .unwrap_or(0.0)
+    };
     let asked = {
         let total: usize = situations.values().sum::<usize>().max(1);
         let mut rows: Vec<_> = situations.iter().collect();
@@ -378,7 +438,7 @@ fn mirror_bout(
         taken,
         hitstun,
         moves,
-        top,
+        format!("{top} {top_secs:.2}s gap{median_gap:.0}"),
         kit,
         started.len(),
         reachable,

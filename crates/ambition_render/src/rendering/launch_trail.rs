@@ -22,15 +22,33 @@ use ambition_sim_view::LaunchedBodiesView;
 use ambition_time::SimTick;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
+// THE THREE SPEEDS, measured rather than picked.
+//
+// `match_report -- 30 --runs 5` on the merged tree reports per-run PEAK launch
+// speed at 332 / 442 / 770 (min / median / max across runs). Every number below
+// is a stated percentile of that distribution, and the first version of this
+// file had none of them: `TRAIL_ONSET_SPEED` was 650, chosen off the stage's
+// `tumble_speed` as a proxy for "a hit that sent someone", and the trail
+// therefore never fired in a match at all.
+//
+// ⛔ do not re-pick these off a single run. One thirty-second sample is how the
+// 650 happened. Measure across runs, and ideally across matchups — these five
+// are all George versus George, which is the honest limit of this pick.
+
 /// Speed at which a launch starts smoking, in world units per second.
 ///
-/// Above the Smash stage's `tumble_speed` (500) so the trail marks a hit that
-/// actually sent someone, not every knockdown.
-const TRAIL_ONSET_SPEED: f32 = 650.0;
+/// The MINIMUM observed per-run peak (0th percentile): the weakest match's best
+/// launch still trails, so the effect is part of the match's language rather
+/// than a once-a-game event. Set at the median peak instead and a typical match
+/// would show the trail exactly once.
+const TRAIL_ONSET_SPEED: f32 = 330.0;
 
 /// Speed at which the trail reaches full density. Past this it stops getting
-/// denser — a near-KO already reads, and more particles only cost fill rate.
-const TRAIL_FULL_SPEED: f32 = 1700.0;
+/// denser — more particles only cost fill rate.
+///
+/// Roughly the 75th percentile of observed per-run peaks, between the median
+/// (442) and the max (770).
+const TRAIL_FULL_SPEED: f32 = 550.0;
 
 /// Sim ticks between puffs at onset density, and at full density. A stride of
 /// one is a puff every tick.
@@ -53,11 +71,11 @@ const MAX_SMOKE_ALPHA: f32 = 0.78;
 
 /// Speed at which a launch stops being hard and starts being a KILL.
 ///
-/// Above [`TRAIL_FULL_SPEED`] the plume had nothing left to say — density
-/// saturates there — and a launch that is going to take a stock looks the same
-/// as one that will not. This is the second threshold the campaign left open
-/// for after the basic trail read correctly.
-const TRAIL_NEAR_KO_SPEED: f32 = 2600.0;
+/// The MAXIMUM observed per-run peak (100th percentile), so the ember is
+/// reserved for a launch at the very top of what the fight produces and
+/// saturates only above anything measured. It was 2600 — four times anything
+/// observed, and unreachable.
+const TRAIL_NEAR_KO_SPEED: f32 = 770.0;
 
 /// The near-KO plume's colour: an ember, not smoke. A hue change rather than
 /// more of the same particles, because more grey at a speed where the plume is

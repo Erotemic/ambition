@@ -55,6 +55,36 @@ pub fn advance_body_anim_overlays(
     anim.anim_prev_dashing = dashing;
 }
 
+/// The impact speed at which the engine already calls a landing HARD.
+///
+/// Shared by the landing pose and the knockdown splat below so the two agree
+/// about what "hard" means. A splat that started somewhere else would be a
+/// second opinion on one question.
+pub const HARD_LAND_SPEED: f32 = 520.0;
+
+/// Where a knockdown splat reaches its full read: twice the speed that already
+/// counts as a hard landing.
+///
+/// Anchored to [`HARD_LAND_SPEED`] rather than picked, because the honest
+/// distribution of knockdown impacts is not measurable until the fight
+/// produces launches — see the campaign notes. When it does, re-measure this
+/// across characters rather than fitting it to one match.
+const SPLAT_FULL_SPEED: f32 = HARD_LAND_SPEED * 2.0;
+
+/// How hard a body hit the floor, `0..=1` — `0.0` at the hard-landing line and
+/// `1.0` at [`SPLAT_FULL_SPEED`].
+///
+/// A body that steps down keeps the puff it always had; one that arrives at
+/// speed drives a wide, low sheet of dust along the surface. Pure, so the curve
+/// is asserted without a renderer.
+pub fn landing_force(impact_speed: f32) -> f32 {
+    let span = SPLAT_FULL_SPEED - HARD_LAND_SPEED;
+    if span <= 0.0 {
+        return 0.0;
+    }
+    ((impact_speed - HARD_LAND_SPEED) / span).clamp(0.0, 1.0)
+}
+
 /// Apply one semantic ground-contact transition to the landing animation
 /// overlay. Initialization never arms a landing pose; only a known airborne
 /// baseline becoming grounded does.
@@ -62,7 +92,6 @@ pub fn arm_ground_contact_anim_overlay(
     anim: &mut BodyAnimFacts,
     transition: ae::GroundContactTransition,
 ) {
-    const HARD_LAND_SPEED: f32 = 520.0;
     const LAND_HARD_HOLD_SECS: f32 = 0.34;
     const LAND_SOFT_HOLD_SECS: f32 = 0.16;
 
@@ -182,6 +211,12 @@ pub fn emit_movement_fx(
             // silent — the first is a state the launch already announced with
             // its own hit feedback, and the second is what a body does when it
             // ran out of options.
+            // A knockdown thumps and kicks up dust. It CANNOT scale with the
+            // impact that caused it: this op is pushed by the control phase,
+            // which runs before integration and therefore only sees
+            // `on_ground` on the tick AFTER touchdown — one bundle later than
+            // the `Landed { impact_speed }` that measured the fall. The
+            // impact-scaled beat is on the landing itself, below.
             ae::MovementOp::Knockdown => {
                 vfx.write(VfxMessage::Burst {
                     pos,
@@ -370,15 +405,32 @@ pub fn emit_movement_fx(
             precision: blink.precision,
         });
     }
-    if matches!(
-        events.ground_contact,
-        ae::GroundContactTransition::Landed { .. }
-    ) {
+    // THE TOUCHDOWN, scaled by the impact the landing itself measured.
+    //
+    // Every landing used to throw the identical puff, so a body that dropped
+    // off a ledge and one that arrived at speed left the same mark. The impact
+    // speed rides the transition, in this bundle, on this tick — which is what
+    // makes this the one place a floor impact can be read at all. See
+    // `MovementOp::Knockdown` above for why the knockdown arm cannot do it.
+    if let Some(impact_speed) = events.ground_contact.landing_impact_speed() {
         let feet = pos + ae::Vec2::new(0.0, size.y * 0.5);
         // Touchdown footfall. Emitted for every body; provider authority gates
         // it, so a game hears it only by authoring `player.land`.
         sfx.write_for_body(source, SfxMessage::Land { pos: feet });
         vfx.write(VfxMessage::Dust { pos: feet, facing });
+        let force = landing_force(impact_speed);
+        if force > 0.0 {
+            // Sideways, low, and along the surface: a body arriving at speed
+            // drives air out flat rather than lifting a puff. That is the read
+            // that separates a heavy arrival from an ordinary step down.
+            vfx.write(VfxMessage::Burst {
+                pos: feet,
+                count: 6 + (14.0 * force) as u32,
+                speed: 180.0 + 280.0 * force,
+                color: [0.72, 0.66, 0.56, 0.72 + 0.18 * force],
+                kind: ParticleKind::Dust,
+            });
+        }
     }
 }
 
@@ -489,10 +541,26 @@ mod tests {
             sfx.iter().any(|m| matches!(m, SfxMessage::Land { .. })),
             "the body-generic landing cue (emitted for the player AND any actor)"
         );
-        assert_eq!(vfx.len(), 2, "the Jump dust + the air→ground landing dust");
+        // The Jump dust, the air→ground landing dust, and — because 640 is
+        // above the hard-landing line — the impact sheet that arrival now
+        // throws. The fixture always landed this hard; only the sheet is new.
+        assert_eq!(vfx.len(), 3, "jump dust + landing dust + the impact sheet");
+        assert_eq!(
+            vfx.iter()
+                .filter(|m| matches!(m, VfxMessage::Dust { .. }))
+                .count(),
+            2,
+            "the two puffs are unchanged"
+        );
         assert!(
-            vfx.iter().all(|m| matches!(m, VfxMessage::Dust { .. })),
-            "both VFX are Dust bursts"
+            vfx.iter().any(|m| matches!(
+                m,
+                VfxMessage::Burst {
+                    kind: ParticleKind::Dust,
+                    ..
+                }
+            )),
+            "and the arrival adds a sheet: {vfx:?}"
         );
     }
 
@@ -536,6 +604,109 @@ mod tests {
             )),
             "the getup roll is dust, not a flash: {roll_vfx:?}"
         );
+    }
+
+    /// A landing's dust scales with the impact the transition measured, and a
+    /// gentle step down keeps the puff it always had.
+    #[test]
+    fn a_landing_throws_dust_in_proportion_to_the_arrival() {
+        assert_eq!(landing_force(0.0), 0.0, "stepping down is not an impact");
+        assert_eq!(
+            landing_force(HARD_LAND_SPEED),
+            0.0,
+            "the hard-landing line is the floor, and it is the line the landing POSE already uses"
+        );
+        let middling = landing_force(HARD_LAND_SPEED * 1.5);
+        assert!(middling > 0.0 && middling < 1.0, "{middling}");
+        assert_eq!(landing_force(HARD_LAND_SPEED * 2.0), 1.0);
+        assert_eq!(
+            landing_force(HARD_LAND_SPEED * 40.0),
+            1.0,
+            "and it saturates"
+        );
+
+        // The emitted beat follows: a heavy arrival adds a sheet the gentle one
+        // does not, and throws more of it.
+        let gentle = presentation_for_landing_only(HARD_LAND_SPEED);
+        let heavy = presentation_for_landing_only(HARD_LAND_SPEED * 3.0);
+        assert!(
+            heavy.1.len() > gentle.1.len(),
+            "a heavy arrival adds the sheet: {} vs {}",
+            heavy.1.len(),
+            gentle.1.len()
+        );
+        assert!(
+            gentle
+                .1
+                .iter()
+                .all(|m| matches!(m, VfxMessage::Dust { .. })),
+            "a gentle landing is exactly the puff it always was: {:?}",
+            gentle.1
+        );
+    }
+
+    /// THE ORDERING FACT this cue is built on, stated where it will be read.
+    ///
+    /// `MovementOp::Knockdown` is pushed by the CONTROL phase, which runs
+    /// before integration and so only observes `on_ground` on the tick AFTER
+    /// touchdown — one bundle later than the `Landed { impact_speed }` that
+    /// measured the fall. So a knockdown's bundle carries no impact, and any
+    /// cue that tried to scale the knockdown by it would read zero forever.
+    ///
+    /// This pins the CONSEQUENCE rather than the kernel's ordering: given a
+    /// knockdown with no landing in its bundle, the emitter must not pretend to
+    /// measure one.
+    #[test]
+    fn a_knockdown_without_a_landing_in_its_bundle_measures_nothing() {
+        let mut events = ae::FrameEvents::default();
+        events.operations.push(ae::MovementOp::Knockdown);
+        // Deliberately NOT `Landed`: this is the bundle the kernel really emits.
+        assert_eq!(events.ground_contact.landing_impact_speed(), None);
+        let (sfx, vfx) = run_events(events);
+        assert!(
+            !sfx.iter().any(|m| matches!(m, SfxMessage::Land { .. })),
+            "no landing in the bundle means no footfall: {sfx:?}"
+        );
+        assert_eq!(vfx.len(), 1, "the knockdown's own thump, and nothing else");
+    }
+
+    /// One op plus a landing of the given impact, as `(sfx, vfx)`.    /// One op plus a landing of the given impact, as `(sfx, vfx)`.
+    fn presentation_for_landing(
+        op: ae::MovementOp,
+        impact_speed: f32,
+    ) -> (Vec<SfxMessage>, Vec<VfxMessage>) {
+        let mut events = ae::FrameEvents::default();
+        events.operations.push(op);
+        events.ground_contact = ae::GroundContactTransition::Landed { impact_speed };
+        run_events(events)
+    }
+
+    /// A landing with no floor-game op resolving it.
+    fn presentation_for_landing_only(impact_speed: f32) -> (Vec<SfxMessage>, Vec<VfxMessage>) {
+        let mut events = ae::FrameEvents::default();
+        events.ground_contact = ae::GroundContactTransition::Landed { impact_speed };
+        run_events(events)
+    }
+
+    fn run_events(events: ae::FrameEvents) -> (Vec<SfxMessage>, Vec<VfxMessage>) {
+        let mut app = App::new();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.insert_resource(TestEvents(events));
+        app.add_systems(Update, emit_system);
+        app.update();
+        let sfx = app
+            .world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ambition_sfx::OwnedSfxMessage>>()
+            .drain()
+            .map(|message| message.request)
+            .collect();
+        let vfx = app
+            .world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<VfxMessage>>()
+            .drain()
+            .collect();
+        (sfx, vfx)
     }
 
     /// Everything one movement op asks for, as `(sfx, vfx)`.

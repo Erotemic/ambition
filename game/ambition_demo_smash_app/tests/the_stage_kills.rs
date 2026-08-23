@@ -606,14 +606,23 @@ fn a_match_whose_last_loser_is_removed_still_decides() {
     }
     // BOTH seats CPU, so somebody actually loses. `smash_roster` makes seat 0 a
     // human with no controller, which is a match one fighter cannot lose.
-    app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster_at_levels(
-            [
-                ambition_demo_smash::SMASH_CHARACTER_ID,
-                ambition_demo_smash::SMASH_OPPONENT_ID,
-            ],
-            &[5, 5],
-        ));
+    //
+    // AND ONE STOCK, because the question is the REMOVAL, not the pace. Measured
+    // 2026-08-23: ninety seconds of this match produces three or four KOs across
+    // both seats, so at the default stock count neither fighter reliably reaches
+    // zero inside the window — and the test then fails for saying nothing rather
+    // than for a defect. Its sibling above already seats one stock for exactly
+    // this reason. A fight's pace is tuning; whether an emptied fighter is
+    // removed and the match decides is the mechanic.
+    let mut roster = ambition_demo_smash::smash_roster_at_levels(
+        [
+            ambition_demo_smash::SMASH_CHARACTER_ID,
+            ambition_demo_smash::SMASH_OPPONENT_ID,
+        ],
+        &[5, 5],
+    );
+    roster.fighter_stocks = Some(1);
+    app.world_mut().insert_resource(roster);
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
             ambition_platformer2d::game_shell::ShellRouteId::new(
@@ -1072,14 +1081,19 @@ fn the_framing_centre_absorbs_an_elimination_instead_of_cutting() {
     for _ in 0..30 {
         app.update();
     }
-    app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster_at_levels(
-            [
-                ambition_demo_smash::SMASH_CHARACTER_ID,
-                ambition_demo_smash::SMASH_OPPONENT_ID,
-            ],
-            &[5, 5],
-        ));
+    // ONE STOCK, for the same reason the elimination guard above seats one: this
+    // test needs a fighter to LEAVE, and how long a fight takes to empty a
+    // fighter is tuning it should not be racing. Measured 2026-08-23, ninety
+    // seconds produces three or four KOs across both seats.
+    let mut roster = ambition_demo_smash::smash_roster_at_levels(
+        [
+            ambition_demo_smash::SMASH_CHARACTER_ID,
+            ambition_demo_smash::SMASH_OPPONENT_ID,
+        ],
+        &[5, 5],
+    );
+    roster.fighter_stocks = Some(1);
+    app.world_mut().insert_resource(roster);
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
             ambition_platformer2d::game_shell::ShellRouteId::new(

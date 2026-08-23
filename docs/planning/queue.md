@@ -305,6 +305,36 @@ sheets publishing the body_metrics the good road needs        194 of 196
 ⭐⭐ `world_per_pixel` IS the common unit Jon's hurtbox note says was never
 established.
 
+⚠ **THE TWO ADOPTERS ARE THE TWO SHEETS WITH NO PER-POSE HURTBOX** (measured
+2026-08-22, full-file scan of all 49 `authored_body: true` sheet RONs — count of
+the literal `hurtbox:` per file, not a windowed search; 185 sheet RONs in
+`assets/sprites`, and the 49 is this roster having GROWN from the 37 the block
+below counts on 2026-08-16, not a disagreement with it). 47 publish per-animation
+hurtbox rects; `mary_o_v2` and `player_robot_v3` publish **zero**, so
+`BodyMetrics::pose_body_bbox` falls through to the single static `body_pixel_bbox`
+for every pose and their compact box is the STANDING rectangle scaled by
+`BodyMode::shape`, not one their crouch art authored. Upstream of that: **no SVG
+rig under `targets/characters/rigged/` carries any `gameplay_geometry.hurtboxes`
+at all** (12 of 12 empty) — the per-pose rects come only from the procedural
+target road, so this is a gap in the rig pipeline, not in these two characters.
+⛔ it reads as a combat bug and is a CONTENT gap; the combat side works from
+move-local hit volumes and the body's own box, so nothing is biting today.
+`mary_o_v2` has no `crouch` row at all, and `player_robot_v3`'s crouch row does
+not crouch — head at standing height, feet 4-12 px below the standing foot line.
+
+✔ **the crouch SINK that sat on top of this is CLOSED** (`a9f26a27e`,
+2026-08-22). `resize_feet_planted` holds the +gravity face and slides `pos`
+toward the feet, so a compacted body's centre is no longer the centre of the
+rectangle the sheet measured — but `ActorSpriteOffset` was still derived from
+that rectangle alone, drawing the art a quarter of the body height into the
+floor (11.375 world units for v3, 10.5 for `mary_o_v2`, 6.5 for the
+`solid_snake` fixture). ⛔⛔ **and fixing the publisher alone made ~20 trimmed
+sheets FLOAT**: the render stance-squash placeholder scaled the quad about its
+ANCHOR, which holds the feet only for a feet-anchored quad and lifts an
+authored-offset one (anchor `CENTER`, placement on the translation). The two
+errors had been partially cancelling. `stance_ratio_y: f32` is now a
+`StanceSquash` naming its pivot.
+
 ⛔ **do not report an absence from a windowed search** — a 2026-08-16 count
 here that searched only the first 400 characters after `body_metrics: Some(`
 claimed 6 sheets declared `authored_body: true` and that `player_robot_v3` was

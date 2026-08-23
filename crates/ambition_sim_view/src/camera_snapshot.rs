@@ -913,16 +913,40 @@ const CAST_FRAMING_MARGIN: f32 = 48.0;
 /// this rate so elimination/respawn discontinuities do not cut the camera.
 const CAST_FRAMING_CLOSE_HZ: f32 = 5.0;
 
+/// Ceiling on how fast an inward cast edge may close, in world units per second.
+///
+/// THE RATE ALONE IS NOT ENOUGH, and the reason is what exponential easing is:
+/// it moves a FRACTION of the remaining gap, so the step it takes on the first
+/// frame is proportional to the size of the discontinuity. A fighter leaving
+/// play collapsed the cast box by 241 units and the "eased" close still moved
+/// the framing centre further on that one frame than any ordinary frame of the
+/// match — a visible cut at the loudest moment, produced by the easing that
+/// exists to prevent one. The bigger the jump, the bigger the jerk, which is
+/// exactly backwards.
+///
+/// Capping the SPEED makes a collapse of any size close at the same
+/// unnoticeable rate: the frame a fighter is removed looks like every other
+/// frame, and the framing catches up over the following second.
+const CAST_FRAMING_CLOSE_MAX_UNITS_PER_S: f32 = 240.0;
+
 /// Move one presented cast-box edge toward the current cast edge.
 ///
-/// `outward` is `+1` for a maximum edge and `-1` for a minimum. Expansion is immediate; contraction
-/// eases at [`CAST_FRAMING_CLOSE_HZ`]. Easing the box keeps center, zoom, and clamp coherent.
-fn ease_cast_edge(previous: f32, current: f32, alpha: f32, outward: f32) -> f32 {
+/// `outward` is `+1` for a maximum edge and `-1` for a minimum. Expansion is immediate;
+/// contraction eases at [`CAST_FRAMING_CLOSE_HZ`] and is additionally capped at
+/// `max_step` world units this frame. Easing the box keeps center, zoom, and clamp coherent.
+fn ease_cast_edge(previous: f32, current: f32, alpha: f32, outward: f32, max_step: f32) -> f32 {
     if (current - previous) * outward >= 0.0 {
-        current
-    } else {
-        previous + (current - previous) * alpha
+        return current;
     }
+    let eased = (current - previous) * alpha;
+    // Never overshoot the target, and never move faster than the cap.
+    let step = eased.clamp(-max_step.abs(), max_step.abs());
+    let step = if step.abs() > (current - previous).abs() {
+        current - previous
+    } else {
+        step
+    };
+    previous + step
 }
 
 fn frame_the_cast(
@@ -1079,16 +1103,41 @@ pub fn resolve_camera_observation(
                     // A FLOOR, so authored zoom still wins when wider.
                     let dt = time.delta_secs().max(0.0);
                     let alpha = (1.0 - (-CAST_FRAMING_CLOSE_HZ * dt).exp()).clamp(0.0, 1.0);
+                    let max_step = CAST_FRAMING_CLOSE_MAX_UNITS_PER_S * dt;
                     let bounds = match *live_cast {
                         Some(previous) => ae::Aabb {
                             min: ae::Vec2::new(
-                                ease_cast_edge(previous.min.x, cast.bounds.min.x, alpha, -1.0),
-                                ease_cast_edge(previous.min.y, cast.bounds.min.y, alpha, -1.0),
+                                ease_cast_edge(
+                                    previous.min.x,
+                                    cast.bounds.min.x,
+                                    alpha,
+                                    -1.0,
+                                    max_step,
+                                ),
+                                ease_cast_edge(
+                                    previous.min.y,
+                                    cast.bounds.min.y,
+                                    alpha,
+                                    -1.0,
+                                    max_step,
+                                ),
                             )
                             .into(),
                             max: ae::Vec2::new(
-                                ease_cast_edge(previous.max.x, cast.bounds.max.x, alpha, 1.0),
-                                ease_cast_edge(previous.max.y, cast.bounds.max.y, alpha, 1.0),
+                                ease_cast_edge(
+                                    previous.max.x,
+                                    cast.bounds.max.x,
+                                    alpha,
+                                    1.0,
+                                    max_step,
+                                ),
+                                ease_cast_edge(
+                                    previous.max.y,
+                                    cast.bounds.max.y,
+                                    alpha,
+                                    1.0,
+                                    max_step,
+                                ),
                             )
                             .into(),
                         },
@@ -1607,6 +1656,81 @@ mod m2_forward_scroll_tests {
         assert!(
             back < far - 100.0,
             "a free camera comes back: {far} -> {back}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod cast_framing_tests {
+    use super::*;
+
+    /// A fighter leaving play collapses the cast box, and the frame it happens
+    /// on must look like every other frame.
+    ///
+    /// Exponential easing alone cannot promise that: it moves a FRACTION of the
+    /// gap, so the step it takes scales with the size of the discontinuity —
+    /// the bigger the cut, the bigger the jerk. This is the regression that
+    /// produced a visible camera cut on the frame a stock was taken.
+    #[test]
+    fn a_collapse_of_any_size_closes_at_the_same_speed() {
+        let dt = 1.0 / 60.0;
+        let alpha = (1.0 - (-CAST_FRAMING_CLOSE_HZ * dt).exp()).clamp(0.0, 1.0);
+        let max_step = CAST_FRAMING_CLOSE_MAX_UNITS_PER_S * dt;
+
+        // A max edge collapsing inward by a little, and by a lot.
+        let small = ease_cast_edge(100.0, 80.0, alpha, 1.0, max_step) - 100.0;
+        let huge = ease_cast_edge(100.0, -400.0, alpha, 1.0, max_step) - 100.0;
+        assert!(small < 0.0 && huge < 0.0, "both close inward");
+        assert!(
+            huge.abs() <= max_step + 1e-3,
+            "a 500-unit collapse must not move {max_step} in one frame: moved {huge}"
+        );
+        // THE PROPERTY, stated as size-independence: once past the cap, how far
+        // the framing moves this frame stops depending on how big the
+        // discontinuity was. Uncapped, a 500-unit collapse steps 40 and a
+        // 50,000-unit one steps 4,000 — the jerk scaling with the cut is the
+        // whole defect.
+        let enormous = ease_cast_edge(100.0, -50_000.0, alpha, 1.0, max_step) - 100.0;
+        assert_eq!(
+            huge, enormous,
+            "a collapse 100x larger must move the framing exactly as far"
+        );
+        assert!(
+            small.abs() < max_step,
+            "a small collapse still eases rather than riding the cap: {small}"
+        );
+    }
+
+    /// Outward is still immediate: a launched fighter must never leave frame
+    /// while the box catches up.
+    #[test]
+    fn an_edge_moving_outward_is_adopted_at_once() {
+        let dt = 1.0 / 60.0;
+        let alpha = (1.0 - (-CAST_FRAMING_CLOSE_HZ * dt).exp()).clamp(0.0, 1.0);
+        let max_step = CAST_FRAMING_CLOSE_MAX_UNITS_PER_S * dt;
+        // A max edge sprinting outward, far further than the cap.
+        assert_eq!(
+            ease_cast_edge(100.0, 5_000.0, alpha, 1.0, max_step),
+            5_000.0
+        );
+        // And a min edge, whose outward direction is the other way.
+        assert_eq!(
+            ease_cast_edge(-100.0, -5_000.0, alpha, -1.0, max_step),
+            -5_000.0
+        );
+    }
+
+    /// The close never overshoots the edge it is chasing, however small the gap.
+    #[test]
+    fn closing_settles_exactly_on_the_target() {
+        let dt = 1.0 / 60.0;
+        let alpha = (1.0 - (-CAST_FRAMING_CLOSE_HZ * dt).exp()).clamp(0.0, 1.0);
+        let max_step = CAST_FRAMING_CLOSE_MAX_UNITS_PER_S * dt;
+        // A gap far smaller than one frame's cap.
+        let settled = ease_cast_edge(100.0, 99.9, alpha, 1.0, max_step);
+        assert!(
+            (99.9..=100.0).contains(&settled),
+            "closing overshot its target: {settled}"
         );
     }
 }

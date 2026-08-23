@@ -171,15 +171,20 @@ straight and never teched a knockdown. C1 closes DI and SDI; C2 is tech.
 | W7 dizzy stars | PRESENTATION | ✔ `f04989c78` — second pooled `GuardBreaksView`; stars orbit the body's own up; the bubble now turns with the body too |
 | W7 strong-hit flash | PRESENTATION | ✔ `94686e5ec` — `hit_strength_fraction` inverts the hitlag law in the kernel; fourth arbitrated overlay cue, proportional, no threshold |
 | W7 near-KO trail tier | PRESENTATION | ✔ `466dfb028` — plume shifts smoke→ember above the near-KO speed, on P1's existing launched fact |
+| §3 ground-bounce | PRESENTATION | ◑ `49ea1d7e5` — landing dust scales with the published impact; the launch-specific splat and the WALL splat need facts (see handoff) |
+| Trail speeds re-measured | PRESENTATION | ✔ `486484969` — 330/550/770, stated percentiles of `--runs 5` peak launch; the old 650 never fired |
+| Camera cut on elimination | PRESENTATION | ✔ `3db424c86` — inward cast edges capped by SPEED, not just rate; exponential easing jerked in proportion to the collapse |
 | P4 bubble shield | PRESENTATION | ✔ `e5210712b` — filled field in front of the body, shieldstun flare, near-break danger flicker (part of W7) |
 | P5 charge pulse/SFX | PRESENTATION | ✔ `19ec18c42` — authored `smash_charge` row routed ahead of the move's chain, third overlay cue quickens with the fraction, latch/lock cues authored procedurally |
 | M6 DI reaction window | MECHANICS | ▢ |
-| **M8 the fight stopped resolving** | MECHANICS | ▢▢ **P0** — no eliminations, no tumbles, 23% unhittable |
-| **M9 the post-hit gate deletes the tech** | MECHANICS | ▢▢ **P0** — `Burst` stripped for all of hitstun |
+| M8 the fight stopped resolving | MECHANICS | ✔ `3af675f55` — a blanket 0.2s post-hit window was refusing the second Active window of a multi-window move |
+| M9 the post-hit gate deletes the tech | MECHANICS | ✔ `3af675f55` — Burst exempt while tumbling |
 | M7 successful-parry-contact fact | MECHANICS | ✔ `36c24ea69` — `parry_flash_secs` |
-| C1 CPU survival DI/SDI | COORDINATOR | ✔ `0a564b8ef` |
-| C2 CPU tech | COORDINATOR | ~ the brain presses; the gate deletes it (M8) |
+| C1 CPU survival DI/SDI | COORDINATOR | ✔ `0a564b8ef` — live, but its effect on KO count is below this measurement's noise floor |
+| C2 CPU tech | COORDINATOR | ✔ — 15–56 techs per 30s match |
 | C4 CPU presses into endlag (`BufferableSoon`) | COORDINATOR | ▢ — needs the buffer window as a perceived fact |
+| P6 the camera cuts when a fighter leaves play | PRESENTATION | ▢ — 38.4 units against 33.8 ordinary |
+| M10 split `evading()` so a ledge grab is not a dodge | MECHANICS | ▢ |
 | C3 CPU charges smashes | COORDINATOR | ✔ `dd6c7e79f` |
 
 ## Measurements this campaign made, that outlive it
@@ -218,3 +223,52 @@ while nothing happened in a match, and each was caught by counting rather than b
 asserting. ⛔ a unit test that drives a kernel with a synthetic input proves the
 FUNCTION and says nothing about the WIRING — the tech's kernel tests are green
 today and no body in the game can tech.
+
+## What day one actually cost, and the rule it bought
+
+Five mechanics shipped green and inert before anybody noticed: the smash charge,
+directional influence, the tech, the launch trail, and — the one that explains
+the rest — **a fighter's authored strong throw, which had never once landed.** A
+blanket 0.2s post-hit invulnerability window outlived the 0.12s gap between two
+Active windows of the same move, so the second was refused by the i-frames the
+first armed. Eight ignored strikes in thirty seconds, and they were the eight
+biggest. Every launch number anyone had measured was the weak pop.
+
+⭐ **THE RULE: a number measured once is a coin flip, and a number measured by a
+proxy is a different number.** Both were paid for on the same day —
+
+- one 30s sample judged an option-scorer change; the suite went from two
+  failures to four. `match_report --runs N` prints `min–median–max` now.
+- `damage` read the LAST percent, and a KO resets a body to zero, so a run in
+  which both fighters died reported as a run in which nothing happened.
+- a test read distance travelled as a stand-in for top speed, and an opponent
+  standing two pixels away was shoving the body.
+- two guards raced the fight's PACE to reach their own question instead of
+  seating one stock and asking it.
+
+## What the CPU's directional influence is actually worth
+
+Measured 2026-08-23, seven execution-noise streams of a 90s match, the reflex
+switched off behind an env var and back on:
+
+```
+                 damage            unhittable            KOs
+DI on      142–342–399        1258–1827–2505        2–3–4
+DI off     268–311–471        1085–1455–2043        2–3–4
+```
+
+⇒ **the KO count is identical.** DI is live — the demo declares
+`SMASH_DI_MAX_ANGLE = 0.31` rad (~18°, the genre's own figure), the stick is
+held, and the rotation happens — but at this stage's blast margins its effect on
+who dies is below the noise floor of seven samples.
+
+⭐ So the honest claim for the slice is the one about BEHAVIOUR, not outcomes: a
+reeling body used to hold whatever it had been walking toward, and now it holds
+something chosen — which is visible in flight and is what a spectator reads as a
+fighter reacting. ⛔ Do not write down that CPU DI improves survival. It has not
+been shown, and the same seven-run rig is how anyone would show it.
+
+⭐ **and the same rig should be pointed at every behaviour slice before it is
+believed.** The differential — the reflex off, the reflex on, everything else
+fixed — is the only thing that separates "the mechanic runs" from "the mechanic
+matters", and four of this campaign's slices ran for days without mattering.

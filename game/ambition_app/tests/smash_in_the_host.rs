@@ -974,14 +974,6 @@ fn the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored() {
         rows.sort_by_key(|(seat, _)| *seat);
         rows[0].1
     };
-    let x = |app: &App, body: Entity| -> f32 {
-        app.world()
-            .get::<ambition_platformer2d::actors::actor::BodyKinematics>(body)
-            .expect("a seated body has kinematics")
-            .pos
-            .x
-    };
-
     // wait out the opening countdown first. A smash match opens SUSPENDED (`opens_suspended` /
     // `opening_countdown_ticks` — the 3-2-1-GO), so input pressed before GO moves nothing.
     for _ in 0..240 {

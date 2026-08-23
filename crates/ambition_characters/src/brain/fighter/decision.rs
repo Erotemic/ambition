@@ -131,6 +131,11 @@ pub struct PendingAttack {
     pub ticks: u32,
     /// What to press when it matures.
     pub binding: super::options::AttackBinding,
+    /// How long to keep Attack down after the press — the charge, decided by
+    /// the situation that chose the move rather than by the one it matures in,
+    /// because the opening being paid for is the one that was read.
+    /// `0` for everything that is not a smash.
+    pub hold_ticks: u32,
 }
 
 /// The mutable half. Every field decides what the brain does next, so every
@@ -161,6 +166,9 @@ pub struct FighterState {
     /// The foe as it was at the LAST decision, so the next one can name what the
     /// foe did in between and feed the habit model.
     pub last_foe: Option<FoeSample>,
+    /// Ticks of Attack still to hold for the smash in flight. Counts DOWN, and
+    /// it alone decides `melee_held`, so the button cannot latch.
+    pub charge_hold_ticks: u32,
 }
 
 /// The observable facts about a foe that a habit is inferred from. Deliberately
@@ -186,6 +194,7 @@ impl FighterState {
             pending_press: None,
             noise: seed,
             last_foe: None,
+            charge_hold_ticks: 0,
         }
     }
 }
@@ -229,12 +238,23 @@ pub fn tick_fighter(
     let mut frame = state.held.clone();
     frame.clear_edges();
 
+    // THE HELD BUTTON IS DERIVED, NEVER LATCHED. `clear_edges` deliberately
+    // leaves sustains alone, so a `melee_held` written once would stay written;
+    // spending the charge here means the only thing that can hold Attack down is
+    // a charge that has ticks left.
+    state.charge_hold_ticks = state.charge_hold_ticks.saturating_sub(1);
+    frame.melee_held = state.charge_hold_ticks > 0;
+
     if state.ticks_until_decision > 0 {
         state.ticks_until_decision -= 1;
     }
 
     match state.pending_press {
-        Some(PendingAttack { ticks: 0, binding }) => {
+        Some(PendingAttack {
+            ticks: 0,
+            binding,
+            hold_ticks: hold,
+        }) => {
             state.pending_press = None;
             // THE ONE EMISSION POINT. A press with no APM token is DROPPED
             // and the held movement stays, which is what makes the humanity
@@ -242,6 +262,12 @@ pub fn tick_fighter(
             if state.apm.may_press(cfg.profile.apm_cap, cfg.tick_hz) {
                 press_the_chosen_attack(binding, &mut frame);
                 state.apm.presses = state.apm.presses.saturating_add(1);
+                // The charge starts on the frame the press does, because the
+                // move freezes at its authored hold point and asks what the
+                // button is doing — a hold armed a tick later has already
+                // missed the question.
+                state.charge_hold_ticks = hold;
+                frame.melee_held = hold > 0;
             }
         }
         Some(pending) => {
@@ -552,6 +578,10 @@ fn decide(
         state.pending_press = Some(PendingAttack {
             ticks: jitter,
             binding: *binding,
+            hold_ticks: match binding.verb {
+                super::options::AttackVerb::Smash => super::charge::hold_ticks_for(situation),
+                _ => 0,
+            },
         });
     }
 

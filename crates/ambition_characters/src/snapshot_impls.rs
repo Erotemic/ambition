@@ -410,6 +410,7 @@ impl SnapshotCursor for crate::brain::Brain {
                     Some(pending) => {
                         put_bool(out, true);
                         put_u32(out, pending.ticks);
+                        put_u32(out, pending.hold_ticks);
                         put_u8(
                             out,
                             match pending.binding.verb {
@@ -455,6 +456,11 @@ impl SnapshotCursor for crate::brain::Brain {
                 put_bool(out, state.held.jump_held);
                 put_bool(out, state.held.shield_held);
                 put_bool(out, state.held.melee_held);
+                // The charge in flight. `melee_held` above is DERIVED from it,
+                // so projecting only the button would let two brains agree on
+                // this tick's press and disagree about how much longer the smash
+                // is being paid for.
+                put_u32(out, state.charge_hold_ticks);
             }
             _ => put_u8(out, 0),
         }

@@ -10,6 +10,7 @@
 /// a game that never validates its content must not link a compiler.
 #[cfg(feature = "content_pack")]
 pub mod content_schema;
+pub mod charge;
 pub mod decision;
 pub mod evaluation;
 pub mod habit;
@@ -21,6 +22,7 @@ pub mod rollout;
 pub mod scenarios;
 pub mod situation;
 
+pub use charge::hold_ticks_for;
 pub use decision::{tick_fighter, ApmLedger, FighterCfg, FighterState};
 pub use habit::{Choice, HabitModel};
 pub use options::{generate_options, AttackOption, MoveOption, OptionSet, UtilityWeights};

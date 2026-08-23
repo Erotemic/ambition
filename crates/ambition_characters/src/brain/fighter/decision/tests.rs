@@ -50,6 +50,7 @@ fn planted_press(ticks: u32) -> PendingAttack {
             verb: AttackVerb::Basic,
             direction: AttackDir::Forward,
         },
+        hold_ticks: 0,
     }
 }
 
@@ -705,7 +706,11 @@ fn a_pending_attack_matures_into_the_press_that_reaches_its_move() {
         direction: AttackDir::Up,
     };
     super::aim_the_stick(binding, view.self_view.facing, &mut state.held);
-    state.pending_press = Some(PendingAttack { ticks: 0, binding });
+    state.pending_press = Some(PendingAttack {
+        ticks: 0,
+        binding,
+        hold_ticks: 0,
+    });
     state.ticks_until_decision = 30;
     tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
 
@@ -730,6 +735,7 @@ fn a_pending_attack_matures_into_the_press_that_reaches_its_move() {
             verb: AttackVerb::Special,
             direction: AttackDir::Neutral,
         },
+        hold_ticks: 0,
     });
     state.ticks_until_decision = 30;
     let mut out = ActorControlFrame::neutral();
@@ -1115,4 +1121,64 @@ fn every_lateral_this_brain_emits_is_in_the_bodys_own_frame() {
          axis, so a sideways throttle cannot close on it — a non-zero here is a \
          WORLD x sign stamped into a body-local field: {sideways:?}"
     );
+}
+
+/// THE SMASH IS HELD, AND THAT IS WHAT MAKES IT A SMASH.
+///
+/// `smash_charge_mult` is authored per move and paid out against how long Attack
+/// stays down, so a brain that only ever tapped was silently taking every
+/// fighter's strongest option at its floor. The hold rides the pending press so
+/// the situation that read the opening is the one that pays for it.
+#[test]
+fn a_smash_keeps_the_button_down_after_the_press() {
+    let (cfg, mut state) = rig(immediate_profile());
+    let snapshot = BrainSnapshot::idle();
+    let view = scene(300.0, 500.0);
+    let mut out = ActorControlFrame::neutral();
+
+    let binding = AttackBinding {
+        verb: AttackVerb::Smash,
+        direction: AttackDir::Forward,
+    };
+    super::aim_the_stick(binding, view.self_view.facing, &mut state.held);
+    state.pending_press = Some(PendingAttack {
+        ticks: 0,
+        binding,
+        hold_ticks: 4,
+    });
+    state.ticks_until_decision = 30;
+
+    tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+    assert!(out.melee_pressed, "the press never came out");
+    assert!(
+        out.melee_held,
+        "the charge was armed and the button was already up on the press frame — \
+         the move freezes at its hold point and asks what Attack is doing"
+    );
+
+    // Three more ticks of hold, and then it lets go on its own. A charge that
+    // depended on another decision to release it would hold through a rewind.
+    for tick in 0..3 {
+        tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+        assert!(out.melee_held, "the charge let go on tick {tick} of 3");
+    }
+    tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+    assert!(!out.melee_held, "the charge never released");
+}
+
+/// A tap is still a tap. Every non-smash press arms no hold, so nothing about
+/// the ordinary jab changed.
+#[test]
+fn an_ordinary_press_holds_nothing() {
+    let (cfg, mut state) = rig(immediate_profile());
+    let snapshot = BrainSnapshot::idle();
+    let view = scene(300.0, 500.0);
+    let mut out = ActorControlFrame::neutral();
+
+    state.pending_press = Some(planted_press(0));
+    state.ticks_until_decision = 30;
+    tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+
+    assert!(out.melee_pressed, "the press never came out");
+    assert!(!out.melee_held, "a jab held the button down");
 }

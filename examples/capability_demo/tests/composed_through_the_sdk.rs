@@ -11,7 +11,7 @@
 //! foundation crates. This file is the consumer, not the capability.
 
 use ambition_platformer2d::app::{GameModule, ModuleDraft, ModuleManifest, PlatformerApp};
-use ambition_platformer2d::input::{InstalledActions, SemanticActionId, GAMEPLAY_CONTEXT};
+use ambition_platformer2d::participant::{InstalledActions, SemanticActionId, GAMEPLAY_CONTEXT};
 use bevy::prelude::*;
 
 /// One character, so the composition has somebody to start as.

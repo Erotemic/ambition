@@ -85,6 +85,7 @@ impl Plugin for AmbitionRollbackPlugin {
                 ambition_platformer2d_runtime::SIM_TICK_HZ as usize,
             ))
             .init_resource::<ambition_platformer2d_runtime::RollbackConfirmationState>()
+            .init_resource::<ambition_sim_view::PresentationPhase>()
             .insert_resource(ambition_platformer2d_runtime::RollbackHostReady);
 
         app.add_systems(

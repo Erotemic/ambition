@@ -5,10 +5,12 @@
 //! resimulation. Missing `PulseCooldown` registration would allow a pulse to fire
 //! twice from one charge on a resimulated frame.
 
-use ambition_platformer2d::engine_core as ae;
-use ambition_platformer2d::input::ControlFrame;
-use ambition_platformer2d::platformer::lifecycle::insert_session_world_component;
-use ambition_platformer2d::world::rooms::{RoomSet, RoomSpec};
+use ambition_platformer2d::session::insert_session_world_component;
+use ambition_platformer2d::sim::ControlFrame;
+use ambition_platformer2d::world::{
+    prelude::{AuthoredWorld, Vec2},
+    rooms::{RoomSet, RoomSpec},
+};
 use ambition_platformer2d_rollback_ggrs::AmbitionRollbackApp;
 use ambition_sim_harness::{
     AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
@@ -30,10 +32,10 @@ fn compose(
 ) -> Result<(), String> {
     // A bare one-room session, the same shape `composes_below_the_app.rs` uses:
     // the proof is about the capability, not about anyone's content.
-    let world = ae::World::new(
+    let world = AuthoredWorld::new(
         "pulse_room",
-        ae::Vec2::new(800.0, 600.0),
-        ae::Vec2::new(100.0, 100.0),
+        Vec2::new(800.0, 600.0),
+        Vec2::new(100.0, 100.0),
         Vec::new(),
     );
     let set = RoomSet::from_parts(
@@ -52,11 +54,8 @@ fn compose(
     // nobody added — which is a composition error wearing an engine's error
     // message.
     app.add_plugins(ambition_platformer2d_rollback_ggrs::AmbitionRollbackPlugin);
-    // The rollback host publishes its intra-tick phase for the presented-pose
-    // layer. A headless capability host has no presentation and still has to
-    // provide the resource that plugin writes into — otherwise
-    // `sample_ggrs_accumulator_phase` fails parameter validation on frame one.
-    app.init_resource::<ambition_platformer2d::sim_view::PresentationPhase>();
+    // The rollback backend owns every resource its host-side systems require;
+    // a consumer does not initialize presentation internals to make GGRS tick.
     app.add_plugins(PulsePlugin::default());
     // The PROFILE under test, authored rather than defaulted — so "the profile
     // survived" means something a default could not have provided.
@@ -124,8 +123,8 @@ fn the_cooldown_the_profile_and_the_velocity_survive_a_real_rewind() {
         .world_mut()
         .spawn((
             PulseBody {
-                pos: ae::Vec2::new(20.0, 0.0),
-                vel: ae::Vec2::ZERO,
+                pos: Vec2::new(20.0, 0.0),
+                vel: Vec2::ZERO,
             },
             capability_demo::PulseAffected,
         ))

@@ -863,6 +863,60 @@ MODULE_ALLOWLISTS: list[dict] = [
             "naming."
         ),
     },
+    {
+        "id": "sim-harness-names-only-the-public-sdk",
+        # The reusable sim harness is a real engine customer: it owns a Bevy App,
+        # queries bodies, mutates test setup, drives participants, and can start
+        # rollback. If it needs crate-shaped facade paths, those are SDK gaps.
+        "paths": ["crates/ambition_sim_harness/"],
+        "include_tests": True,
+        "facade": "ambition_platformer2d",
+        "allowed": {
+            "actor",
+            "character",
+            "engine",
+            "item",
+            "participant",
+            "rollback",
+            "session",
+            "settings",
+            "sim",
+            "world",
+        },
+        "baseline": set(),
+        "reason": (
+            "The programmatic simulation harness is part of the supported engine "
+            "surface, not an implementation crate. It used to depend only on the "
+            "facade while naming `actors`, `engine_core`, `platformer`, `runtime`, "
+            "`characters`, `entity_catalog`, `boss_encounter`, `input`, and "
+            "`persistence` through it. Those names encoded implementation topology. "
+            "Its baseline is now zero; new crate-mirror imports are SDK regressions."
+        ),
+    },
+    {
+        "id": "capability-demo-names-only-the-public-sdk",
+        # The capability itself deliberately stays below the facade. Its tests are
+        # the outside author/host proving that the capability composes through the SDK.
+        "paths": ["examples/capability_demo/tests/"],
+        "include_tests": True,
+        "facade": "ambition_platformer2d",
+        "allowed": {
+            "app",
+            "content",
+            "participant",
+            "rollback",
+            "session",
+            "sim",
+            "world",
+        },
+        "baseline": set(),
+        "reason": (
+            "The capability example is the worked external-author path. Its tests "
+            "must compose and inspect through semantic SDK modules, without knowing "
+            "that session storage lives in shared_tangle, action registration in "
+            "ambition_input, or rollback presentation timing in ambition_sim_view."
+        ),
+    },
 ]
 
 # Central rollback ownership ratchet.

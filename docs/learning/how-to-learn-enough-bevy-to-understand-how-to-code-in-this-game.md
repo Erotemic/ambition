@@ -1473,7 +1473,7 @@ Read:
 
 - [`../../crates/ambition_game_shell/src/session.rs`](../../crates/ambition_game_shell/src/session.rs)
 - [`../../crates/ambition_platformer2d_runtime/src/session_world.rs`](../../crates/ambition_platformer2d_runtime/src/session_world.rs)
-- [`../../crates/ambition_platformer2d/src/session_world.rs`](../../crates/ambition_platformer2d/src/session_world.rs)
+- [`../../crates/ambition_platformer2d/src/session.rs`](../../crates/ambition_platformer2d/src/session.rs)
 - [`../../crates/ambition_platformer2d_shared_tangle/src/lifecycle/`](../../crates/ambition_platformer2d_shared_tangle/src/lifecycle/)
 
 The shared host cannot use one process-global gameplay world because it launches several providers and may relaunch the same provider.
@@ -1943,7 +1943,7 @@ Source entrypoints:
 - [`../../crates/ambition_game_shell/src/router.rs`](../../crates/ambition_game_shell/src/router.rs)
 - [`../../crates/ambition_load/src/coordinator.rs`](../../crates/ambition_load/src/coordinator.rs)
 - [`../../crates/ambition_platformer2d_provider/src/lib.rs`](../../crates/ambition_platformer2d_provider/src/lib.rs)
-- [`../../crates/ambition_platformer2d/src/session_world.rs`](../../crates/ambition_platformer2d/src/session_world.rs)
+- [`../../crates/ambition_platformer2d/src/session.rs`](../../crates/ambition_platformer2d/src/session.rs)
 - [`../../crates/ambition_platformer2d_runtime/src/session_world.rs`](../../crates/ambition_platformer2d_runtime/src/session_world.rs)
 - [`../../crates/ambition_platformer2d_shared_tangle/src/lifecycle/`](../../crates/ambition_platformer2d_shared_tangle/src/lifecycle/)
 - [`../../crates/ambition_platformer2d_shared_tangle/src/schedule.rs`](../../crates/ambition_platformer2d_shared_tangle/src/schedule.rs)

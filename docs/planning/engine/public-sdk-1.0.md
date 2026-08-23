@@ -51,6 +51,15 @@ Grow the API from real consumer friction:
 5. migrate the consumer and remove the internal dependency/duplicate path that
    made the seam necessary.
 
+Current receipt: `ambition_sim_harness` now reaches body, participant, session,
+settings and engine concepts only through semantic facade modules, and the
+capability-demo host tests do the same. Both have zero implementation-module
+baseline in the existing consumer-module ratchet. The migration also deleted
+three facade mirrors with no consumers (`interaction`, `sfx_bank`, and the raw
+`renderer` module) and renamed the facade's `session_world` module to `session`.
+The remaining crate-shaped mirrors are still open migration surface; this slice
+does not claim they are public SDK.
+
 No blind-agent ritual or source-text allowlist is required for every slice.
 Consumer code, dependency closure, API docs and behavioral tests are the main
 evidence.

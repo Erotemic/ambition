@@ -3,10 +3,31 @@
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
-use ambition_platformer2d::engine_core as ae;
-
-use ambition_platformer2d::actors::rooms::RoomSet;
-use ambition_platformer2d::input::ControlFrame;
+use ambition_platformer2d::actor::{
+    default_body_size, ActorFaction, BodyAbilities, BodyClusterQueryData, BodyCombat,
+    BodyFlightState, BodyHealth, BodyKinematics, BodyMode, BodyMotionFacts, BodySafetyState,
+    BossBrain, BossOverrides, Health, MotionModel, PrimaryPlayerOnly, SpawnActorKind,
+    SpawnActorRequest, TransitVelocity, transit_body,
+};
+use ambition_platformer2d::character::{CharacterBrain, CharacterId};
+use ambition_platformer2d::engine::{
+    add_headless_foundation, SimulationHost, SimulationHostAppExt as _, SIM_TICK_HZ,
+};
+use ambition_platformer2d::item::{GroundItem, ItemCustody};
+use ambition_platformer2d::participant::{
+    LocalChannelPlan, LocalDeviceOrder, LocalInputSource, LocalSeatTopology,
+};
+use ambition_platformer2d::session::{
+    session_world_component, session_world_component_mut, settle_until_controlled_subject,
+    SESSION_SETTLE_FRAMES,
+};
+use ambition_platformer2d::settings::UserSettings;
+use ambition_platformer2d::sim::{ControlFrame, InputFrameMode, PlayerSlot};
+use ambition_platformer2d::world::{
+    prelude::{Block, RoomGeometry},
+    rooms::RoomSet,
+    BaseGravity, GravityField,
+};
 
 use crate::action::AgentAction;
 use crate::observation::{AgentObservation, EnemyObs, PickupObs};
@@ -42,19 +63,18 @@ impl Platformer2dSimHarness {
         compose: impl FnOnce(&mut App, &Platformer2dSimHarnessOptions) -> Result<(), String>,
     ) -> Result<Self, String> {
         let mut app = App::new();
-        // The shared engine foundation — one definition in ambition_platformer2d::runtime.
-        ambition_platformer2d::runtime::add_headless_foundation(&mut app);
+        // The shared engine foundation — one definition in ambition_platformer2d::engine.
+        add_headless_foundation(&mut app);
 
         // Netcode N0.1: choose the sim schedule BEFORE the first sim plugin
         // builds (see the doc note above).
         {
-            use ambition_platformer2d::runtime::SimulationHostAppExt as _;
             let host = if options.rollback.enabled() {
-                ambition_platformer2d::runtime::SimulationHost::Rollback
+                SimulationHost::Rollback
             } else if options.fixed_tick {
-                ambition_platformer2d::runtime::SimulationHost::Fixed60Hz
+                SimulationHost::Fixed60Hz
             } else {
-                ambition_platformer2d::runtime::SimulationHost::RenderFrame
+                SimulationHost::RenderFrame
             };
             app.set_simulation_host(host);
         }
@@ -88,7 +108,7 @@ impl Platformer2dSimHarness {
         if rollback.enabled() {
             app.insert_resource(TimeUpdateStrategy::ManualDuration(
                 std::time::Duration::from_nanos(
-                    1_000_000_000u64 / ambition_platformer2d::runtime::SIM_TICK_HZ as u64,
+                    1_000_000_000u64 / SIM_TICK_HZ as u64,
                 ),
             ));
         } else if let TimestepMode::Fixed { dt } = timestep {
@@ -112,9 +132,9 @@ impl Platformer2dSimHarness {
         // `"the sandbox session has a controlled subject"` the first time the
         // harness met a shell-routed host.
         if let Err(budget) =
-            ambition_platformer2d::platformer::lifecycle::settle_until_controlled_subject(
+            settle_until_controlled_subject(
                 &mut app,
-                ambition_platformer2d::platformer::lifecycle::SESSION_SETTLE_FRAMES,
+                SESSION_SETTLE_FRAMES,
             )
         {
             bevy::log::debug!(
@@ -139,9 +159,6 @@ impl Platformer2dSimHarness {
             // like a decision somebody made — and here somebody did decide, in
             // the harness options.
             {
-                use ambition_platformer2d::input::{
-                    LocalChannelPlan, LocalDeviceOrder, LocalInputSource, LocalSeatTopology,
-                };
                 let world = app.world_mut();
                 let order = LocalDeviceOrder::from_devices(
                     world
@@ -203,7 +220,7 @@ impl Platformer2dSimHarness {
             self.timestep = TimestepMode::fixed_60hz();
             self.app.insert_resource(TimeUpdateStrategy::ManualDuration(
                 std::time::Duration::from_nanos(
-                    1_000_000_000u64 / ambition_platformer2d::runtime::SIM_TICK_HZ as u64,
+                    1_000_000_000u64 / SIM_TICK_HZ as u64,
                 ),
             ));
             return;
@@ -236,7 +253,7 @@ impl Platformer2dSimHarness {
     }
 
     /// Step one tick driven by a raw [`ControlFrame`] — the unit an
-    /// [`InputStream`](ambition_platformer2d::engine_core::InputStream) records (netcode
+    /// [`InputStream`](ambition_platformer2d::sim::InputStream) records (netcode
     /// N0.2).
     ///
     /// `step` is this plus an `AgentAction → ControlFrame` conversion. A REPLAY
@@ -257,7 +274,7 @@ impl Platformer2dSimHarness {
     pub fn drive_seat(&mut self, slot: u8, frame: ControlFrame) {
         ambition_platformer2d::rollback::drive_slot_frame(
             self.app.world_mut(),
-            ambition_platformer2d::characters::control::PlayerSlot(slot),
+            PlayerSlot(slot),
             frame,
         );
     }
@@ -305,45 +322,45 @@ impl Platformer2dSimHarness {
         let mut cluster_query = self
             .app
             .world_mut()
-            .query_filtered::<ambition_platformer2d::engine_core::BodyClusterQueryData, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
+            .query_filtered::<BodyClusterQueryData, PrimaryPlayerOnly>();
         // The published maneuver projection (ADR 0024): the observation's
         // cling/glide/blink flags are semantic facts, not policy internals.
         let mut facts_query = self
             .app
             .world_mut()
-            .query_filtered::<&ambition_platformer2d::engine_core::BodyMotionFacts, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
+            .query_filtered::<&BodyMotionFacts, PrimaryPlayerOnly>();
         let mut combat_query = self
             .app
             .world_mut()
-            .query_filtered::<&ambition_platformer2d::characters::actor::BodyCombat, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>(
+            .query_filtered::<&BodyCombat, PrimaryPlayerOnly>(
             );
         let mut health_query = self
             .app
             .world_mut()
-            .query_filtered::<&ambition_platformer2d::characters::actor::BodyHealth, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
+            .query_filtered::<&BodyHealth, PrimaryPlayerOnly>();
         let mut safety_query = self
             .app
             .world_mut()
-            .query_filtered::<&ambition_platformer2d::actors::avatar::PlayerSafetyState, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>(
+            .query_filtered::<&BodySafetyState, PrimaryPlayerOnly>(
             );
         // World-side observability (enemies, pickups) for combat /
         // collection assertions. Read once per tick; cheap.
         let mut enemy_query = self.app.world_mut().query::<(
-            &ambition_platformer2d::actors::actor::BodyKinematics,
-            &ambition_platformer2d::characters::actor::BodyHealth,
+            &BodyKinematics,
+            &BodyHealth,
         )>();
         // IN-WORLD items only. A picked-up item keeps its entity now (it
         // records custody instead of being despawned), so an unfiltered query
         // would report the axe in the agent's own hand as an axe lying on the
         // floor — an instrument agreeing with a state that does not exist.
         let mut pickup_query = self.app.world_mut().query::<(
-            &ambition_platformer2d::actors::items::pickup::GroundItem,
-            &ambition_platformer2d::actors::items::pickup::ItemCustody,
+            &GroundItem,
+            &ItemCustody,
         )>();
 
         let world = self.app.world();
         let gravity_dir = world
-            .get_resource::<ambition_platformer2d::actors::physics::GravityField>()
+            .get_resource::<GravityField>()
             .map(|g| (g.dir.x, g.dir.y))
             .unwrap_or((0.0, 1.0));
         let enemies: Vec<EnemyObs> = enemy_query
@@ -368,9 +385,9 @@ impl Platformer2dSimHarness {
         let health = health_query
             .single(world)
             .map(|h| h.health)
-            .unwrap_or_else(|_| ambition_platformer2d::characters::actor::Health::new(20));
+            .unwrap_or_else(|_| Health::new(20));
         let room =
-            ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomSet>(world)
+            session_world_component::<RoomSet>(world)
                 .expect("active session RoomSet")
                 .active_spec();
         let combat = combat_query.single(world).ok();
@@ -379,10 +396,10 @@ impl Platformer2dSimHarness {
         let last_safe_pos = safety_query
             .single(world)
             .map(|s| s.last_safe_pos)
-            .unwrap_or(ae::Vec2::ZERO);
+            .unwrap_or(Vec2::ZERO);
 
-        let zero = ae::Vec2::ZERO;
-        let default_body = ae::default_player_body_size();
+        let zero = Vec2::ZERO;
+        let default_body = default_body_size();
         let pos = cluster.as_ref().map(|c| c.kinematics.pos).unwrap_or(zero);
         let vel = cluster.as_ref().map(|c| c.kinematics.vel).unwrap_or(zero);
         let size = cluster
@@ -426,7 +443,7 @@ impl Platformer2dSimHarness {
                 "{:?}",
                 body_mode
                     .map(|b| b.body_mode)
-                    .unwrap_or(ae::BodyMode::Standing)
+                    .unwrap_or(BodyMode::Standing)
             ),
             active_room: room.id.clone(),
             world_size: (room.world.size.x, room.world.size.y),
@@ -600,18 +617,18 @@ impl Platformer2dSimHarness {
         let mut base = self
             .app
             .world_mut()
-            .resource_mut::<ambition_platformer2d::actors::physics::BaseGravity>();
-        base.dir = ae::Vec2::new(dir.0, dir.1);
+            .resource_mut::<BaseGravity>();
+        base.dir = Vec2::new(dir.0, dir.1);
         drop(base);
         self.rebase_after_direct_setup_mutation();
     }
 
     /// Set the active input-frame mapping mode for scripted control.
-    pub fn set_movement_frame_mode(&mut self, mode: ae::InputFrameMode) {
+    pub fn set_movement_frame_mode(&mut self, mode: InputFrameMode) {
         let mut settings =
             self.app
                 .world_mut()
-                .resource_mut::<ambition_platformer2d::persistence::settings::UserSettings>();
+                .resource_mut::<UserSettings>();
         settings.gameplay.movement_frame_mode = mode;
         drop(settings);
         self.rebase_after_direct_setup_mutation();
@@ -622,17 +639,17 @@ impl Platformer2dSimHarness {
     /// so a scenario cannot start with stale departure facts.
     pub fn teleport_player(&mut self, pos: (f32, f32)) {
         let mut q = self.app.world_mut().query_filtered::<(
-            ae::BodyClusterQueryData,
-            &mut ambition_platformer2d::actors::features::MotionModel,
-        ), ambition_platformer2d::actors::actor::PrimaryPlayerOnly>(
+            BodyClusterQueryData,
+            &mut MotionModel,
+        ), PrimaryPlayerOnly>(
         );
         if let Ok((mut cluster_item, mut motion_model)) = q.single_mut(self.app.world_mut()) {
             let mut clusters = cluster_item.as_clusters_mut();
-            ae::movement::transit_body(
+            transit_body(
                 &mut motion_model,
                 &mut clusters,
-                ae::Vec2::new(pos.0, pos.1),
-                ae::movement::TransitVelocity::Zero,
+                Vec2::new(pos.0, pos.1),
+                TransitVelocity::Zero,
             );
         }
         self.rebase_after_direct_setup_mutation();
@@ -643,7 +660,7 @@ impl Platformer2dSimHarness {
         let mut q = self
             .app
             .world_mut()
-            .query_filtered::<&mut ambition_platformer2d::actors::actor::BodyAbilities, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
+            .query_filtered::<&mut BodyAbilities, PrimaryPlayerOnly>();
         if let Ok(mut abilities) = q.single_mut(self.app.world_mut()) {
             abilities.abilities.pogo = true;
         }
@@ -657,9 +674,9 @@ impl Platformer2dSimHarness {
     /// own fly-toggle input, so it persists across steps.
     pub fn grant_flight(&mut self) {
         let mut q = self.app.world_mut().query_filtered::<(
-            &mut ambition_platformer2d::actors::actor::BodyAbilities,
-            &mut ambition_platformer2d::actors::actor::BodyFlightState,
-        ), ambition_platformer2d::actors::actor::PrimaryPlayerOnly>(
+            &mut BodyAbilities,
+            &mut BodyFlightState,
+        ), PrimaryPlayerOnly>(
         );
         if let Ok((mut abilities, mut flight)) = q.single_mut(self.app.world_mut()) {
             abilities.abilities.fly = true;
@@ -685,7 +702,7 @@ impl Platformer2dSimHarness {
         name: impl Into<String>,
         pos: (f32, f32),
         half_size: (f32, f32),
-        brain: ambition_platformer2d::entity_catalog::placements::BossBrain,
+        brain: BossBrain,
     ) {
         self.spawn_boss_at_with(
             id,
@@ -693,12 +710,12 @@ impl Platformer2dSimHarness {
             pos,
             half_size,
             brain,
-            ambition_platformer2d::boss_encounter::BossOverrides::default(),
+            BossOverrides::default(),
         );
     }
 
     /// Like [`Self::spawn_boss_at`] but applies per-spawn "tweaks Z"
-    /// ([`BossOverrides`](ambition_platformer2d::boss_encounter::BossOverrides)): hp /
+    /// ([`BossOverrides`](BossOverrides)): hp /
     /// combat size / phase triggers / encounter opt-out. The refactor's headline
     /// "spawn boss X with tweaks Z at Y and it just works" seam.
     pub fn spawn_boss_at_with(
@@ -707,19 +724,19 @@ impl Platformer2dSimHarness {
         name: impl Into<String>,
         pos: (f32, f32),
         half_size: (f32, f32),
-        brain: ambition_platformer2d::entity_catalog::placements::BossBrain,
-        overrides: ambition_platformer2d::boss_encounter::BossOverrides,
+        brain: BossBrain,
+        overrides: BossOverrides,
     ) {
         self.app.world_mut().write_message(
-            ambition_platformer2d::actors::features::SpawnActorRequest {
+            SpawnActorRequest {
                 id: id.into(),
                 name: name.into(),
-                pos: ae::Vec2::new(pos.0, pos.1),
-                half_size: ae::Vec2::new(half_size.0, half_size.1),
+                pos: Vec2::new(pos.0, pos.1),
+                half_size: Vec2::new(half_size.0, half_size.1),
                 // Ignored for the Boss kind (always faction Boss); set for completeness.
-                faction: ambition_platformer2d::actors::features::ActorFaction::Boss,
+                faction: ActorFaction::Boss,
                 grudge_against: None,
-                kind: ambition_platformer2d::actors::features::SpawnActorKind::Boss {
+                kind: SpawnActorKind::Boss {
                     brain,
                     overrides,
                 },
@@ -737,20 +754,20 @@ impl Platformer2dSimHarness {
         name: impl Into<String>,
         pos: (f32, f32),
         half_size: (f32, f32),
-        brain: ambition_platformer2d::entity_catalog::placements::CharacterBrain,
+        brain: CharacterBrain,
         character: &str,
     ) {
         self.app.world_mut().write_message(
-            ambition_platformer2d::actors::features::SpawnActorRequest {
+            SpawnActorRequest {
                 id: id.into(),
                 name: name.into(),
-                pos: ae::Vec2::new(pos.0, pos.1),
-                half_size: ae::Vec2::new(half_size.0, half_size.1),
-                faction: ambition_platformer2d::actors::features::ActorFaction::Enemy,
+                pos: Vec2::new(pos.0, pos.1),
+                half_size: Vec2::new(half_size.0, half_size.1),
+                faction: ActorFaction::Enemy,
                 grudge_against: None,
-                kind: ambition_platformer2d::actors::features::SpawnActorKind::Enemy {
+                kind: SpawnActorKind::Enemy {
                     brain,
-                    character: ambition_platformer2d::entity_catalog::CharacterId::from(character),
+                    character: CharacterId::from(character),
                 },
             },
         );
@@ -760,11 +777,11 @@ impl Platformer2dSimHarness {
 
     /// Inject a block into the live sim world (a pogo orb, one-way
     /// platform, solid, …). Used by symmetry tests to place a known
-    /// target without authoring a room. Build with `ae::Block::pogo_orb`
-    /// / `ae::Block::one_way` / etc.
-    pub fn add_block(&mut self, block: ae::Block) {
-        ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<
-            ambition_platformer2d::engine_core::RoomGeometry,
+    /// target without authoring a room. Build with `Block::pogo_orb`
+    /// / `Block::one_way` / etc.
+    pub fn add_block(&mut self, block: Block) {
+        session_world_component_mut::<
+            RoomGeometry,
         >(self.app.world_mut())
         .expect("active session RoomGeometry")
         .0
@@ -778,7 +795,7 @@ impl Platformer2dSimHarness {
     /// (`rl_smoke` binary) or RL training loops that pick a fresh
     /// room per episode.
     pub fn room_ids(&self) -> Vec<String> {
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomSet>(
+        session_world_component::<RoomSet>(
             self.app.world(),
         )
         .expect("active session RoomSet")

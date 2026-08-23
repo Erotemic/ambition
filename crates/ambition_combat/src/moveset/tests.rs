@@ -1605,6 +1605,7 @@ fn a_forward_special_selects_the_directional_move() {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
     };
@@ -1653,6 +1654,7 @@ fn gesture_test_move(id: &str) -> MoveSpec {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
     }
@@ -1744,6 +1746,7 @@ fn a_move_start_impulse_lunges_the_body_toward_facing() {
         start_impulse: Some((150.0, 0.0)),
         smash_charge_mult: 1.0,
         smash_charge: None,
+        repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
     };
@@ -3305,6 +3308,7 @@ fn uncancelable(id: &str) -> MoveSpec {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
     }
@@ -3577,6 +3581,7 @@ fn charging_smash() -> MoveSpec {
             hold_at_s: CHARGE_HOLD_AT_S,
             max_hold_s: CHARGE_MAX_HOLD_S,
         }),
+        repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
     }
@@ -3945,6 +3950,7 @@ fn defended_move() -> MoveSpec {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
     }
@@ -4042,4 +4048,255 @@ fn an_ordinary_move_grants_neither() {
         .insert(MovePlayback::new(uncancelable("plain"), 1.0));
     app.update();
     assert_eq!(defense_of(&app, body), (false, false));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The jab chain and the flurry.
+//
+// Both are authored: a chain is a cancel table read forwards, and a loop is a
+// stretch of one move's own timeline. Neither knows a fighter.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The full production chain INCLUDING the clock, because a chain and a loop
+/// are both questions about where the move's own timeline is.
+fn playing_app(moveset: MovesetContract) -> (App, Entity) {
+    let mut app = App::new();
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<super::super::authored_volumes::AuthoredAttackVolumeResolver>();
+    app.add_message::<HitEvent>();
+    app.add_message::<crate::hitbox::LandedBodyHit>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<MoveEventMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.init_resource::<WorldTime>();
+    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
+    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    app.add_systems(
+        Update,
+        (
+            resolve_attack_gestures,
+            buffer_combat_action_presses,
+            trigger_moveset_moves,
+            advance_move_playback,
+        )
+            .chain(),
+    );
+    let body = app
+        .world_mut()
+        .spawn((
+            ae::BodyKinematics {
+                pos: ae::Vec2::ZERO,
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(16.0, 32.0),
+                facing: 1.0,
+            },
+            ActorFaction::Player,
+            ActorMoveset(moveset),
+            ActorControl(ambition_characters::actor::control::ActorControlFrame::neutral()),
+        ))
+        .id();
+    app.world_mut()
+        .get_mut::<AttackGestureTuning>(body)
+        .expect("ActorControl requires the gesture tuning")
+        .action_buffer_s = 0.0;
+    (app, body)
+}
+
+fn chain_link(id: &str, into: &[&str], repeat: Option<ambition_entity_catalog::MoveLoop>) -> MoveSpec {
+    let mut windows = vec![MoveWindow {
+        start_s: 0.0,
+        end_s: 0.10,
+        tag: WindowTag::Active,
+        volumes: vec![],
+        sustain_effect: None,
+        motion_scale: 1.0,
+    }];
+    if !into.is_empty() {
+        windows.push(MoveWindow {
+            start_s: 0.05,
+            end_s: 0.30,
+            tag: WindowTag::Cancelable {
+                into: into.iter().map(|s| (*s).to_string()).collect(),
+                condition: ambition_entity_catalog::CancelCondition::Always,
+            },
+            volumes: vec![],
+            sustain_effect: None,
+            motion_scale: 1.0,
+        });
+    }
+    MoveSpec {
+        display_name: None,
+        id: id.to_string(),
+        clip: ClipBinding {
+            clip: id.to_string(),
+            fallbacks: vec![],
+        },
+        duration_s: 0.30,
+        windows,
+        events: vec![],
+        gates: Default::default(),
+        start_impulse: None,
+        smash_charge_mult: 1.0,
+        smash_charge: None,
+        repeat,
+        landing_lag_s: None,
+        autocancel_after_s: None,
+    }
+}
+
+/// ⭐ A FOLLOW-UP PRESS TAKES THE SUCCESSOR, and the route ends where the
+/// authoring stops naming one.
+///
+/// Every fighter had one jab and it was a full commitment every time, because a
+/// second press inside the cancel window resolved to the same verb and
+/// restarted jab 1. The window already named where to go; nothing read it
+/// forwards.
+#[test]
+fn a_follow_up_press_walks_the_authored_jab_chain() {
+    let moveset = MovesetContract {
+        verbs: [(ATTACK_VERB.to_string(), "jab".to_string())]
+            .into_iter()
+            .collect(),
+        moves: vec![
+            chain_link("jab", &["jab2"], None),
+            chain_link("jab2", &["jab3"], None),
+            chain_link("jab3", &[], None),
+        ],
+    };
+    let (mut app, body) = playing_app(moveset);
+    for expected in ["jab", "jab2", "jab3"] {
+        set_frame(&mut app, body, |f| f.melee_pressed = true);
+        app.update();
+        set_frame(&mut app, body, |f| f.melee_pressed = false);
+        assert_eq!(
+            playing(&app, body).as_deref(),
+            Some(expected),
+            "the press should have reached {expected}"
+        );
+        // Into the successor's own cancel window before the next press.
+        for _ in 0..4 {
+            app.update();
+        }
+    }
+    // jab3 names nobody: the route is over and a fourth press restarts it.
+    set_frame(&mut app, body, |f| f.melee_pressed = true);
+    app.update();
+    assert_eq!(
+        playing(&app, body).as_deref(),
+        Some("jab3"),
+        "a move that nominates no successor should refuse the press outright, \
+         not walk somewhere the author never named"
+    );
+}
+
+/// A move that nominates nothing chains nowhere — the press restarts it exactly
+/// as it always did.
+#[test]
+fn a_move_with_no_named_successor_still_restarts() {
+    let moveset = MovesetContract {
+        verbs: [(ATTACK_VERB.to_string(), "jab".to_string())]
+            .into_iter()
+            .collect(),
+        // Cancelable into ITSELF: the pre-chain authoring, which must keep
+        // meaning "press again and throw it again".
+        moves: vec![chain_link("jab", &["jab"], None)],
+    };
+    let (mut app, body) = playing_app(moveset);
+    set_frame(&mut app, body, |f| f.melee_pressed = true);
+    app.update();
+    set_frame(&mut app, body, |f| f.melee_pressed = false);
+    for _ in 0..4 {
+        app.update();
+    }
+    let t_before = app.world().get::<MovePlayback>(body).unwrap().t;
+    set_frame(&mut app, body, |f| f.melee_pressed = true);
+    app.update();
+    let pb = app.world().get::<MovePlayback>(body).unwrap();
+    assert_eq!(pb.spec.id, "jab");
+    assert!(
+        pb.t < t_before,
+        "a self-naming cancel window stopped restarting its own move"
+    );
+}
+
+/// ⭐ THE FLURRY LOOPS WHILE THE BUTTON IS DOWN and leaves on the release, into
+/// whatever the move authors after the loop — one timeline, not a second move.
+#[test]
+fn a_held_flurry_repeats_its_authored_window_and_exits_on_release() {
+    let looped = ambition_entity_catalog::MoveLoop {
+        from_s: 0.02,
+        to_s: 0.08,
+        max_s: 1.0,
+    };
+    let moveset = MovesetContract {
+        verbs: [(ATTACK_VERB.to_string(), "rapid".to_string())]
+            .into_iter()
+            .collect(),
+        moves: vec![chain_link("rapid", &[], Some(looped))],
+    };
+    let (mut app, body) = playing_app(moveset);
+    set_frame(&mut app, body, |f| {
+        f.melee_pressed = true;
+        f.melee_held = true;
+    });
+    app.update();
+    set_frame(&mut app, body, |f| f.melee_pressed = false);
+    // Well past `to_s`, and past the move's own duration: only the loop can
+    // keep it alive this long.
+    for _ in 0..30 {
+        app.update();
+    }
+    let pb = app
+        .world()
+        .get::<MovePlayback>(body)
+        .expect("the held flurry ended while the button was still down");
+    assert!(
+        pb.t < looped.to_s + 1e-3,
+        "the clock ran past the loop's end while held (t = {})",
+        pb.t
+    );
+    assert!(pb.looped_s > 0.0, "no lap was ever counted");
+
+    // Let go: the move leaves the loop and finishes.
+    set_frame(&mut app, body, |f| {
+        f.melee_held = false;
+        f.melee_released = true;
+    });
+    for _ in 0..30 {
+        app.update();
+        if app.world().get::<MovePlayback>(body).is_none() {
+            return;
+        }
+    }
+    panic!("the flurry never left its loop after the button came up");
+}
+
+/// The other exit, and the reason it exists: a held button is not a stall.
+#[test]
+fn a_flurry_held_forever_still_ends() {
+    let looped = ambition_entity_catalog::MoveLoop {
+        from_s: 0.02,
+        to_s: 0.08,
+        max_s: 0.20,
+    };
+    let moveset = MovesetContract {
+        verbs: [(ATTACK_VERB.to_string(), "rapid".to_string())]
+            .into_iter()
+            .collect(),
+        moves: vec![chain_link("rapid", &[], Some(looped))],
+    };
+    let (mut app, body) = playing_app(moveset);
+    set_frame(&mut app, body, |f| {
+        f.melee_pressed = true;
+        f.melee_held = true;
+    });
+    app.update();
+    set_frame(&mut app, body, |f| f.melee_pressed = false);
+    for _ in 0..90 {
+        app.update();
+        if app.world().get::<MovePlayback>(body).is_none() {
+            return;
+        }
+    }
+    panic!("a flurry held past its authored maximum never ended, so holding the button is a stall");
 }

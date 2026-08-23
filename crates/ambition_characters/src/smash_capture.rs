@@ -158,6 +158,7 @@ pub fn grab_shell(id: &str, clip: &str, startup_s: f32, active_s: f32, recover_s
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
     }
@@ -183,6 +184,7 @@ pub fn capture_beat(id: &str, clip: &str, duration_s: f32) -> MoveSpec {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
     }
@@ -235,6 +237,9 @@ fn running_grab_from(standing: &MoveSpec) -> MoveSpec {
         // on the timeline and shifts with the added startup, `max_hold_s` is a
         // duration owed at that point and does not.
         smash_charge,
+        // A LOOP is a stretch of the timeline, so both of its ends are points
+        // and both shift with the added startup.
+        repeat,
         // A duration OWED after landing, not a point in the move. It does not
         // move when the move gets longer.
         landing_lag_s,
@@ -256,6 +261,13 @@ fn running_grab_from(standing: &MoveSpec) -> MoveSpec {
         smash_charge: smash_charge.map(|policy| ambition_entity_catalog::SmashChargeSpec {
             hold_at_s: policy.hold_at_s + RUNNING_GRAB_EXTRA_STARTUP_S,
             ..policy
+        }),
+        repeat: repeat.map(|l| ambition_entity_catalog::MoveLoop {
+            from_s: l.from_s + RUNNING_GRAB_EXTRA_STARTUP_S,
+            to_s: l.to_s + RUNNING_GRAB_EXTRA_STARTUP_S,
+            // A DURATION, not a point: how long the loop may run does not
+            // change because the move got a longer windup.
+            ..l
         }),
         landing_lag_s,
         autocancel_after_s: autocancel_after_s.map(|at| at + RUNNING_GRAB_EXTRA_STARTUP_S),
@@ -626,6 +638,7 @@ mod tests {
             start_impulse: None,
             smash_charge_mult: 1.0,
             smash_charge: None,
+            repeat: None,
             landing_lag_s: None,
             autocancel_after_s: None,
         }

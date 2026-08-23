@@ -196,6 +196,7 @@ pub fn boss_attack_moveset(
                 start_impulse: None,
                 smash_charge_mult: 1.0,
                 smash_charge: None,
+                repeat: None,
                 landing_lag_s: None,
                 autocancel_after_s: None,
             })

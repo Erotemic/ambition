@@ -130,6 +130,7 @@ pub(crate) fn strike(spec: Strike<'_>) -> MoveSpec {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
     }
@@ -348,7 +349,60 @@ pub fn fighter_moveset() -> MovesetContract {
         on_hit: None,
     });
     jab.gates = grounded_only();
+    // ⭐ THE CHAIN. A second press inside the window takes the successor the
+    // window NAMES; without one, a re-press restarted jab 1 and the fastest
+    // move in the kit was a full commitment every time you threw it.
+    //
+    // ON HIT, which is the genre's rule and the reason a chain is a REWARD:
+    // whiff the jab and you are committed to its recovery, land it and the
+    // route opens. The window sits inside the recovery so the follow-up is a
+    // cancel rather than a queued second press.
+    let jab = cancelable(jab, 0.11, 0.25, &["jab2"], CancelCondition::OnHit);
     moves.push(jab);
+
+    // JAB 2 — the same beat again, a little harder, and the door to the
+    // finisher. Authored as its own move because it IS one: the chain is a
+    // cancel table over ordinary moves, not a mode some move enters.
+    let mut jab2 = strike(Strike {
+        id: "jab2",
+        clip: "attack",
+        startup_s: 0.04,
+        active_s: 0.06,
+        recover_s: 0.16,
+        offset: (27.0, 0.0),
+        half_extents: (18.0, 14.0),
+        damage: 3,
+        knockback: 60.0,
+        // The stage's own declaration in the stage's units: 0.02 of base.
+        knockback_growth: 60.0 * crate::SMASH_KNOCKBACK_GROWTH,
+        launch_dir: None,
+        on_hit: None,
+    });
+    jab2.gates = grounded_only();
+    let jab2 = cancelable(jab2, 0.10, 0.26, &["jab3"], CancelCondition::OnHit);
+    moves.push(jab2);
+
+    // JAB 3 — the finisher, and the only one of the three that MOVES anybody.
+    // It ends the route: no cancel window, so landing it costs its recovery
+    // like any other committed move.
+    let mut jab3 = strike(Strike {
+        id: "jab3",
+        clip: "attack",
+        startup_s: 0.06,
+        active_s: 0.07,
+        recover_s: 0.26,
+        offset: (30.0, -2.0),
+        half_extents: (22.0, 16.0),
+        damage: 5,
+        knockback: 105.0,
+        knockback_growth: 105.0 * crate::SMASH_KNOCKBACK_GROWTH,
+        // Away and slightly up: the jab route ends in SPACE, which is what the
+        // three-hit commitment buys — not a kill.
+        launch_dir: Some((1.0, -0.35)),
+        on_hit: None,
+    });
+    jab3.gates = grounded_only();
+    moves.push(jab3);
 
     let mut up_tilt = strike(Strike {
             id: "tilt_up",

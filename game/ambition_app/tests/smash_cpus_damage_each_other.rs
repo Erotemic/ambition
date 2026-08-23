@@ -232,6 +232,7 @@ fn mirror_bout(
     let mut last = [0.0f32; 2];
     let mut hitstun = [0usize; 2];
     let mut grounded_hitstun = [0usize; 2];
+    let mut peak_stun = [0.0f32; 2];
     // WHAT THEY THREW, because 0% has two completely different causes and this
     // is what tells them apart: a fighter that starts no moves is missing a
     // repertoire or a brain, and one that starts plenty and deals nothing is
@@ -260,6 +261,16 @@ fn mirror_bout(
                     taken[seat.0] += now - last[seat.0];
                 }
                 last[seat.0] = now;
+                // ⭐ THE LONGEST HITSTUN THIS BODY WAS EVER PUT IN, which is the
+                // number the "hitstun must be shorter than the attacker's move
+                // cycle" invariant is about. Hitstun scales with the LAUNCH, so
+                // it grows through a match while the attacker's frame data does
+                // not - and the tick a hit's stun exceeds the move's own total
+                // is the tick that move becomes an infinite for anybody, human
+                // or CPU.
+                if let Some(c) = combat {
+                    peak_stun[seat.0] = peak_stun[seat.0].max(c.hitstun_timer);
+                }
                 let stunned = combat.is_some_and(|c| c.hitstun_timer > 0.0);
                 if stunned {
                     hitstun[seat.0] += 1;
@@ -501,12 +512,13 @@ fn mirror_bout(
         hitstun,
         moves,
         format!(
-            "{top} {top_secs:.2}s gap{median_gap:.0} grounded-stun {}% {sight}",
+            "{top} {top_secs:.2}s gap{median_gap:.0} grounded-stun {}% peak-stun {:.2}s {sight}",
             if hitstun[0] + hitstun[1] == 0 {
                 0
             } else {
                 100 * (grounded_hitstun[0] + grounded_hitstun[1]) / (hitstun[0] + hitstun[1])
-            }
+            },
+            peak_stun[0].max(peak_stun[1])
         ),
         kit,
         started.len(),

@@ -92,6 +92,7 @@ fn build_body_mode_test_app() -> (App, Entity) {
                 base_size: Vec2::new(30.0, 48.0),
             },
             BodyGroundState {
+                head_contact: false,
                 on_ground: true,
                 ..Default::default()
             },
@@ -126,6 +127,7 @@ fn spawn_mode_body(app: &mut App, pos: Vec2, slot: Option<PlayerSlot>) -> Entity
             base_size: Vec2::new(30.0, 48.0),
         },
         BodyGroundState {
+            head_contact: false,
             on_ground: true,
             ..Default::default()
         },

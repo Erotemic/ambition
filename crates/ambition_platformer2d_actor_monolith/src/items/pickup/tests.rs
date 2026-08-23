@@ -137,6 +137,7 @@ fn with_moveset(app: &mut App, body: Entity, moveset: MovesetContract, on_ground
         AttackGestureTuning::default(),
         ResolvedAttackGesture::default(),
         ambition_platformer2d_core::BodyGroundState {
+            head_contact: false,
             on_ground,
             ..Default::default()
         },

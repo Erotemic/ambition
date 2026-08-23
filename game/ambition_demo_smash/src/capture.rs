@@ -176,6 +176,7 @@ mod tests {
                     ActorFaction::Player,
                     ambition_platformer2d::combat::targeting::MatchTeam::new(team),
                     ambition_platformer2d::engine_core::BodyGroundState {
+                        head_contact: false,
                         on_ground: true,
                         contact_initialized: true,
                     },

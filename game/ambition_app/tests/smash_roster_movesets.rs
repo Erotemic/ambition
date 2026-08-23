@@ -878,6 +878,7 @@ fn every_fighter_on_the_smash_grid_gets_a_body_that_can_air_dodge() {
                 ..Default::default()
             },
             &ae::BodyGroundState {
+                head_contact: false,
                 on_ground: false,
                 contact_initialized: true,
             },

@@ -2726,6 +2726,7 @@ fn a_grounded_move_never_pays_landing_lag() {
         .spawn((
             MovePlayback::new(spec, 1.0),
             BodyGroundState {
+                head_contact: false,
                 on_ground: true,
                 ..Default::default()
             },
@@ -3001,6 +3002,7 @@ fn capture_context_app_in(
         app.world_mut()
             .entity_mut(captor)
             .insert(ambition_platformer2d_core::BodyGroundState {
+                head_contact: false,
                 on_ground,
                 ..Default::default()
             });

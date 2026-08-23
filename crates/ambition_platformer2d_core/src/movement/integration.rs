@@ -231,6 +231,10 @@ pub(super) fn integrate_velocity_clusters(
         events,
     );
     clusters.ground.on_ground = false;
+    // Cleared with `on_ground` beside it: both ends of the gravity axis are
+    // re-sampled by the sweep below, and a stale head contact would let a body
+    // tech off a ceiling it left last tick.
+    clusters.ground.head_contact = false;
     sweep(
         clusters,
         gravity_axis,

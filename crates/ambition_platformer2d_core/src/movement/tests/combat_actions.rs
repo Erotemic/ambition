@@ -1033,3 +1033,160 @@ fn dropping_a_guard_costs_the_authored_lag() {
         "letting the guard go cost nothing, so holding one commits to nothing"
     );
 }
+
+/// THE WALL TECH JUMP already works, and nothing said so.
+///
+/// ⚠ WHAT THIS TEST IS FOR. I set out to ADD the wall tech jump and wrote the
+/// impulse for it; measured against the same tech without the press, the rise
+/// was `-554.7` either way — byte-identical with my code and with it deleted.
+/// The existing wall-jump path already answers a jump press against a wall, so
+/// the line was dead the moment it was written. It is gone, and this is what
+/// stayed: the behaviour was real and undefended, which is the more useful half.
+///
+/// A wall tech alone leaves the body travelling sideways at whatever height the
+/// wall caught it; asking for a jump in the same beat leaves it going UP as
+/// well, and it costs no air jump — the fixture spends them all first — which
+/// is the difference between surviving the wall and getting something back
+/// from it.
+///
+/// Measured as a DIFFERENCE against the same tech without the press, because
+/// the absolute sign proves nothing: a body teching a wall mid-rise is already
+/// going up, and an assertion on `vel.y < 0` passes with the rise deleted. That
+/// is the version of this test I wrote first, and it is how the dead line got
+/// as far as it did.
+#[test]
+fn a_wall_tech_asked_to_jump_leaves_the_wall_higher_than_one_that_is_not() {
+    /// Tech off the right wall, optionally asking for a jump, and report the
+    /// vertical velocity the tech left behind.
+    fn wall_tech_rise(world: &crate::World, also_jump: bool) -> f32 {
+        let mut scratch = scratch_at(world.spawn);
+        scratch.kinematics.pos = Vec2::new(world.size.x - 120.0, world.size.y - 500.0);
+        scratch.ground.on_ground = false;
+        scratch.flight.pending_launch = Vec2::new(1400.0, -260.0);
+        step_fighter(world, &mut scratch, InputState::default());
+        assert!(
+            scratch.axis().tumble_timer > 0.0,
+            "the launch did not tumble the body, so this measures nothing"
+        );
+        // Spend every air jump: the wall tech's rise is bought by the press
+        // against the surface, not from what a launch left.
+        scratch.jump.air_jumps_available = 0;
+
+        let mut press = InputState {
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Burst,
+                crate::Edge {
+                    pressed: true,
+                    held: false,
+                    released: false,
+                },
+            ),
+            ..Default::default()
+        };
+        if also_jump {
+            press.movement.set(
+                crate::MovementAction::Jump,
+                crate::Edge {
+                    pressed: true,
+                    held: true,
+                    released: false,
+                },
+            );
+        }
+        for _ in 0..90 {
+            let on_wall = scratch.wall.on_wall;
+            let events = step_fighter(
+                world,
+                &mut scratch,
+                if on_wall { press } else { InputState::default() },
+            );
+            if events.operations.contains(&MovementOp::Tech) {
+                if also_jump {
+                    assert!(
+                        events.operations.contains(&MovementOp::WallJump),
+                        "the tech took the jump press and reported no wall jump: {:?}",
+                        events.operations
+                    );
+                }
+                return scratch.kinematics.vel.y;
+            }
+        }
+        panic!("a timed press against a wall did not tech");
+    }
+
+    let world = test_world();
+    let plain = wall_tech_rise(&world, false);
+    let jumped = wall_tech_rise(&world, true);
+    assert!(
+        jumped < plain,
+        "asking for a jump out of a wall tech bought no height \
+         (plain {plain}, jumped {jumped}), so a wall is still a place launches end"
+    );
+}
+
+/// ⭐ THE CEILING TECH. A body thrown into a ceiling kept its tumble, fell the
+/// whole way back down helpless and arrived as a knockdown it had no say in —
+/// one hit bought the attacker the ceiling AND the landing.
+#[test]
+fn a_tumbling_body_can_tech_off_a_ceiling() {
+    let world = test_world();
+    let mut scratch = scratch_at(world.spawn);
+    // Under the ceiling, thrown straight up at it.
+    scratch.kinematics.pos = Vec2::new(world.size.x * 0.5, 200.0);
+    scratch.ground.on_ground = false;
+    scratch.flight.pending_launch = Vec2::new(0.0, -1500.0);
+    step_fighter(&world, &mut scratch, InputState::default());
+    assert!(
+        scratch.axis().tumble_timer > 0.0,
+        "the launch did not tumble the body, so this measures nothing"
+    );
+
+    let evade = InputState {
+        movement: crate::ActionEdges::EMPTY.with(
+            crate::MovementAction::Burst,
+            crate::Edge {
+                pressed: true,
+                held: false,
+                released: false,
+            },
+        ),
+        ..Default::default()
+    };
+    let mut teched = false;
+    for _ in 0..90 {
+        let on_ceiling = scratch.ground.head_contact;
+        let events = step_fighter(
+            &world,
+            &mut scratch,
+            if on_ceiling {
+                evade
+            } else {
+                InputState::default()
+            },
+        );
+        assert!(
+            !events.operations.contains(&MovementOp::Knockdown),
+            "it fell all the way back to the floor before ever reaching the \
+             ceiling — this fixture measured nothing"
+        );
+        if events.operations.contains(&MovementOp::Tech) {
+            teched = true;
+            break;
+        }
+    }
+    assert!(teched, "a timed press against a ceiling did not tech");
+    assert!(
+        !scratch.ground.on_ground,
+        "this teched off the FLOOR, which another test already covers"
+    );
+    assert_eq!(
+        scratch.axis().tumble_timer,
+        0.0,
+        "the tumble survived the ceiling tech, so the fall is still helpless"
+    );
+    let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+    assert!(
+        facts.evading(),
+        "a ceiling tech is invulnerable through the one term the damage rule reads"
+    );
+}

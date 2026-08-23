@@ -263,6 +263,7 @@ fn move_played_for_moveset(
                 facing: 1.0,
             },
             ae::BodyGroundState {
+                head_contact: false,
                 on_ground: true,
                 ..Default::default()
             },

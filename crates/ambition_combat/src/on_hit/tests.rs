@@ -76,6 +76,7 @@ fn pogo_app(
                 facing: 1.0,
             },
             ambition_platformer2d_core::BodyGroundState {
+                head_contact: false,
                 on_ground: true,
                 ..Default::default()
             },
@@ -202,6 +203,7 @@ fn body_pogo_runs_from_the_shared_strike_resolver_end_to_end() {
                 facing: 1.0,
             },
             ambition_platformer2d_core::BodyGroundState {
+                head_contact: false,
                 on_ground: true,
                 ..Default::default()
             },

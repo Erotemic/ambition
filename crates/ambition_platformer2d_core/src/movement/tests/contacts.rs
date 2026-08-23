@@ -449,3 +449,69 @@ fn a_side_contact_carries_the_speed_the_body_arrived_at() {
          travelling at 1200 — the speed is being read after the step destroyed it"
     );
 }
+
+/// ⭐ A CRASH INTO A WALL IS NOT A COMMUTE INTO ONE, and the contact has to say
+/// so on its own.
+///
+/// A body thrown into a wall and one that dashed into it arrive with the same
+/// normal, the same point and possibly the same speed. `Landed` already carries
+/// this distinction for the floor; this is the same fact on the other surface,
+/// and without it a crash cue has nothing to gate on but speed.
+#[test]
+fn a_wall_contact_says_whether_the_body_chose_to_arrive() {
+    let world = test_world();
+
+    // DROVE into it: a body under its own power.
+    let mut driven = crate::body_clusters::BodyClusterScratch::new_with_abilities(
+        Vec2::new(1500.0, world.size.y - 95.0),
+        AbilitySet::sandbox_all(),
+    );
+    driven.ground.contact_initialized = true;
+    let mut chosen = None;
+    for _ in 0..120 {
+        driven.kinematics.vel.x = 1200.0;
+        let events = step_scratch(&world, &mut driven, InputState::default());
+        if let Some(side) = events
+            .contacts
+            .iter()
+            .find(|c| c.kind == crate::collision_semantics::ContactKind::Side)
+        {
+            chosen = Some(side.involuntary);
+            break;
+        }
+    }
+    assert_eq!(
+        chosen,
+        Some(false),
+        "a body that drove into a wall reported a crash"
+    );
+
+    // THROWN into it: the same wall, the same speed, still tumbling.
+    let mut thrown = crate::body_clusters::BodyClusterScratch::new_with_abilities(
+        Vec2::new(1500.0, world.size.y - 300.0),
+        AbilitySet::sandbox_all(),
+    );
+    thrown.ground.contact_initialized = true;
+    thrown.ground.on_ground = false;
+    thrown.axis_mut().tumble_until_landing = true;
+    thrown.axis_mut().tumble_timer = 0.5;
+    let mut crashed = None;
+    for _ in 0..120 {
+        thrown.kinematics.vel.x = 1200.0;
+        let events = step_scratch(&world, &mut thrown, InputState::default());
+        if let Some(side) = events
+            .contacts
+            .iter()
+            .find(|c| c.kind == crate::collision_semantics::ContactKind::Side)
+        {
+            crashed = Some(side.involuntary);
+            break;
+        }
+    }
+    assert_eq!(
+        crashed,
+        Some(true),
+        "a body still falling out of a launch hit the wall and reported a \
+         commute, so a splat has nothing to gate on but speed"
+    );
+}

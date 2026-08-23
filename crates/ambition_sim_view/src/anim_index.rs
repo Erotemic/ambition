@@ -91,6 +91,16 @@ pub struct ActorAnimFrame {
     /// and `anim` stays populated, because it is what a sheet with none of
     /// the chain draws. A body playing a move is still semantically in a pose.
     pub clip: Option<ClipRequest>,
+    /// This body's SMASH CHARGE, `None` when it is not charging.
+    ///
+    /// Normalized `0..=1`: it appears when the hold latches, rises to `1.0` at
+    /// maximum, and goes back to `None` the instant the move releases — so
+    /// latched / building / loaded / released are all readable from this one
+    /// value. Resolved by simulation (`MovePlayback::smash_charge_fraction`).
+    ///
+    /// ⛔ presentation must not re-derive it from move names or Startup
+    /// progress: a tapped smash and a fully held one share both.
+    pub smash_charge: Option<f32>,
 }
 
 /// The clip + fallbacks one active move asks for. See [`ActorAnimFrame::clip`].
@@ -239,6 +249,9 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                 // (sprite redirect P2 — air dodge, tumble, knockdown, getup).
                 // the move wins: a body that is mid-swing while tumbling is
                 // drawn as its swing, which is what its timeline says it is.
+                smash_charge: a
+                    .playback
+                    .and_then(ambition_combat::moveset::MovePlayback::smash_charge_fraction),
                 clip: a
                     .playback
                     .map(|playback| ClipRequest {

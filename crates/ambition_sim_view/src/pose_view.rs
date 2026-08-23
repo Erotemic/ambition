@@ -57,6 +57,16 @@ pub struct BodyPoseView {
     /// Fireball charge tier while the fire button is held (`None` when not
     /// charging): 0 / 1 / 2+ pick the charge-indicator size/alpha.
     pub charge_tier: Option<u8>,
+    /// This body's SMASH CHARGE, `None` when it is not charging.
+    ///
+    /// Normalized `0..=1`: it appears when the hold latches, rises to `1.0` at
+    /// maximum, and goes back to `None` the instant the move releases — so
+    /// latched / building / loaded / released are all readable from this one
+    /// value. Resolved by simulation (`MovePlayback::smash_charge_fraction`).
+    ///
+    /// ⛔ presentation must not re-derive it from move names or Startup
+    /// progress: a tapped smash and a fully held one share both.
+    pub smash_charge: Option<f32>,
     /// The sprite quad this body's SHEET authored, when its geometry is
     /// sheet-authored (`SpritePosedBody`); `None` when the render must size the
     /// quad itself.
@@ -97,6 +107,7 @@ impl Default for BodyPoseView {
             hp_max: 0,
             morph_ball: false,
             charge_tier: None,
+            smash_charge: None,
             authored_render: None,
             authored_offset: None,
         }
@@ -292,6 +303,9 @@ pub fn rebuild_body_pose_views(
                 .is_some_and(|m| m.body_mode == ambition_platformer2d_core::BodyMode::MorphBall),
             charge_tier: projectile_state
                 .and_then(|s| s.charging.map(|hold| s.charge_tuning.tier_for_hold(hold))),
+            smash_charge: playback
+                .as_deref()
+                .and_then(ambition_combat::moveset::MovePlayback::smash_charge_fraction),
             authored_render: sheet_authored_body
                 .then(|| authored_render.map(|r| r.0))
                 .flatten(),

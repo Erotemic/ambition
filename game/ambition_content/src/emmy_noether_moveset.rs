@@ -532,6 +532,7 @@ pub fn emmy_noether_moveset() -> MovesetContract {
         gates: Default::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
+        smash_charge: None,
         landing_lag_s: Some(0.24),
         autocancel_after_s: None,
     };

@@ -129,6 +129,7 @@ pub(crate) fn strike(spec: Strike<'_>) -> MoveSpec {
         gates: MoveGates::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
+        smash_charge: None,
         landing_lag_s: None,
         autocancel_after_s: None,
     }
@@ -738,6 +739,17 @@ mod tests {
         assert!(
             smash.smash_charge_mult > 1.0,
             "holding the smash pays nothing, so there is no reason to charge it"
+        );
+        // ... and the payoff is REACHABLE. This roster authors no charge policy,
+        // so every smash of every shipped fighter relies on the one derived
+        // from its own leading Startup window; a smash that resolves no policy
+        // fires the instant it is pressed and the multiplier above is unpayable.
+        let policy = smash
+            .charge_policy()
+            .expect("the smash resolves no charge policy, so it cannot be held");
+        assert!(
+            policy.hold_at_s > 0.0,
+            "the hold sits at the very first instant of the move, so there is              no windup to commit to before the charge"
         );
     }
 

@@ -157,6 +157,7 @@ pub fn grab_shell(id: &str, clip: &str, startup_s: f32, active_s: f32, recover_s
         gates: Default::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
+        smash_charge: None,
         landing_lag_s: None,
         autocancel_after_s: None,
     }
@@ -181,6 +182,7 @@ pub fn capture_beat(id: &str, clip: &str, duration_s: f32) -> MoveSpec {
         gates: Default::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
+        smash_charge: None,
         landing_lag_s: None,
         autocancel_after_s: None,
     }
@@ -229,6 +231,10 @@ fn running_grab_from(standing: &MoveSpec) -> MoveSpec {
         gates,
         start_impulse,
         smash_charge_mult,
+        // A charge policy carries BOTH kinds of value: `hold_at_s` is a point
+        // on the timeline and shifts with the added startup, `max_hold_s` is a
+        // duration owed at that point and does not.
+        smash_charge,
         // A duration OWED after landing, not a point in the move. It does not
         // move when the move gets longer.
         landing_lag_s,
@@ -247,6 +253,10 @@ fn running_grab_from(standing: &MoveSpec) -> MoveSpec {
         gates,
         start_impulse,
         smash_charge_mult,
+        smash_charge: smash_charge.map(|policy| ambition_entity_catalog::SmashChargeSpec {
+            hold_at_s: policy.hold_at_s + RUNNING_GRAB_EXTRA_STARTUP_S,
+            ..policy
+        }),
         landing_lag_s,
         autocancel_after_s: autocancel_after_s.map(|at| at + RUNNING_GRAB_EXTRA_STARTUP_S),
     };
@@ -615,6 +625,7 @@ mod tests {
             gates: Default::default(),
             start_impulse: None,
             smash_charge_mult: 1.0,
+            smash_charge: None,
             landing_lag_s: None,
             autocancel_after_s: None,
         }

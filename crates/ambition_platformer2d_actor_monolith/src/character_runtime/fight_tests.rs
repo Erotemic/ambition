@@ -82,6 +82,7 @@ fn strike(id: &str, damage: i32) -> MoveSpec {
         gates: MoveGates { grounded: None },
         start_impulse: None,
         smash_charge_mult: 1.0,
+        smash_charge: None,
     }
 }
 

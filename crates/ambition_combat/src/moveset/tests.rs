@@ -1604,6 +1604,7 @@ fn a_forward_special_selects_the_directional_move() {
         gates: Default::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
+        smash_charge: None,
         landing_lag_s: None,
         autocancel_after_s: None,
     };
@@ -1651,6 +1652,7 @@ fn gesture_test_move(id: &str) -> MoveSpec {
         gates: Default::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
+        smash_charge: None,
         landing_lag_s: None,
         autocancel_after_s: None,
     }
@@ -1741,6 +1743,7 @@ fn a_move_start_impulse_lunges_the_body_toward_facing() {
         gates: Default::default(),
         start_impulse: Some((150.0, 0.0)),
         smash_charge_mult: 1.0,
+        smash_charge: None,
         landing_lag_s: None,
         autocancel_after_s: None,
     };
@@ -3301,6 +3304,7 @@ fn uncancelable(id: &str) -> MoveSpec {
         gates: Default::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
+        smash_charge: None,
         landing_lag_s: None,
         autocancel_after_s: None,
     }
@@ -3501,5 +3505,406 @@ fn a_zero_window_restores_the_drop_it_replaced() {
         playing(&app, body),
         None,
         "a zero window still queued the press"
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// True hold/release smash charge.
+//
+// The invariants are the STATE MACHINE — freeze, accrue, release once, freeze
+// the payoff — and the two ends of the authored range. The numbers below are
+// the fixture's own authoring, never a feel judgement.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CHARGE_HOLD_AT_S: f32 = 0.10;
+const CHARGE_MAX_HOLD_S: f32 = 0.20;
+const CHARGE_MULT: f32 = 2.0;
+
+/// A forward smash: startup, one active window, recovery — with a charge policy
+/// short enough to run in a handful of 0.016s ticks.
+fn charging_smash() -> MoveSpec {
+    MoveSpec {
+        display_name: None,
+        id: "fsmash".to_string(),
+        clip: ClipBinding {
+            clip: "fsmash".to_string(),
+            fallbacks: vec![],
+        },
+        duration_s: 0.30,
+        windows: vec![
+            MoveWindow {
+                start_s: 0.0,
+                end_s: CHARGE_HOLD_AT_S,
+                tag: WindowTag::Startup,
+                volumes: vec![],
+                sustain_effect: None,
+                motion_scale: 1.0,
+            },
+            MoveWindow {
+                start_s: CHARGE_HOLD_AT_S,
+                end_s: 0.16,
+                tag: WindowTag::Active,
+                volumes: vec![HitVolume {
+                    hit_sfx: None,
+                    shape: ambition_entity_catalog::VolumeShape::Rect {
+                        offset: (24.0, 0.0),
+                        half_extents: (16.0, 12.0),
+                    },
+                    damage: 5,
+                    knockback: 100.0,
+                    knockback_growth: 0.0,
+                    launch_dir: None,
+                    on_hit: None,
+                    vfx: None,
+                }],
+                sustain_effect: None,
+                motion_scale: 1.0,
+            },
+            MoveWindow {
+                start_s: 0.16,
+                end_s: 0.30,
+                tag: WindowTag::Recovery,
+                volumes: vec![],
+                sustain_effect: None,
+                motion_scale: 1.0,
+            },
+        ],
+        events: vec![],
+        gates: Default::default(),
+        start_impulse: None,
+        smash_charge_mult: CHARGE_MULT,
+        smash_charge: Some(ambition_entity_catalog::SmashChargeSpec {
+            hold_at_s: CHARGE_HOLD_AT_S,
+            max_hold_s: CHARGE_MAX_HOLD_S,
+        }),
+        landing_lag_s: None,
+        autocancel_after_s: None,
+    }
+}
+
+/// The whole production chain a press travels, so a charge is exercised the way
+/// a fighter actually charges one rather than by hand-driving the playback.
+fn smash_charge_app() -> (App, Entity) {
+    let mut app = App::new();
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<super::super::authored_volumes::AuthoredAttackVolumeResolver>();
+    app.add_message::<HitEvent>();
+    app.add_message::<crate::hitbox::LandedBodyHit>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<MoveEventMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.init_resource::<WorldTime>();
+    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
+    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    app.add_systems(
+        Update,
+        (
+            resolve_attack_gestures,
+            buffer_combat_action_presses,
+            trigger_moveset_moves,
+            advance_move_playback,
+        )
+            .chain(),
+    );
+    let moveset = MovesetContract {
+        verbs: [
+            ("smash_forward".to_string(), "fsmash".to_string()),
+            (ATTACK_VERB.to_string(), "jab".to_string()),
+            ("attack_forward".to_string(), "fsmash".to_string()),
+        ]
+        .into_iter()
+        .collect(),
+        moves: vec![charging_smash(), uncancelable("jab")],
+    };
+    let body = app
+        .world_mut()
+        .spawn((
+            ae::BodyKinematics {
+                pos: ae::Vec2::ZERO,
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(16.0, 32.0),
+                facing: 1.0,
+            },
+            ActorFaction::Player,
+            ActorMoveset(moveset),
+            ActorControl(ambition_characters::actor::control::ActorControlFrame::neutral()),
+        ))
+        .id();
+    (app, body)
+}
+
+/// Press Attack forward as a SMASH on this tick. `hold` decides whether the
+/// button is still down afterwards.
+fn press_smash(app: &mut App, body: Entity, hold: bool) {
+    set_frame(app, body, |f| {
+        f.attack_axis = ae::LocalAxes::X;
+        f.melee_pressed = true;
+        f.melee_strong_hint = true;
+        f.melee_held = hold;
+        f.melee_released = !hold;
+    });
+    app.update();
+    set_frame(app, body, |f| {
+        f.melee_pressed = false;
+        f.melee_strong_hint = false;
+        f.melee_released = false;
+    });
+}
+
+fn charge_of(app: &App, body: Entity) -> MoveCharge {
+    app.world()
+        .get::<MovePlayback>(body)
+        .expect("the smash is still playing")
+        .charge
+        .expect("this use entered charge mode")
+}
+
+fn scale_of(app: &App, body: Entity) -> f32 {
+    app.world()
+        .get::<MovePlayback>(body)
+        .expect("the smash is still playing")
+        .charge_scale()
+}
+
+/// A tap is the floor of the range: the timeline reaches the hold point, sees
+/// no held button, and fires with no charge at all.
+#[test]
+fn a_tapped_smash_releases_at_the_minimum_multiplier() {
+    let (mut app, body) = smash_charge_app();
+    press_smash(&mut app, body, false);
+    for _ in 0..8 {
+        app.update();
+    }
+    let charge = charge_of(&app, body);
+    assert_eq!(
+        charge.released_fraction,
+        Some(0.0),
+        "a tap bought charge it never held"
+    );
+    assert!(
+        (scale_of(&app, body) - 1.0).abs() < 1e-5,
+        "a tapped smash must land at the identity multiplier"
+    );
+    assert!(
+        app.world()
+            .get::<MovePlayback>(body)
+            .unwrap()
+            .smash_charge_fraction()
+            .is_none(),
+        "a released move must publish no charge for presentation to pulse on"
+    );
+}
+
+/// The mechanic itself: while the button is down the move's own clock stands
+/// still at the authored hold point and the charge grows instead.
+#[test]
+fn a_held_smash_freezes_its_timeline_and_accumulates_charge() {
+    let (mut app, body) = smash_charge_app();
+    press_smash(&mut app, body, true);
+    for _ in 0..8 {
+        app.update();
+    }
+    let frozen_t = app.world().get::<MovePlayback>(body).unwrap().t;
+    assert!(
+        (frozen_t - CHARGE_HOLD_AT_S).abs() < 1e-4,
+        "the timeline did not stop at the authored hold point (t = {frozen_t})"
+    );
+    let first = charge_of(&app, body).held_s;
+    assert!(first > 0.0, "the hold bought no charge");
+    for _ in 0..3 {
+        app.update();
+    }
+    assert!(
+        charge_of(&app, body).held_s > first,
+        "the charge stopped growing while the button was still down"
+    );
+    assert_eq!(
+        app.world().get::<MovePlayback>(body).unwrap().t,
+        frozen_t,
+        "the clock moved while the charge was still building"
+    );
+    let published = app
+        .world()
+        .get::<MovePlayback>(body)
+        .unwrap()
+        .smash_charge_fraction()
+        .expect("a charging body publishes its fraction");
+    assert!(
+        (0.0..=1.0).contains(&published),
+        "the published charge fraction must be normalized, got {published}"
+    );
+}
+
+/// The other end of the range, and the auto-release: holding past the maximum
+/// fires the move at exactly the authored cap and never above it.
+#[test]
+fn a_full_hold_auto_releases_at_exactly_the_authored_cap() {
+    let (mut app, body) = smash_charge_app();
+    press_smash(&mut app, body, true);
+    // The button is NEVER let go: reaching the maximum has to fire the move by
+    // itself, and stopping on that tick is how the payoff is read before the
+    // timeline finishes and the component is removed.
+    let mut released = None;
+    for _ in 0..40 {
+        app.update();
+        let Some(pb) = app.world().get::<MovePlayback>(body) else {
+            break;
+        };
+        if let Some(charge) = pb.charge {
+            if !charge.charging() {
+                released = Some((charge.fraction(), pb.charge_scale()));
+                break;
+            }
+        }
+    }
+    let (fraction, scale) = released.expect("the hold never auto-released at its maximum");
+    assert!(
+        (fraction - 1.0).abs() < 1e-5,
+        "a full hold must be a full charge, got {fraction}"
+    );
+    assert!(
+        (scale - CHARGE_MULT).abs() < 1e-5,
+        "a full hold must land exactly the authored cap, got {scale}"
+    );
+}
+
+/// One use, one payoff. The fraction is frozen at release and applies uniformly
+/// to every hit the move still has left, so a multi-hit smash cannot charge
+/// itself further between pulses.
+#[test]
+fn the_released_fraction_is_frozen_for_the_rest_of_the_move() {
+    let (mut app, body) = smash_charge_app();
+    press_smash(&mut app, body, true);
+    // Hold briefly, then let go part-way through the charge.
+    for _ in 0..10 {
+        app.update();
+    }
+    set_frame(&mut app, body, |f| {
+        f.melee_held = false;
+        f.melee_released = true;
+    });
+    app.update();
+    set_frame(&mut app, body, |f| f.melee_released = false);
+
+    let at_release = charge_of(&app, body);
+    let frozen = at_release
+        .released_fraction
+        .expect("letting go must freeze the payoff");
+    assert!(
+        frozen > 0.0 && frozen < 1.0,
+        "the fixture meant to release PART-WAY; got {frozen}"
+    );
+    let scale = scale_of(&app, body);
+
+    // Run the rest of the move — startup remainder, active, recovery.
+    for _ in 0..8 {
+        app.update();
+        let Some(pb) = app.world().get::<MovePlayback>(body) else {
+            break;
+        };
+        assert_eq!(
+            pb.charge.unwrap().released_fraction,
+            Some(frozen),
+            "the payoff moved after release: later timeline progress is still \
+             being read as charge"
+        );
+        assert!((pb.charge_scale() - scale).abs() < 1e-6);
+    }
+}
+
+/// A move reached through another verb plays its plain timeline. Chargeability
+/// is a fact about the PRESS, not about the multiplier the move happens to
+/// author.
+#[test]
+fn a_non_smash_use_of_the_same_move_never_charges() {
+    let (mut app, body) = smash_charge_app();
+    // A forward TILT: same direction, same resolved move (`attack_forward` maps
+    // to `fsmash` in this fixture), no smash strength. The stick is deflected
+    // PART-WAY — past the directional deadzone, short of the flick threshold —
+    // which is exactly how a person throws a tilt.
+    set_frame(&mut app, body, |f| {
+        f.attack_axis = ae::LocalAxes::new(
+            ambition_characters::actor::attack_gesture::TILT_DEFLECTION,
+            0.0,
+        );
+        f.melee_pressed = true;
+        f.melee_held = true;
+    });
+    app.update();
+    let pb = app
+        .world()
+        .get::<MovePlayback>(body)
+        .expect("the tilt started a move");
+    assert_eq!(pb.spec.id, "fsmash", "the fixture meant to reach the SAME move");
+    assert!(
+        pb.charge.is_none(),
+        "a tilt froze its timeline: charge mode is being entered from the \
+         multiplier instead of from the gesture"
+    );
+    // ... and it never freezes.
+    set_frame(&mut app, body, |f| f.melee_pressed = false);
+    // 0.30s of move against 0.016s ticks.
+    for _ in 0..25 {
+        app.update();
+        if app.world().get::<MovePlayback>(body).is_none() {
+            return;
+        }
+    }
+    panic!("the un-charged use never finished its timeline");
+}
+
+/// A dilated fighter charges as slowly as it swings: the charge spends the
+/// owner's proper time, which is the same clock the move's windows advance on.
+#[test]
+fn charge_accrues_in_the_owners_proper_time() {
+    let mut held = Vec::new();
+    for scale in [1.0f32, 0.5] {
+        let (mut app, body) = smash_charge_app();
+        app.world_mut()
+            .entity_mut(body)
+            .insert(ambition_time::ProperTimeScale(scale));
+        press_smash(&mut app, body, true);
+        for _ in 0..10 {
+            app.update();
+        }
+        held.push(charge_of(&app, body).held_s);
+    }
+    assert!(
+        held[0] > held[1] * 1.5,
+        "a half-speed fighter charged nearly as fast as a normal one \
+         ({:?}) — the charge is not on the owner's clock",
+        held
+    );
+}
+
+/// The charge is rollback state, so it must reach the session checksum: two
+/// peers whose held smash differs land different damage from the same move.
+#[test]
+fn the_charge_is_part_of_the_playback_checksum() {
+    use ambition_platformer2d_core::snapshot::SnapshotResolve;
+    let encode = |pb: &MovePlayback| {
+        let mut out = Vec::new();
+        pb.encode_ref(&mut out);
+        out
+    };
+    let base = MovePlayback::new(charging_smash(), 1.0).charged_by_smash_gesture(true);
+    let mut longer = base.clone();
+    longer.charge.as_mut().unwrap().held_s = 0.12;
+    let mut released = base.clone();
+    released.charge.as_mut().unwrap().released_fraction = Some(0.6);
+    assert_ne!(
+        encode(&base),
+        encode(&longer),
+        "how long a smash has been held is invisible to the checksum"
+    );
+    assert_ne!(
+        encode(&base),
+        encode(&released),
+        "the frozen payoff is invisible to the checksum"
+    );
+    assert_ne!(
+        encode(&base),
+        encode(&MovePlayback::new(charging_smash(), 1.0)),
+        "whether a use charges at all is invisible to the checksum"
     );
 }

@@ -733,31 +733,69 @@ impl Default for BodyOffense {
     }
 }
 
-/// ECS-owned COMBAT action buffer (attack / pogo / projectile press windows).
-/// The MOVEMENT buffers (jump / dash / blink) are axis-policy maneuver state
+/// ECS-owned COMBAT action buffer: seconds of the owner's proper time each
+/// pressed combat verb stays SPENDABLE after its press edge. The MOVEMENT
+/// buffers (jump / dash / blink) are axis-policy maneuver state
 /// ([`crate::movement::AxisManeuverState::buffer_jump`] and siblings).
 ///
-/// The three windows are always `0.0` on every live body, so an early press is dropped exactly as
-/// if the buffer did not exist.
+/// A slot is armed by the press edge and spent by the action authority that
+/// ACCEPTS the action — the buffer proposes the press again on every tick of
+/// its window, and the authority (a move's cancel window, a shield release, a
+/// landing) still decides. A window that expires unspent is a press that was
+/// genuinely too early, not a press that was dropped by an off-by-one frame.
 ///
-/// the absence is the surprising fact, which is why it is stated here.
-/// This is a registered rollback row carried in all three baselines
-/// (`body.action_buffer`, canonical codec), and `AxisManeuverState`'s own doc
-/// names `BodyActionBuffer` as the combat counterpart to its movement buffers —
-/// so every signal a reader has says this is live machinery. It is a reserved
-/// slot with a schema, not a feature.
+/// ⛔ this is a semantic verb buffer, never raw device input: every controller
+/// — human, brain, replay, RRL policy — reaches it through the same resolved
+/// control state, so leniency is one mechanic rather than a player-only road.
+///
+/// The ATTACK slot times a press whose MEANING (direction, tilt-vs-smash,
+/// posture) is `AttackGestureState::buffered_press` in `ambition_characters`:
+/// this crate owns the clock, the gesture interpreter owns the intent it
+/// produced, and the two are cleared together. The other three verbs are bare
+/// edges and need no rider.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyActionBuffer {
     pub attack: f32,
     pub pogo: f32,
-    pub projectile: f32,
+    pub grab: f32,
+    pub special: f32,
 }
 
 impl BodyActionBuffer {
+    /// Every slot in declaration order — the exhaustive destructure that keeps
+    /// [`Self::tick`] and every "is anything buffered" question from silently
+    /// skipping a slot added later.
+    fn slots(&mut self) -> [&mut f32; 4] {
+        let Self {
+            attack,
+            pogo,
+            grab,
+            special,
+        } = self;
+        [attack, pogo, grab, special]
+    }
+
+    /// Decay every window by `dt` seconds of the owner's proper time.
     pub fn tick(&mut self, dt: f32) {
-        for slot in [&mut self.attack, &mut self.pogo, &mut self.projectile] {
+        for slot in self.slots() {
             *slot = (*slot - dt).max(0.0);
         }
+    }
+
+    /// No verb is waiting. Compared against the default rather than field by
+    /// field, so a slot added later is covered without editing this.
+    pub fn is_empty(&self) -> bool {
+        *self == Self::default()
+    }
+
+    /// Forget the press the ATTACK/POGO edges jointly proposed.
+    ///
+    /// Both, because they resolve to one move: a body pressing the dedicated
+    /// pogo and the attack on the same tick starts a single timeline, and
+    /// leaving the other slot armed would start a second one behind it.
+    pub fn spend_attack(&mut self) {
+        self.attack = 0.0;
+        self.pogo = 0.0;
     }
 }
 

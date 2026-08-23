@@ -105,15 +105,10 @@ pub struct AxisManeuverState {
     /// zero: a body that has never touched a ledge has been off one forever, and
     /// a zero would hand every first grab in a match the minimum window.
     pub time_off_ledge: f32,
-    /// Buffered MOVEMENT actions (jump/burst/blink press windows). Combat
-    /// buffers (attack/pogo/projectile) stay on the shared BodyActionBuffer.
-    ///
-    /// that second sentence describes WHERE they would live, not that they
-    /// exist. `BodyActionBuffer` is declared and rollback-registered and
-    /// nothing writes it — so the movement buffers here
-    /// are real and their combat counterparts are not. Reading this line as a
-    /// statement that combat input leniency ships is the mistake it caused
-    /// once; see `BodyActionBuffer`'s own doc.
+    /// Buffered MOVEMENT actions (jump/burst/blink press windows). The combat
+    /// verbs (attack/pogo/grab/special) buffer on the shared
+    /// `BodyActionBuffer`; both halves are live, and they decay on the same
+    /// authored window.
     pub buffer_jump: f32,
     /// The BURST press window — one buffer for the one button that dodge and
     /// dash share (see [`crate::movement::abilities::BurstManeuver`]). it was

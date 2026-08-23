@@ -111,6 +111,12 @@ impl Plugin for CombatSchedulePlugin {
                 // `MovePlayback`).
                 (
                     ambition_platformer2d_actor_monolith::combat::moveset::resolve_attack_gestures,
+                    // Input leniency sits BETWEEN interpretation and the action
+                    // authority, and only there: it decays the body's combat
+                    // verb windows, arms them from this tick's resolved edges,
+                    // and re-proposes an unspent press. The trigger below is the
+                    // one seam that can accept — and therefore spend — one.
+                    ambition_platformer2d_actor_monolith::combat::moveset::buffer_combat_action_presses,
                     ambition_platformer2d_actor_monolith::combat::moveset::trigger_moveset_moves,
                 )
                     .chain()

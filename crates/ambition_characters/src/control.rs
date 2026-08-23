@@ -327,7 +327,12 @@ pub struct DrivingParticipant(pub PlayerSlot);
 #[require(
     crate::actor::attack_gesture::AttackGestureState,
     crate::actor::attack_gesture::AttackGestureTuning,
-    crate::actor::attack_gesture::ResolvedAttackGesture
+    crate::actor::attack_gesture::ResolvedAttackGesture,
+    // Input leniency is a property of BEING CONTROLLED, not of being a player:
+    // the combat verb buffer arrives with the gesture interpreter beside it so
+    // every controlled body — human, brain, replay, policy — buffers its
+    // presses through the one mechanic.
+    ambition_platformer2d_core::BodyActionBuffer
 )]
 pub struct ActorControl(pub crate::actor::control::ActorControlFrame);
 

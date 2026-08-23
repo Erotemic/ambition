@@ -71,6 +71,19 @@ pub struct AttackGestureTuning {
     pub flick_window_ticks: u8,
     /// Directional deadzone used when reducing an axis to [`AttackDir`].
     pub directional_deadzone: f32,
+    /// How long a COMBAT press stays spendable after its edge, in seconds of
+    /// the owner's proper time.
+    ///
+    /// The one knob behind every combat verb's input leniency: the attack
+    /// press buffered here, and the bare grab/pogo/special edges timed by
+    /// `BodyActionBuffer`. It lives beside the flick thresholds because it is
+    /// the same KIND of value — a ruleset's reading of a human's hands, never a
+    /// character's property — and a fighter that bought itself a longer buffer
+    /// than its opponent would be a different game.
+    ///
+    /// `0.0` disables buffering: a press is spendable only on the tick it
+    /// arrives, which is the behaviour every body had before this existed.
+    pub action_buffer_s: f32,
 }
 
 impl Default for AttackGestureTuning {
@@ -80,6 +93,10 @@ impl Default for AttackGestureTuning {
             rearm_threshold: 0.35,
             flick_window_ticks: 4,
             directional_deadzone: 0.5,
+            // Six ticks at 60Hz — the platform-fighter house range. A knob,
+            // not a measurement: tune it against play, do not scatter
+            // per-move grace timers beside it.
+            action_buffer_s: 0.1,
         }
     }
 }
@@ -114,6 +131,18 @@ pub struct AttackGestureState {
     pub flick_armed: bool,
     pub recent_flick: Option<RecentAttackFlick>,
     pub active: Option<AttackGestureIntent>,
+    /// The press the action authority has not accepted yet, replayed VERBATIM
+    /// on every tick of its buffer window.
+    ///
+    /// It is the intent and not the raw input because a press is only
+    /// classifiable at the instant it happens: the flick that made it a smash
+    /// ages out within a few ticks, so re-resolving a buffered press from the
+    /// live stick would quietly downgrade every buffered smash to a tilt.
+    ///
+    /// Its CLOCK is `BodyActionBuffer::attack` — the body-generic verb window —
+    /// and the two are armed and cleared together. Meaningless (and forced back
+    /// to `None`) whenever that window is zero.
+    pub buffered_press: Option<AttackGestureIntent>,
 }
 
 impl Default for AttackGestureState {
@@ -122,6 +151,7 @@ impl Default for AttackGestureState {
             flick_armed: true,
             recent_flick: None,
             active: None,
+            buffered_press: None,
         }
     }
 }

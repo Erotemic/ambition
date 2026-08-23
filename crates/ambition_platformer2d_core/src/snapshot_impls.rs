@@ -191,7 +191,8 @@ snapshot_pod!(crate::body_clusters::BodyLifetime {
 snapshot_pod!(crate::body_clusters::BodyActionBuffer {
     attack: f32,
     pogo: f32,
-    projectile: f32,
+    grab: f32,
+    special: f32,
 });
 
 snapshot_pod!(crate::body_clusters::BodyBaseSize { base_size: vec2 });

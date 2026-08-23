@@ -183,6 +183,10 @@ pub struct PerceivedActor {
     pub phase_remaining: f32,
     /// Currently in i-frames (post-hit invulnerability). Visible: the body flashes.
     pub invulnerable: bool,
+    /// Falling out of a launch, so this body's next landing is a knockdown
+    /// unless it techs. Visible from across the stage, which is why a watcher
+    /// gets it and not only the body itself.
+    pub tumbling: bool,
     /// Accumulated damage — the smash-percent axis (CM1). Kill potential scales
     /// off it, so L2 cannot score a finisher without it.
     pub damage_taken: i32,
@@ -315,6 +319,10 @@ pub struct SelfView {
     pub phase_remaining: f32,
     /// Self is in i-frames.
     pub invulnerable: bool,
+    /// Falling out of a launch: the next landing is a knockdown unless it is
+    /// teched. See [`PerceivedActor::tumbling`] — a body cannot know this about
+    /// itself more precisely than a watcher knows it.
+    pub tumbling: bool,
     /// Self's accumulated damage — the smash-percent axis (CM1).
     pub damage_taken: i32,
     /// Self's max health. `0` = unknown.

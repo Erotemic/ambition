@@ -26,6 +26,7 @@ fn body(pos: ae::Vec2, faction: ActorFaction) -> PerceptionBody {
         phase: BodyPhase::Neutral,
         phase_remaining: 0.0,
         invulnerable: false,
+        tumbling: false,
         damage_taken: 0,
         health_max: 100,
         grudge: None,
@@ -48,6 +49,7 @@ fn peer(id: &str, pos: ae::Vec2, faction: ActorFaction) -> PerceptionPeer {
         phase: BodyPhase::Neutral,
         phase_remaining: 0.0,
         invulnerable: false,
+        tumbling: false,
         damage_taken: 0,
         health_max: 100,
     }

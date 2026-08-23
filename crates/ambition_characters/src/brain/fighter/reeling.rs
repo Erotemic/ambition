@@ -93,6 +93,40 @@ pub fn survival_stick(view: Perceived<'_>) -> Option<ae::LocalAxes> {
     unit_local(frame, best)
 }
 
+/// Should this body press the evade button to tech its landing?
+///
+/// A tech is the genre's most basic defensive read and no CPU has ever thrown
+/// one: the mechanic ships — the press arms a ~20-frame window and a landing
+/// inside it keeps the body's feet — and the brain had no verb that reaches it.
+/// It is the SAME press that means dodge everywhere else; the body resolves
+/// which, so nothing here decides that.
+///
+/// The read is the time to the floor, and it deliberately fires at half the
+/// window rather than at its edge. The press is a commitment: one that expires
+/// without touching anything locks the option out for twice as long as the
+/// window it wasted, so a brain aiming at the boundary is a brain that
+/// occasionally deletes its own tech. Half is the margin, and the perception
+/// delay this view already carries is the difficulty.
+pub fn tech_press(view: Perceived<'_>) -> bool {
+    let me = &view.self_view;
+    if !me.alive || !me.tumbling || me.on_ground {
+        return false;
+    }
+    let Some(floor_top) = view.ground_below() else {
+        return false;
+    };
+    // `ground_below` answers in the view's own +y-down sense, which is also the
+    // sense its terrain is published in, so the gap and the closing speed are
+    // read in the same frame rather than converted through gravity twice.
+    let feet = me.pos.y + me.half_extent.y;
+    let gap = floor_top - feet;
+    let closing = me.vel.y;
+    if gap < 0.0 || closing <= 0.0 {
+        return false;
+    }
+    gap / closing <= ae::movement::knockdown::TECH_WINDOW * 0.5
+}
+
 /// How long a body leaving `from` at `vel` stays inside `bounds`, in seconds.
 ///
 /// A straight ray, deliberately: gravity bends the real flight, but it bends

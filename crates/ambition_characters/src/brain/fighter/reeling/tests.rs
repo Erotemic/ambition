@@ -1,7 +1,7 @@
 use super::*;
 
 use crate::actor::ActorFaction;
-use crate::perception::{Perceived, SelfView, StageView, WorldView};
+use crate::perception::{Perceived, PerceivedSolid, SelfView, SolidKind, StageView, WorldView};
 
 /// The same 800×600 envelope the classifier's tests use, origin at its corner.
 fn stage() -> StageView {
@@ -139,4 +139,73 @@ fn the_answer_is_the_same_under_rotated_gravity() {
         (held_world - upright_world).length() < 1e-4,
         "the same launch on the same stage produced {held_world:?} under rotated gravity and {upright_world:?} upright"
     );
+}
+
+/// A floor whose top surface sits at `top`, wide enough to be under anybody in
+/// these fixtures.
+fn floor(top: f32) -> PerceivedSolid {
+    PerceivedSolid {
+        aabb: ae::Aabb::new(ae::Vec2::new(400.0, top + 50.0), ae::Vec2::new(400.0, 50.0)),
+        kind: SolidKind::Solid,
+    }
+}
+
+/// A body falling out of a launch toward a floor.
+fn falling(gap: f32, speed: f32) -> WorldView {
+    let floor_top = 500.0;
+    let half = ae::Vec2::new(10.0, 20.0);
+    let mut view = reeling(
+        ae::Vec2::new(400.0, floor_top - gap - half.y),
+        ae::Vec2::new(0.0, speed),
+    );
+    view.self_view.phase = BodyPhase::Neutral;
+    view.self_view.tumbling = true;
+    view.self_view.half_extent = half;
+    view.terrain = vec![floor(floor_top)];
+    view
+}
+
+/// THE READ: a tumbling body about to touch down presses. Half the window at
+/// this speed is a gap of `speed * TECH_WINDOW / 2`.
+#[test]
+fn a_tumbling_body_techs_the_landing_it_can_see_coming() {
+    let close = ae::movement::knockdown::TECH_WINDOW * 0.5 * 600.0 * 0.5;
+    assert!(tech_press(Perceived::cheating(&falling(close, 600.0))));
+}
+
+/// And it does NOT press at the top of the arc. A press that expires without
+/// touching anything locks the tech out for twice as long as the window it
+/// wasted, so pressing early is worse than not pressing.
+#[test]
+fn a_body_still_high_above_the_floor_does_not_spend_its_tech() {
+    let far = ae::movement::knockdown::TECH_WINDOW * 600.0 * 4.0;
+    assert!(!tech_press(Perceived::cheating(&falling(far, 600.0))));
+}
+
+/// Rising out of a launch is not a landing, however close the floor is.
+#[test]
+fn a_body_moving_away_from_the_floor_does_not_tech() {
+    let close = ae::movement::knockdown::TECH_WINDOW * 0.5 * 600.0 * 0.5;
+    assert!(!tech_press(Perceived::cheating(&falling(close, -600.0))));
+}
+
+/// An ordinary fall is not a tumble. Teching a landing the body was never going
+/// to be knocked down by would spend the evade for nothing — and it is the same
+/// button, so it would come out as an air dodge.
+#[test]
+fn an_ordinary_fall_is_not_teched() {
+    let close = ae::movement::knockdown::TECH_WINDOW * 0.5 * 600.0 * 0.5;
+    let mut view = falling(close, 600.0);
+    view.self_view.tumbling = false;
+    assert!(!tech_press(Perceived::cheating(&view)));
+}
+
+/// Nothing below means nothing to tech against. A body tumbling out over the
+/// blastzone has a recovery problem, not a landing one.
+#[test]
+fn a_body_over_the_void_does_not_tech() {
+    let close = ae::movement::knockdown::TECH_WINDOW * 0.5 * 600.0 * 0.5;
+    let mut view = falling(close, 600.0);
+    view.terrain.clear();
+    assert!(!tech_press(Perceived::cheating(&view)));
 }

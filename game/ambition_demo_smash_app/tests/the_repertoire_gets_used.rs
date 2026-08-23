@@ -615,3 +615,139 @@ mod the_decision_log {
         );
     }
 }
+
+/// THE DEFENSIVE VOCABULARY IS SOMETHING THE CPU USES, NOT SOMETHING IT OWNS.
+///
+/// Two mechanics shipped tuned, reachable and unused, because the fighter brain
+/// had no verb that reached either: a smash's charge multiplier is paid out
+/// against how long Attack stays down, and a tech is armed by the evade press
+/// while tumbling. Both are read off the BODY here rather than off the frame the
+/// brain emits — a brain asking is not the claim; a body receiving is.
+///
+/// The measurement is strict on WHETHER and deliberately weak on WHEN. Pinning a
+/// charge to a percentage or a tech to a position would be pinning demo tuning.
+/// What must never be true again is that a whole match goes by without either.
+#[test]
+fn the_cpu_charges_a_smash_and_arms_a_tech_during_a_match() {
+    use ambition_platformer2d::actors::features::MotionModel;
+
+    const WINDOW: usize = 1800;
+
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    let characters = [
+        ambition_demo_smash::SMASH_GEORGE_BOOUL,
+        ambition_demo_smash::SMASH_GEORGE_BOOUL,
+    ];
+    let roster = ambition_demo_smash::smash_roster_at_levels(characters, &[5, 5]);
+    app.world_mut().insert_resource(roster);
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+            ),
+        ));
+    let countdown = ambition_demo_smash::smash_roster(characters).opening_countdown_ticks;
+    for _ in 0..(countdown as usize + 30) {
+        app.update();
+    }
+
+    let mut best_charge = 0.0f32;
+    let mut tech_presses = 0usize;
+    let mut tumbles = 0usize;
+    let mut charge_armed = 0usize;
+    let mut held_ticks = 0usize;
+    let mut strong_hints = 0usize;
+    let mut resolved_held = 0usize;
+    let mut best_held_s = 0.0f32;
+    let mut charging_ticks = 0usize;
+    for _ in 0..WINDOW {
+        app.update();
+        let world = app.world_mut();
+        let mut charging = world.query::<(&MatchSeat, &MovePlayback)>();
+        let seen: Vec<f32> = charging
+            .iter(world)
+            .filter_map(|(_, pb)| pb.smash_charge_fraction())
+            .collect();
+        for fraction in seen {
+            best_charge = best_charge.max(fraction);
+        }
+        let mut armed_q = world.query::<(&MatchSeat, &MovePlayback)>();
+        let rows: Vec<(bool, f32, bool)> = armed_q
+            .iter(world)
+            .filter_map(|(_, pb)| {
+                pb.charge
+                    .map(|c| (true, c.held_s, c.released_fraction.is_none()))
+            })
+            .collect();
+        for (_, held_s, charging) in rows {
+            charge_armed += 1;
+            best_held_s = best_held_s.max(held_s);
+            if charging {
+                charging_ticks += 1;
+            }
+        }
+        let mut gestures = world.query::<(
+            &MatchSeat,
+            &ambition_platformer2d::characters::actor::attack_gesture::ResolvedAttackGesture,
+        )>();
+        resolved_held += gestures
+            .iter(world)
+            .filter(|(_, g)| g.held.is_some())
+            .count();
+        let mut control = world.query::<(
+            &MatchSeat,
+            &ambition_platformer2d::characters::control::ActorControl,
+        )>();
+        for (_, c) in control.iter(world) {
+            if c.0.melee_held {
+                held_ticks += 1;
+            }
+            if c.0.melee_strong_hint {
+                strong_hints += 1;
+            }
+        }
+        let mut motion = world.query::<(&MatchSeat, &MotionModel)>();
+        let armed: Vec<(bool, bool)> = motion
+            .iter(world)
+            .filter_map(|(_, model)| match model {
+                ambition_platformer2d::engine_core::MotionModel::AxisSwept(axis) => Some((
+                    axis.state.tech_press_timer > 0.0,
+                    axis.state.tumble_timer > 0.0,
+                )),
+                _ => None,
+            })
+            .collect();
+        for (pressed, tumbling) in armed {
+            if pressed {
+                tech_presses += 1;
+            }
+            if tumbling {
+                tumbles += 1;
+            }
+        }
+    }
+
+    assert!(
+        best_charge > 0.0,
+        "over {WINDOW} ticks no CPU ever held a smash — the charge multiplier is \
+         authored on every fighter and nobody paid for any of it. \
+         charge_armed={charge_armed} held_ticks={held_ticks} strong_hints={strong_hints} resolved_held={resolved_held} best_held_s={best_held_s} charging_ticks={charging_ticks}"
+    );
+    // THE NON-VACUITY GUARD for the tech half. A match in which nobody is ever
+    // launched hard enough to tumble has no landing to tech, and the assertion
+    // below would be measuring the absence of tumbles rather than the absence of
+    // the read.
+    assert!(
+        tumbles > 0,
+        "no body tumbled in {WINDOW} ticks, so this cannot say anything about \
+         teching"
+    );
+    assert!(
+        tech_presses > 0,
+        "bodies tumbled {tumbles} times over {WINDOW} ticks and no CPU ever armed \
+         a tech"
+    );
+}

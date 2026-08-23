@@ -23,11 +23,29 @@ const FULL_HOLD_TICKS: u32 = 90;
 /// itself, short enough to still come out before the answer does.
 const PARTIAL_HOLD_TICKS: u32 = 12;
 
-/// How long to hold the Attack button for a smash started in `situation`.
+/// How long to hold Attack for a smash whose leading startup is `startup_s`.
+///
+/// THE HOLD MUST OUTLAST THE STARTUP, and this is the whole reason the function
+/// takes frame data at all. Charge does not begin at the press — it begins when
+/// the timeline reaches the move's authored hold point at the end of its leading
+/// Startup window. Measured in a real match: a brain that held for the charge
+/// alone let go before the move ever got there, the freeze released on arrival
+/// at zero, and 223 armed charges produced not one held frame. A hand does not
+/// have this bug, because a hand holds from the press.
+pub fn hold_ticks(situation: Situation, startup_s: f32, tick_hz: f32) -> u32 {
+    let charge = charge_ticks_for(situation);
+    if charge == 0 {
+        return 0;
+    }
+    let startup_ticks = (startup_s.max(0.0) * tick_hz.max(1.0)).ceil() as u32;
+    startup_ticks.saturating_add(charge)
+}
+
+/// How long to keep holding once the charge has actually latched.
 ///
 /// `0` is a tap, and a tap is the right answer often enough that it is the
 /// default rather than a failure mode.
-pub fn hold_ticks_for(situation: Situation) -> u32 {
+pub fn charge_ticks_for(situation: Situation) -> u32 {
     match situation {
         // The opponent is committed to something — hitstun, a whiffed swing, a
         // landing. This is the window the charge exists for.

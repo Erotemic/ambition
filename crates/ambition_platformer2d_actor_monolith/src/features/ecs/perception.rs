@@ -83,6 +83,10 @@ pub struct PerceptionBody {
     pub phase: BodyPhase,
     pub phase_remaining: f32,
     pub invulnerable: bool,
+    /// Falling out of a launch — the next landing is a knockdown unless it is
+    /// teched. Read off this body's OWN peer row, like `phase`, so it cannot
+    /// know itself more precisely than its opponents know it.
+    pub tumbling: bool,
     /// The smash-percent axis (CM1) and its denominator.
     pub damage_taken: i32,
     pub health_max: i32,
@@ -139,6 +143,11 @@ pub struct PerceptionPeer {
     pub phase: BodyPhase,
     pub phase_remaining: f32,
     pub invulnerable: bool,
+    /// Falling out of a launch, so the next landing is a knockdown unless it is
+    /// teched. Visible from across the stage — a tumbling body is tumbling in
+    /// plain sight — which is why it rides the peer row rather than being a
+    /// private fact a body knows about itself.
+    pub tumbling: bool,
     /// The smash-percent axis (CM1) and its denominator — kill potential.
     pub damage_taken: i32,
     pub health_max: i32,
@@ -246,10 +255,12 @@ pub fn collect_perception_peers(
         // rule follows. `None` for anything not seated in a match, which is most
         // of the world.
         Option<&crate::combat::targeting::MatchTeam>,
+        // The published motion facts, for the one a watcher can see: tumbling.
+        Option<&ae::BodyMotionFacts>,
     )>,
 ) {
     peers.0.clear();
-    for (entity, id, kin, health, faction, ground, shield, combat, melee, team) in &bodies {
+    for (entity, id, kin, health, faction, ground, shield, combat, melee, team, facts) in &bodies {
         let (phase, phase_remaining) = body_phase(combat, melee, shield);
         peers.0.push(PerceptionPeer {
             entity,
@@ -269,6 +280,7 @@ pub fn collect_perception_peers(
             shield_raised: shield.is_some_and(|s| s.active),
             phase,
             phase_remaining,
+            tumbling: facts.is_some_and(|f| f.tumbling),
             invulnerable: body_invulnerable(combat),
             damage_taken: health.damage_taken(),
             health_max: health.max(),
@@ -293,11 +305,14 @@ pub struct PerceptionProjectiles(pub Vec<PerceptionProjectile>);
 /// carries `None`, matching the stepper's indiscriminate ownerless semantics.
 pub fn collect_perception_projectiles(
     mut out: bevy::prelude::ResMut<PerceptionProjectiles>,
-    live: bevy::prelude::Query<(
-        &crate::actor::BodyKinematics,
-        &crate::projectile::ProjectileGameplay,
-        Option<&crate::projectile::ProjectileAllegiance>,
-    ), bevy::prelude::With<crate::projectile::LiveProjectile>>,
+    live: bevy::prelude::Query<
+        (
+            &crate::actor::BodyKinematics,
+            &crate::projectile::ProjectileGameplay,
+            Option<&crate::projectile::ProjectileAllegiance>,
+        ),
+        bevy::prelude::With<crate::projectile::LiveProjectile>,
+    >,
 ) {
     out.0.clear();
     for (kin, game, allegiance) in &live {
@@ -409,6 +424,7 @@ pub fn build_world_view(
         phase: body.phase,
         phase_remaining: body.phase_remaining,
         invulnerable: body.invulnerable,
+        tumbling: body.tumbling,
         damage_taken: body.damage_taken,
         health_max: body.health_max,
         captured: body.captured,
@@ -457,6 +473,7 @@ pub fn build_world_view(
             phase: p.phase,
             phase_remaining: p.phase_remaining,
             invulnerable: p.invulnerable,
+            tumbling: p.tumbling,
             damage_taken: p.damage_taken,
             health_max: p.health_max,
         })
@@ -624,6 +641,7 @@ pub(crate) fn perception_body_for(
         phase: self_peer.map(|p| p.phase).unwrap_or_default(),
         phase_remaining: self_peer.map_or(0.0, |p| p.phase_remaining),
         invulnerable: self_peer.is_some_and(|p| p.invulnerable),
+        tumbling: self_peer.is_some_and(|p| p.tumbling),
         damage_taken: body.health.damage_taken(),
         health_max: body.health.max(),
         // A grudge makes ONE same-faction body a foe (the duel

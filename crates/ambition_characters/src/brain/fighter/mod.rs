@@ -22,7 +22,7 @@ pub mod rollout;
 pub mod scenarios;
 pub mod situation;
 
-pub use charge::hold_ticks_for;
+pub use charge::{charge_ticks_for, hold_ticks};
 pub use decision::{tick_fighter, ApmLedger, FighterCfg, FighterState};
 pub use habit::{Choice, HabitModel};
 pub use options::{generate_options, AttackOption, MoveOption, OptionSet, UtilityWeights};

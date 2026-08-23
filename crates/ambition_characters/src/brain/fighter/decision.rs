@@ -302,6 +302,13 @@ pub fn tick_fighter(
         if let Some(stick) = super::reeling::survival_stick(view) {
             frame.locomotion = stick;
         }
+        // The tech is on the same reflex clock and for the same reason: the
+        // window is twenty frames wide and the decision cadence is five, so a
+        // read made only on decision ticks would miss most landings. It spends
+        // no APM — a tech is a hand reacting, not a plan.
+        if super::reeling::tech_press(view) {
+            frame.burst_pressed = true;
+        }
     }
     *out = frame;
 }
@@ -564,7 +571,18 @@ fn decide(
     if let Some((binding, _)) = wants_attack.as_ref() {
         aim_the_stick(*binding, view.self_view.facing, frame);
     }
-    if let (Some((binding, _)), None) = (wants_attack.as_ref(), state.pending_press) {
+    // A HAND HOLDING A BUTTON IS NOT PRESSING SOMETHING ELSE.
+    //
+    // Measured in a real match: smashes were armed with a full charge and paid
+    // out at zero, because the next decision five ticks later armed another
+    // attack and the emission reset the hold to that press's own — nearly always
+    // a tap's. Seventeen smashes shared 283 held ticks between them and not one
+    // reached its move's hold point. The charge in flight is a commitment, so it
+    // owns the button until it is spent.
+    let charging = state.charge_hold_ticks > 0;
+    if let (Some((binding, _)), None, false) =
+        (wants_attack.as_ref(), state.pending_press, charging)
+    {
         let jitter = if cfg.profile.execution_noise > 0.0 {
             let sample = next_signed_unit(&mut state.noise).abs();
             (sample * cfg.profile.execution_noise * cfg.interval() as f32).round() as u32
@@ -579,7 +597,20 @@ fn decide(
             ticks: jitter,
             binding: *binding,
             hold_ticks: match binding.verb {
-                super::options::AttackVerb::Smash => super::charge::hold_ticks_for(situation),
+                super::options::AttackVerb::Smash => super::charge::hold_ticks(
+                    situation,
+                    // The move's OWN startup, from the frame data the option
+                    // scorer already read. The charge begins at the hold point
+                    // and the hold has to reach it.
+                    options
+                        .attacks
+                        .iter()
+                        .find(|attack| {
+                            Some(&attack.move_id) == wants_attack.as_ref().map(|(_, id)| id)
+                        })
+                        .map_or(0.0, |attack| attack.frames.startup_s),
+                    cfg.tick_hz,
+                ),
                 _ => 0,
             },
         });

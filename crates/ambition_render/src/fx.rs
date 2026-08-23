@@ -908,6 +908,45 @@ pub fn spawn_reset_effects(
     spawn_impact(commands, session_scope, world, to);
 }
 
+/// The shortest a burst particle lives, and how much longer the longest-lived
+/// one gets. `spawn_burst` spreads every particle across this window.
+const BURST_MIN_LIFETIME: f32 = 0.22;
+const BURST_LIFETIME_SPREAD: f32 = 0.16;
+
+/// Velocity damping per second, by particle flavour.
+const fn particle_drag(kind: ParticleKind) -> f32 {
+    match kind {
+        ParticleKind::Spark => 3.4,
+        ParticleKind::Dust => 4.7,
+        ParticleKind::Shard => 1.8,
+    }
+}
+
+/// Downward acceleration, by particle flavour.
+const fn particle_gravity(kind: ParticleKind) -> f32 {
+    match kind {
+        ParticleKind::Spark => 300.0,
+        ParticleKind::Dust => 120.0,
+        ParticleKind::Shard => 650.0,
+    }
+}
+
+/// How far the FURTHEST particle of a burst travels, in world units.
+///
+/// [`update_particles`] damps velocity by [`particle_drag`] every frame, which
+/// integrates to `v0/drag * (1 - e^(-drag * t))`; the furthest particle leaves
+/// at the full `speed` and lives [`BURST_MIN_LIFETIME`] +
+/// [`BURST_LIFETIME_SPREAD`].
+///
+/// ⭐ Exposed because a caller that has to keep a burst ON SCREEN needs the
+/// burst's ENVELOPE, not its centre, and a caller that re-derives the envelope
+/// beside the spawner drifts from it the first time a drag constant moves.
+pub fn burst_reach(speed: f32, kind: ParticleKind) -> f32 {
+    let drag = particle_drag(kind);
+    let lifetime = BURST_MIN_LIFETIME + BURST_LIFETIME_SPREAD;
+    speed / drag * (1.0 - (-drag * lifetime).exp())
+}
+
 pub fn spawn_burst(
     commands: &mut Commands,
     session_scope: Option<SessionSpawnScope>,
@@ -932,7 +971,7 @@ pub fn spawn_burst(
         let strength = speed * (0.45 + 0.55 * ((i * 13 + 5) % 11) as f32 / 10.0);
         let vel = ae::Vec2::new(angle.cos() * strength, angle.sin() * strength);
         let radius = 2.0 + 2.5 * ((i * 5 + 1) % 7) as f32 / 6.0;
-        let lifetime = 0.22 + 0.16 * ((i * 7 + 3) % 9) as f32 / 8.0;
+        let lifetime = BURST_MIN_LIFETIME + BURST_LIFETIME_SPREAD * ((i * 7 + 3) % 9) as f32 / 8.0;
         commands.spawn_session_scoped(
             session_scope,
             (
@@ -949,16 +988,8 @@ pub fn spawn_burst(
                     lifetime,
                     radius,
                     rgba: color_rgba,
-                    gravity: match kind {
-                        ParticleKind::Spark => 300.0,
-                        ParticleKind::Dust => 120.0,
-                        ParticleKind::Shard => 650.0,
-                    },
-                    drag: match kind {
-                        ParticleKind::Spark => 3.4,
-                        ParticleKind::Dust => 4.7,
-                        ParticleKind::Shard => 1.8,
-                    },
+                    gravity: particle_gravity(kind),
+                    drag: particle_drag(kind),
                 },
             ),
         );

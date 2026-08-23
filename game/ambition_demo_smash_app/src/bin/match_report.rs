@@ -32,6 +32,13 @@ struct Tally {
     /// answer, inverted. The number that separates "the CPUs are defensive" from
     /// "the CPUs are unhittable".
     unhittable: usize,
+    /// WHICH of the four terms in `body_vulnerable` was false, counted
+    /// separately. "A quarter of the match is untouchable" is a symptom; which
+    /// term owns it is the fix.
+    unhit_invuln: usize,
+    unhit_evading: usize,
+    unhit_parry_window: usize,
+    unhit_iframes: usize,
     shielding: usize,
     parries_caught: usize,
     tech_armed: usize,
@@ -140,6 +147,24 @@ fn main() {
             tally.tumble_speed,
         );
     }
+    println!("\nwhy each body could not be struck, by the term that refused:");
+    println!(
+        "{:<6} {:>10} {:>10} {:>14} {:>10}",
+        "seat", "invuln", "evading", "parry-window", "i-frames"
+    );
+    for (seat, tally) in totals.iter().enumerate() {
+        if tally.unhittable == 0 {
+            continue;
+        }
+        println!(
+            "{:<6} {:>10} {:>10} {:>14} {:>10}",
+            seat,
+            tally.unhit_invuln,
+            tally.unhit_evading,
+            tally.unhit_parry_window,
+            tally.unhit_iframes
+        );
+    }
     println!(
         "\nticks are counts of SAMPLED TICKS in that state; damage is final percent, \
          parries and techs are events, charge is the best fraction reached."
@@ -186,11 +211,11 @@ fn sample(
                     // THE DAMAGE RULE'S OWN ANSWER, asked here rather than
                     // reconstructed: a report that guessed at eligibility would
                     // be a second opinion about the thing it measures.
-                    ambition_platformer2d::combat::util::body_vulnerable(
-                        health.health.invulnerable,
+                    (
+                        health.health.invulnerable.any(),
                         facts.is_some_and(|f| f.evading()),
-                        &shield.copied().unwrap_or_default(),
-                        combat,
+                        shield.is_some_and(|s| s.parrying()),
+                        !combat.vulnerable(),
                     ),
                     combat.hitstun_timer,
                     kin.vel.length(),
@@ -251,8 +276,21 @@ fn sample(
                 tally.evading += 1;
             }
         }
-        if !vulnerable {
+        let (invuln, evading, parry_window, iframes) = vulnerable;
+        if invuln || evading || parry_window || iframes {
             tally.unhittable += 1;
+        }
+        if invuln {
+            tally.unhit_invuln += 1;
+        }
+        if evading {
+            tally.unhit_evading += 1;
+        }
+        if parry_window {
+            tally.unhit_parry_window += 1;
+        }
+        if iframes {
+            tally.unhit_iframes += 1;
         }
         if let Some(shield) = shield {
             if shield.active {

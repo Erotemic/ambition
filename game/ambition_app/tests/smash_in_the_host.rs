@@ -4563,6 +4563,25 @@ mod launched {
             let policy = health.policy();
             *health = BodyHealth::restored(pool, percent, policy);
         }
+        // ⛔⛔ THE VICTIM IS PARKED AGAIN HERE, IMMEDIATELY BEFORE THE STRIKE,
+        // and this is the difference between measuring a launch and measuring a
+        // walk. The settle loop above waits for the victim to be STANDING, and
+        // a standing CPU fighter is not a still one — it walks. The strike is
+        // anchored in WORLD space at `start`, so a victim that is already
+        // moving is being handed a box centred where it no longer will be.
+        //
+        // Measured at strike time before this line existed: +162px/s at 0% and
+        // -312px/s at 1427%, from positions 110px apart. The fast one walked
+        // clear of a 48px half-extent box in about a seventh of a second and
+        // took NO damage at all - its meter came out of the sampling loop
+        // exactly where it went in. That reads as "the damage road refused the
+        // hit" and is really "the hit was thrown where the victim was not".
+        //
+        // ⚠ It only started failing when the hitlag law changed because the
+        // freeze duration moves how much sim time the FIRST strike consumes,
+        // which lands the second one on a different phase of the victim's walk.
+        // The old law was not correct here; it was lucky here.
+        park(app, victim, VICTIM_X);
         let start = app.world().get::<BodyKinematics>(victim).unwrap().pos;
         let strike = app
             .world_mut()

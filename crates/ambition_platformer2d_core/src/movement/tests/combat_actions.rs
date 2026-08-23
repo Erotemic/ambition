@@ -5,6 +5,7 @@ use super::super::*;
 use super::{step_scratch, test_world};
 use crate::body_clusters::BodyClusterScratch;
 use crate::AbilitySet;
+use crate::test_support::{update_player_with_tuning_scratch, TEST_TUNING};
 use crate::Vec2;
 
 fn scratch_at(spawn: Vec2) -> BodyClusterScratch {
@@ -881,4 +882,154 @@ fn a_caught_parry_decays_like_every_other_timer() {
         step_scratch(&world, &mut scratch, InputState::default());
     }
     assert!(!scratch.shield.parry_caught());
+}
+
+/// A body playing by the platform-fighter shield rule.
+fn guarded_scratch(world: &crate::World) -> BodyClusterScratch {
+    let mut scratch = scratch_at(world.spawn);
+    scratch.ground.on_ground = true;
+    scratch.abilities.abilities.shield = true;
+    scratch
+}
+
+fn shield_step(world: &crate::World, scratch: &mut BodyClusterScratch, held: bool) -> FrameEvents {
+    let mut tuning = TEST_TUNING;
+    tuning.base.shield = crate::ShieldTuning::PLATFORM_FIGHTER;
+    update_player_with_tuning_scratch(
+        world,
+        scratch,
+        InputState {
+            shield_held: held,
+            ..Default::default()
+        },
+        1.0 / 60.0,
+        tuning,
+    )
+}
+
+/// ⭐ A GUARD IS A LAUNCHING PLATFORM, and leaving it SPENDS it.
+///
+/// Both halves, because either alone is the bug: a jump that the guard refuses
+/// is not the genre, and a jump that leaves the guard standing is a body
+/// attacking from behind a shield it keeps — which is why nobody would ever
+/// lower one.
+#[test]
+fn a_jump_out_of_shield_is_allowed_and_takes_the_guard_with_it() {
+    let world = test_world();
+    let mut scratch = guarded_scratch(&world);
+    for _ in 0..10 {
+        shield_step(&world, &mut scratch, true);
+    }
+    assert!(scratch.shield.active, "the fixture never raised a guard");
+
+    let mut tuning = TEST_TUNING;
+    tuning.base.shield = crate::ShieldTuning::PLATFORM_FIGHTER;
+    let events = update_player_with_tuning_scratch(
+        &world,
+        &mut scratch,
+        InputState {
+            shield_held: true,
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Jump,
+                crate::Edge {
+                    pressed: true,
+                    held: true,
+                    released: false,
+                },
+            ),
+            ..Default::default()
+        },
+        1.0 / 60.0,
+        tuning,
+    );
+    assert!(
+        events.operations.contains(&MovementOp::Jump) || scratch.axis().jump_squat_timer > 0.0,
+        "the guard refused a jump out of shield, which is the one option every \
+         other one in this genre is measured against"
+    );
+    assert!(
+        !scratch.shield.active,
+        "the body jumped and kept its guard up"
+    );
+
+    // ... and it stays down while the button is still held: a spent guard that
+    // re-raised itself would hand back a fresh parry window every time.
+    shield_step(&world, &mut scratch, true);
+    assert!(
+        !scratch.shield.active && scratch.shield.parry_window_timer <= 0.0,
+        "the spent guard came straight back up under the same press"
+    );
+    // Letting go and pressing again is a NEW guard.
+    shield_step(&world, &mut scratch, false);
+    for _ in 0..4 {
+        shield_step(&world, &mut scratch, true);
+    }
+    assert!(
+        scratch.shield.active,
+        "a released and re-pressed button did not buy a new guard"
+    );
+}
+
+/// A game that declares no out-of-shield rule is untouched by all of it: the
+/// guard forbids nothing and acting does not spend it, which is what every body
+/// in Ambition did before the policy existed.
+#[test]
+fn a_game_with_no_out_of_shield_rule_is_unchanged() {
+    let world = test_world();
+    let mut scratch = scratch_at(world.spawn);
+    scratch.ground.on_ground = true;
+    scratch.abilities.abilities.shield = true;
+    // `ShieldTuning::OFF` — the engine baseline — declares no policy.
+    for _ in 0..10 {
+        step_scratch(
+            &world,
+            &mut scratch,
+            InputState {
+                shield_held: true,
+                ..Default::default()
+            },
+        );
+    }
+    assert!(scratch.shield.active);
+    step_scratch(
+        &world,
+        &mut scratch,
+        InputState {
+            shield_held: true,
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Jump,
+                crate::Edge {
+                    pressed: true,
+                    held: true,
+                    released: false,
+                },
+            ),
+            ..Default::default()
+        },
+    );
+    assert!(
+        scratch.shield.active,
+        "a game with no out-of-shield rule spent a guard on an action anyway"
+    );
+    assert_eq!(
+        scratch.shield.drop_lag_timer, 0.0,
+        "a game with no drop rule was charged for one"
+    );
+}
+
+/// Letting a guard down by itself costs the commitment the policy authors —
+/// the other half of what makes holding one a decision.
+#[test]
+fn dropping_a_guard_costs_the_authored_lag() {
+    let world = test_world();
+    let mut scratch = guarded_scratch(&world);
+    for _ in 0..10 {
+        shield_step(&world, &mut scratch, true);
+    }
+    assert!(scratch.shield.active);
+    shield_step(&world, &mut scratch, false);
+    assert!(
+        scratch.shield.drop_lag_timer > 0.0,
+        "letting the guard go cost nothing, so holding one commits to nothing"
+    );
 }

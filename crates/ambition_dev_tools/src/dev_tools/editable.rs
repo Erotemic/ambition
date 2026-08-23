@@ -199,6 +199,20 @@ pub struct EditableMovementTuning {
     pub shield_stun_per_damage: f32,
     pub shield_pushback_per_damage: f32,
     pub shield_min_coverage: f32,
+    /// Shield-drop lag: what letting a guard down costs, in seconds. A feel
+    /// slider like the rates above it.
+    pub shield_drop_lag: f32,
+    /// The OUT-OF-SHIELD rule, carried through an edit rather than edited.
+    ///
+    /// Which actions a raised guard permits is a rules DECLARATION about which
+    /// game a stage reproduces — the same class of fact as `parry_timing` above
+    /// — so it is not a slider. ⭐ but it is CARRIED, not defaulted: rebuilding
+    /// the tuning from sliders alone would silently delete the stage's rule the
+    /// first time anybody dragged an unrelated one.
+    /// ⛔ `reflect(ignore)` so the editor cannot draw it as a draggable value:
+    /// the foundation crate carries no reflection and a rule is not a slider.
+    #[reflect(ignore)]
+    pub shield_out_of_shield: Option<ae::OutOfShield>,
     /// Footstool: the hop, the shove, the stun, and the head band. 0.0 rise = off.
     pub footstool_rise_speed: f32,
     pub footstool_press_speed: f32,
@@ -302,6 +316,8 @@ impl EditableMovementTuning {
                 stun_per_damage: self.shield_stun_per_damage,
                 pushback_per_damage: self.shield_pushback_per_damage,
                 min_coverage: self.shield_min_coverage,
+                drop_lag: self.shield_drop_lag,
+                out_of_shield: self.shield_out_of_shield,
             },
             footstool: ae::FootstoolTuning {
                 rise_speed: self.footstool_rise_speed,
@@ -387,6 +403,8 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             shield_stun_per_damage: value.shield.stun_per_damage,
             shield_pushback_per_damage: value.shield.pushback_per_damage,
             shield_min_coverage: value.shield.min_coverage,
+            shield_drop_lag: value.shield.drop_lag,
+            shield_out_of_shield: value.shield.out_of_shield,
             footstool_rise_speed: value.footstool.rise_speed,
             footstool_press_speed: value.footstool.press_speed,
             footstool_flinch_time: value.footstool.flinch_time,

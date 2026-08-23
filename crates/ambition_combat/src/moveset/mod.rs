@@ -1431,6 +1431,16 @@ pub fn trigger_moveset_moves(
     // there is no mirrored `Capturing` component to read instead: one authority,
     // scanned. At most one captive per captor and a handful per stage.
     captives: Query<(Entity, &crate::capture::CapturedBy)>,
+    // THE GUARD, and the body's own shield policy. Starting an action out of a
+    // raised shield is a SPEND — see `OutOfShieldGate` — so this is taken
+    // mutably and looked up by entity, the same shape the strike seam uses.
+    // `BodyShieldState` is deliberately absent from the body query above so
+    // this is the system's only access to it.
+    mut guards: Query<&mut ae::BodyShieldState>,
+    // Where the out-of-shield rule is authored: the body's own movement policy
+    // carries its shield tuning. `None` for a bare test body, which then has no
+    // rule and behaves exactly as it did.
+    shield_policies: Query<&ae::MotionModel>,
     // This is the second writer to name itself.
     //
     // `Option` on both: the FEATURE and the PLUGIN are two switches, and a
@@ -1470,6 +1480,26 @@ pub fn trigger_moveset_moves(
         // way, so the resolution chain below does not know which one arrived.
         // (`gesture.pressed` is already unified upstream — the buffer republishes
         // into it, intent and all.)
+        // THE OUT-OF-SHIELD RULE, read once for this body's press. Whether a
+        // raised guard is a launching platform or a wall comes from the body's
+        // own authored policy — never from a list of moves that get exceptions.
+        let oos_policy = shield_policies
+            .get(entity)
+            .ok()
+            .and_then(|model| model.shield_tuning().out_of_shield);
+        let guard_up = guards.get(entity).is_ok_and(|shield| shield.active);
+        // A guard that is DOWN, or a game that declares no rule, restricts
+        // nothing — which is exactly what every body did before this existed.
+        let unrestricted = !guard_up || oos_policy.is_none();
+        let oos_permits = |action| {
+            unrestricted || oos_policy.is_some_and(|policy: ae::OutOfShield| policy.permits(action))
+        };
+        // Only the UP directions RISE, which is the whole reason this genre
+        // lets those two out of a crouched guard and makes everything else wait
+        // for it to come down.
+        let rises_out_of_shield = |dir: AttackDir, action| {
+            unrestricted || (dir == AttackDir::Up && oos_permits(action))
+        };
         let grab_pressed = frame.grab_pressed || action_buffer.grab > 0.0;
         let special_pressed = frame.special_pressed || action_buffer.special > 0.0;
         let pogo_pressed = frame.pogo_pressed || action_buffer.pogo > 0.0;
@@ -1510,7 +1540,7 @@ pub fn trigger_moveset_moves(
                 ),
                 None => (None, &[][..], ProposedVerb::Unbuffered),
             }
-        } else if grab_pressed {
+        } else if grab_pressed && oos_permits(ae::OutOfShieldAction::Grab) {
             // A free body's grab. The move's own Active window carries the
             // capture attempt; this only starts the move.
             //
@@ -1529,7 +1559,12 @@ pub fn trigger_moveset_moves(
                 &[GRAB_VERB][..],
                 ProposedVerb::Grab,
             )
-        } else if special_pressed {
+        } else if special_pressed
+            && rises_out_of_shield(
+                attack_dir_from_axis(frame.attack_axis, kin.facing),
+                ae::OutOfShieldAction::UpSpecial,
+            )
+        {
             let dir = attack_dir_from_axis(frame.attack_axis, kin.facing);
             (
                 moveset
@@ -1539,7 +1574,14 @@ pub fn trigger_moveset_moves(
                 &[SPECIAL_VERB],
                 ProposedVerb::Special,
             )
-        } else if gesture.pressed.is_some() || pogo_pressed {
+        } else if (gesture.pressed.is_some() || pogo_pressed)
+            && rises_out_of_shield(
+                gesture
+                    .pressed
+                    .map_or(AttackDir::Down, |intent| intent.direction),
+                ae::OutOfShieldAction::UpAttack,
+            )
+        {
             // A dedicated pogo press IS a down-air (the move carrying the pogo
             // on-hit technique); a plain melee press resolves by aim. When only
             // pogo is pressed, force Down so an aerial body reaches `attack_air_down`.
@@ -1736,6 +1778,10 @@ pub fn trigger_moveset_moves(
             // ACCEPTED — the proposal is over. A buffered press that starts a
             // move must not start the next one behind it.
             proposer.spend(&mut action_buffer);
+            // ... and the guard leaves with the action it launched.
+            if let Ok(mut shield) = guards.get_mut(entity) {
+                ae::movement::spend_out_of_shield(&mut shield, oos_policy);
+            }
             continue;
         }
 
@@ -1772,6 +1818,9 @@ pub fn trigger_moveset_moves(
                     .charged_by_smash_gesture(smash_gesture),
             );
             proposer.spend(&mut action_buffer);
+            if let Ok(mut shield) = guards.get_mut(entity) {
+                ae::movement::spend_out_of_shield(&mut shield, oos_policy);
+            }
         }
     }
 }

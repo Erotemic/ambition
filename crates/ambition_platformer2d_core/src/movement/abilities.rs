@@ -93,6 +93,54 @@ fn dash_available(abilities: &BodyAbilities, dash: &BodyDashState) -> bool {
 /// Facing + input buffering: turn to face the stick (only when grounded or
 /// flying), and buffer jump/burst presses for the short windows the sim phase
 /// consumes them in. The intent step at the head of the control phase.
+/// One action class asked of the out-of-shield policy.
+///
+/// Named for CLASSES rather than moves on purpose: "up-smash may, forward-smash
+/// may not" spelled move by move is the exception list this policy exists
+/// instead of.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OutOfShieldAction {
+    Jump,
+    Burst,
+    Grab,
+    UpAttack,
+    UpSpecial,
+}
+
+/// May `action` start, given this body's guard and its policy? — THE
+/// out-of-shield question, asked identically by the movement kernel and by the
+/// moveset trigger.
+///
+/// `true` whenever the guard is DOWN — this asks only what a RAISED one forbids
+/// — and `true` for every action in a game that declares no policy
+/// ([`crate::ShieldTuning::out_of_shield`] is `None`), which is what every body
+/// did before this existed.
+pub fn out_of_shield_permits(
+    shield: &crate::body_clusters::BodyShieldState,
+    policy: Option<crate::OutOfShield>,
+    action: OutOfShieldAction,
+) -> bool {
+    match policy.filter(|_| shield.active) {
+        Some(policy) => policy.permits(action),
+        None => true,
+    }
+}
+
+/// Take an action OUT of this guard: under a declared policy, a raised guard
+/// comes down with the action that left it.
+///
+/// ⭐ the second half of the same decision, and it has to travel with the
+/// first: a body that could attack from behind a shield it keeps has no reason
+/// to ever lower one. Inert for a game that declares no policy.
+pub fn spend_out_of_shield(
+    shield: &mut crate::body_clusters::BodyShieldState,
+    policy: Option<crate::OutOfShield>,
+) {
+    if policy.is_some() && shield.active {
+        shield.spend_on_action();
+    }
+}
+
 pub(super) fn apply_intent(
     kinematics: &mut BodyKinematics,
     ground: &BodyGroundState,
@@ -101,14 +149,23 @@ pub(super) fn apply_intent(
     abilities: &BodyAbilities,
     input: InputState,
     tuning: AxisSweptParams,
+    // THE GUARD, because starting an action out of one is a spend. See
+    // [`OutOfShieldGate`].
+    shield: &mut crate::body_clusters::BodyShieldState,
 ) {
+    let oos = tuning.abilities.shield.out_of_shield;
     let can_turn = ground.on_ground || flight.fly_enabled;
     let local_stick = input.local_axis();
     if can_turn && local_stick.x.abs() > 0.1 {
         kinematics.facing = local_stick.x.signum();
     }
-    if input.jump_pressed() && abilities.abilities.jump {
+    // JUMP OUT OF SHIELD, the universal option — and the guard leaves with it.
+    if input.jump_pressed()
+        && abilities.abilities.jump
+        && out_of_shield_permits(shield, oos, OutOfShieldAction::Jump)
+    {
         state.buffer_jump = tuning.locomotion.jump_buffer;
+        spend_out_of_shield(shield, oos);
     }
     // THE BURST PRESS IS GATED ON OWNING A BURST, NOT ON OWNING DASH.
     // This read `abilities.abilities.dash` alone, so a body authored
@@ -120,8 +177,12 @@ pub(super) fn apply_intent(
     // question this way (`dash || dodge` earns `ControlSlot::Burst`); the kernel
     // now agrees, and the slot is named for the channel rather than for one
     // outcome of it.
-    if input.burst_pressed() && (abilities.abilities.dash || abilities.abilities.dodge) {
+    if input.burst_pressed()
+        && (abilities.abilities.dash || abilities.abilities.dodge)
+        && out_of_shield_permits(shield, oos, OutOfShieldAction::Burst)
+    {
         state.buffer_burst = tuning.abilities.dash_buffer;
+        spend_out_of_shield(shield, oos);
     }
 }
 
@@ -323,10 +384,17 @@ pub(super) fn apply_shield(
     events: &mut FrameEvents,
 ) {
     let broken = shield.broken();
+    // THE LOCK CLEARS WHEN THE BUTTON DOES, and nowhere else. A guard spent on
+    // an out-of-shield action stays down for as long as the press that raised
+    // it lasts; letting go and pressing again is a new guard.
+    if !input.shield_held {
+        shield.release_locked = false;
+    }
+    let was_up = shield.active;
     let fresh = resolve_shield(
         &mut shield.active,
         &mut shield.parry_window_timer,
-        abilities.abilities.shield,
+        abilities.abilities.shield && !shield.release_locked,
         state.dash_timer > 0.0,
         input.shield_held,
         tuning.abilities.parry_window_time,
@@ -335,6 +403,15 @@ pub(super) fn apply_shield(
     );
     if fresh {
         events.op_clusters(combo_trace, MovementOp::ShieldUp);
+    }
+    // SHIELD DROP LAG — the cost of lowering a guard by ITSELF. An
+    // out-of-shield action already took the guard down through
+    // `spend_on_action`, and this is the other road: you simply let go, and the
+    // genre charges you for it. `0.0` for a game that declares no rule, which
+    // is what dropping always cost.
+    if was_up && !shield.active && !shield.release_locked && tuning.abilities.shield.drop_lag > 0.0
+    {
+        shield.drop_lag_timer = shield.drop_lag_timer.max(tuning.abilities.shield.drop_lag);
     }
 }
 
@@ -502,6 +579,8 @@ mod burst_maneuver_tests {
                 &abilities,
                 input,
                 tuning,
+                // Guard down: this case is about which BURST a body owns.
+                &mut crate::body_clusters::BodyShieldState::default(),
             );
             assert_eq!(
                 state.buffer_burst > 0.0,

@@ -725,6 +725,73 @@ pub struct ShieldTuning {
     /// The half of shield pressure that costs SPACE rather than tempo: hold a
     /// guard near a ledge and the hits themselves move you toward it.
     pub pushback_per_damage: f32,
+    /// WHAT THIS GUARD IS A PLATFORM FOR — which action classes may start
+    /// while it is raised, and `None` for a game that has no such rule.
+    ///
+    /// `None` is the exploration answer and the engine baseline: a raised guard
+    /// restricts nothing and acting does not spend it, which is what every body
+    /// did before this existed. `Some` opts into the genre's rule, and with it
+    /// into its consequence — an out-of-shield action DROPS the guard, because
+    /// a body that could attack from behind a shield it keeps is a body with no
+    /// reason to ever lower one.
+    ///
+    /// ⛔ ONE policy, named in action CLASSES. The failure mode this replaces is
+    /// a per-move exception list: "up-smash may, forward-smash may not" spelled
+    /// move by move is a table nobody can read and everybody has to extend.
+    #[serde(default)]
+    pub out_of_shield: Option<OutOfShield>,
+    /// Seconds of hard commitment owed for LOWERING the guard by itself —
+    /// shield drop lag.
+    ///
+    /// The other half of what makes holding a guard a decision: an out-of-shield
+    /// action is fast, and simply letting go is not. `0.0` (the baseline) makes
+    /// dropping free, which is what it was.
+    #[serde(default)]
+    pub drop_lag: f32,
+}
+
+/// Which action classes may START from a raised guard.
+///
+/// The list is the genre's, not a taste: every Smash title lets you jump, roll
+/// or spot-dodge, grab, and rise with an up attack or up special out of shield,
+/// and makes everything else wait for the guard to come down. The two "up"
+/// entries are not move names — they are the classes that RISE, which is why
+/// this genre lets them out of a crouched guard at all.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OutOfShield {
+    /// Jump — the universal option every other one is measured against.
+    pub jump: bool,
+    /// The guard's own evade: the spot dodge and the roll.
+    pub burst: bool,
+    /// Shield grab — the punish a blocked attack is owed.
+    pub grab: bool,
+    /// The UP attack, and only the up one.
+    pub up_attack: bool,
+    /// The UP special, for the same reason.
+    pub up_special: bool,
+}
+
+impl OutOfShield {
+    /// May `action` start from a guard playing by this policy?
+    pub fn permits(self, action: crate::movement::abilities::OutOfShieldAction) -> bool {
+        use crate::movement::abilities::OutOfShieldAction as A;
+        match action {
+            A::Jump => self.jump,
+            A::Burst => self.burst,
+            A::Grab => self.grab,
+            A::UpAttack => self.up_attack,
+            A::UpSpecial => self.up_special,
+        }
+    }
+
+    /// The genre's list. See the type's own note for why it is these five.
+    pub const PLATFORM_FIGHTER: Self = Self {
+        jump: true,
+        burst: true,
+        grab: true,
+        up_attack: true,
+        up_special: true,
+    };
 }
 
 impl Default for ShieldTuning {
@@ -744,6 +811,10 @@ impl ShieldTuning {
         stun_per_damage: 0.0,
         pushback_per_damage: 0.0,
         min_coverage: 1.0,
+        // No out-of-shield rule and no drop cost: the engine baseline, and what
+        // every body did before the policy existed.
+        out_of_shield: None,
+        drop_lag: 0.0,
     };
 
     /// Platform-fighter defaults: a guard that survives about six seconds held,
@@ -757,6 +828,13 @@ impl ShieldTuning {
         stun_per_damage: 0.012,
         pushback_per_damage: 6.0,
         min_coverage: 0.45,
+        // A guard is a LAUNCHING PLATFORM in this genre, and these five are what
+        // it launches. Everything else waits for it to come down.
+        out_of_shield: Some(OutOfShield::PLATFORM_FIGHTER),
+        // 11 frames, Ultimate's shield-drop. The commitment that makes holding
+        // a guard a decision rather than a free stance: an out-of-shield option
+        // is fast, and letting go is not.
+        drop_lag: 11.0 / 60.0,
     };
 
     /// Whether this body's shield is a spendable resource at all.

@@ -455,6 +455,22 @@ pub struct BodyShieldState {
     /// inside a sim tick can be missed entirely. Same shape as
     /// `BodyCombat::hit_flash` for the same reason.
     pub parry_caught_timer: f32,
+    /// This guard was SPENT by an out-of-shield action and may not be raised
+    /// again until the button comes up.
+    ///
+    /// Without it a held button re-raises the guard on the very next tick —
+    /// and re-arms the parry window with it — so acting out of shield would
+    /// cost nothing and hand back a fresh perfect-shield every time. The lock
+    /// is what makes an out-of-shield option a spend.
+    pub release_locked: bool,
+    /// Hard commitment owed for lowering the guard by itself — shield-drop lag
+    /// ([`crate::ShieldTuning::drop_lag`]).
+    ///
+    /// A separate clock from [`Self::stun_timer`] beside it, and deliberately:
+    /// shieldstun is what a BLOCKED HIT charges and this is what LETTING GO
+    /// costs. One timer for two causes is the mistake the ledge's borrowed
+    /// dodge timer already taught this tree once.
+    pub drop_lag_timer: f32,
 }
 
 impl BodyShieldState {
@@ -474,6 +490,18 @@ impl BodyShieldState {
     /// This shield's parry window just caught a strike.
     pub fn parry_caught(self) -> bool {
         self.parry_caught_timer > 0.0
+    }
+
+    /// Spend this guard on an out-of-shield action: it comes down, its parry
+    /// window closes with it, and it stays down until the button is released.
+    ///
+    /// ⭐ the ONE place a guard is spent by acting. An action that lowered
+    /// `active` without taking the window and the lock would hand the body a
+    /// free parry on the next tick.
+    pub fn spend_on_action(&mut self) {
+        self.active = false;
+        self.parry_window_timer = 0.0;
+        self.release_locked = true;
     }
 
     /// Record that this shield's parry window CAUGHT a strike.

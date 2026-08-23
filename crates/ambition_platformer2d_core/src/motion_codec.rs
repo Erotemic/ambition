@@ -380,6 +380,11 @@ fn put_axis_swept_params(out: &mut Vec<u8>, p: &crate::AxisSweptParams) {
     put_f32(out, a.shield.stun_per_damage);
     put_f32(out, a.shield.pushback_per_damage);
     put_f32(out, a.shield.min_coverage);
+    put_f32(out, a.shield.drop_lag);
+    // The out-of-shield rule is a five-bit AUTHORED table with a "no rule at
+    // all" case, encoded as one byte: `0` is `None`, and a policy sets bit 0
+    // so it can never collide with it.
+    put_u8(out, encode_out_of_shield(a.shield.out_of_shield));
     put_f32(out, a.footstool.rise_speed);
     put_f32(out, a.footstool.press_speed);
     put_f32(out, a.footstool.flinch_time);
@@ -479,6 +484,8 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<crate::AxisSweptParams> {
                 stun_per_damage: r.f32()?,
                 pushback_per_damage: r.f32()?,
                 min_coverage: r.f32()?,
+                drop_lag: r.f32()?,
+                out_of_shield: decode_out_of_shield(r.u8()?),
             },
             footstool: crate::FootstoolTuning {
                 rise_speed: r.f32()?,
@@ -620,4 +627,30 @@ mod tests {
         assert!(axis.state.phased_jump.hold_cancelled);
         assert_eq!(axis.state.buffer_jump, 0.03125);
     }
+}
+
+/// One byte for the out-of-shield table. Bit 0 is PRESENCE, so `0` decodes as
+/// "this game has no out-of-shield rule" and can never be confused with a
+/// policy that happens to permit nothing.
+fn encode_out_of_shield(policy: Option<crate::OutOfShield>) -> u8 {
+    match policy {
+        None => 0,
+        Some(p) => {
+            1 | ((p.jump as u8) << 1)
+                | ((p.burst as u8) << 2)
+                | ((p.grab as u8) << 3)
+                | ((p.up_attack as u8) << 4)
+                | ((p.up_special as u8) << 5)
+        }
+    }
+}
+
+fn decode_out_of_shield(bits: u8) -> Option<crate::OutOfShield> {
+    (bits & 1 != 0).then(|| crate::OutOfShield {
+        jump: bits & (1 << 1) != 0,
+        burst: bits & (1 << 2) != 0,
+        grab: bits & (1 << 3) != 0,
+        up_attack: bits & (1 << 4) != 0,
+        up_special: bits & (1 << 5) != 0,
+    })
 }

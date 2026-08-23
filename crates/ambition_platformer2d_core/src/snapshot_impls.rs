@@ -175,6 +175,11 @@ snapshot_pod!(crate::body_clusters::BodyShieldState {
     // a rewind that restored the guard without it would replay a parry with no
     // beat, and two peers would draw different frames from the same tick.
     parry_caught_timer: f32,
+    // Both are rollback state for the same reason the timers above are: a
+    // rewind that restored the guard without them would let a body re-raise a
+    // shield it had already spent, with a fresh parry window.
+    release_locked: bool,
+    drop_lag_timer: f32,
 });
 
 snapshot_pod!(crate::body_clusters::BodyOffense {

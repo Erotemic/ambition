@@ -611,6 +611,27 @@ fn decide(
                         .map_or(0.0, |attack| attack.frames.startup_s),
                     cfg.tick_hz,
                 ),
+                // ⭐ A BASIC ATTACK HOLDS TOO, and for a different gesture: a
+                // held Smash is a CHARGE, a held anything-else CONTINUES A
+                // STRING. Both are the same button and the engine tells them
+                // apart by the intent's strength, so the brain does not have to.
+                //
+                // ⛔ Why every basic and not only the ones with chains: a
+                // continuation can reach nothing but a successor the playing
+                // window already NAMES, so holding a move that authors no chain
+                // is a no-op. Asking the brain which moves have chains would put
+                // a second copy of the cancel table in the scorer.
+                super::options::AttackVerb::Basic => super::charge::string_hold_ticks(
+                    situation,
+                    options
+                        .attacks
+                        .iter()
+                        .find(|attack| {
+                            Some(&attack.move_id) == wants_attack.as_ref().map(|(_, id)| id)
+                        })
+                        .map_or(0.0, |attack| attack.frames.startup_s),
+                    cfg.tick_hz,
+                ),
                 _ => 0,
             },
         });

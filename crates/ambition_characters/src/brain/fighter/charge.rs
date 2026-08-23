@@ -62,5 +62,61 @@ pub fn charge_ticks_for(situation: Situation) -> u32 {
     }
 }
 
+/// Ticks of hold for walking a STRING — jab into jab2 into jab3 — as opposed to
+/// leaning on a single swing until it is fat.
+///
+/// ⭐ THE SAME BUTTON, A DIFFERENT GESTURE, AND THE ENGINE ALREADY DISTINGUISHES
+/// THEM: `MovePlayback` treats a held Attack as a charge when the intent is
+/// `Smash` and as a string continuation when it is not, and a continuation can
+/// reach nothing but a successor the playing window already NAMES. So a hold on
+/// a move that authors no chain does nothing at all, which is what makes it safe
+/// to hold every neutral basic rather than asking the brain to know which moves
+/// have chains.
+///
+/// ⛔ IT IS A DURATION OF INTENT, NOT A COUNT OF RUNGS. This brain deliberately
+/// does not read how many links a string has or how long each one lasts — the
+/// same reason [`hold_ticks`] does not read `max_hold_s`. A person leaning on
+/// jab is not counting frames; they are holding for as long as the opponent
+/// stays in front of them, and the string walks as far as it walks.
+///
+/// ⛔⛔ AND THE STARTUP TERM IS LOAD-BEARING FOR THE SAME REASON IT IS IN
+/// [`hold_ticks`]: the first cancel window does not open at the press, it opens
+/// once the timeline has played the leading move. A hold that expires before the
+/// window arrives produces a jab and nothing else — which is precisely the state
+/// this fixes, where a census over ninety seconds counted `jab` and never once
+/// counted `jab2`.
+pub fn string_hold_ticks(situation: Situation, startup_s: f32, tick_hz: f32) -> u32 {
+    let carry = match situation {
+        // ⛔⛔ THE SAME LENGTH IN EVERY ATTACKING SITUATION, AND THE FIRST
+        // VERSION OF THIS FUNCTION WAS WRONG ABOUT THAT. It read like a charge —
+        // a committed opponent buys a LONG hold, a guess buys a short one — and
+        // that reasoning does not transfer, because the two gestures spend
+        // different currency. A charge spends time the opponent cannot use. A
+        // string spends the body's OWN next decision: every tick the button
+        // stays down is a tick this fighter is walking a low-damage chain
+        // instead of ending it and choosing a punish.
+        //
+        // MEASURED, on the shipped duel: a 60-tick hold in Advantage took seat
+        // 0's damage over a full match from a passing 169% to 33%, and the
+        // fighters stopped being knocked off the stage at all — a guard's
+        // PREMISE went false, which is how it surfaced. An opening is exactly
+        // when a jab string is the wrong thing to be doing.
+        //
+        // So the hold buys the FOLLOW-UP and never the flurry. A string that
+        // wants to be walked to its end wants a brain that decided to walk it,
+        // and this one decided to throw a jab.
+        Situation::Advantage | Situation::EdgeGuard | Situation::Neutral => STRING_CARRY_TICKS,
+        // Being hit is not the time to keep the button down, and being offstage
+        // is not the time to be attacking.
+        Situation::Disadvantage | Situation::Recovery => return 0,
+    };
+    let startup_ticks = (startup_s.max(0.0) * tick_hz.max(1.0)).ceil() as u32;
+    startup_ticks.saturating_add(carry)
+}
+
+/// Long enough to reach the follow-up the window names, short enough that the
+/// body is choosing again before the chain becomes a commitment.
+const STRING_CARRY_TICKS: u32 = 20;
+
 #[cfg(test)]
 mod tests;

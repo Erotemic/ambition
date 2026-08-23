@@ -36,6 +36,7 @@ mod npc_puppy_slug;
 mod npc_salvage_guard;
 mod perfect_cellular_automaton;
 mod pointed_polygon;
+mod projectile_polygon;
 mod pugnacious_polygon;
 mod sandbag;
 mod sandbag_infinite;
@@ -57,6 +58,7 @@ pub(crate) const AUTHORED_CAST: &[(
         perfect_cellular_automaton::author,
     ),
     (&["pointed_polygon"], pointed_polygon::author),
+    (&["projectile_polygon"], projectile_polygon::author),
     (&["pugnacious_polygon"], pugnacious_polygon::author),
     (&["npc_exploding_mite"], npc_exploding_mite::author),
     (&["npc_dividing_mite"], npc_dividing_mite::author),

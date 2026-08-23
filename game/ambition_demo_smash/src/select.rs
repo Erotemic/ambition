@@ -48,6 +48,12 @@ pub const SMASH_ROSTER: &[&str] = &[
     // The deliberately simple SVG-rigged humanoid reference fighter. Unlike the
     // stand-ins below, this is a real character owned by Ambition content.
     "pointed_polygon",
+    // THE RANGED ONE, and the trio's reason for existing: a non-humanoid beast
+    // biped whose neutral special fires from a head-mounted cannon. It is the
+    // only fighter on this grid whose combat distinction is a body-authored
+    // PROJECTILE, so it is also the grid's only test that a ranged kit survives
+    // the same seating, scoring and match rules a melee one does.
+    "projectile_polygon",
     "pugnacious_polygon",
     // THE STAND-INS, and they are LAST for a reason. See [`STAND_INS`].
     crate::SMASH_CHARACTER_ID,

@@ -69,17 +69,15 @@ pub mod emmy_noether_moveset;
 /// The named hostile-archetype data, contributed as an immutable provider
 /// fragment to the App-local roster assembly.
 pub mod goblin_moveset;
-pub mod pointed_polygon_moveset;
-pub mod pugnacious_polygon_moveset;
 pub mod input_techniques;
 pub mod intro;
 pub mod items;
-#[cfg(feature = "audio")]
-pub mod music;
 /// Test-only: it owns the cross-table invariant no single fighter's module can state — that an
 /// authored burst is heard exactly once.
 #[cfg(test)]
 mod moveset_sound;
+#[cfg(feature = "audio")]
+pub mod music;
 pub mod ninja_shadow_oni_leader_moveset;
 pub mod oiler_moveset;
 pub mod patent_clerk_moveset;
@@ -87,10 +85,13 @@ pub mod pirate_admiral_moveset;
 pub mod player_robot_lineage;
 pub mod player_robot_moveset;
 pub mod plugin;
+pub mod pointed_polygon_moveset;
 /// Content-owned presentation passes (visible builds; the app adds
 /// [`presentation::AmbitionPresentationPlugin`] beside the renderer's plugins).
 pub mod presentation;
+pub mod projectile_polygon_moveset;
 pub mod projectiles;
+pub mod pugnacious_polygon_moveset;
 pub mod quest;
 pub mod quests;
 /// This game's Yarn vocabulary — `<<give_item>>`, `<<buy_item>>`,

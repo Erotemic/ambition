@@ -103,6 +103,7 @@ fn a_feature_view() -> ambition_sim_view::FeatureView {
         training_dummy: false,
         hit_strength: 0.0,
         unhittable: false,
+        unhittable_beyond_empowerment: false,
         sprite_offset: None,
     }
 }

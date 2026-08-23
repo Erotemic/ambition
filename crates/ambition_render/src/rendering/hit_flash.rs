@@ -461,6 +461,17 @@ pub struct OverlayFacts {
     /// The body cannot be struck right now. Resolved sim-side from the damage
     /// rule; presentation never re-derives it.
     pub unhittable: bool,
+    /// Untouchable for a reason the SHARED overlay owns — i.e. it would still
+    /// be untouchable with empowerment removed.
+    ///
+    /// ⛔⛔ THE BLINK READS THIS, NOT `unhittable`. A character whose own
+    /// presentation already says "untouchable" — Mary-O's quasar — was getting
+    /// the quasar AND this blink stacked on it, because the reason had been
+    /// collapsed to one boolean before it crossed the boundary. Resolved
+    /// sim-side by asking the ONE damage rule again with `EMPOWERED` cleared;
+    /// presentation never re-derives eligibility, and nothing here names a
+    /// character.
+    pub unhittable_beyond_empowerment: bool,
     /// Seconds left on a parry that actually CAUGHT a strike; `0.0` almost
     /// always. Resolved sim-side from `BodyShieldState::parry_caught_timer`.
     ///
@@ -511,6 +522,7 @@ fn overlay_facts_for_source(
                 parry_flash_secs: p.parry_flash_secs,
                 hit_strength: p.hit_strength,
                 unhittable: p.unhittable,
+                unhittable_beyond_empowerment: p.unhittable,
                 smash_charge: p.smash_charge,
             })
             .unwrap_or_default();
@@ -528,6 +540,7 @@ fn overlay_facts_for_source(
             parry_flash_secs: view.parry_flash_secs,
             hit_strength: view.hit_strength,
             unhittable: view.unhittable,
+            unhittable_beyond_empowerment: view.unhittable,
             smash_charge: None,
         })
         .unwrap_or_default();
@@ -579,7 +592,7 @@ fn overlay_look(
     if flash > 0.0 {
         return (flash, FLASH_TINT);
     }
-    if facts.unhittable {
+    if facts.unhittable_beyond_empowerment {
         return (blink_intensity(tick), BLINK_TINT);
     }
     if let Some(charge) = facts.smash_charge {
@@ -800,6 +813,54 @@ mod tests {
         }
     }
 
+    /// ⛔⛔ AN EMPOWERED BODY DOES NOT GET THE SHARED BLINK ON TOP OF ITS OWN
+    /// PRESENTATION.
+    ///
+    /// A character whose power state already reads as untouchable — Mary-O
+    /// wearing a quasar — was drawing the quasar AND this blink, because
+    /// `unhittable` had collapsed every reason into one boolean before it
+    /// crossed the boundary. Nothing here names Mary-O: the fact is that the
+    /// grant is EMPOWERMENT, and content presentation owns that one.
+    ///
+    /// ⭐ AND THE DEFENSIVE GRANTS ARE UNTOUCHED, which is the half that makes
+    /// this a routing change rather than a deletion. A dodge, a respawn, a tech,
+    /// a move's `Invuln` window — all still blink, and a body that is empowered
+    /// AND dodging blinks too, because the dodge is a reason the shared overlay
+    /// owns and empowerment does not swallow it.
+    #[test]
+    fn empowerment_is_presented_by_its_character_and_defensive_iframes_are_not() {
+        let empowered_only = OverlayFacts {
+            unhittable: true,
+            unhittable_beyond_empowerment: false,
+            ..OverlayFacts::default()
+        };
+        let dodging = OverlayFacts {
+            unhittable: true,
+            unhittable_beyond_empowerment: true,
+            ..OverlayFacts::default()
+        };
+        let mut blinked_while_empowered = 0;
+        let mut blinked_while_dodging = 0;
+        for tick in 0..BLINK_PERIOD_TICKS * 2 {
+            if overlay_look(empowered_only, tick, None).0 > 0.0 {
+                blinked_while_empowered += 1;
+            }
+            if overlay_look(dodging, tick, None).0 > 0.0 {
+                blinked_while_dodging += 1;
+            }
+        }
+        assert_eq!(
+            blinked_while_empowered, 0,
+            "an empowered body drew the shared i-frame blink over its own \
+             character presentation"
+        );
+        assert!(
+            blinked_while_dodging > 0,
+            "the defensive i-frame blink stopped happening at all, so this \
+             suppressed the cue instead of routing it"
+        );
+    }
+
     /// THE PRIORITY, stated once: a body struck out of its own dodge reads as
     /// struck. Without this the blink would overwrite the flash on the exact
     /// frames the flash exists to mark.
@@ -810,6 +871,7 @@ mod tests {
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
             unhittable: true,
+            unhittable_beyond_empowerment: true,
             smash_charge: None,
         };
         // Every tick of the blink cycle, including its peak.
@@ -824,6 +886,7 @@ mod tests {
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
             unhittable: true,
+            unhittable_beyond_empowerment: true,
             smash_charge: None,
         };
         let (intensity, tint) = overlay_look(after, BLINK_PERIOD_TICKS / 2, None);
@@ -905,6 +968,7 @@ mod tests {
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
             unhittable: false,
+            unhittable_beyond_empowerment: false,
             smash_charge: Some(1.0),
         };
         let mid = (CHARGE_PHASE_WRAP / 7) as u64;
@@ -913,6 +977,7 @@ mod tests {
         // Intangible while charging — an armoured smash — reads as intangible.
         let intangible_and_charging = OverlayFacts {
             unhittable: true,
+            unhittable_beyond_empowerment: true,
             ..charging
         };
         assert_eq!(
@@ -926,6 +991,7 @@ mod tests {
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
             unhittable: true,
+            unhittable_beyond_empowerment: true,
             smash_charge: Some(1.0),
         };
         assert_eq!(overlay_look(struck_while_charging, mid, None).1, FLASH_TINT);
@@ -974,6 +1040,7 @@ mod tests {
             parry_flash_secs: 0.0,
             hit_strength: 0.8,
             unhittable: true,
+            unhittable_beyond_empowerment: true,
             smash_charge: Some(0.5),
         };
         let tick = 17;
@@ -997,6 +1064,7 @@ mod tests {
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
             unhittable: true,
+            unhittable_beyond_empowerment: true,
             smash_charge: Some(0.5),
         };
         assert_eq!(
@@ -1007,6 +1075,7 @@ mod tests {
 
         let pulsing = OverlayFacts {
             unhittable: false,
+            unhittable_beyond_empowerment: false,
             ..blinking
         };
         assert_eq!(
@@ -1027,6 +1096,7 @@ mod tests {
             parry_flash_secs: REFERENCE_PARRY_SECONDS,
             hit_strength: 0.0,
             unhittable: true,
+            unhittable_beyond_empowerment: true,
             smash_charge: None,
         };
         let (intensity, tint) = overlay_look(parried, 0, None);
@@ -1058,6 +1128,7 @@ mod tests {
             parry_flash_secs: REFERENCE_PARRY_SECONDS,
             hit_strength: 0.6,
             unhittable: false,
+            unhittable_beyond_empowerment: false,
             smash_charge: None,
         };
         assert_eq!(overlay_look(struck_mid_parry, 0, None).1, IMPACT_TINT);
@@ -1073,6 +1144,7 @@ mod tests {
             // A raised guard inside its parry WINDOW is unhittable, which is
             // exactly the state a cue driven off `parrying()` would fire on.
             unhittable: true,
+            unhittable_beyond_empowerment: true,
             smash_charge: None,
         };
         for tick in 0..BLINK_PERIOD_TICKS * 3 {
@@ -1090,6 +1162,7 @@ mod tests {
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
             unhittable: false,
+            unhittable_beyond_empowerment: false,
             smash_charge: None,
         }
     }
@@ -1100,6 +1173,7 @@ mod tests {
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
             unhittable: true,
+            unhittable_beyond_empowerment: true,
             smash_charge: None,
         }
     }

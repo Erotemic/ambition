@@ -89,6 +89,20 @@ pub struct FeatureView {
     /// i-frames a hit leaves behind. `false` for every feature that is not a
     /// body.
     pub unhittable: bool,
+    /// Would this body STILL be untouchable if it were not empowered?
+    ///
+    /// ⛔⛔ THE REASON, NOT A SECOND RULE. `unhittable` collapses every grant
+    /// into one boolean, and the generic overlay blinks on it — so a character
+    /// whose own presentation already says "untouchable" (Mary-O's quasar) got
+    /// the quasar AND the shared i-frame blink on top of it. Preserving the
+    /// reason across this boundary is what lets content consume its own grant.
+    ///
+    /// ⭐ COMPUTED BY RE-ASKING `body_vulnerable` WITH `EMPOWERED` CLEARED, so
+    /// hit eligibility still has exactly ONE authority. A body that is empowered
+    /// AND dodging is still `true` here, and still blinks — the dodge is a
+    /// defensive grant the shared overlay owns, and empowerment does not
+    /// swallow it.
+    pub unhittable_beyond_empowerment: bool,
     /// `Some`  this body PUBLISHES where its sprite quad goes relative to
     /// `pos` (see `ActorSpriteOffset`), and that placement is authoritative:
     /// the renderer centres the quad and shifts it by this, instead of using
@@ -283,6 +297,7 @@ pub fn rebuild_feature_view_index(
                 training_dummy: false,
                 hit_strength: 0.0,
                 unhittable: false,
+                unhittable_beyond_empowerment: false,
                 sprite_offset: None,
             },
         );
@@ -309,6 +324,7 @@ pub fn rebuild_feature_view_index(
                 training_dummy: false,
                 hit_strength: 0.0,
                 unhittable: false,
+                unhittable_beyond_empowerment: false,
                 sprite_offset: None,
             },
         );
@@ -335,6 +351,7 @@ pub fn rebuild_feature_view_index(
                 training_dummy: false,
                 hit_strength: 0.0,
                 unhittable: false,
+                unhittable_beyond_empowerment: false,
                 sprite_offset: None,
             },
         );
@@ -361,6 +378,7 @@ pub fn rebuild_feature_view_index(
                 training_dummy: false,
                 hit_strength: 0.0,
                 unhittable: false,
+                unhittable_beyond_empowerment: false,
                 sprite_offset: None,
             },
         );
@@ -454,6 +472,26 @@ pub fn rebuild_feature_view_index(
                     &shield.copied().unwrap_or_default(),
                     &combat.copied().unwrap_or_default(),
                 ),
+                // THE SAME RULE, asked again with one reason removed. Not a
+                // second reading of hit eligibility — the same function, so a
+                // future grant is inherited here for free the way every other
+                // caller inherits it.
+                unhittable_beyond_empowerment: !ambition_combat::util::body_vulnerable(
+                    {
+                        let mut reasons = health
+                            .map_or_else(ambition_characters::actor::Invulnerability::none, |h| {
+                                h.health.invulnerable
+                            });
+                        reasons.set(
+                            ambition_characters::actor::Invulnerability::EMPOWERED,
+                            false,
+                        );
+                        reasons
+                    },
+                    motion.is_some_and(|m| m.evading()),
+                    &shield.copied().unwrap_or_default(),
+                    &combat.copied().unwrap_or_default(),
+                ),
                 sprite_offset: sprite_offset.map(|o| o.0),
             },
         );
@@ -480,6 +518,7 @@ pub fn rebuild_feature_view_index(
                 training_dummy: false,
                 hit_strength: 0.0,
                 unhittable: false,
+                unhittable_beyond_empowerment: false,
                 sprite_offset: None,
             },
         );
@@ -523,6 +562,7 @@ pub fn rebuild_feature_view_index(
                 training_dummy: false,
                 hit_strength: 0.0,
                 unhittable: false,
+                unhittable_beyond_empowerment: false,
                 sprite_offset: None,
             },
         );
@@ -960,6 +1000,7 @@ mod view_index_tests {
             training_dummy: false,
             hit_strength: 0.0,
             unhittable: false,
+            unhittable_beyond_empowerment: false,
             sprite_offset: None,
         }
     }

@@ -78,6 +78,12 @@ pub struct BodyPoseView {
     /// intangibility, the timed untouchable a respawn hands out, and the
     /// i-frames a hit leaves behind.
     pub unhittable: bool,
+    /// Would this body STILL be untouchable if it were not empowered? See
+    /// [`crate::view_index::FeatureView::unhittable_beyond_empowerment`] — the
+    /// reason preserved across the presentation boundary, so a character whose
+    /// own presentation already reads as untouchable does not also get the
+    /// shared i-frame blink stacked on top of it.
+    pub unhittable_beyond_empowerment: bool,
     pub hp_current: i32,
     pub hp_max: i32,
     /// The body is in morph-ball mode (draws the procedural sphere instead
@@ -135,6 +141,7 @@ impl Default for BodyPoseView {
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
             unhittable: false,
+            unhittable_beyond_empowerment: false,
             hp_current: 0,
             hp_max: 0,
             morph_ball: false,
@@ -360,6 +367,20 @@ pub fn rebuild_body_pose_views(
                 health.map_or_else(ambition_characters::actor::Invulnerability::none, |h| {
                     h.health.invulnerable
                 }),
+                motion_facts.is_some_and(|m| m.evading()),
+                &shield.copied().unwrap_or_default(),
+                &combat.copied().unwrap_or_default(),
+            ),
+            // The SAME rule, asked again with one reason removed.
+            unhittable_beyond_empowerment: !ambition_combat::util::body_vulnerable(
+                {
+                    let mut reasons = health
+                        .map_or_else(ambition_characters::actor::Invulnerability::none, |h| {
+                            h.health.invulnerable
+                        });
+                    reasons.set(ambition_characters::actor::Invulnerability::EMPOWERED, false);
+                    reasons
+                },
                 motion_facts.is_some_and(|m| m.evading()),
                 &shield.copied().unwrap_or_default(),
                 &combat.copied().unwrap_or_default(),

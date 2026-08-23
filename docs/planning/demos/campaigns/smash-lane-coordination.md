@@ -415,3 +415,19 @@ either rig.
 ⭐ So read every number in this file as *"true of this matchup"* until D189 is
 closed. The defects found through them are real; their generality is not
 established.
+
+## The sharpest form of the rule, and the lane that found it
+
+> **A constant fitted to a PROXY for the quantity its gate reads is wrong the day
+> it is written, and only looks right until the proxy moves.**
+
+The launch trail's three speeds were percentiles of `peak launch` — the speed at
+the tick a launch is *written*. The trail's gate reads the speed a body is
+*flying* at, which is a different distribution: over 9,878 flight ticks it is
+`p25 49 · p50 289 · p75 563 · p90 756 · p99 1500 · max 1902`. The shipped near-KO
+threshold of 770 was therefore **p90** — one launched tick in ten burning as an
+ember, under a comment reserving it for the top of the fight.
+
+⇒ **fit a constant against the distribution the CONSUMER samples**, not against
+the nearest number that was already being printed. And write the percentile and
+the sample size beside it, which that lane now does as a matter of course.

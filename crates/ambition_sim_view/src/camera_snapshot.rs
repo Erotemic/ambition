@@ -897,6 +897,10 @@ pub struct ResolvedCameraSnapshot {
 struct CastFraming {
     /// Cast bounds drive target center, minimum view size, and must-frame clamp relaxation.
     bounds: ae::Aabb,
+    /// How many bodies the cast resolved to. A DROP in this is the
+    /// discontinuity the close-rate cap exists for — see
+    /// [`CAST_FRAMING_CLOSE_MAX_UNITS_PER_S`].
+    members: usize,
     /// The body the presented-pose sample is taken from — the first seat, so
     /// the choice is stable rather than whichever entity sorted first.
     anchor: bevy::prelude::Entity,
@@ -909,25 +913,79 @@ const CAST_FRAMING_MARGIN: f32 = 48.0;
 
 /// Exponential close rate for cast framing.
 ///
-/// Outward edges are adopted immediately so a launched fighter stays visible; inward edges ease at
-/// this rate so elimination/respawn discontinuities do not cut the camera.
-const CAST_FRAMING_CLOSE_HZ: f32 = 5.0;
+/// Outward edges are adopted immediately so a launched fighter stays visible;
+/// inward edges ease at this rate.
+///
+/// An exponential chase settles at a lag of `closing speed / rate`, so this
+/// number is what decides how far behind the fight the framing sits while
+/// bodies are closing — and 5Hz left the view 36 units behind two CPUs that
+/// were only 3 units apart horizontally. That was invisible until the fight
+/// started launching bodies vertically, which is a good illustration of a
+/// camera constant being a claim about the FIGHT rather than about the camera.
+///
+/// It could not be raised while the same easing was also responsible for
+/// absorbing discontinuities — a faster rate makes a collapse jerkier in exact
+/// proportion. Now that [`CAST_FRAMING_CLOSE_MAX_UNITS_PER_S`] owns the
+/// discontinuity separately, the two are independent and this is free to track.
+const CAST_FRAMING_CLOSE_HZ: f32 = 10.0;
 
-/// Ceiling on how fast an inward cast edge may close, in world units per second.
+/// Ceiling on how fast an inward cast edge may close WHILE A DISCONTINUITY IS
+/// SETTLING, in world units per second.
 ///
-/// THE RATE ALONE IS NOT ENOUGH, and the reason is what exponential easing is:
-/// it moves a FRACTION of the remaining gap, so the step it takes on the first
-/// frame is proportional to the size of the discontinuity. A fighter leaving
-/// play collapsed the cast box by 241 units and the "eased" close still moved
-/// the framing centre further on that one frame than any ordinary frame of the
-/// match — a visible cut at the loudest moment, produced by the easing that
-/// exists to prevent one. The bigger the jump, the bigger the jerk, which is
-/// exactly backwards.
+/// Two facts make this a special case rather than a general speed limit.
 ///
-/// Capping the SPEED makes a collapse of any size close at the same
-/// unnoticeable rate: the frame a fighter is removed looks like every other
-/// frame, and the framing catches up over the following second.
-const CAST_FRAMING_CLOSE_MAX_UNITS_PER_S: f32 = 240.0;
+/// Exponential easing moves a FRACTION of the remaining gap, so its first step
+/// is proportional to the size of the discontinuity: a fighter leaving play
+/// collapsed the cast box by 241 units and the "eased" close still moved the
+/// framing further on that one frame than any ordinary frame of the match — the
+/// cut the easing exists to prevent, and the bigger the jump the bigger the
+/// jerk.
+///
+/// But a cap that is always on cannot tell a collapse from an APPROACH. Bodies
+/// close the box under their own power all match long — a fall or a reversed
+/// launch closes an edge as fast as a body travels — so a general cap makes the
+/// view lag the fight continuously and never catch up. Shipping one at 240
+/// units/s did exactly that.
+///
+/// So it is gated on the thing that actually IS discontinuous: the cast losing
+/// a member. A cast that shrank did not move, it changed shape. During ordinary
+/// play this never binds at all, and the rate alone governs.
+///
+/// Because it is gated, its VALUE is free: it trades only how long a collapse
+/// takes to settle against how much of it lands on one frame. At 400 units/s a
+/// 241-unit collapse contributes ~3 units to the framing centre on the frame it
+/// happens — well inside ordinary per-frame motion — and is gone in about six
+/// tenths of a second. An ungated cap could not be set here; it would have
+/// throttled every approach in the match.
+const CAST_FRAMING_CLOSE_MAX_UNITS_PER_S: f32 = 400.0;
+
+/// How long the cap stays armed after the cast loses a member.
+///
+/// Long enough to spread the collapse the population change caused, short
+/// enough that it is gone before ordinary play resumes. At the cap above, a
+/// 241-unit collapse closes in about a fifth of a second.
+const CAST_FRAMING_SETTLE_SECONDS: f32 = 0.5;
+
+/// Does this frame's cast population mean a discontinuity is starting?
+///
+/// A DROP only. A cast that gained a member (a respawn) grew its box outward,
+/// and outward edges are adopted immediately — there is nothing to smooth.
+fn a_cast_member_was_lost(previous: Option<usize>, now: usize) -> bool {
+    previous.is_some_and(|previous| now < previous)
+}
+
+/// How far an inward edge may move this frame, in world units.
+///
+/// `f32::INFINITY` during ordinary play: the exponential rate alone governs an
+/// approach, and anything finite here lags the fight. Finite only while a
+/// population drop is settling.
+fn cast_close_allowance(settling_seconds: f32, dt: f32) -> f32 {
+    if settling_seconds > 0.0 {
+        CAST_FRAMING_CLOSE_MAX_UNITS_PER_S * dt
+    } else {
+        f32::INFINITY
+    }
+}
 
 /// Move one presented cast-box edge toward the current cast edge.
 ///
@@ -954,6 +1012,7 @@ fn frame_the_cast(
     bodies: &bevy::prelude::Query<&ambition_platformer2d_shared_tangle::body::BodyKinematics>,
 ) -> Option<CastFraming> {
     let mut anchor = None;
+    let mut members = 0usize;
     let (mut min, mut max) = (
         ae::Vec2::new(f32::MAX, f32::MAX),
         ae::Vec2::new(f32::MIN, f32::MIN),
@@ -963,6 +1022,7 @@ fn frame_the_cast(
             continue;
         };
         anchor.get_or_insert(*entity);
+        members += 1;
         let half = kin.size / 2.0;
         min.x = min.x.min(kin.pos.x - half.x);
         min.y = min.y.min(kin.pos.y - half.y);
@@ -975,6 +1035,7 @@ fn frame_the_cast(
             min: min.into(),
             max: max.into(),
         },
+        members,
         anchor,
     })
 }
@@ -1017,6 +1078,12 @@ pub fn resolve_camera_observation(
     // per-observer loop, while `CameraEaseState` is per view. Presentation-only
     // either way — nothing in the simulation reads it.
     mut live_cast: bevy::prelude::Local<Option<ae::Aabb>>,
+    // The cast population last seen, and how long the close-rate cap stays
+    // armed after it dropped. Presentation-only, beside `live_cast` and for the
+    // same reason: what the CAST spans is resolved once, above the per-observer
+    // loop.
+    mut live_members: bevy::prelude::Local<Option<usize>>,
+    mut settling: bevy::prelude::Local<f32>,
     player: bevy::prelude::Query<
         (
             bevy::prelude::Entity,
@@ -1098,12 +1165,23 @@ pub fn resolve_camera_observation(
                         // match opens by closing in from the last one's final
                         // spread instead of at its own true framing.
                         *live_cast = None;
+                        *live_members = None;
+                        *settling = 0.0;
                         return;
                     };
                     // A FLOOR, so authored zoom still wins when wider.
                     let dt = time.delta_secs().max(0.0);
                     let alpha = (1.0 - (-CAST_FRAMING_CLOSE_HZ * dt).exp()).clamp(0.0, 1.0);
-                    let max_step = CAST_FRAMING_CLOSE_MAX_UNITS_PER_S * dt;
+                    // THE CAP IS FOR DISCONTINUITIES, and a cast losing a
+                    // member is the only one this resolve can have. Arm it
+                    // there; leave ordinary closing to the rate alone, or the
+                    // view lags every approach for the whole match.
+                    if a_cast_member_was_lost(*live_members, cast.members) {
+                        *settling = CAST_FRAMING_SETTLE_SECONDS;
+                    }
+                    *live_members = Some(cast.members);
+                    let max_step = cast_close_allowance(*settling, dt);
+                    *settling = (*settling - dt).max(0.0);
                     let bounds = match *live_cast {
                         Some(previous) => ae::Aabb {
                             min: ae::Vec2::new(
@@ -1698,6 +1776,80 @@ mod cast_framing_tests {
         assert!(
             small.abs() < max_step,
             "a small collapse still eases rather than riding the cap: {small}"
+        );
+    }
+
+    /// THE OTHER HALF of what the cap owes, and the one it originally broke.
+    ///
+    /// Size-independence says a big collapse and a small one move the framing
+    /// equally. It says nothing about whether the framing KEEPS UP with a
+    /// fight, and the first cap traded one property for the other: a general
+    /// speed limit cannot tell a collapse from an APPROACH, so at 240 units/s
+    /// it throttled ordinary play and the view lagged the fight forever.
+    ///
+    /// The cap is armed by a population DROP now, so during ordinary play the
+    /// allowance is unbounded and the exponential rate alone governs. This is
+    /// that rule, and it is the one that failed on the gate.
+    #[test]
+    fn ordinary_play_is_never_governed_by_the_cap() {
+        let dt = 1.0 / 60.0;
+        assert_eq!(
+            cast_close_allowance(0.0, dt),
+            f32::INFINITY,
+            "an approach must be tracked by the rate alone"
+        );
+        assert!(
+            cast_close_allowance(CAST_FRAMING_SETTLE_SECONDS, dt).is_finite(),
+            "a settling collapse must be capped"
+        );
+
+        // And the arming rule: only a LOST member is a discontinuity.
+        assert!(a_cast_member_was_lost(Some(4), 3), "an elimination arms it");
+        assert!(
+            !a_cast_member_was_lost(Some(3), 3),
+            "a steady cast does not"
+        );
+        assert!(
+            !a_cast_member_was_lost(Some(3), 4),
+            "a respawn grows the box OUTWARD, which is adopted immediately"
+        );
+        assert!(
+            !a_cast_member_was_lost(None, 2),
+            "the first frame adopts rather than settling"
+        );
+    }
+
+    /// The cap has to be small enough that a collapse lands as ordinary motion.
+    ///
+    /// It used to owe a second, contradictory thing — clearing the speed a body
+    /// travels — because an ungated cap governed ordinary play too. Gating it on
+    /// a population drop removed that constraint, which is what made a value
+    /// this low possible: what it now trades is settle TIME against how much of
+    /// the collapse lands on one frame, and nothing else.
+    #[test]
+    fn a_collapse_lands_as_ordinary_motion() {
+        let dt = 1.0 / 60.0;
+        // The elimination that started this: 241 units of collapse.
+        const OBSERVED_COLLAPSE: f32 = 241.4;
+        // The largest step the camera takes on an ordinary frame of a real
+        // match, measured by `the_framing_centre_absorbs_an_elimination…`.
+        const ORDINARY_CENTRE_STEP: f32 = 20.0;
+
+        let edge_step = CAST_FRAMING_CLOSE_MAX_UNITS_PER_S * dt;
+        // One edge collapsing moves the box CENTRE by half as much.
+        let centre_step = edge_step / 2.0;
+        assert!(
+            centre_step < ORDINARY_CENTRE_STEP / 2.0,
+            "a collapse contributes {centre_step} to the centre, which is not \
+             comfortably inside an ordinary frame's {ORDINARY_CENTRE_STEP}"
+        );
+
+        // And it still settles promptly rather than crawling for seconds.
+        let settle_seconds = OBSERVED_COLLAPSE / CAST_FRAMING_CLOSE_MAX_UNITS_PER_S;
+        assert!(
+            settle_seconds < CAST_FRAMING_SETTLE_SECONDS * 1.5,
+            "a {OBSERVED_COLLAPSE}-unit collapse takes {settle_seconds}s, longer \
+             than the window that arms the cap"
         );
     }
 
